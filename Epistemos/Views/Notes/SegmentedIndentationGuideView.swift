@@ -62,52 +62,97 @@ final class SegmentedIndentationGuideView: NSView {
     func updateFromText(_ text: String, cursorLine: Int, scrollOffset: CGFloat = 0) {
         self.scrollOffset = scrollOffset
 
-        let lines = text.components(separatedBy: .newlines)
-        var newLineInfos: [IndentLineInfo] = []
-        var maxIndent = 0
-
-        for (index, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            let leadingWhitespace = line.prefix(while: { $0.isWhitespace })
-            let indentLevel = leadingWhitespace.count / tabWidth
-
-            // Detect block structure
-            let isBlockStart = trimmed.hasSuffix("{") ||
-                              trimmed.hasSuffix("(") ||
-                              trimmed.hasSuffix("[") ||
-                              trimmed.hasSuffix(":")
-
-            let firstChar = trimmed.first
-            let isBlockEnd = firstChar == "}" ||
-                            firstChar == ")" ||
-                            firstChar == "]"
-
-            maxIndent = max(maxIndent, indentLevel)
-
-            // Store yPosition relative (without scroll offset)
-            let info = IndentLineInfo(
-                lineNumber: index + 1,
-                indentLevel: indentLevel,
-                hasContent: !trimmed.isEmpty,
-                isBlockStart: isBlockStart,
-                isBlockEnd: isBlockEnd,
-                yPosition: CGFloat(index) * lineHeight,
-                lineHeight: lineHeight
-            )
-
-            newLineInfos.append(info)
-
-            // Track active level from cursor
-            if index + 1 == cursorLine {
-                activeIndentLevel = indentLevel
-            }
-        }
-
-        lineInfos = newLineInfos
-        maxIndentLevel = maxIndent
+        let parsed = Self.parseIndentLineInfos(
+            in: text,
+            tabWidth: tabWidth,
+            lineHeight: lineHeight
+        )
+        lineInfos = parsed.infos
+        maxIndentLevel = parsed.maxIndent
         setActiveLine(cursorLine)
 
         needsDisplay = true
+    }
+
+    private static func parseIndentLineInfos(
+        in text: String,
+        tabWidth: Int,
+        lineHeight: CGFloat
+    ) -> (infos: [IndentLineInfo], maxIndent: Int) {
+        let tabColumns = max(1, tabWidth)
+        var infos: [IndentLineInfo] = []
+        infos.reserveCapacity(min(4_096, max(1, text.utf8.count / 32)))
+
+        var lineNumber = 1
+        var maxIndent = 0
+        var leading = true
+        var indentColumns = 0
+        var hasContent = false
+        var firstNonWhitespace: UInt8?
+        var lastNonWhitespace: UInt8?
+        var skipNextLF = false
+
+        func finishLine() {
+            let indentLevel = indentColumns / tabColumns
+            maxIndent = max(maxIndent, indentLevel)
+            infos.append(IndentLineInfo(
+                lineNumber: lineNumber,
+                indentLevel: indentLevel,
+                hasContent: hasContent,
+                isBlockStart: Self.isBlockStartByte(lastNonWhitespace),
+                isBlockEnd: Self.isBlockEndByte(firstNonWhitespace),
+                yPosition: CGFloat(lineNumber - 1) * lineHeight,
+                lineHeight: lineHeight
+            ))
+
+            lineNumber += 1
+            leading = true
+            indentColumns = 0
+            hasContent = false
+            firstNonWhitespace = nil
+            lastNonWhitespace = nil
+        }
+
+        for byte in text.utf8 {
+            if skipNextLF {
+                skipNextLF = false
+                if byte == 10 { continue }
+            }
+
+            switch byte {
+            case 10:
+                finishLine()
+            case 13:
+                finishLine()
+                skipNextLF = true
+            case 9:
+                if leading {
+                    indentColumns += tabColumns
+                }
+            case 32, 11, 12:
+                if leading {
+                    indentColumns += 1
+                }
+            default:
+                if leading {
+                    leading = false
+                    firstNonWhitespace = byte
+                }
+                hasContent = true
+                lastNonWhitespace = byte
+            }
+        }
+
+        finishLine()
+        return (infos, maxIndent)
+    }
+
+    private static func isBlockStartByte(_ byte: UInt8?) -> Bool {
+        byte == 123 || byte == 40 || byte == 91 || byte == 58
+    }
+
+    private static func isBlockEndByte(_ byte: UInt8?) -> Bool {
+        byte == 125 || byte == 41 || byte == 93
     }
 
     /// Updates visible range for optimization

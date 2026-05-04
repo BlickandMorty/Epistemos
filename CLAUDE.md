@@ -143,6 +143,208 @@
 - Screen capture: Epistemos/Omega/Vision/ScreenCaptureService.swift
 - AX fusion: Epistemos/Omega/Vision/Screen2AXFusion.swift
 
+### Subprocess Hardening (security 2026-04-28)
+- `agent_core/src/security.rs` — `harden_cli_subprocess(&mut Command)` +
+  `harden_cli_subprocess_extending(cmd, &[extra_var_names])` +
+  `harden_cli_subprocess_std()` (sync variant). Helpers do
+  `env_clear` + canonical 10-var allowlist (PATH, HOME, USER, LOGNAME,
+  TMPDIR, LANG, LC_ALL, LC_CTYPE, TERM, TZ) + 24-vector denylist
+  (LD_PRELOAD, all DYLD_*, MallocStackLogging family, NODE_OPTIONS
+  family, PYTHONPATH/HOME/STARTUP, RUBYOPT/RUBYLIB, PERL5OPT/PERL5LIB) +
+  `kill_on_drop(true)` + `process_group(0)` on Unix.
+- 4 tests including a real subprocess that proves LD_PRELOAD + DEBUG
+  don't leak through the hardening, plus PATH preservation +
+  allowlist/denylist disjoint invariant + doctrine-named-vector
+  presence check.
+- Applied to 10 subprocess spawn sites across agent_core: cli_passthrough
+  (claude/codex/gemini/kimi), mcp/client (arbitrary user MCP servers),
+  code_execution (LLM Python/Node/Ruby/Perl/shell), registry bash,
+  browser (with `extending` allowlist for HTTP_PROXY family +
+  FAKE_BROWSER_LOG fixture), tirith, apple/imessage osascript, media
+  `say`. terminal.rs already had its own equivalent hardening pre-session.
+
+### Rust Provenance Ledger + ReplayBundle + epistemos-trace (Phase 1 — 2026-04-28)
+- `agent_core/src/provenance/ledger.rs` — `ClaimLedger` with retraction propagation
+  (bounded-walk depth ≤ `MAX_RETRACTION_WALK_DEPTH = 16`, deterministic BTreeSet
+  output, sorted-BFS for byte-equal `RetractionReport`, `ClaimLedger::snapshot()`
+  for ReplayBundle export)
+- `agent_core/src/provenance/replay.rs` — `ReplayBundle` + `LedgerSnapshot` +
+  `ClaimDerivation` + `ClaimEvidenceLink`. BLAKE3 integrity hash over canonical
+  JSON. `to_epbundle_bytes()` / `from_epbundle_bytes()` for `.epbundle` IO.
+- `agent_core/src/provenance/mod.rs` — module entry (re-exports the public types)
+- `agent_core/src/bin/epistemos_trace.rs` — Phase-1 / parallel-track CLI
+  (`epistemos-trace verify <path>`). 5 typed exit codes: 0 success, 1 usage,
+  2 io, 3 parse, 4 integrity-mismatch.
+- Tests: 10 ledger unit tests + 7 ReplayBundle unit tests + 6 e2e CLI
+  integration tests (`agent_core/tests/epistemos_trace_e2e.rs`). 758 lib +
+  13 integration = 771 total agent_core tests, zero regressions.
+- Phase-1 scope is deliberately minimal per `docs/plan/04_PHASES.md`:
+  one Claim type, one Evidence type, four ClaimStatus states. Multi-Claim
+  taxonomy + GRDB persistence + Swift mirror land in Phase 2+.
+
+### Swift RRF Cross-Index Fusion (Phases 0-7 — 2026-04-28)
+- Fusion query + flag + types + metrics: Epistemos/Sync/RRFFusionQuery.swift
+  (`Phase3FusionConsts.K_RRF=60` single-source-of-truth Swift mirror;
+   k=60 source-of-truth: epistemos-shadow/src/backend/rrf.rs:22 RRF_K_DEFAULT;
+   `RRFFusionFlags.isEnabled` reads env-var `EPISTEMOS_RRF_FUSION_V1`;
+   `FusionWeights` Sendable struct; `FusedResult` Sendable struct (with snippet);
+   `RRFFusionQuery.sql` with 3 CTEs + UNION ALL + GROUP BY rollup +
+   recency exp() boost + snippet projection;
+   `SearchFusionMetrics` thread-safe ring buffer for Phase 6 observability)
+- Fusion API: Epistemos/Sync/SearchIndexService.swift `fusedSearch`/`fusedSearchAsync`
+  (nonisolated public; `Sig.storage.beginInterval("fused_search", ...)` signpost;
+   instrumented with `SearchFusionMetrics.shared.record(latencyMs:results:)`)
+- Phase-2 tests: EpistemosTests/RRFFusionQueryTests.swift (7 critical-invariant
+   tests: K_RRF parity probe of Rust source, bm25 sign assertion,
+   EXPLAIN `VIRTUAL TABLE INDEX \d+:M\d+` regex gate, single-source,
+   cross-source consensus, empty corpus, recency decay)
+- Phase-5 tests: EpistemosTests/SearchIndexServiceFusionTests.swift
+  (9 real-DB integration tests against file-backed `SearchIndexService`)
+- Phase-1 schema: `ReadableBlocksIndex.installVaultIDColumn` +
+   migration key `v3_1_readable_blocks_vault_id` in Epistemos/Sync/ReadableBlocksIndex.swift
+- Phase-4 wiring: VaultSyncService.searchFull/searchFullAsync/searchIndex
+  (flag-aware), QueryRuntime.fullText (flag-aware fused path); breadcrumbs
+  in MeaningAnchorService.swift + IMessageDriverService.swift
+- Phase-6 observability UI: Epistemos/Views/Settings/SearchFusionHealthRow.swift
+  (mirrors EditorBundleHealthRow shape; 1 Hz polling refresh; flag state +
+   last-query latency + p95 + per-source hits + last error). Wired into
+   SettingsView General > "Diagnostics" section alongside EditorBundleHealthRow
+- Living design doc: docs/RRF_FUSION_DESIGN.md (§8 EXPLAIN plan,
+   §14 Phase 4 wiring status, §10 phase status table)
+- FFI bridge design (deferred Sites 4+5): docs/RRF_FUSION_FFI_BRIDGE_DESIGN.md
+- Mission spec: docs/RRF_FUSION_PROMPT.md (verbatim user brief)
+
+### Rust Memory-Pressure + Bounded Caches (perf 2026-04-28)
+- Tantivy writer heap cut 50 MB → 15 MB at both
+  `epistemos-shadow/src/backend/lexical_index.rs:42` (`WRITER_HEAP_BYTES`)
+  and `agent_core/src/storage/vault.rs:160` — saves ~70 MB resident on idle.
+- ShmPool TTL eviction in `agent_core/src/shared_memory.rs`:
+  `TrackedSegment { name, created_at, byte_length }`,
+  `ShmPool::evict_stale(max_age: Duration) -> (count, bytes)`,
+  `ShmPool::evict_oldest_n(n) -> (count, bytes)`,
+  `ShmPool::total_bytes() -> usize`, `DEFAULT_SHM_TTL = 300s`.
+  Bounds long-running-process growth on the 16 MB-per-segment pool.
+- Session prune in `agent_core/src/session.rs`:
+  `GlobalSessions::prune_finished(max_age: Duration) -> usize` drops
+  Completed/Failed/Terminated/Rescheduled entries past threshold;
+  `GlobalSessions::registry_size() -> usize`. Skips sessions with a
+  `SessionFolder` (those finalize via `SessionGuard::drop`).
+- FFI entry in `agent_core/src/bridge.rs`:
+  `respond_to_memory_pressure(level: u8) -> MemoryPressureReliefFFI {
+   segments_evicted, segment_bytes_freed, sessions_pruned }`.
+  Level 1 (warning): evict_stale(60s) + prune_finished(5min);
+  level 2 (critical): cleanup_all + prune_finished(0). Single-call
+  hook for the Swift `DispatchSourceMemoryPressure` handler.
+- JSON-compaction of FFI + tool result paths: `to_string_pretty` →
+  `to_string` in 7 sites (bridge.rs FFI returns ×3, tools/file_ops,
+  web_fetch, memory, skills, workspace_search ×2, providers/perplexity).
+  Disk-written sites (session_store, raw_thoughts, approval, graph.json)
+  remain pretty for human inspection.
+- Tests: 5 new ShmPool tests (TTL evict / fresh / oldest_n / overflow /
+  total_bytes), 4 new session tests (prune drops aged / keeps running /
+  keeps fresh / registry_size). 771 agent_core lib tests + 45 shadow
+  lib tests, zero regressions.
+
+### Swift Memory + Energy Hardening (perf 2026-04-28)
+- `Epistemos/Models/SDPage+Queries.swift:106-114` —
+  `SDChat.recentChatsDescriptor` now defaults `fetchLimit = 200`
+  (was unbounded). Caps `MiniChatView.swift:18` `@Query` and any
+  future caller that doesn't override.
+- `Epistemos/Views/Approval/ApprovalModalView.swift:60-148` —
+  replaced `Timer.publish().autoconnect()` with `TimelineView(.periodic)`.
+  Pauses when modal is offscreen / occluded; no explicit invalidate
+  needed.
+- `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:27-45` —
+  `EpdocWebViewShared.processPool` shared static `WKProcessPool`
+  collapses N WKContent processes into one across all editors +
+  KaTeX previews (~50 MB / extra editor).
+- `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:330-365` —
+  `dismantleNSView(_:coordinator:)` + `Coordinator.shutdown()`
+  releases the WKWebView's userContentController handlers, the
+  AP1 outbound display link, the autosave pipeline, and the
+  controller dispatch closure on document close (40-60 MB / closed
+  editor).
+- `Epistemos/Views/Epdoc/EpdocKaTeXPreview.swift:71-86` — KaTeX
+  preview now wires `processPool` + `WKWebsiteDataStore.nonPersistent()`.
+- `Epistemos/Engine/MLXInferenceService.swift:336-372` — idle
+  unload delays roughly halved (16 GB: 6→4 s, 24 GB: 10→6 s,
+  36 GB: 20→10 s, larger: 30→15 s); thermal/background modifiers
+  also tightened. Returns 1.5–2 GB to the OS sooner per idle.
+- `Epistemos/Engine/MLXInferenceService.swift:1163-1195` —
+  `.warning` memory-pressure handler now drops `persistentSSMSession`
+  to free the KV cache without unloading the model container
+  (256–512 MB extra on top of intermediate-tensor cache shrink).
+  ChatSession exposes no public `clearKVCache()`; nilling the
+  session is the canonical drop path.
+- `Epistemos/Engine/ModelDownloadManager.swift:12-22` —
+  `configuration.urlCache = nil` on the HF download URLSession
+  (already uses `.reloadIgnoringLocalCacheData`; the default 20 MB
+  cache header table was wasted memory).
+- `Epistemos/App/EpistemosApp.swift:572-602` — the existing
+  `RuntimeDiagnosticsMonitor` `DispatchSourceMemoryPressure`
+  handler now also calls the Rust FFI
+  `respondToMemoryPressure(level:)`. Level 1 (warning) →
+  `evict_stale(60s)` + `prune_finished(5min)`; level 2
+  (critical) → `cleanup_all` + `prune_finished(0)`. Relief
+  metrics (segments evicted / bytes freed / sessions pruned)
+  become part of the diagnostic record.
+- Pre-existing build blockers fixed in this perf sweep:
+  - `Epistemos/Sync/ReadableBlocksIndex.swift:107-122` — moved
+    the ISO8601DateFormatter singleton to file scope with
+    `nonisolated(unsafe)` so `static func iso8601(_:)` no
+    longer trips Swift 6.2 strict concurrency on the
+    `.defaultIsolation(MainActor.self)` module.
+  - `Epistemos/Engine/OutlineParserCache.swift:26-50` — class
+    + members downgraded from `public` to internal (matches
+    `OutlineItem`'s access level; tests use `@testable import`).
+
+### Wave 2026-04-29 perf additions (atop the 2026-04-28 hardening above)
+- `Epistemos/Sync/SearchIndexService.swift:204-228` — PRAGMA tuning:
+  cache_size 64 MB → 8 MB, mmap_size 1 GiB → 256 MiB (derivative
+  FTS index, kernel page cache absorbs cold-read regressions).
+- `Epistemos/Sync/SearchIndexService.swift:298-322` — new
+  `releaseMemoryPressureCaches()` runs `PRAGMA optimize` +
+  `PRAGMA shrink_memory` + `dbPool.releaseMemory()`. Wired into the
+  global `RuntimeDiagnosticsMonitor.recordMemoryPressure` entry path.
+- `Epistemos/Engine/MetalRuntimeManager.swift:368-410` — new
+  `deepUnload()` drops 14 cached `MTLComputePipelineState` refs +
+  `MTLBinaryArchive` image. Called from `MLXInferenceService.performUnload`
+  (line 1493) on top of `releaseWorkingSet()`.
+- `Epistemos/App/AppBootstrap.swift:1131-1163` — lazy-init for
+  `noteInsightService` + `cloudKnowledgeDistillationService` (private
+  optional + computed-getter pattern). Defers 6-15 MB until first
+  user-action access (notes reindex / model-vault rebuild).
+- `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:312-318` —
+  `config.websiteDataStore = .nonPersistent()` on the main editor
+  WKWebView (matching KaTeX). Tiptap doesn't use IndexedDB /
+  LocalStorage / Service Worker; persistent store was 30-50 MB
+  dead weight per editor.
+- `Epistemos/Graph/SemanticClusterService.swift:69-156` —
+  `computeEmbeddings` parallelized via `DispatchQueue.concurrentPerform`
+  + `nonisolated` per-node helper. Lock-free slot-fill into a pre-sized
+  `[[Float]?]`. ~3-4× faster on 6P+4E M2 Pro. `TextEmbeddingLookup`
+  is `Sendable`; `GraphNodeRecord` is `Sendable`.
+- `agent_core/Cargo.toml:65` — tokio "full" → minimal feature set
+  `["io-util","macros","net","process","rt-multi-thread","sync","time"]`
+  (verified against full grep of agent_core/src + binary needs).
+- `Epistemos/Engine/SpotlightIndexer.swift:67` — Spotlight item body
+  trim 500 → 280 chars (Spotlight surfaces ~100-200 chars; trim
+  shaves 30-50 MB resident in `corespotlightd` on 5K-note vaults).
+- `Epistemos/App/AppBootstrap.swift:815-850` — ScreenCaptureService →
+  Screen2AXFusion → VisualVerifyLoop → AmbientCaptureService chain
+  converted to lazy `private var _x: T?` + computed-getter pattern.
+  ~8-12 MB freed for sessions that don't open computer-use agent /
+  enable ambient capture.
+- `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:40-77` —
+  `EpdocWebViewShared` adds atomic `liveWebViewCount` registry +
+  `resetPoolIfIdle()` that swaps the shared `WKProcessPool` when
+  no WKWebView is bound. Wired into the global memory-pressure
+  handler (`Epistemos/App/EpistemosApp.swift:600-606`). 30-40 MB
+  returned on idle pressure.
+- Handoff doc: `docs/PERF_HANDOFF_TO_CODEX_2026-04-29.md` carries
+  the full change list, deferred items (with rationale on which
+  failed research), and the JS-bundle Brotli sprint plan.
+
 ### Swift Halo (W8 — Contextual Shadows)
 - Controller: Epistemos/Engine/HaloController.swift
 - Search service: Epistemos/Engine/ShadowSearchService.swift

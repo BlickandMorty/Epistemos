@@ -11,18 +11,15 @@
 
   TEMP-FREE-TIER NOTE (2026-05-03):
   ──────────────────────────────────────────────────────────────────
-  The `com.apple.security.application-groups` entitlement has been
-  TEMPORARILY REMOVED from this file because the user's current
-  signing certificate is a free Personal Team (no paid Apple Developer
-  Program membership yet). Free Personal Teams cannot generate
-  provisioning profiles for App Groups.
+  The App Group entitlement has been TEMPORARILY REMOVED from this
+  file because the user's current signing certificate is a free
+  Personal Team (no paid Apple Developer Program membership yet).
+  Free Personal Teams cannot generate provisioning profiles for App
+  Groups.
 
   WHAT GOT REMOVED (restore when paid Apple Developer Team is added):
 
-      <key>com.apple.security.application-groups</key>
-      <array>
-          <string>group.com.epistemos.shared</string>
-      </array>
+      Restore the App Group key with value `group.com.epistemos.shared`.
 
   IMPACT WHILE REMOVED:
    - Main app and bundled XPC services CANNOT share a filesystem
@@ -39,7 +36,7 @@
    2. In Apple Developer portal: register the App Group identifier
       `group.com.epistemos.shared`
    3. Update Xcode signing & capabilities to use the paid Team
-   4. Restore the `application-groups` block above
+   4. Restore the App Group block above
    5. Remove this TEMP-FREE-TIER comment block
    6. Update `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §7
       to note App Groups are restored
@@ -54,7 +51,7 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
-	<!-- TEMP-FREE-TIER 2026-05-03: application-groups removed; see
+	<!-- TEMP-FREE-TIER 2026-05-03: App Group entitlement removed; see
 	     header comment block for full restoration instructions. -->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>

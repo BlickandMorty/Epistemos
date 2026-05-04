@@ -1,0 +1,100 @@
+[workspace]
+members = [
+    "crates/agent_core",
+    "crates/helios-core",
+    "crates/helios-mlx",
+    "crates/helios-models",
+    "crates/helios-metal",
+    "crates/helios-runtime",
+    "crates/helios-bench",
+    "crates/helios-ffi",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Epistenos Contributors"]
+license = "MIT"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Core
+agent_core = { path = "crates/agent_core" }
+helios-core = { path = "crates/helios-core" }
+helios-metal = { path = "crates/helios-metal" }
+helios-mlx = { path = "crates/helios-mlx" }
+helios-runtime = { path = "crates/helios-runtime" }
+helios-models = { path = "crates/helios-models" }
+
+# Math / numeric
+nalgebra = "0.33"
+num-complex = "0.4"
+rand = { version = "0.9", features = ["small_rng"] }
+rand_distr = "0.5"
+fastrand = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+schemars = "0.8"
+
+# Async / runtime
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Crypto / hash
+sha2 = "0.10"
+blake3 = "1.5"
+hmac = "0.12"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Testing
+criterion = "0.5"
+proptest = "1"
+
+# FFI
+uniffi = "0.29"
+
+# Metal / GPU (via objc2)
+objc2 = "0.5"
+objc2-metal = "0.3"
+objc2-foundation = "0.3"
+
+# Memory mapped files
+memmap2 = "0.9"
+
+# SQLite / DB
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# HTTP (Hermes)
+reqwest = { version = "0.12", features = ["json"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# ID / hex
+uuid = { version = "1", features = ["v4", "serde"] }
+hex = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 2

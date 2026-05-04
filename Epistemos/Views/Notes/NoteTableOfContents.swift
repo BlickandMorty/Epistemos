@@ -14,6 +14,13 @@ struct TOCItem: Identifiable, Equatable, Sendable {
         case citation
         case source
     }
+
+    static func == (lhs: TOCItem, rhs: TOCItem) -> Bool {
+        lhs.level == rhs.level
+            && lhs.title == rhs.title
+            && lhs.charOffset == rhs.charOffset
+            && lhs.kind == rhs.kind
+    }
 }
 
 // MARK: - Table of Contents Parser
@@ -94,6 +101,128 @@ enum TOCParser {
         return dropped
             .replacingOccurrences(of: "\\*\\*|\\*|`|\\[|\\]", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+// MARK: - Deterministic Outline Runtime Projection
+
+@MainActor
+final class KnowledgeCoreOutlineProjectionState {
+    private static var nextPeerId: UInt64 = 31
+
+    private let flags: EpistemosRuntimeFeatureFlags
+    private let peerId: UInt64
+    private let binding: KnowledgeCoreRuntimeBinding
+    private var bridge: KnowledgeCoreBridge?
+    private var subscribedPageId: String?
+    private var subscriptionId: UInt64?
+    private var appliedPayloadCount = 0
+
+    private(set) var items: [TOCItem] = []
+    private(set) var lastAppliedTxId: UInt64?
+    private(set) var lastApplyResult: KnowledgeCoreRuntimeAdapterApplyResult = .empty
+    private(set) var lastError: KnowledgeCoreBridgeError?
+
+    var isEnabled: Bool {
+        flags.deterministicKnowledgeCoreRuntime
+    }
+
+    init(
+        flags: EpistemosRuntimeFeatureFlags = EpistemosRuntimeFeatureFlags.load(),
+        peerId: UInt64? = nil
+    ) {
+        self.flags = flags
+        if let peerId {
+            self.peerId = peerId
+        } else {
+            Self.nextPeerId &+= 1
+            self.peerId = Self.nextPeerId
+        }
+        self.binding = KnowledgeCoreRuntimeBinding(flags: flags)
+    }
+
+    @discardableResult
+    func refresh(
+        pageId: String,
+        markdown: String,
+        fallbackHeadings: [TOCItem]
+    ) async -> KnowledgeCoreRuntimeAdapterApplyResult {
+        guard isEnabled else {
+            lastApplyResult = .empty
+            return .empty
+        }
+        guard let bridge = await resolvedBridge() else {
+            lastApplyResult = .empty
+            return .empty
+        }
+        guard await ensureOutlineSubscription(pageId: pageId, bridge: bridge) != nil else {
+            lastApplyResult = .empty
+            return .empty
+        }
+
+        _ = await bridge.ingestDocument(pageId: pageId, format: .markdown, text: markdown)
+        lastError = await bridge.lastErrorSnapshot()
+
+        let payloads = await bridge.drainPayloads()
+        let appliedBefore = appliedPayloadCount
+        let result = binding.apply(payloads)
+        lastApplyResult = result
+
+        if appliedPayloadCount > appliedBefore {
+            items = fallbackHeadings
+        }
+
+        return result
+    }
+
+    private func resolvedBridge() async -> KnowledgeCoreBridge? {
+        if let bridge {
+            return bridge
+        }
+        guard let bridge = KnowledgeCoreBridge(peerId: peerId) else {
+            lastError = KnowledgeCoreBridgeError(
+                code: .ring,
+                message: "Knowledge-core outline bridge could not be created"
+            )
+            return nil
+        }
+        self.bridge = bridge
+        return bridge
+    }
+
+    private func ensureOutlineSubscription(
+        pageId: String,
+        bridge: KnowledgeCoreBridge
+    ) async -> UInt64? {
+        if subscribedPageId == pageId, let subscriptionId {
+            return subscriptionId
+        }
+
+        if let subscriptionId {
+            binding.unregister(subscriptionId: subscriptionId)
+            _ = await bridge.unsubscribe(subscriptionId)
+        }
+
+        guard let nextSubscriptionId = await bridge.subscribeOutline(pageId: pageId) else {
+            lastError = await bridge.lastErrorSnapshot()
+            subscribedPageId = nil
+            subscriptionId = nil
+            return nil
+        }
+
+        subscribedPageId = pageId
+        subscriptionId = nextSubscriptionId
+        binding.register(subscriptionId: nextSubscriptionId) { [weak self] payload in
+            self?.recordAppliedOutlinePayload(payload)
+        }
+        _ = await bridge.drainPayloads()
+        lastError = nil
+        return nextSubscriptionId
+    }
+
+    private func recordAppliedOutlinePayload(_ payload: KnowledgeCorePayloadSnapshot) {
+        appliedPayloadCount += 1
+        lastAppliedTxId = payload.txId
     }
 }
 

@@ -136,6 +136,14 @@ final class VaultSyncService {
             || Bundle.main.bundleURL.pathExtension == "xctest"
     }
 
+    private nonisolated static func requiresSecurityScopedVaultAccess() -> Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return true
+        #else
+        return false
+        #endif
+    }
+
     nonisolated static func shouldRestoreVaultFromBookmark(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
@@ -201,6 +209,7 @@ final class VaultSyncService {
     private var managedBodyCountProvider: (@Sendable () -> Int)?
     private var tmutilCommandRunnerOverride: TMUtilCommandRunner?
     private var bookmarkDataWriterOverride: BookmarkDataWriter?
+    private var requiresSecurityScopedVaultAccessOverride: Bool?
     private var defaults = UserDefaults.standard
 
     private(set) var vaultURL: URL?
@@ -454,6 +463,10 @@ final class VaultSyncService {
         bookmarkDataWriterOverride = writer
     }
 
+    func setRequiresSecurityScopedVaultAccessForTesting(_ value: Bool?) {
+        requiresSecurityScopedVaultAccessOverride = value
+    }
+
     func setUserDefaultsForTesting(_ userDefaults: UserDefaults) {
         defaults = userDefaults
         isIndexing = userDefaults.data(forKey: Self.bookmarkKey) != nil
@@ -480,7 +493,8 @@ final class VaultSyncService {
         isStale: Bool,
         usedSecurityScope: Bool,
         accessGranted: Bool,
-        isReadable: Bool
+        isReadable: Bool,
+        requiresSecurityScopedVaultAccess: Bool? = nil
     ) -> VaultBookmarkStartupValidation {
         makeStartupBookmarkValidation(
             bookmarkExists: bookmarkExists,
@@ -488,7 +502,21 @@ final class VaultSyncService {
             isStale: isStale,
             usedSecurityScope: usedSecurityScope,
             accessGranted: accessGranted,
-            isReadable: isReadable
+            isReadable: isReadable,
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess
+                ?? Self.requiresSecurityScopedVaultAccess()
+        )
+    }
+
+    nonisolated static func vaultWatchStartAllowedForTesting(
+        scopeAlreadyAcquired: Bool,
+        accessGranted: Bool,
+        requiresSecurityScopedVaultAccess: Bool
+    ) -> Bool {
+        vaultWatchStartAllowed(
+            scopeAlreadyAcquired: scopeAlreadyAcquired,
+            accessGranted: accessGranted,
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess
         )
     }
 
@@ -525,6 +553,11 @@ final class VaultSyncService {
         )
     }
 
+    private func requiresSecurityScopedVaultAccess() -> Bool {
+        requiresSecurityScopedVaultAccessOverride
+            ?? Self.requiresSecurityScopedVaultAccess()
+    }
+
     func dismissRecoveryIssue() {
         recoveryIssue = nil
     }
@@ -544,6 +577,18 @@ final class VaultSyncService {
             defaults.set(bookmark, forKey: Self.bookmarkKey)
             didPersistBookmark = true
         } catch {
+            guard !requiresSecurityScopedVaultAccess() else {
+                defaults.removeObject(forKey: Self.bookmarkKey)
+                log.error(
+                    """
+                    Failed to persist required security-scoped vault bookmark for \(url.path, privacy: .public): \
+                    \(error.localizedDescription, privacy: .public)
+                    """
+                )
+                defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
+                recoveryIssue = nil
+                return
+            }
             do {
                 let bookmark = try makeBookmarkData(for: url, options: [])
                 defaults.set(bookmark, forKey: Self.bookmarkKey)
@@ -988,7 +1033,8 @@ final class VaultSyncService {
                 isStale: false,
                 usedSecurityScope: false,
                 accessGranted: false,
-                isReadable: false
+                isReadable: false,
+                requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
             )
         }
 
@@ -1011,7 +1057,8 @@ final class VaultSyncService {
             isStale: resolvedBookmark.isStale,
             usedSecurityScope: resolvedBookmark.usedSecurityScope,
             accessGranted: accessGranted,
-            isReadable: isReadable
+            isReadable: isReadable,
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
         )
     }
 
@@ -1021,7 +1068,8 @@ final class VaultSyncService {
         isStale: Bool,
         usedSecurityScope: Bool,
         accessGranted: Bool,
-        isReadable: Bool
+        isReadable: Bool,
+        requiresSecurityScopedVaultAccess: Bool
     ) -> VaultBookmarkStartupValidation {
         guard bookmarkExists else {
             return VaultBookmarkStartupValidation(
@@ -1047,6 +1095,22 @@ final class VaultSyncService {
             )
         }
 
+        if requiresSecurityScopedVaultAccess && !usedSecurityScope {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark is not security-scoped and must be re-selected."
+            )
+        }
+
+        if requiresSecurityScopedVaultAccess && !accessGranted {
+            return VaultBookmarkStartupValidation(
+                bookmarkExists: true,
+                isReadyForAutomaticRestore: false,
+                failureReason: "Saved vault bookmark lost security-scoped access."
+            )
+        }
+
         if usedSecurityScope && !accessGranted {
             return VaultBookmarkStartupValidation(
                 bookmarkExists: true,
@@ -1068,6 +1132,14 @@ final class VaultSyncService {
             isReadyForAutomaticRestore: true,
             failureReason: nil
         )
+    }
+
+    private nonisolated static func vaultWatchStartAllowed(
+        scopeAlreadyAcquired: Bool,
+        accessGranted: Bool,
+        requiresSecurityScopedVaultAccess: Bool
+    ) -> Bool {
+        scopeAlreadyAcquired || accessGranted || !requiresSecurityScopedVaultAccess
     }
 
     private func sqliteDatabaseURLsForSnapshot() -> [URL] {
@@ -1730,6 +1802,15 @@ final class VaultSyncService {
             "📦 Resolved bookmark → \(url.path, privacy: .private) (stale=\(isStale), securityScope=\(usedSecurityScope))"
         )
 
+        if requiresSecurityScopedVaultAccess() && !usedSecurityScope {
+            defaults.removeObject(forKey: Self.bookmarkKey)
+            handleRestoreFailure(
+                reason: "Saved vault bookmark is not security-scoped and must be re-selected",
+                bookmarkExists: true
+            )
+            return
+        }
+
         // Start security-scoped access and keep it — do NOT release before startWatching.
         // Security-scoped access is reference-counted; releasing then re-acquiring creates
         // a window where the scope is lost and background actors can't read files.
@@ -1788,6 +1869,17 @@ final class VaultSyncService {
                 log.error(
                     "Failed to refresh stale vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
+                if requiresSecurityScopedVaultAccess() {
+                    if usedSecurityScope {
+                        url.stopAccessingSecurityScopedResource()
+                    }
+                    defaults.removeObject(forKey: Self.bookmarkKey)
+                    handleRestoreFailure(
+                        reason: "Saved vault bookmark is stale and could not be refreshed; please reattach the vault folder",
+                        bookmarkExists: true
+                    )
+                    return
+                }
             }
         }
 
@@ -1837,7 +1929,7 @@ final class VaultSyncService {
         if isWatching {
             stopWatching()
         }
-        beginWatching(
+        _ = beginWatching(
             vaultURL: vaultURL,
             scopeAlreadyAcquired: scopeAlreadyAcquired,
             refreshAmbientManifestImmediately: refreshAmbientManifestImmediately
@@ -1867,25 +1959,26 @@ final class VaultSyncService {
             }
         }
 
-        beginWatching(
+        return beginWatching(
             vaultURL: vaultURL,
             scopeAlreadyAcquired: scopeAlreadyAcquired,
             refreshAmbientManifestImmediately: refreshAmbientManifestImmediately
         )
-        return true
     }
 
     private func beginWatching(
         vaultURL: URL,
         scopeAlreadyAcquired: Bool,
         refreshAmbientManifestImmediately: Bool
-    ) {
+    ) -> Bool {
         // No clearVaultData() here — incremental import handles stale data.
         // clearVaultData() is only called in stopWatching() (vault switch)
         // and restoreVaultFromBookmark() failure paths.
 
+        let accessGranted: Bool
         if scopeAlreadyAcquired {
             isSecurityScoped = true
+            accessGranted = true
         } else {
             // Start security-scoped access (required for sandboxed apps)
             let gained = vaultURL.startAccessingSecurityScopedResource()
@@ -1893,6 +1986,22 @@ final class VaultSyncService {
                 isSecurityScoped = true
             }
             log.info("Security scope acquired: \(gained)")
+            accessGranted = gained
+        }
+
+        guard Self.vaultWatchStartAllowed(
+            scopeAlreadyAcquired: scopeAlreadyAcquired,
+            accessGranted: accessGranted,
+            requiresSecurityScopedVaultAccess: requiresSecurityScopedVaultAccess()
+        ) else {
+            if isSecurityScoped {
+                vaultURL.stopAccessingSecurityScopedResource()
+                isSecurityScoped = false
+            }
+            isIndexing = false
+            recoveryIssue = nil
+            log.error("Security scope not granted for sandbox-required vault start at \(vaultURL.path, privacy: .public)")
+            return false
         }
 
         self.vaultURL = vaultURL
@@ -1954,6 +2063,7 @@ final class VaultSyncService {
         }
 
         log.info("VaultSyncService started for: \(vaultURL.lastPathComponent, privacy: .public)")
+        return true
     }
 
     /// Stop watching and release resources.
@@ -2168,22 +2278,43 @@ final class VaultSyncService {
     }
 
     /// Search note bodies via FTS5 full-text index. Returns matching page IDs.
+    /// Flag-aware: `EPISTEMOS_RRF_FUSION_V1` routes through the fused
+    /// path and returns parent doc IDs from the fused entity rollup
+    /// (RRF Phase 4 wiring site §6 — AgentRuntime context retrieval +
+    /// any caller that just needs the matched IDs).
     func searchIndex(query: String) async -> [String] {
         guard let svc = searchService else { return [] }
         do {
+            if RRFFusionFlags.isEnabled {
+                let fused = try await svc.fusedSearchAsync(query: query)
+                return fused.map(\.parentDocID)
+            }
             return try await svc.searchAsync(query: query).map(\.pageId)
         } catch {
-            log.error("FTS5 search failed: \(error.localizedDescription, privacy: .public)")
+            log.error("FTS5 search failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
 
     /// Full-text search with ranked results + snippets. For command palette deep search.
+    /// When `EPISTEMOS_RRF_FUSION_V1` is enabled, dispatches through the
+    /// fused single-SQL path (RRF Phase 4 wiring site §1 — Landing
+    /// search bar, plus all command-palette callers). Translates
+    /// `[FusedResult]` → `[SearchResult]` so existing callers stay
+    /// source-compatible.
     func searchFull(query: String, limit: Int = 20) -> [SearchResult] {
         guard let svc = searchService else { return [] }
         do {
+            if RRFFusionFlags.isEnabled {
+                let fused = try svc.fusedSearch(
+                    query: query,
+                    weights: FusionWeights(maxResults: limit)
+                )
+                return fused.map(Self.mapFusedToSearchResult)
+            }
             return try svc.search(query: query, limit: limit)
         } catch {
+            log.error("searchFull failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -2191,10 +2322,32 @@ final class VaultSyncService {
     func searchFullAsync(query: String, limit: Int = 20) async -> [SearchResult] {
         guard let svc = searchService else { return [] }
         do {
+            if RRFFusionFlags.isEnabled {
+                let fused = try await svc.fusedSearchAsync(
+                    query: query,
+                    weights: FusionWeights(maxResults: limit)
+                )
+                return fused.map(Self.mapFusedToSearchResult)
+            }
             return try await svc.searchAsync(query: query, limit: limit)
         } catch {
+            log.error("searchFullAsync failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
         }
+    }
+
+    /// Translate a `FusedResult` (RRF Phase 3) into the legacy
+    /// `SearchResult` shape so existing callers don't need to change.
+    /// `title` is left empty because the fused query doesn't surface
+    /// it directly — UI sites that need it look up via the page-id
+    /// they already have. Phase 5 perf tests cover round-trip parity.
+    nonisolated private static func mapFusedToSearchResult(_ fused: FusedResult) -> SearchResult {
+        SearchResult(
+            pageId: fused.parentDocID,
+            title: "",
+            snippet: fused.snippet ?? "",
+            rank: fused.fusedScore
+        )
     }
 
     func searchBlocksAsync(query: String, limit: Int = 20) async -> [BlockSearchResult] {

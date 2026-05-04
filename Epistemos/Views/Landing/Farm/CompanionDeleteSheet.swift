@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Soft-delete sheet (Invariant I-12). Routes through the canonical
 /// SovereignGate (`Epistemos/Sovereign/SovereignGate.swift`) — single
-/// LAContext owner per doctrine §A.7. Touch ID prompt explains exactly
-/// what's being authorized; reduce-motion-friendly fade animation.
+/// biometric context owner per doctrine §A.7. Touch ID prompt explains
+/// exactly what's being authorized; reduce-motion-friendly fade animation.
 ///
 /// Soft delete = sets `archivedAt` on the CompanionModel; the
 /// companion moves to trash and is restorable until the user
@@ -123,8 +123,8 @@ struct CompanionDeleteSheet: View {
 
         // Sovereign Gate — Sensitive class (15-min biometric grace).
         // Reason string explains exactly what's being authorized so
-        // the LAContext prompt is honest. Single LAContext owner per
-        // doctrine §A.7 — never re-implement biometric here.
+        // the biometric prompt is honest. Single biometric context
+        // owner per doctrine §A.7 — never re-implement biometric here.
         let outcome = await sovereignGate.confirm(
             .biometric(category: SovereignGateCategory(rawValue: "companion_archive")),
             reason: "Move companion '\(entry.name)' to trash"

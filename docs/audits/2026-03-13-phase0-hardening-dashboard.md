@@ -1,5 +1,10 @@
 # Phase 0 Hardening Dashboard
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Date: March 13, 2026
 Checkpoint tag: `checkpoint/phase0-baseline-prepass-2026-03-13`
 Plan: `docs/plans/2026-03-13-deep-hardening-cycle-plan.md`

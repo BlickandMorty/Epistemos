@@ -25,6 +25,15 @@ struct RawThoughtsInspectorView: View {
         return f
     }()
 
+    struct RunArtifacts: Sendable {
+        let eventLines: [String]
+        let summaryMarkdown: String?
+        let loadError: String?
+    }
+
+    nonisolated static let maxVisibleEventLines = 500
+    nonisolated static let maxEventTailBytes: UInt64 = 256 * 1024
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
@@ -152,36 +161,76 @@ struct RawThoughtsInspectorView: View {
         isLoading = true
         defer { isLoading = false }
         let folderURL = run.folderURL
-        let result = await Task.detached(priority: .utility) { () -> (events: [String], summary: String?, error: String?) in
-            let eventsURL = folderURL.appendingPathComponent("events.jsonl", isDirectory: false)
-            let summaryURL = folderURL.appendingPathComponent("summary.md", isDirectory: false)
-
-            var events: [String] = []
-            var summary: String?
-            var error: String?
-
-            do {
-                let body = try String(contentsOf: eventsURL, encoding: .utf8)
-                events = body
-                    .split(whereSeparator: { $0.isNewline })
-                    .map(String.init)
-            } catch {
-                Self.log.warning("RawThoughtsInspectorView: events read failed: \(String(describing: error), privacy: .public)")
-            }
-
-            if let summaryBody = try? String(contentsOf: summaryURL, encoding: .utf8) {
-                summary = summaryBody
-            }
-
-            if events.isEmpty && summary == nil {
-                error = "No artifacts found in \(folderURL.lastPathComponent)"
-            }
-
-            return (events, summary, error)
+        let result = await Task.detached(priority: .utility) {
+            Self.loadRunArtifacts(folderURL: folderURL)
         }.value
 
-        eventLines = result.events
-        summaryMarkdown = result.summary
-        loadError = result.error
+        eventLines = result.eventLines
+        summaryMarkdown = result.summaryMarkdown
+        loadError = result.loadError
+    }
+
+    nonisolated static func loadRunArtifacts(folderURL: URL) -> RunArtifacts {
+        let eventsURL = folderURL.appendingPathComponent("events.jsonl", isDirectory: false)
+        let summaryURL = folderURL.appendingPathComponent("summary.md", isDirectory: false)
+
+        var events: [String] = []
+        var summary: String?
+        var error: String?
+
+        do {
+            events = try loadEventTailLines(eventsURL: eventsURL)
+        } catch {
+            log.warning("RawThoughtsInspectorView: events read failed: \(String(describing: error), privacy: .public)")
+        }
+
+        if let summaryBody = try? String(contentsOf: summaryURL, encoding: .utf8) {
+            summary = summaryBody
+        }
+
+        if events.isEmpty && summary == nil {
+            error = "No artifacts found in \(folderURL.lastPathComponent)"
+        }
+
+        return RunArtifacts(
+            eventLines: events,
+            summaryMarkdown: summary,
+            loadError: error
+        )
+    }
+
+    nonisolated static func loadEventTailLines(
+        eventsURL: URL,
+        maxLines: Int = maxVisibleEventLines,
+        maxBytes: UInt64 = maxEventTailBytes
+    ) throws -> [String] {
+        guard maxLines > 0, maxBytes > 0 else { return [] }
+
+        let handle = try FileHandle(forReadingFrom: eventsURL)
+        defer {
+            try? handle.close()
+        }
+
+        let fileSize = try handle.seekToEnd()
+        let offset = fileSize > maxBytes ? fileSize - maxBytes : 0
+        try handle.seek(toOffset: offset)
+
+        guard let data = try handle.readToEnd(), !data.isEmpty else {
+            return []
+        }
+
+        let body = String(decoding: data, as: UTF8.self)
+        var lines = body
+            .split(whereSeparator: { $0.isNewline })
+            .map(String.init)
+
+        if offset > 0, !lines.isEmpty {
+            lines.removeFirst()
+        }
+
+        if lines.count > maxLines {
+            return Array(lines.suffix(maxLines))
+        }
+        return lines
     }
 }

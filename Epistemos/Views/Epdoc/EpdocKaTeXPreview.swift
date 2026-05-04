@@ -69,10 +69,22 @@ private struct KaTeXWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        // Ephemeral website data store: KaTeX previews are pure-render
+        // (no cookies / localStorage / cache value to persist). The
+        // default persistent store would write disk cache for every
+        // formula viewed; a non-persistent store keeps everything in
+        // RAM and frees with the WKWebView.
+        config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         let view = WKWebView(frame: .zero, configuration: config)
         view.setValue(false, forKey: "drawsBackground")
         view.loadHTMLString(initialHTML, baseURL: URL(string: "epistemos-doc:///"))
+        EpdocWebViewShared.notifyWebViewCreated()
         return view
+    }
+
+    static func dismantleNSView(_ view: WKWebView, coordinator: ()) {
+        view.stopLoading()
+        EpdocWebViewShared.notifyWebViewDismantled()
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {

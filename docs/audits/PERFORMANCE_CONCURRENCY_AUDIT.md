@@ -1,64 +1,55 @@
 # Performance + Concurrency Audit
 
-Date: 2026-04-25
-Authority: PLAN_V2 §22-§27 + EPISTEMOS_DETERMINISTIC_PERF_PLAN + research synthesis.
-Acceptance targets: typing does not hitch; graph pan/zoom smooth; AI streaming does not cascade UI/database; app launch responsive; recall does not block UI; no recurring task leaks.
+Date: 2026-04-28
+
+Verdict: The largest remaining risks are unproven hot paths, not missing ambition. The app has good patterns in many places, but V1 cannot claim native-fast until recall, code editing, streaming, graph, and document save paths have targeted proof.
+
+## Findings
 
 | Finding | File | MainActor risk? | User symptom | Fix | Priority | Test |
-|---|---|---|---|---|---|---|
-| `InstantRecallService` declared `@MainActor @Observable` (`:33`) with sync `rebuildIndex(notes:)` (`:258`) coexisting with `rebuildIndexAsync` (`:267`) | `Epistemos/KnowledgeFusion/InstantRecallService.swift:33+258+267` | YES if sync called | freeze on large vault import / reindex | force every caller to async path; add `precondition(false, "Use rebuildIndexAsync")` in `#if DEBUG` for sync path | **HIGH** | Synthetic 1000-note vault import → typing remains 60fps (signpost) |
-| `MLXInferenceService.LocalMLXClient` `@MainActor final class` (`:492`) uses `MainActor.run` for load (`:1664`) and `releaseWorkingSet` (`:1450`) | `Epistemos/Engine/MLXInferenceService.swift:492+1450+1664` | INDIRECT — fences run on main but generation itself is on @MainActor class | UI may stall during model load/teardown; not per-token | move `LocalMLXClient` off MainActor; isolate UI state to a dedicated `@MainActor` view-model | **MEDIUM** | Cold-load model → app stays responsive in chat list during load |
-| `AsyncStream` buffering — verified ALL 10 constructors use `bufferingNewest(N)`, no `unbounded` | `StreamingDelegate.swift:555` (`.bufferingNewest(256)`); `ChatCoordinator.swift:555+2139`; `EventBus.swift:54`; `LocalRustRuntime.swift:39`; `PipelineService.swift:186`; `LocalBackendLLMClient.swift:169`; `AppSupervisor.swift:114`; `ReactiveQuery.swift:41` (1); `ClaudeManagedRuntime.swift:61` (2); `URLSessionTransportSupport.swift:33` | NO | n/a | n/a — keep | DEFER (already correct) | grep regression test in CI |
-| `.repeatForever` — zero matches across `Epistemos/Views/`; explicit avoidance documented | `PhysicsModifiers.swift:13` ("WARNING: NO .repeatForever"); `EpistemosTheme.swift:1584` ("v2's .repeatForever caused 70% idle CPU") | NO | n/a | none | DEFER | grep regression test |
-| Code editor: `markdown_parse_code_tokens` is whole-file C FFI fallback; viewport-scoped `syntax-core` path is gated by `EPISTEMOS_USE_SYNTAX_CORE=1` env var (default OFF) | `CodeEditorView.swift:2118-2170+2254`; `SyntaxCoreService.swift:10-11` | YES potentially — whole-file parse on per-keystroke could stall at 4k lines | typing hitch on large files | wire viewport-scoped `syntax-core` ON by default for code files; add 4k-line keystroke benchmark | **HIGH (P1)** | 4k-line .swift file: keystroke-to-highlight <16ms p99 |
-| `Binding<String>` O(n) cost per keystroke (acknowledged) | `CodeEditorView.swift:398-402` | YES at scale | typing hitch on >100KB files | introduce `SyntaxEditDelta` path so Swift sends deltas to Rust shadow rope rather than the whole string each keystroke; preserve current Swift NSTextStorage authority | **HIGH (P1)** | 50k-line file typing latency p99 <16ms |
-| ProseEditor: per-keystroke reparse via `markdown_parse_code_tokens` for fenced blocks; scoped to "edited paragraph and neighbors" | `ProseTextView2.swift:417` (sync) `:463` (scoped) | LOW | n/a — paragraph scope is correct | none | DEFER | existing tests pass |
-| Token coalescing absent — every token crosses FFI individually | `agent_core/src/agent_loop.rs:300+312` | n/a (already off-main on Rust side) | not user-visible at current frequencies | optional: 16ms frame-aligned coalescing per PLAN_V2 §24.2; only if benchmarks show benefit | DEFER | future agent-stream benchmark |
-| Per-frame allocations in graph render — Rust pre-allocates buffers (`renderer.rs:3018+3212`); Swift `GraphNodeBatchPayload`/`GraphEdgeBatchPayload` lack visible pre-allocation | `MetalGraphView.swift` (Swift); `graph-engine/src/renderer.rs:3018+3212` (Rust) | YES if Swift batch grows per frame | possible jitter on large graphs | audit Swift batch payload mutation sites; reuse buffers | **MEDIUM** | 10K-node graph at 60fps; signpost `frame` p99 <8.3ms |
-| `GraphChat` notification observer: `[weak self]` + queue: .main pattern | `AgentCommandCenterState.swift` | NO | n/a — correct pattern | none | DEFER | covered by tests |
-| NotificationCenter observers: 42 add/remove pairs balanced (audit confirmed) | scattered | NO | n/a — correct | none | DEFER | grep regression |
-| `nonisolated(unsafe)` on NSView properties: 20 uses, all with `// SAFETY:` comments | `EmbeddingService.swift:276-287`; `GraphState.swift:57`; `HomeWindowInputDiagnostics.swift:238` | NO | n/a — disciplined pattern | none | DEFER | grep regression |
-| Send-path latency: `ChatCoordinator.handleQuery` synchronous prelude is metadata-only (no disk I/O) | `Epistemos/App/ChatCoordinator.swift:1368-1480` | NO | n/a — already deferred to Task | none | DEFER | manual: send query → spinner appears <50ms |
-| Pipeline service `bufferingPolicy: .bufferingNewest(StreamingBufferPolicy.textLimit)` | `PipelineService.swift:186` | NO | n/a | none | DEFER | covered |
-| `HologramOverlay.hide()` bounded reopen window 10s, then teardown | `HologramOverlay.swift:532-560+985-1024+1380` | NO | freeze-class fix per AGENT_PROGRESS 2026-04-03 | none | DEFER | `GraphOverlayRetentionPolicyTests` |
-| `addGlobalMonitorForEvents` — no synchronous path in `AppBootstrap.init` | `AppBootstrap.swift:1234+1723` (deferred FFI) | NO | n/a — fixed | none | DEFER | per memory entry |
+|---|---|---:|---|---|---:|---|
+| Instant Recall sync rebuild entrypoints are guarded, but p95 proof is missing | `Epistemos/KnowledgeFusion/InstantRecallService.swift`; `Epistemos/Sync/VaultSyncService.swift` | REDUCED | Large-vault import/search could still exceed latency budget | Keep async-only source gate; add 1000-note signpost/p95 proof before default-on claims | P1 | 1000-note async rebuild/search p95 signpost |
+| Contextual Shadows V0 lacks end-to-end latency proof | `Epistemos/State/ContextualShadowsState.swift`; `Epistemos/Views/Recall/*` | PARTIAL | Button/panel may hitch or return stale hits | Add state test plus signpost around request/apply | P1 | typing snapshot -> result apply p95 budget |
+| Code editor still reads whole text on edit, but line-count and indentation-guide components are now cheap/tested | `Epistemos/Views/Notes/CodeEditorView.swift`; `Epistemos/Views/Notes/SegmentedIndentationGuideView.swift` | YES at scale | 4k+ line typing hitch if other edit work grows | Keep Swift live editor, preserve `CodeEditorLineMetrics` and the single-pass indentation parser, measure actual typing/scroll p95 before deeper edits | P1 | full 4k-line typing and scroll runtime benchmark |
+| Code editor right-side gutter width/theme policy is tested; live scroll proof is still missing | `Epistemos/Views/Notes/CodeEditorView.swift`; `Epistemos/Views/Notes/CodeLineGutter.swift` | POSSIBLE | Scroll jank or theme conflict | Component tests are green; add Instruments/runtime scroll proof before claiming Xcode-level fluidity | P1 | scroll 4k-line file with gutter enabled |
+| Syntax highlighting path has UTF-8 to UTF-16 runtime cost risk | `Epistemos/Views/Notes/CodeEditorView.swift`; `Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift` | POSSIBLE | Wrong highlights/crashes with Unicode or costly whole-text highlight | Unicode mapping tests are green; measure whole-text versus visible-range highlighting before optimizing | P1 | emoji/CJK source fixture plus large-file p95 |
+| `.epdoc` WebView save pipeline needs runtime latency proof | `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift`; `Epistemos/Engine/EpdocDocument.swift` | PARTIAL | typing/save stalls or stale projection | Keep WebView reused/prewarmed; debounce save; measure save projection time | P1 | edit -> autosave -> projection under budget |
+| Readable block replacement component behavior is green, but live producer scheduling still needs proof | `Epistemos/Sync/ReadableBlocksIndex.swift` | NO if called off-main | stale or partial search projection | Keep `replaceAllForArtifact` transactional; verify callers run projection/indexing off hot UI paths | P1 | live save/delete/rename indexing smoke |
+| Raw Thoughts inspector loading now has a detached, testable recovery seam, but streaming UI batching still needs proof | `Epistemos/Views/RawThoughts/RawThoughtsInspectorView.swift`; `agent_core/src/storage/raw_thoughts.rs` | REDUCED | token-stream UI churn or unbounded logs | Keep inspector file I/O off MainActor; prove append batching and UI scan behavior | P1 | 100+ events/sec synthetic run |
+| MLX/model loading remains a risk area | `Epistemos/Engine/MLXInferenceService.swift`; `ModelDownloadManager.swift` | POSSIBLE | model swap freezes UI | Keep heavy load/download off main and signposted | P1 | cold load while scrolling chat/vault |
+| Graph renderer protected, but 10K-node p99 proof is not fresh | `Epistemos/Views/Graph/MetalGraphView.swift`; `graph-engine/src/*` | POSSIBLE | pan/zoom stutter | Rust graph-engine regression proof is green (`/tmp/epistemos_graph_engine_full_after_dirty_diff.log`, 2522 passed / 8 ignored, plus three physics audit passes), but do not claim UI smoothness until graph frame p99/signpost evidence exists | P1 | graph frame p99 evidence |
+| Settings privacy pane builds into MAS | `Epistemos/Views/Settings/SettingsView.swift` | LOW | build failure or overclaim | Keep exact copy and tests | P0 | MAS scheme build |
 
-## Performance budget targets (perf-budgets.toml derived from research)
+## Acceptance Targets
 
-| Metric | Target p99 | Source |
-|---|---|---|
-| Cold start | < 800 ms | Deterministic perf plan §0.5 |
-| Frame | < 8.3 ms (120Hz target) | Deterministic perf plan §0.5 |
-| MCP invoke | < 2 ms | Deterministic perf plan §0.5 |
-| Graph query | < 1 ms | Deterministic perf plan §0.5 |
-| FFI hot-path | < 5 µs | Deterministic perf plan §0.5 |
-| Editor open (50K lines) | < 500 ms | PLAN_V2 §23.8 |
-| Keystroke-to-highlight | < 16 ms (60Hz) / < 8.3 ms (120Hz) | PLAN_V2 §23.8 |
-| Continuous typing (5 min) | no unbounded memory growth | PLAN_V2 §23.8 |
-| Vector index search (1M notes) | < 10 ms end-to-end | EPISTEMOS-NORTH-STAR §metrics |
-| Continuous encoding latency | < 3 ms / paragraph | EPISTEMOS-NORTH-STAR §metrics |
-| Agent streaming main-thread util | < 5% during streaming | PLAN_V2 §24.5 |
-| Agent streaming frame drops | 0 | PLAN_V2 §24.5 |
-| Bundle size | ≤ 80 MB | Deterministic perf plan §8 |
+| Surface | Target |
+|---|---|
+| Prose typing | No regression from protected editor; no new sync disk/FFI work |
+| Code editor 4k lines | Smooth scroll and typing with syntax colors; p95/p99 recorded |
+| Recall search | No MainActor FFI/search work except final state apply |
+| Raw Thoughts streaming | No per-token SwiftUI state mutation; bounded logs |
+| `.epdoc` editing | WebView reused; debounced save; projection work measured |
+| Graph | No full rebuild on every save; frame p99 captured before ship claim |
+| App launch | No vault crawl, embedding, model load, or graph recompute blocking launch |
 
-## Top 5 risks today
+## Instrumentation Recommendations
 
-1. **Code editor at 4k+ lines** — full-file parse on keystroke will stall. Wire syntax-core viewport path. **HIGH P1**.
-2. **Sync `rebuildIndex` on @MainActor** — large vault import freezes app. Force async path. **HIGH P1**.
-3. **MLXInferenceService MainActor.run pattern** — load/teardown can stall responsiveness during model swap. Move client off @MainActor. **MEDIUM**.
-4. **Swift graph batch payloads** lack visible pre-allocation. Audit + reuse. **MEDIUM**.
-5. **Token streaming has no frame-aligned coalescing** — fine today, may matter at higher token rates. **DEFER unless measured**.
+- `recall.request`, `recall.search`, `recall.apply`
+- `codeEditor.textDidChange`, `codeEditor.highlight`, `codeEditor.scroll`
+- `epdoc.save`, `epdoc.project.shadow`, `epdoc.project.searchBlocks`
+- `rawThoughts.append`, `rawThoughts.scan`, `rawThoughts.uiApply`
+- `graph.frame`, `graph.dataApply`
+- `vault.index.update`, `search.readableBlocks.replace`
 
-## Confidence
+## Protected Paths
 
-HIGH on AsyncStream + animation + observer + nonisolated(unsafe) discipline (parallel-agent audit verified directly against repo).
-HIGH on InstantRecall + MLX MainActor concerns (file:line cited).
-MEDIUM on actual 4k-line editor performance — never measured. The benchmark scaffolding exists; needs to run.
+- Do not touch `Epistemos/Views/Notes/ProseEditor*.swift` unless a failing test proves a recall hook is broken.
+- Do not touch `graph-engine/**`, `Epistemos/Views/Graph/MetalGraphView.swift`, or Hologram controller physics/rendering unless a dedicated graph perf audit clears it.
 
-## Next actions
+## P0/P1 Actions
 
-- Add automated 4k-line editor benchmark to nightly CI.
-- Wire syntax-core viewport path with default ON for code files.
-- Hard-deprecate sync `rebuildIndex` path.
-- Add `os_signpost` interval `editor.typing` and `editor.firstPaint`.
-- Audit `GraphNodeBatchPayload`/`GraphEdgeBatchPayload` for per-frame growth.
+1. Run MAS and Pro builds after any Settings, entitlement, or Info.plist change.
+2. Add code-editor runtime benchmark for 4k-line typing/scroll/gutter/indent guides. Component line-count/gutter tests passed in `/tmp/epistemos_code_editor_patch6_tests.log`; indentation-guide single-pass refresh passed in `/tmp/epistemos_code_indent_guide_patch46_suite_tests.log`; full p95 proof remains open.
+3. Add recall end-to-end state test and signposts.
+4. Add Raw Thoughts synthetic event stream test.
+5. Add `.epdoc` save/projection latency test before default user exposure.

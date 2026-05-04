@@ -333,28 +333,40 @@ nonisolated enum LocalMLXRuntimeTuning {
             snapshot: snapshot,
             conditions: conditions
         )
+        // Idle unload delay: how long after the last inference request
+        // we hold the model in memory speculating that another request
+        // is imminent. Holding for too long burns 2-4 GB of resident
+        // memory on the user's machine; unloading too eagerly forces
+        // a cold reload (~2 s) on the next chat turn.
+        //
+        // Aggressive 2026-04 tuning (per perf sprint): the prior
+        // 6-30 s ceiling was too generous on the dominant 16-24 GB
+        // Apple Silicon laptop tier. Cutting roughly in half keeps
+        // the back-to-back-turn warm-cache pattern (under 4 s) but
+        // returns multi-GB to the OS when the user pauses to think
+        // or switches back to writing.
         var idleUnloadDelay: Duration
         switch snapshot.roundedMemoryGB {
         case ..<16:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(3) : .seconds(6)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(2) : .seconds(4)
         case ..<24:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(5) : .seconds(10)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(3) : .seconds(6)
         case ..<36:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(8) : .seconds(20)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(5) : .seconds(10)
         default:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(10) : .seconds(30)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(7) : .seconds(15)
         }
 
         if !conditions.appActive {
-            idleUnloadDelay = min(idleUnloadDelay, .seconds(5))
+            idleUnloadDelay = min(idleUnloadDelay, .seconds(3))
         } else {
             switch conditions.thermalState {
             case .nominal:
                 break
             case .fair:
-                idleUnloadDelay = min(idleUnloadDelay, .seconds(8))
+                idleUnloadDelay = min(idleUnloadDelay, .seconds(5))
             case .serious:
-                idleUnloadDelay = min(idleUnloadDelay, .seconds(3))
+                idleUnloadDelay = min(idleUnloadDelay, .seconds(2))
             case .critical:
                 idleUnloadDelay = .seconds(1)
             }
@@ -1508,6 +1520,11 @@ actor MLXInferenceService: LocalMLXRuntime {
         let stopReason: GenerateStopReason
     }
 
+    private enum MetalRuntimeUnloadMode {
+        case workingSetOnly
+        case deep
+    }
+
     init(snapshot: LocalHardwareCapabilitySnapshot = .current) {
         self.snapshot = snapshot
         self.serialController = LocalInferenceSerialController()
@@ -1557,13 +1574,24 @@ actor MLXInferenceService: LocalMLXRuntime {
             log.warning("MLXInferenceService: memory pressure CRITICAL — unloading active model")
             Memory.peakMemory = 0
             Task { [weak self] in
-                await self?.unload()
+                await self?.performUnload(metalRuntimeUnloadMode: .deep)
             }
         } else if isWarning {
-            log.warning("MLXInferenceService: memory pressure WARNING — clearing caches")
+            log.warning("MLXInferenceService: memory pressure WARNING - clearing caches + KV")
             Memory.peakMemory = 0
-            // Don't nuke the resident model on warning — that would churn
-            // loads for a transient spike. Shrinking caches is usually enough.
+            // Drop the persistent SSM ChatSession on warning. The model
+            // container stays loaded; only the KV cache + per-session
+            // state is released. ChatSession exposes no public
+            // `clearKVCache()`, so dropping the whole session is the
+            // canonical way: next `respond(...)` reconstructs against
+            // the warm container in ~50 ms (vs. ~2 s for a full
+            // model reload). Saves 256-512 MB on top of the
+            // intermediate-tensor cache shrink below.
+            //
+            // We don't drop on .normal (recovery); keeping the warm
+            // session avoids churning rebuild on transient spikes.
+            persistentSSMSession = nil
+            persistentSSMSessionID = nil
             applyActiveMemoryPolicy(currentRuntimePolicy())
         }
     }
@@ -1838,7 +1866,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     func unload() async {
-        await performUnload()
+        await performUnload(metalRuntimeUnloadMode: .deep)
     }
 
     func updateRuntimeConditions(_ conditions: LocalRuntimeConditions) async {
@@ -1851,7 +1879,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         }
         guard activeRequestCount == 0, container != nil else { return }
         if conditions.thermalState == .critical {
-            await performUnload()
+            await performUnload(metalRuntimeUnloadMode: .deep)
         } else if conditions.appActive {
             cancelScheduledUnload()
         } else {
@@ -1859,7 +1887,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         }
     }
 
-    private func performUnload() async {
+    private func performUnload(metalRuntimeUnloadMode: MetalRuntimeUnloadMode) async {
         cancelScheduledUnload()
         container = nil
         loadedModelID = nil
@@ -1869,8 +1897,19 @@ actor MLXInferenceService: LocalMLXRuntime {
         let runtimeManager = metalRuntimeManager
         metalRuntimeManager = nil
         preparedCustomSSMRuntimeKey = nil
+        // Idle unload keeps compiled Metal pipelines and only releases
+        // state buffers/heap, preserving repeat-chat fluidity. Explicit
+        // unload and critical pressure go deeper: `deepUnload()` drops
+        // cached MTLComputePipelineState refs plus the in-memory
+        // MTLBinaryArchive image. The disk archive survives for warm
+        // recompilation on the next custom-SSM inference.
         await MainActor.run {
-            runtimeManager?.releaseWorkingSet()
+            switch metalRuntimeUnloadMode {
+            case .workingSetOnly:
+                runtimeManager?.releaseWorkingSet()
+            case .deep:
+                runtimeManager?.deepUnload()
+            }
         }
         Memory.cacheLimit = 0
         Memory.clearCache()
@@ -2126,7 +2165,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         scheduledUnloadTask = Task { [delay] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            await self.unload()
+            await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)
         }
     }
 
@@ -2349,6 +2388,10 @@ actor MLXInferenceService: LocalMLXRuntime {
         let model = LocalTextModelID(rawValue: request.modelID)
 
         let kvSize = model?.optimalKVCacheSize ?? 1_536
+        let estimatedContextTokens = Self.estimatedKVContextTokens(for: request)
+        let useKIVI = KIVIPreferences.shouldUseKIVI(forContextTokens: estimatedContextTokens)
+        let kvScheme: MLXLMCommon.KVQuantScheme = useKIVI ? .kivi : .affine
+
         // Use thinking temperature when in thinking mode, fast temperature otherwise
         let temp: Float
         if request.reasoningMode == .thinking,
@@ -2361,14 +2404,21 @@ actor MLXInferenceService: LocalMLXRuntime {
 
         return GenerateParameters(
             maxTokens: request.resolvedMaxTokens,
-            maxKVSize: kvSize,
-            kvBits: 4,
-            kvGroupSize: 64,
+            maxKVSize: useKIVI ? nil : kvSize,
+            kvBits: useKIVI ? 2 : 4,
+            kvGroupSize: useKIVI ? 32 : 64,
             quantizedKVStart: 0,
+            kvScheme: kvScheme,
             temperature: temp,
             topP: topP,
             prefillStepSize: 256
         )
+    }
+
+    nonisolated private static func estimatedKVContextTokens(for request: LocalMLXRequest) -> Int {
+        let systemBytes = request.systemPrompt?.utf8.count ?? 0
+        let promptBytes = request.prompt.utf8.count
+        return max(1, (systemBytes + promptBytes) / 4)
     }
 
     private func additionalContext(for request: LocalMLXRequest) -> [String: any Sendable]? {

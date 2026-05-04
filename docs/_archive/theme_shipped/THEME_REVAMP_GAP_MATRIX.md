@@ -1,0 +1,25 @@
+# Theme Revamp Gap Matrix
+
+> **Index status**: SUPERSEDED-HISTORICAL — Theme revamp shipped per memory.
+> **Superseded by / Phase**: theme refactor shipped.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
+| Gap | Severity | Impacted Files / Screens | Why It Failed The Spec | Fix Applied | Verification |
+| --- | --- | --- | --- | --- | --- |
+| Floating panels still forced Aqua/Dark Aqua in default mode | High | [CommandPaletteWindowController.swift](/Users/jojo/Epistemos/Epistemos/Views/Landing/CommandPaletteWindowController.swift), [MiniChatWindowController.swift](/Users/jojo/Epistemos/Epistemos/Views/MiniChat/MiniChatWindowController.swift), [UtilityWindowManager.swift](/Users/jojo/Epistemos/Epistemos/App/UtilityWindowManager.swift), [HologramOverlay.swift](/Users/jojo/Epistemos/Epistemos/Views/Graph/HologramOverlay.swift) | Default mode was supposed to be native/unforced, but these controllers still hard-coded appearance forcing. | Introduced `UIState.windowAppearance` and routed all window/panel sync through it. | Verified by [ThemePairTests.swift](/Users/jojo/Epistemos/EpistemosTests/ThemePairTests.swift) test `System default keeps window appearance unforced while custom themes opt in`. |
+| Custom theme note toolbar workaround could be missing entirely | High | [NoteWindowManager.swift](/Users/jojo/Epistemos/Epistemos/Views/Notes/NoteWindowManager.swift), [ToolbarGlass.swift](/Users/jojo/Epistemos/Epistemos/Theme/ToolbarGlass.swift) | Prior code updated the toolbar theme only if a themed accessory already existed. That was not a complete custom-theme path. | Replaced `updateGlassToolbarTheme(...)` with `applyThemedGlassToolbar(...)` in the custom-theme branch. | Verified by [NoteWindowManagerTests.swift](/Users/jojo/Epistemos/EpistemosTests/NoteWindowManagerTests.swift) test `Note window theme refresh reapplies themed appearance when custom themes are enabled`. |
+| Native note mode could keep stale themed accessory baggage | High | [NoteWindowManager.swift](/Users/jojo/Epistemos/Epistemos/Views/Notes/NoteWindowManager.swift) | Default mode must bypass theme-era workaround baggage. A stale accessory would violate that. | Preserved explicit removal via `removeGlassToolbarTheme()` and added a regression test for `custom → native` on the same window instance. | Verified by [NoteWindowManagerTests.swift](/Users/jojo/Epistemos/EpistemosTests/NoteWindowManagerTests.swift) test `Note window theme refresh removes themed toolbar accessories when custom themes are turned off`. |
+| Note workspace appearance sync bypassed the central gate | Medium | [NoteDetailWorkspaceView.swift](/Users/jojo/Epistemos/Epistemos/Views/Notes/NoteDetailWorkspaceView.swift) | A direct `Aqua/Dark Aqua` write kept old theme-era behavior alive in a default-mode path. | Replaced direct appearance selection with `ui.windowAppearance`. | Covered by the note-window native/custom regression suite and code-path audit. |
+| Dead theme-era glass-toolbar SwiftUI glue remained active in source | Medium | [ToolbarGlass.swift](/Users/jojo/Epistemos/Epistemos/Theme/ToolbarGlass.swift) | It kept obsolete runtime glue and GCD-based workaround behavior around the default path. | Removed `ThemedGlassToolbarModifier`, `WindowAccessor`, and `View.themedGlassToolbar()`. | Verified by direct source audit and successful build/tests after removal. |
+| Theme revamp tests depended on live user defaults state | High | [ThemePairTests.swift](/Users/jojo/Epistemos/EpistemosTests/ThemePairTests.swift), [NoteWindowManagerTests.swift](/Users/jojo/Epistemos/EpistemosTests/NoteWindowManagerTests.swift) | Tests were not proving first-class native/default behavior; they were leaking developer-machine settings into the suite. | Added preserved-defaults wrappers and explicit default clearing inside theme-related tests. | Verified by stable green runs: `74 tests`, `0 failures`. |
+| Appearance propagation from root still used theme object directly for secondary windows | Medium | [RootView.swift](/Users/jojo/Epistemos/Epistemos/App/RootView.swift), [HologramController.swift](/Users/jojo/Epistemos/Epistemos/Views/Graph/HologramController.swift) | The central sync path still passed theme identity instead of appearance mode intent. | Root now passes `UIState`, and graph sync resolves both token theme and window appearance from the same source. | Verified by passing theme/note suite and source audit. |
+
+## Verification Status
+
+- Targeted suite: `xcodebuild ... -only-testing:EpistemosTests/ThemePairTests -only-testing:EpistemosTests/NoteWindowManagerTests`
+- Result: `74 tests`, `0 failures`
+- Native/default gating behavior: verified
+- Custom-theme note workaround reinstall/removal: verified
+- Restart-driven settings path: verified by code-path audit in [SettingsView.swift](/Users/jojo/Epistemos/Epistemos/Views/Settings/SettingsView.swift) and [AppBootstrap.swift](/Users/jojo/Epistemos/Epistemos/App/AppBootstrap.swift)

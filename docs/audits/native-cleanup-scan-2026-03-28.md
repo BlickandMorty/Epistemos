@@ -1,5 +1,10 @@
 # Native Cleanup Scan
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 - Generated: Sat Mar 28 19:40:26 CDT 2026
 - Root: `/Users/jojo/Downloads/Epistemos`
 

@@ -1,5 +1,10 @@
 # Epistemos Extended Program Plan — 2026-04-25
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 This extends `MASTER_HARDENING_WIRING_AUDIT.md` and `PATCH_QUEUE.md` to fold in the full 3-program scope from `/Users/jojo/Downloads/workspace/` and `/Users/jojo/Downloads/opt/`.
 
 **Sequencing rule (your call)**: hardening + stability + performance foundations BEFORE features and views.

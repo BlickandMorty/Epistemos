@@ -19,7 +19,7 @@ use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperati
 use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
 use crate::storage::session_store::{self, SessionFolder};
 use crate::storage::vault::{SearchResult, VaultBackend, VaultError, VaultStore};
-use crate::tools::registry::ToolRegistry;
+use crate::tools::registry::{ToolHandler, ToolRegistry};
 use async_trait::async_trait;
 
 // MARK: - FFI Safety Boundary
@@ -246,11 +246,11 @@ pub struct AgentResultFFI {
 
 #[uniffi::export]
 pub fn agent_core_policy_profile() -> String {
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     {
         "mas_sandbox".to_string()
     }
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     {
         "direct".to_string()
     }
@@ -643,7 +643,7 @@ async fn run_agent_session_inner(
     // and register their advertised tools. Errors are logged and the
     // remaining servers still register, so a single bad entry can't
     // block the agent from coming up.
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     let _ = crate::tools::stdio_mcp::register_discovered_stdio_mcp_tools(&mut tool_registry).await;
 
     // Install the caller-provided per-tool allowlist (Phase 5 authority
@@ -653,6 +653,8 @@ async fn run_agent_session_inner(
         let set: std::collections::HashSet<String> = allowed.iter().cloned().collect();
         tool_registry.set_allowed_tool_names(Some(set));
     }
+    #[cfg(feature = "pro-build")]
+    tool_registry.register_delegate_task_tool(Arc::clone(&provider), 0);
     let mut config = AgentConfig::from_ffi(&agent_config);
     config.vault_root = Some(tool_config.vault_path.clone());
     config.prompt_mode_override = agent_config.prompt_mode.as_deref().and_then(|mode| {
@@ -842,8 +844,8 @@ pub fn respond_to_memory_pressure(level: u8) -> MemoryPressureReliefFFI {
 #[uniffi::export]
 pub fn compute_resonance_signature_core(claim_json: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
-        let claim: crate::resonance::Claim = serde_json::from_str(&claim_json)
-            .map_err(|err| AgentErrorFFI::AgentError {
+        let claim: crate::resonance::Claim =
+            serde_json::from_str(&claim_json).map_err(|err| AgentErrorFFI::AgentError {
                 message: format!("Resonance Gate: invalid claim JSON: {err}"),
             })?;
         let signature = crate::resonance::compute_signature_core(&claim);
@@ -880,7 +882,7 @@ pub fn compile_command_center_request(input_json: String) -> Result<String, Agen
 
 // MARK: - Persistent PTY FFI
 
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 #[derive(uniffi::Record)]
 pub struct PtyConfigFFI {
     pub shell: String,
@@ -889,7 +891,7 @@ pub struct PtyConfigFFI {
     pub rows: u16,
 }
 
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 #[derive(uniffi::Record)]
 pub struct PtyOutputFFI {
     pub stdout: String,
@@ -900,7 +902,7 @@ pub struct PtyOutputFFI {
 
 /// Spawn a persistent PTY shell session tied to the given agent session.
 /// Returns a unique `pty_id` for subsequent `pty_execute` / `pty_close` calls.
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn pty_spawn(session_id: String, config: PtyConfigFFI) -> Result<String, AgentErrorFFI> {
     let pty_config = crate::pty::PtyConfig {
@@ -933,7 +935,7 @@ pub async fn pty_spawn(session_id: String, config: PtyConfigFFI) -> Result<Strin
 
 /// Execute a command in a persistent PTY session.
 /// The shell state (working directory, env vars, aliases) persists between calls.
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn pty_execute(
     pty_id: String,
@@ -972,14 +974,14 @@ pub async fn pty_execute(
 }
 
 /// Close a persistent PTY session and terminate its child shell process.
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 #[uniffi::export]
 pub fn pty_close(pty_id: String) {
     ffi_guard_value!(crate::pty::PtyPool::close(&pty_id), ());
 }
 
 /// Get the number of active PTY sessions (diagnostics).
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 #[uniffi::export]
 pub fn pty_active_count() -> u32 {
     ffi_guard_value!(crate::pty::PtyPool::active_count() as u32, 0)
@@ -1764,9 +1766,9 @@ pub fn dispatch_skill(vault_path: String, objective: String) -> DispatchDecision
     ffi_guard_value!(
         {
             let vault_root = std::path::Path::new(&vault_path);
-            let router = crate::skill_router::SkillRouter::load(vault_root);
-            let registry = crate::storage::skills_registry::SkillsRegistryStore::load(vault_root);
-            let entries: Vec<crate::storage::skills_registry::SkillRegistryEntry> =
+            let router = crate::hermes::skills::SkillRouter::load(vault_root);
+            let registry = crate::hermes::skills::SkillsRegistryStore::load(vault_root);
+            let entries: Vec<crate::hermes::skills::SkillRegistryEntry> =
                 registry.list_all().into_iter().cloned().collect();
             let decision = crate::dispatcher::dispatch_intent(&objective, &router, &entries);
 
@@ -1811,7 +1813,7 @@ pub fn list_registered_skills(vault_path: String) -> Vec<SkillRegistryEntryFFI> 
     ffi_guard_value!(
         {
             let vault_root = std::path::Path::new(&vault_path);
-            let registry = crate::storage::skills_registry::SkillsRegistryStore::load(vault_root);
+            let registry = crate::hermes::skills::SkillsRegistryStore::load(vault_root);
             registry
                 .list_all()
                 .into_iter()
@@ -1980,6 +1982,436 @@ pub fn read_session_metadata(session_folder_path: String) -> Result<String, Agen
 #[uniffi::export]
 pub fn session_folder_path(session_id: String) -> Option<String> {
     ffi_guard_value!(GlobalSessions::session_folder_path(&session_id), None)
+}
+
+/// Build the canonical Hermes function-calling system prompt from JSON:
+/// `{ tools, additional_instructions, knowledge_index }`.
+#[uniffi::export]
+pub fn hermes_build_system_prompt(input_json: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let input: crate::hermes::prompt_format::HermesPromptInput =
+            serde_json::from_str(&input_json).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("invalid HermesPromptInput JSON: {error}"),
+            })?;
+        Ok(crate::hermes::prompt_format::build_system_prompt(&input))
+    })
+}
+
+/// Parse Hermes/Qwen-style `<tool_call>...</tool_call>` blocks. Returns a JSON
+/// array of `{ name, arguments_json }` records so Swift can keep its existing
+/// `ParsedToolCall` shape while the parser moves to Rust.
+#[uniffi::export]
+pub fn hermes_parse_tool_calls(text: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let calls = crate::hermes::function_call::parse_tool_calls(&text);
+        serde_json::to_string(&calls).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("failed to serialize Hermes tool calls: {error}"),
+        })
+    })
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct SkillDescriptorFFI {
+    pub name: String,
+    pub description: String,
+    pub triggers: Vec<String>,
+    pub file_path: String,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct ProcedureFFI {
+    pub skill_name: String,
+    pub invocation_context_hash: String,
+    pub steps_taken: Vec<String>,
+    pub outcome_summary: String,
+    pub duration_ms: u64,
+    pub error_mode: Option<String>,
+    pub succeeded: bool,
+    pub occurred_at_unix_seconds: i64,
+    pub score: f64,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct SkillOutcomeFFI {
+    pub invocation_context_hash: String,
+    pub steps_taken: Vec<String>,
+    pub outcome_summary: String,
+    pub duration_ms: u64,
+    pub error_mode: Option<String>,
+    pub succeeded: bool,
+    pub occurred_at_unix_seconds: i64,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct SkillResultFFI {
+    pub skill_name: String,
+    pub succeeded: bool,
+    pub output_json: String,
+    pub steps_taken: Vec<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct HermesSkillFrontmatter {
+    #[serde(default)]
+    steps: Vec<HermesSkillStepSpec>,
+    metadata: Option<HermesSkillMetadata>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct HermesSkillMetadata {
+    epistemos: Option<HermesSkillEpistemosMetadata>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct HermesSkillEpistemosMetadata {
+    #[serde(default)]
+    steps: Vec<HermesSkillStepSpec>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct HermesSkillStepSpec {
+    #[serde(alias = "name")]
+    tool: String,
+    #[serde(default, alias = "args")]
+    arguments: serde_json::Value,
+}
+
+#[uniffi::export]
+pub fn list_skills(profile_id: String) -> Result<Vec<SkillDescriptorFFI>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let router = crate::hermes::skills::SkillRouter::load(std::path::Path::new(&profile_id));
+        Ok(router
+            .skills()
+            .iter()
+            .map(|skill| SkillDescriptorFFI {
+                name: skill.name.clone(),
+                description: skill.description.clone(),
+                triggers: skill.triggers.clone(),
+                file_path: skill.file_path.clone(),
+            })
+            .collect())
+    })
+}
+
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn invoke_skill(
+    profile_id: String,
+    skill_name: String,
+    args: String,
+) -> Result<SkillResultFFI, AgentErrorFFI> {
+    let skill_name_for_join = skill_name.clone();
+    let handle =
+        tokio::task::spawn(async move { invoke_skill_inner(profile_id, skill_name, args).await });
+
+    match handle.await {
+        Ok(result) => result,
+        Err(join_error) => {
+            let msg = if join_error.is_panic() {
+                panic_payload_to_string(join_error.into_panic())
+            } else {
+                "invoke_skill task cancelled".to_string()
+            };
+            Err(AgentErrorFFI::AgentError {
+                message: format!(
+                    "Hermes skill invocation failed for '{skill_name_for_join}': {msg}"
+                ),
+            })
+        }
+    }
+}
+
+#[uniffi::export]
+pub fn write_procedure(procedure: ProcedureFFI) -> Result<(), AgentErrorFFI> {
+    ffi_guard_sync!({
+        let store = open_hermes_procedural_memory()?;
+        store
+            .record_outcome(&procedure_ffi_to_record(procedure))
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("failed to write Hermes procedure: {error}"),
+            })
+    })
+}
+
+#[uniffi::export]
+pub fn record_skill_outcome(
+    skill_name: String,
+    outcome: SkillOutcomeFFI,
+) -> Result<(), AgentErrorFFI> {
+    ffi_guard_sync!({
+        write_procedure(ProcedureFFI {
+            skill_name,
+            invocation_context_hash: outcome.invocation_context_hash,
+            steps_taken: outcome.steps_taken,
+            outcome_summary: outcome.outcome_summary,
+            duration_ms: outcome.duration_ms,
+            error_mode: outcome.error_mode,
+            succeeded: outcome.succeeded,
+            occurred_at_unix_seconds: outcome.occurred_at_unix_seconds,
+            score: 0.0,
+        })
+    })
+}
+
+#[uniffi::export]
+pub fn recall_procedure(
+    skill_name: String,
+    context_hash: String,
+) -> Result<Option<ProcedureFFI>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let store = open_hermes_procedural_memory()?;
+        let now = current_unix_seconds();
+        let mut recalled = store
+            .recall(&skill_name, &context_hash, 1, now)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("failed to recall Hermes procedure: {error}"),
+            })?;
+        Ok(recalled.pop().map(|recall| {
+            let mut procedure = record_to_procedure_ffi(recall.record);
+            procedure.score = recall.score;
+            procedure
+        }))
+    })
+}
+
+async fn invoke_skill_inner(
+    profile_id: String,
+    skill_name: String,
+    args: String,
+) -> Result<SkillResultFFI, AgentErrorFFI> {
+    let profile_path = std::path::PathBuf::from(&profile_id);
+    let router = crate::hermes::skills::SkillRouter::load(&profile_path);
+    let skill = router
+        .skills()
+        .iter()
+        .find(|skill| skill.name == skill_name)
+        .cloned()
+        .ok_or_else(|| AgentErrorFFI::AgentError {
+            message: format!("Hermes skill '{skill_name}' was not found in profile '{profile_id}'"),
+        })?;
+
+    let arguments: serde_json::Value =
+        serde_json::from_str(&args).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("invalid skill args JSON: {error}"),
+        })?;
+    let skill_content =
+        std::fs::read_to_string(&skill.file_path).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("failed to read Hermes skill '{}': {error}", skill.name),
+        })?;
+    let steps = extract_hermes_skill_steps(&skill_content);
+
+    if steps.is_empty() {
+        return Ok(SkillResultFFI {
+            skill_name: skill.name.clone(),
+            succeeded: true,
+            output_json: serde_json::json!({
+                "skill_name": skill.name,
+                "description": skill.description,
+                "arguments": arguments,
+                "instruction": skill.body,
+                "step_results": [],
+            })
+            .to_string(),
+            steps_taken: vec!["load_skill".to_string()],
+            error: None,
+        });
+    }
+
+    let mut steps_taken = Vec::with_capacity(steps.len());
+    let mut step_results = Vec::with_capacity(steps.len());
+    for step in steps {
+        let tool_name = step.tool.trim();
+        if tool_name.is_empty() {
+            let message = "Hermes skill step has an empty tool name".to_string();
+            return Ok(SkillResultFFI {
+                skill_name: skill.name,
+                succeeded: false,
+                output_json: serde_json::json!({
+                    "skill_name": skill_name,
+                    "arguments": arguments,
+                    "step_results": step_results,
+                })
+                .to_string(),
+                steps_taken,
+                error: Some(message),
+            });
+        }
+        let step_arguments = if step.arguments.is_null() {
+            arguments.clone()
+        } else {
+            step.arguments
+        };
+        steps_taken.push(tool_name.to_string());
+        match execute_hermes_skill_step(&profile_path, tool_name, &step_arguments).await {
+            Ok(output) => {
+                let parsed_output = serde_json::from_str::<serde_json::Value>(&output)
+                    .unwrap_or_else(|_| serde_json::json!({ "raw": output }));
+                step_results.push(serde_json::json!({
+                    "tool": tool_name,
+                    "input": step_arguments,
+                    "output": parsed_output,
+                    "success": true,
+                }));
+            }
+            Err(error) => {
+                let message = error.to_string();
+                step_results.push(serde_json::json!({
+                    "tool": tool_name,
+                    "input": step_arguments,
+                    "success": false,
+                    "error": message,
+                }));
+                return Ok(SkillResultFFI {
+                    skill_name: skill.name,
+                    succeeded: false,
+                    output_json: serde_json::json!({
+                        "skill_name": skill_name,
+                        "arguments": arguments,
+                        "step_results": step_results,
+                    })
+                    .to_string(),
+                    steps_taken,
+                    error: Some(message),
+                });
+            }
+        }
+    }
+
+    Ok(SkillResultFFI {
+        skill_name: skill.name,
+        succeeded: true,
+        output_json: serde_json::json!({
+            "skill_name": skill_name,
+            "arguments": arguments,
+            "step_results": step_results,
+        })
+        .to_string(),
+        steps_taken,
+        error: None,
+    })
+}
+
+async fn execute_hermes_skill_step(
+    profile_path: &std::path::Path,
+    tool_name: &str,
+    arguments: &serde_json::Value,
+) -> Result<String, AgentErrorFFI> {
+    let skills_dir = profile_path.join("skills");
+    match tool_name {
+        "skills_list" => {
+            let handler = crate::hermes::skills::SkillsListHandler::with_dir(skills_dir);
+            handler
+                .execute(arguments)
+                .await
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("skills_list failed: {error}"),
+                })
+        }
+        "skill_view" => {
+            let handler = crate::hermes::skills::SkillViewHandler::with_dir(skills_dir);
+            handler
+                .execute(arguments)
+                .await
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("skill_view failed: {error}"),
+                })
+        }
+        "skill_manage" => Err(AgentErrorFFI::AgentError {
+            message: "skill_manage requires the Sovereign Gate promotion path, not direct invoke_skill execution".to_string(),
+        }),
+        other => {
+            let registry = build_registry_for_tool_tier(
+                &profile_path.display().to_string(),
+                "agent",
+                other,
+                Some(vec![other.to_string()]),
+            )?;
+            registry
+                .execute(other, arguments)
+                .await
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("{other} failed: {error}"),
+                })
+        }
+    }
+}
+
+fn extract_hermes_skill_steps(content: &str) -> Vec<HermesSkillStepSpec> {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return Vec::new();
+    }
+    let Some(end) = trimmed[3..].find("\n---") else {
+        return Vec::new();
+    };
+    let yaml = &trimmed[3..3 + end];
+    let Ok(frontmatter) = serde_yaml::from_str::<HermesSkillFrontmatter>(yaml) else {
+        return Vec::new();
+    };
+    if !frontmatter.steps.is_empty() {
+        return frontmatter.steps;
+    }
+    frontmatter
+        .metadata
+        .and_then(|metadata| metadata.epistemos)
+        .map(|epistemos| epistemos.steps)
+        .unwrap_or_default()
+}
+
+fn open_hermes_procedural_memory(
+) -> Result<crate::hermes::procedural_memory::ProceduralMemoryStore, AgentErrorFFI> {
+    crate::hermes::procedural_memory::ProceduralMemoryStore::open(hermes_procedural_memory_path())
+        .map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("failed to open Hermes procedural memory: {error}"),
+        })
+}
+
+fn hermes_procedural_memory_path() -> PathBuf {
+    if let Ok(path) = std::env::var("EPISTEMOS_PROCEDURAL_MEMORY_DB") {
+        return PathBuf::from(path);
+    }
+    let mut base = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    base.push(".epistemos");
+    base.push("procedural_memory.sqlite");
+    base
+}
+
+fn procedure_ffi_to_record(
+    procedure: ProcedureFFI,
+) -> crate::hermes::procedural_memory::ProcedureOutcomeRecord {
+    crate::hermes::procedural_memory::ProcedureOutcomeRecord {
+        skill_name: procedure.skill_name,
+        invocation_context_hash: procedure.invocation_context_hash,
+        steps_taken: procedure.steps_taken,
+        outcome_summary: procedure.outcome_summary,
+        duration_ms: procedure.duration_ms,
+        error_mode: procedure.error_mode,
+        succeeded: procedure.succeeded,
+        occurred_at_unix_seconds: procedure.occurred_at_unix_seconds,
+    }
+}
+
+fn record_to_procedure_ffi(
+    record: crate::hermes::procedural_memory::ProcedureOutcomeRecord,
+) -> ProcedureFFI {
+    ProcedureFFI {
+        skill_name: record.skill_name,
+        invocation_context_hash: record.invocation_context_hash,
+        steps_taken: record.steps_taken,
+        outcome_summary: record.outcome_summary,
+        duration_ms: record.duration_ms,
+        error_mode: record.error_mode,
+        succeeded: record.succeeded,
+        occurred_at_unix_seconds: record.occurred_at_unix_seconds,
+        score: 0.0,
+    }
+}
+
+fn current_unix_seconds() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 // MARK: - Tool Tier FFI (normal chat tool access)

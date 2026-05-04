@@ -144,11 +144,11 @@ public actor LSPClient {
         let stream = process.messages
         Task {
             for await msg in stream {
-                await self.routeIncoming(msg)
+                self.routeIncoming(msg)
             }
             // Transport finished — fail every pending request so the
             // caller doesn't hang forever.
-            await self.failAllPending(.transportClosed)
+            self.failAllPending(.transportClosed)
             self.notificationContinuation.finish()
         }
     }

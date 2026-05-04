@@ -1,63 +1,72 @@
-# Data, Persistence, and Indexing Audit
+# Data + Persistence + Indexing Audit
 
-Date: 2026-04-25
-Hard rules:
-- Derived indexes can rebuild.
-- User data must not depend on opaque cache only.
-- App must tolerate missing/corrupt indexes.
-- Index rebuilds must be backgrounded and visible.
-- Saves must be debounced/batched where needed.
-- Deletions must update all derived indexes.
+Date: 2026-04-28
 
-## Data path table
+Verdict: The source-of-truth doctrine is mostly coherent now: Prose remains native/file-backed, `.epdoc` uses canonical ProseMirror JSON, Raw Thoughts are run artifacts, and readable blocks are derived search projections. The remaining risk is app-level propagation: component tests prove core projection/index behavior, but every live save/index/delete path still needs runtime proof before ship claims.
+
+## Required Data Path Table
 
 | Data path | Source of truth | Derived stores | Sync mechanism | Failure risk | Fix |
 |---|---|---|---|---|---|
-| Note body | SwiftData `SDPage.body` (legacy inline, cleared post-save) + `NoteFileStorage` managed sidecar with Blake3 checksum | vault `.md` (export-only), FTS5 `page_search`+`block_search`, InstantRecall HNSW, Spotlight, graph blocks | `loadBodyAsync` cascade: managed sidecar → R.3 gateway → inline → vault file | LOW — atomic write + checksum + multi-fallback | none |
-| Note metadata (title, blocks, properties) | SwiftData `SDPage` | FTS5 indexed_pages → triggers → page_search; block_search; SDGraphNode/Edge | Save trigger; index update on save | LOW | none |
-| Chat message | SwiftData `SDChat`+`SDMessage` | none derived (messages don't currently feed FTS5) | n/a | MEDIUM — chat messages are not searchable in FTS5 | (P2) add chat message indexing if Contextual Shadows includes Chats tab |
-| Thinking trace | `SDMessage.thinkingTrace` (string field) + `thinkingDurationSeconds` | none | persisted on completion | LOW | none |
-| Reasoning summary (provider-side) | persisted in `SDMessage.thinkingTrace` per Master Plan; per-provider verified separately | none | n/a | LOW | verify all four providers route correctly (USER_WIRING_GAPS G15) |
-| Run transcript / trace | `agent_core/src/storage/session_store.rs:5-8`: `transcript.jsonl`, `trace.json`, `summary.md`, `artifacts/` | none | session lifecycle | MEDIUM — no per-run "Raw Thoughts" folder + manifest + events.jsonl yet | (P0) add Raw Thoughts artifact per USER_WIRING_GAPS G2 |
-| Embeddings | `graph-engine/src/retrieval_index.rs` HNSW + manifest + embeddings binary + documents JSON | InstantRecallService Swift | rebuild via `rebuildIndexAsync` | LOW — bounds-checked, safe | none |
-| Search index (FTS5) | GRDB virtual tables `page_search`+`block_search` | n/a (terminal index) | INSERT/DELETE/UPDATE triggers on `indexed_pages` | LOW — FTS5 manages deletions; graceful fallback if module absent | none |
-| Graph nodes/edges | SwiftData `SDGraphNode`+`SDGraphEdge` | Rust graph engine in-memory model | bridge update on mutation | LOW | (P2) add Document/RawThought node types when those land |
-| Knowledge Core (staged) | SwiftData + watcher | Rust Cozo `DbInstance` (in-memory) | shadow runtime | LOW (off by default; not in production view models) | DEFER per deterministic perf Sprint 3 |
-| Vault `.md` files | exported from SwiftData; Apple-Notes-style hybrid | n/a | save trigger; manual sync; conflict detection via `VaultSyncConflict` | LOW — well-structured | none |
-| Permission grants | SQLite via `SqlitePermissionService` (path passed via `permission_store_init_at_path`) | n/a | persisted per grant | LOW — survives relaunch | none |
-| Audit log (verified_write) | SQLite via `SqliteResourceAuditLog` | n/a | per write | LOW (in-memory by default; on-disk path via `verified_write_init_audit_at_path`) | (P2) ensure on-disk path wired in production |
-| Settings / UserDefaults | UserDefaults (bookmark, lastVaultPath, etc.) | n/a | live | LOW | none |
-| API keys | macOS Keychain via SecItem* (per CLAUDE.md non-negotiable) | n/a | live | LOW | none |
-| Spotlight index | macOS Spotlight via SpotlightIndexer | n/a | per save (verify R.3 gateway path) | LOW | none |
+| Prose note body | Existing note file / SwiftData page model | FTS/search, graph, recall index | Vault sync and search index services | stale search/graph if save path skips index update | Verify save -> index -> graph smoke |
+| `.epdoc` document | `Title.epdoc/content.pm.json` via `EpdocPackage.contentJSON` | `projections/shadow.md`, `plain.txt`, `search_blocks.jsonl`, readable blocks, graph | `EpdocDocument.fileWrapper(ofType:)` plus projection/index hooks | derived projection stale or missing | Regenerate projections; never make shadow canonical |
+| `.epdoc` manifest | `manifest.json` | graph/search metadata | NSDocument package read/write | manifest updated before canonical write could misrepresent saved body | Atomic package write ordering test |
+| Raw Thoughts run | run `manifest.json` plus `events.jsonl` / provider/tool files | UI scan, graph nodes, search projection | Rust emitter plus Swift Raw Thoughts scan/inspector | malformed manifest, missing reverse links, runtime browse gap | run-link/search/graph tests; partial-line recovery is component-proven |
+| Provider reasoning surfaces | provider-exposed thinking/reasoning summaries/encrypted content | Raw Thoughts timeline, summaries | agent loop event capture | live replay path not smoked | keep byte-identical storage tests green; add live replay/run smoke if replay ships |
+| Search/readable blocks | Derived from artifact canonical bodies | FTS5/readable_blocks tables | `ReadableBlocksIndex.replaceAllForArtifact` | table stale or empty if producer not called | Component tests for typed hits/delete/rename are green; live producer wiring still needs smoke |
+| Instant Recall embeddings | Derived from notes/artifacts | HNSW/retrieval index | async rebuild/update | stale recall or launch/typing stall | async-only rebuild and visible index status |
+| Graph nodes/edges | Derived from typed artifacts and explicit links | graph store/renderer | graph builder/index update | graph explosion or stale edges after delete | typed edge tests and deletion handling |
+| Code files | User source file | syntax spans, outline, symbols, graph/provenance | code editor save/index | wrong UTF-8/UTF-16 ranges; full-file hot path | Unicode tests and visible-range indexing |
+| Model/provider settings | User defaults/keychain/config | Settings UI state | Settings services | MAS copy or provider state mismatch | settings tests and privacy manifest drift tests |
 
-## Migration / rebuild paths
+## Source-of-Truth Rules
 
-- **Vault re-index on import**: `InstantRecallService.rebuildIndexAsync` is async + off-MainActor; sync `rebuildIndex` exists at `:258` and must be hard-deprecated (PERFORMANCE_CONCURRENCY_AUDIT P1).
-- **FTS5 corruption**: graceful fallback if FTS5 module absent (`SearchIndexService.swift:287+326`); rebuild possible by re-running INSERT triggers.
-- **HNSW corruption**: rebuild from manifest + embeddings on load.
-- **Database migration**: GRDB migrator pattern; SwiftData lightweight migration; no heavy schema changes pending.
+- Prose stays native and is not replaced by `.epdoc`.
+- `.epdoc` canonical rich body is `content.pm.json`; `shadow.md` is derived.
+- External `shadow.md` edits must become a reviewable import/new version, not silent canonical overwrite.
+- Raw Thoughts store observable provider/app-owned surfaces only.
+- Search/readable blocks are rebuildable and never canonical.
+- Graph semantic/structural edges are rebuildable unless user-explicit.
 
-## Hard-rule compliance
+## Current Evidence
 
-| Rule | Status | Evidence |
-|---|---|---|
-| Derived indexes can rebuild | YES | InstantRecall + FTS5 + Spotlight all have rebuild paths |
-| User data not in opaque cache only | YES | NoteFileStorage with Blake3 sidecar + vault `.md` export |
-| Tolerate missing/corrupt indexes | YES | FTS5 graceful fallback; HNSW rebuild on load |
-| Index rebuilds backgrounded + visible | PARTIAL | Async path exists; visibility (progress UI) absent |
-| Saves debounced/batched | YES | 300ms binding + 5s disk per ProseEditor; debounced binding sync |
-| Deletions update derived indexes | YES | FTS5 trigger on DELETE; SwiftData cascade |
+- `.epdoc` package code exists in `Epistemos/Models/EpdocPackage.swift`.
+- `.epdoc` NSDocument save/open code exists in `Epistemos/Engine/EpdocDocument.swift`.
+- Markdown projection code exists in `Epistemos/Models/ProseMirrorMarkdownProjector.swift`.
+- Readable blocks schema and FTS exist in `Epistemos/Sync/ReadableBlocksIndex.swift`; typed hit, delete, and stable-ID rename/update behavior is covered by `/tmp/epistemos_derived_store_patch7_tests.log`.
+- Search service integrates readable-block setup in `Epistemos/Sync/SearchIndexService.swift`.
+- Raw Thoughts Rust storage exists in `agent_core/src/storage/raw_thoughts.rs`.
+- Raw Thoughts Swift browser state exists in `Epistemos/State/RawThoughtsState.swift`.
+- Raw Thoughts UI section exists in `Epistemos/Views/RawThoughts/RawThoughtsSection.swift`.
 
-## Risks
+## Gaps
 
-1. **HIGH (P1)**: Chat messages not in FTS5 — Contextual Shadows Chats tab will need a separate index strategy or chat message FTS5 inclusion.
-2. **HIGH (P0)**: Raw Thoughts artifact persistence missing (USER_WIRING_GAPS G2).
-3. **MEDIUM**: index-rebuild progress not surfaced to user. Add progress bar in vault import / re-index flow.
-4. **MEDIUM**: verified-write audit log path defaults to in-memory; ensure production wires `verified_write_init_audit_at_path`.
-5. **LOW**: SwiftData @Query refetch storms during AI streaming (ANTI-PATTERN per AGENTS.md). Mitigated by `page.needsVaultSync` discipline (always `try? modelContext.save()` after dirty flag per AGENTS.md §"The Unpersisted Dirty Flag").
+| Gap | Priority | Required proof |
+|---|---:|---|
+| `.epdoc` package save -> shadow -> search_blocks -> readable_blocks integration is code/test proven; live WebView open/edit/save remains manual-runtime only | P1 | Runtime create/edit/save `.epdoc`; query exact block; open artifact/block |
+| Raw Thoughts partial JSONL recovery and Anthropic redacted-thinking byte preservation are component-proven; run-link/search/graph proof remains incomplete | P1 | create a real run, browse it, open linked artifacts, and verify search/graph linkage if enabled |
+| Deletion/rename/move propagation is component-proven for readable blocks and basic GraphStore cleanup, but not live app-wide across recall/search/graph | P1 | delete/rename artifact in the app and verify derived stores update or rebuild |
+| Chat artifacts may not be indexed distinctly for recall/search | P1 | chat run/message indexed with artifact kind and block id |
+| Instant Recall sync rebuild path remains callable | P1 | production callers async-only |
+| Code editor derived syntax/index data needs Unicode mapping tests | P1 | UTF-8 byte offsets to UTF-16 ranges fixtures |
 
-## Verdict
+## Hard Rules
 
-Persistence is sound. Multi-fallback read cascade is robust. Atomic writes with checksums are real. Derived indexes are rebuildable. The two real product gaps are: Raw Thoughts artifact persistence (P0) and chat message FTS5 inclusion (P1). Everything else is polish.
+- Derived indexes can rebuild.
+- User data must not depend on opaque cache only.
+- App must tolerate missing/corrupt derived indexes.
+- Index rebuilds must be backgrounded and visible.
+- Saves must be debounced or batched where needed.
+- Deletions must update all derived indexes or mark them stale for rebuild.
 
-Confidence: HIGH (file:line evidence verified across SwiftData, NoteFileStorage, SearchIndexService, InstantRecallService, retrieval_index.rs).
+## Minimal Verification Matrix
+
+| Flow | Required result |
+|---|---|
+| Save Prose note | file/SwiftData saved, FTS updated, graph/recent state not stale |
+| Save `.epdoc` | `content.pm.json` canonical, projections regenerated, search hit opens block; code/test proof is green, runtime smoke deferred |
+| Corrupt `.epdoc` projection | app regenerates projection from canonical body; covered by `/tmp/epistemos_epdoc_projection_tests.log` for stale/external projections |
+| Append Raw Thoughts events | manifest/events valid; UI sees run; search/graph link created if enabled |
+| Partial Raw Thoughts final line | previous valid events remain readable; covered by `/tmp/epistemos_raw_thoughts_state_patch5_tests.log` |
+| Delete artifact | search/readable blocks/recall/graph derived state removed or rebuilt; readable-block delete + GraphStore cleanup component proof is green |
+| Rename/move artifact | stable artifact ID preserved; path updates; readable-block title/path replacement component proof is green |

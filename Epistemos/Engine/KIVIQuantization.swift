@@ -1,5 +1,4 @@
 import Foundation
-import OSLog
 
 // MARK: - W9.30 — KIVI per-channel/per-token KV quantization
 //
@@ -12,13 +11,10 @@ import OSLog
 // footprint at 8K context for Qwen3.5 7B GQA = ~58 MB instead of
 // 448 MB → frees ~390 MB → enables 16K-32K context on 16 GB Macs.
 //
-// THIS FILE is the runtime feature-flag + integration plumbing.
-// The actual KIVIKVCache implementation lives in the local
-// mlx-swift-lm fork at
+// THIS FILE is the app-side runtime feature-flag + integration plumbing.
+// The actual KIVIKVCache implementation lives in the local mlx-swift-lm fork at
 // `LocalPackages/mlx-swift-lm/Libraries/MLXLMCommon/KVCache.swift`
-// (lines 700-951 — sibling to the existing QuantizedKVCache class)
-// and ships in a follow-up commit per the dossier's recommended
-// sequencing (KIVI in pure MLX ops first to de-risk protocol fit).
+// as a sibling to the existing QuantizedKVCache class.
 //
 // Activation contract:
 //   `EPISTEMOS_KV_KIVI=1` env var → opt-in for the 16 GB Mac path.
@@ -42,18 +38,27 @@ public enum KVQuantScheme: String, Sendable, CaseIterable {
     /// Future — TurboQuant turbo4v2 fused Metal kernel
     /// (arozanov/turboquant-mlx port; 4-bit K + 2-bit V).
     case turboQuantV4V2
+
+    var displayLabel: String {
+        switch self {
+        case .affine:
+            "4-bit affine"
+        case .kivi:
+            "2-bit KIVI"
+        case .turboQuantV4V2:
+            "TurboQuant v4/v2"
+        }
+    }
 }
 
 public enum KIVIPreferences {
 
-    private static let log = Logger(subsystem: "com.epistemos", category: "KIVIQuantization")
-    private static let envFlag = "EPISTEMOS_KV_KIVI"
+    private nonisolated static let envFlag = "EPISTEMOS_KV_KIVI"
 
     /// Returns the resolved scheme for the current process. Honors
     /// the env-var feature flag first, then falls back to .affine.
-    public static func currentScheme() -> KVQuantScheme {
+    public nonisolated static func currentScheme() -> KVQuantScheme {
         if let raw = ProcessInfo.processInfo.environment[envFlag], raw == "1" {
-            log.info("KIVI active (EPISTEMOS_KV_KIVI=1)")
             return .kivi
         }
         return .affine
@@ -63,7 +68,7 @@ public enum KIVIPreferences {
     /// the threshold. Per dossier: keep .affine for short prompts
     /// (<=4096 tokens) where KIVI's per-token decode tax (~5 tok/s)
     /// matters more than the memory saving.
-    public static func shouldUseKIVI(forContextTokens contextTokens: Int) -> Bool {
+    public nonisolated static func shouldUseKIVI(forContextTokens contextTokens: Int) -> Bool {
         guard currentScheme() == .kivi else { return false }
         return contextTokens > 4_096
     }

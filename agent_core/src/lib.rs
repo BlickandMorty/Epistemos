@@ -16,6 +16,7 @@ pub mod error_classifier;
 pub mod etl;
 pub mod evolution;
 pub mod example_bank;
+pub mod hermes;
 pub mod lattice;
 pub mod mutations;
 pub mod neocortex;
@@ -41,7 +42,7 @@ pub mod types;
 pub mod vault_registry;
 pub mod wbo6;
 
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 pub mod pty;
 
 pub mod providers {
@@ -94,39 +95,38 @@ pub mod tools {
     pub mod web_fetch;
     pub mod workspace_search;
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod apple;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod browser;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod cli_passthrough;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod computer_use;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod custom_tools;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod delegate_task;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod discovery;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod imessage;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod imessage_contacts;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod intelligence;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod macos;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod media;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod scheduling;
-    #[cfg(not(feature = "mas-sandbox"))]
     pub mod skills;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod stdio_mcp;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod terminal;
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     pub mod trajectory;
 }
 

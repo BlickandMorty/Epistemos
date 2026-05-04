@@ -71,7 +71,7 @@ nonisolated struct PerformanceInstrPkgTests {
         try proc.run()
         proc.waitUntilExit()
         let errData = (try? stderr.fileHandleForReading.readToEnd()) ?? Data()
-        let errText = String(data: errData ?? Data(), encoding: .utf8) ?? ""
+        let errText = String(data: errData, encoding: .utf8) ?? ""
         #expect(proc.terminationStatus == 0,
                 "Tools/Performance.instrpkg must parse as well-formed XML — xmllint exit \(proc.terminationStatus)\n\(errText)")
     }
@@ -114,4 +114,3 @@ nonisolated struct PerformanceInstrPkgTests {
                 "Sig.swift must declare exactly \(Self.canonicalCategories.count) OSSignposter instances; found \(signposterInitCount). Add the new category to Tools/Performance.instrpkg AND to PerformanceInstrPkgTests.canonicalCategories.")
     }
 }
-

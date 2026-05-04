@@ -17,6 +17,9 @@ enum EpistemosFont {
     /// Call once at app launch to register custom fonts from the bundle.
     static func registerFonts() {
         registerFont(named: "RetroGaming", extension: "ttf")
+        registerFont(named: "Inter-Regular", extension: "ttf")
+        registerFont(named: "Inter-SemiBold", extension: "ttf")
+        registerFont(named: "JetBrainsMono-Regular", extension: "ttf")
         registerClaudeReferenceFontsIfAvailable()
     }
 

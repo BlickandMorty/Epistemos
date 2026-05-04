@@ -1,0 +1,231 @@
+﻿Epistemos Architecture Audit and Hackathon Implementation Blueprint
+1. The Workspace OS Paradigm and Cognitive Substrate
+The integration of artificial intelligence agents into contemporary software architecture is currently dominated by a fundamentally fragile methodology known as the "sidecar paradigm." This approach appends probabilistic large language models (LLMs) to existing, stateless web frameworks—such as Electron or React Native—and treats the conversational chat window as the primary locus of cognition.1 Empirical analysis across the open-source community reveals that this paradigm inevitably results in catastrophic context rot, memory degradation, and operational non-determinism, severely limiting the utility of agents in long-horizon workflows.1 To disrupt this ecosystem and establish a definitive competitive advantage for the upcoming hackathon, the Epistemos architecture must physically instantiate a "Workspace OS" model.1 Within this framework, the application is not a mere conduit for an external chatbot; rather, it serves as a sovereign, high-performance cognitive substrate where the underlying intelligence is demoted to the status of an interchangeable, internal faculty.1
+This comprehensive architectural blueprint operationalizes the integration of the Hermes reasoning loop into the Epistemos native macOS environment. The execution mandates the rigorous synthesis of the foundational Epistemos technical dossiers—specifically the Provenance Plane, zero-copy BoltFFI interoperability, 120 frames-per-second (fps) Metal shaders, the 7-verb Model Context Protocol (MCP) boundary, and WebAssembly (WASM)/JavaScriptCore (JSC) sterile sandboxing.1 Furthermore, to elevate the system beyond a mere vector database, this blueprint incorporates advanced neuromimetic architecture. The integration of continuous raw thought memory decay models, hierarchical concept extraction based on basal ganglia phenomenology, structured JSON conversation histories enriched with emotional anchors, and overnight prompt consolidation ("Night Brain" mechanisms) ensures that the system simulates biological knowledge retention.4
+Concurrently, the architecture must exploit Apple Silicon's unified memory capabilities by bridging Apple Foundation Models (AFM) for structured generative outputs, augmented by cutting-edge Key-Value (KV) cache compression algorithms like TurboQuant and hardware-accelerated State Space Models (SSMs).8 The synthesis of these technologies provides an actionable, load-bearing slice capable of demonstrating closed-loop, visually verifiable autonomy.
+2. The Provenance Plane and Strict Data Structuring
+The most profound technological moat in the Epistemos ecosystem is the absolute guarantee of determinism and structural provenance.1 Probabilistic language models inherently suffer from reliability decay when orchestrated over multi-step workflows. Mathematical models demonstrate that if a multi-step agentic workflow requires ten sequential autonomous decisions, and the underlying LLM operates at a 95% reliability rate per step, the compounded system reliability degrades to approximately 60%.1 Therefore, the orchestration engine must architecturally separate probabilistic observation from deterministic control, ensuring that the AI never directly manipulates the user interface or internal application state.1
+The Epistemos Provenance Plane resolves this fragility by managing a strictly typed, Universally Unique Lexicographically Sortable Identifier (ULID)-keyed entity graph owned entirely by the substrate-core Rust crate.1 The system relies on a DenseSlotMap generational arena to manage entity lifecycles, which completely eliminates memory leaks and dangling pointers during massive graph restructuring operations.1 Data persistence is administered via the GRDB framework interfacing with a SQLite database operating in Write-Ahead Log (WAL) mode.1 To prevent cognitive state corruption during unexpected application panics, the substrate enforces a strict zero-corruption discipline, utilizing the F_FULLFSYNC command on every single transaction commit to guarantee hardware-level disk writes.1
+A critical architectural tension in agentic design involves the transmission of state changes to the user interface. The Epistemos consensus dictates that the event bus must operate strictly downstream of graph mutations.1 When an AI action occurs, it generates a "Graph Mutation Envelope," a durable, typed record that acts as the absolute source of truth. This envelope is committed to the SQLite ledger, and only after successful commitment does the system emit transient UI events.1 This ensures absolute recallability; if a component is rendered on the screen, it is guaranteed to exist immutably in the Claim Ledger, forming a continuous chain of custody that links generated outputs back to the original source nodes and tool invocations.1
+To secure the application against the dangerous unpredictability of LLMs generating raw executable code files (such as HTML or SwiftUI components), Epistemos enforces bounded synthesis via the Agent-to-User Interface (A2UI) protocol, strictly bypassing the local filesystem for structural outputs.1 The AI is restricted to emitting flat, streaming JSON payloads that strictly match the EpisWidgetSpec schema.1 The SwiftUI presentation layer then synthesizes the interface dynamically based on a schema registry.1
+This registry utilizes macro-generated @ViewBuilder implementations containing exhaustive switch statements that map the decoded JSON schema types directly to static SwiftUI views.1 Crucially, the codebase audit must rigorously prohibit the use of AnyView for type erasure within this registry.1 Extensive benchmarking proves that AnyView destroys SwiftUI's view-tree structural identity and diffing algorithms, triggering massive allocation overhead, UI hitching, and broken transitions.1 By utilizing static compile-time resolution, the system maintains 120fps fluidity. If the Hermes agent hallucinates an unrecognized JSON schema, the deterministic Rust parser must immediately issue a VALIDATION_FAILED error, rejecting the payload and programmatically forcing the LLM to retry against the pre-approved component catalog without degrading the visual interface into a raw data tree.1
+3. High-Performance Interoperability and the Transport Plane
+The boundary between the high-performance Rust cognition layer and the SwiftUI rendering layer represents a severe serialization bottleneck in native macOS development.1 Standard cross-language data bridging utilities, such as Mozilla's UniFFI, rely on thoroughly serializing and deserializing payloads into byte buffers for every single foreign function interface (FFI) call.1 Under the intense streaming conditions required to process 150 tokens per second from a locally quantized model via MLX-Swift, the central processing unit (CPU) overhead required for continuous UniFFI serialization completely consumes the frame budget, causing severe scrolling degradation and fundamentally violating the project's zero-latency mandate.1
+The implementation plan requires completely replacing UniFFI with BoltFFI for all high-frequency data paths.1 BoltFFI operates on a fundamentally different paradigm by generating zero-copy bindings.1 Primitives are passed as raw values, while complex structures containing primitive fields are passed as shared memory pointers that are safely readable by both the Rust backend and the Swift frontend simultaneously, entirely bypassing byte buffer serialization.12 Microbenchmarks reveal that an empty function call across the boundary requires less than a single nanosecond using BoltFFI, compared to over 1,400 nanoseconds using UniFFI, representing a speedup factor exceeding one thousand.12 Similarly, generating and passing an array of ten thousand complex coordinate structs requires approximately 62 microseconds via BoltFFI, compared to a staggering 12.8 milliseconds using UniFFI.12 By fully utilizing BoltFFI, the application can ingest massive Newline Delimited JSON (NDJSON) event streams from the local agent, parse them asynchronously in Rust, and emit strictly typed events over a high-speed AsyncSequence directly to the SwiftUI presentation layer with negligible overhead.1
+
+
+Operation Benchmark
+	BoltFFI Duration
+	UniFFI Duration
+	Computed Speedup
+	Primitive echo (echo_i32)
+	  
+ ns
+	  
+ ns
+	  
+ 12
+	1k loop increments
+	  
+ ns
+	  
+ ns
+	  
+ 12
+	1k struct generations
+	  
+ ns
+	  
+ ns
+	  
+ 12
+	10k struct generations
+	  
+ ns
+	  
+ ns
+	  
+ 12
+	The Model Context Protocol (MCP) acts as the exclusive linguistic boundary connecting the upstream agent plane to the Epistemos substrate.1 To prevent catastrophic panics within the complex JSON-RPC parsing layer from crashing the Swift host application and the Metal rendering loop, the MCP server (epistemos-hermes-mcp) must be compiled as a distinct, standalone Rust binary utilizing the rmcp crate and tokio asynchronous runtime.1 The server communicates with the host over standard input/output (stdio) transport, effectively eliminating network serialization overhead and ensuring that the server's lifecycle is strictly bound to the client process, terminating immediately upon host disconnect.1
+Because large language models and standard JSON-RPC parsers notoriously fail to handle raw 64-bit integers reliably, the Rust server must intercept all internal u64 slotmap indices, serializing them into opaque, base62-encoded string tokens prior to transmission across the MCP boundary.1 To ensure absolute capability honesty and prevent architectural drift, the agent's interaction with the substrate is strictly restricted to a seven-verb cognitive grammar.1 The first verb, graph.search_semantic, retrieves relevant nodes via localized vector embeddings, expanding contextual awareness based on conceptual proximity.1 The second, graph.search_fulltext, executes highly optimized lexical queries utilizing SQLite's FTS5 capabilities.1 The third, graph.get_node, fetches a singular entity by its exact base62-encoded identification token.1 The fourth, graph.traverse, permits the agent to explore graph topology by navigating typed edges, uncovering non-obvious multi-hop relations.1 The fifth, graph.create_node, allows the agent to synthesize entirely new entities, injecting them directly into the runtime arena.1 The sixth, graph.create_edge, empowers the agent to assert a permanently typed relationship between existing nodes, forging a durable trace of its reasoning process.1 Finally, graph.commit_session serves as a strict lifecycle verb that triggers the Write-Ahead Log checkpoint, permanently sealing the active subgraph and finalizing the provenance audit.1
+4. Execution Security and Sterile Sandboxing
+Providing an autonomous artificial intelligence agent with unrestricted terminal or filesystem access effectively guarantees eventual host compromise.1 Conventional multi-agent frameworks, including the native configuration of the Hermes Agent, execute Python scripts in local child processes. However, independent security audits and critical vulnerability disclosures (e.g., CVE-7071) reveal that these standard environments are dangerously porous; PYTHONPATH injections allow LLM-generated code to bypass regex redactions, import sensitive internal modules, and extract host environment secrets and API keys.1 To mitigate this lethal trifecta of untrusted inputs, privileged data access, and action capabilities, the architecture must implement a strict, multi-tiered sandboxing model.1
+To completely secure the system's internal reasoning loops, the architecture deprecates the Python execute_code faculty entirely. Instead, Epistemos introduces "Loop Profiles"—user-authored reasoning loops stored as editable graph nodes. These profiles elevate the agent from a reactive chatbot to a proactive, highly recursive thinker.1 Rather than executing in a shared-kernel container, these loops are instantiated within sterile Apple JavaScriptCore (JSC) or WebAssembly (wasmtime) isolates generated by the Rust backend.1 WASM and JSC operate on strict linear memory isolation and capability-based security models, possessing absolutely zero ambient host authority.1 A WASM module cannot access the filesystem or open network sockets unless specific capabilities are explicitly injected by the host prior to execution.1 Furthermore, to prevent malicious or hallucinated scripts from inducing infinite recursion or resource exhaustion, a strict 5000ms hardware watchdog timer forcefully terminates the isolate, safely returning a managed timeout error to the agent without destabilizing the broader application.1
+
+
+Sandbox Technology
+	Isolation Mechanism
+	Startup Latency
+	Host Kernel Access
+	Security Posture
+	Python Subprocess
+	OS Process (None)
+	  
+ms
+	Unrestricted
+	Critical (CVE-7071 vulnerable) 1
+	Standard Docker
+	Shared Kernel (cgroups)
+	  
+ms
+	Direct via Syscalls
+	Moderate (Kernel exploit risk) 1
+	Modal / gVisor
+	Userspace Kernel Intercept
+	  
+ms
+	Virtualized
+	High (Software enforced) 1
+	WASM / JSC
+	Linear Memory / Capability
+	  
+ms
+	Zero
+	Maximum (Mathematical) 1
+	For Tier-2 complex tasks requiring legitimate binary execution or heavy operating system manipulation, Epistemos bypasses the restrictive macOS App Store Sandbox. Apple's native sandboxing forbids the spawning of external subprocess command-line interfaces without cryptographic entitlements that package managers like Homebrew do not provide.1 Instead, the application is distributed as a Developer ID-notarized binary fortified with a Hardened Runtime.1 Agentic execution occurs within ephemeral Docker containers managed programmatically by the Rust bollard crate.1 These containers utilize a readonly_rootfs mounting strategy and enforce a strict network blackout (--network=none) immediately following dependency initialization, ensuring that even compromised agents cannot exfiltrate the user's private cognitive vault to external servers.1
+5. Apple Foundation Models and MLX-Swift Bridging
+To fulfill the mandate of offline, zero-cost, and private local inference without suffering the extreme latency characteristic of Python-based inference engines, the Epistemos hackathon implementation relies heavily on Apple Silicon's unified memory architecture via the MLX-Swift bridge and the new Apple Foundation Models (AFM) framework.16
+macOS 26 introduces the Foundation Models framework, providing direct native API access to Apple's 3-billion-parameter on-device SystemLanguageModel.19 While local models often struggle to consistently format JSON outputs for complex application states, AFM resolves this through constrained decoding.19 Standard "structured output" in most APIs is merely prompt engineering, where the model is asked to return valid JSON, frequently resulting in missing quotes or syntax errors that break parsing pipelines.21 Constrained decoding, however, restricts the model's token generation matrix to only those sequences that produce valid output according to a provided schema, meaning invalid tokens literally cannot be generated.21
+To implement this bypassing of brittle code files, the Swift architecture utilizes the @Generable macro.9 By annotating a Swift structure (such as ImplementationPlan or Synthesis) with @Generable, the framework automatically converts the type and format information into a JSON schema that guides the generation process.9 This allows the application to request structured data with a simple try await model.generate(ImplementationPlan.self, prompt: prompt) call.19 The response is mathematically guaranteed to map perfectly to the native Swift data structure, completely eliminating the need for manual parsing, error handling, or fallback protocols.19
+While the SystemLanguageModel handles highly structured semantic formatting, continuous background reasoning and heavy context tasks are delegated to the MLX-Swift framework, running local instances of heavily quantized models such as Qwen3.5-35B-A3B.1 MLX is an array framework specifically tuned for Apple silicon that exploits unified memory architecture, allowing matrix operations to run interchangeably on the CPU or the GPU without transferring memory buffers across the PCIe bus.25 This eliminates the severe latency penalties typically incurred when transferring large key-value caches between host RAM and dedicated video memory.25
+6. Advanced Sequence Modeling: TurboQuant and Blelloch Scans
+The utility of a cognitive substrate is fundamentally limited by the "context wall." As agents ingest massive documents, read deep conversation histories, and execute complex loops, every processed word must be stored as a high-dimensional vector in the Key-Value (KV) cache.2 Once the KV cache exceeds available GPU VRAM, the data spills into CPU RAM, triggering a catastrophic performance collapse from 100 tokens per second to fewer than 5 tokens per second due to PCIe bus latency.26 To maintain long-horizon reasoning, the architecture must implement aggressive KV cache compression algorithms.
+Historically, asymmetric quantization algorithms like KIVI achieved memory reductions by compressing the key cache per-channel (to accommodate fixed high-magnitude outlier channels) and the value cache per-token (to isolate errors during sparse attention summation) down to 2 bits.28 However, for the hackathon load-bearing slice on Apple M-series architecture, Epistemos must adopt the superior TurboQuant (ICLR 2026) algorithm.8 TurboQuant is a data-oblivious, training-free compression pipeline that achieves approximately 3.5 bits per value with near-optimal geometry preservation.8
+The algorithm operates in a two-stage pipeline. First, the PolarQuant phase applies a random Hadamard rotation to the data vectors.8 This rotation simplifies the data geometry by making the dimensions approximately independent (Beta-distributed), which enables optimal per-coordinate scalar quantization without the heavy memory overhead of codebook-based approaches like GPTQ or AWQ.8 Second, the Quantized Johnson-Lindenstrauss (QJL) phase applies a 1-bit residual correction, ensuring high-fidelity recall.30 Benchmarks on Apple Silicon (M4 and M3 Max) demonstrate that TurboQuant compresses the KV cache footprint of models like Qwen3-14B and Qwen3.5-35B by a factor of    to   .32 Crucially, it maintains generation speeds nearly identical to uncompressed fp16 caches (e.g., 42.88 t/s vs 45.34 t/s on an M3 Max at 128K context) by utilizing fused mixed-precision Metal kernels that perform on-the-fly dequantization within the GPU's shared memory.32
+
+
+Model & Context Size
+	Original KV Cache (f16)
+	TurboQuant KV Cache
+	Generation Speed
+	Compression Ratio
+	Qwen3-14B (8K Context)
+	  
+ MiB
+	  
+ MiB
+	  
+ t/s
+	  
+ 32
+	Qwen3.5-35B (128K Context)
+	  
+ MiB
+	  
+ MiB
+	  
+ t/s
+	  
+ 32
+	Qwen3.5-35B-A3B MoE
+	  
+ KB / token
+	  
+ KB / token
+	  
+ t/s
+	  
+ 33
+	Simultaneously, the architecture must leverage the speed of State Space Models (SSMs) like Mamba-2. Mamba-2 connects SSMs and linear attention through the Structured State Space Duality (SSD) framework.35 The SSD algorithm's block matrix decomposition allows the token-mixing operation to utilize tensor cores (specialized hardware units that perform matrix multiplication), achieving vast speedups over traditional recursive operations.35 To implement this natively on Apple Silicon, the codebase must deploy the Blelloch parallel prefix scan as a custom Metal compute shader.38 The Blelloch algorithm is a work-efficient    pattern that computes prefix sums via balanced binary tree traversals, consisting of a reduction phase (up-sweep) and a down-sweep phase.39 Utilizing this algorithm via Metal kernels allows Mamba-2's sequence mixing to be computed in parallel across    steps rather than sequential    loops, dramatically accelerating the prefill phase.38
+7. Neuromimetic Memory: Forgetting Curves and Concept Extraction
+Traditional Retrieval-Augmented Generation (RAG) architectures treat memory as a static filing cabinet, perpetually hoarding transient bug fixes, abandoned rules, and conversational noise.3 This hoarding leads to severe context rot, spiking API costs and degrading the agent's reasoning capacity.3 Epistemos approaches context management as a living biological substrate, implementing continuous raw thought memory decay algorithms.3
+Drawing upon Hermann Ebbinghaus's research on forgetting curves and the ACT-R cognitive activation model, the substrate assigns every graph node a continuous "strength" or activation score.41 This score is a composite of recency (exponential decay), frequency (sub-linear use count via spaced repetition), and initial salience (emotional or structural importance injected at encoding).6
+When a raw thought is ignored, its exponential decay curve pulls its activation score down. If the memory falls into the "danger zone" (e.g., an activation score between 0.15 and 0.35), it triggers a background consolidation process.6 If it remains unretrieved, it is eventually pruned or compressed.6 Conversely, every time the agent retrieves a node, its decay curve flattens, simulating spaced repetition and strengthening the neural pathway.40 To prevent semantic search from missing critical contextual facts that lack direct lexical overlap (the "logical neighbor" problem), Epistemos utilizes a graph-vector hybrid architecture.3 Benchmarks on the LoCoMo dataset demonstrate that this biological decay constraint achieves a 52% Recall@5 rate—nearly double the accuracy of stateless vector stores—while simultaneously cutting token waste by roughly 84% by aggressively filtering out stale history.3
+Storing flat vectors also strips relational context, leaving LLMs unable to grasp the "why" behind the "what".2 To achieve higher-order reasoning, Epistemos implements hierarchical concept extraction modeled heavily upon the neuroanatomy of the basal ganglia.44 In biological systems, the basal ganglia play a crucial role in learning and action selection, utilizing parallel cortico-thalamic loops to bind actions to underlying cognitive variables via a pallidothalamic motor gate.45
+Epistemos emulates this phenomenological model by utilizing the LLM to extract a hierarchical relation tree from unstructured documents.5 The system performs top-down, level-by-level hierarchical text classification.5 High-level abstractions exist as intermediate parent nodes, branching down into highly granular leaf nodes.5 When the agent initiates an action, it traverses this tree. By presenting the LLM with only a small, relevant subset of tree nodes at each level, the architecture mitigates the cognitive overload associated with massive, flat relation sets.5 To prevent error propagation across the hierarchy, the system employs a "prediction-then-verification" inference strategy, where the LLM selects a node, replaces it with its children, and re-verifies the selection iteratively.5 This provides the multi-hop structural context required for true cognitive reasoning.42
+8. Emotional Anchoring and Structured JSON Histories
+Creating a truly persistent, supportive agentic relationship requires moving beyond standard string-based conversation histories. Normal LLM chats provide no persistent parsing or account-wide memory overlay, resulting in "semantic vector drift" where the agent's personality and understanding of the user degrade over long context windows.48
+To maintain structural continuity and therapeutic pacing across interactions, Epistemos utilizes structured JSON conversation histories enriched with emotional anchors.7 Every message turn is logged as a distinct JSON object that explicitly specifies metadata such as affective dimensions—specifically valence (positive/negative emotion) and arousal (intensity level)—alongside the literal text.7 Furthermore, the system employs an Anchoring Context Window (ACW), where feedback or responses are anchored directly to specific text spans from past interactions.7
+This rigid JSON schema ensures that the model is continuously aware of the emotional depth signals of the conversation.7 Utilizing Strategy-Relevant Attention (SRA) metrics, the LLM reads these multidimensional tags to adjust its behavior dynamically.51 For instance, if the user exhibits persistent frustration, the system detects the high-arousal, negative-valence anchors in the JSON history. Rather than relying on polite pattern imitation or surface-level warmth, the model adapts its strategy, mitigating adversarial emotional variants and providing targeted, context-aware support.52
+9. Night Brain: Overnight Prompt Consolidation (SleepGate)
+A profound limitation of frozen transformer backbones is Proactive Interference (PI), a phenomenon where older memories degrade the retrieval accuracy of newer, conflicting information.4 In biological brains, this challenge is resolved through sleep-dependent memory consolidation—specifically, synaptic downscaling and targeted memory replay during slow-wave non-REM (SWS) sleep, which redistributes representations from the hippocampus to the neocortex.54
+Epistemos implements the "SleepGate" (ICLR 2026) framework—a programmed "Night Brain" consolidation loop operating over the LLM's Key-Value cache.4 When the application enters an idle state or the user’s device detects overnight downtime, the architecture initiates an offline batch process designed to eliminate context fragmentation.4
+The SleepGate framework introduces three critical mechanisms:
+1. Conflict-Aware Temporal Tagger: The system scans the daily session logs to detect when newly acquired facts contradict or supersede older entries (e.g., a user changing jobs).4
+2. Lightweight Forgetting Gate: It selectively evicts or severely compresses stale KV cache entries, simulating biological synaptic downscaling to manage finite memory capacity.4
+3. Consolidation Module: It merges overlapping traces into robust, generalized representations.4
+To ensure these consolidated facts survive beyond the transient KV cache, the Night Brain architecture injects extracted facts directly into the Multilayer Perceptron (MLP) weights of the local model utilizing Mass-Editing Memory in Transformers (MEMIT).58 Because standard Low-Rank Adaptation (LoRA) training passes severely degrade chat recall capabilities—a phenomenon referred to as the "alignment tax"—the system employs a cumulative fusing technique.58 Multiple small shifts are applied during successive sleep cycles, training on the already-fused model from the previous cycle, which drops the starting loss logarithmically.58 In experimental conditions with a 4-layer transformer, the SleepGate framework achieved 99.5% retrieval accuracy at a PI depth of 5, whereas baseline models (including StreamingLLM and full KV caches) collapsed below 18%, proving that biological consolidation provides an architectural solution that prompt engineering simply cannot match.4
+10. The Metal Render Pipeline: Visualizing Cognition
+The aesthetic and user experience mandate of Epistemos—described as "restraint masquerading as warmth"—demands that the entity graph functions as the visible working memory of the agent, providing theatrical, 120fps visual proof of cognition.1 Standard UI frameworks like SwiftUI, relying on CoreAnimation, suffer catastrophic allocation overhead when attempting to render physics simulations involving upwards of 10,000 nodes.1
+Consequently, the entire visual pipeline is offloaded to Apple's Metal framework.1 The event pipeline operates in a strictly non-blocking manner; while the CPU orchestrates data transfer, the GPU handles all spatial recalculations via a Metal Compute Shader.1 When the Rust substrate executes a cognitive action, it fires a GraphEvent across the BoltFFI boundary. This event is captured by an isolated Swift Actor (GraphEventStream), which instantly updates a triple-buffered Metal uniform array representing node states (color, scale, emission intensity).1
+These uniform arrays drive custom shaders that physically illuminate the macOS interface based on the agent's actions:
+* Pulse Shader (Vertex): Triggered by an MCP get_node call, the vertex shader applies a high-frequency scale multiplier and alpha interpolation, causing the targeted memory node to physically throb on the screen.1
+* Flash Edge Shader (Fragment): Triggered by an MCP traverse command, the fragment shader interpolates an emissive Cyan (#4FE0D2) color along the connecting lines, tracing the exact reasoning path of the agent.1
+* Glare Shader (Fragment): Triggered by a create_node event, the fragment shader applies a smoothstep diagonal function (calculating    mapped to a time variable) to pass a sharp, anti-aliased specular highlight over the newly synthesized sprite as its alpha phases from 0 to 1.1
+To preserve the hard-edged retro-pixel aesthetic of the chosen Berkeley Mono Pixel typeface, Multi-Channel Signed Distance Fields (MSDF) are explicitly disabled.1 The Metal sampler utilizes strict Point filtering (nearest-neighbor) interpolation, preventing the algorithms from artificially rounding the sharp corners of the pixel art.1
+11. Synthesis and Hackathon Execution Blueprint
+To secure victory at the Nous Research Hermes Hackathon, the engineering team must ruthlessly prioritize a "load-bearing slice." The objective is to demonstrate the uncompromising stability of the Provenance Plane, the speed of BoltFFI, and the striking visual proof of the Metal shaders, while laying the architectural foundation for advanced memory decay and consolidation.
+Phase 1: Substrate and Transport (Days 1-3)
+   * Instantiate the epistemos-hermes-mcp standalone binary utilizing the rmcp crate and tokio runtime over stdio transport. Implement the base62 encoding layer for u64 slotmap generations.1
+   * Discard UniFFI entirely. Implement BoltFFI zero-copy bindings to handle the AgentEventSink and map Rust tokio::sync::broadcast channels to the Swift AsyncSequence.1
+Phase 2: Security and Memory (Days 4-6)
+   * Deploy the wasmtime isolates for executing user-authored Loop Profiles, establishing strict 5000ms watchdog timeouts.1
+   * Inject the GraphSkillSource Python adapter into the Hermes plugin directory (~/.hermes/plugins/) to intercept filesystem writes and force skills to instantiate as queryable graph nodes.1
+   * Implement the Mnemex decay algorithm on the SQLite graph, applying exponential recency and sub-linear frequency scoring to prioritize node pruning.6
+Phase 3: Visuals and Generative UI (Days 7-8)
+   * Bind the @Generable Swift macro to the Apple Foundation Models SystemLanguageModel to mathematically ensure JSON schema compliance for the A2UI interface generation.9
+   * Implement the @ViewBuilder registry in SwiftUI, mapping schemas like RawThought and Recall to views without utilizing AnyView.1
+   * Compile the GraphNodes.metal vertex (pulse) and fragment (flash_edge, glare) shaders, ensuring the triple-buffered uniform arrays synchronize without tearing during heavy JSON-RPC loads.1
+Phase 4: Night Brain and Polish (Days 9-10)
+   * Implement a rudimentary "SleepGate" offline script that triggers the WAL checkpoint via commit_session and performs basic conflict-aware temporal tagging and consolidation.1
+   * Record the critical 90-second hero video demonstrating the user typing a cross-domain query while the macOS Metal UI pulses precisely at 120fps in sync with the Hermes JSON-RPC tool calls, proving definitively that the graph is the agent's working memory.1
+By adhering strictly to this blueprint, the development team will deliver a localized, sovereign workspace operating system that physically demonstrates deterministic cognition, transcending the fundamental limitations of the probabilistic chatbot wrapper.
+Works cited
+   1. AI App Architecture Consensus Building.txt
+   2. From recall to reasoning: How context graphs upgrade an agent's brain - Neo4j, accessed April 26, 2026, https://neo4j.com/blog/genai/from-recall-to-reasoning-how-context-graphs-upgrade-an-agents-brain/
+   3. RAG is a hoarder: Using the Ebbinghaus forgetting curve for AI memory : r/mcp - Reddit, accessed April 26, 2026, https://www.reddit.com/r/mcp/comments/1sr03xq/rag_is_a_hoarder_using_the_ebbinghaus_forgetting/
+   4. [2603.14517] Learning to Forget: Sleep-Inspired Memory Consolidation for Resolving Proactive Interference in Large Language Models - arXiv, accessed April 26, 2026, https://arxiv.org/abs/2603.14517
+   5. HCRE: LLM-based Hierarchical Classification for Cross-Document Relation Extraction with a Prediction-then-Verification Strategy - arXiv, accessed April 26, 2026, https://arxiv.org/html/2604.07937v2
+   6. GitHub - prefrontal-systems/cortexgraph: Temporal memory system for AI assistants with human-like forgetting curves. All data stored locally in human-readable formats: JSONL for short-term memory, Markdown (Obsidian-compatible) for long-term. Memories naturally decay unless reinforced. Features knowledge graphs, smart prompting, and MCP server integration for Claude., accessed April 26, 2026, https://github.com/prefrontal-systems/cortexgraph
+   7. AnchoredAI: Contextual Anchoring of AI Comments Improves Writer Agency and Ownership, accessed April 26, 2026, https://arxiv.org/html/2509.16128v1
+   8. feat(ruvllm): TurboQuant KV Cache & Vector Compression — Full Implementation Plan · Issue #298 · ruvnet/RuVector - GitHub, accessed April 26, 2026, https://github.com/ruvnet/RuVector/issues/298
+   9. Generable | Apple Developer Documentation, accessed April 26, 2026, https://developer.apple.com/documentation/foundationmodels/generable
+   10. Machine Learning & AI - Apple Developer, accessed April 26, 2026, https://developer.apple.com/machine-learning/
+   11. A curated list of awesome Swift Macros - GitHub, accessed April 26, 2026, https://github.com/krzysztofzablocki/Swift-Macros
+   12. BoltFFI - GitHub, accessed April 26, 2026, https://github.com/boltffi/boltffi
+   13. BoltFFI: a high-performance Rust bindings and packaging toolchain for Kotlin, Swift, Java, and TS - Reddit, accessed April 26, 2026, https://www.reddit.com/r/Kotlin/comments/1s8kziq/boltffi_a_highperformance_rust_bindings_and/
+   14. BoltFFI Docs | BoltFFI, accessed April 26, 2026, https://boltffi.dev/
+   15. Question about Apple Silicon and macOS support workaround · Issue #130 · state-spaces/mamba - GitHub, accessed April 26, 2026, https://github.com/state-spaces/mamba/issues/130
+   16. A guide to bridging Apple's Foundation Models to your Hybrid iOS Applications for offline, private, and free text generation. | by Abdelwahed Farabi | Medium, accessed April 26, 2026, https://medium.com/@abdelwahed.farabi/a-guide-to-bridging-apples-foundation-models-to-your-hybrid-ios-applications-for-offline-private-89aa35250d53
+   17. Foundation Models framework -- is anyone actually shipping with it yet? - Reddit, accessed April 26, 2026, https://www.reddit.com/r/iOSProgramming/comments/1s9h97f/foundation_models_framework_is_anyone_actually/
+   18. MLX - Apple Open Source, accessed April 26, 2026, https://opensource.apple.com/projects/mlx
+   19. Foundation Models Guided Generation with Apple's iOS 26 Framework - DEV Community, accessed April 26, 2026, https://dev.to/iniyarajan86/foundation-models-guided-generation-with-apples-ios-26-framework-2m09
+   20. SystemLanguageModel | Apple Developer Documentation, accessed April 26, 2026, https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel
+   21. Beyond JSON: Picking the Right Format for LLM Pipelines - Medium, accessed April 26, 2026, https://medium.com/@michael.hannecke/beyond-json-picking-the-right-format-for-llm-pipelines-b65f15f77f7d
+   22. Structured Output Generation in LLMs: JSON Schema and Grammar-Based Decoding | by Emre Karatas | Medium, accessed April 26, 2026, https://medium.com/@emrekaratas-ai/structured-output-generation-in-llms-json-schema-and-grammar-based-decoding-6a5c58b698a6
+   23. Apple Foundation Models: @Generable Explained - YouTube, accessed April 26, 2026, https://www.youtube.com/watch?v=jXwDlvkEM4E
+   24. Exploring the Foundation Models framework - Create with Swift, accessed April 26, 2026, https://www.createwithswift.com/exploring-the-foundation-models-framework/
+   25. Exploring LLMs with MLX and the Neural Accelerators in the M5 GPU, accessed April 26, 2026, https://machinelearning.apple.com/research/exploring-llms-mlx-m5
+   26. Context Kills VRAM: How to Run LLMs on consumer GPUs | by Lyx | Medium, accessed April 26, 2026, https://medium.com/@lyx_62906/context-kills-vram-how-to-run-llms-on-consumer-gpus-a785e8035632
+   27. Google's new TurboQuant algorithm speeds up AI memory 8x, cutting costs by 50% or more, accessed April 26, 2026, https://venturebeat.com/infrastructure/googles-new-turboquant-algorithm-speeds-up-ai-memory-8x-cutting-costs-by-50
+   28. KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache - GitHub, accessed April 26, 2026, https://raw.githubusercontent.com/mlresearch/v235/main/assets/liu24bz/liu24bz.pdf
+   29. KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache - arXiv, accessed April 26, 2026, https://arxiv.org/html/2402.02750v2
+   30. TurboQuant Explained: 3-Bit KV Cache at 6× Compression - DecodeTheFuture, accessed April 26, 2026, https://decodethefuture.org/en/turboquant-vector-quantization-kv-cache/
+   31. TurboQuant: Redefining AI efficiency with extreme compression - Google Research, accessed April 26, 2026, https://research.google/blog/turboquant-redefining-ai-efficiency-with-extreme-compression/
+   32. TurboQuant on Apple Silicon: real benchmarks on Mac Mini M4 16GB and M3 Max 48GB : r/ollama - Reddit, accessed April 26, 2026, https://www.reddit.com/r/ollama/comments/1sdkb8b/turboquant_on_apple_silicon_real_benchmarks_on/
+   33. TurboQuant - Extreme KV Cache Quantization · ggml-org llama.cpp · Discussion #20969, accessed April 26, 2026, https://github.com/ggml-org/llama.cpp/discussions/20969
+   34. TURBOQUANT: ONLINE VECTOR QUANTIZATION WITH NEAR-OPTIMAL DISTORTION RATE - OpenReview, accessed April 26, 2026, https://openreview.net/pdf?id=tO3ASKZlok
+   35. Mamba-2: Algorithms and Systems - Princeton Language and Intelligence, accessed April 26, 2026, https://pli.princeton.edu/blog/2024/mamba-2-algorithms-and-systems
+   36. Revolutionizing Code Completion with Codestral Mamba, the Next-Gen Coding LLM, accessed April 26, 2026, https://developer.nvidia.com/blog/revolutionizing-code-completion-with-codestral-mamba-the-next-gen-coding-llm/
+   37. State Space Duality (Mamba-2) Part III - The Algorithm | Tri Dao, accessed April 26, 2026, https://tridao.me/blog/2024/mamba2-part3-algorithm/
+   38. mamba-triton/p_scan.py at master - GitHub, accessed April 26, 2026, https://github.com/sustcsonglin/mamba-triton/blob/master/p_scan.py
+   39. Chapter 39. Parallel Prefix Sum (Scan) with CUDA - NVIDIA Developer, accessed April 26, 2026, https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+   40. Show HN: AI memory with biological decay (52% recall) | Hacker News, accessed April 26, 2026, https://news.ycombinator.com/item?id=47914367
+   41. AI Agent Memory Part 2: The Case for Intelligent Forgetting - DEV Community, accessed April 26, 2026, https://dev.to/sudarshangouda/ai-agent-memory-part-2-the-case-for-intelligent-forgetting-4i48
+   42. Built an AI memory system based on cognitive science instead of vector databases - Reddit, accessed April 26, 2026, https://www.reddit.com/r/artificial/comments/1rrss36/built_an_ai_memory_system_based_on_cognitive/
+   43. The Forgetting Curve: How AI Flashcards Combat Memory Decay - StudyCards AI, accessed April 26, 2026, https://studycardsai.com/blog/forgetting-curve-ai-flashcards-memory-retention
+   44. Learning and Representation of Hierarchical Concepts in Hippocampus and Prefrontal Cortex - PubMed, accessed April 26, 2026, https://pubmed.ncbi.nlm.nih.gov/34330775/
+   45. The neural basis for uncertainty processing in hierarchical decision making - PMC - NIH, accessed April 26, 2026, https://pmc.ncbi.nlm.nih.gov/articles/PMC12531367/
+   46. Hierarchical binding of cognition to action in the human basal ganglia–thalamic circuit, accessed April 26, 2026, https://www.biorxiv.org/content/10.64898/2026.02.10.703559v1
+   47. Hierarchical Text Classification and Its Foundations: A Review of Current Research - MDPI, accessed April 26, 2026, https://www.mdpi.com/2079-9292/13/7/1199
+   48. Some thoughts on human-AI relationships - Page 2 - OpenAI Developer Community, accessed April 26, 2026, https://community.openai.com/t/some-thoughts-on-human-ai-relationships/1279464?page=2
+   49. From Emotion Classification to Emotional Reasoning: Enhancing Emotional Intelligence in Large Language Models - arXiv, accessed April 26, 2026, https://arxiv.org/html/2601.01407v1
+   50. Update: Built a Brain-Inspired Multi-Agent System - 8 Days Later It Has Theory of Mind, Episodic Memory, and Actually Predicts Your Intentions , dreams and self reflects. : r/ArtificialInteligence - Reddit, accessed April 26, 2026, https://www.reddit.com/r/ArtificialInteligence/comments/1opovgw/update_built_a_braininspired_multiagent_system_8/
+   51. Steering Conversational Large Language Models for Long Emotional Support Conversations - ACL Anthology, accessed April 26, 2026, https://aclanthology.org/2025.sicon-1.3.pdf
+   52. HEART: A Unified Benchmark for Assessing Humans and LLMs in Emotional Support Dialogue - arXiv, accessed April 26, 2026, https://arxiv.org/html/2601.19922v2
+   53. Learning to Forget: Sleep-Inspired Memory Consolidation for Resolving Proactive Interference in Large Language Models - arXiv, accessed April 26, 2026, https://arxiv.org/html/2603.14517v1
+   54. Does overnight memory consolidation support next-day learning? - PMC - NIH, accessed April 26, 2026, https://pmc.ncbi.nlm.nih.gov/articles/PMC12332499/
+   55. Your Agent Needs a Bedtime - by Andrew Orobator - Medium, accessed April 26, 2026, https://medium.com/@andreworobator/your-agent-needs-a-bedtime-cc594be3f993
+   56. Memory & Task Systems: Giving Your AI Agent a Brain - Graham Mann, accessed April 26, 2026, https://grahammann.net/blog/memory-and-task-systems-giving-your-ai-agent-a-brain
+   57. Titans + MIRAS: Helping AI have long-term memory - Google Research, accessed April 26, 2026, https://research.google/blog/titans-miras-helping-ai-have-long-term-memory/
+   58. Sleeping LLM: persistent memory for local LLMs through weight editing and sleep consolidation : r/LLMDevs - Reddit, accessed April 26, 2026, https://www.reddit.com/r/LLMDevs/comments/1rhqmd8/sleeping_llm_persistent_memory_for_local_llms/

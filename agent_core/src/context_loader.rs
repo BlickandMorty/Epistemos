@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-use crate::skill_router::SkillRouter;
+use crate::hermes::skills::SkillRouter;
 use crate::storage::hyperbolic_topology::{
     build_topology, should_pierce_blanket, VaultNodeMetrics,
 };
@@ -54,7 +54,7 @@ impl SessionContext {
             if layer.content.is_empty() {
                 continue;
             }
-            let tag = layer.label.replace(':', "_").replace(' ', "_");
+            let tag = layer.label.replace([':', ' '], "_");
             parts.push(format!("<{tag}>\n{}\n</{tag}>", layer.content.trim()));
         }
 

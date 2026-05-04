@@ -156,11 +156,6 @@ struct SkillEvolutionResult: Sendable {
 
 // MARK: - Swift Compatibility Bridge
 
-extension VaultFactFfi: @unchecked Sendable {}
-extension ContradictionFfi: @unchecked Sendable {}
-extension SessionFolderInfoFfi: @unchecked Sendable {}
-extension SkillRegistryEntryFfi: @unchecked Sendable {}
-
 typealias VaultFactFFI = VaultFactFfi
 typealias ContradictionFFI = ContradictionFfi
 typealias SessionFolderInfoFFI = SessionFolderInfoFfi

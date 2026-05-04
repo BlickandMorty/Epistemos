@@ -161,6 +161,16 @@ creation goes from creating a SwiftData row to creating a
 
 ### Stage E — Simulation assets (the visual canon)
 
+**2026-05-04 user correction — Tamagotchi means creatures, not icons.**
+Stage E is not satisfied by SF Symbols, generic orbs, static cards, or an
+abstract "body grammar" checkbox. The intended product surface is small
+Tamagotchi-like companion creatures with a simple styleable avatar grammar.
+They live on the Landing Farm, wander/idle-walk deterministically inside
+bounded paths, and later appear in the graph surface as companion presences.
+Every Stage E slice must search for: `tamagotchi`, `companion`, `farm`,
+`avatar`, `creature`, `pet`, `body grammar`, `walk`, `roam`, `wander`,
+`Landing Farm`, `Graph Live Theater`, and `CompanionView` before coding.
+
 **E.1 — Author `SIMULATION_ASSETS_DOCTRINE_2026_05_XX.md`.**
 Spec each body grammar visually:
 - **Block:** square outline + slow rotational micro-pulse +
@@ -182,6 +192,20 @@ the user's existing discipline.
 Replace SF Symbols with Canvas/Metal renderers per the asset
 doctrine. The current `CompanionView.systemImageName` becomes
 `bodyKind.renderer(at: timeline, accent: ..., reduceMotion: ...)`.
+The first renderer slice must make the creatures recognizable as
+Tamagotchi-style companions, not decorative app icons.
+
+**E.3 — Implement deterministic Landing Farm roaming.**
+After `CompanionView` renders native bodies, add a roaming/walking layer over
+the Landing Farm. Movement is seeded from companion identity/session state,
+bounded to the farm, reduce-motion collapses to static pose + state badge, and
+the implementation must avoid per-frame allocations and `repeatForever`.
+
+**E.4 — Plan Graph companion presence without touching graph internals.**
+Graph companions are a follow-up projection of the same `CompanionRegistry`.
+They may orbit/idle near relevant graph nodes, but the first graph slice must
+avoid `MetalGraphView.swift`, `HologramController.swift`, and graph
+physics/render internals unless a dedicated graph deliberation approves it.
 
 ### Stage F — Restore App Group + ship MAS
 

@@ -44,6 +44,24 @@ struct MeaningAnchor: Codable, Sendable {
 }
 
 // MARK: - Meaning Anchor Service
+//
+// RRF Fusion Phase 4 wiring site §8 — Meaning-anchor retrieval boost.
+// When an active anchor is set, its `relatedNoteIds` represent the
+// user's pinned attention focus. RRF Phase 4 leaves this as a
+// breadcrumb because the current `FusionWeights` API exposes only
+// per-source multipliers, not per-doc pinned boosts. Phase 5 plan
+// (`docs/RRF_FUSION_PROMPT.md` §"Phase 5") + Phase 6 polish:
+//   1. Extend `FusionWeights` with `pinnedParentDocIDs: Set<String>`
+//      + `pinnedBoost: Double` (default 0.3).
+//   2. The fused SQL gets an extra `+ :pinnedBoost * pinned_match`
+//      term in the `raw_fused_score` calc (where `pinned_match` is
+//      `CASE WHEN entity_id IN (:pinned_ids) THEN 1.0 ELSE 0.0 END`).
+//   3. Surfaces that have an active anchor (chat coordinator, mini-
+//      chat composer) read `currentAnchor.relatedNoteIds` and pass
+//      them to `searchIndex.fusedSearch(weights:)`.
+// Until then, the anchor still influences the prompt directly via
+// `formatForPrompt()` (line 33-43 above) — retrieval bias is the
+// nice-to-have follow-on, not load-bearing for Phase 4 acceptance.
 
 @MainActor
 final class MeaningAnchorService {

@@ -1,0 +1,27 @@
+[package]
+name = "agent_core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+hmac = "0.12"
+sha2 = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+bitflags = { version = "2.6", features = ["serde"] }
+postcard = { version = "1.0", features = ["use-std"] }
+thiserror = "2.0"
+subtle = "2.5"
+getrandom = "0.2"
+
+# Optional UniFFI support — enable when bindings are generated
+[features]
+default = []
+uniffi = ["dep:uniffi"]
+
+[dependencies.uniffi]
+version = "0.28"
+optional = true
+
+[dev-dependencies]
+# Tests use std::thread::sleep for expiry validation

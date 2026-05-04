@@ -1,0 +1,267 @@
+﻿Neural-Symbolic Intelligence and Persistent State Architectures: A Multi-Agent Mamba 2 System for Apple Silicon
+The landscape of personal knowledge management (PKM) has reached a critical inflection point, where the sheer volume of digital information has outpaced the retrieval and reasoning capacities of traditional hierarchical and networked note-taking systems. Modern digital work entails processing massive context windows—often exceeding one million tokens—that represent a lifetime of research, communication, and cognitive output.1 However, the foundational engine of contemporary artificial intelligence, the Transformer architecture, faces a quadratic scaling bottleneck that makes such long-context applications prohibitively expensive and memory-intensive for local, on-device execution.1 The memory requirements of the Key-Value (KV) cache grow linearly with sequence length, leading to situations where a million-token context would require upwards of 160 gigabytes of memory, a requirement that far exceeds the hardware specifications of standard consumer computing devices.1
+The introduction of Mamba 2 and the theoretical unification of State Space Models (SSMs) with linear attention through the Structured State Space Duality (SSD) framework provides a transformative path forward.1 By enabling linear scaling in time and memory, Mamba 2 allows for the creation of a "cognitive exoskeleton"—a high-fidelity, persistent memory system that runs natively on Apple Silicon.1 This architecture, when integrated with a temporal knowledge graph vault and a multi-agent orchestration layer, shifts the role of the PKM from a passive repository to an active, goal-driven cognitive partner.8 The technical realization of this vision requires a rigorous integration of Swift 6’s safe concurrency models, Rust’s low-level systems performance, and Metal’s hardware-aware kernel optimizations to exploit the unique properties of the M-series system-on-a-chip (SoC).1
+Theoretical Foundations of State Space Duality in Mamba 2
+The shift from the original Mamba architecture to Mamba 2 represents a move toward "hardware-aware" algorithmic design that addresses the limitations of the initial selective scan mechanism.1 While Mamba 1 introduced input-dependent selectivity to SSMs, its core operation was inherently sequential, making it difficult to map efficiently onto the massively parallel matrix multiplication units—such as Apple’s AMX—that define modern neural accelerators.1 Mamba 2 solves this by introducing the State Space Duality (SSD) framework, which demonstrates that structured SSMs can be viewed as a form of linear attention.2
+The mathematical core of an SSM involves mapping an input sequence    to a latent state representation   , which is then used to derive an output sequence   .1 This is governed by a pair of linear ordinary differential equations:
+  
+
+  
+
+5
+In Mamba 2, the transition matrix    is restricted to a scalar-identity structure,   . This simplification allows the entire recurrence to be reformulated as a single transformation using a semiseparable matrix   , which can be computed using either a linear-time    recurrence or a quadratic-time    matrix multiplication.2 For a local PKM system, this duality is crucial: the    prefill phase can be accelerated using parallel matrix multiplication on the GPU, while the    recurrence enables near-instantaneous, constant-memory token generation during the interactive agentic loop.1
+
+
+Feature
+	Transformer
+	Mamba 2 (SSD)
+	PKM Implication
+	Computational Complexity
+	  
+
+	  
+
+	Allows 1M+ token context without slowdown.
+	Inference Memory
+	  
+ (KV Cache)
+	  
+ (Fixed State)
+	Constant memory footprint regardless of history.
+	Scaling Efficiency
+	Quadratic
+	Linear
+	Enables "forever memory" on mobile/edge hardware.
+	Retrieval Mechanism
+	Global Attention
+	Selective Recurrence
+	Efficient filtering of relevant vs. noise information.
+	2
+	
+
+	
+
+	
+
+	The selective mechanism in Mamba 2 is driven by input-dependent parameters   ,   , and   , which allow the model to dynamically determine what information to retain in the hidden state and what to discard.14 In the context of the Epistemos vault, this means the model can learn to "ignore" administrative noise while prioritizing the "memory" of core creative insights, effectively acting as a high-dimensional filter for the user’s cognitive artifacts.15
+Metal Kernel Architecture and Apple Silicon Optimization
+Realizing the theoretical throughput of Mamba 2 on Apple Silicon requires a deep understanding of the M3 and M4 Unified Memory Architecture (UMA). Unlike traditional discrete GPU systems, Apple’s UMA allows for zero-copy buffer sharing between the CPU, GPU, and Neural Engine, eliminating the latency overhead associated with memory transfers across a PCIe bus.1 This architecture is particularly advantageous for Mamba 2, which is largely memory-bandwidth bound during the inference phase.1
+Register Residency and the Blelloch Scan
+The performance of the selective scan is dictated by how effectively the kernel can utilize the massive 208 KiB register file per SIMD-group on the M-series chips.1 To avoid the ~500 cycle latency of global device memory, the hidden state    must remain resident in registers or the 32 KiB threadgroup memory as much as possible.1
+The implementation utilizes a parallel associative scan—specifically the Blelloch algorithm—to handle the state-passing step across the million-token sequence.1 The Blelloch scan involves an up-sweep phase, where partial state transitions are aggregated into a tree structure, followed by a down-sweep phase to propagate these transitions back to each token position.1 In Metal, intra-SIMD group communication is optimized using simd_shuffle functions, which allow threads to exchange data in 1-2 cycles, far outperforming standard threadgroup memory access.1
+Tiling and Threadgroup Constraints
+Optimal tiling is essential for maximizing hardware utilization while respecting the 32 KiB threadgroup memory limit of the M-series GPUs.1 For the SSD matrix multiplications, a 16x16 or 32x32 tile size is often employed to balance arithmetic intensity with the pressure on the register file.1 Research indicates that for fused Mamba 2 kernels, a chunk size of 128 tokens (Q=128) provides the optimal balance; increasing the chunk size to 256 often leads to register spillage, which negates the performance gains from parallelization.1
+
+
+Hardware Component
+	Capacity (M3/M4)
+	Role in Mamba 2 Optimization
+	Register File
+	~208 KiB per SIMD-group
+	Stores the persistent hidden state   .
+	Threadgroup Memory
+	32 KiB
+	Inter-SIMD exchange for state passing.
+	System Level Cache
+	8-96 MB
+	Caches intermediate transitions and model weights.
+	Memory Bandwidth
+	Up to 546 GB/s
+	Limits the generation speed (tok/sec).
+	1
+	
+
+	
+
+	Stockham FFT for Causal Convolutions
+Mamba blocks incorporate 1D causal convolutions to capture local dependencies before the global state space processing.1 While Apple’s vDSP library offers highly tuned FFT implementations for the CPU, using it in a Metal pipeline introduces expensive synchronization points and CPU-GPU data transfers.1
+The Epistemos system implements a custom Radix-8 Stockham FFT compute shader, which has been shown to outperform vDSP by 29% on Apple Silicon.1 The Stockham formulation is specifically chosen for GPU execution because it eliminates the bit-reversal permutation step required by the Cooley-Tukey algorithm, absorbing index transpositions into the natural memory access stages and ensuring coalesced patterns that saturate the memory controller.1 For the massive context windows required by the vault, the FFT is computed in a four-step decomposition to handle sequences exceeding the local threadgroup memory limits.1
+Language Integration: Swift 6 Concurrency and Rust Systems Safety
+The software architecture of the PKM system relies on a multi-language stack where a Swift-based user interface interacts with a high-performance Rust inference engine. This design allows the application to balance the rapid development of modern UIs with the rigorous safety and performance requirements of on-device LLM execution.1
+The Rust-Metal Bridge and Memory Ownership
+Rust is the ideal language for managing the low-level lifecycle of Metal buffers and model weights. By using the metal-rs crate, the system can manipulate GPU resources directly without the overhead of an intermediate Objective-C or C++ layer.1 Rust’s ownership model is critical here; it ensures that large 4-bit quantized model weights (typically 3.5GB for a 7B parameter model) are managed safely, preventing double-frees or data races when multiple agents attempt to access the model concurrently.1
+FFI (Foreign Function Interface) overhead is minimized through the use of high-performance binding generators like swift-bridge or boltffi, which reduce call latency to sub-nanosecond levels. This enables the generation loop to maintain a tight synchronization between the GPU’s logit calculation and the CPU’s sampling logic, a prerequisite for the 120+ tokens per second target.1
+Swift 6 Actors and Distributed Agent Systems
+Swift 6 introduces strict concurrency checking and the actor model, which are foundational for a multi-agent PKM.17 In the Epistemos architecture, each agent is represented as a Swift actor, ensuring that its internal state and goal-planning logic are isolated and protected from concurrent access.19
+For multi-device or cloud-hybrid scenarios, Swift 6’s distributed actor framework allows these agents to communicate across process or network boundaries using the same asynchronous messaging paradigm as local actors.20 This location transparency means an agent could theoretically "move" from an iPhone to a Mac to access more compute power without changing its underlying implementation.20
+
+
+Concurrency Tool
+	Function in PKM Architecture
+	Reliability Benefit
+	Swift Actors
+	Manages local agent state (e.g., current goal).
+	Eliminates data races at compile time.
+	Task Groups
+	Parallel retrieval across multiple vault sources.
+	Ensures structured cleanup and error propagation.
+	Sendable Protocol
+	Safely passes context chunks between threads.
+	Prevents accidental sharing of mutable state.
+	Distributed Actors
+	Cross-device agent coordination.
+	Simplifies complex multi-process networking.
+	17
+	
+
+	
+
+	The integration of MainActor ensures that agent outputs are streamed directly into the SwiftUI state for real-time UI updates, providing a responsive experience even as the model performs complex "latent reasoning" in the background.17
+The Temporal Knowledge Graph Vault
+A neural state alone is insufficient for a rigorous PKM system; it requires a structured, symbolic layer to ensure factuality, multi-hop reasoning, and long-term provenance.3 The vault is implemented as a temporal knowledge graph, utilizing the Graphiti and Zep frameworks to track how knowledge evolves over time.24
+Bi-Temporal Fact Management
+Unlike static databases, a temporal knowledge graph stores facts with validity windows.24 When information is updated—for instance, a user changes a theory in a research note—the system invalidates the previous relationship rather than deleting it.24 This bi-temporal modeling tracks both the time an event occurred and the time the information was recorded in the vault, allowing for complex historical queries like "What did I believe about the SSD framework before I read the Mamba 2 paper?".24
+Multi-Tier Graph Architecture
+The graph is structured into a hierarchical memory model that mirrors human cognitive processes:
+1. Episode Subgraph: A non-lossy store of raw data (messages, notes, transcripts) that preserves full provenance.24
+2. Semantic Entity Subgraph: A layer of resolved entities and their typed relationships (e.g., "Mamba 2" -> "improves upon" -> "Mamba 1").24
+3. Community Subgraph: High-level clusters of related entities, providing global summarization and a macro-view of the user’s knowledge landscape.24
+By using hybrid retrieval—combining semantic embeddings, keyword (BM25) search, and graph traversal—the system can achieve high-precision results even in dense, highly structured environments like rigid technical ontologies.24
+
+
+Retrieval Mode
+	Mechanism
+	Benefit
+	Semantic
+	Vector similarity of embeddings.
+	Finds related concepts across different terminology.
+	Lexical (BM25)
+	Exact keyword matching.
+	High precision for specific terms or names.
+	Traversal
+	Following typed edges in the graph.
+	Enables multi-hop reasoning (connecting A to C via B).
+	Hybrid
+	Combined scoring of all modes.
+	Balances broad coverage with deep relational retrieval.
+	23
+	
+
+	
+
+	Autonomous Agentic Reasoning and Traversal Strategies
+The multi-agent layer acts as the "brain" of the vault, transforming the knowledge graph from a static library into an executable workforce.9 These agents are specialized for different stages of the knowledge lifecycle, from capture and normalization to complex synthesis and critique.8
+Adaptive Retriever of Knowledge (ARK)
+One of the most profound agentic features is the Adaptive Retriever of Knowledge (ARK). ARK gives the model control over the breadth-depth tradeoff in search.23 For queries dominated by natural language description, ARK emphasizes breadth through global lexical search.23 For queries requiring specific factual links, it performs multi-hop neighborhood exploration, alternating between node discovery and relationship expansion to follow the relational structure of the graph.23 This agentic control prevents the "shallow retrieval" problem common in standard RAG systems, where the model only finds contextually similar text chunks rather than the specific relational evidence needed to ground a conclusion.23
+Reflective Traversal and Feedback Loops
+To navigate dense ontologies where every node has significant interconnected value, the system employs "Reflective Agents".26 These agents integrate a feedback mechanism that informs them of their general progress and tool utilization during the traversal process.26 By reflecting on whether a particular graph path is yielding relevant information, the agent can prune its own search space in real-time, significantly increasing the efficiency of complex multi-step reasoning tasks.26
+Synthetic Critique and Self-Correction
+During the note-taking and synthesis phase, a "Critic" agent provides "actionable revision suggestions".29 This iterative "generate-review-refine" cycle uses supervised fine-tuning (SFT) data converted from early-stage failures to teach the model how to perceive mistakes in its own logic or structure.29 This synthetic critique mechanism ensures that the knowledge artifact being produced is not just a summary, but a coherent, evidence-grounded synthesis that meets specific structural and semantic criteria.29
+
+
+Agent Strategy
+	Description
+	Application in Epistemos
+	ARK
+	Dynamic control over breadth/depth search.
+	Retrieves deep factual evidence across million-token contexts.
+	Reflective Loop
+	Self-assessment of traversal efficiency.
+	Navigates dense technical ontologies without getting lost.
+	Synthetic Critique
+	Internal evaluation-correction mechanism.
+	Automates the refinement of research drafts and summaries.
+	Task-Graph
+	Parallel tool execution based on sub-task dependencies.
+	Orchestrates complex workflows (e.g., summarize -> link -> check).
+	23
+	
+
+	
+
+	Profound Features: The Cognitive Exoskeleton Experience
+The ultimate objective of integrating Mamba 2 with local agents is to provide a "cognitive exoskeleton"—a system that amplifies human reason through structural reinforcement.7 This is manifested through several advanced features that redefine the interaction between the user and their knowledge base.
+Latent Reasoning and Continuous State "Thinking"
+A major innovation in the Mamba-based architecture is "Latent Reasoning." Unlike Transformer-based models like OpenAI’s o1, which generate visible "Chain-of-Thought" (CoT) tokens that consume VRAM and expand the context window, a Mamba 2 model can "think" by spinning its fixed-size continuous state    in a loop.33
+This mechanism uses "spacer tokens" as internal clock cycles. During each loop, the state    evolves, but no tokens are emitted.33 A small MLP called the "HaltingHead" monitors the geometry of the state and determines when the internal computation has reached a sufficient level of certainty to stop and decode the final answer.33 This allows for "Adaptive Compute," where the model autonomously spends more cycles on hard logical deduction (e.g., ARC-Challenge) than on simple completion (e.g., HellaSwag).33 Mechanically, this preserves    memory complexity, meaning the model can "ponder" for hundreds of cycles with zero growth in VRAM usage.33
+Ephemeral Ghost Links and Fading Thoughts
+To mirror human neurobiology, the Epistemos vault incorporates "Ghost Links"—visual representations of semantic associations that have not yet been formalized as facts in the knowledge graph.35 These links are generated on-the-fly as agents identify "Semantic Pathways" through the model's hidden layers.37
+These associations follow a decay function based on the principle of "Working Memory".15 If the user does not engage with or reinforce a ghost link, it gradually fades from the interface, preventing the visual graph from becoming cluttered with "stale" or irrelevant connections.15 This allows the PKM to act as a dynamic "externalized representation" that shifts focus in real-time as the user's intent evolves.7
+Epistemic Status and Verification
+In an age of "Synthetic Truth," the Epistemos system prioritizes epistemic governance.28 Every piece of generated knowledge is assigned an "Epistemic Status," indicating its level of certainty and the robustness of its evidence base.28 The system uses agentic workflows grounded in the knowledge graph to verify claims, flagging contradictions and providing audit-ready explanations for why a particular connection was made.9
+This shift toward "trustworthy AI agents" is supported by technical provenance systems that treat every interaction as an "episode," ensuring that even if the neural model generates a creative analogy, it remains grounded in the user's original data.24
+
+
+Feature
+	Neural-Symbolic Mechanism
+	Cognitive Benefit
+	Latent Reasoning
+	Fixed-state recursion with HaltingHead.
+	Deep problem solving without VRAM or context bloat.
+	Ghost Links
+	Fading semantic pathways.
+	Surfaces intuitive connections without manual tagging.
+	Epistemic Tags
+	Ontology-based classification (obligations, etc.).
+	Differentiates between hard facts and provisional ideas.
+	Just-in-Time UI
+	Model Context Protocol (MCP) adjustments.
+	Minimizes cognitive load by surfacing only relevant data.
+	33
+	
+
+	
+
+	Implementation Milestones and Technical Roadmap
+The development of the Epistemos vault follows a phased roadmap that focuses on the core Mamba 2 implementation before layering on the agentic and graph-based features.
+Phase 1: Selective Scan Core and Metal Kernels
+The initial focus is on the bit-exact parity of the custom Metal selective scan against official PyTorch implementations.1 This requires implementing the Blelloch scan for state propagation and ensuring that numerical stability is maintained across million-token prefill operations.1
+Phase 2: SSD Matrix Optimization
+The second milestone involves the integration of simdgroup_matrix primitives for the SSD matrix multiplication steps.1 This is where the core performance gains over Mamba 1 are realized, targeting a 2-8x speedup through kernel fusion and register optimization.1
+Phase 3: Temporal Vault Integration
+This phase implements the FlatBuffers-based serialization for persistent states and the integration of the Graphiti temporal knowledge graph.1 The focus here is on achieving the sub-50ms load times for million-token context "snapshots".1
+Phase 4: ANE-GPU Hybridization
+To optimize for power efficiency on mobile devices, the linear projections are offloaded to the Apple Neural Engine using Core ML custom layer offloading.1 This ensures that the system maintains high performance while operating under the thermal and power constraints of devices like the iPad Pro.1
+Phase 5: Multi-Agent Orchestration
+The final stage is the deployment of the multi-agent framework using Swift 6 actors.18 This includes the implementation of the ARK retrieval strategy and the "Latent Reasoning" engine, providing the user with the full "cognitive exoskeleton" experience.10
+Security, Stability, and Adversarial Resilience
+Operating a deep-reasoning system on private data requires robust security measures, particularly against new classes of vulnerabilities like "Hidden State Poisoning Attacks" (HiSPAs).41 These attacks exploit the inability of pure SSMs to "attend back" to previous tokens, introducing adversarial triggers that can overwrite large portions of the hidden state and impair the model’s ability to retrieve historical information.41
+To mitigate these risks, the Epistemos system employs a hybrid architecture where Mamba 2 layers are interleaved with sparse attention blocks—a "Jamba" approach. These attention layers act as a "global context refresh," recovering information that might have been overwritten in the SSM state and providing an extra layer of structural stability.1 Furthermore, the reflective agent layer continuously monitors the "geometry" of the hidden state for anomalies that might indicate a poisoning attempt, providing a high-level safety net for the user's private vault.9
+The stability of the system is also guaranteed through strict memory management. Metal command buffers are segmented to prevent "watchdog resets," and the Rust engine utilizes MTLCommandBuffer error handlers to recover gracefully if a shader exceeds its resource limits.1 If memory pressure becomes critical, the system is designed to fall back to a "layer-wise" execution mode on the CPU, ensuring that the vault remains accessible even in low-RAM scenarios.1
+Conclusion: The Paradigm Shift in On-Device Intelligence
+The convergence of Mamba 2’s linear scaling, Apple Silicon’s unified memory architecture, and the structured reasoning of temporal knowledge graphs represents a fundamental paradigm shift in the future of PKM. By moving beyond the "stochastic parrot" model toward a neural-symbolic "cognitive exoskeleton," the Epistemos system fulfills the long-standing dream of a persistent, secure, and near-instantaneous second brain.7
+The ability to maintain a million-token context with a constant memory footprint, to perform deep latent reasoning without VRAM bloat, and to navigate complex relational knowledge via autonomous agents democratizes access to state-of-the-art intelligence.1 As software and hardware continue to co-evolve—exemplified by the Swift 6 and Metal 4 stack—the boundaries between human intent and machine execution will continue to blur, making on-device intelligence the primary vehicle for creative exploration and cognitive growth in the digital age.1 The Epistemos project establishes the blueprint for this transition, ensuring that the "vault" is not just a place where information is stored, but a place where thinking is amplified.10
+Works cited
+1. Metal Mamba 2 Implementation Research.txt
+2. Mamba vs Transformer: The Real Shift in AI Architecture (2026) | by KOMILJON MUKHAMMADIEV - Medium, accessed April 8, 2026, https://medium.com/@uzbrainai/mamba-vs-transformer-the-real-shift-in-ai-architecture-2026-bf758ba278ec
+3. Transformers and Mamba: A Comprehensive Deep Dive into Modern Sequence Modeling Architectures | by Ashish Chadha | GoPenAI, accessed April 8, 2026, https://blog.gopenai.com/transformers-and-mamba-a-comprehensive-deep-dive-into-modern-sequence-modeling-architectures-98be3338d10c
+4. Introducing Nemotron 3 Super: An Open Hybrid Mamba-Transformer MoE for Agentic Reasoning | NVIDIA Technical Blog, accessed April 8, 2026, https://developer.nvidia.com/blog/introducing-nemotron-3-super-an-open-hybrid-mamba-transformer-moe-for-agentic-reasoning/
+5. What Is A Mamba Model? | IBM, accessed April 8, 2026, https://www.ibm.com/think/topics/mamba-model
+6. Mamba for Dummies: Efficient Linear-Time LLMs Explained - Michiel Horstman - Medium, accessed April 8, 2026, https://michielh.medium.com/mamba-for-dummies-linear-time-llms-explained-0d4b51efcf9f
+7. The Cognitive Exoskeleton: A Theory of Semantic Liminality : r ..., accessed April 8, 2026, https://www.reddit.com/r/ArtificialSentience/comments/1q8dciu/the_cognitive_exoskeleton_a_theory_of_semantic/
+8. GraphAgents: Knowledge Graph–Guided Agentic AI for Cross-Domain Materials Design - arXiv, accessed April 8, 2026, https://arxiv.org/html/2602.07491v1
+9. Agentic AI Meets Knowledge Graphs: Future of Autonomous Systems - USDSI, accessed April 8, 2026, https://www.usdsi.org/data-science-insights/agentic-ai-meets-knowledge-graphs-future-of-autonomous-systems
+10. The Exoskeleton of Mind: Rethinking AI as Cognitive Extension, Not Replacement | by [S01n] Singularity Zero Onefinity | Medium, accessed April 8, 2026, https://medium.com/@S01n/the-exoskeleton-of-mind-rethinking-ai-as-cognitive-extension-not-replacement-90099be2d7d0
+11. Building High-Performance AI Infrastructure with Rust: Cortex ..., accessed April 8, 2026, https://dev.to/sopaco/building-high-performance-ai-infrastructure-with-rust-cortex-memorys-technology-selection-and-45fc
+12. Swift 6 is amazing - I say this as a big Rust person. It seems like Swift is now... | Hacker News, accessed April 8, 2026, https://news.ycombinator.com/item?id=40651546
+13. Rust for AI Agents - code review - The Rust Programming Language Forum, accessed April 8, 2026, https://users.rust-lang.org/t/rust-for-ai-agents/136946
+14. SSMs for Efficient Long-Range Memory | by Ajay Vikram P | Medium, accessed April 8, 2026, https://medium.com/@ajayvikramp/ssms-for-efficient-long-range-memory-d6a78226c738
+15. [D] So, Mamba vs. Transformers... is the hype real? : r/MachineLearning - Reddit, accessed April 8, 2026, https://www.reddit.com/r/MachineLearning/comments/190q1vb/d_so_mamba_vs_transformers_is_the_hype_real/
+16. MapFormer: Self-Supervised Learning of Cognitive Maps with Input-Dependent Positional Embeddings - arXiv, accessed April 8, 2026, https://arxiv.org/html/2511.19279v1
+17. The Complete Guide to Swift Concurrency: From Threading to Actors in Swift 6 - Medium, accessed April 8, 2026, https://medium.com/@thakurneeshu280/the-complete-guide-to-swift-concurrency-from-threading-to-actors-in-swift-6-a9cf006a19ac
+18. Add expert Swift Concurrency guidance to your AI coding tool (Agent Skills open format) - GitHub, accessed April 8, 2026, https://github.com/AvdLee/Swift-Concurrency-Agent-Skill
+19. I built LangChain for Swift — pure native, actor-based, works on-device : r/LocalLLM - Reddit, accessed April 8, 2026, https://www.reddit.com/r/LocalLLM/comments/1qdlf2m/i_built_langchain_for_swift_pure_native/
+20. Introducing Distributed Actors | Documentation - Apple, accessed April 8, 2026, https://apple.github.io/swift-distributed-actors/1.0.0-beta.3/documentation/distributedcluster/introduction/
+21. Meet distributed actors in Swift | Documentation - WWDC Notes, accessed April 8, 2026, https://wwdcnotes.com/documentation/wwdcnotes/wwdc22-110356-meet-distributed-actors-in-swift/
+22. The Role of Knowledge Graphs in Building Agentic AI Systems - ZBrain, accessed April 8, 2026, https://zbrain.ai/knowledge-graphs-for-agentic-ai/
+23. Autonomous Knowledge Graph Exploration with Adaptive Breadth-Depth Retrieval - arXiv, accessed April 8, 2026, https://arxiv.org/html/2601.13969v1
+24. getzep/graphiti: Build Real-Time Knowledge Graphs for AI ... - GitHub, accessed April 8, 2026, https://github.com/getzep/graphiti
+25. LLM Knowledge Graph Builder — First Release of 2025 - Neo4j, accessed April 8, 2026, https://neo4j.com/blog/developer/llm-knowledge-graph-builder-release/
+26. Reflective Agents for Knowledge Graph Traversal | OpenReview, accessed April 8, 2026, https://openreview.net/forum?id=LGUIspPaxb
+27. Civilization Stack: The Framework for AI Age - European Nexus for Strategic Intelligence, accessed April 8, 2026, https://www.intelligencestrategy.org/blog-posts/civilization-stack-the-framework-for-ai-age
+28. Architecting Trust in Artificial Epistemic Agents - arXiv, accessed April 8, 2026, https://arxiv.org/html/2603.02960v1
+29. IntroSVG: Learning from Rendering Feedback for Text-to-SVG Generation via an Introspective Generator–Critic Framework - arXiv, accessed April 8, 2026, https://arxiv.org/html/2603.09312
+30. Improving Reward Models with Synthetic Critiques | Request PDF - ResearchGate, accessed April 8, 2026, https://www.researchgate.net/publication/392503199_Improving_Reward_Models_with_Synthetic_Critiques
+31. GAP: Graph-based Agent Planning with Parallel Tool Use and Reinforcement Learning, accessed April 8, 2026, https://neurips.cc/virtual/2025/129853
+32. Introducing The AI Second Brain - Forte Labs, accessed April 8, 2026, https://fortelabs.com/blog/introducing-the-ai-second-brain/
+33. a 2.8B Mamba model to reason entirely in its hidden state before outputting a single token — O(1) VRAM, no KV-cache, runs on a 12GB RTX 3060 : r/LocalLLM - Reddit, accessed April 8, 2026, https://www.reddit.com/r/LocalLLM/comments/1sb02zz/a_28b_mamba_model_to_reason_entirely_in_its/
+34. 2.8B Mamba model to reason entirely in its hidden state before outputting a single token — O(1) VRAM, no KV-cache, runs on a 12GB RTX 3060 : r/learnmachinelearning - Reddit, accessed April 8, 2026, https://www.reddit.com/r/learnmachinelearning/comments/1sb025f/28b_mamba_model_to_reason_entirely_in_its_hidden/
+35. The Best Mobile PKMSes for 2025: Capture Knowledge on the Go ..., accessed April 8, 2026, https://medium.com/@theo-james/the-best-mobile-pkmses-for-2025-capture-knowledge-on-the-go-fafc0059f8f2
+36. Efficient Working Memory Maintenance via High-Dimensional Rotational Dynamics - bioRxiv, accessed April 8, 2026, https://www.biorxiv.org/content/biorxiv/early/2025/09/12/2025.09.08.674838.full.pdf
+37. Semantic Pathway: An Interactive Visualization of Hidden States and Token Influence in LLMs - Stony Brook University, accessed April 8, 2026, https://www3.cs.stonybrook.edu/~mueller/papers/Semantic%20Pathways%20IEEE%20VIS%202025.pdf
+38. Artificial Truth: Algorithmic Power, Epistemic Authority, and the Crisis of Democratic Knowledge - MDPI, accessed April 8, 2026, https://www.mdpi.com/2075-4698/16/3/102
+39. Knowledge Graphs + Agents: The Future of Context-Aware Automation, accessed April 8, 2026, https://www.meritdata-tech.com/resources/knowledge-graphs-agents-automation
+40. Invisible by Design: Context-Aware Interfaces that Assemble Themselves, accessed April 8, 2026, https://davidvonthenen.com/2025/09/10/invisible-by-design-context-aware-interfaces-that-assemble-themselves/
+41. Hidden State Poisoning Attacks against Mamba-based Language Models - arXiv, accessed April 8, 2026, https://arxiv.org/html/2601.01972v4
+42. Top UI/UX Design Trends for 2026: AI-First, Context-Aware Interfaces & Spatial Experiences, accessed April 8, 2026, https://dev.to/pixel_mosaic/top-uiux-design-trends-for-2026-ai-first-context-aware-interfaces-spatial-experiences-166j
+43. Cognitive Exoskeleton: The AI-Driven Thinking Revolution That Has Yet to Arrive, accessed April 8, 2026, https://pub.towardsai.net/cognitive-exoskeleton-the-ai-driven-thinking-revolution-that-has-yet-to-arrive-cb82d515f3df

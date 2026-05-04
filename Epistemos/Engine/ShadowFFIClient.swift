@@ -68,6 +68,15 @@ nonisolated public protocol ShadowFFIClient: Sendable {
     func search(query: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit]
     func flush() throws -> Void
     func stats() throws -> ShadowStatsDTO
+
+    /// W8.4.b extension — pre-initialise the global Model2Vec
+    /// singleton off the search hot path. Idempotent: subsequent calls
+    /// are atomic-fast no-ops. Production callers fire this once at
+    /// app start (typically from `AppBootstrap` after `openAt`) so the
+    /// first `search(...)` doesn't pay the ~2s HuggingFace download.
+    /// Mirrors the Rust `shadow_warm()` C ABI in
+    /// `epistemos-shadow/src/lib.rs`.
+    func warm() throws -> Void
 }
 
 /// Plain DTO mirroring the Rust `ShadowDocument` struct field-for-field.
@@ -200,6 +209,13 @@ nonisolated public final class StubShadowFFIClient: ShadowFFIClient, @unchecked 
 
     public func flush() throws {
         queue.sync { lastFlush = Date() }
+    }
+
+    public func warm() throws {
+        // The stub has no embedder state — warming is a no-op. Tests
+        // that exercise the warm path observe success without touching
+        // disk or network. Matches the contract: `warm()` is idempotent
+        // and never raises in the happy path.
     }
 
     public func stats() throws -> ShadowStatsDTO {

@@ -26,7 +26,9 @@ struct DeviceAgentServiceTests {
 
         #expect(result.contains("\"selector\""))
         #expect(localClient.generateRequests.count == 1)
-        #expect(localClient.generateRequests[0].prompt.contains("<|im_start|>system"))
+        #expect(localClient.generateRequests[0].prompt.contains("## System"))
+        #expect(!localClient.generateRequests[0].prompt.contains("<|im_start|>"))
+        #expect(!localClient.generateRequests[0].prompt.contains("<|im_end|>"))
         #expect(localClient.generateRequests[0].prompt.contains("No tools are available for this turn."))
         #expect(localClient.generateRequests[0].prompt.contains("Return ONLY valid JSON."))
         #expect(localClient.generateRequests[0].prompt.contains("AX Tree (JSON): {\"elements\":[]}"))

@@ -1915,12 +1915,12 @@ actor VaultIndexActor {
                 items.append(SpotlightIndexer.makeItem(for: page, body: pageBody))
             }
 
-            CSSearchableIndex.default().indexSearchableItems(items) { error in
-                if let error {
-                    self.log.error(
-                        "Spotlight batch reindex failed: \(error.localizedDescription, privacy: .private)"
-                    )
-                }
+            do {
+                try await CSSearchableIndex.default().indexSearchableItems(items)
+            } catch {
+                log.error(
+                    "Spotlight batch reindex failed: \(error.localizedDescription, privacy: .private)"
+                )
             }
 
             // W14.1 wire-up — also donate the typed NoteEntity batch

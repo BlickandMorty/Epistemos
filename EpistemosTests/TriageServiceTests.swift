@@ -2746,7 +2746,8 @@ struct TriageServiceIntegrationTests {
         #expect(lowPower.idleUnloadDelay < normal.idleUnloadDelay)
         #expect(lowPower.memoryPolicy.cacheLimitBytes < normal.memoryPolicy.cacheLimitBytes)
         #expect(lowPower.memoryPolicy.memoryLimitBytes <= normal.memoryPolicy.memoryLimitBytes)
-        #expect(normal.idleUnloadDelay >= .seconds(10))
+        #expect(normal.idleUnloadDelay == .seconds(6))
+        #expect(lowPower.idleUnloadDelay == .seconds(3))
     }
 
     @MainActor

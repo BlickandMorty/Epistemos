@@ -601,7 +601,8 @@ struct RuntimeValidationTests {
         #expect(app.contains(".restorationBehavior(.disabled)"))
         #expect(app.contains("SavedApplicationStatePurger.shouldPurgeAtLaunch()"))
         #expect(app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
-        #expect(!app.contains("func applicationWillFinishLaunching(_ notification: Notification)"))
+        #expect(app.contains("func applicationWillFinishLaunching(_ notification: Notification)"))
+        #expect(app.contains("_ = EpistemosDocumentController(databaseWriter: nil)"))
         #expect(!app.contains("window.isRestorable = false"))
         #expect(appBootstrap.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
     }
@@ -1049,7 +1050,11 @@ struct RuntimeValidationTests {
         #expect(project.contains("epistemos_coreFFI"))
         #expect(project.contains("\"@executable_path\","))
         #expect(project.contains("\"@loader_path/../Frameworks\","))
-        #expect(spec.contains(#"script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\"""#))
+        #expect(spec.contains("bash \\\"${SRCROOT}/build-agent-core.sh\\\""))
+        #expect(spec.contains("bash \\\"${SRCROOT}/build-epistemos-shadow.sh\\\""))
+        #expect(spec.contains("bash \\\"${SRCROOT}/build-epistemos-code-index.sh\\\""))
+        #expect(spec.contains("bash \\\"${SRCROOT}/build-substrate-rt.sh\\\""))
+        #expect(spec.contains("bash \\\"${SRCROOT}/build-tiptap-bundle.sh\\\""))
         #expect(spec.contains("name: Bundle Runtime Assets"))
         #expect(spec.contains("bash \"${SRCROOT}/bundle-app-runtime-assets.sh\""))
         #expect(spec.contains("-lepistemos_core"))
@@ -1668,20 +1673,30 @@ struct RuntimeValidationTests {
         #expect(runtime.contains("if conditions.thermalState == .critical {"))
         #expect(runtime.contains("} else if conditions.appActive {"))
         #expect(runtime.contains("scheduleIdleUnload()"))
+        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)"))
         #expect(triage.contains("supportsInteractiveChatModel(textModelID: $0.rawValue)"))
     }
 
-    @Test("local mlx unload releases custom Metal runtime state")
-    func localMLXUnloadReleasesCustomMetalRuntimeState() throws {
+    @Test("local mlx unload depth separates idle working-set release from deep pressure release")
+    func localMLXUnloadDepthSeparatesIdleFromDeepPressureRelease() throws {
         let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
         let metalRuntime = try loadRepoTextFile("Epistemos/Engine/MetalRuntimeManager.swift")
 
+        #expect(runtime.contains("private enum MetalRuntimeUnloadMode"))
+        #expect(runtime.contains("case workingSetOnly"))
+        #expect(runtime.contains("case deep"))
+        #expect(runtime.contains("func unload() async {\n        await performUnload(metalRuntimeUnloadMode: .deep)\n    }"))
+        #expect(runtime.contains("await self?.performUnload(metalRuntimeUnloadMode: .deep)"))
+        #expect(runtime.contains("await performUnload(metalRuntimeUnloadMode: .deep)"))
+        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)"))
         #expect(runtime.contains("let runtimeManager = metalRuntimeManager"))
         #expect(runtime.contains("await MainActor.run {"))
         #expect(runtime.contains("runtimeManager?.releaseWorkingSet()"))
+        #expect(runtime.contains("runtimeManager?.deepUnload()"))
         #expect(runtime.contains("metalRuntimeManager = nil"))
         #expect(runtime.contains("preparedCustomSSMRuntimeKey = nil"))
         #expect(metalRuntime.contains("func releaseWorkingSet()"))
+        #expect(metalRuntime.contains("func deepUnload()"))
         #expect(metalRuntime.contains("stateBufferA = nil"))
         #expect(metalRuntime.contains("stateBufferB = nil"))
         #expect(metalRuntime.contains("inferenceHeap = nil"))
@@ -5648,14 +5663,16 @@ struct InferenceCloudSelectionTests {
         #expect(!inspectorStateSource.contains("if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty"))
         #expect(!inspectorStateSource.contains("guard let folder = try? modelContext.fetch(descriptor).first else {"))
         #expect(!inspectorStateSource.contains("let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []"))
-        #expect(inspectorStateSource.contains("NodeInspectorState: failed to fetch page summary"))
+        #expect(inspectorStateSource.contains(#""\(logPrefix): failed to fetch page summary"#))
+        #expect(inspectorStateSource.contains("logPrefix: \"NodeInspectorState\""))
         #expect(inspectorStateSource.contains("NodeInspectorState: failed to fetch folder"))
         #expect(inspectorStateSource.contains("NodeInspectorState: failed to fetch folder pages"))
 
         #expect(!pinnedInspectorSource.contains("if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty"))
         #expect(!pinnedInspectorSource.contains("guard let folder = try? modelContext.fetch(descriptor).first else { return \"\" }"))
         #expect(!pinnedInspectorSource.contains("let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []"))
-        #expect(pinnedInspectorSource.contains("PinnedInspector: failed to fetch page summary"))
+        #expect(pinnedInspectorSource.contains(#""\(logPrefix): failed to fetch page summary"#))
+        #expect(pinnedInspectorSource.contains("logPrefix: \"PinnedInspector\""))
         #expect(pinnedInspectorSource.contains("PinnedInspector: failed to fetch folder"))
         #expect(pinnedInspectorSource.contains("PinnedInspector: failed to fetch folder pages"))
 
@@ -5924,6 +5941,32 @@ struct InferenceCloudSelectionTests {
         #expect(coordinator.contains("bootstrap.mcpBridge.logExecution("))
     }
 
+    @Test("Pipeline tool loop persists live AgentEvent tool provenance")
+    func pipelineToolLoopPersistsLiveAgentEventToolProvenance() throws {
+        let pipeline = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/PipelineService.swift",
+            testsFilePath: #filePath
+        )
+        let recorder = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/AgentToolProvenanceRecorder.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(recorder.contains("final class AgentToolProvenanceRecorder"))
+        #expect(recorder.contains("saveAgentEvent(event)"))
+        #expect(pipeline.contains("agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil"))
+        #expect(pipeline.contains("let toolProvenanceRecorder = agentProvenanceRecorder ?? AgentToolProvenanceRecorder()"))
+        #expect(pipeline.contains("runID: runID.uuidString"))
+        #expect(pipeline.contains("kind: .toolCallRequested"))
+        #expect(pipeline.contains("kind: .toolCallApproved"))
+        #expect(pipeline.contains("kind: .toolCallDenied"))
+        #expect(pipeline.contains("kind: result.isError ? .toolCallFailed : .toolCallCompleted"))
+        #expect(!recorder.contains("MutationOpLog"))
+        #expect(!recorder.contains("GraphEvent"))
+        #expect(!recorder.contains("ReplayBundle"))
+        #expect(!pipeline.contains("RustOpLogFFIClient"))
+    }
+
     @Test("managed main chat agent path honors the planned tool allowlist and selected surface runtime")
     func managedMainChatAgentPathHonorsPlannedToolAllowlistAndSelectedSurfaceRuntime() throws {
         let coordinator = try loadRepoTextFileWithRetry(
@@ -6136,7 +6179,7 @@ struct InferenceCloudSelectionTests {
         #expect(sidebar.contains("@Environment(InferenceState.self)"))
         #expect(sidebar.contains("visibleModelVaults"))
         #expect(bootstrap.contains("targetsProvider:"))
-        #expect(bootstrap.contains("inference.modelVaultTargets()"))
+        #expect(bootstrap.contains("targetsProvider: { inferenceState.modelVaultTargets() }"))
     }
 
     @Test("mlx ssm reuse stays scoped to the active chat session")

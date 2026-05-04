@@ -180,7 +180,7 @@ Also add to **§6 Hard Forbidden List**:
 
 **Original plan:** *"Phase R: Resource Runtime, grants, verified writes, picker, regression closure. PromptTree from Lane A."*
 
-**Current canon:** Resource Runtime / grants / verified writes live on `codex/runtime-input-audit` (DIVERGED, 324 commits, never merged — salvage §6). `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H1 corrects the older PromptTree claim: Lane A is **not** mostly merged; it has 601 unmerged N1 Prompt Tree commits plus `PROMPT_AS_DATA_SPEC.md` and full PTF work behind `EPISTEMOS_PROMPT_TREE=1`. Names don't appear in doctrine.
+**Current canon:** Resource Runtime / grants / verified writes live on `codex/runtime-input-audit` (DIVERGED, 324 commits, never merged — salvage §6). `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H1 corrects the older PromptTree claim: Lane A is **not** mostly merged; it has 601 unmerged N1 Prompt Tree commits plus `PROMPT_AS_DATA_SPEC.md` and full PTF work behind `EPISTEMOS_PROMPT_TREE=1`. 2026-05-04 update: Prompt Tree now has a fusion bridge at `docs/fusion/PROMPT_TREE_LANE_A_BRIDGE_2026_05_04.md`; remaining work is current-main delta reconciliation, not rediscovery.
 
 **Severity: High.** Phase R is the named Core release substrate.
 
@@ -534,3 +534,467 @@ configuration alongside entitlements.
 
 **Usefulness:** +1 - prevents a correct architectural entitlement from silently
 breaking local debug/direct builds before the signing profile is coordinated.
+
+---
+
+## 2026-05-04 - T6 Companion/Tamagotchi body-grammar correction
+
+**Status:** Captured during canonical recovery after user clarified the original
+Simulation Mode intent.
+
+**Drift:** Current `CompanionView` and donor Simulation v1.6 research render
+companions as SF Symbols or simple orb/shard/pulse shapes. The intended canon is
+styleable Tamagotchi-like companion creatures with a drawn avatar grammar,
+landing-page wandering/idle motion, and later graph companion presence.
+
+**Resolution:** Added
+`docs/fusion/fleet/t6-tamagotchi-body-grammar/T6_TAMAGOTCHI_BODY_GRAMMAR_RECOVERY_2026_05_04.md`
+as the T6 recovery pointer. First safe slice: draw Block/Sage/Orb/Hermes Snake
+via SwiftUI Canvas, replace SF Symbols in `CompanionView`, then add deterministic
+landing roaming before graph presence.
+
+**Usefulness:** +1 - preserves the user's original Companion Farm vision and
+prevents generic SF Symbol/orb placeholders from being mistaken for canon.
+
+---
+
+## 2026-05-04 - XPC no-compromise trust-spine intake
+
+**Status:** Added during XPC canon recovery after the user clarified that the
+latest research is canonical and must not be interpreted as a May 4 time-box,
+V1 shortcut, or compromise gate.
+
+**Drift:** The XPC canon still contained older near-term co-location wording,
+which could be read as lowering the five-service target or weakening
+trust-boundary requirements for near-term implementation.
+
+**Resolution:** Added
+`docs/fusion/XPC_RESEARCH_INTAKE_2026_05_04.md` as a required sidecar, linked it
+from the master index and substrate register, and rewrote the XPC open-question
+language so implementation slicing preserves named service contracts, symmetric
+code-signing validation, schema/class whitelists, App Group provisioning
+discipline, MAS/Pro separation, and Secure Enclave vault-key semantics.
+
+**Usefulness:** +1 - prevents future briefs and delegated agents from treating
+XPC hardening as optional, date-gated, or deferrable doctrine.
+
+---
+
+## 2026-05-04 - Simulation v1.6 invariant re-baseline for Companion Farm + GenUI
+
+**Status:** Recorded during unification recovery after
+`docs/fusion/simulation/DOCTRINE.md` promoted the full 16-invariant Simulation
+Mode v1.6 canon into fusion.
+
+**Audit:** Current Companion Farm is a SwiftUI recovery slice, not the full
+Simulation runtime. I-1 through I-4 remain architectural gaps until the Rust
+agent registry, reducer, event log, and session/Epistemos thread split own the
+creature state machine. I-5, I-13, and I-14 are partially satisfied by
+deterministic identity hashes, deterministic roaming, and reduce-motion static
+rendering, but still need audit-ledger replay against canonical events. I-6,
+I-7, I-8, I-11, I-12, and I-16 remain deferred to the Metal/atlas/texture-array
+implementation slices. I-9 is partially visible on Landing Farm only; Graph
+Theater and Notes Sidebar Skin placement remain open. I-10 was drifting because
+`CompanionBodyKind` was a fixed enum and included Hermes Snake as a Farm choice.
+I-15 was drifting because `GenUIDispatcher` stored erased renderer factories.
+
+**Resolution:** This pass corrected the immediate source-level divergences:
+`GenUIDispatcher` now uses a typed `@ViewBuilder` schema switch with no erased
+factory registry; `CompanionBodyKind` now stores parameterized Block/Sage/Orb
+Farm grammar; Hermes Snake moved out of Farm body selection into
+`HermesGraphFacultyGlyph` with explicit graph z+1 placement. The remaining
+I-1/I-4/I-6/I-8/I-11/I-12/I-16 runtime work stays canonical and open for the
+next Simulation/Metal/Rust slices.
+
+**Usefulness:** +1 - keeps the newly promoted 16 invariants live in the code
+recovery path and prevents Farm placeholder work from masquerading as the full
+Simulation runtime.
+
+---
+
+## 2026-05-04 - Provenance Console doctrine and first read-only GenUI slice
+
+**Status:** Recorded during the next substrate recovery pass after the
+unification inventory identified `PROVENANCE_CONSOLE_DOCTRINE` as genuinely
+missing from disk.
+
+**Drift:** T2 had durable `MutationEnvelope`, `AgentEvent`, and `GraphEvent`
+storage plus separate Settings health rows, but no canonical doctrine or
+schema-first console surface tying the four event planes together. Without that
+surface, the MAS feature trio remained incomplete and future agents could
+mistake diagnostics rows for the Provenance Console.
+
+**Resolution:** Added
+`docs/fusion/PROVENANCE_CONSOLE_DOCTRINE_2026_05_04.md`, a bounded
+`EventStore.recentAgentEvents(limit:)` projection reader, and the first
+read-only Settings-mounted `ProvenanceConsoleView` rendered through
+`GenUIDispatcher` using `GenUIPayload.provenanceTrace`.
+
+**Usefulness:** +1 - makes T2 provenance visible through the substrate's
+schema-first UI path while preserving the no-repair/no-replay boundary.
+
+---
+
+## 2026-05-04 - B.1 Hermes-in-Rust seed and MAS/Pro cfg repair
+
+**Status:** Recorded during the substrate recovery push that continued from
+Stage A.4/E.0 into Stage B.1.
+
+**Drift:** `agent_core::hermes` did not exist, so Swift remained the canonical
+Hermes prompt-format and streaming tool-call parser owner. Separately, Rust
+feature gates still used the legacy `mas-sandbox` cfg even though the canonical
+distribution split is `mas-build` versus `pro-build`; that made the MAS/Pro
+boundary depend on an old alias rather than the active build features.
+
+**Resolution:** Added the first `agent_core::hermes` module boundary with tested
+`prompt_format` and `function_call` implementations, plus explicit follow-up
+module boundaries for skills, procedural memory, and self-evolution. Repaired
+the Rust cfg spine so Pro-only modules and registrations use
+`feature = "pro-build"` while Core B.1 tools such as `file_ops`, `memory`,
+`skills`, and `web_fetch` remain registered under `mas-build`.
+
+**Usefulness:** +1 - moves Hermes from UI shell toward the canonical Rust
+runtime without weakening the MAS distribution boundary.
+
+**Follow-up correction:** The Xcode `build-agent-core.sh` prebuild script still
+compiled direct/debug builds with Cargo defaults, which meant the direct Swift
+target linked the MAS-flavored Rust dylib and logged `mas_sandbox` as an
+unexpected runtime profile. The script now compiles App Store builds with
+`--no-default-features --features mas-build` and direct builds with
+`--no-default-features --features pro-build`, guarded by
+`agent_core/tests/mas_pro_feature_gates.rs`.
+
+---
+
+## 2026-05-04 - Hermes brand E.0 font-token correction
+
+**Status:** Recorded after E.0 inspection while continuing the canonical
+Hermes recovery pass.
+
+**Drift:** `HermesBrand` requested `InterVariable`, but the app bundles
+`Inter-Regular.ttf`, `Inter-SemiBold.ttf`, and `JetBrainsMono-Regular.ttf`.
+`LiquidGreeting` also kept the Hermes Agent hero phrase on generic
+`AppDisplayTypography`, so the brand surface could silently fall back and fail
+to make E.0.4 visible.
+
+**Resolution:** Added `HermesBrandSourceGuardTests`, switched
+`HermesBrand.display` to bundled `Inter-SemiBold`, `HermesBrand.body` to bundled
+`Inter-Regular`, `HermesBrand.mono` to bundled `JetBrainsMono-Regular`, and
+routed `LiquidGreeting.hermesHeroMode` through `HermesBrand.display`.
+
+**Usefulness:** +1 - prevents invisible font fallback from flattening the
+Hermes Agent brand recovery back into generic landing typography.
+
+---
+
+## 2026-05-04 - B.1 Hermes skills ownership facade
+
+**Status:** Recorded during the Hermes-in-Rust Phase 2 recovery pass after
+`prompt_format` and `function_call` were already live.
+
+**Drift:** Runtime skill call sites still imported the old parallel surfaces
+directly: `skill_router`, `storage::skills_registry`, and `tools::skills`.
+That preserved behavior, but it kept the ownership boundary outside
+`agent_core::hermes::skills`, contrary to the Cognitive Kernel audit's Rule 4
+collapse path.
+
+**Resolution:** Added a behavior-preserving `agent_core::hermes::skills`
+facade that owns the public router, registry-store, and tool-facade surface.
+Redirected `bridge`, `dispatcher`, `context_loader`, and `tools::registry`
+through the Hermes skills module, guarded by `hermes_runtime`.
+
+**Usefulness:** +1 - turns the skills consolidation from a stub into a live
+B.1 ownership boundary without bulk-moving the 1,700-line tool facade before
+the next procedural-memory slice is ready.
+
+---
+
+## 2026-05-04 - B.1 Hermes procedural-memory SQLite seed
+
+**Status:** Recorded during the Hermes-in-Rust Phase 2 recovery pass after the
+skills ownership facade went live.
+
+**Drift:** `agent_core::hermes::procedural_memory` was only a draft type while
+the only procedural-memory semantics lived indirectly in the skills tool and
+registry counters. That left Phase 2 without the durable outcome store required
+by Cognitive Kernel doctrine §4.4.
+
+**Resolution:** Added `ProceduralMemoryStore` with a SQLite
+`procedure_outcomes` table, deterministic write/read round-trip, context
+similarity, recency decay, and success weighting. Guarded it with
+`hermes_runtime` tests for outcome recording and decay-ranked recall.
+
+**Usefulness:** +1 - establishes the durable procedure-outcome boundary that
+`hermes::self_evolution` can consume without creating a second memory store.
+
+---
+
+## 2026-05-04 - B.1 Hermes self-evolution proposal seed
+
+**Status:** Recorded during the Hermes-in-Rust Phase 2 recovery pass after
+procedural memory gained a durable outcome store.
+
+**Drift:** `agent_core::hermes::self_evolution` was only a draft struct, so the
+NousResearch self-evolution pattern described by Cognitive Kernel doctrine
+§4.5 had no shipping Rust boundary.
+
+**Resolution:** Added a deterministic proposal seed that consumes successful
+`ProcedureOutcomeRecord` sequences, detects repeated tool-call traces, and
+synthesizes a reviewable `SkillEvolutionCandidate`. Promotion remains separate
+and gated; failed or under-repeated sequences do not propose skills.
+
+**Usefulness:** +1 - gives future AgentEvent-ring integration and Sovereign
+Gate confirmation a real Rust proposal object instead of another placeholder.
+
+---
+
+## 2026-05-04 - B.1 Hermes bridge ABI and canonical skill layout repair
+
+**Status:** Recorded during the Hermes-in-Rust Phase 2 recovery pass after
+skills, procedural memory, and self-evolution gained live Rust boundaries.
+
+**Drift:** The bridge only exposed prompt formatting and tool-call parsing.
+The new skills/procedural-memory modules were not reachable from Swift/XPC
+callers, and `SkillRouter` only loaded flat `skills/*.md` files while the
+active skill tool facade uses canonical `skills/name/SKILL.md` directories.
+
+**Resolution:** Added UniFFI records and entry points for `list_skills`,
+`write_procedure`, `record_skill_outcome`, and `recall_procedure`. Updated
+`SkillRouter` to scan canonical nested `SKILL.md` files up to the existing
+skill-directory depth.
+
+**Usefulness:** +1 - makes the B.1 Rust work callable across the single kernel
+ABI and prevents routing from missing the same skills the tool facade can
+manage.
+
+---
+
+## 2026-05-04 - B.1 Hermes invoke_skill ABI seed
+
+**Status:** Recorded during the Hermes-in-Rust Phase 2 recovery pass after the
+skills/procedural-memory bridge became callable.
+
+**Drift:** Cognitive Kernel doctrine §3 names `invoke_skill(...)` as part of
+the single kernel ABI, but the bridge still stopped at skill listing and
+procedure recall. That left skill execution as an implicit future path instead
+of an addressable Rust boundary.
+
+**Resolution:** Added `SkillResultFFI` and async `invoke_skill(...)`. The seed
+loads canonical `skills/name/SKILL.md` entries from the profile, parses
+declared `metadata.epistemos.steps` / top-level `steps`, executes path-bound
+`skills_list` and `skill_view` steps against that profile, and falls back to
+the tier-gated tool registry for other permitted tool steps. Direct
+`skill_manage` remains blocked here because cross-session skill persistence
+belongs behind the Sovereign Gate promotion path.
+
+**Usefulness:** +1 - closes the missing B.1 ABI hole with an executable,
+test-covered skill path while keeping the larger model-loop skill composer and
+promotion workflow explicit future slices.
+
+---
+
+## 2026-05-04 - Worktree prototype canon fusion queue
+
+**Status:** Recorded after the user clarified that the worktrees should be
+treated as high-value research/prototype docs, not disposable session
+ephemera.
+
+**Drift:** `CANONICAL_UNIFICATION_INVENTORY_2026_05_04.md` correctly pointed at
+canonical-named worktree docs, but it still left the promotion strategy too
+implicit. That risked future sessions either bulk-copying donor branches or
+ignoring durable prototypes such as Tools V2, ExecutionReceipt, capture
+routing, heal-loop evals, honest-handle FFI, and PLAN_V2 sections 23-27.
+
+**Resolution:** Added
+`docs/fusion/WORKTREE_PROTOTYPE_CANON_FUSION_QUEUE_2026_05_04.md`, linked it
+from the master index and unification inventory, and added
+`agent_core/docs/TOOL_MIGRATION_STATUS.md` as the first Tools V2 recovery
+anchor. The queue keeps the no-bulk-copy rule while treating every worktree as
+a prototype-canon input until classified by Track and recovery stage.
+
+**Usefulness:** +1 - preserves the user's prototype work as named substrate
+rather than forcing later agents to rediscover or flatten it.
+
+## 2026-05-04 - Quick Capture receipt and routing bridge docs
+
+**Status:** Promoted as bridge doctrine after reading the Quick Capture donor
+receipt, route, grammar, and schema files in
+`.claude/worktrees/vigorous-goldberg-3a2d35/agent_core/`.
+
+**Drift:** The worktree contained durable T2/T4 contracts that were easy to
+flatten into generic labels: `ExecutionReceipt` as signed proof-of-execution,
+and `route_capture` as a four-action Resonance Gate direction ladder. Leaving
+them only in donor code would make later Sovereign Gate or capture-routing work
+re-derive thresholds, schemas, capability semantics, and grammar constraints.
+
+**Resolution:** Added
+`agent_core/docs/EXECUTION_RECEIPT_DOCTRINE_MAPPING.md` and
+`agent_core/docs/CAPTURE_ROUTING_CLASSIFIER.md`, then linked both from the
+worktree prototype queue, master research index, and unification inventory.
+These docs preserve the donor contracts while keeping implementation movement
+narrow and test-gated.
+
+**Usefulness:** +1 - keeps Quick Capture's signed execution and routing
+contracts alive as named substrate without bulk-copying donor runtime modules.
+
+## 2026-05-04 - Heal-loop fixture extraction and exit-gate drift
+
+**Status:** Promoted as fixture doctrine after reading the Quick Capture donor
+heal loop, event log, eval harness, and `heal_eval` CLI.
+
+**Drift:** The donor `heal_eval` CLI comment says exit code 0 means
+`passes_phase_11_exit()` succeeds, but the donor synthetic 30-case seed is
+documented in tests as intentionally failing the stricter production exit gate:
+20/30 recover within 1 backtrack (66.7%, below 85%) and 29/30 recover within
+3 backtracks (96.7%, just below 97%). Treating that corpus as a ship gate would
+silently weaken the intended Try-Heal-Retry standard.
+
+**Resolution:** Added `agent_core/tests/heal_loop_fixtures.md` as a fixture
+bridge. It preserves `ApplyError`, `Diagnostician`, `HealLoop`,
+`HealEventLog`, the synthetic distribution, and the exit-gate contradiction.
+Future ports must distinguish fixture-regression pass from production
+diagnostician pass.
+
+**Usefulness:** +1 - keeps the heal-loop prototype available for recovery while
+making the donor mismatch explicit before implementation.
+
+## 2026-05-04 - Honest-handle FFI doctrine promotion
+
+**Status:** Promoted after comparing the D-series donor worktree's
+`honest_handle.rs` files with current main.
+
+**Drift:** Honest-handle FFI was easy to treat as a local implementation patch,
+but it is actually substrate doctrine: Swift/Rust handles must expose real
+ownership semantics. Shared Rust state cannot be represented as `Box::into_raw`
+plus a prose "do not free while in use" convention.
+
+**Resolution:** Added
+`docs/fusion/HONEST_HANDLE_FFI_DOCTRINE_2026_05_04.md`. The doc records the
+Arc-backed opaque handle lifecycle, Swift `final class` ownership rule, panic
+boundary, string-freeing convention, live main evidence for `epistemos-shadow`,
+`substrate-core`, `syntax-core`, and donor evidence for `substrate-rt`.
+
+**Usefulness:** +1 - preserves the FFI ownership rule as named canon and makes
+future zero-copy work distinguish ownership handles from payload transport.
+
+## 2026-05-04 - PLAN_V2 sections 23-27 recovery
+
+**Status:** Promoted after reading sections 23-27 of the
+`inspiring-heisenberg-ea9dc3` PLAN_V2 worktree.
+
+**Drift:** The sections carry durable substrate rules for editor truth, syntax
+data plane, agent streaming coalescing, graph zero-copy gating, implementation
+order, and anti-patterns. Without a fusion bridge, future sessions could either
+ignore them or bulk-copy a broader PLAN_V2 file with stale details.
+
+**Resolution:** Added
+`docs/fusion/PLAN_V2_SECTIONS_23_27_RECOVERY_2026_05_04.md`. The bridge keeps
+the benchmark gates and anti-patterns while explicitly superseding PLAN_V2
+§23.5's old `Box::into_raw` syntax handle note with the honest-handle Arc
+retain/release doctrine now present in `syntax-core/src/honest_handle.rs`.
+
+**Usefulness:** +1 - preserves the actionable architecture laws while
+preventing an outdated handle-lifecycle detail from re-entering implementation.
+
+## 2026-05-04 - AgentEvent v1.6 forward variant bridge
+
+**Status:** Promoted after reading Simulation DOCTRINE §3.4.5 / §11 and
+checking current Swift provenance code.
+
+**Drift:** Simulation v1.6 adds six event variants for farm steering,
+helper-model summaries, and multi-vault operations. Swift provenance already
+contains those forward variants and tests, but the full Rust `agent_core::events`
+spine remains absent. Future sessions could falsely count the Swift vocabulary
+as the completed event system.
+
+**Resolution:** Added `docs/fusion/AGENT_EVENT_VARIANTS_V16_2026_05_04.md`.
+The bridge records the six variants, live Swift evidence, tests, honesty
+semantics, and remaining Rust normalizer / append-only event-log / replay gap.
+
+**Usefulness:** +1 - preserves the v1.6 event vocabulary while keeping the
+Rust-owned event bloodstream as an explicit recovery target.
+
+## 2026-05-04 - Five Laws and Phase I branch bridge
+
+**Status:** Promoted after inspecting branch `codex/runtime-memory-hardening`
+non-destructively with `git show` / `git grep`.
+
+**Drift:** The branch contains durable substrate synthesis: Five Laws, four
+substrate sprints, a `substrate-core` seed crystal, and a Rust-agent migration
+Phase I. It also predates the current fusion recovery order and contains older
+wording around Python subprocess isolation.
+
+**Resolution:** Added `docs/fusion/FIVE_LAWS_AND_PHASE_I_2026_05_04.md`. The
+bridge preserves the measurement-first, new-crate, identity-first, graduated
+FFI, and pure-shipping-runtime principles while subordinating the old phase
+order to current Recovery A-F / V1 / V2 / V3 canon. The old "Python
+out-of-process" law is reinterpreted under current doctrine as no hidden Python
+runtime in MAS/Core, with any subprocess path explicit and gated.
+
+**Usefulness:** +1 - keeps the branch's substrate wisdom without letting stale
+release sequencing or runtime assumptions override fusion canon.
+
+## 2026-05-04 - Runtime-input-audit bridges
+
+**Status:** Promoted after inspecting branch `codex/runtime-input-audit` and
+comparing key files with current main.
+
+**Drift:** The branch contained two active recovery truths: the code editor
+feature audit and Phase R resource runtime / verified-write work. Both were
+easy to miss because some artifacts already exist in main while their canonical
+meaning was not fused into `docs/fusion/`.
+
+**Resolution:** Added `docs/fusion/CODE_EDITOR_FEATURE_TRUTH_2026_05_04.md`
+and `docs/fusion/RESOURCE_RUNTIME_PHASE_R_BRIDGE_2026_05_04.md`. The first
+keeps editor feature claims tied to live `CodeEditorView` evidence. The second
+names the permission-store bridge, fail-closed grants, readback verified writes,
+and resource audit log as T2/Sovereign Gate substrate.
+
+**Usefulness:** +1 - makes "visible editor truth" and "verified writes with
+grants" first-class recovery inputs instead of scattered branch history.
+
+### Gap Addendum - recipe cache and release-stabilization bridges
+
+**Observed:** The `codex/post-audit-feature-work` branch was still described as
+needing a cherry-pick even though `agent_core/src/storage/recipe_cache.rs` is
+already present and exported in current main. The
+`codex/release-stabilization-and-runtime-hardening` branch was still described
+as "verify superseded" even though its Epistemos Release Audit skill and March
+release prompt are already present in main.
+
+**Drift:** The docs confused "artifact missing" with "artifact unwired." Recipe
+cache is a wiring/provenance problem, not a recovery-copy problem. Release
+stabilization is a Stage F verification source, not a branch-order source.
+
+**Resolution:** Added
+`docs/fusion/RECIPE_CACHE_RECOVERY_BRIDGE_2026_05_04.md`,
+`docs/fusion/RELEASE_STABILIZATION_BRANCH_BRIDGE_2026_05_04.md`, and
+`docs/fusion/WORKTREE_FUSION_BRAINSTORM_2026_05_04.md`. Updated the prototype
+queue, master index, and unification inventory to point at them.
+
+**Usefulness:** +1 - keeps the branch work alive without misleading future
+agents into raw cherry-picking stale branch state.
+
+### Gap Addendum - Lane A prompt-as-data worktree is active
+
+**Observed:** `git worktree list` includes
+`/Users/jojo/Downloads/Epistemos-laneA` on branch `lane-A`, 601 commits ahead of
+`main`. Current main already contains the Prompt Tree foundation files and
+`agent_core/src/session_insights.rs`, but `git diff lane-A -- ...` still shows
+meaningful deltas in `ChatCoordinator`, `agent_core/src/bridge.rs`,
+`agent_core/src/providers/claude.rs`, `session_insights.rs`, and
+`docs/PROMPT_AS_DATA_SPEC.md`.
+
+**Drift:** Earlier canon correctly warned that Lane A was not "mostly merged,"
+but the prototype queue only listed `.claude/worktrees/*` and the `codex/*`
+branches. That made the live `/Users/jojo/Downloads/Epistemos-laneA` worktree
+easy to omit during whole-worktree fusion.
+
+**Resolution:** Added
+`docs/fusion/PROMPT_TREE_LANE_A_BRIDGE_2026_05_04.md` and linked it from the
+prototype queue, master index, unification inventory, and brainstorm. The bridge
+names Lane A as a reconciliation target, not a raw merge target.
+
+**Usefulness:** +1 - preserves N1 Prompt Tree / prompt-as-data work as active
+substrate canon and prevents future agents from closing prompt-cache telemetry
+without comparing the Lane A deltas.

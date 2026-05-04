@@ -419,7 +419,10 @@ struct LandingView: View {
 
             VStack(spacing: 18) {
                 if hermesExpertMode.isActive {
-                    HermesShimmeringSigil(burstTrigger: hermesExpertMode.submitCounter)
+                    HermesShimmeringSigil(
+                        accent: HermesBrand.primary,
+                        burstTrigger: hermesExpertMode.submitCounter
+                    )
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                         .padding(.bottom, 4)
                 }
@@ -1153,11 +1156,7 @@ struct LandingView: View {
                 .padding(.bottom, 16)
 
             ScrollView {
-                TypewriterPlainText(content: info.displayText)
-                    .font(.system(size: 14.5, weight: .regular))
-                    .foregroundStyle(theme.fontAccent.opacity(0.85))
-                    .lineSpacing(5)
-                    .textSelection(.enabled)
+                GenUIDispatcher.shared.render(welcomeBackPayload(info: info))
                     .frame(maxWidth: 580, alignment: .leading)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 16)
@@ -1213,6 +1212,15 @@ struct LandingView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { dismissWelcomeBack() }
         }
+    }
+
+    private func welcomeBackPayload(info: WelcomeBackInfo) -> GenUIPayload {
+        GenUIPayload.markdownCard(
+            title: "Welcome Back",
+            info.displayText,
+            id: "landing-welcome-back",
+            metadata: ["surface": "landing-welcome-back"]
+        )
     }
 
     private func dismissWelcomeBack() {
@@ -1300,11 +1308,7 @@ struct LandingView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    TypewriterPlainText(content: dailyBrief.dailyBriefContent)
-                        .font(.system(size: 14.5, weight: .regular))
-                        .foregroundStyle(theme.fontAccent.opacity(0.85))
-                        .lineSpacing(5)
-                        .textSelection(.enabled)
+                    GenUIDispatcher.shared.render(dailyBriefPayload)
                         .frame(maxWidth: 580, alignment: .leading)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 16)
@@ -1347,6 +1351,15 @@ struct LandingView: View {
             .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var dailyBriefPayload: GenUIPayload {
+        GenUIPayload.markdownCard(
+            title: "Daily Brief",
+            dailyBrief.dailyBriefContent,
+            id: "landing-daily-brief",
+            metadata: ["surface": "landing-daily-brief"]
+        )
     }
 
     // MARK: - Actions

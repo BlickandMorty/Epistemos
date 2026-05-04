@@ -17,7 +17,7 @@ nonisolated struct CloudKnowledgeDistillationRunSummary: Sendable, Equatable {
 actor CloudKnowledgeDistillationService {
     private let modelContainer: ModelContainer
     private let store: KnowledgeProfileStore
-    private let targetsProvider: @Sendable () -> [ModelVaultTarget]
+    private let targetsProvider: @MainActor @Sendable () -> [ModelVaultTarget]
     private let sourceNotesProvider: (@Sendable () throws -> [KnowledgeSourceNote])?
     private let recentChatsProvider: (@Sendable () throws -> [String])?
     private let nowProvider: @Sendable () -> Date
@@ -25,7 +25,7 @@ actor CloudKnowledgeDistillationService {
     init(
         modelContainer: ModelContainer,
         store: KnowledgeProfileStore = KnowledgeProfileStore(),
-        targetsProvider: @escaping @Sendable () -> [ModelVaultTarget] = {
+        targetsProvider: @escaping @MainActor @Sendable () -> [ModelVaultTarget] = {
             CloudKnowledgeDistillationService.defaultTargets()
         },
         sourceNotesProvider: (@Sendable () throws -> [KnowledgeSourceNote])? = nil,
@@ -41,7 +41,8 @@ actor CloudKnowledgeDistillationService {
     }
 
     func rebuildAllModelVaults() async throws -> CloudKnowledgeDistillationRunSummary {
-        try await rebuildModelVaults(for: targetsProvider())
+        let targets = await targetsProvider()
+        return try await rebuildModelVaults(for: targets)
     }
 
     func rebuildModelVaults(for targets: [ModelVaultTarget]) async throws -> CloudKnowledgeDistillationRunSummary {

@@ -1,0 +1,286 @@
+﻿Architectural Mastery of the macOS Code Editor: Performance Engineering and Visual Fidelity in TextKit 1
+The development of a professional-grade code editor for macOS represents one of the most significant engineering challenges within the AppKit ecosystem. While modern frameworks like TextKit 2 have introduced high-level abstractions for standard text handling, the requirement for absolute control over syntax highlighting, layout performance, and visual polish often necessitates a deep dive into the established, yet intricate, TextKit 1 architecture.1 Achieving the fluid 120 frames-per-second (fps) performance characteristic of Xcode 17 on ProMotion-equipped MacBook Pro displays requires moving beyond basic implementation patterns. This report deconstructs the essential components of high-performance code editors, focusing on the nuanced interplay between asynchronous tokenization, hardware-accelerated rendering, and precise typographic engineering.2
+The Visual Identity of Xcode: Color Science and Theme Architecture
+Visual polish in a code editor is defined by its ability to convey semantic meaning through a carefully curated color palette that remains legible across varying ambient lighting conditions. Xcode 17 utilizes a sophisticated theming system anchored by the "Default (Dark)" and "Default (Light)" specifications.4 These themes are not simple inversions; they are distinct color profiles that account for the differing perceptual contrast requirements of dark and light backgrounds.6
+Syntax Highlighting: The Core Palette of Xcode 17
+The efficacy of a code editor’s visual design depends on the consistency of its token coloring. Apple’s "Default (Dark)" theme prioritizes high-value hues that stand out against a dark charcoal background without causing the "vibration" effect typical of over-saturated colors on high-brightness Retina displays.7 Conversely, the "Default (Light)" theme employs darker, more saturated variations of these colors to ensure sufficient contrast against a pure white background.5
+Token Type
+	Xcode Default (Dark) Hex
+	Xcode Default (Light) Hex
+	Semantic Application
+	Keywords
+	#D342E1
+	#9B2393
+	Control flow, declarations
+	Strings
+	#F25F5C
+	#C41A16
+	String literals
+	Numbers
+	#D1B2FF
+	#1C00CF
+	Integer and float literals
+	Comments
+	#6C7986
+	#007400
+	Single and multi-line remarks
+	Types / Classes
+	#6BDFFF
+	#3900A4
+	Structs, classes, protocols
+	Functions
+	#41A1C0
+	#000000
+	Function and method names
+	Properties
+	#70A0AD
+	#326D74
+	Instance and static properties
+	Preprocessor
+	#FFA86A
+	#643820
+	Macros and imports
+	Identifiers
+	#FFFFFF
+	#000000
+	Variable names, constants
+	Background
+	#1E1E1E
+	#FFFFFF
+	Primary editor surface
+	Current Line Highlight
+	#292A30
+	#E8F2FF
+	Active editing row
+	Selection Highlight
+	#41444D
+	#B2D7FF
+	Text selection region
+	Insertion Point (Cursor)
+	#FFFFFF
+	#000000
+	Text entry caret
+	Gutter Background
+	#1E1E1E
+	#F7F7F7
+	Line number region
+	Gutter Separator
+	#3A3A3A
+	#E5E5E5
+	Boundary line
+	Xcode stores these settings in .xccolortheme files, which are XML-based Property Lists (plists). These files are typically found in ~/Library/Developer/Xcode/UserData/FontAndColorThemes/.4 Each file contains a DVTSourceTextSyntaxColors dictionary, mapping specific syntax identifiers to RGBA strings. For a native editor implementation, these values should be converted to NSColor objects using the sRGB color space to ensure parity with Apple’s rendering engine.9
+Semantic Contrast and Alpha Management
+A hallmark of Xcode’s polish is its use of transparency in background decorations. The current line highlight, for instance, is often applied with an alpha value of    to    relative to its base color.4 This allows secondary indicators, such as indent guides and search result markers, to remain visible beneath the highlight. Implementation of these effects in a custom NSTextView requires careful handling of NSColor components and potentially the use of NSCompositeSourceOver blend modes during the drawing phase.11
+NSTextView Performance: The Mechanics of 120fps Scrolling
+The transition from a standard 60Hz display to a 120Hz ProMotion display doubles the pressure on the main thread and the graphics pipeline. Every frame must be produced in approximately    milliseconds. In many custom implementations, the NSTextView stutters because it relies on synchronous, CPU-bound layout and drawing routines that cannot satisfy this window.3
+Architectural Divergence: Xcode’s Rendering Pipeline
+Xcode's source editor is a hybrid of high-performance AppKit components and custom rendering layers. While it leverages the NSLayoutManager infrastructure for text metrics, it heavily utilizes Core Animation (CALayer) to manage the visual presentation of the document.12 The primary reason for Xcode's smoothness is the decoupling of text layout from the display refresh cycle.
+Traditional NSTextView implementations are often configured as non-layer-backed views. This forces the system to perform a full drawRect: call for every newly exposed pixel during a scroll, a process that is highly susceptible to main-thread interference.12 By enabling wantsLayer = true on the NSScrollView and the NSTextView, the system can cache the editor’s content as a series of bitmaps, allowing the GPU to handle the movement of those bitmaps during scrolling without involving the CPU.14
+Optimized Layer Policies and Tile-Based Rendering
+To maximize the benefits of layer backing, the layerContentsRedrawPolicy of the NSTextView must be set to .onSetNeedsDisplay. This prevents AppKit from redrawing the entire view every time its bounds change—such as during an elastic scroll event—and instead allows the GPU to scale and reposition the existing layer content.12
+Furthermore, the property NSTextView.preparedContentRect is vital for "predictive" rendering. By configuring this rect to be larger than the documentVisibleRect, the editor renders content that is just about to enter the viewport.1 When the user scrolls quickly, the content is already present in the graphics buffer, eliminating the white gaps or "checkerboarding" seen in under-optimized text engines.
+The setTemporaryAttributes Performance Advantage
+A catastrophic performance pitfall in many code editors is the use of textStorage.addAttribute(_:value:range:) for syntax highlighting. Because NSTextStorage is the "source of truth" for the text system, adding an attribute triggers a sequence of notifications that eventually force the NSLayoutManager to re-validate the glyphs and layout for the affected range.17 This is an expensive operation that includes calculating character widths and line breaks.
+For syntax highlighting, which only alters the visual appearance (color, underline) without changing the physical dimensions of the text, the correct approach is to use NSLayoutManager.setTemporaryAttributes(_:forCharacterRange:).18 These attributes are stored in a separate, lightweight dictionary and are applied only during the final drawing phase. They bypass the layout validation stage entirely, allowing for real-time coloring of massive files with zero impact on the layout engine's performance.18
+Optimal NSTextView Configuration for Code Editing
+The default configuration of NSTextView is optimized for rich text editing (prose), which includes features that are detrimental to code editor performance. A professional implementation must aggressively disable these features to streamline the processing pipeline.
+
+
+Configuration Property
+	Recommended Value
+	Performance and Logic Rationale
+	isHorizontallyResizable
+	true
+	Essential for code; allows lines to extend past the viewport without wrapping.20
+	isVerticallyResizable
+	true
+	Allows the text view to grow with the document, avoiding inner scroll bars.1
+	textContainer.widthTracksTextView
+	false
+	Prevents the layout manager from forcing line wraps based on the width of the view.
+	isAutomaticTextReplacementEnabled
+	false
+	Disables complex substitution logic during typing, reducing keystroke latency.
+	isAutomaticDashSubstitutionEnabled
+	false
+	Prevents code-breaking conversions of double-hyphens to em-dashes.
+	isAutomaticQuoteSubstitutionEnabled
+	false
+	Disables "smart quotes" which would otherwise invalidate code syntax.1
+	isRichText
+	false
+	Forces the editor to treat all content as plain text, simplifying the internal buffer.1
+	isIncrementalSearchingEnabled
+	true
+	Enables high-performance search-as-you-type functionality within TextKit.
+	typingAttributes
+	Monospaced Font
+	Sets the default font to a monospace variant to avoid per-character metric changes.
+	linkTextAttributes
+	nil
+	Prevents the overhead of scanning for and styling URLs in code buffers.
+	Text Container Metrics and Insets
+Xcode’s visual balance is achieved through specific padding. The textContainerInset should be configured to provide roughly    to    points of vertical padding at the top of the file to prevent the first line from feeling cramped against the toolbar.1 The lineFragmentPadding—which defines the distance between the edge of the text container and the start of the glyphs—should be set to    to match the standard indentation of Xcode’s gutter.21
+
+
+Swift
+
+
+
+
+// Swift-AppKit Configuration Pattern
+let textView = CodeTextView(frame:.zero)
+textView.textContainer?.lineFragmentPadding = 5.0
+textView.textContainerInset = NSSize(width: 0, height: 10)
+textView.backgroundColor = EpistemosTheme.editorBackground
+textView.isEditable = true
+textView.isSelectable = true
+textView.isVerticallyResizable = true
+textView.isHorizontallyResizable = true
+textView.textContainer?.widthTracksTextView = false
+
+drawBackground Performance Engineering
+The drawBackground(in:) method is the critical path for rendering the current line highlight, indent guides, and other non-text decorations. If implemented naively, this method becomes a bottleneck that blocks the main thread during scrolling.14
+Dirty Rect Optimization and RectsBeingDrawn
+The most important rule of drawBackground(in:) is to only draw within the rect parameter provided by AppKit. This "dirty rect" represents the specific portion of the view that needs an update. To further optimize, one should use NSView.getRectsBeingDrawn(_:count:).14 This API provides an array of rectangles that accurately represent the update region, which is particularly useful during text selection when the update area consists of multiple non-contiguous line fragments.
+Caching and Hardware-Accelerated Decorations
+Indent guides and the current line highlight should not be calculated from scratch in every draw call. Instead, the editor should maintain a cache of line positions and indentation levels.22 For indent guides, a high-performance strategy involves using a single CAShapeLayer that spans the entire document. When the text changes, a background task calculates the path for the guides and updates the layer’s path property. This offloads the drawing of thousands of small lines to the GPU.
+The current line highlight should also be implemented as a CALayer rather than a drawing command in drawBackground.12 By using a layer, moving the highlight from line 10 to line 11 only requires changing the layer's frame or position. This triggers a GPU-driven animation that is fundamentally faster than a full NSTextView redraw.23
+Syntax Highlighting Architecture: The Incremental Strategy
+The latency in typing often arises from the syntax highlighting engine. If the editor re-tokenizes the entire file on every keystroke, typing will inevitably feel sluggish as the file size grows.24
+Tree-sitter and Incremental Re-parsing
+The use of Tree-sitter is a professional-grade choice because it supports incremental parsing. When a change is made to the document, the Tree.edit() function is used to inform the parser of the range that was modified.25 Tree-sitter then only re-scans the branches of the syntax tree affected by that change.
+This incremental update should be mapped to the text system through the processEditing(from:editedMask:changeInLength:invalidatedRange:) method.18 By intercepting the change here, the editor can limit its tokenization and attribute application to the invalidatedRange, which is the subset of the document that AppKit has already identified as needing a visual update.18
+Asynchronous and Lazy Highlighting
+For optimal 120fps performance, the highlighting process should be split into phases:
+1. Immediate Phase: Synchronously highlight the current line being edited to provide instant visual feedback.
+2. Visible Phase: Use NSScrollView.documentVisibleRect to determine the range of characters currently on screen. Schedule an asynchronous task to tokenize and highlight only this range immediately after the immediate phase.
+3. Background Phase: Schedule a low-priority task using RunLoop.current.perform(inModes: [.default]) to highlight the rest of the document when the system is idle.
+This "lazy" approach ensures that the editor never spends CPU time coloring thousands of lines that the user cannot see, a strategy employed by VS Code and Nova.22
+NSScrollView and Scroll Performance
+The interaction between the scroll view and the text view is the foundation of the editor’s fluidity. A common performance killer is redundant layout passes triggered by scroll observations.27
+copiesOnScroll and Document Opacity
+The NSClipView.copiesOnScroll property is a powerful legacy optimization. When set to true, the clip view "copies" the existing rendered pixels and only asks the document view to draw the newly exposed strip at the edge.28 For this to be effective, the NSTextView must be fully opaque (isOpaque = true) and have a solid background color.27 If the background is transparent or uses a complex vibrancy effect, copiesOnScroll is often disabled, forcing a full redraw on every frame.
+Avoiding Layout Thrashing during Scroll
+Observers of NSScrollView.contentView.boundsDidChangeNotification must be extremely lightweight. If the code inside the notification handler modifies any constraints or triggers a setNeedsLayout on a complex view hierarchy, it causes "layout thrashing," where the system spends more time calculating positions than rendering pixels.27 High-performance editors use this notification only to flag the minimap or line gutter as needing a redraw, allowing the next display cycle to coalesce the updates.
+Line Number Gutter: High-Performance Implementation
+A professional line number gutter must remain perfectly synchronized with the text view during high-speed scrolling and elastic "bounce" events. While many developers attempt to use a standard NSView as a sidecar, the idiomatic and most performant approach is subclassing NSRulerView.30
+NSRulerView and Client View Integration
+NSScrollView is designed to tile NSRulerView instances automatically. By setting the custom gutter as the verticalRulerView, AppKit handles the positioning and alignment of the gutter relative to the text view.21 The key to gutter performance is calculating the position of line numbers using the NSLayoutManager's glyph range APIs rather than iterating through the entire string.
+
+
+Swift
+
+
+
+
+// High-Performance Gutter Drawing Logic
+override func drawHashMarksAndLabels(in rect: NSRect) {
+   guard let textView = self.clientView as? NSTextView,
+         let layoutManager = textView.layoutManager else { return }
+   
+   let visibleRect = textView.visibleRect
+   let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textView.textContainer!)
+   
+   // Only enumerate fragments that are currently visible
+   layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { (rect, usedRect, container, range, stop) in
+       let charIndex = range.location
+       // Binary search in a cached array of line-start indices for performance
+       let lineNumber = self.lineNumberForIndex(charIndex)
+       self.drawNumber(lineNumber, at: rect.origin.y + textView.textContainerOrigin.y)
+   }
+}
+
+Caching and Tabular Figures
+Calculating line numbers on the fly for every draw call is inefficient. A robust implementation should cache an array of character indices that represent the start of each line.32 This cache is only updated when the NSTextStorage content changes. During drawing, a binary search allows the editor to find the line number for a given glyph index in    time.
+For visual polish, the gutter should use a font with "tabular figures" (equal-width digits).33 This prevents the gutter width from fluctuating as the user scrolls from line 9 to line 10, a subtle but vital detail found in Xcode.
+Minimap Architecture: Canvas vs. Render Approach
+The implementation of a minimap for files with over 10,000 lines requires an architecture that minimizes memory consumption and rendering overhead.
+The RenderCharacters=False Strategy
+Following the VS Code model, a high-performance minimap should not render actual text glyphs. Instead, it should represent tokens as simple colored rectangles.22 This "canvas" approach bypasses the entire TextKit layout and glyph generation pipeline, which is the most CPU-intensive part of the text system.
+The minimap should be implemented as a CALayer-backed view. When the text changes, the editor generates a "compressed" representation of the tokens. Each token is drawn as a rectangle of height    or    points. Because these are simple vector operations, the GPU can render thousands of tokens per frame without dropping below 120fps.
+Viewport Indicator and Interaction
+The semi-transparent box that represents the current viewport should be a separate CAShapeLayer overlaying the minimap.22 This allows the indicator to move smoothly during scrolling without requiring the minimap's token layer to be redrawn. For interaction, dragging the indicator should update the NSScrollView document offset using scroll(to:) on the NSClipView, which provides the smoothest programmatic scrolling behavior.28
+Xcode Typography and Spacing Metrics
+The "Xcode feel" is largely a product of its specific typographic choices. Xcode 17 defaults to SF Mono, but it applies custom metrics that differ from the standard system monospaced font.36
+Exact Typographic Specifications
+
+
+Typographic Element
+	Xcode Value
+	Implementation Property
+	Font Family
+	SF Mono Regular
+	NSFont.monospacedSystemFont(ofSize: 13, weight:.regular)
+	Font Size
+	13.0 pt
+	Default for modern high-DPI displays.37
+	Line Height Multiple
+	1.1 to 1.2
+	NSMutableParagraphStyle.lineHeightMultiple.38
+	Tab Width
+	4 spaces
+	defaultTabInterval based on font's advance width.40
+	Indentation
+	4 spaces
+	headIndent and firstLineHeadIndent in paragraph style.
+	Paragraph Spacing
+	0.0 pt
+	Code editors typically avoid inter-paragraph gaps.41
+	Tracking
+	0.0
+	Standard monospaced character spacing.34
+	Achieving Pixel-Perfect Lines on Retina Displays
+Indent guides and gutter separators in Xcode are exactly 1 physical pixel wide. On a Retina display, a 1.0-point line is rendered as 2 physical pixels, which can look "heavy." To achieve the crisp look of Xcode, the line width must be calculated based on the window's scale factor: 1.0 / window.backingScaleFactor.34 Furthermore, any drawing coordinate must be snapped to a physical pixel boundary using the formula:   . This prevents the anti-aliasing engine from blurring the lines across two physical pixels.
+Dark and Light Theme Switching Architecture
+Modern macOS applications must support seamless transitions between light and dark appearances, often triggered by the system’s "Auto" mode or a manual toggle.6
+viewDidChangeEffectiveAppearance and Dynamic Colors
+The editor should not manually re-calculate all colors when the appearance changes. Instead, it should utilize "dynamic" NSColor objects created with init(name:bundle:dynamicProvider:).11 When these colors are used, AppKit automatically updates the rendered output when the effectiveAppearance of the view changes.
+To handle non-color attributes (like syntax highlighting applied via temporary attributes), the editor should override viewDidChangeEffectiveAppearance().6 Inside this method, a call to the syntax highlighting engine should be wrapped in a CATransaction with a duration of    seconds to provide a smooth cross-fade animation between themes, matching the system's aesthetic.
+Memory and Performance of Multi-Theme Engines
+Xcode achieves instantaneous theme switching by keeping both light and dark token-color maps in memory.6 When the theme changes, the highlighting engine simply swaps the reference to the active map and triggers a setNeedsDisplay on the visible rect. If using temporary attributes, this operation is extremely fast (   for a large file) because it does not require a layout pass.18
+Synthesis of the Professional macOS Editor
+The creation of an editor that is indistinguishable from Xcode is a task of holistic optimization. One must prioritize the decoupling of UI drawing from the heavy computational tasks of syntax parsing and layout.3 By combining the power of Tree-sitter for incremental parsing, NSLayoutManager temporary attributes for zero-overhead coloring, and CALayer-backed tiling for hardware-accelerated scrolling, a developer can build an editor that maintains 120fps even under the stress of complex Swift files. When this performance is layered with the exact typographic metrics of SF Mono and the precisely calibrated sRGB color palette of Xcode 17, the result is a native macOS application that meets the rigorous standards of professional software engineers.
+Works cited
+1. NSTextView | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nstextview
+2. "ProMotion" refresh rate on MacBook Pro - what is it and will make it harder for me to see "issues" with video. : r/VIDEOENGINEERING - Reddit, accessed April 6, 2026, https://www.reddit.com/r/VIDEOENGINEERING/comments/1ppe2g4/promotion_refresh_rate_on_macbook_pro_what_is_it/
+3. Scrolling at 120hz on macOS · Issue #6140 · sublimehq/sublime_text - GitHub, accessed April 6, 2026, https://github.com/sublimehq/sublime_text/issues/6140
+4. Best Xcode themes - Swift Programming, accessed April 6, 2026, https://swiftprogramming.com/best-xcode-themes/
+5. Color | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/design/human-interface-guidelines/color
+6. Dark Mode | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/design/human-interface-guidelines/dark-mode
+7. Why do most experienced programmers prefer to use dark themes for their IDE? - Quora, accessed April 6, 2026, https://www.quora.com/Why-do-most-experienced-programmers-prefer-to-use-dark-themes-for-their-IDE
+8. macos - Xcode - Dark theme for the whole UI - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/28553701/xcode-dark-theme-for-the-whole-ui
+9. What's your preferred theme for VS Code? : r/webdev - Reddit, accessed April 6, 2026, https://www.reddit.com/r/webdev/comments/egd531/whats_your_preferred_theme_for_vs_code/
+10. Color | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/SwiftUI/Color
+11. Standard colors | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/uikit/standard-colors
+12. AppKit for UIKit Developers - objc.io, accessed April 6, 2026, https://www.objc.io/issues/14-mac/appkit-for-uikit-developers
+13. 120hz ProMotion scrolling is not supported in latest Macbook Pro 2021 · Issue #135857 · microsoft/vscode - GitHub, accessed April 6, 2026, https://github.com/microsoft/vscode/issues/135857
+14. An Exercise in Modern Cocoa Views | by Aditya Vaidyam | Medium, accessed April 6, 2026, https://medium.com/@avaidyam/an-exercise-in-modern-cocoa-views-e88bbdea277f
+15. NSView.h - AppKit.framework - GitHub, accessed April 6, 2026, https://github.com/apozaiyidong/RTMPDemo/blob/master/RTMPDemo/AppKit.framework/Versions/C/Headers/NSView.h
+16. NSLayoutManager | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/uikit/nslayoutmanager
+17. objective c - NSTextView syntax highlighting - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/2218415/nstextview-syntax-highlighting
+18. Application Kit Framework Reference - Appkitobjc [PDF] [4a75dqvnsfm0] - VDOC.PUB, accessed April 6, 2026, https://vdoc.pub/documents/application-kit-framework-reference-appkitobjc-4a75dqvnsfm0
+19. NSLayoutManager Class Reference, accessed April 6, 2026, https://leopard-adc.pepas.com/documentation/Cocoa/Reference/ApplicationKit/Classes/NSLayoutManager_Class/Reference/Reference.html
+20. LineNumbers - CocoaDev, accessed April 6, 2026, https://cocoadev.github.io/LineNumbers/
+21. Displaying Line Numbers with NSTextView — Noodlings - Noodlesoft, accessed April 6, 2026, https://www.noodlesoft.com/blog/2008/10/05/displaying-line-numbers-with-nstextview/
+22. What's New | CodeEdit, accessed April 6, 2026, https://www.codeedit.app/whats-new
+23. Use CoreAnimation for tab contents [40320067] - Chromium Issue Tracker, accessed April 6, 2026, https://issues.chromium.org/40320067
+24. Any tips on optimizing UITextView performance? : r/iOSProgramming - Reddit, accessed April 6, 2026, https://www.reddit.com/r/iOSProgramming/comments/7d7yew/any_tips_on_optimizing_uitextview_performance/
+25. Editor View · Issue #36 · CodeEditApp/CodeEdit - GitHub, accessed April 6, 2026, https://github.com/CodeEditApp/CodeEdit/issues/36
+26. Syntax Highlight Guide | Visual Studio Code Extension API, accessed April 6, 2026, https://code.visualstudio.com/api/language-extensions/syntax-highlight-guide
+27. 10.9 AppKit Release Notes - GitHub Gist, accessed April 6, 2026, https://gist.github.com/zwaldowski/8710fddc8b0b39d2c152
+28. OpenStep Programming Reference - Oracle Help Center, accessed April 6, 2026, https://docs.oracle.com/cd/E19957-01/802-2112/802-2112.pdf
+29. OPENSTEP SPECIFICATION - GNUstep.org, accessed April 6, 2026, https://www.gnustep.org/resources/OpenStepSpec.pdf.gz
+30. NSRulerView | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nsrulerview
+31. NSRulerView | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/AppKit/NSRulerView
+32. How to implement line number gutter for UITextView? : r/swift - Reddit, accessed April 6, 2026, https://www.reddit.com/r/swift/comments/lgv7h7/how_to_implement_line_number_gutter_for_uitextview/
+33. What is the font of the line number in Xcode 11? - Graphic Design Stack Exchange, accessed April 6, 2026, https://graphicdesign.stackexchange.com/questions/134441/what-is-the-font-of-the-line-number-in-xcode-11
+34. Apple Human Interface Typography Guide with a Figma-focused perspective - GitHub Gist, accessed April 6, 2026, https://gist.github.com/eonist/b9c180a67980c6e18a5184f19bff68fa
+35. SlashCommand Reference - WaveLegacy Documentation - Introduction, accessed April 6, 2026, https://legacydocs.waveterm.dev/reference/slashcommands
+36. Fonts - Apple Developer, accessed April 6, 2026, https://developer.apple.com/fonts/
+37. Typography | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/design/human-interface-guidelines/typography
+38. lineHeightMultiple | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/uikit/nsparagraphstyle/lineheightmultiple
+39. CTParagraphStyleSpecifier.lineHeightMultiple | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/coretext/ctparagraphstylespecifier/lineheightmultiple
+40. 8 Xcode Settings You Should CHANGE Right Now | by Tanishq Arora - Medium, accessed April 6, 2026, https://medium.com/@ios-interview/8-xcode-settings-you-should-change-right-now-71b6cdee4f32
+41. CTParagraphStyleSpecifier.paragraphSpacing | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/coretext/ctparagraphstylespecifier/paragraphspacing
+42. My Visual Studio Code Notes - QuantumWarp, accessed April 6, 2026, https://quantumwarp.com/kb/articles/26-programming/1032-my-visual-studio-code-notes

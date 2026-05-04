@@ -1,0 +1,288 @@
+﻿Architectural Optimization and Capability Synthesis for Heterogeneous Local Model Orchestration
+The integration of eighteen local large language models into a unified agentic infrastructure requires a transition from generic resource allocation to a model-aware orchestration layer. The current infrastructure, characterized by its identical treatment of diverse architectures, fails to leverage the specific cognitive profiles and computational advantages of the models within the stack. This synthesis provides a comprehensive audit of the eighteen-model catalog, an evaluation of the April 2026 cloud model landscape, and a blueprint for a capability-descriptor system designed to align infrastructure with model-specific attributes.1
+Analysis of the Identical Treatment Fallacy in Local Inference
+The prevailing configuration of the local model stack treats eighteen disparate models—ranging from 0.8B parameter edge units to 35B parameter Mixture-of-Experts (MoE) architectures—under a uniform context limit, static temperature, and identical key-value (KV) cache strategy. This approach represents a significant sub-optimization of silicon resources and algorithmic potential.4 Modern architectures, particularly the Gemma 4 series and the Qwen 3.5 family, exhibit highly specialized behaviors regarding token prioritization and reasoning channels that are neutralized when subjected to generic routing.1
+The current infrastructure overlooks the hybrid attention mechanisms of the Gemma 4 series, which interleave local sliding-window attention with full global attention. Global layers in these models feature unified Keys and Values and apply Proportional RoPE (p-RoPE) to support performance across extended context windows.6 Imposing a static KV cache strategy across the stack fails to account for these architectural nuances, leading to either excessive VRAM consumption or a loss of long-range dependency awareness.1 Furthermore, the lack of vision and tool-calling extraction logic prevents the utilization of native multimodal capabilities that are standard in the 2026 model generation.8
+Audit of the Tiered Local Model Stack
+The eighteen-model catalog is structured into four distinct performance tiers, each demanding a specific configuration of the Natural Context Provider (NCP) and the underlying Rust-based agent core. Achieving 100% utilization requires the implementation of a comprehensive per-model capability descriptor (MCD) that defines unique context profiles, sampling parameters, and reasoning triggers.4
+
+
+Tier
+	Model Designation
+	Architecture
+	Total Parameters
+	Active Parameters
+	Native Context
+	Tier 1
+	Gemma 4 2B (E2B)
+	Dense (Hybrid)
+	5.1B 1
+	2.3B 1
+	128,000 1
+	Tier 1
+	Qwen 3.5 0.8B
+	Dense
+	0.8B 5
+	0.8B 5
+	256,144 5
+	Tier 1
+	Qwen 3.5 2B
+	Dense
+	2B 5
+	2B 5
+	256,144 5
+	Tier 2
+	Gemma 4 4B (E4B)
+	Dense (Hybrid)
+	8.0B 1
+	4.5B 1
+	128,000 1
+	Tier 2
+	Qwen 3.5 4B
+	Dense
+	4B 5
+	4B 5
+	256,144 5
+	Tier 2
+	SmolLM3 3B
+	Dense (GQA)
+	3.0B 13
+	3.0B 13
+	128,000 14
+	Tier 3
+	DeepSeek R1 7B
+	Distill (Qwen)
+	7.6B 15
+	7.6B 15
+	128,000 16
+	Tier 3
+	Qwen 2.5 Coder 7B
+	Dense
+	7.6B 17
+	7.6B 17
+	131,072 18
+	Tier 3
+	Qwen 3.5 9B
+	Dense
+	9B 19
+	9B 19
+	262,144 19
+	Tier 3
+	Gemma 4 12B
+	Dense (Hybrid)
+	12B 3
+	12B 3
+	256,000 1
+	Tier 4
+	Gemma 4 27B MoE
+	MoE
+	25.2B 1
+	3.8B 1
+	256,000 1
+	Tier 4
+	Gemma 4 31B JANG
+	Dense (Abliterated)
+	30.7B 7
+	30.7B 7
+	256,000 1
+	Tier 4
+	Qwopus 27B v3
+	Dense
+	27B 20
+	27B 20
+	262,144 21
+	Tier 4
+	Qwopus MoE 35B
+	MoE
+	35B 11
+	3B 11
+	131,072 11
+	Tier 4
+	Qwen 3.5 27B
+	Dense
+	27B 19
+	27B 19
+	262,144 19
+	Tier 4
+	Qwen 3.5 35B MoE
+	MoE
+	35B 19
+	3B 19
+	262,144 19
+	Tier 4
+	Devstral Small 24B
+	Dense
+	24B 10
+	24B 10
+	256,000 10
+	Tier 4
+	Mistral Small 24B
+	Dense
+	24B 22
+	24B 22
+	128,000 22
+	Tier 1 and 2: Efficiency and Edge Optimization
+The Tier 1 models are primarily utilized for background routing and high-velocity triage. The Qwen 3.5 0.8B model, with a memory requirement of only 2GB, excels at preliminary intent classification within its 256K context window.4 Gemma 4 2B (E2B) introduces a unique "Effective Parameter" architecture that активирует only a fraction of its total 5.1B footprint during inference to preserve VRAM while maintaining native multimodal support.1
+Tier 2 represents the persistent local assistant layer. SmolLM3 3B is a significant outlier, utilizing Grouped Query Attention (GQA) with four groups to match the performance of larger models while drastically reducing KV cache overhead.23 SmolLM3 requires a specific rope_scaling factor of 2.0 and YaRN extrapolation to reach its 128K context potential, a configuration that is currently missing from the uniform infrastructure.14 Unlike the other Tier 2 models, SmolLM3 supports dual-mode intelligence, toggling between reasoning and standard responses via /think and /no_think flags in the system prompt.23
+Tier 3 and 4: Reasoning and Frontier Local Capabilities
+Tier 3 models serve as the stack's primary logic engines. DeepSeek R1 Distill 7B, a variant distilled from Qwen 2.5 architecture, inherits powerful reasoning behaviors—such as self-verification and reflection—through large-scale reinforcement learning.24 This model mandates a specific sampling temperature of 0.6 and requires the infrastructure to enforce the initiation of responses with the <think>\n tag to ensure thorough reasoning.24
+Tier 4 contains the frontier local units. The Qwopus series (27B v3 and MoE 35B) implements an "act-then-refine" paradigm distilled from Claude Opus 4.6.11 These models utilize structural reasoning optimization to refine the fundamental cognitive path, enabling higher accuracy rates through explicit intermediate steps.20 For agentic coding, the Devstral Small 2 (24B) is optimized for multi-file editing and code exploration, but it requires a specialized "mistral" tool-call parser and the --enable-auto-tool-choice flag in the server configuration to extract actionable JSON.10
+The Gemma 4 31B JANG model is a unique "abliterated" variant produced using the Abliterix framework.25 This model utilizes TPE-based Bayesian optimization of steering parameters to reduce refusal behaviors, maintaining the base Gemma 4 chat template while increasing compliance on complex tasks.25 It utilizes a 256K context window and requires a VRAM budget of approximately 66GB for BF16 inference, making it suitable only for single H100 or multi-RTX 4090 configurations.1
+Health Audit of Cloud Frontier Models (April 2026)
+The health and availability of cloud models serve as the essential fallback and supervisory layer for the local stack. As of April 2026, the cloud landscape is characterized by high performance but significant reliability fluctuations.26
+Claude 4.6 and the Reliability Crisis
+Claude Opus 4.6 remains the benchmark for natural prose and agentic coding, scoring 80.8% on SWE-bench Verified.28 However, the service experienced a significant wave of outages and elevated error rates in March and April 2026.30 Incidents involving elevated timeouts for both Opus 4.6 and Sonnet 4.6 have been documented, with some sessions hanging for 10-15 minutes.27 These reliability issues necessitate the integration of local fallbacks like Qwopus 27B v3, which achieves a 95.73% score on HumanEval, outperforming even Claude-Distilled-v2.20
+GPT-5.4 and Gemini 3.1 Pro Benchmarking
+OpenAI’s GPT-5.4 has successfully unified coding, reasoning, and computer use into a single architecture, scoring 75% on the OSWorld benchmark.29 This model is optimized for desktop automation and supports a 1M context window, although costs double for contexts exceeding 272K tokens.29 Gemini 3.1 Pro currently leads in scientific reasoning (94.3% GPQA) and provides the most context-efficient API pricing ($1.60/1M input).26 While Gemini offers a production-grade 1M context, it lacks the mature agentic tool ecosystem found in Claude or GPT architectures.27
+
+
+Model
+	Primary Capability
+	Context Limit
+	SWE-Bench (Verified)
+	Health Status
+	GPT-5.4
+	UI Automation / UI Navigation
+	1M 28
+	~80.0% 29
+	Stable 26
+	Claude Opus 4.6
+	Coding / Natural Prose
+	200K (1M Beta) 28
+	80.8% 28
+	Unstable (Outages) 30
+	Gemini 3.1 Pro
+	Science / Context / Cost
+	1M 28
+	80.6% 28
+	Stable 28
+	Claude Sonnet 4.6
+	High-ROI Coding
+	200K 28
+	79.6% 27
+	Unstable (Latency) 30
+	Technical Implementation of Per-Model Capability Descriptors
+To express the unique power of each local model, the infrastructure must move toward a capability-descriptor system. This system will be implemented as a JSON-based metadata layer that the Rust agent_core and OpenAICompatibleProvider consume during the routing phase. This allows for the dynamic adjustment of hyperparameters, context windows, and tool-calling extraction formats per model ID.4
+1. Descriptor Schema for Local Models
+The capability descriptor for each of the eighteen models must define the following keys to ensure 100% functional expression:
+* context_profile: Defines the native and extensible context limits (e.g., 256,144 for Qwen 3.5 vs. 128,000 for Mistral) and the required KV cache strategy (Sliding Window vs. Global).1
+* sampling_overrides: Specifies model-specific temperatures (1.0 for Gemma, 0.6 for DeepSeek) and top_p values.1
+* thinking_configuration: Controls reasoning triggers. This includes the <|think|> token for Gemma 4, the /think flag for SmolLM3, and the <think> tag extraction for DeepSeek R1 and Qwopus.1
+* tool_parser_type: Assigns the correct parser (mistral, deepseekv3, xml_tools, or standard openai) to ensure structured output extraction.10
+* vision_parameters: Defines the visual token budget (70–1120) and aspect ratio support for multimodal models.6
+2. Wiring and Routing Optimization in the Rust Agent Core
+The audit of the OpenAICompatibleProvider has identified critical routing errors. Custom headers configured in opencode.jsonc (such as User-Agent or model-specific flags like clear_thinking) are not being correctly merged into the fetch requests during the SDK initialization.33 This results in headers either being ignored or erroneously propagated across all providers in the system.33
+To fix this, the Rust agent_core must be updated to merge model.headers into the fetch options with higher priority than the provider-level options. This ensures that models like Qwen 3.5 35B-A3B can receive specific reasoning-budget headers without impacting the behavior of dense models like Qwen 3.5 27B.33 Furthermore, the agent_core must handle the "Thinking Note" issue—addressing formatting noise in reasoning tags—by implementing a dedicated reasoning parser that separates thought and content channels before the final response is delivered to the user.12
+Model-Specific Behavioral Attributes and Configuration Requirements
+The architectural differences between the models in the stack imply that a "correct" implementation must account for specific behavioral tendencies and failure modes identified in benchmarks and developer reports.36
+Qwen 3.5 and the Hybrid Attention Bottleneck
+Qwen 3.5 models utilize a Gated DeltaNet architecture combined with sparse MoE, which is highly efficient but can be inconsistent with structured outputs.39 Users have reported that MoE variants (35B-A3B) sometimes drop required JSON fields or fail to close reasoning tags properly, emitting </thinking> instead of </think>.38 For tool-heavy workflows, the infrastructure should prioritize the 27B dense variant, which exhibits higher reliability in multi-step agentic tasks.37
+The Qwen 3.5 series supports a native context of 262,144 tokens, extensible to 1,010,000.21 Utilizing the full context requires the agent_core to implement linear attention state compression to prevent VRAM overflow.41 When deploying Qwen 3.5 via vLLM, the --max-model-len parameter must be synchronized with the MCD context profile to avoid runtime failures.19
+Gemma 4: Multimodal Order and Reasoning Stability
+The Gemma 4 series performance is highly sensitive to the order of modalities in the prompt. Optimal results are achieved when image and audio content are placed before text instructions.1 For the 31B model, the hybrid attention mechanism requires the final layer to be global, ensuring deep awareness for long-context tasks.6 The 31B Dense model is specifically designed for complex logic-dependent prompting, while the 26B A4B MoE is optimized for interactive chat and fast responses on consumer GPUs.1
+The abliterated "JANG" variant of Gemma 4 31B requires the force-thinking mode enabled via a modified Jinja template to ensure it bypasses safety templates while maintaining grammatical fluency.12 This model achieves a HumanEval score of 97.56% but may occasionally exhibit reasoning drift, requiring the agent to implement a self-correction loop similar to the "act-then-refine" paradigm used in Qwopus.12
+SmolLM3 and the Dual-Mode Paradigm
+SmolLM3 3B is unique in its dual-mode reasoning, allowing the stack to toggle between high-speed edge inference and deep logic.14 In "no_think" mode, the model pre-fills responses with empty think blocks to ensure a direct answer.23 In reasoning mode, SmolLM3 achieves a massive jump in AIME 2025 performance (from 9.3% to 36.7%), demonstrating that even 3B parameter models can handle complex math when given a reasoning budget.23 The agent_core must detect the /think flag in user queries to dynamically enable this mode.23
+Synthesis of Issues and Guidance for Claude Code Implementation
+To rectify the infrastructure and achieve 100% expression across the local model stack, Claude Code must implement the following architectural fixes. These recommendations address the wiring, routing, and per-model logic required for a frontier-ready local system.
+Core Infrastructure Repairs
+The current OpenAICompatibleProvider lacks a mechanism to distinguish between models. Claude Code should refactor the agent_core to include a ModelCapabilityMap. This map will replace static constants with dynamic lookups based on the model name.
+* Context Truncation and VRAM Management: The infrastructure must stop truncating all models at a generic limit. The agent_core must read the context_length from the MCD. For the Qwen 3.5 35B-A3B and 27B models, it should enable dynamic context scaling up to 262K.19
+* Header Merging Bug: In packages/opencode/src/provider/provider.ts, the getSDK function correctly merges model headers, but the custom fetch function fails to include them.33 Claude Code must update the fetch implementation to merge options["headers"] into the final request headers to prevent configuration loss.33
+* Reasoning Block Extraction: The current system likely mixes the thinking trace with the final response. Claude Code should implement a "Thought Interceptor" that parses <think>, <|channel>thought, or /think blocks based on the model's MCD and strips them from the user-facing output while retaining them for agentic reflection.1
+Per-Model JSON Configuration (Capability Descriptors)
+Claude Code should generate the following JSON-compatible descriptors for the eighteen models. These serve as the ground truth for all routing decisions.
+Model ID
+	Context
+	Temp
+	Stop Tokens
+	Tool Parser
+	Reasoning Trigger
+	gemma-4-2b
+	128,000
+	1.0
+	`["<turn
+	>"]`
+	xml
+	qwen-3.5-0.8b
+	256,144
+	0.7
+	`["<
+	im_end
+	>"]`
+	smollm-3-3b
+	128,000
+	0.7
+	`["<
+	im_end
+	>"]`
+	deepseek-r1-7b
+	128,000
+	0.6
+	["</think>"]
+	deepseekv3
+	<think>
+	qwopus-3.5-27b-v3
+	262,144
+	0.7
+	["</think>"]
+	qwen
+	<think>
+	devstral-24b
+	256,000
+	0.15
+	`["<
+	im_end
+	>"]`
+	Multimodal and Agentic Logic Integration
+The local stack's multimodality is currently dormant. Claude Code must enable the vision flag for all Gemma 4 and Qwen 3.5 models. This includes:
+* Vision Token Budgeting: Implementation of the resized_height and resized_width controls for Qwen 2.5 VL and the token budgets for Gemma 4 (70–1120).6
+* Tool Calling Schema Translation: The agent core currently sends Anthropic-style tool definitions. Claude Code must implement an adapter layer that translates these into the OpenAI-compatible JSON schema expected by Ollama and the local vLLM instances, specifically ensuring that all properties are marked as "required" for DeepSeek-based models.43
+Conclusion: Final Audit and Strategic Outlook
+The transition from a monolithic inference stack to a capability-aware orchestration layer is a prerequisite for achieving frontier-level performance locally. By integrating the per-model capability descriptors and fixing the Rust routing logic, the system will effectively express the unique context profiles and reasoning abilities of the eighteen-model catalog.
+The health of the cloud models—particularly the April 2026 Claude 4.6 outages—underscores the necessity of this local architecture. A resilient stack that can fall back from a hanging Claude Opus 4.6 session to a local Qwopus 27B v3 or Qwen 3.5 27B model, while maintaining consistent tool-calling and reasoning behaviors, represents the most sophisticated implementation of the agentic paradigm. This blueprint provides the technical synthesis required for Claude Code to implement these fixes with 100% precision, ensuring that each model is utilized to its absolute potential.
+Works cited
+1. Gemma 4 model card | Google AI for Developers, accessed April 7, 2026, https://ai.google.dev/gemma/docs/core/model_card_4
+2. Qwen 3.5 vs Llama vs Mistral: China's Open-Source AI Is Catching Up Faster Than You Think - AI Magicx, accessed April 7, 2026, https://www.aimagicx.com/blog/qwen-3-5-vs-llama-vs-mistral-china-open-source-ai-2026
+3. google/gemma-4-31b - LM Studio, accessed April 7, 2026, https://lmstudio.ai/models/google/gemma-4-31b
+4. Qwen 3.5 Developer Guide: Benchmarks, Architecture & Integration ..., accessed April 7, 2026, https://lushbinary.com/blog/qwen-3-5-developer-guide-benchmarks-architecture-integration-2026/
+5. Qwen3.5 - How to Run Locally | Unsloth Documentation, accessed April 7, 2026, https://unsloth.ai/docs/models/qwen3.5
+6. gemma-4-31b-it Model by Google - NVIDIA Build, accessed April 7, 2026, https://build.nvidia.com/google/gemma-4-31b-it/modelcard
+7. nvidia/Gemma-4-31B-IT-NVFP4 - Hugging Face, accessed April 7, 2026, https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+8. Gemma 4 Prompt Formatting | Google AI for Developers, accessed April 7, 2026, https://ai.google.dev/gemma/docs/core/prompt-formatting-gemma4
+9. Gemma 4: Our most capable open models to date - Google Blog, accessed April 7, 2026, https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/
+10. mistralai/Devstral-Small-2-24B-Instruct-2512 · Hugging Face, accessed April 7, 2026, https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512
+11. Add model card · samuelcardillo/Qwopus-MoE-35B-A3B-GGUF at ..., accessed April 7, 2026, https://huggingface.co/samuelcardillo/Qwopus-MoE-35B-A3B-GGUF/commit/b17d7c8eb29b3171fb6d66c820ffe0eca88b0f57
+12. DavidAU/gemma-4-31B-it-Mystery-Fine-Tune-HERETIC ..., accessed April 7, 2026, https://huggingface.co/DavidAU/gemma-4-31B-it-Mystery-Fine-Tune-HERETIC-UNCENSORED-Thinking
+13. SmolLM3: smol 3B, multilingual, long-context reasoner, accessed April 7, 2026, https://smollm3.com/
+14. SmolLM3 by Hugging Face: Redefining Efficiency in AI with a Compact 3B-Parameter Powerhouse | by Sai Dheeraj Gummadi | Data Science in Your Pocket | Medium, accessed April 7, 2026, https://medium.com/data-science-in-your-pocket/smollm3-by-hugging-face-redefining-efficiency-in-ai-with-a-compact-3b-parameter-powerhouse-0d90825580cf
+15. MFDoom/deepseek-r1-tool-calling:7b - Ollama, accessed April 7, 2026, https://ollama.com/MFDoom/deepseek-r1-tool-calling:7b
+16. deepseek-r1-distill-qwen-7b - LM Studio, accessed April 7, 2026, https://lmstudio.ai/models/deepseek/deepseek-r1-distill-qwen-7b
+17. qwen2.5-coder:7b-instruct - Ollama, accessed April 7, 2026, https://ollama.com/library/qwen2.5-coder:7b-instruct
+18. Qwen/Qwen2.5-Coder-7B-Instruct · Hugging Face, accessed April 7, 2026, https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct
+19. Deploy Qwen 3.5 on GPU Cloud: Hardware Requirements and Setup Guide (2026), accessed April 7, 2026, https://www.spheron.network/blog/deploy-qwen-3-5-gpu-cloud/
+20. Jackrong/Qwopus3.5-27B-v3 · Hugging Face, accessed April 7, 2026, https://huggingface.co/Jackrong/Qwopus3.5-27B-v3
+21. Qwen3.5-27B - ModelScope, accessed April 7, 2026, https://modelscope.cn/models/Qwen/Qwen3.5-27B
+22. Mistral Small 24B | Products - IONOS Cloud Documentation, accessed April 7, 2026, https://docs.ionos.com/cloud/ai/ai-model-hub/models/llms/mistral-small-24b
+23. SmolLM3: smol, multilingual, long-context reasoner - Hugging Face, accessed April 7, 2026, https://huggingface.co/blog/smollm3
+24. deepseek-ai/DeepSeek-R1-Distill-Qwen-7B · Hugging Face, accessed April 7, 2026, https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+25. wangzhang/gemma-4-31B-it-abliterated - Hugging Face, accessed April 7, 2026, https://huggingface.co/wangzhang/gemma-4-31B-it-abliterated
+26. AI Models in 2026: Which One Should You Actually Use? - GuruSup, accessed April 7, 2026, https://gurusup.com/blog/ai-comparisons
+27. GPT-5.4 vs Claude Opus 4.6 vs Gemini 3.1 Pro: A Practical Decision Guide for 2026, accessed April 7, 2026, https://www.shareuhack.com/en/posts/gpt5-vs-claude-vs-gemini-practical-guide-2026
+28. GPT-5.4 vs Claude Opus 4.6 vs Gemini 3.1 Pro: 2026 Developer Comparison - EvoLink, accessed April 7, 2026, https://evolink.ai/blog/gpt-5-4-vs-claude-opus-4-6-vs-gemini-3-1-pro-2026
+29. GPT 5.4 Complete Guide 2026: Features, Pricing, Benchmarks & How to Use | NxCode, accessed April 7, 2026, https://www.nxcode.io/resources/news/gpt-5-4-complete-guide-features-pricing-models-2026
+30. Claude Status, accessed April 7, 2026, https://status.claude.com/
+31. DeepSeek-R1: How to Run Locally | Unsloth Documentation, accessed April 7, 2026, https://unsloth.ai/docs/models/tutorials/deepseek-r1-how-to-run-locally
+32. How to configure tool calling for deepseek-r1-distill-qwen-32b？ · sgl-project sglang · Discussion #12387 - GitHub, accessed April 7, 2026, https://github.com/sgl-project/sglang/discussions/12387
+33. provider headers from config not applied to fetch requests #11789 - GitHub, accessed April 7, 2026, https://github.com/anomalyco/opencode/issues/11789
+34. Custom headers set for one OpenAI-compatible provider are incorrectly applied to all existing OpenAI-compatible providers · Issue #4864 · Kilo-Org/kilocode - GitHub, accessed April 7, 2026, https://github.com/Kilo-Org/kilocode/issues/4864
+35. Qwen3.5 Best Parameters Collection : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1ryb028/qwen35_best_parameters_collection/
+36. Has anyone used Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled for agents? How did it fair? : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1sa7jo2/has_anyone_used/
+37. Qwen 3.5 27B vs 35B-A3B: Intelligence vs Speed Benchmarks - Vertu, accessed April 7, 2026, https://vertu.com/ai-tools/qwen-3-5-27b-vs-qwen-3-5-35b-a3b-which-local-llm-reigns-supreme/
+38. Qwen 3.5: Should I use 35B MoE, or 27B dense? : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1rmiqid/qwen_35_should_i_use_35b_moe_or_27b_dense/
+39. Qwen3.5-27B (dense) vs 35B-A3B (MoE) — which one for tool calling + speed? - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1red1u6/qwen3527b_dense_vs_35ba3b_moe_which_one_for_tool/
+40. Qwen 3.5 Explained: Architecture, Upgrades Over Qwen 3, Benchmarks, and Real‑World Use Cases - Medium, accessed April 7, 2026, https://medium.com/data-science-in-your-pocket/qwen-3-5-explained-architecture-upgrades-over-qwen-3-benchmarks-and-real-world-use-cases-af38b01e9888
+41. Qwen 3.5 Medium Models: Benchmarks, Pricing, and Guide - Digital Applied, accessed April 7, 2026, https://www.digitalapplied.com/blog/qwen-3-5-medium-model-series-benchmarks-pricing-guide
+42. Qwen/Qwen2.5-VL-7B-Instruct - Hugging Face, accessed April 7, 2026, https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct
+43. Qwen 2.5 Coder + Ollama + LiteLLM + Claude Code : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1pqquuf/qwen_25_coder_ollama_litellm_claude_code/
+44. Tool Calls | DeepSeek API Docs, accessed April 7, 2026, https://api-docs.deepseek.com/guides/tool_calls

@@ -1,0 +1,13 @@
+[package]
+name = "helios-mlx"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+helios-core = { path = "../helios-core" }
+helios-tensor = { path = "../helios-tensor" }

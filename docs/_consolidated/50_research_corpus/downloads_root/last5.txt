@@ -1,0 +1,337 @@
+﻿Strategic Optimization and Architectural Standardization of the Eighteen-Model Local LLM Stack
+The transition from exploratory local inference to a production-grade multi-agent architecture requires a fundamental shift from generic model serving to architecture-aware optimization. Currently, the deployment infrastructure for the eighteen-model catalog—spanning four tiers from ultra-lightweight routers to large frontier distillates—is suffering from a systemic homogenization. By treating models as architecturally identical, the system fails to capitalize on the unique context profiles, sampling requirements, and specialized attention mechanisms that define the state-of-the-art in 2026. This analysis provides a comprehensive synthesis of the issues inherent in the current "mono-infrastructure" and establishes a rigorous blueprint for the implementation of model-specific capability descriptors within the Rust agent core and its Natural Context Provider (NCP) integration.1
+The Crisis of Infrastructure Homogenization
+The core critical finding identified in the current stack is the lack of granularity in model configuration. The current Rust-based agent core utilizes a singular OpenAICompatibleProvider that enforces identical context limits, temperature settings, and KV cache strategies across the entire catalog.3 This approach is mathematically and operationally flawed. For instance, a Tier 1 router like Qwen 3.5 0.8B possesses a radically different memory footprint and attention kernel requirement than a Tier 4 dense model like Mistral Small 24B.5 Furthermore, models using Gated Delta Networks (GDN) or Mixture-of-Experts (MoE) architectures require specific cache alignment flags to avoid order-of-magnitude drops in throughput.2
+Beyond raw performance, the current lack of tool-calling extraction logic and vision-aware descriptors prevents the agent from utilizing the natively multimodal capabilities of the Gemma 4 and Qwen 3.5 Omni series.1 The infrastructure must be upgraded to support a per-model capability descriptor—a registry that informs the orchestration layer of each model's specific "soul," including its optimal sampling envelope, token-level thought boundaries, and multimodal budget constraints.1
+Tier 1: Ultra-Lightweight Routing and Task Dispatch
+Tier 1 models are optimized for extreme low-latency and serve as the initial intelligence layer for the system. They are responsible for prompt classification, intent detection, and routing requests to more capable tiers. The current catalog includes three primary models in this category, each with distinct architectural nuances.
+Model
+	Parameters (Active/Effective)
+	Architecture
+	Native Context
+	Optimal Use Case
+	Gemma 4 2B
+	2.3B effective
+	Dense + PLE
+	128,000
+	Mobile/IoT Routing
+	Qwen 3.5 0.8B
+	0.8B active
+	Hybrid GDN
+	262,144
+	High-throughput Dispatch
+	Qwen 3.5 2B
+	2.0B active
+	Hybrid GDN
+	262,144
+	Classification / Guardrails
+	The architectural highlight of Tier 1 is the inclusion of Per-Layer Embeddings (PLE) in the Gemma 4 family.10 Unlike traditional architectures, PLE feeds a secondary embedding signal into every decoder layer, which preserves the representational depth of a larger model while minimizing the active parameter footprint during inference.10 For the ultra-lightweight tier, this means the router can "understand" complex instructions that would normally require a 7B model. The descriptor for Gemma 4 2B must specifically include flags for conditional parameter loading to maintain its near-zero latency profile on edge hardware.14
+In contrast, the Qwen 3.5 models in this tier utilize the Gated DeltaNet (GDN) hybrid architecture. This replaces traditional quadratic softmax attention in 75% of the layers with a linear attention variant.2 This is the mechanism that enables the massive 262K context window in a sub-1B parameter model.5 However, these models are prone to "gibberish" outputs if the KV cache is not properly aligned.2
+Tier 2: General-Purpose Light Assistants
+Tier 2 serves as the workhorse for standard dialogue, summarization, and basic information retrieval. These models, ranging from 3B to 4B parameters, represent the highest intelligence density in the stack, often outperforming 13B models from the Llama 2 era.15
+Model
+	Parameters
+	Architectural Feature
+	Context Extension
+	Sampling Default
+	SmolLM3 3B
+	3.0B
+	NoPE + GQA (3:1)
+	128K (YaRN)
+	Temp 0.6 / P 0.95
+	Qwen 3.5 4B
+	4.0B
+	Hybrid GDN + MTP
+	262K Native
+	Temp 0.7 / P 0.8
+	Gemma 4 4B
+	4.5B effective
+	Dense + PLE
+	128K Native
+	Temp 1.0 / P 0.95
+	SmolLM3 3B is unique in its adoption of the NoPE (No Positional Embeddings) strategy, derived from recent research suggesting that selectively removing rotary position embeddings from every fourth layer significantly improves long-context stability.21 This model requires a descriptor that specifically handles YaRN extrapolation factors to stretch its 64K training context to the desired 128K.21 Without this specific rope_scaling factor of 2.0 in the JSON configuration, the model will fail to maintain coherence on document-heavy tasks.21
+The Qwen 3.5 4B model is described as the "sweet spot" of the small series, demonstrating incredible stability across classification and code-fix tasks.27 A critical insight for Tier 2 is that smaller models are more sensitive to "few-shot pollution." Research indicates that adding too many examples to 0.8B-2B models can actively degrade performance, whereas the 4B model is "rock solid" in following few-shot patterns.27 Therefore, the capability descriptor should define "Shot Budget" limits per tier to optimize context utilization.27
+Tier 3: Medium-Scale Analytical Models
+Tier 3 models (7B-12B) are selected for analytical depth and "serious work" that requires reasoning traces. This tier bridges the gap between fast chat and the slow, deliberate processing of the large frontier models.28
+Model
+	Parameters
+	Optimization Focus
+	Reasoning Mode
+	Tool Support
+	DeepSeek R1 Distill 7B
+	7B
+	Reasoning Distillation
+	Always On
+	Structured JSON
+	Qwen 2.5 Coder 7B
+	7B
+	Code Logic/Syntax
+	Non-Thinking
+	Native FIM
+	Qwen 3.5 9B
+	9B
+	Multimodal/Agentic
+	Configurable
+	qwen3_coder
+	Gemma 4 12B
+	12B
+	Instruction Depth
+	Configurable
+	Native JSON
+	The DeepSeek R1 Distill 7B model is a cornerstone of this tier. Unlike standard assistants, it is fine-tuned to produce extensive chain-of-thought (CoT) reasoning before delivering a final answer.29 The infrastructure issue here is significant: the current stack does not distinguish between the "Thought" and the "Answer." For DeepSeek models, the Rust core must implement a separate reasoning parser that populates a reasoning_content field in the API response.30 Failing to separate these blocks leads to a recursive feedback loop where the model begins to reason about its own reasoning tags in the conversational history.30
+The Qwen 3.5 9B variant acts as the "compact production" option, closing the capability gap with much larger LLMs while remaining significantly easier to host.17 This model supports a thinking/non-thinking toggle, which must be expressed in the capability descriptor to allow the agent to decide between latency and analytical depth on a per-task basis.18
+Tier 4: Frontier Local Infrastructure
+Tier 4 contains the most powerful models in the local catalog, including several MoE variants and highly specialized distillates. These models provide the "brains" of the agentic system and are capable of repository-scale code analysis and multi-step architectural planning.35
+Model
+	Active / Total
+	Architecture
+	Feature
+	License
+	Qwopus 27B v3
+	27B / 27B
+	Dense
+	Claude 4.6 Distill
+	Apache 2.0
+	Qwopus MoE 35B
+	3B / 35B
+	MoE
+	"Act-then-Refine"
+	Apache 2.0
+	Gemma 4 31B JANG
+	31B / 31B
+	Dense
+	Abliterated / CRACK
+	Apache 2.0
+	Devstral Small 24B
+	24B / 24B
+	Dense
+	SWE-Bench Verified
+	Apache 2.0
+	Mistral Small 24B
+	24B / 24B
+	Dense
+	Latency Optimized
+	Apache 2.0
+	Qwen 3.5 35B MoE
+	3B / 35B
+	MoE
+	Gated DeltaNet
+	Apache 2.0
+	Tier 4 is defined by the dichotomy between high "compute density" and "inference velocity".35 The dense models (Qwopus 27B v3, Gemma 31B) utilize their full parameter suite for every token, providing unmatched logic and character consistency.35 Qwopus 27B v3, in particular, achieves a strict plus-pass pass@1 of 95.73% on HumanEval, outperforming the base Qwen 3.5 27B and reducing the number of "manual rescues" required in agentic workflows.38
+The MoE models (Qwopus 35B, Qwen 35B) are "sprinters" with a massive library of knowledge.35 By only activating 3 billion parameters per token, they achieve inference speeds 4x to 6x faster than their dense counterparts on the same hardware.35 The capability descriptor must distinguish between these, ensuring that "High-Precision Coding" tasks are routed to the 27B dense model, while "Real-Time Agentic Planning" is routed to the 35B MoE model.35
+Gemma 4 31B JANG represents a unique modification involving "CRACK abliteration," which removes refusal behaviors while maintaining model quality.41 This version requires specific handling of system prompts, as it is designed for unrestricted analytical tasks where safety guardrails might otherwise interfere with deep code auditing or red-teaming scenarios.41
+Architectural Deep Dive: Gemma 4 Attention and Memory
+Gemma 4 introduces a hybrid attention mechanism that interleaves local sliding-window attention with full global attention.1 In the dense 31B model, the sliding window is set to 1024 tokens, whereas the smaller E2B and E4B variants use a 512-token window.1 This design is critical for processing the 256K context window without the exponential memory growth seen in vanilla transformers.1
+A second-order insight is the use of "Shared KV Cache," where later layers reuse key/value tensors from earlier layers.11 This necessitates a model-specific KV cache strategy. If the Rust core continues to use a uniform allocation, it will over-allocate memory for Gemma 4 models, preventing the concurrent processing of multiple sequences. The descriptor must specify a cache_sharing_factor to inform the inference engine (llama.cpp) of these architectural savings.11
+Furthermore, Gemma 4 utilizes "Proportional RoPE" (p-RoPE), applying separate rotary position treatment for sliding vs. global layers.1 This maintains stability at long ranges. The capability descriptor must ensure that the rope_freq_base is configured correctly per model tier to avoid the performance degradation common in generic 256K context configurations.1
+Architectural Deep Dive: Qwen 3.5 GDN and Cache Alignment
+The Qwen 3.5 series utilizes Gated DeltaNet (GDN) as its primary attention operator in 75% of the layers.2 This is an exceptionally memory-efficient architecture, but it introduces a strict requirement for "Cache Alignment".2 Without the server-side flags --mamba-cache-mode=align and --mamba-block-size=8, the vLLM engine reprocesses the entire prompt on every response turn.2 This causes throughput to drop from 75,000 tokens per second to under 10,000 in large-scale deployments.2
+The capability descriptor for all Qwen 3.5 variants (Tier 1-4) must include these alignment flags. This is the single most important hardware-software interface issue in the current stack.2 Additionally, Qwen 3.5 supports Multi-Token Prediction (MTP), which can be configured to predict 2 or 5 tokens ahead.2 While MTP-5 provides a throughput boost, it is prone to cudaErrorIllegalAddress crashes; therefore, the descriptor should default to MTP-1 for stability in agentic loops.2
+Synthesis of Tool Calling Protocols and Token Extraction
+The 18-model catalog employs at least four distinct tool-calling protocols. Treating them as identical prevents the agent_core from extracting tool calls with 100% accuracy.
+
+
+Model Family
+	Tool Call Token / Parser
+	Extraction Pattern
+	Key Insight
+	Gemma 4
+	<start_function_call>
+	Fenced Block + JSON
+	Requires specific Turn-1 trigger 50
+	Qwen 3.5
+	`<
+	tool_call_start
+	>`
+	SmolLM3
+	<tool_call>
+	XML or Python code
+	High adherence to JSON schema (95%) 19
+	Mistral Small
+	``
+	mistral parser
+	Uses V7-Tekken tokenizer 6
+	The Recursive Thinking Trap in Reasoning Models
+A critical issue identified with Qwen 3.5 and DeepSeek R1 models is the "Recursive Thinking Trap" during tool use.34 When a reasoning model "thinks" about the tool calling syntax inside its <think> block (e.g., "I should use the search tool with <|tool_call_start|>..."), naive parsers like LM Studio's treat those prose mentions as actual tool calls.34 This triggers a parse failure, which is fed back to the model as an error. The model then reasons about why it failed, mentions the syntax again, and triggers another error, creating an infinite loop.34
+The workaround—disabling reasoning (enable_thinking = false) for tool-heavy workflows—must be encoded in the capability descriptor for analytical tasks.34 For coding tasks, the qwopus_v3 descriptor should instead prioritize the "act-then-refine" loop, where the model performs lightweight reasoning, acts, and then uses environment feedback for correction.38
+Structured JSON Adherence and Turn Management
+Gemma 4 models require a specific turn-based sequence to enable function calling.50 The developer must provide tool definitions in Turn 1, followed by a system prompt: "You are a model that can do function calling with the following functions".50 This phrase acts as a prompt-based trigger to switch the model's internal logic into tool-aware mode.50 Without this specific trigger in the capability descriptor's system_prompt_prefix, the model will revert to standard chat, ignoring the JSON schemas provided.50
+SmolLM3 provides superior versatility by supporting tool calls in both XML tags and Python snippets.24 This allows for a tighter integration with frameworks like OpenHands or the Rust-based agent_core.22
+Multimodal Integration: Vision Resolution and Modal Budgets
+The current "no vision" policy in the infrastructure is a failure to utilize the SigLIP vision encoders present across all four tiers.1 The eighteen models handle visual tokens with varying degrees of precision and cost.
+Dynamic Vision Resolution in Gemma 4
+Gemma 4 models support per-request dynamic vision token budgets: 70, 140, 280, 560, and 1120 tokens per image.1 This must be configurable in the model registry.
+Resolution Budget
+	Application
+	Compute Impact
+	70 - 140 Tokens
+	Classification, video frames, fast captioning
+	Minimal
+	280 Tokens
+	Default / General visual reasoning
+	Moderate
+	560 - 1120 Tokens
+	OCR, Document parsing, UI understanding
+	Significant
+	A critical insight here is that higher token counts produce significantly more detailed image understanding but at the cost of linear compute increases.1 The router (Tier 1) should be tasked with assessing whether a visual request requires OCR (routing to 1120 tokens on Tier 4) or simple object detection (routing to 280 tokens on Tier 3).1
+Early-Fusion Multimodality in Qwen 3.5
+The Qwen 3.5 series utilizes early-fusion training on multimodal tokens.5 Instead of attaching a vision encoder later, the system is trained jointly on text, image, and audio tokens.17 This avoids the performance drop common in "adapter-based" visual language models.17 In terms of capability descriptors, this means Qwen 3.5 handles "Interleaved Inputs" more effectively—the ability to freely mix multiple images and text snippets in any order within a single prompt.14
+Memory Management: KV Cache Quantization and Precision Gradients
+The identical treatment of the KV cache across the stack is a major hardware bottleneck. Memory for the KV cache grows linearly with context length and batch size.53 For frontier models in Tier 4 with 256K contexts, the KV cache can consume up to 70 GB of VRAM at bfloat16 precision, making local hosting impossible on a single RTX 4090.54
+TurboQuant and the 3-bit KV Cache
+The deployment of Tier 4 models must utilize KV cache quantization. The "turbo3" KV cache compresses K/V tensors from 8 bits to effectively 3 bits with near-zero quality loss.55 This allows a 256K full context window to fit on a single 32GB VRAM device (e.g., RTX 5090), which would otherwise require multiple H100 cards.54
+  
+
+The capability descriptor for Tier 4 models should include mandatory flags for -ctk q8_0 -ctv q8_0 or fp8 cache types to maximize headroom for concurrent agentic turns.8
+APEX Strategy for MoE Models
+For Mixture-of-Experts models like Qwen 3.5 35B, the APEX (Adaptive Precision for EXpert Models) quantization strategy is recommended.58 APEX classifies tensors by role: edge layers (attention) receive higher precision, while middle layers (MoE experts) get more aggressive compression.58 This layer-wise precision gradient ensures that the router intelligence is preserved while the expert weights—of which only a small subset fire per token—are minimized on disk and in VRAM.58
+Natural Context Provider (NCP) and Identity Unification
+The NCP integration serves as the dynamic "Glue" for the १८-model stack. Its primary role is to Merged context across channels (SMS, Email, Terminal) without losing identity-specific information.60
+Externalization of State
+A significant architectural insight from the audit of the agent work is that "Internal Memory" is the enemy of stability in long sessions.62 Models—especially in Tiers 1 and 2—struggle to keep track of shifting facts as the context window fills up. The NCP should be used to "Externalize the State".62 By managing facts, structured constraints, and versioned memory outside the LLM context, the agent only needs to inject "Relevant Deltas" into the model Turn.62
+This technique reduces context consumption by 40-80%.63 The capability descriptor must inform the NCP of each model's "Context Pressure Limit"—the point at which performance begins to degrade (e.g., 40K tokens for Mistral Small vs 200K for Qwen 3.5).64
+Tool Pre-Filtering and Skill Registries
+When an agent has access to 75+ tools (as seen in recent MCP implementations), the system prompt becomes bloated, increasing selection errors and hallucination risks.4 The Tier 1 router, guided by the capability descriptor, should perform "Tool Pre-Filtering".4 It identifies the subset of skills (e.g., "Filesystem" vs "Browser") and only injects the relevant schemas into the context of the Tier 2 or Tier 4 executor.4 This "On-Demand Skill Loading" is the hallmark of a mature agentic system.
+Synthesis of Issues for Remediation (Claude Code Checklist)
+The following synthesis highlights the specific implementation gaps that must be corrected to achieve 100% catalog capability. This synthesis avoids coding instructions, focusing instead on the architectural requirements for the Rust agent_core.
+Critical Gap 1: Tokenizer and Parser Disharmony
+Models are currently using generic OpenAI tokenizers. Tier 4 Mistral/Devstral models require the Tekken tokenizer (131k vocab) to correctly handle special characters in code and tool calls.6 Furthermore, the lack of architecture-specific parsers causes the "Recursive Thinking Trap" in Qwen 3.5.34 The Rust core needs a ThoughtExtractionFilter that identifies family-specific markers (<think>, <|channel>thought, <|think|>) and moves them to metadata fields to prevent conversational history pollution.1
+Critical Gap 2: Context and Batch Mismanagement
+Ultra-light routers are being assigned the same 128K context window as analytic giants, leading to unnecessary VRAM reservation and cache overhead.46 The system must implement a "Tiered Context Ceiling": 8K for Tier 1, 32K for Tier 2, and 256K for Tiers 3-4.17 Additionally, Qwen 3.5 hybrid models MUST have cache alignment flags enabled by default to maintain throughput.2
+Critical Gap 3: Sampling Defaults and Personality drift
+Treating analytical reasoning models (DeepSeek R1) with a high temperature (1.0) leads to logic loops and hallucination.69 Conversely, treating code models with a standard temperature leads to brittle syntax.68
+Model Focus
+	Recommended Temperature
+	Recommended P-Value
+	Recommended Top-K
+	DeepSeek Reasoning
+	0.6
+	0.95
+	40
+	Devstral Coding
+	0.15
+	1.0
+	40
+	Qwen General
+	0.7
+	0.8
+	20
+	Gemma Assistant
+	1.0
+	0.95
+	64
+	Critical Gap 4: Multimodal Exclusion
+The current infrastructure operates in "Text-Only" mode. This ignores the native audio processing in Gemma E2B/E4B and the frame-based video comprehension in the larger 31B/26B variants.1 The agent_core must be vision-ready, supporting the pass-through of image URLs or base64 strings to the inference endpoints, with per-model resolution budgets enforced.8
+Health of Wiring, Routing, and Fallback Strategy
+The audit of the current wiring indicates that the fallback from local to cloud models is present but lacks "Intelligence Awareness."
+Local-to-Cloud Fallback Logic
+In the event of a local hardware OOM (Out of Memory) or excessive latency, the system should fail over to high-availability cloud endpoints.
+1. Gemma 4 Fallback: If the local 31B Dense model is under heavy load, the router should pivot to Google Cloud Run or Vertex AI endpoints, which provide identical chat templates and function-calling formats.1
+2. Qwen 3.5 Fallback: For large-scale batch processing, the system should utilize the hosted "Qwen3.5-Plus" or "Flash" APIs from Alibaba Cloud Model Studio, which offer a 1M-token context window out of the box.48
+3. Cross-Model Resilience: If a tool call fails on a Tier 2 model due to "Thinking Trap" errors, the system should re-route the request to a Tier 4 dense model with a force_non_thinking flag.34
+Health of the Rust agent_core Routing
+The Rust core is effectively auto-discovering MCP servers and tools.4 However, the "Batch Operation" logic is currently limited—it may only handle 2 items from a set of 10 during tool-call iterations.4 The capability descriptor should include a batch_concurrency_limit per model to inform the agent_core of how many simultaneous tool calls a model can reliably generate (e.g., Qwen 3.5 is highly parallelizable, while Gemma 4 excels at single-turn precision).50
+Memory Hierarchy and the Blackwell/Apple Unified Advantage
+For users operating on Blackwell (GB10/GB200) or Apple M-series Ultra hardware, the infrastructure must account for "Unified Memory Bandwidth".28
+Blackwell NVFP4 Precision
+Blackwell GPUs support NVFP4 quantization, which provides 4-bit precision with nearly identical accuracy to 8-bit.14 This reduces cost per token and increases performance per watt by a factor of 2x.14 The Tier 4 descriptor must verify the underlying GPU architecture and automatically prioritize NVFP4 checkpoints when running on Blackwell hardware.75
+Apple "LLM in a Flash" Strategy
+On Mac Studios with M3/M4 Ultra chips, the system can leverage SSD weight streaming at 17GB/s.28 This allows for the loading of massive MoE models (e.g., 397B flagship) with only 5.5GB of active RAM during inference.28 The capability descriptor for Tier 4 MoE models should detect Apple Silicon and enable low_vram streaming modes in llama.cpp to support these massive models on consumer-grade workstations.28
+Synthesis of Coding Specialization: Mistral vs. Qwen
+A significant portion of the catalog is dedicated to coding. The research highlights a clear hierarchy of capability.
+1. Repository Refactoring: Devstral Small 2 (24B) is the primary candidate for architectural changes across multiple files.36 Its training on 800,000 verifiable coding tasks paired with executable environments gives it a practical "feel" for what code does, not just what it looks like.78
+2. Fill-in-the-Middle (FIM): Mistral Small and Codestral updates are optimized for low-latency FIM completion, with 50% fewer "runaway generations" than previous versions.80
+3. Swift/Scientific Python: Mistral models show a distinct advantage in scientifically skewed Python (numpy/numba) and specific language targets like Swift, possibly due to the specific data mixtures used during pre-training.82
+4. Frontend/UI Design: Qwopus 27B v3 has demonstrated exceptional creativity and output variety in front-end design tests, outperforming competitors in generating playable HTML prototypes (e.g., Tetris clones).38
+The capability descriptor must include a language_specialization field (e.g., scientific_python: high, frontend_js: high) to inform the Tier 1 router's decision matrix.38
+Conclusions and Practical Implementation Path
+The audit confirms that while the eighteen models are individually healthy and the wiring to Ollama/llama.cpp is functional, the "Brain" of the operation—the Rust agent_core—is currently blind to the architectural diversity of its catalog. The path forward requires a three-step transformation.
+First, implement a hardware-aware context strategy. Tier 1 routers should be capped at 8K to 16K context to ensure maximum throughput for dispatch tasks, whereas Tier 4 analytically dense models should be permitted to utilize their full 256K context for codebase ingestion.17 This is a critical memory optimization that will allow the system to process more concurrent threads without OOM errors.
+Second, the system must transition from generic API wrappers to "Smart Drivers." This involves family-specific parsers for thought extraction and recursive trap avoidance.9 The DeepSeek, Qwen, and Gemma Families require distinct logic for separating reasoning content from final answers to maintain the integrity of long-running conversational states.30
+Third, the NCP integration must become the "Filtered Gateway" for skills. Instead of presenting all 75 tools to every model, the Tier 1 router should dynamically select tool subsets from the NCP based on the intent detected in the user request.4 This reduces context pressure on smaller assistants and increases the "Success-at-First-Call" metric for tool usage.4
+By implementing these model-specific capability descriptors, the infrastructure will finally express the 100% pure potential of the eighteenth local models, turning a fragmented collection of weights into a unified, high-performance agentic stack.1
+Works cited
+1. Gemma 4 model card | Google AI for Developers, accessed April 7, 2026, https://ai.google.dev/gemma/docs/core/model_card_4
+2. 1 Million Tokens Per Second: Qwen 3.5 27B on GKE with B200 GPUs - Medium, accessed April 7, 2026, https://medium.com/google-cloud/1-million-tokens-per-second-qwen-3-5-27b-on-gke-with-b200-gpus-161da5c1b592
+3. agent_core - Rust - Docs.rs, accessed April 7, 2026, https://docs.rs/agent-core
+4. cookbook/examples/localcowork/README.md at main - GitHub, accessed April 7, 2026, https://github.com/Liquid4All/cookbook/blob/main/examples/localcowork/README.md
+5. Qwen/Qwen3.5-0.8B - Hugging Face, accessed April 7, 2026, https://huggingface.co/Qwen/Qwen3.5-0.8B
+6. mistral-small-24b-instruct Model by Mistral AI | NVIDIA NIM - NVIDIA Build, accessed April 7, 2026, https://build.nvidia.com/mistralai/mistral-small-24b-instruct/modelcard
+7. Qwen3.5-Omni: Scaling Up, Toward Native Omni-Modal AGI, accessed April 7, 2026, https://qwen.ai/blog?id=qwen3.5-omni
+8. Gemma 4 Usage Guide - vLLM Recipes, accessed April 7, 2026, https://docs.vllm.ai/projects/recipes/en/latest/Google/Gemma4.html
+9. google/gemma-4-31b - LM Studio, accessed April 7, 2026, https://lmstudio.ai/models/google/gemma-4-31b
+10. Gemma 4: A Practical Guide for Developers - DEV Community, accessed April 7, 2026, https://dev.to/arshtechpro/gemma-4-a-practical-guide-for-developers-2co5
+11. Gemma 4 Has Landed: Open multimodal models with 256K context - Medium, accessed April 7, 2026, https://medium.com/@springmusk/gemma-4-has-landed-open-multimodal-models-with-256k-context-ff184e2cb134
+12. Google Gemma 4 Technical Deep Dive: Architecture, MoE, Benchmarks & Production Guide, accessed April 7, 2026, https://www.qubrid.com/blog/google-gemma-4-technical-deep-dive-architecture-moe-benchmarks-production-guide
+13. Gemma 4 - LM Studio, accessed April 7, 2026, https://lmstudio.ai/models/gemma-4
+14. Bringing AI Closer to the Edge and On-Device with Gemma 4 | NVIDIA Technical Blog, accessed April 7, 2026, https://developer.nvidia.com/blog/bringing-ai-closer-to-the-edge-and-on-device-with-gemma-4/
+15. Qwen 3.5 Small Models on SaladCloud: Benchmarks, Cost, and Why You Don't Need a Mac Mini, accessed April 7, 2026, https://blog.salad.com/qwen-3-5-small-models-on-saladcloud-benchmarks-cost-and-why-you-dont-need-a-mac-mini/
+16. Qwen 3.5 — Megatron Bridge - NVIDIA Documentation, accessed April 7, 2026, https://docs.nvidia.com/nemo/megatron-bridge/latest/models/vlm/qwen35-vl.html
+17. Qwen 3.5 Small Model Series released | by Mehul Gupta - Medium, accessed April 7, 2026, https://medium.com/data-science-in-your-pocket/qwen-3-5-small-model-series-released-7a5ed34fcbb3
+18. Qwen3.5 - How to Run Locally | Unsloth Documentation, accessed April 7, 2026, https://unsloth.ai/docs/models/qwen3.5
+19. SmolLM3 by Hugging Face: Redefining Efficiency in AI with a Compact 3B-Parameter Powerhouse | by Sai Dheeraj Gummadi | Data Science in Your Pocket | Medium, accessed April 7, 2026, https://medium.com/data-science-in-your-pocket/smollm3-by-hugging-face-redefining-efficiency-in-ai-with-a-compact-3b-parameter-powerhouse-0d90825580cf
+20. The Best Open-Source Small Language Models (SLMs) in 2026 - BentoML, accessed April 7, 2026, https://www.bentoml.com/blog/the-best-open-source-small-language-models
+21. HuggingFaceTB/SmolLM3-3B-Base · Hugging Face, accessed April 7, 2026, https://huggingface.co/HuggingFaceTB/SmolLM3-3B-Base
+22. SmolLM3 — The Next Leap in Small, Multilingual, Long-Context Language Models, accessed April 7, 2026, https://sulbhajain.medium.com/smollm3-the-next-leap-in-small-multilingual-long-context-language-models-2a6cb113432f
+23. SmolLM3: smol, multilingual, long-context reasoner - Hugging Face, accessed April 7, 2026, https://huggingface.co/blog/smollm3
+24. HuggingFaceTB/SmolLM3-3B · Hugging Face, accessed April 7, 2026, https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+25. Hugging Face Releases SmolLM3: A 3B Long-Context, Multilingual Reasoning Model, accessed April 7, 2026, https://www.youtube.com/watch?v=5rUzDBOA8qE
+26. Getting Started with SmolLM3‑3B‑GGUF for Long‑Context Multilingual Reasoning, accessed April 7, 2026, https://www.secondstate.io/articles/smollm3/
+27. Benchmarked Qwen 3.5 small models (0.8B/2B/4B/9B) on few-shot learning — adding examples to 0.8B code tasks actually makes it worse : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1rjbw0p/benchmarked_qwen_35_small_models_08b2b4b9b_on/
+28. Qwen 3.5 vs Llama vs Mistral: China's Open-Source AI Is Catching Up Faster Than You Think - AI Magicx, accessed April 7, 2026, https://www.aimagicx.com/blog/qwen-3-5-vs-llama-vs-mistral-china-open-source-ai-2026
+29. deepseek-r1-distill-qwen-7b - NVIDIA Build, accessed April 7, 2026, https://build.nvidia.com/deepseek-ai/deepseek-r1-distill-qwen-7b/modelcard
+30. Reasoning Model (deepseek-reasoner), accessed April 7, 2026, https://api-docs.deepseek.com/guides/reasoning_model
+31. DeepSeek R1: A Reasoning Model with Thinking Tokens - Matt Stockton, accessed April 7, 2026, https://mattstockton.com/2025/01/23/deepseek-r1-lm-studio.html
+32. Reasoning Parser — SGLang, accessed April 7, 2026, https://sgl-project.github.io/advanced_features/separate_reasoning.html
+33. Reasoning - Together AI Docs, accessed April 7, 2026, https://docs.together.ai/docs/reasoning-overview
+34. PSA: LM Studio's parser silently breaks Qwen3.5 tool calling and reasoning: a year of connected bug reports - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1riwhcf/psa_lm_studios_parser_silently_breaks_qwen35_tool/
+35. Qwen 3.5 27B vs 35B-A3B: Intelligence vs Speed Benchmarks - Vertu, accessed April 7, 2026, https://vertu.com/ai-tools/qwen-3-5-27b-vs-qwen-3-5-35b-a3b-which-local-llm-reigns-supreme/
+36. Introducing: Devstral 2 and Mistral Vibe CLI., accessed April 7, 2026, https://mistral.ai/news/devstral-2-vibe-cli
+37. Qwen3.5-27B performs almost on par with 397B and GPT-5 mini in the Game Agent Coding League : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1rue2f4/qwen3527b_performs_almost_on_par_with_397b_and/
+38. Jackrong/Qwopus3.5-27B-v3 - Hugging Face, accessed April 7, 2026, https://huggingface.co/Jackrong/Qwopus3.5-27B-v3
+39. [Benchmark] The Ultimate Llama.cpp Shootout: RTX 5090 vs DGX Spark vs AMD AI395 & R9700 (ROCm/Vulkan) : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1s3170r/benchmark_the_ultimate_llamacpp_shootout_rtx_5090/
+40. README.md · samuelcardillo/Qwopus-MoE-35B-A3B-GGUF at be359f53a419f1737b0cb27733aaa1d87e93dbe3 - Hugging Face, accessed April 7, 2026, https://huggingface.co/samuelcardillo/Qwopus-MoE-35B-A3B-GGUF/blob/be359f53a419f1737b0cb27733aaa1d87e93dbe3/README.md
+41. Upload README.md with huggingface_hub · douyamv/Gemma-4 ..., accessed April 7, 2026, https://huggingface.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF/commit/418b9033294595ddcd0b981ed22fe672ed6fed8f
+42. gemma-4-31b-it Model by Google - NVIDIA Build, accessed April 7, 2026, https://build.nvidia.com/google/gemma-4-31b-it/modelcard
+43. Feature Request: Support for Google Gemma 4 model family (PLE architecture, variable head dims, KV cache sharing) · Issue #2062 · microsoft/onnxruntime-genai - GitHub, accessed April 7, 2026, https://github.com/microsoft/onnxruntime-genai/issues/2062
+44. What Is Google Gemma 4? Architecture, Benchmarks, and Why It Matters - WaveSpeed AI, accessed April 7, 2026, https://wavespeed.ai/blog/posts/what-is-google-gemma-4/
+45. What You Miss If You Read Gemma 4 as Just Another Open Model | by Dreamwalker(박제창) - Medium, accessed April 7, 2026, https://medium.com/@aristojeff/what-you-miss-if-you-read-gemma-4-as-just-another-open-model-5188e8c735b3
+46. Deploy Qwen 3.5 on GPU Cloud: Hardware Requirements and Setup Guide (2026), accessed April 7, 2026, https://www.spheron.network/blog/deploy-qwen-3-5-gpu-cloud/
+47. [Bug]: Qwen 3.5 stops working after upgrade to v0.18.0 · Issue #37749 - GitHub, accessed April 7, 2026, https://github.com/vllm-project/vllm/issues/37749
+48. Qwen/Qwen3.5-35B-A3B - Hugging Face, accessed April 7, 2026, https://huggingface.co/Qwen/Qwen3.5-35B-A3B
+49. qwen3.5-397b-a17b Model by Qwen | NVIDIA NIM, accessed April 7, 2026, https://build.nvidia.com/qwen/qwen3.5-397b-a17b/modelcard
+50. FunctionGemma formatting and best practices - Google AI for Developers, accessed April 7, 2026, https://ai.google.dev/gemma/docs/functiongemma/formatting-and-best-practices
+51. SaylorTwift/SmolLM3-3B - Hugging Face, accessed April 7, 2026, https://huggingface.co/SaylorTwift/SmolLM3-3B
+52. qwen3.5:0.8b - Ollama, accessed April 7, 2026, https://ollama.com/library/qwen3.5:0.8b
+53. GPU System Requirement Guide for Qwen 3.5 - ApX Machine Learning, accessed April 7, 2026, https://apxml.com/posts/qwen-3-5-system-requirement-vram-guide
+54. Gemma 4 Day-1 Inference on NVIDIA DGX Spark — Preliminary Benchmarks, accessed April 7, 2026, https://forums.developer.nvidia.com/t/gemma-4-day-1-inference-on-nvidia-dgx-spark-preliminary-benchmarks/365503
+55. Gemma 4 31B at 256K Full Context on a Single RTX 5090 — TurboQuant KV Cache Benchmark : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1sbdihw/gemma_4_31b_at_256k_full_context_on_a_single_rtx/
+56. ik_llama.cpp dramatically outperforming mainline for Qwen3.5 on CPU - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1rlvn8m/ik_llamacpp_dramatically_outperforming_mainline/
+57. Qwen3.5-35B-A3B quantization quality + speed benchmarks on RTX 5080 16GB (Q8_0 vs Q4_K_M vs UD-Q4_K_XL) - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1rei65v/qwen3535ba3b_quantization_quality_speed/
+58. mudler/Qwopus-MoE-35B-A3B-APEX-GGUF - Hugging Face, accessed April 7, 2026, https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF
+59. README.md · mudler/Qwopus-MoE-35B-A3B-APEX-GGUF at main - Hugging Face, accessed April 7, 2026, https://huggingface.co/mudler/Qwopus-MoE-35B-A3B-APEX-GGUF/blob/main/README.md
+60. Launch HN: Vela (YC W26) – AI for complex scheduling | Hacker News, accessed April 7, 2026, https://news.ycombinator.com/item?id=47264741
+61. mcp-client · GitHub Topics, accessed April 7, 2026, https://github.com/topics/mcp-client?l=javascript&o=desc&s=updated
+62. Is there a fix to Tool Calling Issues with Qwen? : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1s3wlse/is_there_a_fix_to_tool_calling_issues_with_qwen/
+63. SortedFor.me: Feed, accessed April 7, 2026, https://sortedfor.me/
+64. Magistral vs Devstral vs DeepSeek R1: Which is best? - Bind AI Blog, accessed April 7, 2026, https://blog.getbind.co/magistral-vs-devstral-vs-deepseek-r1-which-is-best/
+65. Best MCP Tools for AI Agent Development in 2026 - Fast.io, accessed April 7, 2026, https://fast.io/resources/mcp-tools/
+66. API to MCP: step-by-step guide for developers - Stainless, accessed April 7, 2026, https://www.stainless.com/blog/from-api-to-mcp-a-practical-guide-for-developers
+67. mistral-small:24b - Ollama, accessed April 7, 2026, https://ollama.com/library/mistral-small:24b
+68. mistralai/Mistral-Small-3.1-24B-Instruct-2503 - Hugging Face, accessed April 7, 2026, https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503
+69. unsloth/DeepSeek-R1-Distill-Qwen-7B - Hugging Face, accessed April 7, 2026, https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B
+70. Devstral: How to Run & Fine-tune | Unsloth Documentation, accessed April 7, 2026, https://unsloth.ai/docs/models/tutorials/devstral-how-to-run-and-fine-tune
+71. Mistral Small 24B | Products - IONOS Cloud Documentation, accessed April 7, 2026, https://docs.ionos.com/cloud/ai/ai-model-hub/models/llms/mistral-small-24b
+72. On-Device AI with the Google AI Edge Gallery and Gemma 4 | by Karl Weinmeister - Medium, accessed April 7, 2026, https://medium.com/google-cloud/on-device-ai-with-the-google-ai-edge-gallery-and-gemma-4-1c31a220d3ee
+73. Qwen: Qwen3.5: Towards Native Multimodal Agents, accessed April 7, 2026, https://qwen.ai/blog?id=qwen3.5
+74. Qwen 3.5 Explained: Architecture, Upgrades Over Qwen 3, Benchmarks, and Real‑World Use Cases - Medium, accessed April 7, 2026, https://medium.com/data-science-in-your-pocket/qwen-3-5-explained-architecture-upgrades-over-qwen-3-benchmarks-and-real-world-use-cases-af38b01e9888
+75. nvidia/Gemma-4-31B-IT-NVFP4 - Hugging Face, accessed April 7, 2026, https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4
+76. Qwen3.5 Usage Guide - vLLM Recipes, accessed April 7, 2026, https://docs.vllm.ai/projects/recipes/en/latest/Qwen/Qwen3.5.html
+77. Devstral 2 & Mistral Vibe CLI: Complete Coding Guide - Digital Applied, accessed April 7, 2026, https://www.digitalapplied.com/blog/devstral-2-mistral-vibe-cli-guide
+78. Qwen3-Coder-Next - i-SCOOP, accessed April 7, 2026, https://www.i-scoop.eu/qwen3-coder-next/
+79. mistralai/Devstral-Small-2-24B-Instruct-2512 - Hugging Face, accessed April 7, 2026, https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512
+80. Announcing Codestral 25.08 and the Complete Mistral Coding Stack for Enterprise, accessed April 7, 2026, https://mistral.ai/news/codestral-25-08
+81. Third-party foundation models - IBM, accessed April 7, 2026, https://www.ibm.com/docs/en/watsonx/w-and-w/2.3.x?topic=models-third-party-foundation
+82. note4yaoo/lib-ai-app-community-model-coding.md at main - GitHub, accessed April 7, 2026, https://github.com/uptonking/note4yaoo/blob/main/lib-ai-app-community-model-coding.md
+83. Devstral small 2 24b severely underrated : r/LocalLLaMA - Reddit, accessed April 7, 2026, https://www.reddit.com/r/LocalLLaMA/comments/1ry93gz/devstral_small_2_24b_severely_underrated/
+84. How Reasoning Works in DeepSeek-R1 - Chris McCormick, accessed April 7, 2026, https://mccormickml.com/2025/02/07/how-reasoning-works-in-deepseek-r1/

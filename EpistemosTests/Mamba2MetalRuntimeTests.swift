@@ -28,6 +28,23 @@ struct Mamba2MetalRuntimeTests {
         #expect(runtime.heapBuffer(length: 128) == nil)
     }
 
+    @Test("deepUnload is idempotent and drops runtime allocations")
+    func deepUnloadIsIdempotentAndDropsRuntimeAllocations() throws {
+        guard let runtime = MetalRuntimeManager() else { return }
+
+        runtime.allocateStateBuffers(layers: 1, stateDim: 2, headDim: 2, heads: 2)
+        runtime.allocateInferenceHeap(sizeBytes: 4_096)
+
+        #expect(runtime.snapshotState() != nil)
+        #expect(runtime.heapBuffer(length: 128) != nil)
+
+        runtime.deepUnload()
+        runtime.deepUnload()
+
+        #expect(runtime.snapshotState() == nil)
+        #expect(runtime.heapBuffer(length: 128) == nil)
+    }
+
     @Test("diagnostic forward pass compiles kernels and produces finite outputs")
     func diagnosticForwardPassProducesFiniteOutputs() throws {
         guard CustomSSMRuntimeSupport.isAvailable else { return }

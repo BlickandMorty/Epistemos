@@ -1,5 +1,10 @@
 # Note Saving Bug — Deep Audit Plan
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For the investigating model:** This is a systematic debugging plan. Follow it step by step. Do NOT propose fixes until Phase 1 is complete. Read every file referenced — don't skip.
 
 ## Problem Statement

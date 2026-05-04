@@ -1,0 +1,306 @@
+﻿Epistemos Architecture and Performance Audit: Code Editor, BoltFFI, and Agent Systems
+1. Executive Summary
+The transition of the Epistemos application architecture toward a highly performant, safely bridged Swift-Rust hybrid model requires meticulous optimization of its cross-language hot paths. Operating as a knowledge synthesis environment, the platform demands instantaneous context switching between complex directed acyclic graph visualizations, agent-driven workflow orchestrations, and high-fidelity source code editing. Extensive performance profiling of the current repository indicates that existing cross-language boundaries—specifically the UniFFI serialization layer utilized for the agent system and the manual C Foreign Function Interface (FFI) servicing the graph engine—impose mathematically unacceptable serialization overhead for high-frequency, frame-critical operations.
+The primary objective of this architecture analysis is to design the safest and highest-performance trajectory for upgrading the Epistemos code editor, targeted BoltFFI hot paths, and the agent streaming system, all strictly without drifting from the canonical PLAN_V2.md roadmap. The proposed transition to BoltFFI promises profound computational efficiency gains. Empirical benchmarks demonstrate up to a 1000x speedup for primitive function calls and a 205x speedup for complex struct bridging when compared directly to UniFFI, achieved predominantly by utilizing zero-copy memory mapping and bypassing byte-buffer serialization entirely.1 However, applying this transition arbitrarily across all system modules introduces severe risks to application stability, native macOS text input compatibility, and the sovereignty of the Rust control plane.
+This analysis concludes that the Epistemos codebase must not undergo a mass BoltFFI migration. Instead, an incremental, benchmark-driven migration is mandated by the architectural principles of safe systems design. The code editor subsystem should leverage STTextView and the TextKit 2 framework natively within Swift. This preserves critical Apple-native functionality, including Input Method Editor (IME) support for non-Latin character input, VoiceOver accessibility, and bidirectional text rendering.3 Concurrently, syntactic parsing and canonical document indexing must be delegated to a Rust backend utilizing the crop rope data structure.4 Furthermore, full Metal-based text rendering is strictly discouraged due to the inherent complexities of replicating native macOS text layout behaviors. Regarding the agent system, the architecture should selectively migrate only high-frequency token streaming and thinking block deltas to BoltFFI, leaving critical control-plane operations encapsulated within the thoroughly audited bounds of UniFFI.6 The first actionable implementation slice must be the development of rigorous benchmark harnesses, followed strictly by the migration of graph neighbor queries and search algorithms shielded behind a runtime compatibility flag.
+2. What the Repo Already Has
+An exhaustive examination of the current Epistemos worktree, specifically focusing on the Phase 7 audit handoff artifacts generated between commits beba8ee8 and ae4c22d0, reveals a highly modular but fragmented bridging architecture.6 The repository currently orchestrates communication across the Swift-Rust boundary using four distinct, active transport layers, each possessing unique performance characteristics and technical debt profiles.6
+The first and most expansive surface is the C FFI Header (graph_engine.h). Managed entirely by the graph-engine crate, this interface exposes approximately 127 exported functions over 1,042 lines of code.6 It is responsible for handling the graph data plane, processing input camera coordinates, and driving the rendering loops. Because it relies on manual C-style pointer arithmetic, it is highly performant but fundamentally lacks the ergonomic safety, structured concurrency, and automated memory management modern Swift and Rust paradigms demand.
+The second primary transport is the UniFFI export layer governing agent_core. This surface contains 182 exports distributed across 20 distinct files, managing the complex agent loop, tool execution pipelines, and overarching session state.6 UniFFI guarantees safety by serializing every value into a structured byte buffer before crossing the boundary. While secure, this forces heavy garbage collection and Automatic Reference Counting (ARC) pressure on the Swift side, as every token and event string requires a discrete memory allocation.2
+The third transport mirrors the second, utilizing UniFFI for the omega-mcp module. It contains 16 exports dedicated to dispatcher coordination, catalog indexing, and vault operations.6 These operations generally constitute cold paths, where payload size and frequency do not trigger the performance cliffs observed in the agent streaming loops.
+The fourth transport is a specialized shared-memory reactive FFI. The Knowledge Core, an embedded component of the broader graph engine, has already been successfully migrated to this shared-memory transport mechanism.6 This validates the architectural hypothesis that bypass mechanisms utilizing mapped memory are highly effective for transferring massive payloads, such as high-dimensional vector embeddings, without overwhelming the main thread.
+In addition to the transport layers, the Phase 7 codebase possesses a mature configuration state. The project.yml file serves as the canonical source of truth for Xcode project generation, governing the pbxproj output via the XcodeGen utility.6 Furthermore, a robust suite of 36 unit tests across nine Phase 7 suites, including GraphWorkspaceRouteInitialStateTests and GraphWorkspaceRouteOpenNodeDispatchTests, currently serves as a functional regression guard for workspace routing.6 However, manual runtime verification remains deferred, indicating that the system's runtime stability is not yet definitively proven despite passing tests.6
+3. Current Pain Points, Ranked by Severity
+The deep architectural audit reveals a spectrum of specific pain points distributed across the Epistemos application. These vulnerabilities extend beyond the code editor, threatening system stability, concurrency safety, and code quality. They are ranked by their potential to cause catastrophic runtime failure or severe developer friction.
+Critical Severity: FFI Marshalling Latency on Hot Paths The most pressing performance bottleneck arises from the UniFFI and C FFI bridges processing operations that fire per-frame or per-keystroke. Serializing complex data structures, such as arrays of 10,000 graph nodes, via UniFFI requires approximately 12.8 milliseconds.2 Given that a 60 FPS display operates on a strict 16.6-millisecond frame budget, this overhead leaves a mere 3.8 milliseconds for Swift to execute layout calculations, rendering, and compositing. Consequently, UI frame drops, scrolling hitches, and input latency are pervasive. Operations like Signed Distance Field (SDF) label rendering and inline Markdown parsing during active keystrokes are fundamentally bottlenecked by this serialization toll.6
+High Severity: Concurrency Violations and Unsafe State Mutations The codebase exhibits pronounced Swift 6 concurrency warnings and data race vulnerabilities. The Phase 7 audit identifies that route observers, particularly HologramOverlay, lack the mandatory MainActor.assumeIsolated wrappers.6 In a modern Swift architecture utilizing strict concurrency checking, allowing background threads to mutate UI-bound state inevitably triggers runtime crashes. Furthermore, profound routing logic errors exist where operations such as openNode inadvertently call openFolder(id) or openNote(id) without correctly resolving the intrinsic node.sourceId.6
+High Severity: Code Quality Violations and Anti-Patterns The repository contains active instances of prohibited anti-patterns strictly outlawed in the AGENTS.md operational guidelines. The presence of print(...) statements bypasses the structured telemetry architecture required for auditability. More alarmingly, the use of try! for forced error suppression and ! force-unwraps create high-probability crash vectors. The codebase also demonstrates the dangerous pattern of calling askGraphChat with a raw graph node ID that has not been validated against store.nodes, introducing an unhandled null-reference risk.6
+Another severe anti-pattern is the presence of mathematical coercion without bounds checking, specifically casting Int(float) without first verifying isFinite. If a floating-point value resolves to NaN (Not a Number) or Infinity during graph physics calculations, coercing it to an integer will trigger a fatal hardware exception on ARM64 architectures, crashing the application instantly. Similarly, the codebase exhibits instances where page.loadBody() is invoked directly within a SwiftUI body property. SwiftUI evaluates body continuously upon any state change; embedding side-effect-heavy data loads inside this property triggers an infinite rendering loop, causing massive CPU spikes and eventual memory exhaustion.
+Medium Severity: Architectural Drift and State Leakage The application suffers from duplicated state and Swift identity drift. The absence of the .id(id) modifier on GraphNotePage or GraphFolderPage within the GraphWorkspaceContainer switch statement compromises SwiftUI's structural diffing algorithm.6 Without explicit identities, SwiftUI reuses views incorrectly, retaining stale state and causing severe memory leaks through lingering NotificationCenter observers that are never cleanly deallocated. The audit also flagged repeat-forever animations that are not properly gated by occlusion checks or system reduceMotion accessibility settings, leading to persistent GPU drain even when the window is hidden.
+Furthermore, the repository exhibits significant hygiene decay. Placeholder views, such as Graph Note Page Placeholder, remain embedded in production view hierarchies.6 Root-level orphan files, untracked build logs (build_log.txt), and instances of xcodeproj drift from the authoritative project.yml indicate a degradation in build reproducibility.6
+Low Severity: Brittle Testing and Stale Documentation The test suites contain "fake success paths" and manual verification blockers. Tests are frequently authored to assert exact source string matches rather than verifying behavioral state. This makes the test suite incredibly brittle; minor stylistic changes generated by an LLM cause widespread test failures, degrading the trust in the continuous integration pipeline. Finally, the settings UI remains incomplete, with SettingsSection cases missing category mappings, empty rowDescription fields, and stale documentation that overclaims the capabilities of the current architecture.6
+4. Code Editor Current-State Map
+The code editor subsystem in Epistemos acts as the primary interactive surface for knowledge creation. An exhaustive analysis of the repository files—specifically CodeEditorView.swift, ProseEditorView.swift, CodeEditSourceEditor, and the overarching workspace containers—reveals a transitional, mixed-paradigm operational state that struggles under scale.
+The underlying technology driving CodeEditorView today is a hybrid approach anchored by CodeEditSourceEditor, which utilizes a custom NSTextView integration interfacing with Apple's native text systems.9 The architecture relies heavily on SwiftTreeSitter to facilitate its syntax highlighting pipeline.9 However, the current implementation reveals critical performance bottlenecks regarding how syntax tokens are materialized and applied.
+Currently, syntax highlighting operations lack a highly optimized, viewport-clamped materialization pass. Instead of strictly querying the syntax tree for the lines currently visible on the screen, formatting attributes are calculated and applied across broadly defined chunks or, detrimentally, the full file. Applying NSAttributedString attributes to a full 50,000-line document on every keystroke forces the NSLayoutManager to continuously invalidate layout fragments, resulting in catastrophic main-thread blocking.10 The architecture exhibits direct main-thread, per-keystroke full-document operations that stall the UI, especially when handling paste events of large text blocks.
+The existing performance policies within CodeEditorView are insufficient to meet the demands of an industrial-grade editor. Because the canonical text state is manipulated directly inside Swift and subsequently queried for parsing, the memory footprint scales linearly with edit history. Existing documentation and issue tracking indicate that developers have continually wrestled with Apple's TextKit 1 performance cliffs, necessitating custom workarounds that are ultimately fragile.
+Regarding feature availability, the editor presents a baseline set of capabilities but falls short of modern IDE standards.
+
+
+Feature Category
+	Current Status
+	Architectural Notes
+	Line Numbers
+	Present
+	Handled via custom gutter views.9
+	Semantic Highlighting
+	Present (Fragile)
+	Tree-sitter powered, but lacks nested injection scaling.9
+	Search
+	Present
+	Basic string matching; lacks AST-aware symbol resolution.
+	Minimap
+	Missing / Planned
+	Requires off-main-thread rendering to avoid hitching.9
+	Multi-Cursor Editing
+	Missing / Planned
+	TextKit 1 struggles significantly with disjoint selections.9
+	Diagnostics & Diff
+	Missing / Fragile
+	Currently lacks asynchronous extraction and stable UI overlays.9
+	Semantic Sidebar
+	Missing
+	Requires deep integration with the graph engine's knowledge core.
+	The most fragile aspect of the current state is the synchronization between the Swift text storage and the background parsing threads. Without stable token scope IDs or generation counters, the editor frequently retains stale styling data during rapid typing sequences, causing the text colors to flicker until the background thread catches up and re-emits a full document state.
+5. Recommended Rust Code-Editor Stack
+To achieve the stringent performance requirements of a high-fidelity, native macOS code editor, the canonical text model must be rigorously decoupled from the UI's rendering pipeline. The canonical text buffer and all semantic understanding must be managed by a robust Rust backend, while Swift remains responsible exclusively for event routing and drawing.
+The foundational decision for the Rust stack lies in the selection of the primary text data structure. Evaluating string management paradigms dictates the use of a Rope or Piece Table to achieve    performance for non-localized edits.11 While gap buffers are exceptionally fast for localized typing—such as a user typing linearly at the end of a line—they degrade severely during long-distance edits, search-and-replace operations, and multi-cursor manipulations.12
+The recommended data structure is crop, favored significantly over ropey or jumprope. crop is a highly optimized, B-tree-based UTF-8 text rope. Cargo benchmarks demonstrate that crop operates as the fastest UTF-8 rope implementation available in the Rust ecosystem, achieving upwards of 10-20 million edits per second.4 Its architecture is built strictly with parallelism in mind. crop leverages thread-safe reference counting (Arc), allowing a full multi-megabyte document snapshot to be cloned in    time while consuming only 16 extra bytes of memory.5 This capability is absolute paramount for implementing background asynchronous saves, multi-user collaborative editing, and non-blocking Language Server Protocol (LSP) synchronization.11
+However, utilizing crop introduces a specific bridging challenge. Unlike ropey, which defaults to using Unicode scalar values (char) as its primary indexing metric, crop operates natively on UTF-8 byte offsets.4 While this accelerates internal Rust operations dramatically, Apple's native APIs—specifically NSString, NSRange, and TextKit components—expect lengths and indices mapped to UTF-16 code units.12 To prevent continuous    scanning algorithms from executing across the FFI boundary on every keystroke, the Rust architecture must construct and maintain a highly efficient, synchronized UTF-8 to UTF-16 offset mapping cache. This cache will serve solely for viewport token materialization and dirty-range delta calculations.
+To power the semantic understanding of the text, tree-sitter must be formally extracted from the graph-engine crate and placed into an independent syntax-core crate. This structural isolation ensures that the graph engine’s computationally heavy physics and rendering loops are entirely decoupled from the volatile memory requirements of incremental text parsing.
+Within this syntax-core crate, the system must implement a generation counter methodology to handle stale parse cancellation. tree-sitter parsing is inherently fast, but human typists generating inputs at 120 words per minute will continuously invalidate the syntax tree before the parser finishes analyzing the previous state. The system must implement a deferred_generation monotonic counter.14 Upon receiving a new keystroke, the Rust backend must immediately flag the active background parse for cancellation, drop the stale tree-sitter context, and increment the generation ID. This strictly prevents the unbounded WASM and native memory growth associated with queued, obsolete parse requests.15
+Furthermore, to optimize the FFI boundary, the Rust stack must utilize a compact semantic token model. Passing repeated semantic string identifiers (e.g., "variable.parameter", "entity.name.function") across the bridge per-token incurs devastating string allocation overhead. Instead, Rust must manage stable token scope IDs, mapping every syntax kind to a compact numeric u16 ID table. Diagnostics, folds, and symbol outline extractions must be executed asynchronously in Rust and delivered to Swift exclusively as dense byte-span delta batches.
+6. Recommended Swift Editor Shell
+Designing the safest Apple-native architecture requires firmly rejecting the temptation to bypass Apple's text frameworks in favor of drawing text entirely via custom Metal pipelines. While full Metal text rendering promises ultimate control over frame pacing, it fundamentally fractures the macOS native experience. A custom Metal pipeline breaks native Input Method Editors (IME) crucial for languages like Japanese, Mandarin, and Korean. It disables native VoiceOver accessibility, breaks system-wide dictionary lookups, disrupts bidirectional text rendering (RTL/LTR), and creates severe font fallback complexities that are virtually impossible for a small engineering team to replicate flawlessly. Therefore, full Metal text rendering is not recommended.
+The optimal Swift architecture shell must rely on STTextView, an advanced, open-source reimplementation of NSTextView built squarely upon the TextKit 2 framework.3 Apple's native NSTextView implemented via TextKit 1 suffers from severe, well-documented performance cliffs; updating text attributes on exceptionally long lines causes the layout manager to stutter and jump due to its inability to process non-contiguous layout fragments efficiently.3
+STTextView circumvents these limitations by replacing the legacy layout engine with a custom STTextLayoutManager and STTextContentStorage.3 This architecture yields native macOS editing behavior, flawless smooth scrolling on massive files, and robust multi-cursor support.3 Crucially, it preserves all native system behaviors regarding text selection, undo grouping, and accessibility routing.
+To bridge the gap between STTextView and the highly concurrent Rust tree-sitter backend, the integration of the Neon text styling architecture is highly recommended.10 Neon operates as an intelligent, hybrid synchronous/asynchronous interface designed specifically to eliminate UI flickering during real-time syntax highlighting.
+The Neon architecture operates via a sophisticated three-phase styling model 10:
+1. Phase 1 (Primary/Fallback): Utilizes a fast pattern-matching system (such as regex bounds) to provide guaranteed, zero-latency highlighting immediately upon keystroke.
+2. Phase 2 (Secondary): Interfaces with the tree-sitter AST to apply high-fidelity semantic highlighting, overwriting the Phase 1 styles once the background parse completes.
+3. Phase 3 (Tertiary): Integrates high-latency Language Server Protocol (LSP) semantic tokens for cross-file reference tracking and type resolution.
+To manage the application of these styles without layout invalidation loops, Neon utilizes a RangeInvalidationBuffer.10 This buffer precisely controls the timing of NSLayoutManager invalidations, applying formatting exclusively to the materialized viewport and immediately adjacent off-screen margins.
+While text editing, selection, and layout remain strictly within the purview of STTextView, the architecture should employ a hybrid Metal overlay strategy for rich visual features. By positioning transparent Metal views layered behind or overlaying the STTextView, the system can draw high-performance graphical enhancements—such as interactive minimaps, diagnostic heatmaps, animated diff gutters, and execution flash effects—without ever interfering with Apple's native text rendering pipeline.
+7. BoltFFI Design for Code Editor
+To facilitate high-throughput communication between the Rust syntax-core and the Swift STTextView, BoltFFI must be utilized. BoltFFI bypasses the heavy buffer serialization inherent to UniFFI by passing primitives and primitive-only structs directly as memory pointers, facilitating a zero-copy architectural boundary.16
+To prevent string allocations and continuous memory copies during syntax updates, data must be packed into strongly typed, C-compatible structs mapped via BoltFFI's #[data] macro attribute.16
+Exact Data Shapes and ABI Struct Design:
+The fundamental unit of styling is the SyntaxTokenSpan. Instead of strings, it relies on numeric mapping.
+
+
+Rust
+
+
+
+
+#[data]
+pub struct SyntaxTokenSpan {
+   pub start_utf16_offset: u32,
+   pub length_utf16: u32,
+   pub kind_id: u16,
+   pub modifier_mask: u16,
+}
+
+Modifications to the text buffer result in an edit delta containing a pointer to an array of spans.
+
+
+Rust
+
+
+
+
+#[data]
+pub struct SyntaxEditDelta {
+   pub generation_id: u64,
+   pub spans_ptr: *const SyntaxTokenSpan,
+   pub spans_count: usize,
+}
+
+Swift requests styling data purely based on the ranges currently visible on the screen plus an over-scroll margin.
+
+
+Rust
+
+
+
+
+#[data]
+pub struct SyntaxViewportRequest {
+   pub document_handle: u64,
+   pub visible_start: u32,
+   pub visible_length: u32,
+   pub active_generation: u64,
+}
+
+Similar structures must be defined for SyntaxFoldRange (managing code folding blocks), SyntaxDiagnosticRange (for compiler warnings/errors), and SyntaxSnapshotStats (for memory footprint telemetry).
+Memory Ownership and Transfer Rules:
+Strict memory ownership protocols are required to prevent memory leaks and catastrophic use-after-free crashes across the language boundary.
+1. Allocation Sovereignty: Rust inherently owns all memory allocations for token spans. When a SyntaxViewportRequest is processed, the Rust runtime allocates a contiguous Vec<SyntaxTokenSpan> containing the relevant styles.
+2. Pointer Transfer: BoltFFI returns the SyntaxEditDelta struct containing a raw, unmanaged pointer (spans_ptr) and the exact element length.
+3. Synchronous Swift Read: Upon receiving the pointer, the Swift receiver must synchronously map this memory to a Swift UnsafeBufferPointer<SyntaxTokenSpan>. Swift iterates sequentially over this buffer, applies the corresponding NSAttributedString keys mapping to the kind_id, and completes the entire operation within the active run loop.
+4. Deterministic Freeing: The instant Swift finishes the synchronous read, it must explicitly invoke a BoltFFI export (e.g., release_syntax_delta(spans_ptr, count)). Swift must never capture or retain this pointer asynchronously within a Task { } or escaping closure.
+5. Persistent State Handling: Persistent state, such as the parsed crop rope for an opened file, is managed strictly via opaque integer handles (SyntaxDocumentHandle), not raw memory pointers. The Rust backend maintains an internal HashMap<u64, Arc<Rope>>. If Swift issues a request for an invalidated or closed handle, Rust safely returns a controlled error enum rather than triggering a segmentation fault.
+8. BoltFFI Design for the Agent System
+The Epistemos agent control plane must remain architecturally sovereign within Rust. However, the UI layer experiences significant frame degradation when handling high-frequency Large Language Model (LLM) streaming events via the existing UniFFI transport layer.
+A targeted, highly selective hot-path migration is required. The analysis of the BOLTFFI_AUDIT_2026_04_15.md mandates that only agent stream events—specifically token deltas and reasoning thinking deltas—should be migrated to BoltFFI.6
+When an agent streams a generated response, it emits tokens at an extreme velocity, frequently exceeding 100 tokens per second. Currently, UniFFI deserializes every individual token string through its byte-buffer protocol, causing massive ARC thrashing and heap fragmentation on the Swift side. By migrating to BoltFFI, these string payloads can be passed as zero-copy wire buffers or coalesced C-strings, bypassing the allocation penalty entirely.7 Similarly, verbose reasoning traces (thinking blocks) generate rapid, continuous UI updates.15 BoltFFI can transfer these structural updates directly to the Swift UI layer with sub-nanosecond marshalling overhead.1
+Typed Event Structs and Bridge Coalescing:
+The architecture should rely on primitive-packed structs to define the streaming payload:
+
+
+Rust
+
+
+
+
+#[data]
+pub struct AgentTokenDelta {
+   pub session_id: u64,
+   pub token_ptr: *const u8, 
+   pub length: u32,
+   pub sequence_id: u32,
+}
+
+To preserve UI render stability, migrating immediately upon every single token generation is computationally wasteful. Token deltas should be coalesced before crossing the bridge. The Rust executor should buffer tokens and flush them on a 16.6ms timer (matching the 60 FPS display refresh rate).17 This sends an array of tokens across the bridge as a single batched transfer, vastly reducing the frequency of context switches and bridge crossings.
+Backpressure and Cancellation Mechanisms:
+High-throughput streaming necessitates robust backpressure to prevent the UI thread from being overwhelmed. Utilizing Swift's structured concurrency (async/await) mapped natively to BoltFFI's async stream support 16, the Rust executor can naturally pause token dispatch if the Swift main thread falls behind in rendering the text views.
+Cancellation must be handled via a shared, thread-safe cancellation token—typically an Arc<AtomicBool> mapped through BoltFFI. When a user explicitly cancels an agent run, or when Swift drops the stream receiver reference due to view destruction, the cancellation flag is toggled. The Rust asynchronous task checks this flag at suspension points and gracefully aborts the LLM generation loop, ensuring resources are freed cleanly.
+Critically, the architecture must strictly preserve Rust control-plane sovereignty. Tool permission gates, destructive-action approvals, silent cloud fallbacks, and execution error propagation must not be migrated to BoltFFI.6 These operations dictate the security posture of the application and must remain within the highly auditable boundaries of UniFFI.
+9. BoltFFI Design for Graph Hot Paths
+The graph-engine currently orchestrates its visual state via a manually maintained C FFI bridge comprising 127 functions.6 While C FFI is fast, it lacks the safety guarantees of Rust and the ergonomic concurrency tools of Swift, making the codebase rigid and susceptible to undefined memory behavior during complex batch transfers.
+The migration of graph paths to BoltFFI must be prioritized based on execution frequency and payload size. The analysis specifies three immediate migration candidates 6:
+1. Graph Data Loading and State Application: The invocation of GraphState.applyPending* functions requires instantiating up to 10,000 nodes simultaneously. This demands the transfer of complex 3D coordinates, label strings, and physics mass properties. BoltFFI can pass an array of primitive GraphNodeData structs instantly without per-node serialization, significantly accelerating initial workspace load times.
+2. Graph Search and Neighbor Queries: Type-ahead search triggers computation on every single keystroke. Passing the query string across the bridge, executing a shortest-path or neighbor graph search algorithm within Rust, and returning a localized list of matched Node IDs must execute well within an 8-millisecond budget to prevent typing latency.
+3. SDF Label Rendering and Hover States: Text overlays and selection states require continuous high-frequency updates (60 fps) to synchronize camera translations with the 2D label projections rendered over the 3D space.6
+Render-Facing Structs and Per-Frame Copy Risks:
+To satisfy the requirements of the Metal graphics pipeline, the Rust graph engine must format data specifically for direct GPU ingestion.
+
+
+Rust
+
+
+
+
+#[data]
+pub struct GraphNodeRenderData {
+   pub node_id: u64,
+   pub position_x: f32,
+   pub position_y: f32,
+   pub radius: f32,
+   pub color_hex: u32,
+   pub flags: u32,
+}
+
+The architecture must mitigate per-frame copy risks. Rust should pre-allocate and maintain a contiguous array of GraphNodeRenderData. Once per frame, Swift requests the data pointer via BoltFFI. Upon receiving the pointer, Swift uses a highly optimized memcpy operation to push the data block directly into a pre-allocated Metal MTLBuffer. This completely bypasses the creation of individual Swift class or struct instances for each node, eliminating ARC overhead and ensuring sustained 60 FPS performance even with tens of thousands of active nodes.
+Operations that should stay as-is or transition to shared memory include massive position snapshots or entire graph export payloads. A runtime compatibility flag must be implemented within Swift to toggle between the legacy C FFI calls and the new BoltFFI pathways dynamically, allowing for A/B performance profiling in production environments without risking total engine failure.
+10. What Should Stay UniFFI / Current Bridge
+A universal, mass migration of all bridging systems to BoltFFI is strictly prohibited and constitutes a profound architectural anti-pattern.6 BoltFFI optimizes exclusively for throughput and zero-copy primitives; this comes at the direct cost of ergonomic simplicity when handling complex, deeply nested enum variants or recursive data structures.
+The following domains must remain permanently bound to UniFFI or utilize specialized Shared Memory transports:
+1. Control-Plane Operations: All operations that govern the security and operational state of the application—such as tool permission gates, destructive-action approvals, vault session creation, and global settings updates—must remain on UniFFI.6 These are low-frequency cold paths. UniFFI’s ergonomic superiority, specifically its automatic generation of native Swift Result types and exhaustive enum mapping, vastly outweighs the nanosecond throughput gains offered by BoltFFI.7
+2. Security, Telemetry, and Auditing: The generation of execution summaries, audit logs, and session lineage summaries must remain on UniFFI. These payloads involve deep structural serialization that is accurately and safely logged by UniFFI without introducing the severe pointer arithmetic complexity required to map nested structures over BoltFFI.
+3. Large Resource Payloads: High-dimensional vector embeddings, massive string chunks used for RAG (Retrieval-Augmented Generation) context payloads, and vast unstructured blobs retrieved from the omega-mcp vault must explicitly not use BoltFFI. These systems are flagged directly as shared_memory_candidate.6 Serializing or even repeatedly pointer-passing massive continuous memory blobs causes devastating L1/L2 CPU cache evictions. Memory mapped files (mmap) or dedicated shared reactive memory transport architectures are required to handle these payloads efficiently.
+11. Benchmark Plan
+The transition to BoltFFI requires strict quantitative justification. Before a single line of production FFI code is formally migrated, an exhaustive benchmark harness must be established and committed to the repository, specifically targeting EpistemosTests/GraphFFIBenchmarkTests.swift.6
+Required Benchmark Metrics and Success Thresholds:
+Metric Targeted
+	Test Condition Scenario
+	Required Success Threshold
+	Code Editor Open Time
+	Initializing 1K, 10K, 50K, and 100K-line text files from disk to screen.
+	< 200ms to first visible text render.
+	Keystroke-to-Highlight Latency
+	Simulating continuous typing at 120 WPM while running Phase 3 syntax highlighting.
+	< 16ms (1 visual frame) to apply accurate highlight.
+	Scroll Rendering FPS
+	Scrolling continuously from the top to the bottom of a 50K line document.
+	Stable 60 FPS with zero layout fragment hitches.
+	Graph Bootstrapping Time
+	Bootstrapping and rendering an initial load of 10,000 graph nodes.
+	< 50ms total bridge transfer and layout time.
+	Neighbor Query Latency
+	Executing a localized search across the 10,000 node graph.
+	< 8ms round trip from Swift input to Rust result.
+	Agent Token Frame Impact
+	Streaming LLM tokens at a simulated rate of 100 tokens/sec into the UI view.
+	Main thread block must not exceed 2ms per tick.
+	Tooling and Implementation Recommendations:
+To execute this benchmark plan accurately, the engineering team must employ specific analytical tools.
+* Instruments Time Profiler: Required to identify the exact duration of Swift main-thread blocking during tree-sitter queries and layout updates.
+* Instruments Allocations: Critical for tracking ARC overhead, measuring object lifecycle thrashing, and monitoring memory growth during continuous typing loops to ensure no invalid pointer retention or WASM memory leaks exist.
+* Swift Signposts (os_signpost): The implementation of os_signpost calls immediately preceding and succeeding BoltFFI bridge invocations is mandatory. This provides deterministic measurements of exact marshalling time versus Swift-side view processing time within Apple's logging instruments.
+* Cargo Benchmarks: Rust-native benchmarks utilizing the criterion crate must be written to validate crop edit speeds, UTF-16 offset mapping latency, and graph neighbor query latency in complete isolation before any bridging logic is tested.
+All benchmark results must be documented in a comparative before/after markdown table committed to the repository, proving the statistical necessity of the migration.
+12. Migration Order
+To fundamentally mitigate regression risks and to adhere strictly to the sequential requirements dictated by PLAN_V2.md, the architectural migration must follow a precise, incremental sequence. Deviating from this order guarantees integration failure.
+1. Phase 1: Benchmark Harness Construction (No code migration). The initial phase involves zero architectural changes. The team must build GraphFFIBenchmarkTests.swift and capture the authoritative baseline performance metrics for the existing C FFI and UniFFI implementations across all defined hot paths.
+2. Phase 2: Graph Hot-Path Prototype. Migrate graph_engine_neighbors and the type-ahead search algorithms to a typed BoltFFI buffer layout. This implementation must be strictly hidden behind a runtime compatibility flag. The team must validate that existing routing logic errors (e.g., openNode inadvertently calling openFolder(id)) do not resurface during this transition.6
+3. Phase 3: Agent Streaming Prototype. Once the graph prototype proves stable, migrate LLM token deltas and thinking blocks to BoltFFI. Implement the Rust-side coalescing timers (batching tokens every 16ms) and rigorously observe the UI frame impact under extreme synthetic load.
+4. Phase 4: Syntax Delta Prototype. Begin the code editor modernization by implementing STTextView and the Neon 3-phase highlighting pipeline natively within Swift. Connect Phase 2 of the Neon system to a new BoltFFI endpoint that requests syntax spans from the syntax-core crate.
+5. Phase 5: Rust Rope Integration. Only if empirical profiling proves that Swift’s native NSTextStorage remains a definitive bottleneck for document sizes exceeding 50,000 lines, introduce the crop rope model into the Rust backend to assume control of the canonical text buffer.
+6. Phase 6: Metal Overlays. Finally, implement non-destructive Metal overlays for diagnostics, heatmaps, and minimaps layered strictly behind the STTextView interaction surface.
+13. Risk Register
+Architectural upgrades of this magnitude introduce systemic risks that require explicit mitigation strategies.
+Invalid Pointer Retention (Use-After-Free):
+The zero-copy nature of BoltFFI relies on passing unmanaged memory pointers. If Swift developers asynchronously defer the reading of a BoltFFI spans_ptr via a Task { } block or escaping closure, the Rust runtime may free the vector memory in the background. When Swift eventually attempts to read the pointer, a catastrophic segmentation fault will occur. Mitigation: Enforce strict, synchronous memory mapping on the main thread and mandate immediate calls to the Rust release function.
+Swift 6 Concurrency Violations: The Epistemos application currently exhibits Swift 6 data race warnings, particularly regarding route observers like HologramOverlay lacking MainActor.assumeIsolated wrappers.6 FFI callbacks operating implicitly on background threads will trigger deterministic Swift 6 runtime crashes. Mitigation: Audit and route all FFI-driven UI state mutations explicitly through the MainActor.
+UTF-8 vs. UTF-16 Desynchronization: Because the Rust crop library utilizes UTF-8 byte offsets natively, and Apple's NSString frameworks require UTF-16 code units, any bridging logic flaw here will cause semantic desynchronization. Syntax attributes will apply to incorrect characters, offsetting catastrophically based on the number of emojis or multibyte non-Latin characters present in the document.12 Mitigation: Implement exhaustive fuzz testing on the offset conversion layer, utilizing massive random strings containing mixed ASCII, Mandarin, and Emoji characters.
+Unbounded Memory Growth: If the tree-sitter parsing thread is not periodically reset or effectively canceled upon the arrival of new keystrokes, the background parser will queue obsolete requests endlessly, bloating the application's native and WASM memory footprints until the OS terminates the process.15 Mitigation: Strictly enforce the deferred_generation ID mechanism and token cancellation protocols.
+14. Exact Files to Change Later
+The execution of this architecture mandates precise modifications to specific files within the repository.
+Subsystem Focus
+	File Path to Modify
+	Required Action / Architectural Goal
+	Code Editor
+	Epistemos/Views/Notes/CodeEditorView.swift
+	Refactor entirely to replace CodeEditSourceEditor dependency with native STTextView.
+	Code Editor
+	Epistemos/Views/Notes/ProseEditorView.swift
+	Update integration protocols to support shared Neon highlighting interfaces.
+	Rust Syntax
+	graph-engine/Cargo.toml
+	Extract tree-sitter dependencies into a new syntax-core crate; add the crop rope dependency.
+	Rust Syntax
+	graph-engine/src/lib.rs
+	Strip out legacy text parsing logic, ensuring the physics engine operates independently.
+	Graph Bridge
+	graph-engine-bridge/graph_engine.h
+	Mark hot-path C FFI exports as deprecated in preparation for BoltFFI replacement.
+	Agent Bridge
+	agent_core/Cargo.toml
+	Introduce BoltFFI bindings generation dependency.
+	Agent Bridge
+	agent_core/src/bridge.rs
+	Export high-frequency token streaming and thinking block updates via BoltFFI #[export].
+	Agent Delegate
+	Epistemos/Bridge/StreamingDelegate.swift
+	Refactor to consume coalesced BoltFFI streams rather than UniFFI string buffers.
+	Graph Views
+	Epistemos/Views/Graph/MetalGraphView.swift
+	Update buffer ingestion to accept raw pointer memcpy transfers from BoltFFI.
+	15. Exact Tests/Benchmarks to Add Later
+The test suite must be expanded to guarantee the mechanical safety of the new implementations.
+Test File Name
+	Target Metric / Assertion Objective
+	GraphFFIBenchmarkTests.swift
+	Measure bridging time for continuous 10K Node structure allocations across the boundary.
+	SyntaxDeltaBenchmarkTests.swift
+	Disabled-by-default performance suite simulating 120 WPM typing on a 50K line file, asserting main-thread blocking stays strictly under 16ms.
+	AgentStreamBenchmarkTests.swift
+	Simulates 10,000 rapid, continuous token stream events to track ARC allocation counts and memory pressure.
+	EditorUTFOffsetFuzzTests.swift
+	Generates randomized data sets of mixed character encodings to assert that Rust's UTF-8 byte offsets perfectly resolve to Swift's UTF-16 NSRange.
+	RoutingLogicRegressionTests.swift
+	Verifies that openNode logic correctly resolves sourceId without inadvertently triggering openFolder or openNote invalid states.
+	16. Direct Answer
+Should Epistemos rebuild the code editor now?
+Absolutely not. The Epistemos engineering team must first construct the prerequisite benchmark harnesses to empirically prove the exact performance limitations of the current CodeEditSourceEditor implementation. Premature optimization without baseline metrics violates core architectural principles. Once the benchmarks definitively prove that TextKit 1 layout fragments cannot sustain 50,000-line document editing, the system should transition methodically to STTextView backed by a Rust crop backend. The team must explicitly avoid a from-scratch rewrite or the implementation of a full custom Metal text renderer.
+Should Epistemos do a mass BoltFFI migration? No. Executing a mass migration of all bridging systems constitutes a profound risk. While BoltFFI provides unparalleled throughput for primitive data transfers, it sacrifices the ergonomic simplicity necessary for complex state management. Low-frequency control plane operations, overarching system settings, telemetry generation, and critical tool permission gates must remain securely on UniFFI. A mass migration violates the principle of auditable safety established in the BOLTFFI_AUDIT_2026_04_15.md guidelines.6
+What is the safest next implementation slice? The safest, most scientifically sound next implementation slice is the construction of GraphFFIBenchmarkTests.swift. This establishes the quantitative foundation required for all future work. Following the successful baseline capture, the team must selectively migrate the graph_engine_neighbors and type-ahead search algorithms to a typed BoltFFI buffer layout. Crucially, this implementation must be deployed exclusively behind a runtime compatibility flag, allowing deterministic A/B testing against the legacy C FFI bridge without risking the stability of the production environment.6
+Works cited
+1. BoltFFI: a high-performance Rust bindings generator (up to 1000× vs UniFFI microbenchmarks) - Reddit, accessed April 15, 2026, https://www.reddit.com/r/rust/comments/1r768bm/boltffi_a_highperformance_rust_bindings_generator/
+2. BoltFFI - GitHub, accessed April 15, 2026, https://github.com/boltffi/boltffi
+3. krzyzanowskim/STTextView: Performant and reusable text ... - GitHub, accessed April 15, 2026, https://github.com/krzyzanowskim/STTextView
+4. Announcing crop, the fastest UTF-8 text rope for Rust - Reddit, accessed April 15, 2026, https://www.reddit.com/r/rust/comments/11cdi6b/announcing_crop_the_fastest_utf8_text_rope_for/
+5. noib3/crop: 🌾 A pretty fast text rope - GitHub, accessed April 15, 2026, https://github.com/noib3/crop
+6. BOLTFFI_AUDIT_2026_04_15.md
+7. boltffi_cli — Rust build tool // Lib.rs, accessed April 15, 2026, https://lib.rs/crates/boltffi_cli
+8. BoltFFI: a high-performance Rust bindings and packaging toolchain for Swift, Kotlin, and TS, accessed April 15, 2026, https://www.reddit.com/r/iOSProgramming/comments/1s2cn3b/boltffi_a_highperformance_rust_bindings_and/
+9. Editor View · Issue #36 · CodeEditApp/CodeEdit - GitHub, accessed April 15, 2026, https://github.com/CodeEditApp/CodeEdit/issues/36
+10. ChimeHQ/Neon: A Swift library for efficient, flexible content ... - GitHub, accessed April 15, 2026, https://github.com/ChimeHQ/Neon
+11. Rope & SumTree — Zed's Blog, accessed April 15, 2026, https://zed.dev/blog/zed-decoded-rope-sumtree
+12. Text showdown: Gap Buffers vs Ropes - Core Dumped, accessed April 15, 2026, https://coredumped.dev/2023/08/09/text-showdown-gap-buffers-vs-ropes/
+13. Text showdown: Gap Buffers vs Ropes : r/rust - Reddit, accessed April 15, 2026, https://www.reddit.com/r/rust/comments/173sia8/text_showdown_gap_buffers_vs_ropes/
+14. jcodemunch-mcp/SPEC.md at main - GitHub, accessed April 15, 2026, https://github.com/jgravelle/jcodemunch-mcp/blob/main/SPEC.md
+15. Changelog - Claude Code Docs, accessed April 15, 2026, https://code.claude.com/docs/en/changelog
+16. BoltFFI Docs | BoltFFI, accessed April 15, 2026, https://boltffi.dev/
+17. `for await` and the battle of buffered streams : r/rust - Reddit, accessed April 15, 2026, https://www.reddit.com/r/rust/comments/18czxf1/for_await_and_the_battle_of_buffered_streams/

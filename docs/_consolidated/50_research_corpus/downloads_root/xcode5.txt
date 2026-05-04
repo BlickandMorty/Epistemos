@@ -1,0 +1,287 @@
+﻿Epistemos Architecture Discovery and Implementation Report
+1. Executive Recommendation
+The synthesis of a high-performance native macOS application that unifies personal knowledge management (PKM) and integrated development environment (IDE) capabilities requires a strict separation of concerns between presentation and data manipulation. The architectural objective is to bypass the inherent limitations of web-based wrappers (Electron/WebView) while avoiding the pitfalls of over-engineered, non-native UI frameworks that alienate the host operating system. The definitive architecture for Epistemos relies on a hybrid Swift 6 and Rust stack, capitalizing on the Apple Silicon Unified Memory Architecture (UMA) to minimize zero-copy penalties across the Foreign Function Interface (FFI).
+The optimal architecture establishes the following ownership split: First, Swift 6, AppKit, and CoreText must strictly own the presentation layer, window management, hardware-accelerated text rendering, and Apple system integrations. Second, Rust must own the immutable application state, text storage (via a persistent Rope data structure), parsing (Tree-sitter), search indexing (Tantivy + SQLite), and child process supervision (Language Server Protocol orchestration). Finally, BoltFFI (complemented by UniFFI for coarse-grained administrative events) will serve as the communication bridge, selected due to its sub-nanosecond bounds for primitive data transfers, effectively circumventing traditional serialization bottlenecks.1
+For the editor core, standard Apple text frameworks—specifically TextKit 1 and TextKit 2—must be explicitly bypassed for code document surfaces. TextKit 2, while aggressively modernized by Apple, utilizes viewport layout estimation that fundamentally breaks scroll positioning and deterministic performance in large files.2 Instead, a custom AppKit NSView backed directly by CoreText—mirroring the architectural pivots seen in high-end native editors like Nova and CodeEdit—is required for the code editing surface.2 This architecture guarantees true macOS nativity, zero-latency typing, and robust AI context integration without the memory bloat characteristic of Chromium-based solutions.
+2. Detailed Architecture
+Modern hybrid application models dictate that coupling the user interface tightly to text processing logic results in main-thread stalls, unpredictable memory growth, and UI degradation. The target architecture for Epistemos isolates state mutation from the render loop.
+Component-by-Component Design
+The architecture is divided into three distinct execution domains: the Swift Main Actor, the Rust Thread Pool, and the Out-of-Process Workers.
+
+
+Component
+	Language/Owner
+	Primary Responsibility
+	Technical Mechanism
+	Window/Scene Management
+	Swift 6 / SwiftUI
+	Multi-document workspaces, state restoration.
+	AppKit bridging, SwiftUI Scene protocols.
+	Native Editor Surface
+	Swift 6 / CoreText
+	Hardware-accelerated glyph rendering.
+	Custom NSView subclass utilizing CTTypesetter.
+	Text Storage Layer
+	Rust
+	Concurrent, immutable text representation.
+	Sum-Tree / Rope data structure.4
+	Syntax Engine
+	Rust
+	Incremental AST generation.
+	Tree-sitter C-bindings wrapped in Rust.5
+	Semantic Intelligence
+	Rust (Supervisor)
+	Language server lifecycle management.
+	tokio::process over standard I/O streams.6
+	Search & Indexing
+	Rust
+	High-speed exact and semantic search.
+	Tantivy (Lexical) 7 & sqlite-vec (Semantic).8
+	File System Watcher
+	Rust
+	Low-latency workspace modification tracking.
+	FSEvents via the Rust notify crate.9
+	AI Inference/Routing
+	Swift / MLX
+	Local model execution and remote API routing.
+	Apple MLX framework for unified memory inference.
+	Ownership Split: Swift, Rust, and Subprocesses
+The Swift Presentation Layer
+Swift 6 introduces strict concurrency models, enforcing data-race safety through Actor isolation and Sendable types.11 Swift is explicitly restricted to managing the visual state. It captures NSEvent keystrokes and forwards them asynchronously to the Rust core. When Rust completes a mutation, Swift reads the updated visible byte ranges through the FFI and maps them to CoreText typographic attributes. Swift also manages local AI model inference via MLX, overlaying hardware-accelerated UI elements like cursor animations, inline AI completion ghosts, and markdown rendering for note documents.
+The Rust Data and Intelligence Layer
+Rust operates as the headless engine of the application, running entirely in background threads to ensure the Swift @MainActor is never blocked. Rust maintains the source of truth for all open documents. It handles the continuous background re-parsing of the Abstract Syntax Tree (AST), maintains the search indices, and calculates text diffs. When Swift requests the syntax tokens for lines 100 through 150, Rust rapidly traverses its Tree-sitter AST, maps the nodes to semantic color codes, and returns a flat C-array to Swift.12
+Subprocess Workers
+Language Server Protocol (LSP) instances, formatters, and linters operate as entirely separate OS processes. Rust acts as the supervisor daemon. If an LSP crashes due to a malformed AST, the Rust layer detects the broken pipe, restarts the worker, and gracefully degrades to Tree-sitter syntax highlighting until the semantic server recovers, completely insulating the Swift UI from the crash.
+3. Editor Core Comparison
+The selection of the text rendering engine and the underlying text storage structure dictates the absolute performance ceiling of the application. The requirement for code files to operate as first-class documents necessitates an editor core capable of handling massive text blobs without layout thrashing.
+Rendering Engine Alternatives
+A deep comparison of macOS native text rendering paradigms reveals severe limitations in Apple's out-of-the-box text components when applied to code editing.
+
+
+Technology
+	Architectural Model
+	Large File Behavior
+	Extensibility & Code Features
+	Verdict
+	TextKit 1 (NSTextView)
+	Glyph-based, synchronous. Uses NSLayoutManager.14
+	Poor. Exhibits O(N) degradation as document size increases.2
+	High, but requires deep subclassing and overriding glyph generation.
+	Rejected. Legacy framework; deprecated for new macOS implementations.
+	TextKit 2 (NSTextView)
+	Viewport-based, fragment-based layout via NSTextLayoutManager.15
+	Unreliable. Viewport layout estimation causes erratic scrollbar jumping and UI freezing.2
+	Low. Extremely difficult to inject custom background rendering for code blocks.2
+	Rejected. Missing multi-container support; highly buggy for deterministic code editing.2
+	GPUI (Zed Engine)
+	Metal/Vulkan game-engine style immediate mode rendering.17
+	Phenomenal. Capable of maintaining strict 120fps under heavy load.18
+	Very Low for macOS conventions. Requires rebuilding every OS native control from scratch.20
+	Rejected. Deviates fundamentally from a true macOS native feel; excessive overhead to mimic standard AppKit behaviors.
+	Custom CoreText View
+	Raw CoreFoundation typography operating on a custom NSView.
+	Excellent. Achieves sub-millisecond layout for millions of lines when virtualized properly.2
+	Ultimate. Grants total control over line height, gutters, minimaps, and inline AI ghosts.
+	Recommended. The only path to uncompromising performance and native integration.
+	The Failure of TextKit 2 for Code
+Apple's TextKit 2 was introduced as a modern, viewport-based text layout engine.15 However, its application in code editors has proven disastrous. Applications attempting to use NSTextView backed by TextKit 2 experience severe "jiggery" scrolling because the layout manager constantly estimates the physical height of off-screen text fragments.2 For a code editor, where precise line numbering, deterministic scrolling, and minimap rendering are mandatory, this non-deterministic layout estimation is catastrophic. Furthermore, accessing legacy properties on a TextKit 2 NSTextView will silently downgrade the entire view back to TextKit 1, destroying performance.2 High-performance native editors, including Nova and CodeEdit, universally abandon NSTextView in favor of custom NSView surfaces that calculate visible lines using CoreText.2
+Recommended Implementation Path: CoreText
+The editor surface must be a custom NSView wrapper. It will utilize CTTypesetter and CTFrame to render only the text currently visible within the NSScrollView's contentView.
+* Line Numbers & Gutters: Drawn natively in the same drawRect or Metal layer pass as the text, ensuring perfect vertical synchronization.
+* Syntax Highlighting: Applied via NSAttributedString attributes directly to the CoreText frames, sourced from the Rust AST.
+* Minimap: Rendered by generating a low-resolution CoreText layout of the entire document (or a cached bitmap representation) updated asynchronously on a background thread.
+* Inline Diagnostics: Handled by calculating the exact geometric bounding box of a character range via CTLineGetOffsetForStringIndex and drawing squiggly lines or error popovers at those coordinates.
+4. Text Storage and Editing Data Structures
+The backing data structure for the code editor must support rapid local mutations, concurrent read access for background parsing, and stable memory consumption. Treating text as a simple contiguous string or an array of lines forces the application to reallocate massive blocks of memory upon every keystroke, destroying performance.
+Data Structure Comparison
+
+
+Structure
+	Description
+	Local Edit Latency
+	Distant / Multi-Cursor Edit Latency
+	Memory & Lifecycle Overhead
+	Verdict
+	Gap Buffer
+	A contiguous array with an empty space (the gap) at the cursor position.21
+	O(1). Exceptionally fast for sequential typing.21
+	O(N). Extremely poor.21 Moving the gap requires copying large memory blocks.21
+	Low memory overhead, but highly volatile CPU usage during distant edits.
+	Rejected. Fails under multi-cursor scenarios and large search-and-replace operations.21
+	Piece Table
+	A sequence of descriptors pointing to an immutable original buffer and an append-only edit buffer.23
+	O(1) initially.
+	O(N) over time as the table fragments into thousands of tiny descriptors.24
+	High over long sessions. Requires complex garbage collection to consolidate fragments.24
+	Rejected. Retrieval speeds degrade severely over time without aggressive maintenance.24
+	Rope (Sum-Tree)
+	A balanced binary tree where leaf nodes contain short string segments.4
+	O(log N).4
+	O(log N).25 Consistently fast regardless of edit location.4
+	Moderate tree node allocation overhead, but exceptionally stable across heavy workloads.
+	Recommended.
+	The Rust Rope Architecture
+A Rope (or a B-Tree / Sum-Tree of strings), as utilized by high-performance editors like Helix and Zed, guarantees O(log N) performance for all operations, making it entirely immune to the O(N) latency spikes that plague Gap Buffers during multi-cursor editing.4
+Implementing the Rope in Rust is the definitive choice. Swift's native String type is optimized for Unicode correctness but is notoriously slow for massive random-access mutations. By isolating the Rope in Rust, the FFI can pass byte-offsets and UTF-16/UTF-8 boundaries to Swift instantly. The Rust Rope inherently supports immutable snapshots, meaning the background indexing threads and Tree-sitter parsers can operate on a zero-cost clone of the document state from exactly one frame ago, entirely eliminating the need for complex read/write locks that stall the main thread.
+5. Language System Plan
+Achieving zero-latency typing with highly accurate syntax highlighting requires decoupling the immediate syntax layer from the deeply analytical semantic layer.
+The Syntax Layer: Incremental Parsing
+TextMate grammars (utilizing complex regular expressions) are excessively slow and prone to catastrophic backtracking, causing editor lockups. The modern standard is Tree-sitter, an incremental parsing library that generates a Concrete Syntax Tree (CST).5 Tree-sitter can update an existing syntax tree to reflect a user's edit in under a millisecond.5
+* Ownership Strategy: Tree-sitter must execute entirely within the Rust layer. While Swift bindings exist (swift-tree-sitter) 27, running the parser in Swift would require copying the text buffer across the FFI on every keystroke. By keeping Tree-sitter in Rust, it can operate directly on the Rust Rope via a zero-copy cursor.
+* Highlighting Pipeline: Tree-sitter utilizes .scm (Scheme-like) query files to map syntax nodes (e.g., function.builtin or variable.parameter) to specific highlight captures.12 When Swift needs to render a frame, it passes the visible byte range to Rust. Rust executes the query against the AST and returns a flat array of (start_byte, end_byte, syntax_token_id) via BoltFFI. Swift then maps these token IDs to its native visual theme.
+* Supported Languages: Tree-sitter provides out-of-the-box C-parsers for Swift, Rust, Python, JavaScript/TypeScript, HTML, CSS/SCSS, JSON, YAML, TOML, Markdown, and Shell.5 These parsers will be statically linked into the Rust binary.
+The Semantic Layer: LSP Architecture
+While Tree-sitter perfectly identifies syntax within a single file, it cannot resolve types, infer project-wide traits, or provide compilation diagnostics. This requires the Language Server Protocol (LSP).
+* Language Servers:
+   * Swift: sourcekit-lsp.28
+   * Rust: rust-analyzer.30
+   * Python: pyright or ruff-lsp.
+   * Web (JS/TS/HTML/CSS): typescript-language-server and vscode-langservers-extracted.
+* Transport Model: The LSP instances must run as independent child processes. Communication will occur via standard input/output (stdio). While Unix Domain Sockets or macOS XPC offer theoretical IPC speed advantages, stdio is universally supported by every language server, avoids complex filesystem permission handling, and eliminates the multi-platform architectural drift that XPC would cause.6
+* Process Supervision: Rust will own the lifecycle of the LSP subprocesses. Utilizing Swift's native Process or Subprocess frameworks is heavily discouraged, as they historically suffer from buffer deadlocks and inflexible asynchronous stream handling.32 Rust's tokio::process provides highly resilient, asynchronous, crash-tolerant supervision.
+* Feature Implementation (V1): The V1 semantic layer will support Diagnostics (inline error squiggles), Hover (type information), Go to Definition, Find References, Document Symbols (for the outline), and Document Formatting.
+* Merging Tokens: If semantic tokens are provided by the LSP, Rust will merge them with the Tree-sitter syntax tokens, giving semantic tokens priority. To prevent UI flickering, semantic token updates must be debounced by 200-300ms, whereas Tree-sitter syntax updates must occur synchronously with the keystroke.
+6. Workspace, Project, and Search Architecture
+A PKM and IDE hybrid demands a unified workspace model where markdown notes and deeply nested source code repositories coexist within a single file tree and indexing mechanism, without architectural chaos.
+Document and Workspace Model
+The application will utilize a unified workspace controller. Documents will inherit from a base WorkspaceDocument protocol, branching into NoteDocument and CodeFileDocument. While notes may utilize a rich-text or specialized block-editor UI, code files will strictly utilize the custom CoreText editor surface. Both document types will share the underlying Rust Rope storage, allowing the search and AI contexts to interface with a single, uniform data source.
+File Watching and Modification Handling
+To detect external changes (e.g., a git pull or an external script modifying a file), the application must monitor the file system.
+* FSEvents vs. DispatchSource: macOS provides two file-watching mechanisms. DispatchSource monitors specific file descriptors; it is precise but fails at scale, consuming thousands of system file descriptors and crashing on large repositories.10 macOS FSEvents monitors entire directory trees at the kernel level, consuming virtually zero CPU.9
+* Implementation: The architecture will utilize the Rust notify crate (which natively wraps FSEvents on macOS). Rust will aggregate file system modifications, debounce them to prevent event flooding during large branch checkouts, and stream a consolidated list of modified paths to Swift. Swift will then prompt the user to reload or automatically update the buffer if unmodified.
+Search and Indexing System
+The application requires instantaneous retrieval of file names, code contents, and note semantics. A dual-engine hybrid approach is required:
+1. Lexical Search (Tantivy): Tantivy is a highly optimized, Lucene-inspired Rust search engine that builds memory-mapped inverted indexes.7 Tantivy will index all text and code files, providing sub-millisecond BM25 keyword search and phrase matching.36 Tantivy entirely replaces the need to bundle ripgrep, allowing the index to persist incrementally rather than scanning the entire disk on every query.36
+2. Semantic Search (SQLite + sqlite-vec): To support AI RAG workflows, sqlite-vec, a pure C extension for SQLite, will be embedded.8 sqlite-vec outperforms isolated vector databases by integrating directly with standard relational metadata, allowing unified SQL queries (e.g., finding dense vectors close to an embedding where the file extension is .swift).8
+* Indexing Strategy: Background Rust threads will parse files with Tree-sitter, extracting structural symbols (functions, classes). These symbols are passed to the lexical index, while broader semantic chunks (function bodies, note paragraphs) are passed through an embedding model and stored in SQLite.
+7. AI-Native Code Context
+To transcend traditional "AI wrapper" limitations, Epistemos must treat code files as structured semantic graphs rather than raw text blobs.
+First-Class Context Attachment
+When a user attaches a code file to an AI chat, passing a monolithic 10,000-line file exhausts the LLM's context window and degrades reasoning capability. The architecture leverages Tree-sitter to perform Semantic Excerpt Generation.
+* If a user highlights a function in a Rust file and invokes the AI, the Swift UI passes the byte range to the Rust core.
+* Rust queries the Tree-sitter AST to extract the exact boundaries of that function. It can then ascend the syntax tree to extract the enclosing class definition, and utilize the LSP symbol cache to append necessary struct definitions that the highlighted function depends on.
+* This highly curated, contextually dense package is fed to the local MLX model or cloud API.
+Workspace-Aware Retrieval (RAG)
+To allow the AI to reason across both personal notes and codebases:
+1. Query Processing: The user's natural language query is embedded.
+2. Vector Retrieval: sqlite-vec retrieves the top semantically relevant code chunks and markdown notes.38
+3. Symbol Grounding: The retrieved code chunks are cross-referenced against the LSP symbol cache. This ensures that the AI is provided with factually accurate, up-to-date variable names and function signatures, mitigating hallucinations.
+4. Synchronization: The local indexing system utilizes a Merkle-tree hashing strategy.40 Rather than re-indexing the entire workspace on launch, the Rust watcher rapidly compares file hashes against the SQLite database, embedding only the precise file diffs.
+8. Visual and UX Language Identity
+A core requirement is that Epistemos feels like a premium native macOS app, avoiding the generic, uniform presentation of Electron editors.
+* Language Identity Chrome: When a document opens, Swift determines the file type and adjusts the window chrome. A Swift file will feature the Swift logo embedded seamlessly into the .unified toolbar.41
+* Native Theming: Themes must abandon the "gamer-aesthetic" high-contrast neon common in VS Code. Instead, syntax themes will map Tree-sitter tokens to macOS dynamic system colors (e.g., NSColor.controlAccentColor or subtle shades of NSColor.labelColor). This ensures the code editor perfectly respects the user's system-wide Light/Dark mode transitions and True Tone display profiles.
+* Typographic Presentation: The custom CoreText view will utilize NSFont.monospacedSystemFont by default, incorporating subtle typographic ligatures. Elements like code folding ribbons and minimaps will utilize native NSVisualEffectView blurring to maintain spatial awareness.41
+9. Isolation, Performance, and Concurrency
+Performance degradation in web-based editors stems from synchronous main-thread blocking and JavaScript garbage collection pauses. The Swift/Rust architecture eliminates these entirely.
+Concurrency and Actor Isolation
+* Swift 6 Strict Concurrency: The UI layer operates exclusively on the @MainActor. All interactions with the Rust core will be dispatched via Swift structured concurrency (Task { await... }).11 The Swift 6 compiler guarantees that data passed between the UI and background tasks is completely data-race free via Sendable checking.42
+* Rust Thread Pools: Heavy workloads—Tantivy indexing, LSP JSON-RPC parsing, and MLX embedding generation—operate on dedicated tokio worker threads. The Rust layer maintains a lock-free or RwLock concurrent structure over the Rope, allowing background indexing to read the document while the main thread simultaneously applies typing mutations.
+FFI Boundary Design
+To guarantee 120Hz rendering (an 8.33ms frame budget), the boundary between Swift and Rust must be strictly policed to avoid serialization bottlenecks:
+* Coarse-Grained Events: File opening, workspace loading, and configuration changes will utilize Mozilla's UniFFI. UniFFI generates highly ergonomic Swift bindings but carries a serialization overhead (often measured in microseconds) that is inappropriate for 120fps loops.1
+* Fine-Grained Events (Hot Paths): Keystrokes, cursor movements, and syntax token streaming require nanosecond latency. BoltFFI will be utilized here, as it generates zero-copy bindings up to 1,000x faster than UniFFI.1 Rust will expose flat arrays of C-primitives (e.g., [start_byte, end_byte, color_code]). Because of Apple Silicon's Unified Memory Architecture (UMA), Swift can read these exact memory addresses and apply them directly to CoreText attributes without any JSON or Protobuf parsing.
+Large-File Protection
+When a user pastes 50,000 lines of code, Rust updates the Rope and Tree-sitter asynchronously. It sends a single invalidation rectangle to Swift. Swift only requests the updated syntax tokens for the 50 lines currently visible on the screen, preventing main-thread lockup regardless of total file size.
+10. Open-Source Projects to Study
+To accelerate development and validate architectural assumptions, the following open-source projects provide direct implementation references:
+1. CodeEdit (Swift) 45
+   * Why it matters: The premier open-source native macOS code editor.
+   * Lessons to Steal: Their transition from TextKit 2 to a custom CoreText editor view.2 Their implementation of SwiftUI wrappers around high-performance AppKit components.45
+   * What to Avoid: CodeEdit attempts to mimic Xcode completely. Epistemos must remain a PKM/workspace hybrid, avoiding overwhelming build-system clutter.
+2. Zed (Rust) 19
+   * Why it matters: The highest-performance editor currently available, utilizing ropes and Tree-sitter.4
+   * Lessons to Steal: Their use of a concurrent Rope data structure, asynchronous Tree-sitter parsing on background threads, and CRDTs for eventual collaborative editing.
+   * What to Avoid: Zed's GPUI framework bypasses the operating system's native UI toolkits entirely.20 Epistemos must utilize standard macOS AppKit/SwiftUI controls for the outer shell to maintain true native compliance.
+3. ChimeHQ's LanguageClient (Swift) 48
+   * Why it matters: Pure Swift implementations of the Language Server Protocol.
+   * Lessons to Steal: Data channel abstraction and JSON-RPC payload framing techniques for LSP communication.48
+   * What to Avoid: While excellent for Swift-only apps, LSP supervision is better pushed to Rust for crash resilience and thread management.
+4. Nova (Objective-C/Swift) 3
+   * Why it matters: A masterclass in macOS native UX for an IDE.
+   * Lessons to Steal: Their decision to write a custom text layout engine from scratch to achieve unparalleled performance.3 Their subtle, premium application of visual themes and UI chrome.
+11. V1 / V2 / V3 Roadmap
+A disciplined, phased delivery strategy prevents architectural gridlock and ensures a stable application at every milestone.
+Phase 1: Workspace and Editor Foundation (V1)
+* Foundation: Establish the Swift/Rust FFI bridging using UniFFI (general) and BoltFFI (hot-paths). Implement the Rust Rope data structure.
+* Workspace: Implement a unified document model (Notes + Code) participating in a single sidebar, monitored via the FSEvents file watcher.
+* Editor Core: Implement the custom CoreText NSView for the code surface (explicitly rejecting TextKit 2). Support basic typing, selection, cursor movement, line numbers, and document saving.
+Phase 2: Intelligence and Identity (V1.5)
+* Syntax: Embed Tree-sitter in the Rust core for Swift, Rust, Python, Markdown, and Web languages. Pipe syntax highlights to the CoreText view.
+* Identity: Add language-specific visual chrome (icons, typography adjustments) to the macOS window frames.
+* Search: Implement Tantivy for sub-millisecond keyword search across the unified workspace.
+Phase 3: Semantic Services and AI (V2)
+* Semantics: Implement the tokio-based LSP supervisor in Rust. Expose Hover, Go to Definition, and Diagnostics to the Swift UI.
+* AI Integration: Implement sqlite-vec RAG indexing based on Tree-sitter semantic chunking. Allow users to attach code semantics directly into the AI chat interface seamlessly alongside markdown notes.
+Phase 4: IDE Expansion (V3)
+* Advanced Features: Inline code diffing, complex LSP code actions, formatting pipelines, and multi-window workspace state restoration.
+12. Implementation Risks
+1. The TextKit 2 Temptation: The documentation for TextKit 2 is highly appealing and promises easy integration. However, attempting to force NSTextLayoutManager to handle code folding, minimaps, and massive files will inevitably result in dead-ends and dropped frames.2 Mitigation: Commit to the custom CoreText architecture from day one.
+2. Main-Thread Tokenization Spikes: Firing a Tree-sitter re-parse on the Swift @MainActor during fast typing will cause micro-stutters. Mitigation: The Swift keystroke must dispatch asynchronously to Rust. Swift must predictively render the new character in the default text color until the asynchronous syntax token arrives a fraction of a frame later.
+3. LSP Process Memory Leaks: Orphaned language server processes (sourcekit-lsp, rust-analyzer) can consume massive amounts of RAM, crashing the user's machine.51 Mitigation: The Rust supervisor must trap all application termination signals and explicitly issue kill commands to all child stdio processes.
+4. Swift 6 Strict Concurrency Clashes: Sending raw pointers through closures across the FFI violates Swift 6 Sendable checks.53 Mitigation: Avoid callback-heavy FFI design. Utilize Swift AsyncStream boundaries fed by thread-safe Rust message channels.
+13. Benchmark and Testing Plan
+To ensure the application remains genuinely high-performance, strict degradation thresholds must be enforced via automated continuous integration testing.
+1. Typing Latency: Measured from hardware keyDown event to Metal frame swap. Target: < 16ms (guarantees fluid 60fps responsiveness).
+2. File Open Latency: Loading a 100,000-line source file from disk, allocating the Rust Rope, and rendering the first viewport. Target: < 150ms.
+3. Memory Footprint: Baseline app idle memory with one large workspace open. Target: < 150MB (excluding the memory footprint of isolated LSP servers).
+4. AST Update Speed: Tree-sitter incremental re-parse duration after a single character insertion. Target: < 2ms.
+5. Search Latency: Tantivy keyword query executed over 10,000 workspace files. Target: < 10ms.
+6. Crash Recovery Validation: Automated injection of a SIGKILL to sourcekit-lsp while the app is running. Verification: The Rust supervisor must restart the LSP, and Swift must reconnect the hover-tooltips within 3 seconds, all without stalling the UI thread.
+Synthesis and Final Recommendations
+The transformation of Epistemos into a premier PKM and code workspace hybrid demands an uncompromising commitment to native performance. By combining Swift 6's unparalleled integration with Apple's presentation frameworks (CoreText, MLX, AppKit) and Rust's unrivaled capacity for safe, concurrent data manipulation (Ropes, Tree-sitter, Tantivy, LSP supervision), the architecture actively sidesteps the systemic flaws of modern web-based editors.
+Bypassing TextKit 2 in favor of a bespoke CoreText rendering surface is the most critical architectural decision, ensuring that massive documents and dense AI context augmentations do not cripple the main thread. Implementing BoltFFI ensures the Unified Memory Architecture is fully exploited, keeping the bridge between the UI and the data model virtually invisible. This architecture guarantees a highly responsive, deeply intelligent macOS application that merges the visual elegance of native Apple development with the robust data-processing capabilities required for next-generation AI-assisted workflows.
+Works cited
+1. BoltFFI: a high-performance Rust bindings generator (up to 1000× vs UniFFI microbenchmarks) - Reddit, accessed March 30, 2026, https://www.reddit.com/r/rust/comments/1r768bm/boltffi_a_highperformance_rust_bindings_generator/
+2. Blog - TextKit 2: The Promised Land - Michael Tsai, accessed March 30, 2026, https://mjtsai.com/blog/2025/08/15/textkit-2-the-promised-land/
+3. I spent 48 Hours coding in Nova and forgot about VS Code - DEV Community, accessed March 30, 2026, https://dev.to/steveblue/i-spent-48-hours-with-nova-and-forgot-all-about-vs-code-15lf
+4. Rope & SumTree — Zed's Blog, accessed March 30, 2026, https://zed.dev/blog/zed-decoded-rope-sumtree
+5. Tree-sitter: Introduction, accessed March 30, 2026, https://tree-sitter.github.io/
+6. Interesting that it is taken on faith that unix sockets are faster than inet soc... - Hacker News, accessed March 30, 2026, https://news.ycombinator.com/item?id=42195134
+7. Tantivy is a full-text search engine library inspired by Apache Lucene and written in Rust - GitHub, accessed March 30, 2026, https://github.com/quickwit-oss/tantivy
+8. The State of Vector Search in SQLite - Marco Bambini - Substack, accessed March 30, 2026, https://substack.com/home/post/p-172465902
+9. FSEvents: How They Work and Why They Matter for Mac Analysis - Hexordia, accessed March 30, 2026, https://www.hexordia.com/blog/mac-forensics-analysis
+10. How macOS, Linux, and Windows detect file changes (and why it's hard to catch them), accessed March 30, 2026, https://dev.to/asoseil/how-macos-linux-and-windows-detect-file-changes-and-why-it-isnt-easy-194m
+11. Swift 6 Concurrency: A Practical Guide for iOS Developers | by Gaurav Parmar | Medium, accessed March 30, 2026, https://medium.com/@gauravios/swift-6-concurrency-a-practical-guide-for-ios-developers-27dee88b1adc
+12. Tree-sitter Syntax Highlighting - Medium, accessed March 30, 2026, https://medium.com/@linz07m/understanding-tree-sitter-syntax-highlighting-c44d40b9e1e0
+13. Syntax Highlighting - Tree-sitter, accessed March 30, 2026, https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting.html
+14. TextKit2: A Top-Down Approach - Flyingharley.dev, accessed March 30, 2026, https://flyingharley.dev/posts/text-kit2-a-top-down-approach
+15. TextKit 2 - the promised land - Marcin Krzyżanowski, accessed March 30, 2026, https://blog.krzyzanowskim.com/2025/08/14/textkit-2-the-promised-land/
+16. TextKit 2: is it reliable? - Other Software & Development - Literature & Latte Forums, accessed March 30, 2026, https://forum.literatureandlatte.com/t/textkit-2-is-it-reliable/144184
+17. Linux when? — Zed's Blog, accessed March 30, 2026, https://zed.dev/blog/zed-decoded-linux-when
+18. Optimizing the Metal pipeline to maintain 120 FPS in GPUI - Zed, accessed March 30, 2026, https://zed.dev/blog/120fps
+19. Leveraging Rust and the GPU to render user interfaces at 120 FPS - Zed, accessed March 30, 2026, https://zed.dev/blog/videogame
+20. I thought Zed is native. : r/ZedEditor - Reddit, accessed March 30, 2026, https://www.reddit.com/r/ZedEditor/comments/1rvy1wn/i_thought_zed_is_native/
+21. Text showdown: Gap Buffers vs Ropes - Core Dumped, accessed March 30, 2026, https://coredumped.dev/2023/08/09/text-showdown-gap-buffers-vs-ropes/
+22. Gap Buffers, or, Don't Get Tied Up With Ropes?, accessed March 30, 2026, http://www.goodmath.org/blog/2009/02/18/gap-buffers-or-dont-get-tied-up-with-ropes/
+23. Text Buffer Reimplementation - Visual Studio Code, accessed March 30, 2026, https://code.visualstudio.com/blogs/2018/03/23/text-buffer-reimplementation
+24. Text showdown: Gap Buffers vs. Ropes - Hacker News, accessed March 30, 2026, https://news.ycombinator.com/item?id=37820532
+25. My big fear about implementing a text editor is writing a rope data structure to... | Hacker News, accessed March 30, 2026, https://news.ycombinator.com/item?id=20604804
+26. Rust grammar for tree-sitter - GitHub, accessed March 30, 2026, https://github.com/tree-sitter/tree-sitter-rust
+27. Swift API for the tree-sitter incremental parsing system - GitHub, accessed March 30, 2026, https://github.com/tree-sitter/swift-tree-sitter
+28. swiftlang/sourcekit-lsp: Language Server Protocol implementation for Swift and C-based ... - GitHub, accessed March 30, 2026, https://github.com/swiftlang/sourcekit-lsp
+29. How to Use SourceKit-LSP — Feifan Zhou's Blog, accessed March 30, 2026, https://feifan.blog/posts/how-to-use-sourcekit-lsp
+30. Rust vs Swift - Reddit, accessed March 30, 2026, https://www.reddit.com/r/rust/comments/1kddbf6/rust_vs_swift/
+31. Beyond HTTP: Unleashing the Power of Unix Domain Sockets for High-Performance Microservices | by Sanath Shetty | Medium, accessed March 30, 2026, https://medium.com/@sanathshetty444/beyond-http-unleashing-the-power-of-unix-domain-sockets-for-high-performance-microservices-252eee7b96ad
+32. Moving from Process to Subprocess - TrozWare, accessed March 30, 2026, https://troz.net/post/2025/process-subprocess/
+33. Blog - Swift 6.2: Subprocess - Michael Tsai, accessed March 30, 2026, https://mjtsai.com/blog/2025/10/30/swift-6-2-subprocess/
+34. Do you know DispatchSource?. The hidden gem for dev-tooling | by Kyaw Zay Ya Lin Tun, accessed March 30, 2026, https://kyaw-the-monkey.medium.com/do-you-know-dispatchsource-f25d7898ffe3
+35. tantivy/ARCHITECTURE.md at main - GitHub, accessed March 30, 2026, https://github.com/quickwit-oss/tantivy/blob/main/ARCHITECTURE.md
+36. A SQL Vector Database To Enhance Text Search: How We Did It - The New Stack, accessed March 30, 2026, https://thenewstack.io/an-sql-vector-database-to-enhance-text-search-how-we-did-it/
+37. asg017/sqlite-vec: A vector search SQLite extension that runs anywhere! - GitHub, accessed March 30, 2026, https://github.com/asg017/sqlite-vec
+38. Embedded Intelligence: How SQLite-vec Delivers Fast, Local Vector Search for AI., accessed March 30, 2026, https://dev.to/aairom/embedded-intelligence-how-sqlite-vec-delivers-fast-local-vector-search-for-ai-3dpb
+39. Best Vector Databases in 2026: A Complete Comparison Guide - Firecrawl, accessed March 30, 2026, https://www.firecrawl.dev/blog/best-vector-databases
+40. Securely indexing large codebases - Cursor, accessed March 30, 2026, https://cursor.com/blog/secure-codebase-indexing
+41. What's New | CodeEdit, accessed March 30, 2026, https://www.codeedit.app/whats-new
+42. Swift 6 concurrency honestly made my app smoother and killed most of my random crashes, accessed March 30, 2026, https://www.reddit.com/r/iOSProgramming/comments/1rgcipa/swift_6_concurrency_honestly_made_my_app_smoother/
+43. Question on Sendability (Swift 6 data race safety) and FFI interfaces, accessed March 30, 2026, https://forums.swift.org/t/question-on-sendability-swift-6-data-race-safety-and-ffi-interfaces/76219
+44. The UniFFI user guide, accessed March 30, 2026, https://mozilla.github.io/uniffi-rs/
+45. CodeEdit | A native code editor for macOS, accessed March 30, 2026, https://www.codeedit.app/
+46. Why We're Building CodeEdit: A Natively-built Code Editor for the Mac, accessed March 30, 2026, https://www.codeedit.app/blog/2024/01/why-were-building-codeedit
+47. Zed editor switching graphics lib from blade to wgpu - Hacker News, accessed March 30, 2026, https://news.ycombinator.com/item?id=47002825
+48. ChimeHQ/LanguageServerProtocol: Swift library for ... - GitHub, accessed March 30, 2026, https://github.com/ChimeHQ/LanguageServerProtocol
+49. ChimeHQ/LanguageClient: Language Server Protocol (LSP) client for Swift - GitHub, accessed March 30, 2026, https://github.com/ChimeHQ/LanguageClient
+50. Panic - Nova, accessed March 30, 2026, https://nova.app/
+51. Massive CPU usage and can't even do basic code completion - Swift Forums, accessed March 30, 2026, https://forums.swift.org/t/massive-cpu-usage-and-cant-even-do-basic-code-completion/37596
+52. High memory usage · Issue #1541 · swiftlang/sourcekit-lsp - GitHub, accessed March 30, 2026, https://github.com/swiftlang/sourcekit-lsp/issues/1541
+53. Support XCode 26/Swift 6.2 Concurrency Configuration · Issue #2818 · mozilla/uniffi-rs, accessed March 30, 2026, https://github.com/mozilla/uniffi-rs/issues/2818

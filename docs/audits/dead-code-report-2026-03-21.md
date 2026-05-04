@@ -1,5 +1,10 @@
 # Dead Code Report
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 - Generated: Sat Mar 21 15:26:43 CDT 2026
 - Root: `/Users/jojo/Epistemos`
 

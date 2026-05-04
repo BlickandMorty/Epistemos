@@ -21,7 +21,7 @@ import Testing
 ///   - the snake_case wire string matches the Rust `serde rename` output
 ///   - the Swift `ArtifactKind` enum exposes every canonical case
 @Suite("ArtifactKind cross-language parity (Wave 3.2)")
-nonisolated struct ArtifactKindParityTests {
+struct ArtifactKindParityTests {
 
     /// Authoritative list of every canonical variant.
     /// Adding a new ArtifactKind means appending to this list AND to
@@ -36,15 +36,8 @@ nonisolated struct ArtifactKindParityTests {
         (7, "output",     "Output",     "output"),
     ]
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func loadText(_ relative: String) throws -> String {
-        let url = repoRoot().appendingPathComponent(relative, isDirectory: false)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relative)
     }
 
     // MARK: - Swift surface
@@ -131,11 +124,8 @@ nonisolated struct ArtifactKindParityTests {
     // MARK: - Cross-file count guard
 
     @Test("Swift mirror file path matches the canonical location from the plan")
-    func swiftMirrorPathIsCanonical() {
-        let url = Self.repoRoot()
-            .appendingPathComponent("Epistemos", isDirectory: true)
-            .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent("ArtifactKind.swift", isDirectory: false)
+    func swiftMirrorPathIsCanonical() throws {
+        let url = try sourceMirrorURL(for: "Epistemos/Models/ArtifactKind.swift")
         #expect(FileManager.default.fileExists(atPath: url.path),
                 "Swift mirror must live at Epistemos/Models/ArtifactKind.swift (per COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md §2)")
     }

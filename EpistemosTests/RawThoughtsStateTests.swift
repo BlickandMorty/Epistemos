@@ -223,6 +223,110 @@ struct RawThoughtsStateTests {
         }
     }
 
+    // MARK: - Inspector artifact recovery
+
+    @Test("inspector keeps valid JSONL lines when final line is partial")
+    func inspectorKeepsValidLinesWithPartialFinalJSONL() throws {
+        let root = try Self.makeFixtureRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let runDir = root
+            .appendingPathComponent("Raw Thoughts")
+            .appendingPathComponent("anthropic")
+            .appendingPathComponent("2026-04-25_run_partial")
+        try Self.writeManifest(
+            in: runDir,
+            runId: "run_partial",
+            provider: "anthropic",
+            model: "claude-opus-4-7",
+            startedAtMs: 1_745_600_000_000,
+            endedAtMs: nil,
+            status: "running"
+        )
+        let validText = #"{"type":"text_delta","index":0,"text":"ok"}"#
+        let validTool = #"{"type":"tool_use","id":"tc_1","name":"search","input":{"query":"rust"}}"#
+        let partial = #"{"type":"redacted_thinking","index":1,"data":"opaque"#
+        try "\(validText)\n\(validTool)\n\(partial)".write(
+            to: runDir.appendingPathComponent("events.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# Summary\nRecovered".write(
+            to: runDir.appendingPathComponent("summary.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let artifacts = RawThoughtsInspectorView.loadRunArtifacts(folderURL: runDir)
+        #expect(artifacts.eventLines.count == 3)
+        #expect(artifacts.eventLines[0] == validText)
+        #expect(artifacts.eventLines[1] == validTool)
+        #expect(artifacts.eventLines[2] == partial)
+        #expect(artifacts.summaryMarkdown == "# Summary\nRecovered")
+        #expect(artifacts.loadError == nil)
+    }
+
+    @Test("inspector caps high-rate event logs to a bounded tail window")
+    func inspectorCapsHighRateEventLogTail() throws {
+        let root = try Self.makeFixtureRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let runDir = root
+            .appendingPathComponent("Raw Thoughts")
+            .appendingPathComponent("openai")
+            .appendingPathComponent("2026-04-29_run_high_rate")
+        try Self.writeManifest(
+            in: runDir,
+            runId: "run_high_rate",
+            provider: "openai",
+            model: "gpt-5.4",
+            startedAtMs: 1_745_600_000_000,
+            endedAtMs: nil,
+            status: "running"
+        )
+
+        let lines = (0..<750).map { index in
+            #"{"type":"token","index":\#(index),"text":"line-\#(index)"}"#
+        }
+        try lines.joined(separator: "\n").write(
+            to: runDir.appendingPathComponent("events.jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let artifacts = RawThoughtsInspectorView.loadRunArtifacts(folderURL: runDir)
+        #expect(artifacts.eventLines.count == RawThoughtsInspectorView.maxVisibleEventLines)
+        #expect(artifacts.eventLines.first == lines[250])
+        #expect(artifacts.eventLines.last == lines[749])
+        #expect(artifacts.loadError == nil)
+    }
+
+    @Test("event tail reader drops a partial first line when reading from middle")
+    func eventTailReaderDropsPartialFirstLine() throws {
+        let root = try Self.makeFixtureRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let eventsURL = root.appendingPathComponent("events.jsonl")
+        let lines = (0..<20).map { index in
+            "event-\(index)-abcdefghijklmnopqrstuvwxyz"
+        }
+        try lines.joined(separator: "\n").write(
+            to: eventsURL,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let tail = try RawThoughtsInspectorView.loadEventTailLines(
+            eventsURL: eventsURL,
+            maxLines: 5,
+            maxBytes: 80
+        )
+
+        #expect(tail.count <= 5)
+        #expect(tail.last == lines.last)
+        #expect(tail.allSatisfy { lines.contains($0) })
+    }
+
     // MARK: - Graph type round-trip (per Patch 5 acceptance criterion)
 
     @Test("GraphNodeType raw values for Raw Thoughts cases round-trip via Codable")
@@ -245,15 +349,18 @@ struct RawThoughtsStateTests {
         }
     }
 
-    @Test("GraphNodeType.allCases excludes Raw Thoughts cases (FFI contract preserved)")
+    @Test("GraphNodeType.allCases excludes app-level cases (FFI contract preserved)")
     func graphNodeTypeAllCasesExcludesRawThoughts() {
         // FFI contract: allCases must remain exactly the 14 FFI-bridged types.
-        // Raw Thoughts cases are app-level only.
+        // Raw Thoughts and typed cognitive-artifact cases are app-level only.
         #expect(GraphNodeType.allCases.count == 14)
         #expect(!GraphNodeType.allCases.contains(.run))
         #expect(!GraphNodeType.allCases.contains(.rawThought))
         #expect(!GraphNodeType.allCases.contains(.toolTrace))
-        #expect(GraphNodeType.appLevelCases == [.run, .rawThought, .toolTrace])
+        #expect(GraphNodeType.appLevelCases == [
+            .run, .rawThought, .toolTrace,
+            .proseNote, .document, .code, .output,
+        ])
     }
 
     @Test("GraphEdgeType.allCases excludes Raw Thoughts edges (FFI contract preserved)")

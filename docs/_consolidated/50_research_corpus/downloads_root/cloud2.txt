@@ -1,0 +1,424 @@
+﻿Architectural Evolution of Cloud Chat in Epistemos: Surgical Extraction of Agent Infrastructure for Native Personal Knowledge Management
+The intersection of generative artificial intelligence and personal knowledge management has shifted from simple conversational interfaces to structured, workspace-oriented environments in early 2026. As Epistemos prepares for its version 1 release, the imperative is to provide a "beyond-native" cloud chat experience that integrates deeply with the user’s knowledge graph. While autonomous agents are deferred behind a strategic ShipGate, the infrastructure developed for frameworks such as Hermes, Goose, and the Model Context Protocol (MCP) provides a repository of technical solutions that can be applied to standard cloud chat interfaces to enhance reliability, reduce latency, and improve user immersion. This report audits the current artifact pipeline, establishes a matrix for surgical infrastructure extraction, and outlines a comprehensive upgrade plan to achieve feature parity with frontier platforms like Claude.ai and ChatGPT Canvas while maintaining a focus on privacy-first knowledge management.
+Part 1: Audit of the Cloud Artifact Pipeline and Structured Output Mechanisms
+The current cloud artifact pipeline in Epistemos establishes a functional baseline for extracting structured data and rendering interactive cards, yet it exhibits several architectural gaps when measured against the state-of-the-art patterns of 2026. The implementation of generateStructured<T> within the CloudConfigurableLLMClient currently utilizes OpenAI's json_schema and Anthropic's forced tool_use pattern. While these methods achieve schema adherence, they do not consistently leverage the most advanced backend enforcement mechanisms. In the current OpenAI implementation, the transition to the Responses API—the 2026 successor to the Assistants API—requires a shift from the response_format parameter to a more integrated text.format approach, which better handles the stateful nature of multi-turn interactions and provides native support for built-in tools like web search and code interpretation.1 Furthermore, ensuring that strict: true is set within the json_schema configuration is vital, as this activates the Context-Free Grammar (CFG) engine on the model provider's backend, moving beyond probabilistic adherence to a hard guarantee that no tokens violating the schema are generated.1
+Anthropic's implementation in Epistemos relies on forced tool_use to emulate structured output, a pattern that is increasingly seen as a legacy workaround. The release of native structured outputs via output_config.format in early 2026 provides a more reliable pathway for Claude 4.5 and 4.6 models.4 The forced tool-use pattern occasionally causes issues when combined with Anthropic’s extended thinking mode, where the model may exhaust its token budget in reasoning before emitting the necessary tool call, or worse, generate reasoning blocks that the current Epistemos extractor might incorrectly attempt to parse as final output.5 Transitioning to native output_config.format ensures that the grammar-constrained decoding applies only to the direct output, allowing the model to think freely while guaranteeing the validity of the final JSON.4
+The current extraction logic managed by ArtifactExtractor.extract(from:) uses a reactive regex-based approach to find fenced code blocks and markdown tables. While sufficient for simple use cases, this approach fails to capture the "living document" capability found in ChatGPT Canvas or Claude Artifacts. These platforms treat artifacts as distinct entities with their own lifecycle, including versioning, targeted editing, and state persistence.6 Epistemos currently stores artifacts as static artifactsData blobs in SDMessage, which creates a significant usability gap: any update to an artifact likely generates a new, redundant message rather than refining the existing one.9 In the 2026 landscape, users expect surgical precision where the model can "update" a specific field in a JSON object or "refactor" a single function in a code block without regenerating the entire artifact, a behavior optimized by Claude’s new "update" and "rewrite" commands.10
+Furthermore, the handling of streaming structured output is a critical deficiency. OpenAI and Gemini now support streaming for json_schema formats, allowing tokens to be parsed into partial objects as they arrive.12 The current Epistemos UI waits for the complete response before rendering an artifact card, which introduces unnecessary friction. Adopting a streaming JSON parser, similar to the JsonOutputParser pattern, would allow the ArtifactBlockView to hydrate live, providing immediate visual feedback and reducing the perception of latency.3
+Graph context injection is currently implemented using an XML-based <knowledge_graph> section. While XML is highly effective for Claude models due to its explicit demarcation, research in 2025 and 2026 suggests that YAML provides a superior balance of accuracy and token efficiency for dense relational data across GPT-5 and Gemini models.14 In benchmarking scenarios, YAML-formatted nested data improved reasoning accuracy by up to 54% compared to XML while consuming approximately 10% fewer tokens than Markdown for the same information density.14 Given that Epistemos limits graph injection to 20 nodes, optimizing the format is essential to maximizing the semantic value of the context window.
+
+
+Capability
+	Current State in Epistemos
+	Native Standard (2026)
+	Gap Description
+	Structured Output Format
+	forced tool_use (Anthropic)
+	output_config.format
+	Reliability and thinking block compatibility 4
+	Schema Enforcement
+	Probabilistic
+	Backend CFG (Strict Mode)
+	Hard vs. soft constraints for JSON keys 1
+	Streaming Artifacts
+	Full turn completion
+	Incremental field hydration
+	Real-time UI updates during generation 12
+	Artifact Lifecycle
+	Static persistence
+	Versioning & Delta updates
+	Lack of editing and diffing capabilities 6
+	Context Injection
+	XML Tags
+	YAML / Hybrid MD+YAML
+	Token inefficiency and lower reasoning accuracy 14
+	Grounding
+	Raw graph node injection
+	Verifiable citations with metadata
+	No link between claims and vault source 16
+	Part 2: Surgical Extraction Matrix from Agent Infrastructure
+The agent infrastructure repositories available to Epistemos—Goose, Hermes, and the internal agent_core and omega-mcp crates—contain advanced patterns designed for autonomous operation. While the full agent loop remains disabled for the v1 shipping product, several components can be extracted to make the cloud chat feel more integrated and "magical."
+Abstractions from the Goose Framework
+The Goose framework, developed by Block, offers a refined Provider trait and message structure that can be repurposed to simplify Epistemos's multi-provider management. Goose's Provider trait provides a unified abstraction for both streaming and non-streaming completions, using a pinned box of a dynamic stream that handles multiple event types natively.18 Epistemos should extract the MessageStream enum pattern, which allows the chat interface to process text deltas, tool calls, and model changes through a single asynchronous channel rather than managing separate parsing logic for each provider's raw SSE stream.18
+Goose's message definition in message.rs uses a block-based structure (Vec<ContentBlock>) rather than a flat string. This is a critical win for cloud chat, as it allows Epistemos to store thinking blocks and tool results as distinct segments of a message, facilitating the "visible reasoning trail" now common in Claude 4.5+.20 Adopting this structure in SwiftData's SDMessage schema would enable the UI to conditionally hide or expand reasoning paths based on user preferences without complex regex splitting of historical data.22
+Context compaction is another high-leverage area. Goose implements a two-tiered management system that proactively summarizes conversation history when reaching an 80% token threshold.24 Epistemos should adopt Goose's summarize strategy for long-running cloud chats, using a smaller, faster model (e.g., GPT-4o-mini or Claude Haiku) to generate a "compaction message" that preserves the state of the conversation while clearing token space for new graph nodes.24
+Skills and Preference Tracking from Hermes
+The Hermes agent’s "Skills" directory contains highly optimized prompt templates for research, codebase mapping, and technical analysis. These should be extracted and used as system prompt modifiers when the user selects different "Chat Modes" in the Epistemos UI.25 For example, the research_codebase skill can be repurposed into a "Vault Deep Dive" mode that instructs the model to prioritize factual extraction over creative prose.26
+Hermes also includes a procedural memory system that tracks user feedback and model performance. A lightweight version of this can be added to cloud chat as a "Preference Tracker".27 By recording which model the user preferred for a specific task—such as preferring Gemini for long-context research but OpenAI for structured data extraction—the system can implement intelligent auto-routing.29
+Security and Caching from agent_core and omega-mcp
+The agent_core crate features an ephemeral prompt caching layer that is essential for cost management in PKM applications. By injecting cache_control markers at the end of the static knowledge graph injection block, Epistemos can take advantage of Anthropic's prompt caching to reduce input costs by up to 90% for subsequent turns within a five-minute window.4 This enables the persistent inclusion of a dense knowledge context without the financial penalty of re-processing those tokens on every turn.23
+Finally, the omega-mcp tool catalog should be mapped directly to the cloud chat's tool-calling definitions. By exposing vault operations like create_note, link_nodes, and search_graph as tools, the cloud model can perform "beyond-native" actions.32 This allows the assistant to say, "I've synthesized our discussion into a new note and linked it to your existing project node," and then execute that mutation upon user approval.32
+Surgical Extraction Matrix for v1 Shipping Chat
+Item
+	Description
+	Implementation Key
+	Agent-y or Native?
+	Unified Event Stream
+	Unified enum for text/thought/tool deltas
+	AgentEvent from Goose
+	Native (Cleaner streaming UI)
+	Block-Based Messages
+	Structural separation of thought and text
+	MessageContent from Goose
+	Native (Improves audit trails)
+	Threshold Compaction
+	80% context limit summarization
+	ContextCompactor from agent_core
+	Native (Essential for long sessions)
+	Prompt Caching Markers
+	Dynamic cache breakpoint injection
+	cache_control headers
+	Native (Massive cost win)
+	Skill Prompt Library
+	Optimized instructions for analysis
+	Hermes skills/ directory
+	Native (Increases quality)
+	Vault Tools
+	Graph and note mutation functions
+	MCP tool schemas
+	Native (PKM integration)
+	HITL Approval
+	Tool execution confirmation UI
+	elicitation/request from MCP
+	Native (Safety & user control)
+	Part 3: The "Just Works" Cloud Chat Upgrade Plan
+The following roadmap outlines the technical transition from a standard chat interface to a workspace-integrated PKM assistant. The plan is organized by phase, focusing on user impact and architectural cleanliness.
+Phase 1: Structured Output and Streaming (High Impact)
+The immediate priority is to align the structured output pipeline with the 2026 GA standards of OpenAI and Anthropic. This requires moving away from the forced tool_use pattern for Anthropic and transitioning to output_config.format.4 Simultaneously, Epistemos must adopt a streaming JSON parser to ensure that artifact cards render incrementally as tokens arrive.12
+Modified Files:
+* CloudConfigurableLLMClient.swift: Refactor to use native JSON schemas and strict mode strict: true.1
+* ArtifactBlockView.swift: Update to handle partial data states during streaming.
+* StructuredGenerationResult.swift: Add a isComplete flag to support incremental UI hydration.
+Phase 2: Multi-Turn Artifact Refinement (Native Feel)
+Epistemos must move from a "message-centric" artifact view to a "workspace-centric" one. When the user requests a change to an existing artifact, the model should emit an update command that surgically modifies the existing card rather than generating a new message.10 This behavior is triggered by providing the model with a list of "Active Artifacts" in the system prompt, including their current version and unique IDs.7
+Modified Files:
+* ArtifactExtractor.swift: Integrate a diff-aware parser that recognizes update and rewrite instructions.10
+* SDMessage.swift: Add version history and child artifact relations to the SwiftData schema.6
+* ChatViewModel.swift: Implement the artifact context provider to feed existing artifact states back into the LLM request.
+Phase 3: Vault Integration via Tool Calling (Deep PKM)
+The true differentiator for Epistemos is the model’s ability to interact with the personal knowledge base. By mapping the tools from the omega-mcp catalog to the cloud model's tools array, the assistant can perform graph mutations.32 For safety, these should be paired with the Human-in-the-Loop (HITL) approval banner repurposed from the agent UI.38
+Modified Files:
+* CloudToolRegistry.swift: Define and implement the vault_search, note_fetch, and graph_link tool handlers.
+* ToolApprovalBanner.swift: Wire to the tool_use event to require explicit user confirmation for write operations.
+* CitationView.swift: Create a standard chip component for grounded citations that link directly to vault nodes.17
+Phase 4: Proactive Compaction and Cost Management (Reliability)
+To support 200k+ token conversations without performance degradation or runaway costs, the chat service must implement proactive compaction and caching.22 The system will use the tokenizer logic from Goose to monitor context usage and trigger a background summarization pass before the window is exhausted.24
+Modified Files:
+* TokenCounter.swift: Implement provider-specific counting for o-series and Gemini 3 models.
+* ContextManagementService.swift: Implement the summarizer loop and the cache_control breakpoint logic.23
+* LLMRequestHeaderManager.swift: Manage beta headers and feature-specific parameters like reasoning_effort or thinking_budget.41
+Part 4: Decommissioning and Repurposing Agent UI
+With full agents deferred, the Epistemos UI must be pruned to remove confusing references to Hermes and Omega while retaining high-value components that improve the cloud chat experience.
+
+
+View / Menu Item
+	Current Reference
+	Disposition
+	Repurpose Strategy
+	AgentSidebarView
+	Hermes/Goose Agent Picker
+	Gate behind ShipGate
+	Accessible only to developers for autonomous loop testing.
+	ReasoningExpander
+	Hermes Thinking Blocks
+	Repurpose
+	Rebrand as "Thought Process" for Anthropic thinking and OpenAI reasoning tokens.22
+	ToolApprovalBanner
+	MCP Confirmation Prompts
+	Repurpose
+	Use for sensitive cloud tool calls (e.g., node deletion or external API access).38
+	SkillLibraryGrid
+	Hermes skill templates
+	Repurpose
+	Expose as "Knowledge Templates" in the chat settings for specific task optimizations.25
+	MCPConfigSettings
+	omega-mcp server list
+	Gate behind ShipGate
+	Complex for v1 users; maintain as an internal diagnostic tool.
+	ProceduralMemoryLog
+	Hermes "Memory" storage
+	Remove entirely
+	Dead code that may cause privacy concerns; replace with simple chat memory.
+	AgentStatusIndicator
+	"Agent is planning..."
+	Repurpose
+	Transition to a "Context Readiness" indicator showing prompt cache hits.
+	OmegaDispatcherLog
+	Raw MCP traffic
+	Remove entirely
+	Technical noise that detracts from the PKM experience.
+	The "Thought Process" Repurposing Pattern
+The reasoning trails generated by models like Claude 4.6 and GPT-5.2 are among the most valuable features of 2026 models.1 While originally intended for agents to explain their multi-step plans, these reasoning blocks should be exposed in Epistemos cloud chat to build user trust. The AgentReasoningView should be rebranded as AnalyticalTrailView. It will render the model's internal monologue in a collapsed, non-intrusive section, allowing the user to verify the assistant's "thinking" before accepting a complex knowledge synthesis.42
+Part 5: Technical Deep Dive into Abstraction Layers
+A side-by-side comparison of the Goose Provider trait and the current Epistemos CloudConfigurableLLMClient reveals opportunities for architectural hardening. While the Swift-based client is more idiomatic for iOS/macOS development, the Goose approach in Rust provides superior handling of complex, multi-modal streams.
+Provider Trait Comparison Table
+
+
+Capability
+	Goose Provider Trait
+	Epistemos CloudClient
+	Recommendation
+	Stream Type
+	Pin<Box<dyn Stream<Item = Result<MessageStream>>>>
+	AsyncThrowingStream<String, Error>
+	Refactor to an enum-based event stream to handle thoughts and tools.18
+	Message Model
+	Block-based Vec<ContentBlock>
+	Flat String content
+	Transition to block-based storage in SwiftData for rich media and reasoning.20
+	Tool Execution
+	Integrated ExtensionManager
+	Forced tool_use shim
+	Adopt the "Tool Search Tool" pattern for vault searches to reduce context noise.26
+	Grounding
+	Handled via Resource URIs
+	Knowledge Graph Prompt injection
+	Integrate Google-style groundingMetadata for verifiable citations.16
+	Compaction
+	Middleware-based proactive summarization
+	No native implementation
+	Extract the threshold-based summarizer logic into a standalone service.24
+	Implementing the Unified Abstraction
+The current string-only stream in Epistemos should be refactored to emit an event-based structure. This allows the UI to react to different phases of the model's response (e.g., transitioning from thinking to writing) without relying on complex regex on the final output.
+
+
+Swift
+
+
+
+
+enum LLMEvent {
+   case thoughtDelta(String)      // Reasoning tokens from Claude/GPT [23]
+   case responseDelta(String)     // Final user-facing text
+   case toolCall(name: String, args:) // MCP-derived tool calls [47]
+   case artifactUpdate(ArtifactDelta) // Surgical refinement of an existing card [10, 12]
+   case finish(FinishReason)      // Turn completion details [1, 4]
+}
+
+By providing this structured event stream, the ChatViewModel can seamlessly update the ArtifactBlockView row-by-row and the AnalyticalTrailView live, achieving the "beyond-native" responsiveness required for a premier PKM application.18
+Enhancing Knowledge Graph Injection via Structured Data Formats
+The efficiency of grounding the cloud chat in the user's personal knowledge base is highly dependent on the format used for knowledge graph injection. While the current system utilizes XML tags, extensive 2026 research indicates that YAML and Markdown provide significant advantages in accuracy and token footprint.
+Format Efficiency and Model Preference
+Testing across frontier models like GPT-5 Nano and Gemini 3 has shown that YAML's visual hierarchy through indentation is more accurately interpreted than the verbose closing tags of XML or the syntactic complexity of JSON.14 YAML-formatted data achieved up to 54% higher accuracy on reasoning tasks compared to XML in high-density contexts.14 Furthermore, YAML is roughly 10% more token-efficient than Markdown, allowing Epistemos to include more graph nodes within the same context window.14
+Recommended Hybrid Injection Pattern: For Epistemos v1, a hybrid approach is proposed: use YAML for the overall knowledge graph structure and Markdown for individual note contents. This mirrors the formats LLMs were most heavily trained on—documentation and configuration files—ensuring optimal semantic recall.49
+
+
+YAML
+
+
+
+
+knowledge_graph:
+ - node_id: "001"
+   title: "Quantum Computation"
+   tags: ["physics", "computing"]
+   related: ["002", "005"]
+   summary: "Overview of qubit state management..."
+
+This pattern provides a clear skeleton for the model's reasoning while preserving the rich, human-readable formatting of the notes.49 By incorporating stable UUIDs for each node in this format, the system can later resolve citations back to the SwiftData vault with high reliability.17
+Conclusion: Achieving the Workspace Assistant Vision
+The v1 release of Epistemos can achieve a state-of-the-art "workspace assistant" feel by surgically extracting the most mature patterns from agentic infrastructure. The transition from a text-centric "chatbot" to a structured environment—where artifacts are living documents, reasoning is transparent, and vault mutations are proactively suggested—represents the new standard for AI integration in 2026.3
+By implementing native structured outputs, streaming JSON refinement, and proactive context compaction, Epistemos avoids the instability of full autonomous agent loops while inheriting their power.8 The final architecture ensures that Epistemos is not merely a wrapper around cloud APIs, but a deeply integrated ecosystem where the AI "understands" and "acts" upon the user's knowledge graph in a safe, controlled, and magically responsive manner.
+________________
+Architectural Analysis: Comparative Abstraction of Provider Implementations
+The following sections provide a detailed comparative analysis between the Goose Provider trait architecture and the existing Epistemos CloudConfigurableLLMClient to support the proposed refactoring.
+side-by-side Technical Specification
+The Goose framework's abstraction layer is designed for a high-turn, autonomous environment, whereas the Epistemos client is currently optimized for single-turn interactive chat. Bridging these requirements is essential for the "beyond-native" upgrade.
+1. Provider Abstraction and Interface Design
+The Goose Provider trait (defined in crates/goose/src/providers/base.rs) uses a dynamic dispatch pattern that returns a unified MessageStream. This is fundamentally different from the current Epistemos protocol, which returns a generic AsyncThrowingStream<String, Error>. The core difference lies in the item type of the stream: Goose emits a rich event object that encapsulates the model's entire state transition.18
+
+
+Component
+	Goose (Rust)
+	Epistemos (Swift)
+	Evolution Goal
+	Interface
+	trait Provider: Send + Sync
+	protocol LLMProvider
+	Adoption of feature-based capabilities (e.g., supportsPromptCaching).18
+	Execution
+	async fn stream(...)
+	func stream(...)
+	Return a Result<LLMEventStream, ProviderError> rather than raw strings.
+	Metadata
+	Static ModelInfo structs
+	Dynamic @Model objects
+	Cache model capabilities locally to avoid redundant API checks for strict mode support.18
+	2. Message and Content Representation
+The message model is the most significant divergence. Goose utilizes a sophisticated enum structure for content blocks, which allows for the interleaving of text, images, and tool usage without losing semantic boundaries.20 Epistemos’s current flat string representation requires the application to "re-parse" the history on every turn to identify artifacts or reasoning trails, a process that is error-prone and computationally expensive.
+The Goose ContentBlock pattern: Goose represents an assistant message as a list of blocks. For example, a response containing reasoning followed by a tool call would look like ``. This native separation is precisely what Epistemos needs to support the "Thought Process" UI component without messy regex.20
+3. Context Compaction and State Management
+Goose implements a stateful context revision loop. When a session is initialized, the system builds an optimized context by loading the complete conversation from storage and applying compaction state.24 This ensures that the model sees a consistent history between compactions, which is vital for maintaining the stability of the prompt cache.4
+The Epistemos chat must transition to this stateful initialization. Instead of simply prepending the last 10 messages, the ContextManagementService should load the "Living Summary" (repurposed from Goose) and append only the recent unsummarized turns.55 This creates a "hot/warm/cold" memory hierarchy:
+* Hot: The current turn and reasoning blocks.
+* Warm: The last 10-15 interactive turns.
+* Cold: The proactive summary of everything older.29
+Part 6: Multi-Turn Artifact Refinement Mechanics
+The goal of Phase 2 is to achieve an editing experience that rivals Claude AI's 2026 "Fast Update" behavior. This requires a fundamental change in how the model communicates changes to generated code or documents.
+The "Replace-is-all-you-need" Pattern
+Recent updates to the Claude 3.5 and 4.0 models have introduced a surgical text replacement mechanism.10 Instead of the model outputting a full 200-line React component just to change a button color, it can output an update block that specifies a search_string and a replacement_string.10
+Epistemos should adopt this pattern by adding the following to the system prompt: "When refining an existing artifact, use the <update_artifact id='...'> tag. Provide a unique string from the current version and the new string to replace it. Each update must match exactly once. You may provide multiple update blocks in sequence.".10
+This mechanism provides several second-order benefits:
+1. Reduced Latency: Small updates are generated instantly because the model only outputs the change, not the whole file.10
+2. Accuracy: It prevents "regeneration hallucinations" where parts of the code the user wanted to keep are accidentally modified.10
+3. Token Savings: For large documents, the savings are massive, preserving the context window for more knowledge graph nodes.10
+Part 7: Grounding with Google-Style Citation Metadata
+The integration of Google AI Studio’s grounding response format provides the final component of the "beyond-native" experience. Unlike simple RAG, which provides a list of sources, the 2026 Gemini API returns structured groundingMetadata that links specific sentences to their origin in the vault.16
+The Grounding Data Structure
+When a grounded response is returned, it includes groundingSupports—an array that maps text segments (defined by startIndex and endIndex) to specific groundingChunks.17
+Epistemos should extract this pattern and apply it to all providers. If a model generates a claim based on a graph node, the CitationView should be inserted at the exact endIndex specified in the metadata.17 This creates a high-trust interface where every claim is "clickable" back to a note in the vault.17
+
+
+Field
+	Description
+	Epistemos Repurposing
+	webSearchQueries
+	The model's search intent
+	Displayed in the "Thought Process" expander to show the model's curiosity.17
+	groundingChunks
+	The sources utilized
+	Mapped to SwiftData SDNote objects or external web artifacts.16
+	groundingSupports
+	sentence-level mappings
+	Used to highlight text in the chat and provide "Inspect Node" tooltips.17
+	Part 8: Advanced Cost Controls and Performance Optimization
+Maintaining profitability while providing frontier AI access requires aggressive use of the features discovered in the agent_core and Goose research.
+Ephemeral Prompt Caching Strategies
+For the Epistemos knowledge graph, the optimal caching strategy is to place the cache breakpoint on the <knowledge_graph> block. Since the user’s vault nodes change less frequently than the conversation history, this static prefix will be a constant "cache hit" for multi-turn research.4
+The cost implications for Epistemos are substantial:
+1. Input Discount: Anthropic provides a 90% discount on cached input tokens.4
+2. Latency Reduction: By skipping the re-processing of the graph nodes, the "time to first token" is significantly reduced, making the app feel snappier than a browser-based chat.31
+Reasoning Effort and Token Management
+The 2026 models introduce a reasoning_effort (OpenAI) or effort (Anthropic) parameter. Epistemos should expose this as a simple "Depth" slider in the chat UI.41
+* Low Effort: For quick summaries or minor vault updates.
+* Medium Effort: The default for most research tasks.
+* High Effort: For complex knowledge synthesis across many conflicting notes.23
+By dynamically adjusting this parameter based on the task type (extracted from Hermes skills), Epistemos can optimize both token consumption and response quality.29
+Part 9: Final Swift Architecture and File-Level Implementation
+To conclude the upgrade plan, the following file-level modifications are required to rewire the backend for the "beyond-native" experience.
+1. Unified Request Construction in CloudConfigurableLLMClient
+The client must move beyond a simple JSON dictionary to a builder pattern that manages beta headers and multi-modal content blocks.59
+
+
+Swift
+
+
+
+
+class LLMRequestBuilder {
+   var contentBlocks: =
+   var tools: =
+   var cacheControl: CacheControl? = nil
+   
+   func buildAnthropicRequest() -> {
+       return],
+           "betas": ["structured-outputs-2025-11-13", "prompt-caching-2025-05-22"]
+   }
+}
+
+2. State-Aware Compaction in ContextManagementService
+The service should implement a "sliding window" that preserves the initial system prompt and the current knowledge graph injection while rolling up the intermediate chat turns into a single extractive summary.24
+3. Incremental Artifact Parsing in ArtifactExtractor
+The extractor must transition to an event-based parser. As textDelta events arrive, the parser should check if the tokens are part of an artifact block (fenced or tag-based) and yield partial Artifact updates to the UI.12
+Conclusion: The Road to v1 and Beyond
+The version 1 of Epistemos will not ship with an autonomous agent loop, but it will ship with the architecture of one. By surgically extracting the high-leverage wins from Goose, Hermes, and MCP, the Epistemos cloud chat moves beyond the limitations of standard chatbots. It becomes a deeply integrated workspace where artifacts are living entities, claims are verifiable, and the entire interaction is grounded in the user's personal knowledge base.
+This transformation—moving from a conversational interface to a structured workspace—is the "beyond-native" promise of Epistemos. It leverages the frontier capabilities of 2026 models while maintaining the surgical precision and privacy-first focus of a premium PKM application. The result is a product that feels less like a chat with a distant AI and more like an integrated co-editor of the user's digital mind.3
+________________
+Appendix: Comparative Matrix of extraction Patterns
+The following table summarizes the source code locations and the specific functions to be extracted and adapted for the Swift chat implementation.
+
+
+Framework
+	Source File
+	Key Struct/Function
+	Extraction Value
+	Goose
+	crates/goose/src/providers/base.rs
+	trait Provider
+	Unified event-based streaming pattern.18
+	Goose
+	crates/goose/src/message.rs
+	struct Message
+	Block-based content representation.20
+	Goose
+	crates/goose/src/context_mgmt/mod.rs
+	summarize_tool_call()
+	Semantic compaction logic.61
+	Hermes
+	hermes-agent/skills/
+	.md templates
+	Task-specific task instruction libraries.25
+	agent_core
+	agent_core/src/prompt_caching.rs
+	inject_cache_control()
+	Cost-reduction through breakpoint management.31
+	omega-mcp
+	omega-mcp/src/catalog.rs
+	ToolDefinition
+	Mapping vault functions to LLM tools.32
+	MCP
+	specification/server/tools
+	outputSchema
+	Ensuring validated, structured results from tools.38
+	By following this technical blueprint, Epistemos ensures that every line of code written for the cloud chat is forward-compatible with the future agentic layer, while providing immediate, high-trust value to the shipping v1 user base. The focus remains on the "native" feel: a system that is invisible when it works and indispensable when it thinks alongside the user.
+Works cited
+1. OpenAI Structured Outputs: Complete Developer Guide - Digital Applied, accessed April 6, 2026, https://www.digitalapplied.com/blog/openai-structured-outputs-complete-guide
+2. Migrate to the Responses API - OpenAI Developers, accessed April 6, 2026, https://developers.openai.com/api/docs/guides/migrate-to-responses
+3. LLM Structured Output in 2026: Stop Parsing JSON with Regex and Do It Right, accessed April 6, 2026, https://dev.to/pockit_tools/llm-structured-output-in-2026-stop-parsing-json-with-regex-and-do-it-right-34pk
+4. Structured outputs - Claude API Docs, accessed April 6, 2026, https://platform.claude.com/docs/en/build-with-claude/structured-outputs
+5. Structured output + thinking + tool use: two bugs in multi-turn conversations #1204 - GitHub, accessed April 6, 2026, https://github.com/anthropics/anthropic-sdk-python/issues/1204
+6. Claude Artifacts: What They Are & How to Use Them (2026 Guide), accessed April 6, 2026, https://albato.com/blog/publications/how-to-use-claude-artifacts-guide
+7. What is the canvas feature in ChatGPT and how do I use it? - OpenAI Help Center, accessed April 6, 2026, https://help.openai.com/en/articles/9930697-what-is-the-canvas-feature-in-chatgpt-and-how-do-i-use-it
+8. What Is Claude's Generative UI Feature? How It Differs from Canvas and Artifacts, accessed April 6, 2026, https://www.mindstudio.ai/blog/what-is-claude-generative-ui-vs-canvas-artifacts
+9. Claude 3.5 Sonnet's Artifacts Makes It Easier to Build and Code On-Site - DeepLearning.AI, accessed April 6, 2026, https://www.deeplearning.ai/the-batch/claude-3-5-sonnets-artifacts-feature-makes-it-easier-to-build-and-code-on-site/
+10. Replace Is All You Need: The Surprisingly Simple Technique Behind Claude's new Lightning-Fast Artifact Changes | by Rui Quintino | Medium, accessed April 6, 2026, https://medium.com/@rquintino/replace-is-all-you-need-the-surprisingly-simple-technique-behind-claudes-new-lightning-fast-b5ae18c3c113
+11. ChatGPT Canvas vs Claude Artifacts: Deep-Dive Technical Comparison for Power Users, accessed April 6, 2026, https://xsoneconsultants.com/blog/chatgpt-canvas-vs-claude-artifacts/
+12. Structured Outputs - Vercel, accessed April 6, 2026, https://vercel.com/docs/ai-gateway/sdks-and-apis/openai-chat-completions/structured-outputs
+13. Output Parsers: Getting Structured Data from LLMs | by Tanishk Soni | Mar, 2026 - Medium, accessed April 6, 2026, https://medium.com/@sonitanishk2003/output-parsers-getting-structured-data-from-llms-5398ee6ee0fb
+14. Which Nested Data Format Do LLMs Understand Best? JSON vs. YAML vs. XML vs. Markdown - Improving Agents, accessed April 6, 2026, https://www.improvingagents.com/blog/best-nested-data-format/
+15. Cracking the Code: JSON or XML for Better Prompts? - NexAI Labs, accessed April 6, 2026, https://www.nexailabs.com/blog/cracking-the-code-json-or-xml-for-better-prompts
+16. Grounding with Google Search | Generative AI on Vertex AI, accessed April 6, 2026, https://docs.cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-search
+17. Grounding with Google Search | Gemini API, accessed April 6, 2026, https://ai.google.dev/gemini-api/docs/google-search
+18. Codebase Architecture - Goose - Mintlify, accessed April 6, 2026, https://mintlify.com/block/goose/development/architecture
+19. Agent - Goose - Mintlify, accessed April 6, 2026, https://www.mintlify.com/block/goose/api/core/agent
+20. Message in open_agent - Rust - Docs.rs, accessed April 6, 2026, https://docs.rs/open-agent-sdk/latest/open_agent/struct.Message.html
+21. Streaming API responses - OpenAI Developers, accessed April 6, 2026, https://developers.openai.com/api/docs/guides/streaming-responses
+22. Migrate from Anthropic's Claude 3.5 Sonnet to Claude 4 Sonnet on Amazon Bedrock - AWS, accessed April 6, 2026, https://aws.amazon.com/blogs/machine-learning/migrate-from-anthropics-claude-3-5-sonnet-to-claude-4-sonnet-on-amazon-bedrock/
+23. Anthropic Provider - AI SDK, accessed April 6, 2026, https://ai-sdk.dev/providers/ai-sdk-providers/anthropic
+24. Smart Context Management | goose - GitHub Pages, accessed April 6, 2026, https://block.github.io/goose/docs/guides/sessions/smart-context-management/
+25. goose/CUSTOM_DISTROS.md at main - GitHub, accessed April 6, 2026, https://github.com/block/goose/blob/main/CUSTOM_DISTROS.md
+26. Research → Plan → Implement Pattern | goose - GitHub Pages, accessed April 6, 2026, https://block.github.io/goose/docs/tutorials/rpi/
+27. Advanced Prompt Engineering for goose: A Comprehensive Guide - DEV Community, accessed April 6, 2026, https://dev.to/better-boy/advanced-prompt-engineering-for-goose-a-comprehensive-guide-3j6n
+28. Model context protocol (MCP) - OpenAI Agents SDK, accessed April 6, 2026, https://openai.github.io/openai-agents-python/mcp/
+29. Compaction and LLM conversation management - Friends of the Crustacean, accessed April 6, 2026, https://www.answeroverflow.com/m/1467341645111623761
+30. Prompt Patterns: What They Are and 16 You Should Know - PromptHub, accessed April 6, 2026, https://www.prompthub.us/blog/prompt-patterns-what-they-are-and-16-you-should-know
+31. Claude API & Structured Outputs | Claude Code Skill - MCP Market, accessed April 6, 2026, https://mcpmarket.com/tools/skills/claude-api-structured-outputs-2
+32. Model Context Protocol (MCP) Tool Descriptions Are Smelly! Towards Improving AI Agent Efficiency with Augmented MCP Tool Descriptions - arXiv, accessed April 6, 2026, https://arxiv.org/html/2602.14878v1
+33. MCP vs Function Calling: 7 Key Differences & Using Them Together | Obot AI, accessed April 6, 2026, https://obot.ai/resources/learning-center/mcp-vs-function-calling/
+34. MCP for Technical Professionals: A Comprehensive Guide to Understanding and Implementing the Model Context Protocol - Security Boulevard, accessed April 6, 2026, https://securityboulevard.com/2025/11/mcp-for-technical-professionals-a-comprehensive-guide-to-understanding-and-implementing-the-model-context-protocol/
+35. effect/ai-anthropic: Use Anthropic's native Structured Outputs instead of tool-call emulation · Issue #6091 - GitHub, accessed April 6, 2026, https://github.com/Effect-TS/effect/issues/6091
+36. How ChatGPT Canvas Works - Recalc Academy, accessed April 6, 2026, https://recalcacademy.com/blog-guide/how-chatgpt-canvas-works/
+37. How to view version history of an artifact in Claude.ai - Guideflow Tutorials, accessed April 6, 2026, https://www.guideflow.com/tutorial/how-to-view-version-history-of-an-artifact-in-claudeai
+38. Tools - Model Context Protocol, accessed April 6, 2026, https://modelcontextprotocol.io/specification/2025-11-25/server/tools
+39. Vertex AI Search Grounding - Agent Development Kit (ADK) - Google, accessed April 6, 2026, https://google.github.io/adk-docs/grounding/vertex_ai_search_grounding/
+40. Context editing - Claude API Docs, accessed April 6, 2026, https://platform.claude.com/docs/en/build-with-claude/context-editing
+41. Anthropic - LiteLLM Docs, accessed April 6, 2026, https://docs.litellm.ai/docs/providers/anthropic
+42. Claude Platform - Claude API Docs, accessed April 6, 2026, https://platform.claude.com/docs/en/release-notes/overview
+43. Structured model outputs | OpenAI API, accessed April 6, 2026, https://developers.openai.com/api/docs/guides/structured-outputs
+44. What is Model Context Protocol (MCP)? A guide | Google Cloud, accessed April 6, 2026, https://cloud.google.com/discover/what-is-model-context-protocol
+45. Prompting best practices - Claude API Docs, accessed April 6, 2026, https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+46. Grounding with Google Search | Firebase AI Logic, accessed April 6, 2026, https://firebase.google.com/docs/ai-logic/grounding-google-search
+47. goose Architecture - GitHub Pages, accessed April 6, 2026, https://block.github.io/goose/docs/goose-architecture/
+48. markdown,.json, yml, and xml – what is the best content format for both human and AI?, accessed April 6, 2026, https://blog.tech4teaching.net/markdown-json-yml-and-xml-what-is-the-best-content-format-for-both-human-and-ai/
+49. Boosting AI Performance: The Power of LLM-Friendly Content in Markdown, accessed April 6, 2026, https://developer.webex.com/blog/boosting-ai-performance-the-power-of-llm-friendly-content-in-markdown
+50. Learn Claude API and Build AI Apps: Practical Guide (2026) - Blockchain Council, accessed April 6, 2026, https://www.blockchain-council.org/claude-ai/how-to-learn-the-claude-api-and-build-ai-powered-apps/
+51. Structured output - Docs by LangChain, accessed April 6, 2026, https://docs.langchain.com/oss/python/langchain/structured-output
+52. [BUG]: User message text is silently dropped when message contains both text and image in OpenAI format · Issue #8067 · block/goose - GitHub, accessed April 6, 2026, https://github.com/block/goose/issues/8067
+53. Long Context Compaction for AI Agents — Part 2: Implementation and Evaluation | by Kihyeon Myung, accessed April 6, 2026, https://pub.towardsai.net/long-context-compaction-for-ai-agents-part-2-implementation-and-evaluation-d708d2d2a6e5
+54. The Fundamentals of Context Management and Compaction in LLMs | by Isaac Kargar, accessed April 6, 2026, https://kargarisaac.medium.com/the-fundamentals-of-context-management-and-compaction-in-llms-171ea31741a2
+55. Long Context Compaction for AI Agents — Part 1: Design Principles | by Kihyeon Myung, accessed April 6, 2026, https://pub.towardsai.net/long-context-compaction-for-ai-agents-part-1-design-principles-2bf4a5748154
+56. Best Practices for Managing Prompt Context in Long-Running Conversations? : r/LangChain, accessed April 6, 2026, https://www.reddit.com/r/LangChain/comments/1p87lk7/best_practices_for_managing_prompt_context_in/
+57. Claude 3.5 Sonnet Complete Guide: AI Capabilities & Limits | Galileo, accessed April 6, 2026, https://galileo.ai/blog/claude-3-5-sonnet-complete-guide-ai-capabilities-analysis
+58. goose/crates/goose/src/providers/openai.rs at main - GitHub, accessed April 6, 2026, https://github.com/block/goose/blob/main/crates/goose/src/providers/openai.rs
+59. Custom Providers - Goose - Mintlify, accessed April 6, 2026, https://mintlify.com/block/goose/guides/custom-providers
+60. Tool-pair summarization is too aggressive for large context models #7415 - GitHub, accessed April 6, 2026, https://github.com/block/goose/issues/7415

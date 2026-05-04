@@ -36,6 +36,29 @@ Networking.xpc, GPU.xpc), what Mail looks like (per-protocol XPC services),
 what every shipping prosumer macOS app *should* look like in 2026 but
 almost none do.
 
+### 0.1 No-compromise research intake: trust spine first
+
+`docs/fusion/XPC_RESEARCH_INTAKE_2026_05_04.md` is now a required
+sidecar for this doctrine. It incorporates the user's latest XPC / sandbox /
+ExtensionKit / System Extensions / biometrics research and an official Apple
+docs validation pass.
+
+The intake does not weaken the five-service end-state below. It sharpens the
+canonical implementation requirements:
+
+- Start with the bundled in-app XPC trust spine before cognition moves across
+  process boundaries.
+- Prefer `NSXPCConnection` for the current implementation; consider `XPCSession` only by explicit
+  brief when the deployment target and peer-requirement API justify it.
+- Call `setCodeSigningRequirement(_:)` before `resume()` on both directions of
+  every trusted connection.
+- Never trust `processIdentifier`; avoid private `auditToken` plumbing unless a
+  brief explicitly accepts the App Review risk.
+- Treat App Group naming as a two-path decision: provisioned `group.<name>` or
+  macOS-only `<TEAMID>.<name>` with limitations.
+- Keep ES / NEAppProxy / Authorization Plugin work Pro-only; MAS receives the
+  bundled-XPC / ExtensionKit / App Intents subset.
+
 ---
 
 ## 1. The five-service decomposition (the masterclass)
@@ -103,9 +126,21 @@ almost none do.
 **Five services.** Each has the minimum entitlements it needs — no more.
 Reviewers see this and approve. Attackers see this and despair.
 
+**No-compromise sequencing note.** Implementation may be sliced, but the slice
+is never allowed to redefine the end-state downward. If only part of the XPC
+spine lands in one PR, that PR must name the remaining service boundaries and
+tests explicitly. The canonical architecture remains Main App, VaultXPC,
+AgentXPC, ProviderXPC, and WASMExecXPC.
+
 ---
 
 ## 2. Per-service entitlements (the file-by-file masterclass)
+
+**App Group identifier rule.** Current Apple docs validate two macOS forms:
+provisioned `group.<name>` identifiers and macOS-only `<TEAMID>.<name>`
+identifiers with limitations. Briefs must name which one they use and verify
+the built entitlements with `codesign -d --entitlements :-`. Do not silently
+swap formats.
 
 ### 2.1 Main App entitlements (`Epistemos.entitlements` — MAS profile)
 
@@ -217,6 +252,12 @@ vector. No arbitrary code execution. No subprocess.
 
 Every XPC service verifies its caller's code signature before honoring
 messages. If an attacker injects a fake XPC client, the service rejects.
+
+**Implementation preference.** Use `NSXPCConnection.setCodeSigningRequirement`
+before `resume()` wherever possible. The manual audit-token path below is a
+fallback pattern for deeper validation and older surfaces; it must not become a
+shortcut around peer code-signing requirements, and it must not trust
+`processIdentifier`.
 
 ```swift
 // Inside any XPC service, on connection acceptance:
@@ -876,10 +917,10 @@ CLAUDE.md                                                (NON-NEGOTIABLE constra
 
 1. **InferenceXPC?** CLAUDE.md says NO SIDECAR for inference (MLX-Swift in-process via shared UMA). Honoring that: MLX stays in main app, NOT in a separate InferenceXPC service. This trades perfect isolation for max performance. Confirmable.
 
-2. **HermesOrchestratorXPC vs folded into AgentXPC?** Hermes orchestration logic could either live inside AgentXPC (simpler, fewer services) or in its own service (cleaner trust boundary if Hermes does cloud planning that AgentXPC shouldn't see). Recommendation: fold into AgentXPC for V1; split out only if a specific use case demands it.
+2. **HermesOrchestratorXPC vs AgentXPC physical placement?** Hermes orchestration logic may start physically co-located with AgentXPC for implementation reviewability, but the named trust contract does not disappear. Keep the Hermes boundary explicit in protocols, tests, provenance, and entitlements planning; split it into its own service when provider/cloud planning needs a separate process boundary.
 
-3. **Secure Enclave key migration on Mac swap?** The SE key is device-bound. When user moves to a new Mac, capability signing breaks. Need a migration UX: prompt user → re-provision new SE key → re-sign existing capabilities. Out-of-scope for V1; required for V2.
+3. **Secure Enclave key migration on Mac swap?** The SE key is device-bound. When user moves to a new Mac, capability signing breaks. Need a migration UX: prompt user → re-provision new SE key → re-sign existing capabilities. This is not optional for a complete product experience; it can be scheduled as its own migration feature, but not reclassified as a doctrine compromise.
 
 4. **JIT entitlement App Review risk.** Apple sometimes pushes back on JIT for Mac App Store. Mitigation: ship Pulley interpreter fallback (10-50× slower) baked in, so if Apple rejects allow-jit, the binary still works (just slower). Engineering cost: ~1 day.
 
-5. **launchd-managed vs in-bundle XPC services.** In-bundle (Contents/XPCServices/) is what we've designed. launchd-managed (LaunchAgents) would be needed only if services need to outlive the app or be invokable by other apps. For V1: in-bundle only.
+5. **launchd-managed vs bundled XPC services.** Bundled `Contents/XPCServices/` is the default trust spine. LaunchAgents / daemons are added only when a service must outlive the app, serve other clients, or hold a root/system-extension capability; they are not a replacement for the bundled MAS-safe trust spine.

@@ -3,6 +3,74 @@ import Testing
 
 @testable import Epistemos
 
+// MARK: - Source-level plist guard (both build variants)
+//
+// Reads the plist source files directly from the project tree so the
+// contract is enforced regardless of which build variant is under test.
+// Failures here mean a plist edit dropped the .epdoc document type that
+// makes the Finder/NSDocument integration work on both targets.
+@Suite("Epdoc source Info.plist - both build variants (source-level)")
+nonisolated struct EpdocSourcePlistTests {
+
+    private static func loadSourcePlist(named name: String) throws -> [String: Any] {
+        // #filePath is EpistemosTests/<this file>; two deleteLast() hops land at project root.
+        let testFile = URL(fileURLWithPath: #filePath)
+        let projectRoot = testFile
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let plistURL = projectRoot.appendingPathComponent(name)
+        let data = try Data(contentsOf: plistURL)
+        guard let dict = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+            throw NSError(domain: "EpdocSourcePlistTests", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "\(name) did not deserialise to [String: Any]"])
+        }
+        return dict
+    }
+
+    private static func assertEpdocRegistration(_ info: [String: Any], source: String) throws {
+        let exports = try #require(
+            info["UTExportedTypeDeclarations"] as? [[String: Any]],
+            "\(source): UTExportedTypeDeclarations must be present for .epdoc Finder integration"
+        )
+        let epdoc = try #require(
+            exports.first(where: { ($0["UTTypeIdentifier"] as? String) == "com.epistemos.epdoc" }),
+            "\(source): UTExportedTypeDeclarations must include com.epistemos.epdoc"
+        )
+        let conforms = try #require(epdoc["UTTypeConformsTo"] as? [String])
+        #expect(conforms.contains("com.apple.package"),
+                "\(source): epdoc UTType must conform to com.apple.package")
+        let docTypes = try #require(
+            info["CFBundleDocumentTypes"] as? [[String: Any]],
+            "\(source): CFBundleDocumentTypes must be present"
+        )
+        let binding = try #require(
+            docTypes.first(where: {
+                ($0["LSItemContentTypes"] as? [String])?.contains("com.epistemos.epdoc") == true
+            }),
+            "\(source): CFBundleDocumentTypes must bind com.epistemos.epdoc"
+        )
+        let nsClass = try #require(binding["NSDocumentClass"] as? String,
+                                   "\(source): NSDocumentClass binding required")
+        let acceptable = ["$(PRODUCT_MODULE_NAME).EpdocDocument", "Epistemos.EpdocDocument"]
+        #expect(acceptable.contains(nsClass),
+                "\(source): NSDocumentClass must resolve to Epistemos.EpdocDocument; got \(nsClass)")
+        let rank = binding["LSHandlerRank"] as? String
+        #expect(rank == "Owner", "\(source): LSHandlerRank must be Owner")
+    }
+
+    @Test("Epistemos-Info.plist source file has .epdoc UTType + EpdocDocument binding")
+    func mainPlistSourceRegistration() throws {
+        let info = try Self.loadSourcePlist(named: "Epistemos-Info.plist")
+        try Self.assertEpdocRegistration(info, source: "Epistemos-Info.plist")
+    }
+
+    @Test("Epistemos-AppStore-Info.plist source file has .epdoc UTType + EpdocDocument binding")
+    func appStorePlistSourceRegistration() throws {
+        let info = try Self.loadSourcePlist(named: "Epistemos-AppStore-Info.plist")
+        try Self.assertEpdocRegistration(info, source: "Epistemos-AppStore-Info.plist")
+    }
+}
+
 /// Wave 7 follow-up source-guard for the Info.plist registration that
 /// makes the `.epdoc` package a Finder-visible document type bound to
 /// `EpdocDocument` (NSDocument subclass).

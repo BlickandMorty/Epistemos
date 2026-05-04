@@ -34,6 +34,75 @@ import Foundation
 /// (or future per-document asset directory) rather than the network.
 public let epdocEditorURLScheme = "epistemos-doc"
 
+nonisolated struct EpdocEditorAssetResponse: Sendable, Equatable {
+    let fileURL: URL
+    let mimeType: String
+    let contentEncoding: String?
+}
+
+nonisolated enum EpdocEditorAssetResolver {
+    static func resolve(relativePath: String, assetRoot: URL) throws -> EpdocEditorAssetResponse {
+        let relative = relativePath.hasPrefix("/")
+            ? String(relativePath.dropFirst())
+            : relativePath
+        let pathComponents = relative.split(separator: "/").map(String.init)
+        guard !pathComponents.isEmpty,
+              pathComponents.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            throw EpdocBridgeError.invalidURL
+        }
+
+        let requestedURL = pathComponents.reduce(assetRoot) { partial, component in
+            partial.appendingPathComponent(component, isDirectory: false)
+        }
+        let requestedExtension = requestedURL.pathExtension
+        let brotliURL = requestedURL.appendingPathExtension("br")
+
+        if isBrotliEligible(extension: requestedExtension),
+           FileManager.default.isReadableFile(atPath: brotliURL.path) {
+            return EpdocEditorAssetResponse(
+                fileURL: brotliURL,
+                mimeType: mimeType(for: requestedExtension),
+                contentEncoding: "br"
+            )
+        }
+
+        guard FileManager.default.isReadableFile(atPath: requestedURL.path) else {
+            throw EpdocBridgeError.assetNotFound(path: relative)
+        }
+        return EpdocEditorAssetResponse(
+            fileURL: requestedURL,
+            mimeType: mimeType(for: requestedExtension),
+            contentEncoding: nil
+        )
+    }
+
+    static func mimeType(for ext: String) -> String {
+        switch ext.lowercased() {
+        case "html":            return "text/html"
+        case "js", "mjs":       return "text/javascript"
+        case "css":             return "text/css"
+        case "json":            return "application/json"
+        case "wasm":            return "application/wasm"
+        case "svg":             return "image/svg+xml"
+        case "png":             return "image/png"
+        case "jpg", "jpeg":     return "image/jpeg"
+        case "woff":            return "font/woff"
+        case "woff2":           return "font/woff2"
+        case "ttf":             return "font/ttf"
+        default:                return "application/octet-stream"
+        }
+    }
+
+    private static func isBrotliEligible(extension ext: String) -> Bool {
+        switch ext.lowercased() {
+        case "js", "mjs", "css":
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 // MARK: - URL scheme handler
 
 /// `WKURLSchemeHandler` that serves Tiptap editor assets from the app
@@ -63,27 +132,42 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
             urlSchemeTask.didFailWithError(EpdocBridgeError.invalidURL)
             return
         }
-        // The path is e.g. `/editor.html`; strip the leading `/`.
-        let relative = url.path.hasPrefix("/")
-            ? String(url.path.dropFirst())
-            : url.path
-        guard !relative.isEmpty else {
+        guard let assetRoot = Bundle.main.resourceURL?
+            .appendingPathComponent(assetSubpath, isDirectory: true) else {
+            urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: assetSubpath))
+            return
+        }
+
+        let asset: EpdocEditorAssetResponse
+        do {
+            asset = try EpdocEditorAssetResolver.resolve(relativePath: url.path, assetRoot: assetRoot)
+        } catch let error as EpdocBridgeError {
+            urlSchemeTask.didFailWithError(error)
+            return
+        } catch {
             urlSchemeTask.didFailWithError(EpdocBridgeError.invalidURL)
             return
         }
 
-        guard let assetURL = Bundle.main.resourceURL?
-            .appendingPathComponent(assetSubpath, isDirectory: true)
-            .appendingPathComponent(relative, isDirectory: false),
-              let data = try? Data(contentsOf: assetURL) else {
-            urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: relative))
+        guard let data = try? Data(contentsOf: asset.fileURL) else {
+            urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
             return
         }
 
-        let mimeType = Self.mimeType(for: assetURL.pathExtension)
-        let response = URLResponse(
+        var headers = [
+            "Content-Type": asset.mimeType,
+        ]
+        if let contentEncoding = asset.contentEncoding {
+            headers["Content-Encoding"] = contentEncoding
+        }
+        let response = HTTPURLResponse(
             url: url,
-            mimeType: mimeType,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: headers
+        ) ?? URLResponse(
+            url: url,
+            mimeType: asset.mimeType,
             expectedContentLength: data.count,
             textEncodingName: "utf-8"
         )
@@ -96,24 +180,6 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         // Synchronous bundle load above; nothing to cancel.
     }
 
-    /// Minimal MIME-type table for the file extensions Tiptap actually
-    /// emits. Falls back to `application/octet-stream` for unknown
-    /// extensions; keeps the table small + auditable.
-    private static func mimeType(for ext: String) -> String {
-        switch ext.lowercased() {
-        case "html":            return "text/html"
-        case "js", "mjs":       return "text/javascript"
-        case "css":             return "text/css"
-        case "json":            return "application/json"
-        case "wasm":            return "application/wasm"
-        case "svg":             return "image/svg+xml"
-        case "png":             return "image/png"
-        case "jpg", "jpeg":     return "image/jpeg"
-        case "woff", "woff2":   return "font/woff2"
-        case "ttf":             return "font/ttf"
-        default:                return "application/octet-stream"
-        }
-    }
 }
 
 // MARK: - Script-message bridge

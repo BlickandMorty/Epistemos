@@ -583,7 +583,9 @@ struct ReleasePackagingHardeningTests {
         #expect(settings.contains("case .channels, .knowledgeFusion, .iMessageDriver, .skills:"))
         #expect(settings.contains("NotificationCenter.default.publisher(for: .showIMessageDriverSettings)"))
         #expect(agentSection.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
-        #expect(agentSection.contains("[.authority]"))
+        #expect(agentSection.contains("[.authority, .spend, .structures]"))
+        #expect(agentSection.contains("case control"))
+        #expect(agentSection.contains("case overseer"))
         #expect(agentSection.contains("ForEach(AgentTab.visibleTabs)"))
         #expect(agentSection.contains("initialTab.isVisibleInCurrentBuild ? initialTab : .authority"))
         #expect(authority.contains("isVisibleInAppStoreAuthority"))
@@ -682,6 +684,29 @@ struct ReleasePackagingHardeningTests {
         let deletedGhostAgent = try sourceMirrorURL(for: "Epistemos/Omega/Agents/GhostComputerAgent.swift")
         #expect(!FileManager.default.fileExists(atPath: deletedGhostAgent.path))
 
+        let omegaPermissions = try loadProductionHardeningRepoTextFile("Epistemos/Omega/OmegaPermissions.swift")
+        let masGate = try #require(omegaPermissions.range(of: "#if EPISTEMOS_APP_STORE"))
+        let proGate = try #require(omegaPermissions.range(of: "#else"))
+        let masOmegaPermissions = String(omegaPermissions[masGate.lowerBound..<proGate.lowerBound])
+        let proOmegaPermissions = String(omegaPermissions[proGate.lowerBound...])
+        #expect(masOmegaPermissions.contains("final class OmegaPermissions"))
+        #expect(!masOmegaPermissions.contains("ScreenCaptureKit"))
+        #expect(!masOmegaPermissions.contains("SCShareableContent"))
+        #expect(!masOmegaPermissions.contains("AEDeterminePermissionToAutomateTarget"))
+        #expect(proOmegaPermissions.contains("import ScreenCaptureKit"))
+        #expect(proOmegaPermissions.contains("AEDeterminePermissionToAutomateTarget"))
+
+        let tccPermissionState = try loadProductionHardeningRepoTextFile("Epistemos/Omega/Vision/TCCPermissionState.swift")
+        let tccMasGate = try #require(tccPermissionState.range(of: "#if EPISTEMOS_APP_STORE"))
+        let tccProGate = try #require(tccPermissionState.range(of: "#else"))
+        let masTCCPermissionState = String(tccPermissionState[tccMasGate.lowerBound..<tccProGate.lowerBound])
+        let proTCCPermissionState = String(tccPermissionState[tccProGate.lowerBound...])
+        #expect(masTCCPermissionState.contains("final class TCCPermissionState"))
+        #expect(!masTCCPermissionState.contains("ScreenCaptureKit"))
+        #expect(!masTCCPermissionState.contains("SCShareableContent"))
+        #expect(proTCCPermissionState.contains("import ScreenCaptureKit"))
+        #expect(proTCCPermissionState.contains("SCShareableContent"))
+
         let stubs = try loadProductionHardeningRepoTextFile("Epistemos/AppStore/AppStoreComputerUseStubs.swift")
         #expect(stubs.contains("#if EPISTEMOS_APP_STORE"))
         #expect(stubs.contains("Native computer-use automation is unavailable in the App Store build."))
@@ -693,16 +718,34 @@ struct ReleasePackagingHardeningTests {
     }
 
     @Test("App Store bootstrap skips Pro-only iMessage and training runtime startup")
-    func appStoreBootstrapSkipsProOnlyRuntimeStartup() throws {
-        let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let environment = try loadProductionHardeningRepoTextFile("Epistemos/App/AppEnvironment.swift")
-        let nightBrain = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainService.swift")
-        let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
+	func appStoreBootstrapSkipsProOnlyRuntimeStartup() throws {
+		let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
+		let environment = try loadProductionHardeningRepoTextFile("Epistemos/App/AppEnvironment.swift")
+		let nightBrain = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainService.swift")
+		let nightBrainScheduler = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainScheduler.swift")
+		let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
+		let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
 
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Configure Knowledge Fusion at boot"))
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Initialize iMessage driver"))
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
-        #expect(environment.contains("#if !EPISTEMOS_APP_STORE\n            .environment(bootstrap.iMessageDriver)"))
+		#expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        // W10.10-FIX"))
+		#expect(bootstrap.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)\n        if NightBrainScheduler.shouldRunFallbackInline()"))
+		let appStoreExceptionStart = try #require(project.range(
+			of: "Exceptions for \"Epistemos\" folder in \"Epistemos-AppStore\" target"
+		))
+		let appStoreExceptionTarget = try #require(project[appStoreExceptionStart.lowerBound...].range(
+			of: "target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;"
+		))
+		let appStoreExceptionBlock = project[appStoreExceptionStart.lowerBound..<appStoreExceptionTarget.upperBound]
+		#expect(appStoreExceptionBlock.contains("Resources/LaunchAgents/com.epistemos.nightbrain.plist"))
+		#expect(nightBrainScheduler.contains("public static func bundledLaunchAgentURL(bundle: Bundle = .main) -> URL"))
+		#expect(nightBrainScheduler.contains("Contents/Library/LaunchAgents"))
+		#expect(nightBrainScheduler.contains("guard bundledLaunchAgentExists() else"))
+		let bundledAgentGuard = try #require(nightBrainScheduler.range(of: "guard bundledLaunchAgentExists() else"))
+		let agentStatusRead = try #require(nightBrainScheduler.range(of: "let current = agent.status"))
+		#expect(bundledAgentGuard.lowerBound < agentStatusRead.lowerBound)
+		#expect(environment.contains("#if !EPISTEMOS_APP_STORE\n            .environment(bootstrap.iMessageDriver)"))
         #expect(nightBrain.contains("#if EPISTEMOS_APP_STORE\n        Self.log.info(\"NightBrain: scheduler skipped in App Store build\")"))
         #expect(nightBrain.contains("let bgScheduler = NSBackgroundActivityScheduler(identifier: \"com.epistemos.nightbrain\")"))
         #expect(app.contains("#if EPISTEMOS_APP_STORE"))

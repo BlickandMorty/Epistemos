@@ -5,14 +5,11 @@ import Testing
 @testable import Epistemos
 
 // MARK: - GRDBPragmaTests
-// Wave 2.3 (dpp §1.1 Task 0.3) — verify the canonical GRDB pragma block is
-// applied end-to-end through SearchIndexService's DatabasePool configuration.
+// Wave 2.3 (dpp §1.1 Task 0.3) — verify the derivative-index GRDB pragma
+// block is applied end-to-end through SearchIndexService's DatabasePool.
 //
-// We open SearchIndexService against a temp file, then read pragmas through
-// a separate read-only `sqlite3` handle so we are not relying on GRDB's pool
-// (the values must be persisted/applied in the database connection that
-// `prepareDatabase` set up). Same approach as
-// SearchIndexServiceIntegrationTests.pragmaValue(databaseURL:pragma:).
+// Most values are connection-scoped, so tests read them through the live
+// pool. File-level values still get a raw sqlite3 cross-check.
 //
 // ZERO_CORRUPTION_SPEC interaction: this index is derivative (rebuildable
 // from SwiftData + vault), so the dpp NORMAL/fullfsync=0 profile is
@@ -99,12 +96,12 @@ struct GRDBPragmaTests {
         #expect(fileMode?.lowercased() == "wal")
     }
 
-    @Test("mmap_size is 1 GiB (1073741824)")
-    func mmapSizeIs1GiB() throws {
+    @Test("mmap_size is 256 MiB (268435456)")
+    func mmapSizeIs256MiB() throws {
         let url = makeDatabaseURL()
         let service = try SearchIndexService(databaseURL: url)
         let value = try service.testReadPragmaInt("mmap_size")
-        #expect(value == 1_073_741_824)
+        #expect(value == 268_435_456)
     }
 
     @Test("synchronous is NORMAL (1)")
@@ -123,12 +120,12 @@ struct GRDBPragmaTests {
         #expect(value == 2)
     }
 
-    @Test("cache_size is -65536 (64 MiB negative-kibibytes)")
-    func cacheSizeIsNegative64MiB() throws {
+    @Test("cache_size is -8192 (8 MiB negative-kibibytes)")
+    func cacheSizeIsNegative8MiB() throws {
         let url = makeDatabaseURL()
         let service = try SearchIndexService(databaseURL: url)
         let value = try service.testReadPragmaInt("cache_size")
-        #expect(value == -65_536)
+        #expect(value == -8_192)
     }
 
     @Test("page_size is 4096")

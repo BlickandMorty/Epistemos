@@ -1,0 +1,22 @@
+name: Epistenos CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust-linux-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace
+      - run: python3 tools/verify_hotpath.py
+
+  macos-platform-gates:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace
+      - run: bash scripts/build-xcframework.sh
+      - run: echo "Run xcodebuild, MLX kernel smoke, XPC, App Group, and Touch ID gates here."

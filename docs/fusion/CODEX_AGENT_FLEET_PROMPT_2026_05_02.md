@@ -373,6 +373,16 @@ Every fleet artifact and every deliberation brief must satisfy these. A violatio
 9. **Usefulness verdict required (ternary).** Every artifact carries `usefulness: +1 | 0 | -1` with a one-line reason. **+1** = the artifact changes the deliberation brief or surfaces a new constraint. **0** = the artifact confirms what was already canonical. **−1** = the artifact was contradicted by a higher-authority source per doctrine §1 (kept for audit, but does not feed the brief). This is the cheap "is this useful?" gate the user asked for — Codex never has to wonder, every artifact answers itself, and the registry rolls them up so you can see at a glance whether a round is producing signal.
 10. **Heartbeat lines mandatory.** Every round opens with `ANCHOR:` and closes with `HEARTBEAT:` per §0. A round missing either is treated as not-completed; do not advance the pipeline.
 11. **Registry up-to-date.** Every spawn and return updates `docs/fusion/fleet/REGISTRY.md` before the next tool call. A round that ends with `spawned | running` rows for processes Codex doesn't actually have running is a P1 — sweep on the next ANCHOR.
+12. **Specificity recovery pass required.** Before a phase/wave brief, search the
+    user's concrete terms plus semantic siblings across `docs/fusion/`,
+    `docs/`, relevant worktree docs, and named research roots. Carry concrete
+    UX/assets/behavior into the brief even when the substrate plan compresses
+    them into an abstract term. Example: "body grammar" for T6 expands to
+    Tamagotchi-style companion creatures, avatar SVG/Canvas grammar,
+    deterministic Landing Farm roaming, Graph companion presence, and
+    `CompanionView` migration away from SF Symbols. Use
+    `LOCAL_CANON_FIRST_SPECIFICITY_PROTOCOL_2026_05_04.md` for the root list,
+    search expansions, and mandatory brief fields.
 
 ---
 

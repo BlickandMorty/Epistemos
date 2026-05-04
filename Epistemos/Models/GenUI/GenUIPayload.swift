@@ -209,17 +209,39 @@ extension GenUIPayload {
     }
 
     /// Key-value panel. Schema = `.keyValueTable`.
-    static func keyValueTable(title: String, _ pairs: [(String, String)]) -> GenUIPayload {
+    static func keyValueTable(
+        title: String,
+        _ pairs: [(String, String)],
+        id: String = UUID().uuidString,
+        metadata: [String: String] = [:],
+        createdAt: Date = .now
+    ) -> GenUIPayload {
         .init(
+            id: id,
             schema: .keyValueTable,
             title: title,
-            body: .keyValues(pairs.map { GenUIKeyValue($0.0, $0.1) })
+            body: .keyValues(pairs.map { GenUIKeyValue($0.0, $0.1) }),
+            metadata: metadata,
+            createdAt: createdAt
         )
     }
 
     /// Markdown card. Schema = `.markdown`.
-    static func markdownCard(title: String, _ markdown: String) -> GenUIPayload {
-        .init(schema: .markdown, title: title, body: .raw(markdown))
+    static func markdownCard(
+        title: String,
+        _ markdown: String,
+        id: String = UUID().uuidString,
+        metadata: [String: String] = [:],
+        createdAt: Date = .now
+    ) -> GenUIPayload {
+        .init(
+            id: id,
+            schema: .markdown,
+            title: title,
+            body: .raw(markdown),
+            metadata: metadata,
+            createdAt: createdAt
+        )
     }
 
     /// YAML card. Schema = `.yaml`.
@@ -247,6 +269,20 @@ extension GenUIPayload {
             title: "Search '\(query)'",
             body: .rows(headers: ["#", "title", "snippet"], cells: rows),
             metadata: ["query": query]
+        )
+    }
+
+    /// Recursive provenance chain. Schema = `.provenanceTrace`.
+    static func provenanceTrace(
+        title: String,
+        events: [GenUIPayload],
+        metadata: [String: String] = [:]
+    ) -> GenUIPayload {
+        .init(
+            schema: .provenanceTrace,
+            title: title,
+            body: .provenanceChain(events),
+            metadata: metadata
         )
     }
 

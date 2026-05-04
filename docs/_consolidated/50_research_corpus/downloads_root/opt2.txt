@@ -1,0 +1,255 @@
+﻿Engineering High-Performance Text Engines on macOS: Architectural Strategies for 120fps ProMotion Code Editors
+The technical landscape of macOS text editing has been fundamentally redefined by the emergence of ProMotion displays and the transition to Apple Silicon. For a modern development environment such as the Epistemos code editor, which currently utilizes the CodeEditSourceEditor v0.12.0 engine, achieving a constant 120 frames per second (fps) refresh rate represents the pinnacle of user experience design. This requirement necessitates a frame budget of exactly 8.33 milliseconds, leaving virtually no margin for the main thread to handle complex operations such as text shaping, layout, syntax parsing, or reactive state diffing. The existing stack, while functional, encounters significant performance cliffs when handling large files or rapid input due to its reliance on high-level declarative bindings and standard CoreText frameworks that exhibit linear time complexity relative to document size. To transition to an "Xcode-grade" or "Zed-grade" level of fluidity, the system must be re-engineered from the ground up, moving toward a vertically integrated architecture where the GPU handles the bulk of the rendering load and the CPU is reserved for incremental, asynchronous background computation.
+Theoretical Foundations of Latency and Fluidity
+The perception of fluidity in a code editor is governed by the interval between a physical input event and the visual confirmation of that event on the display. On a 120Hz ProMotion display, the refresh interval is half that of a standard 60Hz screen, meaning that the human eye can detect micro-stutters and "judder" that would otherwise be imperceptible.1 Performance at this level is not merely an optimization but a requirement for professional-grade tools. Current research indicates that high-frequency scrolling and rapid typing in standard NSTextView implementations often trigger main-thread bottlenecks due to the "Layout-Paint-Composite" cycle of the AppKit framework. When the text engine is required to re-calculate layout for a 50,000-line file on every keystroke, the execution time inevitably exceeds the 8.33ms threshold, leading to frame drops.2
+To quantify the performance targets required for the Epistemos editor, one must analyze the specific latency tiers that define the developer's experience.
+Latency Tier
+	Duration
+	Subjective Experience
+	Technical Requirement
+	Instantaneous
+	< 8.33 ms
+	Perfect ProMotion fluidity
+	Fully GPU-accelerated rendering
+	Responsive
+	8.33 - 16.67 ms
+	Smooth 60Hz experience
+	Minimal Main-Thread blocking
+	Noticeable Delay
+	16.67 - 50 ms
+	"Heavy" or sluggish feel
+	  
+ string diffing or shaping
+	Distracting Lag
+	> 100 ms
+	Disjointed typing/scrolling
+	Synchronous Tree-sitter or RegEx
+	Achieving the "Instantaneous" tier requires a fundamental shift away from the declarative diffing model of SwiftUI towards an imperative, GPU-driven pipeline.4
+Identifying Architectural Bottlenecks through Profiling
+The current Epistemos implementation relies on CodeEditSourceEditor, which uses a CoreText-based engine with lazy viewport layout. While "lazy" layout is superior to monolithic layout, it still suffers from overhead in the shaping and typesetting phases.5 Profiling with Xcode Instruments, specifically the Time Profiler and the SwiftUI View Invalidation template, typically reveals three primary sources of stuttering: the bridge between Swift String and Objective-C NSString, the execution of Tree-sitter queries on the main actor, and the minimap's redundant rendering cycles.7
+The CoreText Shaping Penalty
+In the current stack, the CodeEditTextView utilizes CoreText to shape glyphs into lines. CoreText's CTFramesetter is a high-level API designed for static document layout; however, when used in an editor, it often re-processes more text than is visible.5 Research into CoreText performance indicates that the presence of multiple text attributes—specifically foreground colors for syntax highlighting—dramatically increases the complexity of the shaping phase. A plain string may shape in under 1ms, but a highly attributed line of code with 20 distinct color spans can take 5ms or more to shape on the CPU.5 When multiple lines are reshaped during a scroll or edit, the cumulative time quickly exhausts the frame budget.
+Furthermore, the bridging cost between Swift and Objective-C is a silent killer of performance. NSTextStorage and CoreText operate natively on NSString. When Epistemos passes a Swift String through a @Binding, the system must frequently cast or copy data between the two representations.7 For large files, these    copies introduce significant latency during character insertions, as the entire buffer is technically "modified" from the perspective of the binding.11
+Tree-sitter and Main-Thread Contention
+The TreeSitterClient in the current stack provides syntax highlighting by parsing the source code into a concrete syntax tree. While Tree-sitter is inherently fast and incremental, its integration in the current Epistemos stack often involves executing query matches on the main thread to ensure that text attributes are updated in sync with the view.6 Even with incremental parsing, the act of resolving query matches and mapping them to NSAttributedString keys is a CPU-intensive task. If the highlighting logic blocks the main actor for even 4ms, it effectively consumes half of the total frame budget for a 120Hz display.12
+Optimized State Management: Bypassing the SwiftUI Performance Cliff
+The most immediate bottleneck in the Epistemos editor is the $text: Binding<String> used to integrate the SourceEditor with the rest of the SwiftUI app. SwiftUI’s declarative nature is built for high-level UI coordination, not for high-frequency, large-scale text manipulation. Every single keystroke updates the binding, which triggers a re-evaluation of the entire view hierarchy that depends on that state.15 For a source code file containing 10,000 lines, this means the framework is diffing an enormous string buffer on every character insertion.11
+The SumTree and Rope Data Structures
+To achieve Xcode-grade performance, the underlying data structure of the buffer must change. Traditional editors use a "Gap Buffer" or a "Piece Table," but the modern standard for high-performance editors like Zed is the SumTree or a Rope.18 A SumTree is a B+ tree where internal nodes store summaries of their children, such as line counts, character counts, and UTF-16 offsets.18 This architecture allows the editor to perform seeks for any coordinate—byte offset, line number, or column—in    time instead of the    linear scans required by a standard Swift String.18
+Data Structure
+	Insertion Complexity
+	Search Complexity (Line/Offset)
+	Ideal Use Case
+	Swift String
+	  
+
+	  
+
+	Small prose or labels
+	Gap Buffer
+	  
+ (Local) /    (Move)
+	  
+
+	Traditional single-cursor editors
+	Piece Table
+	  
+
+	  
+
+	Large undo/redo history
+	SumTree / Rope
+	  
+
+	  
+
+	Massive files + Multi-threading
+	By moving the source of truth to a SumTree managed by a Rust FFI layer or a specialized Swift class, Epistemos can update only the modified leaf nodes of the tree. This ensures that the time taken to process an edit is constant regardless of whether the file is 100 lines or 100,000 lines long.18
+Imperative Storage Integration
+The integration with SwiftUI must be refactored to treat the text buffer as an imperative, long-lived object rather than a value-type string. Instead of using @Binding<String>, the editor should receive a reference to an NSTextStorage subclass.11 By overriding replaceCharacters(in:with:) in this subclass, the editor can update the text storage directly from the user's input without ever pushing the full string back up to the SwiftUI state manager.21 SwiftUI should only be notified of high-level changes, such as the file being marked as "dirty" or the line count changing, which significantly reduces the frequency and complexity of view diffing cycles.22
+The GPU Rendering Pipeline: Learning from Zed and Videogame Architecture
+To match the 120fps fluidity of Xcode and Zed, Epistemos must move away from the CPU-bound rasterization of NSTextView and towards a fully GPU-accelerated rendering pipeline.4 In a traditional text view, every time a line is scrolled, the CPU must draw the glyphs into a backing store, which is then sent to the window server. In contrast, the "videogame" architecture used by Zed treats the entire editor as a 3D scene where text is rendered as instanced geometry on the GPU.4
+CoreText as a Shaping Engine, Not a Drawing Engine
+The optimal strategy for Epistemos is to decouple text shaping from text drawing. CoreText should be used exclusively as a shaping engine to determine the identity of glyphs and their relative positions.23 Once the glyph IDs and positions are calculated, they are passed to a Metal-based renderer.
+The Zed pipeline provides a robust reference for this implementation 4:
+1. Glyph Rasterization: Unique glyphs are rasterized into an alpha-only bitmap once.
+2. Texture Atlas: These bitmaps are stored in a large GPU texture (the atlas). A bin-packing algorithm ensures that the atlas is utilized efficiently.26
+3. Instanced Drawing: To render a frame, the editor sends a vertex buffer to the GPU containing the quad coordinates for every visible glyph and their corresponding UV coordinates in the atlas.
+4. Shader Execution: A custom Metal fragment shader samples the atlas, applies the correct theme color, and handles anti-aliasing.
+Because the GPU can draw thousands of these quads in a single pass, the rendering time for a full screen of text is effectively reduced to less than 1ms, leaving the majority of the 8.33ms frame budget for the CPU to handle logic and shaping.4
+Multi-channel Signed Distance Fields (MSDF) for Crispness
+A significant challenge in manual GPU text rendering is maintaining the extreme clarity of macOS system fonts. Standard bitmap textures can appear blurry when scaled or when sub-pixel positioning is required. The solution used by high-end renderers is Multi-channel Signed Distance Fields (MSDF).28 Unlike a standard bitmap that stores color, an MSDF texture stores the distance to the glyph's edge in multiple color channels. This allows the fragment shader to use screen-space derivatives (fwidth) to reconstruct sharp corners and clean edges at any resolution.27
+Feature
+	Bitmap Atlas
+	MSDF Atlas
+	Clarity
+	Good at native resolution
+	Razor-sharp at any scale
+	Memory
+	High (Requires large textures)
+	Low (Compressed distance fields)
+	GPU Cost
+	Minimal
+	Moderate (Shader math)
+	Anti-aliasing
+	Standard linear filtering
+	Procedural smoothing
+	Integrating an MSDF-based Metal pipeline into CodeEditTextView would allow Epistemos to achieve resolution-independent text that remains crisp even during smooth, high-velocity scrolling on ProMotion displays.27
+Incremental Syntax Highlighting: Optimizing Tree-sitter for macOS
+Syntax highlighting in CodeEditSourceEditor is currently powered by SwiftTreeSitter. To reach 120fps, the engine must move from a full-file or semi-lazy re-highlighting model to a strictly incremental, asynchronous three-phase model.6
+Three-Phase Highlighting Architecture
+The "Neon" library architecture provides a superior framework for managing the trade-off between parsing accuracy and latency.6 This model suggests that highlighting should occur in three distinct phases:
+1. The Fallback Phase (Synchronous): When a user types a character, a high-speed, regex-based pattern matcher immediately colors the changed range on the main thread. This ensures that the user never sees "plain" white text while the parser is working.6
+2. The Primary Phase (Asynchronous): Tree-sitter runs on a background thread to compute a precise syntax tree. Because Tree-sitter is incremental, it only needs to re-process the changed region and its surrounding context.12 Once the parse is complete, the results are dispatched back to the main thread to replace the fallback highlights.
+3. The Secondary Phase (LSP): Language Server Protocol (LSP) semantic tokens provide deep semantic information, such as distinguishing between an instance variable and a local variable. These tokens are high-latency and arrive several hundred milliseconds later, augmenting the Tree-sitter highlights.6
+Background Task Management in Swift 6
+The transition to Swift 6 offers powerful tools for managing these background parsing tasks. By utilizing the cooperative thread pool, the TreeSitterClient can ensure that parsing work does not interfere with the UI thread.13 A critical optimization is the use of detached tasks for long-running parses to prevent them from inheriting the actor-isolation of the caller.13
+A key insight for Epistemos is to avoid the "MainActor overuse" trap. Developers often mark their entire editor controller as @MainActor, which inadvertently forces all Tree-sitter query resolution onto the main thread.13 Instead, the query engine should be an isolated actor that processes the SumTree and returns a lightweight list of highlighting ranges to the main thread for rendering.14
+Minimap and Gutter Optimization: Metal and CALayer Strategies
+The minimap and gutter are often overlooked sources of performance degradation. In many implementations, the minimap re-renders the entire file on every scroll, which can be more expensive than rendering the main editor window itself.33
+Minimap Rasterization and Tile Caching
+The minimap should not be a dynamic view but a collection of cached GPU textures. Using CALayer and its shouldRasterize property allows the editor to cache the rendered representation of large blocks of code.34
+The system should be architected as follows:
+* The document is divided into "tiles" (e.g., 500 lines per tile).
+* Each tile is drawn into a CALayer exactly once and cached as a texture on the GPU.37
+* When scrolling, the minimap view merely repositions these pre-rendered layers.
+* Only when an edit occurs in a specific tile does that specific CALayer undergo a re-render cycle.37
+By offloading this to the macOS compositor, the main thread's only job during scrolling is to update the position property of the layers, which is a near-zero-cost operation for the CPU.35
+Metal Acceleration for Gutters and Squiggles
+Secondary UI elements like line number gutters, git markers, and diagnostic squiggles should be rendered using Metal for zero-CPU-cost compositing. Instead of using drawRect: or standard SwiftUI views, these elements can be treated as separate vertex buffers in the Metal pipeline.4 For example, the line number gutter can be a single static draw call of quads, where only the viewport transform needs to be updated during scrolling.4 This ensures that the gutter remains perfectly synchronized with the text without the overhead of the AppKit layout engine.
+Achieving ProMotion Fluidity: Synchronization and Frame Pacing
+Maintaining a consistent 120Hz refresh rate requires precise synchronization between the application's render loop and the display's vertical sync (VSync). Standard macOS views often suffer from "present delay," where the interval between presentDrawable and the appearance of pixels on screen is inconsistent.40
+CADisplayLink and PresentsWithTransaction
+To eliminate judder, Epistemos should use CADisplayLink (or the macOS equivalent CVDisplayLink) to drive its render cycle.25 By requesting a specific CAFrameRateRange, the editor can inform the system that it requires a high-refresh-rate context.41
+
+
+Parameter
+	Configuration
+	Impact
+	presentsWithTransaction
+	true
+	Synchronizes Metal with AppKit redraws 25
+	wait_until_scheduled
+	Recommended
+	Reduces blocking compared to wait_until_completed 25
+	preferredFrameRateRange
+	80-120-120
+	Locks the display to 120Hz during interactions 41
+	CADisableMinimumFrameDuration
+	true
+	Unlocks full ProMotion range in Info.plist 41
+	A critical insight from the Zed team involves the "downclocking" behavior of ProMotion. macOS will downclock the display to 60Hz or lower to save power if the application is not consistently presenting new frames. To ensure maximum responsiveness during typing, the editor should continue to present identical frames for a short "cooldown" period (e.g., 1 second) after the last input event. This keeps the display hardware in its high-performance state, ready to respond to the next keystroke with minimal latency.25
+Triple Buffering and the Race Condition
+When moving to 120Hz, the risk of CPU-GPU race conditions increases significantly. While the GPU is reading from frame   , the CPU should be writing to frame   . To solve this, Epistemos must implement a pool of multiple instance buffers (triple buffering).25 By switching to a non-blocking synchronization model using wait_until_scheduled, the main thread can finish its work and begin processing the next input event without waiting for the GPU to complete the rasterization of the previous frame.25
+Optimizing the Xcode Theme and Visual Clarity
+Achieving "Xcode-grade" feel also involves the precise replication of its visual aesthetics, specifically its typography and color palette. Epistemos's XcodeCodeColors struct must be mapped to the Metal renderer's uniform buffers to ensure that color blending occurs in the correct color space.
+Linear vs. sRGB Blending
+A common pitfall in custom Metal renderers is the incorrect handling of alpha blending. Research indicates that standard text rendering in many editors can appear "pixelated" or "jagged" if the blending mode is set up for pre-multiplied blending while the glyphs are rasterized for post-multiplied blending.43 To match Xcode's visual clarity, the Metal renderer must:
+* Mark the CAMetalLayer as opaque whenever possible to allow direct-to-display optimization.44
+* Use a fragment shader that performs median-filtering on MSDF textures.28
+* Ensure that the alpha-to-coverage conversion respects the display's gamma curve.28
+Typography and Font Hinting
+Xcode's smooth feel is partly due to its use of the "SF Mono" font with specific hinting. When shaping text with CoreText for a Metal backend, the editor must ensure that it requests the kCTFontOptionsAttribute with kCTFontOptionsPreventAutoActivation to maintain consistent metrics.23 Furthermore, to achieve perfect alignment with the pixel grid, the engine should implement sub-pixel positioning variants in its glyph atlas—storing 16 variants of each common glyph at 1/16th pixel offsets.29
+Managing Large Files: Lazy Loading and Seek Optimization
+The goal of "matching Xcode's fluidity for files of any size" is mathematically impossible with    operations. The Epistemos editor must adopt a "virtualized" buffer strategy similar to how modern browsers handle the DOM or how UITableView handles lists.45
+Lazy NSTextContentStorage
+The introduction of TextKit 2 on macOS 14+ provides a standard way to achieve this through NSTextContentStorage and NSTextLayoutManager.46 However, TextKit 2 is still noted for having performance limitations and bugs when dealing with extremely long lines or complex paragraph styles.9
+For the highest performance, Epistemos should implement a custom NSTextElementProvider. This provider acts as a bridge to the SumTree/Rope data structure, delivering only the text segments required for the current viewport.46 This ensures that the memory footprint remains constant even when a 500MB log file is opened, as only the visible 50 lines are ever converted into NSTextElement or shaped by the CPU.48
+Incremental Search and Indexing
+Search performance is another area where "files of any size" can cause stutters. A linear search on a multi-megabyte buffer will block the UI. The solution is to move search and regex matching to the Rust FFI layer, utilizing a background thread to index the SumTree.18 By using a SIMD-accelerated search library (like ripgrep's core), Epistemos can achieve near-instantaneous search results across massive documents without impacting the 120fps rendering loop.18
+Architectural Comparison: Sublime Text, VS Code, and Zed
+To understand the competitive landscape and the specific engineering required for Epistemos, one must look at how the dominant editors handle the performance-latency trade-off.
+Editor
+	Core Language
+	Rendering Pipeline
+	Highlight Logic
+	State Model
+	Xcode
+	Objective-C/Swift
+	CoreText / Metal
+	Custom / LSP
+	Monolithic with Proximity Bias
+	Zed
+	Rust
+	Metal / GPUI
+	Tree-sitter
+	SumTree / CRDT
+	Sublime Text
+	C++
+	Proprietary OpenGL
+	Custom Regex
+	Gap Buffer
+	VS Code
+	TypeScript
+	DOM / Canvas
+	TextMate / LSP
+	Piece Table
+	The "vertical integration" of Zed—where they own the rendering engine (GPUI), the UI framework, and the data structures—is the primary reason it outperforms its competitors.18 For Epistemos, which is committed to a native Swift/macOS stack, the most viable path is to replicate this vertical integration by bypassing the high-level abstractions of SwiftUI and AppKit in favor of raw Metal and manual buffer management.4
+The Impact of ProMotion on Energy and Thermals
+A 120Hz editor is significantly more demanding on the battery and the thermal envelope of the Mac than a 60Hz editor. Continuous Metal draw calls and high-frequency background parsing can lead to the "fans kicking in" syndrome often seen in Electron-based editors.53
+To mitigate this, Epistemos must implement "intelligent idling":
+* Adaptive Frame Rate: When the user is not actively typing or scrolling, the refresh rate should be dropped to 30Hz or 10Hz to save energy.41
+* Batching Background Work: Tree-sitter parses and LSP updates should be debounced. Instead of parsing on every keystroke, the system should wait for a "quiescence period" (e.g., 50ms) of inactivity before starting the background parse.55
+* Resource Limits: The parser should have a timeout limit to prevent runaway parses on pathologically complex files from consuming 100% of the CPU.12
+Conclusion: A Roadmap to Xcode-Grade Performance
+Optimizing the Epistemos code editor to match the performance of Xcode requires a systematic dismantling of the current "Declarative-CPU-Serial" pipeline in favor of an "Imperative-GPU-Parallel" architecture. The path forward is structured into three critical transformation layers.
+The first layer addresses the state management and storage bottleneck. By replacing the SwiftUI string binding with an NSTextStorage subclass backed by a SumTree or Rope data structure, the editor can eliminate    overhead and the constant bridging cost between Swift and Objective-C. This transformation ensures that the editor remains responsive to input even in multi-gigabyte files.
+The second layer focuses on the rendering and shaping engine. The engine must transition from standard NSTextView drawing to a Metal-accelerated glyph atlas. Using Multi-channel Signed Distance Fields ensures that the typography retains the crispness and aesthetic of a first-party Apple application while offloading the heavy lifting of pixel compositing to the GPU. This change is the single most important factor in achieving 120fps ProMotion fluidity.
+The third layer optimizes the asynchronous background work. Transitioning to the Neon library’s three-phase highlighting model—immediate synchronous fallback, incremental Tree-sitter background parsing, and high-latency LSP augmentation—ensures that the visual experience is always ahead of the user’s input. By utilizing Swift 6’s cooperative thread pool and locking the render loop to CADisplayLink with presentsWithTransaction, Epistemos can deliver a zero-stutter, highly responsive environment.
+By implementing these vertically integrated strategies, the Epistemos editor will transcend the limitations of the standard macOS UI kit, providing a world-class coding experience that is as fluid and precise as the most heavily optimized game engines. The end result is an editor that effectively "disappears" during use, allowing the developer to maintain a state of deep focus without the friction of technical latency.
+Works cited
+1. Enable Smoother 120Hz Browsing in Safari - MacRumors, accessed April 7, 2026, https://www.macrumors.com/how-to/enable-smoother-120hz-browsing-in-safari/
+2. Very laggy/slow scrolling with larger files · Issue #109193 · microsoft/vscode - GitHub, accessed April 7, 2026, https://github.com/microsoft/vscode/issues/109193
+3. Scroll is very laggy on the recent updates · Issue #245124 · microsoft/vscode - GitHub, accessed April 7, 2026, https://github.com/microsoft/vscode/issues/245124
+4. Leveraging Rust and the GPU to render user interfaces at 120 FPS - Zed, accessed April 7, 2026, https://zed.dev/blog/videogame
+5. Core Text Performance - Stack Overflow, accessed April 7, 2026, https://stackoverflow.com/questions/6062420/core-text-performance
+6. ChimeHQ/Neon: A Swift library for efficient, flexible content-based text styling - GitHub, accessed April 7, 2026, https://github.com/ChimeHQ/Neon
+7. What's your experience using Swift to handle large NSStrings, especially using a NSTextStorage subclass? - Reddit, accessed April 7, 2026, https://www.reddit.com/r/swift/comments/7hcxlt/whats_your_experience_using_swift_to_handle_large/
+8. agent-scripts/skills/swiftui-performance-audit/SKILL.md at main - GitHub, accessed April 7, 2026, https://github.com/steipete/agent-scripts/blob/main/skills/swiftui-performance-audit/SKILL.md
+9. Nerdy internals of an Apple text editor - Hacker News, accessed April 7, 2026, https://news.ycombinator.com/item?id=39603087
+10. Resolving Slow Performance of NSTextStorage - The Cope, accessed April 7, 2026, https://www.thecope.net/2019/09/15/resolving-slow-performance.html
+11. SwiftUI avoid custom binding for view performance - Octotap - Piotr Chojnowski, accessed April 7, 2026, https://octotap.com/2025/02/03/swiftui-avoid-custom-binding-view-performance/
+12. Performance Optimization - Tree-sitter - Mintlify, accessed April 7, 2026, https://mintlify.com/tree-sitter/tree-sitter/advanced/performance
+13. Async Tasks in Swift: Do You Really Need a Background Thread for Network Calls?, accessed April 7, 2026, https://medium.com/@ganabathy.23/async-tasks-in-swift-do-you-really-need-a-background-thread-for-network-calls-d4643595c32d
+14. Common Swift-Concurrency mistakes that can be killing your app performance - Medium, accessed April 7, 2026, https://medium.com/@lucasmrowskovskypaim/common-swift-concurrency-mistakes-that-can-be-killing-your-app-performance-b180a7ede4df
+15. SwiftUI Isn't Slow — Your Code Is - DEV Community, accessed April 7, 2026, https://dev.to/arshtechpro/swiftui-isnt-slow-your-code-is-1n10
+16. Why TextView is my SwiftUI canary | A p p D e c e n t r a l, accessed April 7, 2026, https://appdecentral.com/2020/06/07/why-textview-is-my-swiftui-canary/
+17. SwiftUI Lifecycle · Issue #977 · CodeEditApp/CodeEdit - GitHub, accessed April 7, 2026, https://github.com/CodeEditApp/CodeEdit/issues/977
+18. Hiring at Zed: Building in Real Time — Zed's Blog, accessed April 7, 2026, https://zed.dev/blog/hiring
+19. Exploring Zed, an open source code editor written in Rust - LogRocket Blog, accessed April 7, 2026, https://blog.logrocket.com/exploring-zed-open-source-code-editor-rust/
+20. Building a rich text editor for UIKit, AppKit and SwiftUI - Daniel Saidi, accessed April 7, 2026, https://danielsaidi.com/blog/2022/06/13/building-a-rich-text-editor-for-uikit-appkit-and-swiftui
+21. Circular updates with @Observable and UIViewRepresentable : r/SwiftUI - Reddit, accessed April 7, 2026, https://www.reddit.com/r/SwiftUI/comments/1amjy71/circular_updates_with_observable_and/
+22. SwiftUI TextEditor bound to $[Note].content — slow performance? - Stack Overflow, accessed April 7, 2026, https://stackoverflow.com/questions/78491822/swiftui-texteditor-bound-to-note-content-slow-performance
+23. Core Text Overview - Apple Developer, accessed April 7, 2026, https://developer.apple.com/library/archive/documentation/StringsTextFonts/Conceptual/CoreText_Programming/Overview/Overview.html
+24. Core Text Tutorial for iOS: Making a Magazine App - Kodeco, accessed April 7, 2026, https://www.kodeco.com/578-core-text-tutorial-for-ios-making-a-magazine-app
+25. Optimizing the Metal pipeline to maintain 120 FPS in GPUI - Zed, accessed April 7, 2026, https://zed.dev/blog/120fps
+26. Graphics APIs — list of Rust libraries/crates // Lib.rs, accessed April 7, 2026, https://lib.rs/rendering/graphics-api
+27. DJBen/MSDFTextRender-Metal: Render crisp text in Metal using multiple-channel signed distance fields with Metal shading language and Swift - GitHub, accessed April 7, 2026, https://github.com/DJBen/MSDFTextRender-Metal
+28. Performant, Crisp Text Rendering in Metal with Multi‑Channel Signed Distance Field (MSDF) | by Sihao Lu | Medium, accessed April 7, 2026, https://medium.com/@sihaolu/performant-crisp-text-rendering-in-metal-with-multi-channel-signed-distance-field-msdf-9acd634d0052
+29. GUI architecture review and abstraction recommendations - Amp Code, accessed April 7, 2026, https://ampcode.com/threads/T-82acac63-89cb-4bb0-bad7-bcc4f76af3cd
+30. Incremental Parsing Using Tree-sitter - Strumenta - Federico Tomassetti, accessed April 7, 2026, https://tomassetti.me/incremental-parsing-using-tree-sitter/
+31. Editor View · Issue #36 · CodeEditApp/CodeEdit - GitHub, accessed April 7, 2026, https://github.com/CodeEditApp/CodeEdit/issues/36
+32. Threads vs. Tasks in Swift Concurrency - SwiftLee, accessed April 7, 2026, https://www.avanderlee.com/concurrency/threads-vs-tasks-in-swift-concurrency/
+33. Code scrolling and Editor slow on huge files due to connection information · Issue #32236 · godotengine/godot - GitHub, accessed April 7, 2026, https://github.com/godotengine/godot/issues/32236
+34. How to improve performance of CALayer animations? - Stack Overflow, accessed April 7, 2026, https://stackoverflow.com/questions/14290382/how-to-improve-performance-of-calayer-animations
+35. Improving Animation Performance - Apple Developer, accessed April 7, 2026, https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/CoreAnimation_guide/ImprovingAnimationPerformance/ImprovingAnimationPerformance.html
+36. CALayer | Apple Developer Documentation, accessed April 7, 2026, https://developer.apple.com/documentation/quartzcore/calayer
+37. Performance issues with Core Graphics - VSTGUI - Steinberg Forums, accessed April 7, 2026, https://forums.steinberg.net/t/performance-issues-with-core-graphics/201784
+38. Rendering views using CALayer, Part 1 - Development with Alex Nachbaur, accessed April 7, 2026, https://nachbaur.com/2010/11/13/rendering-views-using-calayer-part-1/
+39. Ways to optimize scroll performance. Yes, after having a zillion publications about this issue. | by Vladislav Alexeev | Medium, accessed April 7, 2026, https://medium.com/@beefon/ways-to-optimize-scroll-performance-again-8f206d21101d
+40. 3-4 frame latency on 120fps iPad · Issue #175790 · flutter/flutter, accessed April 7, 2026, https://github.com/flutter/flutter/issues/175790
+41. Optimizing iPhone and iPad apps to support ProMotion displays - Apple Developer, accessed April 7, 2026, https://developer.apple.com/documentation/quartzcore/optimizing-iphone-and-ipad-apps-to-support-promotion-displays
+42. Scrolling is not true 120hz and feels laggy on ProMotion iPhone 13 · Issue #90675 - GitHub, accessed April 7, 2026, https://github.com/flutter/flutter/issues/90675
+43. Better text rendering #9403 - zed-industries/zed - GitHub, accessed April 7, 2026, https://github.com/zed-industries/zed/issues/9403
+44. 0.219.4 - Stable Release, accessed April 7, 2026, https://zed.dev/releases/stable/0.219.4
+45. performance on a huge list : r/SwiftUI - Reddit, accessed April 7, 2026, https://www.reddit.com/r/SwiftUI/comments/140lq61/performance_on_a_huge_list/
+46. krzyzanowskim/STTextView: Performant and reusable text ... - GitHub, accessed April 7, 2026, https://github.com/krzyzanowskim/STTextView
+47. TextKit 2 - the promised land - Marcin Krzyżanowski, accessed April 7, 2026, https://blog.krzyzanowskim.com/2025/08/14/textkit-2-the-promised-land/
+48. Neon Vision Editor- A lightweight and modern text editor Mac OS App based on SwiftUI built for speed and simplicity. - Reddit, accessed April 7, 2026, https://www.reddit.com/r/SwiftUI/comments/1qwe9uv/neon_vision_editor_a_lightweight_and_modern_text/
+49. Introducing Neon Vision Editor. A Lightweight, Native Text & Code… | by Hilthart Pedersen | On Tech | Feb, 2026 | Medium, accessed April 7, 2026, https://medium.com/on-tech/introducing-neon-vision-editor-a-lightweight-native-text-editor-for-the-apple-ecosystem-6f0accfb30e2
+50. A Code Editor That Actually Scales - YouTube, accessed April 7, 2026, https://www.youtube.com/watch?v=kCWwrx51IS4
+51. Zed Architecture - Mintlify, accessed April 7, 2026, https://www.mintlify.com/zed-industries/zed/contributing/architecture
+52. Making Zed fast: A conversation with Richard Feldman - Baseten, accessed April 7, 2026, https://www.baseten.co/blog/making-zed-fast-a-conversation-with-richard-feldman/
+53. FIX: macOS 26 - VSCode 80%+ GPU usage and system lag - Reddit, accessed April 7, 2026, https://www.reddit.com/r/vscode/comments/1nnp0wt/fix_macos_26_vscode_80_gpu_usage_and_system_lag/
+54. 120 fps cap still exists even on MacOS 26 Official Release - Reddit, accessed April 7, 2026, https://www.reddit.com/r/MacOS/comments/1ndo1tn/120_fps_cap_still_exists_even_on_macos_26/
+55. Swift Async Algorithms: Powerful Tools for Processing Values Over Time - DEV Community, accessed April 7, 2026, https://dev.to/arshtechpro/swift-async-algorithms-powerful-tools-for-processing-values-over-time-23ho

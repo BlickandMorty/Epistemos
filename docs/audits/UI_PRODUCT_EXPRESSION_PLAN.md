@@ -1,76 +1,78 @@
 # UI Product Expression Plan
 
-Date: 2026-04-25
-Premise: minimum visible surface, maximum perceived capability. Add small affordances; never giant new sidebars. File type drives surface.
+Date: 2026-04-28
 
-Severity: BLOCKER / HIGH / MEDIUM / LOW / DEFER.
+Verdict: The app has more capability than the visible surface communicates. Do not add a giant new navigation scheme. Surface stable capability through the existing shell, command palette, settings, contextual controls, and file-type routing.
 
-## Capability surface table
+## Capability Surface Table
 
-| # | Capability | Current visibility | Proposed surface | UI copy | Risk | Implementation notes |
-|---|---|---|---|---|---|---|
-| U1 | Pro+Cloud has tools | invisible (and broken — see USER_WIRING_GAPS G1) | none — internal routing fix | n/a | LOW | Fix `PipelineService.shouldUseToolLoop` so Pro on cloud routes through Rust agent loop with `chat_pro` tier |
-| U2 | Contextual Shadows recall | absent | subtle button in composer corner; panel with Notes+Chats tabs | "Related" | MEDIUM (perf) | See AMBIENT_RECALL_WIRING_PLAN.md |
-| U3 | Raw Thoughts artifact | absent | sidebar entry under existing model vault tree (file-type-driven, no new sidebar silo); right-click on a chat → "Open run" | "Raw Thoughts" folder | LOW | Same vault tree; new file/folder kind |
-| U4 | Line-count gutter (code) | absent visually (mentioned in code comment only) | toggle in editor toolbar context menu; right-side default | n/a (numeric only) | LOW | Reuse theme tokens; no per-frame allocation; gated by `EPISTEMOS_CODE_GUTTER` setting |
-| U5 | Code editor 4k-line fluidity | works for <100KB, untested at 4k+ lines | none (perf, not UI) | n/a | MEDIUM | Wire syntax-core viewport path; commit benchmark; see PERFORMANCE_CONCURRENCY_AUDIT.md |
-| U6 | Reasoning trail rendering | live in chat (ThinkingPopover) | already wired; verify per-provider (DD batch) | "Thinking…"/"Thought for Ns" pill | LOW | Already landed per Master Plan |
-| U7 | Effective model badge | live in chat (`EffectiveModelBadge`) | keep | "GPT-5.4 · Pro · Cloud" | LOW | Already landed |
-| U8 | "Why this model?" rationale popover | live in chat ([7235802f]) | keep | popover on badge tap | LOW | Already landed |
-| U9 | Empty states (note, vault, search, chat) | partial | first-run guidance copy in each empty state; small "what you can do here" hint | one-liner per surface | LOW | Add in V1 polish pass |
-| U10 | Permissions / saved grants | wired in `AgentControlSettingsView.activeGrantsSection` | link from Privacy pane → grants | "Manage what AI can do" | LOW | Already wired |
-| U11 | App Store / Pro profile clarity | live in PrivacyDetailView (`:113-123`) | keep | per-profile copy | LOW | Already landed (S.6) |
-| U12 | Quick Capture | partial (no top-level entry verified) | menu bar icon + global hotkey (`Cmd+Shift+Space` or distinctive); auto-route to current vault | "Capture a thought" | LOW | If shippable; otherwise hide for V1 behind feature flag |
-| U13 | Voice/dictation in note | mic permission code exists | mic icon in composer | "Dictate" | LOW | Already partially built |
-| U14 | Diagnostics panel | absent in Settings | hidden behind Settings → Advanced → Developer toggle | "Performance" | LOW | Surface signpost interval summaries + last benchmark deltas |
-| U15 | Documents (.epdoc) | not built | DEFER. If pursued: file-type-driven (open `.epdoc` opens rich editor); same vault tree | "New Document" | LOW (DEFER) | Per claude work / gpt work / raw thoughts canon |
-| U16 | Agent Command Center | partial | DEFER to V1.5 | "Command" / global shortcut | MEDIUM | Per PLAN_V2 §4.1 |
-| U17 | Embedded terminal (Pro) | code exists in PTY | DEFER to Pro V1.5 | "Terminal" tab in Pro Agent surface | MEDIUM | Per Master Plan §GG.1 |
-| U18 | Memory diff card | not built | DEFER to V1.5 | "Remembered N things" inline card | LOW (DEFER) | Per Master Plan §GG.3 |
+| Capability | Current visibility | Proposed surface | UI copy | Risk | Implementation notes |
+|---|---|---|---|---|---|
+| Prose writing | Visible and core | Keep as primary editor | Existing copy | LOW | Protected path. Do not replace with rich document editor |
+| Contextual Shadows | V0 button/panel exists behind `EPISTEMOS_AMBIENT_RECALL_V0` and is mounted in note/chat workspaces | Subtle notes-first affordance during active typing | Related | HIGH | Keep default-off until runtime click/SLA proof; do not show Chats until real chat hits exist |
+| Raw Thoughts | Browsable under model vault tree when `EPISTEMOS_RAW_THOUGHTS_V0` is enabled | Keep in existing vault/model tree, plus "Open run" from chat/agent result | Raw Thoughts | MEDIUM | Must not expose fabricated hidden chain-of-thought |
+| Documents `.epdoc` | Built as NSDocument/Tiptap shell, not fully product-proven | File-type-driven "New Document" only after save/open/index smoke passes | New Document | HIGH | Do not call absent; current gap is proof and polish |
+| Search/readable blocks | Built substrate | Search results should show artifact kind and block target | Existing search copy | MEDIUM | Verify `.epdoc` and Raw Thoughts feed readable blocks |
+| Graph typed artifacts | Graph exists; typed artifact expansion partial | Graph filters for Notes, Documents, Runs, Code when data exists | Existing graph copy | MEDIUM | Avoid block-node explosion |
+| Chat/model badge | Visible | Keep | Existing model badge | LOW | Ensure provider claims match actual route |
+| Quick Capture | Partial/unclear reachability | Menu/shortcut only if end-to-end save is proven | Capture | MEDIUM | Hide behind flag otherwise |
+| Code editor line gutter | Gutter/line count logic exists, UX and perf unproven | Editor setting or toolbar toggle; no extra copy in gutter | Numeric only | MEDIUM | Must not fight theme or allocate per frame |
+| Code editor 4k-line smoothness | Not a UI feature; performance target unproven | No new surface; add benchmark and diagnostics | n/a | HIGH | Must prove 4k-line scroll/typing with syntax colors |
+| Privacy/MAS profile | Settings privacy pane exists | Keep exact MAS-safe wording and link saved grants | Privacy | HIGH | No cloud/telemetry overclaim |
+| Computer use | Direct-build code, MAS stubs | Hide in MAS; direct-build or developer setting only | Automation | HIGH | ScreenCaptureKit/AX/CGEvent are not MAS V1 surface |
+| Diagnostics | Partial | Settings -> Advanced -> Developer, hidden by default | Diagnostics | LOW | Useful for signpost summaries after core gates |
 
-## Recommended minimal V1 user surface
+## Recommended Minimal V1 Surface
 
-**Visible at all times**:
-- Sidebar: Vault tree (existing); model vaults (existing); under each model vault: Prose / Raw Thoughts / Code (file-type-driven entries).
-- Top toolbar: New (note/code/raw-thought/document — Documents grayed out for V1), Vault picker, Model picker, Search, Settings.
-- Note editor: composer + AI button (existing) + Contextual Shadows recall button (new, only when results exist) + Code/Prose toggle if mixed-content note.
-- Chat: composer + EffectiveModelBadge under each reply + ThinkingPopover + Recall button in composer.
-- Settings: AI / Vault / Recall / Privacy / Developer (hidden by default).
+- Sidebar: existing vault tree and model vault grouping; Raw Thoughts appears only when the feature flag and run data exist.
+- Main toolbar: existing write/search/graph/settings controls; avoid extra permanent panels.
+- Note editor: existing prose surface plus contextual Related button when recall hits exist.
+- Chat composer: existing model badge and message bar plus contextual Related button when recall hits exist.
+- Graph: keep existing controls; add type filters only after typed artifacts are indexed.
+- Settings: AI, Models, Vault, Privacy, Recall, Advanced. Experimental controls stay in Advanced.
+- Documents: if `.epdoc` smoke passes, expose as file type and "New Document"; otherwise keep hidden from V1 user surface.
 
-**Invisible until earned**:
-- Quick Capture (`Cmd+Shift+Space`) — menu bar icon optional.
-- Reasoning trail expansion in chat — auto-expand on stream start, auto-collapse on first text token.
-- Saved grants list — accessible from Privacy pane link only.
+## Capability Copy Rules
 
-**Hidden in MAS, available in Pro**:
-- Computer use (AX, screen capture, automation tools).
-- Embedded terminal.
-- Bash/PTY tools.
+- Use "Related" for Contextual Shadows.
+- Use "Raw Thoughts" only for observable provider/app-owned run surfaces.
+- Use "Document" for `.epdoc` artifacts; do not call them "Notes v2".
+- Use "Local" and "Cloud" only when the actual route matches.
+- Use "Automation" or "Computer Use" only in direct-build/developer surfaces.
+- No visible copy should promise hidden chain-of-thought, autonomous web control, or telemetry-free cloud providers.
 
-## UI copy guidelines
+## Anti-Clutter Rules
 
-- "Related" — Contextual Shadows panel header.
-- "Thinking…" — popover header during stream; collapses to "Thought for Ns" pill.
-- "Raw Thoughts" — folder name for per-run artifacts.
-- "Capture a thought" — Quick Capture window prompt.
-- "Manage what AI can do" — Privacy → grants link copy.
-- "Open run" — right-click on chat → opens corresponding Raw Thoughts run folder.
+1. No permanent recall sidebar.
+2. No second tree/sidebar for Documents.
+3. No Raw Thoughts top-level noise when no runs exist.
+4. No giant hero/marketing explanation in the app shell.
+5. No code-editor controls that shrink the editor or conflict with the theme.
+6. No MAS-visible control for disabled direct-build-only automation.
 
-## Anti-clutter rules
+## Empty States Needed
 
-1. No floating modal/popup that obscures the editor while typing.
-2. No sidebar >200pt wide opened by default for a panel that's rarely used.
-3. No "advanced" settings exposed at the top level.
-4. No badges/pills that refresh per token or per second.
-5. No empty states with marketing copy; one-liner hints only.
+| Surface | Empty state |
+|---|---|
+| Recall panel | "No related notes yet" plus index status if index missing |
+| Raw Thoughts | Hidden when no runs; if opened directly, "Runs will appear here after agent/model work" |
+| Documents | If enabled, "Create a document" with no promise of DOCX/PDF until exports exist |
+| Search | Show artifact-kind filters and "No results" without implying full vault reindex |
+| Code editor | Show file-too-large or highlighting-disabled state if performance guard disables expensive work |
 
-## Discoverability ladder
+## Implementation Notes
 
-1. **Persistent**: composer + sidebar + toolbar.
-2. **Contextual**: right-click menus, hover affordances, recall button on focus.
-3. **Settings opt-in**: Quick Capture, voice, diagnostics, Document file type (when shipped).
-4. **Direct-build / Pro-only**: terminal, computer use, ACC.
+- Prefer command palette and context menus for advanced actions.
+- Prefer settings toggles for experimental systems.
+- Prefer file-type routing for Documents and Code.
+- Keep Prose, Raw Thoughts, Documents, Code, Sources, and Outputs distinct.
+- Surface no new UX until the routing path has a test or smoke proof.
 
-## Verdict
+## P0/P1 Product Expression Findings
 
-V1 surface stays small. The two new affordances are: Contextual Shadows recall button (composer-scoped) and Raw Thoughts entries (file-type-driven inside existing vault tree). Everything else is polish on existing surfaces. The user should open the app and immediately see: write, chat, search, graph, recall, privacy. Power lives one click deep, never on the front page.
+| Finding | Priority | Required fix |
+|---|---:|---|
+| Contextual Shadows appears partially wired but not runtime-proven end to end | P1 | State/source proof is green; add live click and typing-latency proof before default-on |
+| `.epdoc` is built but old docs still claim absent | P1 | Update ship gate and patch queue to current state |
+| Code line gutter target is not performance-proven | P1 | Add benchmark and theme-safe toggle before treating it as shipped polish |
+| MAS privacy copy must stay exact | P0 | Verify Settings copy against entitlements and PrivacyInfo before submit |

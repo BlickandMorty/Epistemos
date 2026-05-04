@@ -1,5 +1,10 @@
 # Release Hardening Report — 2026-03-10
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **Historical snapshot:** This report captures the release state and verification environment from March 10, 2026. Later pruning removed the old TK1 prose stack, and current local build health can differ because upstream package toolchains have since changed.
 
 **Verdict: ✅ READY TO RELEASE**

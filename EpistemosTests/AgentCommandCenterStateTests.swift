@@ -234,7 +234,11 @@ struct AgentCommandCenterStateTests {
         let deepseek = Self.makeLocalBrain(.deepseekR1Distill7B)
         let qwenCoder = Self.makeLocalBrain(.qwen25Coder7B)
 
-        #expect(deepseek.supportedOperatingModes == [.thinking])
+        let expectedDeepseekModes: [EpistemosOperatingMode] =
+            LocalToolGrammar.supportsStructuredToolCalling
+            ? [.thinking, .agent]
+            : [.thinking]
+        #expect(deepseek.supportedOperatingModes == expectedDeepseekModes)
         #expect(qwenCoder.supportedOperatingModes == [.agent])
     }
 

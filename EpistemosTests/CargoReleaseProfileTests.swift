@@ -14,13 +14,11 @@ import Testing
 /// keep `panic = "unwind"` so the macros remain functional; the others
 /// MAY use `panic = "abort"` for the smallest dylib footprint.
 ///
-/// This test reads the live `Cargo.toml` files via `#filePath` (same
-/// pattern as `SigTests.sigSourceFileExistsAndHasCanonicalCategories`)
-/// rather than depending on a `SourceMirror` bundle, so any new crate
-/// whose Cargo.toml drifts from the canonical block fails CI immediately
-/// — no manual mirror refresh required.
+/// This test reads bundled `SourceMirror` files. The mirror is refreshed by
+/// the test target build phase, avoiding runtime access to repo paths that can
+/// block under the Xcode test host.
 @Suite("Cargo Release Profile (Wave 2.4)")
-nonisolated struct CargoReleaseProfileTests {
+struct CargoReleaseProfileTests {
     /// Crates whose FFI surface relies on `std::panic::catch_unwind`
     /// (directly or via the `ffi_catch_unwind!` / `syntax_catch!` macros)
     /// and therefore MUST stay on `panic = "unwind"`.
@@ -44,22 +42,8 @@ nonisolated struct CargoReleaseProfileTests {
         "substrate-core",
     ]
 
-    // MARK: - Repo-relative file resolution
-
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
-    private static func cargoTomlURL(crate: String) -> URL {
-        repoRoot()
-            .appendingPathComponent(crate, isDirectory: true)
-            .appendingPathComponent("Cargo.toml", isDirectory: false)
-    }
-
     private static func loadCargoToml(crate: String) throws -> String {
-        try String(contentsOf: cargoTomlURL(crate: crate), encoding: .utf8)
+        try loadMirroredSourceTextFile("\(crate)/Cargo.toml")
     }
 
     /// TOML comments routinely reference the *forbidden* alternative
@@ -169,12 +153,9 @@ nonisolated struct CargoReleaseProfileTests {
     @Test("catch_unwind site audit matches the unwind/abort split")
     func catchUnwindAuditMatchesSplit() throws {
         let fm = FileManager.default
-        let root = Self.repoRoot()
 
         for crate in Self.unwindCrates {
-            let srcURL = root.appendingPathComponent(crate, isDirectory: true)
-                .appendingPathComponent("src", isDirectory: true)
-            let found = try Self.scanForToken("catch_unwind", under: srcURL, fileManager: fm)
+            let found = try Self.scanForToken("catch_unwind", under: "\(crate)/src")
             #expect(
                 found,
                 "\(crate) is on unwindCrates but contains no `catch_unwind` reference under src/ — re-evaluate the split"
@@ -182,12 +163,11 @@ nonisolated struct CargoReleaseProfileTests {
         }
 
         for crate in Self.abortCrates {
-            let srcURL = root.appendingPathComponent(crate, isDirectory: true)
-                .appendingPathComponent("src", isDirectory: true)
+            let srcURL = try sourceMirrorURL(for: "\(crate)/src")
             // abort crates may not have a src/ at all (they could be pure
             // re-exports); only enforce when the directory exists.
             guard fm.fileExists(atPath: srcURL.path) else { continue }
-            let found = try Self.scanForToken("catch_unwind", under: srcURL, fileManager: fm)
+            let found = try Self.scanForToken("catch_unwind", under: "\(crate)/src")
             #expect(
                 !found,
                 "\(crate) is on abortCrates but contains a `catch_unwind` reference under src/ — must move to unwindCrates"
@@ -197,21 +177,47 @@ nonisolated struct CargoReleaseProfileTests {
 
     private static func scanForToken(
         _ token: String,
-        under directory: URL,
-        fileManager: FileManager
+        under relativeDirectory: String
     ) throws -> Bool {
-        guard let enumerator = fileManager.enumerator(
-            at: directory,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        ) else {
-            return false
-        }
-        while let item = enumerator.nextObject() as? URL {
-            guard item.pathExtension == "rs" else { continue }
-            let text = try String(contentsOf: item, encoding: .utf8)
+        let sourceFiles = try mirroredSourceFileURLs(
+            under: relativeDirectory,
+            includingExtensions: ["rs"]
+        )
+        for item in sourceFiles {
+            let text = try Self.releaseRelevantRustText(
+                String(contentsOf: item, encoding: .utf8)
+            )
             if text.contains(token) { return true }
         }
         return false
+    }
+
+    private static func releaseRelevantRustText(_ text: String) -> String {
+        var output = text
+        while let cfgRange = output.range(of: "#[cfg(test)]"),
+              let moduleRange = output.range(of: "mod tests", range: cfgRange.upperBound..<output.endIndex),
+              let openBrace = output[moduleRange.upperBound...].firstIndex(of: "{"),
+              let closeBrace = Self.matchingBrace(in: output, openingAt: openBrace) {
+            output.removeSubrange(cfgRange.lowerBound...closeBrace)
+        }
+        return output
+    }
+
+    private static func matchingBrace(in text: String, openingAt openBrace: String.Index) -> String.Index? {
+        var depth = 0
+        var index = openBrace
+        while index < text.endIndex {
+            let character = text[index]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return index
+                }
+            }
+            index = text.index(after: index)
+        }
+        return nil
     }
 }

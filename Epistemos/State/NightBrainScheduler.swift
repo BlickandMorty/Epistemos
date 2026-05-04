@@ -56,11 +56,28 @@ public enum NightBrainScheduler {
         SMAppService.agent(plistName: plistName)
     }
 
+    public static func bundledLaunchAgentURL(bundle: Bundle = .main) -> URL {
+        bundle.bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("LaunchAgents", isDirectory: true)
+            .appendingPathComponent(plistName, isDirectory: false)
+    }
+
+    public static func bundledLaunchAgentExists(bundle: Bundle = .main) -> Bool {
+        FileManager.default.fileExists(atPath: bundledLaunchAgentURL(bundle: bundle).path)
+    }
+
     // MARK: - Registration
 
     /// Register the LaunchAgent if it isn't already enabled.
     /// Idempotent — calling twice is a no-op when status is enabled.
     public static func register() throws {
+        guard bundledLaunchAgentExists() else {
+            log.info("NightBrain LaunchAgent plist is not bundled at Contents/Library/LaunchAgents; skipping registration until the helper target is packaged")
+            return
+        }
+
         let current = agent.status
         if current == .enabled { return }
         if current == .requiresApproval {

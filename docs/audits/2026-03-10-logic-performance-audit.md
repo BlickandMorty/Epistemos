@@ -1,5 +1,10 @@
 # 2026-03-10 Logic + Performance Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **Historical snapshot:** This audit was written before the later TK2-only editor cutover and pruning pass. References to deleted prose-editor files or then-current hot paths should be read as historical findings, not as claims about the current production tree.
 
 ## Executive Summary

@@ -1,0 +1,205 @@
+﻿Diagnostic Analysis of macOS 26 SwiftUI Input Event Delivery Failure
+Executive Summary
+The following document provides an exhaustive, low-level diagnostic analysis of a severe input suppression anomaly occurring within a macOS 26.3.1 (Tahoe) SwiftUI application environment. The observed pathology is characterized by a complete failure of the application to process mouse and keyboard events—excluding rigid window dragging operations via the title bar—despite the application rendering correctly, maintaining key and main window status, and possessing an unblocked main thread idling cleanly in mach_msg2_trap.
+An extensive architectural review of the project configuration, application code, linked dependencies, and the underlying macOS 26 AppKit and WindowServer subsystems reveals that this anomaly is not localized to a single logical error. Rather, the input death is the result of a complex, cascading failure caused by the intersection of recent regressions in the macOS 26 (Tahoe) operating system, architectural paradigm shifts introduced by the new "Liquid Glass" (Solarium) user interface framework, and specific implementation patterns within the application’s view hierarchy and lifecycle modifications.
+The diagnostic process isolates the root causes into several distinct failure domains: the macOS 26.3 AppKit event capture regression involving dynamic window style modifications, hit-testing desynchronization induced by alphaValue and CALayer.opacity mismatches in the new Liquid Glass rendering pipeline, Mach IPC deadlocks triggered by visually atomic changes during asynchronous window initialization, presentation engine state corruption from concurrent sheet modifiers, and potential responder chain hijacking induced by third-party accessibility and machine learning dependencies. This report systematically deconstructs each of these failure domains, detailing the underlying mechanisms, evaluating the telemetry, and providing actionable architectural remediations to restore input functionality.
+The macOS 26.3 AppKit Event Capture Regression
+The primary vector for the observed input death aligns precisely with a documented regression within the macOS 26 AppKit framework. In recent builds of macOS Tahoe—specifically the 26.3 Release Candidate and the 26.3.1 public release—a critical defect was introduced regarding how NSWindow objects route mouse events when their underlying style masks or collection behaviors are modified dynamically during or immediately after the window initialization phase.1
+Mechanism of the Click-Through Anomaly
+In macOS 26, the WindowServer relies on a heavily revised hit-testing hierarchy to accommodate the rounded corners, enhanced shadows, and deep transparency profiles of the new Liquid Glass design language.4 When an application dynamically strips window properties—such as removing the .titled style mask or modifying fullscreen collection behaviors—the underlying NSGlassContainerView fails to recalculate its event-capture geometry correctly.1
+The application codebase reveals the use of an applyMainWindowPolicyIfNeeded function within the app delegate that actively strips .fullScreenPrimary, .fullScreenAuxiliary, and .fullScreenAllowsTiling from the window's collectionBehavior. Furthermore, the ModularZoomWindowObserver reconfigures the zoom button target and action immediately after the SwiftUI window is presented. On macOS 26.3.1, these post-launch modifications to a borderless or heavily customized Window scene cause the window to enter a pathological "click-through" state.1 In this state, the window visually renders the SwiftUI content, but the WindowServer routes all mouseDown and mouseUp events to the desktop or the application directly behind it, effectively rendering the SwiftUI content dead to pointer interaction.1
+
+
+Behavior Profile
+	macOS 15 (Sequoia) Architecture
+	macOS 26 (Tahoe) Architecture
+	Dynamic styleMask mutation
+	Window recalculates hit-test region seamlessly.
+	Hit-test geometry detaches; events fall through to background applications.1
+	collectionBehavior stripping
+	Seamless update of window controls and tiling capabilities.
+	Breaks internal event routing in the newly introduced NSGlassContainerView.2
+	Custom Zoom Button overrides
+	Functional via standard AppKit responder targets.
+	Triggers visual desync or click-through anomalies when combined with Liquid Glass rendering.
+	Borderless/Transparent Windows
+	Opaque regions capture clicks accurately.
+	The entire transparent window intercepts events incorrectly, or fails to capture them entirely.1
+	The telemetry provided indicates that clicking the window allows it to be dragged by the title bar area, but does not pass events to the content view. This specific symptom confirms that the NSWindow frame is successfully intercepting the OS-level hit test at the WindowServer boundary, but the internal AppKitWindowHostingView is structurally bypassed due to the framework-level regression in the updated AppKit event routing logic.1 The frame itself retains its draggable properties, but the content payload is invisible to the NSEvent dispatcher.
+Hit-Testing Desynchronization in the Solarium Architecture
+A critical observation from the application's runtime telemetry is the severe desynchronization where the content view's alphaValue equals 0 while its CALayer.opacity equals 1. This specific mathematical state is not an application-level bug, but rather a direct, structural consequence of the "Solarium" (Liquid Glass) rendering pipeline introduced globally in macOS 26.5
+The Role of alphaValue in Cocoa Event Routing
+Historically, AppKit's - method relies heavily on the alphaValue property to determine user intent and view visibility. By fundamental framework design, if an NSView possesses an alphaValue lower than a specific internal threshold (typically 0.05), the hit-testing algorithm assumes the view is practically invisible. Consequently, the algorithm ignores the view entirely, passing the input event to the view geometrically beneath it.10
+In macOS 26, to achieve the deep volumetric blur, light refraction, and transparency characteristics required by Liquid Glass, Apple engineers decoupled the visual opacity of SwiftUI hosting views from their structural, CPU-side alphaValue.8 The AppKitWindowHostingView is intentionally assigned an alphaValue of 0 to allow the underlying, system-managed NSGlassEffectView to composite the background pixels. Meanwhile, the actual user interface elements (text, buttons, layouts) are rendered via Core Animation layers directly on the GPU with an opacity of 1.8
+The Impact of NSViewRepresentable and Hit Testing Modifiers
+The application architecture injects an NSViewRepresentable named ModularZoomWindowObserver as a .background() modifier, which is explicitly tagged with .allowsHitTesting(false).15 In macOS 26, when a root-level background view is explicitly instructed to drop hit tests, and the foreground SwiftUI hosting view possesses an alphaValue of 0, the AppKit hit-testing engine encounters an unresolvable logical contradiction.17
+Because the OS-level hit-test evaluates the structural NSView hierarchy before examining the internal SwiftUI layer tree, the alphaValue = 0 causes AppKit to completely bypass the primary hosting view. The input event is subsequently passed downward to the background view. However, the background view (ModularZoomWindowObserver) actively rejects the event due to the .allowsHitTesting(false) modifier.15 Consequently, the event is discarded entirely from the responder chain. This mechanism perfectly explains why an NSEvent local monitor for .leftMouseDown fails to fire: the event is forcefully rejected by the window's hit-test responder before it can ever be dispatched to the local event monitor queue.
+Hit-Test Evaluation Phase
+	View Component
+	State
+	Resulting Action
+	Phase 1: Foreground Evaluation
+	AppKitWindowHostingView
+	alphaValue == 0.0
+	View is deemed invisible by AppKit; event is passed downward.
+	Phase 2: Layer Evaluation
+	CALayer
+	opacity == 1.0
+	Ignored by CPU-side hit testing; strictly used by Render Server.
+	Phase 3: Background Evaluation
+	ModularZoomWindowObserver
+	allowsHitTesting(false)
+	Explicitly rejects input; event is dropped from responder chain.
+	Phase 4: Event Dispatch
+	NSEvent Local Monitor
+	Awaiting event
+	Starved of input; no events reach the monitor queue.
+	To verify if Liquid Glass is the sole architectural cause of this hit-testing collapse, it is possible to disable the Solarium UI on a strict per-app basis using the undocumented system default flag com.apple.SwiftUI.DisableSolarium.9 Reverting to the legacy macOS 15 rendering pipeline forces the alphaValue to synchronize with the layer opacity, which often restores input functionality by bypassing the NSGlassEffectView transparency logic.9
+Visually Atomic IPC Deadlocks and Main Thread Starvation
+The diagnostic observation that the main thread is not technically blocked—specifically, that the application is idling cleanly in mach_msg2_trap—is a crucial indicator that must be interpreted carefully. While the thread is technically idle and capable of processing runloop sources, it is actually caught in a synchronous Inter-Process Communication (IPC) wait state with the macOS WindowServer, waiting indefinitely for a visual transaction to complete.
+The NSPerformVisuallyAtomicChange Vulnerability
+A profound architectural shift in macOS 26 involves heavy WindowServer synchronization during window initialization, resizing, and style modification.23 Documented extensively in third-party framework trackers (such as the rust-based Tauri rendering engine), calling methods that modify window style masks, zoom states, or layout boundaries during the initial view presentation triggers a recursive loop within a newly implemented function called NSPerformVisuallyAtomicChange.23
+The application utilizes ModularZoomWindowObserver to apply a WindowPresentationPolicy precisely when the view moves to the window. Because this occurs during SwiftUI's asynchronous layout pass, invoking direct AppKit mutators—such as reconfiguring the zoom button, adjusting contentMinSize, or stripping collection behaviors—forces the WindowServer to pause all event delivery until the atomic visual change is committed to the display buffer.23
+If the visual transaction never resolves cleanly due to conflicting layout directives between the declarative SwiftUI engine and the imperative AppKit modifications, the WindowServer permanently suspends routing mouse and keyboard events to the application's Mach port.23 The main thread remains idle in mach_msg2_trap because it is waiting for an incoming Mach message containing the NSEvent, but the WindowServer is actively withholding the events due to the unresolved atomic visual state. The thread is not mathematically deadlocked in a mutex, but it is functionally starved of external hardware input.
+
+
+IPC Flow Component
+	Execution Context
+	Consequence in macOS 26 Architecture
+	Window Scene Initialization
+	SwiftUI Layout Engine
+	Triggers asynchronous visual construction and layer allocation.
+	ModularZoomWindowObserver
+	NSViewRepresentable Update
+	Fires a synchronous AppKit DOM mutation during the layout pass.
+	applyMainWindowPolicyIfNeeded
+	App Delegate Notification
+	Invokes NSPerformVisuallyAtomicChange locking the display pipeline.
+	WindowServer Mach Port
+	XNU Kernel Boundary
+	Suspends event delivery pending visual transaction completion, resulting in starvation.23
+	This mechanism elucidates why dragging the title bar continues to function: title bar dragging is handled entirely by the WindowServer's out-of-process dragging session. The WindowServer intercepting the drag does not require delivering a Mach message to the application's mach_msg2_trap loop. Thus, the window moves fluidly while the application interior remains entirely disconnected from the hardware.
+Responder Chain Corruption via Third-Party Dependencies
+The application links 28 Swift Package Manager dependencies and several Rust FFI static libraries via a bridging header. Given the highly specific nature of the input death, certain dependencies warrant rigorous scrutiny due to their deep interaction with the macOS event loop, hardware acceleration, and memory concurrency models.
+Accessibility APIs and the "Phantom Focus" Defect
+The application utilizes AXorcist, a robust library designed for UI automation and advanced accessibility interactions.24 Tools of this precise nature universally rely on macOS Accessibility APIs and the programmatic installation of CGEventTap routines to intercept, observe, or synthesize global system events.24
+macOS Tahoe (26.x) suffers from a heavily documented, OS-level "Phantom Focus" bug.26 Under specific, highly reproducible conditions—often exacerbated by the presence of active Accessibility API clients, extensive multiple display usage, or menu bar utilities—the WindowServer abruptly loses track of the active application's responder chain.26 The symptoms of the Phantom Focus bug perfectly mirror the application's telemetry: window focus switches to an invisible entity, keyboard input stops being delivered to any app, clicking the window visually highlights the frame without transferring actual interior focus, and the event routing pipeline resolves to a null state.26
+If AXorcist, or a linked Rust FFI library (such as a static initialization constructor utilizing the #[ctor] macro), installs a passive CGEventTap that fails to execute or return properly under the strict macOS 26 hardened runtime, the tap may silently swallow CGEvent objects at the Core Graphics layer. This interception occurs milliseconds before the events are translated into standard NSEvent objects and dispatched to the application's runloop.26 The app remains alive, but a rogue event tap operating in an unauthorized or unvalidated memory space consumes all incoming HID traffic.
+Thread Starvation and GPU Inference Layout Violations
+The inclusion of mlx-swift (utilized for on-device GPU inference) introduces another critical concurrency variable. Recent updates and issue trackers related to mlx-swift explicitly address severe bugs where updating published properties from background inference threads caused devastating SwiftUI layout engine violations and silent application failures on newer OS builds.27
+In Swift 6 and macOS 26, the MainActor isolation rules and the underlying Core Animation rendering loop are highly sensitive to cross-thread memory mutations.27 If an inference operation in the background of the application attempts to mutate the state of the SwiftUI Window or its associated data controllers, it can induce a silent layout engine failure.27 When the layout engine fails gracefully—meaning it halts operations without crashing the process—the view hierarchy becomes structurally inert. The visual state remains permanently frozen in its last rendered GPU frame, and the hit-testing tree is detached from the responder chain. This leads to the exact scenario described in the telemetry: the application renders its content correctly and beautifully, but absolutely no inner components react to user input, and even a bare Button component fails to trigger an action.
+
+
+Dependency
+	Functional Role
+	Potential Mechanism of Input Suppression
+	AXorcist
+	Accessibility & Automation
+	Installs a CGEventTap that inadvertently swallows events due to OS-level Phantom Focus bugs.25
+	Rust FFI Libraries
+	Graph Engine / Core
+	#[ctor] routines install faulty signal handlers that interfere with Mach messaging.
+	mlx-swift
+	GPU Inference
+	Background thread state mutation causes silent MainActor layout engine violations.27
+	CodeEditTextView
+	Text Editing
+	Attempts to synchronously request IME ranges, starving the main thread IPC.20
+	Multi-Sheet Architecture and Presentation Engine Deadlocks
+The application's root view structure utilizes three distinct .sheet() modifiers directly attached to the primary view hierarchy, bound to complex computed properties and application environment states. In macOS 26, the presentation of modal sheets relies entirely on the new Liquid Glass design language, which involves complex background blurs, nested presentation controllers, and z-index transparency calculations.29
+Recent diagnostic reports within the SwiftUI developer community indicate severe regressions regarding the use of multiple sheet modifiers in macOS 26 and iOS 26.30 Specifically, attaching multiple sheets that share state triggers, or evaluating multiple presentation states simultaneously upon launch, can cause the application's internal PresentationHostingController to enter an unresolvable, locked state.30
+When a sheet is initialized in a detached, overlapping, or conflicting state, the SwiftUI presentation engine automatically places an invisible, full-screen overlay over the root view to intercept touches intended for the background content, ensuring modal focus.29 If the state bindings (isPresented) for the sheets—such as the DiffApprovalSheet relying on a highly complex getter (bootstrap.vaultChatMutator.stagedDiff!= nil)—evaluate ambiguously or too rapidly during the initial asynchronous render pass, the presentation engine may deploy the invisible interception layer permanently without actually animating the visible sheet payload.30
+This invisible overlay acts as a complete, impenetrable barrier to all mouse and keyboard events. It actively blocks all physical interactions with the underlying RootView while leaving the window's title bar perfectly functional, as the title bar exists outside the SwiftUI z-index hierarchy. This architectural deadlock perfectly matches the reported symptoms, explaining why a bare button fails to respond if it is encapsulated within a scene plagued by faulty presentation state bindings.
+Scene Lifecycle: Window vs WindowGroup and State Restoration
+The application heavily customizes its launch parameters, explicitly utilizing the single-window Window("Epistemos", id: "main") scene type as opposed to the standard WindowGroup. Furthermore, the application employs a highly aggressive, triple-suppression strategy for application state restoration: invoking .restorationBehavior(.disabled) in SwiftUI, returning false in the AppKit delegate restoration hooks, and utilizing a custom SavedApplicationStatePurger during application launch.33
+In macOS 26, entirely disabling state restoration fundamentally alters how the OS WindowServer registers the application's Application Serial Number (ASN) and manages its lifecycle upon launch.33 When a SwiftUI Window scene is launched with disabled restoration and its window identity explicitly overridden by the developer, the WindowServer expects the application to manually and definitively assert its responder status.36
+The aggressive purging of the saved state file (~/Library/Saved Application State/), combined with the refusal to participate in the Cocoa restoration protocol, may cause the SwiftUI window to initialize in an orphaned responder tier. In this highly unusual state, the window is visually designated as both the main and key window, but it is technically disconnected from the WindowServer's active event queue routing table. Because the Window scene relies heavily on persistent identity markers to route events, destroying these markers prematurely ensures the application never receives hardware interrupts.
+
+
+Lifecycle Configuration
+	Standard macOS Behavior
+	Pathological Consequence in macOS 26
+	Window Scene Type
+	Single, identifiable window instance.
+	Highly sensitive to identity tracking; easily orphaned if state is wiped.36
+	restorationBehavior(.disabled)
+	Prevents reopening of past windows.
+	Alters WindowServer ASN registration sequence.33
+	App Delegate return false
+	Instructs AppKit to drop saved states.
+	Creates conflict between AppKit intention and SwiftUI scene management.
+	SavedApplicationStatePurger
+	Deletes disk artifacts.
+	Removes the final fallback mechanism for WindowServer to route events to a specific session ID.
+	Security Policies: Hardened Runtime and Ad-Hoc Constraints
+The application is deployed utilizing ad-hoc signing (CODE_SIGN_IDENTITY = "-"), the Hardened Runtime enabled, and a highly permissive suite of debug entitlements including disable-library-validation, allow-jit, and allow-unsigned-executable-memory.
+In the updated security architecture of macOS 26, Gatekeeper and the WindowServer impose significantly stricter operational constraints on applications utilizing the disable-library-validation entitlement.38 The disable-library-validation entitlement is specifically designed to permit the loading of arbitrary, unsigned, or differently-signed plug-ins and dynamic libraries, bypassing the standard cryptographic trust chain.38 However, the macOS 26 security daemon treats processes bypassing library validation with elevated suspicion to proactively prevent DLL hijacking and malicious code injection attacks.38
+While the operating system allows the application to launch and successfully load the dynamic Rust FFI static libraries via the bridging header, the WindowServer and the core security kernel may quietly restrict the application's ability to receive secure input or process global event monitoring.39
+If the application attempts to utilize advanced Accessibility privileges (via the AXorcist dependency) or globally hook window zooming and resizing operations, the macOS Transparency, Consent, and Control (TCC) subsystem may silently drop the event delivery pipeline. This is enacted as an automated security measure against potential clickjacking or keylogging from an unvalidated, ad-hoc signed library.38 Because ad-hoc signatures lack cryptographic verification from an Apple Developer certificate, the Hardened Runtime defaults to maximum restriction regarding hardware input delivery, resulting in an application that looks pristine but is algorithmically deafened to user commands.
+
+
+Entitlement / Security Flag
+	intended Purpose
+	macOS 26 Hardened Runtime Reaction
+	disable-library-validation
+	Load unsigned Rust/SPM libraries.
+	WindowServer may restrict global secure input delivery.38
+	Ad-Hoc Signing (-)
+	Local developer iteration.
+	Strips verified team identifiers, causing Gatekeeper to elevate event monitoring scrutiny.39
+	allow-jit
+	Machine learning / parsing compilation.
+	Forces process into a specialized memory enclave; generally safe for input unless combined with unvalidated memory.39
+	Accessibility API Usage
+	UI Automation via AXorcist.
+	Requires TCC approval; silently fails to deliver events if the binary signature is untrusted.25
+	Strategic Architectural Remediations
+The catastrophic failure of input delivery in this macOS 26.3.1 SwiftUI application is not localized to a single faulty line of Swift code, but rather emerges from a systemic, multi-layered collision between the application's lifecycle architecture and newly introduced macOS Tahoe framework regressions. To definitively restore event routing and application interactivity, the architectural configuration must be systematically decoupled from the identified macOS 26 anomalies.
+The application must immediately cease post-launch window mutations. The logic embedded within the applyMainWindowPolicyIfNeeded function must be removed from the applicationDidFinishLaunching notification hooks. Dynamically stripping .fullScreenPrimary and modifying the styleMask after the window has been initialized is the primary trigger for the 26.3 click-through regression, which destroys the event geometry of the NSGlassContainerView.
+Furthermore, the hit-testing interception must be eliminated. The ModularZoomWindowObserver must be removed from the .background() modifier. The explicit use of .allowsHitTesting(false) on a background representable under the new Liquid Glass architecture prevents the correct resolution of - when the root view's alphaValue is fundamentally desynchronized from its Core Animation opacity.
+The presentation modifiers must also be isolated. The three .sheet() modifiers should be abstracted entirely out of the Window scene's root hierarchy and managed via a strictly isolated, state-driven router view. This isolation is necessary to prevent the SwiftUI presentation engine from deploying an invisible, event-blocking modal overlay during the initial rendering phase when complex state bindings evaluate ambiguously.
+To conclusively verify the impact of the Solarium hit-testing desynchronization and provide immediate diagnostic clarity, the application should be launched from the terminal with the com.apple.SwiftUI.DisableSolarium default flag set to YES. This action will revert the window rendering infrastructure to the legacy macOS 15 pipeline, realigning alphaValue with CALayer.opacity and entirely bypassing the NSGlassEffectView hit-test bugs inherent in Tahoe.
+Finally, a rigorous audit of dependency threading is required. It must be ensured that mlx-swift and any associated Rust FFI callbacks strictly utilize @MainActor isolation when updating observed application state. Preventing cross-thread mutations is critical to avoiding silent background layout engine violations, which gracefully detach the responder chain without crashing the process, leaving the application visually perfect but entirely inert.
+Works cited
+1. Custom NSWindow styleMask behavior changed/broken resulting in unresizable or non-responsive windows in macOS Tahoe 26.3 RC - Apple Developer, accessed April 16, 2026, https://developer.apple.com/forums/thread/814798
+2. Unable to resize Stickies on MacOS Tahoe 26.3 (25D122) : r/MacOSBeta - Reddit, accessed April 16, 2026, https://www.reddit.com/r/MacOSBeta/comments/1qz3rt9/unable_to_resize_stickies_on_macos_tahoe_263/
+3. Mouse clicking not working in MacOs Tahoe 26.3 RC - Bug Report - Blizzard Forums, accessed April 16, 2026, https://us.forums.blizzard.com/en/d3/t/mouse-clicking-not-working-in-macos-tahoe-263-rc/66981
+4. macOS Tahoe 26.3 fixes two annoying design problems [Update: Nope] - 9to5Mac, accessed April 16, 2026, https://9to5mac.com/2026/02/11/macos-tahoe-26-3-fixes-two-annoying-design-problems/
+5. Live Blog of Apple's WWDC 2025 Keynote - iClarified, accessed April 16, 2026, https://www.iclarified.com/97537/live-blog-of-apples-wwdc-2025-keynote
+6. Apple has a transparency issue. - Reddit, accessed April 16, 2026, https://www.reddit.com/r/apple/comments/1r38w6w/apple_has_a_transparency_issue/
+7. AppKit | Apple Developer Forums, accessed April 16, 2026, https://developer.apple.com/forums/tags/appkit/?page=4&sortBy=oldest
+8. Acorn Release Notes - Flying Meat Software, accessed April 16, 2026, https://flyingmeat.com/acorn/releasenotes.html
+9. [Open Source] Disable Liquid Glass with SolidGlass : r/macapps - Reddit, accessed April 16, 2026, https://www.reddit.com/r/macapps/comments/1nz6tco/open_source_disable_liquid_glass_with_solidglass/
+10. alphaValue | Apple Developer Documentation, accessed April 16, 2026, https://developer.apple.com/documentation/appkit/nsview/alphavalue
+11. Setting a View (Text() for example) opacity to 0 or background to Color.clear causes it to not be drawn - Stack Overflow, accessed April 16, 2026, https://stackoverflow.com/questions/71453995/setting-a-view-text-for-example-opacity-to-0-or-background-to-color-clear-ca
+12. In SwiftUI for MacOS, How to make ignore mouse event for view? - Stack Overflow, accessed April 16, 2026, https://stackoverflow.com/questions/70690537/in-swiftui-for-macos-how-to-make-ignore-mouse-event-for-view
+13. [macOS] New NSGlassEffectView in macOS 26.0 beta - way more opaque than Dock, how to match transparency? : r/SwiftUI - Reddit, accessed April 16, 2026, https://www.reddit.com/r/SwiftUI/comments/1l86rue/macos_new_nsglasseffectview_in_macos_260_beta_way/
+14. Blog - Liquid Glass Disbelief - Michael Tsai, accessed April 16, 2026, https://mjtsai.com/blog/2025/12/29/liquid-glass-disbelief/
+15. How to disable user interaction on SwiftUI view? - Stack Overflow, accessed April 16, 2026, https://stackoverflow.com/questions/57896392/how-to-disable-user-interaction-on-swiftui-view
+16. Unable to tap through a disabled SwiftUI View to a ViewController - Apple Developer, accessed April 16, 2026, https://developer.apple.com/forums/thread/650433
+17. Fixing Tap Interactions in iOS 18: Understanding and Resolving the Root View Hit Testing Issue | by Adarsh Ranjan | Medium, accessed April 16, 2026, https://medium.com/@adarsh.ranjan/fixing-tap-interactions-in-ios-18-understanding-and-resolving-the-root-view-hit-testing-issue-37c6c858e2d4
+18. swift - NSHostingView with SwiftUI gestures not receiving mouse ..., accessed April 16, 2026, https://stackoverflow.com/questions/79862332/nshostingview-with-swiftui-gestures-not-receiving-mouse-events-behind-another-ns
+19. Minimised apps flash on screen for a split second when resumed : r/MacOS - Reddit, accessed April 16, 2026, https://www.reddit.com/r/MacOS/comments/1oa6aeb/minimised_apps_flash_on_screen_for_a_split_second/
+20. Blog - macOS Tahoe 26 - Michael Tsai, accessed April 16, 2026, https://mjtsai.com/blog/2025/09/15/macos-tahoe-26/
+21. How to Reduce Liquid Glass on macOS Tahoe - OS X Daily, accessed April 16, 2026, https://osxdaily.com/2025/10/07/how-reduce-liquid-glass-macos-tahoe/
+22. TIP: To Have The Controls In Music Back On Top + Restore Status Bar At Bottom, accessed April 16, 2026, https://discussions.apple.com/thread/256161219
+23. Main thread deadlock in is_zoomed() on macOS 26.x (Tahoe) via NSPerformVisuallyAtomicChange · Issue #1193 · tauri-apps/tao - GitHub, accessed April 16, 2026, https://github.com/tauri-apps/tao/issues/1193
+24. Unlocking Your Mac with AI: A Deep Dive into the macOS Automator MCP Server - Skywork, accessed April 16, 2026, https://skywork.ai/skypage/en/macos-ai-automator-unlocking/1981180204707401728
+25. Peter Steinberger @steipete - GitHub, accessed April 16, 2026, https://github.com/steipete
+26. macOS “Phantom Focus” Bug – Window Focus Switches to Nothing, Keyboard Input Stops Working - Apple Support Community, accessed April 16, 2026, https://discussions.apple.com/thread/256232766
+27. What's New | Privacy AI, accessed April 16, 2026, https://privacyai.acmeup.com/whats_new.html
+28. Privacy AI: Powerful chatbot - App Store - Apple, accessed April 16, 2026, https://apps.apple.com/md/app/privacy-ai-powerful-chatbot/id6738392421
+29. SwiftUI sheet: background appears above the sheet when using .presentationDetents (iOS 26 regression) - Stack Overflow, accessed April 16, 2026, https://stackoverflow.com/questions/79843384/swiftui-sheet-background-appears-above-the-sheet-when-using-presentationdetent
+30. Dismissing multiple sheets to present different sheet freezes app · Issue #3779 · pointfreeco/swift-composable-architecture - GitHub, accessed April 16, 2026, https://github.com/pointfreeco/swift-composable-architecture/issues/3779
+31. SwiftUI | Apple Developer Forums, accessed April 16, 2026, https://developer.apple.com/forums/tags/swiftui
+32. Sheet View issues when programmatically dismissed : r/SwiftUI - Reddit, accessed April 16, 2026, https://www.reddit.com/r/SwiftUI/comments/1l0rz79/sheet_view_issues_when_programmatically_dismissed/
+33. disabled | Apple Developer Documentation, accessed April 16, 2026, https://developer.apple.com/documentation/swiftui/scenerestorationbehavior/disabled
+34. Customizing window styles and state-restoration behavior in macOS - Apple Developer, accessed April 16, 2026, https://developer.apple.com/documentation/SwiftUI/Customizing-window-styles-and-state-restoration-behavior-in-macOS
+35. SceneRestorationBehavior #423 - moreSwift/swift-cross-ui - GitHub, accessed April 16, 2026, https://github.com/moreSwift/swift-cross-ui/issues/423
+36. SwiftUI | Apple Developer Forums, accessed April 16, 2026, https://developer.apple.com/forums/forums/topics/ui-frameworks-topic/ui-frameworks-topic-swiftui
+37. Multi-Window Support in SwiftUI: iPadOS and macOS | by Jerry PM | Mar, 2026 | Medium, accessed April 16, 2026, https://21zerixpm.medium.com/multi-window-support-in-swiftui-ipados-and-macos-53daa5a2e94e
+38. Disable Library Validation Entitlement | Apple Developer Documentation, accessed April 16, 2026, https://developer.apple.com/documentation/BundleResources/Entitlements/com.apple.security.cs.disable-library-validation
+39. Hardened Runtime | Apple Developer Documentation, accessed April 16, 2026, https://developer.apple.com/documentation/security/hardened-runtime
+40. TinkerTool System 9 Reference Manual, accessed April 16, 2026, https://www.bresink.com/Downloads/TTS9Manual-en.pdf
+41. Apparency | Frequently Asked Questions - Mothers Ruin Software, accessed April 16, 2026, https://www.mothersruin.com/software/Apparency/faq.html
+42. Zero Day Vulnerability Microsoft Delivered to macOS - AFINE - digitally secure, accessed April 16, 2026, https://afine.com/breaking-hardened-runtime-the-0-day-microsoft-delivered-to-macos

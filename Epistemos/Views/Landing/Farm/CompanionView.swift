@@ -76,27 +76,13 @@ struct CompanionView: View {
     /// + a small text "idle" badge so the user knows the surface is
     /// alive but not animating. Invariant I-14 conformance.
     private var staticBody: some View {
-        ZStack {
-            Circle()
-                .fill(accent.opacity(0.18))
-                .frame(width: size * 1.1, height: size * 1.1)
-            Image(systemName: entry.bodyKind.systemImageName)
-                .resizable()
-                .scaledToFit()
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [accent, accent.opacity(0.7)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .padding(size * 0.18)
-            Text("idle")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .offset(y: size * 0.55)
-        }
+        CompanionAvatarGlyph(
+            kind: entry.bodyKind,
+            accent: accent,
+            phase: 0.5,
+            reduceMotionOverride: true,
+            showsIdleBadge: true
+        )
     }
 
     /// Idle animation per Invariant I-5 (`cosmetic_idle`): slow breathe
@@ -106,37 +92,13 @@ struct CompanionView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
             let breathe = Self.breathePhase(at: context.date,
                                             seedString: entry.identityHash)
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                accent.opacity(0.30 + 0.12 * breathe),
-                                accent.opacity(0.06),
-                                .clear,
-                            ],
-                            center: .center,
-                            startRadius: size * 0.10,
-                            endRadius: size * 0.65
-                        )
-                    )
-                    .frame(width: size * 1.20, height: size * 1.20)
-                    .scaleEffect(0.96 + 0.04 * breathe)
-
-                Image(systemName: entry.bodyKind.systemImageName)
-                    .resizable()
-                    .scaledToFit()
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [accent, accent.opacity(0.65)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .padding(size * 0.18)
-                    .scaleEffect(0.98 + 0.02 * breathe)
-            }
+            CompanionAvatarGlyph(
+                kind: entry.bodyKind,
+                accent: accent,
+                phase: breathe,
+                reduceMotionOverride: false
+            )
+            .scaleEffect(0.98 + 0.02 * breathe)
         }
     }
 

@@ -1,0 +1,482 @@
+# **Epistemos Architectural Specification: Typestate and Zero-Allocation Resilience on Apple Silicon**
+
+## **1\. Executive Verdict**
+
+The architectural evaluation for the Epistemos macOS-native AI knowledge application focuses on two advanced paradigms: compile-time typestate (capability-state) architecture and zero-allocation bit-level circuit breakers. The objective is to design a high-performance, memory-safe, and architecturally honest system bridging Swift 6.2, Rust, and Apple Silicon's MLX framework.1
+
+Based on a comprehensive analysis of modern systems engineering standards, the executive verdict provides definitive guidance on the adoption of these patterns.
+
+**Is full app-wide typestate worth it?**
+
+The implementation of a full, app-wide typestate architecture is an overengineering hazard that actively conflicts with the realities of macOS application development. Swift 6.2 is not naturally entirely typestate-oriented in the manner that Rust is.4 Forcing \~Copyable types and consuming state transitions across the entire application—especially within SwiftUI view hierarchies, asynchronous boundary crossings, and database persistence layers—will result in severe ergonomic degradation and developer friction.7 SwiftUI relies on observable, reference-based, or easily copiable value types to compute interface diffs. Injecting strict linear ownership into this domain breaks the core paradigms of declarative UI engineering.
+
+**Is a zero-allocation bit-level breaker worth it?**
+
+Implementing a zero-allocation, bit-packed ring buffer using atomic operations is highly justified, provided it is strictly isolated to high-frequency boundaries. Utilizing an AtomicU64 bitset for circuit breaking is mandatory at the Foreign Function Interface (FFI) boundary, within the local MLX inference event loop, and during high-throughput subprocess inter-process communication (IPC).9 For basic cloud API retries, a bit-level breaker is an elegant refinement but not a strict necessity. However, adopting a unified lock-free, zero-allocation breaker across all domains ensures consistent sub-millisecond latency and eliminates garbage collection and Automatic Reference Counting (ARC) overhead entirely.12
+
+**What is the real “holy grail” hierarchy for Epistemos?**
+
+The true "holy grail" architecture for Epistemos in 2026 demands a hierarchical integration of these patterns rather than universal application. The optimal architectural hierarchy is defined as follows:
+
+1. **Honest FFI Boundaries**: The foundational requirement is migrating away from global HandleMaps to Arc::into\_raw() for zero-cost, memory-safe Rust/Swift interoperation.14  
+2. **Per-Domain Resilience & Centralized Thermal Control**: The system must integrate ProcessInfo.thermalState directly into the circuit breaker logic to preempt hardware throttling on Apple Silicon M-series chips.15  
+3. **Selective Typestate Islands**: Swift 6.2 \~Copyable types must be utilized strictly for high-risk resource lifecycles: subprocess execution via the Hermes runtime, local model sessions via FoundationModels, and secure cryptographic capability tokens.18  
+4. **Actor-Isolated UI State**: The strict compile-time typestate logic must be encapsulated within runtime Swift Actors to provide observable, Sendable state to SwiftUI without exposing the view layer to \~Copyable ownership complexities.20
+
+## **2\. What These Patterns Actually Mean**
+
+Understanding the systemic implications of typestate and bit-level circuit breakers is critical before applying them to a mixed Swift and Rust architecture.
+
+### **2.1 Plain English Explanation and System-Level Meaning of Typestate**
+
+Typestate is a design pattern that encodes the operational state of a system directly into its type signature, shifting the validation of state machine transitions from runtime checks to compile-time guarantees.5 In a traditional application, an object representing a database connection or a machine learning model might rely on an enumeration property, such as var state: State. Developers must subsequently write manual runtime guard checks to ensure operations only proceed when the object is in a valid state. If a developer invokes a method in an incorrect state, the application either crashes or processes corrupted logic.
+
+Typestate eliminates this category of runtime errors. State transitions explicitly consume the underlying object in memory and return a distinctly new type.6 For example, an UnloadedModel type might expose a method defined as consuming func load() \-\> LoadedModel. Once this method is invoked, the UnloadedModel instance is permanently invalidated by the compiler.4 Any subsequent attempts in the source code to utilize the original variable will result in a hard compile-time error.
+
+In a macOS application handling complex asynchronous boundaries, typestate provides absolute guarantees that resources are not double-freed, file descriptors are not read after closing, and local AI models are not queried prior to their weights being loaded into Apple Silicon's unified memory.18 However, this demands strict linear ownership of memory, which inherently limits how state can be shared, referenced, or observed by user interfaces. The primary risk of typestate is the exponential increase in architectural rigidity.
+
+### **2.2 Plain English Explanation and System-Level Meaning of Bit-Level Breakers**
+
+A circuit breaker is a resilience pattern that prevents catastrophic cascading failures by wrapping dangerous or unpredictable operations. If an operation fails repeatedly, the breaker "trips" into an open state, instantly rejecting further calls to give the failing system time to recover, before eventually entering a "half-open" state to probe for recovery.23
+
+Standard implementations, such as those descending from the Hystrix lineage, utilize rolling windows of timestamps or dynamic arrays of booleans. This generates significant heap allocations, ARC churn, and garbage collection pressure, as every incoming request forces the application to allocate a new timestamp object and shift an array in memory.9
+
+A zero-allocation bit-level breaker avoids heap allocation entirely by utilizing a fixed-memory bitset, typically a single 64-bit integer (AtomicU64). Each bit within the integer represents the success (0) or failure (1) of a single discrete request.13 By applying lock-free bitwise shift operations, the system tracks the sliding window of the last 64 requests with zero memory allocation. The failure rate is calculated in a single CPU clock cycle using a hardware population count instruction.27 The system-level benefit is a completely lock-free resilience mechanism that is immune to garbage collection pauses and executes in nanoseconds, making it uniquely suited for the extreme throughput demands of local AI inference and FFI boundaries.29
+
+## **3\. State-of-the-Art Patterns**
+
+The convergence of Swift 6.2, modern Rust FFI, and Apple Silicon architectures defines the state-of-the-art for local AI applications.
+
+### **3.1 Best Practices in Swift 6.2**
+
+The introduction of \~Copyable (noncopyable) structs and enums via SE-0390 revolutionized Swift systems programming.31 A \~Copyable type guarantees unique ownership and enables the use of consuming, borrowing, and inout parameter modifiers to manage memory lifecycles explicitly without reference counting overhead.4
+
+Swift 6.2 advances this significantly with SE-0427 (Noncopyable Generics) and SE-0429 (Partial Consumption). SE-0427 allows protocols, generic parameters, and associated types to suppress the default Copyable requirement, enabling the creation of zero-cost generic data structures like Result\<T: \~Copyable, Error\> or Optional\<T: \~Copyable\>.32 This is critical for propagating typestate failure paths without triggering implicit data copies.
+
+Furthermore, Swift 6.2 refines the Sendable architecture. The compiler can now infer Sendable on unapplied references and safely manage actor-isolated protocol conformances. This allows developers to bridge strictly owned \~Copyable types into concurrent contexts using Task and Actor boundaries safely, ensuring that noncopyable resources do not trigger data races.20 The state-of-the-art practice involves wrapping low-level \~Copyable structures inside high-level actors, isolating the strict memory management from the declarative UI.
+
+### **3.2 Best Practices in Rust**
+
+Rust's ownership model naturally enforces typestate patterns without the need for specialized syntax. The state-of-the-art in Rust resilience engineering focuses on lock-free concurrency and zero-allocation data structures. Crates implementing atomic bitsets leverage std::sync::atomic::AtomicU64 with precise memory ordering semantics (Ordering::SeqCst, Ordering::Acquire, Ordering::Relaxed) to manage state transitions across highly contended threads.13
+
+For high-performance ring buffers, the standard practice has shifted away from mutex-locked vectors toward lock-free implementations utilizing compare\_exchange\_weak loops to update cursor positions safely without blocking producer or consumer threads.29 This is heavily utilized in high-frequency trading and audio processing, directly applicable to the rapid token generation cycles of Local Language Models (LLMs).12
+
+### **3.3 Best Practices in Mixed Swift/Rust Apps (UniFFI)**
+
+Historically, passing object instances across the Rust/Swift boundary via Mozilla's UniFFI relied on HandleMaps. The Rust layer wrapped an object in an Arc (Atomically Reference Counted pointer), placed it in a globally locked HashMap, and passed a u64 numeric handle to Swift. When Swift invoked a method, UniFFI looked up the handle, acquired a mutex lock, and executed the method.14
+
+State-of-the-art implementations in 2026 bypass HandleMaps entirely. Modern UniFFI and FFI designs utilize Arc::into\_raw() to convert a reference-counted Rust object directly into a raw memory pointer (\*const T). This pointer is passed to Swift and wrapped in a \~Copyable class or struct with a custom deinit that calls a Rust function utilizing Arc::from\_raw() to decrement the reference count safely.14 This "honest FFI" pattern eliminates global locks, ensures strict zero-cost identity mapping, and resolves multi-threading contention bottlenecks that previously plagued local Swift/Rust applications.14
+
+### **3.4 Apple Silicon and MLX Performance Context**
+
+Epistemos leverages the MLX array framework for local model execution.39 Apple Silicon's unified memory architecture allows the CPU and GPU to share physical memory without PCIe transfer overhead, leading to massive bandwidth advantages.1 However, running continuous inference on models ranging from 4B to 30B parameters introduces severe thermal challenges.42
+
+The Apple M5 Max chip can peak at roughly 80W of power draw but stabilizes around 50W when subjected to sustained workloads to prevent overheating.17 If Epistemos relies blindly on the macOS kernel to throttle the process, inference latency will become wildly erratic. Modern resilience engineering dictates that the application must proactively read ProcessInfo.processInfo.thermalState.15 If the state transitions to .serious or .critical 43, a thermal-aware circuit breaker must forcefully degrade the application mode to shed thermal load before hardware throttling occurs.44
+
+## **4\. Typestate Implementation Architectures**
+
+The implementation of typestate must be measured against the architectural realities of macOS.
+
+### **4.1 Full App-Wide Version**
+
+A full app-wide typestate architecture dictates that every application domain—routing, network requests, database transactions, UI rendering—is modeled as a series of noncopyable types traversing through consuming transitions.6
+
+While mathematically elegant, applying this to a macOS application is a severe anti-pattern. SwiftUI fundamentally expects state to be observable, reference-based, and heavily copiable. Recompiling view hierarchies relies on evaluating snapshots of state rapidly. If the core application state is defined as \~Copyable, it cannot be injected into SwiftUI's @State or @Environment property wrappers without massive, brittle abstraction layers. Furthermore, moving noncopyable types deeply through asynchronous task groups and persistence layers introduces severe lifetime verification errors (usage of a noncopyable type that compiler can't verify) that actively block compilation in Swift 6.2.7 The maintainability hazards of forcing typestate too widely include overwhelming boilerplate and the inability to use standard Swift higher-order functions like map or filter on state collections.
+
+### **4.2 Hybrid Selective Version**
+
+The optimal strategy isolates typestate strictly to "dangerous" system domains where misuse leads to memory leaks, undefined behavior, or logic corruption. These domains are encapsulated within Typestate Islands. Surrounding these islands are standard Swift Actors that manage concurrent access, hold the current valid capability token, and expose safe, copiable snapshots of the state to SwiftUI.
+
+Typestate provides the highest return on investment (ROI) in the following domains for Epistemos:
+
+1. **FFI Handles:** Wrapping raw Rust pointers in \~Copyable structs guarantees they are never double-freed and always passed across the boundary exactly once.22  
+2. **Subprocess Lifecycle:** A subprocess (such as the Hermes AI tool execution engine) transitions from Unlaunched to Running to Terminated. Utilizing \~Copyable ensures no developer attempts to write to the standardInput of a Terminated process.8  
+3. **Model/Session Lifecycle:** MLX LLM instances require massive unified memory allocations. Using typestate guarantees that a LoadedModelSession is explicitly consumed and dropped, freeing unified memory via mlx\_free, before a new session can be instantiated.48  
+4. **Capability Tokens:** Creating ReadOnlyVaultToken or ReadWriteVaultToken structs acts as unforgeable cryptographic capabilities for database interactions.18
+
+### **4.3 Recommendation for Epistemos and Concrete Code Patterns**
+
+Epistemos must adopt the Hybrid Selective Architecture. Typestate is utilized strictly for resource lifecycles, heavily wrapped in Actor isolation to bridge to SwiftUI.
+
+#### **Concrete Code Pattern: Typestate MLX Session Bridged to Actor (Swift 6.2)**
+
+Swift
+
+// Typestate Island: Strict memory ownership and transition logic  
+struct UnloadedModelSession: \~Copyable {  
+    let modelID: String  
+      
+    // Transition 1: Consumes the unloaded state to produce a loading state  
+    consuming func beginLoad() \-\> LoadingModelSession {  
+        return LoadingModelSession(modelID: modelID)  
+    }  
+}
+
+struct LoadingModelSession: \~Copyable {  
+    let modelID: String  
+      
+    // Transition 2: Resolves loading to either a Loaded state or fails  
+    // SE-0427 allows Result to contain \~Copyable types  
+    consuming func finalizeLoad(weights: UnsafeRawPointer?) \-\> Result\<LoadedModelSession, ModelError\> {  
+        guard let weights \= weights else { return.failure(.corruptWeights) }  
+        return.success(LoadedModelSession(modelID: modelID, pointer: weights))  
+    }  
+}
+
+struct LoadedModelSession: \~Copyable {  
+    private let modelID: String  
+    private let pointer: UnsafeRawPointer  
+      
+    // Borrowing allows usage without destroying the token  
+    borrowing func generate(prompt: String) \-\> String {  
+        // Interacts with MLX FFI  
+        return "Generated text based on weights..."  
+    }  
+      
+    // Transition 3: Explicit cleanup  
+    consuming func unload() {  
+        mlx\_free\_model(pointer)  
+        // Discard self prevents the deinit from double-freeing  
+        discard self  
+    }  
+      
+    deinit {  
+        // Fallback cleanup if the token goes out of scope unexpectedly  
+        mlx\_free\_model(pointer)  
+    }  
+}
+
+// Actor Boundary: Safe concurrent access and SwiftUI observation  
+actor SessionManager {  
+    // The strict typestate is hidden inside the actor  
+    private var activeSession: LoadedModelSession?  
+      
+    // The safe, copiable state exposed to SwiftUI  
+    @Published private(set) var uiState: ObservableSessionState \=.idle  
+      
+    func startGenerating(prompt: String) async throws \-\> String {  
+        guard let session \= activeSession else {  
+            throw Error.notLoaded  
+        }  
+        // Borrowing the noncopyable state safely within actor isolation  
+        return session.generate(prompt: prompt)  
+    }  
+}
+
+This pattern cleanly separates compile-time safety (preventing resource leaks) from runtime actor concurrency (preventing race conditions) and UI reactivity.
+
+## **5\. Circuit Breaker Implementation Architectures**
+
+The evaluation of circuit breaker designs reveals distinct performance profiles under high load.
+
+### **5.1 Naive vs. Rolling Timestamp vs. Fixed-Capacity Ring**
+
+The **Naive Breaker** tracks total failures versus successes globally. It cannot age out historical data, meaning a burst of failures during application startup might permanently trip the breaker, requiring manual resets.49
+
+The **Rolling Timestamp Window** records the exact nanosecond of every event in a queue.9 While accurate, storing 10,000 timestamps requires dynamic heap allocation, constant pruning via background threads, and significant garbage collection and ARC overhead. Under heavy inference load, this exacerbates memory contention.
+
+The **Fixed-Capacity Array Ring** utilizes a fixed array (e.g., \`\`) and a sliding pointer. While better than dynamic arrays, it still requires mutex locks or actor serialization to update the array safely across concurrent threads, leading to severe lock contention under high multi-threaded load.12
+
+### **5.2 Bit-Packed / Zero-Allocation Breaker**
+
+For Epistemos, the state-of-the-art solution is the **Bit-Packed Circuit Breaker**. Instead of an array, the rolling window is encoded directly into the bits of a single 64-bit integer (AtomicU64).10
+
+A 0 bit represents a successful inference or FFI call, while a 1 bit represents a timeout, thermal failure, or crash. A sliding window of 64 requests requires exactly 8 bytes of memory. Updating the breaker requires only atomic bitwise shifts, avoiding locks entirely.29 Calculating the failure rate relies on the CPU's native population count instruction (popcnt or tzcnt on ARM64) to count the number of 1 bits instantly, providing O(1) performance with zero memory allocation.27
+
+### **5.3 Recommendation for Epistemos and Concrete Code Patterns**
+
+A bit-level breaker is not merely an elegant refinement; it is highly critical for the FFI boundaries and the local MLX inference engine. The interface between Swift and MLX processes thousands of tokens per second.41 If the MLX runtime encounters a memory fault or thermal spike, a timestamp-based array breaker would allocate thousands of objects per second just to record failures, exacerbating the thermal pressure.53 A zero-allocation bit-level breaker tracks these events natively, functioning as a true system-level hardware fuse.55
+
+#### **Concrete Code Pattern: Rust Atomic Bitset Breaker with Cache Padding**
+
+Apple Silicon M-series chips utilize 128-byte L1 cache lines. If the bit-breaker is not padded, concurrent reads from other variables in the same memory region will cause "false sharing," forcing the CPU to continuously flush and reload the L1 cache, destroying lock-free performance.12
+
+Rust
+
+use std::sync::atomic::{AtomicU64, AtomicU32, Ordering};
+
+// Padding to prevent false sharing on Apple Silicon 128-byte cache lines  
+\#\[repr(align(128))\]  
+pub struct BitwiseBreaker {  
+    // The rolling window of the last 64 request outcomes  
+    history: AtomicU64,  
+    // State: 0=Closed, 1=Open, 2=HalfOpen  
+    state: AtomicU32,  
+    // Thermal threshold modifier (0-100)  
+    thermal\_penalty: AtomicU32,  
+}
+
+impl BitwiseBreaker {  
+    pub fn new() \-\> Self {  
+        Self {  
+            history: AtomicU64::new(0),  
+            state: AtomicU32::new(0),  
+            thermal\_penalty: AtomicU32::new(0),  
+        }  
+    }
+
+    pub fn record\_result(&self, success: bool) {  
+        // Shift left by 1 and optionally set the lowest bit to 1 for failure  
+        let bit: u64 \= if success { 0 } else { 1 };  
+          
+        // Lock-free atomic update using fetch\_update  
+        let \_ \= self.history.fetch\_update(Ordering::SeqCst, Ordering::Relaxed, |h| {  
+            Some((h \<\< 1) | bit)  
+        });  
+          
+        self.evaluate\_state();  
+    }
+
+    fn evaluate\_state(&self) {  
+        let current\_history \= self.history.load(Ordering::Relaxed);  
+          
+        // Hardware accelerated population count (number of 1s / failures)  
+        // Compiles down to a single instruction on ARM64  
+        let failures \= current\_history.count\_ones();   
+        let penalty \= self.thermal\_penalty.load(Ordering::Relaxed);  
+          
+        // Base threshold is 32 failures out of 64 (50%), adjusted by thermal penalty  
+        let threshold \= 32 \- (penalty / 5);   
+          
+        if failures \> threshold {  
+            self.state.store(1, Ordering::Release); // Trip the breaker to OPEN  
+        }  
+    }  
+}
+
+## **6\. Recommended Epistemos Architecture**
+
+The final architecture for Epistemos integrates these paradigms into a cohesive framework, dictating exactly where runtime models and compile-time guarantees coordinate.
+
+**Honest FFI Boundaries:** All Swift-Rust communication drops legacy HandleMaps. Rust objects are passed to Swift using Arc::into\_raw(). Swift wraps these pointers in \~Copyable FFI capability tokens. This prevents locking overhead and enforces the zero-allocation strategy strictly at the application core.14
+
+**Centralized Thermal Coordination:** Instead of individual network breakers, Epistemos implements a centralized Global Supervisor Actor. This supervisor listens to ProcessInfo.thermalStateDidChangeNotification.15 When macOS transitions from .nominal to .serious or .critical 43, the Supervisor writes a global thermal\_penalty variable via an atomic store to the underlying Rust/C bit-level breakers.57
+
+This creates a Thermal-Aware Failure Masking system. Under nominal conditions, the MLX breaker trips at a 50% failure rate, allowing inference to run at full speed. When the thermal state hits .serious, the Supervisor injects a thermal penalty. The breaker now trips at a 20% failure rate. The MLX engine is artificially restricted, enforcing cooling *before* Apple Silicon hardware enforces brutal clock-speed throttling.17 If the state hits .critical, the breaker is forcefully transitioned to an open state, and inference automatically shifts from local MLX to cloud API fallbacks via half-open probing.
+
+**Domain-Specific Resilience Mapping:**
+
+| Subsystem Domain | Resilience Strategy | Reasoning |
+| :---- | :---- | :---- |
+| **Cloud API** | Standard Rolling Window | Low throughput, standard HTTP latencies. Bit-packing is overengineering here. |
+| **Local MLX Engine** | **Bit-Packed Atomic Ring** | Extreme throughput (500+ tok/s). Requires lock-free, zero-allocation fuse.41 |
+| **Subprocess (Hermes)** | Half-Open Probing | Probes subprocess health. Restarts the executable if the IPC breaker trips. |
+| **Vault/Search Layer** | Actor-based throttling | Concurrency is managed via actor isolation. No bit-breaker needed for simple SQLite reads. |
+| **SwiftUI View State** | None | Views only observe Actor state. No compile-time typestate complexities.20 |
+
+## **7\. Implementation Blueprint**
+
+The migration to this architecture must be phased to mitigate risk and ensure systemic stability.
+
+### **Phase 1: Foundational Fixes (Safest First Steps)**
+
+Do not initiate the migration by rewriting the entire application in \~Copyable structures.
+
+1. **Honest FFI**: Migrate UniFFI bindings from HandleMaps to Arc::into\_raw. This eliminates the largest current locking bottleneck and paves the way for strict memory ownership.14  
+2. **Per-Domain Resilience**: Implement standard circuit breakers wrapped in Swift Actors for the Cloud and Subprocess domains. Ensure the application can survive an isolated subsystem failure gracefully.20  
+3. **Centralized Thermal Monitor**: Add an Actor observing ProcessInfo.thermalState. Log state changes and begin manually throttling background indexing jobs when the system reports elevated temperatures.15
+
+### **Phase 2: Advanced Compile-Time Correctness**
+
+1. **Model Session Typestate**: Refactor the MLX model layer. Create UnloadedModel, LoadingModel, and LoadedModel as \~Copyable structs. Enforce capability tokens for strict memory cleanup and prevent use-after-free anomalies.18  
+2. **Thermal-Aware Masking**: Connect the Thermal Monitor to the local inference circuit breaker. Implement automatic failover to cloud models when local hardware reports .serious heat generation.43
+
+### **Phase 3: Micro-Optimizations (Defer to Later)**
+
+1. **Bit-Level Zero-Allocation Breakers**: Replace the MLX and FFI internal circuit breakers with a Rust-compiled, UniFFI-exported AtomicU64 bit-packed ring buffer.11 Leverage popcnt for instant failure rate calculations.27  
+2. **Hardware Cache Padding**: Apply align(128) attribute padding to the FFI boundaries to eliminate L1 cache thrashing on Apple Silicon between the Swift main thread and Rust inference threads.12
+
+## **8\. Code Examples**
+
+### **8.1 Swift/Rust Boundary Pattern (Honest FFI)**
+
+This pattern demonstrates how to pass a raw pointer safely from Rust to Swift, utilizing typestate to guarantee it is freed exactly once.
+
+**Rust Implementation:**
+
+Rust
+
+use std::sync::Arc;
+
+pub struct InferenceEngine {  
+    // Heavy MLX context  
+}
+
+\#\[no\_mangle\]  
+pub extern "C" fn engine\_create() \-\> \*const InferenceEngine {  
+    let engine \= Arc::new(InferenceEngine {});  
+    Arc::into\_raw(engine) // Transfers ownership out of Rust  
+}
+
+\#\[no\_mangle\]  
+pub extern "C" fn engine\_destroy(ptr: \*const InferenceEngine) {  
+    if\!ptr.is\_null() {  
+        unsafe {  
+            // Reclaims ownership and drops the Arc  
+            let \_ \= Arc::from\_raw(ptr);   
+        }  
+    }  
+}
+
+**Swift 6.2 Implementation:**
+
+Swift
+
+// Capability token wrapping the raw pointer  
+struct EngineCapability: \~Copyable {  
+    private let ptr: UnsafeRawPointer  
+      
+    init() {  
+        self.ptr \= engine\_create()  
+    }  
+      
+    borrowing func infer() {  
+        // Pass pointer back to Rust for execution  
+    }  
+      
+    consuming func dispose() {  
+        engine\_destroy(ptr)  
+        discard self // Prevents double-free in deinit  
+    }  
+      
+    deinit {  
+        // Safety net if consumed improperly  
+        engine\_destroy(ptr)  
+    }  
+}
+
+## **9\. Tradeoff Table**
+
+The following matrix compares the architectural approaches and their implications for Epistemos.
+
+| Architectural Approach | System Complexity | Memory Allocation | Ideal Epistemos Domain | Hazard / Failure Mode |
+| :---- | :---- | :---- | :---- | :---- |
+| **Full App-Wide Typestate** | Extreme | Very Low | None (Avoid) | Swift 6 limits; unmanageable UI state; closure capture errors.7 |
+| **Hybrid Typestate (Islands)** | Medium | Low | FFI, MLX Sessions, Tokens | Bridging \~Copyable to protocols requires boilerplate.32 |
+| **Actor-Only Mode Machine** | Low | Medium | SwiftUI state, App routing | Logic bugs (calling methods in wrong state at runtime).20 |
+| **Naive Breaker** | Low | Low | Basic script timeouts | Permanent failure lockouts; lacks a sliding window.49 |
+| **Timestamp Array Breaker** | Low | High (GC/ARC) | Standard web servers | Heap allocation under load causes GC pauses/thermal spikes.9 |
+| **Bit-Packed Breaker** | High | **Zero** | Hot-path MLX inference, FFI | Requires manual CPU cache padding (false sharing).10 |
+
+## **10\. Red Flags / Anti-Patterns**
+
+Implementing these advanced systems without rigorous discipline will result in severe technical debt. The following anti-patterns must be avoided:
+
+**Fake Safety via Over-Genericization:** Attempting to constrain all application logic behind Swift 6.2 noncopyable generics (e.g., protocol Foo: \~Copyable) is highly detrimental. Associated type suppression introduced in SE-0503 is incredibly powerful but highly complex. Engineers should use concrete \~Copyable structs instead of massive protocol hierarchies unless writing standard library primitives.33
+
+**False Sharing in the Ring Buffer:** Creating a lock-free AtomicU64 in Rust without applying \#\[repr(align(128))\] padding is a catastrophic performance failure. Apple Silicon M-series chips have 128-byte cache lines. If the UI thread constantly reads a variable residing in memory next to the breaker, the CPU will continuously flush the L1 cache, causing massive latency spikes known as False Sharing.12
+
+**Optimizing Breakers Not on the Bottleneck:** Applying a lock-free bitmask breaker to a standard SQLite database query that requires 5 milliseconds to execute is misguided. The lock-free optimization saves 50 nanoseconds, providing a negligible performance improvement while destroying code readability. Bit-breakers must be reserved strictly for the FFI and MLX token generation hot paths.29
+
+**Thermal Throttling Feedback Loops:** Misconfiguring the thermal breaker leads to architectural instability. If the .serious thermal state trips the breaker to fall back to the cloud, the CPU cools down rapidly, returning to .nominal. The breaker immediately resets to local MLX, heating up the system again within minutes. The system will "flap" constantly between states.59 Hysteresis must be built into the thermal recovery timer, enforcing a hard cooldown period before returning to local execution.
+
+## **11\. Final Recommendation**
+
+For Epistemos, do not attempt to force typestate into the UI, and do not waste engineering cycles building zero-allocation breakers for basic network calls.
+
+Deploy Swift 6.2 \~Copyable typestate exclusively as internal capability tokens for local MLX model lifecycles, Hermes subprocess management, and FFI pointer wrapping. Wrap these typestate islands in standard Swift Actors to expose clean, Sendable data to SwiftUI.
+
+For resilience, implement the Rust AtomicU64 bit-packed circuit breaker exclusively on the MLX inference and UniFFI boundaries, ensuring it is padded to 128 bytes to respect Apple Silicon L1 cache lines. Integrate this breaker directly with a central Swift actor monitoring ProcessInfo.thermalState to dynamically alter the failure threshold, shedding load before the M5 chip enforces hardware throttling.
+
+### **Recommended Final Architecture**
+
+| Component | Architecture Designation | Implementation Strategy |
+| :---- | :---- | :---- |
+| **UI State Layer** | Runtime Actor-Driven | SwiftUI @State interacting with Sendable objects. |
+| **Model Lifecycle** | Typestate Driven | \~Copyable Swift structs consuming states (Loading \-\> Loaded). |
+| **FFI Boundary** | Honest Pointers \+ Typestate | Arc::into\_raw mapped to \~Copyable tokens with explicit deinit. |
+| **Inference Resilience** | Zero-Allocation Breaker | Rust AtomicU64 padded to 128-bytes, updated via bitwise shifts. |
+| **Hardware Management** | Centralized Thermal Masking | ProcessInfo.thermalState modifies the breaker's failure threshold. |
+
+### **Minimum Viable Implementation Plan**
+
+| Phase | Priority Area | Action Item |
+| :---- | :---- | :---- |
+| **1** | FFI Boundary | Strip HandleMaps from UniFFI; implement Arc::into\_raw pointers. |
+| **2** | System Supervision | Deploy a central Actor monitoring ProcessInfo.thermalState. |
+| **3** | Basic Resilience | Deploy standard timestamp breakers for Cloud APIs and DB layers. |
+
+### **"Elite Version" Later-Stage Plan**
+
+| Phase | Priority Area | Action Item |
+| :---- | :---- | :---- |
+| **1** | Typestate Islands | Refactor MLX and Hermes lifecycles into strict \~Copyable structs. |
+| **2** | Lock-Free Resilience | Implement the Rust AtomicU64 bit-packed breaker on the inference path. |
+| **3** | Hardware Synergy | Link the thermal monitor to the bit-breaker for predictive load shedding. |
+
+### **Ranked List of Top 10 Implementation Insights**
+
+| Rank | Insight | Rationale |
+| :---- | :---- | :---- |
+| **1** | Typestate is not an app-wide framework. | It is a surgical tool used strictly for high-value resources like MLX Unified Memory and capability tokens.6 |
+| **2** | HandleMaps are a legacy bottleneck. | Modern FFI architecture mandates using raw pointers (Arc::into\_raw) passed securely into Swift \~Copyable capability shells.14 |
+| **3** | Thermal dynamics dictate MLX latency. | M5 chips drop from 80W peak to 50W sustained under heat. Software must monitor ProcessInfo.thermalState to dynamically degrade load before hardware throttles.15 |
+| **4** | SwiftUI rejects noncopyable state. | Never expose a \~Copyable type directly to a view layer. Always wrap the typestate in an Actor and expose Sendable, copiable enums.20 |
+| **5** | Bit-packing replaces garbage collection. | By encoding 64 request outcomes into a single AtomicU64, ARC/heap overhead is completely eliminated on the critical path.13 |
+| **6** | Hardware popcount is the ultimate performance hack. | Calculating a circuit breaker failure rate from a bitmask requires zero loops; a single count\_ones() CPU instruction calculates it in nanoseconds.27 |
+| **7** | Apple Silicon requires 128-byte cache padding. | Lock-free memory structures will degrade drastically due to "false sharing" unless strictly padded to match Apple's unique L1 cache line size.12 |
+| **8** | Subprocesses require consuming lifecycles. | Modeling the Hermes AI tools subprocess via typestate physically prevents Swift from attempting IPC communication with a terminated Unix process.8 |
+| **9** | Avoid circuit breaker "flapping". | Thermal recovery requires hysteresis. If thermal fallback is triggered, enforce a hard cooldown timer before returning to local MLX to prevent rapid state cycling.59 |
+| **10** | The hierarchy of resilience dictates priority. | Fix the FFI locking bounds and thermal feedback loops first. Micro-optimizing with bit-level ring buffers provides maximum ROI only when the overarching system boundaries are honest and secure. |
+
+#### **Works cited**
+
+1. GitHub \- ml-explore/mlx: MLX: An array framework for Apple silicon, accessed April 1, 2026, [https://github.com/ml-explore/mlx](https://github.com/ml-explore/mlx)  
+2. Swift 6.2 Overview: What's New and Why It Matters | by Sahil Garg \- Medium, accessed April 1, 2026, [https://sgarg28.medium.com/swift-6-2-overview-whats-new-and-why-it-matters-f03217e0c48b](https://sgarg28.medium.com/swift-6-2-overview-whats-new-and-why-it-matters-f03217e0c48b)  
+3. MLX Community Projects · ml-explore mlx · Discussion \#654 \- GitHub, accessed April 1, 2026, [https://github.com/ml-explore/mlx/discussions/654](https://github.com/ml-explore/mlx/discussions/654)  
+4. Introduction to Non-Copyable types \- Swift with Vincent, accessed April 1, 2026, [https://www.swiftwithvincent.com/blog/introduction-to-non-copyable-types](https://www.swiftwithvincent.com/blog/introduction-to-non-copyable-types)  
+5. New Typestate pattern in Swift \- News \- Crystal Forum, accessed April 1, 2026, [https://forum.crystal-lang.org/t/new-typestate-pattern-in-swift/6483](https://forum.crystal-lang.org/t/new-typestate-pattern-in-swift/6483)  
+6. Typestate \- the new Design Pattern in Swift 5.9 \- Swiftology, accessed April 1, 2026, [https://swiftology.io/articles/typestate/](https://swiftology.io/articles/typestate/)  
+7. Swift 6.2 can't verify usage of a noncopyable type (and wants me to report this bug), accessed April 1, 2026, [https://forums.swift.org/t/swift-6-2-cant-verify-usage-of-a-noncopyable-type-and-wants-me-to-report-this-bug/82532](https://forums.swift.org/t/swift-6-2-cant-verify-usage-of-a-noncopyable-type-and-wants-me-to-report-this-bug/82532)  
+8. \[Pitch\] Swift Subprocess \- Page 2, accessed April 1, 2026, [https://forums.swift.org/t/pitch-swift-subprocess/69805?page=2](https://forums.swift.org/t/pitch-swift-subprocess/69805?page=2)  
+9. Circuit Breaker Implementation in Resilience4j | by Bogdan Storozhuk | Medium, accessed April 1, 2026, [https://medium.com/@storozhuk.b.m/circuit-breaker-implementation-in-resilience4j-992af908c413](https://medium.com/@storozhuk.b.m/circuit-breaker-implementation-in-resilience4j-992af908c413)  
+10. GitHub \- BillyDM/bit\_mask\_ring\_buf: A fast ring buffer implementation with cheap and safe indexing written in Rust, accessed April 1, 2026, [https://github.com/BillyDM/bit\_mask\_ring\_buf](https://github.com/BillyDM/bit_mask_ring_buf)  
+11. circuitbreaker-rs \- crates.io: Rust Package Registry, accessed April 1, 2026, [https://crates.io/crates/circuitbreaker-rs](https://crates.io/crates/circuitbreaker-rs)  
+12. RingBuffer: The Secret Weapon for High-Performance Java Applications \- Medium, accessed April 1, 2026, [https://medium.com/@amit.agarwal0422/ringbuffer-the-secret-weapon-for-high-performance-java-applications-ebabdb64ce58](https://medium.com/@amit.agarwal0422/ringbuffer-the-secret-weapon-for-high-performance-java-applications-ebabdb64ce58)  
+13. AtomicU64 in sp\_std::sync::atomic \- Rust \- sc\_service, accessed April 1, 2026, [https://crates.parity.io/sp\_std/sync/atomic/struct.AtomicU64.html](https://crates.parity.io/sp_std/sync/atomic/struct.AtomicU64.html)  
+14. \[discuss\] A proposal for passing around object instances · Issue ..., accessed April 1, 2026, [https://github.com/mozilla/uniffi-rs/issues/419](https://github.com/mozilla/uniffi-rs/issues/419)  
+15. ProcessInfo | Apple Developer Documentation, accessed April 1, 2026, [https://developer.apple.com/documentation/foundation/processinfo](https://developer.apple.com/documentation/foundation/processinfo)  
+16. Thermals and macOS. How to monitor heat on a Mac | by Dave MacLachlan \- Medium, accessed April 1, 2026, [https://dmaclach.medium.com/thermals-and-macos-c0db81062889](https://dmaclach.medium.com/thermals-and-macos-c0db81062889)  
+17. M5 Max: Chiplets, Thermals, and Performance per Watt \- Creative Strategies, accessed April 1, 2026, [https://creativestrategies.com/research/m5-max-chiplets-thermals-and-performance-per-watt/](https://creativestrategies.com/research/m5-max-chiplets-thermals-and-performance-per-watt/)  
+18. ️ Noncopyable Types in Swift: Safer Code with Ownership and Borrowing \- Commit Studio, accessed April 1, 2026, [https://commitstudiogs.medium.com/%EF%B8%8F-noncopyable-types-in-swift-safer-code-with-ownership-and-borrowing-567d9f9028e8](https://commitstudiogs.medium.com/%EF%B8%8F-noncopyable-types-in-swift-safer-code-with-ownership-and-borrowing-567d9f9028e8)  
+19. Meet Non-Copyable Types – Swift's Secret Performance Boost | Infinum, accessed April 1, 2026, [https://infinum.com/blog/swift-non-copyable-types/](https://infinum.com/blog/swift-non-copyable-types/)  
+20. Solving actor-isolated protocol conformance related errors in Swift 6.2 \- Donny Wals, accessed April 1, 2026, [https://www.donnywals.com/solving-actor-isolated-protocol-conformance-related-errors-in-swift-6-2/](https://www.donnywals.com/solving-actor-isolated-protocol-conformance-related-errors-in-swift-6-2/)  
+21. Typestate \- the new Design Pattern in Swift 5.9 | Swift Heroes 2024 Talk \- YouTube, accessed April 1, 2026, [https://www.youtube.com/watch?v=qPHjDlqHsUQ](https://www.youtube.com/watch?v=qPHjDlqHsUQ)  
+22. Building Safer Swift Code with Noncopyable Types \- DEV Community, accessed April 1, 2026, [https://dev.to/arshtechpro/building-safer-swift-code-with-noncopyable-types-930](https://dev.to/arshtechpro/building-safer-swift-code-with-noncopyable-types-930)  
+23. Circuit Breaker \- Martin Fowler, accessed April 1, 2026, [https://martinfowler.com/bliki/CircuitBreaker.html](https://martinfowler.com/bliki/CircuitBreaker.html)  
+24. How to Configure Circuit Breaker Patterns \- OneUptime, accessed April 1, 2026, [https://oneuptime.com/blog/post/2026-02-02-circuit-breaker-patterns/view](https://oneuptime.com/blog/post/2026-02-02-circuit-breaker-patterns/view)  
+25. CircuitBreaker \- resilience4j, accessed April 1, 2026, [https://resilience4j.readme.io/v1.1.0/docs/circuitbreaker](https://resilience4j.readme.io/v1.1.0/docs/circuitbreaker)  
+26. CircuitBreaker \- resilience4j, accessed April 1, 2026, [https://resilience4j.readme.io/v0.17.0/docs/circuitbreaker](https://resilience4j.readme.io/v0.17.0/docs/circuitbreaker)  
+27. Lockless bit allocator \- code review \- The Rust Programming Language Forum, accessed April 1, 2026, [https://users.rust-lang.org/t/lockless-bit-allocator/121725](https://users.rust-lang.org/t/lockless-bit-allocator/121725)  
+28. Apple Silicon CPU Optimization Guide Version 4 | Apple Developer Documentation, accessed April 1, 2026, [https://developer.apple.com/documentation/apple-silicon/cpu-optimization-guide](https://developer.apple.com/documentation/apple-silicon/cpu-optimization-guide)  
+29. A Lock-Free Ring Buffer in Rust: Design and Implementation | by Olcay Davut Cabbas, accessed April 1, 2026, [https://medium.com/@olcay.d.cabbas/a-lock-free-ring-buffer-in-rust-design-and-implementation-1114307d2d5f](https://medium.com/@olcay.d.cabbas/a-lock-free-ring-buffer-in-rust-design-and-implementation-1114307d2d5f)  
+30. Unlocking Performance: A Guide to Lock-Free Data Structures in Go | by Nathan B. Crocker, accessed April 1, 2026, [https://medium.com/@nathanbcrocker/unlocking-performance-a-guide-to-lock-free-data-structures-in-go-924344cb3774](https://medium.com/@nathanbcrocker/unlocking-performance-a-guide-to-lock-free-data-structures-in-go-924344cb3774)  
+31. swift-evolution/proposals/0390-noncopyable-structs-and-enums.md ..., accessed April 1, 2026, [https://github.com/apple/swift-evolution/blob/main/proposals/0390-noncopyable-structs-and-enums.md](https://github.com/apple/swift-evolution/blob/main/proposals/0390-noncopyable-structs-and-enums.md)  
+32. swift-evolution/proposals/0427-noncopyable-generics.md at main \- GitHub, accessed April 1, 2026, [https://github.com/swiftlang/swift-evolution/blob/main/proposals/0427-noncopyable-generics.md](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0427-noncopyable-generics.md)  
+33. \[Accepted\] SE-0427: Noncopyable generics \- Announcements \- Swift Forums, accessed April 1, 2026, [https://forums.swift.org/t/accepted-se-0427-noncopyable-generics/73560](https://forums.swift.org/t/accepted-se-0427-noncopyable-generics/73560)  
+34. swift-evolution/proposals/0503-suppressed-associated-types.md at main \- GitHub, accessed April 1, 2026, [https://github.com/swiftlang/swift-evolution/blob/main/proposals/0503-suppressed-associated-types.md](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0503-suppressed-associated-types.md)  
+35. Approachable Concurrency in Swift 6.2: A Clear Guide \- SwiftLee, accessed April 1, 2026, [https://www.avanderlee.com/concurrency/approachable-concurrency-in-swift-6-2-a-clear-guide/](https://www.avanderlee.com/concurrency/approachable-concurrency-in-swift-6-2-a-clear-guide/)  
+36. The design and implementation of a lock-free ring-buffer with contiguous reservations : r/rust, accessed April 1, 2026, [https://www.reddit.com/r/rust/comments/bwr2yg/the\_design\_and\_implementation\_of\_a\_lockfree/](https://www.reddit.com/r/rust/comments/bwr2yg/the_design_and_implementation_of_a_lockfree/)  
+37. AtomicU64 in std::sync::atomic \- Rust Documentation, accessed April 1, 2026, [https://doc.rust-lang.org/std/sync/atomic/struct.AtomicU64.html](https://doc.rust-lang.org/std/sync/atomic/struct.AtomicU64.html)  
+38. Wrapping Unsafe C Libraries in Rust | by Jeff Hiner | Dwelo Research and Development, accessed April 1, 2026, [https://medium.com/dwelo-r-d/wrapping-unsafe-c-libraries-in-rust-d75aeb283c65](https://medium.com/dwelo-r-d/wrapping-unsafe-c-libraries-in-rust-d75aeb283c65)  
+39. MLX \- Apple Open Source, accessed April 1, 2026, [https://opensource.apple.com/projects/mlx](https://opensource.apple.com/projects/mlx)  
+40. Exploring LLMs with MLX and the Neural Accelerators in the M5 GPU, accessed April 1, 2026, [https://machinelearning.apple.com/research/exploring-llms-mlx-m5](https://machinelearning.apple.com/research/exploring-llms-mlx-m5)  
+41. Native LLM and MLLM Inference at Scale on Apple Silicon \- arXiv, accessed April 1, 2026, [https://arxiv.org/html/2601.19139v1](https://arxiv.org/html/2601.19139v1)  
+42. Everything you wanted to know about Apple's MLX : r/LocalLLaMA \- Reddit, accessed April 1, 2026, [https://www.reddit.com/r/LocalLLaMA/comments/1l7yrni/everything\_you\_wanted\_to\_know\_about\_apples\_mlx/](https://www.reddit.com/r/LocalLLaMA/comments/1l7yrni/everything_you_wanted_to_know_about_apples_mlx/)  
+43. ProcessInfo.ThermalState.serious | Apple Developer Documentation, accessed April 1, 2026, [https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum/serious](https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum/serious)  
+44. \[2603.03529\] mlx-snn: Spiking Neural Networks on Apple Silicon via MLX \- arXiv, accessed April 1, 2026, [https://arxiv.org/abs/2603.03529](https://arxiv.org/abs/2603.03529)  
+45. Local Inference of Language Models on Apple Silicon \- Bulldogjob, accessed April 1, 2026, [https://bulldogjob.com/readme/Local-inference-of-Language-Models-on-Apple-Silicon](https://bulldogjob.com/readme/Local-inference-of-Language-Models-on-Apple-Silicon)  
+46. CerboAI: Optimizing Inference and Real-Time Applications with MLX and LoRA on iOS, accessed April 1, 2026, [https://medium.com/@CerboAI/cerboai-optimizing-inference-and-real-time-applications-with-mlx-and-lora-on-ios-8fd274e2a0ab](https://medium.com/@CerboAI/cerboai-optimizing-inference-and-real-time-applications-with-mlx-and-lora-on-ios-8fd274e2a0ab)  
+47. How to Create Safe FFI Bindings in Rust \- OneUptime, accessed April 1, 2026, [https://oneuptime.com/blog/post/2026-01-30-rust-safe-ffi-bindings/view](https://oneuptime.com/blog/post/2026-01-30-rust-safe-ffi-bindings/view)  
+48. Noncopyable Generics in Swift: A Code Walkthrough \- Discussion, accessed April 1, 2026, [https://forums.swift.org/t/noncopyable-generics-in-swift-a-code-walkthrough/70862](https://forums.swift.org/t/noncopyable-generics-in-swift-a-code-walkthrough/70862)  
+49. Circuit Breaker Pattern \- Azure Architecture Center | Microsoft Learn, accessed April 1, 2026, [https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker)  
+50. One neat thing is, you don't actually need a spinlock if you're using a ringbuff... | Hacker News, accessed April 1, 2026, [https://news.ycombinator.com/item?id=27638168](https://news.ycombinator.com/item?id=27638168)  
+51. Swift Bitwise and Bit Shift Operators (With Examples) \- Programiz, accessed April 1, 2026, [https://www.programiz.com/swift-programming/bitwise-operators](https://www.programiz.com/swift-programming/bitwise-operators)  
+52. CircuitBreaker \- resilience4j, accessed April 1, 2026, [https://resilience4j.readme.io/docs/circuitbreaker](https://resilience4j.readme.io/docs/circuitbreaker)  
+53. What's in a ring buffer? And using them in Rust | nicole@web \- Ntietz, accessed April 1, 2026, [https://ntietz.com/blog/whats-in-a-ring-buffer/](https://ntietz.com/blog/whats-in-a-ring-buffer/)  
+54. any long-term impact on Mac hardware running MLX fine tune? : r/LocalLLM \- Reddit, accessed April 1, 2026, [https://www.reddit.com/r/LocalLLM/comments/1s0qc1h/any\_longterm\_impact\_on\_mac\_hardware\_running\_mlx/](https://www.reddit.com/r/LocalLLM/comments/1s0qc1h/any_longterm_impact_on_mac_hardware_running_mlx/)  
+55. Concurrency — list of Rust libraries/crates // Lib.rs, accessed April 1, 2026, [https://lib.rs/concurrency](https://lib.rs/concurrency)  
+56. Optimizing a Lock-Free Ring Buffer : r/cpp \- Reddit, accessed April 1, 2026, [https://www.reddit.com/r/cpp/comments/1s2cue8/optimizing\_a\_lockfree\_ring\_buffer/](https://www.reddit.com/r/cpp/comments/1s2cue8/optimizing_a_lockfree_ring_buffer/)  
+57. Day 43 : System Design Concept: Circuit breaker | by CoVaib DeepLearn | Medium, accessed April 1, 2026, [https://medium.com/@shivanimutke2501/day-43-system-design-concept-circuit-breaker-6063b3b754a6](https://medium.com/@shivanimutke2501/day-43-system-design-concept-circuit-breaker-6063b3b754a6)  
+58. Circuit Breakers: Fail Gracefully \- DEV Community, accessed April 1, 2026, [https://dev.to/wittedtech-by-harshit/circuit-breakers-fail-gracefully-106b](https://dev.to/wittedtech-by-harshit/circuit-breakers-fail-gracefully-106b)  
+59. Circuit Breaker Pattern: How It Works, Benefits, Best Practices \- Groundcover, accessed April 1, 2026, [https://www.groundcover.com/learn/performance/circuit-breaker-pattern](https://www.groundcover.com/learn/performance/circuit-breaker-pattern)

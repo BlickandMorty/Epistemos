@@ -163,21 +163,18 @@ final class CodeLineGutterView: NSView {
 
         guard lineCount > 0, lineHeight > 0 else { return }
 
-        // Visible Y range (in our coordinate space)
-        let topY = max(0, dirtyRect.minY)
-        let bottomY = dirtyRect.maxY
-
-        // Map Y → line range, accounting for scroll offset and top inset.
-        // Numbers sit at: y(line) = topInset + scrollOffset + (line - 1) * lineHeight
-        let firstLine = max(1, Int(((topY - scrollOffset - topInset) / lineHeight).rounded(.down)) + 1)
-        let lastLine = min(lineCount, Int(((bottomY - scrollOffset - topInset) / lineHeight).rounded(.up)) + 1)
-
-        guard firstLine <= lastLine else { return }
+        guard let visibleLines = Self.visibleLineRange(
+            lineCount: lineCount,
+            lineHeight: lineHeight,
+            topInset: topInset,
+            scrollOffset: scrollOffset,
+            dirtyRect: dirtyRect
+        ) else { return }
 
         let rightX = bounds.maxX - rightPadding
         let textRectWidth = max(1, gutterWidth - rightPadding - leftPadding)
 
-        for line in firstLine...lastLine {
+        for line in visibleLines {
             let idx = line - 1
             guard idx < numberStrings.count else { break }
 
@@ -208,6 +205,28 @@ final class CodeLineGutterView: NSView {
     }
 
     // MARK: - Helpers
+
+    static func visibleLineRange(
+        lineCount: Int,
+        lineHeight: CGFloat,
+        topInset: CGFloat,
+        scrollOffset: CGFloat,
+        dirtyRect: NSRect
+    ) -> ClosedRange<Int>? {
+        guard lineCount > 0, lineHeight > 0 else { return nil }
+
+        // Visible Y range (in our coordinate space)
+        let topY = max(0, dirtyRect.minY)
+        let bottomY = dirtyRect.maxY
+
+        // Map Y to line range, accounting for scroll offset and top inset.
+        // Numbers sit at: y(line) = topInset + scrollOffset + (line - 1) * lineHeight
+        let firstLine = max(1, Int(((topY - scrollOffset - topInset) / lineHeight).rounded(.down)) + 1)
+        let lastLine = min(lineCount, Int(((bottomY - scrollOffset - topInset) / lineHeight).rounded(.up)) + 1)
+
+        guard firstLine <= lastLine else { return nil }
+        return firstLine...lastLine
+    }
 
     private func rebuildSharedAttrs() {
         let paragraph = NSMutableParagraphStyle()

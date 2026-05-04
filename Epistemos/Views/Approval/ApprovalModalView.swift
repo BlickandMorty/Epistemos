@@ -118,21 +118,14 @@ public struct ApprovalModalView: View {
 
                 Divider()
 
-                if let summary = approval.summary, !summary.isEmpty {
-                    Text(summary)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
                 ScrollView {
-                    Text(approval.argsJSON)
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(approvalPayloads) { payload in
+                            GenUIDispatcher.shared.render(payload)
+                        }
+                    }
                 }
-                .frame(maxHeight: 180)
+                .frame(maxHeight: 260)
 
                 HStack {
                     Button("Deny") { resolve(.deny) }
@@ -152,6 +145,51 @@ public struct ApprovalModalView: View {
                 }
             }
         }
+    }
+
+    private var approvalPayloads: [GenUIPayload] {
+        let deadlineEpoch = approval.deadline.timeIntervalSince1970
+        let deadlineValue = deadlineEpoch.isFinite ? "\(Int(deadlineEpoch))" : "unknown"
+        var payloads = [
+            GenUIPayload.keyValueTable(
+                title: "Approval Request",
+                [
+                    ("Tool", approval.toolName),
+                    ("Session", approval.sessionId),
+                    ("Authority", approval.authorityCategoryLabel ?? "Uncategorized"),
+                    ("Deadline", deadlineValue),
+                ],
+                id: "\(approval.id)-request",
+                metadata: ["surface": "approval-modal"],
+                createdAt: approval.issuedAt
+            ),
+        ]
+
+        if let summary = approval.summary, !summary.isEmpty {
+            payloads.append(
+                GenUIPayload(
+                    id: "\(approval.id)-summary",
+                    schema: .markdown,
+                    title: "Summary",
+                    body: .raw(summary),
+                    metadata: ["surface": "approval-modal"],
+                    createdAt: approval.issuedAt
+                )
+            )
+        }
+
+        payloads.append(
+            GenUIPayload(
+                id: "\(approval.id)-arguments",
+                schema: .json,
+                title: "Arguments",
+                body: .raw(approval.argsJSON),
+                metadata: ["surface": "approval-modal"],
+                createdAt: approval.issuedAt
+            )
+        )
+
+        return payloads
     }
 
     private func countdownRing(remaining: TimeInterval, fraction: Double) -> some View {

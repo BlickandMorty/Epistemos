@@ -61,6 +61,78 @@ struct GraphBuilderTestHelpers {
             createdAt: .now
         )
     }
+
+    static func tempDirectory(named prefix: String) throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    static func resetEntityExtractorHashCache() {
+        UserDefaults.standard.removeObject(forKey: "EntityExtractor.processedHashes")
+    }
+}
+
+@MainActor
+private final class RecordingOntologyClassifier: OntologyClassifying {
+    struct Call {
+        let text: String
+        let source: URL
+    }
+
+    enum RecordingError: Error {
+        case deliberateNonFatalFailure
+    }
+
+    var readinessResult: OntologyClassifier.Readiness
+    private(set) var calls: [Call] = []
+
+    init(readiness: OntologyClassifier.Readiness = .available) {
+        self.readinessResult = readiness
+    }
+
+    func readiness() -> OntologyClassifier.Readiness {
+        readinessResult
+    }
+
+    func classifyAndPersist(_ text: String, for source: URL) async throws -> OntologyNode {
+        calls.append(Call(text: text, source: source))
+        throw RecordingError.deliberateNonFatalFailure
+    }
+}
+
+@MainActor
+private final class RecordingAFMSidecarGenerator: AFMSidecarGenerating {
+    struct Call {
+        let text: String
+        let source: URL
+        let candidateLinks: [AFMSidecarCandidateLink]
+    }
+
+    enum RecordingError: Error {
+        case deliberateNonFatalFailure
+    }
+
+    var readinessResult: OntologyClassifier.Readiness
+    private(set) var calls: [Call] = []
+
+    init(readiness: OntologyClassifier.Readiness = .available) {
+        self.readinessResult = readiness
+    }
+
+    func readiness() -> OntologyClassifier.Readiness {
+        readinessResult
+    }
+
+    func generateAndPersist(
+        _ text: String,
+        for source: URL,
+        candidateLinks: [AFMSidecarCandidateLink]
+    ) async throws -> AFMSidecarGeneratedPayload {
+        calls.append(Call(text: text, source: source, candidateLinks: candidateLinks))
+        throw RecordingError.deliberateNonFatalFailure
+    }
 }
 
 @Suite("GraphBuilder - Initialization")
@@ -243,7 +315,7 @@ struct GraphBuilderNoteDerivedEntityTests {
         }
         """
 
-        let extractor = EntityExtractor(graphState: GraphState())
+        let extractor = EntityExtractor(graphState: GraphState(), sidecarGenerator: nil)
         await extractor.scanVault(context: context, llmService: llm)
 
         let persistedNodes = try context.fetch(FetchDescriptor<SDGraphNode>())
@@ -254,6 +326,96 @@ struct GraphBuilderNoteDerivedEntityTests {
         #expect(!persistedEdges.contains { $0.edgeType == .cites })
         #expect(!persistedEdges.contains { $0.edgeType == .authored })
         #expect(!persistedEdges.contains { $0.edgeType == .quotes })
+    }
+
+    @Test("scan vault routes eligible changed notes through ontology and AFM sidecar generation")
+    func scanVaultRoutesEligibleChangedNotesThroughOntologyAndAFMSidecarGeneration() async throws {
+        GraphBuilderTestHelpers.resetEntityExtractorHashCache()
+        let dir = try GraphBuilderTestHelpers.tempDirectory(named: "ontology-scan")
+        defer {
+            GraphBuilderTestHelpers.resetEntityExtractorHashCache()
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        let source = dir.appendingPathComponent("basal-ganglia.md").standardizedFileURL
+        let body = "Dopamine prediction errors connect habit learning to basal ganglia loops."
+        try body.write(to: source, atomically: true, encoding: .utf8)
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDBlock.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        let page = GraphBuilderTestHelpers.createMockPage(
+            id: "page-ontology-\(UUID().uuidString)",
+            title: "Basal Ganglia"
+        )
+        page.filePath = source.path
+        page.body = body
+        context.insert(page)
+        try context.save()
+
+        let llm = MockLLMClient()
+        llm.generateResponse = #"{"tags":[],"crossNoteLinks":[]}"#
+        let ontology = RecordingOntologyClassifier()
+        let sidecarGenerator = RecordingAFMSidecarGenerator()
+        let extractor = EntityExtractor(
+            graphState: GraphState(),
+            ontologyClassifier: ontology,
+            sidecarGenerator: sidecarGenerator
+        )
+
+        await extractor.scanVault(context: context, llmService: llm)
+
+        #expect(ontology.calls.count == 1)
+        #expect(ontology.calls.first?.source == source)
+        #expect(ontology.calls.first?.text.contains("Dopamine prediction errors") == true)
+        #expect(sidecarGenerator.calls.count == 1)
+        #expect(sidecarGenerator.calls.first?.source == source)
+        #expect(sidecarGenerator.calls.first?.text.contains("Dopamine prediction errors") == true)
+    }
+
+    @Test("scan vault never routes ineligible source files through ontology or AFM sidecar generation")
+    func scanVaultSkipsIneligibleSourceFilesForOntologyAndAFMSidecarGeneration() async throws {
+        GraphBuilderTestHelpers.resetEntityExtractorHashCache()
+        let dir = try GraphBuilderTestHelpers.tempDirectory(named: "ontology-scan-ineligible")
+        defer {
+            GraphBuilderTestHelpers.resetEntityExtractorHashCache()
+            try? FileManager.default.removeItem(at: dir)
+        }
+
+        let source = dir.appendingPathComponent("Plugin.swift").standardizedFileURL
+        let body = "struct Plugin { let sourceCodeMustNotReceiveKnowledgeSidecars = true }"
+        try body.write(to: source, atomically: true, encoding: .utf8)
+
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDBlock.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        let page = GraphBuilderTestHelpers.createMockPage(
+            id: "page-ontology-ineligible-\(UUID().uuidString)",
+            title: "Source Code"
+        )
+        page.filePath = source.path
+        page.body = body
+        context.insert(page)
+        try context.save()
+
+        let llm = MockLLMClient()
+        llm.generateResponse = #"{"tags":[],"crossNoteLinks":[]}"#
+        let ontology = RecordingOntologyClassifier()
+        let sidecarGenerator = RecordingAFMSidecarGenerator()
+        let extractor = EntityExtractor(
+            graphState: GraphState(),
+            ontologyClassifier: ontology,
+            sidecarGenerator: sidecarGenerator
+        )
+
+        await extractor.scanVault(context: context, llmService: llm)
+
+        #expect(ontology.calls.isEmpty)
+        #expect(sidecarGenerator.calls.isEmpty)
     }
 }
 

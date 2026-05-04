@@ -74,6 +74,99 @@ nonisolated enum Log {
     static let diagnostics = Logger(subsystem: subsystem, category: "Diagnostics")
 }
 
+nonisolated struct EpistemosRuntimeFeatureFlags: Sendable, Equatable {
+    enum Key {
+        static let deterministicKnowledgeCoreRuntime = "deterministicKnowledgeCoreRuntime"
+        static let borrowedKnowledgeRows = "borrowedKnowledgeRows"
+        static let rawThoughtsBulkLane = "rawThoughtsBulkLane"
+        static let staticArtifactRouting = "staticArtifactRouting"
+        static let graphEdgePrefetch = "graphEdgePrefetch"
+    }
+
+    enum EnvironmentKey {
+        static let deterministicKnowledgeCoreRuntime = "EPISTEMOS_DETERMINISTIC_KNOWLEDGE_CORE_RUNTIME"
+        static let borrowedKnowledgeRows = "EPISTEMOS_BORROWED_KNOWLEDGE_ROWS"
+        static let rawThoughtsBulkLane = "EPISTEMOS_RAW_THOUGHTS_BULK_LANE"
+        static let staticArtifactRouting = "EPISTEMOS_STATIC_ARTIFACT_ROUTING"
+        static let graphEdgePrefetch = "EPISTEMOS_GRAPH_EDGE_PREFETCH"
+    }
+
+    let deterministicKnowledgeCoreRuntime: Bool
+    let borrowedKnowledgeRows: Bool
+    let rawThoughtsBulkLane: Bool
+    let staticArtifactRouting: Bool
+    let graphEdgePrefetch: Bool
+
+    static let disabled = EpistemosRuntimeFeatureFlags(
+        deterministicKnowledgeCoreRuntime: false,
+        borrowedKnowledgeRows: false,
+        rawThoughtsBulkLane: false,
+        staticArtifactRouting: false,
+        graphEdgePrefetch: false
+    )
+
+    static func load(
+        userDefaults: UserDefaults = .standard,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> EpistemosRuntimeFeatureFlags {
+        EpistemosRuntimeFeatureFlags(
+            deterministicKnowledgeCoreRuntime: flag(
+                Key.deterministicKnowledgeCoreRuntime,
+                environmentKey: EnvironmentKey.deterministicKnowledgeCoreRuntime,
+                userDefaults: userDefaults,
+                environment: environment
+            ),
+            borrowedKnowledgeRows: flag(
+                Key.borrowedKnowledgeRows,
+                environmentKey: EnvironmentKey.borrowedKnowledgeRows,
+                userDefaults: userDefaults,
+                environment: environment
+            ),
+            rawThoughtsBulkLane: flag(
+                Key.rawThoughtsBulkLane,
+                environmentKey: EnvironmentKey.rawThoughtsBulkLane,
+                userDefaults: userDefaults,
+                environment: environment
+            ),
+            staticArtifactRouting: flag(
+                Key.staticArtifactRouting,
+                environmentKey: EnvironmentKey.staticArtifactRouting,
+                userDefaults: userDefaults,
+                environment: environment
+            ),
+            graphEdgePrefetch: flag(
+                Key.graphEdgePrefetch,
+                environmentKey: EnvironmentKey.graphEdgePrefetch,
+                userDefaults: userDefaults,
+                environment: environment
+            )
+        )
+    }
+
+    private static func flag(
+        _ key: String,
+        environmentKey: String,
+        userDefaults: UserDefaults,
+        environment: [String: String]
+    ) -> Bool {
+        if let raw = environment[environmentKey] {
+            return parseBool(raw) ?? false
+        }
+        return userDefaults.bool(forKey: key)
+    }
+
+    private static func parseBool(_ rawValue: String) -> Bool? {
+        switch rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "1", "true", "yes", "on", "enabled":
+            return true
+        case "0", "false", "no", "off", "disabled":
+            return false
+        default:
+            return nil
+        }
+    }
+}
+
 nonisolated enum RuntimeDiagnosticSeverity: String, Codable, Sendable, Equatable {
     case debug
     case info

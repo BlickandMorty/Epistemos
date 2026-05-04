@@ -1,25 +1,21 @@
 import SwiftUI
 
-/// Hero sigil that floats above the "Hermes Agent" hero typewriter on
-/// landing. SF Symbol base (`figure.stand.dress` by default — overridable)
-/// rendered with a continuously-animated linear-gradient mask that sweeps
-/// across the figure to read as a soft shimmer / shine.
+/// Hero sigil that floats above the Hermes Agent hero typewriter on landing.
+/// The mark is a public-domain caduceus drawn directly in SwiftUI Canvas, so
+/// Hermes gets a real mythological identity without bundling NousResearch
+/// marks before licensing is settled.
 ///
 /// Implementation notes:
-/// - `TimelineView(.animation)` drives the sweep deterministically; no
-///   explicit `withAnimation` so the sweep keeps moving even while
-///   SwiftUI is otherwise idle.
+/// - `TimelineView(.animation)` drives the sheen deterministically; no
+///   `repeatForever`.
 /// - The sweep is gated on `accessibilityReduceMotion` per Invariant
-///   I-14 — when reduce-motion is on, the sigil renders the figure in a
-///   static accent gradient with no animation.
+///   I-14 — when reduce-motion is on, the sigil renders statically.
 /// - All work stays on `@MainActor`; no Metal pass needed at this size.
 ///   If we later want a denser Metal-driven shimmer (e.g. iridescent
-///   hue rotation), we can swap the mask for a Metal shader without
-///   touching call sites.
+///   hue rotation), we can swap the Canvas pass without touching call sites.
 struct HermesShimmeringSigil: View {
-    var systemImageName: String = "figure.stand.dress"
     var size: CGFloat = 84
-    var accent: Color = Color(hue: 0.55, saturation: 0.55, brightness: 0.95)
+    var accent: Color = HermesBrand.primary
     var halo: Bool = true
     /// Bumped externally on submit to fire a one-shot ring burst.
     /// The sigil watches this trigger and animates a fading ring
@@ -128,53 +124,13 @@ struct HermesShimmeringSigil: View {
     }
 
     private var staticFigure: some View {
-        Image(systemName: systemImageName)
-            .resizable()
-            .scaledToFit()
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [accent, accent.opacity(0.65)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+        HermesCaduceusCanvas(accent: accent, shimmerPhase: 0, reduceMotion: true)
     }
 
     private var shimmeringFigure: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
             let phase = shimmerPhase(at: context.date)
-            Image(systemName: systemImageName)
-                .resizable()
-                .scaledToFit()
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [accent, accent.opacity(0.7)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay {
-                    Image(systemName: systemImageName)
-                        .resizable()
-                        .scaledToFit()
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.white)
-                        .blendMode(.softLight)
-                        .mask(shimmerMask(phase: phase))
-                        .opacity(0.85)
-                }
-                .overlay {
-                    Image(systemName: systemImageName)
-                        .resizable()
-                        .scaledToFit()
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.white)
-                        .blendMode(.plusLighter)
-                        .mask(shimmerMask(phase: phase, narrow: true))
-                        .opacity(0.55)
-                }
+            HermesCaduceusCanvas(accent: accent, shimmerPhase: phase, reduceMotion: false)
         }
     }
 
@@ -187,17 +143,106 @@ struct HermesShimmeringSigil: View {
         return CGFloat(progress) * 2.8 - 1.4
     }
 
-    private func shimmerMask(phase: CGFloat, narrow: Bool = false) -> some View {
-        let band = narrow ? 0.18 : 0.32
-        return LinearGradient(
-            stops: [
-                .init(color: .clear, location: max(0, phase - band)),
-                .init(color: .white.opacity(narrow ? 1.0 : 0.85), location: max(0, min(1, phase))),
-                .init(color: .clear, location: min(1, phase + band)),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+}
+
+private struct HermesCaduceusCanvas: View {
+    let accent: Color
+    let shimmerPhase: CGFloat
+    let reduceMotion: Bool
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let side = min(canvasSize.width, canvasSize.height)
+            let originX = (canvasSize.width - side) / 2
+            let originY = (canvasSize.height - side) / 2
+            let rect = CGRect(x: originX, y: originY, width: side, height: side)
+
+            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+            }
+
+            func ellipse(center x: CGFloat, _ y: CGFloat, radius: CGFloat) -> Path {
+                Path(ellipseIn: CGRect(
+                    x: rect.minX + rect.width * x - side * radius,
+                    y: rect.minY + rect.height * y - side * radius,
+                    width: side * radius * 2,
+                    height: side * radius * 2
+                ))
+            }
+
+            let staffWidth = max(2, side * 0.045)
+            let serpentWidth = max(2, side * 0.04)
+            let wingWidth = max(1.5, side * 0.032)
+
+            var staff = Path()
+            staff.move(to: point(0.5, 0.16))
+            staff.addLine(to: point(0.5, 0.86))
+            context.stroke(
+                staff,
+                with: .color(accent.opacity(0.9)),
+                style: StrokeStyle(lineWidth: staffWidth, lineCap: .round)
+            )
+            context.stroke(
+                staff,
+                with: .color(.white.opacity(0.18)),
+                style: StrokeStyle(lineWidth: max(1, staffWidth * 0.36), lineCap: .round)
+            )
+
+            context.fill(ellipse(center: 0.5, 0.12, radius: 0.055), with: .color(accent.opacity(0.9)))
+            context.fill(ellipse(center: 0.5, 0.12, radius: 0.026), with: .color(.white.opacity(0.22)))
+            context.fill(ellipse(center: 0.5, 0.88, radius: 0.035), with: .color(accent.opacity(0.8)))
+
+            var leftWing = Path()
+            leftWing.move(to: point(0.46, 0.23))
+            leftWing.addCurve(to: point(0.16, 0.16), control1: point(0.34, 0.12), control2: point(0.22, 0.11))
+            leftWing.addCurve(to: point(0.32, 0.31), control1: point(0.20, 0.25), control2: point(0.24, 0.31))
+            leftWing.addCurve(to: point(0.46, 0.25), control1: point(0.38, 0.31), control2: point(0.42, 0.28))
+
+            var rightWing = Path()
+            rightWing.move(to: point(0.54, 0.23))
+            rightWing.addCurve(to: point(0.84, 0.16), control1: point(0.66, 0.12), control2: point(0.78, 0.11))
+            rightWing.addCurve(to: point(0.68, 0.31), control1: point(0.80, 0.25), control2: point(0.76, 0.31))
+            rightWing.addCurve(to: point(0.54, 0.25), control1: point(0.62, 0.31), control2: point(0.58, 0.28))
+
+            context.stroke(leftWing, with: .color(accent.opacity(0.78)), style: StrokeStyle(lineWidth: wingWidth, lineCap: .round, lineJoin: .round))
+            context.stroke(rightWing, with: .color(accent.opacity(0.78)), style: StrokeStyle(lineWidth: wingWidth, lineCap: .round, lineJoin: .round))
+            context.stroke(leftWing, with: .color(.white.opacity(0.13)), style: StrokeStyle(lineWidth: max(1, wingWidth * 0.38), lineCap: .round, lineJoin: .round))
+            context.stroke(rightWing, with: .color(.white.opacity(0.13)), style: StrokeStyle(lineWidth: max(1, wingWidth * 0.38), lineCap: .round, lineJoin: .round))
+
+            var leftSerpent = Path()
+            leftSerpent.move(to: point(0.41, 0.28))
+            leftSerpent.addCurve(to: point(0.61, 0.43), control1: point(0.20, 0.34), control2: point(0.78, 0.36))
+            leftSerpent.addCurve(to: point(0.39, 0.58), control1: point(0.45, 0.50), control2: point(0.22, 0.50))
+            leftSerpent.addCurve(to: point(0.58, 0.73), control1: point(0.58, 0.66), control2: point(0.74, 0.66))
+
+            var rightSerpent = Path()
+            rightSerpent.move(to: point(0.59, 0.28))
+            rightSerpent.addCurve(to: point(0.39, 0.43), control1: point(0.80, 0.34), control2: point(0.22, 0.36))
+            rightSerpent.addCurve(to: point(0.61, 0.58), control1: point(0.55, 0.50), control2: point(0.78, 0.50))
+            rightSerpent.addCurve(to: point(0.42, 0.73), control1: point(0.42, 0.66), control2: point(0.26, 0.66))
+
+            let serpentStyle = StrokeStyle(lineWidth: serpentWidth, lineCap: .round, lineJoin: .round)
+            context.stroke(leftSerpent, with: .color(accent.opacity(0.92)), style: serpentStyle)
+            context.stroke(rightSerpent, with: .color(HermesBrand.primaryMuted.opacity(0.88)), style: serpentStyle)
+            context.stroke(leftSerpent, with: .color(.white.opacity(0.18)), style: StrokeStyle(lineWidth: max(1, serpentWidth * 0.34), lineCap: .round, lineJoin: .round))
+            context.stroke(rightSerpent, with: .color(.white.opacity(0.16)), style: StrokeStyle(lineWidth: max(1, serpentWidth * 0.34), lineCap: .round, lineJoin: .round))
+
+            context.fill(ellipse(center: 0.41, 0.27, radius: 0.034), with: .color(accent.opacity(0.95)))
+            context.fill(ellipse(center: 0.59, 0.27, radius: 0.034), with: .color(HermesBrand.primaryMuted.opacity(0.92)))
+
+            if !reduceMotion {
+                let normalizedPhase = max(0, min(1, (shimmerPhase + 1.4) / 2.8))
+                let shimmerX = rect.minX + rect.width * (normalizedPhase * 1.3 - 0.18)
+                var sheen = Path()
+                sheen.move(to: CGPoint(x: shimmerX, y: rect.minY + rect.height * 0.12))
+                sheen.addLine(to: CGPoint(x: shimmerX + rect.width * 0.34, y: rect.minY + rect.height * 0.88))
+                context.stroke(
+                    sheen,
+                    with: .color(.white.opacity(0.34)),
+                    style: StrokeStyle(lineWidth: max(1, side * 0.028), lineCap: .round)
+                )
+            }
+        }
     }
 }
 
