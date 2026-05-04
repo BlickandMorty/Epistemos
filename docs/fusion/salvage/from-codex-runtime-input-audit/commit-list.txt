@@ -1,0 +1,324 @@
+70c98ea2 fix(release): verify approved vault writes
+47fd03fe fix(release): expose writable attachment paths
+744e54e7 fix(release): seed grants for live attachments
+32271d7b docs(release): record app store completion lane
+caa3fdbf fix(release): harden app store chat startup
+d6f5de5b fix(release): polish app store launch affordances
+5785cef0 fix(release): surface app store launch window
+48fed7d7 fix(release): strip pro tool code from app store agent core
+35dd0e68 fix(release): harden vault import rollback
+13978496 fix(release): repair release test regressions
+133aaff7 fix(release): qualify relay sqlite params macro
+0ab57d80 fix(release): compile bounded agent core for app store
+c8d6f632 fix(release): skip pro runtime startup in app store build
+f763fbce fix(release): stub native computer use in app store build
+5be4067a fix(release): scrub app store runtime script assets
+e87fbb6d fix(release): gate pro settings from app store profile
+ae62c93e scaffold(release): add sandboxed app store target
+cbe91080 fix(spotlight): stage SwiftData page primitives
+4d6cbec8 scaffold(R.6): harden filtered vault writes
+58e9b949 scaffold(R.6): verify tool write readbacks
+fff062e6 fix(R.5): fail closed resource write authorization
+8e4c5052 scaffold(R.6 bridge): UniFFI-expose verified_write pipeline
+c2982078 scaffold(R.4 finder+paste): mint manifest-bearing ContextAttachments for files
+b0bd683f scaffold(R.4 minichat+landing): thread vaultId into dropdown attachments
+15d5ad63 docs(R.3 migration): honest-label I-002 / I-003 as PARTIAL
+270627cd scaffold(R.3 migrate UI consumers): 7 sites async, 1 scope-guarded
+fd5dd9a0 scaffold(R.3 migrate VaultSyncService): honest scope-guard comment
+6b597988 scaffold(R.3 migrate VaultIndexActor): 9 loadBody sites → gateway-first
+31bb923c scaffold(R.3 migrate CloudKnowledgeDistillationService): gateway-first body
+21bfdd94 scaffold(R.3 migrate DataviewService): drop direct loadBody in file.size
+db721019 scaffold(R.3 migrate GraphState.buildPageSubgraph): gateway-first body read
+7e710ab6 scaffold(R.3 migrate EntityExtractor): 3 loadBody sites via primitives helper
+1a164550 scaffold(R.3 migrate SpotlightIndexer): route body reads through gateway
+6a085ba9 scaffold(R.5 persist): migrate permission store to on-disk SQLite
+40638bd5 fix(R.5): default to enforcement — I-009 FIXED
+93696670 scaffold(R.5 arms): tool_authz covers write_file, patch, trajectory_export
+a67b1f85 docs(R.5 gate): log the write-side landing — I-009 stays PARTIAL, honestly
+0582aa3d scaffold(R.5 gate): tool-execution authorization at ToolRegistry::execute
+bad748b4 docs(R.3/R.4/R.5): log the async-cascade session — 4 scaffold commits
+f6f62816 scaffold(R.4 dropdown): backfill canonical URIs at @-mention pick time
+1209d968 scaffold(R.5 chat): parser hook fires grants from user turns w/ resource URIs
+49906b61 scaffold(R.3 reactive): re-init gateway on .vaultChanged + idempotent guard
+8d6a8dbd scaffold(R.3 async): SDPage.loadBodyAsync + byte-equal parity proof
+a00f1c1f scaffold(R.3 boot): initialize VaultResourceService at app launch
+34fb53cf scaffold(R.4 Swift): ContextAttachment carries optional Phase R resource manifest
+279625b0 scaffold(R.3): expose ResourceService as canonical gateway via UniFFI
+230bd0a2 chore: honest label correction + clear unused-import warning
+dc4c10c0 docs: mark I-016 (editor doc-truth) CONFIRMED-CLEAN
+1bd2590e docs: reflect R.4 (6a2c1de6) + R.5 (6c5d5ecb) progress in issues + audit
+6a2c1de6 fix(R.4): expose AttachmentMode/Capability/AttachedResource via UniFFI; I-004/5/6 PARTIAL
+6c5d5ecb fix(R.5): wire PermissionService to Swift via UniFFI bridge; I-009/I-010 PARTIAL
+3924ff86 docs: mark I-017 (Swift 6 concurrency) CONFIRMED-CLEAN (partial)
+525985e8 docs: mark I-001 (PARTIAL, read-side), I-015, I-019 with verified status
+903ad4ac docs: reflect R.2 (commit 40bcd115) landing in audit reflection
+40bcd115 fix(R.2): wire AliasRegistry to Swift sidebar; fix I-001 gpt-5.4 split-brain
+57ddf851 feat: land runtime input audit updates
+b87b6204 docs: audit reflection + live-code reconciliation + two-plan doctrine
+d5e59544 fix: handle empty model picker selection
+5703f764 fix: tighten model picker popover
+cb4f1913 fix: surface active permission grants
+6bd2e607 fix: verify writes before surfacing success
+e4a62075 fix: persist resource permission grants
+3e9b135e fix: add explicit attachment modes
+9f4dbc42 fix: add unified resource service
+852dae87 fix: add canonical resource identities
+52060e4b fix: harden non-finite timing casts
+f6243175 docs: reconcile code editor feature audit
+094c51bd docs: record I-019 bootstrap drift
+10ece5b2 docs: add resource inventory baseline
+acd5fe03 docs: record foundation audit drift
+3d2c9d08 fix model vault and chat presentation regressions
+00f420ae feat: harden model vault browser and simplify model surfaces
+63beb7df chore: checkpoint runtime fixes and model-vault UX
+a99b8984 feat: pass 12 — Myers line-diff engine + TimeMachineService integration ("better than git, all local")
+fdd08513 feat: pass 9/10/11 — live chat transcripts in vault + model-vault sidebar + per-model involvement view
+ac0faab3 feat: pass 8 — stdio MCP tunnel B.2 + brain-snapshot persistence + worker-session kind + per-model authorship
+b4db6063 feat: tunnel C — claude_code + codex CLI passthrough tools
+5f6d0309 docs: handoff addendum — 5 passes committed (persistence, hot-loop, install detection, shell disclosure, MCP URL tunnel)
+78d62a6f feat: tunnel B.1 — URL MCP server passthrough to Anthropic
+300a8af2 fix: detect on-disk hub models + disclose shell tool in Agent mode
+29c94da3 fix: persist toggle state + stop @Observable writes during view-body reads
+1a4210be docs: 2026-04-22 live-runtime + capability-tunnel handoff
+97adbf83 chore: checkpoint live runtime and model simplification work
+9dbe4707 docs: log 2026-04-21 issues in APP_ISSUES_AUTO_FIX
+b4e5d45a Release-hardening bundle: fenced tool_call parsing + MLX Metal unload + cloud tool contract
+f61c71d1 Stop silently reverting cloud selection to local on init
+2d541a25 Suppress thinking bubble when reasoning summary duplicates the answer
+a342196f Fix thinking duplication, remove auto-route, darken main chat background
+7f2b0329 docs: handoff to next session covering remaining runtime work
+58396678 Open the graph with a crystal→constellation→chaos cycle and padded camera
+b09d9da2 Expand folder attachments into full per-note context at turn time
+da8a4994 Request reasoning summaries from OpenAI + route large context to cloud
+5674c764 Prefer cloud for Thinking turns when auto-route is enabled
+70322eb1 Stop silently reverting cloud chat selections to local
+09d4b653 Compact pill width on side chats and always honor cloud model pick
+ccccf023 Compact single-popover toolbar for mini/note/graph chat
+95155e78 Surface cloud errors first when both cloud and local paths fail
+284687e4 Relax MLX memory preflight for realistic small-model loading
+7a5f7e8a Fix self-contradictory LocalInferenceRoutingError messages
+ba9c91b3 Defer Apple Intelligence availability probe inside Command Center Task
+08dd7c6f chore: gitignore SwiftPM workspace metadata
+4e70a3dd Honor explicit model pins over auto-route in Pro and Agent modes
+918d7166 Preserve late reasoning deltas after visible answer begins
+23d0f93b Fix Fast-mode OpenAI stream corruption (dropped async stream chunks)
+488103d9 docs: add full-thread Claude audit handoff
+2c7d724a Add model-aware runtime provider controls
+2b4c9a8b Stabilize reasoning boundaries across chat surfaces
+7b480447 docs: research brief for Hermes Expert Mode v1.1 feature
+d9100a25 Lock model mode exposure contracts
+befaa63a Use interactive chat budget for MLX preflight
+9c58e0af Remove landing intro backdrop animation
+c7997ca6 Split chat runtime controls into toolbar buttons
+89dae777 Retire stale agent working memory
+2bd00476 Honor pinned local models during auto route
+2be60ef2 Harden cloud reasoning and tagged answer streams
+6d549518 Refresh theme and settings source guards
+83487714 Format agent relay and tooling sources
+2895714e Add MLX Metal warning patch helper
+7adca401 Refresh non-agent pruning source guards
+5088d2dd Harden notes and vault persistence rollback paths
+8d50102f Harden KnowledgeFusion ingestion and training fallbacks
+4c0b5c56 Harden landing overlays and native setup doctor
+bd4b176f Add code editor benchmark coverage
+9fd199af Consolidate release hardening docs and handoffs
+fa6b1b0b Harden Omega runtime fallbacks and channel routing
+c7973e82 Harden intent fetch failures and local routing state
+daefbd98 Harden graph persistence and renderer safeguards
+c25a7777 Harden answer salvage and inline live thinking
+68d50b08 docs: Codex verification handoff for the da06929e batch
+b82f775e docs: handoff to next session covering the da06929e batch
+da06929e Fix silent-answer bug, add memory safety, and defer bootstrap load
+30b7d733 Finalize graph chat answers and reasoning fallbacks
+5c8c7324 Preserve thinking-only turns and suppress tool-call prose
+373e35c0 Fix chat thinking visibility and local answer fallbacks
+78e6bd57 Harden adapter export path and registry saves
+09361b2e Stop tracking package user scheme state
+58efdeb0 Harden retrieval fetches and reactive query streams
+87a79683 Cover daily brief cleanup and event bus buffering
+cda9c07a Harden vault index rollback and raw file sync
+77888a04 Harden vault utility logging and buffering
+2c4cdce0 Normalize Gemini OAuth auth mode selection
+a7a33112 Normalize Claude OAuth auth mode selection
+aacf9efe Harden daily brief generation and persistence
+8526794e Harden graph inspector selection and chat fallbacks
+699248a1 Cover direct code file save sync regression
+d3132433 Fail closed on prose editor staged saves
+b5c5b392 Revalidate redirect targets in web tools
+a20afed9 Harden filesystem path normalization and search guards
+9f89f84e Harden transclusion overlay refresh and saves
+99ae8935 Snapshot dirty note diffs before presentation
+ae55b79a Strengthen progress store continuation tests
+3dddc5c9 Fail closed on note diff restores
+d5b9a05e Harden harness persistence and evaluation writes
+a8e1a280 Tighten supervisor and night brain cleanup
+e7a6ca00 Harden AI partner controls and explanations
+5c0df10d Restore state on workspace and note chat save failures
+5b5425d3 Harden text capture persistence cleanup
+a1556d0e Simplify home window startup behavior
+68fefc8a Harden notarization scripts for macOS bash
+9805152c Wire syntax-core into the editor build
+290a91a3 Clear stale SDMessage blobs on encode failure
+f809bb17 Polish cloud model about sheet copy
+649732b7 Align runtime audit guards with current UI
+3635df09 Harden local runtime artifact validation
+15e34a6d Fix local thinking-only streams in chat
+77dc4e39 Avoid eager launch workspace summary refresh
+48ab1769 Update reasoning trace follow-up plan
+79e70e52 Expose graph chat reasoning traces
+3c17ac95 Persist note chat reasoning traces
+5c406f0a Preserve mini chat reasoning traces
+3332ed7c Preserve note chat reasoning traces
+80fff045 Fix note chat inline reasoning streaming
+80a6b062 Docs: record qwen coder and agent thinking batches
+6f9d863c Agent chat: route inline thinking into popover
+b587dda4 Local models: demote qwen coder from release baseline
+b19a768e OpenAI-compatible: enforce fallback max token budget
+1563ad8d Local models: tighten qwen coder memory guidance
+d0ac0ec1 Docs: record UI and ACC cleanup batches
+695ce712 ACC: hide unsupported fast modes for local brains
+0befc7c5 UI: simplify chat runtime and settings surfaces
+e70a10d2 Settings: hide Gemma preview tiers from model vaults
+c2a54b1b Docs: record latest runtime audit batches
+43092ae5 UI: surface local model loading across chat surfaces
+ac37571e Inference: normalize Gemma preview chat selections
+783a9651 Chat: treat attached context as already resolved
+ff62d26e Local: reject fast mode for always-thinking MLX families
+de46d062 Local: surface stalled MLX model loads clearly
+28628b90 Local: hard-stop Fast on always-thinking GGUF models
+4cb9200b Voice: add speech recognition usage description
+e0b5e683 Fast: block pinned always-thinking locals from fast mode
+6901d2f1 Local: hide Gemma preview tiers from baseline recommendations
+63eec729 UI: stop Gemma from lingering in local model guidance
+b88a9325 Local: stop Gemma fallback from leaking into chat routing
+cb9f1531 Docs: record latest inference and loading-state fixes
+151abe31 Chat: show explicit model loading state before streaming
+366d659a OpenAI: align Codex tool-call request contract
+daa05e65 Inference: close remaining reasoning leak and fast fallback gaps
+dfd3f212 Docs: add build and ship verification contract
+d29984e6 Fast mode: avoid always-thinking local model picks
+cbd7a60d Docs: correct April 20 handoff after later user validation
+73a950e6 Codex handoff: full session audit + Fast-mode reasoning fix
+63184b78 Fast mode: force enable_thinking=false on all Qwen variants
+f11f265c Master plan §19: "thinks forever, never answers" root cause + fix
+34a345cd Reasoning models: give the answer budget room + router safety valve
+f1cca41e Master plan §18: late-night delta — AMFI, tiers, manifest slim
+74e49d19 Reasoning tier: 5-level ladder + mode-specific labels
+8c6b85e3 Rust build scripts: sign uniffi_bindgen BEFORE invoking it
+0ac5003b Simplify system-prompt brief; park OpenAI code_interpreter (400 repro)
+382fa4c8 Master plan §17: local-model quality arc + final parity matrix
+ff9fa21e ThinkTagStreamRouter: match 4 reasoning-tag variants across local models
+ba320dd1 Compact manifest for local models: small context-friendly brief
+54250400 Composer mic button: tap-to-record voice input (parity gap #6)
+e82b2dc4 Master plan §16D-F: full April 20 PM commit list + final parity state
+e8620b8d Structured JSON output: cross-provider toggle wiring
+142d648c Cache-hit badge: per-turn prompt-cache stats on assistant bubbles
+da407333 Typed-chunk reasoning plumbing: direct-cloud popover lights up
+1ed691f4 Manifest in direct-stream path: Fast/Thinking get the same brief
+e51bb6c8 Master plan §16: April 20 PM delta — agent truth, context persistence
+4c961d95 /image slash command: route to Agent mode with image_generate tool
+766b374d LiveActivityStrip: unmissable what-is-the-model-doing header
+e01cceb4 Capability manifest: App surfaces + shortcuts section
+016b8f9d System prompt: inject per-turn capability manifest for Rust-agent path
+4b1d433a Context panel: per-chat snapshot history persists across switches
+4f88893c GPT-5.4 Agent: reasoning.summary + no-op fetch-tool instruction
+91c261fb Anthropic server-side tool parity: web_fetch + code_execution betas
+1300af1d Master plan: §15 April 20 delta — landing, reasoning, FF, II
+6df2e788 ThinkingTrail header: "Thought for Ns" from persisted duration
+681d84ec SSE watchdog + cloud route log: surface frozen streams, confirm provider
+bb38e6d0 <think> router: route inline reasoning to popover, persist trace per message
+147f17e1 Anthropic web_search: toggle + hosted tool + beta header wired
+5f6fb20a CapabilityManifestBuilder: regenerate Capabilities.md on demand
+95039107 Sticky plan card: agent todo_write renders as a live checklist
+f6a957eb Tool cards auto-expand while running; collapsed in completed history
+7c2943d8 Context meter: compact badge in the composer row + live recalc on attach
+1f0401d0 Live tool narration: composer pill reads as real activity, not raw tool ids
+13612bee Gemini parser: drop thought:true parts so reasoning stops leaking into chat
+e710d993 OpenAI streams: route reasoning to ThinkingDelta, stop text-channel leak
+627bbfb9 Landing: OLED intro backdrop crossfades into dynamic native theme
+d64aa88f Revert near-OLED notes theme: restore dynamic/native backgrounds
+facabd97 Context token estimator + hard Gemma 4 guard at the MLX boundary
+d2240b46 Settings → Inference: reasoning tier picker (Off / Standard / Extended)
+d9b5383b Google thinkingConfig: wire chatReasoningTier on 2.5 + 3.x families
+c9cac428 Anthropic thinking: honor chatReasoningTier with budget auto-scale
+4e2ef01b OpenAI reasoning: honor chatReasoningTier (Off / Standard / Extended)
+5f7d89a6 Master plan: HH closure + research 4 findings + refreshed batch queue
+7d2ffa66 Pro mode + cloud: route through Rust agent loop with chat_pro-tier tools
+3b8e1386 Tool tiers: vault_write / patch / memory downgrade from Agent to ChatPro
+965782a5 AgentAuthority: persist allow/ask/deny decisions across launches + plan update
+2e0e095f Intent classifier: nudge Agent mode for note-lookup prompts
+28a60902 Master plan: full list of user-flagged concerns, shipped fixes, next batches
+c9916176 ChatReasoningTier data layer: Off / Standard / Extended persistence
+049aa4aa Stop OpenAI reasoning_content from leaking into the chat reply
+3187f820 Context panel: Claude Code-style collapsible sections, no card chrome
+4b7f6e78 Near-OLED surface: notes sidebar + note window on dark themes only
+55004728 Code editor: inherit prose editor's background + strip gutter/folding ribbon
+7ea2edfe Context panel: pre-submit preview of explicit attachments
+7235802f Effective-model badge: tap opens rationale popover ("why this model")
+da1d13d4 Typed errors: surface recovery buttons for auth + model-not-ready in the chat bubble
+eecc2538 Note canvas: restore native window material for system-appearance themes
+55e1543a Fix scroll stutter: strip the effective-model badge to a plain Text label
+8c65bf83 Gemma 4: hide from picker + auto-migrate anyone pinned to it
+8d98661c Side panel: rename "Brain" to "Context" so the label makes sense
+3fb03219 Chat error surfaces: typed kind enum + classify() for UI affordances
+0eb97f9e Vault: stop the 5-minute manifest refresh from churning at idle
+209491a7 Cloud picker: restore GPT-5.4 as the active model + observable refresh
+f3718b7f Code editor: source text + subtle syntax colors from the active theme
+dd0b3caa Docs: record Batches G-J + QwQ-32B ship state
+cfad9a99 Chat transparency: render effective-model badge under assistant replies
+5ddd6db9 Chat transparency: capture resolved-model label on every assistant turn
+98897428 Catalog: add QwQ 32B as flagship on-device reasoning model
+526b7279 ChatState thinking lifecycle: add regression coverage for main chat
+eb5a0edb Docs: chat transparency follow-up plan with research-backed priorities
+9cf31cf7 Chat completion: surface empty streams instead of ghost assistant bubbles
+06cc013e Agent chat: wire thinking-delta so agent turns stop looking frozen
+18664605 Cloud reply quality: drop GPT-5 controls on Codex path, add spelling hint
+254312cd Chat routing UX: explicit stack, synced auto-route, Codex GPT-5.4 preservation
+921c84ca Harden chat diagnostics and failure handling
+e1994ecf Make agent harnesses explicit and strip hidden scaffolding
+394850c2 Harden cloud routing and runtime source audits
+ad49b7ac Normalize messy local tool calling and hide reflex scaffolding
+401a911a Show managed-agent wake-up context in chat brain panel
+3b51fe7a Audit chat context transparency and prompt envelopes
+2b241ef4 Fix fused chat regressions and restore agent deep-links
+f9b6ea26 Code editor: unify note-canvas background + Codex handoff doc
+ac78efc8 Restore / slash commands on fused main chat + native Apple styling
+5815f440 Agent consolidation: three sidebar entries → one tabbed Agent section
+9ccd135d Picker simplification: one cloud row + kill duplicate routing toggles
+b4cd616b Overseer transparency panel + close the agent-on-startup gap
+1b7611f8 Thinking popover + stack-refresh revision pins + ACC test isolation
+8b0416ba Model stack refresh: Qwen 3, Qwen 3 Coder, Hermes 4.3, Qwen 3.6 Unsloth/DWQ
+f3e9c6d4 Fix the four "messy AI" pain points the user called out
+f19cda7e Mark orphaned Agent Command Center code paths as DEPRECATED
+1197b995 Auto-promote: main chat routes to agent loop when intent + cloud support it
+c543e3fb Banner becomes one-click switch to OpenAI
+30bffaea Smart pill: live tool detail + needs-cloud banner
+236f7748 Smart pill: pre-submit intent classifier lights ChatCapability as user types
+3d83f377 Fuse: drop Chat/Agent segmented picker on landing — one submission path
+d0165947 ChatCapability pill: extend to MiniChat / NoteChat / GraphChat surfaces
+5c67bf6c Graph: drop "|| hasPinnedPanels" from needsRender to kill canvas stutter
+2fa2b578 ChatCapability pill: live-wire into ChatState + main chat composer
+5f70f44e ChatCapability + pill: single source of truth for chat-mode UI signal
+ba07e260 Agent core tests: regression coverage for cloud-only gate
+a78decdf Agent core: panic-safe tools + cloud-only agent-loop gate
+6233b45d Settings: add Authority & Installs sidebar entry wired to AgentAuthorityStore
+9fe4db3f Graph: pause Metal render + physics engine on non-canvas routes
+850cc36d MLX: register gemma4 + gemma4_text model types (alias to Gemma 3n)
+ab7b5e40 AgentHarness: fix Swift 6 isolation + dedupe bundled file patterns
+217a886c AgentHarness: Authority categories + QueryEngine + Handoff + Backend
+e5295ff8 Model catalog: role-first picker + new Liquid/Falcon/Jamba/Bonsai tiers
+2405cce6 Fix graph panel + inspector leaking onto note/folder routes
+72d631e4 Add note CRUD skills: create/read/write/delete
+938bfe70 Add Claude → Codex final-walkthrough handoff doc
+f2d918b0 Fix landing-tap regression: merge popover anchor + kill bg hit-swallow
+5d72a15a Agent right-rail: liquid-glass native panel with shadow + stroke
+da713afd Restore chat model picker + popover expansion + Apple Speech voice capture
+f8589622 Kill idle-CPU lag + graph route hygiene + MiniChat/landing/download polish
+f6ed65e0 OLED dark mode + collapsed plan default + friendly chat error copy
+5c8d7de2 UI polish + Apple Intelligence fallback (mini glass, native popover, sidebar auto-hide, AI last resort)
+4a8ba607 Agent page: main-chat sibling layout (compact shell)
+1ab04d4e Fix chat_lite registry test after web_search backend-gating change
+da3282e1 Settings sweep: guided doctor on DriverRouteEditorSheet + ChannelsSettingsView
+56c2ad99 Auto-install Brain 2 ANE + Overseer log + iMessage/ModelVaults doctor
+6742e9f4 Brain 2 ANE: contextual action resolver + Core ML backend slot
+a56d97ab Wire ANE acceleration into EmbeddingService and VisualVerifyLoop
