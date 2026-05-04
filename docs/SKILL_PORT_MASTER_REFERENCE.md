@@ -1,5 +1,10 @@
 # Skill Port Master Reference: OpenClaw + Hermes Agent -> Epistemos Rust
 
+> **Index status**: CANONICAL-RESEARCH — Hermes 47 + OpenClaw 71 + 5,700 community skills mapped to Rust porting tiers 1-10 with crate dependency map.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 > Every skill from both platforms, categorized by priority, with Rust porting instructions.
 > Generated 2026-04-09. Source: OpenClaw GitHub + Hermes Agent GitHub + docs.
 

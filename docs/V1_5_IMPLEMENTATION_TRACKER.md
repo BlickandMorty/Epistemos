@@ -1,5 +1,10 @@
 # V1.5 Implementation Tracker — R14-R16 + W9.6-W9.30
 
+> **Index status**: CANONICAL-OPERATIONAL — Live status board; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Started 2026-04-26 after the user authorized "implement everything
 non-CLI". CLI cocktail (Hermes/Codex/Kimi/Claude CLI integration)
 is being researched separately.

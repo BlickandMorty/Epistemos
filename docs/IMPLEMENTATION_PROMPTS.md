@@ -1,5 +1,10 @@
 # Epistemos — Paste-Ready Implementation Prompts
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-03-31 paste-ready prompts (Prompt 0 session start + Prompt 1 fix tool gates + follow-ons for MCP/auto-discovery/agent loop/skills/iMessage/NightBrain/streams/release).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Created:** 2026-03-31
 **Usage:** Copy-paste one prompt per session. Work top-to-bottom. Each prompt is self-contained.
 

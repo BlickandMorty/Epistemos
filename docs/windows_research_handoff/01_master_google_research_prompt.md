@@ -1,5 +1,10 @@
 # Master Google Research Prompt
 
+> **Index status**: DEFERRED-RESEARCH — Windows porting research; deferred (V1 = macOS-only per ambient_V1_DECISION.md).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/windows_research/`.
+
+
+
 Act as a Principal Windows Systems Architect and native AI runtime engineer. You are researching a production-grade Windows 11 port of an existing macOS app called Epistemos.
 
 Your job is not to brainstorm vaguely. Your job is to produce a defensible implementation blueprint with concrete tradeoffs, failure modes, and an execution plan.

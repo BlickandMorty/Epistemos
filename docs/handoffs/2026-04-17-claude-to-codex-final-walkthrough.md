@@ -1,5 +1,10 @@
 # Claude → Codex Handoff: Final Walkthrough + Uncommitted Work Sweep
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-04-17
 **Branch:** `codex/runtime-input-audit`
 **Base for diff:** `main` (commit 31214a4d)

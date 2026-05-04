@@ -1,5 +1,11 @@
 # Epistemos — Next 3 Major Features (Priority Order)
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older roadmap superseded by 04_PHASES.md.
+> **Superseded by / Phase**: 04_PHASES.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## 1. Knowledge Fusion (Phases 2-10)
 **Status**: Phase 0-1 complete (vault analyzer, classifier, boilerplate filter). Phases 2-10 deferred.
 **Branch**: `feature/knowledge-fusion-v1` (current)

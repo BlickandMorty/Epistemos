@@ -1,5 +1,11 @@
 # Epistemos Omega — Next Session Prompt
 
+> **Index status**: TRANSIENT-CANDIDATE — Session continuation prompt; transient.
+> **Superseded by / Phase**: MASTER_SESSION_PROMPT_v2.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Paste this into Claude Code to start:
 
 ```

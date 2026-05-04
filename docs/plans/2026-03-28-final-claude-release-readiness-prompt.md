@@ -1,3 +1,10 @@
+# 2026-03-28-final-claude-release-readiness-prompt
+
+
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 We are doing the final release-readiness audit for Epistemos.
 
 This is the last all-hands-on-deck release pass. Treat this as the official v1 release gate, not a beta sweep.

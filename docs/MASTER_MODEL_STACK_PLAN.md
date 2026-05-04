@@ -1,5 +1,10 @@
 # Master Model Stack Plan — 2026-04-18
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-18 authoritative model catalog — role-first stack (Fast Local + Reasoning + Coding + Function-Calling + Flagship); single reference for model decisions.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Authoritative audit of Epistemos's model catalog. Everything that ships
 locally or routes to cloud is captured here, grouped by **role** and
 **status**. Anything that isn't in this doc either isn't in the stack or

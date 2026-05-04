@@ -1,5 +1,10 @@
 # Graph Motion Overlay — Handoff to Codex
 
+> **Index status**: CANONICAL-OPERATIONAL — Graph waves ship handoff (2026-04-24) — 10-commit canonical sequence + experimental forces gating + preset filtering; feature merged.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Date**: 2026-04-24
 **Branch**: `feature/landing-liquid-wave` (expect Codex-lane merge conflicts only in `agent_core/` Sendable fixes and `Epistemos/Sync/VaultIndexActor.swift`, both off-limits for this work)
 **Final commit on this workstream**: `e2d4adc8` (cleanup: wake + compliant collision + tight edge gap + featured-only picker)

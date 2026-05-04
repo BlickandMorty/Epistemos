@@ -1,5 +1,10 @@
 # Pre-Training Readiness Gap Report
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-27
 **Auditor:** Claude Opus 4.6 against NANO-MASTER-TRAINING-GUIDE.md Sections 3-8
 **Verdict:** NOT READY for serious training. Significant structural gaps remain.

@@ -1,5 +1,10 @@
 # Hermes Update Strategy (Strategy B)
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Overview
 Epistemos avoids direct updates from upstream (NousResearch) or tightly pinning updates to Epistemos's monthly CD cycle. Strategy B proposes an intermediate auto-update solution delivering Epistemos-signed `.zip` updates directly via `updates.epistemos.app`.
 

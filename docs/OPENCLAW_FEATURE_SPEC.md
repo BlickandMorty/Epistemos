@@ -1,4 +1,7 @@
 # Epistemos Omega — Feature Completion Spec
+
+> **Index status**: DEFERRED-RESEARCH — Phase K (iMessage / OpenClaw) feature spec; **Pro-only**. Phase K is explicitly deferred until App Store ships per user policy (memory: `project_app_store_first_sequencing`). Read only when picking up Phase K work after MAS hardening completes. Classified in [`docs/_INDEX.md §8`](_INDEX.md).
+
 ## Architectural Hardening Extracted from OpenClaw Agent Runtime
 > **For Claude Code.** Each feature is a self-contained unit. Build them in order.
 > Reference: OpenClaw commit `main` @ 2026-03-25. Source files cited per feature.

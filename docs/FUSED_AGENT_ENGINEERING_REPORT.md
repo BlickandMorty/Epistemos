@@ -1,4 +1,9 @@
 # Fused Agent Engineering Report
+
+> **Index status**: CANONICAL-RESEARCH — Fusion of claw-code+OpenClaw+Hermes diagnosis; root-cause for tool-load failures (check_fn silent failures across 7 tool types).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ## claw-code + OpenClaw + Hermes Diagnosis → Epistemos Upgrade Path
 
 **Date:** 2026-03-31

@@ -1,5 +1,10 @@
 # Cognitive Artifact Implementation Plan — 2026-04-25
 
+> **Index status**: CANONICAL-RESEARCH — Architectural spec cited from PLAN_V2.md (load when item touched).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/architecture_specs/`.
+
+
+
 **Authority cascade** (highest → lowest):
 1. PLAN_V2.md §22 (BoltFFI carve-out, no mass-migration)
 2. CLAUDE.md non-negotiables (preserve thinking blocks; stream everything; no silent backend rerouting)

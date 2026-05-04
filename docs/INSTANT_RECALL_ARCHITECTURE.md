@@ -1,5 +1,11 @@
 # Instant Recall Architecture — Quantized Vector Memory + Mamba State Injection
 
+> **Index status**: DEFERRED-RESEARCH — Phase R+ instant recall architecture (Mamba-3 + binary HNSW + state injection).
+> **Superseded by / Phase**: Phase R+.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/`.
+
+
+
 ## Overview
 
 Sub-10ms contextual recall of relevant notes as you type, using binary-quantized

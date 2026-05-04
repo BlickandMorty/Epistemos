@@ -1,5 +1,10 @@
 # Phase S -- App Store Hardening Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Phase S (App Store Readiness) hardening audit verifying MAS build isolation via source-set exclusions + compile-condition pruning.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Date:** 2026-04-24
 **Scope:** audit the current App Store (MAS) build hardening state immediately after Phase R closure. This is the first Phase S deliverable. It does not add new hardening; it documents what exists so subsequent sub-phases can target real gaps instead of rehardening things that are already in place.
 

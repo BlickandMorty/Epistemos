@@ -164,6 +164,18 @@ Per user 2026-04-26: the final research corpus. No more after this.
 
 ---
 
+## C-bis. `/Users/jojo/Downloads/final v3/` (latest research drop, post-v2 — orthogonal not superseding)
+
+Per Explore-agent digest 2026-04-27. v3 does NOT supersede v2 (different domain): v2 = inference/runtime/substrate, v3 = LLM prompt engineering for production robustness. Both stay canonical; their claims are cumulative.
+
+### C-bis.1 `deep-research-report (4).md` (~13 KB, .md)
+**Topics:** "Ambiguity Tax" mitigation via JSON-schema prompting; prompt industrialization (strict format + template + rules + examples) for >99% JSON validity; modular prompt trees (system/tools/memory/task split); Anthropic prompt caching mechanics (85–92% token savings via `cache_control`); Tool Search (~85% token deferral); ingestion pipeline (parsing → validation → auditing → feedback).
+**Informs:** N1 (Prompt Tree JSPF/PTF design verification); W9.6 (`cached_tokens_share` telemetry); any provider-call optimization that targets external LLMs (Claude/Gemini/OpenAI). Phase 3+ value when provider optimization becomes active.
+**Read when:** implementing or optimizing any external-LLM provider call; designing multi-turn cache strategy; building MCP tool-invocation prompt templates.
+**Note:** Orthogonal to v2 (runtime) and v1 (Hermes integration). Cumulative, not superseding.
+
+---
+
 ## D. Auxiliary research (Downloads root — older, secondary, NOT mandatory reads)
 
 These exist in `/Users/jojo/Downloads/` at the root level. They were earlier

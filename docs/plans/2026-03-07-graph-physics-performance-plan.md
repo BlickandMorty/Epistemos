@@ -1,5 +1,10 @@
 # Graph Physics Performance Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Goal
 Keep the graph fluid at 1k+ nodes without destabilizing the current Rust + Metal stack.
 

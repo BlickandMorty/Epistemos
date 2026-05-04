@@ -1,4 +1,9 @@
 # Sprint Omega-1: Foundation Integration
+
+> **Index status**: CANONICAL-OPERATIONAL — Cited in CLAUDE.md startup protocol. Active reference.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
 ## Duration: 1-2 sessions | Priority: CRITICAL — everything else depends on this
 
 ---

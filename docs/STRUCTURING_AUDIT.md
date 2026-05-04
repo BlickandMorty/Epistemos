@@ -1,5 +1,10 @@
 # Input → Structure Pipeline Audit
 
+> **Index status**: CANONICAL-RESEARCH — S1-S16 surfaces + G1-G9 gap-fixes; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 Authored 2026-04-27 per user directive: "every single thing that gets
 into my app, I want it to be structured… infrastructure JSON,
 structure files and file trees so that the models used in the app

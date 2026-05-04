@@ -1,5 +1,11 @@
 # Theme Revamp Final Changelog
 
+> **Index status**: SUPERSEDED-HISTORICAL — Theme revamp shipped.
+> **Superseded by / Phase**: theme refactor shipped.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Architecture
 
 - Added `UIState.windowAppearance` in [UIState.swift](/Users/jojo/Epistemos/Epistemos/State/UIState.swift).

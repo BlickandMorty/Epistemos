@@ -1,5 +1,10 @@
 # Graph Motion Overlay — Audit Against Canonical
 
+> **Index status**: CANONICAL-RESEARCH — 2026-04-24 second-pass synthesis against 6 research docs — canonical pattern reconciliation (edge trimming + release velocity + WaveEvent rings).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Date**: 2026-04-24 (second pass)
 **Reference**: Claude-final synthesis doc (user-supplied 2026-04-24), which cross-references all 6 research docs (Perplexity, GPT, Claude v1-v3) against the actual `graph-engine/` codebase.
 **Prior work**: 4 commits on `feature/landing-liquid-wave`: plan (`5cf8e55d`), edge trim (`4b155757`), release velocity (`7ffd14c1`), WaveEvent (`93acfcd3`), per-tick scale fix (`d7f4be40`).

@@ -1,5 +1,10 @@
 # Query Compiler Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace the regex heuristic `QueryParser` + switch-based `QueryExecutor` with a typed query algebra: `QueryAST` → `QueryCompiler` → `QueryPlan` → `QueryRuntime`. Add structured query syntax (`?` prefix), block-level queries (requires BTK), and reactive subscriptions.

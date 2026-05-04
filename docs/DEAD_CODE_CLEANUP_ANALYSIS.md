@@ -1,5 +1,10 @@
 # Dead Code + Stale Docs Cleanup Analysis — 2026-04-23
 
+> **Index status**: CANONICAL-OPERATIONAL — Dead code + stale docs cleanup analysis — ARCHIVE/DELETE/KEEP table (47 ARCHIVE 2 DELETE 89 KEEP) + ~500MB disk-space recovery; preserves deferred features (MOHAWK/ODIA/Hermes).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Source:** read-only analysis agent + grep passes.
 **Purpose:** give the user a clear decision table for what to KEEP, ARCHIVE (reversible), or DELETE so the repo stays "super clean but truly useful still."
 

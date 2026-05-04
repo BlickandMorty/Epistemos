@@ -1,3 +1,10 @@
+# Goose Agent Research 2
+
+> **Index status**: SUPERSEDED-HISTORICAL — Comparative Block Goose / OpenHarness / Hermes / SciAgent-Skills analysis; framework selection complete (Rust-native chosen).
+> **Superseded by**: AGENT_FUSION_RESEARCH_PROMPT + BEST_OF_CLAW_AND_OPENCLAW (synthesized into IMPLEMENTATION_PLAN_FROM_ADVICE).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ﻿Technical Analysis of Agent Architectures and Quantization Strategies for macOS-Native Knowledge Systems
 The architectural evolution of the Epistemos system, specifically the transition from a Python-based subprocess model to a high-performance, macOS-native Rust agent runtime, marks a critical shift in the design of cognitive exoskeletons. This report provides an exhaustive technical evaluation of open-source agent frameworks, model architectures, and quantization strategies to support a pure Swift and Rust implementation leveraging Apple Silicon’s Unified Memory Architecture and Metal compute shaders.
 Agent Framework Verdict and Architectural Selection

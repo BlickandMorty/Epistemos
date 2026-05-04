@@ -1,4 +1,9 @@
 # RESEARCH_INDEX.md
+
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ## Purpose
 This file tells Codex which research docs exist, how much authority they have, and when to read them.
 

@@ -1,5 +1,10 @@
 # Research Questions and Decision Matrix
 
+> **Index status**: SUPERSEDED-HISTORICAL — March 2026 Google research pack; superseded by IMPLEMENTATION_PLAN_FROM_ADVICE (April 2026 4-model council synthesis).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/google_research_packs/` for historical record.
+
+
+
 Use this as the required checklist. The final recommendation should answer each item directly.
 
 ## 1. MLX architecture

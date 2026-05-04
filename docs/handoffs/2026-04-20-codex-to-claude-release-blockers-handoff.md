@@ -1,5 +1,10 @@
 # Codex → Claude handoff · April 20 2026 · release blockers + research fusion
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 This handoff is the current source of truth for the next agent. It
 merges:
 

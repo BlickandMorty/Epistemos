@@ -1,4 +1,9 @@
 # Sprint Omega-5: Living Vault Memory Engine
+
+> **Index status**: SUPERSEDED-HISTORICAL — Older sprint plan superseded by MASTER_FUSION.md sprint plan §10.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ## Duration: 3-4 sessions | Priority: HIGH — the feature that makes Epistemos compound in value
 
 Prerequisite: Sprints Omega-1 through Omega-4 must be complete and verified.

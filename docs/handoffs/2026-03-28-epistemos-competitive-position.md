@@ -1,4 +1,9 @@
 # Epistemos — Competitive Position & Cloud LLM Transformation
+
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 **Date:** 2026-03-28
 **Audience:** Owner reference. Not a marketing doc — this is a raw technical honest assessment.
 

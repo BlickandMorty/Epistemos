@@ -1,5 +1,10 @@
 # Hermes Wire Protocol
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Overview
 Defines the structure for Swift-to-Hermes and Hermes-to-Swift remote procedure calls traversing local `127.0.0.1`.
 

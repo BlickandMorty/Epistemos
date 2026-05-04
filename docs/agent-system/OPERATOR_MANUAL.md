@@ -1,4 +1,9 @@
 # EPISTEMOS OMEGA — OPERATOR MANUAL
+
+> **Index status**: CANONICAL-RESEARCH — Agent system architecture (cited from CLAUDE.md). Phase D / K reference.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/agent_system/`.
+
+
 # The 3 Prompts You Need (and nothing else)
 # Updated: 2026-03-29 (post Sprint Omega-1 completion)
 

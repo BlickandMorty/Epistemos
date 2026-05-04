@@ -1,5 +1,10 @@
 # Epistemos Training Tracks — Separation of Concerns
 
+> **Index status**: CANONICAL-RESEARCH — Training tracks classification (Nano/Base/Pro tiers); companion to TRAINING_GUIDE.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 Generated: 2026-03-27
 
 ## Three Distinct Training Tracks

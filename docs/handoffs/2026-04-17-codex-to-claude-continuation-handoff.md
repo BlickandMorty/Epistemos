@@ -1,5 +1,10 @@
 # Codex to Claude Continuation Handoff
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-04-17  
 **Current source-of-truth commit:** `31214a4d`  
 **Current branch:** `codex/runtime-input-audit`  

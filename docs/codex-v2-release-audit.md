@@ -1,5 +1,10 @@
 # Epistemos v2 Release Audit — Instructions for Codex
 
+> **Index status**: CANONICAL-RESEARCH — Systematic Epistemos v2 release audit prompt; partially superseded by current scope but verification protocol template still useful.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 > **Historical snapshot:** This audit prompt predates the later non-agent pruning pass, the TK2-only production editor cutover, and the current V1 scope boundary. Read any deleted editor/dialogue-surface references below as historical context, not current production architecture.
 
 > **Purpose:** Systematic audit of the entire Epistemos codebase to determine readiness for a v2 official release. This document tells you exactly what to check, what the current state is, and what "release-ready" means for each area.

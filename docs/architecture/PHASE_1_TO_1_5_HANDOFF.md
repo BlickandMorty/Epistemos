@@ -1,5 +1,10 @@
 # Phase 1 to 1.5 Handoff
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Status: complete under `PLAN_V2`
 
 Date: 2026-04-13

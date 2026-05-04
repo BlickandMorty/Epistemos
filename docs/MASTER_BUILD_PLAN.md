@@ -1,5 +1,10 @@
 # MASTER BUILD PLAN — Single-file autonomous execution doctrine
 
+> **Index status**: CANONICAL — Top of operational doctrine; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 **Version:** 1.0 (2026-04-27)
 **Purpose:** Everything a fresh Claude Code session needs to autonomously
 work through the entire remaining V1.5 backlog over multiple days, shipping

@@ -1,5 +1,11 @@
 # Epistemos — Project Rules
 
+> **Index status**: SUPERSEDED-HISTORICAL — Omega retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by**: IMPLEMENTATION_PLAN_FROM_ADVICE + MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Architecture
 - Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders
 - GRDB for persistence, MLX-Swift for local inference

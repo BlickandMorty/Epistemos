@@ -1,5 +1,10 @@
 # Claude → Codex handoff · April 20 2026 session
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Hand the repo + this doc back to Codex. Everything below is context
 you need to verify my work, finish open items, and land anything I
 couldn't ship before the context ran out.

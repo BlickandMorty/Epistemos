@@ -1,5 +1,11 @@
 # Theme Revamp Audit Report
 
+> **Index status**: SUPERSEDED-HISTORICAL — Theme revamp audit (commit 8037a3c); theme refactor shipped per memory.
+> **Superseded by / Phase**: theme refactor shipped.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Scope
 
 This pass audited the prior agent work centered on commit `8037a3c` (`refactor: default to native appearance`) and verified the current codebase against the intended spec:

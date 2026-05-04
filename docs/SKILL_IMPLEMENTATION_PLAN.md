@@ -1,5 +1,10 @@
 # Skill Implementation Plan — For Codex/Claude
 
+> **Index status**: CANONICAL — 7-file read order + tool handler architecture + Part 0 conventions for adding agent_core/src/tools/; ReadFileHandler template.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 > This document is designed to be read by an AI coding agent. It contains everything needed
 > to implement the full tool/skill system for Epistemos without asking clarifying questions.
 >

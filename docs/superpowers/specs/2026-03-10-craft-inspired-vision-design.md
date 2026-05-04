@@ -1,5 +1,10 @@
 # Epistemos v5 Vision: Complete Architecture
 
+> **Index status**: DEFERRED-RESEARCH — Vision/embedded-graph deferred; W9.24 graph embedding spec.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/superpowers/`.
+
+
+
 **Date:** 2026-03-10 (fused from 2026-03-07 agent system design + 2026-03-10 Craft vision)
 **Status:** Approved Design — ready for implementation planning
 **Scope:** Block-based editor, multi-agent system with MLX local inference, Learning Pool, Graph NPCs, TTS, App Store + Pro distribution

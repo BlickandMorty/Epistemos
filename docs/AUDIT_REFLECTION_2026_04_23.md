@@ -1,5 +1,10 @@
 # Audit Reflection — 2026-04-23
 
+> **Index status**: CANONICAL-OPERATIONAL — Live-code reconciliation of IMPLEMENTATION_PLAN; verified issue statuses I-001 to I-019 from 3-pass Explore audit (577/577 tests pass).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Purpose:** reconcile the prior Codex audit + conversation Q&A with verified ground truth from live-code spot checks + three dedicated Explore-agent passes. Produces issue-status updates, drift corrections, and the canonical "start from here" set for execution.
 
 **User constraint (respected):** the plan file at `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md` was NOT modified. This doc is the separate audit-reflection deliverable the user requested.

@@ -1,5 +1,10 @@
 # Code Editor Performance Baseline
 
+> **Index status**: CANONICAL-OPERATIONAL — Performance baseline (older but operational reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Date: 2026-04-07
 ## Engine: CodeEditSourceEditor v0.15.2 (CoreText + tree-sitter)
 

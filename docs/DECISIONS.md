@@ -1,5 +1,10 @@
 # Architecture Decisions Log
 
+> **Index status**: CANONICAL-OPERATIONAL — Decision log; track of architecture/product calls.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Phase 0 Decisions
 
 ### D-001: bm25 crate version

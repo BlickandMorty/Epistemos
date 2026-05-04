@@ -1,5 +1,11 @@
 # Relay Ops
 
+> **Index status**: DEFERRED-RESEARCH — Phase K relay-ops design (channel infrastructure).
+> **Phase**: Phase K Pro-only.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/`.
+
+
+
 Epistemos now has a shared relay contract for remote channel delivery and inbound polling.
 
 ## Server

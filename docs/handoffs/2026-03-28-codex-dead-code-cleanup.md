@@ -1,4 +1,9 @@
 # Codex Handoff — Dead Code Cleanup
+
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 **Date:** 2026-03-28
 **Author:** Owner (via Claude audit)
 **Scope:** Remove ghost code left by the SOAR migration and enrichment-era architecture. No new features. No refactors beyond the specific items listed.

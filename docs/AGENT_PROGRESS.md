@@ -1,6 +1,136 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-23 | Foundation fix pass through Step 3a recorded live drift and inventory before warm-up fixes.
+> **Index status**: CANONICAL-OPERATIONAL — Live session log replacement for older PROGRESS.md; canonical operational.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
+Last updated: 2026-04-28 | **Phase 1 keystone + ReplayBundle + epistemos-trace verifier + subprocess hardening sweep + W9.21 known-failure fix all landed.**
+
+**Hardening loop converged 2026-04-28:**
+
+| Metric | Session start | Final |
+|---|---|---|
+| agent_core lib tests | 741 | 762 (+21) |
+| agent_core integration tests | 7 | 13 (+6 e2e) |
+| Total Rust workspace tests | 3,807 | 3,832 |
+| Compiler warnings (workspace) | 2 | 0 |
+| Clippy warnings agent_core | 118 | **39** (67% reduction) |
+| Clippy warnings epistemos-shadow | 12 | **7** (42% reduction) |
+| Known test failures | 1 (W9.21) | 0 |
+| Hardened subprocess sites | 0 | 10 |
+| Force-unwrap-denied modules | 0 | 3 (Phase-1 keystone) |
+
+**Hardening categories closed this session:**
+1. **Subprocess hardening sweep (10 sites)** — see canonical entry below
+2. **Compiler warning sweep (workspace-wide)** — zero warnings remain
+3. **Clippy reduction** — substantive fixes across 12 categories:
+   - 5 `io::Error::new(io::ErrorKind::Other, ...)` → `io::Error::other(...)` in `storage/raw_thoughts.rs`
+   - 5 manual prefix-stripping → `strip_prefix()` (`evolution/mutation_proposer.rs`, `storage/vault.rs`, `tools/skills.rs`, `tools/workspace_search.rs`)
+   - 2 `from_str` inherent method renames (FromStr trait collision) — `RopeDocument::from_str` → `from_text`, `ThreatAssessment::from_str` → `from_label`
+   - 2 `map_or(false, ...)` → `is_some_and(...)` in `tools/skills.rs`
+   - 2 consecutive `str::replace` → array-form `str::replace([a, b], ...)` in `context_loader.rs`, `resources/service.rs`
+   - 1 `unwrap_or_else(PathBuf::new)` → `unwrap_or_default()` in `agent_loop.rs`
+   - 3 redundant struct-field-shorthand cleanups in `session_insights.rs`
+   - 5 `# Safety` markdown header fixes on FFI `unsafe extern "C" fn`s in `epistemos-shadow/src/lib.rs` (canonical Rust API guideline form)
+   - 3 `len() >= 1` → `!is_empty()` in test assertions
+   - 3 manual `.max().min()` → `clamp()` in `hyperbolic_topology.rs`, `tools/registry.rs`
+   - 1 number-grouping bug-prevention fix (`1700_000_000_000` → `1_700_000_000_000` in `oplog.rs`)
+   - 49 test-only `MutexGuard`-across-await suppressed at test-mod boundary with documented `#[allow(clippy::await_holding_lock)]` (intentional process-wide test-isolation gates)
+4. **W9.21 known-failure fix** — `epistemos-shadow::honest_handle::tests::borrow_preserves_refcount` was reading freed memory due to misuse of `&Arc::from_raw(raw)` temporary; rewrote to pair every `from_raw` with a preceding `increment_strong_count` so the temporary's drop returns the count instead of freeing
+5. **Force-unwrap deny enforcement** — `#![cfg_attr(not(test), deny(clippy::unwrap_used, clippy::expect_used, clippy::panic))]` on `agent_core/src/provenance/{ledger,replay}.rs` and `agent_core/src/bin/epistemos_trace.rs` (the Phase-1 keystone modules). Future production-path force-unwraps fail the build.
+6. **Output-bound caps** on `cli_passthrough.rs` and `registry.rs` bash subprocess paths (10 MiB post-collection cap; doctrine names "Codex 1.8GB stdout regression" as one of the 13 hardest problems)
+7. **Schema gap documentation** — `session_insights.rs::compute_tool_breakdown` underscored `_sessions` + documented exact schema enrichment needed (`SessionMetrics.tool_call_counts: HashMap<String, u32>`)
+
+**Hardening sweep (this session):**
+- New `agent_core/src/security.rs::harden_cli_subprocess` + `harden_cli_subprocess_extending` helpers.
+- `SUBPROCESS_ALLOWLIST` (10 vars: PATH, HOME, USER, LOGNAME, TMPDIR, LANG, LC_ALL, LC_CTYPE, TERM, TZ).
+- `SUBPROCESS_DENYLIST` (24 vectors: LD_PRELOAD + all DYLD_*, MallocStackLogging family, NODE_OPTIONS family, PYTHONPATH/PYTHONHOME/PYTHONSTARTUP, RUBYOPT/RUBYLIB/PERL5OPT/PERL5LIB, etc).
+- 4 new security tests including a real subprocess that proves LD_PRELOAD + DEBUG don't leak through hardening, plus PATH preservation.
+- **6 high-risk subprocess sites hardened** (all calling user-installed binaries that run arbitrary code):
+  1. `tools/cli_passthrough.rs` (Claude Code / Codex / Gemini / Kimi CLIs)
+  2. `mcp/client.rs` (arbitrary user-installed MCP servers)
+  3. `tools/code_execution.rs` (LLM-driven Python / Node / Ruby / Perl / shell interpreter)
+  4. `tools/registry.rs` bash subprocess (LLM-supplied shell commands)
+  5. `tools/browser.rs` (with `extending` allowlist for HTTP_PROXY family + FAKE_BROWSER_LOG fixture)
+  6. `tirith.rs` (security scanner CLI)
+- 1 regression caught + fixed mid-flight (browser test relied on FAKE_BROWSER_LOG passthrough — added to extending allowlist with documented rationale).
+
+**W9.21 known failure resolved:** `epistemos-shadow::honest_handle::tests::borrow_preserves_refcount` was buggy (used `&Arc::from_raw(raw)` which creates a temporary that drops at the statement boundary, freeing the allocation, so the next `from_raw` was UAF and read garbage memory — the previously-reported `right: 3` was that garbage). Rewrote to pair every `Arc::from_raw` with a preceding `Arc::increment_strong_count` so the temporary's drop returns the count instead of freeing. Test now passes deterministically. epistemos-shadow lib: 44 → 45 passing.
+
+**Compiler-warning sweep:** Removed unused `HashMap` import in `replay.rs`. Underscored `_sessions` in `session_insights.rs::compute_tool_breakdown` + documented the schema gap (function is intentional placeholder; SessionMetrics carries only scalar `tool_calls_count` not per-tool counts). `cargo build --lib` is now warning-clean across agent_core.
+
+**Workspace test totals (all green):**
+| Crate | Tests |
+|---|---|
+| agent_core lib | 762 |
+| agent_core integration | 13 |
+| epistemos-shadow | 45 |
+| omega-mcp | 131 |
+| graph-engine | 2,508 |
+| substrate-core | 7 |
+| epistemos-core | 366 |
+| **Total Rust** | **3,832** |
+
+Phase 1 task 4 — **retraction primitive**: `agent_core/src/provenance/ledger.rs` (~370 LOC + 230 LOC tests) ships `ClaimLedger` with bounded retraction propagation walk + cycle detection (depth ≤ `MAX_RETRACTION_WALK_DEPTH = 16`, deterministic `BTreeSet` output, sorted-BFS for byte-equal `RetractionReport`). 10 unit tests pass: direct retraction, transitive retraction at depth 1, cycle detection rejection at commit time, diamond dependency dedup, deep 10-chain walk, idempotent retraction, deterministic JSON output, missing-evidence error, duplicate-id rejection.
+
+Phase 1 task 6 — **ReplayBundle export**: `agent_core/src/provenance/replay.rs` (~250 LOC + tests) ships `ReplayBundle` with `LedgerSnapshot`, `ClaimDerivation`, `ClaimEvidenceLink`, BLAKE3 integrity hash over canonical JSON (hash field self-zeroed during compute), `to_epbundle_bytes()` / `from_epbundle_bytes()` round-trip. 7 unit tests pass: JSON byte-equal round-trip, deterministic build from equal ledgers, tampering invalidates hash, integrity hash format (64-char lowercase hex), epbundle byte round-trip, snapshot orders by id, empty inputs rejected.
+
+Open Provenance Standard parallel-track milestone — **`epistemos-trace verify` CLI**: `agent_core/src/bin/epistemos_trace.rs` ships the Phase-1 / parallel-track binary the doctrine `04_PHASES.md` calls for. `epistemos-trace verify <path>` reads a `.epbundle`, validates the BLAKE3 integrity, exits 0 on match. Five exit codes (0/1/2/3/4) cover usage / io / parse / integrity-mismatch error classes. 6 e2e integration tests in `agent_core/tests/epistemos_trace_e2e.rs` exercise every exit code via `std::process::Command` + `tempfile`. Pairs with the open-standard repo's public-launch milestone (≤ May 4, 2026).
+
+R14 verified — UniFFI is **already pinned to 0.29.5** in `agent_core/Cargo.toml` (the dep work is done; the remaining R14 Sendable annotation pass is Swift-side and gated on Xcode IDE-lock release).
+
+Phase 1 task 4 — **retraction primitive**: `agent_core/src/provenance/ledger.rs` (~370 LOC + 230 LOC tests) ships `ClaimLedger` with bounded retraction propagation walk + cycle detection (depth ≤ `MAX_RETRACTION_WALK_DEPTH = 16`, deterministic `BTreeSet` output, sorted-BFS for byte-equal `RetractionReport`). 10 unit tests pass: direct retraction, transitive retraction at depth 1, cycle detection rejection at commit time, diamond dependency dedup, deep 10-chain walk, idempotent retraction, deterministic JSON output, missing-evidence error, duplicate-id rejection.
+
+Phase 1 task 6 — **ReplayBundle export**: `agent_core/src/provenance/replay.rs` (~250 LOC + tests) ships `ReplayBundle` with `LedgerSnapshot`, `ClaimDerivation`, `ClaimEvidenceLink`, BLAKE3 integrity hash over canonical JSON (hash field self-zeroed during compute), `to_epbundle_bytes()` / `from_epbundle_bytes()` round-trip. 7 unit tests pass: JSON byte-equal round-trip, deterministic build from equal ledgers, tampering invalidates hash, integrity hash format (64-char lowercase hex), epbundle byte round-trip, snapshot orders by id, empty inputs rejected.
+
+Open Provenance Standard parallel-track milestone — **`epistemos-trace verify` CLI**: `agent_core/src/bin/epistemos_trace.rs` ships the Phase-1 / parallel-track binary the doctrine `04_PHASES.md` calls for. `epistemos-trace verify <path>` reads a `.epbundle`, validates the BLAKE3 integrity, exits 0 on match. Five exit codes (0/1/2/3/4) cover usage / io / parse / integrity-mismatch error classes. 6 e2e integration tests in `agent_core/tests/epistemos_trace_e2e.rs` exercise every exit code via `std::process::Command` + `tempfile`. Pairs with the open-standard repo's public-launch milestone (≤ May 4, 2026).
+
+R14 verified — UniFFI is **already pinned to 0.29.5** in `agent_core/Cargo.toml` (the dep work is done; the remaining R14 Sendable annotation pass is Swift-side and gated on Xcode IDE-lock release).
+
+**agent_core test count: 741 → 771 (lib 758 + 6 e2e + 7 pre-existing integration). Zero regressions.**
+
+Earlier this session: RRF Cross-Index Fusion Phases 0-5 + Phase 6 observability + Phase 7 docs all shipped; 4 of 8 wiring sites flag-aware; 2 breadcrumbed; 2 deferred (see `docs/RRF_FUSION_DESIGN.md` §14). Two code defects caught + fixed (stale `RRFFusionQuery.swift` docstring promising `SEARCH ... USING fts5`; Swift contextual-keyword variable `async` in fusion test). F10 closed for search path. F9 reframed + deferred to T+13. **Swift runtime test verification still gated on next Xcode IDE-closed window.**
+
+## 2026-04-28 RRF Cross-Index Fusion (NEW PHASE)
+
+User-authored mission brief preserved verbatim at `docs/RRF_FUSION_PROMPT.md`.
+Living design doc at `docs/RRF_FUSION_DESIGN.md`.
+
+Architectural decisions settled by user (do not re-litigate):
+- Share `SearchIndexService.dbPool` (closed F8 — `EpistemosDocumentController` injects writer; `ReadableBlocksIndex` migration co-resident with v1/v2_block_search per plan §225).
+- Single SQL RRF query, no Swift-side merging.
+- Additive behind `EPISTEMOS_RRF_FUSION_V1` flag (default ON in dev, OFF in MAS until benchmarked).
+- k=60 — source-of-truth `epistemos-shadow/src/backend/rrf.rs`; Swift mirror documented, NEVER duplicated.
+- Closes audit gaps F9 (MutationEnvelope retrieval-event emission) + F10 (os_signpost on save / search path).
+
+Phase status:
+- Phase 0 — research + design doc: ✅ complete (2026-04-28) — source enumeration + bm25 sign + GRDB version verification authored into `docs/RRF_FUSION_DESIGN.md`
+- Phase 1 — schema + migration: ✅ complete (2026-04-28) — additive ALTER `vault_id TEXT` + 2 indexes (`vault_id`, composite `(vault_id, artifact_id)`); migration key `v3_1_readable_blocks_vault_id`; 5 new tests in `ReadableBlocksIndexTests.swift`
+- Phase 2 — SQL fusion query: ✅ complete (2026-04-28) — `Epistemos/Sync/RRFFusionQuery.swift` with `Phase3FusionConsts.K_RRF=60` single-source-of-truth Swift mirror, `FusionWeights` Sendable struct, `FusedResult` Sendable struct, full SQL with 3 CTEs + UNION ALL + GROUP BY rollup + recency `exp()` boost; 7 critical-invariant tests in `EpistemosTests/RRFFusionQueryTests.swift` including K_RRF parity probe of `epistemos-shadow/src/backend/rrf.rs`, bm25 sign assertion, EXPLAIN QUERY PLAN regex gate (`VIRTUAL TABLE INDEX \d+:M\d+`), end-to-end fusion + recency tests; full plan captured in `docs/RRF_FUSION_DESIGN.md` §8
+- Phase 3 — `SearchIndexService.fusedSearch` API: ✅ complete (2026-04-28) — `fusedSearch(query:weights:now:)` + `fusedSearchAsync(...)` added to `SearchIndexService` (`Epistemos/Sync/SearchIndexService.swift:492-568`); `nonisolated public`; uses existing `dbPool.read` + `Sig.storage.beginInterval("fused_search", ...)` signpost (closes F10 for the search path); `RRFFusionFlags.isEnabled` env-var gate added to `Epistemos/Sync/RRFFusionQuery.swift`. F9 reframed: the existing `MutationEnvelope` schema is purely write-side (no retrieval variant), so retrieval-event emission is deferred to T+13 hardening per `docs/RRF_FUSION_DESIGN.md` §9 item 3.
+- Phase 4 — 8 wiring sites: 🟡 partial (2026-04-28) — 4 sites fully wired flag-aware (Site 1 HomeView search bar, Site 3 Epdoc Slash + @-mention via QueryRuntime, Site 6 AgentRuntime context retrieval, plus implicit coverage of NoteEntity / NotesMentionDropdown / NotesSidebar via `VaultSyncService.searchFullAsync` + `searchIndex` dispatch); 2 breadcrumbed (Site 7 iMessage Phase-K reply context links to existing wiring; Site 8 Meaning-anchor pinned-doc boost links to FusionWeights API extension); 2 deferred (Site 2 Halo ShadowPanel "Vault" segmented control = UI work; Sites 4+5 Rust agent tool + Hermes parity = cross-language FFI bridge). Flag-off default keeps every site on the legacy path. Detailed status in `docs/RRF_FUSION_DESIGN.md` §14.
+- Phase 5 — real-DB tests: ✅ complete (2026-04-28, runtime verification deferred to next IDE-closed window) — `EpistemosTests/SearchIndexServiceFusionTests.swift` (~280 LOC); 9 tests covering single-source, cross-source consensus, block→doc rollup w/ snippet anchor, recency boost reorders ties, 100-iteration tie-break determinism, empty-corpus + empty-query degenerate paths, snippet `<b>...</b>` projection, sync/async parity. Uses `SearchIndexService(databaseURL:)` file-backed init + `service.databaseWriter()` to seed `readable_blocks` directly. 50k-row perf gate is intentionally NOT in this suite (Phase 6 local-only)
+- Phase 6 — observability + flag flip: 🟢 observability shipped (2026-04-28); flag-flip awaits 3-day dogfood — `Epistemos/Sync/RRFFusionQuery.swift` gained `SearchFusionMetrics` (thread-safe ring-buffer of per-call latency + hit-count + p95 + last-error). `SearchIndexService.fusedSearch` + `fusedSearchAsync` instrumented (success-record + error-record paths). `Epistemos/Views/Settings/SearchFusionHealthRow.swift` SwiftUI diagnostic view (mirrors `EditorBundleHealthRow` shape; 1 Hz polling refresh; surfaces flag state, last query latency, p95 over up-to-200 samples, hit distribution per source, last error). Wired into `SettingsView` → General → "Diagnostics" section (alongside the previously-orphan `EditorBundleHealthRow` — the integration finally gives BOTH health rows a home). Flag flip from default-OFF → default-ON-in-MAS still gated on a 3-day dev-build dogfood run; no code change needed when ready, just toggle the env-var default in app launch logic + doc it
+- Phase 7 — doc updates: ✅ complete (2026-04-28) — `docs/RRF_FUSION_DESIGN.md` finalized (§8 EXPLAIN plan, §10 phase status, §14 wiring status); `docs/AGENT_PROGRESS.md` phases marked; `CLAUDE.md` FILE MAP gained "Swift RRF Cross-Index Fusion (Phase 2-4 — 2026-04-28)" section with file pointers + responsibilities. `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md` §225 reference from the user mission brief was sought but the file has no §225 / "existing tables continue to serve" subsection — per user memory "PLAN_V2 is authority — do not edit it to match shipped code", deferred adding a new section there without explicit user authorization
+
+Acceptance gates: single SQL produces fused ordered results across 3 sources; all 8 sites wired; `p95 < 30 ms` on 50k rows; F9 + F10 closed.
+
+## 2026-04-27 T+4 + T+5 audit close-outs
+
+Per `docs/audits/T+4_T+5_DEEP_AUDIT_2026-04-27.md` — 12 gaps surfaced (F1-F12). Status as of session end:
+- ✅ F1 NSDocument.makeWindowControllers (Tiptap+WKWebView SwiftUI host with autosave wiring)
+- ✅ F2 File > Open Document menu (cmd+O via NSDocumentController)
+- ⏳ F3 Tiptap bundle staging at Resources/Editor/ — user xcodebuild verification
+- ✅ F4 contentDidChange data drop — `EpdocEditorChromeController.onContentChanged`
+- ✅ F5 EpdocEditorSavePipeline orphan — `attachAutosavePipeline(save:)` opt-in API
+- ✅ F6 Markdown shadow regen on save — `ProseMirrorMarkdownProjector` wired in `fileWrapper(ofType:)`
+- ✅ F7 ReadableBlocksProjector production class (310 LOC + 14 tests covering heading breadcrumbs / lists / tables / callouts / marks)
+- ✅ F8 FTS production wiring — Option C explicit DI: `EpistemosDocumentController` subclass holds `DatabaseWriter`, injects into `EpdocDocument`; shared pool with `SearchIndexService`
+- ⏸ F9 MutationEnvelope production emission — REFRAMED + DEFERRED to T+13 (Phase 3 close-out 2026-04-28): existing schema is write-side only; retrieval-event variant requires Rust-parity-locked schema change (see `docs/RRF_FUSION_DESIGN.md` §9 item 3)
+- ✅ F10 os_signpost on search path — RRF Phase 3 (`Sig.storage.beginInterval("fused_search", ...)` in `SearchIndexService.fusedSearch` + `fusedSearchAsync`)
+- ✅ F11 End-to-end integration tests (smoke + projector + controller test suites)
+- ⏳ F12 V0 vs V1 dual recall systems — T+13 architectural decision
 
 Canonical release-hardening plan:
 - `docs/architecture/RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md` is the authoritative release-focused plan that reconciles later research, blocker handoffs, and verification requirements.

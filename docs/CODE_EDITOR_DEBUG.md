@@ -1,5 +1,10 @@
 # Code Editor Debug Guide — For Kimi
 
+> **Index status**: CANONICAL-RESEARCH — Debug guide for code editor syntax color invisibility — TextKit1 + NSTextView layout + potential causes/fixes.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## Problem Statement
 
 The code editor (`CodeEditorView.swift`) was upgraded with Xcode-grade colors and performance optimizations. After the upgrade:

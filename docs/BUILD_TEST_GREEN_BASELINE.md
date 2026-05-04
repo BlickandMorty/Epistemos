@@ -1,5 +1,10 @@
 # Build / Test Green Baseline — 2026-04-23
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-23 pre-execution audit baseline — 577 Rust tests + BUILD SUCCEEDED + 35 modified Swift/Rust + branch state snapshot.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Captured:** 2026-04-23, during the pre-execution audit.
 **Branch state:** DIRTY (35 modified Swift/Rust files + 2 untracked). See §4 below.
 

@@ -1,5 +1,10 @@
 # Code Editor Invisible Text — Root Cause & Fix Path
 
+> **Index status**: CANONICAL-OPERATIONAL — Code editor root-cause analysis; companion to CODE_EDITOR_DEBUG.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## For: Kimi (implementation agent)
 ## Date: 2026-04-07
 

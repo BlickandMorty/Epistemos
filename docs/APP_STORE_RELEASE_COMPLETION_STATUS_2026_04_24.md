@@ -1,5 +1,10 @@
 # App Store Release Completion Status — 2026-04-24
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-24 App Store lane completion tracker — bounded execution (chat + bounded agent + local MLX + Apple AI + user-key cloud); gating rules vs Pro lane.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 This is the handoff tracker for the **non-Pro / App Store lane**. It exists so the App Store work can finish cleanly first, while Pro development can continue later without rediscovering what is shared, what is gated, and what is still intentionally deferred.
 
 ## Governing Rule

@@ -1,5 +1,10 @@
 # Agent Integration: Remaining Work Plan
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-03-30 integration plan; items 1-15 complete + 16-21 actionable + 10-11 deferred.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Created:** 2026-03-30
 **Last Updated:** 2026-03-30 (late session — Items 1-15 completed, Gemini analysis integrated)
 **Context:** Items 1-15 are now COMPLETE and building clean. Remaining work is release hardening (Items 16-19), deferred architecture (Items 10-11), and two new items from Gemini deep analysis (Items 20-21).

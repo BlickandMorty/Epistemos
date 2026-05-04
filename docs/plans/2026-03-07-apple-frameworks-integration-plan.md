@@ -1,5 +1,10 @@
 # Apple Frameworks Integration Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **Historical snapshot:** This plan reflects a pre-pruning editor architecture phase. Production now ships the TK2-only note editor path, and any TextKit 1 prose-editor references below should be read as historical context rather than current repo state.
 
 ## Goal

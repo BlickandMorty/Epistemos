@@ -1,5 +1,10 @@
 # Claude Omega Audit + Training Grounding Manifesto
 
+> **Index status**: CANONICAL-OPERATIONAL — Standing operational mandate for Omega/KnowledgeFusion/training/evals work; North Star preservation.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Purpose
 
 This document is no longer just a fix handoff.

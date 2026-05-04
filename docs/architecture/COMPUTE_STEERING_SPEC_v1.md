@@ -1,5 +1,10 @@
 # Compute Steering Spec v1
 
+> **Index status**: CANONICAL-RESEARCH — Architectural spec cited from PLAN_V2.md (load when item touched).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/architecture_specs/`.
+
+
+
 ## Purpose
 
 Compute Steering is the policy-driven selection of auxiliary modules, masks, expert budgets, and execution budgets under explicit telemetry.

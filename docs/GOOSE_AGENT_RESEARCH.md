@@ -1,5 +1,11 @@
 # Epistemos agent + model deep technical analysis
 
+> **Index status**: SUPERSEDED-HISTORICAL — Pure-Rust agent architecture analysis (Qwen3.5 vs Gemma4 97.5% accuracy); model stack finalized post-research.
+> **Superseded by / Phase**: MASTER_MODEL_STACK_PLAN + AGENT_FUSION_RESEARCH_PROMPT.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/50_research_corpus/`.
+
+
+
 **Block Goose's pure-Rust agent core is the single highest-leverage dependency for eliminating Epistemos's Python subprocess.** Its Provider trait, 20+ provider integrations, and zero-IPC builtin extension system map cleanly onto the Swift 6 + Rust via UniFFI architecture. For local models, Gemma 4's release on April 2, 2026 shakes up the landscape but doesn't yet dethrone Qwen 3.5 as the default: Qwen3.5 4B achieves **97.5% tool-calling accuracy** and runs at 55–65 tok/s on M2 Pro, while Gemma 4's MLX tool-call parser remains unmerged. The 18GB M2 Pro memory constraint eliminates both the Gemma 4 26B-A4B MoE and Qwopus 27B from always-available duty—the production sweet spot is a **pinned 3.4GB router + cold-loaded 5.5GB reasoner**, leaving headroom for KV cache and the application itself.
 
 ---

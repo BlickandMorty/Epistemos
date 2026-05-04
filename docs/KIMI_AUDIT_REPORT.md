@@ -1,5 +1,10 @@
 # Kimi Code Editor Audit Report
 
+> **Index status**: CANONICAL-RESEARCH — 2026-04-07 Kimi code editor audit — build succeeded + correctness verified + 2 perf opportunities identified.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Date:** 2026-04-07  
 **Auditor:** Kimi  
 **Status:** ✅ Build Succeeded, Minor Issues Found

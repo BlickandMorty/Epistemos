@@ -1,4 +1,10 @@
 # Omega Audit Insights
+
+> **Index status**: SUPERSEDED-HISTORICAL — Omega retired.
+> **Superseded by / Phase**: IMPLEMENTATION_PLAN_FROM_ADVICE.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 > Cross-session learnings from code audits. Read this before modifying Omega files.
 > Last updated: 2026-03-24 (Ω10-Ω14 audit by independent auditor)
 

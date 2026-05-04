@@ -1,5 +1,10 @@
 # Parallel Session Prompt — Epistemos implementation, no-collision
 
+> **Index status**: CANONICAL-OPERATIONAL — Multi-session coordination template with no-collision file ranges + Tier 1-3 reading order.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Paste this entire document into a fresh Claude Code session running
 in `/Users/jojo/Downloads/Epistemos`. It pins context, enforces
 canonical alignment with all shipped plans, and lists the safe-to-edit

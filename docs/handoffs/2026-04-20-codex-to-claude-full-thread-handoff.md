@@ -1,5 +1,10 @@
 # Codex → Claude full-thread handoff · April 20 2026
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Purpose: this is the comprehensive baton pass for Claude to audit all
 work from this thread, cross-check it against the research we fused,
 and verify the remaining runtime/product risks without losing the

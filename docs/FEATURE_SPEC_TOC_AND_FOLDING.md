@@ -1,5 +1,10 @@
 # Feature Spec: Symbol TOC Strip + Code Folding
 
+> **Index status**: CANONICAL-OPERATIONAL — Symbol TOC strip + code folding feature spec — CodeSymbol struct (20-byte repr(C)) + Rust FFI + 3-step Swift impl with outline cache.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## For: Kimi (implementation agent)
 ## Priority: Ship-ready features for Epistemos code editor
 ## Reference: Antigravity editor screenshot showing both features

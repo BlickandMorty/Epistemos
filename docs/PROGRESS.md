@@ -1,5 +1,10 @@
 # Epistemos Omega Integration — Implementation Progress
 
+> **Index status**: CANONICAL-OPERATIONAL — Live state tracker: Omega phases Ω0-Ω9 complete + Knowledge Fusion v3 0-6 + Halo + Contextual Shadows shipped; granular phase-status matrix.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Current State Clarification — 2026-03-26
 
 - Ω18 is no longer "0%" or blocked on `retrieval_index.rs`.

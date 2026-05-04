@@ -1,5 +1,10 @@
 # Jojo Manual Release Checklist
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-28  
 **Audience:** Jojo  
 **Purpose:** Everything you still need to do outside normal coding, including fresh-user simulation and actual public-release prep.

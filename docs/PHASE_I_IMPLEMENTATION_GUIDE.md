@@ -1,5 +1,10 @@
 # Epistemos Phase I: Pure Rust Agent Runtime — Implementation Guide
 
+> **Index status**: CANONICAL — Pure Rust Agent Runtime guide — UniFFI streaming bridge first (Week 1 Days 1-3), provider trait extraction, AnthropicProvider+OpenAIProvider; <10ms cold start, 8-12MB binary.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 > **Purpose**: This document is a working sprint file. Hand it to Claude Code. Every section contains real code patterns, not analysis. The research is done. This is the build plan.
 >
 > **Constraint envelope**: Swift 6 + Rust (UniFFI) + Metal. No Python. No venv. 18GB M2 Pro. Target: 8–12MB agent binary, <10ms cold start, zero-copy IPC via Apple Silicon UMA.

@@ -1,5 +1,11 @@
 # KNOWLEDGE FUSION CONTINUATION PROMPT — Paste into new Claude Code session
 
+> **Index status**: SUPERSEDED-HISTORICAL — Knowledge Fusion continuation prompt; KF retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by / Phase**: IMPLEMENTATION_PLAN_FROM_ADVICE.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## CONTEXT RECOVERY
 
 You are continuing work on **Epistemos Knowledge Fusion** — a synthetic data pipeline that transforms a user's 710+ markdown vault notes into high-quality training data for a custom Hybrid Mamba-Attention model. Phases 0-1 are complete. Your job is to implement **Phases 2-5** (the core pipeline).

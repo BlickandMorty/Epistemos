@@ -1,5 +1,10 @@
 # Research-to-App Traceability Audit
 
+> **Index status**: CANONICAL — Research-to-App F01-F29 traceability matrix; honest "Alive / Alive but thin / Partial / Latent / Stub / Paper-only / Deferred / Conflicted" feature labels with file:line evidence.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 ## Method
 
 This matrix was built with the following authority order:

@@ -1,5 +1,10 @@
 # TextKit 1 → TextKit 2 Migration — Prose Editor
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Context
 
 The prose editor (`ClickableTextView` + `MarkdownTextStorage` + `ProseEditorRepresentable` + `PageStoragePool`) is built entirely on TextKit 1. TextKit 2 offers viewport-based rendering, a modern element tree model, and better performance at scale. This migration rebuilds the editor from scratch on TextKit 2 while preserving every existing behavior.

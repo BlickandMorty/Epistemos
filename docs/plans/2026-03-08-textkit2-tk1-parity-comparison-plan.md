@@ -1,5 +1,10 @@
 # TextKit 1 vs TextKit 2 Parity Comparison Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Goal
 
 Before deleting the TextKit 1 prose stack, run a full comparison audit that proves the TextKit 2 stack has either:

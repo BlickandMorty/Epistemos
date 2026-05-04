@@ -1,4 +1,10 @@
 # Omega Session State
+
+> **Index status**: SUPERSEDED-HISTORICAL — Omega retired.
+> **Superseded by / Phase**: IMPLEMENTATION_PLAN_FROM_ADVICE.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 > Quick-read file for new Claude Code sessions. `cat` this first.
 > Last updated: 2026-03-25
 

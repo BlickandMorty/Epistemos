@@ -1,5 +1,11 @@
 # Theme Refactor Changelog
 
+> **Index status**: SUPERSEDED-HISTORICAL — Theme refactor shipped.
+> **Superseded by / Phase**: theme refactor shipped.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Architecture
 
 - [UIState.swift](/Users/jojo/Epistemos/Epistemos/State/UIState.swift)

@@ -1,4 +1,9 @@
 # Sprint Agent-3: MCP + Computer Use
+
+> **Index status**: SUPERSEDED-HISTORICAL — Older sprint plan superseded by MASTER_FUSION.md sprint plan §10.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ## Duration: 1-2 sessions | Priority: HIGH — make MCP real and make computer use native
 
 ---

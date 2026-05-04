@@ -1,5 +1,11 @@
 # Epistemos Knowledge Fusion Subsystem
 
+> **Index status**: SUPERSEDED-HISTORICAL — Knowledge Fusion retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by**: IMPLEMENTATION_PLAN_FROM_ADVICE + MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 On-device personal model adaptation via QLoRA fine-tuning on Apple Silicon.
 
 ## Overview

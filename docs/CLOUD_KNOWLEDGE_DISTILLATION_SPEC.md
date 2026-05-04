@@ -1,5 +1,10 @@
 # Cloud Knowledge Distillation — Design Spec
 
+> **Index status**: CANONICAL-RESEARCH — Per-model vault concept + base knowledge layer + dynamic retrieval; Tier 2 priority deferred feature spec.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Status:** Not yet implemented
 **Priority:** Tier 2 (after Phase 6F wiring)
 **Approach:** Pre-compiled base knowledge layer + dynamic per-query retrieval

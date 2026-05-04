@@ -1,5 +1,11 @@
 # Unified Substrate Research — Synthesis of 3 Independent Dossiers
 
+> **Index status**: DEFERRED-RESEARCH — Substrate Phase D research with "Five Laws (Add to CLAUDE.md — binding)" language; needs canonical absorption review.
+> **Superseded by / Phase**: Phase D.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/`.
+
+
+
 **Date:** 2026-04-02
 **Sources:** unified1.md (Perplexity), unified2.md (Claude), unified3.md (independent)
 **Verdict:** All 3 converge on the same architecture. Strong signal.

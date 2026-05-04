@@ -1,5 +1,10 @@
 # Codex Session Prompt — Epistemos
 
+> **Index status**: CANONICAL-OPERATIONAL — Codex session restore prompt with status corrections; Phase 6F/7 already complete.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Paste this at the start of EVERY NEW Codex session to restore context.**
 
 ## STATUS CORRECTION — 2026-04-01

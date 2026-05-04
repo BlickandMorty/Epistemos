@@ -1,5 +1,10 @@
 # Adaptation Subsystem Spec v1
 
+> **Index status**: CANONICAL-RESEARCH — Architectural spec cited from PLAN_V2.md (load when item touched).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/architecture_specs/`.
+
+
+
 ## Purpose
 The Adaptation Subsystem exists to host bounded, reversible, helper-model-first adaptation without destabilizing the main runtime.
 

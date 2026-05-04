@@ -1,5 +1,10 @@
 # Backend Interface Spec v1.1
 
+> **Index status**: CANONICAL-RESEARCH — 3-layer runtime spec (Rust control plane + gguf/mlx/remote runtimes); canonical operations (load_model/generate/cancel/...) for Phase 1.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## Summary
 Epistemos uses a three-layer runtime architecture.
 

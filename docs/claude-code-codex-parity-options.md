@@ -1,5 +1,10 @@
 # How Epistemos gets *real* Claude-Code / Codex parity inside the app
 
+> **Index status**: CANONICAL-RESEARCH — Runtime path comparison; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_cli_integration/`.
+
+
+
 The user's ask: "I want Claude and Codex to truly have the capabilities
 that the desktop apps do and I want it to be a part of my app
 literally." This note is the research comparing every technically

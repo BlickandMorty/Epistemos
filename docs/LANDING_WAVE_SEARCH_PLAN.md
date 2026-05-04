@@ -1,5 +1,10 @@
 # Landing Liquid-Wave Search — Implementation Plan
 
+> **Index status**: CANONICAL-OPERATIONAL — GPU Metal ASCII liquid-wave search surface (HomeView redesign) — 160×80 grid @ <1ms GPU per frame on M-series.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Date**: 2026-04-24
 **Author**: Claude (Opus 4.7)
 **Status**: Green-lit by user; Codex gave go-ahead. Implementation starts immediately after this doc.

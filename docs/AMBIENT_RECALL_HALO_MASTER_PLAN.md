@@ -1,5 +1,7 @@
 # Ambient Recall Halo — Master Plan
 
+> **Index status**: DEFERRED-RESEARCH — design spec for Phase H (Ambient Recall), downstream of Phase R, upstream of Phase S. **Not canonical doctrine** — read when implementing Phase H, not before. Linked from [`docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`](IMPLEMENTATION_PLAN_FROM_ADVICE.md). Classified in [`docs/_INDEX.md §8`](_INDEX.md).
+
 **Status:** Design-locked. Execution-blocked on Phase R closure.
 **Date:** 2026-04-24
 **Owner:** Jordan

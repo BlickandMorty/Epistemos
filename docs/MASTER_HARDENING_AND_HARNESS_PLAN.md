@@ -1,5 +1,10 @@
 # Epistemos: Master Hardening + Meta-Harness Plan
 
+> **Index status**: CANONICAL — 5-layer hardening roadmap (foundations/meta-harness production+lab/optimization/typestate); phases 1-13 tracked.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 **Last updated: 2026-04-01**
 **Status: Active implementation in progress**
 

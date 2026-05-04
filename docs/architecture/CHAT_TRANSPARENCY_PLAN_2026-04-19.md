@@ -1,5 +1,10 @@
 # Unified Chat Transparency Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific handoff or older plan; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-04-19
 **Branch where tonight's fixes landed:** `codex/runtime-input-audit`
 **Author:** Claude audit pass (follow-up to the Codex handoff 2026-04-18)

@@ -1,4 +1,9 @@
 # Epistemos Omega — Research Prompts
+
+> **Index status**: CANONICAL-RESEARCH — 2026-03-25 — 10 self-contained deep-research prompts (Mamba-2 Metal kernels + Cartesia Edge + MLX Mamba support + ...); research agenda.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 > Use these prompts with Google Deep Research, Perplexity, or Claude to resolve open research stops.
 > Each prompt is self-contained with full context about what Epistemos needs.
 > Last updated: 2026-03-25

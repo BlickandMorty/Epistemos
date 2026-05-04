@@ -1,3 +1,9 @@
+# Audit Log
+
+> **Index status**: CANONICAL-OPERATIONAL — Phase A follow-up status (13 sub-passes); verification verdicts for OAuth/provider setup/account validation.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
 ## Phase A Follow-Up 13 — 2026-04-03
 - Scope: close the account-session verification dead end by exposing a visible top-level live-check action for saved OpenAI, Anthropic, and Google access instead of burying verification under the legacy-key disclosure
 - Focused verification:

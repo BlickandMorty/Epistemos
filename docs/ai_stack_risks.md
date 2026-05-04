@@ -1,5 +1,10 @@
 # AI Stack Risks
 
+> **Index status**: CANONICAL-OPERATIONAL — AI stack risk register; companion docs.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## 1. Future retrieval overreach
 
 Severity: critical

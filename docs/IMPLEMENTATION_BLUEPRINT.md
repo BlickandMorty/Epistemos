@@ -1,5 +1,7 @@
 # Epistemos v1 — Definitive Implementation Blueprint
 
+> **Index status**: SUPERSEDED-HISTORICAL — April 6, 2026 V1 blueprint. Superseded by [`docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`](IMPLEMENTATION_PLAN_FROM_ADVICE.md) (4-model council synthesis from 2026-04-22) + [`docs/MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (operational doctrine). The `ShipGate.agentsEnabled = false` constraint reflects the V1 release moment; V1.5+ has different ship gates. **Not canonical for current execution.** Classified in [`docs/_INDEX.md §9`](_INDEX.md).
+
 **Synthesized from**: 5 deep research reports, 20 codebase files, Goose/Hermes/agent_core analysis
 **Date**: 2026-04-06
 **Constraint**: `ShipGate.agentsEnabled = false` for release. Zero agent loops. Cloud chat only.

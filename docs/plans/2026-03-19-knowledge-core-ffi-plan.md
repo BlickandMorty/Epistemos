@@ -1,5 +1,10 @@
 # Knowledge Core Zero-Copy FFI Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Goal
 
 Add a parallel Rust "knowledge core" beside the current BTK path, then replace BTK only after the new path proves three things:

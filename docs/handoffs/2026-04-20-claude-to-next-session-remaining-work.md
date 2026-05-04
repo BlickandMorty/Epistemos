@@ -1,5 +1,10 @@
 # Claude → next session handoff · 2026-04-20 · remaining runtime work
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Purpose: pick up where this Claude session left off. 15 commits landed
 on `codex/runtime-input-audit` during this pass, but the user still sees
 at least one major symptom live (GPT-5.4 Thinking shows fake 5.7 s

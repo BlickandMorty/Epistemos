@@ -1,5 +1,11 @@
 # Kimi Handoff: Code Editor — All Remaining Issues
 
+> **Index status**: SUPERSEDED-HISTORICAL — Kimi historical handoff (2026-04-07); pre-canonical Kimi work.
+> **Superseded by / Phase**: KIMI_AUDIT_REPORT.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Date: 2026-04-07
 ## Priority: HIGH — these are blocking user experience
 

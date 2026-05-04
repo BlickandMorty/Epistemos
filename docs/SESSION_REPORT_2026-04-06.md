@@ -1,5 +1,11 @@
 # Epistemos Session Report — 2026-04-06
 
+> **Index status**: TRANSIENT-CANDIDATE — Session report — code editor syntax color invisibility + cloud routing changes; superseded by CODE_EDITOR_DEBUG + SESSION_HANDOFF_2026-04-07.
+> **Superseded by / Phase**: CODE_EDITOR_DEBUG + SESSION_HANDOFF_2026-04-07.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## For: Next Agent (Kimi or Claude)
 
 Two unresolved issues remain from this session. The code compiles with zero errors and zero warnings in the affected files, but runtime behavior is broken.

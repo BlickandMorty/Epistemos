@@ -1,5 +1,11 @@
 # Phase Completion Checklist
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific older checklist; superseded by 04_PHASES.md + V1_5_TRACKER.
+> **Superseded by / Phase**: 04_PHASES + V1_5_TRACKER.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Phase 0: Dependency Audit & Rust Workspace Setup
 
 - [x] `epistemos-core/Cargo.toml` created with all dependencies

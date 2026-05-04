@@ -1,5 +1,10 @@
 # Remaining Work Inventory — when this is empty, the doc stack is done
 
+> **Index status**: CANONICAL-OPERATIONAL — Canonical "what's left" doc (2026-04-26 post-Wave 15) — Tier 1+2 closed; only 3 pre-TestFlight ship gates remain.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Authored 2026-04-26 after the Wave 15 App Intents native expansion
 pass. This is the canonical "what's left from the entire plan" doc:
 when every item below is checked off, [WAVE_9_POLISH_AND_NATIVE.md]

@@ -1,5 +1,10 @@
 # Wave 9 — Polish, Wire-up, Apple-Native
 
+> **Index status**: CANONICAL — Wave 9 synthesis — V1 shippable on 3 ship-gates (~7 hrs) via wiring backend logic + Apple-native quick wins.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 Synthesis of 5 parallel research streams (project plan audit + Downloads
 corpus across optimization, UI wiring, Apple-native, PKM/memory).
 Authored 2026-04-26 after W8.7 (Halo vault bootstrap) closure.

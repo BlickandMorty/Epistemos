@@ -1,4 +1,9 @@
 # Epistemos PLAN v2
+
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ## Hardened Architecture, Research-Fused Roadmap, and Codex-Executable Guidance
 
 ## 1. Mission

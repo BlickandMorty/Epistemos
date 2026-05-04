@@ -1,5 +1,10 @@
 # Phase 10: Integration + Parity — Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 >
 > **Historical note:** This plan is complete and retained as an implementation record. The live app no longer uses `useTK2Editor`, `PageStoragePool`, or the TK1 production prose stack referenced below.

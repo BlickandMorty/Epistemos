@@ -1,4 +1,9 @@
 # Agent Fusion Research Prompt
+
+> **Index status**: CANONICAL-RESEARCH — Deep research for optimal agent runtime fusion (Hermes + GoClaw + Phantom + OpenSwarm + ...); 20-file Epistemos agent inventory.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ## Engineering the Optimal Agent Runtime from 8 Open-Source Projects
 
 **Purpose:** Deep research to engineer the most optimized, highest-performance fusion of the best patterns from Hermes Agent, GoClaw, Phantom, OpenSwarm, Claw Code, CodeNano, OpenClaw, and Hermes IDE — integrated into the Epistemos Swift 6 + Rust + Metal stack.

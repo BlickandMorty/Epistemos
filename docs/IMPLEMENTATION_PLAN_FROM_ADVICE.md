@@ -1,5 +1,10 @@
 # Epistemos — Implementation Plan Synthesized from the Four-Model Council
 
+> **Index status**: CANONICAL — v2.2 synthesized master plan with 7 workstreams + 6 appendices + drift-proof code snippets inlined; phase sequencing A→S with drift alarms, pre-flight greps, executable session prompts for Codex/Claude Code.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 **Sources:** Gemini paper (v1 + v2 synthesis), Perplexity paper (+ master synthesis), Claude paper, GPT paper, PLAN_V2 (claude advice.md), Meta-prompt for Claude brainstorming, live-code audit.
 **Status date:** 2026-04-22.
 **Author context:** synthesis produced after reading all source documents end-to-end and running a live-code audit to align the plan with what is already built.

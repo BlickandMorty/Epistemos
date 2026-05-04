@@ -1,5 +1,11 @@
 # Knowledge Fusion Architecture
 
+> **Index status**: SUPERSEDED-HISTORICAL — Knowledge Fusion retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by**: IMPLEMENTATION_PLAN_FROM_ADVICE + MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Subsystem 1: Data Ingestion and Normalization Engine
 
 **Input:** Raw markdown notes, PDF documents, voice recordings from the user's vault.

@@ -1,5 +1,10 @@
 # Epistemos Omega — Model Training Guide
 
+> **Index status**: CANONICAL-RESEARCH — Quick-reference training guide — Hybrid Mamba/Attention 75/25 + 24-layer stack + model tiers; defers to NANO-MASTER-TRAINING-GUIDE for deep execution.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 > **READ FIRST**: `docs/NANO-MASTER-TRAINING-GUIDE.md` is the deep-dive execution manual.
 > This file is the quick-reference. When in doubt, the Master Guide wins.
 

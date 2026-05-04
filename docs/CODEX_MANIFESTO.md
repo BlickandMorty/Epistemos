@@ -1,5 +1,10 @@
 # Codex Manifesto — Verbose Doc-First Protocol for Epistemos
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-04 binding operating contract for Codex — two-tier research corpus protocol + docfirst search protocol.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Audience:** Codex (OpenAI coding agent)
 **Author:** User, via Claude
 **Date:** 2026-04-04

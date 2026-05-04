@@ -1,5 +1,11 @@
 # Theme Refactor Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Theme refactor shipped.
+> **Superseded by / Phase**: theme refactor shipped.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## New Architecture
 
 The theme system is now split into two explicit modes:
