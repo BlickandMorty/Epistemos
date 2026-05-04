@@ -111,16 +111,18 @@ struct HermesExpertModeView: View {
     @ViewBuilder
     private func transcriptRow(_ entry: HermesExpertTranscriptEntry) -> some View {
         let (prefix, color) = transcriptStyling(entry)
-        HStack(alignment: .top, spacing: 8) {
-            Text(prefix)
-                .font(monoFont)
-                .foregroundStyle(color.opacity(0.7))
-                .frame(width: 18, alignment: .leading)
-            Text(entry.text)
-                .font(monoFont)
-                .foregroundStyle(color)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
+        HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(prefix)
+                    .font(monoFont)
+                    .foregroundStyle(color.opacity(0.7))
+                    .frame(width: 18, alignment: .leading)
+                Text(entry.text)
+                    .font(monoFont)
+                    .foregroundStyle(color)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
         }
     }
 
