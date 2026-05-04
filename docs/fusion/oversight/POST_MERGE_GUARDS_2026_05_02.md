@@ -1032,3 +1032,17 @@
 - test: `python3 scripts/verify_hotpath.py`
 - test: `cargo test --manifest-path agent_core/Cargo.toml`
 - test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`
+
+## wbo6-rust-budget-pr57
+
+- module grep: `Wbo6Term|Wbo6Terms|Wbo6Budget|resonance_core_budget_terms|kl_divergence_from_logits` remains present in `agent_core/src/wbo6/mod.rs`.
+- export grep: `pub mod wbo6;` remains present in `agent_core/src/lib.rs`.
+- resonance integration grep: `core_resonance_signature_consumes_only_t_r` remains present in `agent_core/tests/wbo6_budget.rs`.
+- verifier grep: `wbo6_rust_budget_surface_present|wbo6_budget_tests_present` remains present in `scripts/verify_hotpath.py`, and the hot-path JSON has `"status": "pass"`.
+- staged allow: only `agent_core/src/lib.rs`, `agent_core/src/wbo6/mod.rs`, `agent_core/tests/wbo6_budget.rs`, `scripts/verify_hotpath.py`, hot-path verification JSON, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `test result: ok. 13 passed` in `/tmp/epistemos-wbo6-budget-pr57-20260503.log`.
+- log: `test result: ok. 30 passed` in `/tmp/epistemos-wbo6-resonance-regression-pr57-20260503-rerun.log`.
+- log: `"status": "pass"` in `/tmp/epistemos-wbo6-verify-hotpath-pr57-20260503.log`.
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test wbo6_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test resonance_seed`
+- test: `python3 scripts/verify_hotpath.py`

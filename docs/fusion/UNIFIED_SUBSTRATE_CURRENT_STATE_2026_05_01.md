@@ -1346,6 +1346,14 @@ Proven or actively wired:
   `/tmp/epistemos-step2-cargo-test-r104-20260503.log`, Xcode build
   `/tmp/epistemos-step2-xcodebuild-r104-20260503.log`, and hot-path verifier
   `/tmp/epistemos-verify-hotpath-r104-20260503.log`.
+- WBO-6 Rust budget STEP 4a / PR57 is now code-closed. `agent_core::wbo6`
+  exposes the six canonical terms (`T_W`, `T_K`, `T_R`, `T_Q`, `T_S`, `T_SE`),
+  strict finite/nonnegative term validation, a half-constant budget evaluator,
+  stable softmax + KL helpers, and `resonance_core_budget_terms` so the existing
+  Resonance seed has a real `T_R` budget surface. Focused evidence:
+  `/tmp/epistemos-wbo6-budget-pr57-20260503.log`,
+  `/tmp/epistemos-wbo6-resonance-regression-pr57-20260503-rerun.log`, and
+  `/tmp/epistemos-wbo6-verify-hotpath-pr57-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
