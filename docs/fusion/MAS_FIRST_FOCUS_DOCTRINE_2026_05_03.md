@@ -237,6 +237,81 @@ Verification: every build must pass with
 
 ---
 
+## 4.5 Free-Tier Build Adaptations (TEMP-FREE-TIER, 2026-05-03)
+
+**The user's current signing certificate is a free Personal Team** (no
+paid $99/yr Apple Developer Program membership yet). Free Personal
+Teams can build, run, and debug locally indefinitely — they CANNOT
+generate provisioning profiles for App Groups, push notifications,
+CloudKit, or anything that requires Apple Developer Portal
+registration.
+
+To unblock local development NOW, two surgical adaptations are made
+under explicit `TEMP-FREE-TIER` markers. Each adaptation is fully
+documented in the file it touches with restoration steps.
+
+### 4.5.1 App Groups removed from `Epistemos-AppStore.entitlements`
+
+| What | Why | Impact | Restoration |
+|---|---|---|---|
+| `com.apple.security.application-groups` block removed | Free tier can't generate provisioning profiles for App Groups | Main app + bundled XPC services cannot share a filesystem container; the data path between processes MUST be XPC messages (not shared `/Library/Group Containers/group.com.epistemos.shared/` files) | When paid Developer Team available: register App Group at developer.apple.com → update Xcode signing → restore the block per the file header comment → verify XPC services work |
+
+**This is actually a more secure architecture.** Per the advice that
+prompted this adaptation, "the XPC boundary becomes the only data path"
+— exactly what the XPC Mastery Doctrine §1.4 prescribes
+(capability-token-only IPC). The App Group is operational convenience
+for the future paid build; living without it forces the architectural
+discipline we want anyway.
+
+### 4.5.2 XPC services design under TEMP-FREE-TIER
+
+Every Hermes XPC service authored during the MAS-first sprint MUST:
+
+- **Pass data via XPC messages, not shared container files.** Even when
+  paid Developer Team is restored, this stays as the canonical path —
+  shared container is fallback for high-frequency / high-volume cases
+  only (per IOSurface zero-copy pattern in XPC Mastery Doctrine §9).
+- **Persist into the main app's container, not the App Group container.**
+  The vault directory resolved by `URL.applicationSupportDirectory`
+  (sandbox-scoped, single-app) is the active path.
+- **NOT call `FileManager.default.containerURL(forSecurityApplicationGroupIdentifier:)`
+  in any active code path.** If a future surface needs that API, gate
+  it behind a runtime check + fall back to per-process container,
+  with a clear `TEMP-FREE-TIER` comment.
+
+### 4.5.3 The marker discipline
+
+Every `TEMP-FREE-TIER` change MUST include:
+
+1. A `TEMP-FREE-TIER YYYY-MM-DD:` comment in the file at the change site
+2. Restoration steps in the file's header comment block (entitlements,
+   plists) OR inline (code files)
+3. A row in this §4.5 table noting what + why + impact + restoration
+
+When paid Developer Team is added:
+- `grep -rn 'TEMP-FREE-TIER'` returns the full restoration list
+- Each row in §4.5 is restored
+- This §4.5 section gets a "RESTORED YYYY-MM-DD" header line; left as
+  historical context for future free-tier developers / forks
+
+### 4.5.4 What's NOT being removed (still works on free tier)
+
+- App Sandbox itself (`com.apple.security.app-sandbox`)
+- Hardened Runtime (`com.apple.security.cs.*`)
+- Network client (`com.apple.security.network.client`)
+- File bookmarks (`com.apple.security.files.bookmarks.app-scope`)
+- User-selected file access (`com.apple.security.files.user-selected.read-write`)
+- JIT entitlement (`com.apple.security.cs.allow-jit` — needed for
+  wasmtime; works on free tier)
+- LocalAuthentication / Sovereign Gate (no entitlement needed)
+- All Apple frameworks (MLX-Swift, FoundationModels, ScreenCaptureKit,
+  etc.) — work on free tier
+
+The substrate-foundational work (T0 sub-tracks 1-4, T5 Hermes XPC
+in-process bridge, T6 Simulation v1.6) all proceed unaffected.
+
+---
+
 ## 5. The hardening cycle (what NOT to confuse this with)
 
 The MAS-first focus does NOT mean:
