@@ -23,7 +23,9 @@
     "shader_entrypoints_present": true,
     "sherry_pack_pass": true,
     "softmax_kl_pass": true,
-    "sovereign_single_owner": true
+    "sovereign_single_owner": true,
+    "wbo6_budget_tests_present": true,
+    "wbo6_rust_budget_surface_present": true
   },
   "critical_process_hits": [],
   "e8_norm2_count": 240,

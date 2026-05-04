@@ -23,7 +23,9 @@ REQUIRED_PATHS = [
     "agent_core/src/resonance/tau.rs",
     "agent_core/src/resonance/pi.rs",
     "agent_core/src/resonance/lambda.rs",
+    "agent_core/src/wbo6/mod.rs",
     "agent_core/tests/resonance_seed.rs",
+    "agent_core/tests/wbo6_budget.rs",
     "Epistemos/Engine/ResonanceService.swift",
     "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
     "Epistemos/LocalAgent/HermesCapabilityRegistry.swift",
@@ -177,6 +179,8 @@ def main() -> int:
     pi = read("agent_core/src/resonance/pi.rs")
     lamb = read("agent_core/src/resonance/lambda.rs")
     resonance_swift = read("Epistemos/Engine/ResonanceService.swift")
+    wbo6 = read("agent_core/src/wbo6/mod.rs")
+    wbo6_tests = read("agent_core/tests/wbo6_budget.rs")
     hermes_gateway = read("Epistemos/LocalAgent/HermesGatewayPolicy.swift")
     hermes_registry = read("Epistemos/LocalAgent/HermesCapabilityRegistry.swift")
     kivi = read("Epistemos/Engine/KIVIQuantization.swift")
@@ -227,6 +231,14 @@ def main() -> int:
         "resonance_swift_mirror_present": all(
             marker in resonance_swift
             for marker in ["ResonanceTruth", "ResonanceClaimType", "ResonanceSignatureCore", "computeSignatureCore"]
+        ),
+        "wbo6_rust_budget_surface_present": all(
+            marker in wbo6
+            for marker in ["Wbo6Term", "Wbo6Terms", "Wbo6Budget", "resonance_core_budget_terms", "kl_divergence_from_logits"]
+        ),
+        "wbo6_budget_tests_present": all(
+            marker in wbo6_tests
+            for marker in ["term_codes_match_canonical_wbo6_order", "core_resonance_signature_consumes_only_t_r", "kl_from_logits_detects_candidate_drift"]
         ),
         "hermes_gateway_policy_present": all(
             marker in hermes_gateway

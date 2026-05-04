@@ -36,6 +36,7 @@ pub mod skill_router;
 pub mod sovereign;
 pub mod types;
 pub mod vault_registry;
+pub mod wbo6;
 
 #[cfg(not(feature = "mas-sandbox"))]
 pub mod pty;

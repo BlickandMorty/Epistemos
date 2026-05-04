@@ -2864,6 +2864,9 @@ kernel index, KV-Direct gate runbook, red-team prompt fixture, and
 `scripts/verify_hotpath.py` are now canonical Epistemos artifacts. The hot-path
 verifier passes against current code and maps the mockup `agent_core/metal/`
 expectation to the real `Epistemos/Shaders/` shader authority.
+WBO-6 Rust budget PR57 is closed. `agent_core::wbo6` is the canonical Rust
+budget surface for the six-term bound and integrates with the Resonance seed
+through `resonance_core_budget_terms`.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
