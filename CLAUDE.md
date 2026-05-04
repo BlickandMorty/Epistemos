@@ -4,7 +4,7 @@
 - Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders
 - GRDB for persistence, MLX-Swift for local inference
 - Omega agent system being replaced by Epistemos Omega: Rust living loop + Hermes subprocess + MCP peer bridge
-- 137K lines Swift, 94K lines Rust, 370 Swift files, 99 Rust files, 115 test files
+- ~252K lines Swift, ~71K lines Rust, 634 Swift files, 150 Rust files, 346 Swift test files (verified 2026-05-04)
 - Rust agent_core crate owns: agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, context compaction
 - Swift owns: UI rendering, MLX inference, macOS APIs (AXUIElement via AXorcist, ScreenCaptureKit, CGEvent), permission gate UI, MCP server hosting
 - Python hermes-agent subprocess owns: cloud API orchestration, skills system, procedural memory, multi-step planning
