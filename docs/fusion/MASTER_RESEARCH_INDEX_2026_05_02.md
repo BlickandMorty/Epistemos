@@ -1158,3 +1158,84 @@ deferred surface. The answer is no — but the geometry stays.
 ### §26.6 The agent instruction (paste verbatim into Codex / handoff prompts)
 
 See `MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §4 for the full text.
+
+---
+
+## 27. Canonical Recovery Plan — No-Compromises Sequence (added 2026-05-03)
+
+**Canonical:** `docs/fusion/CANONICAL_RECOVERY_PLAN_2026_05_03.md`
+
+**Adopted 2026-05-03 by explicit user instruction** when the
+hackathon push was abandoned: *"i give up on the hackathon ngl so
+lets just continue with the real stuff... i want to make sure
+whatever cut corner we did to buy time need to be canonical back to
+no compromises."*
+
+The recovery doc names every shortcut taken during the hackathon
+push (Hermes UI ships without a real Hermes runtime; Simulation uses
+SF Symbols where DOCTRINE specifies custom-drawn body grammars;
+adapter UI animates a gift box but no LoRA actually swaps; etc.)
+and maps each one to its canonical destination phase in the existing
+doctrine docs. **The shortcuts are symptoms of canon-debt; the
+recovery is to ship the canon in its doctrinally-correct order.**
+
+### §27.1 Recovery sequence (no compromises)
+
+- **Stage A — Foundation** (must ship first)
+  - A.1 = `COGNITIVE_KERNEL_DOCTRINE` Phase 1 audit (the first move)
+  - A.2 = `COGNITIVE_GENUI_DOCTRINE` Phase G.1 (generalize schema)
+  - A.3 = `COGNITIVE_GENUI_DOCTRINE` Phase G.2 (build dispatcher)
+  - A.4 = `COGNITIVE_GENUI_DOCTRINE` Phase G.3 priority 1
+          (migrate Hermes Expert Mode renderers — biggest unwind)
+- **Stage B — Hermes runtime in Rust**
+  - B.1 = `COGNITIVE_KERNEL_DOCTRINE` Phase 2 (Hermes-in-Rust)
+  - B.2 = Apple FoundationModels integration
+  - B.3 = `COGNITIVE_KERNEL_DOCTRINE` Phase 6 (capability lattice)
+- **Stage C — XPC services** (deferred until paid Apple Developer Team)
+  - C.1-C.3 = `XPC_MASTERY_DOCTRINE` Phases X.1-X.3
+- **Stage D — Cognitive DAG**
+  - D.1-D.3 = `COGNITIVE_DAG_DOCTRINE` Phases 8.A, 8.B, 8.D
+- **Stage E — Simulation assets**
+  - E.1 = author `SIMULATION_ASSETS_DOCTRINE_2026_05_XX.md`
+  - E.2 = implement custom-drawn body renderers (Canvas + Metal)
+- **Stage F — Restore App Group + ship MAS** (after paid team added)
+
+### §27.2 The five-question PR discipline
+
+Every PR from this point on declares: Stage / GenUI route /
+Sovereign / Pro impact / TEMP-FREE-TIER. Five honest answers or it
+doesn't ship.
+
+### §27.3 The TEMP-FREE-TIER + GENUI-DEFER lists are canonical
+
+Recovery plan §3 + §4 maintain the single source of truth for what
+gets restored / migrated when their gating prerequisites land
+(paid Developer Team for App Group; G.2 dispatcher for GENUI-DEFER).
+`grep -rn 'TEMP-FREE-TIER'` and `grep -rn 'GENUI-DEFER'` MUST
+return exactly the items in those lists.
+
+### §27.4 What stays as-is
+
+Recovery plan §6 names the canon-compliant work that survived the
+hackathon push (Sovereign Gate routing, AgentEvent provenance via
+canonical recorder, HermesCommandDispatcher.parseCore, Cargo
+features pattern, all four T0 doctrine docs, DeterministicPRNG
+seeding, CompanionState + CompanionModel SwiftData spine, Sovereign
+Gate routing in CompanionDeleteSheet/RestoreSheet). Each gets a
+`// CANON-COMPLIANT 2026-05-03` marker comment.
+
+### §27.5 The first move
+
+Stage A.1 — Cognitive Kernel Phase 1 audit. Doc work, ~2-4 focused
+hours, produces `COGNITIVE_KERNEL_AUDIT_2026_05_XX.md`. Without it
+every subsequent stage risks duplicating or missing existing canon.
+
+### §27.6 The single sentence
+
+> *"The hackathon shortcuts were a symptom; the canon-debt is the
+> cause; the recovery is to ship the canon in its doctrinally-
+> correct order — A.1 audit, A.2-A.4 GenUI, B.1 Hermes-in-Rust,
+> C XPC, D DAG, E assets, F MAS — and the symptoms unwind on their
+> own."*
+
+No compromises. No shortcuts. Stay canonical with the build docs.
