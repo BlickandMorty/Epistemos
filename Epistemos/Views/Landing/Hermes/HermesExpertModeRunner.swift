@@ -52,6 +52,8 @@ struct HermesExpertModeRunner {
         guard !trimmed.isEmpty else { return }
 
         state.append(.init(kind: .userInput, text: trimmed))
+        state.recordHistory(trimmed)
+        state.resetRecall()
         state.clearDraft()
 
         // Bare prompt (no slash): treat as /ask — hand to main chat.
@@ -134,13 +136,10 @@ struct HermesExpertModeRunner {
             renderStatusInline()
 
         case .tokens:
-            renderInfo("Token / context dashboard — opening native panel.")
-            // Hand off to native dashboard surface
-            NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
+            renderTokensInline()
 
         case .cost:
-            renderInfo("Cost panel — opening native dashboard.")
-            NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
+            renderCostInline()
 
         case .think(let cmd):
             renderInfo("Local thinking display: \"\(cmd.prompt.prefix(80))…\"")
@@ -225,7 +224,7 @@ struct HermesExpertModeRunner {
             handoffAsAsk(raw)
 
         case .notebook(let cmd):
-            renderInfo("Notebook: " + cmd.echoSummary)
+            renderNotebookInline(cmd)
 
         case .colors, .font, .fontsize, .theme, .width, .mode:
             renderInfo("UI/display change applied (echo): \(raw)")
@@ -297,6 +296,64 @@ struct HermesExpertModeRunner {
         state.append(.init(kind: .info, text: "incognito   \(chat.isIncognito ? "yes" : "no")"))
         state.append(.init(kind: .info, text: "session     hermes-expert/\(runID)"))
         state.append(.init(kind: .info, text: "transcript  \(transcriptCount) entries"))
+    }
+
+    private func renderTokensInline() {
+        let model = inference.preferredChatModelSelection.displayName
+        // Approximate context budget by class — local 4-bit MLX 4-8B
+        // tier vs cloud frontier — so the user sees something useful
+        // without us having to wire a per-turn token meter (that's
+        // session intelligence panel territory). The panel is opened
+        // alongside for the live drill-down.
+        let estimatedContext: String
+        switch inference.preferredChatModelSelection {
+        case .localMLX:        estimatedContext = "~32K (local MLX, 4-bit class)"
+        case .cloud:           estimatedContext = "~200K (cloud frontier class)"
+        case .appleIntelligence: estimatedContext = "~12K (Apple Intelligence)"
+        }
+        state.append(.init(kind: .systemResponse, text: "── tokens ──"))
+        state.append(.init(kind: .info, text: "model        \(model)"))
+        state.append(.init(kind: .info, text: "context cap  \(estimatedContext)"))
+        state.append(.init(kind: .info,
+            text: "live drill-down → opening Session Intelligence panel"))
+        NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
+    }
+
+    private func renderCostInline() {
+        let model = inference.preferredChatModelSelection.displayName
+        let surface: String
+        switch inference.preferredChatModelSelection {
+        case .localMLX:           surface = "$0 — local MLX runs in-process"
+        case .appleIntelligence:  surface = "$0 — Apple Intelligence"
+        case .cloud:              surface = "billed per token (see Session Intelligence)"
+        }
+        state.append(.init(kind: .systemResponse, text: "── cost ──"))
+        state.append(.init(kind: .info, text: "model      \(model)"))
+        state.append(.init(kind: .info, text: "surface    \(surface)"))
+        state.append(.init(kind: .info,
+            text: "live drill-down → opening Session Intelligence panel"))
+        NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
+    }
+
+    private func renderNotebookInline(_ cmd: HermesNotebookCommand) {
+        switch cmd.action {
+        case .showCurrent:
+            state.append(.init(kind: .systemResponse,
+                text: "notebook: opening notes panel"))
+            UtilityWindowManager.shared.show(.notes)
+        case .list:
+            state.append(.init(kind: .systemResponse,
+                text: "notebook list: opening notes panel for browsing"))
+            UtilityWindowManager.shared.show(.notes)
+        case .open(let name):
+            state.append(.init(kind: .systemResponse,
+                text: "notebook open '\(name)': opening notes panel — find by title"))
+            UtilityWindowManager.shared.show(.notes)
+        case .clear:
+            state.append(.init(kind: .info,
+                text: "notebook clear: destructive — handled per-note via the notes panel"))
+            UtilityWindowManager.shared.show(.notes)
+        }
     }
 
     /// Materialize a `/model` action into a real InferenceState mutation

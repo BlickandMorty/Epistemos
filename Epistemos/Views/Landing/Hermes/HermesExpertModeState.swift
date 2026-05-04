@@ -67,7 +67,67 @@ final class HermesExpertModeState {
     /// follow-up record helpers.
     var lastSubmissionToolCallID: String = ""
 
+    /// Per-session command history — newest at the END. Up-arrow walks
+    /// backward, down-arrow forward, mirroring shell readline. Bounded
+    /// to keep memory cheap; older entries fall off the front.
+    private(set) var history: [String] = []
+    private static let historyLimit = 64
+
+    /// Index into `history` for the up/down recall walk. -1 means the
+    /// user is currently editing fresh draft text (not in recall mode).
+    var historyCursor: Int = -1
+
+    /// Snapshot of the draft at the moment the user pressed Up the
+    /// first time, so Down past the newest entry restores it.
+    var draftSnapshotBeforeRecall: String? = nil
+
     init() {}
+
+    func recordHistory(_ command: String) {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if let last = history.last, last == trimmed { return }
+        history.append(trimmed)
+        if history.count > Self.historyLimit {
+            history.removeFirst(history.count - Self.historyLimit)
+        }
+    }
+
+    /// Walk history backward (older). Returns the recalled string, or
+    /// nil if no movement happens. Snapshots the current draft on the
+    /// FIRST step into recall so down-past-newest restores it.
+    func recallPrev(currentDraft: String) -> String? {
+        guard !history.isEmpty else { return nil }
+        if historyCursor == -1 {
+            draftSnapshotBeforeRecall = currentDraft
+            historyCursor = history.count - 1
+        } else if historyCursor > 0 {
+            historyCursor -= 1
+        } else {
+            return nil
+        }
+        return history[historyCursor]
+    }
+
+    /// Walk history forward (newer). Past-newest restores the draft
+    /// snapshot; another step does nothing.
+    func recallNext() -> String? {
+        guard historyCursor != -1 else { return nil }
+        if historyCursor < history.count - 1 {
+            historyCursor += 1
+            return history[historyCursor]
+        }
+        // Past the newest — restore the snapshot, exit recall mode.
+        let snapshot = draftSnapshotBeforeRecall ?? ""
+        historyCursor = -1
+        draftSnapshotBeforeRecall = nil
+        return snapshot
+    }
+
+    func resetRecall() {
+        historyCursor = -1
+        draftSnapshotBeforeRecall = nil
+    }
 
     func enter() {
         guard !isActive else { return }
