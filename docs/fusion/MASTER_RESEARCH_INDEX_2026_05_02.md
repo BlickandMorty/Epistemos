@@ -951,3 +951,76 @@ delete/restore, adapter UI per Invariant I-11, Landing Farm = home window,
 Notes Sidebar Skin). The Substrate-foundational sprint (Phases 1-7 + Phase 8)
 is paused until the hackathon ships. Codex paused at clean stopping point.
 The four §23 docs are sitting on disk for resumption after hackathon.
+
+### §23.7 Substrate Track Register (canonical feature register)
+
+**Canonical:** `docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md`
+
+16 tracks across 4 zones — every feature in the Substrate captured exactly
+once with status, tier, hackathon priority, and pointer to its master-index
+section. Vocabulary discipline: "Track" T0-T15 = feature areas; "Lane A/B"
+= git branches (existing master-index convention, unchanged). Substrate-
+total roll-up: ~30% by milestone weight as of 2026-05-03.
+
+Zones:
+- **Zone A (Foundation):** T0 Substrate Unification, T1 Foundation, T2 Provenance + Sovereign, T3 Hardening
+- **Zone B (Killer Features):** T4 Resonance Gate, T5 Hermes [BLOCK A], T6 Simulation [BLOCK B]
+- **Zone C (Surface):** T7 Local MLX, T8 Halo, T9 Editor, T10 Graph, T11 UX
+- **Zone D (Deployment + Research):** T12 App Store / Phase R+S, T13 Multi-Agent, T14 Ternary Research, T15 ANE Direct
+
+---
+
+## 24. XPC Mastery Doctrine — Defense in Depth for MAS (added 2026-05-03)
+
+**Canonical:** `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md`
+
+The doctrine for how the unified Rust kernel ships across XPC service
+boundaries with Apple-grade defense-in-depth posture. Three goals:
+maximum MAS coverage via least-privilege per-service entitlements; maximum
+native + safe + trust via per-service code-signature attestation and
+capability-token IPC; maximum private + audited via AgentEvent logging
+across boundaries (becoming typed DAG edges in Phase 8).
+
+### §24.1 Five-service decomposition
+
+| Service | Trust class | Entitlements (only) |
+|---|---|---|
+| Main App | UI + in-process MLX inference (per CLAUDE.md NO SIDECAR) + Sovereign Gate | `app-sandbox`, `application-groups`, `files.user-selected.read-write`, `files.bookmarks.app-scope` |
+| VaultXPC | Filesystem | `app-sandbox`, `application-groups`, `files.bookmarks.app-scope` |
+| AgentXPC | Kernel runtime (agent_core, tools, Hermes, skills, procedural memory, provenance, resonance, search) | `app-sandbox` only |
+| ProviderXPC | Cloud network | `app-sandbox`, `network.client` only |
+| WASMExecXPC | Sandboxed user code execution (wasmtime + Pyodide + QuickJS) | `app-sandbox`, `cs.allow-jit` (isolated to this service), additional `sandbox_init()` profile inside |
+
+### §24.2 Ten masterclass patterns
+
+1. Five services with per-service entitlements files (least-privilege architecture reviewers approve fast)
+2. `SecStaticCodeCheckValidity` trust attestation in every listener (rejects fake peer connections)
+3. Capability-token IPC (every cross-service call gates on typed signed scoped expiring token)
+4. Sandbox-within-sandbox for WASM (App Sandbox + wasmtime sandbox + sandbox_init() profile = three lines of defense for arbitrary user code)
+5. Cross-XPC AgentEvent audit trail (every boundary crossing logged to canonical provenance ledger)
+6. Hardware-attested capability tokens via Secure Enclave key requiring biometric per-use
+7. Process recycling on hygiene timer (4 hours uptime / 10K messages default)
+8. IOSurface zero-copy for high-frequency paths (60-1000+ msg/sec inference streaming over XPC)
+9. Cognitive DAG integration (Phase 8 forward — XPC crossings become typed Merkle-signed edges)
+10. Per-service test harness (smoke + integration + stress per service)
+
+### §24.3 Phase placement
+
+Phases X.1-X.5 fold INTO kernel doctrine Phases 1-7, not as a separate
+sprint. ~3-4 weeks of work distributed across the 7-week kernel sprint.
+XPC mastery is woven into the kernel doctrine work, not deferred to V2.
+
+### §24.4 Reference architecture
+
+Apple's own apps to study: Safari (`WebContent.xpc`, `Networking.xpc`,
+`GPU.xpc`), Mail (per-protocol XPC), Notes (CloudKit XPC isolation),
+Xcode (SourceKit-LSP as XPC). All implement varying degrees of the
+patterns above; Epistemos implements all 10.
+
+### §24.5 Open questions
+
+- InferenceXPC explicitly NOT created — MLX-Swift stays in Main App per CLAUDE.md NO SIDECAR (perf > isolation for inference)
+- HermesOrchestratorXPC folded into AgentXPC for V1
+- Secure Enclave key device-bound — V2 needs migration UX for new Mac
+- JIT entitlement App Review risk → ship Pulley interpreter fallback baked in (10-50× slower) so binary still works if Apple rejects allow-jit
+- launchd-managed vs in-bundle: in-bundle (`Contents/XPCServices/`) for V1
