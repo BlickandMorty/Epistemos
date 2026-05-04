@@ -1,4 +1,9 @@
 # Pre-Launch Maturity Hardening Plan
+
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 **Date:** 2026-03-28
 **Purpose:** Specifically address the three systems most likely to produce user-visible failures in the first week of real-world use: vault sync, TextKit2 editor, and the graph. These are not test gaps — tests pass. These are the edge cases that only surface when real people use the app with real vaults, real keyboards, and real file systems.
 

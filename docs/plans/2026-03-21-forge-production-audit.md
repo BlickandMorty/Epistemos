@@ -1,5 +1,10 @@
 # 2026-03-21 Forge Production Audit
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Goal
 
 Run a deep dead-code and redundancy cleanup against the current `main` branch, using commit `0981039` as the pre-model-addition reference point.

@@ -1,5 +1,10 @@
 # BoltFFI Hot-Path Migration Audit
 
+> **Index status**: CANONICAL-RESEARCH — Architectural spec cited from PLAN_V2.md (load when item touched).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/architecture_specs/`.
+
+
+
 Date: 2026-04-15
 Phase: 7, Step 8
 Status: **audit inventory only — no migrations in this phase**

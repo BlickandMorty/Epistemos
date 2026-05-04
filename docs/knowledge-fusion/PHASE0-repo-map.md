@@ -1,5 +1,11 @@
 # Phase 0: Epistemos Repository Map
 
+> **Index status**: SUPERSEDED-HISTORICAL — Knowledge Fusion retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by**: IMPLEMENTATION_PLAN_FROM_ADVICE + MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Project Structure
 
 - **170 Swift files** across App/, Engine/, State/, Models/, Graph/, Views/, Sync/, Theme/, Intents/

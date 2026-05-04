@@ -1,5 +1,11 @@
 # Making your Harness app feel like Hermes Agent and OpenClaw
 
+> **Index status**: DEFERRED-RESEARCH — Phase D research; already in _consolidated.
+> **Superseded by / Phase**: Phase D.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/`.
+
+
+
 ## What’s actually “broken” right now
 
 You’re not just missing features.

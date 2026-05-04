@@ -1,4 +1,9 @@
 # The Anti-Drift System for Epistemos
+
+> **Index status**: CANONICAL — 5-layer defense system against LLM drift (compaction + attention decay + satisficing); mechanistic discipline for long-running coding sessions.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
 ## How to Ensure Every Line of Your 1,019-Line Spec Actually Becomes Code
 
 ---

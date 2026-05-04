@@ -1,5 +1,10 @@
 # MCP URL-server passthrough (Tunnel B.1)
 
+> **Index status**: CANONICAL-RESEARCH — Tunnel B.1 deep-dive; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_cli_integration/`.
+
+
+
 Epistemos forwards a configured list of URL-based MCP servers to
 Anthropic's `mcp_servers` API parameter on every Agent-mode turn. Every
 tool those servers expose becomes available to the model with zero

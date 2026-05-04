@@ -1,5 +1,10 @@
 # PLAN_V2 Canonicalization — Operator Prompt
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Date: 2026-04-14
 Audience: Claude Code, one-shot paste
 Companion: `docs/architecture/PLAN_V2_CANONICALIZATION_MASTER_PROMPT_2026_04_14.md` (read this if any step below is unclear)

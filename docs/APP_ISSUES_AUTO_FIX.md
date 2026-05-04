@@ -1,5 +1,10 @@
 # Epistemos — Runtime Issues for Auto-Fix
 
+> **Index status**: CANONICAL-OPERATIONAL — Living runtime-issues doc with destructive-vs-safe auto-fix distinction + investigation log template (Open→Investigating→Patched→Verified Fixed).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Purpose:** Living document of runtime issues the app has encountered. AI agents (Claude Code, Codex, etc.) should read this on every session start, attempt to diagnose and fix any open issues when safe to do so, and update this doc when an issue is resolved or new information is gathered.
 
 ## How to Use This Doc

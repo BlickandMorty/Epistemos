@@ -1,5 +1,10 @@
 # Hermes Agent Integration Research
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration brief with Fast Pack 10 + Deep Pack 30 + 40-file Hermes list; curated read-first guidance for agent work.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## Current Plan File Base (2026-03-29)
 
 Use these files as the current planning stack before changing the agent architecture again.

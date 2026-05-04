@@ -1,5 +1,11 @@
 # Epistemos V1 Scope Boundary
 
+> **Index status**: SUPERSEDED-HISTORICAL — V1 scope shipped per memory; superseded by ambient_V1_DECISION.
+> **Superseded by / Phase**: ambient_V1_DECISION.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Purpose
 
 This document defines the release boundary for a coherent Epistemos V1.

@@ -1,5 +1,10 @@
 # Zero-Corruption Handoff For Claude
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Current Status
 
 This repo is materially safer than it was at the start of the zero-corruption push, but it is still **not fully compliant** with the master spec.

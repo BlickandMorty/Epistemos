@@ -1,5 +1,10 @@
 # Epistemos Known Issues Register
 
+> **Index status**: CANONICAL — 18-item bug register I-001-I-019 with root causes + fix locations + verification tests; honest partial-by-design (e.g., I-001 read-side fixed write canonicalization intentional).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 **Date:** 2026-04-24.
 **Status:** canonical list of bugs/drift to fix BEFORE any new-feature work (Phases A, B, C, D, I, J, K, G, E, F, H). All fixes land in **Phase R — Resource Runtime Hardening** plus a short list of pre-existing debt items. Nothing here is a feature — every entry is a correctness issue observed in the live app or in chat logs.
 

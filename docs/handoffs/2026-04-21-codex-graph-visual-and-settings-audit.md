@@ -1,5 +1,10 @@
 # Codex Handoff — Epistemos as an Abstraction of the User's Mind
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **From:** Claude Opus 4.7 session, 2026-04-21
 **To:** Codex, starting fresh
 **Status:** Research + brainstorming phase. DO NOT CODE YET. Produce a unified findings document at the end.

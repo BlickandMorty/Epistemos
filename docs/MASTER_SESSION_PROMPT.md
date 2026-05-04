@@ -1,5 +1,7 @@
 # Epistemos Master Session Prompt
 
+> **Index status**: SUPERSEDED-HISTORICAL — older 2026-03-30 session-bootstrap prompt. Current canonical session bootstrap is [`docs/MASTER_BUILD_PLAN.md §9`](MASTER_BUILD_PLAN.md) (operational pre-flight reads) plus [`docs/plan/prompts/full_session_orchestrator.md`](plan/prompts/full_session_orchestrator.md) (single-session orchestrator). User auto-memory at `project_master_session` may still reference this file; the user is consolidating and will update memory. Classified in [`docs/_INDEX.md §9`](_INDEX.md).
+
 **Last Updated:** 2026-03-30 (late session — 15 items completed, Gemini analysis integrated)
 **Use this prompt to start EVERY new Claude Code session on Epistemos.**
 

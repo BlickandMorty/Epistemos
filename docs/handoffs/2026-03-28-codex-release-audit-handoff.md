@@ -1,5 +1,10 @@
 # Codex Release Audit Handoff
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Scope
 
 This handoff covers the late-stage release-audit loop after the zero-corruption hardening pass. It focuses on what changed to get the hosted macOS suite stable again, what was fixed when the first clean full run finally exposed real regressions, and what is still left before Claude should call the app truly ship-ready.

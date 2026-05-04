@@ -1,5 +1,10 @@
 # Research Prompt: Native Code Editor + AI File Operations + Agent Bridge
 
+> **Index status**: CANONICAL-RESEARCH — 2026-04-06 code editor polish + AI file operations research prompt (minimap + language switching + bracket matching + indent guides).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **For:** Claude Code / Kimi Code / Deep Research
 **Date:** 2026-04-06
 **Context:** This is the continuation research prompt for Epistemos v1. Covers three interconnected features that together create a "PKM × IDE × AI" fusion product.

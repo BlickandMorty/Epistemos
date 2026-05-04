@@ -1,5 +1,10 @@
 # Epistemos Vision Backlog — Comprehensive Future Work
 
+> **Index status**: CANONICAL-RESEARCH — Tier 0 release-critical moat features (iMessage/Screen2AX/Model Council/GTD capture) + Tier -1 provider overhaul.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Last Updated:** 2026-04-01
 **Source:** Brain dump + all research docs + codebase audit
 

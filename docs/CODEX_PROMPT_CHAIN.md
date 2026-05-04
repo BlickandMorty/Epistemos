@@ -1,5 +1,10 @@
 # Codex Prompt Chain — Paste One at a Time
 
+> **Index status**: CANONICAL-OPERATIONAL — Paste-ready prompt sequence for Codex with verification cadence (quick checks + full audits per phase).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **How to use:** Paste one prompt. Wait for Codex to finish. Verify. Then paste the next.
 **Rule:** Never paste two at once. Each prompt is self-contained.
 

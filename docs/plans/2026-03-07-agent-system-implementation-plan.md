@@ -1,5 +1,10 @@
 # Epistemos Agent System — Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-07
 **Design Doc:** `docs/plans/2026-03-07-agent-system-design.md`
 **Research Paper:** `~/agent document.md`

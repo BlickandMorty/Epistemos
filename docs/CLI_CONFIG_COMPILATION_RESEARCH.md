@@ -1,5 +1,15 @@
 # Auto-Regenerated AI Coding CLI Configuration Templates for Epistemos
 
+> **Index status**: CANONICAL-RESEARCH — Already canonical (1161 lines authoritative CLI compiler ref); existing banner adequate.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_cli_integration/`.
+
+
+
+> **Status**: CANONICAL — implementation reference (NOT plan doctrine; do not confuse with PLAN_V2 / DOCTRINE).
+> **Role**: Authoritative compiler-design + per-CLI schema reference for Claude Code, OpenAI Codex CLI, and Google Gemini CLI as of April 2026. Includes drop-in templates (CLAUDE.md, vault-conventions.md, .claude/settings.json, .mcp.json, .codex/config.toml, .gemini/settings.json), full Rust manifest struct, regeneration policy, MCP transport guidance, OAuth/MCP-Apps status, sandbox + security conventions, and authoritative bibliography.
+> **Read with**: [`claude-code-codex-parity-options.md`](claude-code-codex-parity-options.md) (runtime path comparison) + [`capability-tunnels.md`](capability-tunnels.md) (4-tunnel strategy) + [`mcp-url-servers.md`](mcp-url-servers.md) (Tunnel B.1 implementation).
+> **Last verified**: 2026-04-22.
+
 **Reference document and production-ready templates (current as of April 22, 2026)**
 
 This report is the authoritative reference for compiling a single Epistemos manifest into the canonical on-disk configuration files read by Claude Code, OpenAI Codex CLI, and Google Gemini CLI. Every nontrivial claim is cited to the official vendor documentation, specification, or repository. Where documentation changed since early 2025, or where a field is in beta / deprecated, I flag it explicitly.

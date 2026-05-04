@@ -1,5 +1,10 @@
 # Claude's Synopsis — How I Will Treat the Epistemos Multi-Month Upgrade Plan
 
+> **Index status**: CANONICAL-RESEARCH — Two-tier research corpus navigation guide (Tier 1 ~/Downloads/ pure research + Tier 2 docs/ structured plans) + best-version audit loop.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Author:** Claude (Opus 4.6, 1M context)
 **Date:** 2026-04-04
 **Audience:** User + future Claude sessions

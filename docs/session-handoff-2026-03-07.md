@@ -1,5 +1,10 @@
 # Session Handoff — 2026-03-07
 
+> **Index status**: TRANSIENT-CANDIDATE — Old session handoff; transient.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Commit: 10dfa66
 
 ## What Was Done

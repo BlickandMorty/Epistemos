@@ -1,4 +1,9 @@
 # EPISTEMOS AGENT SYSTEM — CLAUDE.md
+
+> **Index status**: CANONICAL-RESEARCH — Agent system architecture (cited from CLAUDE.md). Phase D / K reference.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/agent_system/`.
+
+
 # Unified Build Specification v2.0
 # Synthesized from 8 research documents + architectural gap analysis
 

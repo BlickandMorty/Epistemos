@@ -1,5 +1,10 @@
 # Resource Inventory
 
+> **Index status**: CANONICAL-RESEARCH — Phase R live-resource accounting; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 Date: 2026-04-23
 Phase: Appendix E Step 2 / Phase R.1
 

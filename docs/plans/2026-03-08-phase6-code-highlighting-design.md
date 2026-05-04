@@ -1,5 +1,10 @@
 # Phase 6: Code Highlighting + Architectural Upgrades — Design
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Context
 
 Phase 6 of the TextKit 2 migration. Phases 1-4 are complete (foundation, base highlighting, marker dimming, drawing). This phase adds language-aware code highlighting to fenced code blocks AND introduces key essay-grade architectural upgrades: custom `NSTextLayoutFragment` subclass, fragment caching, viewport-gated tokenization, and non-destructive folding.

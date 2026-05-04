@@ -1,5 +1,10 @@
 # Epistemos App Overview
 
+> **Index status**: SUPERSEDED-HISTORICAL — March 2026 Google research pack; superseded by IMPLEMENTATION_PLAN_FROM_ADVICE (April 2026 4-model council synthesis).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/google_research_packs/` for historical record.
+
+
+
 ## What the app is right now
 
 Epistemos is a native macOS knowledge workstation. The current app is not a generic chatbot shell. It is a multi-surface desktop product with:

@@ -1,5 +1,10 @@
 # Overseer and Agent Hierarchy
 
+> **Index status**: CANONICAL-RESEARCH — Architectural spec cited from PLAN_V2.md (load when item touched).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/architecture_specs/`.
+
+
+
 ## Purpose
 This document defines the supervisory and multi-agent coordination model for Epistemos.
 

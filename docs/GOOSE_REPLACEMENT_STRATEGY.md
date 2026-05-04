@@ -1,5 +1,11 @@
 # Goose Replacement Strategy — Hermes → Goose-Derived Rust Core
 
+> **Index status**: SUPERSEDED-HISTORICAL — Goose replacement strategy; framework selection complete.
+> **Superseded by / Phase**: MASTER_MODEL_STACK_PLAN + AGENT_FUSION_RESEARCH_PROMPT.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-04-04
 **Status:** Architectural direction (binding)
 **Supersedes:** Any "build custom agent runtime from scratch" guidance

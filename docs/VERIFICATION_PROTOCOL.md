@@ -1,4 +1,9 @@
 # Epistemos Verification Protocol v2.0
+
+> **Index status**: CANONICAL-OPERATIONAL — 7-layer audit protocol with executable shell scripts + unit tests as gates; 3 uninterrupted zero-fail passes for READY verdict.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
 ## Exhaustive Audit + Runtime Verification + Manual Testing + Computer Use Validation
 
 ---

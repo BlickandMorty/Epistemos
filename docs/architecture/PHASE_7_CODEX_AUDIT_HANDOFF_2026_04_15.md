@@ -1,5 +1,10 @@
 # Phase 7 Codex Audit Handoff
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Date: 2026-04-15
 Audience: Codex (or a fresh continuation agent) auditing Claude's Phase 7 work
 Status: ready for independent review

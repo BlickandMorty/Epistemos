@@ -1,5 +1,10 @@
 # Block Transaction Kernel (BTK) Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace post-hoc Jaccard block reconciliation with an operation-log-based block kernel in Rust, giving every block a stable UUID that survives arbitrary edits.

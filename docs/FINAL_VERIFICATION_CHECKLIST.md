@@ -1,5 +1,11 @@
 # Final Verification Checklist
 
+> **Index status**: TRANSIENT-CANDIDATE — One-off final checklist; superseded by VERIFICATION_PROTOCOL.
+> **Superseded by / Phase**: VERIFICATION_PROTOCOL.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 - [x] The app defaults to no theme on fresh install.
   - Evidence: [ThemePairTests.swift](/Users/jojo/Epistemos/EpistemosTests/ThemePairTests.swift) test `UIState defaults to native system appearance when no theme settings are stored`.
 

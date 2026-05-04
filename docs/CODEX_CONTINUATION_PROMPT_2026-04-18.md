@@ -1,5 +1,10 @@
 # Codex Continuation Prompt - 2026-04-18
 
+> **Index status**: CANONICAL-OPERATIONAL — Codex continuation paste template for codex/runtime-input-audit branch; dirty tree warnings + model/runtime batch files.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Paste the prompt below into a fresh Codex session in this repo.
 
 ---

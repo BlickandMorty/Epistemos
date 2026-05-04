@@ -1,4 +1,9 @@
 # Sprint Omega-6: Context Compiler + Graph Visualizer
+
+> **Index status**: SUPERSEDED-HISTORICAL — Older sprint plan superseded by MASTER_FUSION.md sprint plan §10.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ## Duration: 3-4 sessions | Priority: HIGH — the sprint that turns living memory into visible intelligence
 
 Prerequisite: Sprint Omega-5 must be complete and verified.

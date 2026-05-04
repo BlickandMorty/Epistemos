@@ -1,5 +1,10 @@
 # Epistemos — Master Session Prompt v2
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-03-31 master session bootstrap — context restoration + Hermes backend setup + tool-gate root-cause analysis. Paste at every new Claude Code session.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Last Updated:** 2026-03-31
 **Paste this at the start of EVERY new Claude Code session.**
 

@@ -1,5 +1,10 @@
 # Production Hardening Verification Checklist
 
+> **Index status**: CANONICAL-OPERATIONAL — Hardening verification protocol; pre-Phase-S ops.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Verification steps for the 9-phase resilience hardening pass.
 Each item maps to a specific audit finding from arc1-arc4.
 

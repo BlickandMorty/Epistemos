@@ -1,5 +1,10 @@
 # Hermes Strategic Fork Analysis: Build vs Bundle
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Overview
 Recent synthesized research highlights a critical architectural fork for Epistemos: **Bundle Hermes via a Python Subprocess** vs. **Build a Native Rust Planner leveraging Hermes's prompt conventions.**
 

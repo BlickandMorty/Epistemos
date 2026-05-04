@@ -1,5 +1,10 @@
 # Epistemos Master Plan — April 19 2026 sprint
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific handoff or older plan; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Single source of truth for everything the user flagged during the long session on `codex/runtime-input-audit`. Updates as batches land. Ordered by priority, not chronology.
 
 Release-hardening note:

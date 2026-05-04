@@ -1,5 +1,10 @@
 # Claude → Codex verification handoff · April 20 2026
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Purpose: give Codex everything it needs to **verify my work against every
 piece of research we did this cycle**, spot-check the changes file-by-file,
 and decide what to pick up next. I already wrote the forward-looking

@@ -1,5 +1,10 @@
 # Research Brief: Hermes Expert Mode for Epistemos
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 **Status:** Research prompt — hand this to a fresh Claude/Codex session.
 **Author:** Epistemos engineering, 2026-04-20.
 **Goal:** Produce an actionable integration plan that lets Epistemos launch with a "Hermes Expert Mode" feature in v1.1 without destabilizing v1.

@@ -1,5 +1,11 @@
 # Post-V1 Opportunity Map
 
+> **Index status**: SUPERSEDED-HISTORICAL — Aspirational roadmap superseded by 04_PHASES.md.
+> **Superseded by / Phase**: 04_PHASES.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Purpose
 
 This document separates high-upside post-V1 opportunities from V1 release gating.

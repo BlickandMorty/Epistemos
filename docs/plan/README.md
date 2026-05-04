@@ -1,15 +1,28 @@
-# docs/plan/ — Master Execution Plan
+# docs/plan/ — Plan Tree (Depth References)
 
-**Purpose.** This folder is the single execution doctrine + sequencing plan for Epistemos.
-It fuses the canonical authority (`docs/architecture/PLAN_V2.md`), the operational
-constraints (`/CLAUDE.md`), the four-architect synthesis, the 21-item Tier 3/4 dossier,
-and the user's research corpus (`~/Downloads/Advice/` and `~/Downloads/final/`) into one
-deterministic plan that any agent can execute without drifting.
+> **CANONICAL OPERATIONAL ENTRY POINT: [`docs/MASTER_BUILD_PLAN.md`](../MASTER_BUILD_PLAN.md).**
+> Read that first for the queue, the §0 loop pattern, and the §10 quick-start.
+> This folder contains the depth references (00–05) the master cites by section.
+> If you are unsure where to start: open `MASTER_BUILD_PLAN.md`, follow its links here as needed.
 
-**This folder does NOT replace PLAN_V2.** `docs/architecture/PLAN_V2.md` is the
-architectural authority. This folder is the *execution layer* that hangs off it. If
-this plan ever contradicts PLAN_V2, PLAN_V2 wins and this plan must be revised — never
-the reverse.
+**Purpose.** Six numbered depth-reference files plus a `prompts/` subfolder.
+Together they fuse the architectural authority (`docs/architecture/PLAN_V2.md`), code standards (`/CLAUDE.md`),
+the four-architect synthesis, the 21-item Tier 3/4 dossier, and the user's research corpus
+(`~/Downloads/Advice/`, `~/Downloads/final/`, `~/Downloads/final v2/`, `~/Downloads/final v3/`) into a
+deterministic plan stack any agent can execute without drifting.
+
+**Authority hierarchy (bottom is operational, top is architectural):**
+```
+1. docs/architecture/PLAN_V2.md   ← architectural truth (top)
+2. CLAUDE.md                       ← code standards
+3. docs/MASTER_BUILD_PLAN.md       ← operational doctrine + queue (CANONICAL ENTRY POINT)
+4. docs/plan/01_DOCTRINE.md        ← 14 non-negotiables, fifth-position rulings
+5. docs/plan/02_BUILD_MATRIX.md    ← Pro/MAS gating
+6. docs/plan/03_EXECUTION_MAP.md   ← per-item depth
+7. docs/plan/prompts/<task>.md     ← task-specific instructions
+```
+
+If a lower level contradicts a higher one, the higher wins. The lower must be revised; never the reverse. **This folder does NOT replace PLAN_V2 or MASTER_BUILD_PLAN.** It hangs off them.
 
 ---
 

@@ -1,5 +1,10 @@
 # Prompt-As-Data Spec — JSPF + PTF
 
+> **Index status**: CANONICAL-RESEARCH — N1 spec — SHIPPED; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Status:** v0.1 (2026-04-27). Foundation shipped under `EPISTEMOS_PROMPT_TREE=1`
 feature flag. Default-on cutover gated on ≥30% measured cache-hit rate over a
 two-week bake window without quality regressions.

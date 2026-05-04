@@ -1,5 +1,10 @@
 # Chat Surfaces And Session Patterns
 
+> **Index status**: DEFERRED-RESEARCH — Windows porting research; deferred (V1 = macOS-only per ambient_V1_DECISION.md).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/windows_research/`.
+
+
+
 ## Real Source Files
 
 - [MiniChatView.swift](/Users/jojo/Epistemos/Epistemos/Views/MiniChat/MiniChatView.swift)

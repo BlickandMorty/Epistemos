@@ -1,3 +1,10 @@
+# 2026-03-19-abi-decision-memo
+
+
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 ## CURRENT ABI / MATERIALIZATION MAP
 
 - Live BTK bytes originate in Rust as archived `SubscriptionPayload` buffers returned by `graph_engine_btk_take_subscription_update` and `graph_engine_btk_snapshot_subscription`.

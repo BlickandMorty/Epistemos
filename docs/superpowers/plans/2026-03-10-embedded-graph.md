@@ -1,5 +1,10 @@
 # Embedded Graph Implementation Plan (v2)
 
+> **Index status**: DEFERRED-RESEARCH — Vision/embedded-graph deferred; W9.24 graph embedding spec.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/superpowers/`.
+
+
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add an embedded graph view to the note window system — as a native macOS tab in the existing tab group and as a pinnable right-side split within note tabs — reusing the Metal + Rust FFI rendering pipeline.

@@ -1,5 +1,10 @@
 # Claude → Codex handoff · April 22 2026 · live runtime findings + capability-tunnel research
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Purpose: capture everything Claude did in this session on top of Codex's
 `97adbf83` checkpoint so the next agent can continue without re-doing the
 diagnosis, and answer the user's direct question:

@@ -1,5 +1,10 @@
 # Codex Master Prompt — Epistemos Audit + Continuation
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-01 master Codex bootstrap; Tier 1-4 reading list with status corrections.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Paste this ONCE at the start of your first Codex session. It restores full context.**
 
 ## STATUS CORRECTION — 2026-04-01

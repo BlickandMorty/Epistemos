@@ -1,5 +1,10 @@
 # Claude → next session handoff · April 20 2026
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Scope: what landed in commit `da06929e`, what still needs work, and the
 concrete priority order for the next session. Built on top of the Codex
 handoff from earlier the same day plus three rounds of external research

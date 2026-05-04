@@ -1,4 +1,9 @@
 # Best of claw-code + OpenClaw → Epistemos Integration Guide
+
+> **Index status**: CANONICAL-RESEARCH — OpenClaw-inspired patterns for zero-setup agent engineering (auto-discovery + skills + cost tracking + iMessage channel §9 + auth rotation); Phase K alternative to Claude Code Remote-Control.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ## Zero-Setup, Maximum Automation Agent Engineering
 
 > **Philosophy**: Users should never touch a config file. Everything auto-discovers,

@@ -1,5 +1,10 @@
 # Bug Fix: Notes Not Saving to Vault
 
+> **Index status**: CANONICAL-HISTORICAL — Bug fix record (2026-03-03). Kept for historical reference.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-03  
 **Reporter:** User ("notes not saving")  
 **Fixer:** Claude Code CLI

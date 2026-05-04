@@ -1,5 +1,10 @@
 # Phase 6: Code Highlighting + Architectural Upgrades — Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add language-aware syntax highlighting to fenced code blocks via tree-sitter in Rust, introduce custom `NSTextLayoutFragment` subclass for fragment-level rendering + caching, implement viewport-gated tokenization, and replace destructive fold behavior with `shouldEnumerate` delegate.

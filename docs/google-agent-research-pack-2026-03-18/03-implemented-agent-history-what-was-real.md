@@ -1,5 +1,10 @@
 # Implemented Agent History — What Was Real Vs What Was Scaffold
 
+> **Index status**: SUPERSEDED-HISTORICAL — March 2026 Google research pack; superseded by IMPLEMENTATION_PLAN_FROM_ADVICE (April 2026 4-model council synthesis).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/google_research_packs/` for historical record.
+
+
+
 The historical agent system was not imaginary, but much of it was still scaffold-level.
 
 ## Real Infrastructure That Existed

@@ -1,5 +1,10 @@
 # OMEGA CONTINUATION PROMPT — Paste into new Claude Code session
 
+> **Index status**: CANONICAL-OPERATIONAL — Continuation prompt for Omega agent/automation — context recovery + 22 Omega files + 2578 Rust tests.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## CONTEXT RECOVERY
 
 You are continuing work on **Epistemos Omega** — an agent/automation subsystem integrated into the Epistemos macOS knowledge management app. Multiple sessions have built the foundation. Your job is to **make it actually work end-to-end**.

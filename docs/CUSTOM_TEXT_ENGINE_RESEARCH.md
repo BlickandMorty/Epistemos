@@ -1,5 +1,10 @@
 # Custom Text Engine Research — Xcode-Grade 120fps Code Editor
 
+> **Index status**: CANONICAL-RESEARCH — 2026-04-07 120fps code editor research (Zed GPU renderer + Nova CoreText + Sublime rope tree + VSCode chunked buffer).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## For: Implementation planning (multi-session project)
 ## Date: 2026-04-07
 

@@ -1,3 +1,10 @@
+# NEW_SESSION_PROMPT
+
+
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific handoff or older plan; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
 Continue work in `/Users/jojo/Downloads/Epistemos`.
 
 Before making any edits, READ THESE FILES FIRST and summarize them back in your own words:

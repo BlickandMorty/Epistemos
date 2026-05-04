@@ -1,5 +1,10 @@
 # Local LLMs for 16GB Apple Silicon Macs — April 2026
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 Deep research on best local models for Epistemos running on a 16GB unified-memory Mac.
 Focus: research, note analysis, summarization, plus fast/thinking/SSM variants and Apple-native options.
 

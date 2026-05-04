@@ -1,5 +1,10 @@
 # Claude Code Session Prompt — Epistemos v1 Implementation
 
+> **Index status**: CANONICAL-OPERATIONAL — PKM × IDE × AI session prompt (3 pillars: Code Editor + AI File Ops + Cloud Chat) with file map + CLAUDE.md constraints.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Paste this as your Claude Code session prompt. It contains everything needed to navigate the codebase and implement the three pillars: Native Code Editor, AI File Operations, and Cloud Chat Hardening.**
 
 ---

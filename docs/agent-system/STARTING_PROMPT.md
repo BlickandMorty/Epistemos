@@ -1,5 +1,10 @@
 # EPISTEMOS OMEGA — STARTING PROMPT FOR CLAUDE CODE
 
+> **Index status**: CANONICAL-RESEARCH — Agent system architecture (cited from CLAUDE.md). Phase D / K reference.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/agent_system/`.
+
+
+
 ## Copy-paste this ENTIRE block into Claude Code:
 
 ---

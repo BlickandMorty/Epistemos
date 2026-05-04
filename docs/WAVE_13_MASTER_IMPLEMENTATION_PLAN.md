@@ -1,5 +1,10 @@
 # Wave 13 — Master Implementation Plan (with code snippets)
 
+> **Index status**: CANONICAL — Wave 13 fused 3-meta-agent advice with 12-month compass + Phase 1-16 build order; concrete code primitives (AFM @Generable, sqlite-vec+petgraph, launchd FSRS-6) with compiler gotchas.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/00_canonical_authority/`.
+
+
+
 Synthesised from three parallel meta-advice research agents (Apple
 FoundationModels patterns; sqlite-vec + petgraph + sidecars; launchd
 + FSRS-6 + SpeechAnalyzer). Each section contains the canonical code

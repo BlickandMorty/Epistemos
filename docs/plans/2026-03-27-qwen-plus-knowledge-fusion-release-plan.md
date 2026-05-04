@@ -1,5 +1,10 @@
 # Epistemos Qwen + Knowledge Fusion Release Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-27  
 **Status:** Final release-scope pivot  
 **Decision authority:** User handoff, 2026-03-27

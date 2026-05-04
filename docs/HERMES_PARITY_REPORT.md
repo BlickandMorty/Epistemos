@@ -1,5 +1,10 @@
 # Hermes Parity Report — Discovery Phase
 
+> **Index status**: CANONICAL-OPERATIONAL — Hermes parity report; companion to EPISTEMOS-HERMES-PARITY-PLAN.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Date: 2026-03-30
 
 ## 1. Implementation Map

@@ -1,5 +1,10 @@
 # Epistemos Non-Agent Full-App Pruning Audit Pack
 
+> **Index status**: CANONICAL-RESEARCH — Non-agent app-wide cleanup audit (perf/drift/dead code/race) explicitly excluding Omega/KnowledgeFusion/model-routing.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## Scope
 This research pack is for a deep, adversarial, app-wide cleanup audit of the current Epistemos codebase, but it intentionally excludes the deferred Omega/agent stack and the upcoming new-model stack work.
 

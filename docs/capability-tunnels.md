@@ -1,5 +1,10 @@
 # Capability tunnels — how Epistemos gets Claude Code / Codex parity without per-tool engineering
 
+> **Index status**: CANONICAL-RESEARCH — 4-tunnel strategy; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_cli_integration/`.
+
+
+
 Epistemos answers the question "can the cloud API's real capabilities
 flow through without me building each tool" with three tunnels that
 together deliver parity with the Claude Code and Codex desktop apps.

@@ -1,4 +1,9 @@
 # CODEX AGENT SYSTEM BOOTSTRAP
+
+> **Index status**: CANONICAL-OPERATIONAL — One-prompt Codex bootstrap with self-install script + Phase 0-N implementation phases.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
 ## The One Prompt That Builds Everything
 
 **Give this entire file to Codex as your prompt. It self-installs, self-directs, and builds.**

@@ -1,5 +1,10 @@
 # Codex Handoff — 2026-04-18
 
+> **Index status**: CANONICAL-OPERATIONAL — Branch codex/runtime-input-audit handoff (8 commits): Note CRUD skills + graph panel sync + ModelCapabilityRole enum + AgentHarness scaffold + Authority/Installs settings + Metal pause + gemma4 registry + panic-safe tool execution.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Full audit brief for Codex to regression-check this session's work and
 pick up the queued next-session backlog.
 

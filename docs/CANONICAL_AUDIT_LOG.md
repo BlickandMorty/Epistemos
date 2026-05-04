@@ -1,5 +1,15 @@
 # Canonical Audit Log
 
+> **Index status**: CANONICAL — Already canonical (3 deep audit passes); existing banner adequate.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
+
+
+
+> **Status**: CANONICAL — living deep-drift audit (snapshot-based passes; resolved findings stay logged with resolution commit).
+> **Role**: Strategic audit of V1.5 backlog vs canonical doctrine. Checks every item against the four research corpora + plan tree + actual codebase. Findings are durable.
+> **Read with**: [`CRITIQUE_LOG.md`](CRITIQUE_LOG.md) (rolling per-commit auditor; tactical) + [`docs/plan/03_EXECUTION_MAP.md`](plan/03_EXECUTION_MAP.md) (per-item depth) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
+> **Latest pass**: #3 (2026-04-27). Score: 14 Blockers + 1 Major drift + 1 partial-resolved out of 49 audited. Keystone absence: provenance-plane primitives (MutationEnvelope/ClaimLedger/RetractionPropagated) 100 % missing in code.
+
 ## 2026-04-26T00:00:00Z — Deep audit pass #1
 
 Audits every item in the V1.5 backlog (Buckets A, B, C, D, N + D-series + gap-fixes G1-G9 + pre-TestFlight gates) against the actual research corpus in `/Advice`, `/final`, `/final v2`, plus the dossier (`docs/RESEARCH_DOSSIER_TIER_3_4.md`) and execution map (`docs/plan/03_EXECUTION_MAP.md`). Flags any drift — even slight ones.

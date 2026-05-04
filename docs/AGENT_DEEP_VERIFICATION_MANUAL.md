@@ -1,5 +1,10 @@
 # Epistemos Agent Deep Verification Manual
 
+> **Index status**: CANONICAL-OPERATIONAL — Deep verification operator manual — 3-pass recursive audit + 10 non-negotiable rules; code+logs+runtime+persistence must agree.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Date: 2026-03-29
 Status: Canonical deep-verification, runtime-audit, and release-readiness handoff for agent work
 

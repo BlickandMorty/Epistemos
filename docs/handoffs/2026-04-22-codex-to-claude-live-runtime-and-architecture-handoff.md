@@ -1,5 +1,10 @@
 # Codex -> Claude handoff · April 22 2026 · live runtime finish + architecture asks
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Purpose: this is the source-of-truth handoff for Claude to continue the
 real-app walkthrough on the current Xcode build, finish the remaining
 runtime blockers, and then pick up the user's next product asks without

@@ -1,5 +1,10 @@
 # Code Editor Polish Scope — 2026-04-23
 
+> **Index status**: CANONICAL-OPERATIONAL — Phase S editor polish scope: 4 items ~2 days (line gutter/debouncing/outline cache/viewport-scoped highlighting) + 4 Pro-deferred items.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Source:** live-code audit of `Epistemos/Views/Notes/CodeEditorView.swift` + `EpistemosTheme.swift` + PLAN_V2 §22-25.
 **User's ask:** *"truly polish the code editor with performance and add lines again but a line counter that does not interfere with my theme … I know there are so many things that can be done to upgrade performance and look of it."*
 

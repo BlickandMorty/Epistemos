@@ -1,5 +1,10 @@
 # Hermes Risk Register & Failure Modes
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 | Failure Mode | Threat Target | Consequence | Implemented Mitigation |
 | ------------- | ------------- | ----------- | ----------------------- |
 | Intel Cold-Start Latency | System UX | Python takes > 300ms causing chat freeze | Deferred lazy startup on `HermesSubprocessManager` |

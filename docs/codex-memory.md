@@ -1,5 +1,10 @@
 # Epistemos — Codex Knowledge Transfer Document
 
+> **Index status**: CANONICAL-RESEARCH — Living architecture reference (2026-03-06) — layer inventory + naming conventions + testing patterns + anti-patterns.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 > **Purpose:** Comprehensive app knowledge for any AI agent working on this codebase. Read this before touching anything. Updated 2026-03-06.
 
 ---

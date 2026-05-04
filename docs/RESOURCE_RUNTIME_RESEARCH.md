@@ -1,5 +1,10 @@
 # Epistemos Resource Runtime — Authoritative Research
 
+> **Index status**: CANONICAL-RESEARCH — Phase R substrate research (companion to RESOURCE_INVENTORY).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **Date:** 2026-04-23.
 **Status:** authoritative spec for [Phase R](IMPLEMENTATION_PLAN_FROM_ADVICE.md#phase-r) in IMPLEMENTATION_PLAN_FROM_ADVICE.md. When the plan disagrees with this research, **the research wins.**
 **Source:** ChatGPT architectural advice (2026-04-23), responding to observed bugs: `gpt-5.4` vs `openai:gpt-5.4` model-ID split-brain; AI claiming "I updated the file" without a real write handle; attached notes ambiguous between inline text and live file; duplicate code paths for read/edit/find across AI tools, sidebar, attachments, popovers, chat actions.

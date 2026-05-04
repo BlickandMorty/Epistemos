@@ -1,5 +1,11 @@
 # Graph Motion Overlay — Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Graph waves plan (predecessor of GRAPH_WAVES_HANDOFF + GRAPH_WAVES_AUDIT); shipped.
+> **Superseded by / Phase**: GRAPH_WAVES_HANDOFF + GRAPH_WAVES_AUDIT.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date**: 2026-04-24
 **Author**: Claude (Opus 4.7), synthesising v3 unified spec + GPT correction
 **Mandate**: "Fortnite's considered motion, not Garry's Mod ragdoll. Authored water, not literal fluid."

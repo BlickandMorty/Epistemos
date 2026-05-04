@@ -1,5 +1,11 @@
 # Epistemos Pre-Flight Audit Report
 
+> **Index status**: SUPERSEDED-HISTORICAL — Possibly older predecessor of CANONICAL_AUDIT_LOG; verify content but likely superseded.
+> **Superseded by / Phase**: CANONICAL_AUDIT_LOG.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Generated: 2026-03-27
 Auditor: Claude Code
 Branch: feature/knowledge-fusion-v1

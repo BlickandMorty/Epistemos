@@ -1,5 +1,10 @@
 # Epistemos: Deep Analysis on Best Practices and the Custom Overpowered Approach
 
+> **Index status**: CANONICAL-RESEARCH — Already canonical (codebase analysis cited in CLAUDE.md "Detailed Docs"); already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/70_design_implementation/`.
+
+
+
 **Author:** Jordan | **Date:** March 28, 2026 | **Hardware:** M2 Pro 16GB
 
 ---

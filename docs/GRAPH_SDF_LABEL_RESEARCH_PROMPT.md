@@ -1,4 +1,9 @@
 # Graph SDF Label System — Deep Research Prompt
+
+> **Index status**: CANONICAL-RESEARCH — Deep research prompt for Metal GPU SDF text labels with continuous radial blur-reveal + kinetic physics; 20-file read list.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ## Continuous Distance-Based Blur Reveal + Kinetic Physics Polish
 
 **Purpose:** Research and engineer the optimal implementation of SDF text labels with continuous radial blur reveal, kinetic physics polish, and semantic zoom for the Epistemos Metal graph renderer.

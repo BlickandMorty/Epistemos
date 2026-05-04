@@ -1,5 +1,10 @@
 # AI Stack Decision Report
 
+> **Index status**: CANONICAL-OPERATIONAL — AI stack decision report (companion to ai_stack_implementation_plan).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Current Truth
 
 Epistemos no longer carries a separate DeepSeek reasoner lane.

@@ -1,5 +1,10 @@
 # Performance & Stability Repair Report — 2026-04-21
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Branch: `codex/runtime-input-audit`
 
 ## Scope

@@ -1,5 +1,10 @@
 # Codex Verification Handoff — Phase 4.5 Stabilization
 
+> **Index status**: CANONICAL-OPERATIONAL — Codex verification handoff (2026-04-19+).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Context for Codex**: The previous agent was tasked with closing out "Phase 4.5" of the Epistemos local AI stack, ensuring strict architectural rules were followed before Phase 5 could begin. 
 
 Your objective is to independently verify that the codebase accurately reflects the **Option B (Deferred Graph)** completion state, and that the regression fixes and performance improvements were implemented truthfully without weakening tests or faking capabilities.

@@ -1,5 +1,10 @@
 # Epistemos Specialties: Abilities No Other App Can Have
 
+> **Index status**: CANONICAL-RESEARCH — 19 architecturally-impossible-for-others specialties (A1-A3 macOS perception + B1-B6 vault knowledge + C1-C4 inference + D1-D6 intelligence) with tool schemas.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 > The tools every agent framework has are table stakes. These are the ones only YOU can build.
 > Each Specialty combines Rust + Swift + Metal in ways that are architecturally impossible for
 > plugin-based apps (Obsidian, Logseq) and server-based agents (Hermes, OpenClaw).

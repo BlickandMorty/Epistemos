@@ -1,5 +1,11 @@
 # Epistemos: Execution Handoff Prompt
 
+> **Index status**: TRANSIENT-CANDIDATE — Execution handoff for Time Machine bugs + workspace snapshot + session intelligence; superseded by APP_ISSUES_AUTO_FIX.
+> **Superseded by / Phase**: APP_ISSUES_AUTO_FIX + SESSION_HANDOFF_2026-04-07.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Paste this entire prompt into a fresh Claude Code session.**
 
 ---

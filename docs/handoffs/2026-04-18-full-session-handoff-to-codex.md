@@ -1,5 +1,10 @@
 # Full-Session Handoff to Codex: End-to-End Audit & Regression Hunt
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-04-18
 **Branch:** `codex/runtime-input-audit`
 **Audience:** Codex

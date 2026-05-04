@@ -1,5 +1,10 @@
 # Codex Handoff: Full Audit + Remaining Work
 
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-01 status reconciliation: continuation leak fixes + harness lifecycle; defers to MASTER_HARDENING_AND_HARNESS_PLAN.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Date:** 2026-04-01
 **From:** Claude Opus session (concurrency fixes, PowerGuard, signing, auto-setup)
 **To:** Codex agent for comprehensive audit and continuation

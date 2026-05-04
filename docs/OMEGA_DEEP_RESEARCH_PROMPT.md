@@ -1,4 +1,9 @@
 # OMEGA DEEP RESEARCH PROMPT
+
+> **Index status**: CANONICAL-RESEARCH — Omega agent orchestration deep-research prompt — 5-layer split + current architecture inventory + research targets.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ## For Google Deep Research / Perplexity Pro / Claude Research Mode
 
 ---

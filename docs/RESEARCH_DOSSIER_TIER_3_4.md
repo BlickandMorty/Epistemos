@@ -1,5 +1,15 @@
 # Research Dossier — Tier 3 (R14-R16) + Tier 4 (W9.6-W9.30)
 
+> **Index status**: CANONICAL-RESEARCH — Already canonical (per-item paste-ready prompts + Bucket A/B/C/D); existing banner adequate.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
+> **Status**: CANONICAL — research synthesis + paste-ready prompts (synthesis of `/Advice`, `/final`, `/final v2` corpora).
+> **Role**: Per-item research findings (concrete file paths + diff size + ship-in-N-PRs estimates), Bucket A/B/C/D sequencing, Common Epistemos Context block (paste into external research tools), self-contained research prompts per item. Companion to `03_EXECUTION_MAP.md` (which is the implementation gating layer).
+> **Read with**: [`docs/plan/03_EXECUTION_MAP.md`](plan/03_EXECUTION_MAP.md) (per-item DoD/WRV) + [`docs/plan/05_RESEARCH_INDEX.md`](plan/05_RESEARCH_INDEX.md) (corpus map) + [`docs/STRUCTURING_AUDIT.md`](STRUCTURING_AUDIT.md) (input pipeline).
+> **Note on consolidation**: this dossier and `03_EXECUTION_MAP.md` overlap on item-name + risk + targets but serve different audiences (dossier = research delivery + paste-ready prompts; execution map = implementation gating + WRV proof). They're kept separate by design.
+
 Authored 2026-04-26. This is the canonical research-prompt + analysis
 document for every item still in the inventory after the Wave 9-15
 wrap. **Use these prompts verbatim** when researching with

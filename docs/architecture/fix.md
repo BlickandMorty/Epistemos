@@ -1,5 +1,10 @@
 # macOS 26 Tahoe SwiftUI input failure research report
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific historical reference; superseded by MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Scope and framing
 
 The supplied project description points to a very specific failure pattern: a titled SwiftUI macOS app on macOS 26.3.1 built with Xcode 26.4 renders normally, becomes key/main, still allows title-bar dragging and menu interaction, but loses essentially all in-window mouse and keyboard interaction; the same project still fails after swapping in a bare SwiftUI `Button`, switching `Window` to `WindowGroup`, removing restoration-related knobs, and forcing the content view’s `alphaValue` back to `1.0` in lldb. That combination strongly narrows the problem away from business logic and toward window/input routing, linked binary side effects, or a project-level build/runtime interaction. fileciteturn0file1

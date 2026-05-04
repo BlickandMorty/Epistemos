@@ -1,5 +1,10 @@
 # Embodied Data Pipeline — Build Report
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-27
 **Purpose:** First real embodied data pipeline for Epistemos-Nano training
 **Status:** Pipeline built and wired. 503 trajectories + 150 eval tasks on disk. Live capture integrated into OrchestratorState.

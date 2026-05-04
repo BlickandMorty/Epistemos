@@ -1,5 +1,10 @@
 # Codex Handoff — Agent Tool System Wire-Up + Hermes/OpenClaw Parity Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Phase 1-7 tool wiring + iMessage local-model routing + Hermes/OpenClaw parity audit; 419/419 Rust tests; active reference for tool FFI bridges.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 **Date:** 2026-04-10
 **Author (outgoing):** Claude (multi-pass plan executor)
 **Auditor (incoming):** Codex

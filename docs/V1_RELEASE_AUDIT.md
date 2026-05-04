@@ -1,5 +1,10 @@
 # Epistemos V1 Release Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — V1 release audit verdict: READY FOR V1 WITH SHORT FINAL POLISH PASS; honest V1 definition (local-first note-thinking app NOT full autonomy).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Executive Summary
 
 Epistemos is much closer to a coherent V1 than the research corpus makes it look.

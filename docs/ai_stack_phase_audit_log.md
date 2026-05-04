@@ -1,5 +1,10 @@
 # AI Stack Phase Audit Log
 
+> **Index status**: CANONICAL-OPERATIONAL — AI stack phase audit log; companion to ai_stack_implementation_plan.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 This file is the gate for the active local AI stack.
 
 ## Phase 0 — Decision Reset

@@ -1,5 +1,10 @@
 # Research Prompt: Cloud-Native Agent Bridge — Surgical Wins for Epistemos v1
 
+> **Index status**: CANONICAL-RESEARCH — 2026-04-06 cloud AI surgical wins (structured output + artifact extraction + graph context + cloud-locked chat); Part 1 audit + Part 2 infrastructure extraction.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 **For:** Claude Code / Deep Research / Perplexity Pro
 **Date:** 2026-04-06
 **Context:** Epistemos is shipping v1 as a PKM-first app with cloud AI (OpenAI, Anthropic, Google). Agents are deferred (behind ShipGate). But the agent infrastructure (Hermes, Omega, Goose research, agent_core, MCP) contains surgical wins that should be extracted and applied to the shipping cloud chat to make it feel beyond-native.

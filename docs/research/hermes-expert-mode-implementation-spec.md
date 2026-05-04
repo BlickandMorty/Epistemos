@@ -1,5 +1,10 @@
 # Hermes Expert Mode — Implementation Spec
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Overview
 This specification details the end-to-end integration of "Hermes Expert Mode" into the Epistemos application as a managed, local Python subprocess exposing an OpenAI-compatible HTTP/SSE and MCP architecture.
 

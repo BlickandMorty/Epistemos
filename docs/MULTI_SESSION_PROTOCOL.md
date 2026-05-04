@@ -1,5 +1,10 @@
 # Multi-Session Coordination Protocol
 
+> **Index status**: CANONICAL-OPERATIONAL — Cross-session coordination; already in _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Authored 2026-04-27 to answer: "I want this chat dedicated to
 critiquing Claude's work; how should I run building sessions in
 parallel and have you live-check / nudge them?"

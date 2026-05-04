@@ -1,5 +1,10 @@
 # Epistemos Research Synthesis and Action Plan
 
+> **Index status**: CANONICAL-RESEARCH — Architectural spec cited from PLAN_V2.md (load when item touched).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/architecture_specs/`.
+
+
+
 **Date:** 2026-04-15
 **Author:** Architecture research synthesis across 5 independent deep-research sessions + 3-model council (GPT-5.4, Claude Opus 4.6, Gemini 3.1 Pro)
 **Authority:** PLAN_V2.md §22 remains canonical. This document proposes *additions* to PLAN_V2, not overrides.

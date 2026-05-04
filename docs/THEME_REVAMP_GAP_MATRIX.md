@@ -1,5 +1,11 @@
 # Theme Revamp Gap Matrix
 
+> **Index status**: SUPERSEDED-HISTORICAL — Theme revamp shipped per memory.
+> **Superseded by / Phase**: theme refactor shipped.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 | Gap | Severity | Impacted Files / Screens | Why It Failed The Spec | Fix Applied | Verification |
 | --- | --- | --- | --- | --- | --- |
 | Floating panels still forced Aqua/Dark Aqua in default mode | High | [CommandPaletteWindowController.swift](/Users/jojo/Epistemos/Epistemos/Views/Landing/CommandPaletteWindowController.swift), [MiniChatWindowController.swift](/Users/jojo/Epistemos/Epistemos/Views/MiniChat/MiniChatWindowController.swift), [UtilityWindowManager.swift](/Users/jojo/Epistemos/Epistemos/App/UtilityWindowManager.swift), [HologramOverlay.swift](/Users/jojo/Epistemos/Epistemos/Views/Graph/HologramOverlay.swift) | Default mode was supposed to be native/unforced, but these controllers still hard-coded appearance forcing. | Introduced `UIState.windowAppearance` and routed all window/panel sync through it. | Verified by [ThemePairTests.swift](/Users/jojo/Epistemos/EpistemosTests/ThemePairTests.swift) test `System default keeps window appearance unforced while custom themes opt in`. |

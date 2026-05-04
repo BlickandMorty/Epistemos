@@ -1,5 +1,10 @@
 # Phase 8: TK2 Coordinator Parity Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Bring `ProseEditorRepresentable2` / `ProseTextView2` to full feature parity with the TK1 coordinator — filling all gaps in right-click menus, fold gutter clicks, BTK wiring, scroll-to-offset, data detection clicks, external body sync, focus mode selection tracking, and notification contracts.

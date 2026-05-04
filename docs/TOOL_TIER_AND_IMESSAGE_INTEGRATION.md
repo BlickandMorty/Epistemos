@@ -1,5 +1,11 @@
 # Tool Tier + iMessage Driver — Swift Integration Guide
 
+> **Index status**: DEFERRED-RESEARCH — Phase K Pro-only; already in _consolidated.
+> **Superseded by / Phase**: Phase K.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/`.
+
+
+
 > Rust side is done. This doc captures exactly what needs to happen in Swift
 > to close the loop. Both work items share infrastructure so they're shipped
 > as a single guide.

@@ -1,4 +1,9 @@
 # EPISTEMOS ARCHITECTURAL GAP ANALYSIS
+
+> **Index status**: CANONICAL-RESEARCH — Agent system architecture (cited from CLAUDE.md). Phase D / K reference.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/agent_system/`.
+
+
 ## Cross-Document Audit of All 8 Specification Files
 
 **Methodology**: Every type, trait, struct, and function referenced in EPISTEMOS_REAL_AGENTS.md (3,935 lines), MASTER_BUILD_SPEC.md, v1.md, v1.1_ADDENDUM.md, and the 4 research documents was traced to its definition. Items referenced but never defined are gaps. Items defined but with structural flaws are improvements.

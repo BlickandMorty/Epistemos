@@ -1,5 +1,11 @@
 # Phase 0: Autoresearch Loop Analysis
 
+> **Index status**: SUPERSEDED-HISTORICAL — Knowledge Fusion retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by**: IMPLEMENTATION_PLAN_FROM_ADVICE + MASTER_FUSION.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Source: /Users/jojo/Downloads/autoresearch-master
 
 ## Core Loop Pattern

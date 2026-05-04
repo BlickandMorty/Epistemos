@@ -1,5 +1,10 @@
 # Epistemos Deep Hardening Cycle Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Date: March 13, 2026
 Scope: production hardening for the current Swift + Metal + Rust application, not a rewrite
 

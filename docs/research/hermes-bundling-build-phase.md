@@ -1,5 +1,10 @@
 # Hermes Bundling Build Phase
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Overview
 The bundling procedure handles freezing Hermes and a macOS-native Python environment into a self-contained runtime layer for the Epistemos DD build.
 

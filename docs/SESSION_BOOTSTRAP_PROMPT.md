@@ -1,4 +1,9 @@
 # Epistemos Session Bootstrap Prompt
+
+> **Index status**: CANONICAL-OPERATIONAL — 2026-04-01 system architect bootstrap — 15-file reading order (Hardening/harness 1-7 + timeout/supervisor/thermal + FFI truth boundary).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
 # Copy everything below the line into a new Claude Code session to restore full context.
 # Last updated: 2026-04-01
 

@@ -1,5 +1,10 @@
 # Final Claude Release Master Handoff
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-28  
 **Current source-of-truth commit:** `6994c784`  
 **Audience:** Claude Code  

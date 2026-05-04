@@ -1,5 +1,10 @@
 # Codex / Claude Release Preservation Prompt
 
+> **Index status**: CANONICAL-HISTORICAL — Session handoff; kept for state recovery (30-day minimum). No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Use this prompt verbatim when you want Codex or Claude Code to keep Epistemos release-ready.
 
 ---

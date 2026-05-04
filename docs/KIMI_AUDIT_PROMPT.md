@@ -1,5 +1,11 @@
 # Kimi Audit Prompt — Code Editor Performance Review
 
+> **Index status**: SUPERSEDED-HISTORICAL — Kimi audit prompt (predecessor to KIMI_AUDIT_REPORT).
+> **Superseded by / Phase**: KIMI_AUDIT_REPORT.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Context
 
 Claude completed a multi-phase optimization of the Epistemos code editor. The goal is Xcode-grade 120fps ProMotion fluidity. Please audit all changes for correctness, find remaining performance opportunities, and verify nothing was missed from the research documents.

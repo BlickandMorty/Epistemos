@@ -1,4 +1,9 @@
 # EPISTEMOS NANO MODEL — MASTER TRAINING GUIDE FOR CLAUDE CODE
+
+> **Index status**: CANONICAL-RESEARCH — Training data curation for Nano(1B)/Base(3B)/Pro(8B) tiers with data mix ratios + self-instruct patterns.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ### Version 2.0 · March 25, 2026
 ### This document is the single source of truth for all training material decisions.
 ### Claude Code: Read this before touching any training pipeline. Ground every decision here.

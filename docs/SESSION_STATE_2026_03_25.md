@@ -1,5 +1,11 @@
 # Epistemos Session State — March 25, 2026 (Updated)
 
+> **Index status**: TRANSIENT-CANDIDATE — Session state snapshot (2026-03-25); historical artifact superseded by NANO-MASTER-TRAINING-GUIDE.
+> **Superseded by / Phase**: NANO-MASTER-TRAINING-GUIDE.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Start Here (Read In Order)
 
 1. `CLAUDE.md` — Engineering bible, Ω10-Ω24 roadmap, training non-negotiables

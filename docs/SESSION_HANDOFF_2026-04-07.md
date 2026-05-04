@@ -1,5 +1,11 @@
 # Session Handoff Report — 2026-04-07
 
+> **Index status**: TRANSIENT-CANDIDATE — Session handoff for code editor syntax color + cloud routing; debugging continues.
+> **Superseded by / Phase**: CODE_EDITOR_DEBUG + SESSION_REPORT_2026-04-06.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## For: Next Agent (Kimi, Claude, or other)
 
 This report covers all outstanding issues from the April 6-7 sessions. Read this before making changes.

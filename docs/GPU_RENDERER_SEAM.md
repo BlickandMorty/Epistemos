@@ -1,5 +1,11 @@
 # GPU Renderer Seam — Future Architecture Notes
 
+> **Index status**: DEFERRED-RESEARCH — GPU renderer seam architecture (Zed-style pipeline + Metal renderer + glyph atlas + MSDF minimap).
+> **Phase / superseded**: Pro/post-V1.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/60_deferred_research/`.
+
+
+
 ## Date: 2026-04-07
 ## Status: Documentation Only (Not Implemented)
 

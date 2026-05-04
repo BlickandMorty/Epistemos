@@ -1,5 +1,10 @@
 # Epistemos Agent System — Complete Design Document
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-07
 **Status:** Approved — ready for implementation
 **Scope:** Multi-agent system with MLX local inference, Learning Pool, Graph NPCs, TTS, App Store + Pro distribution

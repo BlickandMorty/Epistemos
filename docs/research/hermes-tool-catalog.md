@@ -1,5 +1,10 @@
 # Hermes Tool Catalog
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Core Tooling & Approval Matrix
 
 | Tool Subgroup | Endpoint Pattern | Description | Approval Level | MAS Impact |

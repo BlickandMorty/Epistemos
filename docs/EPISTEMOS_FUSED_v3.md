@@ -1,4 +1,7 @@
 # EPISTEMOS — DEFINITIVE BUILD SPECIFICATION v3.0 (FUSED)
+
+> **Index status**: SUPERSEDED-HISTORICAL — March 28, 2026 comprehensive build spec. Superseded by the current canonical stack: [`docs/architecture/PLAN_V2.md`](architecture/PLAN_V2.md) (architectural authority) + [`docs/MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (operational doctrine + queue) + [`docs/plan/01_DOCTRINE.md`](plan/01_DOCTRINE.md) (14 non-negotiables) + [`docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`](IMPLEMENTATION_PLAN_FROM_ADVICE.md) (4-model council synthesis). Cited in CLAUDE.md "Detailed Docs" — kept for historical archeology of the v3.0 fusion; **not canonical for current execution**. Classified in [`docs/_INDEX.md §9`](_INDEX.md).
+
 ## For Claude Code / Codex / Any Agentic Coding Agent
 ### Date: March 28, 2026 | Developer: Jordan | Machine: M2 Pro MacBook 16GB
 ### Synthesized from 25+ research papers, 3 deep research rounds, 20 architectural documents, and the v1.0 megaprompt

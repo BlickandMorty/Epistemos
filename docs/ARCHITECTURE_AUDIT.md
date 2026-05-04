@@ -1,5 +1,10 @@
 # Architecture Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Phase A snapshot of identity inventory (string UUIDs/integer IDs/file-system paths) + UniFFI usage + observation patterns.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 Date: 2026-04-03
 Scope: Phase A Workstream 2, Substrate Sprint 0 baseline
 

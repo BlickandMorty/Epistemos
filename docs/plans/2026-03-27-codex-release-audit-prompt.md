@@ -1,5 +1,10 @@
 # Codex Release Audit Prompt for Epistemos
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Purpose:** Paste this entire document into a Codex session. After Codex completes all tasks, the app should be release-ready.
 
 ---

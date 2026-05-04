@@ -1,5 +1,10 @@
 # Deep Architecture Audit: Epistemos Canonical Pattern Integrity
 
+> **Index status**: CANONICAL-RESEARCH — Forensic 7-dimension architecture audit prompt (OTP + circuit breakers + FFI safety + inference lifecycle + resource guards + storage + thermal).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## Context
 
 Epistemos is a macOS-native personal knowledge management app built on Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders. It runs a hybrid AI agent system: local on-device inference via MLX-Swift (Qwen3.5, Hermes-3), Apple Intelligence via FoundationModels framework, and cloud inference via Claude/Perplexity/OpenAI. A Python subprocess (Hermes) handles cloud orchestration. The Rust `agent_core` crate owns the agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, and context compaction. Swift owns UI, MLX inference, macOS APIs (AXUIElement, ScreenCaptureKit, CGEvent), and MCP server hosting.

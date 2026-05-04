@@ -1,5 +1,10 @@
 # AI Stack Implementation Plan
 
+> **Index status**: CANONICAL-OPERATIONAL — AI stack ship plan — Apple Intelligence + Qwen local + Rust retrieval; Phase 4.5 stabilization complete.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+
 ## Goal
 
 Ship a smaller and more honest local stack:

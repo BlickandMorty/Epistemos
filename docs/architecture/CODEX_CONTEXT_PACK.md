@@ -1,5 +1,10 @@
 # Codex Context Pack for New Sessions
 
+> **Index status**: SUPERSEDED-HISTORICAL — Phase-specific handoff or older plan; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Identity
 Epistemos is a local-first cognitive operating system, not a normal chatbot, not just a coding wrapper, and not just a PKM with AI attached.
 

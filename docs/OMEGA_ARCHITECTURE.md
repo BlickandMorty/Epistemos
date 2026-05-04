@@ -1,5 +1,11 @@
 # Epistemos Omega — Architecture
 
+> **Index status**: SUPERSEDED-HISTORICAL — Omega retired per IMPLEMENTATION_PLAN_FROM_ADVICE.
+> **Superseded by / Phase**: IMPLEMENTATION_PLAN_FROM_ADVICE.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Overview
 
 Omega is the agent/automation subsystem of Epistemos. It adds macOS-wide task execution capabilities through specialist agents, an MCP tool registry, and a plan-before-execute UX.

@@ -1,5 +1,10 @@
 # Phase 7: Callouts + LaTeX Implementation Plan
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add callout block rendering (colored borders, icons, type detection) and display math support to the TextKit 2 prose editor, porting existing TK1 callout logic and extending the Rust parser.

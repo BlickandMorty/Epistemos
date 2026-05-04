@@ -1,4 +1,9 @@
 # Audit Progress
+
+> **Index status**: CANONICAL-OPERATIONAL — 2026-03-26 audit completion checkpoint — 13 waves reviewed + Wave 17 bugs triaged + post-audit scan clean (67 files).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
 Last updated: 2026-03-26 22:10
 
 ## Current State Clarification — 2026-03-26

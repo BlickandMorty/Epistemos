@@ -1,5 +1,10 @@
 # Code Editor Stack Research — Best Path Forward
 
+> **Index status**: CANONICAL-RESEARCH — 2026-04-07 best-path research for Xcode-grade editor (CodeEditorView recommended + Zed/Nova/VSCode patterns); 120fps target.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
+
 ## For: Implementation (Kimi or Claude)
 ## Date: 2026-04-07
 

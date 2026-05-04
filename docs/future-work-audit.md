@@ -1,4 +1,9 @@
 # Epistemos — The Bible
+
+> **Index status**: CANONICAL-RESEARCH — Comprehensive future-work + hardening roadmap across waves 0-19 (foundation/sensory/orchestration/polish).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+
+
 ## Comprehensive Future Work, Audit Findings & Hardening Roadmap
 ### Last Updated: 2026-02-28
 

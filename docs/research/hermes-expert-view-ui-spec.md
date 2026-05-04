@@ -1,5 +1,10 @@
 # Hermes Expert View UI Specification
 
+> **Index status**: CANONICAL-RESEARCH — Hermes integration research (Phase D + K reference).
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/hermes_research/`.
+
+
+
 ## Architecture
 The UI is centered around `HermesExpertView` serving as a dynamic, three-pane layout adjacent to standard Epistemos Chats and Notes. All interactions run via SwiftData.
 

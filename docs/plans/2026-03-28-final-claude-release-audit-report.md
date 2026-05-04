@@ -1,5 +1,10 @@
 # Epistemos Final Release Audit Report
 
+> **Index status**: SUPERSEDED-HISTORICAL — Older plan tree predecessor of `docs/plan/`; superseded by MASTER_FUSION.md + V1_5_IMPLEMENTATION_TRACKER.md.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-28
 **Auditor:** Claude Opus 4.6 (second pass, independent re-verification)
 **Branch:** `main` (dd0f2cee — includes stabilization branch + compliance fixes)
