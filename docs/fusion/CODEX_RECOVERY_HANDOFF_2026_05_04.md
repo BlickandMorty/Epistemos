@@ -345,6 +345,21 @@ dispatcher canonical. Brand tokens centralized. <N> issues fixed,
 
 Then reply: **"RECOVERY PUSH COMPLETE — CANON RESTORED"**
 
+**STOP after the reply.** Do NOT auto-continue into V2 work. The
+post-recovery sequence is canonicalized at
+`docs/fusion/POST_RECOVERY_SUBSTRATE_V2_PLAN_2026_05_04.md` but
+**Codex must wait for the explicit user signal**:
+
+> ***"RESUME SUBSTRATE V2"***
+
+When the user types that exact phrase, read the V2 plan and begin
+from V2.1 (Cognitive DAG Phase 8.A). Until then, recovery's done is
+the natural pause point — gives the user a green-light decision
+about timing, paid Apple Developer Program, collaborators, etc.
+
+Same wait-for-signal pattern that `CODEX_DAG_RADAR_HANDOFF` uses for
+its Phase 8 trigger, applied to the recovery → V2 transition.
+
 ---
 
 ## 7. Out of scope for this push (do NOT touch)
