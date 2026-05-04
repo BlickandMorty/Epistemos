@@ -72,6 +72,16 @@ struct CompanionView: View {
         }
     }
 
+    /// Per-companion canonical animation state. Active companion gets `walk`
+    /// (the canonical roaming-Farm state); inactive companions get `idle`
+    /// (still on screen but not stepping). Hovered companion brightens to
+    /// `speak` to telegraph the click affordance.
+    private var animationState: CompanionAnimationState {
+        if isActive { return .walk }
+        if isHovered { return .speak }
+        return .idle
+    }
+
     /// Reduce-motion fallback: the companion's body in its rest pose
     /// + a small text "idle" badge so the user knows the surface is
     /// alive but not animating. Invariant I-14 conformance.
@@ -80,6 +90,7 @@ struct CompanionView: View {
             kind: entry.bodyKind,
             accent: accent,
             phase: 0.5,
+            state: .idle,
             reduceMotionOverride: true,
             showsIdleBadge: true
         )
@@ -89,13 +100,14 @@ struct CompanionView: View {
     /// (4-second period) of the halo + a subtle scale of the figure.
     /// All driven by TimelineView so no Combine subscription leaks.
     private var breathingBody: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 8.0)) { context in
             let breathe = Self.breathePhase(at: context.date,
                                             seedString: entry.identityHash)
             CompanionAvatarGlyph(
                 kind: entry.bodyKind,
                 accent: accent,
                 phase: breathe,
+                state: animationState,
                 reduceMotionOverride: false
             )
             .scaleEffect(0.98 + 0.02 * breathe)
