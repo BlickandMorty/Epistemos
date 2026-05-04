@@ -46,6 +46,7 @@ enum LiquidGreetingTiming {
 
 struct LiquidGreeting: View {
     nonisolated static let restingGreeting = "Greetings, Learner"
+    nonisolated static let hermesHeroPhrase = "Hermes Agent"
 
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -62,10 +63,19 @@ struct LiquidGreeting: View {
     /// prefix is auto-typed — after the backspace, the caret waits and
     /// the user's typed text IS the displayed prompt.
     var searchText: String = ""
+    /// When true, the greeting backspaces whatever is on screen and
+    /// types out "Hermes Agent" in the hero font. Used by Hermes Expert
+    /// Mode on the landing page. The typewriter completes once and the
+    /// display rests on the phrase (no looping). Caller is notified via
+    /// `onHermesHeroComplete` so it can flip its `heroReady` state and
+    /// focus the Expert Mode input ribbon.
+    var hermesHeroMode: Bool = false
+    var onHermesHeroComplete: (() -> Void)? = nil
 
     @State private var displayText = Self.restingGreeting
     @State private var searchReady: Bool = false
     @State private var cursorVisible: Bool = true
+    @State private var hermesHeroDone: Bool = false
 
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
@@ -106,7 +116,7 @@ struct LiquidGreeting: View {
     }
 
     private var taskKey: String {
-        "\(shouldAnimate)_\(retractNow)_\(searchMode)_\(ui.landingGreetingPlaylistSignature)"
+        "\(shouldAnimate)_\(retractNow)_\(searchMode)_\(hermesHeroMode)_\(ui.landingGreetingPlaylistSignature)"
     }
 
     var body: some View {
@@ -114,6 +124,10 @@ struct LiquidGreeting: View {
         .frame(height: compact ? 40 : 180)
         .padding(.horizontal, compact ? 20 : 100)
         .task(id: taskKey) {
+            if hermesHeroMode {
+                await enterHermesHeroMode()
+                return
+            }
             if searchMode {
                 await enterSearchMode()
                 return
@@ -153,7 +167,9 @@ struct LiquidGreeting: View {
 
     @ViewBuilder
     private var displayView: some View {
-        if searchMode && searchReady {
+        if hermesHeroMode {
+            plainGreeting(text: displayText)
+        } else if searchMode && searchReady {
             searchLine
         } else {
             plainGreeting(text: shouldAnimate ? displayText : Self.restingGreeting)
@@ -227,6 +243,44 @@ struct LiquidGreeting: View {
         }
         guard !Task.isCancelled else { return }
         onRetractComplete?()
+    }
+
+    /// Backspace whatever is on screen, breathe, then type out
+    /// "Hermes Agent" character-by-character in the hero font. Sticks
+    /// on the phrase when done and notifies the caller via
+    /// `onHermesHeroComplete` so the Expert Mode terminal can focus
+    /// its input.
+    @MainActor
+    private func enterHermesHeroMode() async {
+        hermesHeroDone = false
+
+        // Backspace whatever's currently displayed (greeting playlist).
+        while !displayText.isEmpty && !Task.isCancelled {
+            displayText.removeLast()
+            guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
+        }
+        guard !Task.isCancelled else { return }
+
+        // Reduce-motion fallback: snap to the phrase, fire completion.
+        if reduceMotion {
+            displayText = Self.hermesHeroPhrase
+            hermesHeroDone = true
+            onHermesHeroComplete?()
+            return
+        }
+
+        // Tiny breath so the empty state registers before typing.
+        guard await pause(.milliseconds(180)) else { return }
+
+        let phrase = Self.hermesHeroPhrase
+        for index in 1...phrase.count {
+            guard !Task.isCancelled else { return }
+            displayText = String(phrase.prefix(index))
+            guard await pause(LiquidGreetingTiming.typingDelay(forStep: index)) else { return }
+        }
+
+        hermesHeroDone = true
+        onHermesHeroComplete?()
     }
 
     /// Backspace the greeting to empty, then hand off to the caret. The
