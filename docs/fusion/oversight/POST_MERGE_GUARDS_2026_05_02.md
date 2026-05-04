@@ -1152,3 +1152,13 @@
 - log: `Test run with 4 tests in 1 suite passed` in `/tmp/epistemos-xpc-service-skeleton-pr64-20260503-rerun2.log`.
 - log: `AppBootstrap: shared substrate container ready` appears during the focused test app launch.
 - test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/XPCSmokeTests test`.
+
+## capability-bridge-skeleton-pr65
+
+- grant grep: `Capability::BiometricSession { ttl_secs }`, `HMAC<SHA256>`, `SovereignGateRequirement`, `HermesGatewayPolicy.decision`, and `ToolSurfacePolicy.resolvedDistribution` remain present in `Epistemos/Security/CapabilityBridge.swift` and `EpistemosTests/CapabilityBridgeTests.swift`.
+- forbidden-surface grep: `LAContext|canEvaluatePolicy|evaluatePolicy|Process\(\)|Subprocess\(|URLSession|NSWorkspace` remains absent from `Epistemos/Security/CapabilityBridge.swift`.
+- policy behavior grep: `coreAppStoreDistributionDeniesExternalHermesGatewaySurfaces`, `biometricSessionGrantsUseDonorShapeAndCallAuthorizer`, `failedSovereignAuthorizationDeniesIssue`, `expiredGrantsAndTamperedSignaturesFailVerification`, and `subjectSurfaceBoundariesPreserveAgentXPCProviderXPCSplit` remain present in `EpistemosTests/CapabilityBridgeTests.swift`.
+- boundary: PR65 is a policy bridge only. Keychain storage, XPC target packaging / `project.pbxproj` sync, chat slash routing, cloud HTTP, CLI execution, AgentEvent emission, true mmap FFI transport, protected graph files, and protected editor files remain untouched.
+- staged allow: only `Epistemos/Security/CapabilityBridge.swift`, `EpistemosTests/CapabilityBridgeTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `Test run with 6 tests in 1 suite passed` in `/tmp/epistemos-capability-bridge-pr65-20260503-rerun3.log`.
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CapabilityBridgeTests test`.

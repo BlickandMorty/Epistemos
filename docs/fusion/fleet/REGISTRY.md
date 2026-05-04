@@ -691,3 +691,7 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 113 | 2026-05-04T02:24Z | implementation | slice=xpc-service-skeleton-step6-pr64 | codex/local | n/a | done | Epistemos/XPC/*.swift; XPCServices/AgentXPC/*.swift; XPCServices/ProviderXPC/*.swift; EpistemosTests/XPCSmokeTests.swift | +1 |
 | 113 | 2026-05-04T02:24Z | test-green | scope=xpc-service-skeleton-step6-pr64 | xcodebuild | session:76043 | done | /tmp/epistemos-xpc-service-skeleton-pr64-20260503-rerun2.log | +1 |
 | 113 | 2026-05-04T02:24Z | guard | slice=xpc-service-skeleton-step6-pr64 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 114 | 2026-05-04T02:26Z | claude-sidecar-audit | scope=capability-bridge-skeleton-step6 | codex-sidecar/agent 019df0ce-bd00-70c2-9fc0-9c5e435a7278 | n/a | done | read-only response in sidecar transcript | +1 |
+| 114 | 2026-05-04T02:41Z | implementation | slice=capability-bridge-skeleton-step6-pr65 | codex/local | n/a | done | Epistemos/Security/CapabilityBridge.swift; EpistemosTests/CapabilityBridgeTests.swift | +1 |
+| 114 | 2026-05-04T02:41Z | test-green | scope=capability-bridge-skeleton-step6-pr65 | xcodebuild | session:42013 | done | /tmp/epistemos-capability-bridge-pr65-20260503-rerun3.log | +1 |
+| 114 | 2026-05-04T02:41Z | guard | slice=capability-bridge-skeleton-step6-pr65 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

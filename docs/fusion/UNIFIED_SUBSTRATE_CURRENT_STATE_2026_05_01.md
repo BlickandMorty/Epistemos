@@ -1431,6 +1431,17 @@ Proven or actively wired:
   true mmap FFI transport, and runtime dispatch remain later STEP 6 gates.
   Focused evidence:
   `/tmp/epistemos-xpc-service-skeleton-pr64-20260503-rerun2.log`.
+- Capability grant bridge STEP 6 / PR65 is now source-closed.
+  `Epistemos/Security/CapabilityBridge.swift` issues and verifies scoped,
+  HMAC-signed, expiring grants for AgentXPC and ProviderXPC subjects. It
+  preserves the donor `Capability::BiometricSession { ttl_secs }` shape,
+  delegates biometric approval to `SovereignGateRequirement`, rejects external
+  Hermes gateway surfaces in Core/App Store distribution, and keeps AgentXPC
+  bound to Core-safe surfaces while ProviderXPC owns Pro/Research gateway
+  surfaces. This is still a policy bridge only: it does not store keys in
+  Keychain, package XPC targets, execute cloud HTTP or CLIs, emit AgentEvents, or
+  wire chat/runtime dispatch. Focused evidence:
+  `/tmp/epistemos-capability-bridge-pr65-20260503-rerun3.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
