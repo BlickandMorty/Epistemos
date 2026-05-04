@@ -23,7 +23,12 @@ import Foundation
 // renders them via the dispatcher.
 
 nonisolated struct GenUIPayload: Identifiable, Codable, Sendable, Hashable {
-    /// Stable per-payload UUID. Used by SwiftUI for diffing.
+    /// Stable per-payload UUID. Used by `Identifiable` for SwiftUI list
+    /// tracking. NOT included in `Equatable` / `Hashable` — see the
+    /// custom conformance below: two payloads with identical content
+    /// must compare equal even if they have distinct UUIDs, otherwise
+    /// SwiftUI re-renders on every emit and replay tooling sees false
+    /// drift.
     let id: String
     /// The schema discriminator — drives renderer selection in the
     /// `GenUIDispatcher` registry.
@@ -38,7 +43,10 @@ nonisolated struct GenUIPayload: Identifiable, Codable, Sendable, Hashable {
     /// for codeBlock, "intent=switch_provider" for actionPanel).
     let metadata: [String: String]
     /// When the payload was emitted. Used by some renderers for
-    /// recency-aware styling and by replay tooling for ordering.
+    /// recency-aware styling and by replay tooling for ordering. NOT
+    /// included in `Equatable` / `Hashable` — same content emitted at
+    /// different times must compare equal for replay and SwiftUI
+    /// diffing.
     let createdAt: Date
 
     init(
@@ -55,6 +63,41 @@ nonisolated struct GenUIPayload: Identifiable, Codable, Sendable, Hashable {
         self.body = body
         self.metadata = metadata
         self.createdAt = createdAt
+    }
+
+    // Content-based equality (id and createdAt deliberately excluded —
+    // they are instance metadata, not content). Two payloads built from
+    // the same (schema, title, body, metadata) must be ==. This is what
+    // makes SwiftUI's `.equatable()` short-circuit work and what lets
+    // replay tooling diff payloads by content.
+    static func == (lhs: GenUIPayload, rhs: GenUIPayload) -> Bool {
+        lhs.schema == rhs.schema
+            && lhs.title == rhs.title
+            && lhs.body == rhs.body
+            && lhs.metadata == rhs.metadata
+    }
+
+    // Deterministic hash. Swift's Dictionary iteration is randomized
+    // per-process per-launch, so hashing `metadata` directly would
+    // produce different hashes across runs for identical content.
+    // Iterating sorted keys fixes this.
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(schema)
+        hasher.combine(title)
+        hasher.combine(body)
+        for key in metadata.keys.sorted() {
+            hasher.combine(key)
+            hasher.combine(metadata[key])
+        }
+    }
+
+    /// Canonical JSON encoding — sorted keys + no extra whitespace —
+    /// for snapshot tests, replay diffs, and the FallbackGenUIView
+    /// surface. Stable across runs by construction.
+    static func canonicalJSONEncoder() -> JSONEncoder {
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys, .prettyPrinted]
+        return enc
     }
 }
 

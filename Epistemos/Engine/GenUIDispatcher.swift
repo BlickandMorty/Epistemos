@@ -57,10 +57,13 @@ final class GenUIDispatcher {
         }
     }
 
-    /// Diagnostic: every schema with a deterministic dispatch branch. Used by the
-    /// (future) Provenance Console diagnostics row + by tests.
-    var registeredSchemas: Set<GenUISchema> {
-        Set(GenUISchema.allCases)
+    /// Diagnostic: every schema with a deterministic dispatch branch.
+    /// Used by the Provenance Console diagnostics row + by tests.
+    /// Returns a sorted array (NOT a Set) so iteration order is stable
+    /// across runs. Swift's Set iteration is randomized per-process
+    /// per-launch, which would make the diagnostic surface non-replayable.
+    var registeredSchemas: [GenUISchema] {
+        GenUISchema.allCases.sorted { $0.rawValue < $1.rawValue }
     }
 }
 
@@ -262,18 +265,19 @@ private struct CapabilityListGenUIView: View {
                         .padding(.bottom, 2)
                 }
                 HStack(spacing: 12) {
-                    ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
-                        Text(header)
+                    ForEach(headers.indices, id: \.self) { idx in
+                        Text(headers[idx])
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(.tertiary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(.bottom, 2)
-                ForEach(Array(cells.enumerated()), id: \.offset) { _, row in
+                ForEach(cells.indices, id: \.self) { rowIdx in
                     HStack(spacing: 12) {
-                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                            Text(cell)
+                        let row = cells[rowIdx]
+                        ForEach(row.indices, id: \.self) { colIdx in
+                            Text(row[colIdx])
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -402,7 +406,7 @@ struct FallbackGenUIView: View {
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
-            if let json = try? JSONEncoder().encode(payload),
+            if let json = try? GenUIPayload.canonicalJSONEncoder().encode(payload),
                let text = String(data: json, encoding: .utf8) {
                 Text(text)
                     .font(.system(size: 10, design: .monospaced))

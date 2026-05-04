@@ -333,6 +333,41 @@ renderer*.
 
 ---
 
+## 7.1 The determinism contracts (Stage A.2 hardening, 2026-05-04)
+
+Three contracts pin the GenUI surface as deterministic across runs.
+All three are enforced by `EpistemosTests/GenUIPayloadDeterminismTests.swift`
++ `GenUIDispatcherInvariantSourceGuardTests.swift`.
+
+1. **Content equality is content-based, not identity-based.** Two
+   payloads with identical (schema, title, body, metadata) compare `==`
+   even with distinct `id` UUIDs and different `createdAt` timestamps.
+   Without this contract SwiftUI re-renders on every emit and replay
+   tooling sees false drift. The `id` field stays unique-per-instance
+   so `Identifiable` works for SwiftUI list tracking — `Equatable` and
+   `Hashable` deliberately ignore it.
+
+2. **Hashing is deterministic across runs.** Swift `Dictionary`
+   iteration is randomized per-process per-launch. `GenUIPayload.hash(into:)`
+   iterates `metadata.keys.sorted()` so identical content produces
+   identical hashes across runs.
+
+3. **Canonical JSON encoding is byte-stable.** `GenUIPayload.canonicalJSONEncoder()`
+   uses `[.sortedKeys, .prettyPrinted]` so the FallbackGenUIView
+   surface, snapshot tests, and any cross-runtime payload diffing
+   produce byte-identical output. Producers that need a stable wire
+   form (XPC, replay bundles, Provenance Console exports) call this
+   encoder.
+
+The dispatcher's `registeredSchemas` returns a `[GenUISchema]` sorted
+by `rawValue`, NOT a `Set<GenUISchema>`, for the same iteration-order
+reason. The `GenUIDispatcher.render(_:)` switch is exhaustive over
+`GenUISchema.allCases` and pinned by a test that verifies every case
+has a branch (a Phase G.5 schema addition that forgot to extend the
+dispatcher fails the test, not at runtime).
+
+---
+
 ## 8. Cross-references
 
 ```
@@ -358,9 +393,9 @@ Update on every commit that adds another. Clear when migration ships.
 | Surface                                          | Files / call sites                                            | Migration phase | Status |
 |---|---|---|---|
 | Hermes Expert Mode renderers                     | `Epistemos/Views/Landing/Hermes/HermesExpertModeRunner.swift` (slices 1-8 / 2026-05-03) | G.3 priority 1 | **MIGRATED 2026-05-04** (Stage A.4) — typed GenUIPayload via canonical dispatcher; help/status/tokens/cost/config/model/search all routed through `KeyValueTableGenUIView` / `MarkdownCardGenUIView` / `SearchResultsGenUIView` / `CapabilityListGenUIView` |
-| Daily Brief render path                          | `Epistemos/Views/Landing/LandingView.swift` `dailyBriefContent` | G.3 priority 4 | open |
-| Welcome Back render path                         | `Epistemos/Views/Landing/LandingView.swift` `welcomeBackContent` | G.3 priority 4 | open |
-| Approval modal payload                           | `Epistemos/Views/Approval/ApprovalModalView.swift`             | G.3 priority 2 | open |
+| Daily Brief render path                          | `Epistemos/Views/Landing/LandingView.swift` `dailyBriefPayload` | G.3 priority 4 | **MIGRATED** — typed `GenUIPayload.markdownCard(title: "Daily Brief", …)` routed through `GenUIDispatcher.shared.render(payload)`; pinned by `GenUIDispatcherInvariantSourceGuardTests.landingBriefSurfacesRenderThroughGenUIDispatcher` |
+| Welcome Back render path                         | `Epistemos/Views/Landing/LandingView.swift` `welcomeBackPayload(info:)` | G.3 priority 4 | **MIGRATED** — typed `GenUIPayload.markdownCard(title: "Welcome Back", …)`; pinned by the same source guard |
+| Approval modal payload                           | `Epistemos/Views/Approval/ApprovalModalView.swift` `approvalPayloads` | G.3 priority 2 | **MIGRATED** — typed `[GenUIPayload]` (keyValueTable for "Approval Request" + JSON for arguments) routed through `GenUIDispatcher.shared.render(payload)`; pinned by `GenUIDispatcherInvariantSourceGuardTests.approvalModalRequestPayloadRendersThroughGenUIDispatcher` |
 | Provenance Console (T2)                          | `Epistemos/Views/Settings/ProvenanceConsoleView.swift` (shipped 2026-05-04 in commit ad6280cf) | G.3 day-1 | **SHIPPED** — uses GenUIDispatcher from day 1 per doctrine |
 | All Phase X.1-X.5 XPC service responses          | not yet built — emit GenUIPayload via UniFFI bridge            | G.4 day-1 | gated on XPC Phase X.1 |
 
