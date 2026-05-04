@@ -234,9 +234,7 @@ pub fn force_collide_with_scratch(
     let mut keys = Vec::new();
     // Legacy callers (tests, graph_tests) use strict 50/50 collision
     // with no mass awareness — matches historical behaviour.
-    force_collide_with_full_scratch(
-        x, y, radii, &[], fx, fy, iterations, 1.0, grid, &mut keys,
-    );
+    force_collide_with_full_scratch(x, y, radii, &[], fx, fy, iterations, 1.0, grid, &mut keys);
 }
 
 /// Like `force_collide_with_scratch` but also reuses the occupied-cell key buffer.
@@ -314,9 +312,7 @@ pub fn force_collide_with_full_scratch(
             // Intra-cell pairs.
             for a in 0..cell.len() {
                 for b in (a + 1)..cell.len() {
-                    resolve_overlap(
-                        x, y, radii, mass, fx, fy, cell[a], cell[b], compliance,
-                    );
+                    resolve_overlap(x, y, radii, mass, fx, fy, cell[a], cell[b], compliance);
                 }
             }
 
@@ -1804,7 +1800,16 @@ mod tests {
         let mut keys = Vec::new();
 
         force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+            &mut x,
+            &mut y,
+            &radii,
+            &[],
+            &fx,
+            &fy,
+            2,
+            1.0,
+            &mut grid,
+            &mut keys,
         );
 
         // Grid should be reusable
@@ -1822,12 +1827,30 @@ mod tests {
         let mut keys = Vec::new();
 
         force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+            &mut x,
+            &mut y,
+            &radii,
+            &[],
+            &fx,
+            &fy,
+            2,
+            1.0,
+            &mut grid,
+            &mut keys,
         );
         let first_capacity = keys.capacity();
 
         force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+            &mut x,
+            &mut y,
+            &radii,
+            &[],
+            &fx,
+            &fy,
+            2,
+            1.0,
+            &mut grid,
+            &mut keys,
         );
 
         assert!(first_capacity > 0);
@@ -2341,12 +2364,30 @@ mod tests {
         let mut keys = Vec::new();
 
         force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+            &mut x,
+            &mut y,
+            &radii,
+            &[],
+            &fx,
+            &fy,
+            2,
+            1.0,
+            &mut grid,
+            &mut keys,
         );
         let first_capacity = keys.capacity();
 
         force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+            &mut x,
+            &mut y,
+            &radii,
+            &[],
+            &fx,
+            &fy,
+            2,
+            1.0,
+            &mut grid,
+            &mut keys,
         );
 
         assert_eq!(keys.capacity(), first_capacity);

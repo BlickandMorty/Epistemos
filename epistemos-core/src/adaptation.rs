@@ -345,7 +345,9 @@ impl AdaptationSubsystem {
             .ok_or(AdaptSessionError::SessionNotFound)?;
 
         match session.state {
-            AdaptSessionState::Accumulating | AdaptSessionState::Committed | AdaptSessionState::RolledBack => {
+            AdaptSessionState::Accumulating
+            | AdaptSessionState::Committed
+            | AdaptSessionState::RolledBack => {
                 session.accumulated_tokens += token_count;
                 if session.state != AdaptSessionState::Accumulating {
                     session.state = AdaptSessionState::Accumulating;
@@ -424,8 +426,8 @@ impl AdaptationSubsystem {
         session.last_canary_loss = result.canary_loss;
         session.anchor_divergence = result.anchor_divergence;
 
-        let canary_threshold = session.baseline_canary_loss
-            * session.config.canary_loss_threshold_multiplier;
+        let canary_threshold =
+            session.baseline_canary_loss * session.config.canary_loss_threshold_multiplier;
 
         if !result.accepted
             || result.rollback_triggered
@@ -558,10 +560,7 @@ impl AdaptationSubsystem {
         Ok(())
     }
 
-    pub fn report_sidecar_failure(
-        &self,
-        session_id: String,
-    ) -> Result<(), SidecarSessionError> {
+    pub fn report_sidecar_failure(&self, session_id: String) -> Result<(), SidecarSessionError> {
         let mut sessions = self
             .sidecar_sessions
             .lock()
@@ -621,10 +620,10 @@ mod tests {
     #[test]
     fn begin_session_creates_accumulating_state() {
         let subsystem = AdaptationSubsystem::new();
-        let session_id = subsystem
-            .begin_adapt_session(default_config())
+        let session_id = subsystem.begin_adapt_session(default_config()).unwrap();
+        let snap = subsystem
+            .adapt_session_snapshot(session_id.clone())
             .unwrap();
-        let snap = subsystem.adapt_session_snapshot(session_id.clone()).unwrap();
         assert_eq!(snap.state, "accumulating");
         assert_eq!(snap.update_count, 0);
     }
@@ -676,7 +675,9 @@ mod tests {
     fn successful_update_commits() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_adapt_session(default_config()).unwrap();
-        subsystem.set_baseline_canary_loss(sid.clone(), 1.0).unwrap();
+        subsystem
+            .set_baseline_canary_loss(sid.clone(), 1.0)
+            .unwrap();
         subsystem.submit_training_signal(sid.clone(), 300).unwrap();
         subsystem.fire_update(sid.clone()).unwrap();
 
@@ -704,7 +705,9 @@ mod tests {
     fn canary_failure_triggers_rollback() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_adapt_session(default_config()).unwrap();
-        subsystem.set_baseline_canary_loss(sid.clone(), 1.0).unwrap();
+        subsystem
+            .set_baseline_canary_loss(sid.clone(), 1.0)
+            .unwrap();
         subsystem.submit_training_signal(sid.clone(), 300).unwrap();
         subsystem.fire_update(sid.clone()).unwrap();
 
@@ -732,7 +735,9 @@ mod tests {
     fn rejected_update_rolls_back_even_without_threshold_breach() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_adapt_session(default_config()).unwrap();
-        subsystem.set_baseline_canary_loss(sid.clone(), 1.0).unwrap();
+        subsystem
+            .set_baseline_canary_loss(sid.clone(), 1.0)
+            .unwrap();
         subsystem.submit_training_signal(sid.clone(), 300).unwrap();
         subsystem.fire_update(sid.clone()).unwrap();
 
@@ -833,7 +838,9 @@ mod tests {
     fn after_rollback_can_continue_accumulating() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_adapt_session(default_config()).unwrap();
-        subsystem.set_baseline_canary_loss(sid.clone(), 1.0).unwrap();
+        subsystem
+            .set_baseline_canary_loss(sid.clone(), 1.0)
+            .unwrap();
         subsystem.submit_training_signal(sid.clone(), 300).unwrap();
         subsystem.fire_update(sid.clone()).unwrap();
 
@@ -900,7 +907,9 @@ mod tests {
     fn sidecar_success_transitions_to_ready() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_sidecar_compression(1000).unwrap();
-        subsystem.report_sidecar_result(sid.clone(), 200, 150.0).unwrap();
+        subsystem
+            .report_sidecar_result(sid.clone(), 200, 150.0)
+            .unwrap();
         let snap = subsystem.sidecar_session_snapshot(sid.clone()).unwrap();
         assert_eq!(snap.state, "ready");
         assert_eq!(snap.compressed_token_count, 200);
@@ -920,7 +929,9 @@ mod tests {
     fn sidecar_end_removes_session() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_sidecar_compression(1000).unwrap();
-        subsystem.report_sidecar_result(sid.clone(), 200, 100.0).unwrap();
+        subsystem
+            .report_sidecar_result(sid.clone(), 200, 100.0)
+            .unwrap();
         let snap = subsystem.end_sidecar_session(sid.clone()).unwrap();
         assert_eq!(snap.state, "ready");
 
@@ -934,7 +945,9 @@ mod tests {
     fn double_report_on_sidecar_fails() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_sidecar_compression(1000).unwrap();
-        subsystem.report_sidecar_result(sid.clone(), 200, 100.0).unwrap();
+        subsystem
+            .report_sidecar_result(sid.clone(), 200, 100.0)
+            .unwrap();
         assert!(matches!(
             subsystem.report_sidecar_result(sid.clone(), 100, 50.0),
             Err(SidecarSessionError::InvalidTransition)
@@ -1007,7 +1020,10 @@ mod tests {
             ..Default::default()
         };
         let result = subsystem.begin_adapt_session(config);
-        assert!(matches!(result, Err(AdaptSessionError::ExperimentNotAvailable)));
+        assert!(matches!(
+            result,
+            Err(AdaptSessionError::ExperimentNotAvailable)
+        ));
     }
 
     #[test]
@@ -1024,6 +1040,9 @@ mod tests {
             model_id: "m".into(),
             ..Default::default()
         };
-        assert_eq!(config.parsed_target(), ExperimentalAdaptTarget::MainModelExperiment);
+        assert_eq!(
+            config.parsed_target(),
+            ExperimentalAdaptTarget::MainModelExperiment
+        );
     }
 }

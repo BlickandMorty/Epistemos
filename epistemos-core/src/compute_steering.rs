@@ -142,7 +142,9 @@ impl std::fmt::Display for MaskCompileError {
             Self::SparsityTooAggressive => {
                 write!(f, "sparsity ratio exceeds Phase 2 maximum (70%)")
             }
-            Self::IncompatibleQuantLayout => write!(f, "mask layout incompatible with quant format"),
+            Self::IncompatibleQuantLayout => {
+                write!(f, "mask layout incompatible with quant format")
+            }
             Self::InternalError(msg) => write!(f, "mask compile internal error: {msg}"),
         }
     }
@@ -283,9 +285,10 @@ impl MaskCompiler {
                 return Err(MaskPredictError::SparsityExceedsCap);
             }
             if layer.active_blocks.is_empty() && layer.total_blocks > 0 {
-                return Err(MaskPredictError::PredictionFailed(
-                    format!("layer {} has no active blocks", layer.layer_index),
-                ));
+                return Err(MaskPredictError::PredictionFailed(format!(
+                    "layer {} has no active blocks",
+                    layer.layer_index
+                )));
             }
         }
 
@@ -427,10 +430,7 @@ impl SteeringGraph {
     }
 }
 
-fn is_node_supported(
-    node: SteeringGraphNode,
-    capabilities: &RuntimeCapabilities,
-) -> bool {
+fn is_node_supported(node: SteeringGraphNode, capabilities: &RuntimeCapabilities) -> bool {
     match node {
         SteeringGraphNode::GenerateMain => capabilities.supports_generate,
         SteeringGraphNode::AdaptHelper => capabilities.supports_adapt,
@@ -493,7 +493,11 @@ pub fn build_graph(
         steps.push((*node, NodeResourceEstimate::for_node(*node)));
     }
 
-    if steps.is_empty() || !steps.iter().any(|(n, _)| *n == SteeringGraphNode::GenerateMain) {
+    if steps.is_empty()
+        || !steps
+            .iter()
+            .any(|(n, _)| *n == SteeringGraphNode::GenerateMain)
+    {
         return Err(RuntimeContractError::UnsupportedCapability);
     }
 
@@ -775,7 +779,8 @@ pub fn resolve_with_experts(
         .map(|h| h == "flush_all" || h == "reset_for_domain_switch")
         .unwrap_or(false);
 
-    let expert_budget_class = resolve_expert_budget_class(compute_profile, &compute_budget, memory_pressure);
+    let expert_budget_class =
+        resolve_expert_budget_class(compute_profile, &compute_budget, memory_pressure);
     let kv_policy_kind = resolve_kv_policy(compute_profile, capabilities, &overseer_hints);
     let masking_state = resolve_masking_state(capabilities, &overseer_hints, known_experts);
     let adaptation_state = resolve_adaptation_state(compute_profile).to_string();
@@ -783,19 +788,22 @@ pub fn resolve_with_experts(
 
     let full_graph = build_graph(compute_profile, capabilities, &compute_budget)?;
 
-    let sidecar_state = if full_graph.steps.iter().any(|(n, _)| *n == SteeringGraphNode::ImageSidecar) {
+    let sidecar_state = if full_graph
+        .steps
+        .iter()
+        .any(|(n, _)| *n == SteeringGraphNode::ImageSidecar)
+    {
         "active".to_string()
     } else {
         "disabled".to_string()
     };
 
-    let budget_outcome = if full_graph.steps.len() <= 1
-        && !matches!(compute_profile, ComputeProfile::Standard)
-    {
-        "trimmed_to_minimal_graph".to_string()
-    } else {
-        "within_budget".to_string()
-    };
+    let budget_outcome =
+        if full_graph.steps.len() <= 1 && !matches!(compute_profile, ComputeProfile::Standard) {
+            "trimmed_to_minimal_graph".to_string()
+        } else {
+            "within_budget".to_string()
+        };
 
     Ok(SteeringResolution {
         execution_policy_id: resolved_execution_policy_id,
@@ -932,7 +940,10 @@ mod tests {
             rationale: None,
         };
         let result = MaskCompiler::compile(&plan, &["a", "b", "c"]);
-        assert!(matches!(result, Err(MaskCompileError::UnknownExpertName(_))));
+        assert!(matches!(
+            result,
+            Err(MaskCompileError::UnknownExpertName(_))
+        ));
     }
 
     #[test]
@@ -957,14 +968,19 @@ mod tests {
             block_size: 128,
             rationale: None,
         };
-        let known: Vec<&str> = (0..10).map(|i| {
-            // leak is fine in tests for creating &'static str
-            Box::leak(format!("expert_{i}").into_boxed_str()) as &str
-        }).collect();
+        let known: Vec<&str> = (0..10)
+            .map(|i| {
+                // leak is fine in tests for creating &'static str
+                Box::leak(format!("expert_{i}").into_boxed_str()) as &str
+            })
+            .collect();
         let mut known_with_a = known.clone();
         known_with_a.push("a");
         let result = MaskCompiler::compile(&plan, &known_with_a);
-        assert!(matches!(result, Err(MaskCompileError::SparsityTooAggressive)));
+        assert!(matches!(
+            result,
+            Err(MaskCompileError::SparsityTooAggressive)
+        ));
     }
 
     #[test]
@@ -1081,12 +1097,8 @@ mod tests {
 
     #[test]
     fn steering_graph_rejects_unsupported_nodes() {
-        let graph = build_graph(
-            ComputeProfile::VisualSidecar,
-            &gguf_capabilities(),
-            &None,
-        )
-        .unwrap();
+        let graph =
+            build_graph(ComputeProfile::VisualSidecar, &gguf_capabilities(), &None).unwrap();
         let labels = graph.node_labels();
         assert!(labels.contains(&"generate_main"));
         assert!(!labels.contains(&"image_sidecar"));
@@ -1237,10 +1249,7 @@ mod tests {
         assert_eq!(res.adaptation_state, "disabled");
         assert_eq!(res.guardrail_state, "clear");
         assert!(res.plan_trace_present);
-        assert_eq!(
-            res.execution_policy_id,
-            "policy.deep_graph.local"
-        );
+        assert_eq!(res.execution_policy_id, "policy.deep_graph.local");
 
         let labels = res.steering_graph.node_labels();
         assert!(labels.contains(&"generate_main"));
@@ -1447,7 +1456,10 @@ mod tests {
     fn expert_budget_tracker_records_aux_calls() {
         let mut tracker = ExpertBudgetTracker::new(
             ExpertBudgetClass::Default,
-            &Some(ComputeBudget { max_aux_calls: Some(2), ..Default::default() }),
+            &Some(ComputeBudget {
+                max_aux_calls: Some(2),
+                ..Default::default()
+            }),
         );
         assert!(tracker.record_aux_call());
         assert!(tracker.record_aux_call());
@@ -1459,7 +1471,11 @@ mod tests {
     fn expert_budget_tracker_telemetry_label() {
         let tracker = ExpertBudgetTracker::new(
             ExpertBudgetClass::Deep,
-            &Some(ComputeBudget { max_aux_calls: Some(5), max_adapt_steps: Some(3), ..Default::default() }),
+            &Some(ComputeBudget {
+                max_aux_calls: Some(5),
+                max_adapt_steps: Some(3),
+                ..Default::default()
+            }),
         );
         let label = tracker.telemetry_label();
         assert!(label.contains("deep"));
@@ -1498,14 +1514,12 @@ mod tests {
     #[cfg(feature = "learned_mask_predictor")]
     fn predicted_mask_compiles_when_valid() {
         let predicted = PredictedMask {
-            layer_masks: vec![
-                LayerBlockMask {
-                    layer_index: 0,
-                    active_blocks: vec![0, 1, 2],
-                    total_blocks: 8,
-                    sparsity: 0.375,
-                },
-            ],
+            layer_masks: vec![LayerBlockMask {
+                layer_index: 0,
+                active_blocks: vec![0, 1, 2],
+                total_blocks: 8,
+                sparsity: 0.375,
+            }],
             confidence: 0.8,
             predictor_model_id: "ifpruning-v1".into(),
             calibration_version: "2026-04".into(),
@@ -1533,14 +1547,12 @@ mod tests {
     #[cfg(feature = "learned_mask_predictor")]
     fn predicted_mask_rejects_excessive_sparsity() {
         let predicted = PredictedMask {
-            layer_masks: vec![
-                LayerBlockMask {
-                    layer_index: 0,
-                    active_blocks: vec![0],
-                    total_blocks: 10,
-                    sparsity: 0.9,
-                },
-            ],
+            layer_masks: vec![LayerBlockMask {
+                layer_index: 0,
+                active_blocks: vec![0],
+                total_blocks: 10,
+                sparsity: 0.9,
+            }],
             confidence: 0.9,
             predictor_model_id: "test".into(),
             calibration_version: "v1".into(),
@@ -1554,14 +1566,12 @@ mod tests {
     #[cfg(feature = "learned_mask_predictor")]
     fn predicted_mask_rejects_empty_layer_blocks() {
         let predicted = PredictedMask {
-            layer_masks: vec![
-                LayerBlockMask {
-                    layer_index: 0,
-                    active_blocks: vec![],
-                    total_blocks: 8,
-                    sparsity: 0.5,
-                },
-            ],
+            layer_masks: vec![LayerBlockMask {
+                layer_index: 0,
+                active_blocks: vec![],
+                total_blocks: 8,
+                sparsity: 0.5,
+            }],
             confidence: 0.9,
             predictor_model_id: "test".into(),
             calibration_version: "v1".into(),

@@ -105,14 +105,7 @@ pub extern "C" fn bolt_graph_load_nodes(
         for rec in records {
             let uuid = bolt_str(rec.id_ptr, rec.id_len).to_owned();
             let label = bolt_str(rec.label_ptr, rec.label_len).to_owned();
-            graph.add_node(
-                uuid,
-                rec.x,
-                rec.y,
-                rec.node_type,
-                rec.size as u32,
-                label,
-            );
+            graph.add_node(uuid, rec.x, rec.y, rec.node_type, rec.size as u32, label);
         }
     }));
     if result.is_err() {
@@ -302,13 +295,7 @@ mod tests {
             edge_type: 0,
             weight: 1.0,
         };
-        bolt_graph_load_edges(
-            std::ptr::null_mut(),
-            &rec,
-            1,
-            std::ptr::null(),
-            0,
-        );
+        bolt_graph_load_edges(std::ptr::null_mut(), &rec, 1, std::ptr::null(), 0);
     }
 
     #[test]

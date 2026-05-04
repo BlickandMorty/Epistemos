@@ -122,7 +122,11 @@ impl VectorIndex {
     }
 
     pub fn len(&self) -> usize {
-        self.state.read().expect("vector index lock poisoned").doc_to_key.len()
+        self.state
+            .read()
+            .expect("vector index lock poisoned")
+            .doc_to_key
+            .len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -189,7 +193,9 @@ impl VectorIndex {
         let guard = self.state.read().expect("vector index lock poisoned");
         let mut hits: Vec<(String, f32)> = Vec::with_capacity(matches.keys.len());
         for (key, distance) in matches.keys.iter().zip(matches.distances.iter()) {
-            let Some(doc_id) = guard.key_to_doc.get(key) else { continue };
+            let Some(doc_id) = guard.key_to_doc.get(key) else {
+                continue;
+            };
             // Cosine distance → similarity: `1 - distance`, clamped.
             let similarity = (1.0 - distance).clamp(-1.0, 1.0);
             hits.push((doc_id.clone(), similarity));
@@ -228,9 +234,11 @@ impl VectorIndex {
     /// emit it as a sibling JSON file via `save_mapping_to`).
     pub fn save_to(&self, path: &Path) -> Result<(), ShadowError> {
         let path_str = path.to_string_lossy().to_string();
-        self.index.save(&path_str).map_err(|e| ShadowError::Backend {
-            detail: format!("usearch::save({path_str}) failed: {e}"),
-        })
+        self.index
+            .save(&path_str)
+            .map_err(|e| ShadowError::Backend {
+                detail: format!("usearch::save({path_str}) failed: {e}"),
+            })
     }
 
     /// Load HNSW vectors from a previously-saved sidecar. Replaces
@@ -239,13 +247,14 @@ impl VectorIndex {
     /// startup.
     pub fn load_from(&self, path: &Path) -> Result<(), ShadowError> {
         let path_str = path.to_string_lossy().to_string();
-        self.index.load(&path_str).map_err(|e| ShadowError::Backend {
-            detail: format!("usearch::load({path_str}) failed: {e}"),
-        })?;
+        self.index
+            .load(&path_str)
+            .map_err(|e| ShadowError::Backend {
+                detail: format!("usearch::load({path_str}) failed: {e}"),
+            })?;
         // After loading, refresh the search expansion in case the
         // sidecar was saved with a different ef_search.
-        self.index
-            .change_expansion_search(HNSW_EXPANSION_SEARCH);
+        self.index.change_expansion_search(HNSW_EXPANSION_SEARCH);
         Ok(())
     }
 
@@ -307,9 +316,11 @@ impl VectorIndex {
             return Ok(());
         }
         let new_capacity = guard.reserved_capacity * RESERVE_GROWTH_FACTOR;
-        self.index.reserve(new_capacity).map_err(|e| ShadowError::Backend {
-            detail: format!("usearch reserve(grow to {new_capacity}) failed: {e}"),
-        })?;
+        self.index
+            .reserve(new_capacity)
+            .map_err(|e| ShadowError::Backend {
+                detail: format!("usearch reserve(grow to {new_capacity}) failed: {e}"),
+            })?;
         guard.reserved_capacity = new_capacity;
         Ok(())
     }
@@ -432,7 +443,7 @@ mod tests {
         original.add("a", &fixed_vec(8, 1.0)).unwrap();
         original.add("b", &fixed_vec(8, 0.5)).unwrap();
         original.add("c", &fixed_vec(8, 0.25)).unwrap();
-        original.remove("b").unwrap();   // key 1 → free_keys
+        original.remove("b").unwrap(); // key 1 → free_keys
         original.save_to(&usearch_path).unwrap();
         original.save_mapping_to(&mapping_path).unwrap();
 
@@ -443,8 +454,11 @@ mod tests {
         // Insert a new doc — should reuse key 1 from the restored free list
         restored.add("d", &fixed_vec(8, 0.8)).unwrap();
         let guard = restored.state.read().unwrap();
-        assert_eq!(guard.doc_to_key.get("d").copied(), Some(1),
-                   "free-key recycling MUST survive persistence round-trip");
+        assert_eq!(
+            guard.doc_to_key.get("d").copied(),
+            Some(1),
+            "free-key recycling MUST survive persistence round-trip"
+        );
     }
 
     #[test]

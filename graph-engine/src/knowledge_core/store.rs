@@ -23,6 +23,156 @@ enum RelationKind {
     Properties,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum MutationRelationKind {
+    Blocks,
+    Links,
+    Tasks,
+    Properties,
+}
+
+impl From<RelationKind> for MutationRelationKind {
+    fn from(value: RelationKind) -> Self {
+        match value {
+            RelationKind::Blocks => Self::Blocks,
+            RelationKind::Links => Self::Links,
+            RelationKind::Tasks => Self::Tasks,
+            RelationKind::Properties => Self::Properties,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MutationOperationKind {
+    #[default]
+    Unknown,
+    DocumentIngest,
+    InsertBlock,
+    EditBlock,
+    MoveBlock,
+    DeleteBlock,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MutationEnvelope {
+    pub tx_id: u64,
+    pub touched_artifact_ids: Vec<String>,
+    pub touched_block_ids: Vec<String>,
+    pub touched_relation_kinds: Vec<MutationRelationKind>,
+    pub affects_summary: bool,
+    pub affects_outline: bool,
+    pub affects_backlinks: bool,
+    pub affects_search: bool,
+    pub affects_graph: bool,
+    pub affects_body: bool,
+    pub affects_ordering: bool,
+    pub source_operation_kind: MutationOperationKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum QueryClass {
+    Outline,
+    Tasks,
+    Properties,
+    Links,
+    Unsupported,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct QueryFingerprint {
+    pub query_class: QueryClass,
+    pub normalized_key: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum WatchClass {
+    Summary,
+    Outline,
+    Backlinks,
+    Search,
+    Graph,
+    Body,
+    Ordering,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WatchPlan {
+    pub subscription_id: u64,
+    pub query_fingerprint: QueryFingerprint,
+    pub watched_artifact_ids: Vec<String>,
+    pub watched_block_ids: Vec<String>,
+    pub watched_relation_kinds: Vec<MutationRelationKind>,
+    pub watched_classes: Vec<WatchClass>,
+    pub fallback_to_full_invalidation: bool,
+}
+
+impl WatchPlan {
+    pub fn unsupported(subscription_id: u64, normalized_key: impl Into<String>) -> Self {
+        Self {
+            subscription_id,
+            query_fingerprint: QueryFingerprint {
+                query_class: QueryClass::Unsupported,
+                normalized_key: normalized_key.into(),
+            },
+            watched_artifact_ids: Vec::new(),
+            watched_block_ids: Vec::new(),
+            watched_relation_kinds: Vec::new(),
+            watched_classes: Vec::new(),
+            fallback_to_full_invalidation: true,
+        }
+    }
+}
+
+pub fn mutation_intersects_watch_plan(mutation: &MutationEnvelope, watch_plan: &WatchPlan) -> bool {
+    if watch_plan.fallback_to_full_invalidation {
+        return true;
+    }
+
+    let has_artifact_scope = !watch_plan.watched_artifact_ids.is_empty();
+    let has_block_scope = !watch_plan.watched_block_ids.is_empty();
+    let artifact_overlap = has_artifact_scope
+        && mutation.touched_artifact_ids.iter().any(|artifact_id| {
+            watch_plan
+                .watched_artifact_ids
+                .iter()
+                .any(|watched| watched == artifact_id)
+        });
+    let block_overlap = has_block_scope
+        && mutation.touched_block_ids.iter().any(|block_id| {
+            watch_plan
+                .watched_block_ids
+                .iter()
+                .any(|watched| watched == block_id)
+        });
+    let id_overlap = artifact_overlap || block_overlap;
+    if (has_artifact_scope || has_block_scope) && !id_overlap {
+        return false;
+    }
+
+    let relation_overlap = mutation
+        .touched_relation_kinds
+        .iter()
+        .any(|relation| watch_plan.watched_relation_kinds.contains(relation));
+    let class_overlap = watch_plan
+        .watched_classes
+        .iter()
+        .any(|watch_class| mutation_affects_class(mutation, *watch_class));
+
+    relation_overlap || class_overlap
+}
+
+fn mutation_affects_class(mutation: &MutationEnvelope, watch_class: WatchClass) -> bool {
+    match watch_class {
+        WatchClass::Summary => mutation.affects_summary,
+        WatchClass::Outline => mutation.affects_outline,
+        WatchClass::Backlinks => mutation.affects_backlinks,
+        WatchClass::Search => mutation.affects_search,
+        WatchClass::Graph => mutation.affects_graph,
+        WatchClass::Body => mutation.affects_body,
+        WatchClass::Ordering => mutation.affects_ordering,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum SubscriptionSpec {
     Outline {
@@ -82,6 +232,76 @@ impl SubscriptionSpec {
             }
         }
     }
+
+    pub fn query_fingerprint(&self) -> QueryFingerprint {
+        match self {
+            Self::Outline { page_id } => QueryFingerprint {
+                query_class: QueryClass::Outline,
+                normalized_key: format!("outline|page={page_id}"),
+            },
+            Self::Tasks { page_id } => QueryFingerprint {
+                query_class: QueryClass::Tasks,
+                normalized_key: format!("tasks|page={}", page_id.as_deref().unwrap_or("*")),
+            },
+            Self::Properties { page_id, key } => QueryFingerprint {
+                query_class: QueryClass::Properties,
+                normalized_key: format!(
+                    "properties|page={}|key={}",
+                    page_id.as_deref().unwrap_or("*"),
+                    key.as_deref().unwrap_or("*")
+                ),
+            },
+            Self::Links { page_id, block_id } => QueryFingerprint {
+                query_class: QueryClass::Links,
+                normalized_key: format!(
+                    "links|page={}|block={}",
+                    page_id.as_deref().unwrap_or("*"),
+                    block_id.as_deref().unwrap_or("*")
+                ),
+            },
+        }
+    }
+
+    pub fn watch_plan(&self, subscription_id: u64) -> WatchPlan {
+        match self {
+            Self::Outline { page_id } => WatchPlan {
+                subscription_id,
+                query_fingerprint: self.query_fingerprint(),
+                watched_artifact_ids: vec![page_id.clone()],
+                watched_block_ids: Vec::new(),
+                watched_relation_kinds: vec![MutationRelationKind::Blocks],
+                watched_classes: vec![WatchClass::Outline, WatchClass::Body, WatchClass::Ordering],
+                fallback_to_full_invalidation: false,
+            },
+            Self::Tasks { page_id } => WatchPlan {
+                subscription_id,
+                query_fingerprint: self.query_fingerprint(),
+                watched_artifact_ids: page_id.iter().cloned().collect(),
+                watched_block_ids: Vec::new(),
+                watched_relation_kinds: vec![MutationRelationKind::Tasks],
+                watched_classes: vec![WatchClass::Summary, WatchClass::Body],
+                fallback_to_full_invalidation: false,
+            },
+            Self::Properties { page_id, .. } => WatchPlan {
+                subscription_id,
+                query_fingerprint: self.query_fingerprint(),
+                watched_artifact_ids: page_id.iter().cloned().collect(),
+                watched_block_ids: Vec::new(),
+                watched_relation_kinds: vec![MutationRelationKind::Properties],
+                watched_classes: vec![WatchClass::Summary, WatchClass::Body],
+                fallback_to_full_invalidation: false,
+            },
+            Self::Links { page_id, block_id } => WatchPlan {
+                subscription_id,
+                query_fingerprint: self.query_fingerprint(),
+                watched_artifact_ids: page_id.iter().cloned().collect(),
+                watched_block_ids: block_id.iter().cloned().collect(),
+                watched_relation_kinds: vec![MutationRelationKind::Links],
+                watched_classes: vec![WatchClass::Backlinks, WatchClass::Graph],
+                fallback_to_full_invalidation: false,
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -93,6 +313,7 @@ struct SubscriptionState {
 #[derive(Default)]
 struct ChangedPatterns {
     pages: BTreeSet<String>,
+    touched_artifact_ids: BTreeSet<String>,
     relations: BTreeSet<RelationKind>,
     property_keys: BTreeSet<String>,
     block_ids: BTreeSet<String>,
@@ -100,11 +321,28 @@ struct ChangedPatterns {
     task_rows: BTreeSet<(String, String)>,
     property_rows: BTreeSet<(String, String, String)>,
     link_rows: BTreeSet<(String, String, String, u8)>,
+    affects_summary: bool,
+    affects_outline: bool,
+    affects_backlinks: bool,
+    affects_search: bool,
+    affects_graph: bool,
+    affects_body: bool,
+    affects_ordering: bool,
+    source_operation_kind: MutationOperationKind,
 }
 
 impl ChangedPatterns {
+    fn set_source_operation(&mut self, source_operation_kind: MutationOperationKind) {
+        self.source_operation_kind = source_operation_kind;
+    }
+
     fn touch_page(&mut self, page_id: &str) {
         self.pages.insert(page_id.to_string());
+        self.touch_artifact(page_id);
+    }
+
+    fn touch_artifact(&mut self, artifact_id: &str) {
+        self.touched_artifact_ids.insert(artifact_id.to_string());
     }
 
     fn touch_block(&mut self, block_id: &str) {
@@ -146,14 +384,52 @@ impl ChangedPatterns {
 
     fn touch_link_row(&mut self, page_id: &str, block_id: &str, target_id: &str, ref_type: u8) {
         self.touch_page(page_id);
+        self.touch_artifact(target_id);
         self.touch_block(block_id);
         self.touch_relation(RelationKind::Links);
+        self.affects_backlinks = true;
+        self.affects_graph = true;
         self.link_rows.insert((
             page_id.to_string(),
             block_id.to_string(),
             target_id.to_string(),
             ref_type,
         ));
+    }
+
+    fn mark_content_changed(&mut self) {
+        self.affects_summary = true;
+        self.affects_body = true;
+        self.affects_search = true;
+    }
+
+    fn mark_outline_changed(&mut self, ordering: bool) {
+        self.affects_outline = true;
+        if ordering {
+            self.affects_ordering = true;
+        }
+    }
+
+    fn to_envelope(&self, tx_id: u64) -> MutationEnvelope {
+        MutationEnvelope {
+            tx_id,
+            touched_artifact_ids: self.touched_artifact_ids.iter().cloned().collect(),
+            touched_block_ids: self.block_ids.iter().cloned().collect(),
+            touched_relation_kinds: self
+                .relations
+                .iter()
+                .copied()
+                .map(MutationRelationKind::from)
+                .collect(),
+            affects_summary: self.affects_summary,
+            affects_outline: self.affects_outline || self.relations.contains(&RelationKind::Blocks),
+            affects_backlinks: self.affects_backlinks,
+            affects_search: self.affects_search,
+            affects_graph: self.affects_graph,
+            affects_body: self.affects_body,
+            affects_ordering: self.affects_ordering,
+            source_operation_kind: self.source_operation_kind,
+        }
     }
 }
 
@@ -217,6 +493,7 @@ pub struct DatalogStore {
     next_subscription_id: u64,
     subscriptions: HashMap<u64, SubscriptionState>,
     query_runs: u64,
+    last_mutation_envelope: Option<MutationEnvelope>,
 }
 
 impl Default for DatalogStore {
@@ -243,7 +520,12 @@ impl DatalogStore {
             next_subscription_id: 1,
             subscriptions: HashMap::new(),
             query_runs: 0,
+            last_mutation_envelope: None,
         }
+    }
+
+    pub fn last_mutation_envelope(&self) -> Option<&MutationEnvelope> {
+        self.last_mutation_envelope.as_ref()
     }
 
     pub fn replace_page(
@@ -251,6 +533,10 @@ impl DatalogStore {
         document: NormalizedDocument,
     ) -> Result<Vec<QueryDiffEnvelope>, StoreError> {
         let mut changed = ChangedPatterns::default();
+        changed.set_source_operation(MutationOperationKind::DocumentIngest);
+        changed.touch_artifact(&document.page_id);
+        changed.mark_content_changed();
+        changed.mark_outline_changed(true);
         self.evict_page(&document.page_id, &mut changed)?;
         let mut block_facts = Vec::with_capacity(document.blocks.len());
         let mut task_facts = Vec::with_capacity(document.tasks.len());
@@ -317,6 +603,16 @@ impl DatalogStore {
         links: Vec<NormalizedLink>,
     ) -> Result<Vec<QueryDiffEnvelope>, StoreError> {
         let mut changed = ChangedPatterns::default();
+        let existed = self
+            .blocks
+            .contains_key(&(block.page_id.clone(), block.block_id.clone()));
+        changed.set_source_operation(if existed {
+            MutationOperationKind::EditBlock
+        } else {
+            MutationOperationKind::InsertBlock
+        });
+        changed.mark_content_changed();
+        changed.mark_outline_changed(!existed);
         self.purge_block(&block.page_id, &block.block_id, &mut changed)?;
         let block_fact = BlockFact::from(block);
         changed.touch_block_row(&block_fact.page_id, &block_fact.block_id);
@@ -392,6 +688,8 @@ impl DatalogStore {
             return Err(StoreError::MissingBlock(block_id.to_string()));
         };
         let mut changed = ChangedPatterns::default();
+        changed.set_source_operation(MutationOperationKind::MoveBlock);
+        changed.mark_outline_changed(true);
         changed.touch_block_row(page_id, block_id);
         self.put_block_facts(std::slice::from_ref(&updated_block))?;
         self.advance_tx_and_refresh(changed)
@@ -409,6 +707,9 @@ impl DatalogStore {
             return Err(StoreError::MissingBlock(block_id.to_string()));
         }
         let mut changed = ChangedPatterns::default();
+        changed.set_source_operation(MutationOperationKind::DeleteBlock);
+        changed.mark_content_changed();
+        changed.mark_outline_changed(true);
         self.purge_block(page_id, block_id, &mut changed)?;
         self.advance_tx_and_refresh(changed)
     }
@@ -454,6 +755,7 @@ impl DatalogStore {
         changed: ChangedPatterns,
     ) -> Result<Vec<QueryDiffEnvelope>, StoreError> {
         self.tx_id += 1;
+        self.last_mutation_envelope = Some(changed.to_envelope(self.tx_id));
         let mut envelopes = Vec::new();
         let scheduled = self
             .subscriptions
@@ -587,10 +889,12 @@ impl DatalogStore {
             .blocks
             .remove(&(page_id.to_string(), block_id.to_string()));
 
-        changed.touch_task_row(page_id, block_id);
         let removed_task = self
             .tasks
             .remove(&(page_id.to_string(), block_id.to_string()));
+        if removed_task.is_some() {
+            changed.touch_task_row(page_id, block_id);
+        }
 
         let property_keys = self
             .properties
@@ -1356,11 +1660,68 @@ fn apply_incremental_row_change(
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    use std::{collections::BTreeSet, time::Instant};
 
-    use super::{DatalogStore, SubscriptionSpec};
-    use super::{QueryDiffEnvelope, QueryRow};
-    use crate::knowledge_core::parser::{DocumentFormat, parse_document};
+    use super::{
+        DatalogStore, MutationEnvelope, MutationOperationKind, MutationRelationKind,
+        QueryDiffEnvelope, QueryRow, SubscriptionSpec, WatchClass, WatchPlan,
+        mutation_intersects_watch_plan,
+    };
+    use crate::knowledge_core::parser::{
+        DocumentFormat, NormalizedBlock, NormalizedLink, parse_document,
+    };
+
+    fn normalized_block(page_id: &str, block_id: &str, content: &str) -> NormalizedBlock {
+        NormalizedBlock {
+            page_id: page_id.to_string(),
+            block_id: block_id.to_string(),
+            parent_id: String::new(),
+            order_key: "0000000001".to_string(),
+            depth: 0,
+            content: content.to_string(),
+        }
+    }
+
+    fn normalized_link(page_id: &str, block_id: &str, target_id: &str) -> NormalizedLink {
+        NormalizedLink {
+            page_id: page_id.to_string(),
+            block_id: block_id.to_string(),
+            target_id: target_id.to_string(),
+            ref_type: 0,
+        }
+    }
+
+    fn latest_envelope(store: &DatalogStore) -> MutationEnvelope {
+        store
+            .last_mutation_envelope()
+            .expect("mutation envelope should be recorded")
+            .clone()
+    }
+
+    fn relation_kinds(envelope: &MutationEnvelope) -> BTreeSet<MutationRelationKind> {
+        envelope.touched_relation_kinds.iter().copied().collect()
+    }
+
+    fn manual_watch_plan(
+        subscription_id: u64,
+        artifact_ids: Vec<&str>,
+        block_ids: Vec<&str>,
+        relation_kinds: Vec<MutationRelationKind>,
+        watch_classes: Vec<WatchClass>,
+    ) -> WatchPlan {
+        WatchPlan {
+            subscription_id,
+            query_fingerprint: SubscriptionSpec::Outline {
+                page_id: "page-a".to_string(),
+            }
+            .query_fingerprint(),
+            watched_artifact_ids: artifact_ids.into_iter().map(str::to_string).collect(),
+            watched_block_ids: block_ids.into_iter().map(str::to_string).collect(),
+            watched_relation_kinds: relation_kinds,
+            watched_classes: watch_classes,
+            fallback_to_full_invalidation: false,
+        }
+    }
 
     #[test]
     fn subscriptions_emit_diffs_only_for_matching_pages() {
@@ -1470,6 +1831,443 @@ mod tests {
             })
             .expect("link subscription should register");
         assert_eq!(initial.added.len(), 2);
+    }
+
+    #[test]
+    fn equivalent_subscription_specs_have_stable_fingerprints() {
+        let first = SubscriptionSpec::Properties {
+            page_id: Some("page-a".to_string()),
+            key: Some("owner".to_string()),
+        }
+        .query_fingerprint();
+        let second = SubscriptionSpec::Properties {
+            page_id: Some("page-a".to_string()),
+            key: Some("owner".to_string()),
+        }
+        .query_fingerprint();
+
+        assert_eq!(first, second);
+        assert_eq!(first.normalized_key, "properties|page=page-a|key=owner");
+    }
+
+    #[test]
+    fn different_query_shapes_have_distinct_fingerprints() {
+        let owner_properties = SubscriptionSpec::Properties {
+            page_id: Some("page-a".to_string()),
+            key: Some("owner".to_string()),
+        }
+        .query_fingerprint();
+        let status_properties = SubscriptionSpec::Properties {
+            page_id: Some("page-a".to_string()),
+            key: Some("status".to_string()),
+        }
+        .query_fingerprint();
+        let links = SubscriptionSpec::Links {
+            page_id: Some("page-a".to_string()),
+            block_id: None,
+        }
+        .query_fingerprint();
+
+        assert_ne!(owner_properties, status_properties);
+        assert_ne!(owner_properties, links);
+    }
+
+    #[test]
+    fn watch_plan_rejects_irrelevant_artifact_mutation() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-b", "block-b", "Beta"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        let mutation = latest_envelope(&store);
+        let watch_plan = SubscriptionSpec::Outline {
+            page_id: "page-a".to_string(),
+        }
+        .watch_plan(1);
+
+        assert!(!mutation_intersects_watch_plan(&mutation, &watch_plan));
+    }
+
+    #[test]
+    fn watch_plan_accepts_relevant_block_mutation() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        let mutation = latest_envelope(&store);
+        let watch_plan = manual_watch_plan(
+            1,
+            vec!["page-a"],
+            vec!["block-a"],
+            vec![],
+            vec![WatchClass::Body],
+        );
+
+        assert!(mutation_intersects_watch_plan(&mutation, &watch_plan));
+    }
+
+    #[test]
+    fn relation_mutation_intersects_backlink_watch_plan() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha [[target-a]]"),
+                None,
+                Vec::new(),
+                vec![normalized_link("page-a", "block-a", "target-a")],
+            )
+            .expect("link insert should work");
+
+        let mutation = latest_envelope(&store);
+        let watch_plan = SubscriptionSpec::Links {
+            page_id: Some("page-a".to_string()),
+            block_id: Some("block-a".to_string()),
+        }
+        .watch_plan(1);
+
+        assert!(mutation_intersects_watch_plan(&mutation, &watch_plan));
+    }
+
+    #[test]
+    fn body_only_mutation_updates_body_search_but_not_unrelated_graph_watch() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Beta"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block edit should work");
+
+        let mutation = latest_envelope(&store);
+        let body_search_watch = manual_watch_plan(
+            1,
+            vec!["page-a"],
+            vec!["block-a"],
+            vec![],
+            vec![WatchClass::Body, WatchClass::Search],
+        );
+        let graph_watch = manual_watch_plan(
+            2,
+            vec!["page-a"],
+            vec!["block-a"],
+            vec![MutationRelationKind::Links],
+            vec![WatchClass::Graph, WatchClass::Backlinks],
+        );
+
+        assert!(mutation_intersects_watch_plan(
+            &mutation,
+            &body_search_watch
+        ));
+        assert!(!mutation_intersects_watch_plan(&mutation, &graph_watch));
+    }
+
+    #[test]
+    fn ordering_only_mutation_does_not_force_body_watch() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+        store
+            .move_block("page-a", "block-a", None, "0000000002")
+            .expect("block move should work");
+
+        let mutation = latest_envelope(&store);
+        let body_watch = manual_watch_plan(
+            1,
+            vec!["page-a"],
+            vec!["block-a"],
+            vec![],
+            vec![WatchClass::Body],
+        );
+        let ordering_watch = manual_watch_plan(
+            2,
+            vec!["page-a"],
+            vec!["block-a"],
+            vec![],
+            vec![WatchClass::Ordering],
+        );
+
+        assert!(!mutation_intersects_watch_plan(&mutation, &body_watch));
+        assert!(mutation_intersects_watch_plan(&mutation, &ordering_watch));
+    }
+
+    #[test]
+    fn unsupported_watch_plan_falls_back_to_invalidation() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-b", "block-b", "Beta"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        let mutation = latest_envelope(&store);
+        let watch_plan = WatchPlan::unsupported(99, "external|opaque");
+
+        assert!(mutation_intersects_watch_plan(&mutation, &watch_plan));
+    }
+
+    #[test]
+    fn document_ingest_records_mutation_envelope_with_links() {
+        let mut store = DatalogStore::new();
+        let page = parse_document(
+            "page-a",
+            DocumentFormat::Markdown,
+            "- [ ] Task [[target-a]] @owner=jojo",
+        );
+
+        store.replace_page(page).expect("page replace should work");
+
+        let envelope = latest_envelope(&store);
+        assert_eq!(envelope.tx_id, 1);
+        assert_eq!(
+            envelope.source_operation_kind,
+            MutationOperationKind::DocumentIngest
+        );
+        assert!(
+            envelope
+                .touched_artifact_ids
+                .contains(&"page-a".to_string())
+        );
+        assert!(
+            envelope
+                .touched_artifact_ids
+                .contains(&"target-a".to_string())
+        );
+        assert!(!envelope.touched_block_ids.is_empty());
+        assert_eq!(
+            relation_kinds(&envelope),
+            BTreeSet::from([
+                MutationRelationKind::Blocks,
+                MutationRelationKind::Links,
+                MutationRelationKind::Properties,
+                MutationRelationKind::Tasks,
+            ])
+        );
+        assert!(envelope.affects_summary);
+        assert!(envelope.affects_outline);
+        assert!(envelope.affects_backlinks);
+        assert!(envelope.affects_search);
+        assert!(envelope.affects_graph);
+        assert!(envelope.affects_body);
+        assert!(envelope.affects_ordering);
+    }
+
+    #[test]
+    fn insert_block_records_precise_body_and_ordering_effects() {
+        let mut store = DatalogStore::new();
+
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        let envelope = latest_envelope(&store);
+        assert_eq!(
+            envelope.source_operation_kind,
+            MutationOperationKind::InsertBlock
+        );
+        assert_eq!(envelope.touched_artifact_ids, vec!["page-a".to_string()]);
+        assert_eq!(envelope.touched_block_ids, vec!["block-a".to_string()]);
+        assert_eq!(
+            relation_kinds(&envelope),
+            BTreeSet::from([MutationRelationKind::Blocks])
+        );
+        assert!(envelope.affects_summary);
+        assert!(envelope.affects_body);
+        assert!(envelope.affects_search);
+        assert!(envelope.affects_outline);
+        assert!(envelope.affects_ordering);
+        assert!(!envelope.affects_backlinks);
+        assert!(!envelope.affects_graph);
+    }
+
+    #[test]
+    fn edit_block_does_not_mark_graph_or_ordering_without_links() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Beta"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block edit should work");
+
+        let envelope = latest_envelope(&store);
+        assert_eq!(
+            envelope.source_operation_kind,
+            MutationOperationKind::EditBlock
+        );
+        assert_eq!(
+            relation_kinds(&envelope),
+            BTreeSet::from([MutationRelationKind::Blocks])
+        );
+        assert!(envelope.affects_summary);
+        assert!(envelope.affects_body);
+        assert!(envelope.affects_search);
+        assert!(envelope.affects_outline);
+        assert!(!envelope.affects_ordering);
+        assert!(!envelope.affects_backlinks);
+        assert!(!envelope.affects_graph);
+    }
+
+    #[test]
+    fn move_block_records_ordering_only() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        store
+            .move_block("page-a", "block-a", None, "0000000002")
+            .expect("block move should work");
+
+        let envelope = latest_envelope(&store);
+        assert_eq!(
+            envelope.source_operation_kind,
+            MutationOperationKind::MoveBlock
+        );
+        assert_eq!(
+            relation_kinds(&envelope),
+            BTreeSet::from([MutationRelationKind::Blocks])
+        );
+        assert!(envelope.affects_outline);
+        assert!(envelope.affects_ordering);
+        assert!(!envelope.affects_summary);
+        assert!(!envelope.affects_body);
+        assert!(!envelope.affects_search);
+        assert!(!envelope.affects_backlinks);
+        assert!(!envelope.affects_graph);
+    }
+
+    #[test]
+    fn link_change_records_relation_and_target_artifact() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha [[target-a]]"),
+                None,
+                Vec::new(),
+                vec![normalized_link("page-a", "block-a", "target-a")],
+            )
+            .expect("link edit should work");
+
+        let envelope = latest_envelope(&store);
+        assert_eq!(
+            envelope.source_operation_kind,
+            MutationOperationKind::EditBlock
+        );
+        assert!(
+            envelope
+                .touched_artifact_ids
+                .contains(&"page-a".to_string())
+        );
+        assert!(
+            envelope
+                .touched_artifact_ids
+                .contains(&"target-a".to_string())
+        );
+        assert_eq!(
+            relation_kinds(&envelope),
+            BTreeSet::from([MutationRelationKind::Blocks, MutationRelationKind::Links,])
+        );
+        assert!(envelope.affects_summary);
+        assert!(envelope.affects_body);
+        assert!(envelope.affects_search);
+        assert!(envelope.affects_outline);
+        assert!(envelope.affects_backlinks);
+        assert!(envelope.affects_graph);
+        assert!(!envelope.affects_ordering);
+    }
+
+    #[test]
+    fn delete_block_records_body_search_and_no_unowned_task_relation() {
+        let mut store = DatalogStore::new();
+        store
+            .upsert_block(
+                normalized_block("page-a", "block-a", "Alpha"),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )
+            .expect("block insert should work");
+
+        store
+            .delete_block("page-a", "block-a")
+            .expect("block delete should work");
+
+        let envelope = latest_envelope(&store);
+        assert_eq!(
+            envelope.source_operation_kind,
+            MutationOperationKind::DeleteBlock
+        );
+        assert_eq!(
+            relation_kinds(&envelope),
+            BTreeSet::from([MutationRelationKind::Blocks])
+        );
+        assert!(envelope.affects_summary);
+        assert!(envelope.affects_body);
+        assert!(envelope.affects_search);
+        assert!(envelope.affects_outline);
+        assert!(envelope.affects_ordering);
+        assert!(!envelope.affects_backlinks);
+        assert!(!envelope.affects_graph);
     }
 
     #[test]

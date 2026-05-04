@@ -87,19 +87,19 @@ impl NodeType {
             // Dark-mode lifted tones — brighter to stay visible
             // against near-black background (#111214).
             match self {
-                Self::Folder => [0.48, 0.42, 0.34, 1.0],  // warm stone
-                Self::Note   => [0.06, 0.56, 0.52, 1.0],  // deep teal, lifted
-                Self::Chat   => [0.43, 0.47, 0.91, 1.0],  // indigo-violet
-                _            => [0.62, 0.64, 0.66, 1.0],  // neutral graphite
+                Self::Folder => [0.48, 0.42, 0.34, 1.0], // warm stone
+                Self::Note => [0.06, 0.56, 0.52, 1.0],   // deep teal, lifted
+                Self::Chat => [0.43, 0.47, 0.91, 1.0],   // indigo-violet
+                _ => [0.62, 0.64, 0.66, 1.0],            // neutral graphite
             }
         } else {
             // Light-mode ink tones — deeper to stay visible against
             // off-white background (#F7F6F3).
             match self {
-                Self::Folder => [0.23, 0.19, 0.16, 1.0],  // warm stone
-                Self::Note   => [0.08, 0.24, 0.22, 1.0],  // deep teal, ink
-                Self::Chat   => [0.15, 0.16, 0.34, 1.0],  // indigo-violet
-                _            => [0.18, 0.18, 0.20, 1.0],  // neutral ink
+                Self::Folder => [0.23, 0.19, 0.16, 1.0], // warm stone
+                Self::Note => [0.08, 0.24, 0.22, 1.0],   // deep teal, ink
+                Self::Chat => [0.15, 0.16, 0.34, 1.0],   // indigo-violet
+                _ => [0.18, 0.18, 0.20, 1.0],            // neutral ink
             }
         }
     }

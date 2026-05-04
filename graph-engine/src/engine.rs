@@ -995,7 +995,9 @@ impl Engine {
     }
 
     #[cfg(feature = "shared-position-buffers")]
-    pub fn shared_position_buffers_mut(&mut self) -> &mut crate::shared_buffers::SharedPositionBuffers {
+    pub fn shared_position_buffers_mut(
+        &mut self,
+    ) -> &mut crate::shared_buffers::SharedPositionBuffers {
         &mut self.shared_position_buffers
     }
 
@@ -1008,7 +1010,10 @@ impl Engine {
         let xs: Vec<f32> = self.world.transform.iter().map(|t| t.x).collect();
         let ys: Vec<f32> = self.world.transform.iter().map(|t| t.y).collect();
         // SAFETY: caller ensures GPU is not reading this buffer (semaphore protocol).
-        unsafe { self.shared_position_buffers.write_positions(buffer_index, &xs, &ys) }
+        unsafe {
+            self.shared_position_buffers
+                .write_positions(buffer_index, &xs, &ys)
+        }
     }
 
     /// Get cumulative drift for a node by UUID.
@@ -1134,10 +1139,10 @@ impl Engine {
                     let raw_vx = dvx / dt;
                     let raw_vy = dvy / dt;
                     const EMA_ALPHA: f32 = 0.72;
-                    drag.smoothed_vel[0] = EMA_ALPHA * drag.smoothed_vel[0]
-                        + (1.0 - EMA_ALPHA) * raw_vx;
-                    drag.smoothed_vel[1] = EMA_ALPHA * drag.smoothed_vel[1]
-                        + (1.0 - EMA_ALPHA) * raw_vy;
+                    drag.smoothed_vel[0] =
+                        EMA_ALPHA * drag.smoothed_vel[0] + (1.0 - EMA_ALPHA) * raw_vx;
+                    drag.smoothed_vel[1] =
+                        EMA_ALPHA * drag.smoothed_vel[1] + (1.0 - EMA_ALPHA) * raw_vy;
                     drag.last_sample_at = now;
                     drag.last_world = [wx, wy];
                 }
@@ -1167,12 +1172,7 @@ impl Engine {
                     && now.duration_since(drag.last_wake_spawn) >= WAKE_INTERVAL
                 {
                     drag.last_wake_spawn = now;
-                    sim.emit_wave_from_release(
-                        wx,
-                        wy,
-                        drag.smoothed_vel[0],
-                        drag.smoothed_vel[1],
-                    );
+                    sim.emit_wave_from_release(wx, wy, drag.smoothed_vel[0], drag.smoothed_vel[1]);
                 }
             }
         } else if self.pan_active {
@@ -1199,9 +1199,8 @@ impl Engine {
             // small threshold the user was essentially holding the
             // node still, so we keep the current `unfix_node` semantics
             // (zero velocity) — no point spawning a micro-jitter wave.
-            let speed_sq =
-                drag.smoothed_vel[0] * drag.smoothed_vel[0]
-                    + drag.smoothed_vel[1] * drag.smoothed_vel[1];
+            let speed_sq = drag.smoothed_vel[0] * drag.smoothed_vel[0]
+                + drag.smoothed_vel[1] * drag.smoothed_vel[1];
             const RELEASE_MIN_SPEED_SQ: f32 = 25.0; // (5 px/s)^2
             if drag.moved && speed_sq >= RELEASE_MIN_SPEED_SQ {
                 // Capture the release position BEFORE we hand sim back
