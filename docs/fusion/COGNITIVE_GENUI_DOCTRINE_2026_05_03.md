@@ -355,15 +355,24 @@ CLAUDE.md                                              (NON-NEGOTIABLE constrain
 Things known to use per-call-site UI code instead of GenUIDispatcher.
 Update on every commit that adds another. Clear when migration ships.
 
-| Surface                                          | Files / call sites                                            | Migration phase |
-|---|---|---|
-| Hermes Expert Mode renderers                     | `Epistemos/Views/Landing/Hermes/HermesExpertModeRunner.swift` (slices 1-8 / 2026-05-03) | G.3 priority 1 |
-| Daily Brief render path                          | `Epistemos/Views/Landing/LandingView.swift` `dailyBriefContent` | G.3 priority 4 |
-| Welcome Back render path                         | `Epistemos/Views/Landing/LandingView.swift` `welcomeBackContent` | G.3 priority 4 |
-| Approval modal payload                           | `Epistemos/Views/Approval/ApprovalModalView.swift`             | G.3 priority 2 |
-| Provenance Console (when shipped)                | not yet built — must use GenUIDispatcher from day 1            | G.3 day-1 |
-| All Phase X.1-X.5 XPC service responses          | not yet built — emit GenUIPayload via UniFFI bridge            | G.4 day-1 |
+| Surface                                          | Files / call sites                                            | Migration phase | Status |
+|---|---|---|---|
+| Hermes Expert Mode renderers                     | `Epistemos/Views/Landing/Hermes/HermesExpertModeRunner.swift` (slices 1-8 / 2026-05-03) | G.3 priority 1 | **MIGRATED 2026-05-04** (Stage A.4) — typed GenUIPayload via canonical dispatcher; help/status/tokens/cost/config/model/search all routed through `KeyValueTableGenUIView` / `MarkdownCardGenUIView` / `SearchResultsGenUIView` / `CapabilityListGenUIView` |
+| Daily Brief render path                          | `Epistemos/Views/Landing/LandingView.swift` `dailyBriefContent` | G.3 priority 4 | open |
+| Welcome Back render path                         | `Epistemos/Views/Landing/LandingView.swift` `welcomeBackContent` | G.3 priority 4 | open |
+| Approval modal payload                           | `Epistemos/Views/Approval/ApprovalModalView.swift`             | G.3 priority 2 | open |
+| Provenance Console (T2)                          | `Epistemos/Views/Settings/ProvenanceConsoleView.swift` (shipped 2026-05-04 in commit ad6280cf) | G.3 day-1 | **SHIPPED** — uses GenUIDispatcher from day 1 per doctrine |
+| All Phase X.1-X.5 XPC service responses          | not yet built — emit GenUIPayload via UniFFI bridge            | G.4 day-1 | gated on XPC Phase X.1 |
 
 Whenever a new producer joins this list and ships before G.3, add it
-here. Whenever a producer migrates, remove it from the list. The
-list-being-empty IS the doctrine being met.
+here. Whenever a producer migrates, mark it MIGRATED (don't delete the
+row — the trail matters for future audits). The list having no rows in
+the "open" status IS the doctrine being met.
+
+`// GENUI-DEFER:` comment markers in source: 0 today (verified
+2026-05-04 by `grep -rn 'GENUI-DEFER' Epistemos/`). Markers were used
+during the hackathon slices 1-8 push as the "deferral trail" per §6
+option 2; on Stage A.4 migration they were removed alongside the
+hand-rolled renderers they tagged. New deferrals must re-introduce the
+marker comment per §6 — its absence today is correct, not a doctrine
+drift.
