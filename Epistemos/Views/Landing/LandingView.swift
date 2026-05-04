@@ -78,6 +78,15 @@ struct LandingView: View {
     /// hint (see `hermesExpertModeRow`). Resets on exit.
     @State private var hermesExpertMode = HermesExpertModeState()
 
+    /// Simulation Mode v1.6 — sheet presentation state for the Farm
+    /// (creation wizard, delete confirmation, restore from trash).
+    /// Each is nil when not presented; non-nil triggers a `.sheet`
+    /// modifier on the body.
+    @State private var farmShowingCreate: Bool = false
+    @State private var farmDeleteTarget: CompanionRosterEntry? = nil
+    @State private var farmShowingRestore: Bool = false
+    @State private var farmAdapterTarget: CompanionRosterEntry? = nil
+
     // Recent data for Daily Brief context
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
@@ -354,6 +363,47 @@ struct LandingView: View {
             reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.82),
             value: hermesExpertMode.isActive
         )
+        // Companion Farm sheets — present from `farmShowingCreate`
+        // / `farmDeleteTarget` / `farmShowingRestore` /
+        // `farmAdapterTarget`. Each sheet routes through its own
+        // canonical state surface (CompanionState + SovereignGate).
+        .sheet(isPresented: $farmShowingCreate) {
+            if let bootstrap = AppBootstrap.shared {
+                CompanionCreationFlow(
+                    companionState: bootstrap.companionState,
+                    theme: theme,
+                    onDismiss: { farmShowingCreate = false }
+                )
+            }
+        }
+        .sheet(item: $farmDeleteTarget) { entry in
+            if let bootstrap = AppBootstrap.shared {
+                CompanionDeleteSheet(
+                    entry: entry,
+                    companionState: bootstrap.companionState,
+                    sovereignGate: bootstrap.sovereignGate,
+                    theme: theme,
+                    onDismiss: { farmDeleteTarget = nil }
+                )
+            }
+        }
+        .sheet(isPresented: $farmShowingRestore) {
+            if let bootstrap = AppBootstrap.shared {
+                CompanionRestoreSheet(
+                    companionState: bootstrap.companionState,
+                    sovereignGate: bootstrap.sovereignGate,
+                    theme: theme,
+                    onDismiss: { farmShowingRestore = false }
+                )
+            }
+        }
+        .sheet(item: $farmAdapterTarget) { entry in
+            CompanionAdapterView(
+                entry: entry,
+                theme: theme,
+                onDismiss: { farmAdapterTarget = nil }
+            )
+        }
     }
 
     private var landingBackdrop: some View {
@@ -431,10 +481,10 @@ struct LandingView: View {
                     LandingFarmView(
                         companionState: bootstrap.companionState,
                         theme: theme,
-                        onCreate: { /* Creation wizard wires in next slice */ },
-                        onOpenTrash: { /* Restore sheet wires in next slice */ },
-                        onApplyAdapter: { _ in /* Adapter UI wires in next slice */ },
-                        onRequestDelete: { _ in /* Delete sheet wires in next slice */ }
+                        onCreate: { farmShowingCreate = true },
+                        onOpenTrash: { farmShowingRestore = true },
+                        onApplyAdapter: { entry in farmAdapterTarget = entry },
+                        onRequestDelete: { entry in farmDeleteTarget = entry }
                     )
                     .padding(.bottom, 18)
                 }
