@@ -1,0 +1,364 @@
+import OSLog
+import SwiftUI
+
+/// Hermes Expert Mode terminal-styled liquid-glass surface that hosts
+/// the input ribbon, the live command palette, and the scrollback
+/// transcript. Lives below the hero typewriter on the landing page
+/// when the user activates expert mode.
+///
+/// Visual posture:
+/// - Liquid glass background (`.regularMaterial` over a tinted accent
+///   wash) with a subtle inner stroke. Reads as a terminal pane that
+///   floats over the landing wave.
+/// - Monospaced input + transcript. Hero font lives ABOVE this in the
+///   landing view (LiquidGreeting), not inside.
+/// - Compact when collapsed, expands to a comfortable max width
+///   (LandingSearchLayout.maxWidth) when active.
+///
+/// The dispatcher wiring (HermesExpertModeRunner) is provided by the
+/// landing view; this view only knows about state + visuals.
+struct HermesExpertModeView: View {
+    private static let log = Logger(subsystem: "com.epistemos", category: "HermesExpertMode")
+
+    @Bindable var state: HermesExpertModeState
+    var theme: EpistemosTheme
+    var onSubmit: (String) -> Void
+    var onExit: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @FocusState private var inputFocused: Bool
+
+    private let cornerRadius: CGFloat = 18
+    private let maxWidth: CGFloat = LandingSearchLayout.maxWidth
+    private let monoFont: Font = .system(size: 13.5, weight: .regular, design: .monospaced)
+    private let inputFontSize: CGFloat = 15
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            transcriptArea
+            divider
+            inputArea
+            if state.showingCommandPalette {
+                commandPalette
+                    .transition(.opacity.combined(with: .offset(y: -4)))
+            }
+            if let err = state.lastErrorMessage {
+                Text(err)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.resolved.accent.color.opacity(0.85))
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
+                    .transition(.opacity)
+            }
+            footerHints
+        }
+        .padding(16)
+        .frame(maxWidth: maxWidth)
+        .background(glassBackground)
+        .overlay(borderStroke)
+        .onAppear {
+            // Defer focus until the hero typewriter completes per
+            // `state.heroReady`; otherwise focus competes with the
+            // hidden landing search input and steals first key.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(60))
+                if state.heroReady { inputFocused = true }
+            }
+        }
+        .onChange(of: state.heroReady) { _, ready in
+            if ready { inputFocused = true }
+        }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
+                   value: state.showingCommandPalette)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
+                   value: state.lastErrorMessage)
+    }
+
+    // MARK: - Transcript
+
+    private var transcriptArea: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    if state.transcript.isEmpty {
+                        Text("// Type `/help` to list commands. `/ask <q>` for a query. `Esc` exits.")
+                            .font(monoFont)
+                            .foregroundStyle(theme.textTertiary.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.top, 4)
+                    } else {
+                        ForEach(state.transcript) { entry in
+                            transcriptRow(entry)
+                                .id(entry.id)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 6)
+            }
+            .frame(maxHeight: 260)
+            .onChange(of: state.transcript.count) { _, _ in
+                if let last = state.transcript.last {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func transcriptRow(_ entry: HermesExpertTranscriptEntry) -> some View {
+        let (prefix, color) = transcriptStyling(entry)
+        HStack(alignment: .top, spacing: 8) {
+            Text(prefix)
+                .font(monoFont)
+                .foregroundStyle(color.opacity(0.7))
+                .frame(width: 18, alignment: .leading)
+            Text(entry.text)
+                .font(monoFont)
+                .foregroundStyle(color)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func transcriptStyling(_ entry: HermesExpertTranscriptEntry) -> (String, Color) {
+        switch entry.kind {
+        case .userInput:      return (">",  theme.textPrimary)
+        case .systemEcho:     return ("·",  theme.textSecondary)
+        case .systemResponse: return ("⌁",  theme.textPrimary.opacity(0.92))
+        case .info:           return ("∙",  theme.textTertiary)
+        case .error:          return ("!",  theme.resolved.accent.color)
+        }
+    }
+
+    // MARK: - Divider
+
+    private var divider: some View {
+        Rectangle()
+            .fill(theme.textTertiary.opacity(0.15))
+            .frame(height: 0.5)
+            .padding(.horizontal, 4)
+    }
+
+    // MARK: - Input
+
+    private var inputArea: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Text("hermes ›")
+                .font(.system(size: inputFontSize, weight: .medium, design: .monospaced))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.85))
+                .padding(.leading, 6)
+
+            TextField("", text: $state.draft, prompt: Text("ask, /command, or @reference")
+                .foregroundStyle(theme.mutedForeground.opacity(0.55))
+            )
+            .textFieldStyle(.plain)
+            .focused($inputFocused)
+            .font(.system(size: inputFontSize, weight: .regular, design: .monospaced))
+            .foregroundStyle(theme.textPrimary)
+            .tint(theme.resolved.accent.color)
+            .disableAutocorrection(true)
+            .onSubmit {
+                triggerSubmit()
+            }
+            .onExitCommand {
+                onExit()
+            }
+            .onChange(of: state.draft) { _, newValue in
+                state.updateDraft(newValue)
+            }
+
+            if state.dispatching {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.85)
+                    .frame(width: 22, height: 22)
+            } else {
+                Button(action: triggerSubmit) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(
+                            state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? theme.textTertiary.opacity(0.5)
+                            : theme.resolved.accent.color
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .keyboardShortcut(.return, modifiers: [])
+                .help("Submit")
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.trailing, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.06 : 0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(theme.resolved.accent.color.opacity(0.18), lineWidth: 0.6)
+        )
+    }
+
+    private func triggerSubmit() {
+        let trimmed = state.draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        onSubmit(trimmed)
+    }
+
+    // MARK: - Command palette
+
+    private var commandPalette: some View {
+        let matches = HermesExpertCommandPaletteData.matches(for: state.draft, limit: 6)
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(matches) { match in
+                Button(action: {
+                    state.draft = match.commandToken + " "
+                    state.updateDraft(state.draft)
+                    inputFocused = true
+                }) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(match.commandToken)
+                            .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(theme.textPrimary)
+                            .frame(width: 90, alignment: .leading)
+                        Text(match.surface.displayName)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(theme.textTertiary)
+                            .frame(width: 84, alignment: .leading)
+                        Text(match.tier.displayName)
+                            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(match.tier == .core
+                                ? theme.resolved.accent.color
+                                : theme.textTertiary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(theme.resolved.accent.color.opacity(0.08))
+                            )
+                        Text(match.nativeEquivalent)
+                            .font(.system(size: 11, weight: .regular, design: .monospaced))
+                            .foregroundStyle(theme.textSecondary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            if matches.isEmpty {
+                Text("// no matching commands")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary.opacity(0.7))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.05 : 0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(theme.textTertiary.opacity(0.12), lineWidth: 0.5)
+        )
+    }
+
+    // MARK: - Footer hints
+
+    private var footerHints: some View {
+        HStack(spacing: 14) {
+            Label("/help", systemImage: "questionmark.circle")
+                .labelStyle(MonoHintLabelStyle())
+            Label("@notes", systemImage: "at")
+                .labelStyle(MonoHintLabelStyle())
+            Label("↩ submit", systemImage: "return")
+                .labelStyle(MonoHintLabelStyle())
+            Spacer(minLength: 0)
+            Button {
+                onExit()
+            } label: {
+                Label("⎋ exit", systemImage: "escape")
+                    .labelStyle(MonoHintLabelStyle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 2)
+        .foregroundStyle(theme.textTertiary)
+    }
+
+    // MARK: - Glass background
+
+    private var glassBackground: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.regularMaterial)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.05 : 0.03))
+            )
+    }
+
+    private var borderStroke: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .stroke(
+                LinearGradient(
+                    colors: [
+                        theme.resolved.accent.color.opacity(0.32),
+                        theme.resolved.accent.color.opacity(0.08),
+                        theme.resolved.accent.color.opacity(0.20),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 0.8
+            )
+    }
+}
+
+private struct MonoHintLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon
+                .font(.system(size: 10, weight: .medium))
+            configuration.title
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+        }
+    }
+}
+
+// MARK: - Capability surface display names (UI-only enrichment)
+
+extension HermesCapabilitySurface {
+    var displayName: String {
+        switch self {
+        case .agentTask:        return "agent"
+        case .session:          return "session"
+        case .configuration:    return "config"
+        case .fileData:         return "files"
+        case .toolsIntegration: return "tools"
+        case .uiDisplay:        return "ui"
+        case .persona:          return "persona"
+        case .messaging:        return "msg"
+        case .advanced:         return "advanced"
+        case .toolset:          return "toolset"
+        }
+    }
+}
+
+extension HermesCapabilityTier {
+    var displayName: String {
+        switch self {
+        case .core:     return "CORE"
+        case .pro:      return "PRO"
+        case .research: return "RESEARCH"
+        }
+    }
+}

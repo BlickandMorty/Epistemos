@@ -73,6 +73,11 @@ struct LandingView: View {
     @State private var showWelcomeBack = false
     @State private var welcomeBackDismissTask: Task<Void, Never>?
 
+    /// Hermes Expert Mode state — owned per landing surface instance,
+    /// not global. Activates when the user clicks the "Hermes" command
+    /// hint (see `hermesExpertModeRow`). Resets on exit.
+    @State private var hermesExpertMode = HermesExpertModeState()
+
     // Recent data for Daily Brief context
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
@@ -313,6 +318,10 @@ struct LandingView: View {
 
         }
         .onKeyPress(.escape) {
+            if hermesExpertMode.isActive {
+                exitHermesExpertMode()
+                return .handled
+            }
             if showingSearchPopover {
                 dismissLandingSearch()
                 return .handled
@@ -331,6 +340,10 @@ struct LandingView: View {
             }
             return .ignored
         }
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.82),
+            value: hermesExpertMode.isActive
+        )
     }
 
     private var landingBackdrop: some View {
@@ -345,11 +358,33 @@ struct LandingView: View {
             Spacer()
 
             VStack(spacing: 18) {
+                if hermesExpertMode.isActive {
+                    HermesShimmeringSigil()
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                        .padding(.bottom, 4)
+                }
+
                 LiquidGreeting(
                     retractNow: .constant(false),
-                    searchMode: showingSearchPopover,
-                    searchText: landingSearchText
+                    searchMode: showingSearchPopover && !hermesExpertMode.isActive,
+                    searchText: landingSearchText,
+                    hermesHeroMode: hermesExpertMode.isActive,
+                    onHermesHeroComplete: {
+                        hermesExpertMode.heroReady = true
+                    }
                 )
+
+                if hermesExpertMode.isActive {
+                    HermesExpertModeView(
+                        state: hermesExpertMode,
+                        theme: theme,
+                        onSubmit: { raw in
+                            handleHermesExpertSubmit(raw)
+                        },
+                        onExit: { exitHermesExpertMode() }
+                    )
+                    .transition(.opacity.combined(with: .offset(y: 6)))
+                }
 
                 // Inline controls — only visible while searching. All
                 // rendered in monospace so they match the retro-terminal
@@ -473,9 +508,68 @@ struct LandingView: View {
                     }
                     .springEntrance(index: 5, stagger: 0.08)
 
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
+                    CommandHint(icon: "wand.and.stars", label: hermesExpertMode.isActive ? "Hermes Mode On" : "Hermes Mode", theme: theme) {
+                        toggleHermesExpertMode()
+                    }
+                    .springEntrance(index: 6, stagger: 0.08)
+
                 }
                 .padding(.bottom, 28)
             }
+    }
+
+    // MARK: - Hermes Expert Mode
+
+    private func toggleHermesExpertMode() {
+        if hermesExpertMode.isActive {
+            exitHermesExpertMode()
+        } else {
+            enterHermesExpertMode()
+        }
+    }
+
+    private func enterHermesExpertMode() {
+        // Suppress other landing modes while expert is active.
+        if showingSearchPopover { dismissLandingSearch() }
+        if showingBrief { dailyBrief.dismissDailyBrief() }
+        if showWelcomeBack { dismissWelcomeBack() }
+        hermesExpertMode.enter()
+    }
+
+    private func exitHermesExpertMode() {
+        hermesExpertMode.exit()
+    }
+
+    /// Forward an expert-mode submission to the canonical Hermes runner.
+    /// `/help`, `/calc`, `/status` etc. surface inline; bare prompts and
+    /// command shapes that demand provider work get handed to the main
+    /// chat surface (the same path the regular landing search uses).
+    private func handleHermesExpertSubmit(_ raw: String) {
+        let runner = HermesExpertModeRunner(
+            state: hermesExpertMode,
+            chat: chat,
+            orchestrator: orchestrator,
+            inference: inference,
+            ui: ui,
+            operatingMode: { selectedOperatingMode },
+            onDelegateToMainChat: { prompt in
+                exitHermesExpertMode()
+                chat.startNewChat()
+                ui.setActivePanel(.home)
+                MainChatSubmissionRouter.submit(
+                    prompt,
+                    operatingMode: selectedOperatingMode,
+                    chat: chat,
+                    orchestrator: orchestrator,
+                    inference: inference
+                )
+            }
+        )
+        runner.submit(raw)
     }
 
     // MARK: - Landing Search Content (Compact for Popover)
