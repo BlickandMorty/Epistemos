@@ -2899,6 +2899,14 @@ classification. `XPCServices/AgentXPC` and `XPCServices/ProviderXPC` contain
 thin source skeletons only; XPC target packaging / `project.pbxproj` sync,
 `CapabilityBridge`, chat slash routing, cloud HTTP, CLI execution, AgentEvent
 emission, and true mmap FFI transport remain separate future gates.
+Capability grant bridge PR65 is closed for STEP 6. `Epistemos/Security`
+contains a policy-only `CapabilityBridge` that issues/verifies HMAC-signed,
+time-bounded grants for AgentXPC and ProviderXPC subjects, preserves donor
+`Capability::BiometricSession { ttl_secs }` naming, delegates biometric approval
+to `SovereignGateRequirement`, rejects external gateway surfaces in Core/App
+Store distribution, and keeps AgentXPC/ProviderXPC surfaces split. Keychain
+storage, XPC target packaging, chat slash routing, cloud HTTP, CLI execution,
+AgentEvent emission, and true mmap FFI transport remain separate future gates.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
