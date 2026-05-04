@@ -252,43 +252,59 @@ struct HermesExpertModeRunner {
     // MARK: - Inline renderers
 
     private func renderHelpInline() {
+        // Routes through the existing Artifact + ArtifactBlockView
+        // pipeline (chat-block schema-first GenUI, partial). Migrates
+        // to GenUIDispatcher when G.2 lands per
+        // `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` §9 deferral list.
         let registry = HermesCapabilityRegistry.all
         let coreCount = registry.filter { $0.tier == .core }.count
         let proCount = registry.filter { $0.tier == .pro }.count
         let researchCount = registry.filter { $0.tier == .research }.count
 
-        state.append(.init(kind: .systemResponse,
-            text: "Hermes parity — \(registry.count) commands. CORE \(coreCount), PRO \(proCount), RESEARCH \(researchCount)."))
+        var lines: [String] = []
+        lines.append("# Hermes parity")
+        lines.append("")
+        lines.append("**\(registry.count) commands** · CORE \(coreCount) · PRO \(proCount) · RESEARCH \(researchCount)")
+        lines.append("")
 
         let groups: [(HermesCapabilitySurface, String)] = [
-            (.agentTask,        "agent"),
-            (.session,          "session"),
-            (.configuration,    "config"),
-            (.fileData,         "files"),
-            (.persona,          "persona"),
-            (.uiDisplay,        "ui"),
-            (.toolsIntegration, "tools"),
-            (.advanced,         "advanced"),
-            (.toolset,          "toolset"),
-            (.messaging,        "msg"),
+            (.agentTask,        "Agent"),
+            (.session,          "Session"),
+            (.configuration,    "Configuration"),
+            (.fileData,         "Files"),
+            (.persona,          "Persona"),
+            (.uiDisplay,        "UI / Display"),
+            (.toolsIntegration, "Tools"),
+            (.advanced,         "Advanced"),
+            (.toolset,          "Toolset"),
+            (.messaging,        "Messaging"),
         ]
 
         for (surface, label) in groups {
             let bySurface = registry.filter { $0.surface == surface && $0.tier == .core }
             guard !bySurface.isEmpty else { continue }
-            let tokens = bySurface.map { $0.commandToken }.joined(separator: " ")
-            state.append(.init(
-                kind: .info,
-                text: "[\(label)] \(tokens)"
-            ))
+            lines.append("## \(label)")
+            for cap in bySurface {
+                lines.append("- `\(cap.commandPattern)` — \(cap.nativeEquivalent)")
+            }
+            lines.append("")
         }
 
         if proCount > 0 {
-            state.append(.init(kind: .info,
-                text: "[pro · MAS-blocked] /execute /run /shell /kill"))
+            lines.append("## Pro (MAS gates these)")
+            lines.append("`/execute` `/run` `/shell` `/kill`")
+            lines.append("")
         }
-        state.append(.init(kind: .info,
-            text: "tab autofills · ↑↓ palette · ⏎ submit · ⎋ exit"))
+
+        lines.append("---")
+        lines.append("_Tab autofills · ↑↓ palette / history · ⏎ submit · ⎋ exit_")
+
+        state.append(.artifact(Artifact(
+            kind: .markdown,
+            title: "Hermes Parity",
+            content: lines.joined(separator: "\n"),
+            schemaName: "hermes.help"
+        )))
     }
 
     private func renderCalcInline(_ cmd: HermesCalcCommand) {
@@ -307,33 +323,43 @@ struct HermesExpertModeRunner {
         let runID = state.sessionRunID.isEmpty ? "—" : String(state.sessionRunID.suffix(8))
         let transcriptCount = state.transcript.count
 
-        state.append(.init(kind: .systemResponse, text: "── status ──"))
-        state.append(.init(kind: .info, text: "model       \(model)"))
-        state.append(.init(kind: .info, text: "mode        \(opMode)"))
-        state.append(.init(kind: .info, text: "panel       \(panel)"))
-        state.append(.init(kind: .info, text: "incognito   \(chat.isIncognito ? "yes" : "no")"))
-        state.append(.init(kind: .info, text: "session     hermes-expert/\(runID)"))
-        state.append(.init(kind: .info, text: "transcript  \(transcriptCount) entries"))
+        let yaml = """
+        model:       \(yamlEscape(model))
+        mode:        \(yamlEscape(opMode))
+        panel:       \(yamlEscape(panel))
+        incognito:   \(chat.isIncognito ? "true" : "false")
+        session:     hermes-expert/\(runID)
+        transcript:  \(transcriptCount)
+        """
+        state.append(.artifact(Artifact(
+            kind: .yaml,
+            title: "Status",
+            language: "yaml",
+            content: yaml,
+            schemaName: "hermes.status"
+        )))
     }
 
     private func renderTokensInline() {
         let model = inference.preferredChatModelSelection.displayName
-        // Approximate context budget by class — local 4-bit MLX 4-8B
-        // tier vs cloud frontier — so the user sees something useful
-        // without us having to wire a per-turn token meter (that's
-        // session intelligence panel territory). The panel is opened
-        // alongside for the live drill-down.
         let estimatedContext: String
         switch inference.preferredChatModelSelection {
-        case .localMLX:        estimatedContext = "~32K (local MLX, 4-bit class)"
-        case .cloud:           estimatedContext = "~200K (cloud frontier class)"
+        case .localMLX:          estimatedContext = "~32K (local MLX, 4-bit class)"
+        case .cloud:             estimatedContext = "~200K (cloud frontier class)"
         case .appleIntelligence: estimatedContext = "~12K (Apple Intelligence)"
         }
-        state.append(.init(kind: .systemResponse, text: "── tokens ──"))
-        state.append(.init(kind: .info, text: "model        \(model)"))
-        state.append(.init(kind: .info, text: "context cap  \(estimatedContext)"))
-        state.append(.init(kind: .info,
-            text: "live drill-down → opening Session Intelligence panel"))
+        let yaml = """
+        model:        \(yamlEscape(model))
+        context_cap:  \(yamlEscape(estimatedContext))
+        live_panel:   opening (Session Intelligence)
+        """
+        state.append(.artifact(Artifact(
+            kind: .yaml,
+            title: "Tokens",
+            language: "yaml",
+            content: yaml,
+            schemaName: "hermes.tokens"
+        )))
         NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
     }
 
@@ -345,44 +371,61 @@ struct HermesExpertModeRunner {
         case .appleIntelligence:  surface = "$0 — Apple Intelligence"
         case .cloud:              surface = "billed per token (see Session Intelligence)"
         }
-        state.append(.init(kind: .systemResponse, text: "── cost ──"))
-        state.append(.init(kind: .info, text: "model      \(model)"))
-        state.append(.init(kind: .info, text: "surface    \(surface)"))
-        state.append(.init(kind: .info,
-            text: "live drill-down → opening Session Intelligence panel"))
+        let yaml = """
+        model:      \(yamlEscape(model))
+        surface:    \(yamlEscape(surface))
+        live_panel: opening (Session Intelligence)
+        """
+        state.append(.artifact(Artifact(
+            kind: .yaml,
+            title: "Cost",
+            language: "yaml",
+            content: yaml,
+            schemaName: "hermes.cost"
+        )))
         NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
     }
 
     private func renderSearchInline(_ cmd: HermesSearchCommand) {
-        state.append(.init(kind: .systemResponse, text: "── search '\(cmd.query)' ──"))
         let results = vaultSync.searchFull(query: cmd.query, limit: 5)
         guard !results.isEmpty else {
-            state.append(.init(kind: .info, text: "no matches"))
+            state.append(.init(
+                kind: .info,
+                text: "search '\(cmd.query)': no matches"
+            ))
             return
         }
+        var lines: [String] = []
+        lines.append("# Search — '\(cmd.query)'")
+        lines.append("")
         for (idx, hit) in results.enumerated() {
             let title = hit.title.isEmpty ? "(untitled)" : hit.title
             let snippet = hit.snippet
                 .replacingOccurrences(of: "\n", with: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let snippetTruncated = snippet.count > 90
-                ? String(snippet.prefix(90)) + "…"
+            let snippetTruncated = snippet.count > 240
+                ? String(snippet.prefix(240)) + "…"
                 : snippet
-            state.append(.init(
-                kind: .info,
-                text: "\(idx + 1). \(title) — \(snippetTruncated)"
-            ))
+            lines.append("**\(idx + 1). \(title)**")
+            if !snippetTruncated.isEmpty {
+                lines.append("")
+                lines.append(snippetTruncated)
+            }
+            lines.append("")
         }
         if results.count == 5 {
-            state.append(.init(kind: .info,
-                text: "(showing first 5; use vault search panel for more)"))
+            lines.append("---")
+            lines.append("_Showing first 5 hits. Open the vault search panel for the full set._")
         }
+        state.append(.artifact(Artifact(
+            kind: .markdown,
+            title: "Search '\(cmd.query)'",
+            content: lines.joined(separator: "\n"),
+            schemaName: "hermes.search"
+        )))
     }
 
     private func renderConfigShowInline() {
-        state.append(.init(kind: .systemResponse, text: "── config ──"))
-        // Profile — Pro vs MAS gets resolved at build time; surface the
-        // active variant. For now we show what's runtime-detectable.
         let isAppStoreBuild: Bool = {
             #if EPISTEMOS_MAS
             return true
@@ -391,21 +434,43 @@ struct HermesExpertModeRunner {
             #endif
         }()
         let profile = isAppStoreBuild ? "AppStore (Core only)" : "Pro / Developer ID"
-        state.append(.init(kind: .info, text: "profile           \(profile)"))
-        state.append(.init(kind: .info,
-            text: "model             \(inference.preferredChatModelSelection.displayName)"))
-        state.append(.init(kind: .info,
-            text: "operating mode    \(operatingMode().displayName)"))
-        state.append(.init(kind: .info,
-            text: "incognito         \(chat.isIncognito ? "yes" : "no")"))
-        state.append(.init(kind: .info,
-            text: "rrf fusion        \(RRFFusionFlags.isEnabled ? "on" : "off")"))
-        state.append(.init(kind: .info,
-            text: "expert mode       active (session ...\(String(state.sessionRunID.suffix(8))))"))
-        state.append(.init(kind: .info,
-            text: "history depth     \(state.history.count) entries"))
-        state.append(.init(kind: .info,
-            text: "transcript        \(state.transcript.count) entries"))
+        let runID = state.sessionRunID.isEmpty ? "—" : String(state.sessionRunID.suffix(8))
+        let yaml = """
+        profile:           \(yamlEscape(profile))
+        model:             \(yamlEscape(inference.preferredChatModelSelection.displayName))
+        operating_mode:    \(yamlEscape(operatingMode().displayName))
+        incognito:         \(chat.isIncognito ? "true" : "false")
+        rrf_fusion:        \(RRFFusionFlags.isEnabled ? "on" : "off")
+        expert_session:    hermes-expert/\(runID)
+        history_depth:     \(state.history.count)
+        transcript_length: \(state.transcript.count)
+        """
+        state.append(.artifact(Artifact(
+            kind: .yaml,
+            title: "Config",
+            language: "yaml",
+            content: yaml,
+            schemaName: "hermes.config"
+        )))
+    }
+
+    /// YAML escape: wrap in double-quotes if the value contains anything
+    /// YAML-significant (`: { } [ ] , & * # ? | - < > = ! % @ \``)
+    /// or starts with whitespace, or is exactly a YAML reserved keyword
+    /// (`true`/`false`/`null`/`~`/etc.). Otherwise return as-is.
+    private func yamlEscape(_ value: String) -> String {
+        if value.isEmpty { return "\"\"" }
+        let reserved: Set<String> = ["true", "false", "null", "~", "yes", "no", "on", "off"]
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed != value || reserved.contains(trimmed.lowercased()) {
+            return "\"\(value.replacingOccurrences(of: "\"", with: "\\\""))\""
+        }
+        let unsafe: Set<Character> = [":", "{", "}", "[", "]", ",", "&", "*",
+                                      "#", "?", "|", "<", ">", "=", "!", "%", "@", "`", "\""]
+        if value.contains(where: { unsafe.contains($0) }) {
+            return "\"\(value.replacingOccurrences(of: "\"", with: "\\\""))\""
+        }
+        return value
     }
 
     /// Persona subsystem isn't a runtime mutable state on the main
@@ -479,19 +544,28 @@ struct HermesExpertModeRunner {
                 text: "current model: \(inference.preferredChatModelSelection.displayName)"))
 
         case .list:
-            state.append(.init(kind: .systemResponse, text: "── available models ──"))
-            // Local options (always available)
-            state.append(.init(kind: .info,
-                text: "[local-mlx] preferred=\(inference.preferredLocalTextModelID)"))
-            // Cloud options — derived from the CloudTextModelID enum
-            let cloudIDs = CloudTextModelID.allCases
-            for id in cloudIDs.prefix(8) {
-                state.append(.init(kind: .info, text: "[cloud] \(id.rawValue)"))
+            // Markdown table — auto-rendered with copy + collapse via
+            // ArtifactBlockView. Beats six inline echo rows.
+            var lines: [String] = []
+            lines.append("# Available Models")
+            lines.append("")
+            lines.append("**Local MLX** (in-process)")
+            lines.append("- preferred: `\(inference.preferredLocalTextModelID)`")
+            lines.append("")
+            lines.append("**Cloud** (first 8 of \(CloudTextModelID.allCases.count))")
+            for id in CloudTextModelID.allCases.prefix(8) {
+                lines.append("- `\(id.rawValue)`")
             }
-            if cloudIDs.count > 8 {
-                state.append(.init(kind: .info,
-                    text: "… \(cloudIDs.count - 8) more (see Settings → Models)"))
+            if CloudTextModelID.allCases.count > 8 {
+                lines.append("")
+                lines.append("_\(CloudTextModelID.allCases.count - 8) more available — see Settings → Models_")
             }
+            state.append(.artifact(Artifact(
+                kind: .markdown,
+                title: "Available Models",
+                content: lines.joined(separator: "\n"),
+                schemaName: "hermes.model.list"
+            )))
 
         case .switchTo(let name):
             // Try cloud first (most common selection); fall back to local mlx

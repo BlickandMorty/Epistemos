@@ -200,11 +200,34 @@ final class HermesExpertModeState {
 /// One row in the expert mode transcript. Sum type so the renderer
 /// can style each shape distinctly (user input gets a prompt prefix,
 /// system output gets a softer treatment, errors get accent red).
+///
+/// Two payload shapes:
+/// - `text` (terse inline row, rendered as a monospace transcript line)
+/// - `artifact` (rich card via the existing `ArtifactBlockView`
+///    pipeline — collapse, copy, save-to-file affordances for free)
+///
+/// Doctrinal note (canonical: `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`):
+/// the artifact path is the schema-first GenUI seed. When the full
+/// `GenUIDispatcher` lands (Phase G.2), this entry shape migrates to
+/// carry a `GenUIPayload` instead and the runner stops switching on
+/// command kind to choose the artifact mime — the dispatcher handles
+/// it. Until then this is the cleanest local route through the
+/// existing `Artifact` + `ArtifactBlockView` infrastructure.
 struct HermesExpertTranscriptEntry: Identifiable, Equatable, Sendable {
     let id: UUID
     let kind: Kind
     let text: String
+    let artifact: Artifact?
     let timestamp: Date
+
+    /// Identity equality is sufficient for diffing. `Artifact` itself
+    /// isn't `Equatable` (it carries an arbitrary `content: String`
+    /// blob from cloud responses) and we don't want to pay deep
+    /// comparison on every diff anyway — the UUID is unique per
+    /// instance.
+    static func == (lhs: HermesExpertTranscriptEntry, rhs: HermesExpertTranscriptEntry) -> Bool {
+        lhs.id == rhs.id
+    }
 
     enum Kind: String, Equatable, Sendable {
         case userInput          // what the user typed; rendered with `>` prefix
@@ -212,12 +235,21 @@ struct HermesExpertTranscriptEntry: Identifiable, Equatable, Sendable {
         case systemResponse     // structured result text
         case info               // ambient info (mode change, etc.)
         case error              // dispatch error or unknown command
+        case artifact           // rich card via ArtifactBlockView
     }
 
-    init(kind: Kind, text: String, timestamp: Date = .now) {
+    init(kind: Kind, text: String, artifact: Artifact? = nil, timestamp: Date = .now) {
         self.id = UUID()
         self.kind = kind
         self.text = text
+        self.artifact = artifact
         self.timestamp = timestamp
+    }
+
+    /// Shorthand: build an artifact-bearing entry. Kind is forced to
+    /// `.artifact`; text is the artifact title for accessibility +
+    /// fallback if the renderer can't draw the card.
+    static func artifact(_ artifact: Artifact) -> HermesExpertTranscriptEntry {
+        .init(kind: .artifact, text: artifact.title, artifact: artifact)
     }
 }
