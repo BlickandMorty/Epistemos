@@ -64,7 +64,15 @@ struct AgentControlDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 headerCard
                 toolInventoryCard
+                // Custom tool registration is a Pro capability — registered
+                // tools route through the agent loop's tool tier filter,
+                // which `ToolSurfacePolicy.coreAppStoreAllowedToolNames`
+                // shrinks to a fixed set in MAS. So a custom tool the MAS
+                // user registers here would always be rejected at execute
+                // time. Hide the card in MAS to avoid surfacing a dead UI.
+                #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
                 customToolsCard
+                #endif
                 approvalPolicyCard
                 recentExecutionsCard
                 sessionsCard
@@ -80,7 +88,9 @@ struct AgentControlDetailView: View {
         .task(id: vaultSync.vaultURL?.path) {
             refreshSessions()
             refreshApprovalPolicy()
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             await refreshCustomTools()
+            #endif
         }
         .task(id: sessionQuery) {
             refreshSessions()
