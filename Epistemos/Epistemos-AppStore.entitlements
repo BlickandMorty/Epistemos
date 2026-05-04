@@ -1,13 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ════════════════════════════════════════════════════════════════════
+  Epistemos — Mac App Store entitlements (MAS-first sprint, 2026-05-03)
+  ════════════════════════════════════════════════════════════════════
+
+  Per `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md`. Active
+  surface only — Pro-tier capabilities live in
+  `Epistemos/Epistemos-Pro.entitlements` (deferred).
+
+  TEMP-FREE-TIER NOTE (2026-05-03):
+  ──────────────────────────────────────────────────────────────────
+  The `com.apple.security.application-groups` entitlement has been
+  TEMPORARILY REMOVED from this file because the user's current
+  signing certificate is a free Personal Team (no paid Apple Developer
+  Program membership yet). Free Personal Teams cannot generate
+  provisioning profiles for App Groups.
+
+  WHAT GOT REMOVED (restore when paid Apple Developer Team is added):
+
+      <key>com.apple.security.application-groups</key>
+      <array>
+          <string>group.com.epistemos.shared</string>
+      </array>
+
+  IMPACT WHILE REMOVED:
+   - Main app and bundled XPC services CANNOT share a filesystem
+     container via App Groups
+   - DATA PATH BETWEEN PROCESSES MUST BE XPC MESSAGES, not shared
+     `/Library/Group Containers/group.com.epistemos.shared/` files
+   - Vault stays in the main app's container; XPC services receive
+     data via XPC messages instead of reading from the shared group
+   - This is actually a more secure architecture (XPC boundary = sole
+     data path); the App Group restoration is purely operational
+
+  RESTORATION (when paid Developer Team is available):
+   1. Sign in to Apple Developer Program at developer.apple.com ($99/yr)
+   2. In Apple Developer portal: register the App Group identifier
+      `group.com.epistemos.shared`
+   3. Update Xcode signing & capabilities to use the paid Team
+   4. Restore the `application-groups` block above
+   5. Remove this TEMP-FREE-TIER comment block
+   6. Update `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §7
+      to note App Groups are restored
+   7. Verify XPC services that NEEDED shared container now work
+      (re-enable any code paths that were XPC-message-only fallbacks)
+
+  See also:
+   - `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §7
+   - memory: project_mas_first_focus_2026_05_03 (TEMP-FREE-TIER section)
+-->
 <plist version="1.0">
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.com.epistemos.shared</string>
-	</array>
+	<!-- TEMP-FREE-TIER 2026-05-03: application-groups removed; see
+	     header comment block for full restoration instructions. -->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 	<key>com.apple.security.files.bookmarks.app-scope</key>
