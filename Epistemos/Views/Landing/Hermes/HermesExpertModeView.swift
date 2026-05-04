@@ -110,14 +110,29 @@ struct HermesExpertModeView: View {
 
     @ViewBuilder
     private func transcriptRow(_ entry: HermesExpertTranscriptEntry) -> some View {
-        if let artifact = entry.artifact {
-            // GENUI-DEFER: hackathon-2026-05-03 (canonical:
-            // docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md §6).
-            // Routed through the existing Artifact + ArtifactBlockView
-            // pipeline — the canonical schema-first renderer for chat
-            // content blocks. When GenUIDispatcher (G.2) lands, this
-            // call site becomes `GenUIDispatcher.shared.render(payload)`
-            // and the artifact migration in this file becomes a no-op.
+        if let payload = entry.payload {
+            // CANON-COMPLIANT 2026-05-04 (Stage A.4 / GenUI G.3 path).
+            // Routes through the canonical GenUIDispatcher per
+            // `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`.
+            // First migrated renderer: `/status` via .keyValueTable.
+            // Other 6 commands (/help, /config show, /tokens, /cost,
+            // /model list, /search) migrate from .artifact → .payload
+            // next; same pattern.
+            HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text("⌁")
+                        .font(monoFont)
+                        .foregroundStyle(theme.textPrimary.opacity(0.55))
+                        .frame(width: 18, alignment: .leading)
+                    GenUIDispatcher.shared.render(payload)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        } else if let artifact = entry.artifact {
+            // GENUI-DEFER: hackathon-2026-05-03 (legacy chat-block path,
+            // partial implementation). Migrating to .payload above as
+            // each renderer in `HermesExpertModeRunner` swaps from
+            // `.artifact(Artifact(...))` to `.payload(GenUIPayload(...))`.
             HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
                 HStack(alignment: .top, spacing: 8) {
                     Text("⌁")
@@ -154,6 +169,7 @@ struct HermesExpertModeView: View {
         case .info:           return ("∙",  theme.textTertiary)
         case .error:          return ("!",  theme.resolved.accent.color)
         case .artifact:       return ("⌁",  theme.textPrimary.opacity(0.92))  // not used (artifact path renders separately)
+        case .payload:        return ("⌁",  theme.textPrimary.opacity(0.92))  // not used (payload path renders separately via GenUIDispatcher)
         }
     }
 

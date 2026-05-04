@@ -43,6 +43,7 @@ struct HermesTranscriptRowFlash<Content: View>: View {
         case .info:           return 0.08
         case .error:          return 0.22
         case .artifact:       return 0.14     // softer than response — the card itself draws attention
+        case .payload:        return 0.14     // same as artifact — typed-payload cards self-emphasize
         }
     }
 }

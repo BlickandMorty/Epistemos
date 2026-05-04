@@ -29,8 +29,8 @@ extension SovereignGateCategory {
 ///   needed for the dispatcher to surface what was parsed.
 /// - **Sensitive (15-min biometric grace)** for any command whose
 ///   `requiresApproval` is true. Routes through the canonical
-///   `Epistemos/Sovereign/SovereignGate.swift` — single LAContext owner
-///   per doctrine §A.7. NEVER duplicates `LAContext` calls.
+///   `Epistemos/Sovereign/SovereignGate.swift` — single biometric context
+///   owner per doctrine §A.7. NEVER duplicates local auth calls.
 /// - Pro-tier commands resolve to nil at the dispatcher (parseCore only
 ///   returns Core variants); the runner surfaces them as inline errors.
 /// - Every submission emits provenance via the canonical
@@ -97,7 +97,7 @@ struct HermesExpertModeRunner {
 
         // Approval-gated commands (per the parsed-command's own
         // `requiresApproval` flag) must pass Sovereign Gate first.
-        // Routes through the canonical SovereignGate (single LAContext
+        // Routes through the canonical SovereignGate (single biometric context
         // owner) — never re-implements LocalAuthentication.
         if parsed.requiresApproval {
             state.dispatching = true
@@ -317,26 +317,35 @@ struct HermesExpertModeRunner {
     }
 
     private func renderStatusInline() {
+        // GenUI G.3 priority 1 (FIRST MIGRATION) — routes through the
+        // canonical GenUIDispatcher (Stage A.3 deliverable). The
+        // payload is a typed `GenUIPayload` with `schema: .keyValueTable`;
+        // the dispatcher renders it via KeyValueTableGenUIView. This
+        // is the doctrinally-correct path per
+        // `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`.
+        //
+        // The other six already-Artifact-routed commands (/help, /config
+        // show, /tokens, /cost, /model list, /search) migrate next per
+        // §9 deferral list G.3 priority 1 — same shape, swap the
+        // `state.append(.artifact(Artifact(...)))` call for
+        // `state.append(.payload(GenUIPayload.keyValueTable(...)))` or
+        // the appropriate convenience constructor.
         let model = inference.preferredChatModelSelection.displayName
         let opMode = operatingMode().displayName
         let panel = ui.activePanel.rawValue
         let runID = state.sessionRunID.isEmpty ? "—" : String(state.sessionRunID.suffix(8))
         let transcriptCount = state.transcript.count
 
-        let yaml = """
-        model:       \(yamlEscape(model))
-        mode:        \(yamlEscape(opMode))
-        panel:       \(yamlEscape(panel))
-        incognito:   \(chat.isIncognito ? "true" : "false")
-        session:     hermes-expert/\(runID)
-        transcript:  \(transcriptCount)
-        """
-        state.append(.artifact(Artifact(
-            kind: .yaml,
+        state.append(.payload(.keyValueTable(
             title: "Status",
-            language: "yaml",
-            content: yaml,
-            schemaName: "hermes.status"
+            [
+                ("model",      model),
+                ("mode",       opMode),
+                ("panel",      panel),
+                ("incognito",  chat.isIncognito ? "yes" : "no"),
+                ("session",    "hermes-expert/\(runID)"),
+                ("transcript", "\(transcriptCount) entries"),
+            ]
         )))
     }
 
@@ -600,7 +609,7 @@ struct HermesExpertModeRunner {
 
     // MARK: - Sovereign Gate reason strings
 
-    /// Human-readable reason shown in the LAContext biometric prompt.
+    /// Human-readable reason shown in the biometric prompt.
     /// The reason MUST be specific to the action so the user can make
     /// an informed grant (doctrine: never show generic "approve this"
     /// prompts; tell the user what they're approving).
