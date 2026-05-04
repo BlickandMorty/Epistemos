@@ -21,19 +21,66 @@ struct HermesShimmeringSigil: View {
     var size: CGFloat = 84
     var accent: Color = Color(hue: 0.55, saturation: 0.55, brightness: 0.95)
     var halo: Bool = true
+    /// Bumped externally on submit to fire a one-shot ring burst.
+    /// The sigil watches this trigger and animates a fading ring
+    /// outward whenever it changes.
+    var burstTrigger: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hasAppeared: Bool = false
+    @State private var burstStartedAt: Date? = nil
 
     var body: some View {
         ZStack {
             if halo {
                 haloLayer
             }
+            burstRing
             figureLayer
         }
         .frame(width: size * 1.6, height: size * 1.6)
+        .scaleEffect(hasAppeared || reduceMotion ? 1.0 : 0.55)
+        .opacity(hasAppeared || reduceMotion ? 1.0 : 0.0)
+        .onAppear {
+            if reduceMotion {
+                hasAppeared = true
+            } else {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.66)) {
+                    hasAppeared = true
+                }
+            }
+        }
+        .onChange(of: burstTrigger) { _, _ in
+            guard !reduceMotion else { return }
+            burstStartedAt = .now
+        }
         .accessibilityElement()
         .accessibilityLabel("Hermes Agent sigil")
+    }
+
+    /// One-shot expanding ring fired by `burstTrigger`. Self-resets
+    /// after ~700ms so re-firing is cheap.
+    @ViewBuilder
+    private var burstRing: some View {
+        if let started = burstStartedAt, !reduceMotion {
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
+                let elapsed = context.date.timeIntervalSince(started)
+                let duration: TimeInterval = 0.7
+                let progress = min(1.0, max(0.0, elapsed / duration))
+                if progress >= 1.0 {
+                    Color.clear
+                        .onAppear { burstStartedAt = nil }
+                } else {
+                    Circle()
+                        .stroke(accent.opacity(0.65 * (1.0 - progress)), lineWidth: 2.0 * (1.0 - progress) + 0.5)
+                        .frame(
+                            width: size * (1.05 + 0.7 * progress),
+                            height: size * (1.05 + 0.7 * progress)
+                        )
+                        .blur(radius: 0.5 + 1.5 * progress)
+                }
+            }
+        }
     }
 
     // MARK: - Halo

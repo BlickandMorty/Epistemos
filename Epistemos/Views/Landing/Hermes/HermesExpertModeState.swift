@@ -67,6 +67,12 @@ final class HermesExpertModeState {
     /// follow-up record helpers.
     var lastSubmissionToolCallID: String = ""
 
+    /// Monotonic counter bumped on every submit. The shimmering sigil
+    /// watches this for one-shot burst rings — visual feedback that
+    /// "your input landed."
+    private(set) var submitCounter: Int = 0
+    func bumpSubmitCounter() { submitCounter &+= 1 }
+
     /// Per-session command history — newest at the END. Up-arrow walks
     /// backward, down-arrow forward, mirroring shell readline. Bounded
     /// to keep memory cheap; older entries fall off the front.
