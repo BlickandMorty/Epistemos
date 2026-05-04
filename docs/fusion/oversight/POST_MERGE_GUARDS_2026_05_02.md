@@ -1017,3 +1017,18 @@
 - note: first focused run proved target membership but failed `/tokens`; rerun log `/tmp/epistemos-pbxproj-sync-r103-20260503-rerun.log` exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `HermesCommandDispatcherTests`
 - test: `ResonanceServiceTests`
+
+## fusion-verification-floor-step2-r104
+
+- docs grep: `HELIOS_WBO6_BUDGET_2026_05_03|HELIOS_METAL_KERNELS_2026_05_03|HELIOS_KV_DIRECT_GATE_RUNBOOK_2026_05_03` remains present in `docs/fusion/`.
+- verifier grep: `REQUIRED_PATHS|SHADER_PATHS|sovereign_single_owner|no_critical_inference_subprocess|canonical_naming` remains present in `scripts/verify_hotpath.py`.
+- shader authority grep: `Epistemos/Shaders/Mamba2` remains the canonical Metal authority until a future deliberate Rust-side Metal ownership slice creates `agent_core/metal/`.
+- fixture grep: `EpistemosTests/Fixtures/red_team_prompts.json` remains valid JSON with at least 10 prompts.
+- staged allow: only the three HELIOS docs, `scripts/verify_hotpath.py`, `EpistemosTests/Fixtures/red_team_prompts.json`, the hot-path verification JSON artifact, this guard file, current-state docs, workcard docs, canon-gap drift note, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `Finished \`dev\` profile` in `/tmp/epistemos-step2-cargo-build-r104-20260503.log`.
+- log: `test result: ok. 806 passed` in `/tmp/epistemos-step2-cargo-test-r104-20260503.log`.
+- log: `** BUILD SUCCEEDED **` in `/tmp/epistemos-step2-xcodebuild-r104-20260503.log`.
+- log: `"status": "pass"` in `/tmp/epistemos-verify-hotpath-r104-20260503.log`.
+- test: `python3 scripts/verify_hotpath.py`
+- test: `cargo test --manifest-path agent_core/Cargo.toml`
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`

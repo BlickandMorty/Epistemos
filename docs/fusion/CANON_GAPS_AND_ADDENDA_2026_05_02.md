@@ -14,6 +14,13 @@
 - **Resolution:** No `project.pbxproj` edit was required. The actual blocker was missing `/tokens` dispatch in `HermesCommandDispatcher`, fixed by adding `HermesTokensCommand` to `HermesParsedCommand` and `parseCore`.
 - **Evidence:** `/tmp/epistemos-pbxproj-sync-r103-20260503-rerun.log` passed 28 tests across `HermesCommandDispatcherTests` and `ResonanceServiceTests`.
 
+## 2026-05-03 — Round 104 HELIOS verification-floor drift
+
+- **Drift:** `EPISTEMOS_FUSION_HANDOFF_2026_05_03.md` described `agent_core/metal/` as the Metal kernel authority. Current Epistemos has no `agent_core/metal/`; canonical shader authority is `Epistemos/Shaders/`, including the Mamba-2 shader pack.
+- **Resolution:** `HELIOS_METAL_KERNELS_2026_05_03.md` and `scripts/verify_hotpath.py` re-derived the kernel index against `Epistemos/Shaders/` instead of copying GPT mockup paths.
+- **Drift:** GPT's reference `verify_hotpath.py` used `int.bit_count()`, which failed on the active Python runtime. The canonical verifier uses a portable `bin(mask).count("1")` fallback.
+- **Evidence:** `/tmp/epistemos-verify-hotpath-r104-20260503.log` passed 23/23 checks and wrote `docs/fusion/oversight/HELIOS_HOTPATH_VERIFICATION_2026_05_03.json`.
+
 ## 0. Confirmed stances (locked, not addenda)
 
 These are confirmations of what the doctrine already says, with the user's most recent decisions:

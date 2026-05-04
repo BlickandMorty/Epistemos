@@ -1331,6 +1331,21 @@ Proven or actively wired:
   graph/Rex/substrate authority, entitlement, or protected editor path was
   touched. Focused evidence:
   `/tmp/epistemos-pbxproj-sync-r103-20260503-rerun.log`.
+- Fusion verification floor STEP 2 is now closed. Canonical HELIOS docs were
+  re-derived from GPT reference artifacts into
+  `HELIOS_WBO6_BUDGET_2026_05_03.md`,
+  `HELIOS_METAL_KERNELS_2026_05_03.md`, and
+  `HELIOS_KV_DIRECT_GATE_RUNBOOK_2026_05_03.md`; GPT's red-team prompt corpus
+  is mirrored under `EpistemosTests/Fixtures/red_team_prompts.json`; and
+  `scripts/verify_hotpath.py` now checks actual Epistemos paths. The verifier
+  resolves the mockup `agent_core/metal/` expectation to the real
+  `Epistemos/Shaders/` authority, writes
+  `docs/fusion/oversight/HELIOS_HOTPATH_VERIFICATION_2026_05_03.json`, and
+  passed with 23/23 checks. Per-step evidence: Rust build
+  `/tmp/epistemos-step2-cargo-build-r104-20260503.log`, Rust tests
+  `/tmp/epistemos-step2-cargo-test-r104-20260503.log`, Xcode build
+  `/tmp/epistemos-step2-xcodebuild-r104-20260503.log`, and hot-path verifier
+  `/tmp/epistemos-verify-hotpath-r104-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox

@@ -2859,6 +2859,11 @@ new Hermes/Resonance files are included by Xcode filesystem-synchronized root
 groups without manual `project.pbxproj` rows, and `/tokens` now dispatches
 through `HermesCommandDispatcher` into the existing Core-native
 `HermesTokensCommand`.
+Fusion verification floor STEP 2 is closed. The HELIOS WBO-6 budget, Metal
+kernel index, KV-Direct gate runbook, red-team prompt fixture, and
+`scripts/verify_hotpath.py` are now canonical Epistemos artifacts. The hot-path
+verifier passes against current code and maps the mockup `agent_core/metal/`
+expectation to the real `Epistemos/Shaders/` shader authority.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
