@@ -9,6 +9,8 @@
     "hermes_capability_registry_present": true,
     "hermes_gateway_policy_present": true,
     "kivi_runtime_floor_present": true,
+    "lattice_budget_tests_present": true,
+    "lattice_rust_surface_present": true,
     "mamba_shader_count_at_least_4": true,
     "no_critical_inference_subprocess": true,
     "no_managed_private_hotpath_storage": true,

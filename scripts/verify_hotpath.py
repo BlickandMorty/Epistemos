@@ -24,8 +24,10 @@ REQUIRED_PATHS = [
     "agent_core/src/resonance/pi.rs",
     "agent_core/src/resonance/lambda.rs",
     "agent_core/src/wbo6/mod.rs",
+    "agent_core/src/lattice/mod.rs",
     "agent_core/tests/resonance_seed.rs",
     "agent_core/tests/wbo6_budget.rs",
+    "agent_core/tests/lattice_budget.rs",
     "Epistemos/Engine/ResonanceService.swift",
     "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
     "Epistemos/LocalAgent/HermesCapabilityRegistry.swift",
@@ -181,6 +183,8 @@ def main() -> int:
     resonance_swift = read("Epistemos/Engine/ResonanceService.swift")
     wbo6 = read("agent_core/src/wbo6/mod.rs")
     wbo6_tests = read("agent_core/tests/wbo6_budget.rs")
+    lattice = read("agent_core/src/lattice/mod.rs")
+    lattice_tests = read("agent_core/tests/lattice_budget.rs")
     hermes_gateway = read("Epistemos/LocalAgent/HermesGatewayPolicy.swift")
     hermes_registry = read("Epistemos/LocalAgent/HermesCapabilityRegistry.swift")
     kivi = read("Epistemos/Engine/KIVIQuantization.swift")
@@ -239,6 +243,14 @@ def main() -> int:
         "wbo6_budget_tests_present": all(
             marker in wbo6_tests
             for marker in ["term_codes_match_canonical_wbo6_order", "core_resonance_signature_consumes_only_t_r", "kl_from_logits_detects_candidate_drift"]
+        ),
+        "lattice_rust_surface_present": all(
+            marker in lattice
+            for marker in ["LatticeFamily", "E8Codebook", "LeechCodebook", "babai_nearest_plane", "quantization_budget_terms"]
+        ),
+        "lattice_budget_tests_present": all(
+            marker in lattice_tests
+            for marker in ["e8_norm2_shell_has_240_unique_vectors", "e8_norm4_shell_has_2160_unique_vectors", "quantization_budget_terms_consume_only_t_q"]
         ),
         "hermes_gateway_policy_present": all(
             marker in hermes_gateway

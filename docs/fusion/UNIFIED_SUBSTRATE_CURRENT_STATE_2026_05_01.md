@@ -1354,6 +1354,18 @@ Proven or actively wired:
   `/tmp/epistemos-wbo6-budget-pr57-20260503.log`,
   `/tmp/epistemos-wbo6-resonance-regression-pr57-20260503-rerun.log`, and
   `/tmp/epistemos-wbo6-verify-hotpath-pr57-20260503.log`.
+- Lattice Rust foundation STEP 4b / PR58 is now code-closed.
+  `agent_core::lattice` re-derives the GPT lattice mockup into the canonical
+  Core substrate: exact E8 norm-2/norm-4 shell generators (240 / 2,160 unique
+  vectors), Leech norm-4 cardinality metadata with bounded samples only,
+  lower-triangular Babai rounding without public panics, scalar quantization
+  fallback, and a `T_Q` WBO-6 budget hook. The donor's lower-triangular Babai
+  reverse update was not copied; the canonical implementation uses a forward
+  column update and records that drift in the canon-gap log. Focused evidence:
+  `/tmp/epistemos-lattice-budget-pr58-20260503.log`,
+  `/tmp/epistemos-lattice-wbo6-regression-pr58-20260503.log`,
+  `/tmp/epistemos-lattice-agent-core-lib-pr58-20260503.log`, and
+  `/tmp/epistemos-lattice-verify-hotpath-pr58-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox

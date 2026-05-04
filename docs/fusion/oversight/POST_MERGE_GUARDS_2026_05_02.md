@@ -1046,3 +1046,20 @@
 - test: `cargo test --manifest-path agent_core/Cargo.toml --test wbo6_budget`
 - test: `cargo test --manifest-path agent_core/Cargo.toml --test resonance_seed`
 - test: `python3 scripts/verify_hotpath.py`
+
+## lattice-rust-foundation-pr58
+
+- module grep: `LatticeFamily|E8Codebook|LeechCodebook|babai_nearest_plane|quantization_budget_terms` remains present in `agent_core/src/lattice/mod.rs`.
+- export grep: `pub mod lattice;` remains present in `agent_core/src/lib.rs`.
+- exact shell grep: `e8_norm2_shell_has_240_unique_vectors|e8_norm4_shell_has_2160_unique_vectors` remains present in `agent_core/tests/lattice_budget.rs`.
+- WBO-6 integration grep: `quantization_budget_terms_consume_only_t_q` remains present in `agent_core/tests/lattice_budget.rs`.
+- verifier grep: `lattice_rust_surface_present|lattice_budget_tests_present` remains present in `scripts/verify_hotpath.py`, and the hot-path JSON has `"status": "pass"`.
+- staged allow: only `agent_core/src/lib.rs`, `agent_core/src/lattice/mod.rs`, `agent_core/tests/lattice_budget.rs`, `scripts/verify_hotpath.py`, hot-path verification JSON, this guard file, current-state docs, workcard docs, canon-gap drift note, the failed Claude side-fleet note, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `test result: ok. 11 passed` in `/tmp/epistemos-lattice-budget-pr58-20260503.log`.
+- log: `test result: ok. 13 passed` in `/tmp/epistemos-lattice-wbo6-regression-pr58-20260503.log`.
+- log: `test result: ok. 806 passed` in `/tmp/epistemos-lattice-agent-core-lib-pr58-20260503.log`.
+- log: `"status": "pass"` in `/tmp/epistemos-lattice-verify-hotpath-pr58-20260503.log`.
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test lattice_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test wbo6_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --lib`
+- test: `python3 scripts/verify_hotpath.py`

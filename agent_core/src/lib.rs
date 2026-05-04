@@ -15,6 +15,7 @@ pub mod error_classifier;
 pub mod etl;
 pub mod evolution;
 pub mod example_bank;
+pub mod lattice;
 pub mod mutations;
 pub mod neocortex;
 pub mod oplog;
