@@ -316,6 +316,16 @@ struct LandingView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
 
+            // ⌥⌘H — toggle Hermes Expert Mode from anywhere on
+            // the landing page. The chip in the bottom row also
+            // triggers `toggleHermesExpertMode`; this is the
+            // keyboard parity.
+            Button(action: { toggleHermesExpertMode() }) {}
+                .keyboardShortcut("h", modifiers: [.command, .option])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+
         }
         .onKeyPress(.escape) {
             if hermesExpertMode.isActive {
@@ -359,7 +369,7 @@ struct LandingView: View {
 
             VStack(spacing: 18) {
                 if hermesExpertMode.isActive {
-                    HermesShimmeringSigil()
+                    HermesShimmeringSigil(burstTrigger: hermesExpertMode.submitCounter)
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                         .padding(.bottom, 4)
                 }

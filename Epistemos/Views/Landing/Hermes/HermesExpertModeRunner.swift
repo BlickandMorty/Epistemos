@@ -54,6 +54,7 @@ struct HermesExpertModeRunner {
         state.append(.init(kind: .userInput, text: trimmed))
         state.recordHistory(trimmed)
         state.resetRecall()
+        state.bumpSubmitCounter()
         state.clearDraft()
 
         // Bare prompt (no slash): treat as /ask — hand to main chat.
