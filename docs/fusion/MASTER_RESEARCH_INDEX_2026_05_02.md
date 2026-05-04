@@ -1,6 +1,6 @@
 # Master Research Index — 2026-05-02
 
-> **NEW DOC — created 2026-05-02.** Filename: `MASTER_RESEARCH_INDEX_2026_05_02.md`. Search by name if older session indexes don't list it. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Mirrored into the active worktree.
+> **NEW DOC — created 2026-05-02.** Filename: `MASTER_RESEARCH_INDEX_2026_05_02.md`. Search by name if older session indexes don't list it. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Next-session execution bootstrap: `NEXT_SESSION_PROMPT_2026_05_04.md` (loads context, treats dirty files as active work surface, and drives the full canonical plan forward). Mirrored into the active worktree.
 
 > **Purpose.** When Codex hits any concept, feature, mini-task, or term — look it up here. This index maps every load-bearing concept to (a) its canonical source on disk, (b) supporting / cross-reference docs, (c) code anchors with absolute paths, (d) tier classification, and (e) one load-bearing claim quoted verbatim. **Compiled from 8 parallel deep-scans** of all 7 worktrees + 5 unindexed Downloads research roots + the Quick Capture standalone canon (~470 KB) + ~60 external research files.
 >
@@ -568,6 +568,33 @@ Slices S0-S11 all committed:
 - Halos as separate additive-blend quads with pre-rasterized textures (never Gaussian blur)
 - LobeHub smooth-vector brand icons exempt from I-16 (different category)
 
+### 2026-05-04 T6 Tamagotchi specificity correction
+**Canonical user correction:** Simulation/Companion Farm means actual
+Tamagotchi-style companion creatures, not SF Symbols, generic orbs, or static
+cards. The Landing Farm needs small styleable avatar bodies that can
+idle-walk/roam deterministically inside bounded paths; the Graph Live Theater
+later projects companion presence from the same registry.
+
+**Current code truth to verify before every T6 slice:**
+- `Epistemos/Views/Landing/Farm/CompanionView.swift` still needs native
+  Canvas/SVG-style body rendering if it references `systemImageName`.
+- `Epistemos/Views/Landing/Farm/LandingFarmView.swift` needs a deterministic
+  roaming layer before T6 can be called visually canonical.
+- `Epistemos/Views/Graph/` has no companion-presence layer yet; graph work must
+  not touch protected graph internals until a graph-specific deliberation.
+
+**Search expansion for this concept:** `tamagotchi`, `companion`, `farm`,
+`avatar`, `creature`, `pet`, `body grammar`, `walk`, `roam`, `wander`,
+`Landing Farm`, `Graph Live Theater`, `Notes Sidebar Skin`, `CompanionView`,
+`Character DNA`, `Hermes Snake`.
+
+**Quick Capture Wave 10 productization detail:** Pixel mode is "Pixel art,
+animated walking sprites, emotes, color-per-agent"; Tactical mode is
+information-equivalent and enterprise-safe. Exit bar includes 50 Tamagotchi
+sprites, 24 emotes, and smooth 60 FPS walking on M-series.
+
+**Canon artifact:** `docs/fusion/fleet/t6-tamagotchi-body-grammar/T6_TAMAGOTCHI_BODY_GRAMMAR_RECOVERY_2026_05_04.md`.
+
 ---
 
 ## 12. App Store Release / Phase R / Phase S
@@ -848,9 +875,20 @@ choice, deletion, simplification, or "simple" code change:
    work gets deeper local retrieval before coding.
 6. Delegated Claude/Kimi/Codex handoffs must include the relevant local canon
    paths, semantic search terms, and any unresolved external-validation need.
-   Do not hand an agent a generic task if the user's research already gives the
-   map.
-7. Keep it useful: search smartly, quote only the load-bearing claim or path,
+   Use `LOCAL_CANON_FIRST_SPECIFICITY_PROTOCOL_2026_05_04.md` for the reusable
+   root list, feature-specific search expansions, and brief fields.
+7. Run a **specificity recovery pass** for every phase/wave: search the user's
+   exact words plus semantic siblings across `docs/fusion/`, `docs/`, relevant
+   worktree docs, and named external research roots. High-specificity product
+   intent (for example "Tamagotchi-like companions roaming on Landing/Graph")
+   must be carried into the brief even if the final plan only uses a compressed
+   abstraction such as "body grammar."
+8. If the final/substrate plan names a feature abstractly but the research
+   roots describe concrete UX/assets/behavior, update the fusion canon before
+   coding or stage a canon gap. Do not let compressed doctrine erase the
+   user's concrete artifact intent. Do not hand an agent a generic task if the
+   user's research already gives the map.
+9. Keep it useful: search smartly, quote only the load-bearing claim or path,
    and stop reading once the slice has enough evidence to act safely.
 
 ---
@@ -1020,10 +1058,27 @@ patterns above; Epistemos implements all 10.
 ### §24.5 Open questions
 
 - InferenceXPC explicitly NOT created — MLX-Swift stays in Main App per CLAUDE.md NO SIDECAR (perf > isolation for inference)
-- HermesOrchestratorXPC folded into AgentXPC for V1
-- Secure Enclave key device-bound — V2 needs migration UX for new Mac
+- HermesOrchestratorXPC may start physically co-located with AgentXPC, but the Hermes trust contract stays named, tested, provenance-visible, and ready to split when provider/cloud planning needs a separate boundary
+- Secure Enclave key device-bound — migration UX for a new Mac is required product work, not a downgraded security compromise
 - JIT entitlement App Review risk → ship Pulley interpreter fallback baked in (10-50× slower) so binary still works if Apple rejects allow-jit
-- launchd-managed vs in-bundle: in-bundle (`Contents/XPCServices/`) for V1
+- launchd-managed vs bundled: bundled `Contents/XPCServices/` is the default MAS-safe trust spine; LaunchAgents / daemons are additive only for outlive-app, other-client, root, or system-extension requirements
+
+### §24.6 No-compromise XPC research intake
+
+**Canonical sidecar:** `docs/fusion/XPC_RESEARCH_INTAKE_2026_05_04.md`
+
+The user's latest XPC / sandbox / ExtensionKit / System Extensions / biometrics
+research is adopted as a required sidecar to XPC Mastery. It is not a date gate
+or V1 shortcut. Future XPC/Hermes/native-integration briefs must preserve:
+
+- bundled XPC trust spine under `Contents/XPCServices/`
+- symmetric `setCodeSigningRequirement(_:)` before `resume()`
+- `NSXPCInterface.setClasses` / schema whitelists and payload size caps
+- no PID-based trust decisions
+- coordinated App Group naming, provisioning, signing, and built-entitlement verification
+- MAS / Pro compile-time separation without weakening MAS peer validation
+- Secure Enclave / `.biometryCurrentSet` vault-key semantics
+- ExtensionKit / App Intents / Spotlight / Quick Look / Credential Provider as clients of the same capability boundary
 
 ---
 
@@ -1239,3 +1294,70 @@ every subsequent stage risks duplicating or missing existing canon.
 > own."*
 
 No compromises. No shortcuts. Stay canonical with the build docs.
+
+---
+
+## 28. Canonical Unification Inventory — Worktrees + Non-Fusion Promoted (added 2026-05-04)
+
+**Canonical:** `docs/fusion/CANONICAL_UNIFICATION_INVENTORY_2026_05_04.md`
+
+**Adopted 2026-05-04 by explicit user instruction** to scan all
+worktrees + non-fusion canon and unify into the fusion folder.
+
+### §28.1 Today's promotions (now in `docs/fusion/`)
+
+`docs/fusion/simulation/`:
+- `DOCTRINE.md` — 1,982-line canonical Simulation Mode v1.6 doctrine
+  with **16 invariants** (I-1 through I-16; I-15 prohibits AnyView in
+  hot paths; I-16 is bit-perfect pixel rendering for pixel-art only)
+- `IMPLEMENTATION.md` — 2,597-line slice-by-slice build plan with
+  FFI three-tier strategy + Metal rendering (instanced quads +
+  texture array + IOSurface + bit-perfect)
+- `SESSION_KICKOFF.md` — session-start protocol
+- `character-dna/` — five Character DNA files (`block_compact`,
+  `block_wide`, `orb`, `sage`, `hermes_snake`) with per-frame
+  animation specs and 13-state per-companion state machines
+
+### §28.2 Pointed-at (canonical, lives outside fusion)
+
+- `docs/_consolidated/00_canonical_authority/` — **23 TOP CANON files**
+  including `PLAN_V2.md`, `MASTER_BUILD_PLAN.md`,
+  `IMPLEMENTATION_PLAN_FROM_ADVICE.md`, `KNOWN_ISSUES_REGISTER.md`,
+  `MASTER_HARDENING_AND_HARNESS_PLAN.md`, `SKILL_IMPLEMENTATION_PLAN.md`,
+  `ambient_V1_DECISION.md`
+- `docs/AMBIENT_RECALL_HALO_MASTER_PLAN.md` — Halo V1 stack canon (T8)
+- `/Users/jojo/Downloads/EPISTEMOS-HERMES-PARITY-PLAN.md` — Hermes
+  parity canonical implementation map (already pointed-at from
+  CODEX_RECOVERY_HANDOFF)
+- 5 worktrees beyond simulation carry per-worktree deltas; map in
+  `CANONICAL_UNIFICATION_INVENTORY` §2.5
+
+### §28.3 Critical doctrinal findings from the unification
+
+- **GenUIDispatcher uses `AnyView` — violates Simulation DOCTRINE I-15
+  in hot paths.** Needs typed-render variant or cold-path-only
+  classification.
+- **Body grammar is parameterized** (Block has compact + wide variants
+  per §5.1), not the fixed 4-case enum the hackathon Companion Farm
+  shipped.
+- **Hermes Snake is the graph faculty** (DOCTRINE §8.1, hovers above
+  graph plane z+1), not a Companion Farm citizen — current
+  implementation is doctrinally misplaced.
+- **Hermes references "canonical NousResearch SVG art"** explicitly
+  (`character-dna/hermes_snake.md`) with Epistemos-fallback
+  substitution allowance per §8.2.1 — confirms HERMES_BRAND_DOCTRINE
+  intent.
+
+### §28.4 Updated recovery estimates
+
+- **Stage E.1 collapses to 0 days** — Simulation doctrine already
+  exists and is now in fusion
+- **Stage E.2 grows to 3-5 weeks** — implementation spec is richer
+  than estimated (instanced Metal quads + per-companion 13-state
+  animation + sprite atlas + bit-perfect rendering)
+- **GenUIDispatcher I-15 fix** added as 1-2 day item
+
+### §28.5 The phrase
+
+> *"Canon found, not authored — it was on disk; we just hadn't
+> looked hard enough yet."*
