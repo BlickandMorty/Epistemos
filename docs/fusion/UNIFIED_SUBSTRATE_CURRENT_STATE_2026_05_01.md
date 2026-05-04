@@ -1419,6 +1419,18 @@ Proven or actively wired:
   certificate. True mmap FFI/XPC transport and runtime dispatch remain later
   STEP 5/6 gates. Focused evidence:
   `/tmp/epistemos-swift-app-group-bootstrap-pr63-20260503-rerun2.log`.
+- Hermes XPC source skeleton STEP 6a/b/c / PR64 is now source-closed.
+  `Epistemos/XPC` defines the canonical AgentXPC and ProviderXPC protocols,
+  service names, in-process clients, and deterministic response envelopes.
+  AgentXPC delegates Core slash parsing to `HermesCommandDispatcher.parseCore`;
+  ProviderXPC delegates provider/CLI surface classification to
+  `HermesGatewayPolicy.decision`. Thin service sources now live under
+  `XPCServices/AgentXPC` and `XPCServices/ProviderXPC`, but they do not execute
+  tools, call cloud HTTP, spawn CLIs, move storage, emit AgentEvents, or wire chat
+  input yet. XPC target packaging / `project.pbxproj` sync, `CapabilityBridge`,
+  true mmap FFI transport, and runtime dispatch remain later STEP 6 gates.
+  Focused evidence:
+  `/tmp/epistemos-xpc-service-skeleton-pr64-20260503-rerun2.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
