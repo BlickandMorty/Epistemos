@@ -1114,3 +1114,14 @@
 - log: all six files compile in `/tmp/epistemos-metal-compile-pr61-20260503.log`.
 - test: `python3 scripts/verify_hotpath.py`
 - test: `xcrun -sdk macosx metal -c agent_core/metal/<kernel>.metal`
+
+## swift-app-group-arena-source-pr62
+
+- source grep: `group.com.epistemos.shared` remains present in `Epistemos/App/AppGroupContainer.swift`.
+- source grep: `arena.dat`, `blobs`, `provenance.sqlite`, `vault_index.sqlite`, and `resonance.sqlite` remain present in `Epistemos/App/AppGroupContainer.swift`.
+- source grep: `ArenaBridge`, `ArenaPathResolver`, `arenaVersion: UInt32 = 2`, `slotCount = 16`, `maxInlinePayloadBytes = 2_048`, `maxInlineResponseBytes = 4_096`, and `maxArtefactRefs = 8` remain present in the Swift arena source/tests.
+- drift grep: `Epistenos|group.com.epistenos|epistenos\.arena` remains absent from `Epistemos/App/AppGroupContainer.swift`, `Epistemos/Engine/ArenaPathResolver.swift`, and `Epistemos/Engine/ArenaBridge.swift`.
+- boundary: App Group entitlements, AppBootstrap startup wiring, true mmap FFI/XPC transport, runtime dispatch, `project.pbxproj`, `agent_core/Cargo.toml`, protected graph files, and protected editor files remain untouched by PR62.
+- staged allow: only `Epistemos/App/AppGroupContainer.swift`, `Epistemos/Engine/ArenaPathResolver.swift`, `Epistemos/Engine/ArenaBridge.swift`, `EpistemosTests/ArenaTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `Test run with 9 tests in 1 suite passed` in `/tmp/epistemos-swift-arena-source-pr62-20260503-rerun.log`.
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ArenaTests test`.
