@@ -236,7 +236,7 @@ final class HologramOverlay {
         to alpha: CGFloat,
         duration: TimeInterval,
         timing: CAMediaTimingFunctionName = .easeOut,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         if reduceMotionEnabled {
             window.alphaValue = alpha
@@ -255,7 +255,7 @@ final class HologramOverlay {
         to frame: NSRect,
         duration: TimeInterval,
         timing: CAMediaTimingFunctionName = .easeInEaseOut,
-        completion: (() -> Void)? = nil
+        completion: (@Sendable () -> Void)? = nil
     ) {
         if reduceMotionEnabled {
             window.setFrame(frame, display: true)
@@ -283,10 +283,12 @@ final class HologramOverlay {
     private var controlsHostView: NSView?
     private var sidebarHostView: NSView?
     private var routeHostView: NSView?
+    private var hermesFacultyHostView: NSView?
     private var routeObserver: Any?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
     private var routeConstraints: [NSLayoutConstraint] = []
+    private var hermesFacultyConstraints: [NSLayoutConstraint] = []
 
     // Mini floating panel (chromeless glass float).
     private var miniPanel: GraphOverlayPanel?
@@ -1279,6 +1281,7 @@ final class HologramOverlay {
         routeHostView?.isHidden = isCanvas
         controlsHostView?.isHidden = !isCanvas
         sidebarHostView?.isHidden = !isCanvas
+        hermesFacultyHostView?.isHidden = !isCanvas
 
         if isCanvas {
             repositionInspector()
@@ -1513,6 +1516,8 @@ final class HologramOverlay {
         appearanceObserver = nil
         // Nil inspector (SwiftUI hosting view).
         inspectorHostView = nil
+        hermesFacultyHostView = nil
+        hermesFacultyConstraints = []
         // Nil blur layer refs.
         darkenLayer = nil
         blurView = nil
@@ -1604,6 +1609,25 @@ final class HologramOverlay {
         ]
         NSLayoutConstraint.activate(rtConstraints)
         self.routeConstraints = rtConstraints
+
+        // Hermes Snake graph faculty (Simulation v1.6 §8.1): graph-plane z+1.
+        let hermesFacultyView = HologramOverlayHostedViewBuilder.host(
+            HermesGraphFacultyGlyph(phase: 0.65)
+                .frame(width: 74, height: 74)
+        )
+        hermesFacultyView.translatesAutoresizingMaskIntoConstraints = false
+        hermesFacultyView.isHidden = !graphState.currentRoute.isCanvas
+        contentView.addSubview(hermesFacultyView, positioned: .above, relativeTo: graphView)
+        self.hermesFacultyHostView = hermesFacultyView
+
+        let hermesFacultyConstraints = [
+            hermesFacultyView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -92),
+            hermesFacultyView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 84),
+            hermesFacultyView.widthAnchor.constraint(equalToConstant: 74),
+            hermesFacultyView.heightAnchor.constraint(equalToConstant: 74),
+        ]
+        NSLayoutConstraint.activate(hermesFacultyConstraints)
+        self.hermesFacultyConstraints = hermesFacultyConstraints
 
         routeObserver = NotificationCenter.default.addObserver(
             forName: .graphRouteDidChange,

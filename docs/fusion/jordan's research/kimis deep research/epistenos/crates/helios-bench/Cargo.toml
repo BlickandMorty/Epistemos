@@ -1,0 +1,59 @@
+[package]
+name = "helios-bench"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Benchmarks and test harnesses: KV-Direct gate, recall, memory, determinism, tuning, security"
+
+[dependencies]
+helios-core = { workspace = true }
+helios-metal = { workspace = true }
+helios-mlx = { workspace = true }
+helios-runtime = { workspace = true }
+helios-models = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+memmap2 = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bin]]
+name = "g1-kv-direct"
+path = "src/g1_kv_direct.rs"
+
+[[bin]]
+name = "g2-recall"
+path = "src/g2_recall.rs"
+
+[[bin]]
+name = "g3-memory"
+path = "src/g3_memory.rs"
+
+[[bin]]
+name = "g4-determinism"
+path = "src/g4_determinism.rs"
+
+[[bin]]
+name = "g5-self-tuning"
+path = "src/g5_self_tuning.rs"
+
+[[bin]]
+name = "g6-vault-security"
+path = "src/g6_vault_security.rs"
+
+[[bin]]
+name = "helios-bench"
+path = "src/main.rs"

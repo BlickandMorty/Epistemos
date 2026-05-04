@@ -146,14 +146,16 @@ final class SSMMemorySidecar: @unchecked Sendable {
 
     // MARK: - State Persistence
 
-    /// Placeholder hook for future state persistence once the compressed text path
-    /// is bridged into `SSMStateService`'s cache-backed persistence model.
-    func persistState(modelID: String, sessionID: String) {
-        guard let stateService, stateService.isActive else { return }
-        guard let context = lastCompressedContext, !context.isEmpty else { return }
+    /// Persist the last compressed text context for warm prompt resume.
+    @discardableResult
+    func persistState(modelID: String, sessionID: String) -> URL? {
+        guard let stateService, stateService.isActive else { return nil }
+        guard let context = lastCompressedContext, !context.isEmpty else { return nil }
 
-        Self.log.info(
-            "Sidecar persistence is not implemented for compressed text yet: model=\(modelID, privacy: .public) session=\(sessionID, privacy: .public)"
+        return stateService.saveCompressedContext(
+            modelId: modelID,
+            sessionId: sessionID,
+            context: context
         )
     }
 

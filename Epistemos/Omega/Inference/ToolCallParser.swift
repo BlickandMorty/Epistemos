@@ -21,6 +21,12 @@ nonisolated enum ToolCallParser {
     /// Parse tool calls from model output text.
     /// Tries multiple strategies in priority order.
     static func parse(_ text: String) -> [ParsedToolCall] {
+        #if canImport(agent_coreFFI)
+        if let calls = parseWithRustHermes(text), !calls.isEmpty {
+            return calls
+        }
+        #endif
+
         // Strategy 1: Qwen-style <tool_call> tags
         if let calls = parseQwenToolCalls(text), !calls.isEmpty {
             return calls
@@ -64,6 +70,34 @@ nonisolated enum ToolCallParser {
 
         return []
     }
+
+    #if canImport(agent_coreFFI)
+    private struct RustHermesToolCall: Decodable {
+        let name: String
+        let argumentsJson: String
+
+        private enum CodingKeys: String, CodingKey {
+            case name
+            case argumentsJson = "arguments_json"
+        }
+    }
+
+    private static func parseWithRustHermes(_ text: String) -> [ParsedToolCall]? {
+        guard let json = try? hermesParseToolCalls(text: text),
+              let data = json.data(using: .utf8),
+              let calls = try? JSONDecoder().decode([RustHermesToolCall].self, from: data) else {
+            return nil
+        }
+
+        return calls.compactMap { call in
+            guard let data = call.argumentsJson.data(using: .utf8),
+                  let args = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return ParsedToolCall(name: call.name, arguments: [:])
+            }
+            return ParsedToolCall(name: call.name, arguments: args)
+        }
+    }
+    #endif
 
     // MARK: - Qwen Format
 

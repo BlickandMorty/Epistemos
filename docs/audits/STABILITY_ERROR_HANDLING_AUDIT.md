@@ -1,53 +1,54 @@
 # Stability + Error Handling Audit
 
-Date: 2026-04-25
-Severity: BLOCKER / HIGH / MEDIUM / LOW / DEFER. Confidence noted per finding.
+Date: 2026-04-28
 
-## Risk table
+Verdict: Most core surfaces have explicit code paths, but several V1 candidates still fail silently or rely on component tests instead of user-path recovery tests. P0 risk is low in the docs-only pass; P1 risk remains around `.epdoc`, recall, Raw Thoughts, and code-editor large-file behavior.
+
+## Required Risk Table
 
 | Risk | File | Failure mode | User-facing behavior today | Required behavior | Priority |
-|---|---|---|---|---|---|
-| Force unwrap / `try!` / `as!` | (none found) | n/a | n/a | n/a | DEFER |
-| `Int(Float)` traps on NaN/Infinity | guarded sites: `CodeEditorView.swift:2662+3059` use `.isFinite` check | n/a | n/a | none | DEFER |
-| `try?` on critical write paths | NoteFileStorage clean; VaultSyncService clean | n/a | n/a | none | DEFER |
-| `try?` on AppBootstrap directory create | `AppBootstrap.swift:975` (`createDirectory`) | non-critical: store falls back to default | acceptable today | none | DEFER |
-| `try?` on snapshot persistence | `ChatState.swift:484` (`data.write(.atomic)`) | non-critical: cache snapshot | acceptable | none | DEFER |
-| `Vec::from_raw_parts` allocator mismatch (ISSUE-2026-04-04-001) | `graph-engine/src/lib.rs:2001+2327` | crash on hide/resign-active | FIXED via `into_boxed_slice` + `Box::from_raw` per AGENT_PROGRESS 2026-04-15 | verify no regression | DEFER (regression-tested) |
-| `unsafe { std::slice::from_raw_parts }` in agent_core | `agent_core/src/shared_memory.rs` | read-only slice from owned buffer; lifetime bounded by struct | safe pattern | none | DEFER |
-| `DispatchQueue.main.sync` (deadlock pattern banned by CLAUDE.md) | grep returns 0 matches | n/a | n/a | none | DEFER (clean) |
-| HermesSubprocessManager Swift-side health check | not yet wired (Phase Omega-2) | subprocess hang masked by stdin-writeable status | per AGENT_PROGRESS 2026-04-02: PTY layer is solid; Swift bridge deferred | future work, non-blocking | DEFER |
-| omega-mcp/src/pty.rs orphan cleanup + SIGTERM→SIGKILL | `:265+428+522+680` | tested 8 cases; `__EPPWD__` marker fixed | none | none | DEFER |
-| HologramOverlay hide → bounded teardown 10s, MainActor.assumeIsolated | `HologramOverlay.swift:532-560` | clean lifecycle | none | none | DEFER |
-| NotificationCenter observers — 42 add/remove pairs balanced | scattered | clean | none | none | DEFER |
-| `nonisolated(unsafe)` on NSView properties — 20 uses, all `// SAFETY:` commented | scattered | safe pattern | none | none | DEFER |
-| Permission injection (note content can grant capability) | `agent_core/src/permissions.rs` reads only stored grants, never note content | n/a | none — secured | none | DEFER |
-| Verified-write contract (I-007/I-008) | `agent_core/src/runtime.rs verified_write` + Swift E2E test | "AI lies about writes" — FIXED | none | none | DEFER |
-| Bookmark startup validation (S.4) | `VaultSyncService.swift:25-29` + tests at `VaultSyncServiceAuditTests.swift:198-273` | stale bookmark rejected; clean restore on valid | none | none | DEFER |
-| App init logs swallowing failures (per AGENT_PROGRESS 2026-04-02) | `AppBootstrap.swift` startup integrity, welcome-back, Instant Recall snapshot, model-profile save — all log on failure | improved error visibility | none | none | DEFER |
-| Empty states / first-run guidance | partial | some empty states are bare | add concise one-line hints | LOW (P2) | manual UI review |
-| Provider error UI (401/429/content-policy) | typed error enum + classify() landed (per Master Plan Q + W) | shows recovery buttons | confirm coverage for Anthropic/Google paths | LOW (P2) | provider-specific tests |
-| Permissions failure visible feedback | `AgentControlSettingsView.activeGrantsSection` shows revoke; permission_denied path returns `ToolError::PermissionDenied` | shown in chat as failed tool result | confirm clear copy on denial | LOW (P2) | manual: revoke grant → retry → see clear message |
-| Offline / cloud provider failure | typed error path landed | recovery buttons | confirm "Switch to local" recovery on outage | LOW (P2) | unplug network → invoke cloud → recovery shown |
+|---|---|---|---|---|---:|
+| Missing or corrupt recall index | `Epistemos/KnowledgeFusion/InstantRecallService.swift`; `Epistemos/State/ContextualShadowsState.swift` | Search returns empty or async task fails | Likely silent no-button/no-results | Show disabled/missing-index state in panel or keep button hidden with recoverable log | P1 |
+| Sync recall rebuild called from UI path | `InstantRecallService.rebuildIndex(notes:)` | MainActor stall | Typing/launch hitch on large vault | Async rebuild only; DEBUG catches sync call | P1 |
+| `.epdoc` projection corruption | `Epistemos/Engine/EpdocDocument.swift`; `Epistemos/Models/EpdocPackage.swift`; `Epistemos/Sync/ReadableBlocksProjector.swift` | `shadow.md`, `plain.txt`, or `search_blocks.jsonl` missing/corrupt | Code/test proof now regenerates projections and preserves canonical JSON; live UI smoke remains deferred | Regenerate projections from canonical `content.pm.json`; never overwrite canonical from shadow silently | P1 |
+| `.epdoc` WebView asset missing | `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift`; build scripts/assets | Rich editor canvas may load blank | User sees broken document editor | Empty/error state with fallback to package metadata; build test verifies assets | P1 |
+| Raw Thoughts malformed manifest/event line | `agent_core/src/storage/raw_thoughts.rs`; `Epistemos/Views/RawThoughts/RawThoughtsInspectorView.swift` | Scan skips or decode fails | Component proof now keeps valid prior JSONL lines and exposes the partial line for inspection; live browse smoke remains deferred | Keep partial-line recovery test green and add runtime run-browse smoke before default-on | P1 |
+| Provider reasoning replay byte identity | `agent_core/src/storage/raw_thoughts.rs`; `agent_core/src/agent_loop.rs`; `agent_core/src/providers/claude.rs` | Anthropic thinking/redacted payload mutated | Storage/provider tests preserve opaque payload bytes; live replay is not smoked | Store opaque payload/signature byte-identically; test round trip; add live replay smoke if replay ships | P0 if replay enabled, P1 otherwise |
+| Computer-use surfaces in MAS | `Epistemos/AppStore/AppStoreComputerUseStubs.swift`; `Epistemos/Omega/Vision/ScreenCaptureService.swift` | MAS rejects or permission dead-end | Stubbed in MAS, direct build only | Keep hidden in MAS and test compile-time profile | P0 |
+| SpeechAnalyzer live audio format / tap isolation | `Epistemos/Engine/EpistemosSpeechAnalyzer.swift`; `Epistemos/Views/Shared/VoiceInputButton.swift` | Speech.framework trap during live dictation start, raw-buffer analysis, or Swift concurrency isolation check from the audio tap callback | Fresh Apr 29 reports showed `EXC_BREAKPOINT`/`SIGTRAP` in `EpistemosSpeechAnalyzer.startLive`; Patch 47 prepares the analyzer in the best compatible format, converts mic buffers, and shows an unavailable-format error if setup fails. Patch 48 removes MainActor instance access from the AVAudio tap closure. Runtime mic smoke remains deferred | Keep source/policy tests green; run live mic permission/device smoke before shipping dictation default-on | P0 until runtime-smoked, P1 after |
+| Code editor Unicode range conversion | `Epistemos/Views/Notes/CodeEditorView.swift`; `SwiftTreeSitterLiveHighlighter.swift` | Wrong highlight range or crash | Component tests now cover Unicode-safe chunk prep; live editor p95 still unmeasured | UTF-8/UTF-16 conversion tests plus runtime large-file smoke | P1 |
+| Large code file open | `CodeEditorView.swift` | Whole-string operations become slow | Jank/freezing at 4k+ lines possible | Size guard, visible-range work, and benchmark | P1 |
+| Settings copy drift | `Epistemos/Views/Settings/SettingsView.swift`; privacy tests | MAS privacy/cloud wording overclaims | User/App Review confusion | Tests verify exact categories and PrivacyInfo alignment | P0 |
+| App bootstrap optional services | `Epistemos/App/AppBootstrap.swift` | Optional service init fails | Crash or missing UI state if force-required | Optional systems degrade with logged disabled state | P1 |
+| Search projection write failure | `ReadableBlocksIndex.swift`; `SearchIndexService.swift` | Index stale after save | Search misses artifact/block | Rebuildable projection plus visible rebuild state | P1 |
 
-## Crash classes
+## Crash / Stub Patterns To Keep Watching
 
-All known critical crash classes are CLOSED per `KNOWN_ISSUES_REGISTER.md` (15/18 fixed; 3 design partials):
+- `fatalError("init(coder:) has not been implemented")` is acceptable only for programmatic AppKit views that cannot load from storyboards.
+- `bindingsUnavailable` or placeholder stubs must not be reachable from production UI.
+- `try?` on user-data writes is unacceptable unless paired with visible recovery or retry.
+- Silent `catch {}` on file, database, model, or bridge paths is a P1 until justified.
 
-- I-007/I-008 verified_write contract — FIXED.
-- I-009 permission gate fail-closed default — FIXED.
-- I-010 prompt injection — FIXED at design level.
-- I-019 macOS 26 global event monitor — code site no longer exists; tracked closed.
-- ISSUE-2026-04-04-001 Vec drop malloc — FIXED 2026-04-15.
-- ISSUE-2026-04-06-001 Pinned inspector freeze — FIXED via `force_alive` flag.
+## Startup Checks
 
-## Top 3 stability gaps
+- App startup must not require models, embeddings, graph index, Raw Thoughts, or `.epdoc` projections to be present.
+- Missing optional indexes should log and rebuild in background.
+- Corrupt projection files must be treated as rebuildable, not app-bricking.
+- Corrupt canonical files must stop the write path and show a recoverable error.
 
-1. **HermesSubprocessManager Swift-side health check** — not blocking V1 because PTY layer is robust standalone. Schedule for Phase Omega-2.
-2. **Empty-state polish** — bare states harm first-run UX. P2 polish pass.
-3. **Provider error recovery** — typed-error landed, but verify coverage for all four providers (Anthropic, OpenAI, Perplexity, Google).
+## Required New Tests
 
-## Verdict
+| Test | Purpose |
+|---|---|
+| `ContextualShadowsUnavailableTests` | missing index/disabled flag does not crash or show stale results |
+| Raw Thoughts live run-link smoke | storage/recovery proof reaches user-browsable run UI |
+| Raw Thoughts high-rate stream test | streaming does not create per-token SwiftUI churn or unbounded growth |
+| `EpdocProjectionRecoveryTests` | missing/corrupt projection regenerates from canonical body |
+| `CodeEditorUnicodeRangeTests` | syntax spans map safely across emoji/CJK text |
+| `SettingsPrivacyCopyDriftTests` | visible Settings categories and copy stay MAS-exact |
 
-Stability is shippable. Phase R closure was real. Test coverage is strong. The gap is polish (empty states, error copy) plus the Hermes Swift bridge (deferred). No P0 stability blocker.
+## Severity Summary
 
-Confidence: HIGH on closed items (parallel-agent audit verified directly).
+- P0: MAS computer-use hiding, provider reasoning byte preservation if replay path is enabled, privacy copy exactness.
+- P1: recall recovery, `.epdoc` projection recovery, Raw Thoughts live browse/streaming proof, code-editor Unicode/large-file behavior.
+- P2: better empty-state copy and logs for optional systems.

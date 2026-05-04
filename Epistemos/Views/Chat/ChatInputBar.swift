@@ -680,6 +680,8 @@ struct ChatInputBar: View {
                         )
                     }
 
+                    ContextualShadowsButton()
+
                     sendButton
                 }
                 .padding(.top, MainChatComposerLayout.controlRowTopPadding)
@@ -711,6 +713,11 @@ struct ChatInputBar: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            ContextualShadowsPanel(onOpen: openContextualShadowHit)
+                .padding(.trailing, 12)
+                .padding(.bottom, 48)
         }
         .padding(.horizontal, ChatLayout.mainComposerHorizontalPadding)
         .padding(.bottom, Spacing.md)
@@ -1111,6 +1118,16 @@ struct ChatInputBar: View {
     private func dismissReferencePopover() {
         showMentionDropdown = false
         mentionPickerAutofocus = false
+    }
+
+    private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
+        switch hit.kind {
+        case .note:
+            NoteWindowManager.shared.open(pageId: hit.id)
+        case .chat:
+            MiniChatWindowController.shared.openChat(hit.id)
+        }
+        contextualShadows.closePanel()
     }
 
     private func updateMentionReferenceSearch(filter: String) {

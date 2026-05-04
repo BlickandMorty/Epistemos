@@ -57,7 +57,7 @@ but implementation paused for hackathon.
 | **Hackathon** | Paused; resume after hackathon ships. Hermes Expert Mode (slices 1-8 / 2026-05-03) ships per-command renderers under explicit `GENUI-DEFER` per `COGNITIVE_GENUI_DOCTRINE` §6 — they migrate to dispatcher when G.3 lands. |
 | **Master index ref** | §23 Substrate Unification Doctrine |
 | **Four sub-tracks** | (1) Cognitive Kernel = Phases 1-7. (2) Cognitive DAG = Phase 8.A–H. (3) XPC Mastery = Phases X.1–X.5 (woven into Phases 1-7). (4) **Schema-First GenUI** = Phases G.1–G.6 (unifies render layer; previously got lost — now explicit) |
-| **Canonical docs** | `COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md`, `COGNITIVE_DAG_DOCTRINE_2026_05_03.md`, `XPC_MASTERY_DOCTRINE_2026_05_03.md`, `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`, `PROCESSES_AND_RUNTIMES_AUDIT_2026_05_03.md`, `CODEX_DAG_RADAR_HANDOFF_2026_05_03.md` |
+| **Canonical docs** | `COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md`, `COGNITIVE_DAG_DOCTRINE_2026_05_03.md`, `XPC_MASTERY_DOCTRINE_2026_05_03.md`, `XPC_RESEARCH_INTAKE_2026_05_04.md`, `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`, `PROCESSES_AND_RUNTIMES_AUDIT_2026_05_03.md`, `CODEX_DAG_RADAR_HANDOFF_2026_05_03.md` |
 | **Why it matters** | Three compositions in sequence: kernel collapses 5 fragmented loops → 1 Rust kernel; DAG collapses 7 subsystems → 1 typed schema; GenUI dispatcher collapses N per-command renderers → 1 schema-first registry; XPC Mastery is the process-boundary discipline that makes all of them ship to MAS as defense-in-depth, not as "just compiles" |
 
 ### T1 — Foundation Substrate
@@ -137,6 +137,7 @@ but implementation paused for hackathon.
 | **Canonical docs** | `simulation` worktree DOCTRINE.md + IMPLEMENTATION.md, donor `/Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` |
 | **Three placements** | Landing Farm (DEFAULT APP VIEW) / Graph Live Theater / Notes Sidebar Skin |
 | **Body grammar** | Block / Sage / Orb + Hermes Snake; adapter gift-box per I-11 |
+| **2026-05-04 specificity lock** | User intent is actual Tamagotchi-style companion creatures, not SF Symbols, generic orbs, or static cards. Landing gets deterministic idle walking/roaming inside the farm; Graph gets companion-presence projection later from the same registry. Search `tamagotchi`, `avatar`, `creature`, `walk`, `roam`, `wander`, and `CompanionView` before every T6 slice. |
 | **Acceptance bar** | App opens → Landing Farm visible by default with companions idle-breathing; Settings → Companions → Create New Companion → 4-step wizard → companion appears in Farm; long-press companion → Delete sheet → Touch ID via canonical Sovereign Gate → fade animation → AgentEvent; trash/archive → restore within window with same Sovereign Gate; LoRA adapter → unwrap animation duration ≥ apply duration; Notes Sidebar shows companion presence reacting to AgentEvent stream; reduce-motion → static pose + state badge; pixel-identical replay given same event log + seed |
 | **15 invariants** | I-1 through I-15 in DOCTRINE.md (single base substrate, cosmetic_idle TimelineView, deterministic PRNG keyed by `(session_id, agent_id, event_id)`, accessibility reduce-motion fallback, ModelProfile mapping, etc.) |
 
@@ -251,7 +252,7 @@ These are concerns that touch multiple tracks. Captured here so they're not lost
 
 | Concern | Touches | Doctrine ref |
 |---|---|---|
-| **XPC Mastery** | T0, T2, T5, T12 | `XPC_MASTERY_DOCTRINE_2026_05_03.md` (5-service decomposition, per-service entitlements, trust attestation, capability-token IPC, sandbox-within-sandbox for WASM, audit trail across XPC, Secure Enclave attestation, process recycling, IOSurface zero-copy, DAG integration) |
+| **XPC Mastery** | T0, T2, T5, T12 | `XPC_MASTERY_DOCTRINE_2026_05_03.md` + `XPC_RESEARCH_INTAKE_2026_05_04.md` (5-service decomposition, no-compromise bundled trust spine, symmetric code-signing validation, per-service entitlements, capability-token IPC, sandbox-within-sandbox for WASM, audit trail across XPC, Secure Enclave attestation, MAS/Pro separation, process recycling, IOSurface zero-copy, DAG integration) |
 | **Schema-First GenUI** | T0, T2, T4, T5, T6, T11 | `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` (typed `GenUIPayload` + `GenUISchema` + `GenUIDispatcher` registry; producers emit payloads, dispatcher routes by schema, renderers know nothing about producers; Phases G.1-G.6, 24-day cost ceiling, deferral-list discipline so it doesn't get lost) |
 | **Capability Lattice** | T0, T2, T3, T5, T12 | `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md` §3 — Core / Pro / Research / Both / All |
 | **Cognitive DAG schema** | T0, T1, T2, T4, T5, T6 | `COGNITIVE_DAG_DOCTRINE_2026_05_03.md` — every subsystem becomes a traversal pattern |
@@ -279,6 +280,7 @@ docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md         (authority order + per-f
 docs/fusion/COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md     (T0 stage 1)
 docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md        (T0 stage 2)
 docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md          (T0 cross-cut + Zone D ship enabler)
+docs/fusion/XPC_RESEARCH_INTAKE_2026_05_04.md           (required no-compromise sidecar for XPC / sandbox / ExtensionKit / biometrics)
 docs/fusion/PROCESSES_AND_RUNTIMES_AUDIT_2026_05_03.md  (ground truth)
 docs/fusion/EPISTEMOS_FUSION_HANDOFF_2026_05_03.md      (Kimi/GPT as reference framing)
 docs/fusion/EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md (substrate framing + capability lattice)

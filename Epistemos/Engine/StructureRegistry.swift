@@ -160,12 +160,12 @@ private let canonicalSchemas: [StructureSchemaDescriptor] = [
     ),
     .init(
         id: "ontology_node",
-        surface: "note_save",
-        storage: .swiftData,
+        surface: "graph_scan",
+        storage: .sidecar,
         swiftType: "OntologyNode",
         profiles: [.mas, .pro],
         maturity: .full,
-        summary: "W10.1 OntologyClassifier — recursive @Generable enum that tags content with parentDomain / childConcept / depth. Emits SDGraphNode rows."
+        summary: "W10.1 OntologyClassifier — recursive @Generable struct that enriches eligible note sidecars with parentDomain / childConcept / depth."
     ),
     .init(
         id: "session_telemetry",

@@ -39,7 +39,7 @@ fn r5_enforce_enabled() -> bool {
     }
 }
 
-#[cfg(feature = "mas-sandbox")]
+#[cfg(not(feature = "pro-build"))]
 const MAS_RUNTIME_FORBIDDEN_TOOLS: &[&str] = &[
     "bash_execute",
     "terminal",
@@ -75,14 +75,17 @@ const MAS_RUNTIME_FORBIDDEN_TOOLS: &[&str] = &[
     "inline_partner",
 ];
 
-#[cfg(feature = "mas-sandbox")]
+#[cfg(not(feature = "pro-build"))]
 fn mas_runtime_forbids_tool(name: &str) -> bool {
     MAS_RUNTIME_FORBIDDEN_TOOLS.contains(&name)
 }
 
-#[cfg(feature = "mas-sandbox")]
+#[cfg(not(feature = "pro-build"))]
 fn mas_allows_bounded_internal_mutation(name: &str, input: &Value) -> bool {
-    let action = input.get("action").and_then(Value::as_str).unwrap_or("read");
+    let action = input
+        .get("action")
+        .and_then(Value::as_str)
+        .unwrap_or("read");
     match name {
         // App-contained memory and SSM state are bounded local state, not
         // arbitrary filesystem / process / network execution. Keep this list
@@ -93,7 +96,7 @@ fn mas_allows_bounded_internal_mutation(name: &str, input: &Value) -> bool {
     }
 }
 
-#[cfg(feature = "mas-sandbox")]
+#[cfg(not(feature = "pro-build"))]
 fn mas_runtime_preflight(
     tool: &RegisteredTool,
     input: &Value,
@@ -314,10 +317,85 @@ pub enum ToolError {
     PermissionDenied,
 }
 
+pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
+    ("vault_search", "vault.search"),
+    ("vault_read", "vault.read"),
+    ("vault_write", "vault.write"),
+    ("bash_execute", "action.bash"),
+    ("chunk_reduce", "chunk.reduce"),
+    ("pkm_graph_neighbors", "graph.neighbors"),
+    ("read_file", "file.read"),
+    ("write_file", "file.write"),
+    ("patch", "file.patch"),
+    ("search_files", "file.search"),
+    ("terminal", "action.terminal"),
+    ("process", "system.process"),
+    ("todo", "system.todo"),
+    ("cronjob", "system.cron"),
+    ("skills_list", "skills.list"),
+    ("skill_view", "skills.view"),
+    ("skill_manage", "skills.manage"),
+    ("vault_recall", "knowledge.recall"),
+    ("contradiction_check", "knowledge.contradiction_check"),
+    ("neural_recall", "knowledge.neural_recall"),
+    ("session_search", "knowledge.session_search"),
+    ("graph_query", "graph.query"),
+    ("vault_navigate", "graph.vault_navigate"),
+    ("memory", "memory.curated"),
+    ("web_search", "web.search"),
+    ("web_extract", "web.extract"),
+    ("web_crawl", "web.crawl"),
+    ("apple_notes", "apple.notes"),
+    ("apple_reminders", "apple.reminders"),
+    ("apple_calendar", "apple.calendar"),
+    ("apple_mail", "apple.mail"),
+    ("send_message", "communication.send_message"),
+    ("vision_analyze", "media.vision_analyze"),
+    ("image_generate", "media.image_generate"),
+    ("text_to_speech", "media.text_to_speech"),
+    ("imessage", "communication.imessage"),
+    ("imessage_contacts", "communication.imessage_contacts"),
+    ("channel_contacts", "communication.channel_contacts"),
+    ("route_private", "inference.route_private"),
+    ("mcp_discover", "discovery.mcp_discover"),
+    ("model_catalog", "discovery.model_catalog"),
+    ("trajectory_export", "trajectory.export"),
+    ("self_evolve", "intelligence.self_evolve"),
+    ("mixture_of_minds", "intelligence.mixture_of_minds"),
+    ("find_symbol", "workspace.find_symbol"),
+    ("get_function_source", "workspace.get_function_source"),
+    ("get_dependencies", "workspace.get_dependencies"),
+    ("get_dependents", "workspace.get_dependents"),
+    ("get_change_impact", "workspace.get_change_impact"),
+    ("clarify", "clarify.ask"),
+    ("perceive", "macos.perceive"),
+    ("interact", "macos.interact"),
+    ("screen_watch", "macos.screen_watch"),
+    ("ssm_resume", "inference.ssm_resume"),
+    ("constrained_generate", "inference.constrained_generate"),
+    ("nightbrain_trigger", "intelligence.nightbrain_trigger"),
+    ("inline_partner", "intelligence.inline_partner"),
+    ("capture_screenshot", "capture.screenshot"),
+    ("capture_voice", "capture.voice"),
+    ("capture_clipboard", "capture.clipboard"),
+];
+
+pub fn v2_name_for_legacy(name: &str) -> Option<&'static str> {
+    LEGACY_TO_V2_ALIASES
+        .iter()
+        .find_map(|(legacy, dotted)| (*legacy == name).then_some(*dotted))
+}
+
+pub fn legacy_name_for_v2(name: &str) -> Option<&'static str> {
+    LEGACY_TO_V2_ALIASES
+        .iter()
+        .find_map(|(legacy, dotted)| (*dotted == name).then_some(*legacy))
+}
+
 pub struct ToolRegistry {
     tools: HashMap<String, RegisteredTool>,
     vault: Arc<dyn VaultBackend>,
-    #[cfg_attr(feature = "mas-sandbox", allow(dead_code))]
+    #[cfg_attr(not(feature = "pro-build"), allow(dead_code))]
     enable_bash: bool,
     /// Optional vault root directory. When set, Phase 2 tools that need a
     /// filesystem path (session_search, graph_query, vault_navigate, memory)
@@ -341,7 +419,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash: !cfg!(feature = "mas-sandbox"),
+            enable_bash: !cfg!(not(feature = "pro-build")),
             vault_root_path: None,
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
@@ -354,7 +432,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash: enable_bash && !cfg!(feature = "mas-sandbox"),
+            enable_bash: enable_bash && !cfg!(not(feature = "pro-build")),
             vault_root_path: None,
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
@@ -374,7 +452,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash: enable_bash && !cfg!(feature = "mas-sandbox"),
+            enable_bash: enable_bash && !cfg!(not(feature = "pro-build")),
             vault_root_path: Some(vault_root.into()),
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
@@ -396,7 +474,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash: enable_bash && !cfg!(feature = "mas-sandbox"),
+            enable_bash: enable_bash && !cfg!(not(feature = "pro-build")),
             vault_root_path: vault_root.map(Into::into),
             active_tier: tier,
             allowed_tool_names: None,
@@ -424,6 +502,37 @@ impl ToolRegistry {
     /// `CommandCenterRequestCompiler` on the Swift side.
     pub fn set_allowed_tool_names(&mut self, allowlist: Option<HashSet<String>>) {
         self.allowed_tool_names = allowlist;
+    }
+
+    #[cfg(feature = "pro-build")]
+    pub fn register_delegate_task_tool(
+        &mut self,
+        provider: Arc<dyn crate::provider::AgentProvider>,
+        current_depth: u32,
+    ) {
+        use crate::tools::delegate_task::{delegate_task_tool_schema, DelegateTaskTool};
+
+        let mut child_registry = ToolRegistry::with_tier(
+            Arc::clone(&self.vault),
+            self.enable_bash,
+            self.vault_root_path.clone(),
+            self.active_tier,
+        );
+        child_registry.allowed_tool_names = self.allowed_tool_names.clone();
+
+        let schema = delegate_task_tool_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(DelegateTaskTool::new(
+                provider,
+                Arc::new(child_registry),
+                current_depth,
+            )),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
     }
 
     /// Return the explicit allowlist, if any.
@@ -536,7 +645,7 @@ impl ToolRegistry {
             self.vault_root_path.as_deref(),
         );
 
-        #[cfg(feature = "mas-sandbox")]
+        #[cfg(not(feature = "pro-build"))]
         mas_runtime_preflight(tool, input, authz_target.as_ref())?;
 
         // Phase R.5 authorization gate. Infers a `(ResourceId, Capability)`
@@ -595,6 +704,16 @@ impl ToolRegistry {
         }
     }
 
+    pub async fn execute_v2(&self, name: &str, input: &Value) -> Result<String, ToolError> {
+        if self.tools.contains_key(name) {
+            return self.execute(name, input).await;
+        }
+        if let Some(legacy_name) = legacy_name_for_v2(name) {
+            return self.execute(legacy_name, input).await;
+        }
+        self.execute(name, input).await
+    }
+
     /// Get a reference to the underlying vault backend (for context loading).
     pub fn vault(&self) -> &dyn VaultBackend {
         &*self.vault
@@ -616,7 +735,7 @@ impl ToolRegistry {
         self.register_workspace_search();
         self.register_pkm_graph_neighbors();
 
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             if self.enable_bash {
                 self.register_bash_execute();
@@ -633,8 +752,10 @@ impl ToolRegistry {
 
         // Phase 1 core tools (Hermes/OpenClaw parity)
         self.register_phase_one_filesystem();
+        self.register_phase_one_file_ops();
         self.register_phase_one_todo();
-        #[cfg(not(feature = "mas-sandbox"))]
+        self.register_phase_one_skills_core();
+        #[cfg(feature = "pro-build")]
         {
             self.register_phase_one_terminal();
             self.register_phase_one_scheduling();
@@ -650,7 +771,7 @@ impl ToolRegistry {
         // Phase 3 web tools — replaces the legacy DuckDuckGo web_search.
         self.register_phase_three_web();
 
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             // Phase 4 Apple app tools (pure Rust via osascript).
             self.register_phase_four_apple_apps();
@@ -661,7 +782,7 @@ impl ToolRegistry {
         // in via register_delegate_tools().
         self.register_phase_five_route_private();
 
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             // Phase 6 communication + media tools.
             self.register_phase_six_communication();
@@ -684,7 +805,7 @@ impl ToolRegistry {
         self.apply_tier_overrides();
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_eight_discovery(&mut self) {
         use crate::tools::discovery::{
             mcp_discover_schema, model_catalog_schema, McpDiscoverHandler, ModelCatalogHandler,
@@ -716,7 +837,7 @@ impl ToolRegistry {
         }
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_eight_trajectory(&mut self) {
         use crate::tools::trajectory::{trajectory_export_schema, TrajectoryExportHandler};
         if std::env::var_os("DISABLE_TRAJECTORY_EXPORT").is_some() {
@@ -747,7 +868,9 @@ impl ToolRegistry {
                     } else {
                         "trajectory_export registration panicked".to_string()
                     };
-                    tracing::error!("trajectory_export registration skipped after panic: {message}");
+                    tracing::error!(
+                        "trajectory_export registration skipped after panic: {message}"
+                    );
                 }
             }
         }
@@ -834,7 +957,7 @@ impl ToolRegistry {
         }
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_seven_intelligence(&mut self) {
         use crate::tools::intelligence::{
             mixture_of_minds_schema, self_evolve_schema, MixtureOfMindsHandler, SelfEvolveHandler,
@@ -870,7 +993,7 @@ impl ToolRegistry {
         }
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_six_communication(&mut self) {
         use crate::tools::communication::{send_message_schema, SendMessageHandler};
         match SendMessageHandler::new() {
@@ -890,7 +1013,7 @@ impl ToolRegistry {
         }
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_six_media(&mut self) {
         use crate::tools::media::{
             image_generate_schema, text_to_speech_schema, vision_analyze_schema,
@@ -938,7 +1061,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_six_imessage(&mut self) {
         use crate::tools::channel_contacts::{channel_contacts_schema, ChannelContactsHandler};
         use crate::tools::imessage::{imessage_schema, IMessageHandler};
@@ -993,7 +1116,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_four_apple_apps(&mut self) {
         use crate::tools::apple::{
             apple_calendar_schema, apple_mail_schema, apple_notes_schema, apple_reminders_schema,
@@ -1063,7 +1186,7 @@ impl ToolRegistry {
             tier: ToolTier::Agent,
         });
 
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             use crate::tools::macos::{
                 interact_schema, perceive_schema, screen_watch_schema, InteractHandler,
@@ -1131,7 +1254,7 @@ impl ToolRegistry {
             tier: ToolTier::Agent,
         });
 
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             // Phase 7: NightBrain trigger (delegate-backed Specialty D1).
             use crate::tools::intelligence::{
@@ -1230,7 +1353,21 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    fn register_phase_one_file_ops(&mut self) {
+        use crate::tools::file_ops::{file_ops_tool_schema, FileOpsTool};
+
+        let schema = file_ops_tool_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(FileOpsTool::new()),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
     fn register_phase_one_terminal(&mut self) {
         use crate::tools::terminal::{
             process_schema, terminal_schema, ProcessHandler, TerminalHandler,
@@ -1272,7 +1409,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_one_scheduling(&mut self) {
         use crate::tools::scheduling::{cronjob_schema, CronJobHandler};
         let c = cronjob_schema();
@@ -1286,9 +1423,23 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    fn register_phase_one_skills_core(&mut self) {
+        use crate::hermes::skills::{default_skills_dir, skills_tool_schema, SkillsTool};
+
+        let legacy = skills_tool_schema();
+        self.register(RegisteredTool {
+            name: legacy.name,
+            description: legacy.description,
+            parameters: legacy.parameters,
+            handler: Box::new(SkillsTool::new(default_skills_dir())),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
     fn register_phase_one_skills_progressive(&mut self) {
-        use crate::tools::skills::{
+        use crate::hermes::skills::{
             skill_manage_schema, skill_view_schema, skills_list_schema, SkillManageHandler,
             SkillViewHandler, SkillsListHandler,
         };
@@ -1324,7 +1475,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_phase_one_custom_tools(&mut self) {
         use crate::tools::custom_tools::{
             custom_tool_manage_schema, load_custom_tool_specs, CustomToolManageHandler,
@@ -1611,7 +1762,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_bash_execute(&mut self) {
         self.register(RegisteredTool {
             name: "bash_execute".to_string(),
@@ -1637,7 +1788,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_claude_code_passthrough(&mut self) {
         self.register(RegisteredTool {
             name: "claude_code".to_string(),
@@ -1680,7 +1831,7 @@ impl ToolRegistry {
         });
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     fn register_codex_passthrough(&mut self) {
         self.register(RegisteredTool {
             name: "codex".to_string(),
@@ -1724,6 +1875,17 @@ impl ToolRegistry {
             web_crawl_schema, web_extract_schema, web_search_schema, WebCrawlHandler,
             WebExtractHandler, WebSearchHandler,
         };
+        use crate::tools::web_fetch::{web_fetch_tool_schema, WebFetchTool};
+
+        let fetch = web_fetch_tool_schema();
+        self.register(RegisteredTool {
+            name: fetch.name,
+            description: fetch.description,
+            parameters: fetch.parameters,
+            handler: Box::new(WebFetchTool::new()),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
 
         // All three handlers need a reqwest Client — if construction fails
         // (shouldn't in practice), log and skip so the rest of the registry
@@ -1773,7 +1935,7 @@ impl ToolRegistry {
             Err(e) => tracing::warn!("web_crawl registration skipped: {e}"),
         }
 
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             use crate::tools::browser::{
                 browser_back_schema, browser_click_schema, browser_close_schema,
@@ -1966,7 +2128,7 @@ impl ToolHandler for VaultSearchHandler {
 
         let results = self
             .vault
-            .hybrid_search(query, limit.min(20).max(1), &tags)
+            .hybrid_search(query, limit.clamp(1, 20), &tags)
             .await
             .map_err(map_vault_error)?;
 
@@ -2156,11 +2318,11 @@ impl ToolHandler for VaultWriteHandler {
     }
 }
 
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 struct BashExecuteHandler;
 
 #[async_trait]
-#[cfg(not(feature = "mas-sandbox"))]
+#[cfg(feature = "pro-build")]
 impl ToolHandler for BashExecuteHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
         let command = input
@@ -2186,6 +2348,14 @@ impl ToolHandler for BashExecuteHandler {
         }
 
         let mut process = tokio::process::Command::new("bash");
+        // Doctrine-mandated subprocess hardening for the LLM-driven
+        // bash execution path. `bash -lc` runs LLM-supplied command
+        // strings with shell expansion, so blocking inherited
+        // LD_PRELOAD / DYLD_INSERT_LIBRARIES / NODE_OPTIONS / PYTHONPATH
+        // is non-negotiable. The blocked-pattern list above catches
+        // overtly destructive commands; subprocess hardening covers
+        // the silent-injection vectors that pattern matching can't see.
+        crate::security::harden_cli_subprocess(&mut process);
         process.arg("-lc").arg(command);
         if let Some(working_dir) = working_dir {
             process.current_dir(working_dir);
@@ -2201,8 +2371,13 @@ impl ToolHandler for BashExecuteHandler {
         })?
         .map_err(|error| ToolError::ExecutionFailed(error.to_string()))?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        // Post-read output cap (see cli_passthrough.rs for rationale —
+        // doctrine's "Codex 1.8GB stdout regression" hardest-problem).
+        const MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024;
+        let stdout_bytes = &output.stdout[..output.stdout.len().min(MAX_OUTPUT_BYTES)];
+        let stderr_bytes = &output.stderr[..output.stderr.len().min(MAX_OUTPUT_BYTES)];
+        let stdout = String::from_utf8_lossy(stdout_bytes).trim().to_string();
+        let stderr = String::from_utf8_lossy(stderr_bytes).trim().to_string();
         let mut parts = Vec::new();
         if !stdout.is_empty() {
             parts.push(format!("STDOUT:\n{stdout}"));
@@ -2304,6 +2479,12 @@ fn neural_cache() -> &'static Arc<crate::storage::neural_cache::NeuralCache> {
 
 #[cfg(test)]
 mod tier_tests {
+    // Test-isolation gate held across `.await` is intentional — see
+    // `resources/bridge.rs::tests` for the canonical rationale. The
+    // tier registry tests share a process-wide registry singleton
+    // and must serialize.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
     use async_trait::async_trait;
@@ -2417,10 +2598,10 @@ mod tier_tests {
         )
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     struct StaticOkHandler;
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[async_trait]
     impl ToolHandler for StaticOkHandler {
         async fn execute(&self, _input: &serde_json::Value) -> Result<String, ToolError> {
@@ -2428,7 +2609,7 @@ mod tier_tests {
         }
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     fn register_test_tool(registry: &mut ToolRegistry, name: &str, risk_level: RiskLevel) {
         registry.register(RegisteredTool {
             name: name.to_string(),
@@ -2501,6 +2682,61 @@ mod tier_tests {
     }
 
     #[test]
+    fn hermes_parity_phase_one_tools_are_registered() {
+        let temp = tempfile::tempdir().unwrap();
+        let registry = build_registry_with_root(ToolTier::Full, temp.path());
+        let names: std::collections::HashSet<String> = registry
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        for required in ["file_ops", "memory", "skills", "web_fetch"] {
+            assert!(
+                names.contains(required),
+                "B.1 Phase 1 must register {required}; got {names:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn tools_v2_alias_table_preserves_quick_capture_contract() {
+        assert!(
+            LEGACY_TO_V2_ALIASES.len() >= 56,
+            "Tools V2 recovery must preserve the Quick Capture alias surface"
+        );
+        assert_eq!(v2_name_for_legacy("vault_search"), Some("vault.search"));
+        assert_eq!(legacy_name_for_v2("vault.search"), Some("vault_search"));
+        assert_eq!(v2_name_for_legacy("read_file"), Some("file.read"));
+        assert_eq!(legacy_name_for_v2("file.read"), Some("read_file"));
+        assert_eq!(
+            v2_name_for_legacy("think"),
+            None,
+            "think intentionally stays legacy-shaped until reason.think can preserve output parity"
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_v2_accepts_canonical_dotted_names() {
+        let registry = build_registry(ToolTier::ChatLite);
+        let result = registry
+            .execute_v2("vault.read", &serde_json::json!({ "path": "missing.md" }))
+            .await
+            .expect("dotted v2 vault.read must route through the current registry");
+
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn bridge_wires_delegate_task_after_provider_resolution() {
+        let bridge_source = include_str!("../bridge.rs");
+        assert!(
+            bridge_source.contains("register_delegate_task_tool"),
+            "run_agent_session_inner must wire delegate_task with the resolved provider"
+        );
+    }
+
+    #[test]
     fn chat_lite_hides_destructive_tools() {
         let registry = build_registry(ToolTier::ChatLite);
         let names: Vec<String> = registry
@@ -2518,7 +2754,7 @@ mod tier_tests {
         assert!(!names.contains(&"cronjob".to_string()));
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[test]
     fn mas_sandbox_registry_excludes_unbounded_tools() {
         let _env_guard = crate::test_support::env_lock();
@@ -2602,31 +2838,41 @@ mod tier_tests {
         }
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[tokio::test]
     async fn mas_runtime_denies_forbidden_tool_even_if_registered() {
         let mut registry = build_registry(ToolTier::Full);
         register_test_tool(&mut registry, "bash_execute", RiskLevel::ReadOnly);
 
         let result = registry
-            .execute("bash_execute", &serde_json::json!({ "command": "echo nope" }))
+            .execute(
+                "bash_execute",
+                &serde_json::json!({ "command": "echo nope" }),
+            )
             .await;
         assert!(matches!(result, Err(ToolError::PermissionDenied)));
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[tokio::test]
     async fn mas_runtime_denies_destructive_tool_even_if_registered() {
         let mut registry = build_registry(ToolTier::Full);
-        register_test_tool(&mut registry, "local_delete_fixture", RiskLevel::Destructive);
+        register_test_tool(
+            &mut registry,
+            "local_delete_fixture",
+            RiskLevel::Destructive,
+        );
 
         let result = registry
-            .execute("local_delete_fixture", &serde_json::json!({ "path": "anything" }))
+            .execute(
+                "local_delete_fixture",
+                &serde_json::json!({ "path": "anything" }),
+            )
             .await;
         assert!(matches!(result, Err(ToolError::PermissionDenied)));
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[tokio::test]
     async fn mas_runtime_denies_unscoped_mutating_tool() {
         let mut registry = build_registry(ToolTier::Full);
@@ -2645,7 +2891,7 @@ mod tier_tests {
         assert!(matches!(result, Err(ToolError::PermissionDenied)));
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[tokio::test]
     async fn mas_runtime_allows_explicit_bounded_internal_mutation() {
         let mut registry = build_registry(ToolTier::Full);
@@ -2659,14 +2905,16 @@ mod tier_tests {
         assert_eq!(parsed["success"], serde_json::json!(true));
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     #[tokio::test]
     async fn mas_runtime_requires_grant_for_file_write() {
         let _guard = r5_gate_test_lock();
         let _env = ScopedEnforceFlag::set_on();
 
         let temp = tempfile::tempdir().unwrap();
-        let target = temp.path().join(format!("mas-write-{}.txt", uuid::Uuid::new_v4()));
+        let target = temp
+            .path()
+            .join(format!("mas-write-{}.txt", uuid::Uuid::new_v4()));
         let registry = build_registry_with_root(ToolTier::Full, temp.path());
 
         let result = registry
@@ -2685,7 +2933,7 @@ mod tier_tests {
         );
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     #[test]
     fn chat_pro_adds_vision_and_tts_over_chat_lite() {
         let _env_guard = crate::test_support::env_lock();
@@ -2717,7 +2965,7 @@ mod tier_tests {
         assert!(pro_names.contains("text_to_speech"));
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     #[test]
     fn agent_tier_is_superset_of_chat_pro() {
         let _env_guard = crate::test_support::env_lock();
@@ -2750,7 +2998,7 @@ mod tier_tests {
         assert!(agent_names.contains("send_message"));
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     #[test]
     fn trajectory_export_disappears_when_registration_is_disabled() {
         let saved = std::env::var("DISABLE_TRAJECTORY_EXPORT").ok();
@@ -2772,7 +3020,7 @@ mod tier_tests {
         assert!(!names.contains("trajectory_export"));
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     #[test]
     fn model_facing_catalog_hides_unsupported_image_generation() {
         let registry = build_registry(ToolTier::Agent);
@@ -2960,7 +3208,7 @@ mod tier_tests {
         );
     }
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     #[tokio::test]
     async fn custom_tool_specs_become_runtime_tools() {
         let vault_root = tempfile::tempdir().unwrap();

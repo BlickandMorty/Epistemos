@@ -1,0 +1,22 @@
+[package]
+name = "agent_core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Agent shared substrate: mmap arena, App Group container, zero-copy IPC"
+
+[dependencies]
+memmap2 = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+fastrand = { workspace = true }
+
+# For legacy path fallback
+dirs = "5"
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }

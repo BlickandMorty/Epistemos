@@ -1,5 +1,10 @@
 # Session Summary — 2026-04-25
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Branch: `feature/landing-liquid-wave`
 Tag baseline: `v0-audit-checkpoint-2026-04-25` (audit phase)
 Commits this session: 16 (audit set + 12 implementation patches)

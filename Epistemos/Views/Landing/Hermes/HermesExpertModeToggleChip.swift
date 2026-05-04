@@ -44,7 +44,7 @@ struct HermesExpertModeToggleChip: View {
                 style: .continuous
             )
             .fill(isActive
-                ? theme.resolved.accent.color.opacity(theme.isDark ? 0.10 : 0.08)
+                ? HermesBrand.primary.opacity(theme.isDark ? 0.10 : 0.08)
                 : .clear)
         )
         .overlay(
@@ -53,7 +53,7 @@ struct HermesExpertModeToggleChip: View {
                 style: .continuous
             )
             .stroke(isActive
-                ? theme.resolved.accent.color.opacity(0.32)
+                ? HermesBrand.primary.opacity(0.32)
                 : .clear, lineWidth: 0.6)
         )
         .hoverGlass(flatBackground: .clear,
@@ -70,27 +70,27 @@ struct HermesExpertModeToggleChip: View {
     }
 
     private var iconColor: Color {
-        isActive ? theme.resolved.accent.color : theme.textSecondary
+        isActive ? HermesBrand.primary : theme.textSecondary
     }
 
     private var labelColor: Color {
-        isActive ? theme.resolved.accent.color : theme.textSecondary
+        isActive ? HermesBrand.primary : theme.textSecondary
     }
 
     @ViewBuilder
     private var breathingDot: some View {
         if reduceMotion {
             Circle()
-                .fill(theme.resolved.accent.color)
+                .fill(HermesBrand.primary)
                 .frame(width: 6, height: 6)
         } else {
             TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
                 let phase = (sin(context.date.timeIntervalSinceReferenceDate * 2.0 * .pi / 1.6) + 1.0) / 2.0
                 Circle()
-                    .fill(theme.resolved.accent.color)
+                    .fill(HermesBrand.primary)
                     .frame(width: 6, height: 6)
                     .opacity(0.55 + 0.45 * phase)
-                    .shadow(color: theme.resolved.accent.color.opacity(0.6 * phase),
+                    .shadow(color: HermesBrand.primary.opacity(0.6 * phase),
                             radius: 4 * phase)
             }
             .frame(width: 6, height: 6)

@@ -3647,9 +3647,8 @@ struct ChatStateLocalMessageTests {
             maxMessages: 10
         )
 
-        let unwrappedHistory = try? #require(history)
-        #expect(unwrappedHistory?.contains("Assistant reasoning checkpoint: First compare the author’s veto account with the desert objection.") == true)
-        #expect(unwrappedHistory?.contains("User: Write the answer from your current reasoning.") == false)
+        #expect(history?.contains("Assistant reasoning checkpoint: First compare the author’s veto account with the desert objection.") ?? false)
+        #expect(!(history?.contains("User: Write the answer from your current reasoning.") ?? false))
     }
 
     @Test("policy denied errors use human copy instead of the raw contract token")

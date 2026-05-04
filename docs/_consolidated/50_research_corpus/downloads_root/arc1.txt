@@ -1,0 +1,348 @@
+﻿Forensic Architectural Audit: Ontological Integrity and Canonical Resilience in the Epistemos Ecosystem
+The architectural integrity of a system as complex as Epistemos—a hybrid AI environment bridging Swift 6.0, Rust, and Metal—is not merely a function of its feature set but of its adherence to the foundational laws of distributed systems and memory safety. To evaluate whether the current implementation represents a world-class standard or a collection of simplified approximations, this audit examines the seven core resilience layers against their origin disciplines: the Erlang/OTP philosophy for supervision, the Facebook Defcon framework for degradation, the Resilience4j standards for circuit breaking, and the Rust Nomicon for FFI safety.
+1. OTP-Style Supervision Tree: The Erlang Gold Standard
+The supervision tree is the primary mechanism for achieving fault tolerance in concurrent systems. Originating from the Erlang Open Telecom Platform (OTP), the philosophy assumes that components will fail and that the responsibility of the system is not to prevent failure, but to manage it through a hierarchical structure of supervisors and workers.1
+Canonical Pattern Definition
+The canonical OTP supervisor is a specialized process that monitors its children and executes a restart strategy when a child terminates abnormally.3 A "Canonical" implementation must satisfy several rigorous criteria: the use of a formal ChildSpec (defining the start function, restart policy, and shutdown protocol), a sliding-window restart intensity (   restarts within    seconds), and the implementation of specific strategies like one_for_one, one_for_all, and rest_for_one.3 Crucially, the restart logic must incorporate exponential backoff with jitter to prevent "thundering herd" effects, where multiple recovering services overwhelm a shared resource simultaneously.6
+Examination of implementation
+The Epistemos AppSupervisor.swift attempts to replicate this model within the Swift 6 actor system. While it successfully uses actors to isolate state, it fails to achieve the ontological depth of a true OTP supervisor. The current implementation lacks a formalized ChildSpec map, instead relying on hardcoded actor initializations. Furthermore, the restart logic is observed to be a simple incremental counter rather than a time-windowed intensity metric. In a true distributed system, a failure rate of 5 restarts in 1 second is a systemic crisis, whereas 5 restarts in 5 days is a minor nuisance. By failing to distinguish between these densities, the current implementation risks either premature escalation or dangerous silence during a crash loop.5
+Gap Analysis and Severity
+The most significant deviation is the absence of the rest_for_one semantic, which is critical for systems with linear dependencies. In the rest_for_one pattern, if a specific child fails, only that child and all children started after it in the sequence are restarted.3 This ensures that downstream dependencies are re-initialized in the correct order. The current implementation treats all children as independent, which is a structural flaw when the agent_core depends on the HermesSubprocessManager for cloud orchestration.9
+Component
+	Canonical Requirement
+	Epistemos Status
+	Severity
+	Restart Intensity
+	Sliding window (  )
+	Simple counter
+	Structural
+	Backoff
+	Exponential with Jitter
+	Fixed interval
+	Gap
+	Child Spec
+	Structured Map/Spec
+	Procedural init
+	Gap
+	Escalation
+	Bubble-up to parent
+	Local-only logs
+	Structural
+	Lifecycle
+	run() async throws
+	Procedural checks
+	Cosmetic
+	Canonical Fix Specification
+The AppSupervisor must be refactored into a specialized actor that maintains a RestartRegistry. Each entry in the registry should store a ring buffer of timestamps representing the last    failures. The logic should be updated to:
+1. Define a ChildSpecification struct containing id, restartPolicy (permanent, transient, temporary), and shutdownTimeout.3
+2. Implement a checkIntensity() method that calculates the delta between the current time and the   -th previous failure. If   , the supervisor must terminate itself and escalate to the root AppBootstrap.5
+3. Replace fixed timers with a jittered formula:   .6
+4. Ensure children are started within a TaskGroup to enable proper cancellation propagation.11
+Emergent Risks
+The simplified restart logic creates a "Restart Storm" risk. If the Metal compute shaders fail due to a driver hang (common in macOS 26.2/26.3 updates), the supervisor will rapidly attempt to restart the MLXInferenceService without backoff, potentially causing a system-level watchdog panic as the WindowServer attempts to recover the GPU context simultaneously.13
+2. Degradation State Machine: From Defcon to Typestate
+Graceful degradation is the art of maintaining core utility when peripheral systems fail. The industry standard for this is Meta's Defcon system, which allows operators to "turn the knobs" to shed non-essential load during resource surges.15
+Canonical Pattern Definition
+A canonical degradation machine is a Finite State Machine (FSM) where states are not merely labels but are enforced as Valid Transitions at the type level.17 This is best represented by the "Typestate Pattern" in Rust or a strict validation actor in Swift.19 Each state (e.g., .optimal, .degradedAI, .maintenance) must carry a DegradationReason to preserve the causal chain and prevent "state amnesia," where the system forgets why it degraded and attempts to recover prematurely.21
+Examination of implementation
+The EpistemosMode implementation is currently a standard Swift enum. While functional for UI flagging, it represents a "Simplified" pattern because it does not prohibit invalid transitions. For instance, the system can theoretically jump from .critical (read-only) to .optimal (full features) without validating that the AgentHeartbeatService has recovered or that the thermal state is no longer .serious.21 The audit of the files reveals that the UI often polls these properties rather than consuming them as a reactive stream, leading to race conditions where the UI shows an "Optimal" state while the engine is actually in "Degraded" mode.
+Gap Analysis and Severity
+The primary gap is the lack of "Bidirectional Validation." In a best-in-class system, the transition from .degradedAI back to .optimal requires a "Health Probe" to succeed.23 Currently, recovery is handled by a simple timer or a manual reset, which is a structural deficiency in an agentic system where failures are often correlated.
+Metric
+	Canonical Standard
+	implementation Rating
+	Severity
+	Transition Safety
+	Compile-time/Typestate
+	Runtime Enum Check
+	Structural
+	Causality
+	DegradationReason
+	Missing (Silent)
+	Gap
+	Observation
+	AsyncStream
+	Polling/Published
+	Gap
+	Logging
+	Event-Sourced Log
+	Simple Print Statements
+	Cosmetic
+	Canonical Fix Specification
+The EpistemosHealthMode must be migrated to a HealthActor that enforces transition logic via a transition(to:reason:) method.
+   1. Define a TransitionTable that explicitly allows or denies movements (e.g., .optimal    .critical is allowed, but .critical    .optimal is denied unless .maintenance is visited first).17
+   2. The actor should expose a currentModeStream: AsyncStream<EpistemosMode> that the AgentViewModel consumes to drive the UI.25
+   3. Implement "Action Shedding" where entering .degradedAI triggers a Notification that causes the MLXInferenceService to reduce its context window or switch to a 4-bit quantized model to save VRAM.15
+Emergent Risks
+The "Silent Recovery" risk: If the system recovers to .optimal while the ThermalGuard is still reporting a .serious state, the immediate ramp-up of the Qwen3.5 model will trigger an immediate second thermal spike, leading to an oscillatory behavior that Apple's Energy Efficiency Guide warns can cause permanent battery health degradation.22
+3. Circuit Breaker: The Resilience4j Ring Buffer
+A circuit breaker prevents an application from repeatedly trying to execute an operation that's likely to fail. It was popularized by Michael Nygard and refined by Netflix's Hystrix and the Resilience4j library.27
+Canonical Pattern Definition
+The canonical circuit breaker uses a Rolling Time Window (not a simple counter) and a Ring Bit Buffer to calculate failure rates.28 It must implement three states: CLOSED (pass-through), OPEN (short-circuit), and HALF_OPEN (limited testing).29 A world-class breaker requires a configurable number of consecutive successes in the HALF_OPEN state before returning to CLOSED.28
+Examination of implementation
+The AgentCircuitBreaker in the Epistemos codebase is "Simplified." It utilizes a basic counter that resets every 60 seconds. This is a critical failure of granularity. If 10 requests fail in the first 5 seconds, the circuit should open immediately; however, if 10 requests fail over 55 seconds of steady traffic, the circuit might stay closed.29 The current implementation lacks the "Subtract-on-Evict" strategy used by Resilience4j, where the oldest measurements are removed from the window to provide a true rolling average.28
+Gap Analysis and Severity
+A major gap exists in the HALF_OPEN state logic. The current implementation transitions back to CLOSED after a single successful request. For LLM providers like OpenAI or Claude, which may experience "partial outages" or "flaky token streaming," a single success is not a reliable indicator of health.10
+Feature
+	Canonical Requirement
+	Epistemos Implementation
+	Severity
+	Metric Tracking
+	Ring Bit Buffer
+	Integer Counter
+	Gap
+	Windowing
+	Rolling Time Window
+	Fixed-Interval Reset
+	Structural
+	Half-Open
+	Multiple Probe Successes
+	Single Probe Success
+	Gap
+	Domain Isolation
+	Per-Service Breakers
+	Global Breaker
+	Structural
+	Timeout Handling
+	Count as Failure
+	Ignored
+	Gap
+	Canonical Fix Specification
+The breaker should be refactored into a generic ResilienceBreaker<T> actor.
+      1. Use a circular array (size   ) to store the result bits.28
+      2. Implement a execute<T>(_ work: () async throws -> T) async throws -> T method that wraps the operation, catches timeouts, and records them as failures.28
+      3. In HALF_OPEN, set a permittedNumberOfCallsInHalfOpenState to 3. Only if all 3 succeed does the circuit close.28
+      4. Instantiate the breaker per failure domain: cloudBreaker, localMlxBreaker, and vaultBreaker.
+Emergent Risks
+Cascading "False Failures": If the ThermalGuard parks a task, and that task eventually times out, the circuit breaker will count it as a failure.29 If the system is hot, multiple tasks will time out, tripping the circuit breaker for the cloud API even though the API itself is healthy. This interaction between Thermal and Circuit logic is a classic "interaction failure" described in Google SRE docs.24
+4. Rust FFI Safety: The Panic-Abort Paradox
+The boundary between Swift and Rust is the most hazardous part of the system. In Rust, a panic is the ultimate admission that the program cannot continue.9
+Canonical Pattern Definition
+According to the Rust Nomicon and the extern "C" documentation, a panic must never cross an FFI boundary; doing so is traditionally undefined behavior (UB), though modern Rust ensures it results in a process abort.34 The canonical way to handle this is to wrap every FFI entry point in catch_unwind, extract the panic message, and return a clean error code to the caller.9
+Examination of implementation
+The implementation in bridge.rs is "Compromised." The user has correctly identified a critical paradox: the Cargo.toml sets panic = "abort" in the release profile. As explicitly stated in the Rust std::panic documentation, catch_unwind is a no-op when the panic strategy is abort.9 This means that in production builds, any Rust panic will bypass all safety guards and immediately kill the entire Epistemos process. The presence of catch_unwind in the code creates a "False Confidence" that recovery is possible when it is functionally impossible in the release build.
+Gap Analysis and Severity
+The primary gap is the structural contradiction between the build profile and the safety code. Furthermore, there is no ffi_guard! macro, meaning each function is hand-wrapped, significantly increasing the surface area for human error where a new developer might forget to wrap a critical memory search function.39
+Criterion
+	Canonical Requirement
+	Epistemos implementation
+	Severity
+	Panic Strategy
+	Unwind for Libraries
+	Abort (strips safety)
+	Structural
+	Error Mapping
+	catch_unwind    Result
+	No-op in Release
+	Structural
+	Async FFI
+	Boundary at Task level
+	Boundary at Sync block
+	Gap
+	Null Safety
+	Pointers validated
+	Ad-hoc checks
+	Cosmetic
+	Macro Usage
+	Standardized ffi_guard!
+	Manual wrapping
+	Gap
+	Canonical Fix Specification
+This requires a two-step overhaul:
+         1. Cargo Configuration: Change the workspace to use a mixed panic strategy. The agent_core (library) must use panic = "unwind", while the final binary wrapper can stay as abort if desired. This allows the library to actually catch panics and return errors to Swift.9
+         2. FFI Guarding: Implement a ffi_guard! macro that:
+Rust
+macro_rules! ffi_guard {
+   ($body:expr) => {
+       match std::panic::catch_unwind(std::panic::AssertUnwindSafe(move |
+
+
+| $body)) { Ok(res) => res, Err(panic_payload) => { let msg = panic_payload.downcast_ref::<&str>().unwrap_or(&"unknown panic"); FfiResult::Panic(msg.to_string()) } } } } ``` 3. OS-Level Watchdog: Since Rust panics can still abort the process in edge cases (like double-panics), Epistemos must implement a macOS launchd agent or use the SMAppService API to ensure the app is automatically restarted on a crash.40
+Emergent Risks
+The "Orphaned Subprocess" risk: If the Rust process aborts, the Python Hermes subprocess may continue running as a zombie, potentially holding onto system locks or network ports, preventing the app from restarting successfully until a manual killall is performed.34
+5. Foundation Models Session Lifecycle: Token Budgeting
+Apple Intelligence via the FoundationModels framework introduces strict hardware-level constraints, specifically a 4096-token limit on the context window.43
+Canonical Pattern Definition
+The canonical pattern for managing on-device LLMs is "Budget-Based Proactive Recycling".43 Apple's technical notes (TN3193) and iOS 26.4 APIs recommend using tokenCount(for:) to track real-time consumption and contextSize to adapt to dynamic hardware limits.43 A best-in-class implementation must perform "Opportunistic Summarization" before the limit is hit, preserving conversation continuity without triggering a hard error.45
+Examination of implementation
+The AppleIntelligenceService.swift uses a 10-minute timer for session recycling. This is a "Simplified Approximation." A user engaging in a high-density "Tool Calling" session can easily hit 4096 tokens in under 2 minutes, as tool schemas and argument logs are notoriously token-heavy.43 The implementation lacks a "Summarization Session," meaning when the timer fires, the context is simply lost, creating a "Goldfish Memory" experience that compromises the app's ontological integrity.
+Gap Analysis and Severity
+The primary gap is the reliance on time rather than token volume. Furthermore, the implementation does not catch the LanguageModelSession.GenerationError.exceededContextWindowSize error, leading to a silent failure where the agent stops responding.43
+Metric
+	Canonical Standard
+	implementation Rating
+	Severity
+	Lifecycle Trigger
+	Token Budget (75-80%)
+	10-minute Timer
+	Structural
+	Continuation
+	Opportunistic Summary
+	State Clearing
+	Structural
+	Precision
+	tokenCount(for:) API
+	Length Heuristics
+	Gap
+	Tool Isolation
+	Out-of-band execution
+	In-session execution
+	Gap
+	MainActor Isolation
+	Actor-aligned init
+	MainActor-only init
+	Cosmetic
+	Canonical Fix Specification
+            1. Dynamic Budgeting: Replace the timer with a TokenBudget actor that calls LanguageModelSession.tokenCount(for:) after every interaction.43
+            2. Summarization Hook: When utilization hits 3200 tokens (approx 78%), trigger a background task that uses a separate LanguageModelSession (with specific "Summarizer" instructions) to condense the session.transcript into a 500-token "Memory Pulse".45
+            3. Session Re-init: Initialize a new primary session, injecting the "Memory Pulse" as the first message. This allows for indefinite conversation length within a fixed context window.45
+Emergent Risks
+"Recursive Summary Growth": If the summary itself grows too large, the summarization session will fail. A world-class system requires a "Hierarchical Condensation" strategy where summaries are recursively summarized or pruned.45
+6. ThermalGuard Integration: The Suspension Pattern
+On macOS, thermal management is not a suggestion; it is a hard constraint on GPU-intensive workloads like Metal compute and MLX.22
+Canonical Pattern Definition
+The canonical pattern is the "Centralized Thermal Authority".49 A single actor must observe the system thermal state and provide a mechanism for other services to Park their work until the system cools down.49 Apple's Energy Efficiency Guide dictates that at .serious, work should be deferred, and at .critical, work must stop.22
+Examination of implementation
+The current thermal management is "Simplified." Checks are scattered across MLXInferenceService and AgentHeartbeatService using ad-hoc if statements. This is problematic because there is no mechanism for "Resumption." If the system hits .serious, the inference simply fails. A world-class system would use withCheckedContinuation to suspend the inference task, resuming it the moment the ThermalGuard reports a return to .nominal.49
+Gap Analysis and Severity
+The primary gap is the absence of a "Parking Lot" for inference callers. This leads to high failure rates and unnecessary circuit breaker trips when the machine is simply hot.
+Feature
+	Canonical Standard
+	implementation Status
+	Severity
+	Authority
+	Centralized Actor
+	Ad-hoc scattered checks
+	Structural
+	Suspension
+	CheckedContinuation
+	Immediate Failure
+	Gap
+	Cancellation
+	Typed ThermalError
+	Silent Drop
+	Gap
+	Reactivity
+	AsyncStream wrapping
+	Synchronous Polling
+	Gap
+	Future-Proofing
+	@unknown default
+	Missing
+	Cosmetic
+	Canonical Fix Specification
+            1. ThermalGuard Actor: Create a ThermalGuard actor that wraps ProcessInfo.processInfo.thermalState.22
+            2. Parking API:
+Swift
+func awaitCoolDown() async throws {
+   guard thermalState!=.critical else { throw ThermalError.critical }
+   if thermalState ==.serious {
+       try await withCheckedThrowingContinuation { continuation in
+           // Add to parking queue, resume when state improves
+       }
+   }
+}
+
+            3. Engine Integration: Modify MLXInferenceService to call await self.thermalGuard.awaitCoolDown() at the start of every token generation loop.22
+Emergent Risks
+"Lock-Step Failure": If the ThermalGuard suspends the main agent loop, and the MainThreadWatchdog fires because the suspension was too long, the app will be terminated by the OS watchdog.23 Thermal suspension must be carefully designed to allow periodic "check-ins" with the main thread.
+7. Cross-Cutting Concerns and Interaction Risks
+Ontological integrity is compromised when individual components, however canonical, create emergent failure modes when combined.
+The Timeout-Breaker-Thermal Paradox
+The most dangerous interaction in Epistemos is between TimeoutUtility, AgentCircuitBreaker, and ThermalGuard.
+               * Scenario: The device hits thermal state .serious.
+               * Action: ThermalGuard parks the current MLX inference task.
+               * Reaction: The AgentViewModel has a 30-second timeout on the response.
+               * Conflict: The timeout fires while the task is parked. The AgentCircuitBreaker records this as a failure.
+               * Outcome: After 3 failures, the circuit breaker opens and transitions the app to .degradedAI mode.
+               * Result: The user is locked out of AI features even though the models and services are perfectly functional; the machine was just hot for 90 seconds.
+The FFI-Supervisor Gap
+If the Rust agent_core suffers a panic and aborts, the AppSupervisor (running in the same process) is also killed.
+               * The Core Question Answered: No, your current implementations are Simplified Approximations. The supervisor cannot restart the child because the supervisor itself is dead.
+               * Canonical Requirement: You require a "Multi-Process Guardian." The Rust core should ideally run in a separate XPC service or a dedicated helper process (like Hermes already does) so that the main UI process can survive a crash and perform the restart.40
+Interaction Risk Matrix
+Component A
+	Component B
+	Interaction Risk
+	Canonical Mitigation
+	Supervisor
+	Mode Machine
+	"Zombie State": Supervisor restarts a child but the mode machine stays "Degraded"
+	Event-driven linkage: Restart success signals recovery to Mode Machine
+	Thermal
+	Circuit Breaker
+	"False Positive": Throttling trips the breaker
+	Exclude thermal suspensions from failure counts
+	Session Recycle
+	In-flight Request
+	"Context Corruption": Request fails because session was swapped during generation
+	Implement "Graceful Session Swap" using actor isolation
+	Rust Panic
+	Swift Concurrency
+	"Unclean Shutdown": Resources (Pty, Metal) leaked
+	Use launchd to clean up orphans on process death
+	Audit Conclusion and Priority Specification
+The Epistemos architecture demonstrates a sophisticated understanding of modern engineering, yet it consistently stops short of the "Ontological Integrity" required for a best-in-class, mission-critical agentic system. The current patterns provide a "veneer" of resilience that will likely buckle under the stochastic pressures of real-world use—specifically thermal throttling, token overflow, and FFI panics.
+Priority 1: Structural Integrity (Preventing System Collapse)
+               * Rust Panic Strategy: Immediately change the build profile or implement the ffi_guard! macro. The "no-op in production" safety net is the single most dangerous flaw in the system.9
+               * OS Watchdog: Implement SMAppService or a launchd plist to handle process aborts. Without this, the supervision tree is a single-point-of-failure.40
+Priority 2: Functional Integrity (Preserving Intelligence)
+               * Token Budgeting: Replace time-based recycling with tokenCount(for:) logic. This is the only way to ensure the Apple Intelligence experience is seamless and does not hit the 4096-token wall.43
+               * Summarization Out-of-Band: Move summarization to a dedicated session to prevent the "Goldfish Memory" syndrome.
+Priority 3: Refinement (Optimization and Idiomatic Patterns)
+               * Resilience4j Migration: Update the circuit breaker to use a rolling window and ring buffer. This provides the "Sensitivity vs. Specificity" balance needed for AI services.28
+               * Thermal Parking: Implement continuation-based suspension to prevent false failures and respect Apple's energy guidelines.22
+By executing these canonical fixes, Epistemos will transition from a "simplified approximation" to a world-class reference architecture for macOS-native AI applications, matching the rigor of the distributed systems it claims to emulate.
+Works cited
+               1. Overview — Erlang System Documentation v28.4.1, accessed March 31, 2026, https://www.erlang.org/doc/system/design_principles.html
+               2. Introduction - Erlang, accessed March 31, 2026, https://erlang.org/documentation/doc-5.2/doc/system_architecture_intro/sys_arch_intro.html
+               3. supervisor behaviour (stdlib v7.3) - Erlang, accessed March 31, 2026, https://www.erlang.org/doc/apps/stdlib/supervisor.html
+               4. The Supervision Tree Patterns That Make Systems Bulletproof | by The Latency Gambler, accessed March 31, 2026, https://medium.com/@kanishks772/the-supervision-tree-patterns-that-make-systems-bulletproof-356199f178bb
+               5. Supervisor Behaviour — Erlang System Documentation v28.4.1, accessed March 31, 2026, https://www.erlang.org/doc/system/sup_princ.html
+               6. Exponential Backoff with Jitter: A Powerful Tool for Resilient Systems - Presidio, accessed March 31, 2026, https://www.presidio.com/technical-blog/exponential-backoff-with-jitter-a-powerful-tool-for-resilient-systems/
+               7. Exponential Backoff And Jitter | AWS Architecture Blog, accessed March 31, 2026, https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+               8. 5 Supervisor Behaviour - Erlang, accessed March 31, 2026, https://erlang.org/documentation/doc-5.9/doc/design_principles/sup_princ.html
+               9. catch_unwind in std::panic - Rust, accessed March 31, 2026, https://doc.rust-lang.org/std/panic/fn.catch_unwind.html
+               10. Comparison to Netflix Hystrix - resilience4j, accessed March 31, 2026, https://resilience4j.readme.io/docs/comparison-to-netflix-hystrix
+               11. Concurrency - Documentation - Swift Programming Language, accessed March 31, 2026, https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency/
+               12. Swift Concurrency in a Nutshell - Bedrock Tech Blog, accessed March 31, 2026, https://tech.bedrockstreaming.com/2023/11/14/swift-concurrency-in-a-nutshell.html
+               13. MacBook Pro 16” – Boot loop after macOS 26.3 update, SMC shutdown causes -11 / -20, watchdog panics (remoted). Hardware or OS issue? : r/macbookrepair - Reddit, accessed March 31, 2026, https://www.reddit.com/r/macbookrepair/comments/1r9d20w/macbook_pro_16_boot_loop_after_macos_263_update/
+               14. MacBook Pro 16” – Boot loop after macOS 26.3 update, SMC shutdown causes -11 / -20, watchdog panics (remoted). Hardware or OS issue? : r/macbookpro - Reddit, accessed March 31, 2026, https://www.reddit.com/r/macbookpro/comments/1r7mtyw/macbook_pro_16_boot_loop_after_macos_263_update/
+               15. Defcon: Preventing Overload with Graceful Feature Degradation - USENIX, accessed March 31, 2026, https://www.usenix.org/conference/osdi23/presentation/meza
+               16. Defcon: Preventing Overload with Graceful Feature Degradation - USENIX, accessed March 31, 2026, https://www.usenix.org/system/files/osdi23-meza.pdf
+               17. How to Implement State Machines in Rust - OneUptime, accessed March 31, 2026, https://oneuptime.com/blog/post/2026-02-01-rust-state-machines/view
+               18. Typestate - CS 242, accessed March 31, 2026, https://stanford-cs242.github.io/f19/lectures/08-2-typestate.html
+               19. Implementing the state pattern in Rust - Cesc blog, accessed March 31, 2026, https://blog.cesc.cool/implementing-the-state-pattern-in-rust
+               20. Implementing an Object-Oriented Design Pattern - The Rust Programming Language, accessed March 31, 2026, https://doc.rust-lang.org/book/ch18-03-oo-design-patterns.html
+               21. [2401.09678] Integrating Graceful Degradation and Recovery through Requirement-driven Adaptation - arXiv, accessed March 31, 2026, https://arxiv.org/abs/2401.09678
+               22. NSProcessInfoThermalStateSeri, accessed March 31, 2026, https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum/serious?language=objc
+               23. Graceful degradation in practice: how FeatureOps builds real resilience - Unleash, accessed March 31, 2026, https://www.getunleash.io/blog/graceful-degradation-featureops-resilience
+               24. REL05-BP01 Implement graceful degradation to transform applicable hard dependencies into soft dependencies - Reliability Pillar - AWS Documentation, accessed March 31, 2026, https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_graceful_degradation.html
+               25. Swift 6 Paradigm Shift Guide | Skill... - LobeHub, accessed March 31, 2026, https://lobehub.com/bg/skills/mosif16-codex-skills-swift-6-paradigm-shift
+               26. Energy Efficiency Guide for iOS Apps - Apple Developer, accessed March 31, 2026, https://developer.apple.com/library/archive/documentation/Performance/Conceptual/EnergyGuide-iOS/index.html
+               27. Circuit Breaker Pattern in Microservices - GeeksforGeeks, accessed March 31, 2026, https://www.geeksforgeeks.org/system-design/what-is-circuit-breaker-pattern-in-microservices/
+               28. CircuitBreaker - resilience4j, accessed March 31, 2026, https://resilience4j.readme.io/docs/circuitbreaker
+               29. Comparison to Netflix Hystrix - resilience4j, accessed March 31, 2026, https://resilience4j.readme.io/v0.17.0/docs/comparison-to-netflix-hystrix
+               30. AlexanderNey/CircuitBreaker: Circuit breaker pattern implementation for Swift - GitHub, accessed March 31, 2026, https://github.com/AlexanderNey/CircuitBreaker
+               31. Resilience4j circuit-breaker ring bit buffer size configuration - Stack Overflow, accessed March 31, 2026, https://stackoverflow.com/questions/48414306/resilience4j-circuit-breaker-ring-bit-buffer-size-configuration
+               32. To panic or not to panic, accessed March 31, 2026, https://www.ncameron.org/blog/to-panic-or-not-to-panic/
+               33. Pros and cons of std::panic::catch_unwind - help - The Rust Programming Language Forum, accessed March 31, 2026, https://users.rust-lang.org/t/pros-and-cons-of-std-catch-unwind/65417
+               34. FFI - The Rustonomicon - Rust Documentation, accessed March 31, 2026, https://doc.rust-lang.org/nomicon/ffi.html
+               35. 2945-c-unwind-abi - The Rust RFC Book, accessed March 31, 2026, https://rust-lang.github.io/rfcs/2945-c-unwind-abi.html
+               36. Passing callbacks to C: panic! - help - The Rust Programming Language Forum, accessed March 31, 2026, https://users.rust-lang.org/t/passing-callbacks-to-c-panic/91080
+               37. Catching panic! when Rust called from C FFI, without spawning threads - Stack Overflow, accessed March 31, 2026, https://stackoverflow.com/questions/27384824/catching-panic-when-rust-called-from-c-ffi-without-spawning-threads
+               38. To catch_unwind or not to catch_unwind : r/rust - Reddit, accessed March 31, 2026, https://www.reddit.com/r/rust/comments/1cpjyib/to_catch_unwind_or_not_to_catch_unwind/
+               39. Catching panic at FFI boundary, iff unwinding enabled - help - Rust Users Forum, accessed March 31, 2026, https://users.rust-lang.org/t/catching-panic-at-ffi-boundary-iff-unwinding-enabled/14909
+               40. Restarting macOS apps automatically on crash - Alin Panaitiu, accessed March 31, 2026, https://notes.alinpanaitiu.com/Restarting-macOS-apps-automatically-on-crash
+               41. Service Management | Apple Developer Forums, accessed March 31, 2026, https://developer.apple.com/forums/tags/servicemanagement?page=2
+               42. Restarting macOS apps automatically on crash - Hacker News, accessed March 31, 2026, https://news.ycombinator.com/item?id=37355429
+               43. Apple Improves Context Window Management for its Foundation ..., accessed March 31, 2026, https://www.infoq.com/news/2026/03/apple-foundation-models-context/
+               44. TN3193: Managing the on-device foundation model's context window - Apple Developer, accessed March 31, 2026, https://developer.apple.com/documentation/technotes/tn3193-managing-the-on-device-foundation-model-s-context-window
+               45. Making the most of Apple Foundation Models: Context Window, accessed March 31, 2026, https://zats.io/blog/making-the-most-of-apple-foundation-models-context-window/
+               46. Inside FoundationModels: How Sessions Actually Work | by Luiz Fernando Salvaterra, accessed March 31, 2026, https://medium.com/@luizfernandosalvaterra/inside-foundationmodels-how-sessions-actually-work-1a250bb30110
+               47. Energy Efficiency Guide for Mac Apps: Energy Efficiency and the User Experience - Apple Developer, accessed March 31, 2026, https://developer.apple.com/library/archive/documentation/Performance/Conceptual/power_efficiency_guidelines_osx/index.html
+               48. Defcon: Preventing Overload with Graceful Feature Degradation | Request PDF, accessed March 31, 2026, https://www.researchgate.net/publication/380357573_Defcon_Preventing_Overload_with_Graceful_Feature_Degradation
+               49. The Complete Guide to Swift Concurrency: From Threading to Actors in Swift 6 - Medium, accessed March 31, 2026, https://medium.com/@thakurneeshu280/the-complete-guide-to-swift-concurrency-from-threading-to-actors-in-swift-6-a9cf006a19ac
+               50. Swift 6 withCheckedContinuation(isolation:) · Issue #75828 · swiftlang/swift - GitHub, accessed March 31, 2026, https://github.com/swiftlang/swift/issues/75828
+               51. [Xcode 14.1] withCheckedContinuation's body will run on background thread in case of starting from main-actor - Swift Forums, accessed March 31, 2026, https://forums.swift.org/t/xcode-14-1-withcheckedcontinuations-body-will-run-on-background-thread-in-case-of-starting-from-main-actor/60953
+               52. Addressing watchdog terminations | Apple Developer Documentation, accessed March 31, 2026, https://developer.apple.com/documentation/xcode/addressing-watchdog-terminations

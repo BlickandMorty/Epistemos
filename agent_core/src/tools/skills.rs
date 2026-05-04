@@ -45,7 +45,7 @@ fn validate_name(name: &str) -> Option<String> {
     if !name
         .chars()
         .next()
-        .map_or(false, |c| c.is_ascii_alphanumeric())
+        .is_some_and(|c| c.is_ascii_alphanumeric())
     {
         return Some("Skill name must start with a letter or digit.".to_string());
     }
@@ -262,7 +262,7 @@ impl SkillsStore {
         {
             let path = entry.path();
             if path.is_dir()
-                && path.file_name().map_or(false, |n| n == name)
+                && path.file_name().is_some_and(|n| n == name)
                 && path.join("SKILL.md").exists()
             {
                 return Some(path.to_path_buf());
@@ -276,10 +276,12 @@ impl SkillsStore {
         let content = fs::read_to_string(&skill_md).ok()?;
         let name = skill_dir.file_name()?.to_str()?;
 
-        // Extract description from frontmatter
-        let description = if content.starts_with("---") {
-            if let Some(end) = content[3..].find("\n---") {
-                let yaml = &content[3..3 + end];
+        // Extract description from frontmatter. `strip_prefix` keeps
+        // the index calculations in lockstep with the prefix length —
+        // changing `"---"` to a longer fence won't silently misindex.
+        let description = if let Some(after_open) = content.strip_prefix("---") {
+            if let Some(end) = after_open.find("\n---") {
+                let yaml = &after_open[..end];
                 yaml.lines()
                     .find(|l| l.starts_with("description:"))
                     .map(|l| {
@@ -365,7 +367,7 @@ impl ToolHandler for SkillsTool {
             _ => json!({"success": false, "error": format!("Unknown action: {action}")}),
         };
 
-        Ok(serde_json::to_string_pretty(&result).unwrap_or_default())
+        Ok(serde_json::to_string(&result).unwrap_or_default())
     }
 }
 
@@ -420,7 +422,7 @@ pub fn skills_tool_schema() -> crate::types::ToolSchema {
 
 const MAX_SKILL_BYTES: usize = 15_360; // 15KB hard cap per SKILL.md
 
-fn default_skills_dir() -> PathBuf {
+pub(crate) fn default_skills_dir() -> PathBuf {
     if let Ok(override_path) = std::env::var("EPISTEMOS_SKILLS_DIR") {
         return PathBuf::from(override_path);
     }
@@ -568,6 +570,10 @@ impl SkillsListHandler {
             skills_dir: default_skills_dir(),
         }
     }
+
+    pub fn with_dir(skills_dir: PathBuf) -> Self {
+        Self { skills_dir }
+    }
 }
 
 impl Default for SkillsListHandler {
@@ -620,6 +626,10 @@ impl SkillViewHandler {
         Self {
             skills_dir: default_skills_dir(),
         }
+    }
+
+    pub fn with_dir(skills_dir: PathBuf) -> Self {
+        Self { skills_dir }
     }
 }
 
@@ -681,6 +691,10 @@ impl SkillManageHandler {
         Self {
             skills_dir: default_skills_dir(),
         }
+    }
+
+    pub fn with_dir(skills_dir: PathBuf) -> Self {
+        Self { skills_dir }
     }
 }
 

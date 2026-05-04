@@ -7,7 +7,7 @@ import SwiftData
 /// Per the Simulation Mode v1.6 doctrine (T6 hackathon Block B):
 /// - Each Companion is a lightweight identity attached to one shared
 ///   base substrate (the active model selection).
-/// - Cosmetic config (body grammar: Block / Sage / Orb / Hermes Snake)
+/// - Cosmetic config (body grammar: parameterized Block / Sage / Orb)
 ///   maps to a ModelProfile per Invariant I-10 — every cosmetic choice
 ///   is functionally significant, not pure decoration.
 /// - Identity hash is a stable per-companion seed used by
@@ -24,7 +24,7 @@ final class CompanionModel {
     var name: String
     /// One-liner tagline shown beneath the orb in the Farm.
     var tagline: String
-    /// Body grammar — see CompanionBodyKind for the four variants.
+    /// Body grammar — see CompanionBodyKind for the parameterized Farm variants.
     /// Stored as raw string for SwiftData friendliness.
     var bodyKindRaw: String
     /// Hex-coded accent color (e.g. "#7BA8E0"). Drives the orb halo
@@ -95,40 +95,190 @@ final class CompanionModel {
     }
 }
 
-/// The four canonical body grammars from the Simulation v1.6 doctrine.
-/// Each one is a distinct visual archetype with its own animation
-/// vocabulary in CompanionView.
-nonisolated enum CompanionBodyKind: String, Codable, Sendable, CaseIterable {
-    case block         // Heavy presence — square outline, slow breathing
-    case sage          // Tall robed silhouette — vertical orientation
-    case orb           // Default — soft sphere with halo
-    case hermesSnake   // Sinuous winged — Hermes' caduceus, used for orchestrator/runtime
+/// Canonical Farm body families from Simulation v1.6 §5.1.
+/// Block is parameterized; Hermes Snake is a graph faculty glyph, not a Farm body.
+nonisolated enum CompanionBodyFamily: String, Codable, Sendable, CaseIterable {
+    case block
+    case sage
+    case orb
+}
 
-    var displayName: String {
-        switch self {
-        case .block:        return "Block"
-        case .sage:         return "Sage"
-        case .orb:          return "Orb"
-        case .hermesSnake:  return "Hermes Snake"
+nonisolated enum CompanionBlockAspect: String, Codable, Sendable, CaseIterable {
+    case compact
+    case wide
+    case tall
+}
+
+nonisolated enum CompanionLegStyle: String, Codable, Sendable, CaseIterable {
+    case none
+    case stubs
+    case multi
+}
+
+nonisolated enum CompanionAntennaStyle: String, Codable, Sendable, CaseIterable {
+    case none
+    case single
+    case double
+}
+
+nonisolated enum CompanionEyeTreatment: String, Codable, Sendable, CaseIterable {
+    case negativeSpace
+    case filled
+}
+
+nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hashable {
+    let family: CompanionBodyFamily
+    let blockAspect: CompanionBlockAspect?
+    let legStyle: CompanionLegStyle?
+    let antennaStyle: CompanionAntennaStyle?
+    let eyeTreatment: CompanionEyeTreatment?
+
+    private init(
+        family: CompanionBodyFamily,
+        blockAspect: CompanionBlockAspect? = nil,
+        legStyle: CompanionLegStyle? = nil,
+        antennaStyle: CompanionAntennaStyle? = nil,
+        eyeTreatment: CompanionEyeTreatment? = nil
+    ) {
+        self.family = family
+        self.blockAspect = blockAspect
+        self.legStyle = legStyle
+        self.antennaStyle = antennaStyle
+        self.eyeTreatment = eyeTreatment
+    }
+
+    static func block(
+        aspect: CompanionBlockAspect,
+        legs: CompanionLegStyle,
+        antennae: CompanionAntennaStyle,
+        eyeTreatment: CompanionEyeTreatment
+    ) -> CompanionBodyKind {
+        CompanionBodyKind(
+            family: .block,
+            blockAspect: aspect,
+            legStyle: legs,
+            antennaStyle: antennae,
+            eyeTreatment: eyeTreatment
+        )
+    }
+
+    static let blockCompact = CompanionBodyKind.block(
+        aspect: .compact,
+        legs: .stubs,
+        antennae: .none,
+        eyeTreatment: .filled
+    )
+
+    static let blockWide = CompanionBodyKind.block(
+        aspect: .wide,
+        legs: .multi,
+        antennae: .single,
+        eyeTreatment: .negativeSpace
+    )
+
+    static let orb = CompanionBodyKind(family: .orb)
+    static let sage = CompanionBodyKind(family: .sage)
+
+    static let creationPresets: [CompanionBodyKind] = [
+        .blockCompact,
+        .blockWide,
+        .orb,
+        .sage,
+    ]
+
+    init?(rawValue: String) {
+        switch rawValue {
+        case "block":
+            self = .blockCompact
+        case "block_compact", "block.compact":
+            self = .blockCompact
+        case "block_wide", "block.wide":
+            self = .blockWide
+        case "sage":
+            self = .sage
+        case "orb":
+            self = .orb
+        default:
+            let parts = rawValue.split(separator: ".").map(String.init)
+            guard parts.first == CompanionBodyFamily.block.rawValue else {
+                return nil
+            }
+            let aspect = parts.count > 1 ? CompanionBlockAspect(rawValue: parts[1]) ?? .compact : .compact
+            let legs = parts.count > 2 ? CompanionLegStyle(rawValue: parts[2]) ?? .stubs : .stubs
+            let antennae = parts.count > 3 ? CompanionAntennaStyle(rawValue: parts[3]) ?? .none : .none
+            let eyes = parts.count > 4 ? CompanionEyeTreatment(rawValue: parts[4]) ?? .filled : .filled
+            self = .block(
+                aspect: aspect,
+                legs: legs,
+                antennae: antennae,
+                eyeTreatment: eyes
+            )
         }
     }
 
-    var systemImageName: String {
-        switch self {
-        case .block:        return "square.fill"
-        case .sage:         return "figure.stand.dress"
-        case .orb:          return "circle.fill"
-        case .hermesSnake:  return "wand.and.stars"
+    var rawValue: String {
+        switch family {
+        case .block:
+            let aspect = blockAspect ?? .compact
+            let legs = legStyle ?? .stubs
+            let antennae = antennaStyle ?? .none
+            let eyes = eyeTreatment ?? .filled
+            return "block.\(aspect.rawValue).\(legs.rawValue).\(antennae.rawValue).\(eyes.rawValue)"
+        case .sage:
+            return CompanionBodyFamily.sage.rawValue
+        case .orb:
+            return CompanionBodyFamily.orb.rawValue
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        guard let parsed = CompanionBodyKind(rawValue: rawValue) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unknown CompanionBodyKind raw value: \(rawValue)"
+            )
+        }
+        self = parsed
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    var displayName: String {
+        switch family {
+        case .block:
+            switch blockAspect ?? .compact {
+            case .compact: return "Compact Block"
+            case .wide: return "Wide Block"
+            case .tall: return "Tall Block"
+            }
+        case .sage:
+            return "Sage"
+        case .orb:
+            return "Orb"
         }
     }
 
     /// Tagline hint shown in the creation wizard.
     var hint: String {
-        switch self {
-        case .block:        return "Heavy, deliberate. Good for code, build, and analysis work."
-        case .sage:         return "Reflective, careful. Good for research, writing, deliberation."
-        case .orb:          return "Balanced default. Good for general chat and exploration."
-        case .hermesSnake:  return "Sinuous, orchestrated. The runtime's own face — used for system events."
+        switch family {
+        case .block:
+            switch blockAspect ?? .compact {
+            case .compact:
+                return "Compact, deliberate. Good for local code and precise tool work."
+            case .wide:
+                return "Broad, grounded. Good for multi-step coding and build analysis."
+            case .tall:
+                return "Tall, watchful. Good for structured review and synthesis."
+            }
+        case .sage:
+            return "Reflective, careful. Good for research, writing, deliberation."
+        case .orb:
+            return "Balanced default. Good for general chat and exploration."
         }
     }
 }

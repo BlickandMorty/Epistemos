@@ -15,7 +15,9 @@ cd "$(dirname "$0")/agent_core"
 
 FEATURE_ARGS=()
 if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ]; then
-    FEATURE_ARGS+=(--features mas-sandbox)
+    FEATURE_ARGS+=(--no-default-features --features mas-build)
+else
+    FEATURE_ARGS+=(--no-default-features --features pro-build)
 fi
 
 if [ "$CONFIGURATION" = "Debug" ]; then

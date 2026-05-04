@@ -71,4 +71,37 @@ struct AgentEventVisibilityTests {
         #expect(diagnostics.latestEvent?.eventID == latest.eventID)
         #expect(diagnostics.latestEvent?.tool == nil)
     }
+
+    @Test("EventStore returns recent AgentEvents in chronological projection order")
+    func eventStoreReturnsRecentAgentEventsInChronologicalProjectionOrder() throws {
+        let store = try makeStore()
+
+        let first = makeEvent(
+            eventID: "agent-event-recent-first",
+            runID: "run-recent-a",
+            sequence: 0,
+            kind: .runStarted
+        )
+        let middle = makeEvent(
+            eventID: "agent-event-recent-middle",
+            runID: "run-recent-b",
+            sequence: 1,
+            kind: .toolCallCompleted,
+            toolName: "vault_search"
+        )
+        let latest = makeEvent(
+            eventID: "agent-event-recent-latest",
+            runID: "run-recent-c",
+            sequence: 2,
+            kind: .runCompleted
+        )
+
+        #expect(store.saveAgentEvent(latest))
+        #expect(store.saveAgentEvent(first))
+        #expect(store.saveAgentEvent(middle))
+
+        let rows = store.recentAgentEvents(limit: 2)
+        #expect(rows.map(\.eventID) == [middle.eventID, latest.eventID])
+        #expect(store.recentAgentEvents(limit: 0).isEmpty)
+    }
 }

@@ -18,6 +18,14 @@ import OSLog
 final class SSMStateService: @unchecked Sendable {
     private static let log = Logger(subsystem: "com.epistemos", category: "SSMState")
 
+    struct CompressedContextSnapshot: Codable, Equatable, Sendable {
+        let modelId: String
+        let sessionId: String
+        let savedAt: Date
+        let context: String
+        let formatVersion: Int
+    }
+
     /// Directory root for state storage (typically vault root).
     let stateRoot: URL
 
@@ -138,6 +146,107 @@ final class SSMStateService: @unchecked Sendable {
         }
     }
 
+    // MARK: - Compressed Context Save/Load
+
+    /// Save a sidecar-compressed text context for warm prompt resume.
+    ///
+    /// This is intentionally separate from native MLX `.safetensors` caches:
+    /// compressed sidecar text is app-owned, JSON-readable, and safe to
+    /// rebuild from conversation history if deleted.
+    func saveCompressedContext(
+        modelId: String,
+        sessionId: String,
+        context: String
+    ) -> URL? {
+        guard isActive else { return nil }
+        guard !context.isEmpty else { return nil }
+
+        let start = CFAbsoluteTimeGetCurrent()
+        let stateDir = compressedContextDirectory(modelId: modelId)
+
+        do {
+            try FileManager.default.createDirectory(at: stateDir, withIntermediateDirectories: true)
+        } catch {
+            Self.log.error("Failed to create compressed context directory: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let filename = "\(Self.sanitizedComponent(sessionId))_\(timestamp).json"
+        let fileURL = stateDir.appendingPathComponent(filename)
+        let snapshot = CompressedContextSnapshot(
+            modelId: modelId,
+            sessionId: sessionId,
+            savedAt: Date(timeIntervalSince1970: TimeInterval(timestamp)),
+            context: context,
+            formatVersion: 1
+        )
+
+        do {
+            let data = try JSONEncoder.ssmStateEncoder.encode(snapshot)
+            try data.write(to: fileURL, options: [.atomic])
+
+            let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000
+            lastSaveDurationMS = elapsed
+            currentSessionStateId = sessionId
+
+            Self.log.info(
+                "SSM compressed context saved: \(fileURL.lastPathComponent, privacy: .public) (\(data.count) bytes, \(String(format: "%.1f", elapsed))ms)"
+            )
+            return fileURL
+        } catch {
+            Self.log.error("Failed to save SSM compressed context: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    func loadCompressedContext(from url: URL) -> CompressedContextSnapshot? {
+        guard isActive else { return nil }
+
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let data = try Data(contentsOf: url)
+            let snapshot = try JSONDecoder.ssmStateDecoder.decode(CompressedContextSnapshot.self, from: data)
+            let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000
+            lastLoadDurationMS = elapsed
+            currentSessionStateId = snapshot.sessionId
+            return snapshot
+        } catch {
+            Self.log.error("Failed to load SSM compressed context: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    func findLatestCompressedContext(modelId: String, sessionId: String? = nil) -> URL? {
+        let stateDir = compressedContextDirectory(modelId: modelId)
+        guard FileManager.default.fileExists(atPath: stateDir.path) else { return nil }
+
+        let sanitizedSessionPrefix = sessionId.map { "\(Self.sanitizedComponent($0))_" }
+        do {
+            let files = try FileManager.default.contentsOfDirectory(
+                at: stateDir,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: .skipsHiddenFiles
+            )
+
+            return files
+                .filter { $0.pathExtension == "json" }
+                .filter { url in
+                    guard let sanitizedSessionPrefix else { return true }
+                    return url.lastPathComponent.hasPrefix(sanitizedSessionPrefix)
+                }
+                .sorted { a, b in
+                    let dateA = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                    let dateB = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                    return dateA > dateB
+                }
+                .first
+        } catch {
+            Self.log.error("Failed to scan compressed context directory: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
     // MARK: - State Discovery
 
     /// Find the most recent state file for a given model and session.
@@ -253,6 +362,22 @@ final class SSMStateService: @unchecked Sendable {
         try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
     }
 
+    private func compressedContextDirectory(modelId: String) -> URL {
+        stateRoot
+            .appendingPathComponent("ssm_cache", isDirectory: true)
+            .appendingPathComponent(Self.sanitizedComponent(modelId), isDirectory: true)
+            .appendingPathComponent("compressed_context", isDirectory: true)
+    }
+
+    private static func sanitizedComponent(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+        let scalars = value.unicodeScalars.map { scalar in
+            allowed.contains(scalar) ? Character(scalar) : "_"
+        }
+        let sanitized = String(scalars)
+        return sanitized.isEmpty ? "unknown" : sanitized
+    }
+
     // MARK: - Lifecycle / Pruning
 
     /// Remove old state files for a model, keeping only the most recent `keepCount`.
@@ -293,5 +418,22 @@ final class SSMStateService: @unchecked Sendable {
             }
         }
         return total
+    }
+}
+
+private extension JSONEncoder {
+    static var ssmStateEncoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }
+}
+
+private extension JSONDecoder {
+    static var ssmStateDecoder: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }

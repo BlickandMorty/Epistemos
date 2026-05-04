@@ -1,0 +1,232 @@
+﻿The Mechanics of Rendering Failures in Layer-Backed Text Systems: A Diagnostic Analysis of macOS 26 Tahoe and TextKit 1 Integration
+The emergence of macOS 26, codenamed Tahoe, has introduced a paradigm shift in the desktop compositing architecture of Apple’s ecosystem, characterized primarily by the implementation of the Liquid Glass design language. This evolution, while aesthetically transformative, imposes rigorous new requirements on legacy frameworks like AppKit and the foundational TextKit 1 stack. When developing a high-performance, hybrid Swift and Rust-based code editor, the intersection of modern SwiftUI hosting and classic NSTextView rendering logic creates a fragile environment where subtle misconfigurations manifest as catastrophic visual failures.1 The specific phenomenon where text content is logically present, detectable by Apple Writing Tools, and interactable via selection, yet remains entirely invisible to the user, represents a failure in the final compositing and rasterization stages of the AppKit rendering pipeline.3 This report provides a comprehensive examination of the underlying mechanisms causing such rendering anomalies, focusing on the interactions between layer-backed view hierarchies, the shift in clipping defaults since macOS 14, and the nuances of the TextKit 1 layout engine within the macOS 26 environment.
+The Architectural Paradox of the Invisible Glyph
+The observation that Apple Writing Tools can successfully summarize text and that users can perform a "Select All" operation with visual selection highlights suggests that the issue is not located within the NSTextStorage or the data model.6 Instead, the failure resides in the translation of glyph data into visible pixels. In the TextKit 1 architecture, this process is governed by the NSLayoutManager, which maps Unicode characters to glyphs and coordinates their placement within an NSTextContainer.8 The fact that selection overlays are visible indicates that the NSTextView's coordinate system is functional and that the view is correctly positioned within the window’s layer hierarchy.10
+The visibility of selection while glyphs remain hidden points toward a specific failure in the drawGlyphs(forGlyphRange:at:) method of the NSLayoutManager or an overpainting issue where the background drawing logic obscures the foreground content.9 In macOS 26, the rendering of layers is more aggressively optimized than in previous iterations, and any discrepancy between the view’s frame and the layer’s backing store can lead to the suppression of glyph drawing.13
+Comparative Breakdown of Component Roles in Rendering
+
+
+Component
+	Responsibility
+	Status in Observed Issue
+	Diagnostic Implication
+	NSTextStorage
+	Holds character data and attributes
+	Functional
+	Verified by Writing Tools 7
+	NSLayoutManager
+	Generates glyphs and handles drawing
+	Suspect
+	Selection drawing works; glyph drawing fails 9
+	NSTextContainer
+	Defines the geometry of text area
+	Suspect
+	Frame resets can zero out container size 13
+	CALayer
+	Manages cached bitmap content
+	Suspect
+	Transparency or Z-order conflicts 14
+	NSClipView
+	Handles scrolling and clipping
+	Suspect
+	New defaults for clipsToBounds 4
+	The structural integrity of the view hierarchy is maintained across the fifteen logged steps of makeNSView, yet the final visual output remains null. This suggests that the initialization sequence, while logically complete, may be falling victim to a race condition between the SwiftUI layout pass and the AppKit layer instantiation.15
+Layer-Backed Composition and the Tahoe Compositor
+The decision to enable wantsLayer = true on the container view and the NSTextView fundamentally changes how AppKit interacts with the WindowServer. In a layer-backed environment, the view no longer draws directly into the window’s backing store; instead, it renders into a private CALayer managed by the Core Animation engine.14 In macOS 26, these layers are subjected to the Liquid Glass compositor, which applies complex blending and transparency effects to achieve the platform’s signature depth.17
+A recurring issue in layer-backed NSTextView implementations involves the timing of frame assignments. When wantsLayer is set to true, AppKit initializes a backing layer, a process that can inadvertently reset the view’s frame to (0, 0, 0, 0) if the view is not yet part of a window hierarchy or if constraints have not been fully satisfied.13 While the console logs indicate a frame of (0, 0, 800, 600), the underlying CALayer may have been initialized with zero dimensions during a transient state, leading to a permanent suppression of the glyph cache.13
+Evolution of Clipping Behavior in Modern AppKit
+The most significant change in AppKit's rendering logic over the last several releases is the modification of the clipsToBounds property. Prior to macOS 14, NSView defaulted to clipping its content to its frame. Starting with the macOS 14 SDK and continuing into macOS 26, this property defaults to false.2
+
+
+Property State
+	Pre-macOS 14 Impact
+	macOS 26 Impact
+	clipsToBounds = true
+	Standard; keeps drawing within frame
+	Required to fix Tahoe rendering glitches 2
+	clipsToBounds = false
+	Rare; used for specific visual effects
+	Default; causes "dirtyRect" to bleed window-wide 4
+	When clipsToBounds is false, the dirtyRect passed to drawRect: or drawBackground(in:) can encompass the entire window if a large update is triggered.4 For an NSTextView that overrides drawBackground(in:) to implement line highlighting, this can result in the background color filling the entire visible area, effectively overpainting the text if the Z-order of the glyph layer and the background layer are not strictly enforced.4 The fact that selection is visible suggests that the selection layer is composited after the background, whereas the glyph layer may be trapped behind or within a background fill that has escaped its intended bounds.
+TextKit 1 and the Layout Manager Bottleneck
+TextKit 1, while a mature and stable technology, was not originally designed for the high-frequency, asynchronous updates common in modern code editors utilizing Rust-based tree-sitter engines. The interaction between the NSLayoutManager and the NSTextStorage must be handled with extreme precision, particularly regarding editing transactions.8
+In the provided implementation, syntax highlighting is deferred and executed via DispatchQueue.main.async.18 While this prevents blocking the main thread during makeNSView, it introduces a risk where the NSLayoutManager may already have attempted a layout pass with an empty or partially initialized string.8 If allowsNonContiguousLayout is enabled, the layout manager may decide not to re-process the glyphs for the visible range unless it receives a specific invalidation signal.18
+The Mechanics of Glyph Suppression
+The invisibility of text often stems from the layout manager failing to generate glyphs because it perceives the available drawing area as zero or because it has entered a "stale" state following an unbalanced beginEditing() and endEditing() sequence.8
+The relationship between the layout manager and the text container can be described by the following condition for glyph visibility:
+  
+
+Where    is the effective area of the NSTextContainer and    is the boolean state of glyph generation.8 If the NSTextContainer is initialized within a zero-rect frame during the wantsLayer transition,    becomes zero, and the layout manager will generate no glyphs (  ), even after the frame is later updated to 800x600.13 This is a common failure mode in NSViewRepresentable where the lifecycle of the AppKit view is managed by SwiftUI’s layout engine.16
+SwiftUI Integration and Transaction Suppression
+The use of NSViewRepresentable acts as a bridge between the reactive world of SwiftUI and the imperative world of AppKit. However, this bridge is not without friction. macOS 26 has been noted to exhibit issues where SwiftUI transactions suppress the implicit animations and rendering updates of underlying CALayer objects.15
+When the syntax highlighting engine (Rust FFI) finishes processing and the tokens are applied to the NSTextStorage, the NSTextView must be notified to redraw. In a pure AppKit environment, this happens automatically. In a SwiftUI-hosted environment, the update might be caught in a "locked" state where the AppKit layer is prevented from refreshing its content because SwiftUI is currently calculating a separate part of the view hierarchy.15 This explains why resizing the window—which forces a new SwiftUI layout pass and a subsequent AppKit display update—sometimes causes the text to suddenly appear.16
+SwiftUI lifecycle vs AppKit Rendering
+
+
+Event
+	SwiftUI Timing
+	AppKit Action
+	Resulting Conflict
+	makeNSView
+	Initialization
+	Layer creation
+	Potential zero-frame layer initialization 13
+	updateNSView
+	State Change
+	Property updates
+	Often called before view is in window 16
+	Rust Callback
+	Asynchronous
+	endEditing()
+	Transaction suppression by SwiftUI 15
+	The observation that Writing Tools "sees" the text is critical here. Writing Tools interacts with the NSWritingsToolsCoordinator and the NSTextStorage directly, bypassing the visual rendering layer entirely.6 This confirms that the data is valid and accessible, but the "bridge" to the screen is blocked.3
+Color Space Dynamics and Contrast Failures
+High-contrast themes (White on Black) are intended to ensure visibility, but the way these colors are interpreted by the macOS 26 Liquid Glass engine can vary based on the NSColorSpace.24 AppKit now supports extended color spaces, and if a color is created using NSColor(white:alpha:) without an explicit color space, it may default to a generic gray space that does not blend correctly with the HDR-enabled layers of Tahoe.24
+If the text color is interpreted as being outside the current display's gamut or if the alpha channel is misinterpreted during a layer-compositing pass, the text may render as transparent.5 This is especially prevalent in macOS 26, where the "Liquid Glass" effect uses the alpha channel of subviews to calculate blur and vibrancy.17
+Comparison of Relevant Color Spaces in macOS 26
+
+
+Color Space
+	Range
+	Usage in Tahoe
+	Risk Factor
+	sRGB
+	0.0 to 1.0
+	Standard legacy UI
+	Low; well-behaved 25
+	Display P3
+	Wide Gamut
+	Modern hardware
+	Medium; requires mapping 27
+	Generic Gray
+	Monochrome
+	Legacy system elements
+	High; contrast loss in HDR 26
+	Extended sRGB
+	Floating
+	Modern AppKit defaults
+	High; potential for clipping 24
+	The phenomenon of "Black-on-Black" rendering has been reported in macOS 15.x/26 environments, where nativeForegroundColor is set to white but the rendering context fails to apply the attribute, reverting to a default black that matches the dark background.5 This suggests that the syntax highlighting loop might be applying attributes that are being discarded or ignored by the NSLayoutManager due to a color space mismatch.5
+Rust FFI and Threading Realities
+The use of UniFFI to bridge Rust-based tree-sitter tokenization and the Swift UI layer introduces complexities regarding memory management and thread safety. While the logs show the highlight process is successful, the data returned from Rust must be carefully mapped to the NSTextStorage.8
+A significant risk in this architecture is the mismatch between Rust’s UTF-8 string indexing and Swift’s UTF-16 based NSRange. If the tokens returned by Rust utilize byte offsets that are not correctly converted to UTF-16 character offsets, the addAttribute calls in Swift may target invalid ranges.1 While Writing Tools might be able to recover from slightly malformed attributed strings, the NSLayoutManager is strictly sensitive to range validity and will often fail to render any glyphs if it encounters an attribute that extends beyond the bounds of the string or overlaps in an unsupported way.1
+FFI Data Mapping and Range Integrity
+The conversion from tree-sitter tokens to NSAttributedString attributes follows a predictable but hazardous path:
+1. Rust (Tree-sitter) generates byte-based Range { start, end }.
+2. UniFFI packages these into CodeToken structs.
+3. Swift receives these tokens and must convert byte offsets to utf16 offsets.
+4. NSTextStorage is updated on the main thread via beginEditing() and endEditing().
+If the CodeToken Struct is:
+
+
+Rust
+
+
+
+
+#[repr(C)] 
+pub struct CodeToken { 
+   pub start: u32, 
+   pub end: u32, 
+   pub token_type: u32 
+}
+
+And Swift uses:
+
+
+Swift
+
+
+
+
+let range = NSRange(location: Int(token.start), length: Int(token.end - token.start))
+
+This logic assumes 1 byte = 1 character. For Swift files containing emojis or complex Unicode characters, this assumption fails. The resulting NSRange will be offset, potentially causing the NSLayoutManager to abort the drawing pass for the entire paragraph, leading to invisible text.1
+The Impact of Liquid Glass and Tahoe-Specific Regressions
+MacOS 26 Tahoe introduces a new accessibility layer and a redesigned windowing system that relies heavily on transparency and "Glass" effects.17 A documented bug in Tahoe involves NSTableView and NSScrollView content "scrolling into the header" or becoming unreadable due to overlapping transparency.28 This is fundamentally an issue of the compositor failing to properly clip subviews that are not explicitly constrained.4
+In the case of a custom CodeTextView, if the enclosing NSScrollView does not have clipsToBounds set to true, and if the CodeTextView itself is layer-backed, Tahoe may attempt to optimize the rendering by "flattening" the text layer into the window’s background glass material.2 If the glass material is opaque or incorrectly tinted, the text layer effectively disappears behind the "Liquid Glass" effect.2
+Tahoe View Hierarchy Anomalies
+
+
+Observed Bug
+	System Version
+	Underlying Cause
+	Potential Fix
+	Overlapping Header Text
+	macOS 26.0
+	ScrollView height constraints
+	Add 1pt spacing at top 28
+	Invisible Popup Content
+	macOS 26.1
+	Clipping default change
+	Set clipsToBounds = true 29
+	Unreliable RATestView
+	macOS 15+
+	SwiftUI Transaction Sync
+	Toggle view .id() 16
+	Caret Missing on Empty
+	macOS 15+
+	First Responder timing
+	Override becomeFirstResponder 30
+	The solution for many of these Tahoe-specific glitches has been to re-enable clipping and to ensure that the view hierarchy is strictly managed to avoid "bleeding" between layers.2
+Diagnostic Methodology and Remediation Strategy
+To resolve the invisible text issue in the Epistemos code editor, a systematic diagnostic approach is required, focusing on isolating the rendering failure from the data model.
+LLDB and System Log Analysis
+Developers should utilize specific LLDB commands to inspect the state of the CALayer and the NSLayoutManager during runtime.
+
+
+Command
+	Objective
+	Expected Result
+	po [textView layer]
+	Inspect backing layer
+	Should return NSTextViewBackingLayer 13
+	po [textView frame]
+	Verify dimensions
+	Should match (0, 0, 800, 600) 13
+	po [textView layoutManager]
+	Check layout state
+	Verify hasNonContiguousLayout 20
+	`log stream...
+	grep "Color"`
+	Color space debug
+	The fact that the insertion point color is set to the foreground color and yet is also invisible (implied by "text is invisible") further supports the theory of a z-ordering or clipping issue.5 If the cursor blinks but the text is missing, the problem is in glyph generation; if both are missing, the problem is in the layer composition or clipping.4
+Remediation Steps for macOS 26
+1. Enforce Clipping: Manually set clipsToBounds = true on the CodeTextView, the NSClipView, and the NSScrollView to counteract the macOS 14+ default change.2
+2. Validate Layout Manager: Call textView.layoutManager?.ensureLayout(forCharacterRange: NSRange(location: 0, length: textView.string.count)) immediately after syntax highlighting is applied to force a glyph generation pass.19
+3. Correct Color Spaces: Ensure all NSColor objects are normalized using usingColorSpace(.sRGB) before being applied as attributes to prevent interpretation errors by the Tahoe compositor.5
+4. Balance Editing Transactions: Verify that beginEditing() and endEditing() are perfectly balanced and that any Rust FFI interactions are properly isolated to the main thread.8
+5. Fix Layer Timing: Ensure that wantsLayer = true is set only after the view has been assigned a valid non-zero frame to prevent the NSTextViewBackingLayer from initializing with zero dimensions.13
+Structural Integrity of the Hybrid Editor
+The development of code editors on macOS 26 Tahoe requires a departure from legacy assumptions regarding AppKit's drawing cycle. The transition to Liquid Glass and the reactive nature of SwiftUI hosting necessitates a more defensive approach to view configuration.15 By explicitly managing clipping, layer-backing timing, and color space integrity, developers can overcome the rendering anomalies that characterize the early adoption of the Tahoe platform. The Epistemos editor’s success hinges on bridging the gap between high-performance Rust tokenization and the complex, layer-driven visual architecture of modern macOS.1 The invisibility of the text is not a failure of the code itself, but a symptom of the friction between two eras of Apple software engineering—a friction that can be resolved through precise architectural alignment and a deep understanding of the Core Animation rendering pipeline.4
+Works cited
+1. GitHub - krzyzanowskim/STTextView: Performant and reusable text view component (TextKit 2), with line numbers and more. UITextView / NSTextView replacement., accessed April 6, 2026, https://github.com/krzyzanowskim/STTextView
+2. How can I fix an NSRulerView in macOS 26 drawing into/conflicting with the window title bar? - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/79906129/how-can-i-fix-an-nsrulerview-in-macos-26-drawing-into-conflicting-with-the-windo
+3. Customizing Writing Tools behavior for AppKit views | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/customizing-writing-tools-behavior-for-system-views
+4. macos - Views in the main window is invisible when build using ..., accessed April 6, 2026, https://stackoverflow.com/questions/78025161/views-in-the-main-window-is-invisible-when-build-using-xcode-15-x-mac-os-sonoma
+5. Text invisible (black-on-black) on macOS despite nativeForegroundColor set to white · Issue #423 · migueldeicaza/SwiftTerm - GitHub, accessed April 6, 2026, https://github.com/migueldeicaza/SwiftTerm/issues/423
+6. NSTextView | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nstextview
+7. Writing Tools | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/writing-tools
+8. NSLayoutManager | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/AppKit/NSLayoutManager
+9. AppKit notes: Customizing text view drawing - Casual Programmer Blog, accessed April 6, 2026, https://casualprogrammer.com/blog/2023/09-08-customizing-nstextview-drawing.html
+10. Selectable text in NSTableView? - cocoa@apple-dev.groups.io, accessed April 6, 2026, https://apple-dev.groups.io/g/cocoa/topic/selectable_text_in/31488621
+11. How to Change the Selection Color in an NSTextView Using SwiftUI - YouTube, accessed April 6, 2026, https://www.youtube.com/watch?v=CqzuEJsMh3M
+12. drawBackground(in:) | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nstextview/drawbackground(in:)
+13. How to make an NSTextView layer backed? - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/53575658/how-to-make-an-nstextview-layer-backed
+14. wantsLayer | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nsview/wantslayer
+15. FB22270146: NSViewRepresentable ignores withAnimation when triggered via .onChange on macOS, unlike UIViewRepresentable on iOS · Issue #776 · feedback-assistant/reports - GitHub, accessed April 6, 2026, https://github.com/feedback-assistant/reports/issues/776
+16. TextKit 2 + SwiftUI (NSViewRepresentable) - Apple Developer Forums, accessed April 6, 2026, https://origin-devforums.apple.com/forums/thread/817471
+17. SwiftUI for Mac 2025 - TrozWare, accessed April 6, 2026, https://troz.net/post/2025/swiftui-mac-2025/
+18. NSTextView – text disappears while adding a new line - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/73159409/nstextview-text-disappears-while-adding-a-new-line
+19. Why NSTextView scrolls to bottom when loaded asynchronously? - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/77634673/why-nstextview-scrolls-to-bottom-when-loaded-asynchronously
+20. allowsNonContiguousLayout | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nslayoutmanager/allowsnoncontiguouslayout
+21. NSTextLayoutManager renderingAttributes not updating inside NSViewRepresentable (TextKit 2 + NSTextView) : r/SwiftUI - Reddit, accessed April 6, 2026, https://www.reddit.com/r/SwiftUI/comments/1rl9lqu/nstextlayoutmanager_renderingattributes_not/
+22. NSTextLayoutManager renderingAttributes not updating reliably when NSTextView is hosted in SwiftUI (NSViewRepresentable) - Stack Overflow, accessed April 6, 2026, https://stackoverflow.com/questions/79901322/nstextlayoutmanager-renderingattributes-not-updating-reliably-when-nstextview-is
+23. Adding Writing Tools support to a custom AppKit view | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/adding-writing-tools-support-to-a-custom-nsview
+24. NSColor | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nscolor
+25. NSColorSpace | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/AppKit/NSColorSpace
+26. genericGray | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nscolorspace/genericgray
+27. NSColorSpace | Apple Developer Documentation, accessed April 6, 2026, https://developer.apple.com/documentation/appkit/nscolorspace?changes=_2,_2&changes=_2,_2
+28. NSTableView scroll bug in macOS Tahoe - TrozWare, accessed April 6, 2026, https://troz.net/post/2026/appkit-table-scroll-bug-in-macos-tahoe/
+29. AppKit | Apple Developer Forums, accessed April 6, 2026, https://developer.apple.com/forums/topics/ui-frameworks-topic/ui-frameworks-topic-appkit?page=2&sortBy=newest
+30. NSTextView gets focused but caret is not visible when it's empty | by Swift and Appkit Tips, accessed April 6, 2026, https://medium.com/@clyapp/nstextview-get-focues-but-caret-showed-when-its-empty-f3e4bc9bb65a

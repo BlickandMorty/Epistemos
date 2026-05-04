@@ -114,6 +114,16 @@ public actor ShadowVaultBootstrapper {
         progressContinuation.finish()
     }
 
+    nonisolated public static func vaultRelativeDocId(for url: URL, vaultRoot: URL) -> String? {
+        let absolute = url.standardizedFileURL.path
+        let root = vaultRoot.standardizedFileURL.path
+        guard absolute.hasPrefix(root + "/") else { return nil }
+
+        let relative = absolute.dropFirst(root.count + 1)
+        guard !relative.isEmpty else { return nil }
+        return String(relative)
+    }
+
     private func crawl(domain: ShadowVaultDomain) async {
         let files = discover(domain: domain)
         // Pre-emit a "scanning complete, total = N" tick so the chip
@@ -219,11 +229,7 @@ public actor ShadowVaultBootstrapper {
     }
 
     nonisolated private func vaultRelativePath(_ url: URL) -> String? {
-        let absolute = url.standardizedFileURL.path
-        let root = vaultRoot.standardizedFileURL.path
-        guard absolute.hasPrefix(root) else { return nil }
-        let relative = absolute.dropFirst(root.count)
-        return relative.hasPrefix("/") ? String(relative.dropFirst()) : String(relative)
+        Self.vaultRelativeDocId(for: url, vaultRoot: vaultRoot)
     }
 }
 

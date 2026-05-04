@@ -18,5 +18,6 @@
         "**/DerivedData/**": true,
         "build/**": true,
         "graph-engine/target/**": true
-    }
+    },
+    "kimi.yoloMode": false
 }

@@ -1,0 +1,911 @@
+# Audit Log
+
+> **Index status**: CANONICAL-OPERATIONAL — Phase A follow-up status (13 sub-passes); verification verdicts for OAuth/provider setup/account validation.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
+
+
+## Phase A Follow-Up 13 — 2026-04-03
+- Scope: close the account-session verification dead end by exposing a visible top-level live-check action for saved OpenAI, Anthropic, and Google access instead of burying verification under the legacy-key disclosure
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOpenAICheckAccessDD -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests/savedProviderAccessExposesAVisibleTopLevelCheckAction -only-testing:EpistemosTests/RuntimeValidationTests/oauthProviderSettingsRequireVerifiedAccessBeforeActivation -only-testing:EpistemosTests/RuntimeValidationTests/inferenceSettingsSurfaceExposesValidationAndGuidance test CODE_SIGNING_ALLOWED=NO -quiet`) — visible verification affordance slice green
+- Issues found:
+  - A saved OAuth session could land in the `Saved` / `Account saved, not verified` state after app relaunch or state refresh, but the only live validation button was hidden inside `Legacy API Key`, which made the account-first path look broken even when the session had actually been stored
+  - The pending-account copy told users they still needed a live check, but it did not point them to a visible action in the main provider row
+- Issues fixed:
+  - Added a top-level `Check Access` / `Re-check Access` action directly in the main provider controls whenever saved account access or a saved API key already exists
+  - Added the same visible verification affordance to the shared provider setup card so compact recovery surfaces no longer dead-end on `Saved`
+  - Tightened the pending-account copy so it explicitly tells users to tap `Check Access`
+- Observations:
+  - This follow-up improves the verification UX and clarifies the saved-versus-verified distinction; it does not change the underlying OpenAI device-code token exchange flow
+- VERDICT: PASS — saved account sessions now have an obvious next step instead of appearing stuck in a passive `not verified` state
+
+## Phase A Follow-Up 12 — 2026-04-03
+- Scope: clarify the Google OAuth setup UX so the settings screen explains the exact JSON file, the exact project ID field, and the Desktop-app Google Cloud Console path instead of using vague "OAuth file" wording
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosGoogleOAuthCopyDD -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests/googleOAuthSetupCopyExplainsTheExactJSONFileAndProjectID -only-testing:EpistemosTests/RuntimeValidationTests/googleOAuthSurfacesTimeoutRetryAndConnectedAccountConfirmation -only-testing:EpistemosTests/RuntimeValidationTests/legacyKeysAndGoogleDraftAuthInputsSurfaceExplicitValidationFeedback test CODE_SIGNING_ALLOWED=NO -quiet`) — Google OAuth copy + validation guidance slice green
+- Issues found:
+  - The Google provider row still used vague labels like "Choose OAuth File" and "Google Cloud project ID", which left it unclear what JSON users should download or whether the field expected a project slug versus project number
+  - The Google parser error mentioned missing Desktop-app fields, but it did not tell users which JSON keys Epistemos was actually looking for
+- Issues fixed:
+  - Renamed the Google settings controls to explicitly say `Google OAuth JSON` and `Google Cloud project ID (not project number)`
+  - Added helper copy that tells users to create an OAuth client ID for a Desktop app in Google Cloud Console, download that JSON, and use the same Gemini-enabled project ID
+  - Clarified the saved/removed/status/error text so the UI consistently talks about the Google OAuth client JSON instead of a nebulous generic file
+  - Expanded the invalid-client parser message to call out the expected Desktop-app keys (`installed.client_id` and `installed.client_secret`, or the same under `web`)
+- Observations:
+  - This follow-up stayed in Swift/UI copy and source-level validation only; the auth flow itself did not change
+- VERDICT: PASS — Google OAuth setup now tells users exactly which file to download and which project identifier to enter
+
+## Phase A Follow-Up 11 — 2026-04-03
+- Scope: fix the OpenAI account-first dead end caused by missing `client_version` on Codex auth and ChatGPT Codex backend requests, and replace the raw provider JSON blob with readable recovery guidance for that failure mode
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOpenAIClientVersionTargetedDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests/openAIOAuthCheckingHasTimeoutAndRetryAffordances -only-testing:EpistemosTests/RuntimeValidationTests/openAICodexAuthAndValidationRoutesCarryTheRequiredClientVersion test CODE_SIGNING_ALLOWED=NO -quiet`) — OpenAI auth/runtime slice green
+- Issues found:
+  - OpenAI device-auth requests still sent only the Codex client ID, but the upstream service now requires `client_version` in the query string
+  - OpenAI account validation and response requests against `https://chatgpt.com/backend-api/codex` also omitted `client_version`, which left the provider row stuck in a 400 `Needs Attention` state even when an OAuth session existed
+  - The settings row surfaced the raw backend JSON blob for this 400 instead of a readable recovery message
+- Issues fixed:
+  - Added a shared `OpenAICodexRuntimeMetadata` helper that resolves the current Codex `client_version` from `~/.codex/models_cache.json` with a stable fallback
+  - Added `client_version` to the OpenAI device-auth user-code request, device-auth polling request, and token refresh/exchange URLs
+  - Added `client_version` to OpenAI Codex `/models` and `/responses` requests used by provider validation and cloud generation
+  - Replaced the raw `client_version` 400 body with a readable retry/sign-in guidance message
+  - Added runtime tests for the OpenAI device-auth request, OpenAI provider validation request, OpenAI response request, and the readable error fallback
+- Observations:
+  - A broader rerun of the full `RuntimeValidationTests` suite still reports an unrelated existing failure in `available operating modes match the active chat selection`; the new OpenAI auth/runtime tests themselves passed
+- VERDICT: PASS — the OpenAI account-first path now sends the required Codex `client_version` marker and no longer dead-ends in the provider settings row
+
+## Phase A Follow-Up 10 — 2026-04-03
+- Scope: extend provider account-auth and live-verification timeouts from 15 seconds to 90 seconds so slow browser setup and consent flows do not fail prematurely
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAuthTimeout90DD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused auth/runtime suites green
+- Issues found:
+  - The 15-second auth and verification budget was too aggressive for real-world OpenAI, Google, and imported-account flows that may require extra browser or consent work before control returns to Epistemos
+- Issues fixed:
+  - Increased the default OpenAI and Google OAuth timeout windows to 90 seconds in the shared cloud auth service
+  - Increased the shared provider live-verification timeout to 90 seconds so settings/account status messaging matches the real runtime behavior
+  - Updated source-level runtime validation expectations so the auth layer and surfaced guidance stay aligned on the same timeout budget
+- Observations:
+  - The no-indefinite-spinner rule still holds; the app now waits longer before failing, but every account check still exits with a real timeout instead of spinning forever
+- VERDICT: PASS — provider auth flows now allow a realistic 90-second setup window without reverting to indefinite checking
+
+## Phase A Follow-Up 9 — 2026-04-03
+- Scope: remove the remaining Google OAuth setup dead end by persisting Desktop OAuth draft inputs across surfaces and allowing the shared setup card to complete Google connect directly once prerequisites are already saved
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosZeroDeadEndsBuildDD -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosZeroDeadEndsTestDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused auth/runtime suites green
+- Issues found:
+  - Google Desktop OAuth setup still depended on `SettingsView`-local draft state, so users could import a client file or enter a project ID, close the sheet, and hit a dead end the next time they tried to finish setup from another surface
+  - The shared compact Google setup card still bounced users back to Settings even when the OAuth client file and project ID were already known, which broke the “finish setup where you are” expectation
+  - The Google Desktop OAuth client parser still treated `project_id` as if it had to live inside the client JSON instead of allowing Epistemos to supply it separately from the UI draft field
+- Issues fixed:
+  - Persisted the Google OAuth client JSON securely in Keychain and the filename/project-ID draft in app defaults so setup progress survives settings reopen, window changes, and follow-up retries
+  - Let the shared `CloudProviderSetupCard` resolve the stored Google OAuth configuration and launch the real Google connect flow directly when the saved prerequisites are already present
+  - Added explicit success and failure feedback for import, secure storage, removal, missing file, and missing project ID states instead of letting those paths silently return
+  - Relaxed Google client parsing so valid Desktop OAuth client files can load even when `project_id` is supplied separately by the user
+- Observations:
+  - This follow-up stayed in Swift/UI state only; no Rust sources changed, so `cargo test` was not rerun
+  - The remaining unavoidable manual step is limited to providers whose public API path is still key-only today; the Google OAuth path itself is now persistent and resumable instead of single-view stateful
+- VERDICT: PASS — the last major Google OAuth setup dead end is closed, and the shared provider flow now survives retries and cross-surface completion
+
+## Phase A Follow-Up 8 — 2026-04-03
+- Scope: audit and harden remaining provider-auth setup paths (legacy API key entry, clipboard paste flows, Google OAuth client-file import, Google Cloud project ID gating, and Codex CLI import failure visibility)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAuthAuditBuildDD -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAuthAuditTestDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — remaining auth-path validation coverage green
+- Issues found:
+  - Empty legacy-key saves and clipboard-dependent key actions could still no-op without surfacing a provider-level validation error
+  - Google OAuth client-file import deferred validation until connect time, which meant unreadable or malformed files could appear to do nothing
+  - The Google OAuth client parser still required `project_id` inside the client JSON even though Epistemos exposes a separate project-ID field, and the Connect action could still return early without a visible error if file or project setup was missing
+  - OpenAI Codex CLI import returned a failure result when `~/.codex/auth.json` was absent, but it did not mark the OpenAI provider row invalid in settings
+- Issues fixed:
+  - Added explicit provider-level validation messages for empty manual-key saves and missing clipboard key content across both Settings and the shared setup card
+  - Added immediate Google OAuth file validation, success/error feedback in settings, and project-ID autofill when the selected client JSON already contains one
+  - Split Google client-file validation from project-ID validation so Desktop OAuth files can load without `project_id`, while Connect now reports missing file or missing project ID explicitly instead of returning silently
+  - Marked failed Codex CLI import attempts as invalid in the OpenAI provider state so the failure is visible in the same settings row as the other auth flows
+- Observations:
+  - The focused test target still recompiles a large slice of the app before launching the filtered suites, but it completed cleanly on the fresh derived-data root used here
+- VERDICT: PASS — the remaining auth setup paths now fail loudly, validate earlier, and surface actionable feedback instead of silently returning
+
+## Phase A Follow-Up 7 — 2026-04-03
+- Scope: universal OAuth provider-settings standards for OpenAI, Anthropic, and Google (verified-only activation, unified loading/success/failure states, inline setup guidance, green-dot connected state, and bounded verification waits)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOAuthStandardsBuildDD2 -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosOAuthStandardsTestDD2 -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — OAuth auth/runtime standards coverage green
+- Issues found:
+  - Provider settings still treated a merely saved account session as effectively connected, which let `Make Active` appear ready before a live verification succeeded
+  - The account-status row was binary and optimistic, so saved-but-unverified or failed sessions could still read as connected instead of clearly showing pending, checking, or attention-needed states
+  - Google OAuth still had a 60-second callback wait, and OpenAI account sessions still lacked an extracted account label in the shared connected-account UI
+- Issues fixed:
+  - Tightened provider validation semantics so saved access is distinct from verified access, updated status copy, and disabled `Make Active` until a provider has a verified live check
+  - Reworked the shared account-status row to show pending/checking/failure/connected states, with the connected state rendered as a green dot plus account info when available
+  - Added inline guidance for provider-specific setup and retry steps, including Google Desktop OAuth configuration, OpenAI enable-access retry guidance, and Claude Code reconnect guidance
+  - Reduced Google OAuth callback waits to 15 seconds and extracted OpenAI account labels from account-session tokens so the connected-state UX is more explicit across all three providers
+- Observations:
+  - The filtered test run still recompiles large portions of the app and test targets before launching, so verification used fresh derived-data roots and sequential execution to avoid Rust build-script lock contention
+- VERDICT: PASS — the three OAuth-backed providers now follow the same verified-first activation and recovery standards in Settings and the shared setup card
+
+## Phase A Follow-Up 6 — 2026-04-03
+- Scope: Google OAuth UX hardening in provider settings (timeout, retry, visible connection status, connected-account confirmation, and focused validation coverage)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosAnthropicImportDD2 -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosGoogleOAuthDD -destination 'platform=macOS' build-for-testing CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosGoogleOAuthTestDD -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — Google auth/runtime coverage green
+- Issues found:
+  - Google OAuth could sit in a checking state with no hard stop while waiting for the browser callback, leaving users with no visible failure, retry path, or confirmed account identity
+  - Pre-flight configuration failures from the Google settings action could return before `InferenceState` recorded an invalid provider state, which meant the provider row had no durable error surface for retry
+  - The Google OAuth success path did not resolve and persist a connected account label, so the UI could not confirm who actually connected after the browser flow completed
+- Issues fixed:
+  - Added a hard Google OAuth timeout plus explicit timeout messaging and invalid-state recording so the settings flow never spins indefinitely
+  - Added retry affordances for Google OAuth in both the full settings screen and the compact provider setup card
+  - Resolved the Google user profile after token exchange and surfaced the connected account label through the shared account-connection row
+- Observations:
+  - The focused test target still recompiles the large app and test bundle before execution, so verification used fresh derived-data roots to keep the auth/runtime result deterministic
+- VERDICT: PASS — Google OAuth now has bounded waits, visible recovery, and a clear connected-account confirmation path
+
+## Phase A Follow-Up 5 — 2026-04-03
+- Scope: expanded cloud provider surface for Z.AI / GLM, Kimi / Moonshot, MiniMax, and DeepSeek, plus account-first versus direct-key copy cleanup and focused provider regression verification
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexProvidersCheck -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexProvidersCheck -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/HermesBridgeIntegrationTests -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused provider/runtime suites green
+- Issues found:
+  - The initial provider expansion left one OpenAI-compatible base-URL helper returning bare string literals, which blocked the first Swift compile in `LLMService.swift`
+  - Several account-recovery hints still implied every provider had a real browser account flow, even though Z.AI / GLM, Kimi / Moonshot, MiniMax, and DeepSeek remain direct-key in Epistemos today
+  - Focused validation tests still expected hard-coded provider-specific defaults strings and an older local-agent-capable model assumption in the Hermes route suite
+- Issues fixed:
+  - Fixed the OpenAI-compatible provider base-URL helper so Z.AI / GLM, Kimi / Moonshot, and DeepSeek compile cleanly through the Swift cloud client
+  - Updated the root picker, onboarding flow, landing recovery, agent recovery, and missing-access validation copy so account-backed providers stay account-first while key-only providers point directly to API-key setup
+  - Aligned focused tests with the current implementation, including the dynamic preferred-cloud-model key path, `provider.manualCredentialTitle`, and the Hermes local-agent 9B-only rule
+- Observations:
+  - This follow-up kept MiniMax key-first in-app because the current Hermes/runtime surface and the public API path used here are still direct-key based
+  - No Rust sources changed in this slice, so `cargo test` was not rerun
+- VERDICT: PASS — the expanded provider matrix now builds cleanly, uses honest account-first defaults where supported, and passes the focused provider/runtime suites
+
+## Phase A Follow-Up 4 — 2026-04-03
+- Scope: true account-auth follow-up for cloud providers (OpenAI Codex account sessions, Anthropic Claude Code sessions, Google OAuth route headers, Hermes agent runtime env injection, account-first recovery copy, and auth-aware validation coverage)
+- Build:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexDD3 -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet`) — 163 tests in 1 suite
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath /tmp/EpistemosCodexDD4 -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/HermesBridgeIntegrationTests -only-testing:EpistemosTests/HermesSubprocessTests test CODE_SIGNING_ALLOWED=NO -quiet`) — focused auth/route suites green
+- Issues found:
+  - The Swift cloud pipeline had moved to account sessions, but Hermes route selection still assumed raw API keys, which meant agent runs and recovery copy could drift back toward key-first behavior even after the account-auth refactor
+  - Fresh account-aware tests exposed stale assumptions in the focused suites, including key-only missing-access isolation and a cloud-mode test that no longer provisioned cloud access before selecting a gated cloud model
+  - The new callback-server auth plumbing carried Swift 6 actor-isolation and sendability issues that blocked the first focused build until the continuation helper and request-buffer path were made concurrency-safe
+- Issues fixed:
+  - Added account-aware Hermes runtime routes for OpenAI Codex bearer access, Anthropic Claude Code session tokens, and Google OAuth project-header injection instead of limiting the agent path to API-key env vars
+  - Updated `AgentViewModel` to resolve start routes from the real account-aware cloud credential pipeline before launching Hermes, while keeping local 9B fallback behavior intact
+  - Patched Hermes Python startup to honor `HERMES_OPENAI_DEFAULT_HEADERS_JSON`, enabling Google OAuth agent traffic to carry the required `x-goog-user-project` header through the OpenAI-compatible Gemini endpoint
+  - Reworked landing, onboarding, and agent failure-recovery copy so the recovery UI now leads with reconnecting provider accounts and leaves legacy keys as explicit fallback only
+  - Tightened focused test coverage for OAuth-backed access, Hermes runtime-route credential mapping, account-aware validation strings, and deterministic cloud-access isolation in the triage suite
+- Observations:
+  - Xcode’s default derived-data tree held onto stale runner state during some focused test attempts, so the final focused verification was rerun on fresh temporary derived-data roots to get deterministic bundle + test execution results
+  - No Rust sources changed in this follow-up slice, so `cargo test` was not rerun
+- VERDICT: PASS — native account-auth flows now reach both the cloud request path and the Hermes agent runtime, with focused build and test coverage green on the patched slice
+
+## Phase A Follow-Up 3 — 2026-04-03
+- Scope: compact cloud model popover cleanup (foldable cloud access, account-first provider setup, manual API path collapsed by default)
+- Build:
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test`) — 163 tests in 1 suite
+- Issues found:
+  - The shared runtime popover stacked provider selection, setup messaging, and locked cloud models into one tall flow, which made the picker feel cluttered and buried the intended account-first onboarding path under manual-key controls
+- Issues fixed:
+  - Reworked the popover into a foldable `Cloud Access` section with separate nested `Provider` and `Models` disclosures instead of one long stacked cloud block
+  - Updated the compact setup card to lead with browser-account actions (`Continue with Google/OpenAI/Anthropic`) and move the manual API path behind a collapsed `Manual API Key` disclosure
+  - Hid the locked cloud-model list behind the foldable `Models` section and replaced the old `Add key` copy with account-first `Finish setup` guidance
+  - Kept Settings and other recovery surfaces intact while reusing the same account-first copy and compact manual fallback behavior
+- Observations:
+  - This remains browser-account-first rather than native in-app OAuth; the UI now defaults to the account continuation path and de-emphasizes manual keys until the user explicitly expands them
+- VERDICT: PASS — the cloud picker is materially more condensed and better aligned with the account-first setup goal
+
+## Phase A Follow-Up 2 — 2026-04-03
+- Scope: extend the simplified direct-API onboarding flow into more first-run and recovery surfaces (Landing Hermes recovery, Setup Assistant, Agent runtime recovery, shared setup card + shared Paste + Save automation)
+- Project sync:
+  - PASS (`xcodegen generate`)
+- Build:
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test`) — 163 tests in 1 suite
+- Issues found:
+  - The automated provider setup path was still concentrated in Settings and the shared model picker, which meant first-run users and Hermes recovery states could still dead-end into generic errors instead of offering the same direct provider actions
+- Issues fixed:
+  - Added a shared `CloudProviderSetupCard` so Google/OpenAI/Anthropic portal links, docs links, `Paste + Save`, validation state, and Settings recovery all stay in one reusable flow
+  - Replaced the Landing Hermes auth banner with a provider-aware recovery card that can open the right provider page or save the key from the clipboard in place
+  - Added provider setup directly into the Setup Assistant so first-run onboarding can connect cloud access before Hermes runtime checks continue
+  - Added provider recovery UI to the Agent session failure state when the error indicates missing or invalid cloud credentials
+  - Reused the same clipboard-save helper in Settings so the automated/manual flow behaves consistently across surfaces
+- Observations:
+  - The first-use hint remains one-time via `cloudSetupHintShown`, while ongoing surfaces keep persistent contextual guidance without re-showing the same onboarding popover forever
+  - No Rust files changed in this follow-up slice, so Rust tests were not rerun
+- VERDICT: PASS — the provider setup flow now reaches the main first-use and failure-recovery surfaces instead of living only in Settings
+
+## Phase A Follow-Up — 2026-04-03
+- Scope: provider onboarding UX polish after the Google-first direct-API baseline (active-provider quick setup card, Anthropic/OpenAI docs links, first-use dismissal hint, persistent setup guidance in the shared runtime popover)
+- Build:
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build -quiet`)
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test`) — 176 tests in 2 suites
+- Issues found:
+  - Provider setup guidance was strong in Settings but still thin inside the shared chat runtime picker, which left Anthropic/OpenAI link access and first-use automation hints too far from the actual model-selection surface
+- Issues fixed:
+  - Added an active-provider setup card in the shared runtime popover so main chat and mini chat both expose direct provider links plus a clear path back to Settings → Inference
+  - Kept the first-use hint dismissible and persistent through the shared `cloudSetupHintShown` state instead of introducing a separate drift-prone hint flag
+  - Fixed the new source-level validation to use the repo text-file retry helper that is actually visible from the cloud-selection test suite
+- VERDICT: PASS — provider setup is now surfaced where users choose models, with direct Anthropic/OpenAI links and lightweight first-use guidance still green on build and focused tests
+
+## Phase A Audit — 2026-04-03
+- Scope: Substrate Sprint 0 architecture audit plus the provider/direct-API overhaul baseline (Google-first default, single active provider UX, dynamic operating modes, explicit cloud fallback order, provider-native controls, Firecrawl settings field)
+- Build:
+  - PASS (`xcodegen generate`)
+  - PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build`)
+  - Note: `xcbeautify` was not installed in this environment, so the build was verified via raw `xcodebuild` output instead
+- Focused verification:
+  - PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/RuntimeValidationTests test`) — 176 tests in 2 suites
+- Rust verification:
+  - PASS (`cargo test --manifest-path agent_core/Cargo.toml`) — 144 passed, 0 failed
+- Hardening grep:
+  - PASS (`docs/HARDENING_VERIFICATION.md`) — 49/49 checks passed
+- Zero-corruption:
+  - `F_FULLFSYNC` / `fcntl(..., 51)` grep count: 12
+  - `Epistemos/Sync/NoteFileStorage.swift` raw `try?` grep count: 0
+  - `agent_core/src/bridge.rs` `ffi_guard_*` / `catch_unwind` grep count: 18
+  - Production `try!` / `.unwrap()` grep count: 0
+- Anti-drift:
+  - Production `Process()` / `NSTask` / `posix_spawn` grep count in `Epistemos/`: 0
+  - Fake SDK import grep count (`import Anthropic` / `import OpenAI`): 0
+  - `UserDefaults.*ApiKey` grep count: 0
+  - `ObservableObject` grep count in production `Epistemos/`: 0
+  - `PowerGuard.shared` grep count in production `Epistemos/`: 21
+  - `DispatchQueue.main.sync` grep count in production `Epistemos/`: 0
+- Continuations:
+  - `withCheckedContinuation` / `withCheckedThrowingContinuation` count: 27
+  - `withTaskCancellationHandler` count: 19
+  - Code review of the changed Phase A slice found no new main-sync or stored-continuation regressions
+- Performance:
+  - `MetalGraphView` frame skip counter still present (`frameSkip` grep count: 3)
+  - `KnowledgeCoreBridge` polling still uses `PowerGuard.shared.ringPollInterval` (`ringPollInterval` grep count: 1)
+  - No new blocking FFI-on-`@MainActor` path was introduced in the changed provider/runtime files
+- Coherence:
+  - Re-read `docs/CONTROL_PLANE_RESEARCH.md`, `ZERO_CORRUPTION_SPEC.md`, and `ANTI_DRIFT_SYSTEM.md`
+  - No architectural drift detected in the Phase A slice: provider configuration is exposed as control-plane UI, credentials stay Keychain-backed, and no inference sidecar path was introduced
+- Issues found:
+  - The provider UX was still biased toward an OpenAI-first default even though the lowest-friction direct API setup is Google AI Studio
+  - Runtime validation and triage tests had stale expectations after the new capability matrix and fallback chain landed
+  - The first full build attempt failed only because a stale `xcodebuild` process from the aborted `xcbeautify` run held the build database lock
+- Issues fixed:
+  - Added `docs/ARCHITECTURE_AUDIT.md` for Substrate Sprint 0
+  - Switched the default active provider to Google, reordered provider selection to make the Google-first path obvious, and added provider-specific direct-key setup links in Settings
+  - Kept OpenAI fully enabled as a direct API backup path and made cloud fallback ordering explicit instead of relying on enum order
+  - Updated focused runtime/triage expectations and verified the new provider/mode behavior end to end
+- VERDICT: PASS — Phase A is green on this Google-first direct-API baseline; do not start Phase B from an older provider-selection assumption
+
+## Inference Memory Audit — 2026-04-03
+- Scope: inference idle memory plus post-query retention in chat and note-chat surfaces
+- Build/test verification:
+  - `cargo test --manifest-path graph-engine/Cargo.toml`: PASS (2451 passed, 0 failed, 8 ignored)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS,arch=arm64' -derivedDataPath /tmp/epistemos-idle-memory-dd test -only-testing:EpistemosTests/NoteChatStateTests -only-testing:EpistemosTests/PipelineServiceTests/ChatStateLocalMessageTests/startNewChatClearsPendingAttachmentsAndContext -only-testing:EpistemosTests/PipelineServiceTests/ChatStateLocalMessageTests/clearMessagesDropsPendingAttachmentsAndContext -only-testing:EpistemosTests/RuntimeValidationTests`: PASS (181 tests in 3 suites)
+- Recursive audit:
+  - Focused memory slice now has 3 successive clean no-edit passes across the same Rust + Swift verification pair
+  - Manual code audit re-checked `ChatState`, `NoteChatState`, `TriageService`, `Extensions`, and `MLXInferenceService` for deterministic post-turn retention paths
+- Issues found:
+  - The earlier hidden-Metal overlay retention bug was the dominant idle-memory spike and had already been fixed in the preceding 2026-04-03 graph-overlay pass
+  - The MLX runtime already had active-vs-idle budget trimming, so the remaining deterministic inference-side retention was oversized Swift `String` backing storage held after large streamed responses
+  - `ChatState.streamingText`, `NoteChatState.responseText`, and `DisplayPacedTextBuffer.pendingText` were being reset logically but could still retain heap capacity after large turns
+- Issues fixed:
+  - `DisplayPacedTextBuffer.reset(releaseCapacity:)` now optionally drops retained pending-text capacity instead of only emptying content
+  - `ChatState` now explicitly releases oversized stream-buffer storage on new chat, completion, cancellation, error, and clear/reset paths
+  - `NoteChatState` now explicitly releases oversized inline-response and buffered-stream storage on submission reset, accept, discard, and clear paths
+  - Added a focused behavioral regression in `NoteChatStateTests` plus a `RuntimeValidationTests` source guard for the release-capacity reset wiring
+- Observations:
+  - A previous live `vmmap` sample from the 2026-04-03 memory session showed the post-fix app down around a ~627-649 MB physical footprint with `IOAccelerator` essentially idle, supporting that the worst idle leak was GPU-retention rather than an ever-growing inference heap
+  - Some active-generation memory remains expected while the local model container is warm; this audit closes the deterministic post-turn buffer retention path rather than eliminating legitimate working-set growth during generation
+- VERDICT: PASS — the remaining deterministic post-query memory retention path is fixed, the focused inference-memory audit is three-pass clean, and no additional accumulating chat-buffer leak was found beyond the now-closed buffer-capacity retention
+
+## Audit Sweep — 2026-04-02
+- Build: PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build`)
+- Focused tests: PASS (`xcodebuild -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test`, 109 tests)
+- Hardening grep: 50/50 passed (`docs/HARDENING_VERIFICATION.md`)
+- Code signing: PASS (`codesign --verify --deep --strict --verbose=2` on the fresh Debug app)
+- Zero-corruption:
+  - `F_FULLFSYNC` / `fcntl(..., 51)` grep count: 12
+  - `NoteFileStorage.swift` raw `try?` grep count: 26 FAIL against the literal checklist target of 0
+  - `agent_core/src/bridge.rs` `ffi_guard_*` / `catch_unwind` grep count: 18
+  - Production `try!` / `.unwrap()` grep count: 1, but the match is a string literal in `Epistemos/KnowledgeFusion/SkillGeneration/RepoAnalyzer.swift`
+- Anti-drift:
+  - No fake SDK imports: PASS
+  - No `UserDefaults.*ApiKey`: PASS
+  - `PowerGuard.shared` grep count: 20
+  - `DispatchQueue.main.sync` grep count: 0
+  - Raw `Process()` / `NSTask` / `posix_spawn` grep count: 21 FAIL against the literal checklist target of 0; current matches are subprocess helpers for training, capture, tooling, and harness flows, so this needs targeted policy review rather than blind deletion
+  - Raw `ObservableObject` grep count: 1, but the match is a comment in `Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift`
+- Continuations:
+  - `withCheckedContinuation` / `withCheckedThrowingContinuation` count: 34
+  - `withTaskCancellationHandler` count: 7
+  - High-risk stored continuation sites reviewed in `HermesMCPClient`, `ThermalGuard`, `ConfirmationGate`, and `ResearchPause`; no fresh regression found there
+- Performance:
+  - `MetalGraphView` frame skip counter present for low-power 60fps cap
+  - `KnowledgeCoreBridge` polling uses `PowerGuard.shared.ringPollInterval`
+  - Fixed renderer wake path so PowerGuard mode changes now push graph quality and throttled force params even while the graph is idle
+- Coherence:
+  - Audit respected the 2026-04-01 status correction and current `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` / `docs/AGENT_PROGRESS.md` state
+  - No new work was started in Phase 6F or Phase 7 tracks
+- Issues found:
+  - `MetalGraphView` could miss PowerGuard mode changes while idle, leaving stale quality and throttled force parameters until another render trigger arrived
+  - Raw checklist failures remain in `NoteFileStorage.swift` (`try?`) and repo-wide subprocess grep results
+- Issues fixed:
+  - Added a PowerGuard observer to `Epistemos/Views/Graph/MetalGraphView.swift`
+  - Added `applyPowerModeGraphOverrides()` to immediately push quality and throttled force params on power-mode change
+  - Added a Runtime Validation regression test covering the idle-renderer wake path
+- VERDICT: FAIL — graph power-mode regression is fixed, but literal zero-corruption / anti-drift checklist failures remain and should be triaged before claiming a full audit pass or starting the next phase
+
+## Audit Sweep Follow-up — 2026-04-02
+- Build: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`)
+- Focused tests: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/HarnessSubsystemTests -only-testing:EpistemosTests/HermesSubprocessTests -only-testing:EpistemosTests/KTOTrainerTests -only-testing:EpistemosTests/AudioTranscriberTests -only-testing:EpistemosTests/VaultChatMutatorTests`, 116 tests in 4 suites)
+- Rust verification:
+  - `cargo test --manifest-path agent_core/Cargo.toml`: PASS (144 passed)
+  - `cargo test --manifest-path graph-engine/Cargo.toml`: PASS (2448 passed, 8 ignored)
+  - `cargo check --manifest-path agent_core/Cargo.toml --release`: PASS
+- Project sync: PASS (`xcodegen generate`)
+- Hardening grep: 50/50 passed (`docs/HARDENING_VERIFICATION.md`)
+- Code signing: PASS (`codesign --verify --deep --strict --verbose=2` on the fresh Debug app)
+- Zero-corruption:
+  - `F_FULLFSYNC` / `fcntl(..., 51)` grep count: 12
+  - `NoteFileStorage.swift` raw `try?` grep count: 0
+  - `agent_core/src/bridge.rs` `ffi_guard_*` / `catch_unwind` grep count: 18
+  - Production `try!` / `.unwrap()` grep count: 0
+- Anti-drift:
+  - No sidecar subprocess grep hits in production Swift: PASS (`Process()` / `NSTask` / `posix_spawn` count: 0)
+  - No fake SDK imports: PASS
+  - No `UserDefaults.*ApiKey`: PASS
+  - Raw `ObservableObject` grep count: 0
+  - `PowerGuard.shared` grep count: 20
+  - `DispatchQueue.main.sync` grep count: 0
+- Continuations:
+  - `withCheckedContinuation` / `withCheckedThrowingContinuation` count: 29
+  - `withTaskCancellationHandler` count: 17
+  - Remaining high-risk subprocess-backed helpers now terminate on cancellation or timeout, and the stored continuation sites in `HermesMCPClient`, `ThermalGuard`, `ConfirmationGate`, and `ResearchPause` remain aligned with the expected safety pattern
+- Performance:
+  - `MetalGraphView` frame skip counter present for low-power 60fps cap
+  - `KnowledgeCoreBridge` polling uses `PowerGuard.shared.ringPollInterval`
+  - No new `DispatchQueue.main.sync` calls
+  - Blocking subprocess waits that previously risked hanging UI-facing paths were moved behind cancellation-aware async wrappers
+- Coherence:
+  - Audit still respects the 2026-04-01 status correction and current `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` / `docs/AGENT_PROGRESS.md` state
+  - No Phase 6F / Phase 7 restart work was introduced
+- Issues found:
+  - Harness and setup subprocess helpers lacked consistent cancellation escape hatches
+  - A handful of off-main permission and capture helpers were still using unnecessary checked continuations
+  - Literal zero-corruption and anti-drift checklist blockers remained from the previous sweep
+- Issues fixed:
+  - Added `ProcessContinuationState` in `Epistemos/State/TimeoutUtility.swift` for exact-once, cancellation-safe nonthrowing subprocess completions
+  - Hardened subprocess wrappers in `Epistemos/Agent/HermesSetupService.swift`, `Epistemos/Harness/CompletionChecker.swift`, `Epistemos/Harness/HarnessLab.swift`, and `Epistemos/Harness/EvalSandbox.swift`
+  - Replaced unnecessary checked continuations with detached background work in `Epistemos/Omega/Vision/TCCPermissionState.swift`, `Epistemos/Omega/OmegaPermissions.swift`, `Epistemos/Omega/Vision/AXorcistBridge.swift`, `Epistemos/Omega/Vision/ScreenCaptureService.swift`, and `Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift`
+  - Added Runtime Validation coverage for cancellation-safe harness/setup subprocess behavior
+  - Cleared the previous literal grep blockers for `try?`, raw subprocess hits, `ObservableObject`, and production `try!` / `.unwrap()`
+- VERDICT: PASS — audit blockers from the earlier 2026-04-02 sweep are resolved, verification is green, and the tree is clear to continue
+
+## Cloud Knowledge Distillation Wiring Audit — 2026-04-02
+- Scope: Cloud Knowledge distillation + NightBrain maintenance wiring
+- Build: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`)
+- Focused tests: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/NightBrainCheckpointResumeTests`, 14 tests in 2 suites)
+- Project sync: PASS (`xcodegen generate`)
+- Regression grep:
+  - No `fetchLimit = 10_000` in `CloudKnowledgeDistillationService`
+  - No `try? await cloudKnowledgeDistillationService.rebuildAllModelVaults()` in `AppBootstrap`
+  - No `try? searchIndex?.passiveCheckpoint()` in `NightBrainService`
+  - Fallback domain map now uses ranked concept `lastUpdatedAt`
+  - Production path now loads recent chats from SwiftData when no provider override is supplied
+- Issues fixed:
+  - NightBrain no longer checkpoints or reports completion when distillation fails
+  - Default distillation runs now include recent chat context from SwiftData
+  - Source note loading no longer silently truncates at 10,000 pages
+  - Untagged domain-map fallback now preserves real concept recency
+  - Resume test fixture now matches the live NightBrain job order, including `memory_distillation`
+- Observations:
+  - The 10,025-note stress test triggered a `MainThreadWatchdog` log during the synthetic test run, but the focused suite still passed and this path is a background NightBrain job in production rather than a main-actor UI flow
+- VERDICT: PASS — the known Cloud Knowledge wiring gaps are fixed and the targeted audit is green
+
+## Recursive Runtime Audit — 2026-04-02
+- Scope: recursive runtime verification while preserving the Hermes submodule and in-flight agent-system wiring
+- Build: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`)
+- Existing full Swift sweep carried forward: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test`, 3111 tests in 422 suites from the same-day clean run)
+- Focused Cloud Knowledge verification: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/CloudKnowledgeDistillationTests`, 7 tests in 1 suite)
+- Rust verification:
+  - `cargo test --manifest-path agent_core/Cargo.toml`: PASS (144 passed)
+  - `cargo test --manifest-path graph-engine/Cargo.toml`: PASS (2451 passed, 8 ignored)
+  - `cargo test --manifest-path omega-mcp/Cargo.toml`: PASS (126 passed)
+  - `cargo test --manifest-path omega-ax/Cargo.toml`: PASS (12 passed)
+  - `cargo check --manifest-path agent_core/Cargo.toml --release && cargo check --manifest-path agent_core/Cargo.toml`: PASS
+- Hardening verification:
+  - `docs/HARDENING_VERIFICATION.md` grep sweep: PASS for all listed code-path checks
+  - `agent_core` unwind / FFI guard / async spawn checks: PASS
+  - supervisor / mode-machine / breaker / thermal / token-budget / resilience-test wiring checks: PASS
+- Issues found:
+  - `omega-mcp` PTY working-directory tracking could parse the echoed `__EPPWD__$(pwd)` command text instead of the expanded marker line, leaving `cd` persistence flaky
+  - `CloudKnowledgeDistillationService` emitted an avoidable `var`-never-mutated build warning
+  - `docs/HARDENING_VERIFICATION.md` still described Hermes orphan cleanup as unwired after the supervisor escalation fix landed
+- Issues fixed:
+  - `omega-mcp/src/pty.rs` now ignores echoed marker text, waits for a parsed `__EPPWD__` line, and includes a regression test for the echoed-marker case
+  - `Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift` now uses `let` for the immutable page fetch descriptor
+  - `docs/HARDENING_VERIFICATION.md` now reflects the current policy: Hermes remains an intentional managed subprocess boundary, not an unwired orphan-cleanup gap
+  - `CloudKnowledgeDistillationService` now fast-paths inline-only page bodies so large synthetic or pre-migration note sets do not pay redundant managed-file probes during distillation
+  - `CloudKnowledgeDistillationService` now propagates SwiftData source-note / recent-chat fetch failures instead of silently compiling empty model vaults, and the focused suite includes a regression test for the source-note failure path
+  - `AppBootstrap` now skips `MainThreadWatchdog.install()` under XCTest hosts, eliminating false-positive hang logs from the isolated test runtime while leaving production watchdog behavior unchanged
+  - `HermesSubprocessManager` now reads the latest request handler dynamically and exposes a disconnect callback so Swift-side Hermes clients do not lose stdout events or hang on stale pending MCP requests after disconnects
+  - `HermesMCPClient` and `AgentViewModel` now cancel pending MCP requests immediately on Hermes disconnect
+  - `HermesSubprocessManager` now preserves the final stderr line from fast subprocess crashes by keeping a thread-safe stderr snapshot for termination diagnostics, with a focused regression test around a deliberately crashing temp runtime
+  - `HermesSubprocessManager` no longer marks Hermes as stopped before the subprocess actually exits, so relaunches stay blocked during graceful shutdown and `restart()` now waits for real process exit instead of racing a second launch against the first shutdown
+  - `HermesSubprocessManager` watchdog now waits for a real ping response instead of only checking stdin writeability, so hung Hermes subprocesses are terminated while responsive ones stay alive
+  - `NightBrainService` now treats missing `SearchIndexService` or `AgentGraphMemory` dependencies as interrupted maintenance runs instead of checkpointing those jobs as successful no-ops
+- Observations:
+  - Intentional subprocess usage still exists in managed, non-inference surfaces such as Hermes setup/runtime, audio transcription, and Python-backed training helpers; this sweep preserved those paths because the active agent-system work depends on Hermes remaining intact
+  - The repository worktree remains broadly dirty with unrelated user changes, including Hermes-adjacent files and the `hermes-agent` submodule, so this sweep stayed tightly scoped
+  - A filtered rerun of `CloudKnowledgeDistillationTests` no longer emitted `MainThreadWatchdog` logs once the distillation fast path and XCTest watchdog guard were in place
+- Additional focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/CloudKnowledgeDistillationTests`: PASS (8 tests)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/HermesMCPClientTests`: PASS (11 tests)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/HermesMCPClientTests`: PASS (19 tests in 2 suites)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/NightBrainCheckpointResumeTests -only-testing:EpistemosTests/HermesMCPClientTests -only-testing:EpistemosTests/RuntimeValidationTests`: PASS (137 tests in 3 suites)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/RuntimeValidationTests`: PASS (117 tests)
+  - `cargo test --manifest-path omega-mcp/Cargo.toml`: PASS (126 tests)
+- VERDICT: PASS — the audited slice is green, the PTY regression is fixed, and the docs now match the verified runtime state without disturbing Hermes work
+
+## Recursive Runtime Audit Follow-On — 2026-04-02
+- Scope: NightBrain durability and subprocess-tree cleanup follow-on without touching the `hermes-agent` submodule
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/NightBrainCheckpointResumeTests -only-testing:EpistemosTests/OrphanSubprocessCleanupTests -only-testing:EpistemosTests/RuntimeValidationTests`: PASS (130 tests)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/HermesMCPClientTests`: PASS (11 tests)
+- Issues found:
+  - `NightBrainService` could lose durable checkpoint/status writes mid-run if `storeProvider()` stopped returning the `EventStore` after startup, yet the pipeline could still report `.finished`
+  - `OrphanSubprocessCleanup` only targeted tracked parent PIDs, so descendant subprocesses could survive cleanup and keep running after the parent died
+  - `HermesSubprocessManager` still advertised a process-group shutdown path even though `Foundation.Process` never established a dedicated process group
+- Issues fixed:
+  - `NightBrainService` now captures a single `EventStore` reference at run start and uses it for all interrupt, checkpoint, and completion writes
+  - `OrphanSubprocessCleanup` now snapshots and terminates descendant subprocess trees via `proc_listchildpids`, with a live regression test that spawns a real parent→child process tree
+  - `HermesSubprocessManager.terminateProcessGroup()` now routes through `OrphanSubprocessCleanup.cleanupProcessTree(...)`, and the launch comment now honestly reflects the `Foundation.Process` boundary
+  - `RuntimeValidationTests` now grep-guard the NightBrain store-retention path and descendant-tree cleanup path against drift
+- Observations:
+  - This pass preserved the active Hermes runtime/submodule work and only hardened the Swift-side lifecycle and cleanup edges around it
+- VERDICT: PASS — the NightBrain durability hole and descendant-orphan gap are closed, and focused Hermes sanity still passes
+
+## Recursive Runtime Audit Follow-On 2 — 2026-04-02
+- Scope: Hermes setup health-check hardening plus Agent Heartbeat post-dispatch safety
+- Issues found:
+  - `HermesSubprocessManager.healthCheck(...)` could report the runtime as healthy after a pure Python import check, even if the Epistemos bridge could not successfully start and answer a real ping
+  - `AgentHeartbeatService` still finished background runs after a blind fixed sleep, even if Hermes disconnected immediately after the heartbeat prompt was dispatched
+- Issues fixed:
+  - `HermesHealthResult` now tracks `bridgeResponsive`, and `HermesSubprocessManager.healthCheck(...)` now launches a temporary bridge instance and requires a successful MCP `ping` round trip before reporting the runtime healthy
+  - `AgentHeartbeatService` now monitors Hermes through a bounded post-dispatch window and defers the heartbeat if the subprocess drops before that stabilization window completes
+  - Added focused regressions in `HermesSubprocessTests` for responsive vs non-responsive bridge health checks
+  - Added focused `AgentHeartbeatTests` coverage for stable-vs-dropped Hermes availability during the heartbeat monitoring window
+  - Added `RuntimeValidationTests` source guards for the live Hermes bridge probe and the heartbeat monitoring path
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/HermesSubprocessTests/HermesHealthResult`: PASS
+  - Cold Xcode reruns for `AgentHeartbeatTests` / broader validation are still rebuilding package dependencies from scratch; no compile failure surfaced yet, but those focused passes were not complete at the time of this log entry
+- Observations:
+  - The cold rebuild path recompiled SwiftPM dependencies like `mlx-swift`, `Grape`, and `AXorcist`, so verification latency here was dominated by package compilation rather than the small Swift slice that changed
+  - Hermes itself and the `hermes-agent` submodule remained untouched; this pass stayed on the Swift wrapper/runtime boundary only
+- VERDICT: IN PROGRESS — the code fixes and one focused Hermes verification pass are in place; heartbeat and broader validation reruns still need a warm Xcode pass to finish cleanly
+
+## Recursive Runtime Audit Follow-On 3 — 2026-04-02
+- Scope: Hermes termination seam plus the remaining NightBrain background-job invariants
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/HermesSubprocessTests -only-testing:EpistemosTests/NightBrainCheckpointResumeTests -only-testing:EpistemosTests/RuntimeValidationTests`: PASS
+  - repeated warm rerun of the same focused Hermes + NightBrain + validation slice: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/AgentHeartbeatTests`: PASS
+- Issues found:
+  - `HermesSubprocessManager` still exposed a misleading `terminateProcessGroup()` API even though launch never created a dedicated process group, and normal `terminate()` still treated only the root process as authoritative
+  - `NightBrainService` still re-queried `storeProvider()` for checkpoint vacuum, artifact dedupe, and workspace snapshot compaction after the run had already captured a durable `EventStore`
+  - `NightBrainService` still treated an unwired `cloudKnowledgeJob` as a silent success path instead of deferring like the other missing maintenance dependencies
+- Issues fixed:
+  - `HermesSubprocessManager` now accepts an injectable orphan-cleanup provider for focused runtime tests, routes normal `terminate()` through `cleanupProcessTree(rootPID:)` when cleanup is available, and removes the stale fake process-group API entirely
+  - the bridge-responsiveness probe now uses normal `terminate()`, so the health-check path and the real runtime path shut Hermes down the same way
+  - `NightBrainService` now passes the captured `EventStore` into job execution and uses that durable store for checkpoint vacuum, artifact dedupe, and workspace snapshot compaction
+  - `NightBrainService` now requires an explicitly configured cloud knowledge distillation job and throws `missingCloudKnowledgeJob` when that dependency is absent
+  - added focused regressions in `HermesSubprocessTests`, `CognitiveSubstrateTests`, and `RuntimeValidationTests` for descendant cleanup, captured-store reuse, and missing cloud-knowledge job behavior
+- Observations:
+  - This pass kept the `hermes-agent` submodule untouched and stayed on the Swift wrapper / scheduler / audit boundary only
+  - The earlier `AgentHeartbeat` warm-rerun TODO is now resolved by the focused `AgentHeartbeatTests` pass above
+- VERDICT: PASS — the fake process-group seam is removed, NightBrain’s remaining store/dependency gaps are closed, and the lingering warm-rerun audit debt is gone
+
+## Recursive Runtime Audit Follow-On 4 — 2026-04-02
+- Scope: activity-tracker crash-recovery wiring plus workspace-summary persistence hardening
+- Issues found:
+  - `ActivityTracker` had a hardened flush/load path on paper, but the runtime never called `loadFlushedEvents()` at launch or `flushToDisk()` during app teardown, so crash-recovery state was effectively unwired
+  - `ActivityTracker` still silently ignored flush-directory creation failure and overwrote recovered events instead of merging them with any already-recorded in-memory events
+  - `WorkspaceSummaryService` still swallowed timer cancellation, workspace fetch failures, summary save failures, and page-title fetch failures with `try?`, making summary persistence look successful even when persistence failed
+- Issues fixed:
+  - `AppBootstrap.performPrimaryLaunchInitialization()` now calls `activityTracker.loadFlushedEvents()` before the normal tracking/session startup path
+  - `EpistemosApp.performTeardown()` now calls `activityTracker.flushToDisk()` after stopping activity tracking so session events are durably cached on orderly shutdown
+  - `ActivityTracker` now logs flush-directory creation failure explicitly, preserves existing in-memory events when recovering the flushed cache, keeps its default cache-path provider on a nonisolated helper that compiles cleanly under Swift 6 isolation, exits its idle scan loop through explicit cancellation handling instead of `try?` sleep, and logs page-title fetch failures instead of silently swallowing them
+  - Added focused `ActivityTrackerTests` coverage for durable `EventStore` append behavior and flushed-cache recovery/merge behavior
+  - Added `RuntimeValidationTests` guards for the tracker crash-recovery wiring and for `WorkspaceSummaryService` staying free of silent `try?` sleep/fetch/save paths
+  - `WorkspaceSummaryService` now uses explicit `do/catch` handling for summary-loop sleep, workspace fetch, workspace save, and page-title fetch failures, with structured logging instead of silent fallback
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/ActivityTrackerTests -only-testing:EpistemosTests/RuntimeValidationTests`: PASS
+  - repeated warm rerun of the same tracker + validation slice after the workspace-summary hardening pass: PASS
+- Observations:
+  - This pass stayed on the Swift background-runtime boundary only and did not touch the `hermes-agent` submodule or the active Hermes integration work
+  - The tracker crash-recovery cache is now actually wired into launch/teardown, so the durable JSON cache path is no longer dead code
+- VERDICT: PASS — activity tracking recovery is live, workspace summary persistence now fails loudly instead of silently, and the focused audit slice is green
+
+## Recursive Runtime Audit Follow-On 5 — 2026-04-02
+- Scope: workspace/time-machine/event-store persistence hardening
+- Issues found:
+  - `WorkspaceService` still swallowed auto-save, auto-restore, restore-delay, snapshot decode, workspace fetch, and listing failures with `try?`, so session persistence could look healthy even when save/restore state was incomplete
+  - `TimeMachineService` still hid note-version, chat, message-count, page, and graph-count fetch failures behind silent empty/zero fallbacks
+  - `EventStore` still used silent `try?` fallbacks for database-directory creation, `jobs_completed` JSON encode/decode, and event payload encoding, and a failed `quick_check` prepare path could return without closing the SQLite handle
+- Issues fixed:
+  - `WorkspaceService` now uses explicit `do/catch` handling with logging for auto-save, auto-restore, restore-delay sleep, diff decode/fetch, workspace save/load, and list operations
+  - `TimeMachineService` now routes fetch/count lookups through shared logged helpers, so persistence failures are visible while remaining fail-closed
+  - `EventStore` now fails closed if the database directory cannot be created, removes the silent default-path directory `try?`, logs `jobs_completed` JSON encode/decode failures, logs event payload encode failures, and closes SQLite before returning if `PRAGMA quick_check` cannot be prepared
+  - Added runtime regressions for malformed `jobs_completed` JSON and blocked database-directory creation in `CognitiveSubstrateTests`
+  - Added `RuntimeValidationTests` guards to keep `WorkspaceService`, `TimeMachineService`, and `EventStore` free of the old silent persistence fallbacks
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/WorkspaceServicePersistenceTests -only-testing:EpistemosTests/TimeMachineServiceTests -only-testing:EpistemosTests/RuntimeValidationTests`: PASS (141 tests in 3 suites)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/CognitiveSubstrateTests -only-testing:EpistemosTests/RuntimeValidationTests`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test-without-building -only-testing:EpistemosTests/EventStoreSchemaTests`: PASS (7 tests in 1 suite)
+- Observations:
+  - The combined `CognitiveSubstrateTests` + `RuntimeValidationTests` rebuild was dominated by full target recompilation, but the post-build runtime pass still completed green
+  - This pass remained on the persistence/runtime layer only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — the remaining silent persistence fallbacks in workspace restore, time-machine reconstruction, and EventStore are closed, and the focused runtime/source-guard audit is green
+
+## Recursive Runtime Audit Follow-On 6 — 2026-04-02
+- Scope: capture-config fail-closed behavior plus startup/reset profile-persistence follow-on hardening
+- Issues found:
+  - `EpistemosConfig` still decoded capture allowlist/blocklist JSON with silent `try? ... ?? []` fallbacks, so malformed capture filters could accidentally fail open and re-enable capture
+  - `EpistemosConfig` also silently collapsed encode failures back to `"[]"`, hiding persistence corruption in the landing settings path
+  - `AppBootstrap` still swallowed startup-integrity page fetch failures, welcome-back summary fetch failures, deferred startup sleep interruption, database reset cleanup failures, and Instant Recall seed snapshot fetch failures behind `try?`
+  - `ModelProfileManager` still swallowed `context.save()` failures when persisting profile activation/statistics/graph settings updates
+- Issues fixed:
+  - `EpistemosConfig` now routes allowlist/blocklist decode through an explicit helper, logs literal allowlist/blocklist decode failures, logs capture filter encode failures, and blocks capture when either JSON blob is malformed
+  - Added focused regression coverage in `EpistemosConfigTests` for malformed capture-filter JSON and source guards in `RuntimeValidationTests`
+  - `AppBootstrap` now logs startup integrity snapshot failures, welcome-back summary fetch failures, primary-launch/deferred-startup sleep failures, database reset cleanup failures, and Instant Recall seed snapshot failures instead of silently swallowing them
+  - `ModelProfileManager` now uses explicit `do/catch` persistence for profile saves and logs failed profile writes instead of ignoring them
+  - Added `RuntimeValidationTests` source guards for the new AppBootstrap and ModelProfileManager persistence paths
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/EpistemosConfigTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+- Observations:
+  - `xcodebuild test-without-building` was not usable for this slice after the plain app build because the test bundle was not present in that product layout; the normal focused `test` path completed cleanly instead
+  - This pass remained on the Swift persistence/runtime boundary only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — capture-filter corruption now fails closed, startup/reset/profile persistence no longer pretends to succeed silently, and the focused build/test audit slice is green
+
+## Recursive Runtime Audit Follow-On 7 — 2026-04-02
+- Scope: landing greeting settings/runtime hardening in `UIState`
+- Issues found:
+  - `UIState` still silently ignored malformed custom landing-greeting JSON and silently dropped back to empty/default state without recording why the saved library was bad
+  - `UIState` still silently ignored landing-greeting encode failures, which could erase the custom greeting library without leaving an audit trail
+  - `UIState.showToast(...)` still swallowed toast-dismissal sleep errors with `try?`
+  - `LandingGreetingResolver.noteInsights()` still hid recent-page and workspace-summary fetch failures behind silent `try?` fallbacks
+- Issues fixed:
+  - `UIState` now logs custom landing-greeting decode failures, removes malformed saved greeting data, and repopulates storage with a sanitized empty library instead of leaving corrupted bytes in defaults
+  - `UIState` now logs landing-greeting encode failures and no longer silently drops them
+  - `UIState.showToast(...)` now handles cancellation explicitly and logs unexpected sleep failures
+  - `LandingGreetingResolver.noteInsights()` now logs recent-page and workspace-summary fetch failures instead of silently returning no insight phrases
+  - Added focused regression coverage in `LandingExperienceSettingsTests` for malformed landing-greeting JSON plus source guards in `RuntimeValidationTests`
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/EpistemosConfigTests -only-testing:EpistemosTests/LandingExperienceSettingsTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+- Observations:
+  - The focused rerun rebuilt the test bundle around `RuntimeValidationTests` again, but the targeted slice completed cleanly once the stricter malformed-JSON test was adjusted to accept sanitized empty storage
+  - This pass remained on the Swift settings/runtime boundary only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — landing greeting persistence now fails closed with explicit diagnostics, note-insight fetch failures are visible, and the focused settings/runtime audit slice is green
+
+## Recursive Runtime Audit Follow-On 8 — 2026-04-02
+- Scope: Cloud Knowledge prompt injection and live runtime wiring
+- Issues found:
+  - `CloudKnowledgeDistillationService` and `KnowledgeProfileStore` were compiling and persisting per-model vaults, but no live runtime path was actually reading those vaults back into Apple Intelligence, direct cloud requests, or Hermes session starts
+  - `AppleIntelligenceService` reused cached sessions only when `systemPrompt == nil`, so adding model-vault prompt context would have accidentally disabled session reuse unless the cache key started tracking the effective system prompt
+  - the exceeded-context retry path in `AppleIntelligenceService` rebuilt a fresh `LanguageModelSession()` without reapplying the effective system prompt, which would have dropped injected vault context after a recycle
+- Issues fixed:
+  - `KnowledgeProfileStore` now exposes `augmentedSystemPrompt(existingPrompt:modelID:budget:)`, with `full` and `compact` prompt budgets for live runtime injection
+  - `CloudLLMClient` now loads the matching compiled model vault and prepends it to both generated and streaming cloud system prompts, while logging and failing open to the caller's original prompt if vault loading fails
+  - `AppleIntelligenceService` now prepends the compact `apple-intelligence` model vault context before responding, caches sessions by the normalized effective system prompt, and reapplies that prompt when recycling after context-window exhaustion
+  - `AgentViewModel` now resolves the active chat model to the correct model-vault ID and prepends the compiled vault context to the Hermes harness system prompt at session start, again failing open with logging if vault loading fails
+  - Added `CloudKnowledgeDistillationTests` coverage for full and compact prompt augmentation plus `RuntimeValidationTests` guards to keep the live Apple/cloud/Hermes prompt wiring in place
+- Focused verification:
+  - warm rerun before patch: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/AgentHeartbeatTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - post-patch isolated rerun: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-verify2 test -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/AgentHeartbeatTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (150 tests in 3 suites)
+- Observations:
+  - a false build failure occurred during diagnosis because two ad hoc `xcodebuild` runs collided on the default DerivedData database; rerunning on an isolated `-derivedDataPath` confirmed the code itself was green
+  - this pass stayed on the Swift runtime-integration boundary only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — compiled model vaults are now consumed by the live Apple/cloud/Hermes prompt paths, Apple session reuse survives the new injected context, and the focused audit slice is green
+
+## Recursive Runtime Audit Follow-On 9 — 2026-04-02
+- Scope: supervisor + agent-heartbeat cancellation/runtime cleanup
+- Issues found:
+  - `AgentHeartbeatService.monitorPostDispatchHermesAvailability()` swallowed `Task.sleep` cancellation with `try?` inside a `while true` loop and had no `Task.isCancelled` guard, so a cancelled monitor task could spin hot until the monitoring deadline expired
+  - `AppSupervisor` still used silent `try? await Task.sleep(...)` in its detached health-check loop and delayed-restart task, which made cancellation/error paths invisible in the core background orchestration surface
+- Issues fixed:
+  - `AgentHeartbeatService` now checks `Task.isCancelled` before each poll iteration, handles `CancellationError` explicitly during post-dispatch sleep, logs unexpected sleep failures, and exposes a focused testing hook for the monitor path
+  - Added a direct `AgentHeartbeatTests` regression proving the monitoring task exits promptly when cancelled instead of waiting out the full monitoring window
+  - `AppSupervisor` now handles cancellation explicitly in the low-power health-check cooldown, normal health-check sleep, and scheduled-restart delay paths, logging unexpected sleep failures instead of swallowing them
+  - Added `RuntimeValidationTests` guards to keep the heartbeat poll loop and supervisor detached sleep paths free of the old silent `try?` cancellation handling
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-supervisor test -only-testing:EpistemosTests/AgentHeartbeatTests -only-testing:EpistemosTests/SupervisorTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - warm rerun of the same isolated slice: PASS
+  - third isolated rerun of the same slice: PASS
+- Observations:
+  - the repeated runs held on the same isolated DerivedData path, so this pass satisfies the recursive audit’s three-pass zero-fail confirmation for the touched supervisor/heartbeat slice
+  - this pass stayed on the Swift background orchestration boundary only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — heartbeat cancellation no longer risks a hot cancelled spin, supervisor sleep/cancellation paths are explicit, and the slice held for three consecutive green passes
+
+## Recursive Runtime Audit Follow-On 10 — 2026-04-02
+- Scope: ambient capture debounce/parsing/redaction hardening
+- Issues found:
+  - `AmbientCaptureService` still swallowed debounce-task sleep cancellation with `try?`, making the background activation pipeline another silent-failure surface
+  - AX-tree JSON decoding still used `try?` and returned an empty capture with no diagnostics, so malformed AX payloads could silently disable ambient capture with no audit trail
+  - secret-redaction regex compilation still used `try?`, so a malformed future pattern edit could silently drop a privacy filter and weaken redaction coverage
+- Issues fixed:
+  - `AmbientCaptureService` now handles debounce sleep cancellation explicitly and logs unexpected debounce failures instead of swallowing them
+  - AX-tree extraction now logs invalid UTF-8, malformed JSON, wrong root payload shape, and missing `elements` arrays instead of silently returning empty capture text with no explanation
+  - secret-redaction regex compilation now logs pattern compilation failures instead of silently dropping patterns
+  - Added `AmbientCaptureTests` coverage asserting all shipped redaction patterns compile, plus `RuntimeValidationTests` guards preventing the old silent debounce/JSON/regex fallbacks from returning
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-ambient test -only-testing:EpistemosTests/AmbientCaptureTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - warm rerun of the same isolated slice: PASS
+  - third isolated rerun of the same slice: PASS
+- Observations:
+  - this pass stayed on the privacy-sensitive background capture path only and did not touch the `hermes-agent` submodule
+  - the three consecutive isolated reruns satisfy the recursive audit confirmation bar for the touched ambient-capture slice
+- VERDICT: PASS — ambient capture no longer hides debounce/parse failures silently, redaction pattern compilation is observable, and the slice held for three consecutive green passes
+
+## Recursive Runtime Audit Follow-On 11 — 2026-04-02
+- Scope: note editor, note-chat, editor-cache, and agent-session persistence hardening
+- Issues found:
+  - `ProseEditorView` still used silent `try?` saves and fetches on the live note-editing path, which meant page flush, block navigation, or wikilink lookup failures could disappear without diagnostics and, in the page-flush case, could skip scheduling the body write entirely when the page fetch failed
+  - `NoteChatState` still used silent `try?` fetches on persisted note-chat load/update, so fetch failures could quietly drop the note chat history path or create brittle update behavior around the existing linked chat row
+  - `DiskStyleCache` still used silent `try?` reads, writes, decode, directory enumeration, and eviction deletes, so corrupted editor-state cache files could linger quietly and cache I/O failures had no audit trail
+  - `AgentViewModel` still used silent `try?` persistence for session-state save/restore, so malformed state files or write failures could quietly lose the active agent session without any cleanup signal
+- Issues fixed:
+  - `ProseEditorView` now schedules the body write/block mirror before the page fetch during flush, logs save/fetch failures explicitly, and aborts wikilink creation when the backing fetch fails instead of risking duplicate-page creation after a hidden fetch error
+  - `NoteChatState` now logs persisted note-chat load failures and existing-chat fetch failures explicitly instead of silently falling through those paths
+  - `DiskStyleCache` now logs cache-directory creation, cache-entry write/read/decode, directory enumeration, modification-date lookup, and removal failures, and it purges corrupt cache entries on decode failure instead of leaving them behind
+  - `AgentViewModel` now logs session-state directory creation/write/read/decode failures explicitly and removes corrupt persisted session-state payloads when restore finds malformed JSON
+  - Added a real `NoteChatStateTests` persistence round-trip regression, a `NoteEditorLayoutTests` regression that proves corrupt style-cache entries are removed, and source guards in `NoteEditorLayoutTests` / `RuntimeValidationTests` to keep the old silent `try?` persistence fallbacks from coming back
+- Focused verification:
+  - pre-fix guard run on isolated DerivedData surfaced the new hardening expectations and then drove the patch
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix test -only-testing:EpistemosTests/NoteChatStateTests -only-testing:EpistemosTests/NoteEditorLayoutTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix build -quiet`: PASS
+- Observations:
+  - lower-risk `try? await Task.sleep(...)`, best-effort JSON parsing helpers, and a wider set of save paths still remain elsewhere in the app, but this pass removed the silent-failure behavior from one of the highest-value note/agent persistence slices first
+  - this pass stayed on the Swift production runtime boundary only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — note-editor persistence, note-chat history, editor-state cache, and agent-session restore now fail loudly instead of disappearing silently, and the focused audit slice is green
+
+## Recursive Runtime Audit Follow-On 12 — 2026-04-02
+- Scope: startup auto-discovery, note insight/sidebar/inspector runtime persistence, time-machine restore, and dialogue pacing hardening
+- Issues found:
+  - `StartupAutoDiscovery` still hid config-file read failures, `~/.hermes` creation failures, local/Hugging Face model cache inspection failures, and fallback `SearchIndexService` creation behind silent `try?` paths, so startup discovery could quietly degrade with no audit trail
+  - `NoteInsightService` still swallowed insight fetch/checkpoint-save failures and debounce cancellation with `try?`, making note analysis recomputes look healthy even when SwiftData persistence failed
+  - `NotesSidebar` still swallowed page/folder fetch failures, sidebar save failures, deleted-insight fetch failures, and delayed rebuild cancellation on live note-shell mutations
+  - `HologramNodeInspector` still swallowed editor debounce cancellation plus dirty-page fetch/save failures on the floating note editor path
+  - `TimeMachineView` still swallowed restore-snapshot encode/save failures and delay cancellation, so restore-as-workspace could silently no-op
+  - `DialogueChatState` still swallowed the typewriter pacing sleep cancellation with `try?`, leaving one more live chat/runtime loop without explicit cancellation behavior
+- Issues fixed:
+  - `StartupAutoDiscovery` now logs existing config-file read failures, `.hermes` creation failures, local/Hugging Face cache enumeration/inspection failures, and fallback search-index bootstrap failures explicitly instead of disappearing behind `try?`
+  - `NoteInsightService` now routes insight fetches and context saves through explicit logging helpers, handles debounce cancellation intentionally, and logs unexpected reindex/reanalyze/relatedness persistence failures with page context
+  - `NotesSidebar` now logs deferred rebuild-delay failures, page/folder fetch failures, sidebar save failures, and deleted-insight fetch failures instead of silently dropping those note-shell mutations
+  - `HologramNodeInspector` now logs editor debounce failures, dirty-page fetch failures, and dirty-page save failures, and it warns explicitly when the backing page row no longer exists
+  - `TimeMachineView` now logs selection-delay, snapshot-encode, restore-save, and dismiss-delay failures, and it requires a real main-context save before loading the restored workspace
+  - `DialogueChatState` now handles typewriter sleep cancellation explicitly and logs unexpected pacing failures instead of swallowing them
+  - Added focused source-guard regressions in `HermesSubprocessTests`, `NoteChatStateTests`, and `RuntimeValidationTests` to keep the old silent startup/runtime fallbacks from returning
+- Focused verification:
+  - pre-fix guard run surfaced the new silent-fallback expectations and drove the patch
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix test -only-testing:EpistemosTests/HermesSubprocessTests -only-testing:EpistemosTests/NoteChatStateTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix build -quiet`: PASS
+- Observations:
+  - `NoteChatState`’s persisted note-chat fetch/save paths were already hardened in the live working tree before this pass; this slice kept the guard coverage there and closed the adjacent `DialogueChatState` cancellation seam instead
+  - the strongest remaining production hardening seams now appear to be `Sync/VaultIndexActor.swift`, `Views/Landing/LandingView.swift`, `Omega/Agents/NotesAgent.swift`, and `Omega/Safety/ExecutionCheckpointManager.swift`, followed by smaller live fallbacks in `Views/MiniChat/MiniChatWindowController.swift`, `Vault/VaultRegistry.swift`, `Engine/QueryRuntime.swift`, and `Vault/VaultChatMutator.swift`
+  - this pass stayed on the Swift runtime boundary only and did not touch the `hermes-agent` submodule
+- VERDICT: PASS — startup auto-discovery, note insight/sidebar/inspector persistence, time-machine restore, and dialogue pacing no longer hide failures silently, and the focused audit slice is green
+
+## Recursive Runtime Audit Follow-On 13 — 2026-04-02
+- Scope: vault index runtime persistence/file I/O hardening and landing-screen startup/fetch/save hardening
+- Issues found:
+  - `VaultIndexActor` still hid SwiftData fetch/save failures, file modification-date lookup failures, mapped file-read failures, and migration save failures behind silent `try?` paths, so index rebuilds, ambient manifest generation, spotlight snapshots, and migration completion could quietly drift or mark success without a durable save
+  - `LandingView` still swallowed welcome-back presentation delay failures, landing-search focus delay failures, welcome-back summary note save failures, and recent-chat fetch failures behind `try?`, so the home surface could silently degrade with no audit trail
+- Issues fixed:
+  - `VaultIndexActor` now routes runtime model fetches, count fetches, saves, file modification-date reads, and mapped file loads through explicit helpers that log failures, and migration-complete flags no longer flip when the underlying save fails
+  - `VaultIndexActor` now fails loudly across folder synthesis/repair, page upsert/reindex/export/delete flows, ambient manifest building, spotlight reindex snapshots, and hybrid-sync migration paths instead of collapsing to silent defaults
+  - `LandingView` now logs welcome-back presentation scheduling failures, landing-search focus scheduling failures, welcome-back summary note save/open-delay failures, and recent-chat fetch failures explicitly instead of silently swallowing them
+  - `LandingView` now cancels the deferred welcome-back presentation intentionally on disappear/dismiss instead of letting that startup task drift in the background
+  - Added a focused `RuntimeValidationTests` source guard that keeps both the new `VaultIndexActor` helpers and the hardened `LandingView` logging paths from regressing back to silent `try?` fallbacks
+- Focused verification:
+  - pre-fix `RuntimeValidationTests` guard run failed and surfaced the new landing/vault expectations before the patch
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix test -only-testing:EpistemosTests/VaultIndexActorTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix build -quiet`: PASS
+- Observations:
+  - with `VaultIndexActor` and `LandingView` hardened, the highest-value remaining non-Hermes runtime seams now look concentrated in `Sync/VaultSyncService.swift`, `App/ChatCoordinator.swift`, `Views/MiniChat/MiniChatWindowController.swift`, `Engine/QueryRuntime.swift`, `Vault/VaultChatMutator.swift`, and `Vault/VaultRegistry.swift`
+  - the larger Omega-side follow-ons remain `Omega/Agents/NotesAgent.swift` and `Omega/Safety/ExecutionCheckpointManager.swift` if you want one more Hermes-adjacent hardening pass before deeper redesign work
+- VERDICT: PASS — vault indexing and the landing shell now surface runtime persistence/file-I/O failures explicitly, and the focused audit slice is green
+
+## Recursive Runtime Audit Follow-On 14 — 2026-04-02
+- Scope: vault save/version runtime hardening, chat and mini-chat persistence/fetch hardening, and Omega note/checkpoint persistence hardening
+- Issues found:
+  - `VaultSyncService` still hid live health-snapshot fetches, SQLite signature probes, search/style-cache cleanup failures, save preflight fetches, dirty-page fetches, maintenance timer sleeps, version-capture fetch/count paths, and move-page lookups behind silent `try?`, so the core vault shell could quietly skip persistence bookkeeping or drift through hidden file-I/O failures
+  - `ChatCoordinator` still had silent fetch fallbacks in persisted chat upsert and wikilink note association, which meant those core chat-persistence paths could quietly miss existing rows after a real fetch failure
+  - `MiniChatView`, `MiniChatWindowController`, `QueryRuntime`, `VaultChatMutator`, and `VaultRegistry` still had live silent fetch/search/read/resource fallback seams, so mini-chat restore, active note attachment, query retrieval, staged vault memory reads, and registry timestamp inspection could degrade without diagnostics
+  - `ExecutionCheckpointManager` and `NotesAgent` still swallowed checkpoint directory/list/decode/remove failures and note-agent argument parse/fetch/save failures behind `try?`, leaving the Omega note/checkpoint runtime with one more silent persistence slice
+- Issues fixed:
+  - `VaultSyncService` now routes live fetches and background version-count queries through explicit helper methods, logs mapped SQLite signature read failures, handles maintenance timer cancellation intentionally, and no longer silently skips health/save/version/move bookkeeping after hidden fetch failures
+  - `ChatCoordinator` now uses explicit fetch helpers for persisted chat upsert and linked-note detection instead of silently creating/falling through after hidden SwiftData failures
+  - `MiniChatView`, `MiniChatWindowController`, `QueryRuntime`, `VaultChatMutator`, and `VaultRegistry` now log the remaining live fetch/search/read/resource failures explicitly instead of collapsing those runtime seams to silent defaults
+  - `ExecutionCheckpointManager` now logs checkpoint directory creation, directory listing, decode, modification-date lookup, encode, and temp-file cleanup failures explicitly and removes malformed checkpoint files instead of silently ignoring them
+  - `NotesAgent` now logs argument-parse failures, routes note fetches through explicit helpers, surfaces save failures explicitly, and keeps JSON-encoding fallback behavior observable instead of silent
+- Focused verification:
+  - pre-fix `RuntimeValidationTests` guard run failed and surfaced the new chat/vault/Omega hardening expectations before the patch
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix test -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix test -only-testing:EpistemosTests/RuntimeValidationTests -only-testing:EpistemosTests/VaultSyncServiceAuditTests -only-testing:EpistemosTests/MiniChatViewAuditTests -only-testing:EpistemosTests/QueryRuntimeTests -only-testing:EpistemosTests/VaultChatMutatorTests -only-testing:EpistemosTests/OmegaAgentTests -only-testing:EpistemosTests/PipelineServiceTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-tryq-fix build -quiet`: PASS
+- Observations:
+  - with `VaultSyncService`, `ChatCoordinator`, the mini-chat shell, and the Omega notes/checkpoint seam hardened, the highest-value remaining `try?` debt is now concentrated more in broader Hermes/harness/session surfaces and lower-risk best-effort parsing or UI polish paths than in the core note/chat/vault runtime shell
+  - the current largest remaining production `try?` counts are in `Views/Landing/SessionIntelligenceOverlay.swift`, `ViewModels/AgentViewModel.swift`, `Harness/HarnessLab.swift`, `Harness/ProgressStore.swift`, `Harness/HarnessRegistry.swift`, `Engine/LocalModelInfrastructure.swift`, and several Hermes-adjacent files rather than the note-shell persistence path
+- VERDICT: PASS — the core vault save loop, main chat shell, mini-chat/runtime retrieval, and Omega note/checkpoint persistence no longer hide these audited failures silently, and the focused audit slice is green
+
+## Recursive Performance Audit Follow-On 15 — 2026-04-02
+- Scope: landing overlay command lookup performance
+- Issues found:
+  - `SessionIntelligenceOverlay` still fetched every `SDPage` or `SDChat` and performed lowercased linear scans just to resolve simple `open note`, `reveal`, `close note`, and `open chat` commands, which made the interactive landing overlay do full vault scans on a path that should stay cheap even in large libraries
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now resolves note/chat titles through bounded `FetchDescriptor` queries with `localizedStandardContains(...)` predicates, recency ordering, and `fetchLimit = 1` instead of pulling whole note/chat tables into memory for those command lookups
+  - Added a focused `NonAgentPruningValidationTests` guard that keeps the overlay from regressing back to full-page/full-chat fetches for title lookup
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit test -only-testing:EpistemosTests/NonAgentPruningValidationTests -quiet`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit build -quiet`: PASS
+- Observations:
+  - this is a small but real user-facing perf hardening pass, not a broad landing refactor; the strongest remaining optimization seams now look more concentrated in `Views/Landing/SessionIntelligenceOverlay.swift`'s remaining note-history parsing path, `ViewModels/AgentViewModel.swift`, `Harness/HarnessLab.swift`, `Harness/ProgressStore.swift`, `Harness/HarnessRegistry.swift`, `Views/Landing/LiquidGreeting.swift`, and some timer-heavy Hermes-adjacent surfaces
+- VERDICT: PASS — simple landing overlay commands no longer trigger full note/chat scans for title resolution, and the focused perf guard is green
+
+## Recursive Performance Audit Follow-On 16 — 2026-04-02
+- Scope: `AgentViewModel` computer-action postprocessing plus Harness timestamp/session discovery cleanup
+- Issues found:
+  - `AgentViewModel` still duplicated the same 300 ms post-computer-action AX mutation sampling logic across click/type/keys/scroll tool handlers, which increased maintenance risk and kept a polling-heavy path noisier than it needed to be
+  - `ProgressStore` still enumerated raw session-root children and decoded progress payloads inline, so stray non-directory artifacts could leak into session listings and repeated listing/loading paths did more work than necessary
+  - `HarnessRegistry` and `HarnessLab` still instantiated fresh `ISO8601DateFormatter` objects at each write site, which created avoidable formatter churn on hot harness logging/proposal/result paths
+  - the first verification pass surfaced one refinement bug: the new `HarnessLabTime` helper inherited the repo's default `MainActor` isolation, which broke nonisolated call sites until the helper methods were marked `nonisolated`
+- Issues fixed:
+  - `AgentViewModel` now routes computer-use result enrichment through one shared `enrichComputerActionResult(...)` helper with a single reusable sampling delay constant, explicit cancellation handling, and centralized AX mutation diff formatting/redaction
+  - `ProgressStore` now uses shared session-directory enumeration/sorting helpers, filters to real directories only, logs enumeration/resource/decode failures explicitly, and reuses dedicated load helpers for progress/task-decomposition reads
+  - `HarnessRegistry` now uses one shared nonisolated ISO-8601 timestamp helper instead of recreating a formatter at each candidate/promote/score/default-harness write site
+  - `HarnessLab` now uses shared nonisolated timestamp and filename-timestamp helpers across evaluation, proposal, and materialization paths instead of repeating fresh formatter creation
+  - Added focused regressions in `HarnessSubsystemTests` and `RuntimeValidationTests` to keep the shared-helper structure and non-directory session filtering from regressing
+- Focused verification:
+  - the first refinement-loop build caught the `HarnessLabTime` isolation mistake; the helper was corrected, the pass counter reset, and verification restarted
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit-diagnostic test -only-testing:EpistemosTests/ProgressStoreTests`: PASS
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit-diagnostic test -only-testing:EpistemosTests/HarnessSubsystemTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-perf-audit-diagnostic build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this pass removed more avoidable work from the local harness/admin runtime without broad refactors: shared post-action enrichment in `AgentViewModel`, shared session discovery in `ProgressStore`, and shared timestamp formatting in the Harness surfaces
+  - the strongest remaining non-Hermes perf seams now appear to be `Views/Landing/SessionIntelligenceOverlay.swift`'s remaining note-history lookup path, `Views/Landing/LiquidGreeting.swift`'s task-sleep-driven animation loops, and broader model/runtime refresh costs in `Engine/LocalModelInfrastructure.swift`
+- VERDICT: PASS — the audited agent/harness perf hotspots now reuse shared helpers, avoid stray session-artifact pollution, and passed three consecutive no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 17 — 2026-04-02
+- Scope: landing note-history note resolution plus landing greeting animation timing
+- Issues found:
+  - `SessionIntelligenceOverlay` still reopened “the last mentioned note” by fetching every `SDPage` and scanning titles linearly across each history entry, so the fallback `open it` path still did full-page vault scans on an interactive overlay command loop
+  - `LiquidGreeting` still used per-character random delays and repeated silent `Task.sleep` calls inside its typing/backspacing loops, which added avoidable RNG churn and left cancellation behavior implicit on a long-lived landing animation task
+  - the first post-patch refinement pass surfaced one compile regression: the new landing note-lookup helper constants inherited the repo’s default `MainActor` isolation until they were converted to nonisolated accessors
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now extracts likely note-title candidates from quoted text, bracketed overlay commands, and note-command phrases, checks open note titles first, and only falls back to bounded `findNoteByTitle(...)` fetches instead of loading every page row to infer the last-mentioned note
+  - `LiquidGreeting` now routes startup/hold/retract/transition/type/backspace pacing through shared deterministic timing helpers plus an explicit `pause(...)` helper, removing per-character `Int.random(...)` calls and making task cancellation intentional instead of silent
+  - Added focused helper regression coverage in `LandingOptimizationTests`, plus source guards in `NonAgentPruningValidationTests` and `ThemePairTests`, to keep the landing overlay from regressing back to full-page scans and the greeting from slipping back to random sleep loops
+- Focused verification:
+  - pre-fix targeted test run failed and established the new landing helper/source-guard expectations before the patch
+  - the first post-patch compile pass caught the `SessionIntelligenceNoteLookup` isolation mistake; the helper was corrected, the pass counter reset, and verification restarted
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-landing-perf-verify2 test -only-testing:EpistemosTests/LandingOptimizationTests -only-testing:EpistemosTests/NonAgentPruningValidationTests -only-testing:EpistemosTests/ThemePairTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-landing-perf-verify2 build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this pass keeps the landing command/greeting logic lightweight without broad UI redesign: recent-note resolution now uses candidate extraction plus bounded lookups, and the greeting animation keeps its typewriter feel without RNG churn on every character
+  - the strongest remaining non-Hermes perf seams now look concentrated in `Engine/LocalModelInfrastructure.swift`, the remaining delayed command/task paths in `Views/Landing/SessionIntelligenceOverlay.swift`, and broader timer-heavy surfaces outside the landing shell
+- VERDICT: PASS — landing note-history reopening no longer scans the full page table, the greeting animation now uses deterministic shared timing helpers, and the focused audit slice stayed green across three no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 18 — 2026-04-02
+- Scope: local model manifest refresh I/O
+- Issues found:
+  - `LocalModelManager.refreshFromDisk()` still rewrote the local model manifest on no-op refreshes because `pruneMissingInstalls()` always persisted after filtering, even when the install set was already current
+  - cleanup refreshes could also trigger more than one manifest write in the same pass because legacy cleanup and missing-install pruning each persisted independently
+- Issues fixed:
+  - `LocalModelManager.refreshFromDisk()` now records whether legacy or missing-install cleanup actually changed `installRecords` and only persists the manifest once when a cleanup pass really mutated the record set
+  - `pruneMissingInstalls()` and `purgeLegacyNonQwenInstalls()` now return whether they changed the install records instead of writing unconditionally during every refresh pass
+  - Added a real file-modification-date regression in `LocalModelInfrastructureTests` that proves a no-op refresh leaves the manifest untouched, plus a `RuntimeValidationTests` source guard that keeps the conditional-persist structure from regressing
+- Focused verification:
+  - pre-fix targeted verification failed and surfaced the new no-op-refresh/source-guard expectations before the patch
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-localmodel-verify test -only-testing:EpistemosTests/LocalModelInfrastructureTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-localmodel-verify build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this pass removes avoidable disk churn from a manager that already had hot-path throttling elsewhere, so app activation/request routing refreshes no longer pay for redundant manifest writes when nothing actually changed on disk
+  - with this in place, the clearest remaining non-Hermes optimization seams now look more concentrated in delayed landing/task loops and other timer-heavy runtime surfaces than in local model manifest refresh
+- VERDICT: PASS — local model refresh now avoids no-op manifest rewrites, cleanup-triggered refreshes persist at most once per pass, and the focused audit slice stayed green across three no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 19 — 2026-04-02
+- Scope: landing chat-summary resolution
+- Issues found:
+  - `SessionIntelligenceOverlay.summarizeChats()` still resolved chat titles with one SwiftData fetch per chat group, which turned a simple “summarize today’s chats” action into an N+1 fetch loop on the interactive landing overlay path
+  - the chat-summary ordering also depended on dictionary iteration instead of an explicit ranking rule, so the overlay summary order was not intentionally deterministic
+  - the first post-patch verification pass surfaced one refinement-loop issue in the new guard coverage: the source assertion for `orderedGroups.map(\.chatId)` had an over-escaped key-path string and needed to be corrected before verification could proceed
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now routes chat summary ordering through `SessionIntelligenceChatSummary.orderedGroups(...)`, which sorts groups deterministically by message count and then chat ID before applying the limit
+  - `SessionIntelligenceOverlay` now batch-loads chat titles for the selected groups in one `FetchDescriptor<SDChat>` query instead of fetching each chat title individually inside the summary loop
+  - Added a real `LandingOptimizationTests` helper regression for deterministic chat-group ordering/capping plus a `NonAgentPruningValidationTests` source guard that keeps the summary path from regressing back to per-chat fetches
+- Focused verification:
+  - pre-fix targeted verification failed and surfaced the new helper/source-guard expectations before the patch
+  - the first post-patch verification run caught the over-escaped key-path assertion in `NonAgentPruningValidationTests`; the test expectation was corrected, the pass counter reset, and verification restarted
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-chat-summary-verify2 test -only-testing:EpistemosTests/LandingOptimizationTests -only-testing:EpistemosTests/NonAgentPruningValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-chat-summary-verify2 build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - this keeps the landing overlay summary path light without changing the user-facing feature: summary ordering is now explicit and title resolution no longer scales linearly with the number of grouped chats
+  - the strongest remaining non-Hermes optimization seams now appear to be the remaining delayed command/task paths in `Views/Landing/SessionIntelligenceOverlay.swift`, the repeated dismiss/load-delay tasks in `Views/Landing/WorkspaceSwitcherOverlay.swift`, and the background keepalive/admin refresh loops in `ViewModels/AgentViewModel.swift`
+- VERDICT: PASS — landing chat summarization now avoids per-chat fetch loops, uses deterministic ordering, and stayed green across three no-edit verification cycles
+
+## Recursive Performance Audit Follow-On 20 — 2026-04-02
+- Scope: final non-Hermes delayed-task/admin keepalive cleanup
+- Issues found:
+  - `SessionIntelligenceOverlay` still had a few duplicated delayed create/open and dismiss paths using raw sleep calls, plus broad auto-save workspace fallback fetches that did more work than needed on the landing command surface
+  - `WorkspaceSwitcherOverlay` repeated the same dismiss animation + 150 ms delay logic across multiple actions instead of routing through one explicit post-dismiss path
+  - `AgentViewModel.startCronKeepalive()` still used a raw 60-second sleep loop without an explicit helper, which left the background admin keepalive surface less intentional and harder to audit than the other timer-heavy paths already cleaned up
+- Issues fixed:
+  - `SessionIntelligenceOverlay` now shares `createAndOpenNote(...)`, `latestAutoSavedWorkspaceSummary(...)`, and a `pause(...)` helper backed by `SessionIntelligenceOverlayTiming`, so create/open flows, dismiss timing, and workspace-summary fallback reads all route through one bounded, auditable path
+  - `WorkspaceSwitcherOverlay` now routes load/dismiss flows through `performAfterDismiss(...)` plus `WorkspaceSwitcherOverlayTiming.dismissDelay()`, removing the duplicated raw delay tasks
+  - `AgentViewModel` now routes the cron keepalive wait through `waitForCronKeepaliveInterval()` and a shared `cronKeepaliveInterval`, giving the admin refresh surface explicit cancellation/error handling instead of an inline raw sleep
+  - Added `NonAgentPruningValidationTests` and `RuntimeValidationTests` source guards that keep these landing/admin paths from regressing back to scattered raw delay calls or broader fallback fetches
+- Focused verification:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-final-perf-round test -only-testing:EpistemosTests/LandingOptimizationTests -only-testing:EpistemosTests/NonAgentPruningValidationTests -only-testing:EpistemosTests/RuntimeValidationTests -quiet`: PASS (3 consecutive runs)
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-codex-final-perf-round build -quiet`: PASS (3 consecutive runs)
+- Observations:
+  - package-side Metal warnings from `mlx-swift` and the existing always-run build-script notes still appear during verification, but this pass introduced no new app-code warnings or regressions
+  - this closes the remaining non-Hermes perf targets previously called out in the landing overlay, workspace switcher, and admin keepalive surfaces; what remains now is mostly lower-priority polish or Hermes-adjacent work rather than a clearly stronger non-Hermes hotspot
+- VERDICT: PASS — the final audited landing/admin delay surfaces now share bounded helpers, the keepalive loop is explicit, and the focused slice stayed green across three no-edit verification cycles
+
+## Audit Sweep — 2026-04-02
+- Scope: status-corrected continuation/power/code-signing audit plus disabled graph-node regression sweep
+- Build: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build`)
+- Focused tests: PASS (`xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos_audit_dd test -only-testing:EpistemosTests/FilterEngineTests -only-testing:EpistemosTests/DeviceAgentServiceTests -only-testing:EpistemosTests/QueryParserVisibilityTests`)
+- Rust verification:
+  - `cargo test --manifest-path agent_core/Cargo.toml`: PASS (144 passed)
+  - `cargo test --manifest-path graph-engine/Cargo.toml`: PASS (2451 passed, 8 ignored)
+  - `cargo test --manifest-path omega-ax/Cargo.toml`: PASS (12 passed)
+  - `cargo test --manifest-path omega-mcp/Cargo.toml`: PASS (126 passed)
+- Hardening grep: 50/50 passed (`docs/HARDENING_VERIFICATION.md`)
+  - the helper script reported `49/50` only because `grep -c 'polling'` returns exit status `1` when the output is the expected literal `0`; the output itself was verified as correct
+- Code signing: PASS (`codesign --verify --deep --strict --verbose=2 /tmp/epistemos_audit_dd/Build/Products/Debug/Epistemos.app`)
+- Zero-corruption:
+  - `NoteFileStorage.swift` raw `try?` grep count: 0
+  - production `try!` / `.unwrap()` grep count: 0
+  - `agent_core/src/bridge.rs` `ffi_guard_*` / `catch_unwind` grep count: 18
+- Anti-drift:
+  - production `Process()` / `NSTask` / `posix_spawn` grep count: 0
+  - fake cloud SDK imports: 0
+  - `UserDefaults.*ApiKey` grep count: 0
+  - `ObservableObject` grep count: 0
+  - `PowerGuard.shared` grep count: 20
+- Continuations:
+  - `withCheckedContinuation` / `withCheckedThrowingContinuation` count: 27
+  - `withTaskCancellationHandler` count: 18
+  - reviewed the high-risk stored continuation sites in `ThermalGuard`, `HermesMCPClient`, `ConfirmationGate`, and `ResearchPause`; no fresh regression found there
+  - added a shared `withTimedMainActorBridge(...)` helper so `MLXInferenceBridge`, `OmegaInferenceBridge`, and `SharedGPUBackend.generate(...)` now have explicit timeout/cancellation safety instead of open-ended MainActor bridging continuations
+- Power / MCP / cross-cutting verification:
+  - confirmed eco mode defaults on, graph performance mode defaults on, graph quality is forced to 2 under `PowerGuard.shared.shouldDisableBackground`, and `MetalGraphView` re-pushes quality on power-mode changes
+  - confirmed `VaultSyncService` background timers restart on return to `.full`
+  - confirmed `NightBrainService`, `AgentHeartbeatService`, and `ScreenCaptureService` honor PowerGuard gating
+  - confirmed `HermesMCPClient.listTools()` uses a 5-second timeout, default MCP timeout is 10 seconds, `removePending(...)` resumes with timeout/cancellation errors, and `cancelAll()` resumes all pending requests on disconnect
+  - confirmed `AppleIntelligenceService` calls `ThermalGuard.shared.acquireClearance()` before inference, thermal pauses stay breaker-neutral, `AppSupervisor` checks `EventStore.shared` for the knowledge store signal, and thermal notifications drive the mode machine
+- Issues found:
+  - `QueryParser` and `StructuredQueryParser` still exposed disabled `.source` / `.quote` graph filters
+  - `FilterEngine.applyAgentVaultMode()` still re-enabled `.source`, which contradicted the current disabled-node policy in `VISION_BACKLOG.md`
+  - a few nonisolated-to-MainActor inference bridges still lacked timeout/cancellation safety nets
+- Issues fixed:
+  - removed disabled `.source` / `.quote` query exposure from `Epistemos/Engine/QueryParser.swift` and `Epistemos/Engine/StructuredQueryParser.swift`
+  - added `EpistemosTests/QueryParserVisibilityTests.swift` to keep disabled source/quote query filters from resurfacing
+  - updated `Epistemos/Graph/FilterEngine.swift`, `Epistemos/Graph/GraphState.swift`, and `Epistemos/Views/AgentPanelContainer.swift` so agent-vault mode no longer re-enables disabled source/quote nodes
+  - added `FilterEngineTests` coverage for the agent-vault disabled-node boundary
+  - added `withTimedMainActorBridge(...)` in `Epistemos/State/TimeoutUtility.swift` and routed `MLXInferenceBridge`, `OmegaInferenceBridge`, and `SharedGPUBackend` through it
+  - added a `ProductionHardeningTests` source guard so those inference bridges keep the timeout-guarded pattern
+- Historical breadcrumbs not reopened:
+  - the old embedding push hang was not reopened because the current `EmbeddingService` push already runs off-main and no fresh logs implicated it
+  - `_NSDetectedLayoutRecursion` was not reopened because current source no longer shows the prior breadcrumbed production call sites and no live repro surfaced during this sweep
+- VERDICT: PASS — the current audit findings were fixed, focused verification is green, and no fresh blocker remained in the requested continuation/power/code-signing/MCP surfaces

@@ -1,0 +1,20 @@
+[package]
+name = "helios-metal"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Metal kernel compilation, dispatch, and memory heaps for Apple Silicon"
+
+[dependencies]
+helios-core = { workspace = true }
+objc2 = { workspace = true }
+objc2-metal = { workspace = true }
+objc2-foundation = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

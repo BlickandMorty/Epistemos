@@ -112,6 +112,12 @@ impl SkillRouter {
     pub fn skill_count(&self) -> usize {
         self.skills.len()
     }
+
+    /// Loaded skill definitions. Runtime callers should reach this through
+    /// `agent_core::hermes::skills` as the canonical ownership boundary.
+    pub fn skills(&self) -> &[SkillEntry] {
+        &self.skills
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -120,14 +126,18 @@ impl SkillRouter {
 
 fn load_skills(dir: &Path) -> Vec<SkillEntry> {
     let mut skills = Vec::new();
-    let entries = match fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return skills,
-    };
-
-    for entry in entries.flatten() {
+    for entry in walkdir::WalkDir::new(dir)
+        .max_depth(3)
+        .into_iter()
+        .flatten()
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+        let is_markdown = path.extension().and_then(|e| e.to_str()) == Some("md");
+        let is_canonical_skill = entry.file_name() == "SKILL.md";
+        if !is_markdown && !is_canonical_skill {
             continue;
         }
 

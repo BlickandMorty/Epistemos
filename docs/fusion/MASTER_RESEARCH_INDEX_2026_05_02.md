@@ -14,7 +14,7 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 | # | Finding | Source | Why it matters |
 |---|---|---|---|
-| H1 | **Lane A is NOT "mostly merged."** It has **601 unmerged commits** ahead of main, all on the N1 Prompt Tree track, including a 270-line `PROMPT_AS_DATA_SPEC.md` and full PTF (Prompt Tree Format) implementation behind `EPISTEMOS_PROMPT_TREE=1` flag. The fusion review's "mostly merged" classification was incorrect. | `git log $(git merge-base lane-A main)..lane-A \| wc -l` confirmed 601 | Phase R pre-merge planning needs to include N1 substrate; the orphan `agent_core/src/session_insights.rs` blocker is real |
+| H1 | **Lane A is NOT "mostly merged."** It has **601 unmerged commits** ahead of main, all on the N1 Prompt Tree track, including a 270-line `PROMPT_AS_DATA_SPEC.md` and full PTF (Prompt Tree Format) implementation behind `EPISTEMOS_PROMPT_TREE=1` flag. The fusion review's "mostly merged" classification was incorrect. | `git log $(git merge-base lane-A main)..lane-A \| wc -l` confirmed 601; 2026-05-04 recheck found current main now declares `agent_core/src/session_insights.rs` but still differs from Lane A in `ChatCoordinator`, Rust bridge/provider telemetry, and docs | Phase R/N1 planning must compare Lane A deltas before any prompt-as-data closure claim |
 | H2 | **Hermes-parity uses plain markdown prompts, NOT NousResearch ChatML XML.** `agent_core/src/prompts.rs` opens with `BASE_SYSTEM_PROMPT = r#"You are Epistemos…"#` — no `<\|im_start\|>` markers. | `worktree:hermes-parity/agent_core/src/prompts.rs` lines 53-57 | Doctrine Annex A.12's reference to NousResearch ChatML applies to **future** Pro Hermes subprocess work, not current code |
 | H3 | **Apple Intelligence fallback is real, not placeholder.** Multiple Swift services (`AppleIntelligenceService.swift`, `InferenceState.swift`, `CloudKnowledgeDistillationService.swift`) reference `apple_intelligence` / `apple-intelligence` as a real provider variant. | `worktree:hermes-parity/Epistemos/Engine/AppleIntelligenceService.swift` | When TriageService recommends fallback to Apple Intelligence, it's a real path |
 | H4 | **Error classifier IS wired into agent_loop** (earlier worry that it might be dead code is unfounded). `worktree:hermes-parity/agent_core/src/error_classifier.rs` is imported by `agent_loop.rs` line 10. 100+ patterns active. | `worktree:hermes-parity/agent_core/src/agent_loop.rs:10` | Salvage §2.4 risk is closed |
@@ -614,11 +614,20 @@ Specifically: `47fd03fe` "fix(release): expose writable attachment paths"; vault
 ### PromptTree / N1 (Lane A)
 **Status:** **601 unmerged commits** on `lane-A` (H1).
 
+**2026-05-04 update:** Current main already contains the Prompt Tree foundation
+files and declares `agent_core/src/session_insights.rs`. Lane A is still active
+because it has reconciliation deltas in `ChatCoordinator`, `agent_core/src/bridge.rs`,
+`agent_core/src/providers/claude.rs`, `session_insights.rs`, and
+`docs/PROMPT_AS_DATA_SPEC.md`. See
+`docs/fusion/PROMPT_TREE_LANE_A_BRIDGE_2026_05_04.md`.
+
 - `/Users/jojo/Downloads/Epistemos-laneA/docs/PROMPT_AS_DATA_SPEC.md` (270 lines) — JSPF (JSON-Schema Prompt Format) + PTF (Prompt Tree Format) at `<vault>/.epistemos/prompts/<session>/<turn>/`. Anthropic prompt-cache 4 breakpoints, 90% discount, 5-min TTL, 1024-token min. Relocation Trick: 7%→84% cache-hit rate.
 - `Epistemos/Views/Cost/CostDashboardView.swift` (NEW, 317 lines, W9.6) — `cached_tokens_share` counter
 - `Epistemos/Views/Approval/ApprovalModalView.swift` (NEW, 162 lines, W9.8) — SwiftUI tool approval flow
 - New Swift files: `PromptTree.swift`, `PromptRenderer.swift`, `PromptCache.swift`, `PromptTreePersister.swift`
-- **Substrate blocker:** orphan `agent_core/src/session_insights.rs` (655 LOC, full test suite, never declared in `lib.rs`)
+- **Former substrate blocker:** `agent_core/src/session_insights.rs` is no
+  longer orphaned in current main, but the Lane A telemetry/bridge deltas still
+  need comparison before default-on Prompt Tree work.
 
 ### Pre-release evidence package (CANON_GAPS C11, staged)
 Workflow matrix + regression suite + App Store metadata + manual dogfood + submission checklist + Phase R closure + Phase S closure (TestFlight / metadata / submission).
@@ -768,10 +777,10 @@ Replaces removed status bar (per H9 audit).
 
 | Branch | Commits ahead | Status | Top insight | Action |
 |---|---|---|---|---|
-| **`codex/runtime-input-audit`** | 324 | DIVERGED, 2026-04-24 | App Store input validation + vault write authorization + CODE_EDITOR_FEATURE_AUDIT.md | **Cherry-pick now** |
-| **`codex/runtime-memory-hardening`** | 750 commits | 2026-04-03 | **5 Laws** (measure before cut / new crate not refactor / identity first / UniFFI until profiled / Python out-of-process) + **Phase I Rust agent migration MANDATORY pre-release** + zero-copy mmap vault search | **Cherry-pick docs only after deliberation brief** |
-| **`codex/release-stabilization-and-runtime-hardening`** | 669 commits | 2026-03-28 | RunPod modernization, ODIA training corpus sync, EventStore cleanup | **Verify superseded** before archiving |
-| **`codex/post-audit-feature-work`** | 762 commits | 2026-04-04 | **`recipe_cache`** (commit `c217b266`): SQLite tool result caching, SHA-256 keying, TTL=7d, LRU=10K | **Cherry-pick `recipe_cache` only**; defer light-mode polish |
+| **`codex/runtime-input-audit`** | 324 | DIVERGED, 2026-04-24 | App Store input validation + vault write authorization + CODE_EDITOR_FEATURE_AUDIT.md | Bridge docs promoted; code deltas require current-main check |
+| **`codex/runtime-memory-hardening`** | 750 commits | 2026-04-03 | **5 Laws** (measure before cut / new crate not refactor / identity first / UniFFI until profiled / Python out-of-process) + Phase I Rust agent migration lens + zero-copy mmap vault search | `FIVE_LAWS_AND_PHASE_I` promoted; code deltas require current-main check |
+| **`codex/release-stabilization-and-runtime-hardening`** | 669 commits | 2026-03-28 | RunPod modernization, ODIA training corpus sync, EventStore cleanup | Release-audit skill/docs already in main; bridge promoted for Stage F |
+| **`codex/post-audit-feature-work`** | 762 commits | 2026-04-04 | **`recipe_cache`** (commit `c217b266`): SQLite tool result caching, SHA-256 keying, TTL=7d, LRU=10K | Code already in main; bridge promoted for cache-policy/provenance wiring |
 
 **Inspection:** `git log codex/<branch> --oneline -30 main..codex/<branch>` from main checkout root.
 
@@ -1361,3 +1370,63 @@ worktrees + non-fusion canon and unify into the fusion folder.
 
 > *"Canon found, not authored — it was on disk; we just hadn't
 > looked hard enough yet."*
+
+### §28.6 Worktree prototype canon queue
+
+**Canonical:** `docs/fusion/WORKTREE_PROTOTYPE_CANON_FUSION_QUEUE_2026_05_04.md`
+
+Added after the user's clarification that every worktree should be treated as
+high-value research/prototype authority until inspected. The queue keeps the
+anti-bulk-copy rule, but upgrades worktree handling from "consult only" to a
+Track-mapped promotion list:
+
+- Tools V2 alias/dispatch anchor and migration status
+- ExecutionReceipt + Sovereign Gate capability mapping
+- Capture routing classifier + Resonance Gate direction component
+- Heal-loop 30-case fixture extraction
+- Honest-handle FFI doctrine
+- PLAN_V2 sections 23-27 architectural-law recovery
+- AgentEvent v1.6 variants
+- Prompt Tree Lane A bridge
+- Five Laws + Phase I Rust agent migration
+- Recipe cache branch bridge
+- Release-stabilization branch bridge
+- Worktree fusion brainstorm / selective-port strategy
+
+The first live code anchor is `agent_core/docs/TOOL_MIGRATION_STATUS.md` plus
+`ToolRegistry::execute_v2` compatibility dispatch. Two bridge docs now preserve
+the next Quick Capture contracts before implementation:
+`agent_core/docs/EXECUTION_RECEIPT_DOCTRINE_MAPPING.md` and
+`agent_core/docs/CAPTURE_ROUTING_CLASSIFIER.md`. The first heal-loop fixture
+bridge is `agent_core/tests/heal_loop_fixtures.md`; it preserves the donor
+30-case corpus while recording the donor exit-gate contradiction. The first
+D-series FFI promotion is
+`docs/fusion/HONEST_HANDLE_FFI_DOCTRINE_2026_05_04.md`, which names the
+refcounted opaque-handle ownership rule already partly live in main.
+`docs/fusion/PLAN_V2_SECTIONS_23_27_RECOVERY_2026_05_04.md` preserves the
+editor truth audit, 16ms agent-stream coalescing, graph typed-buffer/zero-copy
+gate, and anti-pattern register while superseding PLAN_V2's old Box-owned
+syntax handle detail with honest-handle ownership.
+`docs/fusion/AGENT_EVENT_VARIANTS_V16_2026_05_04.md` records the six
+Simulation v1.6 forward variants already present in Swift provenance and the
+remaining Rust `agent_core::events` gap.
+`docs/fusion/PROMPT_TREE_LANE_A_BRIDGE_2026_05_04.md` records that
+`/Users/jojo/Downloads/Epistemos-laneA` is an active 601-commit N1
+prompt-as-data worktree whose foundation files are present in current main but
+whose `ChatCoordinator`/Rust bridge/provider telemetry deltas still require
+reconciliation before any "merged" or "default-on" claim.
+`docs/fusion/FIVE_LAWS_AND_PHASE_I_2026_05_04.md` preserves the
+`codex/runtime-memory-hardening` branch's Five Laws, substrate sprints, and
+Phase I Rust-agent migration lens while subordinating its older phase order to
+current fusion recovery. `docs/fusion/CODE_EDITOR_FEATURE_TRUTH_2026_05_04.md`
+and `docs/fusion/RESOURCE_RUNTIME_PHASE_R_BRIDGE_2026_05_04.md` promote the
+runtime-input-audit branch's editor truth and Phase R resource/verified-write
+contracts. `docs/fusion/RECIPE_CACHE_RECOVERY_BRIDGE_2026_05_04.md` records
+that `agent_core/src/storage/recipe_cache.rs` is already present in main and
+needs cache-policy/provenance wiring rather than a branch cherry-pick.
+`docs/fusion/RELEASE_STABILIZATION_BRANCH_BRIDGE_2026_05_04.md` records that
+the release-audit skill and March closure prompts are already present in main
+and should feed Stage F only. `docs/fusion/WORKTREE_FUSION_BRAINSTORM_2026_05_04.md`
+is the selective-port strategy for turning salvaged worktree prototypes into
+current-main code without raw merges. Full native `Tool` trait migration remains
+staged; do not raw-copy `v2_catalog/`.

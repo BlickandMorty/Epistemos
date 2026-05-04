@@ -105,6 +105,7 @@ struct ModelAboutSheet: View {
                 }
                 specRow("Top-p", value: String(format: "%.2f", model.optimalTopP))
                 specRow("KV Cache", value: "\(model.optimalKVCacheSize)")
+                specRow("KV Scheme", value: kvSchemeLabel)
                 specRow("Chat Memory", value: "\(model.minimumRecommendedInteractiveMemoryGB) GB+")
                 if let descriptor {
                     specRow("Model Files", value: descriptor.approximateDownloadLabel)
@@ -272,5 +273,13 @@ struct ModelAboutSheet: View {
             return false
         }
         return LocalTextModelID(rawValue: id)?.supportsNativeToolCalling ?? false
+    }
+
+    private var kvSchemeLabel: String {
+        let scheme = KIVIPreferences.currentScheme()
+        if scheme == .kivi {
+            return "\(scheme.displayLabel) (>4K opt-in)"
+        }
+        return scheme.displayLabel
     }
 }

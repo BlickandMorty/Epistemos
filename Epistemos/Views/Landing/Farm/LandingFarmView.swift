@@ -11,7 +11,7 @@ import SwiftUI
 ///
 /// Three regions:
 /// - **Header**: "Companions" title + "+ New Companion" chip
-/// - **Roster grid**: every active companion as a CompanionView
+/// - **Roaming field**: every active companion as a deterministic idle walker
 /// - **Trash hint** (only if there are archived companions): a
 ///   subtle "N in trash" link that opens the Restore sheet
 ///
@@ -32,41 +32,19 @@ struct LandingFarmView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let columns = [GridItem(.adaptive(minimum: 132, maximum: 168), spacing: 18)]
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
             if companionState.roster.isEmpty {
                 emptyState
             } else {
-                LazyVGrid(columns: columns, alignment: .center, spacing: 18) {
-                    ForEach(companionState.roster) { entry in
-                        CompanionView(
-                            entry: entry,
-                            isActive: entry.id == companionState.activeCompanionID,
-                            onActivate: { companionState.activate(entry.id) }
-                        )
-                        .contextMenu {
-                            Button {
-                                companionState.activate(entry.id)
-                            } label: {
-                                Label("Activate", systemImage: "circle.dashed.inset.filled")
-                            }
-                            Button {
-                                onApplyAdapter(entry)
-                            } label: {
-                                Label("Apply Adapter…", systemImage: "wand.and.stars")
-                            }
-                            Divider()
-                            Button(role: .destructive) {
-                                onRequestDelete(entry)
-                            } label: {
-                                Label("Delete \(entry.name)", systemImage: "trash")
-                            }
-                        }
-                    }
-                }
+                CompanionRoamingField(
+                    entries: companionState.roster,
+                    activeCompanionID: companionState.activeCompanionID,
+                    onActivate: { companionState.activate($0.id) },
+                    onApplyAdapter: onApplyAdapter,
+                    onRequestDelete: onRequestDelete
+                )
                 .padding(.horizontal, 4)
             }
             if !companionState.trashed.isEmpty {

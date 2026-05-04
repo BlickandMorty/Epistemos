@@ -60,6 +60,7 @@ struct TraceEvent: Sendable {
         case structureGenerated = "structure_generated"
         case notePersisted = "note_persisted"
         case graphWriteAttempted = "graph_write_attempted"
+        case mutationEnvelopeCommitted = "mutation_envelope_committed"
         case evidenceLinked = "evidence_linked"
     }
 }

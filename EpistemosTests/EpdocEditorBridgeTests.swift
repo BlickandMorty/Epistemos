@@ -26,6 +26,76 @@ nonisolated struct EpdocEditorBridgeTests {
                 "the custom scheme MUST be epistemos-doc — the JS bundle hard-codes the same string in its loader; drift breaks asset fetches")
     }
 
+    @Test("asset resolver prefers Brotli transfer assets without changing MIME type")
+    func assetResolverPrefersBrotliTransferAssets() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epdoc-editor-assets-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let scriptURL = root.appendingPathComponent("editor.js")
+        let brotliURL = root.appendingPathComponent("editor.js.br")
+        try Data("console.log('plain')".utf8).write(to: scriptURL)
+        try Data([0x1b, 0x00, 0x00, 0x00]).write(to: brotliURL)
+
+        let resolved = try EpdocEditorAssetResolver.resolve(
+            relativePath: "/editor.js",
+            assetRoot: root
+        )
+
+        #expect(resolved.fileURL == brotliURL)
+        #expect(resolved.mimeType == "text/javascript")
+        #expect(resolved.contentEncoding == "br")
+    }
+
+    @Test("asset resolver can serve Brotli-only production transfer assets")
+    func assetResolverServesBrotliOnlyProductionAssets() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epdoc-editor-assets-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let brotliURL = root.appendingPathComponent("editor.js.br")
+        try Data([0x1b, 0x00, 0x00, 0x00]).write(to: brotliURL)
+
+        let resolved = try EpdocEditorAssetResolver.resolve(
+            relativePath: "/editor.js",
+            assetRoot: root
+        )
+
+        #expect(resolved.fileURL == brotliURL)
+        #expect(resolved.mimeType == "text/javascript")
+        #expect(resolved.contentEncoding == "br")
+    }
+
+    @Test("asset resolver rejects traversal and uses precise font MIME types")
+    func assetResolverRejectsTraversalAndMapsFonts() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epdoc-editor-assets-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let fontURL = root
+            .appendingPathComponent("vendor", isDirectory: true)
+            .appendingPathComponent("katex", isDirectory: true)
+            .appendingPathComponent("fonts", isDirectory: true)
+        try FileManager.default.createDirectory(at: fontURL, withIntermediateDirectories: true)
+        let woffURL = fontURL.appendingPathComponent("KaTeX_Main-Regular.woff")
+        try Data([0x00, 0x01]).write(to: woffURL)
+
+        let resolved = try EpdocEditorAssetResolver.resolve(
+            relativePath: "/vendor/katex/fonts/KaTeX_Main-Regular.woff",
+            assetRoot: root
+        )
+
+        #expect(resolved.fileURL == woffURL)
+        #expect(resolved.mimeType == "font/woff")
+        #expect(resolved.contentEncoding == nil)
+        #expect(throws: EpdocBridgeError.self) {
+            try EpdocEditorAssetResolver.resolve(relativePath: "/../editor.js", assetRoot: root)
+        }
+    }
+
     // MARK: - JS → Swift messages
 
     @Test("contentDidChange decodes from canonical body shape")

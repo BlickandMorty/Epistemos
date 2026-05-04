@@ -1,0 +1,21 @@
+namespace helios_ffi {
+    typedef u64 VaultId;
+
+    dictionary VaultAccessPolicy {
+        boolean requires_biometric;
+        string bookmark_data_base64;
+    };
+
+    dictionary Task { string prompt; };
+    dictionary TaskResult { string text; };
+
+    enum VaultError { "Locked", "InvalidPath", "PermissionDenied" };
+    enum AuthError { "NotAvailable", "Denied" };
+
+    VaultId create_vault(string path, VaultAccessPolicy policy);
+    void unlock_vault(VaultId id) throws VaultError;
+    void lock_vault(VaultId id) throws VaultError;
+    TaskResult dispatch_to_vault(VaultId id, Task task) throws VaultError;
+    boolean authenticate_biometric(string reason) throws AuthError;
+    boolean detect_biometric_change() throws AuthError;
+};

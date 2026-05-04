@@ -1,103 +1,79 @@
-# Privacy + App Store + Entitlements Audit
+# Privacy + App Store Audit
 
-Date: 2026-04-25
-Authority: PolicyProfile compile-time gating; PrivacyInfo.xcprivacy; AppStoreHardeningTests.
+Date: 2026-04-28
 
-## Feature classification
+Verdict: MAS unsafe-surface posture is now freshly verified for the current code-level gate, but this is not a final ship claim because manual Phase S checks, copy review, bundle-size review, and entitlement review remain deferred. Computer-use and shell-like automation must stay direct-build-only or stubbed in the MAS profile.
+
+## Evidence
+
+- MAS entitlements exist at `Epistemos/Epistemos-AppStore.entitlements`.
+- Privacy manifest exists at `Epistemos/Resources/PrivacyInfo.xcprivacy`.
+- MAS computer-use stubs exist at `Epistemos/AppStore/AppStoreComputerUseStubs.swift`.
+- Direct-build screen capture code is gated out of MAS in `Epistemos/Omega/Vision/ScreenCaptureService.swift`.
+- `Epistemos/Omega/OmegaPermissions.swift` and `Epistemos/Omega/Vision/TCCPermissionState.swift` now provide inert `EPISTEMOS_APP_STORE` branches that do not import ScreenCaptureKit or call Apple Events APIs.
+- App Store Info.plist and scheme files are present in the worktree.
+- Fresh MAS build passed in `/tmp/epistemos_mas_tcc_build.log` (`** BUILD SUCCEEDED **`, `EXIT:0`).
+- Fresh binary audit passed in `/tmp/epistemos_mas_tcc_binary_audit.log`: no ScreenCaptureKit/AXorcist/`omega_ax` links or bundle paths, no dangerous `libomega_mcp` process/PTY symbols, and no MAS object references to ScreenCaptureKit. The only `python` path hit is the CodeEdit `tree-sitter-python` grammar resource, not a Python runtime.
+- Raw Thoughts provider-surface patch preserved the MAS build in `/tmp/epistemos_mas_build_after_raw_thoughts_patch5.log` (`** BUILD SUCCEEDED **`, `EXIT:0`) and added explicit Anthropic `redacted_thinking` capture tests without claiming hidden chain-of-thought access.
+- Focused App Store privacy manifest tests passed in `/tmp/epistemos_privacy_manifest_and_instrpkg_warning_patch43_tests.log` (`** TEST SUCCEEDED **`, `EXIT:0`): no tracking, no tracking domains, no collected-data types, and the expected accessed API reason codes.
+- `PrivacyDetailView.swift` was rechecked during S.6 automation: it is ASCII-clean and its cloud-provider/telemetry wording stays limited to the current local-first behavior. Manual App Store Connect copy review remains deferred.
+- `.epdoc` editor resource packaging was pruned and rechecked in `/tmp/epistemos_tiptap_bundle_prune_patch44_gate.log`: source and built editor resources are 1.1M, `Contents/Resources/Editor` exists in the MAS build, there are no root-level flattened editor duplicates, no stale plain JS/CSS counterparts for `.br` assets, and no KaTeX `.ttf`/`.woff` files.
+- Clean Debug MAS size probe is recorded in `/tmp/epistemos_mas_bundle_size_audit_patch45_clean_probe.log` and `docs/audits/APP_BUNDLE_SIZE_AUDIT_2026_04_29.md`: no test plug-in contamination, app 650M, resources 8.6M, editor resources 1.1M. Release App Store size proof is still blocked by disk pressure.
+
+## Required Classification Table
 
 | Feature | App Store safe? | Entitlement needed | Privacy disclosure needed | Recommended action |
 |---|---|---|---|---|
-| Local model inference (MLX) | YES with JIT entitlement | `com.apple.security.cs.allow-jit` (present in MAS plist) | none beyond standard | KEEP; document JIT for App Review |
-| Cloud API client (Anthropic/OpenAI/Google/Perplexity) | YES | `com.apple.security.network.client` | API key handling — already Keychain-only | KEEP |
-| Vault file access (user-selected) | YES | `com.apple.security.files.user-selected.read-write` + `com.apple.security.files.bookmarks.app-scope` | `NSDocumentsFolderUsageDescription`, `NSDesktopFolderUsageDescription`, `NSDownloadsFolderUsageDescription` | KEEP |
-| FTS5 / SwiftData / GRDB | YES | none | none | KEEP |
-| Instant Recall HNSW | YES | none | none | KEEP |
-| Microphone / dictation | YES | none beyond plist | `NSMicrophoneUsageDescription` (present) | KEEP |
-| Speech recognition | YES | none beyond plist | `NSSpeechRecognitionUsageDescription` (present) | KEEP |
-| MCP local tools | YES (subset) | none | none | KEEP for safe tools (vault_read/write/search). EXCLUDE bash_execute / shell / docker from MAS profile. |
-| Accessibility (`omega-ax`) | NO (Pro-only) | `com.apple.security.automation.apple-events`, `com.apple.security.temporary-exception.mach-lookup.global-name` (`com.apple.accessibility.api`) | `NSAccessibilityUsageDescription` | EXCLUDE from MAS via post-build scrub (already done) |
-| Screen capture (Omega VisualVerify) | NO (Pro-only) | (Pro-only entitlement) | `NSScreenCaptureUsageDescription` (Pro plist only) | EXCLUDE from MAS (stub returns denied) |
-| Apple Events automation | NO (Pro-only) | `com.apple.security.automation.apple-events` | `NSAppleEventsUsageDescription` (Pro plist only) | EXCLUDE from MAS |
-| iMessage outbound (existing) | TBD | per-helper entitlement if used | TBD | KEEP if inbound is gated; verify before MAS submission |
-| iMessage inbound (Phase K) | NO (Pro-only) | broader entitlement | privacy disclosure | DEFER to Pro |
-| Bash / shell / Docker | NO (Pro-only) | none allowed in MAS | n/a | EXCLUDE — gated behind `#if !EPISTEMOS_APP_STORE` per `Epistemos/Harness/HarnessLab.swift` |
-| WebFetch | YES (HTTP only) | `com.apple.security.network.client` | none beyond cloud API disclosure | KEEP if scoped to chat-context only |
-| MultiEdit | TBD | none | none | VERIFY scope; if it edits multiple files atomically, KEEP for MAS |
-| Computer use bridge | NO (Pro-only) | many | many | EXCLUDE from MAS (stubbed via `AppStoreComputerUseStubs.swift:1-184`) |
+| Prose editor | App Store V1 safe | sandbox file access/bookmarks | file timestamp/user defaults as applicable | Ship |
+| `.epdoc` documents | App Store V1 safe if local assets only | sandbox file access/bookmarks; JIT if WKWebView requires it | file access; no collection unless cloud sync added | Ship only after smoke proof; editor resource tree is pruned and packaged correctly |
+| Search/readable blocks | App Store V1 safe | none beyond file/db access | no collection | Ship |
+| Instant Recall/local embeddings | App Store V1 safe if local-only and bounded | none beyond local file/model access | disclose model downloads if network used | Ship behind recall flag until tested |
+| Cloud model providers | Safe with disclosure/settings clarity | network client | disclose user-sent prompts/content in privacy policy/App Privacy answers | Ship if copy is exact |
+| Local model downloads | Safe with disclosure | network client; disk storage | disclose downloads/cache; size impact | Ship with storage controls |
+| Raw Thoughts | App Store V1 safe if local and honest | file access/bookmarks | no collection; explain local run logs | Ship behind feature flag until live run-link smoke passes |
+| Anthropic/OpenAI reasoning surfaces | Safe if only provider-returned data stored | network client for cloud calls | disclose provider calls; do not claim hidden CoT | Ship with exact wording; redacted-thinking storage tests are green |
+| Computer use / ScreenCaptureKit | Not MAS V1 surface | screen recording/TCC; possible review risk | sensitive screen data | Direct build only; MAS stubs |
+| Accessibility/CGEvent automation | Not MAS V1 surface | Accessibility/Apple Events; automation TCC | sensitive control of apps | Direct build only; MAS hidden |
+| Shell/PTY/Docker tools | Not MAS V1 safe | process execution; user files | high risk | Direct build only; hidden in MAS |
+| NightBrain LaunchAgent scheduler | Not MAS V1 surface | LaunchAgent/background helper behavior | background activity | Direct build only; MAS launch path and plist bundle copy are gated/excluded |
+| iMessage drivers | Unclear/high risk | automation/contacts/messages entitlements or private behaviors | sensitive communications | Hide until dedicated review |
+| MCP external servers | Risky if arbitrary | network/file/process depending on server | depends on tool | MAS allow only safe built-in tools |
+| Diagnostics/signposts | Safe if local only | none | no collection | Ship hidden under Advanced |
+| JIT entitlement | Potential review risk | `com.apple.security.cs.allow-jit` if retained | justify WKWebView/local JS use | P0 review note |
 
-## Entitlements summary
+## P0/P1 Privacy Risks
 
-| Profile | File | Risky entitlements | Notes |
-|---|---|---|---|
-| Pro Release | `Epistemos/Epistemos.entitlements` | `cs.allow-jit`, `cs.allow-unsigned-executable-memory`, `cs.disable-library-validation`, `automation.apple-events`, `temporary-exception.mach-lookup.global-name → com.apple.accessibility.api` | Direct distribution; Developer ID signed |
-| Pro Debug | `Epistemos/Epistemos-Debug.entitlements` | `app-sandbox: false`, same JIT/dylib exceptions | Sandbox off for Knowledge Fusion / Python dev |
-| MAS Release | `Epistemos/Epistemos-AppStore.entitlements` | `app-sandbox: true`, `cs.allow-jit` only | clean subset; no automation, no library validation disable, no AX bypass, no document bookmarks |
+| Risk | Severity | Required fix |
+|---|---:|---|
+| MAS-visible computer-use controls | P0 | Code-level and binary-level gates are green; runtime UI smoke remains manual-deferred |
+| Direct-build LaunchAgent leaking into MAS | P1 | NightBrain scheduler registration and fallback inline launch are compile-time gated out of MAS/sandbox builds; App Store target excludes `Resources/LaunchAgents/com.epistemos.nightbrain.plist`; focused release-packaging tests and fresh MAS bundle gate are green |
+| Privacy copy overclaims telemetry/cloud behavior | P0 manual-gate / automated slice green | Settings privacy copy and `PrivacyInfo.xcprivacy` are covered by `/tmp/epistemos_privacy_manifest_and_instrpkg_warning_patch43_tests.log`; App Store Connect metadata wording still needs manual review before submission |
+| JIT entitlement lacks review rationale | P1 | Add App Review note explaining local WKWebView/editor requirement or remove entitlement if not needed |
+| External MCP/tool execution in MAS | P0 | Built-in safe tools only; no arbitrary process execution |
+| Bundled model/data size not gated | P1 | Clean Debug size audit is recorded; Release App Store size proof remains required before submission because the Release build hit disk pressure |
 
-## Privacy manifest (`PrivacyInfo.xcprivacy`)
+## App Store V1 Safe With Entitlement/Disclosure
 
-- `NSPrivacyTracking: false` ✓
-- `NSPrivacyTrackingDomains: []` ✓
-- `NSPrivacyCollectedDataTypes: []` ✓
-- `NSPrivacyAccessedAPITypes`: FileTimestamp (C617.1), SystemBootTime (35F9.1), DiskSpace (E174.1), UserDefaults (CA92.1) ✓
-- Microphone / Speech / Screen Capture do NOT require declared reasons in xcprivacy (user-facing prompts only).
+- Vault file access with security-scoped bookmarks.
+- Network client for cloud model providers and model downloads.
+- WKWebView/Tiptap document editor if local assets and message handlers are constrained.
+- Local model cache if storage controls and disclosures are present.
 
-Drift detection: `EpistemosTests/AppStoreHardeningTests.swift:74-85` enforces manifest at test time.
+## Direct Build Only
 
-## Info.plist usage descriptions
+- ScreenCaptureKit visual automation.
+- Accessibility tree control and CGEvent typing/clicking.
+- Shell, PTY, Docker, arbitrary local process tools.
+- NightBrain LaunchAgent scheduler/background helper path.
+- External MCP servers that can execute processes or read broad filesystem areas.
+- iMessage automation unless separately reviewed.
 
-**Pro plist** (`Epistemos-Info.plist`): `NSAccessibilityUsageDescription`, `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `NSScreenCaptureUsageDescription`, `NSAppleEventsUsageDescription`, `NSDocumentsFolderUsageDescription`, `NSDesktopFolderUsageDescription`, `NSDownloadsFolderUsageDescription`, `ITSAppUsesNonExemptEncryption: false`.
+## Required Fresh Verification
 
-**MAS plist** (`Epistemos-AppStore-Info.plist`): correctly REMOVES `NSAccessibilityUsageDescription`, `NSScreenCaptureUsageDescription`, `NSAppleEventsUsageDescription`. KEEPS Microphone + Speech (in-sandbox local models). NARROWS file folder copy ("only for vaults and files you explicitly choose").
-
-## TCC discipline
-
-All TCC prompts originate from sandboxed frontend (Swift/AppKit), never from helper. Verified call sites:
-- `Epistemos/KnowledgeFusion/DataIngestion/AudioRecorder.swift:24` — `AVCaptureDevice.requestAccess(for: .audio)`
-- `Epistemos/Engine/ComposerVoiceInputService.swift:144` — same
-- `Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift:179-184` — `SFSpeechRecognizer.requestAuthorization()`
-- `Epistemos/Omega/OmegaPermissions.swift:25-29` — Accessibility check via Rust FFI off-main; does NOT prompt
-- `Epistemos/Omega/OmegaPermissions.swift:83-100` — ScreenCaptureKit check; does NOT prompt
-- `Epistemos/Omega/OmegaPermissions.swift:102-115` — Apple Events `AEDeterminePermissionToAutomateTarget`
-
-## Sandbox + double-helper
-
-- Single-app conditional compilation, NOT XPC double-helper.
-- This is acceptable for MAS submission; functionally equivalent (Pro-only features stripped at compile time).
-- Future Pro-only XPC helper deferred.
-
-## Bundle size + storage
-
-- Bundled resources: `sdf_labels.png` (122 KB), `sdf_labels.json` (21 KB), Fonts/ (small), `PrivacyInfo.xcprivacy` (1.5 KB), `Localizable.xcstrings` (1.4 KB) — all small.
-- Models: `config/model_manifest.json` declares external models; status: missing — downloaded to `~/Library/Application Support/Epistemos/PreparedModels/` on first run.
-- Bundled dylibs: `graph_engine`, `syntax_core`, `omega_mcp`, `omega_ax` (Pro-only, scrubbed in MAS), `epistemos_core`, `agent_core`.
-- No bundled `.gguf`/`.safetensors`/`.mlx` (per CLAUDE.md DO NOT commit).
-- **Recommend**: add bundle-size CI gate (target ≤80 MB binary, ≤500 MB total app bundle). Currently unmonitored. **MEDIUM (P2)**.
-
-## Risky Rust crate features
-
-- `agent_core/Cargo.toml`: features `default = []`, `mas-sandbox = []`. Deps include `nix` (process/term/signal/fs).
-- **MEDIUM**: Verify `nix::process::*` call sites in `agent_core/src/` are wrapped with `#[cfg(not(feature = "mas-sandbox"))]` or routed only through tools that are tier-gated. Spot-check during patch queue work.
-- `omega-ax/Cargo.toml`: minimal, all crates excluded from MAS post-build.
-- `omega-mcp/Cargo.toml`: deps include `nix` for PTY. Same `#[cfg]` discipline required.
-
-## Audit verdicts
-
-**(a) Is the App Store profile shippable today?** SHIPPABLE WITH CAVEATS. Entitlements clean; code correctly gated; privacy pane built; tests guard drift. JIT entitlement requires App Review documentation justifying MLX inference (no user code execution).
-
-**(b) PolicyProfile + double-helper**: SCAFFOLDED ARCHITECTURALLY (single-app gating); compile-time strip is sound for MAS.
-
-**(c) Bundle size**: SMALL but UNMONITORED. Add CI gate.
-
-**(d) Critical entitlement / privacy gaps**: NONE BLOCKING.
-
-## P0/P1 actions for V1 ship
-
-| # | Action | Priority | File / surface |
-|---|---|---|---|
-| A1 | Document JIT entitlement justification in App Review submission notes | P0 | (submission process) |
-| A2 | Verify `nix::process::*` and similar are gated with `#[cfg(not(feature = "mas-sandbox"))]` in agent_core, omega-mcp | P1 | agent_core, omega-mcp Rust source |
-| A3 | Add CI step measuring `Epistemos-AppStore.app` bundle size; alert if > 600 MB | P2 | `.github/workflows/ci.yml` |
-| A4 | Verify MAS build excludes ALL bash/shell/docker tool registrations from `agent_core/src/tools/registry.rs` (currently relies on Swift-side `#if !EPISTEMOS_APP_STORE` for harness; double-check Rust tool registry under `mas-sandbox` feature) | P0 | `agent_core/src/tools/registry.rs` |
-| A5 | TestFlight first; gather telemetry on JIT/sandbox interaction | P1 | submission process |
-
-Confidence: HIGH on entitlement and code-gating audit; MEDIUM on Rust-side `mas-sandbox` feature coverage (needs spot-check).
+1. Re-run `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-mas-tcc-build build CODE_SIGNING_ALLOWED=NO` after any MAS/privacy/computer-use change.
+2. Confirm `Epistemos-AppStore` links `AppStoreComputerUseStubs.swift`.
+3. Confirm direct ScreenCaptureKit/AX/CGEvent code is absent from MAS binary or unreachable under MAS symbols; current evidence is `/tmp/epistemos_mas_tcc_binary_audit.log`.
+4. Confirm direct-build LaunchAgent resources are absent from the MAS bundle; current evidence is `/tmp/epistemos_nightbrain_mas_scheduler_patch41_gate.log`.
+5. Confirm PrivacyInfo reason APIs match tests; current automated proof is `/tmp/epistemos_privacy_manifest_and_instrpkg_warning_patch43_tests.log`.
+6. Confirm Settings privacy copy does not claim no cloud data is sent when cloud providers are enabled; current source review is green, final App Store Connect copy remains manual-deferred.
+7. Capture full Release bundle size and top bundled resources. Current partial evidence: clean Debug MAS app is 650M, resources are 8.6M, `.epdoc` editor resources are 1.1M, and the Release proof is blocked by disk pressure.

@@ -1,0 +1,17 @@
+{
+  "inventory_docs_required": 20,
+  "inventory_code_required": 42,
+  "missing": [],
+  "e8_norm2_count": 240,
+  "e8_norm4_count": 2160,
+  "e8_counts_pass": true,
+  "sherry_pack_pass": true,
+  "fwht_pass": true,
+  "softmax_kl_pass": true,
+  "metal_kernel_entrypoints_pass": true,
+  "swift_biometric_gate_present": true,
+  "swift_security_bookmark_present": true,
+  "cargo_available": false,
+  "rustc_available": false
+}
+cargo not available; Rust compile gate skipped by this container.

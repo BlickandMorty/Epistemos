@@ -765,6 +765,35 @@ final class EventStore: Sendable {
         } ?? []
     }
 
+    nonisolated func recentAgentEvents(limit: Int = 100) -> [AgentProvenanceEvent] {
+        let boundedLimit = min(max(limit, 0), Self.agentEventReadLimitMaximum)
+        guard boundedLimit > 0 else { return [] }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT json
+                FROM agent_events
+                ORDER BY occurred_at DESC, sequence DESC, id DESC
+                LIMIT ?;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int(stmt, 1, Int32(boundedLimit))
+
+            var events: [AgentProvenanceEvent] = []
+            events.reserveCapacity(boundedLimit)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let json = Self.columnText(stmt, 0),
+                      let event = Self.decodeAgentEventJSON(json, context: "recent") else {
+                    continue
+                }
+                events.append(event)
+            }
+            return Array(events.reversed())
+        } ?? []
+    }
+
     nonisolated struct AgentEventDiagnostics: Equatable, Sendable {
         let totalRows: Int
         let distinctRuns: Int

@@ -7,7 +7,7 @@ import SwiftUI
 /// system prompt for chats run under this companion.
 ///
 /// Steps:
-///   1. Body grammar (Block / Sage / Orb / Hermes Snake)
+///   1. Body grammar (parameterized Block / Sage / Orb)
 ///   2. Name + tagline
 ///   3. Accent color + persona prompt
 ///   4. Confirm + create
@@ -168,15 +168,18 @@ struct CompanionCreationFlow: View {
         VStack(alignment: .leading, spacing: 14) {
             stepTitle("Choose a body", subtitle: "Each grammar shapes the silhouette and animation vocabulary.")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
-                ForEach(CompanionBodyKind.allCases, id: \.self) { kind in
+                ForEach(CompanionBodyKind.creationPresets, id: \.self) { kind in
                     Button {
                         bodyKind = kind
                     } label: {
                         VStack(spacing: 8) {
-                            Image(systemName: kind.systemImageName)
-                                .font(.system(size: 26, weight: .medium))
-                                .foregroundStyle(bodyKind == kind ? theme.resolved.accent.color : theme.textSecondary)
-                                .frame(height: 36)
+                            CompanionAvatarGlyph(
+                                kind: kind,
+                                accent: bodyKind == kind ? theme.resolved.accent.color : theme.textSecondary,
+                                phase: bodyKind == kind ? 0.65 : 0.5,
+                                reduceMotionOverride: true
+                            )
+                            .frame(width: 42, height: 42)
                             Text(kind.displayName)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(theme.textPrimary)

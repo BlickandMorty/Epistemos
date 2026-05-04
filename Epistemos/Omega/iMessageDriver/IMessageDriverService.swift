@@ -1051,6 +1051,19 @@ final class IMessageDriverService {
 
         logger.info("Dispatching \(replyChannel.channelID, privacy: .public) from \(message.senderID, privacy: .public) to model \(contact.model, privacy: .public) tier=\(contact.toolTier, privacy: .public)")
 
+        // RRF Fusion Phase 4 wiring site §7 — iMessage channel reply
+        // context. The agent session this dispatch spawns will pull
+        // vault context for prompt-building via the agent_core tools
+        // registered in `agent_core/src/tools/registry.rs`. Phase 4
+        // wiring site §4 (the Rust vault-search tool, see
+        // `docs/RRF_FUSION_PROMPT.md` Phase 4 item 4) and site §6
+        // (AgentRuntime context retrieval, already routed through
+        // `VaultSyncService.searchIndex(query:)` which is flag-aware
+        // as of Phase 4) collectively cover the reply path. No
+        // additional iMessage-specific wiring is needed here — this
+        // breadcrumb exists so future Phase-K work knows the path is
+        // already lit through the shared agent-tool retrieval layer.
+
         // Spawn the agent session.
         await runAgentForContact(
             contact: contact,

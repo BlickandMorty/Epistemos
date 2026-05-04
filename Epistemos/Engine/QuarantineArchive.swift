@@ -128,7 +128,20 @@ public final class QuarantineArchive {
 
     /// In-memory entries. Replaced by SQLite-backed iteration when the
     /// Rust persistence layer lands.
+    ///
+    /// Capped at `maxInMemoryEntries` via sliding-window eviction in
+    /// `capture(_:)` so a long-running session that brain-dumps
+    /// thousands of entries doesn't grow this array unbounded. The
+    /// on-disk JSONL archive (`entries.jsonl`) retains the full
+    /// history; the in-memory copy is just the recent-tail working
+    /// set for `snapshot()` / `entries(in:)`.
     private var entries: [QuarantineEntry] = []
+    /// Sliding-window cap on `entries`. 5000 ≈ ~10 MB of
+    /// `QuarantineEntry`s in the worst case (long markdown bodies
+    /// + URLs); a typical brain-dumper hits this cap only after
+    /// thousands of paste/voice events. The on-disk JSONL is the
+    /// source of truth past this window.
+    private let maxInMemoryEntries: Int = 5_000
 
     /// Append the entry to the in-memory log AND atomically append a
     /// JSONL line to the on-disk archive file. The on-disk write is
@@ -148,6 +161,13 @@ public final class QuarantineArchive {
         _ entry: QuarantineEntry
     ) -> QuarantineEntry {
         entries.append(entry)
+        // Sliding-window eviction — keep only the most recent
+        // `maxInMemoryEntries`. Historical entries remain in the
+        // on-disk JSONL archive.
+        if entries.count > maxInMemoryEntries {
+            let overflow = entries.count - maxInMemoryEntries
+            entries.removeFirst(overflow)
+        }
         diskQueue.async { [weak self] in
             guard let self else { return }
             do {

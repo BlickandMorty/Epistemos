@@ -1,5 +1,10 @@
 # Platinum Theme And Markdown Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 > **Historical snapshot:** This audit captured a mixed TK1/TK2 markdown-rendering phase before the later pruning pass. References to deleted TK1 prose-editor files remain useful as provenance, but they do not describe the current production editor stack.
 
 ## Scope

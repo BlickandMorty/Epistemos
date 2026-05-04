@@ -1,5 +1,10 @@
 # TextKit 2 Parity Audit Report
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 **Date:** 2026-03-10
 **Auditor:** Claude (automated code-level audit)
 **Baseline plan:** `docs/plans/2026-03-08-textkit2-tk1-parity-comparison-plan.md`

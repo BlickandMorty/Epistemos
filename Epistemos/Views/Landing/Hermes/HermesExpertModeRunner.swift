@@ -9,15 +9,10 @@ extension SovereignGateCategory {
     static let hermesExpertCommand = SovereignGateCategory(rawValue: "hermes_expert_command")
 }
 
-// GENUI-DEFER: hackathon-2026-05-03
-// Every `render*Inline` method below produces inline transcript rows
-// instead of routing through GenUIDispatcher. This is doctrinally
-// incorrect per `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`
-// (T0 sub-track 4); the dispatcher does not yet exist (G.2 not shipped).
-// On the migration list at `COGNITIVE_GENUI_DOCTRINE` §9 as **G.3
-// priority 1** — first to migrate when G.2 lands. DO NOT add new
-// per-command renderers here without either (a) including the
-// dispatcher migration or (b) appending another row to the §9 list.
+// CANON-COMPLIANT 2026-05-04 (Stage A.4 / GenUI G.3 priority 1):
+// Structured Hermes Expert Mode command output routes through
+// `GenUIPayload` + `GenUIDispatcher`. Terse command echoes may remain
+// inline transcript rows; new rich command output must use typed payloads.
 
 /// Bridges the Hermes Expert Mode UI to the canonical
 /// `HermesCommandDispatcher`, the chat / orchestrator state, the
@@ -55,7 +50,7 @@ struct HermesExpertModeRunner {
     /// input ribbon. Routes:
     /// - empty / whitespace → no-op
     /// - bare prompt (no leading slash) → `/ask`-equivalent path:
-    ///   handed off to MainChatSubmissionRouter via the closure
+    ///   direct Rust Hermes runtime
     /// - `/cmd ...` (no approval needed) → dispatch + provenance
     /// - `/cmd ...` (approval needed) → Sovereign Gate biometric +
     ///   provenance (denied / approved / completed)
@@ -69,13 +64,13 @@ struct HermesExpertModeRunner {
         state.bumpSubmitCounter()
         state.clearDraft()
 
-        // Bare prompt (no slash): treat as /ask — hand to main chat.
+        // Bare prompt (no slash): treat as /ask on the Rust Hermes runtime.
         if !trimmed.hasPrefix("/") {
             recordSubmissionStart(toolName: "hermes_expert.ask",
                                   args: ["prompt": String(trimmed.prefix(120))])
+            await runAskThroughRustRuntime(trimmed)
             recordSubmissionCompleted(toolName: "hermes_expert.ask",
-                                      result: "delegated_to_main_chat")
-            handoffAsAsk(trimmed)
+                                      result: "rust_runtime_dispatched")
             return
         }
 
@@ -113,7 +108,7 @@ struct HermesExpertModeRunner {
             case .allowed:
                 recordSubmissionApprovalGranted(toolName: toolName)
                 state.append(.init(kind: .info, text: "✓ approved — running…"))
-                dispatch(parsed, raw: trimmed)
+                await dispatch(parsed, raw: trimmed)
                 recordSubmissionCompleted(toolName: toolName, result: "approved_and_dispatched")
             case .denied(let reason):
                 let reasonText: String
@@ -128,16 +123,16 @@ struct HermesExpertModeRunner {
             return
         }
 
-        dispatch(parsed, raw: trimmed)
+        await dispatch(parsed, raw: trimmed)
         recordSubmissionCompleted(toolName: toolName, result: "dispatched")
     }
 
     // MARK: - Dispatch routes
 
-    private func dispatch(_ command: HermesParsedCommand, raw: String) {
+    private func dispatch(_ command: HermesParsedCommand, raw: String) async {
         switch command {
         case .ask(let question):
-            handoffAsAsk(question)
+            await runAskThroughRustRuntime(question)
 
         case .help:
             renderHelpInline()
@@ -252,10 +247,8 @@ struct HermesExpertModeRunner {
     // MARK: - Inline renderers
 
     private func renderHelpInline() {
-        // Routes through the existing Artifact + ArtifactBlockView
-        // pipeline (chat-block schema-first GenUI, partial). Migrates
-        // to GenUIDispatcher when G.2 lands per
-        // `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` §9 deferral list.
+        // Stage A.4 / GenUI G.3: rich help output is a typed payload
+        // rendered by the canonical dispatcher.
         let registry = HermesCapabilityRegistry.all
         let coreCount = registry.filter { $0.tier == .core }.count
         let proCount = registry.filter { $0.tier == .pro }.count
@@ -299,11 +292,9 @@ struct HermesExpertModeRunner {
         lines.append("---")
         lines.append("_Tab autofills · ↑↓ palette / history · ⏎ submit · ⎋ exit_")
 
-        state.append(.artifact(Artifact(
-            kind: .markdown,
+        state.append(.payload(.markdownCard(
             title: "Hermes Parity",
-            content: lines.joined(separator: "\n"),
-            schemaName: "hermes.help"
+            lines.joined(separator: "\n")
         )))
     }
 
@@ -324,12 +315,8 @@ struct HermesExpertModeRunner {
         // is the doctrinally-correct path per
         // `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`.
         //
-        // The other six already-Artifact-routed commands (/help, /config
-        // show, /tokens, /cost, /model list, /search) migrate next per
-        // §9 deferral list G.3 priority 1 — same shape, swap the
-        // `state.append(.artifact(Artifact(...)))` call for
-        // `state.append(.payload(GenUIPayload.keyValueTable(...)))` or
-        // the appropriate convenience constructor.
+        // The other six originally Artifact-routed commands now follow
+        // this same typed-payload pattern.
         let model = inference.preferredChatModelSelection.displayName
         let opMode = operatingMode().displayName
         let panel = ui.activePanel.rawValue
@@ -357,17 +344,13 @@ struct HermesExpertModeRunner {
         case .cloud:             estimatedContext = "~200K (cloud frontier class)"
         case .appleIntelligence: estimatedContext = "~12K (Apple Intelligence)"
         }
-        let yaml = """
-        model:        \(yamlEscape(model))
-        context_cap:  \(yamlEscape(estimatedContext))
-        live_panel:   opening (Session Intelligence)
-        """
-        state.append(.artifact(Artifact(
-            kind: .yaml,
+        state.append(.payload(.keyValueTable(
             title: "Tokens",
-            language: "yaml",
-            content: yaml,
-            schemaName: "hermes.tokens"
+            [
+                ("model", model),
+                ("context_cap", estimatedContext),
+                ("live_panel", "opening (Session Intelligence)"),
+            ]
         )))
         NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
     }
@@ -380,17 +363,13 @@ struct HermesExpertModeRunner {
         case .appleIntelligence:  surface = "$0 — Apple Intelligence"
         case .cloud:              surface = "billed per token (see Session Intelligence)"
         }
-        let yaml = """
-        model:      \(yamlEscape(model))
-        surface:    \(yamlEscape(surface))
-        live_panel: opening (Session Intelligence)
-        """
-        state.append(.artifact(Artifact(
-            kind: .yaml,
+        state.append(.payload(.keyValueTable(
             title: "Cost",
-            language: "yaml",
-            content: yaml,
-            schemaName: "hermes.cost"
+            [
+                ("model", model),
+                ("surface", surface),
+                ("live_panel", "opening (Session Intelligence)"),
+            ]
         )))
         NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
     }
@@ -404,10 +383,7 @@ struct HermesExpertModeRunner {
             ))
             return
         }
-        var lines: [String] = []
-        lines.append("# Search — '\(cmd.query)'")
-        lines.append("")
-        for (idx, hit) in results.enumerated() {
+        let rows: [[String]] = results.enumerated().map { idx, hit in
             let title = hit.title.isEmpty ? "(untitled)" : hit.title
             let snippet = hit.snippet
                 .replacingOccurrences(of: "\n", with: " ")
@@ -415,23 +391,9 @@ struct HermesExpertModeRunner {
             let snippetTruncated = snippet.count > 240
                 ? String(snippet.prefix(240)) + "…"
                 : snippet
-            lines.append("**\(idx + 1). \(title)**")
-            if !snippetTruncated.isEmpty {
-                lines.append("")
-                lines.append(snippetTruncated)
-            }
-            lines.append("")
+            return ["\(idx + 1)", title, snippetTruncated]
         }
-        if results.count == 5 {
-            lines.append("---")
-            lines.append("_Showing first 5 hits. Open the vault search panel for the full set._")
-        }
-        state.append(.artifact(Artifact(
-            kind: .markdown,
-            title: "Search '\(cmd.query)'",
-            content: lines.joined(separator: "\n"),
-            schemaName: "hermes.search"
-        )))
+        state.append(.payload(.searchResults(query: cmd.query, rows: rows)))
     }
 
     private func renderConfigShowInline() {
@@ -444,42 +406,19 @@ struct HermesExpertModeRunner {
         }()
         let profile = isAppStoreBuild ? "AppStore (Core only)" : "Pro / Developer ID"
         let runID = state.sessionRunID.isEmpty ? "—" : String(state.sessionRunID.suffix(8))
-        let yaml = """
-        profile:           \(yamlEscape(profile))
-        model:             \(yamlEscape(inference.preferredChatModelSelection.displayName))
-        operating_mode:    \(yamlEscape(operatingMode().displayName))
-        incognito:         \(chat.isIncognito ? "true" : "false")
-        rrf_fusion:        \(RRFFusionFlags.isEnabled ? "on" : "off")
-        expert_session:    hermes-expert/\(runID)
-        history_depth:     \(state.history.count)
-        transcript_length: \(state.transcript.count)
-        """
-        state.append(.artifact(Artifact(
-            kind: .yaml,
+        state.append(.payload(.keyValueTable(
             title: "Config",
-            language: "yaml",
-            content: yaml,
-            schemaName: "hermes.config"
+            [
+                ("profile", profile),
+                ("model", inference.preferredChatModelSelection.displayName),
+                ("operating_mode", operatingMode().displayName),
+                ("incognito", chat.isIncognito ? "true" : "false"),
+                ("rrf_fusion", RRFFusionFlags.isEnabled ? "on" : "off"),
+                ("expert_session", "hermes-expert/\(runID)"),
+                ("history_depth", "\(state.history.count)"),
+                ("transcript_length", "\(state.transcript.count)"),
+            ]
         )))
-    }
-
-    /// YAML escape: wrap in double-quotes if the value contains anything
-    /// YAML-significant (`: { } [ ] , & * # ? | - < > = ! % @ \``)
-    /// or starts with whitespace, or is exactly a YAML reserved keyword
-    /// (`true`/`false`/`null`/`~`/etc.). Otherwise return as-is.
-    private func yamlEscape(_ value: String) -> String {
-        if value.isEmpty { return "\"\"" }
-        let reserved: Set<String> = ["true", "false", "null", "~", "yes", "no", "on", "off"]
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed != value || reserved.contains(trimmed.lowercased()) {
-            return "\"\(value.replacingOccurrences(of: "\"", with: "\\\""))\""
-        }
-        let unsafe: Set<Character> = [":", "{", "}", "[", "]", ",", "&", "*",
-                                      "#", "?", "|", "<", ">", "=", "!", "%", "@", "`", "\""]
-        if value.contains(where: { unsafe.contains($0) }) {
-            return "\"\(value.replacingOccurrences(of: "\"", with: "\\\""))\""
-        }
-        return value
     }
 
     /// Persona subsystem isn't a runtime mutable state on the main
@@ -553,27 +492,19 @@ struct HermesExpertModeRunner {
                 text: "current model: \(inference.preferredChatModelSelection.displayName)"))
 
         case .list:
-            // Markdown table — auto-rendered with copy + collapse via
-            // ArtifactBlockView. Beats six inline echo rows.
-            var lines: [String] = []
-            lines.append("# Available Models")
-            lines.append("")
-            lines.append("**Local MLX** (in-process)")
-            lines.append("- preferred: `\(inference.preferredLocalTextModelID)`")
-            lines.append("")
-            lines.append("**Cloud** (first 8 of \(CloudTextModelID.allCases.count))")
+            var rows: [[String]] = [
+                ["Local MLX", inference.preferredLocalTextModelID, "in-process"],
+            ]
             for id in CloudTextModelID.allCases.prefix(8) {
-                lines.append("- `\(id.rawValue)`")
+                rows.append(["Cloud", id.rawValue, "Hermes Gateway"])
             }
             if CloudTextModelID.allCases.count > 8 {
-                lines.append("")
-                lines.append("_\(CloudTextModelID.allCases.count - 8) more available — see Settings → Models_")
+                rows.append(["Cloud", "\(CloudTextModelID.allCases.count - 8) more", "Settings → Models"])
             }
-            state.append(.artifact(Artifact(
-                kind: .markdown,
+            state.append(.payload(.capabilityList(
                 title: "Available Models",
-                content: lines.joined(separator: "\n"),
-                schemaName: "hermes.model.list"
+                headers: ["Class", "Model", "Route"],
+                rows: rows
             )))
 
         case .switchTo(let name):
@@ -597,13 +528,205 @@ struct HermesExpertModeRunner {
         state.append(.init(kind: .systemEcho, text: text))
     }
 
+    // MARK: - Rust runtime
+
+    private static let rustAskSystemPrompt = """
+    You are Hermes inside Epistemos Expert Mode. Answer the user's prompt directly, \
+    keep local provenance and MAS/Core boundaries intact, and do not request write, \
+    shell, subprocess, cloud-orchestration, or destructive tools on this read-only ask path.
+    """
+
+    private func runAskThroughRustRuntime(_ prompt: String) async {
+        state.dispatching = true
+        defer { state.dispatching = false }
+
+        let sessionId = state.sessionRunID.isEmpty
+            ? "hermes-expert-\(UUID().uuidString)"
+            : state.sessionRunID
+        let vaultPath = vaultSync.vaultURL?.path ?? FileManager.default.temporaryDirectory.path
+        let mode = operatingMode()
+        let providerName = Self.rustProviderName(
+            for: inference.preferredChatModelSelection,
+            fallback: inference.activeAIProvider
+        )
+        let toolConfig = ToolConfig(
+            vaultPath: vaultPath,
+            enableBash: false,
+            enableWebSearch: false,
+            toolTier: "chat_lite",
+            allowedToolNames: []
+        )
+        let agentConfig = AgentConfigFFI(
+            maxTurns: 4,
+            maxOutputTokens: 4096,
+            contextThreshold: 32_000,
+            enableThinking: mode.capturesReasoningTrace,
+            effort: Self.rustEffort(
+                for: mode,
+                tier: inference.sanitizedReasoningTier(inference.chatReasoningTier, for: mode)
+            ),
+            systemPrompt: Self.rustAskSystemPrompt,
+            autoApproveReads: false,
+            autoApproveWrites: false,
+            promptMode: "general"
+        )
+
+        var delegateBox: StreamingDelegate?
+        var answer = ""
+        state.append(.init(kind: .info, text: "→ running Hermes Rust runtime…"))
+
+        let stream = AsyncStream<AgentStreamEvent>(bufferingPolicy: .bufferingNewest(256)) { continuation in
+            let delegate = StreamingDelegate(continuation: continuation)
+            delegateBox = delegate
+            continuation.onTermination = { @Sendable _ in
+                cancelAgentSession(sessionId: sessionId)
+            }
+            Task.detached {
+                do {
+                    _ = try await runAgentSession(
+                        sessionId: sessionId,
+                        objective: prompt,
+                        providerName: providerName,
+                        toolConfig: toolConfig,
+                        agentConfig: agentConfig,
+                        delegate: delegate
+                    )
+                    continuation.finish()
+                } catch {
+                    continuation.yield(.error(AgentRuntimeError(message: error.localizedDescription)))
+                    continuation.finish()
+                }
+            }
+        }
+
+        for await event in stream {
+            switch event {
+            case .thinkingDelta:
+                break
+            case .textDelta(let delta):
+                answer += delta
+            case .toolInputStreaming:
+                break
+            case .toolStarted(_, let name, _):
+                state.append(.init(kind: .info, text: "tool started: \(name)"))
+            case .toolCompleted(_, _, let isError):
+                if isError {
+                    state.append(.init(kind: .error, text: "tool failed on Rust runtime"))
+                }
+            case .subagentSpawned(_, let role):
+                state.append(.init(kind: .info, text: "subagent spawned: \(role)"))
+            case .permissionRequired(let request):
+                let approved = !request.requiresHumanApproval
+                delegateBox?.resolvePermission(permissionId: request.id, approved: approved)
+                let message = approved
+                    ? "read-only tool approved: \(request.toolName)"
+                    : "tool permission denied by Expert Mode ask policy: \(request.toolName)"
+                state.append(.init(kind: approved ? .info : .error, text: message))
+            case .contextCompacting(let tokens):
+                state.append(.init(kind: .info, text: "context compacting at \(tokens) tokens"))
+            case .contextCompacted(let messageCount):
+                state.append(.init(kind: .info, text: "context compacted to \(messageCount) messages"))
+            case .turnStarted:
+                break
+            case .complete(let stopReason, let inputTokens, let outputTokens, _):
+                state.append(.init(
+                    kind: .info,
+                    text: "runtime complete (\(stopReason), in \(inputTokens), out \(outputTokens))"
+                ))
+            case .error(let error):
+                state.append(.init(kind: .error, text: error.message))
+                state.lastErrorMessage = error.message
+            }
+        }
+
+        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedAnswer.isEmpty {
+            state.append(.init(kind: .systemResponse, text: trimmedAnswer))
+        }
+    }
+
+    private static func rustEffort(
+        for mode: EpistemosOperatingMode,
+        tier: ChatReasoningTier
+    ) -> String {
+        switch tier {
+        case .off, .low:
+            return "low"
+        case .medium:
+            return mode == .fast ? "low" : "medium"
+        case .high:
+            return "high"
+        case .heavy:
+            return "max"
+        }
+    }
+
+    private static func rustProviderName(
+        for selection: ChatModelSelection,
+        fallback provider: AIProviderSelection
+    ) -> String {
+        switch selection {
+        case .appleIntelligence:
+            return rustProviderName(for: provider)
+        case .localMLX:
+            return "ollama"
+        case .cloud(let model):
+            switch model {
+            case .anthropicClaudeOpus47, .anthropicClaudeOpus41, .anthropicClaudeOpus4:
+                return "claude_opus"
+            case .anthropicClaudeHaiku35:
+                return "claude_haiku"
+            case .anthropicClaudeSonnet46, .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
+                return "claude_sonnet"
+            case .googleGemini25Pro, .googleGemini3ProPreview, .googleGemini31ProPreview:
+                return "gemini_pro"
+            case .googleGemini25Flash, .googleGemini3FlashPreview:
+                return "gemini_flash"
+            case .openAIGPT54Mini, .openAIGPT54Nano:
+                return "openai_gpt4o_mini"
+            case .openAIO3Mini, .openAIO3:
+                return "openai_o3_mini"
+            case .openAIGPT54, .openAIGPT52, .openAIGPT41, .openAIGPT41Mini:
+                return "openai_gpt4o"
+            case .zaiGLM5, .zaiGLM45Flash:
+                return "zai"
+            case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
+                return "kimi_coding"
+            case .minimaxM25, .minimaxM25HighSpeed, .minimaxM21:
+                return "minimax"
+            case .deepseekChat, .deepseekReasoner:
+                return "deepseek"
+            }
+        }
+    }
+
+    private static func rustProviderName(for provider: AIProviderSelection) -> String {
+        switch provider {
+        case .anthropic:
+            return "claude_sonnet"
+        case .openAI:
+            return "openai_gpt4o"
+        case .google:
+            return "gemini_flash"
+        case .zai:
+            return "zai"
+        case .kimi:
+            return "kimi_coding"
+        case .minimax:
+            return "minimax"
+        case .deepseek:
+            return "deepseek"
+        case .localOnly:
+            return "ollama"
+        }
+    }
+
     // MARK: - Handoffs
 
     private func handoffAsAsk(_ prompt: String) {
-        // Route through the canonical main chat submission so prompt
-        // caching / streaming / tool-use all work the same as the
-        // normal landing search path. The view will exit expert mode
-        // and the next response renders in the main chat surface.
+        // Legacy non-ask commands still hand off until their typed Rust
+        // command routes land. `/ask` and bare prompts use the direct
+        // Rust runtime path above.
         onDelegateToMainChat(prompt)
     }
 

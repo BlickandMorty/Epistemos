@@ -14,6 +14,11 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
             configuration.timeoutIntervalForRequest = 120
             configuration.timeoutIntervalForResource = 4 * 60 * 60
             configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            // Drop the default 20 MB-mem / 150 MB-disk URL cache —
+            // we already opt out of cache reads via the policy above,
+            // and HF model downloads are GB-scale (no benefit) but
+            // would still anchor the cache header table in memory.
+            configuration.urlCache = nil
             self.session = URLSession(configuration: configuration)
         }
     }

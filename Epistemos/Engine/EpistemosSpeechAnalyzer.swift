@@ -59,6 +59,7 @@ public final class EpistemosSpeechAnalyzer {
 
     public enum SpeechError: Error {
         case notAvailable(Readiness)
+        case audioFormatUnavailable
         case audioEngineFailed(String)
         case downloadFailed(String)
         case streamCancelled
@@ -154,16 +155,29 @@ public final class EpistemosSpeechAnalyzer {
         }
         self.transcriber = transcriber
 
-        // Wire the analyzer input stream. `AnalyzerInput(buffer:)`
-        // wraps the AVAudioPCMBuffer that the audio engine produces.
+        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
+        guard let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(
+            compatibleWith: [transcriber],
+            considering: inputFormat
+        ) else {
+            throw SpeechError.audioFormatUnavailable
+        }
+        guard let bufferConverter = SpeechAnalyzerAudioBufferConverter(
+            inputFormat: inputFormat,
+            outputFormat: analyzerFormat
+        ) else {
+            throw SpeechError.audioFormatUnavailable
+        }
+
+        // Wire the analyzer input stream. SpeechAnalyzer expects buffers
+        // in its best available format; raw mic tap buffers can SIGTRAP
+        // inside Speech.framework on macOS 26 if forwarded directly.
         let (inputStream, inputCont) = AsyncStream<AnalyzerInput>
             .makeStream(bufferingPolicy: .bufferingNewest(64))
         self.inputContinuation = inputCont
 
-        let analyzer = SpeechAnalyzer(
-            inputSequence: inputStream,
-            modules: [transcriber]
-        )
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        try await analyzer.prepareToAnalyze(in: analyzerFormat)
         self.analyzer = analyzer
 
         // Drain transcriber.results into the public LiveResult stream.
@@ -192,21 +206,23 @@ public final class EpistemosSpeechAnalyzer {
         // input stream is finished.
         self.analyzeTask = Task {
             do {
-                _ = try await analyzer.analyzeSequence(inputStream)
+                try await analyzer.start(inputSequence: inputStream)
             } catch {
                 Self.log.warning(
-                    "analyzer.analyzeSequence errored: \(error.localizedDescription, privacy: .public)"
+                    "SpeechAnalyzer live stream errored: \(error.localizedDescription, privacy: .public)"
                 )
             }
         }
 
         // Audio engine: installTap on input bus, push each buffer
         // into the AsyncStream wrapped as AnalyzerInput.
-        let format = engine.inputNode.outputFormat(forBus: 0)
         engine.inputNode.installTap(
-            onBus: 0, bufferSize: 1024, format: format
-        ) { [weak self] buffer, _ in
-            self?.inputContinuation?.yield(AnalyzerInput(buffer: buffer))
+            onBus: 0, bufferSize: 1024, format: inputFormat
+        ) { buffer, _ in
+            guard let input = bufferConverter.makeAnalyzerInput(from: buffer) else {
+                return
+            }
+            inputCont.yield(input)
         }
         do {
             try engine.start()
@@ -250,13 +266,100 @@ public final class EpistemosSpeechAnalyzer {
     // should drop their accumulated partial text.
 
     public func observeRouteChanges(_ handler: @escaping @Sendable () -> Void) {
+        let routeChangeLog = Self.log
         NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange,
             object: engine,
             queue: .main
         ) { _ in
-            Self.log.info("audio route changed — caller should restart capture")
+            routeChangeLog.info("audio route changed; caller should restart capture")
             handler()
         }
+    }
+}
+
+@available(macOS 26.0, *)
+private final class SpeechAnalyzerAudioBufferConverter: @unchecked Sendable {
+    private let outputFormat: AVAudioFormat
+    private let converter: AVAudioConverter?
+    private let lock = NSLock()
+
+    init?(inputFormat: AVAudioFormat, outputFormat: AVAudioFormat) {
+        self.outputFormat = outputFormat
+        if Self.formatsMatch(inputFormat, outputFormat) {
+            self.converter = nil
+        } else {
+            guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+                return nil
+            }
+            self.converter = converter
+        }
+    }
+
+    func makeAnalyzerInput(from buffer: AVAudioPCMBuffer) -> AnalyzerInput? {
+        guard buffer.frameLength > 0 else { return nil }
+        guard let converter else {
+            return AnalyzerInput(buffer: buffer)
+        }
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        let capacity = Self.outputFrameCapacity(for: buffer, outputFormat: outputFormat)
+        guard let convertedBuffer = AVAudioPCMBuffer(
+            pcmFormat: outputFormat,
+            frameCapacity: capacity
+        ) else {
+            return nil
+        }
+
+        var didProvideInput = false
+        var conversionError: NSError?
+        let status = converter.convert(to: convertedBuffer, error: &conversionError) { _, inputStatus in
+            if didProvideInput {
+                inputStatus.pointee = .noDataNow
+                return nil
+            }
+            didProvideInput = true
+            inputStatus.pointee = .haveData
+            return buffer
+        }
+
+        guard conversionError == nil else { return nil }
+        switch status {
+        case .haveData, .inputRanDry, .endOfStream:
+            guard convertedBuffer.frameLength > 0 else { return nil }
+            return AnalyzerInput(buffer: convertedBuffer)
+        case .error:
+            return nil
+        @unknown default:
+            return nil
+        }
+    }
+
+    private static func outputFrameCapacity(
+        for buffer: AVAudioPCMBuffer,
+        outputFormat: AVAudioFormat
+    ) -> AVAudioFrameCount {
+        let inputRate = buffer.format.sampleRate
+        let outputRate = outputFormat.sampleRate
+        guard inputRate.isFinite,
+              outputRate.isFinite,
+              inputRate > 0,
+              outputRate > 0
+        else {
+            return max(1, buffer.frameLength)
+        }
+
+        let scaled = (Double(buffer.frameLength) * outputRate / inputRate)
+            .rounded(.up)
+        return max(1, AVAudioFrameCount(scaled) + 16)
+    }
+
+    private static func formatsMatch(_ lhs: AVAudioFormat, _ rhs: AVAudioFormat) -> Bool {
+        lhs.sampleRate == rhs.sampleRate &&
+        lhs.channelCount == rhs.channelCount &&
+        lhs.commonFormat == rhs.commonFormat &&
+        lhs.isInterleaved == rhs.isInterleaved
     }
 }

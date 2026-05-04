@@ -134,12 +134,12 @@ nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
     /// W7.13.c canonical curated options. Each carries a stable id so
     /// renaming the display value never breaks references.
     public let optionsV2: [PropertyOption]?
+    private let legacyOptions: [String]?
     /// W7.13 legacy curated options (display values only). Decode-only
-    /// surface kept for back-compat with pre-W7.13.c JSON. NEW writers
-    /// MUST populate `optionsV2` instead; the encoder only emits
-    /// `optionsV2`.
+    /// compatibility accessor for pre-W7.13.c JSON. New writers must use
+    /// `optionsV2`; the encoder only emits `optionsV2`.
     @available(*, deprecated, message: "Use optionsV2 (PropertyOption with stable id). This is the W7.13 legacy field, decode-only.")
-    public let options: [String]?
+    public var options: [String]? { legacyOptions }
     /// Optional default value rendered as JSON. Applied when the
     /// property is added to an existing doc that doesn't yet carry
     /// the key. Stored as JSON to support every EpdocPropertyValue shape.
@@ -156,7 +156,7 @@ nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
         self.name = name
         self.kind = kind
         self.optionsV2 = options
-        self.options = nil
+        self.legacyOptions = nil
         self.defaultValueJSON = defaultValueJSON
     }
 
@@ -166,7 +166,7 @@ nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
     /// reads; it abstracts over the schema upgrade.
     public var effectiveOptions: [PropertyOption]? {
         if let v2 = optionsV2, !v2.isEmpty { return v2 }
-        if let legacy = options { return legacy.map(PropertyOption.migratingFromLegacy) }
+        if let legacy = legacyOptions { return legacy.map(PropertyOption.migratingFromLegacy) }
         return nil
     }
 
@@ -185,7 +185,7 @@ nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
         self.name = try c.decode(String.self, forKey: .name)
         self.kind = try c.decode(PropertyKind.self, forKey: .kind)
         self.optionsV2 = try c.decodeIfPresent([PropertyOption].self, forKey: .optionsV2)
-        self.options = try c.decodeIfPresent([String].self, forKey: .options)
+        self.legacyOptions = try c.decodeIfPresent([String].self, forKey: .options)
         self.defaultValueJSON = try c.decodeIfPresent(String.self, forKey: .defaultValueJSON)
     }
 

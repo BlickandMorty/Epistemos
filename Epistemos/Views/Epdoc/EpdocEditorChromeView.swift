@@ -24,6 +24,30 @@ import SwiftUI
 // SwiftUI layout; the inner `EpdocTiptapWebView` (NSViewRepresentable)
 // adapts to the WKWebView.
 
+// MARK: - Shared WebKit lifecycle state
+//
+// `WKProcessPool` is deprecated on current macOS SDKs because multiple
+// process pools no longer have an effect. The useful shared state here
+// is therefore just the live WebView count: memory-pressure handling
+// can report whether document WebViews are currently open, while each
+// WebView keeps using a non-persistent data store and explicit teardown.
+@MainActor
+enum EpdocWebViewShared {
+    private static var liveWebViewCount: Int = 0
+
+    static var isIdleForMemoryPressure: Bool {
+        liveWebViewCount == 0
+    }
+
+    static func notifyWebViewCreated() {
+        liveWebViewCount += 1
+    }
+
+    static func notifyWebViewDismantled() {
+        liveWebViewCount = max(0, liveWebViewCount - 1)
+    }
+}
+
 // MARK: - Controller (Observable view-state)
 
 /// The view-state + command-dispatch surface the chrome view binds
@@ -57,8 +81,21 @@ public final class EpdocEditorChromeController {
     /// floating panel; the host wires it to evaluateJavaScript on the
     /// active WKWebView.
     public var dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void
-    /// Save trigger — host runs the NSDocument save coordinator.
+    /// Save trigger - host runs the NSDocument save coordinator.
+    /// Fires when the user explicitly hits the toolbar Save button
+    /// (vs `onContentChanged` below which fires on every keystroke).
     public var onSave: @Sendable @MainActor () -> Void
+    /// Audit gap F4 (T+4_T+5_DEEP_AUDIT) close-out - every Tiptap
+    /// `contentDidChange` bridge message lands here with the freshly
+    /// emitted ProseMirror JSON. Hosts can:
+    ///   - hand the bytes to `EpdocEditorSavePipeline` for debounced
+    ///     persistence (`attachAutosavePipeline(save:)` does this for
+    ///     you), and/or
+    ///   - hand them to `ReadableBlocksIndex` for FTS reindex, and/or
+    ///   - mutate `EpdocDocument.package.contentJSON` so the next
+    ///     NSDocument autosave picks them up.
+    /// Default is a no-op so unit tests + previews don't have to care.
+    public var onContentChanged: @Sendable @MainActor (Data) -> Void
     /// Open the agent inspector with the selected text.
     public var onAskAgent: @Sendable @MainActor (String) -> Void
     /// Capture as RawThought (Wave 3.1).
@@ -68,10 +105,16 @@ public final class EpdocEditorChromeController {
     /// Open the agent inspector for a specific RawThought run id.
     public var onPickRun: @Sendable @MainActor (String) -> Void
 
+    /// Internal autosave debouncer. Created lazily by
+    /// `attachAutosavePipeline(save:)`; otherwise nil and the
+    /// controller is purely event-fanout (host owns persistence).
+    private var autosavePipeline: EpdocEditorSavePipeline?
+
     public init() {
         self.toolbarModel = EpdocEditorToolbarModel()
         self.dispatch = { _ in }
         self.onSave = { }
+        self.onContentChanged = { _ in }
         self.onAskAgent = { _ in }
         self.onCaptureAsRawThought = { _ in }
         self.onSearchLinks = { _ in [] }
@@ -84,6 +127,38 @@ public final class EpdocEditorChromeController {
         }
     }
 
+    /// Audit gap F5 close-out - opt-in autosave wiring. Constructs an
+    /// `EpdocEditorSavePipeline` with the host's save closure and
+    /// installs an `onContentChanged` handler that funnels every
+    /// keystroke's JSON through the debouncer. Idempotent: a second
+    /// call replaces the pipeline (use `detachAutosavePipeline` to
+    /// fully remove).
+    ///
+    /// `save` runs after the pipeline's 300 ms quiet window. The host
+    /// is responsible for the actual write - typically copying the
+    /// bytes onto `EpdocDocument.package.contentJSON` and calling
+    /// `NSDocument.autosave(...)` so iCloud/Versions tracks the
+    /// revision.
+    public func attachAutosavePipeline(
+        debounce: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(300),
+        save: @escaping @Sendable @MainActor (Data) -> Void
+    ) {
+        let pipeline = EpdocEditorSavePipeline(debounce: debounce, save: save)
+        self.autosavePipeline = pipeline
+        self.onContentChanged = { [weak pipeline] json in
+            pipeline?.enqueue(json: json)
+        }
+    }
+
+    /// Tear down the autosave pipeline; reverts `onContentChanged` to
+    /// the no-op default. Hosts call this before releasing the
+    /// controller so the Combine subscription's retained closure
+    /// chain doesn't outlive the document.
+    public func detachAutosavePipeline() {
+        self.autosavePipeline = nil
+        self.onContentChanged = { _ in }
+    }
+
     // MARK: - Bridge message intake
 
     /// Consume a bridge message from the WKWebView. The chrome
@@ -94,11 +169,15 @@ public final class EpdocEditorChromeController {
         case .editorReady:
             break  // host can fire setContent now; nothing for the
                    // chrome to do
-        case .contentDidChange:
-            // Counts are emitted separately via the JS-side
-            // CharacterCount extension; this case is for future
-            // diff-tracking instrumentation.
-            break
+        case let .contentDidChange(json):
+            // Audit gap F4 close-out (T+4_T+5_DEEP_AUDIT_2026-04-27.md).
+            // Every Tiptap onUpdate emits the fresh ProseMirror JSON
+            // through this path. Forward to the host's content-changed
+            // sink so save + FTS update + projection regeneration can
+            // happen. Counts (separately emitted via the JS-side
+            // CharacterCount extension) still flow through their own
+            // bridge case.
+            onContentChanged(json)
         case .error:
             break  // host logs; chrome just keeps rendering
         case let .caretChanged(_, selection):
@@ -233,6 +312,13 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
 
         let config = WKWebViewConfiguration()
         config.userContentController = userContentController
+        // Editor content is markdown round-tripped through Tiptap —
+        // there's no IndexedDB, no LocalStorage, no Service Worker the
+        // editor reads. The default *persistent* `WKWebsiteDataStore`
+        // brings ~30–50 MB of disk-cache + service-worker scaffolding
+        // per WKWebView for nothing. Switching to a non-persistent
+        // store keeps the runtime in-RAM only and frees with the view.
+        config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         config.setURLSchemeHandler(EpdocEditorURLSchemeHandler(),
                                    forURLScheme: epdocEditorURLScheme)
 
@@ -241,6 +327,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         if let url = URL(string: "\(epdocEditorURLScheme):///editor.html") {
             view.load(URLRequest(url: url))
         }
+        EpdocWebViewShared.notifyWebViewCreated()
         return view
     }
 
@@ -251,6 +338,29 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         // editor.
         context.coordinator.webView = view
         context.coordinator.installDispatch(into: controller)
+        context.coordinator.controller = controller
+    }
+
+    /// Released when SwiftUI tears down the representable (document
+    /// closed, tab destroyed, parent view removed). Without this,
+    /// the WKWebView keeps:
+    ///
+    /// - The `WKScriptMessageHandler` retained by
+    ///   `WKUserContentController` (a strong cycle)
+    /// - The autosave pipeline closure chain (debounced timer +
+    ///   Combine subscriptions)
+    /// - The Tiptap JS heap (~50-80 MB)
+    ///
+    /// Each of those leaks ~40-60 MB. Calling `stopLoading` + removing
+    /// every named script-message handler + detaching the autosave
+    /// pipeline lets ARC reclaim the lot.
+    static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) {
+        view.stopLoading()
+        let userContent = view.configuration.userContentController
+        userContent.removeScriptMessageHandler(forName: "epdoc")
+        userContent.removeAllUserScripts()
+        coordinator.shutdown()
+        EpdocWebViewShared.notifyWebViewDismantled()
     }
 
     func makeCoordinator() -> Coordinator {
@@ -293,16 +403,43 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             }
         }
 
+        /// Tear-down counterpart called from `dismantleNSView` when the
+        /// representable is removed from the SwiftUI hierarchy. Drops:
+        ///
+        /// - the controller's `dispatch` closure (releases the strong
+        ///   ref this Coordinator otherwise pins via `installDispatch`)
+        /// - the autosave pipeline (debounce timer + Combine chain)
+        /// - the AP1 outbound display link (CADisplayLink retains its
+        ///   target; without invalidating, the link stays alive past
+        ///   coordinator dealloc)
+        /// - any pending outbound commands so they don't fire against
+        ///   a now-detached web view
+        func shutdown() {
+            // Cancel the AP1 display-aligned flush.
+            outboundDisplayLink?.invalidate()
+            outboundDisplayLink = nil
+            outboundFlushScheduled = false
+            outboundQueue.removeAll(keepingCapacity: false)
+            // Detach the autosave pipeline + replace the dispatch
+            // closure with a no-op so any panel that still holds a
+            // reference to `controller.dispatch` after dismantle
+            // doesn't crash trying to reach the freed coordinator.
+            controller?.detachAutosavePipeline()
+            controller?.dispatch = { _ in }
+            controller = nil
+            webView = nil
+        }
+
         nonisolated func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            // WKScriptMessage handler hops to MainActor — bridge
-            // decoding + controller dispatch both live there.
-            let body = message.body
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.handleInbound(body: body)
+            // WebKit delivers WKScriptMessage callbacks on the main thread.
+            // assumeIsolated propagates that contract to Swift 6 so we can
+            // read message.body (now @MainActor in the macOS 26 SDK) without
+            // an async Task hop - synchronous, no retain cycle.
+            MainActor.assumeIsolated {
+                handleInbound(body: message.body)
             }
         }
 

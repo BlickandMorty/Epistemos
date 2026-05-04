@@ -478,6 +478,7 @@ final class RuntimeIssueMonitor {
     func start() {
         guard !started else { return }
         started = true
+        PowerGate.recordMemoryPressureActive(false)
 
         NSSetUncaughtExceptionHandler { exception in
             RuntimeDiagnostics.record(
@@ -510,6 +511,7 @@ final class RuntimeIssueMonitor {
         memoryPressureSource?.cancel()
         memoryPressureSource = nil
         memoryPressureTracker = MemoryPressureTracker()
+        PowerGate.recordMemoryPressureActive(false)
 
         recordLifecycle("monitor_stopped", metadata: ["reason": reason])
         RuntimeDiagnostics.recordSessionEnd(
@@ -577,6 +579,7 @@ final class RuntimeIssueMonitor {
 
     private func recordMemoryPressure(_ event: DispatchSource.MemoryPressureEvent) {
         guard let transition = memoryPressureTracker.transition(for: event) else { return }
+        Self.publishPowerGateMemoryPressure(transition)
 
         var metadata = currentEnvironmentMetadata()
         metadata["pressureSource"] = "dispatch_source"
@@ -587,6 +590,28 @@ final class RuntimeIssueMonitor {
         switch transition {
         case .entered(let level):
             metadata["level"] = level.rawValue
+            // Hand off to the Rust FFI so bounded caches inside the
+            // Rust runtime (ShmPool, session registry) can shed memory
+            // before macOS escalates the pressure level. The relief
+            // record's gain becomes part of the diagnostic metadata.
+            let relief = respondToMemoryPressure(level: level == .critical ? 2 : 1)
+            metadata["rustSegmentsEvicted"] = String(relief.segmentsEvicted)
+            metadata["rustSegmentBytesFreedMB"] = String(relief.segmentBytesFreed / (1024 * 1024))
+            metadata["rustSessionsPruned"] = String(relief.sessionsPruned)
+            // Drain SearchIndexService's GRDB page cache + idle reader
+            // connections. PRAGMA optimize/shrink_memory + DatabasePool
+            // releaseMemory together free 15-50 MB of resident at idle
+            // without losing the index (it's a derivative store).
+            // Best-effort, non-blocking — runs nonisolated.
+            if let searchService = AppBootstrap.shared?.vaultSync.searchService {
+                searchService.releaseMemoryPressureCaches()
+                metadata["searchIndexCachesReleased"] = "true"
+            }
+            // `WKProcessPool` is deprecated on current macOS SDKs; the
+            // actionable pressure signal is whether document WebViews
+            // are live, since teardown/non-persistent stores reclaim
+            // their own resources when the editor closes.
+            metadata["webViewIdle"] = EpdocWebViewShared.isIdleForMemoryPressure ? "true" : "false"
             RuntimeDiagnostics.record(
                 level == .critical ? .fault : .warning,
                 category: "Diagnostics",
@@ -606,6 +631,15 @@ final class RuntimeIssueMonitor {
             metadata["level"] = "normal"
             metadata["recoveredFrom"] = previousLevel.rawValue
             recordLifecycle("memory_pressure_recovered", metadata: metadata)
+        }
+    }
+
+    static func publishPowerGateMemoryPressure(_ transition: MemoryPressureTransition) {
+        switch transition {
+        case .entered:
+            PowerGate.recordMemoryPressureActive(true)
+        case .recovered:
+            PowerGate.recordMemoryPressureActive(false)
         }
     }
 
@@ -784,11 +818,60 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             : defaults.bool(forKey: Self.showQuitDialogKey)
     }
 
+    /// Audit gap F8 close-out (per
+    /// `docs/audits/T+4_T+5_DEEP_AUDIT_2026-04-27.md`). Apple's
+    /// NSDocumentController contract: "The first instance of
+    /// NSDocumentController or any of its subclasses created during
+    /// the launch of an application becomes the shared document
+    /// controller." We instantiate `EpistemosDocumentController`
+    /// here — BEFORE SwiftUI scene construction touches
+    /// `NSDocumentController.shared` — so our subclass wins the
+    /// `.shared` slot and every `EpdocDocument` opened thereafter
+    /// gets dependency-injected with the readable-blocks FTS
+    /// writer (wired in `applicationDidFinishLaunching` once
+    /// AppBootstrap has produced the SearchIndexService).
+    ///
+    /// Per Option C explicit DI (vs Option B singleton) the
+    /// controller starts with `databaseWriter = nil` and gracefully
+    /// degrades — `EpdocDocument.projectAndIndexBlocks` is a no-op
+    /// when the writer is unset, so opening a .epdoc before the
+    /// pool is ready never crashes; the next save after wiring
+    /// completes refreshes FTS.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Claim the shared NSDocumentController slot. Discard the
+        // returned reference — the framework retains it as `.shared`.
+        _ = EpistemosDocumentController(databaseWriter: nil)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         if Self.canConfigureUserNotificationCenter {
             UNUserNotificationCenter.current().delegate = self
         }
         guard !Self.isRunningTests else { return }
+
+        // Audit gap F8 close-out — push the SearchIndexService
+        // writer to the EpistemosDocumentController installed in
+        // `applicationWillFinishLaunching`. By the time AppKit
+        // calls didFinishLaunching, AppBootstrap (constructed
+        // during SwiftUI scene init) has already produced the
+        // shared SearchIndexService, so `vaultSync.searchService`
+        // is reachable.
+        //
+        // Failure modes (all graceful):
+        //   - shared controller is the default NSDocumentController
+        //     (subclass init failed): downcast returns nil, wiring
+        //     skipped, EpdocDocument stays in no-FTS mode.
+        //   - AppBootstrap.shared not yet built: skip; the next
+        //     bootstrap-completion hook can re-attempt.
+        //   - vaultSync.searchService nil (vault not picked yet):
+        //     skip; once the user opens a vault and SearchIndex
+        //     spins up, the existing vault-change notification can
+        //     re-attempt.
+        if let controller = NSDocumentController.shared as? EpistemosDocumentController,
+           let searchService = AppBootstrap.shared?.vaultSync.searchService {
+            controller.databaseWriter = searchService.databaseWriter()
+        }
+
         #if EPISTEMOS_APP_STORE
             Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
                 .info("App Store applicationDidFinishLaunching reached")
@@ -1031,6 +1114,13 @@ struct EpistemosCommands: Commands {
         }
 
         CommandGroup(replacing: .newItem) {
+            Button("New Document") {
+                Task { @MainActor in
+                    createEpdocDocument()
+                }
+            }
+            .keyboardShortcut("n", modifiers: [.command, .option])
+
             Button("New Note") {
                 Task { @MainActor in
                     if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
@@ -1063,6 +1153,19 @@ struct EpistemosCommands: Commands {
             Button("Show All") {
                 NSApp.unhideAllApplications(nil)
             }
+        }
+    }
+
+    @MainActor
+    private func createEpdocDocument() {
+        do {
+            let controller = NSDocumentController.shared
+            let document = try controller.makeUntitledDocument(ofType: "com.epistemos.epdoc")
+            controller.addDocument(document)
+            document.makeWindowControllers()
+            document.showWindows()
+        } catch {
+            NSApplication.shared.presentError(error)
         }
     }
 

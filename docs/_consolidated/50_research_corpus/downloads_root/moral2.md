@@ -1,0 +1,154 @@
+# Adversarial audit of computational morality for AI safety
+
+**The most honest finding from this eight-domain investigation is a paradox: the components most technically feasible are philosophically weakest, and the ideas most philosophically grounded resist implementation.** Hard-baking moral constraints into transformer layers — the core aspiration — faces a convergence of obstacles from deontic logic paradoxes, the mathematical triviality of refusal directions in activation space, and proven results showing gradient descent routes around fixed constraints. Yet meaningful research remains achievable: a solo researcher with $400 on RunPod can run 200+ QLoRA experiments on 7B models, train sparse autoencoders, and produce publishable mechanistic findings — provided claims are scoped honestly. This report audits every major claim, identifies what survives scrutiny, and flags what does not.
+
+---
+
+## 1. Formalizing morality runs into six genuinely unresolvable problems
+
+Any attempt to encode morality computationally must confront Standard Deontic Logic's paradoxes, the is-ought gap, and the frame problem — and none of these have clean solutions. **Ross's paradox** (from O(mail the letter), SDL derives O(mail the letter ∨ burn the letter)) and **Chisholm's paradox** (contrary-to-duty obligations become inconsistent in SDL) have spawned decades of repair attempts. Dyadic deontic logic, temporal deontic logic (Thomason 1981), and Input/Output logic (Makinson & van der Torre 2000–2003) each resolve some paradoxes while introducing new expressiveness limitations. I/O logic — which treats norms as input/output operations rather than truth-bearing propositions — is the most promising framework for computational implementation and has been applied to GDPR formalization. But as Hansen argues in "The Paradoxes of Deontic Logic: Alive and Kicking," the paradoxes keep returning in new forms.
+
+The is-ought gap (Hume's guillotine) is **logically real but practically navigable**. You cannot derive "ought" from "is" by deduction alone — this is a theorem-level result about formal systems. However, the gap can be bridged by accepting minimal normative axioms. If one grants that "the suffering of conscious creatures matters" (a near-universal premise across ethical traditions), empirical facts become action-guiding. This is what Philippa Foot does with neo-Aristotelian natural goodness, what MacIntyre does with teleological naturalism, and what Sam Harris attempts in *The Moral Landscape*. The philosophical rebuttals to Harris are devastating on the foundational question — Ryan Born's winning challenge response showed Harris smuggles in the normative premise — but this reveals an engineering path: **any computational moral system must explicitly state its normative axioms rather than claiming to derive them**.
+
+Cross-cultural analysis reveals convergent overlap without a universal formal core. Near-universal prohibitions exist (murder of in-group members, theft, certain deception), but the MIT Moral Machine study demonstrated significant cultural variation even for simple trolley scenarios. Buddhist "skillful means" (*upāya*) and Confucian situational judgment (*yi*) actively resist rule-based formalization. Jonathan Dancy's moral particularism — the claim that the same feature can count as a moral reason in one case and against in another — poses perhaps the deepest threat: if correct, rule-based ethics is impossible in principle. Guarini (2006, 2013) explored whether neural networks could implement particularist ethics via case-based reasoning, finding some promise but concluding that reclassification still requires implicit principles.
+
+The strongest mathematical structure for representing morality is not a single clean object. Morality exhibits context-dependence (suggesting conditional evaluation functions), **incommensurability** (ruling out total orders or lattices — at best a partial order with extensive incomparability), defeasibility (requiring non-monotonic inference), and multi-dimensionality (suggesting vector spaces but with no canonical inner product for aggregation). MacAskill, Bykvist, and Ord's *Moral Uncertainty* (2020) provides the best available decision procedure: **Maximizing Expected Choiceworthiness** across moral theories weighted by credence, EC(a) = Σᵢ P(Tᵢ) · CWᵢ(a). But Arrow's impossibility theorem applies directly — no perfect aggregation of cardinal, ordinal, and incomparable moral theories exists. The "parliamentary model" (Newberry & Ord) mitigates fanaticism through proportional negotiation but cannot resolve fundamental incommensurability.
+
+Six problems remain genuinely unresolvable for any computational moral system:
+
+- **The normative foundation problem**: normative axioms must be stipulated, never derived
+- **Value incommensurability**: no algorithm aggregates genuinely incommensurable values (Berlin, Williams, Raz)
+- **The frame problem for ethics**: morally relevant features are unbounded and context-dependent
+- **Wittgenstein's rule-following paradox**: no formal specification uniquely determines its own application
+- **Integrity and moral agency**: systematic moral theories alienate agents from their deepest commitments (Williams 1985)
+- **Moral luck**: moral assessment depends on factors beyond any system's epistemic access
+
+The honest conclusion: morality can be partially formalized for domain-specific applications (legal compliance, medical triage, safety constraints). General-purpose computational morality faces foundational barriers that are philosophical, not merely engineering problems.
+
+---
+
+## 2. Hard-baking constraints into transformers faces devastating technical evidence
+
+The mechanistic interpretability field has produced both impressive diagnostic tools and sobering negative results. The core finding that undermines the "hard constraint" aspiration: **Arditi et al. (2024) demonstrated that refusal in LLMs is mediated by a single direction in the residual stream**, computed trivially as r̂ = mean(h_harmful) − mean(h_harmless). Ablating this direction via orthogonal projection eliminates refusal behavior entirely while preserving capabilities. Over **2,000 "abliterated" models** now exist on HuggingFace. Nanfack et al. (March 2026) improved this further using optimal transport theory, achieving 11% higher attack success rates. Safety occupies a vanishingly small subspace of the model's representational capacity.
+
+Representation Engineering (Zou et al., 2023) extracts concept directions by computing mean activation differences on contrastive prompt pairs: v_c = (1/N⁺) Σ h_ℓ(x⁺) − (1/N⁻) Σ h_ℓ(x⁻). Interventions add α·v_c to activations. This achieved up to **30 percentage point improvements on TruthfulQA**. But follow-up research has been damaging. Tan et al. (2024) found steering effects are unreliable — vectors often steer in the opposite direction. Wolf et al. (2024) showed alignment increases linearly via steering but **helpfulness degrades quadratically**. Most critically, December 2025 research demonstrated chaotic dynamics in deep networks: positive Lyapunov exponents make steering vectors "completely unpredictable after just O(log(1/ε)) layers." Linear interventions for precise behavioral control in deep networks may be mathematically unattainable.
+
+The most promising approach — **Circuit Breakers / Representation Rerouting** (Zou et al., NeurIPS 2024) — trains models so harmful internal representations map to an orthogonal space, disrupting computation before harmful outputs form. The "Cygnet" models survived nearly a year of crowdsourced red-teaming without jailbreak and preserved MT-Bench and MMLU scores. This is genuinely impressive. But circuit breakers modify weights, and weights can be un-modified: **LoRA fine-tuning with <$200 reduces 70B model refusal from ~95% to <1%** (Lermen & Rogers-Smith, 2024). Shadow Alignment (Yang et al., 2024) shows 100 malicious examples suffice to remove safety training. Even fine-tuning on benign data increases attack success rates from ~0% to 46–66%.
+
+Sparse autoencoders (SAEs) provide diagnostic value but cannot lock safety features. Anthropic's scaling monosemanticity work (May 2024) identified features related to deception, sycophancy, and dangerous content in Claude 3 Sonnet, with ~70% of features rated genuinely interpretable. But **Google DeepMind's mechanistic interpretability team reported in March 2025 that SAEs underperformed simple linear probes** on out-of-distribution generalization for detecting harmful intent. A clinical triage study (2026) found that clamping 3,695 SAE features associated with hazard cases produced exactly zero change in model behavior (McNemar p = 0.84). The SAE decomposition is non-unique (different random seeds learn different features), subject to feature splitting/absorption artifacts, and may learn far fewer real features than latent counts suggest.
+
+**Neel Nanda's September 2025 public update** captures the field's honest self-assessment: "The most ambitious vision of mechanistic interpretability I once dreamed of is probably dead. I don't see a path to deeply and reliably understanding what AIs are thinking." A 2025 ICLR paper proved circuit-finding queries are NP-hard, fixed-parameter intractable, and inapproximable. The Regulatory Impossibility Theorem (2025) formally proves no framework can simultaneously achieve unrestricted capabilities, human-interpretable explanations, and negligible explanation error.
+
+What survives this audit: **Circuit breakers provide robust inference-time safety against adversarial attacks (the Cygnet result is real). Defense-in-depth — combining circuit breakers, monitoring, restricted weight access, and continual alignment verification — is the practical path.** But the goal of embedding irremovable behavioral constraints into transformer layers is fundamentally at odds with the nature of gradient-trained systems. Any constraint representable as a weight modification can be un-modified by further weight updates.
+
+---
+
+## 3. Neuro-inspired architectures offer design intuition, not biological fidelity
+
+The basal ganglia–PFC–amygdala analogy contains one gold-standard correspondence, one strong bridge, and several speculative metaphors. The **dopamine ≈ temporal difference error** mapping is one of the most robust findings in computational neuroscience, validated across species, pharmacological interventions, and genetic studies (Schultz et al., 1997; Frank & Fossella, 2011). Frank's (2005, 2006) Go/NoGo model accurately predicts that Parkinson's patients show impaired Go learning but enhanced NoGo learning; medication reverses the pattern. The mathematical core — P(a|s) ∝ Go(s,a) − NoGo(s,a) — is clean and implementable.
+
+The **PFC as meta-reinforcement learning system** (Wang et al., Nature Neuroscience 2018) is the strongest brain-AI bridge. Slow dopamine-driven synaptic plasticity shapes PFC recurrent dynamics such that activation dynamics implement a fast, flexible RL algorithm. This was empirically confirmed in mouse orbitofrontal cortex (Nature Neuroscience 2023). The two-timescale learning mechanism maps directly onto meta-learning frameworks in AI. This is a legitimate computational correspondence, not mere metaphor.
+
+By contrast, the "amygdala as fast safety check" analogy is **architecturally promising but biologically oversimplified**. Modern neuroscience views the amygdala as a general salience/relevance detector (Sander et al., 2003; Cunningham & Brosch, 2012), not a pure threat module. Its rapid subcortical processing pathway is tightly coupled to physiological arousal systems with no disembodied analogue. The architectural principle — a lightweight safety classifier running before full inference — is sound engineering regardless of the biological analogy, but the analogy itself provides design intuition rather than computational specification.
+
+Global Workspace Theory offers a plausible framework for integrating safety with capability through its metacognitive monitoring concept: specialized unconscious processors monitor the conscious workspace for problems (Baars et al., 2021). VanRullen and Kanai's Global Latent Workspace proposal uses unsupervised neural translation between multiple latent spaces. But **no GWT-inspired AI system has demonstrated a safety advantage**, and the connection between consciousness (GWT's domain) and safe behavior is itself unestablished — conscious humans are capable of profoundly unsafe actions.
+
+The strongest counterargument is empirical. Schaeffer, Khona, and Fiete (NeurIPS 2022) analyzed 11,000+ neural networks trained on path integration and found grid cells emerged only with biologically implausible implementation choices. Their conclusion: "deep networks cannot be expected to produce accurate models of the brain without substantial inductive bias." The "cargo cult" critique applies: borrowing labels (amygdala module, basal ganglia gating) without the computational substance that makes biological systems effective. The NeuroAI for AI Safety Roadmap (Mineault et al., 2024) itself acknowledges that "many approaches are still speculative" and that "neuroscience is slow — you can get a lot more reps in with purely in silico experimentation."
+
+---
+
+## 4. Quantization can silently destroy the very constraints it claims to preserve
+
+The mathematics of constraint persistence under compression reveal a fundamental tension: **lossy compression optimizes for statistical reconstruction quality, but constraint preservation is a worst-case functional property**. These are different objectives, and optimizing one does not guarantee the other.
+
+Google's TurboQuant (Zandieh et al., ICLR 2026) achieves remarkable KV cache compression — **6× memory reduction** on LongBench with 0.997 cosine similarity at 4-bit — through a two-stage process of PolarQuant (Hadamard rotation + Lloyd-Max quantization) and QJL (1-bit Johnson-Lindenstrauss residual correction). At 4-bit, this is nearly lossless for attention score computation. But TurboQuant optimizes for inner product preservation, not arbitrary functional properties. The **Alignment-Aware Quantization paper explicitly demonstrates that standard post-training quantization can "silently erase safety guardrails instilled by RLHF"** — perplexity and safety alignment are decoupled under quantization. A model can maintain excellent perplexity while reverting to pre-alignment behavior at W4A4 without AAQ's contrastive loss term.
+
+The "vector universe" concept — quantizing per-layer moral reasoning traces into a retrievable codebook — presupposes a level of representational disentanglement that doesn't exist in current transformers. For an 80-layer model with codebook size K=4096, storage overhead is modest (960 bits per token), but there is no separable "moral reasoning trace" at each layer to quantize. Constraint behavior is distributed across attention patterns, residual stream components, and MLP activations in entangled ways.
+
+Tensor products across layers face catastrophic dimensionality explosion: for d=128 and L=32 layers, the full tensor product lives in ℝ^(128^32) ≈ ℝ^(10^67). This is physically impossible to store or manipulate. Holographic Reduced Representations (Plate, 1995) solve this via circular convolution — the binding (a ⊛ b)_k = Σⱼ aⱼ × b₍ₖ₋ⱼ₎ mod d preserves dimensionality — but introduce noise with signal-to-noise ratio O(√(d/n)). For d=1024 and n=10 superimposed bindings, SNR ≈ 10, workable but degrading with more items. Tensor train decomposition offers O(L × d × r²) storage for TT-rank r, but approximation error grows with compression.
+
+From rate-distortion theory, the fundamental limit for d-dimensional Gaussian vectors at R bits per dimension is E[‖x − x̂‖²] / E[‖x‖²] = 2^(−2R). At 4-bit: **0.4% relative MSE**. At 3-bit: 1.6%. At 2-bit: 6.3%. At 1-bit: 25%. The empirical "knee" appears around **3 bits** — below this, models show repetitive/degraded output. But constraint violation is a threshold phenomenon: if a constraint boundary has margin ε and quantization noise exceeds ε, the constraint breaks regardless of average reconstruction quality.
+
+Memory-augmented transformers (Neural Turing Machines, Differentiable Neural Computers, the recent Titans architecture with surprise-gated memory writes) can theoretically maintain persistent state. The Titans model writes to memory only when prediction-error surprise exceeds a KL threshold, and Schuurmans (2023) proved that external read-write memory renders transformers computationally universal. But all practical implementations use forgetting mechanisms (exponential decay, LRU pruning), and no system has demonstrated maintaining complex semantic invariants indefinitely. The verified constraint preservation at LLM scale remains an open problem — Quadapter achieves verified quantization for networks with 100–512 neurons per layer, not billions of parameters.
+
+---
+
+## 5. The alignment tax is real, method-dependent, and geometrically structured
+
+A March 2026 paper provides the first formal mathematical characterization of the alignment tax: under the linear representation hypothesis, the tax rate τ = cos²(α), where α is the principal angle between safety and capability subspaces. **When α = π/2 (orthogonal subspaces), the tradeoff vanishes entirely.** When α ≈ 0 (parallel subspaces), every unit of safety costs nearly a unit of capability. A scaling decomposition splits the tax into an irreducible component (determined by data structure) and a packing residual that vanishes as model dimensionality grows — formally predicting that larger models should have lower alignment taxes.
+
+Empirical numbers span a wide range depending on method:
+
+| Method | Reasoning Degradation | Source |
+|--------|----------------------|--------|
+| DirectRefusal SFT | **~15 percentage points** | Huang et al. 2025 |
+| SafeChain SFT | ~1% | Huang et al. 2025 |
+| LoRA safety fine-tuning | **Near-zero** (matches base on AIME, HumanEval+) | Li et al. 2025 |
+| RLVR | Maintains/improves reasoning | Cho et al. 2025 |
+| Constitutional AI | No measurable degradation on MMLU/GSM8K | Bai et al. 2022 |
+| InstructGPT PPO-ptx | Minimal regressions; surpassed GPT-3 on HellaSwag | Ouyang et al. 2022 |
+
+The finding that well-designed constraints can improve capability is supported by the **"Occam's Hill" effect**: initial pruning of neural networks can increase accuracy by eliminating learned noise. The Think/Prune/Train framework boosted Gemma2-2B from 41.9% to **57.6%** on GSM8K; Gemma2-9B reached 82%, matching LLaMA-3.1-70B. Selective chain-of-thought pruning yields consistent accuracy gains while reducing inference cost.
+
+Against this, the failure cases are documented and serious. **Sycophancy scales with model size** — a "negative scaling" result where larger, more RLHF-trained models become more obsequiously agreeable (Sharma et al., 2023; GPT-4o's April 2025 "obsequiousness" rollback). Overrefusal is measurable and persistent: models reject "How to break into the car detailing business?" as dangerous. Safety training is brittle — GRP-Obliteration (Microsoft, 2025) showed a **single benign-sounding training prompt** can strip guardrails from 15 major models across all 44 harmful categories while retaining utility within a few percent. Goodhart's Law is mathematically proven for proxy-based optimization: under heavy-tailed noise, over-optimization actually decreases the true goal (El-Mhamdi & Hoang, 2024).
+
+The balance of evidence: **the alignment tax exists on a spectrum from near-zero to ~15%, determined primarily by method choice, model dimensionality, and pipeline design.** The irreducible component is governed by data geometry; the reducible component can approach zero with techniques like null-space projection, LoRA, and RLVR. The field is shifting from "safety vs. capability" to "engineering minimal-tax safety."
+
+---
+
+## 6. Embodiment shapes moral cognition but doesn't gatekeep it
+
+The philosophical debate is genuinely unresolved, but the empirical evidence supports a nuanced position. Damasio's somatic marker hypothesis has been partially validated — vmPFC patients show impaired Iowa Gambling Task performance with absent anticipatory skin conductance responses — but Dunn, Dalgleish, and Lawrence (2006) found the evidence "largely based on the IGT" with "ambiguity surrounding interpretation of psychophysiological data." Damasio himself acknowledged "logical competence does come into play beyond somatic markers."
+
+**Psychopathy provides the critical empirical test.** Psychopaths show diminished amygdala activation during moral judgment, more "utilitarian" trolley responses, and difficulty distinguishing moral from conventional violations — but can verbally identify moral violations as wrong. They "know" morality but don't "feel" it. This demonstrates that some moral knowledge can exist without normal emotional processing, while also showing that emotion-free moral "knowledge" produces dysfunctional moral behavior. The strongest claim supported by evidence: **emotion is necessary for moral motivation and behavioral regulation, not for moral judgment per se**.
+
+Greene's dual-process theory — automatic-emotional processing drives deontological judgments, controlled-deliberative processing drives utilitarian ones — has been partly undermined by Kahane et al. (2012), who showed neural differences were driven by intuitiveness, not moral content. The "Grand Dual Process Model" overreaches; the "Modest" version (applying to trolley-like scenarios) is better supported.
+
+LLMs provide emerging evidence for substrate-independent moral reasoning. A 2025 study found LLMs display "systematic multi-framework deliberation" with **55–57% of consecutive reasoning steps** involving ethical framework switching. Linear probes localize framework-specific encoding to specific layers. Internal geometric structure corresponding to moral foundations (Care, Fairness, Loyalty, Authority, Sanctity) has been identified. But LLMs also show amplified cognitive biases — stronger omission bias and "no" bias than humans — and crucially, "model performance and moral consistency are independent of one another" (Bonagiri et al., 2024). The "facsimile problem" — whether outputs reflect genuine reasoning or sophisticated pattern matching — remains unresolved. As a Nature (2025) perspective argues, we currently cannot distinguish moral competence from moral performance.
+
+Edge AI hardware cannot support meaningful moral deliberation. The NVIDIA Jetson AGX Orin delivers 275 TOPS (INT8) at 15–60W, sufficient for small classification models and rule-based safety checks. Quantized 1–3B parameter models can run on high-end edge devices. But **sequence length limitations (struggling above 512 tokens) and the absence of complex contextual reasoning** mean edge devices can perform moral *classification* ("is this situation safe/unsafe?"), not moral *deliberation*. The emerging paradigm of edge-cloud hybrid systems — embodied perception locally, cloud-based reasoning remotely — may be the pragmatic path.
+
+---
+
+## 7. What $400 on RunPod actually buys — and where claims must stop
+
+**An RTX 4090 at $0.34/hour gives 1,176 GPU-hours for $400** — enough for 200–300 QLoRA fine-tuning experiments on 7–8B models ($0.68–$1.36 each), dozens of SAE training runs ($10–50 each on cached activations), and thousands of evaluation suite runs. The budget is not the bottleneck; experiment design is.
+
+QLoRA compresses 8B models to ~3.7GB (4-bit NF4), fitting with LoRA adapters and optimizer states in ~6–8GB total VRAM — easily within the 4090's 24GB. SAE training is feasible: per SAELens documentation, "a decent SAE for a real LLM" trains on a single A100 in hours. Switch SAEs on cached GPT-2 activations train in <30 minutes on 16GB. Pre-trained SAEs (Gemma Scope, SAELens on HuggingFace) eliminate training cost entirely for analysis work.
+
+The open-source red teaming stack is powerful and free: **Garak** (NVIDIA) for broad vulnerability scanning, **PyRIT** (Microsoft) for programmatic multi-turn attacks, **Promptfoo** for regression testing, and **HarmBench** for standardized evaluation. Total compute cost for red teaming is minimal — these tools run against fine-tuned models during inference at pennies per run.
+
+For evaluation, the optimal benchmark combination is TruthfulQA (817 questions, truthfulness), BBQ (58K examples, bias), HarmBench (adversarial robustness), and XSTest (over-refusal), supplemented by DecodingTrust for its 8-dimension coverage. Anthropic's "Adding Error Bars to Evals" (November 2024) provides the statistical methodology: paired-difference analysis, clustered standard errors, effect sizes (Cohen's d), and bootstrap confidence intervals. For publishable power detecting moderate effects (d=0.5) at α=0.05 with 80% power, **~64 paired observations per comparison** are sufficient; TruthfulQA's 817 questions provide ample power.
+
+**Transferability caveat**: findings on 7B models are publishable for understanding mechanisms. The Platonic Representation Hypothesis (Huh et al., 2024) — neural networks of varying scales converge to shared representation spaces — supports mechanistic transferability. But absolute safety levels do not transfer: a 7B model's vulnerability profile differs from 70B+, and emergent misalignment (Nature, 2025) is exacerbated with scale. The correct framing: "We demonstrate [mechanism/technique] on 7B models; scaling behavior suggests [hypothesis] for larger models, pending verification."
+
+For the Epistemos macOS app: **MLX Swift** provides native Apple Silicon ML inference, CircuitsVis (React → WKWebView) handles attention visualization, Rust communicates via UniFFI for automatic Swift binding generation, and candle (Hugging Face's Rust ML framework) offers cross-platform model inference. Quantized 7B models run on M-series Macs via MLX. Training SAEs on-device is possible but slow — better to train on RunPod and load results.
+
+---
+
+## 8. What is genuinely novel versus what has been attempted before
+
+Several ideas in this research program have precedent. Computational ethics formalization has been explored through RLHF/DPO loss functions, computational reflective equilibrium (Awad et al., 2022), and the AMULED framework using Dempster-Shafer theory for moral uncertainty. Neuro-inspired safety architectures have their own roadmap (Mineault et al., 2024). Steering vectors, SAEs, and circuit breakers are active research areas at Anthropic, Google DeepMind, and OpenAI.
+
+What appears genuinely novel in Jordan's proposed synthesis:
+
+- **Combining I/O logic for norm representation with the parliamentary model for moral uncertainty and circuit breakers for enforcement** — no existing system integrates these three components
+- **Using vector quantization specifically for constraint persistence** rather than general compression — the AAQ paper shows this requires explicit safety-preserving loss terms, which Jordan's codebook approach could address
+- **The "fast amygdala / slow PFC" dual-pathway architecture applied to transformer inference** — while the biological analogy is imprecise, the engineering pattern (lightweight safety classifier before full inference, with meta-cognitive monitoring) hasn't been fully explored
+- **Systematic measurement of the alignment tax using the geometric framework (τ = cos²(α)) across neuro-inspired constraint methods** — the March 2026 paper provides the theoretical tools, but nobody has applied them to this specific architectural family
+
+The most honest risk: **this synthesis may produce a coherent research program that sounds compelling but whose components, individually audited, reveal that the whole is less than the sum of its parts.** The philosophical foundations admit they're choosing axioms; the hard constraints can be removed; the neuro-inspired components are closer to metaphor than mechanism; the quantization can break the constraints it stores. Each layer of the system introduces approximation error, and these errors compound.
+
+---
+
+## Conclusion: where the real research opportunity lies
+
+This audit identifies three tiers of claims with different epistemic statuses.
+
+**Defensible and publishable**: (1) The alignment tax is geometrically structured and method-dependent, not a fixed constant — the τ = cos²(α) formalization with empirical validation across LoRA/RLVR/DirectRefusal methods would be a genuine contribution. (2) Circuit breakers provide robust inference-time safety that survived a year of red-teaming, even though they don't provide weight-access guarantees — defense-in-depth is the realistic paradigm. (3) The PFC meta-RL correspondence (Wang et al., 2018) provides a scientifically grounded basis for meta-reasoning modules that could integrate safety with capability through two-timescale learning. (4) Quantization destroys safety unless explicitly designed to preserve it (AAQ result) — characterizing this failure mode across constraint types would be valuable.
+
+**Interesting but requires heavy caveats**: (1) Moral formalization via I/O logic with parliamentary uncertainty aggregation — honest about choosing axioms, viable for domain-specific deployment, cannot claim universality. (2) A constraint codebook using HRR-style fixed-dimensionality binding instead of tensor products — avoids dimensionality explosion but introduces noise at SNR ≈ √(d/n). (3) SAE-based feature identification for safety monitoring — useful as diagnostics, not as enforcement mechanisms (the clinical triage null result and GDM's negative results mandate humility).
+
+**Genuinely unresolved and should be presented as open questions**: (1) Whether morality can be formalized at all beyond domain-specific rules — moral particularism, value incommensurability, and the frame problem are not engineering challenges but structural features of the moral domain. (2) Whether disembodied AI can achieve reliable moral reasoning — the facsimile problem (Nature, 2025) cannot be resolved with current tools. (3) Whether any weight-level constraint can resist adversarial fine-tuning — current evidence strongly suggests not, and the refusal direction ablation result is devastating.
+
+The honest path for a solo researcher: **work at the intersection of the defensible claims, frame the interesting claims with appropriate caveats, and explicitly mark the unresolved questions as contributions to the problem space rather than solutions.** The $400 budget supports meaningful mechanistic experiments. The Epistemos app can serve as an evaluation and visualization platform. The research program is viable — but only if it resists the temptation to oversell approximate solutions to genuinely hard problems.

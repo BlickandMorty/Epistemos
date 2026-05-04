@@ -15,6 +15,8 @@ import SwiftData
 final class EntityExtractor {
 
     private let graphState: GraphState
+    private let ontologyClassifier: (any OntologyClassifying)?
+    private let sidecarGenerator: (any AFMSidecarGenerating)?
 
     /// Stores SHA-256 hash of note content at last successful extraction.
     /// Persisted to UserDefaults to survive app restarts.
@@ -26,8 +28,14 @@ final class EntityExtractor {
         set { UserDefaults.standard.set(newValue, forKey: Self.hashCacheKey) }
     }
 
-    init(graphState: GraphState) {
+    init(
+        graphState: GraphState,
+        ontologyClassifier: (any OntologyClassifying)? = OntologyClassifier.shared,
+        sidecarGenerator: (any AFMSidecarGenerating)? = AFMSidecarGenerator.shared
+    ) {
         self.graphState = graphState
+        self.ontologyClassifier = ontologyClassifier
+        self.sidecarGenerator = sidecarGenerator
     }
 
     /// Compute SHA-256 hex string of note content for change detection.
@@ -50,6 +58,55 @@ final class EntityExtractor {
         }
         for node in nodes {
             context.delete(node)
+        }
+    }
+
+    private func sourceURL(from filePath: String?) -> URL? {
+        guard let raw = filePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: raw).standardizedFileURL
+    }
+
+    private func classifyOntologyIfAvailable(
+        _ text: String,
+        sourceURL: URL
+    ) async {
+        guard let ontologyClassifier else { return }
+        guard EpistemosSidecarPolicy.isEligible(sourceURL) else { return }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard ontologyClassifier.readiness() == .available else { return }
+
+        do {
+            _ = try await ontologyClassifier.classifyAndPersist(text, for: sourceURL)
+        } catch {
+            Log.app.warning(
+                "EntityExtractor: ontology classification skipped for \(sourceURL.lastPathComponent, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
+    private func generateAFMSidecarIfAvailable(
+        _ text: String,
+        sourceURL: URL,
+        candidateLinks: [AFMSidecarCandidateLink]
+    ) async {
+        guard let sidecarGenerator else { return }
+        guard EpistemosSidecarPolicy.isEligible(sourceURL) else { return }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard sidecarGenerator.readiness() == .available else { return }
+
+        do {
+            _ = try await sidecarGenerator.generateAndPersist(
+                text,
+                for: sourceURL,
+                candidateLinks: candidateLinks
+            )
+        } catch {
+            Log.app.warning(
+                "EntityExtractor: AFM sidecar generation skipped for \(sourceURL.lastPathComponent, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -122,6 +179,9 @@ final class EntityExtractor {
             }
             let batchEnd = min(batchStart + batchSize, pages.count)
             let batch = Array(pages[batchStart..<batchEnd])
+            let sidecarCandidates = batch.map {
+                AFMSidecarCandidateLink(noteId: $0.id, title: $0.title)
+            }
 
             // Concatenate batch: title + body with block IDs annotated.
             // Block IDs let the LLM attribute entities to specific blocks.
@@ -145,6 +205,15 @@ final class EntityExtractor {
                 let blocks = allBatchBlocks[pageId] ?? []
                 let annotated = annotateBodyWithBlocks(body: body, blocks: blocks)
                 batchContent += "--- Note: \(page.title) ---\n\(annotated)\n\n"
+                if let sourceURL = sourceURL(from: filePath) {
+                    await classifyOntologyIfAvailable(annotated, sourceURL: sourceURL)
+                    let candidateLinks = sidecarCandidates.filter { $0.noteId != page.id }
+                    await generateAFMSidecarIfAvailable(
+                        annotated,
+                        sourceURL: sourceURL,
+                        candidateLinks: candidateLinks
+                    )
+                }
             }
 
             // Build extraction prompt with semantic relationship classification

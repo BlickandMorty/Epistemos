@@ -46,7 +46,7 @@ enum LiquidGreetingTiming {
 
 struct LiquidGreeting: View {
     nonisolated static let restingGreeting = "Greetings, Learner"
-    nonisolated static let hermesHeroPhrase = "Hermes Agent"
+    nonisolated static let hermesHeroPhrase = HermesBrand.agentTitle
 
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -79,7 +79,9 @@ struct LiquidGreeting: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
-    private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
+    private var greetingFont: Font {
+        hermesHeroMode ? HermesBrand.display(compact ? 22 : 44) : AppDisplayTypography.font(size: compact ? 22 : 44)
+    }
     /// Font used for the live search line. Shrinks as the query grows so
     /// long prompts still fit on one visual row — mirrors the behaviour of
     /// note titles (a big headline for a short title, smaller for a long

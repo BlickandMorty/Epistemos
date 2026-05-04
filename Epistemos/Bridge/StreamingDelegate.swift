@@ -145,6 +145,14 @@ func executeToolCall(
     throw AgentRuntimeBridgeError.bindingsUnavailable
 }
 
+func hermesBuildSystemPrompt(inputJson: String) throws -> String {
+    throw AgentRuntimeBridgeError.bindingsUnavailable
+}
+
+func hermesParseToolCalls(text: String) throws -> String {
+    throw AgentRuntimeBridgeError.bindingsUnavailable
+}
+
 func previewSessionContext(
     vaultPath: String,
     objective: String,

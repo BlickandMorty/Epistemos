@@ -1,5 +1,10 @@
 # Deep Concurrency Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Date: 2026-03-12
 Scope: Notes Editor, Vault Sync, Graph Rendering
 Workspace: `/Users/jojo/Epistemos`

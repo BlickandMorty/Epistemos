@@ -16,8 +16,13 @@ final class CSISafeguard {
     /// CSI threshold below which training is halted.
     let threshold: Double
 
-    /// History of CSI values for monitoring trends.
+    /// History of CSI values for monitoring trends. Capped at
+    /// `maxHistoryRetained` via sliding-window eviction in
+    /// `recordMeasurement(...)`. Only the last 3 entries are inspected
+    /// (rapid-decline check below) so a small ceiling doesn't change
+    /// any decision logic.
     private(set) var csiHistory: [CSIMeasurement] = []
+    private let maxHistoryRetained: Int = 10
 
     /// Whether the safeguard has triggered (training should halt).
     private(set) var isTriggered = false
@@ -39,6 +44,9 @@ final class CSISafeguard {
             timestamp: Date()
         )
         csiHistory.append(measurement)
+        if csiHistory.count > maxHistoryRetained {
+            csiHistory.removeFirst(csiHistory.count - maxHistoryRetained)
+        }
 
         // Check if CSI has dropped below threshold
         if value < threshold {

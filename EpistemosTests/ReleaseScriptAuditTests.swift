@@ -46,6 +46,33 @@ struct ReleaseScriptAuditTests {
         #expect(!notarize.contains("mapfile -t AUTH_ARGS"))
     }
 
+    @Test("Tiptap bundle script prunes production-only duplicate editor assets")
+    func tiptapBundleScriptPrunesProductionDuplicateAssets() throws {
+        let script = try loadReleaseScript("build-tiptap-bundle.sh")
+
+        #expect(script.contains("prune_production_editor_bundle"))
+        #expect(script.contains("name '*.br'"))
+        #expect(script.contains("plain=\"${compressed%.br}\""))
+        #expect(script.contains("rm -f \"$plain\""))
+        #expect(script.contains("vendor/katex/fonts"))
+        #expect(script.contains("name '*.ttf'"))
+        #expect(script.contains("name '*.woff'"))
+        #expect(script.contains("EPISTEMOS_TIPTAP_DEVELOPMENT"))
+    }
+
+    @Test("runtime asset bundler preserves the canonical Editor resource tree")
+    func runtimeAssetBundlerPreservesCanonicalEditorResourceTree() throws {
+        let script = try loadReleaseScript("bundle-app-runtime-assets.sh")
+
+        #expect(script.contains("EDITOR_SOURCE_DIR=\"$SRCROOT/Epistemos/Resources/Editor\""))
+        #expect(script.contains("EDITOR_BUNDLE_DIR=\"$RESOURCES_DIR/Editor\""))
+        #expect(script.contains("bundle_editor_resources"))
+        #expect(script.contains("rsync -a --delete \"$EDITOR_SOURCE_DIR/\" \"$EDITOR_BUNDLE_DIR/\""))
+        #expect(script.contains("find \"$EDITOR_SOURCE_DIR\" -type f -print0"))
+        #expect(script.contains("rm -f \"$RESOURCES_DIR/$(basename \"$source_file\")\""))
+        #expect(script.contains("bundle_editor_resources\n\nif is_app_store_build"))
+    }
+
     @Test("xcodebuild helper mirrors explicit local sweep overrides into hosted test fallback")
     func xcodebuildHelperMirrorsLocalSweepOverrideFile() throws {
         let script = try loadReleaseScript("scripts/xcodebuild_epistemos.sh")

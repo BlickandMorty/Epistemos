@@ -1,3 +1,35 @@
+#if EPISTEMOS_APP_STORE
+import Foundation
+
+// MARK: - Omega Permissions (App Store profile)
+
+/// The App Store build does not expose native computer-use automation.
+/// Keep the type available for shared source compatibility, but do not
+/// link screen capture, accessibility mutation, or Apple Events APIs.
+@MainActor @Observable
+final class OmegaPermissions {
+    var accessibilityGranted: Bool = false
+    var screenRecordingGranted: Bool = false
+    var automationGranted: Bool = false
+    var allGranted: Bool { false }
+
+    func refresh() async {
+        accessibilityGranted = false
+        screenRecordingGranted = false
+        automationGranted = false
+    }
+
+    func requestAutomationAccess() async {
+        automationGranted = false
+    }
+
+    func openAccessibilitySettings() {}
+    func openScreenRecordingSettings() {}
+    func openAutomationSettings() {}
+
+    nonisolated static func checkAccessibility() -> Bool { false }
+}
+#else
 import AppKit
 import CoreServices
 import Foundation
@@ -134,3 +166,4 @@ final class OmegaPermissions {
         }
     }
 }
+#endif

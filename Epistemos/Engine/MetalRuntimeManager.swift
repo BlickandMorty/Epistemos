@@ -372,6 +372,39 @@ final class MetalRuntimeManager: @unchecked Sendable {
         Self.log.info("Released Metal runtime working set")
     }
 
+    /// Aggressively drop the *compiled* pipeline cache + binary archive on
+    /// top of `releaseWorkingSet`. Each `MTLComputePipelineState` retains
+    /// device-side state (~500 KB each × 14 kernels ≈ 6–8 MB) and the
+    /// MTLBinaryArchive holds the in-memory image of the on-disk
+    /// `\(archiveFileName)` (~3–5 MB). This is the right call from the
+    /// memory-pressure `.critical` path: we trade a one-off ~200–500 ms
+    /// recompile on the next inference for ~10–15 MB unified memory
+    /// returned now. The on-disk archive survives, so the recompile
+    /// hits the warm path once it lands.
+    ///
+    /// Idempotent — safe to call multiple times. Do NOT call from the
+    /// inference hot path; this is a steady-state-pressure response.
+    func deepUnload() {
+        releaseWorkingSet()
+        segsumPipeline = nil
+        segsumTiledPipeline = nil
+        interChunkReducePipeline = nil
+        interChunkScanTilesPipeline = nil
+        interChunkApplyPipeline = nil
+        intraChunkScanPipeline = nil
+        chunkStateDecayPipeline = nil
+        ssdOutputMergePipeline = nil
+        siluGatePipeline = nil
+        rmsNormPipeline = nil
+        stateBufferCopyPipeline = nil
+        convK4Pipeline = nil
+        convK4SiluPipeline = nil
+        convStepPipeline = nil
+        binaryArchive = nil
+        binaryArchiveLoadedFromDisk = false
+        Self.log.info("Released Metal pipelines + binary archive (deepUnload)")
+    }
+
     // MARK: - Command Buffer Creation
 
     /// Create a new command buffer for encoding a forward pass.

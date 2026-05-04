@@ -28,7 +28,8 @@ struct NonAgentPruningValidationTests {
     func setupAssistantAllowsFreshLocalOnlySetup() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
 
-        #expect(source.contains("Button(\"Skip\") { withAnimation(Self.stepTransition) { currentStep = .model } }"))
+        #expect(source.contains("Button(\"Skip\")"))
+        #expect(source.contains("withAnimation(stepTransitionAnimation) { currentStep = .model }"))
         #expect(!source.contains("if vaultSync.vaultURL != nil {\n                    Button(\"Skip\")"))
     }
 
@@ -127,7 +128,7 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains(".cognitive"))
         #expect(source.contains(".knowledgeFusion"))
         #expect(source.contains(".modelVaults"))
-        #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
+        #expect(source.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(!source.contains(".omega"))
     }
 

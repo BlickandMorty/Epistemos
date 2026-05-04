@@ -1,0 +1,26 @@
+# context-essentials.txt APPEND BLOCK
+
+> **Where this goes.** Append this block to your existing `.claude/context-essentials.txt`. Do not replace the file. The post-compaction hook reads the whole file and re-injects it after every context compaction.
+
+---
+
+DETERMINISTIC PERFORMANCE PLAN — FIVE CONSTRAINTS:
+1. NO HOT-PATH SERIALIZATION (>100 Hz events use repr(C) ring buffer in substrate-rt, not UniFFI)
+2. NO MAIN-THREAD METAL COMPILATION (PSOs from MTLBinaryArchive shipped in bundle)
+3. NO STRING-KEYED DISPATCH IN INNER LOOPS (phf::Map or compile-time enum)
+4. NO ALLOCATION IN RENDER FRAMES (bumpalo::Bump arenas, reset per frame)
+5. EVERY OPTIMIZATION SHIPS WITH A SIGNPOST (os_signpost interval + CI p99 assertion)
+
+DETERMINISTIC PERFORMANCE PLAN — SCOPE BOUNDARY:
+- DO NOT touch crates/agent_core/ — Phase I Rust agent migration is independent
+- DO NOT replace UniFFI everywhere — only carve out hot-path events to substrate-rt
+- DO NOT replace GRDB or SQLite — they are correct
+- DO NOT add Bevy ECS — slotmap + SecondaryMap is the chosen substrate
+- DO NOT pursue BOLT on macOS — tooling too rough
+- DO NOT do bindless rendering yet — binary archives first
+
+DETERMINISTIC PERFORMANCE PLAN — CURRENT STATE:
+Read docs/PROGRESS.md for current sprint and last verification output.
+Full spec: docs/EPISTEMOS_DETERMINISTIC_PERF_PLAN.md
+
+Before continuing, state: "I have re-read the deterministic perf constraints. Current sprint: [X]. Next task: [Y]."

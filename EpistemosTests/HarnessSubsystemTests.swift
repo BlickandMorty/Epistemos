@@ -61,7 +61,9 @@ struct BootstrapPacketTests {
         )
         let rendered = BootstrapPacketBuilder.render(packet)
         #expect(rendered.hasPrefix("<environment_context>"))
-        #expect(rendered.hasSuffix("</environment_context>"))
+        #expect(rendered.contains("</environment_context>"))
+        #expect(rendered.contains("<operating_principles harness_version=\"v1.0.0\">"))
+        #expect(rendered.hasSuffix("</operating_principles>"))
         #expect(rendered.contains("Working directory:"))
         #expect(rendered.contains("Task type: coding"))
     }

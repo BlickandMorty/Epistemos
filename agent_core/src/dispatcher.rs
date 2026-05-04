@@ -6,9 +6,8 @@
 //! 3. Keyword heuristics → dispatch to agent type
 //! 4. Default → direct response (no routing)
 
+use crate::hermes::skills::{SkillRegistryEntry, SkillRouter};
 use crate::routing::contains_any;
-use crate::skill_router::SkillRouter;
-use crate::storage::skills_registry::SkillRegistryEntry;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -122,7 +121,7 @@ pub fn dispatch_intent(
 }
 
 // Expose SkillMatch for FFI type conversion
-pub use crate::skill_router::SkillMatch as SkillMatchExport;
+pub use crate::hermes::skills::SkillMatch as SkillMatchExport;
 
 // ---------------------------------------------------------------------------
 // Tests

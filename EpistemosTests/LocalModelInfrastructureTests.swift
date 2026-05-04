@@ -410,9 +410,8 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
-    @Test("local agent mode stays available when the soft-guidance loop is available")
-    func localAgentModeStaysAvailableWithSoftGuidanceLoop() {
-        #expect(!LocalToolGrammar.supportsStructuredToolCalling)
+    @Test("local agent mode stays available when the local agent loop is available")
+    func localAgentModeStaysAvailableWithLocalAgentLoop() {
         #expect(LocalToolGrammar.supportsLocalAgentLoop)
 
         let inference = InferenceState()

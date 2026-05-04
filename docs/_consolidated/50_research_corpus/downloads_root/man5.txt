@@ -1,0 +1,271 @@
+﻿Unified Architectural Framework for High-Performance Agentic PKM Systems: A Synthesis of Swift 6 Concurrency and Rust Systems Programming
+The advancement of personal knowledge management systems from static digital notebooks to autonomous agentic ecosystems necessitates a radical rethinking of the underlying memory architecture. Traditional Retrieval-Augmented Generation relies on a passive, read-only relationship with information, where the model's performance is limited by the quality of the semantic search and the rigid constraints of the context window. To move beyond these limitations, a high-performance architecture must be constructed that facilitates a read-write, stateful interaction model capable of self-evolution and sub-millisecond response times. This report delineates a robust system design utilizing the safety of Swift 6 and the performance of Rust, leveraging sophisticated patterns from leading open-source frameworks to create a session-based memory architecture that compounds knowledge over time.1
+The Computational Substrate: Integrating Swift 6 and Rust FFI
+The selection of Swift 6 as the application host and Rust as the computational core provides a unique synergy of memory safety and execution speed. Swift 6 introduces a rigorous concurrency model that eliminates data races at compile time, which is essential for managing the asynchronous nature of multi-agent interactions.4 Rust, conversely, provides the deterministic memory management and low-level control required for high-frequency operations such as vector indexing, graph traversal, and real-time log serialization.1
+Memory Management and Concurrency Guardrails
+The primary challenge in a cross-language architecture is the safe and efficient transfer of data across the Foreign Function Interface (FFI). In Swift 6, the Synchronization framework introduces the Mutex primitive, which allows for synchronous thread safety without the overhead of actor isolation.7 This is particularly useful for shared state containers that require ultra-low latency access. When Rust memory is passed to Swift, it is often allocated on the heap using CString::into_raw(), which necessitates explicit manual deallocation to prevent leaks.8 To mitigate this, the architecture utilizes the swift-bridge library to generate ergonomic and safe FFI bindings that handle the lifecycle of opaque Rust types.9
+
+
+Synchronization Mechanism
+	Swift 6 Implementation
+	Rust Equivalent
+	Architectural Utility
+	Data Isolation
+	Actors / Global Actors
+	Ownership / Borrowing
+	Protecting agent state across threads 4
+	Mutual Exclusion
+	Mutex<T> (Synchronization)
+	std::sync::Mutex<T>
+	Synchronous access to shared caches 7
+	Transferability
+	Sendable Protocol
+	Send / Sync Traits
+	Verifying cross-boundary safety 4
+	Atomic Operations
+	Atomic<T>
+	std::sync::atomic
+	Lock-free IPC and index management 10
+	The cost of FFI calls can be substantial, often exceeding the execution time of the function itself when dealing with complex data structures. To minimize this "FFI tax," the architecture employs transparent structs where both languages can directly access the memory layout, avoiding the need for serialization.9 For performance-critical hot paths, such as streaming embedding vectors, the system bypasses standard function calls in favor of a Single-Producer Single-Consumer (SPSC) protocol over shared memory using lock-free ring buffers.10
+High-Performance IPC and Zero-Copy Mechanisms
+High-frequency trading and real-time signal processing architectures demonstrate that standard FFI becomes a bottleneck when marshalling and runtime friction occur.10 The proposed PKM architecture adopts these principles by implementing a lock-free ring buffer residing in a shared memory segment. This approach ensures that the host application in Swift and the memory engine in Rust communicate with zero syscalls or mutexes in the "hot path".10 By utilizing Acquire/Release memory semantics, the producer can write a message to the data segment and increment a head pointer without triggering expensive cache synchronization stalls.10
+Performance Metric
+	Standard FFI (UniFFI)
+	BoltFFI / Optimized Bridge
+	Shared Memory SPSC
+	Integer Echo
+	~1,416 ns
+	<1 ns
+	<1 ns
+	Struct Generation
+	~12,817,000 ns
+	~62,542 ns
+	N/A (Shared state)
+	Serialization Overhead
+	  
+
+	  
+ (Transparent)
+	Zero-copy
+	Thread Context Switch
+	Required
+	Optional
+	Avoided
+	The implementation of such a system requires mechanical sympathy regarding the underlying hardware. False sharing must be avoided by padding atomic indices to separate cache lines, typically by 128 bytes.10 This physical separation ensures that Core 1 (Swift) updating the head index does not invalidate the cache line for Core 2 (Rust) reading the tail index, which can otherwise degrade performance by an order of magnitude.10
+Session-Based Folder Architecture and Vault Infrastructure
+The requirement for unique session IDs and dedicated auto-created folders is met through a hierarchical filesystem-as-contract approach. This design allows the system to scale from single-agent research tasks to complex multi-agent workflows without incurring the overhead of a centralized database.11
+Hierarchical Directory Structure and Lifecycle
+Each session instantiation triggers the creation of a unique vault based on a timestamp and UUID, ensuring isolation of ephemeral context.11 This structure follows a 4-layer file-based architecture that categorizes information by its durability and relevance.11
+* Layer 1: Ephemeral Memory. This layer contains session-specific JSON files that store the current conversation context and temporary variables. These files are typically configured with a Time-To-Live (TTL) of 24 hours, after which they are either discarded or distilled into more durable layers.11
+* Layer 2: Working Memory. This layer tracks active task objectives and intermediate results. It persists for the duration of a project and is stored as human-readable Markdown files, allowing for manual auditing and editing.11
+* Layer 3: Long-term Memory. This is the distilled version of what matters across sessions. It resides in a structured vault (e.g., Obsidian) and contains curated knowledge about the user, their setup, and the agent's learned insights.14
+* Layer 4: Identity and Behavior. This permanent layer contains bootstrap files such as SOUL.md and USER.md, which define the agent's persona and core rules. These files are injected at every session start to ensure behavioral consistency.14
+
+
+Directory
+	Content Type
+	Durability
+	Management Strategy
+	/sessions/{id}/md/
+	Research notes, draft outputs
+	Project-long
+	Manual or LLM-driven curation 13
+	/sessions/{id}/json/
+	Execution traces, tool calls
+	24 hours
+	Automatic compaction and archiving 11
+	/sessions/{id}/config/
+	Model parameters, provider info
+	Session-long
+	Deterministic generation on init 11
+	/vault/global/
+	Entity pages, concept wikis
+	Permanent
+	LLM-as-Librarian maintenance 13
+	Multi-Vault Sidebar Management in SwiftUI
+The user interface for managing these disparate vaults and providers is implemented using a compositional SwiftUI architecture. The sidebar is structured as a List embedded within a NavigationSplitView, which automatically adapts to different device orientations and screen sizes.19 To manage the complexity of multiple models and providers, the application uses a centralized coordinator pattern.21
+The AppCoordinator is responsible for dependency injection, ensuring that each view only has access to the services it requires.21 When a user selects a vault from the sidebar, the coordinator initializes the corresponding memory provider—whether it be a local SQLite-backed store or a remote vector database—and sets the session ID for all subsequent interactions.17 This modularization, achieved through Swift Package Manager (SPM), allows for the isolation of the UI logic from the high-performance Rust core, facilitating faster build times and more effective unit testing.23
+Spatial and Topological Memory: The Palace and Graph Patterns
+To overcome the limitations of semantic similarity search, which often retrieves irrelevant "noise" in standard RAG, the architecture adopts two advanced patterns: the "Memory Palace" for spatial organization and "Graphify" for topological reasoning.24
+The Memory Palace Pattern
+The Memory Palace (or Method of Loci) organizes information into wings, halls, and rooms.24 This spatial metaphor serves as a metadata-filtering mechanism that improves retrieval accuracy by narrowing the search scope before vector similarity is even considered.26
+* Wings: Top-level groupings for projects, people, or broad topics. Each wing represents an isolated domain of knowledge.24
+* Halls: Connect rooms within a wing and are categorized by memory types, such as hall_facts, hall_events, or hall_preferences. This allows the agent to specifically search for a decision made in the past without sifting through raw session logs.24
+* Rooms: Contain specific subject matter. For example, a "Rust FFI" room within a "Systems Architecture" wing.24
+* Closets and Drawers: Closets contain compressed summaries (often in the AAAK dialect), while drawers store the raw, verbatim text of the original files.24
+
+
+Palace Element
+	Data Granularity
+	Compression
+	Retrieval Method
+	Wing
+	Domain level
+	None
+	Metadata filter (Project ID) 26
+	Room
+	Topic level
+	Frontmatter summary
+	Keyword / Semantic search 28
+	Closet
+	Summary level
+	AAAK (30x lossy)
+	Fast context injection 24
+	Drawer
+	Verbatim level
+	None (Raw MD)
+	Deep semantic search (ChromaDB) 29
+	Topological Memory and Leiden Community Detection
+While the Palace provides a hierarchical structure, the "Graphify" pattern focuses on the underlying relationships between entities. It uses tree-sitter for a deterministic Abstract Syntax Tree (AST) pass of code files to extract structural elements like classes and functions.25 For non-code documents, sub-agents extract concepts and relationships which are then stored in a NetworkX-based knowledge graph.25
+A key innovation here is the use of Leiden community detection to identify clusters of related nodes based on edge density rather than just vector embeddings.25 This topological approach allows the agent to discover "God nodes"—concepts with high centrality—and "hyperedges" that connect multiple related ideas, such as all functions involved in an authentication flow.25 This ensures that when the agent searches for "authentication," it retrieves not just the semantically similar chunks, but the entire structural cluster related to that concept.25
+Self-Evolving Memory and Autonomous Skill Optimization
+The system's "self-evolving" capability is modeled after the Hermes Agent and the A-Evolve framework, which treat the agent's internal state and memory as an optimization target.30 This represents a shift from static retrieval to an active, read-write interaction where the system learns and improves through use.32
+Evolutionary Engines and Prompt Mutation
+The architecture incorporates evolutionary engines that perform "reflective prompt evolution." By reading execution traces, the system understands why specific tasks failed and proposes mutations to its own instructions and skills.30 This process is governed by a Genetic-Pareto Prompt Evolution (GEPA) engine that balances multiple fitness signals, such as task success rate, token efficiency, and response latency.30
+
+
+Evolution Phase
+	Target Object
+	Mechanism
+	Validation Signal
+	Phase 1
+	Skill files (SKILL.md)
+	DSPy + GEPA mutations
+	100% pytest pass rate 30
+	Phase 2
+	Tool descriptions
+	Bayesian optimization
+	TBLite benchmark score 30
+	Phase 3
+	System prompts
+	Reflective analysis of traces
+	YC-Bench (long-horizon) 30
+	Phase 4
+	Tool implementation
+	Darwinian code evolver
+	TerminalBench 2.0 (Docker) 30
+	Every evolved variant must pass rigorous benchmark gating to ensure that improvements in one area do not cause regressions in another.30 This "Compound Loop" ensures that the swarm of agents never "wakes up blank," but instead begins every task with a filtered, high-integrity briefing derived from the collective experience of previous sessions.12
+Reinforcement Learning on Episodic Memory (MemRL)
+Beyond prompt evolution, the system employs a non-parametric approach called MemRL, which evolves the retrieval policy itself via reinforcement learning.34 While standard RAG uses fixed vector similarity (cosine similarity), MemRL treats retrieval as an active decision process.34 The system records "episodes" consisting of the situation, the memories retrieved, the resulting action, and the user's feedback.34
+A Two-Phase Retrieval mechanism is used:
+1. Semantic Recall: Candidates are recalled using traditional similarity search.34
+2. Utility Re-ranking: These candidates are then re-ranked using learned Q-values that reflect their historical utility in leading to successful outcomes.34
+This ensures that "undone" or "rejected" memories are demoted, while those that consistently help the user are prioritized, effectively reconciling the stability-plasticity dilemma and enabling continuous runtime improvement without the need for expensive weight updates.34
+High-Performance Multi-Agent Coordination
+To support the multi-vault and multi-model requirements, the architecture utilizes a "Goal In, Result Out" orchestration pattern.22 This allows for the seamless integration of different models—such as Anthropic for reasoning, OpenAI for tool calling, and local Llama.cpp for privacy—collaborating on the same session-based vault.22
+Orchestration Modes and Shared Memory Bus
+The framework provides three modes of operation: auto-orchestrated teams that decompose goals into Directed Acyclic Graphs (DAGs), explicit pipelines with manual task wiring, and single-agent execution.22 Coordination is facilitated by a MessageBus and a SharedMemory segment, allowing agents to maintain context without redundant LLM calls.22
+* Parallel Execution: The system identifies independent tasks within the DAG and executes them in parallel using an AgentPool with semaphore-based concurrency control.22
+* Context Compaction: To prevent hitting token limits in long-running sessions, an automated compaction mechanism replaces detailed histories with structured summaries while preserving critical facts in the memory.md file.14
+* Shadow Git Checkpoints: To ensure robustness, the system provides automated rollbacks on failure using hidden Git checkpoints. This allows the agent to "undo" a series of flawed file edits without losing the overall progress of the session.17
+
+
+Orchestration Component
+	Functionality
+	Technical Implementation
+	Performance Impact
+	MessageBus
+	Inter-agent communication
+	Pub/Sub over shared memory
+	<50 μs latency 22
+	TaskQueue
+	Dependency resolution
+	DAG-based auto-unblocking
+	Parallel throughput 22
+	AgentPool
+	Concurrency management
+	Semaphore / MapReduce
+	Resource optimization 22
+	Shadow Git
+	Consistency & Rollback
+	In-memory Git objects
+	Fault tolerance 17
+	The multi-agent system is further enhanced by "Obsidian Skills," which provide precision-driven capabilities such as epistemic classification, thought refining (voice-to-note), and bilingual alias management.37 These skills enable the agent to interact directly with the user's PKM vault using the Obsidian CLI, performing operations like creating daily notes, setting properties, and searching content with regex support.39
+Compounding Knowledge: The LLM Wiki and Memory Lifecycle
+The ultimate goal of the system is the transition from a "raw data lake" to a "compiled knowledge asset".12 This is achieved through the LLM Wiki pattern, where the agent acts as a full-time research librarian that builds a persistent, interlinked collection of Markdown files.12
+Ingest, Query, and Lint Operations
+The lifecycle of knowledge within the wiki is governed by three atomic operations: Ingest, Query, and Lint.13
+* Ingest: When a new source—a PDF, URL, or chat log—is added to the raw/ directory, the agent summarizes it, extracts entities and concepts, and updates relevant wiki pages.13 A single ingest may touch 10-15 different pages, maintaining thousands of cross-references that would be impossible to manage manually.41
+* Query: The agent synthesizes answers from the compiled wiki rather than the raw sources. This reduces "retrieval noise" and ensures that the answer reflects the consolidated knowledge of all previous sessions.13
+* Lint: Periodically, the system performs "health checks" to identify contradictions, orphan pages, or stale claims.13 This "self-healing" capability is critical for maintaining the accuracy of the wiki as it grows to accommodate thousands of high-signal documents.12
+Confidence Decay and Forgetting Curves
+To prevent the wiki from becoming cluttered with obsolete information, the system implements a retention curve inspired by Ebbinghaus's forgetting curve.42 Facts are assigned a confidence score that decays exponentially over time unless they are reinforced by new sources or accessed during a query.42
+* Reinforcement: Each time a fact is confirmed by a new interaction, its confidence resets and its decay rate slows.42
+* Supersession: When new information explicitly contradicts an old claim, the system marks the old version as stale and links it to the new, timestamped fact.42
+* Provenance Tracking: Every claim is tagged as extracted, inferred, or ambiguous, allowing the user to immediately distinguish between "ground truth" evidence and "AI speculation".28
+
+
+Knowledge Layer
+	Update Frequency
+	Source of Truth
+	Verification Method
+	Raw Sources
+	Static (Append-only)
+	Original PDFs/Web
+	Hashing / Checksums 18
+	Compiled Wiki
+	Dynamic (Compilation)
+	LLM synthesis
+	Cross-linking / Linting 13
+	Schema
+	Rare (Co-evolution)
+	User/Agent config
+	Behavioral benchmarks 13
+	Memvid (Machine)
+	High (Sync layer)
+	Embeddings
+	Content hashing 18
+	Local Inference and Privacy Optimization
+For high-performance PKM, local model inference is prioritized to ensure user privacy and offline availability. The architecture utilizes llama.cpp with TurboQuant (TQ3) optimizations to enable 27B parameter models to run on consumer-grade 16GB GPUs.36
+Asymmetric KV-Cache Compression
+A significant breakthrough in local performance is the engineering of the KV-cache. Research indicates that the Value (V) cache is virtually "free" to compress down to 2 bits, as it has zero measurable effect on attention quality.36 Conversely, the Key (K) cache controls attention routing via softmax and is more sensitive.36 The system employs an asymmetric configuration—typically q8_0-K + turbo4-V—to maximize compression while recovering 91% of the quality gap.36
+This is combined with Walsh-Hadamard rotation, which "gaussianizes" the KV tensors, significantly reducing outlier values and making the cache more amenable to low-bit quantization.36 These kernels are optimized for Apple Silicon (Metal) and NVIDIA (CUDA), achieving prefill speed parity with standard 8-bit formats while requiring significantly less bandwidth.36
+Performance-First Local Agentics
+The local memory stack is designed to be "machine-speed," with retrieval times under 5ms.18 This is achieved by packaging the embeddings and metadata into a portable .mv2 file format that can be copied or backed up as a single unit.18 By synchronizing the human-readable wiki with this machine-searchable memory layer, the system provides the best of both worlds: human auditability and agent-scale performance.18
+Architectural Synthesis and Future Outlook
+The fusion of Swift 6's safe concurrency, Rust's high-performance FFI, and self-evolving agent patterns creates a new standard for PKM applications. By moving beyond the token bottleneck and the limitations of static RAG, this architecture enables the creation of a "Second Brain" that is not just a repository of notes, but an active, intelligent partner in knowledge work.
+The system's reliance on file-based vaults and unique session IDs provides a robust, non-proprietary foundation that is resistant to vendor lock-in.11 The spatial organization of the Palace, combined with the topological insights of the knowledge graph, ensures that the agent can navigate complex projects with a level of context-awareness that rivals human memory.24
+As the system evolves through the interaction of its evolutionary engines and reinforcement learning loops, it transitions from a reactive tool to a proactive agent that anticipates the user's needs.32 The future of PKM lies in this "Autonomous Archive," where the LLM maintains the structural integrity of knowledge, allowing the human to focus on higher-level thinking, synthesis, and creative breakthroughs.12 The integration of these disparate technologies into a unified, high-performance architecture is the critical path toward the next generation of personal and collaborative intelligence.
+Works cited
+1. Memory Management in Rust and Swift | by Ryan Levick - Medium, accessed April 8, 2026, https://medium.com/@itchyankles/memory-management-in-rust-and-swift-8ecda3cdf5b7
+2. RAG vs Memory for AI Agents: What's the Difference, accessed April 8, 2026, https://memorilabs.ai/blog/rag-vs-memory-for-ai-agents/
+3. Stop saying RAG is same as Memory - Reddit, accessed April 8, 2026, https://www.reddit.com/r/Rag/comments/1ntk28d/stop_saying_rag_is_same_as_memory/
+4. Swift 6 Concurrency: A Practical Guide for iOS Developers | by Gaurav Parmar | Medium, accessed April 8, 2026, https://medium.com/@gauravios/swift-6-concurrency-a-practical-guide-for-ios-developers-27dee88b1adc
+5. Data Race Safety | Documentation - Swift Programming Language, accessed April 8, 2026, https://www.swift.org/migration/documentation/swift-6-concurrency-migration-guide/dataracesafety/
+6. Memory Management via Ownership Concept Rust and Swift: Experimental Study, accessed April 8, 2026, https://www.ijcaonline.org/archives/volume183/number22/32054-2021921572/
+7. Swift 6 Thread Safety: Replace @unchecked Sendable with Mutex - Fatbobman's Blog, accessed April 8, 2026, https://fatbobman.com/en/snippet/replace-unchecked-sendable-with-mutex/
+8. Bridging Rust and iOS: Seamless Native Integration with Swift and Objective-C - Medium, accessed April 8, 2026, https://medium.com/@antonio.dias.bastiao/bridging-rust-and-ios-seamless-native-integration-with-swift-and-objective-c-7e1462c5c586
+9. GitHub - chinedufn/swift-bridge: swift-bridge facilitates Rust and Swift interop., accessed April 8, 2026, https://github.com/chinedufn/swift-bridge
+10. Beyond FFI: Zero-Copy IPC with Rust and Lock-Free Ring-Buffers - DEV Community, accessed April 8, 2026, https://dev.to/rafacalderon/beyond-ffi-zero-copy-ipc-with-rust-and-lock-free-ring-buffers-3kcp
+11. Building Persistent AI Agent Memory: A 4-Layer File-Based Architecture - DEV Community, accessed April 8, 2026, https://dev.to/oblivionlabz/building-persistent-ai-agent-memory-a-4-layer-file-based-architecture-5996
+12. Karpathy shares 'LLM Knowledge Base' architecture that bypasses RAG with an evolving markdown library maintained by AI | VentureBeat, accessed April 8, 2026, https://venturebeat.com/data/karpathy-shares-llm-knowledge-base-architecture-that-bypasses-rag-with-an
+13. LLM Wiki - GitHub Gist, accessed April 8, 2026, https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+14. OpenClaw Memory Masterclass: The complete guide to agent memory that survives, accessed April 8, 2026, https://velvetshark.com/openclaw-memory-masterclass
+15. I Gave My AI Agent a Three-Layer Memory - Obsidian. Here's How It Thinks Now., accessed April 8, 2026, https://pub.towardsai.net/i-gave-my-ai-agent-a-three-layer-memory-obsidian-heres-how-it-thinks-now-0aaa0fdbdbbd
+16. I've been building with AI agents for months. The biggest unlock was treating the workspace like a living system. : r/AI_Agents - Reddit, accessed April 8, 2026, https://www.reddit.com/r/AI_Agents/comments/1rs8f1v/ive_been_building_with_ai_agents_for_months_the/
+17. MervinPraison/PraisonAI: PraisonAI - Your 24/7 AI ... - GitHub, accessed April 8, 2026, https://github.com/MervinPraison/PraisonAI
+18. tashisleepy/knowledge-engine: The bridge between human-readable wikis and machine-speed memory. Built on Karpathys LLM Wiki pattern + Memvid. - GitHub, accessed April 8, 2026, https://github.com/tashisleepy/knowledge-engine
+19. Sidebar - SwiftUI Handbook - Design+Code, accessed April 8, 2026, https://designcode.io/swiftui-handbook-sidebar/
+20. Building a Smooth Sliding Sidebar Menu in SwiftUI (No Third-Party Libraries), accessed April 8, 2026, https://dev.to/swift_pal/building-a-smooth-sliding-sidebar-menu-in-swiftui-no-third-party-libraries-550e
+21. Proper Navigation in SwiftUI With Coordinators: A Guide - HackerNoon, accessed April 8, 2026, https://hackernoon.com/proper-navigation-in-swiftui-with-coordinators-a-guide
+22. JackChen-me/open-multi-agent: TypeScript multi-agent ... - GitHub, accessed April 8, 2026, https://github.com/JackChen-me/open-multi-agent
+23. Modularizing iOS Applications with SwiftUI and Swift Package Manager - A Modern Approach - Nimble, accessed April 8, 2026, https://nimblehq.co/blog/modern-approach-modularize-ios-swiftui-spm
+24. milla-jovovich/mempalace: The highest-scoring AI memory ... - GitHub, accessed April 8, 2026, https://github.com/milla-jovovich/mempalace
+25. safishamsi/graphify: AI coding assistant skill (Claude Code ... - GitHub, accessed April 8, 2026, https://github.com/safishamsi/graphify
+26. ANALYSIS-mempalace.md - lhl/agentic-memory - GitHub, accessed April 8, 2026, https://github.com/lhl/agentic-memory/blob/main/ANALYSIS-mempalace.md
+27. Multiple issues between README claims and codebase · Issue #27 · milla-jovovich/mempalace - GitHub, accessed April 8, 2026, https://github.com/milla-jovovich/mempalace/issues/27
+28. Framework for AI agents to build and maintain an Obsidian wiki using Karpathy's LLM Wiki pattern - GitHub, accessed April 8, 2026, https://github.com/Ar9av/obsidian-wiki
+29. BENCHMARKS.md - milla-jovovich/mempalace · GitHub, accessed April 8, 2026, https://github.com/milla-jovovich/mempalace/blob/main/benchmarks/BENCHMARKS.md
+30. NousResearch/hermes-agent-self-evolution: Evolutionary ... - GitHub, accessed April 8, 2026, https://github.com/NousResearch/hermes-agent-self-evolution
+31. GitHub - A-EVO-Lab/a-evolve: The official repository of "Position: Agentic Evolution is the Path to Evolving LLMs"., accessed April 8, 2026, https://github.com/A-EVO-Lab/a-evolve
+32. RAG → Agentic RAG → Agent Memory : Smarter Retrieval, Persistent Memory - Yugensys | Outsourced Product Development | IT Services, accessed April 8, 2026, https://www.yugensys.com/2025/11/19/evolution-of-rag-agentic-rag-and-agent-memory/
+33. The Evolution from RAG to Agentic RAG to Agent Memory - Leonie Monigatti, accessed April 8, 2026, https://www.leoniemonigatti.com/blog/from-rag-to-agent-memory.html
+34. MemRL: Self-Evolving Agents via Runtime Reinforcement Learning on Episodic Memory, accessed April 8, 2026, https://arxiv.org/html/2601.03192v2
+35. Episodic memory: track retrieval outcomes so the palace learns what's useful #10 - GitHub, accessed April 8, 2026, https://github.com/milla-jovovich/mempalace/issues/10
+36. turbo-tan/llama.cpp-tq3: llama.cpp fork with TQ3_1S CUDA ... - GitHub, accessed April 8, 2026, https://github.com/turbo-tan/llama.cpp-tq3
+37. kepano/obsidian-skills: Agent skills for Obsidian. Teach ... - GitHub, accessed April 8, 2026, https://github.com/kepano/obsidian-skills
+38. cesarszv/obsidian-skills: workflows I use sporadically in obsidian.md - GitHub, accessed April 8, 2026, https://github.com/cesarszv/obsidian-skills
+39. obsidian-skills/skills/obsidian-cli/SKILL.md at main · kepano/obsidian-skills - GitHub, accessed April 8, 2026, https://github.com/kepano/obsidian-skills/blob/main/skills/obsidian-cli/SKILL.md
+40. GitHub - dull-bird/DeepOrbit: An AI-agent system that bridges LLMs with Obsidian to automate deep research and personal knowledge management., accessed April 8, 2026, https://github.com/dull-bird/DeepOrbit
+41. CompleteTech-LLC-AI-Research/beyond-the-token-bottleneck: An Obsidian-based research wiki mapping the frontier of latent-space reasoning and inter-agent communication - GitHub, accessed April 8, 2026, https://github.com/CompleteTech-LLC-AI-Research/beyond-the-token-bottleneck
+42. extending Karpathy's LLM Wiki pattern with lessons from building agentmemory · GitHub, accessed April 8, 2026, https://gist.github.com/rohitg00/2067ab416f7bbe447c1977edaaa681e2

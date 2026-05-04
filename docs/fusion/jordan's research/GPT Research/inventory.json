@@ -1,0 +1,16 @@
+{
+  "created_by": "GPT-5.5 Pro scaffold generator",
+  "date": "2026-05-03",
+  "workspace_crates": [
+    "helios-core",
+    "helios-tensor",
+    "helios-quant",
+    "helios-mlx",
+    "helios-metal",
+    "helios-attn",
+    "helios-runtime",
+    "helios-models",
+    "helios-bench",
+    "helios-ffi"
+  ]
+}

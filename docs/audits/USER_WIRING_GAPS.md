@@ -1,44 +1,77 @@
 # User Wiring Gaps
 
-Date: 2026-04-25
-Scope: Capabilities that are built or partially built but not user-accessible. Each gap has a minimal-UI proposal that does not clutter the surface.
+Date: 2026-04-28
+Scope: Phase 2A user-wiring gap audit.
 
-Severity: BLOCKER / HIGH / MEDIUM / LOW / DEFER. Confidence: HIGH unless noted.
+## Executive Summary
 
-| # | Capability | Existing code | Missing link | Suggested minimal UI | Priority | Acceptance test |
-|---|---|---|---|---|---|---|
-| G1 | Pro+Cloud tools | Rust agent loop wired (`agent_core/src/agent_loop.rs:136-587`); ChatCoordinator routes `.agent` only (`:361`); `PipelineService.shouldUseToolLoop` short-circuits at `:313-314` | route Pro+Cloud through Rust agent loop | none — internal routing; user already has Pro toggle | **BLOCKER (P0)** | "Find the note about X" via Pro+cloud invokes `vault_search`/`vault_read` and returns real result; not hallucinated |
-| G2 | Raw Thoughts artifact | thinking blocks in `agent_core/src/types.rs:39-41`; transcript+trace+summary in `session_store.rs:5-8`; no per-run folder of provider events | per-model `Vault/Raw Thoughts/<provider>/<run-id>/` with `manifest.json`, `events.jsonl`, `summary.md`, `links.json`; typed graph nodes (Run/RawThought/ToolTrace) and edges (`produced_during`, `derived_from`, `cites`, `summarizes`, `generated_by`) | sidebar entry under existing model vault tree (file-type-driven, no new sidebar silo); right-click on a chat → "Open run" | **HIGH (P0)** behind `EPISTEMOS_RAW_THOUGHTS_V0` flag | Send a chat with thinking → run folder appears → events.jsonl contains thinking_delta/signature_delta/tool_use; graph shows Run node with edges |
-| G3 | Contextual Shadows panel | InstantRecallService wired (`Epistemos/KnowledgeFusion/InstantRecallService.swift:1-294`); HNSW substrate (`graph-engine/src/retrieval_index.rs`); <3ms SLA | UI surface that consumes `InstantRecallService.search(...)` results | small subtle button in note + chat composer (visible while typing); click opens lightweight panel with Notes + Chats tabs; hover preview; off-MainActor query | **HIGH (P0)** | Type 6+ chars in a note → button appears → click reveals top-5 related notes; results in <50ms total (debounced 200ms + search <3ms + render); typing remains 60fps |
-| G4 | Code editor syntax-core | `syntax-core/` crate with 7 `#[repr(C)]` types + tree-sitter + ropey; `EPISTEMOS_USE_SYNTAX_CORE=1` env var checked at `SyntaxCoreService.swift:10-11`; not consumed by default | wire viewport-scoped path on by default for code files; FFI surface for `SyntaxEditDelta`/`SyntaxViewportRequest`/`SyntaxTokenSpan` | none (internal); leverage existing CodeEditorView | **HIGH (P1)** | Open 4k-line .swift file → first paint <500ms → keystroke-to-highlight <16ms (signpost-measured) |
-| G5 | Line-count gutter (code editor) | mentioned in `CodeEditorView.swift:5` comment ("line number gutter") but not visible in current implementation | gutter view that reads from theme tokens; right-side or left-side per setting; Dynamic Type-safe | small toggle in editor toolbar context menu | **MEDIUM (P1)** | Toggle on → gutter renders without theme clash; line numbers update during scroll; gutter does not consume editor width on full-screen |
-| G6 | KnowledgeCoreShadowRuntime | bridge constructed in bootstrap; ring buffer + accessors live; drains shadow counters only | typed mutation envelopes + watch plans + production adapter (deterministic perf plan Sprint 3) | none (internal) | **DEFER (P2)** | Phase R / deterministic perf integration; no V1 surface |
-| G7 | BTK live consumer in main UI | translator + OpLog + kernel exist (`graph-engine/src/block_kernel/*`); no live Swift consumer drives query UI | route real subgraph diff into ReactiveQuery / QueryRuntime | none (internal) | **DEFER (P2)** | Editor edit emits BTK diff → live query updates; behind feature flag |
-| G8 | Agent Command Center full surface | `AgentCommandCenterState` referenced; PLAN_V2 §4.1 spec exists; right-side inspector + slash commands + capability pills | implementation per PLAN_V2 §4.1 | dedicated home reachable via global shortcut + 4th toolbar icon | **DEFER (P2)** | Press global shortcut → ACC opens with command bar; `/`/`@` show suggestions; right inspector renders mode/brain/tools/context |
-| G9 | Documents (.epdoc + Tiptap WKWebView) | none built | full canon implementation per gpt work.md / claude work.md | new file type; opens rich editor in same vault tree (file-type-driven, no new sidebar silo); canonical ProseMirror JSON, derived Markdown shadow, on-demand DOCX export | **DEFER (V1.5)** | Create new `.epdoc` → opens Tiptap editor in WKWebView; tables/images render; agents read Markdown shadow; canonical JSON persists |
-| G10 | Quick Capture top-level entry | `Epistemos/Engine/AmbientCaptureService.swift` exists | global hotkey + menu bar item if shippable; otherwise hide for V1 | menu bar icon + `Cmd+Shift+Space` (or unique shortcut) | **MEDIUM (P1)** | Press hotkey → capture window appears; type + commit → note appears in vault; also reachable from Command Center later |
-| G11 | Audio/transcription user surface | `AudioRecorder.swift:24`, `AudioTranscriber.swift:179-184` exist | discoverable user button | mic button in chat composer (already partially there); Quick Capture transcribe path | **MEDIUM (P2)** | Click mic → record → transcript inserted into note/chat; mic permission prompt only on first use |
-| G12 | Diagnostics panel | benchmark harness + signposts exist; disabled-by-default | Settings → Developer → Diagnostics with last benchmark runs + perf-budget violations | hidden behind Settings → Advanced → Developer toggle | **LOW (P2)** | Toggle on → panel shows last 5 signpost intervals + perf-budget alerts |
-| G13 | Saved-grants UI | `permissionStoreListActive` UniFFI wired (`agent_core/src/resources/bridge.rs`); `AgentControlSettingsView.activeGrantsSection` renders list; revoke buttons | better discoverability; show in Privacy pane | link from Privacy pane to AgentControl grants section | **LOW (P2)** | User sees current grants; clicks Revoke → grant removed; agent denied next turn for that resource |
-| G14 | Continuous encoding loop (200ms debounce) | InstantRecallService indexes on save/edit; no streaming loop | 200ms debounce → embed → HNSW write off-MainActor | none (internal) — feeds G3 | **HIGH (P1)** ⚠ only if benchmarks prove it does not regress typing fluency | Type continuously → embeddings update without typing hitch; backpressure honored if encoder backed up |
-| G15 | Reasoning summary persistence (OpenAI/Anthropic/Google) | DD batch reasoning controls landed (per Master Plan); `ChatMessage.thinkingTrace` persists | confirm Anthropic thinking summary, OpenAI reasoning summary, Google `includeThoughts` all routed through ThinkingPopover and saved to SDMessage; verify per-provider | none — already in surface | **MEDIUM (P1)** | Run with each provider → ThinkingPopover renders streaming → reload note → trail still visible |
-| G16 | Voice/dictation in note | local Speech framework wired | exposed in Prose composer toolbar | mic affordance in note composer | **DEFER (P2)** | Click mic in note → text inserted at cursor |
-| G17 | "Why this model?" rationale | EffectiveModelBadge landed; routing rationale popover in `[7235802f]` per Master Plan | nothing missing — verify it's hooked from main chat | none | **LOW (verify)** | Click model badge → popover explains route choice |
-| G18 | Memory diff card | NOT BUILT (Master Plan §GG.3) | "remembered N things, updated M" card after each turn that touched persistent memory | small inline card after assistant turn | **DEFER (P2)** | Turn that wrote memory → card appears with accept/reject/edit |
-| G19 | Embedded terminal view | PTY plumbing in `omega-mcp/src/pty.rs` + `agent_core/src/pty.rs` | Pro-only tab tailing latest terminal tool stdout with ANSI render | small footer panel in agent surfaces | **DEFER (Pro V1.5)** | Pro user runs terminal tool → output renders inline |
-| G20 | Bundled `rg`/`fd` binaries | NOT BUILT (Master Plan §GG.2) | bundle for vault search + agent find | none | **DEFER (Pro)** | `terminal` tool can shell out to `rg` for power-user search |
+Epistemos has many real systems. The highest risk is not lack of code; it is product wiring: capabilities exist in services, tests, or bridges without a minimal, reliable user route. For V1, the app should expose a small surface: write, chat, search/recall, graph, quick capture if safe, model/settings transparency, and hidden/direct-build-only advanced automation.
 
-## Reading guide
+Most important findings:
+- P0: computer-use/AX/screen capture must stay hidden or stubbed in MAS.
+- P0: vault/database persistence and chat streaming need hardening before any ship claim.
+- P1: Ambient Recall/Halo should be the V1 differentiator, but the note/chat typing -> recall panel path is not proven.
+- P1: `.epdoc` exists now, but full create/open/save/projection recovery is not yet proven.
+- P1: code editor needs a deliberate performance slice: native line-number gutter, 4k-line smooth scrolling with syntax on, no per-keystroke Rust/UniFFI, UTF-8/UTF-16 mapping tests.
 
-- **BLOCKER (P0)** — V1 cannot ship credibly without resolving. G1 fixes "find my note" hallucination on the most common config (Pro + cloud). G2 makes provenance real, the canonical product moat.
-- **HIGH (P0/P1)** — V1 is much weaker without these. G3 is the ambient-recall product moment. G4 keeps the editor honest at scale. G14 only if benchmarks prove no regression.
-- **MEDIUM** — Should ship for public beta. G5 (gutter) is a polish item users will notice; G15 (reasoning persistence) avoids "I lost my thoughts on reload" complaints.
-- **DEFER (P2)** — Real but not urgent. Don't bundle into V1 surface.
-- **DEFER (V1.5)** — Documents (G9), ACC (G8), embedded terminal (G19) are post-V1 work even if they accelerate the moat.
+## Required Wiring Gap Table
 
-## Anti-pattern alarm
+| Capability | Existing code | Missing link | Suggested minimal UI | Priority | Acceptance test |
+|---|---|---|---|---|---|
+| Ambient Recall / Contextual Shadows | `Epistemos/KnowledgeFusion/InstantRecallService.swift`; `Epistemos/Engine/ShadowSearchService.swift`; `Epistemos/Views/Recall/`; `Epistemos/Engine/HaloEditorBridge.swift` | Active note/chat typing to subtle recall button to Notes/Chats panel is not proven. | Small contextual recall button in note editor and chat input; lightweight panel with Notes/Chats tabs. | P1 | Type in note/chat, button appears, panel opens, related note and chat can open, no MainActor blocking. |
+| `.epdoc` Documents | `Epistemos/Engine/EpdocDocument.swift`; `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift`; `Epistemos-AppStore-Info.plist`; `EpistemosTests/EpdocInfoPlistTests.swift` | Full user create/open/save/reopen/projection recovery path needs proof. | File/new document route in existing vault/tree; do not add separate document silo. | P1 | Create `.epdoc`, save, close, reopen, delete projections, regenerate, detect external `shadow.md` mismatch. |
+| Raw Thoughts | `Epistemos/Views/RawThoughts/RawThoughtsSection.swift`; `EpistemosTests/RawThoughtsStateTests.swift`; `Epistemos/Vault/AgentSessionLineageStore.swift` | Persistent browsable run folder/events/tool traces/summaries/links not proven end to end. | Raw Thoughts section grouped virtually by provider/model, linked from chat/agent run. | P1 | Start fake run, append events, save summaries/tool logs, reopen app, timeline shows run and links. |
+| Code editor | `Epistemos/Engine/LiveCodeEditorController.swift`; `Epistemos/Engine/CodeEditorContentDebouncer.swift`; `EpistemosTests/Benchmarks/CodeEditorBenchmarkTests.swift` | High-performance 4k-line editor behavior and line-number gutter not proven. | Native gutter inside existing code surface; no theme collision; optional perf HUD in debug. | P1 | Open 4k-line file with syntax on, scroll fluidly, line gutter aligns, UTF-8/UTF-16 mapping tests pass. |
+| Chat streaming | `Epistemos/App/ChatCoordinator.swift`; `Epistemos/State/NoteChatState.swift`; `Epistemos/Views/Chat/`; `EpistemosTests/NoteChatStateTests.swift` | Need proof streaming does not save/invalidate SwiftUI/database per token. | Keep existing chat; add diagnostics/perf counters only. | P0 | 100+ token/sec stream does not flood `@Published`/database, cancellation works, output persists after restart. |
+| Computer use / automation | `Epistemos/Bridge/ComputerUseBridge.swift`; `Epistemos/AppStore/AppStoreComputerUseStubs.swift`; `Epistemos/Omega/Agents/GhostComputerAgent.swift`; `Epistemos/Omega/Vision/ScreenCaptureService.swift` | MAS-safe surfacing is not viable without explicit review-safe gating. | Hide from MAS; direct-build-only advanced setting with permission explanations. | P0 | MAS build exposes no screen/AX/control UI and stubs fail safely. |
+| MCP / external tools | `Epistemos/Omega/MCPBridge.swift`; `Epistemos/Bridge/ChunkedMCPFraming.swift`; `omega-mcp/` | External/user MCP server surface can violate sandbox/review if visible in MAS. | Built-in tools only for MAS; external MCP hidden/direct-build-only. | P1 | MAS build cannot launch arbitrary MCP server; Pro build prompts and logs permissions. |
+| Quick capture | `Epistemos/Engine/TextCapturePipeline.swift`; `EpistemosTests/TextCapturePipelineTests.swift` | Discoverable hotkey/menu/toolbar route not proven. | Small menu bar or command palette action if write path is safe. | P2 | Trigger capture, artifact/note appears, graph/search update incrementally, errors visible. |
+| Audio/transcription | `Epistemos/KnowledgeFusion/DataIngestion/AudioRecorder.swift`; `Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift`; `Epistemos/Engine/ComposerVoiceInputService.swift` | Permission flow and local/cloud speech behavior need user clarity. | Mic button only where transcription works; explicit permission empty/error state. | P2 | Deny mic/speech permission; UI recovers without crash and explains next step. |
+| Command Center | `Epistemos/Engine/CommandInputParser.swift`; `Epistemos/Engine/CommandCenterRequestCompiler.swift`; `Epistemos/Models/CommandTokenizer.swift` | Parser/compiler exist; global shortcut/menu reachability needs proof. | Command palette for advanced actions; do not add giant sidebar. | P2 | Shortcut opens palette, commands route to existing services, unsupported commands show recovery. |
+| Search readable projection | `Epistemos/Sync/SearchIndexService.swift`; `Epistemos/Models/QueryTypes.swift`; `EpistemosTests/BlockSearchTests.swift` | Universal artifact/block projection across Prose/Documents/Raw Thoughts/Code not proven. | Keep one search surface; show exact artifact/block target. | P1 | Search hit opens exact note/document/run/code block; derived index rebuilds in background. |
+| Settings/privacy/model manager | `Epistemos/Resources/PrivacyInfo.xcprivacy`; `EpistemosTests/SettingsCategoryTests.swift`; `Epistemos/Engine/LocalModelInfrastructure.swift`; `Epistemos/Engine/ModelDownloadManager.swift` | Copy and category counts can drift; cloud/local/storage claims need exactness. | Existing settings sections with precise privacy/model status. | P1 | Settings tests pass; user can tell local/cloud/installed/storage state; PrivacyInfo matches UI claims. |
+| Knowledge core deterministic runtime | `Epistemos/Engine/KnowledgeCoreBridge.swift`; `graph-engine/src/knowledge_core/`; `graph-engine-bridge/graph_engine.h` | Staged bridge must reach production view models, not debug counters. | No direct new UI; feature flag plus diagnostics. | P1 | Real mutation updates affected view model only; fallback path works when flag off. |
+| Graph typed artifacts | `Epistemos/Models/ArtifactKind.swift`; `Epistemos/Models/ArtifactRoute.swift`; `Epistemos/Graph/GraphStore.swift`; `Epistemos/Engine/EpdocGraphProjector.swift` | New artifact types must display/filter without graph explosion. | Graph filters by artifact kind/layer. | P1 | Graph shows Prose/Document/RawThought/Code types, can filter, no full paragraph materialization. |
 
-- **Do NOT add a giant Documents/Studio sidebar silo.** Canon: file-type drives surface.
-- **Do NOT couple G3 (Contextual Shadows) to MainActor.** All recall work must run off MainActor; UI consumes via display-link or debounced async.
-- **Do NOT expose G19 in MAS build.** Bash/PTY stays Pro-only.
-- **Do NOT wire G14 without measuring 4k-line typing first.** A continuous encoding loop is exactly the wrong place to add work to the keystroke path.
+## Built Backend With Weak Or Missing UI
+
+| Backend | Evidence | Gap | Priority |
+|---|---|---|---|
+| Instant Recall | `Epistemos/KnowledgeFusion/InstantRecallService.swift` | Missing proven contextual button/panel path. | P1 |
+| Shadow Search | `Epistemos/Engine/ShadowSearchService.swift` | Needs visible Halo/recall result and off-MainActor proof. | P1 |
+| Text Capture | `Epistemos/Engine/TextCapturePipeline.swift` | Needs discoverable entry and safe result UI. | P2 |
+| Agent lineage/run stores | `Epistemos/Vault/AgentSessionLineageStore.swift`; `Epistemos/Vault/ChatTranscriptVaultWriter.swift` | Needs Raw Thoughts timeline/reopen path. | P1 |
+| Epdoc graph/search projectors | `Epistemos/Engine/EpdocGraphProjector.swift`; `Epistemos/Engine/EpdocGraphRenderingMapper.swift`; `Epistemos/Engine/EpdocDatabase.swift` | Needs complete user document workflow and projection rebuild proof. | P1 |
+| Code editor controller | `Epistemos/Engine/LiveCodeEditorController.swift` | Needs perf-proven route and gutter polish. | P1 |
+| MCP bridge | `Epistemos/Omega/MCPBridge.swift` | Needs MAS/direct-build split and permission UX. | P1 |
+
+## UI Exists But Reachability Needs Proof
+
+| UI | Evidence | Reachability question | Priority |
+|---|---|---|---|
+| Raw Thoughts section | `Epistemos/Views/RawThoughts/RawThoughtsSection.swift` | Is it reachable from main navigation and backed by persistent run artifacts? | P1 |
+| Recall panel/views | `Epistemos/Views/Recall/` | Does active typing in note/chat trigger it? | P1 |
+| Epdoc editor chrome | `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift` | Can a normal user create/open/save it from the existing vault tree? | P1 |
+| Command Center/palette | `Epistemos/Engine/CommandInputParser.swift`; `Epistemos/Engine/CommandCenterRequestCompiler.swift` | Is there a menu/shortcut/toolbar entry? | P2 |
+| Computer-use/Omega surfaces | `Epistemos/Omega/Agents/GhostComputerAgent.swift`; `Epistemos/Omega/Vision/ScreenCaptureService.swift` | Are they hidden in MAS and permission-gated in Pro? | P0 |
+
+## Feature Flags / Hidden Capabilities
+
+| Capability | Evidence | Desired visibility | Priority |
+|---|---|---|---|
+| Computer use | `Epistemos/AppStore/AppStoreComputerUseStubs.swift`; `Epistemos/Bridge/ComputerUseBridge.swift` | Hidden in MAS; direct-build-only if safe. | P0 |
+| External MCP / CLIs | `Epistemos/Omega/MCPBridge.swift`; `omega-mcp/` | Hidden in MAS; Pro-only with permission logs. | P1 |
+| BoltFFI / knowledge core | `docs/architecture/BOLTFFI_AUDIT_2026_04_15.md`; `Epistemos/Engine/KnowledgeCoreBridge.swift` | Hidden behind feature flag until end-to-end proof. | P1 |
+| Code syntax/perf path | `Epistemos/Engine/LiveCodeEditorController.swift`; `EpistemosTests/Benchmarks/CodeEditorBenchmarkTests.swift` | Experimental until 4k-line measurement passes. | P1 |
+| `.epdoc` Documents | `Epistemos-AppStore-Info.plist`; `Epistemos/Engine/EpdocDocument.swift` | Surface minimally after create/open/save/projection tests pass. | P1 |
+
+## P0/P1 Wiring Findings
+
+| Severity | Finding | Evidence | Required next step |
+|---|---|---|---|
+| P0 | MAS must not expose computer-use/AX/screen capture. | `Epistemos/AppStore/AppStoreComputerUseStubs.swift`; `Epistemos/Omega/Vision/ScreenCaptureService.swift` | Privacy/App Store audit must classify and hide direct-build-only features. |
+| P0 | Chat streaming needs proof against per-token UI/database cascades. | `Epistemos/App/ChatCoordinator.swift`; `Epistemos/State/NoteChatState.swift` | Performance/concurrency audit and synthetic stream test. |
+| P0 | Vault/database paths need corruption and recovery proof. | `Epistemos/Sync/VaultSyncService.swift`; `Epistemos/Engine/EpdocDatabase.swift`; `Epistemos/Models/` | Data/persistence/indexing audit. |
+| P1 | Ambient Recall/Halo exists but is not proven as the V1 user moment. | `Epistemos/KnowledgeFusion/InstantRecallService.swift`; `Epistemos/Views/Recall/`; `Epistemos/Engine/HaloEditorBridge.swift` | Create dedicated Ambient Recall wiring plan. |
+| P1 | `.epdoc` exists but must not become a second source-of-truth system. | `Epistemos/Engine/EpdocDocument.swift`; `Epistemos/Models/EpdocPackage.swift`; `Epistemos/Models/ProseMirrorMarkdownProjector.swift` | Data/persistence audit must enforce content.json canonical, shadow.md derived. |
+| P1 | Code editor target is important but not yet measured. | `Epistemos/Engine/LiveCodeEditorController.swift`; `EpistemosTests/Benchmarks/CodeEditorBenchmarkTests.swift` | Add benchmark and UI plan for gutter/4k-line smoothness. |

@@ -30,8 +30,9 @@ struct HermesExpertModeView: View {
 
     private let cornerRadius: CGFloat = 18
     private let maxWidth: CGFloat = LandingSearchLayout.maxWidth
-    private let monoFont: Font = .system(size: 13.5, weight: .regular, design: .monospaced)
     private let inputFontSize: CGFloat = 15
+    private var hermesAccent: Color { HermesBrand.primary }
+    private var monoFont: Font { HermesBrand.mono(13.5) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -44,8 +45,8 @@ struct HermesExpertModeView: View {
             }
             if let err = state.lastErrorMessage {
                 Text(err)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(theme.resolved.accent.color.opacity(0.85))
+                    .font(HermesBrand.mono(11))
+                    .foregroundStyle(hermesAccent.opacity(0.85))
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
                     .transition(.opacity)
@@ -114,11 +115,8 @@ struct HermesExpertModeView: View {
             // CANON-COMPLIANT 2026-05-04 (Stage A.4 / GenUI G.3 path).
             // Routes through the canonical GenUIDispatcher per
             // `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`.
-            // First migrated renderer: `/status` via .keyValueTable.
-            // Other 6 commands (/help, /config show, /tokens, /cost,
-            // /model list, /search) migrate from .artifact → .payload
-            // next; same pattern.
-            HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+            // Hermes rich command output now uses this path.
+            HermesTranscriptRowFlash(entry: entry, accent: hermesAccent) {
                 HStack(alignment: .top, spacing: 8) {
                     Text("⌁")
                         .font(monoFont)
@@ -129,11 +127,9 @@ struct HermesExpertModeView: View {
                 }
             }
         } else if let artifact = entry.artifact {
-            // GENUI-DEFER: hackathon-2026-05-03 (legacy chat-block path,
-            // partial implementation). Migrating to .payload above as
-            // each renderer in `HermesExpertModeRunner` swaps from
-            // `.artifact(Artifact(...))` to `.payload(GenUIPayload(...))`.
-            HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+            // Backward compatibility path for transcript entries produced
+            // before the Stage A.4 migration or by non-Hermes chat blocks.
+            HermesTranscriptRowFlash(entry: entry, accent: hermesAccent) {
                 HStack(alignment: .top, spacing: 8) {
                     Text("⌁")
                         .font(monoFont)
@@ -145,7 +141,7 @@ struct HermesExpertModeView: View {
             }
         } else {
             let (prefix, color) = transcriptStyling(entry)
-            HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+            HermesTranscriptRowFlash(entry: entry, accent: hermesAccent) {
                 HStack(alignment: .top, spacing: 8) {
                     Text(prefix)
                         .font(monoFont)
@@ -167,7 +163,7 @@ struct HermesExpertModeView: View {
         case .systemEcho:     return ("·",  theme.textSecondary)
         case .systemResponse: return ("⌁",  theme.textPrimary.opacity(0.92))
         case .info:           return ("∙",  theme.textTertiary)
-        case .error:          return ("!",  theme.resolved.accent.color)
+        case .error:          return ("!",  hermesAccent)
         case .artifact:       return ("⌁",  theme.textPrimary.opacity(0.92))  // not used (artifact path renders separately)
         case .payload:        return ("⌁",  theme.textPrimary.opacity(0.92))  // not used (payload path renders separately via GenUIDispatcher)
         }
@@ -187,8 +183,8 @@ struct HermesExpertModeView: View {
     private var inputArea: some View {
         HStack(alignment: .center, spacing: 10) {
             Text("hermes ›")
-                .font(.system(size: inputFontSize, weight: .medium, design: .monospaced))
-                .foregroundStyle(theme.resolved.accent.color.opacity(0.85))
+                .font(HermesBrand.mono(inputFontSize))
+                .foregroundStyle(hermesAccent.opacity(0.85))
                 .padding(.leading, 6)
 
             TextField("", text: $state.draft, prompt: Text("ask, /command, or @reference")
@@ -196,9 +192,9 @@ struct HermesExpertModeView: View {
             )
             .textFieldStyle(.plain)
             .focused($inputFocused)
-            .font(.system(size: inputFontSize, weight: .regular, design: .monospaced))
+            .font(HermesBrand.mono(inputFontSize))
             .foregroundStyle(theme.textPrimary)
-            .tint(theme.resolved.accent.color)
+            .tint(hermesAccent)
             .disableAutocorrection(true)
             .onSubmit {
                 triggerSubmit()
@@ -257,7 +253,7 @@ struct HermesExpertModeView: View {
                         .foregroundStyle(
                             state.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? theme.textTertiary.opacity(0.5)
-                            : theme.resolved.accent.color
+                            : hermesAccent
                         )
                 }
                 .buttonStyle(.plain)
@@ -274,7 +270,7 @@ struct HermesExpertModeView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(theme.resolved.accent.color.opacity(0.18), lineWidth: 0.6)
+                .stroke(hermesAccent.opacity(0.18), lineWidth: 0.6)
         )
     }
 
@@ -311,7 +307,7 @@ struct HermesExpertModeView: View {
             }
             if matches.isEmpty {
                 Text("// no matching commands")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(HermesBrand.mono(11))
                     .foregroundStyle(theme.textTertiary.opacity(0.7))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -334,30 +330,30 @@ struct HermesExpertModeView: View {
         }) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(isSelected ? "▸" : " ")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(theme.resolved.accent.color)
+                    .font(HermesBrand.mono(11))
+                    .foregroundStyle(hermesAccent)
                     .frame(width: 10, alignment: .leading)
                 Text(match.commandToken)
-                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .font(HermesBrand.mono(12.5))
                     .foregroundStyle(theme.textPrimary)
                     .frame(width: 90, alignment: .leading)
                 Text(match.surface.displayName)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(HermesBrand.mono(10))
                     .foregroundStyle(theme.textTertiary)
                     .frame(width: 84, alignment: .leading)
                 Text(match.tier.displayName)
-                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .font(HermesBrand.mono(9.5))
                     .foregroundStyle(match.tier == .core
-                        ? theme.resolved.accent.color
+                        ? hermesAccent
                         : theme.textTertiary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(theme.resolved.accent.color.opacity(0.08))
+                            .fill(hermesAccent.opacity(0.08))
                     )
                 Text(match.nativeEquivalent)
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .font(HermesBrand.mono(11))
                     .foregroundStyle(theme.textSecondary.opacity(0.85))
                     .lineLimit(1)
             }
@@ -367,7 +363,7 @@ struct HermesExpertModeView: View {
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(theme.resolved.accent.color.opacity(0.10))
+                        .fill(hermesAccent.opacity(0.10))
                 }
             }
             .contentShape(Rectangle())
@@ -413,7 +409,7 @@ struct HermesExpertModeView: View {
             .fill(.regularMaterial)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.05 : 0.03))
+                    .fill(hermesAccent.opacity(theme.isDark ? 0.05 : 0.03))
             )
     }
 
@@ -422,9 +418,9 @@ struct HermesExpertModeView: View {
             .stroke(
                 LinearGradient(
                     colors: [
-                        theme.resolved.accent.color.opacity(0.32),
-                        theme.resolved.accent.color.opacity(0.08),
-                        theme.resolved.accent.color.opacity(0.20),
+                        hermesAccent.opacity(0.32),
+                        hermesAccent.opacity(0.08),
+                        hermesAccent.opacity(0.20),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

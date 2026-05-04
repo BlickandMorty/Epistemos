@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/helios-core",
+    "crates/helios-tensor",
+    "crates/helios-quant",
+    "crates/helios-mlx",
+    "crates/helios-metal",
+    "crates/helios-attn",
+    "crates/helios-runtime",
+    "crates/helios-models",
+    "crates/helios-bench",
+    "crates/helios-ffi",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+authors = ["Jordan / Epistenos"]
+license = "MIT OR Commercial"
+repository = "https://example.invalid/epistenos"
+
+[workspace.lints.rust]
+warnings = "deny"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = "deny"

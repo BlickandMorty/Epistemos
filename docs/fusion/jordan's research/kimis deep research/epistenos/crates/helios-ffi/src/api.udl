@@ -1,0 +1,30 @@
+namespace helios_ffi {
+    record ResonanceSignatureFFI {
+        f32 load_pressure;
+        f32 entropy_curvature;
+        f32 semantic_torsion;
+        f32 predictive_residual;
+        string plasticity_state;
+        string claim_type;
+        string direction;
+        f32 kam_stability;
+    };
+
+    // GateActionFFI is declared via #[derive(uniffi::Enum)] in Rust (proc-macro)
+    // because it has a variant with associated data (MigrateResidency { tier }).
+    // UniFFI UDL enum does not support associated data, so we omit it here
+    // and let the proc-macro register it automatically.
+
+    ResonanceSignatureFFI compute_resonance_signature_core(
+        f32 load_pressure,
+        f32 entropy_curvature,
+        f32 semantic_torsion,
+        f32 predictive_residual,
+        string plasticity_state,
+        string claim_type,
+        string direction,
+        f32 kam_stability
+    );
+
+    GateActionFFI resonance_gate_decide(ResonanceSignatureFFI sig);
+};

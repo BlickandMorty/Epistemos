@@ -1,15 +1,10 @@
 // CodeEditorView.swift
 //
-// Full-screen native code editor for Epistemos. Replaces the prose editor
-// when a note is detected as a code file (.swift, .rs, .py, etc.).
-// Features: line number gutter, tree-sitter syntax highlighting, minimap,
-// status bar with cursor position + language.
-//
-// Architecture: NSViewRepresentable wrapping NSScrollView → CodeTextView
-// with a custom LineNumberGutter on the left and MinimapView on the right.
-// Tree-sitter tokenization reuses the existing Rust FFI pipeline
-// (markdown_parse_code_tokens) but applies it to the entire file rather
-// than just fenced code blocks within markdown.
+// Native code editor surface for Epistemos. CodeEditSourceEditor owns the
+// live TextKit/AppKit editing canvas; Epistemos layers a right-side line
+// gutter, outline, code ask bar, and related-note/insight sidecars around it.
+// Live syntax stays close to the Swift/AppKit range model while heavier code
+// intelligence remains a background/LSP concern.
 //
 // 2026-04-06.
 
@@ -314,6 +309,21 @@ enum CodeEditorPerformancePolicy {
         default:
             .milliseconds(160)
         }
+    }
+}
+
+enum CodeEditorLineMetrics {
+    /// Count text lines without splitting the full buffer into an array.
+    ///
+    /// NSTextView represents an empty document as one visual line, and a
+    /// trailing newline creates an additional blank line, so the counter starts
+    /// at one and increments only on LF bytes. CRLF files are covered by the LF.
+    static func lineCount(_ text: String) -> Int {
+        var count = 1
+        for byte in text.utf8 where byte == UInt8(ascii: "\n") {
+            count += 1
+        }
+        return count
     }
 }
 
@@ -1232,6 +1242,13 @@ struct CodeEditorView: View {
     
     // MARK: - Outline Navigation (Xcode-style)
     @State private var outlineItems: [OutlineItem] = []
+    /// T+8 Phase-S item 3 — hash-keyed memoization around
+    /// `OutlineParser.parse`. Skips re-walking the document when the
+    /// (content, language) pair hasn't changed since the last refresh
+    /// (common when an outline refresh is triggered by cursor / focus
+    /// events, not actual edits). See
+    /// `Epistemos/Engine/OutlineParserCache.swift`.
+    @State private var outlineCache = OutlineParserCache()
     @State private var showOutlineNavigator = false
 
     init(
@@ -1245,7 +1262,7 @@ struct CodeEditorView: View {
         self.filePath = filePath
         self.onContentChange = onContentChange
         _text = State(initialValue: content)
-        _totalLines = State(initialValue: content.components(separatedBy: "\n").count)
+        _totalLines = State(initialValue: CodeEditorLineMetrics.lineCount(content))
     }
 
     var body: some View {
@@ -1291,6 +1308,7 @@ struct CodeEditorView: View {
         coordinator.setLineGutterEnabled(showLineGutter)
         coordinator.applyGutterTokens(ui.theme.editorGutterTokens())
         coordinator.applyEditorBodyFont(.monospacedSystemFont(ofSize: fontSize, weight: .regular))
+        coordinator.applyLineGutterState(totalLines: totalLines, cursorLine: cursorLine)
     }
 
     private func bindNoteChatContext(with text: String) {
@@ -1331,7 +1349,11 @@ struct CodeEditorView: View {
                 try? await Task.sleep(for: refreshDelay)
             }
             guard !Task.isCancelled else { return }
-            outlineItems = OutlineParser.parse(content: content, language: currentLanguage)
+            // T+8 Phase-S item 3 — outline cache + diff. The hash-keyed
+            // memo short-circuits when (content, language) hasn't
+            // changed since last refresh; on miss the parser runs and
+            // the result is memoized for the next refresh.
+            outlineItems = outlineCache.parse(content: content, language: currentLanguage)
         }
     }
     
@@ -1791,9 +1813,6 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     // Performance instrumentation
     private static let perfLog = OSLog(subsystem: "app.epistemos", category: "CodeEditor")
     
-    // Reusable buffer for line counting (avoid repeated allocations)
-    private var lineCountBuffer: [UInt8] = []
-    
     // Indentation guide view
     private weak var indentGuideView: SegmentedIndentationGuideView?
     private weak var textController: TextViewController?
@@ -1947,6 +1966,11 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
                 gutter.frame = gutterFrame(in: tv)
             }
         }
+    }
+
+    func applyLineGutterState(totalLines: Int, cursorLine: Int) {
+        updateGutterLineCount(totalLines)
+        gutterView?.updateActiveLine(cursorLine)
     }
     
     /// Sets up VS Code-style segmented indentation guide overlay
@@ -2102,8 +2126,8 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         let newText = controller.textView.string
         lastText = newText
 
-        // Fast line counting without array allocation
-        let lineCount = fastLineCount(newText)
+        // Fast line counting without array allocation.
+        let lineCount = CodeEditorLineMetrics.lineCount(newText)
         totalLines = lineCount
         updateGutterLineCount(lineCount)
 
@@ -2120,18 +2144,6 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         os_signpost(.end, log: Self.perfLog, name: "textDidChange")
     }
     
-    /// Fast line count without creating intermediate arrays
-    private func fastLineCount(_ text: String) -> Int {
-        var count = 1  // Start at 1 for the first line
-        let utf8 = text.utf8
-        for byte in utf8 {
-            if byte == UInt8(ascii: "\n") {
-                count += 1
-            }
-        }
-        return count
-    }
-
     func destroy() {
         contentChangeTask?.cancel()
         cursorUpdateTask?.cancel()
@@ -2226,7 +2238,7 @@ enum CodeSyntaxHighlighter {
     /// Result from processing a chunk
     private struct ChunkResult: Sendable {
         let index: Int
-        let attributes: [TokenAttributes]
+        let spans: [TokenSpan]
     }
     
     /// Apply syntax highlighting with automatic optimization based on file size.
@@ -2321,10 +2333,7 @@ enum CodeSyntaxHighlighter {
         // Process in chunks sequentially to avoid actor isolation complexity
         // while still yielding the main thread periodically
         let chunkSize = 25000  // 25KB chunks
-        let chunks = stride(from: 0, to: text.utf8.count, by: chunkSize).map { start -> (start: Int, end: Int) in
-            let end = min(start + chunkSize, text.utf8.count)
-            return (start, end)
-        }
+        let chunks = CodeSyntaxChunker.utf8AlignedChunks(in: text, maxBytes: chunkSize)
         
         // Build global UTF-8 to UTF-16 mapping on background thread
         let utf8ToUtf16 = await Task.detached(priority: .utility) {
@@ -2335,23 +2344,27 @@ enum CodeSyntaxHighlighter {
         for chunk in chunks {
             // Yield to allow UI updates between chunks
             await Task.yield()
-            
-            let chunkText = String(text[text.index(text.startIndex, offsetBy: chunk.start)..<text.index(text.startIndex, offsetBy: chunk.end)])
-            let tokens = tokenize(text: chunkText, language: language)
-            let attrs = computeTokenAttributes(
-                tokens: tokens,
-                chunkOffset: chunk.start,
-                utf8ToUtf16: utf8ToUtf16,
-                theme: theme,
-                totalLength: (text as NSString).length
-            )
-            
+
+            let chunkText = String(text[chunk.range])
+            let chunkOffset = chunk.utf8LowerBound
+            let totalLength = (text as NSString).length
+            let spans = await Task.detached(priority: .utility) {
+                let tokens = tokenize(text: chunkText, language: language)
+                return computeTokenSpans(
+                    tokens: tokens,
+                    chunkOffset: chunkOffset,
+                    utf8ToUtf16: utf8ToUtf16,
+                    totalLength: totalLength
+                )
+            }.value
+
             storage.beginEditing()
-            for attr in attrs {
-                storage.addAttribute(.foregroundColor, value: attr.color, range: attr.range)
-                if let font = attr.font {
-                    storage.addAttribute(.font, value: font, range: attr.range)
-                }
+            for span in spans {
+                storage.addAttribute(
+                    .foregroundColor,
+                    value: theme.nsColorForTokenType(span.tokenType),
+                    range: span.range
+                )
             }
             storage.endEditing()
         }
@@ -2404,10 +2417,14 @@ enum CodeSyntaxHighlighter {
     
     // MARK: - Token Application
     
-    private struct TokenAttributes: @unchecked Sendable {
-        let range: NSRange
-        let color: NSColor
-        let font: NSFont?
+    private struct TokenSpan: Sendable {
+        let location: Int
+        let length: Int
+        let tokenType: UInt8
+
+        var range: NSRange {
+            NSRange(location: location, length: length)
+        }
     }
     
 
@@ -2440,15 +2457,14 @@ enum CodeSyntaxHighlighter {
         }
     }
     
-    private static func computeTokenAttributes(
+    nonisolated private static func computeTokenSpans(
         tokens: [CodeToken],
         chunkOffset: Int,
         utf8ToUtf16: [Int],
-        theme: EpistemosTheme,
         totalLength: Int
-    ) -> [TokenAttributes] {
-        var attrs: [TokenAttributes] = []
-        attrs.reserveCapacity(tokens.count)
+    ) -> [TokenSpan] {
+        var spans: [TokenSpan] = []
+        spans.reserveCapacity(tokens.count)
         
         for token in tokens {
             let start8 = Int(token.start) + chunkOffset
@@ -2460,11 +2476,65 @@ enum CodeSyntaxHighlighter {
             let range = NSRange(location: start16, length: end16 - start16)
             guard range.location + range.length <= totalLength else { continue }
             
-            let color = theme.nsColorForTokenType(token.token_type)
-            attrs.append(TokenAttributes(range: range, color: color, font: nil))
+            spans.append(TokenSpan(
+                location: range.location,
+                length: range.length,
+                tokenType: token.token_type
+            ))
         }
-        
-        return attrs
+
+        return spans
+    }
+}
+
+/// Builds UTF-8-budgeted chunks that always begin and end on Swift
+/// `String.Index` character boundaries. The syntax inspector tokenizer
+/// reports byte offsets, but Swift indexing is character-based; this
+/// helper keeps those domains explicit so Unicode-heavy code previews do
+/// not trap by treating byte offsets as character offsets.
+nonisolated enum CodeSyntaxChunker {
+    struct Chunk {
+        let range: Range<String.Index>
+        let utf8LowerBound: Int
+        let utf8UpperBound: Int
+    }
+
+    static func utf8AlignedChunks(in text: String, maxBytes: Int) -> [Chunk] {
+        guard !text.isEmpty else { return [] }
+
+        let budget = max(1, maxBytes)
+        var chunks: [Chunk] = []
+        chunks.reserveCapacity((text.utf8.count / budget) + 1)
+
+        var lower = text.startIndex
+        var lowerByteOffset = 0
+
+        while lower < text.endIndex {
+            var upper = lower
+            var byteLength = 0
+
+            while upper < text.endIndex {
+                let next = text.index(after: upper)
+                let nextByteLength = text[upper].utf8.count
+                if byteLength > 0, byteLength + nextByteLength > budget {
+                    break
+                }
+                byteLength += nextByteLength
+                upper = next
+            }
+
+            let upperByteOffset = lowerByteOffset + byteLength
+            chunks.append(Chunk(
+                range: lower..<upper,
+                utf8LowerBound: lowerByteOffset,
+                utf8UpperBound: upperByteOffset
+            ))
+
+            lower = upper
+            lowerByteOffset = upperByteOffset
+        }
+
+        return chunks
     }
 }
 

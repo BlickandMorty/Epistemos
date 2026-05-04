@@ -127,6 +127,7 @@ struct SettingsView: View {
         /// in both MAS and Pro because the privacy posture is the same in
         /// both deployment profiles.
         case privacy = "Privacy"
+        case provenance = "Provenance Console"
 
         var id: String { rawValue }
 
@@ -160,6 +161,7 @@ struct SettingsView: View {
                 .appearance,
                 .vault,
                 .privacy,
+                .provenance,
             ]
             return sections
         }
@@ -197,6 +199,7 @@ struct SettingsView: View {
             case .appearance: "paintpalette"
             case .vault: "folder"
             case .privacy: "hand.raised.fill"
+            case .provenance: "list.bullet.rectangle.portrait"
             }
         }
 
@@ -223,6 +226,7 @@ struct SettingsView: View {
                  .overseer:       .automation
             case .vault:          .privacyStore
             case .privacy:        .privacyStore
+            case .provenance:     .privacyStore
             case .general:        .advanced
             }
         }
@@ -264,6 +268,8 @@ struct SettingsView: View {
                 "Vault path, sync service, and retrieval indexes."
             case .privacy:
                 "What stays on this Mac, what leaves it, and the App Privacy fields."
+            case .provenance:
+                "Read-only audit trail for agent, graph, and mutation projections."
             }
         }
     }
@@ -364,6 +370,7 @@ struct SettingsView: View {
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
         case .privacy: PrivacyDetailView()
+        case .provenance: ProvenanceConsoleView()
         case nil: GeneralDetailView()
         }
     }
@@ -696,9 +703,10 @@ private struct GeneralDetailView: View {
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
-                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Agent Events reports durable tool provenance visibility; Graph Events reports durable graph-event persistence visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query (RRF Phase 6)."
+                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Halo backend reports the Rust shadow index status; Background Indexing shows the current vault crawl; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query (RRF Phase 6)."
                 )
                 EditorBundleHealthRow()
+                BackgroundIndexingHealthRow()
                 OpLogProjectionHealthRow()
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()

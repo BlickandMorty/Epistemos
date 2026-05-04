@@ -5,6 +5,15 @@ nonisolated enum LocalMessageRole: String, Codable, Sendable {
     case user
     case assistant
     case tool
+
+    var promptHeading: String {
+        switch self {
+        case .system: return "System"
+        case .user: return "User"
+        case .assistant: return "Assistant"
+        case .tool: return "Tool"
+        }
+    }
 }
 
 nonisolated struct LocalMessage: Codable, Equatable, Sendable {
@@ -24,6 +33,16 @@ nonisolated enum HermesPromptBuilder {
         additionalInstructions: String? = nil,
         knowledgeIndex: String? = nil
     ) -> String {
+        #if canImport(agent_coreFFI)
+        if let prompt = rustSystemPrompt(
+            tools: tools,
+            additionalInstructions: additionalInstructions,
+            knowledgeIndex: knowledgeIndex
+        ) {
+            return prompt
+        }
+        #endif
+
         let toolsJson = formattedToolsJSON(for: tools)
         let trimmedInstructions = additionalInstructions?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -133,6 +152,37 @@ nonisolated enum HermesPromptBuilder {
             ],
         ]
     }
+
+    #if canImport(agent_coreFFI)
+    private static func rustSystemPrompt(
+        tools: [OmegaToolDefinition],
+        additionalInstructions: String?,
+        knowledgeIndex: String?
+    ) -> String? {
+        let toolRecords = tools.map { tool -> [String: Any] in
+            [
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.parametersSchema,
+            ]
+        }
+        var input: [String: Any] = ["tools": toolRecords]
+        if let additionalInstructions {
+            input["additional_instructions"] = additionalInstructions
+        }
+        if let knowledgeIndex {
+            input["knowledge_index"] = knowledgeIndex
+        }
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: input,
+            options: [.sortedKeys]
+        ),
+        let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return try? hermesBuildSystemPrompt(inputJson: json)
+    }
+    #endif
 }
 
 private extension OmegaToolDefinition {

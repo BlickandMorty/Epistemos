@@ -1,0 +1,658 @@
+<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
+
+# \# Epistemos Non-Agent Full-App Pruning Audit Pack
+
+## Scope
+
+This research pack is for a deep, adversarial, app-wide cleanup audit of the current Epistemos codebase, but it intentionally excludes the deferred Omega/agent stack and the upcoming new-model stack work.
+
+Use this when you want an external researcher to investigate:
+
+- performance regressions
+- architectural drift
+- zero-copy violations
+- dead code
+- duplicate or redundant logic
+- consistency mismatches between docs, tests, and production code
+- subtle algorithmic bugs
+- race conditions
+- UI glitches
+- render-loop inefficiencies
+- stale tests
+- xcode project drift
+- persistence / sync safety
+- Rust/Swift FFI correctness
+
+This is not a feature-planning prompt. It is a pruning, hardening, and refinement prompt.
+
+## Explicitly Excluded
+
+Do not spend research budget on these areas yet:
+
+- `Epistemos/Omega/**`
+- `Epistemos/Views/Omega/**`
+- `Epistemos/Views/Settings/OmegaSettingsDetailView.swift`
+- `Epistemos/Intents/Custom/OmegaIntent.swift`
+- `Epistemos/KnowledgeFusion/**`
+- model-routing / inference stack still likely to change with the upcoming `1B nano / 3B base / 8B pro` model stack:
+    - `Epistemos/Engine/AppleIntelligenceService.swift`
+    - `Epistemos/Engine/LLMService.swift`
+    - `Epistemos/Engine/LocalModelInfrastructure.swift`
+    - `Epistemos/Engine/MLXInferenceService.swift`
+    - `Epistemos/Engine/ModelDownloadManager.swift`
+    - `Epistemos/Engine/PipelineService.swift`
+    - `Epistemos/Engine/TriageService.swift`
+    - `Epistemos/State/InferenceState.swift`
+- tests and docs whose primary purpose is the excluded agent / training / model-routing stack
+
+Also exclude low-signal non-code assets and repetitive log snapshots:
+
+- icon PNGs and app icon source images
+- repetitive verification timestamp logs unless they are uniquely informative
+
+
+## What Was Just Completed
+
+The researcher should treat these as current repo reality and verify them, not re-litigate stale pre-fix assumptions:
+
+1. The active note editor path is now fully TK2-only in production.
+2. Production TK1 files were removed from disk and Xcode membership:
+    - `Epistemos/Views/Notes/ClickableTextView.swift`
+    - `Epistemos/Views/Notes/MarkdownTextStorage.swift`
+    - `Epistemos/Views/Notes/PageStoragePool.swift`
+    - `Epistemos/Views/Notes/ProseEditorRepresentable.swift`
+3. The note workspace no longer routes through TK1 preview/editor scaffolding.
+4. The inline AI divider is protected while the AI-generated body text below it remains editable.
+5. `VaultSyncService.stopWatching(preserveData: false)` now aborts destructive clearing if recovery snapshotting fails.
+6. `commitIncrementalAdds` uses the correct `||` commit condition.
+7. `GraphStore` compaction and long-session tombstone control were improved.
+8. The latest full verification pass succeeded:
+    - `xcodebuild clean build`
+    - full `xcodebuild test`
+    - `cargo test` in `graph-engine`
+9. Several stale tests were repaired to match current code reality:
+    - `EpistemosTests/SyntheticDataTests.swift`
+    - `EpistemosTests/TextKit2FoundationTests.swift`
+    - `EpistemosTests/TriageServiceTests.swift`
+
+## Research Prompt
+
+```text
+You are performing a deep, adversarial, architecture-and-quality audit of the Epistemos macOS application.
+
+
+This is a non-agent pruning audit. You must aggressively look for:
+- dead code
+- redundant code
+- copy-paste logic that should be shared
+- stale abstractions
+- consistency drift between tests/docs/production
+- performance landmines
+- memory growth
+- disk I/O in hot paths
+- render-loop inefficiencies
+- state machine bugs
+- race conditions
+- persistence hazards
+- FFI bugs
+- UI / editor glitches
+- Xcode project drift
+- stale comments and stale plans that no longer match code
+
+
+But do NOT spend time on the deferred Omega/agent stack or the upcoming model-tier migration work. Those are intentionally out of scope for this research pass. If you notice issues there, mention them only as “excluded / deferred” and do not let them dominate the audit.
+
+
+Important context:
+- The active note editor path was recently migrated to production TK2 only.
+- TK1 production files were deleted from the repo and removed from Xcode.
+- Recent hardening also touched VaultSync destructive-stop safety, GraphStore compaction, Metal graph incremental commits, and divider protection for inline AI note responses.
+- The current full local verification pass is green, so the goal here is not “find obvious compile failures.” The goal is to find nuanced structural debt, latent bugs, subtle contradictions, over-complexity, redundancy, and hard-to-see performance / UX issues.
+
+
+Your task:
+1. Audit the included files holistically.
+2. Identify the highest-leverage cleanup opportunities that are isolated from the deferred model/agent stack.
+3. Separate:
+   - confirmed bugs
+   - performance risks
+   - dead code / stale abstractions
+   - redundancy / zero-copy violations
+   - stale tests / stale docs
+   - architecture inconsistencies
+   - low-value noise that should NOT be touched
+4. Be explicit about whether a finding is:
+   - real and worth fixing now
+   - real but lower priority
+   - stale / already fixed
+   - theoretically true but not worth touching
+5. Prefer exact function names, exact file paths, and exact line references.
+6. If a subsystem looks surprisingly clean, say that directly instead of inventing churn.
+
+
+Required audit tactics:
+- Compare production code against tests and docs, not just production code in isolation.
+- Run a contradiction pass: if docs claim something different from code, call it out.
+- Run a duplication pass: look for same logic implemented in multiple places with drift risk.
+- Run a hot-path pass: editor typing, note switching, graph rendering, search, sync, layout, outline updates.
+- Run a persistence pass: note saving, vault sync, search index, graph persistence, page metadata refresh.
+- Run a manual-simulation pass in your reasoning:
+  - rapid note switching
+  - preview toggle
+  - wikilink click / navigation
+  - large note editing
+  - outline interaction
+  - vault reimport
+  - graph churn
+  - reopening windows
+- Run an FFI pass on the Rust bridge and graph-engine surface:
+  - ownership
+  - UTF-8
+  - nil guards
+  - stale index / stale adjacency / compaction correctness
+- Run an Xcode-membership / orphaned-file pass.
+- Run a “keep vs delete vs merge” pass for redundant files and helpers.
+
+
+Output format:
+- Section 1: Highest-Value Findings
+- Section 2: Subsystems That Are Cleaner Than Expected
+- Section 3: Dead Code / Redundancy Candidates
+- Section 4: Performance / Consistency / Safety Opportunities
+- Section 5: Stale Tests / Stale Docs / False Narratives
+- Section 6: Fix-Now vs Defer Matrix
+- Section 7: Exact Recommended Cleanup Sequence
+
+
+Be strict, but do not recommend speculative refactors that are likely to destabilize the app without enough payoff.
+```
+
+
+## Suggested Audit Method
+
+Use this sequence:
+
+1. Read Batch 1 and Batch 2 first to build architecture context.
+2. Read Batch 5 and Batch 9 next because the note editor and its tests were the most recently remediated.
+3. Read Batch 3, Batch 4, and Batch 6 for surrounding app behavior.
+4. Read Batch 7 and Batch 8 for Rust / graph-engine correctness.
+5. Read Batch 10 and Batch 11 for docs, prior audits, and contradiction checking.
+
+## Batch 1 — App Lifecycle and Core Services
+
+1. `Epistemos/App/AppBootstrap.swift`
+2. `Epistemos/App/AppCoordinator.swift`
+3. `Epistemos/App/AppEnvironment.swift`
+4. `Epistemos/App/ChatCoordinator.swift`
+5. `Epistemos/App/ContentManagerDelegateHelper.h`
+6. `Epistemos/App/ContentManagerDelegateHelper.m`
+7. `Epistemos/App/EpistemosApp.swift`
+8. `Epistemos/App/ObjCExceptionCatcher.h`
+9. `Epistemos/App/ObjCExceptionCatcher.m`
+10. `Epistemos/App/RootView.swift`
+11. `Epistemos/App/StatusBar.swift`
+12. `Epistemos/App/SystemAppearanceObserver.swift`
+13. `Epistemos/App/UtilityWindowManager.swift`
+14. `Epistemos/Engine/BlockEditTranslator.swift`
+15. `Epistemos/Engine/DataDetectionService.swift`
+16. `Epistemos/Engine/Extensions.swift`
+17. `Epistemos/Engine/Keychain.swift`
+18. `Epistemos/Engine/KnowledgeCoreBridge.swift`
+19. `Epistemos/Engine/Log.swift`
+20. `Epistemos/Engine/NLAnalysisService.swift`
+21. `Epistemos/Engine/NoteInsightService.swift`
+22. `Epistemos/Engine/QueryAST.swift`
+23. `Epistemos/Engine/QueryAnalyzer.swift`
+24. `Epistemos/Engine/QueryCompiler.swift`
+25. `Epistemos/Engine/QueryEngine.swift`
+26. `Epistemos/Engine/QueryParser.swift`
+27. `Epistemos/Engine/QueryRuntime.swift`
+28. `Epistemos/Engine/ReactiveQuery.swift`
+29. `Epistemos/Engine/SpotlightIndexer.swift`
+30. `Epistemos/Engine/StructuredQueryParser.swift`
+
+## Batch 2 — Graph, Intents, and Data Models
+
+1. `Epistemos/Graph/BackgroundGraphActor.swift`
+2. `Epistemos/Graph/EmbeddingService.swift`
+3. `Epistemos/Graph/EntityExtractor.swift`
+4. `Epistemos/Graph/ExtractionTypes.swift`
+5. `Epistemos/Graph/FilterEngine.swift`
+6. `Epistemos/Graph/GraphBuilder.swift`
+7. `Epistemos/Graph/GraphEngine.swift`
+8. `Epistemos/Graph/GraphState.swift`
+9. `Epistemos/Graph/GraphStore.swift`
+10. `Epistemos/Graph/SemanticClusterService.swift`
+11. `Epistemos/Intents/Custom/AnalysisIntents.swift`
+12. `Epistemos/Intents/Custom/DailyBriefingIntent.swift`
+13. `Epistemos/Intents/Custom/NavigationIntents.swift`
+14. `Epistemos/Intents/Custom/NoteActionIntents.swift`
+15. `Epistemos/Intents/Entities/FolderEntity.swift`
+16. `Epistemos/Intents/Entities/NoteEntity.swift`
+17. `Epistemos/Intents/Entities/PanelEntity.swift`
+18. `Epistemos/Intents/EpistemosShortcutsProvider.swift`
+19. `Epistemos/Intents/Schemas/JournalIntents.swift`
+20. `Epistemos/Intents/Schemas/SystemSearchIntent.swift`
+21. `Epistemos/Intents/Schemas/WordProcessorIntents.swift`
+22. `Epistemos/Models/BrandedTypes.swift`
+23. `Epistemos/Models/ChatTypes.swift`
+24. `Epistemos/Models/EngineTypes.swift`
+25. `Epistemos/Models/EpistemosSchema.swift`
+26. `Epistemos/Models/GraphTypes.swift`
+27. `Epistemos/Models/QueryTypes.swift`
+28. `Epistemos/Models/SDBlock.swift`
+29. `Epistemos/Models/SDChat.swift`
+30. `Epistemos/Models/SDFolder.swift`
+
+## Batch 3 — Models, State, Sync
+
+1. `Epistemos/Models/SDGraphEdge.swift`
+2. `Epistemos/Models/SDGraphNode.swift`
+3. `Epistemos/Models/SDMessage.swift`
+4. `Epistemos/Models/SDNoteInsight.swift`
+5. `Epistemos/Models/SDPage+Queries.swift`
+6. `Epistemos/Models/SDPage.swift`
+7. `Epistemos/Models/SDPageVersion.swift`
+8. `Epistemos/Models/SDWorkspace.swift`
+9. `Epistemos/Models/VaultManifest.swift`
+10. `Epistemos/State/ActivityTracker.swift`
+11. `Epistemos/State/ChatState.swift`
+12. `Epistemos/State/DailyBriefState.swift`
+13. `Epistemos/State/DialogueChatState.swift`
+14. `Epistemos/State/EventBus.swift`
+15. `Epistemos/State/EventStore.swift`
+16. `Epistemos/State/NoteChatState.swift`
+17. `Epistemos/State/NotesUIState.swift`
+18. `Epistemos/State/PhysicsCoordinator.swift`
+19. `Epistemos/State/PipelineState.swift`
+20. `Epistemos/State/ThreadState.swift`
+21. `Epistemos/State/TimeMachineService.swift`
+22. `Epistemos/State/UIState.swift`
+23. `Epistemos/State/WorkspaceService.swift`
+24. `Epistemos/State/WorkspaceSummaryService.swift`
+25. `Epistemos/Sync/BlockMirror.swift`
+26. `Epistemos/Sync/BlockParser.swift`
+27. `Epistemos/Sync/BlockPropertyParser.swift`
+28. `Epistemos/Sync/CollectionRegistry.swift`
+29. `Epistemos/Sync/MappedNoteBody.swift`
+30. `Epistemos/Sync/NoteFileStorage.swift`
+
+## Batch 4 — Sync, Theme, Chat, Landing
+
+1. `Epistemos/Sync/SearchIndexService.swift`
+2. `Epistemos/Sync/VaultImportFileCopier.swift`
+3. `Epistemos/Sync/VaultIndexActor.swift`
+4. `Epistemos/Sync/VaultSyncService.swift`
+5. `Epistemos/Theme/EpistemosFont.swift`
+6. `Epistemos/Theme/EpistemosTheme.swift`
+7. `Epistemos/Theme/GlassModifiers.swift`
+8. `Epistemos/Theme/NativeButtonStyles.swift`
+9. `Epistemos/Theme/PhysicsModifiers.swift`
+10. `Epistemos/Theme/PlatinumTheme.swift`
+11. `Epistemos/Theme/ToolbarGlass.swift`
+12. `Epistemos/Views/Chat/ChatInputBar.swift`
+13. `Epistemos/Views/Chat/ChatSidebarView.swift`
+14. `Epistemos/Views/Chat/ChatView.swift`
+15. `Epistemos/Views/Chat/MessageBubble.swift`
+16. `Epistemos/Views/Chat/NotesMentionDropdown.swift`
+17. `Epistemos/Views/Chat/TaggedMarkdownTextView.swift`
+18. `Epistemos/Views/Landing/LandingView.swift`
+19. `Epistemos/Views/Landing/LiquidGreeting.swift`
+20. `Epistemos/Views/Landing/QuitSavePanelController.swift`
+21. `Epistemos/Views/Landing/SessionIntelligenceOverlay.swift`
+22. `Epistemos/Views/Landing/TimeMachineView.swift`
+23. `Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift`
+24. `Epistemos/Views/MiniChat/MiniChatView.swift`
+25. `Epistemos/Views/MiniChat/MiniChatWindowController.swift`
+26. `Epistemos/Views/Onboarding/SetupAssistantView.swift`
+27. `Epistemos/Views/Settings/SettingsView.swift`
+28. `Epistemos/Views/Shared/AppKitPopover.swift`
+29. `Epistemos/Views/Shared/MarkdownTextView.swift`
+30. `Epistemos/Views/Shared/ScrollStability.swift`
+
+## Batch 5 — TextKit 2 Notes Stack
+
+1. `Epistemos/Views/Shared/TypewriterASCIIRippleText.swift`
+2. `Epistemos/Views/Shared/TypewriterMarkdown.swift`
+3. `Epistemos/Views/Shell/PageShell.swift`
+4. `Epistemos/Views/Shell/ToastOverlay.swift`
+5. `Epistemos/Views/Notes/BlockPropertySheet.swift`
+6. `Epistemos/Views/Notes/BlockRefAutocomplete.swift`
+7. `Epistemos/Views/Notes/BlockRefAutocomplete2.swift`
+8. `Epistemos/Views/Notes/DiffSheetView.swift`
+9. `Epistemos/Views/Notes/EditableTransclusionView.swift`
+10. `Epistemos/Views/Notes/LineDiff.swift`
+11. `Epistemos/Views/Notes/MarkdownContentStorage.swift`
+12. `Epistemos/Views/Notes/MarkdownEditorCommands.swift`
+13. `Epistemos/Views/Notes/MarkdownEditorStyle.swift`
+14. `Epistemos/Views/Notes/MarkdownLayoutFragment.swift`
+15. `Epistemos/Views/Notes/NoteBacklinksPanel.swift`
+16. `Epistemos/Views/Notes/NoteChatSidebar.swift`
+17. `Epistemos/Views/Notes/NoteDetailWorkspaceView.swift`
+18. `Epistemos/Views/Notes/NoteImageProcessor.swift`
+19. `Epistemos/Views/Notes/NoteTableOfContents.swift`
+20. `Epistemos/Views/Notes/NoteWindowManager.swift`
+21. `Epistemos/Views/Notes/NotesBrowserView.swift`
+22. `Epistemos/Views/Notes/NotesSidebar.swift`
+23. `Epistemos/Views/Notes/PageEditorCache.swift`
+24. `Epistemos/Views/Notes/ProseEditorRepresentable2.swift`
+25. `Epistemos/Views/Notes/ProseEditorView.swift`
+26. `Epistemos/Views/Notes/ProseTextView2.swift`
+27. `Epistemos/Views/Notes/TransclusionOverlayManager.swift`
+28. `Epistemos/Views/Notes/TransclusionOverlayManager2.swift`
+29. `Epistemos/Views/Notes/TransclusionOverlayView.swift`
+30. `Epistemos/Views/Notes/VaultChangesPanel.swift`
+
+## Batch 6 — Notes Periphery, Graph Views, Recent Verification Context
+
+1. `Epistemos/Views/Notes/VaultOrganizerView.swift`
+2. `Epistemos/Views/Notes/VersionTimeline.swift`
+3. `Epistemos/Views/Notes/WritingToolsBridge.swift`
+4. `Epistemos/Views/Graph/GraphFloatingControls.swift`
+5. `Epistemos/Views/Graph/GraphForceSettings.swift`
+6. `Epistemos/Views/Graph/GraphOverlayPanel.swift`
+7. `Epistemos/Views/Graph/GraphWarmupView.swift`
+8. `Epistemos/Views/Graph/HologramController.swift`
+9. `Epistemos/Views/Graph/HologramNodeInspector.swift`
+10. `Epistemos/Views/Graph/HologramOverlay.swift`
+11. `Epistemos/Views/Graph/HologramSearchSidebar.swift`
+12. `Epistemos/Views/Graph/MetalGraphView.swift`
+13. `Epistemos/Views/Graph/NodeInspectorState.swift`
+14. `Epistemos/Views/Graph/QueryResultsView.swift`
+15. `Epistemos/Views/Graph/RelationshipBrowser.swift`
+16. `docs/future-work-audit.md`
+17. `docs/audit-progress.md`
+18. `docs/FINAL_VERIFICATION_CHECKLIST.md`
+19. `docs/codex-verification-handoff.md`
+20. `docs/codex-v2-release-audit.md`
+21. `docs/audits/2026-03-10-logic-performance-audit.md`
+22. `docs/audits/2026-03-10-release-hardening-report.md`
+23. `docs/audits/2026-03-10-textkit2-parity-audit-report.md`
+24. `docs/audits/2026-03-11-recursive-dead-code-audit.md`
+25. `docs/audits/2026-03-12-deep-concurrency-audit.md`
+26. `docs/audits/cleanup-suite-2026-03-21.md`
+27. `docs/audits/ffi-surface-report-2026-03-21.md`
+28. `Epistemos/Sync/VaultSyncService.swift`
+29. `Epistemos/Graph/GraphStore.swift`
+30. `Epistemos/Views/Graph/MetalGraphView.swift`
+
+## Batch 7 — Graph Engine Core
+
+1. `graph-engine/Cargo.toml`
+2. `graph-engine/Cargo.lock`
+3. `graph-engine/generate_advanced_rust_tests.py`
+4. `graph-engine/generate_cluster_tests.py`
+5. `graph-engine/generate_search_tests.py`
+6. `graph-engine/generate_spatial_tests.py`
+7. `graph-engine/generate_tests.py`
+8. `graph-engine/src/lib.rs`
+9. `graph-engine/src/engine.rs`
+10. `graph-engine/src/types.rs`
+11. `graph-engine/src/renderer.rs`
+12. `graph-engine/src/forces.rs`
+13. `graph-engine/src/simulation.rs`
+14. `graph-engine/src/spatial.rs`
+15. `graph-engine/src/quadtree.rs`
+16. `graph-engine/src/edge_aggregation.rs`
+17. `graph-engine/src/embedding.rs`
+18. `graph-engine/src/search.rs`
+19. `graph-engine/src/retrieval_index.rs`
+20. `graph-engine/src/cluster.rs`
+21. `graph-engine/src/cluster_cache.rs`
+22. `graph-engine/src/markdown.rs`
+23. `graph-engine/src/code_highlight.rs`
+24. `graph-engine/src/ecs/bridge.rs`
+25. `graph-engine/src/ecs/components.rs`
+26. `graph-engine/src/ecs/mod.rs`
+27. `graph-engine/src/ecs/spatial_grid.rs`
+28. `graph-engine/src/ecs/systems.rs`
+29. `graph-engine/src/hardened_race_tests.rs`
+30. `graph-engine/src/physics_audit_test.rs`
+
+## Batch 8 — Graph Engine Block Kernel and Knowledge Core
+
+1. `graph-engine/src/block_kernel/block_tree.rs`
+2. `graph-engine/src/block_kernel/crdt.rs`
+3. `graph-engine/src/block_kernel/fractional_index.rs`
+4. `graph-engine/src/block_kernel/mod.rs`
+5. `graph-engine/src/block_kernel/op.rs`
+6. `graph-engine/src/block_kernel/op_log.rs`
+7. `graph-engine/src/block_kernel/projection.rs`
+8. `graph-engine/src/block_kernel/query_kernel.rs`
+9. `graph-engine/src/block_kernel/translator.rs`
+10. `graph-engine/src/knowledge_core/archived.rs`
+11. `graph-engine/src/knowledge_core/crdt.rs`
+12. `graph-engine/src/knowledge_core/mod.rs`
+13. `graph-engine/src/knowledge_core/parser.rs`
+14. `graph-engine/src/knowledge_core/ring.rs`
+15. `graph-engine/src/knowledge_core/store.rs`
+16. `graph-engine/src/advanced_chaos_tests.rs`
+17. `graph-engine/src/bench_tests.rs`
+18. `graph-engine/src/comprehensive_cluster_tests.rs`
+19. `graph-engine/src/comprehensive_search_tests.rs`
+20. `graph-engine/src/comprehensive_simulation_tests.rs`
+21. `graph-engine/src/comprehensive_spatial_tests.rs`
+22. `graph-engine/src/edge_case_tests.rs`
+23. `graph-engine/src/graph_tests.rs`
+24. `graph-engine/src/theme_ecs_tests.rs`
+25. `docs/plans/2026-03-03-block-transaction-kernel.md`
+26. `docs/plans/2026-03-03-query-compiler.md`
+27. `docs/plans/2026-03-07-graph-physics-performance-plan.md`
+28. `docs/plans/2026-03-19-abi-decision-memo.md`
+29. `docs/plans/2026-03-19-knowledge-core-ffi-plan.md`
+30. `docs/plans/2026-03-19-knowledge-core-implementation-plan.md`
+
+## Batch 9 — Notes, Sync, UI Tests
+
+1. `EpistemosTests/ChatPresentationTests.swift`
+2. `EpistemosTests/CollectionRegistryTests.swift`
+3. `EpistemosTests/ComposerReferenceHelpersTests.swift`
+4. `EpistemosTests/FileAttachmentBuilderTests.swift`
+5. `EpistemosTests/FocusModeTests.swift`
+6. `EpistemosTests/LineDiffTests.swift`
+7. `EpistemosTests/MappedNoteBodyTests.swift`
+8. `EpistemosTests/MarkdownEditorCommandsTests.swift`
+9. `EpistemosTests/MiniChatViewAuditTests.swift`
+10. `EpistemosTests/NoteChatStateTests.swift`
+11. `EpistemosTests/NoteEditorLayoutTests.swift`
+12. `EpistemosTests/NoteEditorViewFinderTests.swift`
+13. `EpistemosTests/NoteFileStorageTests.swift`
+14. `EpistemosTests/NoteImageProcessorTests.swift`
+15. `EpistemosTests/NoteInsightServiceTests.swift`
+16. `EpistemosTests/NoteSavingAuditTests.swift`
+17. `EpistemosTests/NoteSavingStressTests.swift`
+18. `EpistemosTests/NoteWindowManagerTests.swift`
+19. `EpistemosTests/ProseTextView2AppearanceTests.swift`
+20. `EpistemosTests/ScrollStabilityTests.swift`
+21. `EpistemosTests/SearchEdgeCaseTests.swift`
+22. `EpistemosTests/SearchIndexServiceIntegrationTests.swift`
+23. `EpistemosTests/SearchIndexTests.swift`
+24. `EpistemosTests/SearchPerformanceTests.swift`
+25. `EpistemosTests/TK1MigrationValidationTests.swift`
+26. `EpistemosTests/TextKit2BenchmarkTests.swift`
+27. `EpistemosTests/TextKit2FoundationTests.swift`
+28. `EpistemosTests/TextKit2ParityTests.swift`
+29. `EpistemosTests/VaultImportFileCopierTests.swift`
+30. `EpistemosTests/VaultIndexActorTests.swift`
+
+## Batch 10 — Graph, FFI, State, Reliability Tests
+
+1. `EpistemosTests/BackgroundGraphLoadingTests.swift`
+2. `EpistemosTests/BlockEmbeddingTests.swift`
+3. `EpistemosTests/BlockPropertyParsingTests.swift`
+4. `EpistemosTests/BlockSearchTests.swift`
+5. `EpistemosTests/ConcurrencyEdgeCaseTests.swift`
+6. `EpistemosTests/ConcurrencyStressTests.swift`
+7. `EpistemosTests/Drafts/GraphSyncTests.swift`
+8. `EpistemosTests/Drafts/MetalRenderTests.swift`
+9. `EpistemosTests/EndToEndTest.swift`
+10. `EpistemosTests/FFIDataStructureTests.swift`
+11. `EpistemosTests/FFILifecycleTests.swift`
+12. `EpistemosTests/FFISafetyTests.swift`
+13. `EpistemosTests/FFIStringTests.swift`
+14. `EpistemosTests/FFIVersionSyncTests.swift`
+15. `EpistemosTests/FilterEngineComprehensiveTests.swift`
+16. `EpistemosTests/FilterEngineTests.swift`
+17. `EpistemosTests/GraphBuilderComprehensiveTests.swift`
+18. `EpistemosTests/GraphEdgeCaseTests.swift`
+19. `EpistemosTests/GraphMetadataComprehensiveTests.swift`
+20. `EpistemosTests/GraphModelTests.swift`
+21. `EpistemosTests/GraphPerformanceTests.swift`
+22. `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+23. `EpistemosTests/GraphStoreComprehensiveTests.swift`
+24. `EpistemosTests/GraphStoreTests.swift`
+25. `EpistemosTests/GraphTypesComprehensiveTests.swift`
+26. `EpistemosTests/GraphTypesTests.swift`
+27. `EpistemosTests/HardenedASTFuzzTests.swift`
+28. `EpistemosTests/HardenedConcurrencyTests.swift`
+29. `EpistemosTests/IncrementalFFIUpdateTests.swift`
+30. `EpistemosTests/KnowledgeCoreBridgeTests.swift`
+
+## Batch 11 — Broad Reliability, Contracts, Docs
+
+1. `EpistemosTests/LandingExperienceSettingsTests.swift`
+2. `EpistemosTests/MemoryStressTests.swift`
+3. `EpistemosTests/PerformanceTest.swift`
+4. `EpistemosTests/PrivacyTest.swift`
+5. `EpistemosTests/QueryRuntimeTests.swift`
+6. `EpistemosTests/ResourceExhaustionTests.swift`
+7. `EpistemosTests/RuntimeValidationTests.swift`
+8. `EpistemosTests/SDGraphEdgeComprehensiveTests.swift`
+9. `EpistemosTests/SDGraphNodeComprehensiveTests.swift`
+10. `EpistemosTests/SDPageQueryDescriptorTests.swift`
+11. `EpistemosTests/ThemePairTests.swift`
+12. `EpistemosTests/ThreadStateTests.swift`
+13. `EpistemosTests/VaultManifestTests.swift`
+14. `EpistemosTests/VaultSyncServiceAuditTests.swift`
+15. `EpistemosTests/VersionPruningTests.swift`
+16. `EpistemosTests/WorkspaceSnapshotTests.swift`
+17. `EpistemosTests/WritingToolsBridgeTests.swift`
+18. `docs/DECISIONS.md`
+19. `docs/PROGRESS.md`
+20. `docs/ROADMAP_NEXT_3.md`
+21. `docs/NEXT_SESSION_PROMPT.md`
+22. `docs/PHASE_CHECKLIST.md`
+23. `docs/THEME_AUDIT.md`
+24. `docs/THEME_REFACTOR_PLAN.md`
+25. `docs/THEME_REVAMP_AUDIT_REPORT.md`
+26. `docs/THEME_REVAMP_FINAL_CHANGELOG.md`
+27. `docs/THEME_REVAMP_GAP_MATRIX.md`
+28. `docs/bug-fixes/2026-03-03-note-saving-fix.md`
+29. `docs/plans/2026-03-08-textkit2-migration-design.md`
+30. `docs/plans/2026-03-09-phase10-integration-parity.md`
+
+## Recommended Audit Order
+
+If only a few batches can be reviewed first:
+
+1. Batch 1
+2. Batch 2
+3. Batch 5
+4. Batch 9
+5. Batch 3
+6. Batch 10
+7. Batch 7
+8. Batch 8
+9. Batch 4
+10. Batch 6
+11. Batch 11
+
+## Follow-Up Pack
+
+After your new model stack is trained and the deferred AI/agent work is back in scope, create a second separate research pack for:
+
+- `Epistemos/Omega/**`
+- `Epistemos/KnowledgeFusion/**`
+- the local model / routing / pipeline stack
+- their matching tests and docs
+
+Based on the council's deep analysis of the attached graph-view files and the full audit prompt, here is the synthesized pruning audit for the Epistemos codebase.
+
+***
+
+## Where Models Agree
+
+| Finding | GPT-5.4 Thinking | Claude Opus 4.6 Thinking | Gemini 3.1 Pro Thinking | Evidence |
+| :-- | :-- | :-- | :-- | :-- |
+| `applyFilterState` is O(N) per-node FFI loop — should use batch visibility API | ✓ | ✓ | ✓ | Iterates all `store.nodes` calling `graph_engine_set_node_visible` individually; batch FFI exists for add/remove but not visibility[^1] |
+| `applyDialogueDepthPalette` has O(N) per-node FFI color calls | ✓ | ✓ | ✓ | Each node gets individual `graph_engine_set_node_color_override` call even when pushing all nodes[^1] |
+| `graphDepthLevels` BFS is recomputed on every `commitGraphData` even when topology hasn't changed | ✓ | ✓ | ✓ | Cached depth colors check `topologyVersion` but BFS itself runs unconditionally inside recompute block[^1] |
+| `TransclusionOverlayManager` and `TransclusionOverlayManager2` are redundant files | ✓ | ✓ | ✓ | Both exist in Batch 5 file list — classic TK1→TK2 migration leftover[^1] |
+| `BlockRefAutocomplete` and `BlockRefAutocomplete2` are likely redundant | ✓ | ✓ | ✓ | Same pattern as transclusion managers — numbered suffix suggests migration duplicate[^1] |
+| `NodeInspectorState.profileTask` closure captures large scope inside `Task.detached` | ✓ | ✓ |  | Stop-word set, multiple nested functions, NL analysis all re-created per selection — should be static/cached[^2] |
+| `contextEditNote` action exists but is never wired into the context menu | ✓ | ✓ |  | `@objc contextEditNote` defined but `buildNodeContextMenu` never adds an "Edit" menu item[^1] |
+
+## Where Models Disagree
+
+| Topic | GPT-5.4 Thinking | Claude Opus 4.6 Thinking | Gemini 3.1 Pro Thinking | Why They Differ |
+| :-- | :-- | :-- | :-- | :-- |
+| CVDisplayLink vs CADisplayLink | Should migrate to CADisplayLink (deprecated API) | Low priority — works fine, migration risky | Agrees migration warranted for ProMotion support | GPT-5.4 Thinking weights deprecation risk; Gemini 3.1 Pro Thinking weights 120Hz benefit; Claude Opus 4.6 Thinking weights stability |
+| `nonisolated(unsafe)` on MetalGraphNSView properties | Potential data race if AppKit callbacks fire off-main | Acceptable — NSView event handlers are always main thread | Flagged as code smell but not a real race | Different assessment of whether NSView guarantees main-thread delivery for all events |
+| Inspector editor save pipeline duplication | Significant redundancy with ProseEditorView save logic — should extract shared service | Acknowledges similarity but notes different save semantics (file-only vs BlockMirror+SwiftData) | Not flagged | Claude Opus 4.6 Thinking examined the save paths more carefully and saw structural differences |
+| Profile derivation 250ms sleep | Unnecessary latency — should use debounce/cancel pattern instead | Intentional rapid-click protection — acceptable | Should be shorter (100ms) or removed | Different interpretation of the UX tradeoff |
+
+## Unique Discoveries
+
+| Model | Unique Finding | Why It Matters |
+| :-- | :-- | :-- |
+| GPT-5.4 Thinking | `promptForEdgeType` uses synchronous `NSAlert.runModal()` which blocks the main thread and freezes the render loop during edge creation[^1] | Could cause visible stutter on the graph overlay |
+| Claude Opus 4.6 Thinking | `HologramOverlay.minimize()` aliases the full-screen `NSWindow` as `miniPanel` (typed `GraphOverlayPanel?`) via unsafe cast — if window isn't a `GraphOverlayPanel`, this silently sets nil[^3] | Potential crash or silent failure path during minimize |
+| Claude Opus 4.6 Thinking | `cachedDepthColors` dictionary is never cleared on graph data version change — only on topology version change — meaning node additions that don't change topology stale the cache[^1] | Subtle color correctness bug after incremental adds |
+| Gemini 3.1 Pro Thinking | `RelationshipBrowser.groups` is a computed property recalculated on every SwiftUI body evaluation — for high-degree nodes this is O(E) per frame[^4] | Performance cliff for hub nodes with hundreds of edges |
+| GPT-5.4 Thinking | `graphEvidenceConfidence` returns `0.0` for `nil` evidence grade, meaning nodes without grades get zero confidence pushed to Rust — likely should default to `0.5` or skip[^1] | All ungraded nodes rendered as minimum confidence |
+
+## Comprehensive Analysis
+
+The strongest consensus across all three models centers on the two O(N) per-node FFI loops in `MetalGraphView`: `applyFilterState` and `applyDialogueDepthPalette`. Both GPT-5.4 Thinking and Claude Opus 4.6 Thinking specifically called out that batch FFI functions already exist for node adds/removes/metadata but no corresponding `graph_engine_set_node_visibility_batch` or `graph_engine_set_node_colors_batch` has been exposed from the Rust side. For a 10K-node graph, these loops represent 10K+ individual FFI crossings per filter toggle or theme change. Adding two new batch FFI endpoints on the Rust side and calling them from Swift would be the single highest-leverage performance improvement available in the non-agent codebase. This is a clear fix-now item.[^1]
+
+The file duplication pattern (`TransclusionOverlayManager`/`TransclusionOverlayManager2`, `BlockRefAutocomplete`/`BlockRefAutocomplete2`) is a classic TK1→TK2 migration artifact that all three models flagged. Given that the TK1 production files were already cleaned up, these numbered-suffix files should be audited for which is active and which is dead. If the "2" variants are the production ones (consistent with `ProseEditorRepresentable2` and `ProseTextView2` being the active TK2 stack), the original files can likely be removed or merged. This is low-risk, high-clarity cleanup.[^1]
+
+The disagreement around `nonisolated(unsafe)` on `physicsCoordinator`, `dialogueChatState`, and `uiState` in `MetalGraphNSView` is worth understanding but probably not worth fixing now. Claude Opus 4.6 Thinking's position is most persuasive: NSView event handlers (`mouseDown`, `mouseMoved`, etc.) are guaranteed to fire on the main thread by AppKit's contract, so the `nonisolated(unsafe)` annotation is a concurrency-checker workaround, not a real safety hole. The CVDisplayLink callback correctly dispatches to `DispatchQueue.main` before touching any of these properties. However, GPT-5.4 Thinking's suggestion to eventually migrate to `CADisplayLink` (available since macOS 14) would eliminate this entire class of concern while also enabling ProMotion 120Hz frame pacing.[^1]
+
+GPT-5.4 Thinking's unique finding about `promptForEdgeType` using synchronous `NSAlert.runModal()` is a real UX issue. During the modal dialog, the CVDisplayLink continues firing but `renderFrame` can't execute (main thread is blocked), causing the graph to freeze mid-animation. The fix is straightforward: use `alert.beginSheetModal(for:)` with a completion handler instead. This is a fix-now item for edge creation UX.[^1]
+
+Claude Opus 4.6 Thinking's discovery of the `cachedDepthColors` staleness bug is subtle but real. When incremental node adds occur (via `commitIncrementalAdds`), `cachedColorTopologyVersion` may not update because topology version tracks structural graph changes, not necessarily every incremental add. The targeted `applyDialogueDepthPalette(for: nodePayload.ids)` call after incremental adds partially mitigates this by computing colors for new nodes, but it uses the stale `cachedDepthColors` dictionary which may not have entries for the new nodes. The fallback `(0.0, 0.0, 0.0, 0.0)` — transparent black — means new nodes briefly render with no color override until the next full recompute. This should be fixed by ensuring new node IDs are computed fresh in the targeted path.[^1]
+
+Gemini 3.1 Pro Thinking's flag on `RelationshipBrowser.groups` being a computed property is valid for high-degree nodes. The fix is simple: make it a `let` binding in the `body` (which the code already does with `let groups = self.groups`), but the underlying computation still runs on every body evaluation. Wrapping it in a `@State` or memoizing against `nodeId` + `store.topologyVersion` would prevent redundant O(E) work.[^4]
+
+The dead `contextEditNote` method in `MetalGraphNSView` is confirmed dead code — it's defined with `@objc` but never added to any `NSMenu`. It should either be wired into the context menu (adding an "Edit in Inspector" option) or deleted.[^1]
+
+**Recommended cleanup sequence:**
+
+1. Add `graph_engine_set_node_visibility_batch` and `graph_engine_set_node_colors_batch` Rust FFI endpoints → update `applyFilterState` and `applyDialogueDepthPalette`
+2. Replace `NSAlert.runModal()` in `promptForEdgeType` with async sheet
+3. Audit and merge/delete `TransclusionOverlayManager` vs `TransclusionOverlayManager2`, `BlockRefAutocomplete` vs `BlockRefAutocomplete2`
+4. Fix `cachedDepthColors` staleness for incremental node adds
+5. Either wire `contextEditNote` into the menu or delete it
+6. Make `NodeInspectorState` stop-word set and helper functions `static`
+7. Memoize `RelationshipBrowser.groups` against topology version
+8. Change `graphEvidenceConfidence` default from `0.0` to `0.5`
+9. Defer CVDisplayLink→CADisplayLink migration to a future pass (low risk, medium reward)
+<span style="display:none">[^10][^11][^12][^5][^6][^7][^8][^9]</span>
+
+<div align="center">⁂</div>
+
+[^1]: MetalGraphView-9.swift
+
+[^2]: NodeInspectorState-10.swift
+
+[^3]: HologramOverlay-7.swift
+
+[^4]: RelationshipBrowser-12.swift
+
+[^5]: GraphFloatingControls.swift
+
+[^6]: GraphForceSettings-2.swift
+
+[^7]: GraphWarmupView-4.swift
+
+[^8]: QueryResultsView-11.swift
+
+[^9]: HologramSearchSidebar-8.swift
+
+[^10]: GraphOverlayPanel-3.swift
+
+[^11]: HologramController-5.swift
+
+[^12]: HologramNodeInspector-6.swift
+

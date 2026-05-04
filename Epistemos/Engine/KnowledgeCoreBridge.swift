@@ -2,26 +2,26 @@ import Foundation
 import Observation
 import Dispatch
 
-enum KnowledgeCoreDocumentFormat: UInt8, Sendable {
+nonisolated enum KnowledgeCoreDocumentFormat: UInt8, Sendable {
     case markdown = 0
     case org = 1
 }
 
-enum KnowledgeCoreSubscriptionKind: UInt8, Sendable {
+nonisolated enum KnowledgeCoreSubscriptionKind: UInt8, Sendable {
     case outline = 0
     case tasks = 1
     case properties = 2
     case links = 3
 }
 
-enum KnowledgeCoreRowKind: UInt8, Sendable {
+nonisolated enum KnowledgeCoreRowKind: UInt8, Sendable {
     case block = 0
     case task = 1
     case property = 2
     case link = 3
 }
 
-enum KnowledgeCoreErrorCode: UInt8, Sendable {
+nonisolated enum KnowledgeCoreErrorCode: UInt8, Sendable {
     case none = 0
     case invalidArgument = 1
     case ringFull = 2
@@ -34,16 +34,16 @@ enum KnowledgeCoreErrorCode: UInt8, Sendable {
     case serialization = 9
 }
 
-enum KnowledgeCoreBackpressurePolicy: UInt8, Sendable {
+nonisolated enum KnowledgeCoreBackpressurePolicy: UInt8, Sendable {
     case failFast = 0
 }
 
-struct KnowledgeCoreBridgeError: Error, Sendable, Equatable {
+nonisolated struct KnowledgeCoreBridgeError: Error, Sendable, Equatable {
     let code: KnowledgeCoreErrorCode
     let message: String
 }
 
-struct KnowledgeCorePayloadSummary: Sendable, Equatable {
+nonisolated struct KnowledgeCorePayloadSummary: Sendable, Equatable {
     let txId: UInt64
     let subscriptionId: UInt64
     let kind: KnowledgeCoreSubscriptionKind
@@ -52,14 +52,14 @@ struct KnowledgeCorePayloadSummary: Sendable, Equatable {
     let removedCount: Int
 }
 
-struct KnowledgeCoreTransportStatsSnapshot: Sendable, Equatable {
+nonisolated struct KnowledgeCoreTransportStatsSnapshot: Sendable, Equatable {
     let publishedFrames: UInt64
     let droppedFrames: UInt64
     let coalescedFrames: UInt64
     let ringFullFailures: UInt64
 }
 
-struct KnowledgeCoreRowSnapshot: Sendable, Equatable {
+nonisolated struct KnowledgeCoreRowSnapshot: Sendable, Equatable {
     let rowKind: KnowledgeCoreRowKind
     let pageId: String
     let blockId: String
@@ -75,7 +75,7 @@ struct KnowledgeCoreRowSnapshot: Sendable, Equatable {
     let taskDone: Bool
 }
 
-struct KnowledgeCorePayloadSnapshot: Sendable, Equatable {
+nonisolated struct KnowledgeCorePayloadSnapshot: Sendable, Equatable {
     let txId: UInt64
     let subscriptionId: UInt64
     let kind: KnowledgeCoreSubscriptionKind
@@ -95,11 +95,157 @@ struct KnowledgeCorePayloadSnapshot: Sendable, Equatable {
     }
 }
 
-struct KnowledgeCoreProjectionSnapshot: Sendable, Equatable {
+nonisolated struct KnowledgeCoreProjectionSnapshot: Sendable, Equatable {
     let summaries: [KnowledgeCorePayloadSummary]
     let projectedRowCount: Int
     let stringCacheHits: UInt64
     let stringCacheMisses: UInt64
+}
+
+nonisolated struct KnowledgeCoreBorrowedRowProjection: Sendable, Equatable {
+    let rowKind: KnowledgeCoreRowKind
+    let pageIdHash: UInt64
+    let blockIdHash: UInt64
+    let parentIdHash: UInt64
+    let targetIdHash: UInt64
+    let contentByteCount: Int
+    let propertyKeyHash: UInt64
+    let propertyValueByteCount: Int
+    let taskMarkerByteCount: Int
+    let orderKeyHash: UInt64
+    let depth: UInt16
+    let refType: UInt8
+    let taskDone: Bool
+
+    var stringByteCount: Int {
+        contentByteCount + propertyValueByteCount + taskMarkerByteCount
+    }
+}
+
+nonisolated struct KnowledgeCoreBorrowedPayloadProjection: Sendable, Equatable {
+    let summary: KnowledgeCorePayloadSummary
+    let added: [KnowledgeCoreBorrowedRowProjection]
+    let updated: [KnowledgeCoreBorrowedRowProjection]
+    let removed: [KnowledgeCoreBorrowedRowProjection]
+}
+
+nonisolated struct KnowledgeCoreBorrowedProjectionSnapshot: Sendable, Equatable {
+    let summaries: [KnowledgeCorePayloadSummary]
+    let payloads: [KnowledgeCoreBorrowedPayloadProjection]
+    let projectedRowCount: Int
+    let projectedStringBytes: Int
+    let materializedStringCount: Int
+}
+
+nonisolated enum KnowledgeCoreRuntimeAdapterFallbackReason: String, Sendable, Equatable {
+    case disabled
+    case unsupportedKind
+    case unregisteredSubscription
+}
+
+nonisolated struct KnowledgeCoreRuntimeAdapterApplyResult: Sendable, Equatable {
+    let appliedCount: Int
+    let fallbackCount: Int
+    let fallbackReasons: [KnowledgeCoreRuntimeAdapterFallbackReason]
+
+    static let empty = KnowledgeCoreRuntimeAdapterApplyResult(
+        appliedCount: 0,
+        fallbackCount: 0,
+        fallbackReasons: []
+    )
+}
+
+@MainActor
+struct KnowledgeCoreRuntimeAdapter {
+    typealias PayloadSink = (KnowledgeCorePayloadSnapshot) -> Void
+    typealias SubscriptionFilter = (UInt64) -> Bool
+
+    private let flags: EpistemosRuntimeFeatureFlags
+    private let acceptsSubscription: SubscriptionFilter?
+    private let sink: PayloadSink
+
+    init(
+        flags: EpistemosRuntimeFeatureFlags,
+        acceptsSubscription: SubscriptionFilter? = nil,
+        sink: @escaping PayloadSink
+    ) {
+        self.flags = flags
+        self.acceptsSubscription = acceptsSubscription
+        self.sink = sink
+    }
+
+    func apply(_ payloads: [KnowledgeCorePayloadSnapshot]) -> KnowledgeCoreRuntimeAdapterApplyResult {
+        guard !payloads.isEmpty else { return .empty }
+        guard flags.deterministicKnowledgeCoreRuntime else {
+            return KnowledgeCoreRuntimeAdapterApplyResult(
+                appliedCount: 0,
+                fallbackCount: payloads.count,
+                fallbackReasons: Array(repeating: .disabled, count: payloads.count)
+            )
+        }
+
+        var appliedCount = 0
+        var fallbackReasons: [KnowledgeCoreRuntimeAdapterFallbackReason] = []
+        fallbackReasons.reserveCapacity(payloads.count)
+
+        for payload in payloads {
+            if let fallbackReason = fallbackReason(for: payload) {
+                fallbackReasons.append(fallbackReason)
+                continue
+            }
+            sink(payload)
+            appliedCount += 1
+        }
+
+        return KnowledgeCoreRuntimeAdapterApplyResult(
+            appliedCount: appliedCount,
+            fallbackCount: fallbackReasons.count,
+            fallbackReasons: fallbackReasons
+        )
+    }
+
+    private func fallbackReason(for payload: KnowledgeCorePayloadSnapshot) -> KnowledgeCoreRuntimeAdapterFallbackReason? {
+        guard payload.kind == .outline else {
+            return .unsupportedKind
+        }
+        if let acceptsSubscription, !acceptsSubscription(payload.subscriptionId) {
+            return .unregisteredSubscription
+        }
+        return nil
+    }
+}
+
+@MainActor
+final class KnowledgeCoreRuntimeBinding {
+    typealias PayloadSink = (KnowledgeCorePayloadSnapshot) -> Void
+
+    private let flags: EpistemosRuntimeFeatureFlags
+    private var sinks: [UInt64: PayloadSink] = [:]
+
+    init(flags: EpistemosRuntimeFeatureFlags) {
+        self.flags = flags
+    }
+
+    func register(subscriptionId: UInt64, sink: @escaping PayloadSink) {
+        sinks[subscriptionId] = sink
+    }
+
+    func unregister(subscriptionId: UInt64) {
+        sinks.removeValue(forKey: subscriptionId)
+    }
+
+    func apply(_ payloads: [KnowledgeCorePayloadSnapshot]) -> KnowledgeCoreRuntimeAdapterApplyResult {
+        let adapter = KnowledgeCoreRuntimeAdapter(
+            flags: flags,
+            acceptsSubscription: { [weak self] subscriptionId in
+                self?.sinks[subscriptionId] != nil
+            },
+            sink: { [weak self] payload in
+                self?.sinks[payload.subscriptionId]?(payload)
+            }
+        )
+        return adapter.apply(payloads)
+    }
 }
 
 private struct KnowledgeCoreSlotHeader {
@@ -331,24 +477,53 @@ actor KnowledgeCoreBridge {
         )
     }
 
+    func drainBorrowedProjections(limit: Int = .max) -> KnowledgeCoreBorrowedProjectionSnapshot {
+        let drained = drain(limit: limit, decodeRows: false, projectBorrowedRows: true)
+        let projectedRowCount = drained.borrowedPayloads.reduce(0) { total, payload in
+            total + payload.added.count + payload.updated.count + payload.removed.count
+        }
+        let projectedStringBytes = drained.borrowedPayloads.reduce(0) { total, payload in
+            total
+                + payload.added.reduce(0) { $0 + $1.stringByteCount }
+                + payload.updated.reduce(0) { $0 + $1.stringByteCount }
+                + payload.removed.reduce(0) { $0 + $1.stringByteCount }
+        }
+        return KnowledgeCoreBorrowedProjectionSnapshot(
+            summaries: drained.summaries,
+            payloads: drained.borrowedPayloads,
+            projectedRowCount: projectedRowCount,
+            projectedStringBytes: projectedStringBytes,
+            materializedStringCount: 0
+        )
+    }
+
     private func drain(
         limit: Int,
         decodeRows: Bool,
-        projectRows: Bool = false
-    ) -> (summaries: [KnowledgeCorePayloadSummary], payloads: [KnowledgeCorePayloadSnapshot]) {
+        projectRows: Bool = false,
+        projectBorrowedRows: Bool = false
+    ) -> (
+        summaries: [KnowledgeCorePayloadSummary],
+        payloads: [KnowledgeCorePayloadSnapshot],
+        borrowedPayloads: [KnowledgeCoreBorrowedPayloadProjection]
+    ) {
         let head = graph_engine_kc_ring_head(core)
         var tail = graph_engine_kc_ring_tail(core)
-        guard head > tail else { return ([], []) }
+        guard head > tail else { return ([], [], []) }
 
         let maxFrames = max(0, limit)
         let available = Int(min(head - tail, UInt64(maxFrames == .max ? Int.max : maxFrames)))
-        guard available > 0 else { return ([], []) }
+        guard available > 0 else { return ([], [], []) }
 
         var summaries: [KnowledgeCorePayloadSummary] = []
         var payloads: [KnowledgeCorePayloadSnapshot] = []
+        var borrowedPayloads: [KnowledgeCoreBorrowedPayloadProjection] = []
         summaries.reserveCapacity(available)
         if decodeRows {
             payloads.reserveCapacity(available)
+        }
+        if projectBorrowedRows {
+            borrowedPayloads.reserveCapacity(available)
         }
 
         while tail < head && summaries.count < maxFrames {
@@ -365,11 +540,14 @@ actor KnowledgeCoreBridge {
             if projectRows {
                 projectionCache.apply(slot: slot, summary: summary)
             }
+            if projectBorrowedRows, let payload = decodeBorrowedProjection(slot, summary: summary) {
+                borrowedPayloads.append(payload)
+            }
             tail += 1
         }
 
         graph_engine_kc_ring_set_tail(core, tail)
-        return (summaries, payloads)
+        return (summaries, payloads, borrowedPayloads)
     }
 
     private func slot(at sequence: UInt64) -> (payload: UnsafePointer<UInt8>, len: UInt64)? {
@@ -428,6 +606,18 @@ actor KnowledgeCoreBridge {
         )
     }
 
+    private func decodeBorrowedProjection(
+        _ slot: (payload: UnsafePointer<UInt8>, len: UInt64),
+        summary: KnowledgeCorePayloadSummary
+    ) -> KnowledgeCoreBorrowedPayloadProjection? {
+        KnowledgeCoreBorrowedPayloadProjection(
+            summary: summary,
+            added: decodeBorrowedRows(section: 0, rowCount: summary.addedCount, slot: slot),
+            updated: decodeBorrowedRows(section: 1, rowCount: summary.updatedCount, slot: slot),
+            removed: decodeBorrowedRows(section: 2, rowCount: summary.removedCount, slot: slot)
+        )
+    }
+
     private func decodeRows(
         section: UInt8,
         rowCount: Int,
@@ -480,6 +670,62 @@ actor KnowledgeCoreBridge {
                 continue
             }
             rows.append(snapshot)
+        }
+        return rows
+    }
+
+    private func decodeBorrowedRows(
+        section: UInt8,
+        rowCount: Int,
+        slot: (payload: UnsafePointer<UInt8>, len: UInt64)
+    ) -> [KnowledgeCoreBorrowedRowProjection] {
+        guard rowCount > 0 else { return [] }
+        let ffiRowCount = UInt32(rowCount)
+
+        return withUnsafeTemporaryAllocation(
+            of: KnowledgeQueryRowFFI.self,
+            capacity: rowCount
+        ) { buffer in
+            guard let base = buffer.baseAddress else {
+                return decodeBorrowedRowsScalar(section: section, slot: slot, rowCount: ffiRowCount)
+            }
+            let written = graph_engine_kc_payload_rows(
+                slot.payload,
+                slot.len,
+                section,
+                0,
+                base,
+                ffiRowCount
+            )
+            guard written == ffiRowCount else {
+                return decodeBorrowedRowsScalar(section: section, slot: slot, rowCount: ffiRowCount)
+            }
+
+            var rows: [KnowledgeCoreBorrowedRowProjection] = []
+            rows.reserveCapacity(rowCount)
+            for index in 0..<rowCount {
+                if let row = makeBorrowedRowProjection(buffer[index]) {
+                    rows.append(row)
+                }
+            }
+            return rows
+        }
+    }
+
+    private func decodeBorrowedRowsScalar(
+        section: UInt8,
+        slot: (payload: UnsafePointer<UInt8>, len: UInt64),
+        rowCount: UInt32
+    ) -> [KnowledgeCoreBorrowedRowProjection] {
+        var rows: [KnowledgeCoreBorrowedRowProjection] = []
+        rows.reserveCapacity(Int(rowCount))
+        for index in 0..<rowCount {
+            var row = KnowledgeQueryRowFFI()
+            guard graph_engine_kc_payload_row(slot.payload, slot.len, section, index, &row) != 0,
+                  let projection = makeBorrowedRowProjection(row) else {
+                continue
+            }
+            rows.append(projection)
         }
         return rows
     }
@@ -572,6 +818,49 @@ actor KnowledgeCoreBridge {
             metadata: ["bytes": "\(slice.len)"]
         )
         return String(decoding: buffer, as: UTF8.self)
+    }
+
+    private func makeBorrowedRowProjection(
+        _ row: KnowledgeQueryRowFFI
+    ) -> KnowledgeCoreBorrowedRowProjection? {
+        guard let rowKind = KnowledgeCoreRowKind(rawValue: row.row_kind) else {
+            return nil
+        }
+        return KnowledgeCoreBorrowedRowProjection(
+            rowKind: rowKind,
+            pageIdHash: Self.hashBorrowedSlice(row.page_id),
+            blockIdHash: Self.hashBorrowedSlice(row.block_id),
+            parentIdHash: Self.hashBorrowedSlice(row.parent_id),
+            targetIdHash: Self.hashBorrowedSlice(row.target_id),
+            contentByteCount: Self.byteCount(row.content),
+            propertyKeyHash: Self.hashBorrowedSlice(row.property_key),
+            propertyValueByteCount: Self.byteCount(row.property_value),
+            taskMarkerByteCount: Self.byteCount(row.task_marker),
+            orderKeyHash: Self.hashBorrowedSlice(row.order_key),
+            depth: row.depth,
+            refType: row.ref_type,
+            taskDone: row.task_done != 0
+        )
+    }
+
+    private static func hashBorrowedSlice(_ slice: GraphEngineStringSlice) -> UInt64 {
+        guard let ptr = slice.ptr,
+              slice.len > 0,
+              slice.len <= UInt64(Int.max) else {
+            return 0
+        }
+        let bytes = UnsafeBufferPointer(start: ptr, count: Int(slice.len))
+        var value: UInt64 = 0xcbf29ce484222325
+        for byte in bytes {
+            value ^= UInt64(byte)
+            value &*= 0x100000001b3
+        }
+        return value
+    }
+
+    private static func byteCount(_ slice: GraphEngineStringSlice) -> Int {
+        guard slice.len <= UInt64(Int.max) else { return Int.max }
+        return Int(slice.len)
     }
 
     private func finish(_ success: Bool) -> Bool {

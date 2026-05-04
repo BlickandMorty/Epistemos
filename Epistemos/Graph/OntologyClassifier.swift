@@ -178,6 +178,7 @@ public final class OntologyClassifier {
     /// `source`. When `source` is provided AND eligible for sidecars,
     /// the classification is persisted as:
     ///   - `parentDomain` ← classifier output
+    ///   - `childConcept` ← classifier output
     ///   - `depth` ← classifier output (overrides stub default)
     ///   - `cognitive_meta.last_classified_at` ← ISO-8601 now
     ///   - `cognitive_meta.classification_confidence` ← classifier output
@@ -211,6 +212,8 @@ public final class OntologyClassifier {
         let now = Self.iso8601.string(from: Date())
         sidecar.schemaVersion = EpistemosSidecar.currentSchemaVersion
         sidecar.parentDomain = node.parentDomain
+        sidecar.childConcept = node.childConcept
+        sidecar.interpretationDirective = "Treat the Markdown source as canonical; use this sidecar only for model-facing ontology, depth, and retrieval hints."
         sidecar.depth = node.depth
         sidecar.cognitiveMeta.lastClassifiedAt = now
         sidecar.cognitiveMeta.classificationConfidence = node.confidence
@@ -219,7 +222,7 @@ public final class OntologyClassifier {
             author: "afm",
             body: "classified as \(node.parentDomain) > \(node.childConcept) (depth=\(node.depth.rawValue), confidence=\(String(format: "%.2f", node.confidence)))"
         ))
-        try EpistemosSidecarStore.write(sidecar, for: source)
+        try EpistemosSidecarStore.write(sidecar, for: source, modelDerived: true)
         return node
     }
 
@@ -321,3 +324,11 @@ public final class OntologyClassifier {
     Reject hallucinated tags — prefer real domains.
     """
 }
+
+@MainActor
+protocol OntologyClassifying: AnyObject {
+    func readiness() -> OntologyClassifier.Readiness
+    func classifyAndPersist(_ text: String, for source: URL) async throws -> OntologyNode
+}
+
+extension OntologyClassifier: OntologyClassifying {}

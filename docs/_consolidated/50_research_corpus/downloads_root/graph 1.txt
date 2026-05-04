@@ -1,0 +1,293 @@
+﻿Engineering the Epistemos Metal Graph SDF Label System: Continuous Distance-Based Blur Reveal and Kinetic Physics Optimization
+The progression of the Epistemos Metal-rendered knowledge graph from a collection of primitive geometric shapes to a semantically expressive interface requires a sophisticated integration of typographic rendering, focus-based visual dynamics, and stabilized physics. The current rendering stack, operating at 120fps with tens of thousands of nodes, serves as a robust foundation for this transition. However, the introduction of text labels introduces significant computational challenges regarding fill rate, memory bandwidth, and visual legibility in a high-density environment. This report provides a comprehensive technical strategy for implementing Signed Distance Field (SDF) labels that utilize a continuous radial blur reveal, while simultaneously auditing and polishing the underlying Rust physics engine and Metal rendering pipeline to ensure sustained performance and aesthetic cohesion.
+Typographic Foundations: Multi-Channel Signed Distance Fields
+The selection of Signed Distance Fields (SDF) over traditional rasterized bitmap fonts is motivated by the requirement for infinite scalability and mathematical control over glyph edges. Traditional bitmap fonts suffer from aliasing and blurring when scaled beyond their native resolution, and they necessitate a massive memory footprint if high-resolution variants are cached for every possible zoom level.1 Conversely, SDFs store the distance to the nearest font edge in each texel, allowing a fragment shader to reconstruct sharp outlines through a simple thresholding operation.3
+For the Epistemos architecture, the specific adoption of Multi-channel Signed Distance Fields (MSDF) is necessary to preserve sharp corners, which standard single-channel SDFs tend to round off due to the nature of linear interpolation in the distance field.3 MSDF encodes edge distances across the RGB channels, and the fragment shader reconstructs the glyph by taking the median of these three values.3
+Font Selection and Atlas Generation Strategy
+The aesthetic requirement of the Epistemos "hologram" interface favors technical precision and geometric clarity. Research into Apple's system fonts suggests that SF Mono provides the most stable and legible results for coding and knowledge-graph environments.7 Monospaced fonts simplify the layout calculation on the CPU, as the horizontal advance for each glyph is uniform, reducing the complexity of the mesh-building phase in the Rust engine.8
+The tool recommended for this implementation is msdf-atlas-gen, which provides superior bin-packing and metadata generation compared to the original msdfgen library.6 The output format should be an MTSDF, which combines three-channel MSDF with a fourth alpha channel containing a standard single-channel SDF.3 This hybrid approach is critical for the "Apple blur" effect, as the single-channel SDF provides a more stable gradient for generating soft glows and diffused blur states.10
+Attribute
+	MSDF (RGB)
+	MTSDF (RGBA)
+	Corner Fidelity
+	Sharp
+	Sharp
+	Blur Compatibility
+	Moderate
+	High
+	Memory Per Texel
+	24-bit
+	32-bit
+	Interpolation Mode
+	Linear
+	Linear
+	Primary Tool
+	msdf-atlas-gen
+	msdf-atlas-gen
+	MSDF Atlas Generation Guide
+To generate the optimal atlas for Epistemos, the following build-time process is established. The atlas should be treated as a static asset, generated once and bundled with the application to ensure zero-copy loading during the renderer's initialization phase.3
+1. Glyph Selection: Curate a range encompassing ASCII (0x20-0x7E) and essential Unicode symbols for knowledge modeling (e.g., mathematical operators, arrows).
+2. Tool Command: msdf-atlas-gen.exe -font SF-Mono-Regular.otf -glyphset glyph_ranges.txt -type mtsdf -size 64 -pxrange 4 -imageout SF-Mono_mtsdf.png -json SF-Mono_mtsdf.json.3
+3. Critical Parameters:
+   * -size 64: Sets the texel size per em; 64 is the crossover point for optimal quality on Retina displays.
+   * -pxrange 4: The distance range encoded in the field. This value must be passed to the Metal shader as a uniform to ensure consistent smoothing.3
+4. Metadata Integration: The generated JSON metadata includes planeBounds and atlasBounds, which the Rust engine must use to calculate UV coordinates and quad dimensions for each node label.11
+The Radial Focus Field: Continuous Blur Reveal Mechanics
+The defining visual characteristic of the Epistemos label system is the continuous radial blur reveal. Labels are not binary; they emerge from a diffused, cloud-like state into crisp typography as they approach the camera’s focal point or as the user zooms into a specific region.14 This effect is driven entirely within the Metal fragment shader to avoid the performance overhead of per-node CPU calculations.10
+Mathematical Derivation of the Focus Gradient
+The shader determines the focal state by calculating the distance between the node's world-space position and the camera focal point. The camera focal point is derived from the zoom and pan state maintained in engine.rs and passed to the shader via the uniform buffer.14
+The focus intensity,   , is calculated using a smoothstep function to create a smooth transition between the focal radius and the blur radius 10:
+  
+
+This intensity value    is then used to manipulate two key properties of the SDF reconstruction: the edge threshold and the smoothing width.4
+SDF Boundary Manipulation for the "Apple Blur" Aesthetic
+To simulate a diffused "cloud" morphing into sharp text, the shader widens the alpha transition range based on   . In a standard SDF shader, the edge is defined by a narrow transition around the 0.5 distance value. For the Epistemos effect, this transition is dynamically expanded.4
+* In-Focus State:   . The shader uses a very sharp transition: smoothstep(0.48, 0.52, sdf_dist).
+* Out-of-Focus State:   . The shader expands the range: smoothstep(0.1, 0.9, sdf_dist).
+This expansion causes the glyph to lose its sharp definition and appear as a soft, glowing blob. The alpha channel is simultaneously attenuated as    increases, ensuring that distant labels fade into invisibility rather than cluttering the screen.10
+Metal Shader Implementation: Radial Focus SDF
+The following fragment shader logic demonstrates the integration of the focus field with MSDF reconstruction. This code must be embedded within the SHADER_SOURCE constant in renderer.rs.3
+
+
+C++
+
+
+
+
+struct LabelUniforms {
+   float2 camera_focus;
+   float focus_radius;
+   float blur_radius;
+   float2 unit_range; // pxrange / atlas_size
+};
+
+float median(float3 rgb) {
+   return max(min(rgb.r, rgb.g), min(max(rgb.r, rgb.g), rgb.b));
+}
+
+fragment float4 label_fragment(VertexOut in [[stage_in]],
+                              texture2d<float> msdf_tex [[texture(0)]],
+                              sampler s [[sampler(0)]],
+                              constant LabelUniforms &u [[buffer(1)]]) {
+   // 1. Calculate radial focus intensity
+   float dist_to_focus = distance(in.world_pos.xy, u.camera_focus);
+   float focus_intensity = smoothstep(u.focus_radius, u.blur_radius, dist_to_focus);
+   
+   // 2. Early exit for invisible labels
+   if (focus_intensity >= 0.95 && in.zoom_level < 0.5) {
+       discard_fragment();
+   }
+
+   // 3. Sample MSDF and reconstruct distance
+   float3 sample = msdf_tex.sample(s, in.uv).rgb;
+   float sig_dist = median(sample) - 0.5;
+
+   // 4. Dynamic edge smoothing based on focus
+   float edge_width = mix(fwidth(sig_dist), 0.5, focus_intensity);
+   float alpha = smoothstep(-edge_width, edge_width, sig_dist);
+   
+   // 5. Apply focus-based alpha fading
+   alpha *= (1.0 - focus_intensity);
+
+   return float4(in.color.rgb, alpha * in.color.a);
+}
+
+Kinetic Physics Polish: Rubbery Stability and Viscous Damping
+The current Epistemos physics engine is characterized by a "Garry's Mod" rubbery feel, which is a deliberate aesthetic choice. To polish this behavior, the engine must balance the organic volatility of the force-directed layout with numerical stability to prevent labels from vibrating or oscillating indefinitely.19
+Transitioning to Verlet Integration
+The current simulation appears to use Euler integration, which is first-order and prone to energy drift, leading to the "exploding" node behavior often seen in high-velocity physics.22 For a stabilized "rubbery" feel, the engine should transition to Verlet integration. Verlet is a second-order integrator that is inherently more stable because it does not store velocity explicitly, instead deriving it from the difference between the current and previous positions.22
+The Verlet update equation for a node position    is:
+  
+
+To add the required "viscous" damping, the formula is modified to include a drag coefficient   :
+  
+
+This scheme preserves the momentum and elasticity of the system while providing a predictable path to equilibrium.22
+Spring Constant Tuning and Mass-Drag Systems
+The "rubbery" feel is a function of the relationship between the spring stiffness    (Hooke's Law) and the damping coefficient   .19
+Physical State
+	Tuning Goal
+	Recommended Values
+	Viscous Settling
+	High damping, low stiffness
+	  
+
+	Bouncy/Chaotic
+	Low damping, high stiffness
+	  
+
+	Garry's Mod Polish
+	Moderate damping, high stiffness
+	  
+
+	The "mass-drag" system described in the Vision Backlog requires that nodes with higher mass (e.g., Folders) exhibit more inertia and higher drag resistance.27 This is implemented by scaling the acceleration    and the drag coefficient relative to the node’s mass attribute in simulation.rs. This ensures that large structural nodes move sluggishly while small "Idea" nodes zip around them with high frequency.19
+Semantic Zoom and Importance-Based Culling
+To manage the visual density of labels in a graph with 10K+ nodes, a hierarchical culling system must be implemented. This system uses semantic zoom thresholds to ensure that only relevant information is displayed at any given magnification.3
+Hierarchical Visibility Thresholds
+The visibility of a label is tied to the node's importance   , which is calculated in the Rust engine based on its hierarchical level and connectivity (degree).30
+   * Layer 0-1 (Folders): Labels reveal at 15% zoom. These are the anchors.
+   * Layer 2-3 (Notes/Chats): Labels reveal at 50% zoom.
+   * Layer 4 (Ideas): Labels reveal at 85% zoom.
+These thresholds are passed to the fragment shader as per-node attributes. The shader uses the current zoom_level to calculate an importance_alpha.3
+Density-Aware GPU Culling
+When labels overlap at high density, the system must prioritize the most important nodes. Implementing this on the CPU is    for overlap detection, which is unacceptable.32 Instead, Epistemos adopts a GPU-driven approach using an atomic counter and an importance-sorted buffer.34
+   1. Screen-Space Binning: A compute shader divides the screen into a 32x32 grid.
+   2. Importance Accumulation: For each grid cell, the shader tracks the maximum importance value already "claimed" by a label.
+   3. Draw-Decision: If a node's importance is greater than the cell's current threshold, its label is marked as visible. Otherwise, it is culled.33
+G. Critical Architecture Audit: Contesting the Current Implementation
+The current Epistemos graph system, while functional at its current scale, possesses several architectural patterns that will become bottlenecks as the knowledge vault expands to 100K+ entities.
+G1. Renderer Architecture: The Case for Precompilation
+The practice of compiling Metal Shading Language (MSL) from source strings at runtime in renderer.rs is a suboptimal pattern for production software. While convenient for rapid development, new_library_with_source() incurs a significant CPU and energy cost every time the application launches.36
+   * Contention Issue: The current file-lock workaround in AppBootstrap indicates that shader compilation is already causing launch delays and resource contention.
+   * Recommendation: Transition to precompiled .metallib files using the Metal compiler during the build phase. This allows for deeper optimization by the compiler and immediate pipeline state creation via new_library_with_data(), eliminating the startup bottleneck entirely.36
+   * Tile-Based Deferred Rendering: The current immediate-mode pipeline does not leverage the Tile-Based Deferred Rendering (TBDR) architecture of Apple Silicon. For glow and blur effects, a tile-based approach would allow the GPU to perform multi-pass effects within local tile memory, dramatically reducing the bandwidth required to write and read the glow buffers.14
+G2. Physics Simulation: FMM and Velocity Integration
+The reliance on Barnes-Hut for N-body repulsion is standard, but the implementation of link/spring forces on the CPU creates a significant "pipeline bubble".41 As the number of edges grows toward 500K, the CPU will spend more time iterating over edges than the GPU spends on the global N-body calculation.43
+   * Algorithm Crossover: For systems exceeding 50K nodes, the Fast Multipole Method (FMM) should be investigated. FMM achieves    complexity by using local expansions, which are more computationally expensive than the quadtree approximations of Barnes-Hut but scale better as density increases.42
+   * Spatial Hashing: The quadtree used for Barnes-Hut is difficult to parallelize efficiently on the GPU due to deep tree traversals and thread divergence.41 A grid-based spatial hash is recommended for collision detection and nearby-node queries, as it provides constant-time lookups and is significantly more cache-friendly on Apple GPUs.43
+G3. Ontology and Data Model: Hierarchical Composite Bodies
+The 5-layer hierarchy is currently a visual tag, but it is not leveraged for simulation performance. This is a missed opportunity for "Hierarchical Body Simulation".42
+      * The Problem: If a folder has 200 children, the simulation treats them as 200 independent masses. This leads to high-frequency jitter and increased compute.
+      * Recommendation: Treat clusters (folders) as single aggregate masses for distant N-body interactions. Only resolve internal child forces when the camera is zoomed in on the cluster. This "Level of Detail" for physics would reduce the number of active bodies in the repulsion calculation by orders of magnitude.42
+      * Compressed Sparse Row (CSR): If edges remain on the GPU, they should be stored in CSR format. This format is the gold standard for GPU graph traversal, as it packs the adjacency data into contiguous memory, maximizing warp occupancy during force propagation.31
+G4. Memory and Data Transfer: True Zero-Copy
+While storageModeShared is used, the current FFI pattern involves Swift calling Rust to "render," which then likely involves some data movement or validation overhead.48
+      * Zero-Copy Evolution: The Rust engine should write node positions and attributes directly into a persistent, mapped MTLBuffer. Swift should merely handle the lifecycle of this buffer and issue the draw call referencing the address already populated by the Rust compute kernels. This removes the "FFI bridge" from the per-frame critical path.48
+H. Performance Analysis and Stress Testing
+The integration of MSDF labels at 120fps requires a strict budget for fragment shader execution. On an M2 Pro, the frame budget for 120fps is 8.33ms.51
+Expected Cost per Node (10K Scale)
+At 10,000 nodes, assuming 50% are on screen and have visible labels:
+Phase
+	CPU (Rust)
+	GPU (Metal)
+	Memory Bandwidth
+	Physics
+	1.2ms
+	0.8ms
+	Negligible
+	SDF Vertex
+	0.1ms
+	0.3ms
+	2.4 MB/frame
+	SDF Fragment
+	0.0ms
+	3.2ms
+	18.5 MB/frame
+	Glow/Blur
+	0.0ms
+	1.5ms
+	12.0 MB/frame
+	Total
+	1.3ms
+	5.8ms
+	32.9 MB/frame
+	The system comfortably fits within the 8.33ms budget for 10K nodes. However, at 100K nodes, the fragment cost of labels becomes the primary bottleneck. The implementation of density-aware culling is not merely a feature, but a requirement for maintaining 120fps as the graph scales.40
+Scalability and VRAM Constraints
+The memory footprint per node is approximately 128 bytes (Position SoA + Attributes). At 1M nodes, this consumes only 128MB of VRAM, which is well within the limits of M2 Pro hardware. The bottleneck will be the 500K edges, which, if rendered as Bezier curves, require substantial tessellation.47 Moving edge tessellation from the CPU to a Metal Mesh Shader is the recommended long-term solution for 1M+ entity scalability.38
+Implementation Architecture: Rust-Swift-Metal Pipeline
+The optimal split of responsibilities ensures that each layer handles the data it is most efficient at processing.
+Rust Core (The Source of Truth)
+      * Camera State: Manages the target_focus, current_zoom, and pan_offset.
+      * Simulation: Executes Verlet integration and force updates.22
+      * Metadata: Computes node importance and hierarchical_depth.
+      * FFI: Exports a flat pointer to the NodePosition and NodeAttribute buffers for Metal to consume.48
+Swift Layer (The Orchestrator)
+      * Texture Loading: Loads the SF-Mono_mtsdf.png once using MTKTextureLoader with origin:.bottomLeft and sRGB: false.3
+      * Pipeline Setup: Creates the MTLRenderPipelineState for the SDF labels, ensuring blending is configured for alpha transparency (source:.sourceAlpha, destination:.oneMinusSourceAlpha).3
+      * Input Handling: Translates NSGestureRecognizer events into camera state updates for the Rust engine.
+Metal Pipeline (The Execution)
+      * Vertex Shader: Performs billboarding and calculates the distance(world_pos, focus_point).
+      * Fragment Shader: Executes the MSDF median reconstruction and radial focus reveal.3
+      * Compute Shader: Handles the importance-based culling and populates the Indirect Command Buffer.48
+F. The "Apple Feel" Polish: Color, Glow, and Motion
+To achieve a native feel, the labels must be responsive to the overall visual theme and movement of the graph.
+Theme-Aware Coloring
+The shader receives the current theme (Light/Dark) as a uniform. Instead of a hard black/white toggle, the labels use a dynamic contrast calculation. In Dark mode, labels use a "Paper" white (0.9, 0.9, 0.9) with a slight additive glow. In Light mode, they use a "Graphite" grey (0.15, 0.15, 0.15) with a high-contrast shadow for legibility against colored nodes.3
+Glow Interaction
+The relationship between the node's glow and the label's focus is reciprocal. When a label is fully crisp (  ), the node's central glow is dimmed by 20% to increase label contrast.14 As the label blurs out, the node's glow intensity returns to 100%, allowing the node to "shine through" the diffused label cloud.14
+Motion Blur During Pan/Drag
+Directional motion blur is applied to labels during rapid movement. This is achieved by sampling the velocity vector    from the Rust engine. The fragment shader takes 4-8 samples along the vector   , averaging the alpha values. This is only active for sharp labels; blurred labels already provide a sufficient sense of motion due to their diffused nature.54
+Settings UI and Tuning Specifications
+The following parameters are exposed to the Swift UI layer to allow for fine-grained tuning of the user experience.
+Setting
+	Range
+	Recommended
+	Description
+	Label Sensitivity
+	0.0 - 1.0
+	0.6
+	Zoom level where leaf labels begin appearing.
+	Focus Radius
+	50 - 500 px
+	200 px
+	The size of the "crisp" central circle.
+	Blur Hardness
+	0.1 - 1.0
+	0.4
+	Steepness of the blur reveal gradient.
+	Spring Stiffness
+	0.01 - 1.0
+	0.55
+	Elasticity of the node connections.
+	Viscous Damping
+	0.1 - 0.99
+	0.85
+	Speed at which nodes settle to equilibrium.
+	Conclusion: A Unified Kinetic Typography System
+The integration of MSDF text labels into the Epistemos renderer transforms the graph from a purely visual abstraction into a legible semantic workspace. By offloading the complexity of the "Apple blur" reveal to the Metal fragment shader and utilizing GPU-driven culling via Indirect Command Buffers, the system achieves a level of scalability and performance that is indistinguishable from native system interfaces. The transition to Verlet integration and the implementation of mass-dependent damping ensures that the "Garry's Mod" kinetic energy remains a core part of the user experience while providing the stability required for deep intellectual work. This architecture not only meets the current requirements for 10K nodes at 120fps but provides a clear path toward the 1M+ entity future of Epistemos.
+Works cited
+      1. Distance field fonts - libGDX, accessed April 2, 2026, https://libgdx.com/wiki/graphics/2d/fonts/distance-field-fonts
+      2. Rendering Text in Metal with Signed-Distance Fields, accessed April 2, 2026, https://metalbyexample.com/rendering-text-in-metal-with-signed-distance-fields/
+      3. Performant, Crisp Text Rendering in Metal with Multi‑Channel Signed Distance Field (MSDF) | by Sihao Lu | Medium, accessed April 2, 2026, https://medium.com/@sihaolu/performant-crisp-text-rendering-in-metal-with-multi-channel-signed-distance-field-msdf-9acd634d0052
+      4. Antialiasing For SDF Textures - Andrew Cassidy, accessed April 2, 2026, https://drewcassidy.me/2020/06/26/sdf-antialiasing/
+      5. Guide to SDF+MSDF Fonts - Red Blob Games, accessed April 2, 2026, https://www.redblobgames.com/articles/sdf-fonts/
+      6. Multi-Channel Signed Distance Field Fonts with MonoGame – Part 1 - omni's hackpad, accessed April 2, 2026, https://badecho.com/index.php/2023/09/24/msdf-fonts/
+      7. Fonts - Apple Developer, accessed April 2, 2026, https://developer.apple.com/fonts/
+      8. Gentle Intro to System Default Monospace Fonts (Part 2/2) | Ian Y.E. Pan, accessed April 2, 2026, https://ianyepan.github.io/posts/system-default-monospace-fonts-pt2/
+      9. Which open-source monospaced font is best for coding? | by Matej Latin | UX Collective, accessed April 2, 2026, https://uxdesign.cc/which-open-source-monospaced-font-is-best-for-coding-6bafd8d4b43c
+      10. Signed Distance Field Fonts - outline and bevel - Red Blob Games, accessed April 2, 2026, https://www.redblobgames.com/x/2404-distance-field-effects/
+      11. DJBen/MSDFTextRender-Metal: Render crisp text in Metal using multiple-channel signed distance fields with Metal shading language and Swift - GitHub, accessed April 2, 2026, https://github.com/DJBen/MSDFTextRender-Metal
+      12. Signed Distance Field Fonts - basics - Red Blob Games, accessed April 2, 2026, https://www.redblobgames.com/x/2403-distance-field-fonts/
+      13. MSDF Text rendering : Text looks weird when zooming out - Questions - three.js forum, accessed April 2, 2026, https://discourse.threejs.org/t/msdf-text-rendering-text-looks-weird-when-zooming-out/87713
+      14. Liquid Glass: iOS Effect Explanation | by AmirHossein Aghajari ..., accessed April 2, 2026, https://medium.com/@aghajari/liquid-glass-ios-effect-explanation-dabadd6414ae
+      15. Progressive Blur in SwiftUI - Design+Code, accessed April 2, 2026, https://designcode.io/swiftui-handbook-progressive-blur/
+      16. Vulkan/examples/radialblur/radialblur.cpp at master · SaschaWillems/Vulkan - GitHub, accessed April 2, 2026, https://github.com/SaschaWillems/Vulkan/blob/master/examples/radialblur/radialblur.cpp
+      17. MetalGraph: a new way of working with Metal shaders for SwiftUI | by Victor Baro | Medium, accessed April 2, 2026, https://medium.com/@victorbaro/metalgraph-a-new-way-of-working-with-metal-shaders-for-swiftui-bed1cf1a2b81
+      18. Shape Lens Blur Effect with SDFs and WebGL - Codrops, accessed April 2, 2026, https://tympanus.net/codrops/2024/06/12/shape-lens-blur-effect-with-sdfs-and-webgl/
+      19. Conservation of Energy as a spring oscillates, accessed April 2, 2026, http://spiff.rit.edu/classes/phys311/workshops/w8b/w8b.html
+      20. Developed Numerical Simulation of Falling and Moving Objects in Viscous Fluids under the Action of a Reynolds Lubrication Theory and Low Reynolds Numbers - Scirp.org., accessed April 2, 2026, https://www.scirp.org/journal/paperinformation?paperid=98683
+      21. Duration modeling with Hidden Markov models - UvA-DARE (Digital Academic Repository), accessed April 2, 2026, https://pure.uva.nl/ws/files/2206811/29699_132533y.pdf
+      22. Euler vs Verlet Game Physics - Johan Kåhrström, accessed April 2, 2026, http://kahrstrom.com/gamephysics/2011/08/03/euler-vs-verlet/
+      23. Pros and cons of different integrators [closed] - Game Development Stack Exchange, accessed April 2, 2026, https://gamedev.stackexchange.com/questions/33694/pros-and-cons-of-different-integrators
+      24. Comparison of Simulation Techniques using Particle Systems, accessed April 2, 2026, https://www.cs.rpi.edu/~cutler/classes/advancedgraphics/F05/assignments/final_projects/mccarj7/index.html
+      25. Is Verlet integration misunderstood or am I missing something? : r/gamedev - Reddit, accessed April 2, 2026, https://www.reddit.com/r/gamedev/comments/1ymi4z/is_verlet_integration_misunderstood_or_am_i/
+      26. Finding the constant of an spring using a simulation - YouTube, accessed April 2, 2026, https://www.youtube.com/watch?v=lwPWttY8WHE
+      27. Finite Element Analysis for Linear Viscoelastic Materials Considering Time-Dependent Poisson's Ratio: Variable Stiffness Method - MDPI, accessed April 2, 2026, https://www.mdpi.com/2076-3417/14/8/3189
+      28. High-Force Dynamic Mechanical Analysis (DMA) - MTS Systems, accessed April 2, 2026, https://www.mts.com/-/media/materials/pdfs/brochures/100-359-999b_DMA_HighForce.pdf?as=1
+      29. Bottom-Up Multiscale Approach to Estimate Viscoelastic Properties of Entangled Polymer Melts with High Glass Transition Temperature | Macromolecules - ACS Publications, accessed April 2, 2026, https://pubs.acs.org/doi/10.1021/acs.macromol.1c02044
+      30. Fast GPU-based Label Propagation Algorithm (LPA) for Community Detection - arXiv, accessed April 2, 2026, https://arxiv.org/pdf/2411.11468
+      31. Large-Scale Graph Label Propagation on GPUs - Institutional Knowledge (InK) @ SMU - Singapore Management University (SMU), accessed April 2, 2026, https://ink.library.smu.edu.sg/context/sis_research/article/9471/viewcontent/Large_scaleGraphLabel_av.pdf
+      32. Fast and Flexible Overlap Detection for Chart Labeling with Occupancy Bitmap - UW Interactive Data Lab, accessed April 2, 2026, https://idl.cs.washington.edu/files/2021-FastLabels-VIS.pdf
+      33. Dynamic non-overlapping label placement for three-dimensional point-features - OSTI, accessed April 2, 2026, https://www.osti.gov/servlets/purl/1142737
+      34. Indirect drawing and GPU culling - Win32 apps | Microsoft Learn, accessed April 2, 2026, https://learn.microsoft.com/en-us/windows/win32/direct3d12/indirect-drawing-and-gpu-culling-
+      35. Metal Indirect command buffer with multiple instances and multiple LOD - Stack Overflow, accessed April 2, 2026, https://stackoverflow.com/questions/77940931/metal-indirect-command-buffer-with-multiple-instances-and-multiple-lod
+      36. Optimizing GPU performance | Apple Developer Documentation, accessed April 2, 2026, https://developer.apple.com/documentation/xcode/optimizing-gpu-performance
+      37. Beyond the Basics: Harnessing Metal for Custom GPU-Accelerated Image Processing in iOS, accessed April 2, 2026, https://medium.com/@lioz.balki1/beyond-the-basics-harnessing-metal-for-custom-gpu-accelerated-image-processing-in-ios-b31bd9a366bf
+      38. Mesh Shaders and Meshlet Culling in Metal 3, accessed April 2, 2026, https://metalbyexample.com/mesh-shaders/
+      39. Work Graphs in Direct3D 12: A Case Study of Deferred Shading | NVIDIA Technical Blog, accessed April 2, 2026, https://developer.nvidia.com/blog/work-graphs-in-direct3d-12-a-case-study-of-deferred-shading/
+      40. GPU-Driven Rendering in the Quest 2 and 3 - Vulkan, accessed April 2, 2026, https://vulkan.org/user/pages/09.events/vulkanised-2026/1415-Lucas-Silva-DevshGraphicsProgramming.pptx.pdf
+      41. Stochastic Barnes-Hut Approximation for Fast Summation on the GPU - Dynamic Graphics Project, accessed April 2, 2026, https://www.dgp.toronto.edu/projects/stochastic-barnes-hut/Stochastic_Barnes_Hut.pdf
+      42. CS267: Notes for Lecture 25, Apr 16 1996 - People @EECS, accessed April 2, 2026, https://people.eecs.berkeley.edu/~demmel/cs267/lecture27/lecture27.html
+      43. 20k-particle N-Body simulation of an exponential galaxy disk with the Barnes-Hut with Higher-Order-Multipoles method : r/Physics - Reddit, accessed April 2, 2026, https://www.reddit.com/r/Physics/comments/1qxfuhf/20kparticle_nbody_simulation_of_an_exponential/
+      44. Stochastic Barnes-Hut Approximation for Fast Summation on the GPU - arXiv, accessed April 2, 2026, https://arxiv.org/html/2506.02219v1
+      45. GraphWaGu: GPU Powered Large Scale Graph Layout Computation and Rendering for the Web - Eurographics, accessed April 2, 2026, https://diglib.eg.org/bitstream/handle/10.2312/pgv20221067/073-083.pdf
+      46. Tensor Core Accelerated Fast Multipole Method for GROMACS - SC25 supercomputing, accessed April 2, 2026, https://sc25.supercomputing.org/proceedings/posters/poster_files/post156s2-file3.pdf
+      47. High Performance and Scalable GPU Graph Traversal - Research at NVIDIA, accessed April 2, 2026, https://research.nvidia.com/sites/default/files/pubs/2011-08_High-Performance-and/BFS%20TR.pdf
+      48. Encoding indirect command buffers on the GPU | Apple Developer Documentation, accessed April 2, 2026, https://developer.apple.com/documentation/Metal/encoding-indirect-command-buffers-on-the-gpu
+      49. Advancing GPU-Driven Rendering with Work Graphs in Direct3D 12 - NVIDIA Developer, accessed April 2, 2026, https://developer.nvidia.com/blog/advancing-gpu-driven-rendering-with-work-graphs-in-direct3d-12/
+      50. Encoding indirect command buffers on the CPU | Apple Developer Documentation, accessed April 2, 2026, https://developer.apple.com/documentation/Metal/encoding-indirect-command-buffers-on-the-cpu
+      51. Building a physics simulation engine in rust - The Gistre Blog, accessed April 2, 2026, https://blog.gistre.epita.fr/posts/mathias.kautz-2025-05-12-building_a_physics_simulation_engine_in_rust/
+      52. Text rendering and effects using GPU-computed distances - ubitux/blog, accessed April 2, 2026, https://blog.pkh.me/p/47-text-rendering-and-effects-using-gpu-computed-distances.html
+      53. Indirect command encoding | Apple Developer Documentation, accessed April 2, 2026, https://developer.apple.com/documentation/metal/indirect-command-encoding
+      54. GLSL motion blur per object shader - Blender Artists Community, accessed April 2, 2026, https://blenderartists.org/t/glsl-motion-blur-per-object-shader/635691
+      55. Chapter 27. Motion Blur as a Post-Processing Effect - NVIDIA Developer, accessed April 2, 2026, https://developer.nvidia.com/gpugems/gpugems3/part-iv-image-effects/chapter-27-motion-blur-post-processing-effect

@@ -1,0 +1,202 @@
+﻿Architecting Persistent State Space Models: A Custom Metal Mamba 2 Implementation for Apple Silicon
+The evolution of large language models (LLMs) has reached a critical inflection point where the quadratic scaling of traditional Transformer architectures is no longer sustainable for long-context applications. As sequence lengths push toward the million-token mark, the memory requirements of the Key-Value (KV) cache become a prohibitive barrier, especially for edge computing environments such as those found on Apple Silicon. The introduction of Mamba 2, specifically the Structured State Space Duality (SSD) framework, offers a transformative path forward.1 By unifying state space models (SSMs) with linear attention, Mamba 2 provides the theoretical expressive power of Transformers with the computational efficiency of linear-time recurrence.3 For the Epistemos vault memory system, which requires high-throughput inference (120+ tokens per second) and persistent, session-based memory across massive context windows, a custom Metal Performance Shaders (MPS) implementation is not merely an optimization but a fundamental requirement. This report delineates the architectural design, kernel-level optimizations, and systems integration strategies required to realize this vision on M3 and M4 Mac hardware.
+Theoretical Foundations of State Space Duality and Mamba 2
+The shift from Mamba 1 to Mamba 2 represents a significant advancement in "hardware-aware" algorithmic design. While the original Mamba architecture utilized a selective scan mechanism that was inherently sequential, Mamba 2 introduces the State Space Duality (SSD) framework.1 SSD establishes a mathematical equivalence between structured SSMs and various forms of linear attention, allowing for the unrolling of recurrent computations into structured matrix operations that are highly efficient on modern GPU hardware.4
+At the core of the Mamba 2 block is the transformation of input sequences through a series of linear projections, depthwise convolutions, and the selective state space operation. The input is first expanded to a higher-dimensional space, typically doubling the model dimension   .6 This expanded vector is bifurcated: one path undergoes a 1D convolution to capture local dependencies—essential for maintaining contextual coherence—while the other acts as a gating mechanism.6 The selective SSM then processes the primary path, using input-dependent parameters   ,   , and    to update the latent state   .4
+The discretization of the continuous state space equations is the primary mechanism for content-aware selection. The state equation    is discretized using the step size   , resulting in the recurrence   , where    and   .4 In Mamba 2, the matrix    is often constrained to a scalar-identity structure, which simplifies the discretization and enables the SSD matrix decomposition.3 This simplification allows the model to treat the entire batch as a long sequence while preventing state leakage between distinct sequences by setting the state transition    to zero at sequence boundaries.3
+The semiseparable matrix representation is the mathematical bridge that enables parallelization. By unrolling the recurrence, the output    can be expressed as a single matrix multiplication   , where    is a lower-triangular semiseparable matrix representing the system's dynamics.4 The SSD algorithm factorizes this matrix into blocks, allowing for the majority of the computation to be performed as batched matrix multiplications (BMM), which are the most optimized primitives on Apple Silicon GPUs.1
+Metal Kernel Architecture for Selective Scan
+The "heart" of any Mamba implementation is the selective scan. While the SSD algorithm allows for parallelization during the prefill phase, the decode phase (autoregressive generation) remains inherently sequential at the token level.1 To achieve the target of 120+ tokens per second, the Metal kernels must be engineered to minimize latency and maximize register residency for the hidden state   .
+Associative Scan and the Blelloch Algorithm
+Parallelizing the scan across the sequence length during prefill is achieved through associative scan techniques. The Blelloch scan is a canonical work-efficient parallel prefix sum algorithm that is highly amenable to GPU architectures.8 It involves two primary phases: the up-sweep (reduction) and the down-sweep.9
+In the up-sweep phase, the sequence is treated as the leaves of a binary tree. Partial products of the state transitions are computed as the algorithm moves toward the root.9 In the context of Mamba 2, the "sum" is the associative operation of the state update. If   , then the transition between states can be represented as a tuple   . The associative operator for combining two transitions    and    is   .11
+The down-sweep phase traverses back from the root, using the partial results to construct the final prefix states.9 In Metal, this must be implemented using threadgroup memory (L1 cache) for synchronization within a block and device memory for global state passing between blocks.8 The implementation of "Stable Segsum" is critical here; to avoid numerical instability in log-space, the algorithm must use cumulative sums carefully to prevent catastrophic cancellation.5
+SIMD Shuffle and Threadgroup Optimizations
+Apple Silicon GPUs feature a unique memory hierarchy that dictates the optimal tile size and synchronization strategy. Each threadgroup has access to 32KB of shared memory, while each SIMD-group (32 threads) has a massive 208 KiB register file.13 For the selective scan, the goal is to keep the hidden state   —which can be    or    dimensions—entirely in registers.7
+The simd_shuffle instruction allows for nearly zero-latency data exchange within a 32-thread SIMD-group.14 By using simd_shuffle to perform the associative scan for segments of 32 tokens, the kernel can avoid threadgroup memory access entirely for small sub-windows.14 For larger segments, the 32KB threadgroup memory serves as the exchange tier between SIMD-groups.14 Empirical data suggests that on M1 and M3 GPUs, threadgroup memory barriers are relatively inexpensive (approximately 2 cycles), but the true performance killer is scattered memory access patterns.14 Thus, the scan kernel must be structured to ensure coalesced reads from device memory into registers.
+GPU Tier
+	Capacity
+	Latency (Cycles)
+	Role in Mamba 2
+	Registers
+	208 KiB per SIMD-group
+	0-1
+	Persistent state storage for   
+	SIMD Shuffle
+	Intra-group exchange
+	1-2
+	Fast scan for sub-blocks of 32 tokens
+	Threadgroup Memory
+	32 KiB
+	2-4
+	Exchange tier for cross-SIMD scan
+	System Cache (SLC)
+	8-96 MB
+	20-50
+	Intermediate state storage between layers
+	Unified Memory
+	8-512 GB
+	100+
+	Model weight and context storage
+	13
+SSD Matrix Decomposition and Block Matmuls
+During the prefill phase, Mamba 2 treats the SSM operation as a structured matrix multiplication. The SSD algorithm decomposes the semiseparable matrix    into a grid of    blocks.5 This decomposition allows the majority of the compute to be offloaded to highly optimized batched matrix multiplication (BMM) kernels.
+The diagonal blocks of the SSD matrix are themselves smaller semiseparable matrices, which can be computed using a quadratic form similar to standard attention but without the softmax bottleneck.5 The off-diagonal blocks are low-rank and can be factorized, resulting in a significantly reduced number of unique blocks (  ) that need to be computed.5
+Mapping this to Metal Performance Shaders (MPS), we can utilize MPSMatrixMultiplication for the dense projections, but the SSD-specific BMMs require custom kernels to handle the log-space decay factors and the unique tiling requirements of the semiseparable structure.7 The optimal chunk size    is typically between 128 and 256 tokens, balancing the compute intensity of the BMMs with the register pressure required to store the intermediate states.5
+Kernel Fusion and Amdahl's Law
+A significant bottleneck in the standard Mamba 2 implementation is the overhead of launching multiple sequential kernels. The prefill pipeline involves:
+1. Chunk Cumsum: Computing the cumulative decay factors.
+2. SSD BMM: Computing the input-to-output contribution within chunks.
+3. Chunk State: Computing the final state of each chunk.
+4. State Passing: Propagating states between chunks via a global scan.
+5. Chunk Scan: Applying the initial state of each chunk to its outputs.7
+In the original PyTorch/Triton implementation, fusing these into a single kernel provided a 1.5x to 2.5x speedup.7 For Metal, kernel fusion is even more critical due to the unified memory architecture. Fusing the pre-projection, convolution, and SSD scan into a single "Megakernel" reduces the need to write intermediate results back to device memory (VRAM/DRAM), instead keeping them in the SLC (System Level Cache) or registers.7 This addresses the serialization latency of the state-passing step, which remains the only inherently non-parallel part of the prefill.7
+Convolution via Optimized Metal FFT
+Before the input enters the SSM scan, it passes through a 1D convolution to mix local features.6 While small kernel sizes (e.g., width 4) can be efficiently implemented using sliding window dot products in a combined kernel, longer convolutions are more efficiently handled via the Fast Fourier Transform (FFT).14
+Apple's Accelerate framework provides the vDSP library for FFTs, but for deep integration into a Metal pipeline, a custom GPU-based FFT is superior.14 Research on Apple Silicon GPUs indicates that a custom Radix-8 Stockham kernel in Metal can outperform vDSP by 29%.14 The Stockham autosort formulation is particularly suited for GPUs because it eliminates the bit-reversal permutation step, allowing for coalesced memory access at every stage.15
+For the 1M token context requirement of Epistemos, the FFT approach becomes essential. For   , a four-step decomposition is used to handle sequences that exceed the 32KB threadgroup memory limit.14 By pre-computing the FFT of the convolution kernel and caching it in an MTLBuffer, the real-to-complex FFT can be used to save 50% in both memory and compute.14
+FFT Framework
+	Performance (GFLOPS)
+	Memory Pattern
+	Integration Complexity
+	Apple vDSP (CPU/AMX)
+	107
+	Strided/Packed
+	High (CPU-GPU Sync)
+	Custom Metal (Radix-8)
+	138.45
+	Coalesced (Stockham)
+	Low (GPU Native)
+	NumPy/vDSP Hybrid
+	~80
+	Variable
+	Extreme (Python/C++ Overhead)
+	14
+Hardware Nuances: M3 vs. M4 and Dynamic Caching
+The implementation must adapt to the specific hardware capabilities of the target device. The M4 generation represents a significant leap over M3, particularly in its Neural Engine (ANE) and memory bandwidth.23
+Memory Bandwidth and Throughput
+The M4 Max supports up to 546 GB/s of memory bandwidth, while the binned versions and M4 Pro offer 410 GB/s and 273 GB/s, respectively.23 This is a massive resource for Mamba 2, which is largely memory-bandwidth bound during inference. At 120 tokens per second, the system must read approximately 14GB of weights per second for a 7B parameter model in FP16.13 With quantization to 4-bit, this drops to 3.5GB per second, consuming only a fraction of the available bandwidth and leaving the rest for the 1M token context and state management.20
+The "Dynamic Caching" feature in M3 and M4 GPUs is pivotal for the SSDMegakernel.13 By allocating local memory in real-time based on the precise needs of each threadgroup, the GPU can maintain higher occupancy even with the high register requirements of the selective scan.13 This allows the kernel to mask the latency of global memory fetches by interleaving more active threads.
+The ANE-GPU Pipeline
+The Apple Neural Engine (ANE) is up to 10x more power-efficient for matrix multiplications than the GPU.13 The Orion framework has demonstrated that bypassing CoreML to speak directly to the ANE via private APIs (ANEClient) is not only possible but enables on-device training and high-speed inference for small models.27
+For Mamba 2, a hybrid pipeline is the optimal design:
+1. ANE (Input Projection): Handles the    linear projections and the initial expansion. The ANE's 38 TOPS (M4) are perfectly suited for these dense, non-recurrent operations.23
+2. GPU (Selective Scan): Handles the inherently recurrent state update. The GPU's flexibility and simd_shuffle capabilities are necessary for the complex dependencies of the SSD scan.7
+3. ANE (Output Projection): Projects the SSM output back to the model hidden dimension and applies the final gating.6
+Using IOSurface-backed zero-copy tensors, the ANE and GPU can share data without the overhead of memory copies, leveraging the unified memory architecture for seamless cross-processor orchestration.20
+Memory Architecture for Million-Token Persistent Memory
+The Epistemos vault requires more than just fast inference; it needs a memory architecture that can handle 1M+ tokens with persistent state caching.
+State Compression and Quantization
+One of the primary advantages of Mamba 2 is that its state size is fixed, independent of sequence length.1 For a 7B model, the total state across 64 layers is approximately 16MB to 256MB, depending on the state dimension   .28 This is a trivial footprint compared to the 50GB+ required for a 1M token KV cache in a Transformer.28
+To further reduce this footprint, we implement state quantization. While the weights and activations may be FP16 or 4-bit, the hidden state    is highly sensitive to precision.7 However, research into BitMamba and ternary weights indicates that hybrid precision—where the SSM recurrence variables remain in full precision while projections are quantized—can preserve accuracy while slashing memory usage.29 We store the state in MTLBuffer using MTLStorageModeShared, enabling the CPU to perform "delta encoding" between states; by only saving the layers that have changed significantly, the disk I/O for persistent storage is minimized.
+Vault Integration with Zero-Copy FlatBuffers
+The persistent memory is implemented as a "vault" of serialized Mamba states. When a user switches sessions, the precomputed state must be loaded in under 50ms.30 We utilize the FlatBuffers binary format for this serialization.30 Unlike JSON or Protobuf, FlatBuffers allows for zero-copy deserialization: the state blob is memory-mapped from the SSD, and the GPU can read the values directly from the mapped buffer without an explicit parsing or allocation step.30
+This zero-copy approach is critical for the perceived responsiveness of the system. On a modern Mac SSD, reading 16-256MB of data takes less than 20ms, and the lack of a parsing phase ensures that the state is ready for the first token generation almost instantly.30
+Serialization Format
+	Deserialization Time
+	Payload Size
+	Zero-Copy Support
+	JSON
+	4.43 ms
+	513 B
+	No
+	Protobuf
+	0.82 ms
+	279 B
+	No
+	FlatBuffers
+	0.00046 ms (per item)
+	339 B
+	Yes
+	MessagePack
+	1.1 ms
+	423 B
+	No
+	30
+Integration Architecture: Swift, Rust, and Metal
+The Epistemos implementation relies on a multi-language stack to balance UI responsiveness, system safety, and raw performance.
+The Swift-Rust-Metal Bridge
+The user interface is built in Swift, providing native integration with macOS services. The core inference logic is implemented in Rust, utilizing the metal-rs crate to manage GPU resources.34 Rust’s ownership model is essential for managing the complex lifetimes of large model weights and 1M token context buffers without the unpredictability of a garbage collector.35
+The FFI (Foreign Function Interface) design is optimized to minimize overhead:
+   * Rust handles model loading (via safetensors), tokenization, and command buffer encoding.34
+   * Metal (.metallib) contains the hand-optimized compute kernels.
+   * Swift orchestrates the high-level application state and uses MTLSharedEvent to synchronize between the asynchronous GPU generation and the UI main thread.28
+By using objc or foreign-types crates in Rust, we can manipulate Metal buffers and command queues directly, bypassing the need for an intermediate C++ layer while still maintaining the same performance as a native Objective-C++ implementation.34
+Speculative Decoding for 120+ Tokens/Sec
+To exceed the raw generation rate of the model, we implement speculative decoding.28 This technique uses a much smaller "draft" model (e.g., a 130M Mamba model) to propose a sequence of tokens, which the larger target model then verifies in parallel.28 Mamba models are uniquely efficient as drafters because their    state means the drafting speed does not degrade as the sequence length grows toward 1M tokens.28
+Benchmarks on M4 Pro systems indicate that a 130M Mamba drafter can achieve 86 tokens/s and an acceptance rate of up to 96% when properly matched with the target model.28 This allows the 7B target model to effectively "skip" forward steps, pushing the perceived generation rate well beyond the 120 tokens/sec target.28
+Performance Targets and Verification
+The success of the custom Metal implementation is measured against absolute targets that define the user experience of the Epistemos vault.
+Prefill and Generation Metrics
+The unified memory architecture of Apple Silicon allows for "zero-copy" prefill, where the input tokens are converted to embeddings on the CPU and then immediately processed by the GPU without an intermediate transfer over a PCIe bus.20 For a 1K token prompt, the prefill should take less than 100ms, while a 100K token document should be ingested in under 5 seconds—performance that is currently "Out of Memory" (OOM) for most Transformer-based implementations on similar hardware.20
+Metric
+	Target (M3/M4)
+	Reference (Transformer)
+	Prefill (1k tokens)
+	< 100 ms
+	80 ms
+	Prefill (100k tokens)
+	< 5 s
+	OOM
+	Generation Rate
+	120+ tok/s
+	30-50 tok/s
+	Memory (1M Context)
+	< 1 GB (State Only)
+	160 GB+ (KV Cache)
+	Vault Load Time
+	< 50 ms
+	N/A
+	17
+Validation and Correctness
+Verification against the official mamba_ssm PyTorch reference is essential to ensure that the custom Metal kernels maintain numerical integrity. We implement bit-exact verification for short sequences and tolerance-based testing (  ) for long-context stability.7 The use of FP32 for the state passing recurrence is mandated to prevent the accumulation of rounding errors over a million tokens.7
+Memory safety is guaranteed through the implementation of bounds checking in all custom kernels, utilizing MTLCommandBuffer error handlers to recover gracefully if a shader exceeds resource limits.13 If the GPU memory pressure becomes too high, the system is designed to fall back to a "layer-wise" execution mode on the CPU, ensuring that the vault remains accessible even in resource-constrained scenarios.40
+Conclusion: The Future of Persistent Memory on Device
+The implementation of Mamba 2 on Apple Silicon via Metal Performance Shaders represents the state-of-the-art in on-device AI efficiency. By combining the linear-time complexity of State Space Duality with the unique architectural advantages of M3 and M4 hardware, we create a system that can manage a lifetime of information—up to 1M tokens—within a persistent, secure, and near-instantaneous vault.2
+The key takeaways from this research include:
+   * Parallel Associative Scan: The Blelloch algorithm in Metal is the engine for prefill speed.9
+   * Zero-Copy Serialization: FlatBuffers and mmap enable sub-50ms state persistence.30
+   * ANE-GPU Hybridization: Offloading non-recurrent layers to the NPU maximizes power efficiency.23
+   * Mamba for Speculation: The    state of Mamba models makes them the ultimate drafters for long-context generation.28
+This architecture not only meets the performance requirements of the Epistemos project but establishes a blueprint for the next generation of "forever memory" applications on Apple's unified memory platform. As Apple Silicon continues to evolve, the shift toward structured state space models will likely become the standard for on-device intelligence, making this implementation a foundational component of the future AI stack.
+Works cited
+      1. A Quantitative Analysis of Mamba-2-Based Large Language Model ..., accessed April 8, 2026, https://www.computer.org/csdl/journal/ca/2025/02/11159607/29Vciyz1mtW
+      2. Mamba for Dummies: Efficient Linear-Time LLMs Explained - Michiel Horstman - Medium, accessed April 8, 2026, https://michielh.medium.com/mamba-for-dummies-linear-time-llms-explained-0d4b51efcf9f
+      3. Revolutionizing Code Completion with Codestral Mamba, the Next-Gen Coding LLM, accessed April 8, 2026, https://developer.nvidia.com/blog/revolutionizing-code-completion-with-codestral-mamba-the-next-gen-coding-llm/
+      4. Mamba2: The Hardware-Algorithm Co-Design That Unified Attention and State Space Models | by Daniel Stallworth | Medium, accessed April 8, 2026, https://medium.com/@danieljsmit/mamba2-the-hardware-algorithm-co-design-that-unified-attention-and-state-space-models-77856d2ac4f4
+      5. Mamba-2: Algorithms and Systems | Princeton Language and ..., accessed April 8, 2026, https://pli.princeton.edu/blog/2024/mamba-2-algorithms-and-systems
+      6. What Is A Mamba Model? | IBM, accessed April 8, 2026, https://www.ibm.com/think/topics/mamba-model
+      7. Accelerating Mamba2 with Kernel Fusion – PyTorch, accessed April 8, 2026, https://pytorch.org/blog/accelerating-mamba2-with-kernel-fusion/
+      8. Recursive Parallel Prefix Scan Using CUDA | by Lukas Bierling | Medium, accessed April 8, 2026, https://medium.com/@lukasbierling/recursive-parallel-prefix-scan-using-cuda-b8181b8527a9
+      9. Chapter 39. Parallel Prefix Sum (Scan) with CUDA - NVIDIA Developer, accessed April 8, 2026, https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+      10. Yes! There's a canonical algorithm called the “Blelloch scan” for prefix sum (ak... | Hacker News, accessed April 8, 2026, https://news.ycombinator.com/item?id=45583737
+      11. Scan.ipynb - Mamba - Colab, accessed April 8, 2026, https://colab.research.google.com/github/srush/annotated-mamba/blob/main/Scan.ipynb
+      12. Parallel Associative Scan · Issue #95408 - GitHub, accessed April 8, 2026, https://github.com/pytorch/pytorch/issues/95408
+      13. Apple M3 - Wikipedia, accessed April 8, 2026, https://en.wikipedia.org/wiki/Apple_M3
+      14. Beating vDSP: A 138 GFLOPS Radix-8 Stockham FFT on Apple Silicon via Two-Tier Register-Threadgroup Memory Decomposition - arXiv, accessed April 8, 2026, https://arxiv.org/html/2603.27569v1
+      15. Beating vDSP: A 138 GFLOPS Radix-8 Stockham FFT on Apple Silicon via Two-Tier Register-Threadgroup Memory Decomposition - ResearchGate, accessed April 8, 2026, https://www.researchgate.net/publication/403307178_Beating_vDSP_A_138_GFLOPS_Radix-8_Stockham_FFT_on_Apple_Silicon_via_Two-Tier_Register-Threadgroup_Memory_Decomposition
+      16. Beating vDSP: A 138 GFLOPS Radix-8 Stockham FFT on Apple Silicon via Two-Tier Register-Threadgroup Memory Decomposition - arXiv, accessed April 8, 2026, https://arxiv.org/pdf/2603.27569
+      17. Mac Studio (2025) - Tech Specs - Apple Support, accessed April 8, 2026, https://support.apple.com/en-us/122211
+      18. Advanced GPU Optimization: Metal & Vulkan Compute from zero to hero - Part 2, accessed April 8, 2026, https://dev.to/javadinteger/advanced-gpu-optimization-metal-vulkan-compute-from-zero-to-hero-part-2-1inn
+      19. MPSMatrixMultiplication | Apple Developer Documentation, accessed April 8, 2026, https://developer.apple.com/documentation/metalperformanceshaders/mpsmatrixmultiplication
+      20. arxiv.org, accessed April 8, 2026, https://arxiv.org/html/2601.19139v1
+      21. The spectrogram on Apple devices. vDSP vs Metal | by Alex Moiseenko | techpro.studio, accessed April 8, 2026, https://medium.com/techpro-studio/the-spectrogram-on-apple-devices-vdsp-vs-metal-8c859756e50a
+      22. Fast Fourier transforms | Apple Developer Documentation, accessed April 8, 2026, https://developer.apple.com/documentation/accelerate/fast-fourier-transforms
+      23. Apple M4 - Wikipedia, accessed April 8, 2026, https://en.wikipedia.org/wiki/Apple_M4
+      24. Apple M4 Vs M3: A Full Analysis of Apple's Latest CPUs - GEEKOM, accessed April 8, 2026, https://www.geekompc.com/apple-m4-vs-m3/
+      25. Can someone explain technically why Apple shared memory is so great that it beats many high end CPU and some low level GPUs in LLM use case? : r/LocalLLM - Reddit, accessed April 8, 2026, https://www.reddit.com/r/LocalLLM/comments/1mw7vy8/can_someone_explain_technically_why_apple_shared/
+      26. Benchmarking LLM Inference Backends - BentoML, accessed April 8, 2026, https://www.bentoml.com/blog/benchmarking-llm-inference-backends
+      27. Orion: Characterizing and Programming Apple's Neural ... - arXiv, accessed April 8, 2026, https://arxiv.org/abs/2603.06728
+      28. mlx-community/speculative-decoding: Native speculative ... - GitHub, accessed April 8, 2026, https://github.com/mlx-community/speculative-decoding
+      29. GitHub - jserv/bitmamba.c: Portable C inference engine for BitMamba-2 models, accessed April 8, 2026, https://github.com/jserv/bitmamba.c
+      30. Binary Serialization Formats. A Technical Benchmark & Decision Guide | by Shekhar Manna, accessed April 8, 2026, https://medium.com/@shekhar.manna83/binary-serialization-formats-e2703f053010
+      31. Binary format shootout | The Old Speice Guy, accessed April 8, 2026, https://speice.io/2019/09/binary-format-shootout/
+      32. Benchmarking Data Serialization: JSON vs. Protobuf vs. Flatbuffers | by Harshil Jani, accessed April 8, 2026, https://medium.com/@harshiljani2002/benchmarking-data-serialization-json-vs-protobuf-vs-flatbuffers-3218eecdba77
+      33. Benchmarks - FlatBuffers Docs, accessed April 8, 2026, https://flatbuffers.dev/benchmarks/
+      34. Async ML Inference on Apple Silicon - code review - Rust Users Forum, accessed April 8, 2026, https://users.rust-lang.org/t/async-ml-inference-on-apple-silicon/139259
+      35. Rust: The Performance Edge for Large Language Model Inference | by Soumyajit Swain, accessed April 8, 2026, https://medium.com/@soumyajit.swain/rust-the-performance-edge-for-large-language-model-inference-59528a66ec68
+      36. Must all Metal Programs interface through swift eventually? : r/GraphicsProgramming, accessed April 8, 2026, https://www.reddit.com/r/GraphicsProgramming/comments/1hl04wn/must_all_metal_programs_interface_through_swift/
+      37. Rust vs Swift - Reddit, accessed April 8, 2026, https://www.reddit.com/r/rust/comments/1kddbf6/rust_vs_swift/
+      38. Performing calculations on a GPU | Apple Developer Documentation, accessed April 8, 2026, https://developer.apple.com/documentation/Metal/performing-calculations-on-a-gpu
+      39. MLX + Exo: Run LLMs on Apple Silicon at Full Speed (2026) - Petronella Technology Group, accessed April 8, 2026, https://petronellatech.com/blog/mlx-exo-unlocking-apple-silicon-s-ml-performance/
+      40. MemAscend: System Memory Optimization for SSD-Offloaded LLM Fine-Tuning - arXiv, accessed April 8, 2026, https://arxiv.org/html/2505.23254v4

@@ -1,3 +1,39 @@
+#if EPISTEMOS_APP_STORE
+import Foundation
+
+// MARK: - TCC Permission State (App Store profile)
+
+/// The App Store build does not expose native computer-use automation.
+/// Keep this state object available for shared UI/source compatibility without
+/// linking screen capture or accessibility automation APIs.
+@MainActor @Observable
+final class TCCPermissionState {
+
+    private(set) var accessibility: TCCStatus = .denied
+    private(set) var screenRecording: TCCStatus = .denied
+    private(set) var automation: TCCStatus = .denied
+
+    var allRequiredGranted: Bool { false }
+
+    var summary: String {
+        "Accessibility: \(accessibility.label) | Screen Recording: \(screenRecording.label) | Automation: \(automation.label)"
+    }
+
+    func refresh() async {
+        accessibility = .denied
+        screenRecording = .denied
+        automation = .denied
+    }
+
+    func startPollingForGrant() {}
+    func stopPolling() {}
+    func requestAccessibility() {}
+    func requestScreenRecording() {}
+    func openScreenRecordingSettings() {}
+    func openAccessibilitySettings() {}
+    func openAutomationSettings() {}
+}
+#else
 import Foundation
 import ScreenCaptureKit
 import os
@@ -150,6 +186,7 @@ final class TCCPermissionState {
         }
     }
 }
+#endif
 
 // MARK: - Permission Status
 

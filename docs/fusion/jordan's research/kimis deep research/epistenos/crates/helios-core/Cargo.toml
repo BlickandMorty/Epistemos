@@ -1,0 +1,22 @@
+[package]
+name = "helios-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Core mathematical primitives: lattice quantization, sketching, coding, inequalities, type-state machine"
+
+[dependencies]
+nalgebra = { workspace = true }
+num-complex = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+fastrand = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }

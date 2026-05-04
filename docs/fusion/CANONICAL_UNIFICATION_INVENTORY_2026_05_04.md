@@ -327,6 +327,7 @@ Then reply: **"UNIFICATION PASS COMPLETE — CANON LIVES IN FUSION"**
 
 ```
 docs/fusion/CANONICAL_UNIFICATION_INVENTORY_2026_05_04.md   ← this doc
+docs/fusion/WORKTREE_PROTOTYPE_CANON_FUSION_QUEUE_2026_05_04.md  ← worktree prototype promotion queue
 docs/fusion/simulation/DOCTRINE.md                          ← TODAY (promoted)
 docs/fusion/simulation/IMPLEMENTATION.md                    ← TODAY (promoted)
 docs/fusion/simulation/SESSION_KICKOFF.md                   ← TODAY (promoted)
@@ -335,6 +336,16 @@ docs/fusion/CODEX_RECOVERY_HANDOFF_2026_05_04.md            ← prior recovery h
 docs/fusion/CANONICAL_RECOVERY_PLAN_2026_05_03.md           ← master sequence
 docs/fusion/HERMES_BRAND_DOCTRINE_2026_05_04.md             ← brand identity
 docs/fusion/COGNITIVE_KERNEL_AUDIT_2026_05_04.md            ← kernel fragmentation map
+docs/fusion/HONEST_HANDLE_FFI_DOCTRINE_2026_05_04.md        ← Rust/Swift ownership canon
+docs/fusion/PLAN_V2_SECTIONS_23_27_RECOVERY_2026_05_04.md   ← editor/streaming/graph anti-pattern recovery
+docs/fusion/AGENT_EVENT_VARIANTS_V16_2026_05_04.md          ← Simulation v1.6 forward event bridge
+docs/fusion/FIVE_LAWS_AND_PHASE_I_2026_05_04.md             ← runtime-memory branch substrate lens
+docs/fusion/CODE_EDITOR_FEATURE_TRUTH_2026_05_04.md         ← editor feature truth bridge
+docs/fusion/RESOURCE_RUNTIME_PHASE_R_BRIDGE_2026_05_04.md   ← resource grants + verified write bridge
+docs/fusion/PROMPT_TREE_LANE_A_BRIDGE_2026_05_04.md         ← Lane A Prompt Tree bridge
+docs/fusion/RECIPE_CACHE_RECOVERY_BRIDGE_2026_05_04.md      ← recipe-cache branch bridge
+docs/fusion/RELEASE_STABILIZATION_BRANCH_BRIDGE_2026_05_04.md ← release-stabilization branch bridge
+docs/fusion/WORKTREE_FUSION_BRAINSTORM_2026_05_04.md        ← selective-port strategy
 docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md             ← will gain §28 pointing here
 
 docs/_consolidated/00_canonical_authority/                  ← top-canon (23 files; pointed-at)
@@ -343,6 +354,12 @@ docs/_consolidated/40_canonical_prompts/                    ← canonical prompt
 
 .claude/worktrees/simulation/                                ← source of TODAY's promotion
 .claude/worktrees/{agent-a0550f9c, hermes-parity, inspiring-heisenberg-ea9dc3, practical-kapitsa-61a251, quirky-pascal-135a98, vigorous-goldberg-3a2d35}/  ← per-worktree maps in §2.5
+/Users/jojo/Downloads/Epistemos-laneA                       ← N1 Prompt Tree / prompt-as-data worktree
+
+agent_core/docs/TOOL_MIGRATION_STATUS.md                     ← first live Tools V2 recovery anchor
+agent_core/docs/EXECUTION_RECEIPT_DOCTRINE_MAPPING.md        ← Quick Capture receipt → T2 Sovereign Gate bridge
+agent_core/docs/CAPTURE_ROUTING_CLASSIFIER.md                ← Quick Capture routing → T4 Resonance Gate bridge
+agent_core/tests/heal_loop_fixtures.md                       ← Quick Capture Try-Heal-Retry fixture bridge
 
 /Users/jojo/Downloads/EPISTEMOS-HERMES-PARITY-PLAN.md       ← canonical Hermes parity ref
 /Users/jojo/Downloads/EPISTEMOS-CODEX-PLAN.md (62KB)

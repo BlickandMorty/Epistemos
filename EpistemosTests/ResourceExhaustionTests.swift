@@ -415,6 +415,50 @@ struct ResourceMemoryPressureTrackingTests {
         #expect(tracker.transition(for: .normal) == nil)
     }
 
+    @Test("PowerGate defers background work while memory pressure is active")
+    func powerGateDefersWhileMemoryPressureIsActive() {
+        let battery = PowerGate.BatterySnapshot(
+            onBattery: false,
+            percent: 100,
+            isCharging: true
+        )
+
+        let clearSnapshot = PowerGate.deferSnapshot(
+            lowPowerModeEnabled: false,
+            thermalState: .nominal,
+            battery: battery,
+            memoryPressureActive: false
+        )
+        #expect(!clearSnapshot.shouldDefer)
+        #expect(clearSnapshot.reason == nil)
+
+        let pressureSnapshot = PowerGate.deferSnapshot(
+            lowPowerModeEnabled: false,
+            thermalState: .nominal,
+            battery: battery,
+            memoryPressureActive: true
+        )
+        #expect(pressureSnapshot.shouldDefer)
+        #expect(pressureSnapshot.reason == .memoryPressure)
+    }
+
+    @Test("Runtime memory pressure transitions update PowerGate")
+    func runtimeMemoryPressureTransitionsUpdatePowerGate() {
+        PowerGate.recordMemoryPressureActive(false)
+        defer { PowerGate.recordMemoryPressureActive(false) }
+
+        var tracker = RuntimeIssueMonitor.MemoryPressureTracker()
+        if let warning = tracker.transition(for: .warning) {
+            RuntimeIssueMonitor.publishPowerGateMemoryPressure(warning)
+        }
+        #expect(PowerGate.isMemoryPressureActive)
+
+        if let recovery = tracker.transition(for: .normal) {
+            RuntimeIssueMonitor.publishPowerGateMemoryPressure(recovery)
+        }
+        #expect(!PowerGate.isMemoryPressureActive)
+    }
+
     @Test("structured memory pressure diagnostics annotate source and scope")
     func structuredMemoryPressureDiagnosticsAnnotateSourceAndScope() async throws {
         let logDirectory = FileManager.default.temporaryDirectory

@@ -1,0 +1,88 @@
+# The architecture to stand on for your cognitive workspace
+
+## Decision to stand on
+
+After weighing your goals against the current platform reality, the architecture I would stand on is this: **native shell, dual editors, one canonical artifact envelope**. Keep **Prose** and **Raw Thoughts** in your fast native Markdown/TextKit 2 surface. Build **Documents** as a separate rich-editing surface using a locally bundled `WKWebView` with **Tiptap/ProseMirror** inside it. Then unify everything above the editor layer with a typed artifact model that emits stable projections for rendering, search, agents, and export. That is the cleanest way to make the app feel like a true cognitive workspace instead of “just Markdown with extra buttons.” citeturn17view1turn32view0turn33view0turn11search0turn30view4
+
+The key mental shift is this: **do not chase one universal file format**. There is no single human-readable format that is simultaneously lossless for rich documents, ideal for agents, ideal for search, and ideal for export. BlockNote explicitly documents JSON as its native, lossless format and calls Markdown and standard HTML conversions lossy; Tiptap’s Markdown layer is still marked beta with edge cases; Pandoc’s manual says conversions across formats can be lossy and that complex tables may not fit its intermediate model. So the “unified language” in your app should be an **internal canonical model with stable projections**, not Markdown, not HTML, and definitely not DOCX. citeturn30view0turn29view5turn21view1
+
+If I compress the whole report into one sentence, it is this: **make the source of truth a typed artifact envelope, not a file format**. That decision resolves your editor split, your Raw Thoughts design, your search scalability, your graph semantics, and your export story all at once. citeturn11search0turn30view0turn21view1
+
+## Provider surfaces worth persisting
+
+For entity["company","Anthropic","ai company"], the useful observable surfaces are **thinking blocks**, **thinking summaries**, **streamed thinking deltas**, and **tool-use blocks**. Anthropic’s current docs say Claude 4 extended thinking returns a **summary of the full thinking process** rather than raw full thinking by default in many configurations, and that the summarization behavior can change; streamed responses can emit `thinking_delta` events and signatures; tool use returns structured `tool_use` calls and corresponding `tool_result` responses. That means Anthropic gives you **valuable visible reasoning artifacts**, but they are not a stable cross-provider planner format and they are not a reliable substitute for your own run log. citeturn18search0turn18search5turn29view4
+
+For entity["organization","OpenAI","ai research company"], the situation is even clearer. The reasoning docs say raw reasoning tokens are **not exposed via the API**, although you can opt into **reasoning summaries** and, in stateless modes, include **encrypted reasoning items** for continuation. Separately, the Agents SDK exposes structured run surfaces like `final_output`, `history`, `interruptions`, resumable `state`, and deeper diagnostics, while tracing records model calls, tool calls, handoffs, guardrails, and custom spans. So this provider gives you **summary surfaces and rich run telemetry**, but again not one universal “scratchpad” object you can build your product around. citeturn29view0turn29view1turn29view2
+
+That leads to the crucial product rule: **provider-visible reasoning should be persisted, but planner scratchpads and generic work summaries must be app-owned artifacts**. Save the provider surfaces because they are real observability. But also create your own typed run artifacts such as **Plan**, **Reasoning Summary**, **Tool Trace**, **Execution Summary**, and **Final Output Summary**. Anthropic’s summaries are model- and display-dependent, and OpenAI’s summaries are opt-in and model-dependent; that is too unstable to be your canonical planner layer. Your runtime should generate the stable layer, while the providers contribute raw evidence. citeturn18search0turn29view0turn29view2
+
+The folder name **Raw Thoughts** is a good decision, but it should not be one flat text file. It should be a run-scoped artifact group. The right pattern is one run folder per provider/model/task with a machine-readable manifest plus human-readable summaries. That gives you auditability without pretending every provider emits the same kind of thought stream. citeturn29view1turn29view2turn18search0
+
+## Editor stack that keeps the app native-feeling
+
+Your pasted blueprint is strongest on the **ontology** and weakest on the assumption that the native editor can smoothly grow into a rich document engine. The docs from entity["company","Apple","consumer tech company"] cut against that. Apple’s WWDC TextKit 2 guidance says `NSTextView` does **not** use TextKit 2 automatically, must be opted into programmatically, and can automatically switch back to TextKit 1 if you hit unsupported content or touch the old `layoutManager` path. Meanwhile, Apple’s public table support remains documented through the older Cocoa text system using `NSTextTable`, `NSTextTableBlock`, and `NSTextView`’s built-in text-table support. That is a loud signal: **TextKit 2 is excellent for prose and custom text work, but it is not the public foundation to bet on for a Notion-like table-and-media document editor today**. citeturn17view1turn16view0
+
+That is why the hybrid path is not a compromise of imagination. It is a response to the actual platform boundary. WebKit’s app-bound-domain guidance says app-supplied local files, data URLs, and HTML strings are treated as app-bound content, and that such views can use `evaluateJavaScript`, injected scripts, and `window.webkit.messageHandlers`. In plain English: **a locally bundled editor inside `WKWebView` is a supported, native-shell-friendly pattern**, especially when the shell, navigation, command palette, graph, search, focus mode, and file operations stay in native AppKit/SwiftUI. citeturn32view0
+
+Tolaria is useful because it proves the pattern you like is already a **rich web editor inside a desktop shell**. Its public architecture doc says the filesystem is the single source of truth, the tech stack uses Tauri with React and TypeScript, the main rich editor is BlockNote, and the raw editor is CodeMirror. Its website also explicitly markets the product as “writes like Notion, saves as Markdown.” So the feel you admire is not coming from a magic native macOS table engine. It is coming from a hybrid architecture with strong product discipline around files and projections. citeturn33view0turn7search3
+
+That said, I would **not** copy Tolaria’s exact editor choice for your app. If you wanted the fastest path to a polished, opinionated block UX, BlockNote would be a strong choice; it already offers block-based JSON documents, stable block IDs, advanced tables, and direct DOCX/PDF export tooling. But your app wants deeper schema control, graph-addressable block anchors, and tight agent/runtime integration. Tiptap is the better foundation for that because it is headless, ProseMirror-native, supports stable node IDs through its UniqueID extension, emits JSON on update, and can render exact HTML from ProseMirror JSON without running a full editor instance. So the right stance is: **use BlockNote as the benchmark, but use Tiptap/ProseMirror as the foundation**. citeturn31view0turn26search0turn29view6turn30view4
+
+This is also the best answer to the “super native fast useful” requirement. The app should feel native because **the shell is native**. The rich text engine does not need to be native to make the product native-feeling. The document canvas is the only surface that should live in the web layer. Everything else should be yours. citeturn32view0turn33view0
+
+## Universal artifact envelope
+
+Your “single source of truth unified language” should be a **universal artifact envelope** with a typed canonical body and standardized projections. That lets different artifact classes share the same indexing, linking, and lifecycle machinery without forcing them into the same editor or file syntax. ProseMirror’s core philosophy is already this: the document is not a blob of HTML but a constrained data structure you control. BlockNote documents are likewise native JSON block arrays, and Tiptap can continuously emit JSON, render exact HTML, and convert to Markdown as a projection. citeturn11search0turn30view4turn30view0
+
+The envelope should look like this conceptually:
+
+| Layer | What it is | Save policy | Why it exists |
+|---|---|---|---|
+| **Canonical body** | Markdown for Prose/Raw Thoughts; ProseMirror JSON for Documents; NDJSON/JSON for Run events | **Always** | Lossless source of truth |
+| **Manifest** | Artifact ID, type, created/updated times, provider/model, backlinks, template, block map | **Always** | Cross-system identity |
+| **HTML snapshot** | Portable rendering output | **Default on for Documents** | Fast preview, exact read-only render, export staging |
+| **Markdown projection** | Agent-readable shadow | **Default on for agent-visible artifacts** | LLM input, Git diffs, external tooling |
+| **Plain-text search projection** | Normalized text with headings, captions, alt text, citations, table text | **Always** | Search and retrieval substrate |
+| **Binary exports** | DOCX/PDF/ODT | **On demand or checkpointed** | Sharing and distribution |
+
+That is the conservative version of your “everything is being created and aged as multiple types” idea. The mistake would be saving **every** projection **all the time** with equal priority. The efficient version is: **always save the canonical body, manifest, and search text; usually save an HTML snapshot; save Markdown shadows when the artifact participates in model work; generate DOCX/PDF only on export or explicit checkpoints**. That gives you the power of multiplicity without turning autosave into projection chaos. citeturn30view0turn30view4turn21view0
+
+This is exactly where your blueprint needs correction. The weak point in the blueprint is the idea that Markdown shadow files can become a symmetrical bidirectional editing bridge for rich docs. That is too optimistic. BlockNote says Markdown conversion is lossy. Tiptap says Markdown support is still beta. Pandoc explicitly warns that more expressive formats and complex tables can become lossy when converted. So the Markdown shadow is excellent for **reading, linking, search seeding, and agent context**, but it should **not** be treated as the equal twin of the document source. citeturn30view0turn29view5turn21view1
+
+This matters for your Raw Thoughts system too. A run folder should therefore contain observable provider-native surfaces plus app-owned projections. For example, a run can have a provider event log, a human-readable reasoning summary, a work summary, and links to the affected Documents and Prose files. That makes the run inspectable over time without incorrectly collapsing rich documents into one Markdown shadow. citeturn29view1turn29view2turn18search0
+
+## Search and graph architecture
+
+The right answer to your search-scaling problem is **not** “make every engine read every original file format directly.” The right answer is: **normalize every artifact into one search projection and index that projection aggressively**. SQLite’s FTS5 docs are very strong here. External-content FTS5 tables let you keep the index separate from the content table, use triggers to keep them aligned, and then rank with `bm25()` while producing `highlight()` and `snippet()` results. That is exactly the architecture you want for a local cognitive workspace: canonical artifacts stay in their native forms, while search runs over a compact normalized text layer. citeturn27view0turn27view1turn27view2
+
+So your “universal reading language” for search should be **`search_text`**, not HTML and not Markdown. Every artifact—Markdown note, ProseMirror document, YAML-heavy note, PDF extraction, tool trace, provider summary—should flow through a parser that emits a normalized text projection with stable IDs back to the source blocks. Then FTS5 indexes that projection. Models can read the Markdown or plain-text projection; search reads `search_text`; the renderer reads the canonical body plus HTML snapshot; exports read the canonical body plus style templates. That is much more scalable than trying to make ripgrep, LLMs, DOCX exporters, and HTML renderers all consume the same source directly. citeturn27view0turn27view1turn30view0turn30view4
+
+This also gives you the right graph semantics. In the graph and visibility layer, **Prose**, **Document**, **Raw Thought**, **Run Summary**, **Tool Trace**, and **Source** should be different artifact types with different icons, ranking weights, and graph filters. Tiptap’s UniqueID support and BlockNote’s stable block IDs mean you can attach graph edges not just at file level but at block level, which is what makes “open the exact paragraph/table/callout this reasoning came from” possible. That is the point where your workspace becomes cognitive rather than clerical. citeturn29view6turn31view0
+
+The clean architecture is therefore this: **filesystem for portability, projections for interoperability, FTS for retrieval, graph for relationships**. Do not collapse those into one layer. citeturn33view0turn27view0
+
+## Implementation path
+
+The first move is to formalize the ontology. Define artifact classes for **Prose**, **Document**, **Raw Thought**, **Run Summary**, **Tool Trace**, **Source**, and **Output**. Give every artifact a stable ID, typed manifest, backlinks, and projection policies. This phase is boring on the surface, but it is the one that prevents the rest of the app from turning into a tangle of special cases. citeturn11search0turn29view1turn29view2
+
+The second move is to keep your current native prose editor and add the **Raw Thoughts** subsystem before you build more editor chrome. Provider surfaces are already heterogeneous enough that you benefit immediately from a run envelope and typed observability. Save Anthropic thinking summaries and tool blocks when exposed; save the other provider’s reasoning summaries, history/state, and traces; and always generate your own **Plan Summary** and **Execution Summary** artifacts after each run. This gives you a stable cognitive timeline early. citeturn18search0turn29view0turn29view1turn29view2turn29view4
+
+The third move is the new Document artifact. Implement it with a local `WKWebView` and Tiptap/ProseMirror. Use local bundled assets, app-bound behavior, and message handlers for the bridge. Keep the shell native. Persist canonical JSON on every meaningful update, generate an HTML snapshot, and generate the Markdown shadow only for agent-visible reads or when links/search require it. citeturn32view0turn30view4turn29view8
+
+The fourth move is search. Create a content table for normalized projections and an FTS5 external-content index over it. Rebuild from source if needed, but otherwise keep the index in sync with triggers and explicit update hooks. Use `bm25()` for ranking and `highlight()` or `snippet()` for result rendering in the native search UI. citeturn27view0turn27view1turn27view2
+
+The fifth move is export. Use HTML snapshot plus templates for rendering; use Pandoc `reference.docx` styling or a document-conversion path when you need DOCX; and treat exports as **artifacts of a point in time**, not as live source formats. That preserves your graph/search/editor integrity. citeturn21view0turn21view1turn25search0
+
+If you force me to reduce the implementation path to one non-negotiable rule, it is this: **never let Markdown, HTML, or DOCX become the source of truth for rich Documents**. They are projections. Your artifact envelope is the source of truth. citeturn30view0turn29view5turn21view1
+
+## Open questions and limits
+
+There are still a few real constraints you should treat as explicit design boundaries.
+
+Tiptap’s Markdown layer is still labeled beta, so if you use Markdown shadows heavily, you should expect edge cases and test them aggressively. Its broader conversion tooling for DOCX/Markdown also includes private/paid paths in current docs, which affects build-vs-buy decisions. citeturn29view5turn25search1turn25search0
+
+BlockNote is excellent for speed, but its docs are explicit that Markdown and standard HTML projections are lossy, and its DOCX/PDF/ODT exporters are in pro packages. That makes it a powerful benchmark and possibly a good short-term option, but not the strongest foundation for a product that wants first-class canonical schemas and long-lived interoperability discipline. citeturn30view0turn30view1
+
+And on the native side, Apple’s text stack is still the hard limit. `NSTextView` can switch back to TextKit 1 for unsupported content, and Apple’s public table APIs are still documented through the older Cocoa text system. So if you ever revisit a “fully native rich document editor” later, treat that as a separate long-horizon bet, not the baseline plan for this workspace. citeturn17view1turn16view0
+
+The strongest version of your idea is not “a Markdown app that also has documents.” It is **a cognitive artifact system with two editor surfaces and one normalized runtime**. That is the architecture worth building.

@@ -50,6 +50,8 @@ public struct VoiceInputButton: View {
     @State private var streamTask: Task<Void, Never>?
     @State private var lastPartial: String = ""
     @State private var lastUpdate: Date = .distantPast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(UIState.self) private var ui
 
     public init(
         style: Style = .icon,
@@ -80,15 +82,7 @@ public struct VoiceInputButton: View {
             case .iconWithPulse:
                 ZStack {
                     if phase == .recording {
-                        Circle()
-                            .stroke(Color.accentColor.opacity(0.35), lineWidth: 1.5)
-                            .frame(width: 26, height: 26)
-                            .scaleEffect(pulseScale)
-                            .opacity(2 - pulseScale)
-                            .animation(
-                                .easeOut(duration: 1.0).repeatForever(autoreverses: false),
-                                value: phase
-                            )
+                        recordingPulseRing
                     }
                     iconLabel
                 }
@@ -134,10 +128,23 @@ public struct VoiceInputButton: View {
         }
     }
 
-    /// Trivial pulse animation seed — toggles between 1.0 and 2.0 on
-    /// `value: phase` change so the ring grows + fades.
-    private var pulseScale: CGFloat {
-        phase == .recording ? 2.0 : 1.0
+    @ViewBuilder
+    private var recordingPulseRing: some View {
+        if reduceMotion || ui.windowOccluded {
+            Circle()
+                .stroke(Color.accentColor.opacity(0.28), lineWidth: 1.5)
+                .frame(width: 26, height: 26)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                let progress = context.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: 1.0)
+                Circle()
+                    .stroke(Color.accentColor.opacity(0.35), lineWidth: 1.5)
+                    .frame(width: 26, height: 26)
+                    .scaleEffect(1.0 + progress)
+                    .opacity(1.0 - progress)
+            }
+        }
     }
 
     // MARK: - Toggle
@@ -194,6 +201,8 @@ public struct VoiceInputButton: View {
                         phase = .error("Speech recognition unavailable.")
                     case .audioEngineFailed(let m):
                         phase = .error("Audio engine: \(m)")
+                    case .audioFormatUnavailable:
+                        phase = .error("Speech audio format unavailable.")
                     case .downloadFailed(let m):
                         phase = .error("Model download: \(m)")
                     case .streamCancelled:
@@ -243,5 +252,6 @@ public struct VoiceInputButton: View {
                          onFinal: { print("FINAL: \($0)") })
     }
     .padding(20)
+    .environment(UIState())
 }
 #endif

@@ -272,6 +272,23 @@ struct VaultSyncServiceAuditTests {
         #expect(validation.failureReason == nil)
     }
 
+    @Test("MAS startup bookmark validation rejects plain resolved bookmarks")
+    func masStartupBookmarkValidationRejectsPlainResolvedBookmarks() {
+        let validation = VaultSyncService.startupBookmarkValidationForTesting(
+            bookmarkExists: true,
+            resolvedURL: URL(fileURLWithPath: "/tmp/vault", isDirectory: true),
+            isStale: false,
+            usedSecurityScope: false,
+            accessGranted: true,
+            isReadable: true,
+            requiresSecurityScopedVaultAccess: true
+        )
+
+        #expect(validation.bookmarkExists)
+        #expect(validation.isReadyForAutomaticRestore == false)
+        #expect(validation.failureReason == "Saved vault bookmark is not security-scoped and must be re-selected.")
+    }
+
     @Test("vault sync test hooks do not overwrite live vault defaults")
     func testHooksDoNotOverwriteLiveVaultDefaults() throws {
         let container = try makeRecoveryContainer()
@@ -327,6 +344,54 @@ struct VaultSyncServiceAuditTests {
 
         #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == Data("plain-bookmark".utf8))
         #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+    }
+
+    @Test("MAS persist vault selection refuses plain bookmark fallback")
+    func masPersistVaultSelectionRefusesPlainBookmarkFallback() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.setRequiresSecurityScopedVaultAccessForTesting(true)
+        service.setBookmarkDataWriterForTesting { _, options in
+            if options.contains(.withSecurityScope) {
+                throw CocoaError(.fileReadUnknown)
+            }
+            return Data("plain-bookmark".utf8)
+        }
+
+        service.persistVaultSelection(vaultURL)
+
+        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) == nil)
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+    }
+
+    @Test("MAS watch policy refuses unscoped vault starts")
+    func masWatchPolicyRefusesUnscopedVaultStarts() {
+        #expect(
+            VaultSyncService.vaultWatchStartAllowedForTesting(
+                scopeAlreadyAcquired: false,
+                accessGranted: false,
+                requiresSecurityScopedVaultAccess: true
+            ) == false
+        )
+        #expect(
+            VaultSyncService.vaultWatchStartAllowedForTesting(
+                scopeAlreadyAcquired: false,
+                accessGranted: false,
+                requiresSecurityScopedVaultAccess: false
+            )
+        )
+        #expect(
+            VaultSyncService.vaultWatchStartAllowedForTesting(
+                scopeAlreadyAcquired: true,
+                accessGranted: false,
+                requiresSecurityScopedVaultAccess: true
+            )
+        )
     }
 
     @Test("persist vault selection clears stale bookmark data when no bookmark can be stored")

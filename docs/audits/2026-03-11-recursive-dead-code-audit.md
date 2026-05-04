@@ -1,5 +1,10 @@
 # 2026-03-11 Recursive Dead Code Audit
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 ## Scope
 
 - Baseline checkpoint commit: `a6c11b28347815469f9645248e07ec59f9dbaf4e`

@@ -320,7 +320,7 @@ actor LocalAgentLoop {
                 systemPrompt: systemPrompt,
                 history: history
             )
-            let promptText = Self.formatChatMLPrompt(messages: messages)
+            let promptText = Self.formatPlainMarkdownPrompt(messages: messages)
 
             // ── Reflex path: incremental tool call detection ──
             if useReflex {
@@ -1007,7 +1007,7 @@ actor LocalAgentLoop {
             systemPrompt: systemPrompt,
             history: repairHistory
         )
-        let repairPromptText = Self.formatChatMLPrompt(messages: repairMessages)
+        let repairPromptText = Self.formatPlainMarkdownPrompt(messages: repairMessages)
         return try await repairGenerator(
             repairPromptText,
             nil,
@@ -1266,15 +1266,12 @@ actor LocalAgentLoop {
         """
     }
 
-    private nonisolated static func formatChatMLPrompt(messages: [LocalMessage]) -> String {
+    private nonisolated static func formatPlainMarkdownPrompt(messages: [LocalMessage]) -> String {
         let renderedMessages = messages.map { message in
-            "<|im_start|>\(message.role.rawValue)\n\(message.content)\n<|im_end|>"
-        }.joined(separator: "\n")
+            "## \(message.role.promptHeading)\n\(message.content)"
+        }.joined(separator: "\n\n")
 
-        return """
-        \(renderedMessages)
-        <|im_start|>assistant
-        """
+        return renderedMessages + "\n\n## Assistant\n"
     }
 
     private nonisolated static func stripAssistantMeta(from text: String) -> String {

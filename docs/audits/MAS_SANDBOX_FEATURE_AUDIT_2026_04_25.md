@@ -1,5 +1,10 @@
 # MAS Sandbox Feature Coverage Audit (P0-4)
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 Date: 2026-04-25
 Branch: feature/landing-liquid-wave (HEAD bde6cf26)
 Authority: MASTER_HARDENING_WIRING_AUDIT.md row P0-4; PRIVACY_APP_STORE_AUDIT.md row A2.

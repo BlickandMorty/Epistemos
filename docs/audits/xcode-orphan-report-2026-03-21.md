@@ -1,5 +1,10 @@
 # Xcode Orphan Report
 
+> **Index status**: CANONICAL-OPERATIONAL — Append-only audit log; needed for state reconstruction. No copy to _consolidated.
+> Classified in [`docs/_INDEX.md §14`](_INDEX.md).
+
+
+
 - Generated: 2026-03-21
 - Root: `/Users/jojo/Epistemos`
 

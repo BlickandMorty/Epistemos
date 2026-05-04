@@ -1,18 +1,15 @@
-import OSLog
 import SwiftUI
 
 // MARK: - GenUIDispatcher (Stage A.3 / GenUI G.2 deliverable)
 //
 // Per `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` §4 G.2.
-// Static registry mapping `GenUISchema` values to renderer types. The
-// canonical answer to "given this typed payload, what view do I draw?"
-// — every producer in the substrate emits a `GenUIPayload`; every
+// Static schema switch mapping `GenUISchema` values to renderer types.
+// The canonical answer to "given this typed payload, what view do I draw?"
+// -- every producer in the substrate emits a `GenUIPayload`; every
 // consumer renders it via this dispatcher.
 //
 // Doctrinal posture:
 // - Single canonical dispatcher; never duplicate
-// - Static registry seeded at AppBootstrap; no per-call-site
-//   renderer wiring
 // - Unrecognized schemas fall back to FallbackGenUIView (raw JSON
 //   dump + copy button) so the renderer can't crash on schema drift
 // - Renderers are pure SwiftUI views; no observable / state owned
@@ -22,7 +19,7 @@ import SwiftUI
 // table, markdown, fileEdit) route through `ArtifactBackedRenderer`
 // which adapts the payload back into the existing canonical
 // `Artifact` + `ArtifactBlockView` pipeline. This way the dispatcher
-// is additive — the existing pipeline stays as the canonical
+// is additive -- the existing pipeline stays as the canonical
 // chat-block renderer; only the new structured schemas need new
 // renderers.
 
@@ -30,77 +27,40 @@ import SwiftUI
 final class GenUIDispatcher {
     static let shared = GenUIDispatcher()
 
-    private static let log = Logger(subsystem: "com.epistemos", category: "GenUIDispatcher")
-
-    /// Registered renderer factories. Each factory takes a payload and
-    /// returns an `AnyView`. Factories are pure functions — no captured
-    /// state — so registration order doesn't matter.
-    private var renderers: [GenUISchema: (GenUIPayload) -> AnyView] = [:]
-
-    private init() {
-        registerCanonicalDefaults()
-    }
+    private init() {}
 
     // MARK: - Public API
 
-    /// Register a renderer for a schema. If a renderer is already
-    /// registered, the new one replaces it (caller's responsibility
-    /// to know what they're doing). Logs the replacement.
-    func register(_ schema: GenUISchema, _ factory: @escaping (GenUIPayload) -> AnyView) {
-        if renderers[schema] != nil {
-            Self.log.warning("GenUIDispatcher: replacing existing renderer for \(schema.rawValue, privacy: .public)")
-        }
-        renderers[schema] = factory
-    }
-
-    /// Render a payload. If no renderer is registered for the schema,
+    /// Render a payload. If a schema has no dedicated renderer yet,
     /// returns FallbackGenUIView (raw JSON dump + copy). Never crashes.
     @ViewBuilder
     func render(_ payload: GenUIPayload) -> some View {
-        if let factory = renderers[payload.schema] {
-            factory(payload)
-        } else {
-            FallbackGenUIView(payload: payload)
+        switch payload.schema {
+        case .json, .yaml, .csv, .codeBlock, .table, .markdown, .fileEdit:
+            ArtifactBackedGenUIView(payload: payload)
+        case .keyValueTable:
+            KeyValueTableGenUIView(payload: payload)
+        case .commandReceipt:
+            CommandReceiptGenUIView(payload: payload)
+        case .actionPanel:
+            ActionPanelGenUIView(payload: payload)
+        case .errorReport:
+            ErrorReportGenUIView(payload: payload)
+        case .progressIndicator:
+            ProgressIndicatorGenUIView(payload: payload)
+        case .capabilityList:
+            CapabilityListGenUIView(payload: payload)
+        case .searchResultSet:
+            SearchResultSetGenUIView(payload: payload)
+        case .provenanceTrace:
+            ProvenanceTraceGenUIView(payload: payload)
         }
     }
 
-    /// Diagnostic: every schema currently registered. Used by the
+    /// Diagnostic: every schema with a deterministic dispatch branch. Used by the
     /// (future) Provenance Console diagnostics row + by tests.
     var registeredSchemas: Set<GenUISchema> {
-        Set(renderers.keys)
-    }
-
-    // MARK: - Canonical defaults
-
-    /// Seeds the dispatcher with renderers for every `GenUISchema`
-    /// case. Called from init so no AppBootstrap step is required;
-    /// the dispatcher is usable from first import. Custom renderers
-    /// (e.g. a Provenance-Console-specific provenanceTrace renderer)
-    /// can `register(_:_:)` over the default at AppBootstrap time.
-    private func registerCanonicalDefaults() {
-        // Chat-block schemas → existing ArtifactBlockView pipeline
-        // via the adapter. Doctrinally: the seven chat-block schemas
-        // are the partial implementation; the adapter preserves their
-        // canonical renderer while the dispatcher adds the new shapes.
-        let artifactBackedSchemas: [GenUISchema] = [.json, .yaml, .csv, .codeBlock, .table, .markdown, .fileEdit]
-        for schema in artifactBackedSchemas {
-            renderers[schema] = { payload in
-                AnyView(ArtifactBackedGenUIView(payload: payload))
-            }
-        }
-
-        // New structured schemas
-        renderers[.keyValueTable]    = { payload in AnyView(KeyValueTableGenUIView(payload: payload)) }
-        renderers[.commandReceipt]   = { payload in AnyView(CommandReceiptGenUIView(payload: payload)) }
-        renderers[.actionPanel]      = { payload in AnyView(ActionPanelGenUIView(payload: payload)) }
-        renderers[.errorReport]      = { payload in AnyView(ErrorReportGenUIView(payload: payload)) }
-        renderers[.progressIndicator] = { payload in AnyView(ProgressIndicatorGenUIView(payload: payload)) }
-        renderers[.capabilityList]   = { payload in AnyView(CapabilityListGenUIView(payload: payload)) }
-        renderers[.searchResultSet]  = { payload in AnyView(SearchResultSetGenUIView(payload: payload)) }
-        renderers[.provenanceTrace]  = { payload in AnyView(FallbackGenUIView(payload: payload)) }
-        // Note: provenanceTrace gets a real renderer when the
-        // Provenance Console (T2) ships; until then it falls back to
-        // the JSON dump.
+        Set(GenUISchema.allCases)
     }
 }
 
@@ -339,6 +299,93 @@ private struct SearchResultSetGenUIView: View {
         // works for now; a search-specific layout can replace this
         // when the search panel's result-set view stabilizes.
         CapabilityListGenUIView(payload: payload)
+    }
+}
+
+private struct ProvenanceTraceGenUIView: View {
+    let payload: GenUIPayload
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !payload.title.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "timeline.selection")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                    Text(payload.title)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if case let .provenanceChain(events) = payload.body, !events.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(events) { event in
+                        ProvenanceTraceEventRow(payload: event)
+                    }
+                }
+            } else {
+                Text("No committed provenance events yet")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.primary.opacity(0.08), lineWidth: 0.5)
+        )
+    }
+}
+
+private struct ProvenanceTraceEventRow: View {
+    let payload: GenUIPayload
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !payload.title.isEmpty {
+                Text(payload.title)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+            }
+            switch payload.body {
+            case .keyValues(let pairs):
+                ForEach(pairs) { pair in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(pair.key)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 92, alignment: .leading)
+                        Text(pair.value)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.primary)
+                            .textSelection(.enabled)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                    }
+                }
+            case .raw(let text):
+                Text(text)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+            default:
+                Text(payload.schema.rawValue)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.leading, 10)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(.secondary.opacity(0.24))
+                .frame(width: 2)
+        }
     }
 }
 
