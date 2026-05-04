@@ -852,3 +852,102 @@ choice, deletion, simplification, or "simple" code change:
    map.
 7. Keep it useful: search smartly, quote only the load-bearing claim or path,
    and stop reading once the slice has enough evidence to act safely.
+
+---
+
+## 23. Substrate Unification Doctrine — Cognitive Kernel + Cognitive DAG (added 2026-05-03)
+
+**Two-stage Substrate-foundational unification.** Both stages ride underneath
+every feature lane in this index — they're not feature work, they're the
+structural collapse that makes everything else simpler. Vocabulary: the
+project as a whole is **"the Substrate"** (canonical term, capitalized).
+
+### §23.1 Stage 1 — Cognitive Kernel doctrine (Phases 1-7, current target)
+
+**Canonical:** `docs/fusion/COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md`
+
+Collapses five fragmented agent loops (Swift `LocalAgentLoop`, Rust
+`agent_core::agent_loop`, Python `hermes-agent` subprocess, omega-mcp
+dispatcher, AgentXPC/ProviderXPC) into ONE Rust cognitive kernel. Architecture:
+kernel + renderer + syscall + sandbox-exec + capability layers (Linux
+analogy). Five rules: one agent loop, one memory store, one provenance ledger,
+one skill registry, one privilege boundary.
+
+**Phase ordering** (kernel doctrine §11):
+- Phase 1 — Audit fragmentation (`COGNITIVE_KERNEL_AUDIT_2026_05_03.md` deliverable)
+- Phase 2 — Hermes-in-Rust (kills Python subprocess; ports prompt format + function-call + skills + procedural memory + self-evolution to `agent_core::hermes`)
+- Phase 3 — WASM exec via wasmtime + Pyodide / QuickJS (opens MAS for code execution)
+- Phase 4 — In-process bundled MCP servers (kills omega-mcp subprocess for bundled servers)
+- Phase 5 — Pro→Core migration matrix (`PRO_TO_CORE_MIGRATION_2026_05_03.md` deliverable)
+- Phase 6 — Capability lattice consolidation
+- Phase 7 — Doctrine doc finalization
+
+### §23.2 Stage 2 — Cognitive DAG doctrine (Phase 8 — successor, AFTER kernel sprint stabilizes)
+
+**Canonical:** `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md`
+
+Collapses the kernel's seven internal subsystems (agent loop, skills,
+procedural memory, provenance, resonance, capabilities, companions) into ONE
+typed content-addressed cognitive DAG with 10 node types and 10 edge types.
+Each subsystem becomes a traversal pattern over the DAG, not a separate
+store. Sub-phases 8.A through 8.H over ~10 weeks.
+
+**Single sentence:** Epistemos is a typed cognitive DAG running in one
+binary, where every node is content-addressed, every edge is capability-
+gated, every truth value is continuously re-evaluated, every action is
+provenance-witnessed, and every personality is a lightweight deformation of
+one shared substrate.
+
+### §23.3 Process audit ground truth
+
+**Canonical:** `docs/fusion/PROCESSES_AND_RUNTIMES_AUDIT_2026_05_03.md`
+
+Live grep audit as of 2026-05-03 (commit `dc103236`). Inventory:
+- 11 in-tree Rust crates (agent_core, omega-mcp, epistemos-shadow,
+  graph-engine, epistemos-core, epistemos-code-index, substrate-core,
+  substrate-rt, omega-ax, syntax-core, bench)
+- 14 Rust subprocess spawn sites in agent_core (12 are Pro-tier; 2 migrate
+  to in-process via WASM + bundled MCP)
+- 2 Swift `Process()` sites (one is `LSPServerProcess.swift` — should
+  migrate to in-process Rust LSP; other is test harness)
+- 13 Metal kernels (4 UI, 4 Mamba2 SSM, 6 Helios kernels already at
+  `agent_core/metal/` — wired-or-orphan verification needed)
+- Runtime Python: only the hermes-agent subprocess (Phase 2 removes it)
+
+**Three audit findings to verify in Phase 1:**
+- (a) The 6 Helios kernels in `agent_core/metal/` (`dora_apply`,
+  `eml_softmax_lse`, `count_sketch_update`, `ternary_proj_residual`,
+  `ternary_gemv`, `kv_fingerprint`) — wired or orphan?
+- (b) `Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py` — runtime or
+  build-time? Runtime Python is a MAS sandbox blocker.
+- (c) `agent_core::wbo6`, `agent_core::lattice`, `agent_core::sketch` —
+  canonical Epistemos implementations or Kimi/GPT mockups pulled wholesale?
+
+### §23.4 Codex DAG-on-radar handoff
+
+**Canonical:** `docs/fusion/CODEX_DAG_RADAR_HANDOFF_2026_05_03.md`
+
+Additive handoff that puts Phase 8 (Cognitive DAG) on Codex's radar without
+disrupting current sprint work. Three small forward-compat disciplines for
+Phases 1-7 (serializable AgentEvent variants, namespaced skill ids,
+byte-stable tool outputs). Acknowledged via one-line append to
+`CANON_GAPS_AND_ADDENDA_2026_05_02.md` after Codex reads.
+
+### §23.5 Why ship in this order
+
+Implementing the DAG before the seven subsystems are unified into one Rust
+kernel means refactoring across Swift + Python + parallel-Rust simultaneously
+— too many variables changing at once. The kernel doctrine collapses to one
+Rust kernel. THEN the DAG collapses the seven subsystems inside that kernel.
+Two compositions, one direction.
+
+> First one binary. Then one DAG inside that binary. Then publish the paper.
+
+### §23.6 Hackathon priority interaction (2026-05-03)
+
+User pivoted on 2026-05-03 to prioritize hackathon: Hermes XPC + multi-CLI
+integration AND Simulation Mode v1.6 with full assets (Companion creation/
+delete/restore, adapter UI per Invariant I-11, Landing Farm = home window,
+Notes Sidebar Skin). The Substrate-foundational sprint (Phases 1-7 + Phase 8)
+is paused until the hackathon ships. Codex paused at clean stopping point.
+The four §23 docs are sitting on disk for resumption after hackathon.
