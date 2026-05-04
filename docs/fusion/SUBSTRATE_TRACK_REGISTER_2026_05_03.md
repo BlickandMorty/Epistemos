@@ -113,26 +113,26 @@ but implementation paused for hackathon.
 | **7-field Σ** | `Σ(x) = [τ truth, δ direction, π prime/composite/gap, ρ resonance, κ KAM, η evidence, λ residency]` — target <100µs/token |
 | **9 claim types** | Equation, Inequality, Causal, Definition, Empirical, CodeInvariant, Prime, Composite, Gap |
 
-### T5 — Hermes Agent + Multi-CLI Integration  [HACKATHON BLOCK A]
+### T5 — Hermes Agent + Multi-CLI Integration
 
 | | |
 |---|---|
-| **Status** | ~30% (HermesGatewayPolicy shipped, HermesCommandDispatcher with 26 Core parity commands shipped `caa46d05` + `d2641b12`; AgentXPC + ProviderXPC services NOT built; chat input wiring NOT done) |
-| **Tier** | Core (parser + dispatcher) + Pro (CLI passthrough) |
-| **Hackathon** | **PRIMARY** — BLOCK A acceptance bar in `CODEX_RECONCEPTUALIZATION_HANDOFF_AND_VERIFY_2026_05_03.md` |
+| **Status** | UI shell ~80% (Hermes Expert Mode landing surface complete with sigil + hero typewriter + terminal + palette + Sovereign Gate routing + provenance + 7 commands routing through Artifact pipeline). RUNTIME ~5% — the actual Hermes agent (canonical `agent_core::hermes` Rust kernel module per `COGNITIVE_KERNEL_DOCTRINE` Phase 2) doesn't exist yet; UI calls into a stub that hands `/ask` to MainChatSubmissionRouter. ~30 commands echo inline behind `GENUI-DEFER` markers. |
+| **Tier** | Core (parser + dispatcher + UI) + Pro (CLI passthrough — feature-gated, deferred per MAS-First Focus Doctrine) |
+| **Hackathon** | ABANDONED 2026-05-03; recovery sequence per `CANONICAL_RECOVERY_PLAN_2026_05_03.md`: Stage A.4 (GenUI G.3 migration of Expert Mode renderers) + Stage B.1 (Hermes-in-Rust runtime) close the gap structurally |
 | **Master index ref** | §6 Hermes / Pro Tunnels / MCP |
 | **Canonical docs** | `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` Annex A.12 (NousResearch ChatML reference; applies to FUTURE Pro Hermes subprocess work, NOT current code per H2) |
 | **Code anchors** | `Epistemos/LocalAgent/HermesCommandDispatcher.swift` (master 36-variant `HermesParsedCommand` sum + `parseCore` router), `Epistemos/LocalAgent/Hermes{Calc,Help,Status,Tokens,Cost,Think,SessionOps,Parameter,Persona,ConfigToggle,Notebook,UIDisplay,VaultFile}Command(s).swift` (13 parser files) |
 | **Acceptance bar** | `/help core` → Core slate; `/calc 2*pi` → 6.28...; `/ask <q>` → cloud via Hermes through ProviderXPC with provenance row; `/run <cmd>` (Pro) → CLI passthrough with AgentEvent; switch provider in Settings → next `/ask` uses new provider |
 | **Hermes-in-Rust target** | Eventually port to `agent_core::hermes` (kernel doctrine Phase 2) — 5 sub-modules: prompt_format, function_call, skills, procedural_memory, self_evolution |
 
-### T6 — Simulation Mode v1.6 + Companion Farm  [HACKATHON BLOCK B]
+### T6 — Simulation Mode v1.6 + Companion Farm
 
 | | |
 |---|---|
-| **Status** | 0% (15 invariants documented in `simulation` worktree DOCTRINE.md; no Swift/Rust implementation in main branch yet) |
+| **Status** | UI shell ~50%: Companion Farm visible on landing as default home surface; CompanionState + CompanionModel SwiftData spine wired; CompanionView with TimelineView breathing; 4-step Creation wizard; Delete + Restore + Adapter sheets with canonical Sovereign Gate routing; NotesSidebarSkin component built (not yet wired into Notes panel); 7 of 15 invariants implemented (I-1, I-5, I-6, I-10, I-11, I-12, I-13, I-14). ASSETS ~0%: companions render as SF Symbols (`figure.stand.dress`, `circle.fill`, etc.) — DOCTRINE specifies custom-drawn body grammars. ADAPTER LoRA SWAP ~0%: pure cosmetic gift-box animation; no actual MLX-Swift LoRA hot-swap (depends on `COGNITIVE_DAG_DOCTRINE` §B.1 research spike). |
 | **Tier** | Core |
-| **Hackathon** | **PRIMARY** — BLOCK B acceptance bar in `CODEX_RECONCEPTUALIZATION_HANDOFF_AND_VERIFY_2026_05_03.md` |
+| **Hackathon** | ABANDONED 2026-05-03; recovery sequence per `CANONICAL_RECOVERY_PLAN_2026_05_03.md`: Stage E (`SIMULATION_ASSETS_DOCTRINE` + custom-drawn body renderers) + Stage D.3 (LoRA-light companions research spike) close the gap structurally |
 | **Master index ref** | §11 Simulation / Theater (Pro Design DNA — FROZEN) |
 | **Canonical docs** | `simulation` worktree DOCTRINE.md + IMPLEMENTATION.md, donor `/Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` |
 | **Three placements** | Landing Farm (DEFAULT APP VIEW) / Graph Live Theater / Notes Sidebar Skin |
