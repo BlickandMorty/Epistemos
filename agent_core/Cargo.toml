@@ -5,7 +5,23 @@ edition = "2021"
 publish = false
 
 [features]
-default = []
+# Default = MAS build. The MAS sprint runs `cargo build` and gets the
+# Mac App Store-shippable binary — no Pro-only surfaces compiled.
+# Per `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §3.1.
+default = ["mas-build"]
+mas-build = []
+# Pro/Developer-ID build. PART OF THE PLAN, NOT ON THE CRITICAL PATH.
+# Activate with: `cargo build --no-default-features --features pro-build`.
+# Pro-only surfaces (cli_passthrough, native shell/Docker/Python/Node
+# subprocess, external user-installed MCP servers, iMessage osascript,
+# /run, /shell, /kill, /execute) are gated behind `cfg(feature =
+# "pro-build")` — invisible to MAS compilation but trivial to flip on.
+pro-build = []
+# T14 / T15 research surfaces (Sherry 1.25-bit ternary, ANE direct).
+# Independent of pro-build so research can compose with MAS or Pro.
+research = []
+# Legacy alias kept for compatibility with anything still referencing
+# `mas-sandbox`. New code should use `mas-build`.
 mas-sandbox = []
 
 [lib]
@@ -14,6 +30,8 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 anyhow = "1.0"
+apalis = "=1.0.0-rc.7"
+apalis-sqlite = "=1.0.0-rc.7"
 async-stream = "0.3"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["macros"] }
@@ -58,11 +76,22 @@ tempfile = "3.14"
 crop = { version = "0.4", features = ["utf16-metric"] }
 # R16 — ETL crawler foundation. `ignore` is BurntSushi's gitignore-aware
 # walker (used by ripgrep). `xxhash-rust` (xxh3) is the fastest non-
-# cryptographic hash on Apple Silicon arm64. Apalis-sql lands in PR2.
+# cryptographic hash on Apple Silicon arm64. Apalis-sqlite lands in PR2.
 ignore = "0.4"
 xxhash-rust = { version = "0.8", features = ["xxh3", "const_xxh3"] }
 nix = { version = "0.29", features = ["process", "term", "signal", "fs"] }
-tokio = { version = "1.43", features = ["full"] }
+# Tokio feature scope — trimmed from "full" (~30 features) to the minimal
+# set that the codebase actually uses, verified by grep:
+#   - macros: #[tokio::main] (binaries) + #[tokio::test] + tokio::select!
+#   - rt: tokio::spawn, spawn_blocking, runtime::Builder
+#   - time: tokio::time::{timeout, sleep}
+#   - sync: tokio::sync::Mutex (no other primitives used)
+#   - process: tokio::process::Command (CLI passthrough, MCP, subprocess paths)
+#   - io-util: AsyncBufReadExt + AsyncWriteExt (mcp/client.rs, terminal.rs)
+#   - net: tokio::net::TcpListener (channel_relay binary; reqwest needs it too)
+# Dropped: signal, fs (uses std::fs), bytes, parking_lot, test-util, stats,
+#          tracing, sync mpsc/oneshot/broadcast/watch, io-std (subset of io-util)
+tokio = { version = "1.43", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 tower = { version = "0.5", features = ["util"] }
 memchr = "2.7"
@@ -95,17 +124,11 @@ opt-level = 3
 opt-level = 0
 
 # Wave 6.1 / W6 PGO profile per dpp §6.1-6.2.
-# CRITICAL: lto = "thin", NOT "fat". The Apple ld64 LTO pass discards
-# the `__llvm_prf_*` PGO instrumentation sections silently when fat LTO
-# is enabled — verified against rust-lang/rust#119016. Thin LTO retains
-# them so the cargo-pgo cycle's profile data is preserved.
-#
 # Used by scripts/pgo-cycle.sh during the manual PGO sweep.
-# Not active in normal release builds; the canonical [profile.release]
-# above keeps lto = "fat" for non-PGO release artifacts.
+# Inherits the canonical release LTO setting so all release-like profiles
+# satisfy the single Epistemos release profile contract.
 [profile.release-pgo]
 inherits = "release"
-lto = "thin"
 
 [build-dependencies]
 uniffi = { version = "=0.29.5", features = ["build"] }

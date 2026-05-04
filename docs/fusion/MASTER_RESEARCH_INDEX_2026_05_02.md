@@ -1098,3 +1098,63 @@ The current deferral list (canonical at `COGNITIVE_GENUI_DOCTRINE` §9):
 | Daily Brief render path | G.3 priority 4 |
 | Welcome Back render path | G.3 priority 4 |
 | All Phase X.1-X.5 XPC service responses | G.4 day-1 |
+
+---
+
+## 26. MAS-First Focus Doctrine — Pro Stays In The Plan, Not On The Critical Path (added 2026-05-03)
+
+**Canonical:** `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md`
+
+**Adopted 2026-05-03 by explicit user instruction.** The active surface
+is MAS-shippable only; the Pro/Developer-ID build is part of the plan
+but on hold; the architecture stays Pro-ready via feature-gated stubs.
+
+### §26.1 The active surface (every agent works on these)
+
+Hermes XPC bridge, sandboxed XPC services (AgentXPC / VaultXPC /
+ProviderXPC / WASMExecXPC), biometric stack (Sovereign Gate / Secure
+Enclave / capability tokens), Apple FoundationModels, MLX-Swift
+in-process inference, cognitive substrate (T0: Kernel + DAG + XPC
+Mastery + GenUI), Simulation Mode v1.6 / Companion Farm, Provenance
+Console, Vault, Halo, Resonance Gate.
+
+### §26.2 The deferred surface (PART OF THE PLAN, NOT ON THE CRITICAL PATH)
+
+Endpoint Security extension, NEAppProxy / NetworkExtension,
+Authorization Plugin, native CLI passthrough (claude/codex/gemini/kimi),
+native shell, Docker, native Python/Node subprocess, external user-
+installed MCP servers, iMessage osascript bridge, /run, /shell, /kill,
+/execute Hermes commands.
+
+**These remain in canon.** Listed in `HermesCapabilityRegistry.all`
+with `tier: .pro`. Captured in `PRO_TO_CORE_MIGRATION_2026_05_03.md`.
+WILL ship — just not now.
+
+### §26.3 The build-flag pattern (mandatory)
+
+- **Rust:** `#[cfg(feature = "pro-build")]` blocks; default cargo
+  build = `--no-default-features --features mas-build`
+- **Swift:** `#if PRO_BUILD` blocks; OTHER_SWIFT_FLAGS=-DPRO_BUILD
+  only in the (deferred) Release-Pro Xcode configuration
+- **Xcode:** System extension targets exist in pbxproj, unchecked in
+  the MAS scheme's Build action
+- **Entitlements:** `Epistemos-AppStore.entitlements` +
+  `Epistemos-Pro.entitlements` live as separate files; never merge
+
+### §26.4 The discipline
+
+When you encounter a Pro-only surface during a refactor: do not delete,
+do not "clean up." Add the gate, add the descriptive comment, leave the
+geometry. PRs that want to REMOVE Pro-only code require explicit user
+sign-off — never a quiet delete.
+
+### §26.5 The phrase
+
+> *"Part of the plan, not on the critical path."*
+
+Use this when an agent or a future session asks whether to work on a
+deferred surface. The answer is no — but the geometry stays.
+
+### §26.6 The agent instruction (paste verbatim into Codex / handoff prompts)
+
+See `MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` §4 for the full text.
