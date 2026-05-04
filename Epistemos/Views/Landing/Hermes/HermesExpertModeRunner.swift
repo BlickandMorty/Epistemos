@@ -176,7 +176,7 @@ struct HermesExpertModeRunner {
             handoffAsAsk("/export")
 
         case .model(let cmd):
-            renderInfo("Model: " + cmd.echoSummary)
+            renderModelInline(cmd)
 
         case .persona(let cmd):
             renderInfo("Persona: " + cmd.echoSummary)
@@ -236,17 +236,42 @@ struct HermesExpertModeRunner {
 
     private func renderHelpInline() {
         let registry = HermesCapabilityRegistry.all
-        let core = registry.filter { $0.tier == .core }
-        let pro = registry.filter { $0.tier == .pro }
+        let coreCount = registry.filter { $0.tier == .core }.count
+        let proCount = registry.filter { $0.tier == .pro }.count
+        let researchCount = registry.filter { $0.tier == .research }.count
 
         state.append(.init(kind: .systemResponse,
-            text: "Hermes parity — \(registry.count) commands across \(HermesCapabilitySurface.allCases.count) surfaces."))
+            text: "Hermes parity — \(registry.count) commands. CORE \(coreCount), PRO \(proCount), RESEARCH \(researchCount)."))
+
+        let groups: [(HermesCapabilitySurface, String)] = [
+            (.agentTask,        "agent"),
+            (.session,          "session"),
+            (.configuration,    "config"),
+            (.fileData,         "files"),
+            (.persona,          "persona"),
+            (.uiDisplay,        "ui"),
+            (.toolsIntegration, "tools"),
+            (.advanced,         "advanced"),
+            (.toolset,          "toolset"),
+            (.messaging,        "msg"),
+        ]
+
+        for (surface, label) in groups {
+            let bySurface = registry.filter { $0.surface == surface && $0.tier == .core }
+            guard !bySurface.isEmpty else { continue }
+            let tokens = bySurface.map { $0.commandToken }.joined(separator: " ")
+            state.append(.init(
+                kind: .info,
+                text: "[\(label)] \(tokens)"
+            ))
+        }
+
+        if proCount > 0 {
+            state.append(.init(kind: .info,
+                text: "[pro · MAS-blocked] /execute /run /shell /kill"))
+        }
         state.append(.init(kind: .info,
-            text: "CORE (\(core.count)): /ask /think /todo /new /clear /status /tokens /cost /model /help /persona /memory /tools /config /read /write /append /ls /search /grep /save /load /export /compact /summary /system /notebook"))
-        state.append(.init(kind: .info,
-            text: "PRO (\(pro.count); MAS gates these): /execute /run /shell /kill"))
-        state.append(.init(kind: .info,
-            text: "Type / to surface the live palette. Bare prompts route to /ask."))
+            text: "tab autofills · ↑↓ palette · ⏎ submit · ⎋ exit"))
     }
 
     private func renderCalcInline(_ cmd: HermesCalcCommand) {
@@ -262,8 +287,57 @@ struct HermesExpertModeRunner {
         let model = inference.preferredChatModelSelection.displayName
         let opMode = operatingMode().displayName
         let panel = ui.activePanel.rawValue
-        state.append(.init(kind: .systemResponse,
-            text: "model=\(model)  mode=\(opMode)  panel=\(panel)"))
+        let runID = state.sessionRunID.isEmpty ? "—" : String(state.sessionRunID.suffix(8))
+        let transcriptCount = state.transcript.count
+
+        state.append(.init(kind: .systemResponse, text: "── status ──"))
+        state.append(.init(kind: .info, text: "model       \(model)"))
+        state.append(.init(kind: .info, text: "mode        \(opMode)"))
+        state.append(.init(kind: .info, text: "panel       \(panel)"))
+        state.append(.init(kind: .info, text: "incognito   \(chat.isIncognito ? "yes" : "no")"))
+        state.append(.init(kind: .info, text: "session     hermes-expert/\(runID)"))
+        state.append(.init(kind: .info, text: "transcript  \(transcriptCount) entries"))
+    }
+
+    /// Materialize a `/model` action into a real InferenceState mutation
+    /// when the user provides a name we can resolve. `/model list` and
+    /// bare `/model` are read-only and route through here too.
+    private func renderModelInline(_ cmd: HermesModelCommand) {
+        switch cmd.action {
+        case .showCurrent:
+            state.append(.init(kind: .systemResponse,
+                text: "current model: \(inference.preferredChatModelSelection.displayName)"))
+
+        case .list:
+            state.append(.init(kind: .systemResponse, text: "── available models ──"))
+            // Local options (always available)
+            state.append(.init(kind: .info,
+                text: "[local-mlx] preferred=\(inference.preferredLocalTextModelID)"))
+            // Cloud options — derived from the CloudTextModelID enum
+            let cloudIDs = CloudTextModelID.allCases
+            for id in cloudIDs.prefix(8) {
+                state.append(.init(kind: .info, text: "[cloud] \(id.rawValue)"))
+            }
+            if cloudIDs.count > 8 {
+                state.append(.init(kind: .info,
+                    text: "… \(cloudIDs.count - 8) more (see Settings → Models)"))
+            }
+
+        case .switchTo(let name):
+            // Try cloud first (most common selection); fall back to local mlx
+            // if the user typed a recognizable local model id.
+            if let cloud = CloudTextModelID.from(rawValueOrVendorID: name) {
+                inference.preferredChatModelSelection = .cloud(cloud)
+                state.append(.init(kind: .systemResponse,
+                    text: "→ model switched: cloud(\(cloud.rawValue))"))
+            } else if !name.isEmpty {
+                inference.preferredChatModelSelection = .localMLX(name)
+                state.append(.init(kind: .systemResponse,
+                    text: "→ model switched: localMLX(\(name))"))
+            } else {
+                state.append(.init(kind: .error, text: "model name was empty"))
+            }
+        }
     }
 
     private func renderInfo(_ text: String) {
