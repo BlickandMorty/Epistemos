@@ -381,9 +381,16 @@ final class ChatCoordinator {
               executionPlan: executionPlan
             )
           case .appleIntelligence:
+            // Apple's FoundationModels SDK exposes structured generation
+            // (@Generable / LanguageModelSession.respond) but not the tool-
+            // calling / agent-loop protocol that Agent mode requires. AFM
+            // is still used in-process by AFMSidecarGenerator,
+            // OntologyClassifier, EntityExtractor, IntakeValve,
+            // ConversationStateClassifier, and SessionTelemetryClassifier;
+            // it just can't drive the multi-turn tool loop here.
             throw AgentRuntimeError(
               message:
-                "Apple Intelligence does not support Epistemos tools mode yet. Choose a local or cloud brain, or switch to Fast, Thinking, or Pro."
+                "Apple Intelligence can't drive Agent mode — Apple's FoundationModels SDK doesn't expose a tool-calling protocol. AFM still powers Epistemos sidecar generation and classifiers in-process. For Agent mode, pick a local MLX or cloud model. AFM remains available in Fast / Thinking / Pro chat."
             )
           case .unavailable(let reason):
             throw AgentRuntimeError(
