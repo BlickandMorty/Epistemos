@@ -33,6 +33,7 @@ pub mod runtime;
 pub mod security;
 pub mod session;
 pub mod session_insights;
+pub mod sketch;
 pub mod skill_router;
 pub mod sovereign;
 pub mod types;
