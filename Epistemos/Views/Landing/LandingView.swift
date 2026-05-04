@@ -586,16 +586,27 @@ struct LandingView: View {
             sovereignGate: bootstrap.sovereignGate,
             provenanceRecorder: bootstrap.hermesExpertProvenanceRecorder,
             onDelegateToMainChat: { prompt in
-                exitHermesExpertMode()
-                chat.startNewChat()
-                ui.setActivePanel(.home)
-                MainChatSubmissionRouter.submit(
-                    prompt,
-                    operatingMode: selectedOperatingMode,
-                    chat: chat,
-                    orchestrator: orchestrator,
-                    inference: inference
-                )
+                // Graceful handoff: surface the transition inline so the
+                // user sees what's happening rather than the expert mode
+                // abruptly disappearing. Brief delay lets the row's flash
+                // animation play before exit.
+                hermesExpertMode.append(.init(
+                    kind: .info,
+                    text: "→ opening main chat for streaming response…"
+                ))
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(380))
+                    exitHermesExpertMode()
+                    chat.startNewChat()
+                    ui.setActivePanel(.home)
+                    MainChatSubmissionRouter.submit(
+                        prompt,
+                        operatingMode: selectedOperatingMode,
+                        chat: chat,
+                        orchestrator: orchestrator,
+                        inference: inference
+                    )
+                }
             }
         )
         Task { @MainActor in
