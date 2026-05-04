@@ -548,7 +548,21 @@ struct LandingView: View {
     /// `/help`, `/calc`, `/status` etc. surface inline; bare prompts and
     /// command shapes that demand provider work get handed to the main
     /// chat surface (the same path the regular landing search uses).
+    /// Approval-gated commands route through the canonical Sovereign
+    /// Gate before dispatching, and every submission emits AgentEvent
+    /// provenance via the canonical recorder.
     private func handleHermesExpertSubmit(_ raw: String) {
+        // The canonical SovereignGate + recorder live on AppBootstrap.
+        // Skip the submission entirely if either is unavailable
+        // (foreground bootstrap not finished yet) so we never fall back
+        // to a non-canonical local owner.
+        guard let bootstrap = AppBootstrap.shared else {
+            hermesExpertMode.append(.init(
+                kind: .error,
+                text: "Substrate not ready — try again in a moment."
+            ))
+            return
+        }
         let runner = HermesExpertModeRunner(
             state: hermesExpertMode,
             chat: chat,
@@ -556,6 +570,8 @@ struct LandingView: View {
             inference: inference,
             ui: ui,
             operatingMode: { selectedOperatingMode },
+            sovereignGate: bootstrap.sovereignGate,
+            provenanceRecorder: bootstrap.hermesExpertProvenanceRecorder,
             onDelegateToMainChat: { prompt in
                 exitHermesExpertMode()
                 chat.startNewChat()
@@ -569,7 +585,9 @@ struct LandingView: View {
                 )
             }
         )
-        runner.submit(raw)
+        Task { @MainActor in
+            await runner.submit(raw)
+        }
     }
 
     // MARK: - Landing Search Content (Compact for Popover)
