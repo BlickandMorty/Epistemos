@@ -13,14 +13,19 @@ struct HermesBrandSourceGuardTests {
         let directInfoPlist = try loadMirroredSourceTextFile("Epistemos-Info.plist")
         let appStoreInfoPlist = try loadMirroredSourceTextFile("Epistemos-AppStore-Info.plist")
 
-        #expect(brand.contains("private static let displayFontName = \"Inter-SemiBold\""),
-                "HermesBrand.display must request the bundled Inter-SemiBold font")
-        #expect(brand.contains("private static let bodyFontName = \"Inter-Regular\""),
-                "HermesBrand.body must request the bundled Inter-Regular font")
+        // The bundled Inter binary is the variable font; both
+        // Inter-Regular.ttf and Inter-SemiBold.ttf carry PSName
+        // "InterVariable". HermesBrand must request that PSName + use
+        // `.weight()` to pick the axis. See HermesBrandFontResolutionTests
+        // for the runtime PSName check that reads each .ttf header.
+        #expect(brand.contains("private static let interVariableFontName = \"InterVariable\""),
+                "HermesBrand must use the bundled Inter variable font's PSName")
         #expect(brand.contains("private static let monoFontName = \"JetBrainsMono-Regular\""),
                 "HermesBrand.mono must request the bundled JetBrains Mono font")
-        #expect(!brand.contains("InterVariable"),
-                "HermesBrand must not request an unbundled InterVariable font")
+        #expect(brand.contains(".custom(interVariableFontName, size: size).weight(.semibold)"),
+                "HermesBrand.display must select semibold via .weight() on the variable font")
+        #expect(brand.contains(".custom(interVariableFontName, size: size).weight(.regular)"),
+                "HermesBrand.body must select regular via .weight() on the variable font")
 
         #expect(liquidGreeting.contains("hermesHeroMode ? HermesBrand.display(compact ? 22 : 44) : AppDisplayTypography.font(size: compact ? 22 : 44)"),
                 "LiquidGreeting must use HermesBrand.display for the Hermes Agent hero phrase")
