@@ -1125,3 +1125,15 @@
 - staged allow: only `Epistemos/App/AppGroupContainer.swift`, `Epistemos/Engine/ArenaPathResolver.swift`, `Epistemos/Engine/ArenaBridge.swift`, `EpistemosTests/ArenaTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
 - log: `Test run with 9 tests in 1 suite passed` in `/tmp/epistemos-swift-arena-source-pr62-20260503-rerun.log`.
 - test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ArenaTests test`.
+
+## swift-app-group-entitlements-bootstrap-pr63
+
+- bootstrap grep: `prepareSharedSubstrateContainer(AppGroupContainer.shared)` remains present in `Epistemos/App/AppBootstrap.swift` before `EventStore.shared = EventStore()`.
+- bootstrap grep: `appGroupContainer.ensureLayout()` and `appGroupContainer.migrateLegacyDatabasesIfNeeded()` remain present in `Epistemos/App/AppBootstrap.swift`.
+- entitlement grep: `com.apple.security.application-groups` and `group.com.epistemos.shared` remain present in `Epistemos/Epistemos-AppStore.entitlements`.
+- local-signing grep: `com.apple.security.application-groups` remains absent from `Epistemos/Epistemos.entitlements` and `Epistemos/Epistemos-Debug.entitlements` until signing-profile coordination deliberately opens that gate.
+- drift grep: `group.com.epistenos.shared` remains absent from all three entitlement files and App Group/Arena source files.
+- staged allow: only the AppBootstrap shared-substrate hunk, `Epistemos/Epistemos-AppStore.entitlements`, `EpistemosTests/ArenaTests.swift`, this guard file, current-state docs, workcard docs, canon-gap drift note, and the fleet registry are allowed for this commit. Do not stage unrelated existing `AppBootstrap.swift` hunks, direct/debug entitlement files, or `Epistemos.xcodeproj/project.pbxproj`.
+- log: `Test run with 11 tests in 1 suite passed` in `/tmp/epistemos-swift-app-group-bootstrap-pr63-20260503-rerun2.log`.
+- log: `AppBootstrap: shared substrate container ready` appears during the focused test app launch.
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ArenaTests test`.

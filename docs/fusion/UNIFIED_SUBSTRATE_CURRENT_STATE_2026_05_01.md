@@ -1409,6 +1409,16 @@ Proven or actively wired:
   copied. Entitlements, AppBootstrap launch wiring, true mmap FFI/XPC transport,
   and runtime dispatch remain later STEP 5 gates. Focused evidence:
   `/tmp/epistemos-swift-arena-source-pr62-20260503-rerun.log`.
+- App Group entitlement + AppBootstrap launch wiring STEP 5d/e / PR63 is now
+  code-closed for the current signing floor. `AppBootstrap` prepares
+  `AppGroupContainer.shared` before `EventStore.shared` initializes, creates the
+  shared substrate layout, and runs legacy database migration at launch. The
+  App Store entitlement declares `group.com.epistemos.shared`; direct/debug
+  entitlement expansion is intentionally deferred because the current local
+  signing profile rejects App Group entitlements without a development
+  certificate. True mmap FFI/XPC transport and runtime dispatch remain later
+  STEP 5/6 gates. Focused evidence:
+  `/tmp/epistemos-swift-app-group-bootstrap-pr63-20260503-rerun2.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
@@ -1679,9 +1689,11 @@ before building.
    `/todo add`, `/todo done`, and `/todo clear` routing into the existing Rust
    task ledger. Future provider routing still requires a new exact gate.
    Swift App Group + Arena source PR62 is closed for the canonical source
-   objects only. The next App Group slice must separately add entitlements and
-   AppBootstrap startup wiring, then a later transport slice can bridge to true
-   mmap/FFI or XPC without replacing the canonical source objects.
+   objects, and App Group/AppBootstrap PR63 is closed for App Store entitlement
+   declaration plus launch-time shared-substrate preparation. Direct/debug App
+   Group expansion stays blocked on signing-profile coordination; the next
+   transport slice can bridge to true mmap/FFI or XPC without replacing the
+   canonical source objects.
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are

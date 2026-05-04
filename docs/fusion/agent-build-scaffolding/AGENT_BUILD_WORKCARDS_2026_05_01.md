@@ -2886,6 +2886,12 @@ SQLite file names, security-scoped bookmark helpers, bounded request/response
 tracking, and Rust-mirrored arena constants. Entitlements, AppBootstrap startup
 wiring, true mmap FFI/XPC transport, and runtime dispatch remain separate future
 gates.
+App Group entitlement + AppBootstrap launch wiring PR63 is closed for the
+current signing floor. `AppBootstrap` prepares `AppGroupContainer.shared` before
+`EventStore.shared`, the App Store entitlement declares
+`group.com.epistemos.shared`, and direct/debug App Group expansion remains
+blocked on signing-profile coordination. True mmap FFI/XPC transport and runtime
+dispatch remain separate future gates.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web

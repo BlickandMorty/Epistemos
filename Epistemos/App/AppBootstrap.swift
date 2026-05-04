@@ -1257,6 +1257,7 @@ final class AppBootstrap {
         let dbError: Error?
         let fileManager = FileManager.default
         let applicationSupportDirectory = FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
+        Self.prepareSharedSubstrateContainer(AppGroupContainer.shared)
         let usesInMemoryModelStore = Self.isRunningTests
         let modelStoreURL = Self.persistentModelStoreURL(
             applicationSupportDirectory: applicationSupportDirectory,
@@ -1940,6 +1941,31 @@ final class AppBootstrap {
         )
 
         Log.app.info("AppBootstrap: initialized — local AI stack ready")
+    }
+
+    private static func prepareSharedSubstrateContainer(
+        _ appGroupContainer: AppGroupContainer = .shared
+    ) {
+        do {
+            try appGroupContainer.ensureLayout()
+            try appGroupContainer.migrateLegacyDatabasesIfNeeded()
+            Log.app.info(
+                "AppBootstrap: shared substrate container ready at \(appGroupContainer.rootURL.path, privacy: .public)"
+            )
+        } catch {
+            Log.app.error(
+                "AppBootstrap: shared substrate container init failed: \(error.localizedDescription, privacy: .public)"
+            )
+            RuntimeDiagnostics.record(
+                .error,
+                category: "AppGroup",
+                message: "Shared substrate container init failed",
+                metadata: [
+                    "error": error.localizedDescription,
+                    "group": AppGroupContainer.canonicalGroupIdentifier,
+                ]
+            )
+        }
     }
 
     nonisolated static func startupIntegritySamplePageIdsForTesting(_ pageIds: [String]) -> [String] {

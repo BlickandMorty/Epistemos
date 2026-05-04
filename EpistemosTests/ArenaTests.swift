@@ -147,6 +147,33 @@ struct ArenaTests {
         #expect(containerSource.contains("arena.dat"))
     }
 
+    @Test("AppBootstrap prepares shared substrate container at launch")
+    func appBootstrapPreparesSharedSubstrateContainerAtLaunch() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        let prepareRange = try #require(
+            source.range(of: "prepareSharedSubstrateContainer(AppGroupContainer.shared)")
+        )
+        let eventStoreRange = try #require(source.range(of: "EventStore.shared = EventStore()"))
+
+        #expect(prepareRange.lowerBound < eventStoreRange.lowerBound)
+        #expect(source.contains("AppGroupContainer.shared"))
+        #expect(source.contains("appGroupContainer.ensureLayout()"))
+        #expect(source.contains("appGroupContainer.migrateLegacyDatabasesIfNeeded()"))
+    }
+
+    @Test("App Store entitlement declares canonical App Group without breaking local signing profiles")
+    func appStoreEntitlementDeclaresCanonicalAppGroup() throws {
+        let appStore = try loadMirroredSourceTextFile("Epistemos/Epistemos-AppStore.entitlements")
+        let direct = try loadMirroredSourceTextFile("Epistemos/Epistemos.entitlements")
+        let debug = try loadMirroredSourceTextFile("Epistemos/Epistemos-Debug.entitlements")
+
+        #expect(appStore.contains("com.apple.security.application-groups"))
+        #expect(appStore.contains("<string>group.com.epistemos.shared</string>"))
+        #expect(!appStore.contains("group.com.epistenos.shared"))
+        #expect(!direct.contains("com.apple.security.application-groups"))
+        #expect(!debug.contains("com.apple.security.application-groups"))
+    }
+
     @MainActor
     private func makeContainer() -> AppGroupContainer {
         let root = FileManager.default.temporaryDirectory
