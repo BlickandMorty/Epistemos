@@ -1320,6 +1320,17 @@ Proven or actively wired:
   project file, or protected editor path was touched. Focused evidence:
   `/tmp/epistemos-hermes-todo-command-pr55-20260503-rerun2.log` and
   `/tmp/epistemos-hermes-todo-rust-pr55-20260503.log`.
+- Hermes dispatcher target-sync PR56 is now code-closed. The account-switch
+  handoff claimed the new Hermes/Resonance files were missing from the Xcode
+  target, but focused `xcodebuild` proved the synchronized Xcode root groups
+  already compile them without manual `project.pbxproj` edits. The only true
+  blocker was `/tokens` missing from `HermesCommandDispatcher.parseCore`;
+  `HermesParsedCommand` now carries `HermesTokensCommand`, delegates its
+  approval policy, and dispatches `/tokens` through the existing Core-native
+  command. No project file, provider adapter, subprocess launcher, MCP path,
+  graph/Rex/substrate authority, entitlement, or protected editor path was
+  touched. Focused evidence:
+  `/tmp/epistemos-pbxproj-sync-r103-20260503-rerun.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox

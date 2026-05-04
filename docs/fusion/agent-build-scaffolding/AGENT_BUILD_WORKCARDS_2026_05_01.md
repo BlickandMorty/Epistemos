@@ -2854,6 +2854,11 @@ without creating a Swift-side store; `/todo clear` remains approval-marked in
 both `HermesCapabilityRegistry` and the native command helper. The command
 center exposes `/todo` with the single preferred `todo` tool and local/light
 brain preference, not a cloud or subprocess route.
+Hermes dispatcher target-sync PR56 is closed. Focused `xcodebuild` proved the
+new Hermes/Resonance files are included by Xcode filesystem-synchronized root
+groups without manual `project.pbxproj` rows, and `/tokens` now dispatches
+through `HermesCommandDispatcher` into the existing Core-native
+`HermesTokensCommand`.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
