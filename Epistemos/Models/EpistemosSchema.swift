@@ -11,6 +11,7 @@ enum EpistemosSchema {
     static var models: [any PersistentModel.Type] {
         [SDPage.self, SDFolder.self, SDChat.self, SDMessage.self,
          SDPageVersion.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self,
-         SDNoteInsight.self, SDWorkspace.self, SDModelProfile.self]
+         SDNoteInsight.self, SDWorkspace.self, SDModelProfile.self,
+         CompanionModel.self]
     }
 }

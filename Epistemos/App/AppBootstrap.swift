@@ -900,6 +900,13 @@ final class AppBootstrap {
     /// the canonical EventStore via the recorder's default persist
     /// closure.
     let hermesExpertProvenanceRecorder = AgentToolProvenanceRecorder()
+    /// Simulation Mode v1.6 — Companion Farm + Notes Sidebar Skin +
+    /// (future) Graph Live Theater. Single source of truth for
+    /// companion CRUD + activation per the simulation worktree
+    /// DOCTRINE.md. Wired to the canonical SwiftData ModelContext at
+    /// the end of AppBootstrap.init so SwiftUI surfaces can read the
+    /// roster immediately on first paint.
+    let companionState = CompanionState()
     private let sovereignGateLifecycleObserver = SovereignGateLifecycleObserver()
     var isSovereignGateLifecycleObserverStarted: Bool {
         sovereignGateLifecycleObserver.isStarted
@@ -1377,6 +1384,15 @@ final class AppBootstrap {
         }
         self.modelContainer = container
         self.databaseError = dbError
+
+        // Wire CompanionState to the canonical SwiftData ModelContext
+        // so the Farm + Notes Sidebar Skin (Simulation v1.6) can read
+        // the roster on first paint. seedDefaultIfEmpty is a one-shot
+        // that adds a single "Sage" companion if the user has never
+        // created any — gives the Farm something to show without
+        // forcing the user through the wizard on first launch.
+        companionState.attachModelContext(container.mainContext)
+        companionState.seedDefaultIfEmpty()
 
         let channelRegistry = ChannelRegistryState()
         self.channelRegistry = channelRegistry

@@ -422,6 +422,23 @@ struct LandingView: View {
 
             Spacer()
 
+                // ── Companion Farm (Simulation Mode v1.6) ──
+                // The Farm is the "home window" surface per Invariant
+                // I-1. Hidden when Hermes Expert Mode is active so the
+                // terminal box gets full focus.
+                if !hermesExpertMode.isActive,
+                   let bootstrap = AppBootstrap.shared {
+                    LandingFarmView(
+                        companionState: bootstrap.companionState,
+                        theme: theme,
+                        onCreate: { /* Creation wizard wires in next slice */ },
+                        onOpenTrash: { /* Restore sheet wires in next slice */ },
+                        onApplyAdapter: { _ in /* Adapter UI wires in next slice */ },
+                        onRequestDelete: { _ in /* Delete sheet wires in next slice */ }
+                    )
+                    .padding(.bottom, 18)
+                }
+
                 // Intelligence row (workspace & session commands)
                 HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
                     CommandHint(modIcon: "control", key: "\u{2318}W", label: "Workspaces", theme: theme) {
