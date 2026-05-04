@@ -1024,3 +1024,77 @@ patterns above; Epistemos implements all 10.
 - Secure Enclave key device-bound — V2 needs migration UX for new Mac
 - JIT entitlement App Review risk → ship Pulley interpreter fallback baked in (10-50× slower) so binary still works if Apple rejects allow-jit
 - launchd-managed vs in-bundle: in-bundle (`Contents/XPCServices/`) for V1
+
+---
+
+## 25. Schema-First GenUI Doctrine — One Pipeline, Many Views (added 2026-05-03)
+
+**Canonical:** `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`
+
+The fourth sub-track of T0 Substrate Unification (alongside Cognitive
+Kernel, Cognitive DAG, XPC Mastery). Every command, tool, agent
+response, mutation, and external system event in Epistemos produces a
+typed `GenUIPayload`; the `GenUIDispatcher` routes payload schemas to
+registered renderers; renderers know nothing about producers and
+producers know nothing about renderers. **No more per-command UI code.**
+
+### §25.1 Why this lives in canon now
+
+The Four-Model Advice Council (2026-04-22) consensus included
+"schema-first GenUI" as Substrate-foundational work. Three sessions
+later, no GenUIDispatcher exists — every new producer keeps writing
+per-call-site UI code because the dispatcher is "still doctrine-target".
+This doc breaks that cycle by giving the work an explicit place in the
+Track Register, a 24-day cost ceiling, a six-phase plan (G.1–G.6), and
+a deferral-list discipline (§9 of the doctrine doc) that catches every
+new producer that bypasses the dispatcher.
+
+### §25.2 What's already there (partial implementation)
+
+`Epistemos/Models/Artifact.swift` (`ChatArtifactKind` 7-variant enum +
+`Artifact` struct) + `Epistemos/Views/Chat/ArtifactBlockView.swift` +
+`Epistemos/Engine/ArtifactExtractor.swift` already implement the
+pipeline for **cloud model response content blocks**. This is the seed.
+The G phases generalize it to all producers and all renderers.
+
+### §25.3 What's missing
+
+- `GenUIDispatcher` static registry mapping schemas to renderer types
+- Schema set generalized beyond chat-block kinds (need `keyValueTable`,
+  `commandReceipt`, `actionPanel`, `errorReport`, `progressIndicator`,
+  `capabilityList`, `searchResultSet`, `provenanceTrace`)
+- Producers outside cloud-response path don't emit payloads
+- Cross-runtime payload serialization (Rust agent_core ↔ Swift)
+- Doctrine linter to enforce that new producers go through the dispatcher
+
+### §25.4 Phase plan (G.1–G.6, 24-day hard ceiling)
+
+1. **G.1** — Generalize the schema (1-3 days)
+2. **G.2** — Build the dispatcher (1-3 days)
+3. **G.3** — Migrate existing producers (3-7 days; priority order:
+   Hermes Expert Mode → Approval Modal → Provenance Console → Daily Brief / Welcome Back)
+4. **G.4** — Cross-runtime payload serialization via UniFFI (2-5 days)
+5. **G.5** — Cognitive DAG integration (1-3 days, after Phase 8 ships)
+6. **G.6** — Doctrine linter Rust crate (1-3 days)
+
+### §25.5 Deferral discipline (THIS is what kept it from getting lost)
+
+Every PR that adds a per-command renderer must include either:
+- A `GenUIDispatcher` migration alongside it (preferred), OR
+- A `// GENUI-DEFER:` comment + a row appended to the deferral list
+  in §9 of `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`
+
+The Hermes Expert Mode work (slices 1-8 / 2026-05-03) added per-command
+renderers under explicit `GENUI-DEFER: hackathon-2026-05-03` per this
+discipline; those renderers migrate to the dispatcher when G.3 lands.
+
+The current deferral list (canonical at `COGNITIVE_GENUI_DOCTRINE` §9):
+
+| Surface | Migration phase |
+|---|---|
+| Hermes Expert Mode renderers (`HermesExpertModeRunner.swift`) | G.3 priority 1 |
+| Approval Modal payload | G.3 priority 2 |
+| Provenance Console (when shipped) | G.3 day-1 |
+| Daily Brief render path | G.3 priority 4 |
+| Welcome Back render path | G.3 priority 4 |
+| All Phase X.1-X.5 XPC service responses | G.4 day-1 |

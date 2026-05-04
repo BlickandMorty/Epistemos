@@ -48,17 +48,17 @@ but implementation paused for hackathon.
 
 ## 1. Zone A — Substrate Foundation
 
-### T0 — Substrate Unification (Cognitive Kernel + DAG + XPC Mastery)
+### T0 — Substrate Unification (Cognitive Kernel + DAG + XPC Mastery + Schema-First GenUI)
 
 | | |
 |---|---|
-| **Status** | ~5% (doctrine written across 5 docs; implementation not started) |
+| **Status** | ~5% (doctrine written across 6 docs; partial implementation only via existing Artifact + ArtifactBlockView; full dispatchers not started) |
 | **Tier** | All (foundation everything else rides on) |
-| **Hackathon** | Paused; resume after hackathon ships |
+| **Hackathon** | Paused; resume after hackathon ships. Hermes Expert Mode (slices 1-8 / 2026-05-03) ships per-command renderers under explicit `GENUI-DEFER` per `COGNITIVE_GENUI_DOCTRINE` §6 — they migrate to dispatcher when G.3 lands. |
 | **Master index ref** | §23 Substrate Unification Doctrine |
-| **Canonical docs** | `COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md`, `COGNITIVE_DAG_DOCTRINE_2026_05_03.md`, `XPC_MASTERY_DOCTRINE_2026_05_03.md`, `PROCESSES_AND_RUNTIMES_AUDIT_2026_05_03.md`, `CODEX_DAG_RADAR_HANDOFF_2026_05_03.md` |
-| **Sub-phases** | Phase 1-7 (kernel doctrine), Phase 8.A-H (DAG doctrine), Phase X.1-X.5 (XPC mastery — folds into Phase 1-7) |
-| **Why it matters** | Two compositions in sequence: kernel collapses 5 fragmented loops → 1 Rust kernel; DAG collapses 7 subsystems → 1 typed schema; XPC Mastery is the process-boundary discipline that makes both ship to MAS as defense-in-depth, not as "just compiles" |
+| **Four sub-tracks** | (1) Cognitive Kernel = Phases 1-7. (2) Cognitive DAG = Phase 8.A–H. (3) XPC Mastery = Phases X.1–X.5 (woven into Phases 1-7). (4) **Schema-First GenUI** = Phases G.1–G.6 (unifies render layer; previously got lost — now explicit) |
+| **Canonical docs** | `COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md`, `COGNITIVE_DAG_DOCTRINE_2026_05_03.md`, `XPC_MASTERY_DOCTRINE_2026_05_03.md`, `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`, `PROCESSES_AND_RUNTIMES_AUDIT_2026_05_03.md`, `CODEX_DAG_RADAR_HANDOFF_2026_05_03.md` |
+| **Why it matters** | Three compositions in sequence: kernel collapses 5 fragmented loops → 1 Rust kernel; DAG collapses 7 subsystems → 1 typed schema; GenUI dispatcher collapses N per-command renderers → 1 schema-first registry; XPC Mastery is the process-boundary discipline that makes all of them ship to MAS as defense-in-depth, not as "just compiles" |
 
 ### T1 — Foundation Substrate
 
@@ -252,6 +252,7 @@ These are concerns that touch multiple tracks. Captured here so they're not lost
 | Concern | Touches | Doctrine ref |
 |---|---|---|
 | **XPC Mastery** | T0, T2, T5, T12 | `XPC_MASTERY_DOCTRINE_2026_05_03.md` (5-service decomposition, per-service entitlements, trust attestation, capability-token IPC, sandbox-within-sandbox for WASM, audit trail across XPC, Secure Enclave attestation, process recycling, IOSurface zero-copy, DAG integration) |
+| **Schema-First GenUI** | T0, T2, T4, T5, T6, T11 | `COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` (typed `GenUIPayload` + `GenUISchema` + `GenUIDispatcher` registry; producers emit payloads, dispatcher routes by schema, renderers know nothing about producers; Phases G.1-G.6, 24-day cost ceiling, deferral-list discipline so it doesn't get lost) |
 | **Capability Lattice** | T0, T2, T3, T5, T12 | `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md` §3 — Core / Pro / Research / Both / All |
 | **Cognitive DAG schema** | T0, T1, T2, T4, T5, T6 | `COGNITIVE_DAG_DOCTRINE_2026_05_03.md` — every subsystem becomes a traversal pattern |
 | **Zero-copy UMA** | T1, T7, T8, T9, T10 | doctrine §2.2 invariant 1 |

@@ -9,6 +9,16 @@ extension SovereignGateCategory {
     static let hermesExpertCommand = SovereignGateCategory(rawValue: "hermes_expert_command")
 }
 
+// GENUI-DEFER: hackathon-2026-05-03
+// Every `render*Inline` method below produces inline transcript rows
+// instead of routing through GenUIDispatcher. This is doctrinally
+// incorrect per `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md`
+// (T0 sub-track 4); the dispatcher does not yet exist (G.2 not shipped).
+// On the migration list at `COGNITIVE_GENUI_DOCTRINE` §9 as **G.3
+// priority 1** — first to migrate when G.2 lands. DO NOT add new
+// per-command renderers here without either (a) including the
+// dispatcher migration or (b) appending another row to the §9 list.
+
 /// Bridges the Hermes Expert Mode UI to the canonical
 /// `HermesCommandDispatcher`, the chat / orchestrator state, the
 /// canonical `SovereignGate` for approval-gated commands, and the
