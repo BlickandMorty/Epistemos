@@ -1398,6 +1398,17 @@ Proven or actively wired:
   Mamba-2 shader authority. Evidence:
   `/tmp/epistemos-metal-verify-hotpath-pr61-20260503.log` and
   `/tmp/epistemos-metal-compile-pr61-20260503.log`.
+- Swift App Group + Arena source STEP 5a/b/c / PR62 is now source-closed.
+  `AppGroupContainer`, `ArenaPathResolver`, and `ArenaBridge` re-derive Kimi's
+  App Group mockup into canonical Epistemos naming: `group.com.epistemos.shared`,
+  flat `arena.dat` / `blobs/` / `provenance.sqlite` / `vault_index.sqlite` /
+  `resonance.sqlite` layout, security-scoped bookmark helpers, canonical legacy
+  database copy migration, monotonic in-process request tracking, bounded inline
+  payloads, and Rust-mirrored arena constants. The donor's `Epistenos` spelling,
+  nested `arena/epistenos.arena` layout, and fake `OK(seq)` simulation were not
+  copied. Entitlements, AppBootstrap launch wiring, true mmap FFI/XPC transport,
+  and runtime dispatch remain later STEP 5 gates. Focused evidence:
+  `/tmp/epistemos-swift-arena-source-pr62-20260503-rerun.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
@@ -1628,7 +1639,7 @@ before building.
   consumers, or mutating repair/audit surfaces only after a new gate names the
   exact EventStore, OpLog, worker, runtime, and visibility files.
 
-4. **Core/MAS release split audit and Sovereign follow-through.**
+4. **Core/MAS release split audit, App Group wiring, and Sovereign follow-through.**
    Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle
    PR2 is closed for app/session/sleep grace clearing, Approval Surface PR3
    is closed for the existing agent approval sheet, and Rust Matrix PR4 is
@@ -1667,6 +1678,10 @@ before building.
    filtering. Hermes native todo substrate PR55 is closed for `/todo`,
    `/todo add`, `/todo done`, and `/todo clear` routing into the existing Rust
    task ledger. Future provider routing still requires a new exact gate.
+   Swift App Group + Arena source PR62 is closed for the canonical source
+   objects only. The next App Group slice must separately add entitlements and
+   AppBootstrap startup wiring, then a later transport slice can bridge to true
+   mmap/FFI or XPC without replacing the canonical source objects.
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are

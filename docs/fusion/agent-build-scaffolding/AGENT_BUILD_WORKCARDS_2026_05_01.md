@@ -2879,6 +2879,13 @@ page-aligned request/response rings, and no Swift/XPC wiring yet.
 HELIOS Metal source PR61 is closed. `agent_core/metal/` now holds the six
 re-derived substrate seed kernels and they compile with `xcrun metal`; runtime
 dispatch and CPU golden references remain future work.
+Swift App Group + Arena source PR62 is closed. `AppGroupContainer`,
+`ArenaPathResolver`, and `ArenaBridge` now provide the canonical Swift source
+shape for `group.com.epistemos.shared`, flat `arena.dat` layout, shared blobs and
+SQLite file names, security-scoped bookmark helpers, bounded request/response
+tracking, and Rust-mirrored arena constants. Entitlements, AppBootstrap startup
+wiring, true mmap FFI/XPC transport, and runtime dispatch remain separate future
+gates.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
