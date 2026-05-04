@@ -218,13 +218,18 @@ struct HermesExpertTranscriptEntry: Identifiable, Equatable, Sendable {
     let kind: Kind
     let text: String
     let artifact: Artifact?
+    /// Stage A.4 / GenUI G.3 priority 1: typed payload route through
+    /// the canonical GenUIDispatcher. When non-nil, the view renders
+    /// `GenUIDispatcher.shared.render(payload)` instead of the
+    /// inline text row or the legacy ArtifactBlockView path. Migrating
+    /// renderers populate this; legacy renderers keep using `artifact`
+    /// until they migrate.
+    let payload: GenUIPayload?
     let timestamp: Date
 
     /// Identity equality is sufficient for diffing. `Artifact` itself
-    /// isn't `Equatable` (it carries an arbitrary `content: String`
-    /// blob from cloud responses) and we don't want to pay deep
-    /// comparison on every diff anyway — the UUID is unique per
-    /// instance.
+    /// isn't `Equatable` and we don't want to pay deep comparison on
+    /// every diff anyway — the UUID is unique per instance.
     static func == (lhs: HermesExpertTranscriptEntry, rhs: HermesExpertTranscriptEntry) -> Bool {
         lhs.id == rhs.id
     }
@@ -235,21 +240,35 @@ struct HermesExpertTranscriptEntry: Identifiable, Equatable, Sendable {
         case systemResponse     // structured result text
         case info               // ambient info (mode change, etc.)
         case error              // dispatch error or unknown command
-        case artifact           // rich card via ArtifactBlockView
+        case artifact           // rich card via ArtifactBlockView (legacy / partial)
+        case payload            // typed GenUIPayload via GenUIDispatcher (canonical)
     }
 
-    init(kind: Kind, text: String, artifact: Artifact? = nil, timestamp: Date = .now) {
+    init(
+        kind: Kind,
+        text: String,
+        artifact: Artifact? = nil,
+        payload: GenUIPayload? = nil,
+        timestamp: Date = .now
+    ) {
         self.id = UUID()
         self.kind = kind
         self.text = text
         self.artifact = artifact
+        self.payload = payload
         self.timestamp = timestamp
     }
 
-    /// Shorthand: build an artifact-bearing entry. Kind is forced to
-    /// `.artifact`; text is the artifact title for accessibility +
-    /// fallback if the renderer can't draw the card.
+    /// Shorthand: build an artifact-bearing entry (legacy chat-block
+    /// path). Kind = `.artifact`; text is the artifact title.
     static func artifact(_ artifact: Artifact) -> HermesExpertTranscriptEntry {
         .init(kind: .artifact, text: artifact.title, artifact: artifact)
+    }
+
+    /// Shorthand: build a typed-payload entry. The canonical Stage
+    /// A.4 / GenUI G.3 path. Kind = `.payload`; text is the payload
+    /// title for accessibility + fallback.
+    static func payload(_ payload: GenUIPayload) -> HermesExpertTranscriptEntry {
+        .init(kind: .payload, text: payload.title, payload: payload)
     }
 }
