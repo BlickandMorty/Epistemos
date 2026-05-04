@@ -1,0 +1,1276 @@
+diff --git a/Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme b/Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme
+index de20a5c6..5f09665f 100644
+--- a/Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme
++++ b/Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme
+@@ -4,8 +4,7 @@
+    version = "1.7">
+    <BuildAction
+       parallelizeBuildables = "YES"
+-      buildImplicitDependencies = "YES"
+-      runPostActionsOnFailure = "NO">
++      buildImplicitDependencies = "YES">
+       <PreActions>
+          <ExecutionAction
+             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+@@ -16,7 +15,7 @@
+                   <BuildableReference
+                      BuildableIdentifier = "primary"
+                      BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+-                     BuildableName = "Epistemos-AppStore.app"
++                     BuildableName = "Epistemos.app"
+                      BlueprintName = "Epistemos-AppStore"
+                      ReferencedContainer = "container:Epistemos.xcodeproj">
+                   </BuildableReference>
+@@ -34,7 +33,7 @@
+             <BuildableReference
+                BuildableIdentifier = "primary"
+                BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+-               BuildableName = "Epistemos-AppStore.app"
++               BuildableName = "Epistemos.app"
+                BlueprintName = "Epistemos-AppStore"
+                ReferencedContainer = "container:Epistemos.xcodeproj">
+             </BuildableReference>
+@@ -45,13 +44,12 @@
+       buildConfiguration = "Debug"
+       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+-      shouldUseLaunchSchemeArgsEnv = "YES"
+-      onlyGenerateCoverageForSpecifiedTargets = "NO">
++      shouldUseLaunchSchemeArgsEnv = "YES">
+       <MacroExpansion>
+          <BuildableReference
+             BuildableIdentifier = "primary"
+             BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+-            BuildableName = "Epistemos-AppStore.app"
++            BuildableName = "Epistemos.app"
+             BlueprintName = "Epistemos-AppStore"
+             ReferencedContainer = "container:Epistemos.xcodeproj">
+          </BuildableReference>
+@@ -74,13 +72,11 @@
+          <BuildableReference
+             BuildableIdentifier = "primary"
+             BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+-            BuildableName = "Epistemos-AppStore.app"
++            BuildableName = "Epistemos.app"
+             BlueprintName = "Epistemos-AppStore"
+             ReferencedContainer = "container:Epistemos.xcodeproj">
+          </BuildableReference>
+       </BuildableProductRunnable>
+-      <CommandLineArguments>
+-      </CommandLineArguments>
+    </LaunchAction>
+    <ProfileAction
+       buildConfiguration = "Release"
+@@ -93,7 +89,7 @@
+          <BuildableReference
+             BuildableIdentifier = "primary"
+             BlueprintIdentifier = "D30E77DBB7C16B42612B2335"
+-            BuildableName = "Epistemos-AppStore.app"
++            BuildableName = "Epistemos.app"
+             BlueprintName = "Epistemos-AppStore"
+             ReferencedContainer = "container:Epistemos.xcodeproj">
+          </BuildableReference>
+diff --git a/Epistemos/Engine/NoteInsightService.swift b/Epistemos/Engine/NoteInsightService.swift
+index 577f623b..1699303a 100644
+--- a/Epistemos/Engine/NoteInsightService.swift
++++ b/Epistemos/Engine/NoteInsightService.swift
+@@ -9,6 +9,12 @@ import SwiftData
+ final class NoteInsightService {
+     nonisolated private static let log = Logger(subsystem: "Epistemos", category: "NoteInsightService")
+ 
++    private struct PageBodyStage: Sendable {
++        let pageId: String
++        let filePath: String?
++        let inlineBody: String
++    }
++
+     private(set) var isIndexing = false
+     private(set) var indexedCount = 0
+     private(set) var totalCount = 0
+@@ -45,7 +51,7 @@ final class NoteInsightService {
+ 
+         let container = modelContainer
+         reindexTask = Task.detached(priority: .utility) { [weak self] in
+-            let result = NoteInsightService.runReindex(container: container)
++            let result = await NoteInsightService.runReindex(container: container)
+             await self?.applyReindexResult(result, generation: gen)
+         }
+     }
+@@ -89,7 +95,21 @@ final class NoteInsightService {
+         }
+     }
+ 
+-    private nonisolated static func runReindex(container: ModelContainer) -> (analyzed: Int, total: Int) {
++    private nonisolated static func pageBodyStage(for page: SDPage) -> PageBodyStage {
++        PageBodyStage(pageId: page.id, filePath: page.filePath, inlineBody: page.body)
++    }
++
++    private nonisolated static func readBody(from stage: PageBodyStage) async -> String {
++        await SDPage.loadBodyAsyncFromPrimitives(
++            pageId: stage.pageId,
++            filePath: stage.filePath,
++            inlineBody: stage.inlineBody,
++            mapped: true,
++            fast: true
++        )
++    }
++
++    private nonisolated static func runReindex(container: ModelContainer) async -> (analyzed: Int, total: Int) {
+         let start = CFAbsoluteTimeGetCurrent()
+         let context = ModelContext(container)
+         context.autosaveEnabled = false
+@@ -97,15 +117,16 @@ final class NoteInsightService {
+         do {
+             let pages = try context.fetch(FetchDescriptor<SDPage>())
+             let total = pages.count
++            let stages = pages.map(Self.pageBodyStage(for:))
+ 
+             var analyzed = 0
+             var skipped = 0
+-            for page in pages {
++            for stage in stages {
+                 guard !Task.isCancelled else { break }
+-                let body = NoteFileStorage.readBody(pageId: page.id)
++                let body = await Self.readBody(from: stage)
+                 let hash = SDNoteInsight.hash(of: body)
+ 
+-                let targetPageId = page.id
++                let targetPageId = stage.pageId
+                 let existing = try Self.fetchInsightRecord(
+                     pageId: targetPageId,
+                     context: context,
+@@ -119,7 +140,7 @@ final class NoteInsightService {
+                 }
+ 
+                 let signals = ContentPersonalitySignals.analyze(body)
+-                let insight = existing ?? SDNoteInsight(pageId: page.id)
++                let insight = existing ?? SDNoteInsight(pageId: stage.pageId)
+                 insight.contentHash = hash
+                 insight.lastAnalyzedAt = .now
+                 insight.sentiment = signals.sentiment
+@@ -187,7 +208,23 @@ final class NoteInsightService {
+             let context = ModelContext(container)
+             context.autosaveEnabled = false
+ 
+-            let body = NoteFileStorage.readBody(pageId: targetId)
++            let stage: PageBodyStage
++            do {
++                var descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
++                descriptor.fetchLimit = 1
++                if let page = try context.fetch(descriptor).first {
++                    stage = Self.pageBodyStage(for: page)
++                } else {
++                    stage = PageBodyStage(pageId: targetId, filePath: nil, inlineBody: "")
++                }
++            } catch {
++                Self.log.error(
++                    "Re-analyze page fetch failed for \(String(targetId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
++                )
++                stage = PageBodyStage(pageId: targetId, filePath: nil, inlineBody: "")
++            }
++
++            let body = await Self.readBody(from: stage)
+             let hash = SDNoteInsight.hash(of: body)
+ 
+             let existing: SDNoteInsight?
+diff --git a/Epistemos/Vault/LiveNoteScanner.swift b/Epistemos/Vault/LiveNoteScanner.swift
+index ed6e281d..2bd2e8ca 100644
+--- a/Epistemos/Vault/LiveNoteScanner.swift
++++ b/Epistemos/Vault/LiveNoteScanner.swift
+@@ -101,7 +101,7 @@ final class LiveNoteScanner {
+                 return LiveNoteScanResult(tasks: [], pageCount: 0)
+             }
+             let candidates = pages.map(Self.snapshot(for:))
+-            return Self.scanTasks(from: candidates)
++            return await Self.scanTasksAsync(from: candidates)
+         }.value
+ 
+         LiveNoteScannerLog.logger.info(
+@@ -142,6 +142,27 @@ final class LiveNoteScanner {
+         return LiveNoteScanResult(tasks: tasks, pageCount: candidates.count)
+     }
+ 
++    private nonisolated static func scanTasksAsync(from candidates: [LiveNotePageSnapshot]) async -> LiveNoteScanResult {
++        var tasks: [LiveNoteTask] = []
++        tasks.reserveCapacity(candidates.count)
++
++        for candidate in candidates {
++            let body = await loadBodyAsync(for: candidate)
++            guard body.contains("live_note: true") || body.contains("live_note:true") else {
++                continue
++            }
++
++            let parsed = parseTaskBlocks(
++                from: body,
++                notePath: notePath(for: candidate),
++                noteId: candidate.id
++            )
++            tasks.append(contentsOf: parsed)
++        }
++
++        return LiveNoteScanResult(tasks: tasks, pageCount: candidates.count)
++    }
++
+     private nonisolated static func loadBody(for page: LiveNotePageSnapshot) -> String {
+         let diskBody = NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)
+         if !diskBody.isEmpty || page.hasManagedBody {
+@@ -160,6 +181,16 @@ final class LiveNoteScanner {
+         return ""
+     }
+ 
++    private nonisolated static func loadBodyAsync(for page: LiveNotePageSnapshot) async -> String {
++        await SDPage.loadBodyAsyncFromPrimitives(
++            pageId: page.id,
++            filePath: page.filePath,
++            inlineBody: page.inlineBody,
++            mapped: true,
++            fast: true
++        )
++    }
++
+     private nonisolated static func notePath(for page: LiveNotePageSnapshot) -> String {
+         if let filePath = page.filePath {
+             let fileName = URL(fileURLWithPath: filePath).lastPathComponent
+diff --git a/Epistemos/Views/Graph/NodeInspectorState.swift b/Epistemos/Views/Graph/NodeInspectorState.swift
+index 695fbed4..a6283c7e 100644
+--- a/Epistemos/Views/Graph/NodeInspectorState.swift
++++ b/Epistemos/Views/Graph/NodeInspectorState.swift
+@@ -17,6 +17,13 @@ final class NodeInspectorState {
+         let topologyVersion: Int
+     }
+ 
++    private struct BodyReadStage: Sendable {
++        let pageId: String
++        let filePath: String?
++        let inlineBody: String
++        let fallbackSummary: String?
++    }
++
+     enum InspectorMode: Hashable { case profile, editor }
+ 
+     // MARK: - Selection
+@@ -116,9 +123,12 @@ final class NodeInspectorState {
+                     if let liveBody = currentEditorBody(for: sourceId) {
+                         noteBody = liveBody
+                     } else {
+-                        noteBody = await Task.detached {
+-                            NoteFileStorage.readBody(pageId: sourceId)
+-                        }.value
++                        let stage = stageBodyRead(
++                            pageId: sourceId,
++                            modelContext: modelContext,
++                            logPrefix: "NodeInspectorState"
++                        )
++                        noteBody = await bodyText(for: stage)
+                     }
+                 } else {
+                     noteBody = ""
+@@ -461,6 +471,85 @@ final class NodeInspectorState {
+         return bodies
+     }
+ 
++    private func stageBodyRead(from page: SDPage) -> BodyReadStage {
++        BodyReadStage(
++            pageId: page.id,
++            filePath: page.filePath,
++            inlineBody: page.body,
++            fallbackSummary: page.summary
++        )
++    }
++
++    private func stageBodyRead(
++        pageId: String,
++        modelContext: ModelContext,
++        logPrefix: String
++    ) -> BodyReadStage {
++        let predicate = #Predicate<SDPage> { $0.id == pageId }
++        var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
++        descriptor.fetchLimit = 1
++        do {
++            if let page = try modelContext.fetch(descriptor).first {
++                return stageBodyRead(from: page)
++            }
++        } catch {
++            Log.graph.error(
++                "\(logPrefix): failed to fetch page summary for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
++            )
++        }
++        return BodyReadStage(pageId: pageId, filePath: nil, inlineBody: "", fallbackSummary: nil)
++    }
++
++    private func stagedBodyReads(
++        for pageIds: [String],
++        modelContext: ModelContext,
++        logPrefix: String
++    ) -> [String: BodyReadStage] {
++        var stages: [String: BodyReadStage] = [:]
++        stages.reserveCapacity(pageIds.count)
++        for pageId in pageIds {
++            stages[pageId] = stageBodyRead(pageId: pageId, modelContext: modelContext, logPrefix: logPrefix)
++        }
++        return stages
++    }
++
++    private func bodyText(for stage: BodyReadStage) async -> String {
++        await Task.detached(priority: .utility) { () async -> String in
++            await SDPage.loadBodyAsyncFromPrimitives(
++                pageId: stage.pageId,
++                filePath: stage.filePath,
++                inlineBody: stage.inlineBody,
++                mapped: true,
++                fast: true
++            )
++        }.value
++    }
++
++    private func bodyTexts(
++        for stages: [BodyReadStage],
++        liveBodies: [String: String]
++    ) async -> [String] {
++        await Task.detached(priority: .utility) { () async -> [String] in
++            var bodies: [String] = []
++            bodies.reserveCapacity(stages.count)
++            for stage in stages {
++                if let liveBody = liveBodies[stage.pageId] {
++                    bodies.append(liveBody)
++                    continue
++                }
++                let body = await SDPage.loadBodyAsyncFromPrimitives(
++                    pageId: stage.pageId,
++                    filePath: stage.filePath,
++                    inlineBody: stage.inlineBody,
++                    mapped: true,
++                    fast: true
++                )
++                bodies.append(body)
++            }
++            return bodies
++        }.value
++    }
++
+     private func fetchPageContent(_ node: GraphNodeRecord, modelContext: ModelContext) async -> String {
+         guard let sourceId = node.sourceId else { return node.label }
+         let label = node.label
+@@ -469,25 +558,15 @@ final class NodeInspectorState {
+             return liveBody
+         }
+ 
+-        // File I/O off main actor (NoteFileStorage.readBody is nonisolated static).
+-        let body = await Task.detached {
+-            NoteFileStorage.readBody(pageId: sourceId)
+-        }.value
++        let stage = stageBodyRead(
++            pageId: sourceId,
++            modelContext: modelContext,
++            logPrefix: "NodeInspectorState"
++        )
++        let body = await bodyText(for: stage)
+         if !body.isEmpty { return body }
+ 
+-        // Fallback: SwiftData page summary if body file doesn't exist (rare, stays on main).
+-        let predicate = #Predicate<SDPage> { $0.id == sourceId }
+-        var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
+-        descriptor.fetchLimit = 1
+-        do {
+-            if let page = try modelContext.fetch(descriptor).first, !page.summary.isEmpty {
+-                return page.summary
+-            }
+-        } catch {
+-            Log.graph.error(
+-                "NodeInspectorState: failed to fetch page summary for \(String(sourceId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+-            )
+-        }
++        if let summary = stage.fallbackSummary, !summary.isEmpty { return summary }
+         return label
+     }
+ 
+@@ -544,14 +623,8 @@ final class NodeInspectorState {
+ 
+         let descendantPageIDs = descendantPages.map(\.id)
+         let liveBodies = liveEditorBodies(for: descendantPageIDs)
+-        let pageBodies = await Task.detached {
+-            descendantPageIDs.map { pageID in
+-                if let liveBody = liveBodies[pageID] {
+-                    return liveBody
+-                }
+-                return NoteFileStorage.readBody(pageId: pageID)
+-            }
+-        }.value
++        let stages = descendantPages.map(stageBodyRead(from:))
++        let pageBodies = await bodyTexts(for: stages, liveBodies: liveBodies)
+ 
+         var parts: [String] = [
+             "Folder: \(node.label)",
+@@ -585,16 +658,22 @@ final class NodeInspectorState {
+             .map { (sourceId: $0.sourceId, label: $0.label) }
+ 
+         let liveBodies = liveEditorBodies(for: related.compactMap(\.sourceId))
+-        // Batch file reads off main actor.
+-        let bodies = await Task.detached {
+-            related.map { rel in
+-                guard let sid = rel.sourceId else { return "" }
+-                if let liveBody = liveBodies[sid] {
+-                    return liveBody
+-                }
+-                return NoteFileStorage.readBody(pageId: sid)
+-            }
+-        }.value
++        let stagesById = stagedBodyReads(
++            for: related.compactMap(\.sourceId),
++            modelContext: modelContext,
++            logPrefix: "NodeInspectorState"
++        )
++        let stages = related.map { rel in
++            rel.sourceId.flatMap { stagesById[$0] }
++        }
++        let bodyStages = stages.compactMap { $0 }
++        let bodyTexts = await bodyTexts(for: bodyStages, liveBodies: liveBodies)
++        var bodyCursor = 0
++        let bodies = stages.map { stage -> String in
++            guard stage != nil else { return "" }
++            defer { bodyCursor += 1 }
++            return bodyTexts[bodyCursor]
++        }
+ 
+         var parts: [String] = ["Tag: \(node.label)\nRelated nodes:"]
+         for (i, rel) in related.enumerated() {
+@@ -623,20 +702,43 @@ final class NodeInspectorState {
+         guard !relatedArray.isEmpty else { return "" }
+ 
+         let liveBodies = liveEditorBodies(for: relatedArray.compactMap(\.sourceId))
+-        let previews = await Task.detached {
+-            relatedArray.map { related -> String in
++        let stagesById = stagedBodyReads(
++            for: relatedArray.compactMap(\.sourceId),
++            modelContext: modelContext,
++            logPrefix: "NodeInspectorState"
++        )
++        let previews = await Task.detached(priority: .utility) { () async -> [String] in
++            var output: [String] = []
++            output.reserveCapacity(relatedArray.count)
++            for related in relatedArray {
+                 guard let sourceId = related.sourceId else {
+-                    return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
++                    output.append(related.metadata.abstract ?? related.metadata.quoteText ?? related.label)
++                    continue
+                 }
+                 if let liveBody = liveBodies[sourceId] {
+-                    return liveBody
++                    output.append(liveBody)
++                    continue
+                 }
+-                let body = NoteFileStorage.readBody(pageId: sourceId).trimmingCharacters(in: .whitespacesAndNewlines)
++                let stage = stagesById[sourceId] ?? BodyReadStage(
++                    pageId: sourceId,
++                    filePath: nil,
++                    inlineBody: "",
++                    fallbackSummary: nil
++                )
++                let body = await SDPage.loadBodyAsyncFromPrimitives(
++                    pageId: stage.pageId,
++                    filePath: stage.filePath,
++                    inlineBody: stage.inlineBody,
++                    mapped: true,
++                    fast: true
++                ).trimmingCharacters(in: .whitespacesAndNewlines)
+                 if !body.isEmpty {
+-                    return body
++                    output.append(body)
++                    continue
+                 }
+-                return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
++                output.append(related.metadata.abstract ?? related.metadata.quoteText ?? related.label)
+             }
++            return output
+         }.value
+ 
+         var lines = ["Connected graph context:"]
+diff --git a/Epistemos/Views/Graph/PinnedInspector.swift b/Epistemos/Views/Graph/PinnedInspector.swift
+index effdef09..f4da9dee 100644
+--- a/Epistemos/Views/Graph/PinnedInspector.swift
++++ b/Epistemos/Views/Graph/PinnedInspector.swift
+@@ -7,6 +7,13 @@ import SwiftData
+ 
+ @MainActor @Observable
+ final class PinnedInspector: Identifiable {
++    private struct BodyReadStage: Sendable {
++        let pageId: String
++        let filePath: String?
++        let inlineBody: String
++        let fallbackSummary: String?
++    }
++
+     let id: String
+     let nodeId: String
+     private var nodeReference: GraphNodeRecord?
+@@ -181,27 +188,53 @@ final class PinnedInspector: Identifiable {
+         if let liveBody = NoteWindowManager.shared.editorBody(for: sourceId) {
+             return liveBody
+         }
+-        
+-        // File I/O off main actor
+-        let body = await Task.detached {
+-            NoteFileStorage.readBody(pageId: sourceId)
++
++        let stage = stageBodyRead(
++            pageId: sourceId,
++            modelContext: modelContext,
++            logPrefix: "PinnedInspector"
++        )
++
++        // File I/O off main actor. The async helper preserves the
++        // managed-sidecar-first fallback chain before consulting R.3.
++        let body = await Task.detached { () async -> String in
++            await SDPage.loadBodyAsyncFromPrimitives(
++                pageId: stage.pageId,
++                filePath: stage.filePath,
++                inlineBody: stage.inlineBody,
++                mapped: true,
++                fast: true
++            )
+         }.value
+         if !body.isEmpty { return body }
+-        
+-        // Fallback to SwiftData
+-        let predicate = #Predicate<SDPage> { $0.id == sourceId }
++
++        if let summary = stage.fallbackSummary, !summary.isEmpty { return summary }
++        return node.label
++    }
++
++    private func stageBodyRead(
++        pageId: String,
++        modelContext: ModelContext,
++        logPrefix: String
++    ) -> BodyReadStage {
++        let predicate = #Predicate<SDPage> { $0.id == pageId }
+         var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
+         descriptor.fetchLimit = 1
+         do {
+-            if let page = try modelContext.fetch(descriptor).first, !page.summary.isEmpty {
+-                return page.summary
++            if let page = try modelContext.fetch(descriptor).first {
++                return BodyReadStage(
++                    pageId: pageId,
++                    filePath: page.filePath,
++                    inlineBody: page.body,
++                    fallbackSummary: page.summary
++                )
+             }
+         } catch {
+             Log.graph.error(
+-                "PinnedInspector: failed to fetch page summary for \(String(sourceId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
++                "\(logPrefix): failed to fetch page summary for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+             )
+         }
+-        return node.label
++        return BodyReadStage(pageId: pageId, filePath: nil, inlineBody: "", fallbackSummary: nil)
+     }
+     
+     private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
+diff --git a/Epistemos/Views/Landing/LandingView.swift b/Epistemos/Views/Landing/LandingView.swift
+index e40ffd43..43d42a00 100644
+--- a/Epistemos/Views/Landing/LandingView.swift
++++ b/Epistemos/Views/Landing/LandingView.swift
+@@ -197,9 +197,10 @@ struct LandingView: View {
+ 
+             // ── Liquid Wave Overlay ──
+             // Replaces the legacy NSPopover path. Renders a Metal ASCII
+-            // liquid wave behind a compact flat search bar that emerges at
+-            // the click location. Scope is strictly HomeView landing; the
+-            // overlay does not touch any other composer or input surface.
++            // liquid wave behind a Material 3-inspired search bar that
++            // emerges at the click location. Scope is strictly HomeView
++            // landing; the overlay does not touch any other composer or
++            // input surface.
+             if showingSearchPopover {
+                 LandingWaveOverlay(
+                     isActive: $showingSearchPopover,
+@@ -208,15 +209,11 @@ struct LandingView: View {
+                     dropTrigger: landingWaveDropTrigger,
+                     onDismiss: { dismissLandingSearch() }
+                 ) {
+-                    if let bootstrap = AppBootstrap.shared {
+-                        landingSearchPopoverContent
+-                            .frame(idealWidth: 520, maxWidth: 520)
+-                            .withAppEnvironment(bootstrap)
+-                            .modelContainer(bootstrap.modelContainer)
+-                    } else {
+-                        landingSearchPopoverContent
+-                            .frame(idealWidth: 520, maxWidth: 520)
+-                    }
++                    LandingWaveSearchBar(
++                        text: $landingSearchText,
++                        onSubmit: { _ in submitLandingSearch() },
++                        onDismiss: { dismissLandingSearch() }
++                    )
+                 }
+                 .onExitCommand { dismissLandingSearch() }
+                 .transition(.opacity)
+@@ -251,7 +248,10 @@ struct LandingView: View {
+         .coordinateSpace(name: LandingCoordinateSpace.root)
+         .animation(Motion.smooth, value: showingBrief)
+         .animation(Motion.smooth, value: showWelcomeBack)
+-        .animation(Motion.smooth, value: showingSearchPopover)
++        // Landing-wave emergence: snappier spring (response 0.18, damping 0.78)
++        // chosen per user feedback that the prior Motion.smooth curve felt
++        // "lack luster." Bar pops out, slight overshoot, quick settle.
++        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: showingSearchPopover)
+         .onAppear {
+             LandingViewStateSync.reassertHomeSurface(ui)
+             sanitizeStoredOperatingMode()
+diff --git a/Epistemos/Views/Landing/Wave/LandingWaveDesign.swift b/Epistemos/Views/Landing/Wave/LandingWaveDesign.swift
+index e6c476a5..5adf8030 100644
+--- a/Epistemos/Views/Landing/Wave/LandingWaveDesign.swift
++++ b/Epistemos/Views/Landing/Wave/LandingWaveDesign.swift
+@@ -107,11 +107,15 @@ enum LandingWaveDesign {
+     // MARK: - Bar emergence (see plan §8.3)
+ 
+     /// Total duration of the bar chrome fade-in + overshoot, seconds.
+-    static let barEmergenceDuration: Double = 0.20
++    /// Tightened (2026-04-24) from 0.20s → 0.14s per user feedback that
++    /// earlier timing felt "lack luster." Snappier = stronger snap.
++    static let barEmergenceDuration: Double = 0.14
+     /// Initial vertical offset before chrome springs to rest position.
+-    static let barEmergenceOffset: CGFloat = 14
+-    /// Initial scale before the emergence spring.
+-    static let barEmergenceScale: CGFloat = 0.92
++    /// Reduced with duration so the motion still completes cleanly.
++    static let barEmergenceOffset: CGFloat = 16
++    /// Initial scale before the emergence spring. Slightly more compressed
++    /// than before for a more assertive pop-out.
++    static let barEmergenceScale: CGFloat = 0.88
+ 
+     // MARK: - Water trail (see plan §8.4)
+ 
+diff --git a/Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift b/Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift
+index 8f026f8c..2320b12c 100644
+--- a/Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift
++++ b/Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift
+@@ -1,8 +1,11 @@
+ import AppKit
+ import MetalKit
++import OSLog
+ import QuartzCore
+ import SwiftUI
+ 
++private let landingWaveLog = Logger(subsystem: "com.epistemos", category: "LandingWave")
++
+ /// SwiftUI wrapper around an `MTKView` hosting the landing liquid-wave renderer.
+ ///
+ /// - Uses `paused = true` + manual `draw()` calls driven by a `CADisplayLink`
+@@ -61,7 +64,9 @@ struct LandingWaveMetalView: NSViewRepresentable {
+         if dropTrigger != coordinator.lastDropTrigger {
+             coordinator.lastDropTrigger = dropTrigger
+             if let location = clickLocation, !reduceMotion {
+-                coordinator.enqueueDrop(
++                // Cache the click; the coordinator tries to fire immediately
++                // and otherwise re-attempts once the view has a non-zero size.
++                coordinator.requestDrop(
+                     at: location,
+                     viewSize: nsView.bounds.size,
+                     cursorDirection: cursorDirection
+@@ -85,6 +90,13 @@ struct LandingWaveMetalView: NSViewRepresentable {
+         nonisolated(unsafe) private var thermalObserver: NSObjectProtocol?
+         var lastDropTrigger: Int = 0
+ 
++        // Pending click cached until the view has a non-zero size. SwiftUI's
++        // `updateNSView` can fire before the MTKView is laid out; without
++        // this buffer the user's first click fires a drop the renderer
++        // silently rejects (viewSize guard in `scheduleDrop`).
++        private var pendingClickLocation: CGPoint?
++        private var pendingCursorDirection: CGVector = .zero
++
+         deinit {
+             if let powerObserver {
+                 NotificationCenter.default.removeObserver(powerObserver)
+@@ -96,7 +108,13 @@ struct LandingWaveMetalView: NSViewRepresentable {
+ 
+         func attach(view: MTKView, device: MTLDevice) {
+             self.view = view
+-            self.renderer = LandingWaveRenderer(device: device)
++            let renderer = LandingWaveRenderer(device: device)
++            self.renderer = renderer
++            if renderer == nil {
++                landingWaveLog.error(
++                    "LandingWaveRenderer failed to init — check Metal library + PSO build"
++                )
++            }
+             self.mtkView(view, drawableSizeWillChange: view.drawableSize)
+             registerPowerAndThermalObservers()
+         }
+@@ -113,12 +131,42 @@ struct LandingWaveMetalView: NSViewRepresentable {
+             }
+         }
+ 
+-        func enqueueDrop(at location: CGPoint, viewSize: CGSize, cursorDirection: CGVector) {
++        /// Try to fire the drop immediately if the view already has a valid
++        /// size. Otherwise cache it until the drawable-size delegate callback
++        /// tells us the view has been laid out.
++        func requestDrop(at location: CGPoint, viewSize: CGSize, cursorDirection: CGVector) {
++            if viewSize.width > 0, viewSize.height > 0 {
++                landingWaveLog.debug(
++                    "LandingWave drop fired immediately at \(location.debugDescription, privacy: .public) size=\(viewSize.debugDescription, privacy: .public)"
++                )
++                renderer?.scheduleDrop(
++                    at: location,
++                    viewSize: viewSize,
++                    cursorDirection: cursorDirection
++                )
++                pendingClickLocation = nil
++            } else {
++                landingWaveLog.debug(
++                    "LandingWave drop cached (view not sized yet)"
++                )
++                pendingClickLocation = location
++                pendingCursorDirection = cursorDirection
++            }
++        }
++
++        private func flushPendingDropIfReady(using view: MTKView) {
++            guard let pending = pendingClickLocation else { return }
++            let size = view.bounds.size
++            guard size.width > 0, size.height > 0 else { return }
++            landingWaveLog.debug(
++                "LandingWave flushing cached drop at \(pending.debugDescription, privacy: .public)"
++            )
+             renderer?.scheduleDrop(
+-                at: location,
+-                viewSize: viewSize,
+-                cursorDirection: cursorDirection
++                at: pending,
++                viewSize: size,
++                cursorDirection: pendingCursorDirection
+             )
++            pendingClickLocation = nil
+         }
+ 
+         private func startDisplayLinkIfNeeded() {
+@@ -181,12 +229,20 @@ struct LandingWaveMetalView: NSViewRepresentable {
+ 
+         nonisolated func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+             Task { @MainActor in
+-                renderer?.resize(to: view.bounds.size, drawableScale: view.window?.backingScaleFactor ?? 2.0)
++                renderer?.resize(
++                    to: view.bounds.size,
++                    drawableScale: view.window?.backingScaleFactor ?? 2.0
++                )
++                flushPendingDropIfReady(using: view)
+             }
+         }
+ 
+         nonisolated func draw(in view: MTKView) {
+             Task { @MainActor in
++                // Late-arriving sizes: MTKView can present its first valid
++                // drawable without a prior drawableSizeWillChange, so also
++                // retry the cached click here.
++                flushPendingDropIfReady(using: view)
+                 renderer?.render(in: view)
+             }
+         }
+diff --git a/Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift b/Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift
+index 5f7b1a8d..e3c3790b 100644
+--- a/Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift
++++ b/Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift
+@@ -48,10 +48,10 @@ struct LandingWaveOverlay<Content: View>: View {
+                     .ignoresSafeArea()
+                 }
+ 
+-                // ── Flat bar layer ──
++                // ── Bar layer ──
+                 let barWidth = resolvedBarWidth(in: proxy.size)
+                 let anchor = resolvedBarAnchor(in: proxy.size, barWidth: barWidth)
+-                flatBar()
++                content()
+                     .frame(width: barWidth, alignment: .center)
+                     .offset(x: anchor.x, y: anchor.y)
+                     .transition(reduceMotion
+@@ -68,30 +68,6 @@ struct LandingWaveOverlay<Content: View>: View {
+         .ignoresSafeArea()
+     }
+ 
+-    private func flatBar() -> some View {
+-        content()
+-            .padding(.horizontal, LandingWaveDesign.barHorizontalPadding)
+-            .padding(.top, LandingWaveDesign.barTopPadding)
+-            .padding(.bottom, LandingWaveDesign.barBottomPadding)
+-            .background {
+-                RoundedRectangle(
+-                    cornerRadius: LandingWaveDesign.barCornerRadius,
+-                    style: .continuous
+-                )
+-                .fill(ui.theme.chatSurface.opacity(0.98))
+-            }
+-            .overlay {
+-                RoundedRectangle(
+-                    cornerRadius: LandingWaveDesign.barCornerRadius,
+-                    style: .continuous
+-                )
+-                .stroke(
+-                    ui.theme.fontAccent.opacity(LandingWaveDesign.barStrokeOpacity),
+-                    lineWidth: LandingWaveDesign.barStrokeWidth
+-                )
+-            }
+-    }
+-
+     private func resolvedBarWidth(in surface: CGSize) -> CGFloat {
+         min(LandingWaveDesign.barMaxWidth, max(LandingWaveDesign.barMinWidth, surface.width - 48))
+     }
+diff --git a/Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift b/Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift
+index 9695df72..dede5cd9 100644
+--- a/Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift
++++ b/Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift
+@@ -65,10 +65,12 @@ final class LandingWaveRenderer: NSObject {
+     private let atlasSampler: MTLSamplerState
+     private let atlas: LandingWaveGlyphAtlas.Built
+ 
+-    // Ping-pong height field textures. `prev` and `curr` are inputs; we write
+-    // `next`. Each tick the tuple rotates.
++    // Height field textures. FDTD needs three distinct textures — Metal
++    // forbids reading and writing the same texture in a single compute pass,
++    // so two textures are insufficient (prev and next would collide). Rotate
++    // the role of each texture each tick via `heightPhase`.
+     private var heightTextures: [MTLTexture] = []
+-    private var heightPhase = 0    // index of the OLDEST (prev) texture
++    private var heightPhase = 0    // index of the PREV texture this tick
+     private var gridSize: SIMD2<Int32> = .zero
+ 
+     // Triple-buffered uniform buffers so CPU writes never contend with an
+@@ -186,7 +188,7 @@ final class LandingWaveRenderer: NSObject {
+         descriptor.usage = [.shaderRead, .shaderWrite]
+ 
+         heightTextures.removeAll(keepingCapacity: true)
+-        for _ in 0..<2 {
++        for _ in 0..<3 {
+             guard let tex = device.makeTexture(descriptor: descriptor) else { continue }
+             tex.label = "LandingWaveHeight"
+             heightTextures.append(tex)
+@@ -248,7 +250,7 @@ final class LandingWaveRenderer: NSObject {
+     /// Called by `MTKView` once per vsync. Encodes: one compute pass (wave
+     /// step + impulse injection) followed by one render pass (ASCII render).
+     func render(in view: MTKView) {
+-        guard heightTextures.count == 2,
++        guard heightTextures.count == 3,
+               gridSize.x > 0, gridSize.y > 0,
+               let drawable = view.currentDrawable,
+               let passDescriptor = view.currentRenderPassDescriptor
+@@ -260,9 +262,13 @@ final class LandingWaveRenderer: NSObject {
+         let now = CACurrentMediaTime() - startTime
+         let (drops, count) = dequeueDropsDue(now: now)
+ 
+-        let currIndex = heightPhase
+-        let nextIndex = (currIndex + 1) % 2
+-        let prevIndex = (currIndex + 1) % 2  // after the rotation this frame
++        // 3-texture rotation. Each tick the three roles advance by one slot:
++        //   phase 0: prev=0, curr=1, next=2
++        //   phase 1: prev=1, curr=2, next=0
++        //   phase 2: prev=2, curr=0, next=1
++        let prevIndex = heightPhase
++        let currIndex = (heightPhase + 1) % 3
++        let nextIndex = (heightPhase + 2) % 3
+ 
+         var uniforms = Uniforms()
+         uniforms.time = Float(now)
+@@ -324,8 +330,8 @@ final class LandingWaveRenderer: NSObject {
+             computeEncoder.endEncoding()
+         }
+ 
+-        // Rotate ping-pong so next frame's `curr` == this frame's `next`.
+-        heightPhase = nextIndex
++        // Advance phase so next tick's `prev` was this tick's `curr`.
++        heightPhase = currIndex
+ 
+         // ── Render pass: sample height, map to ASCII ──
+         if let renderEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) {
+diff --git a/Epistemos/Views/Landing/Wave/LandingWaveSearchBar.swift b/Epistemos/Views/Landing/Wave/LandingWaveSearchBar.swift
+new file mode 100644
+index 00000000..f590edc1
+--- /dev/null
++++ b/Epistemos/Views/Landing/Wave/LandingWaveSearchBar.swift
+@@ -0,0 +1,124 @@
++import SwiftUI
++
++/// Custom landing-only search bar, Material 3 inspired.
++///
++/// Design language:
++///   - 56pt tall, 20pt corner radius — rounded but not oval
++///   - Leading: search glyph. Trailing: submit button.
++///   - Subtle elevation (1pt stroke + soft drop shadow). Focus state
++///     thickens the stroke and tints it with the theme accent.
++///   - SF Mono 14pt text so the bar reads as "quick search," not chat.
++///   - Completely bespoke — does NOT reuse `ChatComposerTextEditor` or
++///     any other composer. This is the only bar that emerges from the
++///     landing wave; every other bar in the app stays untouched.
++///
++/// Functional scope (this first iteration): plain text input + submit +
++/// dismiss. Mentions, attachments, and the capability pill are not part
++/// of this bar. The user can open a full chat via Cmd+Enter or by
++/// clicking the mode hint.
++struct LandingWaveSearchBar: View {
++    @Binding var text: String
++    let onSubmit: (String) -> Void
++    let onDismiss: () -> Void
++
++    @Environment(UIState.self) private var ui
++    @FocusState private var focused: Bool
++
++    private var theme: EpistemosTheme { ui.theme }
++    private var trimmed: String {
++        text.trimmingCharacters(in: .whitespacesAndNewlines)
++    }
++
++    var body: some View {
++        HStack(spacing: 12) {
++            Image(systemName: "magnifyingglass")
++                .font(.system(size: 18, weight: .medium))
++                .foregroundStyle(theme.mutedForeground.opacity(0.75))
++
++            TextField("", text: $text, prompt: promptText)
++                .textFieldStyle(.plain)
++                .font(.system(size: 14, weight: .regular, design: .monospaced))
++                .foregroundStyle(theme.fontAccent)
++                .focused($focused)
++                .submitLabel(.search)
++                .onSubmit { fireSubmit() }
++                .onExitCommand { onDismiss() }
++
++            if !trimmed.isEmpty {
++                Button(action: fireSubmit) {
++                    Image(systemName: "arrow.up.circle.fill")
++                        .font(.system(size: 22, weight: .regular))
++                        .foregroundStyle(theme.fontAccent)
++                        .symbolRenderingMode(.hierarchical)
++                }
++                .buttonStyle(.plain)
++                .transition(.scale.combined(with: .opacity))
++            }
++        }
++        .padding(.horizontal, 18)
++        .frame(height: 56)
++        .background(barBackground)
++        .overlay(barStroke)
++        .shadow(
++            color: shadowColor,
++            radius: focused ? 16 : 10,
++            x: 0,
++            y: focused ? 6 : 4
++        )
++        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: focused)
++        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: trimmed.isEmpty)
++        .onAppear {
++            // Defer focus by one runloop so the emergence animation can begin
++            // before the caret blink starts — small but noticeably less
++            // jarring than focusing on the first frame.
++            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
++                focused = true
++            }
++        }
++    }
++
++    private var promptText: Text {
++        Text("Search or ask…")
++            .font(.system(size: 14, weight: .regular, design: .monospaced))
++            .foregroundColor(theme.mutedForeground.opacity(0.45))
++    }
++
++    private var barBackground: some View {
++        RoundedRectangle(cornerRadius: 20, style: .continuous)
++            .fill(theme.card)
++            .overlay {
++                RoundedRectangle(cornerRadius: 20, style: .continuous)
++                    .fill(
++                        LinearGradient(
++                            colors: [
++                                theme.fontAccent.opacity(0.02),
++                                .clear,
++                            ],
++                            startPoint: .top,
++                            endPoint: .bottom
++                        )
++                    )
++            }
++    }
++
++    private var barStroke: some View {
++        RoundedRectangle(cornerRadius: 20, style: .continuous)
++            .stroke(
++                focused
++                    ? theme.fontAccent.opacity(0.55)
++                    : theme.fontAccent.opacity(0.15),
++                lineWidth: focused ? 1.4 : 1
++            )
++    }
++
++    private var shadowColor: Color {
++        theme.isDark
++            ? Color.black.opacity(0.45)
++            : Color.black.opacity(0.12)
++    }
++
++    private func fireSubmit() {
++        guard !trimmed.isEmpty else { return }
++        onSubmit(trimmed)
++    }
++}
+diff --git a/Epistemos/Views/Notes/NoteBacklinksPanel.swift b/Epistemos/Views/Notes/NoteBacklinksPanel.swift
+index 2f732b46..596c0279 100644
+--- a/Epistemos/Views/Notes/NoteBacklinksPanel.swift
++++ b/Epistemos/Views/Notes/NoteBacklinksPanel.swift
+@@ -8,6 +8,8 @@ struct NoteBacklinksPopover: View {
+     private struct BacklinkItem: Identifiable, Sendable, Equatable {
+         let id: String
+         let title: String
++        var filePath: String? = nil
++        var inlineBody: String = ""
+         var edgeType: String? = nil  // semantic edge type (supports, contradicts, etc.)
+         var source: BacklinkSource = .wikilink
+ 
+@@ -115,7 +117,12 @@ struct NoteBacklinksPopover: View {
+ 
+         let candidates = allPages.compactMap { page -> BacklinkItem? in
+             guard page.title != titleToFind else { return nil }
+-            return BacklinkItem(id: page.id, title: page.title)
++            return BacklinkItem(
++                id: page.id,
++                title: page.title,
++                filePath: page.filePath,
++                inlineBody: page.body
++            )
+         }
+         var results = await Self.findBacklinks(candidates: candidates, target: target)
+         let textBacklinkIds = Set(results.map(\.id))
+@@ -144,7 +151,7 @@ struct NoteBacklinksPopover: View {
+         candidates: [BacklinkItem],
+         target: String
+     ) async -> [BacklinkItem] {
+-        await Task.detached(priority: .utility) {
++        await Task.detached(priority: .utility) { () async -> [BacklinkItem] in
+             var results: [BacklinkItem] = []
+             results.reserveCapacity(min(candidates.count, 16))
+ 
+@@ -152,7 +159,13 @@ struct NoteBacklinksPopover: View {
+                 if Task.isCancelled {
+                     return []
+                 }
+-                let body = NoteFileStorage.readBody(pageId: candidate.id, mapped: true)
++                let body = await SDPage.loadBodyAsyncFromPrimitives(
++                    pageId: candidate.id,
++                    filePath: candidate.filePath,
++                    inlineBody: candidate.inlineBody,
++                    mapped: true,
++                    fast: true
++                )
+                 if body.contains(target) {
+                     results.append(candidate)
+                 }
+diff --git a/EpistemosTests/NonAgentPruningValidationTests.swift b/EpistemosTests/NonAgentPruningValidationTests.swift
+index 0fbde8bd..0dd6fbad 100644
+--- a/EpistemosTests/NonAgentPruningValidationTests.swift
++++ b/EpistemosTests/NonAgentPruningValidationTests.swift
+@@ -136,7 +136,9 @@ struct NonAgentPruningValidationTests {
+         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteBacklinksPanel.swift")
+ 
+         #expect(source.contains("Task.detached(priority: .utility)"))
+-        #expect(source.contains("NoteFileStorage.readBody(pageId: candidate.id, mapped: true)"))
++        #expect(source.contains("await SDPage.loadBodyAsyncFromPrimitives("))
++        #expect(source.contains("filePath: candidate.filePath"))
++        #expect(source.contains("inlineBody: candidate.inlineBody"))
+         #expect(!source.contains("page.loadBody(mapped: true)"))
+     }
+ 
+@@ -156,6 +158,8 @@ struct NonAgentPruningValidationTests {
+         #expect(source.contains("private func liveEditorBodies(for pageIds: [String]) -> [String: String]"))
+         #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
+         #expect(source.contains("if let liveBody = currentEditorBody(for: sourceId)"))
++        #expect(source.contains("await SDPage.loadBodyAsyncFromPrimitives("))
++        #expect(source.contains("private struct BodyReadStage: Sendable"))
+     }
+ 
+     @Test("note workspace prefers live editor state when rehydrating persisted bodies")
+diff --git a/EpistemosTests/PhaseR5ChatGrantWiringTests.swift b/EpistemosTests/PhaseR5ChatGrantWiringTests.swift
+index 0f55e302..0d2bdbb2 100644
+--- a/EpistemosTests/PhaseR5ChatGrantWiringTests.swift
++++ b/EpistemosTests/PhaseR5ChatGrantWiringTests.swift
+@@ -12,11 +12,11 @@ import Testing
+ // resource so consent phrasing lands as a real grant in the Rust
+ // permission store instead of evaporating as chat text (I-009).
+ //
+-// This suite tests the READ-SIDE only: the URI filter that decides
+-// which attachments are grant-eligible, and a smoke test that the FFI
+-// contract matches the caller's assumptions. The WRITE-SIDE (tool-
+-// execution gate) is a follow-up commit and tested separately once it
+-// lands.
++// This suite tests the Swift side of the Live-attachment grant path:
++// the URI filter that decides which attachments are grant-eligible,
++// a smoke test that the FFI contract matches caller assumptions, and
++// the Swift -> Rust bridge path where a Live attachment grant allows
++// `vault_write` while a Snapshot attachment stays denied.
+ //
+ // Scope:
+ //   - `ChatCoordinator.r5ResourceURIsForGrant(from:)` — pure filter
+@@ -29,6 +29,36 @@ import Testing
+ @Suite("Phase R.5 — Chat Grant Wiring")
+ struct PhaseR5ChatGrantWiringTests {
+ 
++    // MARK: - Helpers
++
++    private func makeTempVault(id vaultID: String) throws -> URL {
++        let parent = FileManager.default.temporaryDirectory
++            .appendingPathComponent("r5-attached-write-\(UUID().uuidString)", isDirectory: true)
++        let vaultURL = parent.appendingPathComponent(vaultID, isDirectory: true)
++        try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
++        return vaultURL
++    }
++
++    private func vaultWriteInput(path: String, content: String) throws -> String {
++        let payload: [String: Any] = [
++            "path": path,
++            "content": content,
++            "skip_contradiction_check": true,
++        ]
++        let data = try JSONSerialization.data(
++            withJSONObject: payload,
++            options: [.sortedKeys]
++        )
++        return try #require(String(data: data, encoding: .utf8))
++    }
++
++    private func jsonObject(_ value: String) throws -> [String: Any] {
++        let data = try #require(value.data(using: .utf8))
++        return try #require(
++            JSONSerialization.jsonObject(with: data) as? [String: Any]
++        )
++    }
++
+     // MARK: - URI filter
+ 
+     @Test("attachments without resourceURI are dropped by the grant filter")
+@@ -228,4 +258,110 @@ struct PhaseR5ChatGrantWiringTests {
+             _ = await permissionStoreRevoke(grantId: grantID)
+         }
+     }
++
++    // MARK: - Bridge execution: attachment grant -> tool write
++
++    @Test("Live attachment default grant allows vault_write through the Swift bridge")
++    func liveAttachmentGrantAllowsVaultWriteThroughSwiftBridge() async throws {
++        let vaultID = "r5-live-write-\(UUID().uuidString)"
++        let vaultURL = try makeTempVault(id: vaultID)
++        defer { try? FileManager.default.removeItem(at: vaultURL.deletingLastPathComponent()) }
++
++        let relativePath = "Inbox/Granted-\(UUID().uuidString).md"
++        let content = "# Granted write\n\nThis came through the Live attachment grant."
++        let attachment = ContextAttachment(
++            kind: .note,
++            targetId: "page-live-write",
++            title: "Live Write",
++            subtitle: nil,
++            resourceURI: "vault://\(vaultID)/note/\(relativePath)",
++            resourceMode: .live,
++            resourceCapabilities: ["Read", "Write"]
++        )
++
++        let candidate = try #require(
++            ChatCoordinator.r4LiveAttachmentWriteGrantCandidates(from: [attachment]).first
++        )
++        let grantID = await permissionStoreRecordUserGrantFromStatement(
++            statement: ChatCoordinator.r4LiveAttachmentDefaultGrantStatement,
++            resourceUri: candidate.resourceURI,
++            capabilityNames: candidate.capabilities,
++            scopeName: ChatCoordinator.r5GrantScope
++        )
++        #expect(grantID != nil)
++
++        let inputJson = try vaultWriteInput(path: relativePath, content: content)
++        let result = try await executeToolCallFiltered(
++            vaultPath: vaultURL.path,
++            tier: ChatToolTier.agent.rawValue,
++            toolName: "vault_write",
++            inputJson: inputJson,
++            allowedToolNames: ["vault_write"]
++        )
++
++        #expect(result.success)
++        let payload = try jsonObject(result.outputJson)
++        #expect(payload["verified"] as? Bool == true)
++        let written = try String(
++            contentsOf: vaultURL.appendingPathComponent(relativePath),
++            encoding: .utf8
++        )
++        #expect(written == content)
++
++        if let grantID {
++            _ = await permissionStoreRevoke(grantId: grantID)
++        }
++    }
++
++    @Test("Snapshot attachment does not grant vault_write through the Swift bridge")
++    func snapshotAttachmentDoesNotGrantVaultWriteThroughSwiftBridge() async throws {
++        let vaultID = "r5-snapshot-deny-\(UUID().uuidString)"
++        let vaultURL = try makeTempVault(id: vaultID)
++        defer { try? FileManager.default.removeItem(at: vaultURL.deletingLastPathComponent()) }
++
++        let relativePath = "Inbox/Snapshot-\(UUID().uuidString).md"
++        let snapshotAttachment = ContextAttachment(
++            kind: .note,
++            targetId: "page-snapshot",
++            title: "Snapshot",
++            subtitle: nil,
++            resourceURI: "vault://\(vaultID)/note/\(relativePath)",
++            resourceMode: .snapshot,
++            resourceCapabilities: ["Read"]
++        )
++        #expect(ChatCoordinator.r4LiveAttachmentWriteGrantCandidates(
++            from: [snapshotAttachment]
++        ).isEmpty)
++
++        let unrelatedURI = "vault://\(vaultID)/note/Inbox/Unrelated-\(UUID().uuidString).md"
++        let unrelatedGrantID = await permissionStoreRecordUserGrantFromStatement(
++            statement: "You have my permission to edit this note.",
++            resourceUri: unrelatedURI,
++            capabilityNames: ["Write"],
++            scopeName: ChatCoordinator.r5GrantScope
++        )
++        #expect(unrelatedGrantID != nil)
++
++        let inputJson = try vaultWriteInput(
++            path: relativePath,
++            content: "# This should not be written"
++        )
++        let result = try await executeToolCallFiltered(
++            vaultPath: vaultURL.path,
++            tier: ChatToolTier.agent.rawValue,
++            toolName: "vault_write",
++            inputJson: inputJson,
++            allowedToolNames: ["vault_write"]
++        )
++
++        #expect(!result.success)
++        #expect((result.error ?? "").localizedCaseInsensitiveContains("permission"))
++        #expect(!FileManager.default.fileExists(
++            atPath: vaultURL.appendingPathComponent(relativePath).path
++        ))
++
++        if let unrelatedGrantID {
++            _ = await permissionStoreRevoke(grantId: unrelatedGrantID)
++        }
++    }
+ }
+diff --git a/EpistemosTests/RuntimeValidationTests.swift b/EpistemosTests/RuntimeValidationTests.swift
+index ea77fd1a..cec8224d 100644
+--- a/EpistemosTests/RuntimeValidationTests.swift
++++ b/EpistemosTests/RuntimeValidationTests.swift
+@@ -584,8 +584,9 @@ struct RuntimeValidationTests {
+         #expect(scanner.contains("func scanForLiveNotes(modelContainer: ModelContainer) async -> [LiveNoteTask]"))
+         #expect(scanner.contains("let context = ModelContext(modelContainer)"))
+         #expect(scanner.contains("Task.detached(priority: .utility)"))
++        #expect(scanner.contains("return await Self.scanTasksAsync(from: candidates)"))
++        #expect(scanner.contains("await SDPage.loadBodyAsyncFromPrimitives("))
+         #expect(pageModel.contains("func loadBody(mapped: Bool = false, fast: Bool = false)"))
+-        #expect(scanner.contains("NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)"))
+         #expect(executor.contains("let tasks = await scanner.scanForLiveNotes(modelContainer: container)"))
+         #expect(!scanner.contains("func scanForLiveNotes(context: ModelContext) async -> [LiveNoteTask]"))
+     }
+diff --git a/syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.rlib b/syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.rlib
+index be34f75d..5a0d100b 100644
+Binary files a/syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.rlib and b/syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.rlib differ

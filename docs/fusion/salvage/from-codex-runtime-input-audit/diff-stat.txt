@@ -1,0 +1,1369 @@
+ .agents/skills/note-create/SKILL.md                |   23 +
+ .agents/skills/note-delete/SKILL.md                |   22 +
+ .agents/skills/note-read/SKILL.md                  |   23 +
+ .agents/skills/note-write/SKILL.md                 |   24 +
+ .agents/skills/recursive_app_audit/SKILL.md        |   25 +-
+ .gitignore                                         |    6 +
+ CODE_EDITOR_FEATURE_AUDIT.md                       |  353 +-
+ Epistemos-AppStore-Info.plist                      |   54 +
+ Epistemos-Bridging-Header.h                        |    2 +
+ Epistemos-Info.plist                               |   10 +-
+ Epistemos.xcodeproj/project.pbxproj                | 3547 ++--------
+ .../xcschemes/Epistemos-AppStore.xcscheme          |  109 +
+ Epistemos/App/AppBootstrap.swift                   | 1010 ++-
+ Epistemos/App/AppCoordinator.swift                 |  141 +-
+ Epistemos/App/AppEnvironment.swift                 |    3 +
+ Epistemos/App/ChatCoordinator.swift                | 7168 ++++++++++++--------
+ Epistemos/App/EpistemosApp.swift                   |  486 +-
+ Epistemos/App/HomeWindowInputDiagnostics.swift     |  283 +
+ Epistemos/App/RootView.swift                       | 1277 +++-
+ Epistemos/App/SystemAppearanceObserver.swift       |    3 +
+ Epistemos/App/UtilityWindowManager.swift           |   33 +-
+ Epistemos/AppStore/AppStoreComputerUseStubs.swift  |  184 +
+ Epistemos/Bridge/ComputerUseBridge.swift           |    8 +-
+ Epistemos/Bridge/Phase4Bridge.swift                |    2 +
+ Epistemos/Bridge/StreamingDelegate.swift           |   14 +-
+ Epistemos/Bridge/ToolTierBridge.swift              |   18 +-
+ Epistemos/Engine/AgentHarness/AgentAuthority.swift |  488 ++
+ Epistemos/Engine/AgentHarness/AgentBackend.swift   |  140 +
+ Epistemos/Engine/AgentHarness/AgentHandoff.swift   |  143 +
+ .../Engine/AgentHarness/AgentQueryEngine.swift     |  276 +
+ .../Engine/AgentHarness/AgentUsageLedger.swift     |   70 +
+ Epistemos/Engine/AgentHarness/ChatCapability.swift |  369 +
+ Epistemos/Engine/BackendRuntimeContract.swift      |    8 +
+ Epistemos/Engine/CapabilityManifestBuilder.swift   |  163 +
+ Epistemos/Engine/ClaudeManagedRuntime.swift        |    2 +-
+ Epistemos/Engine/CloudProviderAuthService.swift    |   26 +-
+ .../Engine/CommandCenterRequestCompiler.swift      |    4 +-
+ Epistemos/Engine/ComposerVoiceInputService.swift   |  149 +
+ Epistemos/Engine/DataviewService.swift             |   26 +-
+ Epistemos/Engine/Extensions.swift                  |  518 +-
+ Epistemos/Engine/KnowledgeIndexBuilder.swift       |   45 +-
+ Epistemos/Engine/LLMService.swift                  | 1203 +++-
+ Epistemos/Engine/LocalBackendLLMClient.swift       |    8 +-
+ Epistemos/Engine/LocalGGUFClient.swift             |  129 +-
+ Epistemos/Engine/LocalModelInfrastructure.swift    |  689 +-
+ Epistemos/Engine/LocalRustRuntime.swift            |    2 +-
+ Epistemos/Engine/MLXInferenceService.swift         |  370 +-
+ Epistemos/Engine/MeaningAnchorService.swift        |   27 +-
+ Epistemos/Engine/MetalRuntimeManager.swift         |   10 +
+ Epistemos/Engine/ModelDownloadManager.swift        |   24 +-
+ Epistemos/Engine/OpenAICompatibleChatSupport.swift |    9 +-
+ Epistemos/Engine/OverseerProtocol.swift            |  106 +-
+ Epistemos/Engine/PipelineService.swift             |  596 +-
+ Epistemos/Engine/ReactiveQuery.swift               |   18 +-
+ Epistemos/Engine/SpotlightIndexer.swift            |  147 +-
+ Epistemos/Engine/SyntaxCoreService.swift           |  102 +
+ Epistemos/Engine/TextCapturePipeline.swift         |   55 +-
+ Epistemos/Engine/ThinkTagStreamRouter.swift        |  294 +
+ Epistemos/Engine/TriageService.swift               |  953 ++-
+ Epistemos/Engine/URLSessionTransportSupport.swift  |  132 +-
+ Epistemos/Epistemos-AppStore.entitlements          |   16 +
+ Epistemos/Graph/EmbeddingService.swift             |  224 +-
+ Epistemos/Graph/EntityExtractor.swift              |  166 +-
+ Epistemos/Graph/GraphBuilder.swift                 |   75 +-
+ Epistemos/Graph/GraphState.swift                   |  259 +-
+ Epistemos/Graph/SDFLabelAtlas.swift                |   17 +
+ Epistemos/Graph/SemanticClusterService.swift       |    6 +
+ Epistemos/Harness/BootstrapPacketBuilder.swift     |    6 +-
+ Epistemos/Harness/HarnessLab.swift                 |   13 +-
+ Epistemos/Harness/HarnessRegistry.swift            |   43 +-
+ Epistemos/Harness/ProgressStore.swift              |    8 +-
+ Epistemos/Intents/Custom/AnalysisIntents.swift     |   10 +-
+ Epistemos/Intents/Custom/DailyBriefingIntent.swift |   10 +-
+ Epistemos/Intents/Custom/NoteActionIntents.swift   |   40 +-
+ Epistemos/Intents/Entities/FolderEntity.swift      |   30 +-
+ Epistemos/Intents/Entities/NoteEntity.swift        |   43 +-
+ Epistemos/Intents/EpistemosShortcutsProvider.swift |    5 -
+ Epistemos/Intents/Schemas/JournalIntents.swift     |   82 +-
+ Epistemos/Intents/Schemas/SystemSearchIntent.swift |   10 +-
+ .../Intents/Schemas/WordProcessorIntents.swift     |   25 +-
+ .../KnowledgeFusion/Adapters/AdapterExporter.swift |   26 +-
+ .../KnowledgeFusion/Adapters/AdapterRegistry.swift |    5 +-
+ .../CloudKnowledgeDistillationService.swift        |   64 +-
+ .../DataIngestion/AudioTranscriber.swift           |  110 +-
+ .../DataIngestion/DocumentChunker.swift            |   27 +-
+ .../DataIngestion/VaultParser.swift                |   10 +-
+ .../KnowledgeFusion/InstantRecallService.swift     |   20 +-
+ .../KnowledgeFusion/KnowledgeProfileStore.swift    |    3 +-
+ .../KnowledgeFusion/PythonEnvironmentManager.swift |   14 +-
+ .../SkillGeneration/SkillManifest.swift            |   14 +-
+ .../SyntheticData/EmbodiedCaptureService.swift     |   82 +-
+ .../SyntheticData/ODIATraceGenerator.swift         |   21 +-
+ .../KnowledgeFusion/Training/VaultAnalyzer.swift   |    7 +-
+ .../UI/KnowledgeFusionViewModel.swift              |   23 +-
+ .../KnowledgeFusion/UI/TrainOnVaultView.swift      |    6 +-
+ .../KnowledgeFusion/UI/TrainingHistoryView.swift   |    2 +-
+ Epistemos/LocalAgent/HermesPromptBuilder.swift     |   30 +-
+ .../LocalAgent/IncrementalToolCallDetector.swift   |  188 +-
+ Epistemos/LocalAgent/LocalAgentLoop.swift          | 1523 ++++-
+ Epistemos/LocalAgent/LocalToolGrammar.swift        |    8 +
+ Epistemos/Models/ChatTypes.swift                   |  266 +-
+ Epistemos/Models/EngineTypes.swift                 |   13 +
+ Epistemos/Models/EpistemicStatus.swift             |    2 +-
+ Epistemos/Models/SDChat.swift                      |   31 +-
+ Epistemos/Models/SDGraphNode.swift                 |   23 +-
+ Epistemos/Models/SDMessage.swift                   |   46 +-
+ Epistemos/Models/SDNoteInsight.swift               |   49 +-
+ Epistemos/Models/SDPage.swift                      |  163 +-
+ Epistemos/Models/SDWorkspace.swift                 |    2 +
+ Epistemos/Models/TodoSnapshot.swift                |   85 +
+ Epistemos/Models/VaultManifest.swift               |   80 +-
+ Epistemos/Omega/Agents/GhostComputerAgent.swift    |   79 +-
+ .../Omega/Channels/ChannelRegistryState.swift      |    9 +-
+ Epistemos/Omega/Inference/DeviceAgentService.swift |  313 +-
+ .../Omega/Inference/ReasoningLoopService.swift     |   35 +-
+ Epistemos/Omega/Inference/ToolCallParser.swift     |  454 +-
+ Epistemos/Omega/MCPBridge.swift                    |   46 +-
+ Epistemos/Omega/OmegaPermissions.swift             |    4 +-
+ Epistemos/Omega/Safety/ContextBudgetManager.swift  |    4 +-
+ Epistemos/Omega/Vision/AXMutationDetector.swift    |    2 +
+ Epistemos/Omega/Vision/AXorcistBridge.swift        |    2 +
+ Epistemos/Omega/Vision/Screen2AXFusion.swift       |    2 +
+ Epistemos/Omega/Vision/ScreenCaptureService.swift  |   10 +
+ Epistemos/Omega/Vision/TCCPermissionState.swift    |    4 +-
+ Epistemos/Omega/Vision/VisualVerifyLoop.swift      |  101 +-
+ .../iMessageDriver/IMessageDriverService.swift     |   10 +-
+ .../iMessageDriver/IMessageNativeSetupDoctor.swift |  217 +
+ .../iMessageDriver/IMessageReplyDelegate.swift     |   14 +-
+ Epistemos/State/ActivityTracker.swift              |    2 +
+ Epistemos/State/AgentChatState.swift               |  408 +-
+ Epistemos/State/AgentCommandCenterState.swift      |  612 +-
+ Epistemos/State/AgentPlanDocumentBuilder.swift     |  184 +
+ Epistemos/State/AppSupervisor.swift                |    7 +-
+ Epistemos/State/ChatState.swift                    | 1107 ++-
+ Epistemos/State/CommandCenterDiagnostics.swift     |    6 +-
+ Epistemos/State/DailyBriefState.swift              |   16 +-
+ Epistemos/State/DialogueChatState.swift            |   75 +-
+ Epistemos/State/EpistemosConfig.swift              |   19 +-
+ Epistemos/State/EventBus.swift                     |    2 +-
+ Epistemos/State/InferenceState.swift               | 2352 ++++++-
+ Epistemos/State/NightBrainService.swift            |   41 +-
+ Epistemos/State/NoteChatState.swift                |  278 +-
+ Epistemos/State/NoteLineDiff.swift                 |  409 ++
+ Epistemos/State/OverseerAuditState.swift           |   74 +
+ Epistemos/State/ThreadState.swift                  |   61 +
+ Epistemos/State/TimeMachineService.swift           |   77 +
+ Epistemos/State/UIState.swift                      |    3 -
+ Epistemos/State/WorkspaceService.swift             |   95 +-
+ Epistemos/State/WorkspaceSummaryService.swift      |    4 +
+ Epistemos/Sync/BlockMirror.swift                   |   11 +-
+ Epistemos/Sync/SearchIndexService.swift            |    4 +-
+ Epistemos/Sync/VaultImportFileCopier.swift         |   16 +-
+ Epistemos/Sync/VaultIndexActor.swift               |  557 +-
+ Epistemos/Sync/VaultSyncService.swift              |  224 +-
+ Epistemos/Theme/AssistantComposerStatusViews.swift |  220 +-
+ Epistemos/Theme/EpistemosFont.swift                |   21 +-
+ Epistemos/Theme/EpistemosTheme.swift               |   84 +-
+ Epistemos/Theme/GlassModifiers.swift               |   18 +-
+ Epistemos/Theme/PhysicsModifiers.swift             |   10 +-
+ Epistemos/Theme/ToolbarGlass.swift                 |    8 +-
+ Epistemos/Vault/ChatTranscriptVaultWriter.swift    |  198 +
+ Epistemos/Vault/LiveNoteExecutor.swift             |   73 +-
+ Epistemos/Vault/LiveNoteScanner.swift              |   32 +-
+ Epistemos/Vault/SSMStateService.swift              |    1 +
+ Epistemos/Vault/SkillAuthoringDraft.swift          |  122 +
+ Epistemos/Vault/SkillDiscoveryCatalog.swift        |   60 +-
+ Epistemos/Vault/SkillEvolutionService.swift        |   37 +-
+ Epistemos/Vault/VaultChatMutator.swift             |   21 +-
+ Epistemos/Vault/VaultLifecycleService.swift        |   10 +-
+ .../AgentCommandCenterView.swift                   | 1394 ----
+ .../Views/AgentCommandCenter/BrainPickerMenu.swift |  256 -
+ .../Views/AgentCommandCenter/CommandBarView.swift  |  285 -
+ .../AgentCommandCenter/InspectorPanelView.swift    |  665 --
+ .../AgentCommandCenter/SuggestionPopoverView.swift |  275 -
+ .../AgentCommandCenter/ToolTogglePillsView.swift   |  136 -
+ Epistemos/Views/Capture/QuickCaptureView.swift     |    8 +-
+ Epistemos/Views/Capture/TraceInspectorView.swift   |   94 +-
+ Epistemos/Views/Chat/ArtifactBlockView.swift       |   86 +-
+ Epistemos/Views/Chat/ChatBrainPickerMenu.swift     |   53 +
+ Epistemos/Views/Chat/ChatInputBar.swift            |  685 +-
+ Epistemos/Views/Chat/ChatSidebarView.swift         |   70 +-
+ Epistemos/Views/Chat/ChatView.swift                |  672 +-
+ Epistemos/Views/Chat/ComposerMicButton.swift       |   78 +
+ .../Views/Chat/ComposerReferenceBrowser.swift      |    1 +
+ .../Views/Chat/ContextWindowCompactBadge.swift     |   60 +
+ Epistemos/Views/Chat/ContextWindowIndicator.swift  |    2 +-
+ Epistemos/Views/Chat/LiveActivityStrip.swift       |  123 +
+ Epistemos/Views/Chat/MessageBubble.swift           |  399 +-
+ Epistemos/Views/Chat/ModelAboutSheet.swift         |   22 +-
+ Epistemos/Views/Chat/NotesMentionDropdown.swift    |  166 +-
+ Epistemos/Views/Chat/ProcessDisclosureViews.swift  |  190 +
+ Epistemos/Views/Chat/SlashCommandPopover.swift     |  163 +
+ Epistemos/Views/Chat/TaggedMarkdownTextView.swift  |  146 +-
+ Epistemos/Views/Chat/ThinkingPopoverView.swift     |  193 +
+ Epistemos/Views/Chat/ThinkingTrailView.swift       |   86 +-
+ Epistemos/Views/Chat/TodoSnapshotCard.swift        |  130 +
+ Epistemos/Views/Chat/ToolActivityNarrator.swift    |  169 +
+ Epistemos/Views/Graph/GraphInspectModeView.swift   |    3 +-
+ Epistemos/Views/Graph/HologramNodeInspector.swift  |   77 +-
+ Epistemos/Views/Graph/HologramOverlay.swift        |  149 +-
+ Epistemos/Views/Graph/HologramSearchSidebar.swift  |  103 +-
+ Epistemos/Views/Graph/MetalGraphView.swift         |  114 +-
+ Epistemos/Views/Graph/NodeInspectorState.swift     |  113 +-
+ Epistemos/Views/Graph/PinnedInspector.swift        |   57 +-
+ Epistemos/Views/Landing/LandingView.swift          |  331 +-
+ Epistemos/Views/Landing/LiquidGreeting.swift       |    6 +-
+ .../Views/Landing/QuitSavePanelController.swift    |   82 +-
+ .../Views/Landing/SessionIntelligenceOverlay.swift |   83 +-
+ Epistemos/Views/Landing/TimeMachineView.swift      |   20 +-
+ .../Views/Landing/WorkspaceSwitcherOverlay.swift   |    9 +-
+ Epistemos/Views/MiniChat/MiniChatView.swift        |  475 +-
+ .../Views/MiniChat/MiniChatWindowController.swift  |    4 +-
+ .../ModelProfiles/ModelProfileCreationSheet.swift  |    6 +-
+ Epistemos/Views/Notes/AIPartnerControlPanel.swift  |   43 +-
+ Epistemos/Views/Notes/AIPartnerInlineView.swift    |    2 +-
+ Epistemos/Views/Notes/AIPartnerService.swift       |  125 +-
+ Epistemos/Views/Notes/BlockRefAutocomplete2.swift  |   20 +-
+ Epistemos/Views/Notes/CodeAskBar.swift             |    8 +-
+ Epistemos/Views/Notes/CodeEditorView.swift         |  174 +-
+ Epistemos/Views/Notes/DiffSheetView.swift          |  111 +-
+ .../Views/Notes/EditableTransclusionView.swift     |   13 +
+ Epistemos/Views/Notes/EditorBreadcrumbBar.swift    |    8 +-
+ Epistemos/Views/Notes/FocusedResponsePanel.swift   |    6 +-
+ Epistemos/Views/Notes/MarkdownContentStorage.swift |    2 +-
+ Epistemos/Views/Notes/MarkdownEditorStyle.swift    |    4 +-
+ Epistemos/Views/Notes/ModelInvolvementSheet.swift  |  946 +++
+ Epistemos/Views/Notes/ModelVaultBrowserSheet.swift |  428 ++
+ .../Views/Notes/ModelVaultsSidebarSection.swift    | 1087 +++
+ Epistemos/Views/Notes/NoteBacklinksPanel.swift     |   10 +-
+ Epistemos/Views/Notes/NoteChatSidebar.swift        |   10 +
+ .../Views/Notes/NoteDetailWorkspaceView.swift      |  364 +-
+ Epistemos/Views/Notes/NoteImageProcessor.swift     |    8 +-
+ Epistemos/Views/Notes/NoteWindowManager.swift      |   44 +-
+ Epistemos/Views/Notes/NotesSidebar.swift           |  317 +-
+ Epistemos/Views/Notes/OutlineNavigatorView.swift   |    4 +-
+ .../Views/Notes/ProseEditorRepresentable2.swift    |  131 +-
+ Epistemos/Views/Notes/ProseEditorView.swift        |   46 +-
+ .../Views/Notes/TransclusionOverlayManager2.swift  |   45 +-
+ Epistemos/Views/Notes/VaultChangesPanel.swift      |   49 +-
+ Epistemos/Views/Notes/VaultOrganizerView.swift     |  109 +-
+ Epistemos/Views/Notes/WeightedContextEngine.swift  |   10 +-
+ .../Views/Settings/AgentControlSettingsView.swift  |  599 ++
+ .../Views/Settings/AgentSectionDetailView.swift    |  104 +
+ .../Views/Settings/AuthoritySettingsView.swift     |  166 +
+ .../Views/Settings/ChannelsSettingsView.swift      |  223 +-
+ .../Settings/IMessageDriverSettingsView.swift      |  322 +-
+ .../Views/Settings/ModelVaultsSettingsView.swift   |   79 +-
+ .../Views/Settings/OverseerSettingsView.swift      |  287 +
+ Epistemos/Views/Settings/SettingsView.swift        |  666 +-
+ Epistemos/Views/Settings/SkillsSettingsView.swift  |  126 +
+ Epistemos/Views/Shared/AppKitPopover.swift         |   85 +-
+ Epistemos/Views/Shared/ChatCapabilityPill.swift    |  100 +
+ .../Views/Shared/CloudProviderSetupCard.swift      |   19 +-
+ .../Views/Shared/MarkdownDocumentModeToggle.swift  |   75 +
+ .../Views/Shared/TypewriterASCIIRippleText.swift   |    6 +-
+ Epistemos/Views/Vault/ConflictCardView.swift       |    2 +-
+ EpistemosTests/AIPartnerControlPanelTests.swift    |   26 +
+ EpistemosTests/AIPartnerServiceTests.swift         |   66 +
+ EpistemosTests/AdapterManagementTests.swift        |   20 +
+ EpistemosTests/AgentChatStateTests.swift           |  433 ++
+ EpistemosTests/AgentCommandCenterStateTests.swift  |  292 +-
+ EpistemosTests/AgentHarnessTests.swift             |  182 +
+ EpistemosTests/AgentPermissionRequestTests.swift   |   26 +
+ EpistemosTests/AgentPlanDocumentTests.swift        |   97 +
+ EpistemosTests/AppKitPopoverAuditTests.swift       |   14 +
+ EpistemosTests/AuditFixRegressionTests.swift       |  118 +-
+ .../Benchmarks/CodeEditorBenchmarkTests.swift      |  246 +
+ .../Benchmarks/GraphFFIBenchmarkTests.swift        |    4 +-
+ EpistemosTests/BlockEmbeddingTests.swift           |   47 +
+ EpistemosTests/ChatCapabilityIntentTests.swift     |  175 +
+ .../ChatCoordinatorVaultActionTests.swift          |   13 +
+ EpistemosTests/ChatPresentationTests.swift         |  881 ++-
+ EpistemosTests/CloudProviderAuthServiceTests.swift |  942 ++-
+ EpistemosTests/CloudStreamingParserTests.swift     |  287 +
+ EpistemosTests/CognitiveSubstrateTests.swift       |   58 +
+ EpistemosTests/CommandInputParserTests.swift       |   12 +
+ EpistemosTests/ConcurrencyEdgeCaseTests.swift      |   13 +-
+ EpistemosTests/ConfidenceRouterTests.swift         |   20 +-
+ EpistemosTests/ControlPlaneSurfaceTests.swift      |   69 +
+ EpistemosTests/DataIngestionTests.swift            |    8 +-
+ EpistemosTests/DeviceAgentServiceTests.swift       |    9 +
+ EpistemosTests/FileAttachmentBuilderTests.swift    |    4 +
+ .../GraphPhysicsSettingsAuditTests.swift           |   80 +-
+ EpistemosTests/GraphWorkspaceRouteTests.swift      |   45 +-
+ EpistemosTests/HarnessSubsystemTests.swift         |   81 +-
+ EpistemosTests/HermesPromptBuilderTests.swift      |   94 +
+ .../IncrementalToolCallDetectorTests.swift         |   30 +
+ EpistemosTests/KnowledgeFusionUITests.swift        |   30 +-
+ EpistemosTests/LandingOptimizationTests.swift      |   30 +
+ EpistemosTests/LiveNoteExecutorTests.swift         |   43 +
+ EpistemosTests/LocalAgentLoopTests.swift           | 1729 ++++-
+ EpistemosTests/LocalBackendLLMClientTests.swift    |   69 +-
+ EpistemosTests/LocalGGUFClientTests.swift          |   64 +
+ EpistemosTests/LocalModelInfrastructureTests.swift |  760 ++-
+ EpistemosTests/LocalModelReleaseSweepTests.swift   |    8 +
+ EpistemosTests/LocalRuntimeSmokeSupport.swift      |   15 +-
+ EpistemosTests/Mamba2MetalRuntimeTests.swift       |   16 +
+ EpistemosTests/MetalGraphViewBootstrapTests.swift  |    9 +
+ EpistemosTests/MiniChatViewAuditTests.swift        |  127 +-
+ EpistemosTests/ModelVaultBrowserTests.swift        |  617 ++
+ .../NonAgentPruningValidationTests.swift           |   12 +-
+ EpistemosTests/NoteChatStateTests.swift            |  167 +
+ EpistemosTests/NoteEditorLayoutTests.swift         |  167 +-
+ EpistemosTests/NoteLineDiffTests.swift             |   92 +
+ EpistemosTests/NoteSavingAuditTests.swift          |   39 +-
+ EpistemosTests/NoteToolbarGlowTests.swift          |  115 +-
+ EpistemosTests/NoteWindowManagerTests.swift        |   48 +-
+ EpistemosTests/OmegaToolCallParserTests.swift      |  138 +
+ EpistemosTests/OmegaToolSchemaGrammarTests.swift   |   34 +
+ EpistemosTests/PhaseR3BodyReadParityTests.swift    |  175 +
+ EpistemosTests/PhaseR4DropdownBackfillTests.swift  |  366 +
+ EpistemosTests/PhaseR5ChatGrantWiringTests.swift   |  231 +
+ EpistemosTests/PhaseRAttachmentBridgeTests.swift   |  292 +
+ EpistemosTests/PhaseRPermissionBridgeTests.swift   |  217 +
+ EpistemosTests/PhaseRResourceRegressionTests.swift |  193 +
+ .../PhaseRResourceServiceBridgeTests.swift         |  211 +
+ EpistemosTests/PipelineServiceTests.swift          | 1898 +++++-
+ EpistemosTests/ProductionHardeningTests.swift      |  366 +-
+ EpistemosTests/ProjectInclusionTests.swift         |  222 +
+ EpistemosTests/QueryRuntimeTests.swift             |   96 +
+ EpistemosTests/ReasoningLoopTests.swift            |   26 +-
+ EpistemosTests/ReleaseScriptAuditTests.swift       |  191 +
+ EpistemosTests/ResearchModeTests.swift             |   34 +-
+ EpistemosTests/RuntimeValidationTests.swift        | 2633 ++++++-
+ EpistemosTests/SDMessageTests.swift                |  114 +
+ EpistemosTests/SettingsCategoryTests.swift         |   28 +-
+ .../SettingsWindowPresentationTests.swift          |   27 +
+ EpistemosTests/TestKeychainSupport.swift           |   64 +
+ EpistemosTests/TextCapturePipelineTests.swift      |   29 +-
+ EpistemosTests/TextKit2ParityTests.swift           |    8 +-
+ EpistemosTests/ThemePairTests.swift                |  173 +-
+ EpistemosTests/ThreadStateTests.swift              |   18 +
+ EpistemosTests/ToolSurfacePolicyTests.swift        |    9 +
+ EpistemosTests/TriageServiceTests.swift            | 2292 +++++--
+ EpistemosTests/UserFacingModelOutputTests.swift    |  257 +
+ EpistemosTests/VaultIndexActorTests.swift          |  240 +-
+ EpistemosTests/VaultManifestTests.swift            |   25 +-
+ EpistemosTests/VaultSyncServiceAuditTests.swift    |  163 +
+ EpistemosTests/VoiceInputPermissionTests.swift     |   24 +
+ .../xcschemes/xcschememanagement.plist             |   14 -
+ .../Libraries/MLXLLM/LLMModelFactory.swift         |    8 +
+ .../Libraries/MLXLMCommon/ChatSession.swift        |    3 +-
+ agent_core/Cargo.toml                              |    4 +
+ agent_core/src/agent_loop.rs                       |  184 +-
+ agent_core/src/approval.rs                         |   47 +-
+ agent_core/src/bin/epistemos_channel_worker.rs     |   45 +-
+ agent_core/src/bridge.rs                           |  299 +-
+ agent_core/src/channel_relay.rs                    |   33 +-
+ agent_core/src/command_center.rs                   |  143 +-
+ agent_core/src/context_loader.rs                   |   95 +-
+ agent_core/src/error_classifier.rs                 |   10 +
+ agent_core/src/lib.rs                              |   71 +-
+ agent_core/src/mcp/mod.rs                          |    1 +
+ agent_core/src/mcp/url_servers.rs                  |  129 +
+ agent_core/src/prompts.rs                          |   36 +-
+ agent_core/src/provider.rs                         |   20 +
+ agent_core/src/providers/claude.rs                 |  212 +-
+ agent_core/src/providers/gemini.rs                 |  231 +-
+ agent_core/src/providers/openai.rs                 | 1023 ++-
+ agent_core/src/providers/openai_compatible.rs      |   31 +-
+ agent_core/src/providers/schema.rs                 |  287 +
+ agent_core/src/resources/alias_registry.rs         |  382 ++
+ agent_core/src/resources/attachments.rs            |  276 +
+ agent_core/src/resources/bridge.rs                 | 1509 ++++
+ agent_core/src/resources/id.rs                     |  205 +
+ agent_core/src/resources/mod.rs                    |   23 +
+ agent_core/src/resources/permissions.rs            |  481 ++
+ agent_core/src/resources/service.rs                |  802 +++
+ agent_core/src/resources/tool_authz.rs             |  495 ++
+ agent_core/src/routing.rs                          |   63 +-
+ agent_core/src/runtime/mod.rs                      |    6 +
+ agent_core/src/runtime/write_pipeline.rs           |  479 ++
+ agent_core/src/security.rs                         |   16 +
+ agent_core/src/session.rs                          |    1 +
+ agent_core/src/storage/session_store.rs            |   68 +
+ agent_core/src/storage/vault.rs                    |   58 +-
+ agent_core/src/tirith.rs                           |   18 +-
+ agent_core/src/tools/cli_passthrough.rs            |  283 +
+ agent_core/src/tools/custom_tools.rs               |  551 ++
+ agent_core/src/tools/filesystem.rs                 |  217 +-
+ agent_core/src/tools/media.rs                      |   15 +-
+ agent_core/src/tools/registry.rs                   | 1368 +++-
+ agent_core/src/tools/stdio_mcp.rs                  |  179 +
+ agent_core/src/tools/web.rs                        |   18 +-
+ agent_core/src/tools/web_fetch.rs                  |   31 +-
+ build-agent-core.sh                                |   33 +-
+ build-epistemos-core.sh                            |   34 +-
+ build-omega-ax.sh                                  |   34 +-
+ build-omega-mcp.sh                                 |   40 +-
+ build-rust.sh                                      |    8 +-
+ build-syntax-core.sh                               |   30 +
+ bundle-app-runtime-assets.sh                       |   33 +
+ docs/AGENT_PROGRESS.md                             |   90 +-
+ docs/APP_ISSUES_AUTO_FIX.md                        |  268 +
+ ...P_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md |  114 +
+ docs/AUDIT_REFLECTION_2026_04_23.md                |  838 +++
+ docs/BUILD_TEST_GREEN_BASELINE.md                  |  196 +
+ docs/CLAUDE_CANONICAL_STATE_HANDOFF_2026-04-23.md  |  193 +
+ docs/CLI_CONFIG_COMPILATION_RESEARCH.md            | 1162 ++++
+ docs/CODEX_CONTINUATION_PROMPT_2026-04-18.md       |  247 +
+ docs/CODEX_HANDOFF_2026-04-18.md                   |  267 +
+ docs/CODE_EDITOR_POLISH_SCOPE.md                   |  327 +
+ docs/DEAD_CODE_CLEANUP_ANALYSIS.md                 |  343 +
+ docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md            | 3637 ++++++++++
+ docs/KNOWN_ISSUES_REGISTER.md                      |  240 +
+ docs/MASTER_MODEL_STACK_PLAN.md                    |  245 +
+ docs/RESOURCE_INVENTORY.md                         |   88 +
+ docs/RESOURCE_RUNTIME_RESEARCH.md                  |  178 +
+ docs/architecture/AGENT_STREAM_BASELINES.csv       |    9 +
+ docs/architecture/BENCHMARK_BASELINES.csv          |   38 +-
+ .../CHAT_TRANSPARENCY_PLAN_2026-04-19.md           |  218 +
+ ...EPISTEMOS_RESEARCH_SYNTHESIS_AND_ACTION_PLAN.md |  639 ++
+ docs/architecture/MASTER_PLAN_2026-04-19.md        |  948 +++
+ docs/architecture/PERF_REPAIR_REPORT_2026_04_21.md |  561 ++
+ docs/architecture/PLAN_V2_UPDATED.md               | 1649 +++++
+ .../RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md |  376 +
+ docs/architecture/fix.md                           |   70 +
+ docs/capability-tunnels.md                         |  214 +
+ docs/claude-code-codex-parity-options.md           |  244 +
+ ...2026-04-17-claude-to-codex-final-walkthrough.md |  386 ++
+ ...6-04-17-codex-to-claude-continuation-handoff.md |  527 ++
+ .../2026-04-18-full-session-handoff-to-codex.md    |  497 ++
+ .../2026-04-20-claude-to-codex-session-handoff.md  |  349 +
+ .../2026-04-20-claude-to-codex-verification.md     |  297 +
+ .../2026-04-20-claude-to-next-session-handoff.md   |  224 +
+ ...-04-20-claude-to-next-session-remaining-work.md |  586 ++
+ ...26-04-20-codex-to-claude-full-thread-handoff.md |  546 ++
+ ...-20-codex-to-claude-release-blockers-handoff.md |  531 ++
+ ...-04-21-codex-graph-visual-and-settings-audit.md |  344 +
+ ...de-to-codex-live-runtime-and-tunnel-findings.md |  784 +++
+ ...claude-live-runtime-and-architecture-handoff.md |  699 ++
+ docs/mcp-url-servers.md                            |   84 +
+ docs/research/hermes-bundling-build-phase.md       |   15 +
+ .../hermes-expert-mode-implementation-spec.md      |   21 +
+ .../research/hermes-expert-mode-research-prompt.md |  424 ++
+ docs/research/hermes-expert-view-ui-spec.md        |   16 +
+ docs/research/hermes-preset-research-notes.yaml    |   23 +
+ docs/research/hermes-risks-and-failure-modes.md    |   14 +
+ docs/research/hermes-strategic-fork-analysis.md    |   29 +
+ docs/research/hermes-tool-catalog.md               |   17 +
+ docs/research/hermes-update-strategy.md            |   14 +
+ docs/research/hermes-wire-protocol.md              |   29 +
+ docs/research/local-models-16gb-mac-april-2026.md  |  238 +
+ graph-engine-bridge/graph_engine_bolt.h            |   25 +
+ graph-engine/Cargo.toml                            |    3 +-
+ graph-engine/benches/graph_ffi_baselines.rs        |    2 +-
+ graph-engine/src/engine.rs                         |   24 +-
+ graph-engine/src/lib.rs                            |   56 +
+ graph-engine/src/physics_audit_test.rs             |   26 +-
+ graph-engine/src/renderer.rs                       |   24 +-
+ graph-engine/src/shared_buffers.rs                 |  176 +
+ graph-engine/src/simulation.rs                     |   16 +-
+ project.yml                                        |  139 +-
+ scripts/README.md                                  |   21 +
+ scripts/ci_test.sh                                 |   46 +-
+ scripts/launch_audit_app.sh                        |  168 +
+ scripts/patch_mlx_metal_warnings.sh                |   88 +
+ scripts/release/build_release_app.sh               |   25 +-
+ scripts/release/notarize_release_dmg.sh            |    7 +-
+ scripts/run_swift_tests.sh                         |   46 +-
+ scripts/xcodebuild_epistemos.sh                    |    6 +-
+ syntax-core-bridge/syntax_core.h                   |  168 +
+ syntax-core/Cargo.lock                             |  121 +
+ syntax-core/Cargo.toml                             |   15 +-
+ syntax-core/src/ffi.rs                             |  346 +
+ syntax-core/src/highlight.rs                       |  193 +
+ syntax-core/src/languages.rs                       |   54 +
+ syntax-core/src/lib.rs                             |   34 +-
+ syntax-core/target/.rustc_info.json                |    2 +-
+ .../dep-lib-syntax_core                            |  Bin 104 -> 0 bytes
+ .../syntax-core-2e9150d7654908dc/invoked.timestamp |    1 -
+ .../syntax-core-2e9150d7654908dc/lib-syntax_core   |    1 -
+ .../lib-syntax_core.json                           |    1 -
+ .../dep-test-lib-syntax_core                       |  Bin 104 -> 0 bytes
+ .../syntax-core-344217171a87c597/invoked.timestamp |    1 -
+ .../test-lib-syntax_core                           |    1 -
+ .../test-lib-syntax_core.json                      |    1 -
+ .../run-build-script-build-script-build            |    2 +-
+ .../run-build-script-build-script-build.json       |    2 +-
+ .../tree-sitter-d490078751de6b32/lib-tree_sitter   |    2 +-
+ .../lib-tree_sitter.json                           |    2 +-
+ .../run-build-script-build-script-build            |    2 +-
+ .../run-build-script-build-script-build.json       |    2 +-
+ .../lib-tree_sitter_rust                           |    2 +-
+ .../lib-tree_sitter_rust.json                      |    2 +-
+ .../deps/libsyntax_core-2e9150d7654908dc.rlib      |  Bin 733192 -> 0 bytes
+ .../deps/libsyntax_core-2e9150d7654908dc.rmeta     |  Bin 60078 -> 0 bytes
+ .../deps/libtree_sitter-d490078751de6b32.rlib      |  Bin 2641920 -> 2641952 bytes
+ .../deps/libtree_sitter_rust-fb57ed73f2313dee.rlib |  Bin 1433592 -> 1433624 bytes
+ ...4908dc.007pavhoauy4p26fwgvf1lcdv.0npub2b.rcgu.o |  Bin 54976 -> 0 bytes
+ ...4908dc.007pavhoauy4p26fwgvf1lcdv.1p2au5i.rcgu.o |  Bin 54976 -> 0 bytes
+ ...4908dc.009aqop08k5yvf1q9mcfckihr.0npub2b.rcgu.o |  Bin 12808 -> 0 bytes
+ ...4908dc.009aqop08k5yvf1q9mcfckihr.1p2au5i.rcgu.o |  Bin 12808 -> 0 bytes
+ ...4908dc.09cj6cdut2cm7bqq6pz79njjp.0npub2b.rcgu.o |  Bin 3496 -> 0 bytes
+ ...4908dc.09cj6cdut2cm7bqq6pz79njjp.1p2au5i.rcgu.o |  Bin 3496 -> 0 bytes
+ ...4908dc.0ifzfakrp4ymuaninzz8qgqz6.0npub2b.rcgu.o |  Bin 4392 -> 0 bytes
+ ...4908dc.0ifzfakrp4ymuaninzz8qgqz6.1p2au5i.rcgu.o |  Bin 4392 -> 0 bytes
+ ...4908dc.0lej4iy2st2nhat6uu5phphb9.0npub2b.rcgu.o |  Bin 11072 -> 0 bytes
+ ...4908dc.0lej4iy2st2nhat6uu5phphb9.1p2au5i.rcgu.o |  Bin 11072 -> 0 bytes
+ ...4908dc.0nq8v02u8zxge4uc5r8qdr8vy.0npub2b.rcgu.o |  Bin 3832 -> 0 bytes
+ ...4908dc.0nq8v02u8zxge4uc5r8qdr8vy.1p2au5i.rcgu.o |  Bin 3832 -> 0 bytes
+ ...4908dc.1en771bu1zwdmrqgvgssn9ljh.0npub2b.rcgu.o |  Bin 17080 -> 0 bytes
+ ...4908dc.1en771bu1zwdmrqgvgssn9ljh.1p2au5i.rcgu.o |  Bin 17080 -> 0 bytes
+ ...4908dc.1rb51v04bc28joihd0vieusbc.0npub2b.rcgu.o |  Bin 2120 -> 0 bytes
+ ...4908dc.1rb51v04bc28joihd0vieusbc.1p2au5i.rcgu.o |  Bin 2120 -> 0 bytes
+ ...4908dc.264zkgcqci2soj2vaged6omw8.0npub2b.rcgu.o |  Bin 76928 -> 0 bytes
+ ...4908dc.264zkgcqci2soj2vaged6omw8.1p2au5i.rcgu.o |  Bin 76928 -> 0 bytes
+ ...4908dc.2bvcul2np0xvwhqai1ipvene0.0npub2b.rcgu.o |  Bin 3400 -> 0 bytes
+ ...4908dc.2bvcul2np0xvwhqai1ipvene0.1p2au5i.rcgu.o |  Bin 3400 -> 0 bytes
+ ...4908dc.2eofevn28csrli7gql30ngb0p.0npub2b.rcgu.o |  Bin 8576 -> 0 bytes
+ ...4908dc.2eofevn28csrli7gql30ngb0p.1p2au5i.rcgu.o |  Bin 8576 -> 0 bytes
+ ...4908dc.2h4aawuqems5x07974jssbd5s.0npub2b.rcgu.o |  Bin 6936 -> 0 bytes
+ ...4908dc.2h4aawuqems5x07974jssbd5s.1p2au5i.rcgu.o |  Bin 6936 -> 0 bytes
+ ...4908dc.3a4aim4bmyzju6omz6youy5hz.0npub2b.rcgu.o |  Bin 6264 -> 0 bytes
+ ...4908dc.3a4aim4bmyzju6omz6youy5hz.1p2au5i.rcgu.o |  Bin 6264 -> 0 bytes
+ ...4908dc.3apdi1efmc0e2w1kczhmx0hzi.0npub2b.rcgu.o |  Bin 27696 -> 0 bytes
+ ...4908dc.3apdi1efmc0e2w1kczhmx0hzi.1p2au5i.rcgu.o |  Bin 27696 -> 0 bytes
+ ...4908dc.3evpjfkj11t1qf122qmgl9z8v.0npub2b.rcgu.o |  Bin 2864 -> 0 bytes
+ ...4908dc.3evpjfkj11t1qf122qmgl9z8v.1p2au5i.rcgu.o |  Bin 2864 -> 0 bytes
+ ...4908dc.3p6fz82h2ikjdv3bft5tso8ie.0npub2b.rcgu.o |  Bin 51112 -> 0 bytes
+ ...4908dc.3p6fz82h2ikjdv3bft5tso8ie.1p2au5i.rcgu.o |  Bin 51112 -> 0 bytes
+ ...4908dc.3tvk9tb92h9smjrvuxu1gogbo.0npub2b.rcgu.o |  Bin 5192 -> 0 bytes
+ ...4908dc.3tvk9tb92h9smjrvuxu1gogbo.1p2au5i.rcgu.o |  Bin 5192 -> 0 bytes
+ ...4908dc.441yza5gj4xcisoh1ro4epwjj.0npub2b.rcgu.o |  Bin 7400 -> 0 bytes
+ ...4908dc.441yza5gj4xcisoh1ro4epwjj.1p2au5i.rcgu.o |  Bin 7400 -> 0 bytes
+ ...4908dc.4etj8ufueqw4jfno8e8jgndt5.0npub2b.rcgu.o |  Bin 7736 -> 0 bytes
+ ...4908dc.4etj8ufueqw4jfno8e8jgndt5.1p2au5i.rcgu.o |  Bin 7736 -> 0 bytes
+ ...4908dc.4zrsir05ov2h0t1jpx5c1dx2f.0npub2b.rcgu.o |  Bin 4272 -> 0 bytes
+ ...4908dc.4zrsir05ov2h0t1jpx5c1dx2f.1p2au5i.rcgu.o |  Bin 4272 -> 0 bytes
+ ...4908dc.52rnz0i1gzk2smmywlxzh93un.0npub2b.rcgu.o |  Bin 8248 -> 0 bytes
+ ...4908dc.52rnz0i1gzk2smmywlxzh93un.1p2au5i.rcgu.o |  Bin 8248 -> 0 bytes
+ ...4908dc.5ggb0y7016mczfykretd299xx.0npub2b.rcgu.o |  Bin 3568 -> 0 bytes
+ ...4908dc.5ggb0y7016mczfykretd299xx.1p2au5i.rcgu.o |  Bin 3568 -> 0 bytes
+ ...4908dc.5oefuomppeo1s7vn2gw6brw08.0npub2b.rcgu.o |  Bin 4328 -> 0 bytes
+ ...4908dc.5oefuomppeo1s7vn2gw6brw08.1p2au5i.rcgu.o |  Bin 4328 -> 0 bytes
+ ...4908dc.65ag1sqjnv29z2nkvj0mflqps.0npub2b.rcgu.o |  Bin 5064 -> 0 bytes
+ ...4908dc.65ag1sqjnv29z2nkvj0mflqps.1p2au5i.rcgu.o |  Bin 5064 -> 0 bytes
+ ...4908dc.6ay47rfhfu8crqdc538y8dc61.0npub2b.rcgu.o |  Bin 5984 -> 0 bytes
+ ...4908dc.6ay47rfhfu8crqdc538y8dc61.1p2au5i.rcgu.o |  Bin 5984 -> 0 bytes
+ ...4908dc.6cljn98i75fzyctceb0c48is8.0npub2b.rcgu.o |  Bin 5240 -> 0 bytes
+ ...4908dc.6cljn98i75fzyctceb0c48is8.1p2au5i.rcgu.o |  Bin 5240 -> 0 bytes
+ ...4908dc.6gysvtgxt6chhfj5q09nwd5iw.0npub2b.rcgu.o |  Bin 6768 -> 0 bytes
+ ...4908dc.6gysvtgxt6chhfj5q09nwd5iw.1p2au5i.rcgu.o |  Bin 6768 -> 0 bytes
+ ...4908dc.6o3s260mzlh9dweu8t2z85qll.0npub2b.rcgu.o |  Bin 33872 -> 0 bytes
+ ...4908dc.6o3s260mzlh9dweu8t2z85qll.1p2au5i.rcgu.o |  Bin 33872 -> 0 bytes
+ ...4908dc.6uaeho7kcgdsgh15l84hsnhdu.0npub2b.rcgu.o |  Bin 12608 -> 0 bytes
+ ...4908dc.6uaeho7kcgdsgh15l84hsnhdu.1p2au5i.rcgu.o |  Bin 12608 -> 0 bytes
+ ...4908dc.7iyyvu9zke55n0ulobkak326x.0npub2b.rcgu.o |  Bin 3568 -> 0 bytes
+ ...4908dc.7iyyvu9zke55n0ulobkak326x.1p2au5i.rcgu.o |  Bin 3568 -> 0 bytes
+ ...4908dc.7uod7j68hbq7mru9f0ay5zkdt.0npub2b.rcgu.o |  Bin 24480 -> 0 bytes
+ ...4908dc.7uod7j68hbq7mru9f0ay5zkdt.1p2au5i.rcgu.o |  Bin 24480 -> 0 bytes
+ ...4908dc.8ozogc0azeelqvepvhsfohvi8.0npub2b.rcgu.o |  Bin 5856 -> 0 bytes
+ ...4908dc.8ozogc0azeelqvepvhsfohvi8.1p2au5i.rcgu.o |  Bin 5856 -> 0 bytes
+ ...4908dc.8rbsrk2u282v103t9pi33sje4.0npub2b.rcgu.o |  Bin 4056 -> 0 bytes
+ ...4908dc.8rbsrk2u282v103t9pi33sje4.1p2au5i.rcgu.o |  Bin 4056 -> 0 bytes
+ ...4908dc.8w7we9zvhh74g1xab5u9fwou9.0npub2b.rcgu.o |  Bin 20936 -> 0 bytes
+ ...4908dc.8w7we9zvhh74g1xab5u9fwou9.1p2au5i.rcgu.o |  Bin 20936 -> 0 bytes
+ ...4908dc.8yu7qxtdle3r8s0t9g8ge7hy5.0npub2b.rcgu.o |  Bin 7960 -> 0 bytes
+ ...4908dc.8yu7qxtdle3r8s0t9g8ge7hy5.1p2au5i.rcgu.o |  Bin 7960 -> 0 bytes
+ ...4908dc.9fixu4802jjiwm49ifydoe6al.0npub2b.rcgu.o |  Bin 24024 -> 0 bytes
+ ...4908dc.9fixu4802jjiwm49ifydoe6al.1p2au5i.rcgu.o |  Bin 24024 -> 0 bytes
+ ...4908dc.9nl929satdonws099ldmg7cso.0npub2b.rcgu.o |  Bin 5088 -> 0 bytes
+ ...4908dc.9nl929satdonws099ldmg7cso.1p2au5i.rcgu.o |  Bin 5088 -> 0 bytes
+ ...4908dc.acibufmh5etqihe4x9dkkhpym.0npub2b.rcgu.o |  Bin 9296 -> 0 bytes
+ ...4908dc.acibufmh5etqihe4x9dkkhpym.1p2au5i.rcgu.o |  Bin 9296 -> 0 bytes
+ ...4908dc.aff9lq674ymdd3t8ka2szf0dy.0npub2b.rcgu.o |  Bin 4736 -> 0 bytes
+ ...4908dc.aff9lq674ymdd3t8ka2szf0dy.1p2au5i.rcgu.o |  Bin 4736 -> 0 bytes
+ ...4908dc.ajldxsd9shbagdfkdrasxvr7o.0npub2b.rcgu.o |  Bin 7104 -> 0 bytes
+ ...4908dc.ajldxsd9shbagdfkdrasxvr7o.1p2au5i.rcgu.o |  Bin 7104 -> 0 bytes
+ ...4908dc.ayhvrx43xngzei1gntakw9y3b.0npub2b.rcgu.o |  Bin 25720 -> 0 bytes
+ ...4908dc.ayhvrx43xngzei1gntakw9y3b.1p2au5i.rcgu.o |  Bin 25720 -> 0 bytes
+ ...4908dc.b85343yxy97mv5rheviqjn9ad.0npub2b.rcgu.o |  Bin 5024 -> 0 bytes
+ ...4908dc.b85343yxy97mv5rheviqjn9ad.1p2au5i.rcgu.o |  Bin 5024 -> 0 bytes
+ ...4908dc.bpckn7hgq0ieh5dkevhwbdv0t.0npub2b.rcgu.o |  Bin 11128 -> 0 bytes
+ ...4908dc.bpckn7hgq0ieh5dkevhwbdv0t.1p2au5i.rcgu.o |  Bin 11128 -> 0 bytes
+ ...4908dc.c43f1g32fzat9iwib29pn6evz.0npub2b.rcgu.o |  Bin 4616 -> 0 bytes
+ ...4908dc.c43f1g32fzat9iwib29pn6evz.1p2au5i.rcgu.o |  Bin 4616 -> 0 bytes
+ ...4908dc.cgo4rrp12lu6vimtwpj0dostq.0npub2b.rcgu.o |  Bin 5376 -> 0 bytes
+ ...4908dc.cgo4rrp12lu6vimtwpj0dostq.1p2au5i.rcgu.o |  Bin 5376 -> 0 bytes
+ ...4908dc.cxl305axsbmkony90uqwpzrlr.0npub2b.rcgu.o |  Bin 2928 -> 0 bytes
+ ...4908dc.cxl305axsbmkony90uqwpzrlr.1p2au5i.rcgu.o |  Bin 2928 -> 0 bytes
+ .../debug/deps/syntax_core-2e9150d7654908dc.d      |   10 -
+ ...4908dc.d0ynamgbuluofnj1zsav2c8q4.0npub2b.rcgu.o |  Bin 5072 -> 0 bytes
+ ...4908dc.d0ynamgbuluofnj1zsav2c8q4.1p2au5i.rcgu.o |  Bin 5072 -> 0 bytes
+ ...4908dc.dlc3jx6ogm8lblsvhzyajrbcc.0npub2b.rcgu.o |  Bin 9568 -> 0 bytes
+ ...4908dc.dlc3jx6ogm8lblsvhzyajrbcc.1p2au5i.rcgu.o |  Bin 9568 -> 0 bytes
+ ...4908dc.dt7i3a43irhztviab2ptsr0gt.0npub2b.rcgu.o |  Bin 19240 -> 0 bytes
+ ...4908dc.dt7i3a43irhztviab2ptsr0gt.1p2au5i.rcgu.o |  Bin 19240 -> 0 bytes
+ ...4908dc.e0uxnb5q0xxbq489l6p2a9clc.0npub2b.rcgu.o |  Bin 5080 -> 0 bytes
+ ...4908dc.e0uxnb5q0xxbq489l6p2a9clc.1p2au5i.rcgu.o |  Bin 5080 -> 0 bytes
+ ...4908dc.eq6vrb79fuxv14wscyjp0oc2e.0npub2b.rcgu.o |  Bin 36048 -> 0 bytes
+ ...4908dc.eq6vrb79fuxv14wscyjp0oc2e.1p2au5i.rcgu.o |  Bin 36048 -> 0 bytes
+ .../debug/deps/syntax_core-344217171a87c597        |  Bin 2930016 -> 0 bytes
+ ...87c597.077byx07kasufqebl6pmqdhk3.1w2fwku.rcgu.o |  Bin 8568 -> 0 bytes
+ ...87c597.0aovqilio8qkbwbqe4luifwpp.1w2fwku.rcgu.o |  Bin 4208 -> 0 bytes
+ ...87c597.0e1upkx7hpyxpzwu8qop4hsv7.1w2fwku.rcgu.o |  Bin 5936 -> 0 bytes
+ ...87c597.0ewcy4vfmsmsqydjm00hxxz1x.1w2fwku.rcgu.o |  Bin 4056 -> 0 bytes
+ ...87c597.0fyfavi7z4v4ogrlbaa26fxgu.1w2fwku.rcgu.o |  Bin 19280 -> 0 bytes
+ ...87c597.0pkfc62r2igh9nym4c8xtcuqn.1w2fwku.rcgu.o |  Bin 6768 -> 0 bytes
+ ...87c597.0wz31xts5klgpdbeae8fyujkc.1w2fwku.rcgu.o |  Bin 24632 -> 0 bytes
+ ...87c597.15utrk6349elo5d94cyzdt4zy.1w2fwku.rcgu.o |  Bin 8000 -> 0 bytes
+ ...87c597.1bb82s4hq42rcmx1be9wr0nuu.1w2fwku.rcgu.o |  Bin 24024 -> 0 bytes
+ ...87c597.1waa7hz2gbi5ba7np4n3kavml.1w2fwku.rcgu.o |  Bin 10392 -> 0 bytes
+ ...87c597.25rax1vq31nfjg8dpkhryh79o.1w2fwku.rcgu.o |  Bin 3568 -> 0 bytes
+ ...87c597.2l33bmi508g3doah5bah0tk8l.1w2fwku.rcgu.o |  Bin 4928 -> 0 bytes
+ ...87c597.2ndo2o9orfx1wqwm22iyg8mjo.1w2fwku.rcgu.o |  Bin 4736 -> 0 bytes
+ ...87c597.3753db87ymrll8ioorwoexr09.1w2fwku.rcgu.o |  Bin 3832 -> 0 bytes
+ ...87c597.39ztsgq72ru8q48udemru9qzv.1w2fwku.rcgu.o |  Bin 27984 -> 0 bytes
+ ...87c597.3c9nw07qe5ed1aja9hcqoyipe.1w2fwku.rcgu.o |  Bin 7760 -> 0 bytes
+ ...87c597.3f95sna63das9wx760oqfd0v6.1w2fwku.rcgu.o |  Bin 41280 -> 0 bytes
+ ...87c597.3fvr4mduxked03be1rb10j9bt.1w2fwku.rcgu.o |  Bin 15360 -> 0 bytes
+ ...87c597.3k98g9hw4ws8h3nda8ewphhkg.1w2fwku.rcgu.o |  Bin 9096 -> 0 bytes
+ ...87c597.3qtfrmxfsefa5db3kvl8lchys.1w2fwku.rcgu.o |  Bin 11728 -> 0 bytes
+ ...87c597.3vvegaxfeu0hwmtd22wc33zy7.1w2fwku.rcgu.o |  Bin 19240 -> 0 bytes
+ ...87c597.3ynrf9xdfsh186erbwp93c0r6.1w2fwku.rcgu.o |  Bin 4056 -> 0 bytes
+ ...87c597.415155kh27zmqflrqguhoj063.1w2fwku.rcgu.o |  Bin 18208 -> 0 bytes
+ ...87c597.41qogkk51d9hmdgpaplrubj7p.1w2fwku.rcgu.o |  Bin 10848 -> 0 bytes
+ ...87c597.494gx205secsiv23lowc3zqe6.1w2fwku.rcgu.o |  Bin 4272 -> 0 bytes
+ ...87c597.4lhtwnyreros19nbltzsaxbw2.1w2fwku.rcgu.o |  Bin 4328 -> 0 bytes
+ ...87c597.4ttlm36g1c28khhkk78o0uh20.1w2fwku.rcgu.o |  Bin 9960 -> 0 bytes
+ ...87c597.50b5pv1cii8ccl5qts4nx8vau.1w2fwku.rcgu.o |  Bin 8400 -> 0 bytes
+ ...87c597.552q2nkusu5du9q666ipoln2e.1w2fwku.rcgu.o |  Bin 35112 -> 0 bytes
+ ...87c597.5c0htcdpobk0upl646s7qhr9u.1w2fwku.rcgu.o |  Bin 36048 -> 0 bytes
+ ...87c597.5juj8bsrbuy2lz4l57gbz8vye.1w2fwku.rcgu.o |  Bin 3400 -> 0 bytes
+ ...87c597.5m40wdae7jhbjxv23uiovcyg7.1w2fwku.rcgu.o |  Bin 8472 -> 0 bytes
+ ...87c597.5nqmpj24lowd2fmp09irwg1id.1w2fwku.rcgu.o |  Bin 7032 -> 0 bytes
+ ...87c597.5prrce06vvys3s0y6k55v688x.1w2fwku.rcgu.o |  Bin 2120 -> 0 bytes
+ ...87c597.5rs6s1d0cfantzzg8kje4280b.1w2fwku.rcgu.o |  Bin 22096 -> 0 bytes
+ ...87c597.5v9lk5c2nsvelzcxmhpmgzdmy.1w2fwku.rcgu.o |  Bin 25072 -> 0 bytes
+ ...87c597.5wk0v6o53qaar6qpz5eczmxdi.1w2fwku.rcgu.o |  Bin 20248 -> 0 bytes
+ ...87c597.5xnylky2gwdmsb3lltysjyoz1.1w2fwku.rcgu.o |  Bin 5984 -> 0 bytes
+ ...87c597.604109djwlyx84gjfyvk4cp74.1w2fwku.rcgu.o |  Bin 9568 -> 0 bytes
+ ...87c597.6b90yxe9ez2umpba382w7td5h.1w2fwku.rcgu.o |  Bin 11072 -> 0 bytes
+ ...87c597.6bjy8f4mgoopdbbszw4e2y2mx.1w2fwku.rcgu.o |  Bin 9384 -> 0 bytes
+ ...87c597.6mu75hfuml83im3g261l1wsbc.1w2fwku.rcgu.o |  Bin 5632 -> 0 bytes
+ ...87c597.6psz70si347zux3tqo86wsbu1.1w2fwku.rcgu.o |  Bin 25720 -> 0 bytes
+ ...87c597.73iqhqeyj3o6aswwj2uqg9a61.1w2fwku.rcgu.o |  Bin 9296 -> 0 bytes
+ ...87c597.76g2f0h5kx7axhof8kda2kkp0.1w2fwku.rcgu.o |  Bin 54976 -> 0 bytes
+ ...87c597.7j8qssbw86f6z60klrpksmuxb.1w2fwku.rcgu.o |  Bin 10872 -> 0 bytes
+ ...87c597.7lxhv9f9ou715y8g02rnk3imq.1w2fwku.rcgu.o |  Bin 12248 -> 0 bytes
+ ...87c597.7ppj0vey18p8fv7egl242y4rh.1w2fwku.rcgu.o |  Bin 5024 -> 0 bytes
+ ...87c597.7pq2a5xry66trqv4tvcwoh7fg.1w2fwku.rcgu.o |  Bin 158952 -> 0 bytes
+ ...87c597.7qui32r86u3ewv2k9ch8df852.1w2fwku.rcgu.o |  Bin 25248 -> 0 bytes
+ ...87c597.7tfkm76j6wwza0nslh2aate1o.1w2fwku.rcgu.o |  Bin 3648 -> 0 bytes
+ ...87c597.83yqw9rmbzx33umrxsqrl48gg.1w2fwku.rcgu.o |  Bin 23040 -> 0 bytes
+ ...87c597.8cwwgm892e8oqmk2j662x5xtz.1w2fwku.rcgu.o |  Bin 15440 -> 0 bytes
+ ...87c597.8eus7ssz1vla2m8yqs92no0t7.1w2fwku.rcgu.o |  Bin 4856 -> 0 bytes
+ ...87c597.92ecplmf56or5owtc50sec7h7.1w2fwku.rcgu.o |  Bin 5256 -> 0 bytes
+ ...87c597.940nbscahbzn1slx1n7bdl0go.1w2fwku.rcgu.o |  Bin 77352 -> 0 bytes
+ ...87c597.9c62fo1cybvwt5t0gs368m46k.1w2fwku.rcgu.o |  Bin 11128 -> 0 bytes
+ ...87c597.9dxi0jjui5avsu8pvo5rosje5.1w2fwku.rcgu.o |  Bin 7400 -> 0 bytes
+ ...87c597.9ntidlckd4o7j6ehjqscp6e5k.1w2fwku.rcgu.o |  Bin 5536 -> 0 bytes
+ ...87c597.9pi4qgaz1d224l9t8aoqt69sj.1w2fwku.rcgu.o |  Bin 21960 -> 0 bytes
+ ...87c597.9skd77lu5f942o4lxv5jl632u.1w2fwku.rcgu.o |  Bin 12608 -> 0 bytes
+ ...87c597.9sqouyrsghjtjs5oclxevh56m.1w2fwku.rcgu.o |  Bin 8992 -> 0 bytes
+ ...87c597.9tlv7mao1vh850z4ynggjyk0a.1w2fwku.rcgu.o |  Bin 2928 -> 0 bytes
+ ...87c597.9zu3lxnrk301uzw13gneos1l9.1w2fwku.rcgu.o |  Bin 18616 -> 0 bytes
+ ...87c597.a0jrnw2zbhjvyy6ys590541st.1w2fwku.rcgu.o |  Bin 4728 -> 0 bytes
+ ...87c597.a3cmphyir513ltydilmlqnzlp.1w2fwku.rcgu.o |  Bin 51112 -> 0 bytes
+ ...87c597.a7lifzl33i508ou8p6m9xc2xx.1w2fwku.rcgu.o |  Bin 5080 -> 0 bytes
+ ...87c597.aft09rawd7qufs3eh7324tz9i.1w2fwku.rcgu.o |  Bin 3408 -> 0 bytes
+ ...87c597.ajjutcrsk4m01u7pjfmvfwnya.1w2fwku.rcgu.o |  Bin 16856 -> 0 bytes
+ ...87c597.aopm7ge4xmt1hsd5du3twc9ls.1w2fwku.rcgu.o |  Bin 6424 -> 0 bytes
+ ...87c597.b1eyqjrq9vzadde501m1lrev2.1w2fwku.rcgu.o |  Bin 2920 -> 0 bytes
+ ...87c597.b9n0unm98ocjesmzi9p5sdvq5.1w2fwku.rcgu.o |  Bin 4600 -> 0 bytes
+ ...87c597.b9xjxr7k37zs08novew1fb1bl.1w2fwku.rcgu.o |  Bin 8256 -> 0 bytes
+ ...87c597.bbn07e7onmndp67s0ydmrsygw.1w2fwku.rcgu.o |  Bin 13768 -> 0 bytes
+ ...87c597.bc0tpqorfn29wtnq51wtu1nwk.1w2fwku.rcgu.o |  Bin 36624 -> 0 bytes
+ ...87c597.bfdn11aw6tzxgkug0h42z87vp.1w2fwku.rcgu.o |  Bin 9496 -> 0 bytes
+ ...87c597.blxsk59aqqsthgk4vygjtltxk.1w2fwku.rcgu.o |  Bin 5376 -> 0 bytes
+ ...87c597.bn4q1dgarbtj8nq0uctptivk0.1w2fwku.rcgu.o |  Bin 8248 -> 0 bytes
+ ...87c597.bv9cdi1lsiz68n7xt9g5ke6u8.1w2fwku.rcgu.o |  Bin 15648 -> 0 bytes
+ ...87c597.bw0p9i6r83ocys36gupywywt8.1w2fwku.rcgu.o |  Bin 6936 -> 0 bytes
+ ...87c597.c3f148o3pdkw1jvwq7nfyt6ce.1w2fwku.rcgu.o |  Bin 3144 -> 0 bytes
+ ...87c597.cbxacxqsipsvgffzbf572m84v.1w2fwku.rcgu.o |  Bin 27800 -> 0 bytes
+ ...87c597.ccvb29m2y82m7yv9z6dbkrtk9.1w2fwku.rcgu.o |  Bin 3032 -> 0 bytes
+ ...87c597.cczuh3bioe4yaptkh1ujdk11y.1w2fwku.rcgu.o |  Bin 4792 -> 0 bytes
+ ...87c597.ciwzcqoi8a4gyr4cya0uk8fj2.1w2fwku.rcgu.o |  Bin 2720 -> 0 bytes
+ ...87c597.cvqmx4e5csxktbbm0jba64p5e.1w2fwku.rcgu.o |  Bin 8664 -> 0 bytes
+ ...87c597.cxb4ojm8jahslcrhdhyyinyh0.1w2fwku.rcgu.o |  Bin 9128 -> 0 bytes
+ .../debug/deps/syntax_core-344217171a87c597.d      |    8 -
+ ...87c597.dd3ygb3c9vm50ai6x40d2968a.1w2fwku.rcgu.o |  Bin 5240 -> 0 bytes
+ ...87c597.ddo5cxh93fuygali9tmque5te.1w2fwku.rcgu.o |  Bin 76928 -> 0 bytes
+ ...87c597.e69nlmwq77ke2lekhd9favj65.1w2fwku.rcgu.o |  Bin 7736 -> 0 bytes
+ ...87c597.e8c8wg6chmxzv3t3l9z933u19.1w2fwku.rcgu.o |  Bin 16416 -> 0 bytes
+ ...87c597.eek1jpu6nmjc72gsk7qbx9qj8.1w2fwku.rcgu.o |  Bin 2864 -> 0 bytes
+ ...87c597.efxphzr8dumhjyy1xvf9ek7hd.1w2fwku.rcgu.o |  Bin 3528 -> 0 bytes
+ ...87c597.eo82960tobjeo19a4aphzf46n.1w2fwku.rcgu.o |  Bin 4616 -> 0 bytes
+ ...87c597.evwbdiz3tnp46ovuerq2utums.1w2fwku.rcgu.o |  Bin 23144 -> 0 bytes
+ ...87c597.f1s7eteofeceb0r7mvjifi4n7.1w2fwku.rcgu.o |  Bin 4864 -> 0 bytes
+ ...87c597.f410wyvclkzht5mnqee4j7uri.1w2fwku.rcgu.o |  Bin 2784 -> 0 bytes
+ ...87c597.f4mzawr9o6snkqcfp29hq8ei5.1w2fwku.rcgu.o |  Bin 7104 -> 0 bytes
+ ...87c597.f5ek8gavjowoshg7dfu5ksdb2.1w2fwku.rcgu.o |  Bin 24248 -> 0 bytes
+ ...e6b32.tree_sitter.52031215544bd808-cgu.0.rcgu.o |  Bin 371216 -> 371216 bytes
+ ...e6b32.tree_sitter.52031215544bd808-cgu.1.rcgu.o |  Bin 343072 -> 343072 bytes
+ ...e6b32.tree_sitter.52031215544bd808-cgu.2.rcgu.o |  Bin 361896 -> 361896 bytes
+ ...e6b32.tree_sitter.52031215544bd808-cgu.3.rcgu.o |  Bin 335160 -> 335160 bytes
+ ...e.tree_sitter_rust.ee622449fb34b1d-cgu.0.rcgu.o |  Bin 808 -> 808 bytes
+ .../007pavhoauy4p26fwgvf1lcdv.o                    |  Bin 54976 -> 0 bytes
+ .../009aqop08k5yvf1q9mcfckihr.o                    |  Bin 12808 -> 0 bytes
+ .../09cj6cdut2cm7bqq6pz79njjp.o                    |  Bin 3496 -> 0 bytes
+ .../0ifzfakrp4ymuaninzz8qgqz6.o                    |  Bin 4392 -> 0 bytes
+ .../0lej4iy2st2nhat6uu5phphb9.o                    |  Bin 11072 -> 0 bytes
+ .../0nq8v02u8zxge4uc5r8qdr8vy.o                    |  Bin 3832 -> 0 bytes
+ .../1en771bu1zwdmrqgvgssn9ljh.o                    |  Bin 17080 -> 0 bytes
+ .../1rb51v04bc28joihd0vieusbc.o                    |  Bin 2120 -> 0 bytes
+ .../264zkgcqci2soj2vaged6omw8.o                    |  Bin 76928 -> 0 bytes
+ .../2bvcul2np0xvwhqai1ipvene0.o                    |  Bin 3400 -> 0 bytes
+ .../2eofevn28csrli7gql30ngb0p.o                    |  Bin 8576 -> 0 bytes
+ .../2h4aawuqems5x07974jssbd5s.o                    |  Bin 6936 -> 0 bytes
+ .../3a4aim4bmyzju6omz6youy5hz.o                    |  Bin 6264 -> 0 bytes
+ .../3apdi1efmc0e2w1kczhmx0hzi.o                    |  Bin 27696 -> 0 bytes
+ .../3evpjfkj11t1qf122qmgl9z8v.o                    |  Bin 2864 -> 0 bytes
+ .../3p6fz82h2ikjdv3bft5tso8ie.o                    |  Bin 51112 -> 0 bytes
+ .../3tvk9tb92h9smjrvuxu1gogbo.o                    |  Bin 5192 -> 0 bytes
+ .../441yza5gj4xcisoh1ro4epwjj.o                    |  Bin 7400 -> 0 bytes
+ .../4etj8ufueqw4jfno8e8jgndt5.o                    |  Bin 7736 -> 0 bytes
+ .../4zrsir05ov2h0t1jpx5c1dx2f.o                    |  Bin 4272 -> 0 bytes
+ .../52rnz0i1gzk2smmywlxzh93un.o                    |  Bin 8248 -> 0 bytes
+ .../5ggb0y7016mczfykretd299xx.o                    |  Bin 3568 -> 0 bytes
+ .../5oefuomppeo1s7vn2gw6brw08.o                    |  Bin 4328 -> 0 bytes
+ .../65ag1sqjnv29z2nkvj0mflqps.o                    |  Bin 5064 -> 0 bytes
+ .../6ay47rfhfu8crqdc538y8dc61.o                    |  Bin 5984 -> 0 bytes
+ .../6cljn98i75fzyctceb0c48is8.o                    |  Bin 5240 -> 0 bytes
+ .../6gysvtgxt6chhfj5q09nwd5iw.o                    |  Bin 6768 -> 0 bytes
+ .../6o3s260mzlh9dweu8t2z85qll.o                    |  Bin 33872 -> 0 bytes
+ .../6uaeho7kcgdsgh15l84hsnhdu.o                    |  Bin 12608 -> 0 bytes
+ .../7iyyvu9zke55n0ulobkak326x.o                    |  Bin 3568 -> 0 bytes
+ .../7uod7j68hbq7mru9f0ay5zkdt.o                    |  Bin 24480 -> 0 bytes
+ .../8ozogc0azeelqvepvhsfohvi8.o                    |  Bin 5856 -> 0 bytes
+ .../8rbsrk2u282v103t9pi33sje4.o                    |  Bin 4056 -> 0 bytes
+ .../8w7we9zvhh74g1xab5u9fwou9.o                    |  Bin 20936 -> 0 bytes
+ .../8yu7qxtdle3r8s0t9g8ge7hy5.o                    |  Bin 7960 -> 0 bytes
+ .../9fixu4802jjiwm49ifydoe6al.o                    |  Bin 24024 -> 0 bytes
+ .../9nl929satdonws099ldmg7cso.o                    |  Bin 5088 -> 0 bytes
+ .../acibufmh5etqihe4x9dkkhpym.o                    |  Bin 9296 -> 0 bytes
+ .../aff9lq674ymdd3t8ka2szf0dy.o                    |  Bin 4736 -> 0 bytes
+ .../ajldxsd9shbagdfkdrasxvr7o.o                    |  Bin 7104 -> 0 bytes
+ .../ayhvrx43xngzei1gntakw9y3b.o                    |  Bin 25720 -> 0 bytes
+ .../b85343yxy97mv5rheviqjn9ad.o                    |  Bin 5024 -> 0 bytes
+ .../bpckn7hgq0ieh5dkevhwbdv0t.o                    |  Bin 11128 -> 0 bytes
+ .../c43f1g32fzat9iwib29pn6evz.o                    |  Bin 4616 -> 0 bytes
+ .../cgo4rrp12lu6vimtwpj0dostq.o                    |  Bin 5376 -> 0 bytes
+ .../cxl305axsbmkony90uqwpzrlr.o                    |  Bin 2928 -> 0 bytes
+ .../d0ynamgbuluofnj1zsav2c8q4.o                    |  Bin 5072 -> 0 bytes
+ .../dep-graph.bin                                  |  Bin 2312269 -> 0 bytes
+ .../dlc3jx6ogm8lblsvhzyajrbcc.o                    |  Bin 9568 -> 0 bytes
+ .../dt7i3a43irhztviab2ptsr0gt.o                    |  Bin 19240 -> 0 bytes
+ .../e0uxnb5q0xxbq489l6p2a9clc.o                    |  Bin 5080 -> 0 bytes
+ .../eq6vrb79fuxv14wscyjp0oc2e.o                    |  Bin 36048 -> 0 bytes
+ .../metadata.rmeta                                 |  Bin 60077 -> 0 bytes
+ .../query-cache.bin                                |  Bin 969789 -> 0 bytes
+ .../work-products.bin                              |  Bin 3976 -> 0 bytes
+ .../s-hhnaiwfocy-1v6np1a.lock                      |    0
+ .../007pavhoauy4p26fwgvf1lcdv.o                    |  Bin 54976 -> 0 bytes
+ .../009aqop08k5yvf1q9mcfckihr.o                    |  Bin 12808 -> 0 bytes
+ .../09cj6cdut2cm7bqq6pz79njjp.o                    |  Bin 3496 -> 0 bytes
+ .../0ifzfakrp4ymuaninzz8qgqz6.o                    |  Bin 4392 -> 0 bytes
+ .../0lej4iy2st2nhat6uu5phphb9.o                    |  Bin 11072 -> 0 bytes
+ .../0nq8v02u8zxge4uc5r8qdr8vy.o                    |  Bin 3832 -> 0 bytes
+ .../1en771bu1zwdmrqgvgssn9ljh.o                    |  Bin 17080 -> 0 bytes
+ .../1rb51v04bc28joihd0vieusbc.o                    |  Bin 2120 -> 0 bytes
+ .../264zkgcqci2soj2vaged6omw8.o                    |  Bin 76928 -> 0 bytes
+ .../2bvcul2np0xvwhqai1ipvene0.o                    |  Bin 3400 -> 0 bytes
+ .../2eofevn28csrli7gql30ngb0p.o                    |  Bin 8576 -> 0 bytes
+ .../2h4aawuqems5x07974jssbd5s.o                    |  Bin 6936 -> 0 bytes
+ .../3a4aim4bmyzju6omz6youy5hz.o                    |  Bin 6264 -> 0 bytes
+ .../3apdi1efmc0e2w1kczhmx0hzi.o                    |  Bin 27696 -> 0 bytes
+ .../3evpjfkj11t1qf122qmgl9z8v.o                    |  Bin 2864 -> 0 bytes
+ .../3p6fz82h2ikjdv3bft5tso8ie.o                    |  Bin 51112 -> 0 bytes
+ .../3tvk9tb92h9smjrvuxu1gogbo.o                    |  Bin 5192 -> 0 bytes
+ .../441yza5gj4xcisoh1ro4epwjj.o                    |  Bin 7400 -> 0 bytes
+ .../4etj8ufueqw4jfno8e8jgndt5.o                    |  Bin 7736 -> 0 bytes
+ .../4zrsir05ov2h0t1jpx5c1dx2f.o                    |  Bin 4272 -> 0 bytes
+ .../52rnz0i1gzk2smmywlxzh93un.o                    |  Bin 8248 -> 0 bytes
+ .../5ggb0y7016mczfykretd299xx.o                    |  Bin 3568 -> 0 bytes
+ .../5oefuomppeo1s7vn2gw6brw08.o                    |  Bin 4328 -> 0 bytes
+ .../65ag1sqjnv29z2nkvj0mflqps.o                    |  Bin 5064 -> 0 bytes
+ .../6ay47rfhfu8crqdc538y8dc61.o                    |  Bin 5984 -> 0 bytes
+ .../6cljn98i75fzyctceb0c48is8.o                    |  Bin 5240 -> 0 bytes
+ .../6gysvtgxt6chhfj5q09nwd5iw.o                    |  Bin 6768 -> 0 bytes
+ .../6o3s260mzlh9dweu8t2z85qll.o                    |  Bin 33872 -> 0 bytes
+ .../6uaeho7kcgdsgh15l84hsnhdu.o                    |  Bin 12608 -> 0 bytes
+ .../7iyyvu9zke55n0ulobkak326x.o                    |  Bin 3568 -> 0 bytes
+ .../7uod7j68hbq7mru9f0ay5zkdt.o                    |  Bin 24480 -> 0 bytes
+ .../8ozogc0azeelqvepvhsfohvi8.o                    |  Bin 5856 -> 0 bytes
+ .../8rbsrk2u282v103t9pi33sje4.o                    |  Bin 4056 -> 0 bytes
+ .../8w7we9zvhh74g1xab5u9fwou9.o                    |  Bin 20936 -> 0 bytes
+ .../8yu7qxtdle3r8s0t9g8ge7hy5.o                    |  Bin 7960 -> 0 bytes
+ .../9fixu4802jjiwm49ifydoe6al.o                    |  Bin 24024 -> 0 bytes
+ .../9nl929satdonws099ldmg7cso.o                    |  Bin 5088 -> 0 bytes
+ .../acibufmh5etqihe4x9dkkhpym.o                    |  Bin 9296 -> 0 bytes
+ .../aff9lq674ymdd3t8ka2szf0dy.o                    |  Bin 4736 -> 0 bytes
+ .../ajldxsd9shbagdfkdrasxvr7o.o                    |  Bin 7104 -> 0 bytes
+ .../ayhvrx43xngzei1gntakw9y3b.o                    |  Bin 25720 -> 0 bytes
+ .../b85343yxy97mv5rheviqjn9ad.o                    |  Bin 5024 -> 0 bytes
+ .../bpckn7hgq0ieh5dkevhwbdv0t.o                    |  Bin 11128 -> 0 bytes
+ .../c43f1g32fzat9iwib29pn6evz.o                    |  Bin 4616 -> 0 bytes
+ .../cgo4rrp12lu6vimtwpj0dostq.o                    |  Bin 5376 -> 0 bytes
+ .../cxl305axsbmkony90uqwpzrlr.o                    |  Bin 2928 -> 0 bytes
+ .../d0ynamgbuluofnj1zsav2c8q4.o                    |  Bin 5072 -> 0 bytes
+ .../dep-graph.bin                                  |  Bin 2313919 -> 0 bytes
+ .../dlc3jx6ogm8lblsvhzyajrbcc.o                    |  Bin 9568 -> 0 bytes
+ .../dt7i3a43irhztviab2ptsr0gt.o                    |  Bin 19240 -> 0 bytes
+ .../e0uxnb5q0xxbq489l6p2a9clc.o                    |  Bin 5080 -> 0 bytes
+ .../eq6vrb79fuxv14wscyjp0oc2e.o                    |  Bin 36048 -> 0 bytes
+ .../metadata.rmeta                                 |  Bin 60078 -> 0 bytes
+ .../query-cache.bin                                |  Bin 934856 -> 0 bytes
+ .../work-products.bin                              |  Bin 3976 -> 0 bytes
+ .../s-hhnajaovwd-1hxj3x5.lock                      |    0
+ .../077byx07kasufqebl6pmqdhk3.o                    |  Bin 8568 -> 0 bytes
+ .../0aovqilio8qkbwbqe4luifwpp.o                    |  Bin 4208 -> 0 bytes
+ .../0e1upkx7hpyxpzwu8qop4hsv7.o                    |  Bin 5936 -> 0 bytes
+ .../0ewcy4vfmsmsqydjm00hxxz1x.o                    |  Bin 4056 -> 0 bytes
+ .../0fyfavi7z4v4ogrlbaa26fxgu.o                    |  Bin 19280 -> 0 bytes
+ .../0pkfc62r2igh9nym4c8xtcuqn.o                    |  Bin 6768 -> 0 bytes
+ .../0wz31xts5klgpdbeae8fyujkc.o                    |  Bin 24632 -> 0 bytes
+ .../15utrk6349elo5d94cyzdt4zy.o                    |  Bin 8000 -> 0 bytes
+ .../1bb82s4hq42rcmx1be9wr0nuu.o                    |  Bin 24024 -> 0 bytes
+ .../1waa7hz2gbi5ba7np4n3kavml.o                    |  Bin 10392 -> 0 bytes
+ .../25rax1vq31nfjg8dpkhryh79o.o                    |  Bin 3568 -> 0 bytes
+ .../2l33bmi508g3doah5bah0tk8l.o                    |  Bin 4928 -> 0 bytes
+ .../2ndo2o9orfx1wqwm22iyg8mjo.o                    |  Bin 4736 -> 0 bytes
+ .../3753db87ymrll8ioorwoexr09.o                    |  Bin 3832 -> 0 bytes
+ .../39ztsgq72ru8q48udemru9qzv.o                    |  Bin 27984 -> 0 bytes
+ .../3c9nw07qe5ed1aja9hcqoyipe.o                    |  Bin 7760 -> 0 bytes
+ .../3f95sna63das9wx760oqfd0v6.o                    |  Bin 41280 -> 0 bytes
+ .../3fvr4mduxked03be1rb10j9bt.o                    |  Bin 15360 -> 0 bytes
+ .../3k98g9hw4ws8h3nda8ewphhkg.o                    |  Bin 9096 -> 0 bytes
+ .../3qtfrmxfsefa5db3kvl8lchys.o                    |  Bin 11728 -> 0 bytes
+ .../3vvegaxfeu0hwmtd22wc33zy7.o                    |  Bin 19240 -> 0 bytes
+ .../3ynrf9xdfsh186erbwp93c0r6.o                    |  Bin 4056 -> 0 bytes
+ .../415155kh27zmqflrqguhoj063.o                    |  Bin 18208 -> 0 bytes
+ .../41qogkk51d9hmdgpaplrubj7p.o                    |  Bin 10848 -> 0 bytes
+ .../494gx205secsiv23lowc3zqe6.o                    |  Bin 4272 -> 0 bytes
+ .../4lhtwnyreros19nbltzsaxbw2.o                    |  Bin 4328 -> 0 bytes
+ .../4ttlm36g1c28khhkk78o0uh20.o                    |  Bin 9960 -> 0 bytes
+ .../50b5pv1cii8ccl5qts4nx8vau.o                    |  Bin 8400 -> 0 bytes
+ .../552q2nkusu5du9q666ipoln2e.o                    |  Bin 35112 -> 0 bytes
+ .../5c0htcdpobk0upl646s7qhr9u.o                    |  Bin 36048 -> 0 bytes
+ .../5juj8bsrbuy2lz4l57gbz8vye.o                    |  Bin 3400 -> 0 bytes
+ .../5m40wdae7jhbjxv23uiovcyg7.o                    |  Bin 8472 -> 0 bytes
+ .../5nqmpj24lowd2fmp09irwg1id.o                    |  Bin 7032 -> 0 bytes
+ .../5prrce06vvys3s0y6k55v688x.o                    |  Bin 2120 -> 0 bytes
+ .../5rs6s1d0cfantzzg8kje4280b.o                    |  Bin 22096 -> 0 bytes
+ .../5v9lk5c2nsvelzcxmhpmgzdmy.o                    |  Bin 25072 -> 0 bytes
+ .../5wk0v6o53qaar6qpz5eczmxdi.o                    |  Bin 20248 -> 0 bytes
+ .../5xnylky2gwdmsb3lltysjyoz1.o                    |  Bin 5984 -> 0 bytes
+ .../604109djwlyx84gjfyvk4cp74.o                    |  Bin 9568 -> 0 bytes
+ .../6b90yxe9ez2umpba382w7td5h.o                    |  Bin 11072 -> 0 bytes
+ .../6bjy8f4mgoopdbbszw4e2y2mx.o                    |  Bin 9384 -> 0 bytes
+ .../6mu75hfuml83im3g261l1wsbc.o                    |  Bin 5632 -> 0 bytes
+ .../6psz70si347zux3tqo86wsbu1.o                    |  Bin 25720 -> 0 bytes
+ .../73iqhqeyj3o6aswwj2uqg9a61.o                    |  Bin 9296 -> 0 bytes
+ .../76g2f0h5kx7axhof8kda2kkp0.o                    |  Bin 54976 -> 0 bytes
+ .../7j8qssbw86f6z60klrpksmuxb.o                    |  Bin 10872 -> 0 bytes
+ .../7lxhv9f9ou715y8g02rnk3imq.o                    |  Bin 12248 -> 0 bytes
+ .../7ppj0vey18p8fv7egl242y4rh.o                    |  Bin 5024 -> 0 bytes
+ .../7pq2a5xry66trqv4tvcwoh7fg.o                    |  Bin 158952 -> 0 bytes
+ .../7qui32r86u3ewv2k9ch8df852.o                    |  Bin 25248 -> 0 bytes
+ .../7tfkm76j6wwza0nslh2aate1o.o                    |  Bin 3648 -> 0 bytes
+ .../83yqw9rmbzx33umrxsqrl48gg.o                    |  Bin 23040 -> 0 bytes
+ .../8cwwgm892e8oqmk2j662x5xtz.o                    |  Bin 15440 -> 0 bytes
+ .../8eus7ssz1vla2m8yqs92no0t7.o                    |  Bin 4856 -> 0 bytes
+ .../92ecplmf56or5owtc50sec7h7.o                    |  Bin 5256 -> 0 bytes
+ .../940nbscahbzn1slx1n7bdl0go.o                    |  Bin 77352 -> 0 bytes
+ .../9c62fo1cybvwt5t0gs368m46k.o                    |  Bin 11128 -> 0 bytes
+ .../9dxi0jjui5avsu8pvo5rosje5.o                    |  Bin 7400 -> 0 bytes
+ .../9ntidlckd4o7j6ehjqscp6e5k.o                    |  Bin 5536 -> 0 bytes
+ .../9pi4qgaz1d224l9t8aoqt69sj.o                    |  Bin 21960 -> 0 bytes
+ .../9skd77lu5f942o4lxv5jl632u.o                    |  Bin 12608 -> 0 bytes
+ .../9sqouyrsghjtjs5oclxevh56m.o                    |  Bin 8992 -> 0 bytes
+ .../9tlv7mao1vh850z4ynggjyk0a.o                    |  Bin 2928 -> 0 bytes
+ .../9zu3lxnrk301uzw13gneos1l9.o                    |  Bin 18616 -> 0 bytes
+ .../a0jrnw2zbhjvyy6ys590541st.o                    |  Bin 4728 -> 0 bytes
+ .../a3cmphyir513ltydilmlqnzlp.o                    |  Bin 51112 -> 0 bytes
+ .../a7lifzl33i508ou8p6m9xc2xx.o                    |  Bin 5080 -> 0 bytes
+ .../aft09rawd7qufs3eh7324tz9i.o                    |  Bin 3408 -> 0 bytes
+ .../ajjutcrsk4m01u7pjfmvfwnya.o                    |  Bin 16856 -> 0 bytes
+ .../aopm7ge4xmt1hsd5du3twc9ls.o                    |  Bin 6424 -> 0 bytes
+ .../b1eyqjrq9vzadde501m1lrev2.o                    |  Bin 2920 -> 0 bytes
+ .../b9n0unm98ocjesmzi9p5sdvq5.o                    |  Bin 4600 -> 0 bytes
+ .../b9xjxr7k37zs08novew1fb1bl.o                    |  Bin 8256 -> 0 bytes
+ .../bbn07e7onmndp67s0ydmrsygw.o                    |  Bin 13768 -> 0 bytes
+ .../bc0tpqorfn29wtnq51wtu1nwk.o                    |  Bin 36624 -> 0 bytes
+ .../bfdn11aw6tzxgkug0h42z87vp.o                    |  Bin 9496 -> 0 bytes
+ .../blxsk59aqqsthgk4vygjtltxk.o                    |  Bin 5376 -> 0 bytes
+ .../bn4q1dgarbtj8nq0uctptivk0.o                    |  Bin 8248 -> 0 bytes
+ .../bv9cdi1lsiz68n7xt9g5ke6u8.o                    |  Bin 15648 -> 0 bytes
+ .../bw0p9i6r83ocys36gupywywt8.o                    |  Bin 6936 -> 0 bytes
+ .../c3f148o3pdkw1jvwq7nfyt6ce.o                    |  Bin 3144 -> 0 bytes
+ .../cbxacxqsipsvgffzbf572m84v.o                    |  Bin 27800 -> 0 bytes
+ .../ccvb29m2y82m7yv9z6dbkrtk9.o                    |  Bin 3032 -> 0 bytes
+ .../cczuh3bioe4yaptkh1ujdk11y.o                    |  Bin 4792 -> 0 bytes
+ .../ciwzcqoi8a4gyr4cya0uk8fj2.o                    |  Bin 2720 -> 0 bytes
+ .../cvqmx4e5csxktbbm0jba64p5e.o                    |  Bin 8664 -> 0 bytes
+ .../cxb4ojm8jahslcrhdhyyinyh0.o                    |  Bin 9128 -> 0 bytes
+ .../dd3ygb3c9vm50ai6x40d2968a.o                    |  Bin 5240 -> 0 bytes
+ .../ddo5cxh93fuygali9tmque5te.o                    |  Bin 76928 -> 0 bytes
+ .../dep-graph.bin                                  |  Bin 3370298 -> 0 bytes
+ .../e69nlmwq77ke2lekhd9favj65.o                    |  Bin 7736 -> 0 bytes
+ .../e8c8wg6chmxzv3t3l9z933u19.o                    |  Bin 16416 -> 0 bytes
+ .../eek1jpu6nmjc72gsk7qbx9qj8.o                    |  Bin 2864 -> 0 bytes
+ .../efxphzr8dumhjyy1xvf9ek7hd.o                    |  Bin 3528 -> 0 bytes
+ .../eo82960tobjeo19a4aphzf46n.o                    |  Bin 4616 -> 0 bytes
+ .../evwbdiz3tnp46ovuerq2utums.o                    |  Bin 23144 -> 0 bytes
+ .../f1s7eteofeceb0r7mvjifi4n7.o                    |  Bin 4864 -> 0 bytes
+ .../f410wyvclkzht5mnqee4j7uri.o                    |  Bin 2784 -> 0 bytes
+ .../f4mzawr9o6snkqcfp29hq8ei5.o                    |  Bin 7104 -> 0 bytes
+ .../f5ek8gavjowoshg7dfu5ksdb2.o                    |  Bin 24248 -> 0 bytes
+ .../query-cache.bin                                |  Bin 1367893 -> 0 bytes
+ .../work-products.bin                              |  Bin 7574 -> 0 bytes
+ .../s-hhnajaovwc-0aqgrdc.lock                      |    0
+ .../aarch64-apple-darwin/debug/libsyntax_core.d    |    2 +-
+ .../aarch64-apple-darwin/debug/libsyntax_core.rlib |  Bin 733192 -> 1897144 bytes
+ .../anes-f0a1a62c459ed31d/dep-lib-anes             |  Bin 14 -> 0 bytes
+ .../anes-f0a1a62c459ed31d/invoked.timestamp        |    1 -
+ .../.fingerprint/anes-f0a1a62c459ed31d/lib-anes    |    1 -
+ .../anes-f0a1a62c459ed31d/lib-anes.json            |    1 -
+ .../anstyle-fbeb8816fc53e97d/dep-lib-anstyle       |  Bin 14 -> 0 bytes
+ .../anstyle-fbeb8816fc53e97d/invoked.timestamp     |    1 -
+ .../anstyle-fbeb8816fc53e97d/lib-anstyle           |    1 -
+ .../anstyle-fbeb8816fc53e97d/lib-anstyle.json      |    1 -
+ .../cast-589fb6c95254094e/dep-lib-cast             |  Bin 14 -> 0 bytes
+ .../cast-589fb6c95254094e/invoked.timestamp        |    1 -
+ .../.fingerprint/cast-589fb6c95254094e/lib-cast    |    1 -
+ .../cast-589fb6c95254094e/lib-cast.json            |    1 -
+ .../cfg-if-6a5a9bb26cd86d8e/dep-lib-cfg_if         |  Bin 14 -> 0 bytes
+ .../cfg-if-6a5a9bb26cd86d8e/invoked.timestamp      |    1 -
+ .../cfg-if-6a5a9bb26cd86d8e/lib-cfg_if             |    1 -
+ .../cfg-if-6a5a9bb26cd86d8e/lib-cfg_if.json        |    1 -
+ .../ciborium-6536aa47b82c0e04/dep-lib-ciborium     |  Bin 14 -> 0 bytes
+ .../ciborium-6536aa47b82c0e04/invoked.timestamp    |    1 -
+ .../ciborium-6536aa47b82c0e04/lib-ciborium         |    1 -
+ .../ciborium-6536aa47b82c0e04/lib-ciborium.json    |    1 -
+ .../dep-lib-ciborium_io                            |  Bin 14 -> 0 bytes
+ .../ciborium-io-f78e880eeae888fc/invoked.timestamp |    1 -
+ .../ciborium-io-f78e880eeae888fc/lib-ciborium_io   |    1 -
+ .../lib-ciborium_io.json                           |    1 -
+ .../dep-lib-ciborium_ll                            |  Bin 14 -> 0 bytes
+ .../ciborium-ll-2201abc1cc5c1a69/invoked.timestamp |    1 -
+ .../ciborium-ll-2201abc1cc5c1a69/lib-ciborium_ll   |    1 -
+ .../lib-ciborium_ll.json                           |    1 -
+ .../clap-28010269cb96eca7/dep-lib-clap             |  Bin 14 -> 0 bytes
+ .../clap-28010269cb96eca7/invoked.timestamp        |    1 -
+ .../.fingerprint/clap-28010269cb96eca7/lib-clap    |    1 -
+ .../clap-28010269cb96eca7/lib-clap.json            |    1 -
+ .../dep-lib-clap_builder                           |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../clap_builder-661020be1296d2bd/lib-clap_builder |    1 -
+ .../lib-clap_builder.json                          |    1 -
+ .../clap_lex-802b3fbd6203a296/dep-lib-clap_lex     |  Bin 14 -> 0 bytes
+ .../clap_lex-802b3fbd6203a296/invoked.timestamp    |    1 -
+ .../clap_lex-802b3fbd6203a296/lib-clap_lex         |    1 -
+ .../clap_lex-802b3fbd6203a296/lib-clap_lex.json    |    1 -
+ .../criterion-c71298a1f8949bc2/dep-lib-criterion   |  Bin 14 -> 0 bytes
+ .../criterion-c71298a1f8949bc2/invoked.timestamp   |    1 -
+ .../criterion-c71298a1f8949bc2/lib-criterion       |    1 -
+ .../criterion-c71298a1f8949bc2/lib-criterion.json  |    1 -
+ .../dep-lib-criterion_plot                         |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-criterion_plot                             |    1 -
+ .../lib-criterion_plot.json                        |    1 -
+ .../dep-lib-crossbeam_deque                        |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-crossbeam_deque                            |    1 -
+ .../lib-crossbeam_deque.json                       |    1 -
+ .../dep-lib-crossbeam_epoch                        |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-crossbeam_epoch                            |    1 -
+ .../lib-crossbeam_epoch.json                       |    1 -
+ .../dep-lib-crossbeam_utils                        |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-crossbeam_utils                            |    1 -
+ .../lib-crossbeam_utils.json                       |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../either-fd3f0274909b7dac/dep-lib-either         |  Bin 14 -> 0 bytes
+ .../either-fd3f0274909b7dac/invoked.timestamp      |    1 -
+ .../either-fd3f0274909b7dac/lib-either             |    1 -
+ .../either-fd3f0274909b7dac/lib-either.json        |    1 -
+ .../half-58f94a877f15fc7e/dep-lib-half             |  Bin 14 -> 0 bytes
+ .../half-58f94a877f15fc7e/invoked.timestamp        |    1 -
+ .../.fingerprint/half-58f94a877f15fc7e/lib-half    |    1 -
+ .../half-58f94a877f15fc7e/lib-half.json            |    1 -
+ .../dep-lib-is_terminal                            |  Bin 14 -> 0 bytes
+ .../is-terminal-daa5c2b91a40654c/invoked.timestamp |    1 -
+ .../is-terminal-daa5c2b91a40654c/lib-is_terminal   |    1 -
+ .../lib-is_terminal.json                           |    1 -
+ .../itertools-51a511e6d3c2ae56/dep-lib-itertools   |  Bin 14 -> 0 bytes
+ .../itertools-51a511e6d3c2ae56/invoked.timestamp   |    1 -
+ .../itertools-51a511e6d3c2ae56/lib-itertools       |    1 -
+ .../itertools-51a511e6d3c2ae56/lib-itertools.json  |    1 -
+ .../itoa-174940f2b59634af/dep-lib-itoa             |  Bin 14 -> 0 bytes
+ .../itoa-174940f2b59634af/invoked.timestamp        |    1 -
+ .../.fingerprint/itoa-174940f2b59634af/lib-itoa    |    1 -
+ .../itoa-174940f2b59634af/lib-itoa.json            |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../libc-31ff4c3adfcd9245/dep-lib-libc             |  Bin 14 -> 0 bytes
+ .../libc-31ff4c3adfcd9245/invoked.timestamp        |    1 -
+ .../.fingerprint/libc-31ff4c3adfcd9245/lib-libc    |    1 -
+ .../libc-31ff4c3adfcd9245/lib-libc.json            |    1 -
+ .../num-traits-8d4488147b6f534b/dep-lib-num_traits |  Bin 14 -> 0 bytes
+ .../num-traits-8d4488147b6f534b/invoked.timestamp  |    1 -
+ .../num-traits-8d4488147b6f534b/lib-num_traits     |    1 -
+ .../lib-num_traits.json                            |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../once_cell-d0ba39adfb916159/dep-lib-once_cell   |  Bin 14 -> 0 bytes
+ .../once_cell-d0ba39adfb916159/invoked.timestamp   |    1 -
+ .../once_cell-d0ba39adfb916159/lib-once_cell       |    1 -
+ .../once_cell-d0ba39adfb916159/lib-once_cell.json  |    1 -
+ .../oorandom-171799c3b3ca3260/dep-lib-oorandom     |  Bin 14 -> 0 bytes
+ .../oorandom-171799c3b3ca3260/invoked.timestamp    |    1 -
+ .../oorandom-171799c3b3ca3260/lib-oorandom         |    1 -
+ .../oorandom-171799c3b3ca3260/lib-oorandom.json    |    1 -
+ .../plotters-58366ea1f505ae0a/dep-lib-plotters     |  Bin 14 -> 0 bytes
+ .../plotters-58366ea1f505ae0a/invoked.timestamp    |    1 -
+ .../plotters-58366ea1f505ae0a/lib-plotters         |    1 -
+ .../plotters-58366ea1f505ae0a/lib-plotters.json    |    1 -
+ .../dep-lib-plotters_backend                       |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-plotters_backend                           |    1 -
+ .../lib-plotters_backend.json                      |    1 -
+ .../dep-lib-plotters_svg                           |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../plotters-svg-c1088eb5ff3d29e3/lib-plotters_svg |    1 -
+ .../lib-plotters_svg.json                          |    1 -
+ .../rayon-34fe40995ac18f93/dep-lib-rayon           |  Bin 14 -> 0 bytes
+ .../rayon-34fe40995ac18f93/invoked.timestamp       |    1 -
+ .../.fingerprint/rayon-34fe40995ac18f93/lib-rayon  |    1 -
+ .../rayon-34fe40995ac18f93/lib-rayon.json          |    1 -
+ .../rayon-core-abd6f779383f3e58/dep-lib-rayon_core |  Bin 14 -> 0 bytes
+ .../rayon-core-abd6f779383f3e58/invoked.timestamp  |    1 -
+ .../rayon-core-abd6f779383f3e58/lib-rayon_core     |    1 -
+ .../lib-rayon_core.json                            |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../same-file-f337d39f4d914e5b/dep-lib-same_file   |  Bin 14 -> 0 bytes
+ .../same-file-f337d39f4d914e5b/invoked.timestamp   |    1 -
+ .../same-file-f337d39f4d914e5b/lib-same_file       |    1 -
+ .../same-file-f337d39f4d914e5b/lib-same_file.json  |    1 -
+ .../serde-089424e0e03c2a81/dep-lib-serde           |  Bin 92 -> 0 bytes
+ .../serde-089424e0e03c2a81/invoked.timestamp       |    1 -
+ .../.fingerprint/serde-089424e0e03c2a81/lib-serde  |    1 -
+ .../serde-089424e0e03c2a81/lib-serde.json          |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../serde_core-111e3d1352d777c2/dep-lib-serde_core |  Bin 97 -> 0 bytes
+ .../serde_core-111e3d1352d777c2/invoked.timestamp  |    1 -
+ .../serde_core-111e3d1352d777c2/lib-serde_core     |    1 -
+ .../lib-serde_core.json                            |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../serde_json-552ef6349b2dd0fd/dep-lib-serde_json |  Bin 14 -> 0 bytes
+ .../serde_json-552ef6349b2dd0fd/invoked.timestamp  |    1 -
+ .../serde_json-552ef6349b2dd0fd/lib-serde_json     |    1 -
+ .../lib-serde_json.json                            |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../dep-lib-syntax_core                            |  Bin 104 -> 0 bytes
+ .../syntax-core-10c877361dddfec7/invoked.timestamp |    1 -
+ .../syntax-core-10c877361dddfec7/lib-syntax_core   |    1 -
+ .../lib-syntax_core.json                           |    1 -
+ .../dep-test-bench-parse_baselines                 |  Bin 46 -> 0 bytes
+ .../syntax-core-31e1578608b13b0e/invoked.timestamp |    1 -
+ .../test-bench-parse_baselines                     |    1 -
+ .../test-bench-parse_baselines.json                |    1 -
+ .../dep-test-lib-syntax_core                       |  Bin 104 -> 0 bytes
+ .../syntax-core-c8788fb81608129f/invoked.timestamp |    1 -
+ .../test-lib-syntax_core                           |    1 -
+ .../test-lib-syntax_core.json                      |    1 -
+ .../dep-lib-tinytemplate                           |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../tinytemplate-efe4a60cbd3a4348/lib-tinytemplate |    1 -
+ .../lib-tinytemplate.json                          |    1 -
+ .../tree-sitter-30e3ff9c2159473d/lib-tree_sitter   |    2 +-
+ .../lib-tree_sitter.json                           |    2 +-
+ .../run-build-script-build-script-build            |    2 +-
+ .../run-build-script-build-script-build.json       |    2 +-
+ .../run-build-script-build-script-build            |    2 +-
+ .../run-build-script-build-script-build.json       |    2 +-
+ .../lib-tree_sitter_rust                           |    2 +-
+ .../lib-tree_sitter_rust.json                      |    2 +-
+ .../walkdir-811e0c704fa5f4e0/dep-lib-walkdir       |  Bin 14 -> 0 bytes
+ .../walkdir-811e0c704fa5f4e0/invoked.timestamp     |    1 -
+ .../walkdir-811e0c704fa5f4e0/lib-walkdir           |    1 -
+ .../walkdir-811e0c704fa5f4e0/lib-walkdir.json      |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../zerocopy-b2c7d5c84f7f6794/dep-lib-zerocopy     |  Bin 14 -> 0 bytes
+ .../zerocopy-b2c7d5c84f7f6794/invoked.timestamp    |    1 -
+ .../zerocopy-b2c7d5c84f7f6794/lib-zerocopy         |    1 -
+ .../zerocopy-b2c7d5c84f7f6794/lib-zerocopy.json    |    1 -
+ .../zmij-6e72450a570ff433/dep-lib-zmij             |  Bin 14 -> 0 bytes
+ .../zmij-6e72450a570ff433/invoked.timestamp        |    1 -
+ .../.fingerprint/zmij-6e72450a570ff433/lib-zmij    |    1 -
+ .../zmij-6e72450a570ff433/lib-zmij.json            |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../release/deps/anes-f0a1a62c459ed31d.d           |   14 -
+ .../release/deps/anstyle-fbeb8816fc53e97d.d        |   12 -
+ .../release/deps/cast-589fb6c95254094e.d           |    7 -
+ .../release/deps/cfg_if-6a5a9bb26cd86d8e.d         |    7 -
+ .../release/deps/ciborium-6536aa47b82c0e04.d       |   18 -
+ .../release/deps/ciborium_io-f78e880eeae888fc.d    |    7 -
+ .../release/deps/ciborium_ll-2201abc1cc5c1a69.d    |   11 -
+ .../release/deps/clap-28010269cb96eca7.d           |    9 -
+ .../release/deps/clap_builder-661020be1296d2bd.d   |   56 -
+ .../release/deps/clap_lex-802b3fbd6203a296.d       |    8 -
+ .../release/deps/criterion-c71298a1f8949bc2.d      |   67 -
+ .../release/deps/criterion_plot-cf162383c12d11a7.d |   20 -
+ .../deps/crossbeam_deque-71d13aeebe9ab8b3.d        |    8 -
+ .../deps/crossbeam_epoch-6f85539ab968ffa3.d        |   18 -
+ .../deps/crossbeam_utils-c15651b5586b1828.d        |   19 -
+ .../release/deps/either-fd3f0274909b7dac.d         |    9 -
+ .../release/deps/half-58f94a877f15fc7e.d           |   14 -
+ .../release/deps/is_terminal-daa5c2b91a40654c.d    |    7 -
+ .../release/deps/itertools-51a511e6d3c2ae56.d      |   53 -
+ .../release/deps/itoa-174940f2b59634af.d           |    8 -
+ .../release/deps/libanes-f0a1a62c459ed31d.rlib     |  Bin 269048 -> 0 bytes
+ .../release/deps/libanes-f0a1a62c459ed31d.rmeta    |  Bin 247617 -> 0 bytes
+ .../release/deps/libanstyle-fbeb8816fc53e97d.rlib  |  Bin 242728 -> 0 bytes
+ .../release/deps/libanstyle-fbeb8816fc53e97d.rmeta |  Bin 229030 -> 0 bytes
+ .../release/deps/libc-31ff4c3adfcd9245.d           |   45 -
+ .../release/deps/libcast-589fb6c95254094e.rlib     |  Bin 200064 -> 0 bytes
+ .../release/deps/libcast-589fb6c95254094e.rmeta    |  Bin 197008 -> 0 bytes
+ .../release/deps/libcfg_if-6a5a9bb26cd86d8e.rlib   |  Bin 6424 -> 0 bytes
+ .../release/deps/libcfg_if-6a5a9bb26cd86d8e.rmeta  |  Bin 5473 -> 0 bytes
+ .../release/deps/libciborium-6536aa47b82c0e04.rlib |  Bin 951688 -> 0 bytes
+ .../deps/libciborium-6536aa47b82c0e04.rmeta        |  Bin 918621 -> 0 bytes
+ .../deps/libciborium_io-f78e880eeae888fc.rlib      |  Bin 9184 -> 0 bytes
+ .../deps/libciborium_io-f78e880eeae888fc.rmeta     |  Bin 8221 -> 0 bytes
+ .../deps/libciborium_ll-2201abc1cc5c1a69.rlib      |  Bin 149616 -> 0 bytes
+ .../deps/libciborium_ll-2201abc1cc5c1a69.rmeta     |  Bin 140523 -> 0 bytes
+ .../release/deps/libclap-28010269cb96eca7.rlib     |  Bin 12552 -> 0 bytes
+ .../release/deps/libclap-28010269cb96eca7.rmeta    |  Bin 11608 -> 0 bytes
+ .../deps/libclap_builder-661020be1296d2bd.rlib     |  Bin 3099664 -> 0 bytes
+ .../deps/libclap_builder-661020be1296d2bd.rmeta    |  Bin 2375713 -> 0 bytes
+ .../release/deps/libclap_lex-802b3fbd6203a296.rlib |  Bin 98856 -> 0 bytes
+ .../deps/libclap_lex-802b3fbd6203a296.rmeta        |  Bin 78235 -> 0 bytes
+ .../deps/libcriterion-c71298a1f8949bc2.rlib        |  Bin 4230312 -> 0 bytes
+ .../deps/libcriterion-c71298a1f8949bc2.rmeta       |  Bin 1909949 -> 0 bytes
+ .../deps/libcriterion_plot-cf162383c12d11a7.rlib   |  Bin 495760 -> 0 bytes
+ .../deps/libcriterion_plot-cf162383c12d11a7.rmeta  |  Bin 406120 -> 0 bytes
+ .../deps/libcrossbeam_deque-71d13aeebe9ab8b3.rlib  |  Bin 227792 -> 0 bytes
+ .../deps/libcrossbeam_deque-71d13aeebe9ab8b3.rmeta |  Bin 226823 -> 0 bytes
+ .../deps/libcrossbeam_epoch-6f85539ab968ffa3.rlib  |  Bin 404176 -> 0 bytes
+ .../deps/libcrossbeam_epoch-6f85539ab968ffa3.rmeta |  Bin 366291 -> 0 bytes
+ .../deps/libcrossbeam_utils-c15651b5586b1828.rlib  |  Bin 767192 -> 0 bytes
+ .../deps/libcrossbeam_utils-c15651b5586b1828.rmeta |  Bin 710127 -> 0 bytes
+ .../release/deps/libeither-fd3f0274909b7dac.rlib   |  Bin 245360 -> 0 bytes
+ .../release/deps/libeither-fd3f0274909b7dac.rmeta  |  Bin 244412 -> 0 bytes
+ .../release/deps/libhalf-58f94a877f15fc7e.rlib     |  Bin 544672 -> 0 bytes
+ .../release/deps/libhalf-58f94a877f15fc7e.rmeta    |  Bin 535708 -> 0 bytes
+ .../deps/libis_terminal-daa5c2b91a40654c.rlib      |  Bin 8392 -> 0 bytes
+ .../deps/libis_terminal-daa5c2b91a40654c.rmeta     |  Bin 7425 -> 0 bytes
+ .../deps/libitertools-51a511e6d3c2ae56.rlib        |  Bin 2652816 -> 0 bytes
+ .../deps/libitertools-51a511e6d3c2ae56.rmeta       |  Bin 2645622 -> 0 bytes
+ .../release/deps/libitoa-174940f2b59634af.rlib     |  Bin 83624 -> 0 bytes
+ .../release/deps/libitoa-174940f2b59634af.rmeta    |  Bin 77727 -> 0 bytes
+ .../release/deps/liblibc-31ff4c3adfcd9245.rlib     |  Bin 2189096 -> 0 bytes
+ .../release/deps/liblibc-31ff4c3adfcd9245.rmeta    |  Bin 2185025 -> 0 bytes
+ .../deps/libnum_traits-8d4488147b6f534b.rlib       |  Bin 1926968 -> 0 bytes
+ .../deps/libnum_traits-8d4488147b6f534b.rmeta      |  Bin 1917327 -> 0 bytes
+ .../deps/libonce_cell-d0ba39adfb916159.rlib        |  Bin 237360 -> 0 bytes
+ .../deps/libonce_cell-d0ba39adfb916159.rmeta       |  Bin 232987 -> 0 bytes
+ .../release/deps/liboorandom-171799c3b3ca3260.rlib |  Bin 35768 -> 0 bytes
+ .../deps/liboorandom-171799c3b3ca3260.rmeta        |  Bin 34209 -> 0 bytes
+ .../release/deps/libplotters-58366ea1f505ae0a.rlib |  Bin 2137264 -> 0 bytes
+ .../deps/libplotters-58366ea1f505ae0a.rmeta        |  Bin 2086616 -> 0 bytes
+ .../deps/libplotters_backend-8e3a3fe0a7a2398a.rlib |  Bin 254744 -> 0 bytes
+ .../libplotters_backend-8e3a3fe0a7a2398a.rmeta     |  Bin 245415 -> 0 bytes
+ .../deps/libplotters_svg-c1088eb5ff3d29e3.rlib     |  Bin 160416 -> 0 bytes
+ .../deps/libplotters_svg-c1088eb5ff3d29e3.rmeta    |  Bin 135681 -> 0 bytes
+ .../release/deps/librayon-34fe40995ac18f93.rlib    |  Bin 4481728 -> 0 bytes
+ .../release/deps/librayon-34fe40995ac18f93.rmeta   |  Bin 4442453 -> 0 bytes
+ .../deps/librayon_core-abd6f779383f3e58.rlib       |  Bin 778936 -> 0 bytes
+ .../deps/librayon_core-abd6f779383f3e58.rmeta      |  Bin 555215 -> 0 bytes
+ .../deps/libsame_file-f337d39f4d914e5b.rlib        |  Bin 42968 -> 0 bytes
+ .../deps/libsame_file-f337d39f4d914e5b.rmeta       |  Bin 35944 -> 0 bytes
+ .../release/deps/libserde-089424e0e03c2a81.rlib    |  Bin 959048 -> 0 bytes
+ .../release/deps/libserde-089424e0e03c2a81.rmeta   |  Bin 943870 -> 0 bytes
+ .../deps/libserde_core-111e3d1352d777c2.rlib       |  Bin 5351800 -> 0 bytes
+ .../deps/libserde_core-111e3d1352d777c2.rmeta      |  Bin 5288838 -> 0 bytes
+ .../deps/libserde_json-552ef6349b2dd0fd.rlib       |  Bin 1901192 -> 0 bytes
+ .../deps/libserde_json-552ef6349b2dd0fd.rmeta      |  Bin 1684114 -> 0 bytes
+ .../deps/libsyntax_core-10c877361dddfec7.rlib      |  Bin 123856 -> 0 bytes
+ .../deps/libsyntax_core-10c877361dddfec7.rmeta     |  Bin 65043 -> 0 bytes
+ .../deps/libtinytemplate-efe4a60cbd3a4348.rlib     |  Bin 229872 -> 0 bytes
+ .../deps/libtinytemplate-efe4a60cbd3a4348.rmeta    |  Bin 121148 -> 0 bytes
+ .../deps/libtree_sitter-30e3ff9c2159473d.rlib      |  Bin 1149616 -> 1149648 bytes
+ .../deps/libtree_sitter_rust-c35004979f9dc8d6.rlib |  Bin 1367776 -> 1367776 bytes
+ .../release/deps/libwalkdir-811e0c704fa5f4e0.rlib  |  Bin 190680 -> 0 bytes
+ .../release/deps/libwalkdir-811e0c704fa5f4e0.rmeta |  Bin 117319 -> 0 bytes
+ .../release/deps/libzerocopy-b2c7d5c84f7f6794.rlib |  Bin 15724312 -> 0 bytes
+ .../deps/libzerocopy-b2c7d5c84f7f6794.rmeta        |  Bin 15723359 -> 0 bytes
+ .../release/deps/libzmij-6e72450a570ff433.rlib     |  Bin 108536 -> 0 bytes
+ .../release/deps/libzmij-6e72450a570ff433.rmeta    |  Bin 90992 -> 0 bytes
+ .../release/deps/num_traits-8d4488147b6f534b.d     |   25 -
+ .../release/deps/once_cell-d0ba39adfb916159.d      |    9 -
+ .../release/deps/oorandom-171799c3b3ca3260.d       |    7 -
+ .../release/deps/parse_baselines-31e1578608b13b0e  |  Bin 5376992 -> 0 bytes
+ .../deps/parse_baselines-31e1578608b13b0e.d        |    5 -
+ .../release/deps/plotters-58366ea1f505ae0a.d       |   66 -
+ .../deps/plotters_backend-8e3a3fe0a7a2398a.d       |   15 -
+ .../release/deps/plotters_svg-c1088eb5ff3d29e3.d   |    8 -
+ .../release/deps/rayon-34fe40995ac18f93.d          |  104 -
+ .../release/deps/rayon_core-abd6f779383f3e58.d     |   29 -
+ .../release/deps/same_file-f337d39f4d914e5b.d      |    8 -
+ .../release/deps/serde-089424e0e03c2a81.d          |   14 -
+ .../release/deps/serde_core-111e3d1352d777c2.d     |   27 -
+ .../release/deps/serde_json-552ef6349b2dd0fd.d     |   22 -
+ .../release/deps/syntax_core-10c877361dddfec7.d    |   10 -
+ .../release/deps/syntax_core-c8788fb81608129f      |  Bin 2304176 -> 0 bytes
+ .../release/deps/syntax_core-c8788fb81608129f.d    |    8 -
+ .../release/deps/tinytemplate-efe4a60cbd3a4348.d   |   12 -
+ .../release/deps/walkdir-811e0c704fa5f4e0.d        |   10 -
+ .../release/deps/zerocopy-b2c7d5c84f7f6794.d       |  220 -
+ .../release/deps/zmij-6e72450a570ff433.d           |    8 -
+ .../base/benchmark.json                            |    1 -
+ .../base/estimates.json                            |    1 -
+ .../base/sample.json                               |    1 -
+ .../base/tukey.json                                |    1 -
+ .../new/benchmark.json                             |    1 -
+ .../new/estimates.json                             |    1 -
+ .../new/sample.json                                |    1 -
+ .../new/tukey.json                                 |    1 -
+ .../report/MAD.svg                                 |  100 -
+ .../report/SD.svg                                  |   80 -
+ .../report/index.html                              |  193 -
+ .../report/iteration_times.svg                     |  209 -
+ .../report/iteration_times_small.svg               |  202 -
+ .../report/mean.svg                                |  100 -
+ .../report/median.svg                              |   96 -
+ .../report/pdf.svg                                 |  141 -
+ .../report/pdf_small.svg                           |   72 -
+ .../report/typical.svg                             |  100 -
+ .../base/benchmark.json                            |    1 -
+ .../base/estimates.json                            |    1 -
+ .../base/sample.json                               |    1 -
+ .../rust_50002_lines_1033922_bytes/base/tukey.json |    1 -
+ .../new/benchmark.json                             |    1 -
+ .../new/estimates.json                             |    1 -
+ .../rust_50002_lines_1033922_bytes/new/sample.json |    1 -
+ .../rust_50002_lines_1033922_bytes/new/tukey.json  |    1 -
+ .../rust_50002_lines_1033922_bytes/report/MAD.svg  |   84 -
+ .../rust_50002_lines_1033922_bytes/report/SD.svg   |  100 -
+ .../report/index.html                              |  193 -
+ .../report/iteration_times.svg                     |  199 -
+ .../report/iteration_times_small.svg               |  192 -
+ .../rust_50002_lines_1033922_bytes/report/mean.svg |  104 -
+ .../report/median.svg                              |   88 -
+ .../rust_50002_lines_1033922_bytes/report/pdf.svg  |  175 -
+ .../report/pdf_small.svg                           |   68 -
+ .../report/typical.svg                             |  104 -
+ syntax-core/target/criterion/report/index.html     |   90 -
+ .../from_str_1033922_bytes/base/benchmark.json     |    1 -
+ .../from_str_1033922_bytes/base/estimates.json     |    1 -
+ .../from_str_1033922_bytes/base/sample.json        |    1 -
+ .../from_str_1033922_bytes/base/tukey.json         |    1 -
+ .../from_str_1033922_bytes/new/benchmark.json      |    1 -
+ .../from_str_1033922_bytes/new/estimates.json      |    1 -
+ .../from_str_1033922_bytes/new/sample.json         |    1 -
+ .../from_str_1033922_bytes/new/tukey.json          |    1 -
+ .../from_str_1033922_bytes/report/MAD.svg          |   84 -
+ .../from_str_1033922_bytes/report/SD.svg           |   84 -
+ .../from_str_1033922_bytes/report/index.html       |  203 -
+ .../from_str_1033922_bytes/report/mean.svg         |   80 -
+ .../from_str_1033922_bytes/report/median.svg       |   72 -
+ .../from_str_1033922_bytes/report/pdf.svg          |  175 -
+ .../from_str_1033922_bytes/report/pdf_small.svg    |   68 -
+ .../from_str_1033922_bytes/report/regression.svg   |  202 -
+ .../report/regression_small.svg                    |  187 -
+ .../from_str_1033922_bytes/report/slope.svg        |   96 -
+ .../from_str_1033922_bytes/report/typical.svg      |   96 -
+ .../autocfg-c5c761f9e31a0daf/dep-lib-autocfg       |  Bin 14 -> 0 bytes
+ .../autocfg-c5c761f9e31a0daf/invoked.timestamp     |    1 -
+ .../autocfg-c5c761f9e31a0daf/lib-autocfg           |    1 -
+ .../autocfg-c5c761f9e31a0daf/lib-autocfg.json      |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../libc-aea943203b1c746c/invoked.timestamp        |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../num-traits-12e45cb572994c7d/invoked.timestamp  |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../proc-macro2-956a3b5ce9a08810/invoked.timestamp |    1 -
+ .../dep-lib-proc_macro2                            |  Bin 14 -> 0 bytes
+ .../proc-macro2-cdeb865702b17188/invoked.timestamp |    1 -
+ .../proc-macro2-cdeb865702b17188/lib-proc_macro2   |    1 -
+ .../lib-proc_macro2.json                           |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../quote-a2a35c55cb87b8ce/dep-lib-quote           |  Bin 14 -> 0 bytes
+ .../quote-a2a35c55cb87b8ce/invoked.timestamp       |    1 -
+ .../.fingerprint/quote-a2a35c55cb87b8ce/lib-quote  |    1 -
+ .../quote-a2a35c55cb87b8ce/lib-quote.json          |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../quote-b3ddf1940d686d39/invoked.timestamp       |    1 -
+ .../run-build-script-build-script-build            |    1 -
+ .../run-build-script-build-script-build.json       |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../rayon-core-68caa1cb5a075a08/invoked.timestamp  |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../serde-bb36ace7914ba90f/invoked.timestamp       |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../serde_core-130640c0eed31fbc/invoked.timestamp  |    1 -
+ .../dep-lib-serde_derive                           |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../serde_derive-f8ffeda41b758468/lib-serde_derive |    1 -
+ .../lib-serde_derive.json                          |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../serde_json-c4e7871d80bb251b/invoked.timestamp  |    1 -
+ .../.fingerprint/syn-6638669538079767/dep-lib-syn  |  Bin 14 -> 0 bytes
+ .../syn-6638669538079767/invoked.timestamp         |    1 -
+ .../.fingerprint/syn-6638669538079767/lib-syn      |    1 -
+ .../.fingerprint/syn-6638669538079767/lib-syn.json |    1 -
+ .../dep-lib-unicode_ident                          |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-unicode_ident                              |    1 -
+ .../lib-unicode_ident.json                         |    1 -
+ .../build-script-build-script-build                |    1 -
+ .../build-script-build-script-build.json           |    1 -
+ .../dep-build-script-build-script-build            |  Bin 14 -> 0 bytes
+ .../zerocopy-8bad23e89837bc30/invoked.timestamp    |    1 -
+ .../dep-lib-zerocopy_derive                        |  Bin 14 -> 0 bytes
+ .../invoked.timestamp                              |    1 -
+ .../lib-zerocopy_derive                            |    1 -
+ .../lib-zerocopy_derive.json                       |    1 -
+ .../target/release/deps/autocfg-c5c761f9e31a0daf.d |   10 -
+ .../release/deps/libautocfg-c5c761f9e31a0daf.rlib  |  Bin 430864 -> 0 bytes
+ .../release/deps/libautocfg-c5c761f9e31a0daf.rmeta |  Bin 80734 -> 0 bytes
+ .../deps/libproc_macro2-cdeb865702b17188.rlib      |  Bin 867368 -> 0 bytes
+ .../deps/libproc_macro2-cdeb865702b17188.rmeta     |  Bin 342500 -> 0 bytes
+ .../release/deps/libquote-a2a35c55cb87b8ce.rlib    |  Bin 417280 -> 0 bytes
+ .../release/deps/libquote-a2a35c55cb87b8ce.rmeta   |  Bin 271979 -> 0 bytes
+ .../deps/libserde_derive-f8ffeda41b758468.dylib    |  Bin 3926560 -> 0 bytes
+ .../release/deps/libsyn-6638669538079767.rlib      |  Bin 6768952 -> 0 bytes
+ .../release/deps/libsyn-6638669538079767.rmeta     |  Bin 2732229 -> 0 bytes
+ .../deps/libunicode_ident-0060ad6af7898b29.rlib    |  Bin 48656 -> 0 bytes
+ .../deps/libunicode_ident-0060ad6af7898b29.rmeta   |  Bin 33138 -> 0 bytes
+ .../deps/libzerocopy_derive-69309c3f7859a132.dylib |  Bin 3207600 -> 0 bytes
+ .../release/deps/proc_macro2-cdeb865702b17188.d    |   17 -
+ .../target/release/deps/quote-a2a35c55cb87b8ce.d   |   13 -
+ .../release/deps/serde_derive-f8ffeda41b758468.d   |   34 -
+ .../target/release/deps/syn-6638669538079767.d     |   53 -
+ .../release/deps/unicode_ident-0060ad6af7898b29.d  |    8 -
+ .../deps/zerocopy_derive-69309c3f7859a132.d        |   13 -
+ 1368 files changed, 87769 insertions(+), 19911 deletions(-)
