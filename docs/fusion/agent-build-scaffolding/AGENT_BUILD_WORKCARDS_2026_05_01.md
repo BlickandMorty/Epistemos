@@ -2867,6 +2867,9 @@ expectation to the real `Epistemos/Shaders/` shader authority.
 WBO-6 Rust budget PR57 is closed. `agent_core::wbo6` is the canonical Rust
 budget surface for the six-term bound and integrates with the Resonance seed
 through `resonance_core_budget_terms`.
+Lattice Rust foundation PR58 is closed. `agent_core::lattice` is the canonical
+Core lattice surface for E8 shell counts, Leech metadata/sample handling,
+lower-triangular Babai rounding, scalar quantization, and WBO-6 `T_Q` reporting.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web

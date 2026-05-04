@@ -493,3 +493,23 @@ When the user authorizes the merge:
 | B3 OBSCURA_BROWSER_ADDENDUM | Bonus | Indexed; read before merge |
 
 **18 items total. None merged yet. Held until Codex deliberation + user authorize.**
+
+---
+
+## 2026-05-03 - HELIOS lattice donor Babai drift
+
+**Status:** Recorded during STEP 4b / PR58 implementation.
+
+**Drift:** `/Users/jojo/Downloads/GPT research/crates/helios-core/src/lattice.rs`
+describes a lower-triangular `CholeskyBasis`, but its Babai mockup iterates the
+lower-triangular basis backward and updates rows `0..=i`. That can mis-round
+targets whose lower-triangular dependency is carried by an earlier coefficient.
+
+**Resolution:** Canonical Epistemos implementation in
+`agent_core/src/lattice/mod.rs` re-derives Babai for the declared
+lower-triangular basis using a forward column update, rejects invalid bases and
+dimension mismatches as `Result` errors, and locks the behavior in
+`agent_core/tests/lattice_budget.rs`.
+
+**Usefulness:** +1 - prevents donor mockup drift from entering the hot-path
+quantization substrate.
