@@ -512,9 +512,11 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
-                    CommandHint(icon: "wand.and.stars", label: hermesExpertMode.isActive ? "Hermes Mode On" : "Hermes Mode", theme: theme) {
-                        toggleHermesExpertMode()
-                    }
+                    HermesExpertModeToggleChip(
+                        isActive: hermesExpertMode.isActive,
+                        theme: theme,
+                        action: toggleHermesExpertMode
+                    )
                     .springEntrance(index: 6, stagger: 0.08)
 
                 }
