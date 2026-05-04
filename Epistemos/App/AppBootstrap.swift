@@ -894,6 +894,12 @@ final class AppBootstrap {
     )
     let chatApprovalQueue = ChatApprovalQueue()
     let sovereignGate = SovereignGate()
+    /// Provenance recorder shared by Hermes Expert Mode submissions on
+    /// the landing page. Single instance for the app lifetime so
+    /// sequence numbers per session runID stay stable. Persists into
+    /// the canonical EventStore via the recorder's default persist
+    /// closure.
+    let hermesExpertProvenanceRecorder = AgentToolProvenanceRecorder()
     private let sovereignGateLifecycleObserver = SovereignGateLifecycleObserver()
     var isSovereignGateLifecycleObserverStarted: Bool {
         sovereignGateLifecycleObserver.isStarted
@@ -907,8 +913,28 @@ final class AppBootstrap {
     var iMessageDriver: IMessageDriverService { Self.requireInitialized(_iMessageDriver, name: "iMessageDriver") }
     private var _deviceAgent: DeviceAgentService?
     var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
+    // Computer-use chain: lazy. ScreenCaptureService, Screen2AXFusion, and
+    // AmbientCaptureService form a dependency graph. None are read at
+    // app launch unless the user (a) opens a computer-use agent task,
+    // or (b) opts into ambient capture. For typical sessions that don't
+    // trigger either path, the eager construct burned ~8-12 MB on
+    // AX-listener buffers + AVF
+    // scaffolding for nothing. First access builds only the dependency
+    // subtree each service needs; subsequent reads are O(1).
+    private var _screenCapture: ScreenCaptureService?
+    var screenCapture: ScreenCaptureService {
+        if let existing = _screenCapture { return existing }
+        let new = ScreenCaptureService()
+        _screenCapture = new
+        return new
+    }
     private var _screen2AXFusion: Screen2AXFusion?
-    var screen2AXFusion: Screen2AXFusion { Self.requireInitialized(_screen2AXFusion, name: "screen2AXFusion") }
+    var screen2AXFusion: Screen2AXFusion {
+        if let existing = _screen2AXFusion { return existing }
+        let new = Screen2AXFusion(screenCapture: screenCapture)
+        _screen2AXFusion = new
+        return new
+    }
     private var _agentGraphMemory: AgentGraphMemory?
     var agentGraphMemory: AgentGraphMemory { Self.requireInitialized(_agentGraphMemory, name: "agentGraphMemory") }
     private var _recipeGraphSkills: RecipeGraphSkills?
@@ -920,6 +946,8 @@ final class AppBootstrap {
     let instantRecallService = InstantRecallService()
     private var _textCapturePipeline: TextCapturePipeline?
     var textCapturePipeline: TextCapturePipeline { Self.requireInitialized(_textCapturePipeline, name: "textCapturePipeline") }
+    private var _mutationOpLogProjectionWorker: MutationOpLogProjectionWorker?
+    var mutationOpLogProjectionWorker: MutationOpLogProjectionWorker? { _mutationOpLogProjectionWorker }
     private var _workspaceService: WorkspaceService?
     var workspaceService: WorkspaceService { Self.requireInitialized(_workspaceService, name: "workspaceService") }
     let activityTracker = ActivityTracker()
@@ -937,7 +965,12 @@ final class AppBootstrap {
     // MARK: - Cognitive Substrates
     let epistemosConfig = EpistemosConfig()
     private var _ambientCapture: AmbientCaptureService?
-    var ambientCapture: AmbientCaptureService { Self.requireInitialized(_ambientCapture, name: "ambientCapture") }
+    var ambientCapture: AmbientCaptureService {
+        if let existing = _ambientCapture { return existing }
+        let new = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
+        _ambientCapture = new
+        return new
+    }
     private var _frictionMonitor: FrictionMonitorService?
     var frictionMonitor: FrictionMonitorService { Self.requireInitialized(_frictionMonitor, name: "frictionMonitor") }
     private var _nightBrain: NightBrainService?
@@ -1233,8 +1266,35 @@ final class AppBootstrap {
     let vaultChatMutator: VaultChatMutator
     let liveNoteScheduler = LiveNoteSchedulerService()
     let ssmStateService: SSMStateService
-    let noteInsightService: NoteInsightService
-    let cloudKnowledgeDistillationService: CloudKnowledgeDistillationService
+    // Lazy: NoteInsightService construct is deferred until the first
+    // user action that needs it (notes reindex, dialogue insight fetch).
+    // Most sessions never trigger these paths; the eager construct held
+    // ~6-10 MB of model staging buffers for nothing. The build closure
+    // captures only `modelContainer` which is `let` on self.
+    private var _noteInsightService: NoteInsightService?
+    var noteInsightService: NoteInsightService {
+        if let existing = _noteInsightService { return existing }
+        let new = NoteInsightService(modelContainer: modelContainer)
+        _noteInsightService = new
+        return new
+    }
+    // Lazy: CloudKnowledgeDistillationService is touched only by
+    // (1) the NightBrain background job (runs >3s after launch, deferred
+    //     enough that lazy-build there is fine) and
+        // (2) the Settings > Model Vaults user action.
+    // The targetsProvider closure stays MainActor-bound so each rebuild reads
+    // the current visible model set instead of a stale launch snapshot.
+    private var _cloudKnowledgeDistillationService: CloudKnowledgeDistillationService?
+    var cloudKnowledgeDistillationService: CloudKnowledgeDistillationService {
+        if let existing = _cloudKnowledgeDistillationService { return existing }
+        let inferenceState = self.inferenceState
+        let new = CloudKnowledgeDistillationService(
+            modelContainer: modelContainer,
+            targetsProvider: { inferenceState.modelVaultTargets() }
+        )
+        _cloudKnowledgeDistillationService = new
+        return new
+    }
     private(set) var meaningAnchorService: MeaningAnchorService?
 
     // MARK: - Coordinators
@@ -1244,6 +1304,13 @@ final class AppBootstrap {
     init() {
         let interval = Log.appPerf.beginInterval("bootstrapInit")
         defer { Log.appPerf.endInterval("bootstrapInit", interval) }
+
+        // Cut the default `URLCache.shared` (4 MB memory + 20 MB disk).
+        // Almost every URLSession in this app explicitly opts out of
+        // caching (LLM streams, HF downloads, MCP) or uses ephemeral
+        // configurations. The shared cache table is dead weight that
+        // counts toward resident memory at idle.
+        URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
 
         // Register custom fonts (RetroGaming, etc.)
         EpistemosFont.registerFonts()
@@ -1534,17 +1601,10 @@ final class AppBootstrap {
             }
         }
 
-        // NoteInsightService — on-device ML analysis for all notes
-        self.noteInsightService = NoteInsightService(modelContainer: container)
-
-        // Cloud Knowledge Distillation — compiles per-model vault documents from local notes
-        let initialModelVaultTargets = inference.modelVaultTargets()
-        self.cloudKnowledgeDistillationService = CloudKnowledgeDistillationService(
-            modelContainer: container,
-            targetsProvider: {
-                initialModelVaultTargets
-            }
-        )
+        // NoteInsightService + CloudKnowledgeDistillationService now
+        // construct lazily on first access (see properties above); the
+        // ~6-15 MB of staging buffers they hold are deferred until a
+        // notes-analysis or model-vault-rebuild path actually needs them.
 
         // Meaning Anchor Service — generates structured chat snapshots for graph intelligence
         self.meaningAnchorService = MeaningAnchorService(
@@ -1683,18 +1743,27 @@ final class AppBootstrap {
         deviceAgent.setBackend(deviceBackend)
         deviceAgent.installContextualResolver()
 
-        // Initialize computer use stack (Ω13)
-        let screenCapture = ScreenCaptureService()
-        self._screen2AXFusion = Screen2AXFusion(screenCapture: screenCapture)
+        // ScreenCaptureService, Screen2AXFusion, and AmbientCaptureService now
+        // build lazily on first access via the computed-getter pattern declared
+        // on the class. Sessions that never open a computer-use agent or enable
+        // ambient capture skip ~8-12 MB of AX-listener buffers + AVF
+        // scaffolding entirely.
 
         // Initialize the persistent event store (separate SQLite database with WAL mode).
         EventStore.shared = EventStore()
+        if let eventStore = EventStore.shared {
+            self._mutationOpLogProjectionWorker = MutationOpLogProjectionWorker(
+                eventStore: eventStore,
+                databaseURL: MutationOpLogProjectionWorker.databaseURL(
+                    applicationSupportDirectory: applicationSupportDirectory
+                )
+            )
+        }
         self._timeMachineService = TimeMachineService(modelContainer: container)
         self.workspaceService.timeMachineService = timeMachineService
 
-        // Initialize cognitive substrates (Phase 0)
-        // Services hold a reference to config and read it LIVE at each decision point.
-        self._ambientCapture = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
+        // Cognitive substrates (Phase 0). FrictionMonitor stays eager
+        // (read by RootView at startup); AmbientCapture is lazy.
         self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
 
         // Phase 6.5: Text capture pipeline — capture → structure → memory → evidence → trace
@@ -1711,7 +1780,12 @@ final class AppBootstrap {
                 graphMemoryProvider: { @MainActor [weak self] in
                     self?._agentGraphMemory
                 },
-                cloudKnowledgeJob: { [cloudKnowledgeDistillationService] in
+                cloudKnowledgeJob: { [weak self] in
+                    guard let cloudKnowledgeDistillationService = await MainActor.run(body: {
+                        self?.cloudKnowledgeDistillationService
+                    }) else {
+                        throw NightBrainService.JobExecutionError.missingCloudKnowledgeJob
+                    }
                     _ = try await cloudKnowledgeDistillationService.rebuildAllModelVaults()
                 },
                 vaultPathProvider: { @MainActor [weak vaultSync] in
@@ -1773,6 +1847,7 @@ final class AppBootstrap {
         // fails on day one. Idempotent on repeat launches.
         initializeShadowBackendIfReady()
 
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         // W10.10-FIX — register the NightBrain LaunchAgent so the 3 AM
         // consolidation pass survives the main app being quit. Failure
         // is logged + swallowed (e.g. helper executable target not yet
@@ -1784,6 +1859,7 @@ final class AppBootstrap {
                 "W10.10 NightBrain LaunchAgent register failed — \(error.localizedDescription, privacy: .public)"
             )
         }
+        #endif
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.
@@ -1818,12 +1894,14 @@ final class AppBootstrap {
             }
         }
 
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if NightBrainScheduler.shouldRunFallbackInline() {
             Task.detached(priority: .utility) { [weak self] in
                 await self?._nightBrain?.start()
                 await MainActor.run { NightBrainScheduler.recordSuccessfulRun() }
             }
         }
+        #endif
 
         // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
         // the gateway tracks vault switches (bookmark restore lands
@@ -1840,9 +1918,7 @@ final class AppBootstrap {
             triageService: triage,
             vaultSync: vaultSync,
             mcpBridge: mcpBridge,
-            constrainedDecoding: constrainedDecoding,
-            screenCapture: screenCapture,
-            perception: screen2AXFusion
+            constrainedDecoding: constrainedDecoding
         )
 
         // Wire constrained decoding generator (Ω11)
@@ -2292,6 +2368,8 @@ final class AppBootstrap {
                 return
             }
             guard let self else { return }
+
+            self.mutationOpLogProjectionWorker?.scheduleDrain(reason: "deferred_runtime_services")
 
             // Load the prepared-model manifest off the main launch path. The
             // synchronous `preparedModelRegistry.load()` that used to run in

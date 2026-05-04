@@ -50,6 +50,23 @@ final class HermesExpertModeState {
     /// Optional last-error string surfaced inline below the input.
     var lastErrorMessage: String? = nil
 
+    /// Index of the currently-highlighted row in the inline command
+    /// palette. -1 = none selected (Enter submits the draft directly).
+    /// Cleared when the palette closes or the draft becomes empty.
+    var selectedPaletteIndex: Int = -1
+
+    /// Per-session runID used to anchor every AgentEvent emitted from
+    /// this expert mode lifecycle. Created on `enter()`, cleared on
+    /// `exit()`. Stable across submissions inside the same session so
+    /// the Provenance Console can group them.
+    private(set) var sessionRunID: String = ""
+
+    /// Stable per-submission tool-call id used to bind the start /
+    /// approval / completion events together in the ledger. Set by
+    /// `HermesExpertModeRunner.recordSubmissionStart` and read by the
+    /// follow-up record helpers.
+    var lastSubmissionToolCallID: String = ""
+
     init() {}
 
     func enter() {
@@ -59,6 +76,8 @@ final class HermesExpertModeState {
         draft = ""
         transcript = []
         lastErrorMessage = nil
+        selectedPaletteIndex = -1
+        sessionRunID = "hermes-expert-\(UUID().uuidString)"
     }
 
     func exit() {
@@ -69,6 +88,8 @@ final class HermesExpertModeState {
         showingCommandPalette = false
         lastErrorMessage = nil
         dispatching = false
+        selectedPaletteIndex = -1
+        sessionRunID = ""
     }
 
     func append(_ entry: HermesExpertTranscriptEntry) {
@@ -77,13 +98,36 @@ final class HermesExpertModeState {
 
     func updateDraft(_ text: String) {
         draft = text
-        showingCommandPalette = text.trimmingCharacters(in: .whitespaces).hasPrefix("/")
+        let wasShowing = showingCommandPalette
+        showingCommandPalette = text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("/")
         if !text.isEmpty { lastErrorMessage = nil }
+        // Reset selection whenever the visible palette changes shape.
+        if showingCommandPalette != wasShowing {
+            selectedPaletteIndex = -1
+        }
     }
 
     func clearDraft() {
         draft = ""
         showingCommandPalette = false
+        selectedPaletteIndex = -1
+    }
+
+    /// Move the palette selection up or down, clamped to [-1, count-1].
+    /// -1 represents "no selection" so Enter still submits the raw draft.
+    func movePaletteSelection(by delta: Int, matchCount: Int) {
+        guard showingCommandPalette, matchCount > 0 else {
+            selectedPaletteIndex = -1
+            return
+        }
+        let next = selectedPaletteIndex + delta
+        if next < 0 {
+            selectedPaletteIndex = matchCount - 1
+        } else if next >= matchCount {
+            selectedPaletteIndex = 0
+        } else {
+            selectedPaletteIndex = next
+        }
     }
 }
 

@@ -170,6 +170,27 @@ struct HermesExpertModeView: View {
             .onChange(of: state.draft) { _, newValue in
                 state.updateDraft(newValue)
             }
+            .onKeyPress(.downArrow) {
+                state.movePaletteSelection(by: 1, matchCount: paletteMatches.count)
+                return state.showingCommandPalette ? .handled : .ignored
+            }
+            .onKeyPress(.upArrow) {
+                state.movePaletteSelection(by: -1, matchCount: paletteMatches.count)
+                return state.showingCommandPalette ? .handled : .ignored
+            }
+            .onKeyPress(.tab) {
+                if state.showingCommandPalette,
+                   state.selectedPaletteIndex >= 0,
+                   state.selectedPaletteIndex < paletteMatches.count {
+                    autofillFromMatch(paletteMatches[state.selectedPaletteIndex])
+                    return .handled
+                }
+                if state.showingCommandPalette, !paletteMatches.isEmpty {
+                    autofillFromMatch(paletteMatches[0])
+                    return .handled
+                }
+                return .ignored
+            }
 
             if state.dispatching {
                 ProgressView()
@@ -205,6 +226,16 @@ struct HermesExpertModeView: View {
     }
 
     private func triggerSubmit() {
+        // If the user has highlighted a palette row but the draft is
+        // still just the partial token, autofill instead of submitting
+        // an unknown command. Mirrors VS Code / Spotlight behavior.
+        if state.showingCommandPalette,
+           state.selectedPaletteIndex >= 0,
+           state.selectedPaletteIndex < paletteMatches.count,
+           paletteMatches[state.selectedPaletteIndex].commandToken != state.draft.trimmingCharacters(in: .whitespacesAndNewlines) {
+            autofillFromMatch(paletteMatches[state.selectedPaletteIndex])
+            return
+        }
         let trimmed = state.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         onSubmit(trimmed)
@@ -212,46 +243,18 @@ struct HermesExpertModeView: View {
 
     // MARK: - Command palette
 
+    private var paletteMatches: [HermesExpertCommandPaletteData.Match] {
+        HermesExpertCommandPaletteData.matches(for: state.draft, limit: 6)
+    }
+
     private var commandPalette: some View {
-        let matches = HermesExpertCommandPaletteData.matches(for: state.draft, limit: 6)
+        let matches = paletteMatches
         return VStack(alignment: .leading, spacing: 0) {
-            ForEach(matches) { match in
-                Button(action: {
-                    state.draft = match.commandToken + " "
-                    state.updateDraft(state.draft)
-                    inputFocused = true
-                }) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(match.commandToken)
-                            .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(theme.textPrimary)
-                            .frame(width: 90, alignment: .leading)
-                        Text(match.surface.displayName)
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(theme.textTertiary)
-                            .frame(width: 84, alignment: .leading)
-                        Text(match.tier.displayName)
-                            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(match.tier == .core
-                                ? theme.resolved.accent.color
-                                : theme.textTertiary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .fill(theme.resolved.accent.color.opacity(0.08))
-                            )
-                        Text(match.nativeEquivalent)
-                            .font(.system(size: 11, weight: .regular, design: .monospaced))
-                            .foregroundStyle(theme.textSecondary.opacity(0.85))
-                            .lineLimit(1)
+            ForEach(Array(matches.enumerated()), id: \.element.id) { idx, match in
+                paletteRow(match, isSelected: idx == state.selectedPaletteIndex)
+                    .onHover { hovering in
+                        if hovering { state.selectedPaletteIndex = idx }
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
             if matches.isEmpty {
                 Text("// no matching commands")
@@ -269,6 +272,61 @@ struct HermesExpertModeView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(theme.textTertiary.opacity(0.12), lineWidth: 0.5)
         )
+    }
+
+    @ViewBuilder
+    private func paletteRow(_ match: HermesExpertCommandPaletteData.Match, isSelected: Bool) -> some View {
+        Button(action: {
+            autofillFromMatch(match)
+        }) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(isSelected ? "▸" : " ")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .frame(width: 10, alignment: .leading)
+                Text(match.commandToken)
+                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(theme.textPrimary)
+                    .frame(width: 90, alignment: .leading)
+                Text(match.surface.displayName)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary)
+                    .frame(width: 84, alignment: .leading)
+                Text(match.tier.displayName)
+                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(match.tier == .core
+                        ? theme.resolved.accent.color
+                        : theme.textTertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(theme.resolved.accent.color.opacity(0.08))
+                    )
+                Text(match.nativeEquivalent)
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(theme.textSecondary.opacity(0.85))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(theme.resolved.accent.color.opacity(0.10))
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func autofillFromMatch(_ match: HermesExpertCommandPaletteData.Match) {
+        state.draft = match.commandToken + " "
+        state.updateDraft(state.draft)
+        state.selectedPaletteIndex = -1
+        inputFocused = true
     }
 
     // MARK: - Footer hints
