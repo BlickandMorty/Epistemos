@@ -171,12 +171,26 @@ struct HermesExpertModeView: View {
                 state.updateDraft(newValue)
             }
             .onKeyPress(.downArrow) {
-                state.movePaletteSelection(by: 1, matchCount: paletteMatches.count)
-                return state.showingCommandPalette ? .handled : .ignored
+                if state.showingCommandPalette {
+                    state.movePaletteSelection(by: 1, matchCount: paletteMatches.count)
+                    return .handled
+                }
+                if let recalled = state.recallNext() {
+                    state.draft = recalled
+                    return .handled
+                }
+                return .ignored
             }
             .onKeyPress(.upArrow) {
-                state.movePaletteSelection(by: -1, matchCount: paletteMatches.count)
-                return state.showingCommandPalette ? .handled : .ignored
+                if state.showingCommandPalette {
+                    state.movePaletteSelection(by: -1, matchCount: paletteMatches.count)
+                    return .handled
+                }
+                if let recalled = state.recallPrev(currentDraft: state.draft) {
+                    state.draft = recalled
+                    return .handled
+                }
+                return .ignored
             }
             .onKeyPress(.tab) {
                 if state.showingCommandPalette,
