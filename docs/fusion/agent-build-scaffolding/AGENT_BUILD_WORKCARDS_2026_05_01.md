@@ -2873,6 +2873,9 @@ lower-triangular Babai rounding, scalar quantization, and WBO-6 `T_Q` reporting.
 Sketch Rust foundation PR59 is closed. `agent_core::sketch` is the canonical
 Core L2 Shadow Sketch surface for CountSketch, sparse JL projection, and FRP
 projection primitives; runtime graph/RRF wiring stays deferred.
+Arena Rust foundation PR60 is closed. `agent_core::arena` is the canonical Rust
+mmap/App Group substrate foundation with `group.com.epistemos.shared`, fixed
+page-aligned request/response rings, and no Swift/XPC wiring yet.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web

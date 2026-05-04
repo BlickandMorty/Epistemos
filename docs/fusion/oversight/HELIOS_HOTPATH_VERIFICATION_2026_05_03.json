@@ -2,6 +2,9 @@
   "canonical_naming_hits": [],
   "checks": {
     "apple_safe_inter_chunk_scan": true,
+    "arena_budget_tests_present": true,
+    "arena_container_uses_canonical_group": true,
+    "arena_rust_surface_present": true,
     "canonical_naming": true,
     "cargo_available": true,
     "e8_counts_pass": true,
