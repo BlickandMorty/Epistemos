@@ -2892,6 +2892,13 @@ current signing floor. `AppBootstrap` prepares `AppGroupContainer.shared` before
 `group.com.epistemos.shared`, and direct/debug App Group expansion remains
 blocked on signing-profile coordination. True mmap FFI/XPC transport and runtime
 dispatch remain separate future gates.
+Hermes XPC source skeleton PR64 is closed for STEP 6a/b/c. `Epistemos/XPC`
+contains the canonical protocols, service names, in-process clients, and
+deterministic envelopes for AgentXPC slash parsing and ProviderXPC surface
+classification. `XPCServices/AgentXPC` and `XPCServices/ProviderXPC` contain
+thin source skeletons only; XPC target packaging / `project.pbxproj` sync,
+`CapabilityBridge`, chat slash routing, cloud HTTP, CLI execution, AgentEvent
+emission, and true mmap FFI transport remain separate future gates.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web

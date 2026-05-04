@@ -687,3 +687,7 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 112 | 2026-05-04T02:07Z | implementation | slice=swift-app-group-entitlements-bootstrap-step5de-pr63 | codex/local | n/a | done | Epistemos/App/AppBootstrap.swift; Epistemos/Epistemos-AppStore.entitlements; EpistemosTests/ArenaTests.swift | +1 |
 | 112 | 2026-05-04T02:07Z | test-green | scope=swift-app-group-entitlements-bootstrap-step5de-pr63 | xcodebuild | session:97607 | done | /tmp/epistemos-swift-app-group-bootstrap-pr63-20260503-rerun2.log | +1 |
 | 112 | 2026-05-04T02:07Z | guard | slice=swift-app-group-entitlements-bootstrap-step5de-pr63 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md; docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md | +1 |
+| 113 | 2026-05-04T02:10Z | claude-sidecar-audit | scope=xpc-service-skeleton-step6 | codex-sidecar/agent 019df0c0-6f68-7583-8471-b98ec810f878 | n/a | done | read-only response in sidecar transcript | +1 |
+| 113 | 2026-05-04T02:24Z | implementation | slice=xpc-service-skeleton-step6-pr64 | codex/local | n/a | done | Epistemos/XPC/*.swift; XPCServices/AgentXPC/*.swift; XPCServices/ProviderXPC/*.swift; EpistemosTests/XPCSmokeTests.swift | +1 |
+| 113 | 2026-05-04T02:24Z | test-green | scope=xpc-service-skeleton-step6-pr64 | xcodebuild | session:76043 | done | /tmp/epistemos-xpc-service-skeleton-pr64-20260503-rerun2.log | +1 |
+| 113 | 2026-05-04T02:24Z | guard | slice=xpc-service-skeleton-step6-pr64 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

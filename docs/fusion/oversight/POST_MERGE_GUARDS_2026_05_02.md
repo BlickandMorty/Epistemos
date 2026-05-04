@@ -1137,3 +1137,18 @@
 - log: `Test run with 11 tests in 1 suite passed` in `/tmp/epistemos-swift-app-group-bootstrap-pr63-20260503-rerun2.log`.
 - log: `AppBootstrap: shared substrate container ready` appears during the focused test app launch.
 - test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ArenaTests test`.
+
+## xpc-service-skeleton-pr64
+
+- service-name grep: `group.com.epistemos.shared.AgentXPC` and `group.com.epistemos.shared.ProviderXPC` remain present in `Epistemos/XPC/AgentServiceProtocol.swift`.
+- parser grep: `HermesCommandDispatcher.parseCore` remains present in `Epistemos/XPC/AgentServiceProtocol.swift`.
+- provider grep: `HermesGatewayPolicy.decision` remains present in `Epistemos/XPC/AgentServiceProtocol.swift`.
+- service grep: `NSXPCListener.service()` remains present in `XPCServices/AgentXPC/main.swift` and `XPCServices/ProviderXPC/main.swift`.
+- interface grep: `NSXPCInterface(with: AgentServiceProtocol.self)` and `NSXPCInterface(with: ProviderServiceProtocol.self)` remain present in the app clients and service sources.
+- drift grep: `Epistenos|group.com.epistenos|Process\(\)|Subprocess\(` remains absent from `Epistemos/XPC`, `XPCServices/AgentXPC`, and `XPCServices/ProviderXPC`.
+- behavior grep: `todo[XPCEnvelopeKeys.requiresApproval] as? Bool == false` remains present in `EpistemosTests/XPCSmokeTests.swift` so `/todo add` stays aligned with the existing non-destructive Hermes todo substrate.
+- boundary: PR64 is a source skeleton only. XPC target packaging / `project.pbxproj` sync, `CapabilityBridge`, chat slash routing, cloud HTTP, CLI execution, AgentEvent emission, true mmap FFI transport, protected graph files, and protected editor files remain untouched.
+- staged allow: only `Epistemos/App/AppGroupContainer.swift`, `Epistemos/XPC/*.swift`, `XPCServices/AgentXPC/*.swift`, `XPCServices/ProviderXPC/*.swift`, `EpistemosTests/XPCSmokeTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `Test run with 4 tests in 1 suite passed` in `/tmp/epistemos-xpc-service-skeleton-pr64-20260503-rerun2.log`.
+- log: `AppBootstrap: shared substrate container ready` appears during the focused test app launch.
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/XPCSmokeTests test`.

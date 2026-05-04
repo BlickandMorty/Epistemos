@@ -4,12 +4,12 @@ import Foundation
 final class AppGroupContainer {
     static let shared = AppGroupContainer()
 
-    static let canonicalGroupIdentifier = "group.com.epistemos.shared"
-    static let legacyDirectoryName = "Epistemos"
-    static let arenaFileName = "arena.dat"
-    static let blobDirectoryName = "blobs"
-    static let tmpDirectoryName = "tmp"
-    static let logDirectoryName = "logs"
+    nonisolated static let canonicalGroupIdentifier = "group.com.epistemos.shared"
+    nonisolated static let legacyDirectoryName = "Epistemos"
+    nonisolated static let arenaFileName = "arena.dat"
+    nonisolated static let blobDirectoryName = "blobs"
+    nonisolated static let tmpDirectoryName = "tmp"
+    nonisolated static let logDirectoryName = "logs"
 
     let groupIdentifier: String
 
