@@ -225,11 +225,7 @@ fn lambda_pro_research_levels_are_gated() {
         ResidencyLevel::L5Adapter,
         ResidencyLevel::L6Forbidden,
     ] {
-        assert!(
-            !lvl.is_core_allowed(),
-            "{:?} must NOT be Core-allowed",
-            lvl
-        );
+        assert!(!lvl.is_core_allowed(), "{:?} must NOT be Core-allowed", lvl);
         assert!(
             lvl.requires_pro_or_research(),
             "{:?} must require Pro/Research",
@@ -402,9 +398,11 @@ fn signature_serde_round_trips() {
         residency: ResidencyLevel::L1Recent,
     };
     let json = serde_json::to_string(&sig).expect("encode signature");
-    let decoded: ResonanceSignatureCore =
-        serde_json::from_str(&json).expect("decode signature");
-    assert_eq!(sig, decoded, "ResonanceSignatureCore round-trip must be identity");
+    let decoded: ResonanceSignatureCore = serde_json::from_str(&json).expect("decode signature");
+    assert_eq!(
+        sig, decoded,
+        "ResonanceSignatureCore round-trip must be identity"
+    );
 }
 
 #[test]
