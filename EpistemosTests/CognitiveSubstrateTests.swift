@@ -2235,6 +2235,7 @@ struct LiveToggleTests {
     @Test("EpistemosConfig blocklist is enforced by isBlocked")
     func blocklistEnforced() {
         let config = EpistemosConfig()
+        config.allowlistJSON = "[]"
         config.blocklistJSON = "[\"com.apple.Safari\",\"com.slack.Slack\"]"
 
         #expect(config.isBlocked("com.apple.Safari"))
@@ -2281,6 +2282,92 @@ struct LiveToggleTests {
         config.nightBrainRequiresAC = false
         config.nightBrainMinIdleSeconds = 500
         #expect(!(await service.canContinue(idleSeconds: 301, thermalPressureLevel: 1, onACPower: true)))
+    }
+
+    @Test("Night Brain continue gate admits healthy battery per canonical runner policy")
+    func nightBrainContinueGateUsesBatterySnapshot() async {
+        let config = EpistemosConfig()
+        config.nightBrainEnabled = true
+        config.nightBrainRequiresAC = true
+        config.nightBrainMinIdleSeconds = 60
+        let service = NightBrainService(config: config)
+
+        #expect(await service.canContinue(
+            idleSeconds: 61,
+            thermalPressureLevel: 1,
+            battery: PowerGate.BatterySnapshot(onBattery: true, percent: 80, isCharging: false)
+        ))
+
+        #expect(!(await service.canContinue(
+            idleSeconds: 61,
+            thermalPressureLevel: 1,
+            battery: PowerGate.BatterySnapshot(onBattery: true, percent: 50, isCharging: false)
+        )))
+
+        #expect(await service.canContinue(
+            idleSeconds: 61,
+            thermalPressureLevel: 1,
+            battery: PowerGate.BatterySnapshot(onBattery: false, percent: 10, isCharging: true)
+        ))
+    }
+
+    @Test("Night Brain Rust FFI exposes canonical host registry and admission preview")
+    func nightBrainRustFFIExposesCanonicalHostRegistry() {
+        #expect(nightbrainCanonicalTaskNames() == NightBrainService.Job.allCases.map(\.rawValue))
+
+        let admitted = nightbrainPreviewAdmission(
+            idleSeconds: 61,
+            thermalNominal: true,
+            onAcOrBatteryAbove50: true,
+            preempted: false
+        )
+        #expect(admitted.admitted)
+        #expect(admitted.reason == "admitted")
+        #expect(admitted.idleThresholdSeconds == 60)
+        #expect(admitted.workerPoolSize >= 1)
+        #expect(admitted.workerPoolSize <= 4)
+
+        let notIdle = nightbrainPreviewAdmission(
+            idleSeconds: 59,
+            thermalNominal: true,
+            onAcOrBatteryAbove50: true,
+            preempted: false
+        )
+        #expect(!notIdle.admitted)
+        #expect(notIdle.reason == "not_idle")
+    }
+
+    @Test("Route Rust FFI exposes canonical capture contract and closed vocabulary")
+    func routeRustFFIExposesCanonicalCaptureContract() throws {
+        let contract = routeCaptureContract()
+
+        #expect(contract.inputSchemaId == "epistemos://schemas/route_capture.input.v1.json")
+        #expect(contract.outputSchemaId == "epistemos://schemas/route_capture.output.v1.json")
+        #expect(contract.actions == [
+            "place",
+            "merge_into_existing_note",
+            "create_folder",
+            "defer",
+        ])
+        #expect(contract.variantAFloor == 0.85)
+        #expect(contract.variantBFloor == 0.75)
+        #expect(contract.variantCFloor == 0.70)
+        #expect(contract.reasoningTraceMaxChars == 280)
+        #expect(contract.reviewInboxPath == "_inbox/review/")
+
+        let schemaJSON = try routeVariantBSchemaJson(vaultPaths: [
+            "_inbox/raw",
+            "research/vision",
+            "research/ml",
+            "research/ml",
+        ])
+        let data = try #require(schemaJSON.data(using: .utf8))
+        let schema = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let properties = try #require(schema["properties"] as? [String: Any])
+        let path = try #require(properties["path"] as? [String: Any])
+
+        #expect(path["enum"] as? [String] == ["research/ml", "research/vision", "NEW", "DEFER"])
+        #expect(schema["additionalProperties"] as? Bool == false)
     }
 }
 

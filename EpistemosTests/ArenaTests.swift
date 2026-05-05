@@ -161,14 +161,15 @@ struct ArenaTests {
         #expect(source.contains("appGroupContainer.migrateLegacyDatabasesIfNeeded()"))
     }
 
-    @Test("App Store entitlement declares canonical App Group without breaking local signing profiles")
-    func appStoreEntitlementDeclaresCanonicalAppGroup() throws {
+    @Test("App Store entitlement carries the TEMP-FREE-TIER App Group restoration trail")
+    func appStoreEntitlementCarriesTemporaryAppGroupRestorationTrail() throws {
         let appStore = try loadMirroredSourceTextFile("Epistemos/Epistemos-AppStore.entitlements")
         let direct = try loadMirroredSourceTextFile("Epistemos/Epistemos.entitlements")
         let debug = try loadMirroredSourceTextFile("Epistemos/Epistemos-Debug.entitlements")
 
-        #expect(appStore.contains("com.apple.security.application-groups"))
-        #expect(appStore.contains("<string>group.com.epistemos.shared</string>"))
+        #expect(appStore.contains("TEMP-FREE-TIER NOTE"))
+        #expect(appStore.contains("Restore the App Group key with value `group.com.epistemos.shared`"))
+        #expect(!appStore.contains("<key>com.apple.security.application-groups</key>"))
         #expect(!appStore.contains("group.com.epistenos.shared"))
         #expect(!direct.contains("com.apple.security.application-groups"))
         #expect(!debug.contains("com.apple.security.application-groups"))

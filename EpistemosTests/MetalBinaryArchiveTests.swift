@@ -14,15 +14,8 @@ import Testing
 @Suite("Metal binary archive (Wave 4.2)")
 nonisolated struct MetalBinaryArchiveTests {
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func loadText(_ relative: String) throws -> String {
-        let url = repoRoot().appendingPathComponent(relative, isDirectory: false)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relative)
     }
 
     @Test("MetalRuntimeManager owns a binaryArchive property")

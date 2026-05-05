@@ -54,24 +54,13 @@ struct HermesBrandFontResolutionTests {
 
     // MARK: - Helpers
 
-    /// Resolve the on-disk Fonts/ directory in the source tree. Tests run
-    /// against the source mirror, not the built .app, so we walk up from
-    /// this file's location to the repository root.
+    /// Resolve the on-disk Fonts/ directory in the bundled source mirror.
     private static func bundledFontsDirectory() throws -> URL {
-        var current = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-        let fontsDir = current
-            .appendingPathComponent("Epistemos")
-            .appendingPathComponent("Resources")
-            .appendingPathComponent("Fonts")
+        let fontsDir = try sourceMirrorURL(for: "Epistemos/Resources/Fonts")
 
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: fontsDir.path, isDirectory: &isDir),
               isDir.boolValue else {
-            // Fall back to looking inside common DerivedData layouts in case
-            // a future test runner mirrors the file layout differently.
-            current = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             throw FontResolutionTestError.fontsDirectoryNotFound(fontsDir.path)
         }
         return fontsDir

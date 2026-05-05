@@ -943,12 +943,8 @@ mod tests {
     /// a dropped TempDir before a concurrent non-persistence test
     /// tries its second call. Recovers from poisoning so a single
     /// panicky test doesn't wedge the rest.
-    static BRIDGE_STORE_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     fn bridge_store_gate() -> std::sync::MutexGuard<'static, ()> {
-        BRIDGE_STORE_GATE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        crate::test_support::permission_store_lock()
     }
 
     /// Alias preserved for the persistence-specific tests — reads

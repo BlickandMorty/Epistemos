@@ -171,6 +171,7 @@ fn calls_from_value(value: &Value) -> Vec<HermesToolCall> {
             };
             let arguments = map
                 .get("arguments")
+                .or_else(|| map.get("parameters"))
                 .cloned()
                 .unwrap_or_else(|| Value::Object(Default::default()));
             let arguments_json =

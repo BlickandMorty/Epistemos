@@ -18,31 +18,43 @@ Retraction Propagation as missing).
 **This is the single most important untriaged document.** A 47-item
 audit (3 Bucket A, 7 Bucket B, 5 Bucket C, 7 Bucket D, 1 Bucket N, 12
 D-series, 9 gap-fixes, 3 pre-TestFlight) with **17 BLOCKERS, 19
-WARNINGS, 6 NOTES**. Most findings still open.
+WARNINGS, 6 NOTES**. Its raw status is stale; use
+`CANONICAL_AUDIT_RECONCILIATION_2026_05_04.md` for current blocker
+state.
 
-**V2.1 keystone finding — Doctrine §3 Retraction Propagation does
-not exist in code.** Zero hits for `MutationEnvelope`,
-`ProposedEnvelope`, `ClaimLedger`, `RetractionPropagated`,
-`provenance/ledger` in earlier searches. **V2.1 (Cognitive DAG Phase
-8) cannot land without this primitive** — it is the doctrine's named
-contribution. The recovery loop's commit `2ca663a1` landed
-graph-engine `MutationRelationKind` enum + supporting infrastructure
-which is the precursor; the full Mutation Envelope + ClaimLedger
-needs to land in V2.1 Phase 8.A.
+**Original V2.1 keystone finding — Doctrine §3 Retraction Propagation
+did not exist in code.** This is now stale. `MutationEnvelope`,
+`ClaimLedger`, `LedgerEvent::RetractionPropagated`, `events_since(...)`,
+and `ProvenanceConsoleProjectionService.subscribeRetractionEvents(...)`
+exist after the 2026-05-04 recovery continuation. V2.1 Phase 8 should
+continue from these primitives rather than re-author them.
 
-**Other open V2.1-relevant findings:**
+**Other V2.1-relevant findings from the original audit:**
 - W9.27 OpLog: schema missing `prev_hash` column for D1 BLAKE3 chain
 - D2 7-verb MCP graph boundary: actual `omega-mcp/src/vault.rs`
   exports the wrong tool surface (read_file / write_file / list_files
   / search_notes / execute_vault_tool — none of the 7 specified verbs
   exist)
-- D3 closed A2UI catalog: doesn't exist anywhere
+- D3 closed A2UI catalog: didn't exist anywhere when the original audit
+  was written
 - D5 substrate durability: no `PRAGMA journal_mode = WAL`, no
   `fcntl(F_FULLFSYNC)` in oplog or vault
 - Faculty roster D4: ships 36B model on 16GB hardware ceiling
   (memory-budget violation hidden under different model ID)
 
 **Findings already addressed since 2026-04-26:**
+- Retraction propagation keystone: 2026-05-04 Codex continuation wired
+  the typed ledger event and Provenance Console subscriber route.
+- D2 seven-verb MCP graph boundary: 2026-05-04 Codex continuation added
+  all seven `graph.*` tools to `omega-mcp`, schemars-derived schemas,
+  vault-scoped graph persistence, graph-event JSONL emission, and
+  round-trip tests. HNSW/Tantivy/lived Hermes stdio integration remain
+  follow-on substrate-deepening work.
+- D3 closed A2UI catalog Phase 1: 2026-05-04 Codex continuation added
+  a closed Swift `NoteCard` catalog, typed validator, validation-failure
+  audit payload, source guards against fallback/`AnyView`, and Rust
+  schemars-derived schema authority at `agent_core::a2ui::schemas`.
+  Full ~25-component expansion remains follow-on UI-substrate work.
 - Build-matrix nomenclature: `EPISTEMOS_PRO` → mostly canonicalized;
   recovery commit `2ca663a1` flipped security.rs to use `pro-build`
   feature gate per MAS_FIRST_FOCUS_DOCTRINE
@@ -220,10 +232,15 @@ source tree only when integrating a Tier A or Tier B slice.
 When the user signals `RESUME SUBSTRATE V2`:
 
 1. Open `from-agent-a0550f9c/CANONICAL_AUDIT_LOG.md` and lift the
-   17 BLOCKER findings into the V2.1 Phase 8.A sub-plan
-2. Verify Doctrine §3 Retraction Propagation primitive is the first
-   Phase 8.A deliverable (per the audit it's the keystone)
+   17 BLOCKER findings through
+   `CANONICAL_AUDIT_RECONCILIATION_2026_05_04.md`; do not lift stale
+   blockers directly
+2. Continue Phase 8.A from the delivered Retraction Propagation
+   primitives (`MutationEnvelope`, `ClaimLedger`,
+   `RetractionPropagated`, subscriber projection)
 3. Reference `from-hermes-parity/HERMES_PARITY_AUDIT_REPORT.md` when
    Phase 8 touches the agent loop / context compression
 4. The `from-vigorous-goldberg/` Tier A modules (format / canon /
-   grammar / undo) remain integration-ready throughout V2.1
+   grammar / undo) are now selective ports in `agent_core`; future
+   Quick Capture substrate work should start at Tier B or the named
+   Tier A follow-ups, not raw-copy salvage

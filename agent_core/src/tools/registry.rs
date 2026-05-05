@@ -3268,13 +3268,14 @@ mod tier_tests {
     // telemetry. Tests seed unrelated grants to prove that "some grants
     // exist" is not enough; the grant must cover the exact target.
 
-    use std::sync::{Mutex as StdMutex, OnceLock};
-
-    fn r5_gate_test_lock() -> std::sync::MutexGuard<'static, ()> {
-        static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| StdMutex::new(()))
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    fn r5_gate_test_lock() -> (
+        std::sync::MutexGuard<'static, ()>,
+        std::sync::MutexGuard<'static, ()>,
+    ) {
+        (
+            crate::test_support::env_lock(),
+            crate::test_support::permission_store_lock(),
+        )
     }
 
     struct ScopedEnforceFlag {

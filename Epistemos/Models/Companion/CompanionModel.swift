@@ -199,14 +199,15 @@ nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hasha
         case "orb":
             self = .orb
         default:
-            let parts = rawValue.split(separator: ".").map(String.init)
-            guard parts.first == CompanionBodyFamily.block.rawValue else {
+            let parts = rawValue.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 5,
+                  parts[0] == CompanionBodyFamily.block.rawValue,
+                  let aspect = CompanionBlockAspect(rawValue: parts[1]),
+                  let legs = CompanionLegStyle(rawValue: parts[2]),
+                  let antennae = CompanionAntennaStyle(rawValue: parts[3]),
+                  let eyes = CompanionEyeTreatment(rawValue: parts[4]) else {
                 return nil
             }
-            let aspect = parts.count > 1 ? CompanionBlockAspect(rawValue: parts[1]) ?? .compact : .compact
-            let legs = parts.count > 2 ? CompanionLegStyle(rawValue: parts[2]) ?? .stubs : .stubs
-            let antennae = parts.count > 3 ? CompanionAntennaStyle(rawValue: parts[3]) ?? .none : .none
-            let eyes = parts.count > 4 ? CompanionEyeTreatment(rawValue: parts[4]) ?? .filled : .filled
             self = .block(
                 aspect: aspect,
                 legs: legs,

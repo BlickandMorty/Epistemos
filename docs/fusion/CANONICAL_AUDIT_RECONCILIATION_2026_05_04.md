@@ -7,11 +7,13 @@ work shipped more. This doc is the 2026-05-04 ground-truth pass —
 verifying every BLOCKER against current main so future agents (and
 V2.1 work) don't re-litigate already-resolved items.
 
-**Bottom line**: 9 of 17 original BLOCKERS are now RESOLVED in main.
-4 are still open (mostly architectural). 4 are partial / superseded /
+**Bottom line**: 13 of 17 original BLOCKERS are now RESOLVED in main.
+0 are still open. 4 are partial / superseded /
 out-of-scope. The keystone `MutationEnvelope` + `ClaimLedger`
-provenance plane already exists; only `RetractionPropagated` and the
-"open standard" external CLI repo remain unbuilt.
+provenance plane exists, and the first V2.1 `RetractionPropagated`
+subscriber event, W9.6 `budget_gate` ApprovalModal route, and D2
+seven-verb MCP graph boundary now exist. D3 now has a closed Phase-1
+A2UI catalog seed (`NoteCard`) with Swift + Rust schema guards.
 
 ---
 
@@ -30,15 +32,14 @@ provenance plane already exists; only `RetractionPropagated` and the
 | 7 | **MutationEnvelope (provenance plane keystone)** | `agent_core/src/mutations/envelope.rs` `pub struct MutationEnvelope` exists with full type definition. Swift mirror at `Epistemos/Models/MutationEnvelope.swift`. Parity tests at `EpistemosTests/MutationEnvelopeParityTests.swift`. The audit's "Provenance plane primitives entirely absent" finding is **stale**. |
 | 8 | **ClaimLedger (Phase-1 keystone)** | `agent_core/src/provenance/ledger.rs:222` `pub struct ClaimLedger` ships with retract semantics (`retract_evidence`, `retract_claim`) and ReplayBundle integration. Per CLAUDE.md the Phase-1 ledger landed 2026-04-28 (10 unit tests + 7 ReplayBundle tests + 6 e2e CLI integration tests). |
 | 9 | **Build-matrix nomenclature** (`pro-build` Cargo feature canonical) | Recovery commit `2ca663a1` flipped `agent_core/src/security.rs` from `#[cfg(not(feature = "mas-sandbox"))]` → `#[cfg(feature = "pro-build")]` per MAS_FIRST_FOCUS_DOCTRINE. Pattern propagation across remaining sites is incremental. |
+| 10 | **`RetractionPropagated` event variant** | 2026-05-04 recovery slice added `LedgerEvent::RetractionPropagated`, `events_since(...)`, and `ProvenanceConsoleProjectionService.subscribeRetractionEvents(...)`. Guarded by Rust retraction-event tests and `ProvenanceConsoleSourceGuardTests`. |
+| 11 | **W9.6 `budget_gate` cost-cap → ApprovalModal** | 2026-05-04 recovery slice added checked-in provider pricing at `agent_core/src/providers/pricing.rs`, routed `agent_loop` budget exceedance through `GlobalSessions::pause_for_approval(..., "budget_gate", ...)`, and wired Swift live chat / Agent Command Center configs to `BudgetPreferences.shared.perSessionCapUSD` plus the `ChatApprovalQueue` sheet path. |
+| 12 | **D2 7-verb MCP graph boundary** | 2026-05-04 recovery slice added schemars-derived `graph.search_semantic`, `graph.search_fulltext`, `graph.get_node`, `graph.traverse`, `graph.create_node`, `graph.create_edge`, and `graph.commit_session` tools to `omega-mcp`, routed them through the existing vault-scoped UniFFI boundary, persisted a vault-scoped `.epistemos/mcp_graph.json` store, emitted `.epistemos/mcp_graph_events.jsonl`, and covered the complete create/search/get/traverse/edge/commit round-trip in `omega-mcp` tests. |
+| 13 | **D3 closed A2UI catalog Phase 1** | 2026-05-04 recovery slice added `Epistemos/A2UI/` with closed `A2UICatalog.allComponents == [.noteCard]`, typed `A2UINoteCard`, `A2UIValidator`, `A2UIValidationFailure(code: "VALIDATION_FAILED")`, and no `AnyView` / no fallback inspector path. Rust schema authority exists at `agent_core/src/a2ui/schemas.rs` with `schemars`-derived `NoteCard` JSON Schema and `closed_catalog_component_names()`. Guarded by `EpistemosTests/A2UICatalogTests.swift` and `agent_core/tests/a2ui_schemas.rs`. Full ~25-component expansion remains future work; the original "A2UI absent" blocker is closed. |
 
 ### ⚪ STILL OPEN
 
-| # | Item | Status | V2.1 relevance |
-|---|---|---|---|
-| 10 | **`RetractionPropagated` event variant** | Zero hits. The `ClaimLedger` has retraction semantics but doesn't emit a `RetractionPropagated` typed event for consumers to subscribe to. | V2.1 Phase 8.A first deliverable per the canonical audit framing |
-| 11 | **W9.6 `budget_gate` cost-cap → ApprovalModal** | Only mentioned in a `CostDashboardView.swift:8` comment. The actual budget-gate tool wiring is missing. | Not V2.1 blocking; can land independently |
-| 12 | **D2 7-verb MCP graph boundary** | `omega-mcp/src/vault.rs` exports the wrong tool surface (read_file / write_file / list_files / search_notes / execute_vault_tool). None of the 7 spec verbs (search_semantic / search_fulltext / get_node / traverse / create_node / create_edge / commit_session) exist. | Architectural; Hermes integration depends on it; can be deferred behind V2.1 |
-| 13 | **D3 closed A2UI catalog** | Zero hits for `A2UI` directory or types. Doctrine §6 #4 says "no fallback inspector. A2UI catalog is closed (~25 components)." Currently no A2UI exists at all — the doctrine condition is vacuously satisfied (no fallback needed when no catalog exists). | Defers naturally — doctrinally consistent until a Catalog ships |
+No original BLOCKERS remain open after the 2026-05-04 D3 continuation.
 
 ### 🟡 PARTIAL / SUPERSEDED
 
@@ -63,26 +64,24 @@ provenance plane already exists; only `RetractionPropagated` and the
 ## What this means for V2.1
 
 The substrate is in much better shape than the 2026-04-26 audit
-suggests. **9 of 17 BLOCKERS are RESOLVED in main today.** The
+suggests. **13 of 17 BLOCKERS are RESOLVED in main today.** The
 provenance plane keystone (`MutationEnvelope` + `ClaimLedger`) — the
 audit's "single largest unimplemented architectural debt" — exists
 with parity tests.
 
-The remaining open items split into:
-- **V2.1 first deliverable** (item #10): wire the
-  `RetractionPropagated` typed event variant onto `ClaimLedger`'s
-  existing retract semantics. Smaller scope than the audit framing
-  suggested because the ledger and envelope already exist.
-- **Independent slices** (#11, #12, #13): can land before, during, or
-  after V2.1. None block V2.1 Phase 8 directly.
+The remaining work split is now:
+- **V2.1 continuation**: `RetractionPropagated` is wired, so Phase
+  8.A should continue from the Cognitive DAG plan rather than
+  re-authoring the provenance keystone.
+- **A2UI expansion** (#13 follow-up): the closed-catalog seed exists,
+  but the full ~25-component catalog remains future UI-substrate work.
+  Do not re-open the original "A2UI absent" blocker.
 - **Already-acknowledged partials** (#14, #15, #16, #17): incremental
   closure work; no V2.1 dependency.
 
 The Pre-V2 Full Audit's claim that V2.1 has a substantial provenance
 gap is now **softened** — the keystone primitives exist; Phase 8.A
-becomes a smaller "wire `RetractionPropagated` + extend the
-`ProvenanceConsoleProjectionService` to read the ledger" delivery
-rather than a from-scratch primitive build.
+no longer starts from a from-scratch primitive build.
 
 ---
 

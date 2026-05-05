@@ -209,6 +209,9 @@ pub struct AgentConfigFFI {
     /// Explicit prompt mode override: "general", "code", "research", or "auto" (default).
     /// When "auto", mode is inferred from the objective keywords.
     pub prompt_mode: Option<String>,
+    /// Maximum estimated USD cost before the session pauses through the
+    /// budget_gate ApprovalModal path. None or <= 0 means unlimited.
+    pub max_cost_usd: Option<f64>,
 }
 
 #[derive(uniffi::Record)]
@@ -277,6 +280,49 @@ pub struct ProviderRoutePreviewFFI {
     pub supported: bool,
 }
 
+#[derive(uniffi::Record, Debug, Clone, PartialEq, Eq)]
+pub struct NightBrainAdmissionPreviewFFI {
+    pub admitted: bool,
+    pub reason: String,
+    pub idle_threshold_seconds: u64,
+    pub worker_pool_size: u32,
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct RouteCaptureContractFFI {
+    pub input_schema_id: String,
+    pub output_schema_id: String,
+    pub actions: Vec<String>,
+    pub variant_a_floor: f64,
+    pub variant_b_floor: f64,
+    pub variant_c_floor: f64,
+    pub merge_confidence_gate: f64,
+    pub merge_staleness_hours: u64,
+    pub create_folder_cluster_cosine: f64,
+    pub create_folder_cluster_min_count: u64,
+    pub reasoning_trace_max_chars: u64,
+    pub review_inbox_path: String,
+}
+
+impl Default for RouteCaptureContractFFI {
+    fn default() -> Self {
+        Self {
+            input_schema_id: String::new(),
+            output_schema_id: String::new(),
+            actions: Vec::new(),
+            variant_a_floor: 0.0,
+            variant_b_floor: 0.0,
+            variant_c_floor: 0.0,
+            merge_confidence_gate: 0.0,
+            merge_staleness_hours: 0,
+            create_folder_cluster_cosine: 0.0,
+            create_folder_cluster_min_count: 0,
+            reasoning_trace_max_chars: 0,
+            review_inbox_path: String::new(),
+        }
+    }
+}
+
 #[derive(uniffi::Error, thiserror::Error, Debug)]
 pub enum AgentErrorFFI {
     #[error("{message}")]
@@ -326,7 +372,9 @@ impl AgentConfig {
             },
             vault_root: None,
             prompt_mode_override: None,
-            max_cost_usd: None,
+            max_cost_usd: ffi
+                .max_cost_usd
+                .filter(|budget| budget.is_finite() && *budget > 0.0),
         }
     }
 }
@@ -538,6 +586,106 @@ pub fn preview_provider_route(objective: String, provider_name: String) -> Provi
             supported: false,
         }
     )
+}
+
+#[uniffi::export]
+pub fn nightbrain_canonical_task_names() -> Vec<String> {
+    ffi_guard_value!(crate::nightbrain::canonical_task_names(), Vec::new())
+}
+
+#[uniffi::export]
+pub fn nightbrain_preview_admission(
+    idle_seconds: u64,
+    thermal_nominal: bool,
+    on_ac_or_battery_above_50: bool,
+    preempted: bool,
+) -> NightBrainAdmissionPreviewFFI {
+    ffi_guard_value!(
+        {
+            let scheduler = crate::nightbrain::NightBrainScheduler::new();
+            if preempted {
+                scheduler.preempt();
+            }
+            let snapshot = crate::nightbrain::HostActivitySnapshot {
+                idle_for: std::time::Duration::from_secs(idle_seconds),
+                thermal_nominal,
+                on_ac_or_battery_above_50,
+            };
+            let admitted = scheduler.should_admit(snapshot);
+            let idle_threshold_seconds = crate::nightbrain::DEFAULT_IDLE_THRESHOLD.as_secs();
+            let reason = if admitted {
+                "admitted"
+            } else if preempted {
+                "preempted"
+            } else if !thermal_nominal {
+                "thermal_pressure"
+            } else if !on_ac_or_battery_above_50 {
+                "power_gate"
+            } else if idle_seconds < idle_threshold_seconds {
+                "not_idle"
+            } else {
+                "not_admitted"
+            };
+            NightBrainAdmissionPreviewFFI {
+                admitted,
+                reason: reason.to_string(),
+                idle_threshold_seconds,
+                worker_pool_size: scheduler.pool_size() as u32,
+            }
+        },
+        NightBrainAdmissionPreviewFFI {
+            admitted: false,
+            reason: "panic".to_string(),
+            idle_threshold_seconds: crate::nightbrain::DEFAULT_IDLE_THRESHOLD.as_secs(),
+            worker_pool_size: 1,
+        }
+    )
+}
+
+fn route_action_wire(action: crate::route::Action) -> String {
+    serde_json::to_value(action)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_default()
+}
+
+#[uniffi::export]
+pub fn route_capture_contract() -> RouteCaptureContractFFI {
+    ffi_guard_value!(
+        {
+            RouteCaptureContractFFI {
+                input_schema_id: crate::route::ROUTE_INPUT_V1_ID.to_string(),
+                output_schema_id: crate::route::ROUTE_OUTPUT_V1_ID.to_string(),
+                actions: vec![
+                    route_action_wire(crate::route::Action::Place),
+                    route_action_wire(crate::route::Action::MergeIntoExistingNote),
+                    route_action_wire(crate::route::Action::CreateFolder),
+                    route_action_wire(crate::route::Action::Defer),
+                ],
+                variant_a_floor: crate::route::VARIANT_A_FLOOR,
+                variant_b_floor: crate::route::VARIANT_B_FLOOR,
+                variant_c_floor: crate::route::VARIANT_C_FLOOR,
+                merge_confidence_gate: crate::route::MERGE_CONFIDENCE_GATE,
+                merge_staleness_hours: crate::route::MERGE_STALENESS_HOURS,
+                create_folder_cluster_cosine: crate::route::CREATE_FOLDER_CLUSTER_COSINE,
+                create_folder_cluster_min_count: crate::route::CREATE_FOLDER_CLUSTER_MIN_COUNT
+                    as u64,
+                reasoning_trace_max_chars: crate::route::REASONING_TRACE_MAX_CHARS as u64,
+                review_inbox_path: "_inbox/review/".to_string(),
+            }
+        },
+        RouteCaptureContractFFI::default()
+    )
+}
+
+#[uniffi::export]
+pub fn route_variant_b_schema_json(vault_paths: Vec<String>) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let schema = crate::route::variant_b::build_route_grammar_schema(&vault_paths);
+        serde_json::to_string(&schema).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Route schema serialization failed: {error}"),
+        })
+    })
 }
 
 #[uniffi::export(async_runtime = "tokio")]
@@ -2707,6 +2855,7 @@ mod tests {
     #[test]
     fn filtered_vault_write_uses_writable_backend() {
         let _env_guard = crate::test_support::env_lock();
+        let _permission_guard = crate::test_support::permission_store_lock();
         let saved_enforce = std::env::var("EPISTEMOS_R5_ENFORCE").ok();
         std::env::set_var("EPISTEMOS_R5_ENFORCE", "0");
 

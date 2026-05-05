@@ -2,7 +2,7 @@ import Foundation
 
 private final class SourceMirrorBundleLocator {}
 
-func sourceMirrorRootURL() throws -> URL {
+nonisolated func sourceMirrorRootURL() throws -> URL {
     let bundle = Bundle(for: SourceMirrorBundleLocator.self)
     guard let resourceURL = bundle.resourceURL else {
         throw CocoaError(.fileNoSuchFile)
@@ -16,19 +16,19 @@ func sourceMirrorRootURL() throws -> URL {
     return rootURL
 }
 
-func sourceMirrorURL(for relativePath: String) throws -> URL {
+nonisolated func sourceMirrorURL(for relativePath: String) throws -> URL {
     try sourceMirrorRootURL().appendingPathComponent(relativePath)
 }
 
-func loadMirroredSourceDataFile(_ relativePath: String) throws -> Data {
+nonisolated func loadMirroredSourceDataFile(_ relativePath: String) throws -> Data {
     try Data(contentsOf: sourceMirrorURL(for: relativePath))
 }
 
-func loadMirroredSourceTextFile(_ relativePath: String) throws -> String {
+nonisolated func loadMirroredSourceTextFile(_ relativePath: String) throws -> String {
     try String(contentsOf: sourceMirrorURL(for: relativePath), encoding: .utf8)
 }
 
-func mirroredSourceFileURLs(
+nonisolated func mirroredSourceFileURLs(
     under relativeDirectory: String,
     includingExtensions fileExtensions: Set<String>
 ) throws -> [URL] {

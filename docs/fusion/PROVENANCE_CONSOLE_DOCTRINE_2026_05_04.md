@@ -8,8 +8,9 @@ Status: Canonical doctrine and first implementation slice
 
 The Provenance Console is the user-visible audit surface for the substrate's
 durable trust history. It closes the MAS feature trio alongside the rich
-`.epdoc` surface and local Companion Farm by making committed agent, graph, and
-mutation provenance visible without adding a second owner of truth.
+`.epdoc` surface and local Companion Farm by making committed agent, graph,
+mutation, and ClaimLedger retraction provenance visible without adding a second
+owner of truth.
 
 The console is a read-only projection. It may summarize, filter, and render
 existing events, but it must not repair, replay, mutate, approve, deny, lease,
@@ -28,6 +29,11 @@ Commit order remains canonical: receive runtime event, validate any
 MutationEnvelope, commit durable state, then emit AgentEvent and GraphEvent
 projections. The console observes only the committed result.
 
+ClaimLedger `RetractionPropagated` is not a fifth write plane. It is the typed
+subscriber event emitted by the provenance substrate when a retraction walk marks
+claims at risk. The console may project it as a read-only trace so users can see
+cascading truth failures without granting the UI mutation authority.
+
 ## GenUI Contract
 
 The first UI contract is schema-first GenUI. Provenance Console payloads use
@@ -42,6 +48,7 @@ The console may read:
 - recent AgentEvent rows through a bounded chronological projection.
 - recent GraphEvent rows through the existing bounded chronological projection.
 - MutationEnvelope projection diagnostics from the outbox.
+- ClaimLedger `RetractionPropagated` subscriber events through a bounded cursor.
 - aggregate diagnostics for committed durable rows.
 
 The console may not call save methods, claim leases, mark projections complete,
@@ -64,7 +71,7 @@ or weaken MAS peer validation.
 ## Current Slice
 
 The current implementation slice mounts a Settings detail pane that renders a
-summary, AgentEvent trace, GraphEvent trace, and MutationEnvelope projection
-health through GenUIDispatcher. It intentionally avoids repair actions until a
-separate Sovereign Gate doctrine defines explicit approval requirements for
-operator-initiated replay or recovery.
+summary, RetractionPropagated trace, AgentEvent trace, GraphEvent trace, and
+MutationEnvelope projection health through GenUIDispatcher. It intentionally
+avoids repair actions until a separate Sovereign Gate doctrine defines explicit
+approval requirements for operator-initiated replay or recovery.

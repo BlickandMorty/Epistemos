@@ -59,7 +59,7 @@ nonisolated struct HermesCalcCommand: Equatable, Sendable {
         // NSExpression accepts arithmetic + standard math functions; it
         // does NOT execute arbitrary Swift / shell. This is the whole
         // point of using it for the Core deterministic calculator.
-        let parsed = NSExpression(format: sanitized)
+        let parsed = NSExpression(format: Self.decimalizedNumericLiterals(in: sanitized))
         let evaluated: Any?
         do {
             evaluated = try Self.expressionValue(of: parsed)
@@ -100,6 +100,69 @@ nonisolated struct HermesCalcCommand: Equatable, Sendable {
             }
         }
         return trimmed
+    }
+
+    static func decimalizedNumericLiterals(in input: String) -> String {
+        let scalars = Array(input.unicodeScalars)
+        var output = String.UnicodeScalarView()
+        output.reserveCapacity(input.unicodeScalars.count)
+        var index = scalars.startIndex
+
+        while index < scalars.endIndex {
+            let scalar = scalars[index]
+            let previous = index == scalars.startIndex ? nil : scalars[scalars.index(before: index)]
+            guard CharacterSet.decimalDigits.contains(scalar),
+                  !isIdentifierContinuation(previous)
+            else {
+                output.append(scalar)
+                index = scalars.index(after: index)
+                continue
+            }
+
+            var literal = String.UnicodeScalarView()
+            var hasDecimalPoint = false
+            var hasExponent = false
+
+            while index < scalars.endIndex {
+                let current = scalars[index]
+                if CharacterSet.decimalDigits.contains(current) {
+                    literal.append(current)
+                    index = scalars.index(after: index)
+                    continue
+                }
+                if current == "." {
+                    hasDecimalPoint = true
+                    literal.append(current)
+                    index = scalars.index(after: index)
+                    continue
+                }
+                if current == "e" || current == "E" {
+                    hasExponent = true
+                    literal.append(current)
+                    index = scalars.index(after: index)
+                    if index < scalars.endIndex,
+                       scalars[index] == "+" || scalars[index] == "-" {
+                        literal.append(scalars[index])
+                        index = scalars.index(after: index)
+                    }
+                    continue
+                }
+                break
+            }
+
+            output.append(contentsOf: literal)
+            if !hasDecimalPoint && !hasExponent {
+                output.append(".")
+                output.append("0")
+            }
+        }
+
+        return String(output)
+    }
+
+    private static func isIdentifierContinuation(_ scalar: UnicodeScalar?) -> Bool {
+        guard let scalar else { return false }
+        return CharacterSet.letters.contains(scalar) || scalar == "_"
     }
 
     /// Wrap NSExpression evaluation in a do/catch boundary. The

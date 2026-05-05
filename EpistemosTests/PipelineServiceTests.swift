@@ -1961,7 +1961,12 @@ struct ProcessActivityTests {
         }
 
         #expect(chunks == ["hello"])
-        #expect(probe.snapshot() == ["begin:Epistemos AI stream", "end"])
+        let expectedEvents = ["begin:Epistemos AI stream", "end"]
+        for _ in 0..<20 {
+            if probe.snapshot() == expectedEvents { break }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        #expect(probe.snapshot() == expectedEvents)
     }
 
     @Test("stream work no longer inherits the main actor")

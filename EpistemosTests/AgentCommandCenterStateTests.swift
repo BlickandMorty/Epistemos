@@ -4,16 +4,11 @@ import Testing
 
 @MainActor
 struct AgentCommandCenterStateTests {
-    private static var repoRootURL: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-    }
-
     private static func repoFileExists(_ relativePath: String) -> Bool {
-        FileManager.default.fileExists(
-            atPath: repoRootURL.appendingPathComponent(relativePath).path
-        )
+        guard let url = try? sourceMirrorURL(for: relativePath) else {
+            return false
+        }
+        return FileManager.default.fileExists(atPath: url.path)
     }
 
     private static func makeTool(name: String, agent: String = "rust") -> OmegaToolDefinition {

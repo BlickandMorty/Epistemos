@@ -17,23 +17,13 @@ import Testing
 @Suite("Metal shader offline compilation (Wave 4.1)")
 nonisolated struct MetalShaderOfflineTests {
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func loadText(_ relative: String) throws -> String {
-        let url = repoRoot().appendingPathComponent(relative, isDirectory: false)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relative)
     }
 
     @Test("CodeEditorEmbedding.metal exists at the canonical path")
-    func metalFileExists() {
-        let url = Self.repoRoot()
-            .appendingPathComponent("Epistemos", isDirectory: true)
-            .appendingPathComponent("Shaders", isDirectory: true)
-            .appendingPathComponent("CodeEditorEmbedding.metal", isDirectory: false)
+    func metalFileExists() throws {
+        let url = try sourceMirrorURL(for: "Epistemos/Shaders/CodeEditorEmbedding.metal")
         #expect(FileManager.default.fileExists(atPath: url.path),
                 "Epistemos/Shaders/CodeEditorEmbedding.metal must exist (Wave 4.1)")
     }

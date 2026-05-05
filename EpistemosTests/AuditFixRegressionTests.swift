@@ -60,6 +60,25 @@ struct AuditFixRegressionTests {
         #expect(bootstrap.contains("ssmStateServiceProvider: { @MainActor [weak self] in"))
     }
 
+    @Test("night brain stale fallback runs the pipeline inline before recording success")
+    func nightBrainStaleFallbackRunsPipelineInlineBeforeRecordingSuccess() throws {
+        let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
+        let service = try loadAuditSource("Epistemos/State/NightBrainService.swift")
+
+        let fallbackStart = try #require(bootstrap.range(of: "if NightBrainScheduler.shouldRunFallbackInline()"))
+        let fallbackTail = bootstrap[fallbackStart.lowerBound...]
+        let fallbackEnd = try #require(fallbackTail.range(of: "#endif"))
+        let fallbackBlock = String(fallbackTail[..<fallbackEnd.upperBound])
+
+        #expect(service.contains("func runInlineFallback() async -> PipelineResult"))
+        #expect(fallbackBlock.contains("await self?._nightBrain?.runInlineFallback()"))
+        #expect(fallbackBlock.contains("case .finished"))
+        #expect(!fallbackBlock.contains("await self?._nightBrain?.start()"))
+        let runInline = try #require(fallbackBlock.range(of: "runInlineFallback()"))
+        let recordSuccess = try #require(fallbackBlock.range(of: "NightBrainScheduler.recordSuccessfulRun()"))
+        #expect(runInline.lowerBound < recordSuccess.lowerBound)
+    }
+
     @Test("night brain pruning reads the live SSM snapshot cap instead of a fresh default config")
     func nightBrainPruningReadsLiveSSMSnapshotCap() throws {
         let source = try loadAuditSource("Epistemos/State/NightBrainService.swift")
@@ -135,6 +154,9 @@ struct AuditFixRegressionTests {
 
         #expect(coordinator.contains("bootstrap.chatApprovalQueue.enqueue("))
         #expect(coordinator.contains("toolApprovalPromptChoice(for resolution: ChatApprovalResolution)"))
+        #expect(coordinator.contains("promptUserForBudgetGateApproval"))
+        #expect(coordinator.contains("request.isBudgetGate"))
+        #expect(coordinator.contains("authorityCategoryLabel: \"Session budget\""))
         #expect(!coordinator.contains("let alert = NSAlert()"))
         #expect(!coordinator.contains("beginSheetModal"))
         #expect(!coordinator.contains("runModal()"))

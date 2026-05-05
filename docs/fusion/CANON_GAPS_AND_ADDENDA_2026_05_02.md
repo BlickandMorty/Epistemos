@@ -21,6 +21,12 @@
 - **Drift:** GPT's reference `verify_hotpath.py` used `int.bit_count()`, which failed on the active Python runtime. The canonical verifier uses a portable `bin(mask).count("1")` fallback.
 - **Evidence:** `/tmp/epistemos-verify-hotpath-r104-20260503.log` passed 23/23 checks and wrote `docs/fusion/oversight/HELIOS_HOTPATH_VERIFICATION_2026_05_03.json`.
 
+## 2026-05-04 — D2 MCP graph-boundary closure vs deeper backend gap
+
+- **Closed blocker:** The original audit drift "zero seven-verb MCP graph boundary" is closed. `omega-mcp` now advertises `graph.search_semantic`, `graph.search_fulltext`, `graph.get_node`, `graph.traverse`, `graph.create_node`, `graph.create_edge`, and `graph.commit_session` with schemars-derived input schemas. `execute_vault_tool` / `execute_graph_tool` route them through a vault-scoped graph store and append graph events to `.epistemos/mcp_graph_events.jsonl`.
+- **Still a gap:** `graph.search_semantic` and `graph.search_fulltext` currently use deterministic in-process lexical matching over the MCP graph store. The doctrine's HNSW vector recall and Tantivy BM25 backends remain substrate-deepening work. The Pro-only `epistemos-hermes-mcp` stdio binary and live Hermes session round-trip are also follow-on work.
+- **Evidence:** `cargo test --manifest-path omega-mcp/Cargo.toml d2_graph`, full `cargo test --manifest-path omega-mcp/Cargo.toml` (134 passed), and `cargo test --manifest-path omega-mcp/Cargo.toml --features mas-sandbox` (112 passed).
+
 ## 0. Confirmed stances (locked, not addenda)
 
 These are confirmations of what the doctrine already says, with the user's most recent decisions:
@@ -610,6 +616,13 @@ next Simulation/Metal/Rust slices.
 recovery path and prevents Farm placeholder work from masquerading as the full
 Simulation runtime.
 
+**Continuation closure:** `CompanionBodyKind(rawValue:)` now rejects unknown
+Block grammar parameter values and over-long persisted tuples instead of
+silently defaulting them to compact/stubs/none/filled. This keeps the §5.1
+parameterized body grammar auditable at the persistence boundary while
+preserving the legacy `block`, `block_compact`, and `block_wide` aliases.
+Guarded by `CompanionAvatarGrammarSourceGuardTests`.
+
 ---
 
 ## 2026-05-04 - Provenance Console doctrine and first read-only GenUI slice
@@ -953,6 +966,13 @@ and resource audit log as T2/Sovereign Gate substrate.
 **Usefulness:** +1 - makes "visible editor truth" and "verified writes with
 grants" first-class recovery inputs instead of scattered branch history.
 
+**Continuation closure:** A full `agent_core` audit run exposed a parallel-test
+race, not a product policy regression: R.5 registry tests and resource-bridge
+tests used separate module-local locks while mutating the same OnceLock-backed
+permission store. The store/env test gates now live in shared
+`agent_core::test_support`, and the full default `agent_core` test floor passes
+again with R.5 enabled.
+
 ### Gap Addendum - recipe cache and release-stabilization bridges
 
 **Observed:** The `codex/post-audit-feature-work` branch was still described as
@@ -998,3 +1018,164 @@ names Lane A as a reconciliation target, not a raw merge target.
 **Usefulness:** +1 - preserves N1 Prompt Tree / prompt-as-data work as active
 substrate canon and prevents future agents from closing prompt-cache telemetry
 without comparing the Lane A deltas.
+
+## 2026-05-04 - D3 closed A2UI catalog Phase-1 seed
+
+**Status:** Recorded during the canonical audit reconciliation continuation.
+
+**Drift:** The 2026-04-26 canonical audit correctly flagged D3 because no
+closed A2UI catalog existed. Cognitive UI doctrine requires a closed catalog
+with no fallback inspector, and the local A2UI brief names `NoteCard` as the
+Phase-1 seed surface. Leaving the project at "no catalog" kept the app
+doctrinally safe only by omission.
+
+**Resolution:** Added `Epistemos/A2UI/` with closed
+`A2UICatalog.allComponents == [.noteCard]`, typed `A2UINoteCard`,
+`A2UIValidator`, and `A2UIValidationFailure(code: "VALIDATION_FAILED")`
+emitting a typed `GenUIPayload.errorReport` audit payload. Added Rust schema
+authority at `agent_core/src/a2ui/schemas.rs` using `schemars`, with
+`closed_catalog_component_names()` and a `NoteCard` JSON Schema. Guarded the
+slice with `EpistemosTests/A2UICatalogTests.swift` and
+`agent_core/tests/a2ui_schemas.rs`.
+
+**Usefulness:** +1 - closes the original "A2UI absent" blocker without
+pretending the full ~25-component catalog is done. Future work is catalog
+expansion and cross-runtime payload unification, not reopening fallback UI.
+
+## 2026-05-04 - Quick Capture Tier B `effect/` selective port
+
+**Status:** Recorded while continuing the post-recovery substrate queue after
+Tier A salvage verification.
+
+**Drift:** `format/`, `canon`, `grammar`, and `undo` had already landed as
+selective Tier A ports, but the next canonical Quick Capture stage still had no
+live `agent_core::effect` module. That left `undo` storing JSON-shaped effects
+instead of a typed Intent→Effect boundary and kept future `heal` / `route`
+integration without a shared failure and inverse surface.
+
+**Resolution:** Added `agent_core/src/effect/` with typed `Effect`, `Inverse`,
+`ApplyError`, `PriorState`, `IntentApplier`, `IntentDispatcher`,
+vault/concept/memory appliers, and `ExecutionReceipt` hash/MAC verification.
+The port adapts the salvaged source instead of raw-copying it: missing
+`util::atomic_write_bytes` became local atomic-write helpers, and memory ULID
+validation reuses the landed `format` canonical alphabet rather than adding a
+new crate. Guarded by `agent_core/tests/effect_salvage.rs`.
+
+**Usefulness:** +1 - establishes the typed Intent→Effect spine needed by
+`heal`, `nightbrain`, and `route`. Ed25519 / Keychain / Secure Enclave receipt
+signing remains a named trust follow-up; this slice does not collapse that
+future requirement into the HMAC placeholder.
+
+## 2026-05-04 - Quick Capture Tier B `heal/` selective port
+
+**Status:** Recorded after `effect/` landed and before continuing to the next
+Tier B substrate slice.
+
+**Drift:** The salvaged Try-Heal-Retry loop carried its own `ApplyError`
+taxonomy and referenced an older breaker path. Current main already had the
+bit-packed `CircuitBreaker` and now has `effect::ApplyError`, so raw-copying
+would have split the failure surface in two.
+
+**Resolution:** Added `agent_core/src/heal/` with `HealLoop`,
+`Diagnostician`, `GiveUpDiagnostician`, a canonical breaker re-export, and
+`HealEventLog` SQLite persistence for `heal_events`. The port consumes
+`effect::ApplyError` directly, records recovered/abandoned outcomes, and keeps
+recurring-pattern detection (`same tool + same error kind >= 10 events in 7
+days`). Guarded by `agent_core/tests/heal_salvage.rs`.
+
+**Usefulness:** +1 - makes failed Intent→Effect application a bounded,
+observable recovery step instead of an untyped retry. LLM-bearing
+diagnostician wiring and Swift trace UI surfacing remain host follow-ups.
+
+## 2026-05-04 - Quick Capture Tier B `nightbrain/` scheduler core selective port
+
+**Status:** Recorded after the `heal/` port while continuing the Tier B
+substrate queue.
+
+**Drift:** The salvaged NightBrain scheduler depended on a Rust
+`lifecycle::idle_monitor::IdleMonitor` module that does not exist in current
+main. Current Epistemos already has Swift-side NightBrain and macOS probes, so
+raw-copying the salvage would have invented a second host-activity authority.
+
+**Resolution:** Added `agent_core/src/nightbrain/` with
+`NightBrainScheduler`, `HostActivitySnapshot`, shared `CancellationToken`,
+`NightBrainTask`, `TaskCtx`, `TaskOutcome`, the 60-second default idle
+threshold, and the canonical Plan §7.1 worker-pool cap. The Rust core accepts a
+host snapshot rather than owning AppKit / IOKit probes. Guarded by
+`agent_core/tests/nightbrain_salvage.rs`.
+
+**Usefulness:** +1 - preserves the single-process NightBrain scheduler and
+preemption contract without splitting macOS probe ownership. Swift
+battery-percent snapshot wiring landed immediately after this Rust core slice;
+Swift/UniFFI exposure remains the named host follow-up before this becomes the
+full runtime scheduler.
+
+**Continuation closure:** The stale-run foreground fallback now calls
+`NightBrainService.runInlineFallback()` and records
+`NightBrainScheduler.recordSuccessfulRun()` only when the pipeline returns
+`.finished`. This closes the prior false-positive success path where fallback
+called `start()` (scheduler registration) and marked the run successful without
+executing the pipeline.
+
+**Continuation closure:** The Rust scheduler now owns live in-process task
+registration: `NightBrainScheduler.register_task(_)`, duplicate task-name
+rejection, stable `registered_task_names()`, and ordered
+`run_registered_tasks()` execution that stops on preemption. Guarded by
+`agent_core/tests/nightbrain_salvage.rs`. The remaining host seam is exposing
+that Rust scheduler registry through Swift/UniFFI without duplicating the
+macOS probe authority already owned by `NightBrainService` / `PowerGate`.
+
+**Continuation closure:** Swift/UniFFI now exposes the non-probe NightBrain
+contract without moving macOS authority into Rust: `nightbrain_canonical_task_names`
+returns the canonical host task registry and `nightbrain_preview_admission`
+returns the Rust admission decision, reason, idle threshold, and worker-pool cap
+from a Swift-supplied snapshot. Guarded by
+`agent_core/tests/nightbrain_salvage.rs` and
+`EpistemosTests/CognitiveSubstrateTests.swift`, which compares the Rust task
+names to `NightBrainService.Job.allCases`. The remaining host seam is narrower:
+wire a Swift-owned execution handle / object lifecycle into the Rust scheduler
+for real registered task execution, while keeping AppKit / IOKit probes on the
+existing Swift side.
+
+## 2026-05-04 - Quick Capture Tier B `route/` ladder core selective port
+
+**Status:** Recorded after the NightBrain scheduler core while closing the
+remaining Tier B Rust salvage modules.
+
+**Drift:** The salvaged `route/` module encoded the right four-variant
+`structure.route_capture` ladder, but it referenced a divergent
+`cache::EmbeddingProvider` and raw schema files that were not present in current
+main. Leaving it as salvage-only kept Quick Capture without the canonical
+`place | merge_into_existing_note | create_folder | defer` routing spine.
+
+**Resolution:** Added `agent_core/src/route/` with typed `RouteInput`,
+`RouteDecision`, `Action`, `EmbeddingProvider`, `RouteCtx`, Variant A centroid
+routing, Variant B classifier grammar/sentinel contract, Variant C
+concept-anchored merge/create-folder logic, and Variant D review-inbox fallback.
+The port keeps the canonical floors (0.85 / 0.75 / 0.70), merge gates
+(0.90 + >24h), create-folder gates, and 280-character reasoning-trace cap.
+Guarded by `agent_core/tests/route_salvage.rs`.
+
+**Usefulness:** +1 - closes the Rust-core Tier B route recovery without
+pretending the live host implementations are done. Folder-medoid persistence,
+MLX/GBNF classifier wiring, and concept/neighbour providers remain named
+follow-up slices.
+
+**Continuation closure:** Variant A now has durable folder-medoid persistence
+via `FolderMedoidStore`: SQLite WAL / `synchronous=NORMAL`, deterministic
+path-ordered loading, finite-vector validation, and reload-to-route tests.
+Variant B now also uses a single deterministic closed-vocabulary helper for
+schema construction and runtime acceptance: non-inbox paths are sorted,
+deduplicated, and classifier outputs outside that closed set fail closed even
+when their confidence clears 0.75. Remaining Route host follow-ups are
+MLX/GBNF classifier wiring and concept/neighbour provider implementations.
+
+**Continuation closure:** Swift/UniFFI now exposes the safe Route host contract:
+`route_capture_contract` publishes the schema IDs, canonical action wire names,
+floors, merge/create-folder gates, reasoning-trace cap, and review-inbox
+fallback, while `route_variant_b_schema_json` lets Swift build the deterministic
+Variant B closed-vocabulary schema from current vault paths. Guarded by
+`agent_core/tests/route_salvage.rs` and
+`EpistemosTests/CognitiveSubstrateTests.swift`. Remaining Route host follow-ups
+are now narrower: wire the MLX/GBNF classifier and real concept/neighbour
+providers into the live Quick Capture path.

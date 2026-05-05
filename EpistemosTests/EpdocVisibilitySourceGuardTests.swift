@@ -18,11 +18,6 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
     }
 
     nonisolated private static func loadSourceText(_ relativePath: String) throws -> String {
-        let testFile = URL(fileURLWithPath: #filePath)
-        let projectRoot = testFile
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let url = projectRoot.appendingPathComponent(relativePath)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

@@ -146,16 +146,34 @@ actor NightBrainService {
         guard await !PowerGuard.shared.shouldDisableBackground else { return false }
         let cfg = await readConfig()
         guard cfg.enabled else { return false }
-        if cfg.requiresAC && !Self.isOnACPower() { return false }
+        let battery = await MainActor.run { PowerGate.batteryState() }
+        if cfg.requiresAC && !Self.hasNightBrainPowerClearance(battery) { return false }
         guard Self.userIdleSeconds() > cfg.minIdleSeconds else { return false }
         guard Self.thermalPressureLevel() <= 1 else { return false }
         return true
     }
 
     func canContinue(idleSeconds: Double, thermalPressureLevel: UInt64, onACPower: Bool) async -> Bool {
+        let battery = PowerGate.BatterySnapshot(
+            onBattery: !onACPower,
+            percent: onACPower ? 100 : 0,
+            isCharging: false
+        )
+        return await canContinue(
+            idleSeconds: idleSeconds,
+            thermalPressureLevel: thermalPressureLevel,
+            battery: battery
+        )
+    }
+
+    func canContinue(
+        idleSeconds: Double,
+        thermalPressureLevel: UInt64,
+        battery: PowerGate.BatterySnapshot
+    ) async -> Bool {
         let cfg = await readConfig()
         guard cfg.enabled else { return false }
-        if cfg.requiresAC && !onACPower { return false }
+        if cfg.requiresAC && !Self.hasNightBrainPowerClearance(battery) { return false }
         guard idleSeconds > cfg.minIdleSeconds else { return false }
         guard thermalPressureLevel <= 2 else { return false }
         return true
@@ -165,7 +183,7 @@ actor NightBrainService {
         await canContinue(
             idleSeconds: Self.userIdleSeconds(),
             thermalPressureLevel: Self.thermalPressureLevel(),
-            onACPower: Self.isOnACPower()
+            battery: await MainActor.run { PowerGate.batteryState() }
         )
     }
 
@@ -178,6 +196,11 @@ actor NightBrainService {
 
     func runPipelineForTesting(jobOrder: [Job]) async -> PipelineResult {
         await runPipeline(jobOrder: jobOrder, bypassContinuationChecks: true)
+    }
+
+    func runInlineFallback() async -> PipelineResult {
+        guard await canStart() else { return .deferred }
+        return await runPipeline(jobOrder: Job.allCases, bypassContinuationChecks: false)
     }
 
     private func runPipeline(
@@ -374,6 +397,10 @@ actor NightBrainService {
             }
         }
         return true
+    }
+
+    nonisolated static func hasNightBrainPowerClearance(_ battery: PowerGate.BatterySnapshot) -> Bool {
+        !battery.onBattery || battery.percent > 50
     }
 
     nonisolated static func thermalPressureLevel() -> UInt64 {

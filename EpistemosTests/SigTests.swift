@@ -51,20 +51,11 @@ nonisolated struct SigTests {
     // MARK: - Source guard
 
     @Test func sigSourceFileExistsAndHasCanonicalCategories() throws {
-        // Walk up from this test file to the repo root and assert the
-        // canonical Sig.swift path exists with all six category names.
-        let here = URL(fileURLWithPath: #filePath)
-        let repoRoot = here
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-        let sigURL = repoRoot
-            .appendingPathComponent("Epistemos", isDirectory: true)
-            .appendingPathComponent("Telemetry", isDirectory: true)
-            .appendingPathComponent("Sig.swift", isDirectory: false)
+        let sigURL = try sourceMirrorURL(for: "Epistemos/Telemetry/Sig.swift")
         #expect(FileManager.default.fileExists(atPath: sigURL.path),
                 "Sig.swift must exist at Epistemos/Telemetry/Sig.swift")
 
-        let source = try String(contentsOf: sigURL, encoding: .utf8)
+        let source = try loadMirroredSourceTextFile("Epistemos/Telemetry/Sig.swift")
         for category in ["render", "mcp", "graph", "ffi", "storage", "inference"] {
             #expect(source.contains("static let \(category)"),
                     "Sig.swift must declare canonical category `\(category)`")
@@ -78,13 +69,7 @@ nonisolated struct SigTests {
         // was removed because @Sendable closure constraints conflicted with
         // call sites that capture non-Sendable engine pointers. This guards
         // against accidental re-introduction.
-        let here = URL(fileURLWithPath: #filePath)
-        let repoRoot = here.deletingLastPathComponent().deletingLastPathComponent()
-        let sigURL = repoRoot
-            .appendingPathComponent("Epistemos", isDirectory: true)
-            .appendingPathComponent("Telemetry", isDirectory: true)
-            .appendingPathComponent("Sig.swift", isDirectory: false)
-        let source = try String(contentsOf: sigURL, encoding: .utf8)
+        let source = try loadMirroredSourceTextFile("Epistemos/Telemetry/Sig.swift")
         #expect(!source.contains("func interval<"),
                 "Sig.swift must NOT expose closure-wrapper API (TSAN-incompatible)")
         #expect(!source.contains("func intervalAsync<"),
