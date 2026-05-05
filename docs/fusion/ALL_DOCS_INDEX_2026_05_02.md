@@ -50,6 +50,23 @@ This index is **flat and link-clickable from anywhere on the machine**. Every pa
 | [RESEARCH_FUSION_NOTES_2026_04_30.md](/Users/jojo/Downloads/Epistemos/docs/fusion/RESEARCH_FUSION_NOTES_2026_04_30.md) | Research fusion notes |
 | [DIRTY_DIFF_STABILIZATION_AUDIT_2026_04_30.md](/Users/jojo/Downloads/Epistemos/docs/fusion/DIRTY_DIFF_STABILIZATION_AUDIT_2026_04_30.md) | Dirty-diff audit |
 
+## 3.5. QUICK CAPTURE STANDALONE CANON *(C9, added 2026-05-05)*
+
+Lives outside the main repo at `/Users/jojo/Documents/Epistemos-QuickCapture/`. Authority for Quick Capture track decisions; FINAL_SYNTHESIS corrects PLAN where they conflict. Subordinate to repo authority docs (§5) and the doctrine for everything else.
+
+| Doc | Role |
+|---|---|
+| [PLAN.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/PLAN.md) | Quick Capture phases 0–12.5 implementation plan (244 KB) |
+| [FINAL_SYNTHESIS.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md) | Post-critique synthesis; corrects PLAN.md (53 KB) |
+| [BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md](/Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md) | Bonus discovery — biometric + Tamagotchi + brain-export integration; aligns with Sovereign Gate + simulation Tamagotchi pattern (44 KB, dated 2026-04-29; bonus block B1) |
+| [LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md](/Users/jojo/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md) | Live Files (deferred per original plan) substrate addendum (67 KB, dated 2026-04-29; bonus block B2) |
+| [OBSCURA_BROWSER_ADDENDUM.md](/Users/jojo/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md) | Obscura browser (Wave 6) addendum — Pro-tier stealth browser engine (62 KB, dated 2026-04-29; bonus block B3) |
+| [BUILDER_PROMPT.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/BUILDER_PROMPT.md) | Quick Capture builder prompt |
+| [CATCHUP_PROMPT.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/CATCHUP_PROMPT.md) | Quick Capture catchup prompt |
+| [AUDIT_PROMPT.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/AUDIT_PROMPT.md) | Quick Capture audit prompt |
+| [INDEX.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/INDEX.md) | Quick Capture canon index |
+| [README.md (Quick Capture)](/Users/jojo/Documents/Epistemos-QuickCapture/README.md) | Quick Capture canon README |
+
 ## 4. DOWNLOADS-ROOT APRIL 30 SOURCE DOCS
 
 These are referenced by the fusion canon as "April 30 source docs." Treat as overlays, not authority.

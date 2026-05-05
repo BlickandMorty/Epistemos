@@ -491,7 +491,7 @@ Updated 2026-05-05 after the canon-hardening session.
 | C6 Halo stack reference | Medium | **MERGED 2026-05-05** §4.3 |
 | C7 Resource Runtime + Phase R | High | **VERIFIED-THEN-MERGED 2026-05-05** §9 anchors (staged claim was stale; substrate already on main) |
 | C8 APP_STORE_RELEASE_COMPLETION_STATUS authority | High | **MERGED 2026-05-05** §1 #2 |
-| C9 Quick Capture standalone canon | Medium | **MERGED 2026-05-05** §1 #5.5 (ALL_DOCS_INDEX entry still pending) |
+| C9 Quick Capture standalone canon | Medium | **MERGED 2026-05-05** §1 #5.5 + ALL_DOCS_INDEX §3.5 |
 | C10 Flight Recorder | Medium | **MERGED 2026-05-05** §7 + Annex A.15 |
 | C11 Pre-release evidence package | High | **VERIFIED-THEN-MERGED 2026-05-05** Annex C (with verified-state caveats: PrivacyInfo.xcprivacy present, WORKFLOW_MATRIX.md flagged as missing) |
 | C12 Local-stream truncation fix watch | Medium | **MERGED 2026-05-05** WORKTREE_INSIGHT_SALVAGE §8.5 |
