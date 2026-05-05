@@ -3,7 +3,77 @@
 > **Index status**: CANONICAL-OPERATIONAL — Live session log replacement for older PROGRESS.md; canonical operational.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
 
+Last updated: **2026-05-05** — V2 stretch + canon hardening sprint. **The 2026-04-28 entry below remains canonical for everything before that date; this entry covers 2026-04-29 through 2026-05-05.**
 
+## 2026-05-05 — V2 stretch + canon hardening (this session, ~40 commits)
+
+**Test counts:**
+| Metric | 2026-04-28 | 2026-05-05 |
+|---|---|---|
+| agent_core lib + integration tests | 762 + 13 | 1065 (with `lsp-runtime` feature) |
+| New CI gates wired | 0 | 4 (doctrine-lint, Pro-build matrix, lsp-runtime, verify-replay) |
+| Compiler warnings | 0 | 0 (Codex-flagged AgentQueryEngine warning fixed) |
+| Doctrine-lint coverage | n/a | §5.1-§5.4 enforced on every push/PR |
+
+**Major work landed (oldest → newest):**
+
+1. **Hermes removal series** (4 slices) — deleted Expert Mode UI overlay + brand assets + slash-command dispatcher fallback (`d9be24b5`); renamed `agent_core::hermes` → `agent_core::agent_runtime` (`77de8196`); 4 refactor follow-ups removing dead `.hermesSubprocess` gateway surface, dead `hermesFacultyHostView` state, stale Rust doc comments. Net −2,080 LOC.
+
+2. **V2.1 Cognitive DAG Phase 8 completion (8.A through 8.G)**:
+   - 8.A scaffold (10 NodeKind + 10 EdgeKind + InMemoryDagStore + Merkle)
+   - 8.B resonance propagation (TruthCache + DerivesFrom/Contradicts walks)
+   - 8.C macaroon capabilities (issue/restrict/delegate/revoke; orphan until dispatch wires them)
+   - 8.D companion lifecycle (CompanionRegistry + LoRA estimates)
+   - 8.E DagMirror trait + 4 mirror implementations (Skills/Procedural/Provenance/Companion) + auto-invoke dispatch from `ClaimLedger::commit_*`, `ProceduralMemoryStore::record_outcome`, `SkillRouter::load`
+   - 8.F ReplayBundle DAG snapshot + `epistemos-trace verify-replay` CLI subcommand + new exit code 5 for DAG merkle parity mismatch
+   - 8.G `epistemos-doctrine-lint` binary (codifies doctrine §5.1-§5.4 gates)
+
+3. **V2.2 Halo V1**: ledger ribbon in Halo panel showing Rust ClaimLedger summary alongside graph projection ribbon.
+
+4. **V2.3 LSP migration (5 stages)**:
+   - First slice: `LSPTransport` Swift protocol seam
+   - Stage A: hand-rolled in-process Rust `LspKernel` (initialize/shutdown lifecycle, no new deps)
+   - Stage B: 3 UniFFI exports + build-script wiring for `lsp-runtime` feature
+   - Stage C+D: Swift `RustLSPTransport` actor + 5 end-to-end tests
+   - Codex correction: added real `tower-lsp` payload types + `tree-sitter` Rust/Swift grammars for same-file hover + definition (richer cross-file deferred)
+   - Stage E: deleted `LSPServerProcess` subprocess transport + tests + backward-compat shims
+
+5. **V2.4 first slice**: `ProviderServiceStreamingProtocol` + `MockProviderServiceStreaming` + 9 tests. Two-stage XPC handshake design (negotiation over NSXPCConnection, streaming over IOSurface ring planned). Production deployment paid-team-gated.
+
+6. **V3.2 first slice**: `ANEBackend` Swift protocol + `MockANEBackend` + `ANEKVCacheBuffer` typed format + 11 tests. Production runtime gated on Apple Developer Program.
+
+7. **V3.3 paper draft**: ~520-line systems paper "Cognitive DAG: Verifiable Replay for Personal AI." Sections 1-7 + 9 + 10 substantively complete (§8 evaluation deferred to V3.1 hardware data).
+
+8. **CLI gap fix**: Gemini + Kimi CLI passthrough handlers in `cli_passthrough.rs` (parity with claude_code + codex; Pro-gated + MAS-forbidden).
+
+9. **Codex correction pass + canonical drift audit**: `docs/CODEX_CANONICAL_DRIFT_AUDIT_2026_05_05.md` — 9-item drift register CD-001 through CD-009. CD-005 ("DAG storage signature enforcement complete only against all-zero, not capability context") flagged as the V2.1 8.H authority blocker.
+
+10. **Canon hardening sprint (this session's headline work)**:
+    - **CD-005 closed**: capability-bound `put_edge` — `register_capability` + `verify_edge_against_registered_caps` + dispatch sentinel registration. Empty registry = Phase 8.A structural guard backward compat; non-empty = full Phase 8.C verification.
+    - **Canon hardening protocol** (`docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`): WRV status (6 states), canon promotion protocol (6 states), no-date-gates rule.
+    - **Canonical upgrade audit** (`docs/CANONICAL_UPGRADE_AUDIT_2026_05_05.md`): 17 distinct upgrades across 7 categories. Headline: "the gap is enforcement, not implementation."
+    - **CI gate enforcement (B1+B3+B4+B2)**: `epistemos-doctrine-lint` runs on every push/PR; Pro-build feature matrix added; `lsp-runtime` feature CI coverage added; `verify-replay` release-time gate against deterministic `.epbundle` fixture (sample generator at `agent_core/examples/generate_sample_epbundle.rs`).
+    - **Dispatch tracing migration (C1)**: 4 `eprintln!` sites → structured `tracing::warn!` for the doctrine §10 verification window's structured observability needs.
+    - **Canonical roadmap synthesis** (`docs/CANONICAL_ROADMAP_2026_05_05.md`): state: canon doc tying Codex's 10-point advice + agent's audit + this session's commits.
+
+**V2.1 8.H authority flip status: 1 of 6 blockers checked.** CD-005 closed the storage layer; remaining: A1 persistent backend (`redb`), A2 macaroon-derived dispatch caps, A3 auto-invoke dispatch coverage, CD-004 Phase 1-7 prerequisites, §10 two-week CI green window.
+
+**Externally-gated work (typed gates per no-date-gates protocol):**
+- V2.4 production XPC service launch — distribution gate (Apple Developer Program $99/yr)
+- V3.2 production ANE direct path — distribution + entitlement gate
+- V2.6 brand asset re-import — licensing gate (NousResearch)
+- V2.5 sim worktree merge — doctrine gate (strategic call: cherry-pick / rebase / branch-swap)
+- Codex full-app sign-off — verification gate
+
+**Cross-references for this entry:**
+- `docs/CODEX_VERIFICATION_HANDOFF_2026_05_05.md` — every commit since `7a063f4a` flagged for Codex independent verification
+- `docs/SUBSTRATE_V2_FINAL_CLOSEOUT_2026_05_05.md` — V2 status snapshot
+- `docs/CANONICAL_ROADMAP_2026_05_05.md` — forward plan with WRV labels
+- `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md` — live doctrine for WRV + canon promotion + no-date-gates
+
+---
+
+## 2026-04-28 (canonical entry below — preserved unchanged)
 
 Last updated: 2026-04-28 | **Phase 1 keystone + ReplayBundle + epistemos-trace verifier + subprocess hardening sweep + W9.21 known-failure fix all landed.**
 

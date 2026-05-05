@@ -115,6 +115,34 @@
 - Routing: agent_core/src/routing.rs
 - Session: agent_core/src/session.rs
 
+### Rust agent_core — V2.1 Cognitive DAG (Phase 8.A-8.G)
+- Schema (10 NodeKind + 10 EdgeKind): agent_core/src/cognitive_dag/node.rs + edge.rs
+- Storage trait + InMemoryDagStore (capability-bound put_edge, CD-005): agent_core/src/cognitive_dag/storage.rs
+- Merkle root: agent_core/src/cognitive_dag/merkle.rs
+- Resonance propagation (DerivesFrom + Contradicts walks, TruthCache): agent_core/src/cognitive_dag/resonance.rs
+- Macaroon-style capabilities (orphan until Phase 8.H wires them into dispatch): agent_core/src/cognitive_dag/macaroons.rs
+- Companion lifecycle (Companion + Deforms edges + LoRA estimates): agent_core/src/cognitive_dag/companions.rs
+- DagMirror trait + 4 mirrors (Skills/Procedural/Provenance/Companion): agent_core/src/cognitive_dag/migration.rs
+- Auto-invoke dispatch (sentinel-cap registered on first use): agent_core/src/cognitive_dag/dispatch.rs
+
+### Rust agent_core — Provenance ledger (Phase 1 + Phase 8.F replay)
+- ClaimLedger (in-memory, retraction propagation): agent_core/src/provenance/ledger.rs
+- ReplayBundle + LedgerSnapshot + DagSnapshot embedding (schema v1 / v2): agent_core/src/provenance/replay.rs
+
+### Rust agent_core — In-process LSP runtime (V2.3)
+- LspKernel (initialize/didOpen/didChange/hover/definition + tree-sitter Rust/Swift): agent_core/src/lsp_runtime/mod.rs
+- Feature-gated behind `lsp-runtime`; FFI via bridge.rs `lsp_send_message_json` + `lsp_poll_response_json`
+
+### Rust agent_core — In-process agent runtime (formerly hermes/, renamed 2026-05-05)
+- Skills + procedural memory + self-evolution + tool-call parsing: agent_core/src/agent_runtime/
+
+### Rust agent_core — CLI binaries
+- `epistemos_trace verify | verify-replay`: agent_core/src/bin/epistemos_trace.rs (Phase 1 ledger integrity + Phase 8.F DAG merkle parity)
+- `epistemos_doctrine_lint`: agent_core/src/bin/epistemos_doctrine_lint.rs (cognitive DAG doctrine §5.1-§5.4 gates; CI-enforced)
+
+### Rust agent_core — Examples (CI fixtures)
+- Sample .epbundle generator for verify-replay CI gate: agent_core/examples/generate_sample_epbundle.rs
+
 ### Rust omega-mcp crate
 - Dispatcher: omega-mcp/src/dispatcher.rs
 - Catalog: omega-mcp/src/catalog.rs
@@ -135,6 +163,12 @@
 - Editor shell: Epistemos/Views/Notes/ProseEditorView.swift
 - TextKit bridge: Epistemos/Views/Notes/ProseEditorRepresentable2.swift
 - NSTextView subclass: Epistemos/Views/Notes/ProseTextView2.swift
+
+### Swift LSP (V2.3 — in-process Rust transport)
+- LSPTransport protocol seam: Epistemos/Engine/LSPTransport.swift
+- RustLSPTransport (production; drives in-process Rust LspKernel via FFI): Epistemos/Engine/RustLSPTransport.swift
+- LSPClient + LSPMessage codec: Epistemos/Engine/LSPClient.swift + LSPMessage.swift
+- (LSPServerProcess subprocess transport DELETED 2026-05-05 in V2.3 close-out — see commit 813c15dd)
 
 ### Swift Computer Use
 - Device agent: Epistemos/Omega/Inference/DeviceAgentService.swift
