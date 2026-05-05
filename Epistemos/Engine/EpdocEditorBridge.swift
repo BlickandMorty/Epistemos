@@ -1,4 +1,5 @@
 import Combine
+import Compression
 import Foundation
 @preconcurrency import WebKit
 
@@ -149,17 +150,35 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
             return
         }
 
-        guard let data = try? Data(contentsOf: asset.fileURL) else {
+        guard let rawData = try? Data(contentsOf: asset.fileURL) else {
             urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
             return
         }
 
-        var headers = [
+        // Critical fix 2026-05-05: WKWebView's custom-URL-scheme handler
+        // path does NOT auto-decompress `Content-Encoding: br` (only the
+        // HTTPS path does). Prior behavior served `.br` bytes with the
+        // Content-Encoding header set, expecting WKWebView to decode —
+        // result: editor.css/.js bytes arrive at the renderer compressed,
+        // CSS doesn't apply, Tiptap fails to initialize, the user sees a
+        // blank editor (the "ep doc i dont see ant texts" report).
+        // Fix: decompress brotli server-side via Compression.framework
+        // before handing bytes to the renderer; advertise plain content
+        // (no Content-Encoding header).
+        let data: Data
+        if asset.contentEncoding == "br" {
+            guard let decompressed = decompressBrotli(rawData) else {
+                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
+                return
+            }
+            data = decompressed
+        } else {
+            data = rawData
+        }
+
+        let headers = [
             "Content-Type": asset.mimeType,
         ]
-        if let contentEncoding = asset.contentEncoding {
-            headers["Content-Encoding"] = contentEncoding
-        }
         let response = HTTPURLResponse(
             url: url,
             statusCode: 200,
@@ -180,6 +199,48 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         // Synchronous bundle load above; nothing to cancel.
     }
 
+}
+
+// MARK: - Brotli decompression
+//
+// Apple's Compression.framework supports COMPRESSION_BROTLI on
+// macOS 11+. The Tiptap editor.js bundle is ~213 KB compressed and
+// decompresses to ~1 MB plain — well within a single
+// `compression_decode_buffer` call. Returns nil on decode failure
+// (corrupt brotli stream); the URL scheme handler then surfaces an
+// asset-not-found error to the renderer.
+//
+// Buffer sizing rationale: brotli's worst-case expansion ratio is
+// well under 32x for typical inputs (text/JS/CSS); a 64x safety
+// margin handles pathological inputs without unbounded allocation.
+// If the decompressed content exceeds the buffer, we retry with a
+// larger one rather than truncating.
+private func decompressBrotli(_ compressed: Data) -> Data? {
+    var bufferSize = max(compressed.count * 64, 1024 * 1024)  // start at ≥1 MB
+    let maxBufferSize = 64 * 1024 * 1024                       // cap at 64 MB
+    while bufferSize <= maxBufferSize {
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+        let written = compressed.withUnsafeBytes { (src: UnsafeRawBufferPointer) -> Int in
+            guard let srcPtr = src.bindMemory(to: UInt8.self).baseAddress else { return 0 }
+            return compression_decode_buffer(
+                buffer, bufferSize,
+                srcPtr, compressed.count,
+                nil, COMPRESSION_BROTLI
+            )
+        }
+        // If `written == bufferSize` we may have truncated; double the
+        // buffer and retry. If `written == 0` and src is non-empty,
+        // the stream is corrupt.
+        if written == 0 && !compressed.isEmpty {
+            return nil
+        }
+        if written < bufferSize {
+            return Data(bytes: buffer, count: written)
+        }
+        bufferSize *= 2
+    }
+    return nil  // exceeded max buffer; treat as decode failure
 }
 
 // MARK: - Script-message bridge
