@@ -80,6 +80,41 @@ struct XPCSmokeTests {
         #expect(providerService.contains("ProviderXPCSurfaceEnvelope.response(for: surfaceName)"))
     }
 
+    @Test("XPCTrust requirement string pins anchor + identifier + team OU")
+    func xpcTrustRequirementStringIsCanonical() {
+        let req = XPCTrust.requirementString(for: EpistemosXPCServiceNames.agentService)
+
+        // The requirement must contain all three load-bearing clauses.
+        // If any of these check fails, peer attestation is incomplete
+        // and an unsigned process could pose as our service.
+        #expect(req.contains("anchor apple generic"))
+        #expect(req.contains("identifier \"group.com.epistemos.shared.AgentXPC\""))
+        #expect(req.contains("certificate leaf[subject.OU] = \"AL562BVF23\""))
+    }
+
+    @Test("XPCTrust team identifier matches DEVELOPMENT_TEAM in pbxproj")
+    func xpcTrustTeamIdentifierMatchesPbxproj() throws {
+        // Drift guard: if Xcode's signing team changes, the canonical
+        // trust requirement must change in lockstep or every XPC
+        // connection silently fails to attest.
+        let pbxproj = try loadRepoSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
+        #expect(pbxproj.contains("DEVELOPMENT_TEAM = \(XPCTrust.canonicalTeamIdentifier)"))
+    }
+
+    @Test("AgentServiceClient.makeConnection wires XPCTrust requirement")
+    func agentServiceClientWiresXPCTrust() throws {
+        let source = try loadRepoSourceTextFile("Epistemos/XPC/AgentServiceClient.swift")
+        // Surface guard: a future refactor that drops the trust call
+        // would break attestation silently. Catch the regression here.
+        #expect(source.contains("XPCTrust.applyCanonicalRequirement"))
+    }
+
+    @Test("ProviderServiceClient.makeConnection wires XPCTrust requirement")
+    func providerServiceClientWiresXPCTrust() throws {
+        let source = try loadRepoSourceTextFile("Epistemos/XPC/ProviderServiceClient.swift")
+        #expect(source.contains("XPCTrust.applyCanonicalRequirement"))
+    }
+
     private func loadRepoSourceTextFile(_ relativePath: String) throws -> String {
         try loadMirroredSourceTextFile(relativePath)
     }

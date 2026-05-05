@@ -10,6 +10,7 @@ final class ProviderServiceClient {
     func makeConnection() -> NSXPCConnection {
         let connection = NSXPCConnection(serviceName: serviceName)
         connection.remoteObjectInterface = NSXPCInterface(with: ProviderServiceProtocol.self)
+        XPCTrust.applyCanonicalRequirement(to: connection, serviceName: serviceName)
         return connection
     }
 

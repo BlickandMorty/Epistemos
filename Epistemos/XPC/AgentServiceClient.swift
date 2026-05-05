@@ -10,6 +10,7 @@ final class AgentServiceClient {
     func makeConnection() -> NSXPCConnection {
         let connection = NSXPCConnection(serviceName: serviceName)
         connection.remoteObjectInterface = NSXPCInterface(with: AgentServiceProtocol.self)
+        XPCTrust.applyCanonicalRequirement(to: connection, serviceName: serviceName)
         return connection
     }
 
