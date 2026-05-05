@@ -1424,7 +1424,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_one_skills_core(&mut self) {
-        use crate::hermes::skills::{default_skills_dir, skills_tool_schema, SkillsTool};
+        use crate::agent_runtime::skills::{default_skills_dir, skills_tool_schema, SkillsTool};
 
         let legacy = skills_tool_schema();
         self.register(RegisteredTool {
@@ -1439,7 +1439,7 @@ impl ToolRegistry {
 
     #[cfg(feature = "pro-build")]
     fn register_phase_one_skills_progressive(&mut self) {
-        use crate::hermes::skills::{
+        use crate::agent_runtime::skills::{
             skill_manage_schema, skill_view_schema, skills_list_schema, SkillManageHandler,
             SkillViewHandler, SkillsListHandler,
         };
