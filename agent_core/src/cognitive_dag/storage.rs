@@ -32,6 +32,11 @@ pub enum DagError {
     Backend(String),
     #[error("invalid signature on edge {edge}")]
     InvalidSignature { edge: String },
+    /// Phase 8.G doctrine §5.3 enforcement — caller passed a `Node`
+    /// whose `id` does not match `Node::compute_id(&kind)`. The DAG
+    /// is content-addressed; ids must always be derived from content.
+    #[error("content-address mismatch: expected {expected}, got {actual}")]
+    ContentAddressMismatch { expected: String, actual: String },
 }
 
 pub trait DagStore: Send + Sync {
@@ -115,6 +120,22 @@ impl InMemoryDagStore {
 
 impl DagStore for InMemoryDagStore {
     fn put_node(&self, node: Node) -> Result<NodeId, DagError> {
+        // Doctrine §4.2 + §5.3 enforcement: every node id MUST equal
+        // `Node::compute_id(&node.kind)`. This catches callers that
+        // manually constructed a Node with a hand-rolled id (which
+        // would smuggle non-content-addressed nodes into the DAG).
+        // `Node::new` and `Node::new_at` always satisfy this check by
+        // construction; the explicit verification here keeps the
+        // contract honest at the storage boundary so doctrine §5.3
+        // ("computes node_id from content; rejects pre-set mismatched
+        // ids") is literally true at the right layer.
+        let expected_id = Node::compute_id(&node.kind);
+        if expected_id != node.id {
+            return Err(DagError::ContentAddressMismatch {
+                expected: format!("{:?}", expected_id),
+                actual: format!("{:?}", node.id),
+            });
+        }
         let id = node.id;
         // Idempotent: re-inserting an identical node is a no-op
         // (content-addressed identity makes this safe).
@@ -135,6 +156,22 @@ impl DagStore for InMemoryDagStore {
     }
 
     fn put_edge(&self, edge: Edge) -> Result<EdgeId, DagError> {
+        // Doctrine §4.1 + §5.2 enforcement: every edge MUST carry a
+        // non-zero signature. The all-zero pattern is the default
+        // value of an unsigned EdgeSignature and indicates the edge
+        // was constructed bypassing `Edge::new` / `Edge::new_at`
+        // (which compute the canonical Phase 8.A signature). Phase
+        // 8.C will tighten this from "structural well-formedness" to
+        // "macaroon-bound caller-side verify"; until then this gate
+        // catches the most common doctrine bypass — the bare
+        // `Edge { signature: Default::default(), .. }` pattern.
+        let signature_is_zero = edge.signature.as_bytes().iter().all(|&b| b == 0);
+        if signature_is_zero {
+            return Err(DagError::InvalidSignature {
+                edge: format!("{:?}", edge.id()),
+            });
+        }
+
         // Validate endpoints exist before inserting; doctrine §4.1
         // forbids dangling edges.
         let nodes = self
