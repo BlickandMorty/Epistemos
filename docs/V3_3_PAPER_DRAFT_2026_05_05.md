@@ -89,16 +89,63 @@ LoRA hot-swap) appear in companion papers.
 
 ## 2. Background and motivation
 
-[TODO — V3.3 next slice]
+Personal AI deployments today optimize for two metrics: model
+quality (parameter count, benchmark scores) and inference latency
+(tokens per second). Neither metric captures what we argue is the
+most important property a personal AI substrate needs:
+**reproducibility**.
 
-Sketch:
-- Personal AI tools as ephemeral chat (ChatGPT, Claude.ai)
-- Audit-trail tools (Datadog, Honeycomb) — wrong shape for personal AI
-- Content-addressed stores (Git, IPFS) — close, but not typed
-- Information provenance (W3C PROV-DM, OPM) — typed but not
-  graph-native, not in-process, not 16 GB MacBook-deployable
-- The gap: personal AI deserves the Git-shape with the typed
-  schema + the in-process budget
+Consider the deployable threat model. A user types a question into
+a personal AI tool. The tool retrieves context from local files,
+calls a cloud model, runs tools, and returns an answer. Six months
+later the user (or the user's lawyer, or auditor, or future self)
+needs to know: *what exactly produced this answer, and can we
+reproduce it?* The current state of personal AI gives three failure
+modes for this question:
+
+1. **Ephemeral chat tools** (ChatGPT, Claude.ai, Gemini): the
+   conversation log is the audit trail. There is no proof which
+   model version answered, which retrieval results were used, which
+   tools were called with which inputs. The chat UI shows what the
+   model said; the substrate that produced it is opaque.
+2. **Audit-trail tools** (Datadog, Honeycomb, OpenTelemetry): rich
+   trace data, but the shape is wrong for personal AI. They optimize
+   for distributed-systems debugging — span-tree trace IDs across a
+   service mesh — not for "what did MY tool decide based on MY
+   evidence." The cardinality + retention costs are also incompatible
+   with a single user's machine.
+3. **Provenance models** (W3C PROV-DM, OPM): typed correctly —
+   actors, entities, activities — but assume centralized server
+   infrastructure (PROV-O is RDF over an OWL ontology), not an
+   in-process substrate on a personal device.
+
+The closest related shape is **content-addressed storage**: Git
+blobs, IPFS objects, Camlistore. These give us deduplication +
+integrity + shareability "for free" because content uniquely
+determines identity. But they are **untyped**: a Git blob is bytes
+without semantic meaning. Walking the DAG of blobs tells you
+*nothing* about whether a particular conclusion was supported by
+evidence or contradicted by another claim.
+
+We propose: combine the content-addressed substrate with a typed
+schema that captures cognitive structure. Every node has a `kind`
+(Note, Claim, Evidence, Skill, Tool, Procedure, Event, Companion,
+Capability, Model). Every edge has a `kind` (DerivesFrom,
+Contradicts, Invokes, RecordedBy, OwnedBy, Deforms, etc.). The
+content-addressing gives us cryptographic integrity; the typing
+gives us semantic queries.
+
+The result, deployed in `Epistemos`, runs in one binary on a 16 GB
+MacBook with no external services and produces a `.epbundle`
+artifact that any third party can verify in < 200 ms with a
+single CLI invocation. We are not aware of another personal AI
+substrate that can produce such an artifact today.
+
+The remainder of this paper presents the schema (§3), the migration
+pattern that lets the substrate run alongside legacy subsystem
+stores during a verified transition (§4-§5), the verifiable replay
+artifact format (§6), and the CI-enforceable doctrine compliance
+binary that prevents drift (§7).
 
 ---
 
@@ -318,27 +365,132 @@ Planned subsections:
 
 ## 9. Related work
 
-[TODO — V3.3 next slice]
+**Content-addressed storage.** Git's blob model and IPFS's
+content-addressed object store give us the precedent: identity is
+a hash of content, so identical content always has the same
+identifier. Camlistore extended this with structured permanodes.
+Our cognitive DAG generalizes the pattern from generic blobs to
+typed cognitive nodes (Claim, Evidence, Skill, etc.) with typed
+edges. The novelty is not content-addressing itself; it is
+applying it to cognitive primitives at the schema level.
 
-- Content-addressed storage: Git blobs, IPFS objects, Camlistore
-- Provenance models: W3C PROV-DM, OPM
-- Verifiable computation: zk-SNARKs (overkill for this domain),
-  trusted execution (different threat model)
-- Personal AI substrates: SAM (Yann LeCun), Memory-augmented LLMs
-  (RAG variants), the H-Tree paper, AGI-bench frameworks
+**Provenance models.** W3C PROV-DM and the Open Provenance Model
+(OPM) are the canonical typed-provenance specifications: agent +
+entity + activity, with `wasDerivedFrom` and `wasInformedBy`
+relationships. Our schema covers the same shape (Activity ≈ Event,
+Entity ≈ Note/Claim/Evidence, wasDerivedFrom ≈ DerivesFrom edge)
+but adds three things PROV-DM does not: Capability nodes (the
+authority that authorizes an edge), Companion nodes (lightweight
+LoRA-deformed personalities sharing one base Model), and
+content-addressed identity (PROV-DM identifiers are caller-chosen,
+not content-derived).
+
+**Verifiable computation.** zk-SNARKs and zk-STARKs give
+cryptographic proofs of arbitrary computation but at substantial
+cost (proving time + verifier complexity). Trusted execution
+environments (Intel SGX, Apple Secure Enclave) give attestation
+but not reproducibility. Our pattern — content-addressed substrate
++ deterministic snapshot + BLAKE3 hash chain — is far weaker
+cryptographically (a malicious user with the substrate's keys can
+forge any history) but appropriate for the threat model:
+*self-audit*, not adversarial proof. The `epistemos-trace
+verify-replay` recipient trusts that the user did not tamper with
+their own bundle; the CLI confirms the bundle is internally
+consistent.
+
+**Personal AI substrates.** SAM (Yann LeCun's proposed Self-Aware
+Memory architecture) and recent memory-augmented LLM systems
+(MemGPT, Letta, Cognee) target similar problems but emphasize
+*retrieval* over *replay* — they optimize for "what's the relevant
+context for this turn" rather than "can this past turn be
+reproduced." Vector-store-backed RAG systems (LangChain, LlamaIndex)
+operate at the embedding level; the substrate they expose is
+unstructured chunk metadata, not typed cognitive primitives. Our
+work is closest in spirit to the H-Tree paper (Hierarchical
+Cognitive Trees, Author et al. 2024) which proposes a typed
+cognitive graph for agentic LLMs, but H-Tree assumes centralized
+server infrastructure and does not address the verifiable replay
+artifact format.
+
+**Cognitive architectures (broader).** ACT-R, SOAR, and Sigma —
+the classical cognitive architectures — predate LLMs but
+established the pattern of typed cognitive primitives (chunks,
+productions, declarative memory). Our work inherits the typed-
+schema discipline but is not trying to model human cognition; we
+are trying to make personal AI tool reasoning *auditable*. The
+overlap is incidental.
+
+**Audit + observability for ML.** MLflow, Weights & Biases, and
+ClearML offer experiment tracking + model registry but operate at
+training time, not inference time. Recent work on inference
+observability (LangSmith, Helicone, Phoenix) is closer to our
+problem statement but stops at trace dump + UI replay; none ship
+a content-addressed substrate or a third-party-verifiable bundle
+format. We see this as the gap our work closes.
 
 ---
 
 ## 10. Conclusion
 
-[TODO — V3.3 next slice]
+We argued that personal AI deployments are missing a substrate
+primitive: not a bigger model, not a faster GPU, but a typed
+content-addressed graph that records every cognitive step in a
+form a third party can verify. We presented `Epistemos`, a Rust +
+Swift implementation of that primitive, running in one binary on
+a 16 GB MacBook with no external services.
 
-Sketch:
-- "Personal AI is not bigger model + more clever prompt; it's
-  verifiable substrate."
-- The cognitive DAG is the substrate.
-- It runs on a 16 GB MacBook today.
-- The audit trail is cryptographic, not policy.
+Three claims about what verifiable replay enables:
+
+1. **Audit becomes a feature**, not an after-the-fact reconstruction.
+   For users in regulated environments (legal, medical, security
+   research), Epistemos is the only personal AI tool we are aware of
+   that produces a defensible cryptographic paper trail. Every claim
+   cites its evidence; every action cites its capability; every
+   capability cites its issuing macaroon.
+2. **Cascading truth becomes structural.** A retraction at one node
+   propagates to every transitively-derived claim — automatically,
+   bounded-walk, deterministic. The user thinks *with corrigibility*
+   instead of having to manually re-check downstream conclusions
+   when an upstream source turns out to be wrong.
+3. **The substrate is shareable.** A `.epbundle` is a content-
+   addressed artifact; sharing one is sending a hash. Importing one
+   verifies every Tool reference + every Capability + every Edge
+   signature without asking the recipient to trust the sender's
+   build. This is the precondition for a "skill marketplace" or a
+   "shared cognitive graph" that does not collapse into the trust
+   problems of npm + pip + docker hub.
+
+The construction is deliberate: every node content-addressed via
+BLAKE3, every edge Merkle-signed under an issuing capability, every
+storage operation verified at the boundary, every doctrine §5
+verification gate codified as a CI-runnable lint. These are
+ordinary engineering choices; the contribution is the *combination*
+applied to personal AI substrate at the schema level.
+
+We are aware of three open research questions the substrate raises:
+
+- **Logit-trajectory hashing for non-deterministic models.** The
+  `verify-replay` binary today verifies the substrate's structure;
+  it does not verify that re-running the same model with the same
+  inputs produces the same tokens (sampling with `temperature > 0`
+  rules this out byte-equally). A hash over the per-step logit
+  distributions (or top-k thereof) would let a recipient verify the
+  decision *trajectory* without bit-exact reproduction. This is
+  Phase 8.F future work.
+- **Tiered storage for unbounded vault growth.** The DAG accumulates
+  monotonically. Hot-warm-cold tiering (redb hot, append-only logs
+  warm, BLAKE3-keyed object store cold) is straightforward but
+  requires a research spike on cache eviction + cold-fetch latency.
+- **Cross-device DAG merging.** Two devices' DAGs can be merged
+  trivially via content-addressed union, but reconciling Capability
+  scopes across devices needs a calculus we have not yet defined.
+
+Neither of these is necessary for the V1 substrate; both are
+natural extensions if the personal AI substrate pattern is
+adopted more widely.
+
+Code, doctrine, doctrine linter, and verification CLI are all
+public; reproducibility instructions appear in §A.
 
 ---
 
