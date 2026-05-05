@@ -64,6 +64,7 @@ public struct ShadowPanelContent: View {
         VStack(spacing: 0) {
             domainPicker
             graphProjectionRibbon
+            claimLedgerRibbon
             Divider()
             resultsList
             if hoveredID != nil {
@@ -114,6 +115,39 @@ public struct ShadowPanelContent: View {
         .padding(.vertical, 5)
         .background(.regularMaterial.opacity(0.35))
         .accessibilityLabel(graphProjectionAccessibilityLabel(for: report))
+    }
+
+    /// V2 Lane 1 — Rust ClaimLedger summary surfaced in the Halo panel
+    /// as a peer of the GraphEvent projection ribbon. Read-only ambient
+    /// signal of how many claims/evidence/events the Rust provenance
+    /// ledger is tracking. Updates every panel-open via the FFI.
+    private var claimLedgerRibbon: some View {
+        let summary = RustProvenanceLedgerClient.summary()
+        return HStack(spacing: 6) {
+            Image(systemName: "checkmark.shield")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(claimLedgerLabel(for: summary))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.regularMaterial.opacity(0.35))
+        .accessibilityLabel(claimLedgerAccessibilityLabel(for: summary))
+    }
+
+    private func claimLedgerLabel(for summary: RustProvenanceLedgerSummary) -> String {
+        if summary.claimCount == 0 && summary.evidenceCount == 0 && summary.eventCount == 0 {
+            return "ledger empty"
+        }
+        return "ledger: \(summary.claimCount) claims · \(summary.evidenceCount) evidence · \(summary.eventCount) events"
+    }
+
+    private func claimLedgerAccessibilityLabel(for summary: RustProvenanceLedgerSummary) -> String {
+        "Rust ClaimLedger: \(summary.claimCount) claims, \(summary.evidenceCount) evidence, \(summary.eventCount) events"
     }
 
     private var resultsList: some View {
