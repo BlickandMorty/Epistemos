@@ -5,6 +5,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use thiserror::Error;
 
+pub mod live;
+
 pub const DEFAULT_IDLE_THRESHOLD: Duration = Duration::from_secs(60);
 pub const CANONICAL_TASK_NAMES: &[&str] = &[
     "event_store_checkpoint_vacuum",
