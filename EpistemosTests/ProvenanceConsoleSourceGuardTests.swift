@@ -11,6 +11,7 @@ struct ProvenanceConsoleSourceGuardTests {
         for phrase in [
             "RunEventLog",
             "MutationEnvelope",
+            "RetractionPropagated",
             "AgentEvent",
             "GraphEvent",
             "GenUIDispatcher",
@@ -57,6 +58,8 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(source.contains("func snapshot(limit: Int = 40) -> ProvenanceConsoleSnapshot"))
         #expect(source.contains("eventStore.recentAgentEvents(limit: limit)"))
         #expect(source.contains("eventStore.recentGraphEvents(limit: limit)"))
+        #expect(source.contains("func subscribeRetractionEvents("))
+        #expect(source.contains("RetractionPropagatedProjection"))
         #expect(source.contains("GenUIPayload.provenanceTrace("))
         assertForbiddenTokensAbsent(
             [

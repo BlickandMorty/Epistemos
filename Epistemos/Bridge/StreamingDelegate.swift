@@ -81,6 +81,8 @@ struct AgentConfigFFI: Sendable {
     let autoApproveWrites: Bool
     /// Explicit mode: "code", "research", "general", or nil for auto-detect.
     let promptMode: String?
+    /// Per-session USD cap. nil or <= 0 means unlimited.
+    let maxCostUsd: Double?
 }
 
 struct ReasoningTrajectoryMetricsFFI: Sendable {
@@ -270,16 +272,26 @@ extension AgentPermissionRequest {
         return .modification
     }
 
+    nonisolated var isBudgetGate: Bool {
+        toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "budget_gate"
+    }
+
     nonisolated var requiresHumanApproval: Bool {
-        permissionCategory != .genericRead
+        isBudgetGate || permissionCategory != .genericRead
     }
 
     nonisolated var approvalReason: String {
-        permissionCategory.approvalReason
+        if isBudgetGate {
+            return "permission to continue after the session budget gate was reached"
+        }
+        return permissionCategory.approvalReason
     }
 
     nonisolated var approvalTargetSummary: String? {
         let object = jsonObject
+        if isBudgetGate {
+            return Self.budgetGateSummary(from: object)
+        }
         return [
             object?["path"] as? String,
             object?["query"] as? String,
@@ -298,6 +310,14 @@ extension AgentPermissionRequest {
             return nil
         }
         return action.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    nonisolated private static func budgetGateSummary(from object: [String: Any]?) -> String? {
+        guard let object else { return nil }
+        let current = object["current_spend_usd"].map { "\($0)" } ?? "unknown"
+        let cap = object["cap_usd"].map { "\($0)" } ?? "unknown"
+        let next = object["next_gate_usd"].map { "\($0)" } ?? "unknown"
+        return "Current spend: $\(current)\nGate: $\(cap)\nNext gate if approved: $\(next)"
     }
 
     nonisolated private var jsonObject: [String: Any]? {

@@ -8,6 +8,7 @@ use crate::approval::{approval_key, ApprovalDecision, SmartApproval, SmartApprov
 use crate::bridge::AgentEventDelegate;
 use crate::prompts::{build_system_prompt_with_index, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
+use crate::providers::pricing::{budget_gate_payload_json, estimate_usage_cost_usd};
 use crate::reasoning_metrics::{compute_trajectory_metrics, ReasoningTrajectoryMetrics};
 use crate::routing::contains_any;
 use crate::session::GlobalSessions;
@@ -161,6 +162,10 @@ pub async fn run_agent_loop(
     let mut total_usage = TokenUsage::default();
     let mut trajectory_tool_calls: Vec<(String, String, String, bool)> = Vec::new();
     let max_turns = config.max_turns.unwrap_or(25);
+    let budget_step_usd = config
+        .max_cost_usd
+        .filter(|budget| budget.is_finite() && *budget > 0.0);
+    let mut next_budget_gate_usd = budget_step_usd;
 
     // Raw Thoughts V0 — per-run artifact emitter. Always constructed so
     // the rest of the loop is branch-free; it is a no-op unless the user
@@ -424,36 +429,83 @@ pub async fn run_agent_loop(
             .cache_read_input_tokens
             .saturating_add(turn_usage.cache_read_input_tokens);
 
-        // Budget enforcement: estimate cost and check against limit
-        if let Some(budget) = config.max_cost_usd {
-            // Rough cost estimate based on Claude Sonnet 4.6 pricing ($3/$15 per MTok)
-            // This is conservative — actual cost varies by provider
-            let estimated_cost = (total_usage.input_tokens as f64 * 3.0
-                + total_usage.output_tokens as f64 * 15.0)
-                / 1_000_000.0;
-            if estimated_cost >= budget {
-                let msg = format!(
-                    "Budget limit ${:.2} reached (estimated ${:.2} spent). Task paused.",
-                    budget, estimated_cost
-                );
-                delegate.on_error(msg.clone());
-                let transcript_turn = build_assistant_transcript_turn(
+        if let (Some(step), Some(gate)) = (budget_step_usd, next_budget_gate_usd) {
+            let estimated_cost = estimate_usage_cost_usd(provider.name(), &total_usage);
+            if estimated_cost >= gate {
+                let next_gate = next_budget_gate_after(estimated_cost, step, gate);
+                let input_json = budget_gate_payload_json(
+                    &session_id,
                     provider.name(),
-                    &response_blocks,
-                    &[],
-                    turn_usage.output_tokens,
-                    Some(turn_stream_duration_ms),
+                    estimated_cost,
+                    gate,
+                    next_gate,
                 );
-                GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
-                messages.push(Message::assistant(response_blocks));
-                let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Completed, None);
-                return Ok(AgentResult {
-                    final_content: vec![ContentBlock::Text { text: msg }],
-                    full_history: messages,
-                    turns: turn_count,
-                    total_usage,
-                    trajectory_metrics: compute_trajectory_metrics(&trajectory_tool_calls),
-                });
+                let permission_id = uuid::Uuid::new_v4().to_string();
+                let deadline_secs = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs()
+                    .saturating_add(120);
+                GlobalSessions::pause_for_approval(
+                    &session_id,
+                    "budget_gate",
+                    &input_json,
+                    deadline_secs,
+                );
+                delegate.on_permission_required(
+                    permission_id.clone(),
+                    "budget_gate".to_string(),
+                    input_json.clone(),
+                    "modification".to_string(),
+                );
+                let approved = delegate.wait_for_permission(permission_id);
+                GlobalSessions::resume_from_approval(&session_id);
+                GlobalSessions::append_trace_event(
+                    &session_id,
+                    TraceEvent {
+                        timestamp: chrono::Utc::now(),
+                        kind: "approval".to_string(),
+                        name: Some("budget_gate".to_string()),
+                        input_summary: Some(input_json.clone()),
+                        output_summary: Some(format!(
+                            "Estimated spend ${estimated_cost:.2} reached budget gate ${gate:.2}"
+                        )),
+                        duration_ms: None,
+                        outcome: Some(if approved { "approved" } else { "denied" }.to_string()),
+                    },
+                );
+                if approved {
+                    next_budget_gate_usd = Some(next_gate);
+                    tracing::info!(
+                        session_id = session_id.as_str(),
+                        provider = provider.name(),
+                        estimated_cost_usd = estimated_cost,
+                        next_gate_usd = next_gate,
+                        "budget_gate_approved"
+                    );
+                } else {
+                    let msg = format!(
+                        "Budget gate denied at ${:.2} estimated spend (gate ${:.2}).",
+                        estimated_cost, gate
+                    );
+                    let transcript_turn = build_assistant_transcript_turn(
+                        provider.name(),
+                        &response_blocks,
+                        &[],
+                        turn_usage.output_tokens,
+                        Some(turn_stream_duration_ms),
+                    );
+                    GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
+                    messages.push(Message::assistant(response_blocks));
+                    let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Completed, None);
+                    return Ok(AgentResult {
+                        final_content: vec![ContentBlock::Text { text: msg }],
+                        full_history: messages,
+                        turns: turn_count,
+                        total_usage,
+                        trajectory_metrics: compute_trajectory_metrics(&trajectory_tool_calls),
+                    });
+                }
             }
         }
 
@@ -1160,12 +1212,27 @@ fn truncate_tool_output(output: String, max_chars: usize) -> String {
     )
 }
 
+fn next_budget_gate_after(
+    current_spend_usd: f64,
+    budget_step_usd: f64,
+    current_gate_usd: f64,
+) -> f64 {
+    if !current_spend_usd.is_finite() || !budget_step_usd.is_finite() || budget_step_usd <= 0.0 {
+        return current_gate_usd;
+    }
+    let mut next_gate = current_gate_usd + budget_step_usd;
+    while next_gate <= current_spend_usd {
+        next_gate += budget_step_usd;
+    }
+    next_gate
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        estimate_tokens, objective_mentions_local_context, prompt_mode_for_objective,
-        resolve_approval_requirement, should_preload_vault_context, truncate_tool_output,
-        AgentError,
+        estimate_tokens, next_budget_gate_after, objective_mentions_local_context,
+        prompt_mode_for_objective, resolve_approval_requirement, should_preload_vault_context,
+        truncate_tool_output, AgentError,
     };
     use crate::approval::ApprovalDecision;
     use crate::prompts::PromptMode;
@@ -1204,6 +1271,13 @@ mod tests {
         ];
 
         assert!(estimate_tokens(&messages) > 0);
+    }
+
+    #[test]
+    fn budget_gate_advances_by_budget_step_without_reprompting_same_gate() {
+        assert_eq!(next_budget_gate_after(0.51, 0.50, 0.50), 1.0);
+        assert_eq!(next_budget_gate_after(1.01, 0.50, 1.0), 1.5);
+        assert_eq!(next_budget_gate_after(2.20, 0.50, 1.5), 2.5);
     }
 
     #[test]

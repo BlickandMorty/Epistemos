@@ -46,8 +46,8 @@ pub mod ledger;
 pub mod replay;
 
 pub use ledger::{
-    Claim, ClaimId, ClaimLedger, ClaimStatus, Evidence, EvidenceId, LedgerError, RetractionReport,
-    MAX_RETRACTION_WALK_DEPTH,
+    Claim, ClaimId, ClaimLedger, ClaimStatus, Evidence, EvidenceId, LedgerError, LedgerEvent,
+    RetractionPropagatedEvent, RetractionReport, RetractionTriggerKind, MAX_RETRACTION_WALK_DEPTH,
 };
 pub use replay::{
     BundleError, ClaimDerivation, ClaimEvidenceLink, LedgerSnapshot, ReplayBundle,

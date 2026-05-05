@@ -205,6 +205,35 @@ pub struct RetractionReport {
     pub depth_capped: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RetractionTriggerKind {
+    Evidence,
+    Claim,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetractionPropagatedEvent {
+    pub sequence: u64,
+    pub trigger_kind: RetractionTriggerKind,
+    pub triggered_by: String,
+    pub report: RetractionReport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LedgerEvent {
+    RetractionPropagated(RetractionPropagatedEvent),
+}
+
+impl LedgerEvent {
+    pub fn sequence(&self) -> u64 {
+        match self {
+            Self::RetractionPropagated(event) => event.sequence,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // ClaimLedger
 // ---------------------------------------------------------------------------
@@ -230,6 +259,8 @@ pub struct ClaimLedger {
     claim_derived_from: HashMap<ClaimId, HashSet<ClaimId>>,
     /// `claim_id → set of downstream claim_ids that depend on it` (reverse of above)
     claim_derives: HashMap<ClaimId, HashSet<ClaimId>>,
+    events: Vec<LedgerEvent>,
+    next_event_sequence: u64,
 }
 
 impl ClaimLedger {
@@ -253,6 +284,14 @@ impl ClaimLedger {
 
     pub fn evidence_count(&self) -> usize {
         self.evidence.len()
+    }
+
+    pub fn events_since(&self, after_sequence: u64) -> Vec<LedgerEvent> {
+        self.events
+            .iter()
+            .filter(|event| event.sequence() > after_sequence)
+            .cloned()
+            .collect()
     }
 
     /// Build a deterministic snapshot suitable for serialization into
@@ -416,6 +455,7 @@ impl ClaimLedger {
             .map(|s| s.iter().cloned().collect())
             .unwrap_or_default();
         let report = self.bfs_mark_at_risk(&directly_supported, id.0.clone())?;
+        self.record_retraction_event(RetractionTriggerKind::Evidence, &report);
         Ok(report)
     }
 
@@ -436,7 +476,9 @@ impl ClaimLedger {
             .get(id)
             .map(|s| s.iter().cloned().collect())
             .unwrap_or_default();
-        self.bfs_mark_at_risk(&descendants, id.0.clone())
+        let report = self.bfs_mark_at_risk(&descendants, id.0.clone())?;
+        self.record_retraction_event(RetractionTriggerKind::Claim, &report);
+        Ok(report)
     }
 
     // -- internals ---------------------------------------------------------
@@ -532,6 +574,23 @@ impl ClaimLedger {
             depth_capped,
         })
     }
+
+    fn record_retraction_event(
+        &mut self,
+        trigger_kind: RetractionTriggerKind,
+        report: &RetractionReport,
+    ) {
+        let sequence = self.next_event_sequence.saturating_add(1);
+        self.next_event_sequence = sequence;
+        self.events.push(LedgerEvent::RetractionPropagated(
+            RetractionPropagatedEvent {
+                sequence,
+                trigger_kind,
+                triggered_by: report.triggered_by.clone(),
+                report: report.clone(),
+            },
+        ));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -598,6 +657,47 @@ mod tests {
             ClaimStatus::Retracted
         );
         assert_eq!(report.triggered_by, "ev-a");
+    }
+
+    #[test]
+    fn evidence_retraction_emits_typed_retraction_propagated_event() {
+        let mut l = seed_basic_ledger();
+        let report = l.retract_evidence(&EvidenceId::new("ev-a")).unwrap();
+        let events = l.events_since(0);
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            LedgerEvent::RetractionPropagated(event) => {
+                assert_eq!(event.sequence, 1);
+                assert_eq!(event.trigger_kind, RetractionTriggerKind::Evidence);
+                assert_eq!(event.triggered_by, "ev-a");
+                assert_eq!(event.report, report);
+                assert!(event
+                    .report
+                    .claims_marked_at_risk
+                    .contains(&ClaimId::new("c1")));
+            }
+        }
+    }
+
+    #[test]
+    fn events_since_is_a_subscriber_cursor_over_retraction_events() {
+        let mut l = seed_basic_ledger();
+        l.retract_evidence(&EvidenceId::new("ev-a")).unwrap();
+        l.retract_claim(&ClaimId::new("c2")).unwrap();
+
+        let all = l.events_since(0);
+        let after_first = l.events_since(1);
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(after_first.len(), 1);
+        match &after_first[0] {
+            LedgerEvent::RetractionPropagated(event) => {
+                assert_eq!(event.sequence, 2);
+                assert_eq!(event.trigger_kind, RetractionTriggerKind::Claim);
+                assert_eq!(event.triggered_by, "c2");
+            }
+        }
     }
 
     #[test]
