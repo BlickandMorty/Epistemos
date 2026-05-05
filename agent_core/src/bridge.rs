@@ -2982,6 +2982,94 @@ pub fn provenance_ledger_snapshot_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+// MARK: - In-process LSP runtime FFI (V2.3 Stage B)
+//
+// Doctrine reference: `docs/V2_3_LSP_MIGRATION_PLAN_2026_05_05.md`.
+// Two thin entry points that drive the global LspKernel:
+//   - lsp_send_message_json — push a JSON-RPC envelope into the
+//     kernel; the kernel queues the response on its outbox.
+//   - lsp_poll_response_json — pull the next outbound JSON-RPC
+//     envelope off the outbox (empty string if none ready).
+//
+// Polling shape (vs. callback) is intentional. LSP is request /
+// response, not truly streaming, so a Swift-side polling task is
+// cheap and avoids exposing a UniFFI Callback surface. The Swift
+// `RustLSPTransport` (Stage C) wraps this poll loop into the existing
+// `LSPTransport` `messages: AsyncStream<LSPMessage>` shape.
+//
+// Both entries are gated behind the `lsp-runtime` cargo feature so
+// the default MAS / Pro builds don't carry the LSP code unless
+// explicitly enabled.
+
+/// Push a JSON-RPC 2.0 envelope into the global LSP kernel. Returns
+/// `Ok("")` on success — the response (if any) is queued for the
+/// caller's next poll. Returns `Err(AgentErrorFFI)` only on
+/// transport-level failures (mutex poison, etc.) — protocol errors
+/// land as queued JSON-RPC error responses, not Err.
+#[cfg(feature = "lsp-runtime")]
+#[uniffi::export]
+pub fn lsp_send_message_json(envelope_json: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let kernel = crate::lsp_runtime::global_kernel();
+        match crate::lsp_runtime::decode_message(&envelope_json) {
+            Ok(message) => {
+                kernel
+                    .send(message)
+                    .map_err(|err| AgentErrorFFI::AgentError {
+                        message: format!("LSP kernel send failed: {err}"),
+                    })?;
+                Ok(String::new())
+            }
+            Err(parse_error) => {
+                // Decode failure is a protocol error — queue an error
+                // response shaped like the kernel would produce so the
+                // Swift consumer can iterate uniformly.
+                let response = crate::lsp_runtime::LspMessage::ResponseError {
+                    id: None,
+                    error: parse_error,
+                };
+                kernel
+                    .send(response)
+                    .map_err(|err| AgentErrorFFI::AgentError {
+                        message: format!("LSP kernel send failed: {err}"),
+                    })?;
+                Ok(String::new())
+            }
+        }
+    })
+}
+
+/// Pull the next outbound JSON-RPC envelope from the global LSP
+/// kernel. Returns `Ok("")` (empty string) when the outbox is empty
+/// — the canonical "nothing yet" signal. The Swift `RustLSPTransport`
+/// poll loop sleeps + retries when it sees empty, then yields
+/// non-empty results onto the `messages: AsyncStream<LSPMessage>`.
+#[cfg(feature = "lsp-runtime")]
+#[uniffi::export]
+pub fn lsp_poll_response_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let kernel = crate::lsp_runtime::global_kernel();
+        match kernel
+            .poll_response()
+            .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("LSP kernel poll failed: {err}"),
+            })? {
+            Some(message) => Ok(crate::lsp_runtime::encode_message(&message)),
+            None => Ok(String::new()),
+        }
+    })
+}
+
+/// Diagnostic — current LSP kernel lifecycle state as a stable
+/// string ("uninitialized" | "initialized" | "shutting_down" |
+/// "exited" | "poisoned"). Used by Settings → Diagnostics + any
+/// tests that want to assert lifecycle ordering.
+#[cfg(feature = "lsp-runtime")]
+#[uniffi::export]
+pub fn lsp_lifecycle_state_debug() -> String {
+    crate::lsp_runtime::global_kernel().lifecycle_state_debug().to_string()
+}
+
 // MARK: - Cognitive DAG observability FFI (V2 final lane — read-only)
 //
 // Doctrine reference: cognitive DAG doctrine §10 — "the seven existing
