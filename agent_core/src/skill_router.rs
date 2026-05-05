@@ -114,7 +114,7 @@ impl SkillRouter {
     }
 
     /// Loaded skill definitions. Runtime callers should reach this through
-    /// `agent_core::hermes::skills` as the canonical ownership boundary.
+    /// `agent_core::agent_runtime::skills` as the canonical ownership boundary.
     pub fn skills(&self) -> &[SkillEntry] {
         &self.skills
     }

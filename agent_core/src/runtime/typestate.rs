@@ -2,8 +2,14 @@
 //
 // Per docs/RESEARCH_DOSSIER_TIER_3_4.md §W9.22: phantom-type
 // state machine that enforces correct lifecycle order at compile
-// time for MLX inference sessions, Hermes Python subprocess, and
-// AFM session pool entries.
+// time for MLX inference sessions and AFM session pool entries.
+//
+// (The original §W9.22 spec also listed a `HermesProcess` wrapper for
+// the Python hermes-agent subprocess, but the subprocess was removed
+// 2026-05-05 — see docs/_archive/hermes-removal-2026-05-05/README.md.
+// The in-process `agent_core::agent_runtime` runtime that replaced it
+// has no lifecycle to typestate-encode because it lives for the
+// duration of the parent process.)
 //
 // FOUNDATION (this commit):
 //   - the generic `Lifecycle<S>` newtype with `PhantomData<S>` marker
@@ -11,8 +17,8 @@
 //   - blueprint impls showing the consumed-self transition pattern
 //
 // FOLLOW-UPS (per the dossier's plan + W9.21 dependency):
-//   - Concrete `MlxSession`, `HermesProcess`, `AFMPoolEntry` wrappers
-//     that hold the W9.21 honest-FFI Arc handles
+//   - Concrete `MlxSession`, `AFMPoolEntry` wrappers that hold the
+//     W9.21 honest-FFI Arc handles
 //   - Swift `~Copyable` mirrors so the same invariants hold across
 //     the FFI boundary (caveat: actor isolation + ~Copyable doesn't
 //     compose well in Swift 6.2; spike before the rewrite)
