@@ -25,11 +25,12 @@ use std::sync::OnceLock;
 
 use crate::provenance::ledger::{Claim, ClaimId, Evidence, EvidenceId};
 
+use super::macaroons::{issue, Macaroon};
 use super::migration::{
     CompanionMutation, DagMirror, LedgerMutation, ProceduralMirror, ProcedureMutation,
     ProvenanceLedgerMirror, SkillsMirror,
 };
-use super::node::Hash;
+use super::node::{CapabilityKind, CapabilityScope, Hash};
 use super::storage::InMemoryDagStore;
 
 /// Process-global cognitive DAG store. Initialized lazily on first
@@ -46,35 +47,65 @@ pub fn cognitive_dag_store() -> &'static InMemoryDagStore {
     static DAG: OnceLock<InMemoryDagStore> = OnceLock::new();
     DAG.get_or_init(|| {
         let store = InMemoryDagStore::new();
-        // Phase 8.C / CD-005: register the system-mirror sentinel
-        // capability hash so dispatch-emitted edges verify under
-        // capability-bound `put_edge` enforcement instead of falling
-        // back to the Phase 8.A structural-only guard. Doctrine §1.2:
-        // every edge MUST be signed under a held capability + the
-        // store MUST verify against the registered set on insert.
+        // CD-005 + A2 (canonical-upgrade-audit 2026-05-05): register
+        // the system-mirror macaroon's capability hash so dispatch-
+        // emitted edges verify under capability-bound `put_edge`
+        // enforcement instead of falling back to the Phase 8.A
+        // structural-only guard. Doctrine §1.2: every edge MUST be
+        // signed under a held capability + the store MUST verify
+        // against the registered set on insert.
         //
-        // The sentinel is the all-`0xE5` hash matching
-        // `system_mirror_capability_hash()` below. As Phase 8.C's
-        // macaroon-derived caps come online, callers will register
-        // those too via DagStore::register_capability(...) and the
-        // sentinel becomes one of N accepted caps.
+        // A2 promotion: was a deterministic 0xE5 sentinel hash; now
+        // derived from a real `Macaroon` issued at process start with
+        // a process-local random root key (see `system_mirror_macaroon`
+        // below). The DAG only sees the 32-byte capability hash; the
+        // macaroon itself stays in-process and is not exfiltrated
+        // through the FFI surface.
         use crate::cognitive_dag::storage::DagStore;
         let _ = store.register_capability(system_mirror_capability_hash());
         store
     })
 }
 
-/// Default capability hash for system-initiated mirror writes. Carries
-/// the doctrine §1.2 EdgeSignature contract — Phase 8.A landed
-/// content-hash signing; Phase 8.C's macaroon system will replace this
-/// with derived caps once macaroons reach the dispatch layer.
+/// Process-local "system mirror" macaroon. Lazily created on first
+/// access; the root key is a random `[u8; 32]` derived at process
+/// start from two `uuid::Uuid::new_v4()` draws (each carries 122 bits
+/// of CSPRNG entropy from `getrandom`). Total entropy ≈ 244 bits,
+/// well above the 128-bit security floor for a 256-bit HMAC key.
 ///
-/// The 32-byte byte pattern `0xE5` is a sentinel — searchable across
-/// the codebase, structurally distinct from `0x00` (empty hash) and
-/// `0xFF` (max hash), and stable across all auto-dispatch sites so
-/// edges they emit can be filtered by signature for audit views.
+/// The macaroon's `base_kind` + `base_scope` describe the dispatch
+/// authority surface: it can sign `Other("system-mirror")` writes for
+/// any scope. Caveats are added per-call (none today; A2-followup
+/// slice will add them as dispatch sites get scoped).
+fn system_mirror_macaroon() -> &'static Macaroon {
+    static MACAROON: OnceLock<Macaroon> = OnceLock::new();
+    MACAROON.get_or_init(|| {
+        // Derive the root key from two uuid v4 draws — getrandom-backed,
+        // 122 bits each, concatenated for a 244-bit-entropy 32-byte key.
+        let a = *uuid::Uuid::new_v4().as_bytes();
+        let b = *uuid::Uuid::new_v4().as_bytes();
+        let mut root_key = [0u8; 32];
+        root_key[..16].copy_from_slice(&a);
+        root_key[16..].copy_from_slice(&b);
+        issue(
+            "epistemos.dispatch",
+            CapabilityKind::Other("system-mirror".into()),
+            CapabilityScope("dispatch".into()),
+            None, // no expiry — process-lifetime authority
+            &root_key,
+        )
+    })
+}
+
+/// Capability hash for system-initiated mirror writes. Derived from the
+/// process-local `system_mirror_macaroon()` per A2.
+///
+/// Doctrine §1.2: every edge MUST be signed under a held capability.
+/// This function returns the hash the dispatch layer signs edges with;
+/// the DAG store's registered capability set must include this hash
+/// for `put_edge` to accept the edges (CD-005 verification).
 fn system_mirror_capability_hash() -> Hash {
-    Hash::from_bytes([0xE5u8; 32])
+    system_mirror_macaroon().capability_hash()
 }
 
 // ── Provenance ledger auto-dispatch ────────────────────────────────────────
@@ -364,14 +395,45 @@ mod tests {
     }
 
     #[test]
-    fn system_mirror_capability_hash_is_stable_sentinel() {
+    fn system_mirror_capability_hash_is_process_stable() {
+        // A2: was a 0xE5 sentinel; now derived from a process-local
+        // macaroon. The hash must be stable WITHIN a process (so
+        // dispatch-emitted edges all sign under the same registered
+        // cap) but is NOT stable across processes (a fresh process
+        // gets a fresh root key + fresh macaroon + fresh hash).
         let h1 = system_mirror_capability_hash();
         let h2 = system_mirror_capability_hash();
-        assert_eq!(h1, h2);
-        // Sentinel byte pattern is 0xE5 — distinct from 0x00 and 0xFF
-        // so dispatch-emitted edges can be filtered by signature for
-        // audit views.
-        assert_eq!(h1.as_bytes()[0], 0xE5);
-        assert_eq!(h1.as_bytes()[31], 0xE5);
+        assert_eq!(h1, h2, "hash must be stable within a process");
+    }
+
+    #[test]
+    fn system_mirror_macaroon_root_key_has_entropy() {
+        // The macaroon's signature is BLAKE3 of base fields keyed by
+        // the root key. If the root key were all-zero (or any fixed
+        // pattern), the signature — and therefore capability_hash —
+        // would be identical across all processes, defeating A2's
+        // process-local-key promise. Verify the hash is not the
+        // all-zero / 0xE5 / 0xFF sentinels.
+        let h = system_mirror_capability_hash();
+        let bytes = h.as_bytes();
+        assert_ne!(*bytes, [0u8; 32]);
+        assert_ne!(*bytes, [0xE5u8; 32]);
+        assert_ne!(*bytes, [0xFFu8; 32]);
+    }
+
+    #[test]
+    fn system_mirror_macaroon_carries_dispatch_authority() {
+        // Doctrine §1.2 contract: the macaroon's base capability MUST
+        // describe the authority surface the dispatch layer actually
+        // uses. Today that's `Other("system-mirror")` over scope
+        // "dispatch". A2-followup may narrow this with caveats per
+        // mirror site.
+        let m = system_mirror_macaroon();
+        assert!(matches!(
+            &m.base_kind,
+            CapabilityKind::Other(s) if s == "system-mirror"
+        ));
+        assert_eq!(m.base_scope.0, "dispatch");
+        assert!(m.base_expiry_ms.is_none(), "process-lifetime authority");
     }
 }
