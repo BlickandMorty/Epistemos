@@ -170,6 +170,43 @@ Read in this order:
    - `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md`
    - `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md`
 
+## **⚠ Pre-merge blocker discovered (final tick): project-wide clippy debt ~126 issues**
+
+Logged as `ISSUE-2026-05-05-001` in `docs/APP_ISSUES_AUTO_FIX.md` at P1.
+
+`cargo clippy --target aarch64-apple-darwin -- -D warnings` per crate:
+
+| Crate | Errors |
+|---|---|
+| agent_core | 42 (1 hard + 41 warnings) |
+| epistemos-core | 54 |
+| omega-mcp | 16 |
+| omega-ax | 8 |
+| graph-engine | 6 |
+| **Total** | **~126** |
+
+CI's clippy gate (ci.yml:122-131) runs this exact command per crate
+and will fail hard on the next PR to main. **NOT a regression from
+this session** — the debt is pre-existing (e.g., the agent_core hard
+error in `etl/ffi.rs:180` traces back to commit `666aa9ba`, the
+original R16 ETL foundation). But the close-out doc earlier in this
+session said "lib build emits zero warnings" — accurate for `cargo
+build`, NOT for `cargo clippy -- -D warnings` which is what CI runs.
+
+The CI workflow at `.github/workflows/ci.yml` only runs on `push:
+[main]` or `pull_request: [main]`. The `feature/landing-liquid-wave`
+branch has never run CI — only `release.yml` has. So the clippy gate
+hasn't been hit yet on this branch's commits.
+
+**Recommended next-session action:** dedicate a slice to clippy
+cleanup before opening the next PR to main. NOT silently fixed in
+this session because (a) 126 issues is too large for one tick safely,
+(b) some fixes are destructive (refactor too-many-args functions =
+API change), and (c) the user should know the debt exists before
+merging.
+
+---
+
 ## Standing-checks hygiene (final tick)
 
 After the retrospective was first written, three additional standing-
