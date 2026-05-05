@@ -203,6 +203,36 @@ actor NightBrainService {
         return await runPipeline(jobOrder: Job.allCases, bypassContinuationChecks: false)
     }
 
+    /// Trigger a live execution of every Rust-side registered NightBrain
+    /// task. Wraps `NightBrainLiveRegistry.runRegisteredTasks()`. The
+    /// live tasks are NoOp placeholders today (commit b0d229be); real
+    /// task bodies replace them incrementally without changing this
+    /// surface. Intended for ad-hoc invocation from diagnostics UI +
+    /// the existing 24-hour fallback path. Returns per-task outcome
+    /// strings ("name:status:items_processed").
+    func runLiveRegisteredTasks() async -> [String] {
+        await Task.detached(priority: .background) {
+            NightBrainLiveRegistry.shared.runRegisteredTasks()
+        }.value
+    }
+
+    /// Snapshot the live scheduler's currently-registered task names.
+    /// Cheap; no execution. Used by the Provenance Console NightBrain
+    /// diagnostics row.
+    nonisolated func liveRegisteredTaskNames() -> [String] {
+        NightBrainLiveRegistry.shared.registeredTaskNames()
+    }
+
+    /// Cancel any in-flight live tasks. Used when user input arrives
+    /// or thermal pressure flips. Reset via `resetLiveScheduler()`.
+    nonisolated func preemptLiveScheduler() {
+        NightBrainLiveRegistry.shared.preempt()
+    }
+
+    nonisolated func resetLiveScheduler() {
+        NightBrainLiveRegistry.shared.reset()
+    }
+
     private func runPipeline(
         jobOrder: [Job],
         bypassContinuationChecks: Bool
