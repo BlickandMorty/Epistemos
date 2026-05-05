@@ -487,6 +487,41 @@ Investigation Log:
 
 ---
 
+### ISSUE-2026-05-05-001: agent_core lib clippy debt (1 error + 41 warnings) blocks CI clippy gate when PR opens
+
+Status: Open
+Priority: P2
+First Observed: 2026-05-05 (during late-session hygiene tick)
+Affected Version: feature/landing-liquid-wave HEAD on 2026-05-05
+
+Symptom:
+`cargo clippy --lib --target aarch64-apple-darwin -- -D warnings` against `agent_core` fails with 42 issues:
+
+- **1 hard error**: `src/etl/ffi.rs:180` — `etl_queue_free_string` is a `pub extern "C" fn` that does `CString::from_raw(ptr)` but the function itself isn't marked `unsafe`. Lint: `clippy::not_unsafe_ptr_arg_deref`. The unsafe block inside is fine; the lint wants the function signature itself to be `unsafe`.
+- **41 warnings** (would also fail under `-D warnings`): 7× "doc list item without indentation", 3× "this function has too many arguments (9/8)", 2× each of "this `map_or` can be simplified" / "this `if` statement can be collapsed" / "this `.filter_map(..)` can be written more simply using `.map(..)`" / "redundant closure" / "match expression looks like `matches!` macro", 3× "you should consider adding a `Default` implementation" (WebFetchTool, McpClient, FileOpsTool), 1× "very complex type used", 1× "the `Err`-variant returned from this function is very large", and others.
+
+Why this hasn't been caught yet:
+The CI workflow at `.github/workflows/ci.yml` only runs on `push: [main]` or `pull_request: [main]`. The `feature/landing-liquid-wave` branch has never run CI — only `release.yml` has run on this branch. The clippy gate (line 122-131 of ci.yml) will fail when this branch opens a PR.
+
+Suspected Cause:
+- Pre-existing debt — many of these warnings are in code that landed before 2026-05-05 (e.g., `etl/ffi.rs` was added in commit `666aa9ba`).
+- Some may be from rustc upgrades that introduced new lints between when the code was written and now.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Add `#[allow(clippy::not_unsafe_ptr_arg_deref)]` to `etl_queue_free_string` with a SAFETY comment explaining why the FFI function deliberately doesn't use the `unsafe fn` signature (Swift caller via UniFFI doesn't see the Rust `unsafe`).
+- Apply the trivial mechanical fixes (use `?` instead of `if .is_none() { return None; }`; collapse nested `if`s; use `.map(..)` instead of `.filter_map(..)` where the filter is trivial; add `#[derive(Default)]` where applicable).
+- Fix the doc-list-indentation warnings (mostly add 2 spaces to continuation lines).
+
+Destructive Fixes (require user approval):
+- Refactor functions with too many arguments (changes API).
+- Box large `Err` variants (changes return type).
+
+Investigation Log:
+- 2026-05-05: discovered during the late-session clippy hygiene check. NOT silently fixed because (a) 41 warnings is too large a cleanup to do safely without per-fix verification, and (b) the user should know this debt exists before merging this branch. Logging here so it's visible at next session start.
+- Recommended next-session action: dedicate a slice to clippy cleanup before opening the next PR to main.
+
+---
+
 ## Resolved Issues
 
 _(Issues moved here after manual runtime verification confirms the fix)_
