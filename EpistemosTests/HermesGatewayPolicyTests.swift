@@ -37,9 +37,13 @@ nonisolated struct HermesGatewayPolicyTests {
 
     @Test("prompt boundary lines remain canonical")
     func promptBoundaryLinesRemainCanonical() {
+        // Updated 2026-05-05 with the Hermes-agent removal — the
+        // .hermesSubprocess surface no longer exists, so the boundary line
+        // no longer mentions it. See docs/_archive/hermes-removal-2026-05-05/
+        // README.md for the removal record.
         #expect(
             HermesGatewayPolicy.externalTierBoundaryLine
-                == "Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only."
+                == "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
         )
         #expect(
             HermesGatewayPolicy.localCoreBoundaryLine
