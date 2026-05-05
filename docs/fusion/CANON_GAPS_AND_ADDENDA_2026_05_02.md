@@ -2,11 +2,11 @@
 
 > **NEW DOC — created 2026-05-02.** Filename: `CANON_GAPS_AND_ADDENDA_2026_05_02.md`. If your session can't find it, search by name. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Mirrored into the active worktree's `docs/fusion/`.
 
-> **STATUS — ALL 15 C-BLOCKS MERGED 2026-05-05.** Originally staged pending Codex's deliberation response. After the 2026-05-05 canon-hardening session, all 15 C-blocks (C1 WRV, C2 no silent fallback, C3 BYOK off, C4 UX posture, C5 canonical state, C6 Halo stack reference, C7 Resource Runtime + Phase R [verified-then-merged: substrate already on main], C8 App Store closeout authority, C9 Quick Capture standalone canon, C10 Flight Recorder, C11 pre-release evidence package [verified-then-merged with state caveats], C12 local-stream truncation watch, C13 telemetry policy, C14 ambient_V1_DECISION naming, C15 CRDT deferred) have been merged into their destination files. Each merged block carries an inline `(C#, merged 2026-05-05.)` provenance tag.
+> **STATUS — COMPLETE 2026-05-05.** Originally staged pending Codex's deliberation response. After the 2026-05-05 canon-hardening session, ALL 15 C-blocks have been merged into their destination files (each carries an inline `(C#, merged 2026-05-05.)` provenance tag), AND all 3 B-bonus blocks have been read-then-absorbed as lift-targets briefs (state: candidate, held for sign-off; each maps the source-doc to current main with Tier-1 doctrine lifts + Tier-2 build-order entries + Tier-3 already-canonical and explicit rejects). C9's ALL_DOCS_INDEX §3.5 entry has also landed.
 >
-> **Remaining staged:** the 3 B-bonus blocks (BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT, LIVE_FILES_AND_SUBSTRATE, OBSCURA_BROWSER) — these are read-then-absorb passes against 44-67 KB QuickCapture addendum docs, not single-commit merges. C9's `ALL_DOCS_INDEX_2026_05_02.md` §3.5 entry for the Quick Capture standalone canon also remains as a pending separate slice.
+> **The doc that was "STAGED, NOT MERGED" on 2026-05-02 is now COMPLETE.** Implementation work flowing from the lift-targets briefs is queued for explicit sign-off per the canon promotion protocol.
 >
-> **This doc remains as the audit trail.** Each `MERGE TARGET:` block below is annotated with `[MERGED 2026-05-05]` for items that have landed.
+> **This doc remains as the audit trail.** Each `MERGE TARGET:` block below is annotated with `[MERGED 2026-05-05]` for items that have landed; B-bonus rows are annotated `[READ-THEN-ABSORBED 2026-05-05]`.
 
 ---
 
@@ -425,7 +425,7 @@ Required deliverables before Mac App Store submission. None of these counts as "
 
 While verifying paths, three previously-unindexed canon docs surfaced. None were referenced in any of the four new packet docs.
 
-### B1 — `BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md`
+### B1 — `BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` **[READ-THEN-ABSORBED 2026-05-05]**
 
 **Path:** `/Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` (44 KB, dated 2026-04-29)
 
@@ -438,7 +438,7 @@ While verifying paths, three previously-unindexed canon docs surfaced. None were
 
 **Add to** `ALL_DOCS_INDEX_2026_05_02.md` §3.5 (covered by C9 merge target above).
 
-### B2 — `LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md`
+### B2 — `LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md` **[READ-THEN-ABSORBED 2026-05-05]**
 
 **Path:** `/Users/jojo/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md` (67 KB, dated 2026-04-29)
 
@@ -448,7 +448,7 @@ While verifying paths, three previously-unindexed canon docs surfaced. None were
 
 **Add to** `ALL_DOCS_INDEX_2026_05_02.md` §3.5 (covered by C9 merge target above).
 
-### B3 — `OBSCURA_BROWSER_ADDENDUM.md`
+### B3 — `OBSCURA_BROWSER_ADDENDUM.md` **[READ-THEN-ABSORBED 2026-05-05]**
 
 **Path:** `/Users/jojo/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md` (62 KB, dated 2026-04-29)
 
@@ -498,11 +498,11 @@ Updated 2026-05-05 after the canon-hardening session.
 | C13 Telemetry policy | Medium | **MERGED 2026-05-05** §6 + Annex A.16 |
 | C14 ambient_V1_DECISION explicit name | Low | **MERGED 2026-05-05** §1 #2 |
 | C15 CRDT collaboration deferred | Low | **MERGED 2026-05-05** §6 |
-| B1 BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM | Bonus | Indexed; read-then-absorb still pending |
-| B2 LIVE_FILES_AND_SUBSTRATE_ADDENDUM | Bonus | Indexed; read-then-absorb still pending |
-| B3 OBSCURA_BROWSER_ADDENDUM | Bonus | Indexed; read-then-absorb still pending |
+| B1 BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM | Bonus | **READ-THEN-ABSORBED 2026-05-05** — `docs/B1_BIOMETRIC_TAMAGOTCHI_BRAINEXPORT_LIFT_TARGETS_2026_05_05.md` (state: candidate; 5 Tier-1 doctrine lifts + Phase 21–25 build-order entries; held for sign-off) |
+| B2 LIVE_FILES_AND_SUBSTRATE_ADDENDUM | Bonus | **READ-THEN-ABSORBED 2026-05-05** — `docs/B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS_2026_05_05.md` (state: candidate; 5 Tier-1 doctrine lifts + Phase W7-A through W7-J + W8 build-order entries; held for sign-off) |
+| B3 OBSCURA_BROWSER_ADDENDUM | Bonus | **READ-THEN-ABSORBED 2026-05-05** — `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md` (state: candidate; 5 Tier-1 doctrine lifts + Phase W6-A through W6-I build-order entries; held for sign-off) |
 
-**15 of 15 C-blocks MERGED. 3 of 3 B-bonus blocks await read-then-absorb passes. ALL_DOCS_INDEX entries (C9 §3.5) still pending separate slice.**
+**ALL 15 C-blocks MERGED. ALL 3 B-bonus blocks READ-THEN-ABSORBED. ALL_DOCS_INDEX §3.5 entry MERGED. The doc that was "STAGED, NOT MERGED" 2026-05-02 is now COMPLETE.**
 
 ---
 
