@@ -244,6 +244,39 @@ but implementation paused for hackathon.
 | **Hackathon** | Deferred — outside MAS-eligible scope |
 | **Master index ref** | §16 ANE Direct Path / KV Implantation (Research only) |
 
+### T16 — Live File Compiler (Wave 7)
+
+| | |
+|---|---|
+| **Status** | doctrine + typed seam shipped 2026-05-04 (`docs/fusion/LIVE_FILE_COMPILER_DOCTRINE_2026_05_04.md` + `agent_core/src/live_files/` with 5 unit tests). Implementation gated on V2.1 (Cognitive DAG) + V2.4 (XPC Mastery) + V2.5 (Simulation v1.7+) all stable first. |
+| **Tier** | Foundational — restored to canonical-track status after `CANONICAL_DRIFT_AUDIT_2026_05_04.md` flagged it drifted to indefinite deferral |
+| **Phase** | Wave 7 — between V2.7 and V3 ultimate goal |
+| **Master index ref** | `docs/fusion/research/FINAL_SYNTHESIS.md` §1 (the breakthrough) + §1.2 (LivePlan.v1 schema) + §4 (10-state machine) |
+| **Code anchors** | `agent_core/src/live_files/mod.rs` (LiveFileState enum + LivePlanV1 schema + invariants) |
+| **Acceptance bar** | `LIVE_FILE_COMPILER_DOCTRINE_2026_05_04.md` §6 — 9 specific gates including kani formal verification of the 10-state machine |
+
+### T17 — Cognitive Weight Class System (4-tier)
+
+| | |
+|---|---|
+| **Status** | doctrine + typed seam shipped 2026-05-04 (`docs/fusion/COGNITIVE_WEIGHT_CLASS_DOCTRINE_2026_05_04.md` + `agent_core/src/cognitive_weight/` with 7 unit tests). Two-phase rollout: **W1** (V2.5+) reads class metadata + applies retrieval bias; **W2** (Wave 7 alongside Live Files) enforces `policy_grade` authority on tool calls. |
+| **Tier** | Foundational — restored to canonical-track status after the same drift audit |
+| **Phase** | T8 Halo sub-track 4 (W1) + T16 Wave 7 partner (W2) |
+| **Master index ref** | `docs/fusion/research/FINAL_SYNTHESIS.md` §3 (full 4-tier table) + the §3.1 Semantic-Gravity-vs-Policy-Authority boundary |
+| **Code anchors** | `agent_core/src/cognitive_weight/mod.rs` (CognitiveWeightClass + CognitiveWeight + can_constrain_tools gate) |
+| **Acceptance bar** | `COGNITIVE_WEIGHT_CLASS_DOCTRINE_2026_05_04.md` §6 — W1 + W2 separate criteria |
+
+### T18 — Variant Ladder Discipline (No-LLM-First)
+
+| | |
+|---|---|
+| **Status** | doctrine + typed seam shipped 2026-05-04 (`docs/fusion/COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md` + `agent_core/src/variant_ladder/` with 5 unit tests). Discipline applies retroactively to every tool route AND every future tool route — no phasing. The route-capture domain at `agent_core/src/route/` is the reference implementation. |
+| **Tier** | Discipline (not a feature) — every PR adding a tool route must honor it |
+| **Phase** | Always-on; per-PR enforcement |
+| **Master index ref** | `docs/fusion/research/PLAN_V2.md` §1.4 + `salvage/from-vigorous-goldberg/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md` §1.4 |
+| **Code anchors** | `agent_core/src/variant_ladder/mod.rs` (LadderTier + LadderVariant trait + VariantLadder<I, O> struct), reference impls at `agent_core/src/route/variant_b_classifiers.rs` + `route/variant_c_providers.rs` |
+| **Acceptance bar** | `COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md` §7 — PR description must include `## Variant Ladder` section + Tier 1 deterministic backstop must exist (or PR proves impossible) |
+
 ---
 
 ## 5. Cross-cutting concerns (not their own tracks)
