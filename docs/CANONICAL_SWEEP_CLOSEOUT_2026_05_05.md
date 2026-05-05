@@ -91,7 +91,7 @@ signs them off.
 
 | Item | Status | Note |
 |---|---|---|
-| **A1** | pending | redb-backed `DagStore` implementation. Current `InMemoryDagStore` is the only impl; reboot loses the DAG. Substantial multi-hour effort — separate slice. |
+| **A1** | **scoping landed 2026-05-05** | redb-backed `DagStore` scoping brief at `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md` (commit 83481cc1). `state: candidate`. Crate selection (redb 2.x), schema (5 tables), 5-slice implementation plan (5-9 hours), ~19 new tests, migration/rollback path. Held for sign-off — implementation is the next deliberation cycle. |
 | **A2** | **closed 2026-05-05** | Promoted dispatch hash from sentinel to real macaroon (commit 661fd7d0). |
 | **A2-followup** | **closed 2026-05-05** | Per-mirror caveat-narrowed capabilities (commit 5f38f3c8). 5 derived caps via `Caveat::ScopePrefix` ("skills", "procedural", "provenance/evidence", "provenance/claim", "companions"); each dispatch site signs under its own narrowed authority; pre-positioned for the future "DAG enforces caveats at insert" verification slice. 4 new tests pin distinctness + registration + canonical derivation. |
 | **A3** | mostly closed | Auto-invoke dispatch coverage: 4 of 5 dispatch helpers wired (Skills via `skill_router.rs:59`, Procedural via `agent_runtime/procedural_memory.rs:93`, Evidence via `provenance/ledger.rs:358`, Claim via `provenance/ledger.rs:423`). The 5th — `on_companion_registered` — has no live caller because `CompanionRegistry` is only used by tests today; will wire when companion lifecycle goes live. |
