@@ -76,6 +76,33 @@ jobs:
       - name: Test agent_core
         run: cd agent_core && cargo test --target aarch64-apple-darwin
 
+      # B4 (canonical upgrade audit 2026-05-05): the lsp-runtime feature
+      # ships the in-process LSP kernel that Swift's RustLSPTransport
+      # consumes via FFI. The Xcode build path enables it
+      # (build-agent-core.sh:23-27); the cargo CI path must too, so the
+      # Rust LSP tests run in CI and don't only get exercised under
+      # xcodebuild.
+      - name: Test agent_core (lsp-runtime feature)
+        run: cd agent_core && cargo test --target aarch64-apple-darwin --features lsp-runtime
+
+      # B3 (canonical upgrade audit 2026-05-05): Pro-build feature
+      # surface (cli_passthrough, terminal, apple_apps, imessage,
+      # browser, etc.) is never compiled in CI under default features.
+      # Per MAS-First doctrine §3.1: "CI must run BOTH" the MAS + Pro
+      # build invocations.
+      - name: Build agent_core (Pro feature surface)
+        run: cd agent_core && cargo build --target aarch64-apple-darwin --no-default-features --features pro-build,lsp-runtime
+      - name: Test agent_core (Pro feature surface)
+        run: cd agent_core && cargo test --target aarch64-apple-darwin --no-default-features --features pro-build,lsp-runtime
+
+      # B1 (canonical upgrade audit 2026-05-05): the doctrine linter is
+      # the only mechanical enforcer of cognitive DAG doctrine §5
+      # verification gates. A doctrine lint that doesn't run is just
+      # documentation. Wire it in so any future PR that drifts the four
+      # gates fails CI.
+      - name: Run doctrine linter (cognitive DAG §5 gates)
+        run: cd agent_core && cargo run --target aarch64-apple-darwin --bin epistemos_doctrine_lint -- "$GITHUB_WORKSPACE"
+
       # Rust lints
       - name: Clippy (all crates)
         run: |
