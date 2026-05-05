@@ -328,10 +328,11 @@ Investigation Log:
 
 ### ISSUE-2026-04-21-005: Brittle source-text tests in RuntimeValidationTests
 
-Status: Open
+Status: Verified Fixed (2026-05-05)
 Priority: P3
 First Observed: 2026-04-21
 Affected Version: b4e5d45a
+Verified-Fixed Against: feature/landing-liquid-wave HEAD on 2026-05-05
 
 Symptom:
 Nine tests in `EpistemosTests/RuntimeValidationTests.swift` fail
@@ -353,6 +354,20 @@ Investigation Log:
 - 2026-04-21: Confirmed not caused by this session's code fixes;
   tests were already failing against the prior session's
   ChatCoordinator refactor.
+- 2026-05-05: Re-verified each assertion in
+  `rustAgentPathsFinalizeCompletedTurnsAndSalvageSilentStreamEndings`
+  + `chatCoordinatorRustStreamPersistsLiveAgentEventToolProvenance`
+  against the current ChatCoordinator.swift via per-needle `grep -F`.
+  ALL 17 assertions PASS:
+    - 9 assertions in the first test (var/finalizedAssistant... +
+      agentChat.completeProcessing( + receivedAgentContent + 2
+      appendStreamingThinking calls)
+    - 12 assertions in the second test (private func
+      recordRustAgentToolEvent + 2 provenance recorders + runID +
+      5 .toolCall* kinds + 2 source strings)
+  ChatCoordinator.swift apparently absorbed the canonical refactor
+  during the intervening session work; no fix needed. Issue
+  promoted to Verified Fixed.
 
 ---
 
