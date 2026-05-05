@@ -24,7 +24,9 @@ The user's exact words for this handoff:
 > sure its til canon and not losing nuacn e from the plan."
 
 In plain terms:
-1. Treat the last 32 commits as not-yet-shipped until you verify.
+1. Treat every commit since `7a063f4a` as not-yet-shipped until you
+   verify. The original Claude ledger covered the session slice; the
+   live range is larger.
 2. Read the commits cold; the prose in this doc is *my* framing,
    not yours.
 3. Disclose what is *truly* still blocked — be honest about gates
@@ -37,13 +39,39 @@ In plain terms:
 This doc is a **map**, not a verification. Your verification IS
 the truth.
 
+## Codex addendum — 2026-05-05 semantic LSP correction
+
+This handoff predates Codex's correction pass for V2.3. The original
+claims below remain useful as a historical map, but the current dirty
+worktree supersedes them in these ways:
+
+- The live audit range from the last Codex commit is **44 commits** at
+  `b238f085` (`git rev-list --count 7a063f4a..HEAD`), not 32. The
+  Claude session subrange from `d9be24b5^..HEAD` is 33 commits.
+- V2.3 Stage F is no longer "tower-lsp + tree-sitter for
+  hover/definition" in the abstract. Codex added `tower-lsp`,
+  `tree-sitter`, `tree-sitter-rust`, and `tree-sitter-swift` behind the
+  `lsp-runtime` feature, and the Rust kernel now supports document sync,
+  same-file hover, and same-file definition lookup.
+- Remaining V2.3 semantic LSP work is richer IDE behavior: cross-file
+  symbol indexing, scope-aware resolution, diagnostics, completion,
+  references, rename, and later DAG symbol mirroring.
+- The in-process test stub still returns MethodNotFound and is still
+  valid for `LSPClient` not-initialized guard tests. It no longer
+  describes the production Rust transport.
+- Codex focused verification has passed for the LSP correction only:
+  Rust `lsp_runtime` tests, MAS/Pro feature variants, and the focused
+  Swift LSP suite. This is not a full-app release sign-off.
+
 ---
 
 ## The session boundary
 
 - **Last Codex commit:** `7a063f4a` (2026-05-04)
 - **First Claude commit this stretch:** `d9be24b5` (2026-05-05)
-- **Commits in scope for your audit:** 32 (full list at the end)
+- **Commits in scope for your audit:** every commit after `7a063f4a`
+  (44 at `b238f085`); the session ledger below covers the Claude
+  session slice.
 - **Branch:** `feature/landing-liquid-wave`
 - **Net diff vs the last Codex commit:** ~+5,000 / −1,500 LOC (rough)
 
@@ -86,9 +114,10 @@ git log d9be24b5^..HEAD --oneline    # the start of my session
 
 **V2.3 LSP migration (commits 22, 29-32):**
 13. First slice — `LSPTransport` Swift protocol seam, 6 tests
-14. Stage A — Hand-rolled in-process Rust `LspKernel` module, 14 tests,
-    NO new Cargo deps (gated behind `lsp-runtime` feature, off by
-    default)
+14. Stage A — Initially hand-rolled in-process Rust `LspKernel` module,
+    14 tests, no new Cargo deps at that commit. Superseded by the Codex
+    addendum above: the current dirty worktree intentionally adds
+    `tower-lsp` + `tree-sitter` dependencies behind `lsp-runtime`.
 15. Stage B — 3 UniFFI exports (`lsp_send_message_json`,
     `lsp_poll_response_json`, `lsp_lifecycle_state_debug`) +
     `build-agent-core.sh` enables `lsp-runtime` for both MAS + Pro
@@ -144,7 +173,7 @@ non-trivial):
 | Item | Decision needed |
 |---|---|
 | V2.5 simulation worktree merge | `worktree-simulation` is a 6,678-file architectural divergence. Three options: (a) cherry-pick specific Sim Mode features onto current branch; (b) rebase the sim work atop current; (c) switch active branch to worktree-simulation and re-port V2/V3 work. Each is multi-day. |
-| V2.3 Stage F | tower-lsp + tree-sitter Rust crates for hover/definition — adds tree-sitter native compile to every build. ~2-3 days, real dep weight. |
+| V2.3 richer semantic LSP | Basic `tower-lsp` + `tree-sitter` same-file hover/definition now exists in the dirty Codex correction; remaining decision is cross-file/scope-aware symbol indexing, diagnostics, completion, references, rename, and DAG symbol mirroring. |
 
 **Things I may have undersold** (please verify):
 
@@ -166,7 +195,9 @@ non-trivial):
   request. The LSPClient `notInitializedGuards` test was migrated
   to use this stub instead of the deleted LSPServerProcess. Verify
   the test still asserts the right semantic (server doesn't speak
-  LSP → all RPC methods surface .notInitialized).
+  LSP → all RPC methods surface .notInitialized). Do not confuse this
+  stub with the production Rust transport, which now has semantic
+  same-file hover/definition.
 
 **Things I may have oversold**:
 

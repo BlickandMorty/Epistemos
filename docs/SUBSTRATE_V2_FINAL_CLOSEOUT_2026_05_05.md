@@ -8,9 +8,9 @@ mid-stretch checkpoint) and is the canonical V2-end record.
 
 | Lane | Scope | Status | Gating / open work |
 |---|---|---|---|
-| **V2.1** | Cognitive DAG Phase 8 | 8.A — 8.G ✓ shipped | 8.H gated on doctrine §10 two-week CI green (release decision; not autonomous) |
+| **V2.1** | Cognitive DAG Phase 8 | 8.A — 8.G implemented, not release-signed | Authority remains blocked on doctrine §10 plus Codex verification of Phase 1-7 preconditions, mirror coverage, and capability-bound edge verification |
 | **V2.2** | Halo V1 | ✓ shipped (with ledger ribbon) | none |
-| **V2.3** | LSP migration | ✓ closed at source level | Stage F (tower-lsp + tree-sitter for hover/definition) deferred — adds real Cargo dep weight; next-session decision |
+| **V2.3** | LSP migration | ✓ corrected at source level | Codex correction added real `tower-lsp` + `tree-sitter` same-file hover/definition; richer cross-file/scope-aware LSP remains deferred |
 | **V2.4** | XPC Mastery | First slice ✓ (ProviderServiceStreamingProtocol + Mock + tests) | Production deployment requires paid Apple Developer Program ($99/yr); IOSurface streaming Phase 2 deferred |
 | **V2.5** | Simulation v1.7+ | NOT MERGED | `worktree-simulation` (17 commits) is a 6,678-file architectural divergence from current branch — needs strategic call (cherry-pick / rebase / branch-swap), not a single-commit merge |
 | **V2.6** | UX advanced + brand | NOT STARTED | NousResearch licensing gate; brand tokens already removed in Hermes teardown |
@@ -23,6 +23,9 @@ defines V2 acceptance as:
 > "V2.1 — V2.7 complete; tests green; two-week CI stable."
 
 That bar is **not strictly met**:
+- V2.1 Phase 8.A-8.G is implemented but still needs Codex sign-off against
+  the doctrine preconditions, including Phase 1-7 readiness and
+  capability-bound edge verification.
 - V2.4 hard-gated on paid team (out of scope for this session)
 - V2.5 has unmerged divergent worktree (architectural decision pending)
 - V2.6 brand-licensing-gated
@@ -82,15 +85,17 @@ paper draft) shipped this session as a parallel deliverable.
 `xcodebuild test` runs ~2,679 tests and is long enough that I run
 focused suites per slice instead.)
 
-## What's decisively shipped (autonomous-verifiable)
+## What's implemented (not release-signed unless noted)
 
 - All four DagMirrors (Skills + Procedural + Provenance + Companion)
   with auto-invoke from legacy write paths.
 - `epistemos-trace verify-replay` CLI with DAG merkle parity check
   (5 distinct exit codes).
 - `epistemos-doctrine-lint` CI binary that codifies the 4 §5 gates.
-- Storage layer doctrine §4.1/§4.2 enforcement at put_node /
-  put_edge boundaries.
+- Storage layer doctrine §4.1/§4.2 partial enforcement at put_node /
+  put_edge boundaries. `put_node` validates content address; `put_edge`
+  rejects unsigned all-zero signatures, but full capability-bound signature
+  verification remains a blocker for authority flip.
 - ResonanceService FFI swap (Swift stub → Rust seed).
 - Provenance ledger Rust→Swift bridge surfaced in Provenance
   Console + Halo panel ribbon.
@@ -100,7 +105,8 @@ focused suites per slice instead.)
 - ANEBackend Swift protocol + MockANEBackend + KV implant typed
   buffer (V3.2 first slice).
 - In-process Rust LSP runtime (LspKernel) + FFI + Swift
-  RustLSPTransport (V2.3 Stages A-D).
+  RustLSPTransport, corrected by Codex to use `tower-lsp` payload types and
+  `tree-sitter` same-file hover/definition.
 - Subprocess LSPServerProcess deletion (V2.3 Stage E).
 - Gemini + Kimi CLI passthrough handlers (parity with Claude /
   Codex).
@@ -123,8 +129,10 @@ focused suites per slice instead.)
 
 ## What's queued (autonomous, ready for next session)
 
-- V2.3 Stage F — tower-lsp + tree-sitter for hover/definition.
-  ~2-3 days. Adds real Cargo dep weight (tree-sitter native compile).
+- V2.3 richer semantic LSP — cross-file symbol index, scope-aware
+  resolution, diagnostics, completion, references, rename, and DAG symbol
+  mirroring. The basic `tower-lsp` + `tree-sitter` same-file
+  hover/definition path now exists.
 - V2.4 Stage 2 — IOSurface streaming ring for ProviderXPC. ~3-5 days.
 - V3.2 Stage 2 — PrivateFrameworkANEBackend (compiles fine; runtime
   loading is signing-gated, but the dlopen wrapper code can be
