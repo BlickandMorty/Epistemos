@@ -86,6 +86,11 @@ impl ProceduralMemoryStore {
                 record.occurred_at_unix_seconds,
             ],
         )?;
+        // Phase 8.E auto-invoke: mirror the legacy SQLite write into
+        // the cognitive DAG. Doctrine §10: dispatch failures are logged
+        // but never propagated — the SQLite write already succeeded
+        // and stays authoritative.
+        crate::cognitive_dag::dispatch::on_procedure_recorded(record);
         Ok(())
     }
 

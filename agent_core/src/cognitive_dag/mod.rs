@@ -29,6 +29,7 @@
 //! before Phase 8.H flips authority.
 
 pub mod companions;
+pub mod dispatch;
 pub mod edge;
 pub mod macaroons;
 pub mod merkle;

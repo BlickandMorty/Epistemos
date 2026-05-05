@@ -349,6 +349,13 @@ impl ClaimLedger {
             return Err(LedgerError::DuplicateId(e.id.0.clone()));
         }
         self.evidence_supports.entry(e.id.clone()).or_default();
+        // Phase 8.E auto-invoke: mirror the legacy write into the
+        // cognitive DAG. Cloned by reference because the dispatch
+        // helper needs the owned Evidence shape and the legacy store
+        // is about to take ownership too. Failures inside the dispatch
+        // are logged but never propagated — doctrine §10: a mirror
+        // miss must NOT break the legacy write.
+        crate::cognitive_dag::dispatch::on_evidence_committed(&e);
         self.evidence.insert(e.id.clone(), e);
         Ok(())
     }
@@ -409,6 +416,15 @@ impl ClaimLedger {
 
         // All validation passed — commit atomically.
         let id = claim.id.clone();
+        // Phase 8.E auto-invoke: mirror into the cognitive DAG before
+        // the legacy take-ownership move so the dispatch helper sees
+        // the canonical Claim shape. Doctrine §10: failures are logged
+        // but not propagated — legacy commit stays authoritative.
+        crate::cognitive_dag::dispatch::on_claim_committed(
+            &claim,
+            &derived_from,
+            &supported_by,
+        );
         self.claims.insert(id.clone(), claim);
         let parents: HashSet<ClaimId> = derived_from.iter().cloned().collect();
         for parent in &parents {
