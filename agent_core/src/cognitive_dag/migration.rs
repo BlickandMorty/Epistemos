@@ -620,6 +620,128 @@ fn find_claim_node_by_legacy_id(
     Ok(None)
 }
 
+// ── Companion mirror (Phase 8.E continuation, Lane 2c) ─────────────────────
+
+/// Mutation emitted by the companion lifecycle when a new companion is
+/// registered against a base model. Mirrors the `CompanionRegistry::
+/// register` call shape into the DagMirror trait so all four Phase 8.E
+/// subsystems share one contract.
+///
+/// The companion lifecycle already writes directly to the DAG via
+/// `CompanionRegistry` (since Phase 8.D). This mirror layer exists for
+/// trait uniformity — callers that want to register companions through
+/// the same `mirror_write(&mutation, &store, capability_hash)` API
+/// they use for Skills/Procedural/Provenance can do so here.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "companion_mutation", rename_all = "snake_case")]
+pub enum CompanionMutation {
+    /// Register a fresh companion against an existing base Model node.
+    Register {
+        profile: super::node::ModelProfile,
+        identity: super::node::IdentityHash,
+        persona: super::node::PersonaBlob,
+        base_model_id: NodeId,
+        lora_path: std::path::PathBuf,
+        weight_alpha: f32,
+    },
+}
+
+/// Companion DagMirror. Inserts a Companion node + a Deforms edge from
+/// the Companion to the base Model node. Per `cognitive_dag::companions`
+/// the Deforms edge carries `(lora_path, weight_alpha)` so the model
+/// loader can hot-swap the LoRA layer at inference time without
+/// reloading the base.
+pub struct CompanionMirror;
+
+impl DagMirror for CompanionMirror {
+    type Mutation = CompanionMutation;
+
+    fn mirror_write(
+        mutation: &Self::Mutation,
+        store: &dyn DagStore,
+        capability_hash: Hash,
+    ) -> Result<NodeId, DagError> {
+        let CompanionMutation::Register {
+            profile,
+            identity,
+            persona,
+            base_model_id,
+            lora_path,
+            weight_alpha,
+        } = mutation;
+
+        // Validate weight_alpha bound — same check `CompanionRegistry`
+        // does. Doctrine §2.7 requires weight_alpha ∈ [0.0, 1.0]; out-
+        // of-range silently corrupts the LoRA blend so we surface it
+        // as a Backend error (the trait's broadest variant; CompanionError
+        // has a richer InvalidWeightAlpha but the trait erases that).
+        if !(0.0f32..=1.0f32).contains(weight_alpha) {
+            return Err(DagError::Backend(format!(
+                "companion weight_alpha must be in [0.0, 1.0]; got {}",
+                weight_alpha
+            )));
+        }
+
+        // Verify the base model exists in the DAG and is actually a
+        // Model node. Don't silently invent base models — if the legacy
+        // companion store points at a base that hasn't been mirrored,
+        // the audit gate should surface the drift.
+        match store.get_node(*base_model_id)? {
+            Some(node) if matches!(node.kind, NodeKind::Model { .. }) => {}
+            Some(node) => {
+                return Err(DagError::NodeNotFound(format!(
+                    "companion base must be a Model node; got {:?}",
+                    node.kind
+                )));
+            }
+            None => {
+                return Err(DagError::NodeNotFound(format!(
+                    "companion base model not in DAG: {:?}",
+                    base_model_id
+                )));
+            }
+        }
+
+        let companion_node = Node::new(NodeKind::Companion {
+            profile: profile.clone(),
+            identity: identity.clone(),
+            persona: persona.clone(),
+        });
+        let companion_id = store.put_node(companion_node)?;
+
+        let edge = Edge::new(
+            companion_id,
+            *base_model_id,
+            EdgeKind::Deforms {
+                lora_path: lora_path.clone(),
+                weight_alpha: *weight_alpha,
+            },
+            capability_hash,
+        );
+        store.put_edge(edge)?;
+        Ok(companion_id)
+    }
+
+    fn verify_consistent_with_legacy(
+        entity_id: &str,
+        store: &dyn DagStore,
+    ) -> Result<bool, DagError> {
+        // Walk Companion nodes; match on stringified NodeId. The
+        // legacy companion store's id format is the DAG NodeId itself
+        // (companions are DAG-native since Phase 8.D), so this is
+        // straightforward.
+        let snapshot = store.snapshot()?;
+        for node in &snapshot.nodes {
+            if matches!(node.kind, NodeKind::Companion { .. }) {
+                if format!("{:?}", node.id) == entity_id {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+}
+
 /// Find an Evidence node by its legacy ledger id. We re-derive the
 /// payload bytes via `evidence_payload_bytes` and compare; this is
 /// the inverse of the commit path so it matches by construction.
@@ -1183,5 +1305,129 @@ mod tests {
         .unwrap();
         assert!(ProvenanceLedgerMirror::verify_consistent_with_legacy("c1", &store).unwrap());
         assert!(!ProvenanceLedgerMirror::verify_consistent_with_legacy("missing", &store).unwrap());
+    }
+
+    // ── CompanionMirror tests (Phase 8.E continuation, Lane 2c) ────────────
+
+    use super::super::companions::make_base_model_node;
+    use super::super::node::{
+        IdentityHash, ModelLineage, ModelProfile, PersonaBlob, WeightRoot,
+    };
+    use std::path::PathBuf;
+
+    fn base_model_node() -> super::super::node::Node {
+        make_base_model_node([1u8; 32])
+    }
+
+    fn companion_register_mutation(
+        identity_marker: u8,
+        base_model_id: NodeId,
+    ) -> CompanionMutation {
+        CompanionMutation::Register {
+            profile: ModelProfile("qwen3:Q4_K_M".into()),
+            identity: IdentityHash([identity_marker; 32]),
+            persona: PersonaBlob(vec![0xC0, 0xFF, 0xEE]),
+            base_model_id,
+            lora_path: PathBuf::from("/vault/companions/test.safetensors"),
+            weight_alpha: 0.7,
+        }
+    }
+
+    #[test]
+    fn companion_mirror_register_inserts_companion_and_deforms_edge() {
+        let store = InMemoryDagStore::new();
+        let base = base_model_node();
+        let base_id = store.put_node(base).unwrap();
+
+        let companion_id = CompanionMirror::mirror_write(
+            &companion_register_mutation(0xAA, base_id),
+            &store,
+            cap(),
+        )
+        .unwrap();
+
+        // Companion node exists
+        let companion = store.get_node(companion_id).unwrap().unwrap();
+        assert!(matches!(companion.kind, NodeKind::Companion { .. }));
+
+        // Deforms edge from Companion → Model
+        let edges = store
+            .edges_from(companion_id, Some(EdgeKindSelector::Deforms))
+            .unwrap();
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].to, base_id);
+        match &edges[0].kind {
+            EdgeKind::Deforms {
+                lora_path,
+                weight_alpha,
+            } => {
+                assert_eq!(lora_path, &PathBuf::from("/vault/companions/test.safetensors"));
+                assert!((weight_alpha - 0.7).abs() < f32::EPSILON);
+            }
+            other => panic!("expected Deforms, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn companion_mirror_errors_for_missing_base_model() {
+        let store = InMemoryDagStore::new();
+        // Don't insert the base — companion register should fail at the
+        // base-model existence check.
+        let phantom_base = NodeId::from_bytes([0xFFu8; 32]);
+        let err = CompanionMirror::mirror_write(
+            &companion_register_mutation(0xAA, phantom_base),
+            &store,
+            cap(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, DagError::NodeNotFound(_)));
+    }
+
+    #[test]
+    fn companion_mirror_distinct_identities_distinct_companion_nodes() {
+        let store = InMemoryDagStore::new();
+        let base_id = store.put_node(base_model_node()).unwrap();
+        let id_a = CompanionMirror::mirror_write(
+            &companion_register_mutation(0xAA, base_id),
+            &store,
+            cap(),
+        )
+        .unwrap();
+        let id_b = CompanionMirror::mirror_write(
+            &companion_register_mutation(0xBB, base_id),
+            &store,
+            cap(),
+        )
+        .unwrap();
+        assert_ne!(id_a, id_b);
+    }
+
+    #[test]
+    fn companion_mirror_rejects_invalid_weight_alpha() {
+        let store = InMemoryDagStore::new();
+        let base_id = store.put_node(base_model_node()).unwrap();
+        let mut mutation = companion_register_mutation(0xAA, base_id);
+        let CompanionMutation::Register { weight_alpha, .. } = &mut mutation;
+        *weight_alpha = 1.5; // out of [0.0, 1.0]
+        let err = CompanionMirror::mirror_write(&mutation, &store, cap()).unwrap_err();
+        assert!(matches!(err, DagError::Backend(_)));
+    }
+
+    #[test]
+    fn companion_mirror_verify_consistent_returns_true_for_known_companion() {
+        let store = InMemoryDagStore::new();
+        let base_id = store.put_node(base_model_node()).unwrap();
+        let companion_id = CompanionMirror::mirror_write(
+            &companion_register_mutation(0xAA, base_id),
+            &store,
+            cap(),
+        )
+        .unwrap();
+        // Stringify the NodeId for the verify call (the trait API takes
+        // entity_id as &str).
+        let entity_id = format!("{:?}", companion_id);
+        assert!(CompanionMirror::verify_consistent_with_legacy(&entity_id, &store).unwrap());
+        // A bogus id should not match.
+        assert!(!CompanionMirror::verify_consistent_with_legacy("not_a_real_id", &store).unwrap());
     }
 }
