@@ -2,9 +2,11 @@
 
 > **NEW DOC — created 2026-05-02.** Filename: `CANON_GAPS_AND_ADDENDA_2026_05_02.md`. If your session can't find it, search by name. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Mirrored into the active worktree's `docs/fusion/`.
 
-> **STATUS — PARTIALLY MERGED 2026-05-05.** Originally staged pending Codex's deliberation response. After the 2026-05-05 canon-hardening session, Codex's #1 advice item was "merge `CANON_GAPS_AND_ADDENDA` staged blocks". High-severity items C1 (WRV), C2 (no silent fallback), C3 (BYOK off by default), C4 (UX posture §4.0), C5 (canonical state is the only source of truth — §2.2 invariant #5 + §6 forbidden), and medium item C13 (telemetry policy in §6) have been merged into `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`. Each merged block carries an inline `(C#, merged 2026-05-05.)` provenance tag in the destination file. Remaining items (C6 reference link, C7 Resource Runtime anchors, C8 App Store closeout authority, C9 Quick Capture standalone canon, C10 Flight Recorder, C11 pre-release evidence package, C12 local-stream truncation watch, C14 ambient_V1_DECISION naming, C15 housekeeping, B1–B3 bonuses) remain staged.
+> **STATUS — ALL 15 C-BLOCKS MERGED 2026-05-05.** Originally staged pending Codex's deliberation response. After the 2026-05-05 canon-hardening session, all 15 C-blocks (C1 WRV, C2 no silent fallback, C3 BYOK off, C4 UX posture, C5 canonical state, C6 Halo stack reference, C7 Resource Runtime + Phase R [verified-then-merged: substrate already on main], C8 App Store closeout authority, C9 Quick Capture standalone canon, C10 Flight Recorder, C11 pre-release evidence package [verified-then-merged with state caveats], C12 local-stream truncation watch, C13 telemetry policy, C14 ambient_V1_DECISION naming, C15 CRDT deferred) have been merged into their destination files. Each merged block carries an inline `(C#, merged 2026-05-05.)` provenance tag.
 >
-> **This doc remains as the audit trail.** Each `MERGE TARGET:` block below is now annotated with `[MERGED 2026-05-05]` for items that have landed.
+> **Remaining staged:** the 3 B-bonus blocks (BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT, LIVE_FILES_AND_SUBSTRATE, OBSCURA_BROWSER) — these are read-then-absorb passes against 44-67 KB QuickCapture addendum docs, not single-commit merges. C9's `ALL_DOCS_INDEX_2026_05_02.md` §3.5 entry for the Quick Capture standalone canon also remains as a pending separate slice.
+>
+> **This doc remains as the audit trail.** Each `MERGE TARGET:` block below is annotated with `[MERGED 2026-05-05]` for items that have landed.
 
 ---
 
