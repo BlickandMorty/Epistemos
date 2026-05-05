@@ -1,3 +1,4 @@
+use crate::graph_search_backend::{GraphSearchBackend, ScoredHit};
 use crate::types::{SafetyInfo, ToolDefinition, ToolResult};
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
@@ -176,31 +177,64 @@ impl GraphToolExecutor {
         if query.is_empty() {
             return Err("query must not be empty".to_string());
         }
-        let query_lower = query.to_lowercase();
-        let mut results = Vec::with_capacity(store.nodes.len().min(clamp_k(args.k)));
 
-        for node in store.nodes.values() {
-            let haystack = format!("{} {}", node.title, node.body).to_lowercase();
-            if !haystack.contains(&query_lower) {
-                continue;
+        // Score every node via the pluggable backend. Default backend
+        // ships deterministic BM25-like + trigram-cosine scorers (see
+        // graph_search_backend.rs); future Shadow backend routes through
+        // epistemos-shadow's HNSW + Tantivy without changing this site.
+        let backend = GraphSearchBackend::default();
+        let mut scored: Vec<(ScoredHit, &GraphNode)> = Vec::with_capacity(store.nodes.len());
+        if semantic {
+            let scorer = backend.semantic_scorer();
+            for node in store.nodes.values() {
+                let haystack = format!("{} {}", node.title, node.body);
+                if let Some(score) = scorer.score(query, &haystack) {
+                    scored.push((
+                        ScoredHit {
+                            node_id: node.node_id.clone(),
+                            score,
+                        },
+                        node,
+                    ));
+                }
             }
-            let score = if semantic { 0.74 } else { 1.0 };
+        } else {
+            let scorer = backend.fulltext_scorer();
+            for node in store.nodes.values() {
+                let haystack = format!("{} {}", node.title, node.body);
+                if let Some(score) = scorer.score(query, &haystack) {
+                    scored.push((
+                        ScoredHit {
+                            node_id: node.node_id.clone(),
+                            score,
+                        },
+                        node,
+                    ));
+                }
+            }
+        }
+
+        // Sort descending by score; ties broken by ascending node_id so
+        // iteration is replayable across runs (Swift HashMap iteration
+        // and serde_json::Map ordering are randomized otherwise).
+        scored.sort_by(|a, b| {
+            b.0.score
+                .partial_cmp(&a.0.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.node_id.cmp(&b.0.node_id))
+        });
+        scored.truncate(clamp_k(args.k));
+
+        let mut results = Vec::with_capacity(scored.len());
+        for (hit, node) in &scored {
             results.push(json!({
-                "node_id": node.node_id,
-                "score": score,
+                "node_id": hit.node_id,
+                "score": hit.score,
                 "snippet": snippet_for(&node.body, query),
                 "title": node.title,
                 "kind": node.kind,
             }));
         }
-
-        results.sort_by(|a, b| {
-            a["title"]
-                .as_str()
-                .unwrap_or("")
-                .cmp(b["title"].as_str().unwrap_or(""))
-        });
-        results.truncate(clamp_k(args.k));
         let result_count = results.len();
 
         let event_kind = if semantic {

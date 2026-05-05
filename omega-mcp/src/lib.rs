@@ -7,6 +7,7 @@ pub mod catalog;
 pub mod config;
 pub mod dataset_formatter;
 pub mod dispatcher;
+pub mod graph_search_backend;
 pub mod graph_tools;
 pub mod logger;
 pub mod moa;
