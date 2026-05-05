@@ -261,7 +261,7 @@ Lives outside the main repo at `/Users/jojo/Documents/Epistemos-QuickCapture/`. 
 
 ---
 
-### C10 — Flight Recorder (named subsystem)
+### C10 — Flight Recorder (named subsystem) **[MERGED 2026-05-05 — §7 Build-Order + Annex A.15]**
 
 **Original plan:** *"Trust visibility: diagnostics, status surfaces, runtime transparency. Flight Recorder is a real subsystem, not afterthought logging."*
 
@@ -354,7 +354,7 @@ Required deliverables before Mac App Store submission. None of these counts as "
 
 ---
 
-### C13 — Telemetry sensitivity / retention / consent **[MERGED 2026-05-05 — §6 forbidden line; Annex A.16 still pending]**
+### C13 — Telemetry sensitivity / retention / consent **[MERGED 2026-05-05 — §6 forbidden line + Annex A.16 full policy table]**
 
 **Original plan:** *"Telemetry sensitivity. Even metadata-only carries behavioral sensitivity. Minimal capture, explicit retention policy, opt-in/clear copy before rollout."*
 
