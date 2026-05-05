@@ -29,6 +29,7 @@
 //! before Phase 8.H flips authority.
 
 pub mod edge;
+pub mod macaroons;
 pub mod merkle;
 pub mod node;
 pub mod resonance;
@@ -46,6 +47,10 @@ pub use node::{
     EvidenceBlob, EvidenceKind, Hash, IdentityHash, MimeType, ModelLineage, ModelProfile, Node,
     NodeId, NodeKind, NodeTier, OutcomeList, PersonaBlob, SessionId, SourceRef, Timestamp, ToolId,
     ToolSurface, WeightRoot,
+};
+pub use macaroons::{
+    delegate, evaluate_caveats, issue, restrict, revoke_macaroon_in_dag, verify_macaroon,
+    Caveat, CaveatViolation, Macaroon, RuntimeContext, VerifyError,
 };
 pub use resonance::{
     add_contradiction_then_propagate, add_evidence_then_propagate, evaluate_claim_truth,
