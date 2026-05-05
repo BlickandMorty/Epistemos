@@ -92,7 +92,8 @@ signs them off.
 | Item | Status | Note |
 |---|---|---|
 | **A1** | pending | redb-backed `DagStore` implementation. Current `InMemoryDagStore` is the only impl; reboot loses the DAG. Substantial multi-hour effort — separate slice. |
-| **A2** | **closed 2026-05-05** | Promoted dispatch hash from sentinel to real macaroon (commit 661fd7d0). A2-followup (per-mirror caveats narrowing the authority surface) remains queued. |
+| **A2** | **closed 2026-05-05** | Promoted dispatch hash from sentinel to real macaroon (commit 661fd7d0). |
+| **A2-followup** | **closed 2026-05-05** | Per-mirror caveat-narrowed capabilities (commit 5f38f3c8). 5 derived caps via `Caveat::ScopePrefix` ("skills", "procedural", "provenance/evidence", "provenance/claim", "companions"); each dispatch site signs under its own narrowed authority; pre-positioned for the future "DAG enforces caveats at insert" verification slice. 4 new tests pin distinctness + registration + canonical derivation. |
 | **A3** | mostly closed | Auto-invoke dispatch coverage: 4 of 5 dispatch helpers wired (Skills via `skill_router.rs:59`, Procedural via `agent_runtime/procedural_memory.rs:93`, Evidence via `provenance/ledger.rs:358`, Claim via `provenance/ledger.rs:423`). The 5th — `on_companion_registered` — has no live caller because `CompanionRegistry` is only used by tests today; will wire when companion lifecycle goes live. |
 | **A4** | pending | WASM exec sandbox-within-sandbox. Doctrine §X.4. |
 | **A5** | pending | In-process MCP. Currently MCP runs via stdio subprocess (Pro tier). |
@@ -162,8 +163,7 @@ is a Research-tier path (Annex A.10 KV implantation + raw memory
 inspection). Outside Research, MLX-Swift handles weight loading via
 its own zero-copy path.
 
-**Action queued:** doctrine annex on "where mmap lives in Epistemos"
-to avoid future drift on this question. Not in this session.
+**Action landed 2026-05-05:** `docs/MMAP_UTILIZATION_AUDIT_2026_05_05.md` (commit d00f7f15) — full audit + three mmap surfaces + three drift hazards + cross-refs. Companion to doctrine §2.2 invariant #1.
 
 ### Q2: "Artifact primitive that distinguishes Static Note from Dynamic AI Weight"
 
@@ -190,11 +190,7 @@ the dynamic side. The static side is `Note` + `Capture` nodes.
 is not surfaced as a top-level "Artifact" enum the way the user's
 question implies.
 
-**Action queued:** deliberation brief that either (a) introduces a
-top-level `Artifact { Static(NoteId) | Dynamic(WeightRootId) | …}`
-discriminator, or (b) documents why the existing `NodeKind` enum
-already captures this distinction without a new type. Either resolution
-is canon-worthy. Not in this session.
+**Action landed 2026-05-05:** `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` (commit df458efc) — deliberation brief in `state: candidate`. Survey shows the static/dynamic distinction is already encoded (8 of 10 NodeKind variants are static, 2 are dynamic-rooted). Recommendation (held for sign-off): add `NodeKind::is_dynamic_rooted()` method + doctrine §2.2 paragraph (~30 LOC + 1 test). Skip the wrapper-type option — it adds drift surface without behavioral change.
 
 ---
 
