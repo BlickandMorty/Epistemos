@@ -29,7 +29,7 @@ use blake3::Hasher;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    edge::{Edge, EdgeKind, EdgeKindSelector},
+    edge::{Edge, EdgeKind},
     node::{
         ContextHash, Hash, Node, NodeId, NodeKind, NodeTier, OutcomeList, SourceRef, Timestamp,
         ToolId, ToolSurface,
@@ -774,6 +774,7 @@ fn find_evidence_node_by_legacy_id(
 
 #[cfg(test)]
 mod tests {
+    use super::super::edge::EdgeKindSelector;
     use super::super::storage::InMemoryDagStore;
     use super::*;
 
