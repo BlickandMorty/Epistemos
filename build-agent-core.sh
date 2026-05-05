@@ -14,10 +14,16 @@ fi
 cd "$(dirname "$0")/agent_core"
 
 FEATURE_ARGS=()
+# V2.3 (2026-05-05): the lsp-runtime feature ships the in-process LSP
+# kernel + the lsp_send_message_json / lsp_poll_response_json /
+# lsp_lifecycle_state_debug FFI exports the Swift `RustLSPTransport`
+# consumes. Carries zero new Cargo dependencies (hand-rolled
+# JSON-RPC over serde_json which is already a dep) so this is a
+# free addition for both MAS + Pro builds.
 if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ]; then
-    FEATURE_ARGS+=(--no-default-features --features mas-build)
+    FEATURE_ARGS+=(--no-default-features --features "mas-build,lsp-runtime")
 else
-    FEATURE_ARGS+=(--no-default-features --features pro-build)
+    FEATURE_ARGS+=(--no-default-features --features "pro-build,lsp-runtime")
 fi
 
 if [ "$CONFIGURATION" = "Debug" ]; then
