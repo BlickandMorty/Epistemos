@@ -112,12 +112,22 @@ nonisolated public struct LSPLocation: Codable, Sendable, Hashable {
 
 // MARK: - Client actor
 
-/// JSON-RPC 2.0 client over `LSPServerProcess`. Owns the request id
+/// JSON-RPC 2.0 client over an `LSPTransport`. Owns the request id
 /// counter + pending response continuations. Server-pushed
 /// notifications fan out via `notifications: AsyncStream<LSPMessage>`.
+///
+/// **V2.3 (2026-05-05) refactor:** the client previously held a
+/// concrete `LSPServerProcess`; it now holds `any LSPTransport` so
+/// the future tower-lsp Rust transport can drop in without touching
+/// LSPClient. The `process` accessor stays for backward compat —
+/// callers that constructed against `LSPServerProcess` still get
+/// the same interface.
 public actor LSPClient {
 
-    public let process: LSPServerProcess
+    /// The underlying transport. May be `LSPServerProcess` (subprocess
+    /// transport — production today) or `InProcessLSPTransport` (Swift
+    /// stub) or a future Rust-backed transport.
+    public let transport: any LSPTransport
     private let log = Logger(subsystem: "com.epistemos", category: "LSPClient")
 
     private var nextRequestId: Int = 1
@@ -129,8 +139,15 @@ public actor LSPClient {
     public nonisolated let notifications: AsyncStream<LSPMessage>
     private let notificationContinuation: AsyncStream<LSPMessage>.Continuation
 
-    public init(process: LSPServerProcess) {
-        self.process = process
+    /// Backward-compatible accessor. Callers that need the concrete
+    /// `LSPServerProcess` (e.g. to call `launch()`) can downcast.
+    /// New code should use `transport` directly.
+    public var process: LSPServerProcess? {
+        transport as? LSPServerProcess
+    }
+
+    public init(transport: any LSPTransport) {
+        self.transport = transport
         var continuation: AsyncStream<LSPMessage>.Continuation!
         self.notifications = AsyncStream(bufferingPolicy: .bufferingNewest(256)) { c in
             continuation = c
@@ -138,10 +155,17 @@ public actor LSPClient {
         self.notificationContinuation = continuation
     }
 
+    /// Backward-compatible convenience init — preserves the pre-V2.3
+    /// `LSPClient(process: ...)` call site shape so existing callers +
+    /// tests don't have to change.
+    public init(process: LSPServerProcess) {
+        self.init(transport: process)
+    }
+
     /// Spawn the message-routing loop. Call exactly once after the
-    /// transport is launched (so `process.messages` actually produces).
+    /// transport is launched (so `transport.messages` actually produces).
     public func startRouting() {
-        let stream = process.messages
+        let stream = transport.messages
         Task {
             for await msg in stream {
                 self.routeIncoming(msg)
@@ -215,7 +239,7 @@ public actor LSPClient {
             Task { [weak self] in
                 guard let self else { return }
                 do {
-                    try await self.process.send(msg)
+                    try await self.transport.send(msg)
                 } catch {
                     await self.failPending(id: id, error: error)
                 }
@@ -241,7 +265,7 @@ public actor LSPClient {
 
     /// Send a fire-and-forget notification.
     private func notify(method: String, params: LSPJSONValue?) async throws {
-        try await process.send(.notification(method: method, params: params))
+        try await transport.send(.notification(method: method, params: params))
     }
 
     // MARK: - High-level RPCs
@@ -367,7 +391,7 @@ public actor LSPClient {
         // its own process after exit.
         _ = try? await request(method: "shutdown", params: nil)
         try? await notify(method: "exit", params: nil)
-        await process.shutdown()
+        await transport.shutdown()
         notificationContinuation.finish()
     }
 
