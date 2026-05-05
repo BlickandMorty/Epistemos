@@ -62,7 +62,6 @@ nonisolated struct ToolSurfaceBehavioralMatrixTests {
             "codex_cli",
             "gemini_cli",
             "kimi_cli",
-            "hermes_subprocess",
         ]
 
         for toolName in forbiddenInCore {
@@ -159,7 +158,6 @@ nonisolated struct ToolSurfaceBehavioralMatrixTests {
             tool("docker"),
             tool("mcp_call"),
             tool("cli_passthrough"),
-            tool("hermes_subprocess"),
         ]
 
         let coreSet = Set(ToolSurfacePolicy.surfacedTools(synthetic, distribution: .coreAppStore).map(\.name))
@@ -173,7 +171,7 @@ nonisolated struct ToolSurfaceBehavioralMatrixTests {
         // Specifically, the Pro/Research extras must include the doctrine-forbidden-in-Core set.
         let extras = proSet.subtracting(coreSet)
         for forbidden in ["bash", "shell_exec", "browser_use", "computer_use",
-                          "docker", "mcp_call", "cli_passthrough", "hermes_subprocess"] {
+                          "docker", "mcp_call", "cli_passthrough"] {
             #expect(extras.contains(forbidden),
                     "Pro/Research-only set must include \(forbidden) among the Core extras — got \(extras)")
         }

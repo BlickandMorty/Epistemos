@@ -28,7 +28,6 @@ nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     case codexAccountProvider
     case cliDelegation
     case mcpWebTool
-    case hermesSubprocess
     case browserComputerUse
     case dockerDevcontainer
     case explicitExternalSideEffect
@@ -45,7 +44,6 @@ nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     static let externalGatewaySurfaces: [Self] = cloudProviderSurfaces + [
         .cliDelegation,
         .mcpWebTool,
-        .hermesSubprocess,
         .browserComputerUse,
         .dockerDevcontainer,
         .explicitExternalSideEffect,
@@ -70,7 +68,7 @@ nonisolated enum HermesGatewayPolicy {
     typealias Decision = HermesGatewayDecision
 
     static let externalTierBoundaryLine =
-        "Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only."
+        "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
     static let localCoreBoundaryLine =
         "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
 
@@ -154,16 +152,6 @@ nonisolated enum HermesGatewayPolicy {
                 preservesDirectSubstratePath: false,
                 evidenceReturn: .structuredEvidenceProvenance,
                 reason: "MCP and web tools cross the local substrate boundary and return evidence, not authority."
-            )
-        case .hermesSubprocess:
-            Decision(
-                tier: .proResearch,
-                route: .hermesGateway,
-                requiresNetwork: false,
-                requiresSubprocess: true,
-                preservesDirectSubstratePath: false,
-                evidenceReturn: .structuredEvidenceProvenance,
-                reason: "A Hermes subprocess is orchestration, not the Core in-process prompt path."
             )
         case .browserComputerUse:
             Decision(
