@@ -403,7 +403,7 @@ Required deliverables before Mac App Store submission. None of these counts as "
 
 ---
 
-### C15 — CRDT collaboration explicitly deferred
+### C15 — CRDT collaboration explicitly deferred **[MERGED 2026-05-05 — §6 forbidden]**
 
 **Original plan:** *"CRDT collaboration deferred."*
 
@@ -477,28 +477,30 @@ When the user authorizes the merge:
 
 ## 5. Status checklist
 
+Updated 2026-05-05 after the canon-hardening session.
+
 | Gap | Severity | Status |
 |---|---|---|
-| C1 WRV doctrine | High | Drafted, awaiting Codex deliberation + user authorize |
-| C2 No silent cloud escalation | High | Drafted |
-| C3 BYOK cloud OFF by default | High | Drafted |
-| C4 UX posture (composer / modes / effort / capabilities) | High | Drafted |
-| C5 No second source of truth | High | Drafted |
-| C6 Halo stack reference | Medium | Drafted |
-| C7 Resource Runtime + Phase R | High | Drafted |
-| C8 APP_STORE_RELEASE_COMPLETION_STATUS authority | High | Drafted |
-| C9 Quick Capture standalone canon | Medium | Drafted |
-| C10 Flight Recorder | Medium | Drafted |
-| C11 Pre-release evidence package | High | Drafted |
-| C12 Local-stream truncation fix watch | Medium | Drafted |
-| C13 Telemetry policy | Medium | Drafted |
-| C14 ambient_V1_DECISION explicit name | Low | Drafted |
-| C15 CRDT collaboration deferred | Low | Drafted |
-| B1 BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM | Bonus | Indexed; read before merge |
-| B2 LIVE_FILES_AND_SUBSTRATE_ADDENDUM | Bonus | Indexed; read before merge |
-| B3 OBSCURA_BROWSER_ADDENDUM | Bonus | Indexed; read before merge |
+| C1 WRV doctrine | High | **MERGED 2026-05-05** §10 #7 |
+| C2 No silent cloud escalation | High | **MERGED 2026-05-05** §6 |
+| C3 BYOK cloud OFF by default | High | **MERGED 2026-05-05** §6 |
+| C4 UX posture (composer / modes / effort / capabilities) | High | **MERGED 2026-05-05** §4.0 |
+| C5 No second source of truth | High | **MERGED 2026-05-05** §2.2 #5 + §6 |
+| C6 Halo stack reference | Medium | **MERGED 2026-05-05** §4.3 |
+| C7 Resource Runtime + Phase R | High | **VERIFIED-THEN-MERGED 2026-05-05** §9 anchors (staged claim was stale; substrate already on main) |
+| C8 APP_STORE_RELEASE_COMPLETION_STATUS authority | High | **MERGED 2026-05-05** §1 #2 |
+| C9 Quick Capture standalone canon | Medium | **MERGED 2026-05-05** §1 #5.5 (ALL_DOCS_INDEX entry still pending) |
+| C10 Flight Recorder | Medium | **MERGED 2026-05-05** §7 + Annex A.15 |
+| C11 Pre-release evidence package | High | **VERIFIED-THEN-MERGED 2026-05-05** Annex C (with verified-state caveats: PrivacyInfo.xcprivacy present, WORKFLOW_MATRIX.md flagged as missing) |
+| C12 Local-stream truncation fix watch | Medium | **MERGED 2026-05-05** WORKTREE_INSIGHT_SALVAGE §8.5 |
+| C13 Telemetry policy | Medium | **MERGED 2026-05-05** §6 + Annex A.16 |
+| C14 ambient_V1_DECISION explicit name | Low | **MERGED 2026-05-05** §1 #2 |
+| C15 CRDT collaboration deferred | Low | **MERGED 2026-05-05** §6 |
+| B1 BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM | Bonus | Indexed; read-then-absorb still pending |
+| B2 LIVE_FILES_AND_SUBSTRATE_ADDENDUM | Bonus | Indexed; read-then-absorb still pending |
+| B3 OBSCURA_BROWSER_ADDENDUM | Bonus | Indexed; read-then-absorb still pending |
 
-**18 items total. None merged yet. Held until Codex deliberation + user authorize.**
+**15 of 15 C-blocks MERGED. 3 of 3 B-bonus blocks await read-then-absorb passes. ALL_DOCS_INDEX entries (C9 §3.5) still pending separate slice.**
 
 ---
 
