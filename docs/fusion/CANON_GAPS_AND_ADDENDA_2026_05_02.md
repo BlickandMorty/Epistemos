@@ -2,9 +2,9 @@
 
 > **NEW DOC — created 2026-05-02.** Filename: `CANON_GAPS_AND_ADDENDA_2026_05_02.md`. If your session can't find it, search by name. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Mirrored into the active worktree's `docs/fusion/`.
 
-> **STATUS — STAGED, NOT MERGED.** This doc holds the addenda that the user identified by reconciling their original master plan against the new canon (doctrine + Codex prompt + salvage map + index). The gaps are real but **the merge into the four canon files is held until Codex's deliberation response lands.** This is a deliberate sequencing choice — patching while Codex is mid-deliberation risks breaking section anchors and bypasses the deliberation prompt's "flag gaps" purpose.
+> **STATUS — PARTIALLY MERGED 2026-05-05.** Originally staged pending Codex's deliberation response. After the 2026-05-05 canon-hardening session, Codex's #1 advice item was "merge `CANON_GAPS_AND_ADDENDA` staged blocks". High-severity items C1 (WRV), C2 (no silent fallback), C3 (BYOK off by default), C4 (UX posture §4.0), C5 (canonical state is the only source of truth — §2.2 invariant #5 + §6 forbidden), and medium item C13 (telemetry policy in §6) have been merged into `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`. Each merged block carries an inline `(C#, merged 2026-05-05.)` provenance tag in the destination file. Remaining items (C6 reference link, C7 Resource Runtime anchors, C8 App Store closeout authority, C9 Quick Capture standalone canon, C10 Flight Recorder, C11 pre-release evidence package, C12 local-stream truncation watch, C14 ambient_V1_DECISION naming, C15 housekeeping, B1–B3 bonuses) remain staged.
 >
-> **When the user authorizes the merge** (single chat command), every block marked `MERGE TARGET:` below is lifted verbatim into its destination file. This doc remains afterward as the audit trail.
+> **This doc remains as the audit trail.** Each `MERGE TARGET:` block below is now annotated with `[MERGED 2026-05-05]` for items that have landed.
 
 ---
 
@@ -59,7 +59,7 @@ Each gap below has:
 - **Severity + recommended target file**
 - **Pre-drafted text** ready to merge (in fenced blocks marked `MERGE TARGET:`)
 
-### C1 — WRV doctrine (Wired + Reachable + Visible + Verified)
+### C1 — WRV doctrine (Wired + Reachable + Visible + Verified) **[MERGED 2026-05-05]**
 
 **Original plan:** *"A feature is not real because files exist; it is real only when it is wired, reachable, visible, and verified."*
 
@@ -88,7 +88,7 @@ WRV:           wired? reachable? visible? verified? (each yes/no with evidence p
 
 ---
 
-### C2 — No silent cloud fallback / escalation
+### C2 — No silent cloud fallback / escalation **[MERGED 2026-05-05]**
 
 **Original plan:** *"No silent backend or cloud switching. Local-first, private by default, optional BYOK cloud, no silent fallback/escalation."*
 
@@ -104,7 +104,7 @@ WRV:           wired? reachable? visible? verified? (each yes/no with evidence p
 
 ---
 
-### C3 — BYOK cloud OFF by default
+### C3 — BYOK cloud OFF by default **[MERGED 2026-05-05]**
 
 **Original plan:** *"Optional BYOK cloud off by default."*
 
@@ -120,7 +120,7 @@ WRV:           wired? reachable? visible? verified? (each yes/no with evidence p
 
 ---
 
-### C4 — UX posture: one composer, two modes, separate effort, tools as capabilities
+### C4 — UX posture: one composer, two modes, separate effort, tools as capabilities **[MERGED 2026-05-05]**
 
 **Original plan:** *"One composer, two modes (Chat/Agent), separate effort control, tools treated as capabilities rather than as a third mode."*
 
@@ -144,7 +144,7 @@ WRV:           wired? reachable? visible? verified? (each yes/no with evidence p
 
 ---
 
-### C5 — No second source of truth (visuals project from canonical state)
+### C5 — No second source of truth (visuals project from canonical state) **[MERGED 2026-05-05]**
 
 **Original plan:** *"Liquid Wave and Theater cannot become second truth systems. All visuals project from canonical events/state only."*
 
@@ -354,7 +354,7 @@ Required deliverables before Mac App Store submission. None of these counts as "
 
 ---
 
-### C13 — Telemetry sensitivity / retention / consent
+### C13 — Telemetry sensitivity / retention / consent **[MERGED 2026-05-05 — §6 forbidden line; Annex A.16 still pending]**
 
 **Original plan:** *"Telemetry sensitivity. Even metadata-only carries behavioral sensitivity. Minimal capture, explicit retention policy, opt-in/clear copy before rollout."*
 
