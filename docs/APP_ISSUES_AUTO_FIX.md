@@ -487,14 +487,25 @@ Investigation Log:
 
 ---
 
-### ISSUE-2026-05-05-001: agent_core lib clippy debt (1 error + 41 warnings) blocks CI clippy gate when PR opens
+### ISSUE-2026-05-05-001: project-wide clippy debt (~126 issues across 5 crates) blocks CI clippy gate when PR opens
 
 Status: Open
-Priority: P2
+Priority: **P1** (was P2; upgraded after project-wide scoping)
 First Observed: 2026-05-05 (during late-session hygiene tick)
 Affected Version: feature/landing-liquid-wave HEAD on 2026-05-05
 
-Symptom:
+Project-wide scope (`cargo clippy --lib --target aarch64-apple-darwin -- -D warnings` per crate):
+
+| Crate | Clippy errors under `-D warnings` |
+|---|---|
+| agent_core | 42 (1 hard error + 41 warnings) |
+| epistemos-core | 54 |
+| omega-mcp | 16 |
+| omega-ax | 8 |
+| graph-engine | 6 |
+| **Total** | **~126** |
+
+Symptom (agent_core specifically):
 `cargo clippy --lib --target aarch64-apple-darwin -- -D warnings` against `agent_core` fails with 42 issues:
 
 - **1 hard error**: `src/etl/ffi.rs:180` — `etl_queue_free_string` is a `pub extern "C" fn` that does `CString::from_raw(ptr)` but the function itself isn't marked `unsafe`. Lint: `clippy::not_unsafe_ptr_arg_deref`. The unsafe block inside is fine; the lint wants the function signature itself to be `unsafe`.
