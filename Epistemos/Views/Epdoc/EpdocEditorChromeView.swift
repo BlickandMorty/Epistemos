@@ -238,7 +238,16 @@ public struct EpdocEditorChromeView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Top toolbar (W7.17.a)
+            // Top toolbar (W7.17.a) — liquid-glass material strip that
+            // sits flush against the now-transparent NSWindow titlebar
+            // (per `EpdocDocument.makeWindowControllers()`'s
+            // `titlebarAppearsTransparent = true` + `.fullSizeContentView`).
+            // The `.regularMaterial` background gives the macOS 26
+            // translucent curvy look the user asked for, and pairs
+            // with the unified toolbar style we set on NSWindow.
+            // Top-padding accounts for the title bar that extends into
+            // the content view; horizontal padding keeps controls clear
+            // of traffic-light buttons.
             HStack(spacing: 12) {
                 EpdocEditorToolbar(model: controller.toolbarModel, onSave: controller.onSave)
                 EpdocComplexityMeter(
@@ -252,6 +261,18 @@ public struct EpdocEditorChromeView: View {
                 )
                 .padding(.trailing, 8)
             }
+            .padding(.horizontal, 12)
+            .padding(.top, 30)   // clear of the transparent titlebar / traffic lights
+            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial)
+            .overlay(alignment: .bottom) {
+                // Hairline separator below the toolbar — same idiom
+                // ProseEditor lives under via NSTextView's natural
+                // top-edge ruler, so the visual weight matches.
+                Divider().opacity(0.4)
+            }
+
             // Document area + floating overlays
             ZStack(alignment: .topLeading) {
                 EpdocTiptapWebView(controller: controller)

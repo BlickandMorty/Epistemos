@@ -364,7 +364,24 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                 : self.package.manifest.title
             window.setContentSize(NSSize(width: 1024, height: 768))
             window.minSize = NSSize(width: 480, height: 320)
-            window.styleMask.insert([.resizable, .titled, .closable, .miniaturizable])
+            window.styleMask.insert([.resizable, .titled, .closable, .miniaturizable, .fullSizeContentView])
+
+            // Liquid-glass chrome (matches Prose's NS-native feel):
+            // - transparent titlebar so the SwiftUI material below
+            //   shows through at the top
+            // - full-size content view so the chrome extends edge-to-edge
+            // - hidden title text — the EpdocComplexityMeter row in the
+            //   chrome carries the document title in a glanceable form
+            // - unified toolbar style so the title bar reads as one
+            //   continuous translucent surface (the curvy/native macOS 26
+            //   look the user asked for, vs the prior boxy two-tier
+            //   tauri-shaped chrome)
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            if #available(macOS 11.0, *) {
+                window.toolbarStyle = .unified
+            }
+
             // Per-document autosave name keeps each .epdoc's window
             // frame separate. The id from the manifest is stable
             // across renames (per ArtifactHeader contract).
