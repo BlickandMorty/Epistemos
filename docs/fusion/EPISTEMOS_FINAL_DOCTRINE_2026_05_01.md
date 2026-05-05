@@ -16,7 +16,7 @@ When sources disagree, this is the order:
    See `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`. If a file exists and a test passes, that wins.
 
 2. **Repo authority docs.**
-   `AGENTS.md`, `CLAUDE.md`, `docs/architecture/PLAN_V2.md`, `docs/architecture/BOLTFFI_AUDIT_2026_04_15.md`, `docs/_consolidated/00_canonical_authority/*`.
+   `AGENTS.md`, `CLAUDE.md`, `docs/architecture/PLAN_V2.md`, `docs/architecture/BOLTFFI_AUDIT_2026_04_15.md`, `docs/_consolidated/00_canonical_authority/*`, **`docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md`** *(C8, merged 2026-05-05 — App Store closeout authority; mirrored at `docs/_consolidated/30_canonical_operational/`)*, **`docs/_consolidated/00_canonical_authority/ambient_V1_DECISION.md`** *(C14, named explicitly 2026-05-05 for searchability — Halo V1 stack reference)*.
 
 3. **April 30 fusion canon.**
    `README_START_HERE_2026_04_30.md`, `CANONICAL_SOURCE_MAP_AND_GATE_REGISTER_2026_04_30.md`, `BUILDER_EXECUTION_PROMPT_2026_04_30.md`, `CODEX_ACTIVE_OVERSEER_KIMI_PROMPT_2026_04_30.md`, `FUSED_IMPLEMENTATION_QUEUE_2026_04_30.md`, plus the three Downloads-root April 30 docs.
