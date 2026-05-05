@@ -48,6 +48,16 @@ impl SkillRouter {
             Vec::new()
         };
 
+        // Phase 8.E auto-invoke: mirror the loaded skill catalog into
+        // the cognitive DAG. Bulk-shape dispatch fires once per load()
+        // because any subsequent procedure outcome needs its parent
+        // Skill node already in the DAG (see
+        // `dispatch::on_procedure_recorded` doctrine note). Idempotent
+        // on the SkillsMirror side via content addressing — repeated
+        // load() calls don't bloat the DAG. Doctrine §10: dispatch
+        // failures are logged but don't break the in-memory router.
+        crate::cognitive_dag::dispatch::on_skills_loaded(&skills);
+
         let idf = compute_idf(&skills);
         Self { skills, idf }
     }

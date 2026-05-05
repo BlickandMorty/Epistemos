@@ -2994,14 +2994,15 @@ pub fn provenance_ledger_snapshot_json() -> Result<String, AgentErrorFFI> {
 // removes the cognitive_dag module's orphan status from the app's
 // perspective ahead of the eventual Phase 8.H authority flip.
 
-/// Process-global cognitive DAG store. Initialized lazily on first FFI
-/// access. The InMemoryDagStore is `Send + Sync` (RwLock-protected
-/// internally) so we can hand out a `&'static dyn DagStore` reference
-/// without a Mutex wrapper.
+/// Process-global cognitive DAG store accessor. Re-exports the
+/// canonical `cognitive_dag::dispatch::cognitive_dag_store()` so the
+/// FFI surface and the auto-invoke dispatch helpers share the same
+/// instance — Settings → Diagnostics + Halo ribbon reflect every
+/// mirror write the moment it lands. (Earlier this lived as a local
+/// OnceLock here; centralising in the dispatch module ensures there's
+/// exactly one global store.)
 fn cognitive_dag_store() -> &'static crate::cognitive_dag::storage::InMemoryDagStore {
-    use std::sync::OnceLock;
-    static DAG: OnceLock<crate::cognitive_dag::storage::InMemoryDagStore> = OnceLock::new();
-    DAG.get_or_init(crate::cognitive_dag::storage::InMemoryDagStore::new)
+    crate::cognitive_dag::dispatch::cognitive_dag_store()
 }
 
 /// Returns a JSON summary of the global cognitive DAG. Shape:
