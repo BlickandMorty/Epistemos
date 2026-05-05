@@ -270,7 +270,7 @@ Per the v4 README, source docs classify Core (8) / Pro (9) / Research (5). All e
 **Core (load-bearing through-line, canonical reference):**
 
 1. `helios_v3.md` — memory/inference capstone (PRCDA, WBO-6, six-tier memory, KV-Direct gate, 5 pillars). Anchors §H + §I above.
-2. `scope_rex_omega.md` — witnessed governance/provenance spine (TypedArtifact pipeline, Hermes Agent containment). Anchors §G above + the Cognitive DAG mirror substrate already in main.
+2. `scope_rex_omega.md` — witnessed governance/provenance spine (TypedArtifact pipeline). Anchors §G above + the Cognitive DAG mirror substrate already in main. **Note:** the source doc references "Hermes Agent containment" as historical context — that subprocess was removed 2026-05-05 and is NOT part of the v5 integration; the v5 integration uses `agent_core::agent_runtime` + Cognitive DAG, never the removed Hermes subprocess.
 3. `ternary_kernel.md` — ternary research lane. Anchors §M ternary lane below.
 4. `epistemos_helios_v3_master_canon_v2_1.md` — v2.1 immediate predecessor with all patches applied.
 5. `epistemos_preservation_ledger_v2_1.json` — prior preservation ledger (machine-readable; cross-ref source for R0 archive structure).
@@ -285,7 +285,7 @@ Per the v4 README, source docs classify Core (8) / Pro (9) / Research (5). All e
 - `epistemos_resonance_gate.md` — Resonance Gate primary source (anchors §G)
 - `helios_shadow_memory.md` — shadow-memory architecture (related to `epistemos-shadow` crate already in main)
 - `helios_v2.md` — v2 capstone
-- `hermes.md` — Hermes orchestrator (subprocess REMOVED 2026-05-05; this is historical)
+- `hermes.md` — **R0-archive-only** (Hermes orchestrator subprocess REMOVED 2026-05-05; user explicitly excluded Hermes from all forward work 2026-05-05; this doc is preserved in R0 historical archive ONLY, never extended, never referenced as a forward target)
 - `mac_store_edition.md` — Mac App Store distribution discipline (anchors L1 §1 above)
 - `XPC.md` — XPC architecture notes (the trust spine landed at `Epistemos/XPC/XPCTrust.swift`)
 
@@ -469,9 +469,63 @@ The user's question "i want to engineering somethng in my app that benchmarks" �
 
 4. **Any local notes on M5 Ultra / WWDC 2026 expectations** — v5.2 §I notes M5 Ultra as a placeholder. If you have notes on Apple's 2025-12 / 2026-Q1 announcements relevant to GPU Neural Accelerators or `_ANEClient` opening, those would let me sharpen the Lane 3 ANE direct-access risk language.
 
-5. **The user's Hermes-3 Function Calling notes** — if you have local notes on Hermes-3's exact JSON schema or NousResearch ChatML wire format, those would let me verify the `Epistemos/LocalAgent/HermesPromptBuilder.swift` path against canonical Hermes spec when wiring D.7 Schema (DOMINO + GBNF AnswerPacket).
+5. **(REMOVED per user instruction 2026-05-05)** ~~Hermes-3 Function Calling notes~~ — the user has explicitly excluded Hermes from all forward integration work. D.7 Schema (DOMINO + GBNF AnswerPacket) wiring uses DOMINO upstream + hand-written GBNF grammar ONLY. Any "local agent prompt builder" work for v5 W1–W26 lands in NEW non-Hermes-named code paths (see §R below). The 18 existing `Epistemos/LocalAgent/Hermes*.swift` files are flagged for separate-slice rename consideration in §R.
 
 **None of these are blocking.** v2 plan + this finalization can pass canon lock without them. They would sharpen specific theorems (H11 / D.7) if available.
+
+---
+
+## §R — No Hermes anywhere (USER INSTRUCTION 2026-05-05)
+
+**User instruction (verbatim):** *"no more hermes agent im not using hermes anymore at all so male sure that does not bleedinto what im doing."*
+
+**Rule for HELIOS V5 integration:** Hermes is excluded from ALL forward work. This extends the prior 2026-05-05 Hermes subprocess removal to cover the entire Hermes namespace — the model-format prefix, the gateway-policy naming, the prompt-builder naming, ALL of it. Going forward:
+
+- **No new code uses the Hermes prefix.** W1–W26 slices that need a local-agent prompt builder, gateway policy, capability registry, or command dispatch use a NEW non-Hermes name (e.g. `LocalAgentPromptBuilder`, `LocalAgentGatewayPolicy`, etc.).
+- **No new doctrine references Hermes.** §A–§Q above scrubbed for forward-target references; only R0 historical-archive entries retain the Hermes name (per archive append-only rule).
+- **No new tests reference `HermesPromptBuilder` / `HermesGatewayPolicy` / `Hermes*Command` / `Hermes*Registry`** as a substrate to extend. Existing tests against those files keep passing during the transition; new test work goes against the renamed substrate.
+- **The "local agent" path remains canonical** — the path is what's load-bearing; the Hermes prefix is incidental. v5's D.7 Schema (DOMINO + GBNF AnswerPacket) lands as `agent_core/src/scope_rex/answer_packet.rs` + new Swift bridge, NEVER as an extension of `HermesPromptBuilder.swift`.
+
+### 18 existing Hermes-prefixed files flagged for separate-slice rename (sign-off-gated)
+
+The following 18 files in `Epistemos/LocalAgent/` still carry the Hermes prefix from when "Hermes" referred to the Hermes-3 model format. Per the canon promotion protocol, a multi-file rename is a destructive action that needs explicit sign-off — flagging here for a discrete rename slice rather than touching them in any HELIOS V5 W-slice:
+
+| Current name | Proposed rename (sign-off needed) |
+|---|---|
+| `HermesPromptBuilder.swift` | `LocalAgentPromptBuilder.swift` |
+| `HermesGatewayPolicy.swift` | `LocalAgentGatewayPolicy.swift` |
+| `HermesCommandDispatcher.swift` | `LocalAgentCommandDispatcher.swift` |
+| `HermesCapabilityRegistry.swift` | `LocalAgentCapabilityRegistry.swift` |
+| `HermesPersonaCommands.swift` | `LocalAgentPersonaCommands.swift` |
+| `HermesNotebookCommands.swift` | `LocalAgentNotebookCommands.swift` |
+| `HermesUIDisplayCommands.swift` | `LocalAgentUIDisplayCommands.swift` |
+| `HermesTodoCommand.swift` | `LocalAgentTodoCommand.swift` |
+| `HermesThinkCommand.swift` | `LocalAgentThinkCommand.swift` |
+| `HermesCalcCommand.swift` | `LocalAgentCalcCommand.swift` |
+| `HermesCostCommand.swift` | `LocalAgentCostCommand.swift` |
+| `HermesStatusCommand.swift` | `LocalAgentStatusCommand.swift` |
+| `HermesTokensCommand.swift` | `LocalAgentTokensCommand.swift` |
+| `HermesParsedCommand.swift` | `LocalAgentParsedCommand.swift` |
+| (3 more `Hermes*` files in LocalAgent — full list at next sign-off slice) | (corresponding LocalAgent renames) |
+
+**Rename slice scope (sign-off-gated separate from HELIOS V5):**
+
+1. `git mv` each of the 18 files to its `LocalAgent`-prefixed name
+2. `sed`-style rename of every `Hermes` symbol to `LocalAgent` equivalent in each file's contents (class names, struct names, enum cases, doc comments)
+3. Update every importer + consumer in `Epistemos/` to use the renamed types
+4. Update `EpistemosTests/` source-text guard tests (the `loadMirroredSourceTextFile` pattern) to point at renamed files
+5. Update `CLAUDE.md` FILE MAP entries (currently says "HermesPromptBuilder.swift and HermesGatewayPolicy.swift in Epistemos/LocalAgent/ are canonical local-agent path")
+6. Update any auto-memory references (the existing `feedback_hermes_is_real_agent.md` memory is already marked SUPERSEDED 2026-05-05; extend to cover the rename)
+7. CI gate B5 + full xcodebuild test must pass after rename
+8. Single commit OR sequence of small commits — choose at sign-off time
+
+**Estimated scope:** 18 files renamed + ~40-60 import sites updated + ~10-15 test sites updated + 1-2 doc updates + auto-memory update. ~3-5 hours of careful work; substantial but bounded.
+
+**Held for explicit sign-off** — do NOT execute as part of HELIOS V5 W-slices. The integration plan's W1–W26 do not depend on the rename; both can proceed in parallel without interference. Sign-off question: rename now (clean slate before HELIOS V5 W1 lands), rename in parallel (during W1–W26), or rename after (accept Hermes-prefix legacy for one more cycle)?
+
+### Auto-memory update (companion to this rule)
+
+The existing `feedback_hermes_is_real_agent.md` memory + `project_hermes_removal_2026_05_05.md` memory are extended by adding `feedback_no_hermes_anywhere.md` — codifying the user's 2026-05-05 instruction that Hermes is excluded from ALL forward work, not just the subprocess. Memory update committed as a separate slice immediately after this doc.
 
 ---
 
