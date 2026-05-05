@@ -12,7 +12,7 @@
 
 use std::path::Path;
 
-use crate::hermes::skills::SkillRouter;
+use crate::agent_runtime::skills::SkillRouter;
 use crate::storage::hyperbolic_topology::{
     build_topology, should_pierce_blanket, VaultNodeMetrics,
 };

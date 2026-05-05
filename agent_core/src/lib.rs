@@ -1,5 +1,6 @@
 pub mod a2ui;
 pub mod agent_loop;
+pub mod agent_runtime;
 pub mod approval;
 pub mod arena;
 pub mod arenas;
@@ -24,7 +25,6 @@ pub mod example_bank;
 pub mod format;
 pub mod grammar;
 pub mod heal;
-pub mod hermes;
 pub mod lattice;
 pub mod live_files;
 pub mod mutations;

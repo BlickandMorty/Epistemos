@@ -1,11 +1,11 @@
-use agent_core::hermes::function_call::{parse_tool_calls, StreamingToolCallDetector};
-use agent_core::hermes::procedural_memory::{ProceduralMemoryStore, ProcedureOutcomeRecord};
-use agent_core::hermes::prompt_format::{
+use agent_core::agent_runtime::function_call::{parse_tool_calls, StreamingToolCallDetector};
+use agent_core::agent_runtime::procedural_memory::{ProceduralMemoryStore, ProcedureOutcomeRecord};
+use agent_core::agent_runtime::prompt_format::{
     build_messages, build_system_prompt, HermesMessage, HermesMessageRole, HermesPromptInput,
     HermesToolDefinition, HermesToolResult,
 };
-use agent_core::hermes::self_evolution::propose_repeated_success_skill;
-use agent_core::hermes::skills::{
+use agent_core::agent_runtime::self_evolution::propose_repeated_success_skill;
+use agent_core::agent_runtime::skills::{
     default_skills_dir, skill_manage_schema, skill_view_schema, skills_list_schema,
     skills_tool_schema, SkillManageHandler, SkillViewHandler, SkillsListHandler,
     SkillsRegistryStore, SkillsTool,
@@ -262,7 +262,7 @@ async fn bridge_invoke_skill_executes_path_bound_skill_steps() {
 
 #[test]
 fn hermes_skills_facade_owns_router_registry_and_tool_facade() {
-    let router = agent_core::hermes::skills::SkillRouter::load(Path::new("/nonexistent"));
+    let router = agent_core::agent_runtime::skills::SkillRouter::load(Path::new("/nonexistent"));
     assert_eq!(router.skill_count(), 0);
 
     let registry = SkillsRegistryStore::load(Path::new("/nonexistent"));
@@ -296,8 +296,8 @@ fn runtime_skill_call_sites_route_through_hermes_skills() {
 
     for source in [&bridge, &registry, &dispatcher, &context_loader] {
         assert!(
-            source.contains("crate::hermes::skills"),
-            "B.1 runtime skill call sites must route through agent_core::hermes::skills"
+            source.contains("crate::agent_runtime::skills"),
+            "B.1 runtime skill call sites must route through agent_core::agent_runtime::skills"
         );
     }
 

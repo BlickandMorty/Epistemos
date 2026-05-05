@@ -2015,9 +2015,9 @@ pub fn dispatch_skill(vault_path: String, objective: String) -> DispatchDecision
     ffi_guard_value!(
         {
             let vault_root = std::path::Path::new(&vault_path);
-            let router = crate::hermes::skills::SkillRouter::load(vault_root);
-            let registry = crate::hermes::skills::SkillsRegistryStore::load(vault_root);
-            let entries: Vec<crate::hermes::skills::SkillRegistryEntry> =
+            let router = crate::agent_runtime::skills::SkillRouter::load(vault_root);
+            let registry = crate::agent_runtime::skills::SkillsRegistryStore::load(vault_root);
+            let entries: Vec<crate::agent_runtime::skills::SkillRegistryEntry> =
                 registry.list_all().into_iter().cloned().collect();
             let decision = crate::dispatcher::dispatch_intent(&objective, &router, &entries);
 
@@ -2062,7 +2062,7 @@ pub fn list_registered_skills(vault_path: String) -> Vec<SkillRegistryEntryFFI> 
     ffi_guard_value!(
         {
             let vault_root = std::path::Path::new(&vault_path);
-            let registry = crate::hermes::skills::SkillsRegistryStore::load(vault_root);
+            let registry = crate::agent_runtime::skills::SkillsRegistryStore::load(vault_root);
             registry
                 .list_all()
                 .into_iter()
@@ -2238,11 +2238,11 @@ pub fn session_folder_path(session_id: String) -> Option<String> {
 #[uniffi::export]
 pub fn hermes_build_system_prompt(input_json: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
-        let input: crate::hermes::prompt_format::HermesPromptInput =
+        let input: crate::agent_runtime::prompt_format::HermesPromptInput =
             serde_json::from_str(&input_json).map_err(|error| AgentErrorFFI::AgentError {
                 message: format!("invalid HermesPromptInput JSON: {error}"),
             })?;
-        Ok(crate::hermes::prompt_format::build_system_prompt(&input))
+        Ok(crate::agent_runtime::prompt_format::build_system_prompt(&input))
     })
 }
 
@@ -2252,7 +2252,7 @@ pub fn hermes_build_system_prompt(input_json: String) -> Result<String, AgentErr
 #[uniffi::export]
 pub fn hermes_parse_tool_calls(text: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
-        let calls = crate::hermes::function_call::parse_tool_calls(&text);
+        let calls = crate::agent_runtime::function_call::parse_tool_calls(&text);
         serde_json::to_string(&calls).map_err(|error| AgentErrorFFI::AgentError {
             message: format!("failed to serialize Hermes tool calls: {error}"),
         })
@@ -2329,7 +2329,7 @@ struct HermesSkillStepSpec {
 #[uniffi::export]
 pub fn list_skills(profile_id: String) -> Result<Vec<SkillDescriptorFFI>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let router = crate::hermes::skills::SkillRouter::load(std::path::Path::new(&profile_id));
+        let router = crate::agent_runtime::skills::SkillRouter::load(std::path::Path::new(&profile_id));
         Ok(router
             .skills()
             .iter()
@@ -2429,7 +2429,7 @@ async fn invoke_skill_inner(
     args: String,
 ) -> Result<SkillResultFFI, AgentErrorFFI> {
     let profile_path = std::path::PathBuf::from(&profile_id);
-    let router = crate::hermes::skills::SkillRouter::load(&profile_path);
+    let router = crate::agent_runtime::skills::SkillRouter::load(&profile_path);
     let skill = router
         .skills()
         .iter()
@@ -2548,7 +2548,7 @@ async fn execute_hermes_skill_step(
     let skills_dir = profile_path.join("skills");
     match tool_name {
         "skills_list" => {
-            let handler = crate::hermes::skills::SkillsListHandler::with_dir(skills_dir);
+            let handler = crate::agent_runtime::skills::SkillsListHandler::with_dir(skills_dir);
             handler
                 .execute(arguments)
                 .await
@@ -2557,7 +2557,7 @@ async fn execute_hermes_skill_step(
                 })
         }
         "skill_view" => {
-            let handler = crate::hermes::skills::SkillViewHandler::with_dir(skills_dir);
+            let handler = crate::agent_runtime::skills::SkillViewHandler::with_dir(skills_dir);
             handler
                 .execute(arguments)
                 .await
@@ -2608,8 +2608,8 @@ fn extract_hermes_skill_steps(content: &str) -> Vec<HermesSkillStepSpec> {
 }
 
 fn open_hermes_procedural_memory(
-) -> Result<crate::hermes::procedural_memory::ProceduralMemoryStore, AgentErrorFFI> {
-    crate::hermes::procedural_memory::ProceduralMemoryStore::open(hermes_procedural_memory_path())
+) -> Result<crate::agent_runtime::procedural_memory::ProceduralMemoryStore, AgentErrorFFI> {
+    crate::agent_runtime::procedural_memory::ProceduralMemoryStore::open(hermes_procedural_memory_path())
         .map_err(|error| AgentErrorFFI::AgentError {
             message: format!("failed to open Hermes procedural memory: {error}"),
         })
@@ -2627,8 +2627,8 @@ fn hermes_procedural_memory_path() -> PathBuf {
 
 fn procedure_ffi_to_record(
     procedure: ProcedureFFI,
-) -> crate::hermes::procedural_memory::ProcedureOutcomeRecord {
-    crate::hermes::procedural_memory::ProcedureOutcomeRecord {
+) -> crate::agent_runtime::procedural_memory::ProcedureOutcomeRecord {
+    crate::agent_runtime::procedural_memory::ProcedureOutcomeRecord {
         skill_name: procedure.skill_name,
         invocation_context_hash: procedure.invocation_context_hash,
         steps_taken: procedure.steps_taken,
@@ -2641,7 +2641,7 @@ fn procedure_ffi_to_record(
 }
 
 fn record_to_procedure_ffi(
-    record: crate::hermes::procedural_memory::ProcedureOutcomeRecord,
+    record: crate::agent_runtime::procedural_memory::ProcedureOutcomeRecord,
 ) -> ProcedureFFI {
     ProcedureFFI {
         skill_name: record.skill_name,
