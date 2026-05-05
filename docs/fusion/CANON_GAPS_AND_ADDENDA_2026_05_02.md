@@ -202,7 +202,7 @@ Also add to **§6 Hard Forbidden List**:
 
 ---
 
-### C8 — APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24
+### C8 — APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24 **[MERGED 2026-05-05 — §1 Authority Order entry; ALL_DOCS_INDEX entry still pending]**
 
 **Original plan:** Listed as part of authority hierarchy.
 
@@ -386,7 +386,7 @@ Required deliverables before Mac App Store submission. None of these counts as "
 
 ---
 
-### C14 — `ambient_V1_DECISION.md` explicit naming
+### C14 — `ambient_V1_DECISION.md` explicit naming **[MERGED 2026-05-05 — explicitly named in §1 Authority Order point #2]**
 
 **Original plan:** Listed as part of authority hierarchy alongside MASTER_FUSION etc.
 
