@@ -2883,15 +2883,36 @@ fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
 // surface avoids the parallel-write hazard while still removing the orphan
 // status of the ledger from the app's perspective.
 
-/// Process-global `ClaimLedger` instance. The Mutex is intentional —
-/// commits and retractions take `&mut self`, and the operations are
-/// quick (BTreeMap/HashMap mutations). Per `bridge.rs` precedent
-/// (`get_or_create_cache` for NeuralCache), shared state is `OnceLock`-
-/// initialized lazily.
-fn provenance_ledger() -> &'static std::sync::Mutex<crate::provenance::ledger::ClaimLedger> {
-    use std::sync::{Mutex, OnceLock};
-    static LEDGER: OnceLock<Mutex<crate::provenance::ledger::ClaimLedger>> = OnceLock::new();
-    LEDGER.get_or_init(|| Mutex::new(crate::provenance::ledger::ClaimLedger::new()))
+/// Process-global `ClaimLedger` instance.
+///
+/// **C2 (canonical-upgrade-audit 2026-05-05): RwLock not Mutex.**
+/// All three FFI callers (`provenance_ledger_summary_json`,
+/// `provenance_ledger_recent_events_json`, `provenance_ledger_snapshot_json`)
+/// invoke read-only ledger methods (claim_count / evidence_count /
+/// events_since / snapshot). Halo ledger ribbon polls every 1Hz;
+/// Settings → Diagnostics polls every 5s; an FFI subscriber polling
+/// reads under heavy agent traffic would serialize through a Mutex.
+/// RwLock lets concurrent readers proceed; future writers (when the
+/// dispatch architecture wires them — see Codex audit note below)
+/// take exclusive access.
+///
+/// **Architectural finding flagged for Codex verification:** the
+/// `cognitive_dag::dispatch` helpers (`on_evidence_committed`,
+/// `on_claim_committed`) do NOT write to this global ledger — they
+/// mirror to `cognitive_dag::dispatch::cognitive_dag_store()`
+/// instead. So this ledger is *currently always empty* under the
+/// FFI. Two interpretations:
+///   1. Intended: this ledger is for FFI-driven writes (none yet),
+///      and the FFI surface is forward-compat scaffolding.
+///   2. Drift: dispatch should ALSO populate this ledger so the
+///      Halo ribbon + Provenance Console show non-zero counts
+///      under real agent traffic.
+/// Either way, C2 (RwLock) is safe; the architectural decision
+/// belongs to a separate audit pass.
+fn provenance_ledger() -> &'static std::sync::RwLock<crate::provenance::ledger::ClaimLedger> {
+    use std::sync::{OnceLock, RwLock};
+    static LEDGER: OnceLock<RwLock<crate::provenance::ledger::ClaimLedger>> = OnceLock::new();
+    LEDGER.get_or_init(|| RwLock::new(crate::provenance::ledger::ClaimLedger::new()))
 }
 
 /// Returns a JSON summary of the global Rust `ClaimLedger` for the Swift
@@ -2910,9 +2931,9 @@ fn provenance_ledger() -> &'static std::sync::Mutex<crate::provenance::ledger::C
 pub fn provenance_ledger_summary_json() -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         let ledger = provenance_ledger()
-            .lock()
+            .read()
             .map_err(|err| AgentErrorFFI::AgentError {
-                message: format!("Provenance ledger mutex poisoned: {err}"),
+                message: format!("Provenance ledger lock poisoned: {err}"),
             })?;
         // Compose by hand instead of pulling in serde_json::json! to keep
         // the FFI surface boring + cheap.
@@ -2942,9 +2963,9 @@ pub fn provenance_ledger_summary_json() -> Result<String, AgentErrorFFI> {
 pub fn provenance_ledger_recent_events_json(limit: u32) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         let ledger = provenance_ledger()
-            .lock()
+            .read()
             .map_err(|err| AgentErrorFFI::AgentError {
-                message: format!("Provenance ledger mutex poisoned: {err}"),
+                message: format!("Provenance ledger lock poisoned: {err}"),
             })?;
         let bounded = limit.min(1000) as usize;
         if bounded == 0 {
@@ -2971,9 +2992,9 @@ pub fn provenance_ledger_recent_events_json(limit: u32) -> Result<String, AgentE
 pub fn provenance_ledger_snapshot_json() -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         let ledger = provenance_ledger()
-            .lock()
+            .read()
             .map_err(|err| AgentErrorFFI::AgentError {
-                message: format!("Provenance ledger mutex poisoned: {err}"),
+                message: format!("Provenance ledger lock poisoned: {err}"),
             })?;
         let snapshot = ledger.snapshot();
         serde_json::to_string(&snapshot).map_err(|err| AgentErrorFFI::AgentError {
