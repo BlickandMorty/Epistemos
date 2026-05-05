@@ -9,7 +9,9 @@ use crate::format::{validate_nonempty, validate_unit_interval, FormatError};
 
 pub mod variant_a;
 pub mod variant_b;
+pub mod variant_b_classifiers;
 pub mod variant_c;
+pub mod variant_c_providers;
 
 pub const ROUTE_INPUT_V1_ID: &str = "epistemos://schemas/route_capture.input.v1.json";
 pub const ROUTE_OUTPUT_V1_ID: &str = "epistemos://schemas/route_capture.output.v1.json";
