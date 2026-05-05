@@ -7,6 +7,19 @@
 > regressions. No parallel implementations. No subprocess for inference. No
 > mockup overrides canon.
 
+> **Module-name reconciliation note (2026-05-05, audit item A6).** This
+> doctrine refers throughout to `agent_core::hermes::*`. The actual module
+> shipped on 2026-05-05 (Hermes subprocess removal series) is named
+> `agent_core::agent_runtime` — same modules (`prompt_format`,
+> `function_call`, `skills`, `procedural_memory`, `self_evolution`), same
+> responsibilities, only the path prefix changed. Per `CLAUDE.md`, the
+> `Hermes` prefix is reserved for the Hermes-3 model's prompt format
+> (Swift `HermesPromptBuilder.swift`, kept), not the in-process runtime.
+> When reading this doctrine, mentally substitute `agent_core::hermes/` →
+> `agent_core::agent_runtime/` for every code reference. Doctrine content
+> + responsibilities are unchanged; only the import path differs. The
+> rename commit is `77de8196`.
+
 ---
 
 ## 0. The framing
