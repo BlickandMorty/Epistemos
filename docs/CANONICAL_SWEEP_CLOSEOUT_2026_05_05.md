@@ -77,15 +77,45 @@ signs them off.
 
 | ID | Status | Closing artifact |
 |---|---|---|
-| **CD-001** V2.3 LSP runtime | ✓ resolved by Codex (SUPERSEDED/ALIGNED) | Codex's own pass |
-| **CD-002** V2 closeout V2.3 row | ✓ resolved by Codex (DRIFT FIXED) | Codex's own pass |
-| **CD-003** Codex verification handoff counts | ✓ resolved by Codex (DRIFT FIXED) | Codex's own pass |
+| **CD-001** V2.3 LSP runtime | ✓ resolved by Codex (SUPERSEDED/ALIGNED); committed 2026-05-05 7fb91735 | Codex's pass + late-session commit |
+| **CD-002** V2 closeout V2.3 row | ✓ resolved by Codex (DRIFT FIXED); committed 2026-05-05 4ddf3cef | Codex's pass + late-session commit |
+| **CD-003** Codex verification handoff counts | ✓ resolved by Codex (DRIFT FIXED); committed 2026-05-05 4ddf3cef | Codex's pass + late-session commit |
 | **CD-004** V2.1 Phase 8 authority | **BLOCKED** — needs Codex verification of "prerequisites, mirror coverage, replay parity, authority flip criteria" | external Codex pass required |
 | **CD-005** DAG edge signatures | ✓ closed (commit 9835b439 + A2 promotion 661fd7d0) | this session |
 | **CD-006** Mirror auto-invoke coverage | ✓ closed | `docs/MIRROR_DISPATCH_COVERAGE_2026_05_05.md` (commit 747c4cd8) |
 | **CD-007** MAS-first subprocess discipline | ✓ closed | `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` (B5 commits 0b30d060 + faee8b68) |
 | **CD-008** Full-app verification | **PARTIAL** — cargo cross-crate green on clean reruns; xcodebuild test-build green; full xcodebuild test + manual runtime smoke still required | `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` (commit ba95a517) |
 | **CD-009** Benchmark JSON dirtiness | ✓ procedural (don't commit dirty JSONs; satisfied by NOT adding the 7 dirty files in `git status` to any commit this session) | n/a |
+
+### Late-session hygiene discovery (2026-05-05 13:0X tick)
+
+A working-tree audit late in the session discovered that **Codex's
+V2.3 semantic LSP work (the deliverable behind CD-001/CD-002/CD-003)
+had been sitting uncommitted in the working tree the entire session**.
+Codex did the work + verified it in a prior session; the artifacts
+(LSP code, doc patches, the canonical drift audit doc itself) had
+never been `git add`ed. The drift register table above marked them
+"resolved by Codex" but the substrate was untracked.
+
+This session's late commits land Codex's output into the branch:
+  - 8fdeb017 — `docs/CODEX_CANONICAL_DRIFT_AUDIT_2026_05_05.md`
+    (the audit doc this entire session has been working against)
+  - 4ddf3cef — three doc patches (CODEX_VERIFICATION_HANDOFF,
+    SUBSTRATE_V2_FINAL_CLOSEOUT, V2_3_LSP_MIGRATION_PLAN) closing
+    CD-002 + CD-003
+  - 7fb91735 — `agent_core/Cargo.toml` + `Cargo.lock` +
+    `agent_core/src/lsp_runtime/mod.rs` (+613 lines) +
+    `Epistemos/Engine/RustLSPTransport.swift` + 2 test files —
+    the actual semantic LSP via tower-lsp 0.20 + tree-sitter 0.25 +
+    tree-sitter-rust + tree-sitter-swift, closes CD-001
+
+Verified locally at commit time: `cargo test --lib --features
+lsp-runtime lsp_runtime` → 17 / 17 pass (matches Codex's own
+verification table in the audit doc).
+
+Lesson for future sessions: run `git status` at session START, not
+just at session end — silently dirty work-in-progress from prior
+sessions can ride along through 70+ commits without noticing.
 
 ### Long-tail (still pending — flagged for next session / Codex)
 
