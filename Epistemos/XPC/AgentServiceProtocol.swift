@@ -134,8 +134,6 @@ extension HermesGatewaySurface {
             return .cliDelegation
         case "mcpwebtool", "mcp-web-tool", "mcp", "web":
             return .mcpWebTool
-        case "hermessubprocess", "hermes-subprocess":
-            return .hermesSubprocess
         case "browsercomputeruse", "browser-computer-use", "browser", "computer-use":
             return .browserComputerUse
         case "dockerdevcontainer", "docker-devcontainer", "docker", "devcontainer":

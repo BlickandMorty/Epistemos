@@ -71,7 +71,6 @@ struct ToolSurfacePolicyTests {
             "execute_code",
             "web_fetch",
             "docker_run",
-            "hermes_subprocess",
             "file_edit",
         ]
         let filtered = ToolSurfacePolicy.surfacedTools(
@@ -163,7 +162,6 @@ struct ToolSurfacePolicyTests {
             "click",
             "browser_navigate",
             "docker_run",
-            "hermes_subprocess",
         ] {
             let result = await executor(toolName, "{}")
             #expect(result.toolName == toolName)

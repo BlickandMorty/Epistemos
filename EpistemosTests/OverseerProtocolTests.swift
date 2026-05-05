@@ -151,7 +151,6 @@ struct OverseerProtocolTests {
             "browser_navigate",
             "get_ui_tree",
             "docker_run",
-            "hermes_subprocess",
         ] {
             #expect(!names.contains(forbidden))
         }

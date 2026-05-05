@@ -309,8 +309,6 @@ private extension HermesGatewaySurface {
             "cli_delegation"
         case .mcpWebTool:
             "mcp_web_tool"
-        case .hermesSubprocess:
-            "hermes_subprocess"
         case .browserComputerUse:
             "browser_computer_use"
         case .dockerDevcontainer:

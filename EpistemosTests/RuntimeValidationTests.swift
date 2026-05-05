@@ -3959,10 +3959,10 @@ struct RuntimeValidationTests {
         #expect(appSupervisor.contains("pendingRestartTasks.removeValue(forKey: dependent.id)?.cancel()"))
     }
 
+    // Hermes subprocess orphan-cleanup test removed 2026-05-05 with the
+    // rest of the Hermes-agent removal — see
+    // docs/_archive/hermes-removal-2026-05-05/README.md.
     #if false
-    @Test("Hermes subprocess lifecycle is tracked by orphan cleanup")
-    func hermesSubprocessLifecycleIsTrackedByOrphanCleanup() throws {}
-
     @Test("orphan cleanup skips signal handler registration under tests")
     func orphanCleanupSkipsSignalHandlerRegistrationUnderTests() throws {
         let orphanCleanup = try loadRepoTextFile("Epistemos/State/OrphanSubprocessCleanup.swift")

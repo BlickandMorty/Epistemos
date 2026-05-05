@@ -62,14 +62,15 @@ nonisolated struct HermesGatewayEvidenceContractTests {
         let external = Set(HermesGatewayPolicy.Surface.externalGatewaySurfaces)
         let nonCloudExternal = external.subtracting(cloud)
 
-        // The doctrine §7 Pro track lists these exact six non-cloud surfaces
-        // as the gateway-bound external set. If one disappears, the gateway
-        // pattern has been weakened; if a seventh appears, this test surfaces
-        // the addition for review.
+        // The doctrine §7 Pro track lists these exact five non-cloud surfaces
+        // as the gateway-bound external set. (The .hermesSubprocess surface was
+        // removed 2026-05-05 with the rest of the Hermes-agent removal — see
+        // docs/_archive/hermes-removal-2026-05-05/README.md.) If one disappears,
+        // the gateway pattern has been weakened; if a sixth appears, this test
+        // surfaces the addition for review.
         let expected: Set<HermesGatewayPolicy.Surface> = [
             .cliDelegation,
             .mcpWebTool,
-            .hermesSubprocess,
             .browserComputerUse,
             .dockerDevcontainer,
             .explicitExternalSideEffect,

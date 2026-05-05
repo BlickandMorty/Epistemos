@@ -110,10 +110,11 @@ struct CoreMASBoundarySourceGuardTests {
     func hermesPolicyKeepsExternalSurfacesGatewayBound() throws {
         let source = try loadHermesGatewayPolicySource()
 
-        // CLI / MCP / Hermes subprocess / browser / Docker / explicit external
-        // side effects all share the gateway too. Any patch that gives one of
-        // them its own route is a Pro architecture splinter.
-        for surface in ["cliDelegation", "mcpWebTool", "hermesSubprocess",
+        // CLI / MCP / browser / Docker / explicit external side effects all
+        // share the gateway too. Any patch that gives one of them its own
+        // route is a Pro architecture splinter. (.hermesSubprocess was removed
+        // 2026-05-05 — see docs/_archive/hermes-removal-2026-05-05/README.md.)
+        for surface in ["cliDelegation", "mcpWebTool",
                         "browserComputerUse", "dockerDevcontainer",
                         "explicitExternalSideEffect"] {
             #expect(source.contains("case .\(surface):"),
@@ -125,8 +126,7 @@ struct CoreMASBoundarySourceGuardTests {
         // and assert the branch contents.
         for (surface, nextMarker) in [
             ("cliDelegation", "case .mcpWebTool:"),
-            ("mcpWebTool", "case .hermesSubprocess:"),
-            ("hermesSubprocess", "case .browserComputerUse:"),
+            ("mcpWebTool", "case .browserComputerUse:"),
             ("browserComputerUse", "case .dockerDevcontainer:"),
             ("dockerDevcontainer", "case .explicitExternalSideEffect:"),
         ] {
@@ -155,7 +155,7 @@ struct CoreMASBoundarySourceGuardTests {
         #expect(source.contains("externalTierBoundaryLine"),
                 "HermesGatewayPolicy must export externalTierBoundaryLine")
         #expect(source.contains(
-            "Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only."
+            "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
         ), "externalTierBoundaryLine prose must remain stable for log/UI consumers")
 
         #expect(source.contains("localCoreBoundaryLine"),
@@ -218,7 +218,7 @@ struct CoreMASBoundarySourceGuardTests {
         // someone tried to smuggle Pro capability into Core.
         for forbidden in ["bash", "shell_exec", "browser_use", "computer_use",
                           "docker", "mcp_call", "cli_passthrough",
-                          "hermes_subprocess"] {
+                          ] {
             #expect(!allowlist.contains("\"\(forbidden)\""),
                     "Core App Store allowlist must NOT contain \(forbidden) — that is a Pro/Research capability")
         }
