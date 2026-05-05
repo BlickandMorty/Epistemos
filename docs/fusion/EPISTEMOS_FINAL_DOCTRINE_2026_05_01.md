@@ -193,6 +193,8 @@ Target: `<100µs` per token on Apple Silicon (CPU does graph ops, ANE does neura
 
 **Canonical code anchors when starting.** Pulse uses existing `Epistemos/Engine/HaloController.swift` debounce machinery. Rail mounts as a non-blocking inspector view next to (not inside) `ProseEditorView` — protected-path rule applies, never edit `ProseEditor*.swift` for this.
 
+**Halo V1 stack reference (do not re-derive).** *(C6, merged 2026-05-05.)* 6-state FSM (`dormant → watching → encoding → searching → available → open`) + trailing-edge debounce + Model2Vec + usearch + Tantivy + weighted RRF + non-activating NSPanel + explicit latency budgets per the V1 product canon. Implementation lives across `Epistemos/Engine/HaloController.swift`, `HaloEditorBridge.swift`, `ShadowSearchService.swift`. Stack rationale and budget targets are in `docs/_consolidated/00_canonical_authority/ambient_V1_DECISION.md` and `docs/fusion/KIMI_FUSION_REVIEW_2026_04_30.md`.
+
 ---
 
 ## 5. Tier-Locked Feature Ledger

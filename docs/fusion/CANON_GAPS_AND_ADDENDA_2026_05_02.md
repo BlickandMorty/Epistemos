@@ -166,7 +166,7 @@ Also add to **§6 Hard Forbidden List**:
 
 ---
 
-### C6 — Halo specific stack reference
+### C6 — Halo specific stack reference **[MERGED 2026-05-05]**
 
 **Original plan:** *"6-state FSM, trailing-edge debounce, Model2Vec + usearch + Tantivy + weighted RRF, non-activating NSPanel, explicit latency budgets."*
 
