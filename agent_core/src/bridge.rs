@@ -642,6 +642,107 @@ pub fn nightbrain_preview_admission(
     )
 }
 
+/// Live-scheduler FFI: idempotently register canonical NightBrain tasks
+/// against the process-global singleton scheduler. Called by Swift
+/// `AppBootstrap` at startup. Returns the names that ended up
+/// registered. Idempotent — re-calling does not produce duplicates or
+/// errors. Closes the "NightBrain live Rust task registration not
+/// fully wired" follow-up (2026-05-04).
+#[uniffi::export]
+pub fn nightbrain_register_canonical_tasks() -> Vec<String> {
+    ffi_guard_value!(
+        {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("nightbrain registration runtime");
+            runtime.block_on(crate::nightbrain::live::register_canonical_tasks())
+        },
+        Vec::new()
+    )
+}
+
+/// Live-scheduler FFI: snapshot the live scheduler's registered task
+/// names. Cheap; no execution. Used by Swift diagnostics + the
+/// Provenance Console NightBrain row.
+#[uniffi::export]
+pub fn nightbrain_live_registered_task_names() -> Vec<String> {
+    ffi_guard_value!(
+        {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("nightbrain registration runtime");
+            runtime.block_on(crate::nightbrain::live::live_registered_task_names())
+        },
+        Vec::new()
+    )
+}
+
+/// Live-scheduler FFI: trigger a live execution of every registered
+/// task. Returns per-task outcome names; failures map to "error" strings
+/// rather than throwing across the FFI. Honours cooperative cancellation
+/// via `nightbrain_preempt_live_scheduler`.
+#[uniffi::export]
+pub fn nightbrain_run_live_registered_tasks() -> Vec<String> {
+    ffi_guard_value!(
+        {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("nightbrain registration runtime");
+            let outcomes = runtime
+                .block_on(crate::nightbrain::live::run_live_registered_tasks())
+                .unwrap_or_default();
+            outcomes
+                .into_iter()
+                .map(|outcome| {
+                    let status = if outcome.outcome.completed {
+                        "complete"
+                    } else {
+                        "preempted"
+                    };
+                    format!("{}:{}:{}", outcome.name, status, outcome.outcome.items_processed)
+                })
+                .collect()
+        },
+        Vec::new()
+    )
+}
+
+/// Live-scheduler FFI: cancel any in-flight live tasks. Idempotent.
+/// Real cancellation observation happens at task `ctx.is_cancelled()`
+/// checkpoints.
+#[uniffi::export]
+pub fn nightbrain_preempt_live_scheduler() {
+    ffi_guard_value!(
+        {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("nightbrain registration runtime");
+            runtime.block_on(crate::nightbrain::live::preempt_live_scheduler());
+        },
+        ()
+    )
+}
+
+/// Live-scheduler FFI: reset the cancellation token so the next
+/// admission window can run.
+#[uniffi::export]
+pub fn nightbrain_reset_live_scheduler() {
+    ffi_guard_value!(
+        {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("nightbrain registration runtime");
+            runtime.block_on(crate::nightbrain::live::reset_live_scheduler());
+        },
+        ()
+    )
+}
+
 fn route_action_wire(action: crate::route::Action) -> String {
     serde_json::to_value(action)
         .ok()
