@@ -44,7 +44,24 @@ use super::storage::InMemoryDagStore;
 /// in real time.
 pub fn cognitive_dag_store() -> &'static InMemoryDagStore {
     static DAG: OnceLock<InMemoryDagStore> = OnceLock::new();
-    DAG.get_or_init(InMemoryDagStore::new)
+    DAG.get_or_init(|| {
+        let store = InMemoryDagStore::new();
+        // Phase 8.C / CD-005: register the system-mirror sentinel
+        // capability hash so dispatch-emitted edges verify under
+        // capability-bound `put_edge` enforcement instead of falling
+        // back to the Phase 8.A structural-only guard. Doctrine §1.2:
+        // every edge MUST be signed under a held capability + the
+        // store MUST verify against the registered set on insert.
+        //
+        // The sentinel is the all-`0xE5` hash matching
+        // `system_mirror_capability_hash()` below. As Phase 8.C's
+        // macaroon-derived caps come online, callers will register
+        // those too via DagStore::register_capability(...) and the
+        // sentinel becomes one of N accepted caps.
+        use crate::cognitive_dag::storage::DagStore;
+        let _ = store.register_capability(system_mirror_capability_hash());
+        store
+    })
 }
 
 /// Default capability hash for system-initiated mirror writes. Carries
