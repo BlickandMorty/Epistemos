@@ -27,6 +27,9 @@ When sources disagree, this is the order:
 5. **Kimi research depth (read-only reference).**
    `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/`. Treated as donor research, not direct execution authority. Specific file pointers in §8 below.
 
+5.5. **Quick Capture standalone canon.** *(C9, merged 2026-05-05.)*
+   `/Users/jojo/Documents/Epistemos-QuickCapture/PLAN.md` + `FINAL_SYNTHESIS.md` (FINAL_SYNTHESIS corrects PLAN.md where they conflict). Authority for the Quick Capture track only. Worktree donor: `vigorous-goldberg-3a2d35`. Treat as authoritative for Quick Capture decisions; subordinate to repo authority docs (§1 #2) and this doctrine for everything else.
+
 6. **Worktree code.**
    Donor evidence. Inventory before reuse. Never raw-merge.
 

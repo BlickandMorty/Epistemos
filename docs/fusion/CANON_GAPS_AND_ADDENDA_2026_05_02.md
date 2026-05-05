@@ -224,7 +224,7 @@ Also add to **§6 Hard Forbidden List**:
 
 ---
 
-### C9 — Quick Capture standalone canon
+### C9 — Quick Capture standalone canon **[MERGED 2026-05-05 — §1 Authority Order point #5.5; ALL_DOCS_INDEX entry still pending]**
 
 **Original plan:** *"PLAN.md + FINAL_SYNTHESIS.md as Quick Capture authority; FINAL_SYNTHESIS corrects PLAN.md where they conflict."*
 
