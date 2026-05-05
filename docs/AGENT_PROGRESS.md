@@ -73,6 +73,164 @@ Last updated: **2026-05-05** — V2 stretch + canon hardening sprint. **The 2026
 
 ---
 
+## 2026-05-05 — continuation block (~80 commits total)
+
+The 2026-05-05 entry above was written at ~40 commits. The session
+continued and landed an additional ~40 commits across canon-merge
+work, drift-register closures, late-session hygiene, and read-this-
+first documentation. Final session totals + cross-refs:
+
+**Test counts (final session-end re-verification):**
+
+| Metric | Mid-session | Final 2026-05-05 |
+|---|---|---|
+| agent_core lib (default features) | 876 | **879** (4 new dispatch tests for A2 + A2-followup) |
+| agent_core lib + lsp-runtime | 891 | **891** (Codex's tower-lsp + tree-sitter committed; 17/17 lsp_runtime tests pass) |
+| Compiler warnings | 3 (pre-existing) | **0** (3 unused-import warnings fixed via test-only import scoping) |
+| CI gates wired + locally re-verified | 4 | **4 green** (B1 doctrine-lint ALL GATES PASS; B2 verify-replay ok; B3 + B4 in CI) |
+| Codex CDs closed | 6 of 9 | **8 of 9** (only CD-004 BLOCKED on external Codex verification) |
+
+**Major work landed in continuation block (oldest → newest):**
+
+11. **B5 MAS/Pro source-guard sweep + tirith verification** (CD-007
+    closure). Surveyed every `Command::new` spawn site, classified
+    9 modules as properly Pro-gated, BashExecuteHandler impl-level
+    Pro-gated, security.rs library helpers clean. Tirith.rs:268
+    spawn resolved-with-recommendation (runtime-gated under MAS;
+    Pro-gating recommended for App Review cleanliness). 3 orphan
+    files held for sign-off (904 LOC).
+
+12. **CANON_GAPS_AND_ADDENDA fully landed** (Codex #1 advice item).
+    - All 15 C-blocks merged into doctrine: C1 (WRV §10 #7), C2 (no
+      silent fallback §6), C3 (BYOK off §6), C4 (UX posture §4.0),
+      C5 (canonical state §2.2 #5 + §6), C6 (Halo stack ref §4.3),
+      C7 (Phase R + PromptTree §9 anchors, verified-then-merged),
+      C8 (App Store closeout §1), C9 (Quick Capture canon §1 #5.5
+      + ALL_DOCS_INDEX §3.5), C10 (Flight Recorder §7 + Annex A.15),
+      C11 (pre-release evidence Annex C, verified-then-merged),
+      C12 (local-stream truncation §8.5), C13 (telemetry §6 +
+      Annex A.16), C14 (ambient_V1_DECISION §1), C15 (CRDT §6).
+    - Each merged block carries inline `(C#, merged 2026-05-05.)`
+      provenance.
+    - All 3 B-bonus blocks read-then-absorbed as lift-targets briefs
+      (state: candidate, held for sign-off): B1 BIOMETRIC_TAMAGOTCHI_
+      BRAINEXPORT, B2 LIVE_FILES_AND_SUBSTRATE, B3 OBSCURA_BROWSER.
+      2893 source-doc lines mapped to current main with Tier-1/2/3
+      classification.
+
+13. **XPC trust spine** (Codex #5 + #9 advice items). New
+    `Epistemos/XPC/XPCTrust.swift` canonical helper that emits
+    `anchor apple generic and identifier "<svc>" and certificate
+    leaf[subject.OU] = "AL562BVF23"` and applies it via
+    `NSXPCConnection.setCodeSigningRequirement(_:)`. Wired into
+    AgentServiceClient + ProviderServiceClient. 4 new XPCSmokeTests.
+    **xcodebuild test-build verified: TEST BUILD SUCCEEDED.**
+
+14. **A2 macaroon-derived dispatch capability**. Promoted
+    `system_mirror_capability_hash` from a deterministic 0xE5
+    sentinel to a real Macaroon issued at process start with
+    ~244-bit CSPRNG root key (two uuid v4 draws). Hash is process-
+    stable (OnceLock-cached) but per-process unique.
+
+15. **A2-followup per-mirror caveat-narrowed capabilities**. 5
+    derived caps via `Caveat::ScopePrefix` ("skills", "procedural",
+    "provenance/evidence", "provenance/claim", "companions"). Each
+    dispatch site signs under its own narrowed authority. 4 new
+    tests pin distinctness + registration + canonical derivation.
+
+16. **CD-006 mirror auto-invoke coverage inventory**. 4 of 4
+    live-write mirrors wired (Provenance evidence/claim, Procedural,
+    Skills via snapshot-on-load model). CompanionMirror dormant by
+    design — no live caller because `CompanionRegistry` is only
+    invoked from cognitive_dag tests today.
+
+17. **CD-008 partial closure**. Cargo cross-crate green on clean
+    reruns: agent_core 879/879 + 891/891 with lsp-runtime, graph-
+    engine 2522/2522, omega-mcp 143/143. First-run flakes traced
+    to concurrent xcodebuild load. Full xcodebuild test +
+    manual runtime smoke remain for CD-008 full closure.
+
+18. **Both deferred user-question deliberation slots answered**:
+    - **Q1** (mmap utilization): `docs/MMAP_UTILIZATION_AUDIT_2026_05_05.md`
+      — 3 mmap surfaces, 3 drift hazards, full inventory across
+      Rust + Swift + Metal substrate. Companion to doctrine §2.2 #1.
+    - **Q2** (Static/Dynamic discriminator): `docs/STATIC_NOTE_VS_
+      DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` — state: candidate
+      brief; survey shows 8 of 10 NodeKind variants are static, 2
+      are dynamic-rooted via Companion/Model. Recommendation:
+      `NodeKind::is_dynamic_rooted()` method + doctrine paragraph
+      (~30 LOC + 1 test). Held for sign-off.
+
+19. **A1 redb persistent backend scoping** (V2.1 8.H authority
+    blocker). `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md`
+    — state: candidate. Crate selection (redb 2.x), 5-table schema
+    (NODES + EDGES + CAPABILITIES + 2 multimap indices), 5-slice
+    implementation plan (~5-9 hours), ~19 new tests, doctrine
+    alignment check vs §2.2 + CD-005 + A2 + A2-followup.
+
+20. **Late-session hygiene fix**: caught that Codex's V2.3 semantic
+    LSP work (deliverable behind CD-001/002/003) had been sitting
+    uncommitted in the working tree the ENTIRE session. 4 commits
+    landed it: `8fdeb017` (CODEX_CANONICAL_DRIFT_AUDIT doc, was
+    untracked), `4ddf3cef` (3 doc patches closing CD-002+003),
+    `7fb91735` (LSP code +613 lines closing CD-001 via tower-lsp +
+    tree-sitter, 17/17 lsp-runtime tests pass), `96c099aa` (close-
+    out doc note). Lesson logged: run `git status` at session START.
+
+21. **Lib build hygiene**: 3 unused-import warnings (one self-
+    introduced by A2; two pre-existing in nightbrain) fixed by
+    moving imports inside test modules. Lib build now emits zero
+    warnings; 879/879 lib tests still pass.
+
+22. **Session retrospective doc** as the read-this-first index:
+    `docs/SESSION_RETROSPECTIVE_2026_05_05.md`. One-doc summary of
+    all 80 commits with status table for all Codex CDs, CANON_GAPS
+    closure, V2.1 8.H authority blockers, CI gates, late-session
+    hygiene fixes, sign-off-gated remaining work, and 4 lessons
+    logged for future sessions.
+
+23. **APP_ISSUES_AUTO_FIX hygiene**: ISSUE-2026-04-21-005 (brittle
+    source-text tests in RuntimeValidationTests) re-verified
+    Open → Verified Fixed. All 17 assertions in the two flagged
+    tests now pass against current ChatCoordinator.swift via
+    per-needle grep -F.
+
+**V2.1 8.H authority flip status (updated 2026-05-05 final):**
+- ✓ CD-005 (capability-bound put_edge)
+- ✓ A2 + A2-followup (macaroon-derived per-mirror caveat caps)
+- ✓ A3 mostly closed (4 of 5 dispatch helpers wired in live callers)
+- ✓ CD-006 (mirror coverage inventory)
+- ⏸ A1 (redb persistent backend) — scoping landed, implementation
+  held for sign-off (5-9 hours, 5 slices)
+- ⏸ CD-004 (Phase 1-7 authority prerequisites) — BLOCKED on
+  external Codex verification of mirror coverage + replay parity
+  + flip criteria
+- ⏸ §10 two-week CI green window — automatic gate, runs in CI
+
+**Sign-off-gated work queued for next session:**
+- Static/Dynamic discriminator implementation (~30 LOC + 1 test)
+- A1 redb persistent backend implementation (5-9 hours, 5 slices)
+- B1-B3 phase work (Phases 21-25 + W7-A through W7-J + W6-A
+  through W6-I + W8) — 15 total sign-off questions queued across
+  the three lift-targets briefs
+- Manual runtime smoke for CD-008 full closure
+
+**Updated cross-references:**
+- `docs/SESSION_RETROSPECTIVE_2026_05_05.md` — read-this-first index
+- `docs/CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md` — detailed close-out
+  with Codex drift register status table
+- `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` — B5 / CD-007 closure
+- `docs/MIRROR_DISPATCH_COVERAGE_2026_05_05.md` — CD-006 closure
+- `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` — CD-008 partial
+- `docs/MMAP_UTILIZATION_AUDIT_2026_05_05.md` — Q1 answer
+- `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` — Q2
+- `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md` — A1 brief
+- `docs/B1_BIOMETRIC_TAMAGOTCHI_BRAINEXPORT_LIFT_TARGETS_2026_05_05.md`
+- `docs/B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS_2026_05_05.md`
+- `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md`
+
+---
+
 ## 2026-04-28 (canonical entry below — preserved unchanged)
 
 Last updated: 2026-04-28 | **Phase 1 keystone + ReplayBundle + epistemos-trace verifier + subprocess hardening sweep + W9.21 known-failure fix all landed.**
