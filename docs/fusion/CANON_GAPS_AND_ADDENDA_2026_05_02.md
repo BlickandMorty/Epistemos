@@ -293,7 +293,7 @@ User-facing trust visibility. Beyond OpLog projection (which is structural) — 
 
 ---
 
-### C11 — Submission candidate / release evidence package
+### C11 — Submission candidate / release evidence package **[VERIFIED-THEN-MERGED 2026-05-05 — landed as Annex C with verified-state caveats: PrivacyInfo.xcprivacy present in main, WORKFLOW_MATRIX.md flagged as missing deliverable]**
 
 **Original plan:** *"Workflow matrix, regression suite closure, App Store metadata/compliance, manual dogfood, repeatable release checklist."*
 
