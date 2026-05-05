@@ -8,6 +8,7 @@ pub mod bridge;
 pub mod canon;
 pub mod channel_relay;
 pub mod circuit_breaker;
+pub mod cognitive_dag;
 pub mod cognitive_weight;
 pub mod command_center;
 pub mod compaction;
