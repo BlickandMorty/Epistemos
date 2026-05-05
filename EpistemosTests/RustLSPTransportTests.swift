@@ -8,10 +8,10 @@ import Foundation
 ///   Swift LSPClient → Swift RustLSPTransport → Rust FFI
 ///   → Rust LspKernel → initialize handshake roundtrip
 ///
-/// **What's NOT tested here:** the actual LSP semantic features
-/// (hover, definition, document sync). Those land in Stage 2 when
-/// the surface justifies adding tower-lsp + tree-sitter. Stage 1
-/// covers ONLY the lifecycle handshake.
+/// Covers the semantic LSP path: tower-lsp response payloads on the Rust
+/// side plus tree-sitter-backed document sync, hover, and same-file
+/// definition lookup. This is the canonical replacement for the deleted
+/// subprocess transport.
 @Suite("RustLSPTransport end-to-end (V2.3 Stage D)")
 struct RustLSPTransportTests {
 
@@ -89,5 +89,43 @@ struct RustLSPTransportTests {
         await transport.shutdown()
         await transport.shutdown() // second call must not crash
         // No assertion needed beyond "this didn't throw or hang."
+    }
+
+    @Test("RustLSPTransport returns tree-sitter hover and definition")
+    func rustTransportReturnsSemanticHoverAndDefinition() async throws {
+        #if canImport(agent_coreFFI)
+        let transport = RustLSPTransport(pollIntervalNanos: 1_000_000)
+        await transport.startPolling()
+
+        let client = LSPClient(transport: transport)
+        await client.startRouting()
+        _ = try await client.initialize(
+            workspaceRoot: URL(fileURLWithPath: "/tmp/semantic-workspace")
+        )
+
+        let uri = URL(fileURLWithPath: "/tmp/semantic.rs")
+        let text = "fn answer() -> i32 { 42 }\nfn main() { answer(); }\n"
+        try await client.didOpen(
+            uri: uri,
+            languageId: "rust",
+            version: 1,
+            text: text
+        )
+
+        let hover = try await client.hover(uri: uri, line: 1, character: 12)
+        #expect(hover?.contents.contains("answer") == true)
+        #expect(hover?.contents.contains("function_item") == true)
+        #expect(hover?.contents.contains("fn answer()") == true)
+
+        let definitions = try await client.definition(uri: uri, line: 1, character: 12)
+        #expect(definitions.first?.uri == uri.absoluteString)
+        #expect(definitions.first?.range.start.line == 0)
+        #expect(definitions.first?.range.start.character == 3)
+
+        await transport.shutdown()
+        #else
+        let transport = RustLSPTransport()
+        await transport.shutdown()
+        #endif
     }
 }

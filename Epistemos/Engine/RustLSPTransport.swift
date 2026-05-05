@@ -13,11 +13,11 @@ import os
 // boundary in-process to a Rust LspKernel. The previous subprocess
 // transport (`LSPServerProcess`) was deleted at V2.3 close-out.
 //
-// **Doctrine alignment** (cognitive DAG doctrine §10): keeping this
-// transport in-process satisfies the "no subprocess or bloat" intent.
-// The hand-rolled Rust LspKernel uses zero new Cargo deps — the wire
-// format is small enough to write directly until Stage 2 adds
-// hover/definition + tree-sitter.
+// **Doctrine alignment** (post-recovery V2.3): keeping this transport
+// in-process satisfies the "no subprocess" intent while preserving the
+// semantic surface. The Rust LspKernel now uses tower-lsp's canonical
+// LSP response types plus tree-sitter Rust/Swift parsing for hover and
+// same-file definition lookup.
 //
 // **FFI usage shape:**
 //   - `send(_:)` encodes the LSPMessage → JSON-RPC string → calls

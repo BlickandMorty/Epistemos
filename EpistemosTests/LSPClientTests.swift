@@ -235,6 +235,6 @@ nonisolated struct LSPClientTests {
             #expect(Bool(false), "expected .notInitialized; got \(error)")
         }
 
-        try? await client.shutdownAndExit()
+        await stub.shutdown()
     }
 }
