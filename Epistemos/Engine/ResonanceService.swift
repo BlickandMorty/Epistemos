@@ -64,6 +64,23 @@ nonisolated enum ResonanceClaimType: String, Codable, Sendable, Hashable, CaseIt
         case .gap: "Gap"
         }
     }
+
+    /// Rust-side serde variant name for `agent_core::resonance::ClaimType`.
+    /// Default serde naming is PascalCase; Swift uses camelCase raw values
+    /// for display. Keep these in sync with `agent_core/src/resonance/pi.rs`.
+    nonisolated var rustName: String {
+        switch self {
+        case .equation: "Equation"
+        case .inequality: "Inequality"
+        case .causal: "Causal"
+        case .definition: "Definition"
+        case .empirical: "Empirical"
+        case .codeInvariant: "CodeInvariant"
+        case .prime: "Prime"
+        case .composite: "Composite"
+        case .gap: "Gap"
+        }
+    }
 }
 
 /// π output. Mirrors `agent_core::resonance::ClaimClass`.
@@ -143,10 +160,12 @@ nonisolated struct ResonanceClaim: Sendable, Hashable {
 
 /// Swift consumer for the Resonance Gate τ + π + λ daemon.
 ///
-/// **FFI status.** Today the service computes signatures locally in Swift
-/// using the same logic as the Rust seed. When the Rust FFI exposes
-/// `compute_resonance_signature_core(...)`, swap `computeStub(for:)` for
-/// the FFI call. The mirror Swift logic stays for offline tests + previews.
+/// **FFI status.** When `agent_coreFFI` is linked the service calls the
+/// Rust `compute_resonance_signature_core` for authoritative signatures.
+/// The Swift `computeStub(for:)` mirror remains as the offline fallback
+/// (tests, previews, and any build that doesn't link agent_coreFFI). On
+/// FFI failure the service logs and falls back to the stub so the UI
+/// surface never breaks.
 @MainActor
 @Observable
 final class ResonanceService {
@@ -164,6 +183,10 @@ final class ResonanceService {
     /// Rolling counter — useful for diagnostics + test assertions.
     private(set) var signaturesComputed: UInt64 = 0
 
+    /// Counts FFI calls vs. stub fallbacks. Diagnostics only.
+    private(set) var ffiCallCount: UInt64 = 0
+    private(set) var stubFallbackCount: UInt64 = 0
+
     init() {}
 
     /// Compute the Core-tier Σ signature for a claim. Pure given the
@@ -172,16 +195,116 @@ final class ResonanceService {
     @discardableResult
     func computeSignatureCore(for claim: ResonanceClaim) -> ResonanceSignatureCore {
         #if canImport(agent_coreFFI)
-        // FUTURE: replace with the real FFI call, e.g.
-        //   let sig = computeResonanceSignatureCore(claimJson: encode(claim))
-        let signature = computeStub(for: claim)
+        let signature: ResonanceSignatureCore
+        do {
+            signature = try Self.computeViaFFI(claim: claim)
+            ffiCallCount &+= 1
+        } catch {
+            Self.log.error("Resonance FFI call failed (\(String(describing: error), privacy: .public)); falling back to Swift stub")
+            signature = computeStub(for: claim)
+            stubFallbackCount &+= 1
+        }
         #else
         let signature = computeStub(for: claim)
+        stubFallbackCount &+= 1
         #endif
         lastSignature = signature
         signaturesComputed &+= 1
         return signature
     }
+
+    #if canImport(agent_coreFFI)
+    /// Bridge to the Rust `compute_resonance_signature_core` FFI. The
+    /// Rust side accepts/returns JSON for the `Claim` and
+    /// `ResonanceSignatureCore` types; we serialize via the wire structs
+    /// below so the Swift public API doesn't have to expose Rust serde
+    /// shape details.
+    nonisolated private static func computeViaFFI(
+        claim: ResonanceClaim
+    ) throws -> ResonanceSignatureCore {
+        let wire = ClaimWire(
+            kind: claim.kind.rustName,
+            statement: claim.statement,
+            // Rust only reads `dependencies.len()` and `.is_empty()`, so we
+            // pad with zero ClaimRefs to match the count. See
+            // agent_core/src/resonance/{pi,tau,lambda}.rs — none of them
+            // dereference the inner ClaimRef IDs.
+            dependencies: Array(repeating: 0, count: claim.dependencyCount),
+            evidence_count: UInt32(claim.evidenceCount)
+        )
+        let claimJson = try String(
+            decoding: JSONEncoder().encode(wire),
+            as: UTF8.self
+        )
+        let responseJson = try computeResonanceSignatureCore(claimJson: claimJson)
+        let decoded = try JSONDecoder().decode(
+            SignatureWire.self,
+            from: Data(responseJson.utf8)
+        )
+        return ResonanceSignatureCore(
+            truth: decoded.truth.swift,
+            class_: decoded.class_.swift,
+            residency: decoded.residency.swift
+        )
+    }
+
+    nonisolated private struct ClaimWire: Encodable {
+        let kind: String
+        let statement: String
+        let dependencies: [UInt64]
+        let evidence_count: UInt32
+    }
+
+    nonisolated private struct SignatureWire: Decodable {
+        let truth: TruthWire
+        let class_: ClassWire
+        let residency: ResidencyWire
+
+        enum CodingKeys: String, CodingKey {
+            case truth
+            case class_ = "class"
+            case residency
+        }
+    }
+
+    nonisolated private enum TruthWire: String, Decodable {
+        case True, Unknown, False
+        var swift: ResonanceTruth {
+            switch self {
+            case .True: .true_
+            case .Unknown: .unknown
+            case .False: .false_
+            }
+        }
+    }
+
+    nonisolated private enum ClassWire: String, Decodable {
+        case Prime, Composite, Gap
+        var swift: ResonanceClass {
+            switch self {
+            case .Prime: .prime
+            case .Composite: .composite
+            case .Gap: .gap
+            }
+        }
+    }
+
+    nonisolated private enum ResidencyWire: String, Decodable {
+        case L0Working, L1Recent, L2Warm, L3Cold, L4Engram, L5Adapter, L6Forbidden, L7Quarantine
+        var swift: ResonanceResidency {
+            switch self {
+            case .L0Working: .l0Working
+            case .L1Recent: .l1Recent
+            case .L2Warm: .l2Warm
+            case .L3Cold: .l3Cold
+            case .L4Engram: .l4Engram
+            case .L5Adapter: .l5Adapter
+            case .L6Forbidden: .l6Forbidden
+            case .L7Quarantine: .l7Quarantine
+            }
+        }
+    }
+    #endif
 
     /// Whether the most recent signature is allowed in a Core build.
     /// Returns `false` if no signature has been computed yet.
