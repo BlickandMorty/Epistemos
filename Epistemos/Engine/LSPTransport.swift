@@ -2,36 +2,31 @@ import Foundation
 
 // MARK: - LSPTransport
 //
-// V2.3 first slice (2026-05-05) — the architectural seam between
-// `LSPClient` and the underlying message transport. Refactored out of
-// `LSPClient`'s previous concrete dependency on `LSPServerProcess` so a
-// future in-process Rust LSP transport (tower-lsp + tree-sitter) can
-// drop in without touching the client.
+// V2.3 close-out (2026-05-05) — the architectural seam between
+// `LSPClient` and the underlying message transport. Production
+// transport is `RustLSPTransport` (in-process Rust LSP runtime via
+// agent_core FFI); this protocol lets mocks + future implementations
+// drop in without touching LSPClient.
 //
 // **Doctrine alignment.** Per the post-recovery V2 plan §V2.3, the
-// goal is "closes last subprocess in editor surface; tower-lsp +
-// tree-sitter." This file lands the seam; the tower-lsp Rust crate
-// arrives in a follow-up slice (see
-// `docs/V2_3_LSP_MIGRATION_PLAN_2026_05_05.md`).
-//
-// The seam means LSPClient no longer cares whether its messages cross
-// a stdio boundary to a `Process`-owned subprocess or stay in-process
-// via FFI to a Rust crate. Switching transports becomes a one-line
-// change at the call site.
+// goal "closes last subprocess in editor surface" is satisfied: the
+// previous subprocess transport (`LSPServerProcess`) was deleted at
+// V2.3 close-out and the in-process Rust runtime is the only shipped
+// LSP path.
 
 /// Transport protocol that LSPClient depends on. Implementations
 /// move LSP `LSPMessage` envelopes between Swift and an LSP server
-/// (subprocess, in-process Rust, mock, etc.).
+/// (in-process Rust runtime, mock, future implementations).
 ///
 /// Conformance contract:
 /// - `messages` MUST be `nonisolated` + cold + buffered (LSPClient
 ///   subscribes once via `startRouting()`; the transport must replay
 ///   or buffer missed messages until subscription).
 /// - `send` and `shutdown` are `async` so actor-typed transports
-///   (LSPServerProcess is `public actor`) can satisfy the contract
-///   without dropping isolation. Class-typed transports just have
-///   no-op async wrappers around their sync work; the cost is one
-///   await suspension point per call.
+///   (e.g. `RustLSPTransport` is `public actor`) can satisfy the
+///   contract without dropping isolation. Class-typed transports
+///   just have no-op async wrappers around their sync work; the
+///   cost is one await suspension point per call.
 /// - `send` MUST be `throws` so transport-side I/O failures surface
 ///   to the caller (LSPClient pulls pending continuations out and
 ///   resumes them with the send error so requests don't hang).
@@ -52,33 +47,17 @@ nonisolated public protocol LSPTransport: Sendable {
     func shutdown() async
 }
 
-// MARK: - LSPServerProcess conformance
+// MARK: - InProcessLSPTransport stub
 //
-// `LSPServerProcess` already satisfies the protocol shape — its
-// public `messages: AsyncStream<LSPMessage>`, `send(_:)`, and
-// `shutdown()` line up exactly. The conformance is empty + zero-cost.
-
-extension LSPServerProcess: LSPTransport {}
-
-// MARK: - InProcessLSPTransport stub (V2.3 follow-up landing zone)
+// Test-only / lifecycle-test transport that satisfies the
+// `LSPTransport` protocol with no LSP server behind it. Every `send`
+// call records the outgoing message in an audit log and emits a
+// `MethodNotFound` JSON-RPC error response. Used by lifecycle-guard
+// tests that want to exercise the LSPClient state machine without
+// running an actual LSP server.
 //
-// Placeholder transport that satisfies the LSPTransport protocol but
-// has no LSP server behind it yet. Every `send` call records the
-// outgoing message in `sentMessages` for tests/diagnostics and emits
-// a `MethodNotFound` JSON-RPC error response on the messages stream.
-//
-// **Why ship the stub now.** Two reasons:
-//   1. Proves the protocol seam works end-to-end — LSPClient can be
-//      constructed against it, the routing loop runs, and a request
-//      gets a (terminal) response without crashing or hanging.
-//   2. Marks the integration point. When the Rust tower-lsp crate
-//      lands, the `RustLSPTransport` (or rename of this stub) drops
-//      its FFI calls into the `send` body; nothing in LSPClient or
-//      the Swift surface needs to change.
-//
-// This is NOT shipped as a default LSPClient transport — it has to
-// be explicitly constructed. LSPServerProcess remains the only
-// production-wired transport until the Rust crate arrives.
+// Production callers use `RustLSPTransport` (the in-process Rust
+// LSP runtime).
 public actor InProcessLSPTransport: LSPTransport {
 
     public nonisolated let messages: AsyncStream<LSPMessage>

@@ -3,16 +3,15 @@ import os
 
 // MARK: - V2.3 Stage C: RustLSPTransport
 //
-// In-process Swift transport that conforms to `LSPTransport` (V2.3
-// first slice / commit `d06fefca`) and drives the Rust `LspKernel`
-// via the FFI exports landed in V2.3 Stage B.
+// In-process Swift transport that conforms to `LSPTransport` and
+// drives the Rust `LspKernel` via the FFI exports landed in V2.3
+// Stage B.
 //
 // **Architectural payoff:** the V2.3 sentence "closes last subprocess
-// in editor surface" becomes literally true the moment a caller swaps
-// `LSPClient(transport: rustTransport)` for the previous
-// `LSPClient(process: lspServerProcess)`. No `Process`, no `Pipe`, no
-// stdin/stdout draining — every LSP message crosses the FFI boundary
-// in-process to a Rust LspKernel. Swift's `LSPClient` doesn't change.
+// in editor surface" is now literally true. No `Process`, no `Pipe`,
+// no stdin/stdout draining — every LSP message crosses the FFI
+// boundary in-process to a Rust LspKernel. The previous subprocess
+// transport (`LSPServerProcess`) was deleted at V2.3 close-out.
 //
 // **Doctrine alignment** (cognitive DAG doctrine §10): keeping this
 // transport in-process satisfies the "no subprocess or bloat" intent.
@@ -33,9 +32,8 @@ import os
 #if canImport(agent_coreFFI)
 
 /// In-process LSP transport that drives the Rust `LspKernel` via
-/// agent_core FFI. Conforms to `LSPTransport` so it's a drop-in
-/// replacement for `LSPServerProcess` in any `LSPClient(transport:)`
-/// call site.
+/// agent_core FFI. Conforms to `LSPTransport` so any `LSPClient
+/// (transport:)` call site can use it directly.
 ///
 /// The transport is `actor`-typed because it owns the poll task and
 /// the messages-stream continuation; both must be accessed under

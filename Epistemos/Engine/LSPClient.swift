@@ -7,8 +7,9 @@ import OSLog
 // (cross-ref `epistemos_code_verdict.md` §3 "Intelligence" layer:
 //  SourceKit-LSP / clangd is the actual truth about the code).
 //
-// The high-level JSON-RPC 2.0 client that sits on top of the W9.8
-// transport (`LSPServerProcess`). Implements just the subset the
+// The high-level JSON-RPC 2.0 client that sits on top of any
+// `LSPTransport` conformer. Production today uses `RustLSPTransport`
+// (in-process Rust LSP runtime). Implements just the subset the
 // editor actually needs today:
 //
 //   - initialize / initialized handshake
@@ -116,17 +117,15 @@ nonisolated public struct LSPLocation: Codable, Sendable, Hashable {
 /// counter + pending response continuations. Server-pushed
 /// notifications fan out via `notifications: AsyncStream<LSPMessage>`.
 ///
-/// **V2.3 (2026-05-05) refactor:** the client previously held a
-/// concrete `LSPServerProcess`; it now holds `any LSPTransport` so
-/// the future tower-lsp Rust transport can drop in without touching
-/// LSPClient. The `process` accessor stays for backward compat —
-/// callers that constructed against `LSPServerProcess` still get
-/// the same interface.
+/// **V2.3 close-out (2026-05-05):** the subprocess-based
+/// `LSPServerProcess` transport was deleted. The canonical transport
+/// is now `RustLSPTransport` (in-process Rust LSP runtime). The
+/// `LSPTransport` protocol seam still allows custom transports
+/// (mocks, future implementations) without touching LSPClient.
 public actor LSPClient {
 
-    /// The underlying transport. May be `LSPServerProcess` (subprocess
-    /// transport — production today) or `InProcessLSPTransport` (Swift
-    /// stub) or a future Rust-backed transport.
+    /// The underlying transport. Typically `RustLSPTransport` in
+    /// production; `InProcessLSPTransport` for the stub-mode tests.
     public let transport: any LSPTransport
     private let log = Logger(subsystem: "com.epistemos", category: "LSPClient")
 
@@ -139,13 +138,6 @@ public actor LSPClient {
     public nonisolated let notifications: AsyncStream<LSPMessage>
     private let notificationContinuation: AsyncStream<LSPMessage>.Continuation
 
-    /// Backward-compatible accessor. Callers that need the concrete
-    /// `LSPServerProcess` (e.g. to call `launch()`) can downcast.
-    /// New code should use `transport` directly.
-    public var process: LSPServerProcess? {
-        transport as? LSPServerProcess
-    }
-
     public init(transport: any LSPTransport) {
         self.transport = transport
         var continuation: AsyncStream<LSPMessage>.Continuation!
@@ -153,13 +145,6 @@ public actor LSPClient {
             continuation = c
         }
         self.notificationContinuation = continuation
-    }
-
-    /// Backward-compatible convenience init — preserves the pre-V2.3
-    /// `LSPClient(process: ...)` call site shape so existing callers +
-    /// tests don't have to change.
-    public init(process: LSPServerProcess) {
-        self.init(transport: process)
     }
 
     /// Spawn the message-routing loop. Call exactly once after the
