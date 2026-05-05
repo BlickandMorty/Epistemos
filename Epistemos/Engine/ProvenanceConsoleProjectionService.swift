@@ -6,9 +6,20 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     let agentPayload: GenUIPayload
     let graphPayload: GenUIPayload
     let outboxPayload: GenUIPayload
+    /// V2 Lane 1 (2026-05-05): Rust `agent_core::provenance::ledger::ClaimLedger`
+    /// surfaced alongside the local Swift EventStore. Read-only — writes still
+    /// flow through the Rust paths that own claim/evidence ingestion.
+    let rustLedgerPayload: GenUIPayload
 
     var payloads: [GenUIPayload] {
-        [summaryPayload, retractionPayload, agentPayload, graphPayload, outboxPayload]
+        [
+            summaryPayload,
+            rustLedgerPayload,
+            retractionPayload,
+            agentPayload,
+            graphPayload,
+            outboxPayload,
+        ]
     }
 
     static let empty = ProvenanceConsoleSnapshot(
@@ -21,6 +32,10 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
         graphPayload: .provenanceTrace(title: "GraphEvent", events: []),
         outboxPayload: .keyValueTable(title: "MutationEnvelope projection", [
             ("status", "unavailable")
+        ]),
+        rustLedgerPayload: .keyValueTable(title: "ClaimLedger (Rust)", [
+            ("status", "FFI unavailable"),
+            ("mode", "read-only")
         ])
     )
 }
@@ -60,13 +75,15 @@ struct ProvenanceConsoleProjectionService: Sendable {
         let agentEvents = eventStore.recentAgentEvents(limit: limit)
         let graphEvents = eventStore.recentGraphEvents(limit: limit)
         let retractionEvents = subscribeRetractionEvents(afterSequence: 0, limit: limit)
+        let rustLedgerSummary = RustProvenanceLedgerClient.summary()
 
         return ProvenanceConsoleSnapshot(
             summaryPayload: Self.summaryPayload(
                 agentDiagnostics: agentDiagnostics,
                 graphDiagnostics: graphDiagnostics,
                 outboxDiagnostics: outboxDiagnostics,
-                retractionEventCount: retractionEvents.count
+                retractionEventCount: retractionEvents.count,
+                rustLedger: rustLedgerSummary
             ),
             retractionPayload: GenUIPayload.provenanceTrace(
                 title: "RetractionPropagated",
@@ -83,7 +100,8 @@ struct ProvenanceConsoleProjectionService: Sendable {
                 events: graphEvents.map(Self.graphEventPayload),
                 metadata: ["plane": "GraphEvent"]
             ),
-            outboxPayload: Self.outboxPayload(outboxDiagnostics)
+            outboxPayload: Self.outboxPayload(outboxDiagnostics),
+            rustLedgerPayload: Self.rustLedgerPayload(rustLedgerSummary)
         )
     }
 
@@ -100,15 +118,29 @@ struct ProvenanceConsoleProjectionService: Sendable {
         agentDiagnostics: EventStore.AgentEventDiagnostics,
         graphDiagnostics: EventStore.GraphEventDiagnostics,
         outboxDiagnostics: EventStore.MutationProjectionOutboxDiagnostics,
-        retractionEventCount: Int
+        retractionEventCount: Int,
+        rustLedger: RustProvenanceLedgerSummary
     ) -> GenUIPayload {
         .keyValueTable(title: "Provenance Console", [
             ("mode", "read-only projection"),
             ("RunEventLog", "source event history"),
             ("MutationEnvelope", "\(outboxDiagnostics.totalRows) projection rows"),
-            ("ClaimLedger", "\(retractionEventCount) RetractionPropagated events"),
+            ("ClaimLedger (Swift)", "\(retractionEventCount) RetractionPropagated events"),
+            ("ClaimLedger (Rust)", "\(rustLedger.claimCount) claims, \(rustLedger.evidenceCount) evidence, \(rustLedger.eventCount) events"),
             ("AgentEvent", "\(agentDiagnostics.totalRows) events across \(agentDiagnostics.distinctRuns) runs"),
             ("GraphEvent", "\(graphDiagnostics.totalRows) events across \(graphDiagnostics.distinctMutations) mutations")
+        ])
+    }
+
+    private static func rustLedgerPayload(
+        _ summary: RustProvenanceLedgerSummary
+    ) -> GenUIPayload {
+        .keyValueTable(title: "ClaimLedger (Rust)", [
+            ("source", "agent_core::provenance::ledger::ClaimLedger"),
+            ("mode", "read-only FFI projection"),
+            ("claims", "\(summary.claimCount)"),
+            ("evidence", "\(summary.evidenceCount)"),
+            ("events", "\(summary.eventCount)"),
         ])
     }
 

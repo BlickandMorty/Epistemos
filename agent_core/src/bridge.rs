@@ -2868,6 +2868,120 @@ fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
     matches!(tool_name, "vault_write")
 }
 
+// MARK: - Provenance Ledger FFI (V2 Lane 1 — read-only Rust ledger surface)
+//
+// Doctrine reference: V2_WIRE_UP_STATUS_2026_05_05.md Lane 1 — surface
+// the Rust `agent_core::provenance::ledger::ClaimLedger` to the Swift
+// Provenance Console alongside the existing local `EventStore` reads.
+//
+// This is a READ-ONLY bridge. Writes still flow through the Rust paths
+// that own claim/evidence ingestion (agent_loop, retraction handlers).
+// The Swift consumer only observes the ledger summary + recent events.
+//
+// Why read-only matters: the cognitive DAG doctrine §10 explicitly forbids
+// parallel-store wiring before Phase 8.E mirroring is in place. A read-only
+// surface avoids the parallel-write hazard while still removing the orphan
+// status of the ledger from the app's perspective.
+
+/// Process-global `ClaimLedger` instance. The Mutex is intentional —
+/// commits and retractions take `&mut self`, and the operations are
+/// quick (BTreeMap/HashMap mutations). Per `bridge.rs` precedent
+/// (`get_or_create_cache` for NeuralCache), shared state is `OnceLock`-
+/// initialized lazily.
+fn provenance_ledger() -> &'static std::sync::Mutex<crate::provenance::ledger::ClaimLedger> {
+    use std::sync::{Mutex, OnceLock};
+    static LEDGER: OnceLock<Mutex<crate::provenance::ledger::ClaimLedger>> = OnceLock::new();
+    LEDGER.get_or_init(|| Mutex::new(crate::provenance::ledger::ClaimLedger::new()))
+}
+
+/// Returns a JSON summary of the global Rust `ClaimLedger` for the Swift
+/// Provenance Console. Shape:
+///
+/// ```json
+/// {
+///   "claim_count": 42,
+///   "evidence_count": 17,
+///   "event_count": 89
+/// }
+/// ```
+///
+/// Cheap O(1)-per-counter; no allocation beyond the small JSON output.
+#[uniffi::export]
+pub fn provenance_ledger_summary_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let ledger = provenance_ledger()
+            .lock()
+            .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("Provenance ledger mutex poisoned: {err}"),
+            })?;
+        // Compose by hand instead of pulling in serde_json::json! to keep
+        // the FFI surface boring + cheap.
+        Ok(format!(
+            r#"{{"claim_count":{},"evidence_count":{},"event_count":{}}}"#,
+            ledger.claim_count(),
+            ledger.evidence_count(),
+            ledger.events_since(0).len(),
+        ))
+    })
+}
+
+/// Returns recent ledger events as a JSON array (newest first), capped at
+/// `limit`. Each event is the canonical `LedgerEvent` serde shape from
+/// `agent_core::provenance::ledger`. Shape:
+///
+/// ```json
+/// [
+///   {"sequence": 12, "kind": "evidence_committed", ...},
+///   ...
+/// ]
+/// ```
+///
+/// `limit == 0` returns an empty array. Hard cap of 1000 events to keep
+/// the FFI return string bounded.
+#[uniffi::export]
+pub fn provenance_ledger_recent_events_json(limit: u32) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let ledger = provenance_ledger()
+            .lock()
+            .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("Provenance ledger mutex poisoned: {err}"),
+            })?;
+        let bounded = limit.min(1000) as usize;
+        if bounded == 0 {
+            return Ok("[]".to_string());
+        }
+        let mut events = ledger.events_since(0);
+        // Newest first.
+        events.reverse();
+        events.truncate(bounded);
+        serde_json::to_string(&events).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Provenance events serialization failed: {err}"),
+        })
+    })
+}
+
+/// Returns a deterministic snapshot of the global ledger as JSON. Shape
+/// matches `agent_core::provenance::replay::LedgerSnapshot` (claims +
+/// evidence + derivations + support_links, all sorted by id for byte-
+/// equal serialization across calls).
+///
+/// Larger return than the summary; intended for occasional audit views
+/// rather than every-tick UI refresh.
+#[uniffi::export]
+pub fn provenance_ledger_snapshot_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let ledger = provenance_ledger()
+            .lock()
+            .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("Provenance ledger mutex poisoned: {err}"),
+            })?;
+        let snapshot = ledger.snapshot();
+        serde_json::to_string(&snapshot).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Provenance snapshot serialization failed: {err}"),
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
