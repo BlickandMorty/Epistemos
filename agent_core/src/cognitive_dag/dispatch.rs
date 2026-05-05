@@ -25,7 +25,7 @@ use std::sync::OnceLock;
 
 use crate::provenance::ledger::{Claim, ClaimId, Evidence, EvidenceId};
 
-use super::macaroons::{issue, Macaroon};
+use super::macaroons::{issue, restrict, Caveat, Macaroon};
 use super::migration::{
     CompanionMutation, DagMirror, LedgerMutation, ProceduralMirror, ProcedureMutation,
     ProvenanceLedgerMirror, SkillsMirror,
@@ -55,14 +55,20 @@ pub fn cognitive_dag_store() -> &'static InMemoryDagStore {
         // signed under a held capability + the store MUST verify
         // against the registered set on insert.
         //
-        // A2 promotion: was a deterministic 0xE5 sentinel hash; now
-        // derived from a real `Macaroon` issued at process start with
-        // a process-local random root key (see `system_mirror_macaroon`
-        // below). The DAG only sees the 32-byte capability hash; the
-        // macaroon itself stays in-process and is not exfiltrated
-        // through the FFI surface.
+        // A2-followup (2026-05-05): in addition to the base system-
+        // mirror cap, register the per-mirror caveat-narrowed caps
+        // so each dispatch site signs under its own derived authority
+        // (Caveat::ScopePrefix narrows the base cap to a specific
+        // mirror surface). The base cap stays registered as a
+        // fallback for any future dispatch site that doesn't have a
+        // specific mirror narrowing yet.
         use crate::cognitive_dag::storage::DagStore;
         let _ = store.register_capability(system_mirror_capability_hash());
+        let _ = store.register_capability(skills_mirror_capability_hash());
+        let _ = store.register_capability(procedural_mirror_capability_hash());
+        let _ = store.register_capability(provenance_evidence_capability_hash());
+        let _ = store.register_capability(provenance_claim_capability_hash());
+        let _ = store.register_capability(companion_mirror_capability_hash());
         store
     })
 }
@@ -98,7 +104,8 @@ fn system_mirror_macaroon() -> &'static Macaroon {
 }
 
 /// Capability hash for system-initiated mirror writes. Derived from the
-/// process-local `system_mirror_macaroon()` per A2.
+/// process-local `system_mirror_macaroon()` per A2. Used as a fallback
+/// for any dispatch site that doesn't yet have a per-mirror narrowing.
 ///
 /// Doctrine §1.2: every edge MUST be signed under a held capability.
 /// This function returns the hash the dispatch layer signs edges with;
@@ -106,6 +113,72 @@ fn system_mirror_macaroon() -> &'static Macaroon {
 /// for `put_edge` to accept the edges (CD-005 verification).
 fn system_mirror_capability_hash() -> Hash {
     system_mirror_macaroon().capability_hash()
+}
+
+// ── A2-followup: per-mirror caveat-narrowed capabilities ─────────────────
+
+/// Per-mirror derived macaroon. Lazily restricts the base
+/// `system_mirror_macaroon()` with a `ScopePrefix` caveat so each
+/// mirror's authority is narrower than "the whole dispatch surface".
+///
+/// Doctrine intent: a stolen capability should be bounded by the
+/// scope its holder needs. The Skills mirror cap can sign Skills
+/// edges but cannot sign Provenance edges, etc. The current
+/// implementation does not yet use the caveat at verification time
+/// (the DAG store's `verify_edge_against_registered_caps` only
+/// matches signature equality), but issuing per-mirror caps now means
+/// the future verification slice can enforce caveats without churning
+/// the dispatch sites again.
+fn derive_mirror_macaroon(scope_prefix: &str) -> Macaroon {
+    restrict(
+        system_mirror_macaroon(),
+        Caveat::ScopePrefix {
+            prefix: scope_prefix.to_string(),
+        },
+    )
+}
+
+/// Capability hash for SkillsMirror writes. Narrowed via
+/// `ScopePrefix { prefix: "skills" }`.
+fn skills_mirror_capability_hash() -> Hash {
+    static M: OnceLock<Macaroon> = OnceLock::new();
+    M.get_or_init(|| derive_mirror_macaroon("skills"))
+        .capability_hash()
+}
+
+/// Capability hash for ProceduralMirror writes. Narrowed via
+/// `ScopePrefix { prefix: "procedural" }`.
+fn procedural_mirror_capability_hash() -> Hash {
+    static M: OnceLock<Macaroon> = OnceLock::new();
+    M.get_or_init(|| derive_mirror_macaroon("procedural"))
+        .capability_hash()
+}
+
+/// Capability hash for ProvenanceLedgerMirror evidence writes.
+/// Narrowed via `ScopePrefix { prefix: "provenance/evidence" }`.
+fn provenance_evidence_capability_hash() -> Hash {
+    static M: OnceLock<Macaroon> = OnceLock::new();
+    M.get_or_init(|| derive_mirror_macaroon("provenance/evidence"))
+        .capability_hash()
+}
+
+/// Capability hash for ProvenanceLedgerMirror claim writes.
+/// Narrowed via `ScopePrefix { prefix: "provenance/claim" }`.
+fn provenance_claim_capability_hash() -> Hash {
+    static M: OnceLock<Macaroon> = OnceLock::new();
+    M.get_or_init(|| derive_mirror_macaroon("provenance/claim"))
+        .capability_hash()
+}
+
+/// Capability hash for CompanionMirror writes. Narrowed via
+/// `ScopePrefix { prefix: "companions" }`. Currently dormant — the
+/// CompanionRegistry has no live caller (see `MIRROR_DISPATCH_COVERAGE`
+/// doc), but the cap is registered so when companion lifecycle goes
+/// live the dispatch site has its narrowed authority ready.
+fn companion_mirror_capability_hash() -> Hash {
+    static M: OnceLock<Macaroon> = OnceLock::new();
+    M.get_or_init(|| derive_mirror_macaroon("companions"))
+        .capability_hash()
 }
 
 // ── Provenance ledger auto-dispatch ────────────────────────────────────────
@@ -123,7 +196,7 @@ pub fn on_evidence_committed(e: &Evidence) {
     if let Err(err) = ProvenanceLedgerMirror::mirror_write(
         &mutation,
         cognitive_dag_store(),
-        system_mirror_capability_hash(),
+        provenance_evidence_capability_hash(),
     ) {
         // Per canonical-upgrade-audit C1 (2026-05-05): tracing is
         // already a workspace dep and used elsewhere; structured
@@ -159,7 +232,7 @@ pub fn on_claim_committed(
     if let Err(err) = ProvenanceLedgerMirror::mirror_write(
         &mutation,
         cognitive_dag_store(),
-        system_mirror_capability_hash(),
+        provenance_claim_capability_hash(),
     ) {
         tracing::warn!(
             target: "cognitive_dag::dispatch",
@@ -201,7 +274,7 @@ pub fn on_procedure_recorded(record: &ProcedureOutcomeRecord) {
     if let Err(err) = ProceduralMirror::mirror_write(
         &mutation,
         cognitive_dag_store(),
-        system_mirror_capability_hash(),
+        procedural_mirror_capability_hash(),
     ) {
         tracing::warn!(
             target: "cognitive_dag::dispatch",
@@ -252,7 +325,7 @@ pub fn on_skills_loaded(skills: &[SkillEntry]) {
         if let Err(err) = SkillsMirror::mirror_write(
             &mutation,
             cognitive_dag_store(),
-            system_mirror_capability_hash(),
+            skills_mirror_capability_hash(),
         ) {
             tracing::warn!(
                 target: "cognitive_dag::dispatch",
@@ -301,7 +374,7 @@ pub fn on_companion_registered(
     match CompanionMirror::mirror_write(
         &mutation,
         cognitive_dag_store(),
-        system_mirror_capability_hash(),
+        companion_mirror_capability_hash(),
     ) {
         Ok(id) => Some(id),
         Err(err) => {
@@ -435,5 +508,82 @@ mod tests {
         ));
         assert_eq!(m.base_scope.0, "dispatch");
         assert!(m.base_expiry_ms.is_none(), "process-lifetime authority");
+    }
+
+    #[test]
+    fn per_mirror_capability_hashes_are_distinct() {
+        // A2-followup: each per-mirror cap MUST have a different hash
+        // so a stolen Skills cap can't be replayed against a Provenance
+        // edge once the DAG store enforces per-cap caveats. Today the
+        // DAG only verifies signature equality; the per-mirror caps
+        // are pre-positioned for the next verification slice.
+        let base = system_mirror_capability_hash();
+        let skills = skills_mirror_capability_hash();
+        let procedural = procedural_mirror_capability_hash();
+        let provenance_evidence = provenance_evidence_capability_hash();
+        let provenance_claim = provenance_claim_capability_hash();
+        let companion = companion_mirror_capability_hash();
+
+        let all = [base, skills, procedural, provenance_evidence, provenance_claim, companion];
+        for i in 0..all.len() {
+            for j in (i + 1)..all.len() {
+                assert_ne!(
+                    all[i], all[j],
+                    "cap hashes at indices {i} and {j} collide — A2-followup distinctness invariant violated"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn per_mirror_caps_are_registered_with_dag_store() {
+        // CD-005 contract: every cap a dispatch site signs under MUST
+        // be in the store's registered set. If the init in
+        // `cognitive_dag_store()` drops a registration, edges from
+        // that mirror would fail with InvalidSignature.
+        use crate::cognitive_dag::storage::DagStore;
+        let store = cognitive_dag_store();
+        let registered = store.registered_capabilities();
+
+        for (name, cap) in [
+            ("system_mirror", system_mirror_capability_hash()),
+            ("skills_mirror", skills_mirror_capability_hash()),
+            ("procedural_mirror", procedural_mirror_capability_hash()),
+            ("provenance_evidence", provenance_evidence_capability_hash()),
+            ("provenance_claim", provenance_claim_capability_hash()),
+            ("companion_mirror", companion_mirror_capability_hash()),
+        ] {
+            assert!(
+                registered.contains(&cap),
+                "cap '{name}' was not registered with the DAG store on init"
+            );
+        }
+    }
+
+    #[test]
+    fn per_mirror_macaroons_carry_scope_prefix_caveats() {
+        // The narrowing happens via Caveat::ScopePrefix. Verify each
+        // derived mirror macaroon has the right caveat applied.
+        use super::super::macaroons::Caveat;
+
+        for (scope, derived_hash) in [
+            ("skills", skills_mirror_capability_hash()),
+            ("procedural", procedural_mirror_capability_hash()),
+            ("provenance/evidence", provenance_evidence_capability_hash()),
+            ("provenance/claim", provenance_claim_capability_hash()),
+            ("companions", companion_mirror_capability_hash()),
+        ] {
+            let expected = derive_mirror_macaroon(scope);
+            assert_eq!(
+                expected.capability_hash(),
+                derived_hash,
+                "derived hash for scope '{scope}' doesn't match the canonical derivation"
+            );
+            assert_eq!(expected.caveats.len(), 1);
+            assert!(matches!(
+                &expected.caveats[0],
+                Caveat::ScopePrefix { prefix } if prefix == scope
+            ));
+        }
     }
 }
