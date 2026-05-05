@@ -291,6 +291,7 @@ Core open
   ├─ Broader-runtime AgentEvent coverage beyond PR1–PR9            open
   ├─ R15 remaining specialized baselines                           open
   ├─ R16 runtime/manual closure                                    open
+  ├─ Flight Recorder + runtime transparency (C10)                   open
   └─ MAS/Core vs Pro capability symbol separation                  open
 
 Core killer-feature seed work (gate before coding)
@@ -594,6 +595,30 @@ For any retrieval, the claim DAG ranks sources by **dependency depth**: a Prime 
 VRM is a system-call-style entrypoint that initializes a sandboxed reasoning session with the full T0–T4 verification pipeline active and **external verifiers required** (Z3 for math, code execution for invariants, calculator for numerics). Inside VRM, the model is never trusted to verify itself. This is the canonical mode for the Resonance Gate's Evidence Supremacy Protocol when η flags an "edge" claim.
 
 **Tier impact:** T0–T2 VRM in Core. T3+T4 VRM in Pro/Research.
+
+### A.15 Flight Recorder + runtime transparency *(C10, merged 2026-05-05)*
+
+User-facing trust visibility. Beyond OpLog projection (which is structural) — the Flight Recorder is the user-facing diagnostic surface that lets the user see and export what the system is doing.
+
+**Three components:**
+
+1. **Structured event log** — already exists as OpLog + `agent_events` + `graph_events` tables.
+2. **Exportable diagnostic bundle** — Settings → Export Diagnostics. Bundles last N hours of OpLog + AgentEvent + GraphEvent + crash logs + benchmark JSON results. User-controlled scope (anonymize / include vault content / metadata-only).
+3. **Live runtime status surface** — visible state of agent loop (idle / thinking / tool-running / waiting-on-approval), MLX inference state (loaded / loading / evicting / refused), FFI call counts and recent failures.
+
+**Tier impact:** All tiers ship #1 and #2. #3 visible in Pro / Research; in Core it's behind a hidden Settings toggle (defaults off; trust-builder for users who want it).
+
+### A.16 Telemetry policy *(C13, merged 2026-05-05)*
+
+**Captured (allowed):** event timestamps, modifier-key states, anonymized event types (e.g., "agent_turn_completed"), failure categories (e.g., "tool_timeout"), aggregate latency histograms, feature flag enablement, OS version, app version, hardware class.
+
+**Forbidden:** typed text content, note body text, code content, message bodies, file contents, file paths (paths can leak private structure), search query strings, vault content, screenshots, AX tree contents, microphone audio.
+
+**Retention:** local-only by default. Bounded ring buffer (last 7 days for runtime telemetry; last 30 days for crash logs). Cloud upload requires explicit per-channel opt-in.
+
+**Consent:** any new telemetry channel requires (a) Settings toggle defaulting OFF for cloud upload; (b) clear copy describing what is captured and why; (c) one-click "delete all telemetry" affordance.
+
+**Tier impact:** identical across tiers. Pro and Research can layer additional opt-in channels but the metadata-only / no-content rule is invariant.
 
 ---
 
