@@ -1310,9 +1310,7 @@ mod tests {
     // ── CompanionMirror tests (Phase 8.E continuation, Lane 2c) ────────────
 
     use super::super::companions::make_base_model_node;
-    use super::super::node::{
-        IdentityHash, ModelLineage, ModelProfile, PersonaBlob, WeightRoot,
-    };
+    use super::super::node::{IdentityHash, ModelProfile, PersonaBlob};
     use std::path::PathBuf;
 
     fn base_model_node() -> super::super::node::Node {
