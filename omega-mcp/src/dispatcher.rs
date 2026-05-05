@@ -3,10 +3,10 @@
 // The actual tool execution happens on the Swift side — this layer validates
 // and routes, then Swift calls back with results.
 
-use crate::registry::ToolRegistry;
 use crate::logger::ExecutionLogger;
-use crate::server::{self, JsonRpcRequest, JsonRpcResponse, methods};
-use crate::types::{ToolDefinition, ExecutionRecord};
+use crate::registry::ToolRegistry;
+use crate::server::{self, methods, JsonRpcRequest, JsonRpcResponse};
+use crate::types::{ExecutionRecord, ToolDefinition};
 use std::sync::Mutex;
 
 /// Central MCP dispatcher. Owns registry + logger, handles JSON-RPC routing.
@@ -131,7 +131,12 @@ impl MCPDispatcher {
 
     /// Validate arguments for a tool. Returns empty string on success.
     pub fn validate_tool_args(&self, tool_name: String, args_json: String) -> String {
-        match self.registry.lock().unwrap().validate_args(&tool_name, &args_json) {
+        match self
+            .registry
+            .lock()
+            .unwrap()
+            .validate_args(&tool_name, &args_json)
+        {
             Ok(()) => String::new(),
             Err(e) => e.to_string(),
         }
@@ -180,7 +185,12 @@ impl MCPDispatcher {
 
     /// Query executions by tool name as JSON array.
     pub fn executions_by_tool_json(&self, tool_name: String, limit: u32) -> String {
-        match self.logger.lock().unwrap().by_tool(&tool_name, limit as usize) {
+        match self
+            .logger
+            .lock()
+            .unwrap()
+            .by_tool(&tool_name, limit as usize)
+        {
             Ok(records) => serde_json::to_string(&records).unwrap_or_default(),
             Err(e) => format!("{{\"error\":\"{e}\"}}"),
         }
@@ -243,64 +253,67 @@ impl MCPDispatcher {
 
     fn handle_tools_list(&self, req: &JsonRpcRequest) -> JsonRpcResponse {
         let tools = self.registry.lock().unwrap().list();
-        let tools_json: Vec<serde_json::Value> = tools.iter().map(|t| {
-            serde_json::json!({
-                "name": t.name,
-                "description": t.description,
-                "inputSchema": serde_json::from_str::<serde_json::Value>(&t.input_schema_json)
-                    .unwrap_or(serde_json::Value::Null),
+        let tools_json: Vec<serde_json::Value> = tools
+            .iter()
+            .map(|t| {
+                serde_json::json!({
+                    "name": t.name,
+                    "description": t.description,
+                    "inputSchema": serde_json::from_str::<serde_json::Value>(&t.input_schema_json)
+                        .unwrap_or(serde_json::Value::Null),
+                })
             })
-        }).collect();
+            .collect();
 
-        JsonRpcResponse::success(
-            req.id.clone(),
-            serde_json::json!({ "tools": tools_json }),
-        )
+        JsonRpcResponse::success(req.id.clone(), serde_json::json!({ "tools": tools_json }))
     }
 
     fn handle_tools_call(&self, req: &JsonRpcRequest) -> JsonRpcResponse {
         let params = match &req.params {
             Some(p) => p,
-            None => return JsonRpcResponse::error(
-                req.id.clone(),
-                server::INVALID_PARAMS,
-                "tools/call requires params".to_string(),
-            ),
+            None => {
+                return JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::INVALID_PARAMS,
+                    "tools/call requires params".to_string(),
+                )
+            }
         };
 
         let tool_name = match params.get("name").and_then(|n| n.as_str()) {
             Some(n) => n,
-            None => return JsonRpcResponse::error(
-                req.id.clone(),
-                server::INVALID_PARAMS,
-                "params.name is required".to_string(),
-            ),
+            None => {
+                return JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::INVALID_PARAMS,
+                    "params.name is required".to_string(),
+                )
+            }
         };
 
         // Check tool exists
         let registry = self.registry.lock().unwrap();
         let tool = match registry.get(tool_name) {
             Some(t) => t.clone(),
-            None => return JsonRpcResponse::error(
-                req.id.clone(),
-                server::METHOD_NOT_FOUND,
-                format!("Tool not found: {tool_name}"),
-            ),
+            None => {
+                return JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::METHOD_NOT_FOUND,
+                    format!("Tool not found: {tool_name}"),
+                )
+            }
         };
         drop(registry);
 
         // Validate arguments if provided
-        let args_json = params.get("arguments")
+        let args_json = params
+            .get("arguments")
             .map(|a| serde_json::to_string(a).unwrap_or_default())
             .unwrap_or_else(|| "{}".to_string());
 
         let validation = self.validate_tool_args(tool_name.to_string(), args_json.clone());
         if !validation.is_empty() {
-            return JsonRpcResponse::error(
-                req.id.clone(),
-                server::INVALID_PARAMS,
-                validation,
-            );
+            return JsonRpcResponse::error(req.id.clone(), server::INVALID_PARAMS, validation);
         }
 
         // Return a "pending" response — actual execution happens on Swift side.
@@ -328,14 +341,16 @@ mod tests {
         d.register_tool(
             "read_file".to_string(),
             "Read a file from disk".to_string(),
-            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#.to_string(),
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+                .to_string(),
             false,
             false,
         );
         d.register_tool(
             "delete_file".to_string(),
             "Delete a file from disk".to_string(),
-            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#.to_string(),
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+                .to_string(),
             true,
             true,
         );
@@ -403,7 +418,10 @@ mod tests {
         let req = r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"nonexistent","arguments":{}},"id":4}"#;
         let resp = d.dispatch(req.to_string());
         let parsed: serde_json::Value = serde_json::from_str(&resp).unwrap();
-        assert!(parsed["error"]["message"].as_str().unwrap().contains("not found"));
+        assert!(parsed["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not found"));
     }
 
     #[test]
@@ -412,7 +430,10 @@ mod tests {
         let req = r#"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"read_file","arguments":{"wrong":"arg"}},"id":5}"#;
         let resp = d.dispatch(req.to_string());
         let parsed: serde_json::Value = serde_json::from_str(&resp).unwrap();
-        assert!(parsed["error"]["message"].as_str().unwrap().contains("Missing required"));
+        assert!(parsed["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Missing required"));
     }
 
     #[test]
@@ -421,7 +442,10 @@ mod tests {
         let req = r#"{"jsonrpc":"2.0","method":"unknown/method","id":6}"#;
         let resp = d.dispatch(req.to_string());
         let parsed: serde_json::Value = serde_json::from_str(&resp).unwrap();
-        assert!(parsed["error"]["message"].as_str().unwrap().contains("Unknown method"));
+        assert!(parsed["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Unknown method"));
     }
 
     #[test]
@@ -469,9 +493,12 @@ mod tests {
     fn test_full_tool_lifecycle() {
         let d = MCPDispatcher::new_in_memory();
         let err = d.register_tool(
-            "greet".to_string(), "Greet".to_string(),
-            r#"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#.to_string(),
-            false, false,
+            "greet".to_string(),
+            "Greet".to_string(),
+            r#"{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}"#
+                .to_string(),
+            false,
+            false,
         );
         assert!(err.is_empty());
 
@@ -484,10 +511,17 @@ mod tests {
         assert!(resp.contains("pending"));
 
         // Log execution
-        assert!(d.log_execution(
-            "e1".to_string(), "2026-03-24T14:00:00Z".to_string(), "greet".to_string(),
-            r#"{"name":"World"}"#.to_string(), r#"{"msg":"Hello"}"#.to_string(), 15, true,
-        ).is_empty());
+        assert!(d
+            .log_execution(
+                "e1".to_string(),
+                "2026-03-24T14:00:00Z".to_string(),
+                "greet".to_string(),
+                r#"{"name":"World"}"#.to_string(),
+                r#"{"msg":"Hello"}"#.to_string(),
+                15,
+                true,
+            )
+            .is_empty());
 
         assert_eq!(d.execution_count(), 1);
         assert_eq!(d.successful_execution_count(), 1);
@@ -515,12 +549,19 @@ mod tests {
             let d = d.clone();
             handles.push(std::thread::spawn(move || {
                 d.log_execution(
-                    format!("e-{i}"), format!("2026-03-24T14:00:{i:02}Z"),
-                    "tool".to_string(), "{}".to_string(), "{}".to_string(), i as u64, true,
+                    format!("e-{i}"),
+                    format!("2026-03-24T14:00:{i:02}Z"),
+                    "tool".to_string(),
+                    "{}".to_string(),
+                    "{}".to_string(),
+                    i as u64,
+                    true,
                 );
             }));
         }
-        for h in handles { h.join().unwrap(); }
+        for h in handles {
+            h.join().unwrap();
+        }
         assert_eq!(d.execution_count(), 10);
     }
 
@@ -532,10 +573,18 @@ mod tests {
             r#"{"type":"object","properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"]}"#.to_string(),
             false, false,
         );
-        assert!(d.validate_tool_args("calc".to_string(), r#"{"a":1,"b":2}"#.to_string()).is_empty());
-        assert!(d.validate_tool_args("calc".to_string(), r#"{"a":1}"#.to_string()).contains("Missing required"));
-        assert!(d.validate_tool_args("calc".to_string(), "bad".to_string()).contains("not valid JSON"));
-        assert!(d.validate_tool_args("nope".to_string(), "{}".to_string()).contains("not found"));
+        assert!(d
+            .validate_tool_args("calc".to_string(), r#"{"a":1,"b":2}"#.to_string())
+            .is_empty());
+        assert!(d
+            .validate_tool_args("calc".to_string(), r#"{"a":1}"#.to_string())
+            .contains("Missing required"));
+        assert!(d
+            .validate_tool_args("calc".to_string(), "bad".to_string())
+            .contains("not valid JSON"));
+        assert!(d
+            .validate_tool_args("nope".to_string(), "{}".to_string())
+            .contains("not found"));
     }
 
     #[test]
@@ -544,8 +593,15 @@ mod tests {
         let _ = std::fs::remove_file(path);
         {
             let d = MCPDispatcher::new(path.to_string());
-            d.log_execution("p1".to_string(), "2026-03-24T15:00:00Z".to_string(),
-                "tool_a".to_string(), "{}".to_string(), "{}".to_string(), 100, true);
+            d.log_execution(
+                "p1".to_string(),
+                "2026-03-24T15:00:00Z".to_string(),
+                "tool_a".to_string(),
+                "{}".to_string(),
+                "{}".to_string(),
+                100,
+                true,
+            );
             assert_eq!(d.execution_count(), 1);
         }
         {

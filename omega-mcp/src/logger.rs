@@ -2,7 +2,7 @@
 // High-frequency, append-heavy — separate from SwiftData to avoid @Query cascade.
 
 use crate::types::ExecutionRecord;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -108,7 +108,11 @@ impl ExecutionLogger {
     }
 
     /// Query executions by tool name.
-    pub fn by_tool(&self, tool_name: &str, limit: usize) -> Result<Vec<ExecutionRecord>, LoggerError> {
+    pub fn by_tool(
+        &self,
+        tool_name: &str,
+        limit: usize,
+    ) -> Result<Vec<ExecutionRecord>, LoggerError> {
         let mut stmt = self.conn.prepare(
             "SELECT id, timestamp, tool_name, arguments_json, result_json, duration_ms, success
              FROM tool_executions WHERE tool_name = ?1 ORDER BY timestamp DESC LIMIT ?2",
@@ -133,11 +137,9 @@ impl ExecutionLogger {
 
     /// Count total executions.
     pub fn count(&self) -> Result<u64, LoggerError> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM tool_executions",
-            [],
-            |row| row.get(0),
-        )?;
+        let count: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM tool_executions", [], |row| row.get(0))?;
         Ok(count as u64)
     }
 

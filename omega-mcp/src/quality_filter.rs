@@ -67,19 +67,32 @@ pub fn filter_with_stats(traces: Vec<ExecutionTrace>) -> (Vec<ExecutionTrace>, F
     let mut failed_steps = 0;
     let mut failed_json = 0;
 
-    let passed: Vec<ExecutionTrace> = traces.into_iter().filter(|t| {
-        if !t.success { failed_overall += 1; return false; }
-        if t.plan_steps.is_empty() { failed_empty += 1; return false; }
-        if !t.plan_steps.iter().all(|s| s.success) { failed_steps += 1; return false; }
-        for s in &t.plan_steps {
-            if serde_json::from_str::<serde_json::Value>(&s.arguments_json).is_err() ||
-               serde_json::from_str::<serde_json::Value>(&s.result_json).is_err() {
-                failed_json += 1;
+    let passed: Vec<ExecutionTrace> = traces
+        .into_iter()
+        .filter(|t| {
+            if !t.success {
+                failed_overall += 1;
                 return false;
             }
-        }
-        true
-    }).collect();
+            if t.plan_steps.is_empty() {
+                failed_empty += 1;
+                return false;
+            }
+            if !t.plan_steps.iter().all(|s| s.success) {
+                failed_steps += 1;
+                return false;
+            }
+            for s in &t.plan_steps {
+                if serde_json::from_str::<serde_json::Value>(&s.arguments_json).is_err()
+                    || serde_json::from_str::<serde_json::Value>(&s.result_json).is_err()
+                {
+                    failed_json += 1;
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
 
     let stats = FilterStats {
         total_input: total,

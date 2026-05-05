@@ -35,10 +35,7 @@ fn run_osascript(args: &[&str], timeout_ms: Option<u64>) -> ToolResult {
     let start = Instant::now();
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
 
-    let output = match Command::new("/usr/bin/osascript")
-        .args(args)
-        .output()
-    {
+    let output = match Command::new("/usr/bin/osascript").args(args).output() {
         Ok(o) => o,
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as u64;
@@ -80,18 +77,41 @@ fn run_osascript(args: &[&str], timeout_ms: Option<u64>) -> ToolResult {
 fn parse_osascript_error(stderr: &str) -> (String, &'static str) {
     let lower = stderr.to_lowercase();
 
-    if lower.contains("not authorized") || lower.contains("access for assistive") || lower.contains("not allowed") {
-        (format!("Permission denied: {stderr}"), crate::types::error_codes::PERMISSION_DENIED)
+    if lower.contains("not authorized")
+        || lower.contains("access for assistive")
+        || lower.contains("not allowed")
+    {
+        (
+            format!("Permission denied: {stderr}"),
+            crate::types::error_codes::PERMISSION_DENIED,
+        )
     } else if lower.contains("has no open windows") {
-        (format!("Application state unavailable: {stderr}"), crate::types::error_codes::NOT_FOUND)
+        (
+            format!("Application state unavailable: {stderr}"),
+            crate::types::error_codes::NOT_FOUND,
+        )
     } else if is_app_not_running_error(stderr) {
-        (format!("Application not running: {stderr}"), crate::types::error_codes::NOT_FOUND)
-    } else if lower.contains("application can't be found") || lower.contains("can't get application") {
-        (format!("Application not found: {stderr}"), crate::types::error_codes::NOT_FOUND)
+        (
+            format!("Application not running: {stderr}"),
+            crate::types::error_codes::NOT_FOUND,
+        )
+    } else if lower.contains("application can't be found")
+        || lower.contains("can't get application")
+    {
+        (
+            format!("Application not found: {stderr}"),
+            crate::types::error_codes::NOT_FOUND,
+        )
     } else if lower.contains("connection is invalid") || lower.contains("timed out") {
-        (format!("Timeout or connection error: {stderr}"), crate::types::error_codes::TIMEOUT)
+        (
+            format!("Timeout or connection error: {stderr}"),
+            crate::types::error_codes::TIMEOUT,
+        )
     } else {
-        (format!("AppleScript error: {stderr}"), crate::types::error_codes::EXECUTION_ERROR)
+        (
+            format!("AppleScript error: {stderr}"),
+            crate::types::error_codes::EXECUTION_ERROR,
+        )
     }
 }
 
@@ -125,11 +145,14 @@ fn safari_page_text_script(limit: u32) -> String {
 
 fn launch_application(app_name: &str) -> Result<(), ToolResult> {
     let start = Instant::now();
-    let output = Command::new("/usr/bin/open").args(["-a", app_name]).output();
+    let output = Command::new("/usr/bin/open")
+        .args(["-a", app_name])
+        .output();
 
     match output {
         Ok(result) if result.status.success() => {
-            if !wait_for_application_process(app_name, Duration::from_millis(APP_LAUNCH_TIMEOUT_MS)) {
+            if !wait_for_application_process(app_name, Duration::from_millis(APP_LAUNCH_TIMEOUT_MS))
+            {
                 let duration_ms = start.elapsed().as_millis() as u64;
                 return Err(ToolResult::err(
                     format!("Timed out waiting for {app_name} to launch"),
@@ -196,7 +219,12 @@ where
 {
     let mut result = run_script(script, timeout_ms);
     for _ in 0..SAFARI_LAUNCH_RETRIES {
-        if result.success || !result.error.as_deref().is_some_and(is_app_not_running_error) {
+        if result.success
+            || !result
+                .error
+                .as_deref()
+                .is_some_and(is_app_not_running_error)
+        {
             return result;
         }
 
@@ -259,10 +287,7 @@ pub fn tool_run_command(command: &str, allowed_commands: &[&str]) -> ToolResult 
         );
     }
 
-    let output = match Command::new("/bin/zsh")
-        .args(["-c", command])
-        .output()
-    {
+    let output = match Command::new("/bin/zsh").args(["-c", command]).output() {
         Ok(o) => o,
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as u64;
@@ -284,12 +309,17 @@ pub fn tool_run_command(command: &str, allowed_commands: &[&str]) -> ToolResult 
                 "exit_code": 0,
                 "stdout": stdout.trim(),
                 "stderr": stderr.trim(),
-            }).to_string(),
+            })
+            .to_string(),
             duration_ms,
         )
     } else {
         ToolResult::err(
-            format!("Exit code {}: {}", output.status.code().unwrap_or(-1), stderr.trim()),
+            format!(
+                "Exit code {}: {}",
+                output.status.code().unwrap_or(-1),
+                stderr.trim()
+            ),
             crate::types::error_codes::EXECUTION_ERROR,
             duration_ms,
         )
@@ -360,7 +390,10 @@ mod tests {
     fn test_run_command_allow_list() {
         let result = tool_run_command("rm -rf /", &["echo", "ls"]);
         assert!(!result.success);
-        assert_eq!(result.error_code.as_deref(), Some(crate::types::error_codes::PERMISSION_DENIED));
+        assert_eq!(
+            result.error_code.as_deref(),
+            Some(crate::types::error_codes::PERMISSION_DENIED)
+        );
     }
 
     #[test]
@@ -420,7 +453,10 @@ mod tests {
         );
 
         assert!(!result.success);
-        assert_eq!(result.error_code.as_deref(), Some(crate::types::error_codes::PERMISSION_DENIED));
+        assert_eq!(
+            result.error_code.as_deref(),
+            Some(crate::types::error_codes::PERMISSION_DENIED)
+        );
         assert_eq!(launch_calls, 0);
     }
 
@@ -448,7 +484,10 @@ mod tests {
         );
 
         assert!(!result.success);
-        assert_eq!(result.error_code.as_deref(), Some(crate::types::error_codes::TIMEOUT));
+        assert_eq!(
+            result.error_code.as_deref(),
+            Some(crate::types::error_codes::TIMEOUT)
+        );
         assert_eq!(launch_calls, 1);
     }
 

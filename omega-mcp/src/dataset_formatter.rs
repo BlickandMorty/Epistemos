@@ -1,11 +1,12 @@
 // Dataset formatter: converts execution traces into training-ready JSONL.
 // Implements the 40/20/20/20 data composition from Google Deep Research.
 
-use crate::trace_logger::{ExecutionTrace, trace_to_odia_jsonl};
+use crate::trace_logger::{trace_to_odia_jsonl, ExecutionTrace};
 
 /// Format multiple traces into a single JSONL string.
 pub fn format_traces_to_jsonl(traces: &[ExecutionTrace]) -> String {
-    traces.iter()
+    traces
+        .iter()
         .flat_map(|t| trace_to_odia_jsonl(t))
         .collect::<Vec<_>>()
         .join("\n")
@@ -14,10 +15,10 @@ pub fn format_traces_to_jsonl(traces: &[ExecutionTrace]) -> String {
 /// Mix training data categories at the specified ratios.
 /// Returns a shuffled JSONL string.
 pub fn mix_training_data(
-    tool_call_lines: &[String],      // 40%
-    general_lines: &[String],         // 20%
-    reasoning_lines: &[String],       // 20%
-    automation_lines: &[String],      // 20%
+    tool_call_lines: &[String],  // 40%
+    general_lines: &[String],    // 20%
+    reasoning_lines: &[String],  // 20%
+    automation_lines: &[String], // 20%
     target_count: usize,
 ) -> String {
     let tool_count = (target_count as f64 * 0.40) as usize;

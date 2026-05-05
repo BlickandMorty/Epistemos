@@ -16,6 +16,9 @@ namespace omega_mcp {
     /// Execute a vault tool by name. Returns JSON ToolResult.
     string execute_vault_tool(string vault_root, string tool_name, string args_json);
 
+    /// Execute one of the seven canonical D2 graph tools.
+    string execute_graph_tool(string vault_root, string tool_name, string args_json);
+
     // ── Tool Validation ──────────────────────────────────────────────────────
 
     /// Validate tool arguments against a schema. Returns empty string on success,

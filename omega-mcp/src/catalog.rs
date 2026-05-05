@@ -37,7 +37,7 @@ macro_rules! tool {
 
 /// Returns the canonical list of all built-in Epistemos tools.
 pub fn builtin_tools() -> Vec<ToolDefinition> {
-    vec![
+    let mut tools = vec![
         // ── Safari Agent ──────────────────────────────────────────────────
         tool!(
             "open_url", "safari",
@@ -243,7 +243,9 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"app": "Safari"}"#,
             r#"{"type":"object","properties":{"app":{"type":"string","description":"Target app (optional, captures frontmost window if omitted)"}}}"#
         ),
-    ]
+    ];
+    tools.extend(crate::graph_tools::builtin_graph_tools());
+    tools
 }
 
 #[cfg(test)]
@@ -253,7 +255,11 @@ mod tests {
     #[test]
     fn builtin_catalog_has_all_agents() {
         let tools = builtin_tools();
-        assert!(tools.len() >= 32, "expected at least 32 tools, got {}", tools.len());
+        assert!(
+            tools.len() >= 32,
+            "expected at least 32 tools, got {}",
+            tools.len()
+        );
 
         let agents: std::collections::HashSet<&str> =
             tools.iter().map(|t| t.agent.as_str()).collect();
@@ -287,7 +293,8 @@ mod tests {
             assert!(
                 parsed.is_ok(),
                 "invalid schema JSON for tool {}: {}",
-                tool.name, tool.input_schema_json
+                tool.name,
+                tool.input_schema_json
             );
         }
     }
@@ -303,6 +310,25 @@ mod tests {
                     tool.name
                 );
             }
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d2_graph_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in [
+            "graph.search_semantic",
+            "graph.search_fulltext",
+            "graph.get_node",
+            "graph.traverse",
+            "graph.create_node",
+            "graph.create_edge",
+            "graph.commit_session",
+        ] {
+            assert!(names.contains(expected), "missing D2 graph tool {expected}");
         }
     }
 }

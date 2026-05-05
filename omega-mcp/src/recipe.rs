@@ -2,8 +2,8 @@
 // Recipes are parameterized multi-step macros that can be replayed.
 // Successful multi-step workflows are saved as reusable recipes.
 
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use rusqlite::{Connection, params};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -125,7 +125,8 @@ impl RecipeManager {
         )?;
         let rows = stmt.query_map([], |row| {
             let params_json: String = row.get(4)?;
-            let parameters: Vec<RecipeParameter> = serde_json::from_str(&params_json).unwrap_or_default();
+            let parameters: Vec<RecipeParameter> =
+                serde_json::from_str(&params_json).unwrap_or_default();
             Ok(Recipe {
                 id: row.get(0)?,
                 name: row.get(1)?,
@@ -154,13 +155,17 @@ impl RecipeManager {
 
     /// Delete a recipe.
     pub fn delete(&self, id: &str) -> Result<bool, RecipeError> {
-        let rows = self.conn.execute("DELETE FROM recipes WHERE id = ?1", params![id])?;
+        let rows = self
+            .conn
+            .execute("DELETE FROM recipes WHERE id = ?1", params![id])?;
         Ok(rows > 0)
     }
 
     /// Count recipes.
     pub fn count(&self) -> Result<u64, RecipeError> {
-        let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM recipes", [], |row| row.get(0))?;
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM recipes", [], |row| row.get(0))?;
         Ok(count as u64)
     }
 }
@@ -174,7 +179,8 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             description: format!("Recipe: {name}"),
-            steps_json: r#"[{"agent":"safari","tool":"open_url","args":{"url":"{{url}}"}}]"#.to_string(),
+            steps_json: r#"[{"agent":"safari","tool":"open_url","args":{"url":"{{url}}"}}]"#
+                .to_string(),
             parameters: vec![RecipeParameter {
                 name: "url".to_string(),
                 description: "URL to open".to_string(),
