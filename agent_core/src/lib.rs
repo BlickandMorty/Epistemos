@@ -1,9 +1,11 @@
+pub mod a2ui;
 pub mod agent_loop;
 pub mod approval;
 pub mod arena;
 pub mod arenas;
 pub mod artifacts;
 pub mod bridge;
+pub mod canon;
 pub mod channel_relay;
 pub mod circuit_breaker;
 pub mod command_center;
@@ -11,15 +13,20 @@ pub mod compaction;
 pub mod context_compiler;
 pub mod context_loader;
 pub mod dispatcher;
+pub mod effect;
 pub mod error;
 pub mod error_classifier;
 pub mod etl;
 pub mod evolution;
 pub mod example_bank;
+pub mod format;
+pub mod grammar;
+pub mod heal;
 pub mod hermes;
 pub mod lattice;
 pub mod mutations;
 pub mod neocortex;
+pub mod nightbrain;
 pub mod oplog;
 pub mod prompt_caching;
 pub mod prompts;
@@ -30,6 +37,7 @@ pub mod resonance;
 pub mod resources;
 pub mod rope;
 pub mod rope_handle;
+pub mod route;
 pub mod routing;
 pub mod runtime;
 pub mod security;
@@ -51,6 +59,7 @@ pub mod providers {
     pub mod openai;
     pub mod openai_compatible;
     pub mod perplexity;
+    pub mod pricing;
     pub mod schema;
 }
 
@@ -74,6 +83,7 @@ pub mod storage {
 
 pub mod shared_memory;
 pub mod tirith;
+pub mod undo;
 
 pub mod mcp;
 
@@ -138,6 +148,16 @@ pub(crate) mod test_support {
     /// Rust's default parallel test runner otherwise lets one test remove
     /// an API key while another is constructing an env-dependent registry.
     pub(crate) fn env_lock() -> MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Serializes tests that mutate the process-local permission store.
+    /// The store is OnceLock-backed and shared across modules, so module-local
+    /// locks are not enough under Rust's parallel test runner.
+    pub(crate) fn permission_store_lock() -> MutexGuard<'static, ()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
             .lock()
