@@ -25,15 +25,11 @@
 //! without tracking whether it ran before.
 
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use super::{
-    canonical_task_names, NightBrainScheduler, NightBrainTask, RegisteredTaskOutcome, Result,
-    TaskCtx, TaskOutcome,
-};
+use super::{NightBrainScheduler, NightBrainTask, RegisteredTaskOutcome, Result, TaskCtx, TaskOutcome};
 
 /// Process-global live scheduler. Held in a OnceLock so the singleton
 /// is initialised on first access and never reconstructed.
@@ -142,8 +138,10 @@ pub async fn reset_live_scheduler() {
 
 #[cfg(test)]
 mod tests {
+    use super::super::canonical_task_names;
     use super::*;
     use std::sync::OnceLock;
+    use std::time::Duration;
     use tokio::sync::Mutex as AsyncMutex;
 
     /// Serializes tests that touch the process-global LIVE_SCHEDULER
