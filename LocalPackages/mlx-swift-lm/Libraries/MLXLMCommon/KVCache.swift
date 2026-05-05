@@ -950,6 +950,282 @@ public class QuantizedKVCache: BaseKVCache, QuantizedKVCacheProtocol {
     }
 }
 
+/// KIVI-style asymmetric KV cache.
+///
+/// Keys are grouped by token windows after transposing to `[B, H, D, T]`, which lets MLX's
+/// last-dimension quantizer behave like per-channel key quantization. Values use the existing
+/// per-token `[B, H, T, D]` quantization path. Recent residual windows stay full precision.
+public class KIVIKVCache: BaseKVCache {
+    private var quantizedKeyTrans: (MLXArray, MLXArray, MLXArray?)?
+    private var quantizedValues: (MLXArray, MLXArray, MLXArray?)?
+    private var residualKeys: MLXArray?
+    private var residualValues: MLXArray?
+
+    public private(set) var groupSize: Int
+    public private(set) var bits: Int
+    public private(set) var residualLength: Int
+    public let mode: QuantizationMode
+
+    public init(
+        groupSize: Int = 32,
+        bits: Int = 2,
+        residualLength: Int = 128,
+        mode: QuantizationMode = .affine
+    ) {
+        precondition(groupSize > 0, "KIVIKVCache groupSize must be positive")
+        precondition(bits > 0, "KIVIKVCache bits must be positive")
+        precondition(residualLength > 0, "KIVIKVCache residualLength must be positive")
+        precondition(
+            residualLength % groupSize == 0,
+            "KIVIKVCache residualLength must be divisible by groupSize"
+        )
+        self.groupSize = groupSize
+        self.bits = bits
+        self.residualLength = residualLength
+        self.mode = mode
+        super.init()
+    }
+
+    public override func innerState() -> [MLXArray] {
+        state
+    }
+
+    public func attention(
+        queries: MLXArray,
+        keys: MLXArray,
+        values: MLXArray,
+        scale: Float,
+        mask: MLXFast.ScaledDotProductAttentionMaskMode = .none
+    ) -> MLXArray {
+        let attentionKeys = appendResidual(residualKeys, keys)
+        let attentionValues = appendResidual(residualValues, values)
+        let output = kiviScaledDotProductAttention(
+            queries: queries,
+            quantizedKeyTrans: quantizedKeyTrans,
+            residualKeys: attentionKeys,
+            quantizedValues: quantizedValues,
+            residualValues: attentionValues,
+            scale: scale,
+            mask: mask,
+            groupSize: groupSize,
+            bits: bits,
+            mode: mode
+        )
+
+        offset += keys.dim(2)
+        residualKeys = attentionKeys
+        residualValues = attentionValues
+        flushGroupedKeysIfNeeded()
+        flushGroupedValuesIfNeeded()
+        return output
+    }
+
+    public override func update(keys: MLXArray, values: MLXArray) -> (MLXArray, MLXArray) {
+        residualKeys = appendResidual(residualKeys, keys)
+        residualValues = appendResidual(residualValues, values)
+        offset += keys.dim(2)
+        flushGroupedKeysIfNeeded()
+        flushGroupedValuesIfNeeded()
+
+        guard let current = currentUnquantizedState() else {
+            fatalError("KIVIKVCache failed to reconstruct updated state")
+        }
+        return current
+    }
+
+    public override var state: [MLXArray] {
+        get {
+            guard let residualKeys, let residualValues else { return [] }
+            guard let quantizedKeyTrans, let quantizedValues else {
+                return [residualKeys, residualValues]
+            }
+            return [
+                quantizedKeyTrans.0, quantizedKeyTrans.1, quantizedKeyTrans.2,
+                quantizedValues.0, quantizedValues.1, quantizedValues.2,
+                residualKeys, residualValues,
+            ].compactMap { $0 }
+        }
+        set {
+            switch newValue.count {
+            case 0:
+                resetStorage()
+            case 2:
+                quantizedKeyTrans = nil
+                quantizedValues = nil
+                residualKeys = newValue[0]
+                residualValues = newValue[1]
+                offset = newValue[0].dim(2)
+            case 8:
+                quantizedKeyTrans = (newValue[0], newValue[1], newValue[2])
+                quantizedValues = (newValue[3], newValue[4], newValue[5])
+                residualKeys = newValue[6]
+                residualValues = newValue[7]
+                offset = groupedKeyLength + newValue[6].dim(2)
+            default:
+                fatalError("KIVIKVCache state must have 0, 2, or 8 arrays")
+            }
+        }
+    }
+
+    public override var metaState: [String] {
+        get { ["KIVI", String(offset), String(groupSize), String(bits), String(residualLength)] }
+        set {
+            guard newValue.count >= 5 else {
+                fatalError("KIVIKVCache metaState must have at least 5 values")
+            }
+            offset = Int(newValue[1]) ?? offset
+            groupSize = Int(newValue[2]) ?? groupSize
+            bits = Int(newValue[3]) ?? bits
+            residualLength = Int(newValue[4]) ?? residualLength
+        }
+    }
+
+    public override var isTrimmable: Bool { true }
+
+    @discardableResult
+    public override func trim(_ n: Int) -> Int {
+        let trimmed = min(offset, n)
+        guard trimmed > 0 else { return 0 }
+        guard let current = currentUnquantizedState() else { return 0 }
+
+        let remaining = offset - trimmed
+        resetStorage()
+        guard remaining > 0 else { return trimmed }
+
+        let keys = current.0[.ellipsis, trimmed..., 0...]
+        let values = current.1[.ellipsis, trimmed..., 0...]
+        _ = update(keys: keys, values: values)
+        return trimmed
+    }
+
+    private var groupedKeyLength: Int {
+        guard let quantizedKeyTrans else { return 0 }
+        return quantizedKeyTrans.1.dim(-1) * groupSize
+    }
+
+    private var groupedValueLength: Int {
+        quantizedValues?.0.dim(-2) ?? 0
+    }
+
+    private func appendResidual(_ existing: MLXArray?, _ new: MLXArray) -> MLXArray {
+        guard let existing, existing.dim(2) > 0 else { return new }
+        return concatenated([existing, new], axis: 2)
+    }
+
+    private func flushGroupedKeysIfNeeded() {
+        guard let keys = residualKeys else { return }
+        let quantizableLength = keys.dim(2) - residualLength
+        let flushLength = (quantizableLength / groupSize) * groupSize
+        guard flushLength > 0 else { return }
+
+        let keysToQuantize = keys[.ellipsis, ..<flushLength, 0...]
+        let quantizedKeys = quantized(
+            keysToQuantize.transposed(0, 1, 3, 2),
+            groupSize: groupSize,
+            bits: bits,
+            mode: mode
+        )
+        quantizedKeyTrans = appendQuantizedTuple(
+            quantizedKeyTrans,
+            (quantizedKeys.wq, quantizedKeys.scales, quantizedKeys.biases),
+            axis: -1
+        )
+        residualKeys = keys[.ellipsis, flushLength..., 0...]
+    }
+
+    private func flushGroupedValuesIfNeeded() {
+        guard let values = residualValues else { return }
+        let flushLength = values.dim(2) - residualLength
+        guard flushLength > 0 else { return }
+
+        let valuesToQuantize = values[.ellipsis, ..<flushLength, 0...]
+        let quantizedValueChunk = quantized(
+            valuesToQuantize,
+            groupSize: groupSize,
+            bits: bits,
+            mode: mode
+        )
+        quantizedValues = appendQuantizedTuple(
+            quantizedValues,
+            (quantizedValueChunk.wq, quantizedValueChunk.scales, quantizedValueChunk.biases),
+            axis: -2
+        )
+        residualValues = values[.ellipsis, flushLength..., 0...]
+    }
+
+    private func appendQuantizedTuple(
+        _ existing: (MLXArray, MLXArray, MLXArray?)?,
+        _ new: (MLXArray, MLXArray, MLXArray?),
+        axis: Int
+    ) -> (MLXArray, MLXArray, MLXArray?) {
+        guard let existing else { return new }
+
+        let biases: MLXArray?
+        if let oldBiases = existing.2, let newBiases = new.2 {
+            biases = concatenated([oldBiases, newBiases], axis: axis)
+        } else {
+            biases = existing.2 ?? new.2
+        }
+
+        return (
+            concatenated([existing.0, new.0], axis: axis),
+            concatenated([existing.1, new.1], axis: axis),
+            biases
+        )
+    }
+
+    private func currentUnquantizedState() -> (MLXArray, MLXArray)? {
+        var keyParts: [MLXArray] = []
+        var valueParts: [MLXArray] = []
+
+        if let quantizedKeyTrans {
+            let groupedKeys = dequantized(
+                quantizedKeyTrans.0,
+                scales: quantizedKeyTrans.1,
+                biases: quantizedKeyTrans.2,
+                groupSize: groupSize,
+                bits: bits,
+                mode: mode
+            ).transposed(0, 1, 3, 2)
+            keyParts.append(groupedKeys)
+        }
+
+        if let residualKeys, residualKeys.dim(2) > 0 {
+            keyParts.append(residualKeys)
+        }
+
+        if let quantizedValues {
+            let groupedValues = dequantized(
+                quantizedValues.0,
+                scales: quantizedValues.1,
+                biases: quantizedValues.2,
+                groupSize: groupSize,
+                bits: bits,
+                mode: mode
+            )
+            valueParts.append(groupedValues)
+        }
+
+        if let residualValues, residualValues.dim(2) > 0 {
+            valueParts.append(residualValues)
+        }
+
+        guard !keyParts.isEmpty, !valueParts.isEmpty else { return nil }
+        return (
+            keyParts.count == 1 ? keyParts[0] : concatenated(keyParts, axis: 2),
+            valueParts.count == 1 ? valueParts[0] : concatenated(valueParts, axis: 2)
+        )
+    }
+
+    private func resetStorage() {
+        offset = 0
+        quantizedKeyTrans = nil
+        quantizedValues = nil
+        residualKeys = nil
+        residualValues = nil
+    }
+}
+
 /// Chunked KV cache for processing large contexts in chunks
 public class ChunkedKVCache: KVCacheSimple {
     private var chunkSize: Int?
@@ -1181,6 +1457,8 @@ public func savePromptCache(
         switch cache {
         case is ChunkedKVCache:
             return "ChunkedKVCache"  // Must precede KVCacheSimple because of inheritance
+        case is KIVIKVCache:
+            return "KIVIKVCache"
         case is KVCacheSimple:
             return "KVCache"  // Python uses "KVCache" for the basic cache
         case is RotatingKVCache:
@@ -1287,6 +1565,8 @@ public func loadPromptCache(
             cache = RotatingKVCache(maxSize: maxSize)  // Create with parsed maxSize
         case "QuantizedKVCache":
             cache = QuantizedKVCache()
+        case "KIVIKVCache":
+            cache = KIVIKVCache()
         case "ChunkedKVCache":
             cache = ChunkedKVCache()
         case "MambaCache":
@@ -1541,6 +1821,151 @@ public func quantizedScaledDotProductAttention(
     }
 
     return output
+}
+
+public func kiviScaledDotProductAttention(
+    queries: MLXArray,
+    quantizedKeyTrans: (MLXArray, MLXArray, MLXArray?)?,
+    residualKeys: MLXArray?,
+    quantizedValues: (MLXArray, MLXArray, MLXArray?)?,
+    residualValues: MLXArray?,
+    scale: Float,
+    mask: MLXFast.ScaledDotProductAttentionMaskMode = .none,
+    groupSize: Int = 32,
+    bits: Int = 2,
+    mode: QuantizationMode = .affine
+) -> MLXArray {
+    let (B, nQHeads, L, D) = (queries.dim(0), queries.dim(1), queries.dim(2), queries.dim(3))
+    let nKVHeads = quantizedKeyTrans?.0.dim(-3) ?? residualKeys?.dim(1) ?? nQHeads
+    let nRepeats = nQHeads / nKVHeads
+
+    var scaledQueries = queries * scale
+    var qKeys = quantizedKeyTrans
+    var qValues = quantizedValues
+    var fullKeys = residualKeys
+    var fullValues = residualValues
+
+    if nRepeats > 1 {
+        scaledQueries = scaledQueries.reshaped([B, nKVHeads, nRepeats, L, D])
+        if let keys = qKeys {
+            qKeys = (
+                expandedDimensions(keys.0, axis: -3),
+                expandedDimensions(keys.1, axis: -3),
+                keys.2 == nil ? nil : expandedDimensions(keys.2!, axis: -3)
+            )
+        }
+        if let values = qValues {
+            qValues = (
+                expandedDimensions(values.0, axis: -3),
+                expandedDimensions(values.1, axis: -3),
+                values.2 == nil ? nil : expandedDimensions(values.2!, axis: -3)
+            )
+        }
+        if let keys = fullKeys {
+            fullKeys = expandedDimensions(keys, axis: -3)
+        }
+        if let values = fullValues {
+            fullValues = expandedDimensions(values, axis: -3)
+        }
+    }
+
+    var scoreParts: [MLXArray] = []
+    if let qKeys {
+        scoreParts.append(
+            quantizedMM(
+                scaledQueries,
+                qKeys.0,
+                scales: qKeys.1,
+                biases: qKeys.2,
+                transpose: false,
+                groupSize: groupSize,
+                bits: bits,
+                mode: mode
+            )
+        )
+    }
+    if let fullKeys, fullKeys.dim(-2) > 0 {
+        scoreParts.append(matmul(scaledQueries, fullKeys.swappedAxes(-1, -2)))
+    }
+
+    guard !scoreParts.isEmpty else {
+        fatalError("KIVI attention requires grouped or residual keys")
+    }
+
+    var scores = scoreParts.count == 1 ? scoreParts[0] : concatenated(scoreParts, axis: -1)
+    scores = applyAttentionMask(scores, mask: mask)
+    let attentionWeights = softmax(scores, axis: -1)
+
+    let groupedValueLength = quantizedValues?.0.dim(-2) ?? 0
+    var output: MLXArray?
+
+    if groupedValueLength > 0, let qValues {
+        let groupedWeights = attentionWeights[.ellipsis, ..<groupedValueLength]
+        output = quantizedMM(
+            groupedWeights,
+            qValues.0,
+            scales: qValues.1,
+            biases: qValues.2,
+            transpose: false,
+            groupSize: groupSize,
+            bits: bits,
+            mode: mode
+        )
+    }
+
+    if let fullValues, fullValues.dim(-2) > 0 {
+        let residualWeights = attentionWeights[.ellipsis, groupedValueLength...]
+        let residualOutput = matmul(residualWeights, fullValues)
+        output = output == nil ? residualOutput : output! + residualOutput
+    }
+
+    guard var result = output else {
+        fatalError("KIVI attention requires grouped or residual values")
+    }
+
+    if nRepeats > 1 {
+        result = result.reshaped([B, nQHeads, L, D])
+    }
+    return result
+}
+
+private func applyAttentionMask(
+    _ scores: MLXArray,
+    mask: MLXFast.ScaledDotProductAttentionMaskMode
+) -> MLXArray {
+    var scores = scores
+    let maskedLogit = MLXArray(-Float.greatestFiniteMagnitude)
+    switch mask {
+    case .causal:
+        let (qL, kL) = (scores.dim(-2), scores.dim(-1))
+        let qIndices = MLXArray(0 ..< qL) + MLXArray(kL - qL)
+        let kIndices = MLXArray(0 ..< kL)
+        let causalMask = greaterEqual(
+            expandedDimensions(qIndices, axis: -1),
+            expandedDimensions(kIndices, axis: -2)
+        )
+        scores = MLX.where(causalMask, scores, maskedLogit)
+
+    case .array(let maskArray):
+        if maskArray.dtype == .bool {
+            scores = MLX.where(maskArray, scores, maskedLogit)
+        } else {
+            scores = scores + maskArray
+        }
+
+    case .arrays(let maskArrays):
+        if let maskArray = maskArrays.first {
+            if maskArray.dtype == .bool {
+                scores = MLX.where(maskArray, scores, maskedLogit)
+            } else {
+                scores = scores + maskArray
+            }
+        }
+
+    case .none:
+        break
+    }
+    return scores
 }
 
 // MARK: - Dynamic Cache Quantization

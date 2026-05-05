@@ -18,28 +18,10 @@ struct GenUIDispatcherInvariantSourceGuardTests {
                 "Dispatcher must route by the typed GenUISchema enum, not string-key or erased view dispatch")
     }
 
-    @Test("Hermes Expert Mode structured renderers stay on GenUIPayload")
-    func hermesExpertModeRenderersStayOnGenUIPayload() throws {
-        let runner = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Landing/Hermes/HermesExpertModeRunner.swift"
-        )
-        let view = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Landing/Hermes/HermesExpertModeView.swift"
-        )
-
-        #expect(!runner.contains(".artifact(Artifact("),
-                "Hermes Expert Mode structured renderers must not regress to legacy Artifact transcript output")
-        #expect(runner.contains("state.append(.payload(.markdownCard("),
-                "Hermes help output should remain a typed markdown GenUIPayload")
-        #expect(runner.contains("state.append(.payload(.keyValueTable("),
-                "Hermes status/config/tokens/cost output should remain typed key-value GenUIPayloads")
-        #expect(runner.contains("state.append(.payload(.capabilityList("),
-                "Hermes model list output should remain a typed capability-list GenUIPayload")
-        #expect(runner.contains("state.append(.payload(.searchResults("),
-                "Hermes search output should remain a typed search-results GenUIPayload")
-        #expect(view.contains("GenUIDispatcher.shared.render(payload)"),
-                "Hermes payload entries must render through the canonical GenUIDispatcher")
-    }
+    // Hermes Expert Mode UI overlay removed in slice 1 of the Hermes
+    // teardown (2026-05-05). The structured-renderer guards above
+    // (typed switch + AnyView ban + ApprovalModal payloads + Landing
+    // brief surfaces) still pin the canonical GenUIDispatcher contract.
 
     @Test("Approval Modal request payload renders through GenUIDispatcher")
     func approvalModalRequestPayloadRendersThroughGenUIDispatcher() throws {

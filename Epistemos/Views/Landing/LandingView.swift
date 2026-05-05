@@ -73,11 +73,6 @@ struct LandingView: View {
     @State private var showWelcomeBack = false
     @State private var welcomeBackDismissTask: Task<Void, Never>?
 
-    /// Hermes Expert Mode state — owned per landing surface instance,
-    /// not global. Activates when the user clicks the "Hermes" command
-    /// hint (see `hermesExpertModeRow`). Resets on exit.
-    @State private var hermesExpertMode = HermesExpertModeState()
-
     /// Simulation Mode v1.6 — sheet presentation state for the Farm
     /// (creation wizard, delete confirmation, restore from trash).
     /// Each is nil when not presented; non-nil triggers a `.sheet`
@@ -325,22 +320,8 @@ struct LandingView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
 
-            // ⌥⌘H — toggle Hermes Expert Mode from anywhere on
-            // the landing page. The chip in the bottom row also
-            // triggers `toggleHermesExpertMode`; this is the
-            // keyboard parity.
-            Button(action: { toggleHermesExpertMode() }) {}
-                .keyboardShortcut("h", modifiers: [.command, .option])
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .allowsHitTesting(false)
-
         }
         .onKeyPress(.escape) {
-            if hermesExpertMode.isActive {
-                exitHermesExpertMode()
-                return .handled
-            }
             if showingSearchPopover {
                 dismissLandingSearch()
                 return .handled
@@ -359,10 +340,6 @@ struct LandingView: View {
             }
             return .ignored
         }
-        .animation(
-            reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.82),
-            value: hermesExpertMode.isActive
-        )
         // Companion Farm sheets — present from `farmShowingCreate`
         // / `farmDeleteTarget` / `farmShowingRestore` /
         // `farmAdapterTarget`. Each sheet routes through its own
@@ -418,36 +395,11 @@ struct LandingView: View {
             Spacer()
 
             VStack(spacing: 18) {
-                if hermesExpertMode.isActive {
-                    HermesShimmeringSigil(
-                        accent: HermesBrand.primary,
-                        burstTrigger: hermesExpertMode.submitCounter
-                    )
-                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
-                        .padding(.bottom, 4)
-                }
-
                 LiquidGreeting(
                     retractNow: .constant(false),
-                    searchMode: showingSearchPopover && !hermesExpertMode.isActive,
-                    searchText: landingSearchText,
-                    hermesHeroMode: hermesExpertMode.isActive,
-                    onHermesHeroComplete: {
-                        hermesExpertMode.heroReady = true
-                    }
+                    searchMode: showingSearchPopover,
+                    searchText: landingSearchText
                 )
-
-                if hermesExpertMode.isActive {
-                    HermesExpertModeView(
-                        state: hermesExpertMode,
-                        theme: theme,
-                        onSubmit: { raw in
-                            handleHermesExpertSubmit(raw)
-                        },
-                        onExit: { exitHermesExpertMode() }
-                    )
-                    .transition(.opacity.combined(with: .offset(y: 6)))
-                }
 
                 // Inline controls — only visible while searching. All
                 // rendered in monospace so they match the retro-terminal
@@ -476,11 +428,8 @@ struct LandingView: View {
             Spacer()
 
                 // ── Companion Farm (Simulation Mode v1.6) ──
-                // The Farm is the "home window" surface per Invariant
-                // I-1. Hidden when Hermes Expert Mode is active so the
-                // terminal box gets full focus.
-                if !hermesExpertMode.isActive,
-                   let bootstrap = AppBootstrap.shared {
+                // The Farm is the "home window" surface per Invariant I-1.
+                if let bootstrap = AppBootstrap.shared {
                     LandingFarmView(
                         companionState: bootstrap.companionState,
                         theme: theme,
@@ -588,100 +537,9 @@ struct LandingView: View {
                     }
                     .springEntrance(index: 5, stagger: 0.08)
 
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    HermesExpertModeToggleChip(
-                        isActive: hermesExpertMode.isActive,
-                        theme: theme,
-                        action: toggleHermesExpertMode
-                    )
-                    .springEntrance(index: 6, stagger: 0.08)
-
                 }
                 .padding(.bottom, 28)
             }
-    }
-
-    // MARK: - Hermes Expert Mode
-
-    private func toggleHermesExpertMode() {
-        if hermesExpertMode.isActive {
-            exitHermesExpertMode()
-        } else {
-            enterHermesExpertMode()
-        }
-    }
-
-    private func enterHermesExpertMode() {
-        // Suppress other landing modes while expert is active.
-        if showingSearchPopover { dismissLandingSearch() }
-        if showingBrief { dailyBrief.dismissDailyBrief() }
-        if showWelcomeBack { dismissWelcomeBack() }
-        hermesExpertMode.enter()
-    }
-
-    private func exitHermesExpertMode() {
-        hermesExpertMode.exit()
-    }
-
-    /// Forward an expert-mode submission to the canonical Hermes runner.
-    /// `/help`, `/calc`, `/status` etc. surface inline; bare prompts and
-    /// command shapes that demand provider work get handed to the main
-    /// chat surface (the same path the regular landing search uses).
-    /// Approval-gated commands route through the canonical Sovereign
-    /// Gate before dispatching, and every submission emits AgentEvent
-    /// provenance via the canonical recorder.
-    private func handleHermesExpertSubmit(_ raw: String) {
-        // The canonical SovereignGate + recorder live on AppBootstrap.
-        // Skip the submission entirely if either is unavailable
-        // (foreground bootstrap not finished yet) so we never fall back
-        // to a non-canonical local owner.
-        guard let bootstrap = AppBootstrap.shared else {
-            hermesExpertMode.append(.init(
-                kind: .error,
-                text: "Substrate not ready — try again in a moment."
-            ))
-            return
-        }
-        let runner = HermesExpertModeRunner(
-            state: hermesExpertMode,
-            chat: chat,
-            orchestrator: orchestrator,
-            inference: inference,
-            ui: ui,
-            vaultSync: vaultSync,
-            operatingMode: { selectedOperatingMode },
-            sovereignGate: bootstrap.sovereignGate,
-            provenanceRecorder: bootstrap.hermesExpertProvenanceRecorder,
-            onDelegateToMainChat: { prompt in
-                // Graceful handoff: surface the transition inline so the
-                // user sees what's happening rather than the expert mode
-                // abruptly disappearing. Brief delay lets the row's flash
-                // animation play before exit.
-                hermesExpertMode.append(.init(
-                    kind: .info,
-                    text: "→ opening main chat for streaming response…"
-                ))
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(380))
-                    exitHermesExpertMode()
-                    chat.startNewChat()
-                    ui.setActivePanel(.home)
-                    MainChatSubmissionRouter.submit(
-                        prompt,
-                        operatingMode: selectedOperatingMode,
-                        chat: chat,
-                        orchestrator: orchestrator,
-                        inference: inference
-                    )
-                }
-            }
-        )
-        Task { @MainActor in
-            await runner.submit(raw)
-        }
     }
 
     // MARK: - Landing Search Content (Compact for Popover)

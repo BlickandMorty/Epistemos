@@ -16,7 +16,7 @@ enum EpistemosFont {
 
     /// Call once at app launch to register custom fonts from the bundle.
     /// `Inter-Regular.ttf` is the variable Inter font (PSName
-    /// `InterVariable`); HermesBrand picks weight axes via `.weight()`. We
+    /// `InterVariable`); pick weight axes via `.weight()` on the variable font. We
     /// don't ship a separate `Inter-SemiBold.ttf` because it would be the
     /// same 880KB binary with the same PSName — wasted bundle space.
     static func registerFonts() {

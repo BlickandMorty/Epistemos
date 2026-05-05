@@ -51,6 +51,12 @@ public protocol LogitProcessor: Sendable {
 /// - ``LogitProcessor``
 ///
 /// for the `TokenIterator`.
+public enum KVQuantScheme: String, Sendable, CaseIterable {
+    case affine
+    case kivi
+    case turboQuantV4V2
+}
+
 public struct GenerateParameters: Sendable {
 
     /// Step size for processing the prompt
@@ -71,6 +77,9 @@ public struct GenerateParameters: Sendable {
 
     /// Step to begin using a quantized KV cache when kvBits is non-nil (default: 0)
     public var quantizedKVStart: Int
+
+    /// KV-cache quantization strategy. Defaults to today's affine quantization path.
+    public var kvScheme: KVQuantScheme
 
     /// sampling temperature
     public var temperature: Float
@@ -108,6 +117,7 @@ public struct GenerateParameters: Sendable {
         kvBits: Int? = nil,
         kvGroupSize: Int = 64,
         quantizedKVStart: Int = 0,
+        kvScheme: KVQuantScheme = .affine,
         temperature: Float = 0.6,
         topP: Float = 1.0,
         topK: Int = 0,
@@ -125,6 +135,7 @@ public struct GenerateParameters: Sendable {
         self.kvBits = kvBits
         self.kvGroupSize = kvGroupSize
         self.quantizedKVStart = quantizedKVStart
+        self.kvScheme = kvScheme
         self.temperature = temperature
         self.topP = topP
         self.topK = topK
