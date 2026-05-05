@@ -28,9 +28,11 @@
 //! Phase 8.A-G; the DAG runs alongside, mirroring writes for one week
 //! before Phase 8.H flips authority.
 
+pub mod companions;
 pub mod edge;
 pub mod macaroons;
 pub mod merkle;
+pub mod migration;
 pub mod node;
 pub mod resonance;
 pub mod storage;
@@ -47,6 +49,13 @@ pub use node::{
     EvidenceBlob, EvidenceKind, Hash, IdentityHash, MimeType, ModelLineage, ModelProfile, Node,
     NodeId, NodeKind, NodeTier, OutcomeList, PersonaBlob, SessionId, SourceRef, Timestamp, ToolId,
     ToolSurface, WeightRoot,
+};
+pub use companions::{
+    make_base_model_node, make_lora_model_node, CompanionError, CompanionLineage,
+    CompanionRegistry,
+};
+pub use migration::{
+    DagMirror, SkillMutation, SkillNameIndex, SkillStep, SkillsMirror,
 };
 pub use macaroons::{
     delegate, evaluate_caveats, issue, restrict, revoke_macaroon_in_dag, verify_macaroon,
