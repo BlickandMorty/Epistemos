@@ -1,4 +1,5 @@
 import Testing
+@testable import Epistemos
 
 @Suite("Companion avatar grammar source guards")
 struct CompanionAvatarGrammarSourceGuardTests {
@@ -120,5 +121,18 @@ struct CompanionAvatarGrammarSourceGuardTests {
                 "Landing roaming must be seeded from companion identity, not runtime randomness")
         #expect(!roaming.contains("repeatForever"),
                 "Landing roaming must remain TimelineView-driven, not repeatForever animation")
+    }
+
+    @Test("Companion body kind parser rejects unknown parameter values")
+    func companionBodyKindParserRejectsUnknownParameterValues() {
+        #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.filled") == .blockCompact)
+        #expect(CompanionBodyKind(rawValue: "block.wide.multi.single.negativeSpace") == .blockWide)
+
+        #expect(CompanionBodyKind(rawValue: "block.bogus.stubs.none.filled") == nil)
+        #expect(CompanionBodyKind(rawValue: "block.compact.bogus.none.filled") == nil)
+        #expect(CompanionBodyKind(rawValue: "block.compact.stubs.bogus.filled") == nil)
+        #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.bogus") == nil)
+        #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.filled.extra") == nil)
+        #expect(CompanionBodyKind(rawValue: "hermesSnake") == nil)
     }
 }

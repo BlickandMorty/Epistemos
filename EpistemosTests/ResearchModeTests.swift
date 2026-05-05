@@ -60,9 +60,25 @@ struct ResearchModeTests {
         #expect(block.contains("createresearchnote"))
     }
 
-    @Test("Total tool count reflects the current research and computer-use catalog")
+    @Test("D2 graph tools are registered in OmegaToolRegistry")
+    func d2GraphToolsAreRegistered() {
+        let names = Set(OmegaToolRegistry.all.map(\.name))
+        for name in [
+            "graph.search_semantic",
+            "graph.search_fulltext",
+            "graph.get_node",
+            "graph.traverse",
+            "graph.create_node",
+            "graph.create_edge",
+            "graph.commit_session",
+        ] {
+            #expect(names.contains(name))
+        }
+    }
+
+    @Test("Total tool count reflects the current research, computer-use, and D2 graph catalog")
     func totalToolCount() {
-        #expect(OmegaToolRegistry.all.count == 33)
+        #expect(OmegaToolRegistry.all.count == 40)
     }
 
     // MARK: - Complexity Gate

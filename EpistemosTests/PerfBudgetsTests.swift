@@ -12,21 +12,13 @@ import Testing
 ///   3. `.github/workflows/ci.yml`         — invokes the script as a step
 ///
 /// Drift in any of those silently disables the perf gate, so this test
-/// reads each file via `#filePath` and asserts the canonical keys are
-/// present at the expected location. (Same pattern used by SigTests
-/// and CargoReleaseProfileTests.)
+/// reads each file from the bundled SourceMirror and asserts the canonical
+/// keys are present at the expected location.
 @Suite("Perf Budgets (Wave 2.5)")
 nonisolated struct PerfBudgetsTests {
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func loadText(_ relative: String) throws -> String {
-        let url = repoRoot().appendingPathComponent(relative, isDirectory: false)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relative)
     }
 
     // MARK: - perf-budgets.toml
@@ -80,9 +72,7 @@ nonisolated struct PerfBudgetsTests {
 
     @Test("check-perf-budgets.sh exists and is executable")
     func parserScriptExistsAndIsExecutable() throws {
-        let url = Self.repoRoot()
-            .appendingPathComponent("scripts", isDirectory: true)
-            .appendingPathComponent("check-perf-budgets.sh", isDirectory: false)
+        let url = try sourceMirrorURL(for: "scripts/check-perf-budgets.sh")
         let fm = FileManager.default
         #expect(fm.fileExists(atPath: url.path),
                 "scripts/check-perf-budgets.sh must exist (Wave 2.5 CI gate)")

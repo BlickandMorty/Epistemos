@@ -5,21 +5,15 @@ import Testing
 
 // MARK: - Source-level plist guard (both build variants)
 //
-// Reads the plist source files directly from the project tree so the
-// contract is enforced regardless of which build variant is under test.
+// Reads the mirrored plist source files so the contract is enforced
+// regardless of which build variant is under test.
 // Failures here mean a plist edit dropped the .epdoc document type that
 // makes the Finder/NSDocument integration work on both targets.
 @Suite("Epdoc source Info.plist - both build variants (source-level)")
 nonisolated struct EpdocSourcePlistTests {
 
     private static func loadSourcePlist(named name: String) throws -> [String: Any] {
-        // #filePath is EpistemosTests/<this file>; two deleteLast() hops land at project root.
-        let testFile = URL(fileURLWithPath: #filePath)
-        let projectRoot = testFile
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let plistURL = projectRoot.appendingPathComponent(name)
-        let data = try Data(contentsOf: plistURL)
+        let data = try loadMirroredSourceDataFile(name)
         guard let dict = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
             throw NSError(domain: "EpdocSourcePlistTests", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "\(name) did not deserialise to [String: Any]"])

@@ -10,8 +10,9 @@ import Foundation
 // whole so every existing detail view stays reachable — the only
 // changes are sidebar grouping and row subtitles. Phase S.6 adds a
 // thirteenth visible section (.privacy) under the Privacy & Storage
-// category to surface the App Privacy manifest to the user; tests
-// below were updated from 12 to 13 in lockstep.
+// category to surface the App Privacy manifest to the user; the
+// Provenance Console adds the fourteenth visible section under that
+// same category.
 //
 // These tests lock in:
 //   - the six-category shape (count, order, labels)
@@ -44,10 +45,11 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        // 13 visible after Agent consolidation + S.6 privacy pane:
+        // 14 visible after Agent consolidation + S.6 privacy pane +
+        // the Provenance Console:
         // agentControl + authority + overseer rolled up into a single
-        // .agent entry; .privacy added under Privacy & Storage in S.6.
-        #expect(SettingsView.SettingsSection.visibleSections.count == 13)
+        // .agent entry; .privacy and .provenance live under Privacy & Storage.
+        #expect(SettingsView.SettingsSection.visibleSections.count == 14)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
@@ -98,17 +100,17 @@ struct SettingsCategoryTests {
         }
     }
 
-    @Test("All 13 visible sections are reachable (Agent consolidation + S.6 privacy)")
+    @Test("All 14 visible sections are reachable (Agent consolidation + privacy/provenance)")
     func allVisibleSectionsAreReachable() {
         // .agent replaces .agentControl + .authority + .overseer in the
         // sidebar; the legacy entries remain enum cases for deep-link
-        // compatibility but are not in visibleSections. Phase S.6 added
-        // .privacy under Privacy & Storage.
+        // compatibility but are not in visibleSections. Privacy &
+        // provenance both surface under Privacy & Storage.
         let expected: Set<SettingsView.SettingsSection> = [
             .general, .channels, .cognitive, .inference,
             .knowledgeFusion, .modelVaults, .iMessageDriver,
             .skills, .agent,
-            .landing, .appearance, .vault, .privacy,
+            .landing, .appearance, .vault, .privacy, .provenance,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }
@@ -122,5 +124,15 @@ struct SettingsCategoryTests {
         #expect(settingsSource.contains("initialTab: .control"))
         #expect(settingsSource.contains("initialTab: .authority"))
         #expect(settingsSource.contains("initialTab: .overseer"))
+    }
+
+    @Test("Night Brain power setting copy matches canonical healthy-battery runner policy")
+    func nightBrainPowerCopyMatchesCanonicalPolicy() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/CognitiveSettingsSection.swift")
+
+        #expect(source.contains("Require Healthy Power"))
+        #expect(source.contains("battery above 50%"))
+        #expect(!source.contains("Require AC Power"))
+        #expect(!source.contains("Requiring AC power"))
     }
 }

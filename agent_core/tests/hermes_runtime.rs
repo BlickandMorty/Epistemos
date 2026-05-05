@@ -1,4 +1,4 @@
-use agent_core::hermes::function_call::StreamingToolCallDetector;
+use agent_core::hermes::function_call::{parse_tool_calls, StreamingToolCallDetector};
 use agent_core::hermes::procedural_memory::{ProceduralMemoryStore, ProcedureOutcomeRecord};
 use agent_core::hermes::prompt_format::{
     build_messages, build_system_prompt, HermesMessage, HermesMessageRole, HermesPromptInput,
@@ -10,7 +10,7 @@ use agent_core::hermes::skills::{
     skills_tool_schema, SkillManageHandler, SkillViewHandler, SkillsListHandler,
     SkillsRegistryStore, SkillsTool,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::Path;
 use tempfile::tempdir;
 
@@ -35,7 +35,29 @@ fn prompt_format_preserves_hermes_function_call_contract() {
     let prompt = build_system_prompt(&input);
 
     assert!(prompt.starts_with("KNOWLEDGE-FIRST\nYou are a function calling AI model."));
-    assert!(prompt.contains("<tools>\n[{\"function\":{\"description\":\"Read an exact path.\",\"name\":\"read_file\",\"parameters\":{\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"}},\"type\":\"function\"}]\n</tools>"));
+    let tools_json = prompt
+        .split("<tools>\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n</tools>").next())
+        .expect("prompt must include tools block");
+    let tools: Value = serde_json::from_str(tools_json).expect("tools block must be JSON");
+    assert_eq!(
+        tools,
+        json!([{
+            "type": "function",
+            "function": {
+                "description": "Read an exact path.",
+                "name": "read_file",
+                "parameters": {
+                    "type": "object",
+                    "required": ["path"],
+                    "properties": {
+                        "path": { "type": "string" }
+                    }
+                }
+            }
+        }])
+    );
     assert!(prompt.contains(
         "<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-dict>}\n</tool_call>"
     ));
@@ -99,6 +121,15 @@ fn function_call_detector_emits_when_closing_tag_arrives() {
         detection.raw_content,
         "{\"name\":\"read_file\",\"arguments\":{\"path\":\"docs/a.md\"}}"
     );
+}
+
+#[test]
+fn function_call_parser_accepts_parameters_alias() {
+    let calls = parse_tool_calls(r#"{"name":"search_web","parameters":{"query":"hello"}}"#);
+
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].name, "search_web");
+    assert_eq!(calls[0].arguments_json, "{\"query\":\"hello\"}");
 }
 
 #[test]

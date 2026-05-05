@@ -15,20 +15,13 @@ import Testing
 ///   4. `.github/workflows/ci.yml`       — invokes the wrapper before perf gate
 ///
 /// Drift in any of those silently disables runtime budget enforcement,
-/// so this test reads each file via `#filePath` and asserts the
-/// canonical wiring is present.
+/// so this test reads each file from the bundled SourceMirror and asserts
+/// the canonical wiring is present.
 @Suite("Morning Session Bench (Wave 2.6)")
 nonisolated struct MorningSessionBenchTests {
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func loadText(_ relative: String) throws -> String {
-        let url = repoRoot().appendingPathComponent(relative, isDirectory: false)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relative)
     }
 
     // MARK: - bench/Cargo.toml
@@ -77,9 +70,7 @@ nonisolated struct MorningSessionBenchTests {
 
     @Test("run-morning-session.sh exists, is executable, and builds the bench")
     func wrapperScriptIsCanonical() throws {
-        let url = Self.repoRoot()
-            .appendingPathComponent("scripts", isDirectory: true)
-            .appendingPathComponent("run-morning-session.sh", isDirectory: false)
+        let url = try sourceMirrorURL(for: "scripts/run-morning-session.sh")
         let fm = FileManager.default
         #expect(fm.fileExists(atPath: url.path),
                 "scripts/run-morning-session.sh must exist (Wave 2.6 wrapper)")

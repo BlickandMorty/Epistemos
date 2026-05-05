@@ -1177,7 +1177,8 @@ final class IMessageDriverService {
             systemPrompt: systemPrompt,
             autoApproveReads: false,
             autoApproveWrites: contact.autoApprove,
-            promptMode: contact.promptMode
+            promptMode: contact.promptMode,
+            maxCostUsd: nil
         )
 
         let providerName = Self.providerNameForCloudModel(modelName)

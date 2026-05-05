@@ -81,10 +81,6 @@ struct XPCSmokeTests {
     }
 
     private func loadRepoSourceTextFile(_ relativePath: String) throws -> String {
-        let repoRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let sourceURL = repoRoot.appendingPathComponent(relativePath)
-        return try String(contentsOf: sourceURL, encoding: .utf8)
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

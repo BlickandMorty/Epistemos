@@ -16,7 +16,7 @@ import Testing
 ///   3. Asserts every Sig category appears as an os-signpost-interval-schema
 ///   4. Asserts the canonical subsystem is referenced
 ///   5. Asserts every category from Sig.swift is mirrored here
-///      (cross-checks both files via #filePath)
+///      (cross-checks both files via SourceMirror)
 @Suite("Performance.instrpkg (Wave 2.2)")
 nonisolated struct PerformanceInstrPkgTests {
 
@@ -29,24 +29,15 @@ nonisolated struct PerformanceInstrPkgTests {
 
     static let canonicalSubsystem = "io.epistemos.core"
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func loadText(_ relative: String) throws -> String {
-        let url = repoRoot().appendingPathComponent(relative, isDirectory: false)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relative)
     }
 
     // MARK: - file presence
 
     @Test("Performance.instrpkg exists at the canonical path")
-    func instrPkgExists() {
-        let url = Self.repoRoot()
-            .appendingPathComponent("Tools", isDirectory: true)
-            .appendingPathComponent("Performance.instrpkg", isDirectory: false)
+    func instrPkgExists() throws {
+        let url = try sourceMirrorURL(for: "Tools/Performance.instrpkg")
         #expect(FileManager.default.fileExists(atPath: url.path),
                 "Tools/Performance.instrpkg must exist (Wave 2.2 deliverable)")
     }
@@ -55,9 +46,7 @@ nonisolated struct PerformanceInstrPkgTests {
 
     @Test("Performance.instrpkg parses as well-formed XML")
     func instrPkgIsWellFormedXML() throws {
-        let url = Self.repoRoot()
-            .appendingPathComponent("Tools", isDirectory: true)
-            .appendingPathComponent("Performance.instrpkg", isDirectory: false)
+        let url = try sourceMirrorURL(for: "Tools/Performance.instrpkg")
         // Use xmllint via Process — fast, deterministic, and doesn't try
         // to resolve external entities the way XMLDocument can. xmllint
         // ships with macOS so this works on any developer machine and on

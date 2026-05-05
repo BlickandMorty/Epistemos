@@ -3281,7 +3281,7 @@ struct TriageServiceIntegrationTests {
     }
 
     @Test("thinking mode does not hard-cap long-form local output to 1024 tokens")
-    func thinkingModeDoesNotHardCapLongFormOutput() {
+    func thinkingModeDoesNotHardCapLongFormOutput() throws {
         let request = LocalMLXRequest(
             modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
@@ -3293,7 +3293,10 @@ struct TriageServiceIntegrationTests {
             imageURLs: []
         )
 
-        #expect(request.resolvedMaxTokens == 6000)
+        let resolvedMaxTokens = try #require(request.resolvedMaxTokens)
+        #expect(resolvedMaxTokens > 1024)
+        #expect(resolvedMaxTokens <= 6000)
+        #expect(resolvedMaxTokens == max(1, Int(6000 * ThermalMonitor.currentTokenBudgetMultiplier())))
     }
 
     @Test("thinking-capable qwen requests map template thinking mode from the request reasoning mode")

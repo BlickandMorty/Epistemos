@@ -568,7 +568,8 @@ struct HermesExpertModeRunner {
             systemPrompt: Self.rustAskSystemPrompt,
             autoApproveReads: false,
             autoApproveWrites: false,
-            promptMode: "general"
+            promptMode: "general",
+            maxCostUsd: nil
         )
 
         var delegateBox: StreamingDelegate?

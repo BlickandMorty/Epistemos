@@ -25,12 +25,6 @@ import Testing
 @Suite("Metal UMA storage mode regression guard (Wave 4.3)")
 nonisolated struct MetalUMAStorageModeTests {
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // EpistemosTests/
-            .deletingLastPathComponent() // repo root
-    }
-
     private static func walkSwiftFiles(under root: URL) throws -> [URL] {
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
@@ -50,7 +44,7 @@ nonisolated struct MetalUMAStorageModeTests {
 
     @Test("every Swift makeBuffer call uses .storageModeShared (UMA zero-copy)")
     func everyMakeBufferCallUsesShared() throws {
-        let root = Self.repoRoot().appendingPathComponent("Epistemos", isDirectory: true)
+        let root = try sourceMirrorURL(for: "Epistemos")
         let files = try Self.walkSwiftFiles(under: root)
         #expect(!files.isEmpty, "scan must find Swift files under Epistemos/")
 
@@ -84,7 +78,7 @@ nonisolated struct MetalUMAStorageModeTests {
                     } else if body.contains(".storageModeShared") {
                         // Compliant.
                     } else {
-                        let rel = fileURL.path.replacingOccurrences(of: Self.repoRoot().path + "/", with: "")
+                        let rel = try Self.relativeMirroredPath(for: fileURL)
                         offenders.append("\(rel):\(idx + 1) — makeBuffer without .storageModeShared")
                     }
                 }
@@ -99,7 +93,7 @@ nonisolated struct MetalUMAStorageModeTests {
 
     @Test("no Swift file declares .storageModeManaged (UMA antipattern)")
     func noManagedStorageModeAnywhere() throws {
-        let root = Self.repoRoot().appendingPathComponent("Epistemos", isDirectory: true)
+        let root = try sourceMirrorURL(for: "Epistemos")
         let files = try Self.walkSwiftFiles(under: root)
         var offenders: [String] = []
         for fileURL in files {
@@ -107,7 +101,7 @@ nonisolated struct MetalUMAStorageModeTests {
             for (idx, line) in source.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
                 if line.contains(".storageModeManaged") || line.contains("MTLStorageModeManaged") {
                     if line.contains("// W4.3-OPTOUT:") { continue }
-                    let rel = fileURL.path.replacingOccurrences(of: Self.repoRoot().path + "/", with: "")
+                    let rel = try Self.relativeMirroredPath(for: fileURL)
                     offenders.append("\(rel):\(idx + 1) — \(line.trimmingCharacters(in: .whitespaces))")
                 }
             }
@@ -115,5 +109,14 @@ nonisolated struct MetalUMAStorageModeTests {
         let detail = offenders.joined(separator: "\n  - ")
         #expect(offenders.isEmpty,
                 "Wave 4.3 forbids .storageModeManaged — forces CPU/GPU copies even on UMA Apple Silicon.\n  - \(detail)")
+    }
+
+    private static func relativeMirroredPath(for url: URL) throws -> String {
+        let root = try sourceMirrorRootURL().standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        guard path.hasPrefix(root + "/") else {
+            return url.lastPathComponent
+        }
+        return String(path.dropFirst(root.count + 1))
     }
 }

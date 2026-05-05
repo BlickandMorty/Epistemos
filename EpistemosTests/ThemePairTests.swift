@@ -1233,7 +1233,7 @@ LD_RUNPATH_SEARCH_PATHS = (
     func liquidGreetingTaskIdentityTracksPlaylistChanges() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
-        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(searchMode)_\\(ui.landingGreetingPlaylistSignature)\""))
+        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(searchMode)_\\(hermesHeroMode)_\\(ui.landingGreetingPlaylistSignature)\""))
         #expect(!liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(displayText)\""))
     }
 

@@ -1913,8 +1913,10 @@ final class AppBootstrap {
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         if NightBrainScheduler.shouldRunFallbackInline() {
             Task.detached(priority: .utility) { [weak self] in
-                await self?._nightBrain?.start()
-                await MainActor.run { NightBrainScheduler.recordSuccessfulRun() }
+                let result = await self?._nightBrain?.runInlineFallback()
+                if case .finished? = result {
+                    await MainActor.run { NightBrainScheduler.recordSuccessfulRun() }
+                }
             }
         }
         #endif

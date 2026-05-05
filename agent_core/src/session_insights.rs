@@ -11,29 +11,8 @@ use serde::{Deserialize, Serialize};
 
 // ── Cost Models ────────────────────────────────────────────────────────────
 
-/// Per-provider cost per 1K tokens (input, output) in USD.
-const COST_PER_1K_TOKENS: &[(&str, (f64, f64))] = &[
-    ("claude_sonnet", (0.003, 0.015)),
-    ("claude_opus", (0.015, 0.075)),
-    ("claude_haiku", (0.00025, 0.00125)),
-    ("openai", (0.005, 0.015)),
-    ("openai_gpt4o", (0.005, 0.015)),
-    ("openai_gpt4o_mini", (0.00015, 0.0006)),
-    ("gemini_flash", (0.00035, 0.0014)),
-    ("gemini_pro", (0.0035, 0.0105)),
-    ("perplexity", (0.002, 0.008)),
-];
-
 pub fn estimate_cost(provider: &str, input_tokens: u32, output_tokens: u32) -> f64 {
-    let (input_cost, output_cost) = COST_PER_1K_TOKENS
-        .iter()
-        .find(|(name, _)| provider.starts_with(name))
-        .map(|(_, costs)| *costs)
-        .unwrap_or((0.005, 0.015)); // Default to mid-range pricing
-
-    let input_cost_total = (input_tokens as f64 / 1000.0) * input_cost;
-    let output_cost_total = (output_tokens as f64 / 1000.0) * output_cost;
-    input_cost_total + output_cost_total
+    crate::providers::pricing::estimate_cost_usd(provider, input_tokens, output_tokens)
 }
 
 // ── Session Metrics ────────────────────────────────────────────────────────
@@ -578,6 +557,12 @@ mod tests {
         let cost = estimate_cost("claude_sonnet", 1000, 500);
         // (1000/1000)*0.003 + (500/1000)*0.015 = 0.003 + 0.0075 = 0.0105
         assert!(cost > 0.01 && cost < 0.011);
+    }
+
+    #[test]
+    fn estimate_cost_uses_current_opus_46_pricing() {
+        let cost = estimate_cost("claude-opus-4-6", 1_000_000, 1_000_000);
+        assert!((cost - 30.0).abs() < 1e-9);
     }
 
     #[test]
