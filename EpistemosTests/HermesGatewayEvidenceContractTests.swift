@@ -201,16 +201,18 @@ nonisolated struct HermesGatewayEvidenceContractTests {
 
     @Test("Surface enum count matches the doctrine-declared set")
     func surfaceEnumCountMatchesDoctrineDeclaredSet() {
-        // The doctrine §7 + Annex enumerates 14 surfaces:
+        // The doctrine §7 + Annex enumerates 13 surfaces (post-2026-05-05
+        // Hermes-agent removal — see docs/_archive/hermes-removal-2026-05-05/
+        // README.md for the .hermesSubprocess removal record):
         //   2 local (deterministicLocalSubstrate, localPromptFormatting)
         //   6 cloud providers (cloud / openAI / anthropic / google /
         //                      openAICompatible / codexAccount)
-        //   6 non-cloud external (CLI / MCP / Hermes subprocess /
-        //                         browserComputerUse / docker / explicit)
-        // = 14 total. A new case requires a deliberation brief to update the
+        //   5 non-cloud external (CLI / MCP / browserComputerUse / docker /
+        //                         explicit)
+        // = 13 total. A new case requires a deliberation brief to update the
         // doctrine + this test in the same patch.
-        #expect(HermesGatewayPolicy.Surface.allCases.count == 14,
-                "Surface enum must have 14 cases — if you intentionally added one, update the doctrine §7 build-order graph and this test in the same patch")
+        #expect(HermesGatewayPolicy.Surface.allCases.count == 13,
+                "Surface enum must have 13 cases — if you intentionally added one, update the doctrine §7 build-order graph and this test in the same patch")
     }
 
     // MARK: - Cloud provider parity
