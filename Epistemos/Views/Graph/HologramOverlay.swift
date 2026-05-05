@@ -283,7 +283,7 @@ final class HologramOverlay {
     private var controlsHostView: NSView?
     private var sidebarHostView: NSView?
     private var routeHostView: NSView?
-    private var hermesFacultyHostView: NSView?
+    private var hermesFacultyHostView: NSView? // retained nil; faculty glyph removed
     private var routeObserver: Any?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
@@ -1610,24 +1610,10 @@ final class HologramOverlay {
         NSLayoutConstraint.activate(rtConstraints)
         self.routeConstraints = rtConstraints
 
-        // Hermes Snake graph faculty (Simulation v1.6 §8.1): graph-plane z+1.
-        let hermesFacultyView = HologramOverlayHostedViewBuilder.host(
-            HermesGraphFacultyGlyph(phase: 0.65)
-                .frame(width: 74, height: 74)
-        )
-        hermesFacultyView.translatesAutoresizingMaskIntoConstraints = false
-        hermesFacultyView.isHidden = !graphState.currentRoute.isCanvas
-        contentView.addSubview(hermesFacultyView, positioned: .above, relativeTo: graphView)
-        self.hermesFacultyHostView = hermesFacultyView
-
-        let hermesFacultyConstraints = [
-            hermesFacultyView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -92),
-            hermesFacultyView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 84),
-            hermesFacultyView.widthAnchor.constraint(equalToConstant: 74),
-            hermesFacultyView.heightAnchor.constraint(equalToConstant: 74),
-        ]
-        NSLayoutConstraint.activate(hermesFacultyConstraints)
-        self.hermesFacultyConstraints = hermesFacultyConstraints
+        // (Removed: Hermes Snake graph faculty glyph. The graph plane no
+        // longer carries a brand-specific faculty marker. If a generic
+        // agent indicator is needed in a follow-up, replace this block
+        // with a brand-neutral glyph.)
 
         routeObserver = NotificationCenter.default.addObserver(
             forName: .graphRouteDidChange,

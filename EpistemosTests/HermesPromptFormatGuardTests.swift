@@ -100,21 +100,11 @@ struct HermesPromptFormatGuardTests {
         #expect(bridge.contains("pub fn hermes_parse_tool_calls"))
     }
 
-    @Test("Hermes Expert Mode ask path calls the Rust agent runtime directly")
-    func hermesExpertAskPathUsesRustRuntimeDirectly() throws {
-        let runner = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Landing/Hermes/HermesExpertModeRunner.swift"
-        )
-
-        #expect(runner.contains("runAgentSession("),
-                "Hermes Expert Mode /ask must call the Rust agent runtime directly")
-        #expect(runner.contains("runAskThroughRustRuntime(trimmed)"),
-                "Bare prompts in Expert Mode must use the same Rust runtime path as /ask")
-        #expect(runner.contains("runAskThroughRustRuntime(question)"),
-                "Parsed /ask commands in Expert Mode must use the Rust runtime path")
-        #expect(!runner.contains("MainChatSubmissionRouter"),
-                "Hermes Expert Mode runner must not detour /ask through MainChatSubmissionRouter")
-    }
+    // Hermes Expert Mode runner removed in slice 1 of the Hermes UI
+    // teardown (2026-05-05). The Rust runtime path itself stays — the
+    // canonical /ask flow now lives in the main chat surface; tests
+    // for the prompt format + function-call parser remain in the
+    // Rust agent_core/tests/hermes_runtime.rs integration suite.
 
     // MARK: - Rust agent_core::prompts
 

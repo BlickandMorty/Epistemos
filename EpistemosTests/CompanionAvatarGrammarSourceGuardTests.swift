@@ -40,12 +40,6 @@ struct CompanionAvatarGrammarSourceGuardTests {
         let creationFlow = try loadMirroredSourceTextFile(
             "Epistemos/Views/Landing/Farm/CompanionCreationFlow.swift"
         )
-        let graphFaculty = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Graph/HermesGraphFacultyGlyph.swift"
-        )
-        let hologramOverlay = try loadMirroredSourceTextFile(
-            "Epistemos/Views/Graph/HologramOverlay.swift"
-        )
 
         for renderer in [
             "drawBlock",
@@ -80,16 +74,10 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(!creationFlow.contains("CompanionBodyKind.allCases"),
                 "Creation must not expose a fixed enum-all-cases body picker")
 
-        #expect(graphFaculty.contains("HermesGraphFacultyGlyph"),
-                "Hermes Snake must move to a graph-faculty glyph source")
-        #expect(graphFaculty.contains("zPlusOne"),
-                "Hermes graph-faculty placement must make the z+1 doctrine explicit")
-        #expect(graphFaculty.contains("Canvas"),
-                "Hermes graph faculty must keep a native SwiftUI Canvas placeholder until the Metal atlas lands")
-        #expect(hologramOverlay.contains("HermesGraphFacultyGlyph("),
-                "HologramOverlay must actually mount Hermes Snake as graph faculty above the graph plane")
-        #expect(hologramOverlay.contains("hermesFacultyHostView"),
-                "Graph faculty hosting must be explicit so route/mini visibility can keep it off non-canvas surfaces")
+        // Hermes graph faculty glyph removed in the Hermes UI overlay
+        // teardown (slice 1, 2026-05-05). The graph plane no longer
+        // carries a brand-specific faculty marker; the Farm body
+        // grammar checks above remain authoritative.
     }
 
     @Test("Landing Farm routes companions through deterministic roaming")

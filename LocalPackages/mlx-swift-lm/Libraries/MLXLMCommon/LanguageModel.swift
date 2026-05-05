@@ -220,7 +220,17 @@ extension LanguageModel where Self: KVCacheDimensionProvider {
         // The number of heads per layer (kvHeads[i]) is not used for cache creation
         let numLayers = kvHeads.count
 
-        // Follow Python logic: use RotatingKVCache if maxKVSize is provided
+        if parameters?.kvScheme == .kivi, parameters?.maxKVSize == nil {
+            return (0 ..< numLayers).map { _ in
+                KIVIKVCache(
+                    groupSize: parameters?.kvGroupSize ?? 32,
+                    bits: parameters?.kvBits ?? 2
+                )
+            }
+        }
+
+        // Follow Python logic: use RotatingKVCache if maxKVSize is provided.
+        // KIVI deliberately does not combine with rotating caches in this slice.
         if let maxKVSize = parameters?.maxKVSize {
             return (0 ..< numLayers).map { _ in
                 RotatingKVCache(maxSize: maxKVSize, keep: 4)

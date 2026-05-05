@@ -894,12 +894,6 @@ final class AppBootstrap {
     )
     let chatApprovalQueue = ChatApprovalQueue()
     let sovereignGate = SovereignGate()
-    /// Provenance recorder shared by Hermes Expert Mode submissions on
-    /// the landing page. Single instance for the app lifetime so
-    /// sequence numbers per session runID stay stable. Persists into
-    /// the canonical EventStore via the recorder's default persist
-    /// closure.
-    let hermesExpertProvenanceRecorder = AgentToolProvenanceRecorder()
     /// Simulation Mode v1.6 — Companion Farm + Notes Sidebar Skin +
     /// (future) Graph Live Theater. Single source of truth for
     /// companion CRUD + activation per the simulation worktree
