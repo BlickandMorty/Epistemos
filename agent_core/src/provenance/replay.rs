@@ -51,13 +51,24 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::cognitive_dag::storage::DagSnapshot;
 use crate::mutations::MutationEnvelope;
 
 use super::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
 
 /// Current schema version for the bundle wire format. Bump in lockstep
 /// with the open Provenance Standard's published schemars output.
-pub const REPLAY_BUNDLE_SCHEMA_VERSION: u32 = 1;
+///
+/// History:
+/// - v1: claims + evidence + derivations + support_links + mutations
+/// - v2: adds optional `dag_snapshot` (Phase 8.F — replay verification
+///   via merkle root parity). Old v1 bundles deserialize cleanly under
+///   v2 readers; new bundles without a DAG snapshot still emit v1.
+pub const REPLAY_BUNDLE_SCHEMA_VERSION: u32 = 2;
+
+/// Schema version for bundles that lack a DAG snapshot. Pre-Phase-8.F
+/// callers can stay on this version forever.
+pub const REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY: u32 = 1;
 
 // ---------------------------------------------------------------------------
 // LedgerSnapshot — deterministic view of a `ClaimLedger`
@@ -123,11 +134,16 @@ impl LedgerSnapshot {
 
 /// Portable replay artifact. Field order matches the canonical wire
 /// format; `serde_json` preserves this order across serializations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Note on `Eq`: removed in v2 because the optional `dag_snapshot` carries
+/// f32 strengths in `EdgeKind` which can't satisfy `Eq`. PartialEq still
+/// works and is what every test asserts on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReplayBundle {
     /// Wire-format schema version. Readers tolerate higher values by
     /// ignoring unknown fields; writers must bump in lockstep with the
-    /// open Provenance Standard.
+    /// open Provenance Standard. v1 = ledger only; v2 = optional DAG
+    /// snapshot (Phase 8.F).
     pub schema_version: u32,
     /// Unique bundle id. Caller chooses the generation strategy
     /// (matches the rest of the codebase's id discipline).
@@ -144,6 +160,13 @@ pub struct ReplayBundle {
     pub mutations: Vec<MutationEnvelope>,
     /// Ledger state at bundle creation.
     pub ledger: LedgerSnapshot,
+    /// Phase 8.F — optional cognitive DAG snapshot. When present, the
+    /// epistemos-trace `verify-replay` subcommand re-walks the
+    /// snapshot's merkle root to confirm the DAG content has not been
+    /// tampered with independently of the ledger. Skipped from
+    /// serialization when None so v1 bundles stay byte-identical.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub dag_snapshot: Option<DagSnapshot>,
     /// BLAKE3 hex (lowercase 64-char) over the canonical JSON of the
     /// bundle WITH `integrity_hash` set to the empty string. Verifiable
     /// via `verify_integrity()`.
@@ -156,19 +179,70 @@ pub enum BundleError {
     IntegrityMismatch { stored: String, computed: String },
     #[error("bundle is empty (no mutations and no claims) — refusing to mint")]
     EmptyBundle,
+    /// Phase 8.F — DAG snapshot's stored merkle root does not match
+    /// the merkle root recomputed from the snapshot's nodes + edges.
+    /// The bundle's `integrity_hash` may still match (the DAG snapshot
+    /// is part of the hashed payload) — this error specifically calls
+    /// out internal DAG inconsistency vs. external tampering.
+    #[error("DAG merkle root mismatch (stored {stored}, recomputed {recomputed})")]
+    DagMerkleMismatch { stored: String, recomputed: String },
     #[error("serde_json error: {0}")]
     Serde(#[from] serde_json::Error),
 }
 
 impl ReplayBundle {
-    /// Build a fresh bundle from a ledger + ordered mutations. Computes
-    /// the integrity hash last, after every other field is settled.
+    /// Build a fresh ledger-only bundle (schema v1). Same shape that
+    /// shipped pre-Phase-8.F. Use `build_with_dag` to include a DAG
+    /// snapshot.
     pub fn build(
         bundle_id: String,
         run_id: Option<String>,
         generated_at_ms: i64,
         ledger: &ClaimLedger,
+        mutations: Vec<MutationEnvelope>,
+    ) -> Result<Self, BundleError> {
+        Self::build_inner(
+            bundle_id,
+            run_id,
+            generated_at_ms,
+            ledger,
+            mutations,
+            None,
+            REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY,
+        )
+    }
+
+    /// Phase 8.F — build a bundle that includes a cognitive DAG
+    /// snapshot. The snapshot's merkle root carries the canonical
+    /// content hash; `verify_replay()` re-walks it during audit.
+    /// Schema bumps to v2 to signal the extended payload.
+    pub fn build_with_dag(
+        bundle_id: String,
+        run_id: Option<String>,
+        generated_at_ms: i64,
+        ledger: &ClaimLedger,
+        mutations: Vec<MutationEnvelope>,
+        dag_snapshot: DagSnapshot,
+    ) -> Result<Self, BundleError> {
+        Self::build_inner(
+            bundle_id,
+            run_id,
+            generated_at_ms,
+            ledger,
+            mutations,
+            Some(dag_snapshot),
+            REPLAY_BUNDLE_SCHEMA_VERSION,
+        )
+    }
+
+    fn build_inner(
+        bundle_id: String,
+        run_id: Option<String>,
+        generated_at_ms: i64,
+        ledger: &ClaimLedger,
         mut mutations: Vec<MutationEnvelope>,
+        dag_snapshot: Option<DagSnapshot>,
+        schema_version: u32,
     ) -> Result<Self, BundleError> {
         // Sort mutations by (run_id then sequence) for determinism. A
         // bundle covering multiple runs gets a stable cross-run order.
@@ -179,16 +253,25 @@ impl ReplayBundle {
                 .then_with(|| a.mutation_id.cmp(&b.mutation_id))
         });
         let snapshot = LedgerSnapshot::from_ledger(ledger);
-        if mutations.is_empty() && snapshot.claims.is_empty() && snapshot.evidence.is_empty() {
+        let dag_is_empty = dag_snapshot
+            .as_ref()
+            .map(|s| s.nodes.is_empty() && s.edges.is_empty())
+            .unwrap_or(true);
+        if mutations.is_empty()
+            && snapshot.claims.is_empty()
+            && snapshot.evidence.is_empty()
+            && dag_is_empty
+        {
             return Err(BundleError::EmptyBundle);
         }
         let mut bundle = Self {
-            schema_version: REPLAY_BUNDLE_SCHEMA_VERSION,
+            schema_version,
             bundle_id,
             run_id,
             generated_at_ms,
             mutations,
             ledger: snapshot,
+            dag_snapshot,
             integrity_hash: String::new(),
         };
         let hash = bundle.compute_integrity_hash()?;
@@ -221,6 +304,62 @@ impl ReplayBundle {
                 computed,
             })
         }
+    }
+
+    /// Phase 8.F — full replay verification. Runs `verify_integrity()`
+    /// FIRST (the bundle-wide BLAKE3 hash chain — catches any external
+    /// tampering of any field), then if a DAG snapshot is present,
+    /// recomputes the merkle root over the snapshot's nodes + edges
+    /// and compares to the snapshot's stored merkle_root.
+    ///
+    /// The two checks are complementary:
+    /// - `verify_integrity` catches edits to the bundle bytes after
+    ///   minting (anything from a flipped char in claim text to a
+    ///   swapped DAG node).
+    /// - DAG merkle parity catches the rare case where the snapshot's
+    ///   internal merkle_root field disagrees with the actual node /
+    ///   edge content — which only happens if the snapshot was
+    ///   constructed incorrectly OR if the merkle_root_over algorithm
+    ///   itself is non-deterministic. Both are doctrine §1.3 hard
+    ///   contracts.
+    ///
+    /// Returns `Ok(())` on success. Bundles WITHOUT a dag_snapshot
+    /// short-circuit to integrity-only verification.
+    pub fn verify_replay(&self) -> Result<(), BundleError> {
+        self.verify_integrity()?;
+        if let Some(ref snapshot) = self.dag_snapshot {
+            // Recompute the merkle root from scratch over the
+            // snapshot's sorted nodes + edges. The cognitive_dag
+            // module's `merkle_root_over` is the canonical
+            // computation per doctrine §1.3.
+            // Edge ids are computed from the (from, to, kind) tuple; cache
+            // them once so the merkle walk + the borrow vec see the same
+            // EdgeId values.
+            let edge_ids_owned: Vec<crate::cognitive_dag::edge::EdgeId> =
+                snapshot.edges.iter().map(|e| e.id()).collect();
+            let node_ids: Vec<&crate::cognitive_dag::node::NodeId> =
+                snapshot.nodes.iter().map(|n| &n.id).collect();
+            let edge_ids: Vec<&crate::cognitive_dag::edge::EdgeId> =
+                edge_ids_owned.iter().collect();
+            let recomputed =
+                crate::cognitive_dag::merkle::merkle_root_over(&node_ids, &edge_ids);
+            if recomputed != snapshot.merkle_root {
+                let mut stored_hex = String::with_capacity(64);
+                let mut recomp_hex = String::with_capacity(64);
+                use std::fmt::Write;
+                for byte in snapshot.merkle_root.as_bytes() {
+                    let _ = write!(&mut stored_hex, "{:02x}", byte);
+                }
+                for byte in recomputed.as_bytes() {
+                    let _ = write!(&mut recomp_hex, "{:02x}", byte);
+                }
+                return Err(BundleError::DagMerkleMismatch {
+                    stored: stored_hex,
+                    recomputed: recomp_hex,
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Serialize to a `.epbundle` byte payload (canonical JSON). The
@@ -416,5 +555,184 @@ mod tests {
         assert_eq!(snap.claims[1].id, ClaimId::new("c-z"));
         assert_eq!(snap.evidence[0].id, EvidenceId::new("ev-a"));
         assert_eq!(snap.evidence[1].id, EvidenceId::new("ev-z"));
+    }
+
+    // ── Phase 8.F — verify_replay tests ────────────────────────────────────
+
+    use crate::cognitive_dag::storage::{DagStore, InMemoryDagStore};
+    use crate::cognitive_dag::node::{
+        AuthorRef, ClaimScope, EvidenceBlob, EvidenceKind, Hash, MimeType, Node, NodeKind,
+        SourceRef, Timestamp,
+    };
+    use crate::cognitive_dag::edge::{Edge, EdgeKind};
+
+    fn seed_dag_snapshot() -> crate::cognitive_dag::storage::DagSnapshot {
+        let store = InMemoryDagStore::new();
+        let note = Node::new_at(
+            NodeKind::Note {
+                body: "phase 8.f test".into(),
+                author: AuthorRef("test".into()),
+                mime: MimeType("text/markdown".into()),
+            },
+            Timestamp(1000),
+        );
+        let claim = Node::new_at(
+            NodeKind::Claim {
+                proposition: "verify_replay works".into(),
+                scope: ClaimScope::Vault,
+                source: SourceRef("phase_8f_test".into()),
+            },
+            Timestamp(1100),
+        );
+        let evidence = Node::new_at(
+            NodeKind::Evidence {
+                kind: EvidenceKind::Citation,
+                payload: EvidenceBlob(b"phase8f-payload".to_vec()),
+                captured_at: Timestamp(1050),
+            },
+            Timestamp(1050),
+        );
+        let cap = Hash::from_bytes([0xE5u8; 32]);
+        for n in [&note, &claim, &evidence] {
+            store.put_node(n.clone()).unwrap();
+        }
+        let edge = Edge::new_at(
+            claim.id,
+            evidence.id,
+            EdgeKind::DerivesFrom { strength: 0.9 },
+            cap,
+            Timestamp(1200),
+        );
+        store.put_edge(edge).unwrap();
+        store.snapshot().unwrap()
+    }
+
+    #[test]
+    fn build_with_dag_emits_v2_schema() {
+        let ledger = seed_ledger();
+        let mutations = vec![seed_mutation(1, "m-1")];
+        let dag = seed_dag_snapshot();
+        let bundle = ReplayBundle::build_with_dag(
+            "phase8f-bundle".to_string(),
+            None,
+            t(),
+            &ledger,
+            mutations,
+            dag,
+        )
+        .unwrap();
+        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION);
+        assert!(bundle.dag_snapshot.is_some());
+        assert!(bundle.dag_snapshot.as_ref().unwrap().nodes.len() >= 3);
+    }
+
+    #[test]
+    fn ledger_only_build_stays_v1_schema() {
+        let ledger = seed_ledger();
+        let bundle = ReplayBundle::build("v1".to_string(), None, t(), &ledger, vec![]).unwrap();
+        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY);
+        assert!(bundle.dag_snapshot.is_none());
+    }
+
+    #[test]
+    fn verify_replay_accepts_clean_bundle_with_dag() {
+        let ledger = seed_ledger();
+        let dag = seed_dag_snapshot();
+        let bundle = ReplayBundle::build_with_dag(
+            "clean".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            dag,
+        )
+        .unwrap();
+        bundle.verify_replay().expect("clean bundle with DAG must verify");
+    }
+
+    #[test]
+    fn verify_replay_accepts_clean_ledger_only_bundle() {
+        // Bundles WITHOUT a DAG snapshot short-circuit to integrity-only
+        // verification — important for backward compat with v1 bundles.
+        let ledger = seed_ledger();
+        let bundle = ReplayBundle::build(
+            "v1-clean".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+        )
+        .unwrap();
+        bundle.verify_replay().expect("clean v1 bundle must verify");
+    }
+
+    #[test]
+    fn verify_replay_catches_tampered_dag_merkle_root() {
+        let ledger = seed_ledger();
+        let dag = seed_dag_snapshot();
+        let mut bundle = ReplayBundle::build_with_dag(
+            "tampered".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            dag,
+        )
+        .unwrap();
+        // Tamper with the snapshot's merkle_root field directly. The
+        // bundle-wide integrity hash will ALSO mismatch (because the
+        // dag_snapshot is part of the hashed payload), but verify_integrity
+        // catches that first. Re-fix the integrity hash so verify_replay
+        // gets to the DAG merkle parity check, and confirm THAT fires.
+        bundle.dag_snapshot.as_mut().unwrap().merkle_root = Hash::from_bytes([0xFFu8; 32]);
+        bundle.integrity_hash = bundle.compute_integrity_hash().unwrap();
+        let err = bundle
+            .verify_replay()
+            .expect_err("DAG merkle tamper must fail verify_replay");
+        assert!(matches!(err, BundleError::DagMerkleMismatch { .. }));
+    }
+
+    #[test]
+    fn verify_replay_catches_outer_integrity_tamper_first() {
+        // If both the outer hash AND the DAG merkle are wrong, the outer
+        // integrity check fires first — that's the canonical surface for
+        // "the bundle bytes were edited."
+        let ledger = seed_ledger();
+        let dag = seed_dag_snapshot();
+        let mut bundle = ReplayBundle::build_with_dag(
+            "double-tamper".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            dag,
+        )
+        .unwrap();
+        // Tamper with a claim text — invalidates the outer hash.
+        bundle.ledger.claims[0].text.push('!');
+        let err = bundle
+            .verify_replay()
+            .expect_err("outer-hash tamper must fail verify_replay");
+        assert!(matches!(err, BundleError::IntegrityMismatch { .. }));
+    }
+
+    #[test]
+    fn v2_bundle_round_trips_through_epbundle_bytes() {
+        let ledger = seed_ledger();
+        let dag = seed_dag_snapshot();
+        let b1 = ReplayBundle::build_with_dag(
+            "rt".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            dag,
+        )
+        .unwrap();
+        let bytes = b1.to_epbundle_bytes().unwrap();
+        let b2 = ReplayBundle::from_epbundle_bytes(&bytes).unwrap();
+        // PartialEq still works (we removed Eq because of f32 strengths).
+        assert_eq!(b1, b2);
+        b2.verify_replay().expect("round-tripped v2 bundle must verify");
     }
 }
