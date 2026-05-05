@@ -251,6 +251,26 @@ If you only do **#2, #3, #4, #5, #6, #7** the doctrine's three killer features l
 
 ---
 
+## 8.5 Local-stream truncation / flush fix — preservation watch *(C12, merged 2026-05-05)*
+
+**File:** `Epistemos/LocalAgent/IncrementalToolCallDetector.swift` (exists on main + worktrees `quirky-pascal-135a98`, `hermes-parity`, `simulation`)
+
+**Status:** Known fix that prevents premature EOF / token truncation on the local-stream path during tool-call detection. Currently shipping on main.
+
+**Risk:** Any future refactor of `agent_loop.rs`, the Anthropic streaming bridge, or the tool-call detector could regress this. The original master plan flagged "preserve and reapply local-stream truncation/perf fixes" as a P0 stabilization concern.
+
+**Action before patching the streaming path or `IncrementalToolCallDetector`:**
+
+1. Run `EpistemosTests/IncrementalToolCallDetectorTests.swift` and capture green log.
+2. Manual test: trigger a long-streaming local-MLX response with embedded tool calls; verify no EOF truncation.
+3. After the patch: re-run both. Any regression is P0.
+
+**Tier:** Core (Pro / Research inherit the same path).
+
+**Deliberation-brief instruction:** any agent_loop or streaming-path slice MUST include this preservation note in its brief.
+
+---
+
 ## 9. Bottom line
 
 **The app is stellar — but the substrate research that makes it stellar is fragmented across 7 worktrees and 4 unmerged Codex branches.** Six of those (every worktree except the active `quirky-pascal-135a98`) hold load-bearing insight that has not been promoted into main's canon. Two of the four `codex/*` branches (input-audit, memory-hardening) hold release-blocking and doctrine-shaping work that **has never landed**.

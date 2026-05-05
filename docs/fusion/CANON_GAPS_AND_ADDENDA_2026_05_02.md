@@ -323,7 +323,7 @@ Required deliverables before Mac App Store submission. None of these counts as "
 
 ---
 
-### C12 — Local-stream truncation/flush fix preservation
+### C12 — Local-stream truncation/flush fix preservation **[MERGED 2026-05-05 — added as §8.5 in WORKTREE_INSIGHT_SALVAGE]**
 
 **Original plan:** *"Preserve and reapply local-stream truncation/perf fixes."*
 
