@@ -94,12 +94,18 @@ pub fn on_evidence_committed(e: &Evidence) {
         cognitive_dag_store(),
         system_mirror_capability_hash(),
     ) {
-        // Use a low-level eprintln rather than tracing to avoid pulling
-        // a tracing dep just for the mirror sites. Production builds
-        // pipe stderr to the log subsystem; debug builds see this in
-        // the Xcode console.
-        eprintln!(
-            "cognitive_dag::dispatch: ProvenanceLedgerMirror evidence write failed: {err}"
+        // Per canonical-upgrade-audit C1 (2026-05-05): tracing is
+        // already a workspace dep and used elsewhere; structured
+        // observability beats stderr for the mirror failure paths
+        // because the doctrine §10 verification window will sample
+        // these logs.
+        tracing::warn!(
+            target: "cognitive_dag::dispatch",
+            mirror = "ProvenanceLedgerMirror",
+            mutation = "evidence_committed",
+            evidence_id = %e.id.0,
+            error = %err,
+            "mirror write failed"
         );
     }
 }
@@ -124,8 +130,13 @@ pub fn on_claim_committed(
         cognitive_dag_store(),
         system_mirror_capability_hash(),
     ) {
-        eprintln!(
-            "cognitive_dag::dispatch: ProvenanceLedgerMirror claim write failed: {err}"
+        tracing::warn!(
+            target: "cognitive_dag::dispatch",
+            mirror = "ProvenanceLedgerMirror",
+            mutation = "claim_committed",
+            claim_id = %claim.id.0,
+            error = %err,
+            "mirror write failed"
         );
     }
 }
@@ -161,8 +172,13 @@ pub fn on_procedure_recorded(record: &ProcedureOutcomeRecord) {
         cognitive_dag_store(),
         system_mirror_capability_hash(),
     ) {
-        eprintln!(
-            "cognitive_dag::dispatch: ProceduralMirror record write failed: {err}"
+        tracing::warn!(
+            target: "cognitive_dag::dispatch",
+            mirror = "ProceduralMirror",
+            mutation = "procedure_recorded",
+            skill_name = %record.skill_name,
+            error = %err,
+            "mirror write failed"
         );
     }
 }
@@ -207,9 +223,13 @@ pub fn on_skills_loaded(skills: &[SkillEntry]) {
             cognitive_dag_store(),
             system_mirror_capability_hash(),
         ) {
-            eprintln!(
-                "cognitive_dag::dispatch: SkillsMirror register failed for {}: {err}",
-                entry.name
+            tracing::warn!(
+                target: "cognitive_dag::dispatch",
+                mirror = "SkillsMirror",
+                mutation = "skill_register",
+                skill_name = %entry.name,
+                error = %err,
+                "mirror write failed"
             );
         }
     }
@@ -254,8 +274,12 @@ pub fn on_companion_registered(
     ) {
         Ok(id) => Some(id),
         Err(err) => {
-            eprintln!(
-                "cognitive_dag::dispatch: CompanionMirror register failed: {err}"
+            tracing::warn!(
+                target: "cognitive_dag::dispatch",
+                mirror = "CompanionMirror",
+                mutation = "companion_register",
+                error = %err,
+                "mirror write failed"
             );
             None
         }
