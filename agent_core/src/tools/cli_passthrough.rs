@@ -66,6 +66,42 @@ fn codex_candidate_paths() -> Vec<PathBuf> {
     candidates
 }
 
+/// Candidate absolute paths for the Google `gemini` CLI, in preference
+/// order. The official CLI is distributed via npm
+/// (`@google/generative-ai-cli`) or via the `gcloud` tool. We probe the
+/// standard PATH locations + npm global install locations + Homebrew.
+fn gemini_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local").join("bin").join("gemini"));
+        candidates.push(home.join(".npm-global").join("bin").join("gemini"));
+        candidates.push(home.join("node_modules").join(".bin").join("gemini"));
+    }
+    candidates.push(PathBuf::from("/opt/homebrew/bin/gemini"));
+    candidates.push(PathBuf::from("/usr/local/bin/gemini"));
+    candidates
+}
+
+/// Candidate absolute paths for Moonshot's `kimi` CLI, in preference
+/// order. Kimi distributes a `kimi` binary via npm
+/// (`@moonshot-ai/kimi-cli`) and a desktop app on macOS that bundles
+/// the CLI under `/Applications/Kimi.app/Contents/Resources/kimi`.
+fn kimi_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local").join("bin").join("kimi"));
+        candidates.push(home.join(".npm-global").join("bin").join("kimi"));
+    }
+    candidates.push(PathBuf::from(
+        "/Applications/Kimi.app/Contents/Resources/kimi",
+    ));
+    candidates.push(PathBuf::from("/opt/homebrew/bin/kimi"));
+    candidates.push(PathBuf::from("/usr/local/bin/kimi"));
+    candidates
+}
+
 fn resolve_binary(name: &str, extra_candidates: &[PathBuf]) -> Option<PathBuf> {
     // PATH first.
     if let Ok(path) = std::env::var("PATH") {
@@ -253,6 +289,89 @@ impl ToolHandler for CodexHandler {
         }
 
         run_passthrough(binary, args, working_dir, timeout_seconds, "codex").await
+    }
+}
+
+/// Delegates a coding task to Google's Gemini CLI in non-interactive
+/// mode. Same shape as ClaudeCodeHandler — task + working_dir + timeout
+/// + optional model. Default model selection follows the CLI's own
+/// default (currently `gemini-2.5-pro` per the CLI's own configuration);
+/// callers can override via the `model` arg.
+pub struct GeminiHandler;
+
+#[async_trait]
+impl ToolHandler for GeminiHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input);
+        let timeout_seconds = parse_timeout(input);
+        let model = input.get("model").and_then(Value::as_str);
+
+        let binary = match resolve_binary("gemini", &gemini_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "gemini",
+                    "Install the Gemini CLI: `npm install -g @google/generative-ai-cli` (or via gcloud per https://ai.google.dev/gemini-api/docs/cli).",
+                ));
+            }
+        };
+
+        // The Gemini CLI's non-interactive single-shot mode is invoked
+        // with `gemini -p <prompt>`. The `-m` flag overrides the model.
+        let mut args: Vec<String> = Vec::new();
+        if let Some(model) = model {
+            args.push("-m".to_string());
+            args.push(model.to_string());
+        }
+        args.push("-p".to_string());
+        args.push(task);
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "gemini").await
+    }
+}
+
+/// Delegates a coding task to Moonshot's Kimi CLI in non-interactive
+/// mode. Same shape as ClaudeCodeHandler.
+pub struct KimiHandler;
+
+#[async_trait]
+impl ToolHandler for KimiHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input);
+        let timeout_seconds = parse_timeout(input);
+        let model = input.get("model").and_then(Value::as_str);
+
+        let binary = match resolve_binary("kimi", &kimi_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "kimi",
+                    "Install the Kimi CLI: `npm install -g @moonshot-ai/kimi-cli` (or download the Kimi desktop app for macOS which bundles the CLI at /Applications/Kimi.app/Contents/Resources/kimi).",
+                ));
+            }
+        };
+
+        // Kimi CLI's non-interactive mode is `kimi -p <prompt>` with
+        // optional `--model <id>` override.
+        let mut args: Vec<String> = Vec::new();
+        if let Some(model) = model {
+            args.push("--model".to_string());
+            args.push(model.to_string());
+        }
+        args.push("-p".to_string());
+        args.push(task);
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "kimi").await
     }
 }
 

@@ -46,6 +46,8 @@ const MAS_RUNTIME_FORBIDDEN_TOOLS: &[&str] = &[
     "process",
     "claude_code",
     "codex",
+    "gemini",
+    "kimi",
     "imessage",
     "imessage_contacts",
     "channel_contacts",
@@ -741,12 +743,17 @@ impl ToolRegistry {
                 self.register_bash_execute();
             }
 
-            // Tunnel C — delegate a task to Claude Code / Codex CLI. Same
-            // `enable_bash` gate because these are subprocess spawners with
-            // the same trust profile.
+            // Tunnel C — delegate a task to Claude Code / Codex / Gemini /
+            // Kimi CLI. Same `enable_bash` gate because these are subprocess
+            // spawners with the same trust profile. The gemini + kimi
+            // handlers (added 2026-05-05 per user request "i don't see
+            // CLIs at all si please fix") follow the same shape as the
+            // claude_code / codex pair.
             if self.enable_bash {
                 self.register_claude_code_passthrough();
                 self.register_codex_passthrough();
+                self.register_gemini_passthrough();
+                self.register_kimi_passthrough();
             }
         }
 
@@ -1865,6 +1872,84 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::CodexHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_gemini_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "gemini".to_string(),
+            description: "Delegate a coding task to Google's Gemini CLI in non-interactive mode \
+                (`gemini -p <task>`). The delegated agent has Gemini's full tool surface. \
+                Optional `model` overrides the default model. \
+                Returns combined stdout/stderr. If Gemini is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Gemini."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional model override (e.g. 'gemini-2.5-pro', 'gemini-2.5-flash')."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Gemini session in."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::GeminiHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_kimi_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "kimi".to_string(),
+            description: "Delegate a coding task to Moonshot's Kimi CLI in non-interactive mode \
+                (`kimi -p <task>`). The delegated agent has Kimi's full tool surface. \
+                Optional `model` overrides the default model. \
+                Returns combined stdout/stderr. If Kimi is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Kimi."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional model override (e.g. 'kimi-k2', 'kimi-k1.5')."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Kimi session in."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::KimiHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
