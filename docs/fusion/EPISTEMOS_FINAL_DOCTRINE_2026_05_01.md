@@ -640,6 +640,24 @@ If a builder asks "is this slice Core-shippable?" point them here.
 
 ---
 
+## Annex C — Pre-release Evidence Package (Core / MAS submission) *(C11, merged 2026-05-05)*
+
+Required deliverables before Mac App Store submission. None of these counts as "shipped" without WRV (§10):
+
+- **Workflow matrix.** Every user flow tested against a fresh build; raw log path captured per flow. Matrix doc currently DOES NOT EXIST in main (verified 2026-05-05). Recommended path: `docs/_consolidated/30_canonical_operational/WORKFLOW_MATRIX.md`. Flagged as a missing deliverable.
+- **Regression suite closure.** Swift Testing + cargo tests green for the Core target; no skips, no flake. Sweep `xcodebuild test` + `cargo test` logs in CI. (CI gates B1-B4 from the 2026-05-05 canon-hardening session enforce a baseline; the workflow matrix is the per-release sweep on top of CI.)
+- **App Store metadata.** Entitlements plist, scheme audit, bundle ID consistency, privacy manifest (`Epistemos/Resources/PrivacyInfo.xcprivacy` ✓ present in main 2026-05-05), App Store Connect description / screenshots / keywords. Verify against `docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md` (named in §1 Authority Order point #2).
+- **Manual dogfood window.** Minimum N days of founder use against a real vault, on a clean install of the MAS-candidate build. Daily dogfood notes captured.
+- **Submission checklist.** Repeatable per-release closure document — every release must pass the same checklist before Apple submission.
+- **Phase R closure proof** — Resource Runtime + grants + verified writes (substrate already on main per §9 anchors) plus the `codex/runtime-input-audit` closeout cherry-pick (verify-approved-vault-writes, expose-writable-attachment-paths, seed-grants-for-live-attachments, harden-app-store-chat-startup) + green test suite.
+- **Phase S closure proof** — App Store sequencing: TestFlight beta + reviewer notes + submission packet.
+
+**Process:** Codex runs this Annex as a checklist after the deliberation queue clears. Each line either has a green raw log or it doesn't. No "we'll fix that in the next release" exceptions for any item that touches user data integrity, privacy, or sandbox compliance.
+
+**Tier impact:** Core only. Pro / Research ship via Developer ID + Notarization without App Review, so the metadata/compliance subset is reduced — but the workflow matrix, regression closure, manual dogfood, and Phase R closure still apply.
+
+---
+
 ## 11. Bottom Line
 
 The April 30 fusion canon is correct. This doctrine adds three deltas:
