@@ -101,22 +101,33 @@ impl TaskGraph {
 
     /// Get indices of steps that are ready (all deps satisfied, not yet executed).
     pub fn ready_step_indices(&self) -> Vec<usize> {
-        let completed_ids: std::collections::HashSet<&str> = self.steps.iter()
+        let completed_ids: std::collections::HashSet<&str> = self
+            .steps
+            .iter()
             .filter(|s| s.status == StepStatus::Completed || s.status == StepStatus::Skipped)
             .map(|s| s.id.as_str())
             .collect();
 
-        self.steps.iter().enumerate()
+        self.steps
+            .iter()
+            .enumerate()
             .filter(|(_, s)| s.status == StepStatus::Pending)
-            .filter(|(_, s)| s.depends_on.iter().all(|dep| completed_ids.contains(dep.as_str())))
+            .filter(|(_, s)| {
+                s.depends_on
+                    .iter()
+                    .all(|dep| completed_ids.contains(dep.as_str()))
+            })
             .map(|(i, _)| i)
             .collect()
     }
 
     pub fn is_complete(&self) -> bool {
-        !self.steps.is_empty() && self.steps.iter().all(|s| {
-            s.status == StepStatus::Completed || s.status == StepStatus::Skipped || s.status == StepStatus::Failed
-        })
+        !self.steps.is_empty()
+            && self.steps.iter().all(|s| {
+                s.status == StepStatus::Completed
+                    || s.status == StepStatus::Skipped
+                    || s.status == StepStatus::Failed
+            })
     }
 
     pub fn has_failed(&self) -> bool {
@@ -168,8 +179,10 @@ fn is_retriable_error(error: Option<&str>) -> bool {
         None => false,
         Some(e) => {
             let lower = e.to_lowercase();
-            lower.contains("timeout") || lower.contains("connection")
-                || lower.contains("temporary") || lower.contains("busy")
+            lower.contains("timeout")
+                || lower.contains("connection")
+                || lower.contains("temporary")
+                || lower.contains("busy")
                 || lower.contains("try again")
         }
     }
@@ -228,8 +241,19 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
     let step_id = uuid::Uuid::new_v4().to_string();
 
     // Writing / Summarization
-    let write_kw = ["write", "summarize", "summary", "draft", "compose", "rewrite",
-                     "outline", "essay", "paragraph", "explain", "describe"];
+    let write_kw = [
+        "write",
+        "summarize",
+        "summary",
+        "draft",
+        "compose",
+        "rewrite",
+        "outline",
+        "essay",
+        "paragraph",
+        "explain",
+        "describe",
+    ];
     if write_kw.iter().any(|k| lower.contains(k)) {
         graph.add_step(TaskStep {
             id: step_id,
@@ -240,14 +264,22 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::Low,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
 
     // Web browsing
-    if lower.contains("open") && (lower.contains("safari") || lower.contains("http")
-        || lower.contains("url") || lower.contains("website") || lower.contains(".com")) {
+    if lower.contains("open")
+        && (lower.contains("safari")
+            || lower.contains("http")
+            || lower.contains("url")
+            || lower.contains("website")
+            || lower.contains(".com"))
+    {
         graph.add_step(TaskStep {
             id: step_id,
             description: "Open URL in Safari".to_string(),
@@ -257,7 +289,10 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::Low,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
@@ -265,8 +300,11 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
     // Web search
     let search_kw = ["search", "google", "look up", "find info", "research"];
     if search_kw.iter().any(|k| lower.contains(k)) {
-        let query = task.replace("search for ", "").replace("search the web for ", "")
-            .replace("google ", "").replace("look up ", "");
+        let query = task
+            .replace("search for ", "")
+            .replace("search the web for ", "")
+            .replace("google ", "")
+            .replace("look up ", "");
         graph.add_step(TaskStep {
             id: step_id,
             description: "Search the web".to_string(),
@@ -276,7 +314,10 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::Low,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
@@ -292,7 +333,10 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::Low,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
@@ -308,7 +352,10 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::Low,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
@@ -324,14 +371,21 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::High,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
 
     // Shell commands
-    if lower.starts_with("run ") || lower.starts_with("execute ") || lower.starts_with("ls")
-        || lower.starts_with("pwd") || lower.starts_with("echo") {
+    if lower.starts_with("run ")
+        || lower.starts_with("execute ")
+        || lower.starts_with("ls")
+        || lower.starts_with("pwd")
+        || lower.starts_with("echo")
+    {
         let cmd = task.replace("run ", "").replace("execute ", "");
         graph.add_step(TaskStep {
             id: step_id,
@@ -342,7 +396,10 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             depends_on: vec![],
             risk_level: RiskLevel::Medium,
             status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         return graph;
     }
@@ -363,7 +420,9 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
 }
 
 fn escape_json(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n")
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 // ── Agent Protocol ───────────────────────────────────────────────────────────
@@ -378,7 +437,9 @@ pub struct AgentDefinition {
 
 /// Validate that a step's tool is within its agent's allowed toolset.
 pub fn validate_agent_toolset(agents: &[AgentDefinition], step: &TaskStep) -> Result<(), String> {
-    let agent = agents.iter().find(|a| a.name == step.assigned_agent)
+    let agent = agents
+        .iter()
+        .find(|a| a.name == step.assigned_agent)
         .ok_or_else(|| format!("Agent '{}' not found", step.assigned_agent))?;
 
     if !agent.tool_names.contains(&step.tool_name) {
@@ -398,37 +459,63 @@ pub fn default_agents() -> Vec<AgentDefinition> {
             name: "safari".to_string(),
             description: "Web browsing via AppleScript + AX tree".to_string(),
             tool_names: vec!["open_url", "get_page_url", "get_page_title", "search_web"]
-                .into_iter().map(String::from).collect(),
+                .into_iter()
+                .map(String::from)
+                .collect(),
         },
         AgentDefinition {
             name: "file".to_string(),
             description: "File system operations scoped to vault".to_string(),
-            tool_names: vec!["read_file", "write_file", "list_files", "move_file", "delete_file"]
-                .into_iter().map(String::from).collect(),
+            tool_names: vec![
+                "read_file",
+                "write_file",
+                "list_files",
+                "move_file",
+                "delete_file",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
         },
         AgentDefinition {
             name: "notes".to_string(),
             description: "Epistemos note operations".to_string(),
             tool_names: vec!["create_note", "edit_note", "search_notes", "list_notes"]
-                .into_iter().map(String::from).collect(),
+                .into_iter()
+                .map(String::from)
+                .collect(),
         },
         AgentDefinition {
             name: "terminal".to_string(),
             description: "Shell command execution (ephemeral or persistent PTY)".to_string(),
             tool_names: vec!["run_command", "run_persistent"]
-                .into_iter().map(String::from).collect(),
+                .into_iter()
+                .map(String::from)
+                .collect(),
         },
         AgentDefinition {
             name: "automation".to_string(),
             description: "Generic macOS automation via AX tree + input simulation".to_string(),
-            tool_names: vec!["get_ui_tree", "click_element", "type_text", "press_key", "run_shortcut"]
-                .into_iter().map(String::from).collect(),
+            tool_names: vec![
+                "get_ui_tree",
+                "click_element",
+                "type_text",
+                "press_key",
+                "run_shortcut",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
         },
         AgentDefinition {
             name: "computer".to_string(),
-            description: "Ghost OS-style macOS computer use via AXorcist accessibility and input simulation".to_string(),
+            description:
+                "Ghost OS-style macOS computer use via AXorcist accessibility and input simulation"
+                    .to_string(),
             tool_names: vec!["see", "click", "type", "scroll", "keys", "screenshot"]
-                .into_iter().map(String::from).collect(),
+                .into_iter()
+                .map(String::from)
+                .collect(),
         },
     ]
 }
@@ -495,18 +582,32 @@ mod tests {
         let id1 = "step-1".to_string();
         let id2 = "step-2".to_string();
         graph.add_step(TaskStep {
-            id: id1.clone(), description: "A".to_string(),
-            assigned_agent: "file".to_string(), tool_name: "list_files".to_string(),
-            arguments_json: "{}".to_string(), depends_on: vec![],
-            risk_level: RiskLevel::Low, status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            id: id1.clone(),
+            description: "A".to_string(),
+            assigned_agent: "file".to_string(),
+            tool_name: "list_files".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![],
+            risk_level: RiskLevel::Low,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         graph.add_step(TaskStep {
-            id: id2.clone(), description: "B".to_string(),
-            assigned_agent: "terminal".to_string(), tool_name: "run_command".to_string(),
-            arguments_json: "{}".to_string(), depends_on: vec![id1.clone()],
-            risk_level: RiskLevel::Low, status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            id: id2.clone(),
+            description: "B".to_string(),
+            assigned_agent: "terminal".to_string(),
+            tool_name: "run_command".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![id1.clone()],
+            risk_level: RiskLevel::Low,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
 
         // Only step 1 is ready (step 2 depends on it)
@@ -519,30 +620,56 @@ mod tests {
 
     #[test]
     fn test_confirmation_gate() {
-        assert_eq!(evaluate_confirmation(&RiskLevel::Low), ConfirmationDecision::AutoExecute);
-        assert_eq!(evaluate_confirmation(&RiskLevel::Medium), ConfirmationDecision::ExecuteWithLogging);
-        assert_eq!(evaluate_confirmation(&RiskLevel::High), ConfirmationDecision::RequirePreview);
-        assert_eq!(evaluate_confirmation(&RiskLevel::Critical), ConfirmationDecision::RequireExplicitConfirm);
+        assert_eq!(
+            evaluate_confirmation(&RiskLevel::Low),
+            ConfirmationDecision::AutoExecute
+        );
+        assert_eq!(
+            evaluate_confirmation(&RiskLevel::Medium),
+            ConfirmationDecision::ExecuteWithLogging
+        );
+        assert_eq!(
+            evaluate_confirmation(&RiskLevel::High),
+            ConfirmationDecision::RequirePreview
+        );
+        assert_eq!(
+            evaluate_confirmation(&RiskLevel::Critical),
+            ConfirmationDecision::RequireExplicitConfirm
+        );
     }
 
     #[test]
     fn test_agent_toolset_validation() {
         let agents = default_agents();
         let valid_step = TaskStep {
-            id: "s1".to_string(), description: "".to_string(),
-            assigned_agent: "safari".to_string(), tool_name: "open_url".to_string(),
-            arguments_json: "{}".to_string(), depends_on: vec![],
-            risk_level: RiskLevel::Low, status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            id: "s1".to_string(),
+            description: "".to_string(),
+            assigned_agent: "safari".to_string(),
+            tool_name: "open_url".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![],
+            risk_level: RiskLevel::Low,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         };
         assert!(validate_agent_toolset(&agents, &valid_step).is_ok());
 
         let invalid_step = TaskStep {
-            id: "s2".to_string(), description: "".to_string(),
-            assigned_agent: "safari".to_string(), tool_name: "delete_file".to_string(),
-            arguments_json: "{}".to_string(), depends_on: vec![],
-            risk_level: RiskLevel::Low, status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            id: "s2".to_string(),
+            description: "".to_string(),
+            assigned_agent: "safari".to_string(),
+            tool_name: "delete_file".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![],
+            risk_level: RiskLevel::Low,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         };
         assert!(validate_agent_toolset(&agents, &invalid_step).is_err());
     }
@@ -551,11 +678,18 @@ mod tests {
     fn test_graph_completion() {
         let mut graph = TaskGraph::new("test");
         graph.add_step(TaskStep {
-            id: "s1".to_string(), description: "".to_string(),
-            assigned_agent: "file".to_string(), tool_name: "list_files".to_string(),
-            arguments_json: "{}".to_string(), depends_on: vec![],
-            risk_level: RiskLevel::Low, status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            id: "s1".to_string(),
+            description: "".to_string(),
+            assigned_agent: "file".to_string(),
+            tool_name: "list_files".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![],
+            risk_level: RiskLevel::Low,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         assert!(!graph.is_complete());
         graph.mark_step_completed(0, "{}", 5);
@@ -567,11 +701,18 @@ mod tests {
     fn test_graph_failure() {
         let mut graph = TaskGraph::new("test");
         graph.add_step(TaskStep {
-            id: "s1".to_string(), description: "".to_string(),
-            assigned_agent: "file".to_string(), tool_name: "delete_file".to_string(),
-            arguments_json: "{}".to_string(), depends_on: vec![],
-            risk_level: RiskLevel::High, status: StepStatus::Pending,
-            result_json: None, error: None, duration_ms: 0, retry_count: 0,
+            id: "s1".to_string(),
+            description: "".to_string(),
+            assigned_agent: "file".to_string(),
+            tool_name: "delete_file".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![],
+            risk_level: RiskLevel::High,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
         });
         graph.mark_step_failed(0, "Permission denied", 1);
         assert!(graph.has_failed());

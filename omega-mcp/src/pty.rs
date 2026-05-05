@@ -102,11 +102,7 @@ impl PtyPool {
 
     /// Execute a command in an existing PTY session.
     /// Blocks (with timeout) until the command completes and returns its output.
-    pub fn execute(
-        pty_id: &str,
-        command: &str,
-        timeout: Duration,
-    ) -> Result<PtyOutput, PtyError> {
+    pub fn execute(pty_id: &str, command: &str, timeout: Duration) -> Result<PtyOutput, PtyError> {
         let mut pool = Self::inner().lock().map_err(|_| PtyError::PoolPoisoned)?;
         let session = pool
             .sessions
@@ -124,9 +120,8 @@ impl PtyPool {
         // Write the command followed by the sentinel.
         // The sentinel echo prints: __EPSENT{uuid}__{exit_code}
         // A second echo prints: __EPPWD__{cwd}
-        let full_command = format!(
-            " {command}\n __eec=$?; echo \"{sentinel}$__eec\"; echo \"__EPPWD__$(pwd)\"\n"
-        );
+        let full_command =
+            format!(" {command}\n __eec=$?; echo \"{sentinel}$__eec\"; echo \"__EPPWD__$(pwd)\"\n");
 
         // SAFETY: master_raw is a valid, open file descriptor owned by PtySession.
         // We write through a raw fd because OwnedFd doesn't implement Write.
@@ -179,13 +174,8 @@ impl PtyPool {
             }
 
             // SAFETY: master_raw is valid and buf is stack-allocated with known size.
-            let n = unsafe {
-                libc::read(
-                    master_raw,
-                    buf.as_mut_ptr() as *mut libc::c_void,
-                    buf.len(),
-                )
-            };
+            let n =
+                unsafe { libc::read(master_raw, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
             if n <= 0 {
                 break;
             }
@@ -329,8 +319,8 @@ fn spawn_pty(config: PtyConfig, session_id: &str) -> Result<PtySession, PtyError
         libc::ioctl(master.as_raw_fd(), libc::TIOCSWINSZ, &ws);
     }
 
-    let shell = CString::new(config.shell.as_bytes())
-        .map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
+    let shell =
+        CString::new(config.shell.as_bytes()).map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
     let initial_dir = config.initial_dir.clone();
 
     // SAFETY: We call fork() and immediately execvp() in the child.
@@ -370,9 +360,7 @@ fn spawn_pty(config: PtyConfig, session_id: &str) -> Result<PtySession, PtyError
 
             let working_dir = config
                 .initial_dir
-                .unwrap_or_else(|| {
-                    std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
-                });
+                .unwrap_or_else(|| std::env::var("HOME").unwrap_or_else(|_| "/".to_string()));
 
             // Wait for the shell to initialize and drain the initial prompt output.
             std::thread::sleep(Duration::from_millis(300));
@@ -415,9 +403,7 @@ fn drain_fd(fd: i32) {
             break;
         }
         // SAFETY: fd is valid, buf is stack-allocated.
-        let n = unsafe {
-            libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len())
-        };
+        let n = unsafe { libc::read(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len()) };
         if n <= 0 {
             break;
         }
@@ -446,7 +432,7 @@ fn strip_ansi(s: &str) -> String {
             // Skip ESC sequences: ESC [ ... final_byte
             if chars.peek() == Some(&'[') {
                 chars.next(); // consume '['
-                // Read until we hit a letter (the final byte of the CSI sequence).
+                              // Read until we hit a letter (the final byte of the CSI sequence).
                 while let Some(&next) = chars.peek() {
                     chars.next();
                     if next.is_ascii_alphabetic() || next == '~' {
@@ -520,16 +506,13 @@ fn extract_command_output(clean: &str, command: &str, sentinel: &str) -> String 
 }
 
 fn extract_working_dir(clean: &str) -> Option<String> {
-    clean
-        .lines()
-        .rev()
-        .find_map(|line| {
-            line.trim()
-                .strip_prefix("__EPPWD__")
-                .map(str::trim)
-                .filter(|wd| !wd.is_empty() && !wd.contains("$(") && !wd.contains("__EP"))
-                .map(ToOwned::to_owned)
-        })
+    clean.lines().rev().find_map(|line| {
+        line.trim()
+            .strip_prefix("__EPPWD__")
+            .map(str::trim)
+            .filter(|wd| !wd.is_empty() && !wd.contains("$(") && !wd.contains("__EP"))
+            .map(ToOwned::to_owned)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -574,8 +557,7 @@ mod tests {
     #[test]
     fn test_pty_spawn_and_execute() {
         let _guard = test_guard();
-        let pty_id = PtyPool::spawn("test-exec-1", PtyConfig::default())
-            .expect("spawn failed");
+        let pty_id = PtyPool::spawn("test-exec-1", PtyConfig::default()).expect("spawn failed");
 
         let output = PtyPool::execute(&pty_id, "echo hello_world_123", Duration::from_secs(10))
             .expect("execute failed");
@@ -600,14 +582,11 @@ mod tests {
     #[test]
     fn test_pty_working_dir_persistence() {
         let _guard = test_guard();
-        let pty_id = PtyPool::spawn("test-exec-2", PtyConfig::default())
-            .expect("spawn failed");
+        let pty_id = PtyPool::spawn("test-exec-2", PtyConfig::default()).expect("spawn failed");
 
-        let _ = PtyPool::execute(&pty_id, "cd /tmp", Duration::from_secs(10))
-            .expect("cd failed");
+        let _ = PtyPool::execute(&pty_id, "cd /tmp", Duration::from_secs(10)).expect("cd failed");
 
-        let output = PtyPool::execute(&pty_id, "pwd", Duration::from_secs(10))
-            .expect("pwd failed");
+        let output = PtyPool::execute(&pty_id, "pwd", Duration::from_secs(10)).expect("pwd failed");
 
         // The tracked working_dir should reflect /tmp (or /private/tmp on macOS).
         assert!(
@@ -622,8 +601,7 @@ mod tests {
     #[test]
     fn test_pty_timeout() {
         let _guard = test_guard();
-        let pty_id = PtyPool::spawn("test-exec-3", PtyConfig::default())
-            .expect("spawn failed");
+        let pty_id = PtyPool::spawn("test-exec-3", PtyConfig::default()).expect("spawn failed");
 
         let result = PtyPool::execute(&pty_id, "sleep 999", Duration::from_millis(800));
         assert!(result.is_err(), "Expected timeout error");
@@ -638,8 +616,7 @@ mod tests {
     #[test]
     fn test_pty_cleanup() {
         let _guard = test_guard();
-        let pty_id = PtyPool::spawn("test-exec-4", PtyConfig::default())
-            .expect("spawn failed");
+        let pty_id = PtyPool::spawn("test-exec-4", PtyConfig::default()).expect("spawn failed");
 
         assert!(PtyPool::active_count() > 0);
         PtyPool::close(&pty_id);
@@ -651,10 +628,8 @@ mod tests {
     #[test]
     fn test_close_all_for_session() {
         let _guard = test_guard();
-        let id1 = PtyPool::spawn("test-exec-5", PtyConfig::default())
-            .expect("spawn 1 failed");
-        let id2 = PtyPool::spawn("test-exec-5", PtyConfig::default())
-            .expect("spawn 2 failed");
+        let id1 = PtyPool::spawn("test-exec-5", PtyConfig::default()).expect("spawn 1 failed");
+        let id2 = PtyPool::spawn("test-exec-5", PtyConfig::default()).expect("spawn 2 failed");
 
         PtyPool::close_all_for_session("test-exec-5");
 
@@ -685,9 +660,6 @@ __eec=$?; echo "__EPSENT123__0"; echo "__EPPWD__$(pwd)"
 __EPSENT123__0
 __EPPWD__/private/tmp"#;
 
-        assert_eq!(
-            extract_working_dir(clean),
-            Some("/private/tmp".to_string())
-        );
+        assert_eq!(extract_working_dir(clean), Some("/private/tmp".to_string()));
     }
 }

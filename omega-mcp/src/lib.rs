@@ -3,31 +3,32 @@
 // Separate from graph-engine (rendering) and epistemos-core (training).
 
 pub mod arena;
-pub mod types;
-pub mod registry;
-pub mod logger;
-pub mod server;
-pub mod dispatcher;
-pub mod state;
+pub mod catalog;
 pub mod config;
-pub mod recipe;
-pub mod trace_logger;
 pub mod dataset_formatter;
-pub mod quality_filter;
+pub mod dispatcher;
+pub mod graph_tools;
+pub mod logger;
+pub mod moa;
 pub mod orchestrator;
 #[cfg(not(feature = "mas-sandbox"))]
 pub mod osascript;
-pub mod catalog;
 #[cfg(not(feature = "mas-sandbox"))]
 pub mod pty;
+pub mod quality_filter;
+pub mod recipe;
+pub mod registry;
+pub mod server;
+pub mod state;
+pub mod trace_logger;
 pub mod transport;
+pub mod types;
 pub mod vault;
-pub mod moa;
 
 // Re-export types for UniFFI
-pub use types::{ToolDefinition, ToolResult, ToolCall, ExecutionRecord, SafetyInfo};
-pub use registry::ToolRegistryError;
 pub use dispatcher::MCPDispatcher;
+pub use registry::ToolRegistryError;
+pub use types::{ExecutionRecord, SafetyInfo, ToolCall, ToolDefinition, ToolResult};
 
 // Re-export free functions
 pub use uniffi_exports::*;

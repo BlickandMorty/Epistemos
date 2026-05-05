@@ -19,8 +19,8 @@ pub fn parse_jsonrpc_request(input: String) -> String {
 /// Create a JSON-RPC success response.
 pub fn jsonrpc_success(id_json: String, result_json: String) -> String {
     let id: Option<serde_json::Value> = serde_json::from_str(&id_json).ok();
-    let result: serde_json::Value = serde_json::from_str(&result_json)
-        .unwrap_or(serde_json::Value::Null);
+    let result: serde_json::Value =
+        serde_json::from_str(&result_json).unwrap_or(serde_json::Value::Null);
     let resp = server::JsonRpcResponse::success(id, result);
     serde_json::to_string(&resp).unwrap_or_default()
 }
@@ -86,6 +86,21 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
     crate::vault::execute_vault_tool(vault_root, tool_name, args_json)
 }
 
+/// Execute one of the seven canonical D2 graph tools.
+/// This uses the same vault-scoped substrate boundary as `execute_vault_tool`
+/// but rejects non-graph tool names before dispatch.
+pub fn execute_graph_tool(vault_root: String, tool_name: String, args_json: String) -> String {
+    if !crate::graph_tools::is_graph_tool(&tool_name) {
+        let result = crate::types::ToolResult::err(
+            format!("Unknown graph tool: {tool_name}"),
+            crate::types::error_codes::NOT_FOUND,
+            0,
+        );
+        return serde_json::to_string(&result).unwrap_or_default();
+    }
+    crate::vault::execute_vault_tool(vault_root, tool_name, args_json)
+}
+
 // ── Orchestrator Exports ─────────────────────────────────────────────────────
 
 /// Generate a heuristic plan (Rust-side, no LLM needed).
@@ -110,8 +125,11 @@ pub fn evaluate_risk_confirmation(risk_level: String) -> String {
         crate::orchestrator::ConfirmationDecision::AutoExecute => "auto_execute",
         crate::orchestrator::ConfirmationDecision::ExecuteWithLogging => "execute_with_logging",
         crate::orchestrator::ConfirmationDecision::RequirePreview => "require_preview",
-        crate::orchestrator::ConfirmationDecision::RequireExplicitConfirm => "require_explicit_confirm",
-    }.to_string()
+        crate::orchestrator::ConfirmationDecision::RequireExplicitConfirm => {
+            "require_explicit_confirm"
+        }
+    }
+    .to_string()
 }
 
 // ── Tool Execution via Rust Layer (Anchor 5 compliance) ──────────────────────
@@ -211,7 +229,8 @@ pub fn evaluate_confidence(confidence: f64) -> String {
         crate::orchestrator::ConfidenceAction::LogAndExecute => "log_and_execute",
         crate::orchestrator::ConfidenceAction::EscalateToUser => "escalate_to_user",
         crate::orchestrator::ConfidenceAction::Refuse => "refuse",
-    }.to_string()
+    }
+    .to_string()
 }
 
 // ── Persistent PTY Exports (Ω-HAS) ────────────────────────────────────────
@@ -221,8 +240,16 @@ pub fn evaluate_confidence(confidence: f64) -> String {
 /// Returns a JSON with {"pty_id": "..."} on success, or {"error": "..."} on failure.
 pub fn pty_spawn_session(session_id: String, shell: String, initial_dir: String) -> String {
     let config = crate::pty::PtyConfig {
-        shell: if shell.is_empty() { "/bin/zsh".to_string() } else { shell },
-        initial_dir: if initial_dir.is_empty() { None } else { Some(initial_dir) },
+        shell: if shell.is_empty() {
+            "/bin/zsh".to_string()
+        } else {
+            shell
+        },
+        initial_dir: if initial_dir.is_empty() {
+            None
+        } else {
+            Some(initial_dir)
+        },
         cols: 120,
         rows: 40,
     };
@@ -250,7 +277,8 @@ pub fn pty_execute_command(pty_id: String, command: String, timeout_ms: u64) -> 
             "exit_hint": output.exit_hint,
             "working_dir": output.working_dir,
             "duration_ms": output.duration_ms,
-        }).to_string(),
+        })
+        .to_string(),
         Err(e) => serde_json::json!({"error": e.to_string()}).to_string(),
     }
 }
@@ -320,7 +348,10 @@ pub fn validate_agent_tool(agent_name: String, tool_name: String) -> String {
         depends_on: vec![],
         risk_level: crate::orchestrator::RiskLevel::Low,
         status: crate::orchestrator::StepStatus::Pending,
-        result_json: None, error: None, duration_ms: 0, retry_count: 0,
+        result_json: None,
+        error: None,
+        duration_ms: 0,
+        retry_count: 0,
     };
     match crate::orchestrator::validate_agent_toolset(&agents, &step) {
         Ok(()) => String::new(),

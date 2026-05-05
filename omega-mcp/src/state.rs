@@ -2,7 +2,7 @@
 // Uses WAL mode for concurrent reads during agent execution.
 // FTS5 index on conversation content for fast full-text search.
 
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -26,16 +26,14 @@ impl StateManager {
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              PRAGMA synchronous=FULL;
-             PRAGMA foreign_keys=ON;"
+             PRAGMA foreign_keys=ON;",
         )?;
         // Integrity check on open — catches corruption immediately
-        let integrity: String = conn.query_row(
-            "PRAGMA integrity_check;", [], |row| row.get(0)
-        )?;
+        let integrity: String = conn.query_row("PRAGMA integrity_check;", [], |row| row.get(0))?;
         if integrity != "ok" {
             return Err(StateError::Sqlite(rusqlite::Error::SqliteFailure(
                 rusqlite::ffi::Error::new(11), // SQLITE_CORRUPT
-                Some(format!("integrity_check failed: {}", integrity))
+                Some(format!("integrity_check failed: {}", integrity)),
             )));
         }
         let mgr = StateManager { conn };
@@ -103,7 +101,7 @@ impl StateManager {
             CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
                 INSERT INTO messages_fts(messages_fts, rowid, content, conversation_id, role)
                 VALUES ('delete', old.rowid, old.content, old.conversation_id, old.role);
-            END;"
+            END;",
         )?;
         Ok(())
     }
@@ -122,22 +120,38 @@ impl StateManager {
 
     /// Add a message to a conversation.
     pub fn add_message(
-        &self, id: &str, conversation_id: &str, role: &str, content: &str,
-        tool_calls_json: Option<&str>, timestamp: &str,
+        &self,
+        id: &str,
+        conversation_id: &str,
+        role: &str,
+        content: &str,
+        tool_calls_json: Option<&str>,
+        timestamp: &str,
     ) -> Result<(), StateError> {
         self.conn.execute(
             "INSERT INTO messages (id, conversation_id, role, content, tool_calls_json, timestamp)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![id, conversation_id, role, content, tool_calls_json, timestamp],
+            params![
+                id,
+                conversation_id,
+                role,
+                content,
+                tool_calls_json,
+                timestamp
+            ],
         )?;
         Ok(())
     }
 
     /// Full-text search across all messages. Returns matching message IDs + snippets.
-    pub fn search_messages(&self, query: &str, limit: usize) -> Result<Vec<(String, String)>, StateError> {
+    pub fn search_messages(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, String)>, StateError> {
         let mut stmt = self.conn.prepare(
             "SELECT conversation_id, snippet(messages_fts, 0, '<b>', '</b>', '...', 32)
-             FROM messages_fts WHERE content MATCH ?1 LIMIT ?2"
+             FROM messages_fts WHERE content MATCH ?1 LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![query, limit as i64], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -151,9 +165,9 @@ impl StateManager {
 
     /// List recent conversations.
     pub fn recent_conversations(&self, limit: usize) -> Result<Vec<String>, StateError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id FROM conversations ORDER BY updated_at DESC LIMIT ?1"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM conversations ORDER BY updated_at DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit as i64], |row| row.get::<_, String>(0))?;
         let mut ids = Vec::with_capacity(limit);
         for row in rows {
@@ -166,9 +180,16 @@ impl StateManager {
 
     /// Log a full execution trace.
     pub fn log_trace(
-        &self, id: &str, conversation_id: Option<&str>, request: &str,
-        plan_json: Option<&str>, tool_calls_json: &str, results_json: &str,
-        feedback: Option<&str>, duration_ms: u64, success: bool,
+        &self,
+        id: &str,
+        conversation_id: Option<&str>,
+        request: &str,
+        plan_json: Option<&str>,
+        tool_calls_json: &str,
+        results_json: &str,
+        feedback: Option<&str>,
+        duration_ms: u64,
+        success: bool,
     ) -> Result<(), StateError> {
         let now = chrono::Utc::now().to_rfc3339();
         self.conn.execute(
@@ -181,9 +202,9 @@ impl StateManager {
 
     /// Query successful traces for training data extraction.
     pub fn successful_traces(&self, limit: usize) -> Result<Vec<String>, StateError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id FROM traces WHERE success = 1 ORDER BY timestamp DESC LIMIT ?1"
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM traces WHERE success = 1 ORDER BY timestamp DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit as i64], |row| row.get::<_, String>(0))?;
         let mut ids = Vec::with_capacity(limit);
         for row in rows {
@@ -194,13 +215,17 @@ impl StateManager {
 
     /// Count total traces.
     pub fn trace_count(&self) -> Result<u64, StateError> {
-        let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM traces", [], |row| row.get(0))?;
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM traces", [], |row| row.get(0))?;
         Ok(count as u64)
     }
 
     /// Count conversations.
     pub fn conversation_count(&self) -> Result<u64, StateError> {
-        let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM conversations", [], |row| row.get(0))?;
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM conversations", [], |row| row.get(0))?;
         Ok(count as u64)
     }
 }
@@ -223,8 +248,24 @@ mod tests {
     fn test_add_and_search_messages() {
         let mgr = StateManager::open_in_memory().unwrap();
         mgr.create_conversation("conv-1", "Test").unwrap();
-        mgr.add_message("msg-1", "conv-1", "user", "Hello world from Epistemos", None, "2026-03-24T12:00:00Z").unwrap();
-        mgr.add_message("msg-2", "conv-1", "assistant", "I can help with macOS automation", None, "2026-03-24T12:00:01Z").unwrap();
+        mgr.add_message(
+            "msg-1",
+            "conv-1",
+            "user",
+            "Hello world from Epistemos",
+            None,
+            "2026-03-24T12:00:00Z",
+        )
+        .unwrap();
+        mgr.add_message(
+            "msg-2",
+            "conv-1",
+            "assistant",
+            "I can help with macOS automation",
+            None,
+            "2026-03-24T12:00:01Z",
+        )
+        .unwrap();
 
         let results = mgr.search_messages("Epistemos", 10).unwrap();
         assert!(!results.is_empty());
@@ -241,8 +282,30 @@ mod tests {
     #[test]
     fn test_log_and_query_traces() {
         let mgr = StateManager::open_in_memory().unwrap();
-        mgr.log_trace("t-1", None, "Open Safari", None, "[]", "[]", None, 100, true).unwrap();
-        mgr.log_trace("t-2", None, "Delete files", None, "[]", "[]", None, 50, false).unwrap();
+        mgr.log_trace(
+            "t-1",
+            None,
+            "Open Safari",
+            None,
+            "[]",
+            "[]",
+            None,
+            100,
+            true,
+        )
+        .unwrap();
+        mgr.log_trace(
+            "t-2",
+            None,
+            "Delete files",
+            None,
+            "[]",
+            "[]",
+            None,
+            50,
+            false,
+        )
+        .unwrap();
         assert_eq!(mgr.trace_count().unwrap(), 2);
 
         let successful = mgr.successful_traces(10).unwrap();

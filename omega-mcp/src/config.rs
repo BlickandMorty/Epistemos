@@ -1,7 +1,7 @@
 // App configuration: model selection, permission states, feature flags.
 // Stored in a separate SQLite table for atomic reads/writes from Rust.
 
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -45,11 +45,13 @@ impl ConfigStore {
 
     /// Get a config value by key.
     pub fn get(&self, key: &str) -> Option<String> {
-        self.conn.query_row(
-            "SELECT value FROM config WHERE key = ?1",
-            params![key],
-            |row| row.get(0),
-        ).ok()
+        self.conn
+            .query_row(
+                "SELECT value FROM config WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .ok()
     }
 
     /// Set a config value (upsert).
@@ -65,7 +67,9 @@ impl ConfigStore {
 
     /// Delete a config key.
     pub fn delete(&self, key: &str) -> Result<bool, ConfigError> {
-        let rows = self.conn.execute("DELETE FROM config WHERE key = ?1", params![key])?;
+        let rows = self
+            .conn
+            .execute("DELETE FROM config WHERE key = ?1", params![key])?;
         Ok(rows > 0)
     }
 
