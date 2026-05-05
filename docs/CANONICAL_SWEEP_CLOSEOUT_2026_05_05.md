@@ -73,6 +73,20 @@ signs them off.
 | **Canonical roadmap** | 9e33a61a | `CANONICAL_ROADMAP_2026_05_05.md` — 8-section synthesis tying Codex's 10-item canon-hardening list + the agent-driven 17-item audit + this session's commits into one ledger. |
 | **V2 close-out + Codex verification handoff** | b238f085 | `V2_FINAL_CLOSEOUT_2026_05_05.md` + `CODEX_VERIFICATION_HANDOFF_2026_05_05.md` — explicit "treat all work as unverified until Codex re-verifies" framing. |
 
+### Codex drift register (`CODEX_CANONICAL_DRIFT_AUDIT_2026_05_05.md`)
+
+| ID | Status | Closing artifact |
+|---|---|---|
+| **CD-001** V2.3 LSP runtime | ✓ resolved by Codex (SUPERSEDED/ALIGNED) | Codex's own pass |
+| **CD-002** V2 closeout V2.3 row | ✓ resolved by Codex (DRIFT FIXED) | Codex's own pass |
+| **CD-003** Codex verification handoff counts | ✓ resolved by Codex (DRIFT FIXED) | Codex's own pass |
+| **CD-004** V2.1 Phase 8 authority | **BLOCKED** — needs Codex verification of "prerequisites, mirror coverage, replay parity, authority flip criteria" | external Codex pass required |
+| **CD-005** DAG edge signatures | ✓ closed (commit 9835b439 + A2 promotion 661fd7d0) | this session |
+| **CD-006** Mirror auto-invoke coverage | ✓ closed | `docs/MIRROR_DISPATCH_COVERAGE_2026_05_05.md` (commit 747c4cd8) |
+| **CD-007** MAS-first subprocess discipline | ✓ closed | `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` (B5 commits 0b30d060 + faee8b68) |
+| **CD-008** Full-app verification | **PARTIAL** — cargo cross-crate green on clean reruns; xcodebuild test-build green; full xcodebuild test + manual runtime smoke still required | `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` (commit ba95a517) |
+| **CD-009** Benchmark JSON dirtiness | ✓ procedural (don't commit dirty JSONs; satisfied by NOT adding the 7 dirty files in `git status` to any commit this session) | n/a |
+
 ### Long-tail (still pending — flagged for next session / Codex)
 
 | Item | Status | Note |
