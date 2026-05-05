@@ -3,14 +3,13 @@
 ## Architecture
 - Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders
 - GRDB for persistence, MLX-Swift for local inference
-- Omega agent system being replaced by Epistemos Omega: Rust living loop + Hermes subprocess + MCP peer bridge
+- Omega agent system replaced by in-process Rust living loop + MCP peer bridge (no subprocess; Hermes-agent subprocess removed 2026-05-05)
 - ~252K lines Swift, ~71K lines Rust, 634 Swift files, 150 Rust files, 346 Swift test files (verified 2026-05-04)
-- Rust agent_core crate owns: agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, context compaction
+- Rust agent_core crate owns: agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, context compaction, skills + procedural memory + self-evolution + tool-call parsing (formerly the hermes-agent subprocess; now in `agent_core::agent_runtime`)
 - Swift owns: UI rendering, MLX inference, macOS APIs (AXUIElement via AXorcist, ScreenCaptureKit, CGEvent), permission gate UI, MCP server hosting
-- Python hermes-agent subprocess owns: cloud API orchestration, skills system, procedural memory, multi-step planning
 
 ## NON-NEGOTIABLE CONSTRAINTS
-- NO SIDECAR for INFERENCE. All inference in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. Hermes subprocess is for ORCHESTRATION, not inference.
+- NO SIDECAR. All inference AND orchestration in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. The Hermes-agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime` (Rust, in-process). HermesPromptBuilder.swift and HermesGatewayPolicy.swift in Epistemos/LocalAgent/ are canonical local-agent path (the "Hermes" prefix refers to the Hermes-3 model's prompt format, not the removed subprocess).
 - REAL APIs ONLY. Every cloud endpoint verified against provider docs. No fake features.
 - HONEST CAPABILITY GATING. Local models get fast/thinking/research. Cloud models get agent/liveAgent. Never fake agent capability for local models.
 - RESEARCH-FIRST FOR EVERY TASK. Before code, docs, refactors, reroutes,
@@ -72,7 +71,7 @@
 - Edit .xcodeproj directly — use xcodegen
 - Commit model files (.gguf, .safetensors, .mlx)
 - Import SDKs that don't exist (Anthropic has NO Swift SDK, OpenAI has NO Swift SDK)
-- Use Ollama, llama-server, or any subprocess for INFERENCE (Hermes subprocess for orchestration is OK)
+- Use Ollama, llama-server, or any subprocess for INFERENCE OR ORCHESTRATION (the Hermes subprocess was removed 2026-05-05; everything runs in-process now)
 - Mark items done in PROGRESS.md until verification greps pass
 - Buffer streaming responses — forward every token immediately
 - Strip thinking blocks from message history
@@ -97,7 +96,7 @@
 - Current sprint: docs/sprint-sessions/sprint-omega-1-foundation.md
 - Agent progress: docs/AGENT_PROGRESS.md
 - Agent architecture: docs/agent-system/AGENT_ARCHITECTURE.md
-- Hermes research: docs/HERMES_INTEGRATION_RESEARCH.md
+- Hermes removal archive: docs/_archive/hermes-removal-2026-05-05/ (research + parity report from when the subprocess was still planned)
 - Full build spec: docs/EPISTEMOS_FUSED_v3.md
 - Deep analysis: docs/epistemos-deep-analysis.md
 
@@ -127,7 +126,7 @@
 - MCP Bridge: Epistemos/Omega/MCPBridge.swift
 
 ### Swift Local Agent
-- Hermes prompt: Epistemos/LocalAgent/HermesPromptBuilder.swift
+- Local-agent prompt (Hermes-3 model format): Epistemos/LocalAgent/HermesPromptBuilder.swift
 - Grammar DSL: Epistemos/LocalAgent/LocalToolGrammar.swift
 - Local loop: Epistemos/LocalAgent/LocalAgentLoop.swift
 - Router: Epistemos/LocalAgent/ConfidenceRouter.swift
