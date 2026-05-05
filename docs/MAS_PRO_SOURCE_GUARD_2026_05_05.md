@@ -96,18 +96,47 @@ test code).
 let mut cmd = tokio::process::Command::new(binary);
 ```
 
-`tirith.rs` is declared at top level in `lib.rs:99` as `pub mod
+`tirith.rs` is declared at top level in `lib.rs:91` as `pub mod
 tirith;` (not inside the `tools` block, not feature-gated). This
 means `tirith` compiles + ships in BOTH MAS and Pro builds.
 
-Two checks needed:
-1. Does any code path in `tirith` actually CALL the function
-   containing line 268? If it's only reachable from a Pro feature,
-   the spawn never fires under MAS but the binary still contains it.
-2. Should `tirith` itself be gated? Or is the spawn site dead code?
+**Resolution after deeper trace:** the spawn is reachable from
+`approval.rs:485` (also non-Pro-gated). However the spawn is **gated
+behind `resolve_binary().await` returning `Some(binary)`** at
+`tirith.rs:129-131`:
 
-**Status:** Needs Codex verification. Flagged as a potential MAS leak
-pending review.
+```rust
+let Some(binary) = self.resolve_binary().await else {
+    return self.fallback_result("Tirith binary not available");
+};
+```
+
+Under MAS sandbox, the user-installed tirith binary is not in any
+sandbox-approved path, so `resolve_binary()` returns `None` and the
+spawn at line 268 **never fires**. The fallback path emits a
+no-threat-assessed result and approval flow continues.
+
+This is **runtime-gated, not compile-time-gated**. The spawn surface
+ships in the MAS binary even though it never executes. Two interpretations:
+
+1. **Acceptable as-is** — defense-in-depth pattern, graceful fallback
+   when feature is unavailable, similar to other optional security
+   integrations. The presence of `Command::new` in shipped code is
+   not itself a sandbox violation; macOS sandbox enforces at runtime.
+2. **Pro-gate `tirith` entirely** — App Review may flag the presence
+   of subprocess-spawn capability in the binary even if dormant.
+   Moving `tirith` under `#[cfg(feature = "pro-build")]` and
+   gating the `approval.rs:485` call site behind the same feature
+   would remove the surface from the MAS binary. Approval flow
+   degrades to pattern-match-only (no Tirith content scan) under MAS,
+   which matches the de facto behavior anyway.
+
+**Status:** Resolved-with-caveat. Spawn is runtime-unreachable under
+MAS but compile-reachable. Codex sign-off needed on whether to
+Pro-gate the surface or accept the runtime gate. Recommendation:
+Pro-gate, since the runtime fallback already makes Tirith a no-op
+under MAS — gating it loses zero MAS capability and reduces
+App Review surface.
 
 ## Orphan source files (action required)
 
