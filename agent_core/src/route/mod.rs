@@ -209,6 +209,71 @@ pub struct RouteCtx {
     pub parent_unfit: Arc<dyn Fn(&str) -> bool + Send + Sync>,
 }
 
+impl RouteCtx {
+    /// Default factory using the in-process deterministic backstops
+    /// from `variant_b_classifiers` + `variant_c_providers`. Per Plan
+    /// §1.4 No-LLM-First, every variant ladder MUST start with a
+    /// deterministic predecessor — this factory is the canonical
+    /// "no host wiring required" entry point.
+    ///
+    /// Embedder is a no-op (returns empty Vec) — Variant A defers to
+    /// the next variant when the embedding result is empty, so the
+    /// pipeline still works without an embedding service. Wire a real
+    /// embedder via `with_embedder()` when MLX is available.
+    ///
+    /// Closes the route-orchestrator wiring follow-up flagged after
+    /// b118d361.
+    pub fn default_in_memory(
+        vault_paths: Vec<String>,
+        folders: Vec<variant_a::FolderCentroid>,
+        known_concepts: Vec<String>,
+        neighbour_index: Vec<variant_c::NeighbourHit>,
+    ) -> Self {
+        Self {
+            embedder: Arc::new(NoOpEmbedder),
+            folders,
+            classifier: Arc::new(variant_b_classifiers::KeywordOverlapClassifier),
+            vault_paths,
+            extractor: Arc::new(variant_c_providers::KeywordConceptExtractor::default()),
+            resolver: Arc::new(variant_c_providers::InMemoryEntityResolver::new(
+                known_concepts,
+            )),
+            neighbours: Arc::new(variant_c_providers::InMemoryNeighbourFinder::new(
+                neighbour_index,
+            )),
+            parent_unfit: Arc::new(|_folder: &str| false),
+        }
+    }
+
+    /// Replace the embedder with a host-supplied one (typically Swift
+    /// MLX via FFI callback once the bridge lands).
+    pub fn with_embedder(mut self, embedder: Arc<dyn EmbeddingProvider>) -> Self {
+        self.embedder = embedder;
+        self
+    }
+
+    /// Replace the classifier (e.g. swap in `GbnfClassifier` once a
+    /// host MLX runner is wired).
+    pub fn with_classifier(mut self, classifier: Arc<dyn variant_b::LlmClassifier>) -> Self {
+        self.classifier = classifier;
+        self
+    }
+}
+
+/// Embedder that always returns an empty vector — Variant A treats
+/// this as "no embedding result" and falls through to Variant B. Used
+/// as the default in `RouteCtx::default_in_memory` so the route
+/// pipeline works without a real embedding service. Replace via
+/// `with_embedder()` when MLX is available.
+struct NoOpEmbedder;
+
+#[async_trait]
+impl EmbeddingProvider for NoOpEmbedder {
+    async fn embed(&self, _text: &str) -> Vec<f32> {
+        Vec::new()
+    }
+}
+
 pub async fn route_capture(input: &RouteInput, ctx: &RouteCtx) -> RouteDecision {
     if let Some(decision) =
         variant_a::try_centroid(&input.capture_text, &ctx.folders, &ctx.embedder).await

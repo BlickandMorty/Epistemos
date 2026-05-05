@@ -1877,21 +1877,20 @@ final class AppBootstrap {
         }
         #endif
 
-        // Live NightBrain task registration (2026-05-04 follow-up #1).
+        // Live NightBrain task registration (2026-05-04 follow-up #1+#5).
         // Idempotently registers all 10 canonical task names against the
-        // process-global Rust scheduler singleton via UniFFI. Without
+        // process-global Rust scheduler singleton via UniFFI through
+        // the typed Swift wrapper at `NightBrainLiveRegistry`. Without
         // this, the FFI exposes only canonical_task_names() + admission
         // preview — the live scheduler has zero registered tasks.
         // Logs the registered set for diagnostics; failure is non-fatal
         // (the FFI returns Vec::new() on panic via ffi_guard_value).
-        #if canImport(agent_coreFFI)
         Task.detached(priority: .background) {
-            let registered = nightbrainRegisterCanonicalTasks()
+            let registered = NightBrainLiveRegistry.shared.registerCanonicalTasks()
             Log.app.info(
                 "NightBrain live registration: \(registered.count, privacy: .public) canonical tasks registered"
             )
         }
-        #endif
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.
