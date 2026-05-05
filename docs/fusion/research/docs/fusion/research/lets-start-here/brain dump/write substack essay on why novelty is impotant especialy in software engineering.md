@@ -1,0 +1,1 @@
+cant name all the times i just oped the claude app because i loved the way it looked. so that immiedately created a need form e to stick it out. there have been so many times i was trying to decide between a powerful app but ugly and a beaitufl app that just lacked so much. why not do bth and why not doing it right. 

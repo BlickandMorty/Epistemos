@@ -1,0 +1,9 @@
+my design intention is to fuse google material expressive claude all whiel implementing subtle arcade like or retro vector style images and anchors to provide novelt.y i beleive that what makes ppl hooekd to an app is actually vibe and atteniton to detail less aboout func5tionality. its why so many ppl rather use craft than notion or notion isntead of obsidian. when we all know obsidian has more functionality. 
+
+natural soft colors like brown tan ashy reds light blue, pixelated accents, slightly bolded fonts. 
+
+i belei claude set a new standard for how high powered softwarecan actually look stylish. 
+
+i will past things like this to my substack and twitter and any other place. 
+
+So the philosophy I used for my apps is that presentation is everything the little first impression I usually get from an app will make them more or less inclined to follow through with it and continue using the app. This is why I use lending pages a lot and why my land page has a few things that has a good animation. It has really nice simple but beautiful color, palette, and animation visual UYUX elements but also it has the cool vector pixelated font shows a little bit more creativity, but also the syntax under it and the philosophy used for the syntax is that it kind of shows the user that the app is complex and it’s not an obvious psychological anchor, but this is the same thing. Claude uses Claude uses a lot of like different font, styles, and like different specific text color accents. It has beautiful syntax and color, palettes, and it so it kind of uses an arcade Kodex type of style with professionalism and that’s the design philosophy. I’d like to go for that is my red butter. That is what I’m gonna stick to.
