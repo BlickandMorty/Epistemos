@@ -103,6 +103,22 @@ jobs:
       - name: Run doctrine linter (cognitive DAG §5 gates)
         run: cd agent_core && cargo run --target aarch64-apple-darwin --bin epistemos_doctrine_lint -- "$GITHUB_WORKSPACE"
 
+      # B2 (canonical upgrade audit 2026-05-05): release-time gate for
+      # the Phase 8.F verifiable-replay contract. Generate a
+      # deterministic sample .epbundle via the example program + run
+      # the production verify-replay binary against it. Exit 0 means
+      # the bundle's outer integrity hash + the DAG snapshot's merkle
+      # root parity both verify. Catches drift in:
+      #   - the .epbundle wire format
+      #   - the BLAKE3 integrity hash chain
+      #   - the cognitive_dag merkle_root_over algorithm
+      #   - any storage / signature / capability path the bundle
+      #     touches at materialization time
+      - name: Generate sample .epbundle fixture
+        run: cd agent_core && cargo run --target aarch64-apple-darwin --example generate_sample_epbundle -- /tmp/epistemos-ci-sample.epbundle
+      - name: Run verify-replay against fixture (Phase 8.F gate)
+        run: cd agent_core && cargo run --target aarch64-apple-darwin --bin epistemos_trace -- verify-replay /tmp/epistemos-ci-sample.epbundle
+
       # Rust lints
       - name: Clippy (all crates)
         run: |
