@@ -2,12 +2,13 @@ import Foundation
 
 struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     let summaryPayload: GenUIPayload
+    let retractionPayload: GenUIPayload
     let agentPayload: GenUIPayload
     let graphPayload: GenUIPayload
     let outboxPayload: GenUIPayload
 
     var payloads: [GenUIPayload] {
-        [summaryPayload, agentPayload, graphPayload, outboxPayload]
+        [summaryPayload, retractionPayload, agentPayload, graphPayload, outboxPayload]
     }
 
     static let empty = ProvenanceConsoleSnapshot(
@@ -15,6 +16,7 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
             ("status", "EventStore unavailable"),
             ("mode", "read-only")
         ]),
+        retractionPayload: .provenanceTrace(title: "RetractionPropagated", events: []),
         agentPayload: .provenanceTrace(title: "AgentEvent", events: []),
         graphPayload: .provenanceTrace(title: "GraphEvent", events: []),
         outboxPayload: .keyValueTable(title: "MutationEnvelope projection", [
@@ -23,13 +25,28 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     )
 }
 
+struct RetractionPropagatedProjection: Sendable, Equatable {
+    let sequence: UInt64
+    let triggerKind: String
+    let triggeredBy: String
+    let claimsMarkedAtRisk: Int
+    let maxDepthReached: Int
+    let depthCapped: Bool
+}
+
 struct ProvenanceConsoleProjectionService: Sendable {
     typealias EventStoreProvider = @Sendable () -> EventStore?
+    typealias RetractionEventProvider = @Sendable (_ afterSequence: UInt64, _ limit: Int) -> [RetractionPropagatedProjection]
 
     private let eventStoreProvider: EventStoreProvider
+    private let retractionEventProvider: RetractionEventProvider
 
-    init(eventStoreProvider: @escaping EventStoreProvider = { EventStore.shared }) {
+    init(
+        eventStoreProvider: @escaping EventStoreProvider = { EventStore.shared },
+        retractionEventProvider: @escaping RetractionEventProvider = { _, _ in [] }
+    ) {
         self.eventStoreProvider = eventStoreProvider
+        self.retractionEventProvider = retractionEventProvider
     }
 
     func snapshot(limit: Int = 40) -> ProvenanceConsoleSnapshot {
@@ -42,12 +59,19 @@ struct ProvenanceConsoleProjectionService: Sendable {
         let outboxDiagnostics = eventStore.mutationProjectionOutboxDiagnostics()
         let agentEvents = eventStore.recentAgentEvents(limit: limit)
         let graphEvents = eventStore.recentGraphEvents(limit: limit)
+        let retractionEvents = subscribeRetractionEvents(afterSequence: 0, limit: limit)
 
         return ProvenanceConsoleSnapshot(
             summaryPayload: Self.summaryPayload(
                 agentDiagnostics: agentDiagnostics,
                 graphDiagnostics: graphDiagnostics,
-                outboxDiagnostics: outboxDiagnostics
+                outboxDiagnostics: outboxDiagnostics,
+                retractionEventCount: retractionEvents.count
+            ),
+            retractionPayload: GenUIPayload.provenanceTrace(
+                title: "RetractionPropagated",
+                events: retractionEvents.map(Self.retractionEventPayload),
+                metadata: ["plane": "ClaimLedger"]
             ),
             agentPayload: GenUIPayload.provenanceTrace(
                 title: "AgentEvent",
@@ -63,15 +87,26 @@ struct ProvenanceConsoleProjectionService: Sendable {
         )
     }
 
+    func subscribeRetractionEvents(
+        afterSequence: UInt64 = 0,
+        limit: Int = 40
+    ) -> [RetractionPropagatedProjection] {
+        let boundedLimit = max(0, min(limit, 200))
+        guard boundedLimit > 0 else { return [] }
+        return Array(retractionEventProvider(afterSequence, boundedLimit).prefix(boundedLimit))
+    }
+
     private static func summaryPayload(
         agentDiagnostics: EventStore.AgentEventDiagnostics,
         graphDiagnostics: EventStore.GraphEventDiagnostics,
-        outboxDiagnostics: EventStore.MutationProjectionOutboxDiagnostics
+        outboxDiagnostics: EventStore.MutationProjectionOutboxDiagnostics,
+        retractionEventCount: Int
     ) -> GenUIPayload {
         .keyValueTable(title: "Provenance Console", [
             ("mode", "read-only projection"),
             ("RunEventLog", "source event history"),
             ("MutationEnvelope", "\(outboxDiagnostics.totalRows) projection rows"),
+            ("ClaimLedger", "\(retractionEventCount) RetractionPropagated events"),
             ("AgentEvent", "\(agentDiagnostics.totalRows) events across \(agentDiagnostics.distinctRuns) runs"),
             ("GraphEvent", "\(graphDiagnostics.totalRows) events across \(graphDiagnostics.distinctMutations) mutations")
         ])
@@ -87,6 +122,17 @@ struct ProvenanceConsoleProjectionService: Sendable {
             ("projected", "\(diagnostics.projectedRows)"),
             ("dead-lettered", "\(diagnostics.deadLetteredRows)"),
             ("latest dead letter", diagnostics.latestDeadLetter?.mutationID ?? "none")
+        ])
+    }
+
+    private static func retractionEventPayload(_ event: RetractionPropagatedProjection) -> GenUIPayload {
+        .keyValueTable(title: "RetractionPropagated #\(event.sequence)", [
+            ("sequence", "\(event.sequence)"),
+            ("trigger kind", event.triggerKind),
+            ("trigger", short(event.triggeredBy)),
+            ("claims at risk", "\(event.claimsMarkedAtRisk)"),
+            ("max depth", "\(event.maxDepthReached)"),
+            ("depth capped", event.depthCapped ? "true" : "false")
         ])
     }
 

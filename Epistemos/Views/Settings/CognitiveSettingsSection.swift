@@ -41,10 +41,10 @@ struct CognitiveSettingsSection: View {
                 )
                 Toggle("Enable Night Brain", isOn: $config.nightBrainEnabled)
                 if config.nightBrainEnabled {
-                    Toggle("Require AC Power", isOn: $config.nightBrainRequiresAC)
+                    Toggle("Require Healthy Power", isOn: $config.nightBrainRequiresAC)
                     Toggle("Keep Running in Menu Bar", isOn: $config.nightBrainMenuBarAgent)
                     SettingsDescriptionText(
-                        text: "Current jobs include WAL checkpointing, artifact deduplication, and snapshot compaction. Requiring AC power keeps those jobs from draining the battery. Menu bar mode keeps the app alive so background jobs can fire even when all windows are closed."
+                        text: "Current jobs include WAL checkpointing, artifact deduplication, and snapshot compaction. Healthy power means AC or battery above 50%, matching the idle runner policy. Menu bar mode keeps the app alive so background jobs can fire even when all windows are closed."
                     )
                 }
             }

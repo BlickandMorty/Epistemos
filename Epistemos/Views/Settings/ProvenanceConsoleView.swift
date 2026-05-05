@@ -30,7 +30,7 @@ struct ProvenanceConsoleView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Provenance Console")
                 .font(.title3.weight(.semibold))
-            Text("Read-only projection of committed RunEventLog, MutationEnvelope, AgentEvent, and GraphEvent planes.")
+            Text("Read-only projection of committed RunEventLog, MutationEnvelope, ClaimLedger retractions, AgentEvent, and GraphEvent planes.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -578,7 +578,8 @@ final class ChatCoordinator {
       systemPrompt: systemParts.joined(separator: "\n\n"),
       autoApproveReads: false,
       autoApproveWrites: false,
-      promptMode: nil
+      promptMode: nil,
+      maxCostUsd: BudgetPreferences.shared.perSessionCapUSD
     )
 
     var capturedDelegate: StreamingDelegate?
@@ -717,7 +718,12 @@ final class ChatCoordinator {
           status: .requested,
           metadata: permissionMetadata
         )
-        let approved = !request.requiresHumanApproval
+        let approved: Bool
+        if request.isBudgetGate {
+          approved = await promptUserForBudgetGateApproval(request)
+        } else {
+          approved = !request.requiresHumanApproval
+        }
         recordRustAgentToolEvent(
           recorder: commandCenterProvenanceRecorder,
           runID: sessionId,
@@ -2479,7 +2485,8 @@ final class ChatCoordinator {
       systemPrompt: resolvedSystemPrompt,
       autoApproveReads: false,
       autoApproveWrites: false,
-      promptMode: nil  // auto-detect from objective keywords
+      promptMode: nil,  // auto-detect from objective keywords
+      maxCostUsd: BudgetPreferences.shared.perSessionCapUSD
     )
 
     // Create async stream via StreamingDelegate — capture delegate for approval resolution
@@ -3082,6 +3089,10 @@ final class ChatCoordinator {
   }
 
   private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool {
+    if request.isBudgetGate {
+      return await promptUserForBudgetGateApproval(request)
+    }
+
     let authorityCategory = request.authorityCategory(vaultPath: vaultSync.vaultURL?.path)
     let authorityStore = bootstrap.agentAuthorityStore
     switch storedAuthorityDecision(for: request) {
@@ -3109,6 +3120,27 @@ final class ChatCoordinator {
     case .deny:
       return false
     }
+  }
+
+  private func promptUserForBudgetGateApproval(_ request: AgentPermissionRequest) async -> Bool {
+    let summary = [
+      "Session budget gate reached.",
+      "The agent requested \(request.approvalReason).",
+      request.approvalTargetSummary.map { "Budget:\n\($0)" },
+      "Cost data stays local; approving continues this session until the next budget gate.",
+    ]
+    .compactMap { $0 }
+    .joined(separator: "\n\n")
+
+    let resolution = await bootstrap.chatApprovalQueue.enqueue(
+      sessionId: request.id,
+      toolName: request.toolName,
+      argsJSON: String(request.inputJson.prefix(500)),
+      deadline: Date().addingTimeInterval(60),
+      summary: summary,
+      authorityCategoryLabel: "Session budget"
+    )
+    return resolution != .deny
   }
 
   private func promptUserForToolApproval(
