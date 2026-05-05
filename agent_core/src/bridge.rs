@@ -2982,6 +2982,68 @@ pub fn provenance_ledger_snapshot_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+// MARK: - Cognitive DAG observability FFI (V2 final lane — read-only)
+//
+// Doctrine reference: cognitive DAG doctrine §10 — "the seven existing
+// subsystems remain authoritative throughout Phase 8.A-G; the DAG runs
+// alongside, mirroring writes for one week before Phase 8.H flips
+// authority." This FFI surface is READ-ONLY — Swift can observe the
+// DAG's content but cannot write to it. Writes happen via the four
+// DagMirror impls (Skills/Procedural/Provenance/Companion) wired into
+// the Rust write paths. This is the doctrine-safe minimal surface that
+// removes the cognitive_dag module's orphan status from the app's
+// perspective ahead of the eventual Phase 8.H authority flip.
+
+/// Process-global cognitive DAG store. Initialized lazily on first FFI
+/// access. The InMemoryDagStore is `Send + Sync` (RwLock-protected
+/// internally) so we can hand out a `&'static dyn DagStore` reference
+/// without a Mutex wrapper.
+fn cognitive_dag_store() -> &'static crate::cognitive_dag::storage::InMemoryDagStore {
+    use std::sync::OnceLock;
+    static DAG: OnceLock<crate::cognitive_dag::storage::InMemoryDagStore> = OnceLock::new();
+    DAG.get_or_init(crate::cognitive_dag::storage::InMemoryDagStore::new)
+}
+
+/// Returns a JSON summary of the global cognitive DAG. Shape:
+///
+/// ```json
+/// {
+///   "node_count": 42,
+///   "edge_count": 87,
+///   "merkle_root_hex": "9f86d081884c7d65...",
+///   "schema_version": 1
+/// }
+/// ```
+///
+/// Cheap O(1)-per-counter + one BLAKE3 walk over the snapshot (hot when
+/// the DAG is large; the Swift consumer should poll on an interval, not
+/// on every UI tick). The merkle_root_hex is the canonical content hash
+/// — two stores with identical content produce identical hex.
+#[uniffi::export]
+pub fn cognitive_dag_stats_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::cognitive_dag::storage::DagStore;
+        let store = cognitive_dag_store();
+        let snapshot = store.snapshot().map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Cognitive DAG snapshot failed: {err}"),
+        })?;
+        // Hex-encode the merkle root by hand to keep the FFI small —
+        // no hex crate dependency just for one 32-byte → 64-char render.
+        let mut hex = String::with_capacity(64);
+        for byte in snapshot.merkle_root.as_bytes().iter() {
+            use std::fmt::Write;
+            let _ = write!(&mut hex, "{:02x}", byte);
+        }
+        Ok(format!(
+            r#"{{"node_count":{},"edge_count":{},"merkle_root_hex":"{}","schema_version":{}}}"#,
+            snapshot.nodes.len(),
+            snapshot.edges.len(),
+            hex,
+            snapshot.schema_version,
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;

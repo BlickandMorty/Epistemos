@@ -703,7 +703,7 @@ private struct GeneralDetailView: View {
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
-                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Halo backend reports the Rust shadow index status; Background Indexing shows the current vault crawl; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query (RRF Phase 6)."
+                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Halo backend reports the Rust shadow index status; Background Indexing shows the current vault crawl; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query (RRF Phase 6); Cognitive DAG (V2 final lane) reports the typed cognitive substrate's node/edge counts + content-hash root."
                 )
                 EditorBundleHealthRow()
                 BackgroundIndexingHealthRow()
@@ -711,6 +711,7 @@ private struct GeneralDetailView: View {
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()
                 SearchFusionHealthRow()
+                CognitiveDagHealthRow()
             }
 
             Section("Reset") {
