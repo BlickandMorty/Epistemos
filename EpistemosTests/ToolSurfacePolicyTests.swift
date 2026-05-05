@@ -41,6 +41,8 @@ struct ToolSurfacePolicyTests {
             "process",
             "claude_code",
             "codex",
+            "gemini",
+            "kimi",
             "send_message",
             "browser_navigate",
             "browser_click",
