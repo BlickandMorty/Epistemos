@@ -31,6 +31,7 @@
 pub mod edge;
 pub mod merkle;
 pub mod node;
+pub mod resonance;
 pub mod storage;
 
 // Re-export the canonical surface so call sites can `use
@@ -45,6 +46,10 @@ pub use node::{
     EvidenceBlob, EvidenceKind, Hash, IdentityHash, MimeType, ModelLineage, ModelProfile, Node,
     NodeId, NodeKind, NodeTier, OutcomeList, PersonaBlob, SessionId, SourceRef, Timestamp, ToolId,
     ToolSurface, WeightRoot,
+};
+pub use resonance::{
+    add_contradiction_then_propagate, add_evidence_then_propagate, evaluate_claim_truth,
+    propagate_truth_change, TruthCache,
 };
 pub use storage::{DagError, DagSnapshot, DagStore, InMemoryDagStore};
 
