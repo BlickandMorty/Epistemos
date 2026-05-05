@@ -283,12 +283,10 @@ final class HologramOverlay {
     private var controlsHostView: NSView?
     private var sidebarHostView: NSView?
     private var routeHostView: NSView?
-    private var hermesFacultyHostView: NSView? // retained nil; faculty glyph removed
     private var routeObserver: Any?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
     private var routeConstraints: [NSLayoutConstraint] = []
-    private var hermesFacultyConstraints: [NSLayoutConstraint] = []
 
     // Mini floating panel (chromeless glass float).
     private var miniPanel: GraphOverlayPanel?
@@ -1281,7 +1279,6 @@ final class HologramOverlay {
         routeHostView?.isHidden = isCanvas
         controlsHostView?.isHidden = !isCanvas
         sidebarHostView?.isHidden = !isCanvas
-        hermesFacultyHostView?.isHidden = !isCanvas
 
         if isCanvas {
             repositionInspector()
@@ -1516,8 +1513,6 @@ final class HologramOverlay {
         appearanceObserver = nil
         // Nil inspector (SwiftUI hosting view).
         inspectorHostView = nil
-        hermesFacultyHostView = nil
-        hermesFacultyConstraints = []
         // Nil blur layer refs.
         darkenLayer = nil
         blurView = nil
@@ -1609,11 +1604,6 @@ final class HologramOverlay {
         ]
         NSLayoutConstraint.activate(rtConstraints)
         self.routeConstraints = rtConstraints
-
-        // (Removed: Hermes Snake graph faculty glyph. The graph plane no
-        // longer carries a brand-specific faculty marker. If a generic
-        // agent indicator is needed in a follow-up, replace this block
-        // with a brand-neutral glyph.)
 
         routeObserver = NotificationCenter.default.addObserver(
             forName: .graphRouteDidChange,
