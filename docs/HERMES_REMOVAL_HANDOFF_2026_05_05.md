@@ -237,21 +237,129 @@ self-evolution + tool-call parsing. Now in-process Rust.
 | Hermes brand surface       | `HermesBrand` + sigil + glyph         | DELETED (slice 1)                             |
 | Hermes integration docs    | `docs/HERMES_*.md`                    | Archived to `docs/_archive/...`                |
 
-## Verification
+## Verification (post-R1-R4)
 
-- **Rust:** 997/997 tests pass (`cargo test --manifest-path agent_core/Cargo.toml --tests`)
-- **Swift:** xcodebuild SUCCEEDED (full Epistemos macOS build)
+- **Rust:** 997/997 agent_core tests pass
+  (`cargo test --manifest-path agent_core/Cargo.toml --tests`)
+- **Swift focused suites:**
+  - 121/121 Hermes-area tests pass (HermesGatewayPolicy +
+    HermesGatewayEvidenceContract + HermesPromptFormatGuard +
+    HermesPromptBuilder + HermesCommandDispatcher +
+    HermesCapabilityRegistry + HermesParityCommands + HermesCalcCommand +
+    HermesTodoCommand + CoreMASBoundarySourceGuard + OverseerProtocol +
+    ToolSurfaceBehavioralMatrix + ToolSurfacePolicy +
+    HermesPersonaConfigNotebookCommands + HermesSessionAndParameterCommands +
+    HermesUIDisplayAndVaultFileCommands)
+  - 105/105 cloud/routing tests pass (CapabilityBridge +
+    CloudProviderAuthService + ConfidenceRouter + CloudLLMAgentEvent +
+    CloudStreamingParser + AgentChatState + ChatCapabilityIntent +
+    ArtifactRoute)
+- **Swift build:** xcodebuild build SUCCEEDED;
+  xcodebuild build-for-testing SUCCEEDED
 - **No regressions** vs. pre-removal test counts
 
 ## Commits in chronological order
 
-1. `d9be24b5` — Hermes teardown slice 1: delete Expert Mode UI overlay + brand assets
-2. `77de8196` — Rename agent_core::hermes module to agent_runtime
-3. `b8a22adf` — Archive Hermes integration docs + update CLAUDE.md (slice 4)
+1. `d9be24b5` — Slice 1: delete Hermes Expert Mode UI overlay + brand assets
+2. `77de8196` — Slice 2: rename agent_core::hermes module to agent_runtime
+3. `b8a22adf` — Slice 4: archive Hermes integration docs (CLAUDE.md edits
+   were missing from this commit)
+4. `1b71302e` — Add Hermes removal handoff doc
+5. `f9db76ee` — Fix slice 4: actually commit the CLAUDE.md updates
+6. `3245ea4f` — **Refactor R1**: remove dead `.hermesSubprocess` gateway
+   surface (production + tests)
+7. `bf1567a8` — **Refactor R2**: remove dead Hermes faculty glyph state
+   from HologramOverlay
+8. `260676c8` — **Refactor R3**: update Rust agent_runtime / skill_router
+   / typestate doc comments after Hermes removal
+9. `d7f36dd4` — R1 fixup: update 2 surface-count + boundary-line test
+   expectations missed in the first sweep
 
 (Slice 3 produced no commit; the audit + decision to skip is
-documented here and in the `project_hermes_removal_2026_05_05`
-memory entry.)
+documented in the kept-on-purpose section above and in the
+`project_hermes_removal_2026_05_05` memory entry.)
+
+## Refactor slice details
+
+### R1 — `.hermesSubprocess` gateway surface removed (`3245ea4f`)
+
+After the subprocess deletion, multiple Swift surfaces were still
+coordinating to handle a tier that no longer existed:
+- `HermesGatewaySurface.hermesSubprocess` enum case + its branch in
+  `decision(for:)` + its slot in `externalGatewaySurfaces`
+- `CapabilityBridge` string mapping (`hermes_subprocess`)
+- `XPC/AgentServiceProtocol` resolver case
+- `externalTierBoundaryLine` prose: "Cloud/provider/CLI/MCP/Hermes
+  subprocess orchestration is Pro/Research only" → updated to
+  "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only"
+- 6 test files updated (gateway evidence contract, source guards,
+  overseer policy, tool-surface matrix, tool-surface policy, runtime
+  validation `#if false` stub)
+
+This was a real refactor (not a patch): the architectural rot — case
++ decision logic + prose + test pinning + XPC fallback all
+coordinating for a deleted thing — was removed end-to-end. Surface
+count drops 14 → 13; non-cloud external set drops 6 → 5.
+
+### R2 — Dead HologramOverlay faculty-glyph state (`bf1567a8`)
+
+Slice 1 deleted `HermesGraphFacultyGlyph.swift` but `HologramOverlay`
+still held the host view + constraints + a no-op visibility toggle +
+a nil-out path + a TODO-style comment for the deleted glyph. Removed
+all 5 sites (state vars + toggle + cleanup + comment). Net -10 LOC,
+zero behavior change (the host view was always nil so the toggle and
+cleanup were no-ops).
+
+### R3 — Rust doc comments (`260676c8`)
+
+Three Rust doc comments still framed the codebase around the deleted
+subprocess:
+- `agent_core/src/agent_runtime/mod.rs` module-level //! doc was
+  "Canonical Hermes-in-Rust runtime spine" + "Stage B.1 starts here:
+  the Swift Hermes mirrors collapse toward this module." Rewrote to
+  describe what the module actually owns + record the rename + clarify
+  that the Hermes-3 prompt grammar (which prompt_format still produces)
+  is a Nous Research model spec, not the removed subprocess.
+- `agent_core/src/skill_router.rs:117` referenced the dead
+  `agent_core::hermes::skills` path. Updated to
+  `agent_core::agent_runtime::skills`.
+- `agent_core/src/runtime/typestate.rs:1-18` W9.22 spec listed a
+  planned `HermesProcess` lifecycle wrapper that was never built.
+  Comment now records the removal + explains the in-process
+  agent_runtime has no lifecycle to typestate-encode.
+
+### R4 — Cloud escalation verification (no commit; report only)
+
+The user asked to "harden cloud escalation so the architecture feels
+fluid". An explore-agent audit mapped the full local→cloud escalation
+path (decision in ConfidenceRouter / TriageService / OverseerExecutionRoute
+→ HermesGatewayPolicy gate → CloudProviderAuthService Keychain auth →
+StreamingDelegate FFI → ChatState consumer → ChatBrainPanelView UI
+attribution). It identified 6 architectural pain points and 5 ranked
+refactor opportunities.
+
+**Key finding:** the existing `ChatBrainPanelView` already surfaces
+Route / Runtime / Provider / Model attribution (ChatView.swift:594-611).
+The provider attribution surface exists; the refactor opportunities
+identified by the audit (escalation events, evidence pipeline,
+fallback recovery, context handoff) are net-new feature work (FFI
+surface changes + multi-day implementation), not Hermes-removal cleanup.
+
+**Verification result:** 121 Hermes-area + 105 cloud/routing tests
+all pass. No regressions in the cloud escalation path post-removal.
+
+**Deferred to a dedicated session** (the user can sign off on scope):
+- R4a: Add `.escalating(reason, provider, effort)` AgentStreamEvent
+  case + Rust emission + Swift UI surface
+- R4b: Populate `AgentResultFFI.history` evidence-provenance field +
+  surface in chat footer ("via Anthropic Claude Sonnet • 2.4K tokens")
+- R4c: Local→Cloud context handoff (carry partial local output forward
+  on escalation)
+- R4d: Cloud fallback graceful degradation (cloud fail → local;
+  local fail → next cloud tier)
+
+The full pain-point map + ranked refactor list is preserved in the
+audit agent's report from the 2026-05-05 verification run.
 
 ## Optional follow-ups
 
@@ -260,10 +368,30 @@ These are NOT blocking but could be picked up later:
 - **Slice 2b** — rename FFI exports `bridge::hermes_build_system_prompt`
   → `agent_runtime_build_system_prompt` and matching Swift consumers
   (`hermesBuildSystemPrompt` etc.); regenerate UniFFI bindings.
-- **HologramOverlay cleanup** — the `hermesFacultyHostView` and
-  `hermesFacultyConstraints` state vars are now dead (their consumer
-  was deleted in slice 1). Safe to remove in a small cleanup PR.
+- **R4a-d** — the cloud-escalation observability/hardening series
+  described under R4 above. Each is a separate slice.
 - **Other docs/ Hermes references** — many historical docs
   (AGENT_PROGRESS.md, ARCHITECTURE_AUDIT.md, etc.) still mention the
   Hermes subprocess. They are session/audit records and reflect what
   was true at the time; archiving them all would be over-reach.
+
+## Where to continue next
+
+Per the post-recovery V2 plan (memory entry
+`project_post_recovery_v2_plan`), the next active queue is V2.1 —
+Cognitive DAG (Phase 8). Status:
+
+- Phase 8.A scaffold ✓ (`ba45f3cc`)
+- Phase 8.B resonance propagation ✓ (`80afe70a`)
+- Phase 8.C macaroon capabilities ✓ (`f8272c3c`)
+- Phase 8.D companions + Phase 8.E migration pattern ✓ (`69e4013d`)
+- **Phase 8.E continuation** — Skills mirror landed, but Procedural
+  memory + Provenance ledger + Companions still need rewiring through
+  `DagMirror` per doctrine §8.E
+- **Phase 8.F** — extend `epistemos-trace` CLI with `verify-replay`
+  subcommand; `.epbundle` format for DAG snapshots; logit-trajectory
+  hashing for non-deterministic verification
+- **Phase 8.G** — `epistemos-doctrine-lint` binary
+- **Phase 8.H** — flip-the-switch + ship
+
+Doctrine: `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md` §8.
