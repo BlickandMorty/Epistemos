@@ -20,6 +20,14 @@ pro-build = []
 # T14 / T15 research surfaces (Sherry 1.25-bit ternary, ANE direct).
 # Independent of pro-build so research can compose with MAS or Pro.
 research = []
+# V2.3 in-process LSP runtime. Hand-rolled LSP server (no tower-lsp
+# dep yet — the initialize/shutdown subset is small enough that
+# pulling in a framework would be net negative). When the surface
+# expands to hover/definition + tree-sitter parsing in a follow-up
+# slice, this feature gates the new deps so the default build stays
+# light. Off by default so MAS + Pro builds that don't use LSP
+# don't pay the compile cost.
+lsp-runtime = []
 # Legacy alias kept for compatibility with anything still referencing
 # `mas-sandbox`. New code should use `mas-build`.
 mas-sandbox = []

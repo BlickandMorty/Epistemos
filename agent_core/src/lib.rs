@@ -27,6 +27,8 @@ pub mod grammar;
 pub mod heal;
 pub mod lattice;
 pub mod live_files;
+#[cfg(feature = "lsp-runtime")]
+pub mod lsp_runtime;
 pub mod mutations;
 pub mod neocortex;
 pub mod nightbrain;
