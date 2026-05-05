@@ -4,7 +4,7 @@ import Testing
 @testable import Epistemos
 
 /// Wave 9.8 follow-up source-guard for the high-level `LSPClient` JSON-
-/// RPC layer that sits on top of `LSPServerProcess`. These tests pin
+/// RPC layer that sits on top of any `LSPTransport`. These tests pin
 /// the parser helpers (Hover / Definition / Range coercion) + the
 /// error envelope behavior; an end-to-end live SourceKit-LSP test is a
 /// future commit because the build host can't always assume Xcode is
@@ -180,17 +180,13 @@ nonisolated struct LSPClientTests {
 
     @Test("All RPC methods refuse to run before initialize() with .notInitialized")
     func notInitializedGuards() async throws {
-        // Use /bin/echo as a one-shot transport that exits immediately
-        // — the client never reaches initialize() because the server
-        // doesn't speak LSP. The guards in didOpen / didChange /
+        // Use the InProcessLSPTransport stub — it returns
+        // MethodNotFound for every request, so the client never
+        // reaches initialize(). The guards in didOpen / didChange /
         // didClose / hover / definition must therefore all surface
         // .notInitialized.
-        let cfg = LSPServerConfig(
-            executableURL: URL(fileURLWithPath: "/bin/echo"),
-            arguments: ["x"]
-        )
-        let proc = LSPServerProcess(config: cfg)
-        let client = LSPClient(process: proc)
+        let stub = InProcessLSPTransport()
+        let client = LSPClient(transport: stub)
 
         let url = URL(fileURLWithPath: "/tmp/dummy.swift")
 

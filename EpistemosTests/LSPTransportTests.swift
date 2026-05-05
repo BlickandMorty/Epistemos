@@ -2,16 +2,13 @@ import Testing
 import Foundation
 @testable import Epistemos
 
-/// V2.3 first slice — protocol-seam tests for `LSPTransport` and the
+/// V2.3 — protocol-seam tests for `LSPTransport` and the
 /// `InProcessLSPTransport` stub. Proves that:
 ///
 /// 1. `LSPClient` constructed against the in-process stub can route
 ///    a request end-to-end and receive the canonical MethodNotFound
-///    error response (the stub's terminal behavior until tower-lsp
-///    arrives).
-/// 2. `LSPServerProcess` satisfies the protocol via the empty
-///    extension conformance.
-/// 3. The stub's diagnostic send-log records every outgoing message
+///    error response.
+/// 2. The stub's diagnostic send-log records every outgoing message
 ///    in order — the audit hook the future doctrine linter / debug
 ///    surface will read.
 @Suite("LSP Transport seam (V2.3 first slice)")
@@ -25,19 +22,6 @@ struct LSPTransportTests {
         // Initial send count is zero.
         let initial = await stub.sentCount()
         #expect(initial == 0)
-    }
-
-    @Test("LSPServerProcess satisfies LSPTransport via empty extension")
-    func serverProcessSatisfiesProtocol() {
-        let config = LSPServerConfig(
-            executableURL: URL(fileURLWithPath: "/usr/bin/false"),
-            arguments: [],
-            workingDirectory: nil,
-            environment: [:]
-        )
-        let proc = LSPServerProcess(config: config)
-        let _: any LSPTransport = proc
-        // No assertion needed — the type-check IS the test.
     }
 
     @Test("LSPClient against in-process stub gets MethodNotFound for any request")
@@ -84,30 +68,4 @@ struct LSPTransportTests {
         }
     }
 
-    @Test("LSPClient backward-compat init(process:) still works")
-    func backwardCompatProcessInitStillWorks() {
-        let config = LSPServerConfig(
-            executableURL: URL(fileURLWithPath: "/usr/bin/false"),
-            arguments: [],
-            workingDirectory: nil,
-            environment: [:]
-        )
-        let proc = LSPServerProcess(config: config)
-        // Pre-V2.3 call site: LSPClient(process:). Must still compile
-        // and produce a working client whose .process accessor returns
-        // the same instance.
-        let client = LSPClient(process: proc)
-        Task {
-            let p = await client.process
-            #expect(p === proc)
-        }
-    }
-
-    @Test("LSPClient.process returns nil when transport is not LSPServerProcess")
-    func processAccessorReturnsNilForInProcessTransport() async {
-        let stub = InProcessLSPTransport()
-        let client = LSPClient(transport: stub)
-        let p = await client.process
-        #expect(p == nil, "process accessor must return nil for non-LSPServerProcess transports")
-    }
 }
