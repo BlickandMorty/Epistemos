@@ -170,6 +170,34 @@ Read in this order:
    - `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md`
    - `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md`
 
+## Standing-checks hygiene (final tick)
+
+After the retrospective was first written, three additional standing-
+checks landed:
+
+- **`docs/AGENT_PROGRESS.md` continuation block** (commit f115feb6).
+  The original 2026-05-05 entry was written at ~40 commits and stopped
+  at item 10. Appended items 11-23 covering all post-canon-hardening
+  work (B5, CANON_GAPS closure, XPC trust spine, A2 + A2-followup,
+  CD-006/008, deferred Q1+Q2, A1 scoping, late-session hygiene fix,
+  lib warnings, retrospective, auto-fix verification).
+
+- **`docs/APP_ISSUES_AUTO_FIX.md`** (commit 7ff442a8). Per the
+  CLAUDE.md session-startup protocol that says "On every session
+  start, check it for `Status: Open` issues." ISSUE-2026-04-21-005
+  (brittle source-text tests in RuntimeValidationTests) re-verified
+  Open → Verified Fixed via per-needle `grep -F` of all 17
+  assertions against current ChatCoordinator.swift. The other open
+  issues (ISSUE-004 idle memory regression, ISSUE-22-002/003/004)
+  require Instruments profiling or running the app to reproduce, so
+  remain Open as future-session targets.
+
+- **Auto-memory updates** (not git-tracked; lives in
+  `~/.claude/projects/.../memory/`). Two new memory files: the
+  canon-hardening protocol pointer (so future sessions know not to
+  implement state:candidate items autonomously) and the
+  "run git status at session START" feedback memory.
+
 ## Lessons logged (for future sessions)
 
 1. **Run `git status` at session START** — silent dirty work-in-progress
