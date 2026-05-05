@@ -182,7 +182,7 @@ Also add to **§6 Hard Forbidden List**:
 
 ---
 
-### C7 — Resource Runtime + grants + verified writes + PromptTree
+### C7 — Resource Runtime + grants + verified writes + PromptTree **[VERIFIED-THEN-MERGED 2026-05-05 — staged claim was stale; substrate landed in main before this audit. Doctrine §9 entries reflect actual on-main state + remaining `codex/runtime-input-audit` divergence + 601-commit Lane A delta.]**
 
 **Original plan:** *"Phase R: Resource Runtime, grants, verified writes, picker, regression closure. PromptTree from Lane A."*
 
