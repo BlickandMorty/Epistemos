@@ -51,6 +51,7 @@ These four hold for Core, Pro, and Research alike. Violating any of them is P0.
 2. **Single-binary in-process substrate.** All crates link into one `epistemos` process. Subprocess for **inference** is forbidden in every tier. The Quick Capture pattern — UniFFI hop into the same process address space — is the canonical shape. Hermes / CLI tunnels / browsers / Docker run in subprocesses for **orchestration only**, and only in Pro/Research builds.
 3. **Markov blanket via Rust ownership.** The borrow checker is the organizational closure of the system. Internal state (claim graph, ledger, residency governor, KV cache) is owned by Rex (the Rust kernel); Swift sees it through narrow UniFFI surfaces. No FFI panics, no `unsafe` without `// SAFETY:` justification, no hidden global mutable state.
 4. **Tiered determinism.** State transitions are logged, hashed (BLAKE3), and reproducible — *not* every byte of inference. T0–T4 verification ladder (see §5) decides what is checked when. Z3 never runs on the hot path; T2 Proptest catches 95% at ~1µs.
+5. *(C5, merged 2026-05-05.)* **Canonical state is the only source of truth.** Visual layers — Liquid Wave, Simulation Theater, Halo overlays, Residency Rail, Sovereign Gate dialog, Pulse ghost text — project from canonical events (`AgentEvent`, `GraphEvent`, `MutationEnvelope`) and Rust kernel state. They do not own state. A visual surface that implies state the runtime does not authoritatively own is a §2.2 violation. If a UI shows "thinking" and the agent is not actually thinking, that is P0.
 
 What is closed today (per `UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`):
 
@@ -89,9 +90,21 @@ The April 30 canon split Core vs Pro and listed Research as deferred. **The user
 
 ---
 
-## 4. The Three Killer Features
+## 4. UX Posture and the Three Killer Features
 
-These are the user-facing features that wrap the entire substrate philosophy into shippable surfaces. They are listed once here, with status against current code, and pointers into Kimi research depth. **None of them are approved to start coding** — they require deliberation briefs per §10.
+### 4.0 UX Posture (every tier) *(C4, merged 2026-05-05)*
+
+**One composer, two modes.** Chat mode and Agent mode share the same input affordance — same composer view, same shortcut, same surface. Mode is a toggle next to the composer, not a separate entry point in the sidebar. The user sees one place to write; the system routes by mode.
+
+**Effort control is separate from mode.** Effort (fast / thinking / research / agent / liveAgent) lives on its own axis next to the composer. Effort can be changed mid-conversation without leaving the thread. Effort is never bundled into "modes."
+
+**Tools are capabilities, not a third mode.** A tool call is something the agent does inside a turn — not a separate UX surface. There is no "Tools mode." Capability gating happens at the agent layer through the Sovereign Gate (§4.2) and the tool registry (`agent_core/src/tools/registry.rs`), not at the composer.
+
+**Per-tier UX:** All tiers ship the same composer + two-mode layout. Pro / Research add additional effort levels (e.g., long-horizon research, computer-use) but the input shape is identical. This is what makes Pro feel like a continuous evolution of Core, not a different app.
+
+---
+
+The killer features that wrap the entire substrate philosophy into shippable surfaces. They are listed once here, with status against current code, and pointers into Kimi research depth. **None of them are approved to start coding** — they require deliberation briefs per §10.
 
 ### 4.1 Resonance Gate
 
@@ -249,6 +262,10 @@ What ships in each tier. Everything not listed is forbidden in that tier.
   deliberation gate.
 - Use OSFT / PSOFT / coSO with QLoRA — they are not 4-bit compatible. Use QOFT / QDoRA / QPiSSA for production continual learning. (See Annex A.5.)
 - Promote a behavior past L3 in the residency hierarchy without T2+ verification and a measurable runtime gain. (See Annex A.3.)
+- *(C2, merged 2026-05-05.)* **Silent cloud fallback or escalation.** If a request is about to leave the device, the user sees an explicit opt-in prompt for that specific request OR has previously enabled the provider in Settings with a clear "use this for X" scope. No automatic "I couldn't answer locally, let me try cloud" behavior in any tier. The transition from local → cloud is always a UI event the user can audit.
+- *(C3, merged 2026-05-05.)* **BYOK cloud providers enabled by default.** Default state for every cloud provider (Anthropic, OpenAI, Perplexity, etc.) is OFF on a fresh install. The user must explicitly add a key in Settings AND toggle the provider on. No marketing-defaults that pre-enable cloud routing.
+- *(C5, merged 2026-05-05.)* **Visual surfaces that imply state the runtime doesn't authoritatively own.** Liquid Wave cannot animate "agent is thinking" if no agent turn is in flight. Simulation Theater cannot show a sub-agent dispatch that didn't emit an `AgentEvent`. Halo cannot show a hit count without a real query result. Visual layers project; they do not invent. (See §2.2 invariant #5.)
+- *(C13, merged 2026-05-05.)* **Telemetry capture beyond metadata.** Input-driven telemetry (keystroke timing, modifier states, app activity) is metadata-only. Never content (typed text, note bodies, code, message contents, query strings). Retention bounded; explicit opt-in for any telemetry channel; default-off for cloud-uploaded telemetry. Consent copy reviewed before any new channel ships. (See Annex A.16.)
 
 ---
 
@@ -360,6 +377,14 @@ For every new slice (Core / Pro / Research):
 4. **Build only the next approved slice.** Stop at the next gate. Do not stack approvals.
 5. **Run focused tests, capture raw logs, report.** No "done" claim without a path-verified user-visible surface OR a passing log path.
 6. **Commit per change** (per persistent user feedback in memory: lost work to `git checkout` once; never batch commits).
+7. **WRV — the only honest "shipped" claim.** *(C1, merged from `CANON_GAPS_AND_ADDENDA_2026_05_02.md` 2026-05-05.)* Every claim of "done" or "shipped" must satisfy all four:
+
+   - **Wired** — code path exists and compiles in the target tier
+   - **Reachable** — at least one user-facing entry point reaches it
+   - **Visible** — its state is observable in UI, diagnostics, or audit log
+   - **Verified** — at least one test or raw log proves it works
+
+   Files existing is not enough. A subsystem fully implemented but unreached by any UI is not shipped — it is donor code. WRV is enforced at the deliberation-brief layer (`Codex prompt §3.4 report-before-code`); a brief that cannot fill all four for its slice is returned. The 2026-05-05 canon-hardening protocol (`docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`) extends WRV to a 6-state pipeline (research → implemented → wired → reachable → visible → verified → released).
 
 ---
 
