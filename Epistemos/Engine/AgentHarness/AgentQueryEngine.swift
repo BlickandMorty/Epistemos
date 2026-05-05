@@ -344,7 +344,12 @@ actor AgentQueryEngine {
         metadata: [String: String]
     ) async {
         guard let recorder = config.agentProvenanceRecorder else { return }
-        await MainActor.run {
+        // Discard the MainActor.run return value explicitly — the
+        // closure's last expression is `recordToolEvent(...)` which
+        // returns Void; the warning fires because Swift 6's strict-
+        // concurrency wraps the result and complains it's unused.
+        // Codex 2026-05-05 audit flagged this as a build warning.
+        _ = await MainActor.run {
             recorder.recordToolEvent(
                 runID: runID,
                 traceID: nil,
