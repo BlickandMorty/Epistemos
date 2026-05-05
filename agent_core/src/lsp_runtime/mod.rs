@@ -14,20 +14,10 @@
 //!
 //! This module is the Rust side of the V2.3 LSP migration — the
 //! in-process replacement for `Epistemos/Engine/LSPServerProcess.swift`
-//! (the Foundation `Process`-based subprocess wrapper). The first
-//! slice handles the LSP `initialize` + `shutdown` + `exit` lifecycle
-//! handshake. Hover, definition, document sync land in subsequent
-//! slices when the surface justifies adding tower-lsp + tree-sitter
-//! crates (see the doctrine's "Slice 2" section).
-//!
-//! ## Why hand-rolled instead of tower-lsp
-//!
-//! For the initialize-only subset, the LSP wire format is small
-//! enough to write directly. Pulling in `tower-lsp` + `lsp-types` +
-//! their indirect deps for one round trip is net negative compile
-//! time. When Slice 2 adds hover/definition + tree-sitter parsing,
-//! the surface justifies the framework. This stays modular: the
-//! `LspKernel` API doesn't change when we swap the implementation.
+//! (the Foundation `Process`-based subprocess wrapper). It uses
+//! `tower-lsp`'s canonical LSP types for response payloads and
+//! tree-sitter Rust/Swift grammars for semantic hover + same-file
+//! definition lookup.
 //!
 //! ## Threading model
 //!
@@ -48,12 +38,14 @@
 //! gets fed by a Swift-side polling task in the
 //! `RustLSPTransport` Swift wrapper.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
+use tower_lsp::lsp_types as lsp;
+use tree_sitter::{Node as TsNode, Parser};
 
 // ── JSON-RPC envelope types ────────────────────────────────────────────────
 
@@ -158,12 +150,10 @@ enum LifecycleState {
 
 /// In-process LSP server for the Epistemos editor surface.
 ///
-/// **Phase 1 scope (this slice):** initialize + shutdown + exit
-/// lifecycle handshake. Every other request returns
-/// `LspError::method_not_found`. This is enough to prove the
-/// architectural seam works end-to-end (Swift LSPClient ↔ Rust
-/// LspKernel ↔ initialize roundtrip) without committing to the
-/// hover/definition + tree-sitter dep surface.
+/// **V2.3 semantic scope:** initialize + document cache +
+/// tree-sitter hover + same-file definition + shutdown/exit. This
+/// closes the old subprocess transport without reducing the editor
+/// surface to a lifecycle-only stub.
 pub struct LspKernel {
     state: Mutex<KernelState>,
 }
@@ -174,6 +164,32 @@ struct KernelState {
     /// responses + notifications land here; Swift drains via
     /// `lsp_poll_response_json`.
     outbox: VecDeque<LspMessage>,
+    /// In-memory document cache keyed by LSP URI. This replaces the old
+    /// subprocess server's implicit process-local document state while
+    /// staying inside the Rust kernel.
+    documents: BTreeMap<String, LspDocument>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LspDocument {
+    uri: String,
+    language_id: String,
+    version: i64,
+    text: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LanguageKind {
+    Rust,
+    Swift,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SymbolHit {
+    name: String,
+    range: lsp::Range,
+    node_kind: String,
+    declaration: Option<String>,
 }
 
 impl Default for LspKernel {
@@ -188,6 +204,7 @@ impl LspKernel {
             state: Mutex::new(KernelState {
                 lifecycle: LifecycleState::Uninitialized,
                 outbox: VecDeque::new(),
+                documents: BTreeMap::new(),
             }),
         }
     }
@@ -246,7 +263,7 @@ impl LspKernel {
         state: &mut KernelState,
         id: LspId,
         method: &str,
-        _params: Option<Value>,
+        params: Option<Value>,
     ) -> LspMessage {
         // Lifecycle gate: only `initialize` is allowed in Uninitialized.
         if state.lifecycle == LifecycleState::Uninitialized && method != "initialize" {
@@ -271,6 +288,8 @@ impl LspKernel {
                     result: Value::Null,
                 }
             }
+            "textDocument/hover" => self.handle_hover(state, id, params.as_ref()),
+            "textDocument/definition" => self.handle_definition(state, id, params.as_ref()),
             other => LspMessage::ResponseError {
                 id: Some(id),
                 error: LspError::method_not_found(other),
@@ -282,7 +301,7 @@ impl LspKernel {
         &self,
         state: &mut KernelState,
         method: &str,
-        _params: Option<Value>,
+        params: Option<Value>,
     ) {
         match method {
             "initialized" => {
@@ -290,14 +309,72 @@ impl LspKernel {
                 // don't need to reply but we can use this as a cue to
                 // start any deferred work. Phase 1 does no such work.
             }
+            "textDocument/didOpen" => {
+                if let Some(document) = parse_did_open(params.as_ref()) {
+                    state.documents.insert(document.uri.clone(), document);
+                }
+            }
+            "textDocument/didChange" => {
+                apply_did_change(&mut state.documents, params.as_ref());
+            }
+            "textDocument/didClose" => {
+                if let Some(uri) = text_document_uri(params.as_ref()) {
+                    state.documents.remove(uri);
+                }
+            }
             "exit" => {
                 state.lifecycle = LifecycleState::Exited;
                 state.outbox.clear();
+                state.documents.clear();
             }
             _ => {
                 // Unknown notification — drop per LSP §6.4.
             }
         }
+    }
+
+    fn handle_hover(
+        &self,
+        state: &KernelState,
+        id: LspId,
+        params: Option<&Value>,
+    ) -> LspMessage {
+        let Some((uri, line, character)) = request_uri_position(params) else {
+            return LspMessage::ResponseError {
+                id: Some(id),
+                error: LspError::invalid_request("hover params missing textDocument.uri or position"),
+            };
+        };
+        let result = state
+            .documents
+            .get(uri)
+            .and_then(|doc| semantic_hover(doc, line, character))
+            .and_then(|hover| serde_json::to_value(hover).ok())
+            .unwrap_or(Value::Null);
+        LspMessage::ResponseSuccess { id, result }
+    }
+
+    fn handle_definition(
+        &self,
+        state: &KernelState,
+        id: LspId,
+        params: Option<&Value>,
+    ) -> LspMessage {
+        let Some((uri, line, character)) = request_uri_position(params) else {
+            return LspMessage::ResponseError {
+                id: Some(id),
+                error: LspError::invalid_request(
+                    "definition params missing textDocument.uri or position",
+                ),
+            };
+        };
+        let result = state
+            .documents
+            .get(uri)
+            .and_then(|doc| semantic_definition(doc, line, character))
+            .and_then(|location| serde_json::to_value(location).ok())
+            .unwrap_or(Value::Null);
+        LspMessage::ResponseSuccess { id, result }
     }
 }
 
@@ -307,23 +384,344 @@ pub enum LspKernelError {
     MutexPoisoned,
 }
 
-/// Phase-1 server capabilities. Declares the textDocumentSync +
-/// hoverProvider + definitionProvider fields so a Swift client can
-/// see what we'll eventually support, but the actual hover /
-/// definition handlers return MethodNotFound until Slice 2 lands.
+/// Server capabilities emitted through tower-lsp's canonical LSP
+/// structs. Hover + definition are backed by tree-sitter handlers in
+/// this module, so the capability flags are no longer aspirational.
 fn serve_capabilities() -> Value {
-    serde_json::json!({
-        "capabilities": {
-            "textDocumentSync": 1, // Full document sync
-            "hoverProvider": true,
-            "definitionProvider": true,
+    let result = lsp::InitializeResult {
+        capabilities: lsp::ServerCapabilities {
+            text_document_sync: Some(lsp::TextDocumentSyncCapability::Kind(
+                lsp::TextDocumentSyncKind::FULL,
+            )),
+            hover_provider: Some(lsp::HoverProviderCapability::Simple(true)),
+            definition_provider: Some(lsp::OneOf::Left(true)),
+            ..Default::default()
         },
-        "serverInfo": {
-            "name": "epistemos-lsp-runtime",
-            "version": env!("CARGO_PKG_VERSION"),
-        }
+        server_info: Some(lsp::ServerInfo {
+            name: "epistemos-lsp-runtime".to_string(),
+            version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        }),
+    };
+    serde_json::to_value(result).unwrap_or_else(|_| Value::Object(Default::default()))
+}
+
+fn parse_did_open(params: Option<&Value>) -> Option<LspDocument> {
+    let doc = params?.get("textDocument")?.as_object()?;
+    let uri = doc.get("uri")?.as_str()?.to_string();
+    let language_id = doc
+        .get("languageId")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let version = doc.get("version").and_then(Value::as_i64).unwrap_or(0);
+    let text = doc.get("text")?.as_str()?.to_string();
+    Some(LspDocument {
+        uri,
+        language_id,
+        version,
+        text,
     })
 }
+
+fn apply_did_change(documents: &mut BTreeMap<String, LspDocument>, params: Option<&Value>) {
+    let Some(uri) = text_document_uri(params) else {
+        return;
+    };
+    let version = params
+        .and_then(|p| p.get("textDocument"))
+        .and_then(|d| d.get("version"))
+        .and_then(Value::as_i64);
+    let Some(changes) = params
+        .and_then(|p| p.get("contentChanges"))
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+    let Some(text) = changes
+        .iter()
+        .rev()
+        .find_map(|change| change.get("text").and_then(Value::as_str))
+    else {
+        return;
+    };
+    if let Some(doc) = documents.get_mut(uri) {
+        doc.text = text.to_string();
+        if let Some(version) = version {
+            doc.version = version;
+        }
+    }
+}
+
+fn text_document_uri(params: Option<&Value>) -> Option<&str> {
+    params?
+        .get("textDocument")?
+        .get("uri")?
+        .as_str()
+}
+
+fn request_uri_position(params: Option<&Value>) -> Option<(&str, u32, u32)> {
+    let params = params?;
+    let uri = text_document_uri(Some(params))?;
+    let position = params.get("position")?.as_object()?;
+    let line = position.get("line")?.as_u64()?.try_into().ok()?;
+    let character = position.get("character")?.as_u64()?.try_into().ok()?;
+    Some((uri, line, character))
+}
+
+fn semantic_hover(doc: &LspDocument, line: u32, character: u32) -> Option<lsp::Hover> {
+    let parsed = parse_document(doc)?;
+    let offset = byte_offset_for_lsp_position(&doc.text, line, character)?;
+    let root = parsed.root_node();
+    let symbol = symbol_at_offset(root, &doc.text, offset)?;
+    let definition = find_definition_for_symbol(root, &doc.text, &symbol.name);
+    let definition_declaration = definition.and_then(enclosing_declaration);
+    let node_kind = definition_declaration
+        .map(|node| node.kind().to_string())
+        .unwrap_or_else(|| symbol.node_kind.clone());
+    let declaration = definition_declaration
+        .and_then(|node| node_text(node, &doc.text).map(str::to_string))
+        .or(symbol.declaration)
+        .unwrap_or_else(|| node_kind.clone());
+    let contents = format!(
+        "`{}` — {}\n\n```{}\n{}\n```",
+        symbol.name,
+        node_kind,
+        parsed.language.label(),
+        declaration.trim()
+    );
+    Some(lsp::Hover {
+        contents: lsp::HoverContents::Scalar(lsp::MarkedString::String(contents)),
+        range: Some(symbol.range),
+    })
+}
+
+fn semantic_definition(doc: &LspDocument, line: u32, character: u32) -> Option<lsp::Location> {
+    let parsed = parse_document(doc)?;
+    let offset = byte_offset_for_lsp_position(&doc.text, line, character)?;
+    let root = parsed.root_node();
+    let symbol = symbol_at_offset(root, &doc.text, offset)?;
+    let definition = find_definition_for_symbol(root, &doc.text, &symbol.name)?;
+    let range = range_for_node(definition, &doc.text);
+    let uri = lsp::Url::parse(&doc.uri).ok()?;
+    Some(lsp::Location { uri, range })
+}
+
+struct ParsedDocument {
+    tree: tree_sitter::Tree,
+    language: LanguageKind,
+}
+
+impl ParsedDocument {
+    fn root_node(&self) -> TsNode<'_> {
+        self.tree.root_node()
+    }
+}
+
+impl LanguageKind {
+    fn label(self) -> &'static str {
+        match self {
+            LanguageKind::Rust => "rust",
+            LanguageKind::Swift => "swift",
+        }
+    }
+}
+
+fn parse_document(doc: &LspDocument) -> Option<ParsedDocument> {
+    let language = language_for_document(doc)?;
+    let mut parser = Parser::new();
+    let grammar: tree_sitter::Language = match language {
+        LanguageKind::Rust => tree_sitter_rust::LANGUAGE.into(),
+        LanguageKind::Swift => tree_sitter_swift::LANGUAGE.into(),
+    };
+    parser.set_language(&grammar).ok()?;
+    let tree = parser.parse(&doc.text, None)?;
+    Some(ParsedDocument { tree, language })
+}
+
+fn language_for_document(doc: &LspDocument) -> Option<LanguageKind> {
+    let lang = doc.language_id.to_ascii_lowercase();
+    if lang == "rust" || lang == "rs" {
+        return Some(LanguageKind::Rust);
+    }
+    if lang == "swift" {
+        return Some(LanguageKind::Swift);
+    }
+    if doc.uri.ends_with(".rs") {
+        return Some(LanguageKind::Rust);
+    }
+    if doc.uri.ends_with(".swift") {
+        return Some(LanguageKind::Swift);
+    }
+    None
+}
+
+fn symbol_at_offset(root: TsNode<'_>, source: &str, offset: usize) -> Option<SymbolHit> {
+    let end = offset.saturating_add(1).min(source.len());
+    let mut cursor = root.descendant_for_byte_range(offset, end)?;
+    loop {
+        if is_identifier_kind(cursor.kind()) {
+            let name = node_text(cursor, source)?;
+            let declaration = enclosing_declaration(cursor)
+                .and_then(|node| node_text(node, source))
+                .map(str::to_string);
+            let node_kind = enclosing_declaration(cursor)
+                .map(|node| node.kind().to_string())
+                .unwrap_or_else(|| cursor.kind().to_string());
+            return Some(SymbolHit {
+                name: name.to_string(),
+                range: range_for_node(cursor, source),
+                node_kind,
+                declaration,
+            });
+        }
+        if let Some(name_node) = declaration_name_node(cursor) {
+            let name = node_text(name_node, source)?;
+            return Some(SymbolHit {
+                name: name.to_string(),
+                range: range_for_node(name_node, source),
+                node_kind: cursor.kind().to_string(),
+                declaration: node_text(cursor, source).map(str::to_string),
+            });
+        }
+        cursor = cursor.parent()?;
+    }
+}
+
+fn find_definition_for_symbol<'tree>(
+    root: TsNode<'tree>,
+    source: &str,
+    symbol: &str,
+) -> Option<TsNode<'tree>> {
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if is_definition_kind(node.kind()) {
+            if let Some(name_node) = declaration_name_node(node) {
+                if node_text(name_node, source) == Some(symbol) {
+                    return Some(name_node);
+                }
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
+        }
+    }
+    None
+}
+
+fn enclosing_declaration(mut node: TsNode<'_>) -> Option<TsNode<'_>> {
+    loop {
+        if is_definition_kind(node.kind()) {
+            return Some(node);
+        }
+        node = node.parent()?;
+    }
+}
+
+fn declaration_name_node(node: TsNode<'_>) -> Option<TsNode<'_>> {
+    if let Some(name) = node.child_by_field_name("name") {
+        return Some(name);
+    }
+    let mut cursor = node.walk();
+    let name = node
+        .children(&mut cursor)
+        .find(|child| is_identifier_kind(child.kind()));
+    name
+}
+
+fn is_identifier_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "identifier"
+            | "type_identifier"
+            | "field_identifier"
+            | "shorthand_property_identifier"
+            | "simple_identifier"
+            | "identifier_pattern"
+    ) || kind.ends_with("_identifier")
+}
+
+fn is_definition_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "function_item"
+            | "struct_item"
+            | "enum_item"
+            | "trait_item"
+            | "mod_item"
+            | "const_item"
+            | "static_item"
+            | "type_item"
+            | "field_declaration"
+            | "function_declaration"
+            | "class_declaration"
+            | "struct_declaration"
+            | "enum_declaration"
+            | "protocol_declaration"
+            | "actor_declaration"
+            | "property_declaration"
+            | "variable_declaration"
+            | "typealias_declaration"
+    )
+}
+
+fn node_text<'a>(node: TsNode<'_>, source: &'a str) -> Option<&'a str> {
+    node.utf8_text(source.as_bytes()).ok()
+}
+
+fn range_for_node(node: TsNode<'_>, source: &str) -> lsp::Range {
+    let start = lsp_position_for_byte_offset(source, node.start_byte());
+    let end = lsp_position_for_byte_offset(source, node.end_byte());
+    lsp::Range { start, end }
+}
+
+fn byte_offset_for_lsp_position(source: &str, line: u32, character: u32) -> Option<usize> {
+    let target_line = usize::try_from(line).ok()?;
+    let target_character = usize::try_from(character).ok()?;
+    let mut current_line = 0usize;
+    let mut current_utf16 = 0usize;
+    for (idx, ch) in source.char_indices() {
+        if current_line == target_line && current_utf16 >= target_character {
+            return Some(idx);
+        }
+        if ch == '\n' {
+            if current_line == target_line {
+                return Some(idx);
+            }
+            current_line += 1;
+            current_utf16 = 0;
+        } else if current_line == target_line {
+            current_utf16 += ch.len_utf16();
+        }
+    }
+    if current_line == target_line {
+        Some(source.len())
+    } else {
+        None
+    }
+}
+
+fn lsp_position_for_byte_offset(source: &str, offset: usize) -> lsp::Position {
+    let safe_offset = offset.min(source.len());
+    let mut line = 0u32;
+    let mut line_start = 0usize;
+    for (idx, ch) in source.char_indices() {
+        if idx >= safe_offset {
+            break;
+        }
+        if ch == '\n' {
+            line = line.saturating_add(1);
+            line_start = idx + ch.len_utf8();
+        }
+    }
+    let character = source
+        .get(line_start..safe_offset)
+        .map(|s| s.chars().map(char::len_utf16).sum::<usize>())
+        .and_then(|c| u32::try_from(c).ok())
+        .unwrap_or(0);
+    lsp::Position { line, character }
+}
+
 
 // ── JSON serialization helpers ─────────────────────────────────────────────
 
@@ -450,6 +848,21 @@ mod tests {
         }
     }
 
+    fn req_params(id: i64, method: &str, params: Value) -> LspMessage {
+        LspMessage::Request {
+            id: LspId::Int(id),
+            method: method.to_string(),
+            params: Some(params),
+        }
+    }
+
+    fn note(method: &str, params: Value) -> LspMessage {
+        LspMessage::Notification {
+            method: method.to_string(),
+            params: Some(params),
+        }
+    }
+
     #[test]
     fn fresh_kernel_is_uninitialized() {
         let k = LspKernel::new();
@@ -490,14 +903,140 @@ mod tests {
         let k = LspKernel::new();
         k.send(req(1, "initialize")).unwrap();
         let _ = k.poll_response().unwrap();
-        k.send(req(2, "textDocument/hover")).unwrap();
+        k.send(req(2, "workspace/unknown")).unwrap();
         let response = k.poll_response().unwrap().expect("must have response");
         match response {
             LspMessage::ResponseError { error, .. } => {
                 assert_eq!(error.code, -32601);
-                assert!(error.message.contains("textDocument/hover"));
+                assert!(error.message.contains("workspace/unknown"));
             }
             other => panic!("expected error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn did_open_then_hover_returns_tree_sitter_rust_symbol() {
+        let k = LspKernel::new();
+        k.send(req(1, "initialize")).unwrap();
+        let _ = k.poll_response().unwrap();
+        let uri = "file:///tmp/semantic.rs";
+        let text = "fn answer() -> i32 { 42 }\nfn main() { answer(); }\n";
+        k.send(note(
+            "textDocument/didOpen",
+            serde_json::json!({
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "rust",
+                    "version": 1,
+                    "text": text
+                }
+            }),
+        ))
+        .unwrap();
+        k.send(req_params(
+            2,
+            "textDocument/hover",
+            serde_json::json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": 1, "character": 12 }
+            }),
+        ))
+        .unwrap();
+        let response = k.poll_response().unwrap().expect("hover response");
+        match response {
+            LspMessage::ResponseSuccess { result, .. } => {
+                let rendered = serde_json::to_string(&result).unwrap();
+                assert!(rendered.contains("answer"), "hover response: {rendered}");
+                assert!(rendered.contains("function_item"), "hover response: {rendered}");
+            }
+            other => panic!("expected hover success, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn did_open_then_definition_returns_same_file_rust_location() {
+        let k = LspKernel::new();
+        k.send(req(1, "initialize")).unwrap();
+        let _ = k.poll_response().unwrap();
+        let uri = "file:///tmp/semantic.rs";
+        let text = "fn answer() -> i32 { 42 }\nfn main() { answer(); }\n";
+        k.send(note(
+            "textDocument/didOpen",
+            serde_json::json!({
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "rust",
+                    "version": 1,
+                    "text": text
+                }
+            }),
+        ))
+        .unwrap();
+        k.send(req_params(
+            2,
+            "textDocument/definition",
+            serde_json::json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": 1, "character": 12 }
+            }),
+        ))
+        .unwrap();
+        let response = k.poll_response().unwrap().expect("definition response");
+        match response {
+            LspMessage::ResponseSuccess { result, .. } => {
+                assert_eq!(result["uri"], uri);
+                assert_eq!(result["range"]["start"]["line"], 0);
+                assert_eq!(result["range"]["start"]["character"], 3);
+            }
+            other => panic!("expected definition success, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn did_change_updates_document_before_semantic_hover() {
+        let k = LspKernel::new();
+        k.send(req(1, "initialize")).unwrap();
+        let _ = k.poll_response().unwrap();
+        let uri = "file:///tmp/semantic.swift";
+        k.send(note(
+            "textDocument/didOpen",
+            serde_json::json!({
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "swift",
+                    "version": 1,
+                    "text": "func oldName() -> String { \"old\" }\nlet value = oldName()\n"
+                }
+            }),
+        ))
+        .unwrap();
+        k.send(note(
+            "textDocument/didChange",
+            serde_json::json!({
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{
+                    "text": "func newName() -> String { \"new\" }\nlet value = newName()\n"
+                }]
+            }),
+        ))
+        .unwrap();
+        k.send(req_params(
+            2,
+            "textDocument/hover",
+            serde_json::json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": 1, "character": 12 }
+            }),
+        ))
+        .unwrap();
+        let response = k.poll_response().unwrap().expect("hover response");
+        match response {
+            LspMessage::ResponseSuccess { result, .. } => {
+                let rendered = serde_json::to_string(&result).unwrap();
+                assert!(rendered.contains("newName"), "hover should use changed text: {rendered}");
+                assert!(!rendered.contains("oldName"), "stale text leaked into hover: {rendered}");
+            }
+            other => panic!("expected hover success, got {other:?}"),
         }
     }
 

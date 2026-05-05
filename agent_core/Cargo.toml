@@ -20,14 +20,10 @@ pro-build = []
 # T14 / T15 research surfaces (Sherry 1.25-bit ternary, ANE direct).
 # Independent of pro-build so research can compose with MAS or Pro.
 research = []
-# V2.3 in-process LSP runtime. Hand-rolled LSP server (no tower-lsp
-# dep yet — the initialize/shutdown subset is small enough that
-# pulling in a framework would be net negative). When the surface
-# expands to hover/definition + tree-sitter parsing in a follow-up
-# slice, this feature gates the new deps so the default build stays
-# light. Off by default so MAS + Pro builds that don't use LSP
-# don't pay the compile cost.
-lsp-runtime = []
+# V2.3 in-process LSP runtime. Feature-gates the semantic LSP stack
+# (`tower-lsp` LSP types + tree-sitter Rust/Swift parsing) so builds
+# that do not use the editor LSP surface do not pay the compile cost.
+lsp-runtime = ["tower-lsp", "tree-sitter", "tree-sitter-rust", "tree-sitter-swift"]
 # Legacy alias kept for compatibility with anything still referencing
 # `mas-sandbox`. New code should use `mas-build`.
 mas-sandbox = []
@@ -106,6 +102,10 @@ nix = { version = "0.29", features = ["process", "term", "signal", "fs"] }
 tokio = { version = "1.43", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 tower = { version = "0.5", features = ["util"] }
+tower-lsp = { version = "0.20", optional = true }
+tree-sitter = { version = "0.25.10", optional = true }
+tree-sitter-rust = { version = "0.24.2", optional = true }
+tree-sitter-swift = { version = "0.7.2", optional = true }
 memchr = "2.7"
 memmap2 = "0.9"
 rayon = "1.10"
