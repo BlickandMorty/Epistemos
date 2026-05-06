@@ -1159,11 +1159,7 @@ struct EpistemosCommands: Commands {
     @MainActor
     private func createEpdocDocument() {
         do {
-            let controller = NSDocumentController.shared
-            let document = try controller.makeUntitledDocument(ofType: "com.epistemos.epdoc")
-            controller.addDocument(document)
-            document.makeWindowControllers()
-            document.showWindows()
+            try NSDocumentController.shared.createUntitledEpdocDocument()
         } catch {
             NSApplication.shared.presentError(error)
         }

@@ -1,3 +1,4 @@
+import AppKit
 import OSLog
 import SwiftData
 import SwiftUI
@@ -307,6 +308,12 @@ struct LandingView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
 
+            Button(action: { createAndOpenDocument() }) {}
+                .keyboardShortcut("n", modifiers: [.command, .option])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+
             Button(action: { MiniChatWindowController.shared.openNewChat() }) {}
                 .keyboardShortcut("3", modifiers: .command)
                 .frame(width: 0, height: 0)
@@ -514,10 +521,19 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
+                    CommandHint(modIcon: "option", key: "⌘N", label: "New Doc", theme: theme) {
+                        createAndOpenDocument()
+                    }
+                    .springEntrance(index: 3, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
                     CommandHint(modIcon: "command", key: "⇧N", label: "Quick Capture", theme: theme) {
                         openQuickCapture()
                     }
-                    .springEntrance(index: 3, stagger: 0.08)
+                    .springEntrance(index: 4, stagger: 0.08)
 
                     Circle()
                         .fill(theme.textTertiary.opacity(0.3))
@@ -526,7 +542,7 @@ struct LandingView: View {
                     CommandHint(modIcon: "command", key: "S", label: "Settings", theme: theme) {
                         UtilityWindowManager.shared.show(.settings)
                     }
-                    .springEntrance(index: 4, stagger: 0.08)
+                    .springEntrance(index: 5, stagger: 0.08)
 
                     Circle()
                         .fill(theme.textTertiary.opacity(0.3))
@@ -535,7 +551,7 @@ struct LandingView: View {
                     CommandHint(modIcon: "command", key: "G", label: "Graph", theme: theme) {
                         HologramController.shared.toggle()
                     }
-                    .springEntrance(index: 5, stagger: 0.08)
+                    .springEntrance(index: 6, stagger: 0.08)
 
                 }
                 .padding(.bottom, 28)
@@ -1227,6 +1243,14 @@ struct LandingView: View {
             if let pageId = await vaultSync.createPage(title: "New Note", allowVaultSelectionPrompt: true) {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
+        }
+    }
+
+    private func createAndOpenDocument() {
+        do {
+            try NSDocumentController.shared.createUntitledEpdocDocument()
+        } catch {
+            NSApplication.shared.presentError(error)
         }
     }
 

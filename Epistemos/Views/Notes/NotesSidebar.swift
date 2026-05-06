@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -1095,6 +1096,7 @@ struct NotesSidebar: View {
             // EditorActionsBar is isolated (has its own @Query for dirty pages).
             EditorActionsBar(
                 activePageId: currentSelectedPageId,
+                onNewDocument: { openNewEpdocDocument() },
                 onNewPage: {
                     Task {
                         if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
@@ -1915,6 +1917,14 @@ struct NotesSidebar: View {
         _ = ensureRootFolder(named: title, isCollection: true)
     }
 
+    private func openNewEpdocDocument() {
+        do {
+            try NSDocumentController.shared.createUntitledEpdocDocument()
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
     private func getOrCreateTodayJournal() async {
         let today = Date.now
         let formatter = DateFormatter()
@@ -2670,6 +2680,7 @@ private struct EmptyTreeState: View {
 
 private struct EditorActionsBar: View {
     let activePageId: String?
+    let onNewDocument: () -> Void
     let onNewPage: () -> Void
     let onNewFolder: () -> Void
     let onNewCollection: () -> Void
@@ -2688,6 +2699,9 @@ private struct EditorActionsBar: View {
         HStack(spacing: 2) {
             SidebarIconButton(icon: "square.and.pencil", tooltip: "New Page") {
                 onNewPage()
+            }
+            SidebarIconButton(icon: "doc.badge.plus", tooltip: "New Document (.epdoc)") {
+                onNewDocument()
             }
             SidebarIconButton(icon: "folder.badge.plus", tooltip: "New Folder") {
                 onNewFolder()
