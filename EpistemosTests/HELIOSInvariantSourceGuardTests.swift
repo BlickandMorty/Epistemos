@@ -320,6 +320,39 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 52: Scientific Calculator Basis substrate (Lane 3)")
+    func stage52ScbExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/scientific_calculator_basis.rs")
+        #expect(source.contains("HELIOS-SCB guard"))
+        // 6-arm category enum
+        #expect(source.contains("pub enum ScbCategory"))
+        #expect(source.contains("Constants"))
+        #expect(source.contains("Arithmetic"))
+        #expect(source.contains("Exponentiation"))
+        #expect(source.contains("Transcendental"))
+        #expect(source.contains("InverseTrigonometric"))
+        #expect(source.contains("Hyperbolic"))
+        // 2-arm grammar production enum
+        #expect(source.contains("pub enum EmlProduction"))
+        #expect(source.contains("    Terminal,"))
+        #expect(source.contains("BinaryEml"))
+        // Non-analytic functions outside closure
+        #expect(source.contains("pub enum NonAnalyticOutsideClosure"))
+        #expect(source.contains("BumpFunction"))
+        #expect(source.contains("WeierstrassFunction"))
+        #expect(source.contains("AbsoluteValueAtZero"))
+        // Const arrays
+        #expect(source.contains("pub const SIX_CATEGORIES"))
+        #expect(source.contains("pub const TWO_PRODUCTIONS"))
+        // Total SCB size = 23
+        #expect(source.contains("total_scb_size_is_23"))
+        // Citation
+        #expect(source.contains("2603.21852"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod scientific_calculator_basis"))
+    }
+
     @Test("Stage 51: Stack roles + canonical reference checkpoints (Lane 3)")
     func stage51StackRolesExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/stack_roles.rs")

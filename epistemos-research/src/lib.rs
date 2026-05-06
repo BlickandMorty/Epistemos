@@ -102,6 +102,13 @@
 //!   checkpoint pins (Qwen3-8B-MLX-4bit transformer track +
 //!   cartesia-ai/mamba2-2.7b-4bit-mlx SSM track) for cross-
 //!   architecture validation.
+//! - [`scientific_calculator_basis`] — Scientific Calculator Basis
+//!   per Odrzywołek arXiv:2603.21852 §1.1. 6 canonical categories
+//!   (constants / arithmetic / exponentiation / transcendental /
+//!   inverse-trig / hyperbolic) totaling 23 members. EML grammar
+//!   `S → 1 | eml(S, S)` with 2 productions. Plus 3 explicit
+//!   non-analytic functions outside the closure (bump / Weierstrass
+//!   / |x| at 0).
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -131,6 +138,9 @@ pub mod mas_capability_lattice;
 
 #[cfg(feature = "research")]
 pub mod mathematical_pillars;
+
+#[cfg(feature = "research")]
+pub mod scientific_calculator_basis;
 
 #[cfg(feature = "research")]
 pub mod self_evolving_l_se;
