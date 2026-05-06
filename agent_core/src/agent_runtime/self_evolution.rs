@@ -35,9 +35,7 @@ pub fn propose_repeated_success_skill(
         if record.steps_taken.is_empty() {
             continue;
         }
-        let entry = grouped
-            .entry(record.steps_taken.clone())
-            .or_insert_with(RepetitionStats::default);
+        let entry = grouped.entry(record.steps_taken.clone()).or_default();
         entry.repetitions += 1;
         entry.last_seen = entry.last_seen.max(record.occurred_at_unix_seconds);
         entry.source_skill_names.insert(record.skill_name.clone());

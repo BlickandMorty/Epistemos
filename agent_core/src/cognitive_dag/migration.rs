@@ -62,8 +62,9 @@ pub trait DagMirror {
 
     /// Audit hook — verifies that the legacy store and the DAG agree
     /// for a given subsystem entity. Implementations walk both stores
-    /// + diff the canonical projection. Used by the Phase 8.H
-    /// readiness gate ("two weeks of CI green = mirror is reliable").
+    /// and diff the canonical projection. Used by the Phase 8.H readiness
+    /// gate ("two weeks of CI green = mirror is reliable").
+    ///
     /// Returns `Ok(true)` if consistent, `Ok(false)` if drift was
     /// observed but recoverable, `Err(...)` for unrecoverable drift.
     fn verify_consistent_with_legacy(
@@ -269,7 +270,10 @@ impl SkillNameIndex {
 
     /// Look up a Skill by name. None if not registered.
     pub fn lookup(&self, name: &str) -> Option<NodeId> {
-        self.index.read().ok().and_then(|idx| idx.get(name).copied())
+        self.index
+            .read()
+            .ok()
+            .and_then(|idx| idx.get(name).copied())
     }
 
     pub fn len(&self) -> usize {
@@ -284,10 +288,7 @@ impl SkillNameIndex {
 /// Linear-scan fallback: walks the entire DAG looking for a Skill
 /// node with the given name. O(N) — fine for verify, slow for hot
 /// path. Hot path uses `SkillNameIndex`.
-fn find_skill_by_name(
-    name: &str,
-    store: &dyn DagStore,
-) -> Result<Option<NodeId>, DagError> {
+fn find_skill_by_name(name: &str, store: &dyn DagStore) -> Result<Option<NodeId>, DagError> {
     let snapshot = store.snapshot()?;
     for node in &snapshot.nodes {
         if let NodeKind::Skill { name: n, .. } = &node.kind {
@@ -364,14 +365,13 @@ impl DagMirror for ProceduralMirror {
         // `ContextHash`. If the hex is malformed (legacy data, manual
         // entry), treat it as a doctrine error — the audit gate would
         // surface this anyway.
-        let context_hash = parse_context_hash_hex(invocation_context_hash_hex).ok_or_else(
-            || {
+        let context_hash =
+            parse_context_hash_hex(invocation_context_hash_hex).ok_or_else(|| {
                 DagError::Backend(format!(
                     "procedural memory context hash must be 64-hex-char BLAKE3 digest, got `{}`",
                     invocation_context_hash_hex
                 ))
-            },
-        )?;
+            })?;
 
         // Flatten the outcome into the OutcomeList. We keep the
         // succeeded/duration/timestamp metadata in a deterministic
@@ -426,7 +426,10 @@ impl DagMirror for ProceduralMirror {
         };
         let snapshot = store.snapshot()?;
         for node in &snapshot.nodes {
-            if let NodeKind::Procedure { context_hash: ch, .. } = &node.kind {
+            if let NodeKind::Procedure {
+                context_hash: ch, ..
+            } = &node.kind
+            {
                 if ch == &context_hash {
                     return Ok(true);
                 }
@@ -514,9 +517,10 @@ impl DagMirror for ProvenanceLedgerMirror {
                 let evidence_node = Node::new_at(
                     NodeKind::Evidence {
                         kind: super::node::EvidenceKind::Citation,
-                        payload: super::node::EvidenceBlob(
-                            evidence_payload_bytes(evidence_id, source),
-                        ),
+                        payload: super::node::EvidenceBlob(evidence_payload_bytes(
+                            evidence_id,
+                            source,
+                        )),
                         captured_at: ts,
                     },
                     ts,
@@ -732,10 +736,10 @@ impl DagMirror for CompanionMirror {
         // straightforward.
         let snapshot = store.snapshot()?;
         for node in &snapshot.nodes {
-            if matches!(node.kind, NodeKind::Companion { .. }) {
-                if format!("{:?}", node.id) == entity_id {
-                    return Ok(true);
-                }
+            if matches!(node.kind, NodeKind::Companion { .. })
+                && format!("{:?}", node.id) == entity_id
+            {
+                return Ok(true);
             }
         }
         Ok(false)
@@ -807,14 +811,22 @@ mod tests {
         let mutation = register_mutation(
             "vault.search.hybrid",
             1,
-            vec![step(1, "vault.fts"), step(2, "vault.embed"), step(3, "vault.rrf")],
+            vec![
+                step(1, "vault.fts"),
+                step(2, "vault.embed"),
+                step(3, "vault.rrf"),
+            ],
         );
         let skill_id = SkillsMirror::mirror_write(&mutation, &store, cap()).unwrap();
 
         // Skill node exists
         let skill = store.get_node(skill_id).unwrap().unwrap();
         match skill.kind {
-            NodeKind::Skill { name, schema_version, .. } => {
+            NodeKind::Skill {
+                name,
+                schema_version,
+                ..
+            } => {
                 assert_eq!(name, "vault.search.hybrid");
                 assert_eq!(schema_version, 1);
             }
@@ -890,7 +902,9 @@ mod tests {
         assert!(matches!(event.kind, NodeKind::Event { .. }));
 
         // Edge from Skill → Event with order=0 marks the invocation
-        let skill_id = find_skill_by_name("knowledge.query", &store).unwrap().unwrap();
+        let skill_id = find_skill_by_name("knowledge.query", &store)
+            .unwrap()
+            .unwrap();
         let edges = store
             .edges_from(skill_id, Some(EdgeKindSelector::Invokes))
             .unwrap();
@@ -922,16 +936,14 @@ mod tests {
             cap(),
         )
         .unwrap();
-        let consistent =
-            SkillsMirror::verify_consistent_with_legacy("present", &store).unwrap();
+        let consistent = SkillsMirror::verify_consistent_with_legacy("present", &store).unwrap();
         assert!(consistent);
     }
 
     #[test]
     fn verify_consistent_returns_false_when_skill_missing() {
         let store = InMemoryDagStore::new();
-        let consistent =
-            SkillsMirror::verify_consistent_with_legacy("missing", &store).unwrap();
+        let consistent = SkillsMirror::verify_consistent_with_legacy("missing", &store).unwrap();
         assert!(!consistent);
     }
 
@@ -1048,7 +1060,10 @@ mod tests {
                 outcomes,
                 ..
             } => {
-                assert_eq!(context_hash, parse_context_hash_hex(ctx_hash_hex_a()).unwrap());
+                assert_eq!(
+                    context_hash,
+                    parse_context_hash_hex(ctx_hash_hex_a()).unwrap()
+                );
                 // 1 meta header + 2 steps + 1 summary = 4 entries
                 assert_eq!(outcomes.0.len(), 4);
                 assert!(outcomes.0[0].starts_with("::meta succeeded=true"));
@@ -1094,12 +1109,9 @@ mod tests {
         )
         .unwrap();
         // Wrong length
-        let err = ProceduralMirror::mirror_write(
-            &record_mutation("s", "tooshort", true),
-            &store,
-            cap(),
-        )
-        .unwrap_err();
+        let err =
+            ProceduralMirror::mirror_write(&record_mutation("s", "tooshort", true), &store, cap())
+                .unwrap_err();
         assert!(matches!(err, DagError::Backend(_)));
         // Right length, non-hex chars
         let err2 = ProceduralMirror::mirror_write(
@@ -1155,13 +1167,9 @@ mod tests {
             cap(),
         )
         .unwrap();
+        assert!(ProceduralMirror::verify_consistent_with_legacy(ctx_hash_hex_a(), &store).unwrap());
         assert!(
-            ProceduralMirror::verify_consistent_with_legacy(ctx_hash_hex_a(), &store)
-                .unwrap()
-        );
-        assert!(
-            !ProceduralMirror::verify_consistent_with_legacy(ctx_hash_hex_b(), &store)
-                .unwrap()
+            !ProceduralMirror::verify_consistent_with_legacy(ctx_hash_hex_b(), &store).unwrap()
         );
     }
 
@@ -1246,7 +1254,11 @@ mod tests {
         .unwrap();
         let node = store.get_node(id).unwrap().unwrap();
         match node.kind {
-            NodeKind::Claim { source, proposition, .. } => {
+            NodeKind::Claim {
+                source,
+                proposition,
+                ..
+            } => {
                 assert_eq!(source.0, "ledger_claim:c1");
                 assert_eq!(proposition, "Some claim text");
             }
@@ -1360,7 +1372,10 @@ mod tests {
                 lora_path,
                 weight_alpha,
             } => {
-                assert_eq!(lora_path, &PathBuf::from("/vault/companions/test.safetensors"));
+                assert_eq!(
+                    lora_path,
+                    &PathBuf::from("/vault/companions/test.safetensors")
+                );
                 assert!((weight_alpha - 0.7).abs() < f32::EPSILON);
             }
             other => panic!("expected Deforms, got {:?}", other),

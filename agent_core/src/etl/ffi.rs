@@ -170,6 +170,7 @@ pub extern "C" fn etl_run_worker_json(queue_path: *const c_char, max_jobs: u64) 
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn etl_queue_free_string(ptr: *mut c_char) {
     if ptr.is_null() {
         return;

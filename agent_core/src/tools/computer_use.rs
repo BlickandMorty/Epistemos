@@ -29,6 +29,12 @@ impl ComputerUseTool {
     }
 }
 
+impl Default for ComputerUseTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait::async_trait]
 impl ToolHandler for ComputerUseTool {
     async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {

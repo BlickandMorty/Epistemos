@@ -839,6 +839,7 @@ async fn execute_tools_sequential(
     Ok(results)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn execute_one_tool(
     session_id: String,
     id: String,

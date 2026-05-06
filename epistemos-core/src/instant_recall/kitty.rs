@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 // Kitty two-tensor mixed-precision decomposition.
 //
 // Problem: mixed bit-widths (2-bit + 4-bit channels) destroy uniform memory access
@@ -155,7 +157,7 @@ pub fn kitty_quantize(vector: &[f32], boost_map: &KittyBoostMap) -> KittyVector 
     let base_zero = min_val;
 
     // Quantize all channels to 2-bit base
-    let base_bytes = (dim + 3) / 4; // 4 values per byte
+    let base_bytes = dim.div_ceil(4); // 4 values per byte
     let mut base = vec![0u8; base_bytes];
     let mut base_dequant = vec![0.0_f32; dim]; // for computing residuals
 
@@ -200,7 +202,7 @@ pub fn kitty_quantize(vector: &[f32], boost_map: &KittyBoostMap) -> KittyVector 
     };
     let boost_zero = res_min;
 
-    let boost_bytes = (num_boosted + 3) / 4;
+    let boost_bytes = num_boosted.div_ceil(4);
     let mut boost = vec![0u8; boost_bytes];
 
     for (j, &residual) in residuals.iter().enumerate() {
@@ -295,9 +297,9 @@ pub fn compute_channel_sensitivities(
 
 /// Memory footprint of a KittyVector in bytes.
 pub fn kitty_memory_bytes(dim: usize, boost_ratio: f32) -> usize {
-    let base_bytes = (dim + 3) / 4;
+    let base_bytes = dim.div_ceil(4);
     let num_boosted = ((dim as f32) * boost_ratio).ceil() as usize;
-    let boost_bytes = (num_boosted + 3) / 4;
+    let boost_bytes = num_boosted.div_ceil(4);
     let metadata_bytes = 4 * 4; // 4 f32 scale/zero values
     base_bytes + boost_bytes + metadata_bytes
 }

@@ -78,8 +78,10 @@ where
     let mut last_error: Option<E> = None;
 
     for attempt in 0..=config.max_retries {
-        if cancel.is_cancelled() && last_error.is_some() {
-            return Err(last_error.expect("last_error checked above"));
+        if cancel.is_cancelled() {
+            if let Some(error) = last_error {
+                return Err(error);
+            }
         }
 
         match operation().await {

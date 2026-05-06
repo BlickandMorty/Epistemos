@@ -56,7 +56,12 @@ Last updated: **2026-05-05** — V2 stretch + canon hardening sprint. **The 2026
     - **Dispatch tracing migration (C1)**: 4 `eprintln!` sites → structured `tracing::warn!` for the doctrine §10 verification window's structured observability needs.
     - **Canonical roadmap synthesis** (`docs/CANONICAL_ROADMAP_2026_05_05.md`): state: canon doc tying Codex's 10-point advice + agent's audit + this session's commits.
 
-**V2.1 8.H authority flip status: 1 of 6 blockers checked.** CD-005 closed the storage layer; remaining: A1 persistent backend (`redb`), A2 macaroon-derived dispatch caps, A3 auto-invoke dispatch coverage, CD-004 Phase 1-7 prerequisites, §10 two-week CI green window.
+**V2.1 8.H authority flip status:** implementation blockers are
+shrinking, but authority is still not flipped. CD-005, A2/A2-followup,
+A3 live-write coverage, CD-006, and A1 redb slices 1-4 are closed or
+partial-closed. Remaining: A1 slice 5 dispatch-to-redb wiring, CD-004
+Phase 1-7 prerequisite verification, and the §10 two-week CI green
+window.
 
 **Externally-gated work (typed gates per no-date-gates protocol):**
 - V2.4 production XPC service launch — distribution gate (Apple Developer Program $99/yr)
@@ -95,10 +100,13 @@ first documentation. Final session totals + cross-refs:
 11. **B5 MAS/Pro source-guard sweep + tirith verification** (CD-007
     closure). Surveyed every `Command::new` spawn site, classified
     9 modules as properly Pro-gated, BashExecuteHandler impl-level
-    Pro-gated, security.rs library helpers clean. Tirith.rs:268
-    spawn resolved-with-recommendation (runtime-gated under MAS;
-    Pro-gating recommended for App Review cleanliness). 3 orphan
-    files held for sign-off (904 LOC).
+    Pro-gated, security.rs library helpers clean. Tirith.rs is now
+    Pro-only at compile time, so its subprocess scanner surface does
+    not ship in MAS/default builds. Codex
+    continuation removed 2 proven-dead orphan files
+    (`code_execution.rs`, `graph_query.rs`) and promoted
+    `note_tools.rs` into the compiled registry with R.5 gating for
+    template writes.
 
 12. **CANON_GAPS_AND_ADDENDA fully landed** (Codex #1 advice item).
     - All 15 C-blocks merged into doctrine: C1 (WRV §10 #7), C2 (no
@@ -113,10 +121,12 @@ first documentation. Final session totals + cross-refs:
     - Each merged block carries inline `(C#, merged 2026-05-05.)`
       provenance.
     - All 3 B-bonus blocks read-then-absorbed as lift-targets briefs
-      (state: candidate, held for sign-off): B1 BIOMETRIC_TAMAGOTCHI_
+      (state: candidate for implementation): B1 BIOMETRIC_TAMAGOTCHI_
       BRAINEXPORT, B2 LIVE_FILES_AND_SUBSTRATE, B3 OBSCURA_BROWSER.
       2893 source-doc lines mapped to current main with Tier-1/2/3
-      classification.
+      classification. Codex continuation landed the 15 Tier-1 doctrine
+      lifts into `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`; the B1/B2/B3
+      code phases remain queued, not shipped.
 
 13. **XPC trust spine** (Codex #5 + #9 advice items). New
     `Epistemos/XPC/XPCTrust.swift` canonical helper that emits
@@ -144,29 +154,40 @@ first documentation. Final session totals + cross-refs:
     design — no live caller because `CompanionRegistry` is only
     invoked from cognitive_dag tests today.
 
-17. **CD-008 partial closure**. Cargo cross-crate green on clean
-    reruns: agent_core 879/879 + 891/891 with lsp-runtime, graph-
-    engine 2522/2522, omega-mcp 143/143. First-run flakes traced
-    to concurrent xcodebuild load. Full xcodebuild test +
-    manual runtime smoke remain for CD-008 full closure.
+17. **CD-008 automated-test closure, strengthened by Codex continuation**.
+    Cargo cross-crate green on clean reruns and now Codex-verified at
+    `--all-targets`: agent_core default, agent_core Pro+lsp,
+    epistemos-core, omega-mcp, omega-ax, and graph-engine all pass.
+    Doctrine linter and replay verification also pass. Full
+    `xcodebuild test` now passes at `/tmp/epistemos-codex-full-test-rerun-1778019268.xcresult`
+    with 5,739 total tests, 0 failed, 49 skipped. Wider manual runtime
+    smoke is partly closed by Computer Use (Landing `.epdoc`, Notes
+    `.epdoc`, editor window, Settings Diagnostics, Authority approval
+    preview). The semantic LSP transport is now verified in both Rust
+    and Swift focused tests: `tower-lsp` + `tree-sitter` hover and
+    same-file definition return through `RustLSPTransport`. Only the
+    live editor UI affordance and real biometric approval remain for
+    release-style closure.
 
 18. **Both deferred user-question deliberation slots answered**:
     - **Q1** (mmap utilization): `docs/MMAP_UTILIZATION_AUDIT_2026_05_05.md`
       — 3 mmap surfaces, 3 drift hazards, full inventory across
       Rust + Swift + Metal substrate. Companion to doctrine §2.2 #1.
     - **Q2** (Static/Dynamic discriminator): `docs/STATIC_NOTE_VS_
-      DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` — state: candidate
-      brief; survey shows 8 of 10 NodeKind variants are static, 2
-      are dynamic-rooted via Companion/Model. Recommendation:
-      `NodeKind::is_dynamic_rooted()` method + doctrine paragraph
-      (~30 LOC + 1 test). Held for sign-off.
+      DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` — promoted to
+      state: canon by Codex continuation; survey shows 8 of 10
+      NodeKind variants are static, 2 are dynamic-rooted via
+      Companion/Model. Implementation landed
+      `NodeKind::is_dynamic_rooted()` + doctrine paragraph + focused
+      test.
 
-19. **A1 redb persistent backend scoping** (V2.1 8.H authority
-    blocker). `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md`
-    — state: candidate. Crate selection (redb 2.x), 5-table schema
-    (NODES + EDGES + CAPABILITIES + 2 multimap indices), 5-slice
-    implementation plan (~5-9 hours), ~19 new tests, doctrine
-    alignment check vs §2.2 + CD-005 + A2 + A2-followup.
+19. **A1 redb persistent backend partial implementation** (V2.1 8.H
+    authority blocker). `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md`
+    is now canon-partial: `RedbDagStore` landed behind the opt-in
+    `cognitive-dag-redb` feature using current `redb` 4.1.0, five
+    tables, JSON value bytes, durable reopen tests, CD-005 capability
+    checks, directional redb multimaps, Merkle parity, and snapshot
+    parity. Slice 5 dispatch authority wiring remains OFF by default.
 
 20. **Late-session hygiene fix**: caught that Codex's V2.3 semantic
     LSP work (deliverable behind CD-001/002/003) had been sitting
@@ -200,20 +221,65 @@ first documentation. Final session totals + cross-refs:
 - ✓ A2 + A2-followup (macaroon-derived per-mirror caveat caps)
 - ✓ A3 mostly closed (4 of 5 dispatch helpers wired in live callers)
 - ✓ CD-006 (mirror coverage inventory)
-- ⏸ A1 (redb persistent backend) — scoping landed, implementation
-  held for sign-off (5-9 hours, 5 slices)
+- PARTIAL A1 (redb persistent backend) — slices 1-4 landed and verified;
+  slice 5 dispatch-to-redb wiring remains held until authority review
 - ⏸ CD-004 (Phase 1-7 authority prerequisites) — BLOCKED on
   external Codex verification of mirror coverage + replay parity
   + flip criteria
 - ⏸ §10 two-week CI green window — automatic gate, runs in CI
 
+**Codex continuation verification update:**
+- Project-wide clippy P1 is resolved without API-changing refactors;
+  all five CI-style `cargo clippy ... -D warnings` crate gates pass,
+  including agent_core Pro+lsp.
+- `.epdoc` visibility is source-guarded and runtime-smoked with
+  Computer Use: Landing exposes `New Doc`, Notes exposes
+  `New Document (.epdoc)`, and clicking the Landing action opens an
+  untitled document window.
+- `agent_core/src/tools/note_tools.rs` is preserved and wired as
+  live Phase 2 note-tool substrate; the actually dead orphan tools
+  `code_execution.rs` and `graph_query.rs` were deleted.
+- `tirith` is Pro-gated out of MAS builds at module and caller level.
+- `provenance_ledger()` drift is resolved without deleting scaffold
+  or creating a parallel write path: the legacy bridge remains
+  read-only, while Halo + Provenance Console now display the
+  DAG-authoritative Rust provenance projection from
+  `cognitive_dag_store`.
+- Static/Dynamic discriminator Q2 is promoted from candidate to canon:
+  `NodeKind::is_dynamic_rooted()` distinguishes dynamic-rooted
+  `Companion` / `Model` nodes from static content-addressed nodes,
+  doctrine §2.2 records the invariant, the focused Rust test passes,
+  and agent_core clippy remains clean.
+- B1/B2/B3 Tier-1 doctrine lifts are now canonized without runtime
+  overclaim: Session Authority Token, Confidence Meter, Pixel/Tactical
+  mode, Accessory metaphor, Brain Artifact, Cell/organism rules,
+  Cognitive Weight, Stateful Rotor/no-polling, closed-grammar Live
+  Files, MoLoRA/QLoRA subprocess debt, library-embed engine rule,
+  closed-vocabulary citations, V8 dedup, and Eidos search are all
+  anchored in final doctrine. Implementation remains queued.
+- A1 redb persistence is implemented through slices 1-4 and verified:
+  redb focused 8/8, feature-enabled cognitive DAG 144/144, default
+  cognitive DAG 136/136, default clippy, and redb-feature clippy all
+  pass. The implementation deliberately used JSON value bytes instead
+  of the brief's proposed bincode after tests proved bincode could not
+  deserialize the existing `Node` / `Edge` serde shape.
+- Preservation-first source audit re-ran the Rust tool orphan scan and
+  widened the source guard to Swift `Process` / `Pipe` surfaces. Result:
+  no undeclared `agent_core/src/tools/*.rs` files remain; Swift process
+  paths are gated under `#if !EPISTEMOS_APP_STORE` Pro/Harness/Research
+  surfaces or named MoLoRA/QLoRA doctrine debt. Nothing else was deleted
+  because those files are intended scaffold, not proven-dead past code.
+
 **Sign-off-gated work queued for next session:**
-- Static/Dynamic discriminator implementation (~30 LOC + 1 test)
-- A1 redb persistent backend implementation (5-9 hours, 5 slices)
+- A1 redb slice 5 authority wiring: when `cognitive-dag-redb` is
+  enabled, decide whether dispatch opens
+  `<vault>/.epistemos/cognitive_dag.redb` now or keeps redb as a
+  parity/replay backend for one more verification cycle
 - B1-B3 phase work (Phases 21-25 + W7-A through W7-J + W6-A
   through W6-I + W8) — 15 total sign-off questions queued across
   the three lift-targets briefs
-- Manual runtime smoke for CD-008 full closure
+- Remaining manual runtime smoke for CD-008 release-style closure:
+  live LSP editor UI affordance and real biometric approval
 
 **Updated cross-references:**
 - `docs/SESSION_RETROSPECTIVE_2026_05_05.md` — read-this-first index
@@ -221,7 +287,8 @@ first documentation. Final session totals + cross-refs:
   with Codex drift register status table
 - `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` — B5 / CD-007 closure
 - `docs/MIRROR_DISPATCH_COVERAGE_2026_05_05.md` — CD-006 closure
-- `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` — CD-008 partial
+- `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` — CD-008 automated-test
+  closure, with manual smoke pending
 - `docs/MMAP_UTILIZATION_AUDIT_2026_05_05.md` — Q1 answer
 - `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` — Q2
 - `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md` — A1 brief
@@ -275,13 +342,14 @@ Last updated: 2026-04-28 | **Phase 1 keystone + ReplayBundle + epistemos-trace v
 - `SUBPROCESS_ALLOWLIST` (10 vars: PATH, HOME, USER, LOGNAME, TMPDIR, LANG, LC_ALL, LC_CTYPE, TERM, TZ).
 - `SUBPROCESS_DENYLIST` (24 vectors: LD_PRELOAD + all DYLD_*, MallocStackLogging family, NODE_OPTIONS family, PYTHONPATH/PYTHONHOME/PYTHONSTARTUP, RUBYOPT/RUBYLIB/PERL5OPT/PERL5LIB, etc).
 - 4 new security tests including a real subprocess that proves LD_PRELOAD + DEBUG don't leak through hardening, plus PATH preservation.
-- **6 high-risk subprocess sites hardened** (all calling user-installed binaries that run arbitrary code):
+- **5 high-risk subprocess sites remain hardened** (all calling user-installed binaries that run arbitrary code); a sixth orphan path was later removed by Codex continuation:
   1. `tools/cli_passthrough.rs` (Claude Code / Codex / Gemini / Kimi CLIs)
   2. `mcp/client.rs` (arbitrary user-installed MCP servers)
-  3. `tools/code_execution.rs` (LLM-driven Python / Node / Ruby / Perl / shell interpreter)
-  4. `tools/registry.rs` bash subprocess (LLM-supplied shell commands)
-  5. `tools/browser.rs` (with `extending` allowlist for HTTP_PROXY family + FAKE_BROWSER_LOG fixture)
-  6. `tirith.rs` (security scanner CLI)
+  3. `tools/registry.rs` bash subprocess (LLM-supplied shell commands)
+  4. `tools/browser.rs` (with `extending` allowlist for HTTP_PROXY family + FAKE_BROWSER_LOG fixture)
+  5. `tirith.rs` (security scanner CLI)
+- **Removed after reachability audit:** `tools/code_execution.rs` (orphan local code runner, not declared in `lib.rs`, not shipped).
+- **Promoted after scaffold audit:** `tools/note_tools.rs` is now declared, registered, and tested; `note_template.output_path` maps to the R.5 vault-note write gate.
 - 1 regression caught + fixed mid-flight (browser test relied on FAKE_BROWSER_LOG passthrough — added to extending allowlist with documented rationale).
 
 **W9.21 known failure resolved:** `epistemos-shadow::honest_handle::tests::borrow_preserves_refcount` was buggy (used `&Arc::from_raw(raw)` which creates a temporary that drops at the statement boundary, freeing the allocation, so the next `from_raw` was UAF and read garbage memory — the previously-reported `right: 3` was that garbage). Rewrote to pair every `Arc::from_raw` with a preceding `Arc::increment_strong_count` so the temporary's drop returns the count instead of freeing. Test now passes deterministically. epistemos-shadow lib: 44 → 45 passing.
@@ -743,3 +811,13 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] Core `NoteFileStorage` atomic writes now verify byte-exact UTF-8 readback before returning success / clearing pending body state. Verified by test-first failure, 14/14 `NoteSavingEdgeCaseTests`, 25/25 `NoteFileStorageTests`, and App Store Release BUILD SUCCEEDED.
 - [ ] Remaining App Store blockers: end-to-end attached-file write verification, remaining Swift-originated verified-write migration, grant UI manual revoke smoke, full repeated release-audit pass, App Store metadata/privacy/TestFlight closure
 - [ ] Pro work remains deferred until App Store lane is accepted or explicitly branched: CLI subprocess Power Mode, Docker, iMessage channel, full CLI config compiler, Bash/MultiEdit/WebFetch, long-horizon agents
+
+## Codex Canon Verification Loop (2026-05-05)
+- [x] `.epdoc` creation path is visible and shared across File menu, landing rail, and Notes sidebar. Focused source-guard tests passed, and Computer Use smoke confirmed `New Doc` opens an untitled Epdoc editor.
+- [x] V2.3 semantic LSP is a real `tower-lsp` + `tree-sitter` runtime, not the earlier hand-rolled lifecycle stub. Rust and Swift focused LSP tests passed; docs no longer claim Stage F is deferred.
+- [x] A1 redb persistent DAG backend slices 1-4 landed behind `cognitive-dag-redb` using `redb` 4.1.0 and JSON value bytes. Persistence, edge parity, CD-005 capability checks, snapshot, and Merkle parity tests passed. Slice 5 authority wiring remains intentionally pending.
+- [x] Preservation-first dead-code audit resolved the `agent_core/src/tools/` orphan set: deleted only superseded orphan files (`code_execution.rs`, `graph_query.rs`) and wired the intended note tools scaffold into the registry and R.5 permission gate.
+- [x] Project-wide Rust clippy gate is green across `agent_core`, `epistemos-core`, `omega-mcp`, `omega-ax`, and `graph-engine`, including default and Pro/LSP feature surfaces where relevant.
+- [x] CD-008 automated verification is green: full Rust all-targets sweep, doctrine linter, verify-replay, Pro/LSP feature tests, and full `xcodebuild test` result bundle passed. Remaining CD-008 work is human runtime smoke on ship-risk surfaces.
+- [x] Local model install detection issue verified fixed: focused `LocalModelInfrastructureTests` passed 76/76, including usable hub snapshot detection; live Computer Use smoke confirmed Settings -> Inference shows unified `Active Local Model: Qwen 3`.
+- [x] SwiftUI hot-loop suspected getter-mutation path verified closed in current source: `InferenceState.apiKey(for:)` and `oauthCredential(for:)` are read-only, and focused `RuntimeValidationTests` passed 254/254. Remaining work is a launched-app Time Profiler / memory-pressure stress pass if the LocalModelToolbarMenu fan-out symptom recurs.

@@ -15,6 +15,14 @@ use uuid::Uuid;
 
 pub const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:8787";
 
+type OutboxAckRow = (
+    Option<String>,
+    Option<String>,
+    String,
+    Option<String>,
+    Option<String>,
+);
+
 #[derive(Clone)]
 pub struct ChannelRelayStore {
     db_path: PathBuf,
@@ -325,7 +333,7 @@ impl ChannelRelayStore {
         request: RelayOutboxAckRequest,
     ) -> Result<Value, String> {
         self.with_connection(|conn| {
-            let row: Option<(Option<String>, Option<String>, String, Option<String>, Option<String>)> = conn
+            let row: Option<OutboxAckRow> = conn
                 .query_row(
                     "SELECT conversation_id, recipient_id, message, sender_identity, metadata_json
                      FROM channel_outbox
@@ -687,6 +695,7 @@ async fn post_outbox_ack(
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn authorize(state: &ChannelRelayAppState, headers: &HeaderMap) -> Result<(), Response> {
     let Some(expected_token) = state.bearer_token.as_deref() else {
         return Ok(());

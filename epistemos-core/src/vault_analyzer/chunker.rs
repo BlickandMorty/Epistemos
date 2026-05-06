@@ -61,7 +61,7 @@ fn heading_level(line: &str) -> Option<usize> {
     }
     let hashes = trimmed.chars().take_while(|&c| c == '#').count();
     // Must be followed by a space (or end of line for empty heading)
-    if hashes >= 1 && hashes <= 6 {
+    if (1..=6).contains(&hashes) {
         let rest = &trimmed[hashes..];
         if rest.is_empty() || rest.starts_with(' ') {
             return Some(hashes);
@@ -327,8 +327,8 @@ fn build_chunks_with_hierarchy(sections: Vec<RawSection>) -> Vec<Chunk> {
         if let (Some(level), Some(ref heading)) = (section.level, &section.heading) {
             hierarchy_stack[level] = Some(heading.clone());
             // Clear deeper levels
-            for deeper in (level + 1)..7 {
-                hierarchy_stack[deeper] = None;
+            for entry in hierarchy_stack.iter_mut().skip(level + 1) {
+                *entry = None;
             }
         }
 

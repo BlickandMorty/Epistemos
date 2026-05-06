@@ -235,9 +235,9 @@ pub fn breath_weight(degree: u32) -> f32 {
 // ────────────────────────────────────────────────────────────────────
 
 /// Simplex skew factor: (√3 − 1) / 2.
-const F2: f32 = 0.36602540378_f32;
+const F2: f32 = 0.366_025_42_f32;
 /// Simplex unskew factor: (3 − √3) / 6.
-const G2: f32 = 0.21132486540_f32;
+const G2: f32 = 0.211_324_87_f32;
 
 /// Return simplex noise in roughly [-1, 1] at the given 2-D
 /// coordinates. Deterministic for a given `seed`.

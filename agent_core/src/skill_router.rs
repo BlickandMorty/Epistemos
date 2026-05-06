@@ -151,12 +151,12 @@ fn load_skills(dir: &Path) -> Vec<SkillEntry> {
             continue;
         }
 
-        let content = match fs::read_to_string(&path) {
+        let content = match fs::read_to_string(path) {
             Ok(c) => c,
             Err(_) => continue,
         };
 
-        if let Some(skill) = parse_skill(&content, &path) {
+        if let Some(skill) = parse_skill(&content, path) {
             skills.push(skill);
         }
     }

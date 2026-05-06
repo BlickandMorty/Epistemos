@@ -250,7 +250,7 @@ impl SerialInferenceController {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         SerialInferenceSnapshot {
             phase: state.phase.as_str().to_string(),
-            fallback_mode: state.fallback_mode.clone(),
+            fallback_mode: state.fallback_mode,
             should_stream_experts_from_ssd: state.fallback_mode == SerialFallbackMode::SsdStreaming,
             turn_boundary_readahead_allowed: state.phase == SerialPhase::TurnBoundary,
             expert_prefetch_allowed: false,

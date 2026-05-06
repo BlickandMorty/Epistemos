@@ -48,6 +48,8 @@ const COLLAPSE_EPSILON_PX: f32 = 0.5;
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct V2(f32, f32);
 
+type TrimmedCurve = ([f32; 2], [f32; 2], [f32; 2], [f32; 2]);
+
 impl V2 {
     #[inline(always)]
     fn from_arr(a: [f32; 2]) -> Self {
@@ -115,6 +117,7 @@ impl Mul<f32> for V2 {
 /// Preconditions the caller must uphold:
 ///   * `r0`, `r1`, `gap` must be finite and ≥ 0.
 ///   * `p0` and `p1` must be finite.
+///
 /// Violations yield `None` rather than NaN.
 #[inline]
 pub fn trim_line_endpoints(
@@ -170,7 +173,7 @@ pub fn trim_curve_endpoints(
     r0: f32,
     r1: f32,
     gap: f32,
-) -> Option<([f32; 2], [f32; 2], [f32; 2], [f32; 2])> {
+) -> Option<TrimmedCurve> {
     let p0v = V2::from_arr(p0);
     let p1v = V2::from_arr(p1);
     let c0v = V2::from_arr(c0);
@@ -204,9 +207,7 @@ pub fn trim_curve_endpoints(
     // distance can't absorb both radii, a curve along the same endpoints
     // certainly cannot.
     let baseline = trim_line_endpoints(p0, p1, r0, r1, gap);
-    if baseline.is_none() {
-        return None;
-    }
+    baseline?;
 
     let p0t = p0v + t_start * (r0 + gap);
     let p1t = p1v - t_end * (r1 + gap);

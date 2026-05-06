@@ -217,11 +217,7 @@ pub fn on_evidence_committed(e: &Evidence) {
 /// Mirror a Claim commit into the DAG. Called from
 /// `ClaimLedger::commit_claim` after the legacy insert + lineage check
 /// succeed. Failures are logged but never returned.
-pub fn on_claim_committed(
-    claim: &Claim,
-    derived_from: &[ClaimId],
-    supported_by: &[EvidenceId],
-) {
+pub fn on_claim_committed(claim: &Claim, derived_from: &[ClaimId], supported_by: &[EvidenceId]) {
     let mutation = LedgerMutation::ClaimCommitted {
         claim_id: claim.id.0.clone(),
         text: claim.text.clone(),
@@ -289,8 +285,8 @@ pub fn on_procedure_recorded(record: &ProcedureOutcomeRecord) {
 
 // ── Skills auto-dispatch ───────────────────────────────────────────────────
 
-use crate::skill_router::SkillEntry;
 use super::migration::SkillMutation;
+use crate::skill_router::SkillEntry;
 
 /// Mirror the SkillRouter's loaded skills into the DAG. Called from
 /// `SkillRouter::load` once the directory scan completes; one Register
@@ -417,7 +413,10 @@ mod tests {
         );
         on_evidence_committed(&evidence);
         let after = baseline_node_count();
-        assert!(after > baseline, "evidence dispatch must add at least one node");
+        assert!(
+            after > baseline,
+            "evidence dispatch must add at least one node"
+        );
     }
 
     #[test]
@@ -430,7 +429,10 @@ mod tests {
         );
         on_claim_committed(&claim, &[], &[]);
         let after = baseline_node_count();
-        assert!(after > baseline, "claim dispatch must add at least one node");
+        assert!(
+            after > baseline,
+            "claim dispatch must add at least one node"
+        );
     }
 
     #[test]
@@ -524,7 +526,14 @@ mod tests {
         let provenance_claim = provenance_claim_capability_hash();
         let companion = companion_mirror_capability_hash();
 
-        let all = [base, skills, procedural, provenance_evidence, provenance_claim, companion];
+        let all = [
+            base,
+            skills,
+            procedural,
+            provenance_evidence,
+            provenance_claim,
+            companion,
+        ];
         for i in 0..all.len() {
             for j in (i + 1)..all.len() {
                 assert_ne!(

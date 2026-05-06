@@ -205,7 +205,7 @@ impl VaultExecutor {
     pub fn search_notes(&self, query: &str, limit: usize) -> ToolResult {
         let start = Instant::now();
         let query_lower = query.to_lowercase();
-        let limit = limit.min(50).max(1);
+        let limit = limit.clamp(1, 50);
 
         // Phase 1: Collect all .md file paths (single-threaded walk, fast)
         let mut file_paths = Vec::new();

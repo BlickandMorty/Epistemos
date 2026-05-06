@@ -159,8 +159,8 @@ fn parse_frontmatter(
         let trimmed = line.trim();
 
         if in_triggers {
-            if trimmed.starts_with("- ") {
-                let value = trimmed[2..].trim().trim_matches('"').trim_matches('\'');
+            if let Some(stripped) = trimmed.strip_prefix("- ") {
+                let value = stripped.trim().trim_matches('"').trim_matches('\'');
                 triggers.push(value.to_string());
                 continue;
             } else if !trimmed.is_empty() {
@@ -337,11 +337,9 @@ fn parse_examples_block(section: &str) -> Vec<String> {
         .lines()
         .filter_map(|line| {
             let trimmed = line.trim();
-            if trimmed.starts_with("- ") {
-                Some(trimmed[2..].trim().to_string())
-            } else {
-                None
-            }
+            trimmed
+                .strip_prefix("- ")
+                .map(|stripped| stripped.trim().to_string())
         })
         .collect()
 }
@@ -372,8 +370,8 @@ fn extract_list_under_heading(section: &str, heading: &str) -> Vec<String> {
     sub.lines()
         .filter_map(|line| {
             let trimmed = line.trim();
-            if trimmed.starts_with("- ") {
-                let value = trimmed[2..].trim();
+            if let Some(stripped) = trimmed.strip_prefix("- ") {
+                let value = stripped.trim();
                 // Strip bold markers
                 let cleaned = value.replace("**", "");
                 Some(cleaned.trim().to_string())
@@ -411,7 +409,7 @@ pub fn scan_skill_directory(dir: &Path) -> Vec<SkillCatalogEntry> {
 
         // Accept both SKILL.md files and directories containing SKILL.md
         let skill_path = if path.is_file()
-            && path.file_name().map_or(false, |n| {
+            && path.file_name().is_some_and(|n| {
                 let name = n.to_string_lossy();
                 name == "SKILL.md" || name.ends_with(".skill.md")
             }) {

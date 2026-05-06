@@ -40,7 +40,7 @@ No new `I-xxx` issue was discovered during this pass. Two existing issues are pa
 | `Epistemos/Vault/VaultChatMutator.swift:250` | Swift-side staged file mutation | Absolute `fileURL` + repo-relative path | No | Mutation pipeline prepares/commits diffs from file URLs, outside a shared resource abstraction. |
 | `Epistemos/Vault/VaultChatMutator.swift:361` | Swift-side direct file mutation prep | `repositoryRootURL` + `fileURL` + relative path | No | File mutations are shaped directly as filesystem operations, not canonical resource writes. |
 | `agent_core/src/storage/vault.rs:408` | Rust vault backend read/write/delete | Vault-relative path strings | No | Rust tools read/write/delete by raw path strings. |
-| `agent_core/src/tools/note_tools.rs:31` | Rust note tools | `template`, `output_path`, `note_path` | No | Tool inputs talk directly in legacy vault paths and bypass any alias/capability layer. |
+| `agent_core/src/tools/note_tools.rs:31` | Rust note tools | `template`, `output_path`, `note_path` | Partial | `note_template.output_path` now maps to the R.5 vault-note write gate; read-only note helpers still use vault-relative paths. |
 
 ## Attachments And Context Semantics
 

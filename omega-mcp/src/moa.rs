@@ -146,10 +146,7 @@ pub fn moa_execute_pool(tasks_json: &str, config_json: &str) -> String {
         Ok(t) => t,
         Err(e) => return format!("{{\"error\":\"Invalid tasks JSON: {e}\"}}"),
     };
-    let config: MoaConfig = match serde_json::from_str(config_json) {
-        Ok(c) => c,
-        Err(_) => MoaConfig::default(),
-    };
+    let config: MoaConfig = serde_json::from_str(config_json).unwrap_or_default();
 
     let result = execute_pool(tasks, &config, |task, _cfg| MoaResult {
         task_id: task.id.clone(),

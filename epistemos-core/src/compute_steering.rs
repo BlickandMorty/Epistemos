@@ -505,7 +505,7 @@ pub fn build_graph(
 
     graph.validate_serial_invariant()?;
 
-    if let Err(_) = graph.validate_budget(budget) {
+    if graph.validate_budget(budget).is_err() {
         let minimal = SteeringGraph {
             steps: vec![(
                 SteeringGraphNode::GenerateMain,

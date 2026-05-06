@@ -4,8 +4,9 @@ use std::time::Instant;
 
 // ── Adaptation Session Types ────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExperimentalAdaptTarget {
+    #[default]
     HelperModel,
     MainModelExperiment,
 }
@@ -16,12 +17,6 @@ impl ExperimentalAdaptTarget {
             Self::HelperModel => "helper_model",
             Self::MainModelExperiment => "main_model_experiment",
         }
-    }
-}
-
-impl Default for ExperimentalAdaptTarget {
-    fn default() -> Self {
-        Self::HelperModel
     }
 }
 
@@ -282,6 +277,12 @@ pub struct AdaptationSubsystem {
     adapt_sessions: Mutex<HashMap<String, AdaptSession>>,
     sidecar_sessions: Mutex<HashMap<String, SidecarSession>>,
     next_session_counter: Mutex<u64>,
+}
+
+impl Default for AdaptationSubsystem {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AdaptationSubsystem {

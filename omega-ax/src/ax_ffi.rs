@@ -5,7 +5,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-use core_foundation::base::{CFTypeRef, Boolean};
+use core_foundation::base::{Boolean, CFTypeRef};
 use core_foundation::string::CFString;
 
 /// Opaque AXUIElementRef type.
@@ -73,10 +73,7 @@ extern "C" {
     ) -> AXError;
 
     /// Get the PID of the application that owns this element.
-    pub fn AXUIElementGetPid(
-        element: AXUIElementRef,
-        pid: *mut i32,
-    ) -> AXError;
+    pub fn AXUIElementGetPid(element: AXUIElementRef, pid: *mut i32) -> AXError;
 
     /// Get the value from an AXValueRef (CGPoint, CGSize, CGRect, etc.).
     pub fn AXValueGetValue(
@@ -130,9 +127,23 @@ pub const AX_ENABLED: &str = "AXEnabled";
 
 // Common roles that indicate interactivity
 pub const INTERACTIVE_ROLES: &[&str] = &[
-    "AXButton", "AXTextField", "AXTextArea", "AXCheckBox",
-    "AXRadioButton", "AXPopUpButton", "AXComboBox", "AXSlider",
-    "AXMenuItem", "AXMenuButton", "AXLink", "AXTabGroup",
-    "AXList", "AXTable", "AXOutline", "AXDisclosureTriangle",
-    "AXIncrementor", "AXColorWell", "AXSegmentedControl",
+    "AXButton",
+    "AXTextField",
+    "AXTextArea",
+    "AXCheckBox",
+    "AXRadioButton",
+    "AXPopUpButton",
+    "AXComboBox",
+    "AXSlider",
+    "AXMenuItem",
+    "AXMenuButton",
+    "AXLink",
+    "AXTabGroup",
+    "AXList",
+    "AXTable",
+    "AXOutline",
+    "AXDisclosureTriangle",
+    "AXIncrementor",
+    "AXColorWell",
+    "AXSegmentedControl",
 ];

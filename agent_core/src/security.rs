@@ -809,7 +809,7 @@ pub fn validate_url_safe(url: &str, allow_private: bool) -> Result<(), Threat> {
         });
     }
     // 4. Unicode homograph
-    if url.chars().any(|c| !c.is_ascii()) {
+    if !url.is_ascii() {
         return Err(Threat {
             category: ThreatCategory::InjectionAttempt,
             description: "URL rejected: contains non-ASCII characters (possible homograph)".into(),

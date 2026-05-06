@@ -294,7 +294,9 @@ impl ToolHandler for CodexHandler {
 
 /// Delegates a coding task to Google's Gemini CLI in non-interactive
 /// mode. Same shape as ClaudeCodeHandler — task + working_dir + timeout
-/// + optional model. Default model selection follows the CLI's own
+/// + optional model.
+///
+/// Default model selection follows the CLI's own
 /// default (currently `gemini-2.5-pro` per the CLI's own configuration);
 /// callers can override via the `model` arg.
 pub struct GeminiHandler;

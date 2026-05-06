@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 // ButterflyQuant: O(d log₂ d) learned rotation via butterfly factorization.
 //
 // Instead of a dense d×d rotation matrix (O(d²) per vector), we factorize into

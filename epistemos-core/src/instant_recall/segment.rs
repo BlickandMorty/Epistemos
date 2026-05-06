@@ -95,6 +95,11 @@ impl SealedSegment {
     pub fn len(&self) -> usize {
         self.doc_ids.len()
     }
+
+    /// Whether this segment has no entries.
+    pub fn is_empty(&self) -> bool {
+        self.doc_ids.is_empty()
+    }
 }
 
 /// Search result from the segmented index.

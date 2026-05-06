@@ -1,8 +1,8 @@
 // Input simulation using CGEvent APIs.
 // Provides click, type text, and key press simulation.
 
-use crate::types::{InputEvent, AutomationResult};
-use core_graphics::event::{CGEvent, CGEventType, CGMouseButton, CGEventTapLocation};
+use crate::types::{AutomationResult, InputEvent};
+use core_graphics::event::{CGEvent, CGEventTapLocation, CGEventType, CGMouseButton};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
 use std::time::Instant;
@@ -15,7 +15,10 @@ pub fn execute_input(event: &InputEvent) -> AutomationResult {
         InputEvent::Click { x, y } => simulate_click(*x, *y),
         InputEvent::DoubleClick { x, y } => simulate_double_click(*x, *y),
         InputEvent::TypeText { text } => simulate_type_text(text),
-        InputEvent::KeyPress { key_code, modifiers } => simulate_key_press(*key_code, *modifiers),
+        InputEvent::KeyPress {
+            key_code,
+            modifiers,
+        } => simulate_key_press(*key_code, *modifiers),
         InputEvent::MouseMove { x, y } => simulate_mouse_move(*x, *y),
     };
 
@@ -45,14 +48,12 @@ fn simulate_click(x: f64, y: f64) -> Result<(), String> {
         CGEventType::LeftMouseDown,
         point,
         CGMouseButton::Left,
-    ).map_err(|_| "Failed to create mouse down event".to_string())?;
+    )
+    .map_err(|_| "Failed to create mouse down event".to_string())?;
 
-    let mouse_up = CGEvent::new_mouse_event(
-        source,
-        CGEventType::LeftMouseUp,
-        point,
-        CGMouseButton::Left,
-    ).map_err(|_| "Failed to create mouse up event".to_string())?;
+    let mouse_up =
+        CGEvent::new_mouse_event(source, CGEventType::LeftMouseUp, point, CGMouseButton::Left)
+            .map_err(|_| "Failed to create mouse up event".to_string())?;
 
     mouse_down.post(CGEventTapLocation::HID);
     mouse_up.post(CGEventTapLocation::HID);
@@ -70,17 +71,14 @@ fn simulate_double_click(x: f64, y: f64) -> Result<(), String> {
         CGEventType::LeftMouseDown,
         point,
         CGMouseButton::Left,
-    ).map_err(|_| "Failed to create mouse event".to_string())?;
+    )
+    .map_err(|_| "Failed to create mouse event".to_string())?;
 
     event.set_integer_value_field(1, 2); // click count = 2
     event.post(CGEventTapLocation::HID);
 
-    let up = CGEvent::new_mouse_event(
-        source,
-        CGEventType::LeftMouseUp,
-        point,
-        CGMouseButton::Left,
-    ).map_err(|_| "Failed to create mouse up event".to_string())?;
+    let up = CGEvent::new_mouse_event(source, CGEventType::LeftMouseUp, point, CGMouseButton::Left)
+        .map_err(|_| "Failed to create mouse up event".to_string())?;
     up.set_integer_value_field(1, 2);
     up.post(CGEventTapLocation::HID);
 
@@ -92,12 +90,9 @@ fn simulate_mouse_move(x: f64, y: f64) -> Result<(), String> {
         .map_err(|_| "Failed to create event source".to_string())?;
     let point = CGPoint::new(x, y);
 
-    let event = CGEvent::new_mouse_event(
-        source,
-        CGEventType::MouseMoved,
-        point,
-        CGMouseButton::Left,
-    ).map_err(|_| "Failed to create mouse move event".to_string())?;
+    let event =
+        CGEvent::new_mouse_event(source, CGEventType::MouseMoved, point, CGMouseButton::Left)
+            .map_err(|_| "Failed to create mouse move event".to_string())?;
 
     event.post(CGEventTapLocation::HID);
     Ok(())
@@ -134,14 +129,18 @@ fn simulate_key_press(key_code: u16, modifiers: u64) -> Result<(), String> {
         .map_err(|_| "Failed to create key down event".to_string())?;
 
     if modifiers != 0 {
-        key_down.set_flags(core_graphics::event::CGEventFlags::from_bits_truncate(modifiers));
+        key_down.set_flags(core_graphics::event::CGEventFlags::from_bits_truncate(
+            modifiers,
+        ));
     }
     key_down.post(CGEventTapLocation::HID);
 
     let key_up = CGEvent::new_keyboard_event(source, key_code, false)
         .map_err(|_| "Failed to create key up event".to_string())?;
     if modifiers != 0 {
-        key_up.set_flags(core_graphics::event::CGEventFlags::from_bits_truncate(modifiers));
+        key_up.set_flags(core_graphics::event::CGEventFlags::from_bits_truncate(
+            modifiers,
+        ));
     }
     key_up.post(CGEventTapLocation::HID);
 
@@ -163,13 +162,18 @@ mod tests {
 
     #[test]
     fn test_type_text_constructs_result() {
-        let result = execute_input(&InputEvent::TypeText { text: "hello".to_string() });
+        let result = execute_input(&InputEvent::TypeText {
+            text: "hello".to_string(),
+        });
         assert!(result.success || result.error.is_some());
     }
 
     #[test]
     fn test_key_press_constructs_result() {
-        let result = execute_input(&InputEvent::KeyPress { key_code: 36, modifiers: 0 });
+        let result = execute_input(&InputEvent::KeyPress {
+            key_code: 36,
+            modifiers: 0,
+        });
         assert!(result.success || result.error.is_some());
     }
 

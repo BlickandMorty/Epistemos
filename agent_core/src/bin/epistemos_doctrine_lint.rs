@@ -263,9 +263,7 @@ fn check_gate_5_2(root: &Path) -> Result<GateOutcome, String> {
     Ok(GateOutcome {
         name: "5.2 put_edge signature-check",
         detail: if verifies {
-            format!(
-                "ok (`put_edge` body references signature verification)"
-            )
+            "ok (`put_edge` body references signature verification)".to_string()
         } else {
             "VIOLATION: `put_edge` body does not reference verify_signature, \
              verify_macaroon, or InvalidSignature — every edge must be \
@@ -351,9 +349,8 @@ fn check_gate_5_4(root: &Path) -> Result<GateOutcome, String> {
             //   - "/*" or "*"   → block-comment line
             //   - anything else → code reference
             let trimmed = raw_line.trim_start();
-            let is_comment = trimmed.starts_with("//")
-                || trimmed.starts_with("/*")
-                || trimmed.starts_with("*");
+            let is_comment =
+                trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*");
             let entry = format!("{}:{}: {}", path.display(), line_num, trimmed.trim_end());
             if is_comment {
                 info_hits.push(entry);
@@ -395,17 +392,11 @@ fn line_mentions_forbidden(line: &str) -> bool {
 
 // ── Filesystem walkers ─────────────────────────────────────────────────────
 
-fn walk_rs_files(
-    dir: &Path,
-    cb: &mut dyn FnMut(&Path, usize, &str),
-) -> Result<(), String> {
+fn walk_rs_files(dir: &Path, cb: &mut dyn FnMut(&Path, usize, &str)) -> Result<(), String> {
     walk_files_with_ext(dir, "rs", cb)
 }
 
-fn walk_swift_files(
-    dir: &Path,
-    cb: &mut dyn FnMut(&Path, usize, &str),
-) -> Result<(), String> {
+fn walk_swift_files(dir: &Path, cb: &mut dyn FnMut(&Path, usize, &str)) -> Result<(), String> {
     walk_files_with_ext(dir, "swift", cb)
 }
 

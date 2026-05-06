@@ -359,11 +359,7 @@ impl AgentProvider for GeminiProvider {
 
     fn capabilities(&self) -> ProviderCapabilities {
         ProviderCapabilities {
-            max_context_tokens: if self.model.contains("pro") {
-                1_000_000
-            } else {
-                1_000_000
-            },
+            max_context_tokens: 1_000_000,
             max_output_tokens: if self.model.contains("pro") {
                 65_536
             } else {
@@ -446,9 +442,9 @@ fn message_to_gemini(message: &Message) -> Value {
         Message::User { content } => {
             let parts: Vec<Value> = content
                 .iter()
-                .filter_map(|c| match c {
-                    UserContent::Text { text } => Some(json!({ "text": text })),
-                    UserContent::ToolResult(result) => Some(json!({
+                .map(|c| match c {
+                    UserContent::Text { text } => json!({ "text": text }),
+                    UserContent::ToolResult(result) => json!({
                         "functionResponse": {
                             "name": result.tool_use_id,
                             "response": {
@@ -458,13 +454,13 @@ fn message_to_gemini(message: &Message) -> Value {
                                 }).collect::<Vec<_>>().join("\n"),
                             },
                         },
-                    })),
-                    UserContent::Image { source } => Some(json!({
+                    }),
+                    UserContent::Image { source } => json!({
                         "inlineData": {
                             "mimeType": source.media_type,
                             "data": source.data,
                         },
-                    })),
+                    }),
                 })
                 .collect();
 
@@ -473,19 +469,19 @@ fn message_to_gemini(message: &Message) -> Value {
         Message::Assistant { content } => {
             let parts: Vec<Value> = content
                 .iter()
-                .filter_map(|block| match block {
-                    ContentBlock::Text { text } => Some(json!({ "text": text })),
-                    ContentBlock::ToolUse { id: _, name, input } => Some(json!({
+                .map(|block| match block {
+                    ContentBlock::Text { text } => json!({ "text": text }),
+                    ContentBlock::ToolUse { id: _, name, input } => json!({
                         "functionCall": {
                             "name": name,
                             "args": input,
                         },
-                    })),
+                    }),
                     ContentBlock::Thinking { thinking, .. } => {
-                        Some(json!({ "text": thinking, "thought": true }))
+                        json!({ "text": thinking, "thought": true })
                     }
                     ContentBlock::RedactedThinking { .. } => {
-                        Some(json!({ "text": "[redacted_thinking]", "thought": true }))
+                        json!({ "text": "[redacted_thinking]", "thought": true })
                     }
                 })
                 .collect();

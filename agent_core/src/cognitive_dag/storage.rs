@@ -2,11 +2,11 @@
 //!
 //! Per `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md` §1.3.
 //!
-//! The trait surface matches the doctrine spec verbatim; the `redb`
-//! backend (recommended for App Group container compat) lands in a
-//! follow-up Phase 8.A slice. Today's `InMemoryDagStore` is the
-//! reference impl every test runs against and the production fallback
-//! for unit-test environments without a real disk path.
+//! The trait surface matches the doctrine spec verbatim. The optional
+//! `redb` backend lives in `redb_store` behind `cognitive-dag-redb`;
+//! `InMemoryDagStore` remains the reference impl every parity test
+//! runs against and the production fallback until Phase 8.H explicitly
+//! flips authority.
 //!
 //! Determinism contract: every method returns results in a stable,
 //! sorted order. `edges_from` / `edges_to` sort by edge id; the
@@ -48,11 +48,8 @@ pub trait DagStore: Send + Sync {
         node: NodeId,
         kind: Option<EdgeKindSelector>,
     ) -> Result<Vec<Edge>, DagError>;
-    fn edges_to(
-        &self,
-        node: NodeId,
-        kind: Option<EdgeKindSelector>,
-    ) -> Result<Vec<Edge>, DagError>;
+    fn edges_to(&self, node: NodeId, kind: Option<EdgeKindSelector>)
+        -> Result<Vec<Edge>, DagError>;
     fn merkle_root(&self) -> Result<Hash, DagError>;
     fn snapshot(&self) -> Result<DagSnapshot, DagError>;
 
@@ -246,9 +243,7 @@ impl DagStore for InMemoryDagStore {
                 edge: format!("{:?}", edge.id()),
             });
         }
-        if self.has_registered_capabilities()
-            && !self.verify_edge_against_registered_caps(&edge)
-        {
+        if self.has_registered_capabilities() && !self.verify_edge_against_registered_caps(&edge) {
             return Err(DagError::InvalidSignature {
                 edge: format!(
                     "{:?} (signature does not verify against any registered capability)",
@@ -322,7 +317,7 @@ impl DagStore for InMemoryDagStore {
         if let Some(ids) = from_index.get(&node) {
             for edge_id in ids {
                 if let Some(edge) = edges.get(edge_id) {
-                    if kind.map_or(true, |sel| sel.matches(&edge.kind)) {
+                    if kind.is_none_or(|sel| sel.matches(&edge.kind)) {
                         out.push(edge.clone());
                     }
                 }
@@ -348,7 +343,7 @@ impl DagStore for InMemoryDagStore {
         if let Some(ids) = to_index.get(&node) {
             for edge_id in ids {
                 if let Some(edge) = edges.get(edge_id) {
-                    if kind.map_or(true, |sel| sel.matches(&edge.kind)) {
+                    if kind.is_none_or(|sel| sel.matches(&edge.kind)) {
                         out.push(edge.clone());
                     }
                 }
@@ -473,9 +468,19 @@ mod tests {
         let b = note("b");
         store.put_node(a.clone()).unwrap();
         // b not inserted; edge must error
-        let edge = Edge::new(a.id, b.id, EdgeKind::AnnotatedBy { kind: super::super::edge::AnnotationKind::Comment }, cap_hash());
+        let edge = Edge::new(
+            a.id,
+            b.id,
+            EdgeKind::AnnotatedBy {
+                kind: super::super::edge::AnnotationKind::Comment,
+            },
+            cap_hash(),
+        );
         let err = store.put_edge(edge).unwrap_err();
-        assert!(matches!(err, DagError::EdgeEndpointMissing { endpoint: "to" }));
+        assert!(matches!(
+            err,
+            DagError::EdgeEndpointMissing { endpoint: "to" }
+        ));
     }
 
     #[test]
@@ -485,8 +490,18 @@ mod tests {
         let b = claim("B");
         store.put_node(a.clone()).unwrap();
         store.put_node(b.clone()).unwrap();
-        let edge1 = Edge::new(a.id, b.id, EdgeKind::Contradicts { tension: 0.7 }, cap_hash());
-        let edge2 = Edge::new(a.id, b.id, EdgeKind::Contradicts { tension: 0.7 }, cap_hash());
+        let edge1 = Edge::new(
+            a.id,
+            b.id,
+            EdgeKind::Contradicts { tension: 0.7 },
+            cap_hash(),
+        );
+        let edge2 = Edge::new(
+            a.id,
+            b.id,
+            EdgeKind::Contradicts { tension: 0.7 },
+            cap_hash(),
+        );
         let id1 = store.put_edge(edge1).unwrap();
         let id2 = store.put_edge(edge2).unwrap();
         assert_eq!(id1, id2);
@@ -597,7 +612,10 @@ mod tests {
             store_a.put_node(n.clone()).unwrap();
             store_b.put_node(n).unwrap();
         }
-        assert_eq!(store_a.merkle_root().unwrap(), store_b.merkle_root().unwrap());
+        assert_eq!(
+            store_a.merkle_root().unwrap(),
+            store_b.merkle_root().unwrap()
+        );
     }
 
     #[test]
@@ -774,12 +792,7 @@ mod tests {
         assert!(store.registered_capabilities().is_empty());
         let (from, to) = make_two_nodes(&store);
         let cap_a = Hash::from_bytes([0xAAu8; 32]);
-        let edge = Edge::new(
-            from,
-            to,
-            EdgeKind::DerivesFrom { strength: 1.0 },
-            cap_a,
-        );
+        let edge = Edge::new(from, to, EdgeKind::DerivesFrom { strength: 1.0 }, cap_a);
         // Empty registry → any non-zero signature accepted.
         store.put_edge(edge).unwrap();
     }
@@ -790,12 +803,7 @@ mod tests {
         let cap = Hash::from_bytes([0xE5u8; 32]);
         store.register_capability(cap).unwrap();
         let (from, to) = make_two_nodes(&store);
-        let edge = Edge::new(
-            from,
-            to,
-            EdgeKind::DerivesFrom { strength: 0.9 },
-            cap,
-        );
+        let edge = Edge::new(from, to, EdgeKind::DerivesFrom { strength: 0.9 }, cap);
         // Edge signed under the registered capability verifies.
         store.put_edge(edge).unwrap();
     }
@@ -833,12 +841,7 @@ mod tests {
 
         let (from, to) = make_two_nodes(&store);
         // Edge signed under cap_b verifies because it's in the set.
-        let edge_b = Edge::new(
-            from,
-            to,
-            EdgeKind::DerivesFrom { strength: 0.5 },
-            cap_b,
-        );
+        let edge_b = Edge::new(from, to, EdgeKind::DerivesFrom { strength: 0.5 }, cap_b);
         store.put_edge(edge_b).unwrap();
     }
 
@@ -887,12 +890,7 @@ mod tests {
         // that Edge::new with a zero cap_hash STILL produces non-zero
         // sig (because the BLAKE3 hash mixes from/to/kind too).
         let zero_cap = Hash::from_bytes([0u8; 32]);
-        let edge = Edge::new(
-            from,
-            to,
-            EdgeKind::DerivesFrom { strength: 0.5 },
-            zero_cap,
-        );
+        let edge = Edge::new(from, to, EdgeKind::DerivesFrom { strength: 0.5 }, zero_cap);
         // signature is non-zero but cap_hash zero is NOT in registered
         // set, so insertion is rejected by the capability check.
         let err = store.put_edge(edge).unwrap_err();

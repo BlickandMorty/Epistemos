@@ -81,7 +81,11 @@ impl ConceptExtractor for KeywordConceptExtractor {
             .map(|(stem, _count)| {
                 let canonical = canon::canonicalize(&stem);
                 Concept {
-                    canonical_name: if canonical.is_empty() { stem.clone() } else { canonical },
+                    canonical_name: if canonical.is_empty() {
+                        stem.clone()
+                    } else {
+                        canonical
+                    },
                     surface_form: stem,
                 }
             })

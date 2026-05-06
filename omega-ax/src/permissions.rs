@@ -1,8 +1,8 @@
 // Permission checker using macOS AXIsProcessTrusted API.
 // Checks Accessibility permission status without prompting the user.
 
-use crate::types::{PermissionState, PermissionStatus};
 use crate::ax_ffi;
+use crate::types::{PermissionState, PermissionStatus};
 
 /// Check all relevant macOS permissions.
 pub fn check_permissions() -> PermissionStatus {

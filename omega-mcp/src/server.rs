@@ -82,6 +82,7 @@ impl JsonRpcResponse {
 }
 
 /// Parse a JSON-RPC request from a string.
+#[allow(clippy::result_large_err)]
 pub fn parse_request(input: &str) -> Result<JsonRpcRequest, JsonRpcResponse> {
     let req: JsonRpcRequest = serde_json::from_str(input)
         .map_err(|e| JsonRpcResponse::error(None, PARSE_ERROR, format!("Parse error: {e}")))?;

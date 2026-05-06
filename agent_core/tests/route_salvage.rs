@@ -163,7 +163,10 @@ fn ffi_exposes_route_capture_contract_to_swift_hosts() {
     assert_eq!(contract.variant_a_floor, VARIANT_A_FLOOR);
     assert_eq!(contract.variant_b_floor, VARIANT_B_FLOOR);
     assert_eq!(contract.variant_c_floor, VARIANT_C_FLOOR);
-    assert_eq!(contract.reasoning_trace_max_chars, REASONING_TRACE_MAX_CHARS as u64);
+    assert_eq!(
+        contract.reasoning_trace_max_chars,
+        REASONING_TRACE_MAX_CHARS as u64
+    );
     assert_eq!(contract.review_inbox_path, "_inbox/review/");
 }
 

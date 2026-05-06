@@ -660,9 +660,7 @@ fn find_dependents(
             let mmap = unsafe { Mmap::map(&file).ok()? };
 
             // Quick SIMD check: does this file even contain the symbol?
-            if memmem::find(&mmap, symbol_bytes).is_none() {
-                return None;
-            }
+            memmem::find(&mmap, symbol_bytes)?;
 
             let text = std::str::from_utf8(&mmap).ok()?;
             let import_lines: Vec<String> = text

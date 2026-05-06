@@ -341,8 +341,7 @@ impl ReplayBundle {
                 snapshot.nodes.iter().map(|n| &n.id).collect();
             let edge_ids: Vec<&crate::cognitive_dag::edge::EdgeId> =
                 edge_ids_owned.iter().collect();
-            let recomputed =
-                crate::cognitive_dag::merkle::merkle_root_over(&node_ids, &edge_ids);
+            let recomputed = crate::cognitive_dag::merkle::merkle_root_over(&node_ids, &edge_ids);
             if recomputed != snapshot.merkle_root {
                 let mut stored_hex = String::with_capacity(64);
                 let mut recomp_hex = String::with_capacity(64);
@@ -559,12 +558,12 @@ mod tests {
 
     // ── Phase 8.F — verify_replay tests ────────────────────────────────────
 
-    use crate::cognitive_dag::storage::{DagStore, InMemoryDagStore};
+    use crate::cognitive_dag::edge::{Edge, EdgeKind};
     use crate::cognitive_dag::node::{
         AuthorRef, ClaimScope, EvidenceBlob, EvidenceKind, Hash, MimeType, Node, NodeKind,
         SourceRef, Timestamp,
     };
-    use crate::cognitive_dag::edge::{Edge, EdgeKind};
+    use crate::cognitive_dag::storage::{DagStore, InMemoryDagStore};
 
     fn seed_dag_snapshot() -> crate::cognitive_dag::storage::DagSnapshot {
         let store = InMemoryDagStore::new();
@@ -630,7 +629,10 @@ mod tests {
     fn ledger_only_build_stays_v1_schema() {
         let ledger = seed_ledger();
         let bundle = ReplayBundle::build("v1".to_string(), None, t(), &ledger, vec![]).unwrap();
-        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY);
+        assert_eq!(
+            bundle.schema_version,
+            REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY
+        );
         assert!(bundle.dag_snapshot.is_none());
     }
 
@@ -647,7 +649,9 @@ mod tests {
             dag,
         )
         .unwrap();
-        bundle.verify_replay().expect("clean bundle with DAG must verify");
+        bundle
+            .verify_replay()
+            .expect("clean bundle with DAG must verify");
     }
 
     #[test]
@@ -733,6 +737,7 @@ mod tests {
         let b2 = ReplayBundle::from_epbundle_bytes(&bytes).unwrap();
         // PartialEq still works (we removed Eq because of f32 strengths).
         assert_eq!(b1, b2);
-        b2.verify_replay().expect("round-tripped v2 bundle must verify");
+        b2.verify_replay()
+            .expect("round-tripped v2 bundle must verify");
     }
 }

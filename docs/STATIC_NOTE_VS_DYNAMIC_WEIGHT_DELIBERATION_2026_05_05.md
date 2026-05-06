@@ -1,18 +1,19 @@
 ---
-state: candidate
+state: canon
 candidate_promoted_on: 2026-05-05
+canon_promoted_on: 2026-05-05
+implemented_on: 2026-05-05
 question: "Artifact primitive that distinguishes Static Note from Dynamic AI Weight" (user, 2026-05-05)
 companion_to: docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md §2.2 substrate spine
 deliberation_brief_template: docs/fusion/BUILDER_EXECUTION_PROMPT_2026_04_30.md §"Deliberation Brief Required"
 ---
 
-# Static Note vs Dynamic AI Weight — deliberation brief
+# Static Note vs Dynamic AI Weight — canon implementation brief
 
-> **State: candidate.** Per the canon promotion protocol (`docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`),
-> this doc is a deliberation brief — it surveys the existing substrate,
-> states a recommended decision, and queues the actual promotion to
-> `state: canon` for the next deliberation cycle. **Do not implement
-> from this brief without explicit approval.**
+> **State: canon.** Codex continuation implemented the recommended
+> Option C + Option B on 2026-05-05: `NodeKind::is_dynamic_rooted()`
+> is now the code-level discriminator, and doctrine §2.2 names the
+> invariant. No wrapper enum was added.
 
 ## The user's question (2026-05-05)
 
@@ -127,16 +128,16 @@ update this method and its test."
 - Adds one method + one test, but no new types.
 - Slightly more diffuse than option A.
 
-## Recommendation (held for sign-off)
+## Implemented recommendation
 
-**Option C + Option B together.** Add the
+**Option C + Option B together.** Added the
 `NodeKind::is_dynamic_rooted()` method (option C) so code that
 filters by mutability has a canonical entry point. Document the
 distinction in doctrine §2.2 (option B) so the rule is visible to
 deliberation briefs. Skip option A — a new wrapper type adds drift
 surface without behavioral change.
 
-## What this slice would actually do
+## What this slice did
 
 ```rust
 // agent_core/src/cognitive_dag/node.rs — append to NodeKind impl block:
@@ -180,20 +181,12 @@ impl NodeKind {
 Plus one unit test that pins the classification for each of the 10
 variants, and a doctrine §2.2 paragraph addition.
 
-## Why this is `state: candidate`, not `state: canon`
+## Verification
 
-Per the canon promotion protocol, every doctrine-shaping decision
-goes through:
+Codex continuation verification:
 
-```
-research → candidate → canon → (superseded | historical | rejected)
-```
-
-This brief is the **candidate** stage. It surveys the substrate,
-recommends a path, and queues the actual landing for a deliberation
-cycle. The user (or Codex) signs off → state moves to `canon` →
-implementation lands per the WRV pipeline (research → implemented →
-wired → reachable → visible → verified → released).
+- `cargo test --manifest-path agent_core/Cargo.toml cognitive_dag::node::tests::dynamic_rooted_discriminator_covers_all_variants --lib`
+- `cargo clippy --manifest-path agent_core/Cargo.toml --target aarch64-apple-darwin -- -D warnings`
 
 ## Cross-refs
 
@@ -210,5 +203,4 @@ The static/dynamic distinction the user asked about **is already in
 the substrate** — eight NodeKind variants are static, two are dynamic-
 rooted. The canonical exposure of that distinction is a small
 `is_dynamic_rooted()` method + a doctrine paragraph, not a new
-top-level type. Held for sign-off; implementation slice is roughly
-30 lines + one test + a paragraph in `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`.
+top-level type. That implementation is now landed and verified.

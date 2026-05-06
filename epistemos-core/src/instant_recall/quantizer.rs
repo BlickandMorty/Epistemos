@@ -6,7 +6,7 @@
 /// Each dimension becomes 1 if positive, 0 if negative/zero.
 /// Bits are packed 8 per byte, LSB-first within each byte.
 pub fn quantize_to_binary(embedding: &[f32]) -> Vec<u8> {
-    let num_bytes = (embedding.len() + 7) / 8;
+    let num_bytes = embedding.len().div_ceil(8);
     let mut result = Vec::with_capacity(num_bytes);
 
     for chunk in embedding.chunks(8) {

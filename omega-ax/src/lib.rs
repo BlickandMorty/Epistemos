@@ -2,15 +2,15 @@
 // Provides the automation foundation for Epistemos Omega agent system.
 // Separate from graph-engine (rendering) and epistemos-core (training).
 
-pub mod types;
 mod ax_ffi;
 pub mod ax_tree;
-pub mod permissions;
 pub mod input;
+pub mod permissions;
 pub mod shortcuts;
+pub mod types;
 
 // Re-export types for UniFFI
-pub use types::{PermissionState, PermissionStatus, AXTreeSnapshot, AutomationResult};
+pub use types::{AXTreeSnapshot, AutomationResult, PermissionState, PermissionStatus};
 
 // Re-export free functions
 pub use uniffi_exports::*;

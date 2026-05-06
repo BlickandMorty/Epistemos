@@ -123,7 +123,7 @@ impl CommandPalette {
         let mut cmds: Vec<&SlashCommand> = self
             .commands
             .values()
-            .filter(|cmd| category.map_or(true, |cat| cmd.category == cat))
+            .filter(|cmd| category.is_none_or(|cat| cmd.category == cat))
             .collect();
         cmds.sort_by(|a, b| a.name.cmp(&b.name));
         cmds
@@ -254,9 +254,9 @@ pub fn parse_slash_command(input: &str) -> Option<ParsedCommand> {
     // Extract flags (--key value or --flag)
     let mut flags = HashMap::new();
     let mut args_parts = Vec::new();
-    let mut words = rest.split_whitespace().peekable();
+    let words = rest.split_whitespace().peekable();
 
-    while let Some(word) = words.next() {
+    for word in words {
         if let Some(eq_pos) = word
             .strip_prefix("--")
             .and_then(|w| w.find('=').map(|p| p + 2))
@@ -265,9 +265,9 @@ pub fn parse_slash_command(input: &str) -> Option<ParsedCommand> {
             let key = word[2..eq_pos].to_string();
             let value = word[eq_pos + 1..].to_string();
             flags.insert(key, value);
-        } else if word.starts_with("--") {
+        } else if let Some(stripped) = word.strip_prefix("--") {
             // --flag form (boolean, don't consume next word)
-            let key = word[2..].to_string();
+            let key = stripped.to_string();
             if !key.is_empty() {
                 flags.insert(key, "true".to_string());
             }

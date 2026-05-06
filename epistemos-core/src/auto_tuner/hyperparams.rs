@@ -79,7 +79,7 @@ pub fn auto_tune(
     };
 
     let model_memory = (model_size_b * 1000.0 * 0.5) as u32;
-    let lora_memory = (lora_rank * 32 * 2 * 128 * 2 / 1024) as u32;
+    let lora_memory = lora_rank * 32 * 2 * 128 * 2 / 1024;
     let estimated_memory_mb = model_memory + lora_memory + 500;
 
     AutoTuneConfig {

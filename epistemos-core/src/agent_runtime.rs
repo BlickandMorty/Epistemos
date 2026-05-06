@@ -864,6 +864,12 @@ pub struct AgentAuditLog {
     entries: Mutex<Vec<AgentAuditEntry>>,
 }
 
+impl Default for AgentAuditLog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AgentAuditLog {
     pub fn new() -> Self {
         Self {

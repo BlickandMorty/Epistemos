@@ -405,12 +405,12 @@ fn quantize_per_channel(
     group_size: usize,
     precision: KVPrecision,
 ) -> (Vec<u8>, Vec<f32>, Vec<f32>) {
-    let num_groups = (data.len() + group_size - 1) / group_size;
+    let num_groups = data.len().div_ceil(group_size);
     let num_levels = (1u32 << precision.bits()) - 1;
     let bits = precision.bits();
     let per_byte = 8 / bits;
 
-    let total_packed = (data.len() + per_byte - 1) / per_byte;
+    let total_packed = data.len().div_ceil(per_byte);
     let mut packed = vec![0u8; total_packed];
     let mut scales = Vec::with_capacity(num_groups);
     let mut zeros = Vec::with_capacity(num_groups);
@@ -464,7 +464,7 @@ fn quantize_per_token(data: &[f32], precision: KVPrecision) -> (Vec<u8>, f32, f3
         1.0
     };
 
-    let total_packed = (data.len() + per_byte - 1) / per_byte;
+    let total_packed = data.len().div_ceil(per_byte);
     let mut packed = vec![0u8; total_packed];
 
     for (i, &val) in data.iter().enumerate() {
@@ -499,7 +499,7 @@ fn right_shift_packed(
     let from_mask = ((1u16 << from_bits) - 1) as u8;
     let to_mask = ((1u16 << to_bits) - 1) as u8;
 
-    let new_packed_len = (num_elements + to_per_byte - 1) / to_per_byte;
+    let new_packed_len = num_elements.div_ceil(to_per_byte);
     let mut result = vec![0u8; new_packed_len];
 
     for i in 0..num_elements {

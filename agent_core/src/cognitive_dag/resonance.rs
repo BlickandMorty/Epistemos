@@ -248,8 +248,7 @@ pub fn propagate_truth_change(
 
         // Outbound Contradicts (we contradict X; if X just flipped,
         // we re-evaluate)
-        let outbound_contradicts =
-            store.edges_from(node, Some(EdgeKindSelector::Contradicts))?;
+        let outbound_contradicts = store.edges_from(node, Some(EdgeKindSelector::Contradicts))?;
         for edge in &outbound_contradicts {
             let sib = edge.to;
             recompute_and_propagate(sib, store, cache, &mut affected, &mut frontier)?;
@@ -564,7 +563,12 @@ mod tests {
         assert_eq!(affected, sorted, "affected list must be sorted");
         // All 5 claims should be True
         for c in &claims {
-            assert_eq!(cache.get(&c.id), Truth::True, "claim {} truth", c.id.to_hex());
+            assert_eq!(
+                cache.get(&c.id),
+                Truth::True,
+                "claim {} truth",
+                c.id.to_hex()
+            );
         }
     }
 
@@ -574,15 +578,9 @@ mod tests {
         let c = claim("h");
         store.put_node(c.clone()).unwrap();
         let mut cache = TruthCache::new();
-        let affected = add_evidence_then_propagate(
-            evidence(b"new"),
-            c.id,
-            0.8,
-            cap(),
-            &store,
-            &mut cache,
-        )
-        .unwrap();
+        let affected =
+            add_evidence_then_propagate(evidence(b"new"), c.id, 0.8, cap(), &store, &mut cache)
+                .unwrap();
         assert_eq!(cache.get(&c.id), Truth::True);
         assert!(affected.contains(&c.id));
     }
@@ -625,8 +623,7 @@ mod tests {
         assert_eq!(cache.get(&c2.id), Truth::True);
         // Add the contradiction
         let affected =
-            add_contradiction_then_propagate(c1.id, c2.id, 0.9, cap(), &store, &mut cache)
-                .unwrap();
+            add_contradiction_then_propagate(c1.id, c2.id, 0.9, cap(), &store, &mut cache).unwrap();
         // Both claims should land at Unknown (mutual exclusion;
         // both have evidence and contradict, so neither can be True
         // without user resolution)
@@ -696,7 +693,11 @@ mod tests {
             .unwrap();
         let cache = TruthCache::new();
         let t = evaluate_claim_truth(c.id, &store, &cache).unwrap();
-        assert_eq!(t, Truth::Unknown, "Evidence → Claim is not the canonical direction");
+        assert_eq!(
+            t,
+            Truth::Unknown,
+            "Evidence → Claim is not the canonical direction"
+        );
     }
 
     #[test]
@@ -738,10 +739,23 @@ mod tests {
         let elapsed = start.elapsed();
 
         // Should propagate all 1000 claims to True
-        assert!(elapsed.as_millis() < 5_000, "1000-node propagation took {:?} (>5s)", elapsed);
-        assert!(affected.len() >= 1000, "expected ≥1000 affected, got {}", affected.len());
+        assert!(
+            elapsed.as_millis() < 5_000,
+            "1000-node propagation took {:?} (>5s)",
+            elapsed
+        );
+        assert!(
+            affected.len() >= 1000,
+            "expected ≥1000 affected, got {}",
+            affected.len()
+        );
         for c in &claims {
-            assert_eq!(cache.get(&c.id), Truth::True, "claim {} not True", c.id.to_hex());
+            assert_eq!(
+                cache.get(&c.id),
+                Truth::True,
+                "claim {} not True",
+                c.id.to_hex()
+            );
         }
     }
 

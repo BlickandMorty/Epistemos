@@ -162,6 +162,7 @@ enum ContentBlockStartData {
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::enum_variant_names)]
 enum DeltaData {
     TextDelta { text: String },
     ThinkingDelta { thinking: String },
@@ -262,7 +263,7 @@ impl AgentProvider for ClaudeProvider {
         let system_value = config
             .system_prompt
             .as_deref()
-            .map(|s| crate::prompt_caching::cache_system_prompt(s));
+            .map(crate::prompt_caching::cache_system_prompt);
 
         // Build messages with cache breakpoints on strategic positions.
         let mut api_messages: Vec<Value> = messages.iter().map(message_to_api_json).collect();

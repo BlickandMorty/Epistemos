@@ -182,12 +182,7 @@ impl<C: RawJsonLlmClient> LlmClassifier for GbnfClassifier<C> {
             capture_text.trim()
         );
         match self.host.emit_json(&prompt, &schema).await {
-            Ok(value) => parse_variant_b_output(value).or_else(|err| {
-                // Grammar-bound emission shouldn't fail to parse, but
-                // fall back to keyword overlap if it does so the route
-                // pipeline never stalls on a malformed LLM response.
-                Err(err)
-            }),
+            Ok(value) => parse_variant_b_output(value),
             Err(_) => self.fallback.classify(capture_text, allowed_paths).await,
         }
     }
@@ -271,7 +266,9 @@ mod tests {
             confidence: 0.91,
             rationale: "host model classified".to_string(),
         };
-        let classifier = GbnfClassifier::new(DeterministicMockLlm { canned: canned.clone() });
+        let classifier = GbnfClassifier::new(DeterministicMockLlm {
+            canned: canned.clone(),
+        });
         let allowed = vec!["research/papers".to_string()];
         let out = classifier.classify("anything", &allowed).await.expect("ok");
         assert_eq!(out.path, canned.path);

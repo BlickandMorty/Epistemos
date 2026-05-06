@@ -574,7 +574,7 @@ impl AgentProvider for OpenAICompatibleProvider {
             }
 
             // Emit completed tool calls
-            for (_idx, (id, name, args_json)) in &tool_calls {
+            for (id, name, args_json) in tool_calls.values() {
                 let input = serde_json::from_str(args_json).unwrap_or(Value::Null);
                 yield Ok(StreamEvent::ContentBlockComplete {
                     block: ContentBlock::ToolUse {

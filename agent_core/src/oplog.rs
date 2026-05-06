@@ -708,12 +708,12 @@ impl OpLog {
     /// supplies the materializer (typically an SDPage / SDGraphEdge
     /// projection accumulator) so this module stays decoupled from
     /// the storage layer.
-    pub fn replay<S, F>(&self, init: S, mut fold: F) -> S
+    pub fn replay<S, F>(&self, init: S, fold: F) -> S
     where
         F: FnMut(S, &Op) -> S,
     {
         let inner = self.lock();
-        inner.ops.iter().fold(init, |acc, op| fold(acc, op))
+        inner.ops.iter().fold(init, fold)
     }
 
     fn lock(&self) -> MutexGuard<'_, OpLogInner> {

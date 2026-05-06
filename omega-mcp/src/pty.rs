@@ -414,12 +414,11 @@ fn drain_fd(fd: i32) {
 fn terminate_child(pid: Pid) {
     let _ = signal::kill(pid, Signal::SIGTERM);
     std::thread::sleep(Duration::from_millis(200));
-    match nix::sys::wait::waitpid(pid, Some(WaitPidFlag::WNOHANG)) {
-        Ok(nix::sys::wait::WaitStatus::StillAlive) => {
-            let _ = signal::kill(pid, Signal::SIGKILL);
-            let _ = nix::sys::wait::waitpid(pid, None);
-        }
-        _ => {}
+    if let Ok(nix::sys::wait::WaitStatus::StillAlive) =
+        nix::sys::wait::waitpid(pid, Some(WaitPidFlag::WNOHANG))
+    {
+        let _ = signal::kill(pid, Signal::SIGKILL);
+        let _ = nix::sys::wait::waitpid(pid, None);
     }
 }
 
@@ -497,9 +496,7 @@ fn extract_command_output(clean: &str, command: &str, sentinel: &str) -> String 
     }
 
     lines[start_idx..end_idx]
-        .iter()
-        .copied()
-        .collect::<Vec<&str>>()
+        .to_vec()
         .join("\n")
         .trim()
         .to_string()

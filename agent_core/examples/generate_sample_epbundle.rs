@@ -28,15 +28,13 @@ use std::process::ExitCode;
 
 use agent_core::cognitive_dag::edge::{Edge, EdgeKind};
 use agent_core::cognitive_dag::node::{
-    AuthorRef, ClaimScope, EvidenceBlob, EvidenceKind, Hash, MimeType, Node, NodeKind,
-    SourceRef, Timestamp,
+    AuthorRef, ClaimScope, EvidenceBlob, EvidenceKind, Hash, MimeType, Node, NodeKind, SourceRef,
+    Timestamp,
 };
 use agent_core::cognitive_dag::storage::{DagStore, InMemoryDagStore};
 use agent_core::mutations::types::{MutationActor, Reversibility, Sensitivity, SourceOp};
 use agent_core::mutations::MutationEnvelope;
-use agent_core::provenance::{
-    Claim, ClaimId, ClaimLedger, Evidence, EvidenceId, ReplayBundle,
-};
+use agent_core::provenance::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId, ReplayBundle};
 
 /// Pinned timestamp so the bundle bytes are deterministic across runs.
 const FIXED_T_MS: i64 = 1_745_000_000_000;

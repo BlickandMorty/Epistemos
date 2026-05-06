@@ -112,10 +112,7 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum LadderError {
     #[error("variant added at tier {added:?} would violate strict escalation order; last tier was {last:?}")]
-    OutOfOrder {
-        added: LadderTier,
-        last: LadderTier,
-    },
+    OutOfOrder { added: LadderTier, last: LadderTier },
 }
 
 impl<Input, Output> VariantLadder<Input, Output>
@@ -129,7 +126,10 @@ where
 
     /// Append a variant. Enforces strict tier-ascending order — once
     /// a Tier N variant is placed, only Tiers ≥ N may follow.
-    pub fn push(&mut self, variant: Arc<dyn LadderVariant<Input, Output>>) -> Result<(), LadderError> {
+    pub fn push(
+        &mut self,
+        variant: Arc<dyn LadderVariant<Input, Output>>,
+    ) -> Result<(), LadderError> {
         if let Some(last) = self.variants.last() {
             if (variant.tier() as u8) < (last.tier() as u8) {
                 return Err(LadderError::OutOfOrder {

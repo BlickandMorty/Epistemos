@@ -117,6 +117,12 @@ pub struct FileOpsTool {
     tracker: Mutex<FileReadTracker>,
 }
 
+impl Default for FileOpsTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileOpsTool {
     pub fn new() -> Self {
         Self {
