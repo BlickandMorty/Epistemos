@@ -61,6 +61,15 @@ pub trait ShadowBackend: Send + Sync {
     ) -> Result<Vec<ShadowHit>, ShadowError>;
     fn flush(&self) -> Result<(), ShadowError>;
     fn stats(&self) -> Result<ShadowStats, ShadowError>;
+
+    /// Per-stage timings of the most recent search call. Returns
+    /// `SearchTimings::default()` (all-zero) for backends that don't
+    /// track timings — Swift treats all-zero as "no signal" and skips
+    /// signpost emission. Default impl is the all-zero stub so the
+    /// W8.1 ShadowState placeholder doesn't have to change.
+    fn last_timings(&self) -> SearchTimings {
+        SearchTimings::default()
+    }
 }
 
 // MARK: - RealBackend (W8.4.e — the production implementor)
@@ -74,6 +83,25 @@ pub trait ShadowBackend: Send + Sync {
 // hops through `Mutex` / `RwLock` guards before touching the index
 // state. Reads are concurrent (RwLock::read).
 
+/// Per-stage timings of the most recent `RealBackend::search()` call.
+/// Exposed via `RealBackend::last_timings()` and surfaced through the
+/// `shadow_handle_last_timings_json` FFI so Swift can emit the
+/// AMBIENT_RECALL_HALO_MASTER_PLAN §4 OSSignposter intervals
+/// (`shadow.embed.ms` / `shadow.ann.ms` / `shadow.bm25.ms` /
+/// `shadow.fusion.ms`) without changing the existing search FFI shape.
+///
+/// The struct is `Default::default()` ⇒ all-zero, which means "no search
+/// has run yet on this handle" — Swift treats that as "no signal" and
+/// skips emission for the cold call.
+#[derive(Debug, Clone, Copy, Default, serde::Serialize)]
+pub struct SearchTimings {
+    pub embed_us: u64,
+    pub ann_us: u64,
+    pub bm25_us: u64,
+    pub fusion_us: u64,
+    pub total_us: u64,
+}
+
 pub struct RealBackend {
     embedder: &'static Embedder,
     lexical: LexicalIndex,
@@ -82,6 +110,9 @@ pub struct RealBackend {
     /// emit `snippet` + `title` without re-querying tantivy.
     docs: RwLock<FxHashMap<String, ShadowDocument>>,
     last_flush: Mutex<Instant>,
+    /// Per-stage timings of the most recent search. Last-write-wins under
+    /// concurrent search; this is diagnostic data, not a strict barrier.
+    last_timings: Mutex<SearchTimings>,
     /// Optional persistence root. `None` for the in-memory variant
     /// (test fixtures + the `new()` constructor). When set, `flush()`
     /// writes the tantivy + usearch sidecars under this path so the
@@ -104,6 +135,7 @@ impl RealBackend {
             vectors: RwLock::new(FxHashMap::default()),
             docs: RwLock::new(FxHashMap::default()),
             last_flush: Mutex::new(Instant::now()),
+            last_timings: Mutex::new(SearchTimings::default()),
             persistence_root: None,
         })
     }
@@ -170,8 +202,16 @@ impl RealBackend {
             vectors: RwLock::new(vectors),
             docs: RwLock::new(docs),
             last_flush: Mutex::new(Instant::now()),
+            last_timings: Mutex::new(SearchTimings::default()),
             persistence_root: Some(path.to_path_buf()),
         })
+    }
+
+    /// Per-stage timings of the most recent `search()` call. Returns
+    /// `SearchTimings::default()` (all-zero) when no search has run yet
+    /// on this handle.
+    pub fn last_timings(&self) -> SearchTimings {
+        *self.last_timings.lock().expect("last_timings lock poisoned")
     }
 
     fn ensure_vector_index(&self, domain: &str) -> Result<(), ShadowError> {
@@ -274,31 +314,48 @@ impl ShadowBackend for RealBackend {
             return Ok(Vec::new());
         }
 
+        // Per-stage timings for the AMBIENT_RECALL_HALO_MASTER_PLAN §4
+        // OSSignposter surface. Recorded into self.last_timings on
+        // success so Swift can read them via the
+        // shadow_handle_last_timings_json FFI.
+        let total_start = Instant::now();
+        let mut embed_us: u64 = 0;
+        let mut ann_us: u64 = 0;
+
         // Encode + dense search through the per-domain VectorIndex.
         let dense_hits: Vec<(String, f32)> = {
             let vectors = self.vectors.read().expect("vectors lock poisoned");
             match vectors.get(domain) {
                 Some(index) => {
+                    let embed_start = Instant::now();
                     let q_vec = self.embedder.encode_one(query);
+                    embed_us = embed_start.elapsed().as_micros() as u64;
                     if q_vec.is_empty() {
                         Vec::new()
                     } else {
-                        index.search(&q_vec, limit * 2)
+                        let ann_start = Instant::now();
+                        let hits = index.search(&q_vec, limit * 2);
+                        ann_us = ann_start.elapsed().as_micros() as u64;
+                        hits
                     }
                 }
                 None => Vec::new(),
             }
         };
 
+        let bm25_start = Instant::now();
         let lexical_hits: Vec<(String, f32)> = self
             .lexical
             .search(query, domain, limit * 2)?
             .into_iter()
             .map(|h| (h.doc_id, h.score))
             .collect();
+        let bm25_us = bm25_start.elapsed().as_micros() as u64;
 
         // RRF fuse the two channels.
+        let fusion_start = Instant::now();
         let fused = rrf::rrf_fuse(&dense_hits, &lexical_hits, rrf::RRF_K_DEFAULT, limit);
+        let fusion_us = fusion_start.elapsed().as_micros() as u64;
 
         // Hydrate with snippet + title from the docs side map.
         let docs = self.docs.read().expect("docs lock poisoned");
@@ -329,6 +386,17 @@ impl ShadowBackend for RealBackend {
                 })
             })
             .collect();
+
+        let total_us = total_start.elapsed().as_micros() as u64;
+        if let Ok(mut slot) = self.last_timings.lock() {
+            *slot = SearchTimings {
+                embed_us,
+                ann_us,
+                bm25_us,
+                fusion_us,
+                total_us,
+            };
+        }
         Ok(hits)
     }
 
@@ -384,6 +452,12 @@ impl ShadowBackend for RealBackend {
             index_size_bytes: bytes,
             last_flush_ms_ago: last_flush.elapsed().as_millis() as u64,
         })
+    }
+
+    fn last_timings(&self) -> SearchTimings {
+        // Trait override so the FFI can read RealBackend's per-stage
+        // timing accumulator without downcasting.
+        RealBackend::last_timings(self)
     }
 }
 
