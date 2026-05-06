@@ -320,6 +320,33 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 49: KV-Direct Week-1 acceptance gate substrate (Lane 3)")
+    func stage49KvDirectGateExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/kv_direct_gate.rs")
+        #expect(source.contains("HELIOS-KV-DIRECT-GATE guard"))
+        // Pinned canonical thresholds
+        #expect(source.contains("D_KL_THRESHOLD: f32 = 0.0"))
+        #expect(source.contains("PEAK_RAM_REDUCTION_FACTOR_MIN: f32 = 8.0"))
+        // Substrate types
+        #expect(source.contains("pub struct KvDirectMeasurements"))
+        #expect(source.contains("pub enum KvDirectDecision"))
+        #expect(source.contains("    Pass,"))
+        #expect(source.contains("    Fail,"))
+        #expect(source.contains("pub struct KvDirectProtocol"))
+        // Canonical protocol pin (Qwen3-8B-MLX-4bit at 128k)
+        #expect(source.contains("\"Qwen3-8B-MLX-4bit\""))
+        #expect(source.contains("128 * 1024"))
+        // Decision rule
+        #expect(source.contains("pub fn evaluate"))
+        // arXiv anchor
+        #expect(source.contains("2603.19664"))
+        // Qasim Theorem 1
+        #expect(source.contains("Qasim"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod kv_direct_gate"))
+    }
+
     @Test("Stage 47: Master Inequality WBO-5/6/7 generations (Lane 3)")
     func stage47WboGenerationsExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/wbo_generations.rs")
