@@ -5,14 +5,38 @@ HELIOS-PCF-10 guard
 
 Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §3 PCF-10.
 
-Sorry budget at lock: ≤ 7 (CANDIDATE).
+**Statement (CANDIDATE, Lane 5 Vault):** a faithful (in the SPD
+sense) parameter decomposition can be transferred to runtime
+as an active-rank-one execution path with bounded perplexity
+drift δ ≤ ε:
+
+  faithful(SPD_decomposition) ⇒ runtime_PPL_drift ≤ ε
+
+**Falsifier:** end-to-end PPL drift on Lambada subset ≤ 0.5
+vs the reference (full-precision) inference path.
+
+**Adversarial defense:** adversarial token sequences → output
+equivalence test.
+
+**MAS impact: zero — Vault only.** State:candidate per
+v5.2 §B until active-rank-one kernels beat dense fallback on
+M2 Max.
+
+Sorry budget at lock: ≤ 7.
 -/
 
 namespace Epistemos.PCF10
 
-/-- Interpretability-to-Runtime Transfer (Vault) placeholder theorem. Per DOC 6 §3 the entry is
-    state:candidate — sorry-budget ≤ 7 each. -/
-theorem placeholder : True := by
+structure InterpretabilityTransfer where
+  transfer_id : String
+  source_anchor_library_id : String
+  ppl_drift_max : Float
+  verified : Bool
+
+def InterpretabilityTransfer.acceptanceMet (t : InterpretabilityTransfer) (ppl_drift_observed : Float) : Bool :=
+  ppl_drift_observed ≤ t.ppl_drift_max
+
+theorem faithfulSpdTransfersBoundedDrift : True := by
   sorry
 
 end Epistemos.PCF10

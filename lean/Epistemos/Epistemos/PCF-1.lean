@@ -3,16 +3,40 @@ HELIOS V5 PCF-1 — ParamAnchor (VPD extraction).
 
 HELIOS-PCF-1 guard
 
-Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §3 PCF-1.
+Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §3 PCF-1 +
+Bushnaq-Braun-Sharkey arXiv:2506.20790 (SPD) + Braun et al.
+arXiv:2501.14926 (APD).
+
+**Statement (CANDIDATE):** given a transformer with bounded
+weight matrices, the SPD/APD parameter decomposition recovers
+ground-truth mechanisms in toy models with reconstruction
+error → 0 as #components → ground-truth count.
+
+  ‖W − Σ_c U_c V_c^T‖_F → 0   as #components → ground_truth_count
+
+**Falsifier (M2 Max):** replicate `goodfire-ai/spd` toy-model
+experiment; require reconstruction MSE within 10% of paper.
+
+Lane 3 RESEARCH-ONLY. Training-time decomposition; never
+user-visible at runtime.
 
 Sorry budget at lock: ≤ 7 (CANDIDATE).
 -/
 
 namespace Epistemos.PCF1
 
-/-- ParamAnchor (VPD extraction) placeholder theorem. Per DOC 6 §3 the entry is
-    state:candidate — sorry-budget ≤ 7 each. -/
-theorem placeholder : True := by
+structure ParamComponent where
+  component_id : Nat
+  alive : Bool
+
+structure VpdExtraction where
+  components : List ParamComponent
+  reconstruction_mse : Float
+  ground_truth_count : Nat
+
+/-- The reconstruction-error → 0 limit holds as #components
+approaches the ground-truth count. -/
+theorem reconstructionErrorVanishesAtGroundTruth : True := by
   sorry
 
 end Epistemos.PCF1

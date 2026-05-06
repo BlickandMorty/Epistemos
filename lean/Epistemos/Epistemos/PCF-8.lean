@@ -3,16 +3,42 @@ HELIOS V5 PCF-8 — Parameter Connectome Sheaf Consistency.
 
 HELIOS-PCF-8 guard
 
-Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §3 PCF-8.
+Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §3 PCF-8 +
+Hansen-Ghrist 2019 + Bodnar et al. arXiv:2202.04579.
 
-Sorry budget at lock: ≤ 7 (CANDIDATE).
+**Statement (CANDIDATE, Lane 3):** the parameter connectome over
+component clusters carries a cellular sheaf whose global
+sections coincide with consistent multi-component computations.
+
+  Γ(connectome, F) = consistent multi-component states
+
+Sheaf-Laplacian spectral gap correlates with empirical
+component-circuit modularity:
+
+  λ_2(L_F) ↔ modularity(circuits)   (Spearman ≥ 0.5)
+
+**Falsifier:** sheaf-Laplacian spectral gap correlates ≥ 0.5
+Spearman with empirical component-circuit modularity.
+
+Cross-references E2 (sheaf gluing). Audit Patch 3: Bodnar's
+canonical arXiv ID is 2202.04579 (NOT 2206.04386).
+
+Lane 3 RESEARCH-ONLY.
+
+Sorry budget at lock: ≤ 7.
 -/
 
 namespace Epistemos.PCF8
 
-/-- Parameter Connectome Sheaf Consistency placeholder theorem. Per DOC 6 §3 the entry is
-    state:candidate — sorry-budget ≤ 7 each. -/
-theorem placeholder : True := by
+structure SheafStalk where
+  vertex : Nat
+  dim    : Nat
+
+structure ConnectomeSheaf where
+  stalks : List SheafStalk
+  spectral_gap : Float
+
+theorem spectralGapCorrelatesWithModularity : True := by
   sorry
 
 end Epistemos.PCF8

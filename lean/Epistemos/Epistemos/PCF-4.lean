@@ -5,14 +5,31 @@ HELIOS-PCF-4 guard
 
 Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §3 PCF-4.
 
-Sorry budget at lock: ≤ 7 (CANDIDATE).
+**Statement (CANDIDATE):** a ComponentRoute is an ordered
+sequence of component-cluster activations through which
+inference can be selectively routed.
+
+  route : List Nat    -- ordered cluster ids
+
+**DEFERRED until PCF-1 verified.** This is a frozen schema with
+no behavior — the runtime dispatch lands per a follow-up slice
+gated on PCF-1's M2 Max falsifier passing.
+
+Lane 3 RESEARCH-ONLY.
+
+Sorry budget at lock: ≤ 5.
 -/
 
 namespace Epistemos.PCF4
 
-/-- ComponentRoute placeholder theorem. Per DOC 6 §3 the entry is
-    state:candidate — sorry-budget ≤ 7 each. -/
-theorem placeholder : True := by
+structure ComponentRoute where
+  route_id : String
+  component_path : List Nat
+
+def ComponentRoute.length (r : ComponentRoute) : Nat :=
+  r.component_path.length
+
+theorem componentRouteSchemaIsFrozenUntilPcf1 : True := by
   sorry
 
 end Epistemos.PCF4
