@@ -109,6 +109,11 @@
 //!   `S → 1 | eml(S, S)` with 2 productions. Plus 3 explicit
 //!   non-analytic functions outside the closure (bump / Weierstrass
 //!   / |x| at 0).
+//! - [`gate_action`] — ResonanceGate decision actions (6 arms) +
+//!   hard-invariant thresholds. Per `epistenos_build_prompt.md`
+//!   §2.4 — Pass / Hold / Quarantine / TriggerEvidenceSupremacy /
+//!   EngramAnchor / MigrateResidency. Engram-anchor predicate at
+//!   prime + ρ > 0.7 + κ > 0.382. Self-monitoring d_max = 3.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -129,6 +134,9 @@ pub mod engram;
 
 #[cfg(feature = "research")]
 pub mod falsifier_actions;
+
+#[cfg(feature = "research")]
+pub mod gate_action;
 
 #[cfg(feature = "research")]
 pub mod kv_direct_gate;
