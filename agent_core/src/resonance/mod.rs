@@ -32,6 +32,20 @@ pub mod lambda;
 pub mod pi;
 pub mod tau;
 
+// HELIOS V5 SCOPE-Rex Pro extension — δ + ρ. Built when `pro-build`
+// feature is on. Per docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md §G.
+#[cfg(feature = "pro-build")]
+pub mod delta;
+#[cfg(feature = "pro-build")]
+pub mod rho;
+
+// HELIOS V5 SCOPE-Rex Research extension — κ + η. Built when
+// `research` feature is on. Per same doc §G.
+#[cfg(feature = "research")]
+pub mod eta;
+#[cfg(feature = "research")]
+pub mod kappa;
+
 pub use lambda::{target_residency, ResidencyLevel};
 pub use pi::{classify, ClaimClass, ClaimType};
 pub use tau::{evaluate_truth, Truth};

@@ -320,6 +320,109 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 3: epistemos-research crate exists with research feature gate")
+    func stage3ResearchCrateExists() throws {
+        let cargo = try loadMirroredSourceTextFile("epistemos-research/Cargo.toml")
+        #expect(cargo.contains("name = \"epistemos-research\""))
+        #expect(cargo.contains("research = []"))
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("#[cfg(feature = \"research\")]"))
+        #expect(lib.contains("pub mod vpd"))
+        #expect(lib.contains("pub mod theorems"))
+        #expect(lib.contains("pub mod acs"))
+    }
+
+    @Test("W17: VPD extract pipeline + ParamComponent rank-1 form")
+    func w17VpdExtractExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/vpd/extract.rs")
+        #expect(source.contains("HELIOS-W17 guard"))
+        #expect(source.contains("pub struct ParamComponent"))
+        #expect(source.contains("pub fn reconstruct"))
+        #expect(source.contains("alive: bool"))
+        // SPD/APD ancestry citations.
+        #expect(source.contains("2506.20790") || source.contains("2501.14926"))
+    }
+
+    @Test("W18: ParamAnchor library + frozen anchor entries")
+    func w18ParamAnchorExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/vpd/anchor.rs")
+        #expect(source.contains("HELIOS-W18 guard"))
+        #expect(source.contains("pub struct ParamAnchor"))
+        #expect(source.contains("pub struct ParamAnchorLibrary"))
+    }
+
+    @Test("W19: Dual Connectome Trace (parameter + activation)")
+    func w19DualConnectomeTraceExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/vpd/dual_trace.rs")
+        #expect(source.contains("HELIOS-W19 guard"))
+        #expect(source.contains("pub struct DualTraceSample"))
+        #expect(source.contains("pub struct DualConnectomeTrace"))
+        #expect(source.contains("param_activations"))
+        #expect(source.contains("act_activations"))
+    }
+
+    @Test("Stage 3 / E1-E7: substrate types present with HELIOS-E<n> guards")
+    func stage3E1ThroughE7Exists() throws {
+        for (file, marker) in [
+            ("epistemos-research/src/theorems/e1_density.rs", "HELIOS-E1 guard"),
+            ("epistemos-research/src/theorems/e2_sheaf_gluing.rs", "HELIOS-E2 guard"),
+            ("epistemos-research/src/theorems/e3_morph_field.rs", "HELIOS-E3 guard"),
+            ("epistemos-research/src/theorems/e4_wbo7.rs", "HELIOS-E4 guard"),
+            ("epistemos-research/src/theorems/e5_duplex_fusion.rs", "HELIOS-E5 guard"),
+            ("epistemos-research/src/theorems/e6_epi_epsilon.rs", "HELIOS-E6 guard"),
+            ("epistemos-research/src/theorems/e7_kernel_identity.rs", "HELIOS-E7 guard"),
+        ] {
+            let source = try loadMirroredSourceTextFile(file)
+            #expect(source.contains(marker), "\(file) missing canonical \(marker)")
+        }
+    }
+
+    @Test("Stage 3 / ACS / CMS-X: substrate lifted from helios v4 source_docs")
+    func stage3AcsCmsXExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/acs.rs")
+        #expect(source.contains("HELIOS-ACS guard"))
+        #expect(source.contains("pub struct AcsAnchor"))
+        #expect(source.contains("pub struct CmsXField"))
+    }
+
+    @Test("Stage 3 / SCOPE-Rex Pro: δ + ρ substrate gated `pro-build`")
+    func stage3ScopeRexProExists() throws {
+        let modSource = try loadMirroredSourceTextFile("agent_core/src/resonance/mod.rs")
+        #expect(modSource.contains("#[cfg(feature = \"pro-build\")]"))
+        #expect(modSource.contains("pub mod delta"))
+        #expect(modSource.contains("pub mod rho"))
+
+        let delta = try loadMirroredSourceTextFile("agent_core/src/resonance/delta.rs")
+        #expect(delta.contains("HELIOS-DELTA guard"))
+        #expect(delta.contains("pub enum DeltaOp"))
+        #expect(delta.contains("UpwardGeneralization"))
+        #expect(delta.contains("DownwardSpecialization"))
+        #expect(delta.contains("LateralResonance"))
+
+        let rho = try loadMirroredSourceTextFile("agent_core/src/resonance/rho.rs")
+        #expect(rho.contains("HELIOS-RHO guard"))
+        #expect(rho.contains("pub struct ResonanceScore"))
+        #expect(rho.contains("pub fn rho_from_evidence_overlap"))
+    }
+
+    @Test("Stage 3 / SCOPE-Rex Research: κ + η substrate gated `research`")
+    func stage3ScopeRexResearchExists() throws {
+        let modSource = try loadMirroredSourceTextFile("agent_core/src/resonance/mod.rs")
+        #expect(modSource.contains("#[cfg(feature = \"research\")]"))
+        #expect(modSource.contains("pub mod kappa"))
+        #expect(modSource.contains("pub mod eta"))
+
+        let kappa = try loadMirroredSourceTextFile("agent_core/src/resonance/kappa.rs")
+        #expect(kappa.contains("HELIOS-KAPPA guard"))
+        #expect(kappa.contains("pub struct KamStabilityScore"))
+        #expect(kappa.contains("pub fn kappa_from_deviation"))
+
+        let eta = try loadMirroredSourceTextFile("agent_core/src/resonance/eta.rs")
+        #expect(eta.contains("HELIOS-ETA guard"))
+        #expect(eta.contains("pub enum EvidenceSupremacy"))
+        #expect(eta.contains("pub fn eta_classify"))
+    }
+
     @Test("W23: Forensic citation registry tool exists + has full id namespace")
     func w23ForensicCiteToolExists() throws {
         let source = try loadMirroredSourceTextFile("Tools/forensic-cite/forensic-cite.sh")
