@@ -320,6 +320,32 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 20: W12/W13/W14 Tier-2 Metal Shading Language kernels exist")
+    func stage20Tier2MetalKernelsExist() throws {
+        let tmac = try loadMirroredSourceTextFile("Epistemos/Shaders/tmac_lut.metal")
+        #expect(tmac.contains("HELIOS-W12-METAL guard"))
+        #expect(tmac.contains("kernel void tmacTernaryGemm"))
+        #expect(tmac.contains("kernel void validateTernaryWeights"))
+        // Wei et al. citation present.
+        #expect(tmac.contains("2407.00088"))
+
+        let bitnet = try loadMirroredSourceTextFile("Epistemos/Shaders/bitnet_b158.metal")
+        #expect(bitnet.contains("HELIOS-W13-METAL guard"))
+        #expect(bitnet.contains("kernel void bitnetAbsmeanQuantize"))
+        #expect(bitnet.contains("kernel void bitnetB158Gemm"))
+        // Ma et al. + Microsoft 2B4T citations.
+        #expect(bitnet.contains("2402.17764"))
+        #expect(bitnet.contains("2504.12285"))
+
+        let stg = try loadMirroredSourceTextFile("Epistemos/Shaders/sparse_ternary_gemm.metal")
+        #expect(stg.contains("HELIOS-W14-METAL guard"))
+        #expect(stg.contains("kernel void sparseTernaryGemm"))
+        #expect(stg.contains("kernel void sparseTernaryFootprint"))
+        #expect(stg.contains("BIT-IDENTICAL"))
+        // Lipshitz et al. citation.
+        #expect(stg.contains("2510.06957"))
+    }
+
     @Test("Stage 19: PCF-1..PCF-10 Lean stubs enriched with VPD acceptance criteria")
     func stage19PcfLeanStubsEnriched() throws {
         let pcf1 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-1.lean")
