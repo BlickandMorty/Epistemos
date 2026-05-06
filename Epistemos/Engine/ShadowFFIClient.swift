@@ -77,6 +77,67 @@ nonisolated public protocol ShadowFFIClient: Sendable {
     /// Mirrors the Rust `shadow_warm()` C ABI in
     /// `epistemos-shadow/src/lib.rs`.
     func warm() throws -> Void
+
+    /// AMBIENT_RECALL_HALO_MASTER_PLAN §4 — per-stage timings of the
+    /// most recent `search()` call. Drives the `shadow.embed.ms` /
+    /// `shadow.ann.ms` / `shadow.bm25.ms` / `shadow.fusion.ms` /
+    /// `shadow.search.total.ms` OSSignposter intervals.
+    ///
+    /// Default impl returns `.empty` (all-zero) so the stub client
+    /// stays minimal; production `RustShadowFFIClient` overrides to
+    /// read the per-handle accumulator via the
+    /// `shadow_handle_last_timings_json` FFI.
+    func lastSearchTimings() -> ShadowSearchTimings
+}
+
+extension ShadowFFIClient {
+    public nonisolated func lastSearchTimings() -> ShadowSearchTimings { .empty }
+}
+
+/// Per-stage timings of the most recent Shadow search, in microseconds.
+/// All-zero means "no search has run yet on this client" — callers
+/// treat that as "no signal" and skip OSSignposter emission for the
+/// cold call.
+nonisolated public struct ShadowSearchTimings: Sendable, Hashable, Codable {
+    public let embedUs: UInt64
+    public let annUs: UInt64
+    public let bm25Us: UInt64
+    public let fusionUs: UInt64
+    public let totalUs: UInt64
+
+    public init(
+        embedUs: UInt64,
+        annUs: UInt64,
+        bm25Us: UInt64,
+        fusionUs: UInt64,
+        totalUs: UInt64
+    ) {
+        self.embedUs = embedUs
+        self.annUs = annUs
+        self.bm25Us = bm25Us
+        self.fusionUs = fusionUs
+        self.totalUs = totalUs
+    }
+
+    public static let empty = ShadowSearchTimings(
+        embedUs: 0,
+        annUs: 0,
+        bm25Us: 0,
+        fusionUs: 0,
+        totalUs: 0
+    )
+
+    public var isEmpty: Bool {
+        embedUs == 0 && annUs == 0 && bm25Us == 0 && fusionUs == 0 && totalUs == 0
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case embedUs = "embed_us"
+        case annUs = "ann_us"
+        case bm25Us = "bm25_us"
+        case fusionUs = "fusion_us"
+        case totalUs = "total_us"
+    }
 }
 
 /// Plain DTO mirroring the Rust `ShadowDocument` struct field-for-field.

@@ -59,6 +59,12 @@ nonisolated private func shadow_handle_stats(
     _ outError: UnsafeMutablePointer<Int32>?
 ) -> UnsafeMutablePointer<CChar>?
 
+@_silgen_name("shadow_handle_last_timings_json")
+nonisolated private func shadow_handle_last_timings_json(
+    _ handle: UnsafePointer<UInt8>?,
+    _ outError: UnsafeMutablePointer<Int32>?
+) -> UnsafeMutablePointer<CChar>?
+
 @_silgen_name("shadow_handle_free_string")
 nonisolated private func shadow_handle_free_string(
     _ ptr: UnsafeMutablePointer<CChar>?
@@ -219,6 +225,25 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
             )
         }
         return try Self.decoder.decode(ShadowStatsDTO.self, from: data)
+    }
+
+    /// AMBIENT_RECALL_HALO_MASTER_PLAN §4 — read the per-stage timings
+    /// of the most recent search through this handle. Returns
+    /// `.empty` (all-zero) when no search has run yet, when the FFI
+    /// errors, or when the JSON fails to decode — never throws.
+    /// Callers (e.g. ShadowSearchService) treat all-zero as
+    /// "no signal" and skip OSSignposter emission.
+    public func lastSearchTimings() -> ShadowSearchTimings {
+        var errorCode: Int32 = 0
+        guard let cStr = shadow_handle_last_timings_json(handle, &errorCode) else {
+            return .empty
+        }
+        defer { shadow_handle_free_string(cStr) }
+        let json = String(cString: cStr)
+        guard let data = json.data(using: .utf8) else {
+            return .empty
+        }
+        return (try? Self.decoder.decode(ShadowSearchTimings.self, from: data)) ?? .empty
     }
 
     private static let encoder: JSONEncoder = {

@@ -106,9 +106,49 @@ public actor ShadowSearchService: ShadowSearchServicing {
         }
 
         let start = CFAbsoluteTimeGetCurrent()
+        // AMBIENT_RECALL_HALO_MASTER_PLAN §4 — umbrella signpost
+        // `shadow.search.total.ms`. The per-stage signposts
+        // (`shadow.embed.ms` / `shadow.ann.ms` / `shadow.bm25.ms` /
+        // `shadow.fusion.ms`) are emitted as point events after the
+        // FFI returns so Rust's per-stage timings (which can't be
+        // observed by Swift's signposter directly) reach Instruments.
+        let totalSignpostId = Sig.storage.makeSignpostID()
+        let totalSignpostState = Sig.storage.beginInterval(
+            "shadow.search.total.ms",
+            id: totalSignpostId,
+            "domain=\(domain.wireValue)"
+        )
         do {
             let hits = try client.search(query: text, domain: domain, limit: limit)
             let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1_000
+            Sig.storage.endInterval("shadow.search.total.ms", totalSignpostState)
+
+            // Per-stage point events keyed by Rust-measured durations.
+            // Skipped on the cold call (all-zero) so Instruments doesn't
+            // see a zero-duration spike before the first real search.
+            let stageTimings = client.lastSearchTimings()
+            if !stageTimings.isEmpty {
+                Sig.storage.emitEvent(
+                    "shadow.embed.ms",
+                    id: totalSignpostId,
+                    "duration_us=\(stageTimings.embedUs)"
+                )
+                Sig.storage.emitEvent(
+                    "shadow.ann.ms",
+                    id: totalSignpostId,
+                    "duration_us=\(stageTimings.annUs)"
+                )
+                Sig.storage.emitEvent(
+                    "shadow.bm25.ms",
+                    id: totalSignpostId,
+                    "duration_us=\(stageTimings.bm25Us)"
+                )
+                Sig.storage.emitEvent(
+                    "shadow.fusion.ms",
+                    id: totalSignpostId,
+                    "duration_us=\(stageTimings.fusionUs)"
+                )
+            }
 
             if Task.isCancelled {
                 await recordShadowSearchFailure(
@@ -143,6 +183,7 @@ public actor ShadowSearchService: ShadowSearchServicing {
             )
             return hits
         } catch {
+            Sig.storage.endInterval("shadow.search.total.ms", totalSignpostState)
             let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1_000
             let failureClass: ShadowSearchFailureClass = Task.isCancelled
                 ? .cancelled

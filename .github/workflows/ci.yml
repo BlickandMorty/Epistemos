@@ -119,6 +119,18 @@ jobs:
       - name: Run verify-replay against fixture (Phase 8.F gate)
         run: cd agent_core && cargo run --target aarch64-apple-darwin --bin epistemos_trace -- verify-replay /tmp/epistemos-ci-sample.epbundle
 
+      # AMBIENT_RECALL_HALO_MASTER_PLAN §4 — release-time gate keeping
+      # the per-stage SearchTimings FFI wired. Runs the
+      # epistemos-shadow halo_budget example: opens RealBackend,
+      # inserts one fixture doc, runs one search, dumps SearchTimings
+      # JSON. Soft-fails (exit 0) when Model2Vec isn't cacheable so CI
+      # runners without ~/.cache/huggingface stay green; the binary's
+      # existence + linkage is still verified. Future expansion grows
+      # the fixture to N iterations + p99 threshold enforcement
+      # against the doctrine §4 ceilings.
+      - name: Run halo_budget bench (V2.2 §4 gate)
+        run: cd epistemos-shadow && cargo run --target aarch64-apple-darwin --example halo_budget
+
       # Rust lints
       - name: Clippy (all crates)
         run: |
