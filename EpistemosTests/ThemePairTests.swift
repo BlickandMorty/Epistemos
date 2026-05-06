@@ -1233,7 +1233,7 @@ LD_RUNPATH_SEARCH_PATHS = (
     func liquidGreetingTaskIdentityTracksPlaylistChanges() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
-        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(searchMode)_\\(hermesHeroMode)_\\(ui.landingGreetingPlaylistSignature)\""))
+        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(searchMode)_\\(ui.landingGreetingPlaylistSignature)\""))
         #expect(!liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(displayText)\""))
     }
 
@@ -1510,7 +1510,9 @@ LD_RUNPATH_SEARCH_PATHS = (
             #expect(source.contains("no cloud fallback in the live app"))
         }
 
-        #expect(claude.contains("cloud API orchestration"))
+        #expect(claude.contains("agent_core crate owns: agentic loop, HTTP streaming, tool execution"))
+        #expect(claude.contains("formerly the hermes-agent subprocess; now in `agent_core::agent_runtime`"))
+        #expect(claude.contains("Cloud models get agent/liveAgent"))
         #expect(claude.contains("Anthropic"))
         #expect(claude.contains("OpenAI"))
     }
