@@ -320,6 +320,33 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 51: Stack roles + canonical reference checkpoints (Lane 3)")
+    func stage51StackRolesExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/stack_roles.rs")
+        #expect(source.contains("HELIOS-STACK-ROLES guard"))
+        // 3-arm stack role enum (spine / hand / nerves)
+        #expect(source.contains("pub enum StackRole"))
+        #expect(source.contains("RustSpine"))
+        #expect(source.contains("MlxHand"))
+        #expect(source.contains("MetalNerves"))
+        // Architecture-track enum
+        #expect(source.contains("pub enum ArchitectureTrack"))
+        #expect(source.contains("Transformer"))
+        #expect(source.contains("StateSpaceModel"))
+        // Reference checkpoint pins
+        #expect(source.contains("pub struct ReferenceCheckpoint"))
+        #expect(source.contains("\"Qwen/Qwen3-8B-MLX-4bit\""))
+        #expect(source.contains("\"cartesia-ai/mamba2-2.7b-4bit-mlx\""))
+        #expect(source.contains("TRANSFORMER_REFERENCE"))
+        #expect(source.contains("SSM_REFERENCE"))
+        // Helpers
+        #expect(source.contains("pub fn responsibility"))
+        #expect(source.contains("pub fn is_bandwidth_critical"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod stack_roles"))
+    }
+
     @Test("Stage 50: Sign-correct ULP distance utilities (Lane 3)")
     func stage50UlpCompareExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/ulp_compare.rs")
