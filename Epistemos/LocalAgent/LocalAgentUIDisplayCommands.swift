@@ -1,8 +1,8 @@
 import Foundation
 
-// MARK: - Hermes UI Display Commands
+// MARK: - LocalAgent UI Display Commands
 //
-// Core-native parsers for the UI-display row of HermesCapabilityRegistry:
+// Core-native parsers for the UI-display row of LocalAgentCapabilityRegistry:
 // /theme, /theme list, /mode, /markdown, /image, /pager, /width, /font,
 // /fontsize, /colors. Each is a parser + intent — the dispatch site
 // applies to the active session UI config without prompting.
@@ -11,13 +11,13 @@ import Foundation
 
 // MARK: - On/off helper
 
-nonisolated enum HermesToggleState: String, Equatable, Sendable, CaseIterable {
+nonisolated enum LocalAgentToggleState: String, Equatable, Sendable, CaseIterable {
     case on
     case off
 }
 
-extension HermesToggleState {
-    nonisolated static func parse(_ raw: String) -> HermesToggleState? {
+extension LocalAgentToggleState {
+    nonisolated static func parse(_ raw: String) -> LocalAgentToggleState? {
         switch raw.lowercased() {
         case "on": return .on
         case "off": return .off
@@ -28,7 +28,7 @@ extension HermesToggleState {
 
 // MARK: - /theme
 
-nonisolated struct HermesThemeCommand: Equatable, Sendable {
+nonisolated struct LocalAgentThemeCommand: Equatable, Sendable {
     enum Action: Equatable, Sendable {
         case showCurrent       // /theme
         case list              // /theme list
@@ -38,20 +38,20 @@ nonisolated struct HermesThemeCommand: Equatable, Sendable {
     let action: Action
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesThemeCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentThemeCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/theme" || trimmed.hasPrefix("/theme ") else { return nil }
         let arg = trimmed.dropFirst("/theme".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        if arg.isEmpty { return HermesThemeCommand(action: .showCurrent) }
-        if arg.lowercased() == "list" { return HermesThemeCommand(action: .list) }
-        return HermesThemeCommand(action: .set(name: arg))
+        if arg.isEmpty { return LocalAgentThemeCommand(action: .showCurrent) }
+        if arg.lowercased() == "list" { return LocalAgentThemeCommand(action: .list) }
+        return LocalAgentThemeCommand(action: .set(name: arg))
     }
 }
 
 // MARK: - /mode <simple|rich>
 
-nonisolated struct HermesModeCommand: Equatable, Sendable {
+nonisolated struct LocalAgentModeCommand: Equatable, Sendable {
     enum Mode: String, Equatable, Sendable, CaseIterable {
         case simple
         case rich
@@ -60,20 +60,20 @@ nonisolated struct HermesModeCommand: Equatable, Sendable {
     let mode: Mode
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesModeCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentModeCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/mode") else { return nil }
         let arg = trimmed.dropFirst("/mode".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         guard let mode = Mode(rawValue: arg) else { return nil }
-        return HermesModeCommand(mode: mode)
+        return LocalAgentModeCommand(mode: mode)
     }
 }
 
 // MARK: - /markdown, /image, /pager — three on/off toggles share one shape
 
-nonisolated struct HermesUIToggleCommand: Equatable, Sendable {
+nonisolated struct LocalAgentUIToggleCommand: Equatable, Sendable {
     enum Surface: String, Equatable, Sendable, CaseIterable {
         case markdown
         case image
@@ -81,11 +81,11 @@ nonisolated struct HermesUIToggleCommand: Equatable, Sendable {
     }
 
     let surface: Surface
-    let state: HermesToggleState
+    let state: LocalAgentToggleState
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesUIToggleCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentUIToggleCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/") else { return nil }
         let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
@@ -93,68 +93,68 @@ nonisolated struct HermesUIToggleCommand: Equatable, Sendable {
         let cmd = String(parts[0]).dropFirst()
         let arg = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
         guard let surface = Surface(rawValue: String(cmd)) else { return nil }
-        guard let state = HermesToggleState.parse(arg) else { return nil }
-        return HermesUIToggleCommand(surface: surface, state: state)
+        guard let state = LocalAgentToggleState.parse(arg) else { return nil }
+        return LocalAgentUIToggleCommand(surface: surface, state: state)
     }
 }
 
 // MARK: - /width <num>
 
-nonisolated struct HermesWidthCommand: Equatable, Sendable {
+nonisolated struct LocalAgentWidthCommand: Equatable, Sendable {
     let width: Int
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesWidthCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentWidthCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/width") else { return nil }
         let arg = trimmed.dropFirst("/width".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard let n = Int(arg), (40...500).contains(n) else { return nil }
-        return HermesWidthCommand(width: n)
+        return LocalAgentWidthCommand(width: n)
     }
 }
 
 // MARK: - /font <name> and /fontsize <size>
 
-nonisolated struct HermesFontCommand: Equatable, Sendable {
+nonisolated struct LocalAgentFontCommand: Equatable, Sendable {
     let name: String
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesFontCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentFontCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/font ") else { return nil }
         let name = trimmed.dropFirst("/font".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        return HermesFontCommand(name: name)
+        return LocalAgentFontCommand(name: name)
     }
 }
 
-nonisolated struct HermesFontSizeCommand: Equatable, Sendable {
+nonisolated struct LocalAgentFontSizeCommand: Equatable, Sendable {
     let size: Int
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesFontSizeCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentFontSizeCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/fontsize") else { return nil }
         let arg = trimmed.dropFirst("/fontsize".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard let n = Int(arg), (8...72).contains(n) else { return nil }
-        return HermesFontSizeCommand(size: n)
+        return LocalAgentFontSizeCommand(size: n)
     }
 }
 
 // MARK: - /colors — read-only theme diagnostics
 
-nonisolated struct HermesColorsCommand: Equatable, Sendable {
+nonisolated struct LocalAgentColorsCommand: Equatable, Sendable {
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesColorsCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentColorsCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/colors" else { return nil }
-        return HermesColorsCommand()
+        return LocalAgentColorsCommand()
     }
 }

@@ -4,7 +4,7 @@ import Security
 
 // MARK: - CredentialPool
 // Multi-key credential management with least-used load distribution.
-// Inspired by Hermes Agent's credential pool rotation system.
+// Inspired by LocalAgent Agent's credential pool rotation system.
 //
 // Supports multiple API keys per provider. When a key hits rate limits or fails,
 // it's deprioritized and the next least-used key is selected.

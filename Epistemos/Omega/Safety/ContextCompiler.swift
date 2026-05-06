@@ -28,7 +28,7 @@ nonisolated enum ContextCompiler {
     }
 
     /// Apply U-curve reordering to MCP tool result strings.
-    /// Typically used on vault_search results before returning them to Hermes.
+    /// Typically used on vault_search results before returning them to LocalAgent.
     nonisolated static func compileSearchResults(_ results: [String]) -> [String] {
         uCurveOrder(results)
     }

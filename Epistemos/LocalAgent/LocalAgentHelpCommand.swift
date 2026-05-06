@@ -3,14 +3,14 @@ import Foundation
 /// Native unified-command-help surface for `/help` per
 /// `HERMES_CAPABILITY_PARITY_TARGET_2026_05_03.md` — Session row.
 ///
-/// Lists every command from `HermesCapabilityRegistry` grouped by
+/// Lists every command from `LocalAgentCapabilityRegistry` grouped by
 /// surface, optionally filtered by tier or surface. **Core-safe**: no
 /// network, no subprocess, no provider call. Deterministic / pure.
-nonisolated struct HermesHelpCommand: Equatable, Sendable {
+nonisolated struct LocalAgentHelpCommand: Equatable, Sendable {
     enum Filter: Equatable, Sendable {
         case all
-        case tier(HermesCapabilityTier)
-        case surface(HermesCapabilitySurface)
+        case tier(LocalAgentCapabilityTier)
+        case surface(LocalAgentCapabilitySurface)
     }
 
     let filter: Filter
@@ -22,7 +22,7 @@ nonisolated struct HermesHelpCommand: Equatable, Sendable {
     /// Parse `/help`, `/help <tier>`, `/help <surface>`. Returns `nil`
     /// for non-`/help` input. Unknown filter argument falls back to
     /// `.all` (so the user always gets a useful response).
-    static func parse(_ rawCommand: String) -> HermesHelpCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentHelpCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/help" || trimmed.hasPrefix("/help ") else {
             return nil
@@ -31,23 +31,23 @@ nonisolated struct HermesHelpCommand: Equatable, Sendable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         guard !arg.isEmpty else {
-            return HermesHelpCommand(filter: .all)
+            return LocalAgentHelpCommand(filter: .all)
         }
-        if let tier = HermesCapabilityTier(rawValue: arg) {
-            return HermesHelpCommand(filter: .tier(tier))
+        if let tier = LocalAgentCapabilityTier(rawValue: arg) {
+            return LocalAgentHelpCommand(filter: .tier(tier))
         }
-        if let surface = HermesCapabilitySurface(rawValue: arg) {
-            return HermesHelpCommand(filter: .surface(surface))
+        if let surface = LocalAgentCapabilitySurface(rawValue: arg) {
+            return LocalAgentHelpCommand(filter: .surface(surface))
         }
-        return HermesHelpCommand(filter: .all)
+        return LocalAgentHelpCommand(filter: .all)
     }
 
     // MARK: - Render
 
     /// Rendered help text grouped by surface. Stable section ordering
-    /// (matches `HermesCapabilitySurface.allCases` order in the registry)
+    /// (matches `LocalAgentCapabilitySurface.allCases` order in the registry)
     /// so screen-readers + UI consumers get deterministic output.
-    func renderText(registry: [HermesCapability] = HermesCapabilityRegistry.all) -> String {
+    func renderText(registry: [LocalAgentCapability] = LocalAgentCapabilityRegistry.all) -> String {
         let filtered = registry.filter { capability in
             switch filter {
             case .all: return true
@@ -70,7 +70,7 @@ nonisolated struct HermesHelpCommand: Equatable, Sendable {
         }
         lines.append("")
 
-        for surface in HermesCapabilitySurface.allCases {
+        for surface in LocalAgentCapabilitySurface.allCases {
             let group = filtered.filter { $0.surface == surface }
             guard !group.isEmpty else { continue }
             lines.append("[\(surface.rawValue)]")

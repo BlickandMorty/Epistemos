@@ -31,7 +31,7 @@ nonisolated enum XPCEnvelopeKeys {
 
 nonisolated enum AgentXPCCommandEnvelope {
     static func response(for rawCommand: String) -> NSDictionary {
-        guard let parsed = HermesCommandDispatcher.parseCore(rawCommand) else {
+        guard let parsed = LocalAgentCommandDispatcher.parseCore(rawCommand) else {
             return [
                 XPCEnvelopeKeys.status: "unknown",
                 XPCEnvelopeKeys.rawCommand: rawCommand,
@@ -46,7 +46,7 @@ nonisolated enum AgentXPCCommandEnvelope {
         ]
     }
 
-    static func commandName(for parsed: HermesParsedCommand) -> String {
+    static func commandName(for parsed: LocalAgentParsedCommand) -> String {
         switch parsed {
         case .ask: return "/ask"
         case .append: return "/append"
@@ -90,14 +90,14 @@ nonisolated enum AgentXPCCommandEnvelope {
 
 nonisolated enum ProviderXPCSurfaceEnvelope {
     static func response(for surfaceName: String) -> NSDictionary {
-        guard let surface = HermesGatewaySurface.xpcSurface(named: surfaceName) else {
+        guard let surface = LocalAgentGatewaySurface.xpcSurface(named: surfaceName) else {
             return [
                 XPCEnvelopeKeys.status: "unknown",
                 "surface": surfaceName,
             ]
         }
 
-        let decision = HermesGatewayPolicy.decision(for: surface)
+        let decision = LocalAgentGatewayPolicy.decision(for: surface)
         return [
             XPCEnvelopeKeys.status: "classified",
             "surface": surfaceName,
@@ -111,7 +111,7 @@ nonisolated enum ProviderXPCSurfaceEnvelope {
     }
 }
 
-extension HermesGatewaySurface {
+extension LocalAgentGatewaySurface {
     nonisolated static func xpcSurface(named name: String) -> Self? {
         switch name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "deterministiclocalsubstrate", "deterministic-local-substrate", "local-substrate":

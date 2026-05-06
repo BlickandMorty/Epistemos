@@ -8,7 +8,7 @@ private let budgetLog = Logger(subsystem: "com.epistemos", category: "ContextBud
 // Triggers compaction when usage exceeds configurable thresholds.
 // Prevents context-window exhaustion and truncation-based hallucinations.
 //
-// Ported from OpenClaw's context budgeting pattern + Hermes 5-phase compaction trigger logic.
+// Ported from OpenClaw's context budgeting pattern + LocalAgent 5-phase compaction trigger logic.
 
 @MainActor
 final class ContextBudgetManager {

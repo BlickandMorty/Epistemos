@@ -1517,11 +1517,11 @@ final class IMessageDriverService {
         case "lfm2.5-thinking", "lfm-thinking": return .lfm25_1BThinking
         case "mamba2", "mamba-2b": return .mamba2_2B4Bit
         case "jamba", "jamba-3b": return .jamba3B
-        case "hermes-3", "hermes3":
-            // No first-class hermes alias yet — fall back to the closest
-            // tool-capable Qwen so a contact configured for "hermes-3" still
-            // gets a reasonable on-device model instead of crashing through
-            // to claude_sonnet.
+        case "localagent-3", "localagent3":
+            // No first-class local-agent-3 alias yet — fall back to the
+            // closest tool-capable Qwen so a contact configured for
+            // "localagent-3" still gets a reasonable on-device model
+            // instead of crashing through to claude_sonnet.
             return .qwen35_9B4Bit
         default:
             return nil
@@ -1638,7 +1638,7 @@ nonisolated final class LocalReplyAccumulator: @unchecked Sendable {
         return buffer
     }
 
-    /// Strip ChatML/Hermes meta tags and common markdown formatting so the
+    /// Strip ChatML/LocalAgent meta tags and common markdown formatting so the
     /// reply reads cleanly when delivered as an iMessage. We deliberately
     /// keep this conservative — too much stripping mangles ASCII tables and
     /// inline code that the user actually wants.

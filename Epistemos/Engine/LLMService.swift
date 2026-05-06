@@ -1193,7 +1193,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "max_tokens": String(maxTokens),
             "prompt_utf8_bytes": String(prompt.utf8.count),
             "has_system_prompt": String(systemPrompt?.isEmpty == false),
-            "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
+            "route": LocalAgentGatewayPolicy.route(for: .cloudProvider).rawValue,
         ])
     }
 
@@ -1228,7 +1228,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "has_system_prompt": String(systemPrompt?.isEmpty == false),
             "schema_name": schema.name,
             "schema_strict": String(schema.strict),
-            "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
+            "route": LocalAgentGatewayPolicy.route(for: .cloudProvider).rawValue,
         ])
     }
 
@@ -1249,7 +1249,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "model": model.vendorModelID,
             "operating_mode": operatingMode.rawValue,
             "surface": "cloud_provider",
-            "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
+            "route": LocalAgentGatewayPolicy.route(for: .cloudProvider).rawValue,
         ]
     }
 

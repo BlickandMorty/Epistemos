@@ -96,7 +96,7 @@ final class CompanionModel {
 }
 
 /// Canonical Farm body families from Simulation v1.6 §5.1.
-/// Block is parameterized; Hermes Snake is a graph faculty glyph, not a Farm body.
+/// Block is parameterized; LocalAgent Snake is a graph faculty glyph, not a Farm body.
 nonisolated enum CompanionBodyFamily: String, Codable, Sendable, CaseIterable {
     case block
     case sage

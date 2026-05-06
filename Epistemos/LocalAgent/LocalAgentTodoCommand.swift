@@ -1,11 +1,11 @@
 import Foundation
 
-/// Native parser for Hermes-compatible `/todo` slash commands.
+/// Native parser for LocalAgent-compatible `/todo` slash commands.
 ///
-/// This keeps the user-facing Hermes command shape while routing Core-safe task
+/// This keeps the user-facing LocalAgent command shape while routing Core-safe task
 /// state into the existing Rust `todo` ledger instead of inventing a parallel
 /// Swift task store.
-nonisolated struct HermesTodoCommand: Equatable, Sendable {
+nonisolated struct LocalAgentTodoCommand: Equatable, Sendable {
     enum Action: Equatable, Sendable {
         case list
         case add(content: String)
@@ -21,7 +21,7 @@ nonisolated struct HermesTodoCommand: Equatable, Sendable {
         action == .clear
     }
 
-    static func parse(_ rawCommand: String) -> HermesTodoCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentTodoCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/todo" || trimmed.hasPrefix("/todo ") else {
             return nil
@@ -31,12 +31,12 @@ nonisolated struct HermesTodoCommand: Equatable, Sendable {
             .dropFirst("/todo".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !remainder.isEmpty else {
-            return HermesTodoCommand(action: .list)
+            return LocalAgentTodoCommand(action: .list)
         }
 
         let parts = remainder.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
         guard let verb = parts.first?.lowercased() else {
-            return HermesTodoCommand(action: .list)
+            return LocalAgentTodoCommand(action: .list)
         }
         let argument = parts.dropFirst()
             .first
@@ -45,13 +45,13 @@ nonisolated struct HermesTodoCommand: Equatable, Sendable {
 
         switch verb {
         case "list":
-            return argument.isEmpty ? HermesTodoCommand(action: .list) : nil
+            return argument.isEmpty ? LocalAgentTodoCommand(action: .list) : nil
         case "add":
-            return argument.isEmpty ? nil : HermesTodoCommand(action: .add(content: argument))
+            return argument.isEmpty ? nil : LocalAgentTodoCommand(action: .add(content: argument))
         case "done":
-            return argument.isEmpty ? nil : HermesTodoCommand(action: .done(id: argument))
+            return argument.isEmpty ? nil : LocalAgentTodoCommand(action: .done(id: argument))
         case "clear":
-            return argument.isEmpty ? HermesTodoCommand(action: .clear) : nil
+            return argument.isEmpty ? LocalAgentTodoCommand(action: .clear) : nil
         default:
             return nil
         }
@@ -82,7 +82,7 @@ nonisolated struct HermesTodoCommand: Equatable, Sendable {
                 data,
                 EncodingError.Context(
                     codingPath: [],
-                    debugDescription: "Unable to encode Hermes todo command as UTF-8 JSON"
+                    debugDescription: "Unable to encode LocalAgent todo command as UTF-8 JSON"
                 )
             )
         }

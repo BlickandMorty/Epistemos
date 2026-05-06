@@ -17,7 +17,7 @@ private let repairLog = Logger(subsystem: "com.epistemos", category: "Transcript
 enum TranscriptRepair {
 
     /// A minimal message representation for repair operations.
-    /// Works with both Omega's internal format and Hermes bridge JSON.
+    /// Works with both Omega's internal format and LocalAgent bridge JSON.
     struct Message: Sendable {
         let role: String // "user", "assistant", "system"
         var content: [[String: Any]]

@@ -39,7 +39,7 @@ nonisolated enum ModelCapabilityRole: String, Codable, Hashable, Sendable, CaseI
     case codingLocal = "coding_local"
     /// Function-calling specialist — trained specifically for reliable
     /// tool-use on device. Distinct from codingLocal (code-heavy) and
-    /// highEndLocal (generalist). Hermes 4.3 36B is the canonical fit.
+    /// highEndLocal (generalist). LocalAgent 4.3 36B is the canonical fit.
     case functionCallingLocal = "function_calling_local"
     /// High-memory local pro/agent model for roomier Macs.
     case highEndLocal = "high_end_local"
@@ -510,15 +510,15 @@ enum LocalModelCatalog {
             ],
             capabilityRole: .codingLocal
         ),
-        // MARK: - Hermes 4.3 (function-calling specialist, ByteDance Seed 36B base)
+        // MARK: - LocalAgent 4.3 (function-calling specialist, ByteDance Seed 36B base)
         LocalModelDescriptor(
-            id: LocalTextModelID.hermes43_36B4Bit.rawValue,
+            id: LocalTextModelID.localAgent43_36B4Bit.rawValue,
             kind: .text,
-            displayName: LocalTextModelID.hermes43_36B4Bit.displayName,
-            familyName: LocalTextModelID.hermes43_36B4Bit.familyName,
-            summary: "On-device agent specialist. NousResearch Hermes 4.3 36B is built for reliable function calling with dedicated tool-call tokens and a verified reasoning-trace training set. When you want an agent loop without leaving the device, this is it.",
+            displayName: LocalTextModelID.localAgent43_36B4Bit.displayName,
+            familyName: LocalTextModelID.localAgent43_36B4Bit.familyName,
+            summary: "On-device agent specialist. NousResearch LocalAgent 4.3 36B is built for reliable function calling with dedicated tool-call tokens and a verified reasoning-trace training set. When you want an agent loop without leaving the device, this is it.",
             approximateDownloadBytes: 21_500_000_000,
-            minimumRecommendedMemoryGB: LocalTextModelID.hermes43_36B4Bit.minimumRecommendedMemoryGB,
+            minimumRecommendedMemoryGB: LocalTextModelID.localAgent43_36B4Bit.minimumRecommendedMemoryGB,
             revision: "main",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
@@ -527,13 +527,13 @@ enum LocalModelCatalog {
             capabilityRole: .functionCallingLocal
         ),
         LocalModelDescriptor(
-            id: LocalTextModelID.hermes43_36B3Bit.rawValue,
+            id: LocalTextModelID.localAgent43_36B3Bit.rawValue,
             kind: .text,
-            displayName: LocalTextModelID.hermes43_36B3Bit.displayName,
-            familyName: LocalTextModelID.hermes43_36B3Bit.familyName,
-            summary: "3-bit Hermes 4.3 for Macs that can't hold the 4-bit 36B in memory. Same function-calling training, tighter quality budget.",
+            displayName: LocalTextModelID.localAgent43_36B3Bit.displayName,
+            familyName: LocalTextModelID.localAgent43_36B3Bit.familyName,
+            summary: "3-bit LocalAgent 4.3 for Macs that can't hold the 4-bit 36B in memory. Same function-calling training, tighter quality budget.",
             approximateDownloadBytes: 15_500_000_000,
-            minimumRecommendedMemoryGB: LocalTextModelID.hermes43_36B3Bit.minimumRecommendedMemoryGB,
+            minimumRecommendedMemoryGB: LocalTextModelID.localAgent43_36B3Bit.minimumRecommendedMemoryGB,
             revision: "main",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
@@ -982,9 +982,9 @@ enum LocalModelCatalog {
         LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
         LocalTextModelID.qwen3_8B4Bit.rawValue,
         LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
-        // Function-calling specialist (Hermes 4.3 36B — both quants).
-        LocalTextModelID.hermes43_36B4Bit.rawValue,
-        LocalTextModelID.hermes43_36B3Bit.rawValue,
+        // Function-calling specialist (LocalAgent 4.3 36B — both quants).
+        LocalTextModelID.localAgent43_36B4Bit.rawValue,
+        LocalTextModelID.localAgent43_36B3Bit.rawValue,
         // Flagship generalist — Qwen 3.6 35B A3B, two upgraded quants
         // so users can A/B compare Unsloth UD vs DWQ.
         LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
@@ -1021,7 +1021,7 @@ enum LocalModelCatalog {
     // MARK: - D4 Faculty Roster — Primary Agent Model Defaults
     //
     // Per docs/CANONICAL_AUDIT_LOG.md Blocker D4: prior to this fix the
-    // function-calling specialist resolver returned Hermes 4.3 36B as the
+    // function-calling specialist resolver returned LocalAgent 4.3 36B as the
     // primary local agent. At 4-bit that is ~18 GB resident weights —
     // exceeds the 16 GB Epistemos hardware ceiling per the user's
     // [User Hardware] memory ("16GB unified memory ceiling; realistic
@@ -1030,9 +1030,9 @@ enum LocalModelCatalog {
     //
     // The fix: default the primary local agent to a 7-8B 4-bit model and
     // gate the 36B variant behind ≥32 GB host RAM + an explicit opt-in
-    // (UserDefaults `epistemos.localAgent.optInHermes36B`). The Settings →
+    // (UserDefaults `epistemos.localAgent.optInLocalAgent36B`). The Settings →
     // Inference picker is the natural opt-in surface — a user who picks
-    // Hermes 4.3 36B explicitly is opting in. Without that pick, the
+    // LocalAgent 4.3 36B explicitly is opting in. Without that pick, the
     // default stays the 7-8B model on every host size, including 32 GB+.
 
     /// Minimum host unified memory (in whole GB) required before the
@@ -1044,9 +1044,9 @@ enum LocalModelCatalog {
     /// UserDefaults key for the explicit opt-in to the 36B agent model.
     /// `false` (default) keeps every host on the 7-8B fallback even at
     /// ≥32 GB. The Settings → Inference picker writes this flag when the
-    /// user picks Hermes 4.3 36B.
+    /// user picks LocalAgent 4.3 36B.
     nonisolated static let primaryAgentModel36BOptInDefaultsKey: String =
-        "epistemos.localAgent.optInHermes36B"
+        "epistemos.localAgent.optInLocalAgent36B"
 
     /// The 7-8B 4-bit fallback that is safe for every host, including
     /// the 16 GB Epistemos hardware floor. Qwen 3 8B at 4-bit is ~4.5 GB
@@ -1057,7 +1057,7 @@ enum LocalModelCatalog {
     /// The 36B opt-in target (function-calling specialist). Only served
     /// when host has ≥`primaryAgentModelMinHostRAMGB` GB AND the user
     /// has explicitly opted in via the Settings → Inference picker.
-    nonisolated static let optInPrimaryAgentModel: LocalTextModelID = .hermes43_36B4Bit
+    nonisolated static let optInPrimaryAgentModel: LocalTextModelID = .localAgent43_36B4Bit
 
     /// Resolves the default primary agent model for a given host snapshot
     /// and opt-in flag. Pure function for unit-test seams.

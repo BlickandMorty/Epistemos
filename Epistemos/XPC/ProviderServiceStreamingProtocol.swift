@@ -28,7 +28,7 @@ import Foundation
 // MARK: - Wire types (Codable so they cross XPC + IOSurface cleanly)
 
 /// Cloud provider tier the streaming session targets. Mirrors the
-/// existing HermesGatewaySurface cloud-provider variants but kept as
+/// existing LocalAgentGatewaySurface cloud-provider variants but kept as
 /// a separate enum so the streaming protocol's wire format can evolve
 /// independently of the gateway-policy surface.
 nonisolated public enum ProviderXPCProvider: String, Codable, Sendable, Hashable, CaseIterable {

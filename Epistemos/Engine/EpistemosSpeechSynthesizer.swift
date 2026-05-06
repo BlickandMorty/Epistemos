@@ -12,7 +12,7 @@ import OSLog
 // Apple-native ML / capture frameworks Epistemos already integrates,
 // AVSpeechSynthesizer was the lone holdout. The W9.1.b extension lets
 // each `SDModelProfile` carry a `voiceIdentifier` so Claude, GPT,
-// Qwen, Hermes etc. each speak with a distinct persona. Quality tier
+// Qwen, LocalAgent etc. each speak with a distinct persona. Quality tier
 // is opportunistically upgraded — we prefer Premium > Enhanced >
 // Default and surface a download hint when a Premium voice exists in
 // Apple's catalogue but is not yet locally installed.

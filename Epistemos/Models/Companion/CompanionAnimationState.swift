@@ -22,7 +22,7 @@ nonisolated enum CompanionAnimationState: String, Codable, Sendable, CaseIterabl
 
     /// Frame count from the canonical character-DNA tables. The Landing Farm
     /// only drives `idle` + `walk` today; the remaining states are scaffold for
-    /// the future Hermes-driven companion state machine.
+    /// the future LocalAgent-driven companion state machine.
     var frameCount: Int {
         switch self {
         case .idle: return 4
