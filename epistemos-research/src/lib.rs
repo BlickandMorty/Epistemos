@@ -141,6 +141,15 @@
 //!   DoNotBuildInCoreOrMas / §5.4 T18-T35V42Catalog / §5.5
 //!   ProRdLater / §5.6 SpeculativeButPreserved). re_promotion_allowed
 //!   gate requires both explicit falsifier + satisfaction.
+//! - [`five_planes`] — V6.1 Five-Plane runtime formalism per
+//!   `Epistemos V6.1 Final Synthesis Lock` PART 3. State /
+//!   Episodic / Assembly / Controller / Verification — orthogonal
+//!   to the MAS/Pro/Vault product streams. Ternary path lives in
+//!   Assembly + Controller planes only.
+//! - [`interrupt_score`] — V6.1 Interrupt-score equation per
+//!   PART 2.2: `u_t = α·H + β·WBO + γ·Sheaf + δ·Tool + ε·ConnAlarm`.
+//!   Three escalation levels (PureRecurrent / RecallEpisode /
+//!   FullEscalation). T35-v6.1 falsifier ρ_max = 0.20.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -169,7 +178,13 @@ pub mod engram;
 pub mod falsifier_actions;
 
 #[cfg(feature = "research")]
+pub mod five_planes;
+
+#[cfg(feature = "research")]
 pub mod gate_action;
+
+#[cfg(feature = "research")]
+pub mod interrupt_score;
 
 #[cfg(feature = "research")]
 pub mod kv_direct_gate;
