@@ -20,6 +20,11 @@
 //! - [`acs`] — Anchored Cognitive Substrate + CMS-X v3 constitutive
 //!   field lifts from HELIOS v4 source_docs. Research-tier
 //!   architectural anchor.
+//! - [`shadow_memory`] — Helios Shadow Memory escalation policy +
+//!   Theorem 2.4 (Shadowed Associative State, Conditional) KL
+//!   bound substrate (classical analogue of Huang-Kueng-Preskill
+//!   2020 / Zhao-Zlokapa-Neven-Babbush-Preskill-McClean-Huang
+//!   arXiv:2604.07639). NEVER inherits the quantum advantage.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -28,6 +33,9 @@
 
 #[cfg(feature = "research")]
 pub mod acs;
+
+#[cfg(feature = "research")]
+pub mod shadow_memory;
 
 #[cfg(feature = "research")]
 pub mod theorems;

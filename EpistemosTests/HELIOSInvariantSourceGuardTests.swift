@@ -320,6 +320,35 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 22: Helios Shadow Memory escalation + KL-bound substrate (Lane 3)")
+    func stage22HeliosShadowMemoryExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/shadow_memory.rs")
+        #expect(source.contains("HELIOS-SHADOW-MEMORY guard"))
+        // Escalation policy 3-arm enum
+        #expect(source.contains("pub enum EscalationLevel"))
+        #expect(source.contains("StayShadow"))
+        #expect(source.contains("DecodeResidual"))
+        #expect(source.contains("LoadExact"))
+        // Theorem 2.4 KL bound substrate
+        #expect(source.contains("pub struct KlBound"))
+        #expect(source.contains("upper_bound"))
+        #expect(source.contains("respects"))
+        // Pure escalate function + thresholds
+        #expect(source.contains("pub fn escalate"))
+        #expect(source.contains("pub struct UncertaintyThresholds"))
+        #expect(source.contains("pub struct PageQueryContext"))
+        // Cite Huang-Kueng-Preskill 2020 + Zhao et al. arXiv:2604.07639
+        #expect(source.contains("Huang"))
+        #expect(source.contains("2604.07639"))
+        // Lane 3 RESEARCH-ONLY guard — NEVER in MAS
+        #expect(source.contains("Lane 3 RESEARCH-ONLY"))
+        #expect(source.contains("NEVER in MAS"))
+
+        // Crate-level registration (gated `research`).
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod shadow_memory"))
+    }
+
     @Test("Stage 21: SCOPE-Rex Omega state-witness + ontology + observatory substrate exists")
     func stage21WitnessedStateOntologyObservatoryExist() throws {
         // WitnessedState — 8-tuple state representation per scope_rex_omega.md
