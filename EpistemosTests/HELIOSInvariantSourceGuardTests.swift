@@ -320,6 +320,46 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 17: H1-H7 Lean stubs enriched with operational claim content")
+    func stage17H1ThroughH7LeanStubsEnriched() throws {
+        let h1 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H1.lean")
+        #expect(h1.contains("active-support penalty"))
+        #expect(h1.contains("WBO-6"))
+        #expect(h1.contains("structure SamplerTrajectory"))
+
+        let h2 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H2.lean")
+        #expect(h2.contains("softmaxLipschitzConstant"))
+        #expect(h2.contains("babaiClosurePreserved"))
+
+        let h3 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H3.lean")
+        #expect(h3.contains("merge_non_decreasing"))
+        #expect(h3.contains("split_non_increasing"))
+        #expect(h3.contains("merge_idempotent"))
+        #expect(h3.contains("split_idempotent"))
+
+        let h4 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H4.lean")
+        #expect(h4.contains("structure BabaiBound"))
+        #expect(h4.contains("ldl_trace"))
+        #expect(h4.contains("layerWiseErrorBoundTight"))
+
+        let h5 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H5.lean")
+        #expect(h5.contains("structure MorphTrace"))
+        #expect(h5.contains("trace_hash"))
+
+        let h6 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H6.lean")
+        #expect(h6.contains("linearAttention"))
+        #expect(h6.contains("stateSpaceModel"))
+        #expect(h6.contains("fastWeightProgrammer"))
+        #expect(h6.contains("onlineLearner"))
+        #expect(h6.contains("softmaxAttention"))
+
+        let h7 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H7.lean")
+        #expect(h7.contains("inductive MemoryTier"))
+        #expect(h7.contains("l0Register"))
+        #expect(h7.contains("lSe"))
+        #expect(h7.contains("MemoryTier.ord"))
+    }
+
     @Test("Stage 16: E4/E5/E6/E7 Lean stubs enriched with v2.0-hardened formal statements")
     func stage16E4ThroughE7LeanStubsEnriched() throws {
         let e4 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/E4.lean")
