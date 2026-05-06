@@ -625,6 +625,34 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(lib.contains("pub mod cms_v2"))
     }
 
+    @Test("Stage 41: Shadow Memory 5-tier hierarchy + canonical codec (Lane 3)")
+    func stage41Shadow5TierHierarchyExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/shadow_memory.rs")
+        // 5-arm tier enum
+        #expect(source.contains("pub enum MemoryTier"))
+        #expect(source.contains("L0ExactHot"))
+        #expect(source.contains("L1CompressedResidual"))
+        #expect(source.contains("L2ShadowSketch"))
+        #expect(source.contains("L3SsdOracle"))
+        #expect(source.contains("L4HermesCascade"))
+        // Canonical codec lookup
+        #expect(source.contains("pub fn tier_codec"))
+        #expect(source.contains("\"bf16_fp16\""))
+        #expect(source.contains("\"sherry_1_25bit_on_residual\""))
+        #expect(source.contains("\"sparse_jl_over_frp_plus_countsketch\""))
+        #expect(source.contains("\"nf4_or_3bit_groupwise\""))
+        #expect(source.contains("\"raw_prompt\""))
+        // Tier helpers
+        #expect(source.contains("pub fn depth"))
+        #expect(source.contains("pub fn crosses_network_boundary"))
+        #expect(source.contains("pub fn resident_in_uma"))
+        // Canonical-order const
+        #expect(source.contains("pub const ALL_TIERS"))
+        #expect(source.contains("[MemoryTier; 5]"))
+        // Compass artifact reference
+        #expect(source.contains("compass artifact"))
+    }
+
     @Test("Stage 22: Helios Shadow Memory escalation + KL-bound substrate (Lane 3)")
     func stage22HeliosShadowMemoryExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/shadow_memory.rs")
