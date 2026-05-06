@@ -2236,14 +2236,14 @@ pub fn session_folder_path(session_id: String) -> Option<String> {
     ffi_guard_value!(GlobalSessions::session_folder_path(&session_id), None)
 }
 
-/// Build the canonical Hermes function-calling system prompt from JSON:
+/// Build the canonical agent_runtime function-calling system prompt from JSON:
 /// `{ tools, additional_instructions, knowledge_index }`.
 #[uniffi::export]
-pub fn hermes_build_system_prompt(input_json: String) -> Result<String, AgentErrorFFI> {
+pub fn runtime_build_system_prompt(input_json: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
-        let input: crate::agent_runtime::prompt_format::HermesPromptInput =
+        let input: crate::agent_runtime::prompt_format::RuntimePromptInput =
             serde_json::from_str(&input_json).map_err(|error| AgentErrorFFI::AgentError {
-                message: format!("invalid HermesPromptInput JSON: {error}"),
+                message: format!("invalid RuntimePromptInput JSON: {error}"),
             })?;
         Ok(crate::agent_runtime::prompt_format::build_system_prompt(
             &input,
@@ -2251,15 +2251,16 @@ pub fn hermes_build_system_prompt(input_json: String) -> Result<String, AgentErr
     })
 }
 
-/// Parse Hermes/Qwen-style `<tool_call>...</tool_call>` blocks. Returns a JSON
-/// array of `{ name, arguments_json }` records so Swift can keep its existing
-/// `ParsedToolCall` shape while the parser moves to Rust.
+/// Parse `<tool_call>...</tool_call>` blocks (the function-calling XML format
+/// used by the local model family). Returns a JSON array of
+/// `{ name, arguments_json }` records so Swift can keep its existing
+/// `ParsedToolCall` shape while the parser stays in Rust.
 #[uniffi::export]
-pub fn hermes_parse_tool_calls(text: String) -> Result<String, AgentErrorFFI> {
+pub fn runtime_parse_tool_calls(text: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         let calls = crate::agent_runtime::function_call::parse_tool_calls(&text);
         serde_json::to_string(&calls).map_err(|error| AgentErrorFFI::AgentError {
-            message: format!("failed to serialize Hermes tool calls: {error}"),
+            message: format!("failed to serialize tool calls: {error}"),
         })
     })
 }
@@ -2306,25 +2307,25 @@ pub struct SkillResultFFI {
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct HermesSkillFrontmatter {
+struct RuntimeSkillFrontmatter {
     #[serde(default)]
-    steps: Vec<HermesSkillStepSpec>,
-    metadata: Option<HermesSkillMetadata>,
+    steps: Vec<RuntimeSkillStepSpec>,
+    metadata: Option<RuntimeSkillMetadata>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct HermesSkillMetadata {
-    epistemos: Option<HermesSkillEpistemosMetadata>,
+struct RuntimeSkillMetadata {
+    epistemos: Option<RuntimeSkillEpistemosMetadata>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct HermesSkillEpistemosMetadata {
+struct RuntimeSkillEpistemosMetadata {
     #[serde(default)]
-    steps: Vec<HermesSkillStepSpec>,
+    steps: Vec<RuntimeSkillStepSpec>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
-struct HermesSkillStepSpec {
+struct RuntimeSkillStepSpec {
     #[serde(alias = "name")]
     tool: String,
     #[serde(default, alias = "args")]
@@ -2369,7 +2370,7 @@ pub async fn invoke_skill(
             };
             Err(AgentErrorFFI::AgentError {
                 message: format!(
-                    "Hermes skill invocation failed for '{skill_name_for_join}': {msg}"
+                    "runtime skill invocation failed for '{skill_name_for_join}': {msg}"
                 ),
             })
         }
@@ -2383,7 +2384,7 @@ pub fn write_procedure(procedure: ProcedureFFI) -> Result<(), AgentErrorFFI> {
         store
             .record_outcome(&procedure_ffi_to_record(procedure))
             .map_err(|error| AgentErrorFFI::AgentError {
-                message: format!("failed to write Hermes procedure: {error}"),
+                message: format!("failed to write runtime procedure: {error}"),
             })
     })
 }
@@ -2419,7 +2420,7 @@ pub fn recall_procedure(
         let mut recalled = store
             .recall(&skill_name, &context_hash, 1, now)
             .map_err(|error| AgentErrorFFI::AgentError {
-                message: format!("failed to recall Hermes procedure: {error}"),
+                message: format!("failed to recall runtime procedure: {error}"),
             })?;
         Ok(recalled.pop().map(|recall| {
             let mut procedure = record_to_procedure_ffi(recall.record);
@@ -2442,7 +2443,7 @@ async fn invoke_skill_inner(
         .find(|skill| skill.name == skill_name)
         .cloned()
         .ok_or_else(|| AgentErrorFFI::AgentError {
-            message: format!("Hermes skill '{skill_name}' was not found in profile '{profile_id}'"),
+            message: format!("runtime skill '{skill_name}' was not found in profile '{profile_id}'"),
         })?;
 
     let arguments: serde_json::Value =
@@ -2451,9 +2452,9 @@ async fn invoke_skill_inner(
         })?;
     let skill_content =
         std::fs::read_to_string(&skill.file_path).map_err(|error| AgentErrorFFI::AgentError {
-            message: format!("failed to read Hermes skill '{}': {error}", skill.name),
+            message: format!("failed to read runtime skill '{}': {error}", skill.name),
         })?;
-    let steps = extract_hermes_skill_steps(&skill_content);
+    let steps = extract_runtime_skill_steps(&skill_content);
 
     if steps.is_empty() {
         return Ok(SkillResultFFI {
@@ -2477,7 +2478,7 @@ async fn invoke_skill_inner(
     for step in steps {
         let tool_name = step.tool.trim();
         if tool_name.is_empty() {
-            let message = "Hermes skill step has an empty tool name".to_string();
+            let message = "runtime skill step has an empty tool name".to_string();
             return Ok(SkillResultFFI {
                 skill_name: skill.name,
                 succeeded: false,
@@ -2591,7 +2592,7 @@ async fn execute_hermes_skill_step(
     }
 }
 
-fn extract_hermes_skill_steps(content: &str) -> Vec<HermesSkillStepSpec> {
+fn extract_runtime_skill_steps(content: &str) -> Vec<RuntimeSkillStepSpec> {
     let trimmed = content.trim_start();
     if !trimmed.starts_with("---") {
         return Vec::new();
@@ -2600,7 +2601,7 @@ fn extract_hermes_skill_steps(content: &str) -> Vec<HermesSkillStepSpec> {
         return Vec::new();
     };
     let yaml = &trimmed[3..3 + end];
-    let Ok(frontmatter) = serde_yaml::from_str::<HermesSkillFrontmatter>(yaml) else {
+    let Ok(frontmatter) = serde_yaml::from_str::<RuntimeSkillFrontmatter>(yaml) else {
         return Vec::new();
     };
     if !frontmatter.steps.is_empty() {
@@ -2619,7 +2620,7 @@ fn open_hermes_procedural_memory(
         hermes_procedural_memory_path(),
     )
     .map_err(|error| AgentErrorFFI::AgentError {
-        message: format!("failed to open Hermes procedural memory: {error}"),
+        message: format!("failed to open runtime procedural memory: {error}"),
     })
 }
 
@@ -2678,7 +2679,7 @@ fn current_unix_seconds() -> i64 {
 // Thinking / Pro modes) can call `list_tools_for_tier` to discover what's
 // available and `execute_tool_call` to run a single tool per user turn.
 //
-// This is how local models (Qwen, Hermes) get web_search + vault_recall
+// This is how local models get web_search + vault_recall
 // without the full agent loop. The Swift side handles the tool-use
 // messaging protocol for whichever model is active.
 

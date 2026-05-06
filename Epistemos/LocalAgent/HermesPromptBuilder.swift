@@ -176,7 +176,7 @@ nonisolated enum HermesPromptBuilder {
         let json = String(data: data, encoding: .utf8) else {
             return nil
         }
-        return try? hermesBuildSystemPrompt(inputJson: json)
+        return try? runtimeBuildSystemPrompt(inputJson: json)
     }
     #endif
 }

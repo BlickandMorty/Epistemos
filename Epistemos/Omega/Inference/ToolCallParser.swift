@@ -22,7 +22,7 @@ nonisolated enum ToolCallParser {
     /// Tries multiple strategies in priority order.
     static func parse(_ text: String) -> [ParsedToolCall] {
         #if canImport(agent_coreFFI)
-        if let calls = parseWithRustHermes(text), !calls.isEmpty {
+        if let calls = parseWithRustRuntime(text), !calls.isEmpty {
             return calls
         }
         #endif
@@ -72,7 +72,7 @@ nonisolated enum ToolCallParser {
     }
 
     #if canImport(agent_coreFFI)
-    private struct RustHermesToolCall: Decodable {
+    private struct RustRuntimeToolCall: Decodable {
         let name: String
         let argumentsJson: String
 
@@ -82,10 +82,10 @@ nonisolated enum ToolCallParser {
         }
     }
 
-    private static func parseWithRustHermes(_ text: String) -> [ParsedToolCall]? {
-        guard let json = try? hermesParseToolCalls(text: text),
+    private static func parseWithRustRuntime(_ text: String) -> [ParsedToolCall]? {
+        guard let json = try? runtimeParseToolCalls(text: text),
               let data = json.data(using: .utf8),
-              let calls = try? JSONDecoder().decode([RustHermesToolCall].self, from: data) else {
+              let calls = try? JSONDecoder().decode([RustRuntimeToolCall].self, from: data) else {
             return nil
         }
 
