@@ -74,6 +74,11 @@
 //!   0.05; compression ≥ 10×; top-k recall ≥ 0.95; L4 escalation
 //!   < 5%; RAM ≤ 12 GB; decode ≥ 20 tok/s; SSM-Tx gap ≤ 5pp.
 //!   `check_all()` returns failing thresholds.
+//! - [`falsifier_actions`] — Per-term falsifier actions for the
+//!   Master Inequality (WBO-6) per `epistemos_definitive_master.md`
+//!   §"PART VI" §2. 6-term `InequalityTerm` × 9-arm
+//!   `FalsifierAction` mapping with primary + optional secondary
+//!   fallback per term.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -88,6 +93,9 @@ pub mod cms_v2;
 
 #[cfg(feature = "research")]
 pub mod engram;
+
+#[cfg(feature = "research")]
+pub mod falsifier_actions;
 
 #[cfg(feature = "research")]
 pub mod mas_capability_lattice;
