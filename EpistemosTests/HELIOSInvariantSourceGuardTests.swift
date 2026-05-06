@@ -730,40 +730,40 @@ struct HELIOSInvariantSourceGuardTests {
 
     @Test("Stage 19: PCF-1..PCF-10 Lean stubs enriched with VPD acceptance criteria")
     func stage19PcfLeanStubsEnriched() throws {
-        let pcf1 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-1.lean")
+        let pcf1 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_1.lean")
         #expect(pcf1.contains("VpdExtraction"))
         #expect(pcf1.contains("reconstruction_mse"))
         #expect(pcf1.contains("2506.20790"))
 
-        let pcf2 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-2.lean")
+        let pcf2 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_2.lean")
         #expect(pcf2.contains("QkEdgeAnchor"))
         #expect(pcf2.contains("Frobenius"))
 
-        let pcf3 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-3.lean")
+        let pcf3 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_3.lean")
         #expect(pcf3.contains("AttributionEdge"))
 
-        let pcf4 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-4.lean")
+        let pcf4 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_4.lean")
         #expect(pcf4.contains("DEFERRED"))
 
-        let pcf5 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-5.lean")
+        let pcf5 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_5.lean")
         #expect(pcf5.contains("ActiveSubcomponent"))
         #expect(pcf5.contains("Vault only"))
 
-        let pcf6 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-6.lean")
+        let pcf6 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_6.lean")
         #expect(pcf6.contains("driftUpperBound"))
 
-        let pcf7 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-7.lean")
+        let pcf7 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_7.lean")
         #expect(pcf7.contains("DualConnectomeTrace"))
 
-        let pcf8 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-8.lean")
+        let pcf8 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_8.lean")
         #expect(pcf8.contains("ConnectomeSheaf"))
         #expect(pcf8.contains("2202.04579"))
 
-        let pcf9 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-9.lean")
+        let pcf9 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_9.lean")
         #expect(pcf9.contains("output_model_sha256"))
         #expect(pcf9.contains("passesAcceptance"))
 
-        let pcf10 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-10.lean")
+        let pcf10 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_10.lean")
         #expect(pcf10.contains("InterpretabilityTransfer"))
         #expect(pcf10.contains("acceptanceMet"))
     }
