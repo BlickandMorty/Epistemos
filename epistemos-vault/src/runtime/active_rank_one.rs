@@ -77,9 +77,18 @@ mod tests {
     #[test]
     fn high_threshold_drops_all_below() {
         let candidates = [
-            ActiveSubcomponent { component_id: 0, magnitude: 0.1 },
-            ActiveSubcomponent { component_id: 1, magnitude: 0.4 },
-            ActiveSubcomponent { component_id: 2, magnitude: 0.2 },
+            ActiveSubcomponent {
+                component_id: 0,
+                magnitude: 0.1,
+            },
+            ActiveSubcomponent {
+                component_id: 1,
+                magnitude: 0.4,
+            },
+            ActiveSubcomponent {
+                component_id: 2,
+                magnitude: 0.2,
+            },
         ];
         let s = ActiveStep::select_above_threshold(0, &candidates, 0.5);
         assert_eq!(s.count(), 0);
@@ -88,9 +97,18 @@ mod tests {
     #[test]
     fn moderate_threshold_keeps_some() {
         let candidates = [
-            ActiveSubcomponent { component_id: 0, magnitude: 0.1 },
-            ActiveSubcomponent { component_id: 1, magnitude: 0.6 },
-            ActiveSubcomponent { component_id: 2, magnitude: 0.3 },
+            ActiveSubcomponent {
+                component_id: 0,
+                magnitude: 0.1,
+            },
+            ActiveSubcomponent {
+                component_id: 1,
+                magnitude: 0.6,
+            },
+            ActiveSubcomponent {
+                component_id: 2,
+                magnitude: 0.3,
+            },
         ];
         let s = ActiveStep::select_above_threshold(0, &candidates, 0.2);
         assert_eq!(s.count(), 2);
