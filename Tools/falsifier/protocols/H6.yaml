@@ -1,0 +1,71 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H6 Five-Family Reduction.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H6 +
+# arXiv:2501.12352v3 (Wang-Shi-Fox, Stanford 2025-05-02).
+#
+# Statement: linear attention, SSMs, fast-weight programmers,
+# online learners, and softmax-attention all reducible to
+# test-time regression with three design choices:
+#
+#   1. Regression weights — what's being fit
+#   2. Regressor function class — what family of fits
+#   3. Test-time optimizer — how the fit converges
+#
+# Five distinct architectural families collapse to one regression
+# framework. Falsifier: instantiate two extreme cases on M2 Max
+# + verify equivalent associative-recall on synthetic recall task.
+
+id: H6
+title: "Five-Family Reduction — five architectures ≡ test-time regression"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  Five architectural families — linearAttention, stateSpaceModel,
+  fastWeightProgrammer, onlineLearner, softmaxAttention — reduce
+  to a common test-time-regression framework parametrized by:
+    (regression_weights, regressor_function_class, test_time_optimizer)
+  Per Wang-Shi-Fox arXiv:2501.12352v3 (Stanford 2025-05-02).
+
+acceptance:
+  metric: associative_recall_equivalence
+  threshold: 0.95            # ≥95% recall match between any two families on synthetic task
+  units: fraction
+
+stage_0_proxy:
+  # No dedicated substrate — the canonical H6 falsifier requires
+  # instantiating multiple architectures and exercising synthetic
+  # associative recall, which is benchmark-tier work (Lane 3
+  # follow-up). Stage-0 proxy is the Lean stub presence check.
+  shell_proxy: "test -f lean/Epistemos/Epistemos/H6.lean"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Pick two extreme families: e.g. softmaxAttention + linearAttention.
+    2. Build synthetic associative-recall task with N=1000 (key, value)
+       pairs, 32-token context windows.
+    3. Train each architecture to convergence on the task.
+    4. Measure recall accuracy when probed with held-out keys.
+    5. Verify ≥95% recall match between the two architectures
+       under the same regression-framework parameters.
+
+falsifier:
+  hard: |
+    If recall accuracy diverges by >5% between architectures with
+    matched (regression_weights, regressor_function_class,
+    test_time_optimizer) parameters, the unification claim is
+    weakened. Escalate to a Lane 3 categorical-equivalence audit
+    before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H6
+  - arXiv:2501.12352 v3 (Wang-Shi-Fox, Stanford 2025-05-02)
+  - lean/Epistemos/Epistemos/H6.lean
+
+insertion_site: lean/Epistemos/Epistemos/H6.lean (substrate-tier
+                stub; full implementation requires multi-architecture
+                training infrastructure that lands as Lane 3 follow-up)

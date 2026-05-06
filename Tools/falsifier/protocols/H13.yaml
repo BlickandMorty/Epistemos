@@ -1,0 +1,64 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H13 Fisher-KL Identity.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H13.
+#
+# Statement: the Kullback-Leibler divergence between
+# infinitesimally-close probability distributions is the squared
+# length under the Fisher information metric:
+#
+#   D_KL(p_θ || p_{θ + δθ}) ≈ ½ · δθᵀ · I_F(θ) · δθ + O(‖δθ‖³)
+#
+# where I_F(θ) is the Fisher information matrix.
+#
+# This is foundational; the falsifier verifies the relationship
+# numerically on synthetic distributions, sanity-checking that
+# our information-geometry primitives compute the correct metric.
+
+id: H13
+title: "Fisher-KL Identity — D_KL infinitesimal limit ≡ Fisher metric squared length"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  For probability distributions p_θ smooth in θ:
+    D_KL(p_θ || p_{θ + δθ}) = ½ · δθᵀ · I_F(θ) · δθ + O(‖δθ‖³)
+  where I_F(θ) is the Fisher information matrix
+  I_F(θ)_{ij} = E_p [∂_i log p · ∂_j log p].
+
+acceptance:
+  metric: relative_error_to_quadratic_form
+  threshold: 0.001           # ≤0.1% relative error at ‖δθ‖ = 0.001
+  units: fraction
+
+stage_0_proxy:
+  shell_proxy: "test -f lean/Epistemos/Epistemos/H13.lean"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Pick N = 100 synthetic exponential-family distributions
+       (e.g. Gaussian, Beta, Dirichlet) with random θ.
+    2. For each, compute the Fisher information matrix I_F(θ)
+       analytically (closed form for exponential families).
+    3. Sample δθ with ‖δθ‖ ∈ {1e-2, 1e-3, 1e-4}.
+    4. Compute D_KL(p_θ || p_{θ + δθ}) numerically and the
+       quadratic form ½ · δθᵀ · I_F(θ) · δθ.
+    5. Verify relative error scales as O(‖δθ‖) (i.e. higher-order
+       terms vanish in the infinitesimal limit).
+
+falsifier:
+  hard: |
+    If relative error does not vanish as ‖δθ‖ → 0, either the
+    Fisher matrix computation or the KL approximation is bugged.
+    Escalate to a Lane 3 information-geometry numerical audit.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H13
+  - lean/Epistemos/Epistemos/H13.lean
+
+insertion_site: lean/Epistemos/Epistemos/H13.lean (substrate-tier
+                stub; closed-form Fisher matrices ship per Lane 3
+                follow-up exponential-family library)

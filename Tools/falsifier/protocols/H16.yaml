@@ -1,0 +1,66 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H16 CRT Storage Routing.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H16.
+#
+# Statement: storage routing across the six-tier memory hierarchy
+# (L0–L_SE) can be encoded via Chinese Remainder Theorem
+# decomposition: each tier corresponds to a coprime modulus, and
+# routing decisions are CRT reconstructions.
+#
+# Connection to Helios Shadow Memory (Lane 3): the L0..L4 tier
+# hierarchy from `helios_shadow_memory.md` §2.2 supplies the
+# coprime moduli; H16 codifies the routing-as-CRT-reconstruction
+# claim.
+
+id: H16
+title: "CRT Storage Routing — six-tier memory hierarchy via coprime-modulus reconstruction"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  Let m_0, m_1, …, m_5 be coprime moduli corresponding to the
+  six memory tiers (L0 hot, L1 residual, L2 shadow, L3 SSD, L4
+  cloud, L_SE Secure Enclave). Any address a uniquely decomposes
+  as (a mod m_0, …, a mod m_5) by the Chinese Remainder Theorem;
+  storage-routing decisions are exactly CRT reconstructions over
+  these residues.
+
+acceptance:
+  metric: round_trip_address_recovery
+  threshold: 1.0             # every address must round-trip exactly
+  units: fraction
+
+stage_0_proxy:
+  shell_proxy: "test -f lean/Epistemos/Epistemos/H16.lean"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Pick six pairwise-coprime moduli m_0..m_5 (e.g. small
+       primes or prime powers).
+    2. Generate N = 1024 random addresses in [0, M) where
+       M = ∏ m_i.
+    3. For each address, compute the residue tuple
+       (a mod m_0, …, a mod m_5).
+    4. Reconstruct the address via CRT and verify exact equality
+       with the original (round-trip).
+    5. Verify CRT reconstruction is constant-time (or at least
+       O(log²M)) per the routing-budget contract.
+
+falsifier:
+  hard: |
+    If any address fails to round-trip exactly, the moduli are
+    not pairwise coprime or the CRT implementation is bugged.
+    Escalate to a Lane 3 numerical audit before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H16
+  - lean/Epistemos/Epistemos/H16.lean
+  - source_docs/helios_shadow_memory.md §2.2 (six-tier hierarchy)
+
+insertion_site: lean/Epistemos/Epistemos/H16.lean (substrate-tier
+                stub; CRT routing kernel lands per Lane 3 follow-up
+                paired with Helios Shadow Memory L0-L_SE wiring)

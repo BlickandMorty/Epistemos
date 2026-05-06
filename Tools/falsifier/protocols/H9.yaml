@@ -1,0 +1,72 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H9 Three-Cortex Composition.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H9.
+#
+# Statement: three-cortex composition (transformer + PARN +
+# ternary-morph) under the Active Assembly Compiler is sufficient
+# to express the Foundational Seven (E1-E7).
+#
+# Falsifier: end-to-end composition test — instantiate all three
+# cortices, route a sample claim through, verify the output
+# witnesses each E-theorem invariant.
+#
+# Citations:
+#   * Buzsáki Neuron 68:362, 2010 (cell assemblies)
+#   * Olshausen-Field Nature 381:607, 1996 (sparse coding)
+#   * Frémaux-Gerstner Front. Neural Circuits 9:85, 2016 (3-factor STDP)
+
+id: H9
+title: "Three-Cortex Composition — transformer + PARN + ternary-morph express E1..E7"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  CortexKind ∈ {transformer, PARN (Predictive-Association
+  Recurrent Network), ternaryMorph}. The Active Assembly Compiler
+  composing all three is sufficient to express each of the
+  Foundational Seven theorems (E1..E7) as an executable witness
+  through the three-cortex pipeline.
+
+acceptance:
+  metric: e_theorem_witness_coverage
+  threshold: 1.0             # every E1..E7 must produce a witness through the composition
+  units: fraction
+
+stage_0_proxy:
+  # Stage-0 substrate: the Lean stub + the cortex enum encode the
+  # claim; the actual composition test requires the Active Assembly
+  # Compiler infrastructure (Lane 3 follow-up).
+  shell_proxy: "test -f lean/Epistemos/Epistemos/H9.lean"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Load a small transformer cortex (e.g. Qwen3-1.5B Q4).
+    2. Build a PARN cortex on the same input embedding space.
+    3. Instantiate a ternary-morph cortex (BitNet b1.58 reference).
+    4. Compose all three under the Active Assembly Compiler.
+    5. For each E1..E7, route a sample claim through the
+       composition and record the witness object emitted.
+    6. Verify each E-theorem invariant (Density, Sheaf-Gluing,
+       Morph-Field bound, WBO-7, Duplex-Fusion, Epi_ε embedding,
+       Autogenous-Kernel ULP) is asserted by a witness.
+
+falsifier:
+  hard: |
+    If any E1..E7 fails to produce a witness through the
+    three-cortex composition, the sufficiency claim collapses.
+    Escalate to a Lane 3 architectural audit; consider whether
+    a fourth cortex kind (e.g. SSM-pure) is required.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H9
+  - lean/Epistemos/Epistemos/H9.lean
+  - Buzsáki Neuron 68:362 (2010)
+  - Olshausen-Field Nature 381:607 (1996)
+  - Frémaux-Gerstner Front. Neural Circuits 9:85 (2016)
+
+insertion_site: lean/Epistemos/Epistemos/H9.lean (substrate-tier
+                stub; Active Assembly Compiler is a Lane 3 follow-up)
