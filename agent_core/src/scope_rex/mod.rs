@@ -39,3 +39,5 @@
 //!   (`state: visible`)
 
 pub mod answer_packet;
+pub mod btm_semantic;
+pub mod residency;

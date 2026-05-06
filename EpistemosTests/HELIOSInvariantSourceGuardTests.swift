@@ -256,6 +256,85 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(rustSource.contains("Self::PlausibleButUnverified"))
     }
 
+    @Test("W4: Residency Governor pure function exists with all 9 arms")
+    func w4ResidencyGovernorExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/residency.rs")
+        // Canonical guard marker.
+        #expect(source.contains("HELIOS-W4 guard"))
+        // 9-variant taxonomy must be exhaustive — locked at the source.
+        #expect(source.contains("pub enum Residency"))
+        for arm in [
+            "TransientContext",
+            "RetrievalMemory",
+            "FeatureRule",
+            "HarnessRule",
+            "GrpoPrior",
+            "PsoftAdapter",
+            "OsftCore",
+            "CloudDistilled",
+            "Quarantine",
+        ] {
+            #expect(
+                source.contains(arm),
+                "Residency enum must declare arm: \(arm)"
+            )
+        }
+        // The route function must be declared.
+        #expect(source.contains("pub fn route(signal: &ResidencySignal) -> Residency"))
+        // Threshold ordering must be locked: Quarantine wins over
+        // TransientContext wins over FeatureRule.
+        #expect(source.contains("safety_risk > 0.7"))
+        #expect(source.contains("privacy > 0.9"))
+        #expect(source.contains("verification_score < 0.5"))
+        #expect(source.contains("repeat_count < 3"))
+    }
+
+    @Test("W5: Semantic Brain Time Machine V1.5 substrate exists, never tensor")
+    func w5SemanticBTMSubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/btm_semantic.rs")
+        // Canonical guard marker.
+        #expect(source.contains("HELIOS-W5 guard"))
+        // Three required deltas paths.
+        #expect(source.contains("pub struct SemanticDelta"))
+        #expect(source.contains("pub added_claims"))
+        #expect(source.contains("pub modified_claims"))
+        #expect(source.contains("pub removed_claim_ids"))
+        // Public API shape.
+        #expect(source.contains("pub fn apply_delta"))
+        #expect(source.contains("pub fn replay"))
+        #expect(source.contains("pub fn rewind"))
+        // Load-bearing W5 contract: NEVER carries tensor weights.
+        #expect(!source.contains("pub weights:"))
+        #expect(!source.contains("pub tensors:"))
+        #expect(!source.contains("pub checkpoint:"))
+        // Doc-comment lock on the W5 V1.5 vs Pro tensor split.
+        #expect(source.contains("V1.5"))
+        #expect(source.contains("NEVER tensor checkpoints"))
+    }
+
+    @Test("W4: Swift Residency mirror declares all 9 arms with snake_case raw values")
+    func w4ResidencySwiftMirrorMatchesRust() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacket.swift")
+        #expect(source.contains("HELIOS-W4 guard"))
+        #expect(source.contains("public enum Residency"))
+        for caseName in [
+            "case transientContext = \"transient_context\"",
+            "case retrievalMemory = \"retrieval_memory\"",
+            "case featureRule = \"feature_rule\"",
+            "case harnessRule = \"harness_rule\"",
+            "case grpoPrior = \"grpo_prior\"",
+            "case psoftAdapter = \"psoft_adapter\"",
+            "case osftCore = \"osft_core\"",
+            "case cloudDistilled = \"cloud_distilled\"",
+            "case quarantine",
+        ] {
+            #expect(
+                source.contains(caseName),
+                "Swift Residency mirror must declare: \(caseName)"
+            )
+        }
+    }
+
     @Test("W1: Rust + Swift mirror enums use snake_case wire format for parity")
     func w1RustSwiftMirrorParity() throws {
         let rustSource = try loadMirroredSourceTextFile("agent_core/src/scope_rex/answer_packet.rs")

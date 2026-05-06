@@ -121,6 +121,28 @@ public struct ResidencySignal: Codable, Hashable, Sendable {
     }
 }
 
+// MARK: - HELIOS V5 W4 — Residency Governor 9-variant taxonomy
+//
+// HELIOS-W4 guard
+//
+// Mirror of Rust `agent_core::scope_rex::residency::Residency`.
+// 7 of 9 arms are reachable from the §1.13-threshold route() function;
+// HarnessRule + CloudDistilled are reserved for higher-level routing
+// layers (Pro-tier harness-versioning + cloud-fusion dispatch).
+
+/// HELIOS V5 W4 — 9-variant residency taxonomy mirror.
+public enum Residency: String, Codable, Hashable, Sendable, CaseIterable {
+    case transientContext = "transient_context"
+    case retrievalMemory = "retrieval_memory"
+    case featureRule = "feature_rule"
+    case harnessRule = "harness_rule"
+    case grpoPrior = "grpo_prior"
+    case psoftAdapter = "psoft_adapter"
+    case osftCore = "osft_core"
+    case cloudDistilled = "cloud_distilled"
+    case quarantine
+}
+
 /// Status mirror for a Claim — tracks the Rust `ClaimStatus` 4-arm.
 public enum ClaimStatus: String, Codable, Hashable, Sendable {
     case active
