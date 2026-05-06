@@ -1,0 +1,57 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H4 Babai / GPTQ Bound.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H4 +
+# Chen et al. arXiv:2507.18553 v3 (ICLR 2026 camera-ready).
+#
+# Statement: GPTQ ≡ Babai's nearest-plane on Hessian lattice
+# with no-clipping bound:
+#
+#   ‖Δw‖ ≤ ¼ · trace(diag(LDL(H)))
+#
+# v3 (Chen et al. 2 Mar 2026) extends the no-clipping bound and
+# adds a tight layer-wise error in terms of the LDL-decomposition
+# trace.
+
+id: H4
+title: "Babai / GPTQ Bound — ‖Δw‖ ≤ ¼ · trace(diag(LDL(H)))"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  GPTQ post-training quantization weight error is upper-bounded
+  by the diagonal LDL trace of the Hessian:
+    ‖Δw‖ ≤ ¼ · trace(diag(LDL(H)))
+  with no-clipping under the Chen et al. v3 hypotheses.
+
+acceptance:
+  metric: bound_violation_rate
+  threshold: 0.0001          # ≤0.01% violations on sampled GPTQ runs
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e4_wbo7"   # shares the bound substrate
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate N = 256 random positive-definite Hessian matrices H.
+    2. Compute LDL decomposition; extract diagonal D.
+    3. Run GPTQ-style nearest-plane quantization producing Δw.
+    4. Verify ‖Δw‖ ≤ ¼ · trace(D) for every sample.
+
+falsifier:
+  hard: |
+    Any sample violating the bound by more than fp16 ULP indicates
+    either (a) Hessian conditioning issues outside the v3 hypothesis,
+    or (b) implementation bug in nearest-plane reduction. Escalate
+    to a Lane 3 audit before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H4
+  - arXiv:2507.18553 v3 (Chen et al., ICLR 2026)
+  - lean/Epistemos/Epistemos/H4.lean
+
+insertion_site: epistemos-research/src/theorems/e4_wbo7.rs

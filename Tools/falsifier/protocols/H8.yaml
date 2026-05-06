@@ -1,0 +1,69 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H8 OSPC Primitives.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H8.
+#
+# Statement: the 9 OSPC (Operator-Scoped Provenance Container)
+# substrate primitives form a complete control surface for
+# TypedArtifact mutation under MutationEnvelope discipline:
+#
+#   bind, unbind, gate, route, commit, reorder, merge, split, quarantine
+#
+# Falsifier: 9-arm exhaustive dispatch on MutationEnvelope.kind.
+# 4-mirror dispatch in agent_core/src/cognitive_dag/dispatch.rs is
+# the strict subset currently shipped (Skills + Procedural +
+# Provenance + Companion); the remaining 5 land per a Lane 3
+# follow-up.
+
+id: H8
+title: "OSPC Primitives — 9-arm complete control surface"
+class: operational
+lane: L1
+severity: HALT
+state: implemented
+
+statement: |
+  The 9 OSPC primitives — bind, unbind, gate, route, commit,
+  reorder, merge, split, quarantine — form a complete control
+  surface for TypedArtifact mutation under MutationEnvelope
+  discipline.
+  Currently shipped (4-mirror): Skills + Procedural + Provenance +
+  Companion. Remaining 5 are state:research per Lane 3 follow-up.
+
+acceptance:
+  metric: dispatch_coverage_ratio
+  threshold: 0.444           # 4 of 9 mirrors shipped (current floor)
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "cognitive_dag::dispatch"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Enumerate the 9 OSPC primitives.
+    2. For each currently-shipped mirror (4 of 9), exercise its
+       `auto_invoke_for_node` path against a sample DAG node.
+    3. Verify the mirror records a dispatch event with the
+       expected sentinel-cap.
+    4. The remaining 5 primitives have no shipped mirror; the
+       falsifier captures this as the current ceiling.
+
+falsifier:
+  hard: |
+    Any shipped mirror that returns Err on a valid kind→action
+    invocation is a regression. Run epistemos_doctrine_lint to
+    cross-check with §5.1 (EdgeKind closed enum) + §5.2/§5.3
+    (storage signatures).
+  follow_up: |
+    F8a — 5 unshipped primitives: bind / route / commit / reorder /
+    quarantine require Lane 3 design before falsifier discipline
+    can extend to the full 9-arm coverage.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H8
+  - lean/Epistemos/Epistemos/H8.lean
+  - agent_core/src/cognitive_dag/dispatch.rs
+  - agent_core/src/cognitive_dag/migration.rs
+
+insertion_site: agent_core/src/cognitive_dag/dispatch.rs
