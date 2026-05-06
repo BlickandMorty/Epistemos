@@ -69,6 +69,11 @@
 //!   Hybrid Titans-MAC online + SEAL-DoRA nightly. Surprise
 //!   gradient as unified confidence signal across L0..L4 + L_SE
 //!   itself. T_SE drift bound parameters for the Master Inequality.
+//! - [`validation_thresholds`] — 7 canonical validation thresholds
+//!   per `epistemos_definitive_master.md` §"PART VI" §1. KL <
+//!   0.05; compression ≥ 10×; top-k recall ≥ 0.95; L4 escalation
+//!   < 5%; RAM ≤ 12 GB; decode ≥ 20 tok/s; SSM-Tx gap ≤ 5pp.
+//!   `check_all()` returns failing thresholds.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -92,6 +97,9 @@ pub mod mathematical_pillars;
 
 #[cfg(feature = "research")]
 pub mod self_evolving_l_se;
+
+#[cfg(feature = "research")]
+pub mod validation_thresholds;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;

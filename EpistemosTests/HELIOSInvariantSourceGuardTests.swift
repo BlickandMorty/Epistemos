@@ -320,6 +320,41 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 44: Seven canonical validation thresholds (Lane 3)")
+    func stage44ValidationThresholdsExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/validation_thresholds.rs")
+        #expect(source.contains("HELIOS-VALIDATION-THRESHOLDS guard"))
+        // 7-arm threshold enum
+        #expect(source.contains("pub enum ValidationThreshold"))
+        #expect(source.contains("KlDivergence"))
+        #expect(source.contains("CompressionRatio"))
+        #expect(source.contains("TopKRecall"))
+        #expect(source.contains("L4EscalationRate"))
+        #expect(source.contains("PeakRamGb"))
+        #expect(source.contains("DecodeThroughput"))
+        #expect(source.contains("SsmTxGap"))
+        // Pinned canonical bounds
+        #expect(source.contains("KL_DIVERGENCE_MAX: f32 = 0.05"))
+        #expect(source.contains("COMPRESSION_RATIO_MIN: f32 = 10.0"))
+        #expect(source.contains("TOP_K_RECALL_MIN: f32 = 0.95"))
+        #expect(source.contains("L4_ESCALATION_RATE_MAX: f32 = 0.05"))
+        #expect(source.contains("PEAK_RAM_GB_MAX: f32 = 12.0"))
+        #expect(source.contains("DECODE_TOK_PER_SEC_MIN: f32 = 20.0"))
+        #expect(source.contains("SSM_TX_GAP_PP_MAX: f32 = 5.0"))
+        // Helpers
+        #expect(source.contains("pub fn bound"))
+        #expect(source.contains("pub fn is_ceiling"))
+        #expect(source.contains("pub fn is_floor"))
+        #expect(source.contains("pub fn passes"))
+        #expect(source.contains("pub fn check_all"))
+        // Const array
+        #expect(source.contains("pub const SEVEN_THRESHOLDS"))
+        #expect(source.contains("[ValidationThreshold; 7]"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod validation_thresholds"))
+    }
+
     @Test("Stage 43: Self-Evolving Extension L_SE substrate (Lane 3)")
     func stage43SelfEvolvingLseExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/self_evolving_l_se.rs")
