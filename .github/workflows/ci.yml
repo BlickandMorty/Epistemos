@@ -137,7 +137,7 @@ jobs:
       # all 7 HELIOS V5 Tier-2 Settings toggles default OFF, and reports
       # the subprocess surface for human review (informational).
       - name: W26 — App Review §2.5.2 compliance audit
-        run: ./tools/app-review-audit/app-review-audit.sh
+        run: ./Tools/app-review-audit/app-review-audit.sh
 
       # B5 (HELIOS V5 Canon Lock v2 §F): theorem-invariant smoke gate.
       # Skeleton at Stage 0 — verifies anchor-table parity for the 14
