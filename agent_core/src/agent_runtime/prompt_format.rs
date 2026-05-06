@@ -1,11 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-const EXTERNAL_TIER_BOUNDARY_LINE: &str =
-    "Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only.";
-const LOCAL_CORE_BOUNDARY_LINE: &str =
-    "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context.";
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HermesToolDefinition {
     pub name: String,
@@ -70,13 +65,9 @@ For each function call, return a JSON object with function name and arguments wi
 {{\"name\": <function-name>, \"arguments\": <args-dict>}}\n\
 </tool_call>\n\
 Keep hidden reasoning inside <think></think> tags. If the model falls back to legacy formatting, <scratch_pad></scratch_pad> is also allowed. Never place raw reasoning or analysis notes outside those hidden tags.\n\
-Hermes is the tool-call and external-intelligence membrane, not the graph, Rex, or the deterministic substrate authority.\n\
 Use tools only for missing context or explicit external side effects. Do not route already-available local substrate answers through tools.\n\
-Hermes is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects.\n\
-Keep deterministic local substrate answers on the direct path; Hermes must not add a gateway hop when no external context is needed.\n\
-Return external evidence as structured artifacts and provenance, not graph or Rex authority.\n\
-{EXTERNAL_TIER_BOUNDARY_LINE}\n\
-{LOCAL_CORE_BOUNDARY_LINE}"
+Keep deterministic local substrate answers on the direct path; do not add a gateway hop when no external context is needed.\n\
+Return external evidence as structured artifacts and provenance, not graph authority."
     ));
 
     prompt.push_str(

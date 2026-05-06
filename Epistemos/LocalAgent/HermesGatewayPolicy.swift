@@ -67,11 +67,6 @@ nonisolated enum HermesGatewayPolicy {
     typealias EvidenceReturn = HermesGatewayEvidenceReturn
     typealias Decision = HermesGatewayDecision
 
-    static let externalTierBoundaryLine =
-        "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
-    static let localCoreBoundaryLine =
-        "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
-
     static func isAllowedInCoreAppStoreBuild(_ surface: Surface) -> Bool {
         let decision = decision(for: surface)
         return decision.tier == .core
