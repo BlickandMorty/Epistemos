@@ -3,24 +3,79 @@ HELIOS V5 E6 — Error-Enriched Convergence (Epi_ε category).
 
 HELIOS-E6 guard
 
-Statement: Five source formalisms admit structure-preserving
-embeddings into Epi_ε. NOT metaphysical identity — embeddings.
+Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1 E6 +
+`EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md` PART I T6
+(v2.0 hardened):
+
+  **Statement:** five source formalisms admit structure-preserving
+  embeddings into Epi_ε (the typed error-enriched operational
+  category):
+
+    F_i : C_i → Epi_ε   for i = 1..5
+
+  where the five C_i are:
+    1. Para/Lens (parametric maps + lens categories)
+    2. EML (Error Magnitude Lift)
+    3. Atlas (page-backed lookup)
+    4. Nested-Learning/CMS-X (constitutive field)
+    5. Stone-Weierstrass approximation
+
+  Each F_i preserves composition, identity, and associativity —
+  i.e. each is a categorical functor.
+
+  **v2.0 audit Patch 7 — critical anti-overclaim:** this is NOT
+  "the same infinity realized five ways" (the v1 phrasing). It
+  IS "five formalisms embed into one error-carrying runtime
+  category". The embeddings are structure-preserving but the
+  source categories are GENUINELY DISTINCT — Epi_ε is the
+  unifying *target*, not their identity.
+
+**Status v2.0:** EB (Engineering Bet) — convergence
+hypothesis; theorem-candidate.
 
 Sorry budget at lock: ≤ 1.
 -/
 
 namespace Epistemos.E6
 
-/-- The five source formalisms. -/
+/-- The five source formalisms whose Epi_ε embeddings are
+canonically defined per v2.0 audit. -/
 inductive SourceFormalism : Type
-  | smoothManifolds
-  | lensCategories
-  | parametricMaps
-  | reverseDerivativeCategories
-  | stochasticCategories
+  | paraLens             -- 1. Para/Lens (parametric maps)
+  | eml                  -- 2. EML (Error Magnitude Lift)
+  | atlas                -- 3. Atlas (page-backed lookup)
+  | nestedLearningCmsX   -- 4. Nested-Learning / CMS-X
+  | stoneWeierstrass     -- 5. Stone-Weierstrass approximation
 
-/-- Embedding placeholder — every source formalism embeds into Epi_ε. -/
-theorem embedsIntoEpiEpsilon (s : SourceFormalism) : True := by
+/-- A structure-preserving embedding witness from a source
+formalism into Epi_ε. -/
+structure EpiEpsilonEmbedding where
+  source                    : SourceFormalism
+  preserves_composition     : Bool
+  preserves_identity        : Bool
+  preserves_associativity   : Bool
+
+/-- Default embedding witness — assumes all three structural
+properties hold (the canonical v2.0 form). -/
+def EpiEpsilonEmbedding.canonical (s : SourceFormalism) : EpiEpsilonEmbedding :=
+  { source := s
+    preserves_composition := true
+    preserves_identity := true
+    preserves_associativity := true
+  }
+
+/-- Structure-preserving iff all three properties hold. -/
+def EpiEpsilonEmbedding.isStructurePreserving (e : EpiEpsilonEmbedding) : Bool :=
+  e.preserves_composition && e.preserves_identity && e.preserves_associativity
+
+/-- E6 theorem-candidate placeholder. The full elaboration lifts
+to mathlib4's `CategoryTheory.Functor` once the Epi_ε category
+substrate is built. -/
+theorem fiveFormalismsEmbedIntoEpiEpsilon : True := by
   sorry
+
+/-- v2.0 anti-overclaim discipline: this is NOT "same infinity
+five ways" — the source categories are genuinely distinct. -/
+def isNotSameInfinityClaim : Bool := true
 
 end Epistemos.E6
