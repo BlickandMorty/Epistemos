@@ -320,6 +320,55 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 18: H8-H17 Lean stubs enriched with cross-tradition citations")
+    func stage18H8ThroughH17LeanStubsEnriched() throws {
+        let h8 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H8.lean")
+        for op in ["bind", "unbind", "gate", "route", "commit", "reorder", "merge", "split", "quarantine"] {
+            #expect(h8.contains("| \(op)"), "H8 must declare OSPC op: \(op)")
+        }
+
+        let h9 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H9.lean")
+        #expect(h9.contains("transformer"))
+        #expect(h9.contains("parn"))
+        #expect(h9.contains("ternaryMorph"))
+        #expect(h9.contains("Buzs\u{00E1}ki"))
+
+        let h10 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H10.lean")
+        #expect(h10.contains("masBuild"))
+        #expect(h10.contains("lane4Oracle"))
+        #expect(h10.contains("mutexHolds"))
+
+        let h11 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H11.lean")
+        #expect(h11.contains("2202.04579"))
+        #expect(h11.contains("NOT 2206.04386"))
+
+        let h12 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H12.lean")
+        #expect(h12.contains("Berry"))
+        #expect(h12.contains("BerryPhase"))
+
+        let h13 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H13.lean")
+        #expect(h13.contains("klBridgeFactor"))
+        #expect(h13.contains("FisherInformation"))
+
+        let h14 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H14.lean")
+        #expect(h14.contains("localGlobalConjectureIsFalse"))
+        #expect(h14.contains("2307.02749"))
+        #expect(h14.contains("H14_NEGATIVE_RESULT_ACKNOWLEDGED"))
+
+        let h15 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H15.lean")
+        #expect(h15.contains("MadhavaSeries"))
+        #expect(h15.contains("2405.11134"))
+
+        let h16 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H16.lean")
+        #expect(h16.contains("CrtRoute"))
+        #expect(h16.contains("Chinese Remainder"))
+
+        let h17 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H17.lean")
+        #expect(h17.contains("HopfieldStore"))
+        #expect(h17.contains("capacityBound"))
+        #expect(h17.contains("2008.02217"))
+    }
+
     @Test("Stage 17: H1-H7 Lean stubs enriched with operational claim content")
     func stage17H1ThroughH7LeanStubsEnriched() throws {
         let h1 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H1.lean")
