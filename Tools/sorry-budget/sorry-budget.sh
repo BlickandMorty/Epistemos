@@ -91,7 +91,13 @@ total_over_budget=0
 total_sorries=0
 while IFS='|' read -r id budget; do
   [ -z "${id}" ] && continue
-  file="${LEAN_DIR}/${id}.lean"
+  # Translate canonical id (e.g. PCF-1) to a Lean-compatible
+  # filename (PCF_1.lean). Lean module names cannot contain hyphens
+  # — Lake's auto-discovery would reject `PCF-1.lean` as an
+  # invalid module identifier. The canonical id stays hyphenated
+  # per DOC 6; only the file path uses underscores.
+  fname=$(echo "${id}" | tr '-' '_')
+  file="${LEAN_DIR}/${fname}.lean"
   if [ ! -f "${file}" ]; then
     if [ "${REPORT_MODE}" -eq 1 ]; then
       echo "  ${id}: file not present yet (budget ${budget})"
