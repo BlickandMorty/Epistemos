@@ -40,12 +40,14 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # non-agent_core protocols.
 REGISTRY=$(cat <<'REGISTRY_BODY'
 E3|agent_core|default|storage::vault
+E4|agent_core|default|scope_rex::metal::softmax
 H2|agent_core|default|scope_rex::metal::softmax
 H3|agent_core|default|scope_rex::metal::asa_index
 H7|agent_core|default|scope_rex::residency
 H17|agent_core|default|scope_rex::retrieval::hopfield
 W1|agent_core|default|scope_rex::answer_packet
 W5|agent_core|default|scope_rex::btm_semantic
+W6|agent_core|default|scope_rex::metal::asa_index
 W8|agent_core|default|scope_rex::kv::direct_gate
 W12|agent_core|default|scope_rex::kernels::t_mac
 W13|agent_core|default|scope_rex::kernels::bitnet
