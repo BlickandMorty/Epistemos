@@ -320,6 +320,20 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 13: W25 PCF-1..PCF-10 falsifier YAML protocols exist")
+    func stage13PcfFalsifierProtocolsExist() throws {
+        for n in 1...10 {
+            let path = "Tools/falsifier/protocols/PCF-\(n).yaml"
+            let yaml = try loadMirroredSourceTextFile(path)
+            #expect(yaml.contains("id: PCF-\(n)"))
+            #expect(yaml.contains("class: candidate"))
+            #expect(yaml.contains("state: candidate"))
+            #expect(yaml.contains("acceptance:"))
+            #expect(yaml.contains("stage_0_proxy:"))
+            #expect(yaml.contains("insertion_site:"))
+        }
+    }
+
     @Test("Stage 12: W6/W7/W8 Metal Shading Language kernels exist")
     func stage12W6W7W8MetalKernelsExist() throws {
         let asa = try loadMirroredSourceTextFile("Epistemos/Shaders/active_support_atlas.metal")

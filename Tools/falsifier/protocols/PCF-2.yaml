@@ -1,0 +1,39 @@
+# HELIOS V5 W25 — Falsifier protocol for PCF-2 QkEdgeAnchor (W_QK^h decomposition).
+
+id: PCF-2
+title: "QkEdgeAnchor (W_QK^h decomposition)"
+class: candidate
+lane: L3
+severity: WARN
+state: candidate
+
+statement: |
+  Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §3 PCF-2.
+  See substrate at: epistemos-research/src/vpd/qk_edge.rs
+
+acceptance:
+  metric: substrate_compiles_and_round_trips
+  threshold: 1.0
+  units: fraction
+  caveat: "Stage-0 substrate-presence proxy; real M2 Max falsifier on Goodfire toy model lands per W25.b"
+
+stage_0_proxy:
+  cargo_test_filter: "epistemos_research::vpd::qk_edge"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Substrate-only stage-0: cargo test --lib --features research/vault as appropriate.
+    2. M2 Max-specific run lands per W25.b — verifies on Goodfire toy
+       model (see PCF-1 falsifier in DOC 6 §3) that the substrate
+       actually decomposes / reconstructs / transfers per the claim.
+  notes: |
+    PCF-N entries are state:candidate per HELIOS V5 v5.2 — they don't
+    promote above CANDIDATE until per-falsifier passes on M2 Max OR
+    Codex independently verifies the Goodfire May 5 2026 page.
+
+literature:
+  - "Goodfire VPD May 5 2026 (verified)"
+
+insertion_site: "epistemos-research/src/vpd/qk_edge.rs"
