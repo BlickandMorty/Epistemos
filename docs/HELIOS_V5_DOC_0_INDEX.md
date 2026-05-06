@@ -100,16 +100,16 @@ All `state: candidate` at lock. Goodfire VPD substrate `[VERIFIED-WEB-2026-05-05
 
 | ID | Concept | Lane | Insertion site |
 |---|---|---|---|
-| **PCF-1** | ParamAnchor (VPD extraction → frozen anchor library) | L3 | `crates/epistemos-research/src/vpd/anchor.rs` |
-| **PCF-2** | QKEdgeAnchor (W_QK^h decomposition) | L3 | `crates/epistemos-research/src/vpd/qk_edge.rs` |
-| **PCF-3** | ParamAttributionGraph | L3 | `crates/epistemos-research/src/vpd/attribution_graph.rs` |
-| **PCF-4** | ComponentRoute | L3 | `crates/epistemos-research/src/vpd/component_route.rs` |
-| **PCF-5** | ActiveRankOneExecution | **L5 Vault** | `crates/epistemos-vault/src/runtime/active_rank_one.rs` |
-| **PCF-6** | ModelSurgeryEnvelope | **L5 Vault** | `crates/epistemos-vault/src/surgery/envelope.rs` |
-| **PCF-7** | DualConnectomeTrace | L3 | `crates/epistemos-research/src/vpd/dual_trace.rs` |
-| **PCF-8** | Parameter Connectome Sheaf Consistency | L3 (ties to E2) | `crates/epistemos-research/src/vpd/connectome_sheaf.rs` |
-| **PCF-9** | Connectome Distillation | **L5 Vault** | `crates/epistemos-vault/src/distill/connectome.rs` |
-| **PCF-10** | Interpretability-to-Runtime Transfer | **L5 Vault** | `crates/epistemos-vault/src/runtime/transfer.rs` |
+| **PCF-1** | ParamAnchor (VPD extraction → frozen anchor library) | L3 | `epistemos-research/src/vpd/anchor.rs` |
+| **PCF-2** | QKEdgeAnchor (W_QK^h decomposition) | L3 | `epistemos-research/src/vpd/qk_edge.rs` |
+| **PCF-3** | ParamAttributionGraph | L3 | `epistemos-research/src/vpd/attribution_graph.rs` |
+| **PCF-4** | ComponentRoute | L3 | `epistemos-research/src/vpd/component_route.rs` |
+| **PCF-5** | ActiveRankOneExecution | **L5 Vault** | `epistemos-vault/src/runtime/active_rank_one.rs` |
+| **PCF-6** | ModelSurgeryEnvelope | **L5 Vault** | `epistemos-vault/src/surgery/envelope.rs` |
+| **PCF-7** | DualConnectomeTrace | L3 | `epistemos-research/src/vpd/dual_trace.rs` |
+| **PCF-8** | Parameter Connectome Sheaf Consistency | L3 (ties to E2) | `epistemos-research/src/vpd/connectome_sheaf.rs` |
+| **PCF-9** | Connectome Distillation | **L5 Vault** | `epistemos-vault/src/distill/connectome.rs` |
+| **PCF-10** | Interpretability-to-Runtime Transfer | **L5 Vault** | `epistemos-vault/src/runtime/transfer.rs` |
 
 ---
 
@@ -127,7 +127,7 @@ Demoted EML branches, architectural overclaims, and "do not build into Core/MAS"
 | **L2 ENGINEERING_MAX** | `Epistemos/Shaders/`, mlx-rs 0.21, objc2-metal 0.3 | Pro (Developer ID + Notarization) | Pro-tunnel discipline; T-MAC + BitNet b1.58 + STG kernels |
 | **L3 RESEARCH_FRONTIER** | doctrine §A.11 ANE direct path research | Research | sorry-budget H1–H17 + PCF; JIT/runtime synthesis allowed |
 | **L4 SUBSTRATE_INDEPENDENT** | `lane4-oracle` feature, jlrs 0.23 + arrow 53 | **Reserved at lock — never product** | (mutex with mas-build) |
-| **L5 SPECULATIVE_VAULT** | `crates/epistemos-vault/` + `PRESERVED_RESEARCH_LEDGER.md` | Read-only vault + Pro-only build channel | re-promotion falsifier required |
+| **L5 SPECULATIVE_VAULT** | `epistemos-vault/` + `PRESERVED_RESEARCH_LEDGER.md` | Read-only vault + Pro-only build channel | re-promotion falsifier required |
 
 **11th Lane Classifier `helios`** added per v5.2 §F: diffs that touch theorem invariants, residency thresholds, or claim-classification surfaces. `helios`-lane diffs MUST pass B5 in addition to B1–B4.
 
