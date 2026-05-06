@@ -320,6 +320,41 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 5 / DOC 6: master Theorem Canon doc exists with all 34 ids")
+    func stage5Doc6TheoremCanonExists() throws {
+        let source = try loadMirroredSourceTextFile("docs/HELIOS_V5_DOC_6_THEOREM_CANON.md")
+        // §1 + §2 + §3 each present.
+        #expect(source.contains("## §1 — Foundational Seven (E1–E7)"))
+        #expect(source.contains("## §2 — Helios Operational Claims (H1–H17)"))
+        #expect(source.contains("## §3 — Parameter Connectome Family (PCF-1..PCF-10)"))
+        // Status table consolidation.
+        #expect(source.contains("## §4 — Status table consolidation"))
+        // Every theorem id surfaced as a canonical heading (### E<n> ...
+        // ### H<n> ... ### PCF-<n> ...).
+        for id in [
+            "### E1", "### E2", "### E3", "### E4", "### E5", "### E6", "### E7",
+            "### H1", "### H2", "### H3", "### H4", "### H5", "### H6",
+            "### H7", "### H8", "### H9", "### H10", "### H11", "### H12",
+            "### H13", "### H14", "### H15", "### H16", "### H17",
+            "### PCF-1", "### PCF-2", "### PCF-3", "### PCF-4", "### PCF-5",
+            "### PCF-6", "### PCF-7", "### PCF-8", "### PCF-9", "### PCF-10",
+        ] {
+            #expect(
+                source.contains(id),
+                "DOC 6 must surface theorem heading '\(id)'"
+            )
+        }
+        // Verified Floor + lock phrase pinned in frontmatter.
+        #expect(source.contains("verified_floor: ac8c6d28"))
+    }
+
+    @Test("DOC 0 anchor table includes DOC 6 row")
+    func doc0IncludesDoc6AnchorRow() throws {
+        let source = try loadMirroredSourceTextFile("docs/HELIOS_V5_DOC_0_INDEX.md")
+        #expect(source.contains("docs/HELIOS_V5_DOC_6_THEOREM_CANON.md"))
+        #expect(source.contains("20ae3421bf274c8bdbc191390fc520124655b20e4a22e757b4a74e82d75b296e"))
+    }
+
     @Test("Stage 4: epistemos-vault crate exists with vault feature gate")
     func stage4VaultCrateExists() throws {
         let cargo = try loadMirroredSourceTextFile("epistemos-vault/Cargo.toml")
