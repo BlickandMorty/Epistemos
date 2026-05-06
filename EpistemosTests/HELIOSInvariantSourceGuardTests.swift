@@ -320,6 +320,25 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 50: Sign-correct ULP distance utilities (Lane 3)")
+    func stage50UlpCompareExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/ulp_compare.rs")
+        #expect(source.contains("HELIOS-ULP-COMPARE guard"))
+        // Ordered-bit mapping
+        #expect(source.contains("pub fn ordered_f32_bits"))
+        #expect(source.contains("pub fn ordered_f16_bits"))
+        // ULP distance functions
+        #expect(source.contains("pub fn ulp_distance_f32"))
+        #expect(source.contains("pub fn ulp_distance_f16"))
+        // Patch 8 reference
+        #expect(source.contains("Patch 8"))
+        // NaN pair handling
+        #expect(source.contains("u32::MAX"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod ulp_compare"))
+    }
+
     @Test("Stage 49: KV-Direct Week-1 acceptance gate substrate (Lane 3)")
     func stage49KvDirectGateExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/kv_direct_gate.rs")
