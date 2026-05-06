@@ -125,6 +125,11 @@
 //!   granted, resonance-classified) + `HermesVerificationOutcome`
 //!   (VerifiedPromote / EdgeTriggerEsp / ContradictedQuarantine).
 //!   Hermes shared-mmap arena pinned at 200 KiB.
+//! - [`cargo_features`] — canonical 9-feature Cargo flag taxonomy
+//!   per `epistenos_build_prompt.md` §4.3. Metal + Mlx (default) /
+//!   Ane (experimental) / Ssm / Ttt / SelfTuning / Vault / Hermes
+//!   (Pro-only) / Bench. is_default / is_experimental / is_pro_only
+//!   classifiers are pairwise-disjoint.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -136,6 +141,9 @@ pub mod acs;
 
 #[cfg(feature = "research")]
 pub mod agent_swarm;
+
+#[cfg(feature = "research")]
+pub mod cargo_features;
 
 #[cfg(feature = "research")]
 pub mod cms_v2;
