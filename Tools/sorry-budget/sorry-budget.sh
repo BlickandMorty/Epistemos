@@ -30,7 +30,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-LEAN_DIR="${REPO_ROOT}/lean/Epistemos"
+# Lake convention: lean/<package>/<package>/<module>.lean — the
+# inner Epistemos/ directory holds per-theorem .lean files. Per
+# `lean/Epistemos/README.md` Layout section.
+LEAN_DIR="${REPO_ROOT}/lean/Epistemos/Epistemos"
 
 if [ ! -d "${LEAN_DIR}" ]; then
   echo "W24 sorry-budget tracker: lean/Epistemos/ not present yet"
@@ -45,13 +48,14 @@ if [ "${1:-}" = "--report" ]; then
 fi
 
 # Per-id budget table: id|budget
+# Budgets per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1.
 BUDGETS=$(cat <<'BUDGET_BODY'
 E1|2
 E2|2
-E3|2
+E3|1
 E4|2
 E5|2
-E6|2
+E6|1
 E7|2
 H1|4
 H2|4
@@ -94,7 +98,10 @@ while IFS='|' read -r id budget; do
     fi
     continue
   fi
-  count=$(grep -c "^\s*sorry\s*\(--.*\)\?$" "${file}" || echo 0)
+  # awk always exits 0 + emits exactly one integer; avoids the
+  # grep-c-+-pipefail SIGPIPE trap that ate report rows for files
+  # with zero sorries (E3).
+  count=$(awk '/^[[:space:]]*sorry[[:space:]]*(--.*)?$/{n++} END{print n+0}' "${file}")
   count="${count:-0}"
   total_sorries=$((total_sorries + count))
   if [ "${count}" -gt "${budget}" ]; then
