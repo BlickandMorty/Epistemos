@@ -33,8 +33,13 @@ You are picking up HELIOS V5 integration with the Epistemos Cognitive DAG substr
 
 Before touching any code, read these in order:
 
-1. `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` — v2 plan (architecture decisions + W1–W26 wiring)
-2. `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` — finalization (E/H/PCF mappings + 8 cognitive functions + 4 demos + SCOPE-Rex full surface + six-tier memory + anti-drift + benchmarks + no-Hermes rule §R)
+**0a. `docs/fusion/helios v5 first.md`** — **PRIMARY SOURCE OF TRUTH** (754 lines). v5 DEFINITIVE CANON LOCK with `[VERIFIED-AGAINST-RESEARCH-DOCS]` / `[NEEDS-SOURCE-FILE-VERIFICATION]` / `[DRIFT-DETECTED]` tags per claim. Validates the integration brief's substrate-presence assertions against bundled research docs. **Read this BEFORE the integration plan.**
+
+**0b. `docs/fusion/helios v5 updated.md`** — **PRIMARY SOURCE OF TRUTH** (625 lines). v5.2 TRULY FINAL with `[VERIFIED-WEB-Q1-2026]` tags + 2 citation drifts caught (Bodnar 2202.04579, Wang 2508.18893 withdrawn) + 10 PCF candidate theorems + the user audit verdict. **Read this BEFORE the integration plan.**
+
+1. `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` — v2 plan (architecture decisions + W1–W26 wiring; downstream of 0a + 0b)
+2. `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` — finalization (E/H/PCF mappings + 8 cognitive functions + 4 demos + SCOPE-Rex full surface + six-tier memory + anti-drift + benchmarks + no-Hermes rule §R; downstream of 0a + 0b)
+2.5. `docs/PRESERVATION_FIRST_AUDIT_POLICY_2026_05_05.md` — discipline for "dead-code" audits (NEVER auto-delete based on "no callers found" alone; preserve scaffold)
 3. `docs/SESSION_RETROSPECTIVE_2026_05_05.md` — full 2026-05-05 session retrospective (~89 commits)
 4. `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md` — WRV state pipeline + canon promotion protocol + no-date-gates rule (THE prospective discipline)
 5. `docs/CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md` — close-out doc with Codex drift register status table
@@ -193,15 +198,19 @@ Do NOT pick Path A/B/C autonomously — wait for explicit user sign-off per §3.
 
 If you want a more compact version for clipboard ergonomics, here's the 1-paragraph form:
 
-> You are picking up HELIOS V5 integration with the Epistemos Cognitive DAG substrate. Architecture is `state: canon` (locked 2026-05-05; ballot Q1=C / Q2=optimal-combination / Q3=C; Verified Floor `ac8c6d28`; lock phrase "Five lanes, three tiers, seven-plus-three-plus-seven, one Monday"). Implementation slices W1–W26 are `state: candidate` held for per-slice sign-off per `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`. Theorem namespace: R0 (raw archive) + E1–E7 (Epistemos Core) + H1–H17 (Helios Operational; H1 = WBO-7) + PCF-1…PCF-10 (Parameter Connectome Family). NON-NEGOTIABLE: NO HERMES anywhere — see `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` §R; 18 existing `Epistemos/LocalAgent/Hermes*.swift` files flagged for sign-off-gated rename. READ in order: `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` then `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` then `docs/SESSION_RETROSPECTIVE_2026_05_05.md` then `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md` then the v4 preservation package at `/Users/jojo/Library/Mobile Documents/com~apple~CloudDocs/EPISTEMOS_HELIOS_v4_FINAL_PRESERVATION_PACKAGE/`. Run `git status --short` first. Verify local CI gates (cargo test --lib + lsp-runtime + doctrine-lint + verify-replay). Then ASK which path the user wants: rename now (Path A), parallel (Path B), after (Path C), or other (Path D). Do NOT pick autonomously.
+> You are picking up HELIOS V5 integration with the Epistemos Cognitive DAG substrate. Architecture is `state: canon` (locked 2026-05-05; ballot Q1=C / Q2=optimal-combination / Q3=C; Verified Floor `ac8c6d28`; lock phrase "Five lanes, three tiers, seven-plus-three-plus-seven, one Monday"). Implementation slices W1–W26 are `state: candidate` held for per-slice sign-off per `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`. Theorem namespace: R0 (raw archive) + E1–E7 (Epistemos Core) + H1–H17 (Helios Operational; H1 = WBO-7) + PCF-1…PCF-10 (Parameter Connectome Family). NON-NEGOTIABLE: NO HERMES anywhere — see `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` §R; 18 existing `Epistemos/LocalAgent/Hermes*.swift` files flagged for sign-off-gated rename. PRESERVATION DISCIPLINE: NEVER auto-delete based on "no callers found" alone — see `docs/PRESERVATION_FIRST_AUDIT_POLICY_2026_05_05.md`. **PRIMARY SOURCE OF TRUTH:** `docs/fusion/helios v5 first.md` + `docs/fusion/helios v5 updated.md` — read THESE FIRST, then `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` + `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` + `docs/SESSION_RETROSPECTIVE_2026_05_05.md` + `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md` + the v4 preservation package at `/Users/jojo/Library/Mobile Documents/com~apple~CloudDocs/EPISTEMOS_HELIOS_v4_FINAL_PRESERVATION_PACKAGE/`. Run `git status --short` first. Verify local CI gates (cargo test --lib + lsp-runtime + doctrine-lint + verify-replay). Then ASK which path the user wants: rename now (Path A), parallel (Path B), after (Path C), or other (Path D). Do NOT pick autonomously.
 
 ---
 
 ## Cross-references (for the new session to verify the prompt against)
 
 - This prompt itself: `docs/HELIOS_V5_SESSION_START_PROMPT_2026_05_05.md`
+- **PRIMARY SOURCE OF TRUTH (v5 source canon, persisted in repo):**
+  - `docs/fusion/helios v5 first.md` (754 lines, v5 DEFINITIVE CANON LOCK with VERIFIED-AGAINST-RESEARCH-DOCS tags)
+  - `docs/fusion/helios v5 updated.md` (625 lines, v5.2 TRULY FINAL with VERIFIED-WEB-Q1-2026 tags + audit corrections)
 - v2 plan: `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md`
 - v2 finalize: `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md`
+- Preservation policy: `docs/PRESERVATION_FIRST_AUDIT_POLICY_2026_05_05.md`
 - Canon promotion protocol: `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`
 - Session retrospective: `docs/SESSION_RETROSPECTIVE_2026_05_05.md`
 - Codex full handoff: `docs/CODEX_FULL_HANDOFF_2026_05_05.md`

@@ -436,7 +436,10 @@ Per the canon promotion protocol (`docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`)
 
 ## Cross-references
 
-- **v5.2 source:** user-pasted message 2026-05-05 ("HELIOS V5 — DEFINITIVE CANON LOCK v2 (TRULY FINAL)")
+- **PRIMARY SOURCE OF TRUTH (persisted in repo):**
+  - `docs/fusion/helios v5 first.md` — 754-line v5 DEFINITIVE CANON LOCK with VERIFIED-AGAINST-RESEARCH-DOCS / NEEDS-SOURCE-FILE-VERIFICATION / DRIFT-DETECTED tags
+  - `docs/fusion/helios v5 updated.md` — 625-line v5.2 TRULY FINAL with VERIFIED-WEB-Q1-2026 tags + 2 citation drifts caught (Bodnar 2202.04579, Wang 2508.18893 withdrawn) + 10 PCF candidate theorems
+- **v5.2 source (also user-pasted message 2026-05-05):** "HELIOS V5 — DEFINITIVE CANON LOCK v2 (TRULY FINAL)" — content matches `docs/fusion/helios v5 updated.md`
 - **v1 of this plan (superseded):** `docs/HELIOS_V5_INTEGRATION_PLAN_2026_05_05.md`
 - **HELIOS v4 preservation package:** `/Users/jojo/Library/Mobile Documents/com~apple~CloudDocs/EPISTEMOS_HELIOS_v4_FINAL_PRESERVATION_PACKAGE/`
 - **Local v5 + v4-updated source files:** `/Users/jojo/Downloads/helios v5.md` + `/Users/jojo/Downloads/helios v4 updated.md`
