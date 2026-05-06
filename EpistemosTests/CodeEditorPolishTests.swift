@@ -141,4 +141,25 @@ nonisolated struct CodeEditorPolishTests {
     func defaultQuietWindowIs300() {
         #expect(CodeEditorContentDebouncer.defaultQuietWindowMs == 300)
     }
+
+    @Test("CodeEditorView wires CodeEditorContentDebouncer into the live text-change path")
+    func codeEditorViewUsesCanonicalDebouncer() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(source.contains("@State private var contentDebouncer: CodeEditorContentDebouncer?"),
+                "CodeEditorView must retain the Phase-S debouncer instead of leaving it as standalone scaffold.")
+        #expect(source.contains("let debouncer = contentDebouncer ?? CodeEditorContentDebouncer"),
+                "CodeEditorView should construct the canonical debouncer in its coordinator setup path.")
+        #expect(source.contains("debouncer?.enqueue(newText)"),
+                "Text changes must enqueue into CodeEditorContentDebouncer, not bypass it with a local Task debounce.")
+        #expect(!source.contains("try? await Task.sleep(for: .milliseconds(500))"),
+                "The old ad-hoc 500ms content-change debounce should not remain in the editor text-change path.")
+    }
+
+    private func loadRepoTextFile(_ relativePath: String) throws -> String {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let repoRoot = testFile.deletingLastPathComponent().deletingLastPathComponent()
+        let url = repoRoot.appendingPathComponent(relativePath)
+        return try String(contentsOf: url, encoding: .utf8)
+    }
 }
