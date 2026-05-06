@@ -1,0 +1,63 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H11 Sheaf Laplacian Spectral Gap.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H11.
+#
+# Statement: the cellular sheaf Laplacian L_F over the patch graph
+# G_q has spectral gap λ_2(L_F) > 0 iff the global section space
+# Γ(G_q, F_q) = ker δ⁰ is at most 1-dimensional. The gap encodes
+# consistency of multi-component computations.
+#
+# Cross-references E2 (Ultrametric-Sheaf Gluing) — H11 is the
+# spectral-gap operational view of E2's gluing theorem.
+#
+# Falsifier discipline: build random sheaves, compute λ_2(L_F),
+# verify the iff biconditional holds.
+
+id: H11
+title: "Sheaf Laplacian Spectral Gap — λ_2(L_F) > 0 ⇔ dim Γ ≤ 1"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  λ_2(L_F) > 0  ⇔  dim Γ(G_q, F_q) = dim ker δ⁰ ≤ 1.
+  The spectral gap of the cellular-sheaf Laplacian is the
+  consistency witness for the global section space.
+
+acceptance:
+  metric: spectral_gap_iff_match
+  threshold: 0.999           # ≥99.9% biconditional matches on sample sheaves
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e2_sheaf_gluing"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate N = 1000 random cellular sheaves F over patch
+       graphs G with |V| ≤ 32.
+    2. For each, compute the sheaf Laplacian L_F (block matrix
+       constructed from the coboundary δ⁰).
+    3. Compute λ_2(L_F) (second-smallest eigenvalue) via standard
+       eigensolver.
+    4. Compute dim Γ via direct kernel rank.
+    5. Verify the biconditional: λ_2 > 0 iff dim Γ ≤ 1.
+
+falsifier:
+  hard: |
+    Any sample violating the biconditional indicates either a
+    numerical issue with the eigensolver or a sheaf-construction
+    bug. If >0.1% of samples fail, escalate to a Lane 3 numerical-
+    linear-algebra audit before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H11
+  - lean/Epistemos/Epistemos/H11.lean
+  - epistemos-research/src/theorems/e2_sheaf_gluing.rs
+
+cross_ref: E2
+
+insertion_site: epistemos-research/src/theorems/e2_sheaf_gluing.rs
