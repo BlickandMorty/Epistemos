@@ -322,7 +322,7 @@ struct HELIOSInvariantSourceGuardTests {
 
     @Test("W23: Forensic citation registry tool exists + has full id namespace")
     func w23ForensicCiteToolExists() throws {
-        let source = try loadMirroredSourceTextFile("tools/forensic-cite/forensic-cite.sh")
+        let source = try loadMirroredSourceTextFile("Tools/forensic-cite/forensic-cite.sh")
         #expect(source.contains("HELIOS-W23 guard"))
         // Full id namespace coverage: at least 1 entry per major
         // group (E / H / PCF).
@@ -336,7 +336,7 @@ struct HELIOSInvariantSourceGuardTests {
 
     @Test("W24: Sorry-budget tracker exists with v5.2 hardened budgets")
     func w24SorryBudgetTrackerExists() throws {
-        let source = try loadMirroredSourceTextFile("tools/sorry-budget/sorry-budget.sh")
+        let source = try loadMirroredSourceTextFile("Tools/sorry-budget/sorry-budget.sh")
         #expect(source.contains("HELIOS-W24 guard"))
         // Budget values per v5.2 §F:
         //   E*: 2 (substrate-foundational)
@@ -350,7 +350,7 @@ struct HELIOSInvariantSourceGuardTests {
 
     @Test("W25: Hardware falsifier rig exists with 11 protocol rows")
     func w25FalsifierRigExists() throws {
-        let source = try loadMirroredSourceTextFile("tools/falsifier/falsifier.sh")
+        let source = try loadMirroredSourceTextFile("Tools/falsifier/falsifier.sh")
         #expect(source.contains("HELIOS-W25 guard"))
         // Each of the W1-W15 substrates we built has a falsifier
         // protocol row.
@@ -376,7 +376,7 @@ struct HELIOSInvariantSourceGuardTests {
 
     @Test("W26: §2.5.2 compliance audit exists + checks 7 Tier-2 toggle defaults")
     func w26AppReviewAuditExists() throws {
-        let source = try loadMirroredSourceTextFile("tools/app-review-audit/app-review-audit.sh")
+        let source = try loadMirroredSourceTextFile("Tools/app-review-audit/app-review-audit.sh")
         #expect(source.contains("HELIOS-W26 guard"))
         // Every Tier-2 toggle from W9/W10/W11 is in the required-OFF
         // assertion list.
@@ -399,7 +399,7 @@ struct HELIOSInvariantSourceGuardTests {
     @Test("W26: §2.5.2 audit wired as ci.yml step")
     func w26WiredInCiYaml() throws {
         let source = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
-        #expect(source.contains("./tools/app-review-audit/app-review-audit.sh"))
+        #expect(source.contains("./Tools/app-review-audit/app-review-audit.sh"))
         #expect(source.contains("App Review §2.5.2 compliance audit"))
     }
 

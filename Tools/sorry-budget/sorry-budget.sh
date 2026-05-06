@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# HELIOS V5 W24 — Lean sorry-budget tracker.
+#
+# HELIOS-W24 guard
+#
+# Per docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md §3 W24 +
+# docs/fusion/helios v5 first.md PART 2 Q4:
+#
+#   "Sorry-budget locked at <= 7 for T1-T7 at canon-promotion. T8-T17
+#    may carry larger sorry-budgets in Lane 3."
+#
+# Per v5.2 namespace hardening:
+#   E1-E7 EV theorems: sorry budget <= 2 each (foundational)
+#   H1-H10 architectural claims: sorry budget <= 4 each
+#   H11-H17 cross-tradition: sorry budget <= 7 each
+#   PCF-1..PCF-10 candidates: sorry budget <= 7 each
+#
+# Portable: avoids bash 4+ `declare -A` (macOS ships bash 3.2).
+#
+# Exit codes:
+#   0 — within budget OR no Lean repo yet (graceful skip)
+#   1 — over budget (CI failure)
+#   2 — usage error
+#
+# Usage:
+#   ./sorry-budget.sh           Run check against ../../lean/Epistemos/
+#   ./sorry-budget.sh --report  Print per-theorem counts even when within budget
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+LEAN_DIR="${REPO_ROOT}/lean/Epistemos"
+
+if [ ! -d "${LEAN_DIR}" ]; then
+  echo "W24 sorry-budget tracker: lean/Epistemos/ not present yet"
+  echo "  (Lean repo creation deferred per v2 plan §6 candidate item)"
+  echo "  graceful skip — exit 0"
+  exit 0
+fi
+
+REPORT_MODE=0
+if [ "${1:-}" = "--report" ]; then
+  REPORT_MODE=1
+fi
+
+# Per-id budget table: id|budget
+BUDGETS=$(cat <<'BUDGET_BODY'
+E1|2
+E2|2
+E3|2
+E4|2
+E5|2
+E6|2
+E7|2
+H1|4
+H2|4
+H3|4
+H4|4
+H5|4
+H6|4
+H7|4
+H8|4
+H9|4
+H10|4
+H11|7
+H12|7
+H13|7
+H14|7
+H15|7
+H16|7
+H17|7
+PCF-1|7
+PCF-2|7
+PCF-3|7
+PCF-4|7
+PCF-5|7
+PCF-6|7
+PCF-7|7
+PCF-8|7
+PCF-9|7
+PCF-10|7
+BUDGET_BODY
+)
+
+total_over_budget=0
+total_sorries=0
+while IFS='|' read -r id budget; do
+  [ -z "${id}" ] && continue
+  file="${LEAN_DIR}/${id}.lean"
+  if [ ! -f "${file}" ]; then
+    if [ "${REPORT_MODE}" -eq 1 ]; then
+      echo "  ${id}: file not present yet (budget ${budget})"
+    fi
+    continue
+  fi
+  count=$(grep -c "^\s*sorry\s*\(--.*\)\?$" "${file}" || echo 0)
+  count="${count:-0}"
+  total_sorries=$((total_sorries + count))
+  if [ "${count}" -gt "${budget}" ]; then
+    echo "::error file=${file}::W24 sorry-budget OVER for ${id}: ${count} > ${budget}"
+    total_over_budget=$((total_over_budget + 1))
+  elif [ "${REPORT_MODE}" -eq 1 ]; then
+    echo "  ${id}: ${count}/${budget} sorries"
+  fi
+done <<< "${BUDGETS}"
+
+if [ "${total_over_budget}" -gt 0 ]; then
+  echo "::error::W24 sorry-budget OVER on ${total_over_budget} theorem(s); ${total_sorries} total sorries"
+  exit 1
+fi
+
+echo "W24 sorry-budget: PASS (${total_sorries} total sorries across all ids)"
