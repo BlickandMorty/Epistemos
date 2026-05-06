@@ -19,11 +19,13 @@ audit_item: B5 (Codex #6)
 | Status | Count | Items |
 |---|---|---|
 | Properly Pro-gated | 9 | apple, browser, cli_passthrough, computer_use, custom_tools, delegate_task, discovery, imessage, imessage_contacts, intelligence, macos, media, scheduling, stdio_mcp, terminal, trajectory (all under `#[cfg(feature = "pro-build")] pub mod` in `lib.rs:96-148`) |
+| Properly Pro-gated top-level module | 1 | `tirith` (`#[cfg(feature = "pro-build")] pub mod tirith;`) |
 | Properly Pro-gated impl | 1 | `BashExecuteHandler` in `tools/registry.rs:2410` (gated at impl level with `#[cfg(feature = "pro-build")]`) |
 | Library helpers (always compile, only callable from Pro paths) | 1 | `security.rs::harden_cli_subprocess*` (Pro-only callers; security helpers themselves are pure functions) |
 | Test-only spawns | 5 | All `Command::new` sites inside `#[cfg(test)]` blocks (`security.rs:1131,1153`, `terminal.rs:741`, etc.) |
-| Build artifact | 1 | `tirith.rs:268` — needs verification (see below) |
-| **Orphan source files (do not compile, do not ship)** | **3** | **`code_execution.rs`, `graph_query.rs`, `note_tools.rs`** |
+| Build artifact | 0 | `tirith.rs:268` resolved by Pro-gating the top-level module + approval caller |
+| **Orphan source files (do not compile, do not ship)** | **0** | Codex continuation resolved all three originally identified orphan files |
+| Swift process/Pipe surfaces | 10 files | Re-audited by Codex continuation; all direct `Process` / `Pipe` surfaces are `#if !EPISTEMOS_APP_STORE` Pro/Harness/Research paths or already named MoLoRA/QLoRA Python debt. No deletion: these are scaffold or Pro-only runtime surfaces, not proven-dead orphan files. |
 
 ## Pro-gated module surface (clean)
 
@@ -88,7 +90,32 @@ All `#[cfg(test)]`-gated `Command::new` sites:
 These never compile into the production binary (`cargo build` skips
 test code).
 
-## Items needing verification
+## Swift Process / Pipe surface (preserve, do not delete)
+
+Codex continuation widened the grep from Rust `Command::new` to Swift
+`Process.init()` / `Pipe()` sites across `Epistemos/`. The result is
+clean for MAS separation but important for scaffold preservation:
+
+| Surface | Classification |
+|---|---|
+| `Epistemos/Harness/CompletionChecker.swift` | Whole file is `#if !EPISTEMOS_APP_STORE`; Pro/Research harness only. |
+| `Epistemos/Harness/EvalSandbox.swift` | Whole file is `#if !EPISTEMOS_APP_STORE`; Pro/Research sandbox runner only. |
+| `Epistemos/Harness/HarnessLab.swift` | Whole file is `#if !EPISTEMOS_APP_STORE`; Pro/Research evaluation lab only. |
+| `Epistemos/Vault/VaultChatMutator.swift` | Git subprocess path is `#if !EPISTEMOS_APP_STORE`; Pro-only vault git helper. |
+| `Epistemos/Sync/VaultSyncService.swift` | `tmutil` helper is `#if !EPISTEMOS_APP_STORE`; MAS path returns before reaching it. |
+| `Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift` | Python trainer path is `#if !EPISTEMOS_APP_STORE`; research/training scaffold. |
+| `Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift` | Python subprocess path is `#if !EPISTEMOS_APP_STORE`; named doctrine debt to port, not dead code. |
+| `Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift` | Python subprocess path is `#if !EPISTEMOS_APP_STORE`; named doctrine debt to port, not dead code. |
+| `Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift` | Python environment setup is `#if !EPISTEMOS_APP_STORE`; should be deleted only after W7-H/W7-I ports land. |
+| `Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift` | Whisper/MLX process helpers are `#if !EPISTEMOS_APP_STORE`; Pro/research ingestion surface. |
+
+This pass deliberately **does not delete** MoLoRA, QLoRA, Python
+environment, or harness files. The final doctrine names MoLoRA/QLoRA
+as structural subprocess debt, but also says to remove cleanup
+scaffolds only after the ports land. That makes these files intended
+scaffold or Pro/Research surface today, not dead past code.
+
+## Resolved verification items
 
 ### `tirith.rs:268`
 
@@ -96,13 +123,20 @@ test code).
 let mut cmd = tokio::process::Command::new(binary);
 ```
 
-`tirith.rs` is declared at top level in `lib.rs:91` as `pub mod
-tirith;` (not inside the `tools` block, not feature-gated). This
-means `tirith` compiles + ships in BOTH MAS and Pro builds.
+Codex continuation resolution: `tirith.rs` is now declared as a
+Pro-only top-level module:
 
-**Resolution after deeper trace:** the spawn is reachable from
-`approval.rs:485` (also non-Pro-gated). However the spawn is **gated
-behind `resolve_binary().await` returning `Some(binary)`** at
+```rust
+#[cfg(feature = "pro-build")]
+pub mod tirith;
+```
+
+The `approval.rs` caller is also inside `#[cfg(feature =
+"pro-build")]`, so MAS/default builds keep pattern-based approval but
+do not compile the dormant Tirith subprocess scanner surface.
+
+The original trace showed the spawn was reachable from `approval.rs`
+and gated behind `resolve_binary().await` returning `Some(binary)` at
 `tirith.rs:129-131`:
 
 ```rust
@@ -111,46 +145,33 @@ let Some(binary) = self.resolve_binary().await else {
 };
 ```
 
-Under MAS sandbox, the user-installed tirith binary is not in any
-sandbox-approved path, so `resolve_binary()` returns `None` and the
-spawn at line 268 **never fires**. The fallback path emits a
-no-threat-assessed result and approval flow continues.
+Under MAS sandbox this was already a no-op in practice. Pro-gating
+makes that boundary compile-time instead of runtime-only, loses zero
+MAS capability, and reduces App Review surface.
 
-This is **runtime-gated, not compile-time-gated**. The spawn surface
-ships in the MAS binary even though it never executes. Two interpretations:
-
-1. **Acceptable as-is** — defense-in-depth pattern, graceful fallback
-   when feature is unavailable, similar to other optional security
-   integrations. The presence of `Command::new` in shipped code is
-   not itself a sandbox violation; macOS sandbox enforces at runtime.
-2. **Pro-gate `tirith` entirely** — App Review may flag the presence
-   of subprocess-spawn capability in the binary even if dormant.
-   Moving `tirith` under `#[cfg(feature = "pro-build")]` and
-   gating the `approval.rs:485` call site behind the same feature
-   would remove the surface from the MAS binary. Approval flow
-   degrades to pattern-match-only (no Tirith content scan) under MAS,
-   which matches the de facto behavior anyway.
-
-**Status:** Resolved-with-caveat. Spawn is runtime-unreachable under
-MAS but compile-reachable. Codex sign-off needed on whether to
-Pro-gate the surface or accept the runtime gate. Recommendation:
-Pro-gate, since the runtime fallback already makes Tirith a no-op
-under MAS — gating it loses zero MAS capability and reduces
-App Review surface.
+**Status:** Resolved. Default/MAS clippy passed, Pro+lsp clippy passed,
+default lib tests passed 871/871, and Pro+lsp lib tests passed 1014/1014.
 
 ## Orphan source files (action required)
 
-Three source files exist in `agent_core/src/tools/` but are NOT
-declared as modules in `lib.rs`. Rust ignores them silently — they
-neither compile nor ship today.
+Codex continuation status: all three originally identified orphan
+files have been resolved. Two were removed after a reachability +
+replacement audit. The third was promoted from scaffold to compiled,
+registered, capability-gated code.
 
 | File | LOC | Last touched | What it implements |
 |---|---|---|---|
-| `code_execution.rs` | 105 | `2ca663a1` (Pre-V2 Gap 1b) | `CodeExecutionTool` + `code_execution_tool_schema()` for python/node/ruby/bash/swift/rust execution |
-| `graph_query.rs` | 276 | `5463759d` (Phase 7) | PKM-specific graph query tool |
-| `note_tools.rs` | 523 | `5463759d` (Phase 7) | PKM-specific note manipulation tools |
+| `note_tools.rs` | 523 | `5463759d` (Phase 7) | PKM-specific note manipulation tools — now declared as `tools::note_tools` and registered through `register_phase_two_note_tools()` |
 
-**Total:** 904 LOC of orphan source.
+**Total remaining:** 0 LOC of orphan source.
+
+**Removed by Codex continuation pass:** `code_execution.rs` and
+`graph_query.rs`. `code_execution.rs` was an unregistered local
+subprocess runner, conflicting with the current no-hot-path-subprocess
+doctrine and overlapping with server-side provider code-execution
+paths / Pro CLI passthrough surfaces. `graph_query.rs` was superseded
+by the wired `tools/graph.rs` implementation, which registers
+`graph_query` through `register_phase_two_graph()`.
 
 **Two interpretations** (canon-promotion-protocol candidate-state):
 
@@ -164,23 +185,18 @@ neither compile nor ship today.
    they at least compile in Pro builds, and register their handlers
    in the tool registry.
 
-**My finding:** these three files implement features that either
-overlap with existing wired tools (code_execution overlaps with
-cli_passthrough), are PKM-domain (graph_query, note_tools — would
-match if there was a PKM tool surface in the registry but I don't see
-one). Pre-V2 Gap 1b commit `2ca663a1` was a "consolidate in-flight
-recovery work" pass, suggesting these were salvage drops rather than
-intentional staging.
+**Updated finding:** `note_tools.rs` was not in the same class as the
+two removed files. It contained unique PKM/note affordances
+(`note_template`, `note_linker`, `research_digest`,
+`citation_extractor`, `markdown_table`), so Codex preserved and wired
+it instead of deleting intended scaffold. `note_template.output_path`
+now maps to the R.5 vault-note write authorization target, so template
+writes do not bypass Sovereign Gate policy.
 
-**Recommended action:** delete the three orphan files. They're not
-referenced, not compiled, not in any production path. If a future
-need re-emerges, git history preserves them. This matches the user's
-explicit stance from 2026-05-05 LSPServerProcess deletion ("if i dont
-need something get rid of it"). The deletion is a separate commit
-because it requires explicit user / Codex sign-off.
-
-**Held for sign-off.** This source-guard report is the audit; the
-deletion is the action.
+**Verification:** `cargo clippy --manifest-path agent_core/Cargo.toml
+--target aarch64-apple-darwin -- -D warnings` passed, and
+`cargo test --manifest-path agent_core/Cargo.toml --lib` passed
+882/882 after the promotion.
 
 ## Verification
 
@@ -196,8 +212,9 @@ deletion is the action.
 ## Audit ledger update
 
 - B5 / Codex #6 (MAS/Pro brutal-separation source guard): **Pro
-  module gating CLEAN**. One item needing verification (`tirith.rs`
-  spawn). Three orphan files flagged for deletion sign-off.
+  module gating CLEAN**. `tirith.rs` is Pro-only at compile time.
+  Orphan source files resolved: two deleted, one promoted into the
+  compiled registry with R.5 gating.
 
 ## Cross-refs
 

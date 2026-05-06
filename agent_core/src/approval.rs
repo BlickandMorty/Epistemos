@@ -2,7 +2,7 @@
 //!
 //! Reference: Hermes `tools/approval.py` (670 LOC)
 //! Exceeds Hermes with:
-//!   - Tirith security integration (content-level threat detection)
+//!   - Tirith security integration in Pro builds (content-level threat detection)
 //!   - Async LLM-based risk assessment (not just pattern matching)
 //!   - Persistent allowlist/blocklist across sessions
 //!   - Container environment auto-detection
@@ -255,14 +255,13 @@ pub fn check_patterns(command: &str) -> Vec<PatternMatch> {
             && (normalized.contains("| sh")
                 || normalized.contains("| bash")
                 || normalized.contains("| zsh"))
+            && !matches.iter().any(|m| m.reason.contains("Pipe remote"))
         {
-            if !matches.iter().any(|m| m.reason.contains("Pipe remote")) {
-                matches.push(PatternMatch {
-                    level: RiskLevel::High,
-                    reason: "Pipe remote script to shell (variant)".to_string(),
-                    matched_pattern: "curl|wget | sh|bash".to_string(),
-                });
-            }
+            matches.push(PatternMatch {
+                level: RiskLevel::High,
+                reason: "Pipe remote script to shell (variant)".to_string(),
+                matched_pattern: "curl|wget | sh|bash".to_string(),
+            });
         }
     }
     matches
@@ -331,7 +330,7 @@ impl ApprovalLists {
 
 // ── Per-Session Approval State ─────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SessionApprovalState {
     /// Commands approved this session (persisted in memory only)
     pub approved_this_session: HashSet<String>,
@@ -339,16 +338,6 @@ pub struct SessionApprovalState {
     pub denied_this_session: HashSet<String>,
     /// Timestamp of last approval decision
     pub last_decision_at: Option<u64>,
-}
-
-impl Default for SessionApprovalState {
-    fn default() -> Self {
-        Self {
-            approved_this_session: HashSet::new(),
-            denied_this_session: HashSet::new(),
-            last_decision_at: None,
-        }
-    }
 }
 
 // ── Smart Approval Engine ──────────────────────────────────────────────────
@@ -477,43 +466,47 @@ impl SmartApproval {
                 }
             }
 
-            // Tirith security scan (content-level threat detection)
-            // Run in a blocking thread since we're in a sync context.
-            let tirith_result = std::thread::scope(|s| {
-                s.spawn(|| match tokio::runtime::Runtime::new() {
-                    Ok(rt) => rt.block_on(async {
-                        let mut client = crate::tirith::TirithClient::new();
-                        Some(client.scan_command(cmd).await)
-                    }),
-                    Err(_) => None,
-                })
-                .join()
-                .ok()
-                .flatten()
-            });
+            #[cfg(feature = "pro-build")]
+            {
+                // Tirith is a Pro-only subprocess scanner. MAS keeps the
+                // pattern gate above, but does not compile the dormant scanner
+                // surface into the App Store binary.
+                let tirith_result = std::thread::scope(|s| {
+                    s.spawn(|| match tokio::runtime::Runtime::new() {
+                        Ok(rt) => rt.block_on(async {
+                            let mut client = crate::tirith::TirithClient::new();
+                            Some(client.scan_command(cmd).await)
+                        }),
+                        Err(_) => None,
+                    })
+                    .join()
+                    .ok()
+                    .flatten()
+                });
 
-            if let Some(result) = tirith_result {
-                if result.assessment.should_block() {
-                    let threat_desc: Vec<String> = result
-                        .threats
-                        .iter()
-                        .map(|t| format!("{}: {}", t.category, t.description))
-                        .collect();
-                    return ApprovalDecision::Deny {
-                        reason: format!(
-                            "Tirith security scan detected threats: {}",
-                            threat_desc.join("; ")
-                        ),
-                    };
-                }
-                if result.assessment > crate::tirith::ThreatAssessment::Low {
-                    return ApprovalDecision::RequireApproval {
-                        reason: format!(
-                            "Tirith flagged suspicious content: {:?}",
-                            result.assessment
-                        ),
-                        risk_level: format!("{:?}", result.assessment).to_lowercase(),
-                    };
+                if let Some(result) = tirith_result {
+                    if result.assessment.should_block() {
+                        let threat_desc: Vec<String> = result
+                            .threats
+                            .iter()
+                            .map(|t| format!("{}: {}", t.category, t.description))
+                            .collect();
+                        return ApprovalDecision::Deny {
+                            reason: format!(
+                                "Tirith security scan detected threats: {}",
+                                threat_desc.join("; ")
+                            ),
+                        };
+                    }
+                    if result.assessment > crate::tirith::ThreatAssessment::Low {
+                        return ApprovalDecision::RequireApproval {
+                            reason: format!(
+                                "Tirith flagged suspicious content: {:?}",
+                                result.assessment
+                            ),
+                            risk_level: format!("{:?}", result.assessment).to_lowercase(),
+                        };
+                    }
                 }
             }
         }

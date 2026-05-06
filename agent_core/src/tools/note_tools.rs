@@ -8,6 +8,7 @@
 //! 5. markdown_table — Generate tables from structured data
 
 use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::registry::{ToolError, ToolHandler};
@@ -28,15 +29,20 @@ impl NoteTemplateTool {
 #[async_trait::async_trait]
 impl ToolHandler for NoteTemplateTool {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let template = input["template"].as_str()
+        let template = input["template"]
+            .as_str()
             .ok_or_else(|| ToolError::InvalidArguments("template required".into()))?;
-        let output_path = input["output_path"].as_str()
+        let output_path = input["output_path"]
+            .as_str()
             .ok_or_else(|| ToolError::InvalidArguments("output_path required".into()))?;
         let variables = input.get("variables").cloned().unwrap_or(json!({}));
 
         // Read the template — either a vault path or inline content.
         let template_content = if template.ends_with(".md") {
-            self.vault.read(template).await.map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
+            self.vault
+                .read(template)
+                .await
+                .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?
         } else {
             template.to_string()
         };
@@ -61,14 +67,17 @@ impl ToolHandler for NoteTemplateTool {
         result = result.replace("{{year}}", &now.format("%Y").to_string());
 
         // Write the output.
-        self.vault.write(output_path, &result, None, false).await
+        self.vault
+            .write(output_path, &result, None, false)
+            .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         Ok(json!({
             "created": output_path,
             "size": result.len(),
             "variables_applied": variables,
-        }).to_string())
+        })
+        .to_string())
     }
 }
 
@@ -92,29 +101,31 @@ pub fn note_template_schema() -> crate::types::ToolSchema {
 
 pub struct NoteLinkerTool {
     vault: Arc<dyn VaultBackend>,
+    vault_root: PathBuf,
 }
 
 impl NoteLinkerTool {
-    pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
-        Self { vault }
+    pub fn new(vault: Arc<dyn VaultBackend>, vault_root: PathBuf) -> Self {
+        Self { vault, vault_root }
     }
 }
 
 #[async_trait::async_trait]
 impl ToolHandler for NoteLinkerTool {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let note_path = input["note_path"].as_str()
+        let note_path = input["note_path"]
+            .as_str()
             .ok_or_else(|| ToolError::InvalidArguments("note_path required".into()))?;
 
-        let content = self.vault.read(note_path).await
+        let content = self
+            .vault
+            .read(note_path)
+            .await
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         // Collect all note stems from the vault.
-        let root = self.vault.root_path()
-            .ok_or_else(|| ToolError::ExecutionFailed("vault has no root path".into()))?;
-
         let mut note_stems = Vec::new();
-        collect_note_stems(&root, &root, &mut note_stems);
+        collect_note_stems(&self.vault_root, &mut note_stems);
 
         // Find mentions of note names in the content that aren't already linked.
         let content_lower = content.to_lowercase();
@@ -149,19 +160,23 @@ impl ToolHandler for NoteLinkerTool {
             "note": note_path,
             "link_suggestions": suggestions,
             "count": suggestions.len(),
-        }).to_string())
+        })
+        .to_string())
     }
 }
 
-fn collect_note_stems(root: &std::path::Path, dir: &std::path::Path, stems: &mut Vec<String>) {
+fn collect_note_stems(dir: &Path, stems: &mut Vec<String>) {
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                if !path.file_name().map_or(false, |n| n.to_string_lossy().starts_with('.')) {
-                    collect_note_stems(root, &path, stems);
+                if !path
+                    .file_name()
+                    .is_some_and(|name| name.to_string_lossy().starts_with('.'))
+                {
+                    collect_note_stems(&path, stems);
                 }
-            } else if path.extension().map_or(false, |ext| ext == "md") {
+            } else if path.extension().is_some_and(|ext| ext == "md") {
                 if let Some(stem) = path.file_stem() {
                     stems.push(stem.to_string_lossy().to_string());
                 }
@@ -207,7 +222,9 @@ impl ToolHandler for ResearchDigestTool {
             .collect();
 
         if note_paths.is_empty() {
-            return Err(ToolError::InvalidArguments("at least one note required".into()));
+            return Err(ToolError::InvalidArguments(
+                "at least one note required".into(),
+            ));
         }
 
         let mut digest = String::from("# Research Digest\n\n");
@@ -216,7 +233,10 @@ impl ToolHandler for ResearchDigestTool {
         let mut key_sentences = Vec::new();
 
         for path in &note_paths {
-            let content = self.vault.read(path).await
+            let content = self
+                .vault
+                .read(path)
+                .await
                 .map_err(|e| ToolError::ExecutionFailed(format!("{path}: {e}")))?;
 
             let word_count = content.split_whitespace().count();
@@ -243,7 +263,7 @@ impl ToolHandler for ResearchDigestTool {
                 .trim();
 
             // Extract key sentences (those with strong language).
-            for sentence in content.split(|c: char| c == '.' || c == '!' || c == '?') {
+            for sentence in content.split(['.', '!', '?']) {
                 let s = sentence.trim();
                 if s.len() > 30
                     && (s.contains("important")
@@ -254,8 +274,8 @@ impl ToolHandler for ResearchDigestTool {
                         || s.contains("finding")
                         || s.contains("result"))
                 {
-                    let truncated = if s.len() > 200 { &s[..200] } else { s };
-                    key_sentences.push(truncated.to_string());
+                    let truncated: String = s.chars().take(200).collect();
+                    key_sentences.push(truncated);
                 }
             }
 
@@ -267,8 +287,8 @@ impl ToolHandler for ResearchDigestTool {
             digest.push_str(&format!("## {stem}\n"));
             digest.push_str(&format!("*{word_count} words*\n\n"));
             if !excerpt.is_empty() {
-                let truncated = if excerpt.len() > 300 { &excerpt[..300] } else { excerpt };
-                digest.push_str(truncated);
+                let truncated: String = excerpt.chars().take(300).collect();
+                digest.push_str(&truncated);
                 digest.push_str("\n\n");
             }
         }
@@ -283,7 +303,8 @@ impl ToolHandler for ResearchDigestTool {
             "total_words": total_words,
             "shared_tags": all_tags,
             "key_findings": key_sentences,
-        }).to_string())
+        })
+        .to_string())
     }
 }
 
@@ -312,7 +333,8 @@ pub struct CitationExtractorTool;
 #[async_trait::async_trait]
 impl ToolHandler for CitationExtractorTool {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let text = input["text"].as_str()
+        let text = input["text"]
+            .as_str()
             .ok_or_else(|| ToolError::InvalidArguments("text required".into()))?;
         let format = input["format"].as_str().unwrap_or("markdown");
 
@@ -320,8 +342,11 @@ impl ToolHandler for CitationExtractorTool {
 
         // Extract URL citations.
         for word in text.split_whitespace() {
-            let cleaned = word.trim_matches(|c: char| c == '(' || c == ')' || c == '[' || c == ']' || c == '<' || c == '>');
-            if (cleaned.starts_with("http://") || cleaned.starts_with("https://")) && cleaned.len() > 10 {
+            let cleaned =
+                word.trim_matches(|c: char| matches!(c, '(' | ')' | '[' | ']' | '<' | '>'));
+            if (cleaned.starts_with("http://") || cleaned.starts_with("https://"))
+                && cleaned.len() > 10
+            {
                 citations.push(json!({
                     "type": "url",
                     "raw": cleaned,
@@ -339,7 +364,8 @@ impl ToolHandler for CitationExtractorTool {
         for (idx, _) in text.match_indices(doi_prefix) {
             // DOI pattern: 10.XXXX/... (ends at whitespace or common delimiters)
             let remainder = &text[idx..];
-            let end = remainder.find(|c: char| c.is_whitespace() || c == ')' || c == ']' || c == '>' || c == '"')
+            let end = remainder
+                .find(|c: char| c.is_whitespace() || c == ')' || c == ']' || c == '>' || c == '"')
                 .unwrap_or(remainder.len());
             let doi = &remainder[..end];
             if doi.len() > 7 && doi.contains('/') {
@@ -364,7 +390,7 @@ impl ToolHandler for CitationExtractorTool {
                 if inner.len() < 60
                     && (inner.contains("19") || inner.contains("20"))
                     && inner.contains(',')
-                    && inner.chars().next().map_or(false, |c| c.is_uppercase())
+                    && inner.chars().next().is_some_and(char::is_uppercase)
                 {
                     citations.push(json!({
                         "type": "parenthetical",
@@ -380,7 +406,8 @@ impl ToolHandler for CitationExtractorTool {
             "citations": citations,
             "count": citations.len(),
             "format": format,
-        }).to_string())
+        })
+        .to_string())
     }
 }
 
@@ -410,19 +437,23 @@ impl ToolHandler for MarkdownTableTool {
 
         match action {
             "from_json" => {
-                let data = input["data"].as_array()
-                    .ok_or_else(|| ToolError::InvalidArguments("data array of objects required".into()))?;
+                let data = input["data"].as_array().ok_or_else(|| {
+                    ToolError::InvalidArguments("data array of objects required".into())
+                })?;
 
                 if data.is_empty() {
                     return Ok(json!({"table": "", "error": "empty data"}).to_string());
                 }
 
                 // Collect all column headers from first object.
-                let headers: Vec<String> = if let Some(first) = data.first().and_then(|d| d.as_object()) {
-                    first.keys().cloned().collect()
-                } else {
-                    return Err(ToolError::InvalidArguments("data must be array of objects".into()));
-                };
+                let headers: Vec<String> =
+                    if let Some(first) = data.first().and_then(|d| d.as_object()) {
+                        first.keys().cloned().collect()
+                    } else {
+                        return Err(ToolError::InvalidArguments(
+                            "data must be array of objects".into(),
+                        ));
+                    };
 
                 let mut table = String::new();
 
@@ -445,20 +476,27 @@ impl ToolHandler for MarkdownTableTool {
                     table.push('|');
                     if let Some(obj) = row.as_object() {
                         for h in &headers {
-                            let val = obj.get(h).map(|v| match v {
-                                Value::String(s) => s.clone(),
-                                other => other.to_string(),
-                            }).unwrap_or_default();
+                            let val = obj
+                                .get(h)
+                                .map(|v| match v {
+                                    Value::String(s) => s.clone(),
+                                    other => other.to_string(),
+                                })
+                                .unwrap_or_default();
                             table.push_str(&format!(" {val} |"));
                         }
                     }
                     table.push('\n');
                 }
 
-                Ok(json!({"table": table, "rows": data.len(), "columns": headers.len()}).to_string())
+                Ok(
+                    json!({"table": table, "rows": data.len(), "columns": headers.len()})
+                        .to_string(),
+                )
             }
             "from_csv" => {
-                let csv = input["csv"].as_str()
+                let csv = input["csv"]
+                    .as_str()
                     .ok_or_else(|| ToolError::InvalidArguments("csv string required".into()))?;
                 let delimiter = input["delimiter"].as_str().unwrap_or(",");
                 let delim_char = delimiter.chars().next().unwrap_or(',');
@@ -498,7 +536,8 @@ impl ToolHandler for MarkdownTableTool {
                     "table": table,
                     "rows": lines.len() - 1,
                     "columns": headers.len(),
-                }).to_string())
+                })
+                .to_string())
             }
             _ => Ok(json!({"error": format!("Unknown action: {action}")}).to_string()),
         }
@@ -508,7 +547,8 @@ impl ToolHandler for MarkdownTableTool {
 pub fn markdown_table_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "markdown_table".to_string(),
-        description: "Generate markdown tables from JSON arrays of objects or CSV data.".to_string(),
+        description: "Generate markdown tables from JSON arrays of objects or CSV data."
+            .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {

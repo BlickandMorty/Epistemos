@@ -88,6 +88,7 @@ pub mod storage {
 }
 
 pub mod shared_memory;
+#[cfg(feature = "pro-build")]
 pub mod tirith;
 pub mod undo;
 
@@ -104,6 +105,7 @@ pub mod tools {
     pub mod inference;
     pub mod knowledge;
     pub mod memory;
+    pub mod note_tools;
     pub mod registry;
     pub mod think;
     pub mod todo;

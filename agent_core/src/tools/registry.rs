@@ -341,6 +341,11 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("contradiction_check", "knowledge.contradiction_check"),
     ("neural_recall", "knowledge.neural_recall"),
     ("session_search", "knowledge.session_search"),
+    ("note_template", "note.template"),
+    ("note_linker", "note.linker"),
+    ("research_digest", "note.research_digest"),
+    ("citation_extractor", "citation.extract"),
+    ("markdown_table", "markdown.table"),
     ("graph_query", "graph.query"),
     ("vault_navigate", "graph.vault_navigate"),
     ("memory", "memory.curated"),
@@ -772,6 +777,7 @@ impl ToolRegistry {
 
         // Phase 2 knowledge & memory tools (vault-native specialties)
         self.register_phase_two_knowledge();
+        self.register_phase_two_note_tools();
         self.register_phase_two_graph();
         self.register_phase_two_memory();
 
@@ -1606,6 +1612,66 @@ impl ToolRegistry {
             description: vn.description,
             parameters: vn.parameters,
             handler: Box::new(VaultNavigateHandler::new(root)),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_phase_two_note_tools(&mut self) {
+        use crate::tools::note_tools::{
+            citation_extractor_schema, markdown_table_schema, note_linker_schema,
+            note_template_schema, research_digest_schema, CitationExtractorTool, MarkdownTableTool,
+            NoteLinkerTool, NoteTemplateTool, ResearchDigestTool,
+        };
+
+        let nt = note_template_schema();
+        self.register(RegisteredTool {
+            name: nt.name,
+            description: nt.description,
+            parameters: nt.parameters,
+            handler: Box::new(NoteTemplateTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        if let Some(root) = self.vault_root_path.clone() {
+            let nl = note_linker_schema();
+            self.register(RegisteredTool {
+                name: nl.name,
+                description: nl.description,
+                parameters: nl.parameters,
+                handler: Box::new(NoteLinkerTool::new(Arc::clone(&self.vault), root)),
+                risk_level: RiskLevel::ReadOnly,
+                tier: ToolTier::Agent,
+            });
+        }
+
+        let rd = research_digest_schema();
+        self.register(RegisteredTool {
+            name: rd.name,
+            description: rd.description,
+            parameters: rd.parameters,
+            handler: Box::new(ResearchDigestTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let ce = citation_extractor_schema();
+        self.register(RegisteredTool {
+            name: ce.name,
+            description: ce.description,
+            parameters: ce.parameters,
+            handler: Box::new(CitationExtractorTool),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let mt = markdown_table_schema();
+        self.register(RegisteredTool {
+            name: mt.name,
+            description: mt.description,
+            parameters: mt.parameters,
+            handler: Box::new(MarkdownTableTool),
             risk_level: RiskLevel::ReadOnly,
             tier: ToolTier::Agent,
         });
@@ -2785,6 +2851,43 @@ mod tier_tests {
     }
 
     #[test]
+    fn phase_two_note_tools_are_registered_without_orphan_source() {
+        let temp = tempfile::tempdir().unwrap();
+        let registry = build_registry_with_root(ToolTier::Full, temp.path());
+        let names: std::collections::HashSet<String> = registry
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        for required in [
+            "note_template",
+            "note_linker",
+            "research_digest",
+            "citation_extractor",
+            "markdown_table",
+        ] {
+            assert!(
+                names.contains(required),
+                "note scaffold must be wired or explicitly archived; missing {required}"
+            );
+        }
+
+        assert_eq!(
+            registry.get_risk_level("note_template"),
+            RiskLevel::Modification
+        );
+        assert_eq!(
+            registry.get_risk_level("citation_extractor"),
+            RiskLevel::ReadOnly
+        );
+        assert_eq!(
+            registry.get_risk_level("markdown_table"),
+            RiskLevel::ReadOnly
+        );
+    }
+
+    #[test]
     fn tools_v2_alias_table_preserves_quick_capture_contract() {
         assert!(
             LEGACY_TO_V2_ALIASES.len() >= 56,
@@ -3489,6 +3592,50 @@ mod tier_tests {
             Ok(payload) => panic!(
                 "expected PermissionDenied under default-on enforcement, got success: {payload}"
             ),
+        }
+
+        let _ = crate::resources::bridge::permission_store_revoke(unrelated_grant).await;
+    }
+
+    #[tokio::test]
+    async fn r5_gate_denies_note_template_without_matching_grant() {
+        let _guard = r5_gate_test_lock();
+        let _env = ScopedEnforceFlag::set_on();
+
+        let unrelated_uri = format!(
+            "vault://r5-note-template-{0}/note/Inbox/Unrelated-{0}.md",
+            uuid::Uuid::new_v4()
+        );
+        let unrelated_grant =
+            crate::resources::bridge::permission_store_record_user_grant_from_statement(
+                "You have my permission to edit this note.".into(),
+                unrelated_uri,
+                vec!["Write".into()],
+                "Session".into(),
+            )
+            .await
+            .expect("seed grant for note_template denial test");
+
+        let vault_dir_name = format!("r5-note-template-{}", uuid::Uuid::new_v4());
+        let parent = tempfile::tempdir().unwrap();
+        let vault_root = parent.path().join(&vault_dir_name);
+        std::fs::create_dir_all(&vault_root).unwrap();
+
+        let registry = build_registry_with_root(ToolTier::Agent, &vault_root);
+        let result = registry
+            .execute(
+                "note_template",
+                &serde_json::json!({
+                    "template": "# {{title}}",
+                    "output_path": "Inbox/Blocked.md",
+                    "variables": { "title": "Blocked" }
+                }),
+            )
+            .await;
+        match result {
+            Err(ToolError::PermissionDenied) => {}
+            Err(other) => panic!("expected PermissionDenied, got {other:?}"),
+            Ok(payload) => panic!("expected PermissionDenied, got success payload: {payload}"),
         }
 
         let _ = crate::resources::bridge::permission_store_revoke(unrelated_grant).await;
