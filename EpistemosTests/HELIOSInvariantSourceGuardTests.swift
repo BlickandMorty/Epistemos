@@ -320,6 +320,59 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 23: CMS v2 6-layer defense + 3-tier moral structure + 6 unresolvable problems (Lane 3)")
+    func stage23CmsV2SubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/cms_v2.rs")
+        #expect(source.contains("HELIOS-CMS-V2 guard"))
+        // Six defense-in-depth layers
+        #expect(source.contains("pub enum CmsLayer"))
+        #expect(source.contains("TemporalAuditing"))
+        #expect(source.contains("HolographicStorage"))
+        #expect(source.contains("FunctionalEncryption"))
+        #expect(source.contains("LatentErrorCorrectingCodes"))
+        #expect(source.contains("ParaconsistentLogic"))
+        #expect(source.contains("NullSpaceOptimization"))
+        // Six attack vectors
+        #expect(source.contains("pub enum CmsAttackVector"))
+        #expect(source.contains("MultiTurnDrift"))
+        #expect(source.contains("WaluigiInversion"))
+        #expect(source.contains("WeightSurgery"))
+        #expect(source.contains("QuantizationFlip"))
+        #expect(source.contains("DeonticParadox"))
+        #expect(source.contains("AlignmentTax"))
+        // Three moral structure tiers
+        #expect(source.contains("pub enum MoralStructureTier"))
+        #expect(source.contains("HardConstraint"))
+        #expect(source.contains("SoftGuidance"))
+        #expect(source.contains("MetaValue"))
+        // Six unresolvable problems
+        #expect(source.contains("pub enum UnresolvableProblem"))
+        #expect(source.contains("NormativeFoundations"))
+        #expect(source.contains("ValueIncommensurability"))
+        #expect(source.contains("EthicalFrameProblem"))
+        #expect(source.contains("RuleFollowingParadox"))
+        #expect(source.contains("IntegrityAndAgency"))
+        #expect(source.contains("MoralLuck"))
+        // Bijective layer<->attack mapping
+        #expect(source.contains("pub fn defends_against"))
+        #expect(source.contains("pub fn primary_defense"))
+        // Canonical order constants
+        #expect(source.contains("pub const ALL_LAYERS"))
+        #expect(source.contains("pub const ALL_ATTACKS"))
+        #expect(source.contains("pub const ALL_UNRESOLVABLE_PROBLEMS"))
+        #expect(source.contains("pub const ALL_TIERS"))
+        // Citations
+        #expect(source.contains("Brophy"))
+        #expect(source.contains("2506.00415"))
+        #expect(source.contains("Curry"))
+        // Lane 3 RESEARCH-ONLY guard
+        #expect(source.contains("Lane 3 RESEARCH-ONLY"))
+        #expect(source.contains("NEVER ships in MAS"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod cms_v2"))
+    }
+
     @Test("Stage 22: Helios Shadow Memory escalation + KL-bound substrate (Lane 3)")
     func stage22HeliosShadowMemoryExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/shadow_memory.rs")

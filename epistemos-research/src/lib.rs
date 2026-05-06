@@ -25,6 +25,12 @@
 //!   bound substrate (classical analogue of Huang-Kueng-Preskill
 //!   2020 / Zhao-Zlokapa-Neven-Babbush-Preskill-McClean-Huang
 //!   arXiv:2604.07639). NEVER inherits the quantum advantage.
+//! - [`cms_v2`] — Constitutive Moral Substrate v2 (April 2026).
+//!   Six defense-in-depth layers, three-tier moral structure
+//!   (hard / soft / meta), six unresolvable problems. Cites Brophy
+//!   arXiv:2506.00415 (Wide Reflective Equilibrium), Curry et al.
+//!   2019 (seven-culture universals), Arditi et al. NeurIPS 2024
+//!   (refusal direction).
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -33,6 +39,9 @@
 
 #[cfg(feature = "research")]
 pub mod acs;
+
+#[cfg(feature = "research")]
+pub mod cms_v2;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
