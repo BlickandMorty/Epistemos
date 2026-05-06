@@ -154,4 +154,121 @@ struct HELIOSInvariantSourceGuardTests {
         _ = try loadMirroredSourceTextFile("docs/fusion/helios v5 first.md")
         _ = try loadMirroredSourceTextFile("docs/fusion/helios v5 updated.md")
     }
+
+    // ----------------------------------------------------------------
+    // Per-W-slice guards — W1 / W2 / W3 (the first three live guards)
+    // ----------------------------------------------------------------
+
+    @Test("W1: AnswerPacket Rust substrate exists with canonical guard marker")
+    func w1AnswerPacketRustSubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/answer_packet.rs")
+        // Canonical guard marker — read by scripts/check-helios-invariants.sh.
+        #expect(source.contains("HELIOS-W1 guard"))
+        // The five required field names land per `docs/fusion/helios v5 first.md` DOC 1 §1.2.
+        for field in [
+            "pub id: AnswerPacketId",
+            "pub claims: Vec<Claim>",
+            "pub residency_signals: Vec<ResidencySignal>",
+            "pub ui_label: VrmLabel",
+            "pub witnessed_state_ref: WitnessedStateId",
+            "pub semantic_delta_ref: Option<SemanticDeltaId>",
+            "pub mutation_envelope_ref: MutationEnvelopeId",
+        ] {
+            #expect(
+                source.contains(field),
+                "AnswerPacket struct must declare field: \(field)"
+            )
+        }
+    }
+
+    @Test("W1: scope_rex module is registered in agent_core/src/lib.rs")
+    func w1ScopeRexModuleRegisteredInLib() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/lib.rs")
+        #expect(source.contains("pub mod scope_rex"))
+    }
+
+    @Test("W2: ClaimKind 5-arm enum present with canonical guard marker")
+    func w2ClaimKindFiveArmEnumPresent() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/provenance/ledger.rs")
+        // Canonical guard marker.
+        #expect(source.contains("HELIOS-W2 guard"))
+        // 5-arm enum closure — exact arm names match the v5 spec.
+        #expect(source.contains("pub enum ClaimKind"))
+        for arm in [
+            "Empirical",
+            "Mathematical",
+            "CodeInvariant",
+            "Causal",
+            "Speculative",
+        ] {
+            #expect(
+                source.contains(arm),
+                "ClaimKind enum must declare arm: \(arm)"
+            )
+        }
+        // Backward-compat invariant: `kind` field is `serde(default)`
+        // so v1 archives without `kind` deserialize cleanly.
+        #expect(source.contains("#[serde(default)]"))
+    }
+
+    @Test("W2: Swift mirror in AnswerPacket.swift carries the same 5 arms")
+    func w2SwiftMirrorMatchesRustClaimKind() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacket.swift")
+        #expect(source.contains("HELIOS-W2 guard"))
+        #expect(source.contains("public enum ClaimKind"))
+        for arm in [
+            "case empirical",
+            "case mathematical",
+            "case codeInvariant = \"code_invariant\"",
+            "case causal",
+            "case speculative",
+        ] {
+            #expect(
+                source.contains(arm),
+                "Swift ClaimKind mirror must declare: \(arm)"
+            )
+        }
+    }
+
+    @Test("W3: VRMLabelView Swift surface exists with canonical guard marker")
+    func w3VRMLabelViewSwiftSurfaceExists() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/VRMLabelView.swift")
+        #expect(source.contains("HELIOS-W3 guard"))
+        // The view must surface all four labels per `docs/HELIOS_V5_DOC_0_INDEX.md` §0.6.
+        #expect(source.contains("public struct VRMLabelView"))
+        for caseName in [".verified", ".plausibleButUnverified", ".speculative", ".blocked"] {
+            #expect(
+                source.contains(caseName),
+                "VRMLabelView must handle case: \(caseName)"
+            )
+        }
+    }
+
+    @Test("W3: VRMLabel default never silently promotes unverified to verified")
+    func w3VRMLabelDefaultIsSafeOption() throws {
+        // Critical safety invariant — the missing-field decode must
+        // not produce `.verified`. Anti-drift: locked at the Swift
+        // mirror + Rust source levels.
+        let swiftSource = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacket.swift")
+        #expect(swiftSource.contains("public static let `default`: VRMLabel = .plausibleButUnverified"))
+
+        let rustSource = try loadMirroredSourceTextFile("agent_core/src/scope_rex/answer_packet.rs")
+        #expect(rustSource.contains("Self::PlausibleButUnverified"))
+    }
+
+    @Test("W1: Rust + Swift mirror enums use snake_case wire format for parity")
+    func w1RustSwiftMirrorParity() throws {
+        let rustSource = try loadMirroredSourceTextFile("agent_core/src/scope_rex/answer_packet.rs")
+        // Rust side declares snake_case rename for the enum.
+        #expect(rustSource.contains("#[serde(rename_all = \"snake_case\")]"))
+
+        let swiftSource = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacket.swift")
+        // Swift side must declare CodingKeys / raw values matching
+        // the snake_case wire format. Spot-check a few edges:
+        #expect(swiftSource.contains("case codeInvariant = \"code_invariant\""))
+        #expect(swiftSource.contains("case plausibleButUnverified = \"plausible_but_unverified\""))
+        #expect(swiftSource.contains("case residencySignals = \"residency_signals\""))
+        #expect(swiftSource.contains("case witnessedStateRef = \"witnessed_state_ref\""))
+        #expect(swiftSource.contains("case mutationEnvelopeRef = \"mutation_envelope_ref\""))
+    }
 }

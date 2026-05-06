@@ -93,28 +93,98 @@ pub enum ClaimStatus {
 }
 
 // ---------------------------------------------------------------------------
+// ClaimKind (HELIOS V5 W2)
+// ---------------------------------------------------------------------------
+
+// HELIOS-W2 guard
+//
+// Per HELIOS V5 Canon Lock v2 §1 (Q2 = optimal-combination Tier 1) +
+// `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` §1 W2 + DOC 0 §0.6:
+//
+//   "ClaimKind 5-arm extension `(Empirical | Mathematical | CodeInvariant |
+//    Causal | Speculative)` to existing ClaimLedger — strictly additive
+//    enum; backward-compat for v1 ClaimLedger archives."
+//
+// Maps to π Kleene K3 9-claim subset (helios v5 first.md §1.9). The
+// AnswerPacket spine (W1) carries (ClaimKind, VRMLabel) for every emitted
+// claim. Backward-compat is enforced by `#[serde(default)]` on the new
+// `kind` field — old archives without `kind` deserialize as
+// `ClaimKind::Empirical`.
+
+/// HELIOS V5 W2 — 5-arm classification of a claim.
+///
+/// Strictly additive over the v1 `Claim` schema. Old archives that lack
+/// the `kind` field deserialize to [`ClaimKind::Empirical`] via
+/// `#[serde(default)]` on [`Claim::kind`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimKind {
+    /// Empirical observations, measurements, or facts about the world.
+    /// Default for backward-compat with v1 archives.
+    Empirical,
+    /// Mathematical statements with formal proofs (Lean / mathlib4 / etc.).
+    Mathematical,
+    /// Code invariants verified by tests, type system, or property tests.
+    CodeInvariant,
+    /// Causal claims (X causes Y); weaker than mathematical, stronger
+    /// than speculative.
+    Causal,
+    /// Speculative claims, hypotheses, or conjectures pending evidence.
+    Speculative,
+}
+
+impl Default for ClaimKind {
+    /// V1 ClaimLedger archives have no `kind` field; default to
+    /// `Empirical` per W2 acceptance (backward-compat replay test).
+    fn default() -> Self {
+        Self::Empirical
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Claim + Evidence
 // ---------------------------------------------------------------------------
 
-/// One Phase-1 Claim. Deliberately minimal — `text` + status + creation
-/// timestamp is enough to prove the substrate works. Subsequent items
-/// extend the type set with claim-kind enum, confidence, source-tier, etc.
+/// One Claim. The HELIOS V5 W2 extension adds the [`ClaimKind`]
+/// discriminator so downstream consumers (AnswerPacket, VRMLabel, π
+/// classifier) can route by claim type. The field is `serde(default)`
+/// so v1 archives without `kind` continue to deserialize.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Claim {
     pub id: ClaimId,
     pub text: String,
     pub status: ClaimStatus,
     pub created_at_ms: i64,
+    /// HELIOS V5 W2 — 5-arm claim classification. Defaults to
+    /// `ClaimKind::Empirical` if absent (v1 backward-compat).
+    #[serde(default)]
+    pub kind: ClaimKind,
 }
 
 impl Claim {
+    /// Create a new active Claim with the default kind ([`ClaimKind::Empirical`]).
+    /// Use [`Claim::with_kind`] to set a non-default kind on the same object.
     pub fn new<S: Into<String>>(id: ClaimId, text: S, created_at_ms: i64) -> Self {
         Self {
             id,
             text: text.into(),
             status: ClaimStatus::Active,
             created_at_ms,
+            kind: ClaimKind::Empirical,
         }
+    }
+
+    /// Builder-style setter for [`ClaimKind`]. Enables one-liner
+    /// construction:
+    ///
+    /// ```
+    /// use agent_core::provenance::ledger::{Claim, ClaimId, ClaimKind};
+    /// let c = Claim::new(ClaimId::new("c1"), "x", 0).with_kind(ClaimKind::Mathematical);
+    /// assert_eq!(c.kind, ClaimKind::Mathematical);
+    /// ```
+    pub fn with_kind(mut self, kind: ClaimKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 
@@ -888,5 +958,91 @@ mod tests {
         assert_eq!(report.claims_marked_at_risk.len(), 10);
         assert!(!report.depth_capped);
         assert!(report.max_depth_reached <= MAX_RETRACTION_WALK_DEPTH);
+    }
+
+    // ----------------------------------------------------------------
+    // HELIOS V5 W2 — ClaimKind 5-arm extension
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn claim_new_defaults_to_empirical_kind() {
+        let c = Claim::new(ClaimId::new("c"), "x", t());
+        assert_eq!(c.kind, ClaimKind::Empirical);
+    }
+
+    #[test]
+    fn claim_with_kind_sets_each_of_the_five_arms() {
+        let base = || Claim::new(ClaimId::new("c"), "x", t());
+        assert_eq!(
+            base().with_kind(ClaimKind::Empirical).kind,
+            ClaimKind::Empirical
+        );
+        assert_eq!(
+            base().with_kind(ClaimKind::Mathematical).kind,
+            ClaimKind::Mathematical
+        );
+        assert_eq!(
+            base().with_kind(ClaimKind::CodeInvariant).kind,
+            ClaimKind::CodeInvariant
+        );
+        assert_eq!(base().with_kind(ClaimKind::Causal).kind, ClaimKind::Causal);
+        assert_eq!(
+            base().with_kind(ClaimKind::Speculative).kind,
+            ClaimKind::Speculative
+        );
+    }
+
+    #[test]
+    fn claim_kind_default_is_empirical_for_v1_archive_compat() {
+        // The Default impl is the backward-compat anchor: any v1
+        // archive that lacks `kind` deserializes via `serde(default)`
+        // → `ClaimKind::default()` → `Empirical`.
+        assert_eq!(ClaimKind::default(), ClaimKind::Empirical);
+    }
+
+    #[test]
+    fn v1_claim_archive_without_kind_field_deserializes_as_empirical() {
+        // Simulate a v1 ClaimLedger archive: Claim JSON without the
+        // `kind` field. The new code path must accept this and default
+        // to Empirical (the backward-compat acceptance criterion for
+        // W2 per HELIOS V5 v2 plan §3 W2).
+        let v1_json = r#"{
+            "id": "c-legacy",
+            "text": "claim from a v1 archive",
+            "status": "active",
+            "created_at_ms": 1745000000000
+        }"#;
+        let claim: Claim = serde_json::from_str(v1_json).expect("v1 archive must deserialize");
+        assert_eq!(claim.kind, ClaimKind::Empirical);
+        assert_eq!(claim.id, ClaimId::new("c-legacy"));
+        assert_eq!(claim.status, ClaimStatus::Active);
+    }
+
+    #[test]
+    fn v2_claim_with_explicit_kind_round_trips_through_json() {
+        let original = Claim::new(ClaimId::new("c-v2"), "math claim", t())
+            .with_kind(ClaimKind::Mathematical);
+        let json = serde_json::to_string(&original).expect("v2 claim must serialize");
+        let parsed: Claim = serde_json::from_str(&json).expect("v2 claim must deserialize");
+        assert_eq!(parsed, original);
+        assert_eq!(parsed.kind, ClaimKind::Mathematical);
+        // The kind field is rendered in snake_case per the enum's serde rename.
+        assert!(json.contains("\"kind\":\"mathematical\""));
+    }
+
+    #[test]
+    fn claim_kind_serializes_in_snake_case_for_each_arm() {
+        // Lock the wire format so a downstream Swift mirror struct (W1
+        // / W3) can rely on the snake_case spelling.
+        for (kind, expected) in [
+            (ClaimKind::Empirical, "\"empirical\""),
+            (ClaimKind::Mathematical, "\"mathematical\""),
+            (ClaimKind::CodeInvariant, "\"code_invariant\""),
+            (ClaimKind::Causal, "\"causal\""),
+            (ClaimKind::Speculative, "\"speculative\""),
+        ] {
+            let json = serde_json::to_string(&kind).unwrap();
+            assert_eq!(json, expected, "wire format for {:?}", kind);
+        }
     }
 }
