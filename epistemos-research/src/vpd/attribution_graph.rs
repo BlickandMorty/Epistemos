@@ -22,10 +22,7 @@ impl ParamAttributionGraph {
     }
 
     pub fn outgoing(&self, source: u32) -> &[(u32, f32)] {
-        self.edges
-            .get(&source)
-            .map(Vec::as_slice)
-            .unwrap_or(&[])
+        self.edges.get(&source).map(Vec::as_slice).unwrap_or(&[])
     }
 
     pub fn node_count(&self) -> usize {

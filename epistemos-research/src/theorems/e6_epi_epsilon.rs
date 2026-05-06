@@ -41,9 +41,7 @@ impl EpiEpsilonEmbedding {
 
     /// Structure-preserving iff all three properties hold.
     pub fn is_structure_preserving(&self) -> bool {
-        self.preserves_composition
-            && self.preserves_identity
-            && self.preserves_associativity
+        self.preserves_composition && self.preserves_identity && self.preserves_associativity
     }
 }
 
