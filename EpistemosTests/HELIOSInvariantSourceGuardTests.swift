@@ -320,6 +320,27 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 10: ci.yml exercises epistemos-research + epistemos-vault crates")
+    func stage10CiYamlExercisesNewCrates() throws {
+        let source = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
+        // Both crates listed in rust-cache workspaces.
+        #expect(source.contains("epistemos-research -> target"))
+        #expect(source.contains("epistemos-vault -> target"))
+        // Build + test steps wired with feature flags.
+        #expect(source.contains("Build epistemos-research (Lane 3 research feature)"))
+        #expect(source.contains("Test epistemos-research (Lane 3 research feature)"))
+        #expect(source.contains("Build epistemos-vault (Lane 5 vault feature)"))
+        #expect(source.contains("Test epistemos-vault (Lane 5 vault feature)"))
+        // Clippy steps pinned with explicit feature flags.
+        #expect(source.contains("Clippy epistemos-research (research feature)"))
+        #expect(source.contains("Clippy epistemos-vault (vault feature)"))
+        // rustfmt step extended to include the new crates.
+        #expect(source.contains("for crate in graph-engine epistemos-core omega-ax omega-mcp agent_core epistemos-research epistemos-vault"))
+        // Pro+Research compose surface explicitly tested.
+        #expect(source.contains("Test agent_core (Pro + Research compose surface)"))
+        #expect(source.contains("--features pro-build,research"))
+    }
+
     @Test("Stage 8 / W24: Lean repo skeleton exists with mathlib4 pin")
     func stage8LeanRepoSkeletonExists() throws {
         let lakefile = try loadMirroredSourceTextFile("lean/Epistemos/lakefile.lean")
