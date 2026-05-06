@@ -130,6 +130,11 @@
 //!   Ane (experimental) / Ssm / Ttt / SelfTuning / Vault / Hermes
 //!   (Pro-only) / Bench. is_default / is_experimental / is_pro_only
 //!   classifiers are pairwise-disjoint.
+//! - [`lane4_falsifier`] — Physical-experiment verdict format per
+//!   `helios v5 first.md` DOC 4 §4.5. PhysicalExperiment (Bz /
+//!   Sandpile / Other) × Verdict (Confirms / Falsifies /
+//!   Inconclusive) → LanePromotion (L4→L5Vault / L5→L3Research /
+//!   Stay). Lane-asymmetric promotion rules.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -162,6 +167,9 @@ pub mod gate_action;
 
 #[cfg(feature = "research")]
 pub mod kv_direct_gate;
+
+#[cfg(feature = "research")]
+pub mod lane4_falsifier;
 
 #[cfg(feature = "research")]
 pub mod learning_modes;

@@ -320,6 +320,33 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 60: Lane 4 physical-falsifier verdict format (Lane 3)")
+    func stage60Lane4FalsifierExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/lane4_falsifier.rs")
+        #expect(source.contains("HELIOS-LANE4-FALSIFIER guard"))
+        // 3-arm experiment
+        #expect(source.contains("pub enum PhysicalExperiment"))
+        #expect(source.contains("    Bz,"))
+        #expect(source.contains("Sandpile"))
+        #expect(source.contains("    Other,"))
+        // 3-arm verdict
+        #expect(source.contains("pub enum Verdict"))
+        #expect(source.contains("Confirms"))
+        #expect(source.contains("Falsifies"))
+        #expect(source.contains("Inconclusive"))
+        // 3-arm promotion
+        #expect(source.contains("pub enum LanePromotion"))
+        #expect(source.contains("L4ToL5Vault"))
+        #expect(source.contains("L5ToL3Research"))
+        #expect(source.contains("    Stay,"))
+        // Promotion functions
+        #expect(source.contains("pub fn promote_from_lane_4"))
+        #expect(source.contains("pub fn promote_from_lane_5"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod lane4_falsifier"))
+    }
+
     @Test("Stage 57: Canonical Cargo feature taxonomy (Lane 3)")
     func stage57CargoFeaturesExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/cargo_features.rs")
