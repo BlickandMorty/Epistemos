@@ -31,32 +31,61 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-# Registry rows: id|cargo_test_filter
+# Registry rows: id|crate|features|cargo_test_filter
+#
+# Stage 14 (loop iteration 2): registry expanded to per-crate
+# dispatch so PCF + epistemos-research + epistemos-vault tests run
+# from their own crate directories with the right feature flag.
+# Stage 0/7 hardcoded `cd agent_core` which silently broke for
+# non-agent_core protocols.
 REGISTRY=$(cat <<'REGISTRY_BODY'
-E3|storage::vault
-H2|scope_rex::metal::softmax
-H3|scope_rex::metal::asa_index
-H7|scope_rex::residency
-H17|scope_rex::retrieval::hopfield
-W1|scope_rex::answer_packet
-W5|scope_rex::btm_semantic
-W8|scope_rex::kv::direct_gate
-W12|scope_rex::kernels::t_mac
-W13|scope_rex::kernels::bitnet
-W14|scope_rex::kernels::sparse_ternary_gemm
+E3|agent_core|default|storage::vault
+H2|agent_core|default|scope_rex::metal::softmax
+H3|agent_core|default|scope_rex::metal::asa_index
+H7|agent_core|default|scope_rex::residency
+H17|agent_core|default|scope_rex::retrieval::hopfield
+W1|agent_core|default|scope_rex::answer_packet
+W5|agent_core|default|scope_rex::btm_semantic
+W8|agent_core|default|scope_rex::kv::direct_gate
+W12|agent_core|default|scope_rex::kernels::t_mac
+W13|agent_core|default|scope_rex::kernels::bitnet
+W14|agent_core|default|scope_rex::kernels::sparse_ternary_gemm
+PCF-1|epistemos-research|research|vpd::extract
+PCF-2|epistemos-research|research|vpd::qk_edge
+PCF-3|epistemos-research|research|vpd::attribution_graph
+PCF-4|epistemos-research|research|vpd::component_route
+PCF-5|epistemos-vault|vault|runtime::active_rank_one
+PCF-6|epistemos-vault|vault|surgery::envelope
+PCF-7|epistemos-research|research|vpd::dual_trace
+PCF-8|epistemos-research|research|vpd::connectome_sheaf
+PCF-9|epistemos-vault|vault|distill::connectome
+PCF-10|epistemos-vault|vault|runtime::transfer
 REGISTRY_BODY
 )
 
+# Build the cargo test invocation for one row of the registry.
+# Returns 0 on success, 1 on failure.
 run_one() {
   local id="$1"
-  local filter
-  filter=$(echo "${REGISTRY}" | awk -F'|' -v t="${id}" '$1 == t {print $2}')
-  if [ -z "${filter}" ]; then
+  local row
+  row=$(echo "${REGISTRY}" | awk -F'|' -v t="${id}" '$1 == t {print $0; exit}')
+  if [ -z "${row}" ]; then
     echo "::error::W25 falsifier: no protocol registered for id '${id}'"
     return 1
   fi
-  echo "[W25] running protocol for ${id} (cargo test --lib ${filter})"
-  ( cd "${REPO_ROOT}/agent_core" && cargo test --lib --quiet "${filter}" ) || {
+  local crate features filter
+  crate=$(echo "${row}" | awk -F'|' '{print $2}')
+  features=$(echo "${row}" | awk -F'|' '{print $3}')
+  filter=$(echo "${row}" | awk -F'|' '{print $4}')
+
+  local feature_arg=""
+  if [ "${features}" != "default" ] && [ -n "${features}" ]; then
+    feature_arg="--features ${features}"
+  fi
+
+  echo "[W25] running protocol for ${id} (cd ${crate}; cargo test --lib ${feature_arg} ${filter})"
+  # shellcheck disable=SC2086
+  ( cd "${REPO_ROOT}/${crate}" && cargo test --lib --quiet ${feature_arg} "${filter}" ) || {
     echo "::error::W25 falsifier: protocol ${id} FAILED"
     return 1
   }
@@ -65,7 +94,7 @@ run_one() {
 
 case "${1:-}" in
   --list)
-    echo "id|cargo_test_filter"
+    echo "id|crate|features|cargo_test_filter"
     echo "${REGISTRY}"
     exit 0
     ;;
