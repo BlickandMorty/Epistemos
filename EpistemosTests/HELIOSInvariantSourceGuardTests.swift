@@ -320,6 +320,35 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 47: Master Inequality WBO-5/6/7 generations (Lane 3)")
+    func stage47WboGenerationsExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/wbo_generations.rs")
+        #expect(source.contains("HELIOS-WBO-GENERATIONS guard"))
+        // 3-arm generation enum
+        #expect(source.contains("pub enum WboGeneration"))
+        #expect(source.contains("    Wbo5,"))
+        #expect(source.contains("    Wbo6,"))
+        #expect(source.contains("    Wbo7,"))
+        // Helpers
+        #expect(source.contains("pub fn term_count"))
+        #expect(source.contains("pub fn lock_date"))
+        #expect(source.contains("pub fn anchor_source"))
+        #expect(source.contains("pub fn is_current_canon"))
+        #expect(source.contains("pub fn term_names"))
+        // Current canon = WBO-7
+        #expect(source.contains("CURRENT: WboGeneration = WboGeneration::Wbo7"))
+        // Lock dates
+        #expect(source.contains("\"2026-05-03\""))
+        #expect(source.contains("\"2026-05-04\""))
+        #expect(source.contains("\"2026-05-05\""))
+        // Const arrays
+        #expect(source.contains("pub const ALL_GENERATIONS"))
+        #expect(source.contains("[WboGeneration; 3]"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod wbo_generations"))
+    }
+
     @Test("Stage 46: Cross-domain lens + T_safety parallel inequality (Lane 3)")
     func stage46CrossDomainLensExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/cross_domain_lens.rs")

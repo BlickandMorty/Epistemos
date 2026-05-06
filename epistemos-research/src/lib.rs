@@ -84,6 +84,10 @@
 //!   surprise gradient = Koopman mode = free cumulant. Plus
 //!   `TSafetyBound` parallel safety inequality (CMS-X v3 lives ON
 //!   TOP of Helios, not inside the substrate).
+//! - [`wbo_generations`] — Master Inequality WBO-5 → WBO-6 → WBO-7
+//!   evolution. WBO-5 (compass artifact) ⊂ WBO-6 (definitive
+//!   master) ⊂ WBO-7 (V5 canon, current). Per-generation
+//!   `term_names()` + `term_count()` + `lock_date()` + `anchor_source()`.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -116,6 +120,9 @@ pub mod self_evolving_l_se;
 
 #[cfg(feature = "research")]
 pub mod validation_thresholds;
+
+#[cfg(feature = "research")]
+pub mod wbo_generations;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
