@@ -1,0 +1,55 @@
+# HELIOS V5 W25 — Falsifier protocol for W1 AnswerPacket emission.
+
+id: W1
+title: "AnswerPacket schema (5th Monday-Move primitive)"
+class: work_slice
+lane: L1
+severity: HALT
+state: implemented            # state:wired pending W1.b chat-path emission
+
+statement: |
+  Every chat reply emits a non-empty AnswerPacket carrying claims +
+  residency_signals + ui_label + witnessed_state_ref +
+  semantic_delta_ref + mutation_envelope_ref.
+
+acceptance:
+  metric: emission_rate_on_assistant_reply
+  threshold: 1.0           # 100% of assistant replies emit AnswerPacket
+  units: fraction
+  caveat: "Stage-0 substrate-presence only; real emission lands per W1.b"
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::answer_packet"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  conversation_count: 1000
+  procedure: |
+    1. Run 1000 synthetic chat conversations (single-turn).
+    2. For each: assert StreamingDelegate emits an AnswerPacket on
+       reply completion.
+    3. Validate AnswerPacket schema:
+       - id is well-formed (ULID-style 26 chars)
+       - claims: Vec<Claim> (may be empty)
+       - residency_signals: Vec<ResidencySignal> (may be empty)
+       - ui_label: VrmLabel (NEVER nil)
+       - witnessed_state_ref: WitnessedStateId (always set)
+       - semantic_delta_ref: Option<SemanticDeltaId>
+       - mutation_envelope_ref: MutationEnvelopeId (always set)
+
+adversarial:
+  - empty_assistant_reply: "Edge case: assistant returns 0 tokens — must still emit AnswerPacket with empty claims"
+  - error_path: "Assistant errors mid-stream — emit AnswerPacket with VrmLabel::Blocked"
+
+defenses:
+  - "ui_label.default() = .plausibleButUnverified — never .verified"
+  - "Strict additive schema — old clients ignore the field"
+
+literature:
+  - "HELIOS V5 integration brief §4 (5th Monday-Move primitive)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/answer_packet.rs"
+  swift_mirror: "Epistemos/Models/AnswerPacket.swift"
+  swift_consumer: "Epistemos/Bridge/StreamingDelegate.swift (W1.b follow-up)"

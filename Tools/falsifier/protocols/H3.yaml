@@ -1,0 +1,62 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H3 Active-Support Atlas indexing.
+
+id: H3
+title: "Active-Support Atlas indexing (Tier-1 ULP-equivalent)"
+class: operational
+lane: L1
+severity: HALT
+state: candidate
+
+statement: |
+  The Atlas index of currently-supported features is monotone non-decreasing
+  under merge, monotone non-increasing under split. Conservative-mask
+  matmul produces BIT-IDENTICAL output to dense reference matmul.
+
+acceptance:
+  metric: bit_identical_match_rate
+  threshold: 1.0            # 100% bit-identical (NOT ULP-close)
+  units: fraction
+  caveat: "Metal SIMD-reorder may produce ≤ 1 ULP drift; native-order Rust must be bit-identical"
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::metal::asa_index"
+  expected_pass: true
+  notes: |
+    Rust reference passes ulp_equality_over_10000_random_prompts (10⁴
+    prompts on 12×6 weights, BIT-IDENTICAL). M2 Max Metal-accelerated
+    drop-in lands per a follow-up slice.
+
+m2_max_protocol:
+  hardware: M2 Max
+  prompt_count: 10000
+  weights_shape: [12, 6]
+  procedure: |
+    1. Generate 10⁴ random fp32 input vectors.
+    2. Compute dense_matmul reference output.
+    3. Compute asa_matmul with full index (every row active).
+    4. Verify BIT-IDENTICAL output.
+  monotonicity_test: |
+    For 100 random AsaIndex pairs (a, b):
+      - merge(a,b).len() ≥ max(a.len(), b.len())
+      - split(a,b).len() ≤ min(a.len(), b.len())
+      - merge(a,a) == a (idempotent)
+      - split(a,a) == a (idempotent)
+
+adversarial:
+  - over_aggressive_mask: |
+      Drop a contributing row and observe the masked output diverge.
+      Rust test `over_aggressive_mask_breaks_equality_for_dropped_rows`
+      LOCKS this contract — non-conservative ≠ ULP-equal.
+
+defenses:
+  - "Conservative-mask invariant: every non-zero-contributing row included"
+  - "BTreeSet ascending iteration ensures deterministic dispatch order"
+
+literature:
+  - "HELIOS v3 §T3 Active-Support Atlas"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/metal/asa_index.rs"
+  rust_function: "asa_matmul + AsaIndex::merge/split"
+  metal_kernel: "future Epistemos/Shaders/active_support_atlas.metal"
+  swift_consumer: "future Epistemos/Engine/MetalRuntimeManager.swift dispatch hook"

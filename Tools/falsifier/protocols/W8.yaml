@@ -1,0 +1,58 @@
+# HELIOS V5 W25 — Falsifier protocol for W8 KV-Direct gate.
+
+id: W8
+title: "KV-Direct gate (Tier-1 round-trip equality)"
+class: work_slice
+lane: L1
+severity: HALT
+state: implemented
+
+statement: |
+  When the KV cache layout is provably equivalent to the reference
+  paged-attention path (same-dim + page-aligned + non-empty), the
+  direct dot-product output is BIT-IDENTICAL to the reference path.
+
+acceptance:
+  metric: bit_identical_match_rate
+  threshold: 1.0
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::kv::direct_gate"
+  expected_pass: true
+  notes: |
+    Rust reference passes round_trip_equality_over_1000_generation_traces
+    — 10³ random traces, BIT-IDENTICAL output.
+
+m2_max_protocol:
+  hardware: M2 Max
+  trace_count: 1000
+  key_dim: 32
+  pairs_per_trace_min: 8
+  pairs_per_trace_max: 24
+  procedure: |
+    1. Generate 1000 random KV-pair sequences (deterministic seed).
+    2. For each: compute reference_qk_row + direct_qk_row.
+    3. Verify BIT-IDENTICAL output.
+  layout_eligibility_check: |
+    For 100 random KvLayout configurations:
+      - Same-dim + page-aligned + non-empty → KvDispatch::Direct
+      - Any failure → KvDispatch::Reference
+
+adversarial:
+  - misaligned_seq_len: "seq_len % page_size ≠ 0 → must dispatch Reference"
+  - mismatched_dim: "key_dim ≠ value_dim → must dispatch Reference"
+  - zero_page_size: "page_size = 0 → must dispatch Reference"
+
+defenses:
+  - "direct_path_eligible() pure function gates the dispatch"
+  - "Same-order summation in both reference + direct paths (BIT-IDENTICAL)"
+
+literature:
+  - "Qasim et al. arXiv:2603.19664 (residual stream is bit-identical sufficient)"
+  - "PagedAttention arXiv:2309.06180 (Kwon et al. SOSP 2023)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/kv/direct_gate.rs"
+  rust_function: "route + reference_qk_row + direct_qk_row"
+  swift_consumer: "future Epistemos/Engine/MLXInferenceService.swift KV-cache hook"

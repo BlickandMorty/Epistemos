@@ -69,18 +69,46 @@ case "${1:-}" in
     echo "${REGISTRY}"
     exit 0
     ;;
+  --protocols)
+    # List all M2 Max YAML protocol files alongside the registered
+    # cargo-test ids. Stage-0 only — the future runner reads these
+    # YAML files for hardware-specific dispatch.
+    proto_dir="$(dirname "$0")/protocols"
+    echo "id|registered|yaml_protocol"
+    while IFS='|' read -r id _; do
+      [ -z "${id}" ] && continue
+      yaml="${proto_dir}/${id}.yaml"
+      if [ -f "${yaml}" ]; then
+        echo "${id}|yes|${yaml}"
+      else
+        echo "${id}|yes|(missing)"
+      fi
+    done <<< "${REGISTRY}"
+    # Surface any orphan YAML files (protocols without registered
+    # cargo dispatch).
+    for yaml in "${proto_dir}"/*.yaml; do
+      [ -f "${yaml}" ] || continue
+      id=$(basename "${yaml}" .yaml)
+      if ! echo "${REGISTRY}" | awk -F'|' -v t="${id}" 'BEGIN{found=0} $1 == t {found=1} END{exit !found}'; then
+        echo "${id}|orphan|${yaml}"
+      fi
+    done
+    exit 0
+    ;;
   --help|-h)
     cat <<USAGE
 HELIOS V5 W25 — Hardware falsifier rig (stage-0 scaffold).
 
 Usage:
-  falsifier.sh            Run every registered protocol.
-  falsifier.sh --list     List protocols without running.
-  falsifier.sh <id>       Run one protocol (e.g. E3, H7, W12).
+  falsifier.sh                 Run every registered protocol.
+  falsifier.sh --list          List protocols without running.
+  falsifier.sh --protocols     List YAML protocol manifests + cross-ref to registered ids.
+  falsifier.sh <id>            Run one protocol (e.g. E3, H7, W12).
 
 Real M2 Max falsifier YAML + Metal-kernel runs land per follow-up
 slices. Stage-0 scaffold runs the corresponding cargo tests as a
-substrate-presence proxy.
+substrate-presence proxy. The YAML manifests under protocols/
+declare what real M2 Max-specific runs will check.
 USAGE
     exit 0
     ;;

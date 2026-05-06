@@ -1,0 +1,26 @@
+# HELIOS V5 W25 — Falsifier protocol for W6 Active-Support Atlas indexing.
+# Cross-references H3 (which IS the H-tier operational view of W6).
+
+id: W6
+title: "Active-Support Atlas indexing — Tier-1 substrate"
+class: work_slice
+lane: L1
+severity: HALT
+state: implemented
+
+cross_ref: H3                    # H3 carries the operational claim
+
+acceptance:
+  metric: bit_identical_match
+  threshold: 1.0
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::metal::asa_index"
+  expected_pass: true
+
+m2_max_protocol:
+  see: protocols/H3.yaml
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/metal/asa_index.rs"

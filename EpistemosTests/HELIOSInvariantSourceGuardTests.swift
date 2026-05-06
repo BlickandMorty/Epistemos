@@ -320,6 +320,47 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 7 / W25: M2 Max protocol YAML files exist for every registered id")
+    func stage7W25ProtocolYamlsExist() throws {
+        // Every registered cargo_test_filter id from falsifier.sh
+        // has a corresponding YAML protocol manifest.
+        for id in [
+            "E3", "H2", "H3", "H7", "H17",
+            "W1", "W5", "W8", "W12", "W13", "W14",
+        ] {
+            let yaml = try loadMirroredSourceTextFile("Tools/falsifier/protocols/\(id).yaml")
+            #expect(
+                yaml.contains("id: \(id)"),
+                "Tools/falsifier/protocols/\(id).yaml must declare 'id: \(id)'"
+            )
+            // Each protocol must declare acceptance + insertion_site keys
+            // (the load-bearing schema fields).
+            #expect(yaml.contains("acceptance:"))
+            #expect(yaml.contains("insertion_site:"))
+            #expect(yaml.contains("stage_0_proxy:"))
+        }
+    }
+
+    @Test("Stage 7 / W25: protocols/README.md catalogs all protocols")
+    func stage7W25ProtocolsReadmeExists() throws {
+        let source = try loadMirroredSourceTextFile("Tools/falsifier/protocols/README.md")
+        #expect(source.contains("state: canon"))
+        #expect(source.contains("Currently authored protocols"))
+        // Every protocol id appears in the catalog table.
+        for id in ["E3", "E4", "H2", "H3", "H7", "H17", "W6", "W8"] {
+            #expect(source.contains("`\(id).yaml`"), "README must list \(id).yaml")
+        }
+    }
+
+    @Test("Stage 7 / W25: falsifier.sh has --protocols mode")
+    func stage7W25ProtocolsMode() throws {
+        let source = try loadMirroredSourceTextFile("Tools/falsifier/falsifier.sh")
+        #expect(source.contains("--protocols)"))
+        #expect(source.contains("yaml_protocol"))
+        // Cross-references registered ids vs YAML files.
+        #expect(source.contains("orphan"))
+    }
+
     @Test("Stage 6 / W3.b: MessageBubble wires VRMLabelView under VRM toggle")
     func stage6MessageBubbleWiresVrmLabel() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
