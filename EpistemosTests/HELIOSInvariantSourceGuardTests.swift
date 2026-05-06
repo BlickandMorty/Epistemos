@@ -320,6 +320,50 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 36: MAS / Pro / Research capability lattice (Lane 3)")
+    func stage36MasCapabilityLatticeExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/mas_capability_lattice.rs")
+        #expect(source.contains("HELIOS-MAS-CAPABILITY-LATTICE guard"))
+        // Three deployment tiers
+        #expect(source.contains("pub enum DeploymentTier"))
+        #expect(source.contains("MasCore"))
+        #expect(source.contains("    Pro,"))
+        #expect(source.contains("    Research,"))
+        // 12-arm capability enum
+        #expect(source.contains("pub enum Capability"))
+        #expect(source.contains("SelectedVaultRetrieval"))
+        #expect(source.contains("TouchIdGating"))
+        #expect(source.contains("AppGroupSharedSubstrate"))
+        #expect(source.contains("SandboxedXpcHelper"))
+        #expect(source.contains("CuratedLocalToolManifests"))
+        #expect(source.contains("FirstPartyCloudProviderAdapters"))
+        #expect(source.contains("ArbitraryDownloadedSkills"))
+        #expect(source.contains("ShellOrSubprocessOrchestration"))
+        #expect(source.contains("AppleEventsAutomation"))
+        #expect(source.contains("BrowserAutomation"))
+        #expect(source.contains("RawAneOrPrivateFrameworks"))
+        #expect(source.contains("UnrestrictedWasmOrJit"))
+        // 9-arm availability enum
+        #expect(source.contains("pub enum CapabilityAvailability"))
+        #expect(source.contains("    Available,"))
+        #expect(source.contains("AvailableBounded"))
+        #expect(source.contains("AvailableIfNotarizedAndDisclosed"))
+        #expect(source.contains("AvailableIfJustified"))
+        #expect(source.contains("AvailableSelective"))
+        #expect(source.contains("AvailableAvoidByDefault"))
+        #expect(source.contains("AvailableIsolatedOnly"))
+        #expect(source.contains("Deferred"))
+        #expect(source.contains("NotAvailable"))
+        // Const lattice
+        #expect(source.contains("pub const CAPABILITY_LATTICE"))
+        #expect(source.contains("[CapabilityRow; 12]"))
+        // MAS-First Focus Doctrine reference
+        #expect(source.contains("MAS-First Focus Doctrine"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod mas_capability_lattice"))
+    }
+
     @Test("Stage 33: Sherry 1.25-bit packing substrate — 3:4 sparsity, 32-config space (Lane 3)")
     func stage33SherrySubstrateExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/sherry.rs")

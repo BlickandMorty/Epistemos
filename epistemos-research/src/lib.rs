@@ -49,6 +49,11 @@
 //!   et al. (Jan 2026; Tencent/AngelSlim). 3:4 sparsity blocks of 4
 //!   weights packed into 5 bits saturating C(4,3)·2³ = 32-config
 //!   space. Pack/unpack round-trip + 3:4 contract enforcement.
+//! - [`mas_capability_lattice`] — DeploymentTier (MAS / Pro /
+//!   Research) × Capability (12-arm) availability lattice per the
+//!   `mac_store_edition.md` MAS-First Focus Doctrine. CAPABILITY_LATTICE
+//!   const table with 12 canonical rows; doctrine invariants (MAS
+//!   baseline must ship; risky surfaces never in MAS; Pro widens MAS).
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -60,6 +65,9 @@ pub mod acs;
 
 #[cfg(feature = "research")]
 pub mod cms_v2;
+
+#[cfg(feature = "research")]
+pub mod mas_capability_lattice;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
