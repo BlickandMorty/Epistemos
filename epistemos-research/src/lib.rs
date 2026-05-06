@@ -172,6 +172,9 @@ pub mod cms_v2;
 pub mod cross_domain_lens;
 
 #[cfg(feature = "research")]
+pub mod donor_distillation;
+
+#[cfg(feature = "research")]
 pub mod engram;
 
 #[cfg(feature = "research")]
