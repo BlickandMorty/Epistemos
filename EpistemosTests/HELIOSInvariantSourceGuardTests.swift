@@ -320,6 +320,25 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 14: falsifier.sh registry has 4-column per-crate dispatch + 21 entries")
+    func stage14FalsifierRegistryDispatchesAcrossCrates() throws {
+        let source = try loadMirroredSourceTextFile("Tools/falsifier/falsifier.sh")
+        // 4-column registry header.
+        #expect(source.contains("id|crate|features|cargo_test_filter"))
+        // PCF entries dispatch to research / vault crates.
+        #expect(source.contains("PCF-1|epistemos-research|research|vpd::extract"))
+        #expect(source.contains("PCF-5|epistemos-vault|vault|runtime::active_rank_one"))
+        #expect(source.contains("PCF-9|epistemos-vault|vault|distill::connectome"))
+        // Original agent_core entries preserved.
+        #expect(source.contains("E3|agent_core|default|storage::vault"))
+        #expect(source.contains("H17|agent_core|default|scope_rex::retrieval::hopfield"))
+        #expect(source.contains("W14|agent_core|default|scope_rex::kernels::sparse_ternary_gemm"))
+        // run_one cd's into the registered crate (not hardcoded agent_core).
+        #expect(source.contains("cd \"${REPO_ROOT}/${crate}\""))
+        // feature flag wiring.
+        #expect(source.contains("feature_arg=\"--features ${features}\""))
+    }
+
     @Test("Stage 13: W25 PCF-1..PCF-10 falsifier YAML protocols exist")
     func stage13PcfFalsifierProtocolsExist() throws {
         for n in 1...10 {
