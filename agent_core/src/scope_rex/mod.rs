@@ -43,5 +43,9 @@ pub mod btm_semantic;
 pub mod kernels;
 pub mod kv;
 pub mod metal;
+// HELIOS V5 W16 — Pro-tier T-MAC + Atlas joint path. Gated under
+// pro-build feature; never in MAS.
+#[cfg(feature = "pro-build")]
+pub mod pro_joint;
 pub mod residency;
 pub mod retrieval;

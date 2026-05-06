@@ -320,6 +320,74 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 4: epistemos-vault crate exists with vault feature gate")
+    func stage4VaultCrateExists() throws {
+        let cargo = try loadMirroredSourceTextFile("epistemos-vault/Cargo.toml")
+        #expect(cargo.contains("name = \"epistemos-vault\""))
+        #expect(cargo.contains("vault = []"))
+        let lib = try loadMirroredSourceTextFile("epistemos-vault/src/lib.rs")
+        #expect(lib.contains("#[cfg(feature = \"vault\")]"))
+        #expect(lib.contains("pub mod surgery"))
+        #expect(lib.contains("pub mod runtime"))
+        #expect(lib.contains("pub mod cache"))
+        #expect(lib.contains("pub mod distill"))
+    }
+
+    @Test("W20: ModelSurgeryEnvelope substrate exists with safety bound")
+    func w20ModelSurgeryEnvelopeExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-vault/src/surgery/envelope.rs")
+        #expect(source.contains("HELIOS-W20 guard"))
+        #expect(source.contains("pub struct ModelSurgeryEnvelope"))
+        #expect(source.contains("pub fn validate"))
+        #expect(source.contains("pub s_max"))
+        #expect(source.contains("pub ppl_drift_max"))
+    }
+
+    @Test("W21: Active Rank-One Runtime substrate exists with τ-threshold selection")
+    func w21ActiveRankOneRuntimeExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-vault/src/runtime/active_rank_one.rs")
+        #expect(source.contains("HELIOS-W21 guard"))
+        #expect(source.contains("pub struct ActiveSubcomponent"))
+        #expect(source.contains("pub struct ActiveStep"))
+        #expect(source.contains("pub fn select_above_threshold"))
+        #expect(source.contains("pub tau"))
+    }
+
+    @Test("W22: HCache + KVCrush experimental tier substrate exists")
+    func w22HCacheKvCrushExists() throws {
+        let hcache = try loadMirroredSourceTextFile("epistemos-vault/src/cache/hcache.rs")
+        #expect(hcache.contains("HELIOS-W22-HCACHE guard"))
+        #expect(hcache.contains("pub struct HCacheEntry"))
+        #expect(hcache.contains("pub enum HCacheCompression"))
+
+        let kvcrush = try loadMirroredSourceTextFile("epistemos-vault/src/cache/kvcrush.rs")
+        #expect(kvcrush.contains("HELIOS-W22-KVCRUSH guard"))
+        #expect(kvcrush.contains("pub struct TernaryKvCell"))
+        #expect(kvcrush.contains("pub struct KvCrushFootprint"))
+    }
+
+    @Test("W16: Pro-tier T-MAC + Atlas joint path gated `pro-build`")
+    func w16ProJointPathExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/pro_joint.rs")
+        #expect(source.contains("HELIOS-W16 guard"))
+        #expect(source.contains("#![cfg(feature = \"pro-build\")]"))
+        #expect(source.contains("pub fn pro_joint_matmul"))
+        #expect(source.contains("BIT-IDENTICAL"))
+
+        // Wired into scope_rex/mod.rs under pro-build cfg.
+        let modSource = try loadMirroredSourceTextFile("agent_core/src/scope_rex/mod.rs")
+        #expect(modSource.contains("pub mod pro_joint"))
+    }
+
+    @Test("PCF-9: Connectome Distillation substrate exists in vault")
+    func pcf9ConnectomeDistillationExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-vault/src/distill/connectome.rs")
+        #expect(source.contains("HELIOS-PCF9 guard"))
+        #expect(source.contains("pub struct ConnectomeDistillation"))
+        #expect(source.contains("output_model_sha256"))
+        #expect(source.contains("pub fn passes_acceptance"))
+    }
+
     @Test("Stage 3: epistemos-research crate exists with research feature gate")
     func stage3ResearchCrateExists() throws {
         let cargo = try loadMirroredSourceTextFile("epistemos-research/Cargo.toml")
