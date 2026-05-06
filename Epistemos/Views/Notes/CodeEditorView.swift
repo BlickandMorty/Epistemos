@@ -1209,10 +1209,10 @@ struct CodeEditorView: View {
     @State private var cursorLine: Int = 1
     @State private var cursorCol: Int = 1
     @State private var totalLines: Int
-    @State private var contentChangeTask: Task<Void, Never>?
     @State private var outlineRefreshTask: Task<Void, Never>?
     @State private var semanticRefreshTask: Task<Void, Never>?
     @State private var sourceEditorCoordinator: EpistemosEditorCoordinator?
+    @State private var contentDebouncer: CodeEditorContentDebouncer?
     
     // MARK: - Editor Preferences (persisted via AppStorage)
     
@@ -1277,6 +1277,8 @@ struct CodeEditorView: View {
             .onDisappear {
                 outlineRefreshTask?.cancel()
                 semanticRefreshTask?.cancel()
+                contentDebouncer?.detach()
+                contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
                 clearNoteChatContextBindings()
                 sourceEditorCoordinator?.destroy()
@@ -1325,13 +1327,18 @@ struct CodeEditorView: View {
 
     private func ensureEditorCoordinator() {
         guard sourceEditorCoordinator == nil else { return }
+        let debouncer = contentDebouncer ?? CodeEditorContentDebouncer { newText in
+            onContentChange?(newText)
+            updateSemanticContext(newText)
+        }
+        contentDebouncer = debouncer
+
         let coordinator = EpistemosEditorCoordinator(
             cursorLine: $cursorLine,
             cursorCol: $cursorCol,
             totalLines: $totalLines,
-            onContentChange: { newText in
-                onContentChange?(newText)
-                updateSemanticContext(newText)
+            enqueueContentChange: { [weak debouncer] newText in
+                debouncer?.enqueue(newText)
             }
         )
         sourceEditorCoordinator = coordinator
@@ -1801,8 +1808,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     @Binding var cursorLine: Int
     @Binding var cursorCol: Int
     @Binding var totalLines: Int
-    let onContentChange: ((String) -> Void)?
-    private var contentChangeTask: Task<Void, Never>?
+    private let enqueueContentChange: @MainActor (String) -> Void
     
     // Throttled UI update state
     private var pendingCursorUpdate: (line: Int, col: Int)?
@@ -1840,12 +1846,12 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         cursorLine: Binding<Int>,
         cursorCol: Binding<Int>,
         totalLines: Binding<Int>,
-        onContentChange: ((String) -> Void)?
+        enqueueContentChange: @escaping @MainActor (String) -> Void
     ) {
         self._cursorLine = cursorLine
         self._cursorCol = cursorCol
         self._totalLines = totalLines
-        self.onContentChange = onContentChange
+        self.enqueueContentChange = enqueueContentChange
         super.init()
     }
 
@@ -2131,12 +2137,10 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         totalLines = lineCount
         updateGutterLineCount(lineCount)
 
-        // Debounce content change callback (500ms)
-        contentChangeTask?.cancel()
-        contentChangeTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
-            onContentChange?(newText)
+        // Phase-S content debouncer coalesces rapid typing before
+        // downstream save/index/semantic work runs.
+        Task { @MainActor [enqueueContentChange] in
+            enqueueContentChange(newText)
         }
 
         scheduleIndentationGuideRefresh(for: newText)
@@ -2145,7 +2149,6 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     }
     
     func destroy() {
-        contentChangeTask?.cancel()
         cursorUpdateTask?.cancel()
         scrollDebounceTask?.cancel()
         indentationGuideRefreshTask?.cancel()
