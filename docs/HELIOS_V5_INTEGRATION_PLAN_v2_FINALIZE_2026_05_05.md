@@ -573,10 +573,13 @@ The raw archive is preserved as **R0** (append-only, at `/Users/jojo/Library/Mob
 
 ## Cross-references
 
+- **PRIMARY SOURCE OF TRUTH (persisted in repo, both source-of-truth):**
+  - `docs/fusion/helios v5 first.md` — 754-line v5 DEFINITIVE CANON LOCK with VERIFIED-AGAINST-RESEARCH-DOCS tags, validates the integration brief's substrate-presence assertions
+  - `docs/fusion/helios v5 updated.md` — 625-line v5.2 TRULY FINAL with VERIFIED-WEB-Q1-2026 tags + 2 citation drifts caught + 10 PCF candidates + audit verdict
 - **v2 plan (which this finalizes):** `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md`
 - **v1 plan (superseded by v2):** `docs/HELIOS_V5_INTEGRATION_PLAN_2026_05_05.md`
-- **v5.2 source canon:** user-pasted message 2026-05-05 + `/Users/jojo/Downloads/helios v5.md`
-- **v4.2 theorem hunt:** `/Users/jojo/Downloads/helios v4 updated.md`
+- **v5.2 source canon (also at user-pasted message 2026-05-05):** content matches `docs/fusion/helios v5 updated.md`
+- **v4.2 theorem hunt (also at /Users/jojo/Downloads/helios v4 updated.md):** content matches v4.2 sections in `docs/fusion/helios v5 first.md`
 - **HELIOS v4 preservation package:** `/Users/jojo/Library/Mobile Documents/com~apple~CloudDocs/EPISTEMOS_HELIOS_v4_FINAL_PRESERVATION_PACKAGE/` (21 source docs + 107 raw prompts; this IS the R0 archive)
 - **Existing SCOPE-Rex Core (τ + π + λ):** `agent_core/src/resonance/{tau,pi,lambda,mod}.rs` + `Epistemos/Engine/ResonanceService.swift`
 - **Existing Cognitive DAG:** `agent_core/src/cognitive_dag/{node,edge,storage,merkle,companions,macaroons,migration,dispatch,resonance}.rs`
