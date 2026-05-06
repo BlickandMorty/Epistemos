@@ -320,6 +320,34 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 57: Canonical Cargo feature taxonomy (Lane 3)")
+    func stage57CargoFeaturesExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/cargo_features.rs")
+        #expect(source.contains("HELIOS-CARGO-FEATURES guard"))
+        // 9-arm canonical feature enum
+        #expect(source.contains("pub enum CanonicalFeature"))
+        #expect(source.contains("    Metal,"))
+        #expect(source.contains("    Mlx,"))
+        #expect(source.contains("    Ane,"))
+        #expect(source.contains("    Ssm,"))
+        #expect(source.contains("    Ttt,"))
+        #expect(source.contains("SelfTuning"))
+        #expect(source.contains("    Vault,"))
+        #expect(source.contains("    Hermes,"))
+        #expect(source.contains("    Bench,"))
+        // Helpers
+        #expect(source.contains("pub fn is_default"))
+        #expect(source.contains("pub fn is_experimental"))
+        #expect(source.contains("pub fn is_pro_only"))
+        #expect(source.contains("pub fn cargo_name"))
+        // Const
+        #expect(source.contains("pub const NINE_FEATURES"))
+        #expect(source.contains("[CanonicalFeature; 9]"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod cargo_features"))
+    }
+
     @Test("Stage 56: VaultGatedSwarm + Hermes Gateway substrate (Lane 3)")
     func stage56AgentSwarmExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/agent_swarm.rs")
