@@ -88,6 +88,10 @@
 //!   evolution. WBO-5 (compass artifact) ⊂ WBO-6 (definitive
 //!   master) ⊂ WBO-7 (V5 canon, current). Per-generation
 //!   `term_names()` + `term_count()` + `lock_date()` + `anchor_source()`.
+//! - [`kv_direct_gate`] — KV-Direct Week-1 acceptance gate per
+//!   `helios_v3.md` Part V "Sharpest Next Move". Binary decision
+//!   rule: D_KL == 0 AND peak_ram_reduction ≥ 8×. Per Qasim
+//!   Theorem 1 (arXiv:2603.19664).
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -108,6 +112,9 @@ pub mod engram;
 
 #[cfg(feature = "research")]
 pub mod falsifier_actions;
+
+#[cfg(feature = "research")]
+pub mod kv_direct_gate;
 
 #[cfg(feature = "research")]
 pub mod mas_capability_lattice;
