@@ -320,6 +320,36 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 55: LearningMode + Direction taxonomy (Lane 3)")
+    func stage55LearningModesExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/learning_modes.rs")
+        #expect(source.contains("HELIOS-LEARNING-MODES guard"))
+        // 4-arm LearningMode
+        #expect(source.contains("pub enum LearningMode"))
+        #expect(source.contains("    Freeze,"))
+        #expect(source.contains("FastWeight"))
+        #expect(source.contains("    LoRa,"))
+        #expect(source.contains("    Sketch,"))
+        // 6-arm Direction
+        #expect(source.contains("pub enum Direction"))
+        #expect(source.contains("Upward"))
+        #expect(source.contains("Downward"))
+        #expect(source.contains("Sideways"))
+        #expect(source.contains("Inward"))
+        #expect(source.contains("OnItself"))
+        // Helpers
+        #expect(source.contains("pub fn is_frozen"))
+        #expect(source.contains("pub fn is_persistent"))
+        #expect(source.contains("pub fn is_vertical"))
+        #expect(source.contains("pub fn has_zero_displacement"))
+        // Const arrays
+        #expect(source.contains("pub const FOUR_LEARNING_MODES"))
+        #expect(source.contains("pub const SIX_DIRECTIONS"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod learning_modes"))
+    }
+
     @Test("Stage 54: ResonanceGate GateAction substrate + hard invariants (Lane 3)")
     func stage54GateActionExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/gate_action.rs")
