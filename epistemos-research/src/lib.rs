@@ -253,4 +253,7 @@ pub mod theorems;
 pub mod v6_1;
 
 #[cfg(feature = "research")]
+pub mod v6_1_theorems;
+
+#[cfg(feature = "research")]
 pub mod vpd;
