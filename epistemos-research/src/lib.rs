@@ -37,6 +37,10 @@
 //!   9 fragile-dense layers + 4 ternary hot-path layers, residual-
 //!   island layer formula. Architectural envelope around the W12/
 //!   W13/W14 MSL kernels.
+//! - [`theorem_status`] — 5-arm status legend (P/EV/EB/C/DROP) +
+//!   7-arm paper-safe label taxonomy + FOUNDATIONAL_SEVEN const
+//!   table mapping E1..E7 → status + label per the hardened canon
+//!   `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -54,6 +58,9 @@ pub mod shadow_memory;
 
 #[cfg(feature = "research")]
 pub mod ternary_kernel;
+
+#[cfg(feature = "research")]
+pub mod theorem_status;
 
 #[cfg(feature = "research")]
 pub mod theorems;

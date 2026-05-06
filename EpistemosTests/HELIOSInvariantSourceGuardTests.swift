@@ -320,6 +320,42 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 28: Theorem-status taxonomy P/EV/EB/C/DROP + FOUNDATIONAL_SEVEN (Lane 3)")
+    func stage28TheoremStatusTaxonomyExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/theorem_status.rs")
+        #expect(source.contains("HELIOS-THEOREM-STATUS guard"))
+        // 5-arm status legend
+        #expect(source.contains("pub enum TheoremStatus"))
+        #expect(source.contains("    P,"))
+        #expect(source.contains("    EV,"))
+        #expect(source.contains("    EB,"))
+        #expect(source.contains("    C,"))
+        #expect(source.contains("    DROP,"))
+        // 7-arm paper-safe label taxonomy
+        #expect(source.contains("pub enum PaperSafeLabel"))
+        #expect(source.contains("Theorem,"))
+        #expect(source.contains("TheoremUnderAssumptions"))
+        #expect(source.contains("TheoremPlusEngineeringCorollary"))
+        #expect(source.contains("BoundOrProposition"))
+        #expect(source.contains("SystemsHypothesisOrCandidate"))
+        #expect(source.contains("ConvergenceHypothesisOrCandidate"))
+        #expect(source.contains("ResearchTheoremCandidate"))
+        // Foundational seven canonical-order const table
+        #expect(source.contains("pub const FOUNDATIONAL_SEVEN"))
+        #expect(source.contains("internal_id: \"E1\""))
+        #expect(source.contains("internal_id: \"E7\""))
+        #expect(source.contains("public_id: \"T1\""))
+        #expect(source.contains("public_id: \"T7\""))
+        // House rules from v2.0 §STATUS LEGEND
+        #expect(source.contains("requires_falsifier"))
+        #expect(source.contains("is_canon_eligible"))
+        // Lane 3 RESEARCH-ONLY guard
+        #expect(source.contains("Lane 3 RESEARCH-ONLY"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod theorem_status"))
+    }
+
     @Test("Stage 26: E1/E2/E5/E6/E7 falsifier YAML protocols + registry parity")
     func stage26EFalsifierProtocolsClosed() throws {
         // Five new YAML protocol manifests covering the E-tier theorems
