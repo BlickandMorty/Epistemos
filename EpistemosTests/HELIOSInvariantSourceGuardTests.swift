@@ -320,6 +320,35 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 54: ResonanceGate GateAction substrate + hard invariants (Lane 3)")
+    func stage54GateActionExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/gate_action.rs")
+        #expect(source.contains("HELIOS-GATE-ACTION guard"))
+        // 6-arm gate action enum
+        #expect(source.contains("pub enum GateAction"))
+        #expect(source.contains("    Pass,"))
+        #expect(source.contains("    Hold,"))
+        #expect(source.contains("    Quarantine,"))
+        #expect(source.contains("TriggerEvidenceSupremacy"))
+        #expect(source.contains("EngramAnchor"))
+        #expect(source.contains("MigrateResidency"))
+        // Hard-invariant thresholds
+        #expect(source.contains("SELF_MONITORING_MAX_DEPTH: u32 = 3"))
+        #expect(source.contains("ENGRAM_RHO_THRESHOLD: f32 = 0.7"))
+        #expect(source.contains("ENGRAM_KAPPA_THRESHOLD: f32 = 0.382"))
+        // Helpers
+        #expect(source.contains("pub fn emits_to_user"))
+        #expect(source.contains("pub fn blocks_emission"))
+        #expect(source.contains("pub fn records_persistent_state"))
+        #expect(source.contains("pub fn engram_anchor_predicate"))
+        // Const array
+        #expect(source.contains("pub const SIX_ACTIONS"))
+        #expect(source.contains("[GateAction; 6]"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod gate_action"))
+    }
+
     @Test("Stage 52: Scientific Calculator Basis substrate (Lane 3)")
     func stage52ScbExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/scientific_calculator_basis.rs")
