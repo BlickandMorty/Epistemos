@@ -119,15 +119,54 @@ fi
 echo ""
 echo "[2/3] E/H/PCF source-text guard count"
 
-guard_dir="${REPO_ROOT}/EpistemosTests"
-# Suppress set -e for grep-with-no-matches case (exit 1 = "no match", not error).
+# Source-text guards are the canonical `// HELIOS-<id> guard` (or
+# `//! HELIOS-<id> guard` Rust module-doc) markers that anchor a
+# substrate file to its theorem id. They live throughout the
+# substrate roots, not just in EpistemosTests/.
+#
+# The Stage 26 / Stage 27 doctrine sweep expanded the search to
+# the full substrate footprint:
+#   - agent_core/src + agent_core/tests
+#   - epistemos-research/src
+#   - epistemos-vault/src
+#   - Epistemos/* (Swift) + EpistemosTests/* (Swift tests)
+#   - lean/Epistemos/Epistemos
+#   - Tools/falsifier/protocols/*.yaml (the canonical M2 Max
+#     protocol manifests carry the id at the YAML top)
+#
+# Suppress set -e for grep-with-no-matches case (exit 1 = "no
+# match", not error).
 e_count=0
 h_count=0
 pcf_count=0
-if [ -d "${guard_dir}" ]; then
-  e_count=$(grep -rl "// E[1-7] guard\|// HELIOS-E[1-7]" "${guard_dir}" 2>/dev/null | wc -l | tr -d ' ' || true)
-  h_count=$(grep -rl "// H[0-9]\+ guard\|// HELIOS-H[0-9]\+" "${guard_dir}" 2>/dev/null | wc -l | tr -d ' ' || true)
-  pcf_count=$(grep -rl "// PCF-[0-9]\+ guard\|// HELIOS-PCF-[0-9]\+" "${guard_dir}" 2>/dev/null | wc -l | tr -d ' ' || true)
+
+guard_roots=(
+  "${REPO_ROOT}/agent_core/src"
+  "${REPO_ROOT}/agent_core/tests"
+  "${REPO_ROOT}/epistemos-research/src"
+  "${REPO_ROOT}/epistemos-vault/src"
+  "${REPO_ROOT}/Epistemos"
+  "${REPO_ROOT}/EpistemosTests"
+  "${REPO_ROOT}/lean/Epistemos/Epistemos"
+  "${REPO_ROOT}/Tools/falsifier/protocols"
+)
+
+# Filter to existing dirs (some may be absent in a partial checkout).
+existing_roots=()
+for d in "${guard_roots[@]}"; do
+  [ -d "${d}" ] && existing_roots+=("${d}")
+done
+
+if [ "${#existing_roots[@]}" -gt 0 ]; then
+  # Match the canonical `HELIOS-<id>` token regardless of comment
+  # prefix. Source files use `// HELIOS-E1` (Rust line comment) or
+  # `//! HELIOS-E1` (Rust module-doc); Lean stubs use bare
+  # `HELIOS-E1 guard` inside `/- ... -/` block comments; YAML
+  # protocols use `# HELIOS-E1`. The marker itself is the anchor.
+  # Also matches the legacy `// E3 guard` short-comment form.
+  e_count=$(grep -rlE "HELIOS-E[1-7]\b|// E[1-7] guard" "${existing_roots[@]}" 2>/dev/null | wc -l | tr -d ' ' || true)
+  h_count=$(grep -rlE "HELIOS-H[0-9]+\b|// H[0-9]+ guard" "${existing_roots[@]}" 2>/dev/null | wc -l | tr -d ' ' || true)
+  pcf_count=$(grep -rlE "HELIOS-PCF-[0-9]+\b|// PCF-[0-9]+ guard" "${existing_roots[@]}" 2>/dev/null | wc -l | tr -d ' ' || true)
 fi
 # Defaults if grep printed nothing.
 e_count="${e_count:-0}"
@@ -137,7 +176,29 @@ pcf_count="${pcf_count:-0}"
 echo "  E1-E7  guards: ${e_count}"
 echo "  H1-H17 guards: ${h_count}"
 echo "  PCF guards:    ${pcf_count}"
-echo "  (skeleton phase: no minimum threshold enforced; W1-W26 grow these)"
+echo "  (counting files referencing canonical //! HELIOS-<id> markers)"
+
+# Per-id minimum coverage: every canonical id MUST have at least
+# one guard somewhere in the substrate footprint. The Lean stubs
+# alone satisfy this floor (one stub per id), but the gate
+# enforces the invariant rather than relying on the Lean tree
+# being intact.
+guard_floor_failures=0
+for id in E1 E2 E3 E4 E5 E6 E7 \
+          H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11 H12 H13 H14 H15 H16 H17 \
+          PCF-1 PCF-2 PCF-3 PCF-4 PCF-5 PCF-6 PCF-7 PCF-8 PCF-9 PCF-10; do
+  matches=$(grep -rlE "HELIOS-${id}\b" "${existing_roots[@]}" 2>/dev/null | wc -l | tr -d ' ' || true)
+  matches="${matches:-0}"
+  if [ "${matches}" -lt 1 ]; then
+    echo "::error::B5 floor: id ${id} has no HELIOS-${id} guard anywhere in the substrate footprint"
+    guard_floor_failures=$((guard_floor_failures + 1))
+  fi
+done
+
+if [ "${guard_floor_failures}" -gt 0 ]; then
+  echo "B5 (per-id floor): ${guard_floor_failures} canonical id(s) missing source-text guards"
+  exit 1
+fi
 
 # -- Sub-gate 3: theorem id surface ------------------------------------------
 #
