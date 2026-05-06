@@ -131,6 +131,14 @@ jobs:
       - name: Run halo_budget bench (V2.2 §4 gate)
         run: cd epistemos-shadow && cargo run --target aarch64-apple-darwin --example halo_budget
 
+      # W26 (HELIOS V5 §2.5.2 release-gate): App Review compliance
+      # audit. Enumerates bundled artifacts under Epistemos/Resources/,
+      # asserts no runtime download paths for executable code, asserts
+      # all 7 HELIOS V5 Tier-2 Settings toggles default OFF, and reports
+      # the subprocess surface for human review (informational).
+      - name: W26 — App Review §2.5.2 compliance audit
+        run: ./tools/app-review-audit/app-review-audit.sh
+
       # B5 (HELIOS V5 Canon Lock v2 §F): theorem-invariant smoke gate.
       # Skeleton at Stage 0 — verifies anchor-table parity for the 14
       # canon docs named in HELIOS_V5_DOC_0_INDEX.md §0.7, counts E/H/PCF

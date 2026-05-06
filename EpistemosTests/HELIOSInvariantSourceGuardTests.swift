@@ -320,6 +320,89 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("W23: Forensic citation registry tool exists + has full id namespace")
+    func w23ForensicCiteToolExists() throws {
+        let source = try loadMirroredSourceTextFile("tools/forensic-cite/forensic-cite.sh")
+        #expect(source.contains("HELIOS-W23 guard"))
+        // Full id namespace coverage: at least 1 entry per major
+        // group (E / H / PCF).
+        for id in ["E1|", "E7|", "H1|", "H17|", "PCF-1|", "PCF-10|"] {
+            #expect(
+                source.contains(id),
+                "forensic-cite registry must include row for \(id)"
+            )
+        }
+    }
+
+    @Test("W24: Sorry-budget tracker exists with v5.2 hardened budgets")
+    func w24SorryBudgetTrackerExists() throws {
+        let source = try loadMirroredSourceTextFile("tools/sorry-budget/sorry-budget.sh")
+        #expect(source.contains("HELIOS-W24 guard"))
+        // Budget values per v5.2 §F:
+        //   E*: 2 (substrate-foundational)
+        //   H1-H10: 4 (architectural)
+        //   H11-H17 + PCF: 7 (cross-tradition / candidate)
+        #expect(source.contains("E1|2"))
+        #expect(source.contains("H1|4"))
+        #expect(source.contains("H17|7"))
+        #expect(source.contains("PCF-1|7"))
+    }
+
+    @Test("W25: Hardware falsifier rig exists with 11 protocol rows")
+    func w25FalsifierRigExists() throws {
+        let source = try loadMirroredSourceTextFile("tools/falsifier/falsifier.sh")
+        #expect(source.contains("HELIOS-W25 guard"))
+        // Each of the W1-W15 substrates we built has a falsifier
+        // protocol row.
+        for entry in [
+            "E3|storage::vault",
+            "H2|scope_rex::metal::softmax",
+            "H3|scope_rex::metal::asa_index",
+            "H7|scope_rex::residency",
+            "H17|scope_rex::retrieval::hopfield",
+            "W1|scope_rex::answer_packet",
+            "W5|scope_rex::btm_semantic",
+            "W8|scope_rex::kv::direct_gate",
+            "W12|scope_rex::kernels::t_mac",
+            "W13|scope_rex::kernels::bitnet",
+            "W14|scope_rex::kernels::sparse_ternary_gemm",
+        ] {
+            #expect(
+                source.contains(entry),
+                "falsifier registry must include protocol row '\(entry)'"
+            )
+        }
+    }
+
+    @Test("W26: §2.5.2 compliance audit exists + checks 7 Tier-2 toggle defaults")
+    func w26AppReviewAuditExists() throws {
+        let source = try loadMirroredSourceTextFile("tools/app-review-audit/app-review-audit.sh")
+        #expect(source.contains("HELIOS-W26 guard"))
+        // Every Tier-2 toggle from W9/W10/W11 is in the required-OFF
+        // assertion list.
+        for key in [
+            "epistemos.helios.v5.verifiedResearchMode",
+            "epistemos.helios.v5.hopfieldRetrieval",
+            "epistemos.helios.v5.connectomeBrowser",
+            "epistemos.helios.v5.experimentalMetalKernels",
+            "epistemos.helios.v5.kernel.tMac",
+            "epistemos.helios.v5.kernel.bitnet",
+            "epistemos.helios.v5.kernel.sparseTernaryGEMM",
+        ] {
+            #expect(
+                source.contains(key),
+                "§2.5.2 audit must require key '\(key)' to default OFF"
+            )
+        }
+    }
+
+    @Test("W26: §2.5.2 audit wired as ci.yml step")
+    func w26WiredInCiYaml() throws {
+        let source = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
+        #expect(source.contains("./tools/app-review-audit/app-review-audit.sh"))
+        #expect(source.contains("App Review §2.5.2 compliance audit"))
+    }
+
     @Test("W12: T-MAC LUT reference exists with ternary type + reference fn")
     func w12TmacReferenceExists() throws {
         let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/kernels/t_mac.rs")
