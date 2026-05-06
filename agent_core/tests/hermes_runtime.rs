@@ -61,9 +61,11 @@ fn prompt_format_preserves_hermes_function_call_contract() {
     assert!(prompt.contains(
         "<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-dict>}\n</tool_call>"
     ));
-    assert!(prompt
-        .contains("Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only."));
-    assert!(prompt.contains("Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."));
+    assert!(prompt.contains(
+        "Use tools only for missing context or explicit external side effects."
+    ));
+    assert!(!prompt.contains("Hermes is the"),
+        "Post-2026-05-05 Hermes-purge: prompt must not bake Hermes-as-gateway doctrine.");
     assert!(prompt.ends_with("Prefer exact paths."));
 }
 
