@@ -320,6 +320,92 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("W12: T-MAC LUT reference exists with ternary type + reference fn")
+    func w12TmacReferenceExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/kernels/t_mac.rs")
+        #expect(source.contains("HELIOS-W12 guard"))
+        #expect(source.contains("pub struct TernaryWeight"))
+        #expect(source.contains("pub fn t_mac_reference"))
+        #expect(source.contains("pub fn validate_ternary_weights"))
+    }
+
+    @Test("W13: BitNet b1.58 absmean quant exists with QuantizedBitnet + GEMM")
+    func w13BitnetExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/kernels/bitnet.rs")
+        #expect(source.contains("HELIOS-W13 guard"))
+        #expect(source.contains("pub fn absmean_quantize"))
+        #expect(source.contains("pub fn bitnet_b158_gemm"))
+        #expect(source.contains("pub struct QuantizedBitnet"))
+        // Cite the canonical BitNet b1.58 paper (corrected per v5.2).
+        #expect(source.contains("2402.17764") || source.contains("2504.12285"))
+    }
+
+    @Test("W14: Sparse Ternary GEMM exists with sparse matrix + bit-identical contract")
+    func w14SparseTernaryGemmExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/kernels/sparse_ternary_gemm.rs")
+        #expect(source.contains("HELIOS-W14 guard"))
+        #expect(source.contains("pub struct SparseTernaryEntry"))
+        #expect(source.contains("pub struct SparseTernaryRow"))
+        #expect(source.contains("pub struct SparseTernaryMatrix"))
+        #expect(source.contains("pub fn sparse_ternary_gemm"))
+        #expect(source.contains("BIT-IDENTICAL"))
+        // Canonical Lipshitz et al. citation present.
+        #expect(source.contains("2510.06957"))
+    }
+
+    @Test("W15: Modern Hopfield retrieval substrate exists with update + cosine")
+    func w15ModernHopfieldExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/retrieval/hopfield.rs")
+        #expect(source.contains("HELIOS-W15 guard"))
+        #expect(source.contains("pub fn modern_hopfield_update"))
+        #expect(source.contains("pub fn cosine_similarity"))
+        // Update-rule formula present in docs.
+        #expect(source.contains("softmax"))
+        // Canonical Ramsauer et al. citation.
+        #expect(source.contains("2008.02217"))
+    }
+
+    @Test("W9: Verified Research Mode Settings toggle exists default OFF")
+    func w9VerifiedResearchModeToggleExists() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/HELIOSv5SettingsView.swift")
+        #expect(source.contains("HELIOS-W9 guard"))
+        // Toggle key matches the AppStorage key spec.
+        #expect(source.contains("epistemos.helios.v5.verifiedResearchMode"))
+        #expect(source.contains("private var vrmEnabled = false"))
+        // VRM parent → Hopfield child wiring.
+        #expect(source.contains("Modern Hopfield retrieval"))
+    }
+
+    @Test("W10: Connectome Browser Settings toggle + bundled atlas exist")
+    func w10ConnectomeBrowserToggleExists() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/HELIOSv5SettingsView.swift")
+        #expect(source.contains("HELIOS-W10 guard"))
+        #expect(source.contains("epistemos.helios.v5.connectomeBrowser"))
+        #expect(source.contains("private var connectomeBrowserEnabled = false"))
+
+        // Bundled atlas JSON ships with the .app per §2.5.2 (not downloaded).
+        let atlas = try loadMirroredSourceTextFile("Epistemos/Resources/connectome_atlas_v1.json")
+        #expect(atlas.contains("connectome-atlas-v1-stub-2026-05-06"))
+        #expect(atlas.contains("\"verified_floor\": \"ac8c6d28\""))
+        #expect(atlas.contains("\"tier\": 2"))
+    }
+
+    @Test("W11: Experimental Metal Kernels Settings parent + 3 children exist")
+    func w11ExperimentalMetalKernelsToggleExists() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/HELIOSv5SettingsView.swift")
+        #expect(source.contains("HELIOS-W11 guard"))
+        #expect(source.contains("epistemos.helios.v5.experimentalMetalKernels"))
+        #expect(source.contains("private var metalKernelsEnabled = false"))
+        // 3 children: T-MAC, BitNet, Sparse Ternary GEMM.
+        #expect(source.contains("epistemos.helios.v5.kernel.tMac"))
+        #expect(source.contains("epistemos.helios.v5.kernel.bitnet"))
+        #expect(source.contains("epistemos.helios.v5.kernel.sparseTernaryGEMM"))
+        // All three default false per §2.5.2 Tier-2 compliance.
+        #expect(source.contains("private var tMacEnabled = false"))
+        #expect(source.contains("private var bitnetEnabled = false"))
+        #expect(source.contains("private var sparseTernaryEnabled = false"))
+    }
+
     @Test("W8: KV-Direct gate (Tier-1 round-trip equality)")
     func w8KvDirectGateExists() throws {
         let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/kv/direct_gate.rs")
