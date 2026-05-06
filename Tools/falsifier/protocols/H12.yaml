@@ -1,0 +1,57 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H12 Berry-Phase Holonomy.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H12.
+#
+# Statement: routing trajectories that traverse a closed loop
+# in parameter space accumulate a geometric (Berry) phase. The
+# phase is gauge-invariant under reparametrization and bounds
+# the holonomy of the routing connection.
+
+id: H12
+title: "Berry-Phase Holonomy — closed-loop routing trajectories carry geometric phase"
+class: operational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  For any closed loop γ in parameter space,
+    φ_Berry(γ) = ∮_γ ⟨ψ| i ∂_λ |ψ⟩ dλ
+  is gauge-invariant under reparametrization ψ → e^{i α(λ)} ψ
+  and bounds the holonomy hol(∇, γ) of the routing connection ∇.
+
+acceptance:
+  metric: gauge_invariance_residual
+  threshold: 0.0001          # ≤0.01% phase drift under random reparametrization
+  units: fraction
+
+stage_0_proxy:
+  shell_proxy: "test -f lean/Epistemos/Epistemos/H12.lean"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate N = 256 random closed loops γ in a 32-d parameter
+       space (start = end, smooth path between).
+    2. Compute φ_Berry(γ) along each loop via discrete-step
+       integration of ⟨ψ| i ∂_λ |ψ⟩.
+    3. Apply random gauge transformation ψ → e^{i α(λ)} ψ on each
+       loop and recompute φ_Berry.
+    4. Verify the two phases agree to within 0.01% (gauge invariance).
+    5. Compute holonomy hol(∇, γ) and verify |φ_Berry − hol| is
+       bounded as the theorem states.
+
+falsifier:
+  hard: |
+    If gauge invariance fails (phase drifts >0.01% under random
+    reparametrization), the H12 invariant collapses. Escalate to
+    a Lane 3 numerical-integration audit before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H12
+  - lean/Epistemos/Epistemos/H12.lean
+
+insertion_site: lean/Epistemos/Epistemos/H12.lean (substrate-tier
+                stub; full Berry-phase implementation requires
+                Lane 3 differential-geometry tooling)

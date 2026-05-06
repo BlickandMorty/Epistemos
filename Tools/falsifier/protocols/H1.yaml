@@ -1,0 +1,65 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H1 WBO-7 Operational View.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H1.
+#
+# Statement: H1 is the OPERATIONAL form of E4 — the same WBO-7
+# master inequality, viewed as a build-checked invariant rather
+# than substrate theorem. B5 CI gate samples at 1/100; failure
+# triggers HALT severity.
+#
+# WBO-7 vs WBO-6: v5 supersedes v3's WBO-6 by adding an
+# active-support penalty ε(τ):
+#
+#   WBO-7: Σᵢ wᵢ · b(τ, Aᵢ) ≤ 7 · sup_i b(τ, Aᵢ) − ε(τ)
+#
+# Cross-reference: E4 carries the substrate-side falsifier; H1 is
+# the operational variant on the same substrate. H2 (post-softmax
+# half-contraction) shares the softmax module.
+
+id: H1
+title: "WBO-7 Operational Form — build-checked invariant view of E4"
+class: operational
+lane: L1
+severity: HALT
+state: candidate
+
+statement: |
+  Σᵢ wᵢ · b(τ, Aᵢ) ≤ 7 · sup_i b(τ, Aᵢ) − ε(τ)
+  WBO-7 master inequality with active-support penalty ε(τ).
+  B5 CI gate samples at 1/100; sample budget ≤ 50 µs MAS profile.
+
+acceptance:
+  metric: inequality_hold_rate
+  threshold: 0.9997          # ≥99.97% trajectories satisfy bound (matches E4)
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::metal::softmax"   # shares E4's substrate
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Re-use the E4 protocol's 1000 sampler trajectories.
+    2. For each trajectory, compute the WBO-7 LHS + RHS.
+    3. Verify the inequality holds with active-support penalty
+       ε(τ) properly subtracted from the RHS.
+    4. The 1/100 sampling rate is the operational gate (B5);
+       the full 1000-trajectory gate is the substrate falsifier.
+
+falsifier:
+  hard: |
+    Any trajectory violating WBO-7 with ε(τ) properly accounted
+    for is a HALT-class violation. WBO-6 is preserved as a strict
+    weakening (no active-support penalty); a build that succeeds
+    on WBO-6 but fails WBO-7 is canonical drift.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H1
+  - source_docs/EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md Part I T4
+  - lean/Epistemos/Epistemos/H1.lean
+  - lean/Epistemos/Epistemos/E4.lean
+
+cross_ref: E4
+
+insertion_site: agent_core/src/scope_rex/metal/softmax.rs (shares E4 substrate)

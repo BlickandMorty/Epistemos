@@ -46,6 +46,7 @@ E4|agent_core|default|scope_rex::metal::softmax
 E5|epistemos-research|research|theorems::e5_duplex_fusion
 E6|epistemos-research|research|theorems::e6_epi_epsilon
 E7|epistemos-research|research|theorems::e7_kernel_identity
+H1|agent_core|default|scope_rex::metal::softmax
 H2|agent_core|default|scope_rex::metal::softmax
 H3|agent_core|default|scope_rex::metal::asa_index
 H4|epistemos-research|research|theorems::e4_wbo7

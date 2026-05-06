@@ -1,0 +1,73 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H15 Mādhava-Leibniz π-series.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H15.
+#
+# Statement: higher-order correction terms strictly improve the
+# Mādhava-Leibniz π-series convergence. The original Mādhava
+# rationale is *insufficient by modern standards* (literature
+# collision flagged per audit), but the T-statement holds at the
+# higher-order level.
+#
+# H15 is unusual: the historical claim is bracketed but the
+# mathematical statement (corrected) holds. Falsifier verifies
+# that the higher-order corrections actually improve convergence
+# rate beyond the naïve series.
+
+id: H15
+title: "Mādhava-Leibniz π-series — higher-order corrections strictly improve convergence"
+class: operational
+lane: L3
+severity: WARN
+state: candidate
+
+statement: |
+  Naïve Mādhava-Leibniz: π/4 ≈ Σₙ₌₀ (-1)ⁿ / (2n+1)  — converges
+  at rate O(1/N).
+  Higher-order correction (Madhava-Aryabhata): adds asymptotic
+  Euler-Maclaurin terms that improve the convergence rate to
+  O(1/N^k) for some k > 1.
+  H15 asserts the correction is STRICT — i.e. for sufficiently
+  large N, the corrected series has lower error than the naïve
+  series at the SAME N.
+
+acceptance:
+  metric: convergence_rate_improvement_holds
+  threshold: 1.0             # 100% of N samples show corrected error < naïve error
+  units: fraction
+
+stage_0_proxy:
+  shell_proxy: "test -f lean/Epistemos/Epistemos/H15.lean"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Compute naïve Mādhava-Leibniz partial sum S_N for N ∈
+       {100, 1000, 10000, 100000}.
+    2. Compute the higher-order corrected partial sum S'_N with
+       Euler-Maclaurin / Madhava-Aryabhata-style correction terms.
+    3. Compute |S_N − π/4| and |S'_N − π/4|.
+    4. Verify |S'_N − π/4| < |S_N − π/4| for every N tested.
+    5. Verify the convergence rate of the corrected series is
+       super-linear in N (e.g. errors fit O(1/N^k) with k > 1).
+
+falsifier:
+  hard: |
+    If the corrected series fails to strictly improve at any
+    sufficiently large N, the H15 claim weakens or fails.
+    Severity is WARN (not HALT) because H15 has a flagged
+    historical-attribution issue per the audit.
+  attribution: |
+    Per H15 Lean stub: "the original Mādhava rationale is
+    *insufficient by modern standards* (literature collision
+    flagged per audit), but the T-statement holds at the
+    higher-order level." Cite the corrected formulation, not
+    Mādhava's reasoning.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H15
+  - lean/Epistemos/Epistemos/H15.lean
+
+insertion_site: lean/Epistemos/Epistemos/H15.lean (substrate-tier
+                stub; full Euler-Maclaurin numerical library lands
+                per Lane 3 follow-up)
