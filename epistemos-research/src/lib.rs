@@ -92,6 +92,11 @@
 //!   `helios_v3.md` Part V "Sharpest Next Move". Binary decision
 //!   rule: D_KL == 0 AND peak_ram_reduction ≥ 8×. Per Qasim
 //!   Theorem 1 (arXiv:2603.19664).
+//! - [`ulp_compare`] — Sign-correct ULP distance utilities per
+//!   `epistemos_helios_v3_master_canon_v2_1.md` Patch 8. Naive
+//!   `f.to_bits()` subtraction breaks across the sign boundary;
+//!   `ordered_f32_bits()` / `ordered_f16_bits()` map to a monotonic
+//!   integer first.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -142,6 +147,9 @@ pub mod ternary_kernel;
 
 #[cfg(feature = "research")]
 pub mod theorem_status;
+
+#[cfg(feature = "research")]
+pub mod ulp_compare;
 
 #[cfg(feature = "research")]
 pub mod theorems;
