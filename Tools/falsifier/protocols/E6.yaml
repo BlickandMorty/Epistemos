@@ -1,0 +1,71 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E6 Error-Enriched Convergence.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E6 + the hardened
+# v2.0 source canon `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`
+# Part I §T6.
+#
+# Statement (HARDENED, EB / convergence theorem-candidate):
+# Five source formalisms — Para/Lens, EML, Atlas,
+# Nested-Learning/CMS, Stone-Weierstrass approximation — admit
+# structure-preserving embeddings F_i: C_i → Epi_ε into one
+# typed error-enriched operational category.
+#
+# NOT "the same infinity"; rather, "five embed into one
+# error-carrying runtime." Stratified Realization is an
+# invariant/corollary of E6 + E7, NOT its own theorem (per v2.0
+# audit-corrected demotion).
+#
+# Falsifier discipline: instantiate the five F_i embeddings,
+# verify each preserves the relevant structure within the Epi_ε
+# error envelope.
+
+id: E6
+title: "Error-Enriched Convergence — five F_i: C_i → Epi_ε embeddings"
+class: foundational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  Five source formalisms admit structure-preserving embeddings
+  F_i: C_i → Epi_ε into one typed error-enriched operational
+  category. Each F_i preserves the relevant structure (composition,
+  identities, error bounds) within ε.
+  C_1 = Para/Lens (Spivak-Niu-Patterson)
+  C_2 = EML (Odrzywołek)
+  C_3 = Atlas (12-plane bundle)
+  C_4 = Nested-Learning/CMS
+  C_5 = Stone-Weierstrass approximation
+
+acceptance:
+  metric: embedding_structure_preservation
+  threshold: 0.99            # 99% of test morphisms preserved within ε
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e6_epi_epsilon"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. For each F_i (i = 1..5), generate N = 256 random morphisms
+       in C_i.
+    2. Embed each into Epi_ε via F_i.
+    3. Verify F_i(g ∘ f) = F_i(g) ∘ F_i(f) within error ε.
+    4. Verify F_i(id) = id within error ε.
+    5. Aggregate across all five categories.
+
+falsifier:
+  hard: |
+    If any F_i shows >1% morphisms with composition or identity
+    failure outside the Epi_ε envelope, that embedding is broken.
+    Escalate to Lane 3 categorical-semantics audit; demote E6 to
+    state:research and update the seven-theorems status table.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E6
+  - source_docs/EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md Part I T6
+  - lean/Epistemos/Epistemos/E6.lean
+
+insertion_site: epistemos-research/src/theorems/e6_epi_epsilon.rs

@@ -1,0 +1,65 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E1 Density Theorem.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E1 + the hardened
+# v2.0 source canon `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`
+# Part I §T1.
+#
+# Statement (HARDENED, scoped P): on the compact branch-safe 12-plane
+# bundle X ⊂ ℂ⁶, the algebra
+#   A_Morph(X) = alg⟨1, x_1, …, x_12, eml, conjugation⟩
+# is uniformly dense in C(X, ℂ).
+#
+# Density depends on coordinate observables + conjugation; EML-alone
+# density remains open (C, F1c falsifier).
+#
+# Stage-0 scaffolding: cargo test exercises Chart6 12-plane bundle
+# substrate. Real density witness verifier (uniform approximation
+# error ≤ ε for every f ∈ C(X, ℂ) sampled finitely) lands per a
+# Lane 3 follow-up slice.
+
+id: E1
+title: "Density Theorem — A_Morph(X) uniformly dense in C(X, ℂ)"
+class: foundational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  Let X = ⨆_{k=1..6} A_k ⊂ ℂ⁶ be the compact branch-safe 12-plane
+  bundle. Then A_Morph(X) = alg⟨1, x_1, …, x_12, eml, conjugation⟩
+  is uniformly dense in C(X, ℂ).
+  Proof: complex Stone-Weierstrass + unital + self-adjoint +
+  point-separating on compact Hausdorff K.
+
+acceptance:
+  metric: uniform_approximation_error
+  threshold: 0.01            # ≤1% sup-norm error on sampled f ∈ C(X, ℂ)
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e1_density"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate compact branch-safe 12-plane bundle X ⊂ ℂ⁶ with
+       margin ε = π/16 from arg = ±π and r ∈ [2^-12, 2^12].
+    2. Sample N = 1024 random continuous functions f ∈ C(X, ℂ).
+    3. For each f, find an A_Morph approximation g ∈ A_Morph(X)
+       with depth ≤ 6 by gradient-based fitting on grid.
+    4. Verify ‖f − g‖_∞ ≤ 0.01 over sampled grid.
+
+falsifier:
+  hard: |
+    If ≥1% of sampled f cannot be approximated within ε on a
+    finite witness grid by any depth-≤6 A_Morph tree, escalate
+    to a wider depth budget; if still fails, downgrade E1 to
+    state:research and surface in the P/EV/EB/C/DROP table.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E1
+  - source_docs/EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md Part I T1
+  - lean/Epistemos/Epistemos/E1.lean
+
+insertion_site: epistemos-research/src/theorems/e1_density.rs

@@ -320,6 +320,42 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 26: E1/E2/E5/E6/E7 falsifier YAML protocols + registry parity")
+    func stage26EFalsifierProtocolsClosed() throws {
+        // Five new YAML protocol manifests covering the E-tier theorems
+        // that previously had Lean stubs but no falsifier coverage.
+        let yamlsToCheck: [(String, String)] = [
+            ("Tools/falsifier/protocols/E1.yaml", "Density Theorem"),
+            ("Tools/falsifier/protocols/E2.yaml", "Ultrametric-Sheaf Gluing"),
+            ("Tools/falsifier/protocols/E5.yaml", "Duplex Fusion"),
+            ("Tools/falsifier/protocols/E6.yaml", "Error-Enriched Convergence"),
+            ("Tools/falsifier/protocols/E7.yaml", "Autogenous Kernel Identity"),
+        ]
+        for (path, titleFragment) in yamlsToCheck {
+            let yaml = try loadMirroredSourceTextFile(path)
+            #expect(yaml.contains(titleFragment))
+            #expect(yaml.contains("class: foundational"))
+            #expect(yaml.contains("severity: HALT"))
+            #expect(yaml.contains("stage_0_proxy:"))
+            #expect(yaml.contains("m2_max_protocol:"))
+            #expect(yaml.contains("falsifier:"))
+        }
+
+        // E7's dependency direction: E7 USES E1-E6, but E1-E6 do NOT
+        // depend on E7 (per v2.0 audit-corrected reversal of v1.0).
+        let e7 = try loadMirroredSourceTextFile("Tools/falsifier/protocols/E7.yaml")
+        #expect(e7.contains("uses: [E1, E2, E3, E4, E5, E6]"))
+        #expect(e7.contains("used_by: []"))
+
+        // Registry has all five new ids
+        let registry = try loadMirroredSourceTextFile("Tools/falsifier/falsifier.sh")
+        #expect(registry.contains("E1|epistemos-research|research|theorems::e1_density"))
+        #expect(registry.contains("E2|epistemos-research|research|theorems::e2_sheaf_gluing"))
+        #expect(registry.contains("E5|epistemos-research|research|theorems::e5_duplex_fusion"))
+        #expect(registry.contains("E6|epistemos-research|research|theorems::e6_epi_epsilon"))
+        #expect(registry.contains("E7|epistemos-research|research|theorems::e7_kernel_identity"))
+    }
+
     @Test("Stage 24: Ternary Kernel substrate — Trit alphabet + packing + residual islands (Lane 3)")
     func stage24TernaryKernelSubstrateExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/ternary_kernel.rs")

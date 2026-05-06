@@ -1,0 +1,78 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E7 Autogenous Kernel Identity.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E7 + the hardened
+# v2.0 source canon `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`
+# Part I §T7.
+#
+# Statement (HARDENED, EB defensible / C strong):
+# Controller-Surface Realization Equivalence in Para(Lens(Smooth))
+# modulo ULP-bounded 2-cell.
+#
+# Strong form (full 8B → tiny EML tree) is C with falsifier F7e.
+# E7 sits ON TOP OF E1-E6 and uses them; E1-E6 do NOT depend on E7.
+#
+# Falsifier discipline: instantiate the controller-surface pair,
+# verify the realization equivalence holds within ULP-bounded
+# 2-cell tolerance.
+
+id: E7
+title: "Autogenous Kernel Identity — Controller-Surface Realization Equivalence"
+class: foundational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  In Para(Lens(Smooth)) / ≃_ULP, the controller-surface
+  realization morphism is an equivalence:
+    Realize: Controller(M) ≃_ULP Surface(M)
+  modulo ULP-bounded 2-cell drift.
+
+acceptance:
+  metric: realization_equivalence_ulp_drift
+  threshold: 2               # ≤2 ULP drift on hot path (fp16)
+  units: ULP
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e7_kernel_identity"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Compile a representative Controller(M) program from the
+       morph DSL.
+    2. Generate the Surface(M) realization via the autogenous
+       kernel compilation path.
+    3. Run N = 412k log-sampled fp16 input points + 2048 stress
+       points through both.
+    4. Verify per-output ULP drift ≤ 2 across all sample points.
+    5. F7a/F1 hardware proxy: this IS the W1 ULP fixture
+       described in the v2.0 canon TL;DR.
+
+falsifier:
+  hard: |
+    If any sample point shows >2 ULP drift between Controller and
+    Surface realizations, the equivalence claim collapses to its
+    weak form (E7 weak: defensible only under stricter hypotheses).
+    Escalate to a Lane 5 Vault audit before claiming canon.
+  strong: |
+    F7e: full 8B → tiny EML tree compression remains C (conjecture)
+    with no current falsifier. Until F7e completes, do NOT claim
+    E7 strong form in any externally-published surface.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E7
+  - source_docs/EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md Part I T7
+  - lean/Epistemos/Epistemos/E7.lean
+
+insertion_site: epistemos-research/src/theorems/e7_kernel_identity.rs
+
+dependencies:
+  uses: [E1, E2, E3, E4, E5, E6]
+  used_by: []
+  notes: |
+    Per v2.0 audit-corrected dependency direction: E7 sits ON TOP
+    OF E1-E6 and USES them. E1-E6 do NOT depend on E7. The earlier
+    v1.0 phrasing ("T1-T6 sit beneath T7" / "T7 supplies T1's
+    admissibility") was reversed by Agent 4.

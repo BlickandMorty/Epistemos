@@ -1,0 +1,60 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E5 Duplex Fusion.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E5 + the hardened
+# v2.0 source canon `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`
+# Part I §T5.
+#
+# Statement (HARDENED, EB / systems theorem-candidate):
+# Hard branch (compiled autogenous kernel) + soft branch
+# (page-backed atlas). Per-layer fused error:
+#   E_fused(layer_i) ≤ (1 − ρ*) ε⁰_i + ρ* ε¹_i + η · Δ_i.
+# Mamba-3, Titans, T2L, SEAL are POSSIBLE soft-branch
+# implementations, NOT the theorem.
+#
+# Falsifier discipline: instantiate hard + soft branches,
+# measure fused error against the inequality.
+
+id: E5
+title: "Duplex Fusion — fused error envelope (hard + soft branch)"
+class: foundational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  E_fused(i) ≤ (1 − ρ*) ε⁰_i + ρ* ε¹_i + η · Δ_i.
+  Hard branch ε⁰: compiled autogenous kernel error.
+  Soft branch ε¹: page-backed atlas error.
+  ρ*: optimal mixing weight.
+  η · Δ: cross-branch coupling correction term.
+
+acceptance:
+  metric: fused_error_bound_hold_rate
+  threshold: 0.999           # ≥99.9% of trajectories satisfy bound
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e5_duplex_fusion"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate N = 1000 layered runtime traces.
+    2. Compute per-layer ε⁰ (hard branch — autogenous kernel)
+       and ε¹ (soft branch — atlas).
+    3. Compute fused error and verify the bound for each.
+    4. Sweep ρ* ∈ [0, 1] in 11 steps to find empirical optimum.
+
+falsifier:
+  hard: |
+    If >0.1% of layers show E_fused exceeding the bound under any
+    valid ρ*, the fused-error envelope is broken. Escalate to a
+    Lane 3 root-cause analysis on the cross-branch coupling Δ_i.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E5
+  - source_docs/EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md Part I T5
+  - lean/Epistemos/Epistemos/E5.lean
+
+insertion_site: epistemos-research/src/theorems/e5_duplex_fusion.rs

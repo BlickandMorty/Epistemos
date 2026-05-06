@@ -39,8 +39,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # Stage 0/7 hardcoded `cd agent_core` which silently broke for
 # non-agent_core protocols.
 REGISTRY=$(cat <<'REGISTRY_BODY'
+E1|epistemos-research|research|theorems::e1_density
+E2|epistemos-research|research|theorems::e2_sheaf_gluing
 E3|agent_core|default|storage::vault
 E4|agent_core|default|scope_rex::metal::softmax
+E5|epistemos-research|research|theorems::e5_duplex_fusion
+E6|epistemos-research|research|theorems::e6_epi_epsilon
+E7|epistemos-research|research|theorems::e7_kernel_identity
 H2|agent_core|default|scope_rex::metal::softmax
 H3|agent_core|default|scope_rex::metal::asa_index
 H7|agent_core|default|scope_rex::residency
