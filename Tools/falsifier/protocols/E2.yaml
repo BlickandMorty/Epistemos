@@ -1,0 +1,64 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E2 Ultrametric-Sheaf Gluing.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E2 + the hardened
+# v2.0 source canon `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`
+# Part I §T2.
+#
+# Implementation name: Ultrametric-Sheaf (v1 specializes to P = {2}).
+# Research name (paper): Adelic.
+#
+# Statement (HARDENED, P under stated assumptions / EB runtime):
+# for finite query patch graphs G_q with cellular sheaf F_q,
+# locally consistent assemblies are exactly
+#   Γ(G_q, F_q) = H⁰(G_q, F_q) = ker δ⁰_{F_q}.
+#
+# Falsifier discipline: build a finite ultrametric-sheaf gluing
+# scenario, verify the reachable global sections coincide with
+# H⁰ of the cochain complex.
+#
+# Stage-0 scaffolding: cargo test exercises CellularSheaf substrate.
+
+id: E2
+title: "Ultrametric-Sheaf Gluing — Γ(G_q, F_q) = H⁰(G_q, F_q) = ker δ⁰"
+class: foundational
+lane: L3
+severity: HALT
+state: candidate
+
+statement: |
+  For finite query patch graphs G_q with cellular sheaf F_q,
+  locally consistent assemblies are exactly the kernel of the
+  zeroth coboundary δ⁰_{F_q}. v1 specializes to P = {2}
+  (2-adic ultrametric).
+
+acceptance:
+  metric: gluing_consistency_match
+  threshold: 1.0             # bit-identical match with H⁰ ground truth
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "theorems::e2_sheaf_gluing"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate N = 1000 random cellular sheaves F_q over patch
+       graphs G_q with |V| ≤ 64.
+    2. For each, compute Γ(G_q, F_q) by direct enumeration of
+       locally consistent assemblies.
+    3. Compute H⁰ via cochain matrix kernel.
+    4. Assert set equality.
+
+falsifier:
+  hard: |
+    If any sheaf shows Γ ≠ H⁰, the gluing contract is broken.
+    Escalate to a deeper proof (mathlib4 Lean elaboration of
+    e2_sheaf_gluing.lean) before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E2
+  - source_docs/EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md Part I T2
+  - lean/Epistemos/Epistemos/E2.lean
+
+insertion_site: epistemos-research/src/theorems/e2_sheaf_gluing.rs
