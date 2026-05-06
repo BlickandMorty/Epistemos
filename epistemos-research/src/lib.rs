@@ -135,6 +135,12 @@
 //!   Sandpile / Other) × Verdict (Confirms / Falsifies /
 //!   Inconclusive) → LanePromotion (L4→L5Vault / L5→L3Research /
 //!   Stay). Lane-asymmetric promotion rules.
+//! - [`vault_categories`] — Lane 5 Speculative Vault category
+//!   taxonomy per `helios v5 first.md` DOC 5. Six sections (§5.1
+//!   DemotedEmlBranches / §5.2 ArchitecturalOverclaims / §5.3
+//!   DoNotBuildInCoreOrMas / §5.4 T18-T35V42Catalog / §5.5
+//!   ProRdLater / §5.6 SpeculativeButPreserved). re_promotion_allowed
+//!   gate requires both explicit falsifier + satisfaction.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -209,6 +215,9 @@ pub mod theorem_status;
 
 #[cfg(feature = "research")]
 pub mod ulp_compare;
+
+#[cfg(feature = "research")]
+pub mod vault_categories;
 
 #[cfg(feature = "research")]
 pub mod theorems;
