@@ -353,6 +353,70 @@ struct HELIOSInvariantSourceGuardTests {
         }
     }
 
+    @Test("Stage 9 / W24: H1-H17 Lean stubs exist with HELIOS-H<n> guards")
+    func stage9H1ThroughH17LeanStubsExist() throws {
+        for n in 1...17 {
+            let path = "lean/Epistemos/Epistemos/H\(n).lean"
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(
+                source.contains("HELIOS-H\(n) guard"),
+                "\(path) missing canonical HELIOS-H\(n) guard"
+            )
+            #expect(source.contains("namespace Epistemos.H\(n)"))
+        }
+    }
+
+    @Test("Stage 9 / W24: PCF-1..PCF-10 Lean stubs exist with HELIOS-PCF-<n> guards")
+    func stage9PcfLeanStubsExist() throws {
+        for n in 1...10 {
+            let path = "lean/Epistemos/Epistemos/PCF-\(n).lean"
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(
+                source.contains("HELIOS-PCF-\(n) guard"),
+                "\(path) missing canonical HELIOS-PCF-\(n) guard"
+            )
+            // Namespace uses `PCFn` (no hyphen) since Lean rejects
+            // hyphens in identifiers.
+            #expect(source.contains("namespace Epistemos.PCF\(n)"))
+        }
+    }
+
+    @Test("Stage 9 / W24: aggregate sorry count matches per DOC 6")
+    func stage9AggregateSorryCountMatchesDOC6() throws {
+        // Per DOC 6 §1+§2+§3 budgets:
+        //   E1-E7 stubs: 8 sorries (E1=1, E2=1, E3=0, E4=2, E5=2, E6=1, E7=1)
+        //   H1-H17 stubs: 17 sorries (1 each)
+        //   PCF-1..10 stubs: 10 sorries (1 each)
+        // Total: 35.
+        var total = 0
+        for n in 1...7 {
+            let s = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/E\(n).lean")
+            total += countSorries(in: s)
+        }
+        for n in 1...17 {
+            let s = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/H\(n).lean")
+            total += countSorries(in: s)
+        }
+        for n in 1...10 {
+            let s = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-\(n).lean")
+            total += countSorries(in: s)
+        }
+        #expect(total == 35, "aggregate sorry count = \(total), expected 35 per DOC 6")
+    }
+
+    private func countSorries(in source: String) -> Int {
+        // Match the awk pattern in Tools/sorry-budget/sorry-budget.sh:
+        //   ^[[:space:]]*sorry[[:space:]]*(--.*)?$
+        var count = 0
+        for line in source.split(whereSeparator: { $0.isNewline }) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "sorry" || trimmed.hasPrefix("sorry --") {
+                count += 1
+            }
+        }
+        return count
+    }
+
     @Test("Stage 8 / W24: ci.yml runs sorry-budget tracker as a CI step")
     func stage8SorryBudgetCiStepExists() throws {
         let source = try loadMirroredSourceTextFile(".github/workflows/ci.yml")

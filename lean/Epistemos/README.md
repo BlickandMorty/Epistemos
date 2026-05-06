@@ -1,7 +1,7 @@
 ---
 state: canon
 canon_promoted_on: 2026-05-06
-covers: HELIOS V5 W24 Lean 4 sorry-budget anchor — E1-E7 theorem stubs
+covers: HELIOS V5 W24 Lean 4 sorry-budget anchor — E1-E7 + H1-H17 + PCF-1..PCF-10 theorem stubs
 ---
 
 # HELIOS V5 — Lean 4 Theorem Substrate
@@ -29,12 +29,23 @@ lean/Epistemos/
     ├── E4.lean           # UST-1.5 / WBO-7 Master Inequality
     ├── E5.lean           # Duplex Fusion
     ├── E6.lean           # Error-Enriched Convergence (Epi_ε)
-    └── E7.lean           # Autogenous Kernel Identity
+    ├── E7.lean           # Autogenous Kernel Identity
+    ├── H1.lean .. H17.lean         # Operational claims (17 stubs)
+    └── PCF-1.lean .. PCF-10.lean   # Parameter Connectome Family
+                                     # (10 candidate stubs)
 ```
+
+**Note on PCF naming:** PCF-N filenames contain a hyphen which
+Lean's module resolution does not accept. The W24 sorry-budget
+tracker reads them via awk on the filesystem (no `lake build`
+required to count sorries). Renaming to `PCF_N.lean` lands per
+W24.b when actual Lean elaboration starts.
 
 ## Sorry budget at lock
 
-Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1 + `docs/fusion/helios v5 first.md` PART 2 Q4:
+Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1+§2+§3 + `docs/fusion/helios v5 first.md` PART 2 Q4:
+
+### Foundational Seven (E1-E7) — substrate-foundational
 
 | Theorem | Sorry budget | Current sorries |
 |---|---|---|
@@ -45,7 +56,30 @@ Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1 + `docs/fusion/helios v5 first.m
 | E5 Duplex Fusion | ≤ 2 | 2 |
 | E6 Epi_ε | ≤ 1 | 1 |
 | E7 Autogenous Kernel | ≤ 2 | 1 |
-| **Total** | **≤ 12** | **8** |
+| **E-tier total** | **≤ 12** | **8** |
+
+### Helios Operational Claims (H1-H17) — build/canon
+
+H1–H10 budget ≤ 4 each; H11–H17 budget ≤ 7 each. Each currently
+carries 1 sorry placeholder (within budget for all 17).
+
+| Total H sorries (17 stubs × 1) | 17 |
+| H-tier total budget | ≤ 67 |
+
+### Parameter Connectome Family (PCF-1..PCF-10) — candidates
+
+PCF-1..PCF-10 budget ≤ 7 each. Each currently carries 1 sorry
+placeholder.
+
+| Total PCF sorries (10 stubs × 1) | 10 |
+| PCF-tier total budget | ≤ 70 |
+
+### Aggregate at lock
+
+| Total sorries (E + H + PCF) | 35 |
+| Total budget (E + H + PCF) | ≤ 149 |
+
+All 34 theorem ids are within their per-id budgets.
 
 ## Build
 
