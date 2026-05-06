@@ -320,6 +320,36 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 42: Five Mathematical Pillars taxonomy (Lane 3)")
+    func stage42MathematicalPillarsExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/mathematical_pillars.rs")
+        #expect(source.contains("HELIOS-MATHEMATICAL-PILLARS guard"))
+        // 5-arm pillar enum
+        #expect(source.contains("pub enum MathematicalPillar"))
+        #expect(source.contains("WynerZivSourceCoding"))
+        #expect(source.contains("BabaiGptqNearestPlane"))
+        #expect(source.contains("SoftmaxHalfLipschitz"))
+        #expect(source.contains("TestTimeRegression"))
+        #expect(source.contains("EmlOperatorUniversal"))
+        // Helpers
+        #expect(source.contains("pub fn roman_numeral"))
+        #expect(source.contains("pub fn anchor_citation"))
+        #expect(source.contains("pub fn master_inequality_role"))
+        #expect(source.contains("pub fn is_proven"))
+        // Canonical order const
+        #expect(source.contains("pub const FIVE_PILLARS"))
+        #expect(source.contains("[MathematicalPillar; 5]"))
+        // Citations
+        #expect(source.contains("Zamir-Shamai-Erez"))
+        #expect(source.contains("2507.18553"))
+        #expect(source.contains("2510.23012"))
+        #expect(source.contains("2501.12352"))
+        #expect(source.contains("2603.21852"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod mathematical_pillars"))
+    }
+
     @Test("Stage 37: Engram hash-table substrate (Lane 3)")
     func stage37EngramSubstrateExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/engram.rs")

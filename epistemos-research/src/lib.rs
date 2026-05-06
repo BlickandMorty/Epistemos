@@ -59,6 +59,11 @@
 //!   Static-knowledge O(1) lookup separated from dynamic-reasoning
 //!   compute. Sparsity Allocation Law heuristic at ~22% (NOT
 //!   theorem) split via `sparsity_allocation_split()`.
+//! - [`mathematical_pillars`] — Five mathematical pillars taxonomy
+//!   per `epistemos_definitive_master.md` §"PART I". Wyner-Ziv +
+//!   Babai/GPTQ + Softmax-½-Lipschitz + Test-Time Regression +
+//!   eml-universal. Each pillar has anchor citation + Master
+//!   Inequality role. All five are Status::P.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -76,6 +81,9 @@ pub mod engram;
 
 #[cfg(feature = "research")]
 pub mod mas_capability_lattice;
+
+#[cfg(feature = "research")]
+pub mod mathematical_pillars;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
