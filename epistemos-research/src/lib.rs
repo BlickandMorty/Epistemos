@@ -64,6 +64,11 @@
 //!   Babai/GPTQ + Softmax-½-Lipschitz + Test-Time Regression +
 //!   eml-universal. Each pillar has anchor citation + Master
 //!   Inequality role. All five are Status::P.
+//! - [`self_evolving_l_se`] — L_SE Self-Evolving Extension
+//!   substrate per `epistemos_definitive_master.md` §"PART IV".
+//!   Hybrid Titans-MAC online + SEAL-DoRA nightly. Surprise
+//!   gradient as unified confidence signal across L0..L4 + L_SE
+//!   itself. T_SE drift bound parameters for the Master Inequality.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -84,6 +89,9 @@ pub mod mas_capability_lattice;
 
 #[cfg(feature = "research")]
 pub mod mathematical_pillars;
+
+#[cfg(feature = "research")]
+pub mod self_evolving_l_se;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
