@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "atlas_id": "connectome-atlas-v1-stub-2026-05-06",
+  "description": "HELIOS V5 W10 — Connectome Browser bundled atlas STUB. Replaces with real VPD component metadata when the Goodfire param-decomp pipeline lands per W17/W18. Until then: empty component list + schema lock.",
+  "source": "stub",
+  "license": "Apache-2.0",
+  "epistemos_v5_lock": {
+    "verified_floor": "ac8c6d28",
+    "lock_phrase": "Five lanes, three tiers, seven-plus-three-plus-seven, one Monday",
+    "tier": 2,
+    "settings_toggle": "epistemos.helios.v5.connectomeBrowser",
+    "compliance": "App Review §2.5.2 — bundled metadata only; never downloads executable code; defaults OFF"
+  },
+  "components": [],
+  "edges": [],
+  "metadata": {
+    "model_arch": "stub",
+    "param_count": 0,
+    "alive_components": 0,
+    "components_per_position": 0,
+    "vpd_method": "deferred-to-W17"
+  }
+}
