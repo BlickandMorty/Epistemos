@@ -25,6 +25,12 @@
 //!   (lands in a follow-up slice)
 //! - [`metal::asa_index`] — HELIOS V5 W6 Active-Support Atlas indexing
 //!   (lands in a follow-up slice)
+//! - [`witnessed_state`] — SCOPE-Rex Omega state-witness substrate
+//!   (8-tuple `S_t = (h_t, z_t, g_t, p_t, m_t, w_t, ℓ_t, u_t)`; W1.b chat path)
+//! - [`ontology`] — SCOPE-Rex Omega ontology validator trait surface
+//!   (V(a) ontology-violation cost in the action-selection objective)
+//! - [`feature_observatory`] — SCOPE-Rex Omega Qwen-Scope-style SAE
+//!   inspection + steering (F(a) feature-target match in the objective)
 //!
 //! ## Cross-references
 //!
@@ -40,12 +46,15 @@
 
 pub mod answer_packet;
 pub mod btm_semantic;
+pub mod feature_observatory;
 pub mod kernels;
 pub mod kv;
 pub mod metal;
+pub mod ontology;
 // HELIOS V5 W16 — Pro-tier T-MAC + Atlas joint path. Gated under
 // pro-build feature; never in MAS.
 #[cfg(feature = "pro-build")]
 pub mod pro_joint;
 pub mod residency;
 pub mod retrieval;
+pub mod witnessed_state;
