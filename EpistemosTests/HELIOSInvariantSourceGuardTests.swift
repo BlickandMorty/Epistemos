@@ -320,6 +320,41 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 45: Per-term falsifier actions for Master Inequality (Lane 3)")
+    func stage45FalsifierActionsExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/falsifier_actions.rs")
+        #expect(source.contains("HELIOS-FALSIFIER-ACTIONS guard"))
+        // 6-arm inequality term enum (T_W..T_SE)
+        #expect(source.contains("pub enum InequalityTerm"))
+        #expect(source.contains("    Tw,"))
+        #expect(source.contains("    Tk,"))
+        #expect(source.contains("    Tr,"))
+        #expect(source.contains("    Tq,"))
+        #expect(source.contains("    Ts,"))
+        #expect(source.contains("    Tse,"))
+        // 9-arm action enum
+        #expect(source.contains("pub enum FalsifierAction"))
+        #expect(source.contains("SwitchToLeechCodebook"))
+        #expect(source.contains("RaiseTo5Bit"))
+        #expect(source.contains("TryLeechLattice"))
+        #expect(source.contains("AbandonNestedLatticeUseScalar"))
+        #expect(source.contains("IncreaseSherryRank"))
+        #expect(source.contains("FallBackToNf4"))
+        #expect(source.contains("RefitCsCalibration"))
+        #expect(source.contains("DropMomentum"))
+        #expect(source.contains("FallBackToTttLinear"))
+        // Per-term entry table
+        #expect(source.contains("pub struct FalsifierEntry"))
+        #expect(source.contains("pub const FALSIFIER_TABLE"))
+        #expect(source.contains("[FalsifierEntry; 6]"))
+        // Const arrays
+        #expect(source.contains("pub const SIX_TERMS"))
+        #expect(source.contains("[InequalityTerm; 6]"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod falsifier_actions"))
+    }
+
     @Test("Stage 44: Seven canonical validation thresholds (Lane 3)")
     func stage44ValidationThresholdsExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/validation_thresholds.rs")
