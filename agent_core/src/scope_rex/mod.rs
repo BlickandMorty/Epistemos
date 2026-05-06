@@ -40,4 +40,6 @@
 
 pub mod answer_packet;
 pub mod btm_semantic;
+pub mod kv;
+pub mod metal;
 pub mod residency;

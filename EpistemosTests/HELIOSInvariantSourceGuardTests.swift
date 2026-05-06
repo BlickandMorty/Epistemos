@@ -289,6 +289,54 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("repeat_count < 3"))
     }
 
+    @Test("W6: Active-Support Atlas indexing (Tier-1 ULP-equivalent matmul)")
+    func w6ActiveSupportAtlasExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/metal/asa_index.rs")
+        #expect(source.contains("HELIOS-W6 guard"))
+        // Public API surface: AsaIndex + dense_matmul + asa_matmul.
+        #expect(source.contains("pub struct AsaIndex"))
+        #expect(source.contains("pub fn dense_matmul"))
+        #expect(source.contains("pub fn asa_matmul"))
+        // H3 monotonicity invariants are codified.
+        #expect(source.contains("pub fn merge"))
+        #expect(source.contains("pub fn split"))
+        #expect(source.contains("monotone non-decreasing"))
+        #expect(source.contains("monotone non-increasing"))
+        // Tier-1 ULP-equivalence claim is at the source level.
+        #expect(source.contains("ULP-equivalent"))
+        #expect(source.contains("Conservative-mask invariant"))
+    }
+
+    @Test("W7: Half-softmax post-not-pre rewrite (Tier-1 ≤ 2 ULP)")
+    func w7HalfSoftmaxPostExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/metal/softmax.rs")
+        #expect(source.contains("HELIOS-W7 guard"))
+        #expect(source.contains("pub fn reference_softmax"))
+        #expect(source.contains("pub fn half_softmax_post"))
+        // The numerical-stability rewrite is documented at source.
+        #expect(source.contains("max-subtraction"))
+        #expect(source.contains("Babai lattice closure"))
+        // ≤ 2 ULP acceptance is documented.
+        #expect(source.contains("\u{2264} 2 ULP"))
+    }
+
+    @Test("W8: KV-Direct gate (Tier-1 round-trip equality)")
+    func w8KvDirectGateExists() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/kv/direct_gate.rs")
+        #expect(source.contains("HELIOS-W8 guard"))
+        // Public API: KvLayout + KvDispatch + route + reference / direct.
+        #expect(source.contains("pub struct KvLayout"))
+        #expect(source.contains("pub struct KvPair"))
+        #expect(source.contains("pub enum KvDispatch"))
+        #expect(source.contains("pub fn route"))
+        #expect(source.contains("pub fn reference_qk_row"))
+        #expect(source.contains("pub fn direct_qk_row"))
+        // Eligibility predicate documented.
+        #expect(source.contains("direct_path_eligible"))
+        // Round-trip equality contract.
+        #expect(source.contains("BIT-IDENTICAL"))
+    }
+
     @Test("W5: Semantic Brain Time Machine V1.5 substrate exists, never tensor")
     func w5SemanticBTMSubstrateExists() throws {
         let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/btm_semantic.rs")
