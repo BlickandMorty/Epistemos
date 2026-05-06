@@ -270,7 +270,7 @@ actor LocalAgentLoop {
             toolCallSequenceByRunID[runID] = nil
         }
 
-        let systemPrompt = HermesPromptBuilder.systemPrompt(
+        let systemPrompt = LocalAgentPromptBuilder.systemPrompt(
             tools: tools,
             additionalInstructions: additionalSystemPrompt
         )
@@ -316,7 +316,7 @@ actor LocalAgentLoop {
             turnCount += 1
 
             history = Self.trimHistory(history, targetTokens: historyBudget)
-            let messages = HermesPromptBuilder.buildMessages(
+            let messages = LocalAgentPromptBuilder.buildMessages(
                 systemPrompt: systemPrompt,
                 history: history
             )
@@ -1003,7 +1003,7 @@ actor LocalAgentLoop {
             ],
             targetTokens: historyBudget
         )
-        let repairMessages = HermesPromptBuilder.buildMessages(
+        let repairMessages = LocalAgentPromptBuilder.buildMessages(
             systemPrompt: systemPrompt,
             history: repairHistory
         )

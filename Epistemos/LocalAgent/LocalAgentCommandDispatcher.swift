@@ -1,10 +1,10 @@
 import Foundation
 
-// MARK: - Hermes Command Dispatcher
+// MARK: - LocalAgent Command Dispatcher
 //
 // Single entry point that takes any raw `/...` slash command, tries
 // every Core-native parser in order, and returns a typed
-// `HermesParsedCommand` if exactly one matches. Returns `.unknown`
+// `LocalAgentParsedCommand` if exactly one matches. Returns `.unknown`
 // for anything that doesn't match a Core command.
 //
 // **What this is.** A pure deterministic router — no provider call,
@@ -19,43 +19,43 @@ import Foundation
 /// Sum type covering every Core-native parsed command. Add a new
 /// variant whenever a new command lands; `parseCore` automatically
 /// picks it up via the matching parser.
-nonisolated enum HermesParsedCommand: Equatable, Sendable {
+nonisolated enum LocalAgentParsedCommand: Equatable, Sendable {
     case ask(question: String)
-    case append(HermesAppendCommand)
-    case calc(HermesCalcCommand)
-    case clear(HermesClearCommand)
-    case colors(HermesColorsCommand)
-    case compact(HermesCompactCommand)
-    case configShow(HermesConfigShowCommand)
-    case cost(HermesCostCommand)
-    case export(HermesExportCommand)
-    case font(HermesFontCommand)
-    case fontsize(HermesFontSizeCommand)
-    case grep(HermesGrepCommand)
-    case help(HermesHelpCommand)
-    case load(HermesLoadCommand)
-    case ls(HermesLsCommand)
-    case memory(HermesMemoryCommand)
-    case mode(HermesModeCommand)
-    case model(HermesModelCommand)
-    case newSession(HermesNewSessionCommand)
-    case notebook(HermesNotebookCommand)
-    case parameter(HermesParameterCommand)
-    case persona(HermesPersonaCommand)
-    case read(HermesReadCommand)
-    case save(HermesSaveCommand)
-    case search(HermesSearchCommand)
-    case status(HermesStatusCommand)
-    case summary(HermesSummaryCommand)
-    case systemPrompt(HermesSystemPromptCommand)
-    case theme(HermesThemeCommand)
-    case think(HermesThinkCommand)
-    case todo(HermesTodoCommand)
-    case tokens(HermesTokensCommand)
-    case toolsToggle(HermesToolsToggleCommand)
-    case uiToggle(HermesUIToggleCommand)
-    case width(HermesWidthCommand)
-    case write(HermesWriteCommand)
+    case append(LocalAgentAppendCommand)
+    case calc(LocalAgentCalcCommand)
+    case clear(LocalAgentClearCommand)
+    case colors(LocalAgentColorsCommand)
+    case compact(LocalAgentCompactCommand)
+    case configShow(LocalAgentConfigShowCommand)
+    case cost(LocalAgentCostCommand)
+    case export(LocalAgentExportCommand)
+    case font(LocalAgentFontCommand)
+    case fontsize(LocalAgentFontSizeCommand)
+    case grep(LocalAgentGrepCommand)
+    case help(LocalAgentHelpCommand)
+    case load(LocalAgentLoadCommand)
+    case ls(LocalAgentLsCommand)
+    case memory(LocalAgentMemoryCommand)
+    case mode(LocalAgentModeCommand)
+    case model(LocalAgentModelCommand)
+    case newSession(LocalAgentNewSessionCommand)
+    case notebook(LocalAgentNotebookCommand)
+    case parameter(LocalAgentParameterCommand)
+    case persona(LocalAgentPersonaCommand)
+    case read(LocalAgentReadCommand)
+    case save(LocalAgentSaveCommand)
+    case search(LocalAgentSearchCommand)
+    case status(LocalAgentStatusCommand)
+    case summary(LocalAgentSummaryCommand)
+    case systemPrompt(LocalAgentSystemPromptCommand)
+    case theme(LocalAgentThemeCommand)
+    case think(LocalAgentThinkCommand)
+    case todo(LocalAgentTodoCommand)
+    case tokens(LocalAgentTokensCommand)
+    case toolsToggle(LocalAgentToolsToggleCommand)
+    case uiToggle(LocalAgentUIToggleCommand)
+    case width(LocalAgentWidthCommand)
+    case write(LocalAgentWriteCommand)
 
     /// Whether this parsed command needs explicit user approval before
     /// the dispatch site executes it. Mirrors each command's own
@@ -102,13 +102,13 @@ nonisolated enum HermesParsedCommand: Equatable, Sendable {
     }
 }
 
-nonisolated enum HermesCommandDispatcher {
+nonisolated enum LocalAgentCommandDispatcher {
 
     /// Try every Core-native parser in order; return the first match.
     /// Returns `nil` for anything that does not start with a `/`. Returns
     /// `nil` for slash-prefixed input that no parser claims (the chat
     /// surface treats that as "unknown command, render help").
-    static func parseCore(_ rawCommand: String) -> HermesParsedCommand? {
+    static func parseCore(_ rawCommand: String) -> LocalAgentParsedCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/") else { return nil }
 
@@ -119,42 +119,42 @@ nonisolated enum HermesCommandDispatcher {
         // prefix (we don't have that case yet, but the order below is
         // the safe default).
 
-        if let cmd = HermesAskCommand.parse(trimmed)         { return .ask(question: cmd.question) }
-        if let cmd = HermesAppendCommand.parse(trimmed)      { return .append(cmd) }
-        if let cmd = HermesCalcCommand.parse(trimmed)        { return .calc(cmd) }
-        if let cmd = HermesClearCommand.parse(trimmed)       { return .clear(cmd) }
-        if let cmd = HermesColorsCommand.parse(trimmed)      { return .colors(cmd) }
-        if let cmd = HermesCompactCommand.parse(trimmed)     { return .compact(cmd) }
-        if let cmd = HermesConfigShowCommand.parse(trimmed)  { return .configShow(cmd) }
-        if let cmd = HermesCostCommand.parse(trimmed)        { return .cost(cmd) }
-        if let cmd = HermesExportCommand.parse(trimmed)      { return .export(cmd) }
-        if let cmd = HermesFontCommand.parse(trimmed)        { return .font(cmd) }
-        if let cmd = HermesFontSizeCommand.parse(trimmed)    { return .fontsize(cmd) }
-        if let cmd = HermesGrepCommand.parse(trimmed)        { return .grep(cmd) }
-        if let cmd = HermesHelpCommand.parse(trimmed)        { return .help(cmd) }
-        if let cmd = HermesLoadCommand.parse(trimmed)        { return .load(cmd) }
-        if let cmd = HermesLsCommand.parse(trimmed)          { return .ls(cmd) }
-        if let cmd = HermesMemoryCommand.parse(trimmed)      { return .memory(cmd) }
-        if let cmd = HermesModeCommand.parse(trimmed)        { return .mode(cmd) }
-        if let cmd = HermesModelCommand.parse(trimmed)       { return .model(cmd) }
-        if let cmd = HermesNewSessionCommand.parse(trimmed)  { return .newSession(cmd) }
-        if let cmd = HermesNotebookCommand.parse(trimmed)    { return .notebook(cmd) }
-        if let cmd = HermesParameterCommand.parse(trimmed)   { return .parameter(cmd) }
-        if let cmd = HermesPersonaCommand.parse(trimmed)     { return .persona(cmd) }
-        if let cmd = HermesReadCommand.parse(trimmed)        { return .read(cmd) }
-        if let cmd = HermesSaveCommand.parse(trimmed)        { return .save(cmd) }
-        if let cmd = HermesSearchCommand.parse(trimmed)      { return .search(cmd) }
-        if let cmd = HermesStatusCommand.parse(trimmed)      { return .status(cmd) }
-        if let cmd = HermesSummaryCommand.parse(trimmed)     { return .summary(cmd) }
-        if let cmd = HermesSystemPromptCommand.parse(trimmed) { return .systemPrompt(cmd) }
-        if let cmd = HermesThemeCommand.parse(trimmed)       { return .theme(cmd) }
-        if let cmd = HermesThinkCommand.parse(trimmed)       { return .think(cmd) }
-        if let cmd = HermesTodoCommand.parse(trimmed)        { return .todo(cmd) }
-        if let cmd = HermesTokensCommand.parse(trimmed)      { return .tokens(cmd) }
-        if let cmd = HermesToolsToggleCommand.parse(trimmed) { return .toolsToggle(cmd) }
-        if let cmd = HermesUIToggleCommand.parse(trimmed)    { return .uiToggle(cmd) }
-        if let cmd = HermesWidthCommand.parse(trimmed)       { return .width(cmd) }
-        if let cmd = HermesWriteCommand.parse(trimmed)       { return .write(cmd) }
+        if let cmd = LocalAgentAskCommand.parse(trimmed)         { return .ask(question: cmd.question) }
+        if let cmd = LocalAgentAppendCommand.parse(trimmed)      { return .append(cmd) }
+        if let cmd = LocalAgentCalcCommand.parse(trimmed)        { return .calc(cmd) }
+        if let cmd = LocalAgentClearCommand.parse(trimmed)       { return .clear(cmd) }
+        if let cmd = LocalAgentColorsCommand.parse(trimmed)      { return .colors(cmd) }
+        if let cmd = LocalAgentCompactCommand.parse(trimmed)     { return .compact(cmd) }
+        if let cmd = LocalAgentConfigShowCommand.parse(trimmed)  { return .configShow(cmd) }
+        if let cmd = LocalAgentCostCommand.parse(trimmed)        { return .cost(cmd) }
+        if let cmd = LocalAgentExportCommand.parse(trimmed)      { return .export(cmd) }
+        if let cmd = LocalAgentFontCommand.parse(trimmed)        { return .font(cmd) }
+        if let cmd = LocalAgentFontSizeCommand.parse(trimmed)    { return .fontsize(cmd) }
+        if let cmd = LocalAgentGrepCommand.parse(trimmed)        { return .grep(cmd) }
+        if let cmd = LocalAgentHelpCommand.parse(trimmed)        { return .help(cmd) }
+        if let cmd = LocalAgentLoadCommand.parse(trimmed)        { return .load(cmd) }
+        if let cmd = LocalAgentLsCommand.parse(trimmed)          { return .ls(cmd) }
+        if let cmd = LocalAgentMemoryCommand.parse(trimmed)      { return .memory(cmd) }
+        if let cmd = LocalAgentModeCommand.parse(trimmed)        { return .mode(cmd) }
+        if let cmd = LocalAgentModelCommand.parse(trimmed)       { return .model(cmd) }
+        if let cmd = LocalAgentNewSessionCommand.parse(trimmed)  { return .newSession(cmd) }
+        if let cmd = LocalAgentNotebookCommand.parse(trimmed)    { return .notebook(cmd) }
+        if let cmd = LocalAgentParameterCommand.parse(trimmed)   { return .parameter(cmd) }
+        if let cmd = LocalAgentPersonaCommand.parse(trimmed)     { return .persona(cmd) }
+        if let cmd = LocalAgentReadCommand.parse(trimmed)        { return .read(cmd) }
+        if let cmd = LocalAgentSaveCommand.parse(trimmed)        { return .save(cmd) }
+        if let cmd = LocalAgentSearchCommand.parse(trimmed)      { return .search(cmd) }
+        if let cmd = LocalAgentStatusCommand.parse(trimmed)      { return .status(cmd) }
+        if let cmd = LocalAgentSummaryCommand.parse(trimmed)     { return .summary(cmd) }
+        if let cmd = LocalAgentSystemPromptCommand.parse(trimmed) { return .systemPrompt(cmd) }
+        if let cmd = LocalAgentThemeCommand.parse(trimmed)       { return .theme(cmd) }
+        if let cmd = LocalAgentThinkCommand.parse(trimmed)       { return .think(cmd) }
+        if let cmd = LocalAgentTodoCommand.parse(trimmed)        { return .todo(cmd) }
+        if let cmd = LocalAgentTokensCommand.parse(trimmed)      { return .tokens(cmd) }
+        if let cmd = LocalAgentToolsToggleCommand.parse(trimmed) { return .toolsToggle(cmd) }
+        if let cmd = LocalAgentUIToggleCommand.parse(trimmed)    { return .uiToggle(cmd) }
+        if let cmd = LocalAgentWidthCommand.parse(trimmed)       { return .width(cmd) }
+        if let cmd = LocalAgentWriteCommand.parse(trimmed)       { return .write(cmd) }
 
         return nil
     }
@@ -167,17 +167,17 @@ nonisolated enum HermesCommandDispatcher {
 // Native chat surface treats /ask the same as a bare prompt, so the
 // command just unwraps the question text. Trivial action class.
 
-nonisolated struct HermesAskCommand: Equatable, Sendable {
+nonisolated struct LocalAgentAskCommand: Equatable, Sendable {
     let question: String
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesAskCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentAskCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/ask" || trimmed.hasPrefix("/ask ") else { return nil }
         let body = trimmed.dropFirst("/ask".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return nil }
-        return HermesAskCommand(question: body)
+        return LocalAgentAskCommand(question: body)
     }
 }

@@ -63,9 +63,9 @@ nonisolated struct CapabilityGrant: Equatable, Sendable {
     let kind: CapabilityGrantKind
     let issuedAtUnix: UInt64
     let expiresAtUnix: UInt64
-    let surface: HermesGatewaySurface
-    let tier: HermesGatewayTier
-    let route: HermesGatewayRoute
+    let surface: LocalAgentGatewaySurface
+    let tier: LocalAgentGatewayTier
+    let route: LocalAgentGatewayRoute
     let metadata: [String: String]
     let signatureHex: String
 
@@ -76,8 +76,8 @@ nonisolated struct CapabilityGrant: Equatable, Sendable {
 
 nonisolated enum CapabilityBridgeDenial: Error, Sendable {
     case invalidTTL
-    case coreDistributionDenied(surface: HermesGatewaySurface)
-    case subjectSurfaceMismatch(subject: CapabilityBridgeSubject, surface: HermesGatewaySurface)
+    case coreDistributionDenied(surface: LocalAgentGatewaySurface)
+    case subjectSurfaceMismatch(subject: CapabilityBridgeSubject, surface: LocalAgentGatewaySurface)
     case sovereignDenied(reason: SovereignGateDenialReason)
     case expired
     case signatureMismatch
@@ -117,7 +117,7 @@ final class CapabilityBridge {
     func issueGrant(
         subject: CapabilityBridgeSubject,
         kind: CapabilityGrantKind,
-        surface: HermesGatewaySurface,
+        surface: LocalAgentGatewaySurface,
         ttlSecs: UInt32,
         distribution: ToolSurfacePolicy.Distribution = .currentBuild,
         reason: String,
@@ -129,7 +129,7 @@ final class CapabilityBridge {
         }
 
         if ToolSurfacePolicy.resolvedDistribution(distribution) == .coreAppStore,
-           !HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(surface) {
+           !LocalAgentGatewayPolicy.isAllowedInCoreAppStoreBuild(surface) {
             return .failure(.coreDistributionDenied(surface: surface))
         }
 
@@ -151,7 +151,7 @@ final class CapabilityBridge {
         }
 
         let issuedAt = CapabilityBridgeClock.nowUnix(now)
-        let decision = HermesGatewayPolicy.decision(for: surface)
+        let decision = LocalAgentGatewayPolicy.decision(for: surface)
         var grantMetadata = metadata
         grantMetadata["capability_donor_shape"] = kind.donorShape
         if case .biometricSession(let ttlSecs) = kind {
@@ -176,7 +176,7 @@ final class CapabilityBridge {
     func verifyGrant(
         _ grant: CapabilityGrant,
         expectedSubject: CapabilityBridgeSubject? = nil,
-        expectedSurface: HermesGatewaySurface? = nil,
+        expectedSurface: LocalAgentGatewaySurface? = nil,
         expectedKind: CapabilityGrantKind? = nil,
         now: Date = Date()
     ) -> Bool {
@@ -192,7 +192,7 @@ final class CapabilityBridge {
     func verifyGrantDetailed(
         _ grant: CapabilityGrant,
         expectedSubject: CapabilityBridgeSubject? = nil,
-        expectedSurface: HermesGatewaySurface? = nil,
+        expectedSurface: LocalAgentGatewaySurface? = nil,
         expectedKind: CapabilityGrantKind? = nil,
         now: Date = Date()
     ) -> CapabilityBridgeDenial? {
@@ -206,7 +206,7 @@ final class CapabilityBridge {
             return .scopeMismatch
         }
 
-        let decision = HermesGatewayPolicy.decision(for: grant.surface)
+        let decision = LocalAgentGatewayPolicy.decision(for: grant.surface)
         guard grant.tier == decision.tier, grant.route == decision.route else {
             return .scopeMismatch
         }
@@ -220,13 +220,13 @@ final class CapabilityBridge {
 
     nonisolated static func subject(
         _ subject: CapabilityBridgeSubject,
-        allows surface: HermesGatewaySurface
+        allows surface: LocalAgentGatewaySurface
     ) -> Bool {
         switch subject {
         case .agentXPC:
-            HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(surface)
+            LocalAgentGatewayPolicy.isAllowedInCoreAppStoreBuild(surface)
         case .providerXPC:
-            HermesGatewaySurface.externalGatewaySurfaces.contains(surface)
+            LocalAgentGatewaySurface.externalGatewaySurfaces.contains(surface)
         }
     }
 
@@ -286,7 +286,7 @@ private extension CapabilityGrant {
     }
 }
 
-private extension HermesGatewaySurface {
+private extension LocalAgentGatewaySurface {
     var capabilityBridgeName: String {
         switch self {
         case .deterministicLocalSubstrate:

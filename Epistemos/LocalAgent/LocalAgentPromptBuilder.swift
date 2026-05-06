@@ -27,7 +27,7 @@ nonisolated struct LocalToolResult: Codable, Equatable, Sendable {
     let isError: Bool
 }
 
-nonisolated enum HermesPromptBuilder {
+nonisolated enum LocalAgentPromptBuilder {
     static func systemPrompt(
         tools: [OmegaToolDefinition],
         additionalInstructions: String? = nil,

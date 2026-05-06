@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Single-companion render. Body grammar (Block / Sage / Orb /
-/// HermesSnake) determines silhouette + animation vocabulary; identity
+/// LocalAgentSnake) determines silhouette + animation vocabulary; identity
 /// hash seeds DeterministicPRNG so cosmetic randomness is replayable
 /// (Invariant I-13).
 ///

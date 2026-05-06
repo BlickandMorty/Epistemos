@@ -787,7 +787,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .explain:
             "Turn complex context into a clearer explanation anchored in your notes."
         case .todo:
-            "Work directly with the native task ledger that backs Hermes-compatible /todo commands."
+            "Work directly with the native task ledger that backs LocalAgent-compatible /todo commands."
         case .image:
             "Generate an image on-device via MLX Flux, or explicitly route to Fal when asked."
         }

@@ -1,16 +1,16 @@
 import Foundation
 
-// MARK: - Hermes Persona Commands
+// MARK: - LocalAgent Persona Commands
 //
 // Core-native parsers + intent for the persona-row commands declared
-// in HermesCapabilityRegistry. Each is a parser; the dispatch site
+// in LocalAgentCapabilityRegistry. Each is a parser; the dispatch site
 // reads the intent and calls the matching native persona service.
 //
 // Doctrine §A.7 action class: Sensitive (15-min grace) for any state
 // mutation (create/edit/delete/import/export). Read operations are
 // Trivial.
 
-nonisolated struct HermesPersonaCommand: Equatable, Sendable {
+nonisolated struct LocalAgentPersonaCommand: Equatable, Sendable {
     enum Action: Equatable, Sendable {
         case showCurrent                       // /persona
         case list                              // /persona list
@@ -36,7 +36,7 @@ nonisolated struct HermesPersonaCommand: Equatable, Sendable {
         }
     }
 
-    static func parse(_ rawCommand: String) -> HermesPersonaCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentPersonaCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/persona" || trimmed.hasPrefix("/persona ") else {
             return nil
@@ -45,7 +45,7 @@ nonisolated struct HermesPersonaCommand: Equatable, Sendable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         if arg.isEmpty {
-            return HermesPersonaCommand(action: .showCurrent)
+            return LocalAgentPersonaCommand(action: .showCurrent)
         }
 
         // Verb? Or bare name?
@@ -58,25 +58,25 @@ nonisolated struct HermesPersonaCommand: Equatable, Sendable {
         switch verb {
         case "list":
             return argument.isEmpty
-                ? HermesPersonaCommand(action: .list)
+                ? LocalAgentPersonaCommand(action: .list)
                 : nil
         case "create":
-            return argument.isEmpty ? nil : HermesPersonaCommand(action: .create(name: argument))
+            return argument.isEmpty ? nil : LocalAgentPersonaCommand(action: .create(name: argument))
         case "edit":
-            return argument.isEmpty ? nil : HermesPersonaCommand(action: .edit(name: argument))
+            return argument.isEmpty ? nil : LocalAgentPersonaCommand(action: .edit(name: argument))
         case "delete":
-            return argument.isEmpty ? nil : HermesPersonaCommand(action: .delete(name: argument))
+            return argument.isEmpty ? nil : LocalAgentPersonaCommand(action: .delete(name: argument))
         case "export":
-            return argument.isEmpty ? nil : HermesPersonaCommand(action: .export(name: argument))
+            return argument.isEmpty ? nil : LocalAgentPersonaCommand(action: .export(name: argument))
         case "import":
-            return argument.isEmpty ? nil : HermesPersonaCommand(action: .importFrom(filePath: argument))
+            return argument.isEmpty ? nil : LocalAgentPersonaCommand(action: .importFrom(filePath: argument))
         case "info":
-            return argument.isEmpty ? nil : HermesPersonaCommand(action: .info(name: argument))
+            return argument.isEmpty ? nil : LocalAgentPersonaCommand(action: .info(name: argument))
         default:
             // Bare /persona <name> — treat as switchTo. Persona names with
             // spaces are not supported (would clash with verbs); for those
             // the user can quote at the dispatch site.
-            return HermesPersonaCommand(action: .switchTo(name: arg))
+            return LocalAgentPersonaCommand(action: .switchTo(name: arg))
         }
     }
 }

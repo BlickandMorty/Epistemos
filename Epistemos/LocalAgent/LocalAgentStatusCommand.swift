@@ -3,26 +3,26 @@ import Foundation
 /// Native session-status surface for `/status` per
 /// `HERMES_CAPABILITY_PARITY_TARGET_2026_05_03.md` — Session row.
 ///
-/// Returns a `HermesSessionStatus` snapshot the UI can format into the
+/// Returns a `LocalAgentSessionStatus` snapshot the UI can format into the
 /// status panel. **Core-safe**: pure value composition over already-known
 /// session state. The caller injects current values; this file does not
 /// reach into globals.
-nonisolated struct HermesStatusCommand: Equatable, Sendable {
+nonisolated struct LocalAgentStatusCommand: Equatable, Sendable {
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesStatusCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentStatusCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/status" else {
             return nil
         }
-        return HermesStatusCommand()
+        return LocalAgentStatusCommand()
     }
 
     /// Build a status snapshot from a snapshot input. The UI fills the
     /// fields it knows; missing fields render as "—" so the panel is
     /// always meaningful even before all sources are wired.
-    func snapshot(from input: HermesSessionStatusInput) -> HermesSessionStatus {
-        HermesSessionStatus(
+    func snapshot(from input: LocalAgentSessionStatusInput) -> LocalAgentSessionStatus {
+        LocalAgentSessionStatus(
             providerLabel: input.providerLabel ?? "—",
             modelLabel: input.modelLabel ?? "—",
             sessionID: input.sessionID ?? "—",
@@ -39,7 +39,7 @@ nonisolated struct HermesStatusCommand: Equatable, Sendable {
 }
 
 /// Caller-provided snapshot input. Optionals so callers wire what they have.
-nonisolated struct HermesSessionStatusInput: Equatable, Sendable {
+nonisolated struct LocalAgentSessionStatusInput: Equatable, Sendable {
     var providerLabel: String?
     var modelLabel: String?
     var sessionID: String?
@@ -80,7 +80,7 @@ nonisolated struct HermesSessionStatusInput: Equatable, Sendable {
 }
 
 /// Resolved session status. UI renders the rows in declared order.
-nonisolated struct HermesSessionStatus: Equatable, Sendable {
+nonisolated struct LocalAgentSessionStatus: Equatable, Sendable {
     let providerLabel: String
     let modelLabel: String
     let sessionID: String

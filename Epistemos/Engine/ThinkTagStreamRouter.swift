@@ -5,7 +5,7 @@ import Foundation
 /// letting them land in the main chat bubble.
 ///
 /// Local reasoning models (DeepSeek-R1, Qwen3 thinking variants, Bonsai
-/// + hermes deep-reasoning) emit their chain-of-thought INSIDE the
+/// + local-agent deep-reasoning) emit their chain-of-thought INSIDE the
 /// `content` / `output_text` stream using explicit `<think>` tags,
 /// rather than a separate `reasoning_content` field. Without a stream-
 /// aware splitter the UI shows:

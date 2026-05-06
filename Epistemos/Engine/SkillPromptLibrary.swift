@@ -1,6 +1,6 @@
 // SkillPromptLibrary.swift
 //
-// Editor skill definitions extracted from Hermes skill templates.
+// Editor skill definitions extracted from LocalAgent skill templates.
 // Provides focused system prompts for code-centric ask bar interactions.
 // Each skill narrows the model's behavior and tool subset.
 //

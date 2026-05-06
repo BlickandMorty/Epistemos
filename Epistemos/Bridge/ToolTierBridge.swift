@@ -171,7 +171,7 @@ final class ToolTierBridge {
     }
 
     /// Load the tier-filtered tool list as `OmegaToolDefinition` structs so
-    /// `HermesPromptBuilder` can inject them into the local model's system
+    /// `LocalAgentPromptBuilder` can inject them into the local model's system
     /// prompt. Returns an empty array when:
     /// - The Rust bindings are unavailable
     /// - The tier is `.none`

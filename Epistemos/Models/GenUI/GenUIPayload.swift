@@ -5,7 +5,7 @@ import Foundation
 // Per `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` §4 G.1.
 // Promotes the chat-block-only `Artifact` (Models/Artifact.swift) into
 // the universal typed payload that every producer in the substrate —
-// Hermes commands, tool results, agent emissions, MutationEnvelopes,
+// LocalAgent commands, tool results, agent emissions, MutationEnvelopes,
 // cloud responses, system notifications — emits when it has structured
 // output to render.
 //

@@ -1,8 +1,8 @@
 import Foundation
 
-// MARK: - Hermes Vault File Commands
+// MARK: - LocalAgent Vault File Commands
 //
-// Core-native parsers for the file-data row of HermesCapabilityRegistry:
+// Core-native parsers for the file-data row of LocalAgentCapabilityRegistry:
 // /read, /write, /append, /ls, /search, /grep. Each is a parser; the
 // dispatch site validates the path is inside the active vault or an
 // approved security-scoped bookmark before acting.
@@ -16,97 +16,97 @@ import Foundation
 
 // MARK: - /read <file>
 
-nonisolated struct HermesReadCommand: Equatable, Sendable {
+nonisolated struct LocalAgentReadCommand: Equatable, Sendable {
     let path: String
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesReadCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentReadCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/read ") else { return nil }
         let path = trimmed.dropFirst("/read".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !path.isEmpty else { return nil }
-        return HermesReadCommand(path: path)
+        return LocalAgentReadCommand(path: path)
     }
 }
 
 // MARK: - /write <file> <content>
 
-nonisolated struct HermesWriteCommand: Equatable, Sendable {
+nonisolated struct LocalAgentWriteCommand: Equatable, Sendable {
     let path: String
     let content: String
 
     var requiresApproval: Bool { true }
 
-    static func parse(_ rawCommand: String) -> HermesWriteCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentWriteCommand? {
         return parseWriteOrAppend(rawCommand, prefix: "/write")
-            .map { HermesWriteCommand(path: $0.path, content: $0.content) }
+            .map { LocalAgentWriteCommand(path: $0.path, content: $0.content) }
     }
 }
 
 // MARK: - /append <file> <content>
 
-nonisolated struct HermesAppendCommand: Equatable, Sendable {
+nonisolated struct LocalAgentAppendCommand: Equatable, Sendable {
     let path: String
     let content: String
 
     var requiresApproval: Bool { true }
 
-    static func parse(_ rawCommand: String) -> HermesAppendCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentAppendCommand? {
         return parseWriteOrAppend(rawCommand, prefix: "/append")
-            .map { HermesAppendCommand(path: $0.path, content: $0.content) }
+            .map { LocalAgentAppendCommand(path: $0.path, content: $0.content) }
     }
 }
 
 // MARK: - /ls [path]
 
-nonisolated struct HermesLsCommand: Equatable, Sendable {
+nonisolated struct LocalAgentLsCommand: Equatable, Sendable {
     /// Path to list. `nil` means the active vault root.
     let path: String?
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesLsCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentLsCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/ls" || trimmed.hasPrefix("/ls ") else { return nil }
         let arg = trimmed.dropFirst("/ls".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return HermesLsCommand(path: arg.isEmpty ? nil : arg)
+        return LocalAgentLsCommand(path: arg.isEmpty ? nil : arg)
     }
 }
 
 // MARK: - /search <query>
 
-nonisolated struct HermesSearchCommand: Equatable, Sendable {
+nonisolated struct LocalAgentSearchCommand: Equatable, Sendable {
     let query: String
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesSearchCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentSearchCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/search ") else { return nil }
         let q = trimmed.dropFirst("/search".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return nil }
-        return HermesSearchCommand(query: q)
+        return LocalAgentSearchCommand(query: q)
     }
 }
 
 // MARK: - /grep <pattern>
 
-nonisolated struct HermesGrepCommand: Equatable, Sendable {
+nonisolated struct LocalAgentGrepCommand: Equatable, Sendable {
     let pattern: String
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesGrepCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentGrepCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/grep ") else { return nil }
         let p = trimmed.dropFirst("/grep".count)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !p.isEmpty else { return nil }
-        return HermesGrepCommand(pattern: p)
+        return LocalAgentGrepCommand(pattern: p)
     }
 }
 

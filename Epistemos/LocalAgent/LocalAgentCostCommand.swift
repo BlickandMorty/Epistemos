@@ -6,19 +6,19 @@ import Foundation
 /// Reports cumulative and per-provider cost. **Core-safe**: pure value
 /// composition. Caller injects current values from the existing
 /// `AgentUsageLedger` in `Epistemos/Engine/AgentHarness/`.
-nonisolated struct HermesCostCommand: Equatable, Sendable {
+nonisolated struct LocalAgentCostCommand: Equatable, Sendable {
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesCostCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentCostCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/cost" else { return nil }
-        return HermesCostCommand()
+        return LocalAgentCostCommand()
     }
 
-    func snapshot(from input: HermesCostStatsInput) -> HermesCostStats {
+    func snapshot(from input: LocalAgentCostStatsInput) -> LocalAgentCostStats {
         let cumulative = input.perProviderUSD.values.reduce(0, +) + input.localOnlyExtraUSD
         let mostExpensive = input.perProviderUSD.max { $0.value < $1.value }
-        return HermesCostStats(
+        return LocalAgentCostStats(
             sessionCostUSD: input.sessionCostUSD,
             cumulativeCostUSD: cumulative,
             perProviderUSD: input.perProviderUSD,
@@ -30,7 +30,7 @@ nonisolated struct HermesCostCommand: Equatable, Sendable {
     }
 }
 
-nonisolated struct HermesCostStatsInput: Equatable, Sendable {
+nonisolated struct LocalAgentCostStatsInput: Equatable, Sendable {
     /// Cost incurred in the current session only.
     var sessionCostUSD: Double = 0
     /// Cumulative cost broken down per provider name (e.g. "openai", "anthropic").
@@ -40,7 +40,7 @@ nonisolated struct HermesCostStatsInput: Equatable, Sendable {
     var generatedAt: Date? = nil
 }
 
-nonisolated struct HermesCostStats: Equatable, Sendable {
+nonisolated struct LocalAgentCostStats: Equatable, Sendable {
     let sessionCostUSD: Double
     let cumulativeCostUSD: Double
     let perProviderUSD: [String: Double]

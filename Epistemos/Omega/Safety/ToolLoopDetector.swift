@@ -12,7 +12,7 @@ private let loopLog = Logger(subsystem: "com.epistemos", category: "ToolLoopDete
 //   4. Global Circuit Breaker — total tool calls exceed hard cap
 //
 // Ported from OpenClaw's loop-detection patterns. Operates on AgentStep
-// argument hashes so it works with both Omega and Hermes agent paths.
+// argument hashes so it works with both Omega and LocalAgent agent paths.
 
 struct LoopDetectorRecord: Sendable {
     let toolName: String

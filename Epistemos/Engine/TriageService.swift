@@ -630,7 +630,7 @@ nonisolated struct InferencePolicyEngine {
         //     with native tool-calling).
         //   - DeepSeek R1 7B for reasoning (until OpenThinker3-7B is
         //     converted to MLX 4-bit and lands next session).
-        //   - Hermes 4.3 36B for on-device agent/function-calling work.
+        //   - LocalAgent 4.3 36B for on-device agent/function-calling work.
         //   - Qwen 3.6 35B A3B (Unsloth UD preferred, DWQ secondary) for
         //     flagship generalist.
         //   - Qwen 3 4B + Bonsai for fast/light work.
@@ -647,12 +647,12 @@ nonisolated struct InferencePolicyEngine {
             case .coding, .debugging:
                 preferredOrder = [
                     .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
-                    .hermes43_36B4Bit, .hermes43_36B3Bit,
+                    .localAgent43_36B4Bit, .localAgent43_36B3Bit,
                     .deepseekR1Distill7B,
                 ]
             default:
                 preferredOrder = [
-                    .hermes43_36B4Bit, .hermes43_36B3Bit,
+                    .localAgent43_36B4Bit, .localAgent43_36B3Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     .qwen3_8B4Bit,
                     .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
@@ -671,7 +671,7 @@ nonisolated struct InferencePolicyEngine {
                 preferredOrder = [
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     .qwen3_8B4Bit,
-                    .deepseekR1Distill7B, .hermes43_36B4Bit,
+                    .deepseekR1Distill7B, .localAgent43_36B4Bit,
                     .gemma3_27BQAT4Bit, .gemma3_4BQAT4Bit,
                     .qwen3_4B4Bit,
                 ]

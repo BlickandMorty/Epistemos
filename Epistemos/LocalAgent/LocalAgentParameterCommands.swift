@@ -1,9 +1,9 @@
 import Foundation
 
-// MARK: - Hermes Parameter-Setter Commands
+// MARK: - LocalAgent Parameter-Setter Commands
 //
 // Core-native parsers for the per-session model-config commands declared
-// in HermesCapabilityRegistry: /temperature, /max-tokens, /top-p, /top-k.
+// in LocalAgentCapabilityRegistry: /temperature, /max-tokens, /top-p, /top-k.
 // Each is a single-value setter with explicit numeric bounds — invalid
 // arguments return nil from parse so the chat surface can render a
 // clear error rather than silently apply a bogus value.
@@ -11,7 +11,7 @@ import Foundation
 // All Core-safe. Doctrine §A.7 action class: Trivial. Apply directly
 // to per-session config without prompting.
 
-nonisolated enum HermesParameter: String, Equatable, Sendable, CaseIterable {
+nonisolated enum LocalAgentParameter: String, Equatable, Sendable, CaseIterable {
     case temperature
     case maxTokens
     case topP
@@ -30,19 +30,19 @@ nonisolated enum HermesParameter: String, Equatable, Sendable, CaseIterable {
 
 /// A typed, validated parameter set request. The dispatch site applies
 /// the value to the active session config.
-nonisolated enum HermesParameterValue: Equatable, Sendable {
+nonisolated enum LocalAgentParameterValue: Equatable, Sendable {
     case temperature(Double)   // [0.0, 2.0]
     case maxTokens(Int)        // > 0
     case topP(Double)          // (0.0, 1.0]
     case topK(Int)             // > 0
 }
 
-nonisolated struct HermesParameterCommand: Equatable, Sendable {
-    let value: HermesParameterValue
+nonisolated struct LocalAgentParameterCommand: Equatable, Sendable {
+    let value: LocalAgentParameterValue
 
     var requiresApproval: Bool { false }
 
-    nonisolated var parameter: HermesParameter {
+    nonisolated var parameter: LocalAgentParameter {
         switch value {
         case .temperature: .temperature
         case .maxTokens:   .maxTokens
@@ -51,7 +51,7 @@ nonisolated struct HermesParameterCommand: Equatable, Sendable {
         }
     }
 
-    static func parse(_ rawCommand: String) -> HermesParameterCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentParameterCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("/") else { return nil }
         let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
@@ -60,40 +60,40 @@ nonisolated struct HermesParameterCommand: Equatable, Sendable {
         let arg = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch cmd {
-        case HermesParameter.temperature.commandToken:
+        case LocalAgentParameter.temperature.commandToken:
             return parseTemperature(arg)
-        case HermesParameter.maxTokens.commandToken:
+        case LocalAgentParameter.maxTokens.commandToken:
             return parseMaxTokens(arg)
-        case HermesParameter.topP.commandToken:
+        case LocalAgentParameter.topP.commandToken:
             return parseTopP(arg)
-        case HermesParameter.topK.commandToken:
+        case LocalAgentParameter.topK.commandToken:
             return parseTopK(arg)
         default:
             return nil
         }
     }
 
-    private static func parseTemperature(_ arg: String) -> HermesParameterCommand? {
+    private static func parseTemperature(_ arg: String) -> LocalAgentParameterCommand? {
         guard let d = Double(arg), d.isFinite, (0.0...2.0).contains(d) else {
             return nil
         }
-        return HermesParameterCommand(value: .temperature(d))
+        return LocalAgentParameterCommand(value: .temperature(d))
     }
 
-    private static func parseMaxTokens(_ arg: String) -> HermesParameterCommand? {
+    private static func parseMaxTokens(_ arg: String) -> LocalAgentParameterCommand? {
         guard let n = Int(arg), n > 0 else { return nil }
-        return HermesParameterCommand(value: .maxTokens(n))
+        return LocalAgentParameterCommand(value: .maxTokens(n))
     }
 
-    private static func parseTopP(_ arg: String) -> HermesParameterCommand? {
+    private static func parseTopP(_ arg: String) -> LocalAgentParameterCommand? {
         guard let d = Double(arg), d.isFinite, d > 0.0, d <= 1.0 else {
             return nil
         }
-        return HermesParameterCommand(value: .topP(d))
+        return LocalAgentParameterCommand(value: .topP(d))
     }
 
-    private static func parseTopK(_ arg: String) -> HermesParameterCommand? {
+    private static func parseTopK(_ arg: String) -> LocalAgentParameterCommand? {
         guard let n = Int(arg), n > 0 else { return nil }
-        return HermesParameterCommand(value: .topK(n))
+        return LocalAgentParameterCommand(value: .topK(n))
     }
 }

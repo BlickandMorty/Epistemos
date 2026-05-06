@@ -2030,7 +2030,7 @@ final class AppBootstrap {
 
         // D4 faculty roster: log the resolved primary agent model so users
         // can verify which local agent loaded. Default is the 7-8B 4-bit
-        // fallback that fits the 16 GB Mac ceiling; the 36B Hermes is
+        // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
         // gated on ≥32 GB host RAM + explicit opt-in.
         let primaryAgent = LocalModelCatalog.defaultPrimaryAgentModel
         Log.app.info(

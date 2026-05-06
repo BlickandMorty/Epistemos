@@ -105,7 +105,7 @@ struct EpistemosFocusFilter: SetFocusFilterIntent {
 
     @Parameter(
         title: "Local Models Only",
-        description: "Force inference to local Qwen / Hermes; never make cloud calls during this focus",
+        description: "Force inference to local Qwen / LocalAgent; never make cloud calls during this focus",
         default: true
     )
     var localModelsOnly: Bool

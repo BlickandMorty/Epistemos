@@ -1,19 +1,19 @@
 import Foundation
 
-/// Native deterministic calculator for Hermes-compatible `/calc` slash commands.
+/// Native deterministic calculator for LocalAgent-compatible `/calc` slash commands.
 ///
 /// Per `docs/fusion/fleet/hermes-capability-pass-through/HERMES_CAPABILITY_PARITY_TARGET_2026_05_03.md`
 /// "Tools And Integrations" row: `/calc <expression>` is a "Core native
 /// deterministic calculator" — Epistemos answers it locally with `NSExpression`,
-/// never routing through Hermes / cloud / subprocess.
+/// never routing through LocalAgent / cloud / subprocess.
 ///
 /// **Core-safe.** No network, no subprocess, no provider call. The whole
 /// expression is evaluated synchronously with Apple's Foundation
 /// expression evaluator. Doctrine §A.7 action class: Trivial.
 ///
-/// Mirrors the `HermesTodoCommand` shape so future Hermes-parity slices
+/// Mirrors the `LocalAgentTodoCommand` shape so future LocalAgent-parity slices
 /// can reuse the same parse-then-execute scaffold.
-nonisolated struct HermesCalcCommand: Equatable, Sendable {
+nonisolated struct LocalAgentCalcCommand: Equatable, Sendable {
     let expression: String
 
     /// Whether the command needs explicit user approval before running.
@@ -24,7 +24,7 @@ nonisolated struct HermesCalcCommand: Equatable, Sendable {
 
     /// Parse `/calc <expression>` into a command. Returns `nil` for any
     /// non-`/calc` input or empty argument.
-    static func parse(_ rawCommand: String) -> HermesCalcCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentCalcCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/calc" || trimmed.hasPrefix("/calc ") else {
             return nil
@@ -35,7 +35,7 @@ nonisolated struct HermesCalcCommand: Equatable, Sendable {
         guard !remainder.isEmpty else {
             return nil
         }
-        return HermesCalcCommand(expression: remainder)
+        return LocalAgentCalcCommand(expression: remainder)
     }
 
     // MARK: - Evaluate
@@ -51,7 +51,7 @@ nonisolated struct HermesCalcCommand: Equatable, Sendable {
     /// results format using a stable `NumberFormatter` so 1e6 renders
     /// as "1,000,000" and 0.1 + 0.2 doesn't drift to scientific notation.
     func evaluate() -> EvaluationResult {
-        let sanitized = HermesCalcCommand.sanitize(expression)
+        let sanitized = LocalAgentCalcCommand.sanitize(expression)
         guard !sanitized.isEmpty else {
             return .failure(reason: "Expression is empty after sanitization.")
         }

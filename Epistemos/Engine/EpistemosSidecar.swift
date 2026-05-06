@@ -276,7 +276,7 @@ nonisolated public struct Annotation: Codable, Sendable, Equatable {
     /// ISO-8601 timestamp of when this annotation was written.
     public var at: String
 
-    /// Author tag — `"user"`, `"afm"`, `"hermes"`, `"claude-code"` etc.
+    /// Author tag — `"user"`, `"afm"`, `"localagent"`, `"claude-code"` etc.
     /// Lets the UI show provenance and lets future merges dedupe by
     /// author + content.
     public var author: String

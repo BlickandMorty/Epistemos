@@ -1,23 +1,23 @@
 import Foundation
 
-nonisolated enum HermesGatewayTier: String, Equatable, Sendable {
+nonisolated enum LocalAgentGatewayTier: String, Equatable, Sendable {
     case core
     case proResearch
 }
 
-nonisolated enum HermesGatewayRoute: String, Equatable, Sendable {
+nonisolated enum LocalAgentGatewayRoute: String, Equatable, Sendable {
     case directSubstrate
     case inProcessLocalPrompt
-    case hermesGateway
+    case localAgentGateway
 }
 
-nonisolated enum HermesGatewayEvidenceReturn: String, Equatable, Sendable {
+nonisolated enum LocalAgentGatewayEvidenceReturn: String, Equatable, Sendable {
     case none
     case inProcessPromptContext
     case structuredEvidenceProvenance
 }
 
-nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
+nonisolated enum LocalAgentGatewaySurface: CaseIterable, Sendable {
     case deterministicLocalSubstrate
     case localPromptFormatting
     case cloudProvider
@@ -50,22 +50,22 @@ nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     ]
 }
 
-nonisolated struct HermesGatewayDecision: Equatable, Sendable {
-    let tier: HermesGatewayTier
-    let route: HermesGatewayRoute
+nonisolated struct LocalAgentGatewayDecision: Equatable, Sendable {
+    let tier: LocalAgentGatewayTier
+    let route: LocalAgentGatewayRoute
     let requiresNetwork: Bool
     let requiresSubprocess: Bool
     let preservesDirectSubstratePath: Bool
-    let evidenceReturn: HermesGatewayEvidenceReturn
+    let evidenceReturn: LocalAgentGatewayEvidenceReturn
     let reason: String
 }
 
-nonisolated enum HermesGatewayPolicy {
-    typealias Surface = HermesGatewaySurface
-    typealias Tier = HermesGatewayTier
-    typealias Route = HermesGatewayRoute
-    typealias EvidenceReturn = HermesGatewayEvidenceReturn
-    typealias Decision = HermesGatewayDecision
+nonisolated enum LocalAgentGatewayPolicy {
+    typealias Surface = LocalAgentGatewaySurface
+    typealias Tier = LocalAgentGatewayTier
+    typealias Route = LocalAgentGatewayRoute
+    typealias EvidenceReturn = LocalAgentGatewayEvidenceReturn
+    typealias Decision = LocalAgentGatewayDecision
 
     static func isAllowedInCoreAppStoreBuild(_ surface: Surface) -> Bool {
         let decision = decision(for: surface)
@@ -79,8 +79,8 @@ nonisolated enum HermesGatewayPolicy {
         decision(for: surface).route
     }
 
-    static func usesHermesGateway(_ surface: Surface) -> Bool {
-        route(for: surface) == .hermesGateway
+    static func usesLocalAgentGateway(_ surface: Surface) -> Bool {
+        route(for: surface) == .localAgentGateway
     }
 
     static func evidenceReturn(for surface: Surface) -> EvidenceReturn {
@@ -111,7 +111,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: true,
                 evidenceReturn: .inProcessPromptContext,
-                reason: "Hermes-family prompt grammar is Core-safe only when it stays in-process over local context."
+                reason: "LocalAgent-family prompt grammar is Core-safe only when it stays in-process over local context."
             )
         case .cloudProvider,
              .openAIProvider,
@@ -121,17 +121,17 @@ nonisolated enum HermesGatewayPolicy {
              .codexAccountProvider:
             Decision(
                 tier: .proResearch,
-                route: .hermesGateway,
+                route: .localAgentGateway,
                 requiresNetwork: true,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: false,
                 evidenceReturn: .structuredEvidenceProvenance,
-                reason: "Cloud providers are external intelligence and must stay behind the unified Hermes gateway."
+                reason: "Cloud providers are external intelligence and must stay behind the unified LocalAgent gateway."
             )
         case .cliDelegation:
             Decision(
                 tier: .proResearch,
-                route: .hermesGateway,
+                route: .localAgentGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -141,7 +141,7 @@ nonisolated enum HermesGatewayPolicy {
         case .mcpWebTool:
             Decision(
                 tier: .proResearch,
-                route: .hermesGateway,
+                route: .localAgentGateway,
                 requiresNetwork: true,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -151,7 +151,7 @@ nonisolated enum HermesGatewayPolicy {
         case .browserComputerUse:
             Decision(
                 tier: .proResearch,
-                route: .hermesGateway,
+                route: .localAgentGateway,
                 requiresNetwork: true,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -161,7 +161,7 @@ nonisolated enum HermesGatewayPolicy {
         case .dockerDevcontainer:
             Decision(
                 tier: .proResearch,
-                route: .hermesGateway,
+                route: .localAgentGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -171,7 +171,7 @@ nonisolated enum HermesGatewayPolicy {
         case .explicitExternalSideEffect:
             Decision(
                 tier: .proResearch,
-                route: .hermesGateway,
+                route: .localAgentGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,

@@ -4,7 +4,7 @@ import os
 // MARK: - Orphan Subprocess Cleanup
 //
 // Registers termination handlers for all child processes spawned by Epistemos:
-//   - Hermes Python subprocess
+//   - LocalAgent Python subprocess
 //   - Rust PTY pool sessions
 //   - Token Savior MCP server
 //   - Any active Paperclip Node.js instances

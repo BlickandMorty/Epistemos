@@ -2,7 +2,7 @@
 //
 // Skill chip selector shown above the ask bar when a code file is active.
 // Selecting a skill prepends its system prompt and limits available tools.
-// Generic chip grid pattern extracted from HermesSkillsView.
+// Generic chip grid pattern extracted from LocalAgentSkillsView.
 //
 // 2026-04-06.
 

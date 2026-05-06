@@ -100,7 +100,7 @@ struct CompanionAvatarGlyph: View {
     /// vertical/horizontal anchor. idle = ±1 cell breath; walk = alternating
     /// 1-cell bob; sleep = 1-cell down; success = 2-cell up; error = ±1
     /// horizontal jitter; spawn = staged reveal (handled per renderer);
-    /// other states reuse idle's gentle breath until the Hermes state machine
+    /// other states reuse idle's gentle breath until the LocalAgent state machine
     /// drives them explicitly.
     private static func stepOffset(phase: CGFloat, state: CompanionAnimationState) -> StepOffset {
         let frame = state.frameIndex(forPhase: Double(phase))

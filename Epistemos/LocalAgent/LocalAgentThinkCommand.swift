@@ -9,14 +9,14 @@ import Foundation
 /// no network, no tool dispatch — just structures the prompt.
 ///
 /// Doctrine §A.7 action class: Trivial.
-nonisolated struct HermesThinkCommand: Equatable, Sendable {
+nonisolated struct LocalAgentThinkCommand: Equatable, Sendable {
     /// The user's prompt to think through. Never empty (parser rejects
     /// `/think` with no argument).
     let prompt: String
 
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesThinkCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentThinkCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/think" || trimmed.hasPrefix("/think ") else {
             return nil
@@ -27,7 +27,7 @@ nonisolated struct HermesThinkCommand: Equatable, Sendable {
         guard !remainder.isEmpty else {
             return nil
         }
-        return HermesThinkCommand(prompt: remainder)
+        return LocalAgentThinkCommand(prompt: remainder)
     }
 
     /// Wrap the prompt with the canonical reasoning cue. The result is
@@ -45,13 +45,13 @@ nonisolated struct HermesThinkCommand: Equatable, Sendable {
 
     /// Suggested model preset for this turn — the chat layer reads this
     /// as a hint, not an enforcement. Local reasoning models (Qwen3,
-    /// Hermes-3) are the doctrine §3.1 default for `/think` in Core.
-    var suggestedModelPreset: HermesThinkModelPreset { .localReasoningCapable }
+    /// LocalAgent-3) are the doctrine §3.1 default for `/think` in Core.
+    var suggestedModelPreset: LocalAgentThinkModelPreset { .localReasoningCapable }
 }
 
-nonisolated enum HermesThinkModelPreset: String, Equatable, Sendable, CaseIterable {
+nonisolated enum LocalAgentThinkModelPreset: String, Equatable, Sendable, CaseIterable {
     /// Default — current local reasoning-capable model (e.g. Qwen3 8B,
-    /// Hermes-3 8B).
+    /// LocalAgent-3 8B).
     case localReasoningCapable
     /// User-selected cloud model — only honored in Pro tier.
     case cloudUserSelected

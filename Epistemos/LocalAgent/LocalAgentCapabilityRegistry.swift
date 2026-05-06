@@ -1,19 +1,19 @@
 import Foundation
 
-nonisolated enum HermesCapabilityTier: String, CaseIterable, Sendable {
+nonisolated enum LocalAgentCapabilityTier: String, CaseIterable, Sendable {
     case core
     case pro
     case research
 }
 
-nonisolated enum HermesCapabilityOwner: String, CaseIterable, Sendable {
+nonisolated enum LocalAgentCapabilityOwner: String, CaseIterable, Sendable {
     case nativeCore
-    case hermesGateway
+    case localAgentGateway
     case researchOnly
     case outOfScope
 }
 
-nonisolated enum HermesCapabilitySurface: String, CaseIterable, Sendable {
+nonisolated enum LocalAgentCapabilitySurface: String, CaseIterable, Sendable {
     case agentTask
     case session
     case configuration
@@ -26,17 +26,17 @@ nonisolated enum HermesCapabilitySurface: String, CaseIterable, Sendable {
     case toolset
 }
 
-nonisolated struct HermesCapability: Equatable, Sendable {
+nonisolated struct LocalAgentCapability: Equatable, Sendable {
     let commandPattern: String
-    let surface: HermesCapabilitySurface
-    let tier: HermesCapabilityTier
-    let owner: HermesCapabilityOwner
+    let surface: LocalAgentCapabilitySurface
+    let tier: LocalAgentCapabilityTier
+    let owner: LocalAgentCapabilityOwner
     let requiresNetwork: Bool
     let requiresSubprocess: Bool
     let requiresApproval: Bool
     let structuredEvidence: Bool
     let nativeEquivalent: String
-    let hermesPassthrough: Bool
+    let localAgentPassthrough: Bool
 
     var commandToken: String {
         Self.commandToken(from: commandPattern)
@@ -52,19 +52,19 @@ nonisolated struct HermesCapability: Equatable, Sendable {
     }
 }
 
-nonisolated enum HermesCapabilityRegistry {
-    static let all: [HermesCapability] = [
+nonisolated enum LocalAgentCapabilityRegistry {
+    static let all: [LocalAgentCapability] = [
         core("/ask <question>", .agentTask, "Native note-aware chat/query", passthrough: true),
         core("/think <prompt>", .agentTask, "Local reasoning display"),
         core("/plan <task>", .agentTask, "Native workcard and deliberation planner", passthrough: true),
-        pro("/execute <task>", .agentTask, "Hermes task execution", network: true, approval: true),
+        pro("/execute <task>", .agentTask, "LocalAgent task execution", network: true, approval: true),
         core("/todo", .agentTask, "Native task substrate", passthrough: true),
         core("/todo add <task>", .agentTask, "Native task substrate", approval: true, passthrough: true),
         core("/todo done <id>", .agentTask, "Native task substrate", passthrough: true),
         core("/todo clear", .agentTask, "Native task substrate", approval: true, passthrough: true),
-        pro("/run <command>", .agentTask, "Hermes shell gateway", subprocess: true, approval: true),
-        pro("/shell", .agentTask, "Hermes interactive shell gateway", subprocess: true, approval: true),
-        pro("/kill <pid>", .agentTask, "Hermes process control gateway", subprocess: true, approval: true),
+        pro("/run <command>", .agentTask, "LocalAgent shell gateway", subprocess: true, approval: true),
+        pro("/shell", .agentTask, "LocalAgent interactive shell gateway", subprocess: true, approval: true),
+        pro("/kill <pid>", .agentTask, "LocalAgent process control gateway", subprocess: true, approval: true),
 
         core("/new", .session, "Native session reset", passthrough: true),
         core("/clear", .session, "Native UI/session clear", approval: true, passthrough: true),
@@ -105,15 +105,15 @@ nonisolated enum HermesCapabilityRegistry {
 
         core("/tools", .toolsIntegration, "Native tier-aware tool catalog", passthrough: true),
         core("/tool use <name>", .toolsIntegration, "Native policy-gated tool invocation", approval: true, passthrough: true),
-        pro("/tool add <name> <cmd>", .toolsIntegration, "Hermes custom-tool gateway", subprocess: true, approval: true),
-        pro("/tool remove <name>", .toolsIntegration, "Hermes custom-tool removal", subprocess: true, approval: true),
-        pro("/tool edit <name>", .toolsIntegration, "Hermes custom-tool edit", subprocess: true, approval: true),
-        pro("/mcp list", .toolsIntegration, "Hermes MCP gateway", network: true, subprocess: true),
-        pro("/mcp connect <url>", .toolsIntegration, "Hermes MCP connect", network: true, subprocess: true, approval: true),
-        pro("/mcp disconnect <url>", .toolsIntegration, "Hermes MCP disconnect", network: true, subprocess: true, approval: true),
-        pro("/mcp info", .toolsIntegration, "Hermes MCP diagnostics", network: true, subprocess: true),
-        pro("/web search <query>", .toolsIntegration, "Hermes web search gateway", network: true),
-        pro("/web page <url>", .toolsIntegration, "Hermes web fetch gateway", network: true),
+        pro("/tool add <name> <cmd>", .toolsIntegration, "LocalAgent custom-tool gateway", subprocess: true, approval: true),
+        pro("/tool remove <name>", .toolsIntegration, "LocalAgent custom-tool removal", subprocess: true, approval: true),
+        pro("/tool edit <name>", .toolsIntegration, "LocalAgent custom-tool edit", subprocess: true, approval: true),
+        pro("/mcp list", .toolsIntegration, "LocalAgent MCP gateway", network: true, subprocess: true),
+        pro("/mcp connect <url>", .toolsIntegration, "LocalAgent MCP connect", network: true, subprocess: true, approval: true),
+        pro("/mcp disconnect <url>", .toolsIntegration, "LocalAgent MCP disconnect", network: true, subprocess: true, approval: true),
+        pro("/mcp info", .toolsIntegration, "LocalAgent MCP diagnostics", network: true, subprocess: true),
+        pro("/web search <query>", .toolsIntegration, "LocalAgent web search gateway", network: true),
+        pro("/web page <url>", .toolsIntegration, "LocalAgent web fetch gateway", network: true),
         core("/calc <expression>", .toolsIntegration, "Native deterministic calculator"),
 
         core("/theme <name>", .uiDisplay, "Native theme setting"),
@@ -132,15 +132,15 @@ nonisolated enum HermesCapabilityRegistry {
         core("/persona delete <name>", .persona, "Native persona delete", approval: true),
         core("/persona export <name>", .persona, "Native persona export", approval: true),
         core("/persona import <file>", .persona, "Native persona import", approval: true),
-        pro("/persona share <name>", .persona, "Hermes outbound persona share", network: true, approval: true),
+        pro("/persona share <name>", .persona, "LocalAgent outbound persona share", network: true, approval: true),
         core("/persona info <name>", .persona, "Native persona details"),
         core("/persona default <name>", .persona, "Native default persona preference", approval: true),
         core("/persona reset", .persona, "Native persona reset", approval: true),
 
-        pro("/reply", .messaging, "Hermes messaging gateway", network: true, approval: true),
-        pro("/forward", .messaging, "Hermes messaging gateway", network: true, approval: true),
+        pro("/reply", .messaging, "LocalAgent messaging gateway", network: true, approval: true),
+        pro("/forward", .messaging, "LocalAgent messaging gateway", network: true, approval: true),
         core("/copy", .messaging, "Native clipboard action", approval: true),
-        pro("/share", .messaging, "Hermes outbound share gateway", network: true, approval: true),
+        pro("/share", .messaging, "LocalAgent outbound share gateway", network: true, approval: true),
         core("/pin", .messaging, "Native pinned-message state", passthrough: true),
         core("/unpin", .messaging, "Native pinned-message state", passthrough: true),
         core("/history", .messaging, "Native session history", passthrough: true),
@@ -159,32 +159,32 @@ nonisolated enum HermesCapabilityRegistry {
         core("/version", .advanced, "Native about/version panel"),
 
         core("file_ops", .toolset, "Native vault/bookmark file operations", approval: true, passthrough: true),
-        pro("web_fetch", .toolset, "Hermes web fetch toolset", network: true),
+        pro("web_fetch", .toolset, "LocalAgent web fetch toolset", network: true),
         core("memory", .toolset, "Native memory substrate", passthrough: true),
         core("session", .toolset, "Native session ledger", passthrough: true),
         core("todo", .toolset, "Native task substrate", passthrough: true),
-        pro("mcp", .toolset, "Hermes MCP gateway", network: true, subprocess: true, approval: true),
-        pro("browser", .toolset, "Hermes browser toolset", network: true, subprocess: true, approval: true),
-        pro("code_execution", .toolset, "Hermes code execution toolset", subprocess: true, approval: true),
-        pro("terminal", .toolset, "Hermes terminal toolset", subprocess: true, approval: true),
-        pro("messaging", .toolset, "Hermes messaging gateway", network: true, approval: true),
+        pro("mcp", .toolset, "LocalAgent MCP gateway", network: true, subprocess: true, approval: true),
+        pro("browser", .toolset, "LocalAgent browser toolset", network: true, subprocess: true, approval: true),
+        pro("code_execution", .toolset, "LocalAgent code execution toolset", subprocess: true, approval: true),
+        pro("terminal", .toolset, "LocalAgent terminal toolset", subprocess: true, approval: true),
+        pro("messaging", .toolset, "LocalAgent messaging gateway", network: true, approval: true),
         research("plugins", .toolset, "Research plugin management", network: true, subprocess: true, approval: true),
-        pro("toolsets", .toolset, "Hermes toolset configuration", subprocess: true, approval: true),
+        pro("toolsets", .toolset, "LocalAgent toolset configuration", subprocess: true, approval: true),
     ]
 
     static var commandPatterns: Set<String> {
         Set(all.map(\.commandPattern))
     }
 
-    static func capability(commandPattern: String) -> HermesCapability? {
+    static func capability(commandPattern: String) -> LocalAgentCapability? {
         all.first { $0.commandPattern == commandPattern }
     }
 
-    static func capability(commandToken: String) -> HermesCapability? {
+    static func capability(commandToken: String) -> LocalAgentCapability? {
         all.first { $0.commandToken == commandToken }
     }
 
-    static func capabilities(for distribution: ToolSurfacePolicy.Distribution) -> [HermesCapability] {
+    static func capabilities(for distribution: ToolSurfacePolicy.Distribution) -> [LocalAgentCapability] {
         switch ToolSurfacePolicy.resolvedDistribution(distribution) {
         case .coreAppStore:
             all.filter { $0.tier == .core && $0.owner == .nativeCore }
@@ -199,12 +199,12 @@ nonisolated enum HermesCapabilityRegistry {
 
     private static func core(
         _ commandPattern: String,
-        _ surface: HermesCapabilitySurface,
+        _ surface: LocalAgentCapabilitySurface,
         _ nativeEquivalent: String,
         approval: Bool = false,
         passthrough: Bool = false
-    ) -> HermesCapability {
-        HermesCapability(
+    ) -> LocalAgentCapability {
+        LocalAgentCapability(
             commandPattern: commandPattern,
             surface: surface,
             tier: .core,
@@ -214,41 +214,41 @@ nonisolated enum HermesCapabilityRegistry {
             requiresApproval: approval,
             structuredEvidence: false,
             nativeEquivalent: nativeEquivalent,
-            hermesPassthrough: passthrough
+            localAgentPassthrough: passthrough
         )
     }
 
     private static func pro(
         _ commandPattern: String,
-        _ surface: HermesCapabilitySurface,
+        _ surface: LocalAgentCapabilitySurface,
         _ nativeEquivalent: String,
         network: Bool = false,
         subprocess: Bool = false,
         approval: Bool = false
-    ) -> HermesCapability {
-        HermesCapability(
+    ) -> LocalAgentCapability {
+        LocalAgentCapability(
             commandPattern: commandPattern,
             surface: surface,
             tier: .pro,
-            owner: .hermesGateway,
+            owner: .localAgentGateway,
             requiresNetwork: network,
             requiresSubprocess: subprocess,
             requiresApproval: approval,
             structuredEvidence: true,
             nativeEquivalent: nativeEquivalent,
-            hermesPassthrough: true
+            localAgentPassthrough: true
         )
     }
 
     private static func research(
         _ commandPattern: String,
-        _ surface: HermesCapabilitySurface,
+        _ surface: LocalAgentCapabilitySurface,
         _ nativeEquivalent: String,
         network: Bool = false,
         subprocess: Bool = false,
         approval: Bool
-    ) -> HermesCapability {
-        HermesCapability(
+    ) -> LocalAgentCapability {
+        LocalAgentCapability(
             commandPattern: commandPattern,
             surface: surface,
             tier: .research,
@@ -258,7 +258,7 @@ nonisolated enum HermesCapabilityRegistry {
             requiresApproval: approval,
             structuredEvidence: true,
             nativeEquivalent: nativeEquivalent,
-            hermesPassthrough: false
+            localAgentPassthrough: false
         )
     }
 }

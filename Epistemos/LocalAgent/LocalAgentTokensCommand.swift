@@ -6,23 +6,23 @@ import Foundation
 /// Reports per-direction token usage with optional context-window
 /// fraction. **Core-safe**: pure value composition over already-known
 /// session counters. Caller injects current values.
-nonisolated struct HermesTokensCommand: Equatable, Sendable {
+nonisolated struct LocalAgentTokensCommand: Equatable, Sendable {
     var requiresApproval: Bool { false }
 
-    static func parse(_ rawCommand: String) -> HermesTokensCommand? {
+    static func parse(_ rawCommand: String) -> LocalAgentTokensCommand? {
         let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed == "/tokens" else { return nil }
-        return HermesTokensCommand()
+        return LocalAgentTokensCommand()
     }
 
-    func snapshot(from input: HermesTokenStatsInput) -> HermesTokenStats {
+    func snapshot(from input: LocalAgentTokenStatsInput) -> LocalAgentTokenStats {
         let total = input.inputTokens + input.outputTokens
         let cacheTotal = input.cacheReadTokens + input.cacheWriteTokens
         let pct: Double? = input.contextWindowSize.flatMap { window in
             guard window > 0 else { return nil }
             return Double(input.messagesInContextTokens) / Double(window) * 100.0
         }
-        return HermesTokenStats(
+        return LocalAgentTokenStats(
             inputTokens: input.inputTokens,
             outputTokens: input.outputTokens,
             totalTokens: total,
@@ -37,7 +37,7 @@ nonisolated struct HermesTokensCommand: Equatable, Sendable {
     }
 }
 
-nonisolated struct HermesTokenStatsInput: Equatable, Sendable {
+nonisolated struct LocalAgentTokenStatsInput: Equatable, Sendable {
     var inputTokens: Int = 0
     var outputTokens: Int = 0
     var cacheReadTokens: Int = 0
@@ -47,7 +47,7 @@ nonisolated struct HermesTokenStatsInput: Equatable, Sendable {
     var generatedAt: Date? = nil
 }
 
-nonisolated struct HermesTokenStats: Equatable, Sendable {
+nonisolated struct LocalAgentTokenStats: Equatable, Sendable {
     let inputTokens: Int
     let outputTokens: Int
     let totalTokens: Int
