@@ -64,7 +64,7 @@ public struct ShadowPanelContent: View {
         VStack(spacing: 0) {
             domainPicker
             graphProjectionRibbon
-            claimLedgerRibbon
+            provenanceLedgerRibbon
             Divider()
             resultsList
             if hoveredID != nil {
@@ -117,17 +117,18 @@ public struct ShadowPanelContent: View {
         .accessibilityLabel(graphProjectionAccessibilityLabel(for: report))
     }
 
-    /// V2 Lane 1 — Rust ClaimLedger summary surfaced in the Halo panel
-    /// as a peer of the GraphEvent projection ribbon. Read-only ambient
-    /// signal of how many claims/evidence/events the Rust provenance
-    /// ledger is tracking. Updates every panel-open via the FFI.
-    private var claimLedgerRibbon: some View {
-        let summary = RustProvenanceLedgerClient.summary()
+    /// V2 Lane 1 — DAG-authoritative Rust provenance signal surfaced in
+    /// the Halo panel as a peer of the GraphEvent projection ribbon. The
+    /// legacy ClaimLedger bridge stays available for compatibility, but
+    /// the visible ambient signal follows the Cognitive DAG because the
+    /// DAG is the provenance ledger after the Phase 8 mirror wiring.
+    private var provenanceLedgerRibbon: some View {
+        let stats = RustCognitiveDagClient.stats()
         return HStack(spacing: 6) {
             Image(systemName: "checkmark.shield")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text(claimLedgerLabel(for: summary))
+            Text(provenanceLedgerLabel(for: stats))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -136,18 +137,18 @@ public struct ShadowPanelContent: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.regularMaterial.opacity(0.35))
-        .accessibilityLabel(claimLedgerAccessibilityLabel(for: summary))
+        .accessibilityLabel(provenanceLedgerAccessibilityLabel(for: stats))
     }
 
-    private func claimLedgerLabel(for summary: RustProvenanceLedgerSummary) -> String {
-        if summary.claimCount == 0 && summary.evidenceCount == 0 && summary.eventCount == 0 {
-            return "ledger empty"
+    private func provenanceLedgerLabel(for stats: RustCognitiveDagStats) -> String {
+        if stats.isEmpty {
+            return "DAG ledger empty"
         }
-        return "ledger: \(summary.claimCount) claims · \(summary.evidenceCount) evidence · \(summary.eventCount) events"
+        return "DAG ledger: \(stats.nodeCount) nodes · \(stats.edgeCount) edges"
     }
 
-    private func claimLedgerAccessibilityLabel(for summary: RustProvenanceLedgerSummary) -> String {
-        "Rust ClaimLedger: \(summary.claimCount) claims, \(summary.evidenceCount) evidence, \(summary.eventCount) events"
+    private func provenanceLedgerAccessibilityLabel(for stats: RustCognitiveDagStats) -> String {
+        "Rust Cognitive DAG provenance: \(stats.nodeCount) nodes, \(stats.edgeCount) edges, schema version \(stats.schemaVersion)"
     }
 
     private var resultsList: some View {

@@ -9,9 +9,9 @@ import Testing
 ///
 /// **Doctrine note.** The tests assert FALLBACK behavior + JSON shape
 /// stability, not specific counts — the underlying Rust ledger is
-/// process-global, mutex-protected, and seeded by the agent_loop in
-/// production. In test environments the ledger is empty unless something
-/// commits to it; that's a feature here (we get a deterministic baseline).
+/// process-global and retained as legacy scaffold. Live provenance counts
+/// are surfaced from the Cognitive DAG; this bridge should remain readable
+/// without becoming a second write authority.
 @Suite("Rust Provenance Ledger Client (V2 Lane 1)")
 struct RustProvenanceLedgerClientTests {
 
@@ -72,5 +72,17 @@ struct RustProvenanceLedgerClientTests {
             payload == empty.rustLedgerPayload
         }
         #expect(rustPayloads.count == 1)
+    }
+
+    @Test("Provenance Console names the DAG-authoritative Rust provenance slot")
+    func provenanceConsoleNamesDagAuthoritativeRustSlot() {
+        let payload = ProvenanceConsoleSnapshot.empty.rustLedgerPayload
+        #expect(payload.title == "Cognitive DAG Provenance (Rust)")
+
+        guard case .keyValues(let rows) = payload.body else {
+            #expect(Bool(false), "Expected Rust provenance payload to render as key/value rows")
+            return
+        }
+        #expect(rows.contains { $0.key == "mode" && $0.value == "read-only" })
     }
 }

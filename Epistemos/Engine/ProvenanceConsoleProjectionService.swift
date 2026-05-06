@@ -6,9 +6,9 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
     let agentPayload: GenUIPayload
     let graphPayload: GenUIPayload
     let outboxPayload: GenUIPayload
-    /// V2 Lane 1 (2026-05-05): Rust `agent_core::provenance::ledger::ClaimLedger`
-    /// surfaced alongside the local Swift EventStore. Read-only — writes still
-    /// flow through the Rust paths that own claim/evidence ingestion.
+    /// V2 Lane 1 (2026-05-05): Rust provenance surface. The live authority is
+    /// the Cognitive DAG projection; the legacy ClaimLedger bridge is rendered
+    /// only as compatibility context so we don't create a second source of truth.
     let rustLedgerPayload: GenUIPayload
 
     var payloads: [GenUIPayload] {
@@ -33,7 +33,7 @@ struct ProvenanceConsoleSnapshot: Sendable, Equatable {
         outboxPayload: .keyValueTable(title: "MutationEnvelope projection", [
             ("status", "unavailable")
         ]),
-        rustLedgerPayload: .keyValueTable(title: "ClaimLedger (Rust)", [
+        rustLedgerPayload: .keyValueTable(title: "Cognitive DAG Provenance (Rust)", [
             ("status", "FFI unavailable"),
             ("mode", "read-only")
         ])
@@ -76,6 +76,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
         let graphEvents = eventStore.recentGraphEvents(limit: limit)
         let retractionEvents = subscribeRetractionEvents(afterSequence: 0, limit: limit)
         let rustLedgerSummary = RustProvenanceLedgerClient.summary()
+        let cognitiveDagStats = RustCognitiveDagClient.stats()
 
         return ProvenanceConsoleSnapshot(
             summaryPayload: Self.summaryPayload(
@@ -83,7 +84,8 @@ struct ProvenanceConsoleProjectionService: Sendable {
                 graphDiagnostics: graphDiagnostics,
                 outboxDiagnostics: outboxDiagnostics,
                 retractionEventCount: retractionEvents.count,
-                rustLedger: rustLedgerSummary
+                rustLedger: rustLedgerSummary,
+                cognitiveDag: cognitiveDagStats
             ),
             retractionPayload: GenUIPayload.provenanceTrace(
                 title: "RetractionPropagated",
@@ -101,7 +103,10 @@ struct ProvenanceConsoleProjectionService: Sendable {
                 metadata: ["plane": "GraphEvent"]
             ),
             outboxPayload: Self.outboxPayload(outboxDiagnostics),
-            rustLedgerPayload: Self.rustLedgerPayload(rustLedgerSummary)
+            rustLedgerPayload: Self.rustLedgerPayload(
+                rustLedgerSummary,
+                cognitiveDag: cognitiveDagStats
+            )
         )
     }
 
@@ -119,29 +124,46 @@ struct ProvenanceConsoleProjectionService: Sendable {
         graphDiagnostics: EventStore.GraphEventDiagnostics,
         outboxDiagnostics: EventStore.MutationProjectionOutboxDiagnostics,
         retractionEventCount: Int,
-        rustLedger: RustProvenanceLedgerSummary
+        rustLedger: RustProvenanceLedgerSummary,
+        cognitiveDag: RustCognitiveDagStats
     ) -> GenUIPayload {
         .keyValueTable(title: "Provenance Console", [
             ("mode", "read-only projection"),
             ("RunEventLog", "source event history"),
             ("MutationEnvelope", "\(outboxDiagnostics.totalRows) projection rows"),
             ("ClaimLedger (Swift)", "\(retractionEventCount) RetractionPropagated events"),
-            ("ClaimLedger (Rust)", "\(rustLedger.claimCount) claims, \(rustLedger.evidenceCount) evidence, \(rustLedger.eventCount) events"),
+            ("Cognitive DAG (Rust)", cognitiveDagSummary(cognitiveDag)),
+            ("Legacy ClaimLedger bridge", "\(rustLedger.claimCount) claims, \(rustLedger.evidenceCount) evidence, \(rustLedger.eventCount) events"),
             ("AgentEvent", "\(agentDiagnostics.totalRows) events across \(agentDiagnostics.distinctRuns) runs"),
             ("GraphEvent", "\(graphDiagnostics.totalRows) events across \(graphDiagnostics.distinctMutations) mutations")
         ])
     }
 
     private static func rustLedgerPayload(
-        _ summary: RustProvenanceLedgerSummary
+        _ summary: RustProvenanceLedgerSummary,
+        cognitiveDag: RustCognitiveDagStats
     ) -> GenUIPayload {
-        .keyValueTable(title: "ClaimLedger (Rust)", [
-            ("source", "agent_core::provenance::ledger::ClaimLedger"),
-            ("mode", "read-only FFI projection"),
-            ("claims", "\(summary.claimCount)"),
-            ("evidence", "\(summary.evidenceCount)"),
-            ("events", "\(summary.eventCount)"),
+        .keyValueTable(title: "Cognitive DAG Provenance (Rust)", [
+            ("source", "agent_core::cognitive_dag::dispatch::cognitive_dag_store"),
+            ("mode", "read-only DAG-authoritative projection"),
+            ("nodes", "\(cognitiveDag.nodeCount)"),
+            ("edges", "\(cognitiveDag.edgeCount)"),
+            ("schema", "\(cognitiveDag.schemaVersion)"),
+            ("root", shortRoot(cognitiveDag.merkleRootHex)),
+            ("legacy bridge", "\(summary.claimCount) claims, \(summary.evidenceCount) evidence, \(summary.eventCount) events"),
         ])
+    }
+
+    private static func cognitiveDagSummary(_ stats: RustCognitiveDagStats) -> String {
+        if stats.isEmpty {
+            return "empty (waiting for mirror writes)"
+        }
+        return "\(stats.nodeCount) nodes, \(stats.edgeCount) edges, root \(shortRoot(stats.merkleRootHex))"
+    }
+
+    private static func shortRoot(_ root: String) -> String {
+        let prefix = root.prefix(12)
+        return prefix.isEmpty ? "none" : String(prefix)
     }
 
     private static func outboxPayload(

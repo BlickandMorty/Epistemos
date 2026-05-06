@@ -3,20 +3,19 @@ import os
 
 // MARK: - V2 Lane 1: Rust Provenance Ledger Swift Client
 //
-// Read-only Swift bridge to the Rust `agent_core::provenance::ledger::ClaimLedger`
-// instance maintained inside the agent_core process. Wired via the FFI exports
-// added in `agent_core/src/bridge.rs` (provenance_ledger_summary_json,
-// provenance_ledger_recent_events_json, provenance_ledger_snapshot_json).
+// Read-only Swift bridge to the legacy Rust
+// `agent_core::provenance::ledger::ClaimLedger` instance maintained inside
+// agent_core. Wired via the FFI exports added in `agent_core/src/bridge.rs`
+// (provenance_ledger_summary_json, provenance_ledger_recent_events_json,
+// provenance_ledger_snapshot_json).
 //
-// **Doctrine note.** This is intentionally read-only. Writes still flow through
-// the Rust paths that own claim/evidence ingestion (agent_loop, retraction
-// handlers). Surfacing the ledger here removes the orphan status from the
-// app's perspective without violating the cognitive DAG doctrine §10
-// parallel-store hazard.
+// **Doctrine note.** This is intentionally read-only and no longer the visible
+// authority for live provenance counts. Phase 8 mirror writes flow to the
+// Cognitive DAG (`RustCognitiveDagClient`); keeping this bridge preserves the
+// scaffold without creating a second write target.
 //
-// Consumed by `ProvenanceConsoleProjectionService` to render a "ClaimLedger
-// (Rust)" section in the existing Provenance Console alongside the local
-// Swift `EventStore` reads.
+// Consumed by `ProvenanceConsoleProjectionService` only as legacy context
+// alongside the DAG-authoritative Rust provenance projection.
 
 /// One row in the Rust ledger summary, decoded from
 /// `provenance_ledger_summary_json()`.
@@ -49,9 +48,9 @@ nonisolated struct RustProvenanceLedgerEvent: Sendable, Equatable {
     let summary: String
 }
 
-/// Read-only Swift client for the global Rust `ClaimLedger`. Falls back to
-/// `.empty` summary + empty event list when the FFI is not linked or when
-/// the FFI call errors — never throws to the caller, never blocks the UI.
+/// Read-only Swift client for the legacy global Rust `ClaimLedger`. Falls
+/// back to `.empty` summary + empty event list when the FFI is not linked or
+/// when the FFI call errors — never throws to the caller, never blocks the UI.
 nonisolated enum RustProvenanceLedgerClient {
 
     private static let log = Logger(
@@ -59,9 +58,9 @@ nonisolated enum RustProvenanceLedgerClient {
         category: "RustProvenanceLedgerClient"
     )
 
-    /// Fetch the current ledger summary. Cheap O(1) FFI call. Safe to call
-    /// from any thread; the underlying ledger is `Mutex`-protected on the
-    /// Rust side.
+    /// Fetch the current legacy ledger summary. Cheap O(1) FFI call. Safe to
+    /// call from any thread; the underlying ledger is `RwLock`-protected on
+    /// the Rust side.
     static func summary() -> RustProvenanceLedgerSummary {
         #if canImport(agent_coreFFI)
         do {
