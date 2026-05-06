@@ -139,3 +139,15 @@ public final class EpistemosDocumentController: NSDocumentController {
         }
     }
 }
+
+public extension NSDocumentController {
+    @MainActor
+    @discardableResult
+    func createUntitledEpdocDocument() throws -> NSDocument {
+        let document = try makeUntitledDocument(ofType: "com.epistemos.epdoc")
+        addDocument(document)
+        document.makeWindowControllers()
+        document.showWindows()
+        return document
+    }
+}
