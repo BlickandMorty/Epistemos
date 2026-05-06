@@ -118,6 +118,13 @@
 //!   FastWeight / LoRA / Sketch) + `Direction` (6 arms: Upward /
 //!   Downward / Sideways / Inward / OnItself / None) per
 //!   `epistenos_build_prompt.md` §2.1 helios-core canonical types.
+//! - [`agent_swarm`] — VaultGatedSwarm + Hermes Gateway substrate
+//!   per `epistenos_build_prompt.md` §2.4 + §3.4. 5-axis
+//!   `TaskBudgetAxis` (MaxTokens/MaxCost/MaxTime/MinResonance/
+//!   Deadline) + `AgentMessageContract` (Ed25519-signed, capability-
+//!   granted, resonance-classified) + `HermesVerificationOutcome`
+//!   (VerifiedPromote / EdgeTriggerEsp / ContradictedQuarantine).
+//!   Hermes shared-mmap arena pinned at 200 KiB.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -126,6 +133,9 @@
 
 #[cfg(feature = "research")]
 pub mod acs;
+
+#[cfg(feature = "research")]
+pub mod agent_swarm;
 
 #[cfg(feature = "research")]
 pub mod cms_v2;

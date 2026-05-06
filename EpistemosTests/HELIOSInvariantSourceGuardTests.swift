@@ -320,6 +320,38 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 56: VaultGatedSwarm + Hermes Gateway substrate (Lane 3)")
+    func stage56AgentSwarmExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/agent_swarm.rs")
+        #expect(source.contains("HELIOS-AGENT-SWARM guard"))
+        // 5-axis TaskBudget enum
+        #expect(source.contains("pub enum TaskBudgetAxis"))
+        #expect(source.contains("MaxTokens"))
+        #expect(source.contains("MaxCost"))
+        #expect(source.contains("MaxTime"))
+        #expect(source.contains("MinResonance"))
+        #expect(source.contains("Deadline"))
+        // 3-arm Hermes verification outcome
+        #expect(source.contains("pub enum HermesVerificationOutcome"))
+        #expect(source.contains("VerifiedPromote"))
+        #expect(source.contains("EdgeTriggerEsp"))
+        #expect(source.contains("ContradictedQuarantine"))
+        // Agent message contract
+        #expect(source.contains("pub struct AgentMessageContract"))
+        #expect(source.contains("Ed25519"))
+        #expect(source.contains("capability_granted"))
+        #expect(source.contains("resonance_classified"))
+        #expect(source.contains("pub fn satisfies_canonical_contract"))
+        // Hermes arena size pin
+        #expect(source.contains("HERMES_ARENA_BYTES: usize = 200 * 1024"))
+        // Const arrays
+        #expect(source.contains("pub const FIVE_BUDGET_AXES"))
+        #expect(source.contains("pub const THREE_HERMES_OUTCOMES"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod agent_swarm"))
+    }
+
     @Test("Stage 55: LearningMode + Direction taxonomy (Lane 3)")
     func stage55LearningModesExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/learning_modes.rs")
