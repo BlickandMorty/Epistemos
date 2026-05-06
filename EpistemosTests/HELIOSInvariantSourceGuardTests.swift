@@ -320,6 +320,57 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 8 / W24: Lean repo skeleton exists with mathlib4 pin")
+    func stage8LeanRepoSkeletonExists() throws {
+        let lakefile = try loadMirroredSourceTextFile("lean/Epistemos/lakefile.lean")
+        #expect(lakefile.contains("package «epistemos»"))
+        #expect(lakefile.contains("require mathlib"))
+        #expect(lakefile.contains("v4.16.0"))   // tagged release pin per Q4
+
+        let toolchain = try loadMirroredSourceTextFile("lean/Epistemos/lean-toolchain")
+        #expect(toolchain.contains("leanprover/lean4:v4.16.0"))
+
+        let entry = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos.lean")
+        for n in 1...7 {
+            #expect(
+                entry.contains("import Epistemos.E\(n)"),
+                "Epistemos.lean must import E\(n)"
+            )
+        }
+    }
+
+    @Test("Stage 8 / W24: every E1-E7 stub carries HELIOS-E<n> guard")
+    func stage8E1ThroughE7LeanStubsExist() throws {
+        for n in 1...7 {
+            let path = "lean/Epistemos/Epistemos/E\(n).lean"
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(
+                source.contains("HELIOS-E\(n) guard"),
+                "\(path) missing canonical HELIOS-E\(n) guard"
+            )
+            #expect(source.contains("namespace Epistemos.E\(n)"))
+            #expect(source.contains("end Epistemos.E\(n)"))
+        }
+    }
+
+    @Test("Stage 8 / W24: ci.yml runs sorry-budget tracker as a CI step")
+    func stage8SorryBudgetCiStepExists() throws {
+        let source = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
+        #expect(source.contains("./Tools/sorry-budget/sorry-budget.sh"))
+        #expect(source.contains("W24 — Lean sorry-budget tracker"))
+    }
+
+    @Test("Stage 8 / W24: sorry-budget tracker uses awk + DOC-6-aligned budgets")
+    func stage8SorryBudgetUsesAwkAndAlignedBudgets() throws {
+        let source = try loadMirroredSourceTextFile("Tools/sorry-budget/sorry-budget.sh")
+        #expect(source.contains("awk '/^[[:space:]]*sorry"))
+        // DOC 6 alignment: E3 + E6 are ≤ 1 (not ≤ 2 like the others).
+        #expect(source.contains("E3|1"))
+        #expect(source.contains("E6|1"))
+        #expect(source.contains("E1|2"))
+        #expect(source.contains("E7|2"))
+    }
+
     @Test("Stage 7 / W25: M2 Max protocol YAML files exist for every registered id")
     func stage7W25ProtocolYamlsExist() throws {
         // Every registered cargo_test_filter id from falsifier.sh
