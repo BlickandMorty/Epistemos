@@ -1,0 +1,54 @@
+# HELIOS V5 W25 — Falsifier protocol for W4 Residency Governor.
+
+id: W4
+title: "Residency Governor 9-arm route() pure function"
+class: work_slice
+lane: L1
+severity: HALT
+state: implemented
+
+statement: |
+  The Residency Governor is a pure function `route(signal) ->
+  Residency` mapping a (privacy_score, repeat_count, gain,
+  forgetting_signal, safety_risk) signal tuple to one of nine
+  Residency arms:
+    Quarantine, TransientContext, FeatureRule, GrpoPrior,
+    PsoftAdapter, OsftCore, Reserved1, Reserved2, RetrievalMemory
+  The route function MUST be deterministic across repeated calls
+  and exhaustive over the 4096-case Cartesian sweep of input
+  thresholds.
+
+acceptance:
+  metric: deterministic_exhaustive_route_coverage
+  threshold: 1.0           # every reachable arm covered + same input → same output
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::residency"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Run the full scope_rex::residency test suite.
+    2. The route() function is exercised by a 4096-case Cartesian
+       sweep test (`coarse_cartesian_over_signal_space_never_panics`)
+       which proves panic-freedom + valid-arm output for every
+       signal tuple in the sweep grid.
+    3. Verify deterministic behavior via the
+       `route_is_deterministic_across_repeated_calls` test.
+
+falsifier:
+  hard: |
+    Any signal tuple producing a non-canonical Residency arm, or
+    differing output across two identical calls, is a HALT-class
+    violation. The privacy threshold + safety threshold + osft
+    antecedent invariants are encoded in the unit-test contract.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 W4
+  - agent_core/src/scope_rex/residency.rs
+
+insertion_site: agent_core/src/scope_rex/residency.rs
+
+cross_ref: H7    # H7 is the operational view of W4 (already in registry)

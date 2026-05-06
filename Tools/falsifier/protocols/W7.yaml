@@ -1,0 +1,58 @@
+# HELIOS V5 W25 — Falsifier protocol for W7 Witnessed-State 8-tuple substrate.
+
+id: W7
+title: "Witnessed-State 8-tuple S_t = (h_t, z_t, g_t, p_t, m_t, w_t, ℓ_t, u_t)"
+class: work_slice
+lane: L1
+severity: HALT
+state: implemented
+
+statement: |
+  The SCOPE-Rex Omega state-witness layer materializes a
+  WitnessedState snapshot at every chat turn carrying the 8-tuple
+  state representation:
+    h_t — model working state (KV cache, recurrent state)
+    z_t — sparse-feature state (SAE activations)
+    g_t — extracted claim graph
+    p_t — proof / verification state
+    m_t — persistent memory
+    w_t — tool / world state
+    ℓ_t — durable ledger state
+    u_t — authorization state
+  Each field is anchored by a 32-byte BLAKE3 root; consecutive
+  snapshots form a Merkle chain via `materialized_from`.
+
+acceptance:
+  metric: witnessed_state_chain_continuity
+  threshold: 1.0           # every snapshot's parent is the prior snapshot's state_id
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::witnessed_state"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Run the full scope_rex::witnessed_state test suite.
+    2. Verify StateRoot ZERO genesis + JSON round-trip.
+    3. Verify SemanticDeltaEvent.op_count() correctly sums all
+       five reference arrays + auth_ref optional.
+    4. End-to-end (W1.b follow-up): sample a chat trajectory of N
+       = 100 turns, verify each WitnessedState's
+       `materialized_from` field equals the prior turn's
+       `state_id`.
+
+falsifier:
+  hard: |
+    Any chain break (`materialized_from` ≠ prior `state_id`) or
+    BLAKE3 root mismatch on the 32-byte witness components is a
+    HALT-class violation. The genesis snapshot is the only
+    permitted ZERO-anchored entry.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 W7
+  - source_docs/scope_rex_omega.md §"State Witness Layer"
+  - agent_core/src/scope_rex/witnessed_state.rs
+
+insertion_site: agent_core/src/scope_rex/witnessed_state.rs

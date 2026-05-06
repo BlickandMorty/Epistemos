@@ -56,8 +56,11 @@ H8|agent_core|default|cognitive_dag::dispatch
 H11|epistemos-research|research|theorems::e2_sheaf_gluing
 H17|agent_core|default|scope_rex::retrieval::hopfield
 W1|agent_core|default|scope_rex::answer_packet
+W2|agent_core|default|provenance::ledger
+W4|agent_core|default|scope_rex::residency
 W5|agent_core|default|scope_rex::btm_semantic
 W6|agent_core|default|scope_rex::metal::asa_index
+W7|agent_core|default|scope_rex::witnessed_state
 W8|agent_core|default|scope_rex::kv::direct_gate
 W12|agent_core|default|scope_rex::kernels::t_mac
 W13|agent_core|default|scope_rex::kernels::bitnet

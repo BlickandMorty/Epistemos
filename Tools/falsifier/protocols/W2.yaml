@@ -1,0 +1,48 @@
+# HELIOS V5 W25 — Falsifier protocol for W2 ClaimKind 5-arm taxonomy.
+
+id: W2
+title: "ClaimKind 5-arm taxonomy (Empirical / Mathematical / CodeInvariant / Causal / Speculative)"
+class: work_slice
+lane: L1
+severity: HALT
+state: implemented
+
+statement: |
+  Every Claim in the provenance ledger carries a ClaimKind tag
+  drawn from exactly five arms:
+    Empirical, Mathematical, CodeInvariant, Causal, Speculative.
+  Default for back-compat (deserializing v1 archives without the
+  field) is `Speculative`. The ClaimKind shapes the falsifier
+  treatment: Mathematical claims need formal proof; Empirical
+  need benchmark; CodeInvariant need property-based test;
+  Causal need counterfactual; Speculative is research-tier only.
+
+acceptance:
+  metric: claim_kind_dispatch_coverage
+  threshold: 1.0           # every ledger Claim carries one of the 5 arms
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "provenance::ledger"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Run the full provenance::ledger test suite.
+    2. Sample N = 1024 Claims from typical agent runs.
+    3. For each Claim, verify `kind` field is one of the 5 arms.
+    4. Verify v1 archive deserialization defaults to Speculative.
+
+falsifier:
+  hard: |
+    Any Claim with no `kind` field (post-v1) or a kind outside the
+    5 canonical arms is a HALT-class violation. The
+    `#[serde(default)]` tag handles v1 back-compat; without it,
+    older replay bundles would fail to load.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 W2
+  - agent_core/src/provenance/ledger.rs
+
+insertion_site: agent_core/src/provenance/ledger.rs
