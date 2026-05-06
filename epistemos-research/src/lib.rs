@@ -97,6 +97,11 @@
 //!   `f.to_bits()` subtraction breaks across the sign boundary;
 //!   `ordered_f32_bits()` / `ordered_f16_bits()` map to a monotonic
 //!   integer first.
+//! - [`stack_roles`] — Mac-native stack roles (Rust spine / MLX
+//!   hand / Metal nerves) per `helios_v2.md` + canonical reference
+//!   checkpoint pins (Qwen3-8B-MLX-4bit transformer track +
+//!   cartesia-ai/mamba2-2.7b-4bit-mlx SSM track) for cross-
+//!   architecture validation.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -141,6 +146,9 @@ pub mod shadow_memory;
 
 #[cfg(feature = "research")]
 pub mod sherry;
+
+#[cfg(feature = "research")]
+pub mod stack_roles;
 
 #[cfg(feature = "research")]
 pub mod ternary_kernel;
