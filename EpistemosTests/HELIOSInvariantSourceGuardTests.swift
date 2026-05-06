@@ -320,6 +320,47 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 24: Ternary Kernel substrate — Trit alphabet + packing + residual islands (Lane 3)")
+    func stage24TernaryKernelSubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/ternary_kernel.rs")
+        #expect(source.contains("HELIOS-TERNARY-KERNEL guard"))
+        // Trit alphabet
+        #expect(source.contains("pub enum Trit"))
+        #expect(source.contains("Neg1"))
+        #expect(source.contains("Zero"))
+        #expect(source.contains("Pos1"))
+        // Canonical 16-trits-per-u32 packing constant
+        #expect(source.contains("pub const TRITS_PER_U32: usize = 16"))
+        // Bit-pattern convention 00=-1 / 01=0 / 10=+1 / 11=reserved
+        #expect(source.contains("00 = -1"))
+        #expect(source.contains("01 =  0"))
+        #expect(source.contains("10 = +1"))
+        #expect(source.contains("11 = reserved"))
+        // Pack / unpack functions with reserved-pattern handling
+        #expect(source.contains("pub fn pack_16_trits"))
+        #expect(source.contains("pub fn unpack_16_trits"))
+        // Three-backend triad
+        #expect(source.contains("pub enum TernaryBackend"))
+        #expect(source.contains("DenseMlx"))
+        #expect(source.contains("BitnetReference"))
+        #expect(source.contains("TernaryMetal"))
+        // Fragile-dense + ternary-hot-path enums
+        #expect(source.contains("pub enum FragileDenseLayer"))
+        #expect(source.contains("pub enum TernaryHotPathLayer"))
+        // Residual island layer formula
+        #expect(source.contains("pub struct ResidualIslandLayer"))
+        #expect(source.contains("BitLinear_ternary(x; W_t, s) + ResidualIsland(x; W_r)"))
+        // Canonical order constants
+        #expect(source.contains("pub const ALL_BACKENDS"))
+        #expect(source.contains("pub const ALL_FRAGILE_LAYERS"))
+        #expect(source.contains("pub const ALL_HOT_PATH_LAYERS"))
+        // Lane 3 RESEARCH-ONLY guard
+        #expect(source.contains("Lane 3 RESEARCH-ONLY"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod ternary_kernel"))
+    }
+
     @Test("Stage 23: CMS v2 6-layer defense + 3-tier moral structure + 6 unresolvable problems (Lane 3)")
     func stage23CmsV2SubstrateExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/cms_v2.rs")
