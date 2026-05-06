@@ -8,14 +8,14 @@ const HIDDEN_TAG_PAIRS: [(&str, &str); 2] =
     [("<scratch_pad>", "</scratch_pad>"), ("<think>", "</think>")];
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HermesToolCall {
+pub struct RuntimeToolCall {
     pub name: String,
     pub arguments_json: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolCallDetection {
-    pub call: HermesToolCall,
+    pub call: RuntimeToolCall,
     pub raw_content: String,
 }
 
@@ -138,7 +138,7 @@ impl StreamingToolCallDetector {
     }
 }
 
-pub fn parse_tool_calls(text: &str) -> Vec<HermesToolCall> {
+pub fn parse_tool_calls(text: &str) -> Vec<RuntimeToolCall> {
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return Vec::new();
@@ -162,7 +162,7 @@ pub fn parse_tool_calls(text: &str) -> Vec<HermesToolCall> {
     calls
 }
 
-fn calls_from_value(value: &Value) -> Vec<HermesToolCall> {
+fn calls_from_value(value: &Value) -> Vec<RuntimeToolCall> {
     match value {
         Value::Array(values) => values.iter().flat_map(calls_from_value).collect(),
         Value::Object(map) => {
@@ -176,7 +176,7 @@ fn calls_from_value(value: &Value) -> Vec<HermesToolCall> {
                 .unwrap_or_else(|| Value::Object(Default::default()));
             let arguments_json =
                 serde_json::to_string(&arguments).unwrap_or_else(|_| "{}".to_string());
-            vec![HermesToolCall {
+            vec![RuntimeToolCall {
                 name: name.to_string(),
                 arguments_json,
             }]

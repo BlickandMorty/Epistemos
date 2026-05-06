@@ -2,22 +2,22 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct HermesToolDefinition {
+pub struct RuntimeToolDefinition {
     pub name: String,
     pub description: String,
     pub parameters: Value,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct HermesPromptInput {
-    pub tools: Vec<HermesToolDefinition>,
+pub struct RuntimePromptInput {
+    pub tools: Vec<RuntimeToolDefinition>,
     pub additional_instructions: Option<String>,
     pub knowledge_index: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum HermesMessageRole {
+pub enum RuntimeMessageRole {
     System,
     User,
     Assistant,
@@ -25,19 +25,19 @@ pub enum HermesMessageRole {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HermesMessage {
-    pub role: HermesMessageRole,
+pub struct RuntimeMessage {
+    pub role: RuntimeMessageRole,
     pub content: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HermesToolResult {
+pub struct RuntimeToolResult {
     pub tool_name: String,
     pub result_json: String,
     pub is_error: bool,
 }
 
-pub fn build_system_prompt(input: &HermesPromptInput) -> String {
+pub fn build_system_prompt(input: &RuntimePromptInput) -> String {
     let tools_json = formatted_tools_json(&input.tools);
     let trimmed_instructions = input
         .additional_instructions
@@ -111,13 +111,13 @@ After the write_file <tool_response> arrives:\n\
 
 pub fn build_messages(
     system_prompt: &str,
-    history: &[HermesMessage],
-    tool_results: &[HermesToolResult],
-) -> Vec<HermesMessage> {
+    history: &[RuntimeMessage],
+    tool_results: &[RuntimeToolResult],
+) -> Vec<RuntimeMessage> {
     let mut messages =
         Vec::with_capacity(1 + history.len() + usize::from(!tool_results.is_empty()));
-    messages.push(HermesMessage {
-        role: HermesMessageRole::System,
+    messages.push(RuntimeMessage {
+        role: RuntimeMessageRole::System,
         content: system_prompt.to_string(),
     });
     messages.extend_from_slice(history);
@@ -128,8 +128,8 @@ pub fn build_messages(
             .map(|result| format!("<tool_response>\n{}\n</tool_response>", result.result_json))
             .collect::<Vec<_>>()
             .join("\n");
-        messages.push(HermesMessage {
-            role: HermesMessageRole::Tool,
+        messages.push(RuntimeMessage {
+            role: RuntimeMessageRole::Tool,
             content,
         });
     }
@@ -137,7 +137,7 @@ pub fn build_messages(
     messages
 }
 
-fn formatted_tools_json(tools: &[HermesToolDefinition]) -> String {
+fn formatted_tools_json(tools: &[RuntimeToolDefinition]) -> String {
     let records = tools
         .iter()
         .map(|tool| {

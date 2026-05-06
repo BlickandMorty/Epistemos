@@ -147,11 +147,11 @@ func executeToolCall(
     throw AgentRuntimeBridgeError.bindingsUnavailable
 }
 
-func hermesBuildSystemPrompt(inputJson: String) throws -> String {
+func runtimeBuildSystemPrompt(inputJson: String) throws -> String {
     throw AgentRuntimeBridgeError.bindingsUnavailable
 }
 
-func hermesParseToolCalls(text: String) throws -> String {
+func runtimeParseToolCalls(text: String) throws -> String {
     throw AgentRuntimeBridgeError.bindingsUnavailable
 }
 

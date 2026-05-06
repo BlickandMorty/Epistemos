@@ -1,8 +1,8 @@
 use agent_core::agent_runtime::function_call::{parse_tool_calls, StreamingToolCallDetector};
 use agent_core::agent_runtime::procedural_memory::{ProceduralMemoryStore, ProcedureOutcomeRecord};
 use agent_core::agent_runtime::prompt_format::{
-    build_messages, build_system_prompt, HermesMessage, HermesMessageRole, HermesPromptInput,
-    HermesToolDefinition, HermesToolResult,
+    build_messages, build_system_prompt, RuntimeMessage, RuntimeMessageRole, RuntimePromptInput,
+    RuntimeToolDefinition, RuntimeToolResult,
 };
 use agent_core::agent_runtime::self_evolution::propose_repeated_success_skill;
 use agent_core::agent_runtime::skills::{
@@ -15,9 +15,9 @@ use std::path::Path;
 use tempfile::tempdir;
 
 #[test]
-fn prompt_format_preserves_hermes_function_call_contract() {
-    let input = HermesPromptInput {
-        tools: vec![HermesToolDefinition {
+fn prompt_format_preserves_function_call_contract() {
+    let input = RuntimePromptInput {
+        tools: vec![RuntimeToolDefinition {
             name: "read_file".to_string(),
             description: "Read an exact path.".to_string(),
             parameters: json!({
@@ -65,13 +65,13 @@ fn prompt_format_preserves_hermes_function_call_contract() {
         "Use tools only for missing context or explicit external side effects."
     ));
     assert!(!prompt.contains("Hermes is the"),
-        "Post-2026-05-05 Hermes-purge: prompt must not bake Hermes-as-gateway doctrine.");
+        "Post-2026-05-05 purge: prompt must not bake Hermes-as-gateway doctrine.");
     assert!(prompt.ends_with("Prefer exact paths."));
 }
 
 #[test]
 fn prompt_format_marks_empty_tool_turns_without_tool_calls() {
-    let prompt = build_system_prompt(&HermesPromptInput {
+    let prompt = build_system_prompt(&RuntimePromptInput {
         tools: Vec::new(),
         additional_instructions: None,
         knowledge_index: None,
@@ -86,11 +86,11 @@ fn prompt_format_marks_empty_tool_turns_without_tool_calls() {
 fn prompt_messages_wrap_tool_results_after_history() {
     let messages = build_messages(
         "system",
-        &[HermesMessage {
-            role: HermesMessageRole::User,
+        &[RuntimeMessage {
+            role: RuntimeMessageRole::User,
             content: "Read it.".to_string(),
         }],
-        &[HermesToolResult {
+        &[RuntimeToolResult {
             tool_name: "read_file".to_string(),
             result_json: "{\"ok\":true}".to_string(),
             is_error: false,
@@ -98,9 +98,9 @@ fn prompt_messages_wrap_tool_results_after_history() {
     );
 
     assert_eq!(messages.len(), 3);
-    assert_eq!(messages[0].role, HermesMessageRole::System);
-    assert_eq!(messages[1].role, HermesMessageRole::User);
-    assert_eq!(messages[2].role, HermesMessageRole::Tool);
+    assert_eq!(messages[0].role, RuntimeMessageRole::System);
+    assert_eq!(messages[1].role, RuntimeMessageRole::User);
+    assert_eq!(messages[2].role, RuntimeMessageRole::Tool);
     assert_eq!(
         messages[2].content,
         "<tool_response>\n{\"ok\":true}\n</tool_response>"
@@ -155,8 +155,8 @@ fn function_call_detector_drops_unclosed_hidden_reasoning() {
 }
 
 #[test]
-fn bridge_exposes_hermes_prompt_and_tool_parse_entrypoints() {
-    let prompt = agent_core::bridge::hermes_build_system_prompt(
+fn bridge_exposes_runtime_prompt_and_tool_parse_entrypoints() {
+    let prompt = agent_core::bridge::runtime_build_system_prompt(
         json!({
             "tools": [],
             "additional_instructions": "Answer directly.",
@@ -169,7 +169,7 @@ fn bridge_exposes_hermes_prompt_and_tool_parse_entrypoints() {
     assert!(prompt.contains("No tools are available for this turn."));
     assert!(prompt.ends_with("Answer directly."));
 
-    let calls_json = agent_core::bridge::hermes_parse_tool_calls(
+    let calls_json = agent_core::bridge::runtime_parse_tool_calls(
         "<tool_call>{\"name\":\"vault_read\",\"arguments\":{\"path\":\"A.md\"}}</tool_call>"
             .to_string(),
     )
@@ -181,7 +181,7 @@ fn bridge_exposes_hermes_prompt_and_tool_parse_entrypoints() {
 }
 
 #[test]
-fn bridge_exposes_hermes_skill_listing_and_procedure_memory() {
+fn bridge_exposes_runtime_skill_listing_and_procedure_memory() {
     let dir = tempdir().unwrap();
     let skills_dir = dir.path().join("skills").join("demo");
     std::fs::create_dir_all(&skills_dir).unwrap();
@@ -247,7 +247,7 @@ async fn bridge_invoke_skill_executes_path_bound_skill_steps() {
         "{\"request\":\"show demo\"}".to_string(),
     )
     .await
-    .expect("invoke_skill should execute declared Hermes skill steps");
+    .expect("invoke_skill should execute declared runtime skill steps");
 
     assert!(result.succeeded, "invoke_skill error: {:?}", result.error);
     assert_eq!(result.skill_name, "demo");
@@ -263,7 +263,7 @@ async fn bridge_invoke_skill_executes_path_bound_skill_steps() {
 }
 
 #[test]
-fn hermes_skills_facade_owns_router_registry_and_tool_facade() {
+fn runtime_skills_facade_owns_router_registry_and_tool_facade() {
     let router = agent_core::agent_runtime::skills::SkillRouter::load(Path::new("/nonexistent"));
     assert_eq!(router.skill_count(), 0);
 
@@ -288,7 +288,7 @@ fn hermes_skills_facade_owns_router_registry_and_tool_facade() {
 }
 
 #[test]
-fn runtime_skill_call_sites_route_through_hermes_skills() {
+fn runtime_skill_call_sites_route_through_runtime_skills() {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let bridge = std::fs::read_to_string(manifest_dir.join("src/bridge.rs")).unwrap();
     let registry = std::fs::read_to_string(manifest_dir.join("src/tools/registry.rs")).unwrap();
