@@ -31,6 +31,12 @@
 //!   arXiv:2506.00415 (Wide Reflective Equilibrium), Curry et al.
 //!   2019 (seven-culture universals), Arditi et al. NeurIPS 2024
 //!   (refusal direction).
+//! - [`ternary_kernel`] — Ternary Core with Residual Islands typed
+//!   substrate: Trit alphabet, 16-trits-per-u32 packing convention,
+//!   three-backend triad (Dense/MLX/BitnetReference/TernaryMetal),
+//!   9 fragile-dense layers + 4 ternary hot-path layers, residual-
+//!   island layer formula. Architectural envelope around the W12/
+//!   W13/W14 MSL kernels.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -45,6 +51,9 @@ pub mod cms_v2;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
+
+#[cfg(feature = "research")]
+pub mod ternary_kernel;
 
 #[cfg(feature = "research")]
 pub mod theorems;
