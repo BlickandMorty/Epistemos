@@ -35,33 +35,34 @@ pub mod macaroons;
 pub mod merkle;
 pub mod migration;
 pub mod node;
+#[cfg(feature = "cognitive-dag-redb")]
+pub mod redb_store;
 pub mod resonance;
 pub mod storage;
 
 // Re-export the canonical surface so call sites can `use
 // crate::cognitive_dag::{Node, NodeKind, Edge, EdgeKind, DagStore,
 // InMemoryDagStore};` without traversing the module tree.
+pub use companions::{
+    make_base_model_node, make_lora_model_node, CompanionError, CompanionLineage, CompanionRegistry,
+};
 pub use edge::{
     AnnotationKind, Edge, EdgeId, EdgeKind, EdgeKindSelector, EdgeSignature, MemoryTier,
 };
+pub use macaroons::{
+    delegate, evaluate_caveats, issue, restrict, revoke_macaroon_in_dag, verify_macaroon, Caveat,
+    CaveatViolation, Macaroon, RuntimeContext, VerifyError,
+};
 pub use merkle::merkle_root_over;
+pub use migration::{DagMirror, SkillMutation, SkillNameIndex, SkillStep, SkillsMirror};
 pub use node::{
     AuthorRef, CapabilityKind, CapabilityScope, ClaimScope, ContextHash, DagAgentEventKind,
     EvidenceBlob, EvidenceKind, Hash, IdentityHash, MimeType, ModelLineage, ModelProfile, Node,
     NodeId, NodeKind, NodeTier, OutcomeList, PersonaBlob, SessionId, SourceRef, Timestamp, ToolId,
     ToolSurface, WeightRoot,
 };
-pub use companions::{
-    make_base_model_node, make_lora_model_node, CompanionError, CompanionLineage,
-    CompanionRegistry,
-};
-pub use migration::{
-    DagMirror, SkillMutation, SkillNameIndex, SkillStep, SkillsMirror,
-};
-pub use macaroons::{
-    delegate, evaluate_caveats, issue, restrict, revoke_macaroon_in_dag, verify_macaroon,
-    Caveat, CaveatViolation, Macaroon, RuntimeContext, VerifyError,
-};
+#[cfg(feature = "cognitive-dag-redb")]
+pub use redb_store::RedbDagStore;
 pub use resonance::{
     add_contradiction_then_propagate, add_evidence_then_propagate, evaluate_claim_truth,
     propagate_truth_change, TruthCache,
