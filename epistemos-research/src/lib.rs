@@ -184,6 +184,9 @@ pub mod five_planes;
 pub mod gate_action;
 
 #[cfg(feature = "research")]
+pub mod goodfire_vpd_specs;
+
+#[cfg(feature = "research")]
 pub mod interrupt_score;
 
 #[cfg(feature = "research")]
