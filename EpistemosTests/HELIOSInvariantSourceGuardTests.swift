@@ -320,6 +320,35 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 46: Cross-domain lens + T_safety parallel inequality (Lane 3)")
+    func stage46CrossDomainLensExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/cross_domain_lens.rs")
+        #expect(source.contains("HELIOS-CROSS-DOMAIN-LENS guard"))
+        // 5-arm lens enum (5 names, one substance)
+        #expect(source.contains("pub enum CrossDomainLens"))
+        #expect(source.contains("ResidualStream"))
+        #expect(source.contains("PredictionError"))
+        #expect(source.contains("SurpriseGradient"))
+        #expect(source.contains("KoopmanMode"))
+        #expect(source.contains("FreeCumulant"))
+        // Helpers
+        #expect(source.contains("pub fn discipline"))
+        #expect(source.contains("pub fn anchor_citation"))
+        // T_safety parallel inequality
+        #expect(source.contains("pub struct TSafetyBound"))
+        #expect(source.contains("HARD_CONSTRAINT_CEILING"))
+        #expect(source.contains("1e-3"))
+        #expect(source.contains("pub fn respects"))
+        // Const array
+        #expect(source.contains("pub const FIVE_LENSES"))
+        #expect(source.contains("[CrossDomainLens; 5]"))
+        // Koan attribution
+        #expect(source.contains("Five names, one substance"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod cross_domain_lens"))
+    }
+
     @Test("Stage 45: Per-term falsifier actions for Master Inequality (Lane 3)")
     func stage45FalsifierActionsExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/falsifier_actions.rs")

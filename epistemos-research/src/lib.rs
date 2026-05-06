@@ -79,6 +79,11 @@
 //!   §"PART VI" §2. 6-term `InequalityTerm` × 9-arm
 //!   `FalsifierAction` mapping with primary + optional secondary
 //!   fallback per term.
+//! - [`cross_domain_lens`] — "5 names, one substance" koan from
+//!   `helios_v3.md` Part VII: residual stream = prediction error =
+//!   surprise gradient = Koopman mode = free cumulant. Plus
+//!   `TSafetyBound` parallel safety inequality (CMS-X v3 lives ON
+//!   TOP of Helios, not inside the substrate).
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -90,6 +95,9 @@ pub mod acs;
 
 #[cfg(feature = "research")]
 pub mod cms_v2;
+
+#[cfg(feature = "research")]
+pub mod cross_domain_lens;
 
 #[cfg(feature = "research")]
 pub mod engram;
