@@ -320,6 +320,25 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 12: W6/W7/W8 Metal Shading Language kernels exist")
+    func stage12W6W7W8MetalKernelsExist() throws {
+        let asa = try loadMirroredSourceTextFile("Epistemos/Shaders/active_support_atlas.metal")
+        #expect(asa.contains("HELIOS-W6-METAL guard"))
+        #expect(asa.contains("kernel void asaMaskedMatmul"))
+        #expect(asa.contains("BIT-IDENTICAL"))
+
+        let softmax = try loadMirroredSourceTextFile("Epistemos/Shaders/half_softmax_post.metal")
+        #expect(softmax.contains("HELIOS-W7-METAL guard"))
+        #expect(softmax.contains("kernel void halfSoftmaxPost"))
+        #expect(softmax.contains("\u{2264} 2 ULP"))
+        #expect(softmax.contains("max-subtraction"))
+
+        let kv = try loadMirroredSourceTextFile("Epistemos/Shaders/kv_direct_gate.metal")
+        #expect(kv.contains("HELIOS-W8-METAL guard"))
+        #expect(kv.contains("kernel void kvDirectQkRow"))
+        #expect(kv.contains("BIT-IDENTICAL"))
+    }
+
     @Test("Stage 10: ci.yml exercises epistemos-research + epistemos-vault crates")
     func stage10CiYamlExercisesNewCrates() throws {
         let source = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
