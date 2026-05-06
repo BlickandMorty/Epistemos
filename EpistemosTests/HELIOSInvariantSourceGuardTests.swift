@@ -320,6 +320,54 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 21: SCOPE-Rex Omega state-witness + ontology + observatory substrate exists")
+    func stage21WitnessedStateOntologyObservatoryExist() throws {
+        // WitnessedState — 8-tuple state representation per scope_rex_omega.md
+        let witnessed = try loadMirroredSourceTextFile("agent_core/src/scope_rex/witnessed_state.rs")
+        #expect(witnessed.contains("HELIOS-WITNESSED-STATE guard"))
+        #expect(witnessed.contains("pub struct StateRoot"))
+        #expect(witnessed.contains("pub struct WitnessedState"))
+        #expect(witnessed.contains("pub struct SemanticDeltaEvent"))
+        // 8-tuple notation present.
+        #expect(witnessed.contains("S_t = (h_t, z_t, g_t, p_t, m_t, w_t"))
+        // Genesis / op_count contracts present.
+        #expect(witnessed.contains("pub fn genesis"))
+        #expect(witnessed.contains("pub fn op_count"))
+
+        // OntologyValidator — V(a) ontology-violation cost surface
+        let ontology = try loadMirroredSourceTextFile("agent_core/src/scope_rex/ontology.rs")
+        #expect(ontology.contains("HELIOS-ONTOLOGY guard"))
+        #expect(ontology.contains("pub trait OntologyValidator"))
+        #expect(ontology.contains("pub struct VerificationReport"))
+        #expect(ontology.contains("pub enum OntologyViolationSeverity"))
+        // 4-arm severity taxonomy aligned with H1-H17 invariants.
+        #expect(ontology.contains("Warn"))
+        #expect(ontology.contains("Degrade"))
+        #expect(ontology.contains("Quarantine"))
+        #expect(ontology.contains("Halt"))
+        #expect(ontology.contains("pub struct NoOpOntologyValidator"))
+
+        // FeatureObservatory — F(a) feature-target match (Qwen-Scope SAE inspection)
+        let observatory = try loadMirroredSourceTextFile("agent_core/src/scope_rex/feature_observatory.rs")
+        #expect(observatory.contains("HELIOS-OBSERVATORY guard"))
+        #expect(observatory.contains("pub trait FeatureObservatory"))
+        #expect(observatory.contains("pub struct FeatureSignal"))
+        #expect(observatory.contains("pub struct FeatureEdit"))
+        #expect(observatory.contains("pub enum SteeringMode"))
+        // 4-arm steering mode taxonomy.
+        #expect(observatory.contains("ReadOnly"))
+        #expect(observatory.contains("Amplify"))
+        #expect(observatory.contains("Suppress"))
+        #expect(observatory.contains("Steer"))
+        #expect(observatory.contains("pub struct NoOpFeatureObservatory"))
+
+        // mod.rs registers all three new submodules
+        let mod = try loadMirroredSourceTextFile("agent_core/src/scope_rex/mod.rs")
+        #expect(mod.contains("pub mod witnessed_state"))
+        #expect(mod.contains("pub mod ontology"))
+        #expect(mod.contains("pub mod feature_observatory"))
+    }
+
     @Test("Stage 20: W12/W13/W14 Tier-2 Metal Shading Language kernels exist")
     func stage20Tier2MetalKernelsExist() throws {
         let tmac = try loadMirroredSourceTextFile("Epistemos/Shaders/tmac_lut.metal")
