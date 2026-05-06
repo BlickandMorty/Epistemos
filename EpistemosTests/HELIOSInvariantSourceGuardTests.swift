@@ -320,6 +320,36 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 33: Sherry 1.25-bit packing substrate — 3:4 sparsity, 32-config space (Lane 3)")
+    func stage33SherrySubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/sherry.rs")
+        #expect(source.contains("HELIOS-SHERRY guard"))
+        // Block invariant constants per doctrine
+        #expect(source.contains("pub const BLOCK_WIDTH: usize = 4"))
+        #expect(source.contains("pub const NONZERO_PER_BLOCK: usize = 3"))
+        #expect(source.contains("pub const BITS_PER_BLOCK: usize = 5"))
+        #expect(source.contains("pub const CONFIG_SPACE_SIZE: usize = 32"))
+        // 1.25 bits/weight stored as numerator/denominator (no float drift)
+        #expect(source.contains("BITS_PER_WEIGHT_NUMERATOR: u32 = 5"))
+        #expect(source.contains("BITS_PER_WEIGHT_DENOMINATOR: u32 = 4"))
+        // SherryBlock + pack/unpack
+        #expect(source.contains("pub struct SherryBlock"))
+        #expect(source.contains("pub fn pack"))
+        #expect(source.contains("pub fn unpack"))
+        #expect(source.contains("pub fn to_weights"))
+        #expect(source.contains("pub fn from_weights"))
+        // Configuration enumeration
+        #expect(source.contains("pub fn enumerate_all_configs"))
+        // Citations: Hong Huang et al. (Tencent + CityU + McGill, January 2026)
+        #expect(source.contains("Hong Huang"))
+        #expect(source.contains("AngelSlim"))
+        // Lane 3 RESEARCH-ONLY guard
+        #expect(source.contains("Lane 3 RESEARCH-ONLY"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod sherry"))
+    }
+
     @Test("Stage 30: V6.1 Final Synthesis Lock — Attention as Interrupt + canon-lock chain (Lane 3)")
     func stage30V6_1SubstrateExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/v6_1.rs")

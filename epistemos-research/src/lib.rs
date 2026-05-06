@@ -45,6 +45,10 @@
 //!   reframed as Interrupt (not Substrate) per the V5→V6→V6.1 arc;
 //!   four-arm CanonLock chain; six-axis V6_1Axis slogan;
 //!   `VERIFIED_FLOOR_ANCHOR = "ac8c6d28"` (immutable, carry-forward).
+//! - [`sherry`] — Sherry 1.25-bit packing substrate per Hong Huang
+//!   et al. (Jan 2026; Tencent/AngelSlim). 3:4 sparsity blocks of 4
+//!   weights packed into 5 bits saturating C(4,3)·2³ = 32-config
+//!   space. Pack/unpack round-trip + 3:4 contract enforcement.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -59,6 +63,9 @@ pub mod cms_v2;
 
 #[cfg(feature = "research")]
 pub mod shadow_memory;
+
+#[cfg(feature = "research")]
+pub mod sherry;
 
 #[cfg(feature = "research")]
 pub mod ternary_kernel;
