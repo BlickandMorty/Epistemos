@@ -320,6 +320,44 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 43: Self-Evolving Extension L_SE substrate (Lane 3)")
+    func stage43SelfEvolvingLseExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/self_evolving_l_se.rs")
+        #expect(source.contains("HELIOS-L-SE guard"))
+        // 4-arm mechanism enum
+        #expect(source.contains("pub enum LseMechanism"))
+        #expect(source.contains("Seal"))
+        #expect(source.contains("TttLinearOrMlp"))
+        #expect(source.contains("TitansMacMagMal"))
+        #expect(source.contains("SoftPromptsMem0"))
+        // 2-phase pipeline
+        #expect(source.contains("pub enum LsePhase"))
+        #expect(source.contains("OnlineTitansMac"))
+        #expect(source.contains("NightlySealDora"))
+        // 6-escalation surprise routing
+        #expect(source.contains("pub enum SurpriseEscalation"))
+        #expect(source.contains("LseToL0EvictInhibit"))
+        #expect(source.contains("LseToL1CodecReweight"))
+        #expect(source.contains("LseSwapsL2RetrievalKernel"))
+        #expect(source.contains("LseToL3SsdFetch"))
+        #expect(source.contains("LseToL4HermesEscalate"))
+        #expect(source.contains("L4ToLseFeedback"))
+        // T_SE drift bound substrate
+        #expect(source.contains("pub struct TSeBoundParams"))
+        #expect(source.contains("pub fn upper_bound"))
+        // Const arrays
+        #expect(source.contains("pub const ALL_MECHANISMS"))
+        #expect(source.contains("pub const ALL_PHASES"))
+        #expect(source.contains("pub const ALL_ESCALATIONS"))
+        // arXiv anchors
+        #expect(source.contains("2506.10943"))
+        #expect(source.contains("2407.04620"))
+        #expect(source.contains("2501.00663"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod self_evolving_l_se"))
+    }
+
     @Test("Stage 42: Five Mathematical Pillars taxonomy (Lane 3)")
     func stage42MathematicalPillarsExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/mathematical_pillars.rs")
