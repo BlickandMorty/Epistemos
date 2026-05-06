@@ -320,6 +320,36 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 15: E1/E2/E3 Lean stubs enriched with v2.0-hardened formal statements")
+    func stage15E1E2E3LeanStubsEnriched() throws {
+        let e1 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/E1.lean")
+        // E1 v2.0 hardened content: AnnularSector + AMorphGenerator + fullGeneratorList.
+        #expect(e1.contains("structure AnnularSector"))
+        #expect(e1.contains("inductive AMorphGenerator"))
+        #expect(e1.contains("fullGeneratorList"))
+        // The v2.0 P-scope distinction (full generators only).
+        #expect(e1.contains("density_with_full_generators"))
+        // EML-alone density is C (open) — must be documented.
+        #expect(e1.contains("EML-alone density"))
+
+        let e2 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/E2.lean")
+        // E2 v2.0 hardened: PatchGraph + Stalk + CellularSheaf structures.
+        #expect(e2.contains("structure PatchGraph"))
+        #expect(e2.contains("structure Stalk"))
+        #expect(e2.contains("structure CellularSheaf"))
+        // Bound constants per v2.0 §T2.
+        #expect(e2.contains("maxPatchNodes"))
+        #expect(e2.contains("maxPatchEdges"))
+        #expect(e2.contains("maxStalkDim"))
+
+        let e3 = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/E3.lean")
+        // E3 v2.0 hardened: split into telescoping (P) + memory corollary (EB).
+        #expect(e3.contains("Telescoping bound (P)"))
+        #expect(e3.contains("Memory corollary (EB)"))
+        #expect(e3.contains("structure LayerLipschitz"))
+        #expect(e3.contains("cumulativeErrorBound"))
+    }
+
     @Test("Stage 14: falsifier.sh registry has 4-column per-crate dispatch + 21 entries")
     func stage14FalsifierRegistryDispatchesAcrossCrates() throws {
         let source = try loadMirroredSourceTextFile("Tools/falsifier/falsifier.sh")
