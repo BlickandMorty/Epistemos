@@ -1,18 +1,20 @@
 ---
 state: candidate
 candidate_promoted_on: 2026-05-05
+codex_continuation_update: 2026-05-05 Tier-1 doctrine lifts landed; runtime phases remain candidate
 audit_item: B1 (CANON_GAPS_AND_ADDENDA bonus block)
 source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md (689 lines, dated 2026-04-29)
 ---
 
 # B1 — Biometric / Tamagotchi / Brain-Export — lift targets
 
-> **State: candidate.** Read-then-absorb pass per CANON_GAPS_AND_ADDENDA
+> **State: candidate for runtime implementation.** Read-then-absorb pass per CANON_GAPS_AND_ADDENDA
 > bonus block B1. The source addendum is 689 lines covering Waves 9–11
 > of the Quick Capture standalone canon. This brief maps each thread
 > to current main, classifies what's net-new vs already-covered, and
-> recommends specific lift targets — held for sign-off; no doctrine
-> additions or code land in this slice.
+> recommends specific lift targets. Codex continuation landed the
+> Tier-1 doctrine lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
+> Phase 21-25 runtime work remains queued behind deliberation briefs.
 
 ## Source-doc summary (one paragraph per thread)
 
@@ -83,10 +85,11 @@ load-bearing. The lift below honors them:
 
 ## Recommended lift targets (priority-ordered, held for sign-off)
 
-### Tier 1 — Lift to doctrine (no code)
+### Tier 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
 
-These are doctrine-shaping additions that DON'T require code; they
-codify already-present capabilities or set guardrails for future work.
+These doctrine-shaping additions were landed by Codex continuation
+without runtime code. They codify already-present capabilities or set
+guardrails for future work.
 
 | Target | Where | Why |
 |---|---|---|
@@ -152,11 +155,11 @@ Rule.
 B1 is a 689-line productization addendum spanning three substantial
 waves. ~50% of the substrate it requires is already partially present
 in main; ~50% is genuinely new feature surface. The Tier-1 lifts (5
-doctrine additions) are the right next move — they codify the
-contracts before code lands, so any future implementation has a
-canonical target. The Tier-2 build-order entries (Phases 21–25) queue
+doctrine additions) are now landed — they codify the contracts before
+code lands, so any future implementation has a canonical target. The
+Tier-2 build-order entries (Phases 21–25) queue
 for explicit sign-off + deliberation briefs per the existing Operating
 Rule. Tier-3 items (patent strategy, YC pitch, hardware claims) stay
 out of canon.
 
-Held for sign-off.
+Runtime implementation remains held for sign-off; Tier-1 doctrine is landed.

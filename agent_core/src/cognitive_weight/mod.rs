@@ -142,12 +142,30 @@ mod tests {
         // the LOWER class (the table reads "0.00–0.30" inclusive).
         assert_eq!(CognitiveWeight::classify(0.0), CognitiveWeightClass::Soft);
         assert_eq!(CognitiveWeight::classify(0.30), CognitiveWeightClass::Soft);
-        assert_eq!(CognitiveWeight::classify(0.31), CognitiveWeightClass::Preferred);
-        assert_eq!(CognitiveWeight::classify(0.60), CognitiveWeightClass::Preferred);
-        assert_eq!(CognitiveWeight::classify(0.61), CognitiveWeightClass::StrongAnchor);
-        assert_eq!(CognitiveWeight::classify(0.85), CognitiveWeightClass::StrongAnchor);
-        assert_eq!(CognitiveWeight::classify(0.86), CognitiveWeightClass::PolicyGrade);
-        assert_eq!(CognitiveWeight::classify(1.0), CognitiveWeightClass::PolicyGrade);
+        assert_eq!(
+            CognitiveWeight::classify(0.31),
+            CognitiveWeightClass::Preferred
+        );
+        assert_eq!(
+            CognitiveWeight::classify(0.60),
+            CognitiveWeightClass::Preferred
+        );
+        assert_eq!(
+            CognitiveWeight::classify(0.61),
+            CognitiveWeightClass::StrongAnchor
+        );
+        assert_eq!(
+            CognitiveWeight::classify(0.85),
+            CognitiveWeightClass::StrongAnchor
+        );
+        assert_eq!(
+            CognitiveWeight::classify(0.86),
+            CognitiveWeightClass::PolicyGrade
+        );
+        assert_eq!(
+            CognitiveWeight::classify(1.0),
+            CognitiveWeightClass::PolicyGrade
+        );
     }
 
     #[test]
@@ -165,7 +183,10 @@ mod tests {
         // grant authority.
         let w = CognitiveWeight::from_raw_score(0.95);
         assert_eq!(w.class, CognitiveWeightClass::PolicyGrade);
-        assert!(!w.policy_authority, "authority must be opted in via §3 gates");
+        assert!(
+            !w.policy_authority,
+            "authority must be opted in via §3 gates"
+        );
     }
 
     #[test]
@@ -207,7 +228,10 @@ mod tests {
             assert!(
                 boost >= low && boost <= high,
                 "boost for {:?} = {} outside doctrine range [{},{}]",
-                class, boost, low, high
+                class,
+                boost,
+                low,
+                high
             );
         }
     }

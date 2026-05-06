@@ -20,7 +20,7 @@ use super::node::{Hash, NodeId};
 
 /// Compute the canonical Merkle root over a sorted list of node ids
 /// + sorted list of edge ids. The caller must ensure the slices are
-/// sorted ascending — `BTreeMap::keys()` gives this for free.
+///   sorted ascending — `BTreeMap::keys()` gives this for free.
 ///
 /// Returns `Hash::zero()` for an empty store, which is the canonical
 /// "no content" root.

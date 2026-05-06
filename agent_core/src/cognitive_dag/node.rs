@@ -288,6 +288,26 @@ impl NodeKind {
             NodeKind::Model { .. } => "model",
         }
     }
+
+    /// Canonical static/dynamic-rooted artifact discriminator.
+    ///
+    /// Static artifacts are content-addressed snapshots: new versions
+    /// mint new node IDs. Dynamic-rooted artifacts point at mutable model
+    /// state, but still express mutation as a new node plus lineage edges,
+    /// never by mutating the node in place.
+    pub fn is_dynamic_rooted(&self) -> bool {
+        match self {
+            NodeKind::Companion { .. } | NodeKind::Model { .. } => true,
+            NodeKind::Note { .. }
+            | NodeKind::Claim { .. }
+            | NodeKind::Evidence { .. }
+            | NodeKind::Skill { .. }
+            | NodeKind::Tool { .. }
+            | NodeKind::Procedure { .. }
+            | NodeKind::Event { .. }
+            | NodeKind::Capability { .. } => false,
+        }
+    }
 }
 
 // ── Node struct + content-addressing ────────────────────────────────────────
@@ -396,55 +416,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn node_id_is_deterministic_for_identical_content() {
-        let a = Node::compute_id(&sample_note());
-        let b = Node::compute_id(&sample_note());
-        assert_eq!(a, b, "content-addressing must be deterministic");
-    }
-
-    #[test]
-    fn different_content_produces_different_id() {
-        let a = Node::compute_id(&sample_note());
-        let b = Node::compute_id(&NodeKind::Note {
-            body: "goodbye".into(),
-            author: AuthorRef("user".into()),
-            mime: MimeType("text/markdown".into()),
-        });
-        assert_ne!(a, b, "different bodies must produce different ids");
-    }
-
-    #[test]
-    fn different_kinds_produce_different_ids() {
-        let note_id = Node::compute_id(&sample_note());
-        let claim_id = Node::compute_id(&NodeKind::Claim {
-            proposition: "hello".into(),
-            scope: ClaimScope::Vault,
-            source: SourceRef("user".into()),
-        });
-        assert_ne!(note_id, claim_id, "different kinds must produce different ids");
-    }
-
-    #[test]
-    fn new_node_initialises_merkle_root_to_id() {
-        let node = Node::new(sample_note());
-        assert_eq!(node.merkle_root.as_bytes(), node.id.as_bytes());
-    }
-
-    #[test]
-    fn new_at_uses_supplied_timestamp() {
-        let ts = Timestamp(1_000_000);
-        let node = Node::new_at(sample_note(), ts);
-        assert_eq!(node.created_at, ts);
-    }
-
-    #[test]
-    fn discriminator_covers_all_variants() {
-        // Sanity: every variant has a non-empty discriminator.
-        // Cargo will fail-to-compile if a new variant is added without
-        // updating discriminator(), so this test mostly guards against
-        // typos in the discriminator strings.
-        let variants = [
+    fn all_node_kind_variants() -> [NodeKind; 10] {
+        [
             NodeKind::Note {
                 body: "".into(),
                 author: AuthorRef("".into()),
@@ -494,14 +467,90 @@ mod tests {
                 weight_root: WeightRoot([0u8; 32]),
                 base_or_lora: ModelLineage::Base,
             },
-        ];
+        ]
+    }
+
+    #[test]
+    fn node_id_is_deterministic_for_identical_content() {
+        let a = Node::compute_id(&sample_note());
+        let b = Node::compute_id(&sample_note());
+        assert_eq!(a, b, "content-addressing must be deterministic");
+    }
+
+    #[test]
+    fn different_content_produces_different_id() {
+        let a = Node::compute_id(&sample_note());
+        let b = Node::compute_id(&NodeKind::Note {
+            body: "goodbye".into(),
+            author: AuthorRef("user".into()),
+            mime: MimeType("text/markdown".into()),
+        });
+        assert_ne!(a, b, "different bodies must produce different ids");
+    }
+
+    #[test]
+    fn different_kinds_produce_different_ids() {
+        let note_id = Node::compute_id(&sample_note());
+        let claim_id = Node::compute_id(&NodeKind::Claim {
+            proposition: "hello".into(),
+            scope: ClaimScope::Vault,
+            source: SourceRef("user".into()),
+        });
+        assert_ne!(
+            note_id, claim_id,
+            "different kinds must produce different ids"
+        );
+    }
+
+    #[test]
+    fn new_node_initialises_merkle_root_to_id() {
+        let node = Node::new(sample_note());
+        assert_eq!(node.merkle_root.as_bytes(), node.id.as_bytes());
+    }
+
+    #[test]
+    fn new_at_uses_supplied_timestamp() {
+        let ts = Timestamp(1_000_000);
+        let node = Node::new_at(sample_note(), ts);
+        assert_eq!(node.created_at, ts);
+    }
+
+    #[test]
+    fn discriminator_covers_all_variants() {
+        // Sanity: every variant has a non-empty discriminator.
+        // Cargo will fail-to-compile if a new variant is added without
+        // updating discriminator(), so this test mostly guards against
+        // typos in the discriminator strings.
+        let variants = all_node_kind_variants();
         let mut seen_discriminators = std::collections::BTreeSet::new();
         for v in &variants {
             let d = v.discriminator();
             assert!(!d.is_empty(), "discriminator must be non-empty");
-            assert!(seen_discriminators.insert(d), "duplicate discriminator: {}", d);
+            assert!(
+                seen_discriminators.insert(d),
+                "duplicate discriminator: {}",
+                d
+            );
         }
-        assert_eq!(seen_discriminators.len(), 10, "10 variants per doctrine §1.1");
+        assert_eq!(
+            seen_discriminators.len(),
+            10,
+            "10 variants per doctrine §1.1"
+        );
+    }
+
+    #[test]
+    fn dynamic_rooted_discriminator_covers_all_variants() {
+        for kind in all_node_kind_variants() {
+            let expected_dynamic =
+                matches!(kind, NodeKind::Companion { .. } | NodeKind::Model { .. });
+            assert_eq!(
+                kind.is_dynamic_rooted(),
+                expected_dynamic,
+                "{} dynamic-rooted classification drifted",
+                kind.discriminator()
+            );
+        }
     }
 
     #[test]
@@ -518,7 +567,9 @@ mod tests {
         let id = Node::compute_id(&sample_note());
         let hex = id.to_hex();
         assert_eq!(hex.len(), 64);
-        assert!(hex.chars().all(|c| c.is_ascii_hexdigit() && (!c.is_ascii_uppercase())));
+        assert!(hex
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && (!c.is_ascii_uppercase())));
     }
 
     #[test]

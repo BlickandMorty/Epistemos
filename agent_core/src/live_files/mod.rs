@@ -102,13 +102,8 @@ pub struct LivePlanV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LivePlanTrigger {
-    Event {
-        event: String,
-        selector: String,
-    },
-    Schedule {
-        cron: String,
-    },
+    Event { event: String, selector: String },
+    Schedule { cron: String },
     Manual,
 }
 
@@ -195,10 +190,7 @@ mod tests {
     #[test]
     fn only_eligible_or_paused_may_run() {
         // §4 invariant: only Eligible (or Paused via resume) enters Running.
-        for state in [
-            LiveFileState::Eligible,
-            LiveFileState::Paused,
-        ] {
+        for state in [LiveFileState::Eligible, LiveFileState::Paused] {
             assert!(state.may_transition_to_running(), "{:?}", state);
         }
         for state in [

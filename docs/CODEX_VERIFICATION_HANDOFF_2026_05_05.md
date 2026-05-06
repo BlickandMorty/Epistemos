@@ -42,12 +42,13 @@ the truth.
 ## Codex addendum — 2026-05-05 semantic LSP correction
 
 This handoff predates Codex's correction pass for V2.3. The original
-claims below remain useful as a historical map, but the current dirty
-worktree supersedes them in these ways:
+claims below remain useful as a historical map, but the current branch
+state supersedes them in these ways:
 
-- The live audit range from the last Codex commit is **44 commits** at
-  `b238f085` (`git rev-list --count 7a063f4a..HEAD`), not 32. The
-  Claude session subrange from `d9be24b5^..HEAD` is 33 commits.
+- The live audit range from the last verified Codex commit is no
+  longer the original 32-commit range. As of the Codex continuation
+  pass, `git rev-list --count 7a063f4a..HEAD` reports 97 commits and
+  `git rev-list --count d9be24b5^..HEAD` reports 86 commits.
 - V2.3 Stage F is no longer "tower-lsp + tree-sitter for
   hover/definition" in the abstract. Codex added `tower-lsp`,
   `tree-sitter`, `tree-sitter-rust`, and `tree-sitter-swift` behind the
@@ -173,7 +174,7 @@ non-trivial):
 | Item | Decision needed |
 |---|---|
 | V2.5 simulation worktree merge | `worktree-simulation` is a 6,678-file architectural divergence. Three options: (a) cherry-pick specific Sim Mode features onto current branch; (b) rebase the sim work atop current; (c) switch active branch to worktree-simulation and re-port V2/V3 work. Each is multi-day. |
-| V2.3 richer semantic LSP | Basic `tower-lsp` + `tree-sitter` same-file hover/definition now exists in the dirty Codex correction; remaining decision is cross-file/scope-aware symbol indexing, diagnostics, completion, references, rename, and DAG symbol mirroring. |
+| V2.3 richer semantic LSP | Basic `tower-lsp` + `tree-sitter` same-file hover/definition now exists in the Codex correction; remaining decision is cross-file/scope-aware symbol indexing, diagnostics, completion, references, rename, and DAG symbol mirroring. |
 
 **Things I may have undersold** (please verify):
 

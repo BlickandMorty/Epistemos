@@ -343,11 +343,11 @@ pub fn fix_role_alternation(messages: &mut Vec<Message>) {
 
     let mut i = 0;
     while i + 1 < messages.len() {
-        let same_role = match (&messages[i], &messages[i + 1]) {
-            (Message::User { .. }, Message::User { .. }) => true,
-            (Message::Assistant { .. }, Message::Assistant { .. }) => true,
-            _ => false,
-        };
+        let same_role = matches!(
+            (&messages[i], &messages[i + 1]),
+            (Message::User { .. }, Message::User { .. })
+                | (Message::Assistant { .. }, Message::Assistant { .. })
+        );
 
         if same_role {
             let second = messages.remove(i + 1);

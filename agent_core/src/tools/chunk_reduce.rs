@@ -140,7 +140,7 @@ fn map_chunk(chunk: &str, instruction: &str, index: usize, total: usize) -> Stri
     if is_extraction && !keywords.is_empty() {
         // Extract sentences that match any keyword from the instruction
         let sentences: Vec<&str> = chunk
-            .split(|c: char| c == '.' || c == '!' || c == '?')
+            .split(['.', '!', '?'])
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .filter(|sentence| {

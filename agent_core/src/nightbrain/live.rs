@@ -29,7 +29,9 @@ use std::sync::{Arc, OnceLock};
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use super::{NightBrainScheduler, NightBrainTask, RegisteredTaskOutcome, Result, TaskCtx, TaskOutcome};
+use super::{
+    NightBrainScheduler, NightBrainTask, RegisteredTaskOutcome, Result, TaskCtx, TaskOutcome,
+};
 
 /// Process-global live scheduler. Held in a OnceLock so the singleton
 /// is initialised on first access and never reconstructed.
@@ -91,9 +93,7 @@ pub async fn register_canonical_tasks() -> Vec<String> {
         if already_registered {
             continue;
         }
-        let task: Arc<dyn NightBrainTask> = Arc::new(NoOpTask {
-            canonical_name,
-        });
+        let task: Arc<dyn NightBrainTask> = Arc::new(NoOpTask { canonical_name });
         // The non-idempotent error here would only fire on a name
         // collision — guarded against above. Treat any residual error
         // as a soft skip (the next boot retries).
@@ -210,7 +210,10 @@ mod tests {
             !outcomes.is_empty(),
             "at least one task must report its preempted outcome"
         );
-        assert!(!outcomes[0].outcome.completed, "first task must be preempted");
+        assert!(
+            !outcomes[0].outcome.completed,
+            "first task must be preempted"
+        );
         // Reset + re-run completes everything cleanly — proves preempt
         // semantics are reversible.
         reset_live_scheduler().await;

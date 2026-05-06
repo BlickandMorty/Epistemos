@@ -1,24 +1,23 @@
 // Shortcuts CLI wrapper: list, run, and manage macOS Shortcuts from Rust.
 // Uses Process::Command to invoke /usr/bin/shortcuts.
 
+use crate::types::AutomationResult;
 use std::process::Command;
 use std::time::Instant;
-use crate::types::AutomationResult;
 
 /// List all installed shortcuts. Returns JSON array of names.
 pub fn list_shortcuts() -> AutomationResult {
     let start = Instant::now();
 
-    let output = match Command::new("/usr/bin/shortcuts")
-        .arg("list")
-        .output()
-    {
+    let output = match Command::new("/usr/bin/shortcuts").arg("list").output() {
         Ok(o) => o,
-        Err(e) => return AutomationResult {
-            success: false,
-            error: Some(format!("Failed to run shortcuts CLI: {e}")),
-            duration_ms: start.elapsed().as_millis() as u64,
-        },
+        Err(e) => {
+            return AutomationResult {
+                success: false,
+                error: Some(format!("Failed to run shortcuts CLI: {e}")),
+                duration_ms: start.elapsed().as_millis() as u64,
+            }
+        }
     };
 
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -60,11 +59,13 @@ pub fn run_shortcut(name: &str, input: Option<&str>) -> AutomationResult {
             let err_msg = format!("{e}");
             return AutomationResult {
                 success: false,
-                error: Some(if err_msg.contains("not found") || err_msg.contains("No such") {
-                    format!("NOT_FOUND: Shortcut '{}' does not exist", name)
-                } else {
-                    format!("Failed to run shortcut '{}': {}", name, e)
-                }),
+                error: Some(
+                    if err_msg.contains("not found") || err_msg.contains("No such") {
+                        format!("NOT_FOUND: Shortcut '{}' does not exist", name)
+                    } else {
+                        format!("Failed to run shortcut '{}': {}", name, e)
+                    },
+                ),
                 duration_ms,
             };
         }

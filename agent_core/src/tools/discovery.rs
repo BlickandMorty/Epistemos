@@ -3,10 +3,10 @@
 //! Two tools live here:
 //!
 //! * `mcp_discover`  — scan `~/.epistemos/mcp-servers/*.json`, return the
-//!                     registered server configs so the UI can surface them
-//!                     and the agent can see which MCP tools are available.
+//!   registered server configs so the UI can surface them and the agent can
+//!   see which MCP tools are available.
 //! * `model_catalog` — query OpenRouter's `/api/v1/models` endpoint for live
-//!                     pricing and context-window metadata.
+//!   pricing and context-window metadata.
 //!
 //! Both tools are read-only and safe for `ChatLite` tier.
 

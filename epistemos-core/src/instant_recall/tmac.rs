@@ -1,3 +1,5 @@
+#![allow(clippy::doc_lazy_continuation, clippy::needless_range_loop)]
+
 // T-MAC: Table-based Multiplication for Any-bit Combinations.
 //
 // Eliminates dequantization entirely by decomposing n-bit multiplication into
@@ -71,7 +73,7 @@ pub fn tmac_quantize(vector: &[f32], num_bits: usize) -> TMacVector {
         .collect();
 
     // Decompose into bit planes
-    let bytes_per_plane = (dim + 7) / 8;
+    let bytes_per_plane = dim.div_ceil(8);
     let mut bit_planes = Vec::with_capacity(num_bits);
 
     for bit in 0..num_bits {
@@ -133,7 +135,7 @@ fn build_group_lut(query_group: &[f32]) -> [f32; LUT_ENTRIES] {
 /// On ARM: `tbl` instruction does 16 lookups per cycle.
 pub fn tmac_dot_product(query: &[f32], tmac_vec: &TMacVector) -> f32 {
     let dim = query.len().min(tmac_vec.dim);
-    let num_groups = (dim + LUT_GROUP_SIZE - 1) / LUT_GROUP_SIZE;
+    let num_groups = dim.div_ceil(LUT_GROUP_SIZE);
 
     // Step 1: Build LUTs from query (one per group of 4 values)
     let luts: Vec<[f32; LUT_ENTRIES]> = (0..num_groups)
@@ -185,7 +187,7 @@ pub fn tmac_dot_product(query: &[f32], tmac_vec: &TMacVector) -> f32 {
 /// LUTs are built once and reused for all vectors — the core T-MAC advantage.
 pub fn tmac_batch_dot_product(query: &[f32], vectors: &[TMacVector]) -> Vec<f32> {
     let dim = query.len();
-    let num_groups = (dim + LUT_GROUP_SIZE - 1) / LUT_GROUP_SIZE;
+    let num_groups = dim.div_ceil(LUT_GROUP_SIZE);
 
     // Build LUTs ONCE for this query
     let luts: Vec<[f32; LUT_ENTRIES]> = (0..num_groups)
@@ -235,7 +237,7 @@ pub fn tmac_batch_dot_product(query: &[f32], vectors: &[TMacVector]) -> Vec<f32>
 
 /// Memory footprint of a T-MAC vector in bytes.
 pub fn tmac_memory_bytes(dim: usize, num_bits: usize) -> usize {
-    let bytes_per_plane = (dim + 7) / 8;
+    let bytes_per_plane = dim.div_ceil(8);
     bytes_per_plane * num_bits
 }
 

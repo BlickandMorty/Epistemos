@@ -112,11 +112,10 @@ impl FullTextScorer for Bm25LikeFullTextScorer {
             }
             matched += 1;
             // IDF approximation: longer terms are rarer
-            let idf = ((q_term.len() as f64) / 4.0).max(0.5).min(3.0);
+            let idf = ((q_term.len() as f64) / 4.0).clamp(0.5, 3.0);
             // BM25 TF saturation
             let numerator = term_freq * (self.k1 + 1.0);
-            let denominator =
-                term_freq + self.k1 * (1.0 - self.b + self.b * (d_len / avg_doc_len));
+            let denominator = term_freq + self.k1 * (1.0 - self.b + self.b * (d_len / avg_doc_len));
             score += idf * (numerator / denominator);
         }
 
@@ -163,8 +162,9 @@ impl SemanticScorer for TrigramCosineSemanticScorer {
 
 /// Which backend the host wants. Today only `InMemoryDeterministic`
 /// ships; `Shadow` is the future HNSW + Tantivy seam.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GraphSearchBackend {
+    #[default]
     InMemoryDeterministic,
     /// Future: routes through epistemos-shadow's HNSW (semantic) +
     /// Tantivy (fulltext) backends via FFI. Construction will require
@@ -189,12 +189,6 @@ impl GraphSearchBackend {
     /// Shadow variant will return an HnswBackedScorer when wired.
     pub fn semantic_scorer(&self) -> Box<dyn SemanticScorer> {
         Box::new(TrigramCosineSemanticScorer)
-    }
-}
-
-impl Default for GraphSearchBackend {
-    fn default() -> Self {
-        Self::InMemoryDeterministic
     }
 }
 
@@ -265,7 +259,9 @@ mod tests {
     #[test]
     fn bm25_like_scorer_returns_none_for_no_match() {
         let scorer = Bm25LikeFullTextScorer::new();
-        assert!(scorer.score("rust agent", "completely unrelated text").is_none());
+        assert!(scorer
+            .score("rust agent", "completely unrelated text")
+            .is_none());
     }
 
     #[test]
@@ -338,7 +334,10 @@ mod tests {
 
     #[test]
     fn graph_search_backend_default_is_in_memory_deterministic() {
-        assert_eq!(GraphSearchBackend::default(), GraphSearchBackend::InMemoryDeterministic);
+        assert_eq!(
+            GraphSearchBackend::default(),
+            GraphSearchBackend::InMemoryDeterministic
+        );
     }
 
     #[test]

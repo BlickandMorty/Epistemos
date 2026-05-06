@@ -1,10 +1,10 @@
 ---
 state: canon
 canon_promoted_on: 2026-05-05
-audit_item: CD-008 (Codex 2026-05-05 drift register — partial closure)
+audit_item: CD-008 (Codex 2026-05-05 drift register — full test closure, manual smoke pending)
 ---
 
-# CD-008 Partial Closure — 2026-05-05
+# CD-008 Full Test Closure — 2026-05-05
 
 > **Codex's CD-008 ask:** "Run the release-audit validation matrix
 > before any 'whole app canon' claim." Specifically requires:
@@ -33,28 +33,37 @@ audit_item: CD-008 (Codex 2026-05-05 drift register — partial closure)
 | `epistemos-shadow` | `cargo test --target aarch64-apple-darwin` | **PASS — 0 / 0** (no lib tests at lib level) | (Prior history shows 45 lib tests when run against `--all-targets`; today's run targeted `--lib` which is the 0-test surface.) |
 | Xcode `Epistemos` scheme test build | `xcodebuild build-for-testing` | **TEST BUILD SUCCEEDED 2026-05-05 13:30 PDT** | Validates XPC trust spine compiles cleanly. SwiftLint failures noted in third-party CodeEditSourceEditor + CodeEditTextView are pre-existing and unrelated. Full `test-without-building` not run today (Codex's still-required item). |
 
-## What CD-008 still needs (NOT closed by this slice)
+## Codex continuation closure (same day)
 
-- **Full `xcodebuild test` pass** (not just `build-for-testing`) for
-  the `Epistemos` scheme on `platform=macOS,arch=arm64`. Today's
-  Xcode work was build-only; the actual Swift Testing suite of 346
-  test files was not exercised in this session. CI runs it.
-- **Full `cargo test --all-targets`** for every crate (today targeted
-  `--lib` for speed). Integration tests + bins + examples not run.
-- **Pro feature surface tests**:
-  `cargo test --no-default-features --features pro-build,lsp-runtime`
-  (CI gate B3 enforces this on every push, but the local sign-off
-  for this session did not re-run it).
-- **Doctrine linter** (`epistemos_doctrine_lint`) — CI gate B1 runs
-  it on every push; not re-run locally today.
-- **Replay verification** (`epistemos-trace verify-replay`) — CI gate
-  B2 runs it on every push against the deterministic
-  `/tmp/epistemos-ci-sample.epbundle` fixture; not re-run locally
-  today.
-- **Manual runtime smoke** of: app bootstrap, Settings → Diagnostics
-  panels (Cognitive DAG stats, Halo ledger ribbon, Search Fusion
-  health row), LSP editor flow, Sovereign Gate prompts. None of
-  these were exercised today; this session was code + doc only.
+Codex continuation extended the earlier partial closure with the missing Rust
+all-targets / Pro feature / replay / doctrine gates and the missing
+full Swift app test pass. These are now locally verified by Codex, not
+only verified-by-Claude.
+
+| Surface | Command | Result |
+|---|---|---|
+| `agent_core` default all-targets | `cargo test --manifest-path agent_core/Cargo.toml --all-targets` | **PASS** — default feature all-targets, including lib, bins, integration tests, and example harness. |
+| `agent_core` Pro+lsp all-targets | `cargo test --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --all-targets` | **PASS** — 1014/1014 lib tests plus bins/integration tests/examples. |
+| `epistemos-core` all-targets | `cargo test --manifest-path epistemos-core/Cargo.toml --all-targets` | **PASS** — 378/378 lib, uniffi bin 0/0, sqlite-vec integration 5/5 with 1 manual ignored baseline. |
+| `omega-mcp` all-targets | `cargo test --manifest-path omega-mcp/Cargo.toml --all-targets` | **PASS** — 143/143 lib plus uniffi bin 0/0. |
+| `omega-ax` all-targets | `cargo test --manifest-path omega-ax/Cargo.toml --all-targets` | **PASS** — 12/12 lib plus uniffi bin 0/0. |
+| `graph-engine` all-targets | `cargo test --manifest-path graph-engine/Cargo.toml --all-targets` | **PASS** — 2522/2522 lib, 8 ignored, graph FFI baseline bench harness succeeded. |
+| Doctrine linter | `cargo run --manifest-path agent_core/Cargo.toml --bin epistemos_doctrine_lint -- "$(pwd)"` | **PASS** — ALL GATES PASS, doctrine §5 verified. |
+| Replay verification | `generate_sample_epbundle` + `epistemos_trace verify-replay` | **PASS** — v2 fixture verified, DAG merkle `ea2e4ac0c13b04f7a638b4714862fc6536fd9833c305456f28f1473e79d5ba9c`. |
+| `.epdoc` visible creation path | focused `EpdocVisibilitySourceGuardTests` + Computer Use runtime smoke | **PASS** — Landing exposes `New Doc`; Notes exposes `New Document (.epdoc)`; click opened an untitled document window. |
+| Full Swift app test | `./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj -scheme Epistemos -destination "platform=macOS,arch=arm64" -derivedDataPath .derived-data-codex-full -clonedSourcePackagesDirPath .spm-cache CODE_SIGNING_ALLOWED=NO -resultBundlePath /tmp/epistemos-codex-full-test-rerun-1778019268.xcresult` | **PASS** — `.xcresult` summary: result `Passed`, 5,739 total tests, 0 failed, 49 skipped. |
+| Semantic LSP focused tests | Rust: `cargo test --manifest-path agent_core/Cargo.toml --features lsp-runtime lsp_runtime --lib`; Swift: focused `RustLSPTransportTests` + `LSPClientTests` | **PASS** — Rust 17/17 and Swift 17/17; `RustLSPTransport` returns tree-sitter hover and same-file definition through the in-process `tower-lsp` payload path. |
+| Computer Use UI smoke | launched `/Users/jojo/Downloads/Epistemos/.derived-data-codex-full/Build/Products/Debug/Epistemos.app` | **PASS/PARTIAL** — Landing `New Doc`, Notes `New Document (.epdoc)`, editor window, Settings Diagnostics rows, and Authority approval preview rendered and responded. Preview was denied; no permission posture was changed. |
+
+## What CD-008 still needs (manual/runtime)
+
+- **Manual runtime smoke of the live LSP editor affordance**.
+  Automated `RustLSPTransport`, tree-sitter hover/definition, and
+  full app test coverage are green, but this pass did not drive the
+  visual code-editor hover/definition UI.
+- **Biometric/Sovereign Gate prompts that require real user approval**.
+  The non-destructive Authority approval preview rendered and was
+  denied safely; real biometric approval remains user-time only.
 - **Source guard** for MAS subprocess discipline — partially closed
   by `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` (B5). The source-guard
   finding is canonical; the runtime verification (load MAS build,
@@ -63,28 +72,29 @@ audit_item: CD-008 (Codex 2026-05-05 drift register — partial closure)
 
 ## Net status
 
-- **Cargo coverage:** 6 of 6 crates green at `--lib` granularity on
-  clean reruns. agent_core covered for both default + `lsp-runtime`
-  feature combos.
-- **Xcode coverage:** test-build green; Swift Testing suite NOT
-  exercised in this session.
-- **CI coverage:** all 4 enforcement gates (B1 doctrine lint, B2
-  verify-replay, B3 Pro-build feature matrix, B4 lsp-runtime feature)
-  remain green on `feature/landing-liquid-wave` per the most recent
-  push.
-- **Manual runtime coverage:** ZERO this session. Codex's
-  manual-runtime-verification ask remains open.
+- **Cargo coverage:** 5 primary crates green at full `--all-targets`
+  granularity. `agent_core` is also green under
+  `--no-default-features --features pro-build,lsp-runtime --all-targets`.
+- **Xcode coverage:** full `xcodebuild test` green on macOS arm64:
+  5,739 total tests, 0 failed, 49 skipped.
+- **Doctrine/replay coverage:** B1 doctrine lint and B2 verify-replay
+  both passed locally under Codex continuation.
+- **Manual runtime coverage:** `.epdoc`, app bootstrap, Settings
+  Diagnostics/Halo/Search Fusion/Cognitive DAG rows, and the Authority
+  approval preview are verified by Computer Use. The LSP semantic
+  transport is automated-verified; only the live editor UI affordance
+  and real biometric approval remain open.
 
-This slice is **partial closure of CD-008.** A full closure requires
-either (a) running the manual runtime sweep + full xcodebuild test +
-all-targets cargo test in a dedicated verification session, or (b)
-trusting CI's B1-B4 enforcement + a focused manual smoke pass against
-the next dogfood build.
+This slice is **full automated-test closure of CD-008.** A final
+release-style closure still requires the remaining manual runtime sweep
+against the next dogfood build.
 
 The doctrine §10 contract still holds: nothing in this session is
 claimed `released`. Everything is `verified-by-Claude / unverified-
-by-Codex / build-clean-on-arm64-macOS-26`. The CODEX_VERIFICATION
-_HANDOFF_2026_05_05.md ask remains the authoritative gate.
+by-Codex` no longer applies to these automated gates: Codex has
+verified the Rust, doctrine/replay, `.epdoc`, and full Swift app test
+surfaces listed above. The CODEX_VERIFICATION_HANDOFF_2026_05_05.md
+ask remains authoritative for the remaining manual/runtime gates.
 
 ## Cross-refs
 

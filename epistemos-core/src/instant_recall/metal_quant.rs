@@ -1,3 +1,5 @@
+#![allow(clippy::manual_clamp)]
+
 // Metal compute shaders for quantized vector operations on Apple Silicon.
 //
 // Template-specialized dequantization kernels for 2-bit and 4-bit,
@@ -307,7 +309,7 @@ pub fn compute_buffer_sizes_2bit(
     num_vectors: usize,
 ) -> (usize, usize, usize, usize, usize) {
     let query_bytes = dim * 4; // float32
-    let bytes_per_vec = (dim + 3) / 4;
+    let bytes_per_vec = dim.div_ceil(4);
     let quant_bytes = bytes_per_vec * num_vectors;
     let scales_bytes = num_vectors * 4; // one float32 per vector
     let zeros_bytes = num_vectors * 4;
@@ -327,7 +329,7 @@ pub fn compute_buffer_sizes_4bit(
     num_vectors: usize,
 ) -> (usize, usize, usize, usize, usize) {
     let query_bytes = dim * 4;
-    let bytes_per_vec = (dim + 1) / 2;
+    let bytes_per_vec = dim.div_ceil(2);
     let quant_bytes = bytes_per_vec * num_vectors;
     let scales_bytes = num_vectors * 4;
     let zeros_bytes = num_vectors * 4;
@@ -363,7 +365,7 @@ pub fn pack_for_metal_2bit(
 /// `dst` must point to a valid allocation of at least `query.len() * 4` bytes.
 /// This is used with MTLBuffer.contents() for zero-copy UMA writes.
 pub unsafe fn write_query_to_metal_buffer(query: &[f32], dst: *mut u8) {
-    let byte_len = query.len() * std::mem::size_of::<f32>();
+    let byte_len = std::mem::size_of_val(query);
     // SAFETY: Caller guarantees dst is valid for byte_len bytes.
     // We copy the f32 slice directly as bytes — same layout on all Apple Silicon.
     std::ptr::copy_nonoverlapping(query.as_ptr() as *const u8, dst, byte_len);

@@ -7,7 +7,7 @@ use crate::trace_logger::{trace_to_odia_jsonl, ExecutionTrace};
 pub fn format_traces_to_jsonl(traces: &[ExecutionTrace]) -> String {
     traces
         .iter()
-        .flat_map(|t| trace_to_odia_jsonl(t))
+        .flat_map(trace_to_odia_jsonl)
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -45,7 +45,7 @@ pub fn mix_training_data(
             result.push(shuffled[i + half]);
         }
     }
-    if shuffled.len() % 2 != 0 {
+    if !shuffled.len().is_multiple_of(2) {
         result.push(shuffled[shuffled.len() - 1]);
     }
 

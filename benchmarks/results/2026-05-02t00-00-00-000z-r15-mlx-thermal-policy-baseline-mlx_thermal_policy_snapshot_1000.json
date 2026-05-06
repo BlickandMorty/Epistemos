@@ -1,6 +1,6 @@
 {
   "generated_at" : "2026-05-02T00:00:00.000Z",
-  "max" : 229.333,
+  "max" : 283.625,
   "measurement" : "mlx_thermal_policy_snapshot_1000",
   "metadata" : {
     "baseline_kind" : "r15_pr6_mlx_thermal_policy",
@@ -14,21 +14,21 @@
     "scenario_count" : "9",
     "thermal_authority" : "PowerGate.deferSnapshot"
   },
-  "min" : 200.834,
-  "p50" : 201.292,
-  "p95" : 225.5498,
-  "p99" : 228.57636,
+  "min" : 260.25,
+  "p50" : 266.5,
+  "p95" : 278.0082,
+  "p99" : 282.50164,
   "sample_count" : 9,
   "samples" : [
-    200.834,
-    200.917,
-    201.083,
-    201.167,
-    201.292,
-    201.334,
-    201.417,
-    219.875,
-    229.333
+    260.25,
+    265.417,
+    265.708,
+    266.291,
+    266.5,
+    266.625,
+    267.208,
+    269.583,
+    283.625
   ],
   "schema_version" : 1,
   "suite" : "R15 MLX Thermal Policy Baseline",

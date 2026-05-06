@@ -6,7 +6,7 @@ use crate::trace_logger::ExecutionTrace;
 /// Filter traces to only include high-quality training data.
 /// Returns traces where: all steps succeeded, total duration > 0, request is non-empty.
 pub fn filter_quality(traces: Vec<ExecutionTrace>) -> Vec<ExecutionTrace> {
-    traces.into_iter().filter(|t| is_quality_trace(t)).collect()
+    traces.into_iter().filter(is_quality_trace).collect()
 }
 
 /// Check if a trace meets quality criteria for training.

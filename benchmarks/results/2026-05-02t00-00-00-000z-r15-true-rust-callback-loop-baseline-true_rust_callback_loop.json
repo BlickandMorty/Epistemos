@@ -1,6 +1,6 @@
 {
   "generated_at" : "2026-05-02T00:00:00.000Z",
-  "max" : 643.4208,
+  "max" : 682.8083,
   "measurement" : "true_rust_callback_loop",
   "metadata" : {
     "baseline_kind" : "r15_pr10_true_rust_callback_loop",
@@ -14,17 +14,17 @@
     "sample_count_target" : "5",
     "sample_source" : "focused_xcode_test"
   },
-  "min" : 592.4875,
-  "p50" : 636.0292,
-  "p95" : 642.37248,
-  "p99" : 643.211136,
+  "min" : 646.8959,
+  "p50" : 669.1709,
+  "p95" : 680.5574600000001,
+  "p99" : 682.3581320000001,
   "sample_count" : 5,
   "samples" : [
-    592.4875,
-    605.3125,
-    636.0292,
-    638.1792,
-    643.4208
+    646.8959,
+    653.0708,
+    669.1709,
+    671.5541,
+    682.8083
   ],
   "schema_version" : 1,
   "suite" : "R15 True Rust Callback Loop Baseline",

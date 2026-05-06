@@ -40,7 +40,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     edge::{Edge, EdgeKind, EdgeKindSelector},
-    node::{Hash, IdentityHash, ModelLineage, ModelProfile, Node, NodeId, NodeKind, PersonaBlob, WeightRoot},
+    node::{
+        Hash, IdentityHash, ModelLineage, ModelProfile, Node, NodeId, NodeKind, PersonaBlob,
+        WeightRoot,
+    },
     storage::{DagError, DagStore},
 };
 
@@ -103,10 +106,12 @@ impl CompanionRegistry {
     ///   - Companion node (if not already present)
     ///   - Deforms edge (Companion → Model) carrying lora_path +
     ///     weight_alpha
+    ///
     /// Returns the new companion's NodeId.
     ///
     /// Idempotent: if both the companion node and its Deforms edge
     /// already exist with matching content, this is a no-op.
+    #[allow(clippy::too_many_arguments)]
     pub fn register(
         &self,
         profile: ModelProfile,
@@ -290,7 +295,11 @@ pub fn make_base_model_node(weight_root_bytes: [u8; 32]) -> Node {
 /// LoRA-as-Model is for the rare case where the LoRA is a first-class
 /// shareable artifact; the common case is to keep LoRA-as-edge-payload
 /// per the doctrine §2.7 single-base-multi-LoRA pattern.
-pub fn make_lora_model_node(weight_root_bytes: [u8; 32], parent: NodeId, lora_path: String) -> Node {
+pub fn make_lora_model_node(
+    weight_root_bytes: [u8; 32],
+    parent: NodeId,
+    lora_path: String,
+) -> Node {
     Node::new(NodeKind::Model {
         weight_root: WeightRoot(weight_root_bytes),
         base_or_lora: ModelLineage::Lora { parent, lora_path },
@@ -531,7 +540,11 @@ mod tests {
         // "6.5 GB" colloquially; in GiB the actual value is 6.44
         // (50 × 50MiB → 2.44GiB, + 4GiB base). Tolerance 0.1 GiB.
         let gib = total as f64 / 1024.0_f64.powi(3);
-        assert!((gib - 6.44).abs() < 0.1, "got {} GiB, doctrine says ~6.5GB", gib);
+        assert!(
+            (gib - 6.44).abs() < 0.1,
+            "got {} GiB, doctrine says ~6.5GB",
+            gib
+        );
     }
 
     #[test]
@@ -546,8 +559,7 @@ mod tests {
 
         let start = std::time::Instant::now();
         for i in 0..50 {
-            let (profile, identity, persona) =
-                make_companion_inputs(&format!("companion-{}", i));
+            let (profile, identity, persona) = make_companion_inputs(&format!("companion-{}", i));
             registry
                 .register(
                     profile,

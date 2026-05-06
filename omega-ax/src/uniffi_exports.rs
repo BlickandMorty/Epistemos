@@ -1,10 +1,10 @@
 // UniFFI-exported free functions for Swift interop.
 
-use crate::types::{AXTreeSnapshot, PermissionStatus};
 use crate::ax_tree;
-use crate::permissions;
 use crate::input;
+use crate::permissions;
 use crate::shortcuts;
+use crate::types::{AXTreeSnapshot, PermissionStatus};
 
 fn sparse_snapshot(pid: i64) -> AXTreeSnapshot {
     AXTreeSnapshot {
@@ -54,7 +54,10 @@ pub fn run_shortcut_by_name(name: String) -> String {
 /// key_code: macOS virtual key code (e.g., 36 = Return, 0 = 'a', 49 = Space)
 /// modifiers: CGEventFlags bitmask (e.g., 0 = none, 256 = Shift, 1048576 = Cmd)
 pub fn simulate_key_press(key_code: u16, modifiers: u64) -> String {
-    let result = input::execute_input(&crate::types::InputEvent::KeyPress { key_code, modifiers });
+    let result = input::execute_input(&crate::types::InputEvent::KeyPress {
+        key_code,
+        modifiers,
+    });
     serde_json::to_string(&result).unwrap_or_default()
 }
 
@@ -67,12 +70,15 @@ pub fn click_element_by_name(pid: i64, element_name: String) -> String {
 
     // Search for matching element
     let target = snapshot.elements.iter().find(|el| {
-        el.title.as_deref().map_or(false, |t| {
-            t.eq_ignore_ascii_case(&element_name) || t.to_lowercase().contains(&element_name.to_lowercase())
-        }) || el.value.as_deref().map_or(false, |v| {
-            v.eq_ignore_ascii_case(&element_name) || v.to_lowercase().contains(&element_name.to_lowercase())
-        }) || el.description.as_deref().map_or(false, |d| {
-            d.eq_ignore_ascii_case(&element_name) || d.to_lowercase().contains(&element_name.to_lowercase())
+        el.title.as_deref().is_some_and(|t| {
+            t.eq_ignore_ascii_case(&element_name)
+                || t.to_lowercase().contains(&element_name.to_lowercase())
+        }) || el.value.as_deref().is_some_and(|v| {
+            v.eq_ignore_ascii_case(&element_name)
+                || v.to_lowercase().contains(&element_name.to_lowercase())
+        }) || el.description.as_deref().is_some_and(|d| {
+            d.eq_ignore_ascii_case(&element_name)
+                || d.to_lowercase().contains(&element_name.to_lowercase())
         })
     });
 
@@ -87,7 +93,8 @@ pub fn click_element_by_name(pid: i64, element_name: String) -> String {
                     element_name, el.position_x, el.position_y, el.role
                 );
             }
-            let click_result = input::execute_input(&crate::types::InputEvent::Click { x: cx, y: cy });
+            let click_result =
+                input::execute_input(&crate::types::InputEvent::Click { x: cx, y: cy });
             let success = click_result.success;
             format!(
                 "{{\"success\":{},\"element\":\"{}\",\"role\":\"{}\",\"clicked_at\":[{:.0},{:.0}]{}}}",
@@ -95,14 +102,17 @@ pub fn click_element_by_name(pid: i64, element_name: String) -> String {
                 element_name.replace('"', "\\\""),
                 el.role,
                 cx, cy,
-                if !success { format!(",\"error\":\"Click failed\"") } else { String::new() }
+                if !success { ",\"error\":\"Click failed\"".to_string() } else { String::new() }
             )
         }
         None => {
             // List available elements for debugging
-            let available: Vec<String> = snapshot.elements.iter()
+            let available: Vec<String> = snapshot
+                .elements
+                .iter()
                 .filter_map(|el| {
-                    el.title.as_ref()
+                    el.title
+                        .as_ref()
                         .or(el.description.as_ref())
                         .map(|s| format!("{}({})", el.role, s))
                 })

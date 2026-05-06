@@ -1,14 +1,13 @@
 // AX tree walker — traverses the macOS accessibility tree for a given PID.
 // Returns a flattened list of AXElements with parent indices for tree reconstruction.
 
-use crate::types::{AXElement, AXTreeSnapshot};
 use crate::ax_ffi::*;
+use crate::types::{AXElement, AXTreeSnapshot};
 use core_foundation::attributed_string::{CFAttributedString, CFAttributedStringGetString};
 use core_foundation::base::{CFRelease, CFType, CFTypeRef, TCFType};
 use core_foundation::boolean::CFBoolean;
 use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
-use std::ffi::c_void;
 
 /// Walk the accessibility tree for the given PID.
 /// Returns a snapshot with all elements flattened into a Vec.
@@ -44,7 +43,7 @@ pub fn walk_ax_tree(pid: i64) -> AXTreeSnapshot {
     walk_element(app_element, -1, &mut elements, 0, 10);
 
     // SAFETY: We own the app_element ref from CreateApplication.
-    unsafe { CFRelease(app_element as *const c_void) };
+    unsafe { CFRelease(app_element) };
 
     let interactive_count = elements.iter().filter(|e| e.is_interactive).count();
     let is_sparse = interactive_count < AXTreeSnapshot::SPARSE_THRESHOLD;
@@ -111,9 +110,7 @@ fn get_string_attr(element: AXUIElementRef, attr_name: &str) -> Option<String> {
     let mut value: CFTypeRef = std::ptr::null();
 
     // SAFETY: We pass valid element and attribute refs.
-    let err = unsafe {
-        AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value)
-    };
+    let err = unsafe { AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value) };
 
     if err != kAXErrorSuccess || value.is_null() {
         return None;
@@ -189,9 +186,7 @@ fn get_position(element: AXUIElementRef) -> (f64, f64) {
     let mut value: CFTypeRef = std::ptr::null();
 
     // SAFETY: AXUIElementCopyAttributeValue is a safe C function.
-    let err = unsafe {
-        AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value)
-    };
+    let err = unsafe { AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value) };
 
     if err != kAXErrorSuccess || value.is_null() {
         return (0.0, 0.0);
@@ -208,7 +203,7 @@ fn get_position(element: AXUIElementRef) -> (f64, f64) {
     };
 
     // SAFETY: value came from CopyAttributeValue and must be released once after extraction.
-    unsafe { CFRelease(value as *const c_void) };
+    unsafe { CFRelease(value) };
 
     if ok != 0 {
         (point.x, point.y)
@@ -223,9 +218,7 @@ fn get_size(element: AXUIElementRef) -> (f64, f64) {
     let mut value: CFTypeRef = std::ptr::null();
 
     // SAFETY: We pass valid AX element and attribute refs to a read-only C API.
-    let err = unsafe {
-        AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value)
-    };
+    let err = unsafe { AXUIElementCopyAttributeValue(element, attr.as_CFTypeRef(), &mut value) };
 
     if err != kAXErrorSuccess || value.is_null() {
         return (0.0, 0.0);
@@ -242,7 +235,7 @@ fn get_size(element: AXUIElementRef) -> (f64, f64) {
     };
 
     // SAFETY: value came from CopyAttributeValue and must be released once after extraction.
-    unsafe { CFRelease(value as *const c_void) };
+    unsafe { CFRelease(value) };
 
     if ok != 0 {
         (size.width, size.height)
@@ -257,9 +250,8 @@ fn get_children(element: AXUIElementRef) -> Vec<AXUIElementRef> {
     let mut count: i64 = 0;
 
     // SAFETY: We pass valid AX element and attribute refs to query child count.
-    let err = unsafe {
-        AXUIElementGetAttributeValueCount(element, attr.as_CFTypeRef(), &mut count)
-    };
+    let err =
+        unsafe { AXUIElementGetAttributeValueCount(element, attr.as_CFTypeRef(), &mut count) };
 
     if err != kAXErrorSuccess || count == 0 {
         return vec![];

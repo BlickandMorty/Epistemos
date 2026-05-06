@@ -199,7 +199,11 @@ impl NightBrainScheduler {
         if name.is_empty() {
             return Err(NightBrainError::InvalidTaskName);
         }
-        if self.tasks.iter().any(|registered| registered.name() == name) {
+        if self
+            .tasks
+            .iter()
+            .any(|registered| registered.name() == name)
+        {
             return Err(NightBrainError::DuplicateTaskName(name.to_string()));
         }
         self.tasks.push(task);

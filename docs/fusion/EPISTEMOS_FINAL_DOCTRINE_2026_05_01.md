@@ -48,13 +48,16 @@ TypedArtifact
 
 ### 2.2 Architectural invariants (every tier, non-negotiable)
 
-These four hold for Core, Pro, and Research alike. Violating any of them is P0.
+These invariants hold for Core, Pro, and Research alike. Violating any of them is P0.
 
 1. **Zero-copy unified memory.** Apple Silicon UMA means CPU, GPU, and ANE share one physical RAM pool at ~138–153 GB/s fabric bandwidth. Tensors flow via `MTLBuffer` with `storageModeShared` and IOSurface where ANE is involved. No `cudaMemcpy`-style double-buffering. No serialize-then-deserialize across the FFI boundary for hot tensors. Any inference patch that copies weights, KV vectors, or activations across CPU↔GPU↔ANE on the hot path is wrong.
 2. **Single-binary in-process substrate.** All crates link into one `epistemos` process. Subprocess for **inference** is forbidden in every tier. The Quick Capture pattern — UniFFI hop into the same process address space — is the canonical shape. Hermes / CLI tunnels / browsers / Docker run in subprocesses for **orchestration only**, and only in Pro/Research builds.
 3. **Markov blanket via Rust ownership.** The borrow checker is the organizational closure of the system. Internal state (claim graph, ledger, residency governor, KV cache) is owned by Rex (the Rust kernel); Swift sees it through narrow UniFFI surfaces. No FFI panics, no `unsafe` without `// SAFETY:` justification, no hidden global mutable state.
 4. **Tiered determinism.** State transitions are logged, hashed (BLAKE3), and reproducible — *not* every byte of inference. T0–T4 verification ladder (see §5) decides what is checked when. Z3 never runs on the hot path; T2 Proptest catches 95% at ~1µs.
 5. *(C5, merged 2026-05-05.)* **Canonical state is the only source of truth.** Visual layers — Liquid Wave, Simulation Theater, Halo overlays, Residency Rail, Sovereign Gate dialog, Pulse ghost text — project from canonical events (`AgentEvent`, `GraphEvent`, `MutationEnvelope`) and Rust kernel state. They do not own state. A visual surface that implies state the runtime does not authoritatively own is a §2.2 violation. If a UI shows "thinking" and the agent is not actually thinking, that is P0.
+6. *(Codex continuation, 2026-05-05.)* **Static vs dynamic-rooted artifacts are discriminated at the DAG node, not by a wrapper type.** `NodeKind::is_dynamic_rooted()` is the canonical discriminator: `Note`, `Claim`, `Evidence`, `Skill`, `Tool`, `Procedure`, `Event`, and `Capability` are static content-addressed snapshots; `Companion` and `Model` are dynamic-rooted because they point at mutable persona/weight state. Dynamic-rooted mutation still never mutates a node in place: it mints a new content-addressed node and records lineage through `Deforms` edges / `ModelLineage::Lora { parent }`.
+7. *(B2/B3 lift, 2026-05-05.)* **Engine integrations embed as libraries; subprocesses are orchestration only.** Subprocesses fail the substrate for three structural reasons: version skew, signing/notarization complexity, and lifecycle races. Future engines — browser, JS isolate, audio, video, OCR, search, training — enter as Rust/Swift library APIs when they participate in cognition. MoLoRA and QLoRA Python subprocesses are now named structural debt; port them to MLX-Swift before deleting `OrphanSubprocessCleanup` / `PythonEnvironmentManager`.
+8. *(B2 lift, 2026-05-05.)* **Cognitive Weight is a determinism gradient, not a prompt override.** A file's weight may bias retrieval, scheduling, and visibility, but policy-grade authority requires schema validation, capability validation, user-visible diff, signed plan hash, and revocation. Semantic Gravity pulls attention; Policy Authority controls action.
 
 What is closed today (per `UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`):
 
@@ -82,6 +85,8 @@ The April 30 canon split Core vs Pro and listed Research as deferred. **The user
 
 **One codebase, three compile targets.** Cargo features `core`, `pro`, `research` plus a `PolicyProfile` enum gate everything at runtime. CI tests all three. Every PR declares profile impact.
 
+**Brain Artifact contract (B1 lift, 2026-05-05).** A brain export is not "a folder of weights." It is a compiled binary artifact plus a signed bundle manifest plus a license-keyed fingerprint. Pro may ship signed user-owned brain artifacts after legal review. Research may inspect, patch, or load neural artifacts only behind Sovereign-class authentication. Core never loads third-party brain artifacts.
+
 **Why Developer ID + Notarization is legal for Pro/Research:** Notarization is an automated malware scan, not App Review. It does NOT check for private API use, embedded JS runtimes, subprocess freedom, or private framework loading. With `disable-library-validation` set, you can load `AppleNeuralEngine.framework` dynamically. This is the same path Chromium uses. (Source: `Kimi_Agent_Deterministic AI Deep Dive/EPISTEMOS_NO_COMPROMISE_ARCHITECTURE.md` Part II.)
 
 **What is forbidden in every tier:**
@@ -104,6 +109,10 @@ The April 30 canon split Core vs Pro and listed Research as deferred. **The user
 **Tools are capabilities, not a third mode.** A tool call is something the agent does inside a turn — not a separate UX surface. There is no "Tools mode." Capability gating happens at the agent layer through the Sovereign Gate (§4.2) and the tool registry (`agent_core/src/tools/registry.rs`), not at the composer.
 
 **Per-tier UX:** All tiers ship the same composer + two-mode layout. Pro / Research add additional effort levels (e.g., long-horizon research, computer-use) but the input shape is identical. This is what makes Pro feel like a continuous evolution of Core, not a different app.
+
+**Pixel vs Tactical posture (B1 lift, 2026-05-05).** Companion/Tamagotchi affordances may render in Pixel mode for Core delight, but Pro/enterprise surfaces must offer Tactical mode: dense status, explicit authority, exportable audit, and compliance-readable labels. This is the same product, not a forked UX; the posture is a user/tier-visible rendering of the same state.
+
+**Cognitive Weight posture (B2 lift, 2026-05-05).** Live Files expose determinism as a continuous control, not a binary "AI on/off" switch. The slider affects attention and scheduling first; it cannot silently become policy authority. Inline editor controls are preferred when they preserve local context; Settings-only controls are fallback for global defaults.
 
 ---
 
@@ -175,6 +184,8 @@ Target: `<100µs` per token on Apple Silicon (CPU does graph ops, ANE does neura
 
 **Canonical code anchors when starting.** Single Swift entrypoint `Epistemos/Sovereign/SovereignGate.swift`; Rust matrix seed `agent_core/src/sovereign/mod.rs` declares action classes, deterministic doctrine intents, `GateRequirement`, and `GateOutcome`. Future transport work emits requirements to Swift and flows outcomes back via UniFFI. Every existing popup/dialog code path is migrated one-by-one through gated PRs (no big bang). MutationEnvelope already has a `sensitivity` field — extend it to drive the gate decision rather than building a parallel matrix.
 
+**Session Authority Token contract (B1 lift, 2026-05-05).** A biometric approval produces a bounded token: `authority_id`, action category, resource binding, subject binding, issued-at, expiry, and freshness class. Verdicts are exactly `Authority`, `Expired`, `OutOfScope`, `WrongBinding`, and `FreshBiometricRequired`. Always-fresh categories include irreversible vault mutation, policy/capability changes, system-prompt edits, low-confidence reset, Brain Artifact load, cloud-off override, Research-tier unlock, and Secure Enclave key release.
+
 **Forbidden:** Touch ID prompt fired from anywhere except `SovereignGate.confirm`. Cached approvals that survive lock / sleep / app background. Any popup short-circuiting the gate "because the user just authed."
 
 ### 4.3 Freeform Pulse + Residency Rail (paired UI affordance)
@@ -197,6 +208,8 @@ Target: `<100µs` per token on Apple Silicon (CPU does graph ops, ANE does neura
 **Canonical code anchors when starting.** Pulse uses existing `Epistemos/Engine/HaloController.swift` debounce machinery. Rail mounts as a non-blocking inspector view next to (not inside) `ProseEditorView` — protected-path rule applies, never edit `ProseEditor*.swift` for this.
 
 **Halo V1 stack reference (do not re-derive).** *(C6, merged 2026-05-05.)* 6-state FSM (`dormant → watching → encoding → searching → available → open`) + trailing-edge debounce + Model2Vec + usearch + Tantivy + weighted RRF + non-activating NSPanel + explicit latency budgets per the V1 product canon. Implementation lives across `Epistemos/Engine/HaloController.swift`, `HaloEditorBridge.swift`, `ShadowSearchService.swift`. Stack rationale and budget targets are in `docs/_consolidated/00_canonical_authority/ambient_V1_DECISION.md` and `docs/fusion/KIMI_FUSION_REVIEW_2026_04_30.md`.
+
+**Eidos pairing (B3 lift, 2026-05-05).** Halo is the always-on contextual surface; Eidos is the explicit-search surface. Both project from canonical vault/search state and both must cite drawer IDs, not invented text references. Eidos is a local-first inversion of Exa: vault HNSW + Tantivy + Metal rerank first, web augmentation only when a gated tier allows it.
 
 ---
 
@@ -272,6 +285,9 @@ What ships in each tier. Everything not listed is forbidden in that tier.
 - *(C5, merged 2026-05-05.)* **Visual surfaces that imply state the runtime doesn't authoritatively own.** Liquid Wave cannot animate "agent is thinking" if no agent turn is in flight. Simulation Theater cannot show a sub-agent dispatch that didn't emit an `AgentEvent`. Halo cannot show a hit count without a real query result. Visual layers project; they do not invent. (See §2.2 invariant #5.)
 - *(C13, merged 2026-05-05.)* **Telemetry capture beyond metadata.** Input-driven telemetry (keystroke timing, modifier states, app activity) is metadata-only. Never content (typed text, note bodies, code, message contents, query strings). Retention bounded; explicit opt-in for any telemetry channel; default-off for cloud-uploaded telemetry. Consent copy reviewed before any new channel ships. (See Annex A.16.)
 - *(C15, merged 2026-05-05.)* **Multi-user CRDT collaboration in Core or Pro.** Real-time collaborative editing (shared cursor, shared note editing, shared agent session across users) is **Research only** at the ACS Ecosystem layer (Annex A.4 / A.8). Core and Pro are single-user products. CRDT for single-user multi-device sync (within one iCloud account) is also deferred — explicit slice required if reconsidered.
+- *(B2 lift, 2026-05-05.)* **Polling the Live Files surface.** Live Files are FSEvents/event-driven with thermal, battery, capability, and budget gates. A timer loop that polls every file is a battery and trust regression.
+- *(B2 lift, 2026-05-05.)* **`eval`, JavaScript, Python, or shell as user-composed Live File logic.** Live File conditions use a closed grammar and a bounded Rust state machine. No scripting backdoor.
+- *(B3 lift, 2026-05-05.)* **Hallucinated citations.** Retrieval/rerank outputs cite a closed vocabulary of vault drawer IDs / typed source handles. Free-form citation strings from an LLM are display text only until bound to a real ID.
 
 ---
 
@@ -303,6 +319,19 @@ Core killer-feature seed work (gate before coding)
   ├─ Sovereign Gate broader Core classes + Rust/transport follow-through open
   └─ Freeform Pulse + Residency Rail (depends on Halo V1)          not started
 
+Core live-file / explicit-search seed work (B2/B3 lifts)
+  ├─ W7-A Live File state machine + FSEvents wire                   not started
+  ├─ W7-B Stateful Rotor + sub-5ms tick discipline                  not started
+  ├─ W7-C Cognitive Weight slider + retrieval-bias function         not started
+  ├─ W7-D Dual-mode epdoc/Markdown body + closed-grammar conditions not started
+  ├─ W7-E Cron-for-AI scheduling through bounded grammar            not started
+  ├─ W7-F Vector Universe hierarchical / structural / pattern scans not started
+  ├─ W7-G Metal metabolic-state glow                                not started
+  ├─ W6-E Eidos vault HNSW index                                    not started
+  ├─ W6-F Eidos Metal cosine rerank                                 not started
+  ├─ W6-G llguidance-constrained rerank                             not started
+  └─ W6-H closed-vocabulary citation grammar binding                not started
+
 Pro track (after Core/MAS symbol separation)
   ├─ Developer ID + Notarization build configuration               not started
   ├─ Hermes subprocess (orchestration only) integration             partial in worktree
@@ -310,6 +339,12 @@ Pro track (after Core/MAS symbol separation)
   ├─ CLI tunnels                                                    partial in worktree
   ├─ Browser / computer-use tools                                   partial in worktree
   ├─ Embedded JS runtime (QuickJS / Deno)                           not started
+  ├─ W6-A Obscura library embed + W6-B deno_core V8 isolate         not started
+  ├─ W6-C/W6-D browser bridge + SwiftUI surface                     not started
+  ├─ W7-H MoLoRA Python → MLX-Swift port                            not started
+  ├─ W7-I QLoRA Python → MLX-Swift port                             not started
+  ├─ W7-J remove Python cleanup scaffolds after ports land          not started
+  ├─ W8 Eidos Plus deliberation engine                              not started
   ├─ Sovereign Gate Sovereign class + Secure Enclave sealing        not started
   └─ Resonance Gate δ + ρ                                           not started
 
@@ -374,6 +409,8 @@ Where the substrate already lives. New work attaches here.
 | Phase R / Resource Runtime — verified-write pipeline *(C7 verified-then-merged 2026-05-05)* | `agent_core/src/runtime/{mod,typestate,write_pipeline}.rs` + `agent_core/src/resources/{alias_registry,attachments,bridge,id,permissions,service,tool_authz}.rs` + `Epistemos/Vault/VaultChatMutator.swift` | **on main today** — `verified_write` API + `VerifiedWrite` type + UniFFI bridge to Swift. CANON_GAPS C7's claim that this lives only on `codex/runtime-input-audit` is **stale** as of 2026-05-05; the substrate landed before this audit. The 324-commit `codex/runtime-input-audit` divergence still holds release-closeout fixes (verify-approved-vault-writes, expose-writable-attachment-paths, seed-grants-for-live-attachments, harden-app-store-chat-startup) per `git log main..codex/runtime-input-audit` — those remain **DIVERGED** and need cherry-pick under a Phase S deliberation brief. |
 | PromptTree / N1 (Lane A) *(C7 verified-then-merged 2026-05-05)* | `Epistemos/State/PromptTreePreferences.swift` + `Epistemos/Engine/PromptTreePersister.swift` + `Epistemos/Views/Settings/StructuredSurfacesView.swift` + `Epistemos/App/ChatCoordinator.swift` (first-turn wire) | **partial on main** — JSPF + PTF foundation + ChatCoordinator first-turn wire (commit 7316f86b) + Settings toggle (commit 1ab15596). Gated by `ProcessInfo.environment["EPISTEMOS_PROMPT_TREE"] == "1"` per `PromptTreePreferences.environmentVariable`. The 601-commit Lane A donor at `/Users/jojo/Downloads/Epistemos-laneA/` still holds the deeper N1 implementation (per `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H1). Bridge spec at `docs/fusion/PROMPT_TREE_LANE_A_BRIDGE_2026_05_04.md`. Future work is current-main delta reconciliation, not rediscovery. |
 | App Store closeout authority *(C8, named 2026-05-05)* | `docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md` (mirrored at `docs/_consolidated/30_canonical_operational/`) | tracking doc for Phase R / Phase S progress |
+| Static/dynamic DAG discriminator *(Codex continuation, 2026-05-05)* | `agent_core/src/cognitive_dag/node.rs::NodeKind::is_dynamic_rooted()` | production-canonical discriminator: static artifacts stay content-addressed snapshots; `Companion` and `Model` are dynamic-rooted lineage anchors. Future code must call this method instead of inventing wrapper enums. |
+| V8 dedup discipline for Obscura / deno_core *(B3 lift, 2026-05-05)* | future `agent_core/Cargo.toml` `[patch.crates-io]` / dependency section | forward-staged contract only: when Obscura and `deno_core` land, they must share one `rusty_v8` version and one V8 symbol set. Duplicate V8 linkage is a release blocker, not a post-merge cleanup. |
 
 ---
 
@@ -480,6 +517,8 @@ The earlier Kimi research framed OSFT/PSOFT/coSO as the production stack. **It d
 | coSO | ❌ | ✅ no LLM experiments yet | Pro R&D only |
 
 Adapter capacity on a 128GB MacBook is ~3,100 adapters at r=8. Switching latency <1ms from UMA. On 16GB Macs (per user hardware memory), keep concurrent adapter count modest.
+
+**Accessory metaphor (B1 lift, 2026-05-05).** LoRAs / adapters can render as "equipment" — helmet, glasses, book, armor — but that is a UX metaphor over the same QOFT/QDoRA/QPiSSA substrate. The metaphor may help users understand loadout, specialization, and temporary skill attachment; it must not imply that adapters are independent agents, policy authorities, or mutable brains outside the signed lineage graph.
 
 **Tier impact:** QOFT in Core/Pro. QDoRA + QPiSSA in Pro. OSFT/PSOFT/coSO research surfaces in Research only.
 
@@ -595,6 +634,10 @@ browser/computer-use, or user-installed coding CLIs in Core.
 
 For any retrieval, the claim DAG ranks sources by **dependency depth**: a Prime claim with high in-degree (many composites depend on it) outranks a peripheral Composite. The **Knowledge Sieve** constructs the graph by progressively eliminating composites; the **Gap Winner Rule** chooses among Gap candidates the one with the highest projected resolution leverage. Engram (L4) candidates are Prime claims with high divisor count — static, O(1) recall.
 
+**Closed-vocabulary citations (B3 lift, 2026-05-05).** A search or rerank result cites a typed drawer ID / source handle from the retrieval set. LLM prose may explain a citation, but it cannot mint a new citation. If the ID is absent from the closed vocabulary, the output is unbound display text and cannot enter the audit ledger as evidence.
+
+**Eidos thesis (B3 lift, 2026-05-05).** Eidos is explicit local-first search: vault HNSW + Tantivy + Metal cosine rerank first, optional tier-gated augmentation second. ShadowSearch/Halo remains the ambient context surface; Eidos is where the user deliberately asks the vault to search itself.
+
 **Tier impact:** Mechanism is Core (the graph is local). The full gap-winner ranking with eigen-centrality is Pro.
 
 ### A.14 VRM — Verified Research Mode
@@ -626,6 +669,25 @@ User-facing trust visibility. Beyond OpLog projection (which is structural) — 
 **Consent:** any new telemetry channel requires (a) Settings toggle defaulting OFF for cloud upload; (b) clear copy describing what is captured and why; (c) one-click "delete all telemetry" affordance.
 
 **Tier impact:** identical across tiers. Pro and Research can layer additional opt-in channels but the metadata-only / no-content rule is invariant.
+
+### A.17 Confidence meter + diagnose-first relearn *(B1 lift, 2026-05-05)*
+
+The confidence meter is a bounded safety signal, not a vibes score. It combines six inputs: model self-rating, retrieval support, citation binding, contradiction pressure, user correction history, and recency/staleness. Sustained confidence below 70% moves the affected agent/skill into `Suspended-LowConfidence` instead of silently trying harder.
+
+Relearn is diagnose-first. The system records one of `DataScarcity`, `ConceptCollision`, `CitationGap`, `ModelDrift`, or `Unknown` before it proposes a refresh. The refresh is user-approved, budgeted at three attempts per day per skill/adapter, and cannot overwrite prior lineage; it mints a new artifact with evidence of the diagnosed failure.
+
+**Tier impact:** Confidence display is Core-safe. Automated relearn is Pro-gated until the audit trail and adapter lineage are durable.
+
+### A.18 Cell-organism design generator *(B2 lift, 2026-05-05)*
+
+The "document is the cell; vault is the organism" metaphor is canonical only because it generates engineering rules:
+
+1. **Autonomy:** a Live File owns its state machine and budget; the vault coordinates, it does not micromanage.
+2. **Message-passing:** Live Files communicate through typed events, graph edges, and resource grants — not shared mutable globals.
+3. **Apoptosis:** quarantine / suspension is a feature. A sick cell self-disables without taking the vault down.
+4. **Homeostasis:** millions of potential cells stay cheap through event-driven scheduling, backpressure, and no global polling.
+
+**Tier impact:** Core can ship the cell-level Live File state machine. Pro adds multi-file metabolism and auto-research loops. Research explores organism/ecosystem-scale ACS.
 
 ---
 

@@ -1,18 +1,22 @@
 ---
-state: candidate
+state: canon
 candidate_promoted_on: 2026-05-05
+canon_promoted_on: 2026-05-05
 audit_item: A1 (canonical-upgrade-audit 2026-05-05)
 unblocks: V2.1 Phase 8.H (DAG authority flip — durability prerequisite)
 deliberation_brief_template: docs/fusion/BUILDER_EXECUTION_PROMPT_2026_04_30.md §"Deliberation Brief Required"
+implementation_status: slices 1-4 landed by Codex continuation; slice 5 dispatch authority wiring remains off by default
 ---
 
-# A1 — redb-backed `DagStore` — scoping brief
+# A1 — redb-backed `DagStore` — scoping + implementation record
 
-> **State: candidate.** Per the canon promotion protocol, this is a
-> deliberation brief — it scopes the implementation, identifies the
-> dependencies, lists the test surface, and queues the actual coding
-> for explicit sign-off. **Do not implement from this brief without
-> approval.**
+> **State: canon-partial.** The original deliberation brief has now
+> been executed through implementation slices 1-4 by Codex continuation:
+> dependency, durable store, node/edge APIs, CD-005 capability checks,
+> directional indices, snapshot, and Merkle parity. Slice 5 remains
+> intentionally incomplete: dispatch does **not** use redb by default,
+> and `cognitive_dag_store()` still returns the in-memory reference
+> store until Phase 8.H authority verification explicitly flips it.
 >
 > **Why this matters:** today the only `DagStore` impl is
 > `InMemoryDagStore`. A reboot loses the entire Cognitive DAG. V2.1
@@ -45,7 +49,7 @@ identical content.
 
 ## Crate selection
 
-**`redb` 2.x** is the recommended embedded KV store:
+**`redb` 4.1.0** is the recommended embedded KV store:
 
 - Pure-Rust (no C dep, easier MAS sandbox compatibility than rocksdb)
 - ACID semantics with MVCC + serializable isolation
@@ -69,27 +73,31 @@ identical content.
 
 ## Schema design
 
-Three redb tables, all keyed by 32-byte BLAKE3 hashes:
+Three redb tables, all keyed by fixed 32-byte BLAKE3 hashes:
 
 ```rust
-// Table layout (all keys are [u8; 32], values are bincode-encoded)
-const NODES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("nodes");
-const EDGES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("edges");
-const CAPABILITIES: TableDefinition<&[u8], ()> = TableDefinition::new("capabilities");
+// Table layout (all keys are &[u8; 32]; node/edge values are JSON bytes)
+const NODES: TableDefinition<&[u8; 32], &[u8]> =
+    TableDefinition::new("cognitive_dag_nodes_v1");
+const EDGES: TableDefinition<&[u8; 32], &[u8]> =
+    TableDefinition::new("cognitive_dag_edges_v1");
+const CAPABILITIES: TableDefinition<&[u8; 32], ()> =
+    TableDefinition::new("cognitive_dag_capabilities_v1");
 
 // Two more tables for the directional indices, mirroring InMemory:
-const FROM_INDEX: MultimapTableDefinition<&[u8], &[u8]> =
-    MultimapTableDefinition::new("from_index");
-const TO_INDEX: MultimapTableDefinition<&[u8], &[u8]> =
-    MultimapTableDefinition::new("to_index");
+const FROM_INDEX: MultimapTableDefinition<&[u8; 32], &[u8; 32]> =
+    MultimapTableDefinition::new("cognitive_dag_from_index_v1");
+const TO_INDEX: MultimapTableDefinition<&[u8; 32], &[u8; 32]> =
+    MultimapTableDefinition::new("cognitive_dag_to_index_v1");
 ```
 
-**Why bincode over canonical JSON for the value encoding:** the
-canonical-JSON form lives in the snapshot/replay path (where
-byte-identical sort matters for content addressing). The on-disk
-form just needs to be round-trippable; bincode is 3-5x smaller and
-~10x faster to encode/decode. The snapshot method re-serializes
-to canonical JSON when called.
+**Why JSON bytes over bincode for the value encoding:** the original
+brief recommended bincode, but the implementation falsified that
+assumption. `Node` / `Edge` currently use serde shapes that require
+`deserialize_any`, which bincode 1.x does not support. The redb
+backend therefore stores `serde_json::to_vec` bytes for nodes and
+edges. This is larger than bincode but correct, replay-friendly, and
+compatible with the canonical JSON path already used by snapshots.
 
 **Why `MultimapTableDefinition` for the indices:** redb's multimap
 supports many-values-per-key natively, ordered by value bytes. That
@@ -98,20 +106,18 @@ needing manual list management.
 
 ## Implementation plan (5 slices)
 
-### Slice 1: Cargo dep + skeleton
+### Slice 1: Cargo dep + skeleton — LANDED
 
 ```toml
 # agent_core/Cargo.toml
-redb = "2.2"  # latest stable as of 2026-05
-bincode = "1.3"
+redb = { version = "4.1.0", optional = true }
 ```
 
-New module: `agent_core/src/cognitive_dag/redb_store.rs` with empty
-`RedbDagStore { db: redb::Database }` struct and `impl DagStore` stub
-that returns `unimplemented!()` for every method. Compiles + lib tests
-green; no behavior change.
+New module: `agent_core/src/cognitive_dag/redb_store.rs` with
+`RedbDagStore { db: redb::Database, path: PathBuf }`. Feature:
+`cognitive-dag-redb = ["redb"]`. Default OFF.
 
-### Slice 2: put_node + get_node (the simplest pair)
+### Slice 2: put_node + get_node — LANDED
 
 Implement node insert + lookup against the `NODES` table. Test
 parity against `InMemoryDagStore`: insert N nodes into both, read
@@ -121,12 +127,13 @@ Add a "round-trip across instances" test: open store at /tmp path,
 insert nodes, drop store, reopen at same path, read nodes back. This
 is the durability proof that InMemory cannot give.
 
-### Slice 3: put_edge + edges_from + edges_to + capability registry
+### Slice 3: put_edge + edges_from + edges_to + capability registry — LANDED
 
-Implement edge insert with CD-005 capability-bound verification
-(reuse the `verify_edge_against_registered_caps` logic from
-`InMemoryDagStore` — extract to a shared helper). Implement the
-directional traversal methods against the multimap indices.
+Implemented edge insert with CD-005 capability-bound verification.
+The redb backend mirrors the `InMemoryDagStore` rule directly:
+empty capability registry accepts non-zero signatures for legacy
+fixture compatibility; once a capability is registered, every edge
+must verify against the registered set.
 
 Test: every existing `cognitive_dag::storage::tests::*` test runs
 against both backends via a parameterized test macro:
@@ -136,7 +143,7 @@ fn run_backend_tests<S: DagStore>(make: impl Fn() -> S) { /* ... */ }
 #[test] fn redb() { run_backend_tests(|| RedbDagStore::open(tempfile())); }
 ```
 
-### Slice 4: merkle_root + snapshot
+### Slice 4: merkle_root + snapshot — LANDED
 
 Both must produce byte-identical output to `InMemoryDagStore` for
 identical content (this is the canonical content-addressing
@@ -146,7 +153,7 @@ should give the same result. Verify with a fixture test that inserts
 the same content into both backends and asserts merkle_root +
 snapshot bytes equality.
 
-### Slice 5: dispatch wiring + opt-in flag
+### Slice 5: dispatch wiring + opt-in flag — PENDING
 
 The fifth slice is the carefully-staged authority handoff:
 
@@ -173,7 +180,31 @@ The fifth slice is the carefully-staged authority handoff:
 | Snapshot byte-identity (InMemory vs redb) | 1 | Same content → same canonical-JSON snapshot bytes. |
 | Merkle root parity | 1 | Same content → same merkle root. |
 
-Total: ~19 new tests on top of the existing 132 cognitive_dag tests.
+Implemented now: 8 redb-specific tests plus the full cognitive DAG
+suite under `--features mas-build,cognitive-dag-redb`.
+
+Verified by Codex continuation:
+
+```bash
+cargo test --manifest-path agent_core/Cargo.toml \
+  --no-default-features --features mas-build,cognitive-dag-redb \
+  cognitive_dag::redb_store --lib
+
+cargo test --manifest-path agent_core/Cargo.toml \
+  --no-default-features --features mas-build,cognitive-dag-redb \
+  --lib cognitive_dag --target aarch64-apple-darwin
+
+cargo clippy --manifest-path agent_core/Cargo.toml \
+  --no-default-features --features mas-build,cognitive-dag-redb \
+  --target aarch64-apple-darwin -- -D warnings
+
+cargo clippy --manifest-path agent_core/Cargo.toml \
+  --target aarch64-apple-darwin -- -D warnings
+```
+
+Results: redb focused 8/8 pass; feature-enabled cognitive DAG 144/144
+pass; default cognitive DAG 136/136 pass; default and redb-feature
+clippy pass with `-D warnings`.
 
 ## Migration / rollback
 
@@ -224,14 +255,17 @@ already used in Swift.
 Total: 5-9 hours for a tight implementation pass. Add 2-3 hours for
 documentation + Codex review cycles.
 
-## Why this is `state: candidate`
+## Why this is not yet the authority backend
 
-The implementation is well-scoped but multi-hour. Per the canon
-promotion protocol, it gets one explicit sign-off cycle before code
-lands. The user's question for the next deliberation: **does the redb
-backend land as a single unified slice, or as the 5 slices above
-with a verification beat between each?** Either approach is
-canonical; the 5-slice approach is safer for review.
+The durable backend exists, but the authority flip is not done. The
+remaining deliberation is slice 5: when `cognitive-dag-redb` is
+enabled, should dispatch open `<vault>/.epistemos/cognitive_dag.redb`
+and mirror every legacy write into redb, or should redb remain a
+manual parity/replay backend for one more verification cycle?
+
+Canonical default today: **OFF**. `InMemoryDagStore` remains the live
+`cognitive_dag_store()` backend until CD-004 and doctrine §10 say
+otherwise.
 
 ## Cross-refs
 
@@ -246,7 +280,7 @@ canonical; the 5-slice approach is safer for review.
 ## Bottom line
 
 The `DagStore` trait was designed (correctly) to support multiple
-backends; today only one exists. This brief scopes the second one.
-With the 5-slice plan + ~19 new tests, the redb backend is a
-1-2-day implementation pass that unblocks V2.1 Phase 8.H. Held for
-sign-off.
+backends; now the second backend exists and is verified for durable
+node/edge/capability storage plus Merkle/snapshot parity. What remains
+is not implementation basics; it is authority wiring and the Phase
+8.H decision to let redb become the live mirrored store.

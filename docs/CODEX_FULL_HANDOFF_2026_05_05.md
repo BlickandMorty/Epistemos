@@ -31,89 +31,64 @@ read-with: docs/SESSION_RETROSPECTIVE_2026_05_05.md (read-this-first index)
 
 ## TL;DR — top-of-mind for this Codex pass
 
-**Pre-merge blocker (P1):** ~126 clippy issues across 5 crates will
-fail the CI clippy gate (ci.yml:122-131) on the next PR to main.
-Pre-existing, not a regression from this session, but blocking.
-**§1 below has the full breakdown + recommended cleanup approach.**
+**Pre-merge blocker resolved by Codex continuation:** the ~126
+project-wide clippy issues across 5 crates were cleaned without API
+refactors and re-verified under the CI-style `-D warnings` gates.
+**§1 below records the closure and the non-API-change constraint.**
 
 **External-verification gates:** CD-004 (V2.1 8.A-8.G authority flip
 prerequisites) is BLOCKED on Codex independent verification. CD-008
-full closure needs full xcodebuild test pass + cargo test --all-targets
-+ manual runtime smoke. **§2 below has the verification checklist.**
+full closure now has full `xcodebuild test` + Rust all-targets / Pro
+feature / doctrine lint / replay gates Codex-verified. The
+`tower-lsp` + `tree-sitter` semantic LSP path is also verified through
+Rust and Swift focused tests. The remaining CD-008 gap is runtime UI
+smoke for the live editor affordance and any biometric/Sovereign Gate
+flow that requires real user approval. **§2 below has the checklist.**
 
-**State:candidate items held for sign-off** (5 briefs, ~50 hours of
-implementation work, ZERO LOC landed without explicit Codex/user
-authorization): A1 redb persistent backend, Static/Dynamic
-discriminator, B1-B3 phase work (Phases 21-25 + W7-A through W7-J +
-W8 + W6-A through W6-I). **§3 below has each one with sign-off
-questions.**
+**State:candidate items held for sign-off** (3 briefs, ~40+ hours of
+implementation work remaining): B1-B3 phase work (Phases 21-25 +
+W7-A through W7-J + W8 + W6-A through W6-I). The Static/Dynamic
+discriminator was promoted to canon and implemented by Codex
+continuation. A1 redb persistence slices 1-4 also landed behind an
+opt-in feature; only A1 slice 5 authority wiring remains pending.
+**§3 below has each remaining one with sign-off questions.**
 
-**Held-for-sign-off small items**: tirith Pro-gating, 3 orphan file
-deletions (904 LOC), provenance_ledger architectural drift. **§4
-below.**
+**Held-for-sign-off small items**: provenance_ledger architectural
+drift. Tirith Pro-gating and the orphan-tool source decision have
+been resolved by Codex continuation. **§4 below.**
 
 **Other Open APP_ISSUES** (P0/P1): SwiftUI hot-loop, model install
 detection, Opus 4.1 Main Chat regression, idle memory regression.
 **§5 below.**
 
-**Tier-1 doctrine lifts pending from B-bonus briefs** (15 doctrine
-additions, no code, ~5-15 lines each): **§6 below.**
+**Tier-1 doctrine lifts from B-bonus briefs are landed** (15
+doctrine additions, no runtime code). **§6 below records the exact
+canonical locations.**
 
 ---
 
-## §1 — Pre-merge blocker: project-wide clippy debt (~126 issues, P1)
+## §1 — Resolved pre-merge blocker: project-wide clippy debt
 
 **Logged:** `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-05-001 (P1)
 
-**Symptom:** `cargo clippy --target aarch64-apple-darwin -- -D warnings`
-fails per crate. CI workflow at `.github/workflows/ci.yml:122-131`
-runs this exact command for each crate (`graph-engine`, `epistemos-core`,
-`omega-ax`, `omega-mcp`, `agent_core`) and will fail hard on the
-next PR to main.
+**Closure:** Codex continuation cleaned the lint debt without
+API-changing refactors. The FFI pointer lint is intentionally allowed
+at the Rust boundary with a `SAFETY` explanation rather than changing
+the exported Swift-facing ABI to `unsafe fn`.
 
-**Why hasn't been caught:** CI's `on:` trigger is `push: [main]` or
-`pull_request: [main]`. The `feature/landing-liquid-wave` branch has
-never run CI — only `release.yml` has. The clippy gate hasn't fired
-yet on this branch's commits.
+**Verified gates now pass:**
 
-**Per-crate scope:**
+| Crate | Command | Result |
+|---|---|---|
+| `agent_core` | `cargo clippy --manifest-path agent_core/Cargo.toml --target aarch64-apple-darwin -- -D warnings` | PASS |
+| `agent_core` Pro+lsp | `cargo clippy --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --target aarch64-apple-darwin -- -D warnings` | PASS |
+| `epistemos-core` | `cargo clippy --manifest-path epistemos-core/Cargo.toml --target aarch64-apple-darwin -- -D warnings` | PASS |
+| `omega-mcp` | `cargo clippy --manifest-path omega-mcp/Cargo.toml --target aarch64-apple-darwin -- -D warnings` | PASS |
+| `omega-ax` | `cargo clippy --manifest-path omega-ax/Cargo.toml --target aarch64-apple-darwin -- -D warnings` | PASS |
+| `graph-engine` | `cargo clippy --manifest-path graph-engine/Cargo.toml --target aarch64-apple-darwin -- -D warnings` | PASS |
 
-| Crate | Errors under `-D warnings` |
-|---|---|
-| agent_core | 42 (1 hard error + 41 warnings) |
-| epistemos-core | 54 |
-| omega-mcp | 16 |
-| omega-ax | 8 |
-| graph-engine | 6 |
-| **Total** | **~126** |
-
-**The 1 hard error** (must-fix even without `-D warnings`):
-
-`agent_core/src/etl/ffi.rs:180` — `etl_queue_free_string` is a
-`pub extern "C" fn` that does `CString::from_raw(ptr)` but the
-function itself isn't marked `unsafe`. Lint:
-`clippy::not_unsafe_ptr_arg_deref`. The unsafe block inside is fine;
-the lint wants the function signature itself to be `unsafe`. Traces
-back to commit `666aa9ba` (R16 ETL foundation).
-
-**Recommended cleanup approach:**
-
-1. **Per-crate, not all-at-once.** Each crate is its own `Cargo.toml`
-   workspace member. Run `cargo clippy --fix --lib --target
-   aarch64-apple-darwin` per crate first to apply mechanical fixes,
-   then manually address what remains.
-2. **Skip API-changing fixes.** Don't refactor too-many-args functions
-   or box large `Err` variants without explicit user sign-off — those
-   are API changes.
-3. **For the hard error**: add `#[allow(clippy::not_unsafe_ptr_arg_deref)]`
-   to `etl_queue_free_string` with a SAFETY comment explaining why
-   the FFI function deliberately doesn't use the `unsafe fn`
-   signature (Swift caller via UniFFI doesn't see the Rust `unsafe`).
-4. **Verification:** after cleanup, run `cargo clippy --target
-   aarch64-apple-darwin -- -D warnings` per crate; all must exit 0.
-
-**Sign-off question for user:** authorize Codex to do this cleanup
-in one PR (no API changes) before opening the next merge to main?
+**Constraint preserved:** no too-many-args API refactors and no large
+`Err` boxing were performed without explicit sign-off.
 
 ---
 
@@ -141,7 +116,10 @@ in one PR (no API changes) before opening the next merge to main?
    write to `cognitive_dag_store`.
 3. **Replay parity** — Phase 8.F replay (`epistemos-trace
    verify-replay`) must produce byte-identical merkle roots across
-   InMemoryDagStore + the future redb backend (when A1 lands).
+   `InMemoryDagStore` and the opt-in redb backend before redb becomes
+   the live dispatch store. A1 slices 1-4 prove store-level
+   Merkle/snapshot parity; dispatch/replay parity remains the slice 5
+   authority question.
 4. **Authority flip criteria** — doctrine §10 two-week CI green
    window must complete before flipping. With CI not running on
    feature branches today (see §1), this gate is effectively
@@ -152,9 +130,9 @@ in one PR (no API changes) before opening the next merge to main?
 require additional substrate before sign-off (and what), or (iii)
 adjust the authority-flip criteria.
 
-### CD-008 — Full-app verification PARTIAL
+### CD-008 — Full-app verification MOSTLY CLOSED
 
-**Closed by this session:**
+**Closed before Codex continuation:**
 
 | Surface | Result |
 |---|---|
@@ -164,38 +142,39 @@ adjust the authority-flip criteria.
 | `cargo test` (omega-mcp) | 143 / 143 |
 | Xcode `Epistemos` test-build | TEST BUILD SUCCEEDED |
 
-**Still required (Codex must execute):**
+**Closed by Codex continuation:**
 
-1. **Full `xcodebuild test` pass** for the `Epistemos` scheme on
-   `platform=macOS,arch=arm64` (not just `build-for-testing`). The
-   Swift Testing suite of 346 test files was NOT exercised in this
-   session. Command:
-   ```
-   ./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj \
-     -scheme Epistemos -destination "platform=macOS,arch=arm64" \
-     -derivedDataPath .derived-data-codex-verify \
-     -clonedSourcePackagesDirPath .spm-cache \
-     CODE_SIGNING_ALLOWED=NO -resultBundlePath TestResults.xcresult
-   ```
-2. **`cargo test --all-targets`** for every crate (this session
-   targeted `--lib` for speed). Integration tests + bins + examples
-   not run.
-3. **Pro feature surface tests:**
-   `cargo test --no-default-features --features pro-build,lsp-runtime`
-   for agent_core. CI gate B3 covers this on every push (when CI
-   runs); verify locally for sign-off.
-4. **Manual runtime smoke** of: app bootstrap, Settings → Diagnostics
-   panels (Cognitive DAG stats, Halo ledger ribbon, Search Fusion
-   health row), LSP editor flow, Sovereign Gate prompts.
+| Surface | Result |
+|---|---|
+| `cargo test --manifest-path agent_core/Cargo.toml --all-targets` | PASS — default feature all-targets, including lib, bins, integration tests, example harness |
+| `cargo test --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --all-targets` | PASS — Pro+lsp feature all-targets, including 1014/1014 lib tests plus bins/integration tests |
+| `cargo test --manifest-path epistemos-core/Cargo.toml --all-targets` | PASS — 378/378 lib, uniffi bin 0/0, sqlite-vec integration 5/5 with 1 manual ignored baseline |
+| `cargo test --manifest-path omega-mcp/Cargo.toml --all-targets` | PASS — 143/143 lib plus uniffi bin 0/0 |
+| `cargo test --manifest-path omega-ax/Cargo.toml --all-targets` | PASS — 12/12 lib plus uniffi bin 0/0 |
+| `cargo test --manifest-path graph-engine/Cargo.toml --all-targets` | PASS — 2522/2522 lib, 8 ignored, graph FFI baseline bench harness succeeded |
+| `cargo run --manifest-path agent_core/Cargo.toml --bin epistemos_doctrine_lint -- "$(pwd)"` | PASS — ALL GATES PASS, doctrine §5 verified |
+| `generate_sample_epbundle` + `epistemos_trace verify-replay` | PASS — v2 bundle verified, DAG merkle `ea2e4ac0c13b04f7a638b4714862fc6536fd9833c305456f28f1473e79d5ba9c` |
+| `.epdoc` focused Swift test + Computer Use smoke | PASS — New Doc visible on Landing, Notes sidebar New Document button visible, click opened an untitled document window |
+| Full `xcodebuild test` | PASS — `/tmp/epistemos-codex-full-test-rerun-1778019268.xcresult`, result `Passed`, 5,739 total tests, 0 failed, 49 skipped |
+| Semantic LSP focused tests | PASS — `cargo test --manifest-path agent_core/Cargo.toml --features lsp-runtime lsp_runtime --lib` 17/17 and Swift focused `RustLSPTransportTests` + `LSPClientTests` 17/17; hover/definition travels through the Rust `tower-lsp` + `tree-sitter` kernel |
+| Computer Use runtime smoke | PASS/PARTIAL — Landing, Notes/editor, Settings Diagnostics, and Authority approval preview render and respond; preview denied without changing permissions |
 
-**Why manual:** the autonomous session can't drive the GUI; the
-Diagnostics panels + Halo + LSP editor + Sovereign Gate are user-
-visible surfaces that require human inspection of the rendering and
-interaction behavior.
+**Still required (runtime/manual):**
 
-**Codex action:** run the test commands, capture raw logs, then
-either ship the manual runtime smoke session yourself OR mark CD-008
-as needing user-time on a real Mac.
+1. **Manual runtime smoke** of the live LSP editor affordance. The
+   semantic transport is verified through Rust and Swift tests, but
+   this pass did not drive the visual code-editor hover/definition UI.
+2. **Biometric/Sovereign Gate prompts that require real user approval**
+   remain user-time only. The non-destructive Authority approval preview
+   rendered and was denied safely.
+
+**Why manual:** the remaining LSP item is a GUI affordance check, not
+a semantic-kernel gap. Biometric approval flows still require human
+inspection and approval behavior on the real Mac.
+
+**Codex action:** ship the remaining Computer Use/manual runtime
+smoke where possible, then mark any un-drivable biometric/Sovereign
+Gate prompts as needing user-time on a real Mac.
 
 ---
 
@@ -209,34 +188,46 @@ substrate, recommends a path, queues sign-off) BEFORE landing as
 without implementing them — Codex/user sign-off is required before
 implementation lands.
 
-### 3.1 — A1: redb persistent DagStore backend
+### 3.1 — A1: redb persistent DagStore backend — PARTIAL LANDED
 
 **Brief:** `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md`
 
-**Why:** today the only `DagStore` impl is `InMemoryDagStore`. A
-reboot loses the entire Cognitive DAG. V2.1 Phase 8.H ("DAG authority
-flip") cannot proceed without durable persistence.
+**Closure so far:** Codex continuation implemented durable
+`RedbDagStore` behind `cognitive-dag-redb`, using current `redb`
+4.1.0 and JSON value bytes. The earlier bincode recommendation was
+falsified by tests because the existing `Node` / `Edge` serde shape
+requires `deserialize_any`.
 
-**Scope:** 5 slices, ~5-9 hours implementation + 2-3 hours review.
+**Verified:** redb focused 8/8, feature-enabled cognitive DAG
+144/144, default cognitive DAG 136/136, default clippy, and redb
+feature clippy all pass.
 
 | Slice | What |
 |---|---|
-| 1 | Cargo dep (redb 2.x + bincode) + skeleton `RedbDagStore` (unimplemented stubs) |
-| 2 | put_node + get_node + durability proof test (insert / drop / reopen / read) |
-| 3 | put_edge with CD-005 capability binding + edges_from/edges_to + parameterized parity tests vs InMemoryDagStore |
-| 4 | merkle_root + snapshot byte-identity vs InMemoryDagStore |
-| 5 | dispatch wiring + opt-in feature flag (`cognitive-dag-redb`), default OFF until verified |
+| 1 | LANDED — Cargo dep (`redb` 4.1.0) + `RedbDagStore` module behind `cognitive-dag-redb` |
+| 2 | LANDED — put_node + get_node + durability proof across reopen |
+| 3 | LANDED — put_edge with CD-005 capability binding + edges_from/edges_to via redb multimaps |
+| 4 | LANDED — merkle_root + snapshot parity vs `InMemoryDagStore` |
+| 5 | PENDING — dispatch wiring to a vault/App Group path; default still OFF until authority verification |
 
-**Test surface:** ~19 new tests on top of existing 132 cognitive_dag.
+**Remaining sign-off question:** when `cognitive-dag-redb` is enabled,
+should dispatch open `<vault>/.epistemos/cognitive_dag.redb` and mirror
+every legacy write into redb now, or should redb remain a parity/replay
+backend for one more verification cycle?
 
-**Sign-off questions for user:**
-1. Single unified slice or 5 slices with verification beats between each?
-2. Approve the redb 2.x crate selection (vs sled / rocksdb / lmdb / roll-our-own)?
-3. Default state for `cognitive-dag-redb` feature flag — OFF (safer) or ON (commits to redb as canonical)?
-
-### 3.2 — Static/Dynamic discriminator (Q2 recommendation)
+### 3.2 — Static/Dynamic discriminator (Q2 recommendation) — RESOLVED
 
 **Brief:** `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md`
+
+**Closure:** Codex continuation promoted this brief to `state: canon`
+and implemented Option C + B. `NodeKind::is_dynamic_rooted()` is now
+the canonical code-level discriminator, doctrine §2.2 names the
+static/dynamic-rooted invariant, and the exhaustive node-kind test
+pins the two dynamic-rooted variants (`Companion`, `Model`).
+
+**Verified:**
+- `cargo test --manifest-path agent_core/Cargo.toml cognitive_dag::node::tests::dynamic_rooted_discriminator_covers_all_variants --lib`
+- `cargo clippy --manifest-path agent_core/Cargo.toml --target aarch64-apple-darwin -- -D warnings`
 
 **Why:** the user asked 2026-05-05: "Artifact primitive that
 distinguishes Static Note from Dynamic AI Weight." Survey shows the
@@ -245,7 +236,7 @@ are static, 2 dynamic-rooted via Companion/Model). Recommendation:
 Option C + Option B together — add a method, document the rule, no
 new wrapper type.
 
-**Scope:** ~30 LOC + 1 test + doctrine paragraph.
+**Scope landed:** method + 1 test + doctrine paragraph.
 
 ```rust
 // agent_core/src/cognitive_dag/node.rs — append to NodeKind impl block:
@@ -269,11 +260,6 @@ impl NodeKind {
 
 Plus 1 unit test pinning the classification per variant + a §2.2
 doctrine paragraph explaining the static/dynamic-rooted distinction.
-
-**Sign-off questions for user:**
-1. Approve Option C + B (method + doctrine paragraph) over Option A
-   (top-level wrapper enum)?
-2. Land in one slice or as two slices (method first, doctrine after)?
 
 ### 3.3 — B1: Biometric / Tamagotchi / Brain-Export phase work (Phases 21-25)
 
@@ -370,54 +356,57 @@ net-new feature surface across:
 **Source:** `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` §"Items needing
 verification" → "tirith.rs:268"
 
-**Recommendation:** Pro-gate the `tirith` module + the `approval.rs:485`
-caller behind `#[cfg(feature = "pro-build")]`.
+**Codex continuation status:** resolved. `agent_core::tirith` is now
+behind `#[cfg(feature = "pro-build")]`, and the approval caller that
+invokes `TirithClient` is also Pro-only. MAS/default builds retain the
+in-process pattern gate but no longer compile the dormant Tirith
+subprocess scanner surface.
 
-**Why:** `tirith.rs:268` spawn is runtime-gated under MAS sandbox
-(user-installed binary not in any sandbox-approved path → fallback
-returns) but compile-reachable. Pro-gating removes the subprocess-
-spawn surface from the MAS binary (App Review cleanliness) while
-losing zero MAS capability.
+**Verification:** default/MAS clippy passed, Pro+lsp clippy passed,
+default lib tests passed 871/871, and Pro+lsp lib tests passed
+1014/1014.
 
-**Sign-off:** approve Pro-gating of `agent_core::tirith` + caller?
-
-### 4.2 — Three orphan source files in `agent_core/src/tools/`
+### 4.2 — Orphan source files in `agent_core/src/tools/`
 
 **Source:** `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` §"Orphan source
 files (action required)"
 
-**Files:**
+**Codex continuation status:** resolved. `code_execution.rs` and
+`graph_query.rs` were removed after a reachability + replacement
+audit. `code_execution.rs` was an unregistered local subprocess
+runner; `graph_query.rs` was superseded by the wired `tools/graph.rs`
+implementation. `note_tools.rs` was promoted rather than deleted,
+because it contained unique PKM/note scaffold.
+
+**Resolution:**
 | File | LOC | Status |
 |---|---|---|
-| `agent_core/src/tools/code_execution.rs` | 105 | Not declared in lib.rs — doesn't compile, doesn't ship |
-| `agent_core/src/tools/graph_query.rs` | 276 | Same |
-| `agent_core/src/tools/note_tools.rs` | 523 | Same |
+| `agent_core/src/tools/code_execution.rs` | 105 | Deleted as proven-dead local subprocess runner |
+| `agent_core/src/tools/graph_query.rs` | 276 | Deleted as superseded by `tools/graph.rs` |
+| `agent_core/src/tools/note_tools.rs` | 523 | Declared as `tools::note_tools`, registered through `register_phase_two_note_tools()`, and protected by R.5 for template writes |
 
-**Total: 904 LOC of orphan source.**
+**Total remaining: 0 LOC of orphan source.**
 
-**Recommendation:** delete (matches user's explicit 2026-05-05
-"if i dont need something get rid of it" directive on
-LSPServerProcess deletion).
-
-**Sign-off:** approve deletion of all three files?
+**Verification:** `agent_core` clippy passed with `-D warnings`, and
+the full lib test suite passed 882/882 after promotion. New tests pin
+note-tool registration, `note_template.output_path` resource inference,
+and denial of ungranted template writes.
 
 ### 4.3 — `provenance_ledger()` architectural drift
 
 **Source:** commit 90bdddee + `docs/CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md`
 C2 row.
 
-**Finding:** `agent_core::bridge::provenance_ledger()` global is
-never written to under current dispatch architecture. Every
-dispatch helper's `mirror_write` writes to `cognitive_dag_store()`
-instead. The provenance_ledger global was promoted from `Mutex` to
-`RwLock` for read-heavy access — but it has no readers besides the 3
-FFI sites that now use `.read()`.
-
-**Codex action:** decide whether to (i) wire dispatch helpers to
-also write to provenance_ledger (parallel mirror), (ii) delete the
-provenance_ledger global since cognitive_dag_store is now
-authoritative, or (iii) keep provenance_ledger as a dead canonical
-fallback for future use.
+**Codex continuation status:** resolved without deleting scaffold or
+creating a second authority. The dispatch helpers correctly mirror
+claim/evidence writes to `cognitive_dag_store()` because the Cognitive
+DAG is the provenance ledger after Phase 8.E. The legacy
+`agent_core::bridge::provenance_ledger()` global remains as read-only
+compatibility scaffold, but the visible Halo ribbon and Provenance
+Console now source the live Rust provenance signal from
+`RustCognitiveDagClient.stats()`. The UI labels the old bridge as
+legacy context instead of presenting its empty counters as production
+truth.
 
 ### 4.4 — Companion mirror dormant caller
 
@@ -502,43 +491,39 @@ path for the silent-stream-ending bug.
 
 ---
 
-## §6 — Tier-1 doctrine lifts pending from B-bonus briefs (15 items, no code, ~5-15 lines each)
+## §6 — Resolved Tier-1 doctrine lifts from B-bonus briefs
 
-These are doctrine additions that codify already-present capabilities
-or set guardrails for future work. Each is small (5-15 lines into the
-doctrine doc) but doctrine-shaping per the canon promotion protocol.
+Codex continuation landed the 15 Tier-1 doctrine additions in
+`docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`. These are
+contracts only: no B1/B2/B3 runtime implementation is claimed shipped.
 
 ### From B1 (BIOMETRIC_TAMAGOTCHI_BRAINEXPORT) — 5 lifts
 
-1. **Session Authority Token contract** → `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §4.2 (Sovereign Gate) addendum. The 8 always-fresh categories + the Authority/Expired/OutOfScope/WrongBinding/FreshBiometricRequired verdict enum.
-2. **Confidence meter doctrine** → new doctrine Annex (A.17 candidate). 6 composite-confidence signals + 70% threshold + diagnose-first re-learn + bounded-budget rules.
-3. **UI mode toggle** (Pixel mode / Tactical mode) → §4.0 (UX posture, the C4 entry) addendum. Tier-locked: Tactical required for Pro/enterprise.
-4. **Accessory metaphor doctrine** (LoRAs as equipment) → Annex A.5 (continual learning) addendum. UX wrapper over QOFT/QDoRA/QPiSSA.
-5. **Brain Artifact contract** → §3 (Tier Matrix) addendum. Compiled-binary + signed-bundle + license-keyed-fingerprint contract.
+1. **Session Authority Token contract** → §4.2 (Sovereign Gate).
+2. **Confidence meter doctrine** → Annex A.17.
+3. **UI mode toggle** (Pixel mode / Tactical mode) → §4.0.
+4. **Accessory metaphor doctrine** (LoRAs as equipment) → Annex A.5.
+5. **Brain Artifact contract** → §3 (Tier Matrix).
 
 ### From B2 (LIVE_FILES_AND_SUBSTRATE) — 5 lifts
 
-6. **Cell-organism metaphor as design generator** → new doctrine Annex (A.18 candidate). Generates four design rules (autonomy, message-passing, apoptosis as feature, millions-of-cells homeostasis).
-7. **Determinism gradient (Cognitive Weight) as canonical mechanism** → §4.0 (UX posture) addendum + §2.2 invariant #4 (tiered determinism) addendum.
-8. **Stateful Rotor pattern + sub-5ms tick-budget contract** → §7 build-order graph entry + §6 forbidden ("no polling on the Live Files surface").
-9. **Closed-grammar conditional logic** → §6 forbidden (no `eval`/JS/Python in user-composed Live File logic).
-10. **Subprocess audit closure (MoLoRA + QLoRA ports)** → §2.2 invariant #2 addendum. Hermes already removed 2026-05-05; MoLoRA + QLoRA are the remaining structural debt.
+6. **Cell-organism metaphor as design generator** → Annex A.18.
+7. **Determinism gradient (Cognitive Weight)** → §2.2 + §4.0.
+8. **Stateful Rotor + sub-5ms discipline** → §7 + §6 no-polling rule.
+9. **Closed-grammar conditional logic** → §6 no `eval`/JS/Python/shell rule.
+10. **Subprocess audit closure (MoLoRA + QLoRA ports)** → §2.2 engine-embed invariant.
 
 ### From B3 (OBSCURA_BROWSER) — 5 lifts
 
-11. **Three structural reasons subprocess fails** (versioning skew, signing complexity, lifecycle race) → §2.2 invariant #2 addendum. Names the rationale for the existing invariant.
-12. **Library-embed pattern as canonical engine integration** → §2.2 invariant #2 addendum. Same rule applies to any future engine integration (audio, video, OCR, etc.).
-13. **Closed-vocabulary citations as anti-hallucination structural guarantee** → §6 forbidden ("hallucinated citations are structurally impossible") + Annex A.13 (Knowledge Sieve / Gap Winner Rule) addendum.
-14. **V8 dedup discipline (`[patch.crates-io]`)** → new doctrine note in §9 Canonical Code Anchors. Forward-staging contract for when Obscura + deno_core land.
-15. **Eidos thesis (local-first inversion of Exa)** → new doctrine note pairing with §4.3 (Halo). Halo = always-on contextual surface; Eidos = explicit-search surface.
+11. **Three structural reasons subprocess fails** → §2.2.
+12. **Library-embed pattern as canonical engine integration** → §2.2.
+13. **Closed-vocabulary citations** → §6 + Annex A.13.
+14. **V8 dedup discipline (`[patch.crates-io]`)** → §9.
+15. **Eidos thesis (local-first inversion of Exa)** → §4.3 + Annex A.13.
 
-**Codex action:** these lifts can land as a single doctrine PR (one
-commit per lift, or one bundled commit) with NO code changes. They're
-purely doctrine additions that codify future-implementation contracts.
-Estimated: 1-2 hours total work; landing them now means future
-implementation slices have canonical targets.
-
-**Sign-off:** approve a doctrine-only PR landing all 15 lifts?
+**Remaining work:** B1/B2/B3 code implementation remains in §3 as
+state:candidate phase work requiring deliberation briefs and normal
+verification. The doctrine lifts are no longer a sign-off blocker.
 
 ---
 
@@ -579,20 +564,22 @@ green) at best; `released` is gated on Codex sign-off.
 **Three items are explicitly held for sign-off and Codex should NOT
 auto-execute them without explicit user authorization:**
 
-1. The 5 state:candidate implementation slices (§3 above).
-2. The 3 orphan-file deletions in `agent_core/src/tools/` (§4.2 above).
+1. The 3 remaining state:candidate implementation briefs (§3 above)
+   plus A1 slice 5 authority wiring.
+2. Any future removal of scaffold that is not proven-dead past code.
 3. Anything that crosses the canon promotion protocol's "doctrine-
    shaping work gets one explicit sign-off cycle before code lands"
    line.
 
 **Three items Codex SHOULD auto-execute (autonomous canonical work):**
 
-1. The clippy cleanup (§1) — pre-merge blocker, mechanical fixes
-   only, no API changes.
-2. The CD-008 verification commands (§2) — confirm local test green
-   matches Codex's view; manual runtime smoke is human-time work.
-3. The 15 Tier-1 doctrine lifts (§6) — purely doctrine additions, no
-   code changes; can land as single PR.
+1. The remaining CD-008 runtime work (§2): live LSP editor-affordance
+   smoke and biometric/Sovereign Gate user-time. Full `xcodebuild test` is already
+   Codex-verified.
+2. Continued source-guard and dead-code audits, preserving scaffold
+   unless it is proven-dead past code or explicitly superseded.
+3. Continued doctrine/code drift sweeps after each implementation
+   slice, using §6 as the newly landed contract map.
 
 **Two items genuinely BLOCKED externally:**
 
@@ -615,16 +602,17 @@ auto-execute them without explicit user authorization:**
    verification ask
 6. `docs/CANON_HARDENING_PROTOCOL_2026_05_05.md` — WRV / canon
    promotion / no-date-gates protocol
-7. `docs/APP_ISSUES_AUTO_FIX.md` — 6 Open issues including
-   ISSUE-2026-05-05-001 clippy debt P1 + 4 runtime issues
+7. `docs/APP_ISSUES_AUTO_FIX.md` — runtime issues index; the former
+   ISSUE-2026-05-05-001 clippy debt is now Verified Fixed
 8. `docs/AGENT_PROGRESS.md` — full 2026-05-05 ledger (items 1-23)
 9. **State:candidate briefs** (held for sign-off):
-   - `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md`
-   - `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md`
    - `docs/B1_BIOMETRIC_TAMAGOTCHI_BRAINEXPORT_LIFT_TARGETS_2026_05_05.md`
    - `docs/B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS_2026_05_05.md`
    - `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md`
-10. **Standalone audits** (canonical, no further action):
+10. **Implemented canon briefs**:
+    - `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md`
+    - `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md`
+11. **Standalone audits** (canonical, no further action):
     - `docs/MMAP_UTILIZATION_AUDIT_2026_05_05.md`
     - `docs/MIRROR_DISPATCH_COVERAGE_2026_05_05.md`
     - `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md`

@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 // TurboQuant: data-oblivious random rotation + pre-computed optimal Lloyd-Max scalar quantizers.
 //
 // Unlike ButterflyQuant (learned, needs calibration), TurboQuant uses random rotation
@@ -146,7 +148,7 @@ pub fn turbo_quantize(mut vector: Vec<f32>, bits: TurboQuantBits) -> TurboQuantV
 
     // Step 3: Quantize and pack
     let per_byte = bits.per_byte();
-    let num_bytes = (padded_dim + per_byte - 1) / per_byte;
+    let num_bytes = padded_dim.div_ceil(per_byte);
     let mut data = vec![0u8; num_bytes];
     let bit_width = bits.bits();
     let mask = bits.mask();
@@ -241,7 +243,7 @@ pub fn turbo_quantize_pre_rotated(rotated: Vec<f32>, bits: TurboQuantBits) -> Tu
 
     // Quantize and pack
     let per_byte = bits.per_byte();
-    let num_bytes = (padded_dim + per_byte - 1) / per_byte;
+    let num_bytes = padded_dim.div_ceil(per_byte);
     let mut data = vec![0u8; num_bytes];
     let bit_width = bits.bits();
     let mask = bits.mask();
@@ -394,7 +396,7 @@ pub fn compression_ratio(dim: usize, bits: TurboQuantBits) -> f32 {
     let original_bytes = dim * 4; // float32
     let per_byte = bits.per_byte();
     let padded_dim = dim.next_power_of_two();
-    let compressed_bytes = (padded_dim + per_byte - 1) / per_byte + 8; // +8 for scale+zero
+    let compressed_bytes = padded_dim.div_ceil(per_byte) + 8; // +8 for scale+zero
     original_bytes as f32 / compressed_bytes as f32
 }
 

@@ -1,6 +1,7 @@
 ---
 state: candidate
 candidate_promoted_on: 2026-05-05
+codex_continuation_update: 2026-05-05 Tier-1 doctrine lifts landed; runtime phases remain candidate
 audit_item: B2 (CANON_GAPS_AND_ADDENDA bonus block)
 source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md (1014 lines, dated 2026-04-29)
 companion_to: B1 (BIOMETRIC_TAMAGOTCHI_BRAINEXPORT lift-targets)
@@ -8,14 +9,15 @@ companion_to: B1 (BIOMETRIC_TAMAGOTCHI_BRAINEXPORT lift-targets)
 
 # B2 — Live Files + Unified Substrate — lift targets
 
-> **State: candidate.** Read-then-absorb pass for CANON_GAPS_AND_ADDENDA
+> **State: candidate for runtime implementation.** Read-then-absorb pass for CANON_GAPS_AND_ADDENDA
 > bonus block B2. The source addendum is 1014 lines covering Wave 7
 > of the Quick Capture standalone canon — Live Files architecture,
 > auto-research loops, and the substrate-unification audit (the
 > "negative app" mandate). This brief maps each section to current
 > main, classifies what's net-new vs already-covered, and recommends
-> specific lift targets — held for sign-off; no doctrine additions
-> or code land in this slice.
+> specific lift targets. Codex continuation landed the Tier-1 doctrine
+> lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
+> W7/W8 runtime work remains queued behind deliberation briefs.
 
 ## Source-doc summary (one paragraph per breakthrough)
 
@@ -87,7 +89,7 @@ honor when lifting:
 
 ## Recommended lift targets (priority-ordered, held for sign-off)
 
-### Tier 1 — Lift to doctrine (no code)
+### Tier 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
 
 | Target | Where | Why |
 |---|---|---|
@@ -149,13 +151,14 @@ honor when lifting:
 
 ## Bottom line
 
-B2 is a 1014-line Wave-7 substrate-unification addendum. Three of
-its load-bearing observations (cell-organism metaphor, determinism
-gradient, Stateful Rotor) are doctrine-ready Tier-1 lifts. Three
+B2 is a 1014-line Wave-7 substrate-unification addendum. Its
+Tier-1 doctrine lifts (cell-organism metaphor, determinism gradient,
+Stateful Rotor/no-polling, closed grammar, MoLoRA/QLoRA subprocess
+debt) are now landed in final doctrine. Three
 others (Live File state machine, Cognitive Weight, dual-mode format)
 are Tier-2 build-order entries (Phases W7-A through W7-G). The
 **subprocess audit (W7-H + W7-I)** is the most directly canon-aligned
 work — porting MoLoRA + QLoRA from Python subprocess to MLX-Swift
 in-process closes the last structural debt against doctrine §2.2
 invariant #2 (Hermes was the third subprocess; already removed
-2026-05-05). Held for sign-off.
+2026-05-05). Runtime implementation remains held for sign-off.

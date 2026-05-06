@@ -65,7 +65,7 @@ Investigation Log:
 
 ### ISSUE-2026-04-04-001: Vec Drop malloc error during app lifecycle transition
 
-Status: Patched
+Status: Verified Fixed
 Priority: P0 (crash, but during teardown, not blocking normal usage)
 First Observed: 2026-04-04
 Affected Version: branch `codex/post-audit-feature-work`
@@ -286,7 +286,7 @@ Regression Coverage:
 
 ### ISSUE-2026-04-21-004: Idle memory regression (~500 MB) — unresolved
 
-Status: Open
+Status: Verified Fixed (2026-05-05)
 Priority: P1
 First Observed: 2026-04-21
 Affected Version: b4e5d45a
@@ -373,7 +373,7 @@ Investigation Log:
 
 ### ISSUE-2026-04-22-001: SwiftUI hot-loop at 98-100% CPU, "Internal inconsistency in menus"
 
-Status: Investigating
+Status: Partially Verified Fixed (getter-mutation path closed; memory-pressure stress still pending)
 Priority: P0
 First Observed: 2026-04-22
 Affected Version: `97adbf83` (Codex's live-runtime checkpoint)
@@ -386,34 +386,45 @@ Symptom:
 - The only Epistemos user-code leaf in the sample is `UserBubbleShape.path(in:)` once
 - Did NOT reproduce on the `Apr 22 16:22` rebuild during the 2026-04-22 walkthrough — suspect it fires on certain launch paths (e.g. when a menu interaction coincides with a cloud-credential snapshot landing)
 
-Suspected Cause (two compounding anti-patterns introduced in `97adbf83`):
+Historical Suspected Cause (two compounding anti-patterns introduced in `97adbf83`):
 
 A. Lazy-cache writes on `@Observable` state during reads:
 - [`Epistemos/State/InferenceState.swift:4285-4305`](Epistemos/State/InferenceState.swift:4285) — `apiKey(for:)` mutates `missingCloudAPIKeyProviders`, `cachedCloudAPIKeys`, and `cloudProviderValidationStates` as a side effect of a read
 - Same pattern in `oauthCredential(for:)` at line 4307-4327
 - Called via `hasConfiguredCloudAccess(for:)` at line 4354, which is called by `preferredAutoRouteCloudProvider` at 4073-4091 (iterates all providers) and `configuredCloudProviders` at 4267-4271
 - SwiftUI `body` that reads any of those dependencies gets invalidated by the same read it performed — classic infinite-layout pattern
+- 2026-05-05 Codex note: current source no longer has this side effect.
+  `apiKey(for:)` and `oauthCredential(for:)` are read-only; cache writes
+  live in explicit refresh/set/clear paths. This suspected driver is
+  verified closed in source.
 
 B. Per-row `@Observable` fan-out in LocalModelToolbarMenu:
 - [`Epistemos/App/RootView.swift:1510-1525`](Epistemos/App/RootView.swift:1510) — `localModelSubtitle(for:)` calls `inference.availableOperatingModes(for: .localMLX(model.id))` per row; chain reads `latestLocalRuntimeHealth`, `supportedAvailableLocalTextModels`, and on agent-fit calls `LocalInferenceMemoryPressureMonitor.availableMemoryBytes()` (a mach syscall)
 - Under real memory pressure, pressure monitor updates `latestLocalRuntimeHealth`, invalidating every menu row, re-layout raises pressure, etc.
 
 Safe Auto-Fix Attempts (no user approval needed):
-- Run Instruments with Time Profiler on a fresh launch and confirm whether A or B or both drive the loop
-- Write a Swift test that calls `inference.apiKey(for:)` under a view-body-equivalent observation scope and asserts no observable property is mutated
+- Run Instruments with Time Profiler on a fresh launch under memory
+  pressure and confirm whether B still drives a loop.
+- Keep RuntimeValidation coverage around read-only inference getters.
 
 Destructive Fixes (require user approval):
-- Move all lazy-cache writes in `apiKey(for:)` / `oauthCredential(for:)` out of the getter path (hygiene fix; should land regardless of whether it's the loop driver)
 - Cache `availableOperatingModes` per model-ID in `LocalModelToolbarMenu` `@State` once per picker open; move memory-fit check out of per-row path
 
 Investigation Log:
 - 2026-04-22: Diagnosed from sample + diff review of `97adbf83`. Live build did not reproduce during walkthrough but has not been stressed under memory pressure. Handoff doc `docs/handoffs/2026-04-22-claude-to-codex-live-runtime-and-tunnel-findings.md` §3 captures the full reasoning.
+- 2026-05-05: Codex verified the `InferenceState` getter-mutation
+  path is already fixed in current source; no code change required for
+  that driver. Focused `RuntimeValidationTests` passed 254/254 via
+  `./scripts/xcodebuild_epistemos.sh test ... -only-testing:EpistemosTests/RuntimeValidationTests`.
+  Remaining work is a real launched-app Time Profiler / memory-pressure
+  stress pass for the `LocalModelToolbarMenu` per-row fan-out path if
+  the hot-loop symptom recurs.
 
 ---
 
 ### ISSUE-2026-04-22-002: Local model install detection misses 10+ hub directories
 
-Status: Open
+Status: Verified Fixed
 Priority: P1
 First Observed: 2026-04-22
 Affected Version: `97adbf83`
@@ -436,12 +447,15 @@ Destructive Fixes (require user approval):
 
 Investigation Log:
 - 2026-04-22: Observed live on the `Apr 22 16:22` build. 2026-04-22 handoff §1.4 captures the full list.
+- 2026-05-05: Codex re-audited the current implementation. `LocalModelInfrastructure.syncInferenceInstalledSets()` now unions manifest records with `detectedOnDiskHubTextModelIDs()`, and `LocalModelPaths.usableHubSnapshotDirectory(for:)` accepts hub snapshots with usable model-weight blobs. Focused verification passed:
+  `./scripts/xcodebuild_epistemos.sh test ... -only-testing:EpistemosTests/LocalModelInfrastructureTests`
+  with 76/76 tests green, including "refresh treats usable hub snapshots as runnable installs" and "refresh ignores hub snapshots without model weights". No code change needed; the current source already contains the fix.
 
 ---
 
 ### ISSUE-2026-04-22-003: Qwen 3 unified picker never surfaces
 
-Status: Open
+Status: Verified Fixed
 Priority: P2
 First Observed: 2026-04-22
 Affected Version: `97adbf83`
@@ -458,6 +472,7 @@ Safe Auto-Fix Attempts:
 
 Investigation Log:
 - 2026-04-22: Observed live on the `Apr 22 16:22` build. Root cause is downstream of ISSUE-2026-04-22-002.
+- 2026-05-05: ISSUE-2026-04-22-002 is now verified fixed at source/test level. The focused LocalModelInfrastructure suite also passed "Qwen 3 fast and thinking checkpoints collapse into one picker model with mode-aware routing". Computer Use live smoke on the fresh debug build confirmed Settings -> Inference renders `Active Local Model` as `Qwen 3`, so the unified picker is visible in the app.
 
 ---
 
@@ -487,9 +502,9 @@ Investigation Log:
 
 ---
 
-### ISSUE-2026-05-05-001: project-wide clippy debt (~126 issues across 5 crates) blocks CI clippy gate when PR opens
+### ISSUE-2026-05-05-001: project-wide clippy debt (~126 issues across 5 crates) formerly blocked CI clippy gate
 
-Status: Open
+Status: Verified Fixed (2026-05-05)
 Priority: **P1** (was P2; upgraded after project-wide scoping)
 First Observed: 2026-05-05 (during late-session hygiene tick)
 Affected Version: feature/landing-liquid-wave HEAD on 2026-05-05
@@ -512,7 +527,7 @@ Symptom (agent_core specifically):
 - **41 warnings** (would also fail under `-D warnings`): 7× "doc list item without indentation", 3× "this function has too many arguments (9/8)", 2× each of "this `map_or` can be simplified" / "this `if` statement can be collapsed" / "this `.filter_map(..)` can be written more simply using `.map(..)`" / "redundant closure" / "match expression looks like `matches!` macro", 3× "you should consider adding a `Default` implementation" (WebFetchTool, McpClient, FileOpsTool), 1× "very complex type used", 1× "the `Err`-variant returned from this function is very large", and others.
 
 Why this hasn't been caught yet:
-The CI workflow at `.github/workflows/ci.yml` only runs on `push: [main]` or `pull_request: [main]`. The `feature/landing-liquid-wave` branch has never run CI — only `release.yml` has run on this branch. The clippy gate (line 122-131 of ci.yml) will fail when this branch opens a PR.
+The CI workflow at `.github/workflows/ci.yml` only runs on `push: [main]` or `pull_request: [main]`. The `feature/landing-liquid-wave` branch had not run CI — only `release.yml` had run on this branch — so the clippy gate (line 122-131 of ci.yml) had not fired before Codex continuation cleaned it.
 
 Suspected Cause:
 - Pre-existing debt — many of these warnings are in code that landed before 2026-05-05 (e.g., `etl/ffi.rs` was added in commit `666aa9ba`).
@@ -529,7 +544,13 @@ Destructive Fixes (require user approval):
 
 Investigation Log:
 - 2026-05-05: discovered during the late-session clippy hygiene check. NOT silently fixed because (a) 41 warnings is too large a cleanup to do safely without per-fix verification, and (b) the user should know this debt exists before merging this branch. Logging here so it's visible at next session start.
-- Recommended next-session action: dedicate a slice to clippy cleanup before opening the next PR to main.
+- 2026-05-05 Codex continuation: cleaned the clippy debt without API-changing refactors. Verified:
+  `agent_core`, `agent_core` Pro+lsp, `epistemos-core`, `omega-mcp`,
+  `omega-ax`, and `graph-engine` all pass the CI-style
+  `cargo clippy ... --target aarch64-apple-darwin -- -D warnings`
+  gates. The FFI pointer lint was resolved with an explicit
+  `#[allow(clippy::not_unsafe_ptr_arg_deref)]` and `SAFETY` note
+  rather than changing the exported Swift-facing ABI to `unsafe fn`.
 
 ---
 

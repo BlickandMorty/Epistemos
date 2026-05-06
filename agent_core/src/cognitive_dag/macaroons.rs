@@ -30,9 +30,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::node::{
-    CapabilityKind, CapabilityScope, Hash, Node, NodeId, NodeKind, Timestamp,
-};
+use super::node::{CapabilityKind, CapabilityScope, Hash, Node, NodeId, NodeKind, Timestamp};
 
 // ── Caveat types ──────────────────────────────────────────────────────────
 
@@ -253,10 +251,7 @@ pub fn verify_macaroon(macaroon: &Macaroon, root_key: &[u8; 32]) -> Result<(), V
 /// Called at use time (e.g. when an edge attempts to invoke a tool); fails
 /// fast on the first violated caveat. Pure function — same caveats + same
 /// context always produce the same outcome.
-pub fn evaluate_caveats(
-    macaroon: &Macaroon,
-    ctx: &RuntimeContext,
-) -> Result<(), CaveatViolation> {
+pub fn evaluate_caveats(macaroon: &Macaroon, ctx: &RuntimeContext) -> Result<(), CaveatViolation> {
     // Compose expiry from base + any ExpiryAfter caveats.
     let mut effective_expiry = macaroon.base_expiry_ms;
     let mut effective_scope_prefix: Option<String> = None;
@@ -310,7 +305,10 @@ pub fn evaluate_caveats(
     // Check evaluated context against runtime
     if let Some(exp) = effective_expiry {
         if ctx.now_ms >= exp {
-            return Err(CaveatViolation::Expired { until_ts_ms: exp, now_ms: ctx.now_ms });
+            return Err(CaveatViolation::Expired {
+                until_ts_ms: exp,
+                now_ms: ctx.now_ms,
+            });
         }
     }
     if let Some(prefix) = &effective_scope_prefix {
@@ -370,10 +368,7 @@ pub enum CaveatViolation {
         actual: String,
     },
     #[error("tool name caveat violated: required {required:?}, actual {actual:?}")]
-    ToolMismatch {
-        required: String,
-        actual: String,
-    },
+    ToolMismatch { required: String, actual: String },
     #[error("context caveat violated: key {key:?}, expected {expected:?}, actual {actual:?}")]
     ContextMismatch {
         key: String,
@@ -483,7 +478,10 @@ mod tests {
             None,
             &root_key(1),
         );
-        assert_eq!(verify_macaroon(&m, &root_key(2)), Err(VerifyError::SignatureMismatch));
+        assert_eq!(
+            verify_macaroon(&m, &root_key(2)),
+            Err(VerifyError::SignatureMismatch)
+        );
     }
 
     #[test]
@@ -503,7 +501,10 @@ mod tests {
         tampered.caveats[0] = Caveat::ScopePrefix {
             prefix: "vault_x/secrets".into(),
         };
-        assert_eq!(verify_macaroon(&tampered, &key), Err(VerifyError::SignatureMismatch));
+        assert_eq!(
+            verify_macaroon(&tampered, &key),
+            Err(VerifyError::SignatureMismatch)
+        );
     }
 
     #[test]
@@ -516,7 +517,10 @@ mod tests {
         tampered.caveats.push(Caveat::ScopePrefix {
             prefix: "vault_x/anything".into(),
         });
-        assert_eq!(verify_macaroon(&tampered, &key), Err(VerifyError::SignatureMismatch));
+        assert_eq!(
+            verify_macaroon(&tampered, &key),
+            Err(VerifyError::SignatureMismatch)
+        );
     }
 
     // ── restrict + composition ──────────────────────────────────────────────
@@ -533,7 +537,10 @@ mod tests {
         );
         assert_eq!(m.caveats.len(), 0);
         assert_eq!(m_narrowed.caveats.len(), 1);
-        assert_ne!(m.signature, m_narrowed.signature, "signature must extend on restrict");
+        assert_ne!(
+            m.signature, m_narrowed.signature,
+            "signature must extend on restrict"
+        );
         // Both verify under the same root key
         assert_eq!(verify_macaroon(&m, &key), Ok(()));
         assert_eq!(verify_macaroon(&m_narrowed, &key), Ok(()));
@@ -820,7 +827,10 @@ mod tests {
         // Revoked node is a Capability of kind Other("revoked:user_revoked")
         let revoked = store.get_node(revoked_id).unwrap().unwrap();
         match revoked.kind {
-            NodeKind::Capability { kind: CapabilityKind::Other(s), .. } => {
+            NodeKind::Capability {
+                kind: CapabilityKind::Other(s),
+                ..
+            } => {
                 assert_eq!(s, "revoked:user_revoked");
             }
             other => panic!("expected revoked Capability, got {:?}", other),
@@ -903,14 +913,8 @@ mod tests {
         assert_eq!(cache.get(&claim_a.id), Truth::True);
 
         // Revoke the capability — adds Revoked node + cap_node→revoked Contradicts
-        let (_revoked_id, _) = revoke_macaroon_in_dag(
-            &m,
-            "test_revoke",
-            cap_node.id,
-            &store,
-            cap_hash,
-        )
-        .unwrap();
+        let (_revoked_id, _) =
+            revoke_macaroon_in_dag(&m, "test_revoke", cap_node.id, &store, cap_hash).unwrap();
         // Re-propagate from cap_node (the revocation entry point)
         propagate_truth_change(cap_node.id, &store, &mut cache).unwrap();
         // claim_a should NOT have changed — the revocation flow inserts

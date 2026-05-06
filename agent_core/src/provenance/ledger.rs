@@ -420,11 +420,7 @@ impl ClaimLedger {
         // the legacy take-ownership move so the dispatch helper sees
         // the canonical Claim shape. Doctrine §10: failures are logged
         // but not propagated — legacy commit stays authoritative.
-        crate::cognitive_dag::dispatch::on_claim_committed(
-            &claim,
-            &derived_from,
-            &supported_by,
-        );
+        crate::cognitive_dag::dispatch::on_claim_committed(&claim, &derived_from, &supported_by);
         self.claims.insert(id.clone(), claim);
         let parents: HashSet<ClaimId> = derived_from.iter().cloned().collect();
         for parent in &parents {

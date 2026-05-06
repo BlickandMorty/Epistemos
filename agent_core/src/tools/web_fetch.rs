@@ -151,10 +151,9 @@ pub(crate) fn html_to_text(html: &str) -> String {
                     | "pre"
                     | "section"
                     | "article"
-            ) {
-                if !result.ends_with('\n') {
-                    result.push('\n');
-                }
+            ) && !result.ends_with('\n')
+            {
+                result.push('\n');
             }
 
             continue;
@@ -219,6 +218,12 @@ pub(crate) fn html_to_text(html: &str) -> String {
 
 pub struct WebFetchTool {
     client: Client,
+}
+
+impl Default for WebFetchTool {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WebFetchTool {

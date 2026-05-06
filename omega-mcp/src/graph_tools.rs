@@ -296,7 +296,7 @@ impl GraphToolExecutor {
             return Err(format!("start node not found: {}", args.start));
         }
 
-        let max_depth = args.max_depth.min(8).max(1);
+        let max_depth = args.max_depth.clamp(1, 8);
         let mut queue = VecDeque::from([(args.start.clone(), 0usize)]);
         let mut visited = BTreeMap::new();
         let mut rows = Vec::new();
@@ -636,7 +636,7 @@ fn default_depth() -> usize {
 }
 
 fn clamp_k(k: usize) -> usize {
-    k.min(100).max(1)
+    k.clamp(1, 100)
 }
 
 fn snippet_for(body: &str, query: &str) -> String {

@@ -365,6 +365,7 @@ pub fn instant_recall_encode(text: String) -> String {
 use crate::ssm_state;
 
 /// Save SSM hidden state to flat binary. Returns file path on success.
+#[allow(clippy::too_many_arguments)]
 pub fn ssm_save_state(
     vault_root: String,
     model_id: String,

@@ -546,7 +546,7 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         name if name.contains('/') => {
             // Auto-detect: openrouter/model or hf/model
             if name.starts_with("hf/") || name.starts_with("huggingface/") {
-                let model = name.splitn(2, '/').nth(1).unwrap_or("meta-llama/Llama-3.3-70B-Instruct");
+                let model = name.split_once('/').map(|x| x.1).unwrap_or("meta-llama/Llama-3.3-70B-Instruct");
                 Ok(Arc::new(OpenAICompatibleProvider::huggingface(model)))
             } else {
                 // Default to OpenRouter for any provider/model format
@@ -702,7 +702,10 @@ pub fn nightbrain_run_live_registered_tasks() -> Vec<String> {
                     } else {
                         "preempted"
                     };
-                    format!("{}:{}:{}", outcome.name, status, outcome.outcome.items_processed)
+                    format!(
+                        "{}:{}:{}",
+                        outcome.name, status, outcome.outcome.items_processed
+                    )
                 })
                 .collect()
         },
@@ -995,7 +998,7 @@ pub fn run_r15_true_rust_callback_loop_benchmark(
             } else {
                 payload
             };
-            let payload_bytes = payload.as_bytes().len() as u64;
+            let payload_bytes = payload.len() as u64;
 
             for _ in 0..iterations {
                 delegate.on_text_delta(payload.clone());
@@ -2242,7 +2245,9 @@ pub fn hermes_build_system_prompt(input_json: String) -> Result<String, AgentErr
             serde_json::from_str(&input_json).map_err(|error| AgentErrorFFI::AgentError {
                 message: format!("invalid HermesPromptInput JSON: {error}"),
             })?;
-        Ok(crate::agent_runtime::prompt_format::build_system_prompt(&input))
+        Ok(crate::agent_runtime::prompt_format::build_system_prompt(
+            &input,
+        ))
     })
 }
 
@@ -2329,7 +2334,8 @@ struct HermesSkillStepSpec {
 #[uniffi::export]
 pub fn list_skills(profile_id: String) -> Result<Vec<SkillDescriptorFFI>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let router = crate::agent_runtime::skills::SkillRouter::load(std::path::Path::new(&profile_id));
+        let router =
+            crate::agent_runtime::skills::SkillRouter::load(std::path::Path::new(&profile_id));
         Ok(router
             .skills()
             .iter()
@@ -2609,10 +2615,12 @@ fn extract_hermes_skill_steps(content: &str) -> Vec<HermesSkillStepSpec> {
 
 fn open_hermes_procedural_memory(
 ) -> Result<crate::agent_runtime::procedural_memory::ProceduralMemoryStore, AgentErrorFFI> {
-    crate::agent_runtime::procedural_memory::ProceduralMemoryStore::open(hermes_procedural_memory_path())
-        .map_err(|error| AgentErrorFFI::AgentError {
-            message: format!("failed to open Hermes procedural memory: {error}"),
-        })
+    crate::agent_runtime::procedural_memory::ProceduralMemoryStore::open(
+        hermes_procedural_memory_path(),
+    )
+    .map_err(|error| AgentErrorFFI::AgentError {
+        message: format!("failed to open Hermes procedural memory: {error}"),
+    })
 }
 
 fn hermes_procedural_memory_path() -> PathBuf {
@@ -2883,7 +2891,7 @@ fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
 // surface avoids the parallel-write hazard while still removing the orphan
 // status of the ledger from the app's perspective.
 
-/// Process-global `ClaimLedger` instance.
+/// Legacy process-global `ClaimLedger` instance.
 ///
 /// **C2 (canonical-upgrade-audit 2026-05-05): RwLock not Mutex.**
 /// All three FFI callers (`provenance_ledger_summary_json`,
@@ -2896,19 +2904,15 @@ fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
 /// dispatch architecture wires them — see Codex audit note below)
 /// take exclusive access.
 ///
-/// **Architectural finding flagged for Codex verification:** the
-/// `cognitive_dag::dispatch` helpers (`on_evidence_committed`,
-/// `on_claim_committed`) do NOT write to this global ledger — they
-/// mirror to `cognitive_dag::dispatch::cognitive_dag_store()`
-/// instead. So this ledger is *currently always empty* under the
-/// FFI. Two interpretations:
-///   1. Intended: this ledger is for FFI-driven writes (none yet),
-///      and the FFI surface is forward-compat scaffolding.
-///   2. Drift: dispatch should ALSO populate this ledger so the
-///      Halo ribbon + Provenance Console show non-zero counts
-///      under real agent traffic.
-/// Either way, C2 (RwLock) is safe; the architectural decision
-/// belongs to a separate audit pass.
+/// **Codex audit decision (2026-05-05): preserve, do not parallel-write.**
+/// The `cognitive_dag::dispatch` helpers (`on_evidence_committed`,
+/// `on_claim_committed`) mirror to
+/// `cognitive_dag::dispatch::cognitive_dag_store()` instead of this global.
+/// That is intentional after Phase 8.E: the Cognitive DAG is the provenance
+/// ledger, and writing both stores would create two authorities. The Swift
+/// Halo + Provenance Console surfaces read the DAG-authoritative projection
+/// for live counts; these legacy FFI exports stay as compatibility scaffold
+/// until Phase 8.H either removes them or rewires them to a DAG projection.
 fn provenance_ledger() -> &'static std::sync::RwLock<crate::provenance::ledger::ClaimLedger> {
     use std::sync::{OnceLock, RwLock};
     static LEDGER: OnceLock<RwLock<crate::provenance::ledger::ClaimLedger>> = OnceLock::new();
@@ -3088,7 +3092,9 @@ pub fn lsp_poll_response_json() -> Result<String, AgentErrorFFI> {
 #[cfg(feature = "lsp-runtime")]
 #[uniffi::export]
 pub fn lsp_lifecycle_state_debug() -> String {
-    crate::lsp_runtime::global_kernel().lifecycle_state_debug().to_string()
+    crate::lsp_runtime::global_kernel()
+        .lifecycle_state_debug()
+        .to_string()
 }
 
 // MARK: - Cognitive DAG observability FFI (V2 final lane — read-only)

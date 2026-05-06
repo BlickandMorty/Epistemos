@@ -398,12 +398,11 @@ fn drain_fd(fd: i32) {
 fn terminate_child(pid: Pid) {
     let _ = signal::kill(pid, Signal::SIGTERM);
     std::thread::sleep(Duration::from_millis(200));
-    match nix::sys::wait::waitpid(pid, Some(WaitPidFlag::WNOHANG)) {
-        Ok(nix::sys::wait::WaitStatus::StillAlive) => {
-            let _ = signal::kill(pid, Signal::SIGKILL);
-            let _ = nix::sys::wait::waitpid(pid, None);
-        }
-        _ => {}
+    if let Ok(nix::sys::wait::WaitStatus::StillAlive) =
+        nix::sys::wait::waitpid(pid, Some(WaitPidFlag::WNOHANG))
+    {
+        let _ = signal::kill(pid, Signal::SIGKILL);
+        let _ = nix::sys::wait::waitpid(pid, None);
     }
 }
 

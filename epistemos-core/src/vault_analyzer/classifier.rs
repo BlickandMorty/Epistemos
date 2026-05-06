@@ -157,7 +157,7 @@ pub fn classify_document(content: &str) -> ClassificationResult {
         }
     } else if code_prose_ratio <= 0.15 {
         (DocumentType::Prose, 0.70 + (1.0 - code_prose_ratio) * 0.25)
-    } else if code_prose_ratio >= 0.30 && code_prose_ratio < 0.70 {
+    } else if (0.30..0.70).contains(&code_prose_ratio) {
         (
             DocumentType::MixedMedia,
             0.60 + (0.50 - (code_prose_ratio - 0.50).abs()) * 0.5,

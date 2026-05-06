@@ -1,6 +1,6 @@
 {
   "generated_at" : "2026-05-01T00:00:00.000Z",
-  "max" : 0.034058458,
+  "max" : 0.033078667,
   "measurement" : "editor_shell_viewport_attribute_220_lines",
   "metadata" : {
     "baseline_kind" : "editor_shell_pr3_real",
@@ -12,17 +12,17 @@
     "sample_source" : "focused_xcode_test",
     "styled_lines" : "220"
   },
-  "min" : 0.029549625,
-  "p50" : 0.031522708,
-  "p95" : 0.0340120998,
-  "p99" : 0.03404918636,
+  "min" : 0.028527417,
+  "p50" : 0.029770458,
+  "p95" : 0.0329416836,
+  "p99" : 0.03305127032,
   "sample_count" : 5,
   "samples" : [
-    0.029549625,
-    0.030976,
-    0.031522708,
-    0.033826667,
-    0.034058458
+    0.028527417,
+    0.028969209,
+    0.029770458,
+    0.03239375,
+    0.033078667
   ],
   "schema_version" : 1,
   "suite" : "R15 Editor Shell Baselines",

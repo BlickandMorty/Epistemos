@@ -61,19 +61,13 @@ pub fn infer_tool_authz_target(
         // last component (matches the Swift-side convention in
         // `AppBootstrap.initializeRustResourceServiceIfReady`).
         "vault_write" => {
-            let path = input.get("path")?.as_str()?;
-            let vault_id = vault_id_from_root(vault_root?)?;
-            let trimmed_path = path.trim().trim_start_matches('/');
-            if trimmed_path.is_empty() {
-                return None;
-            }
-            Some(ToolAuthzTarget {
-                resource: ResourceId::VaultNote {
-                    vault_id,
-                    note_id: trimmed_path.to_string(),
-                },
-                capability: Capability::Write,
-            })
+            vault_note_target_from_path(input.get("path")?, vault_root, Capability::Write)
+        }
+        // Template instantiation writes a new vault note at
+        // `output_path`, so it uses the same resource gate as
+        // `vault_write` rather than bypassing Sovereign Gate policy.
+        "note_template" => {
+            vault_note_target_from_path(input.get("output_path")?, vault_root, Capability::Write)
         }
         // Generic filesystem write — absolute (or `~/`-expanded) path.
         // The handler in `tools::filesystem::WriteFileHandler` creates
@@ -118,6 +112,26 @@ pub fn infer_tool_authz_target(
         // three file-targeting arms above.
         _ => None,
     }
+}
+
+fn vault_note_target_from_path(
+    path_value: &Value,
+    vault_root: Option<&Path>,
+    capability: Capability,
+) -> Option<ToolAuthzTarget> {
+    let path = path_value.as_str()?;
+    let vault_id = vault_id_from_root(vault_root?)?;
+    let trimmed_path = path.trim().trim_start_matches('/');
+    if trimmed_path.is_empty() {
+        return None;
+    }
+    Some(ToolAuthzTarget {
+        resource: ResourceId::VaultNote {
+            vault_id,
+            note_id: trimmed_path.to_string(),
+        },
+        capability,
+    })
 }
 
 /// Shared helper for arms whose input shape is `{ "path": String }`
@@ -211,6 +225,22 @@ mod tests {
             ResourceId::VaultNote { vault_id, note_id } => {
                 assert_eq!(vault_id, "main");
                 assert_eq!(note_id, "Inbox/Beta.md");
+            }
+            _ => panic!("expected VaultNote variant"),
+        }
+    }
+
+    #[test]
+    fn note_template_output_path_emits_vault_note_write() {
+        let input = json!({"template": "# {{title}}", "output_path": "Templates/Alpha.md"});
+        let root = PathBuf::from("/vaults/main");
+        let target = infer_tool_authz_target("note_template", &input, &write_risk(), Some(&root))
+            .expect("note_template should gate the output_path write");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::VaultNote { vault_id, note_id } => {
+                assert_eq!(vault_id, "main");
+                assert_eq!(note_id, "Templates/Alpha.md");
             }
             _ => panic!("expected VaultNote variant"),
         }

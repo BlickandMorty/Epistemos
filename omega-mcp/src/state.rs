@@ -179,6 +179,7 @@ impl StateManager {
     // ── Traces ───────────────────────────────────────────────────────────
 
     /// Log a full execution trace.
+    #[allow(clippy::too_many_arguments)]
     pub fn log_trace(
         &self,
         id: &str,

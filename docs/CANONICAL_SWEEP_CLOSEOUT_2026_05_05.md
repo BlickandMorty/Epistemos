@@ -44,14 +44,14 @@ signs them off.
 | **B2** | 412f9e77 | Sample `.epbundle` generator (`generate_sample_epbundle.rs` example) + `epistemos_trace verify-replay` against it. Catches drift in wire format / BLAKE3 chain / DAG merkle root / storage / signature / capability paths. |
 | **B3** | e523405e | Pro-build feature surface (`pro-build,lsp-runtime`) is built + tested in CI in addition to default features. Doctrine §3.1 satisfied. |
 | **B4** | e523405e | `lsp-runtime` feature also tested in CI under default features (Xcode build path enables it; cargo CI was missing it). |
-| **B5** | 0b30d060 + faee8b68 | MAS/Pro source-guard sweep. 9 modules properly Pro-gated, `BashExecuteHandler` impl-level Pro-gated, `tirith.rs:268` resolved-with-recommendation (runtime-gated under MAS sandbox; recommend Pro-gating to clean App Review surface). 3 orphan files flagged for sign-off (904 LOC). |
+| **B5** | 0b30d060 + faee8b68 + Codex continuation | MAS/Pro source-guard sweep. 9 tools modules properly Pro-gated, `BashExecuteHandler` impl-level Pro-gated, and `tirith.rs` moved to a Pro-only top-level module so its subprocess scanner is not compiled into MAS. Codex removed 2 proven-dead orphan files (`code_execution.rs`, `graph_query.rs`) and promoted `note_tools.rs` into the compiled registry with R.5 gating for template writes. |
 
 ### Observability migration (Codex C-series)
 
 | Item | Commit | What |
 |---|---|---|
 | **C1** | e523405e | `eprintln!` → `tracing::warn!` with structured fields in 4 dispatch sites (cognitive_dag mirror error paths). Doctrine §10 verification-window observability. |
-| **C2** | 90bdddee | `provenance_ledger()` Mutex → RwLock. All 3 callers use `.read()`. Documented architectural drift: `provenance_ledger` is never written to under current dispatch (writes go to `cognitive_dag_store`). Flagged for Codex review. |
+| **C2** | 90bdddee | `provenance_ledger()` Mutex → RwLock. Codex continuation resolved the drift: no parallel writes to the legacy global; the visible Halo/Provenance Console Rust signal reads the DAG-authoritative `cognitive_dag_store` projection, while the old bridge stays as read-only scaffold. |
 
 ### Doctrine surface
 
@@ -84,7 +84,7 @@ signs them off.
 | **CD-005** DAG edge signatures | ✓ closed (commit 9835b439 + A2 promotion 661fd7d0) | this session |
 | **CD-006** Mirror auto-invoke coverage | ✓ closed | `docs/MIRROR_DISPATCH_COVERAGE_2026_05_05.md` (commit 747c4cd8) |
 | **CD-007** MAS-first subprocess discipline | ✓ closed | `docs/MAS_PRO_SOURCE_GUARD_2026_05_05.md` (B5 commits 0b30d060 + faee8b68) |
-| **CD-008** Full-app verification | **PARTIAL** — cargo cross-crate green on clean reruns; xcodebuild test-build green; full xcodebuild test + manual runtime smoke still required | `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` (commit ba95a517) |
+| **CD-008** Full-app verification | **AUTOMATED GATES CODEX-VERIFIED; LIVE UI/BIOMETRIC MANUAL SMOKE PENDING** — all primary Rust crates green at `--all-targets`; `agent_core` Pro+lsp all-targets green; doctrine lint + replay verification green; `.epdoc` creation path, Settings Diagnostics, and Authority approval preview runtime-smoked with Computer Use; full `xcodebuild test` passed with 5,739 total tests, 0 failed, 49 skipped; semantic LSP focused tests passed in Rust and Swift, including tree-sitter hover/definition through `RustLSPTransport`. Live LSP editor UI affordance and real biometric approval remain manual. | `docs/CD_008_PARTIAL_CLOSURE_2026_05_05.md` + Codex continuation |
 | **CD-009** Benchmark JSON dirtiness | ✓ procedural (don't commit dirty JSONs; satisfied by NOT adding the 7 dirty files in `git status` to any commit this session) | n/a |
 
 ### Late-session hygiene discovery (2026-05-05 13:0X tick)
@@ -121,7 +121,7 @@ sessions can ride along through 70+ commits without noticing.
 
 | Item | Status | Note |
 |---|---|---|
-| **A1** | **scoping landed 2026-05-05** | redb-backed `DagStore` scoping brief at `docs/A1_REDB_PERSISTENT_BACKEND_SCOPING_2026_05_05.md` (commit 83481cc1). `state: candidate`. Crate selection (redb 2.x), schema (5 tables), 5-slice implementation plan (5-9 hours), ~19 new tests, migration/rollback path. Held for sign-off — implementation is the next deliberation cycle. |
+| **A1** | **partial implementation landed by Codex continuation** | `RedbDagStore` now exists behind `cognitive-dag-redb` using current `redb` 4.1.0, five tables, JSON value bytes, durable reopen tests, CD-005 capability checks, directional indices, Merkle root parity, and snapshot parity. Verified: redb focused 8/8, feature-enabled cognitive DAG 144/144, default cognitive DAG 136/136, default clippy, and redb-feature clippy. Slice 5 remains pending: dispatch must not open the redb backend by default until Phase 8.H authority verification. |
 | **A2** | **closed 2026-05-05** | Promoted dispatch hash from sentinel to real macaroon (commit 661fd7d0). |
 | **A2-followup** | **closed 2026-05-05** | Per-mirror caveat-narrowed capabilities (commit 5f38f3c8). 5 derived caps via `Caveat::ScopePrefix` ("skills", "procedural", "provenance/evidence", "provenance/claim", "companions"); each dispatch site signs under its own narrowed authority; pre-positioned for the future "DAG enforces caveats at insert" verification slice. 4 new tests pin distinctness + registration + canonical derivation. |
 | **A3** | mostly closed | Auto-invoke dispatch coverage: 4 of 5 dispatch helpers wired (Skills via `skill_router.rs:59`, Procedural via `agent_runtime/procedural_memory.rs:93`, Evidence via `provenance/ledger.rs:358`, Claim via `provenance/ledger.rs:423`). The 5th — `on_companion_registered` — has no live caller because `CompanionRegistry` is only used by tests today; will wire when companion lifecycle goes live. |
@@ -130,10 +130,10 @@ sessions can ride along through 70+ commits without noticing.
 | **A7** | pending | 5-XPC decomposition (Main + VaultXPC + AgentXPC + ProviderXPC + WASMExecXPC). Today's XPC trust spine (#5/#9) is the prerequisite — without peer attestation, decomposition is unsafe. |
 | **C6, C8, C9, C10, C12, C14** | **MERGED 2026-05-05** | Second-wave merges. |
 | **C7, C11, C15** | **MERGED 2026-05-05** | Third-wave verify-then-merge: C7 (verified that staged claim was stale — Phase R substrate already on main), C11 (verified-state Annex C with PrivacyInfo.xcprivacy ✓ + WORKFLOW_MATRIX.md missing-flag), C15 (§6 forbidden line). |
-| **B1, B2, B3** | **read-then-absorbed 2026-05-05** | All three QuickCapture addenda absorbed as lift-targets briefs (state: candidate, held for sign-off). B1 = `docs/B1_BIOMETRIC_TAMAGOTCHI_BRAINEXPORT_LIFT_TARGETS_2026_05_05.md` (commit b1f75c1f), B2 = `docs/B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS_2026_05_05.md` (commit e2d83e97), B3 = `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md` (commit 30b2f088). 689 + 1014 + 1190 = 2893 source-doc lines mapped to canon. ZERO doctrine sections or code added — content is now in the canonical decision queue with sign-off questions per brief. |
+| **B1, B2, B3** | **Tier-1 doctrine landed; implementation queued** | All three QuickCapture addenda absorbed as lift-targets briefs (state: candidate for implementation). B1 = `docs/B1_BIOMETRIC_TAMAGOTCHI_BRAINEXPORT_LIFT_TARGETS_2026_05_05.md` (commit b1f75c1f), B2 = `docs/B2_LIVE_FILES_AND_SUBSTRATE_LIFT_TARGETS_2026_05_05.md` (commit e2d83e97), B3 = `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md` (commit 30b2f088). 689 + 1014 + 1190 = 2893 source-doc lines mapped to canon. Codex continuation landed the 15 Tier-1 doctrine lifts in `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`; B1/B2/B3 runtime implementation remains queued behind deliberation briefs and verification. |
 | **B1-B3 bonuses** | staged | Three bonus addenda from `CANON_GAPS_AND_ADDENDA` discovered during path verification. Not load-bearing. |
-| **3 orphan source files** | held for sign-off | `code_execution.rs` (105 LOC), `graph_query.rs` (276 LOC), `note_tools.rs` (523 LOC) in `agent_core/src/tools/` exist as files but are NOT declared as `pub mod` in `lib.rs`. They neither compile nor ship. Recommendation: delete (matches user's 2026-05-05 "if i dont need something get rid of it" directive on `LSPServerProcess`). Held — separate sign-off slice. |
-| **`tirith` Pro-gating** | recommended for sign-off | Per B5 follow-up: `tirith.rs:268` spawn is runtime-gated under MAS sandbox but compile-reachable. Recommendation: Pro-gate the module + caller for App Review cleanliness. Loses zero MAS capability (Tirith is already a no-op under MAS). |
+| **Orphan source files** | resolved | Codex continuation removed `code_execution.rs` (105 LOC) and `graph_query.rs` (276 LOC) after confirming they were respectively a dead local subprocess runner and superseded by wired `tools/graph.rs`. `note_tools.rs` (523 LOC) was preserved as intended scaffold and promoted to compiled, registered code with `note_template.output_path` mapped to the R.5 vault-note write gate. |
+| **`tirith` Pro-gating** | resolved | Codex continuation Pro-gated the top-level `tirith` module and the `approval.rs` caller. MAS keeps pattern-based approval but no longer compiles the dormant Tirith subprocess scanner surface. |
 
 ---
 
@@ -197,7 +197,7 @@ its own zero-copy path.
 
 ### Q2: "Artifact primitive that distinguishes Static Note from Dynamic AI Weight"
 
-**Status:** doctrine-relevant, requires deliberation brief.
+**Status:** doctrine-relevant, canonized by Codex continuation.
 
 The doctrine's substrate spine is:
 ```
@@ -220,7 +220,7 @@ the dynamic side. The static side is `Note` + `Capture` nodes.
 is not surfaced as a top-level "Artifact" enum the way the user's
 question implies.
 
-**Action landed 2026-05-05:** `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` (commit df458efc) — deliberation brief in `state: candidate`. Survey shows the static/dynamic distinction is already encoded (8 of 10 NodeKind variants are static, 2 are dynamic-rooted). Recommendation (held for sign-off): add `NodeKind::is_dynamic_rooted()` method + doctrine §2.2 paragraph (~30 LOC + 1 test). Skip the wrapper-type option — it adds drift surface without behavioral change.
+**Action landed 2026-05-05:** `docs/STATIC_NOTE_VS_DYNAMIC_WEIGHT_DELIBERATION_2026_05_05.md` was promoted to `state: canon` by Codex continuation. Survey shows the static/dynamic distinction is already encoded (8 of 10 NodeKind variants are static, 2 are dynamic-rooted). Implementation added `NodeKind::is_dynamic_rooted()` + an exhaustive test + doctrine §2.2 invariant. The wrapper-type option was deliberately skipped because it adds drift surface without behavioral change.
 
 ---
 
@@ -236,11 +236,11 @@ This is the canonical statement Codex's next pass works against:
   anything that's "still blocked, being honest, so the user makes
   sure it's still canon and not losing nuance from the plan."
 - Three deliverables in this session are explicitly **held for
-  sign-off**: orphan-file deletion, `tirith` Pro-gating recommendation,
+  sign-off**: provenance ledger drift,
   and the `provenance_ledger` architectural-drift finding.
-- Long-tail items A1–A7 + the remaining `CANON_GAPS_AND_ADDENDA`
-  blocks (C6, C7, C8, C9, C10, C11, C12, C14, C15 + B1, B2, B3) are
-  candidates for the next sustained session.
+- Long-tail items A1–A7 + B1/B2/B3 runtime implementation phases are
+  candidates for the next sustained session. The C-blocks and the
+  B1/B2/B3 Tier-1 doctrine lifts are no longer pending.
 
 ---
 

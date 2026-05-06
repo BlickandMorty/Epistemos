@@ -69,10 +69,7 @@ pub enum LspMessage {
     /// Success response from kernel to Swift.
     ResponseSuccess { id: LspId, result: Value },
     /// Error response from kernel to Swift.
-    ResponseError {
-        id: Option<LspId>,
-        error: LspError,
-    },
+    ResponseError { id: Option<LspId>, error: LspError },
 }
 
 /// JSON-RPC id — either an integer or a string per the spec.
@@ -214,7 +211,10 @@ impl LspKernel {
     /// function only returns Err for transport-level failures
     /// (mutex poison etc.) that callers can't recover from inline.
     pub fn send(&self, message: LspMessage) -> Result<(), LspKernelError> {
-        let mut state = self.state.lock().map_err(|_| LspKernelError::MutexPoisoned)?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| LspKernelError::MutexPoisoned)?;
         if state.lifecycle == LifecycleState::Exited {
             // After exit, all sends are silent no-ops per LSP §6.1.
             return Ok(());
@@ -240,7 +240,10 @@ impl LspKernel {
     /// when the outbox is empty. Swift polls this on a background
     /// task to drive the `messages` AsyncStream on `RustLSPTransport`.
     pub fn poll_response(&self) -> Result<Option<LspMessage>, LspKernelError> {
-        let mut state = self.state.lock().map_err(|_| LspKernelError::MutexPoisoned)?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| LspKernelError::MutexPoisoned)?;
         Ok(state.outbox.pop_front())
     }
 
@@ -297,12 +300,7 @@ impl LspKernel {
         }
     }
 
-    fn dispatch_notification(
-        &self,
-        state: &mut KernelState,
-        method: &str,
-        params: Option<Value>,
-    ) {
+    fn dispatch_notification(&self, state: &mut KernelState, method: &str, params: Option<Value>) {
         match method {
             "initialized" => {
                 // The client tells us initialization is complete; we
@@ -333,16 +331,13 @@ impl LspKernel {
         }
     }
 
-    fn handle_hover(
-        &self,
-        state: &KernelState,
-        id: LspId,
-        params: Option<&Value>,
-    ) -> LspMessage {
+    fn handle_hover(&self, state: &KernelState, id: LspId, params: Option<&Value>) -> LspMessage {
         let Some((uri, line, character)) = request_uri_position(params) else {
             return LspMessage::ResponseError {
                 id: Some(id),
-                error: LspError::invalid_request("hover params missing textDocument.uri or position"),
+                error: LspError::invalid_request(
+                    "hover params missing textDocument.uri or position",
+                ),
             };
         };
         let result = state
@@ -453,10 +448,7 @@ fn apply_did_change(documents: &mut BTreeMap<String, LspDocument>, params: Optio
 }
 
 fn text_document_uri(params: Option<&Value>) -> Option<&str> {
-    params?
-        .get("textDocument")?
-        .get("uri")?
-        .as_str()
+    params?.get("textDocument")?.get("uri")?.as_str()
 }
 
 fn request_uri_position(params: Option<&Value>) -> Option<(&str, u32, u32)> {
@@ -722,14 +714,14 @@ fn lsp_position_for_byte_offset(source: &str, offset: usize) -> lsp::Position {
     lsp::Position { line, character }
 }
 
-
 // ── JSON serialization helpers ─────────────────────────────────────────────
 
 /// Decode an `LspMessage` from a JSON-RPC 2.0 wire string. Used by
 /// the FFI entry point `lsp_send_message_json` to parse Swift-side
 /// envelopes.
 pub fn decode_message(json: &str) -> Result<LspMessage, LspError> {
-    let value: Value = serde_json::from_str(json).map_err(|e| LspError::parse_error(&e.to_string()))?;
+    let value: Value =
+        serde_json::from_str(json).map_err(|e| LspError::parse_error(&e.to_string()))?;
     let obj = value
         .as_object()
         .ok_or_else(|| LspError::invalid_request("top-level must be object"))?;
@@ -751,7 +743,9 @@ pub fn decode_message(json: &str) -> Result<LspMessage, LspError> {
     let params = obj.get("params").cloned();
 
     match (id, method, result, error) {
-        (Some(Some(id)), Some(method), None, None) => Ok(LspMessage::Request { id, method, params }),
+        (Some(Some(id)), Some(method), None, None) => {
+            Ok(LspMessage::Request { id, method, params })
+        }
         (None, Some(method), None, None) => Ok(LspMessage::Notification { method, params }),
         (Some(Some(id)), None, Some(result), None) => {
             Ok(LspMessage::ResponseSuccess { id, result })
@@ -773,10 +767,8 @@ pub fn decode_message(json: &str) -> Result<LspMessage, LspError> {
 fn decode_id(value: &Value) -> Option<LspId> {
     if let Some(i) = value.as_i64() {
         Some(LspId::Int(i))
-    } else if let Some(s) = value.as_str() {
-        Some(LspId::String(s.to_string()))
     } else {
-        None
+        value.as_str().map(|s| LspId::String(s.to_string()))
     }
 }
 
@@ -947,7 +939,10 @@ mod tests {
             LspMessage::ResponseSuccess { result, .. } => {
                 let rendered = serde_json::to_string(&result).unwrap();
                 assert!(rendered.contains("answer"), "hover response: {rendered}");
-                assert!(rendered.contains("function_item"), "hover response: {rendered}");
+                assert!(
+                    rendered.contains("function_item"),
+                    "hover response: {rendered}"
+                );
             }
             other => panic!("expected hover success, got {other:?}"),
         }
@@ -1033,8 +1028,14 @@ mod tests {
         match response {
             LspMessage::ResponseSuccess { result, .. } => {
                 let rendered = serde_json::to_string(&result).unwrap();
-                assert!(rendered.contains("newName"), "hover should use changed text: {rendered}");
-                assert!(!rendered.contains("oldName"), "stale text leaked into hover: {rendered}");
+                assert!(
+                    rendered.contains("newName"),
+                    "hover should use changed text: {rendered}"
+                );
+                assert!(
+                    !rendered.contains("oldName"),
+                    "stale text leaked into hover: {rendered}"
+                );
             }
             other => panic!("expected hover success, got {other:?}"),
         }

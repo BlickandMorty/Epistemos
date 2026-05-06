@@ -301,7 +301,7 @@ impl PermissionService for SqlitePermissionService {
             let resources_json: String = row.get(3)?;
             let capabilities_json: String = row.get(4)?;
             let resources = serde_json::from_str(&resources_json)
-                .unwrap_or_else(|_| ResourceSelector::ByKind(ResourceSelectorKind::File));
+                .unwrap_or(ResourceSelector::ByKind(ResourceSelectorKind::File));
             let capabilities = serde_json::from_str(&capabilities_json)
                 .unwrap_or_else(|_| Vec::<Capability>::new());
             Ok(PermissionGrant {

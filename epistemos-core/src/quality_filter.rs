@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 // Quality filter for synthetic training pairs.
 // MinHash-based near-duplicate detection + text quality scoring.
 // Used by QualityCurator.swift to complement its SHA-256 exact dedup.

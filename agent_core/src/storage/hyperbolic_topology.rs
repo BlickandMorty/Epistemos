@@ -157,6 +157,7 @@ pub fn build_topology(vault_root: &Path) -> Result<VaultTopology, io::Error> {
 // Tree Walking
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)]
 fn walk_tree(
     dir: &Path,
     root: &Path,

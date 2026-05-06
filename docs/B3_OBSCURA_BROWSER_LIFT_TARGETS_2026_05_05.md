@@ -1,6 +1,7 @@
 ---
 state: candidate
 candidate_promoted_on: 2026-05-05
+codex_continuation_update: 2026-05-05 Tier-1 doctrine lifts landed; runtime phases remain candidate
 audit_item: B3 (CANON_GAPS_AND_ADDENDA bonus block)
 source_doc: /Users/jojo/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md (1190 lines, dated 2026-04-29)
 companion_to: B1 + B2 lift-targets briefs
@@ -8,14 +9,15 @@ companion_to: B1 + B2 lift-targets briefs
 
 # B3 — Obscura Browser + Eidos Search — lift targets
 
-> **State: candidate.** Read-then-absorb pass for CANON_GAPS_AND_ADDENDA
+> **State: candidate for runtime implementation.** Read-then-absorb pass for CANON_GAPS_AND_ADDENDA
 > bonus block B3. The source addendum is 1190 lines covering Wave 6
 > of the Quick Capture standalone canon — the Pro-tier in-process
 > browser engine (Obscura), embedded JS execution (deno_core), and
 > a new agent-native search engine (Eidos). This brief maps each
 > section to current main, classifies what's net-new vs already-covered,
-> and recommends specific lift targets — held for sign-off; no
-> doctrine additions or code land in this slice.
+> and recommends specific lift targets. Codex continuation landed the
+> Tier-1 doctrine lifts into `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`;
+> W6 runtime work remains queued behind deliberation briefs.
 
 ## Source-doc summary (one paragraph per axis)
 
@@ -76,7 +78,7 @@ Source is engineering-tight; only one line worth flagging:
 
 ## Recommended lift targets (priority-ordered, held for sign-off)
 
-### Tier 1 — Lift to doctrine (no code)
+### Tier 1 — Lift to doctrine (landed by Codex continuation; no runtime code)
 
 | Target | Where | Why |
 |---|---|---|
@@ -140,15 +142,15 @@ Source is engineering-tight; only one line worth flagging:
 
 B3 is a 1190-line Wave-6 addendum proposing in-process browser
 (Obscura) + embedded V8 (deno_core) + agent-native search (Eidos).
-Zero of the substrate is in main today; this is entirely net-new
-feature surface. Five Tier-1 doctrine lifts (subprocess-failure
+Zero of the runtime substrate is in main today; this remains net-new
+feature surface. The five Tier-1 doctrine lifts (subprocess-failure
 rationale, library-embed pattern, closed-vocab citations, V8 dedup
-contract, Eidos local-first inversion thesis) codify the contracts
+contract, Eidos local-first inversion thesis) now codify the contracts
 before code lands. Nine Tier-2 build-order entries (Phases W6-A
-through W6-I) queue the implementation. Held for sign-off.
+through W6-I) queue the implementation behind sign-off.
 
 Net for the B-bonus trio (B1 + B2 + B3): three lift-targets briefs
-landed, ALL bonus blocks read-then-absorbed, ZERO doctrine sections
-or code added — the addenda's content is now mapped into the
-canonical decision queue and any future implementation has the
-decision tree pre-staged.
+landed, ALL bonus blocks read-then-absorbed, Tier-1 doctrine now
+landed, and runtime code still unimplemented — the addenda's content
+is mapped into the canonical decision queue and any future
+implementation has the decision tree pre-staged.

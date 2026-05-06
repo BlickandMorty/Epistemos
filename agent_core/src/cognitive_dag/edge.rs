@@ -36,10 +36,7 @@ pub enum EdgeKind {
     /// Claim → Claim
     Contradicts { tension: f32 },
     /// Skill → Tool / Skill
-    Invokes {
-        order: u32,
-        args_template: String,
-    },
+    Invokes { order: u32, args_template: String },
     /// Event → Capability
     WitnessedBy {},
     /// Capability → SovereignSession
@@ -95,19 +92,19 @@ pub enum EdgeKindSelector {
 
 impl EdgeKindSelector {
     pub fn matches(&self, kind: &EdgeKind) -> bool {
-        match (self, kind) {
-            (EdgeKindSelector::DerivesFrom, EdgeKind::DerivesFrom { .. }) => true,
-            (EdgeKindSelector::Contradicts, EdgeKind::Contradicts { .. }) => true,
-            (EdgeKindSelector::Invokes, EdgeKind::Invokes { .. }) => true,
-            (EdgeKindSelector::WitnessedBy, EdgeKind::WitnessedBy {}) => true,
-            (EdgeKindSelector::AuthorizedBy, EdgeKind::AuthorizedBy {}) => true,
-            (EdgeKindSelector::RecordedBy, EdgeKind::RecordedBy { .. }) => true,
-            (EdgeKindSelector::OwnedBy, EdgeKind::OwnedBy {}) => true,
-            (EdgeKindSelector::Deforms, EdgeKind::Deforms { .. }) => true,
-            (EdgeKindSelector::Caches, EdgeKind::Caches { .. }) => true,
-            (EdgeKindSelector::AnnotatedBy, EdgeKind::AnnotatedBy { .. }) => true,
-            _ => false,
-        }
+        matches!(
+            (self, kind),
+            (EdgeKindSelector::DerivesFrom, EdgeKind::DerivesFrom { .. })
+                | (EdgeKindSelector::Contradicts, EdgeKind::Contradicts { .. })
+                | (EdgeKindSelector::Invokes, EdgeKind::Invokes { .. })
+                | (EdgeKindSelector::WitnessedBy, EdgeKind::WitnessedBy {})
+                | (EdgeKindSelector::AuthorizedBy, EdgeKind::AuthorizedBy {})
+                | (EdgeKindSelector::RecordedBy, EdgeKind::RecordedBy { .. })
+                | (EdgeKindSelector::OwnedBy, EdgeKind::OwnedBy {})
+                | (EdgeKindSelector::Deforms, EdgeKind::Deforms { .. })
+                | (EdgeKindSelector::Caches, EdgeKind::Caches { .. })
+                | (EdgeKindSelector::AnnotatedBy, EdgeKind::AnnotatedBy { .. })
+        )
     }
 }
 
@@ -237,12 +234,7 @@ impl Edge {
     /// Construct + sign an edge. `capability_hash` identifies the
     /// capability that issued it; in Phase 8.A this is a content
     /// hash, in Phase 8.C this becomes a real Macaroon root.
-    pub fn new(
-        from: NodeId,
-        to: NodeId,
-        kind: EdgeKind,
-        capability_hash: Hash,
-    ) -> Self {
+    pub fn new(from: NodeId, to: NodeId, kind: EdgeKind, capability_hash: Hash) -> Self {
         let signature = EdgeSignature::compute(&from, &to, &kind, &capability_hash);
         Self {
             from,
@@ -406,7 +398,11 @@ mod tests {
         ];
         let mut seen = std::collections::BTreeSet::new();
         for v in &variants {
-            assert!(seen.insert(v.discriminator()), "duplicate: {}", v.discriminator());
+            assert!(
+                seen.insert(v.discriminator()),
+                "duplicate: {}",
+                v.discriminator()
+            );
         }
         assert_eq!(seen.len(), 10, "doctrine §1.2 names exactly 10 edge kinds");
     }
@@ -434,7 +430,12 @@ mod tests {
             source: SourceRef("u".into()),
         });
         let cap = dummy_capability_hash(7);
-        let edge = Edge::new(claim_a.id, claim_b.id, EdgeKind::Contradicts { tension: 0.9 }, cap);
+        let edge = Edge::new(
+            claim_a.id,
+            claim_b.id,
+            EdgeKind::Contradicts { tension: 0.9 },
+            cap,
+        );
         let encoded = serde_json::to_string(&edge).unwrap();
         let decoded: Edge = serde_json::from_str(&encoded).unwrap();
         assert_eq!(edge, decoded);
