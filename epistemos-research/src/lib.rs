@@ -114,6 +114,10 @@
 //!   §2.4 — Pass / Hold / Quarantine / TriggerEvidenceSupremacy /
 //!   EngramAnchor / MigrateResidency. Engram-anchor predicate at
 //!   prime + ρ > 0.7 + κ > 0.382. Self-monitoring d_max = 3.
+//! - [`learning_modes`] — `LearningMode` (4 arms: Freeze /
+//!   FastWeight / LoRA / Sketch) + `Direction` (6 arms: Upward /
+//!   Downward / Sideways / Inward / OnItself / None) per
+//!   `epistenos_build_prompt.md` §2.1 helios-core canonical types.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -140,6 +144,9 @@ pub mod gate_action;
 
 #[cfg(feature = "research")]
 pub mod kv_direct_gate;
+
+#[cfg(feature = "research")]
+pub mod learning_modes;
 
 #[cfg(feature = "research")]
 pub mod mas_capability_lattice;
