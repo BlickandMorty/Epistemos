@@ -157,6 +157,24 @@ USAGE
     exit 0
     ;;
   "")
+    # First: verify every registered id has a YAML manifest.
+    # This catches drift where someone adds an id to the cargo
+    # registry without writing its protocol YAML.
+    proto_dir="$(dirname "$0")/protocols"
+    missing_yaml=0
+    while IFS='|' read -r id _; do
+      [ -z "${id}" ] && continue
+      if [ ! -f "${proto_dir}/${id}.yaml" ]; then
+        echo "::error::W25 falsifier: id ${id} registered but ${proto_dir}/${id}.yaml is missing"
+        missing_yaml=$((missing_yaml + 1))
+      fi
+    done <<< "${REGISTRY}"
+    if [ "${missing_yaml}" -gt 0 ]; then
+      echo "::error::W25 falsifier: ${missing_yaml} registered id(s) missing YAML manifest"
+      exit 1
+    fi
+
+    # Then: run every registered protocol's cargo-test dispatch.
     failures=0
     while IFS='|' read -r id _; do
       [ -z "${id}" ] && continue
