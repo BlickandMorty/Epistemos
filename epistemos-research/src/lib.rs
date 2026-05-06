@@ -202,6 +202,9 @@ pub mod lane4_falsifier;
 pub mod learning_modes;
 
 #[cfg(feature = "research")]
+pub mod m2_max_kernels;
+
+#[cfg(feature = "research")]
 pub mod mas_capability_lattice;
 
 #[cfg(feature = "research")]
