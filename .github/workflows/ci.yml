@@ -172,6 +172,17 @@ jobs:
       - name: W26 — App Review §2.5.2 compliance audit
         run: ./Tools/app-review-audit/app-review-audit.sh
 
+      # W25 (HELIOS V5 §F-falsifier-rig): hardware-falsifier rig
+      # stage-0 proxy. Runs every cargo-registered protocol from
+      # Tools/falsifier/protocols/*.yaml against its declared
+      # cargo-test filter (per-crate dispatch with feature flags).
+      # Exits non-zero if ANY protocol fails. Real M2 Max-specific
+      # nightly runs (with hardware-bound thresholds + ULP gates)
+      # land in a follow-up workflow that consumes the same YAML
+      # protocols.
+      - name: W25 — Falsifier rig stage-0 (cargo-test dispatch)
+        run: ./Tools/falsifier/falsifier.sh
+
       # B5 (HELIOS V5 Canon Lock v2 §F): theorem-invariant smoke gate.
       # Skeleton at Stage 0 — verifies anchor-table parity for the 14
       # canon docs named in HELIOS_V5_DOC_0_INDEX.md §0.7, counts E/H/PCF
