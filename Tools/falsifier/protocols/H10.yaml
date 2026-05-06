@@ -1,0 +1,71 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H10 MAS↔Pro Lamination Mutex.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H10 +
+# v5.2 §F: H10 is Lane 4 reserved at lock — never product.
+#
+# Statement: the MAS↔Pro lamination is enforceable by the
+# `mas-build` ⊕ `lane4-oracle` Cargo feature mutex:
+#
+#   build(features = mas-build, lane4-oracle) → COMPILATION FAILURE
+#
+# The mutex is build-time enforced; toggling both flags causes the
+# Rust compiler to reject the build before any binary is produced.
+# Per App Review §2.5.2: Julia is itself an interpreter, so
+# bundling lane4-oracle (jlrs 0.23 + arrow 53) inside an MAS-
+# distributed app would violate §2.5.2.
+
+id: H10
+title: "MAS↔Pro Lamination Mutex — build-time enforced"
+class: operational
+lane: L4
+severity: HALT
+state: candidate
+
+statement: |
+  The `mas-build` ⊕ `lane4-oracle` Cargo feature pair is
+  COMPILATION-time mutex-enforced. Any build setting both flags
+  must FAIL at compile time, before any binary is produced.
+
+acceptance:
+  metric: mutex_compile_failure_rate
+  threshold: 1.0             # 100% of dual-flag builds must fail
+  units: fraction
+
+stage_0_proxy:
+  # No cargo-test-filter — the mutex IS a compilation invariant,
+  # not a runtime test. The W26 §2.5.2 audit script verifies
+  # absence of the Lane 4 oracle from the MAS build.
+  shell_proxy: "bash Tools/app-review-audit/app-review-audit.sh"
+  expected_exit: 0
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Attempt `cargo build --features mas-build,lane4-oracle`.
+    2. Verify the build FAILS with a feature-mutex error before
+       linking begins.
+    3. Inspect the resulting MAS binary (when only mas-build is
+       set) for any Lane 4 / oracle / interpreter symbols.
+    4. The §2.5.2 audit at Tools/app-review-audit/app-review-audit.sh
+       performs the symbol-presence proxy on the shipped binary.
+
+falsifier:
+  hard: |
+    If `cargo build --features mas-build,lane4-oracle` succeeds,
+    or if any Lane 4 oracle symbols are present in the MAS-built
+    binary, the lamination mutex is broken. This is a §2.5.2
+    compliance HALT — block the release until fixed.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H10
+  - lean/Epistemos/Epistemos/H10.lean
+  - Tools/app-review-audit/app-review-audit.sh
+
+insertion_site: agent_core/Cargo.toml + epistemos-research/Cargo.toml feature gates
+
+provisional_status: |
+  Per v5.2 §F, H10 is Lane 4 reserved AT LOCK — never product.
+  The mutex exists in the build-feature topology; the lane4-oracle
+  feature is not currently introduced anywhere in the workspace
+  (no jlrs / Julia integration in any crate's Cargo.toml). The
+  mutex is provisional until a Lane 4 oracle proposal lands.

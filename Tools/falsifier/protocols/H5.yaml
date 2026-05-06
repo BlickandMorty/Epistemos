@@ -1,0 +1,56 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H5 Determinism Invariant.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H5.
+#
+# Statement: same Morph DSL program + same input → byte-identical
+# execution trace. Determinism is load-bearing — without it,
+# verify-replay (B2) cannot prove integrity chains hold across runs.
+#
+# Falsifier discipline: the agent_core epistemos-trace verify-replay
+# binary IS the operational verifier. The Phase 8.F replay-bundle
+# CI gate exercises this on every push.
+
+id: H5
+title: "Determinism — same program + input → byte-identical trace"
+class: operational
+lane: L1
+severity: HALT
+state: implemented
+
+statement: |
+  ∀ program p, input x:
+    execute(p, x).trace == execute(p, x).trace
+  Verified via B2 verify-replay CI gate.
+
+acceptance:
+  metric: byte_identical_trace_match
+  threshold: 1.0             # bit-identical; any divergence = HALT
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "provenance::replay"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  procedure: |
+    1. Generate N = 1024 random Morph DSL programs + inputs.
+    2. Execute each twice, capturing trace bytes.
+    3. Verify byte-by-byte equality.
+    4. CI gate: epistemos-trace verify-replay on a sample
+       .epbundle exercises this end-to-end.
+
+falsifier:
+  hard: |
+    Any program/input pair producing different traces across
+    runs is a HALT-class violation. Investigate uninitialized
+    memory, thread-scheduling order, or floating-point determinism
+    issues before claiming canon.
+
+cross_refs:
+  - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §2 H5
+  - lean/Epistemos/Epistemos/H5.lean
+  - agent_core/src/provenance/replay.rs
+  - agent_core/src/bin/epistemos_trace.rs
+
+insertion_site: agent_core/src/provenance/replay.rs
