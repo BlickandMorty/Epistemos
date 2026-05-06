@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-04
+frontmatter_added_on: 2026-05-06
+covers: V2 sequence after recovery + V1 ship; V2.1-V2.7 priority order; explicit "RESUME SUBSTRATE V2" + "RESUME RESEARCH TIER" signals
+---
+
 # Post-Recovery Substrate V2 Plan — What's Next After Recovery + V1 Ship — 2026-05-04
 
 > **Successor doctrine to `CANONICAL_RECOVERY_PLAN_2026_05_03.md`.**

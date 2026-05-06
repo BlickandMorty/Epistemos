@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-03
+frontmatter_added_on: 2026-05-06
+covers: kernel + renderer + syscall + sandbox-exec + capability layers; one agent loop, one memory store, one binary; Phases 1-7
+---
+
 # Epistemos Cognitive Kernel Doctrine — One Kernel, One Binary — 2026-05-03
 
 > **Doctrinal entry-point.** This document is canon. Every PR that touches the

@@ -131,6 +131,25 @@ jobs:
       - name: Run halo_budget bench (V2.2 §4 gate)
         run: cd epistemos-shadow && cargo run --target aarch64-apple-darwin --example halo_budget
 
+      # B5 (HELIOS V5 Canon Lock v2 §F): theorem-invariant smoke gate.
+      # Skeleton at Stage 0 — verifies anchor-table parity for the 14
+      # canon docs named in HELIOS_V5_DOC_0_INDEX.md §0.7, counts E/H/PCF
+      # source-text guards, and confirms all 34 theorem ids (E1-E7 +
+      # H1-H17 + PCF-1..PCF-10) are surfaced in DOC 0 §0.2.
+      #
+      # Grows teeth as W1-W26 land:
+      #   - W1/W2/W3 add the first 3 source-text guards (AnswerPacket /
+      #     ClaimKind / VRMLabel)
+      #   - W6/W7/W8 add Tier-1 ULP-equality smoke against reference
+      #   - W23 wires the forensic-cite tool resolution check
+      #   - W24 wires the sorry-budget tracker
+      #   - W25 wires the M2 Max hardware falsifier rig nightly run
+      #
+      # Per-invariant sampling rates locked: E/H 1/100, PCF 1/10.
+      # Aggregate budget ≤ 5 ms cumulative per inference.
+      - name: B5 — HELIOS theorem-invariant smoke (Canon Lock v2 §F)
+        run: ./scripts/check-helios-invariants.sh
+
       # Rust lints
       - name: Clippy (all crates)
         run: |

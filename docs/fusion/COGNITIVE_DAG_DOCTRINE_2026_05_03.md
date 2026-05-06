@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-03
+frontmatter_added_on: 2026-05-06
+covers: typed content-addressed Merkle-rooted Cognitive DAG; Phase 8 meta-collapse over kernel doctrine Phases 1-7
+---
+
 # Epistemos Cognitive DAG Doctrine — One Schema For All Cognition — 2026-05-03
 
 > **Successor doctrine.** This document extends `COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md`

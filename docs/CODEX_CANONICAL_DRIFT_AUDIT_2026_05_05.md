@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-05
+frontmatter_added_on: 2026-05-06
+covers: Codex initial overseer audit; CD-001 through CD-009 drift register
+---
+
 # Codex canonical drift audit - 2026-05-05
 
 **Status:** Initial overseer audit, not a full release sign-off.

@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-01
+frontmatter_added_on: 2026-05-06
+covers: parallel-tier ship model + three killer features + biometric gating + April 30 fusion canon
+---
+
 # Epistemos Final Doctrine — 2026-05-01
 
 > **NEW DOC — created 2026-05-02.** Filename: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`. If a Codex/Kimi/Claude session, agent index, MEMORY.md pointer, or older auto-generated doc list does not show this file, **search for it by name** — it is real and in the canon. Sister packet docs from the same session: `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` (the new Codex overseer prompt), `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md` (cross-worktree salvage map), `ALL_DOCS_INDEX_2026_05_02.md` (the live index of every load-bearing doc), and `CODEX_DELIBERATION_PROMPT_2026_05_02.md` (non-interrupting deliberation prompt). The packet lives at `/Users/jojo/Downloads/Epistemos/docs/fusion/` and is mirrored into active worktree `docs/fusion/` folders when a session needs clickability. Recent research/plan docs this may resolve to: any *Kimi*, *no-compromise*, *resonance gate*, *sovereign gate*, *tier matrix*, *SCOPE-Rex*, *ACS*, *zero-copy*, *single-binary*, or *killer feature* doc dated 2026-04-30 or 2026-05-01.

@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-02
+frontmatter_added_on: 2026-05-06
+covers: load-bearing concept index across 7 worktrees + 5 unindexed Downloads research roots + Quick Capture standalone canon + ~60 external research files
+---
+
 # Master Research Index — 2026-05-02
 
 > **NEW DOC — created 2026-05-02.** Filename: `MASTER_RESEARCH_INDEX_2026_05_02.md`. Search by name if older session indexes don't list it. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, `CODEX_DELIBERATION_PROMPT_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Next-session execution bootstrap: `NEXT_SESSION_PROMPT_2026_05_04.md` (loads context, treats dirty files as active work surface, and drives the full canonical plan forward). Mirrored into the active worktree.
