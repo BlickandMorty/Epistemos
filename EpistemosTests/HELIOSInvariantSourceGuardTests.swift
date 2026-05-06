@@ -320,6 +320,56 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 6 / W3.b: MessageBubble wires VRMLabelView under VRM toggle")
+    func stage6MessageBubbleWiresVrmLabel() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        #expect(source.contains("HELIOS-W3b guard"))
+        // The toggle key matches the W9 AppStorage key — same source of truth.
+        #expect(source.contains("@AppStorage(\"epistemos.helios.v5.verifiedResearchMode\")"))
+        // Critical safety invariant: the placeholder label is never .verified.
+        #expect(source.contains("VRMLabelView(.plausibleButUnverified, compact: true)"))
+        #expect(!source.contains("VRMLabelView(.verified"))
+    }
+
+    @Test("Stage 6 / W5.b: BTMView Swift surface exists, never tensor")
+    func stage6BTMViewExists() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/BTMView.swift")
+        #expect(source.contains("HELIOS-W5b guard"))
+        #expect(source.contains("public struct BTMView"))
+        #expect(source.contains("public struct SemanticDeltaView"))
+        // The W5 contract — semantic only, never tensors — is locked
+        // at the Swift mirror level too.
+        #expect(source.contains("Semantic only — never tensors"))
+        // CodingKeys mirror the Rust wire format snake_case.
+        #expect(source.contains("case addedClaims = \"added_claims\""))
+        #expect(source.contains("case modifiedClaims = \"modified_claims\""))
+        #expect(source.contains("case removedClaimIds = \"removed_claim_ids\""))
+    }
+
+    @Test("Stage 6 / W9-W11.b: HELIOS V5 wired into main SettingsView")
+    func stage6HeliosV5WiredInSettingsView() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        // New SettingsSection enum case.
+        #expect(source.contains("case heliosV5 = \"HELIOS V5\""))
+        // Routed to the HELIOSv5SettingsView in the detail builder.
+        #expect(source.contains("case .heliosV5: HELIOSv5SettingsView()"))
+        // Listed in visibleSections so it appears in the sidebar.
+        #expect(source.contains(".heliosV5,"))
+    }
+
+    @Test("Stage 6 / Σ: Pro + Research compose functions exist")
+    func stage6SigmaComposeFunctionsExist() throws {
+        let source = try loadMirroredSourceTextFile("agent_core/src/resonance/mod.rs")
+        #expect(source.contains("pub fn compute_signature_pro"))
+        #expect(source.contains("pub fn compute_signature_research"))
+        #expect(source.contains("pub fn compute_signature_full"))
+        #expect(source.contains("pub struct ResonanceSignaturePro"))
+        #expect(source.contains("pub struct ResonanceSignatureResearch"))
+        #expect(source.contains("pub struct ResonanceSignatureFull"))
+        // Full Σ is gated on BOTH features per the v2 plan.
+        #expect(source.contains("#[cfg(all(feature = \"pro-build\", feature = \"research\"))]"))
+    }
+
     @Test("Stage 5 / DOC 6: master Theorem Canon doc exists with all 34 ids")
     func stage5Doc6TheoremCanonExists() throws {
         let source = try loadMirroredSourceTextFile("docs/HELIOS_V5_DOC_6_THEOREM_CANON.md")

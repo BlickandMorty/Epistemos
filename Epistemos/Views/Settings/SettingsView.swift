@@ -128,6 +128,11 @@ struct SettingsView: View {
         /// both deployment profiles.
         case privacy = "Privacy"
         case provenance = "Provenance Console"
+        // HELIOS V5 W9+W10+W11 — Tier-2 toggle parents (Verified
+        // Research Mode / Connectome Browser / Experimental Metal
+        // Kernels). All toggles default OFF per §2.5.2 compliance.
+        // See `Epistemos/Views/Settings/HELIOSv5SettingsView.swift`.
+        case heliosV5 = "HELIOS V5"
 
         var id: String { rawValue }
 
@@ -162,6 +167,7 @@ struct SettingsView: View {
                 .vault,
                 .privacy,
                 .provenance,
+                .heliosV5,
             ]
             return sections
         }
@@ -200,6 +206,7 @@ struct SettingsView: View {
             case .vault: "folder"
             case .privacy: "hand.raised.fill"
             case .provenance: "list.bullet.rectangle.portrait"
+            case .heliosV5: "sparkles"
             }
         }
 
@@ -228,6 +235,7 @@ struct SettingsView: View {
             case .privacy:        .privacyStore
             case .provenance:     .privacyStore
             case .general:        .advanced
+            case .heliosV5:       .advanced
             }
         }
 
@@ -270,6 +278,8 @@ struct SettingsView: View {
                 "What stays on this Mac, what leaves it, and the App Privacy fields."
             case .provenance:
                 "Read-only audit trail for agent, graph, and mutation projections."
+            case .heliosV5:
+                "VRM labels, Connectome Browser, experimental Metal kernels (all default OFF)."
             }
         }
     }
@@ -336,6 +346,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var settingsDetail: some View {
         switch SettingsSection.safeDetailSelection(for: selection) {
+        case .heliosV5: HELIOSv5SettingsView()
         case .general: GeneralDetailView()
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         case .channels, .knowledgeFusion, .iMessageDriver, .skills:

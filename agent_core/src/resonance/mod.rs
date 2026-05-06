@@ -110,3 +110,204 @@ pub fn compute_signature_core(claim: &Claim) -> ResonanceSignatureCore {
         residency: target_residency(claim),
     }
 }
+
+// ---------------------------------------------------------------------------
+// HELIOS V5 — Pro / Research tier Σ-signature composition.
+//
+// Per docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md §G:
+//
+//   Σ(x) = [τ truth, δ direction, π prime/composite/gap,
+//           ρ resonance, κ KAM, η evidence, λ residency]
+//
+// Core tier ships [τ, π, λ] (3 of 7) above. Pro tier composes with
+// δ + ρ to ship 5 of 7. Research tier adds κ + η for the full 7.
+// ---------------------------------------------------------------------------
+
+/// Pro-tier Σ-signature — Core fields plus δ direction + ρ resonance.
+///
+/// Built when `pro-build` feature is on. Wire format mirrors the
+/// Core signature with two additional fields appended.
+#[cfg(feature = "pro-build")]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ResonanceSignaturePro {
+    pub truth: Truth,
+    pub class: ClaimClass,
+    pub residency: ResidencyLevel,
+    pub direction: delta::DeltaOp,
+    pub resonance: rho::ResonanceScore,
+}
+
+/// Pro-tier composition input — additional context beyond the Claim.
+#[cfg(feature = "pro-build")]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct ProComposeContext {
+    pub direction: Option<delta::DeltaOp>,
+    /// Shared evidence weight for ρ resonance.
+    pub shared_evidence: f32,
+    /// Disjoint evidence weight for ρ resonance.
+    pub disjoint_evidence: f32,
+}
+
+/// Compose the 5-field Pro Σ-signature `[τ, π, λ, δ, ρ]`.
+#[cfg(feature = "pro-build")]
+pub fn compute_signature_pro(claim: &Claim, ctx: &ProComposeContext) -> ResonanceSignaturePro {
+    let core = compute_signature_core(claim);
+    ResonanceSignaturePro {
+        truth: core.truth,
+        class: core.class,
+        residency: core.residency,
+        direction: ctx.direction.unwrap_or(delta::DeltaOp::LateralResonance),
+        resonance: rho::rho_from_evidence_overlap(ctx.shared_evidence, ctx.disjoint_evidence),
+    }
+}
+
+/// Research-tier Σ-signature — full 7-field surface
+/// `[τ, π, λ, δ, ρ, κ, η]`.
+///
+/// Built when `research` feature is on. The full Σ signature lands
+/// here per `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md`
+/// §G "Research-tier wiring".
+#[cfg(feature = "research")]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ResonanceSignatureResearch {
+    pub truth: Truth,
+    pub class: ClaimClass,
+    pub residency: ResidencyLevel,
+    pub kam_stability: kappa::KamStabilityScore,
+    pub evidence: eta::EvidenceSupremacy,
+}
+
+/// Research-tier composition input.
+#[cfg(feature = "research")]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct ResearchComposeContext {
+    /// L² deviation of the routing trajectory under perturbation.
+    pub trajectory_deviation_l2: f32,
+    /// Perturbation magnitude.
+    pub perturbation_magnitude: f32,
+    /// Normalized evidence weight for η classification.
+    pub evidence_weight: f32,
+}
+
+/// Compose the Research Σ-signature `[τ, π, λ, κ, η]`. (Note: this
+/// returns a 5-field struct rather than the full 7 because δ + ρ
+/// require the Pro feature; the full 7-field compose lives below.)
+#[cfg(feature = "research")]
+pub fn compute_signature_research(
+    claim: &Claim,
+    ctx: &ResearchComposeContext,
+) -> ResonanceSignatureResearch {
+    let core = compute_signature_core(claim);
+    ResonanceSignatureResearch {
+        truth: core.truth,
+        class: core.class,
+        residency: core.residency,
+        kam_stability: kappa::kappa_from_deviation(
+            ctx.trajectory_deviation_l2,
+            ctx.perturbation_magnitude,
+        ),
+        evidence: eta::eta_classify(ctx.evidence_weight),
+    }
+}
+
+/// Full 7-field Σ-signature — Core + Pro + Research composed
+/// together. Built when BOTH `pro-build` and `research` features
+/// are on.
+#[cfg(all(feature = "pro-build", feature = "research"))]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ResonanceSignatureFull {
+    pub truth: Truth,
+    pub class: ClaimClass,
+    pub residency: ResidencyLevel,
+    pub direction: delta::DeltaOp,
+    pub resonance: rho::ResonanceScore,
+    pub kam_stability: kappa::KamStabilityScore,
+    pub evidence: eta::EvidenceSupremacy,
+}
+
+/// Compose the full 7-field Σ.
+#[cfg(all(feature = "pro-build", feature = "research"))]
+pub fn compute_signature_full(
+    claim: &Claim,
+    pro_ctx: &ProComposeContext,
+    research_ctx: &ResearchComposeContext,
+) -> ResonanceSignatureFull {
+    let pro = compute_signature_pro(claim, pro_ctx);
+    let research = compute_signature_research(claim, research_ctx);
+    ResonanceSignatureFull {
+        truth: pro.truth,
+        class: pro.class,
+        residency: pro.residency,
+        direction: pro.direction,
+        resonance: pro.resonance,
+        kam_stability: research.kam_stability,
+        evidence: research.evidence,
+    }
+}
+
+#[cfg(test)]
+mod compose_tests {
+    use super::*;
+
+    fn sample_claim() -> Claim {
+        Claim {
+            kind: ClaimType::Empirical,
+            statement: "x".to_string(),
+            dependencies: vec![],
+            evidence_count: 5,
+        }
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn pro_compose_produces_5_field_signature() {
+        let claim = sample_claim();
+        let ctx = ProComposeContext {
+            direction: Some(delta::DeltaOp::UpwardGeneralization),
+            shared_evidence: 8.0,
+            disjoint_evidence: 2.0,
+        };
+        let sig = compute_signature_pro(&claim, &ctx);
+        assert_eq!(sig.direction, delta::DeltaOp::UpwardGeneralization);
+        // ρ from 8/(8+2) = 0.8.
+        assert!((sig.resonance.value() - 0.8).abs() < 1e-6);
+    }
+
+    #[cfg(feature = "research")]
+    #[test]
+    fn research_compose_produces_kam_eta_fields() {
+        let claim = sample_claim();
+        let ctx = ResearchComposeContext {
+            trajectory_deviation_l2: 0.0,
+            perturbation_magnitude: 1.0,
+            evidence_weight: 0.9,
+        };
+        let sig = compute_signature_research(&claim, &ctx);
+        // κ from zero deviation = full stability.
+        assert!((sig.kam_stability.value() - 1.0).abs() < 1e-6);
+        // η at 0.9 = Strong.
+        assert_eq!(sig.evidence, eta::EvidenceSupremacy::Strong);
+    }
+
+    #[cfg(all(feature = "pro-build", feature = "research"))]
+    #[test]
+    fn full_compose_returns_all_seven_fields() {
+        let claim = sample_claim();
+        let pro_ctx = ProComposeContext {
+            direction: Some(delta::DeltaOp::ConvergentGather),
+            shared_evidence: 10.0,
+            disjoint_evidence: 0.0,
+        };
+        let research_ctx = ResearchComposeContext {
+            trajectory_deviation_l2: 1.0,
+            perturbation_magnitude: 1.0,
+            evidence_weight: 0.5,
+        };
+        let sig = compute_signature_full(&claim, &pro_ctx, &research_ctx);
+        // All 7 fields present.
+        assert_eq!(sig.direction, delta::DeltaOp::ConvergentGather);
+        assert!((sig.resonance.value() - 1.0).abs() < 1e-6);
+        assert!((sig.kam_stability.value() - 0.5).abs() < 1e-6);
+        assert_eq!(sig.evidence, eta::EvidenceSupremacy::Edge);
+    }
+}
