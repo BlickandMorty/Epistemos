@@ -320,6 +320,35 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 37: Engram hash-table substrate (Lane 3)")
+    func stage37EngramSubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/engram.rs")
+        #expect(source.contains("HELIOS-ENGRAM guard"))
+        #expect(source.contains("pub struct EngramEntry"))
+        #expect(source.contains("pub struct EngramTable"))
+        #expect(source.contains("pub fn insert"))
+        #expect(source.contains("pub fn lookup"))
+        #expect(source.contains("pub fn remove"))
+        #expect(source.contains("pub fn total_payload_bytes"))
+        // Sparsity Allocation Law (heuristic, NOT theorem)
+        #expect(source.contains("RECOMMENDED_STATIC_FRACTION_NUMERATOR"))
+        #expect(source.contains("RECOMMENDED_STATIC_FRACTION_DENOMINATOR"))
+        #expect(source.contains("RECOMMENDED_STATIC_FRACTION_MIN"))
+        #expect(source.contains("RECOMMENDED_STATIC_FRACTION_MAX"))
+        #expect(source.contains("pub fn sparsity_allocation_split"))
+        // Honest about heuristic vs theorem distinction
+        #expect(source.contains("NOT a theorem"))
+        #expect(source.contains("heuristic"))
+        // Cross-references
+        #expect(source.contains("DeepSeek V4"))
+        #expect(source.contains("L4Engram"))
+        // Lane 3 RESEARCH-ONLY guard
+        #expect(source.contains("Lane 3 RESEARCH-ONLY"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod engram"))
+    }
+
     @Test("Stage 36: MAS / Pro / Research capability lattice (Lane 3)")
     func stage36MasCapabilityLatticeExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/mas_capability_lattice.rs")

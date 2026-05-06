@@ -54,6 +54,11 @@
 //!   `mac_store_edition.md` MAS-First Focus Doctrine. CAPABILITY_LATTICE
 //!   const table with 12 canonical rows; doctrine invariants (MAS
 //!   baseline must ship; risky surfaces never in MAS; Pro widens MAS).
+//! - [`engram`] — Engram hash-table substrate per
+//!   `epistemos_resonance_gate.md` §2.2 (DeepSeek V4 inspired).
+//!   Static-knowledge O(1) lookup separated from dynamic-reasoning
+//!   compute. Sparsity Allocation Law heuristic at ~22% (NOT
+//!   theorem) split via `sparsity_allocation_split()`.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -65,6 +70,9 @@ pub mod acs;
 
 #[cfg(feature = "research")]
 pub mod cms_v2;
+
+#[cfg(feature = "research")]
+pub mod engram;
 
 #[cfg(feature = "research")]
 pub mod mas_capability_lattice;
