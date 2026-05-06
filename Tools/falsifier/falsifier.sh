@@ -52,6 +52,7 @@ H4|epistemos-research|research|theorems::e4_wbo7
 H5|agent_core|default|provenance::replay
 H7|agent_core|default|scope_rex::residency
 H8|agent_core|default|cognitive_dag::dispatch
+H11|epistemos-research|research|theorems::e2_sheaf_gluing
 H17|agent_core|default|scope_rex::retrieval::hopfield
 W1|agent_core|default|scope_rex::answer_packet
 W5|agent_core|default|scope_rex::btm_semantic
