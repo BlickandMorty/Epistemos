@@ -1,3 +1,10 @@
+---
+state: canon
+canon_promoted_on: 2026-05-03
+frontmatter_added_on: 2026-05-06
+covers: active surface = MAS-shippable only; Pro = feature-gated stubs (cfg pro-build / PRO_BUILD); preserve Pro geometry but do not actively develop
+---
+
 # MAS-First Focus Doctrine — Pro Stays In The Plan, Not On The Critical Path — 2026-05-03
 
 > **The user's instruction, verbatim (canonical):**
