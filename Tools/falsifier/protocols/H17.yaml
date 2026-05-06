@@ -1,0 +1,57 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H17 Modern Hopfield associative recall.
+
+id: H17
+title: "Modern Hopfield associative recall (Tier-2 retrieval)"
+class: cross_tradition
+lane: L2
+severity: WARN
+state: candidate
+
+statement: |
+  Capacity 2^(d/2) patterns with exponentially small retrieval error
+  (Ramsauer et al. arXiv:2008.02217). Bipolar pattern recall under 25%
+  bit-flip noise yields cosine similarity ≥ 0.95 with the target.
+
+acceptance:
+  metric: recall_cosine_similarity
+  threshold: 0.95
+  units: cosine_similarity
+  noise_level: 0.25            # 25% bit-flip on bipolar pattern
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::retrieval::hopfield"
+  expected_pass: true
+  notes: |
+    Rust reference passes associative_recall_under_partial_noise_recovers_target
+    on bipolar patterns at 25% noise: cosine sim > 0.95 with d=64, n=16, β=1.
+
+m2_max_protocol:
+  hardware: M2 Max
+  pattern_dim: 64               # d
+  pattern_count: 16             # N (well under 2^(d/2) capacity)
+  noise_pct: 25
+  beta: 1.0
+  procedure: |
+    1. Generate 16 deterministic bipolar patterns of dim 64.
+    2. For each pattern p: flip 25% of dims (every 4th); query.
+    3. modern_hopfield_update(patterns, noised, β=1.0) → recovered.
+    4. cosine_similarity(recovered, target) ≥ 0.95.
+
+adversarial:
+  - dense_random_patterns: "Dense fp32 patterns ≠ bipolar — recall degrades. Defense = doc the bipolar contract."
+  - high_noise: "50% noise → recall ~0.7. Defense = soft-fail at 0.5 sim threshold."
+  - capacity_overload: "N >> 2^(d/2) → exponential retrieval error. Defense = bound N at runtime."
+
+defenses:
+  - "Bipolar canonical form per Ramsauer et al."
+  - "Soft normalization in modern_hopfield_update"
+  - "NaN-propagation guard"
+
+literature:
+  - "Ramsauer et al. arXiv:2008.02217v3 (ICLR 2021) — exponential storage capacity"
+  - "Test-Time Regression arXiv:2501.12352 (regression interpretation)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/retrieval/hopfield.rs"
+  rust_function: "modern_hopfield_update + cosine_similarity"
+  swift_consumer: "future Epistemos/Engine/AssistantSourcesService Hopfield retrieval path (W15.b)"

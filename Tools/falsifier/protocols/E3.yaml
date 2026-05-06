@@ -1,0 +1,62 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E3 Storage-Disaggregated Morph Field.
+#
+# Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1 E3:
+#   "M_resident(t) ≤ M_core + M_state + M_active(t) + M_cache(t) + M_glue(t)"
+#
+# Falsifier discipline: instantiate the Vault with N=10⁵ archived patches,
+# activate K=10² of them, measure RuntimeDiagnosticsMonitor RSS, verify the
+# E3 inequality holds.
+#
+# Stage-0 scaffolding: this YAML is parsed by Tools/falsifier/falsifier.sh
+# (real M2 Max-specific runs land per a follow-up slice that grows the
+# script to read these protocols + dispatch to the Metal-kernel + hardware
+# benchmarks).
+
+id: E3
+title: "Storage-Disaggregated Morph Field — resident bound"
+class: foundational
+lane: L1
+severity: HALT
+state: candidate
+
+statement: |
+  M_resident(t) ≤ M_core + M_state + M_active(t) + M_cache(t) + M_glue(t).
+  Resident memory scales with active patches, not total archive size.
+
+acceptance:
+  metric: rss_ratio_to_budget
+  threshold: 1.0          # RSS ≤ budget
+  units: ratio
+
+stage_0_proxy:
+  cargo_test_filter: "storage::vault"
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  vault_archived_count: 100000   # N
+  vault_active_count: 100        # K
+  measurement_source: "RuntimeDiagnosticsMonitor (Epistemos/App/EpistemosApp.swift)"
+  procedure: |
+    1. Boot Epistemos with EPISTEMOS_VAULT_ARCHIVE=N=10^5 (synthetic archive).
+    2. Activate 10² random patches via the Vault API.
+    3. Sample RSS + page-cache + glue-allocator footprint.
+    4. Verify resident_actual ≤ M_core + M_state + active_sum.
+  pass_window: |
+    99.97% of measurements within budget over 10³ samples.
+
+adversarial:
+  - active_set_overflow: "Force activate(N) and observe shm_pool TTL eviction kicks in"
+  - cache_thrash: "Pin all 10⁵ patches at once; expect graceful degrade, not OOM"
+
+defenses:
+  - "ShmPool::evict_stale TTL eviction (already in main per agent_core/src/shared_memory.rs)"
+  - "RuntimeDiagnosticsMonitor recordMemoryPressure → respondToMemoryPressure FFI"
+
+literature:
+  - "PagedAttention arXiv:2309.06180 (Kwon et al. SOSP 2023) — page-locality result"
+
+insertion_site:
+  rust_substrate: "epistemos-research/src/theorems/e3_morph_field.rs"
+  rust_function: "e3_resident_within_budget"
+  swift_consumer: "Epistemos/App/EpistemosApp.swift RuntimeDiagnosticsMonitor"

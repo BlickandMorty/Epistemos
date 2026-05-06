@@ -1,0 +1,60 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H7 Six-tier memory eviction.
+
+id: H7
+title: "Six-tier memory L0–L_SE eviction monotonicity"
+class: operational
+lane: L1
+severity: HALT
+state: candidate
+
+statement: |
+  Monotone eviction policy across tiers L0 (in-register) → L1 (SRAM) →
+  L2 (UMA) → L3 (HF snapshot cache) → L4 (semantic BTM) → L5 (ledger
+  archive) → L_SE(P) (substrate-external Pro-only). Once a claim is
+  routed to a higher-numbered tier, it does not move back without
+  explicit promotion.
+
+acceptance:
+  metric: monotonicity_violations
+  threshold: 0
+  units: count
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::residency"
+  expected_pass: true
+  notes: |
+    Stage-0 verifies the 9-variant Residency Governor (W4) routes
+    deterministically. Real eviction-monotonicity falsifier on M2 Max
+    runs against the live multi-tier cache substrate.
+
+m2_max_protocol:
+  hardware: M2 Max
+  trace_length: 100000          # 10⁵ residency operations
+  variant_distribution: "uniform across 9 Residency arms"
+  procedure: |
+    1. Generate 10⁵ synthetic ResidencySignal events.
+    2. Route each via residency::route(signal) and record tier.
+    3. Verify no claim ever moves to a lower-numbered tier without
+       an explicit promotion event.
+    4. Confirm Quarantine wins over all other predicates.
+    5. Confirm reserved arms (HarnessRule, CloudDistilled) are never
+       produced from base route().
+
+adversarial:
+  - oscillating_gain: "Gain field oscillates above/below 0.1 — defense = stable threshold check"
+  - quarantine_storm: "All inputs above safety_risk=0.7 — defense = early quarantine + audit"
+  - reserved_arm_attack: "Synthesize input that should produce HarnessRule — must NOT route from base function"
+
+defenses:
+  - "route() pure function — deterministic + allocation-free"
+  - "Quarantine wins via early return"
+  - "Reserved arms (Lane 2/Pro + L4 cloud) never produced from base route"
+
+literature:
+  - "HELIOS v3 six-tier memory L0–L_SE(P)"
+  - "MemOS arXiv:2507.03724 (memcube lifecycle invariants — H10)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/residency.rs"
+  rust_function: "route(signal: &ResidencySignal) -> Residency"
+  swift_consumer: "future Epistemos/Engine/ResonanceService.swift residency dispatch hook"

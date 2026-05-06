@@ -1,0 +1,56 @@
+# HELIOS V5 W25 — Falsifier protocol for W5 Semantic BTM V1.5.
+
+id: W5
+title: "Semantic Brain Time Machine V1.5 — claim-graph deltas only"
+class: work_slice
+lane: L1
+severity: HALT
+state: wired                   # apply_delta + replay + rewind already callable
+
+statement: |
+  BTM V1.5 operates over claim-graph deltas only — NEVER tensor
+  checkpoints. apply_delta + replay + rewind round-trip cleanly on
+  50-conversation history.
+
+acceptance:
+  metric: replay_match_rate
+  threshold: 1.0           # 100% of replays land at expected state
+  units: fraction
+  invariant: "no tensor / weights / checkpoint field anywhere in SemanticDelta"
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::btm_semantic"
+  expected_pass: true
+  notes: |
+    Rust test `replay_50_conversation_history_lands_consistently`
+    verifies the W5 acceptance threshold.
+    Rust test `semantic_btm_never_carries_tensor_payload` LOCKS the
+    no-tensor contract at the schema level.
+
+m2_max_protocol:
+  hardware: M2 Max
+  conversation_count: 50
+  procedure: |
+    1. Generate 50 synthetic claim-graph delta sequences (varying
+       lengths 10-100 deltas).
+    2. For each: apply_delta sequentially, then replay from initial
+       state, verify final ClaimGraphState matches.
+    3. Verify SemanticDelta JSON contains no "weights"/"tensor"/
+       "checkpoint" fields.
+
+adversarial:
+  - double_apply: "Re-apply already-applied delta — must error atomically"
+  - rewind_past_end: "rewind(target > history.len()) — must return RewindTargetOutOfRange"
+  - partial_apply: "Delta with mixed valid+invalid ops — must atomic-or-nothing"
+
+defenses:
+  - "apply_delta validates ALL ops before any mutation"
+  - "Schema-level check: no tensor field exists"
+
+literature:
+  - "v2 finalize §F (V1.5 vs Pro tensor BTM split)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/btm_semantic.rs"
+  swift_mirror: "Epistemos/Views/Chat/BTMView.swift (W5.b — UI surface)"
+  swift_consumer: "main History panel (W5.c follow-up)"

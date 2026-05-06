@@ -1,0 +1,58 @@
+# HELIOS V5 W25 — Falsifier protocol for W12 T-MAC LUT path (Tier-2).
+
+id: W12
+title: "T-MAC LUT-centric ternary GEMM (Tier-2 bundled, default OFF)"
+class: work_slice
+lane: L1                       # bundled in MAS but defaults OFF
+severity: WARN
+state: implemented             # cargo test green; Metal kernel + bundled GGUF deferred
+
+statement: |
+  T-MAC LUT path produces output matching the dense ternary GEMM
+  reference within FP16 tolerance on representative prompts.
+  Achieves 30 tok/s 1-core / 71 tok/s 8-core on M2 Ultra for
+  BitNet b1.58-3B per Wei et al.
+
+acceptance:
+  metric: output_match_fp16_tolerance
+  threshold: 0.001         # ≤ 0.1% relative error
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::kernels::t_mac"
+  expected_pass: true
+  notes: |
+    Rust pure-Rust reference verifies signed-sum correctness (5 tests).
+    LUT trick + Metal acceleration land per a follow-up slice gated
+    on bundled BitNet/ternary model file.
+
+m2_max_protocol:
+  hardware: M2 Max
+  prompt_count: 100
+  weight_dim: [4096, 4096]      # representative ternary layer
+  procedure: |
+    1. Load bundled BitNet ternary model file (Resources/Models/
+       bitnet-b1.58-2B-4T.gguf) — currently UNAVAILABLE; placeholder.
+    2. Run 100 representative prompts via T-MAC LUT path.
+    3. Compare per-token output to dense ternary GEMM reference.
+    4. Verify ≤ 0.1% relative error.
+  perf_target:
+    bitnet_b158_3b_1core: 30   # tok/s
+    bitnet_b158_3b_8core: 71   # tok/s
+
+adversarial:
+  - missing_model_file: "Bundle missing → graceful skip with diagnostic, never crash"
+  - corrupted_quantization: "Weights outside {-1, 0, +1} → defense = validate_ternary_weights() rejects"
+
+defenses:
+  - "Settings toggle defaults OFF (epistemos.helios.v5.kernel.tMac)"
+  - "validate_ternary_weights() structural check before kernel dispatch"
+
+literature:
+  - "T-MAC arXiv:2407.00088 (Wei et al., June 2024)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/kernels/t_mac.rs"
+  metal_kernel: "future Epistemos/Shaders/tmac_lut.metal"
+  bundled_model: "future Epistemos/Resources/Models/bitnet-b1.58-2B-4T.gguf"
+  swift_consumer: "future Epistemos/Engine/MetalRuntimeManager.swift selector"

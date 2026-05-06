@@ -1,0 +1,56 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for E4 UST-1.5 / WBO-7 Master Inequality.
+
+id: E4
+title: "WBO-7 Master Inequality — pre-softmax + post-softmax half-contraction"
+class: foundational
+lane: L1
+severity: HALT
+state: candidate
+
+statement: |
+  (A) Pre-softmax: ‖Δz‖_∞ ≤ T_LWZ + T_K + T_R + T_TTR + T_SE + T_DAG + T_num.
+  (B) Post-softmax: ½ contraction (Nair 2510.23012).
+  T_S handled correctly per v2.1 patch.
+
+acceptance:
+  metric: inequality_hold_rate
+  threshold: 0.9997        # ≥99.97% of trajectories
+  units: fraction
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::metal::softmax"   # exercises post-softmax half-contraction substrate
+  expected_pass: true
+
+m2_max_protocol:
+  hardware: M2 Max
+  context_length: 16384
+  trajectory_count: 1000
+  procedure: |
+    1. Sample 1000 sampler trajectories under the Morph DSL controller.
+    2. For each: compute ‖Δz‖_∞ pre-softmax + post-softmax pair.
+    3. Verify the 7-term sum bounds Δz pre-softmax.
+    4. Verify post = ½ · pre within ULP tolerance.
+  pass_window: "≥ 99.97% of trajectories satisfy both legs"
+  cost_budget_us: 50       # MAS profile per v5.2 §F (50µs sampling budget)
+  sample_rate: 0.01        # 1/100 sampling per CI gate B5
+
+adversarial:
+  - bandwidth_max: "Craft τ to maximize Σᵢ wᵢ·b — Morph DSL bounds bandwidth growth ≤ factor-7 per resonance step"
+  - extreme_context: "32k context → graceful HALT or QUARANTINE; never silent miscompute"
+
+defenses:
+  - "Morph DSL controller bounds bandwidth growth"
+  - "Half-softmax post-not-pre rewrite (W7) preserves Babai lattice closure"
+
+literature:
+  - "Nair arXiv:2510.23012 (post-softmax ½-contraction)"
+  - "Closest in published lit: Modern Hopfield arXiv:2008.02217 (retrieval bound, NOT bandwidth bound)"
+
+insertion_site:
+  rust_substrate: "epistemos-research/src/theorems/e4_wbo7.rs"
+  rust_function: "e4_pre_softmax_holds + e4_post_softmax_half_contraction"
+  swift_consumer: "future Epistemos/Engine/MLXInferenceService.swift WBO7 hook"
+
+wbo6_disambiguation: |
+  WBO-6 is the kernel-only subform (no active-support penalty);
+  preserved in DOC 5 as "WBO-6 minor". Canonical = WBO-7.

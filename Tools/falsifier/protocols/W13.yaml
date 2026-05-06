@@ -1,0 +1,54 @@
+# HELIOS V5 W25 — Falsifier protocol for W13 BitNet b1.58 inference.
+
+id: W13
+title: "BitNet b1.58 inference path (Tier-2 bundled, default OFF)"
+class: work_slice
+lane: L1                       # bundled in MAS but defaults OFF
+severity: WARN
+state: implemented             # cargo test green; bundled GGUF deferred
+
+statement: |
+  BitNet b1.58 inference produces end-to-end perplexity within 0.5
+  of reference on Lambada subset. Native 1-bit quantization with
+  absmean group statistics per Ma et al.
+
+acceptance:
+  metric: ppl_drift_on_lambada
+  threshold: 0.5
+  units: ppl_delta
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::kernels::bitnet"
+  expected_pass: true
+  notes: |
+    Rust pure-Rust reference verifies absmean_quantize + bitnet_b158_gemm
+    round-trip recovers approximate magnitude (5 tests).
+
+m2_max_protocol:
+  hardware: M2 Max
+  benchmark: lambada_subset
+  prompt_count: 1000
+  procedure: |
+    1. Load bundled microsoft/bitnet-b1.58-2B-4T.gguf — currently
+       UNAVAILABLE; placeholder.
+    2. Run Lambada subset (1000 prompts).
+    3. Measure end-to-end perplexity.
+    4. Compare to reference (full-precision 2B model) PPL.
+    5. Verify drift ≤ 0.5.
+
+adversarial:
+  - quant_overflow: "Force weights outside ±gamma — defense = clamp + epsilon scale"
+  - tiny_gamma: "All-zero weight group → epsilon prevents div-by-zero"
+
+defenses:
+  - "Settings toggle defaults OFF (epistemos.helios.v5.kernel.bitnet)"
+  - "Bundled model file (NOT downloaded) per §2.5.2"
+
+literature:
+  - "BitNet b1.58 2B4T arXiv:2504.12285v2 (Ma et al., Microsoft 2025)"
+  - "BitNet original arXiv:2402.17764"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/kernels/bitnet.rs"
+  bundled_model: "future Epistemos/Resources/Models/bitnet-b1.58-2B-4T.gguf"
+  swift_consumer: "future Epistemos/Engine/MetalRuntimeManager.swift selector"

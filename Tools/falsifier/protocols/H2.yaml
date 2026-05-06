@@ -1,0 +1,57 @@
+# HELIOS V5 W25 — M2 Max falsifier protocol for H2 Half-softmax post-not-pre.
+
+id: H2
+title: "Half-softmax post-not-pre rewrite (Tier-1 ≤ 2 ULP)"
+class: operational
+lane: L1
+severity: HALT
+state: candidate
+
+statement: |
+  Applying half-softmax *after* the resonance phase rather than before
+  preserves the Babai lattice closure. The rewrite produces the same
+  output as the reference IEEE-754 softmax within 2 ULP.
+
+acceptance:
+  metric: ulp_drift_max
+  threshold: 2             # ≤ 2 ULP per element across all output positions
+  units: ulp
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::metal::softmax"
+  expected_pass: true
+  notes: |
+    The pure-Rust reference passes ulp_equality_over_10000_random_vectors:
+    10⁴ random vectors × varying length × varying scale; ≤ 2 ULP drift.
+    M2 Max Metal-accelerated drop-in must match this Rust reference
+    bit-equivalently (BIT-IDENTICAL where same-order sums; ≤ 2 ULP under
+    SIMD-reorder).
+
+m2_max_protocol:
+  hardware: M2 Max
+  vector_count: 10000
+  vector_length_distribution: "uniform(4..16)"
+  scale_range: "[-5.0, 5.0]"
+  procedure: |
+    1. Generate 10⁴ random fp32 input vectors (deterministic seed).
+    2. Compute output via reference path (current MLXInferenceService).
+    3. Compute output via half-softmax post-not-pre Metal kernel.
+    4. Per-element ULP-distance must be ≤ 2.
+
+adversarial:
+  - large_inputs: "exp(1000) overflow — defense = max-subtraction stable form"
+  - nan_propagation: "NaN input → defense = explicit NaN-poison output"
+  - underflow_to_zero: "Large negative inputs — defense = check finiteness"
+
+defenses:
+  - "Pure-Rust reference uses canonical (max-subtract → exp → normalize) form"
+  - "Metal kernel must implement same arithmetic order"
+
+literature:
+  - "HELIOS v3 §T2 (canonical reference)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/metal/softmax.rs"
+  rust_function: "half_softmax_post"
+  metal_kernel: "future Epistemos/Shaders/half_softmax_post.metal"
+  swift_consumer: "Epistemos/Engine/MLXInferenceService.swift"

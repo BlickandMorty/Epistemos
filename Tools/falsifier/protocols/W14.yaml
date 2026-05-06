@@ -1,0 +1,57 @@
+# HELIOS V5 W25 — Falsifier protocol for W14 Sparse Ternary GEMM.
+
+id: W14
+title: "Sparse Ternary GEMM Apple Silicon (Tier-2 NEON SIMD, default OFF)"
+class: work_slice
+lane: L1                       # bundled in MAS but defaults OFF
+severity: WARN
+state: implemented             # cargo test green; NEON SIMD + bundled model deferred
+
+statement: |
+  Sparse Ternary GEMM achieves ≥ 4× speedup vs TCSC baseline on M2
+  Max at 50% sparsity (verifying ETH paper's 5.98× scalar speedup on
+  local hardware). Output is BIT-IDENTICAL to dense ternary GEMM
+  when the sparse mask drops only true-zero weights.
+
+acceptance:
+  metric: speedup_ratio_vs_tcsc
+  threshold: 4.0
+  units: ratio
+  bit_identical: true        # output must match dense reference
+
+stage_0_proxy:
+  cargo_test_filter: "scope_rex::kernels::sparse_ternary_gemm"
+  expected_pass: true
+  notes: |
+    Rust pure-Rust reference verifies sparse_ternary_gemm produces
+    BIT-IDENTICAL output to dense T-MAC reference at 50% sparsity
+    (6 tests including determinism + idempotence).
+
+m2_max_protocol:
+  hardware: M2 Max
+  weight_shape: [4096, 4096]
+  sparsity: 0.5
+  procedure: |
+    1. Generate ternary weight matrix at 50% sparsity.
+    2. Run 100 representative inputs through both:
+       a. TCSC baseline (scalar ternary)
+       b. Sparse Ternary GEMM (NEON SIMD blocked-interleaved)
+    3. Verify BIT-IDENTICAL output.
+    4. Measure latency ratio.
+    5. Require ratio ≥ 4.0 (vs ETH paper's 5.98×).
+
+adversarial:
+  - dense_input: "0% sparsity → must still produce correct output (just no speedup)"
+  - all_zero_input: "All-zero weights → output = 0 vector"
+
+defenses:
+  - "from_dense() canonical conversion drops only zero entries"
+  - "sparse_ternary_gemm uses same sum order as t_mac_reference (BIT-IDENTICAL)"
+
+literature:
+  - "Sparse Ternary GEMM Apple Silicon arXiv:2510.06957v2 (Lipshitz et al., ETH Zurich, 2025-10-13)"
+
+insertion_site:
+  rust_substrate: "agent_core/src/scope_rex/kernels/sparse_ternary_gemm.rs"
+  metal_kernel: "future Epistemos/Shaders/ternary_gemm.metal (NEON SIMD blocked-interleaved)"
+  swift_consumer: "future Epistemos/Engine/MetalRuntimeManager.swift selector"
