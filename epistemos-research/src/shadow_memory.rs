@@ -24,6 +24,9 @@
 //!   per shadow-memory §6 escalation table
 //! - [`KlBound`] — Theorem 2.4 (Shadowed Associative State, Conditional)
 //!   `D_KL(P_exact || P_shadow) ≤ ε_sketch² + δ_fallback · D_max`
+//! - [`MemoryTier`] — 5-arm tier hierarchy (L0/L1/L2/L3/L4) per the
+//!   compass artifact reconciliation §B.1 + canonical codec
+//!   per-tier (`tier_codec()`)
 //!
 //! Lane 3 RESEARCH-ONLY. NEVER in MAS — gated behind `research`
 //! feature. Real backends (CountSketch + FWHT Metal kernel + page
@@ -145,6 +148,91 @@ impl KlBound {
     /// Returns true when the observed KL divergence respects the bound.
     pub fn respects(&self, observed_kl: f32) -> bool {
         observed_kl.is_finite() && observed_kl <= self.upper_bound()
+    }
+}
+
+/// 5-tier memory hierarchy per the compass-artifact reconciliation
+/// (`source_docs/compass_artifact_wf-...md` §B.1, "canonical:
+/// 5-tier"). Supersedes the earlier 4-tier sketch which collapsed
+/// L4 (cloud) into the escalation policy.
+///
+/// Tiers ordered from hottest (L0) to coldest (L4):
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryTier {
+    /// L0 Exact Hot — last `W` tokens, full K/V, attention sinks.
+    /// Substrate: unified RAM. Codec: bf16 / fp16.
+    L0ExactHot,
+    /// L1 Compressed Residual — mid-window tokens. Substrate: unified
+    /// RAM. Codec: Sherry 1.25-bit on the residual stream
+    /// (Qasim arXiv:2603.19664: K, V are bit-identical projections of
+    /// residual) + per-channel scales.
+    L1CompressedResidual,
+    /// L2 Shadow Sketch — pages older than `W·k` tokens; queryable.
+    /// Substrate: unified RAM (or IOSurface-backed Metal heap).
+    /// Codec: sparse JL (Kane-Nelson 2014) over an FRP basis
+    /// (Hayase-Collins-Inoue arXiv:2504.06983); CountSketch
+    /// (Charikar 2002) over page IDs for top-k routing.
+    L2ShadowSketch,
+    /// L3 SSD Oracle — cold pages; episode log. Substrate: NVMe via
+    /// IOSurface + mmap. Codec: NF4 / 3-bit groupwise (KVQuant-style)
+    /// residual checkpoints.
+    L3SsdOracle,
+    /// L4 Hermes Cascade — reasoning escalations when L0-L3 confidence
+    /// < τ. Substrate: network → Hermes-4-405B (or other frontier
+    /// model). Codec: none — raw prompt.
+    L4HermesCascade,
+}
+
+/// Canonical codec name per memory tier. Returned values are stable
+/// strings suitable for telemetry, manifests, and replay-bundle
+/// metadata. Changing them is a canon violation.
+pub fn tier_codec(tier: MemoryTier) -> &'static str {
+    match tier {
+        MemoryTier::L0ExactHot => "bf16_fp16",
+        MemoryTier::L1CompressedResidual => "sherry_1_25bit_on_residual",
+        MemoryTier::L2ShadowSketch => "sparse_jl_over_frp_plus_countsketch",
+        MemoryTier::L3SsdOracle => "nf4_or_3bit_groupwise",
+        MemoryTier::L4HermesCascade => "raw_prompt",
+    }
+}
+
+/// All 5 memory tiers in canonical hot-to-cold order.
+pub const ALL_TIERS: [MemoryTier; 5] = [
+    MemoryTier::L0ExactHot,
+    MemoryTier::L1CompressedResidual,
+    MemoryTier::L2ShadowSketch,
+    MemoryTier::L3SsdOracle,
+    MemoryTier::L4HermesCascade,
+];
+
+impl MemoryTier {
+    /// Returns the tier's depth index (0 = hottest, 4 = coldest).
+    pub fn depth(self) -> usize {
+        match self {
+            MemoryTier::L0ExactHot => 0,
+            MemoryTier::L1CompressedResidual => 1,
+            MemoryTier::L2ShadowSketch => 2,
+            MemoryTier::L3SsdOracle => 3,
+            MemoryTier::L4HermesCascade => 4,
+        }
+    }
+
+    /// True when this tier crosses the network boundary (L4 only).
+    /// Per compass artifact §B.1: "L4 (cloud fallback) ... hides a
+    /// real architectural seam (network boundary, billing boundary,
+    /// privacy boundary)."
+    pub fn crosses_network_boundary(self) -> bool {
+        matches!(self, MemoryTier::L4HermesCascade)
+    }
+
+    /// True when the tier resides in unified RAM (L0/L1/L2). L3 is
+    /// SSD-backed; L4 is network.
+    pub fn resident_in_uma(self) -> bool {
+        matches!(
+            self,
+            MemoryTier::L0ExactHot | MemoryTier::L1CompressedResidual | MemoryTier::L2ShadowSketch
+        )
     }
 }
 
@@ -326,5 +414,86 @@ mod tests {
             max_kl: 1.0,
         };
         assert_eq!(escalate(&ctx, t), EscalationLevel::LoadExact);
+    }
+
+    // -- 5-tier hierarchy tests ----------------------------------------
+
+    #[test]
+    fn five_tiers_listed_in_canonical_hot_to_cold_order() {
+        assert_eq!(ALL_TIERS.len(), 5);
+        assert_eq!(ALL_TIERS[0], MemoryTier::L0ExactHot);
+        assert_eq!(ALL_TIERS[4], MemoryTier::L4HermesCascade);
+        // Depth must equal index in canonical order.
+        for (i, tier) in ALL_TIERS.iter().enumerate() {
+            assert_eq!(tier.depth(), i);
+        }
+    }
+
+    #[test]
+    fn five_tiers_are_distinct() {
+        let set: std::collections::HashSet<MemoryTier> =
+            ALL_TIERS.iter().copied().collect();
+        assert_eq!(set.len(), 5);
+    }
+
+    #[test]
+    fn only_l4_crosses_network_boundary() {
+        for tier in ALL_TIERS {
+            if tier == MemoryTier::L4HermesCascade {
+                assert!(tier.crosses_network_boundary());
+            } else {
+                assert!(!tier.crosses_network_boundary());
+            }
+        }
+    }
+
+    #[test]
+    fn l0_l1_l2_resident_in_uma_l3_l4_not() {
+        assert!(MemoryTier::L0ExactHot.resident_in_uma());
+        assert!(MemoryTier::L1CompressedResidual.resident_in_uma());
+        assert!(MemoryTier::L2ShadowSketch.resident_in_uma());
+        assert!(!MemoryTier::L3SsdOracle.resident_in_uma());
+        assert!(!MemoryTier::L4HermesCascade.resident_in_uma());
+    }
+
+    #[test]
+    fn tier_codec_returns_canonical_string_per_tier() {
+        // Pin the canonical codec strings — changes are canon violations.
+        assert_eq!(tier_codec(MemoryTier::L0ExactHot), "bf16_fp16");
+        assert_eq!(
+            tier_codec(MemoryTier::L1CompressedResidual),
+            "sherry_1_25bit_on_residual"
+        );
+        assert_eq!(
+            tier_codec(MemoryTier::L2ShadowSketch),
+            "sparse_jl_over_frp_plus_countsketch"
+        );
+        assert_eq!(
+            tier_codec(MemoryTier::L3SsdOracle),
+            "nf4_or_3bit_groupwise"
+        );
+        assert_eq!(tier_codec(MemoryTier::L4HermesCascade), "raw_prompt");
+    }
+
+    #[test]
+    fn memory_tier_serializes_in_snake_case() {
+        for (tier, expected) in [
+            (MemoryTier::L0ExactHot, "\"l0_exact_hot\""),
+            (MemoryTier::L1CompressedResidual, "\"l1_compressed_residual\""),
+            (MemoryTier::L2ShadowSketch, "\"l2_shadow_sketch\""),
+            (MemoryTier::L3SsdOracle, "\"l3_ssd_oracle\""),
+            (MemoryTier::L4HermesCascade, "\"l4_hermes_cascade\""),
+        ] {
+            assert_eq!(serde_json::to_string(&tier).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn memory_tier_round_trips_through_json() {
+        for tier in ALL_TIERS {
+            let json = serde_json::to_string(&tier).unwrap();
+            let parsed: MemoryTier = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed, tier);
+        }
     }
 }
