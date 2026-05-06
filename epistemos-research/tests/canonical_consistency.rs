@@ -17,12 +17,27 @@
 #![cfg(feature = "research")]
 
 use epistemos_research::{
+    agent_swarm::{
+        AgentMessageContract, AgentMessageSignature, FIVE_BUDGET_AXES,
+        HERMES_ARENA_BYTES, THREE_HERMES_OUTCOMES,
+    },
+    cargo_features::{CanonicalFeature, NINE_FEATURES},
     cross_domain_lens::{TSafetyBound, FIVE_LENSES},
+    engram::{RECOMMENDED_STATIC_FRACTION_MAX, RECOMMENDED_STATIC_FRACTION_MIN},
     falsifier_actions::{FALSIFIER_TABLE, SIX_TERMS},
+    gate_action::{
+        GateAction, ENGRAM_KAPPA_THRESHOLD, ENGRAM_RHO_THRESHOLD,
+        SELF_MONITORING_MAX_DEPTH, SIX_ACTIONS,
+    },
+    kv_direct_gate::{D_KL_THRESHOLD, PEAK_RAM_REDUCTION_FACTOR_MIN},
+    learning_modes::{Direction, LearningMode, FOUR_LEARNING_MODES, SIX_DIRECTIONS},
     mas_capability_lattice::{Capability, DeploymentTier, CAPABILITY_LATTICE},
     mathematical_pillars::{MathematicalPillar, FIVE_PILLARS},
+    scientific_calculator_basis::{total_scb_size, SIX_CATEGORIES, TWO_PRODUCTIONS},
     self_evolving_l_se::ALL_MECHANISMS,
     shadow_memory::{tier_codec, MemoryTier, ALL_TIERS},
+    sherry::{BLOCK_WIDTH, CONFIG_SPACE_SIZE, NONZERO_PER_BLOCK},
+    stack_roles::{ALL_ROLES, ReferenceCheckpoint, StackRole},
     theorem_status::{TheoremStatus, FOUNDATIONAL_SEVEN},
     v6_1::{AttentionMode, V6_1Axis, ALL_AXES, ALL_LOCKS, VERIFIED_FLOOR_ANCHOR},
     validation_thresholds::{
@@ -253,4 +268,190 @@ fn current_canon_lock_is_v6_1_strict_sharpening() {
     // The current canonical mode is V6.1 (Interrupt).
     let mode = AttentionMode::default();
     assert!(mode.is_v6_1_canonical());
+}
+
+// ---------------------------------------------------------------------------
+// Cardinality invariants for newer modules (Stages 49-57)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn six_scb_categories_total_23_members() {
+    // From eml_formal_synthesis.md §1.1: 6+4+2+5+3+3 = 23.
+    assert_eq!(SIX_CATEGORIES.len(), 6);
+    assert_eq!(total_scb_size(), 23);
+}
+
+#[test]
+fn two_eml_grammar_productions_canonical() {
+    // Grammar S → 1 | eml(S, S) — exactly 2 productions.
+    assert_eq!(TWO_PRODUCTIONS.len(), 2);
+}
+
+#[test]
+fn six_gate_actions_canonical() {
+    // ResonanceGate: Pass / Hold / Quarantine /
+    // TriggerEvidenceSupremacy / EngramAnchor / MigrateResidency.
+    assert_eq!(SIX_ACTIONS.len(), 6);
+}
+
+#[test]
+fn three_stack_roles_canonical() {
+    // RustSpine / MlxHand / MetalNerves anatomical metaphor.
+    assert_eq!(ALL_ROLES.len(), 3);
+}
+
+#[test]
+fn four_learning_modes_canonical() {
+    // Freeze / FastWeight / LoRa / Sketch.
+    assert_eq!(FOUR_LEARNING_MODES.len(), 4);
+}
+
+#[test]
+fn six_directions_canonical() {
+    // Upward / Downward / Sideways / Inward / OnItself / None.
+    assert_eq!(SIX_DIRECTIONS.len(), 6);
+}
+
+#[test]
+fn five_task_budget_axes_canonical() {
+    // MaxTokens / MaxCost / MaxTime / MinResonance / Deadline.
+    assert_eq!(FIVE_BUDGET_AXES.len(), 5);
+}
+
+#[test]
+fn three_hermes_verification_outcomes_canonical() {
+    // VerifiedPromote / EdgeTriggerEsp / ContradictedQuarantine.
+    assert_eq!(THREE_HERMES_OUTCOMES.len(), 3);
+}
+
+#[test]
+fn nine_cargo_features_canonical() {
+    // Metal / Mlx (default) / Ane / Ssm / Ttt / SelfTuning /
+    // Vault / Hermes (Pro) / Bench.
+    assert_eq!(NINE_FEATURES.len(), 9);
+}
+
+// ---------------------------------------------------------------------------
+// Pinned-bound invariants for newer modules
+// ---------------------------------------------------------------------------
+
+#[test]
+fn kv_direct_d_kl_threshold_is_zero() {
+    // Per Qasim Theorem 1: greedy token-identical match means
+    // D_KL == 0.0 exactly.
+    assert_eq!(D_KL_THRESHOLD, 0.0);
+}
+
+#[test]
+fn kv_direct_ram_reduction_factor_min_is_8() {
+    // Per helios_v3 §V: peak-RAM reduction ≥ 8× for PASS.
+    assert_eq!(PEAK_RAM_REDUCTION_FACTOR_MIN, 8.0);
+}
+
+#[test]
+fn engram_thresholds_match_resonance_gate_canon() {
+    // Hard invariant 3: ρ > 0.7 + κ > 0.382 → Engram anchor.
+    assert_eq!(ENGRAM_RHO_THRESHOLD, 0.7);
+    assert_eq!(ENGRAM_KAPPA_THRESHOLD, 0.382);
+    assert_eq!(SELF_MONITORING_MAX_DEPTH, 3);
+}
+
+#[test]
+fn engram_static_fraction_range_is_canonical() {
+    // Sparsity Allocation Law: 20-25% recommended (heuristic).
+    assert_eq!(RECOMMENDED_STATIC_FRACTION_MIN, 0.20);
+    assert_eq!(RECOMMENDED_STATIC_FRACTION_MAX, 0.25);
+}
+
+#[test]
+fn sherry_block_width_and_config_space_match_doctrine() {
+    // Sherry: 4 weights / 5 bits / 32-config space.
+    assert_eq!(BLOCK_WIDTH, 4);
+    assert_eq!(NONZERO_PER_BLOCK, 3);
+    assert_eq!(CONFIG_SPACE_SIZE, 32);
+}
+
+#[test]
+fn hermes_arena_size_canonical_200kb() {
+    assert_eq!(HERMES_ARENA_BYTES, 200 * 1024);
+}
+
+// ---------------------------------------------------------------------------
+// Cross-module mapping invariants for newer substrate
+// ---------------------------------------------------------------------------
+
+#[test]
+fn pillar_v_eml_grammar_has_canonical_two_productions() {
+    // Pillar V (eml-operator universal) anchors the 2-production
+    // grammar S → 1 | eml(S, S). The substrate must be consistent.
+    let _ = MathematicalPillar::EmlOperatorUniversal;
+    assert_eq!(TWO_PRODUCTIONS.len(), 2);
+}
+
+#[test]
+fn only_pass_among_gate_actions_emits_to_user() {
+    // Hard invariant 1: no τ = -1 reaches user. Only Pass emits.
+    let mut count = 0;
+    for action in SIX_ACTIONS {
+        if action.emits_to_user() {
+            count += 1;
+            assert_eq!(action, GateAction::Pass);
+        }
+    }
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn metal_and_mlx_are_default_features() {
+    // Per build-prompt §4.3: default = ["metal", "mlx"].
+    assert!(CanonicalFeature::Metal.is_default());
+    assert!(CanonicalFeature::Mlx.is_default());
+    // Other 7 features are not default.
+    let default_count = NINE_FEATURES.iter().filter(|f| f.is_default()).count();
+    assert_eq!(default_count, 2);
+}
+
+#[test]
+fn metal_nerves_is_only_bandwidth_critical_role() {
+    // Stack-role spine/hand/nerves anatomy: only nerves is
+    // bandwidth-critical.
+    let bw_count = ALL_ROLES.iter().filter(|r| r.is_bandwidth_critical()).count();
+    assert_eq!(bw_count, 1);
+    assert!(StackRole::MetalNerves.is_bandwidth_critical());
+}
+
+#[test]
+fn freeze_is_only_frozen_learning_mode() {
+    let frozen_count = FOUR_LEARNING_MODES.iter().filter(|m| m.is_frozen()).count();
+    assert_eq!(frozen_count, 1);
+    assert!(LearningMode::Freeze.is_frozen());
+}
+
+#[test]
+fn upward_and_downward_are_only_vertical_directions() {
+    let vertical_count = SIX_DIRECTIONS.iter().filter(|d| d.is_vertical()).count();
+    assert_eq!(vertical_count, 2);
+    assert!(Direction::Upward.is_vertical());
+    assert!(Direction::Downward.is_vertical());
+}
+
+#[test]
+fn agent_message_canonical_contract_matches_three_properties() {
+    // Per build-prompt §2.4: Ed25519 signed + capability granted +
+    // resonance classified. All three required for canonical.
+    let canonical = AgentMessageContract {
+        signature: AgentMessageSignature::Ed25519,
+        capability_granted: true,
+        resonance_classified: true,
+    };
+    assert!(canonical.satisfies_canonical_contract());
+}
+
+#[test]
+fn reference_checkpoints_target_distinct_tracks() {
+    // helios_v2 §"Rust, MLX, Metal": cross-architecture validation
+    // pair (Qwen3-8B-MLX-4bit vs Mamba-2.7b-4bit-mlx).
+    let txfmr = ReferenceCheckpoint::TRANSFORMER_REFERENCE;
+    let ssm = ReferenceCheckpoint::SSM_REFERENCE;
+    assert_ne!(txfmr.track, ssm.track);
 }
