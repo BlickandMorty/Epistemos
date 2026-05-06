@@ -320,6 +320,42 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("\u{2264} 2 ULP"))
     }
 
+    @Test("Stage 30: V6.1 Final Synthesis Lock — Attention as Interrupt + canon-lock chain (Lane 3)")
+    func stage30V6_1SubstrateExists() throws {
+        let source = try loadMirroredSourceTextFile("epistemos-research/src/v6_1.rs")
+        #expect(source.contains("HELIOS-V6_1 guard"))
+        // Verified Floor anchor — immutable carry-forward
+        #expect(source.contains("VERIFIED_FLOOR_ANCHOR"))
+        #expect(source.contains("\"ac8c6d28\""))
+        #expect(source.contains("immutable"))
+        // Attention as Interrupt — deepest reframing of V5→V6→V6.1
+        #expect(source.contains("pub enum AttentionMode"))
+        #expect(source.contains("Interrupt"))
+        #expect(source.contains("Substrate"))
+        #expect(source.contains("V6_1_CANONICAL"))
+        #expect(source.contains("interrupt, not a substrate"))
+        // Four-arm CanonLock chain
+        #expect(source.contains("pub enum CanonLock"))
+        #expect(source.contains("    V5,"))
+        #expect(source.contains("    V6,"))
+        #expect(source.contains("    V6_1,"))
+        #expect(source.contains("    VerifiedFloor,"))
+        // Six V6.1 axes from the title-page slogan
+        #expect(source.contains("pub enum V6_1Axis"))
+        #expect(source.contains("HybridSsm"))
+        #expect(source.contains("ParameterConnectome"))
+        #expect(source.contains("HeavyThinking"))
+        #expect(source.contains("VectorlessRetrieval"))
+        #expect(source.contains("BrainInspired"))
+        #expect(source.contains("AppStoreNative"))
+        // V5/V6 lock preservation acknowledged
+        #expect(source.contains("preserved verbatim"))
+        #expect(source.contains("strict sharpening"))
+
+        let lib = try loadMirroredSourceTextFile("epistemos-research/src/lib.rs")
+        #expect(lib.contains("pub mod v6_1"))
+    }
+
     @Test("Stage 28: Theorem-status taxonomy P/EV/EB/C/DROP + FOUNDATIONAL_SEVEN (Lane 3)")
     func stage28TheoremStatusTaxonomyExists() throws {
         let source = try loadMirroredSourceTextFile("epistemos-research/src/theorem_status.rs")

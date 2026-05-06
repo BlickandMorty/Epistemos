@@ -41,6 +41,10 @@
 //!   7-arm paper-safe label taxonomy + FOUNDATIONAL_SEVEN const
 //!   table mapping E1..E7 → status + label per the hardened canon
 //!   `EPISTEMOS_FINAL_SEVEN_THEOREMS_v2_HARDENED.md`.
+//! - [`v6_1`] — V6.1 Final Synthesis Lock canon: AttentionMode
+//!   reframed as Interrupt (not Substrate) per the V5→V6→V6.1 arc;
+//!   four-arm CanonLock chain; six-axis V6_1Axis slogan;
+//!   `VERIFIED_FLOOR_ANCHOR = "ac8c6d28"` (immutable, carry-forward).
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -64,6 +68,9 @@ pub mod theorem_status;
 
 #[cfg(feature = "research")]
 pub mod theorems;
+
+#[cfg(feature = "research")]
+pub mod v6_1;
 
 #[cfg(feature = "research")]
 pub mod vpd;
