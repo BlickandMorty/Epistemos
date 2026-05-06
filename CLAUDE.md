@@ -3,13 +3,13 @@
 ## Architecture
 - Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders
 - GRDB for persistence, MLX-Swift for local inference
-- Omega agent system replaced by in-process Rust living loop + MCP peer bridge (no subprocess; Hermes-agent subprocess removed 2026-05-05)
+- Omega agent system replaced by in-process Rust living loop + MCP peer bridge (no subprocess; legacy agent subprocess removed 2026-05-05)
 - ~252K lines Swift, ~71K lines Rust, 634 Swift files, 150 Rust files, 346 Swift test files (verified 2026-05-04)
-- Rust agent_core crate owns: agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, context compaction, skills + procedural memory + self-evolution + tool-call parsing (formerly the hermes-agent subprocess; now in `agent_core::agent_runtime`)
+- Rust agent_core crate owns: agentic loop, HTTP streaming, tool execution, session persistence, memory search, security, prompt caching, context compaction, skills + procedural memory + self-evolution + tool-call parsing (lives in `agent_core::agent_runtime`)
 - Swift owns: UI rendering, MLX inference, macOS APIs (AXUIElement via AXorcist, ScreenCaptureKit, CGEvent), permission gate UI, MCP server hosting
 
 ## NON-NEGOTIABLE CONSTRAINTS
-- NO SIDECAR. All inference AND orchestration in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. The Hermes-agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime` (Rust, in-process). HermesPromptBuilder.swift and HermesGatewayPolicy.swift in Epistemos/LocalAgent/ are canonical local-agent path (the "Hermes" prefix refers to the Hermes-3 model's prompt format, not the removed subprocess).
+- NO SIDECAR. All inference AND orchestration in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. The legacy agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime` (Rust, in-process). LocalAgentPromptBuilder.swift and LocalAgentGatewayPolicy.swift in Epistemos/LocalAgent/ are the canonical local-agent path. Hermes namespace fully purged from code 2026-05-05 (LocalAgent prefix replaces it on the Swift side, Runtime prefix on the Rust side).
 - REAL APIs ONLY. Every cloud endpoint verified against provider docs. No fake features.
 - HONEST CAPABILITY GATING. Local models get fast/thinking/research. Cloud models get agent/liveAgent. Never fake agent capability for local models.
 - RESEARCH-FIRST FOR EVERY TASK. Before code, docs, refactors, reroutes,
@@ -71,7 +71,7 @@
 - Edit .xcodeproj directly — use xcodegen
 - Commit model files (.gguf, .safetensors, .mlx)
 - Import SDKs that don't exist (Anthropic has NO Swift SDK, OpenAI has NO Swift SDK)
-- Use Ollama, llama-server, or any subprocess for INFERENCE OR ORCHESTRATION (the Hermes subprocess was removed 2026-05-05; everything runs in-process now)
+- Use Ollama, llama-server, or any subprocess for INFERENCE OR ORCHESTRATION (the legacy agent subprocess was removed 2026-05-05; everything runs in-process now)
 - Mark items done in PROGRESS.md until verification greps pass
 - Buffer streaming responses — forward every token immediately
 - Strip thinking blocks from message history
@@ -90,13 +90,13 @@
 - Claude Opus 4.6/Sonnet 4.6: api.anthropic.com/v1/messages, thinking: adaptive, tools ✅, MCP ✅
 - Claude Haiku 4.5: same endpoint, thinking: disabled, tools ✅, computer use ❌
 - Perplexity Sonar Pro: api.perplexity.ai/chat/completions, no tools
-- Local Qwen3.5/Hermes-3: in-process MLX, grammar-constrained tools
+- Local Qwen3.5: in-process MLX, grammar-constrained tools
 
 ## Detailed Docs (READ these, don't guess)
 - Current sprint: docs/sprint-sessions/sprint-omega-1-foundation.md
 - Agent progress: docs/AGENT_PROGRESS.md
 - Agent architecture: docs/agent-system/AGENT_ARCHITECTURE.md
-- Hermes removal archive: docs/_archive/hermes-removal-2026-05-05/ (research + parity report from when the subprocess was still planned)
+- Legacy agent removal archive: docs/_archive/hermes-removal-2026-05-05/ (research + parity report from when the subprocess was still planned)
 - Full build spec: docs/EPISTEMOS_FUSED_v3.md
 - Deep analysis: docs/epistemos-deep-analysis.md
 
@@ -133,7 +133,7 @@
 - LspKernel (initialize/didOpen/didChange/hover/definition + tree-sitter Rust/Swift): agent_core/src/lsp_runtime/mod.rs
 - Feature-gated behind `lsp-runtime`; FFI via bridge.rs `lsp_send_message_json` + `lsp_poll_response_json`
 
-### Rust agent_core — In-process agent runtime (formerly hermes/, renamed 2026-05-05)
+### Rust agent_core — In-process agent runtime (renamed from hermes/ 2026-05-05; Hermes namespace fully purged)
 - Skills + procedural memory + self-evolution + tool-call parsing: agent_core/src/agent_runtime/
 
 ### Rust agent_core — CLI binaries
@@ -154,7 +154,7 @@
 - MCP Bridge: Epistemos/Omega/MCPBridge.swift
 
 ### Swift Local Agent
-- Local-agent prompt (Hermes-3 model format): Epistemos/LocalAgent/HermesPromptBuilder.swift
+- Local-agent prompt builder: Epistemos/LocalAgent/LocalAgentPromptBuilder.swift
 - Grammar DSL: Epistemos/LocalAgent/LocalToolGrammar.swift
 - Local loop: Epistemos/LocalAgent/LocalAgentLoop.swift
 - Router: Epistemos/LocalAgent/ConfidenceRouter.swift
