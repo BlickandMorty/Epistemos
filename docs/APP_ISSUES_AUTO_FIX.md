@@ -478,7 +478,7 @@ Investigation Log:
 
 ### ISSUE-2026-04-22-004: Opus 4.1 Main Chat outside-vault read produced "No response received"
 
-Status: Open (inherited from Codex §5.2)
+Status: Verified Fixed (2026-05-07, closed by `1bd794f18`)
 Priority: P1
 First Observed: 2026-04-22
 
@@ -499,6 +499,9 @@ Destructive Fixes:
 
 Investigation Log:
 - 2026-04-22: Observed in a prior session on the live app, still visible on the `Apr 22 16:22` build in the persisted chat. 2026-04-22 handoff §1.5 lists this as the next runtime re-test.
+- 2026-05-07: Codex re-audited the current Main Chat Rust-agent termination path. `ChatCoordinator.runRustAgentPath` calls `chatState.completeCancelledProcessing(...)` when a stream ends after tool activity but before a `.complete` event, and `ChatState.completeCancelledProcessing` treats pending tool-use/tool-result blocks as visible content instead of emitting the empty-run error. Added focused regression `cancelled main chat tool runs preserve tool blocks instead of empty-run errors`; focused suite passed with 15/15 tests green:
+  `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test -only-testing:EpistemosTests/ChatStateContextAttachmentTests`
+  Result bundle: `build/xcode-results/2026-05-07-183247-30159.xcresult`.
 
 ---
 
