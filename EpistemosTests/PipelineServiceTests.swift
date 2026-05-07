@@ -3581,6 +3581,45 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
     }
 
+    @Test("cancelled main chat tool runs preserve tool blocks instead of empty-run errors")
+    func cancelledMainChatToolRunsPreserveToolBlocks() {
+        let chatState = ChatState()
+
+        chatState.submitQuery("Read /tmp/epistemos_opus41_main_outside_20260422.txt")
+        chatState.startStreaming()
+        chatState.recordToolUse(
+            id: "tool-1",
+            name: "read_file",
+            inputJson: #"{"path":"/tmp/epistemos_opus41_main_outside_20260422.txt"}"#
+        )
+        chatState.recordToolResult(
+            toolUseId: "tool-1",
+            result: "tool smoke ok",
+            isError: false
+        )
+
+        let completed = chatState.completeCancelledProcessing(
+            mode: .api,
+            resolvedModelLabel: "Claude Opus 4.7"
+        )
+
+        #expect(completed)
+        #expect(chatState.messages.count == 2)
+        let assistant = chatState.messages.last
+        #expect(assistant?.role == .assistant)
+        #expect(assistant?.isError != true)
+        #expect(
+            assistant?.contentBlocks == [
+                .toolUse(
+                    id: "tool-1",
+                    name: "read_file",
+                    input: ["path": .string("/tmp/epistemos_opus41_main_outside_20260422.txt")]
+                ),
+                .toolResult(toolUseId: "tool-1", content: "tool smoke ok", isError: false),
+            ]
+        )
+    }
+
     @Test("cancelled streaming does not promote native reasoning summaries into the final answer")
     func cancelledStreamingDoesNotPromoteNativeReasoningSummaryIntoAnswer() {
         let chatState = ChatState()
