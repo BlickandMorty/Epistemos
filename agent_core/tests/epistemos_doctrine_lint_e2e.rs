@@ -54,12 +54,13 @@ fn lints_real_repo_and_passes_all_gates() {
         stdout,
         stderr,
     );
-    // Sanity: stdout must mention all four gates as PASS.
+    // Sanity: stdout must mention all doctrine gates as PASS.
     for gate in [
         "5.1 EdgeKind enum closed",
         "5.2 put_edge signature-check",
         "5.3 put_node content-addressing",
         "5.4 no Swift DAG storage",
+        "6.1 static fallback acknowledgement",
     ] {
         assert!(
             stdout.contains(&format!("[PASS] {}", gate)),
@@ -103,7 +104,7 @@ fn nonexistent_path_exits_two() {
 }
 
 #[test]
-fn help_advertises_all_four_gates() {
+fn help_advertises_all_doctrine_gates() {
     let output = Command::new(cli_path())
         .arg("--help")
         .stdout(Stdio::piped())
@@ -112,7 +113,7 @@ fn help_advertises_all_four_gates() {
         .expect("CLI must run");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    for marker in ["5.1", "5.2", "5.3", "5.4"] {
+    for marker in ["5.1", "5.2", "5.3", "5.4", "6.1"] {
         assert!(
             stdout.contains(marker),
             "help text must reference gate {marker}: {stdout}"

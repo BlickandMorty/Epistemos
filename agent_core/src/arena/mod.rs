@@ -236,6 +236,11 @@ impl MappedArena {
         &self.path
     }
 
+    pub fn flush(&self) -> Result<(), ArenaError> {
+        self.mmap.flush()?;
+        Ok(())
+    }
+
     pub fn header(&self) -> &ArenaHeader {
         // SAFETY: the mmap is at least HEADER_BYTES and begins with ArenaHeader.
         unsafe { &*self.mmap.as_ptr().cast::<ArenaHeader>() }

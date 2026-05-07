@@ -63,9 +63,13 @@ nonisolated enum LocalAgentPromptBuilder {
         {"name": <function-name>, "arguments": <args-dict>}
         </tool_call>
         Keep hidden reasoning inside <think></think> tags. If the model falls back to legacy formatting, <scratch_pad></scratch_pad> is also allowed. Never place raw reasoning or analysis notes outside those hidden tags.
+        LocalAgent is the tool-call and external-intelligence membrane; it is not the graph, Rex, or the deterministic substrate authority.
+        LocalAgent is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects.
+        \(LocalAgentGatewayPolicy.externalTierBoundaryLine)
+        \(LocalAgentGatewayPolicy.localCoreBoundaryLine)
         Use tools only for missing context or explicit external side effects. Do not route already-available local substrate answers through tools.
-        Keep deterministic local substrate answers on the direct path; do not add a gateway hop when no external context is needed.
-        Return external evidence as structured artifacts and provenance, not graph authority.
+        Keep deterministic local substrate answers on the direct path; must not add a gateway hop when no external context is needed.
+        Return external evidence as structured artifacts and provenance, not graph or Rex authority.
         """
 
         prompt += """

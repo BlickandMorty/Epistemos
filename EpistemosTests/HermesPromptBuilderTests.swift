@@ -96,7 +96,7 @@ struct HermesPromptBuilderTests {
     func systemPromptKeepsHermesAsDirectGatewayMembrane() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
 
-        #expect(prompt.contains("Hermes is the tool-call and external-intelligence membrane"))
+        #expect(prompt.contains("LocalAgent is the tool-call and external-intelligence membrane"))
         #expect(prompt.contains("not the graph, Rex, or the deterministic substrate authority"))
         #expect(prompt.contains("Use tools only for missing context or explicit external side effects"))
         #expect(prompt.contains("Do not route already-available local substrate answers through tools"))
@@ -106,7 +106,7 @@ struct HermesPromptBuilderTests {
     func systemPromptPreservesFastUnifiedGatewaySemantics() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
 
-        #expect(prompt.contains("single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects"))
+        #expect(prompt.contains("LocalAgent is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects"))
         #expect(prompt.contains("Keep deterministic local substrate answers on the direct path"))
         #expect(prompt.contains("must not add a gateway hop when no external context is needed"))
         #expect(prompt.contains("Return external evidence as structured artifacts and provenance, not graph or Rex authority"))
@@ -116,8 +116,8 @@ struct HermesPromptBuilderTests {
     func systemPromptSeparatesCoreLocalPromptingFromProExternalGateway() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
 
-        #expect(prompt.contains("Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only"))
-        #expect(prompt.contains("Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context"))
+        #expect(prompt.contains("Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only"))
+        #expect(prompt.contains("LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context"))
     }
 
     @Test("system prompt keeps explicit file paths stable for local tool loops")

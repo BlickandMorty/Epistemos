@@ -41,9 +41,14 @@ fi
 mkdir -p ../build-rust
 rm -f ../build-rust/libagent_core.a
 rm -f ../build-rust/libagent_core.dylib
-TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX.dylib)"
+TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX)"
+cleanup_temp_output() {
+    rm -f "$TEMP_OUTPUT"
+}
+trap cleanup_temp_output EXIT
 lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
 mv -f "$TEMP_OUTPUT" ../build-rust/libagent_core.dylib
+trap - EXIT
 install_name_tool -id "@rpath/libagent_core.dylib" ../build-rust/libagent_core.dylib
 
 if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then

@@ -9,7 +9,7 @@
     deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
 )]
 
-//! `epistemos-doctrine-lint` — Phase 8.G doctrine enforcement.
+//! `epistemos-doctrine-lint` — Phase 8.G / V6.1 doctrine enforcement.
 //!
 //! Doctrine reference: `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md` §5.
 //!
@@ -21,7 +21,7 @@
 //! are awkward to express as `#[test]`s because they reach across the
 //! workspace tree.
 //!
-//! ## Gates checked (verbatim from doctrine §5)
+//! ## Gates checked
 //!
 //! - **5.1** — DAG schema is closed. Exactly one `enum EdgeKind`
 //!   definition, in `agent_core/src/cognitive_dag/`.
@@ -36,6 +36,10 @@
 //!   `put_edge`. Doc-comment / prose mentions are reported as INFO
 //!   (doctrine intent honored: Swift does not hold or call the DAG
 //!   directly; documentation that NAMES the types is fine).
+//! - **6.1** — Static 9:1 fallback must be auditable. AnswerPacket
+//!   carries `attention_mode`; missing legacy values default to
+//!   `unavailable`; `static_fallback` requires
+//!   `ClaimKind::StaticFallbackAcknowledged`.
 //!
 //! Gate 4.x anti-patterns from doctrine §4 (no edges without
 //! signatures, no nodes without content addresses, no ad-hoc edge
@@ -78,12 +82,13 @@ EXIT CODES:
   2  io error (cannot walk the tree)
   3  doctrine violation (one or more gates failed)
 
-GATES (from cognitive DAG doctrine §5):
+GATES:
   5.1  exactly one `enum EdgeKind {` in agent_core/src/cognitive_dag/
   5.2  put_edge body in storage.rs verifies signature before insert
   5.3  put_node body in storage.rs computes id from content
   5.4  Swift / XPC zero CODE references to DagStore / put_node / put_edge
        (doc-comment / prose mentions reported as INFO, not failure)
+  6.1  AnswerPacket static_fallback cannot fire without acknowledgement
 ";
 
 fn main() -> ExitCode {
@@ -142,6 +147,7 @@ struct LintReport {
     gate_5_2: GateOutcome,
     gate_5_3: GateOutcome,
     gate_5_4: GateOutcome,
+    gate_6_1: GateOutcome,
 }
 
 #[derive(Debug, Default)]
@@ -159,6 +165,7 @@ impl LintReport {
             self.gate_5_2.violation,
             self.gate_5_3.violation,
             self.gate_5_4.violation,
+            self.gate_6_1.violation,
         ]
         .iter()
         .filter(|v| **v)
@@ -172,6 +179,7 @@ fn run_all_gates(root: &Path) -> Result<LintReport, String> {
         gate_5_2: check_gate_5_2(root)?,
         gate_5_3: check_gate_5_3(root)?,
         gate_5_4: check_gate_5_4(root)?,
+        gate_6_1: check_gate_6_1(root)?,
     })
 }
 
@@ -390,6 +398,85 @@ fn line_mentions_forbidden(line: &str) -> bool {
     line.contains("DagStore") || line.contains("put_node") || line.contains("put_edge")
 }
 
+// ── 6.1 — static fallback acknowledgement is enforced ─────────────────────
+
+fn check_gate_6_1(root: &Path) -> Result<GateOutcome, String> {
+    let answer_packet_path = root.join("agent_core/src/scope_rex/answer_packet.rs");
+    let ledger_path = root.join("agent_core/src/provenance/ledger.rs");
+    let swift_path = root.join("Epistemos/Models/AnswerPacket.swift");
+
+    let mut missing: Vec<String> = Vec::new();
+    let answer_packet = read_file_or_record_missing(&answer_packet_path, &mut missing);
+    let ledger = read_file_or_record_missing(&ledger_path, &mut missing);
+    let swift = read_file_or_record_missing(&swift_path, &mut missing);
+
+    for token in [
+        "pub enum AttentionMode",
+        "StaticFallback",
+        "Unavailable",
+        "pub attention_mode: AttentionMode",
+        "#[serde(default)]",
+        "requires_static_fallback_acknowledgement",
+        "acknowledges_static_fallback",
+        "attention_mode_claims_are_consistent",
+        "ClaimKind::StaticFallbackAcknowledged",
+    ] {
+        if !answer_packet.contains(token) {
+            missing.push(format!(
+                "{} missing `{token}`",
+                answer_packet_path.display()
+            ));
+        }
+    }
+    if !ledger.contains("StaticFallbackAcknowledged") {
+        missing.push(format!(
+            "{} missing `StaticFallbackAcknowledged`",
+            ledger_path.display()
+        ));
+    }
+    for token in [
+        "public enum AttentionMode",
+        "case staticFallback = \"static_fallback\"",
+        "case unavailable",
+        "public var attentionMode: AttentionMode",
+        "public var attentionModeClaimsAreConsistent",
+        "decodeIfPresent(AttentionMode.self",
+        "case staticFallbackAcknowledged = \"static_fallback_acknowledged\"",
+    ] {
+        if !swift.contains(token) {
+            missing.push(format!("{} missing `{token}`", swift_path.display()));
+        }
+    }
+
+    let violation = !missing.is_empty();
+    let detail = if violation {
+        format!(
+            "VIOLATION: static fallback audit contract incomplete:\n  {}",
+            missing.join("\n  ")
+        )
+    } else {
+        "ok (AnswerPacket carries attention_mode; static_fallback requires acknowledgement)"
+            .to_string()
+    };
+
+    Ok(GateOutcome {
+        name: "6.1 static fallback acknowledgement",
+        detail,
+        violation,
+        info_lines: vec![],
+    })
+}
+
+fn read_file_or_record_missing(path: &Path, missing: &mut Vec<String>) -> String {
+    match fs::read_to_string(path) {
+        Ok(src) => src,
+        Err(e) => {
+            missing.push(format!("{} not readable: {e}", path.display()));
+            String::new()
+        }
+    }
+}
+
 // ── Filesystem walkers ─────────────────────────────────────────────────────
 
 fn walk_rs_files(dir: &Path, cb: &mut dyn FnMut(&Path, usize, &str)) -> Result<(), String> {
@@ -513,6 +600,7 @@ fn print_report(report: &LintReport) {
         &report.gate_5_2,
         &report.gate_5_3,
         &report.gate_5_4,
+        &report.gate_6_1,
     ] {
         let prefix = if gate.violation { "FAIL" } else { "PASS" };
         println!("[{prefix}] {} — {}", gate.name, gate.detail);
@@ -523,7 +611,7 @@ fn print_report(report: &LintReport) {
     println!();
     let v = report.violations();
     if v == 0 {
-        println!("ALL GATES PASS — doctrine §5 verified.");
+        println!("ALL GATES PASS — doctrine gates verified.");
     } else {
         println!("DOCTRINE VIOLATION — {v} gate(s) failed.");
     }
