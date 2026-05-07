@@ -4326,6 +4326,17 @@ struct RuntimeValidationTests {
         #expect(noteDelete.contains("delete_file"))
     }
 
+    @Test("bundled audit skills keep Codex-compatible frontmatter")
+    func bundledAuditSkillsKeepCodexCompatibleFrontmatter() throws {
+        let releaseAudit = try loadMirroredSourceTextFile(".agents/skills/epistemos_release_audit/SKILL.md")
+        let recursiveAudit = try loadMirroredSourceTextFile(".agents/skills/recursive_app_audit/SKILL.md")
+
+        #expect(releaseAudit.hasPrefix("---\nname: \"Epistemos Release Audit\""))
+        #expect(releaseAudit.contains("\n---\n\n# Epistemos Release Audit"))
+        #expect(recursiveAudit.hasPrefix("---\nname: \"Recursive App Audit\""))
+        #expect(recursiveAudit.contains("\n---\n\n# Recursive App Audit Skill"))
+    }
+
     @Test("code editor release path removes embedded ask-bar policy")
     func codeEditorReleasePathRemovesEmbeddedAskBarPolicy() throws {
         let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")

@@ -1,7 +1,7 @@
 ---
-
-## name: Recursive App Audit
-description: A deeply nuanced, recursive testing and auditing methodology for the entire application. It autonomously runs tests, performs manual checks, analyzes nuances, and repeatedly refines logic until achieving 3 successive perfect passes with zero fails and zero errors.
+name: "Recursive App Audit"
+description: "A deeply nuanced, recursive testing and auditing methodology for the entire application. It autonomously runs tests, performs manual checks, analyzes nuances, and repeatedly refines logic until achieving 3 successive perfect passes with zero fails and zero errors."
+---
 
 # Recursive App Audit Skill
 
