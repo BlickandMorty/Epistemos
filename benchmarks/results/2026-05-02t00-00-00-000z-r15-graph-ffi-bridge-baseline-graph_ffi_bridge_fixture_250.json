@@ -1,6 +1,6 @@
 {
   "generated_at" : "2026-05-02T00:00:00.000Z",
-  "max" : 69234792,
+  "max" : 67723083,
   "measurement" : "graph_ffi_bridge_fixture_250",
   "metadata" : {
     "baseline_kind" : "r15_pr7_graph_ffi_bridge",
@@ -14,17 +14,17 @@
     "sample_source" : "focused_xcode_test",
     "surface_set" : "create_add_commit_search_position_visibility_force"
   },
-  "min" : 63231750,
-  "p50" : 66291875,
-  "p95" : 68781675.4,
-  "p99" : 69144168.68,
+  "min" : 66551000,
+  "p50" : 67453583,
+  "p95" : 67705358.2,
+  "p99" : 67719538.04,
   "sample_count" : 5,
   "samples" : [
-    63231750,
-    65177083,
-    66291875,
-    66969209,
-    69234792
+    66551000,
+    66897959.00000001,
+    67453583,
+    67634459,
+    67723083
   ],
   "schema_version" : 1,
   "suite" : "R15 Graph FFI Bridge Baseline",
