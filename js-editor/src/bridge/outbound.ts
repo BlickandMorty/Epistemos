@@ -37,6 +37,12 @@ export interface ContentDidChangeMessage extends OutboundMessageBase {
   json: string;
 }
 
+export interface DocumentStatsChangedMessage extends OutboundMessageBase {
+  type: 'documentStatsChanged';
+  wordCount: number;
+  characterCount: number;
+}
+
 export interface RectPayload {
   x: number; y: number; w: number; h: number;
 }
@@ -78,13 +84,25 @@ export interface ClassifyPasteMessage extends OutboundMessageBase {
   text: string;
 }
 
+export interface StoreImageAssetMessage extends OutboundMessageBase {
+  type: 'storeImageAsset';
+  /** Correlates the eventual Swift response with the captured paste/drop position. */
+  requestID: string;
+  filename: string;
+  mimeType: string;
+  /** Base64-encoded file bytes. Swift stores them in the .epdoc assets folder. */
+  base64: string;
+}
+
 export type OutboundMessage =
   | EditorReadyMessage
   | ContentDidChangeMessage
+  | DocumentStatsChangedMessage
   | CaretChangedMessage
   | RequestSlashMenuMessage
   | RequestBubbleMenuMessage
-  | ClassifyPasteMessage;
+  | ClassifyPasteMessage
+  | StoreImageAssetMessage;
 
 /**
  * AP1 — single batched envelope. The Swift handler treats `type:

@@ -64,7 +64,20 @@ module.exports = (_env, argv) => ({
   module: {
     rules: [
       { test: /\.tsx?$/, loader: 'ts-loader', options: { transpileOnly: false } },
-      { test: /\.css$/, use: [MiniCssExtractPlugin.loader, 'css-loader'] },
+      {
+        test: /\.css$/,
+        use: [
+          MiniCssExtractPlugin.loader,
+          {
+            loader: 'css-loader',
+            options: {
+              url: {
+                filter: (url) => !(url.startsWith('/assets/') || url === '/RetroGaming.ttf'),
+              },
+            },
+          },
+        ],
+      },
       // KaTeX fonts shipped as separate assets the URLSchemeHandler can serve.
       // The MIME table in EpdocEditorBridge.swift already maps woff2 → font/woff2.
       { test: /\.(woff2?|ttf)$/i, type: 'asset/resource',

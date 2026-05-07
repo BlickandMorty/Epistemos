@@ -22,9 +22,11 @@
 // EpdocBridgeMessage.decode.
 
 import { Extension } from '@tiptap/core';
+import type { Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { postBridge } from '../bridge/outbound';
+import { parseMarkdownPaste } from '../markdown/markdown-paste';
 
 const PASTE_CLASSIFIER_KEY = new PluginKey('epdocPasteClassifier');
 
@@ -47,26 +49,57 @@ export function pasteClassifierBridge(): Extension {
   return Extension.create({
     name: 'epdocPasteClassifierBridge',
     addProseMirrorPlugins(): Plugin[] {
+      const editor = this.editor;
       return [
         new Plugin({
           key: PASTE_CLASSIFIER_KEY,
           props: {
             handlePaste(_view: EditorView, event: ClipboardEvent): boolean {
               const text = extractPasteText(event);
-              if (text === null) return false;
-              const trimmed = text.trim();
-              if (trimmed.length < MIN_CHARS_FOR_CLASSIFY) return false;
-              postBridge({ type: 'classifyPaste', text: trimmed });
-              // Returning false hands the paste back to Tiptap so the
-              // user-visible editor state is updated synchronously —
-              // IntakeValve runs out-of-band on the Swift side.
-              return false;
+              const trimmed = text?.trim() ?? '';
+              if (trimmed.length >= MIN_CHARS_FOR_CLASSIFY) {
+                postBridge({ type: 'classifyPaste', text: trimmed });
+              }
+
+              const plainText = extractPlainPasteText(event);
+              const structuredContent = plainText ? parseMarkdownPaste(plainText) : null;
+              if (!structuredContent) {
+                // Returning false hands the paste back to Tiptap so the
+                // user-visible editor state is updated synchronously —
+                // IntakeValve runs out-of-band on the Swift side.
+                return false;
+              }
+
+              const didRun = editor.chain().focus().insertContent(structuredContent).run();
+              if (!didRun) return false;
+              event.preventDefault();
+              postDocumentStats(editor);
+              postBridge({ type: 'contentDidChange', json: JSON.stringify(editor.getJSON()) });
+              window.epdocOutboundBridge?.flushSync();
+              return true;
             },
           },
         }),
       ];
     },
   });
+}
+
+function postDocumentStats(editor: Editor): void {
+  const storage = editor.storage as unknown as Record<string, unknown>;
+  const characterCount = storage.characterCount as
+    | { words?: () => number; characters?: () => number }
+    | undefined;
+  postBridge({
+    type: 'documentStatsChanged',
+    wordCount: characterCount?.words?.() ?? 0,
+    characterCount: characterCount?.characters?.() ?? 0,
+  });
+}
+
+function extractPlainPasteText(event: ClipboardEvent): string | null {
+  const plain = event.clipboardData?.getData('text/plain') ?? '';
+  return plain.length > 0 ? plain : null;
 }
 
 /**
