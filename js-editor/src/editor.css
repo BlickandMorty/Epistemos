@@ -2,14 +2,39 @@
  * inspector / outliner) lives on the SwiftUI side per W7.17.a; this
  * file styles the in-WebView document area + caret-glued tools only. */
 
+@font-face {
+  font-family: "RetroGaming";
+  src: url("/RetroGaming.ttf") format("truetype");
+  font-display: swap;
+}
+
 :root {
-  --epdoc-page-padding: 48px 64px;
-  --epdoc-content-max-width: 760px;
+  --epdoc-page-padding: 34px 56px 64px;
+  --epdoc-content-max-width: 820px;
+  --epdoc-display-font: "RetroGaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-h1-size: 46px;
+  --epdoc-h2-size: 20px;
+  --epdoc-h3-size: 16px;
   --epdoc-line-height: 1.55;
   --epdoc-text-color: #1f1f1f;
-  --epdoc-bg: #ffffff;
+  --epdoc-bg: transparent;
   --epdoc-muted: #6b6b6b;
   --epdoc-accent: #3a86ff;
+  --epdoc-code-bg: #f7f7f8;
+  --epdoc-code-border: #e5e5ea;
+  --epdoc-code-fg: #1d2433;
+  --epdoc-card-radius: 18px;
+  --epdoc-card-bg: #f7f7f8;
+  --epdoc-card-border: #e5e5ea;
+  --epdoc-card-label-fg: #1f1f1f;
+  --epdoc-card-header-bg: transparent;
+  --epdoc-syntax-comment: #7d8799;
+  --epdoc-syntax-keyword: #9b4dca;
+  --epdoc-syntax-string: #1f7a4d;
+  --epdoc-syntax-number: #b45309;
+  --epdoc-syntax-title: #0b63ce;
+  --epdoc-syntax-built-in: #a23b72;
+  --epdoc-syntax-meta: #5d6472;
   --epdoc-callout-tip-bg: #e8f4ff;
   --epdoc-callout-tip-border: #3a86ff;
   --epdoc-callout-warning-bg: #fff7e6;
@@ -20,18 +45,42 @@
   --epdoc-callout-info-border: #6b6b6b;
   --epdoc-callout-details-bg: #f7f7f9;
   --epdoc-callout-details-border: #b0b0b0;
+  --epdoc-chart-blue: #3a86ff;
+  --epdoc-chart-teal: #00a896;
+  --epdoc-chart-amber: #f4a300;
+  --epdoc-chart-rose: #d62872;
+  --epdoc-chart-violet: #7c3aed;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --epdoc-text-color: #ededed;
-    --epdoc-bg: #1c1c1e;
-    --epdoc-muted: #a8a8a8;
+    --epdoc-text-color: #f5f5f7;
+    --epdoc-bg: transparent;
+    --epdoc-muted: #a1a1aa;
+    --epdoc-code-bg: #242426;
+    --epdoc-code-border: #343438;
+    --epdoc-code-fg: #e8edf7;
+    --epdoc-card-bg: #242426;
+    --epdoc-card-border: #343438;
+    --epdoc-card-label-fg: #f5f5f7;
+    --epdoc-card-header-bg: transparent;
+    --epdoc-syntax-comment: #8d99ad;
+    --epdoc-syntax-keyword: #d8a4ff;
+    --epdoc-syntax-string: #80d99b;
+    --epdoc-syntax-number: #ffc078;
+    --epdoc-syntax-title: #8ec5ff;
+    --epdoc-syntax-built-in: #ff9ecb;
+    --epdoc-syntax-meta: #b8c0d4;
     --epdoc-callout-tip-bg: rgba(58, 134, 255, 0.12);
     --epdoc-callout-warning-bg: rgba(244, 163, 0, 0.14);
     --epdoc-callout-danger-bg: rgba(214, 40, 40, 0.14);
     --epdoc-callout-info-bg: rgba(255, 255, 255, 0.06);
     --epdoc-callout-details-bg: rgba(255, 255, 255, 0.04);
+    --epdoc-chart-blue: #8ec5ff;
+    --epdoc-chart-teal: #6ee7b7;
+    --epdoc-chart-amber: #ffd166;
+    --epdoc-chart-rose: #ff8fb3;
+    --epdoc-chart-violet: #c4b5fd;
   }
 }
 
@@ -60,14 +109,50 @@ html, body {
   margin-top: 0.75em;
 }
 
-.ProseMirror h1 { font-size: 2.0em; font-weight: 700; margin-top: 1.4em; }
-.ProseMirror h2 { font-size: 1.6em; font-weight: 700; margin-top: 1.3em; }
-.ProseMirror h3 { font-size: 1.3em; font-weight: 600; margin-top: 1.2em; }
+.ProseMirror h1,
+.ProseMirror h2 {
+  font-family: var(--epdoc-display-font);
+}
+
+.ProseMirror h1 {
+  font-size: var(--epdoc-h1-size);
+  font-weight: 700;
+  line-height: 1.08;
+  margin-top: 1.4em;
+  letter-spacing: -0.025em;
+}
+
+.ProseMirror h2 {
+  font-size: var(--epdoc-h2-size);
+  font-weight: 800;
+  line-height: 1.18;
+  margin-top: 1.3em;
+  letter-spacing: -0.01em;
+}
+
+.ProseMirror h3 { font-size: var(--epdoc-h3-size); font-weight: 600; margin-top: 1.2em; }
 .ProseMirror h4 { font-size: 1.1em; font-weight: 600; }
 .ProseMirror h5 { font-size: 1.0em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .ProseMirror h6 { font-size: 0.9em; font-weight: 600; color: var(--epdoc-muted); }
 
 .ProseMirror p { margin: 0; }
+
+.ProseMirror pre,
+.ProseMirror [data-callout],
+.epdoc-mermaid,
+.epdoc-chart,
+.ProseMirror img[data-epdoc-image] {
+  contain: layout paint style;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--epdoc-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  opacity: 0.72;
+}
 
 .ProseMirror blockquote {
   border-left: 3px solid var(--epdoc-accent);
@@ -76,7 +161,7 @@ html, body {
   color: var(--epdoc-muted);
 }
 
-.ProseMirror code {
+.ProseMirror :not(pre) > code {
   font: 0.95em "SF Mono", ui-monospace, "Menlo", monospace;
   background: rgba(127, 127, 127, 0.12);
   padding: 0.12em 0.32em;
@@ -84,19 +169,121 @@ html, body {
 }
 
 .ProseMirror pre {
-  background: rgba(127, 127, 127, 0.08);
-  padding: 12px 16px;
-  border-radius: 8px;
+  background: var(--epdoc-code-bg);
+  border: 1px solid var(--epdoc-code-border);
+  box-shadow: none;
+  padding: 16px 18px;
+  border-radius: var(--epdoc-card-radius);
   overflow-x: auto;
   font: 0.9em/1.5 "SF Mono", ui-monospace, "Menlo", monospace;
+  tab-size: 2;
 }
 
-.ProseMirror pre code { background: none; padding: 0; }
+.ProseMirror pre[data-epdoc-code-block] {
+  position: relative;
+}
+
+.ProseMirror pre code {
+  display: block;
+  min-width: max-content;
+  color: var(--epdoc-code-fg);
+  background: none;
+  padding: 0;
+  white-space: pre;
+}
+
+.ProseMirror pre[data-epdoc-code-block].ProseMirror-selectednode {
+  outline: 2px solid var(--epdoc-accent);
+  outline-offset: 3px;
+}
+
+.ProseMirror .hljs-comment,
+.ProseMirror .hljs-quote {
+  color: var(--epdoc-syntax-comment);
+  font-style: italic;
+}
+
+.ProseMirror .hljs-keyword,
+.ProseMirror .hljs-selector-tag,
+.ProseMirror .hljs-literal,
+.ProseMirror .hljs-section,
+.ProseMirror .hljs-link {
+  color: var(--epdoc-syntax-keyword);
+}
+
+.ProseMirror .hljs-string,
+.ProseMirror .hljs-regexp,
+.ProseMirror .hljs-symbol,
+.ProseMirror .hljs-bullet,
+.ProseMirror .hljs-addition {
+  color: var(--epdoc-syntax-string);
+}
+
+.ProseMirror .hljs-number,
+.ProseMirror .hljs-variable,
+.ProseMirror .hljs-template-variable,
+.ProseMirror .hljs-attr {
+  color: var(--epdoc-syntax-number);
+}
+
+.ProseMirror .hljs-title,
+.ProseMirror .hljs-name,
+.ProseMirror .hljs-selector-id,
+.ProseMirror .hljs-selector-class {
+  color: var(--epdoc-syntax-title);
+}
+
+.ProseMirror .hljs-type,
+.ProseMirror .hljs-built_in,
+.ProseMirror .hljs-builtin-name,
+.ProseMirror .hljs-params {
+  color: var(--epdoc-syntax-built-in);
+}
+
+.ProseMirror .hljs-meta,
+.ProseMirror .hljs-deletion,
+.ProseMirror .hljs-doctag {
+  color: var(--epdoc-syntax-meta);
+}
 
 .ProseMirror mark {
   background: linear-gradient(transparent 60%, rgba(244, 200, 50, 0.45) 60%);
   color: inherit;
   padding: 0 1px;
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid rgba(127, 127, 127, 0.24);
+  min-width: 72px;
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+.ProseMirror th {
+  background: rgba(127, 127, 127, 0.08);
+  font-weight: 600;
+}
+
+.ProseMirror .selectedCell {
+  position: relative;
+}
+
+.ProseMirror .selectedCell::after {
+  content: "";
+  inset: 0;
+  position: absolute;
+  background: rgba(58, 134, 255, 0.12);
+  pointer-events: none;
 }
 
 /* ─── Callouts ─────────────────────────────────────────────────────── */
@@ -114,26 +301,215 @@ html, body {
 
 /* ─── Mermaid ──────────────────────────────────────────────────────── */
 .epdoc-mermaid {
-  border: 1px solid rgba(127, 127, 127, 0.18);
-  border-radius: 8px;
-  margin: 1em 0;
+  border: 1px solid var(--epdoc-card-border);
+  border-radius: var(--epdoc-card-radius);
+  margin: 1.25em 0;
   overflow: hidden;
+  background: var(--epdoc-card-bg);
+  box-shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  .epdoc-mermaid {
+    background: var(--epdoc-card-bg);
+    border-color: var(--epdoc-card-border);
+    box-shadow: none;
+  }
+}
+.epdoc-mermaid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 4px;
+  border-bottom: 0;
+  background: var(--epdoc-card-header-bg);
+}
+.epdoc-mermaid-title {
+  color: var(--epdoc-card-label-fg);
+  font: 650 0.86em/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
+  letter-spacing: 0;
+}
+.epdoc-mermaid-syntax {
+  color: var(--epdoc-muted);
+  font: 0.72em/1.2 "SF Mono", ui-monospace, monospace;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.epdoc-mermaid-source-wrap {
+  border-top: 1px solid var(--epdoc-card-border);
+  color: var(--epdoc-muted);
+}
+.epdoc-mermaid-source-wrap > summary {
+  cursor: pointer;
+  padding: 9px 18px;
+  font: 0.76em/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
+  letter-spacing: 0.01em;
 }
 .epdoc-mermaid-source {
   font: 0.85em/1.4 "SF Mono", ui-monospace, monospace;
   margin: 0;
-  padding: 8px 12px;
-  background: rgba(127, 127, 127, 0.06);
-  border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+  padding: 0 18px 14px;
   white-space: pre;
+  color: var(--epdoc-code-fg);
+  overflow-x: auto;
 }
 .epdoc-mermaid-preview {
-  padding: 12px;
+  min-height: 120px;
+  padding: 12px 18px 18px;
   text-align: center;
+  overflow-x: auto;
+}
+.epdoc-mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+  filter: none;
+}
+.epdoc-mermaid-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 82px;
+  color: var(--epdoc-muted);
+  font: 0.9em/1.4 "SF Pro Text", ui-sans-serif, sans-serif;
 }
 .epdoc-mermaid-error {
   color: var(--epdoc-callout-danger-border);
+  display: inline-block;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--epdoc-callout-danger-border) 32%, transparent);
+  border-radius: 10px;
+  background: var(--epdoc-callout-danger-bg);
   font: 0.9em "SF Mono", ui-monospace, monospace;
+}
+
+/* ─── Research charts ─────────────────────────────────────────────── */
+.epdoc-chart {
+  border: 1px solid var(--epdoc-card-border);
+  border-radius: var(--epdoc-card-radius);
+  margin: 1.25em 0;
+  overflow: hidden;
+  background: var(--epdoc-card-bg);
+  box-shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  .epdoc-chart {
+    background: var(--epdoc-card-bg);
+    border-color: var(--epdoc-card-border);
+    box-shadow: none;
+  }
+}
+.epdoc-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 4px;
+  border-bottom: 0;
+  background: var(--epdoc-card-header-bg);
+}
+.epdoc-chart-title {
+  color: var(--epdoc-card-label-fg);
+  font: 650 0.86em/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
+  letter-spacing: 0;
+}
+.epdoc-chart-syntax {
+  color: var(--epdoc-muted);
+  font: 0.72em/1.2 "SF Mono", ui-monospace, monospace;
+}
+.epdoc-chart-preview {
+  min-height: 260px;
+  padding: 12px 18px 16px;
+  overflow-x: auto;
+}
+.epdoc-chart-preview svg {
+  display: block;
+  width: min(100%, 760px);
+  height: auto;
+  margin: 0 auto;
+}
+.epdoc-chart-svg-title {
+  fill: var(--epdoc-text-color);
+  font: 700 18px/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
+}
+.epdoc-chart-axis,
+.epdoc-chart-grid {
+  fill: none;
+  stroke: rgba(82, 119, 160, 0.34);
+  stroke-width: 1;
+}
+.epdoc-chart-grid {
+  stroke-dasharray: 4 6;
+  opacity: 0.55;
+}
+.epdoc-chart-axis-label,
+.epdoc-chart-empty {
+  fill: var(--epdoc-muted);
+  font: 12px/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
+}
+.epdoc-chart-axis-label-y {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(-90deg);
+}
+.epdoc-chart-line {
+  fill: none;
+  stroke: var(--epdoc-chart-blue);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.epdoc-chart-point,
+.epdoc-chart-bar {
+  fill: var(--epdoc-chart-blue);
+  opacity: 0.88;
+}
+.epdoc-chart-category-1 { fill: var(--epdoc-chart-teal); }
+.epdoc-chart-category-2 { fill: var(--epdoc-chart-amber); }
+.epdoc-chart-category-3 { fill: var(--epdoc-chart-rose); }
+.epdoc-chart-category-4 { fill: var(--epdoc-chart-violet); }
+.epdoc-chart-source-wrap {
+  border-top: 1px solid var(--epdoc-card-border);
+  color: var(--epdoc-muted);
+}
+.epdoc-chart-source-wrap > summary {
+  cursor: pointer;
+  padding: 9px 18px;
+  font: 0.76em/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
+  letter-spacing: 0.01em;
+}
+.epdoc-chart-source {
+  font: 0.85em/1.4 "SF Mono", ui-monospace, monospace;
+  margin: 0;
+  padding: 0 18px 14px;
+  white-space: pre;
+  color: var(--epdoc-code-fg);
+  overflow-x: auto;
+}
+.epdoc-chart-error {
+  color: var(--epdoc-callout-danger-border);
+  display: inline-block;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--epdoc-callout-danger-border) 32%, transparent);
+  border-radius: 10px;
+  background: var(--epdoc-callout-danger-bg);
+  font: 0.9em "SF Mono", ui-monospace, monospace;
+}
+
+/* ─── Images ──────────────────────────────────────────────────────── */
+.ProseMirror img[data-epdoc-image] {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.ProseMirror img[data-epdoc-image].ProseMirror-selectednode {
+  outline: 2px solid var(--epdoc-accent);
+  outline-offset: 4px;
 }
 
 /* ─── Task list checkboxes ────────────────────────────────────────── */

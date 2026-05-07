@@ -8,9 +8,9 @@
 // Editor extension stack ordered by layer:
 //   1. core               — StarterKit + UniqueId
 //   2. inline             — Link, Highlight
-//   3. block               — Table, TaskList, TaskItem
+//   3. block               — CodeBlockLowlight, Table, TaskList, TaskItem
 //   4. W7.7 markdown plugins — Mathematics (KaTeX), Footnotes
-//   5. W7.9 custom         — MermaidNode
+//   5. W7.9 custom         — MermaidNode + EpdocChartNode
 //   6. W7.17.b chrome     — BubbleMenu, FloatingMenu, DragHandle
 //   7. W7.17.a bridge     — slash menu, caret-rect emitter
 //   8. CharacterCount     — drives the W7.17 stats badge
@@ -33,14 +33,22 @@ import BubbleMenu from '@tiptap/extension-bubble-menu';
 import FloatingMenu from '@tiptap/extension-floating-menu';
 import DragHandle from '@tiptap/extension-drag-handle';
 import UniqueId from '@tiptap/extension-unique-id';
+import { Placeholder } from '@tiptap/extensions/placeholder';
 import { Footnotes, FootnoteReference, Footnote } from 'tiptap-footnotes';
 
+import { EpdocCodeBlock } from './extensions/code-block-node';
 import { MermaidNode } from './extensions/mermaid-node';
+import { EpdocChartNode } from './extensions/chart-node';
+import { EpdocImageNode } from './extensions/image-node';
+import { imageAssetBridge } from './extensions/image-asset-bridge';
+import { CalloutNode } from './extensions/callout-node';
+import { epdocMarkdownInputRules } from './extensions/markdown-input-rules';
 import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
 import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
 import { postBridge } from './bridge/outbound';
 import { installInboundCommands } from './bridge/inbound';
+import { hasHostDocumentLoaded } from './bridge/document-load-state';
 
 import 'katex/dist/katex.min.css';
 import './editor.css';
@@ -63,30 +71,64 @@ if (!mountNode) {
 // debounce (see `EpdocEditorSavePipeline`); the two layers stack so
 // the canonical-save invariant is preserved.
 const CONTENT_DID_CHANGE_DEBOUNCE_MS = 200;
+const DOCUMENT_STATS_DEBOUNCE_MS = 250;
 let contentDidChangeTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingDocJSON: string | null = null;
+let documentStatsTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingContentEditor: Editor | null = null;
+let pendingStatsEditor: Editor | null = null;
 
-function scheduleContentDidChange(json: string): void {
-  pendingDocJSON = json;
+function editorIsLive(ed: Editor | null): ed is Editor {
+  return ed !== null && (ed as { isDestroyed?: boolean }).isDestroyed !== true;
+}
+
+function scheduleContentDidChange(ed: Editor): void {
+  pendingContentEditor = ed;
   if (contentDidChangeTimer !== null) return;
   contentDidChangeTimer = setTimeout(() => {
     contentDidChangeTimer = null;
-    const json = pendingDocJSON;
-    pendingDocJSON = null;
-    if (json === null) return;
-    postBridge({ type: 'contentDidChange', json });
+    const editor = pendingContentEditor;
+    pendingContentEditor = null;
+    if (!editorIsLive(editor)) return;
+    postBridge({ type: 'contentDidChange', json: JSON.stringify(editor.getJSON()) });
   }, CONTENT_DID_CHANGE_DEBOUNCE_MS);
+}
+
+function postDocumentStats(ed: Editor): void {
+  postBridge({
+    type: 'documentStatsChanged',
+    wordCount: ed.storage.characterCount.words(),
+    characterCount: ed.storage.characterCount.characters(),
+  });
+}
+
+function scheduleDocumentStats(ed: Editor): void {
+  pendingStatsEditor = ed;
+  if (documentStatsTimer !== null) return;
+  documentStatsTimer = setTimeout(() => {
+    documentStatsTimer = null;
+    const editor = pendingStatsEditor;
+    pendingStatsEditor = null;
+    if (!editorIsLive(editor)) return;
+    postDocumentStats(editor);
+  }, DOCUMENT_STATS_DEBOUNCE_MS);
 }
 
 const editor = new Editor({
   element: mountNode,
   extensions: [
-    StarterKit,
+    StarterKit.configure({
+      codeBlock: false,
+    }),
     UniqueId.configure({
       types: ['heading', 'paragraph', 'codeBlock', 'blockquote'],
     }),
+    Placeholder.configure({
+      placeholder: 'Start writing your Epistemos document...',
+      showOnlyCurrent: false,
+    }),
     Link.configure({ openOnClick: false }),
     Highlight,
+    EpdocCodeBlock,
     Table.configure({ resizable: true }),
     TableRow,
     TableCell,
@@ -99,6 +141,9 @@ const editor = new Editor({
     FootnoteReference,
     Footnote,
     MermaidNode,
+    EpdocChartNode,
+    EpdocImageNode,
+    CalloutNode,
     BubbleMenu.configure({ pluginKey: 'epdocBubble' }),
     FloatingMenu.configure({ pluginKey: 'epdocFloating' }),
     DragHandle,
@@ -117,6 +162,8 @@ const editor = new Editor({
         // hook is reserved for future inline analytics.
       },
     }),
+    imageAssetBridge(),
+    epdocMarkdownInputRules(),
     pasteClassifierBridge(),
   ],
   content: { type: 'doc', content: [{ type: 'paragraph' }] },
@@ -125,9 +172,13 @@ const editor = new Editor({
     // rather than `onTransaction` so selection-only transactions
     // (caret moves, focus changes) don't burn the timer; those are
     // already covered by CaretRectEmitter.
-    scheduleContentDidChange(JSON.stringify(ed.getJSON()));
+    if (hasHostDocumentLoaded()) {
+      scheduleContentDidChange(ed);
+    }
+    scheduleDocumentStats(ed);
   },
-  onCreate: () => {
+  onCreate: ({ editor: ed }) => {
+    postDocumentStats(ed);
     postBridge({ type: 'editorReady' });
   },
 });
