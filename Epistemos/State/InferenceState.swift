@@ -81,6 +81,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case gemma3_27BQAT4Bit = "mlx-community/gemma-3-27b-it-qat-4bit"
     case llama4Scout17B16E4Bit = "mlx-community/meta-llama-Llama-4-Scout-17B-16E-4bit"
 
+    static let hermes43_36B4Bit: Self = .localAgent43_36B4Bit
+    static let hermes43_36B3Bit: Self = .localAgent43_36B3Bit
+
     var runtimeKind: BackendRuntimeKind {
         switch self {
         case .qwopus27Bv3, .qwopusMoE35BA3B:
