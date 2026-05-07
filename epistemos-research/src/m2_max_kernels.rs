@@ -28,8 +28,19 @@
 //! ## §2.5.2 compliance posture
 //!
 //! Lane 3 RESEARCH-ONLY substrate. Building requires `--features
-//! research`. The kernels themselves ship in MAS via the standard
-//! Metal pipeline.
+//! research`. This module records canonical kernel names and
+//! falsifiers only. It does not assert that the corresponding
+//! `.metal` files already exist or ship in MAS. MAS linkage is a
+//! future implementation gate after the files exist, pass their
+//! falsifiers, and satisfy W40 lane classification.
+//!
+//! ## V6.2 intake note
+//!
+//! V6.2 preserves the five kernel names as target surfaces, but
+//! budget-revises their falsifiers to the actual M2 Pro 16GB rig.
+//! It also changes InterruptScore from an always-on Metal kernel to
+//! Swift CPU canonical for the single-token expected path, with Metal
+//! retained only as a batch-amortized shadow path (>=64 tokens).
 
 use serde::{Deserialize, Serialize};
 
@@ -118,6 +129,11 @@ pub const FIVE_LOAD_BEARING_KERNELS: [LoadBearingKernel; 5] = [
 /// "InterruptScore.metal — computes u_t from the five components.
 /// It is small, fast, always-on, and runs *before* every step."
 pub const INTERRUPT_SCORE_KERNEL_FILENAME: &str = "InterruptScore.metal";
+
+/// Current implementation posture for this research module: names
+/// and falsifiers are canonical; real Metal implementation is
+/// intentionally outside this crate until the V6.1 kernel work lands.
+pub const KERNEL_IMPLEMENTATION_POSTURE: &str = "canonical_target_not_implemented_here";
 
 #[cfg(test)]
 mod tests {
@@ -225,6 +241,14 @@ mod tests {
         // The 6th always-on kernel sits OUTSIDE the load-bearing
         // five but is still canonical per V6.1 §7.
         assert_eq!(INTERRUPT_SCORE_KERNEL_FILENAME, "InterruptScore.metal");
+    }
+
+    #[test]
+    fn kernel_posture_is_doctrine_target_not_implementation_claim() {
+        assert_eq!(
+            KERNEL_IMPLEMENTATION_POSTURE,
+            "canonical_target_not_implemented_here"
+        );
     }
 
     #[test]

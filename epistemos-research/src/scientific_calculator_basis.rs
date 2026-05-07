@@ -5,7 +5,7 @@
 //! Per HELIOS v4 preservation `source_docs/eml_formal_synthesis.md`
 //! §1.1 + Odrzywołek arXiv:2603.21852 v2 (Apr 2026):
 //!
-//! > "The binary operator `eml(x, y) = exp(x) − ln(y) + 1` can
+//! > "The binary operator `eml(x, y) = exp(x) − ln(y)` can
 //! >  generate every function in the **scientific calculator
 //! >  basis** through finite composition trees of the form
 //! >  `S → 1 | eml(S, S)`."

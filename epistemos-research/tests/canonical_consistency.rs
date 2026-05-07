@@ -17,6 +17,7 @@
 #![cfg(feature = "research")]
 
 use epistemos_research::{
+    acs::{ACS_AUDIT_PLANE, ACS_CANONICAL_PLANE},
     agent_swarm::{
         AgentMessageContract, AgentMessageSignature, FIVE_BUDGET_AXES,
         HERMES_ARENA_BYTES, THREE_HERMES_OUTCOMES,
@@ -36,8 +37,8 @@ use epistemos_research::{
     },
     goodfire_vpd_specs::{
         computed_activation_sparsity, VPD_ACTIVATION_SPARSITY, VPD_ACTIVE_PER_POSITION,
-        VPD_ALIVE_COMPONENTS, VPD_PARAMETER_COUNT, VPD_RANK1_SUBCOMPONENTS,
-        VPD_TRANSFORMER_LAYERS,
+        VPD_ALIVE_COMPONENTS, VPD_PARAMETER_COUNT, VPD_PUBLIC_ACTIVITY_FRACTION,
+        VPD_PUBLIC_ACTIVITY_LABEL, VPD_RANK1_SUBCOMPONENTS, VPD_TRANSFORMER_LAYERS,
     },
     hardware_profile::{
         HardwareProfile, FOUR_PROFILES, USER_ACTUAL_TARGET, V6_1_CANONICAL_REFERENCE,
@@ -51,6 +52,7 @@ use epistemos_research::{
     learning_modes::{Direction, LearningMode, FOUR_LEARNING_MODES, SIX_DIRECTIONS},
     m2_max_kernels::{
         LoadBearingKernel, FIVE_LOAD_BEARING_KERNELS, INTERRUPT_SCORE_KERNEL_FILENAME,
+        KERNEL_IMPLEMENTATION_POSTURE,
     },
     mas_capability_lattice::{Capability, DeploymentTier, CAPABILITY_LATTICE},
     mathematical_pillars::{MathematicalPillar, FIVE_PILLARS},
@@ -61,7 +63,36 @@ use epistemos_research::{
     stack_roles::{ALL_ROLES, ReferenceCheckpoint, StackRole},
     theorem_status::{TheoremStatus, FOUNDATIONAL_SEVEN},
     v6_1::{AttentionMode, V6_1Axis, ALL_AXES, ALL_LOCKS, VERIFIED_FLOOR_ANCHOR},
+    v6_1_execution_policy::{
+        stream_execution_policy, AttentionWakePolicy, ConnectomeAlarmPolicy,
+    },
+    v6_1_foundation::{
+        FoundationClaim, FoundationCommitment, FoundationGoodfireStatus,
+        ANSWER_PACKET_SCHEMA_FREEZE_REQUIRES_F_ULP_ORACLE,
+        CONSTANT_FREE_EML_GENERATOR_OPEN, EML_GRAMMAR, EML_OPERATOR_FORMULA,
+        FOUNDATION_CLAIMS, FOUNDATION_COMMITMENT_ORDER, FOUNDATION_GOODFIRE_STATUS,
+        FOUNDATION_HARDWARE_FLOOR, F_ULP_ORACLE, VERIFIED_FLOOR_COMMIT,
+    },
+    v6_1_stream_surface::{
+        full_plane_count, stream_surface, StreamSurfaceLevel, ALL_FIFTEEN_CELLS,
+    },
     v6_1_theorems::{T42FalsifierOutcome, V6_1Theorem, EIGHT_V6_1_THEOREMS},
+    v6_2::{
+        GoodfireV6_2Evidence, InterruptScoreImplementation, V6_2Falsifier, V6_2Stage,
+        GOODFIRE_V6_2_EVIDENCE, INTERRUPT_SCORE_METAL_SHADOW_MIN_BATCH,
+        INTERRUPT_SCORE_P99_US_MAX, LOCAL_RECALL_CORE_CONTEXT_K, LOCAL_RECALL_CORE_DEPTHS,
+        LOCAL_RECALL_CORE_PASS_THRESHOLD, LOCAL_RECALL_CORE_TRIALS,
+        LOCAL_RECALL_STRETCH_CONTEXT_K, M2_PRO_MEMORY_BANDWIDTH_GBPS,
+        MAS_TIER1_HARD_CEILING_GB, MAS_TIER1_SOFT_CEILING_GB,
+        PACKET_ROUTER_P99_US_MAX, PAGE_GATHER_BASELINE_RATIO, PAGE_GATHER_BUFFER_MB,
+        PAGE_GATHER_BASELINE_SUSTAINED_GBPS_MAX,
+        PAGE_GATHER_BASELINE_SUSTAINED_GBPS_MIN, PAGE_GATHER_MIN_WINDOW_SECONDS,
+        SEMISEPARABLE_CANONICAL_CHUNK_SIZE,
+        SEMISEPARABLE_CORE_L, SEMISEPARABLE_NGROUPS, SEMISEPARABLE_PERF_CANDIDATE_CHUNK_SIZE,
+        SEMISEPARABLE_STRETCH_L, V6_2_CANON_SOURCE_PATH, V6_2_FALSIFIER_ORDER,
+        V6_2_HARDWARE_LOCK, V6_2_KERNEL_LADDER_IS_AFTER_F_ULP_ORACLE,
+        V6_2_STAGE_ORDER,
+    },
     validation_thresholds::{
         KL_DIVERGENCE_MAX, PEAK_RAM_GB_MAX, SEVEN_THRESHOLDS,
     },
@@ -693,23 +724,34 @@ fn v6_1_t42_falsifier_has_two_outcomes() {
 fn v6_1_goodfire_vpd_pinned_numerics_match_v6_1_lock() {
     // V6.1 §"GOODFIRE VPD CONFIRMED-PUBLIC NUMERICS": 67M params,
     // 4 transformer layers, 38912 rank-1 subcomponents, 9972 alive,
-    // 205 active per position, 2.05% activation sparsity.
+    // 205 active per position, public rounded 2.1% activation
+    // sparsity.
     assert_eq!(VPD_PARAMETER_COUNT, 67_000_000);
     assert_eq!(VPD_TRANSFORMER_LAYERS, 4);
     assert_eq!(VPD_RANK1_SUBCOMPONENTS, 38_912);
     assert_eq!(VPD_ALIVE_COMPONENTS, 9_972);
     assert_eq!(VPD_ACTIVE_PER_POSITION, 205);
-    assert!((VPD_ACTIVATION_SPARSITY - 0.0205).abs() < 1e-6);
+    assert!((VPD_ACTIVATION_SPARSITY - VPD_PUBLIC_ACTIVITY_FRACTION).abs() < 5e-4);
+    assert_eq!(VPD_PUBLIC_ACTIVITY_LABEL, "2.1%");
 }
 
 #[test]
 fn v6_1_goodfire_vpd_computed_sparsity_matches_pinned_constant() {
-    // The pinned 2.05% sparsity must equal 205 / 9972 within ULP.
+    // The pinned exact-ratio sparsity must equal 205 / 9972 within
+    // tight tolerance; public docs round it to 0.021 / 2.1%.
     let computed = computed_activation_sparsity();
     assert!(
-        (computed - VPD_ACTIVATION_SPARSITY).abs() < 1e-4,
+        (computed - VPD_ACTIVATION_SPARSITY).abs() < 1e-8,
         "computed sparsity {computed} must match pinned {VPD_ACTIVATION_SPARSITY}"
     );
+}
+
+#[test]
+fn v6_1_goodfire_vpd_internal_math_and_external_label_do_not_fight() {
+    // Internal math is exact 205 / 9972; external canon says 2.1%.
+    assert_eq!(VPD_ACTIVATION_SPARSITY, computed_activation_sparsity());
+    assert!((VPD_ACTIVATION_SPARSITY - 0.020557).abs() < 1e-6);
+    assert_eq!(VPD_PUBLIC_ACTIVITY_LABEL, "2.1%");
 }
 
 #[test]
@@ -850,6 +892,56 @@ fn v6_1_interrupt_score_kernel_is_separate_from_load_bearing_five() {
 }
 
 #[test]
+fn v6_1_execution_policy_uses_attention_by_exception_for_every_stream() {
+    for stream in [ProductStream::Mas, ProductStream::Pro, ProductStream::Vault] {
+        let policy = stream_execution_policy(stream);
+        assert!(policy.attention_wake_policy.uses_interrupt_score());
+        assert!(!policy.wakes_attention(EscalationLevel::PureRecurrent));
+        assert!(!policy.wakes_tools(EscalationLevel::PureRecurrent));
+        assert!(policy.wakes_attention(EscalationLevel::RecallEpisode));
+        assert!(!policy.wakes_tools(EscalationLevel::RecallEpisode));
+        assert!(policy.wakes_tools(EscalationLevel::FullEscalation));
+    }
+}
+
+#[test]
+fn v6_1_execution_policy_tier_kernels_match_lean_brief() {
+    let mas = stream_execution_policy(ProductStream::Mas);
+    assert_eq!(
+        mas.attention_wake_policy,
+        AttentionWakePolicy::InterruptScoreWithStatic9To1Fallback
+    );
+    assert!(mas.attention_wake_policy.has_static_9_to_1_fallback());
+    assert_eq!(mas.state_kernel, LoadBearingKernel::SemiseparableBlockScan);
+    assert_eq!(mas.recall_kernel, None);
+
+    let pro = stream_execution_policy(ProductStream::Pro);
+    assert_eq!(pro.attention_wake_policy, AttentionWakePolicy::FullInterruptScore);
+    assert_eq!(pro.recall_kernel, Some(LoadBearingKernel::LocalRecallIsland));
+    assert_eq!(pro.connectome_alarm_policy, ConnectomeAlarmPolicy::ObservabilityOnly);
+    assert!(!pro.connectome_alarm_policy.can_drive_runtime_interrupts());
+
+    let vault = stream_execution_policy(ProductStream::Vault);
+    assert_eq!(vault.assembly_kernel, Some(LoadBearingKernel::PacketRouter1bit));
+    assert_eq!(
+        vault.connectome_alarm_policy,
+        ConnectomeAlarmPolicy::ExperimentalVaultOnly
+    );
+    assert!(vault.connectome_alarm_policy.can_drive_runtime_interrupts());
+}
+
+#[test]
+fn v6_1_kernel_names_are_doctrine_targets_not_implementation_claims() {
+    // The current repo records V6.1 kernel names and falsifiers. The
+    // actual `.metal` files are future implementation work and must
+    // not be implied by this research substrate.
+    assert_eq!(
+        KERNEL_IMPLEMENTATION_POSTURE,
+        "canonical_target_not_implemented_here"
+    );
+}
+
+#[test]
 fn v6_1_user_actual_target_is_m2_pro_16gb() {
     // Per user message 2026-05-06: "i have a m2 pro not max with
     // 16gb of ram." This is the actual ship target, not the V6.1
@@ -925,4 +1017,295 @@ fn v6_1_user_target_max_context_is_32k() {
 fn v6_1_canonical_reference_max_context_is_128k() {
     // V6.1 canonical: 128k @ M2 Max 64GB.
     assert_eq!(V6_1_CANONICAL_REFERENCE.max_practical_context_k(), 128);
+}
+
+#[test]
+fn v6_1_acs_lives_in_episodic_plane_and_audits_in_verification() {
+    // ACS stores exact cognitive coordinates, not the semantic SSM
+    // spine. The theorem labels attached to ACS anchors are audited
+    // by the Verification plane.
+    assert_eq!(ACS_CANONICAL_PLANE, RuntimePlane::Episodic);
+    assert_ne!(ACS_CANONICAL_PLANE, RuntimePlane::State);
+    assert_eq!(ACS_AUDIT_PLANE, RuntimePlane::Verification);
+}
+
+#[test]
+fn v6_1_stream_surface_has_fifteen_cells() {
+    // V6.1 §3: 3 streams × 5 planes = 15 cells, every cell well-defined.
+    assert_eq!(ALL_FIFTEEN_CELLS.len(), 15);
+}
+
+#[test]
+fn v6_1_stream_surface_assembly_is_bounded_in_mas_full_in_pro_vault() {
+    // V6.1 sharpening point 5: ternary routing lives in Assembly,
+    // but MAS remains a bounded App-Store-safe exposure surface.
+    assert_eq!(
+        stream_surface(ProductStream::Mas, RuntimePlane::Assembly),
+        StreamSurfaceLevel::Bounded
+    );
+    assert_eq!(
+        stream_surface(ProductStream::Pro, RuntimePlane::Assembly),
+        StreamSurfaceLevel::Full
+    );
+    assert_eq!(
+        stream_surface(ProductStream::Vault, RuntimePlane::Assembly),
+        StreamSurfaceLevel::Full
+    );
+}
+
+#[test]
+fn v6_1_stream_surface_verification_doctrine_only_everywhere() {
+    // V6.1 §3: Verification plane is doctrine substrate only — no
+    // GPU kernel. It is emitted uniformly across streams as audit
+    // doctrine.
+    for stream in [ProductStream::Mas, ProductStream::Pro, ProductStream::Vault] {
+        assert_eq!(
+            stream_surface(stream, RuntimePlane::Verification),
+            StreamSurfaceLevel::DoctrineOnly
+        );
+    }
+}
+
+#[test]
+fn v6_1_stream_surface_pro_widens_mas_envelope() {
+    // V6.1 doctrine: Pro is "same architecture, wider envelopes."
+    // No runtime plane in Pro is more bounded than its MAS counterpart.
+    for plane in [
+        RuntimePlane::State,
+        RuntimePlane::Episodic,
+        RuntimePlane::Assembly,
+        RuntimePlane::Controller,
+    ] {
+        let mas = stream_surface(ProductStream::Mas, plane);
+        let pro = stream_surface(ProductStream::Pro, plane);
+        assert!(
+            pro.is_full(),
+            "Pro plane {plane:?} must be Full at this surface granularity, got {pro:?}"
+        );
+        if !mas.is_full() {
+            assert_ne!(mas, pro, "Pro must widen MAS for plane {plane:?}");
+        }
+    }
+}
+
+#[test]
+fn v6_1_stream_surface_full_plane_counts_match_doctrine() {
+    // MAS has no Full policy planes: State/Assembly/Controller are
+    // Bounded, Episodic=Restricted, Verification=DoctrineOnly.
+    assert_eq!(full_plane_count(ProductStream::Mas), 0);
+    // Pro / Vault: 4 Full planes (all but Verification).
+    assert_eq!(full_plane_count(ProductStream::Pro), 4);
+    assert_eq!(full_plane_count(ProductStream::Vault), 4);
+}
+
+#[test]
+fn v6_1_stream_surface_no_stream_omits_any_plane() {
+    // V6.1 §3: "every stream contains the same five planes."
+    // Every (stream, plane) cell must produce a defined level.
+    let streams = [ProductStream::Mas, ProductStream::Pro, ProductStream::Vault];
+    let planes = [
+        RuntimePlane::State,
+        RuntimePlane::Episodic,
+        RuntimePlane::Assembly,
+        RuntimePlane::Controller,
+        RuntimePlane::Verification,
+    ];
+    let mut covered = 0;
+    for s in streams {
+        for p in planes {
+            let _ = stream_surface(s, p);
+            covered += 1;
+        }
+    }
+    assert_eq!(covered, 15);
+}
+
+// ---------------------------------------------------------------------------
+// V6.2 lean verification canon intake
+// ---------------------------------------------------------------------------
+
+#[test]
+fn v6_2_source_path_is_jordan_research_lock() {
+    assert_eq!(
+        V6_2_CANON_SOURCE_PATH,
+        "docs/fusion/jordan's research/helios v6.2.md"
+    );
+}
+
+#[test]
+fn v6_2_hardware_lock_is_actual_ship_rig() {
+    // V6.2 doctrine: "If it works on Jojo's M2 Pro 16 GB, it can
+    // ship. If it requires a workstation, it's research-tier."
+    assert_eq!(V6_2_HARDWARE_LOCK, USER_ACTUAL_TARGET);
+    assert_eq!(V6_2_HARDWARE_LOCK, HardwareProfile::M2Pro16Gb);
+    assert_eq!(M2_PRO_MEMORY_BANDWIDTH_GBPS, 200);
+    assert_eq!(V6_2_HARDWARE_LOCK.unified_memory_gb(), 16);
+}
+
+#[test]
+fn v6_2_mas_memory_ceiling_stays_below_16gb() {
+    assert_eq!(MAS_TIER1_SOFT_CEILING_GB, 12.0);
+    assert_eq!(MAS_TIER1_HARD_CEILING_GB, 14.0);
+    assert!(MAS_TIER1_SOFT_CEILING_GB < MAS_TIER1_HARD_CEILING_GB);
+    assert!(MAS_TIER1_HARD_CEILING_GB < V6_2_HARDWARE_LOCK.unified_memory_gb() as f32);
+}
+
+#[test]
+fn v6_2_page_gather_threshold_is_baseline_relative() {
+    // V6.2 replaces ">=70% of theoretical M2 Max bandwidth" with
+    // ">=70% of measured BW_baseline_M2Pro".
+    assert!((PAGE_GATHER_BASELINE_RATIO - 0.70).abs() < f32::EPSILON);
+    assert_eq!(PAGE_GATHER_BASELINE_SUSTAINED_GBPS_MIN, 63);
+    assert_eq!(PAGE_GATHER_BASELINE_SUSTAINED_GBPS_MAX, 73);
+    assert!(
+        (PAGE_GATHER_BASELINE_SUSTAINED_GBPS_MAX as f32)
+            / (M2_PRO_MEMORY_BANDWIDTH_GBPS as f32)
+            < 0.40
+    );
+    assert_eq!(PAGE_GATHER_MIN_WINDOW_SECONDS, 1.0);
+    assert_eq!(PAGE_GATHER_BUFFER_MB, [256, 512, 1024]);
+    assert!(!PAGE_GATHER_BUFFER_MB.contains(&4096));
+}
+
+#[test]
+fn v6_2_semiseparable_core_lane_is_32k_with_128k_stretch() {
+    assert_eq!(SEMISEPARABLE_CORE_L, 32_768);
+    assert_eq!(SEMISEPARABLE_STRETCH_L, 131_072);
+    assert_eq!(SEMISEPARABLE_NGROUPS, 1);
+    assert_eq!(SEMISEPARABLE_CANONICAL_CHUNK_SIZE, 256);
+    assert_eq!(SEMISEPARABLE_PERF_CANDIDATE_CHUNK_SIZE, 128);
+}
+
+#[test]
+fn v6_2_local_recall_core_is_50_by_5_at_32k() {
+    assert_eq!(LOCAL_RECALL_CORE_CONTEXT_K, 32);
+    assert_eq!(LOCAL_RECALL_STRETCH_CONTEXT_K, 128);
+    assert_eq!(LOCAL_RECALL_CORE_TRIALS, 50);
+    assert_eq!(LOCAL_RECALL_CORE_DEPTHS, 5);
+    assert_eq!(LOCAL_RECALL_CORE_TRIALS * LOCAL_RECALL_CORE_DEPTHS, 250);
+    assert_eq!(LOCAL_RECALL_CORE_PASS_THRESHOLD, 0.95);
+}
+
+#[test]
+fn v6_2_interrupt_score_is_swift_cpu_canonical() {
+    assert!(InterruptScoreImplementation::SwiftCpuCanonical.is_canonical());
+    assert!(!InterruptScoreImplementation::MetalShadowBatchOnly.is_canonical());
+    assert_eq!(INTERRUPT_SCORE_P99_US_MAX, 100);
+    assert_eq!(INTERRUPT_SCORE_METAL_SHADOW_MIN_BATCH, 64);
+}
+
+#[test]
+fn v6_2_packet_router_dispatch_budget_is_100us_p99() {
+    assert_eq!(PACKET_ROUTER_P99_US_MAX, 100);
+}
+
+#[test]
+fn v6_2_goodfire_subnumbers_are_revalidated_without_runtime_promotion() {
+    assert!(GOODFIRE_V6_2_EVIDENCE.contains(&GoodfireV6_2Evidence::HeadlinePublicConfirmed));
+    assert!(
+        GOODFIRE_V6_2_EVIDENCE.contains(&GoodfireV6_2Evidence::ActivitySubnumbersRevalidated)
+    );
+    assert!(
+        GOODFIRE_V6_2_EVIDENCE
+            .contains(&GoodfireV6_2Evidence::RuntimeAccelerationStillCandidate)
+    );
+    // Preserve V6.1 exact internal math + public presentation.
+    assert_eq!(VPD_ALIVE_COMPONENTS, 9_972);
+    assert_eq!(VPD_ACTIVE_PER_POSITION, 205);
+    assert_eq!(VPD_PUBLIC_ACTIVITY_LABEL, "2.1%");
+}
+
+#[test]
+fn v6_2_falsifier_order_is_dependency_true() {
+    assert!(V6_2_KERNEL_LADDER_IS_AFTER_F_ULP_ORACLE);
+    assert_eq!(V6_2_FALSIFIER_ORDER.len(), 8);
+    assert_eq!(V6_2_FALSIFIER_ORDER[0], V6_2Falsifier::PageGatherBaseline);
+    assert_eq!(V6_2_FALSIFIER_ORDER[1], V6_2Falsifier::PageGatherScatter);
+    assert_eq!(V6_2_FALSIFIER_ORDER[2], V6_2Falsifier::InterruptScoreCpu);
+    assert_eq!(V6_2_FALSIFIER_ORDER[7], V6_2Falsifier::RulerBabilongHarness);
+}
+
+#[test]
+fn v6_2_falsifiers_map_to_v6_1_kernel_targets_without_claiming_files_exist() {
+    let kernels: std::collections::HashSet<LoadBearingKernel> = V6_2_FALSIFIER_ORDER
+        .iter()
+        .filter_map(|f| f.kernel())
+        .collect();
+    for kernel in FIVE_LOAD_BEARING_KERNELS {
+        assert!(
+            kernels.contains(&kernel),
+            "V6.2 falsifiers should still cover V6.1 kernel target {kernel:?}"
+        );
+    }
+    assert_eq!(
+        KERNEL_IMPLEMENTATION_POSTURE,
+        "canonical_target_not_implemented_here"
+    );
+}
+
+#[test]
+fn v6_2_stage_order_has_no_calendar_commitment() {
+    assert_eq!(V6_2_STAGE_ORDER.len(), 4);
+    assert_eq!(V6_2_STAGE_ORDER[0], V6_2Stage::LeanScaffolding);
+    assert_eq!(V6_2_STAGE_ORDER[1], V6_2Stage::HardwareFalsifiers);
+    assert_eq!(V6_2_STAGE_ORDER[2], V6_2Stage::LeanIntegration);
+    assert_eq!(V6_2_STAGE_ORDER[3], V6_2Stage::Migration);
+}
+
+// ---------------------------------------------------------------------------
+// V6.1 Foundation refresh: EML floor + F-ULP-Oracle W1
+// ---------------------------------------------------------------------------
+
+#[test]
+fn v6_1_foundation_eml_floor_is_bounded_and_precedes_schema_freeze() {
+    assert_eq!(VERIFIED_FLOOR_COMMIT, VERIFIED_FLOOR_ANCHOR);
+    assert_eq!(FOUNDATION_HARDWARE_FLOOR, V6_2_HARDWARE_LOCK);
+    assert_eq!(EML_OPERATOR_FORMULA, "eml(x,y)=exp(x)-ln(y)");
+    assert_eq!(EML_GRAMMAR, "S -> 1 | eml(S,S)");
+    assert!(CONSTANT_FREE_EML_GENERATOR_OPEN);
+    assert!(ANSWER_PACKET_SCHEMA_FREEZE_REQUIRES_F_ULP_ORACLE);
+    assert_eq!(F_ULP_ORACLE.log_sampled_points, 412_000);
+    assert_eq!(F_ULP_ORACLE.stress_points, 2_048);
+    assert_eq!(F_ULP_ORACLE.max_ulp_fp16, 2);
+    assert_eq!(F_ULP_ORACLE.wall_clock_seconds_max, 90);
+}
+
+#[test]
+fn v6_1_foundation_goodfire_conflict_resolves_to_live_page_revalidation() {
+    assert!(FOUNDATION_GOODFIRE_STATUS
+        .contains(&FoundationGoodfireStatus::ActivitySubnumbersPublicConfirmed));
+    assert!(FOUNDATION_GOODFIRE_STATUS
+        .contains(&FoundationGoodfireStatus::RuntimeAccelerationCandidate));
+    assert!(GOODFIRE_V6_2_EVIDENCE
+        .contains(&GoodfireV6_2Evidence::ActivitySubnumbersRevalidated));
+    assert_eq!(VPD_ALIVE_COMPONENTS, 9_972);
+    assert_eq!(VPD_ACTIVE_PER_POSITION, 205);
+    assert_eq!(VPD_PUBLIC_ACTIVITY_LABEL, "2.1%");
+}
+
+#[test]
+fn v6_1_foundation_drops_unverified_eml_star_and_quantum_sheffer() {
+    assert_eq!(FoundationClaim::MonnerotEmlStar.status(), TheoremStatus::DROP);
+    assert_eq!(
+        FoundationClaim::SingleQuantumShefferStroke.status(),
+        TheoremStatus::DROP
+    );
+    for claim in FOUNDATION_CLAIMS {
+        if matches!(claim.status(), TheoremStatus::EB | TheoremStatus::C) {
+            assert!(claim.requires_hardware_falsifier());
+        }
+    }
+}
+
+#[test]
+fn v6_1_foundation_commitment_order_gates_answer_packet_schema() {
+    let oracle = FOUNDATION_COMMITMENT_ORDER
+        .iter()
+        .position(|item| *item == FoundationCommitment::LandFulpOracleHarness)
+        .expect("F-ULP-Oracle commitment must exist");
+    let schema = FOUNDATION_COMMITMENT_ORDER
+        .iter()
+        .position(|item| *item == FoundationCommitment::FreezeAnswerPacketSchemaBehindOracle)
+        .expect("schema-freeze commitment must exist");
+    assert!(oracle < schema);
 }

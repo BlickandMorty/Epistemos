@@ -34,6 +34,8 @@
 //!   noncommutative-probability invariant that S-transforms compose
 //!   multiplicatively under free convolution.
 //!
+//! Five names, one substance.
+//!
 //! ## §2.5.2 compliance posture
 //!
 //! Lane 3 RESEARCH-ONLY. Building requires `--features research`.

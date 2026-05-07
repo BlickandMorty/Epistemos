@@ -18,6 +18,7 @@ compass_artifact_*.md                              — research artifact (Anthro
 deterministicapp.md                                — single-binary + dynamic-schema thesis
 helios v2.md                                       — Helios v2 (superseded by v3)
 helios v3.md                                       — Helios v3 final synthesis (LOAD-BEARING)
+helios v6.2.md                                     — V6.2 Lean verification + M2 Pro falsifier canon (LOAD-BEARING DELTA)
 hermes.md                                          — Hermes XPC boundary thesis (LOAD-BEARING)
 mac store edition.md                               — MAS Core architecture (LOAD-BEARING)
 scope rex.md                                       — SCOPE-Rex original
@@ -31,6 +32,27 @@ kimi's research/                                   — full Kimi corpus (already
 ## 1. Load-bearing additions (read before any substrate change)
 
 These four files **change the architecture's center of gravity** and must be cited canonically by every downstream slice.
+
+### 1.0 `helios v6.2.md` — Lean verification canon + M2 Pro falsifier handbook
+
+**What it gives you:**
+- The actual ship rig doctrine: **Jojo's M2 Pro 14" 2023, 16GB unified memory, 200 GB/s bandwidth** is the shippability lock.
+- The hardware rule: *"If it works on Jojo's M2 Pro 16 GB, it can ship. If it requires a workstation, it's research-tier."*
+- V6.1 to V6.2 delta table covering PageGather, LocalRecallIsland, SemiseparableBlockScan, InterruptScore, Lean, Goodfire, model menus, and tier moves.
+- The five/six falsifier handbook respecified for M2 Pro 16GB:
+  PageGather baseline/scatter, Swift CPU InterruptScore, PacketRouter1bit,
+  ControllerKernelPack, SemiseparableBlockScan, LocalRecallIsland.
+- Lean verification policy: Lean 4.29.1, mathlib v4.29.0-rc6, every theorem gets a Lean statement, sorry-budget burn-down stays visible, LeanCopilot is CI-only until version alignment.
+- No calendar commitments: stages are dependency-ordered, not date-ordered.
+
+**Anchors to:** `docs/fusion/EPISTEMOS_V6_2_CANON_INTAKE_2026_05_07.md`,
+`epistemos-research/src/v6_2.rs`, `epistemos-research/src/hardware_profile.rs`,
+`epistemos-research/src/goodfire_vpd_specs.rs`, and the V6.1 proof ledger.
+
+**Status:** **(EV)** as a V6.1 strict delta for hardware budgets and falsifier
+ordering. External facts that can drift must be revalidated before release
+claims. Codex intake revalidated Apple support 111340, Lean v4.29.1,
+mathlib4 v4.29.0-rc6, and the Goodfire VPD public table on 2026-05-07.
 
 ### 1.1 `helios v3.md` — the inference substrate's interior
 
