@@ -22,19 +22,35 @@ import Foundation
 // - docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md §3 (W1 + W2 + W3)
 // - docs/fusion/helios v5 first.md DOC 1 §1.2 (AnswerPacket schema)
 
-/// HELIOS V5 W2 — 5-arm classification mirroring the Rust
+/// HELIOS V5 W2 — classification mirroring the Rust
 /// `ClaimKind` enum. Wire format is `snake_case` to match the Rust
 /// `#[serde(rename_all = "snake_case")]` directive.
+/// V5 locks five epistemic arms; V6.1 adds a runtime-admission arm
+/// for static 9:1 fallback acknowledgement.
 public enum ClaimKind: String, Codable, Hashable, Sendable, CaseIterable {
     case empirical
     case mathematical
     case codeInvariant = "code_invariant"
     case causal
     case speculative
+    case staticFallbackAcknowledged = "static_fallback_acknowledged"
 
     /// Default to `.empirical` to match Rust's `Default for ClaimKind`
     /// (V1 archive backward-compat).
     public static let `default`: ClaimKind = .empirical
+}
+
+/// EPISTEMOS V6.1 — attention/retrieval wake mode for an emitted
+/// AnswerPacket.
+///
+/// The default is `.unavailable` so older packets never imply dynamic
+/// interrupt execution merely because the field was absent.
+public enum AttentionMode: String, Codable, Hashable, Sendable, CaseIterable {
+    case dynamic
+    case staticFallback = "static_fallback"
+    case unavailable
+
+    public static let `default`: AttentionMode = .unavailable
 }
 
 /// HELIOS V5 W3 — Verified Research Mode UI label.
@@ -201,6 +217,7 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
     public var claims: [Claim]
     public var residencySignals: [ResidencySignal]
     public var uiLabel: VRMLabel
+    public var attentionMode: AttentionMode
     public var witnessedStateRef: String
     public var semanticDeltaRef: String?
     public var mutationEnvelopeRef: String
@@ -210,6 +227,7 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         claims: [Claim] = [],
         residencySignals: [ResidencySignal] = [],
         uiLabel: VRMLabel = .plausibleButUnverified,
+        attentionMode: AttentionMode = .unavailable,
         witnessedStateRef: String,
         semanticDeltaRef: String? = nil,
         mutationEnvelopeRef: String
@@ -218,9 +236,31 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         self.claims = claims
         self.residencySignals = residencySignals
         self.uiLabel = uiLabel
+        self.attentionMode = attentionMode
         self.witnessedStateRef = witnessedStateRef
         self.semanticDeltaRef = semanticDeltaRef
         self.mutationEnvelopeRef = mutationEnvelopeRef
+    }
+
+    public var requiresStaticFallbackAcknowledgement: Bool {
+        attentionMode == .staticFallback
+    }
+
+    public var acknowledgesStaticFallback: Bool {
+        guard requiresStaticFallbackAcknowledgement else { return true }
+        return claims.contains { $0.kind == .staticFallbackAcknowledged }
+    }
+
+    public var attentionModeClaimsAreConsistent: Bool {
+        let hasStaticFallbackAcknowledgement = claims.contains {
+            $0.kind == .staticFallbackAcknowledged
+        }
+        switch attentionMode {
+        case .staticFallback:
+            return hasStaticFallbackAcknowledgement
+        case .dynamic, .unavailable:
+            return !hasStaticFallbackAcknowledgement
+        }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -228,8 +268,21 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         case claims
         case residencySignals = "residency_signals"
         case uiLabel = "ui_label"
+        case attentionMode = "attention_mode"
         case witnessedStateRef = "witnessed_state_ref"
         case semanticDeltaRef = "semantic_delta_ref"
         case mutationEnvelopeRef = "mutation_envelope_ref"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.claims = try c.decode([Claim].self, forKey: .claims)
+        self.residencySignals = try c.decode([ResidencySignal].self, forKey: .residencySignals)
+        self.uiLabel = try c.decode(VRMLabel.self, forKey: .uiLabel)
+        self.attentionMode = try c.decodeIfPresent(AttentionMode.self, forKey: .attentionMode) ?? .unavailable
+        self.witnessedStateRef = try c.decode(String.self, forKey: .witnessedStateRef)
+        self.semanticDeltaRef = try c.decodeIfPresent(String.self, forKey: .semanticDeltaRef)
+        self.mutationEnvelopeRef = try c.decode(String.self, forKey: .mutationEnvelopeRef)
     }
 }

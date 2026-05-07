@@ -20,6 +20,9 @@
 //! >  semantic_delta_ref: Option<SemanticDeltaId>,
 //! >  mutation_envelope_ref: MutationEnvelopeId }`."
 //!
+//! V6.1 adds the strictly additive `attention_mode` field. Missing
+//! legacy values decode as `unavailable`, never as falsely dynamic.
+//!
 //! Per integration brief §4: AnswerPacket *is* the only genuinely new
 //! Monday-Move primitive — TypedArtifact ≡ MutationEnvelope (already
 //! in main), RunEventLog ≡ provenance/ledger (already in main),
@@ -40,7 +43,8 @@
 //!
 //! - [`crate::scope_rex`] — module entry
 //! - [`crate::provenance::ledger::Claim`] — claim payload
-//! - [`crate::provenance::ledger::ClaimKind`] — W2 5-arm classification
+//! - [`crate::provenance::ledger::ClaimKind`] — W2 five epistemic arms
+//!   plus the V6.1 static-fallback acknowledgement
 //! - [`crate::mutations::envelope`] — MutationEnvelope (referenced by id)
 //! - canon-hardening protocol §1 — WRV state machine; this type is
 //!   currently `state: implemented` (no production caller yet); the
@@ -49,7 +53,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::provenance::ledger::Claim;
+use crate::provenance::ledger::{Claim, ClaimKind};
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -147,6 +151,36 @@ impl Default for VrmLabel {
 }
 
 // ---------------------------------------------------------------------------
+// Attention Mode (EPISTEMOS V6.1)
+// ---------------------------------------------------------------------------
+
+/// EPISTEMOS V6.1 — whether expensive intelligence was summoned by
+/// the interrupt score, by the static hybrid fallback, or not available
+/// to classify.
+///
+/// `Unavailable` is the default for backward-compat so an old
+/// AnswerPacket never pretends that dynamic attention was active.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AttentionMode {
+    /// The interrupt score woke attention/retrieval/tooling explicitly.
+    Dynamic,
+    /// Dynamic interrupt signals were unavailable, so the static 9:1
+    /// hybrid floor was used. Must be acknowledged by a
+    /// `ClaimKind::StaticFallbackAcknowledged` claim.
+    StaticFallback,
+    /// The packet predates V6.1 or the runtime could not classify the
+    /// mode. This is safe but not proof of dynamic execution.
+    Unavailable,
+}
+
+impl Default for AttentionMode {
+    fn default() -> Self {
+        Self::Unavailable
+    }
+}
+
+// ---------------------------------------------------------------------------
 // ResidencySignal (HELIOS V5 W4 — Residency Governor input)
 // ---------------------------------------------------------------------------
 
@@ -206,15 +240,17 @@ impl ResidencySignal {
 /// path is wired (`state: wired` follows after the Swift
 /// StreamingDelegate change lands per the W1 follow-up slice).
 ///
-/// **Schema lock** (matches `docs/fusion/helios v5 first.md` DOC 1
-/// §1.2 verbatim): id, claims, residency_signals, ui_label,
-/// witnessed_state_ref, semantic_delta_ref (Option), mutation_envelope_ref.
+/// **Schema lock:** V5 fields match `docs/fusion/helios v5 first.md`
+/// DOC 1 §1.2. V6.1 adds `attention_mode` as a strictly additive
+/// audit field so fallback execution is never silent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AnswerPacket {
     pub id: AnswerPacketId,
     pub claims: Vec<Claim>,
     pub residency_signals: Vec<ResidencySignal>,
     pub ui_label: VrmLabel,
+    #[serde(default)]
+    pub attention_mode: AttentionMode,
     pub witnessed_state_ref: WitnessedStateId,
     pub semantic_delta_ref: Option<SemanticDeltaId>,
     pub mutation_envelope_ref: MutationEnvelopeId,
@@ -235,6 +271,7 @@ impl AnswerPacket {
             claims: Vec::new(),
             residency_signals: Vec::new(),
             ui_label: VrmLabel::PlausibleButUnverified,
+            attention_mode: AttentionMode::Unavailable,
             witnessed_state_ref,
             semantic_delta_ref: None,
             mutation_envelope_ref,
@@ -244,6 +281,12 @@ impl AnswerPacket {
     /// Fluent setter for the VRM label (W3 surface).
     pub fn with_ui_label(mut self, label: VrmLabel) -> Self {
         self.ui_label = label;
+        self
+    }
+
+    /// Fluent setter for the V6.1 attention-mode audit field.
+    pub fn with_attention_mode(mut self, attention_mode: AttentionMode) -> Self {
+        self.attention_mode = attention_mode;
         self
     }
 
@@ -263,6 +306,43 @@ impl AnswerPacket {
     pub fn push_residency_signal(mut self, signal: ResidencySignal) -> Self {
         self.residency_signals.push(signal);
         self
+    }
+
+    /// True when the packet used the static 9:1 fallback and must
+    /// explicitly confess that fact in its claims.
+    pub fn requires_static_fallback_acknowledgement(&self) -> bool {
+        self.attention_mode == AttentionMode::StaticFallback
+    }
+
+    /// Static fallback is only acknowledged when the packet carries
+    /// the dedicated runtime-admission claim kind. For non-static modes,
+    /// there is no static fallback to acknowledge.
+    pub fn acknowledges_static_fallback(&self) -> bool {
+        if !self.requires_static_fallback_acknowledgement() {
+            return true;
+        }
+
+        self.claims
+            .iter()
+            .any(|claim| claim.kind == ClaimKind::StaticFallbackAcknowledged)
+    }
+
+    /// True when the `attention_mode` field and its audit claims do
+    /// not contradict each other. Static fallback must carry the
+    /// dedicated acknowledgement claim; dynamic/unavailable modes must
+    /// not carry that claim.
+    pub fn attention_mode_claims_are_consistent(&self) -> bool {
+        let has_static_fallback_acknowledgement = self
+            .claims
+            .iter()
+            .any(|claim| claim.kind == ClaimKind::StaticFallbackAcknowledged);
+
+        match self.attention_mode {
+            AttentionMode::StaticFallback => has_static_fallback_acknowledgement,
+            AttentionMode::Dynamic | AttentionMode::Unavailable => {
+                !has_static_fallback_acknowledgement
+            }
+        }
     }
 }
 
@@ -325,6 +405,7 @@ mod tests {
         assert!(pkt.claims.is_empty());
         assert!(pkt.residency_signals.is_empty());
         assert_eq!(pkt.ui_label, VrmLabel::PlausibleButUnverified);
+        assert_eq!(pkt.attention_mode, AttentionMode::Unavailable);
         assert!(pkt.semantic_delta_ref.is_none());
     }
 
@@ -347,6 +428,48 @@ mod tests {
     }
 
     #[test]
+    fn static_fallback_attention_mode_requires_acknowledgement_claim() {
+        let unacknowledged = AnswerPacket::new(
+            AnswerPacketId::new("01H6XAKE0XSY1234567890ABCD"),
+            WitnessedStateId::new("ws-static"),
+            MutationEnvelopeId::new("me-static"),
+        )
+        .with_attention_mode(AttentionMode::StaticFallback);
+
+        assert!(unacknowledged.requires_static_fallback_acknowledgement());
+        assert!(!unacknowledged.acknowledges_static_fallback());
+        assert!(!unacknowledged.attention_mode_claims_are_consistent());
+
+        let acknowledged = unacknowledged.push_claim(claim(
+            "c-static",
+            "static 9:1 fallback engaged because dynamic interrupt signals were unavailable",
+            ClaimKind::StaticFallbackAcknowledged,
+        ));
+
+        assert!(acknowledged.acknowledges_static_fallback());
+        assert!(acknowledged.attention_mode_claims_are_consistent());
+    }
+
+    #[test]
+    fn static_fallback_acknowledgement_claim_is_forbidden_outside_static_fallback() {
+        let contradictory = AnswerPacket::new(
+            AnswerPacketId::new("01H6XAKE0XSY1234567890ABCD"),
+            WitnessedStateId::new("ws-dynamic"),
+            MutationEnvelopeId::new("me-dynamic"),
+        )
+        .with_attention_mode(AttentionMode::Dynamic)
+        .push_claim(claim(
+            "c-static",
+            "static 9:1 fallback engaged because dynamic interrupt signals were unavailable",
+            ClaimKind::StaticFallbackAcknowledged,
+        ));
+
+        assert!(!contradictory.requires_static_fallback_acknowledgement());
+        assert!(contradictory.acknowledges_static_fallback());
+        assert!(!contradictory.attention_mode_claims_are_consistent());
+    }
+
+    #[test]
     fn answer_packet_carries_all_five_claim_kinds() {
         // The AnswerPacket spine must accept all 5 ClaimKind arms in
         // the same packet (sanity: no kind is silently filtered).
@@ -359,14 +482,20 @@ mod tests {
         .push_claim(claim("c2", "m", ClaimKind::Mathematical))
         .push_claim(claim("c3", "i", ClaimKind::CodeInvariant))
         .push_claim(claim("c4", "ca", ClaimKind::Causal))
-        .push_claim(claim("c5", "s", ClaimKind::Speculative));
+        .push_claim(claim("c5", "s", ClaimKind::Speculative))
+        .push_claim(claim(
+            "c6",
+            "static fallback acknowledged",
+            ClaimKind::StaticFallbackAcknowledged,
+        ));
 
-        assert_eq!(pkt.claims.len(), 5);
+        assert_eq!(pkt.claims.len(), 6);
         assert_eq!(pkt.claims[0].kind, ClaimKind::Empirical);
         assert_eq!(pkt.claims[1].kind, ClaimKind::Mathematical);
         assert_eq!(pkt.claims[2].kind, ClaimKind::CodeInvariant);
         assert_eq!(pkt.claims[3].kind, ClaimKind::Causal);
         assert_eq!(pkt.claims[4].kind, ClaimKind::Speculative);
+        assert_eq!(pkt.claims[5].kind, ClaimKind::StaticFallbackAcknowledged);
     }
 
     #[test]
