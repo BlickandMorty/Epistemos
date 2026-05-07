@@ -847,7 +847,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         if Self.canConfigureUserNotificationCenter {
             UNUserNotificationCenter.current().delegate = self
         }
-        guard !Self.isRunningTests else { return }
 
         // Audit gap F8 close-out — push the SearchIndexService
         // writer to the EpistemosDocumentController installed in
@@ -868,9 +867,30 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         //     spins up, the existing vault-change notification can
         //     re-attempt.
         if let controller = NSDocumentController.shared as? EpistemosDocumentController,
-           let searchService = AppBootstrap.shared?.vaultSync.searchService {
-            controller.databaseWriter = searchService.databaseWriter()
+           let bootstrap = AppBootstrap.shared {
+            controller.modelContainer = bootstrap.modelContainer
+            if let searchService = bootstrap.vaultSync.searchService {
+                controller.databaseWriter = searchService.databaseWriter()
+            }
+            Task { @MainActor in
+                await controller.injectMissingDependenciesIntoOpenEpdocDocuments()
+            }
         }
+        if let bootstrap = AppBootstrap.shared {
+            HologramController.shared.setup(
+                graphState: bootstrap.graphState,
+                queryEngine: bootstrap.queryEngine,
+                modelContainer: bootstrap.modelContainer,
+                physicsCoordinator: bootstrap.physicsCoordinator,
+                dialogueChatState: bootstrap.dialogueChatState
+            )
+        }
+        installKnowledgeGraphMenuFallback()
+        Task { @MainActor in
+            await Task.yield()
+            self.installKnowledgeGraphMenuFallback()
+        }
+        guard !Self.isRunningTests else { return }
 
         #if EPISTEMOS_APP_STORE
             Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
@@ -986,6 +1006,62 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
     }
 
+    private func installKnowledgeGraphMenuFallback() {
+        guard let viewMenu = NSApp.mainMenu?.item(withTitle: "View")?.submenu,
+              let item = viewMenu.items.first(where: { $0.title == "Knowledge Graph" })
+        else { return }
+        item.target = self
+        item.action = #selector(toggleKnowledgeGraphFromMenu(_:))
+        item.keyEquivalent = "g"
+        item.keyEquivalentModifierMask = [.command]
+
+        if let revealItem = viewMenu.items.first(where: { $0.title == "Reveal Current Document in Graph" }) {
+            revealItem.target = self
+            revealItem.action = #selector(revealCurrentDocumentInKnowledgeGraph(_:))
+            return
+        }
+        let revealItem = NSMenuItem(
+            title: "Reveal Current Document in Graph",
+            action: #selector(revealCurrentDocumentInKnowledgeGraph(_:)),
+            keyEquivalent: ""
+        )
+        revealItem.target = self
+        if let graphItemIndex = viewMenu.items.firstIndex(of: item) {
+            viewMenu.insertItem(revealItem, at: graphItemIndex + 1)
+        } else {
+            viewMenu.addItem(revealItem)
+        }
+    }
+
+    @objc private func toggleKnowledgeGraphFromMenu(_ sender: NSMenuItem) {
+        HologramController.shared.toggle()
+    }
+
+    @objc func revealCurrentDocumentInKnowledgeGraph(_ sender: Any?) {
+        guard let epdoc = activeEpdocDocument() else {
+            HologramController.shared.toggle()
+            return
+        }
+        HologramController.shared.revealDocument(epdoc.package.manifest.id)
+    }
+
+    private func activeEpdocDocument() -> EpdocDocument? {
+        if let epdoc = NSDocumentController.shared.currentDocument as? EpdocDocument {
+            return epdoc
+        }
+        let openEpdocs = NSDocumentController.shared.documents
+            .compactMap { $0 as? EpdocDocument }
+        if let activeWindowDocument = openEpdocs.first(where: { document in
+                document.windowControllers.contains { controller in
+                    guard let window = controller.window else { return false }
+                    return window.isKeyWindow || window.isMainWindow
+                }
+            }) {
+            return activeWindowDocument
+        }
+        return openEpdocs.count == 1 ? openEpdocs[0] : nil
+    }
+
     /// Native macOS dock menu — right-click the dock icon for quick actions.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
@@ -1098,6 +1174,11 @@ struct EpistemosCommands: Commands {
             }
             .keyboardShortcut("g", modifiers: .command)
 
+            Button("Reveal Current Document in Graph") {
+                (NSApp.delegate as? EpistemosAppDelegate)?
+                    .revealCurrentDocumentInKnowledgeGraph(nil)
+            }
+
             Divider()
 
             Button("Open Settings") {
@@ -1159,7 +1240,7 @@ struct EpistemosCommands: Commands {
     @MainActor
     private func createEpdocDocument() {
         do {
-            try NSDocumentController.shared.createUntitledEpdocDocument()
+            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
         } catch {
             NSApplication.shared.presentError(error)
         }

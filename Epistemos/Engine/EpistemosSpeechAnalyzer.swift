@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Foundation
 import OSLog
 import Speech
@@ -313,16 +313,10 @@ private final class SpeechAnalyzerAudioBufferConverter: @unchecked Sendable {
             return nil
         }
 
-        var didProvideInput = false
+        let input = SpeechAnalyzerConverterInput(buffer: buffer)
         var conversionError: NSError?
         let status = converter.convert(to: convertedBuffer, error: &conversionError) { _, inputStatus in
-            if didProvideInput {
-                inputStatus.pointee = .noDataNow
-                return nil
-            }
-            didProvideInput = true
-            inputStatus.pointee = .haveData
-            return buffer
+            input.next(inputStatus)
         }
 
         guard conversionError == nil else { return nil }
@@ -361,5 +355,29 @@ private final class SpeechAnalyzerAudioBufferConverter: @unchecked Sendable {
         lhs.channelCount == rhs.channelCount &&
         lhs.commonFormat == rhs.commonFormat &&
         lhs.isInterleaved == rhs.isInterleaved
+    }
+}
+
+private nonisolated final class SpeechAnalyzerConverterInput: @unchecked Sendable {
+    private let lock = NSLock()
+    private let buffer: AVAudioPCMBuffer
+    private var didProvideInput = false
+
+    init(buffer: AVAudioPCMBuffer) {
+        self.buffer = buffer
+    }
+
+    func next(_ inputStatus: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard !didProvideInput else {
+            inputStatus.pointee = .noDataNow
+            return nil
+        }
+
+        didProvideInput = true
+        inputStatus.pointee = .haveData
+        return buffer
     }
 }

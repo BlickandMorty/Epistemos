@@ -3054,7 +3054,7 @@ final class AppBootstrap {
                 )
                 return
             }
-            let progressStream = await bootstrapper.progress
+            let progressStream = bootstrapper.progress
             let progressTask = Task {
                 for await progress in progressStream {
                     await MainActor.run {
