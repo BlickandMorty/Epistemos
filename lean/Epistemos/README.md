@@ -52,19 +52,19 @@ Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1+§2+§3 + `docs/fusion/helios v5
 | E1 Density | ≤ 2 | 1 |
 | E2 Sheaf Gluing | ≤ 2 | 1 |
 | E3 Morph Field | ≤ 1 | 0 |
-| E4 WBO-7 | ≤ 2 | 2 |
+| E4 WBO-7 | ≤ 2 | 1 |
 | E5 Duplex Fusion | ≤ 2 | 2 |
 | E6 Epi_ε | ≤ 1 | 1 |
 | E7 Autogenous Kernel | ≤ 2 | 1 |
-| **E-tier total** | **≤ 12** | **8** |
+| **E-tier total** | **≤ 12** | **7** |
 
 ### Helios Operational Claims (H1-H17) — build/canon
 
-H1–H10 budget ≤ 4 each; H11–H17 budget ≤ 7 each. Each currently
-carries 1 sorry placeholder (within budget for all 17).
+H1–H10 budget ≤ 4 each; H11–H17 budget ≤ 7 each. H2, H4, and H17
+currently carry 2 sorry placeholders; every other H-stub carries 1.
 
-| Total H sorries (17 stubs × 1) | 17 |
-| H-tier total budget | ≤ 67 |
+| Total H sorries | 20 |
+| H-tier total budget | ≤ 89 |
 
 ### Parameter Connectome Family (PCF-1..PCF-10) — candidates
 
@@ -76,8 +76,8 @@ placeholder.
 
 ### Aggregate at lock
 
-| Total sorries (E + H + PCF) | 35 |
-| Total budget (E + H + PCF) | ≤ 149 |
+| Total sorries (E + H + PCF) | 37 |
+| Total budget (E + H + PCF) | ≤ 171 |
 
 All 34 theorem ids are within their per-id budgets.
 

@@ -12,18 +12,15 @@ import Epistemos.E7
 
 -- H1-H17 + PCF-1..PCF-10 stubs live as side-files at:
 --   Epistemos/H1.lean .. Epistemos/H17.lean
---   Epistemos/PCF-1.lean .. Epistemos/PCF-10.lean
+--   Epistemos/PCF_1.lean .. Epistemos/PCF_10.lean
 --
 -- They are NOT imported here because:
---   * PCF-* file names contain a hyphen which Lean's module
---     resolution does not accept (PCF-1 would parse as PCF − 1).
---   * H1-H17 + PCF-1..10 stubs all carry one `sorry` placeholder;
---     the W24 sorry-budget tracker counts them via awk on the
---     filesystem, no `lake build` required.
+--   * H1-H17 + PCF-1..10 side-files are audited by the W24
+--     sorry-budget tracker on the filesystem, independent of
+--     `lake build`.
 --
--- A follow-up slice (W24.b) renames them to underscore form
--- (PCF_1.lean etc.) once the per-id Lean elaboration is being
--- written for real, at which point they are imported here.
+-- A follow-up slice (W24.b) imports them once the per-id Lean
+-- elaboration is being written for real.
 --
 -- Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1+§2+§3 the substrate
 -- presence of these stubs is sufficient for lock; the proof
