@@ -9,8 +9,8 @@ state: implemented            # state:wired pending W1.b chat-path emission
 
 statement: |
   Every chat reply emits a non-empty AnswerPacket carrying claims +
-  residency_signals + ui_label + witnessed_state_ref +
-  semantic_delta_ref + mutation_envelope_ref.
+  residency_signals + ui_label + attention_mode +
+  witnessed_state_ref + semantic_delta_ref + mutation_envelope_ref.
 
 acceptance:
   metric: emission_rate_on_assistant_reply
@@ -34,6 +34,8 @@ m2_max_protocol:
        - claims: Vec<Claim> (may be empty)
        - residency_signals: Vec<ResidencySignal> (may be empty)
        - ui_label: VrmLabel (NEVER nil)
+       - attention_mode: dynamic | static_fallback | unavailable
+       - static_fallback implies ClaimKind::StaticFallbackAcknowledged
        - witnessed_state_ref: WitnessedStateId (always set)
        - semantic_delta_ref: Option<SemanticDeltaId>
        - mutation_envelope_ref: MutationEnvelopeId (always set)
@@ -44,6 +46,8 @@ adversarial:
 
 defenses:
   - "ui_label.default() = .plausibleButUnverified — never .verified"
+  - "attention_mode.default() = .unavailable — never falsely dynamic"
+  - "static_fallback must be acknowledged in claims"
   - "Strict additive schema — old clients ignore the field"
 
 literature:
