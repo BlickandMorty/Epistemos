@@ -64,6 +64,27 @@ fn prompt_format_preserves_function_call_contract() {
     assert!(prompt.contains(
         "Use tools only for missing context or explicit external side effects."
     ));
+    assert!(prompt.contains(
+        "LocalAgent is the tool-call and external-intelligence membrane"
+    ));
+    assert!(prompt.contains(
+        "not the graph, Rex, or the deterministic substrate authority"
+    ));
+    assert!(prompt.contains(
+        "LocalAgent is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects"
+    ));
+    assert!(prompt.contains(
+        "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
+    ));
+    assert!(prompt.contains(
+        "LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context."
+    ));
+    assert!(prompt.contains(
+        "must not add a gateway hop when no external context is needed."
+    ));
+    assert!(prompt.contains(
+        "Return external evidence as structured artifacts and provenance, not graph or Rex authority."
+    ));
     assert!(!prompt.contains("Hermes is the"),
         "Post-2026-05-05 purge: prompt must not bake Hermes-as-gateway doctrine.");
     assert!(prompt.ends_with("Prefer exact paths."));

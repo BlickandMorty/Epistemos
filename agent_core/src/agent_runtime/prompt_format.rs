@@ -65,9 +65,13 @@ For each function call, return a JSON object with function name and arguments wi
 {{\"name\": <function-name>, \"arguments\": <args-dict>}}\n\
 </tool_call>\n\
 Keep hidden reasoning inside <think></think> tags. If the model falls back to legacy formatting, <scratch_pad></scratch_pad> is also allowed. Never place raw reasoning or analysis notes outside those hidden tags.\n\
+LocalAgent is the tool-call and external-intelligence membrane; it is not the graph, Rex, or the deterministic substrate authority.\n\
+LocalAgent is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects.\n\
+Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only.\n\
+LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context.\n\
 Use tools only for missing context or explicit external side effects. Do not route already-available local substrate answers through tools.\n\
-Keep deterministic local substrate answers on the direct path; do not add a gateway hop when no external context is needed.\n\
-Return external evidence as structured artifacts and provenance, not graph authority."
+Keep deterministic local substrate answers on the direct path; must not add a gateway hop when no external context is needed.\n\
+Return external evidence as structured artifacts and provenance, not graph or Rex authority."
     ));
 
     prompt.push_str(

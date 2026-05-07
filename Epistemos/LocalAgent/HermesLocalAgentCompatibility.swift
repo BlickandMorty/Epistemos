@@ -1,0 +1,63 @@
+import Foundation
+
+typealias HermesCalcCommand = LocalAgentCalcCommand
+typealias HermesCapability = LocalAgentCapability
+typealias HermesCapabilityOwner = LocalAgentCapabilityOwner
+typealias HermesCapabilityRegistry = LocalAgentCapabilityRegistry
+typealias HermesCapabilitySurface = LocalAgentCapabilitySurface
+typealias HermesCapabilityTier = LocalAgentCapabilityTier
+typealias HermesParsedCommand = LocalAgentParsedCommand
+typealias HermesCommandDispatcher = LocalAgentCommandDispatcher
+typealias HermesMemoryCommand = LocalAgentMemoryCommand
+typealias HermesToolsToggleCommand = LocalAgentToolsToggleCommand
+typealias HermesConfigShowCommand = LocalAgentConfigShowCommand
+typealias HermesCostCommand = LocalAgentCostCommand
+typealias HermesCostStatsInput = LocalAgentCostStatsInput
+typealias HermesCostStats = LocalAgentCostStats
+typealias HermesHelpCommand = LocalAgentHelpCommand
+typealias HermesNotebookCommand = LocalAgentNotebookCommand
+typealias HermesParameter = LocalAgentParameter
+typealias HermesParameterValue = LocalAgentParameterValue
+typealias HermesParameterCommand = LocalAgentParameterCommand
+typealias HermesPersonaCommand = LocalAgentPersonaCommand
+typealias HermesPromptBuilder = LocalAgentPromptBuilder
+typealias HermesNewSessionCommand = LocalAgentNewSessionCommand
+typealias HermesClearCommand = LocalAgentClearCommand
+typealias HermesSaveCommand = LocalAgentSaveCommand
+typealias HermesLoadCommand = LocalAgentLoadCommand
+typealias HermesExportCommand = LocalAgentExportCommand
+typealias HermesCompactCommand = LocalAgentCompactCommand
+typealias HermesSummaryCommand = LocalAgentSummaryCommand
+typealias HermesModelCommand = LocalAgentModelCommand
+typealias HermesSystemPromptCommand = LocalAgentSystemPromptCommand
+typealias HermesStatusCommand = LocalAgentStatusCommand
+typealias HermesSessionStatusInput = LocalAgentSessionStatusInput
+typealias HermesSessionStatus = LocalAgentSessionStatus
+typealias HermesThinkCommand = LocalAgentThinkCommand
+typealias HermesThinkModelPreset = LocalAgentThinkModelPreset
+typealias HermesTodoCommand = LocalAgentTodoCommand
+typealias HermesTokensCommand = LocalAgentTokensCommand
+typealias HermesTokenStatsInput = LocalAgentTokenStatsInput
+typealias HermesTokenStats = LocalAgentTokenStats
+typealias HermesToggleState = LocalAgentToggleState
+typealias HermesThemeCommand = LocalAgentThemeCommand
+typealias HermesModeCommand = LocalAgentModeCommand
+typealias HermesUIToggleCommand = LocalAgentUIToggleCommand
+typealias HermesWidthCommand = LocalAgentWidthCommand
+typealias HermesFontCommand = LocalAgentFontCommand
+typealias HermesFontSizeCommand = LocalAgentFontSizeCommand
+typealias HermesColorsCommand = LocalAgentColorsCommand
+typealias HermesReadCommand = LocalAgentReadCommand
+typealias HermesWriteCommand = LocalAgentWriteCommand
+typealias HermesAppendCommand = LocalAgentAppendCommand
+typealias HermesLsCommand = LocalAgentLsCommand
+typealias HermesSearchCommand = LocalAgentSearchCommand
+typealias HermesGrepCommand = LocalAgentGrepCommand
+
+extension LocalAgentCapabilityOwner {
+    static var hermesGateway: Self { .localAgentGateway }
+}
+
+extension LocalAgentCapability {
+    var hermesPassthrough: Bool { localAgentPassthrough }
+}

@@ -67,6 +67,11 @@ nonisolated enum LocalAgentGatewayPolicy {
     typealias EvidenceReturn = LocalAgentGatewayEvidenceReturn
     typealias Decision = LocalAgentGatewayDecision
 
+    static let externalTierBoundaryLine =
+        "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
+    static let localCoreBoundaryLine =
+        "LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context."
+
     static func isAllowedInCoreAppStoreBuild(_ surface: Surface) -> Bool {
         let decision = decision(for: surface)
         return decision.tier == .core
@@ -179,5 +184,50 @@ nonisolated enum LocalAgentGatewayPolicy {
                 reason: "Explicit external side effects must be gated outside the deterministic substrate."
             )
         }
+    }
+}
+
+typealias HermesGatewaySurface = LocalAgentGatewaySurface
+typealias HermesGatewayTier = LocalAgentGatewayTier
+typealias HermesGatewayRoute = LocalAgentGatewayRoute
+typealias HermesGatewayEvidenceReturn = LocalAgentGatewayEvidenceReturn
+typealias HermesGatewayDecision = LocalAgentGatewayDecision
+
+extension LocalAgentGatewayRoute {
+    static var hermesGateway: Self { .localAgentGateway }
+}
+
+nonisolated enum HermesGatewayPolicy {
+    typealias Surface = LocalAgentGatewaySurface
+    typealias Tier = LocalAgentGatewayTier
+    typealias Route = LocalAgentGatewayRoute
+    typealias EvidenceReturn = LocalAgentGatewayEvidenceReturn
+    typealias Decision = LocalAgentGatewayDecision
+
+    static let externalTierBoundaryLine = LocalAgentGatewayPolicy.externalTierBoundaryLine
+    static let localCoreBoundaryLine = LocalAgentGatewayPolicy.localCoreBoundaryLine
+
+    static func isAllowedInCoreAppStoreBuild(_ surface: Surface) -> Bool {
+        LocalAgentGatewayPolicy.isAllowedInCoreAppStoreBuild(surface)
+    }
+
+    static func route(for surface: Surface) -> Route {
+        LocalAgentGatewayPolicy.route(for: surface)
+    }
+
+    static func usesHermesGateway(_ surface: Surface) -> Bool {
+        LocalAgentGatewayPolicy.usesLocalAgentGateway(surface)
+    }
+
+    static func evidenceReturn(for surface: Surface) -> EvidenceReturn {
+        LocalAgentGatewayPolicy.evidenceReturn(for: surface)
+    }
+
+    static func requiresStructuredEvidenceReturn(_ surface: Surface) -> Bool {
+        LocalAgentGatewayPolicy.requiresStructuredEvidenceReturn(surface)
+    }
+
+    static func decision(for surface: Surface) -> Decision {
+        LocalAgentGatewayPolicy.decision(for: surface)
     }
 }

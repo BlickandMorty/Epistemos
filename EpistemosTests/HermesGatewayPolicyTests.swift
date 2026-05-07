@@ -42,12 +42,12 @@ nonisolated struct HermesGatewayPolicyTests {
         // no longer mentions it. See docs/_archive/hermes-removal-2026-05-05/
         // README.md for the removal record.
         #expect(
-            HermesGatewayPolicy.externalTierBoundaryLine
+            LocalAgentGatewayPolicy.externalTierBoundaryLine
                 == "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
         )
         #expect(
-            HermesGatewayPolicy.localCoreBoundaryLine
-                == "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
+            LocalAgentGatewayPolicy.localCoreBoundaryLine
+                == "LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context."
         )
     }
 
@@ -155,7 +155,7 @@ nonisolated struct HermesGatewayPolicyTests {
             switch route {
             case .directSubstrate, .inProcessLocalPrompt:
                 #expect(!requiresStructuredEvidence)
-            case .hermesGateway:
+            case .localAgentGateway:
                 #expect(requiresStructuredEvidence)
                 #expect(HermesGatewayPolicy.evidenceReturn(for: surface) == .structuredEvidenceProvenance)
             }

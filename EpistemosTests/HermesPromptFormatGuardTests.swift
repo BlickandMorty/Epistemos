@@ -30,7 +30,7 @@ struct HermesPromptFormatGuardTests {
     @Test("Swift HermesPromptBuilder uses plain markdown, not ChatML role markers")
     func swiftHermesBuilderUsesPlainMarkdownNotChatML() throws {
         let source = try loadMirroredSourceTextFile(
-            "Epistemos/LocalAgent/HermesPromptBuilder.swift"
+            "Epistemos/LocalAgent/LocalAgentPromptBuilder.swift"
         )
 
         // The forbidden ChatML role markers. If any of these appears in
@@ -67,7 +67,7 @@ struct HermesPromptFormatGuardTests {
     @Test("Swift HermesPromptBuilder reaffirms the gateway boundary lines")
     func swiftHermesBuilderEmitsGatewayBoundaryLines() throws {
         let source = try loadMirroredSourceTextFile(
-            "Epistemos/LocalAgent/HermesPromptBuilder.swift"
+            "Epistemos/LocalAgent/LocalAgentPromptBuilder.swift"
         )
 
         // The two boundary lines from HermesGatewayPolicy must be injected
@@ -75,16 +75,16 @@ struct HermesPromptFormatGuardTests {
         // If a refactor drops the interpolation, the model loses the
         // architectural reminder that Hermes is the cloud/gateway membrane,
         // not the substrate authority.
-        #expect(source.contains("HermesGatewayPolicy.externalTierBoundaryLine"),
-                "HermesPromptBuilder must inject HermesGatewayPolicy.externalTierBoundaryLine into the system prompt")
-        #expect(source.contains("HermesGatewayPolicy.localCoreBoundaryLine"),
-                "HermesPromptBuilder must inject HermesGatewayPolicy.localCoreBoundaryLine into the system prompt")
+        #expect(source.contains("LocalAgentGatewayPolicy.externalTierBoundaryLine"),
+                "HermesPromptBuilder must inject LocalAgentGatewayPolicy.externalTierBoundaryLine into the system prompt")
+        #expect(source.contains("LocalAgentGatewayPolicy.localCoreBoundaryLine"),
+                "HermesPromptBuilder must inject LocalAgentGatewayPolicy.localCoreBoundaryLine into the system prompt")
     }
 
     @Test("Swift Hermes mirrors prefer Rust Hermes bridge when bindings are present")
     func swiftHermesMirrorsPreferRustBridgeWhenPresent() throws {
         let promptBuilder = try loadMirroredSourceTextFile(
-            "Epistemos/LocalAgent/HermesPromptBuilder.swift"
+            "Epistemos/LocalAgent/LocalAgentPromptBuilder.swift"
         )
         let parser = try loadMirroredSourceTextFile(
             "Epistemos/Omega/Inference/ToolCallParser.swift"
@@ -92,12 +92,12 @@ struct HermesPromptFormatGuardTests {
         let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
 
         #expect(promptBuilder.contains("#if canImport(agent_coreFFI)"))
-        #expect(promptBuilder.contains("hermesBuildSystemPrompt(inputJson: json)"),
+        #expect(promptBuilder.contains("runtimeBuildSystemPrompt(inputJson: json)"),
                 "HermesPromptBuilder must call Rust hermes_build_system_prompt when agent_coreFFI is linked")
-        #expect(parser.contains("hermesParseToolCalls(text: text)"),
+        #expect(parser.contains("runtimeParseToolCalls(text: text)"),
                 "ToolCallParser must call Rust hermes_parse_tool_calls before Swift fallback strategies")
-        #expect(bridge.contains("pub fn hermes_build_system_prompt"))
-        #expect(bridge.contains("pub fn hermes_parse_tool_calls"))
+        #expect(bridge.contains("pub fn runtime_build_system_prompt"))
+        #expect(bridge.contains("pub fn runtime_parse_tool_calls"))
     }
 
     // Hermes Expert Mode runner removed in slice 1 of the Hermes UI

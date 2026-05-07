@@ -104,6 +104,42 @@ fn mapped_arena_submits_and_reads_request_snapshot() {
 }
 
 #[test]
+fn mapped_arena_two_mappings_share_ssd_backed_request_state() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("arena.dat");
+    let mut producer = MappedArena::open_or_create(&path).unwrap();
+    let payload = b"ssd-backed mmap payload visible through a second mapping";
+    let request =
+        RequestSlot::new(77, 456, payload, [ArtefactRef::nil(); MAX_ARTEFACT_REFS]).unwrap();
+
+    let seq = producer.submit_request(request).unwrap();
+    producer.flush().unwrap();
+
+    let mut consumer = MappedArena::open_or_create(&path).unwrap();
+    let snapshot = consumer
+        .request_snapshot(seq)
+        .expect("second mapping should see producer request through MAP_SHARED backing");
+
+    assert_eq!(snapshot.seq, seq);
+    assert_eq!(snapshot.op, 77);
+    assert_eq!(snapshot.timestamp, 456);
+    assert_eq!(snapshot.payload, payload);
+
+    consumer.mark_request_consumed(seq).unwrap();
+    consumer.flush().unwrap();
+
+    assert_eq!(producer.header().req_tail.load(Ordering::Acquire), seq);
+
+    drop(producer);
+    drop(consumer);
+    let reopened = MappedArena::open_or_create(&path).unwrap();
+
+    assert_eq!(reopened.header().req_head.load(Ordering::Acquire), seq);
+    assert_eq!(reopened.header().req_tail.load(Ordering::Acquire), seq);
+    assert!(reopened.request_snapshot(seq).is_none());
+}
+
+#[test]
 fn mapped_arena_consumes_request_and_detects_full_ring() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("arena.dat");
