@@ -19,6 +19,19 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::five_planes::RuntimePlane;
+use crate::theorem_status::FOUNDATIONAL_SEVEN;
+
+/// V6.1 plane placement for ACS anchors: ACS stores exact,
+/// addressable cognitive coordinates, so it lives in the Episodic
+/// plane. The theorem labels attached to anchors are audited by the
+/// Verification plane, but ACS is not the State-plane semantic spine.
+pub const ACS_CANONICAL_PLANE: RuntimePlane = RuntimePlane::Episodic;
+
+/// The audit plane that checks ACS theorem labels and compatibility
+/// claims.
+pub const ACS_AUDIT_PLANE: RuntimePlane = RuntimePlane::Verification;
+
 /// One anchor in the Anchored Cognitive Substrate. Each anchor is a
 /// stable reference point in the constitutive field that downstream
 /// CMS-X v3 paths can attach claims and computations to.
@@ -29,6 +42,26 @@ pub struct AcsAnchor {
     pub theorem_id: String,
     /// Salience score in [0, 1].
     pub salience: f32,
+}
+
+impl AcsAnchor {
+    /// True when the anchor names one of the Foundational Seven
+    /// theorem ids (E1..E7). ACS anchors may reference these ids;
+    /// non-canonical ids belong in research/vault notes until promoted.
+    pub fn is_foundational_theorem_anchor(&self) -> bool {
+        FOUNDATIONAL_SEVEN
+            .iter()
+            .any(|entry| entry.internal_id == self.theorem_id.as_str())
+    }
+
+    /// Minimal ACS well-formedness contract: non-empty coordinate,
+    /// canonical theorem id, and finite salience inside [0, 1].
+    pub fn is_well_formed(&self) -> bool {
+        !self.anchor_id.is_empty()
+            && self.is_foundational_theorem_anchor()
+            && self.salience.is_finite()
+            && (0.0..=1.0).contains(&self.salience)
+    }
 }
 
 /// CMS-X v3 constitutive field — a collection of anchors plus the
@@ -92,6 +125,41 @@ mod tests {
     fn empty_field_has_no_anchors() {
         let f = CmsXField::new();
         assert!(f.anchors.is_empty());
+    }
+
+    #[test]
+    fn acs_lives_in_episodic_plane_and_audits_in_verification() {
+        assert_eq!(ACS_CANONICAL_PLANE, RuntimePlane::Episodic);
+        assert_ne!(ACS_CANONICAL_PLANE, RuntimePlane::State);
+        assert_eq!(ACS_AUDIT_PLANE, RuntimePlane::Verification);
+    }
+
+    #[test]
+    fn well_formed_anchor_requires_foundational_theorem_and_finite_salience() {
+        let ok = AcsAnchor {
+            anchor_id: "atlas://e1".to_string(),
+            theorem_id: "E1".to_string(),
+            salience: 1.0,
+        };
+        assert!(ok.is_well_formed());
+
+        let unknown_theorem = AcsAnchor {
+            theorem_id: "T99".to_string(),
+            ..ok.clone()
+        };
+        assert!(!unknown_theorem.is_well_formed());
+
+        let nan_salience = AcsAnchor {
+            salience: f32::NAN,
+            ..ok.clone()
+        };
+        assert!(!nan_salience.is_well_formed());
+
+        let empty_coordinate = AcsAnchor {
+            anchor_id: String::new(),
+            ..ok
+        };
+        assert!(!empty_coordinate.is_well_formed());
     }
 
     #[test]

@@ -18,7 +18,8 @@
 //! - **38,912 rank-1 subcomponents** (decomposition cardinality)
 //! - **9,972 alive components** (post-pruning live count)
 //! - **205 active subcomponents per sequence position**
-//! - **2.1% activation sparsity** (= 205 / 9972)
+//! - **2.1% activation sparsity** (public rounded value;
+//!   exact ratio = 205 / 9972)
 //!
 //! Plus: QK decomposition into subcomponent pairs, cross-head
 //! "previous-token" behavior, manual emoticon edits.
@@ -39,6 +40,15 @@
 //! *retrieval-as-runtime-substrate* claim or the *full-runtime
 //! replacement* claim. The discipline holds.
 //!
+//! ## V6.2 intake note
+//!
+//! `helios v6.2.md` correctly warned that these subnumbers should
+//! not be carried forward unless the live public page still exposed
+//! them. Codex revalidated the live Goodfire table during V6.2 intake:
+//! the page currently shows Total C=38912, Alive=9972, Mean L0=205.0,
+//! and L0/Alive=0.021. Keep runtime-acceleration claims candidate;
+//! this only preserves atlas/observability evidence.
+//!
 //! ## §2.5.2 compliance posture
 //!
 //! Lane 3 RESEARCH-ONLY. Building requires `--features research`.
@@ -51,8 +61,14 @@ pub const VPD_TRANSFORMER_LAYERS: u32 = 4;
 pub const VPD_RANK1_SUBCOMPONENTS: u32 = 38_912;
 pub const VPD_ALIVE_COMPONENTS: u32 = 9_972;
 pub const VPD_ACTIVE_PER_POSITION: u32 = 205;
-/// Activation sparsity = 205 / 9972 ≈ 0.02055 (2.1%) per V6.1 §6.
-pub const VPD_ACTIVATION_SPARSITY: f32 = 0.0205_f32;
+/// Activation sparsity = 205 / 9972 ≈ 0.020557. Public V6.1 prose
+/// rounds this to 0.021 / 2.1%.
+pub const VPD_ACTIVATION_SPARSITY: f32 =
+    VPD_ACTIVE_PER_POSITION as f32 / VPD_ALIVE_COMPONENTS as f32;
+/// Public/canonical presentation value. Keep UI/docs on this rounded
+/// V6.1 wording while internal math uses `VPD_ACTIVATION_SPARSITY`.
+pub const VPD_PUBLIC_ACTIVITY_FRACTION: f32 = 0.021;
+pub const VPD_PUBLIC_ACTIVITY_LABEL: &str = "2.1%";
 
 /// Status taxonomy for VPD claims per V6.1 sharpening point 3.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -132,14 +148,15 @@ mod tests {
     #[test]
     fn activation_sparsity_is_2_point_1_percent() {
         // Pinned constant.
-        assert!((VPD_ACTIVATION_SPARSITY - 0.0205).abs() < 1e-4);
+        assert!((VPD_ACTIVATION_SPARSITY - VPD_PUBLIC_ACTIVITY_FRACTION).abs() < 5e-4);
+        assert_eq!(VPD_PUBLIC_ACTIVITY_LABEL, "2.1%");
     }
 
     #[test]
     fn computed_sparsity_matches_pinned_constant_within_tolerance() {
-        // 205 / 9972 = 0.020556... ≈ 0.0205 (rounded to 4 decimals).
+        // 205 / 9972 = 0.020557..., publicly rounded as 0.021 / 2.1%.
         let computed = computed_activation_sparsity();
-        assert!((computed - VPD_ACTIVATION_SPARSITY).abs() < 1e-3);
+        assert!((computed - VPD_ACTIVATION_SPARSITY).abs() < 1e-8);
     }
 
     #[test]

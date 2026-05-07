@@ -8,11 +8,11 @@
 //! m2 pro not max with 16gb of ram."
 //!
 //! V6.1's canonical performance targets reference an M2 Max
-//! 64GB profile. The user's actual deployment hardware is M2
-//! Pro 16GB. This module captures BOTH as canonical substrate
-//! so V6.1 thresholds stay valid for the doctrine while the
-//! actual ship target is correctly bounded for the user's
-//! machine.
+//! 64GB profile. V6.2 sharpens the ship doctrine: the user's
+//! actual deployment hardware is M2 Pro 16GB, and if a feature
+//! cannot pass there it remains Pro/Vault/research-tier. This
+//! module captures BOTH so V6.1 reference thresholds remain
+//! legible while V6.2 shippability is bounded by the user's rig.
 //!
 //! ## Memory budgets per profile
 //!

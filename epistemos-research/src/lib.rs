@@ -150,6 +150,18 @@
 //!   PART 2.2: `u_t = α·H + β·WBO + γ·Sheaf + δ·Tool + ε·ConnAlarm`.
 //!   Three escalation levels (PureRecurrent / RecallEpisode /
 //!   FullEscalation). T35-v6.1 falsifier ρ_max = 0.20.
+//! - [`v6_1_execution_policy`] — per-stream lean execution policy:
+//!   MAS static-9:1 fallback only when `u_t` is unavailable; Pro
+//!   full interrupt scoring + LocalRecallIsland; Vault adds
+//!   PacketRouter1bit + experimental ConnectomeAlarm.
+//! - [`v6_2`] — V6.2 Lean verification canon intake: Jojo's M2 Pro
+//!   16GB becomes the shippability rig, hardware falsifiers are
+//!   budget-revised to that envelope, and InterruptScore is CPU
+//!   canonical with Metal only as a batch shadow path.
+//! - [`v6_1_foundation`] — May 7 foundation update: EML-IR is a
+//!   bounded computational primitive, `F-ULP-Oracle` gates
+//!   `morph_eval_reduced.metal`, and AnswerPacket schema freeze sits
+//!   behind the arithmetic floor.
 //!
 //! ## §2.5.2 compliance posture
 //!
@@ -253,7 +265,19 @@ pub mod theorems;
 pub mod v6_1;
 
 #[cfg(feature = "research")]
+pub mod v6_1_foundation;
+
+#[cfg(feature = "research")]
+pub mod v6_1_execution_policy;
+
+#[cfg(feature = "research")]
+pub mod v6_1_stream_surface;
+
+#[cfg(feature = "research")]
 pub mod v6_1_theorems;
+
+#[cfg(feature = "research")]
+pub mod v6_2;
 
 #[cfg(feature = "research")]
 pub mod vpd;
