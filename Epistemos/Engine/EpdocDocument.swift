@@ -3,6 +3,7 @@ import CryptoKit
 import Foundation
 import GRDB
 import OSLog
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -56,6 +57,11 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     /// wiring a database.
     public var databaseWriter: (any DatabaseWriter)?
 
+    /// SwiftData container used to refresh the graph projection for this
+    /// `.epdoc`. Injected by `EpistemosDocumentController`; nil keeps previews
+    /// and isolated tests in no-graph mode.
+    public var graphModelContainer: ModelContainer?
+
     public override init() {
         // NSDocument's designated init for new documents. Build a
         // tiny empty manifest + minimal ProseMirror JSON shell so
@@ -72,7 +78,7 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             contentHash: "",
             provenance: EpdocProvenance(producer: .human)
         )
-        let emptyDoc = #"{"type":"doc","content":[]}"#.data(using: .utf8)!
+        let emptyDoc = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
         self.package = EpdocPackage(manifest: manifest, contentJSON: emptyDoc)
         super.init()
     }
@@ -234,6 +240,60 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         updateChangeCount(.changeDone)
     }
 
+    /// Store a picked image inside the `.epdoc` package and return the
+    /// relative URL the WebView can render through `epistemos-doc`.
+    /// The returned string is intentionally package-local (`assets/...`)
+    /// rather than a data URL so `content.pm.json` stays text-sized.
+    public func storeImageAsset(
+        data: Data,
+        originalFilename: String,
+        mimeType: String
+    ) -> String {
+        let ext = Self.imageAssetExtension(
+            originalFilename: originalFilename,
+            mimeType: mimeType
+        )
+        let hash = Self.contentHash(of: data)
+        let filename = "image-\(hash).\(ext)"
+        package.assets[filename] = data
+        updateChangeCount(.changeDone)
+        return "\(EpdocPackageEntry.assets)/\(filename)"
+    }
+
+    /// Resolve a package-local `assets/<name>` reference for the editor
+    /// URL-scheme handler. Rejects traversal and nested paths; the current
+    /// `EpdocPackage.assets` model is intentionally flat.
+    public func resolveEditorAsset(relativePath: String) -> EpdocEditorDocumentAsset? {
+        guard let name = EpdocEditorAssetResolver.documentAssetName(relativePath: relativePath),
+              let data = package.assets[name] else {
+            return nil
+        }
+        return EpdocEditorDocumentAsset(
+            data: data,
+            mimeType: EpdocEditorAssetResolver.mimeType(for: URL(fileURLWithPath: name).pathExtension)
+        )
+    }
+
+    nonisolated private static func imageAssetExtension(
+        originalFilename: String,
+        mimeType: String
+    ) -> String {
+        let ext = URL(fileURLWithPath: originalFilename).pathExtension.lowercased()
+        switch ext {
+        case "png", "jpg", "jpeg", "gif", "heic", "webp", "svg":
+            return ext
+        default:
+            switch mimeType.lowercased() {
+            case "image/jpeg": return "jpg"
+            case "image/gif": return "gif"
+            case "image/heic": return "heic"
+            case "image/webp": return "webp"
+            case "image/svg+xml": return "svg"
+            default: return "png"
+            }
+        }
+    }
+
     // MARK: - F8 readable-blocks projection
     //
     // Audit gap F8 close-out - every successful save extracts the
@@ -303,6 +363,30 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         }
     }
 
+    /// Project the current `.epdoc` into SwiftData graph nodes/edges.
+    /// No-op when `graphModelContainer` is nil.
+    public func projectAndPersistGraph(contentJSON: Data) async {
+        guard let graphModelContainer else { return }
+        let projection = EpdocGraphProjector.project(
+            manifest: package.manifest,
+            contentJSON: contentJSON
+        )
+        let context = ModelContext(graphModelContainer)
+        do {
+            try EpdocGraphPersistence.upsert(projection: projection, context: context)
+            AppBootstrap.shared?.graphState.needsRefresh = true
+            NotificationCenter.default.post(
+                name: .graphStoreDidChange,
+                object: self,
+                userInfo: QueryDependencyKey.userInfo(for: [.graphNodes, .graphEdges])
+            )
+        } catch {
+            Self.log.warning(
+                "graph projection update failed for artifact \(projection.nodeID, privacy: .public): \(String(describing: error), privacy: .public)"
+            )
+        }
+    }
+
     /// Update the document title + dirty-mark.
     public func setTitle(_ title: String) {
         let manifest = package.manifest
@@ -335,6 +419,34 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     nonisolated public override func makeWindowControllers() {
         MainActor.assumeIsolated {
             let chromeController = EpdocEditorChromeController()
+            chromeController.loadInitialContent(
+                self.package.contentJSON,
+                title: self.package.manifest.title
+            )
+            chromeController.attachedRunIDs = self.immediateAttachedRunIDs()
+            chromeController.toolbarModel.resolvePickedImageSource = { [weak self] url, data, mimeType in
+                guard let self else {
+                    return "data:\(mimeType);base64,\(data.base64EncodedString())"
+                }
+                return self.storeImageAsset(
+                    data: data,
+                    originalFilename: url.lastPathComponent,
+                    mimeType: mimeType
+                )
+            }
+            chromeController.onResolveDocumentAsset = { [weak self] name in
+                self?.resolveEditorAsset(relativePath: "\(EpdocPackageEntry.assets)/\(name)")
+            }
+            chromeController.onStoreDocumentAsset = { [weak self] filename, mimeType, data in
+                guard let self else {
+                    return "data:\(mimeType);base64,\(data.base64EncodedString())"
+                }
+                return self.storeImageAsset(
+                    data: data,
+                    originalFilename: filename,
+                    mimeType: mimeType
+                )
+            }
 
             // Audit gap F4 + F5 close-out - every Tiptap onUpdate
             // routed via the chrome controller's `onContentChanged`
@@ -352,7 +464,13 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                 self.setContentJSON(json)
                 Task { [weak self] in
                     await self?.projectAndIndexBlocks(contentJSON: json)
+                    await self?.projectAndPersistGraph(contentJSON: json)
                 }
+            }
+
+            let initialContentJSON = self.package.contentJSON
+            Task { [weak self] in
+                await self?.projectAndPersistGraph(contentJSON: initialContentJSON)
             }
 
             let chromeView = EpdocEditorChromeView(controller: chromeController)
@@ -362,25 +480,15 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             window.title = self.package.manifest.title.isEmpty
                 ? "Untitled"
                 : self.package.manifest.title
-            window.setContentSize(NSSize(width: 1024, height: 768))
-            window.minSize = NSSize(width: 480, height: 320)
+            window.setContentSize(NSSize(width: 1260, height: 740))
+            window.minSize = NSSize(width: 1180, height: 620)
             window.styleMask.insert([.resizable, .titled, .closable, .miniaturizable, .fullSizeContentView])
+            window.tabbingMode = .preferred
+            window.tabbingIdentifier = "epistemos-note-tabs"
 
-            // Liquid-glass chrome (matches Prose's NS-native feel):
-            // - transparent titlebar so the SwiftUI material below
-            //   shows through at the top
-            // - full-size content view so the chrome extends edge-to-edge
-            // - hidden title text — the EpdocComplexityMeter row in the
-            //   chrome carries the document title in a glanceable form
-            // - unified toolbar style so the title bar reads as one
-            //   continuous translucent surface (the curvy/native macOS 26
-            //   look the user asked for, vs the prior boxy two-tier
-            //   tauri-shaped chrome)
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            if #available(macOS 11.0, *) {
-                window.toolbarStyle = .unified
-            }
+            // Reuse the same native titlebar path as Prose note windows
+            // so .epdoc never drifts back into a separate boxy chrome.
+            NoteWindowChrome.apply(to: window, toolbarIdentifier: "EpdocDocument")
 
             // Per-document autosave name keeps each .epdoc's window
             // frame separate. The id from the manifest is stable
@@ -391,6 +499,89 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
 
             let windowController = NSWindowController(window: window)
             self.addWindowController(windowController)
+            Self.attachToExistingNoteTabGroup(window)
+            Task { [weak self, weak chromeController] in
+                guard let self, let chromeController else { return }
+                let runIDs = await self.resolvedAttachedRunIDs()
+                await MainActor.run {
+                    chromeController.attachedRunIDs = runIDs
+                }
+            }
         }
+    }
+
+    @MainActor
+    private func immediateAttachedRunIDs() -> [String] {
+        var runIDs = Set<String>()
+        if let generatedByRun = package.manifest.provenance.generatedByRun,
+           !generatedByRun.isEmpty {
+            runIDs.insert(generatedByRun)
+        }
+        for ref in package.manifest.provenance.derivedFrom
+            + package.manifest.provenance.sourceArtifacts
+            + package.manifest.provenance.outputArtifacts {
+            if ref.kind == .run || ref.kind == .rawThought {
+                runIDs.insert(ref.id)
+            }
+        }
+        return runIDs.sorted()
+    }
+
+    private func resolvedAttachedRunIDs() async -> [String] {
+        let localRunIDs = await MainActor.run { self.immediateAttachedRunIDs() }
+        guard let sidecarURL = await MainActor.run(body: { self.thoughtAttachmentSidecarURL() }) else {
+            return localRunIDs
+        }
+        let bridge = ThoughtAttachmentBridge()
+        do {
+            try await bridge.loadFrom(url: sidecarURL)
+            let documentID = await MainActor.run { self.package.manifest.id }
+            let indexedRunIDs = await bridge.runs(thatGenerated: documentID)
+            return Array(Set(localRunIDs).union(indexedRunIDs)).sorted()
+        } catch {
+            return localRunIDs
+        }
+    }
+
+    @MainActor
+    private func thoughtAttachmentSidecarURL() -> URL? {
+        guard var directory = fileURL?.deletingLastPathComponent() else { return nil }
+        let fileManager = FileManager.default
+        for _ in 0..<8 {
+            let candidate = directory
+                .appendingPathComponent(".epcache", isDirectory: true)
+                .appendingPathComponent("thoughts-bridge.json")
+            if fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            let parent = directory.deletingLastPathComponent()
+            if parent.path == directory.path { break }
+            directory = parent
+        }
+        return nil
+    }
+
+    @MainActor
+    private static func attachToExistingNoteTabGroup(_ window: NSWindow) {
+        guard let existingWindow = NSApp.windows.first(where: {
+            $0 !== window
+                && $0.isVisible
+                && $0.tabbingIdentifier == "epistemos-note-tabs"
+        }) else {
+            return
+        }
+        ensureEpdocToolbarFits(in: existingWindow)
+        existingWindow.addTabbedWindow(window, ordered: .above)
+    }
+
+    @MainActor
+    private static func ensureEpdocToolbarFits(in window: NSWindow) {
+        let minimumWidth: CGFloat = 1180
+        guard window.frame.width < minimumWidth else { return }
+        var frame = window.frame
+        let delta = minimumWidth - frame.width
+        frame.origin.x -= delta / 2
+        frame.size.width = minimumWidth
+        window.setFrame(frame, display: true)
     }
 }

@@ -53,8 +53,8 @@ nonisolated struct EpdocGraphProjectorTests {
         let p = EpdocGraphProjector.project(manifest: m)
         #expect(p.nodeID == "01HMV5K2K9DOC1")
         #expect(p.nodeLabel == "Quarterly report")
-        #expect(p.nodeType == .note,
-                "every .epdoc projects as .note today; future per-kind mapping in W7.14 follow-up")
+        #expect(p.nodeType == .document,
+                ".epdoc packages MUST project as first-class document artifacts, not legacy note nodes")
     }
 
     // MARK: - Complexity weight

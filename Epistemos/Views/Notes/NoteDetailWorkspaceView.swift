@@ -237,12 +237,12 @@ enum NoteDualPreviewLayout {
     static let pageSpacing: CGFloat = 28
     static let pageMaxWidth: CGFloat = 580
     static let defaultSinglePageMaxWidth: CGFloat = 920
-    static let defaultEditorSurfaceMaxWidth: CGFloat = 1000
+    static let defaultEditorSurfaceMaxWidth: CGFloat = 1080
     static let tableSinglePageMaxWidth: CGFloat = 840
     static let tableReadableMaxWidth: CGFloat = 740
     static let tableEditorReadableMaxWidth: CGFloat = 520
     static let previewTextReadableMaxWidth: CGFloat = 760
-    static let editorTextReadableMaxWidth: CGFloat = 840
+    static let editorTextReadableMaxWidth: CGFloat = 960
     static let minimumTextHorizontalInset: CGFloat = 60
     static let outerPadding = EdgeInsets(top: 28, leading: 32, bottom: 40, trailing: 32)
     static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)

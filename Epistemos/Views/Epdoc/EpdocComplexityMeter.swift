@@ -86,9 +86,10 @@ public struct EpdocComplexityMeter: View {
     private var tooltipText: String {
         var lines: [String] = ["\(label): \(Int(clamped * 100))%"]
         if let b = breakdown {
-            lines.append("Words \(b.wordCount) · Headings depth \(b.maxHeadingDepth)")
-            lines.append("Code \(b.codeBlockCount) · Math \(b.mathCount) · Mermaid \(b.mermaidCount)")
-            lines.append("Links \(b.linkCount) · Embeds \(b.embedCount)")
+            lines.append("Words \(b.wordCount) · Headings \(b.headingCount) / H\(b.maxHeadingDepth)")
+            lines.append("Code \(b.codeBlockCount) · Math \(b.mathCount) · Visuals \(b.mermaidCount)")
+            lines.append("Tables \(b.tableCount) · Lists \(b.listItemCount) · Callouts \(b.calloutCount)")
+            lines.append("Links \(b.linkCount) · Citations \(b.citationCount) · Embeds \(b.embedCount)")
         }
         if shouldNudgeSplit {
             lines.append("⚠︎ Consider splitting into multiple docs")

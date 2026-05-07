@@ -187,7 +187,11 @@ struct NoteEditorLayoutTests {
             for: 900,
             markdown: "A readable paragraph of prose without tables."
         )
-        let wideInset = ProseEditorRepresentable2.horizontalInset(
+        let restoredWideInset = ProseEditorRepresentable2.horizontalInset(
+            for: NoteDualPreviewLayout.defaultEditorSurfaceMaxWidth,
+            markdown: "A readable paragraph of prose without tables."
+        )
+        let oversizedInset = ProseEditorRepresentable2.horizontalInset(
             for: 1100,
             markdown: "A readable paragraph of prose without tables."
         )
@@ -197,8 +201,12 @@ struct NoteEditorLayoutTests {
         )
 
         #expect(compactInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
-        #expect(wideInset > compactInset)
-        #expect(wideInset == 130)
+        #expect(restoredWideInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
+        #expect(
+            NoteDualPreviewLayout.defaultEditorSurfaceMaxWidth - (restoredWideInset * 2)
+                == NoteDualPreviewLayout.editorTextReadableMaxWidth
+        )
+        #expect(oversizedInset == 70)
         #expect(tableInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
     }
 

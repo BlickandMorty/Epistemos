@@ -60,6 +60,8 @@ public struct EpdocBubbleMenuView: View {
                          tip: "Italic (⌘I)",       command: .runCommand(name: "toggleItalic",    argsJSON: emptyArgs))
             formatButton(symbol: "chevron.left.forwardslash.chevron.right", isActive: isCodeActive,
                          tip: "Inline code (⌘E)",  command: .runCommand(name: "toggleCode",      argsJSON: emptyArgs))
+            formatButton(symbol: "curlybraces",    isActive: false,
+                         tip: "Code block (⌘⇧C)",  command: .runCommand(name: "toggleCodeBlock", argsJSON: emptyArgs))
             formatButton(symbol: "highlighter",   isActive: isHighlightActive,
                          tip: "Highlight (⌘⇧H)",   command: .runCommand(name: "toggleHighlight", argsJSON: emptyArgs))
             divider

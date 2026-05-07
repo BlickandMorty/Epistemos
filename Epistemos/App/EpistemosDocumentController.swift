@@ -1,5 +1,6 @@
 import AppKit
 import GRDB
+import SwiftData
 
 // MARK: - EpistemosDocumentController
 //
@@ -58,19 +59,29 @@ public final class EpistemosDocumentController: NSDocumentController {
     /// live document mid-edit).
     public var databaseWriter: (any DatabaseWriter)?
 
+    /// SwiftData container used for rebuildable `.epdoc` graph projections.
+    /// Kept beside `databaseWriter` so opened documents receive both search
+    /// and graph dependencies through one explicit AppKit injection point.
+    public var modelContainer: ModelContainer?
+
     /// Designated initialiser. Pass `nil` (or omit) when the host
     /// hasn't built its database yet — the controller becomes a
     /// passthrough to NSDocumentController and `EpdocDocument`s
     /// open without FTS integration. Set `databaseWriter` later
     /// once the pool is ready.
-    public init(databaseWriter: (any DatabaseWriter)? = nil) {
+    public init(
+        databaseWriter: (any DatabaseWriter)? = nil,
+        modelContainer: ModelContainer? = nil
+    ) {
         self.databaseWriter = nil
+        self.modelContainer = nil
         super.init()
         // NSDocumentController is singleton-shaped AppKit plumbing. If a
         // shared controller already exists, `super.init()` can hand back that
         // shared instance; assign after `super.init()` so the final object is
         // wired, not the pre-super allocation shell.
         self.databaseWriter = databaseWriter
+        self.modelContainer = modelContainer
     }
 
     /// AppKit-required init for nib loading. We don't ship from a
@@ -78,6 +89,7 @@ public final class EpistemosDocumentController: NSDocumentController {
     /// the host sets it post-load.
     public required init?(coder: NSCoder) {
         self.databaseWriter = nil
+        self.modelContainer = nil
         super.init(coder: coder)
     }
 
@@ -133,21 +145,100 @@ public final class EpistemosDocumentController: NSDocumentController {
     /// preserved (so a host can pre-wire a document, then assign
     /// it to this controller without losing the wiring).
     public func injectDependencies(into document: NSDocument) {
-        guard let writer = databaseWriter else { return }
         if let epdoc = document as? EpdocDocument {
-            epdoc.databaseWriter = writer
+            if let writer = databaseWriter {
+                epdoc.databaseWriter = writer
+            }
+            if let modelContainer {
+                epdoc.graphModelContainer = modelContainer
+            }
         }
+    }
+
+    /// Late-wire `.epdoc` documents that AppKit opened before the app
+    /// finished constructing its database/graph dependencies.
+    ///
+    /// This deliberately fills only missing slots. A user can have documents
+    /// already bound to a specific vault; a later controller swap must not
+    /// silently move those live documents to a different writer/container.
+    @discardableResult
+    public func injectMissingDependenciesIntoOpenEpdocDocuments(
+        projectCurrentContent: Bool = true
+    ) async -> Int {
+        var wiredCount = 0
+
+        for document in documents {
+            guard let epdoc = document as? EpdocDocument else { continue }
+            var shouldProject = false
+
+            if epdoc.databaseWriter == nil, let databaseWriter {
+                epdoc.databaseWriter = databaseWriter
+                shouldProject = true
+            }
+            if epdoc.graphModelContainer == nil, let modelContainer {
+                epdoc.graphModelContainer = modelContainer
+                shouldProject = true
+            }
+
+            guard shouldProject else { continue }
+            wiredCount += 1
+
+            guard projectCurrentContent else { continue }
+            let contentJSON = epdoc.package.contentJSON
+            await epdoc.projectAndIndexBlocks(contentJSON: contentJSON)
+            await epdoc.projectAndPersistGraph(contentJSON: contentJSON)
+        }
+
+        return wiredCount
     }
 }
 
 public extension NSDocumentController {
     @MainActor
     @discardableResult
-    func createUntitledEpdocDocument() throws -> NSDocument {
+    func createUntitledEpdocDocument(in preferredDirectory: URL? = nil) throws -> NSDocument {
         let document = try makeUntitledDocument(ofType: "com.epistemos.epdoc")
+        if let preferredDirectory,
+           let epdoc = document as? EpdocDocument {
+            try epdoc.persistInitialDocument(in: preferredDirectory)
+        }
         addDocument(document)
         document.makeWindowControllers()
         document.showWindows()
         return document
+    }
+}
+
+public extension EpdocDocument {
+    @MainActor
+    func persistInitialDocument(in directory: URL) throws {
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let destination = Self.uniqueUntitledDocumentURL(in: directory)
+        let wrapper = try fileWrapper(ofType: "com.epistemos.epdoc")
+        try wrapper.write(
+            to: destination,
+            options: [.atomic],
+            originalContentsURL: nil
+        )
+        fileURL = destination
+        fileType = "com.epistemos.epdoc"
+        updateChangeCount(.changeCleared)
+    }
+
+    @MainActor
+    static func uniqueUntitledDocumentURL(in directory: URL) -> URL {
+        let fileManager = FileManager.default
+        var index = 1
+        while true {
+            let basename = index == 1 ? "Untitled" : "Untitled \(index)"
+            let candidate = directory.appendingPathComponent("\(basename).epdoc", isDirectory: true)
+            if !fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            index += 1
+        }
     }
 }

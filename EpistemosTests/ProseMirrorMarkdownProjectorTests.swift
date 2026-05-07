@@ -232,6 +232,21 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(out.hasSuffix("```\n"), "fenced code block must end with ```; got: \(out)")
     }
 
+    @Test("Tiptap codeBlock emits triple-backtick fence with language hint")
+    func tiptapCodeBlockWithLanguage() {
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "codeBlock",
+                attrs: ProseMirrorAttrs(language: "swift"),
+                content: [Self.text("let x = 1\nprint(x)")]
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("```swift"), "got: \(out)")
+        #expect(out.contains("let x = 1\nprint(x)"), "got: \(out)")
+        #expect(out.hasSuffix("```\n"), "fenced code block must end with ```; got: \(out)")
+    }
+
     @Test("code_block without language emits empty-language fence")
     func codeBlockNoLanguage() {
         let d = Self.doc([
@@ -308,6 +323,20 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         let out = ProseMirrorMarkdownProjector.project(d)
         #expect(out.contains("$$\n\\int_0^1 x^2\\,dx = \\tfrac{1}{3}\n$$"),
                 "math_display MUST be wrapped in $$ on its own lines; got: \(out)")
+    }
+
+    @Test("Tiptap Mathematics aliases project to markdown math")
+    func tiptapMathematicsAliases() {
+        let d = Self.doc([
+            Self.para([
+                Self.text("Energy: "),
+                ProseMirrorNode(type: "inlineMath", attrs: ProseMirrorAttrs(latex: "E = mc^2")),
+            ]),
+            ProseMirrorNode(type: "blockMath", attrs: ProseMirrorAttrs(latex: "\\sum x_i")),
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("$E = mc^2$"), "inlineMath MUST project like math_inline; got: \(out)")
+        #expect(out.contains("$$\n\\sum x_i\n$$"), "blockMath MUST project like math_display; got: \(out)")
     }
 
     // MARK: - W7.8 — markdown plugin nodes
@@ -436,5 +465,32 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(out.contains("```mermaid"), "mermaid MUST open with ```mermaid; got: \(out)")
         #expect(out.contains("graph TD"), "mermaid body must be present; got: \(out)")
         #expect(out.hasSuffix("```\n"), "mermaid MUST close with ```; got: \(out)")
+    }
+
+    @Test("Epdoc chart node emits ```epdoc-chart fence with JSON source")
+    func epdocChartFence() {
+        let chartJSON = #"{"type":"scatter","points":[{"x":0.7,"y":0.9}]}"#
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "epdocChart",
+                content: [Self.text(chartJSON)]
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("```epdoc-chart"), "chart MUST open with ```epdoc-chart; got: \(out)")
+        #expect(out.contains(#""type":"scatter""#), "chart JSON body must be present; got: \(out)")
+        #expect(out.hasSuffix("```\n"), "chart MUST close with ```; got: \(out)")
+    }
+
+    @Test("Epdoc image nodes project to markdown images")
+    func epdocImageProjection() {
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "epdocImage",
+                attrs: ProseMirrorAttrs(src: "epistemos.png", alt: "Epistemos")
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("![Epistemos](epistemos.png)"), "epdocImage MUST project as markdown image; got: \(out)")
     }
 }

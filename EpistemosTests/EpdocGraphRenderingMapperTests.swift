@@ -13,7 +13,7 @@ nonisolated struct EpdocGraphRenderingMapperTests {
             nodeID: "x",
             nodeLabel: "x",
             nodeWeight: weight,
-            nodeType: .note,
+            nodeType: .document,
             edges: []
         )
     }
