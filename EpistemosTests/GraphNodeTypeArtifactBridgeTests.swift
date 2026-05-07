@@ -35,6 +35,14 @@ nonisolated struct GraphNodeTypeArtifactBridgeTests {
         }
     }
 
+    @Test("Wave 3.3 artifact cases are graph-visible even though they are app-level only")
+    func newCasesAreGraphVisible() {
+        for kind in Self.newAppLevelCases {
+            #expect(GraphNodeType.visibleCases.contains(kind),
+                    "\(kind) must be visible in the Swift graph UI even though it is excluded from the Rust FFI allCases list")
+        }
+    }
+
     @Test("FFI contract: GraphNodeType.allCases has exactly 14 cases")
     func ffiContractStable() {
         #expect(GraphNodeType.allCases.count == 14,

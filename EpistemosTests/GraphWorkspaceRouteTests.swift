@@ -406,8 +406,10 @@ struct GraphWorkspaceRouteNotificationTests {
         defer { NotificationCenter.default.removeObserver(token) }
 
         gs.openNote("note-1")
-        // Allow the main queue to drain the delivery.
-        await Task.yield()
+        for _ in 0..<20 {
+            if await probe.matched() { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         #expect(await probe.matched())
     }
 
@@ -429,7 +431,10 @@ struct GraphWorkspaceRouteNotificationTests {
         defer { NotificationCenter.default.removeObserver(token) }
 
         gs.goBack()
-        await Task.yield()
+        for _ in 0..<20 {
+            if await probe.value() > 0 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         #expect(await probe.value() == 1)
     }
 

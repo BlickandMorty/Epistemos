@@ -64,7 +64,7 @@ struct SearchFusionHealthRowTests {
     }
 
     @Test("Search Fusion metrics publish change notifications")
-    func searchFusionMetricsPublishChangeNotifications() async {
+    func searchFusionMetricsPublishChangeNotifications() {
         SearchFusionMetrics.shared.reset()
         defer { SearchFusionMetrics.shared.reset() }
 
@@ -74,15 +74,14 @@ struct SearchFusionHealthRowTests {
             object: SearchFusionMetrics.shared,
             queue: nil
         ) { _ in
-            Task { await counter.increment() }
+            counter.increment()
         }
         defer { NotificationCenter.default.removeObserver(token) }
 
         SearchFusionMetrics.shared.record(latencyMs: 7, results: [result(kind: "readable_block", id: "r-1")])
         SearchFusionMetrics.shared.recordError(ProbeError())
-        await Task.yield()
 
-        #expect(await counter.count() == 2)
+        #expect(counter.count() == 2)
     }
 
     private func result(kind: String, id: String) -> FusedResult {
@@ -103,14 +102,19 @@ private struct ProbeError: Error, CustomStringConvertible {
     var description: String { "probe failure" }
 }
 
-private actor NotificationCounter {
+private nonisolated final class NotificationCounter: @unchecked Sendable {
+    private let lock = NSLock()
     private var value = 0
 
     func increment() {
+        lock.lock()
+        defer { lock.unlock() }
         value += 1
     }
 
     func count() -> Int {
-        value
+        lock.lock()
+        defer { lock.unlock() }
+        return value
     }
 }

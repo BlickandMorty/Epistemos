@@ -52,10 +52,10 @@ struct GraphFloatingControls: View {
 
     // MARK: - Default Filter Enforcement
     // Manual filter toggling was removed — users no longer control node-type visibility.
-    // This enforces the canonical default: show the 5 visible types, hide tag/source/quote.
+    // This enforces the canonical default: show visible artifact/semantic types, hide tag/source/quote.
     private func enforceDefaultFilters() {
         var changed = false
-        // Ensure all 5 visible types are on.
+        // Ensure graph-visible artifact/semantic types are on.
         for type in GraphOverlayControlsDisplay.filterTypes
             where !graphState.filter.activeNodeTypes.contains(type) {
             graphState.filter.toggleType(type)

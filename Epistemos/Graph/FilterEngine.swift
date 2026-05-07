@@ -11,8 +11,8 @@ final class FilterEngine {
 
     /// Which node types are currently visible. Starts with all visible types active.
     private(set) var activeNodeTypes: Set<GraphNodeType> = Set(GraphNodeType.visibleCases)
-    /// Which edge types are currently visible. Starts with all relationship types active.
-    private(set) var activeEdgeTypes: Set<GraphEdgeType> = Set(GraphEdgeType.allCases)
+    /// Which edge types are currently visible. Starts with all graph-visible relationship types active.
+    private(set) var activeEdgeTypes: Set<GraphEdgeType> = Set(GraphEdgeType.visibleCases)
 
     /// The node ID currently focused on, if any.
     private(set) var focusedNodeId: String?
@@ -70,7 +70,7 @@ final class FilterEngine {
     /// True if any filter is active (not all types shown, or focused).
     var isFiltered: Bool {
         activeNodeTypes.count != GraphNodeType.visibleCases.count
-            || activeEdgeTypes.count != GraphEdgeType.allCases.count
+            || activeEdgeTypes.count != GraphEdgeType.visibleCases.count
             || focusedNodeId != nil
             || selectedModelProfileId != nil
             || !searchFilter.isEmpty
@@ -103,7 +103,7 @@ final class FilterEngine {
 
     /// Reset to showing all edge types.
     func showAllEdgeTypes() {
-        activeEdgeTypes = Set(GraphEdgeType.allCases)
+        activeEdgeTypes = Set(GraphEdgeType.visibleCases)
     }
 
     // MARK: - Vault Mode

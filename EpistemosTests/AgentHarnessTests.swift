@@ -176,7 +176,7 @@ struct AgentHarnessTests {
             overwriteExisting: false
         )
 
-        let contents = try String(contentsOf: existing)
+        let contents = try String(contentsOf: existing, encoding: .utf8)
         #expect(contents == "original")
     }
 }

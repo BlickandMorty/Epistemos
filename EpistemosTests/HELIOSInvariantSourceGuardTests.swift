@@ -155,6 +155,53 @@ struct HELIOSInvariantSourceGuardTests {
         _ = try loadMirroredSourceTextFile("docs/fusion/helios v5 updated.md")
     }
 
+    @Test("V6.1 North Star constitutional addendum pins model-as-guest doctrine")
+    func v6_1NorthStarModelAsGuestDoctrinePinned() throws {
+        let source = try loadMirroredSourceTextFile("EPISTEMOS-NORTH-STAR.md")
+        #expect(source.contains("Epistemos is not an AI app"))
+        #expect(source.contains("cognitive substrate that occasionally summons AI as a precision instrument"))
+        #expect(source.contains("The model is a guest in the user's brain"))
+        #expect(source.contains("Intelligence is the exception; the State is the rule"))
+        #expect(source.contains("Most software runs the user; Epistemos lets the user run themselves"))
+        #expect(source.contains("ClaimKind::StaticFallbackAcknowledged"))
+    }
+
+    @Test("V6.2 North Star keeps Epistemos product and pins M2 Pro falsifier doctrine")
+    func v6_2NorthStarM2ProFalsifierDoctrinePinned() throws {
+        let source = try loadMirroredSourceTextFile("EPISTEMOS-NORTH-STAR.md")
+        #expect(source.contains("V6.2 VERIFICATION ADDENDUM"))
+        #expect(source.contains("keeps the product name **Epistemos**"))
+        #expect(source.contains("Helios** as the architecture/substrate canon"))
+        #expect(source.contains("If it works on Jojo's M2 Pro 16 GB, it can ship"))
+        #expect(source.contains("M2 Pro 14-inch 2023, 16 GB unified memory, 200 GB/s memory bandwidth"))
+        #expect(source.contains("InterruptScore is Swift CPU canonical"))
+    }
+
+    @Test("V6.2 canon intake is saved and referenced")
+    func v6_2CanonIntakeSavedAndReferenced() throws {
+        let source = try loadMirroredSourceTextFile("docs/fusion/EPISTEMOS_V6_2_CANON_INTAKE_2026_05_07.md")
+        #expect(source.contains("V6_2_ACCEPTED_AS_STRICT_DELTA_NOT_APP_RENAME"))
+        #expect(source.contains("Product name remains **Epistemos**"))
+        #expect(source.contains("Helios** remains the architecture"))
+        #expect(source.contains("Codex revalidated live page"))
+        #expect(source.contains("PageGather baseline on the M2 Pro 16GB rig"))
+    }
+
+    @Test("V6.2 laptop audit ledger captures manual app checks and target-only kernel posture")
+    func v6_2LaptopAuditLedgerCapturesManualChecks() throws {
+        let source = try loadMirroredSourceTextFile("docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md")
+        #expect(source.contains("VERDICT: GREEN_FOR_CURRENT_SLICE_NOT_RELEASE_READY"))
+        #expect(source.contains("Epistemos product, Helios architecture"))
+        #expect(source.contains("SCOPE-Rex"))
+        #expect(source.contains("Halo"))
+        #expect(source.contains("ACS"))
+        #expect(source.contains("KV-Direct"))
+        #expect(source.contains("lattice"))
+        #expect(source.contains("mmap"))
+        #expect(source.contains("Overseer is retained as Controller/Verification-plane audit"))
+        #expect(source.contains("Five V6.1/V6.2 kernels remain target-only until real kernel files and M2 Pro falsifiers pass"))
+    }
+
     // ----------------------------------------------------------------
     // Per-W-slice guards — W1 / W2 / W3 (the first three live guards)
     // ----------------------------------------------------------------
@@ -164,12 +211,13 @@ struct HELIOSInvariantSourceGuardTests {
         let source = try loadMirroredSourceTextFile("agent_core/src/scope_rex/answer_packet.rs")
         // Canonical guard marker — read by scripts/check-helios-invariants.sh.
         #expect(source.contains("HELIOS-W1 guard"))
-        // The five required field names land per `docs/fusion/helios v5 first.md` DOC 1 §1.2.
+        // V5 required fields plus the V6.1 additive attention-mode audit field.
         for field in [
             "pub id: AnswerPacketId",
             "pub claims: Vec<Claim>",
             "pub residency_signals: Vec<ResidencySignal>",
             "pub ui_label: VrmLabel",
+            "pub attention_mode: AttentionMode",
             "pub witnessed_state_ref: WitnessedStateId",
             "pub semantic_delta_ref: Option<SemanticDeltaId>",
             "pub mutation_envelope_ref: MutationEnvelopeId",
@@ -187,12 +235,12 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("pub mod scope_rex"))
     }
 
-    @Test("W2: ClaimKind 5-arm enum present with canonical guard marker")
+    @Test("W2: ClaimKind enum present with canonical guard marker")
     func w2ClaimKindFiveArmEnumPresent() throws {
         let source = try loadMirroredSourceTextFile("agent_core/src/provenance/ledger.rs")
         // Canonical guard marker.
         #expect(source.contains("HELIOS-W2 guard"))
-        // 5-arm enum closure — exact arm names match the v5 spec.
+        // V5 five epistemic arms plus the V6.1 static-fallback admission arm.
         #expect(source.contains("pub enum ClaimKind"))
         for arm in [
             "Empirical",
@@ -200,6 +248,7 @@ struct HELIOSInvariantSourceGuardTests {
             "CodeInvariant",
             "Causal",
             "Speculative",
+            "StaticFallbackAcknowledged",
         ] {
             #expect(
                 source.contains(arm),
@@ -222,6 +271,7 @@ struct HELIOSInvariantSourceGuardTests {
             "case codeInvariant = \"code_invariant\"",
             "case causal",
             "case speculative",
+            "case staticFallbackAcknowledged = \"static_fallback_acknowledged\"",
         ] {
             #expect(
                 source.contains(arm),
@@ -1521,7 +1571,7 @@ struct HELIOSInvariantSourceGuardTests {
     @Test("Stage 9 / W24: PCF-1..PCF-10 Lean stubs exist with HELIOS-PCF-<n> guards")
     func stage9PcfLeanStubsExist() throws {
         for n in 1...10 {
-            let path = "lean/Epistemos/Epistemos/PCF-\(n).lean"
+            let path = "lean/Epistemos/Epistemos/PCF_\(n).lean"
             let source = try loadMirroredSourceTextFile(path)
             #expect(
                 source.contains("HELIOS-PCF-\(n) guard"),
@@ -1536,10 +1586,10 @@ struct HELIOSInvariantSourceGuardTests {
     @Test("Stage 9 / W24: aggregate sorry count matches per DOC 6")
     func stage9AggregateSorryCountMatchesDOC6() throws {
         // Per DOC 6 §1+§2+§3 budgets:
-        //   E1-E7 stubs: 8 sorries (E1=1, E2=1, E3=0, E4=2, E5=2, E6=1, E7=1)
-        //   H1-H17 stubs: 17 sorries (1 each)
+        //   E1-E7 stubs: 7 sorries (E1=1, E2=1, E3=0, E4=1, E5=2, E6=1, E7=1)
+        //   H1-H17 stubs: 20 sorries (H2/H4/H17=2 each; the others=1 each)
         //   PCF-1..10 stubs: 10 sorries (1 each)
-        // Total: 35.
+        // Total: 37.
         var total = 0
         for n in 1...7 {
             let s = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/E\(n).lean")
@@ -1550,10 +1600,10 @@ struct HELIOSInvariantSourceGuardTests {
             total += countSorries(in: s)
         }
         for n in 1...10 {
-            let s = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF-\(n).lean")
+            let s = try loadMirroredSourceTextFile("lean/Epistemos/Epistemos/PCF_\(n).lean")
             total += countSorries(in: s)
         }
-        #expect(total == 35, "aggregate sorry count = \(total), expected 35 per DOC 6")
+        #expect(total == 37, "aggregate sorry count = \(total), expected 37 per DOC 6")
     }
 
     private func countSorries(in source: String) -> Int {
@@ -1919,22 +1969,62 @@ struct HELIOSInvariantSourceGuardTests {
         // Each of the W1-W15 substrates we built has a falsifier
         // protocol row.
         for entry in [
-            "E3|storage::vault",
-            "H2|scope_rex::metal::softmax",
-            "H3|scope_rex::metal::asa_index",
-            "H7|scope_rex::residency",
-            "H17|scope_rex::retrieval::hopfield",
-            "W1|scope_rex::answer_packet",
-            "W5|scope_rex::btm_semantic",
-            "W8|scope_rex::kv::direct_gate",
-            "W12|scope_rex::kernels::t_mac",
-            "W13|scope_rex::kernels::bitnet",
-            "W14|scope_rex::kernels::sparse_ternary_gemm",
+            "E3|agent_core|default|storage::vault",
+            "H2|agent_core|default|scope_rex::metal::softmax",
+            "H3|agent_core|default|scope_rex::metal::asa_index",
+            "H7|agent_core|default|scope_rex::residency",
+            "H17|agent_core|default|scope_rex::retrieval::hopfield",
+            "W1|agent_core|default|scope_rex::answer_packet",
+            "W5|agent_core|default|scope_rex::btm_semantic",
+            "W8|agent_core|default|scope_rex::kv::direct_gate",
+            "W12|agent_core|default|scope_rex::kernels::t_mac",
+            "W13|agent_core|default|scope_rex::kernels::bitnet",
+            "W14|agent_core|default|scope_rex::kernels::sparse_ternary_gemm",
         ] {
             #expect(
                 source.contains(entry),
                 "falsifier registry must include protocol row '\(entry)'"
             )
+        }
+    }
+
+    @Test("V6.1/V6.2: target-only kernel names are not compiled as shipped shaders")
+    func v6_1TargetOnlyKernelsAreNotCompiledAsShippedShaders() throws {
+        let script = try loadMirroredSourceTextFile("Tools/metal-shader-compile/metal-shader-compile.sh")
+        #expect(script.contains("HELIOS-V6-TARGET-ONLY-KERNEL-GUARD"))
+        for targetOnlyKernel in [
+            "SemiseparableBlockScan.metal",
+            "LocalRecallIsland.metal",
+            "PageGather.metal",
+            "ControllerKernelPack.metal",
+            "PacketRouter1bit.metal",
+            "InterruptScore.metal",
+        ] {
+            #expect(
+                script.contains(targetOnlyKernel),
+                "Metal compile script must explicitly guard target-only kernel \(targetOnlyKernel)"
+            )
+        }
+
+        for shaderRoot in ["Epistemos/Shaders", "agent_core/metal"] {
+            let metalFiles = try mirroredSourceFileURLs(
+                under: shaderRoot,
+                includingExtensions: ["metal"]
+            )
+            let names = Set(metalFiles.map(\.lastPathComponent))
+            for targetOnlyKernel in [
+                "SemiseparableBlockScan.metal",
+                "LocalRecallIsland.metal",
+                "PageGather.metal",
+                "ControllerKernelPack.metal",
+                "PacketRouter1bit.metal",
+                "InterruptScore.metal",
+            ] {
+                #expect(
+                    !names.contains(targetOnlyKernel),
+                    "\(targetOnlyKernel) must stay absent from \(shaderRoot) until the real kernel and M2 Pro falsifier are promoted together"
+                )
+            }
         }
     }
 
@@ -2126,9 +2216,23 @@ struct HELIOSInvariantSourceGuardTests {
         // Swift side must declare CodingKeys / raw values matching
         // the snake_case wire format. Spot-check a few edges:
         #expect(swiftSource.contains("case codeInvariant = \"code_invariant\""))
+        #expect(swiftSource.contains("case staticFallbackAcknowledged = \"static_fallback_acknowledged\""))
         #expect(swiftSource.contains("case plausibleButUnverified = \"plausible_but_unverified\""))
+        #expect(swiftSource.contains("case staticFallback = \"static_fallback\""))
+        #expect(swiftSource.contains("case attentionMode = \"attention_mode\""))
         #expect(swiftSource.contains("case residencySignals = \"residency_signals\""))
         #expect(swiftSource.contains("case witnessedStateRef = \"witnessed_state_ref\""))
         #expect(swiftSource.contains("case mutationEnvelopeRef = \"mutation_envelope_ref\""))
+    }
+
+    @Test("V6.1: Swift AnswerPacket admits static fallback only with acknowledgement")
+    func v6_1SwiftAnswerPacketStaticFallbackAdmissionGuard() throws {
+        let swiftSource = try loadMirroredSourceTextFile("Epistemos/Models/AnswerPacket.swift")
+        #expect(swiftSource.contains("public var requiresStaticFallbackAcknowledgement"))
+        #expect(swiftSource.contains("attentionMode == .staticFallback"))
+        #expect(swiftSource.contains("public var acknowledgesStaticFallback"))
+        #expect(swiftSource.contains("public var attentionModeClaimsAreConsistent"))
+        #expect(swiftSource.contains("case .dynamic, .unavailable"))
+        #expect(swiftSource.contains("$0.kind == .staticFallbackAcknowledged"))
     }
 }

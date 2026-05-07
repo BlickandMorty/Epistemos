@@ -1248,7 +1248,7 @@ struct LandingView: View {
 
     private func createAndOpenDocument() {
         do {
-            try NSDocumentController.shared.createUntitledEpdocDocument()
+            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
         } catch {
             NSApplication.shared.presentError(error)
         }

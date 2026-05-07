@@ -17,7 +17,45 @@ nonisolated func sourceMirrorRootURL() throws -> URL {
 }
 
 nonisolated func sourceMirrorURL(for relativePath: String) throws -> URL {
-    try sourceMirrorRootURL().appendingPathComponent(relativePath)
+    let mirroredURL = try sourceMirrorRootURL().appendingPathComponent(relativePath)
+    if FileManager.default.fileExists(atPath: mirroredURL.path) {
+        return mirroredURL
+    }
+
+    if let checkoutRootURL = sourceCheckoutRootURL() {
+        let checkoutURL = checkoutRootURL.appendingPathComponent(relativePath)
+        if FileManager.default.fileExists(atPath: checkoutURL.path) {
+            return checkoutURL
+        }
+    }
+
+    return mirroredURL
+}
+
+nonisolated private func sourceCheckoutRootURL() -> URL? {
+    let fileURL = URL(fileURLWithPath: #filePath)
+    let candidateStarts = [
+        URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
+        fileURL.deletingLastPathComponent().deletingLastPathComponent(),
+    ]
+
+    for startURL in candidateStarts {
+        var cursor = startURL
+        for _ in 0..<8 {
+            let agentsURL = cursor.appendingPathComponent("AGENTS.md")
+            let editorManifestURL = cursor.appendingPathComponent("js-editor/package.json")
+            if FileManager.default.fileExists(atPath: agentsURL.path),
+               FileManager.default.fileExists(atPath: editorManifestURL.path) {
+                return cursor
+            }
+
+            let parentURL = cursor.deletingLastPathComponent()
+            guard parentURL.path != cursor.path else { break }
+            cursor = parentURL
+        }
+    }
+
+    return nil
 }
 
 nonisolated func loadMirroredSourceDataFile(_ relativePath: String) throws -> Data {

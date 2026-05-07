@@ -481,7 +481,7 @@ struct MLXThermalBenchTests {
     @Test("MLX thermal policy baseline rejects invalid counts")
     func mlxThermalPolicyBaselineRejectsInvalidCounts() throws {
         do {
-            try MLXThermalPolicyBaselineRunner.run(
+            _ = try MLXThermalPolicyBaselineRunner.run(
                 resultsDirectory: FileManager.default.temporaryDirectory,
                 sampleCount: 0
             )
@@ -493,7 +493,7 @@ struct MLXThermalBenchTests {
         }
 
         do {
-            try MLXThermalPolicyBaselineRunner.run(
+            _ = try MLXThermalPolicyBaselineRunner.run(
                 resultsDirectory: FileManager.default.temporaryDirectory,
                 decisionsPerSample: 0
             )
@@ -542,7 +542,7 @@ struct MLXThermalBenchTests {
     @Test("live MLX token throughput baseline rejects invalid config")
     func liveMLXTokenThroughputBaselineRejectsInvalidConfig() async throws {
         do {
-            try await MLXLiveTokenThroughputBaselineRunner.run(
+            _ = try await MLXLiveTokenThroughputBaselineRunner.run(
                 resultsDirectory: FileManager.default.temporaryDirectory,
                 sampleCount: 0
             )
@@ -554,7 +554,7 @@ struct MLXThermalBenchTests {
         }
 
         do {
-            try await MLXLiveTokenThroughputBaselineRunner.run(
+            _ = try await MLXLiveTokenThroughputBaselineRunner.run(
                 resultsDirectory: FileManager.default.temporaryDirectory,
                 maxTokens: 0
             )

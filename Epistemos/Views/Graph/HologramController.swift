@@ -47,12 +47,16 @@ final class HologramController {
         self.dialogueChatState = dialogueChatState
         // Provide a ModelContext for interactive graph mutations (node/edge creation).
         graphState.modelContext = modelContainer.mainContext
+        if let screenObserver {
+            NotificationCenter.default.removeObserver(screenObserver)
+        }
         observeScreenChanges()
     }
 
     // MARK: - Toggle
 
     func toggle() {
+        ensureConfiguredFromSharedBootstrap()
         // If minimized, Cmd+G restores to full overlay.
         if overlay?.isMinimized == true {
             overlay?.restore()
@@ -75,6 +79,7 @@ final class HologramController {
     }
 
     func show() {
+        ensureConfiguredFromSharedBootstrap()
         ensureOverlay()
         prepareOverlayForGlobalMode()
         graphState?.startOverlayPhysicsCycle()
@@ -86,6 +91,7 @@ final class HologramController {
         let interval = Log.graphPerf.beginInterval("revealPage")
         defer { Log.graphPerf.endInterval("revealPage", interval) }
 
+        ensureConfiguredFromSharedBootstrap()
         ensureOverlay()
         guard let graphState,
               let node = graphState.store.node(bySourceId: pageId, type: .note) else {
@@ -95,6 +101,38 @@ final class HologramController {
         prepareOverlayForGlobalMode(centering: node.id)
         graphState.startOverlayPhysicsCycle()
         presentFullOverlay()
+    }
+
+    /// Reveals a first-class `.epdoc` artifact in the global graph.
+    ///
+    /// `.epdoc` packages project into the persistent graph as `.document`
+    /// nodes, not legacy `.note` nodes. Opening the global graph from a
+    /// document window should therefore center the document's artifact node
+    /// instead of dropping the user onto an unfocused vault-wide graph.
+    func revealDocument(_ documentSourceId: String) {
+        let interval = Log.graphPerf.beginInterval("revealDocument")
+        defer { Log.graphPerf.endInterval("revealDocument", interval) }
+
+        ensureConfiguredFromSharedBootstrap()
+        ensureOverlay(autoLoadGraph: false)
+        graphState?.startOverlayPhysicsCycle()
+        presentFullOverlay()
+
+        Task { @MainActor in
+            await self.loadGraphForDocumentRevealIfNeeded()
+            guard let graphState = self.graphState,
+                  let node = graphState.store.node(bySourceId: documentSourceId, type: .document)
+            else {
+                self.prepareOverlayForGlobalMode()
+                self.graphState?.requestRecommit()
+                return
+            }
+            self.prepareOverlayForGlobalMode(centering: node.id)
+            graphState.focusOnNode(node.id, depth: GraphOverlayModePolicy.focusDepth)
+            graphState.requestModeSync()
+            graphState.requestFilterSync()
+            graphState.requestRecommit()
+        }
     }
 
     func hide() {
@@ -122,13 +160,25 @@ final class HologramController {
 
     // MARK: - Overlay Lifecycle
 
-    private func ensureOverlay() {
+    private func ensureConfiguredFromSharedBootstrap() {
+        guard graphState == nil, let bootstrap = AppBootstrap.shared else { return }
+        setup(
+            graphState: bootstrap.graphState,
+            queryEngine: bootstrap.queryEngine,
+            modelContainer: bootstrap.modelContainer,
+            physicsCoordinator: bootstrap.physicsCoordinator,
+            dialogueChatState: bootstrap.dialogueChatState
+        )
+    }
+
+    private func ensureOverlay(autoLoadGraph: Bool = true) {
         guard overlay == nil, let graphState else { return }
         let interval = Log.graphPerf.beginInterval("ensureOverlay")
 
         // Load graph data on first access without blocking the first overlay show.
-        if !graphState.isLoaded, let modelContainer {
+        if autoLoadGraph, !graphState.isLoaded, let modelContainer {
             let loadInterval = Log.graphPerf.beginInterval("loadGraph")
+            graphState.shouldSnapNextGlobalRecommitCamera = true
             Task(priority: .utility) {
                 await graphState.loadGraph(container: modelContainer)
                 Log.graphPerf.endInterval("loadGraph", loadInterval)
@@ -143,7 +193,7 @@ final class HologramController {
 
         // Run structural refresh AFTER overlay exists so the graph shows immediately.
         // Uses async path to run GraphBuilder on a background thread.
-        if needsRefresh, let modelContainer {
+        if autoLoadGraph, needsRefresh, let modelContainer {
             Task {
                 let refreshInterval = Log.graphPerf.beginInterval("refreshStructuralData")
                 let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
@@ -153,6 +203,21 @@ final class HologramController {
                 }
                 Log.graphPerf.endInterval("refreshStructuralData", refreshInterval)
             }
+        }
+    }
+
+    private func loadGraphForDocumentRevealIfNeeded() async {
+        guard let graphState, let modelContainer else { return }
+        if !graphState.isLoaded {
+            graphState.shouldSnapNextGlobalRecommitCamera = true
+            await graphState.loadGraph(container: modelContainer)
+            return
+        }
+        guard graphState.needsRefresh else { return }
+        let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
+        if !refreshedIncrementally {
+            graphState.shouldSnapNextGlobalRecommitCamera = true
+            graphState.requestRecommit()
         }
     }
 

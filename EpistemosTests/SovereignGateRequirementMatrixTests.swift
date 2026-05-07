@@ -28,7 +28,7 @@ struct SovereignGateRequirementMatrixTests {
         let suspectPaths = [
             // Boundary policy files that route capabilities — must NOT host
             // their own biometric prompts.
-            "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
+            "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift",
             "Epistemos/Bridge/ToolTierBridge.swift",
             "Epistemos/Omega/MCPBridge.swift",
             // Settings surfaces that already migrated to Sovereign Gate —

@@ -299,7 +299,7 @@ struct AuditFixRegressionTests {
     @Test("explicit note writes keep a real vault_write contract across runtime prompts")
     func explicitNoteWritesKeepAVaultWriteContractAcrossRuntimePrompts() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
-        let promptBuilder = try loadAuditSource("Epistemos/LocalAgent/HermesPromptBuilder.swift")
+        let promptBuilder = try loadAuditSource("Epistemos/LocalAgent/LocalAgentPromptBuilder.swift")
 
         #expect(coordinator.contains("let hasRequestedNoteWriteOperation"))
         #expect(coordinator.contains("queryContainsExplicitNoteWriteOperation"))
