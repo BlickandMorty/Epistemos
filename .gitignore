@@ -5,6 +5,7 @@
 .swiftpm/
 *.xcuserstate
 DerivedData/
+.derived-data-*/
 build/
 *.ipa
 *.dSYM.zip
@@ -15,6 +16,7 @@ build/
 # Swift Package Manager
 .build/
 Packages/
+.spm-cache/
 
 # macOS
 .DS_Store
