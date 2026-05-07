@@ -381,6 +381,10 @@ targets:
               --include='*.swift' \
               --include='*.rs' \
               --include='*.py' \
+              --include='*.ts' \
+              --include='*.tsx' \
+              --include='*.css' \
+              --include='*.html' \
               --include='*.sh' \
               --include='*.yml' \
               --include='*.yaml' \
@@ -424,6 +428,8 @@ targets:
           copy_tree "epistemos-core"
           copy_tree "syntax-core"
           copy_tree "syntax-core-bridge"
+          copy_tree "js-editor/src"
+          copy_file "js-editor/package.json"
           copy_tree "scripts"
           copy_tree "docs"
           copy_tree ".agents"

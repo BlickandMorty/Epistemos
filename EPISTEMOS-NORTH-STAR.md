@@ -14,6 +14,56 @@
 
 ---
 
+## V6.1 CONSTITUTIONAL ADDENDUM — MAY 6, 2026
+
+> **Epistemos is not an AI app. It is a cognitive substrate that occasionally summons AI as a precision instrument.**
+>
+> **The model is a guest in the user's brain — not a tenant of the user's machine.**
+
+This addendum supersedes any older wording that makes inference sound like the substrate. The user's verified state is sovereign. Atlas pages, claim ledgers, residency gates, witnessed state, semantic deltas, and the Verified Floor `ac8c6d28` are the floor. Inference is invited by the interrupt score, audited by the verification plane, and dismissed when the semantic spine resumes.
+
+The runtime sentence is:
+
+> **Intelligence is the exception; the State is the rule.**
+
+The product sentence is:
+
+> **Most software runs the user; Epistemos lets the user run themselves, with intelligence summoned as a guest.**
+
+Every runtime emission that touches model inference must be honest about its attention posture:
+
+- `attention_mode = dynamic` when the interrupt score explicitly woke attention, recall, tooling, or heavy thinking.
+- `attention_mode = static_fallback` when dynamic signals were unavailable and the static 9:1 hybrid floor ran instead; the AnswerPacket must also carry `ClaimKind::StaticFallbackAcknowledged`.
+- `attention_mode = unavailable` when the runtime cannot classify the mode; never infer dynamic execution from absence.
+
+The older layer language below is retained as historical product intent. V6.1's runtime architecture is the Five-Plane discipline: State, Episodic, Assembly, Controller, Verification.
+
+---
+
+## V6.2 VERIFICATION ADDENDUM — MAY 7, 2026
+
+V6.2 keeps the product name **Epistemos** and treats **Helios** as the architecture/substrate canon. Do not split the app identity until the existing Epistemos build is finished, audited, and intentionally promoted into a new repository.
+
+The V6.2 verification sentence is:
+
+> **If it works on Jojo's M2 Pro 16 GB, it can ship. If it requires a workstation, it is research-tier.**
+
+This means every "profound" kernel or model claim must first fit the user's real machine: M2 Pro 14-inch 2023, 16 GB unified memory, 200 GB/s memory bandwidth. M2 Max, M3 Ultra, cloud, or workstation results are scale-validation, not MAS proof.
+
+The V6.2 implementation sentence is:
+
+> **Lean governs the claims; the M2 Pro falsifies the hardware; Epistemos stays quiet until an interrupt earns the cost.**
+
+V6.2 budget-revises the V6.1 hardware gates:
+
+- PageGather measures against `BW_baseline_M2Pro`, not theoretical bandwidth.
+- LocalRecallIsland Core is 32K; 128K is Stretch.
+- SemiseparableBlockScan Core is L=32768; L=131072 is Stretch.
+- InterruptScore is Swift CPU canonical for the single-token path; Metal is a batch shadow only.
+- Goodfire atlas/observability remains public-confirmed after Codex revalidation; runtime acceleration remains candidate.
+
+---
+
 ## WHAT EPISTEMOS IS
 
 Epistemos is a **cognitive operating system for macOS** — a local-first, hardware-native intelligence layer that runs entirely on Apple Silicon, belongs entirely to its user, and becomes more useful every single day through continuous self-improvement.
