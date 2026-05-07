@@ -93,7 +93,7 @@ pub enum ClaimStatus {
 }
 
 // ---------------------------------------------------------------------------
-// ClaimKind (HELIOS V5 W2)
+// ClaimKind (HELIOS V5 W2 + V6.1 runtime acknowledgement)
 // ---------------------------------------------------------------------------
 
 // HELIOS-W2 guard
@@ -111,11 +111,15 @@ pub enum ClaimStatus {
 // `kind` field — old archives without `kind` deserialize as
 // `ClaimKind::Empirical`.
 
-/// HELIOS V5 W2 — 5-arm classification of a claim.
+/// HELIOS V5 W2 — classification of a claim.
 ///
 /// Strictly additive over the v1 `Claim` schema. Old archives that lack
 /// the `kind` field deserialize to [`ClaimKind::Empirical`] via
 /// `#[serde(default)]` on [`Claim::kind`].
+///
+/// V5 locks the five epistemic arms. V6.1 adds one runtime-admission
+/// arm so a static 9:1 attention fallback cannot occur silently in an
+/// AnswerPacket.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClaimKind {
@@ -131,6 +135,10 @@ pub enum ClaimKind {
     Causal,
     /// Speculative claims, hypotheses, or conjectures pending evidence.
     Speculative,
+    /// V6.1 runtime acknowledgement: static 9:1 fallback was used
+    /// because dynamic interrupt signals were unavailable. This is not
+    /// a sixth epistemic truth class; it is an audit-plane admission.
+    StaticFallbackAcknowledged,
 }
 
 impl Default for ClaimKind {
@@ -155,7 +163,7 @@ pub struct Claim {
     pub text: String,
     pub status: ClaimStatus,
     pub created_at_ms: i64,
-    /// HELIOS V5 W2 — 5-arm claim classification. Defaults to
+    /// HELIOS V5 W2 — claim classification. Defaults to
     /// `ClaimKind::Empirical` if absent (v1 backward-compat).
     #[serde(default)]
     pub kind: ClaimKind,
@@ -971,7 +979,7 @@ mod tests {
     }
 
     #[test]
-    fn claim_with_kind_sets_each_of_the_five_arms() {
+    fn claim_with_kind_sets_each_canonical_arm_plus_static_fallback_ack() {
         let base = || Claim::new(ClaimId::new("c"), "x", t());
         assert_eq!(
             base().with_kind(ClaimKind::Empirical).kind,
@@ -989,6 +997,10 @@ mod tests {
         assert_eq!(
             base().with_kind(ClaimKind::Speculative).kind,
             ClaimKind::Speculative
+        );
+        assert_eq!(
+            base().with_kind(ClaimKind::StaticFallbackAcknowledged).kind,
+            ClaimKind::StaticFallbackAcknowledged
         );
     }
 
@@ -1040,6 +1052,10 @@ mod tests {
             (ClaimKind::CodeInvariant, "\"code_invariant\""),
             (ClaimKind::Causal, "\"causal\""),
             (ClaimKind::Speculative, "\"speculative\""),
+            (
+                ClaimKind::StaticFallbackAcknowledged,
+                "\"static_fallback_acknowledged\"",
+            ),
         ] {
             let json = serde_json::to_string(&kind).unwrap();
             assert_eq!(json, expected, "wire format for {:?}", kind);
