@@ -1511,7 +1511,8 @@ LD_RUNPATH_SEARCH_PATHS = (
         }
 
         #expect(claude.contains("agent_core crate owns: agentic loop, HTTP streaming, tool execution"))
-        #expect(claude.contains("formerly the hermes-agent subprocess; now in `agent_core::agent_runtime`"))
+        #expect(claude.contains("legacy agent subprocess was removed 2026-05-05; orchestration now lives in `agent_core::agent_runtime`"))
+        #expect(claude.contains("LocalAgentPromptBuilder.swift and LocalAgentGatewayPolicy.swift"))
         #expect(claude.contains("Cloud models get agent/liveAgent"))
         #expect(claude.contains("Anthropic"))
         #expect(claude.contains("OpenAI"))

@@ -4,19 +4,23 @@ import SwiftUI
 struct HologramSidebarNotesTreeSnapshot {
     let folderById: [String: GraphNodeRecord]
     let noteById: [String: GraphNodeRecord]
+    let artifactById: [String: GraphNodeRecord]
     let rootFolderIds: [String]
     let childFolderIdsById: [String: [String]]
     let noteIdsByFolderId: [String: [String]]
     let looseNoteIds: [String]
+    let looseArtifactIds: [String]
     let noteCountByFolderId: [String: Int]
 
     static let empty = HologramSidebarNotesTreeSnapshot(
         folderById: [:],
         noteById: [:],
+        artifactById: [:],
         rootFolderIds: [],
         childFolderIdsById: [:],
         noteIdsByFolderId: [:],
         looseNoteIds: [],
+        looseArtifactIds: [],
         noteCountByFolderId: [:]
     )
 }
@@ -31,6 +35,12 @@ enum HologramSidebarNotesTreeBuilder {
         let noteById = Dictionary(
             uniqueKeysWithValues: store.nodes.values
                 .filter { $0.type == .note }
+                .map { ($0.id, $0) }
+        )
+        let artifactTypes = Set(GraphNodeType.appLevelCases)
+        let artifactById = Dictionary(
+            uniqueKeysWithValues: store.nodes.values
+                .filter { artifactTypes.contains($0.type) }
                 .map { ($0.id, $0) }
         )
 
@@ -69,17 +79,12 @@ enum HologramSidebarNotesTreeBuilder {
             }
         }
 
-        let rootFolderIds = folderById.keys.sorted { lhs, rhs in
-            let lhsLabel = folderById[lhs]?.label ?? ""
-            let rhsLabel = folderById[rhs]?.label ?? ""
-            return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
-        }.filter { !childFolderIds.contains($0) }
+        let rootFolderIds = sortedNodeIds(folderById.keys, in: folderById)
+            .filter { !childFolderIds.contains($0) }
 
-        let looseNoteIds = noteById.keys.sorted { lhs, rhs in
-            let lhsLabel = noteById[lhs]?.label ?? ""
-            let rhsLabel = noteById[rhs]?.label ?? ""
-            return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
-        }.filter { !containedNoteIds.contains($0) }
+        let looseNoteIds = sortedNodeIds(noteById.keys, in: noteById)
+            .filter { !containedNoteIds.contains($0) }
+        let looseArtifactIds = sortedNodeIds(artifactById.keys, in: artifactById)
 
         var noteCountByFolderId: [String: Int] = [:]
         for folderId in folderById.keys {
@@ -94,12 +99,25 @@ enum HologramSidebarNotesTreeBuilder {
         return HologramSidebarNotesTreeSnapshot(
             folderById: folderById,
             noteById: noteById,
+            artifactById: artifactById,
             rootFolderIds: rootFolderIds,
             childFolderIdsById: childFolderIdsById,
             noteIdsByFolderId: noteIdsByFolderId,
             looseNoteIds: looseNoteIds,
+            looseArtifactIds: looseArtifactIds,
             noteCountByFolderId: noteCountByFolderId
         )
+    }
+
+    private static func sortedNodeIds<S: Sequence>(
+        _ ids: S,
+        in nodesById: [String: GraphNodeRecord]
+    ) -> [String] where S.Element == String {
+        ids.sorted { lhs, rhs in
+            let lhsLabel = nodesById[lhs]?.label ?? ""
+            let rhsLabel = nodesById[rhs]?.label ?? ""
+            return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
+        }
     }
 
     private static func recursiveNoteCount(
@@ -301,8 +319,22 @@ struct HologramSearchSidebar: View {
                     }
                 }
 
-                if snapshot.rootFolderIds.isEmpty && snapshot.looseNoteIds.isEmpty {
-                    emptyState("No notes in graph", icon: "doc.text")
+                if !snapshot.looseArtifactIds.isEmpty {
+                    sectionHeader("Artifacts")
+                    ForEach(Array(snapshot.looseArtifactIds.prefix(50)), id: \.self) { artifactId in
+                        if let node = snapshot.artifactById[artifactId] {
+                            nodeRow(node)
+                        }
+                    }
+                    if snapshot.looseArtifactIds.count > 50 {
+                        hintText("\(snapshot.looseArtifactIds.count - 50) more…")
+                    }
+                }
+
+                if snapshot.rootFolderIds.isEmpty
+                    && snapshot.looseNoteIds.isEmpty
+                    && snapshot.looseArtifactIds.isEmpty {
+                    emptyState("No files in graph", icon: "doc.text.magnifyingglass")
                 }
             }
             .padding(.vertical, 6)

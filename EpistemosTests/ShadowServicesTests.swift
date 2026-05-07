@@ -548,6 +548,7 @@ struct ShadowHonestHandleSourceGuardTests {
             "shadow_handle_remove",
             "shadow_handle_flush",
             "shadow_handle_stats",
+            "shadow_handle_last_timings_json",
             "shadow_handle_free_string"
         ] {
             #expect(client.contains("@_silgen_name(\"\(symbol)\")"))
@@ -584,7 +585,7 @@ struct ShadowHonestHandleSourceGuardTests {
             #expect(rust.contains(export), "\(symbol) must remain an exported C ABI symbol")
         }
 
-        #expect(Self.countOccurrences(of: "pub unsafe extern \"C\" fn shadow_handle_", in: rust) == 9)
+        #expect(Self.countOccurrences(of: "pub unsafe extern \"C\" fn shadow_handle_", in: rust) == 10)
         #expect(rust.contains("panic::catch_unwind"))
         #expect(rust.contains("AssertUnwindSafe"))
         #expect(rust.contains("CString::from_raw"))

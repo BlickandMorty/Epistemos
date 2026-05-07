@@ -45,11 +45,11 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        // 14 visible after Agent consolidation + S.6 privacy pane +
-        // the Provenance Console:
+        // 15 visible after Agent consolidation + S.6 privacy pane +
+        // the Provenance Console + the HELIOS V5 research controls:
         // agentControl + authority + overseer rolled up into a single
         // .agent entry; .privacy and .provenance live under Privacy & Storage.
-        #expect(SettingsView.SettingsSection.visibleSections.count == 14)
+        #expect(SettingsView.SettingsSection.visibleSections.count == 15)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
@@ -73,6 +73,7 @@ struct SettingsCategoryTests {
             .vault:           .privacyStore,
             .privacy:         .privacyStore,
             .general:         .advanced,
+            .heliosV5:        .advanced,
         ]
         for (section, category) in expected {
             #expect(section.category == category, "\(section.rawValue) should map to \(category.rawValue)")
@@ -100,7 +101,7 @@ struct SettingsCategoryTests {
         }
     }
 
-    @Test("All 14 visible sections are reachable (Agent consolidation + privacy/provenance)")
+    @Test("All 15 visible sections are reachable (Agent consolidation + privacy/provenance/HELIOS)")
     func allVisibleSectionsAreReachable() {
         // .agent replaces .agentControl + .authority + .overseer in the
         // sidebar; the legacy entries remain enum cases for deep-link
@@ -110,7 +111,7 @@ struct SettingsCategoryTests {
             .general, .channels, .cognitive, .inference,
             .knowledgeFusion, .modelVaults, .iMessageDriver,
             .skills, .agent,
-            .landing, .appearance, .vault, .privacy, .provenance,
+            .landing, .appearance, .vault, .privacy, .provenance, .heliosV5,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }

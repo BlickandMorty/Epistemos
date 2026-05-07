@@ -96,8 +96,8 @@ struct CoreMASBoundarySourceGuardTests {
                 "Codex account provider must share the cloud provider branch")
         #expect(cloudBranch.contains("tier: .proResearch"),
                 "Cloud providers must be Pro/Research-only — never Core/App Store")
-        #expect(cloudBranch.contains("route: .hermesGateway"),
-                "Cloud providers must route through the Hermes gateway, not direct")
+        #expect(cloudBranch.contains("route: .localAgentGateway"),
+                "Cloud providers must route through the LocalAgent gateway, not direct")
         #expect(cloudBranch.contains("requiresNetwork: true"),
                 "Cloud providers must declare they require network")
         #expect(cloudBranch.contains("preservesDirectSubstratePath: false"),
@@ -137,8 +137,8 @@ struct CoreMASBoundarySourceGuardTests {
             )
             #expect(branch.contains("tier: .proResearch"),
                     "\(surface) must declare Pro/Research tier")
-            #expect(branch.contains("route: .hermesGateway"),
-                    "\(surface) must route through the Hermes gateway")
+            #expect(branch.contains("route: .localAgentGateway"),
+                    "\(surface) must route through the LocalAgent gateway")
             #expect(branch.contains("evidenceReturn: .structuredEvidenceProvenance"),
                     "\(surface) must return structured evidence provenance")
         }
@@ -161,7 +161,7 @@ struct CoreMASBoundarySourceGuardTests {
         #expect(source.contains("localCoreBoundaryLine"),
                 "HermesGatewayPolicy must export localCoreBoundaryLine")
         #expect(source.contains(
-            "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
+            "LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context."
         ), "localCoreBoundaryLine prose must remain stable for log/UI consumers")
     }
 
@@ -347,7 +347,7 @@ struct CoreMASBoundarySourceGuardTests {
         // may instantiate LAContext. These three boundary files have no
         // business prompting for biometrics — they are routing/policy code.
         for relativePath in [
-            "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
+            "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift",
             "Epistemos/Bridge/ToolTierBridge.swift",
             "Epistemos/Omega/MCPBridge.swift",
         ] {
@@ -367,7 +367,7 @@ struct CoreMASBoundarySourceGuardTests {
         // only). These three Swift boundary files must remain pure routing /
         // policy / FFI surfaces — not process launchers.
         for relativePath in [
-            "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
+            "Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift",
             "Epistemos/Bridge/ToolTierBridge.swift",
             "Epistemos/Omega/MCPBridge.swift",
         ] {
@@ -382,7 +382,7 @@ struct CoreMASBoundarySourceGuardTests {
     // MARK: - Helpers
 
     private func loadHermesGatewayPolicySource() throws -> String {
-        try loadMirroredSourceTextFile("Epistemos/LocalAgent/HermesGatewayPolicy.swift")
+        try loadMirroredSourceTextFile("Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift")
     }
 
     private func loadToolTierBridgeSource() throws -> String {

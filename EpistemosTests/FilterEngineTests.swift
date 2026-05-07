@@ -54,6 +54,15 @@ struct FilterEngineTests {
         #expect(!engine.isFiltered)
     }
 
+    @Test("app-level artifact nodes are visible by default")
+    func appLevelArtifactNodesVisibleByDefault() {
+        let engine = FilterEngine()
+        for type in [GraphNodeType.proseNote, .document, .code, .output] {
+            #expect(engine.isNodeVisible(makeNode(id: type.rawValue, type: type)),
+                    "\(type) must not disappear behind the default graph type filter")
+        }
+    }
+
     @Test("toggle type hides and shows")
     func toggleTypeHidesAndShows() {
         let engine = FilterEngine()
@@ -128,6 +137,16 @@ struct FilterEngineTests {
 
         engine.showAllEdgeTypes()
         #expect(engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: true))
+    }
+
+    @Test("app-level artifact edges are visible by default")
+    func appLevelArtifactEdgesVisibleByDefault() {
+        let engine = FilterEngine()
+        for type in GraphEdgeType.appLevelCases {
+            let edge = makeEdge(source: "a", target: "b", type: type)
+            #expect(engine.isEdgeVisible(edge, sourceVisible: true, targetVisible: true),
+                    "\(type) must not disappear behind the default graph edge filter")
+        }
     }
 
     @Test("agent vault mode excludes disabled source and quote nodes")

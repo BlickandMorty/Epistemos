@@ -7,10 +7,10 @@ import Testing
 struct CapabilityBridgeTests {
     private let signingKey = Data("capability-bridge-test-key-32-bytes".utf8)
 
-    @Test("Core App Store distribution denies external Hermes gateway surfaces")
+    @Test("Core App Store distribution denies external LocalAgent gateway surfaces")
     func coreDistributionDeniesExternalGatewaySurfaces() async throws {
         let bridge = CapabilityBridge(signingKey: signingKey)
-        for surface in HermesGatewaySurface.externalGatewaySurfaces {
+        for surface in LocalAgentGatewaySurface.externalGatewaySurfaces {
             let result = await bridge.issueGrant(
                 subject: .providerXPC,
                 kind: .other(name: "external"),
@@ -147,7 +147,7 @@ struct CapabilityBridgeTests {
         }
 
         #expect(source.contains("SovereignGateRequirement"))
-        #expect(source.contains("HermesGatewayPolicy.decision"))
+        #expect(source.contains("LocalAgentGatewayPolicy.decision"))
         #expect(source.contains("ToolSurfacePolicy.resolvedDistribution"))
         #expect(source.contains("Capability::BiometricSession { ttl_secs }"))
         #expect(source.contains("HMAC<SHA256>"))

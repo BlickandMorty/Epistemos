@@ -633,17 +633,22 @@ struct NoteWindowManagerTests {
         #expect(NotesSidebarGlyph.vaultChanges.activeSymbolName == "doc.badge.clock.fill")
     }
 
-    @Test("Graph overlay controls stay global-only and hide the tag filter pill")
+    @Test("Graph overlay controls stay global-only and hide noisy graph filter pills")
     func graphOverlayControlsStayGlobalOnly() {
         #expect(!GraphOverlayModePolicy.pageModeEnabled)
         #expect(!GraphOverlayControlsDisplay.showsPageModeToggle)
         #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.tag))
         #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.source))
         #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.quote))
+        #expect(GraphOverlayControlsDisplay.filterTypes.contains(.proseNote))
+        #expect(GraphOverlayControlsDisplay.filterTypes.contains(.document))
+        #expect(GraphOverlayControlsDisplay.filterTypes.contains(.code))
+        #expect(GraphOverlayControlsDisplay.filterTypes.contains(.output))
         #expect(
             GraphOverlayControlsDisplay.filterTypes == [
                 .note, .chat, .idea, .folder,
                 .person, .project, .topic, .decision, .event, .resource,
+                .run, .rawThought, .toolTrace, .proseNote, .document, .code, .output,
             ]
         )
     }

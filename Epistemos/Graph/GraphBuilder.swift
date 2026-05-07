@@ -550,12 +550,15 @@ final class GraphBuilder: Sendable {
         for (key, existing) in currentEdgeMap where expectedEdgeMap[key] == nil {
             let sourceNode = currentNodes.first { $0.id == existing.sourceNodeId }
             let targetNode = currentNodes.first { $0.id == existing.targetNodeId }
+            let touchesAppLevelArtifact =
+                sourceNode.map { GraphNodeType.appLevelCases.contains($0.nodeType) } == true
+                || targetNode.map { GraphNodeType.appLevelCases.contains($0.nodeType) } == true
             let touchesSourceOrQuoteNode =
                 sourceNode?.nodeType == .source
                 || sourceNode?.nodeType == .quote
                 || targetNode?.nodeType == .source
                 || targetNode?.nodeType == .quote
-            guard builderOwnedEdgeTypes.contains(existing.type)
+            guard (builderOwnedEdgeTypes.contains(existing.type) && !touchesAppLevelArtifact)
                     || existing.type == GraphEdgeType.quotes.rawValue
                     || touchesSourceOrQuoteNode
             else { continue }

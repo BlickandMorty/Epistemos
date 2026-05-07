@@ -114,7 +114,7 @@ User entry points:
 Runtime path:
 UI -> code editor controller/debouncer -> syntax/highlight/index service or sidecar -> code artifact persistence/search/graph -> visible code surface.
 Current gaps:
-- Product radar: add a high-performance native line-number gutter that does not collide with theme, scrollbars, selection, or diagnostics UI.
+- Native line numbers, indentation-derived folding arrows, invisibles, tab-vs-spaces, and VS Code-style indent guides are now wired through CodeEditSourceEditor plus the Epistemos segmented guide overlay; runtime visual smoke still needs to confirm the folding ribbon and guide alignment feel right in real files.
 - Product radar: prove 4k-line smooth scrolling with syntax highlighting enabled.
 - Architecture guard: Swift should own live TextKit/AppKit ranges, cursor, selection, IME, visible range, gutter, diagnostics UI, and scroll behavior.
 - Performance guard: avoid per-keystroke Rust/UniFFI crossings; use Rust for background parsing/indexing/code graph/build-test/agent provenance where measured safe.

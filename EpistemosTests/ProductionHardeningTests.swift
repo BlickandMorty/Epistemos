@@ -782,6 +782,11 @@ struct ReleasePackagingHardeningTests {
         #expect(script.contains("com.epistemos.appstore"))
         #expect(script.contains("--features \"mas-build,lsp-runtime\""))
         #expect(script.contains("--features \"pro-build,lsp-runtime\""))
+        #expect(script.contains(#"TEMP_OUTPUT="$(mktemp ../build-rust/libagent_core.XXXXXX)""#))
+        #expect(!script.contains(#"libagent_core.XXXXXX.dylib"#),
+                "macOS mktemp does not randomize XXXXXX when it is followed by a suffix; concurrent Xcode builds collide on the literal temp path.")
+        #expect(script.contains("trap cleanup_temp_output EXIT") && script.contains("trap - EXIT"),
+                "agent_core dylib staging must clean stale temp files on failure without deleting the finished dylib.")
         #expect(bridge.contains("#[cfg(not(feature = \"pro-build\"))]"))
         #expect(bridge.contains("#[cfg(feature = \"pro-build\")]"))
         #expect(bridge.contains("register_discovered_stdio_mcp_tools"))

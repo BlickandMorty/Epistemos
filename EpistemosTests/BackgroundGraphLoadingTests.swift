@@ -250,8 +250,10 @@ struct BackgroundGraphLoadingTests {
         let graphStateSource = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
         let graphViewSource = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
 
-        #expect(controllerSource.contains("if !graphState.isLoaded, let modelContainer {"))
+        #expect(controllerSource.contains("if autoLoadGraph, !graphState.isLoaded, let modelContainer {"))
         #expect(controllerSource.contains("Task(priority: .utility) {"))
+        #expect(controllerSource.contains("graphState.shouldSnapNextGlobalRecommitCamera = true\n            Task(priority: .utility)"),
+                "First graph open loads persisted data asynchronously; without a snap request, .epdoc artifact graphs can load off-camera until the user searches.")
         #expect(controllerSource.contains("await graphState.loadGraph(container: modelContainer)"))
         #expect(controllerSource.contains("overlay = HologramOverlay("))
         #expect(controllerSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"))
@@ -269,6 +271,121 @@ struct BackgroundGraphLoadingTests {
         #expect(graphViewSource.contains("if let graphState, lastGraphDataVersion != graphState.graphDataVersion {"))
         #expect(graphViewSource.contains("graph_engine_snap_camera_to_fit(engine)"))
         #expect(graphViewSource.contains("if window != nil, !isCommitted, graphState?.isLoaded == true {"))
+    }
+
+    @Test("document-launched graph command has a configured hologram controller")
+    func documentLaunchedGraphCommandHasConfiguredHologramController() throws {
+        let appSource = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let controllerSource = try loadRepoTextFile("Epistemos/Views/Graph/HologramController.swift")
+        let didFinish = try #require(appSource.range(of: "func applicationDidFinishLaunching"))
+        let didFinishBody = appSource[didFinish.lowerBound...]
+
+        #expect(didFinishBody.contains("HologramController.shared.setup("),
+                "Opening a .epdoc directly may skip the SwiftUI home scene; applicationDidFinishLaunching must still configure the graph overlay command.")
+        #expect(didFinishBody.contains("installKnowledgeGraphMenuFallback()"),
+                "NSDocument .epdoc windows need a native View-menu fallback because WindowGroup SwiftUI commands can appear without routing through document-only launches.")
+        #expect(appSource.contains("private func installKnowledgeGraphMenuFallback()"),
+                "The Knowledge Graph menu fallback must stay explicit and native instead of depending on an inactive WindowGroup command responder.")
+        #expect(appSource.contains("item.target = self\n        item.action = #selector(toggleKnowledgeGraphFromMenu(_:))"),
+                "The fallback should rebind the existing View menu item, not create a duplicate menu command.")
+        #expect(appSource.contains("@objc private func toggleKnowledgeGraphFromMenu(_ sender: NSMenuItem) {\n        HologramController.shared.toggle()\n    }"),
+                "The native Knowledge Graph fallback must open the full global graph; document focus belongs to the separate reveal action so users do not think graph nodes disappeared.")
+        #expect(appSource.contains("Reveal Current Document in Graph"),
+                "The .epdoc artifact reveal affordance should stay available as an explicit action, not overload the global Knowledge Graph command.")
+        #expect(appSource.contains("(NSApp.delegate as? EpistemosAppDelegate)?\n                    .revealCurrentDocumentInKnowledgeGraph(nil)"),
+                "The SwiftUI View menu must expose the document reveal action too; AppKit fallback insertion alone is too fragile at runtime.")
+        #expect(appSource.contains("if let revealItem = viewMenu.items.first(where: { $0.title == \"Reveal Current Document in Graph\" })"),
+                "The AppKit fallback should rebind the SwiftUI reveal menu item when it already exists, not leave it as a generic menuAction.")
+        #expect(appSource.contains("revealItem.action = #selector(revealCurrentDocumentInKnowledgeGraph(_:))"),
+                "The visible reveal item must route to the concrete AppKit selector in document-launched windows.")
+        #expect(appSource.contains("action: #selector(revealCurrentDocumentInKnowledgeGraph(_:))"),
+                "The document reveal menu item should route through a separate AppKit action.")
+        #expect(appSource.contains("@objc func revealCurrentDocumentInKnowledgeGraph(_ sender: Any?)"),
+                "The focused .epdoc reveal path should remain explicit and test-pinned.")
+        #expect(appSource.contains("HologramController.shared.revealDocument(epdoc.package.manifest.id)"),
+                "The explicit document reveal action should focus the active .epdoc artifact.")
+        #expect(appSource.contains("private func activeEpdocDocument() -> EpdocDocument?"),
+                "The explicit document reveal action should resolve the active .epdoc through AppKit document/window state, not a global singleton side channel.")
+        #expect(appSource.contains("let openEpdocs = NSDocumentController.shared.documents"),
+                "The active .epdoc resolver should inspect AppKit's open document list when currentDocument is unavailable during menu dispatch.")
+        #expect(appSource.contains("return window.isKeyWindow || window.isMainWindow"),
+                "The active .epdoc resolver needs a key/main-window fallback because NSDocumentController.currentDocument can lag during direct document launches.")
+        #expect(appSource.contains("return openEpdocs.count == 1 ? openEpdocs[0] : nil"),
+                "Direct .epdoc launches commonly have exactly one package open; the reveal action should still find that document if AppKit has no key/main document yet.")
+        #expect(controllerSource.contains("func toggle() {\n        ensureConfiguredFromSharedBootstrap()"),
+                "The menu command must late-bind the graph overlay when launch timing skips the home scene setup path.")
+        #expect(controllerSource.contains("func revealDocument(_ documentSourceId: String)"),
+                ".epdoc graph launches need a document artifact reveal path, separate from legacy note revealPage.")
+        #expect(controllerSource.contains("ensureOverlay(autoLoadGraph: false)"),
+                "Document reveals should own graph loading so they can center the artifact after persisted records are available.")
+        #expect(controllerSource.contains("await self.loadGraphForDocumentRevealIfNeeded()"),
+                "Document reveals must wait for graph records before resolving the .document node.")
+        #expect(controllerSource.contains("graphState.store.node(bySourceId: documentSourceId, type: .document)"),
+                ".epdoc graph focus must target the persisted .document artifact, not legacy .note nodes.")
+        #expect(controllerSource.contains("graphState.focusOnNode(node.id, depth: GraphOverlayModePolicy.focusDepth)"),
+                "The document graph command should focus the artifact plus its connected concepts so users do not see an unrelated global graph.")
+        #expect(controllerSource.contains("private func ensureConfiguredFromSharedBootstrap()"),
+                "Document-only launches need a fallback setup path owned by HologramController, not duplicate command-menu wiring.")
+        #expect(controllerSource.contains("guard graphState == nil, let bootstrap = AppBootstrap.shared else { return }"),
+                "Late binding should only run when the overlay controller is actually unconfigured.")
+        #expect(controllerSource.contains("if let screenObserver {\n            NotificationCenter.default.removeObserver(screenObserver)\n        }\n        observeScreenChanges()"),
+                "Graph overlay setup is called from both app delegate and home scene, so screen observation must stay idempotent.")
+    }
+
+    @Test("Hologram sidebar lists graph-visible app artifacts")
+    @MainActor
+    func hologramSidebarListsGraphVisibleAppArtifacts() {
+        let store = GraphStore()
+        let note = GraphNodeRecord(
+            id: "note-1",
+            type: .note,
+            label: "Notebook Note",
+            sourceId: "note-source",
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: .now,
+            position: .zero,
+            velocity: .zero
+        )
+        let document = GraphNodeRecord(
+            id: "document-1",
+            type: .document,
+            label: "Codex Loader Gate Smoke",
+            sourceId: "epdoc-source",
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: .now,
+            position: .zero,
+            velocity: .zero
+        )
+
+        store.loadFromRecords(nodeRecords: [document, note], edgeRecords: [])
+
+        let snapshot = HologramSidebarNotesTreeBuilder.build(store: store)
+
+        #expect(snapshot.noteById["note-1"]?.label == "Notebook Note")
+        #expect(snapshot.looseNoteIds == ["note-1"])
+        #expect(snapshot.artifactById["document-1"]?.type == .document)
+        #expect(snapshot.artifactById["document-1"]?.label == "Codex Loader Gate Smoke")
+        #expect(snapshot.looseArtifactIds == ["document-1"])
+    }
+
+    @Test("Hologram sidebar source keeps artifact section wired")
+    func hologramSidebarSourceKeepsArtifactSectionWired() throws {
+        let sidebarSource = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+
+        #expect(sidebarSource.contains("let artifactById: [String: GraphNodeRecord]"),
+                "The Hologram sidebar should index graph-visible .epdoc and app-level artifact nodes, not only legacy notes.")
+        #expect(sidebarSource.contains("let looseArtifactIds: [String]"),
+                "Standalone .epdoc artifacts should appear even when they are not nested under a folder.")
+        #expect(sidebarSource.contains("let artifactTypes = Set(GraphNodeType.appLevelCases)"),
+                "Artifact sidebar visibility should use the canonical app-level graph cases instead of a parallel hard-coded type list.")
+        #expect(sidebarSource.contains("sectionHeader(\"Artifacts\")"),
+                "The Notes tab must distinguish app artifacts from legacy note rows rather than showing an empty graph state.")
+        #expect(sidebarSource.contains("snapshot.rootFolderIds.isEmpty\n                    && snapshot.looseNoteIds.isEmpty\n                    && snapshot.looseArtifactIds.isEmpty"),
+                "The empty state should only appear when notes and app artifacts are both absent.")
+        #expect(sidebarSource.contains("emptyState(\"No files in graph\", icon: \"doc.text.magnifyingglass\")"),
+                "A graph containing only app artifacts should not say 'No notes in graph'.")
     }
 
     // MARK: - Edge Cases (Gate 4)

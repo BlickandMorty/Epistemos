@@ -1016,6 +1016,34 @@ struct GraphBuilderPersistTests {
             Issue.record("Test failed: \(error)")
         }
     }
+
+    @Test("persist preserves app-level artifact reference edges")
+    func persistPreservesAppLevelArtifactReferenceEdges() {
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+
+        do {
+            let container = try ModelContainer(for: schema, configurations: [config])
+            let context = ModelContext(container)
+
+            let document = SDGraphNode(type: .document, label: "Research Doc", sourceId: "epdoc-1")
+            let output = SDGraphNode(type: .output, label: "Export", sourceId: "output-1")
+            context.insert(document)
+            context.insert(output)
+            context.insert(SDGraphEdge(source: document.id, target: output.id, type: .reference))
+            try context.save()
+
+            let builder = GraphBuilder()
+            builder.persist(nodes: [], edges: [], context: context)
+
+            let edges = try context.fetch(FetchDescriptor<SDGraphEdge>())
+            #expect(edges.count == 1,
+                    "GraphBuilder structural rebuilds MUST NOT delete .epdoc/artifact projection edges")
+            #expect(edges.first?.edgeType == .reference)
+        } catch {
+            Issue.record("Test failed: \(error)")
+        }
+    }
     
     @Test("persist inserts new nodes")
     func persistInsertsNewNodes() {
