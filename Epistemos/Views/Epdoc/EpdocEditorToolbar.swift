@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - EpdocEditorToolbar
 //
@@ -61,6 +63,12 @@ public final class EpdocEditorToolbarModel {
     /// a no-op so the toolbar is renderable in isolation (previews +
     /// snapshot tests).
     public var dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void = { _ in }
+    /// Convert a picked local image into the `src` stored on the
+    /// Tiptap image node. `EpdocDocument` installs a package-local
+    /// asset writer; previews/tests keep the data-URL fallback.
+    public var resolvePickedImageSource: @MainActor (URL, Data, String) -> String? = { url, data, mimeType in
+        "data:\(mimeType);base64,\(data.base64EncodedString())"
+    }
 
     public init() {}
 }
@@ -92,18 +100,10 @@ public struct EpdocEditorToolbar: View {
             insertGroup
             divider
             structureGroup
-            Spacer()
-            statsBadge
-            saveButton
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.regularMaterial)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(.separator)
-                .frame(height: 0.5)
-        }
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 2)
     }
 
     // MARK: - Groups
@@ -121,6 +121,8 @@ public struct EpdocEditorToolbar: View {
         toolButton(symbol: "chevron.left.forwardslash.chevron.right", shortcut: "⌘E",
                    isActive: model.isCodeActive,
                    tip: "Inline code (⌘E)", command: .runCommand(name: "toggleCode",     argsJSON: emptyArgs))
+        toolButton(symbol: "curlybraces", shortcut: "⌘⇧C",
+                   tip: "Code block", command: .runCommand(name: "toggleCodeBlock", argsJSON: emptyArgs))
     }
 
     @ViewBuilder
@@ -128,17 +130,22 @@ public struct EpdocEditorToolbar: View {
         toolButton(symbol: "function",      shortcut: "⌘M",
                    tip: "Inline math",    command: .insertSlashChoice(blockType: "math-display"))
         toolButton(symbol: "link",          shortcut: "⌘K",
-                   tip: "Link (⌘K)",      command: .runCommand(name: "setLink",        argsJSON: emptyArgs))
+                   tip: "Link (⌘K)") {
+            promptAndDispatchLink()
+        }
     }
 
     @ViewBuilder
     private var insertGroup: some View {
         toolButton(symbol: "photo",         shortcut: "⌘⇧I",
-                   tip: "Image",          command: .insertSlashChoice(blockType: "image"))
+                   tip: "Image") {
+            promptAndDispatchImage()
+        }
         toolButton(symbol: "tablecells",
                    tip: "Table 3×3",      command: .insertSlashChoice(blockType: "table-3x3"))
         toolButton(symbol: "flowchart",
-                   tip: "Mermaid diagram", command: .insertSlashChoice(blockType: "mermaid"))
+                   tip: "Insert document diagram",
+                   command: .runCommand(name: "insertEpdocGraphFromDocument", argsJSON: emptyArgs))
         toolButton(symbol: "minus",         shortcut: "⌘⇧R",
                    tip: "Divider",        command: .insertSlashChoice(blockType: "divider"))
     }
@@ -161,41 +168,6 @@ public struct EpdocEditorToolbar: View {
                    tip: "Task list",      command: .insertSlashChoice(blockType: "task-list"))
     }
 
-    // MARK: - Right cluster
-
-    @ViewBuilder
-    private var statsBadge: some View {
-        Text("\(model.wordCount) words · \(model.characterCount) chars")
-            .font(.system(size: 11, weight: .regular, design: .monospaced))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(.quaternary, in: Capsule())
-            .help("Word + character counts")
-    }
-
-    @ViewBuilder
-    private var saveButton: some View {
-        Button {
-            onSave()
-        } label: {
-            if model.isSaving {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 14, height: 14)
-            } else {
-                Image(systemName: "tray.and.arrow.down")
-                    .symbolRenderingMode(.hierarchical)
-            }
-        }
-        .buttonStyle(.borderless)
-        .keyboardShortcut("s", modifiers: .command)
-        .tint(model.isDirty ? .accentColor : .secondary)
-        .help(model.isDirty ? "Save (⌘S)" : "All changes saved")
-        .disabled(model.isSaving)
-        .frame(width: 28, height: 28)
-    }
-
     // MARK: - Helpers
 
     @ViewBuilder
@@ -204,12 +176,18 @@ public struct EpdocEditorToolbar: View {
         shortcut: String? = nil,
         isActive: Bool = false,
         tip: String,
-        command: EpdocEditorCommand
+        command: EpdocEditorCommand? = nil,
+        action: (@MainActor () -> Void)? = nil
     ) -> some View {
         Button {
-            model.dispatch(command)
+            if let action {
+                action()
+            } else if let command {
+                model.dispatch(command)
+            }
         } label: {
-            Image(systemName: symbol)
+            Label(tip, systemImage: symbol)
+                .labelStyle(.iconOnly)
                 .symbolRenderingMode(.hierarchical)
                 .frame(width: 24, height: 24)
         }
@@ -223,7 +201,7 @@ public struct EpdocEditorToolbar: View {
                 .stroke(isActive ? Color.accentColor.opacity(0.45) : Color.clear, lineWidth: 1)
         )
         .help(tip + (shortcut.map { " (\($0))" } ?? ""))
-        .accessibilityLabel(tip)
+        .accessibilityLabel(Text(tip))
     }
 
     private var divider: some View {
@@ -236,6 +214,93 @@ public struct EpdocEditorToolbar: View {
     /// Convenience constant for commands that don't take args.
     private var emptyArgs: Data {
         "[]".data(using: .utf8) ?? Data()
+    }
+
+    private func promptAndDispatchLink() {
+        guard let href = promptText(
+            title: "Link URL",
+            informativeText: "Insert a link at the current selection.",
+            defaultText: "https://"
+        ) else { return }
+        model.dispatch(.runCommand(
+            name: "setLink",
+            argsJSON: commandArgsJSON([LinkCommandArgs(href: href)])
+        ))
+    }
+
+    private func promptAndDispatchImage() {
+        guard let src = pickImageSource() else { return }
+        model.dispatch(.runCommand(
+            name: "insertEpdocImage",
+            argsJSON: commandArgsJSON([ImageCommandArgs(src: src, alt: "")])
+        ))
+    }
+
+    private func pickImageSource() -> String? {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Image"
+        panel.message = "Insert a local image into this Epistemos document."
+        panel.prompt = "Insert"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.image]
+
+        guard panel.runModal() == .OK,
+              let url = panel.url,
+              let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+              let byteCount = values.fileSize,
+              byteCount <= 20 * 1024 * 1024,
+              let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+
+        return model.resolvePickedImageSource(url, data, Self.imageMIMEType(for: url))
+    }
+
+    private func promptText(
+        title: String,
+        informativeText: String,
+        defaultText: String
+    ) -> String? {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = informativeText
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Insert")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(string: defaultText)
+        input.frame = NSRect(x: 0, y: 0, width: 360, height: 24)
+        alert.accessoryView = input
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let value = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    private func commandArgsJSON<T: Encodable>(_ args: [T]) -> Data {
+        (try? JSONEncoder().encode(args)) ?? emptyArgs
+    }
+
+    private struct LinkCommandArgs: Encodable {
+        let href: String
+    }
+
+    private struct ImageCommandArgs: Encodable {
+        let src: String
+        let alt: String
+    }
+
+    private static func imageMIMEType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "heic": return "image/heic"
+        case "webp": return "image/webp"
+        case "svg": return "image/svg+xml"
+        default: return "image/png"
+        }
     }
 }
 

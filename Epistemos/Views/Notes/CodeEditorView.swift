@@ -1,10 +1,11 @@
 // CodeEditorView.swift
 //
 // Native code editor surface for Epistemos. CodeEditSourceEditor owns the
-// live TextKit/AppKit editing canvas; Epistemos layers a right-side line
-// gutter, outline, code ask bar, and related-note/insight sidecars around it.
-// Live syntax stays close to the Swift/AppKit range model while heavier code
-// intelligence remains a background/LSP concern.
+// live TextKit/AppKit editing canvas; Epistemos layers outline navigation,
+// code ask, and related-note/insight sidecars around its native gutter,
+// folding, whitespace, and syntax affordances. Live syntax stays close to the
+// Swift/AppKit range model while heavier code intelligence remains a
+// background/LSP concern.
 //
 // 2026-04-06.
 
@@ -16,15 +17,15 @@ import SwiftUI
 import SwiftData
 import Accelerate
 
-// MARK: - Flat Epistemos Themes (matching prose editor simplicity)
-// Minimal syntax highlighting - uses Epistemos theme colors for consistency
-// with the note system. No layered/Xcode-style color complexity.
+// MARK: - Native Epistemos Code Themes
+// Syntax stays native and readable: code deserves semantic color, while the
+// surrounding chrome still follows Epistemos' quiet note-canvas surfaces.
 extension EditorTheme {
     private static func normalized(_ color: NSColor) -> NSColor {
         color.rgbSafeForCodeEditorTheme()
     }
 
-    /// Flat light theme - matches prose editor's simplicity.
+    /// Light editor theme with Xcode-like semantic contrast.
     /// Text and subtle colors default to the neutral grays tuned for the
     /// base light theme, but callers should pass the active EpistemosTheme's
     /// foreground + mutedForeground so syntax colors track the app theme
@@ -51,21 +52,20 @@ extension EditorTheme {
             background: background,
             lineHighlight: lineHighlightColor,
             selection: selectionColor,
-            // Minimal syntax highlighting - just accent for keywords, rest are text color
-            keywords: .init(color: accent, bold: false),
-            commands: .init(color: textColor),
-            types: .init(color: textColor),
-            attributes: .init(color: textColor),
-            variables: .init(color: textColor),
-            values: .init(color: textColor),
-            numbers: .init(color: accent),
-            strings: .init(color: accent),
-            characters: .init(color: accent),
-            comments: .init(color: subtleColor, italic: false)
+            keywords: .init(color: normalized(NSColor(hex: "AD3DA4")), bold: true),
+            commands: .init(color: normalized(NSColor(hex: "326D74"))),
+            types: .init(color: normalized(NSColor(hex: "0B4F79"))),
+            attributes: .init(color: normalized(NSColor(hex: "815F03"))),
+            variables: .init(color: normalized(NSColor(hex: "0F68A0"))),
+            values: .init(color: normalized(NSColor(hex: "6432A8"))),
+            numbers: .init(color: normalized(NSColor(hex: "1C00CF"))),
+            strings: .init(color: normalized(NSColor(hex: "C41A16"))),
+            characters: .init(color: normalized(NSColor(hex: "1C00CF"))),
+            comments: .init(color: subtleColor, italic: true)
         )
     }
     
-    /// Flat dark theme - matches prose editor's simplicity.
+    /// Dark editor theme with readable native token contrast.
     /// Text and subtle colors default to the neutral grays tuned for the
     /// base dark theme, but callers should pass the active EpistemosTheme's
     /// foreground + mutedForeground so syntax colors track the app theme
@@ -92,17 +92,16 @@ extension EditorTheme {
             background: background,
             lineHighlight: lineHighlightColor,
             selection: selectionColor,
-            // Minimal syntax highlighting - just accent for keywords, rest are text color
-            keywords: .init(color: accent, bold: false),
-            commands: .init(color: textColor),
-            types: .init(color: textColor),
-            attributes: .init(color: textColor),
-            variables: .init(color: textColor),
-            values: .init(color: textColor),
-            numbers: .init(color: accent),
-            strings: .init(color: accent),
-            characters: .init(color: accent),
-            comments: .init(color: subtleColor, italic: false)
+            keywords: .init(color: normalized(NSColor(hex: "FF7AB2")), bold: true),
+            commands: .init(color: normalized(NSColor(hex: "78C2B3"))),
+            types: .init(color: normalized(NSColor(hex: "6BDFFF"))),
+            attributes: .init(color: normalized(NSColor(hex: "CC9768"))),
+            variables: .init(color: normalized(NSColor(hex: "4EB0CC"))),
+            values: .init(color: normalized(NSColor(hex: "B281EB"))),
+            numbers: .init(color: normalized(NSColor(hex: "D9C97C"))),
+            strings: .init(color: normalized(NSColor(hex: "FF8170"))),
+            characters: .init(color: normalized(NSColor(hex: "D9C97C"))),
+            comments: .init(color: subtleColor, italic: true)
         )
     }
     
@@ -1225,10 +1224,11 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
-    // Right-side line-number gutter. Default ON; toggleable from the
-    // editor View Options menu and Settings → Appearance → Editor.
-    // Theme-aware (uses derived gutter tokens, not hard-coded colors).
+    // Native CodeEditSourceEditor gutter. Default ON: this is the real
+    // left-side IDE line-number gutter, not the old right-edge overlay.
     @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
+    @AppStorage("epistemos.codeEditor.showFoldingRibbon") private var showFoldingRibbon = true
+    @AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true
     
     // MARK: - UI State
 
@@ -1292,9 +1292,18 @@ struct CodeEditorView: View {
                 updateBreadcrumbs()
             }
             .onChange(of: showLineGutter) { _, enabled in
-                sourceEditorCoordinator?.setLineGutterEnabled(enabled)
+                // The native SourceEditor gutter handles visible line
+                // numbers. Keep Epistemos' old right-edge fallback dormant
+                // so users do not see two independent gutter systems.
+                sourceEditorCoordinator?.setLineGutterEnabled(false)
             }
             .onChange(of: fontSize) { _, _ in
+                applyGutterPreferences()
+            }
+            .onChange(of: tabWidth) { _, _ in
+                applyGutterPreferences()
+            }
+            .onChange(of: showIndentationGuides) { _, _ in
                 applyGutterPreferences()
             }
             .onChange(of: ui.theme) { _, _ in
@@ -1307,9 +1316,14 @@ struct CodeEditorView: View {
     /// preference changes.
     private func applyGutterPreferences() {
         guard let coordinator = sourceEditorCoordinator else { return }
-        coordinator.setLineGutterEnabled(showLineGutter)
+        // Native SourceEditor gutter/folding is the live surface. The custom
+        // right-edge gutter remains as fallback scaffold but is not shown.
+        coordinator.setLineGutterEnabled(false)
         coordinator.applyGutterTokens(ui.theme.editorGutterTokens())
-        coordinator.applyEditorBodyFont(.monospacedSystemFont(ofSize: fontSize, weight: .regular))
+        let editorFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        coordinator.applyEditorBodyFont(editorFont)
+        coordinator.setIndentationGuidesEnabled(showIndentationGuides)
+        coordinator.applyIndentationGuideMetrics(font: editorFont, tabWidth: tabWidth)
         coordinator.applyLineGutterState(totalLines: totalLines, cursorLine: cursorLine)
     }
 
@@ -1341,6 +1355,7 @@ struct CodeEditorView: View {
                 debouncer?.enqueue(newText)
             }
         )
+        coordinator.setLineGutterEnabled(false)
         sourceEditorCoordinator = coordinator
     }
     
@@ -1611,6 +1626,9 @@ struct CodeEditorView: View {
                 Toggle("Outline Navigator", isOn: $showOutlineNavigator)
                 Toggle("Show Invisibles", isOn: $showInvisibles)
                 Toggle("Show Line Numbers", isOn: $showLineGutter)
+                Toggle("Folding Arrows", isOn: $showFoldingRibbon)
+                    .disabled(!showLineGutter)
+                Toggle("Indent Guides", isOn: $showIndentationGuides)
             }
 
         } label: {
@@ -1758,21 +1776,27 @@ struct CodeEditorView: View {
                 tabWidth: tabWidth,
                 bracketPairEmphasis: .flash
             ),
-            behavior: .init(),
+            behavior: .init(
+                indentOption: useSpaces ? .spaces(count: tabWidth) : .tab
+            ),
             peripherals: .init(
-                // Matching the prose editor's chrome — no gutter, no
-                // folding ribbon, no minimap. The code pane is "prose
-                // that happens to be monospaced with syntax colors."
-                showGutter: false,
+                showGutter: showLineGutter,
                 showMinimap: false,
-                showFoldingRibbon: false
+                showFoldingRibbon: showLineGutter && showFoldingRibbon,
+                invisibleCharactersConfiguration: invisibleCharactersConfiguration
             )
         )
     }
 
-    // MARK: - Theme (Flat Epistemos Themes)
-    // Uses minimal syntax highlighting to match prose editor's simplicity.
-    // Change `useMinimalTheme` to true for zero syntax highlighting.
+    private var invisibleCharactersConfiguration: InvisibleCharactersConfiguration {
+        showInvisibles
+            ? InvisibleCharactersConfiguration(showSpaces: true, showTabs: true, showLineEndings: true)
+            : .empty
+    }
+
+    // MARK: - Theme Selection
+    // The semantic theme is live by default. The minimal theme remains as an
+    // explicit fallback for accessibility or debugging, not the canonical look.
 
     private let useMinimalTheme = false  // Set to true for no syntax highlighting at all
 
@@ -1825,9 +1849,9 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private var lastText: String = ""
     private var indentationGuideRefreshTask: Task<Void, Never>?
 
-    // Line-number gutter (right-side, theme-aware). Modeled on the
-    // indentation guide: a subview of the textView with scroll offset
-    // applied at draw time. Hidden when `showGutter == false`.
+    // Dormant fallback line-number gutter (right-side, theme-aware). The live
+    // user surface is CodeEditSourceEditor's native left gutter; this scaffold
+    // stays hidden unless we deliberately need a fallback during future audits.
     private weak var gutterView: CodeLineGutterView?
     private var showGutter: Bool = true
     private var gutterTokens: CodeLineGutterTokens = CodeLineGutterTokens(
@@ -1860,7 +1884,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         setupLineGutter(controller: controller)
     }
 
-    /// Installs the right-side line-number gutter. Mirrors the
+    /// Installs the dormant right-side fallback gutter. Mirrors the
     /// indent-guide setup so both views share the same scroll bridge.
     private func setupLineGutter(controller: TextViewController) {
         guard let tv = controller.textView else { return }
@@ -1931,6 +1955,27 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         }
     }
 
+    func setIndentationGuidesEnabled(_ enabled: Bool) {
+        guard indentGuideView?.isHidden == enabled else { return }
+        indentGuideView?.isHidden = !enabled
+        if enabled, let text = textController?.textView?.string {
+            scheduleIndentationGuideRefresh(for: text, immediate: true)
+        }
+    }
+
+    func applyIndentationGuideMetrics(font: NSFont, tabWidth: Int) {
+        guard let guideView = indentGuideView,
+              let textView = textController?.textView else { return }
+        guideView.applyEditorMetrics(
+            font: font,
+            tabWidth: tabWidth,
+            leadingTextInset: textView.textInsets.left
+        )
+        if !guideView.isHidden {
+            scheduleIndentationGuideRefresh(for: textView.string, immediate: true)
+        }
+    }
+
     private func gutterFrame(in tv: NSView) -> NSRect {
         let width = gutterView?.gutterWidth ?? 28
         return NSRect(
@@ -1986,9 +2031,13 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         
         // Use the new segmented indentation guide
         let guideView = SegmentedIndentationGuideView()
-        guideView.indentWidth = 16
-        guideView.lineHeight = tv.font.pointSize * 1.35
-        guideView.tabWidth = 4
+        guideView.applyEditorMetrics(
+            font: tv.font,
+            tabWidth: Self.visibleIndentColumnCount(
+                for: controller.configuration.behavior.indentOption
+            ),
+            leadingTextInset: tv.textInsets.left
+        )
         guideView.autoresizingMask = [.width, .height]
         guideView.frame = tv.bounds
         
@@ -2012,6 +2061,15 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
 
         scheduleIndentationGuideRefresh(for: tv.string, immediate: true)
     }
+
+    private static func visibleIndentColumnCount(for option: IndentOption) -> Int {
+        switch option {
+        case .spaces(let count):
+            max(1, count)
+        case .tab:
+            4
+        }
+    }
     
     private var scrollDebounceTask: Task<Void, Never>?
     
@@ -2031,7 +2089,8 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private func updateIndentationGuides() {
         guard let controller = textController,
               let textView = controller.textView,
-              let guideView = indentGuideView else { return }
+              let guideView = indentGuideView,
+              !guideView.isHidden else { return }
         
         // Update frame to match parent
         guideView.frame = textView.bounds
@@ -2064,7 +2123,8 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private func updateIndentationGuideScrollOffset() {
         guard let controller = textController,
               let textView = controller.textView,
-              let guideView = indentGuideView else { return }
+              let guideView = indentGuideView,
+              !guideView.isHidden else { return }
 
         let scrollOffset: CGFloat
         if let scrollView = textView.enclosingScrollView {
@@ -2162,9 +2222,8 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
 // Lightweight syntax-highlighted views for the graph inspector panel.
 // No minimap, no line numbers — just clean colored code.
 
-// NOTE: The old CodeEditorRepresentable, CodeTextView, LineNumberGutter, and MinimapView
-// were removed — replaced by the mchakravarty/CodeEditorView SwiftUI package above.
-// See git history for the original NSViewRepresentable implementation.
+// NOTE: Older bespoke TextKit editor shells were removed. The live editor is
+// CodeEditSourceEditor plus the small Epistemos coordinator/sidecar layer above.
 
 // ──── DEAD CODE REMOVED (736 lines) ────
 // Removed: CodeEditorRepresentable, Coordinator, CodeTextView, LineNumberGutter, MinimapView

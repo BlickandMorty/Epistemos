@@ -23,8 +23,8 @@ import Foundation
 //
 // Coverage in this base wave:
 //   Node types:  doc, paragraph, heading (h1-h6), bullet_list,
-//                ordered_list, list_item, blockquote, code_block,
-//                horizontal_rule, hard_break, text
+//                ordered_list, list_item, blockquote, code_block/codeBlock,
+//                mermaid, epdocChart, horizontal_rule, hard_break, text
 //   Mark types:  strong (**), em (*), code (`), link ([]())
 //
 // Anything else passes through as the node's `text` (or empty) — the
@@ -79,6 +79,13 @@ nonisolated public struct ProseMirrorAttrs: Codable, Sendable, Hashable {
     /// W7.7 — Math node (KaTeX). The LaTeX source string for both
     /// `math_inline` (`$x=1$`) and `math_display` (`$$…$$`).
     public let formula: String?
+    /// Tiptap's current `@tiptap/extension-mathematics` stores the
+    /// source under `latex` on `inlineMath` / `blockMath` nodes.
+    public let latex: String?
+    /// Image / embed source URL.
+    public let src: String?
+    /// Image alternate text.
+    public let alt: String?
     /// W7.8 — Footnote / callout / heading anchor identifier. For
     /// `footnote_reference` this is the marker (e.g. `1` → `[^1]`);
     /// for `callout` it's a slug used by the heading-anchor extension.
@@ -95,6 +102,9 @@ nonisolated public struct ProseMirrorAttrs: Codable, Sendable, Hashable {
         language: String? = nil,
         title: String? = nil,
         formula: String? = nil,
+        latex: String? = nil,
+        src: String? = nil,
+        alt: String? = nil,
         id: String? = nil,
         checked: Bool? = nil,
         kind: String? = nil
@@ -104,6 +114,9 @@ nonisolated public struct ProseMirrorAttrs: Codable, Sendable, Hashable {
         self.language = language
         self.title = title
         self.formula = formula
+        self.latex = latex
+        self.src = src
+        self.alt = alt
         self.id = id
         self.checked = checked
         self.kind = kind
@@ -222,7 +235,7 @@ nonisolated public enum ProseMirrorMarkdownProjector {
             state.footnoteDefs.append(contentsOf: inner.footnoteDefs)
             state.out.append("\n")
 
-        case "code_block":
+        case "code_block", "codeBlock":
             let lang = node.attrs?.language ?? ""
             state.out.append("```\(lang)\n")
             for child in node.content ?? [] {
@@ -242,17 +255,17 @@ nonisolated public enum ProseMirrorMarkdownProjector {
 
         // MARK: - W7.7 — Math (KaTeX) inline + display
 
-        case "math_inline":
+        case "math_inline", "inlineMath":
             // Per Alexandrie's `katex.ts` the inline syntax is `$…$`.
             // Pandoc reads this natively too so the .docx export gets
             // proper math without a writer change.
-            let formula = node.attrs?.formula ?? extractTextContent(node)
+            let formula = node.attrs?.formula ?? node.attrs?.latex ?? extractTextContent(node)
             state.out.append("$\(formula)$")
 
-        case "math_display":
+        case "math_display", "blockMath":
             // Display math sits as its own block: blank-line / `$$…$$`
             // / blank-line so paragraphs around it don't fuse.
-            let formula = node.attrs?.formula ?? extractTextContent(node)
+            let formula = node.attrs?.formula ?? node.attrs?.latex ?? extractTextContent(node)
             state.out.append("$$\n\(formula)\n$$\n\n")
 
         // MARK: - W7.8 — Markdown plugin nodes (footnote / task / callout)
@@ -315,6 +328,22 @@ nonisolated public enum ProseMirrorMarkdownProjector {
                 if let t = child.text { state.out.append(t) }
             }
             state.out.append("\n```\n\n")
+
+        case "epdocChart":
+            // Charts store a small JSON spec as text content. The
+            // projection keeps it grep-able and export-safe without
+            // pretending every markdown reader can render the chart.
+            state.out.append("```epdoc-chart\n")
+            for child in node.content ?? [] {
+                if let t = child.text { state.out.append(t) }
+            }
+            state.out.append("\n```\n\n")
+
+        case "epdocImage", "image":
+            if let src = node.attrs?.src, !src.isEmpty {
+                let alt = node.attrs?.alt ?? ""
+                state.out.append("![\(alt)](\(src))\n\n")
+            }
 
         default:
             // Unknown node — emit raw text content if any, then recurse.

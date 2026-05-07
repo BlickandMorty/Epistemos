@@ -156,10 +156,65 @@ nonisolated struct CodeEditorPolishTests {
                 "The old ad-hoc 500ms content-change debounce should not remain in the editor text-change path.")
     }
 
+    @Test("CodeEditorView uses native SourceEditor affordances for line numbers, invisibles, and indentation")
+    func codeEditorViewUsesNativeSourceEditorAffordances() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(source.contains("showGutter: showLineGutter"),
+                "Line numbers should use CodeEditSourceEditor's native left gutter, not a permanently disabled SourceEditor gutter.")
+        #expect(source.contains("showFoldingRibbon: showLineGutter && showFoldingRibbon"),
+                "Folding arrows should use the native SourceEditor ribbon and stay gated by the line-number gutter.")
+        #expect(source.contains("private var invisibleCharactersConfiguration"),
+                "The existing Show Invisibles toggle must feed a real SourceEditor invisible-character configuration.")
+        #expect(source.contains("invisibleCharactersConfiguration: invisibleCharactersConfiguration"),
+                "SourceEditorConfiguration must consume the Show Invisibles preference.")
+        #expect(source.contains("indentOption: useSpaces ? .spaces(count: tabWidth) : .tab"),
+                "The existing Use Spaces preference must drive CodeEditSourceEditor's tab insertion behavior.")
+        #expect(source.contains(#"Toggle("Folding Arrows", isOn: $showFoldingRibbon)"#),
+                "The native folding ribbon should be user-toggleable from the editor view menu.")
+        #expect(source.contains(#"@AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true"#),
+                "Indent guides should be a first-class code-editor preference, not an always-on fake overlay.")
+        #expect(source.contains(#"Toggle("Indent Guides", isOn: $showIndentationGuides)"#),
+                "The user must be able to toggle VS Code-style indentation guides from the editor view menu.")
+        #expect(source.contains("coordinator.applyIndentationGuideMetrics(font: editorFont, tabWidth: tabWidth)"),
+                "Indent guides must align to the live font metrics and tab width preference.")
+        #expect(source.contains("Self.visibleIndentColumnCount("),
+                "Initial indent-guide metrics must derive from the public SourceEditor indentation option.")
+        #expect(source.contains("case .spaces(let count):"),
+                "Indent guide setup should inspect SourceEditor's public spaces-count case instead of package-internal fields.")
+    }
+
+    @Test("Segmented indentation guides align to real editor metrics, not fixed decorative offsets")
+    func segmentedIndentationGuidesUseEditorMetrics() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/SegmentedIndentationGuideView.swift")
+
+        #expect(source.contains("func applyEditorMetrics(font: NSFont, tabWidth: Int, leadingTextInset: CGFloat)"),
+                "The VS Code-style guides should consume the live editor font, tab width, and leading text inset.")
+        #expect(source.contains(#"(" " as NSString).size(withAttributes: [.font: font]).width"#),
+                "Guide columns should be computed from the actual monospaced space width.")
+        #expect(source.contains("indentWidth = nextIndentWidth"),
+                "Guide spacing should follow the editor metrics instead of a hard-coded 16px column.")
+        #expect(source.contains("leadingTextInset + CGFloat(level) * indentWidth"),
+                "Guide drawing should be offset by the CodeEdit text inset so the lines sit under indented code.")
+        #expect(!source.contains("let x = CGFloat(level) * indentWidth"),
+                "The old inset-free guide placement would make indentation guides feel detached from the code text.")
+    }
+
+    @Test("CodeEditorView syntax theme does not collapse semantic tokens into plain body text")
+    func codeEditorViewSyntaxThemeKeepsSemanticContrast() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(source.contains(#"keywords: .init(color: normalized(NSColor(hex: "AD3DA4")), bold: true)"#))
+        #expect(source.contains(#"types: .init(color: normalized(NSColor(hex: "0B4F79")))"#))
+        #expect(source.contains(#"strings: .init(color: normalized(NSColor(hex: "C41A16")))"#))
+        #expect(source.contains(#"keywords: .init(color: normalized(NSColor(hex: "FF7AB2")), bold: true)"#))
+        #expect(source.contains(#"types: .init(color: normalized(NSColor(hex: "6BDFFF")))"#))
+        #expect(source.contains(#"strings: .init(color: normalized(NSColor(hex: "FF8170")))"#))
+        #expect(source.contains("private let useMinimalTheme = false"),
+                "The live editor should default to the semantic native theme, not the no-highlight fallback.")
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
-        let testFile = URL(fileURLWithPath: #filePath)
-        let repoRoot = testFile.deletingLastPathComponent().deletingLastPathComponent()
-        let url = repoRoot.appendingPathComponent(relativePath)
-        return try String(contentsOf: url, encoding: .utf8)
+        try loadMirroredSourceTextFile(relativePath)
     }
 }

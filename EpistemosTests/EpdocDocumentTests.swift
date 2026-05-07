@@ -44,6 +44,9 @@ struct EpdocDocumentTests {
         let parsed = try? JSONSerialization.jsonObject(with: doc.package.contentJSON)
         #expect(parsed != nil,
                 "default contentJSON must parse as JSON so Tiptap can setContent it")
+        let text = String(data: doc.package.contentJSON, encoding: .utf8) ?? ""
+        #expect(text.contains(#""type":"paragraph""#),
+                "new .epdoc packages should include an empty paragraph so Tiptap shows a caret + placeholder instead of a blank web view.")
     }
 
     // MARK: - read / write round-trip via FileWrapper
@@ -195,5 +198,50 @@ struct EpdocDocumentTests {
         doc.setTitle("Renamed")
         #expect(doc.package.manifest.title == "Renamed")
         #expect(doc.isDocumentEdited)
+    }
+
+    @Test("storeImageAsset writes package-local media without bloating contentJSON")
+    func storeImageAssetWritesPackageLocalMedia() throws {
+        let doc = EpdocDocument()
+        let originalContent = doc.package.contentJSON
+        let image = Data([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a])
+
+        let src = doc.storeImageAsset(
+            data: image,
+            originalFilename: "diagram.PNG",
+            mimeType: "image/png"
+        )
+
+        #expect(src.hasPrefix("assets/image-"))
+        #expect(src.hasSuffix(".png"))
+        #expect(!src.hasPrefix("data:"),
+                "Saved .epdoc documents should insert package-local image references, not base64 data URLs.")
+        #expect(doc.package.contentJSON == originalContent,
+                "Adding an image asset must not stuff binary bytes into content.pm.json.")
+        let name = try #require(src.split(separator: "/").last.map(String.init))
+        #expect(doc.package.assets[name] == image)
+
+        let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
+        let decoded = try EpdocPackage(fileWrapper: wrapper)
+        #expect(decoded.assets[name] == image,
+                "Package-local media must round-trip through the .epdoc FileWrapper bridge.")
+    }
+
+    @Test("resolveEditorAsset serves only flat package asset names")
+    func resolveEditorAssetServesOnlyFlatPackageAssets() {
+        let doc = EpdocDocument()
+        let image = Data([0x47, 0x49, 0x46])
+        let src = doc.storeImageAsset(
+            data: image,
+            originalFilename: "sample.gif",
+            mimeType: "image/gif"
+        )
+
+        let resolved = doc.resolveEditorAsset(relativePath: src)
+        #expect(resolved?.data == image)
+        #expect(resolved?.mimeType == "image/gif")
+        #expect(doc.resolveEditorAsset(relativePath: "assets/../sample.gif") == nil)
+        #expect(doc.resolveEditorAsset(relativePath: "assets/nested/sample.gif") == nil)
+        #expect(doc.resolveEditorAsset(relativePath: "editor.js") == nil)
     }
 }

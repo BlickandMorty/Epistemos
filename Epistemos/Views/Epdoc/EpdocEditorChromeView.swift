@@ -1,4 +1,5 @@
 import Combine
+import AppKit
 import OSLog
 import QuartzCore
 import SwiftUI
@@ -48,6 +49,41 @@ enum EpdocWebViewShared {
     }
 }
 
+@MainActor
+private final class EpdocEditorWebView: WKWebView {
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard let menu = super.menu(for: event) else { return nil }
+        EpdocContextMenuSanitizer.removeUnsafeBrowserCommands(from: menu)
+        return menu.items.isEmpty ? nil : menu
+    }
+}
+
+@MainActor
+private enum EpdocContextMenuSanitizer {
+    static func removeUnsafeBrowserCommands(from menu: NSMenu) {
+        for item in menu.items {
+            if let submenu = item.submenu {
+                removeUnsafeBrowserCommands(from: submenu)
+            }
+        }
+        for item in menu.items.reversed() where isUnsafeBrowserCommand(item) {
+            menu.removeItem(item)
+        }
+    }
+
+    private static func isUnsafeBrowserCommand(_ item: NSMenuItem) -> Bool {
+        if item.isSeparatorItem { return false }
+        let title = item.title.lowercased()
+        let action = item.action.map { NSStringFromSelector($0).lowercased() } ?? ""
+        return title.contains("reload")
+            || title.contains("back")
+            || title.contains("forward")
+            || action.contains("reload")
+            || action.contains("goback")
+            || action.contains("goforward")
+    }
+}
+
 // MARK: - Controller (Observable view-state)
 
 /// The view-state + command-dispatch surface the chrome view binds
@@ -75,6 +111,10 @@ public final class EpdocEditorChromeController {
     public var katexPreviewFormula: String? = nil
     public var katexDisplayMode: EpdocKaTeXPreview.DisplayMode = .display
     public var katexPreviewAnchor: EpdocBridgeRect? = nil
+    private var initialContentJSON: Data?
+    private var editorIsReady = false
+    private var bridgeDispatchInstalled = false
+    private var didPushInitialContent = false
 
     // MARK: - Dispatch + persistence wiring
     /// Fire a Swift → JS command. The chrome installs this on every
@@ -104,6 +144,13 @@ public final class EpdocEditorChromeController {
     public var onSearchLinks: @Sendable @MainActor (String) async -> [EpdocLinkSuggestion]
     /// Open the agent inspector for a specific RawThought run id.
     public var onPickRun: @Sendable @MainActor (String) -> Void
+    /// Resolve package-local assets for the `epistemos-doc:///assets/...`
+    /// URL-scheme path. The owning `EpdocDocument` installs this so the
+    /// WebView can render media stored in the `.epdoc` package.
+    public var onResolveDocumentAsset: @MainActor (String) -> EpdocEditorDocumentAsset?
+    /// Store a pasted/dropped image in the owning `.epdoc` package and
+    /// return the image node src. Previews keep a data-URL fallback.
+    public var onStoreDocumentAsset: @MainActor (String, String, Data) -> String?
 
     /// Internal autosave debouncer. Created lazily by
     /// `attachAutosavePipeline(save:)`; otherwise nil and the
@@ -119,11 +166,63 @@ public final class EpdocEditorChromeController {
         self.onCaptureAsRawThought = { _ in }
         self.onSearchLinks = { _ in [] }
         self.onPickRun = { _ in }
+        self.onResolveDocumentAsset = { _ in nil }
+        self.onStoreDocumentAsset = { filename, mimeType, data in
+            "data:\(mimeType);base64,\(data.base64EncodedString())"
+        }
         // Wire the toolbar model's dispatch through to the chrome's
         // dispatch so toolbar buttons trigger the same path floating
         // panels do.
         self.toolbarModel.dispatch = { [weak self] cmd in
             self?.dispatch(cmd)
+        }
+    }
+
+    public func loadInitialContent(_ json: Data, title: String) {
+        initialContentJSON = json
+        documentTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Untitled"
+            : title
+        refreshDerivedStatus(from: json)
+        didPushInitialContent = false
+        flushInitialContentIfPossible()
+    }
+
+    public func installEditorDispatch(
+        _ dispatch: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void
+    ) {
+        self.dispatch = dispatch
+        bridgeDispatchInstalled = true
+        flushInitialContentIfPossible()
+    }
+
+    public func detachEditorDispatch() {
+        bridgeDispatchInstalled = false
+        dispatch = { _ in }
+    }
+
+    private func flushInitialContentIfPossible() {
+        guard editorIsReady,
+              bridgeDispatchInstalled,
+              !didPushInitialContent,
+              let initialContentJSON else {
+            return
+        }
+        didPushInitialContent = true
+        dispatch(.setContent(json: initialContentJSON))
+        dispatch(.focusStart)
+        scheduleInitialStatusRefresh(for: initialContentJSON)
+    }
+
+    private func scheduleInitialStatusRefresh(for json: Data) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard let self,
+                  !self.toolbarModel.isDirty,
+                  self.initialContentJSON == json else {
+                return
+            }
+            self.refreshDerivedStatus(from: json)
         }
     }
 
@@ -167,8 +266,8 @@ public final class EpdocEditorChromeController {
     public func handleBridgeMessage(_ message: EpdocBridgeMessage) {
         switch message {
         case .editorReady:
-            break  // host can fire setContent now; nothing for the
-                   // chrome to do
+            editorIsReady = true
+            flushInitialContentIfPossible()
         case let .contentDidChange(json):
             // Audit gap F4 close-out (T+4_T+5_DEEP_AUDIT_2026-04-27.md).
             // Every Tiptap onUpdate emits the fresh ProseMirror JSON
@@ -178,6 +277,11 @@ public final class EpdocEditorChromeController {
             // CharacterCount extension) still flow through their own
             // bridge case.
             onContentChanged(json)
+            toolbarModel.isDirty = true
+            refreshDerivedStatus(from: json)
+        case let .documentStatsChanged(wordCount, characterCount):
+            toolbarModel.wordCount = wordCount
+            toolbarModel.characterCount = characterCount
         case .error:
             break  // host logs; chrome just keeps rendering
         case let .caretChanged(_, selection):
@@ -202,7 +306,38 @@ public final class EpdocEditorChromeController {
         case let .requestBubbleMenu(selection, anchor):
             bubbleMenuSelection = selection
             bubbleMenuAnchor = anchor
+        case let .storeImageAsset(requestID, filename, mimeType, data):
+            guard let src = onStoreDocumentAsset(filename, mimeType, data),
+                  let argsJSON = Self.imageAssetCompletionArgsJSON(requestID: requestID, src: src) else {
+                return
+            }
+            dispatch(.runCommand(name: "completeImageAssetRequest", argsJSON: argsJSON))
         }
+    }
+
+    private static func imageAssetCompletionArgsJSON(requestID: String, src: String) -> Data? {
+        let payload: [[String: String]] = [
+            ["requestID": requestID, "src": src],
+        ]
+        return try? JSONSerialization.data(withJSONObject: payload)
+    }
+
+    private func refreshDerivedStatus(from json: Data) {
+        guard let doc = try? JSONDecoder().decode(ProseMirrorNode.self, from: json) else {
+            return
+        }
+        let nextBreakdown = EpdocComplexityCalculator.breakdown(for: doc)
+        complexity = nextBreakdown.complexity
+        complexityBreakdown = nextBreakdown
+        toolbarModel.wordCount = nextBreakdown.wordCount
+        toolbarModel.characterCount = Self.characterCount(in: doc)
+    }
+
+    private static func characterCount(in node: ProseMirrorNode) -> Int {
+        let childCount = node.content?.reduce(0) { partial, child in
+            partial + characterCount(in: child)
+        } ?? 0
+        return (node.text?.count ?? 0) + childCount
     }
 
     // MARK: - Floating-panel dismissals
@@ -223,6 +358,10 @@ public final class EpdocEditorChromeController {
         dispatch(.insertSlashChoice(blockType: item.id))
         dismissSlashMenu()
     }
+
+    public func resolveDocumentAsset(named name: String) -> EpdocEditorDocumentAsset? {
+        onResolveDocumentAsset(name)
+    }
 }
 
 // MARK: - Chrome view
@@ -237,86 +376,135 @@ public struct EpdocEditorChromeView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // Top toolbar (W7.17.a) — liquid-glass material strip that
-            // sits flush against the now-transparent NSWindow titlebar
-            // (per `EpdocDocument.makeWindowControllers()`'s
-            // `titlebarAppearsTransparent = true` + `.fullSizeContentView`).
-            // The `.regularMaterial` background gives the macOS 26
-            // translucent curvy look the user asked for, and pairs
-            // with the unified toolbar style we set on NSWindow.
-            // Top-padding accounts for the title bar that extends into
-            // the content view; horizontal padding keeps controls clear
-            // of traffic-light buttons.
-            HStack(spacing: 12) {
+        ZStack(alignment: .topLeading) {
+            EpdocTiptapWebView(controller: controller)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Slash menu (W7.17.b)
+            if let query = controller.slashMenuQuery,
+               let anchor = controller.slashMenuAnchor {
+                EpdocSlashMenuView(
+                    query: query,
+                    onPick: { controller.pickSlashChoice($0) },
+                    onDismiss: { controller.dismissSlashMenu() }
+                )
+                .position(x: anchor.x + 140, y: anchor.y + 200)
+                .transition(.opacity)
+            }
+
+            // Bubble menu (W7.17.b)
+            if let selection = controller.bubbleMenuSelection,
+               let anchor = controller.bubbleMenuAnchor,
+               !selection.isEmpty {
+                EpdocBubbleMenuView(
+                    selectedText: controller.bubbleMenuSelectedText,
+                    onCommand: controller.dispatch,
+                    onAskAgent: controller.onAskAgent,
+                    onCaptureAsRawThought: controller.onCaptureAsRawThought
+                )
+                .position(x: anchor.x, y: max(0, anchor.y - 30))
+                .transition(.opacity)
+            }
+
+            // KaTeX live preview popover (W7.17.b)
+            if let formula = controller.katexPreviewFormula,
+               let anchor = controller.katexPreviewAnchor {
+                EpdocKaTeXPreview(
+                    formula: formula,
+                    displayMode: controller.katexDisplayMode
+                )
+                .position(x: anchor.x + 180, y: max(0, anchor.y - 80))
+                .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            epdocFooter
+                .padding(.leading, 24)
+                .padding(.bottom, 18)
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            EpdocCopilotDockView(
+                wordCount: controller.toolbarModel.wordCount,
+                complexity: controller.complexity,
+                dispatch: controller.dispatch,
+                onAskAgent: controller.onAskAgent
+            )
+            .padding(.trailing, 24)
+            .padding(.bottom, 18)
+        }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
                 EpdocEditorToolbar(model: controller.toolbarModel, onSave: controller.onSave)
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
                 EpdocComplexityMeter(
                     complexity: controller.complexity,
                     breakdown: controller.complexityBreakdown,
                     label: controller.documentTitle
                 )
-                EpdocThoughtAttachedBadge(
-                    attachedRunIDs: controller.attachedRunIDs,
-                    onPickRun: controller.onPickRun
-                )
-                .padding(.trailing, 8)
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 30)   // clear of the transparent titlebar / traffic lights
-            .padding(.bottom, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
-            .overlay(alignment: .bottom) {
-                // Hairline separator below the toolbar — same idiom
-                // ProseEditor lives under via NSTextView's natural
-                // top-edge ruler, so the visual weight matches.
-                Divider().opacity(0.4)
-            }
-
-            // Document area + floating overlays
-            ZStack(alignment: .topLeading) {
-                EpdocTiptapWebView(controller: controller)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // Slash menu (W7.17.b)
-                if let query = controller.slashMenuQuery,
-                   let anchor = controller.slashMenuAnchor {
-                    EpdocSlashMenuView(
-                        query: query,
-                        onPick: { controller.pickSlashChoice($0) },
-                        onDismiss: { controller.dismissSlashMenu() }
+                if !controller.attachedRunIDs.isEmpty {
+                    EpdocThoughtAttachedBadge(
+                        attachedRunIDs: controller.attachedRunIDs,
+                        onPickRun: controller.onPickRun
                     )
-                    .position(x: anchor.x + 140, y: anchor.y + 200)
-                    .transition(.opacity)
                 }
-
-                // Bubble menu (W7.17.b)
-                if let selection = controller.bubbleMenuSelection,
-                   let anchor = controller.bubbleMenuAnchor,
-                   !selection.isEmpty {
-                    EpdocBubbleMenuView(
-                        selectedText: controller.bubbleMenuSelectedText,
-                        onCommand: controller.dispatch,
-                        onAskAgent: controller.onAskAgent,
-                        onCaptureAsRawThought: controller.onCaptureAsRawThought
-                    )
-                    .position(x: anchor.x, y: max(0, anchor.y - 30))
-                    .transition(.opacity)
-                }
-
-                // KaTeX live preview popover (W7.17.b)
-                if let formula = controller.katexPreviewFormula,
-                   let anchor = controller.katexPreviewAnchor {
-                    EpdocKaTeXPreview(
-                        formula: formula,
-                        displayMode: controller.katexDisplayMode
-                    )
-                    .position(x: anchor.x + 180, y: max(0, anchor.y - 80))
-                    .transition(.opacity)
-                }
+                epdocSaveButton
             }
         }
-        .background(Color(NSColor.windowBackgroundColor))
+        .background {
+            Button("") {
+                controller.onSave()
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .hidden()
+        }
+        .background {
+            LinearGradient(
+                colors: [
+                    Color(nsColor: .windowBackgroundColor),
+                    Color(nsColor: .controlBackgroundColor).opacity(0.72),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+    private var epdocFooter: some View {
+        HStack(spacing: 8) {
+            Text("\(controller.toolbarModel.wordCount) words")
+                .monospacedDigit()
+            Text("\(controller.toolbarModel.characterCount) chars")
+                .monospacedDigit()
+            if !controller.attachedRunIDs.isEmpty {
+                Label("\(controller.attachedRunIDs.count) thoughts", systemImage: "bolt.fill")
+            }
+        }
+        .font(.system(size: 13, weight: .regular))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background(.regularMaterial, in: Capsule())
+        .help("Document status")
+    }
+
+    private var epdocSaveButton: some View {
+        Button {
+            controller.onSave()
+            controller.toolbarModel.isDirty = false
+        } label: {
+            if controller.toolbarModel.isSaving {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 14, height: 14)
+            } else {
+                Label("Save", systemImage: "tray.and.arrow.down")
+            }
+        }
+        .keyboardShortcut("s", modifiers: .command)
+        .help(controller.toolbarModel.isDirty ? "Save (Command-S)" : "All changes saved")
+        .disabled(controller.toolbarModel.isSaving)
     }
 }
 
@@ -340,11 +528,19 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         // per WKWebView for nothing. Switching to a non-persistent
         // store keeps the runtime in-RAM only and frees with the view.
         config.websiteDataStore = WKWebsiteDataStore.nonPersistent()
-        config.setURLSchemeHandler(EpdocEditorURLSchemeHandler(),
-                                   forURLScheme: epdocEditorURLScheme)
+        config.setURLSchemeHandler(
+            EpdocEditorURLSchemeHandler(documentAssetResolver: { [weak controller] name in
+                controller?.resolveDocumentAsset(named: name)
+            }),
+            forURLScheme: epdocEditorURLScheme
+        )
 
-        let view = WKWebView(frame: .zero, configuration: config)
+        let view = EpdocEditorWebView(frame: .zero, configuration: config)
+        view.uiDelegate = context.coordinator
+        view.allowsBackForwardNavigationGestures = false
         view.setValue(false, forKey: "drawsBackground")
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
         if let url = URL(string: "\(epdocEditorURLScheme):///editor.html") {
             view.load(URLRequest(url: url))
         }
@@ -377,6 +573,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
     /// pipeline lets ARC reclaim the lot.
     static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) {
         view.stopLoading()
+        view.uiDelegate = nil
         let userContent = view.configuration.userContentController
         userContent.removeScriptMessageHandler(forName: "epdoc")
         userContent.removeAllUserScripts()
@@ -389,7 +586,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
         weak var webView: WKWebView?
         weak var controller: EpdocEditorChromeController?
 
@@ -417,9 +614,37 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             category: "EpdocBridge"
         )
 
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptTextInputPanelWithPrompt prompt: String,
+            defaultText: String?,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping @MainActor @Sendable (String?) -> Void
+        ) {
+            let alert = NSAlert()
+            alert.messageText = prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "Epdoc input"
+                : prompt
+            alert.informativeText = "This value will be inserted into the current document."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "Insert")
+            alert.addButton(withTitle: "Cancel")
+
+            let input = NSTextField(string: defaultText ?? "")
+            input.frame = NSRect(x: 0, y: 0, width: 360, height: 24)
+            alert.accessoryView = input
+
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                completionHandler(input.stringValue)
+            } else {
+                completionHandler(nil)
+            }
+        }
+
         func installDispatch(into controller: EpdocEditorChromeController) {
             self.controller = controller
-            controller.dispatch = { [weak self] cmd in
+            controller.installEditorDispatch { [weak self] cmd in
                 self?.enqueueOutbound(cmd)
             }
         }
@@ -446,7 +671,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             // reference to `controller.dispatch` after dismantle
             // doesn't crash trying to reach the freed coordinator.
             controller?.detachAutosavePipeline()
-            controller?.dispatch = { _ in }
+            controller?.detachEditorDispatch()
             controller = nil
             webView = nil
         }

@@ -36,8 +36,8 @@ import Foundation
 //   - The captured target string is treated as a node label, NOT
 //     a node id. The persistence step (W7.14 follow-up) resolves
 //     label → existing node id via SDGraphNode lookup; if no match,
-//     the edge stays dangling and a backfill pass creates the
-//     missing node on the next index pass.
+//     it creates a lightweight `.idea` node so the graph remains
+//     visibly explorable immediately after save.
 //   - Future: also recognise links with `epistemos-doc://` href
 //     marks (Tiptap-native cross-doc links).
 
@@ -51,8 +51,7 @@ nonisolated struct EpdocGraphProjection: Sendable, Hashable {
     let nodeLabel: String
     /// 0..1 complexity scalar from `EpdocComplexityCalculator`.
     let nodeWeight: Double
-    /// Doc kind (always `.note` today; future per-kind mapping
-    /// surfaces `.idea` / `.source` etc.).
+    /// Graph node type derived from the package's ArtifactKind.
     let nodeType: GraphNodeType
     /// Outgoing edges from this doc.
     let edges: [Edge]
@@ -157,7 +156,7 @@ nonisolated enum EpdocGraphProjector {
             nodeID: manifest.id,
             nodeLabel: manifest.title,
             nodeWeight: complexity,
-            nodeType: .note,
+            nodeType: GraphNodeType(from: manifest.kind),
             edges: edges
         )
     }

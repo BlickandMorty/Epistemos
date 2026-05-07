@@ -59,6 +59,20 @@ private struct SidebarPageItem: Identifiable, Equatable {
     }
 }
 
+private struct SidebarDocumentItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let url: URL
+    let updatedAt: Date
+
+    init(id: String, title: String, url: URL, updatedAt: Date) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.updatedAt = updatedAt
+    }
+}
+
 private struct SidebarFolderItem: Identifiable, Equatable {
     let id: String
     let name: String
@@ -158,6 +172,7 @@ private enum SidebarAction {
     // Create actions
     case createNewPage
     case newJournalEntry
+    case openDocument(URL)
     // Expansion
     case toggleFolder(String)
     case toggleJournalFolder
@@ -516,6 +531,7 @@ struct NotesSidebar: View {
     @State private var cachedChildFolderIdsById: [String: [String]] = [:]
     @State private var cachedPageIdsByFolderId: [String: [String]] = [:]
     @State private var cachedIdeaItems: [SidebarIdeaItem] = []
+    @State private var cachedDocumentItems: [SidebarDocumentItem] = []
     @State private var cachedPinnedPageItems: [SidebarPageItem] = []
     @State private var cachedLoosePageItems: [SidebarPageItem] = []
     @State private var cachedCollectionFolderItems: [SidebarFolderItem] = []
@@ -660,6 +676,7 @@ struct NotesSidebar: View {
         cachedLoosePageItems = cachedPageItems.filter {
             !$0.isJournal && $0.folderId == nil && !$0.isTemplate
         }
+        cachedDocumentItems = Self.scanEpdocDocuments(in: vaultSync.vaultURL)
         refreshTitleSearchResults(query: notesUI.searchQuery)
 
         // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
@@ -679,6 +696,47 @@ struct NotesSidebar: View {
             }
         }
         cachedIdeaItems = ideaItems.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private static func scanEpdocDocuments(in vaultURL: URL?) -> [SidebarDocumentItem] {
+        guard let vaultURL else { return [] }
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: vaultURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return []
+        }
+
+        var documents: [SidebarDocumentItem] = []
+        for case let url as URL in enumerator where url.pathExtension == "epdoc" {
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            let updatedAt = values?.contentModificationDate ?? .distantPast
+            let title = epdocTitle(at: url) ?? url.deletingPathExtension().lastPathComponent
+            documents.append(
+                SidebarDocumentItem(
+                    id: url.path,
+                    title: title.isEmpty ? "Untitled" : title,
+                    url: url,
+                    updatedAt: updatedAt
+                )
+            )
+        }
+        return documents.sorted {
+            if $0.updatedAt == $1.updatedAt { return $0.title < $1.title }
+            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
+    private static func epdocTitle(at url: URL) -> String? {
+        let manifestURL = url.appendingPathComponent(EpdocPackageEntry.manifest)
+        guard let data = try? Data(contentsOf: manifestURL),
+              let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data) else {
+            return nil
+        }
+        let title = manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
     }
 
     // MARK: - Alert bindings
@@ -972,6 +1030,13 @@ struct NotesSidebar: View {
                     IdeaRow(item: idea, onAction: onAction)
                 }
             }
+        }
+
+        if !cachedDocumentItems.isEmpty {
+            DocumentsSection(
+                documents: cachedDocumentItems,
+                onAction: onAction
+            )
         }
 
         // ── FILES SECTION ── loose pages not in any folder.
@@ -1660,6 +1725,13 @@ struct NotesSidebar: View {
                 await getOrCreateTodayJournal()
             }
 
+        case .openDocument(let url):
+            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                if let error {
+                    NSApplication.shared.presentError(error)
+                }
+            }
+
         case .toggleFolder(let id):
             withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.toggleFolder(id) }
 
@@ -1919,7 +1991,8 @@ struct NotesSidebar: View {
 
     private func openNewEpdocDocument() {
         do {
-            try NSDocumentController.shared.createUntitledEpdocDocument()
+            try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+            scheduleDeferredRebuild(after: .milliseconds(250), source: "epdoc create")
         } catch {
             NSApplication.shared.presentError(error)
         }
@@ -2376,6 +2449,71 @@ private struct IdeaRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct DocumentsSection: View {
+    let documents: [SidebarDocumentItem]
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Documents")
+                .font(AppHeadingRole.section.font)
+                .foregroundStyle(theme.fontAccent)
+                .textCase(.uppercase)
+                .tracking(AppHeadingRole.section.tracking)
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 2)
+
+            ForEach(documents) { document in
+                DocumentRow(item: document, onAction: onAction)
+            }
+        }
+    }
+}
+
+private struct DocumentRow: View {
+    let item: SidebarDocumentItem
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        Button {
+            onAction(.openDocument(item.url))
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.richtext")
+                    .font(.epCaption)
+                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                    .frame(width: 14)
+                Text(item.title)
+                    .font(.epBody)
+                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.82))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .notesSidebarHoverTick(style: .file)
+        .contextMenu {
+            Button("Open Document") {
+                onAction(.openDocument(item.url))
+            }
+        }
+        .help(item.url.lastPathComponent)
     }
 }
 

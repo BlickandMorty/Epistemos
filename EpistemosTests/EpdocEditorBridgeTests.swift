@@ -96,6 +96,16 @@ nonisolated struct EpdocEditorBridgeTests {
         }
     }
 
+    @Test("document asset resolver accepts only flat package asset paths")
+    func documentAssetResolverAcceptsOnlyFlatPackageAssetPaths() {
+        #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "/assets/image-abc.png") == "image-abc.png")
+        #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "assets/image-abc.png") == "image-abc.png")
+        #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "/assets/") == nil)
+        #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "/assets/../secret.png") == nil)
+        #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "/assets/nested/image.png") == nil)
+        #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "/editor.js") == nil)
+    }
+
     // MARK: - JS → Swift messages
 
     @Test("contentDidChange decodes from canonical body shape")
@@ -121,6 +131,139 @@ nonisolated struct EpdocEditorBridgeTests {
         }
     }
 
+    @Test("documentStatsChanged decodes live word and character counts")
+    func documentStatsChangedDecodes() {
+        let body: [String: Any] = [
+            "type": "documentStatsChanged",
+            "wordCount": 12,
+            "characterCount": 96,
+        ]
+        guard case let .documentStatsChanged(wordCount, characterCount)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .documentStatsChanged")
+            return
+        }
+        #expect(wordCount == 12)
+        #expect(characterCount == 96)
+    }
+
+    @Test("storeImageAsset decodes pasted or dropped image bytes")
+    func storeImageAssetDecodes() {
+        let image = Data([0x89, 0x50, 0x4e, 0x47])
+        let body: [String: Any] = [
+            "type": "storeImageAsset",
+            "requestID": "img-1",
+            "filename": "sample.png",
+            "mimeType": "image/png",
+            "base64": image.base64EncodedString(),
+        ]
+        guard case let .storeImageAsset(requestID, filename, mimeType, data)? = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "must decode .storeImageAsset")
+            return
+        }
+        #expect(requestID == "img-1")
+        #expect(filename == "sample.png")
+        #expect(mimeType == "image/png")
+        #expect(data == image)
+    }
+
+    @MainActor
+    @Test("chrome controller pushes initial document JSON when the editor becomes ready")
+    func chromeControllerPushesInitialDocumentJSONOnReady() {
+        let controller = EpdocEditorChromeController()
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        var commands: [EpdocEditorCommand] = []
+
+        controller.loadInitialContent(json, title: "Loaded Doc")
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+        controller.handleBridgeMessage(.editorReady)
+        controller.handleBridgeMessage(.editorReady)
+
+        #expect(controller.documentTitle == "Loaded Doc")
+        #expect(commands == [.setContent(json: json), .focusStart],
+                "editorReady must push the package's canonical content exactly once, then focus the editor.")
+    }
+
+    @MainActor
+    @Test("chrome controller waits for dispatch installation before pushing initial content")
+    func chromeControllerWaitsForDispatchBeforeInitialContentPush() {
+        let controller = EpdocEditorChromeController()
+        let json = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        var commands: [EpdocEditorCommand] = []
+
+        controller.loadInitialContent(json, title: "Late Dispatch")
+        controller.handleBridgeMessage(.editorReady)
+        #expect(commands.isEmpty)
+
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+
+        #expect(commands == [.setContent(json: json), .focusStart],
+                "If WKWebView emits editorReady before SwiftUI updateNSView installs dispatch, initial content must still flush after dispatch is installed.")
+    }
+
+    @MainActor
+    @Test("chrome controller computes status counters from loaded document JSON before JS emits updates")
+    func chromeControllerComputesInitialStatusFromLoadedJSON() {
+        let controller = EpdocEditorChromeController()
+        let json = """
+        {
+          "type": "doc",
+          "content": [
+            {"type": "paragraph", "content": [{"type": "text", "text": "Alpha links to Beta"}]},
+            {"type": "mermaid", "content": [{"type": "text", "text": "graph TD\\nA --> B"}]},
+            {"type": "epdocImage", "attrs": {"src": "data:image/png;base64,abc", "alt": "", "title": ""}}
+          ]
+        }
+        """.data(using: .utf8)!
+
+        controller.loadInitialContent(json, title: "Loaded")
+
+        #expect(controller.toolbarModel.wordCount > 0)
+        #expect(controller.toolbarModel.characterCount > 0)
+        #expect(controller.complexityBreakdown?.mermaidCount == 1)
+        #expect(controller.complexityBreakdown?.embedCount == 1)
+        #expect(controller.complexity > 0)
+    }
+
+    @MainActor
+    @Test("chrome controller stores JS image asset requests and completes the pending insert")
+    func chromeControllerCompletesImageAssetRequests() {
+        let controller = EpdocEditorChromeController()
+        var stored: (filename: String, mimeType: String, data: Data)?
+        var commands: [EpdocEditorCommand] = []
+
+        controller.onStoreDocumentAsset = { filename, mimeType, data in
+            stored = (filename, mimeType, data)
+            return "assets/image-hash.png"
+        }
+        controller.installEditorDispatch { command in
+            commands.append(command)
+        }
+
+        let image = Data([1, 2, 3])
+        controller.handleBridgeMessage(.storeImageAsset(
+            requestID: "request-1",
+            filename: "drop.png",
+            mimeType: "image/png",
+            data: image
+        ))
+
+        #expect(stored?.filename == "drop.png")
+        #expect(stored?.mimeType == "image/png")
+        #expect(stored?.data == image)
+        guard case let .runCommand(name, argsJSON)? = commands.last else {
+            #expect(Bool(false), "must dispatch a JS completion command")
+            return
+        }
+        #expect(name == "completeImageAssetRequest")
+        let rawArgs = try? JSONSerialization.jsonObject(with: argsJSON) as? [[String: String]]
+        #expect(rawArgs?.first?["requestID"] == "request-1")
+        #expect(rawArgs?.first?["src"] == "assets/image-hash.png")
+    }
+
     @Test("error decodes from canonical body shape")
     func errorDecodes() {
         let body: [String: Any] = [
@@ -144,6 +287,9 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "unknown_kind"]) == nil)
         // contentDidChange missing required json
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "contentDidChange"]) == nil)
+        // documentStatsChanged missing required counts
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "documentStatsChanged",
+                                                       "wordCount": 1]) == nil)
         // error missing required message
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "error"]) == nil)
     }
@@ -261,5 +407,60 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(jsStringLiteral("with\\backslash") == "\"with\\\\backslash\"")
         // U+2028 / U+2029 are JS string-terminators inside literals — escape them
         #expect(jsStringLiteral("a\u{2028}b") == "\"a\\u2028b\"")
+    }
+
+    @Test("Tiptap update path defers heavy JSON and stats work")
+    func tiptapUpdatePathDefersHeavyWork() throws {
+        let source = try loadMirroredSourceTextFile("js-editor/src/index.ts")
+
+        guard let updateStart = source.range(of: "onUpdate: ({ editor: ed }) => {"),
+              let createStart = source.range(of: "  onCreate:", range: updateStart.upperBound..<source.endIndex) else {
+            #expect(Bool(false), "must find the Tiptap onUpdate block in js-editor/src/index.ts")
+            return
+        }
+
+        let updateBlock = String(source[updateStart.lowerBound..<createStart.lowerBound])
+        #expect(source.contains("const DOCUMENT_STATS_DEBOUNCE_MS"),
+                "document stats must have their own debounce so large docs do not recount words at typing cadence.")
+        #expect(source.contains("let pendingContentEditor: Editor | null"),
+                "content save debounce must hold the editor and serialize once at flush time, not once per update.")
+        #expect(updateBlock.contains("scheduleContentDidChange(ed)"))
+        #expect(updateBlock.contains("scheduleDocumentStats(ed)"))
+        #expect(!updateBlock.contains("JSON.stringify"),
+                "full-document JSON serialization must not run in the live update callback.")
+        #expect(!updateBlock.contains("postDocumentStats(ed)"),
+                "CharacterCount word/character scans must not run in the live update callback.")
+    }
+
+    @Test("heavy epdoc blocks are paint-contained for scroll fluidity")
+    func heavyEpdocBlocksArePaintContained() throws {
+        let css = try loadMirroredSourceTextFile("js-editor/src/editor.css")
+
+        #expect(css.contains(".ProseMirror pre,"))
+        #expect(css.contains(".epdoc-mermaid,"))
+        #expect(css.contains(".epdoc-chart,"))
+        #expect(css.contains(".ProseMirror img[data-epdoc-image]"))
+        #expect(css.contains("contain: layout paint style;"),
+                "heavy rendered blocks need paint containment so large code, diagram, chart, and image nodes do not invalidate the whole document surface.")
+    }
+
+    @Test(".epdoc H1/H2 typography tracks the native prose editor display scale")
+    func epdocHeadingsTrackNativeProseDisplayScale() throws {
+        let css = try loadMirroredSourceTextFile("js-editor/src/editor.css")
+        let webpack = try loadMirroredSourceTextFile("js-editor/webpack.config.js")
+        let bridge = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocEditorBridge.swift")
+
+        #expect(css.contains(#"@font-face"#))
+        #expect(css.contains(#"font-family: "RetroGaming";"#))
+        #expect(css.contains(#"src: url("/RetroGaming.ttf") format("truetype");"#))
+        #expect(webpack.contains(#"url === '/RetroGaming.ttf'"#),
+                "The WKWebView editor should use the app's already-bundled RetroGaming.ttf instead of adding a duplicate Editor asset that Xcode flattens into a resource collision.")
+        #expect(bridge.contains(#"Bundle.main.url(forResource: "RetroGaming", withExtension: "ttf")"#))
+        #expect(css.contains("--epdoc-h1-size: 46px;"),
+                "Prose H1 is MarkdownEditorStyle.noteBaseFontSize + 31 (15 + 31).")
+        #expect(css.contains("--epdoc-h2-size: 20px;"),
+                "Prose H2 is MarkdownEditorStyle.noteBaseFontSize + 5 (15 + 5).")
+        #expect(css.contains(".ProseMirror h1,\n.ProseMirror h2"))
+        #expect(css.contains("font-family: var(--epdoc-display-font);"))
     }
 }

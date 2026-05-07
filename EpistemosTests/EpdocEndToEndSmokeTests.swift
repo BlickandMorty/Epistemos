@@ -217,7 +217,7 @@ nonisolated struct EpdocEndToEndSmokeTests {
         #expect(!manifestOne.contentHash.isEmpty, "save must populate content_hash")
 
         // Mutate the package, save again, hash MUST change.
-        try doc.setContentJSON(Self.proseMirrorPayload(body: "version two body", blockId: "p-1"))
+        doc.setContentJSON(Self.proseMirrorPayload(body: "version two body", blockId: "p-1"))
         let wrapperTwo = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
         let manifestTwo = try JSONDecoder().decode(
             EpdocManifest.self,
@@ -285,7 +285,7 @@ nonisolated struct EpdocEndToEndSmokeTests {
         #expect(textOne.contains("first revision"))
 
         // Mutate + resave.
-        try doc.setContentJSON(Self.proseMirrorPayload(body: "second revision body", blockId: "p-1"))
+        doc.setContentJSON(Self.proseMirrorPayload(body: "second revision body", blockId: "p-1"))
         let wrapperTwo = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
         let shadowTwo = wrapperTwo.fileWrappers?[EpdocPackageEntry.projections]?
             .fileWrappers?[EpdocPackageEntry.Projection.shadowMarkdown]?

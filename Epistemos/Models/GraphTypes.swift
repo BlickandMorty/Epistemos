@@ -71,8 +71,13 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         .proseNote, .document, .code, .output,
     ]
 
-    /// Node types visible in the graph UI (excludes block — blocks are internal structure).
-    static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block }
+    /// Node types visible in the Swift graph UI.
+    ///
+    /// `allCases` intentionally stays FFI-only, but app-level artifacts must
+    /// remain visible once persisted into SwiftData; otherwise `.epdoc`,
+    /// ProseMirror, raw-thought, and code/output nodes disappear behind the
+    /// default type filter before the user ever sees them.
+    static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block } + appLevelCases
 
     /// Semantic entity types — used for Knowledge Index grouping.
     static let entityTypes: [GraphNodeType] = [.person, .project, .topic, .decision, .event, .resource]
@@ -280,6 +285,10 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable, CaseIterable {
     static let appLevelCases: [GraphEdgeType] = [
         .producedDuring, .generatedBy, .derivedFrom, .summarizes,
     ]
+
+    /// Edge types visible in the Swift graph UI. Keeps app-level artifact
+    /// relationships enabled by default without changing the Rust FFI case set.
+    static let visibleCases: [GraphEdgeType] = allCases + appLevelCases
 
     /// Migration from legacy 23-type system.
     init(legacy rawValue: String) {

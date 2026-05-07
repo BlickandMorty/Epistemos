@@ -41,7 +41,19 @@ nonisolated struct EpdocEditorAssetResponse: Sendable, Equatable {
     let contentEncoding: String?
 }
 
+nonisolated public struct EpdocEditorDocumentAsset: Sendable, Equatable {
+    public let data: Data
+    public let mimeType: String
+
+    public init(data: Data, mimeType: String) {
+        self.data = data
+        self.mimeType = mimeType
+    }
+}
+
 nonisolated enum EpdocEditorAssetResolver {
+    static let documentAssetPrefix = "assets/"
+
     static func resolve(relativePath: String, assetRoot: URL) throws -> EpdocEditorAssetResponse {
         let relative = relativePath.hasPrefix("/")
             ? String(relativePath.dropFirst())
@@ -87,6 +99,9 @@ nonisolated enum EpdocEditorAssetResolver {
         case "svg":             return "image/svg+xml"
         case "png":             return "image/png"
         case "jpg", "jpeg":     return "image/jpeg"
+        case "gif":             return "image/gif"
+        case "heic":            return "image/heic"
+        case "webp":            return "image/webp"
         case "woff":            return "font/woff"
         case "woff2":           return "font/woff2"
         case "ttf":             return "font/ttf"
@@ -101,6 +116,22 @@ nonisolated enum EpdocEditorAssetResolver {
         default:
             return false
         }
+    }
+
+    static func documentAssetName(relativePath: String) -> String? {
+        let relative = relativePath.hasPrefix("/")
+            ? String(relativePath.dropFirst())
+            : relativePath
+        guard relative.hasPrefix(documentAssetPrefix) else { return nil }
+        let name = String(relative.dropFirst(documentAssetPrefix.count))
+        guard !name.isEmpty,
+              !name.contains("/"),
+              !name.contains("\\"),
+              name != ".",
+              name != ".." else {
+            return nil
+        }
+        return name
     }
 }
 
@@ -123,9 +154,14 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
     /// the bundled Tiptap build sits at `<bundle>/Resources/Editor/...`.
     /// Tests override this to point at a fixture directory.
     public let assetSubpath: String
+    private let documentAssetResolver: @MainActor (String) -> EpdocEditorDocumentAsset?
 
-    public init(assetSubpath: String = "Editor") {
+    public init(
+        assetSubpath: String = "Editor",
+        documentAssetResolver: @escaping @MainActor (String) -> EpdocEditorDocumentAsset? = { _ in nil }
+    ) {
         self.assetSubpath = assetSubpath
+        self.documentAssetResolver = documentAssetResolver
     }
 
     public func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
@@ -133,6 +169,28 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
             urlSchemeTask.didFailWithError(EpdocBridgeError.invalidURL)
             return
         }
+        if let assetName = EpdocEditorAssetResolver.documentAssetName(relativePath: url.path) {
+            guard let asset = documentAssetResolver(assetName) else {
+                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
+                return
+            }
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": asset.mimeType]
+            ) ?? URLResponse(
+                url: url,
+                mimeType: asset.mimeType,
+                expectedContentLength: asset.data.count,
+                textEncodingName: nil
+            )
+            urlSchemeTask.didReceive(response)
+            urlSchemeTask.didReceive(asset.data)
+            urlSchemeTask.didFinish()
+            return
+        }
+
         guard let assetRoot = Bundle.main.resourceURL?
             .appendingPathComponent(assetSubpath, isDirectory: true) else {
             urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: assetSubpath))
@@ -142,6 +200,16 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         let asset: EpdocEditorAssetResponse
         do {
             asset = try EpdocEditorAssetResolver.resolve(relativePath: url.path, assetRoot: assetRoot)
+        } catch EpdocBridgeError.assetNotFound where url.path == "/RetroGaming.ttf" {
+            guard let fontURL = Bundle.main.url(forResource: "RetroGaming", withExtension: "ttf") else {
+                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
+                return
+            }
+            asset = EpdocEditorAssetResponse(
+                fileURL: fontURL,
+                mimeType: "font/ttf",
+                contentEncoding: nil
+            )
         } catch let error as EpdocBridgeError {
             urlSchemeTask.didFailWithError(error)
             return
@@ -282,6 +350,10 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// The editor produced a new ProseMirror JSON snapshot. Posted on
     /// every editor transaction by the JS side; debounced before save.
     case contentDidChange(json: Data)
+    /// JS-side CharacterCount update. Posted on create, setContent,
+    /// and content-changing commands so the native chrome/footer does
+    /// not display stale placeholder counts.
+    case documentStatsChanged(wordCount: Int, characterCount: Int)
     /// The editor finished its initial mount and is ready to receive
     /// `editor.commands.setContent(...)`.
     case editorReady
@@ -299,11 +371,15 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// W7.17.b — bubble menu activation. Emitted on non-empty
     /// selection.
     case requestBubbleMenu(selection: EpdocBridgeSelection, anchor: EpdocBridgeRect)
+    /// JS intercepted a pasted/dropped image file and asks the native
+    /// document host to store it in the `.epdoc` package assets folder.
+    case storeImageAsset(requestID: String, filename: String, mimeType: String, data: Data)
 
     /// Decode a raw `WKScriptMessage.body` value into a typed message.
     /// Returns `nil` on shape failure. Accepted shapes:
     ///
     ///   `{"type": "contentDidChange", "json": "<stringified-prosemirror-json>"}`
+    ///   `{"type": "documentStatsChanged", "wordCount": 10, "characterCount": 80}`
     ///   `{"type": "editorReady"}`
     ///   `{"type": "error", "message": "..."}`
     ///   `{"type": "caretChanged", "rect": {x,y,w,h}, "selection": {from,to,empty}}`
@@ -321,6 +397,12 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
                 return nil
             }
             return .contentDidChange(json: data)
+        case "documentStatsChanged":
+            guard let wordCount = readInteger(dict["wordCount"]),
+                  let characterCount = readInteger(dict["characterCount"]) else {
+                return nil
+            }
+            return .documentStatsChanged(wordCount: wordCount, characterCount: characterCount)
         case "editorReady":
             return .editorReady
         case "error":
@@ -344,6 +426,20 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
                 return nil
             }
             return .requestBubbleMenu(selection: selection, anchor: anchor)
+        case "storeImageAsset":
+            guard let requestID = readNonEmptyString(dict["requestID"]),
+                  let filename = readNonEmptyString(dict["filename"]),
+                  let mimeType = readNonEmptyString(dict["mimeType"]),
+                  let base64 = dict["base64"] as? String,
+                  let data = Data(base64Encoded: base64) else {
+                return nil
+            }
+            return .storeImageAsset(
+                requestID: requestID,
+                filename: filename,
+                mimeType: mimeType,
+                data: data
+            )
         default:
             return nil
         }
@@ -380,6 +476,17 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
         if let i = raw as? Int { return Double(i) }
         if let n = raw as? NSNumber { return n.doubleValue }
         return nil
+    }
+
+    private static func readInteger(_ raw: Any?) -> Int? {
+        guard let value = readNumber(raw), value.isFinite else { return nil }
+        return Int(value)
+    }
+
+    private static func readNonEmptyString(_ raw: Any?) -> String? {
+        guard let string = raw as? String else { return nil }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

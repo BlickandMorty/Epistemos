@@ -31,6 +31,7 @@ final class SegmentedIndentationGuideView: NSView {
     
     // Configuration
     var indentWidth: CGFloat = 16
+    var leadingTextInset: CGFloat = 0
     var lineHeight: CGFloat = 17
     var tabWidth: Int = 4
     
@@ -55,6 +56,27 @@ final class SegmentedIndentationGuideView: NSView {
     override var isFlipped: Bool { true }
     
     // MARK: - Update Methods
+
+    func applyEditorMetrics(font: NSFont, tabWidth: Int, leadingTextInset: CGFloat) {
+        let normalizedTabWidth = max(1, tabWidth)
+        let spaceWidth = (" " as NSString).size(withAttributes: [.font: font]).width
+        let nextIndentWidth = max(8, spaceWidth * CGFloat(normalizedTabWidth))
+        let nextLineHeight = font.pointSize * 1.35
+        let nextLeadingInset = max(0, leadingTextInset)
+
+        guard self.tabWidth != normalizedTabWidth ||
+              indentWidth != nextIndentWidth ||
+              lineHeight != nextLineHeight ||
+              self.leadingTextInset != nextLeadingInset else {
+            return
+        }
+
+        self.tabWidth = normalizedTabWidth
+        indentWidth = nextIndentWidth
+        lineHeight = nextLineHeight
+        self.leadingTextInset = nextLeadingInset
+        needsDisplay = true
+    }
     
     /// Updates indentation info from text content.
     /// Line y-positions are stored relative (no scroll offset baked in).
@@ -184,7 +206,7 @@ final class SegmentedIndentationGuideView: NSView {
         
         // Draw guides for each indent level
         for level in 1...maxIndentLevel {
-            let x = CGFloat(level) * indentWidth
+            let x = leadingTextInset + CGFloat(level) * indentWidth
             let isActive = level == activeIndentLevel
             
             drawIndentGuide(

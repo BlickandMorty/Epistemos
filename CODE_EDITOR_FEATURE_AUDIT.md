@@ -30,12 +30,13 @@ Status terms used in this audit:
 | View options menu in editor chrome | `verified` | The View menu is mounted from the breadcrumb overlay at `Epistemos/Views/Notes/CodeEditorView.swift:1434-1435` and defined at `Epistemos/Views/Notes/CodeEditorView.swift:1596-1602`. |
 | Settings menu in editor chrome | `verified` | The Settings menu is mounted from the breadcrumb overlay at `Epistemos/Views/Notes/CodeEditorView.swift:1434-1435` and defined at `Epistemos/Views/Notes/CodeEditorView.swift:1548-1592`. |
 | `@AppStorage` word-wrap preference | `verified` | Stored at `Epistemos/Views/Notes/CodeEditorView.swift:1261`, exposed in the View menu at `Epistemos/Views/Notes/CodeEditorView.swift:1598-1600`, and wired into `SourceEditorConfiguration` at `Epistemos/Views/Notes/CodeEditorView.swift:1744-1751`. |
-| `@AppStorage` show-invisibles preference | `planned` | Stored at `Epistemos/Views/Notes/CodeEditorView.swift:1263` and exposed in the View menu at `Epistemos/Views/Notes/CodeEditorView.swift:1600-1602`, but there is no corresponding editor-configuration or rendering hook in `Epistemos/Views/Notes/CodeEditorView.swift:1738-1764`. Blocker: no live `SourceEditor` wiring for invisible-character rendering. |
+| `@AppStorage` show-invisibles preference | `verified` | Stored in `CodeEditorView`, exposed in the View menu, and now consumed by `SourceEditorConfiguration.Peripherals.invisibleCharactersConfiguration`, enabling spaces/tabs/line endings through CodeEditSourceEditor's native invisible-character renderer. |
 | `@AppStorage` font-size preference | `verified` | Stored at `Epistemos/Views/Notes/CodeEditorView.swift:1267`, controlled via the Settings menu at `Epistemos/Views/Notes/CodeEditorView.swift:1567-1584`, and applied to the editor font at `Epistemos/Views/Notes/CodeEditorView.swift:1744-1749`. |
-| `@AppStorage` use-spaces preference | `planned` | Stored at `Epistemos/Views/Notes/CodeEditorView.swift:1268` and toggled at `Epistemos/Views/Notes/CodeEditorView.swift:1556-1559`, but no indentation behavior consumes it anywhere in the live editor path. Blocker: the current `SourceEditor` integration does not use this flag for insertion/formatting decisions. |
+| `@AppStorage` use-spaces preference | `verified` | Stored and toggled in `CodeEditorView`, then consumed by `SourceEditorConfiguration.Behavior.indentOption` as `.spaces(count: tabWidth)` or `.tab`, so tab insertion now follows the preference. |
 | `@AppStorage` tab-width preference | `verified` | Stored at `Epistemos/Views/Notes/CodeEditorView.swift:1269`, controlled in the Settings menu at `Epistemos/Views/Notes/CodeEditorView.swift:1556-1564`, and applied in `SourceEditorConfiguration` at `Epistemos/Views/Notes/CodeEditorView.swift:1749-1751`. |
 | `@AppStorage` minimap preference | `reverted` | There is no live minimap preference anymore; the code keeps only the removal note at `Epistemos/Views/Notes/CodeEditorView.swift:1261-1263` and hardcodes `showMinimap: false` at `Epistemos/Views/Notes/CodeEditorView.swift:1759-1760`. |
-| Line gutter / folding ribbon are active | `reverted` | The live `SourceEditorConfiguration` sets `showGutter: false` and `showFoldingRibbon: false` at `Epistemos/Views/Notes/CodeEditorView.swift:1755-1762`. |
+| Line gutter / folding ribbon are active | `verified` | The live `SourceEditorConfiguration` now uses CodeEditSourceEditor's native left gutter via `showGutter: showLineGutter` and native fold arrows via `showFoldingRibbon: showLineGutter && showFoldingRibbon`. CodeEditSourceEditor's folding model is indentation-derived by default, so collapsible affordances follow nested code structure rather than acting as decorative arrows. The older Epistemos right-edge gutter remains dormant fallback scaffold and is not the visible user surface. |
+| VS Code-style indentation guides | `verified` | `SegmentedIndentationGuideView` remains live and now aligns its vertical guide columns from the actual editor font, tab width, and text-container inset. The guide toggle is exposed as `Indent Guides` in the View menu. |
 
 ## Notes For Future Sessions
 
@@ -43,4 +44,4 @@ Status terms used in this audit:
 - The most important incomplete editor features are now explicit:
   - `planned`: real search execution for the existing search bar scaffold.
   - `planned`: semantic sidebar release enablement.
-  - `planned`: actual wiring for `showInvisibles` and `useSpaces`.
+  - `verified`: native line numbers, native folding arrows, `showInvisibles`, and `useSpaces` are wired through CodeEditSourceEditor rather than bespoke overlays.
