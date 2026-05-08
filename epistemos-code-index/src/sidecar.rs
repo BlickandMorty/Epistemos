@@ -8,7 +8,9 @@
 //!
 //! Canonical layout (mirrors Swift `CodeSidecarPath` exactly):
 //!
-//!     <vault-root>/.epcache/code/<sha256-hex-of-vault-rel-path>.epcode.json
+//! ```text
+//! <vault-root>/.epcache/code/<sha256-hex-of-vault-rel-path>.epcode.json
+//! ```
 //!
 //! Swift uses `CryptoKit.SHA256.hash(data: vaultRelPath.utf8)` and
 //! emits lowercase hex via `String(format: "%02x", $0)`. We mirror
