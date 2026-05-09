@@ -8546,6 +8546,26 @@ Patch evidence, 2026-05-09 graph surface tint slice:
   - This is only graph surface/material tint. Theme-driven graph node fill/stroke, edge, label, and accent token mapping is still pending.
   - Manual built-app theme switching smoke is still required to verify graph tint updates live with Settings -> Appearance and macOS light/dark changes.
 
+Patch evidence, 2026-05-09 graph node theme palette slice:
+
+- Files changed:
+  - `Epistemos/Views/Graph/MetalGraphView.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Added `GraphThemeNodePalette` as a Swift-side semantic graph palette used before pushing node color overrides to the Rust graph engine.
+  - Folder nodes stay solid pitch black in light/system-light custom themes and solid pitch white in dark/system-dark custom themes.
+  - Note/document/prose nodes retain saturated blue/teal semantic color instead of falling back to white/black during system light/dark changes.
+  - Idea nodes stay yellow by default and receive a light theme accent tint in custom themes; other semantic node categories keep solid category colors with a small custom-theme accent blend.
+  - `MetalGraphView.updateNSView` now reads `uiState.appearanceSyncKey` and calls `syncThemeIfNeeded(...)`, so theme pair and system light/dark changes refresh graph light mode and node color overrides without rebuilding graph data or changing physics.
+  - The appearance sync key is only marked consumed after the graph engine exists, so first render cannot miss a pending theme change during NSView construction.
+  - Existing dialogue visual theme depth behavior remains isolated; the new theme palette applies to the classic/non-dialogue graph path.
+- Tests/commands:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` failed before product patch because `GraphThemeNodePalette` and the UI theme refresh hooks did not exist; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-07-38--0500.xcresult`.
+  - Same command passed after product patch, 28 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-15-38--0500.xcresult`.
+- Remaining risk:
+  - Manual dense-graph runtime smoke is still required to compare actual node colors during Settings theme selection and system light/dark switching.
+  - Theme-driven edge/label/accent mapping and user-editable graph groups remain pending.
+
 Initial implementation candidates after audit:
 
 1. current/default native light
