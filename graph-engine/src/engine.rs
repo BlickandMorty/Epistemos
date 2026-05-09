@@ -158,11 +158,11 @@ fn label_density_scale(
     let max_visible = max_visible_count.max(1) as f32;
     let candidate_pressure = candidate_count as f32 / max_visible;
     let global_t = ((candidate_pressure - 1.0) / 8.0).clamp(0.0, 1.0);
-    let local_t = ((local_cell_count.saturating_sub(1) as f32) / 5.0).clamp(0.0, 1.0);
-    let global_scale = 1.0 - 0.20 * smoothstep(0.0, 1.0, global_t);
-    let local_scale = 1.0 - 0.26 * smoothstep(0.0, 1.0, local_t);
+    let local_t = ((local_cell_count.saturating_sub(1) as f32) / 4.0).clamp(0.0, 1.0);
+    let global_scale = 1.0 - 0.24 * smoothstep(0.0, 1.0, global_t);
+    let local_scale = 1.0 - 0.50 * smoothstep(0.0, 1.0, local_t);
 
-    (global_scale * local_scale).clamp(0.58, 1.0)
+    (global_scale * local_scale).clamp(0.42, 1.0)
 }
 
 fn label_density_opacity(scale: f32, protected: bool) -> f32 {
@@ -188,6 +188,53 @@ fn label_density_cell_key(screen_x: f32, screen_y: f32, cell_px: f32) -> (i32, i
         (screen_x / safe_cell).floor() as i32,
         (screen_y / safe_cell).floor() as i32,
     )
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct LabelScreenRect {
+    min_x: f32,
+    min_y: f32,
+    max_x: f32,
+    max_y: f32,
+}
+
+impl LabelScreenRect {
+    fn overlaps(&self, other: &Self) -> bool {
+        self.min_x <= other.max_x
+            && self.max_x >= other.min_x
+            && self.min_y <= other.max_y
+            && self.max_y >= other.min_y
+    }
+}
+
+fn estimated_label_screen_rect(
+    screen_x: f32,
+    screen_y: f32,
+    node_radius_world: f32,
+    label: &str,
+    world_px_per_em: f32,
+    zoom: f32,
+    line_height_em: f32,
+) -> LabelScreenRect {
+    const MAX_LABEL_CHARS: usize = 32;
+    const MONO_ADVANCE_EM: f32 = 0.62;
+    const LABEL_RECT_PAD_PX: f32 = 5.0;
+
+    let zoom = zoom.max(0.01);
+    let screen_px_per_em = world_px_per_em * zoom;
+    let chars = label.chars().take(MAX_LABEL_CHARS).count().max(1) as f32;
+    let half_width = chars * screen_px_per_em * MONO_ADVANCE_EM * 0.5 + LABEL_RECT_PAD_PX;
+    let line_height_px = screen_px_per_em * line_height_em.max(0.1);
+    let half_height = line_height_px * 0.45 + LABEL_RECT_PAD_PX;
+    let node_radius_px = node_radius_world.max(0.0) * zoom;
+    let center_y = screen_y - node_radius_px - line_height_px * 0.25;
+
+    LabelScreenRect {
+        min_x: screen_x - half_width,
+        max_x: screen_x + half_width,
+        min_y: center_y - half_height,
+        max_y: center_y + half_height,
+    }
 }
 
 fn selected_neighbor_label_cap(scored_count: usize, protected_count: usize) -> usize {
@@ -1904,6 +1951,7 @@ impl Engine {
             *cell_counts.entry(cell).or_insert(0) += 1;
         }
         let mut visible: Vec<(f32, f32, f32, &str, f32, f32)> = Vec::with_capacity(max_nodes);
+        let mut occupied_label_rects: Vec<LabelScreenRect> = Vec::with_capacity(max_nodes);
         for s in scored.iter() {
             if visible.len() >= max_nodes {
                 break;
@@ -1927,6 +1975,23 @@ impl Engine {
             let world_px_per_em =
                 (base_screen_px * density_scale).max(min_screen_px) / zoom.max(0.01);
             let opacity = s.opacity * label_density_opacity(density_scale, s.protected);
+            let label_rect = estimated_label_screen_rect(
+                s.screen_x,
+                s.screen_y,
+                s.radius,
+                s.label,
+                world_px_per_em,
+                zoom,
+                table.line_height_em,
+            );
+            if !s.protected
+                && occupied_label_rects
+                    .iter()
+                    .any(|existing| existing.overlaps(&label_rect))
+            {
+                continue;
+            }
+            occupied_label_rects.push(label_rect);
             visible.push((s.x, s.y, s.radius, s.label, opacity, world_px_per_em));
         }
 
@@ -2629,6 +2694,28 @@ mod tests {
         assert!(label_density_opacity(crowded_neighbor_scale, false) < 0.35);
         assert!(is_protected_label(7, Some(7), None, None));
         assert!(!is_protected_label(8, Some(7), None, None));
+    }
+
+    #[test]
+    fn crowded_labels_shrink_aggressively_before_culling() {
+        let crowded = label_density_scale(80, 24, 18, false);
+        let sparse = label_density_scale(4, 24, 1, false);
+
+        assert!(crowded <= 0.48);
+        assert_eq!(sparse, 1.0);
+    }
+
+    #[test]
+    fn label_screen_rect_overlap_detects_actual_text_width() {
+        let a =
+            estimated_label_screen_rect(100.0, 100.0, 12.0, "CODEX_KIMI_OVERSIGHT", 18.0, 1.0, 1.2);
+        let b =
+            estimated_label_screen_rect(120.0, 104.0, 12.0, "CODEX_KIMI_OVERSIGHT", 18.0, 1.0, 1.2);
+        let c =
+            estimated_label_screen_rect(420.0, 104.0, 12.0, "CODEX_KIMI_OVERSIGHT", 18.0, 1.0, 1.2);
+
+        assert!(a.overlaps(&b));
+        assert!(!a.overlaps(&c));
     }
 
     #[test]

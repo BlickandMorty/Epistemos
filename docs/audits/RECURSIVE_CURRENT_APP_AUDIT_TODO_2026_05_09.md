@@ -8983,6 +8983,26 @@ Patch evidence, 2026-05-09 label density slice:
   - Runtime graph smoke on the user's dense graph is still required to judge legibility, subjective Obsidian-like feel, and whether selected-neighbor labels reveal enough context without crowding. The launched audit profile currently has no vault connected, so dense graph runtime proof is blocked until a vault is selected in that profile.
   - Exact glyph-accurate envelopes and label overlap assertions after a long settle pass remain pending; current envelope is a bounded deterministic approximation keyed by label length.
 
+Patch evidence, 2026-05-09 label overlap tightening slice:
+
+- Files changed:
+  - `graph-engine/src/engine.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Label density pressure now shrinks crowded labels more aggressively before culling, while sparse regions still keep natural larger labels.
+  - Label acceptance now estimates each label's actual screen-space text rectangle and rejects non-protected labels that would overlap an already accepted label. This closes the screenshot failure where many selected-neighbor labels survived separate node cells but still formed a single white text block.
+  - Selected/root/hovered labels remain protected; connected-neighbor labels remain eligible, but no longer bypass rectangle overlap pressure.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml crowded_labels_shrink_aggressively_before_culling` failed before the shrink curve was tightened.
+  - Red proof: the same command initially failed to compile because `estimated_label_screen_rect` did not exist, proving the rectangle-overlap guard was absent before the patch.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label_screen_rect_overlap_detects_actual_text_width` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml crowded_labels_shrink_aggressively_before_culling` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_neighbors_do_not_bypass_label_density_pressure` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 25 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_13-15-23--0500.xcresult`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Runtime dense graph visual smoke is still blocked by the audit profile having no connected vault.
+
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
 Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS WIRED / COLORED GROUP EDGES + PIXEL EDGE STYLE TODO
