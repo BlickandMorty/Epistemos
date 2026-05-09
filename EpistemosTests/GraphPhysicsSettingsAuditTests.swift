@@ -546,7 +546,9 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(engine.contains("fn estimated_label_screen_rect("))
         #expect(engine.contains("occupied_label_rects"))
         #expect(engine.contains("existing.overlaps(&label_rect)"))
-        #expect(engine.contains("let local_scale = 1.0 - 0.50 * smoothstep"))
+        #expect(engine.contains("let local_scale = 1.0 - 0.62 * smoothstep"))
+        #expect(engine.contains("fn selected_neighbor_density_budget("))
+        #expect(engine.contains("selected_high_degree_labels_stay_density_bounded"))
         #expect(engine.contains("label_screen_rect_overlap_detects_actual_text_width"))
         #expect(engine.contains("crowded_labels_shrink_aggressively_before_culling"))
     }

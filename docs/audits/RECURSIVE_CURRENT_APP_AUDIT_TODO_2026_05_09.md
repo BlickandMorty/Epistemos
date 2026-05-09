@@ -9039,6 +9039,27 @@ Patch evidence, 2026-05-09 label overlap tightening slice:
 - Remaining risk:
   - Runtime dense graph visual smoke is still blocked by the audit profile having no connected vault.
 
+Patch evidence, 2026-05-09 selected-neighbor label density slice:
+
+- Files changed:
+  - `graph-engine/src/engine.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - High-degree selected nodes no longer expose every connected-neighbor label at full force. Sparse selections still reveal the full connected set, but dense selections are capped with a soft square-root growth curve and a separate density budget.
+  - Selected/root/hovered labels remain protected. Connected-neighbor labels remain eligible for context, but now obey a stricter local density cell, screen-rectangle overlap culling, shrink, and opacity pressure.
+  - Conservative label screen-rect estimates now use a wider monospaced advance and padding so long labels such as `CODEX_KIMI_OVERSIGHT_ROUND_*` are culled before they form the central white text mass shown in the runtime screenshots.
+  - No simulation force equations were changed; this is a label candidate/scoring/culling slice only.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_stay_density_bounded` failed to compile before product code because `selected_neighbor_density_budget(...)` did not exist.
+  - Red proof: the same command then failed because the previous crowding scale was still above the required density bound.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_stay_density_bounded` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_node_can_reveal_connected_neighbor_labels` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label_density` passed, 2 tests.
+  - `cargo fmt --manifest-path graph-engine/Cargo.toml` completed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 28 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-31-17--0500.xcresult`.
+- Remaining risk:
+  - Manual dense graph smoke is still required on the user's actual vault to tune the subjective balance between neighbor context and aggressive text thinning.
+
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
 Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS WIRED / COLORED GROUP EDGES + PIXEL EDGE STYLE TODO
