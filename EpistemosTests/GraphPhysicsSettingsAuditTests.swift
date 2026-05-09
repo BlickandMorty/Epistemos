@@ -424,6 +424,11 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(metalGraph.contains("self.needsRender = true"))
         #expect(metalGraph.contains("graph_engine_zoom_to_fit(engine)"))
         #expect(!metalGraph.contains("graph_engine_center_camera(engine)"))
+        #expect(settings.contains("label: \"Outer Labels\""))
+        #expect(settings.contains("label: \"Base Size\""))
+        #expect(settings.contains("label: \"Focus Shrink\""))
+        #expect(settings.contains("labToggle(\n                    label: \"Elastic Edges\""))
+        #expect(settings.contains("label: \"Edge Elasticity\""))
     }
 
     @Test("Cinematic graph renderer uses hard stepped pixel nodes without adding a third mode")

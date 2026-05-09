@@ -9079,6 +9079,21 @@ Patch evidence, 2026-05-09 solid folder glare tuning slice:
 - Remaining risk:
   - Manual visual smoke is still required to judge whether the reduced glare reads as enough depth on the user's fullscreen graph without becoming a dramatic gradient.
 
+Patch evidence, 2026-05-09 graph label/edge controls exposure slice:
+
+- Files changed:
+  - `Epistemos/Views/Graph/GraphForceSettings.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Display -> Labels now exposes existing label policy controls for `Outer Labels`, `Base Size`, `Focus Shrink`, `Dead Zone`, and `Max Inner Labels`.
+  - Advanced -> Laboratory -> Structure now exposes the existing `Elastic Edges` toggle and `Edge Elasticity` slider.
+  - These controls reuse existing `GraphState` storage and push paths (`labelPolicyVersion`, `saveLabelPolicy()`, `pushLabChange()`); no new force model or renderer path was added.
+- Tests/commands:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` failed before product patch because `Outer Labels`, `Base Size`, `Focus Shrink`, `Elastic Edges`, and `Edge Elasticity` were not present in `GraphForceSettings`; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-49-42--0500.xcresult`.
+  - Same command passed after product patch, 28 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-53-11--0500.xcresult`.
+- Remaining risk:
+  - Manual graph settings popover smoke is still required to verify the new controls are readable at the current panel width and update labels/edges live.
+
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
 Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS WIRED / COLORED GROUP EDGES + PIXEL EDGE STYLE TODO
