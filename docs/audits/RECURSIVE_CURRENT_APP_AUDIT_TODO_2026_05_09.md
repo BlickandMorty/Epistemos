@@ -6098,7 +6098,7 @@ Manual proof:
 
 ### RCA10-P1-006 - Split editor/code file I/O hot-path work from `AgentGrepService`
 
-Status: PARTIALLY-FIXED / CONFIRMED-RISK
+Status: PATCHED PARTIAL - VISIBLE CODE EDITOR HOT PATH GREEN / AGENTGREP PENDING
 
 Canonical owner:
 
@@ -6129,6 +6129,40 @@ CodeEditorSaveTests.debouncedWriteUsesCodeFileService
 CodeEditorSaveTests.writeFailureDoesNotCreateFalseSwiftDataSuccess
 AgentGrepServiceTests.sidecarReadsDoNotRunOnMainActor
 ```
+
+Fix-pass evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/CodeFileService.swift`
+  - `Epistemos/Views/Notes/NoteDetailWorkspaceView.swift`
+  - `Epistemos/Views/Notes/CodeEditorView.swift`
+  - `EpistemosTests/CodeFileServiceTests.swift`
+  - `EpistemosTests/NoteEditorLayoutTests.swift`
+- Tests added:
+  - `CodeFileServiceTests.asyncCodeFileReadAndUpdateAPIsRoundTrip`
+  - `NoteEditorLayoutTests.visibleCodeEditorAvoidsRenderPathCodeFileIO`
+- Source proof:
+  - `CodeFileService` is no longer class-wide `@MainActor`.
+  - `CodeFileService.readCodeFileAsync` and `CodeFileService.updateCodeFileAsync` run contained read/update work in `Task.detached(priority: .userInitiated)`.
+  - `NoteDetailWorkspaceView` no longer calls synchronous `readCodeFile` from the SwiftUI render-derived content helper. It uses `cachedCodeFileContent(page:filePath:)` and schedules a cancellable async body refresh keyed by page id and file path.
+  - Visible code saves await `CodeFileService.updateCodeFileAsync` and only then apply SwiftData success state, so a file write failure does not create a false persisted success.
+  - `CodeEditorView` accepts async-loaded initial content only when it has not diverged from the prior initial value, preventing late async reads from clobbering active edits.
+- Commands run:
+  - Test-first red command: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CodeFileServiceTests -only-testing:EpistemosTests/NoteEditorLayoutTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: failed before product patch because `CodeFileService.readCodeFileAsync` and `CodeFileService.updateCodeFileAsync` did not exist.
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-59-13--0500.xcresult`
+  - Guard-adjustment run: same command failed because a source guard assumed `CodeFileService.*Async(at:)` was on one line; product code was already routing through the async API.
+    - Failed xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-04-21--0500.xcresult`
+  - Focused green command: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CodeFileServiceTests -only-testing:EpistemosTests/NoteEditorLayoutTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 90 Swift Testing tests in 2 suites.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-07-43--0500.xcresult`
+  - Diff hygiene: `git diff --check`
+    - Result: passed.
+  - Source guard: `rg -n "return try files\\.readCodeFile\\(at: URL\\(fileURLWithPath: filePath\\)\\)\\.body|try files\\.updateCodeFile\\(at: URL\\(fileURLWithPath: filePath\\), body: content\\)|@MainActor\\s+public final class CodeFileService|String\\(contentsOfFile: filePath|try content\\.write\\(toFile:" Epistemos/Views/Notes/NoteDetailWorkspaceView.swift Epistemos/Engine/CodeFileService.swift Epistemos/Views/Notes/CodeEditorView.swift`
+    - Result: no matches.
+- Remaining risk:
+  - `AgentGrepService` per-hit sidecar/file reads are still pending under this same item.
+  - Runtime profile of a large code-file switch is still required for manual proof; automated guards prove routing and write-order truth but not p95 UI latency.
 
 ### RCA10-P1-007 - Split App Store compile gating from UI/copy honesty
 
@@ -6728,7 +6762,7 @@ Manual proof:
 
 ### RCA11-P1-007 - Remove direct code-file disk IO from SwiftUI view helpers
 
-Status: CONFIRMED
+Status: PATCHED PARTIAL - AUTOMATED GREEN / LARGE-FILE RUNTIME PROFILE PENDING
 
 Canonical links:
 
@@ -6774,6 +6808,16 @@ CodeEditorViewTests.bodyConstructionDoesNotTouchDisk
 NoteDetailWorkspaceViewTests.largeCodeFileSwitchDoesNotReadOnMainThread
 CodeEditorSaveTests.visibleCodeSaveUsesCodeFileService
 ```
+
+Fix-pass evidence 2026-05-09:
+
+- Covered by `RCA10-P1-006` fix-pass evidence.
+- `NoteDetailWorkspaceView` now treats code-file disk reads as an async refresh outside SwiftUI body construction.
+- Focused green command: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CodeFileServiceTests -only-testing:EpistemosTests/NoteEditorLayoutTests test CODE_SIGNING_ALLOWED=NO`
+  - Result: passed, 90 Swift Testing tests in 2 suites.
+  - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-07-43--0500.xcresult`
+- Remaining risk:
+  - Needs a manual/runtime profile with a large code file to prove file switching stays low-latency on the target app.
 
 ### RCA11-P1-008 - Make Vault Organizer mutations transactional across SwiftData and filesystem
 

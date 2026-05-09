@@ -21,6 +21,17 @@ struct NoteModeBodySnapshot: Equatable {
     }
 }
 
+private struct CodeFileBodySnapshot: Equatable, Sendable {
+    let pageId: String
+    let filePath: String
+    let body: String
+
+    func body(ifMatches currentPageId: String, filePath currentFilePath: String) -> String? {
+        guard pageId == currentPageId, filePath == currentFilePath else { return nil }
+        return body
+    }
+}
+
 enum NoteEditorViewFinder {
     static func findEditorTextView(for pageId: String? = nil) -> NSTextView? {
         if let tv = noteEditorTextView(
@@ -558,6 +569,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showInfoPopover = false
     @State private var showPreview = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
+    @State private var codeFileBodySnapshot: CodeFileBodySnapshot?
     @State private var persistedBody: String
     @State private var showLegacyRecoverySheet = false
     @State private var legacyRecoveryPresentation: NoteLegacyRecoveryPresentation?
@@ -574,6 +586,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var wordCountDebounce: Task<Void, Never>?
     @State private var metricsTask: Task<Void, Never>?
     @State private var modelDerivedSidecarTask: Task<Void, Never>?
+    @State private var codeFileLoadTask: Task<Void, Never>?
     @State private var missingPageRecoveryTask: Task<Void, Never>?
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
@@ -910,6 +923,7 @@ struct NoteDetailWorkspaceView: View {
                         if persistedBody != body {
                             persistedBody = body
                         }
+                        scheduleCodeFileBodyRefresh(for: page)
                         refreshModelDerivedSidecarBadge(for: page)
                         refreshLegacyRecoveryPresentation()
                         scheduleMetricsRefresh(
@@ -933,6 +947,8 @@ struct NoteDetailWorkspaceView: View {
                 metricsTask?.cancel()
                 modelDerivedSidecarTask?.cancel()
                 modelDerivedSidecarTask = nil
+                codeFileLoadTask?.cancel()
+                codeFileLoadTask = nil
                 missingPageRecoveryTask?.cancel()
                 missingPageRecoveryTask = nil
                 legacyRecoveryRefreshTask?.cancel()
@@ -941,16 +957,19 @@ struct NoteDetailWorkspaceView: View {
             }
             .onChange(of: pages.isEmpty) { _, isEmpty in
                 if isEmpty {
+                    scheduleCodeFileBodyRefresh(for: nil)
                     refreshModelDerivedSidecarBadge(for: nil)
                     queueMissingPageRecovery()
                 } else {
                     missingPageRecoveryTask?.cancel()
                     missingPageRecoveryTask = nil
+                    scheduleCodeFileBodyRefresh(for: pages.first)
                     refreshModelDerivedSidecarBadge(for: pages.first)
                     refreshLegacyRecoveryPresentation()
                 }
             }
             .onChange(of: pages.first?.filePath) { _, _ in
+                scheduleCodeFileBodyRefresh(for: pages.first)
                 refreshModelDerivedSidecarBadge(for: pages.first)
             }
             .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
@@ -1063,7 +1082,7 @@ struct NoteDetailWorkspaceView: View {
     private var codeFileLineCount: Int {
         guard let page = pages.first,
               let path = page.filePath else { return 0 }
-        let content = codeFileContent(page: page, filePath: path)
+        let content = cachedCodeFileContent(page: page, filePath: path)
         return content.components(separatedBy: "\n").count
     }
 
@@ -1100,13 +1119,14 @@ struct NoteDetailWorkspaceView: View {
         if let path = page.filePath,
            let lang = CodeLanguage.detect(from: path) {
             CodeEditorView(
-                content: codeFileContent(page: page, filePath: path),
+                content: cachedCodeFileContent(page: page, filePath: path),
                 language: lang,
                 filePath: path,
                 onContentChange: { newContent in
                     saveCodeFileContent(page: page, filePath: path, content: newContent)
                 }
             )
+            .id("\(page.id)::\(path)")
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
             let initialBodyOverride = currentModeBodySnapshot(for: page.id)
@@ -1121,21 +1141,33 @@ struct NoteDetailWorkspaceView: View {
     
     /// Saves code file content back to disk and updates associated page state
     private func saveCodeFileContent(page: SDPage, filePath: String, content: String) {
-        guard let files = codeFileServiceForActiveVault(filePath: filePath) else {
+        guard let vaultURL = vaultSync.vaultURL else {
             Log.app.error("CodeEditor: failed to save code file because no active vault contains \(filePath, privacy: .public)")
             return
         }
 
-        do {
-            try files.updateCodeFile(at: URL(fileURLWithPath: filePath), body: content)
-            try Self.applyDirectCodeFileSave(
-                content,
-                to: page,
-                modelContext: modelContext,
-                graphState: AppBootstrap.shared?.graphState
-            )
-        } catch {
-            Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
+        let fileURL = URL(fileURLWithPath: filePath)
+        Task { @MainActor in
+            do {
+                try await CodeFileService.updateCodeFileAsync(
+                    at: fileURL,
+                    vaultRoot: vaultURL,
+                    body: content
+                )
+                codeFileBodySnapshot = CodeFileBodySnapshot(
+                    pageId: page.id,
+                    filePath: filePath,
+                    body: content
+                )
+                try Self.applyDirectCodeFileSave(
+                    content,
+                    to: page,
+                    modelContext: modelContext,
+                    graphState: AppBootstrap.shared?.graphState
+                )
+            } catch {
+                Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -1538,8 +1570,9 @@ struct NoteDetailWorkspaceView: View {
         modeBodySnapshot?.body(ifMatches: pageId)
     }
 
-    /// Load code file content: try managed storage first, then the contained source file.
-    private func codeFileContent(page: SDPage, filePath: String) -> String {
+    /// Load code file content from live editor/cache state only. Disk reads are
+    /// scheduled separately so SwiftUI body construction stays IO-free.
+    private func cachedCodeFileContent(page: SDPage, filePath: String) -> String {
         if let snapshot = currentModeBodySnapshot(for: page.id), !snapshot.isEmpty {
             return snapshot
         }
@@ -1547,18 +1580,64 @@ struct NoteDetailWorkspaceView: View {
         if !managed.isEmpty {
             return managed
         }
-
-        guard let files = codeFileServiceForActiveVault(filePath: filePath) else {
-            return ""
+        if let cached = codeFileBodySnapshot?.body(ifMatches: page.id, filePath: filePath) {
+            return cached
         }
 
-        do {
-            return try files.readCodeFile(at: URL(fileURLWithPath: filePath)).body
-        } catch {
+        return page.body
+    }
+
+    private func scheduleCodeFileBodyRefresh(for page: SDPage?) {
+        codeFileLoadTask?.cancel()
+        guard let page,
+              let filePath = page.filePath,
+              CodeLanguage.detect(from: filePath) != nil else {
+            codeFileBodySnapshot = nil
+            return
+        }
+
+        guard let vaultURL = vaultSync.vaultURL else {
             Log.notes.error(
-                "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "NoteDetailWorkspaceView: refusing async code file read with no active vault for \(filePath, privacy: .public)"
             )
-            return ""
+            codeFileBodySnapshot = CodeFileBodySnapshot(
+                pageId: page.id,
+                filePath: filePath,
+                body: page.body
+            )
+            return
+        }
+
+        let pageId = page.id
+        let fileURL = URL(fileURLWithPath: filePath)
+        codeFileLoadTask = Task { @MainActor in
+            do {
+                let loaded = try await CodeFileService.readCodeFileAsync(
+                    at: fileURL,
+                    vaultRoot: vaultURL
+                )
+                guard !Task.isCancelled,
+                      pages.first?.id == pageId,
+                      pages.first?.filePath == filePath else { return }
+                if let snapshot = currentModeBodySnapshot(for: pageId), !snapshot.isEmpty {
+                    return
+                }
+                if !NoteWindowManager.shared.currentBody(for: pageId).isEmpty {
+                    return
+                }
+                codeFileBodySnapshot = CodeFileBodySnapshot(
+                    pageId: pageId,
+                    filePath: filePath,
+                    body: loaded.body
+                )
+                persistedBody = loaded.body
+                scheduleMetricsRefresh(body: loaded.body, includeMarkdownHeadings: false)
+            } catch {
+                guard !Task.isCancelled else { return }
+                Log.notes.error(
+                    "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
     }
 

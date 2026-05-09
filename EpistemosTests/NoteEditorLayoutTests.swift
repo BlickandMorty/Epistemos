@@ -617,10 +617,28 @@ struct NoteEditorLayoutTests {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(source.contains("CodeFileService(vaultRoot:"))
-        #expect(source.contains("files.readCodeFile(at:"))
-        #expect(source.contains("files.updateCodeFile(at:"))
+        #expect(source.contains("CodeFileService.readCodeFileAsync("))
+        #expect(source.contains("CodeFileService.updateCodeFileAsync("))
         #expect(!source.contains("try content.write(toFile:"))
         #expect(!source.contains("String(contentsOfFile: filePath"))
+    }
+
+    @Test("visible code editor does not read or write code files from the SwiftUI render path")
+    func visibleCodeEditorAvoidsRenderPathCodeFileIO() throws {
+        let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let service = try loadRepoTextFile("Epistemos/Engine/CodeFileService.swift")
+
+        #expect(!service.contains("@MainActor\npublic final class CodeFileService"))
+        #expect(service.contains("public static func readCodeFileAsync"))
+        #expect(service.contains("public static func updateCodeFileAsync"))
+        #expect(service.contains("Task.detached(priority: .userInitiated)"))
+
+        #expect(workspace.contains("scheduleCodeFileBodyRefresh(for:"))
+        #expect(workspace.contains("cachedCodeFileContent(page:"))
+        #expect(workspace.contains("CodeFileService.readCodeFileAsync("))
+        #expect(workspace.contains("CodeFileService.updateCodeFileAsync("))
+        #expect(!workspace.contains("return try files.readCodeFile(at: URL(fileURLWithPath: filePath)).body"))
+        #expect(!workspace.contains("try files.updateCodeFile(at: URL(fileURLWithPath: filePath), body: content)"))
     }
 
     @Test("note workspace no longer calls loadBody from its render-time persisted-body fallback")
