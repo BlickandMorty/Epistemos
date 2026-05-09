@@ -7687,7 +7687,7 @@ Verification required before public theme release:
 
 ### UIX-2026-05-09-002 - `.epdoc` routing and formatting command regressions
 
-Status: PARTIAL FIX LANDED / HEADING COMMAND REGRESSION AUTOMATED GREEN / OPEN-ROUTE RUNTIME PROOF STILL PENDING
+Status: PARTIAL FIX LANDED / HEADING AND TAB-ROUTING AUTOMATED GREEN / BUILT-APP RUNTIME PROOF STILL PENDING
 
 User signal:
 
@@ -7708,7 +7708,7 @@ Likely files to inspect:
 
 Required proof:
 
-- `.epdoc` open route lands in the intended utility/editor workspace without spawning the wrong surface. Status: pending investigation/runtime smoke.
+- `.epdoc` open route lands in the intended utility/editor workspace without spawning the wrong surface. Status: reciprocal native note/doc tab-routing automated proof green; built-app runtime smoke still pending.
 - Heading commands apply only to the current selection/block range. Status: automated source/bridge proof green; runtime UI smoke still pending.
 - Heading UI exposes H1-H6 or equivalent structured levels. Status: fixed by native toolbar menu.
 - Runtime smoke covers open, edit heading, deselect, edit another block, save/reopen.
@@ -7740,7 +7740,36 @@ Implementation evidence, 2026-05-09 `.epdoc` heading regression slice:
     - Green `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-00-51--0500.xcresult`
 - Remaining risk:
   - This is not a full runtime UI proof. A manual built-app `.epdoc` smoke still needs to open a document, use H1-H6 on separate blocks, deselect/reselect, save, close, reopen, and verify no unrelated block changed.
-  - User-reported `.epdoc` open-route regression is still open; this slice intentionally fixed only heading UI/formatting command leakage.
+
+Implementation evidence, 2026-05-09 `.epdoc` reciprocal note-tab routing slice:
+
+- Files changed:
+  - `Epistemos/Views/Notes/NoteWindowManager.swift`
+  - `Epistemos/Engine/EpdocDocument.swift`
+  - `EpistemosTests/NoteWindowManagerTests.swift`
+  - `EpistemosTests/EpdocVisibilitySourceGuardTests.swift`
+- Tests added/updated:
+  - `NoteWindowManagerTests.noteTabsCanAttachToExistingEpdocDocumentWindows`
+  - `EpdocVisibilitySourceGuardTests.epdocWindowsReuseNativeNoteTabGroup`
+- Test-first red command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/NoteWindowManagerTests test CODE_SIGNING_ALLOWED=NO`
+  - Result: failed before product patch because `NoteWindowManager.noteTabbingIdentifier` and `NoteWindowManager.firstAvailableNoteTabGroupWindow(...)` did not exist.
+  - Red `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-06-19--0500.xcresult`
+- Product patch:
+  - `NoteWindowManager` now owns the canonical `noteTabbingIdentifier` used by prose/code note windows and `.epdoc` windows.
+  - `NoteWindowManager.firstAvailableNoteTabGroupWindow(...)` discovers any visible native note/doc tab group by the canonical tab identifier, not only windows already tracked in the note-window dictionary.
+  - New prose/code note windows and note-version windows now attach to an existing `.epdoc` tab group when the `.epdoc` window was opened first.
+  - `.epdoc` document windows now use the same shared locator when attaching to an existing prose/code note tab group.
+- Commands run:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/NoteWindowManagerTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 32 tests in 1 suite.
+    - Green `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-09-24--0500.xcresult`
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/EpdocVisibilitySourceGuardTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 9 tests in 1 suite.
+    - Green `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-12-53--0500.xcresult`
+- Remaining risk:
+  - This still needs built-app manual smoke: open `.epdoc` first then open a prose/code note and verify the shared native tab group; open a prose/code note first then open `.epdoc` and verify it joins; save, close, reopen, and confirm the routing remains stable.
+  - The fix proves reciprocal native tab routing, not the complete `.epdoc` durability/projection smoke called out by `RCA7-P1-004`, `RCA10-P1-002`, and `RCA12-P1-002`.
 
 ### UIX-2026-05-09-003 - Notes/sidebar performance regression
 

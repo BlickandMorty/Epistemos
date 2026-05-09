@@ -242,6 +242,36 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
+    @Test("Note tabs can attach to existing epdoc document windows")
+    func noteTabsCanAttachToExistingEpdocDocumentWindows() throws {
+        let epdocWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1180, height: 620),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let unrelatedWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        defer {
+            retainWindowFixture(epdocWindow)
+            retainWindowFixture(unrelatedWindow)
+        }
+        epdocWindow.tabbingIdentifier = NoteWindowManager.noteTabbingIdentifier
+
+        let candidate = NoteWindowManager.firstAvailableNoteTabGroupWindow(
+            excluding: nil,
+            requireVisible: false,
+            windows: [unrelatedWindow, epdocWindow]
+        )
+
+        #expect(candidate === epdocWindow)
+    }
+
+    @MainActor
     @Test("Notes utility window uses full-size compact chrome for the custom sidebar header")
     func notesUtilityWindowUsesCustomChrome() throws {
         let panel = NSPanel(

@@ -217,6 +217,7 @@ final class NoteNavigationState {
 @MainActor
 final class NoteWindowManager {
     static let shared = NoteWindowManager()
+    static let noteTabbingIdentifier = "epistemos-note-tabs"
     static let noteDefaultFrameSize = NSSize(width: 1110, height: 740)
     static let noteMinimumFrameSize = NSSize(width: 960, height: 620)
 
@@ -231,6 +232,25 @@ final class NoteWindowManager {
     private var navigationStates: [String: NoteNavigationState] = [:]
 
     private init() {}
+
+    static func firstAvailableNoteTabGroupWindow(
+        excluding excludedWindow: NSWindow? = nil,
+        requireVisible: Bool = true,
+        windows: [NSWindow] = NSApp.windows
+    ) -> NSWindow? {
+        windows.first { candidate in
+            if let excludedWindow, candidate === excludedWindow {
+                return false
+            }
+            guard candidate.tabbingIdentifier == noteTabbingIdentifier else {
+                return false
+            }
+            if requireVisible, !candidate.isVisible {
+                return false
+            }
+            return true
+        }
+    }
 
     // MARK: - Navigation State Registration
 
@@ -355,7 +375,7 @@ final class NoteWindowManager {
         normalizeNoteWindowFrame(window)
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
         window.tabbingMode = .preferred
-        window.tabbingIdentifier = "epistemos-note-tabs"
+        window.tabbingIdentifier = Self.noteTabbingIdentifier
         window.delegate = tabDelegate
 
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
@@ -385,7 +405,7 @@ final class NoteWindowManager {
         }
         observers[page.id] = observer
 
-        if let existingWindow = windows.values.first {
+        if let existingWindow = Self.firstAvailableNoteTabGroupWindow(excluding: window) {
             existingWindow.addTabbedWindow(window, ordered: .above)
         }
         window.makeKeyAndOrderFront(nil)
@@ -493,10 +513,10 @@ final class NoteWindowManager {
 
         // Join the note tab group
         window.tabbingMode = .preferred
-        window.tabbingIdentifier = "epistemos-note-tabs"
+        window.tabbingIdentifier = Self.noteTabbingIdentifier
 
         // Add as tab next to existing note windows
-        if let existingWindow = windows.values.first {
+        if let existingWindow = Self.firstAvailableNoteTabGroupWindow(excluding: window) {
             existingWindow.addTabbedWindow(window, ordered: .above)
         }
         window.makeKeyAndOrderFront(nil)
