@@ -20,6 +20,35 @@ struct CodeFileServiceTests {
         return (tmp, { try? FileManager.default.removeItem(at: tmp) })
     }
 
+    private func makeVaultWithSibling() -> (vault: URL, sibling: URL, cleanup: () -> Void) {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("epistemos-codefile-tests-\(UUID().uuidString)", isDirectory: true)
+        let vault = root.appendingPathComponent("Vault", isDirectory: true)
+        let sibling = root.appendingPathComponent("Vault-Evil", isDirectory: true)
+        try? FileManager.default.createDirectory(at: vault, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
+        return (vault, sibling, { try? FileManager.default.removeItem(at: root) })
+    }
+
+    private func expectContainmentRejection(
+        _ operation: () throws -> Void,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        do {
+            try operation()
+            Issue.record("expected containment rejection", sourceLocation: sourceLocation)
+        } catch let error as CodeFileService.ServiceError {
+            switch error {
+            case .pathEscapesVault, .reservedCachePath:
+                break
+            default:
+                Issue.record("wrong error case: \(error)", sourceLocation: sourceLocation)
+            }
+        } catch {
+            Issue.record("wrong error type: \(error)", sourceLocation: sourceLocation)
+        }
+    }
+
     private static let agentProvenance = CodeProvenance(
         producer: .agent,
         derivedFrom: [
@@ -152,6 +181,41 @@ struct CodeFileServiceTests {
         }
     }
 
+    @Test("createCodeFile rejects relativeDirectory traversal outside the vault")
+    func createRejectsRelativeDirectoryTraversal() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let service = CodeFileService(vaultRoot: vault)
+
+        expectContainmentRejection {
+            _ = try service.createCodeFile(
+                relativeDirectory: "../outside",
+                name: "Escape",
+                kind: .swift,
+                provenance: Self.agentProvenance
+            )
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(".epcache").path),
+                "rejected creates must not leave a sidecar tree behind")
+    }
+
+    @Test("createCodeFile rejects absolute relativeDirectory paths")
+    func createRejectsAbsoluteRelativeDirectory() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let service = CodeFileService(vaultRoot: vault)
+
+        expectContainmentRejection {
+            _ = try service.createCodeFile(
+                relativeDirectory: "/tmp",
+                name: "Absolute",
+                kind: .swift,
+                provenance: Self.agentProvenance
+            )
+        }
+    }
+
     @Test("createCodeFile picks the right extension for every CodeArtifactKind")
     func createPicksRightExtensionPerKind() throws {
         let (vault, cleanup) = makeVault()
@@ -219,6 +283,33 @@ struct CodeFileServiceTests {
             case .fileNotFound: break
             default: #expect(Bool(false), "wrong error case: \(error)")
             }
+        }
+    }
+
+    @Test("readCodeFile rejects an external absolute URL")
+    func readRejectsExternalAbsoluteURL() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let outside = vault.deletingLastPathComponent()
+            .appendingPathComponent("Outside.swift", isDirectory: false)
+        try "let outside = true\n".write(to: outside, atomically: true, encoding: .utf8)
+
+        let service = CodeFileService(vaultRoot: vault)
+        expectContainmentRejection {
+            _ = try service.readCodeFile(at: outside)
+        }
+    }
+
+    @Test("readCodeFile rejects prefix-collision paths outside the vault")
+    func readRejectsPrefixCollisionOutsideVault() throws {
+        let (vault, sibling, cleanup) = makeVaultWithSibling()
+        defer { cleanup() }
+        let outside = sibling.appendingPathComponent("Collision.swift", isDirectory: false)
+        try "let collision = true\n".write(to: outside, atomically: true, encoding: .utf8)
+
+        let service = CodeFileService(vaultRoot: vault)
+        expectContainmentRejection {
+            _ = try service.readCodeFile(at: outside)
         }
     }
 
@@ -323,6 +414,65 @@ struct CodeFileServiceTests {
         #expect(after.embedding == [0.1, 0.2, 0.3], "embedding must survive a body update")
     }
 
+    @Test("updateCodeFile rejects an external absolute URL and preserves the outside file")
+    func updateRejectsExternalAbsoluteURLAndPreservesOutsideFile() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let outside = vault.deletingLastPathComponent()
+            .appendingPathComponent("Outside.swift", isDirectory: false)
+        let original = "let outside = true\n"
+        try original.write(to: outside, atomically: true, encoding: .utf8)
+
+        let service = CodeFileService(vaultRoot: vault)
+        expectContainmentRejection {
+            try service.updateCodeFile(at: outside, body: "let outside = false\n")
+        }
+        #expect(try String(contentsOf: outside, encoding: .utf8) == original)
+        #expect(!FileManager.default.fileExists(atPath: vault.appendingPathComponent(".epcache").path),
+                "rejected updates must not write a sidecar")
+    }
+
+    @Test("read and update reject a symlink inside the vault that points outside")
+    func readAndUpdateRejectEscapingSymlink() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let outside = vault.deletingLastPathComponent()
+            .appendingPathComponent("OutsideTarget.swift", isDirectory: false)
+        let original = "let outside = true\n"
+        try original.write(to: outside, atomically: true, encoding: .utf8)
+        let link = vault.appendingPathComponent("Linked.swift", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+
+        let service = CodeFileService(vaultRoot: vault)
+        expectContainmentRejection {
+            _ = try service.readCodeFile(at: link)
+        }
+        expectContainmentRejection {
+            try service.updateCodeFile(at: link, body: "let outside = false\n")
+        }
+        #expect(try String(contentsOf: outside, encoding: .utf8) == original)
+    }
+
+    @Test("read and update reject source files inside the reserved .epcache tree")
+    func readAndUpdateRejectReservedEpcacheSourceFiles() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let reserved = vault
+            .appendingPathComponent(".epcache", isDirectory: true)
+            .appendingPathComponent("code", isDirectory: true)
+        try FileManager.default.createDirectory(at: reserved, withIntermediateDirectories: true)
+        let spoofedSource = reserved.appendingPathComponent("Spoof.swift", isDirectory: false)
+        try "let spoof = true\n".write(to: spoofedSource, atomically: true, encoding: .utf8)
+
+        let service = CodeFileService(vaultRoot: vault)
+        expectContainmentRejection {
+            _ = try service.readCodeFile(at: spoofedSource)
+        }
+        expectContainmentRejection {
+            try service.updateCodeFile(at: spoofedSource, body: "let spoof = false\n")
+        }
+    }
+
     // MARK: - List
 
     @Test("listCodeFiles returns every code file the indexer knows about")
@@ -369,5 +519,32 @@ struct CodeFileServiceTests {
         defer { cleanup() }
         let service = CodeFileService(vaultRoot: vault)
         #expect(try service.listCodeFiles().isEmpty)
+    }
+
+    @Test("listCodeFiles rejects spoofed sidecars that point into .epcache")
+    func listRejectsSpoofedEpcacheSidecar() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let cache = vault
+            .appendingPathComponent(CodeSidecarPath.cacheRoot, isDirectory: true)
+            .appendingPathComponent(CodeSidecarPath.codeSubdir, isDirectory: true)
+        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        let sidecar = CodeArtifactSidecar(
+            vaultRelativePath: ".epcache/code/Spoof.swift",
+            kind: .swift,
+            contentHash: "hash",
+            indexedAt: 1,
+            provenance: Self.agentProvenance
+        )
+        let sidecarURL = CodeSidecarPath.sidecarURL(
+            forVaultRoot: vault,
+            vaultRelativePath: sidecar.vaultRelativePath
+        )
+        try JSONEncoder.epdocCanonical.encode(sidecar).write(to: sidecarURL, options: .atomic)
+
+        let service = CodeFileService(vaultRoot: vault)
+        expectContainmentRejection {
+            _ = try service.listCodeFiles()
+        }
     }
 }

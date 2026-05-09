@@ -105,6 +105,15 @@ final class ContextualShadowsState {
         haloSearchRevision &+= 1
     }
 
+    /// Drop all visible and in-flight recall/Halo state for a vault lifecycle boundary.
+    func resetForVaultLifecycle() {
+        pendingTask?.cancel()
+        pendingTask = nil
+        shadowSearch = nil
+        clearResults()
+        haloSearchRevision &+= 1
+    }
+
     // MARK: - Recall request
 
     /// Schedule an off-MainActor recall query for the supplied snapshot.

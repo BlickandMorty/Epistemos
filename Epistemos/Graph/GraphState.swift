@@ -938,6 +938,59 @@ final class GraphState {
     /// Set to true when the rebuild button is pressed while graph is visible.
     var pendingRebuild = false
 
+    /// Clear every visible and engine-backed graph surface when the active vault changes.
+    func resetForVaultLifecycle() {
+        store.clear()
+        filter.resetForVaultLifecycle()
+
+        vaultMode = .humanVault
+        routeHistory = [.canvas]
+        routeCursor = 0
+        NotificationCenter.default.post(name: .graphRouteDidChange, object: self)
+
+        selectedNodeId = nil
+        selectedNodeScreenPoint = nil
+        requestEditorMode = false
+        pinnedNodeIds.removeAll(keepingCapacity: false)
+
+        isLoaded = false
+        isWarmed = false
+        hasPlayedEntrance = false
+        isScanning = false
+        scanProgress = 0
+        scanStatus = ""
+        needsRefresh = false
+        mode = .global
+        modeVersion += 1
+        pendingCenterNodeId = nil
+        shouldSnapNextGlobalRecommitCamera = false
+
+        pendingNodeAdds.removeAll(keepingCapacity: false)
+        pendingEdgeAdds.removeAll(keepingCapacity: false)
+        pendingNodeRemovals.removeAll(keepingCapacity: false)
+        pendingEdgeRemovals.removeAll(keepingCapacity: false)
+        pendingRebuild = false
+        filterVersion += 1
+
+        isStaticLayout = false
+        isBuildingStructural = false
+        semanticClusterIds.removeAll(keepingCapacity: false)
+        semanticClusterVersion += 1
+        ephemeralNodeIds.removeAll(keepingCapacity: false)
+        ephemeralEdgeIds.removeAll(keepingCapacity: false)
+        wikilinkLookup.removeAll(keepingCapacity: false)
+
+        if let engine = engineHandle {
+            graph_engine_clear(engine)
+            graph_engine_clear_highlight(engine)
+            graph_engine_clear_embeddings(engine)
+            graph_engine_clear_prepared_retrieval_index(engine)
+        }
+        loadedPreparedRetrievalIndexEngine = nil
+        loadedPreparedRetrievalIndexManifestPath = nil
+        requestRecommit()
+    }
+
     func beginGraphResetCycle() {
         startOverlayPhysicsCycle()
     }

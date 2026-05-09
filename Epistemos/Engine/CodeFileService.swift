@@ -44,6 +44,8 @@ public final class CodeFileService {
         case sidecarWriteFailed(underlying: Error)
         case sidecarReadFailed(underlying: Error)
         case sidecarParseFailed(underlying: Error)
+        case pathEscapesVault(URL)
+        case reservedCachePath(URL)
 
         public var description: String {
             switch self {
@@ -63,8 +65,17 @@ public final class CodeFileService {
                 return "CodeFileService: failed to read sidecar: \(error)"
             case let .sidecarParseFailed(error):
                 return "CodeFileService: sidecar JSON malformed: \(error)"
+            case let .pathEscapesVault(url):
+                return "CodeFileService: path escapes vault containment: \(url.path)"
+            case let .reservedCachePath(url):
+                return "CodeFileService: source path is inside reserved .epcache storage: \(url.path)"
             }
         }
+    }
+
+    private struct ContainedSourcePath {
+        let url: URL
+        let vaultRelativePath: String
     }
 
     public let vaultRoot: URL
@@ -93,16 +104,17 @@ public final class CodeFileService {
         provenance: CodeProvenance
     ) throws -> URL {
         let validatedName = try Self.validate(name: name)
-        let fileURL = vaultRoot
-            .appendingPathComponent(relativeDirectory.trimmingCharacters(in: .init(charactersIn: "/")), isDirectory: true)
-            .appendingPathComponent("\(validatedName).\(kind.primaryExtension)", isDirectory: false)
+        let fileURL = try containedCreateURL(
+            relativeDirectory: relativeDirectory,
+            fileName: "\(validatedName).\(kind.primaryExtension)"
+        )
 
-        if fileManager.fileExists(atPath: fileURL.path) {
-            throw ServiceError.fileAlreadyExists(fileURL)
+        if fileManager.fileExists(atPath: fileURL.url.path) {
+            throw ServiceError.fileAlreadyExists(fileURL.url)
         }
         do {
             try fileManager.createDirectory(
-                at: fileURL.deletingLastPathComponent(),
+                at: fileURL.url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
         } catch {
@@ -112,20 +124,20 @@ public final class CodeFileService {
         let resolvedBody = body ?? kind.newFileTemplate(name: validatedName)
         let bodyData = Data(resolvedBody.utf8)
         do {
-            try bodyData.write(to: fileURL, options: .atomic)
+            try bodyData.write(to: fileURL.url, options: .atomic)
         } catch {
             throw ServiceError.sourceWriteFailed(underlying: error)
         }
 
         let sidecar = CodeArtifactSidecar(
-            vaultRelativePath: vaultRelativePath(of: fileURL),
+            vaultRelativePath: fileURL.vaultRelativePath,
             kind: kind,
             contentHash: Self.contentHash(of: bodyData),
             indexedAt: Self.unixMillis(),
             provenance: provenance
         )
         try writeSidecar(sidecar)
-        return fileURL
+        return fileURL.url
     }
 
     // MARK: - Read
@@ -134,12 +146,13 @@ public final class CodeFileService {
     /// the sidecar is missing — the indexer (W9.7) will write one on
     /// the next pass.
     public func readCodeFile(at fileURL: URL) throws -> (body: String, sidecar: CodeArtifactSidecar?) {
-        guard fileManager.fileExists(atPath: fileURL.path) else {
-            throw ServiceError.fileNotFound(fileURL)
+        let contained = try containedExistingSourceURL(fileURL)
+        guard fileManager.fileExists(atPath: contained.url.path) else {
+            throw ServiceError.fileNotFound(contained.url)
         }
         let bodyData: Data
         do {
-            bodyData = try Data(contentsOf: fileURL)
+            bodyData = try Data(contentsOf: contained.url)
         } catch {
             throw ServiceError.sourceWriteFailed(underlying: error)
         }
@@ -147,7 +160,7 @@ public final class CodeFileService {
 
         let sidecarURL = CodeSidecarPath.sidecarURL(
             forVaultRoot: vaultRoot,
-            vaultRelativePath: vaultRelativePath(of: fileURL)
+            vaultRelativePath: contained.vaultRelativePath
         )
         if fileManager.fileExists(atPath: sidecarURL.path) {
             do {
@@ -174,25 +187,26 @@ public final class CodeFileService {
         body: String,
         provenanceOverride: CodeProvenance? = nil
     ) throws {
-        guard fileManager.fileExists(atPath: fileURL.path) else {
-            throw ServiceError.fileNotFound(fileURL)
+        let contained = try containedExistingSourceURL(fileURL)
+        guard fileManager.fileExists(atPath: contained.url.path) else {
+            throw ServiceError.fileNotFound(contained.url)
         }
         let bodyData = Data(body.utf8)
         do {
-            try bodyData.write(to: fileURL, options: .atomic)
+            try bodyData.write(to: contained.url, options: .atomic)
         } catch {
             throw ServiceError.sourceWriteFailed(underlying: error)
         }
 
-        let kind = CodeArtifactKind.from(fileURL: fileURL)
-        let existingSidecar: CodeArtifactSidecar? = (try? readCodeFile(at: fileURL))?.sidecar
+        let kind = CodeArtifactKind.from(fileURL: contained.url)
+        let existingSidecar: CodeArtifactSidecar? = (try? readCodeFile(at: contained.url))?.sidecar
 
         let nextProvenance = provenanceOverride
             ?? existingSidecar?.provenance
             ?? CodeProvenance(producer: .human)
 
         let sidecar = CodeArtifactSidecar(
-            vaultRelativePath: vaultRelativePath(of: fileURL),
+            vaultRelativePath: contained.vaultRelativePath,
             kind: kind,
             contentHash: Self.contentHash(of: bodyData),
             indexedAt: Self.unixMillis(),
@@ -210,7 +224,7 @@ public final class CodeFileService {
     /// `.epcache/code/` and returning the underlying source URLs.
     /// Optional `kind` filter narrows by language.
     public func listCodeFiles(kind: CodeArtifactKind? = nil) throws -> [URL] {
-        let cacheRoot = vaultRoot
+        let cacheRoot = canonicalVaultRoot()
             .appendingPathComponent(CodeSidecarPath.cacheRoot, isDirectory: true)
             .appendingPathComponent(CodeSidecarPath.codeSubdir, isDirectory: true)
         guard fileManager.fileExists(atPath: cacheRoot.path) else {
@@ -224,8 +238,8 @@ public final class CodeFileService {
                 continue
             }
             if let kind, sidecar.kind != kind { continue }
-            let sourceURL = vaultRoot.appendingPathComponent(sidecar.vaultRelativePath, isDirectory: false)
-            result.append(sourceURL)
+            let source = try containedSourceURL(forVaultRelativePath: sidecar.vaultRelativePath)
+            result.append(source.url)
         }
         return result.sorted { $0.path < $1.path }
     }
@@ -233,8 +247,9 @@ public final class CodeFileService {
     // MARK: - Helpers
 
     private func writeSidecar(_ sidecar: CodeArtifactSidecar) throws {
+        _ = try containedSourceURL(forVaultRelativePath: sidecar.vaultRelativePath)
         let url = CodeSidecarPath.sidecarURL(
-            forVaultRoot: vaultRoot,
+            forVaultRoot: canonicalVaultRoot(),
             vaultRelativePath: sidecar.vaultRelativePath
         )
         do {
@@ -249,14 +264,100 @@ public final class CodeFileService {
         }
     }
 
-    private func vaultRelativePath(of fileURL: URL) -> String {
-        let standardisedVault = vaultRoot.standardizedFileURL.path
-        let standardisedFile = fileURL.standardizedFileURL.path
-        if standardisedFile.hasPrefix(standardisedVault) {
-            let suffix = standardisedFile.dropFirst(standardisedVault.count)
-            return suffix.hasPrefix("/") ? String(suffix.dropFirst()) : String(suffix)
+    private func containedCreateURL(
+        relativeDirectory: String,
+        fileName: String
+    ) throws -> ContainedSourcePath {
+        let normalizedDirectory = try normalizedVaultRelativeDirectory(relativeDirectory)
+        let parent = canonicalVaultRoot()
+            .appendingPathComponent(normalizedDirectory, isDirectory: true)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let candidate = parent
+            .appendingPathComponent(fileName, isDirectory: false)
+            .standardizedFileURL
+        return try containedSourceURL(candidate)
+    }
+
+    private func containedExistingSourceURL(_ fileURL: URL) throws -> ContainedSourcePath {
+        try containedSourceURL(fileURL.resolvingSymlinksInPath().standardizedFileURL)
+    }
+
+    private func containedSourceURL(forVaultRelativePath vaultRelativePath: String) throws -> ContainedSourcePath {
+        let normalizedPath = try normalizedVaultRelativePath(vaultRelativePath)
+        let candidate = canonicalVaultRoot()
+            .appendingPathComponent(normalizedPath, isDirectory: false)
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        return try containedSourceURL(candidate)
+    }
+
+    private func containedSourceURL(_ candidate: URL) throws -> ContainedSourcePath {
+        let root = canonicalVaultRoot()
+        let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
+        let relative = try vaultRelativePath(for: resolved, root: root)
+        if isReservedCacheSourcePath(relative) {
+            throw ServiceError.reservedCachePath(resolved)
         }
-        return standardisedFile
+        return ContainedSourcePath(url: resolved, vaultRelativePath: relative)
+    }
+
+    private func vaultRelativePath(for fileURL: URL, root: URL) throws -> String {
+        let rootPath = root.path
+        let filePath = fileURL.standardizedFileURL.path
+        if filePath == rootPath {
+            return ""
+        }
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        guard filePath.hasPrefix(prefix) else {
+            throw ServiceError.pathEscapesVault(fileURL)
+        }
+        return String(filePath.dropFirst(prefix.count))
+    }
+
+    private func canonicalVaultRoot() -> URL {
+        vaultRoot.resolvingSymlinksInPath().standardizedFileURL
+    }
+
+    private func normalizedVaultRelativeDirectory(_ path: String) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "" }
+        return try normalizedVaultRelativePath(trimmed, allowEmpty: true)
+    }
+
+    private func normalizedVaultRelativePath(
+        _ path: String,
+        allowEmpty: Bool = false
+    ) throws -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            if allowEmpty { return "" }
+            throw ServiceError.pathEscapesVault(vaultRoot)
+        }
+        if trimmed.hasPrefix("/") || trimmed.hasPrefix("\\") {
+            throw ServiceError.pathEscapesVault(URL(fileURLWithPath: trimmed))
+        }
+        let rawComponents = trimmed.split { character in
+            character == "/" || character == "\\"
+        }.map(String.init)
+        var components: [String] = []
+        for component in rawComponents {
+            if component == "." { continue }
+            if component == ".." {
+                throw ServiceError.pathEscapesVault(vaultRoot.appendingPathComponent(trimmed))
+            }
+            components.append(component)
+        }
+        let normalized = components.joined(separator: "/")
+        if isReservedCacheSourcePath(normalized) {
+            throw ServiceError.reservedCachePath(vaultRoot.appendingPathComponent(normalized))
+        }
+        return normalized
+    }
+
+    private func isReservedCacheSourcePath(_ relativePath: String) -> Bool {
+        relativePath == CodeSidecarPath.cacheRoot
+            || relativePath.hasPrefix(CodeSidecarPath.cacheRoot + "/")
     }
 
     private static func validate(name: String) throws -> String {

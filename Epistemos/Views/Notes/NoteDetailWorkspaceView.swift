@@ -1121,9 +1121,13 @@ struct NoteDetailWorkspaceView: View {
     
     /// Saves code file content back to disk and updates associated page state
     private func saveCodeFileContent(page: SDPage, filePath: String, content: String) {
-        // Write to file
+        guard let files = codeFileServiceForActiveVault(filePath: filePath) else {
+            Log.app.error("CodeEditor: failed to save code file because no active vault contains \(filePath, privacy: .public)")
+            return
+        }
+
         do {
-            try content.write(toFile: filePath, atomically: true, encoding: .utf8)
+            try files.updateCodeFile(at: URL(fileURLWithPath: filePath), body: content)
             try Self.applyDirectCodeFileSave(
                 content,
                 to: page,
@@ -1133,6 +1137,16 @@ struct NoteDetailWorkspaceView: View {
         } catch {
             Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    private func codeFileServiceForActiveVault(filePath: String) -> CodeFileService? {
+        guard let vaultURL = vaultSync.vaultURL else {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: refusing code file IO with no active vault for \(filePath, privacy: .public)"
+            )
+            return nil
+        }
+        return CodeFileService(vaultRoot: vaultURL)
     }
 
     @MainActor
@@ -1524,7 +1538,7 @@ struct NoteDetailWorkspaceView: View {
         modeBodySnapshot?.body(ifMatches: pageId)
     }
 
-    /// Load code file content: try managed storage first, fall back to reading the source file directly.
+    /// Load code file content: try managed storage first, then the contained source file.
     private func codeFileContent(page: SDPage, filePath: String) -> String {
         if let snapshot = currentModeBodySnapshot(for: page.id), !snapshot.isEmpty {
             return snapshot
@@ -1533,10 +1547,13 @@ struct NoteDetailWorkspaceView: View {
         if !managed.isEmpty {
             return managed
         }
-        // Direct file read as final fallback (covers newly imported code files
-        // whose body hasn't been written to NoteFileStorage yet)
+
+        guard let files = codeFileServiceForActiveVault(filePath: filePath) else {
+            return ""
+        }
+
         do {
-            return try String(contentsOfFile: filePath, encoding: .utf8)
+            return try files.readCodeFile(at: URL(fileURLWithPath: filePath)).body
         } catch {
             Log.notes.error(
                 "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"

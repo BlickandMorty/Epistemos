@@ -115,6 +115,7 @@ final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> (path: String, bodyHash: String)?
     typealias TMUtilCommandRunner = @Sendable ([String]) throws -> String
     typealias BookmarkDataWriter = @Sendable (URL, URL.BookmarkCreationOptions) throws -> Data
+    typealias SecurityScopeAccessOperation = @Sendable (URL) -> Bool
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
     fileprivate nonisolated static let trustedSuspiciousVaultPathKey = "epistemos.confirmedSuspiciousVaultPath"
@@ -209,6 +210,9 @@ final class VaultSyncService {
     private var managedBodyCountProvider: (@Sendable () -> Int)?
     private var tmutilCommandRunnerOverride: TMUtilCommandRunner?
     private var bookmarkDataWriterOverride: BookmarkDataWriter?
+    private var securityScopeAccessOperation: SecurityScopeAccessOperation = { url in
+        url.startAccessingSecurityScopedResource()
+    }
     private var requiresSecurityScopedVaultAccessOverride: Bool?
     private var defaults = UserDefaults.standard
 
@@ -463,6 +467,12 @@ final class VaultSyncService {
         bookmarkDataWriterOverride = writer
     }
 
+    func setSecurityScopeAccessOperationForTesting(_ operation: SecurityScopeAccessOperation?) {
+        securityScopeAccessOperation = operation ?? { url in
+            url.startAccessingSecurityScopedResource()
+        }
+    }
+
     func setRequiresSecurityScopedVaultAccessForTesting(_ value: Bool?) {
         requiresSecurityScopedVaultAccessOverride = value
     }
@@ -556,6 +566,10 @@ final class VaultSyncService {
     private func requiresSecurityScopedVaultAccess() -> Bool {
         requiresSecurityScopedVaultAccessOverride
             ?? Self.requiresSecurityScopedVaultAccess()
+    }
+
+    private func startSecurityScopedAccess(for url: URL) -> Bool {
+        securityScopeAccessOperation(url)
     }
 
     func dismissRecoveryIssue() {
@@ -1817,7 +1831,7 @@ final class VaultSyncService {
         // a window where the scope is lost and background actors can't read files.
         let gained: Bool
         if usedSecurityScope {
-            gained = url.startAccessingSecurityScopedResource()
+            gained = startSecurityScopedAccess(for: url)
         } else {
             // No security scope needed — bookmark resolved without it (non-sandboxed).
             // Create a fresh security-scoped bookmark so future launches work cleanly.
@@ -1953,9 +1967,30 @@ final class VaultSyncService {
             return true
         }
 
+        var beginScopeAlreadyAcquired = scopeAlreadyAcquired
+        var acquiredCandidateSecurityScope = false
+        if isWatching,
+           !scopeAlreadyAcquired,
+           requiresSecurityScopedVaultAccess() {
+            let gained = startSecurityScopedAccess(for: vaultURL)
+            guard gained else {
+                isIndexing = false
+                recoveryIssue = nil
+                log.error(
+                    "Security scope not granted for candidate vault \(vaultURL.path, privacy: .public); keeping current vault active"
+                )
+                return false
+            }
+            beginScopeAlreadyAcquired = true
+            acquiredCandidateSecurityScope = true
+        }
+
         if isWatching {
             let didClear = await stopWatchingAsync(preserveData: false)
             guard didClear else {
+                if acquiredCandidateSecurityScope {
+                    vaultURL.stopAccessingSecurityScopedResource()
+                }
                 return false
             }
         } else {
@@ -1967,7 +2002,7 @@ final class VaultSyncService {
 
         return beginWatching(
             vaultURL: vaultURL,
-            scopeAlreadyAcquired: scopeAlreadyAcquired,
+            scopeAlreadyAcquired: beginScopeAlreadyAcquired,
             refreshAmbientManifestImmediately: refreshAmbientManifestImmediately
         )
     }
@@ -1987,7 +2022,7 @@ final class VaultSyncService {
             accessGranted = true
         } else {
             // Start security-scoped access (required for sandboxed apps)
-            let gained = vaultURL.startAccessingSecurityScopedResource()
+            let gained = startSecurityScopedAccess(for: vaultURL)
             if gained {
                 isSecurityScoped = true
             }
@@ -2233,21 +2268,9 @@ final class VaultSyncService {
             Log.vault.error("Failed to clear vault data: \(error.localizedDescription, privacy: .public)")
         }
 
-        AppBootstrap.shared?.instantRecallService.clearIndex()
-
-        // Clear the in-memory graph store and reset graph state.
-        Task { @MainActor in
-            if let graphState = AppBootstrap.shared?.graphState {
-                graphState.store.clear()
-                graphState.hasPlayedEntrance = false
-                graphState.isLoaded = false
-                graphState.needsRefresh = false
-                graphState.requestRecommit()
-                if let engine = graphState.engineHandle {
-                    graph_engine_clear(engine)
-                }
-            }
-        }
+        AppBootstrap.shared?.clearVaultLifecycleRuntimeState(
+            reason: "VaultSyncService cleared local vault data"
+        )
     }
 
     private nonisolated static func performInitialImport(
@@ -3462,10 +3485,6 @@ enum VaultConnectionActions {
             return true
         }
 
-        // Switch failed — old vault already stopped, show clean disconnected state
-        beforeSwitch()
-        NoteWindowManager.shared.resetForVaultRebuild()
-        AppBootstrap.shared?.uiState.setActivePanel(.home)
         log.error("Vault switch to \(url.lastPathComponent, privacy: .public) failed")
         return false
     }
