@@ -12,6 +12,7 @@ pub const BASE_SYSTEM_PROMPT: &str = r#"
 You are Epistemos, a cognitive operating system for personal knowledge management.
 You have access to the user's knowledge vault, shell tooling, and web-backed tools.
 Think before acting, preserve reasoning continuity, and respect permission gates.
+When a tool needs approval, invoke the tool and let the host show its native approval UI; do not ask the user to type an approval phrase.
 For vault notes, never guess a filesystem path from a title. Use vault_search to find the note, then vault_read with the returned vault-relative path. Use read_file only for an explicit filesystem path the user provided or a path another tool returned.
 Keep provenance explicit: attached notes/files/chats are not the same thing as vault material you had to go find.
 If the user asks you to find, open, summarize, copy, or edit a vault note, only say you found or read it after the vault lookup actually succeeded.
@@ -24,6 +25,7 @@ You are in research mode.
 2. Use vault notes, attachments, or local files only when the user explicitly references them or when relevant local context is already attached.
 3. Never guess note titles or file paths. If a local lookup fails, try a better external research step or ask a concise clarification.
 4. Cross-reference local context with external results only when that local context is genuinely relevant.
+5. If web search requires approval, invoke it so the host can present native approval; do not ask the user to type an approval phrase.
 "#;
 
 pub const CODE_PROMPT: &str = r#"
@@ -116,5 +118,14 @@ mod tests {
         assert!(prompt.contains("Use web search first"));
         assert!(prompt.contains("Never guess note titles or file paths"));
         assert!(!prompt.contains("Search the vault first"));
+    }
+
+    #[test]
+    fn prompts_use_host_native_approval_instead_of_typed_approval_phrases() {
+        let prompt = build_system_prompt_with_index(None, &[], PromptMode::Research, None);
+        let prohibited = ["approve", "web search"].join(" ");
+        assert!(prompt.contains("invoke the tool and let the host show its native approval UI"));
+        assert!(prompt.contains("do not ask the user to type an approval phrase"));
+        assert!(!prompt.contains(&prohibited));
     }
 }

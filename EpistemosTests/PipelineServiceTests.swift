@@ -878,8 +878,12 @@ struct PipelineServiceTests {
         for try await _ in stream {}
 
         let systemPrompt = try #require(cloudClient.streamCalls.first?.systemPrompt)
+        let prohibitedTypedApprovalPhrase = ["approve", "web search"].joined(separator: " ")
         #expect(systemPrompt.contains("Tools available:"))
         #expect(systemPrompt.contains("`web_search`"))
+        #expect(systemPrompt.contains("Epistemos will show the native approval card"))
+        #expect(systemPrompt.contains("Do not ask the user to type an approval phrase"))
+        #expect(!systemPrompt.contains(prohibitedTypedApprovalPhrase))
     }
 
     @Test("pipeline captures the final assembled model input for the transparency panel")

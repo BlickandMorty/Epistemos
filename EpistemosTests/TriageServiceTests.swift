@@ -1849,6 +1849,38 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.plan.depthBudget.maxToolCalls > 0)
         #expect(!executionPlan.plan.toolPermissions.isEmpty)
     }
+
+    @Test("ask tools use native approval instead of typed approval phrases")
+    @MainActor func askToolsUseNativeApprovalInsteadOfTypedApprovalPhrases() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_8B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "Research hegemony from political, cultural, and social theory, then write a manifesto.",
+            contentLength: 96,
+            operatingMode: .fast,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        let prompt = executionPlan.additionalSystemPrompt()
+        let prohibitedTypedApprovalPhrase = ["approve", "web search"].joined(separator: " ")
+        let obsoleteAskToolPrompt = [
+            "Treat any tool marked ask as requiring human approval",
+            "before sensitive reads or writes.",
+        ].joined(separator: " ")
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(prompt.contains("call the tool anyway; Epistemos will show the native approval card"))
+        #expect(prompt.contains("Do not ask the user to type an approval phrase"))
+        #expect(!prompt.contains(obsoleteAskToolPrompt))
+        #expect(!prompt.contains(prohibitedTypedApprovalPhrase))
+    }
 }
 
 @MainActor
