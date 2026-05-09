@@ -1521,7 +1521,7 @@ Acceptance:
 
 ### RCA2-P1-011 - Fix NotesSidebar cache invalidation and epdoc manifest I/O
 
-Status: TODO
+Status: PARTIAL FIX LANDED / AUTOMATED SOURCE GUARD GREEN / RUNTIME PROFILE STILL PENDING
 
 Subsystem: NotesSidebar, folder tree, epdoc package discovery, sidebar performance.
 
@@ -1540,6 +1540,31 @@ Audit steps:
 Acceptance:
 - Sidebar cache diffs structural folder metadata, not just folder count.
 - Epdoc package discovery/title cache does not run synchronous recursive I/O on the UI rebuild path.
+
+Implementation evidence, 2026-05-09 sidebar cache / `.epdoc` scan slice:
+
+- Files changed:
+  - `Epistemos/Views/Notes/NotesSidebar.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Tests added:
+  - `RuntimeValidationTests.notesSidebarCacheRebuildObservesFolderStructureAndOffloadsEpdocScans`
+- Test-first red command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+  - Result: failed before product patch with 12 source-guard issues because `NotesSidebar` still used folder-count cache invalidation and synchronous `cachedDocumentItems = Self.scanEpdocDocuments(in: vaultSync.vaultURL)` in `rebuildCache()`.
+  - Red `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-18-23--0500.xcresult`
+- Product patch:
+  - `NotesSidebar` now builds a `NotesSidebarFolderCacheSignature` from folder id, name, collection flag, sort order, parent id, child folder ids, child page ids, and relative path.
+  - Cache rebuild early exit now compares full folder structure signature instead of only `allFolders.count`.
+  - Recursive `.epdoc` package discovery and manifest title reads now run through `refreshEpdocDocuments(...)`, which uses a cancellable `.utility` detached task and commits results on the main actor only if the scanned vault is still current.
+  - Empty/no-vault state cancels pending `.epdoc` scans and clears cached document rows.
+  - Newly created `.epdoc` packages force a refresh without putting recursive I/O back onto the cache rebuild path.
+- Green command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+  - Result: passed, 262 tests in 1 suite.
+  - Green `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-25-32--0500.xcresult`
+- Remaining risk:
+  - This proves the hot-path source shape, not measured UI latency. Still needs built-app runtime smoke/profile with a vault containing many `.epdoc` packages, folder rename/reparent/reorder/collection toggles, `.epdoc` creation, and sidebar search/filter interaction while verifying no stale rows or visible stalls.
 
 ### RCA2-P1-012 - Fix live metrics and outline refresh for ordinary long-note editing
 
@@ -7773,7 +7798,7 @@ Implementation evidence, 2026-05-09 `.epdoc` reciprocal note-tab routing slice:
 
 ### UIX-2026-05-09-003 - Notes/sidebar performance regression
 
-Status: INTAKE / INVESTIGATE AFTER CURRENT CONTAINMENT SLICE
+Status: PARTIAL FIX LANDED / AUTOMATED SOURCE GUARD GREEN / RUNTIME PROFILE STILL PENDING
 
 User signal:
 
@@ -7792,6 +7817,55 @@ Required proof:
 - Measure visible sidebar filtering/sorting/render path before patching.
 - Avoid adding broad redraw triggers or synchronous body reads.
 - Add focused regression tests or instrumentation where feasible.
+
+Implementation evidence, 2026-05-09 sidebar cache / `.epdoc` scan slice:
+
+- Files changed:
+  - `Epistemos/Views/Notes/NotesSidebar.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Tests added:
+  - `RuntimeValidationTests.notesSidebarCacheRebuildObservesFolderStructureAndOffloadsEpdocScans`
+- Product patch:
+  - Folder cache invalidation now tracks structural folder signatures rather than only folder count.
+  - `.epdoc` package discovery and manifest title reads are offloaded to a cancellable utility-priority detached task and guarded against stale vault results before publishing to UI state.
+- Commands run:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed before product patch as expected with 12 source-guard issues.
+    - Red `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-18-23--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed, 262 tests in 1 suite.
+    - Green `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-25-32--0500.xcresult`
+- Remaining runtime/manual proof:
+  - Profile/sidebar smoke with many `.epdoc` packages.
+  - Rename, reorder, reparent, and toggle collection folders without changing folder count and confirm visible rows refresh.
+  - Create a new `.epdoc` and confirm the document row appears without a sidebar stall.
+
+### UIX-2026-05-09-004 - Fullscreen and cinematic graph quality parity
+
+Status: INTAKE / GRAPH RENDERING QUALITY AUDIT REQUIRED BEFORE PRODUCT CODE
+
+User signal:
+
+- Fullscreen and cinematic graph modes currently look lower quality than the minimized graph.
+- Cinematic mode should render at full-quality visual settings.
+- Performance mode may intentionally use reduced quality in the high-definition/fullscreen aspect, but that degradation must be explicit to performance mode rather than leaking into cinematic/fullscreen defaults.
+
+Likely files to inspect:
+
+- `Epistemos/Views/Graph/GraphWorkspaceContainer.swift`
+- `Epistemos/Views/Graph/MetalGraphView.swift`
+- `Epistemos/Views/Graph/GraphFloatingControls.swift`
+- `Epistemos/Graph/GraphState.swift`
+- `graph-engine/src/renderer.rs`
+- `graph-engine/src/physics.rs`
+
+Required proof:
+
+- Identify the current quality preset decisions for minimized, fullscreen, cinematic, and performance modes.
+- Add a focused guard/test proving cinematic/fullscreen use the same high-quality render path as minimized unless explicit performance mode is enabled.
+- Do not change graph physics, animation timing, or renderer architecture while fixing quality selection.
+- Runtime smoke must compare minimized, fullscreen, cinematic, and performance modes and record whether labels, edge smoothing, node sharpness, and surface scale match the intended preset.
 
 ## Research Drop Intake Queue
 

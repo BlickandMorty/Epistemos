@@ -2376,6 +2376,25 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("private func refreshTitleSearchResults(query: String)"))
     }
 
+    @Test("notes sidebar cache rebuild observes folder structure and offloads epdoc package scans")
+    func notesSidebarCacheRebuildObservesFolderStructureAndOffloadsEpdocScans() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+
+        #expect(sidebar.contains("struct NotesSidebarFolderCacheSignature"))
+        #expect(sidebar.contains("@State private var cachedFolderCacheSignature: [NotesSidebarFolderCacheSignature] = []"))
+        #expect(sidebar.contains("let newFolderSignature = allFolders.map(NotesSidebarFolderCacheSignature.init)"))
+        #expect(sidebar.contains("newFolderSignature == cachedFolderCacheSignature"))
+        #expect(sidebar.contains("cachedFolderCacheSignature = newFolderSignature"))
+        #expect(!sidebar.contains("allFolders.count == cachedFolderItems.count"))
+
+        #expect(sidebar.contains("@State private var epdocDocumentScanTask: Task<Void, Never>?"))
+        #expect(sidebar.contains("private func refreshEpdocDocuments"))
+        #expect(sidebar.contains("Task.detached(priority: .utility)"))
+        #expect(sidebar.contains("private nonisolated static func scanEpdocDocuments"))
+        #expect(sidebar.contains("private nonisolated static func epdocTitle"))
+        #expect(!sidebar.contains("cachedDocumentItems = Self.scanEpdocDocuments(in: vaultSync.vaultURL)"))
+    }
+
     @Test("graph selection ignores redundant same-node picks")
     func graphSelectionIgnoresRedundantSameNodePicks() throws {
         let graphState = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
