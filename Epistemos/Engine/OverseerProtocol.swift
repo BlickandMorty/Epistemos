@@ -470,7 +470,8 @@ final class OverseerComplexityRouter {
             Summary: \(summary)
             Follow this execution plan exactly.
             Use only the tools explicitly listed in tool_permissions. If tool_permissions is empty, do not use tools.
-            Treat any tool marked ask as requiring human approval before sensitive reads or writes.
+            For any tool marked ask, call the tool anyway; Epistemos will show the native approval card and resume after the user decides.
+            Do not ask the user to type an approval phrase. Never replace a real tool call with a chat-only approval request.
             JSON:
             \(json)
             """

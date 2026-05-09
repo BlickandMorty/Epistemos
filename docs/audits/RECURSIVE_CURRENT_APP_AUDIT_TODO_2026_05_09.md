@@ -9261,7 +9261,7 @@ Patch evidence, 2026-05-09 Settings theme picker restoration slice:
 
 ### UIX-2026-05-09-008 - First-use Codex web research approval must be app-native and out-of-box
 
-Status: TODO - LIVE AUDIT APP ISSUE CAPTURED / TOOL APPROVAL UX BROKEN
+Status: PATCHED - PROMPT/ROUTING CONTRACT GREEN / LIVE FIRST-RUN SMOKE PENDING
 
 User signal:
 
@@ -9303,6 +9303,36 @@ Acceptance:
 - Approve path: web/search tool call executes, transcript shows the tool use, and final answer continues without needing a second typed prompt.
 - Deny path: transcript records denial and the assistant offers an offline/current-knowledge answer path.
 - Unavailable path: Settings/composer/model-route UI identify the missing capability before or during submit.
+
+Patch evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/OverseerProtocol.swift`
+  - `Epistemos/Engine/CapabilityManifestBuilder.swift`
+  - `EpistemosTests/TriageServiceTests.swift`
+  - `EpistemosTests/PipelineServiceTests.swift`
+  - `agent_core/src/prompts.rs`
+- Product behavior:
+  - Managed-agent execution plans no longer tell the model to treat `ask` tools as a conversational precondition. They now say to call the tool and let Epistemos show the native approval card.
+  - Direct cloud/provider-native turns now receive the same rule in `CapabilityManifestBuilder`: if a listed tool needs approval, call it; do not ask the user to type an approval phrase.
+  - Rust agent/research prompts now carry the same host-native approval contract, so local/managed research routes do not regress into text-only approval requests.
+  - The exact observed phrase `approve web search` is no longer present in production or test source as a literal.
+- Tests added/updated:
+  - `OverseerComplexityRouterTests.askToolsUseNativeApprovalInsteadOfTypedApprovalPhrases`
+  - `PipelineServiceTests.cloudManifestIncludesProviderNativeWebSearch`
+  - `prompts::tests::prompts_use_host_native_approval_instead_of_typed_approval_phrases`
+- Red proof:
+  - `cargo test --manifest-path agent_core/Cargo.toml prompts::tests::prompts_use_host_native_approval_instead_of_typed_approval_phrases`
+  - Result: failed before product patch because the Rust prompt did not contain the host-native approval instruction.
+- Green commands:
+  - `cargo test --manifest-path agent_core/Cargo.toml prompts::tests::prompts_use_host_native_approval_instead_of_typed_approval_phrases`
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TriageServiceTests -only-testing:EpistemosTests/PipelineServiceTests test CODE_SIGNING_ALLOWED=NO`
+  - Swift xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_15-15-13--0500.xcresult`
+  - `rg -n "approve web search|Treat any tool marked ask as requiring human approval before sensitive reads or writes" Epistemos agent_core EpistemosTests`
+  - `git diff --check`
+- Remaining risk:
+  - Live first-run/audit-app smoke is still required: submit a web-research-heavy prompt, verify the app either executes a real provider-native/agent web search or presents the native approval card, then verify approve/deny transcript/provenance behavior.
+  - This patch fixes the prompt contract that caused typed approval copy; it does not yet prove provider account/network/unavailable-state UX in a built app.
 
 ## Research Drop Intake Queue
 

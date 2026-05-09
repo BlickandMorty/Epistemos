@@ -78,7 +78,8 @@ enum CapabilityManifestBuilder {
         lines.append("Rules:")
         lines.append("1. Attached notes/files are inlined in the user prompt already — answer from the inlined text; don't call read/fetch tools for content that's right there.")
         lines.append("2. Don't claim capabilities you don't currently have (no browsing unless a web tool is listed, no shell unless terminal is listed, etc.).")
-        lines.append("3. Be direct and concise. If you're uncertain, say so.")
+        lines.append("3. If a listed tool needs approval, call the tool; Epistemos will show the native approval card. Do not ask the user to type an approval phrase.")
+        lines.append("4. Be direct and concise. If you're uncertain, say so.")
 
         if let overrides = loadUserOverrides() {
             lines.append("")
