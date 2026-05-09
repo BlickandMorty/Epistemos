@@ -8742,7 +8742,7 @@ Implementation evidence, 2026-05-09 sidebar cache / `.epdoc` scan slice:
 
 ### UIX-2026-05-09-005 - Replace single-mode Notes sidebar with robust mode-based navigation
 
-Status: INTAKE / ARCHITECTURE AND SLICED IMPLEMENTATION PENDING
+Status: SHELL SLICE PATCHED / PINNED STRIP, MULTI-VAULT, AND SYSTEM SOURCES PENDING
 
 User signal:
 
@@ -8788,6 +8788,41 @@ Acceptance:
 - System/app-produced artifacts are visually distinct from user vault notes.
 - The pinned strip works across modes and survives relaunch.
 - Large vault sidebar render and search do not regress.
+
+2026-05-09 sidebar shell slice:
+
+- Files changed:
+  - `Epistemos/Views/Sidebar/SidebarModeStore.swift`
+  - `Epistemos/Views/Sidebar/SidebarShell.swift`
+  - `Epistemos/Views/Sidebar/ModeSwitcherControl.swift`
+  - `Epistemos/Views/Sidebar/PinnedStripView.swift`
+  - `Epistemos/Views/Sidebar/ModeModelVaults/ModelVaultsModeView.swift`
+  - `Epistemos/Views/Sidebar/ModeSystem/SystemModeView.swift`
+  - `Epistemos/Views/Notes/NotesBrowserView.swift`
+  - `Epistemos/Views/Notes/NotesSidebar.swift`
+  - `Epistemos/Views/Notes/ModelVaultsSidebarSection.swift`
+  - `EpistemosTests/SidebarModeStoreTests.swift`
+  - `EpistemosTests/SidebarShellValidationTests.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+- Product behavior:
+  - `NotesBrowserView` now hosts `SidebarShell`.
+  - `SidebarShell` adds a fixed header with the `Vault`, `Models`, and `System` mode switcher plus a persistent pinned-strip placeholder.
+  - `SidebarModeStore` persists the last selected sidebar mode in `UserDefaults` under `sidebar.mode`.
+  - `My Vault` still uses the legacy `NotesSidebar` path, but it suppresses the old nested `Model Vaults` disclosure row when hosted by the shell.
+  - `Model Vaults` now has its own top-level sidebar mode using the existing model-vault section in standalone presentation.
+  - `System` now has a distinct placeholder surface with the fixed subsection taxonomy; real paginated sources are still pending.
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SidebarModeStoreTests -only-testing:EpistemosTests/SidebarShellValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Result bundle: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_10-26-25--0500.xcresult`
+    - Passed 3 tests, 0 failed.
+  - `git diff --check`
+    - Passed.
+- Remaining risk:
+  - The pinned strip is a visible placeholder only; `SDSidebarPin` persistence, reorder, rename, and reveal/scroll behavior remain pending.
+  - Multi-vault attach/switch still needs the security-scoped bookmark model and real picker path.
+  - System artifact sections are not yet backed by paginated sources.
+  - Model-memory lazy enumeration and GenUI preview rendering remain pending.
+  - Runtime UI smoke for mode switching in the built audit app remains pending.
 
 ### UIX-2026-05-09-004 - Fullscreen and cinematic graph quality parity
 

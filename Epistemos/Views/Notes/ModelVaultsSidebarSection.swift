@@ -10,14 +10,28 @@ import SwiftUI
 /// - File clicks open the normal note/code workspace instead of a
 ///   bespoke browser surface.
 struct ModelVaultsSidebarSection: View {
+    enum Presentation {
+        case sidebarSection
+        case standalone
+    }
+
     private static let maxExpandedListHeight: CGFloat = 320
 
-    var onSelectPage: ((String) -> Void)? = nil
+    let onSelectPage: ((String) -> Void)?
+    let presentation: Presentation
 
     @Environment(InferenceState.self) private var inference
     @AppStorage("notesSidebar.modelVaultsExpanded") private var isExpanded = false
     @State private var modelVaults: [ModelVaultEntry] = []
     @State private var expandedModelIDs: Set<String> = []
+
+    init(
+        onSelectPage: ((String) -> Void)? = nil,
+        presentation: Presentation = .sidebarSection
+    ) {
+        self.onSelectPage = onSelectPage
+        self.presentation = presentation
+    }
 
     private var partitionedModelVaults: (
         visible: [ModelVaultEntry],
@@ -42,7 +56,66 @@ struct ModelVaultsSidebarSection: View {
     }
 
     var body: some View {
+        Group {
+            switch presentation {
+            case .sidebarSection:
+                sidebarDisclosure
+            case .standalone:
+                standaloneBody
+            }
+        }
+        .onAppear {
+            if modelVaults.isEmpty {
+                refreshModelVaults()
+            }
+        }
+        .onChange(of: isExpanded) { _, nowExpanded in
+            if presentation == .sidebarSection && nowExpanded {
+                refreshModelVaults()
+            }
+        }
+        .onChange(of: inference.visibleModelVaultModelIDs) { _, _ in
+            if presentation == .standalone || isExpanded {
+                refreshModelVaults()
+            }
+        }
+    }
+
+    private var sidebarDisclosure: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
+            sectionContent
+                .frame(maxHeight: displayedModelVaultCount == 0 ? nil : Self.maxExpandedListHeight)
+        } label: {
+            sectionLabel
+        }
+    }
+
+    private var standaloneBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionContent
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var sectionLabel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "cpu")
+                .foregroundStyle(.secondary)
+            Text("Model Vaults")
+                .font(.callout)
+                .fontWeight(.medium)
+            Spacer(minLength: 0)
+            if displayedModelVaultCount > 0 {
+                Text("\(displayedModelVaultCount)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var sectionContent: some View {
+        Group {
             if displayedModelVaultCount == 0 {
                 Text("No model vaults yet")
                     .font(.footnote)
@@ -51,68 +124,41 @@ struct ModelVaultsSidebarSection: View {
                     .padding(.vertical, 4)
             } else {
                 ScrollView(.vertical) {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(visibleModelVaults) { entry in
-                            ModelVaultSidebarRow(
-                                entry: entry,
-                                isExpanded: expansionBinding(for: entry.id),
-                                onSelectPage: onSelectPage
-                            )
-                        }
-
-                        if !additionalModelVaults.isEmpty {
-                            if !visibleModelVaults.isEmpty {
-                                Divider()
-                                    .padding(.vertical, 4)
-                            }
-                            Text("Other Storage")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.tertiary)
-                                .padding(.horizontal, 10)
-                                .padding(.top, visibleModelVaults.isEmpty ? 0 : 4)
-                                .padding(.bottom, 2)
-
-                            ForEach(additionalModelVaults) { entry in
-                                ModelVaultSidebarRow(
-                                    entry: entry,
-                                    isExpanded: expansionBinding(for: entry.id),
-                                    onSelectPage: onSelectPage
-                                )
-                            }
-                        }
-                    }
-                }
-                .frame(maxHeight: Self.maxExpandedListHeight)
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "cpu")
-                    .foregroundStyle(.secondary)
-                Text("Model Vaults")
-                    .font(.callout)
-                    .fontWeight(.medium)
-                Spacer(minLength: 0)
-                if displayedModelVaultCount > 0 {
-                    Text("\(displayedModelVaultCount)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    modelVaultRows
                 }
             }
-            .contentShape(Rectangle())
         }
-        .onAppear {
-            if modelVaults.isEmpty {
-                refreshModelVaults()
+    }
+
+    private var modelVaultRows: some View {
+        LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(visibleModelVaults) { entry in
+                ModelVaultSidebarRow(
+                    entry: entry,
+                    isExpanded: expansionBinding(for: entry.id),
+                    onSelectPage: onSelectPage
+                )
             }
-        }
-        .onChange(of: isExpanded) { _, nowExpanded in
-            if nowExpanded {
-                refreshModelVaults()
-            }
-        }
-        .onChange(of: inference.visibleModelVaultModelIDs) { _, _ in
-            if isExpanded {
-                refreshModelVaults()
+
+            if !additionalModelVaults.isEmpty {
+                if !visibleModelVaults.isEmpty {
+                    Divider()
+                        .padding(.vertical, 4)
+                }
+                Text("Other Storage")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 10)
+                    .padding(.top, visibleModelVaults.isEmpty ? 0 : 4)
+                    .padding(.bottom, 2)
+
+                ForEach(additionalModelVaults) { entry in
+                    ModelVaultSidebarRow(
+                        entry: entry,
+                        isExpanded: expansionBinding(for: entry.id),
+                        onSelectPage: onSelectPage
+                    )
+                }
             }
         }
     }

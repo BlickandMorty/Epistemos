@@ -512,6 +512,7 @@ enum NotesSidebarHoverHapticStyle: Sendable {
 struct NotesSidebar: View {
     let allPages: [SDPage]
     let allFolders: [SDFolder]
+    var showsModelVaultsSection = true
 
     /// Injected page-select action. When non-nil, .openPage and .openIdea use this
     /// instead of opening a separate window. Allows the home workspace to select in-place.
@@ -868,10 +869,12 @@ struct NotesSidebar: View {
                 ],
                 selectionEnabled: false
             )
-            ModelVaultsSidebarSection(onSelectPage: onSelectPage)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-            Divider().opacity(0.2)
+            if showsModelVaultsSection {
+                ModelVaultsSidebarSection(onSelectPage: onSelectPage)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                Divider().opacity(0.2)
+            }
             bottomBar
         }
         .background(sidebarBackground)
