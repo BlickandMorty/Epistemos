@@ -576,6 +576,37 @@ fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32 
     }
 }
 
+fn edge_color_with_endpoint_palette(
+    base: [f32; 4],
+    source_override: [f32; 4],
+    target_override: [f32; 4],
+) -> [f32; 4] {
+    let source_has_color = source_override[3] > 0.0;
+    let target_has_color = target_override[3] > 0.0;
+    if !source_has_color && !target_has_color {
+        return base;
+    }
+
+    let tint = match (source_has_color, target_has_color) {
+        (true, true) => [
+            (source_override[0] + target_override[0]) * 0.5,
+            (source_override[1] + target_override[1]) * 0.5,
+            (source_override[2] + target_override[2]) * 0.5,
+            1.0,
+        ],
+        (true, false) => source_override,
+        (false, true) => target_override,
+        (false, false) => base,
+    };
+
+    [
+        base[0] * 0.30 + tint[0] * 0.70,
+        base[1] * 0.30 + tint[1] * 0.70,
+        base[2] * 0.30 + tint[2] * 0.70,
+        base[3],
+    ]
+}
+
 #[inline]
 fn monochrome_graph_node_color(light_mode: bool, node_type: u8, depth: u32) -> [f32; 4] {
     let _ = depth;
@@ -2466,10 +2497,20 @@ impl Renderer {
     }
 
     #[inline]
-    fn classic_edge_instance_color(&self, edge: &crate::ecs::EdgeComponent) -> [f32; 4] {
+    fn classic_edge_instance_color(
+        &self,
+        world: &World,
+        edge: &crate::ecs::EdgeComponent,
+        src_index: usize,
+        tgt_index: usize,
+    ) -> [f32; 4] {
         let mut color = self.edge_color(edge.edge_type);
         color[3] *= BASE_NODE_ALPHA;
-        color
+        edge_color_with_endpoint_palette(
+            color,
+            world.render[src_index].color_override,
+            world.render[tgt_index].color_override,
+        )
     }
 
     #[inline]
@@ -2959,7 +3000,7 @@ impl Renderer {
                 let r1 = world.graph_node[tgt_index].radius;
                 let thickness_px = edge_width_px_for_weight(edge.weight, r0, r1);
 
-                let color = self.classic_edge_instance_color(edge);
+                let color = self.classic_edge_instance_color(world, edge, src_index, tgt_index);
                 match edge_geometry_kind {
                     EdgeGeometryKind::Curve => {
                         let ideal_length = self.link_distance / edge.weight.max(0.01);
@@ -4158,6 +4199,22 @@ mod tests {
         assert!(thick > medium);
         assert!(thick <= MAX_EDGE_WIDTH_PX);
         assert!(small_endpoint <= 2.0 * 0.6 * 2.0);
+    }
+
+    #[test]
+    fn edge_color_blends_endpoint_palette_when_available() {
+        let base = [0.20, 0.20, 0.20, 0.48];
+        let red = [0.94, 0.08, 0.07, 1.0];
+        let yellow = [1.0, 0.84, 0.04, 1.0];
+        let blended = edge_color_with_endpoint_palette(base, red, yellow);
+
+        assert!(blended[0] > base[0]);
+        assert!(blended[1] > base[1]);
+        assert!(blended[2] < base[2]);
+        assert_eq!(blended[3], base[3]);
+
+        let fallback = edge_color_with_endpoint_palette(base, [0.0; 4], [0.0; 4]);
+        assert_eq!(fallback, base);
     }
 
     #[test]

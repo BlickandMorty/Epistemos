@@ -579,9 +579,12 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(renderer.contains("const MAX_EDGE_WIDTH_PX: f32 = 4.00"))
         #expect(renderer.contains("fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32"))
         #expect(renderer.contains("let thickness_px = edge_width_px_for_weight(edge.weight, r0, r1)"))
+        #expect(renderer.contains("fn edge_color_with_endpoint_palette("))
+        #expect(renderer.contains("self.classic_edge_instance_color(world, edge, src_index, tgt_index)"))
         #expect(renderer.contains("float thickness_px;"))
         #expect(renderer.contains("clamp(inst.thickness_px, MIN_EDGE_WIDTH_PX, MAX_EDGE_WIDTH_PX) * 0.5"))
         #expect(renderer.contains("edge_weight_maps_to_clamped_screen_thickness"))
+        #expect(renderer.contains("edge_color_blends_endpoint_palette_when_available"))
     }
 
     @Test("Graph renderer trims edges before Metal upload")
