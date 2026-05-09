@@ -674,6 +674,30 @@ enum StartupAutoDiscovery {
     }
 }
 
+private actor AgentCoreEnvironmentScopeGate {
+    private var isHeld = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        if !isHeld {
+            isHeld = true
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            isHeld = false
+        } else {
+            waiters.removeFirst().resume()
+        }
+    }
+}
+
 @MainActor
 final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
@@ -705,15 +729,65 @@ final class AppBootstrap {
         ("HF_TOKEN", "epistemos.huggingface.apiKey"),
     ]
 
-    /// Mirrors stored provider credentials into process env vars so the in-process
-    /// Rust agent runtime can immediately see API-key and OAuth-backed credentials.
-    nonisolated static func populateAgentCoreEnvironment(
-        keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
-    ) {
-        let overrides = agentCoreEnvironmentOverrides(keychainLoad: keychainLoad)
-        let managedVars = Set(agentCoreEnvironmentKeyMappings.map(\.envVar))
-            .union(agentCoreManagedOAuthEnvironmentVars)
+    private nonisolated static let agentCoreEnvironmentScopeGate = AgentCoreEnvironmentScopeGate()
 
+    private nonisolated static var agentCoreManagedEnvironmentVars: Set<String> {
+        Set(agentCoreEnvironmentKeyMappings.map(\.envVar))
+            .union(agentCoreManagedOAuthEnvironmentVars)
+    }
+
+    /// Clears Epistemos-managed provider env vars from the parent process. Stored
+    /// credentials are scoped only around the Rust agent runtime call.
+    nonisolated static func populateAgentCoreEnvironment(
+        keychainLoad _: @Sendable (String) -> String? = { Keychain.load(for: $0) }
+    ) {
+        clearAgentCoreEnvironment()
+    }
+
+    nonisolated static func clearAgentCoreEnvironment() {
+        for envVar in agentCoreManagedEnvironmentVars {
+            unsetenv(envVar)
+        }
+    }
+
+    nonisolated static func withScopedAgentCoreEnvironment<T>(
+        keychainLoad: @Sendable (String) -> String? = { Keychain.load(for: $0) },
+        operation: @Sendable () async throws -> T
+    ) async throws -> T {
+        let overrides = agentCoreEnvironmentOverrides(keychainLoad: keychainLoad)
+        let managedVars = agentCoreManagedEnvironmentVars
+
+        await agentCoreEnvironmentScopeGate.acquire()
+
+        let previous = snapshotEnvironmentVars(managedVars)
+        applyAgentCoreEnvironmentOverrides(overrides, managedVars: managedVars)
+
+        do {
+            let result = try await operation()
+            restoreEnvironmentVars(previous)
+            await agentCoreEnvironmentScopeGate.release()
+            return result
+        } catch {
+            restoreEnvironmentVars(previous)
+            await agentCoreEnvironmentScopeGate.release()
+            throw error
+        }
+    }
+
+    private nonisolated static func snapshotEnvironmentVars(_ vars: Set<String>) -> [String: String?] {
+        vars.reduce(into: [String: String?]()) { result, envVar in
+            if let rawValue = getenv(envVar) {
+                result.updateValue(String(cString: rawValue), forKey: envVar)
+            } else {
+                result.updateValue(nil, forKey: envVar)
+            }
+        }
+    }
+
+    private nonisolated static func applyAgentCoreEnvironmentOverrides(
+        _ overrides: [String: String],
+        managedVars: Set<String>
+    ) {
         for envVar in managedVars {
             if let value = overrides[envVar], !value.isEmpty {
                 setenv(envVar, value, 1)
@@ -723,8 +797,18 @@ final class AppBootstrap {
         }
     }
 
+    private nonisolated static func restoreEnvironmentVars(_ snapshot: [String: String?]) {
+        for (envVar, value) in snapshot {
+            if let value {
+                setenv(envVar, value, 1)
+            } else {
+                unsetenv(envVar)
+            }
+        }
+    }
+
     nonisolated static func agentCoreEnvironmentOverrides(
-        keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
+        keychainLoad: @Sendable (String) -> String? = { Keychain.load(for: $0) }
     ) -> [String: String] {
         var overrides: [String: String] = [:]
         for mapping in agentCoreEnvironmentKeyMappings {
@@ -769,7 +853,7 @@ final class AppBootstrap {
     private nonisolated static func storedOAuthCredential(
         for provider: CloudModelProvider,
         authMode: CloudProviderOAuthMode,
-        keychainLoad: (String) -> String?
+        keychainLoad: @Sendable (String) -> String?
     ) -> CloudProviderOAuthCredential? {
         guard let rawCredential = normalizedAgentCoreEnvironmentValue(
             keychainLoad(provider.oauthKeychainKey)
@@ -2304,10 +2388,8 @@ final class AppBootstrap {
             deferredCloudCredentialBootstrapInFlight: inferenceState.isDeferredCloudCredentialBootstrapInFlight
         )
 
-        // Populate process environment with API keys from Keychain so the
-        // in-process Rust agent_core providers can read them via std::env::var.
-        // Keychain reads can stall on the main thread, so do this in the
-        // background and let the first window settle first.
+        // Clear any stale managed provider env slots from older launches
+        // without reading Keychain on the main thread.
         Task.detached(priority: .utility) {
             guard shouldPopulateAgentCoreEnvironment else { return }
             Self.populateAgentCoreEnvironment()
