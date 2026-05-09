@@ -146,19 +146,12 @@ impl Default for ForceParams {
             // the out-of-the-box feel matches what Observatory /
             // Constellation / Chaos used to read like. Presets that
             // want the canonical feel can opt in explicitly.
-            // Compliant collision (0.7) is back on by default as of
-            // 2026-04-24: user reports small nodes "jumping
-            // chaotically" when a large parent is dragged close
-            // through them. Strict 1.0 resolves overlap instantly
-            // in a single tick — that's the jump. 0.7 spreads the
-            // resolution over ~3 frames, which visually reads as a
-            // soft press-and-recover rather than a teleport. The
-            // earlier "glitchy/springy" complaint was compliant
-            // collision combined with the canonical per-node
-            // damping curve — now that per-node damping is off
-            // (using the legacy scalar), compliance alone is safe
-            // to ship as default.
-            collision_compliance: 0.7,
+            // 2026-05-09 live graph feedback: contact still felt too
+            // strict, especially after label/folder sizing work. Keep
+            // collision as a watery correction: overlap resolves over
+            // several frames so nodes can press through space and recover
+            // instead of snapping apart like rigid discs.
+            collision_compliance: 0.42,
             ambient_breath_strength: 0.0, // off, legacy
             // User 2026-04-24: "I want to use fluid wake but it
             // still feels like the nodes themselves carry too much
@@ -262,8 +255,8 @@ fn collision_radius_for_node(visual_radius: f32, padding_control: f32) -> f32 {
     visual_radius.max(0.0) + padding_control * COLLISION_SHELL_PADDING_SCALE
 }
 
-const LABEL_COLLISION_SOFT_BLEND: f32 = 0.24;
-const LABEL_COLLISION_MAX_EXTRA: f32 = 52.0;
+const LABEL_COLLISION_SOFT_BLEND: f32 = 0.12;
+const LABEL_COLLISION_MAX_EXTRA: f32 = 28.0;
 
 #[inline]
 fn soft_label_collision_radius(node_radius: f32, label_bubble_radius: f32) -> f32 {
@@ -2831,8 +2824,8 @@ mod tests {
 
         let visual_shell = collision_radius_for_node(sim.radii[0], sim.params.collision_radius);
         assert!(
-            sim.collision_radii[0] > visual_shell + 40.0,
-            "long labels must expand physics collision bubbles; shell={}, actual={}",
+            sim.collision_radii[0] > visual_shell + 12.0,
+            "long labels must softly expand physics collision bubbles; shell={}, actual={}",
             visual_shell,
             sim.collision_radii[0]
         );
@@ -2855,10 +2848,21 @@ mod tests {
 
         let visual_shell = collision_radius_for_node(sim.radii[0], sim.params.collision_radius);
         assert!(
-            sim.collision_radii[0] <= visual_shell + 56.0,
+            sim.collision_radii[0] <= visual_shell + 34.0,
             "label collision should be a soft spacing hint, not a rigid text-size body; shell={}, actual={}",
             visual_shell,
             sim.collision_radii[0]
+        );
+    }
+
+    #[test]
+    fn default_collision_compliance_is_water_soft() {
+        let params = ForceParams::default();
+
+        assert!(
+            params.collision_compliance <= 0.45,
+            "default node contact should feel watery, not stiff: {}",
+            params.collision_compliance
         );
     }
 
