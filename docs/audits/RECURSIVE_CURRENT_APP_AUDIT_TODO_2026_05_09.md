@@ -9110,7 +9110,7 @@ Constraints:
 
 ### UIX-2026-05-09-007 - Restore Settings Appearance theme picker
 
-Status: TODO - DEDICATED SMALL THEME SLICE / SOURCE EVIDENCE IDENTIFIED
+Status: PATCHED - SETTINGS PICKER AUTOMATED GREEN / MANUAL THEME SWITCH SMOKE PENDING
 
 User signal:
 
@@ -9138,6 +9138,35 @@ Constraints:
 - No fullscreen overlays, floating theme layers, opacity masks, or duplicate render trees.
 - No graph/editor cache invalidation beyond theme/material caches.
 - This picker restoration is separate from the broader forensic theme restoration inventory in `UIX-2026-05-09-001`.
+
+Patch evidence, 2026-05-09 Settings theme picker restoration slice:
+
+- Files changed:
+  - `Epistemos/State/UIState.swift`
+  - `Epistemos/Views/Settings/SettingsView.swift`
+  - `EpistemosTests/ThemePairTests.swift`
+  - `EpistemosTests/ThemePickerRestorationTests.swift`
+- Product behavior:
+  - `UIState` now restores valid `ThemeMode.defaultsKey` and `UIState.themePairDefaultsKey` values on launch instead of clearing them.
+  - `UIState.theme` resolves `.systemDefault` to the dedicated native system tokens, and resolves `.custom` through `activePair.resolved(isDark:)`.
+  - Theme mutators are active again, but `preferredColorScheme`, `windowAppearance`, `usesNativeWindowBlur`, and `shouldUseThemeWorkarounds` remain non-custom-overlay/native-safe.
+  - Settings -> Appearance now contains a `Themes` section with a `Follow macOS` toggle and one `ThemePairCard` per `ThemePair.allCases`.
+  - Theme cards show pair names/descriptions plus light/dark swatches sampled from `pair.lightTheme.resolved.background.color` and `pair.darkTheme.resolved.background.color`.
+  - Selecting a card writes through `ui.setPair(pair)` and `ui.setThemeMode(.custom)`.
+- Tests added/updated:
+  - `ThemePickerRestorationTests.customThemePairResolvesSemanticTokensWithoutWindowOverlays`
+  - `ThemePickerRestorationTests.savedThemePairPreferencesRestoreOnLaunch`
+  - `ThemePickerRestorationTests.settingsAppearanceExposesThemePairPicker`
+  - `ThemePairTests` updated away from the temporary system-only assertions and toward restored semantic-theme behavior without custom chrome/backdrop workarounds.
+- Commands/results:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePickerRestorationTests test CODE_SIGNING_ALLOWED=NO` failed before product patch because the new source guard/persistence assertions could not be satisfied while the picker was absent and `UIState` pinned themes to system-only behavior.
+  - Intermediate compatibility proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO` failed before test update with four expected stale system-only assertions; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_13-45-43--0500.xcresult`.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePickerRestorationTests test CODE_SIGNING_ALLOWED=NO` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePickerRestorationTests -only-testing:EpistemosTests/NoteWindowManagerTests -only-testing:EpistemosTests/SettingsWindowPresentationTests test CODE_SIGNING_ALLOWED=NO` passed, 41 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_13-51-52--0500.xcresult`.
+- Remaining risk:
+  - Manual built-app smoke is still required: open Settings -> Appearance, select each theme pair, toggle Follow macOS, switch system light/dark mode, and verify notes/sidebar/settings/graph surfaces update without overlay glitches or stale cache behavior.
+  - Broader historical theme forensic inventory and graph palette theming remain tracked in `UIX-2026-05-09-001` and the graph visual items.
 
 ### UIX-2026-05-09-008 - First-use Codex web research approval must be app-native and out-of-box
 

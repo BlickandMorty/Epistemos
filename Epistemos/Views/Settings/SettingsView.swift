@@ -2980,6 +2980,7 @@ private struct AppearanceDetailContainer: View {
     private var appearanceForm: some View {
         Form {
             AppearanceSystemSection(theme: theme)
+            AppearanceThemePairSection(ui: ui, theme: theme)
             AppearanceDisplayModeSection(
                 regularModeDraft: $regularModeDraft,
                 currentMode: ui.displayMode,
@@ -2987,6 +2988,130 @@ private struct AppearanceDetailContainer: View {
             )
             AppearanceEditorSection()
         }
+    }
+}
+
+private struct AppearanceThemePairSection: View {
+    let ui: UIState
+    let theme: EpistemosTheme
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 154), spacing: Spacing.sm, alignment: .top),
+    ]
+
+    private var followsMacOS: Binding<Bool> {
+        Binding(
+            get: { ui.themeMode == .systemDefault },
+            set: { followsSystem in
+                if followsSystem {
+                    ui.setThemeMode(.systemDefault)
+                } else {
+                    ui.setThemeMode(.custom)
+                }
+            }
+        )
+    }
+
+    var body: some View {
+        Section {
+            Toggle("Follow macOS", isOn: followsMacOS)
+                .toggleStyle(.switch)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
+                ForEach(ThemePair.allCases, id: \.self) { pair in
+                    ThemePairCard(
+                        pair: pair,
+                        theme: theme,
+                        isSelected: ui.themeMode == .custom && ui.activePair == pair
+                    ) {
+                        ui.setPair(pair)
+                        ui.setThemeMode(.custom)
+                    }
+                }
+            }
+
+            Text("Theme pairs color native app surfaces and graph materials through semantic tokens. Window chrome stays native.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("Themes")
+        }
+    }
+}
+
+private struct ThemePairCard: View {
+    let pair: ThemePair
+    let theme: EpistemosTheme
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(pair.displayName)
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(theme.textPrimary)
+                        Text(pair.description)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: Spacing.xs)
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(theme.resolved.accent.color)
+                            .imageScale(.small)
+                    }
+                }
+
+                HStack(spacing: Spacing.xs) {
+                    ThemePairSwatch(color: pair.lightTheme.resolved.background.color)
+                    ThemePairSwatch(color: pair.darkTheme.resolved.background.color)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Spacing.sm)
+            .background(cardBackground)
+            .overlay(cardBorder)
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(pair.displayName) theme pair"))
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(
+                isSelected
+                    ? theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.14)
+                    : theme.resolved.card.color.opacity(theme.isDark ? 0.42 : 0.72)
+            )
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(
+                isSelected
+                    ? theme.resolved.accent.color.opacity(0.72)
+                    : theme.resolved.border.color.opacity(theme.isDark ? 0.42 : 0.58),
+                lineWidth: isSelected ? 1.2 : 1
+            )
+    }
+}
+
+private struct ThemePairSwatch: View {
+    let color: Color
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 5, style: .continuous)
+            .fill(color)
+            .frame(width: 34, height: 18)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+            )
     }
 }
 

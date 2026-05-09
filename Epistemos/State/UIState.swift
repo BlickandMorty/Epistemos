@@ -248,19 +248,18 @@ final class UIState {
 
     static let themePairDefaultsKey = "epistemos.theme.pair"
 
-    private var isEnforcingSystemAppearance = false
     private var isNormalizingLandingGreetingLibrary = false
 
     var themeMode: ThemeMode = .systemDefault {
         didSet {
-            enforceSystemAppearance()
+            UserDefaults.standard.set(themeMode.rawValue, forKey: ThemeMode.defaultsKey)
         }
     }
 
     /// The active theme pair. Drives both light and dark rendering.
     var activePair: ThemePair = .classic {
         didSet {
-            enforceSystemAppearance()
+            UserDefaults.standard.set(activePair.rawValue, forKey: Self.themePairDefaultsKey)
         }
     }
 
@@ -269,10 +268,15 @@ final class UIState {
 
     /// The resolved theme for the current system mode — read this everywhere.
     var theme: EpistemosTheme {
-        isSystemDark ? .systemDark : .systemLight
+        switch themeMode {
+        case .systemDefault:
+            isSystemDark ? .systemDark : .systemLight
+        case .custom:
+            activePair.resolved(isDark: isSystemDark)
+        }
     }
 
-    var customThemesEnabled: Bool { false }
+    var customThemesEnabled: Bool { themeMode == .custom }
     var preferredColorScheme: ColorScheme? { nil }
     var shouldUseThemeWorkarounds: Bool { false }
     var windowAppearance: NSAppearance? { nil }
@@ -303,7 +307,7 @@ final class UIState {
         theme
     }
     var appearanceSyncKey: String {
-        "systemDefault:classic:\(isSystemDark ? 1 : 0)"
+        "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0)"
     }
 
     var displayMode: AppDisplayMode = .opulent {
@@ -380,7 +384,7 @@ final class UIState {
 
     init() {
         isSystemDark = SystemAppearanceState.isDark()
-        clearLegacyThemeDefaults()
+        restoreThemeDefaults()
         clearLegacyLandingGreetingDefaults()
         displayMode = AppDisplayMode.current()
         if let storedGreetingSourceMode = UserDefaults.standard.string(
@@ -428,9 +432,23 @@ final class UIState {
 
     // MARK: - Theme Methods
 
-    private func clearLegacyThemeDefaults() {
-        UserDefaults.standard.removeObject(forKey: ThemeMode.defaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.themePairDefaultsKey)
+    private func restoreThemeDefaults() {
+        let defaults = UserDefaults.standard
+        if let rawMode = defaults.string(forKey: ThemeMode.defaultsKey),
+            let storedMode = ThemeMode(rawValue: rawMode) {
+            themeMode = storedMode
+        } else {
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            themeMode = .systemDefault
+        }
+
+        if let rawPair = defaults.string(forKey: Self.themePairDefaultsKey),
+            let storedPair = ThemePair(rawValue: rawPair) {
+            activePair = storedPair
+        } else {
+            defaults.removeObject(forKey: Self.themePairDefaultsKey)
+            activePair = .classic
+        }
     }
 
     private func clearLegacyLandingGreetingDefaults() {
@@ -473,36 +491,16 @@ final class UIState {
         )
     }
 
-    private func enforceSystemAppearance() {
-        guard !isEnforcingSystemAppearance else {
-            clearLegacyThemeDefaults()
-            return
-        }
-
-        isEnforcingSystemAppearance = true
-        if themeMode != .systemDefault {
-            themeMode = .systemDefault
-        }
-        if activePair != .classic {
-            activePair = .classic
-        }
-        clearLegacyThemeDefaults()
-        isEnforcingSystemAppearance = false
-    }
-
     func setPair(_ pair: ThemePair) {
-        _ = pair
-        enforceSystemAppearance()
+        activePair = pair
     }
 
     func setThemeMode(_ mode: ThemeMode) {
-        _ = mode
-        enforceSystemAppearance()
+        themeMode = mode
     }
 
     func setCustomThemesEnabled(_ enabled: Bool) {
-        _ = enabled
-        enforceSystemAppearance()
+        themeMode = enabled ? .custom : .systemDefault
     }
 
     func setDisplayMode(_ mode: AppDisplayMode) { displayMode = mode }

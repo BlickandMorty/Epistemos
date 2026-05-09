@@ -94,8 +94,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Stored theme preferences no longer reactivate custom appearance")
-    func storedThemePreferencesStayPinnedToSystemDefault() {
+    @Test("Stored theme preferences restore the selected semantic pair")
+    func storedThemePreferencesRestoreSelectedSemanticPair() {
         let defaults = UserDefaults.standard
         let pairsKey = UIState.themePairDefaultsKey
         let modeKey = ThemeMode.defaultsKey
@@ -119,16 +119,16 @@ struct ThemePairTests {
 
         let uiState = UIState()
 
-        #expect(uiState.activePair == .classic)
-        #expect(uiState.customThemesEnabled == false)
-        #expect(uiState.themeMode == .systemDefault)
+        #expect(uiState.activePair == .ember)
+        #expect(uiState.customThemesEnabled)
+        #expect(uiState.themeMode == .custom)
         #expect(uiState.shouldUseThemeWorkarounds == false)
         #expect(uiState.preferredColorScheme == nil)
     }
 
     @MainActor
-    @Test("UIState clears legacy theme defaults on init")
-    func uiStateClearsLegacyThemeDefaultsOnInit() {
+    @Test("UIState preserves valid theme defaults on init")
+    func uiStatePreservesValidThemeDefaultsOnInit() {
         let defaults = UserDefaults.standard
         let keys = [ThemeMode.defaultsKey, UIState.themePairDefaultsKey]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
@@ -145,15 +145,17 @@ struct ThemePairTests {
         defaults.set(ThemeMode.systemDefault.rawValue, forKey: ThemeMode.defaultsKey)
         defaults.set(ThemePair.ember.rawValue, forKey: UIState.themePairDefaultsKey)
 
-        _ = UIState()
+        let uiState = UIState()
 
-        #expect(defaults.object(forKey: ThemeMode.defaultsKey) == nil)
-        #expect(defaults.object(forKey: UIState.themePairDefaultsKey) == nil)
+        #expect(uiState.themeMode == .systemDefault)
+        #expect(uiState.activePair == .ember)
+        #expect(defaults.string(forKey: ThemeMode.defaultsKey) == ThemeMode.systemDefault.rawValue)
+        #expect(defaults.string(forKey: UIState.themePairDefaultsKey) == ThemePair.ember.rawValue)
     }
 
     @MainActor
-    @Test("Theme mutators stay inert under the system-only runtime")
-    func themeMutatorsStayInert() {
+    @Test("Theme mutators restore semantic themes without custom chrome")
+    func themeMutatorsRestoreSemanticThemesWithoutCustomChrome() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -165,9 +167,9 @@ struct ThemePairTests {
             uiState.setThemeMode(.custom)
             uiState.setCustomThemesEnabled(true)
 
-            #expect(uiState.customThemesEnabled == false)
-            #expect(uiState.activePair == .classic)
-            #expect(uiState.themeMode == .systemDefault)
+            #expect(uiState.customThemesEnabled)
+            #expect(uiState.activePair == .magnolia)
+            #expect(uiState.themeMode == .custom)
             #expect(uiState.preferredColorScheme == nil)
             #expect(uiState.shouldUseThemeWorkarounds == false)
             #expect(uiState.windowAppearance == nil)
@@ -175,8 +177,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("System default keeps window appearance unforced even after legacy theme calls")
-    func windowAppearanceStaysNative() {
+    @Test("Custom semantic themes keep window appearance unforced")
+    func customSemanticThemesKeepWindowAppearanceNative() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -194,9 +196,9 @@ struct ThemePairTests {
             uiState.setCustomThemesEnabled(true)
             uiState.isSystemDark = true
 
-            #expect(uiState.themeMode == .systemDefault)
+            #expect(uiState.themeMode == .custom)
             #expect(uiState.windowAppearance == nil)
-            #expect(uiState.theme == .systemDark)
+            #expect(uiState.theme == .platinumDark)
         }
     }
 
