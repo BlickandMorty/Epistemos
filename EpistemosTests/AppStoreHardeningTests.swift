@@ -293,6 +293,165 @@ struct AppStoreHardeningTests {
         }
     }
 
+    // MARK: - App Store release-gate script regressions (Drop 12/13)
+
+    @Test("App Review audit fails MAS subprocess findings instead of warning")
+    func appReviewAuditFailsMASSubprocessFindingsInsteadOfWarning() throws {
+        let source = try loadMirroredSourceTextFile("Tools/app-review-audit/app-review-audit.sh")
+
+        #expect(
+            !source.contains("::warning::W26 stage-0 informational"),
+            "App Review audit still reports MAS subprocess findings as warnings. MAS-reachable subprocess/PTY/shell findings must fail the release gate."
+        )
+        #expect(
+            !source.contains("stage-0 audit does not fail"),
+            "App Review audit still documents subprocess findings as non-fatal stage-0 findings."
+        )
+        #expect(
+            source.contains("::error::W26") && source.contains("MAS-reachable subprocess surface"),
+            "App Review audit must emit an error when MAS-reachable subprocess patterns are found."
+        )
+        #expect(
+            source.contains("target=${1:-appstore}") || source.contains("target=\"${1:-appstore}\""),
+            "App Review audit should make the audited target explicit, defaulting to appstore."
+        )
+    }
+
+    @Test("App Store artifact scan inspects final bundle strings symbols executables and resources")
+    func appStoreArtifactScanInspectsFinalBundleStringsSymbolsExecutablesAndResources() throws {
+        let source = try loadMirroredSourceTextFile("scripts/scan_appstore_bundle.sh")
+        let requiredFragments = [
+            "find \"$APP\" -type f",
+            "strings",
+            "nm -gU",
+            "otool -L",
+            "-perm",
+            "pty|osascript|cli_passthrough|bash_execute|Command::new|fork|exec|docker|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl",
+            "MOHAWK|MoLoRA|raw Helios|research packets|Hermes|omega_ax|omega-mcp|pty",
+        ]
+
+        for fragment in requiredFragments {
+            #expect(
+                source.contains(fragment),
+                "scripts/scan_appstore_bundle.sh is missing required artifact-scan fragment: \(fragment)"
+            )
+        }
+        #expect(
+            source.contains("FORBIDDEN_SYMBOL_PATTERN"),
+            "scripts/scan_appstore_bundle.sh must scan fork/exec as Mach-O symbol/linkage evidence, not only as raw strings."
+        )
+        #expect(
+            !source.contains("FORBIDDEN_STRING_PATTERN='(^|[^A-Za-z0-9_])(pty|osascript|cli_passthrough|bash_execute|Command::new|fork|exec|docker|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl)"),
+            "scripts/scan_appstore_bundle.sh should not fail raw string scans on generic exec/fork text such as SQL exec logs; fork/exec belong in the symbol/linkage gate."
+        )
+        #expect(
+            source.contains("(^|[^A-Za-z0-9_.])docker"),
+            "scripts/scan_appstore_bundle.sh should flag Docker command/runtime evidence without treating benign ignored-path text like `.docker/` as a subprocess surface."
+        )
+    }
+
+    @Test("App Store scheme has tests or CI runs a dedicated MAS artifact gate")
+    func appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate() throws {
+        let scheme = try loadMirroredSourceTextFile(
+            "Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme"
+        )
+        let ci = try loadMirroredSourceTextFile(".github/workflows/ci.yml")
+
+        let testablesRange = scheme.range(of: "<Testables>")?.upperBound
+        let testablesEnd = scheme.range(of: "</Testables>")?.lowerBound
+        let testablesBody: Substring
+        if let testablesRange, let testablesEnd, testablesRange <= testablesEnd {
+            testablesBody = scheme[testablesRange..<testablesEnd]
+        } else {
+            testablesBody = ""
+        }
+
+        let schemeHasTestables = testablesBody.contains("<TestableReference")
+        let ciRunsMASGate = ci.contains("Epistemos-AppStore")
+            && ci.contains("Tools/app-review-audit/app-review-audit.sh")
+            && ci.contains("scripts/scan_appstore_bundle.sh")
+
+        #expect(
+            schemeHasTestables || ciRunsMASGate,
+            "Epistemos-AppStore.xcscheme has no Testables and CI does not run a dedicated MAS artifact gate."
+        )
+    }
+
+    @Test("App Store agent command modes do not advertise Pro subprocess tools")
+    func appStoreAgentCommandModesHideProSubprocessTools() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/State/AgentCommandCenterState.swift")
+        let toolAllowlistSection = Self.sourceSection(
+            in: source,
+            startingAt: "var preferredToolNames: Set<String>",
+            endingBefore: "var expertAllowlist: [String]"
+        )
+        #expect(
+            toolAllowlistSection != nil,
+            "AgentCommandCenterState.swift must keep preferredToolNames distinct enough for MAS tool-advertising source guards."
+        )
+        let guardedSource = toolAllowlistSection ?? source
+        let proOnlyToolNames = [
+            "bash_execute",
+            "run_command",
+            "terminal",
+            "process",
+            "execute_code",
+        ]
+
+        for caseMarker in ["case .debug:", "case .code:"] {
+            let caseBody = Self.switchCaseBody(in: guardedSource, startingAt: caseMarker)
+            #expect(
+                caseBody != nil,
+                "AgentCommandCenterState.swift is missing \(caseMarker); update this MAS source guard with the new command-mode layout."
+            )
+            guard let caseBody else { continue }
+
+            #expect(
+                caseBody.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"),
+                "\(caseMarker) must gate Pro-only subprocess/tool names out of the MAS binary."
+            )
+            guard
+                let gateRange = caseBody.range(of: "#if EPISTEMOS_APP_STORE || MAS_SANDBOX"),
+                let elseRange = caseBody.range(of: "#else", range: gateRange.upperBound..<caseBody.endIndex),
+                let endifRange = caseBody.range(of: "#endif", range: elseRange.upperBound..<caseBody.endIndex)
+            else {
+                Issue.record("\(caseMarker) must use an explicit MAS branch and Pro branch around tool allowlists.")
+                continue
+            }
+
+            let masBranch = String(caseBody[gateRange.upperBound..<elseRange.lowerBound])
+            let proBranch = String(caseBody[elseRange.upperBound..<endifRange.lowerBound])
+            for toolName in proOnlyToolNames {
+                #expect(
+                    !masBranch.contains(toolName),
+                    "\(caseMarker) MAS branch must not embed Pro-only tool name \(toolName)."
+                )
+            }
+            #expect(
+                proBranch.contains("bash_execute"),
+                "\(caseMarker) Pro branch should keep the direct-build tool path; this guard is meant to gate MAS, not delete Pro capability."
+            )
+        }
+    }
+
+    private static func switchCaseBody(in source: String, startingAt marker: String) -> String? {
+        guard let markerRange = source.range(of: marker) else { return nil }
+        let searchRange = markerRange.upperBound..<source.endIndex
+        let nextCase = source.range(of: "\n        case .", range: searchRange)?.lowerBound ?? source.endIndex
+        return String(source[markerRange.lowerBound..<nextCase])
+    }
+
+    private static func sourceSection(
+        in source: String,
+        startingAt startMarker: String,
+        endingBefore endMarker: String
+    ) -> String? {
+        guard let startRange = source.range(of: startMarker) else { return nil }
+        let searchRange = startRange.upperBound..<source.endIndex
+        let endIndex = source.range(of: endMarker, range: searchRange)?.lowerBound ?? source.endIndex
+        return String(source[startRange.lowerBound..<endIndex])
+    }
+
     // MARK: - Per-file MAS-branch subprocess-launch regressions (Phase S.2)
     //
     // For files that MUST stay compiled into the MAS binary (i.e. the

@@ -5115,7 +5115,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA9-P0-002 - Promote App Store artifact scanning above source-guard proof
 
-Status: CONFIRMED-REQUIRED
+Status: PATCHED - RELEASE ARTIFACT SCAN GREEN / MANUAL MAS UI SWEEP PENDING
 
 Canonical owner: `RCA4-P0-002`
 
@@ -5162,6 +5162,53 @@ Acceptance:
 
 - MAS bundle does not contain or surface Pro-only shell, CLI, MCP stdio, browser-control, screen capture, AX, PTY, Docker, or computer-use paths except as clean unavailable stubs where explicitly approved.
 - Artifact scan output is stored with the release audit evidence.
+
+Fix-pass evidence 2026-05-09:
+
+- Changed files:
+  - `scripts/scan_appstore_bundle.sh`
+  - `Tools/app-review-audit/app-review-audit.sh`
+  - `.github/workflows/ci.yml`
+  - `agent_core/src/tools/registry.rs`
+  - `agent_core/src/approval.rs`
+  - `agent_core/tests/mas_pro_feature_gates.rs`
+  - `Epistemos/State/AgentCommandCenterState.swift`
+  - `EpistemosTests/AppStoreHardeningTests.swift`
+- Tests added/updated:
+  - `EpistemosTests/AppStoreHardeningTests.appReviewAuditFailsMASSubprocessFindingsInsteadOfWarning`
+  - `EpistemosTests/AppStoreHardeningTests.appStoreArtifactScanInspectsFinalBundleStringsSymbolsExecutablesAndResources`
+  - `EpistemosTests/AppStoreHardeningTests.appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate`
+  - `EpistemosTests/AppStoreHardeningTests.appStoreAgentCommandModesHideProSubprocessTools`
+  - `agent_core/tests/mas_pro_feature_gates.rs::mas_legacy_aliases_do_not_embed_pro_subprocess_tool_names`
+- Red evidence:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed because the App Review script still treated MAS subprocess findings as warning-only and no final bundle scanner / dedicated MAS CI gate existed.
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-32-08--0500.xcresult`
+  - `cargo test --manifest-path agent_core/Cargo.toml --test mas_pro_feature_gates mas_legacy_aliases_do_not_embed_pro_subprocess_tool_names`
+    - Failed because MAS `agent_core` still embedded Pro-only legacy alias strings such as `bash_execute`.
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed after adding the bundle scan source guard because the scanner lacked a separate prohibited-symbol pattern and the raw string pattern still included generic `fork|exec`.
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_04-19-20--0500.xcresult`
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed when the Swift source guard matched an earlier `debug`/`code` switch instead of the `preferredToolNames` implementation section.
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_04-42-18--0500.xcresult`
+- Green evidence:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed, 24 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_04-45-57--0500.xcresult`
+  - `cargo test --manifest-path agent_core/Cargo.toml --test mas_pro_feature_gates`
+    - Passed, 3 tests.
+  - `./Tools/app-review-audit/app-review-audit.sh appstore`
+    - Passed: 35 bundled artifacts checked; no runtime executable-code download patterns; no HELIOS V5 runtime AppStorage toggles; no subprocess launch surface detected for target `appstore`.
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -configuration Release -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`
+    - Passed, built `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Release/Epistemos.app`.
+  - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/appstore-audit scripts/scan_appstore_bundle.sh /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Release/Epistemos.app`
+    - Passed: no prohibited runtime strings, no prohibited runtime symbols, no prohibited research/tool resource residue.
+- Runtime/manual proof:
+  - Final Release `.app` artifact scan is complete and stored under `build/appstore-audit`.
+  - Manual MAS UI sweep of Settings, onboarding, command palette, chat slash menu, agent controls, and Omega/Hermes surfaces remains pending.
+- Remaining risk:
+  - This closes the artifact-gate blocker, but not the separate UI/copy honesty sweep or the three uninterrupted clean-pass release criterion.
 
 ### RCA9-P0-003 - Split credential environment risk into env mirroring and child scrub proof
 
@@ -5977,7 +6024,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA10-P0-002 - Upgrade process-wide credential environment mirroring to confirmed
 
-Status: CONFIRMED
+Status: PATCHED VIA DEDICATED MAS CI ARTIFACT GATE / LAUNCH SMOKE PENDING
 
 Canonical owner:
 
@@ -6902,7 +6949,7 @@ Acceptance:
 
 ### RCA11-P1-003 - Promote MAS subprocess audit warnings to target-aware failures
 
-Status: CONFIRMED AUDIT-GATE GAP
+Status: PATCHED - SOURCE AUDIT FAILS MAS SUBPROCESS FINDINGS / GREEN
 
 Canonical links:
 
@@ -6935,6 +6982,24 @@ assert failure, not warning
 Acceptance:
 
 - MAS artifact scan and source audit both fail on MAS-reachable subprocess surfaces.
+
+Fix-pass evidence 2026-05-09:
+
+- `Tools/app-review-audit/app-review-audit.sh` now accepts target modes and treats MAS/App Store subprocess findings as hard failures while keeping direct/Pro findings informational.
+- The script strips common MAS-unreachable Swift `#if !EPISTEMOS_APP_STORE`, `#if !MAS_SANDBOX`, and `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` regions before scanning MAS-visible Swift subprocess surfaces.
+- Regression coverage added in `EpistemosTests/AppStoreHardeningTests.appReviewAuditFailsMASSubprocessFindingsInsteadOfWarning`.
+- Red command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+  - Failed because subprocess detection was still warning-only.
+  - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-32-08--0500.xcresult`
+- Green commands:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed, 24 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_04-45-57--0500.xcresult`
+  - `./Tools/app-review-audit/app-review-audit.sh appstore`
+    - Passed with no MAS-visible subprocess launch surface.
+- Remaining risk:
+  - Manual MAS UI/copy honesty still belongs to the separate UI sweep.
 
 ### RCA11-P1-004 - Label permissions UI as resource grants, not universal capability control
 
@@ -7193,7 +7258,7 @@ Manual proof:
 
 ### RCA11-P2-001 - Add App Store scheme tests or a dedicated MAS test plan
 
-Status: CONFIRMED HARNESS GAP
+Status: PATCHED VIA DEDICATED MAS CI ARTIFACT GATE / SCHEME TESTABLES STILL EMPTY
 
 Subsystem: `Epistemos-AppStore.xcscheme`, MAS test coverage, release truth.
 
@@ -7208,6 +7273,20 @@ Acceptance:
 
 - A failing MAS-specific behavior fails CI.
 - Release notes do not imply App Store runtime test coverage if the scheme remains empty.
+
+Fix-pass evidence 2026-05-09:
+
+- `.github/workflows/ci.yml` now has a dedicated `W26.b - App Store artifact and subprocess release gate` step after the App Store Release build.
+- The CI gate runs:
+  - `./Tools/app-review-audit/app-review-audit.sh appstore`
+  - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/appstore-audit ./scripts/scan_appstore_bundle.sh "${app_path}"`
+- Regression coverage added in `EpistemosTests/AppStoreHardeningTests.appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate`.
+- Green command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+  - Passed, 24 Swift Testing tests.
+  - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_04-45-57--0500.xcresult`
+- Remaining risk:
+  - The `Epistemos-AppStore.xcscheme` `<Testables>` block remains empty by design in this pass; the dedicated CI release gate is the chosen coverage path.
 
 ### RCA11-P2-002 - Rename or expand `scripts/run_all_tests.sh`
 
@@ -7433,9 +7512,26 @@ Acceptance:
 - A MAS-specific break fails CI.
 - App Store release notes cannot claim runtime test coverage from the main scheme alone.
 
+Fix-pass evidence 2026-05-09:
+
+- Chosen patch option: dedicated MAS CI artifact/source gate instead of adding App Store scheme testables in this pass.
+- `.github/workflows/ci.yml` now builds `Epistemos-AppStore` in Release and runs `Tools/app-review-audit/app-review-audit.sh appstore` plus `scripts/scan_appstore_bundle.sh` against the built `.app`.
+- Regression coverage:
+  - `EpistemosTests/AppStoreHardeningTests.appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate`
+- Green proof:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed, 24 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_04-45-57--0500.xcresult`
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -configuration Release -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`
+    - Passed.
+  - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/appstore-audit scripts/scan_appstore_bundle.sh /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Release/Epistemos.app`
+    - Passed.
+- Remaining risk:
+  - Launch smoke under App Store compilation and a manual MAS UI/copy sweep are still pending.
+
 ### RCA12-P0-002 - Promote App Store artifact verification to the first release-truth gate
 
-Status: PARTIALLY-FIXED / ARTIFACT-PROOF-MISSING
+Status: PATCHED - RELEASE ARTIFACT PROOF GREEN / MANUAL MAS UI SWEEP PENDING
 
 Canonical links:
 
@@ -7473,6 +7569,32 @@ Acceptance:
 
 - MAS-reachable subprocess, PTY, shell, AX, ScreenCaptureKit, browser automation, external MCP, and Pro helper residue fail the release gate.
 - Source guards stay secondary; artifact scan becomes mandatory.
+
+Fix-pass evidence 2026-05-09:
+
+- `scripts/scan_appstore_bundle.sh` added as the final `.app` artifact scanner. It inspects:
+  - bundle strings,
+  - possible executable files,
+  - `otool -L` linkage,
+  - `nm -gU` exported symbols,
+  - resource names and packaged research/tool residue.
+- `Tools/app-review-audit/app-review-audit.sh` now fails MAS/App Store source-visible subprocess findings instead of warning.
+- `agent_core/src/tools/registry.rs` no longer embeds Pro-only legacy alias names in MAS builds.
+- `agent_core/src/approval.rs` no longer embeds container-detection strings in non-Pro builds.
+- `Epistemos/State/AgentCommandCenterState.swift` hides Pro subprocess tool names from MAS command-center mode catalogs.
+- Regression tests:
+  - `EpistemosTests/AppStoreHardeningTests.appStoreArtifactScanInspectsFinalBundleStringsSymbolsExecutablesAndResources`
+  - `EpistemosTests/AppStoreHardeningTests.appReviewAuditFailsMASSubprocessFindingsInsteadOfWarning`
+  - `EpistemosTests/AppStoreHardeningTests.appStoreAgentCommandModesHideProSubprocessTools`
+  - `agent_core/tests/mas_pro_feature_gates.rs::mas_legacy_aliases_do_not_embed_pro_subprocess_tool_names`
+- Red/green commands are recorded under `RCA9-P0-002`.
+- Final green artifact proof:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -configuration Release -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`
+    - Passed, built `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Release/Epistemos.app`.
+  - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/appstore-audit scripts/scan_appstore_bundle.sh /Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Build/Products/Release/Epistemos.app`
+    - Passed: no prohibited runtime strings, no prohibited runtime symbols, and no prohibited research/tool resource residue.
+- Remaining risk:
+  - Manual App Store UI/copy sweep and launch smoke remain pending.
 
 ### RCA12-P1-002 - Fix the `.epdoc` slash-image persistence split
 

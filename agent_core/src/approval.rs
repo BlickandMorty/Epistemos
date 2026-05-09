@@ -616,6 +616,13 @@ fn extract_command(tool_name: &str, input_json: &str) -> Option<String> {
 }
 
 /// Detect if we're running inside a container.
+#[cfg(not(feature = "pro-build"))]
+fn detect_container_environment() -> bool {
+    false
+}
+
+/// Detect if we're running inside a container.
+#[cfg(feature = "pro-build")]
 fn detect_container_environment() -> bool {
     // Check for .dockerenv
     if std::path::Path::new("/.dockerenv").exists() {

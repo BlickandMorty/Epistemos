@@ -44,3 +44,37 @@ fn xcode_agent_core_build_script_uses_canonical_mas_pro_features() {
         "direct pro-build agent_core builds must disable the default MAS feature set"
     );
 }
+
+#[cfg(not(feature = "pro-build"))]
+#[test]
+fn mas_legacy_aliases_do_not_embed_pro_subprocess_tool_names() {
+    use agent_core::tools::registry::{legacy_name_for_v2, v2_name_for_legacy};
+
+    for name in [
+        "bash_execute",
+        "terminal",
+        "process",
+        "claude_code",
+        "codex",
+        "gemini",
+        "kimi",
+        "mcp_discover",
+    ] {
+        assert!(
+            v2_name_for_legacy(name).is_none(),
+            "MAS agent_core alias table must not embed Pro-only tool name {name}"
+        );
+    }
+
+    for name in [
+        "action.bash",
+        "action.terminal",
+        "system.process",
+        "discovery.mcp_discover",
+    ] {
+        assert!(
+            legacy_name_for_v2(name).is_none(),
+            "MAS agent_core alias table must not embed Pro-only dotted tool name {name}"
+        );
+    }
+}

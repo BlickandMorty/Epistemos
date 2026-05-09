@@ -935,6 +935,16 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
                 "pkm_graph_neighbors",
             ]
         case .debug:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return [
+                "vault_search",
+                "vault_read",
+                "read_file",
+                "search_files",
+                "graph_query",
+                "pkm_graph_neighbors",
+            ]
+            #else
             return [
                 "vault_search",
                 "vault_read",
@@ -946,7 +956,17 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
                 "process",
                 "execute_code",
             ]
+            #endif
         case .code:
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            return [
+                "vault_search",
+                "vault_read",
+                "read_file",
+                "search_files",
+                "vault_navigate",
+            ]
+            #else
             return [
                 "vault_search",
                 "vault_read",
@@ -959,6 +979,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
                 "process",
                 "execute_code",
             ]
+            #endif
         case .readBranch:
             return [
                 "read_file",
