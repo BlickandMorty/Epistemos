@@ -9350,6 +9350,26 @@ Patch evidence, 2026-05-09 deterministic jagged edge shader slice:
   - Manual graph smoke is required to tune jagged strength; the current shader is deliberately subtle to avoid noisy dense graphs.
   - Full old `PixelEdgeInstance` / offscreen nearest-neighbor pixel pipeline is still not restored.
 
+Patch evidence, 2026-05-09 sparse-cell high-degree label density slice:
+
+- Files changed:
+  - `graph-engine/src/engine.rs`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Product behavior:
+  - Selected high-degree folder neighborhoods still reveal connected-node labels, but the global crowding term now applies even when every neighbor falls into a different density cell.
+  - This directly targets the observed dense-graph failure mode where long selected-neighbor labels survive as a bright central text pile despite local-cell density checks.
+  - Sparse areas still keep the larger dynamic label size; the patch changes label scoring/opacity only and does not modify `graph-engine/src/forces.rs`, the integrator, edge ordering, node palette, or collision physics.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_shrink_even_when_cells_are_sparse` failed before product patch because sparse-cell high-degree labels stayed above the new density bound.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_shrink_even_when_cells_are_sparse` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_stay_density_bounded` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml sparse_labels_keep_larger_dynamic_size` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label` passed, 28 tests.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Manual dense-vault graph smoke is still required to verify the subjective balance: selected-node labels should give useful neighborhood context without forming the white label block shown in the user's screenshots.
+  - Runtime screenshots at multiple zoom levels are still needed before this can be marked visually complete.
+
 Constraints:
 
 - Do not modify `graph-engine/src/forces.rs`.
