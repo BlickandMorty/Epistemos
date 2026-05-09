@@ -1326,7 +1326,7 @@ Acceptance:
 
 ### RCA2-P0-004 - Harden CloudProviderAuthService OAuth callback handling
 
-Status: TODO
+Status: PATCHED - AUTOMATED VALIDATION GREEN / BROWSER RUNTIME SMOKE PENDING
 
 Subsystem: cloud auth, Google OAuth, local callback server, provider credentials.
 
@@ -1347,6 +1347,42 @@ Audit steps:
 Acceptance:
 - OAuth callback requires correct path, code, provider, PKCE verifier, and one-time state.
 - Callback listener is loopback-only.
+
+Patch evidence 2026-05-09:
+- Files changed:
+  - `Epistemos/Engine/CloudProviderAuthService.swift`
+  - `EpistemosTests/CloudProviderAuthServiceTests.swift`
+- Source proof:
+  - `signInToGoogle(...)` now creates a random URL-safe OAuth `state`, passes it into `LocalOAuthCallbackServer.start(path:expectedState:)`, and sends it in the Google authorization URL alongside the existing PKCE challenge.
+  - `OAuthCallbackRequestValidator.parseAuthorizationResult(...)` rejects missing state, wrong state, replayed state via one-time consume closure, wrong path, wrong host, missing code, and non-GET/invalid request forms.
+  - `LocalOAuthCallbackServer` sets `NWParameters.requiredLocalEndpoint` to IPv4 loopback and uses `.any` only for ephemeral port assignment.
+- Tests added:
+  - `LocalOAuthCallbackValidationTests.missingOAuthStateIsRejected`
+  - `LocalOAuthCallbackValidationTests.wrongOAuthStateIsRejected`
+  - `LocalOAuthCallbackValidationTests.replayedOAuthStateIsRejected`
+  - `LocalOAuthCallbackValidationTests.wrongOAuthCallbackPathIsRejected`
+  - `LocalOAuthCallbackValidationTests.wrongOAuthCallbackHostIsRejected`
+  - `LocalOAuthCallbackValidationTests.concurrentOAuthSignInsAreIsolatedByState`
+- Red proof:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/LocalOAuthCallbackValidationTests test CODE_SIGNING_ALLOWED=NO`
+  - Failed before product code because `OAuthCallbackRequestValidator` did not exist.
+  - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-45-17--0500.xcresult`
+  - Same command then failed on actor isolation while adding one-time replay protection.
+  - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-48-56--0500.xcresult`
+- Green proof:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/LocalOAuthCallbackValidationTests test CODE_SIGNING_ALLOWED=NO`
+  - 6 tests passed.
+  - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-50-26--0500.xcresult`
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
+  - 23 tests passed.
+  - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-53-18--0500.xcresult`
+- Source guards:
+  - `rg -n "LocalOAuthCallbackServer.start|OAuthCallbackRequestValidator|state|code_challenge|requiredLocalEndpoint|NWListener\\(" Epistemos/Engine/CloudProviderAuthService.swift EpistemosTests/CloudProviderAuthServiceTests.swift`
+  - `rg -n "URLComponents\\(string: \\\"http://127\\.0\\.0\\.1\\(target\\)\\\"|NWListener\\(using: parameters, on: \\.any\\)" Epistemos/Engine/CloudProviderAuthService.swift`
+  - The remaining `NWListener(... on: .any)` match is expected because the port is ephemeral; loopback binding is enforced by `parameters.requiredLocalEndpoint`.
+- Remaining risk:
+  - Real browser Google sign-in callback smoke is still pending.
+  - `lsof`/network reachability proof for the live callback port is still pending.
 
 ### RCA2-P1-001 - Merge duplicate dictation paths and prevent draft clobbering
 
@@ -3390,7 +3426,7 @@ Acceptance:
 
 ### RCA5-P1-004 - Harden local OAuth callback binding and `state` validation
 
-Status: TODO
+Status: PATCHED - AUTOMATED VALIDATION GREEN / BROWSER RUNTIME SMOKE PENDING
 
 Subsystem: `CloudProviderAuthService`, Google OAuth, local callback server, provider auth settings.
 
@@ -3414,6 +3450,38 @@ Acceptance:
 - Listener binds loopback only.
 - Callback requires a one-time matching `state`.
 - Provider/issuer/redirect/path validation is explicit.
+
+Patch evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/CloudProviderAuthService.swift`
+  - `EpistemosTests/CloudProviderAuthServiceTests.swift`
+- Implementation:
+  - Google OAuth now creates a random state, includes it in the authorization URL, and starts `LocalOAuthCallbackServer` with the expected state.
+  - Callback validation now checks GET method, strict callback path, host normalization against `127.0.0.1`, required matching state, one-time state consumption, non-empty code, and OAuth error responses only after state validation.
+  - The callback listener sets `requiredLocalEndpoint` to IPv4 loopback; `.any` remains only the ephemeral port selector.
+- Tests:
+  - `LocalOAuthCallbackValidationTests.missingOAuthStateIsRejected`
+  - `LocalOAuthCallbackValidationTests.wrongOAuthStateIsRejected`
+  - `LocalOAuthCallbackValidationTests.replayedOAuthStateIsRejected`
+  - `LocalOAuthCallbackValidationTests.wrongOAuthCallbackPathIsRejected`
+  - `LocalOAuthCallbackValidationTests.wrongOAuthCallbackHostIsRejected`
+  - `LocalOAuthCallbackValidationTests.concurrentOAuthSignInsAreIsolatedByState`
+- Commands:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/LocalOAuthCallbackValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Missing validator API.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-45-17--0500.xcresult`
+  - Red: same command.
+    - Actor-isolation failure while wiring replay state.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-48-56--0500.xcresult`
+  - Green: same command.
+    - 6 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-50-26--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
+    - 23 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-53-18--0500.xcresult`
+- Remaining runtime/manual proof:
+  - Forged `curl` callbacks against a live sign-in port and `lsof -iTCP:<port>` loopback proof are still pending.
 
 ### RCA5-P1-005 - Delete temp microphone recordings on every composer voice completion path
 
@@ -5411,7 +5479,7 @@ Acceptance:
 
 ### RCA9-P1-006 - Harden OAuth callback state and loopback binding
 
-Status: NEEDS-CODE-VERIFICATION
+Status: PATCHED - AUTOMATED VALIDATION GREEN / LIVE CALLBACK FORGERY SMOKE PENDING
 
 Canonical owner: `RCA2-P0-004`
 
@@ -5459,6 +5527,41 @@ Acceptance:
 - Forged callback does not store credentials.
 - Listener is loopback-only.
 - Silent refresh emits sanitized provenance without token material.
+
+Patch evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/CloudProviderAuthService.swift`
+  - `EpistemosTests/CloudProviderAuthServiceTests.swift`
+- Source/caller proof:
+  - Google sign-in now passes a random one-time state to both `LocalOAuthCallbackServer.start(path:expectedState:)` and the Google authorization URL.
+  - PKCE verifier/challenge remains per sign-in session and the callback state is validated before token exchange can receive a code.
+  - Callback parsing is factored into `OAuthCallbackRequestValidator` for deterministic negative tests.
+- Negative tests added and passed:
+  - missing state
+  - wrong state
+  - replayed state
+  - wrong path
+  - wrong host
+  - concurrent sign-ins isolated by separate states
+- Commands:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/LocalOAuthCallbackValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed before product validator existed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-45-17--0500.xcresult`
+  - Red: same command.
+    - Failed on actor isolation while adding replay consume state.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-48-56--0500.xcresult`
+  - Green: same command.
+    - 6 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-50-26--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
+    - 23 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-53-18--0500.xcresult`
+- Guard:
+  - `rg -n "LocalOAuthCallbackServer.start|OAuthCallbackRequestValidator|state|code_challenge|requiredLocalEndpoint|NWListener\\(" Epistemos/Engine/CloudProviderAuthService.swift EpistemosTests/CloudProviderAuthServiceTests.swift`
+  - `NWListener(using: parameters, on: .any)` remains as the ephemeral port selector; `parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: .any)` is the binding proof in source.
+- Remaining risk:
+  - Live forged-callback `curl` proof and live port reachability proof are still required before this can be marked fully closed.
 
 ### RCA9-P1-007 - Verify composer voice temp-file cleanup on every path
 
@@ -7404,7 +7507,7 @@ CurrentAccessParityTests.resourceGrantUIExcludesShellUnlessCapabilityLedgerInclu
 
 ### RCA12-P1-007 - Confirm OAuth callback hardening as secondary-evidence P0 until source reopened
 
-Status: CONFIRMED BY SECONDARY EVIDENCE / NEEDS SOURCE REOPEN
+Status: SOURCE REOPENED / PATCHED - AUTOMATED VALIDATION GREEN / RUNTIME SMOKE PENDING
 
 Canonical links:
 
@@ -7434,6 +7537,28 @@ OAuthCallbackTests.rejectsWrongPath
 OAuthCallbackTests.rejectsWrongHost
 OAuthCallbackTests.concurrentSignInsDoNotCrossComplete
 ```
+
+Patch evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/CloudProviderAuthService.swift`
+  - `EpistemosTests/CloudProviderAuthServiceTests.swift`
+- Result:
+  - Current source was reopened and patched.
+  - Google OAuth callback validation now requires matching one-time state, strict callback path, host `127.0.0.1`, and non-empty code.
+  - Listener source uses `requiredLocalEndpoint` loopback with an ephemeral `.any` port.
+- Commands:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/LocalOAuthCallbackValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Missing validator before patch.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-45-17--0500.xcresult`
+  - Green: same command.
+    - 6 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-50-26--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
+    - 23 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-53-18--0500.xcresult`
+- Remaining risk:
+  - Browser sign-in, forged local callback, and `lsof` loopback runtime checks are still pending.
 
 ### RCA12-P2-001 - Keep three-lane brain work parked behind current-app blockers
 
@@ -8086,6 +8211,50 @@ Required proof:
 - Add a focused guard/test proving cinematic/fullscreen use the same high-quality render path as minimized unless explicit performance mode is enabled.
 - Do not change graph physics, animation timing, or renderer architecture while fixing quality selection.
 - Runtime smoke must compare minimized, fullscreen, cinematic, and performance modes and record whether labels, edge smoothing, node sharpness, and surface scale match the intended preset.
+
+### UIX-2026-05-09-005 - Graph label hybrid zoom scaling
+
+Status: QUEUED - GRAPH RENDERING PASS AFTER CURRENT P0/P1 RELEASE BLOCKERS
+
+User signal:
+
+- Graph labels currently feel like fixed screen-space HUD labels rather than spatial labels attached to graph nodes.
+- Desired behavior is closer to Obsidian's graph: labels should scale with zoom enough to feel graph-space native while remaining crisp and readable.
+
+Likely files to inspect:
+
+- `Epistemos/Graph/SDFLabelInstanceBuilder.swift`
+- `Epistemos/Views/Graph/MetalGraphView.swift`
+- `Epistemos/Graph/GraphState.swift`
+- `Epistemos/Graph/FilterEngine.swift`
+- `graph-engine/src/renderer.rs`
+- `graph-engine/src/physics.rs`
+
+Required behavior:
+
+- Labels scale with graph zoom enough to feel part of the graph world.
+- Label scale is clamped to a readable minimum and maximum.
+- Distant/background labels shrink, fade, or hide based on density.
+- Hovered, selected, or focused node labels keep stronger readability.
+- Labels must not become blurry, jittery, or pixel-smeared during zoom.
+- Avoid per-frame text layout allocations.
+- Preserve graph responsiveness, animation timing, and physics.
+
+Preferred implementation constraints:
+
+- Use the existing SDF/MSDF/atlas label pipeline if present.
+- If the existing pipeline is insufficient, introduce cached text atlas or scale-bucket strategy.
+- Do not use SwiftUI overlay labels for every node.
+- Do not create duplicate text render trees.
+- Do not make labels a fixed HUD layer detached from node positions.
+
+Acceptance:
+
+- Zooming in/out makes labels feel attached to nodes.
+- Labels remain crisp at common zoom levels.
+- Dense graphs remain smooth.
+- Background labels do not overwhelm the view when zoomed out.
+- Selected/hovered/focused labels remain easy to read.
 
 ## Research Drop Intake Queue
 

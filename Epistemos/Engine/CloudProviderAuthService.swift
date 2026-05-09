@@ -444,7 +444,8 @@ final class CloudProviderAuthService {
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile",
         ]
-        let callback = try await LocalOAuthCallbackServer.start(path: "/oauth2callback")
+        let state = Self.randomURLSafeString(byteCount: 32)
+        let callback = try await LocalOAuthCallbackServer.start(path: "/oauth2callback", expectedState: state)
         defer {
             Task {
                 await callback.stop()
@@ -463,6 +464,7 @@ final class CloudProviderAuthService {
             .init(name: "scope", value: scopes.joined(separator: " ")),
             .init(name: "access_type", value: "offline"),
             .init(name: "prompt", value: "consent"),
+            .init(name: "state", value: state),
             .init(name: "code_challenge", value: challenge),
             .init(name: "code_challenge_method", value: "S256"),
         ]
@@ -1228,29 +1230,111 @@ private struct OpenAIDeviceCodeExchange: Sendable {
     let codeVerifier: String
 }
 
-private actor LocalOAuthCallbackServer {
-    enum AuthorizationResult: Sendable, Equatable {
-        case success(String)
-        case failure(String)
+nonisolated enum OAuthCallbackAuthorizationResult: Sendable, Equatable {
+    case success(String)
+    case failure(String)
+}
+
+nonisolated enum OAuthCallbackRequestValidator {
+    static func parseAuthorizationResult(
+        from data: Data,
+        expectedPath: String,
+        expectedHost: String,
+        expectedState: String,
+        consumeState: (String) -> Bool
+    ) throws -> OAuthCallbackAuthorizationResult {
+        guard let requestText = String(data: data, encoding: .utf8) else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+
+        let lines = requestText.components(separatedBy: "\r\n")
+        guard let requestLine = lines.first, !requestLine.isEmpty else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+
+        let requestComponents = requestLine.split(separator: " ")
+        guard requestComponents.count >= 2,
+              requestComponents[0].uppercased() == "GET" else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+
+        guard let hostHeader = Self.headerValue(named: "host", in: lines),
+              Self.normalizedHost(hostHeader) == Self.normalizedHost(expectedHost) else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+
+        let target = String(requestComponents[1])
+        guard target.hasPrefix("/"),
+              let urlComponents = URLComponents(string: "http://\(expectedHost)\(target)"),
+              urlComponents.path == expectedPath else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+
+        let queryItems = urlComponents.queryItems ?? []
+        guard let state = queryItems.first(where: { $0.name == "state" })?.value,
+              state == expectedState,
+              consumeState(state) else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+
+        if let error = queryItems.first(where: { $0.name == "error" })?.value {
+            let description = queryItems.first(where: { $0.name == "error_description" })?.value ?? error
+            return .failure(description)
+        }
+
+        guard let code = queryItems.first(where: { $0.name == "code" })?.value,
+              !code.isEmpty else {
+            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
+        }
+        return .success(code)
     }
 
+    private static func headerValue(named name: String, in lines: [String]) -> String? {
+        let normalizedName = name.lowercased()
+        for line in lines.dropFirst() {
+            guard !line.isEmpty else { break }
+            guard let separator = line.firstIndex(of: ":") else { continue }
+            let headerName = line[..<separator].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard headerName == normalizedName else { continue }
+            return line[line.index(after: separator)...].trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return nil
+    }
+
+    private static func normalizedHost(_ value: String) -> String {
+        var host = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if host.hasPrefix("["),
+           let closingBracket = host.firstIndex(of: "]") {
+            host = String(host[host.index(after: host.startIndex)..<closingBracket])
+        } else if let portSeparator = host.firstIndex(of: ":") {
+            host = String(host[..<portSeparator])
+        }
+        return host
+    }
+}
+
+private actor LocalOAuthCallbackServer {
     private let listener: NWListener
     private(set) var port: UInt16 = 0
     private let path: String
-    private var authorizationContinuation: CheckedContinuation<AuthorizationResult, Error>?
+    private let expectedState: String
+    private var authorizationContinuation: CheckedContinuation<OAuthCallbackAuthorizationResult, Error>?
     private var didResolve = false
+    private var didConsumeState = false
     private var timeoutTask: Task<Void, Never>?
 
-    static func start(path: String) async throws -> LocalOAuthCallbackServer {
+    static func start(path: String, expectedState: String) async throws -> LocalOAuthCallbackServer {
         let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: .any)
         let listener = try NWListener(using: parameters, on: .any)
-        let server = try await LocalOAuthCallbackServer(listener: listener, path: path)
+        let server = try await LocalOAuthCallbackServer(listener: listener, path: path, expectedState: expectedState)
         return server
     }
 
-    private init(listener: NWListener, path: String) async throws {
+    private init(listener: NWListener, path: String, expectedState: String) async throws {
         self.listener = listener
         self.path = path
+        self.expectedState = expectedState
 
         let resumeGate = ContinuationResumeGate()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -1284,7 +1368,7 @@ private actor LocalOAuthCallbackServer {
         port
     }
 
-    func waitForAuthorizationResult(timeout: Duration) async throws -> AuthorizationResult {
+    func waitForAuthorizationResult(timeout: Duration) async throws -> OAuthCallbackAuthorizationResult {
         try await withCheckedThrowingContinuation { continuation in
             authorizationContinuation = continuation
             timeoutTask?.cancel()
@@ -1328,7 +1412,7 @@ private actor LocalOAuthCallbackServer {
         connection.cancel()
     }
 
-    private func resolve(_ result: AuthorizationResult) {
+    private func resolve(_ result: OAuthCallbackAuthorizationResult) {
         guard !didResolve, let continuation = authorizationContinuation else { return }
         didResolve = true
         authorizationContinuation = nil
@@ -1351,33 +1435,19 @@ private actor LocalOAuthCallbackServer {
         continuation.resume(throwing: error)
     }
 
-    private func parseAuthorizationResult(from data: Data) throws -> AuthorizationResult {
-        guard let requestText = String(data: data, encoding: .utf8),
-              let requestLine = requestText.split(separator: "\r\n").first else {
+    private func parseAuthorizationResult(from data: Data) throws -> OAuthCallbackAuthorizationResult {
+        let result = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+            from: data,
+            expectedPath: path,
+            expectedHost: "127.0.0.1",
+            expectedState: expectedState,
+            consumeState: { _ in true }
+        )
+        guard !didConsumeState else {
             throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
         }
-
-        let components = requestLine.split(separator: " ")
-        guard components.count >= 2 else {
-            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
-        }
-
-        let target = String(components[1])
-        guard let urlComponents = URLComponents(string: "http://127.0.0.1\(target)"),
-              urlComponents.path == path else {
-            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
-        }
-
-        if let error = urlComponents.queryItems?.first(where: { $0.name == "error" })?.value {
-            let description = urlComponents.queryItems?.first(where: { $0.name == "error_description" })?.value ?? error
-            return .failure(description)
-        }
-
-        guard let code = urlComponents.queryItems?.first(where: { $0.name == "code" })?.value,
-              !code.isEmpty else {
-            throw CloudProviderAuthError.callbackServerReceivedInvalidRequest
-        }
-        return .success(code)
+        didConsumeState = true
+        return result
     }
 
     private func receiveRequestData(on connection: NWConnection) async throws -> Data {
