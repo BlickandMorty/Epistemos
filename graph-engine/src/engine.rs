@@ -161,7 +161,11 @@ fn label_density_scale(
     let candidate_pressure = candidate_count as f32 / max_visible;
     let global_t = ((candidate_pressure - 1.0) / 8.0).clamp(0.0, 1.0);
     let local_t = ((local_cell_count.saturating_sub(1) as f32) / 4.0).clamp(0.0, 1.0);
-    let global_scale = 1.0 - 0.24 * smoothstep(0.0, 1.0, global_t);
+    // Global crowding must matter even when every neighbor falls into a
+    // different density cell. High-degree folder selections otherwise turn
+    // into a single bright text pile while technically passing local-cell
+    // pressure.
+    let global_scale = 1.0 - 0.54 * smoothstep(0.0, 1.0, global_t);
     let local_scale = 1.0 - 0.62 * smoothstep(0.0, 1.0, local_t);
 
     (global_scale * local_scale).clamp(0.34, 1.0)
@@ -2807,6 +2811,20 @@ mod tests {
         let crowded_scale = label_density_scale(selected_plus_neighbors, density_budget, 18, false);
         assert!(crowded_scale <= 0.40);
         assert!(label_density_opacity(crowded_scale, false) < 0.20);
+    }
+
+    #[test]
+    fn selected_high_degree_labels_shrink_even_when_cells_are_sparse() {
+        let selected_plus_neighbors = 58;
+        let protected_root = 1;
+        let density_budget =
+            selected_neighbor_density_budget(selected_plus_neighbors, protected_root);
+
+        let sparse_cell_scale =
+            label_density_scale(selected_plus_neighbors, density_budget, 1, false);
+
+        assert!(sparse_cell_scale <= 0.58);
+        assert!(label_density_opacity(sparse_cell_scale, false) < 0.18);
     }
 
     #[test]
