@@ -564,6 +564,17 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(renderer.contains("edge_weight_maps_to_clamped_screen_thickness"))
     }
 
+    @Test("Graph renderer trims edges before Metal upload")
+    func graphRendererTrimsEdgesBeforeMetalUpload() throws {
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+        let trimmer = try loadMirroredSourceTextFile("graph-engine/src/edge_trim.rs")
+
+        #expect(renderer.contains("crate::edge_trim::trim_curve_endpoints("))
+        #expect(renderer.contains("crate::edge_trim::trim_line_endpoints("))
+        #expect(renderer.contains("crate::edge_trim::DEFAULT_EDGE_GAP_PX"))
+        #expect(trimmer.contains("edge_geometry_terminates_at_node_disc_boundaries"))
+    }
+
     @Test("Cinematic graph selection dimming stays visible while nodes remain solid")
     func cinematicGraphSelectionDimmingStaysVisibleWhileNodesRemainSolid() throws {
         let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")

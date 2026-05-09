@@ -9048,7 +9048,7 @@ Tests required before implementation is accepted:
 - `node_with_no_label_falls_back_to_default_radius` - partial automated proof exists as `load_sets_collision_radii`.
 - `label_envelope_ffi_roundtrip` - not applicable to the current bounded Rust-side estimate; TODO if this becomes exact Swift glyph-envelope FFI.
 - `render_order_is_edges_then_nodes_then_labels` - partial automated proof exists as `render_order_keeps_edges_under_nodes_and_labels`.
-- `edge_geometry_terminates_at_node_disc` - source path exists through `edge_trim::trim_curve_endpoints` / `trim_line_endpoints`; explicit geometry sampling test still TODO.
+- `edge_geometry_terminates_at_node_disc` - automated proof exists as `edge_geometry_terminates_at_node_disc_boundaries` plus renderer source guard for `trim_curve_endpoints` / `trim_line_endpoints`.
 - `thick_edge_clamps_to_small_endpoint_radius` - partial automated proof exists as `edge_weight_maps_to_clamped_screen_thickness`.
 - `edge_color_picks_shared_group_color`
 - `edge_color_blends_when_groups_differ`
@@ -9081,6 +9081,23 @@ Patch evidence, 2026-05-09 weighted edge + selection atmosphere slice:
 - Remaining risk:
   - Runtime dense graph visual smoke is still blocked by the audit profile having no connected vault.
   - Group-colored edges and optional pixel-art jagged edge style remain TODO; only weighted thickness and existing z-order protection are wired in this slice.
+
+Patch evidence, 2026-05-09 endpoint trim proof slice:
+
+- Files changed:
+  - `graph-engine/src/edge_trim.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - No runtime behavior changed in this slice; it proves the existing renderer path trims straight and curved edge endpoints to the endpoint node disc boundary plus `DEFAULT_EDGE_GAP_PX` before Metal upload.
+- Tests/commands:
+  - `cargo test --manifest-path graph-engine/Cargo.toml edge_geometry_terminates_at_node_disc_boundaries` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml edge_trim` passed, 10 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml render_order_keeps_edges_under_nodes_and_labels` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 26 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_13-28-33--0500.xcresult`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Runtime dense graph visual smoke is still blocked by the audit profile having no connected vault.
+  - Pixel-art jagged edges still need their own trim/jitter proof once that optional style exists.
 
 Constraints:
 

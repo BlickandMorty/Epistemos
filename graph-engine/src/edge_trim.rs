@@ -296,6 +296,30 @@ mod tests {
     }
 
     #[test]
+    fn edge_geometry_terminates_at_node_disc_boundaries() {
+        let p0 = [0.0_f32, 0.0];
+        let p1 = [120.0_f32, 0.0];
+        let r0 = 14.0;
+        let r1 = 22.0;
+        let gap = DEFAULT_EDGE_GAP_PX;
+
+        let (line_start, line_end) =
+            trim_line_endpoints(p0, p1, r0, r1, gap).expect("line should trim");
+        assert!(approx_eq(line_start[0], r0 + gap, 1e-4));
+        assert!(approx_eq(line_end[0], 120.0 - r1 - gap, 1e-4));
+        assert!(line_start[0] > r0);
+        assert!(120.0 - line_end[0] > r1);
+
+        let (curve_start, _c0, _c1, curve_end) =
+            trim_curve_endpoints(p0, [30.0, 0.0], [90.0, 0.0], p1, r0, r1, gap)
+                .expect("curve should trim");
+        assert!(approx_eq(curve_start[0], r0 + gap, 1e-4));
+        assert!(approx_eq(curve_end[0], 120.0 - r1 - gap, 1e-4));
+        assert!(curve_start[0] > r0);
+        assert!(120.0 - curve_end[0] > r1);
+    }
+
+    #[test]
     fn curve_trim_preserves_tangent_direction_at_endpoints() {
         // Cubic with a clear vertical-then-horizontal shape: tangent at
         // start points upward, at end points rightward. After trim the
