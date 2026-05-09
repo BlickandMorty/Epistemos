@@ -8911,7 +8911,7 @@ Patch evidence, 2026-05-09 graph quality/palette slice:
 - Product behavior:
   - Fullscreen/cinematic drawable policy keeps native backing scale unless explicit performance mode or low-power mode is active.
   - Rust graph node palette now keeps folder nodes solid light-mode black / solid dark-mode white while preserving semantic colors for notes, ideas, and other non-folder node types.
-  - Swift dialogue-depth palette override now only anchors folder nodes and no longer suppresses semantic note colors.
+  - Swift dialogue-depth palette override now applies the semantic graph palette to all node types, so note/prose/document nodes are not left to the Rust monochrome fallback during system light/dark changes.
   - Cognitive depth no longer pushes body-color tint overrides into Rust; its depth/altitude/radius metadata remains cached for the future real depth lane.
   - Node base alpha is now solid; flat pixel node paths return opaque node bodies so edges do not bleed through.
   - Cinematic selection/click pulse remains, but it modulates the solid fill color instead of reintroducing the old shine sweep or alpha fade.
@@ -8932,6 +8932,24 @@ Patch evidence, 2026-05-09 graph quality/palette slice:
 - Remaining risk:
   - Built-app runtime smoke still needs to visually compare light/dark, fullscreen/cinematic/performance, selected pulse, and edge occlusion over the user's dense graph. The launched audit profile currently reports no vault connected, so it cannot reproduce the user's dense graph screenshot in that profile without selecting a vault.
   - The broader theme-palette-to-graph-node system remains a separate theme lane; this patch only locks the base black/white graph palette.
+
+Patch evidence, 2026-05-09 semantic node palette system-mode slice:
+
+- Files changed:
+  - `Epistemos/Views/Graph/MetalGraphView.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Note, prose-note, and document graph nodes now resolve to solid red semantic colors in both light and dark modes.
+  - Dialogue graph mode now pushes `GraphThemeNodePalette.color(for: node.type, theme:)` for every node type instead of sending transparent overrides for non-folder nodes. This prevents system light/dark changes from dropping note nodes back to white/black or other fallback colors.
+  - Folder anchors remain solid OLED black in light mode and pitch white in dark mode through the same semantic palette.
+  - Theme sync still uses `uiState.appearanceSyncKey`, `cachedColorResolvedTheme`, and `lastAppearanceSyncKey` so changing system appearance invalidates and repushes node colors.
+- Tests/commands:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` failed after adding the red-node/dialogue-palette assertions and before product patch.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_15-52-21--0500.xcresult`.
+  - Source guard: `rg -n "case \\.note|case \\.proseNote|case \\.document|GraphThemeNodePalette\\.color\\(for: node\\.type, theme: theme\\)|GraphThemeNodePalette\\.color\\(for: node\\.type, theme: resolvedTheme\\)|graphThemeNodePaletteKeepsSolidSemanticNodeColors|metalGraphRefreshesNodePaletteWhenUIThemeChanges" Epistemos/Views/Graph/MetalGraphView.swift EpistemosTests/GraphPhysicsSettingsAuditTests.swift` confirmed palette colors and both dialogue/non-dialogue push paths.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Manual light/dark system appearance smoke is still required in the built app to visually confirm folder black/white, note red, idea yellow, and selected-focus dimming over the user's dense graph.
 
 ### UIX-2026-05-09-006 - Graph label hybrid zoom scaling
 
