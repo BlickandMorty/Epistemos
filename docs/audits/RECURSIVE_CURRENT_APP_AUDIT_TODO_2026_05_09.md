@@ -9227,6 +9227,25 @@ Patch evidence, 2026-05-09 endpoint trim proof slice:
   - Runtime dense graph visual smoke is still blocked by the audit profile having no connected vault.
   - Pixel-art jagged edges still need their own trim/jitter proof once that optional style exists.
 
+Patch evidence, 2026-05-09 endpoint-palette edge tint slice:
+
+- Files changed:
+  - `graph-engine/src/renderer.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Classic graph edges now tint from endpoint node color overrides when those overrides are present, so theme/semantic node palettes influence the edge field instead of leaving all edges purely edge-type colored.
+  - When both endpoints have palette colors, the edge uses a midpoint endpoint tint mixed over the existing edge-type fallback while preserving the existing edge alpha and highlight/dim behavior.
+  - When no endpoint palette is present, the renderer falls back to the existing `edge_type_color(...)` / `edge_type_color_light(...)` path.
+  - This is not the full persistent color-groups panel; group-driven edge colors and OKLab group blending remain TODO in the visual phase.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml edge_color_blends_endpoint_palette_when_available` failed before product patch because `edge_color_with_endpoint_palette(...)` did not exist.
+  - `cargo test --manifest-path graph-engine/Cargo.toml edge_color_blends_endpoint_palette_when_available` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml edge_weight_maps_to_clamped_screen_thickness` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_15-59-33--0500.xcresult`.
+- Remaining risk:
+  - Manual dense graph runtime smoke is still required to verify edge tint is visible but not noisy in the user's vault.
+  - Persistent Obsidian-style graph color groups, OKLab group blending, and the Groups panel are still not implemented.
+
 Patch evidence, 2026-05-09 selected-focus dimming restoration slice:
 
 - Files changed:
