@@ -93,19 +93,18 @@ impl GlyphTable {
 /// state. Clips labels to a character budget (keeps the graph readable at
 /// low zoom) and caps per-label characters to 32.
 ///
-/// `visible_nodes` is a slice of (world_x, world_y, radius, label, opacity)
-/// tuples produced by the engine's visibility pass. `opacity` is multiplied
-/// into the base color's alpha so labels can fade in/out smoothly as they
-/// enter or leave the visible set (2026-04-04 polish).
+/// `visible_nodes` is a slice of (world_x, world_y, radius, label, opacity,
+/// world_px_per_em) tuples produced by the engine's visibility pass. `opacity`
+/// is multiplied into the base color's alpha so labels can fade in/out smoothly
+/// as they enter or leave the visible set (2026-04-04 polish).
 ///
-/// `world_px_per_em` maps em-space glyph sizes to world-space render sizes.
-/// Typically set to a fraction of a node's radius so labels scale with
-/// node importance.
+/// The final tuple field maps em-space glyph sizes to world-space render sizes.
+/// It is calculated per node by the engine's hybrid zoom policy so selected or
+/// hovered labels can stay more readable without creating a separate text path.
 pub(crate) fn build_instances(
-    visible_nodes: &[(f32, f32, f32, &str, f32)],
+    visible_nodes: &[(f32, f32, f32, &str, f32, f32)],
     table: &GlyphTable,
     camera_world: [f32; 2],
-    world_px_per_em: f32,
     color: [f32; 4],
     glyph_budget: usize,
     out: &mut Vec<crate::renderer::LabelInstance>,
@@ -116,7 +115,7 @@ pub(crate) fn build_instances(
     const MAX_LABEL_CHARS: usize = 32;
     let line_height_em = table.line_height_em;
 
-    for &(node_x, node_y, node_radius, label, opacity) in visible_nodes {
+    for &(node_x, node_y, node_radius, label, opacity, world_px_per_em) in visible_nodes {
         if out.len() >= glyph_budget {
             break;
         }
@@ -240,13 +239,12 @@ mod tests {
     #[test]
     fn emits_one_instance_per_non_whitespace_glyph() {
         let table = sample_table();
-        let nodes: &[(f32, f32, f32, &str, f32)] = &[(0.0, 0.0, 10.0, "A A", 1.0)];
+        let nodes: &[(f32, f32, f32, &str, f32, f32)] = &[(0.0, 0.0, 10.0, "A A", 1.0, 20.0)];
         let mut out = Vec::new();
         build_instances(
             nodes,
             &table,
             [0.0, 0.0],
-            20.0,
             [1.0, 1.0, 1.0, 1.0],
             256,
             &mut out,
@@ -258,9 +256,9 @@ mod tests {
     #[test]
     fn unknown_glyphs_fall_back_to_question() {
         let table = sample_table();
-        let nodes: &[(f32, f32, f32, &str, f32)] = &[(0.0, 0.0, 10.0, "Ax", 1.0)];
+        let nodes: &[(f32, f32, f32, &str, f32, f32)] = &[(0.0, 0.0, 10.0, "Ax", 1.0, 20.0)];
         let mut out = Vec::new();
-        build_instances(nodes, &table, [0.0, 0.0], 20.0, [1.0; 4], 256, &mut out);
+        build_instances(nodes, &table, [0.0, 0.0], [1.0; 4], 256, &mut out);
         // 'A' renders, 'x' uses '?' fallback → 2 instances.
         assert_eq!(out.len(), 2);
     }
@@ -268,13 +266,27 @@ mod tests {
     #[test]
     fn respects_glyph_budget() {
         let table = sample_table();
-        let nodes: &[(f32, f32, f32, &str, f32)] = &[
-            (0.0, 0.0, 10.0, "AAAAAAAAAA", 1.0),
-            (10.0, 0.0, 10.0, "AAAAAAAAAA", 1.0),
+        let nodes: &[(f32, f32, f32, &str, f32, f32)] = &[
+            (0.0, 0.0, 10.0, "AAAAAAAAAA", 1.0, 20.0),
+            (10.0, 0.0, 10.0, "AAAAAAAAAA", 1.0, 20.0),
         ];
         let mut out = Vec::new();
-        build_instances(nodes, &table, [0.0, 0.0], 20.0, [1.0; 4], 7, &mut out);
+        build_instances(nodes, &table, [0.0, 0.0], [1.0; 4], 7, &mut out);
         assert_eq!(out.len(), 7);
+    }
+
+    #[test]
+    fn per_node_scale_controls_glyph_size_without_relayout_path() {
+        let table = sample_table();
+        let nodes: &[(f32, f32, f32, &str, f32, f32)] = &[
+            (0.0, 0.0, 10.0, "A", 1.0, 10.0),
+            (30.0, 0.0, 10.0, "A", 1.0, 30.0),
+        ];
+        let mut out = Vec::new();
+        build_instances(nodes, &table, [0.0, 0.0], [1.0; 4], 256, &mut out);
+
+        assert_eq!(out.len(), 2);
+        assert!(out[1].size[0] > out[0].size[0] * 2.5);
     }
 
     #[test]
@@ -282,9 +294,9 @@ mod tests {
         let table = sample_table();
         // 40-char label → truncated to 32.
         let label: String = "A".repeat(40);
-        let nodes: &[(f32, f32, f32, &str, f32)] = &[(0.0, 0.0, 10.0, &label, 1.0)];
+        let nodes: &[(f32, f32, f32, &str, f32, f32)] = &[(0.0, 0.0, 10.0, &label, 1.0, 20.0)];
         let mut out = Vec::new();
-        build_instances(nodes, &table, [0.0, 0.0], 20.0, [1.0; 4], 1000, &mut out);
+        build_instances(nodes, &table, [0.0, 0.0], [1.0; 4], 1000, &mut out);
         assert_eq!(out.len(), 32);
     }
 }

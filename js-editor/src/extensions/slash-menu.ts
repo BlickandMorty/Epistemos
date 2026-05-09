@@ -16,6 +16,7 @@ import type { SuggestionOptions } from '@tiptap/suggestion';
 import type { Editor } from '@tiptap/core';
 import { postBridge } from '../bridge/outbound';
 import { buildMermaidGraphFromDocument } from '../graph/document-graph';
+import { requestPackageImageAssetFromPicker } from './image-asset-bridge';
 
 export interface SlashMenuItem {
   /** Stable id matched by the inbound `insertSlashChoice` payload. */
@@ -290,12 +291,8 @@ export const DEFAULT_SLASH_ITEMS: SlashMenuItem[] = [
     apply: (e) => e.chain().focus().insertContent({ type: 'callout', attrs: { kind: 'danger' }, content: [{ type: 'paragraph' }] }).run() },
   { id: 'table-3x3', label: 'Table 3×3', icon: 'tablecells',
     apply: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
-  { id: 'image', label: 'Image', icon: 'photo',
-    apply: (e) => {
-      const src = window.prompt('Image URL');
-      if (!src) return false;
-      return e.chain().focus().insertEpdocImage({ src, alt: '' }).run();
-    } },
+  { id: 'image', label: 'Local image', icon: 'photo',
+    apply: (e) => requestPackageImageAssetFromPicker(e) },
   { id: 'divider', label: 'Divider', icon: 'minus', hint: '⌘⇧R',
     apply: (e) => e.chain().focus().setHorizontalRule().run() },
 ];

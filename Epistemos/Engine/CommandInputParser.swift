@@ -30,7 +30,10 @@ enum CommandInputParser {
     static func parse(
         _ input: String,
         availableSkills: [SkillDiscoveryEntry] = [],
-        contextProviders: [ACCContextProvider] = []
+        contextProviders: [ACCContextProvider] = [],
+        availableSlashCommands: [ACCSlashCommand] = ACCSlashCommand.availableCommands(
+            for: EpistemosOperatingMode.allCases
+        )
     ) -> ParseResult {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -43,7 +46,11 @@ enum CommandInputParser {
         }
 
         // Parse slash command / skill
-        let slashResult = parseSlash(trimmed, availableSkills: availableSkills)
+        let slashResult = parseSlash(
+            trimmed,
+            availableSkills: availableSkills,
+            availableSlashCommands: availableSlashCommands
+        )
 
         // Parse @mentions from the remaining text
         let textAfterSlash = slashResult.remaining
@@ -74,7 +81,8 @@ enum CommandInputParser {
 
     private static func parseSlash(
         _ text: String,
-        availableSkills: [SkillDiscoveryEntry]
+        availableSkills: [SkillDiscoveryEntry],
+        availableSlashCommands: [ACCSlashCommand]
     ) -> SlashParseResult {
         guard text.hasPrefix("/") else {
             return SlashParseResult(
@@ -102,7 +110,7 @@ enum CommandInputParser {
         let normalizedToken = slashToken.lowercased()
 
         // Try exact match against builtin commands first
-        if let builtinCommand = ACCSlashCommand.allCases.first(where: { $0.rawValue == normalizedToken }) {
+        if let builtinCommand = availableSlashCommands.first(where: { $0.rawValue == normalizedToken }) {
             return SlashParseResult(
                 resolvedToken: .builtinMode(builtinCommand),
                 remaining: remaining,

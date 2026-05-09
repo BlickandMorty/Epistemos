@@ -683,7 +683,10 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
 
     static func availableCommands(for availableOperatingModes: [EpistemosOperatingMode]) -> [ACCSlashCommand] {
         let availableModes = Set(availableOperatingModes)
-        return allCases.filter { $0.isAvailable(for: availableModes) }
+        return allCases.filter {
+            $0.isAvailable(for: availableModes)
+                && $0.isExecutableInCurrentBuild
+        }
     }
 
     var displayName: String {
@@ -742,6 +745,15 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
 
     func isAvailable(for availableOperatingModes: Set<EpistemosOperatingMode>) -> Bool {
         availableOperatingModes.contains(defaultOperatingMode)
+    }
+
+    var isExecutableInCurrentBuild: Bool {
+        switch self {
+        case .image:
+            ToolSurfacePolicy.isSurfacedToolName("image_generate")
+        default:
+            true
+        }
     }
 
     var helpText: String {

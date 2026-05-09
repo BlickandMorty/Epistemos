@@ -74,6 +74,29 @@ export function completeImageAssetRequest(
     .run();
 }
 
+export function requestPackageImageAssetFromPicker(editor: Editor, pos?: number): boolean {
+  if (typeof document === 'undefined') return false;
+
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = false;
+  input.style.display = 'none';
+
+  input.addEventListener('change', () => {
+    const file = firstImageFile(input.files);
+    if (file) {
+      const insertPos = pos ?? editor.state.selection.from;
+      void requestPackageImageAsset(editor, file, insertPos);
+    }
+    input.remove();
+  }, { once: true });
+
+  document.body.appendChild(input);
+  input.click();
+  return true;
+}
+
 async function requestPackageImageAsset(editor: Editor, file: File, pos: number): Promise<void> {
   if (file.size > MAX_IMAGE_BYTES) {
     console.warn('[epdoc image] skipped image larger than 20 MB', file.name);
