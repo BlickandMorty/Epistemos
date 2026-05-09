@@ -459,8 +459,8 @@ struct GraphPhysicsSettingsAuditTests {
                 "Large folder hubs should keep a subtle opaque pixel-glare cue")
         #expect(renderer.contains("out.node_radius_world = effective_radius;"),
                 "Pixel click animation should scale from real graph radius, not screen overlay math")
-        #expect(renderer.contains("return float4(pixel_color, in.color.a);"),
-                "Cinematic nodes must keep a solid opaque body before water/performance shading")
+        #expect(renderer.contains("return float4(pixel_color, max(in.color.a, 0.95));"),
+                "Cinematic nodes must keep a solid opaque body while still allowing selection dimming")
         #expect(renderer.contains("draw_glow: false"),
                 "Cinematic pixel nodes must not keep soft glow/orb instances around the stepped shape")
         #expect(graphState.contains("PowerGuard may throttle frame pacing/resolution"),
@@ -528,6 +528,38 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(components.contains("pub label_half_width: f32"))
         #expect(components.contains("pub label_offset_y: f32"))
         #expect(bridge.contains("estimate_label_envelope(node.radius, &node.label)"))
+    }
+
+    @Test("Graph label envelope does not rewrite force model")
+    func graphLabelEnvelopeDoesNotRewriteForceModel() throws {
+        let forces = try loadMirroredSourceTextFile("graph-engine/src/forces.rs")
+
+        #expect(!forces.contains("label_collision_radii"))
+        #expect(!forces.contains("label_half_width"))
+        #expect(!forces.contains("estimate_label_envelope"))
+    }
+
+    @Test("Graph edge thickness derives from edge weight")
+    func graphEdgeThicknessDerivesFromEdgeWeight() throws {
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+
+        #expect(renderer.contains("const MIN_EDGE_WIDTH_PX: f32 = 0.70"))
+        #expect(renderer.contains("const MAX_EDGE_WIDTH_PX: f32 = 4.00"))
+        #expect(renderer.contains("fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32"))
+        #expect(renderer.contains("let thickness_px = edge_width_px_for_weight(edge.weight, r0, r1)"))
+        #expect(renderer.contains("float thickness_px;"))
+        #expect(renderer.contains("clamp(inst.thickness_px, MIN_EDGE_WIDTH_PX, MAX_EDGE_WIDTH_PX) * 0.5"))
+        #expect(renderer.contains("edge_weight_maps_to_clamped_screen_thickness"))
+    }
+
+    @Test("Cinematic graph selection dimming stays visible while nodes remain solid")
+    func cinematicGraphSelectionDimmingStaysVisibleWhileNodesRemainSolid() throws {
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+
+        #expect(renderer.contains("float3 selection_dim_target = light"))
+        #expect(renderer.contains("pixel_color = mix(pixel_color, selection_dim_target"))
+        #expect(renderer.contains("return float4(pixel_color, max(in.color.a, 0.95));"))
+        #expect(renderer.contains("cinematic_pixel_nodes_apply_selection_dim_without_transparency"))
     }
 
     @Test("Visual theme defaults to classic when unset")
