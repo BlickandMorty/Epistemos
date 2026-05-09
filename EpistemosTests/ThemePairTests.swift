@@ -260,6 +260,23 @@ struct ThemePairTests {
     }
 
     @MainActor
+    @Test("Graph overlay tint samples the selected theme surface")
+    func graphOverlayTintSamplesSelectedThemeSurface() throws {
+        let tanTint = try #require(
+            GraphOverlayThemeStyle.surfaceTintColor(for: .tan).usingColorSpace(.deviceRGB)
+        )
+        let platinumTint = try #require(
+            GraphOverlayThemeStyle.surfaceTintColor(for: .platinum).usingColorSpace(.deviceRGB)
+        )
+
+        #expect(abs(tanTint.redComponent - (0xF5 / 255.0)) < 0.02)
+        #expect(abs(tanTint.greenComponent - (0xEF / 255.0)) < 0.02)
+        #expect(abs(tanTint.blueComponent - (0xE6 / 255.0)) < 0.02)
+        #expect(abs(tanTint.alphaComponent - 0.65) < 0.01)
+        #expect(abs(tanTint.redComponent - platinumTint.redComponent) > 0.05)
+    }
+
+    @MainActor
     @Test("System default notes sidebar uses the text background instead of the under-page gray")
     func systemDefaultNotesSidebarUsesTextBackground() {
         withPreservedThemeDefaults {

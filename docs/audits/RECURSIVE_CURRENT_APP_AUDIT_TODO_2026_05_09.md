@@ -8493,7 +8493,7 @@ These items are now explicitly tracked, but they do not supersede the current P0
 
 ### UIX-2026-05-09-001 - Native theme restoration without overlay/compositing regressions
 
-Status: INTAKE / FORENSIC AUDIT REQUIRED BEFORE PRODUCT CODE
+Status: PARTIAL - THEME PICKER + GRAPH SURFACE TINT PATCHED / FORENSIC INVENTORY + NODE/EDGE THEME PALETTE PENDING
 
 User signal:
 
@@ -8529,6 +8529,22 @@ Required architecture proposal:
 - Removal commit identified by user research: `78c247287` (`2026-03-16`, "refactor: remove legacy custom theme settings") deleted the Settings picker UI/state, including `AppearanceThemePairSection`, `ThemePairCard`, `ForEach(ThemePair.allCases...)`, `selectedPairDraft`, `pendingThemePair`, and `scheduleThemePairChange`.
 - Current `AppearanceDetailView` only exposes the static system appearance label, System Settings shortcut, and display mode toggle. There is no user-facing path to select the existing theme pairs.
 - First theme slice should restore the picker UI with native semantic tokens before broader forensic theme restoration. Do not reintroduce unsafe overlay/compositing implementations while restoring the picker.
+
+Patch evidence, 2026-05-09 graph surface tint slice:
+
+- Files changed:
+  - `Epistemos/Views/Graph/HologramOverlay.swift`
+  - `EpistemosTests/ThemePairTests.swift`
+- Product behavior:
+  - Graph overlay/full-size and mini surface tint now samples `theme.resolved.background.nsColor` and applies the existing glass alpha.
+  - This gives warm, tan, platinum, violet, and other restored theme pairs a graph-surface identity without adding overlay layers, changing graph physics, or rebuilding graph data.
+  - Dark graph surfaces keep the same material path with a darker alpha; blur/material choice remains `.hudWindow`.
+- Tests/commands:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO` failed before product patch because `GraphOverlayThemeStyle.surfaceTintColor(for: .tan)` was still fixed white/black instead of the tan theme surface; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_13-59-07--0500.xcresult`.
+  - Same command passed after product patch, 112 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-02-28--0500.xcresult`.
+- Remaining risk:
+  - This is only graph surface/material tint. Theme-driven graph node fill/stroke, edge, label, and accent token mapping is still pending.
+  - Manual built-app theme switching smoke is still required to verify graph tint updates live with Settings -> Appearance and macOS light/dark changes.
 
 Initial implementation candidates after audit:
 

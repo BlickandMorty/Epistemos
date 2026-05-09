@@ -53,11 +53,17 @@ enum GraphOverlayThemeStyle {
     }
 
     static func surfaceTintColor(for theme: EpistemosTheme) -> NSColor {
-        // Shared graph glass glaze for full-size and mini surfaces, so visual
-        // comparisons are comparing size/resolution instead of a different tint.
-        theme.isDark
-            ? NSColor.black.withAlphaComponent(0.22)
-            : NSColor.white.withAlphaComponent(0.65)
+        // Shared graph glass glaze for full-size and mini surfaces. Sample the
+        // selected semantic theme surface directly so warm/platinum/retro
+        // palettes change the graph material without adding overlay layers.
+        let fallback = theme.isDark ? NSColor.black : NSColor.white
+        let base = theme.resolved.background.nsColor.usingColorSpace(.deviceRGB) ?? fallback
+        return NSColor(
+            red: base.redComponent,
+            green: base.greenComponent,
+            blue: base.blueComponent,
+            alpha: theme.isDark ? 0.32 : 0.65
+        )
     }
 
     static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
