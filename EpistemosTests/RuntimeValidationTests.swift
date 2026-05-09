@@ -689,6 +689,10 @@ struct RuntimeValidationTests {
         #expect(script.contains("epistemos.vaultBookmark"))
         #expect(script.contains("epistemos.lastVaultPath"))
         #expect(script.contains("EPISTEMOS_SKIP_VAULT_RESTORE"))
+        #expect(script.contains("EPISTEMOS_APPLICATION_SUPPORT_ROOT"))
+        #expect(script.contains("AUDIT_APP_SUPPORT_ROOT"))
+        #expect(script.contains("build/audit-app-support"))
+        #expect(script.contains("clear_audit_runtime_state"))
         #expect(script.contains("clear_audit_saved_state"))
         #expect(script.contains("Library/Saved Application State"))
         #expect(script.contains("EPI_HOME_WINDOW_MINIMAL_CONTENT"))
@@ -767,6 +771,38 @@ struct RuntimeValidationTests {
         #expect(noteBodies.path.contains("/Epistemos/note-bodies"))
     }
 
+    @Test("application support override routes audit runtimes away from production stores")
+    func applicationSupportOverrideRoutesAuditRuntimesAwayFromProductionStores() {
+        let fileManager = FileManager.default
+        let overrideRoot = fileManager.temporaryDirectory
+            .appendingPathComponent("Epistemos-AppSupportOverride-\(UUID().uuidString)", isDirectory: true)
+            .standardizedFileURL
+
+        let resolved = FoundationSafety.runtimeApplicationSupportDirectory(
+            fileManager: fileManager,
+            processInfoEnvironment: [
+                FoundationSafety.applicationSupportOverrideEnvironmentKey: overrideRoot.path,
+                "XCTestConfigurationFilePath": "/tmp/test.xctest",
+            ],
+            processIdentifier: 4242
+        )
+
+        #expect(resolved == overrideRoot)
+        #expect(fileManager.fileExists(atPath: resolved.path))
+
+        let relativeOverride = FoundationSafety.runtimeApplicationSupportDirectory(
+            fileManager: fileManager,
+            processInfoEnvironment: [
+                FoundationSafety.applicationSupportOverrideEnvironmentKey: "relative/audit-root",
+                "XCTestConfigurationFilePath": "/tmp/test.xctest",
+            ],
+            processIdentifier: 4243
+        )
+
+        #expect(relativeOverride.path.contains("Epistemos-TestRuntime/4243/Application Support"))
+        try? fileManager.removeItem(at: overrideRoot)
+    }
+
     @Test("test-safe application support routing stays centralized")
     func testSafeApplicationSupportRoutingStaysCentralized() throws {
         let extensions = try loadRepoTextFile("Epistemos/Engine/Extensions.swift")
@@ -783,14 +819,22 @@ struct RuntimeValidationTests {
         let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
         let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift")
+        let conversationPersistence = try loadRepoTextFile("Epistemos/Vault/ConversationPersistence.swift")
+        let appGroupContainer = try loadRepoTextFile("Epistemos/App/AppGroupContainer.swift")
+        let quarantineArchive = try loadRepoTextFile("Epistemos/Engine/QuarantineArchive.swift")
+        let capabilityManifest = try loadRepoTextFile("Epistemos/Engine/CapabilityManifestBuilder.swift")
+        let deviceAgent = try loadRepoTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
+        let traceInspector = try loadRepoTextFile("Epistemos/Views/Capture/TraceInspectorView.swift")
 
         #expect(extensions.contains("Epistemos-TestRuntime"))
+        #expect(extensions.contains("EPISTEMOS_APPLICATION_SUPPORT_ROOT"))
         #expect(extensions.contains("XCTestConfigurationFilePath"))
         #expect(appBootstrap.contains("let usesInMemoryModelStore = Self.isRunningTests"))
         #expect(appBootstrap.contains("preparePersistentModelStoreIfNeeded"))
         #expect(appBootstrap.contains("let modelStoreURL = Self.persistentModelStoreURL("))
         #expect(appBootstrap.contains("applicationSupportDirectory: applicationSupportDirectory"))
         #expect(appBootstrap.contains("ModelConfiguration(url: modelStoreURL)"))
+        #expect(appBootstrap.contains("FoundationSafety.userApplicationSupportDirectory(fileManager: .default)"))
 
         for source in [
             noteFileStorage,
@@ -805,6 +849,12 @@ struct RuntimeValidationTests {
             pageEditorCache,
             app,
             moLoRA,
+            conversationPersistence,
+            appGroupContainer,
+            quarantineArchive,
+            capabilityManifest,
+            deviceAgent,
+            traceInspector,
         ] {
             #expect(source.contains("FoundationSafety.userApplicationSupportDirectory"))
         }

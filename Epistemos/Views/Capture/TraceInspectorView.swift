@@ -64,12 +64,7 @@ class TraceInspectorViewModel {
         )
 
         do {
-            let appSupport = try fileManager.url(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask,
-                appropriateFor: nil,
-                create: false
-            )
+            let appSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
             let baseDir = appSupport.appendingPathComponent("com.epistemos.app/traces/production")
 
             let dateDirs = try fileManager.contentsOfDirectory(at: baseDir, includingPropertiesForKeys: nil)

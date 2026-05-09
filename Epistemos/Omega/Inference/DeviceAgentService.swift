@@ -596,8 +596,7 @@ enum CoreMLActionBackendLoader {
     static let actionModelFeatureMappingEnabled = false
 
     static func standardModelURL() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
         return appSupport
             .appendingPathComponent("Epistemos", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)

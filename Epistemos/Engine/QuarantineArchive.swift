@@ -239,12 +239,7 @@ public final class QuarantineArchive {
     /// `isExcludedFromBackupKey` per the compass storage spec.
     nonisolated private var archiveURL: URL? {
         let fm = FileManager.default
-        guard let support = try? fm.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) else { return nil }
+        let support = FoundationSafety.userApplicationSupportDirectory(fileManager: fm)
         let bundle = Bundle.main.bundleIdentifier ?? "com.epistemos.Epistemos"
         let dir = support
             .appendingPathComponent(bundle, isDirectory: true)

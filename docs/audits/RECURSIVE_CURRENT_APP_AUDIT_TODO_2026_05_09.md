@@ -8308,6 +8308,50 @@ Implementation evidence, 2026-05-09 Wave 0 automated pass:
   - Full wave build/test, full app test suite, and three clean release passes have not been run.
   - This item is not closed until the UI/runtime smoke proves Notes, Graph, Search, Halo diagnostics, Settings, and restored workspace state converge in the running app.
 
+2026-05-09 audit harness isolation + A-vault runtime smoke start:
+
+- Harness issue found during manual proof:
+  - `scripts/launch_audit_app.sh` changed the cloned app bundle id to `com.epistemos.audit`, but the main SwiftData/note-body/search/event-store paths still resolved through the normal `~/Library/Application Support/Epistemos` root.
+  - Only the Rust permission DB was bundle-id isolated before this patch. That made the audit harness unsafe for destructive reset proof and caused vault selection to snapshot production-scale derived local state.
+  - Earlier failed audit-app selection attempts created recovery snapshots under `~/Library/Application Support/Epistemos-Recovery`; those were left untouched.
+- Files changed for harness isolation:
+  - `Epistemos/Engine/Extensions.swift`
+  - `scripts/launch_audit_app.sh`
+  - `Epistemos/App/AppBootstrap.swift`
+  - `Epistemos/App/AppGroupContainer.swift`
+  - `Epistemos/Vault/ConversationPersistence.swift`
+  - `Epistemos/Engine/CapabilityManifestBuilder.swift`
+  - `Epistemos/Engine/QuarantineArchive.swift`
+  - `Epistemos/Omega/Inference/DeviceAgentService.swift`
+  - `Epistemos/Views/Capture/TraceInspectorView.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+- Product/harness behavior:
+  - Added explicit `EPISTEMOS_APPLICATION_SUPPORT_ROOT` routing in `FoundationSafety.runtimeApplicationSupportDirectory`.
+  - The override is ignored unless it is an absolute path.
+  - The audit launcher now clears and sets `build/audit-app-support` as the cloned app's Application Support root via `LSEnvironment`.
+  - Main runtime stores used by the smoke now resolve under `build/audit-app-support/Epistemos`, and the Rust permissions DB resolves under `build/audit-app-support/com.epistemos.audit/permissions.db`.
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+  - `git diff --check`
+  - `./scripts/launch_audit_app.sh`
+- Runtime isolation evidence:
+  - Launcher output reported `App data: /Users/jojo/Downloads/Epistemos/build/audit-app-support`.
+  - `PlistBuddy -c 'Print :LSEnvironment' build/audit-app/EpistemosAudit.app/Contents/Info.plist` showed `EPISTEMOS_APPLICATION_SUPPORT_ROOT = /Users/jojo/Downloads/Epistemos/build/audit-app-support`.
+  - `find build/audit-app-support -maxdepth 4 -print` showed `default.store`, `note-bodies`, `search.sqlite`, `event-store.sqlite`, `paperclip_state.db`, runtime diagnostics, and `com.epistemos.audit/permissions.db` under the isolated root.
+  - Runtime log evidence showed `R.5 persist: permission store backed at /Users/jojo/Downloads/Epistemos/build/audit-app-support/com.epistemos.audit/permissions.db` and `Runtime diagnostics directory: /Users/jojo/Downloads/Epistemos/build/audit-app-support/Epistemos/runtime_diagnostics`.
+- A-vault runtime smoke evidence so far:
+  - Disposable vault A: `build/vault-smoke-2026-05-09/A/VAULT_A_ONLY.md`.
+  - Disposable vault B: `build/vault-smoke-2026-05-09/B/VAULT_B_ONLY.md`.
+  - Settings -> Vault selected A and showed `/Users/jojo/Downloads/Epistemos/build/vault-smoke-2026-05-09/A` with `Connected` status.
+  - Notes window showed only `VAULT_A_ONLY`.
+  - Graph Notes tab showed only `VAULT_A_ONLY`.
+  - Graph Query filter returned `1 MATCH` for `VAULT_A_ONLY` and `No matching nodes` for `VAULT_B_ONLY`.
+  - Runtime log showed `VaultSyncService started for: A`, `Vault import complete: 1 files on disk, 1 tracked vault pages in DB`, `R.3 gateway: ready for vault=A`, and `shadow_handle_open_at OK` under A's `.epcache/shadow`.
+  - `sqlite3 build/audit-app-support/Epistemos/default.store "select ztitle from zsdpage order by ztitle;"` returned only `VAULT_A_ONLY`.
+- Remaining proof and risk:
+  - Reset Everything has not yet been clicked in the UI; action-time confirmation is pending because it is destructive even though this audit app is isolated.
+  - Relaunch-after-reset proof, B-vault selection proof, B disconnect/removal proof, and post-reset absence checks for Notes/Graph/Search/Halo remain pending.
+
 Backlog update needed:
 
 Make this the first item in the Codex recursive prompt. It supersedes the older softer connected-vault truth items as the active user blocker, but does not replace them; after reset is fixed, the connected-vault create/rename/move/delete convergence smoke still remains.
