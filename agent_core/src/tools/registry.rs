@@ -40,49 +40,6 @@ fn r5_enforce_enabled() -> bool {
 }
 
 #[cfg(not(feature = "pro-build"))]
-const MAS_RUNTIME_FORBIDDEN_TOOLS: &[&str] = &[
-    "bash_execute",
-    "terminal",
-    "process",
-    "claude_code",
-    "codex",
-    "gemini",
-    "kimi",
-    "imessage",
-    "imessage_contacts",
-    "channel_contacts",
-    "send_message",
-    "apple_notes",
-    "apple_reminders",
-    "apple_calendar",
-    "apple_mail",
-    "browser_navigate",
-    "browser_click",
-    "browser_type",
-    "browser_press",
-    "browser_close",
-    "browser_scroll",
-    "skill_manage",
-    "custom_tool_manage",
-    "cronjob",
-    "trajectory_export",
-    "mcp_discover",
-    "vision_analyze",
-    "image_generate",
-    "text_to_speech",
-    "perceive",
-    "interact",
-    "screen_watch",
-    "nightbrain_trigger",
-    "inline_partner",
-];
-
-#[cfg(not(feature = "pro-build"))]
-fn mas_runtime_forbids_tool(name: &str) -> bool {
-    MAS_RUNTIME_FORBIDDEN_TOOLS.contains(&name)
-}
-
-#[cfg(not(feature = "pro-build"))]
 fn mas_allows_bounded_internal_mutation(name: &str, input: &Value) -> bool {
     let action = input
         .get("action")
@@ -104,14 +61,6 @@ fn mas_runtime_preflight(
     input: &Value,
     authz_target: Option<&crate::resources::tool_authz::ToolAuthzTarget>,
 ) -> Result<(), ToolError> {
-    if mas_runtime_forbids_tool(&tool.name) {
-        tracing::warn!(
-            tool = tool.name.as_str(),
-            "App Store runtime preflight denied forbidden tool"
-        );
-        return Err(ToolError::PermissionDenied);
-    }
-
     if matches!(tool.risk_level, RiskLevel::Destructive) {
         tracing::warn!(
             tool = tool.name.as_str(),
@@ -323,20 +272,13 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("vault_search", "vault.search"),
     ("vault_read", "vault.read"),
     ("vault_write", "vault.write"),
-    ("bash_execute", "action.bash"),
     ("chunk_reduce", "chunk.reduce"),
     ("pkm_graph_neighbors", "graph.neighbors"),
     ("read_file", "file.read"),
     ("write_file", "file.write"),
     ("patch", "file.patch"),
     ("search_files", "file.search"),
-    ("terminal", "action.terminal"),
-    ("process", "system.process"),
     ("todo", "system.todo"),
-    ("cronjob", "system.cron"),
-    ("skills_list", "skills.list"),
-    ("skill_view", "skills.view"),
-    ("skill_manage", "skills.manage"),
     ("vault_recall", "knowledge.recall"),
     ("contradiction_check", "knowledge.contradiction_check"),
     ("neural_recall", "knowledge.neural_recall"),
@@ -352,6 +294,24 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("web_search", "web.search"),
     ("web_extract", "web.extract"),
     ("web_crawl", "web.crawl"),
+    ("route_private", "inference.route_private"),
+    ("clarify", "clarify.ask"),
+    ("ssm_resume", "inference.ssm_resume"),
+    ("constrained_generate", "inference.constrained_generate"),
+    ("capture_screenshot", "capture.screenshot"),
+    ("capture_voice", "capture.voice"),
+    ("capture_clipboard", "capture.clipboard"),
+];
+
+#[cfg(feature = "pro-build")]
+pub const PRO_LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
+    ("bash_execute", "action.bash"),
+    ("terminal", "action.terminal"),
+    ("process", "system.process"),
+    ("cronjob", "system.cron"),
+    ("skills_list", "skills.list"),
+    ("skill_view", "skills.view"),
+    ("skill_manage", "skills.manage"),
     ("apple_notes", "apple.notes"),
     ("apple_reminders", "apple.reminders"),
     ("apple_calendar", "apple.calendar"),
@@ -374,29 +334,47 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("get_dependencies", "workspace.get_dependencies"),
     ("get_dependents", "workspace.get_dependents"),
     ("get_change_impact", "workspace.get_change_impact"),
-    ("clarify", "clarify.ask"),
     ("perceive", "macos.perceive"),
     ("interact", "macos.interact"),
     ("screen_watch", "macos.screen_watch"),
-    ("ssm_resume", "inference.ssm_resume"),
-    ("constrained_generate", "inference.constrained_generate"),
     ("nightbrain_trigger", "intelligence.nightbrain_trigger"),
     ("inline_partner", "intelligence.inline_partner"),
-    ("capture_screenshot", "capture.screenshot"),
-    ("capture_voice", "capture.voice"),
-    ("capture_clipboard", "capture.clipboard"),
 ];
 
 pub fn v2_name_for_legacy(name: &str) -> Option<&'static str> {
-    LEGACY_TO_V2_ALIASES
+    let common = LEGACY_TO_V2_ALIASES
         .iter()
-        .find_map(|(legacy, dotted)| (*legacy == name).then_some(*dotted))
+        .find_map(|(legacy, dotted)| (*legacy == name).then_some(*dotted));
+    #[cfg(feature = "pro-build")]
+    {
+        common.or_else(|| {
+            PRO_LEGACY_TO_V2_ALIASES
+                .iter()
+                .find_map(|(legacy, dotted)| (*legacy == name).then_some(*dotted))
+        })
+    }
+    #[cfg(not(feature = "pro-build"))]
+    {
+        common
+    }
 }
 
 pub fn legacy_name_for_v2(name: &str) -> Option<&'static str> {
-    LEGACY_TO_V2_ALIASES
+    let common = LEGACY_TO_V2_ALIASES
         .iter()
-        .find_map(|(legacy, dotted)| (*dotted == name).then_some(*legacy))
+        .find_map(|(legacy, dotted)| (*dotted == name).then_some(*legacy));
+    #[cfg(feature = "pro-build")]
+    {
+        common.or_else(|| {
+            PRO_LEGACY_TO_V2_ALIASES
+                .iter()
+                .find_map(|(legacy, dotted)| (*dotted == name).then_some(*legacy))
+        })
+    }
+    #[cfg(not(feature = "pro-build"))]
+    {
+        common
+    }
 }
 
 pub struct ToolRegistry {
@@ -2891,9 +2869,15 @@ mod tier_tests {
 
     #[test]
     fn tools_v2_alias_table_preserves_quick_capture_contract() {
+        #[cfg(feature = "pro-build")]
         assert!(
-            LEGACY_TO_V2_ALIASES.len() >= 56,
+            LEGACY_TO_V2_ALIASES.len() + PRO_LEGACY_TO_V2_ALIASES.len() >= 56,
             "Tools V2 recovery must preserve the Quick Capture alias surface"
+        );
+        #[cfg(not(feature = "pro-build"))]
+        assert!(
+            LEGACY_TO_V2_ALIASES.len() >= 30,
+            "MAS Tools V2 alias surface must preserve non-subprocess aliases"
         );
         assert_eq!(v2_name_for_legacy("vault_search"), Some("vault.search"));
         assert_eq!(legacy_name_for_v2("vault.search"), Some("vault_search"));

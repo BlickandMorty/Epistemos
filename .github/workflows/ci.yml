@@ -287,10 +287,26 @@ jobs:
           ./scripts/xcodebuild_epistemos.sh build \
             -project Epistemos.xcodeproj \
             -scheme Epistemos-AppStore \
+            -configuration Release \
             -destination "platform=macOS,arch=arm64" \
             -derivedDataPath .derived-data-ci-appstore \
             -clonedSourcePackagesDirPath .spm-cache \
             CODE_SIGNING_ALLOWED=NO
+
+      # Drop 12/13: the App Store target must be proven from the final .app,
+      # not only from source guards. This gate fails on MAS-visible subprocess
+      # source findings and scans the produced bundle strings, linked symbols,
+      # executables, and resources for Pro-only/runtime-execution residue.
+      - name: W26.b — App Store artifact and subprocess release gate
+        run: |
+          set -euo pipefail
+          ./Tools/app-review-audit/app-review-audit.sh appstore
+          app_path=$(find .derived-data-ci-appstore/Build/Products -type d -name "Epistemos.app" -path "*Release*" -print -quit || true)
+          if [ -z "${app_path}" ]; then
+            echo "::error::App Store artifact gate could not locate Release Epistemos.app under .derived-data-ci-appstore/Build/Products"
+            exit 1
+          fi
+          EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/appstore-audit ./scripts/scan_appstore_bundle.sh "${app_path}"
 
       # Patch 9: Measure the App Store .app bundle. Emits a warning annotation
       # at 80% of the configured limit and fails the job above the limit.
