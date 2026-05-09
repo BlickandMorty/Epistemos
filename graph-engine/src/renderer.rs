@@ -553,10 +553,28 @@ fn z_for_link_count(link_count: u32) -> f32 {
 }
 
 /// Base alpha multiplier for all nodes — subtler ambient presence.
-const BASE_NODE_ALPHA: f32 = 0.72;
+const BASE_NODE_ALPHA: f32 = 1.0;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
 #[allow(dead_code)]
 const DIM_ALPHA: f32 = 0.04;
+
+#[inline]
+fn monochrome_graph_node_color(light_mode: bool, node_type: u8, depth: u32) -> [f32; 4] {
+    let _ = depth;
+    let node_type = crate::types::NodeType::from_u8(node_type);
+    match node_type {
+        crate::types::NodeType::Folder => {
+            if light_mode {
+                [0.0, 0.0, 0.0, 1.0]
+            } else {
+                [1.0, 1.0, 1.0, 1.0]
+            }
+        }
+        _ if light_mode => node_type.color_light(),
+        _ => node_type.color(),
+    }
+}
+
 // ── Glow constants (shared between upload_graph and update_positions) ─────
 const HUB_GLOW_Z_OFFSET: f32 = -0.12;
 const HUB_GLOW_ALPHA: f32 = 0.06; // lowered from 0.08 to reduce overdraw saturation
@@ -807,6 +825,8 @@ fragment float4 node_fragment(
     bool performance_mode = in.is_lite > 1.5;
     bool cinematic_mode = in.is_lite < 0.5;
     bool light = uniforms.light_mode > 0.5;
+    bool folder_node = in.face_type > 3.5 && in.face_type < 4.5;
+    bool large_folder_node = folder_node && in.depth >= 0.45;
     if (cinematic_mode) {
         const float pixel_grid = 9.0;
         float2 pixel_cell = floor((in.uv * 0.5 + 0.5) * pixel_grid);
@@ -814,43 +834,23 @@ fragment float4 node_fragment(
         float pixel_dist = length(pixel_uv);
         if (pixel_dist > 0.96) discard_fragment();
 
-        float3 fill = light
-            ? srgb_to_linear(float3(0.055, 0.055, 0.050))
-            : srgb_to_linear(float3(0.930, 0.925, 0.865));
-        float3 rim = light
-            ? srgb_to_linear(float3(0.000, 0.000, 0.000))
-            : srgb_to_linear(float3(0.655, 0.650, 0.590));
-        float3 highlight = light
-            ? srgb_to_linear(float3(0.180, 0.180, 0.165))
-            : srgb_to_linear(float3(1.000, 0.995, 0.930));
-        float3 shadow = light
-            ? srgb_to_linear(float3(0.000, 0.000, 0.000))
-            : srgb_to_linear(float3(0.465, 0.460, 0.420));
-
-        float3 pixel_color = fill;
-        if (pixel_dist > 0.70) {
-            pixel_color = rim;
+        float3 pixel_color = in.color.rgb;
+        if (large_folder_node) {
+            float2 folder_light_dir = normalize(float2(-0.62, -0.78));
+            float folder_light_band = dot(pixel_uv, folder_light_dir);
+            float folder_pixel_glare = smoothstep(0.34, 0.78, folder_light_band)
+                * (1.0 - smoothstep(0.06, 0.82, pixel_dist));
+            float folder_pixel_shadow = smoothstep(0.36, 0.90, -folder_light_band)
+                * smoothstep(0.28, 0.94, pixel_dist);
+            float3 folder_glare_color = light
+                ? srgb_to_linear(float3(0.16, 0.16, 0.16))
+                : srgb_to_linear(float3(1.00, 1.00, 1.00));
+            float3 folder_shadow_color = light
+                ? srgb_to_linear(float3(0.00, 0.00, 0.00))
+                : srgb_to_linear(float3(0.72, 0.72, 0.72));
+            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.62);
+            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.16);
         }
-
-        float2 light_dir_2d = normalize(float2(-0.65, -0.76));
-        float light_band = dot(pixel_uv, light_dir_2d);
-        if (light_band > 0.42 && pixel_dist < 0.68) {
-            pixel_color = highlight;
-        } else if (light_band < -0.36 && pixel_dist > 0.42) {
-            pixel_color = shadow;
-        }
-
-        float2 shine_dir = normalize(float2(-0.60, -0.80));
-        float shine_coord = 0.5 + 0.5 * dot(pixel_uv, shine_dir);
-        float shine_mask = (1.0 - smoothstep(0.0, 0.74, pixel_dist))
-            * (1.0 - smoothstep(0.58, 0.76, pixel_dist));
-        float cinematic_static_shine = floor(clamp((1.0 - shine_coord) * 1.45, 0.0, 1.0) * 4.0) / 4.0;
-        if (cinematic_static_shine > 0.60) {
-            pixel_color = mix(pixel_color, highlight, 0.38 * shine_mask);
-        } else if (cinematic_static_shine > 0.35) {
-            pixel_color = mix(pixel_color, highlight, 0.22 * shine_mask);
-        }
-
         if (uniforms.pulse_time >= 0.0) {
             float d_to_pulse = length(in.world_pos - uniforms.pulse_origin);
             float wave_radius = uniforms.pulse_time * 800.0;
@@ -859,36 +859,13 @@ fragment float4 node_fragment(
             float cinematic_click_wave = 1.0 - smoothstep(0.0, ring_width, ring_dist);
             float pulse_fade = 1.0 - smoothstep(0.0, 1.85, uniforms.pulse_time);
             cinematic_click_wave = floor(cinematic_click_wave * 4.0) / 4.0;
-            if (cinematic_click_wave > 0.0) {
-                pixel_color = mix(
-                    pixel_color,
-                    highlight,
-                    cinematic_click_wave * pulse_fade * 0.52
-                );
-            }
-
-            float local_flash = 1.0 - smoothstep(0.0, max(in.node_radius_world * 1.65, 16.0), d_to_pulse);
-            float cinematic_click_sweep = 1.0 - smoothstep(
-                0.08,
-                0.20,
-                abs(dot(pixel_uv, shine_dir) - (uniforms.pulse_time * 2.6 - 0.9))
-            );
-            if (local_flash > 0.0 && cinematic_click_sweep > 0.0) {
-                pixel_color = mix(
-                    pixel_color,
-                    highlight,
-                    local_flash * cinematic_click_sweep * pulse_fade * 0.72
-                );
-            }
+            float3 pulse_color = light
+                ? srgb_to_linear(float3(0.82, 0.82, 0.82))
+                : srgb_to_linear(float3(0.12, 0.12, 0.12));
+            pixel_color = mix(pixel_color, pulse_color, cinematic_click_wave * pulse_fade * 0.45);
         }
 
-        if (in.desaturate > 0.5) {
-            float lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
-            pixel_color = mix(pixel_color, float3(lum), 0.85);
-        }
-
-        float depth_fade = (in.depth < -0.1) ? 0.72 : 1.0;
-        return float4(pixel_color, in.color.a * depth_fade * in.highlight_dim);
+        return float4(pixel_color, in.color.a);
     }
 
     // ── Balanced + Performance: shared node shading ──
@@ -907,6 +884,39 @@ fragment float4 node_fragment(
     float pixel_alpha = qdist < 0.92 ? 1.0 : 0.0;
     float alpha = mix(smooth_alpha, pixel_alpha, pixel_strength);
     if (alpha < 0.01) discard_fragment();
+
+    if (folder_node || !water) {
+        float3 result_color = in.color.rgb;
+        if (large_folder_node) {
+            float2 folder_light_dir = normalize(float2(-0.62, -0.78));
+            float folder_light_band = dot(final_uv, folder_light_dir);
+            float folder_pixel_glare = smoothstep(0.34, 0.78, folder_light_band)
+                * (1.0 - smoothstep(0.06, 0.82, qdist));
+            float folder_pixel_shadow = smoothstep(0.36, 0.90, -folder_light_band)
+                * smoothstep(0.28, 0.94, qdist);
+            float3 folder_glare_color = light
+                ? srgb_to_linear(float3(0.16, 0.16, 0.16))
+                : srgb_to_linear(float3(1.00, 1.00, 1.00));
+            float3 folder_shadow_color = light
+                ? srgb_to_linear(float3(0.00, 0.00, 0.00))
+                : srgb_to_linear(float3(0.72, 0.72, 0.72));
+            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.48);
+            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.12);
+        }
+
+        bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
+        if (is_dimmed && !folder_node) {
+            float3 dim_color = light
+                ? srgb_to_linear(float3(0.18, 0.18, 0.18))
+                : srgb_to_linear(float3(0.82, 0.82, 0.82));
+            result_color = mix(result_color, dim_color, 0.22);
+        }
+        if (in.desaturate > 0.5 && !folder_node) {
+            float lum = dot(result_color, float3(0.299, 0.587, 0.114));
+            result_color = mix(result_color, float3(lum), 0.85);
+        }
+        return float4(result_color, max(in.color.a * alpha, 0.85));
+    }
 
     float r2 = dot(final_uv, final_uv);
     float nz = sqrt(max(1.0 - r2, 0.0));
@@ -1054,7 +1064,7 @@ fragment float4 node_fragment(
         result_color = mix(result_color, float3(lum), 0.85);
     }
 
-    return float4(result_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
+    return float4(result_color, max(in.color.a * final_alpha * depth_fade * in.highlight_dim, 0.85));
 }
 
 // ── Edge shaders ───────────────────────────────────────────────────
@@ -1661,6 +1671,11 @@ impl Renderer {
     #[inline]
     fn node_color_for_u8(&self, node_type: u8) -> [f32; 4] {
         self.node_color(&crate::types::NodeType::from_u8(node_type))
+    }
+
+    #[inline]
+    fn monochrome_graph_node_color(&self, node_type: u8, depth: u32) -> [f32; 4] {
+        monochrome_graph_node_color(self.light_mode, node_type, depth)
     }
 
     #[inline]
@@ -2399,22 +2414,8 @@ impl Renderer {
         let mut color = if co[3] > 0.0 {
             // Depth palette encodes style signal in alpha > 1.0 — clamp for rendering.
             [co[0], co[1], co[2], co[3].min(1.0)]
-        } else if hierarchy.node_type == 4 {
-            // Folder nodes: B&W hierarchy coloring based on nesting depth.
-            // Dark mode: white (depth 0) → mid-grey.  Light mode: black (depth 0) → mid-grey.
-            // Depth factor: 0.15 per level, clamped so depth 5+ hits the grey floor.
-            let depth_t = (hierarchy.depth as f32 * 0.15).min(0.75);
-            if self.light_mode {
-                // Black at root → lighter grey with depth.
-                let v = depth_t * 0.50; // 0.0 → 0.375 (linear)
-                [v, v, v, 1.0]
-            } else {
-                // White at root → darker grey with depth.
-                let v = 1.0 - depth_t * 0.80; // 1.0 → 0.40 (linear)
-                [v, v, v, 1.0]
-            }
         } else {
-            self.node_color_for_u8(hierarchy.node_type)
+            self.monochrome_graph_node_color(hierarchy.node_type, hierarchy.depth)
         };
         let z = z_for_link_count(hierarchy.link_count);
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
@@ -2549,7 +2550,10 @@ impl Renderer {
                 let mut color = if co[3] > 0.0 {
                     co
                 } else {
-                    self.node_color_for_u8(world.hierarchy[node_index].node_type)
+                    self.monochrome_graph_node_color(
+                        world.hierarchy[node_index].node_type,
+                        world.hierarchy[node_index].depth,
+                    )
                 };
                 color[3] *= BASE_NODE_ALPHA;
 
@@ -3868,6 +3872,9 @@ impl Renderer {
         }
     }
 
+    /// Canonical graph pass order: edges first, field lines second, nodes third,
+    /// SDF labels fourth, and dialogue overlay last. Nodes must remain above
+    /// edges so solid node bodies occlude edge geometry at crossings/endpoints.
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32, world: &World) {
         self.set_viewport_size(viewport_width, viewport_height);
         self.prepare_dialogue_box(world);
@@ -4061,6 +4068,35 @@ mod tests {
         assert!(z_for_link_count(0) < z_for_link_count(4));
         assert!(z_for_link_count(4) < z_for_link_count(7));
         assert!(z_for_link_count(7) < z_for_link_count(10));
+    }
+
+    #[test]
+    fn render_order_keeps_edges_under_nodes_and_labels() {
+        let source = std::fs::read_to_string(file!()).expect("renderer source should be readable");
+        let edge_pipeline = source
+            .find("encoder.set_render_pipeline_state(&self.edge_pipeline)")
+            .expect("edge pipeline draw call should exist");
+        let straight_edge_pipeline = source
+            .find("encoder.set_render_pipeline_state(&self.straight_edge_pipeline)")
+            .expect("straight edge pipeline draw call should exist");
+        let field_line_pipeline = source
+            .find("encoder.set_render_pipeline_state(&self.field_line_pipeline)")
+            .expect("field line pipeline draw call should exist");
+        let node_pipeline = source
+            .find("encoder.set_render_pipeline_state(&self.node_pipeline)")
+            .expect("node pipeline draw call should exist");
+        let label_pass = source
+            .find("self.draw_label_commands(encoder)")
+            .expect("label draw call should exist");
+        let dialogue_pass = source
+            .find("self.draw_dialogue_commands(encoder)")
+            .expect("dialogue draw call should exist");
+
+        assert!(edge_pipeline < field_line_pipeline);
+        assert!(straight_edge_pipeline < field_line_pipeline);
+        assert!(field_line_pipeline < node_pipeline);
+        assert!(node_pipeline < label_pass);
+        assert!(label_pass < dialogue_pass);
     }
 
     #[test]
@@ -4595,6 +4631,72 @@ mod tests {
         let node = renderer.classic_node_instance(&world, 0);
 
         assert_eq!(node.face_type, 1.0);
+    }
+
+    #[test]
+    fn dark_mode_note_nodes_use_semantic_teal_fill() {
+        let color = monochrome_graph_node_color(false, crate::types::NodeType::Note as u8, 0);
+
+        assert_eq!(color, crate::types::NodeType::Note.color());
+    }
+
+    #[test]
+    fn light_mode_note_nodes_use_semantic_teal_fill() {
+        let color = monochrome_graph_node_color(true, crate::types::NodeType::Note as u8, 0);
+
+        assert_eq!(color, crate::types::NodeType::Note.color_light());
+    }
+
+    #[test]
+    fn light_and_dark_graph_nodes_are_solid_not_translucent() {
+        for node_type in [
+            crate::types::NodeType::Note,
+            crate::types::NodeType::Folder,
+            crate::types::NodeType::Idea,
+            crate::types::NodeType::Chat,
+            crate::types::NodeType::Source,
+            crate::types::NodeType::Quote,
+            crate::types::NodeType::Tag,
+            crate::types::NodeType::Block,
+        ] {
+            let dark = monochrome_graph_node_color(false, node_type as u8, 0);
+            let light = monochrome_graph_node_color(true, node_type as u8, 0);
+
+            assert_eq!(dark[3], 1.0);
+            assert_eq!(light[3], 1.0);
+        }
+    }
+
+    #[test]
+    fn dark_mode_folder_nodes_use_pitch_white_fill() {
+        let root = monochrome_graph_node_color(false, crate::types::NodeType::Folder as u8, 0);
+        let nested = monochrome_graph_node_color(false, crate::types::NodeType::Folder as u8, 3);
+
+        assert_eq!(root, [1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(nested, root);
+    }
+
+    #[test]
+    fn light_mode_folder_nodes_use_plain_oled_black_fill() {
+        let root = monochrome_graph_node_color(true, crate::types::NodeType::Folder as u8, 0);
+        let nested = monochrome_graph_node_color(true, crate::types::NodeType::Folder as u8, 3);
+
+        assert_eq!(root, [0.0, 0.0, 0.0, 1.0]);
+        assert_eq!(nested, root);
+    }
+
+    #[test]
+    fn dark_mode_idea_nodes_keep_semantic_yellow_fill() {
+        let color = monochrome_graph_node_color(false, crate::types::NodeType::Idea as u8, 0);
+
+        assert_eq!(color, crate::types::NodeType::Idea.color());
+    }
+
+    #[test]
+    fn light_mode_idea_nodes_keep_semantic_yellow_fill() {
+        let color = monochrome_graph_node_color(true, crate::types::NodeType::Idea as u8, 0);
+
+        assert_eq!(color, crate::types::NodeType::Idea.color_light());
     }
 
     #[test]
