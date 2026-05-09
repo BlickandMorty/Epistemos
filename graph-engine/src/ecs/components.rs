@@ -77,6 +77,10 @@ pub struct GraphNodeComponent {
     pub _pad1: [u8; 4],
     pub created_at: f64,
     pub updated_at: f64,
+    pub label_half_width: f32,
+    pub label_half_height: f32,
+    pub label_offset_y: f32,
+    pub label_pad: f32,
 }
 
 impl Default for GraphNodeComponent {
@@ -91,6 +95,10 @@ impl Default for GraphNodeComponent {
             _pad1: [0; 4],
             created_at: 0.0,
             updated_at: 0.0,
+            label_half_width: 0.0,
+            label_half_height: 0.0,
+            label_offset_y: 0.0,
+            label_pad: 0.0,
         }
     }
 }

@@ -450,13 +450,17 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(renderer.contains("if (uniforms.lite_mode > 1.5 && speed > 1.0)"),
                 "Cinematic pixel nodes must not squash/stretch like water beads")
         #expect(renderer.contains("float cinematic_click_wave = 1.0 - smoothstep"),
-                "Cinematic pixel nodes must keep the click wave cue inside the pixel branch")
-        #expect(renderer.contains("float cinematic_click_sweep = 1.0 - smoothstep"),
-                "Cinematic pixel nodes must keep a local shine sweep when clicked")
+                "Cinematic pixel nodes must keep the selection/click pulse cue inside the pixel branch")
+        #expect(!renderer.contains("float cinematic_click_sweep = 1.0 - smoothstep"),
+                "Cinematic pixel nodes must not restore the old shine sweep while keeping the pulse")
+        #expect(renderer.contains("bool large_folder_node = folder_node && in.depth >= 0.45;"),
+                "Only high-degree/top-level folder hubs should receive the subtle pixel glare")
+        #expect(renderer.contains("float folder_pixel_glare = smoothstep"),
+                "Large folder hubs should keep a subtle opaque pixel-glare cue")
         #expect(renderer.contains("out.node_radius_world = effective_radius;"),
                 "Pixel click animation should scale from real graph radius, not screen overlay math")
-        #expect(renderer.contains("return float4(pixel_color, in.color.a * depth_fade * in.highlight_dim);"),
-                "Cinematic nodes must return from the pixel path before water/performance shading")
+        #expect(renderer.contains("return float4(pixel_color, in.color.a);"),
+                "Cinematic nodes must keep a solid opaque body before water/performance shading")
         #expect(renderer.contains("draw_glow: false"),
                 "Cinematic pixel nodes must not keep soft glow/orb instances around the stepped shape")
         #expect(graphState.contains("PowerGuard may throttle frame pacing/resolution"),
@@ -506,6 +510,24 @@ struct GraphPhysicsSettingsAuditTests {
         let digit = try #require(advance(for: "1"))
         #expect(abs(narrow - wide) < 0.0001)
         #expect(abs(narrow - digit) < 0.0001)
+    }
+
+    @Test("Graph label envelopes feed node collision radii")
+    func graphLabelEnvelopesFeedNodeCollisionRadii() throws {
+        let simulation = try loadMirroredSourceTextFile("graph-engine/src/simulation.rs")
+        let envelope = try loadMirroredSourceTextFile("graph-engine/src/label_envelope.rs")
+        let components = try loadMirroredSourceTextFile("graph-engine/src/ecs/components.rs")
+        let bridge = try loadMirroredSourceTextFile("graph-engine/src/ecs/bridge.rs")
+
+        #expect(envelope.contains("estimate_label_envelope"))
+        #expect(envelope.contains("LABEL_ENVELOPE_MAX_CHARS"))
+        #expect(envelope.contains("bubble_radius"))
+        #expect(simulation.contains("pub label_collision_radii: Vec<f32>"))
+        #expect(simulation.contains("visual_shell.max(label_shell)"))
+        #expect(simulation.contains("load_expands_collision_radii_for_wide_labels"))
+        #expect(components.contains("pub label_half_width: f32"))
+        #expect(components.contains("pub label_offset_y: f32"))
+        #expect(bridge.contains("estimate_label_envelope(node.radius, &node.label)"))
     }
 
     @Test("Visual theme defaults to classic when unset")

@@ -49,14 +49,21 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         )
     }
 
-    @Test("large graph overlay caps drawable scale without changing mini mode")
-    func graphDrawableResolutionPolicyCapsOnlyLargeOverlays() {
-        let fullScale = GraphDrawableResolutionPolicy.effectiveScale(
+    @Test("performance graph overlay caps drawable scale without changing mini mode")
+    func graphDrawableResolutionPolicyCapsOnlyExplicitPerformanceOverlays() {
+        let cinematicScale = GraphDrawableResolutionPolicy.effectiveScale(
             boundsSize: CGSize(width: 1_512, height: 982),
             backingScale: 2.0,
             isMiniMode: false,
             lowPowerMode: false,
             qualityLevel: 0
+        )
+        let performanceScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 1_512, height: 982),
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 2
         )
         let miniScale = GraphDrawableResolutionPolicy.effectiveScale(
             boundsSize: CGSize(width: 360, height: 360),
@@ -66,8 +73,9 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
             qualityLevel: 0
         )
 
-        #expect(fullScale < 2.0)
-        #expect(fullScale >= 1.0)
+        #expect(cinematicScale == 2.0)
+        #expect(performanceScale < cinematicScale)
+        #expect(performanceScale >= 1.0)
         #expect(miniScale == 2.0)
     }
 
@@ -99,8 +107,8 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(source.contains("ui.windowOccluded"))
     }
 
-    @Test("cinematic fullscreen budget matches mini-like pixel pressure")
-    func graphDrawableResolutionPolicyUsesMiniLikeCinematicBudget() {
+    @Test("cinematic fullscreen keeps native drawable quality")
+    func graphDrawableResolutionPolicyKeepsNativeCinematicQuality() {
         let cinematicScale = GraphDrawableResolutionPolicy.effectiveScale(
             boundsSize: CGSize(width: 1_512, height: 982),
             backingScale: 2.0,
@@ -121,13 +129,13 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         )
         let cinematicPixels = cinematicSize.width * cinematicSize.height
 
-        #expect(cinematicScale < performanceScale)
-        #expect(cinematicPixels <= 1_610_000)
-        #expect(cinematicPixels >= 1_500_000)
+        #expect(cinematicScale == 2.0)
+        #expect(cinematicScale > performanceScale)
+        #expect(cinematicPixels > 5_900_000)
     }
 
-    @Test("fullscreen drawable cap does not force a fractional CAMetalLayer contents scale")
-    func fullscreenDrawableCapKeepsLayerContentsScaleNative() {
+    @Test("fullscreen cinematic drawable scale matches native CAMetalLayer contents scale")
+    func fullscreenCinematicDrawableScaleKeepsLayerContentsScaleNative() {
         let drawableScale = GraphDrawableResolutionPolicy.effectiveScale(
             boundsSize: CGSize(width: 1_512, height: 982),
             backingScale: 2.0,
@@ -137,8 +145,28 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         )
         let layerScale = GraphDrawableResolutionPolicy.layerContentsScale(backingScale: 2.0)
 
-        #expect(drawableScale < 2.0)
+        #expect(drawableScale == 2.0)
         #expect(layerScale == 2.0)
+    }
+
+    @Test("graph dialogue palette anchors folders without overriding semantic node colors")
+    func graphDialoguePaletteUsesSolidLightDarkNodeSemantics() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(source.contains("dialogueLightNodeColor: DialogueDepthColor = (0.0, 0.0, 0.0, 1.0)"))
+        #expect(source.contains("dialogueDarkNodeColor: DialogueDepthColor = (1.0, 1.0, 1.0, 1.0)"))
+        #expect(source.contains("if node.type == .folder"))
+        #expect(source.contains("(0.0, 0.0, 0.0, 0.0)"))
+        #expect(!source.contains("dialogueDepthPalette"))
+    }
+
+    @Test("cognitive depth overlay does not override solid graph node body colors")
+    func cognitiveDepthOverlayLeavesGraphBodyPaletteToRenderer() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(source.contains("The base graph body"))
+        #expect(!source.contains("overlay.colorTint(for: marker)"))
+        #expect(!source.contains("Float(ns.redComponent)"))
     }
 
     @Test("code editor policy hides semantic refresh work until the sidebar is visible")

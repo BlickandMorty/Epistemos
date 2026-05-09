@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 use rand::Rng;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::block_kernel::{BlockTree, BtkQueryKernel, OpLog};
 use crate::cluster_cache::ClusterCache;
@@ -98,13 +98,14 @@ pub(crate) fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Durat
 
 const DEFAULT_CAMERA_FIT_PADDING: f32 = 0.85;
 const MIN_CAMERA_FIT_ZOOM: f32 = 0.35;
-const LABEL_SCREEN_SCALE_EXPONENT: f32 = 0.35;
-const LABEL_BACKGROUND_MIN_SCREEN_PX: f32 = 11.0;
-const LABEL_BACKGROUND_MAX_SCREEN_PX: f32 = 40.0;
-const LABEL_EMPHASIZED_MIN_SCREEN_PX: f32 = 16.0;
+const LABEL_SCREEN_SCALE_EXPONENT: f32 = 0.78;
+const LABEL_BACKGROUND_MIN_SCREEN_PX: f32 = 8.0;
+const LABEL_BACKGROUND_MAX_SCREEN_PX: f32 = 38.0;
+const LABEL_EMPHASIZED_MIN_SCREEN_PX: f32 = 15.0;
 const LABEL_EMPHASIZED_MAX_SCREEN_PX: f32 = 46.0;
-const LABEL_FADE_MIN_SCREEN_PX: f32 = 11.0;
-const LABEL_FADE_FULL_SCREEN_PX: f32 = 18.0;
+const LABEL_FADE_MIN_SCREEN_PX: f32 = 8.0;
+const LABEL_FADE_FULL_SCREEN_PX: f32 = 22.0;
+const LABEL_SELECTED_NEIGHBOR_MAX_NODES: usize = 128;
 
 fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
     zoom.clamp(MIN_CAMERA_FIT_ZOOM, 10.0)
@@ -130,16 +131,70 @@ fn hybrid_label_screen_px(base_screen_px: f32, zoom: f32, emphasized: bool) -> f
     }
 }
 
-fn hybrid_label_world_px_per_em(base_screen_px: f32, zoom: f32, emphasized: bool) -> f32 {
-    hybrid_label_screen_px(base_screen_px, zoom, emphasized) / zoom.max(0.01)
-}
-
 fn background_label_readability_alpha(screen_px: f32) -> f32 {
     smoothstep(
         LABEL_FADE_MIN_SCREEN_PX,
         LABEL_FADE_FULL_SCREEN_PX,
         screen_px,
     )
+}
+
+fn label_density_cell_screen_px(zoom: f32, pivot: f32) -> f32 {
+    let zoom_t = (zoom / pivot.max(0.1)).clamp(0.0, 1.0);
+    let far_t = (1.0 - zoom_t).powf(1.2);
+    48.0 + (176.0 - 48.0) * far_t
+}
+
+fn label_density_scale(
+    candidate_count: usize,
+    max_visible_count: usize,
+    local_cell_count: usize,
+    protected: bool,
+) -> f32 {
+    if protected {
+        return 1.0;
+    }
+
+    let max_visible = max_visible_count.max(1) as f32;
+    let candidate_pressure = candidate_count as f32 / max_visible;
+    let global_t = ((candidate_pressure - 1.0) / 8.0).clamp(0.0, 1.0);
+    let local_t = ((local_cell_count.saturating_sub(1) as f32) / 5.0).clamp(0.0, 1.0);
+    let global_scale = 1.0 - 0.20 * smoothstep(0.0, 1.0, global_t);
+    let local_scale = 1.0 - 0.26 * smoothstep(0.0, 1.0, local_t);
+
+    (global_scale * local_scale).clamp(0.58, 1.0)
+}
+
+fn label_density_opacity(scale: f32, protected: bool) -> f32 {
+    if protected {
+        1.0
+    } else {
+        smoothstep(0.58, 0.92, scale)
+    }
+}
+
+fn is_protected_label(
+    node_id: u32,
+    root_id: Option<u32>,
+    selected_id: Option<u32>,
+    hovered_id: Option<u32>,
+) -> bool {
+    root_id == Some(node_id) || selected_id == Some(node_id) || hovered_id == Some(node_id)
+}
+
+fn label_density_cell_key(screen_x: f32, screen_y: f32, cell_px: f32) -> (i32, i32) {
+    let safe_cell = cell_px.max(1.0);
+    (
+        (screen_x / safe_cell).floor() as i32,
+        (screen_y / safe_cell).floor() as i32,
+    )
+}
+
+fn selected_neighbor_label_cap(scored_count: usize, protected_count: usize) -> usize {
+    scored_count
+        .min(LABEL_SELECTED_NEIGHBOR_MAX_NODES)
+        .max(protected_count)
+        .max(1)
 }
 
 fn should_update_field_lines(
@@ -949,6 +1004,7 @@ impl Engine {
 
         // Rebuild per-instance highlight flags only when something visual changed.
         // Skipping this when idle saves O(N) work per frame at 10K nodes.
+        let label_highlight_dirty = self.highlight_dirty;
         if instance_buffers_changed || self.highlight_dirty {
             self.renderer.rebuild_highlight_flags(&self.world);
             self.renderer.rebuild_edge_highlight_flags();
@@ -973,7 +1029,7 @@ impl Engine {
         // Label cache: only rebuild when camera moved significantly (>3% of
         // viewport diagonal), zoom changed by >5%, or selection/highlight changed.
         // This eliminates hundreds of redundant rebuilds during smooth pans.
-        let label_needs_rebuild = if self.highlight_dirty {
+        let label_needs_rebuild = if label_highlight_dirty {
             true
         } else if !needs_frame && !instance_buffers_changed {
             false
@@ -1683,7 +1739,9 @@ impl Engine {
             label: &'a str,
             score: f32,
             opacity: f32,
-            world_px_per_em: f32,
+            screen_x: f32,
+            screen_y: f32,
+            protected: bool,
         }
         let mut scored: Vec<Scored<'_>> = Vec::with_capacity(256);
 
@@ -1697,6 +1755,8 @@ impl Engine {
             if node.label.is_empty() {
                 continue;
             }
+            let screen_x = (node.x - camera[0]) * zoom + width as f32 * 0.5;
+            let screen_y = (node.y - camera[1]) * zoom + height as f32 * 0.5;
 
             // When a node is selected, only show labels for highlighted set
             // (selected + neighbors). Everything else disappears.
@@ -1704,9 +1764,12 @@ impl Engine {
             if selection_active && !is_highlighted {
                 continue;
             }
-            let is_emphasized = is_highlighted
-                || self.selected_id == Some(node.id)
-                || self.hovered_id == Some(node.id);
+            let is_protected = is_protected_label(
+                node.id,
+                self.renderer.highlight.root_id,
+                self.selected_id,
+                self.hovered_id,
+            );
 
             let r = node.radius.max(0.1);
             let size_component = if bias > 0.0 {
@@ -1722,7 +1785,7 @@ impl Engine {
 
             // When selection is active, bypass the zoom-layer filter — show
             // highlighted labels regardless of zoom level.
-            let layer = if selection_active {
+            let layer = if selection_active && (is_protected || is_highlighted) {
                 1.0
             } else if matches!(
                 node.node_type,
@@ -1754,7 +1817,7 @@ impl Engine {
             let dist = (dx * dx + dy * dy).sqrt();
             // Skip proximity culling when selection is active — show all
             // highlighted labels even if they're at the viewport edge.
-            let proximity = if selection_active {
+            let proximity = if is_protected {
                 1.0
             } else {
                 let prox_linear = 1.0 - (dist / effective_radius).clamp(0.0, 1.0);
@@ -1765,10 +1828,8 @@ impl Engine {
             }
 
             let label_screen_px =
-                hybrid_label_screen_px(self.label_world_px_per_em, zoom, is_emphasized);
-            let world_px_per_em =
-                hybrid_label_world_px_per_em(self.label_world_px_per_em, zoom, is_emphasized);
-            let readability = if is_emphasized {
+                hybrid_label_screen_px(self.label_world_px_per_em, zoom, is_protected);
+            let readability = if is_protected {
                 1.0
             } else {
                 background_label_readability_alpha(label_screen_px)
@@ -1777,7 +1838,13 @@ impl Engine {
                 continue;
             }
 
-            let emphasis_boost = if is_emphasized { 1.35 } else { 1.0 };
+            let emphasis_boost = if is_protected {
+                1.45
+            } else if is_highlighted {
+                1.12
+            } else {
+                1.0
+            };
             let score =
                 layer * size_component * link_boost * proximity * readability * emphasis_boost;
             scored.push(Scored {
@@ -1787,7 +1854,9 @@ impl Engine {
                 label: node.label.as_str(),
                 score,
                 opacity: (layer * proximity * readability).clamp(0.0, 1.0),
-                world_px_per_em,
+                screen_x,
+                screen_y,
+                protected: is_protected,
             });
         }
 
@@ -1797,10 +1866,15 @@ impl Engine {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // When selection is active, show ALL highlighted labels (no cap).
-        // Otherwise, lerp between outer and inner max based on zoom.
+        // Clamp label count even while a selected folder highlights many
+        // neighbors. The selected/hovered/root label gets a score boost and is
+        // protected from density culling, but neighbor labels still thin out.
+        let protected_count = scored.iter().filter(|s| s.protected).count();
         let max_nodes = if selection_active {
-            scored.len()
+            // Selection should reveal the selected node's connected neighborhood
+            // again, but the density cells below still prevent high-degree
+            // folders from turning the viewport into a single text block.
+            selected_neighbor_label_cap(scored.len(), protected_count).min(scored.len())
         } else {
             let outer_max = if self.label_max_nodes == 0 {
                 scored.len()
@@ -1816,12 +1890,44 @@ impl Engine {
             let inner_t_smooth = inner_t * inner_t * (3.0 - 2.0 * inner_t);
             let cap_f =
                 (outer_max as f32) * (1.0 - inner_t_smooth) + (inner_max as f32) * inner_t_smooth;
-            (cap_f.round() as usize).max(1).min(scored.len())
+            (cap_f.round() as usize)
+                .max(1)
+                .max(protected_count)
+                .min(scored.len())
         };
 
+        let density_cell_px = label_density_cell_screen_px(zoom, pivot);
+        let mut occupied_cells: FxHashSet<(i32, i32)> = FxHashSet::default();
+        let mut cell_counts: FxHashMap<(i32, i32), usize> = FxHashMap::default();
+        for s in scored.iter().filter(|s| !s.protected) {
+            let cell = label_density_cell_key(s.screen_x, s.screen_y, density_cell_px);
+            *cell_counts.entry(cell).or_insert(0) += 1;
+        }
         let mut visible: Vec<(f32, f32, f32, &str, f32, f32)> = Vec::with_capacity(max_nodes);
-        for s in scored.iter().take(max_nodes) {
-            visible.push((s.x, s.y, s.radius, s.label, s.opacity, s.world_px_per_em));
+        for s in scored.iter() {
+            if visible.len() >= max_nodes {
+                break;
+            }
+            let cell = label_density_cell_key(s.screen_x, s.screen_y, density_cell_px);
+            if !s.protected {
+                if !occupied_cells.insert(cell) {
+                    continue;
+                }
+            }
+            let local_count = cell_counts.get(&cell).copied().unwrap_or(1);
+            let density_scale =
+                label_density_scale(scored.len(), max_nodes, local_count, s.protected);
+            let base_screen_px =
+                hybrid_label_screen_px(self.label_world_px_per_em, zoom, s.protected);
+            let min_screen_px = if s.protected {
+                LABEL_EMPHASIZED_MIN_SCREEN_PX
+            } else {
+                LABEL_BACKGROUND_MIN_SCREEN_PX * 0.875
+            };
+            let world_px_per_em =
+                (base_screen_px * density_scale).max(min_screen_px) / zoom.max(0.01);
+            let opacity = s.opacity * label_density_opacity(density_scale, s.protected);
+            visible.push((s.x, s.y, s.radius, s.label, opacity, world_px_per_em));
         }
 
         let label_color = if self.renderer.light_mode {
@@ -2463,6 +2569,7 @@ mod tests {
         let extreme = hybrid_label_screen_px(base, 100.0, false);
 
         assert!(far < mid);
+        assert!(far < mid * 0.5);
         assert!(mid < near);
         assert_eq!(extreme, LABEL_BACKGROUND_MAX_SCREEN_PX);
         assert!(far >= LABEL_BACKGROUND_MIN_SCREEN_PX);
@@ -2486,13 +2593,62 @@ mod tests {
     #[test]
     fn hybrid_label_world_scale_remains_graph_attached() {
         let base = 28.0;
-        let far_world = hybrid_label_world_px_per_em(base, 0.5, false);
-        let near_world = hybrid_label_world_px_per_em(base, 2.0, false);
+        let far_world = hybrid_label_screen_px(base, 0.5, false) / 0.5;
+        let near_world = hybrid_label_screen_px(base, 2.0, false) / 2.0;
 
         assert!(far_world > near_world);
         assert!(
             hybrid_label_screen_px(base, 2.0, false) > hybrid_label_screen_px(base, 0.5, false)
         );
+    }
+
+    #[test]
+    fn zoomed_out_label_density_cells_suppress_background_clutter() {
+        let pivot = 2.5;
+        let far = label_density_cell_screen_px(0.35, pivot);
+        let mid = label_density_cell_screen_px(1.0, pivot);
+        let near = label_density_cell_screen_px(2.5, pivot);
+
+        assert!(far > mid);
+        assert!(mid > near);
+        assert!(far >= 150.0);
+        assert!(near <= 50.0);
+        assert_eq!(
+            label_density_cell_key(22.0, 30.0, far),
+            label_density_cell_key(90.0, 80.0, far)
+        );
+    }
+
+    #[test]
+    fn selected_neighbors_do_not_bypass_label_density_pressure() {
+        let crowded_neighbor_scale = label_density_scale(58, 6, 18, false);
+        let protected_root_scale = label_density_scale(58, 6, 18, true);
+
+        assert!(crowded_neighbor_scale <= 0.65);
+        assert_eq!(protected_root_scale, 1.0);
+        assert!(label_density_opacity(crowded_neighbor_scale, false) < 0.35);
+        assert!(is_protected_label(7, Some(7), None, None));
+        assert!(!is_protected_label(8, Some(7), None, None));
+    }
+
+    #[test]
+    fn selected_node_can_reveal_connected_neighbor_labels() {
+        let selected_plus_neighbors = 58;
+
+        assert_eq!(selected_neighbor_label_cap(selected_plus_neighbors, 1), 58);
+        assert_eq!(
+            selected_neighbor_label_cap(LABEL_SELECTED_NEIGHBOR_MAX_NODES + 40, 1),
+            LABEL_SELECTED_NEIGHBOR_MAX_NODES
+        );
+    }
+
+    #[test]
+    fn sparse_labels_keep_larger_dynamic_size() {
+        let sparse = label_density_scale(3, 6, 1, false);
+        let crowded = label_density_scale(58, 6, 18, false);
+
+        assert_eq!(sparse, 1.0);
+        assert!(crowded < sparse);
     }
 
     fn make_graph() -> Graph {

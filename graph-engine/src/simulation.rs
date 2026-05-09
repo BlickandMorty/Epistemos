@@ -459,6 +459,7 @@ pub struct Simulation {
     pub radii: Vec<f32>,
     pub degrees: Vec<u32>,
     pub collision_radii: Vec<f32>,
+    pub label_collision_radii: Vec<f32>,
     /// Cumulative distance traveled per node (sum of velocity magnitudes per tick).
     pub drift: Vec<f32>,
 
@@ -643,6 +644,7 @@ impl Simulation {
             radii: Vec::new(),
             degrees: Vec::new(),
             collision_radii: Vec::new(),
+            label_collision_radii: Vec::new(),
             drift: Vec::new(),
             cluster_ids: Vec::new(),
             edges: Vec::new(),
@@ -697,12 +699,23 @@ impl Simulation {
     pub(crate) fn refresh_collision_radii(&mut self) {
         self.collision_radii.clear();
         self.collision_radii.reserve(self.radii.len());
-        self.collision_radii.extend(
-            self.radii
-                .iter()
-                .copied()
-                .map(|radius| collision_radius_for_node(radius, self.params.collision_radius)),
-        );
+        self.collision_radii
+            .extend(
+                self.radii
+                    .iter()
+                    .copied()
+                    .enumerate()
+                    .map(|(index, radius)| {
+                        let visual_shell =
+                            collision_radius_for_node(radius, self.params.collision_radius);
+                        let label_shell = self
+                            .label_collision_radii
+                            .get(index)
+                            .copied()
+                            .unwrap_or(0.0);
+                        visual_shell.max(label_shell)
+                    }),
+            );
     }
 
     /// Spawn an authored wave ring from a drag release. Callers on the
@@ -734,6 +747,7 @@ impl Simulation {
         self.radii.clear();
         self.degrees.clear();
         self.collision_radii.clear();
+        self.label_collision_radii.clear();
         self.drift.clear();
         self.cluster_ids.clear();
         self.edges.clear();
@@ -766,10 +780,12 @@ impl Simulation {
             self.fy.push(node.fy);
             self.radii.push(node.radius);
             self.degrees.push(0); // computed below
-            self.collision_radii.push(collision_radius_for_node(
-                node.radius,
-                self.params.collision_radius,
-            ));
+            let visual_shell = collision_radius_for_node(node.radius, self.params.collision_radius);
+            let label_shell =
+                crate::label_envelope::estimate_label_envelope(node.radius, &node.label)
+                    .bubble_radius;
+            self.label_collision_radii.push(label_shell);
+            self.collision_radii.push(visual_shell.max(label_shell));
             self.drift.push(0.0);
             self.shadow_strength.push(0.0);
             // Mass derived from link_count (set later after degree computation).
@@ -2778,6 +2794,30 @@ mod tests {
         sim.load_from_graph(&graph);
         assert_eq!(sim.collision_radii.len(), 1);
         assert!((sim.collision_radii[0] - (sim.radii[0] + 26.0 * 0.08)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn load_expands_collision_radii_for_wide_labels() {
+        let mut graph = Graph::new();
+        graph.add_node(
+            "wide".into(),
+            0.0,
+            0.0,
+            0,
+            1,
+            "CODEX_KIMI_OVERSIGHT_ROUND_033_2".into(),
+        );
+
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        let visual_shell = collision_radius_for_node(sim.radii[0], sim.params.collision_radius);
+        assert!(
+            sim.collision_radii[0] > visual_shell + 40.0,
+            "long labels must expand physics collision bubbles; shell={}, actual={}",
+            visual_shell,
+            sim.collision_radii[0]
+        );
     }
 
     #[test]

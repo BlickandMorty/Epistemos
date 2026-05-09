@@ -8519,6 +8519,16 @@ Required architecture proposal:
 - Semantic tokens: app background, editor background/text, utility surface, graph surface tint, graph node/edge accents, selection/highlight, panel/sidebar surfaces, borders/separators, optional retro accents.
 - Prefer direct AppKit surface colors, direct `NSTextView`/`NSScrollView` background updates, SwiftUI semantic colors, graph clear/surface color inputs, cached theme resolution, and minimal live-switch invalidation.
 - Avoid per-frame theme recomputation and body-wide theme churn.
+- Graph theme tokens must also reach graph node palettes, not only the graph surface. Theme restoration should include node fill/stroke/edge/label/accent token mapping so warm, platinum, retro Apple, retro Windows, and violet variants alter graph semantic color without changing physics or renderer architecture.
+
+2026-05-09 theme-picker evidence:
+
+- `Epistemos/Theme/EpistemosTheme.swift` still contains the existing theme registry: `systemLight`, `systemDark`, `light`, `oled`, `sunny`, `sunset`, `tan`, `ember`, `magnolia`, `nocturne`, `platinum`, `platinumDark`, `platinumViolet`, and `platinumVioletDark`.
+- `ThemePair` still defines the six public pairings: `Magnolia`, `Classic`, `Warmth`, `Ember`, `Platinum`, and `Platinum Violet`.
+- The resolved color cache still iterates `EpistemosTheme.allCases`, so theme definitions are built and consumable.
+- Removal commit identified by user research: `78c247287` (`2026-03-16`, "refactor: remove legacy custom theme settings") deleted the Settings picker UI/state, including `AppearanceThemePairSection`, `ThemePairCard`, `ForEach(ThemePair.allCases...)`, `selectedPairDraft`, `pendingThemePair`, and `scheduleThemePairChange`.
+- Current `AppearanceDetailView` only exposes the static system appearance label, System Settings shortcut, and display mode toggle. There is no user-facing path to select the existing theme pairs.
+- First theme slice should restore the picker UI with native semantic tokens before broader forensic theme restoration. Do not reintroduce unsafe overlay/compositing implementations while restoring the picker.
 
 Initial implementation candidates after audit:
 
@@ -8826,13 +8836,17 @@ Acceptance:
 
 ### UIX-2026-05-09-004 - Fullscreen and cinematic graph quality parity
 
-Status: INTAKE / GRAPH RENDERING QUALITY AUDIT REQUIRED BEFORE PRODUCT CODE
+Status: PATCHED PARTIAL - AUTOMATED GRAPH QUALITY/PALETTE GUARDS GREEN / RUNTIME SMOKE PENDING
 
 User signal:
 
 - Fullscreen and cinematic graph modes currently look lower quality than the minimized graph.
 - Cinematic mode should render at full-quality visual settings.
 - Performance mode may intentionally use reduced quality in the high-definition/fullscreen aspect, but that degradation must be explicit to performance mode rather than leaking into cinematic/fullscreen defaults.
+- Latest graph palette requirement supersedes the earlier all-red/all-yellow idea: node bodies must be solid, not translucent. Folder nodes are the black/white anchors: light-mode folders should be plain pitch-black/OLED pixel circles, and dark-mode folders should be pitch white. Non-folder nodes, especially notes, must still register their real semantic node colors across light/dark mode changes.
+- Nodes should never be transparent in the base graph pass. Edges must remain behind nodes and must not show through node bodies.
+- The selection/click pulse should remain. Solid nodes must not remove the pulse cue; the pulse may modulate the solid fill briefly, but must not reintroduce translucent bodies or edge bleed-through.
+- Highest-tier/high-degree folder hubs should get a subtle opaque pixel glare/shading cue that recalls the old gradient design without becoming dramatic or translucent. One-level folders do not need it; it is for the larger parent folder hubs.
 
 Likely files to inspect:
 
@@ -8849,15 +8863,50 @@ Required proof:
 - Add a focused guard/test proving cinematic/fullscreen use the same high-quality render path as minimized unless explicit performance mode is enabled.
 - Do not change graph physics, animation timing, or renderer architecture while fixing quality selection.
 - Runtime smoke must compare minimized, fullscreen, cinematic, and performance modes and record whether labels, edge smoothing, node sharpness, and surface scale match the intended preset.
+- Palette proof must cover dark and light graph modes: light folder nodes solid OLED black, dark folder nodes solid pitch white, note nodes retain semantic note color, node bodies remain non-transparent, selection pulse retained, large folder hubs get only subtle opaque pixel glare, and render order keeps edges below nodes/labels.
 
-### UIX-2026-05-09-005 - Graph label hybrid zoom scaling
+Patch evidence, 2026-05-09 graph quality/palette slice:
 
-Status: QUEUED - GRAPH RENDERING PASS AFTER CURRENT P0/P1 RELEASE BLOCKERS
+- Files changed:
+  - `Epistemos/Views/Graph/MetalGraphView.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+  - `EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests.swift`
+  - `graph-engine/src/renderer.rs`
+- Product behavior:
+  - Fullscreen/cinematic drawable policy keeps native backing scale unless explicit performance mode or low-power mode is active.
+  - Rust graph node palette now keeps folder nodes solid light-mode black / solid dark-mode white while preserving semantic colors for notes, ideas, and other non-folder node types.
+  - Swift dialogue-depth palette override now only anchors folder nodes and no longer suppresses semantic note colors.
+  - Cognitive depth no longer pushes body-color tint overrides into Rust; its depth/altitude/radius metadata remains cached for the future real depth lane.
+  - Node base alpha is now solid; flat pixel node paths return opaque node bodies so edges do not bleed through.
+  - Cinematic selection/click pulse remains, but it modulates the solid fill color instead of reintroducing the old shine sweep or alpha fade.
+  - Large/high-degree folder hubs get a subtle opaque pixel glare/shadow cue in the node shader.
+  - Renderer draw order is documented and source-guarded as edges, field lines, nodes, labels, dialogue overlay.
+- Tests/commands:
+  - `cargo fmt --manifest-path graph-engine/Cargo.toml` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml pitch_white` passed, 1 test.
+  - `cargo test --manifest-path graph-engine/Cargo.toml plain_oled_black` passed, 1 test.
+  - `cargo test --manifest-path graph-engine/Cargo.toml semantic_teal` passed, 2 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml semantic_yellow` passed, 2 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml light_and_dark_graph_nodes_are_solid_not_translucent` passed, 1 test.
+  - `cargo test --manifest-path graph-engine/Cargo.toml render_order_keeps_edges_under_nodes_and_labels` passed, 1 test.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed after updating the cinematic source guard to keep selection pulse while rejecting the old shine sweep.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 21 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_12-44-26--0500.xcresult`.
+  - `./scripts/launch_audit_app.sh` passed and launched `com.epistemos.audit`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Built-app runtime smoke still needs to visually compare light/dark, fullscreen/cinematic/performance, selected pulse, and edge occlusion over the user's dense graph. The launched audit profile currently reports no vault connected, so it cannot reproduce the user's dense graph screenshot in that profile without selecting a vault.
+  - The broader theme-palette-to-graph-node system remains a separate theme lane; this patch only locks the base black/white graph palette.
+
+### UIX-2026-05-09-006 - Graph label hybrid zoom scaling
+
+Status: PATCHED PARTIAL - DENSITY-AWARE LABELS + PHYSICS ENVELOPE WIRED / RUNTIME GRAPH SMOKE PENDING
 
 User signal:
 
 - Graph labels currently feel like fixed screen-space HUD labels rather than spatial labels attached to graph nodes.
 - Desired behavior is closer to Obsidian's graph: labels should scale with zoom enough to feel graph-space native while remaining crisp and readable.
+- 2026-05-09 screenshots show a more severe failure under selection/zoom: labels for selected-folder neighborhoods congregate into a dense white block near the graph center instead of separating or thinning as the user zooms out.
+- When there are more nodes in a local area, labels should become slightly smaller, fade, or be culled. When there are fewer nodes in a local area, labels may naturally be larger. Label sizing must be dynamic based on local density, not only global zoom.
 
 Likely files to inspect:
 
@@ -8893,6 +8942,184 @@ Acceptance:
 - Dense graphs remain smooth.
 - Background labels do not overwhelm the view when zoomed out.
 - Selected/hovered/focused labels remain easy to read.
+
+Additional screenshot-derived acceptance:
+
+- Selecting a high-degree folder keeps the selected/root label readable without forcing every neighbor label to full visibility.
+- Connected neighbors of a selected node remain eligible for context, but still obey density pressure and local cell budgets.
+- Zoomed-out labels do not collapse into a central block; crowded screen cells shrink/fade/cull background labels.
+- Sparse regions retain larger, readable labels so the graph does not feel empty or over-pruned.
+- Selecting a node should again reveal labels for its connected neighbors, but those neighbor labels must still be dynamically sized and density-thinned so they do not form a single white label mass.
+
+Patch evidence, 2026-05-09 label density slice:
+
+- Files changed:
+  - `graph-engine/src/engine.rs`
+  - `graph-engine/src/label_envelope.rs`
+  - `graph-engine/src/lib.rs`
+  - `graph-engine/src/simulation.rs`
+  - `graph-engine/src/ecs/components.rs`
+  - `graph-engine/src/ecs/bridge.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Label screen size now uses a stronger hybrid zoom curve so labels scale with graph zoom rather than behaving like fixed HUD text.
+  - Label candidates are density-cell culled and scaled. Crowded cells shrink/fade/thin labels; sparse regions keep larger labels.
+  - Selected/root/hovered labels are protected, while connected-neighbor labels are eligible again without bypassing density pressure.
+  - Long labels now produce a bounded world-space label envelope that feeds the existing simulation `collision_radii` input. The force model, Barnes-Hut repulsion, link forces, decay, gravity, and integrator remain unchanged.
+  - ECS `GraphNodeComponent` now carries append-only label envelope metadata (`label_half_width`, `label_half_height`, `label_offset_y`, `label_pad`) so the runtime node record reflects the label bubble rather than leaving it as a render-only concern.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml load_expands_collision_radii_for_wide_labels` failed before product patch because a long label produced the same collision shell as a short node (`shell=13.08, actual=13.08`).
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_node_can_reveal_connected_neighbor_labels` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_neighbors_do_not_bypass_label_density_pressure` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml hybrid_label` passed, 2 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label_envelope` passed, 2 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml load_sets_collision_radii` passed, 1 test.
+  - `cargo test --manifest-path graph-engine/Cargo.toml load_expands_collision_radii_for_wide_labels` passed, 1 test.
+  - `cargo test --manifest-path graph-engine/Cargo.toml test_from_graph_basic` passed, 1 test.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 21 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_12-44-26--0500.xcresult`.
+  - `./scripts/launch_audit_app.sh` passed and launched `com.epistemos.audit`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Runtime graph smoke on the user's dense graph is still required to judge legibility, subjective Obsidian-like feel, and whether selected-neighbor labels reveal enough context without crowding. The launched audit profile currently has no vault connected, so dense graph runtime proof is blocked until a vault is selected in that profile.
+  - Exact glyph-accurate envelopes and label overlap assertions after a long settle pass remain pending; current envelope is a bounded deterministic approximation keyed by label length.
+
+### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
+
+Status: PARTIAL - LABEL COLLISION ENVELOPE WIRED / COLORED EDGES + PIXEL EDGE STYLE TODO
+
+User signal:
+
+- Labels should behave like part of the node's atmosphere/collision bubble so labels do not overlap other labels or nodes.
+- Edges should remain below nodes in z-order and should terminate at node disc boundaries rather than visually cutting through node centers.
+- Future edge work should support group-driven colors, variable thickness, and an optional restored pixel-art jagged edge style from the pre-2026-03-06 renderer.
+- Theme palettes should eventually be able to affect graph node/edge semantic colors, but without compromising the base light/dark black/white graph readability.
+
+Source evidence / recovery pointers:
+
+- Current simulation already uses per-node `collision_radii` in `graph-engine/src/simulation.rs`.
+- Old pixel-art edge infrastructure was removed in commit `b1a3609d6` (`2026-03-06`, "feat(graph): delete pixel art rendering infrastructure"). The predecessor `b1a3609d6^` should be inspected for `PIXEL_SHADER_SOURCE`, `PixelEdgeInstance`, `build_pixel_edge_instances`, pixel uniforms, and palette code before any restoration.
+- Current renderer draw order lives in `graph-engine/src/renderer.rs` and must remain edges -> field lines -> nodes -> SDF labels -> dialogue overlay.
+
+Required behavior:
+
+- Label collision bubble:
+  - Add append-only label envelope fields to the graph node component or equivalent runtime structure.
+  - Compute `bubble_radius = max(node_radius, sqrt((label_half_width + pad)^2 + (abs(label_offset_y) + label_half_height + pad)^2))`.
+  - Feed the bubble radius into the existing `collision_radii` input without changing Barnes-Hut repulsion, link forces, gravity, decay, or integrator logic.
+  - Recompute envelopes only when label text/scale changes, not per frame.
+- Edge z-order and trim:
+  - Edge render pass must stay before nodes and labels in all themes and edge styles.
+  - Edge geometry should terminate at endpoint node disc boundaries, not centers. Use node disc radius, not label bubble radius, for visual trimming.
+  - Nodes must remain opaque enough that third-party crossing edges do not bleed through node discs.
+  - The selected-node pulse must remain visible without making node bodies translucent.
+- Colored/weighted edges:
+  - Add graph color groups only as a separate slice with a real UI, persistent SwiftData state, and debounced `FilterEngine` evaluation.
+  - Shared endpoint group color wins; differing group colors blend in OKLab; otherwise fall back to existing edge type colors.
+  - Edge thickness derives from edge weight and clamps against small endpoint radius.
+- Pixel-art jagged edges:
+  - Restore only the pixel edge path as an opt-in edge style. Do not restore pixel node rendering in this slice.
+  - Pixel edge jitter must be deterministic per edge id, trimmed before jitter, and clamped so it does not poke into endpoint or nearby node discs.
+  - The feature must work in both MAS and Pro builds if exposed.
+
+Tests required before implementation is accepted:
+
+- `bubble_radius_includes_label_for_wide_titles` - partial automated proof exists as `load_expands_collision_radii_for_wide_labels` and `label_envelope::wide_label_envelope_is_larger_than_node_disc`.
+- `labels_do_not_overlap_after_settle` - TODO.
+- `node_with_no_label_falls_back_to_default_radius` - partial automated proof exists as `load_sets_collision_radii`.
+- `label_envelope_ffi_roundtrip` - not applicable to the current bounded Rust-side estimate; TODO if this becomes exact Swift glyph-envelope FFI.
+- `render_order_is_edges_then_nodes_then_labels` - partial automated proof exists as `render_order_keeps_edges_under_nodes_and_labels`.
+- `edge_geometry_terminates_at_node_disc` - source path exists through `edge_trim::trim_curve_endpoints` / `trim_line_endpoints`; explicit geometry sampling test still TODO.
+- `thick_edge_clamps_to_small_endpoint_radius`
+- `edge_color_picks_shared_group_color`
+- `edge_color_blends_when_groups_differ`
+- `pixel_edge_instance_layout_48_bytes`
+- `pixel_pipeline_compiles_on_metal`
+- `pixel_jitter_is_deterministic_per_edge_id`
+
+Constraints:
+
+- Do not modify `graph-engine/src/forces.rs`.
+- Do not change the existing integrator or force model; only the collision radius input may change for label bubbles.
+- No per-glyph FFI calls. Envelope updates must be batched/coalesced.
+- No per-frame text layout allocation.
+- No pixel-node restoration in the edge-style slice.
+- No theme overlay/compositing hacks.
+
+### UIX-2026-05-09-007 - Restore Settings Appearance theme picker
+
+Status: TODO - DEDICATED SMALL THEME SLICE / SOURCE EVIDENCE IDENTIFIED
+
+User signal:
+
+- Theme definitions and theme pairs are still in the app, but Settings no longer exposes a picker. The app therefore feels visually reduced even though the theme registry remains intact.
+
+Source evidence:
+
+- `Epistemos/Theme/EpistemosTheme.swift` still contains 14 `EpistemosTheme` cases and six `ThemePair` pairings.
+- The deleted Settings picker was removed in commit `78c247287` (`2026-03-16`, "refactor: remove legacy custom theme settings").
+- Deleted UI/state included `AppearanceThemePairSection`, `ThemePairCard`, `ForEach(ThemePair.allCases, id: \.self)`, `selectedPairDraft`, `pendingThemePair`, and `scheduleThemePairChange`.
+- Current `AppearanceDetailView` only surfaces system appearance and display mode. No current user flow can choose `ThemePair` values.
+
+Required behavior:
+
+- Restore a small `Settings -> Appearance` theme pair section without reviving old overlay/compositing theme code.
+- Render one card per `ThemePair.allCases` with pair name, `Light · Dark` subtitle, and two swatches sampled from `pair.lightTheme.resolved.background` and `pair.darkTheme.resolved.background`.
+- Add or restore a `Follow macOS` control above the grid. When enabled, theme follows effective system appearance and the pair picker disables or clearly becomes a preference for automatic light/dark resolution.
+- Selection writes through the current `UIState.theme` flow by resolving `pair.resolved(isDark:)` against effective dark mode.
+- Preserve dark/light auto-switching when follow-system mode is enabled.
+- Restore or extend `EpistemosTests/ThemePairTests.swift` and add focused Settings source/runtime coverage where feasible.
+
+Constraints:
+
+- Native semantic theme tokens only.
+- No fullscreen overlays, floating theme layers, opacity masks, or duplicate render trees.
+- No graph/editor cache invalidation beyond theme/material caches.
+- This picker restoration is separate from the broader forensic theme restoration inventory in `UIX-2026-05-09-001`.
+
+### UIX-2026-05-09-008 - First-use Codex web research approval must be app-native and out-of-box
+
+Status: TODO - LIVE AUDIT APP ISSUE CAPTURED / TOOL APPROVAL UX BROKEN
+
+User signal:
+
+- On first use in the audit app, a user asked for research/manifeso-style work and Codex responded with a text-only instruction instead of an app-native approval flow:
+  - `I can do that, but for actual research I should use web search first, and that tool needs your approval.`
+  - `If you want me to proceed, just say: approve web search.`
+- The user expectation is that the app should work out of the box. If web research requires approval, the approval must be a visible product control, not a conversational incantation.
+
+Runtime evidence:
+
+- Observed in the built audit app (`com.epistemos.audit`) during the `/Users/jojo/all research` live-vault smoke on 2026-05-09.
+- The visible transcript showed a tool-capable route (`Tools` mode and vault/search/tool chips were visible), but the model still asked the user to type approval text rather than presenting an approval card/button.
+
+Likely files to inspect:
+
+- `Epistemos/App/ChatCoordinator.swift`
+- `Epistemos/Engine/PipelineService.swift`
+- `Epistemos/Bridge/ToolTierBridge.swift`
+- `Epistemos/State/AgentCommandCenterState.swift`
+- `Epistemos/Views/Chat/ChatInputBar.swift`
+- `Epistemos/Views/Chat/MessageBubble.swift`
+- provider-native web search adapters and app-layer web-search tool definitions
+- approval presenters / `SovereignGate` / permission request UI
+- `agent_core/src/tools/registry.rs`
+- `agent_core/src/permissions.rs`
+
+Required behavior:
+
+- A first-run tool-required research prompt should either execute with the already-enabled app-approved web/search route, or present a clear native approval request with approve/deny controls.
+- The assistant should not ask the user to type magic phrases such as `approve web search`.
+- If web search is unavailable because of build, route, provider, policy, account, network, or App Store gating, the UI should explain the unavailable state and offer the correct setup or fallback path.
+- Approval state should be logged and visible in the transcript/tool provenance surface.
+- Denial should produce a coherent no-web fallback, not a stalled request.
+- App Store builds must either hide web-search affordances or hard-deny them with honest copy if the capability is unavailable.
+
+Acceptance:
+
+- Fresh install / fresh audit support root: ask a web-research-heavy prompt; app shows a native approval card or executes under an already-approved route.
+- Approve path: web/search tool call executes, transcript shows the tool use, and final answer continues without needing a second typed prompt.
+- Deny path: transcript records denial and the assistant offers an offline/current-knowledge answer path.
+- Unavailable path: Settings/composer/model-route UI identify the missing capability before or during submit.
 
 ## Research Drop Intake Queue
 

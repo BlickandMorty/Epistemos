@@ -13,6 +13,7 @@ pub mod embedding;
 pub mod engine;
 pub mod forces;
 pub mod knowledge_core;
+pub mod label_envelope;
 pub mod labels;
 pub mod markdown;
 pub mod motion;

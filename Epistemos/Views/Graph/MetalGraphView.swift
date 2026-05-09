@@ -144,14 +144,13 @@ nonisolated enum GraphInteractionRenderPolicy {
 }
 
 nonisolated enum GraphDrawableResolutionPolicy {
-    private static let cinematicFullOverlayPixelBudget: CGFloat = 1_600_000
     private static let performanceFullOverlayPixelBudget: CGFloat = 3_000_000
     private static let lowPowerPixelBudget: CGFloat = 1_200_000
     static let pausedDrawableSize = CGSize(width: 1, height: 1)
 
     static func pixelBudget(qualityLevel: UInt8, lowPowerMode: Bool) -> CGFloat {
         if lowPowerMode { return lowPowerPixelBudget }
-        return qualityLevel >= 2 ? performanceFullOverlayPixelBudget : cinematicFullOverlayPixelBudget
+        return qualityLevel >= 2 ? performanceFullOverlayPixelBudget : CGFloat.greatestFiniteMagnitude
     }
 
     static func effectiveScale(
@@ -501,14 +500,8 @@ struct MetalGraphView: NSViewRepresentable {
 final class MetalGraphNSView: NSView {
     private typealias DialogueDepthColor = (r: Float, g: Float, b: Float, a: Float)
 
-    private static let dialogueDepthPalette: [DialogueDepthColor] = [
-        (0.98, 0.96, 0.90, 1.0),
-        (0.95, 0.82, 0.34, 1.0),
-        (0.90, 0.66, 0.27, 1.0),
-        (0.58, 0.76, 0.43, 1.0),
-        (0.34, 0.70, 0.70, 1.0),
-        (0.42, 0.56, 0.88, 1.0),
-    ]
+    private static let dialogueLightNodeColor: DialogueDepthColor = (0.0, 0.0, 0.0, 1.0)
+    private static let dialogueDarkNodeColor: DialogueDepthColor = (1.0, 1.0, 1.0, 1.0)
 
     nonisolated(unsafe) private var engine: OpaquePointer?
     nonisolated(unsafe) private var activeDisplayLink: CADisplayLink?
@@ -672,6 +665,7 @@ final class MetalGraphNSView: NSView {
     private var pendingScrollZoomDelta: Float = 0
     private var pendingPinchZoomAnchor: SIMD2<Float>?
     private var pendingPinchZoomDelta: Float = 0
+    private var currentLightMode = false
 
     // Track whether graph data has been committed.
     private(set) var isCommitted = false
@@ -694,7 +688,12 @@ final class MetalGraphNSView: NSView {
     /// Switch the Rust engine between light and dark color palettes.
     func setLightMode(_ enabled: Bool) {
         guard let engine else { return }
+        let changed = currentLightMode != enabled
+        currentLightMode = enabled
         graph_engine_set_light_mode(engine, enabled ? 1 : 0)
+        if changed {
+            applyDialogueDepthPalette()
+        }
         needsRender = true
     }
 
@@ -2262,28 +2261,20 @@ final class MetalGraphNSView: NSView {
         return depths
     }
 
-    private func dialogueDepthColor(for node: GraphNodeRecord, depth: Int, maxDepth: Int) -> DialogueDepthColor {
-        let paletteIndex = min(depth, Self.dialogueDepthPalette.count - 1)
-        let base = Self.dialogueDepthPalette[paletteIndex]
-        let folderBoost: Float = node.type == .folder ? 0.06 : 0.0
-        let sourceBoost: Float = node.type == .source ? 0.02 : 0.0
-        let slimPenalty: Float = node.type == .tag || node.type == .block ? -0.08 : 0.0
-        let weightBoost = min(0.10, Float(node.weight) * 0.015)
-        let prominence = min(1.0, Float(node.weight) * 0.035 + Float(depth) * 0.05)
-        func channel(_ value: Float) -> Float {
-            min(1.0, max(0.0, value + folderBoost + sourceBoost + slimPenalty + weightBoost))
+    private func dialogueDepthColor(
+        for node: GraphNodeRecord,
+        depth _: Int,
+        maxDepth _: Int
+    ) -> DialogueDepthColor {
+        if node.type == .folder {
+            currentLightMode ? Self.dialogueLightNodeColor : Self.dialogueDarkNodeColor
+        } else {
+            (0.0, 0.0, 0.0, 0.0)
         }
-
-        return (
-            channel(base.r),
-            channel(base.g),
-            channel(base.b),
-            1.0 + min(0.22, prominence * 0.12 + Float(max(0, depth - 1)) * 0.015)
-        )
     }
 
     private func applyDialogueDepthPalette(for nodeIds: [String]? = nil) {
-        guard let engine, let graphState else { return }
+        guard let graphState else { return }
         let store = graphState.store
         let shouldColorize = graphState.visualTheme == .dialogue
         let currentTopology = store.topologyVersion
@@ -2353,29 +2344,20 @@ final class MetalGraphNSView: NSView {
     /// AR6 (master-plan Phase 8 / Wave 13 §"Phase 8") — for every
     /// visible note node, look up its `DepthMarker` via
     /// `CognitiveDepthOverlay.shared.depth(for:)` then read the
-    /// overlay's three visualization helpers
-    /// (`altitude(for:)`, `radiusScale(for:)`, `colorTint(for:)`).
-    /// The colorTint is the only knob the current FFI surface
-    /// exposes — pushed via `graph_engine_set_node_color_override`.
-    /// Altitude + radiusScale are cached on the Swift side so the
-    /// label / halo overlay path can read them without re-hitting
-    /// the sidecar (and so the next FFI knob can pick them up
-    /// without reshaping this method).
+    /// overlay's non-color visualization helpers. The base graph body
+    /// palette is owned by the Rust renderer so light-mode nodes stay
+    /// solid OLED black and dark-mode nodes stay pitch white. Altitude
+    /// + radiusScale are cached on the Swift side so the label / halo
+    /// overlay path can read them without re-hitting the sidecar.
     ///
     /// Targeted recomputation: when `nodeIds` is non-nil only those
     /// nodes are re-paid (used by `commitIncrementalAdds`); when nil
     /// the entire visible set is repainted (used by `commitGraphData`
     /// + topology change).
     private func applyCognitiveDepthOverlay(for nodeIds: [String]? = nil) {
-        guard let engine, let graphState else { return }
+        guard let graphState else { return }
         let store = graphState.store
         let currentTopology = store.topologyVersion
-
-        // Skip the dialogue-theme node set when the dialogue palette
-        // has already painted the node — the dialogue colour wins so
-        // we don't fight ourselves. The depth-marker + altitude
-        // caches are still populated for downstream consumers.
-        let dialogueOwned = graphState.visualTheme == .dialogue
 
         let interval = Log.graphPerf.beginInterval("applyCognitiveDepthOverlay")
         defer { Log.graphPerf.endInterval("applyCognitiveDepthOverlay", interval) }
@@ -2398,25 +2380,6 @@ final class MetalGraphNSView: NSView {
             cachedCognitiveDepthMarkers[nodeId] = marker
             cachedCognitiveDepthAltitudes[nodeId] = overlay.altitude(for: marker)
             cachedCognitiveDepthRadiusScales[nodeId] = overlay.radiusScale(for: marker)
-
-            // Don't trample the dialogue palette when it's the active
-            // theme — that path owns colour. We still cache the depth
-            // map above so the downstream label/halo overlays can
-            // read it.
-            if !dialogueOwned {
-                let tint = overlay.colorTint(for: marker)
-                let ns = NSColor(tint).usingColorSpace(.sRGB) ?? NSColor(tint)
-                node.id.withCString { uuidPtr in
-                    graph_engine_set_node_color_override(
-                        engine,
-                        uuidPtr,
-                        Float(ns.redComponent),
-                        Float(ns.greenComponent),
-                        Float(ns.blueComponent),
-                        Float(ns.alphaComponent)
-                    )
-                }
-            }
         }
 
         if isFullRepaint {

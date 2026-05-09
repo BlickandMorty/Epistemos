@@ -48,6 +48,8 @@ impl World {
                 color_override: node.color_override,
             };
 
+            let label_envelope =
+                crate::label_envelope::estimate_label_envelope(node.radius, &node.label);
             world.graph_node[idx] = GraphNodeComponent {
                 node_id: node.id,
                 visible: u8::from(node.visible),
@@ -58,6 +60,10 @@ impl World {
                 _pad1: [0; 4],
                 created_at: node.created_at,
                 updated_at: node.updated_at,
+                label_half_width: label_envelope.half_width,
+                label_half_height: label_envelope.half_height,
+                label_offset_y: label_envelope.offset_y,
+                label_pad: label_envelope.pad,
             };
 
             id_map.insert(node.id, entity);
@@ -199,6 +205,10 @@ mod tests {
         assert_eq!(world.graph_node[ni].node_id, 0);
         assert_eq!(world.graph_node[ni].visible, 1);
         assert_eq!(world.graph_node[ni].cluster_id, u32::MAX);
+        assert!(world.graph_node[ni].label_half_width > 0.0);
+        assert!(world.graph_node[ni].label_half_height > 0.0);
+        assert!(world.graph_node[ni].label_offset_y < 0.0);
+        assert!(world.graph_node[ni].label_pad > 0.0);
 
         // Verify the folder entity
         let folder_entity = world.node_id_to_entity[&1];
