@@ -1184,6 +1184,7 @@ struct LineVertexOut {
     float4 color [[flat]];
     float  dist_from_center;
     float  pixel_edge_style [[flat]];
+    float  edge_seed [[flat]];
 };
 
 float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, float t) {
@@ -1253,6 +1254,7 @@ vertex LineVertexOut curve_edge_vertex(
     }
     out.dist_from_center = dist_vals[corner];
     out.pixel_edge_style = u.edge_style;
+    out.edge_seed = float(instance_id + 1);
     return out;
 }
 
@@ -1317,12 +1319,21 @@ vertex LineVertexOut line_edge_vertex(
     }
     out.dist_from_center = dist_vals[vertex_id];
     out.pixel_edge_style = u.edge_style;
+    out.edge_seed = float(instance_id + 1);
     return out;
+}
+
+float pixel_jagged_offset(LineVertexOut in) {
+    float cell = floor(in.position.x * 0.25 + in.position.y * 0.25 + in.edge_seed * 13.0);
+    float hashed = fract(sin(cell * 12.9898 + in.edge_seed * 78.233) * 43758.5453);
+    return (hashed - 0.5) * 0.18;
 }
 
 fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
     if (in.pixel_edge_style > 0.5) {
-        if (abs(in.dist_from_center) > 0.94) discard_fragment();
+        float jagged = pixel_jagged_offset(in);
+        float hard_limit = clamp(0.88 + jagged, 0.74, 0.98);
+        if (abs(in.dist_from_center) > hard_limit) discard_fragment();
         return in.color;
     }
 
@@ -4230,6 +4241,24 @@ mod tests {
         assert!(field_line_pipeline < node_pipeline);
         assert!(node_pipeline < label_pass);
         assert!(label_pass < dialogue_pass);
+    }
+
+    #[test]
+    fn pixel_edge_shader_uses_deterministic_jagged_cutoff() {
+        let source = std::fs::read_to_string(file!()).expect("renderer source should be readable");
+        let shader_start = source
+            .find("const SHADER_SOURCE")
+            .expect("main shader source should exist");
+        let shader_end = source
+            .find("const COMPUTE_SHADER_SOURCE")
+            .expect("compute shader should follow render shader");
+        let shader = &source[shader_start..shader_end];
+
+        assert!(shader.contains("float pixel_jagged_offset("));
+        assert!(shader.contains(
+            "floor(in.position.x * 0.25 + in.position.y * 0.25 + in.edge_seed * 13.0)"
+        ));
+        assert!(shader.contains("float hard_limit = clamp(0.88 + jagged, 0.74, 0.98);"));
     }
 
     #[test]
