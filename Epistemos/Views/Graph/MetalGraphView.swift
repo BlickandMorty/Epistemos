@@ -393,7 +393,13 @@ func makeVisibleNodeBatchPayload<Nodes: Collection>(
         payload.xs.append(node.position.x)
         payload.ys.append(node.position.y)
         payload.types.append(node.type.rustIndex)
-        payload.linkCounts.append(store.linkCount(for: node.id))
+        let degreeCount = store.linkCount(for: node.id)
+        let semanticFolderCount: UInt32 = if node.type == .folder {
+            UInt32(max(1, min(Double(UInt32.max), node.weight.rounded(.up))))
+        } else {
+            degreeCount
+        }
+        payload.linkCounts.append(max(degreeCount, semanticFolderCount))
         payload.labels.append(node.label)
     }
     return payload

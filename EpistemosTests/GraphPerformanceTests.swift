@@ -809,6 +809,31 @@ struct GraphPerformanceTests {
         #expect(payload.types == [GraphNodeType.note.rustIndex, GraphNodeType.note.rustIndex])
     }
 
+    @Test("FFI node batch sends folder semantic weight for parent hub sizing")
+    func ffiNodeBatchSendsFolderSemanticWeightForParentHubSizing() async throws {
+        let createdAt = Date(timeIntervalSince1970: 0)
+        let folder = GraphNodeRecord(
+            id: "folder-parent",
+            type: .folder,
+            label: "Parent Folder",
+            sourceId: "folder-source",
+            metadata: GraphNodeMetadata(),
+            weight: 57.0,
+            createdAt: createdAt,
+            position: .zero
+        )
+        let store = GraphStore()
+        store.addNode(folder)
+
+        let payload = makeVisibleNodeBatchPayload(
+            from: [folder],
+            store: store,
+            filter: FilterEngine()
+        )
+
+        #expect(payload.linkCounts == [57])
+    }
+
     @Test("FFI edge batch drops edges with hidden endpoints")
     func ffiEdgeBatchDropsHiddenEndpoints() async throws {
         let fixture = GraphFFIBatchFixture.makeStoreAndFilter()
