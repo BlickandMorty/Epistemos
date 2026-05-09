@@ -49,8 +49,7 @@ actor ConversationPersistence {
 
     static let shared = ConversationPersistence(
         rootURL: {
-            let baseURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-                ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            let baseURL = FoundationSafety.userApplicationSupportDirectory()
             return baseURL
                 .appendingPathComponent("Epistemos", isDirectory: true)
                 .appendingPathComponent("ConversationPersistence", isDirectory: true)

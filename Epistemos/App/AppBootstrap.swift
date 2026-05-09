@@ -1684,8 +1684,8 @@ final class AppBootstrap {
         )
 
         // SSMStateService — Mamba/SSM hidden state persistence for vault memory
-        let ssmStateRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("Epistemos", isDirectory: true) ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let ssmStateRoot = applicationSupportDirectory
+            .appendingPathComponent("Epistemos", isDirectory: true)
         let ssmStateService = SSMStateService(stateRoot: ssmStateRoot)
         ssmStateService.activate(enabled: epistemosConfig.ssmStatePersistenceEnabled)
         self.ssmStateService = ssmStateService
@@ -3382,20 +3382,7 @@ final class AppBootstrap {
     /// the app, and the in-memory fallback keeps the R.5 gate
     /// working for the current session.
     private func initializeRustPermissionStoreIfReady() {
-        let supportDir: URL
-        do {
-            supportDir = try FileManager.default.url(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask,
-                appropriateFor: nil,
-                create: true
-            )
-        } catch {
-            Log.app.error(
-                "R.5 persist: could not resolve Application Support URL — \(error.localizedDescription, privacy: .public)"
-            )
-            return
-        }
+        let supportDir = FoundationSafety.userApplicationSupportDirectory(fileManager: .default)
 
         // Bundle-scoped subdirectory so multiple Epistemos builds
         // don't collide. `bundleIdentifier` fallback mirrors what

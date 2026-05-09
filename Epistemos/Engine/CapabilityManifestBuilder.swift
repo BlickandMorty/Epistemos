@@ -144,13 +144,8 @@ enum CapabilityManifestBuilder {
     }
 
     private static var applicationSupportURL: URL? {
-        let base = try? FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: false
-        )
-        return base?.appendingPathComponent("Epistemos")
+        FoundationSafety.userApplicationSupportDirectory()
+            .appendingPathComponent("Epistemos", isDirectory: true)
     }
 
     // MARK: - Formatting

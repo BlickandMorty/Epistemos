@@ -6,6 +6,7 @@ XCODEBUILD_WRAPPER="${ROOT_DIR}/scripts/xcodebuild_epistemos.sh"
 DERIVED_DATA_PATH="${ROOT_DIR}/build/audit-derived-data"
 SOURCE_APP_PATH="${DERIVED_DATA_PATH}/Build/Products/Debug/Epistemos.app"
 AUDIT_APP_PATH="${ROOT_DIR}/build/audit-app/EpistemosAudit.app"
+AUDIT_APP_SUPPORT_ROOT="${ROOT_DIR}/build/audit-app-support"
 AUDIT_BUNDLE_ID="com.epistemos.audit"
 AUDIT_APP_NAME="Epistemos Audit"
 AUDIT_DEFAULTS_DOMAIN="${AUDIT_BUNDLE_ID}"
@@ -95,6 +96,11 @@ clear_audit_saved_state() {
   rm -rf "${HOME}/Library/Saved Application State/${AUDIT_BUNDLE_ID}.savedState"
 }
 
+clear_audit_runtime_state() {
+  rm -rf "${AUDIT_APP_SUPPORT_ROOT}"
+  mkdir -p "${AUDIT_APP_SUPPORT_ROOT}"
+}
+
 kill_existing_audit_processes() {
   pkill -f "${AUDIT_APP_PATH}/Contents/MacOS/Epistemos" >/dev/null 2>&1 || true
 }
@@ -122,6 +128,7 @@ prepare_audit_bundle() {
 
   plist_add_dict_if_missing "${plist_path}" ":LSEnvironment"
   plist_set_string "${plist_path}" ":LSEnvironment:EPISTEMOS_SKIP_VAULT_RESTORE" "1"
+  plist_set_string "${plist_path}" ":LSEnvironment:EPISTEMOS_APPLICATION_SUPPORT_ROOT" "${AUDIT_APP_SUPPORT_ROOT}"
 
   if [[ "${minimal_home}" == "1" ]]; then
     plist_set_string "${plist_path}" ":LSEnvironment:EPI_HOME_WINDOW_MINIMAL_CONTENT" "1"
@@ -151,6 +158,7 @@ fi
 kill_existing_audit_processes
 clear_audit_defaults
 clear_audit_saved_state
+clear_audit_runtime_state
 prepare_audit_bundle
 
 if [[ "${launch_app}" == "1" ]]; then
@@ -161,6 +169,7 @@ echo "Audit app ready:"
 echo "  App bundle: ${AUDIT_APP_PATH}"
 echo "  Bundle id:  ${AUDIT_BUNDLE_ID}"
 echo "  Build app:  ${SOURCE_APP_PATH}"
+echo "  App data:   ${AUDIT_APP_SUPPORT_ROOT}"
 if [[ "${launch_app}" == "1" ]]; then
   echo "  Launched:   yes"
 else

@@ -32,9 +32,7 @@ final class AppGroupContainer {
     }
 
     private static func defaultLegacyBaseURL(fileManager: FileManager) -> URL {
-        let appSupportURL = fileManager
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first ?? fileManager.temporaryDirectory
+        let appSupportURL = FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
 
         return appSupportURL.appendingPathComponent(Self.legacyDirectoryName, isDirectory: true)
     }

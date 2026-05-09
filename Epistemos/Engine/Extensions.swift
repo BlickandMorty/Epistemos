@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated enum FoundationSafety {
+    static let applicationSupportOverrideEnvironmentKey = "EPISTEMOS_APPLICATION_SUPPORT_ROOT"
+
     static func isRunningTests(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
@@ -13,7 +15,12 @@ nonisolated enum FoundationSafety {
         processIdentifier: Int32 = ProcessInfo.processInfo.processIdentifier
     ) -> URL {
         let directory: URL
-        if isRunningTests(processInfoEnvironment: processInfoEnvironment) {
+        if let override = applicationSupportOverrideDirectory(
+            fileManager: fileManager,
+            processInfoEnvironment: processInfoEnvironment
+        ) {
+            directory = override
+        } else if isRunningTests(processInfoEnvironment: processInfoEnvironment) {
             directory = fileManager.temporaryDirectory
                 .appendingPathComponent("Epistemos-TestRuntime", isDirectory: true)
                 .appendingPathComponent(String(processIdentifier), isDirectory: true)
@@ -27,6 +34,23 @@ nonisolated enum FoundationSafety {
         }
         try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.standardizedFileURL
+    }
+
+    private static func applicationSupportOverrideDirectory(
+        fileManager: FileManager,
+        processInfoEnvironment: [String: String]
+    ) -> URL? {
+        guard let rawPath = processInfoEnvironment[applicationSupportOverrideEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawPath.isEmpty,
+              rawPath.hasPrefix("/")
+        else {
+            return nil
+        }
+
+        let directory = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
     }
 
     static func regularExpression(
