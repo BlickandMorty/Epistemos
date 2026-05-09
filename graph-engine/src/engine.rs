@@ -105,7 +105,9 @@ const LABEL_EMPHASIZED_MIN_SCREEN_PX: f32 = 15.0;
 const LABEL_EMPHASIZED_MAX_SCREEN_PX: f32 = 46.0;
 const LABEL_FADE_MIN_SCREEN_PX: f32 = 8.0;
 const LABEL_FADE_FULL_SCREEN_PX: f32 = 22.0;
-const LABEL_SELECTED_NEIGHBOR_MAX_NODES: usize = 128;
+const LABEL_SELECTED_NEIGHBOR_MAX_NODES: usize = 34;
+const LABEL_SELECTED_NEIGHBOR_SOFT_TARGET: usize = 20;
+const LABEL_SELECTED_NEIGHBOR_DENSITY_TARGET: usize = 14;
 
 fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
     zoom.clamp(MIN_CAMERA_FIT_ZOOM, 10.0)
@@ -160,9 +162,9 @@ fn label_density_scale(
     let global_t = ((candidate_pressure - 1.0) / 8.0).clamp(0.0, 1.0);
     let local_t = ((local_cell_count.saturating_sub(1) as f32) / 4.0).clamp(0.0, 1.0);
     let global_scale = 1.0 - 0.24 * smoothstep(0.0, 1.0, global_t);
-    let local_scale = 1.0 - 0.50 * smoothstep(0.0, 1.0, local_t);
+    let local_scale = 1.0 - 0.62 * smoothstep(0.0, 1.0, local_t);
 
-    (global_scale * local_scale).clamp(0.42, 1.0)
+    (global_scale * local_scale).clamp(0.34, 1.0)
 }
 
 fn label_density_opacity(scale: f32, protected: bool) -> f32 {
@@ -217,8 +219,8 @@ fn estimated_label_screen_rect(
     line_height_em: f32,
 ) -> LabelScreenRect {
     const MAX_LABEL_CHARS: usize = 32;
-    const MONO_ADVANCE_EM: f32 = 0.62;
-    const LABEL_RECT_PAD_PX: f32 = 5.0;
+    const MONO_ADVANCE_EM: f32 = 0.74;
+    const LABEL_RECT_PAD_PX: f32 = 9.0;
 
     let zoom = zoom.max(0.01);
     let screen_px_per_em = world_px_per_em * zoom;
@@ -238,10 +240,29 @@ fn estimated_label_screen_rect(
 }
 
 fn selected_neighbor_label_cap(scored_count: usize, protected_count: usize) -> usize {
-    scored_count
-        .min(LABEL_SELECTED_NEIGHBOR_MAX_NODES)
-        .max(protected_count)
-        .max(1)
+    let protected = protected_count.max(1);
+    let cap = if scored_count <= LABEL_SELECTED_NEIGHBOR_SOFT_TARGET {
+        scored_count
+    } else {
+        let overflow = scored_count - LABEL_SELECTED_NEIGHBOR_SOFT_TARGET;
+        let soft_extra = (overflow as f32).sqrt().round() as usize;
+        LABEL_SELECTED_NEIGHBOR_SOFT_TARGET + soft_extra
+    };
+
+    cap.min(LABEL_SELECTED_NEIGHBOR_MAX_NODES)
+        .min(scored_count)
+        .max(protected)
+}
+
+fn selected_neighbor_density_budget(scored_count: usize, protected_count: usize) -> usize {
+    let protected = protected_count.max(1);
+    let budget = if scored_count <= LABEL_SELECTED_NEIGHBOR_DENSITY_TARGET {
+        scored_count
+    } else {
+        LABEL_SELECTED_NEIGHBOR_DENSITY_TARGET
+    };
+
+    budget.min(scored_count).max(protected)
 }
 
 fn should_update_field_lines(
@@ -1943,7 +1964,11 @@ impl Engine {
                 .min(scored.len())
         };
 
-        let density_cell_px = label_density_cell_screen_px(zoom, pivot);
+        let density_cell_px = if selection_active {
+            label_density_cell_screen_px(zoom, pivot) * 1.18
+        } else {
+            label_density_cell_screen_px(zoom, pivot)
+        };
         let mut occupied_cells: FxHashSet<(i32, i32)> = FxHashSet::default();
         let mut cell_counts: FxHashMap<(i32, i32), usize> = FxHashMap::default();
         for s in scored.iter().filter(|s| !s.protected) {
@@ -1963,8 +1988,13 @@ impl Engine {
                 }
             }
             let local_count = cell_counts.get(&cell).copied().unwrap_or(1);
+            let density_budget = if selection_active {
+                selected_neighbor_density_budget(scored.len(), protected_count)
+            } else {
+                max_nodes
+            };
             let density_scale =
-                label_density_scale(scored.len(), max_nodes, local_count, s.protected);
+                label_density_scale(scored.len(), density_budget, local_count, s.protected);
             let base_screen_px =
                 hybrid_label_screen_px(self.label_world_px_per_em, zoom, s.protected);
             let min_screen_px = if s.protected {
@@ -2722,11 +2752,28 @@ mod tests {
     fn selected_node_can_reveal_connected_neighbor_labels() {
         let selected_plus_neighbors = 58;
 
-        assert_eq!(selected_neighbor_label_cap(selected_plus_neighbors, 1), 58);
-        assert_eq!(
-            selected_neighbor_label_cap(LABEL_SELECTED_NEIGHBOR_MAX_NODES + 40, 1),
-            LABEL_SELECTED_NEIGHBOR_MAX_NODES
-        );
+        let cap = selected_neighbor_label_cap(selected_plus_neighbors, 1);
+        assert!(cap >= LABEL_SELECTED_NEIGHBOR_SOFT_TARGET);
+        assert!(cap <= LABEL_SELECTED_NEIGHBOR_MAX_NODES);
+        assert!(cap < selected_plus_neighbors);
+        assert_eq!(selected_neighbor_label_cap(8, 1), 8);
+    }
+
+    #[test]
+    fn selected_high_degree_labels_stay_density_bounded() {
+        let selected_plus_neighbors = 58;
+        let protected_root = 1;
+        let cap = selected_neighbor_label_cap(selected_plus_neighbors, protected_root);
+        let density_budget =
+            selected_neighbor_density_budget(selected_plus_neighbors, protected_root);
+
+        assert!(cap < selected_plus_neighbors);
+        assert!(cap >= 18);
+        assert!(density_budget < cap);
+
+        let crowded_scale = label_density_scale(selected_plus_neighbors, density_budget, 18, false);
+        assert!(crowded_scale <= 0.40);
+        assert!(label_density_opacity(crowded_scale, false) < 0.20);
     }
 
     #[test]
