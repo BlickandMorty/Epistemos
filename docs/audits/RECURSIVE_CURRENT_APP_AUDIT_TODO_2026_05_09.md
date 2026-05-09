@@ -8985,7 +8985,7 @@ Patch evidence, 2026-05-09 label density slice:
 
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
-Status: PARTIAL - LABEL COLLISION ENVELOPE WIRED / COLORED EDGES + PIXEL EDGE STYLE TODO
+Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS WIRED / COLORED GROUP EDGES + PIXEL EDGE STYLE TODO
 
 User signal:
 
@@ -9029,12 +9029,38 @@ Tests required before implementation is accepted:
 - `label_envelope_ffi_roundtrip` - not applicable to the current bounded Rust-side estimate; TODO if this becomes exact Swift glyph-envelope FFI.
 - `render_order_is_edges_then_nodes_then_labels` - partial automated proof exists as `render_order_keeps_edges_under_nodes_and_labels`.
 - `edge_geometry_terminates_at_node_disc` - source path exists through `edge_trim::trim_curve_endpoints` / `trim_line_endpoints`; explicit geometry sampling test still TODO.
-- `thick_edge_clamps_to_small_endpoint_radius`
+- `thick_edge_clamps_to_small_endpoint_radius` - partial automated proof exists as `edge_weight_maps_to_clamped_screen_thickness`.
 - `edge_color_picks_shared_group_color`
 - `edge_color_blends_when_groups_differ`
 - `pixel_edge_instance_layout_48_bytes`
 - `pixel_pipeline_compiles_on_metal`
 - `pixel_jitter_is_deterministic_per_edge_id`
+
+Patch evidence, 2026-05-09 weighted edge + selection atmosphere slice:
+
+- Files changed:
+  - `graph-engine/src/renderer.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Classic curve and straight edge instances now carry a per-instance `thickness_px`.
+  - Edge screen thickness derives from `EdgeComponent.weight` through a bounded gamma curve (`0.70px` to `4.00px`) and clamps against small endpoint radius so heavy edges do not visually swallow small nodes.
+  - Edge shader geometry uses the per-instance thickness instead of the old hardcoded `1.5px` width.
+  - The existing render order contract remains edges -> field lines -> nodes -> SDF labels -> dialogue overlay.
+  - Cinematic pixel nodes now apply selection dimming before returning solid node color, so selecting a node again de-emphasizes surrounding non-neighbor nodes while preserving opaque node bodies.
+  - The label envelope work is explicitly guarded from modifying `forces.rs`; the force model remains unchanged and label physics only feeds the existing collision-radii input.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml edge_weight_maps_to_clamped_screen_thickness` failed before product patch because `MIN_EDGE_WIDTH_PX`, `MAX_EDGE_WIDTH_PX`, and `edge_width_px_for_weight` did not exist.
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml cinematic_pixel_nodes_apply_selection_dim_without_transparency` failed after the self-referential guard was corrected because the production shader branch did not apply selection dimming before the cinematic solid-node return.
+  - `cargo test --manifest-path graph-engine/Cargo.toml edge_weight_maps_to_clamped_screen_thickness` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml line_edge_instance_size` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml curve_edge_instance_size` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml render_order_keeps_edges_under_nodes_and_labels` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml cinematic_pixel_nodes_apply_selection_dim_without_transparency` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 24 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_13-08-27--0500.xcresult`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Runtime dense graph visual smoke is still blocked by the audit profile having no connected vault.
+  - Group-colored edges and optional pixel-art jagged edge style remain TODO; only weighted thickness and existing z-order protection are wired in this slice.
 
 Constraints:
 

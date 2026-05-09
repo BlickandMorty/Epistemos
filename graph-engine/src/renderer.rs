@@ -35,9 +35,11 @@ const HOVER_HIGHLIGHT_RING_TYPE: f32 = -3.0;
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct LineEdgeInstance {
-    p0: [f32; 2],    // offset 0
-    p1: [f32; 2],    // offset 8
-    color: [f32; 4], // offset 16
+    p0: [f32; 2],      // offset 0
+    p1: [f32; 2],      // offset 8
+    color: [f32; 4],   // offset 16
+    thickness_px: f32, // offset 32
+    _pad: [f32; 3],    // offset 36
 }
 
 /// Per-instance data for cubic graph-edge rendering.
@@ -49,6 +51,8 @@ struct CurveEdgeInstance {
     c1: [f32; 2],
     p1: [f32; 2],
     color: [f32; 4],
+    thickness_px: f32,
+    _pad: [f32; 3],
 }
 
 /// State for the FFT-style dialogue box overlay.
@@ -554,9 +558,23 @@ fn z_for_link_count(link_count: u32) -> f32 {
 
 /// Base alpha multiplier for all nodes — subtler ambient presence.
 const BASE_NODE_ALPHA: f32 = 1.0;
+const MIN_EDGE_WIDTH_PX: f32 = 0.70;
+const MAX_EDGE_WIDTH_PX: f32 = 4.00;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
 #[allow(dead_code)]
 const DIM_ALPHA: f32 = 0.04;
+
+fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32 {
+    let t = weight.clamp(0.0, 1.0);
+    let weighted = MIN_EDGE_WIDTH_PX + (MAX_EDGE_WIDTH_PX - MIN_EDGE_WIDTH_PX) * t.powf(0.6);
+    let min_endpoint_radius = p0_radius.min(p1_radius).max(0.0);
+    let endpoint_limit = min_endpoint_radius * 0.6 * 2.0;
+    if endpoint_limit > MIN_EDGE_WIDTH_PX {
+        weighted.min(endpoint_limit)
+    } else {
+        MIN_EDGE_WIDTH_PX
+    }
+}
 
 #[inline]
 fn monochrome_graph_node_color(light_mode: bool, node_type: u8, depth: u32) -> [f32; 4] {
@@ -865,7 +883,19 @@ fragment float4 node_fragment(
             pixel_color = mix(pixel_color, pulse_color, cinematic_click_wave * pulse_fade * 0.45);
         }
 
-        return float4(pixel_color, in.color.a);
+        bool cinematic_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
+        if (cinematic_dimmed) {
+            float3 selection_dim_target = light
+                ? srgb_to_linear(float3(0.28, 0.28, 0.28))
+                : srgb_to_linear(float3(0.62, 0.62, 0.62));
+            pixel_color = mix(pixel_color, selection_dim_target, light ? 0.56 : 0.50);
+            if (in.desaturate > 0.5) {
+                float lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
+                pixel_color = mix(pixel_color, float3(lum), 0.45);
+            }
+        }
+
+        return float4(pixel_color, max(in.color.a, 0.95));
     }
 
     // ── Balanced + Performance: shared node shading ──
@@ -905,11 +935,11 @@ fragment float4 node_fragment(
         }
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
-        if (is_dimmed && !folder_node) {
+        if (is_dimmed) {
             float3 dim_color = light
                 ? srgb_to_linear(float3(0.18, 0.18, 0.18))
                 : srgb_to_linear(float3(0.82, 0.82, 0.82));
-            result_color = mix(result_color, dim_color, 0.22);
+            result_color = mix(result_color, dim_color, folder_node ? 0.48 : 0.32);
         }
         if (in.desaturate > 0.5 && !folder_node) {
             float lum = dot(result_color, float3(0.299, 0.587, 0.114));
@@ -1072,6 +1102,8 @@ fragment float4 node_fragment(
 constant uint CURVE_EDGE_SEGMENTS = 20;
 constant float EDGE_DIM_ALPHA_SCALE = 0.15;
 constant float EDGE_DIM_ALPHA_SCALE_LIGHT = 0.42;
+constant float MIN_EDGE_WIDTH_PX = 0.70;
+constant float MAX_EDGE_WIDTH_PX = 4.00;
 
 struct CurveEdgeInstance {
     float2 p0;
@@ -1079,12 +1111,16 @@ struct CurveEdgeInstance {
     float2 c1;
     float2 p1;
     float4 color;
+    float thickness_px;
+    float3 _pad;
 };
 
 struct LineEdgeInstance {
     float2 p0;
     float2 p1;
     float4 color;
+    float thickness_px;
+    float3 _pad;
 };
 
 struct LineVertexOut {
@@ -1129,7 +1165,7 @@ vertex LineVertexOut curve_edge_vertex(
 
     float2 perp = float2(-dir.y, dir.x);
     float2 pixel_to_ndc = 2.0 / u.viewport_size;
-    float half_width_px = 0.75;
+    float half_width_px = clamp(inst.thickness_px, MIN_EDGE_WIDTH_PX, MAX_EDGE_WIDTH_PX) * 0.5;
     float2 offset = perp * half_width_px * pixel_to_ndc;
 
     float2 base_ndc[6] = {
@@ -1184,9 +1220,8 @@ vertex LineVertexOut line_edge_vertex(
 
     float2 perp = float2(-dir.y, dir.x);
 
-    // 1.5px constant screen width: NDC offset = pixels * (2.0 / viewport_size).
     float2 pixel_to_ndc = 2.0 / u.viewport_size;
-    float half_width_px = 0.75;
+    float half_width_px = clamp(inst.thickness_px, MIN_EDGE_WIDTH_PX, MAX_EDGE_WIDTH_PX) * 0.5;
     float2 offset = perp * half_width_px * pixel_to_ndc;
 
     // Expand quad in NDC: 6 vertices = 2 triangles per segment.
@@ -2922,6 +2957,7 @@ impl Renderer {
                 // node centre (v3 motion-overlay spec, task 1).
                 let r0 = world.graph_node[src_index].radius;
                 let r1 = world.graph_node[tgt_index].radius;
+                let thickness_px = edge_width_px_for_weight(edge.weight, r0, r1);
 
                 let color = self.classic_edge_instance_color(edge);
                 match edge_geometry_kind {
@@ -2955,6 +2991,8 @@ impl Renderer {
                             c1: c1t,
                             p1: p1t,
                             color,
+                            thickness_px,
+                            _pad: [0.0; 3],
                         });
                     }
                     EdgeGeometryKind::Straight => {
@@ -2974,6 +3012,8 @@ impl Renderer {
                             p0: p0t,
                             p1: p1t,
                             color,
+                            thickness_px,
+                            _pad: [0.0; 3],
                         });
                     }
                 }
@@ -3048,6 +3088,7 @@ impl Renderer {
         let curvature = (self.edge_curvature() * 0.8).max(0.10);
         for edge in edges {
             let color = [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha];
+            let thickness_px = edge_width_px_for_weight(edge.alpha, 20.0, 20.0);
             match self.edge_geometry_kind {
                 EdgeGeometryKind::Curve => {
                     let (c0, c1) = string_edge_control_points(
@@ -3065,6 +3106,8 @@ impl Renderer {
                         c1,
                         p1: edge.p1,
                         color,
+                        thickness_px,
+                        _pad: [0.0; 3],
                     });
                 }
                 EdgeGeometryKind::Straight => {
@@ -3072,6 +3115,8 @@ impl Renderer {
                         p0: edge.p0,
                         p1: edge.p1,
                         color,
+                        thickness_px,
+                        _pad: [0.0; 3],
                     });
                 }
             }
@@ -3543,6 +3588,8 @@ impl Renderer {
                         p0: prev,
                         p1: next,
                         color: field_color,
+                        thickness_px: 1.2,
+                        _pad: [0.0; 3],
                     });
                     prev = next;
                 }
@@ -4100,6 +4147,33 @@ mod tests {
     }
 
     #[test]
+    fn edge_weight_maps_to_clamped_screen_thickness() {
+        let thin = edge_width_px_for_weight(0.0, 20.0, 20.0);
+        let medium = edge_width_px_for_weight(0.5, 20.0, 20.0);
+        let thick = edge_width_px_for_weight(1.0, 20.0, 20.0);
+        let small_endpoint = edge_width_px_for_weight(1.0, 2.0, 40.0);
+
+        assert!(thin >= MIN_EDGE_WIDTH_PX);
+        assert!(medium > thin);
+        assert!(thick > medium);
+        assert!(thick <= MAX_EDGE_WIDTH_PX);
+        assert!(small_endpoint <= 2.0 * 0.6 * 2.0);
+    }
+
+    #[test]
+    fn cinematic_pixel_nodes_apply_selection_dim_without_transparency() {
+        let source = include_str!("renderer.rs");
+        let production_source = source
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
+
+        assert!(production_source.contains("float3 selection_dim_target = light"));
+        assert!(production_source.contains("pixel_color = mix(pixel_color, selection_dim_target"));
+        assert!(production_source.contains("return float4(pixel_color, max(in.color.a, 0.95));"));
+    }
+
+    #[test]
     fn uniforms_size_matches_metal() {
         // Uniforms must be consistent between Rust and Metal (16-byte aligned).
         // 17 data floats = 68 bytes, padded to 80 (next 16-byte boundary for
@@ -4119,14 +4193,14 @@ mod tests {
 
     #[test]
     fn line_edge_instance_size() {
-        // p0(8) + p1(8) + color(16) = 32 bytes.
-        assert_eq!(std::mem::size_of::<LineEdgeInstance>(), 32);
+        // p0(8) + p1(8) + color(16) + thickness(4) + pad(12) = 48 bytes.
+        assert_eq!(std::mem::size_of::<LineEdgeInstance>(), 48);
     }
 
     #[test]
     fn curve_edge_instance_size() {
-        // p0(8) + c0(8) + c1(8) + p1(8) + color(16) = 48 bytes.
-        assert_eq!(std::mem::size_of::<CurveEdgeInstance>(), 48);
+        // p0(8) + c0(8) + c1(8) + p1(8) + color(16) + thickness(4) + pad(12) = 64 bytes.
+        assert_eq!(std::mem::size_of::<CurveEdgeInstance>(), 64);
     }
 
     #[test]
