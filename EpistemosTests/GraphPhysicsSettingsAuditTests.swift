@@ -533,9 +533,12 @@ struct GraphPhysicsSettingsAuditTests {
         let envelope = try loadMirroredSourceTextFile("graph-engine/src/label_envelope.rs")
         let components = try loadMirroredSourceTextFile("graph-engine/src/ecs/components.rs")
         let bridge = try loadMirroredSourceTextFile("graph-engine/src/ecs/bridge.rs")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
 
         #expect(envelope.contains("estimate_label_envelope"))
         #expect(envelope.contains("LABEL_ENVELOPE_MAX_CHARS"))
+        #expect(envelope.contains("LABEL_ENVELOPE_WORLD_EM: f32 = 16.0"))
+        #expect(envelope.contains("long_label_envelope_tracks_rendered_sdf_label_scale"))
         #expect(envelope.contains("bubble_radius"))
         #expect(simulation.contains("pub label_collision_radii: Vec<f32>"))
         #expect(simulation.contains("visual_shell.max(label_shell)"))
@@ -543,6 +546,8 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(components.contains("pub label_half_width: f32"))
         #expect(components.contains("pub label_offset_y: f32"))
         #expect(bridge.contains("estimate_label_envelope(node.radius, &node.label)"))
+        #expect(settings.contains("Label Bubbles"))
+        #expect(settings.contains("Long labels expand node spacing"))
     }
 
     @Test("Graph label envelope does not rewrite force model")
