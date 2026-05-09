@@ -1002,6 +1002,161 @@ private nonisolated final class CloudProviderAuthServiceTestURLProtocol: URLProt
 }
 
 @MainActor
+@Suite("Local OAuth Callback Validation", .serialized)
+struct LocalOAuthCallbackValidationTests {
+    @Test("missing OAuth state is rejected")
+    func missingOAuthStateIsRejected() {
+        expectInvalidCallback {
+            _ = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+                from: Self.request("/oauth2callback?code=google-code"),
+                expectedPath: "/oauth2callback",
+                expectedHost: "127.0.0.1",
+                expectedState: "expected-state",
+                consumeState: { _ in true }
+            )
+        }
+    }
+
+    @Test("wrong OAuth state is rejected")
+    func wrongOAuthStateIsRejected() {
+        expectInvalidCallback {
+            _ = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+                from: Self.request("/oauth2callback?code=google-code&state=wrong-state"),
+                expectedPath: "/oauth2callback",
+                expectedHost: "127.0.0.1",
+                expectedState: "expected-state",
+                consumeState: { _ in true }
+            )
+        }
+    }
+
+    @Test("replayed OAuth state is rejected")
+    func replayedOAuthStateIsRejected() throws {
+        var stateWasConsumed = false
+        let consumeState: (String) -> Bool = { state in
+            guard state == "one-time-state", !stateWasConsumed else { return false }
+            stateWasConsumed = true
+            return true
+        }
+
+        let first = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+            from: Self.request("/oauth2callback?code=first-code&state=one-time-state"),
+            expectedPath: "/oauth2callback",
+            expectedHost: "127.0.0.1",
+            expectedState: "one-time-state",
+            consumeState: consumeState
+        )
+        #expect(first == .success("first-code"))
+
+        expectInvalidCallback {
+            _ = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+                from: Self.request("/oauth2callback?code=replayed-code&state=one-time-state"),
+                expectedPath: "/oauth2callback",
+                expectedHost: "127.0.0.1",
+                expectedState: "one-time-state",
+                consumeState: consumeState
+            )
+        }
+    }
+
+    @Test("wrong OAuth callback path is rejected")
+    func wrongOAuthCallbackPathIsRejected() {
+        expectInvalidCallback {
+            _ = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+                from: Self.request("/wrong?code=google-code&state=expected-state"),
+                expectedPath: "/oauth2callback",
+                expectedHost: "127.0.0.1",
+                expectedState: "expected-state",
+                consumeState: { _ in true }
+            )
+        }
+    }
+
+    @Test("wrong OAuth callback host is rejected")
+    func wrongOAuthCallbackHostIsRejected() {
+        expectInvalidCallback {
+            _ = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+                from: Self.request(
+                    "/oauth2callback?code=google-code&state=expected-state",
+                    host: "evil.example:8123"
+                ),
+                expectedPath: "/oauth2callback",
+                expectedHost: "127.0.0.1",
+                expectedState: "expected-state",
+                consumeState: { _ in true }
+            )
+        }
+    }
+
+    @Test("concurrent OAuth sign-ins are isolated by state")
+    func concurrentOAuthSignInsAreIsolatedByState() throws {
+        var stateAConsumed = false
+        var stateBConsumed = false
+
+        let resultA = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+            from: Self.request("/oauth2callback?code=code-a&state=state-a"),
+            expectedPath: "/oauth2callback",
+            expectedHost: "127.0.0.1",
+            expectedState: "state-a",
+            consumeState: { state in
+                guard state == "state-a", !stateAConsumed else { return false }
+                stateAConsumed = true
+                return true
+            }
+        )
+        #expect(resultA == .success("code-a"))
+
+        let resultB = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+            from: Self.request("/oauth2callback?code=code-b&state=state-b"),
+            expectedPath: "/oauth2callback",
+            expectedHost: "127.0.0.1",
+            expectedState: "state-b",
+            consumeState: { state in
+                guard state == "state-b", !stateBConsumed else { return false }
+                stateBConsumed = true
+                return true
+            }
+        )
+        #expect(resultB == .success("code-b"))
+
+        expectInvalidCallback {
+            _ = try OAuthCallbackRequestValidator.parseAuthorizationResult(
+                from: Self.request("/oauth2callback?code=cross-code&state=state-a"),
+                expectedPath: "/oauth2callback",
+                expectedHost: "127.0.0.1",
+                expectedState: "state-b",
+                consumeState: { _ in true }
+            )
+        }
+    }
+
+    private static func request(_ target: String, host: String = "127.0.0.1:65535") -> Data {
+        """
+        GET \(target) HTTP/1.1\r
+        Host: \(host)\r
+        Connection: close\r
+        \r
+        """.data(using: .utf8) ?? Data()
+    }
+
+    private func expectInvalidCallback(_ body: () throws -> Void) {
+        do {
+            try body()
+            Issue.record("Expected OAuth callback validation to reject the request.")
+        } catch let error as CloudProviderAuthError {
+            switch error {
+            case .callbackServerReceivedInvalidRequest:
+                break
+            default:
+                Issue.record("Expected invalid callback request, got \(error.localizedDescription).")
+            }
+        } catch {
+            Issue.record("Expected CloudProviderAuthError.callbackServerReceivedInvalidRequest, got \(error).")
+        }
+    }
+}
+
+@MainActor
 @Suite("Cloud Provider Agent Environment", .serialized)
 struct CloudProviderAgentEnvironmentTests {
     private let managedEnvVars = [
