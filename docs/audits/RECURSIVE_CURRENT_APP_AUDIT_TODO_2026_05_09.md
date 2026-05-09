@@ -8181,7 +8181,7 @@ Current-app truth still wins over research doctrine. The app is not ready to bec
 
 ### RCA13-P0-001 - Harden vault reset/add/remove/select and purge stale Notes/Graph/Search state
 
-Status: focused Wave 0 patch landed / targeted automated proof green / manual runtime A-vault -> reset -> B-vault proof still pending
+Status: focused Wave 0 patch landed / targeted automated proof green / real large-vault folder smoke passed / reset proof still pending
 Severity: P0
 Subsystem: vault lifecycle, Settings reset, Notes sidebar, Graph, Search, Halo, SwiftData, derived stores, bookmarks.
 
@@ -8623,9 +8623,61 @@ Implementation evidence, 2026-05-09 `.epdoc` reciprocal note-tab routing slice:
   - This still needs built-app manual smoke: open `.epdoc` first then open a prose/code note and verify the shared native tab group; open a prose/code note first then open `.epdoc` and verify it joins; save, close, reopen, and confirm the routing remains stable.
   - The fix proves reciprocal native tab routing, not the complete `.epdoc` durability/projection smoke called out by `RCA7-P1-004`, `RCA10-P1-002`, and `RCA12-P1-002`.
 
+2026-05-09 real vault sidebar/folder smoke:
+
+- User-selected runtime vault:
+  - `/Users/jojo/all research`
+- Harness:
+  - `./scripts/launch_audit_app.sh`
+  - Audit bundle: `build/audit-app/EpistemosAudit.app`
+  - Audit bundle id: `com.epistemos.audit`
+  - Isolated app data: `build/audit-app-support`
+  - Verified `LSEnvironment` includes:
+    - `EPISTEMOS_SKIP_VAULT_RESTORE=1`
+    - `EPISTEMOS_APPLICATION_SUPPORT_ROOT=/Users/jojo/Downloads/Epistemos/build/audit-app-support`
+    - `EPISTEMOS_AUDIT_ALLOW_SOVEREIGN_GATE=1`
+  - `ps` showed only the audit app running from `build/audit-app/EpistemosAudit.app/Contents/MacOS/Epistemos`; production `/Applications/Epistemos.app` was not running.
+- Product patch:
+  - `VaultIndexActor.importVault(from:)` now calls `synthesizeFoldersFromSubfolders()` after each 200-change batch save instead of waiting only for final import completion.
+  - This lets the Notes sidebar receive `vaultFoldersRepairedNotification` and show folders during a large vault import.
+  - Audit-only reset bypass was added to `SovereignGate` and is gated to bundle id `com.epistemos.audit` plus `EPISTEMOS_AUDIT_ALLOW_SOVEREIGN_GATE=1`; production `com.epistemos.app` still routes destructive actions through authentication.
+- Automated proof:
+  - Red suite:
+    - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed only because `RuntimeValidationTests.largeVaultImportsRefreshSidebarFoldersAtBatchCheckpoints` used an indentation-sensitive source guard.
+    - Red `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_09-59-54--0500.xcresult`
+  - Green suite:
+    - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed after changing the source guard to ordered marker checks.
+  - `git diff --check`
+    - Passed.
+- Runtime evidence:
+  - `/usr/bin/log show --style compact --info --last 5m --predicate 'process == "Epistemos" AND subsystem == "com.epistemos"' | rg 'Vault import progress|Synthesized|Vault import complete|MainThreadWatchdog|GraphBuilder|SearchIndex'`
+  - Import/folder progress:
+    - `Synthesized 7 folders from 7 unique directory paths`; `Vault import progress: 200 changes`
+    - `Synthesized 21 folders from 19 unique directory paths`; `Vault import progress: 400 changes`
+    - `Synthesized 28 folders from 28 unique directory paths`; `Vault import progress: 600 changes`
+    - `Synthesized 41 folders from 39 unique directory paths`; `Vault import progress: 800 changes`
+    - `Synthesized 87 folders from 77 unique directory paths`; `Vault import progress: 1000 changes`
+    - `Synthesized 139 folders from 119 unique directory paths`; `Vault import progress: 1200 changes`
+  - Graph projection:
+    - `Built graph from 1200 pages and 0 chats -> 1339 nodes, 1203 edges`
+    - `Diff persist complete — nodes: +1339 ~0 -0, edges: +1203 ~0 -0`
+  - Isolated SwiftData counts:
+    - `select count(*) from zsdpage` -> `1200`
+    - `select count(*) from zsdfolder` -> `139`
+  - Computer Use UI proof:
+    - Notes sidebar showed `ALL RESEARCH`.
+    - Folder rows were visible after batch synthesis: `old research`, `fusion`, `research`, `new features`, `jordan's research 2`, `epistemos_architecture_docs 2`.
+    - The `.epdoc` package rows still appeared in a flat `DOCUMENTS` bucket.
+- Remaining risk:
+  - The Reset Everything runtime proof for `/Users/jojo/all research` has not been run yet because it is a destructive local UI action and needs action-time confirmation.
+  - The live run surfaced `MainThreadWatchdog` reporting `Main thread hang detected: 26362ms` around the OpenPanel/vault-start interval. This may be OpenPanel dwell/nested-modal false positive or a real vault-start stall; it must be investigated before closing the vault/sidebar performance blocker.
+  - The sidebar still mixes user-vault folders with app-produced `.epdoc` package rows under a flat `DOCUMENTS` section. Navigation architecture cleanup is now tracked under `UIX-2026-05-09-005`.
+
 ### UIX-2026-05-09-003 - Notes/sidebar performance regression
 
-Status: PARTIAL FIX LANDED / AUTOMATED SOURCE GUARD GREEN / RUNTIME PROFILE STILL PENDING
+Status: PARTIAL FIX LANDED / AUTOMATED SOURCE GUARD GREEN / REAL LARGE-VAULT FOLDER SMOKE PASSED / STALL + NAV REDESIGN PENDING
 
 User signal:
 
@@ -8667,6 +8719,75 @@ Implementation evidence, 2026-05-09 sidebar cache / `.epdoc` scan slice:
   - Profile/sidebar smoke with many `.epdoc` packages.
   - Rename, reorder, reparent, and toggle collection folders without changing folder count and confirm visible rows refresh.
   - Create a new `.epdoc` and confirm the document row appears without a sidebar stall.
+
+2026-05-09 real-vault folder visibility evidence:
+
+- Runtime vault: `/Users/jojo/all research`.
+- Isolated audit app support root: `build/audit-app-support`.
+- SQLite count after import progress:
+  - `zsdpage`: `1200`
+  - `zsdfolder`: `139`
+- Notes sidebar visibly showed folders after batch repair:
+  - `old research`
+  - `fusion`
+  - `research`
+  - `new features`
+  - `jordan's research 2`
+  - `epistemos_architecture_docs 2`
+- Remaining sidebar product issues:
+  - App-produced `.epdoc` package rows still appear as a flat `DOCUMENTS` group and are not integrated with the user's vault/folder hierarchy.
+  - Current navigation still exposes `Model Vaults` as a disclosure section inside the notes sidebar rather than a top-level sidebar mode.
+  - System/app-produced artifacts are not cleanly separated from user vault notes.
+  - Large-vault selection/import emitted a `MainThreadWatchdog` hang report around the OpenPanel/vault-start interval; needs targeted timing instrumentation before the performance blocker can close.
+
+### UIX-2026-05-09-005 - Replace single-mode Notes sidebar with robust mode-based navigation
+
+Status: INTAKE / ARCHITECTURE AND SLICED IMPLEMENTATION PENDING
+
+User signal:
+
+- The current Notes sidebar navigation feels outdated.
+- Model Vaults should be a dedicated top-of-sidebar toggle/mode, not a nested disclosure inside notes.
+- System folders and app-produced artifacts should be pinned/separated from user vault notes.
+- Epistemos-produced docs, transcripts, logs, skill outputs, and model-memory surfaces should not be visually mixed with the user's real notes vault.
+
+Target product shape:
+
+- Add a top-level sidebar mode switcher:
+  - `My Vault`
+  - `Model Vaults`
+  - `System`
+- Keep a persistent pinned strip below the switcher.
+- `My Vault` preserves the existing Notes sidebar behavior while separating user vault content from app-produced artifacts.
+- `Model Vaults` replaces the sidebar body with a model-memory/model-profile oriented view.
+- `System` replaces the sidebar body with app-owned sections such as system prompts, chat transcripts, doc chat exports, agent logs, and skill outputs.
+
+Implementation constraints:
+
+- Swift 6.0 and `@Observable`; do not introduce `ObservableObject`.
+- Row bodies must consume Equatable display snapshots, not live `@Model` instances, preserving the memory-safety pattern already documented in `NotesSidebar.swift`.
+- No force unwraps, `try!`, or `print()` in production paths.
+- File enumeration, transcript reads, and model-memory scans must run off the main actor.
+- Do not rewrite the entire 2,500-line `NotesSidebar.swift` in one pass. Extract/wrap first, then split behavior into coherent, tested slices.
+- Multi-vault attach must use security-scoped bookmarks and a reliable vault-switch path.
+- System-side deletes must be distinct from user-vault deletes and require confirmation.
+
+Suggested slice order:
+
+1. Add a small `SidebarModeStore` with persisted `myVault`, `modelVaults`, and `system` mode.
+2. Add a `SidebarShell` and mode switcher that initially hosts the existing `NotesSidebar` unchanged for `My Vault` and lightweight placeholders for the other two modes.
+3. Move `Model Vaults` out of the notes tree into its own mode while leaving existing Settings model-profile surfaces intact.
+4. Add a pinned strip model/store with idempotent pins and Equatable row snapshots.
+5. Add `System` artifact sources as read-only, paginated sections.
+6. Only after the shell is stable, split the legacy Notes sidebar body into smaller My Vault components.
+
+Acceptance:
+
+- Switching sidebar modes preserves state and does not reload the user's note body.
+- Model Vaults no longer appears as a disclosure row inside the note tree.
+- System/app-produced artifacts are visually distinct from user vault notes.
+- The pinned strip works across modes and survives relaunch.
+- Large vault sidebar render and search do not regress.
 
 ### UIX-2026-05-09-004 - Fullscreen and cinematic graph quality parity
 
