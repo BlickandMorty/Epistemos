@@ -261,7 +261,7 @@ final class TextCapturePipeline {
             sessionId: sessionId, traceId: traceId, textLength: rawText.count
         ))
 
-        let cleaned = cleanText(rawText)
+        let cleaned = Self.stripHiddenCaptureMetadataComments(from: cleanText(rawText))
         guard !cleaned.isEmpty else {
             throw TextCaptureError.emptyCapture
         }
@@ -446,6 +446,26 @@ final class TextCapturePipeline {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > Self.maxCleanedTextCharacters else { return trimmed }
         return String(trimmed.prefix(Self.maxCleanedTextCharacters))
+    }
+
+    nonisolated static func stripHiddenCaptureMetadataComments(from body: String) -> String {
+        let pattern = #"(?m)^[ \t]*<!--\s*(?:capture-provenance|audio-source):[\s\S]*?-->[ \t]*(?:\r?\n)?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return body
+        }
+        let range = NSRange(body.startIndex..<body.endIndex, in: body)
+        guard regex.firstMatch(in: body, options: [], range: range) != nil else {
+            return body
+        }
+
+        return regex.stringByReplacingMatches(
+            in: body,
+            options: [],
+            range: range,
+            withTemplate: ""
+        )
+            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Title Extraction
@@ -671,21 +691,7 @@ final class TextCapturePipeline {
         page.wordCount = NLAnalysisService.wordCount(cleanedText)
         let failedPageId = page.id
 
-        // Build note body with metadata
-        var body = cleanedText
-
-        // Append provenance metadata as YAML front matter comment
-        let provenanceJSON: String
-        do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.sortedKeys]
-            let spansData = try encoder.encode(sourceSpans)
-            provenanceJSON = String(data: spansData, encoding: .utf8) ?? "[]"
-        } catch {
-            provenanceJSON = "[]"
-        }
-
-        body += "\n\n<!-- capture-provenance: \(provenanceJSON) -->"
+        let body = Self.stripHiddenCaptureMetadataComments(from: cleanedText)
 
         page.saveBody(body)
         page.needsVaultSync = true
@@ -854,16 +860,10 @@ final class TextCapturePipeline {
         transcription: TranscribedAudio,
         modelContext: ModelContext? = nil
     ) async throws -> CaptureResult {
-        // Build a richer raw text with audio metadata prefix
-        var rawText = transcription.fullText
+        let rawText = transcription.fullText
         if rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw TextCaptureError.emptyCapture
         }
-
-        // Prepend audio source metadata as a comment for provenance
-        let wpmString = transcription.wordsPerMinute.isFinite ? "\(Int(transcription.wordsPerMinute))" : "N/A"
-        let sourceNote = "<!-- audio-source: \(transcription.sourceURL.lastPathComponent) speakers=\(transcription.speakerCount) wpm=\(wpmString) -->\n\n"
-        rawText = sourceNote + rawText
 
         return try await run(rawText: rawText, modelContext: modelContext)
     }
