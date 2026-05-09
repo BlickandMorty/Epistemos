@@ -9391,6 +9391,25 @@ Patch evidence, 2026-05-09 folder hub semantic sizing slice:
   - Manual graph smoke is still required to confirm top-level empty folders remain plain, parent folders with substantial descendants become visually prominent, and the subtle glare reads as solid-body depth rather than transparency.
   - The current signal is recursive content weight, not a dedicated folder-depth field. If product wants glare only for folders that both have descendants and sit at a particular hierarchy level, a separate folder-depth metadata/FFI path remains a future refinement.
 
+Patch evidence, 2026-05-09 soft label collision physics correction:
+
+- Files changed:
+  - `graph-engine/src/simulation.rs`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Product behavior:
+  - Label envelopes still exist for spacing metadata and render/culling truth, but the simulation no longer uses the full text-envelope radius as a hard collision body.
+  - Wide-label collision now uses a capped, blended soft shell (`LABEL_COLLISION_SOFT_BLEND` / `LABEL_COLLISION_MAX_EXTRA`) so labels remain a spacing hint instead of creating the stiff invisible force field reported in the live graph.
+  - The force model, integrator, `graph-engine/src/forces.rs`, node palette, edge ordering, and folder semantic sizing path were not changed.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml wide_label_collision_shell_stays_soft_for_fluid_motion` failed before product patch with `shell=13.08, actual=203.35683`.
+  - `cargo test --manifest-path graph-engine/Cargo.toml wide_label_collision_shell_stays_soft_for_fluid_motion` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml load_expands_collision_radii_for_wide_labels` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml load_sets_collision_radii` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml simulation::tests` passed, 188 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label` passed, 29 tests.
+- Remaining risk:
+  - Manual dense-vault smoke is still required to tune the subjective balance between label spacing and fluid motion. The intended feel is smooth/fluid first, with label collision acting only as a gentle spacing hint.
+
 Constraints:
 
 - Do not modify `graph-engine/src/forces.rs`.
