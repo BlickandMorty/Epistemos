@@ -91,4 +91,26 @@ struct EpdocEditorToolbarTests {
         model.activeHeadingLevel = nil
         #expect(model.activeHeadingLevel == nil)
     }
+
+    @Test("Heading control exposes H1-H6 and dispatches through the scoped heading command")
+    func headingControlUsesScopedHeadingMenu() throws {
+        let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
+
+        #expect(toolbar.contains("Menu {"))
+        #expect(toolbar.contains("ForEach(1...6"))
+        #expect(toolbar.contains(#"name: "setHeadingLevel""#))
+        #expect(toolbar.contains(#"name: "setParagraph""#))
+        #expect(!toolbar.contains(#"command: .insertSlashChoice(blockType: "heading-1")"#))
+    }
+
+    @Test("Inbound heading command scopes formatting to the active text block")
+    func inboundHeadingCommandScopesToActiveTextBlock() throws {
+        let inbound = try loadMirroredSourceTextFile("js-editor/src/bridge/inbound.ts")
+
+        #expect(inbound.contains("setHeadingLevel(editor, level)"))
+        #expect(inbound.contains("function setHeadingLevel(editor: Editor, level: number): boolean"))
+        #expect(inbound.contains("function textblockDepth("))
+        #expect(inbound.contains("state.tr.setNodeMarkup("))
+        #expect(inbound.contains("headingLevelFromArgs(args)"))
+    }
 }

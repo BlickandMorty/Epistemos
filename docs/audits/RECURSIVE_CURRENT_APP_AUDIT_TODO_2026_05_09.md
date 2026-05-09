@@ -7687,7 +7687,7 @@ Verification required before public theme release:
 
 ### UIX-2026-05-09-002 - `.epdoc` routing and formatting command regressions
 
-Status: INTAKE / INVESTIGATE AFTER CURRENT CONTAINMENT SLICE
+Status: PARTIAL FIX LANDED / HEADING COMMAND REGRESSION AUTOMATED GREEN / OPEN-ROUTE RUNTIME PROOF STILL PENDING
 
 User signal:
 
@@ -7708,10 +7708,39 @@ Likely files to inspect:
 
 Required proof:
 
-- `.epdoc` open route lands in the intended utility/editor workspace without spawning the wrong surface.
-- Heading commands apply only to the current selection/block range.
-- Heading UI exposes H1-H6 or equivalent structured levels.
+- `.epdoc` open route lands in the intended utility/editor workspace without spawning the wrong surface. Status: pending investigation/runtime smoke.
+- Heading commands apply only to the current selection/block range. Status: automated source/bridge proof green; runtime UI smoke still pending.
+- Heading UI exposes H1-H6 or equivalent structured levels. Status: fixed by native toolbar menu.
 - Runtime smoke covers open, edit heading, deselect, edit another block, save/reopen.
+
+Implementation evidence, 2026-05-09 `.epdoc` heading regression slice:
+
+- Files changed:
+  - `Epistemos/Views/Epdoc/EpdocEditorToolbar.swift`
+  - `js-editor/src/bridge/inbound.ts`
+  - `Epistemos/Resources/Editor/editor.js.br`
+  - `EpistemosTests/EpdocEditorToolbarTests.swift`
+- Tests added:
+  - `EpdocEditorToolbarTests.headingControlUsesScopedHeadingMenu`
+  - `EpdocEditorToolbarTests.inboundHeadingCommandScopesToActiveTextBlock`
+- Test-first red command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/EpdocEditorToolbarTests test CODE_SIGNING_ALLOWED=NO`
+  - Result: failed before product patch with 10 source-guard issues because the toolbar still dispatched `.insertSlashChoice(blockType: "heading-1")` and the inbound bridge lacked `setHeadingLevel`, `textblockDepth`, `setNodeMarkup`, and `headingLevelFromArgs` helpers.
+  - Red `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_00-56-45--0500.xcresult`
+- Product patch:
+  - Native `.epdoc` toolbar heading control is now a `Menu` with `Paragraph` and `ForEach(1...6)` heading actions.
+  - Toolbar dispatches `setParagraph` and `setHeadingLevel` through `.runCommand` instead of reusing the slash insertion path for H1.
+  - Inbound JS bridge handles `setHeadingLevel` by validating level 1...6, finding the active textblock depth, and using `state.tr.setNodeMarkup(...)` on that one textblock only.
+  - Same-level heading action toggles back to paragraph; explicit Paragraph strips heading level from the active block.
+- Commands run:
+  - `npm run typecheck` in `js-editor`
+    - Result: passed.
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/EpdocEditorToolbarTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 7 tests in 1 suite.
+    - Green `.xcresult`: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-00-51--0500.xcresult`
+- Remaining risk:
+  - This is not a full runtime UI proof. A manual built-app `.epdoc` smoke still needs to open a document, use H1-H6 on separate blocks, deselect/reselect, save, close, reopen, and verify no unrelated block changed.
+  - User-reported `.epdoc` open-route regression is still open; this slice intentionally fixed only heading UI/formatting command leakage.
 
 ### UIX-2026-05-09-003 - Notes/sidebar performance regression
 
