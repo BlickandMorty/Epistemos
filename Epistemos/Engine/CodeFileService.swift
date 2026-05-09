@@ -32,8 +32,7 @@ import Foundation
 // CRUD surface; it leaves analysis fields empty on create, and
 // preserves them on update.
 
-@MainActor
-public final class CodeFileService {
+nonisolated public final class CodeFileService {
 
     public enum ServiceError: Error, CustomStringConvertible {
         case nameContainsPathSeparators
@@ -84,6 +83,30 @@ public final class CodeFileService {
     public init(vaultRoot: URL, fileManager: FileManager = .default) {
         self.vaultRoot = vaultRoot
         self.fileManager = fileManager
+    }
+
+    public static func readCodeFileAsync(
+        at fileURL: URL,
+        vaultRoot: URL
+    ) async throws -> (body: String, sidecar: CodeArtifactSidecar?) {
+        try await Task.detached(priority: .userInitiated) {
+            try CodeFileService(vaultRoot: vaultRoot).readCodeFile(at: fileURL)
+        }.value
+    }
+
+    public static func updateCodeFileAsync(
+        at fileURL: URL,
+        vaultRoot: URL,
+        body: String,
+        provenanceOverride: CodeProvenance? = nil
+    ) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try CodeFileService(vaultRoot: vaultRoot).updateCodeFile(
+                at: fileURL,
+                body: body,
+                provenanceOverride: provenanceOverride
+            )
+        }.value
     }
 
     // MARK: - Create

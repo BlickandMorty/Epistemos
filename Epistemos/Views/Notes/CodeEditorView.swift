@@ -1704,6 +1704,14 @@ struct CodeEditorView: View {
                 bindNoteChatContext(with: newText)
                 scheduleOutlineRefresh(for: newText)
             }
+            .onChange(of: initialContent) { oldValue, newValue in
+                guard newValue != text else { return }
+                guard text == oldValue || text.isEmpty else { return }
+                text = newValue
+                totalLines = CodeEditorLineMetrics.lineCount(newValue)
+                bindNoteChatContext(with: newValue)
+                scheduleOutlineRefresh(for: newValue, immediate: true)
+            }
             .onChange(of: cursorLine) { _, newLine in
                 updateBreadcrumbs()
             }

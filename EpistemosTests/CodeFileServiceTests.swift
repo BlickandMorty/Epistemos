@@ -473,6 +473,33 @@ struct CodeFileServiceTests {
         }
     }
 
+    @Test("async code-file read and update APIs run through detached service work")
+    func asyncCodeFileReadAndUpdateAPIsRoundTrip() async throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+
+        let files = CodeFileService(vaultRoot: vault)
+        let url = try files.createCodeFile(
+            relativeDirectory: "Sources",
+            name: "AsyncRoundTrip",
+            kind: .swift,
+            body: "let first = true\n",
+            provenance: .init(producer: .human)
+        )
+
+        let loaded = try await CodeFileService.readCodeFileAsync(at: url, vaultRoot: vault)
+        #expect(loaded.body == "let first = true\n")
+
+        try await CodeFileService.updateCodeFileAsync(
+            at: url,
+            vaultRoot: vault,
+            body: "let second = true\n"
+        )
+
+        let updated = try String(contentsOf: url, encoding: .utf8)
+        #expect(updated == "let second = true\n")
+    }
+
     // MARK: - List
 
     @Test("listCodeFiles returns every code file the indexer knows about")
