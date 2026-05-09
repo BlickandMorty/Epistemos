@@ -192,14 +192,15 @@ nonisolated public enum RustLSPTransportError: Error, CustomStringConvertible {
 
 #else
 
-// Stub implementation for tests / builds that don't link agent_coreFFI.
-// Mirrors the public API so callers can `#if canImport(agent_coreFFI)`
-// at most one level higher (or rely on this empty stub returning
-// shutdown errors).
+// Unlinked implementation for tests / builds that don't link
+// agent_coreFFI. Mirrors the public API while failing closed, so
+// callers can disable visible LSP actions instead of showing a
+// runnable-looking feature without the Rust runtime.
 
 public actor RustLSPTransport: LSPTransport {
     public nonisolated let messages: AsyncStream<LSPMessage>
     private let messageContinuation: AsyncStream<LSPMessage>.Continuation
+    private var isShutdown = false
 
     public init(pollIntervalNanos: UInt64 = 5_000_000) {
         var continuation: AsyncStream<LSPMessage>.Continuation!
@@ -214,10 +215,15 @@ public actor RustLSPTransport: LSPTransport {
 
     public func send(_ message: LSPMessage) async throws {
         _ = message
+        if isShutdown {
+            throw RustLSPTransportError.transportShutdown
+        }
         throw RustLSPTransportError.ffiCallFailed(detail: "agent_coreFFI not linked")
     }
 
     public func shutdown() async {
+        guard !isShutdown else { return }
+        isShutdown = true
         messageContinuation.finish()
     }
 

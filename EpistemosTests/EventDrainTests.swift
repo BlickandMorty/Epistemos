@@ -115,6 +115,17 @@ nonisolated struct EventDrainTests {
         #expect(client.pendingApprox() == 2)
     }
 
+    @Test("In-memory event ring labels are honest fallback/test labels")
+    func inMemoryClientSourceLabelsAreHonestFallbackLabels() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/EventDrain.swift")
+
+        #expect(source.contains("In-memory fallback/test client"))
+        #expect(source.contains("com.epistemos.eventring.in-memory"))
+        #expect(source.contains("pre-link fallback"))
+        #expect(!source.contains("In-memory stub client"))
+        #expect(!source.contains("eventring.stub"))
+    }
+
     // MARK: - EventDrain actor
 
     @Test("EventDrain.tick drains pending events + invokes the handler per event")

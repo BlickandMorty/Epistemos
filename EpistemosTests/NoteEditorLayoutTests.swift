@@ -161,8 +161,8 @@ struct NoteEditorLayoutTests {
         #expect(cramped.height == NoteWorkspaceSurfaceStyle.minimumEditorSize.height)
     }
 
-    @Test("note prose editor width caps at a centered readable measure in wide windows")
-    func noteProseEditorWidthCapsAtReadableMeasure() {
+    @Test("note prose editor insets cap readable text without moving the scrollbar inward")
+    func noteProseEditorInsetsCapReadableTextWithoutMovingScrollbarInward() {
         let compact = NoteDualPreviewLayout.editorReadableWidth(
             for: "A readable paragraph of prose without tables.",
             defaultWidth: 664
@@ -210,13 +210,19 @@ struct NoteEditorLayoutTests {
         #expect(tableInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
     }
 
-    @Test("note editor surface centers the prose editor at the readable width cap")
-    func noteEditorSurfaceCentersReadableWidth() throws {
+    @Test("note editor surface lets the prose scroll view fill the available width")
+    func noteEditorSurfaceLetsProseScrollViewFillAvailableWidth() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let surfaceRange = source.range(of: "private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View"),
+              let nextSectionRange = source.range(of: "/// Saves code file content back to disk", range: surfaceRange.upperBound..<source.endIndex) else {
+            Issue.record("Failed to isolate noteEditorSurface() in NoteDetailWorkspaceView.swift")
+            return
+        }
 
-        #expect(source.contains("let readableWidth = NoteDualPreviewLayout.editorReadableWidth("))
-        #expect(source.contains(".frame(width: readableWidth, alignment: .topLeading)"))
-        #expect(source.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)"))
+        let surfaceSource = String(source[surfaceRange.lowerBound..<nextSectionRange.lowerBound])
+        #expect(!surfaceSource.contains("let readableWidth = NoteDualPreviewLayout.editorReadableWidth("))
+        #expect(!surfaceSource.contains(".frame(width: readableWidth"))
+        #expect(surfaceSource.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
     }
 
     @Test("note body paragraph style keeps a calmer writing rhythm")
@@ -428,6 +434,10 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode)"))
         #expect(sharedStatus.contains("struct AssistantToolbarAskBar<Leading: View>: View"))
         #expect(sharedStatus.contains("TextField(\"\", text: $text)"))
+        #expect(sharedStatus.contains(".accessibilityLabel(Text(placeholder))"))
+        #expect(sharedStatus.contains("Button(action: onSubmit)"))
+        #expect(sharedStatus.contains("Image(systemName: \"arrow.up.circle.fill\")"))
+        #expect(sharedStatus.contains(".disabled(trimmedTextIsEmpty)"))
         #expect(sharedStatus.contains("AssistantAnimatedStatusLabel("))
         #expect(sharedStatus.contains("AssistantComposerOuterHalo(style: haloStyle, accent: accent)"))
         #expect(!toolbarSource.contains(".popover("))

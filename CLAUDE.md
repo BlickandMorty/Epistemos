@@ -382,7 +382,7 @@
 - Controller: Epistemos/Engine/HaloController.swift
 - Search service: Epistemos/Engine/ShadowSearchService.swift
 - Indexing service: Epistemos/Engine/ShadowIndexingService.swift
-- Stub FFI: Epistemos/Engine/ShadowFFIClient.swift (StubShadowFFIClient)
+- In-memory test FFI: Epistemos/Engine/ShadowFFIClient.swift (InMemoryShadowFFIClient)
 - Production FFI: Epistemos/Engine/RustShadowFFIClient.swift (@_silgen_name)
 - Vault crawl: Epistemos/Engine/ShadowVaultBootstrapper.swift (W8.7)
 - UI: Epistemos/Views/Halo/HaloButton.swift + ShadowPanel.swift + ShadowPanelContent.swift

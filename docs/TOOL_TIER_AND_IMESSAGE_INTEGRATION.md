@@ -28,8 +28,8 @@ feels native.
 - `ToolTier` enum (`None < ChatLite < ChatPro < Agent < Full`) in
   `agent_core/src/tools/registry.rs`
 - Every registered tool is tagged with a tier via `apply_tier_overrides()`.
-  Safe read-only tools are `ChatLite`; cloud/perception read-only tools are
-  `ChatPro`; destructive tools stay at `Agent`.
+  Safe read-only tools are `ChatLite`; Pro cloud/perception/local media tools
+  are `ChatPro` with their own risk labels; destructive tools stay at `Agent`.
 - `ToolRegistry::with_tier()` constructor that respects the tier ladder at
   `get_definitions()` and `execute()` time.
 - `ToolConfig.toolTier` Swift-visible field (string) — pass `"chat_lite"`,
@@ -41,6 +41,9 @@ feels native.
     → `ToolExecutionResultFFI`
 - New `imessage_contacts` tool — SQLite-backed contact→model routing
   (`~/.epistemos/imessage_contacts.db`)
+- `skill_manage` remote installs are Agent-tier only; URL/GitHub imports
+  require `allow_remote_skill_install=true`, land in quarantine first, and are
+  re-scanned before approval can promote them.
 
 ---
 
@@ -101,6 +104,36 @@ The tier-gated registry means `execute_tool_call` will refuse `terminal`,
 `write_file`, `send_message`, etc. when `tier == "chat_lite"` — you don't
 have to maintain your own allowlist.
 
+`send_message` is Agent-tier/destructive. It does not appear in ChatLite or
+ChatPro, and explicit `webhook_url` targets require
+`allow_custom_webhook_url=true` so a message cannot be silently redirected to
+an arbitrary endpoint. Recipient/target fields are type-checked before
+credential reads, and Signal recipient arrays no longer silently drop malformed
+entries.
+
+`skill_manage` is also Agent-tier. Remote skill installation requires
+`allow_remote_skill_install=true`; imported skills are quarantined as prompt
+content and re-scanned during `approve=true` promotion. `approve`,
+`allow_remote_skill_install`, and optional filters are strictly typed; malformed
+values fail as argument errors rather than being silently treated as false or
+absent. `skills_list` and `skill_view` remain read-only ChatLite tools.
+
+`tool_manage` and user-defined custom tools are shell-backed. They are
+Agent/Full tier only and must be risk-classed as modification or destructive;
+they must never appear as ChatLite/ChatPro read-only tools.
+
+The underlying `terminal` workdir is pre-validated: it must be an absolute
+existing directory before any foreground or background subprocess is spawned.
+
+`delegate_task` is Agent-tier only. Objectives are bounded, blank/malformed
+objectives fail as tool errors, depth remains capped at two levels, and
+returned subagent text/error payloads are bounded.
+
+`trajectory_export` is Agent-tier. Inline results are capped by session count
+and byte budget. File exports require an absolute or `~/` output path and
+block protected system paths, credential directories, sensitive filenames, and
+symlink targets that resolve to blocked files.
+
 **Files to edit:**
 - `Epistemos/Engine/PipelineService.swift` — add tool-calling loop
 - `Epistemos/LocalAgent/LocalAgentLoop.swift` — this is already mostly written,
@@ -127,10 +160,10 @@ they don't assume the agent loop is running.
 ### Tier mapping cheat sheet
 
 ```
-fast      → chat_lite   (12 tools)
-thinking  → chat_lite   (same 12 tools)
-pro       → chat_pro    (~20 tools, adds vision/TTS/mixture_of_minds/perceive)
-agent     → agent       (all ~45 tools except imessage_contacts which is chat_pro+)
+fast      → chat_lite   (safe local/read-mostly tool set)
+thinking  → chat_lite   (same tier as fast)
+pro       → chat_pro    (adds gated cloud/media/discovery/perception tools)
+agent     → agent       (destructive and broader automation surfaces)
 ```
 
 Check the current tier membership by calling `listToolsForTier` — it's the
@@ -140,34 +173,51 @@ source of truth.
 
 Read this list to understand what a Fast-mode chat can call:
 
-- `web_search`, `web_extract`, `web_fetch`
+- `web_search`, `web_extract`, `web_fetch` — shared SSRF/private-address guards, bounded response reads, and strict typed query/URL/limit validation
 - `vault_search`, `vault_read`, `vault_recall`, `pkm_graph_neighbors`
 - `graph_query`, `vault_navigate`, `session_search`, `neural_recall`
 - `contradiction_check`
 - `read_file`, `search_files`, `workspace_search`, `find_symbol`,
   `get_function_source`, `get_dependencies`, `get_dependents`,
-  `get_change_impact`
+  `get_change_impact` — strict typed workspace/query/extension/result-limit
+  inputs and bounded result/context controls
 - `think`, `chunk_reduce`
 - `skills_list`, `skill_view`
+- `model_catalog` — defaults to local MLX catalog; OpenRouter requires `allow_cloud_external_requests=true`
 - `todo`
 
 Everything on this list is safe: pure read-only or has narrowly scoped
 side effects (todo is session-scoped in-memory; think is a no-op).
+Vault-native knowledge tools (`vault_recall`, `contradiction_check`,
+`session_search`, `neural_recall`) validate optional filters, limits, provider
+names, and temporal windows as typed bounded fields. Malformed tag filters or
+time windows fail as argument errors instead of being silently dropped or
+clamped, and `vault_recall` reports measured latency rather than promising a
+fixed bound.
 
 ### What gets added at `chat_pro`
 
 Everything from ChatLite plus:
 
-- `vision_analyze` — needs `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
-- `text_to_speech` — macOS `say` subprocess
-- `web_crawl` — BFS crawl
-- `route_private` — inference routing audit
+- `vision_analyze` — explicit Pro cloud vision; requires `allow_cloud_external_requests=true` and `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`; local image paths block obvious credential/sensitive targets before read
+- `text_to_speech` — macOS `say` subprocess; live playback requires `allow_audio_playback=true`, `output_path` is a guarded file write, and `say` failures are redacted/classified
+- `web_crawl` — BFS crawl with shared URL validation, bounded response reads, and strict typed crawl bounds
+- `route_private` — inference routing audit with bounded objectives
 - `perceive` — macOS AX+Vision (delegate-backed — **only works inside agent
   session**, skip in non-agent chat)
-- `mixture_of_minds` — parallel frontier models
+- `mixture_of_minds` — explicit Pro cloud fan-out; requires `allow_cloud_external_requests=true` and provider API keys
 - `self_evolve` — trace analysis
-- `clarify` — ask-the-user (delegate-backed)
+- `clarify` — ask-the-user (delegate-backed); question/options and delegate responses are bounded
+- `vault_write`, `patch`, `memory` — narrowly scoped Pro modifications; vault writes/patches remain AgentAuthority-gated, and curated memory validates action/target, bounds store size, and rolls back on persistence failure
 - `imessage_contacts` — contact routing config
+- `mcp_discover` — MCP config discovery with secret redaction; `create_missing=true` requires `allow_create_missing_dirs=true` and is risk-classed as modification
+
+`interact`, `screen_watch`, `nightbrain_trigger`, `inline_partner`,
+`ssm_resume`, and `constrained_generate` are Agent-session-only delegate tools,
+not ChatPro chat tools. The Rust bridge bounds macOS action/watch inputs,
+NightBrain/editor-context inputs, SSM ids/labels, and constrained
+prompt/grammar/tool payload/token inputs, and it rejects non-JSON delegate
+responses without returning raw host output.
 
 ⚠️ The delegate-backed tools (`perceive`, `clarify`) will return
 `{"error": "unavailable in silent delegate"}` if called via
@@ -181,10 +231,13 @@ them out client-side OR just let them fail gracefully.
 ### What's already in place (Rust)
 
 - **`imessage` tool** — send/list_chats/read_chat/recent/unread/search
-  against `~/Library/Messages/chat.db` (Full Disk Access required)
+  against `~/Library/Messages/chat.db` (Full Disk Access required). The send
+  path is Pro-only AppleScript automation with bounded stdout/stderr and
+  redacted/classified failure diagnostics.
 - **`imessage_contacts` tool** — SQLite table at
   `~/.epistemos/imessage_contacts.db` with a row per handle containing
-  `{model, tool_tier, prompt_mode, allowed, auto_reply, auto_approve, notes}`
+  `{model, tool_tier, prompt_mode, allowed, auto_reply, auto_approve, notes}`;
+  `tool_tier` is capped at `agent` and `full` is rejected.
 
 ### What needs to be built (Swift)
 
@@ -326,8 +379,8 @@ Each contact should have a persistent agent context. Options:
 ### Safety decisions
 
 - **Send permissions**: Even when `auto_reply = true` and `auto_approve =
-  true`, the tool tier should NOT be `full`. Cap at `agent` so destructive
-  tools like `skill_manage` still require the permission gate.
+  true`, the tool tier is capped at `agent`; `full` is rejected by
+  `imessage_contacts` and `channel_contacts`.
 - **Reply target lock**: `IMessageReplyDelegate` must ONLY send to the
   contact whose handle triggered the session. Verify this in the delegate
   before calling `imessage send`.

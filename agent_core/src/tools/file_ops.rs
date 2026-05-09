@@ -18,9 +18,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use super::registry::ToolHandler;
+use super::registry::{ToolError, ToolHandler};
 
 // Directories protected from read/write (from Hermes v0.7.0 security hardening)
 const PROTECTED_DIRS: &[&str] = &[
@@ -32,6 +32,21 @@ const PROTECTED_DIRS: &[&str] = &[
     ".aws",
     ".netrc",
 ];
+const PROTECTED_WRITE_PREFIXES: &[&str] = &[
+    "/etc/",
+    "/usr/",
+    "/System/",
+    "/Library/",
+    "/bin/",
+    "/sbin/",
+    "/private/etc/",
+];
+
+#[derive(Clone, Copy)]
+enum PathMode {
+    Read,
+    Write,
+}
 
 // MARK: - Stale File Detection
 
@@ -71,14 +86,16 @@ impl FileReadTracker {
 
 // MARK: - Security
 
-fn is_protected_path(path: &Path) -> bool {
-    let path_str = path.to_string_lossy();
-    for dir in PROTECTED_DIRS {
-        if path_str.contains(dir) {
-            return true;
-        }
-    }
-    // Check for sensitive files
+fn has_protected_component(path: &Path) -> bool {
+    path.components().any(|component| {
+        component
+            .as_os_str()
+            .to_str()
+            .is_some_and(|part| PROTECTED_DIRS.contains(&part))
+    })
+}
+
+fn is_sensitive_filename(path: &Path) -> bool {
     let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     matches!(
         filename,
@@ -86,7 +103,33 @@ fn is_protected_path(path: &Path) -> bool {
     )
 }
 
-fn validate_path(path_str: &str) -> Result<PathBuf, String> {
+fn is_protected_path(path: &Path) -> bool {
+    has_protected_component(path) || is_sensitive_filename(path)
+}
+
+fn is_protected_write_path(path: &Path) -> bool {
+    let path_str = path.to_string_lossy();
+    for prefix in PROTECTED_WRITE_PREFIXES {
+        let exact = prefix.trim_end_matches('/');
+        if path_str == exact || path_str.starts_with(prefix) {
+            return true;
+        }
+    }
+    is_protected_path(path)
+}
+
+fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
+    let mut current = Some(path);
+    while let Some(candidate) = current {
+        if candidate.exists() {
+            return Some(candidate.to_path_buf());
+        }
+        current = candidate.parent();
+    }
+    None
+}
+
+fn validate_path(path_str: &str, mode: PathMode) -> Result<PathBuf, String> {
     if path_str.is_empty() {
         return Err("Path is required.".to_string());
     }
@@ -101,11 +144,51 @@ fn validate_path(path_str: &str) -> Result<PathBuf, String> {
         return Err("Path traversal ('..') is not allowed.".to_string());
     }
 
-    if is_protected_path(&path) {
+    let protected = match mode {
+        PathMode::Read => is_protected_path(&path),
+        PathMode::Write => is_protected_write_path(&path),
+    };
+    if protected {
         return Err(format!(
             "Access denied: '{}' is in a protected directory.",
             path_str
         ));
+    }
+
+    if path.exists() {
+        if let Ok(canonical) = fs::canonicalize(&path) {
+            let canonical_protected = match mode {
+                PathMode::Read => is_protected_path(&canonical),
+                PathMode::Write => {
+                    is_protected_path(&canonical) || is_protected_write_path(&canonical)
+                }
+            };
+            if canonical != path && canonical_protected {
+                return Err(format!(
+                    "Access denied: '{}' resolves to protected target '{}'.",
+                    path_str,
+                    canonical.display()
+                ));
+            }
+        }
+    }
+
+    if matches!(mode, PathMode::Write) {
+        if let Some(parent) = path.parent() {
+            if let Some(existing_parent) = nearest_existing_ancestor(parent) {
+                if let Ok(canonical_parent) = fs::canonicalize(&existing_parent) {
+                    if canonical_parent != existing_parent
+                        && is_protected_write_path(&canonical_parent)
+                    {
+                        return Err(format!(
+                            "Access denied: '{}' resolves through protected parent '{}'.",
+                            path_str,
+                            canonical_parent.display()
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     Ok(path)
@@ -136,7 +219,7 @@ impl FileOpsTool {
         start_line: Option<usize>,
         end_line: Option<usize>,
     ) -> Value {
-        let path = match validate_path(path_str) {
+        let path = match validate_path(path_str, PathMode::Read) {
             Ok(p) => p,
             Err(e) => return json!({"success": false, "error": e}),
         };
@@ -156,7 +239,11 @@ impl FileOpsTool {
             let lines: Vec<&str> = content.lines().collect();
             let start = start_line.unwrap_or(1).saturating_sub(1);
             let end = end_line.unwrap_or(lines.len()).min(lines.len());
-            lines[start..end].join("\n")
+            if start >= lines.len() {
+                String::new()
+            } else {
+                lines[start..end].join("\n")
+            }
         } else {
             content.clone()
         };
@@ -172,7 +259,7 @@ impl FileOpsTool {
     }
 
     fn write_file(&self, path_str: &str, content: &str) -> Value {
-        let path = match validate_path(path_str) {
+        let path = match validate_path(path_str, PathMode::Write) {
             Ok(p) => p,
             Err(e) => return json!({"success": false, "error": e}),
         };
@@ -228,7 +315,7 @@ impl FileOpsTool {
             return json!({"success": false, "error": "Find string cannot be empty."});
         }
 
-        let path = match validate_path(path_str) {
+        let path = match validate_path(path_str, PathMode::Write) {
             Ok(p) => p,
             Err(e) => return json!({"success": false, "error": e}),
         };
@@ -282,7 +369,7 @@ impl FileOpsTool {
     }
 
     fn list_dir(&self, path_str: &str) -> Value {
-        let path = match validate_path(path_str) {
+        let path = match validate_path(path_str, PathMode::Read) {
             Ok(p) => p,
             Err(e) => return json!({"success": false, "error": e}),
         };
@@ -319,25 +406,78 @@ impl FileOpsTool {
 
 #[async_trait::async_trait]
 impl ToolHandler for FileOpsTool {
-    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let action = input["action"].as_str().unwrap_or("read");
-        let path = input["path"].as_str().unwrap_or("");
-        let content = input["content"].as_str().unwrap_or("");
-        let find = input["find"].as_str().unwrap_or("");
-        let replace = input["replace"].as_str().unwrap_or("");
-        let start_line = input["start_line"].as_u64().map(|n| n as usize);
-        let end_line = input["end_line"].as_u64().map(|n| n as usize);
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let action = required_string_field(input, "action")?;
+        let path = required_string_field(input, "path")?;
+        let (start_line, end_line) = parse_line_range(input)?;
 
         let result = match action {
             "read" => self.read_file(path, start_line, end_line),
-            "write" => self.write_file(path, content),
-            "patch" => self.patch_file(path, find, replace),
+            "write" => self.write_file(path, required_string_field(input, "content")?),
+            "patch" => self.patch_file(
+                path,
+                required_string_field(input, "find")?,
+                optional_string_field(input, "replace")?.unwrap_or(""),
+            ),
             "list" => self.list_dir(path),
-            _ => json!({"success": false, "error": format!("Unknown action: {action}")}),
+            _ => {
+                return Err(ToolError::InvalidArguments(format!(
+                    "unknown action '{action}' (expected: read|write|patch|list)"
+                )));
+            }
         };
 
         Ok(serde_json::to_string(&result).unwrap_or_default())
     }
+}
+
+fn required_string_field<'a>(input: &'a Value, field: &str) -> Result<&'a str, ToolError> {
+    input
+        .get(field)
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
+}
+
+fn optional_string_field<'a>(input: &'a Value, field: &str) -> Result<Option<&'a str>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    value
+        .as_str()
+        .map(Some)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
+}
+
+fn optional_line_field(input: &Value, field: &str) -> Result<Option<usize>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    let Some(line) = value.as_u64() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' must be an integer"
+        )));
+    };
+    if line == 0 {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' must be 1 or greater"
+        )));
+    }
+    usize::try_from(line).map(Some).map_err(|_| {
+        ToolError::InvalidArguments(format!("'{field}' is too large for this platform"))
+    })
+}
+
+fn parse_line_range(input: &Value) -> Result<(Option<usize>, Option<usize>), ToolError> {
+    let start = optional_line_field(input, "start_line")?;
+    let end = optional_line_field(input, "end_line")?;
+    if let (Some(start), Some(end)) = (start, end) {
+        if end < start {
+            return Err(ToolError::InvalidArguments(
+                "'end_line' must be greater than or equal to 'start_line'".into(),
+            ));
+        }
+    }
+    Ok((start, end))
 }
 
 /// Returns the tool schema for registration.
@@ -380,5 +520,164 @@ pub fn file_ops_tool_schema() -> crate::types::ToolSchema {
             },
             "required": ["action", "path"],
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use tempfile::tempdir;
+
+    #[test]
+    fn validate_path_blocks_system_writes() {
+        let err = validate_path("/etc/epistemos-test", PathMode::Write).unwrap_err();
+        assert!(err.contains("Access denied"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_path_blocks_symlink_to_sensitive_file() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join(".env");
+        let link = dir.path().join("safe-link");
+        fs::write(&target, "SECRET=1").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let err = validate_path(link.to_str().unwrap(), PathMode::Read).unwrap_err();
+        assert!(err.contains("protected target"));
+    }
+
+    #[tokio::test]
+    async fn file_ops_rejects_missing_malformed_and_unknown_actions() {
+        let tool = FileOpsTool::new();
+
+        let missing_action = tool.execute(&json!({ "path": "a.txt" })).await.unwrap_err();
+        assert!(format!("{missing_action}").contains("action"));
+
+        let missing_path = tool
+            .execute(&json!({ "action": "read" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{missing_path}").contains("path"));
+
+        let unknown = tool
+            .execute(&json!({ "action": "rename", "path": "a.txt" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{unknown}").contains("unknown action"));
+    }
+
+    #[tokio::test]
+    async fn file_ops_rejects_malformed_action_specific_fields() {
+        let tool = FileOpsTool::new();
+
+        let missing_content = tool
+            .execute(&json!({ "action": "write", "path": "a.txt" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{missing_content}").contains("content"));
+
+        let missing_find = tool
+            .execute(&json!({ "action": "patch", "path": "a.txt", "replace": "" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{missing_find}").contains("find"));
+
+        let malformed_replace = tool
+            .execute(&json!({
+                "action": "patch",
+                "path": "a.txt",
+                "find": "old",
+                "replace": 5
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{malformed_replace}").contains("replace"));
+    }
+
+    #[tokio::test]
+    async fn file_ops_rejects_malformed_line_ranges() {
+        let tool = FileOpsTool::new();
+
+        let non_integer = tool
+            .execute(&json!({
+                "action": "read",
+                "path": "a.txt",
+                "start_line": "1"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{non_integer}").contains("start_line"));
+
+        let zero_line = tool
+            .execute(&json!({
+                "action": "read",
+                "path": "a.txt",
+                "start_line": 0
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{zero_line}").contains("start_line"));
+
+        let inverted = tool
+            .execute(&json!({
+                "action": "read",
+                "path": "a.txt",
+                "start_line": 5,
+                "end_line": 2
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{inverted}").contains("end_line"));
+    }
+
+    #[tokio::test]
+    async fn file_ops_read_range_past_end_returns_empty_without_panic() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("note.md");
+        fs::write(&file, "one\ntwo\n").unwrap();
+
+        let tool = FileOpsTool::new();
+        let output = tool
+            .execute(&json!({
+                "action": "read",
+                "path": file.to_string_lossy(),
+                "start_line": 99
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["success"], json!(true));
+        assert_eq!(parsed["content"], json!(""));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn file_ops_write_blocks_existing_symlink_to_sensitive_file() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join(".env");
+        let link = dir.path().join("safe-write-link");
+        fs::write(&target, "SECRET=old").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let tool = FileOpsTool::new();
+        let output = tool
+            .execute(&json!({
+                "action": "write",
+                "path": link.to_string_lossy(),
+                "content": "SECRET=new",
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(parsed["success"], json!(false));
+        assert!(
+            parsed["error"]
+                .as_str()
+                .unwrap()
+                .contains("protected target")
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "SECRET=old");
     }
 }

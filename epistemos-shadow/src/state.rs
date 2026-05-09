@@ -1,10 +1,8 @@
-//! Global singleton state for the Shadow engine — W8.1 stub backend.
+//! Global singleton state for the Shadow engine — in-memory fallback backend.
 //!
-//! The W8.1 base ships an in-memory HashMap that satisfies the FFI
-//! surface contract so the Swift HaloController can be wired against
-//! a real crate today. The W8.4 follow-up swaps the body for the
-//! real Model2Vec + usearch + tantivy + RRF backend per the V1
-//! decision §"Retrieval".
+//! The app opens `RealBackend` during bootstrap. This in-memory
+//! HashMap backend remains only as a pre-open/test fallback so the
+//! FFI surface fails honestly and keeps deterministic contract tests.
 //!
 //! The singleton pattern matches the reference at
 //! `ambient/epistemos_shadow.rs` — exactly one engine instance per
@@ -31,11 +29,9 @@ impl Default for ShadowState {
     }
 }
 
-/// W8.4.a — `ShadowState` (W8.1 stub) satisfies the new
-/// `ShadowBackend` trait so the FFI surface in lib.rs can dispatch
-/// through `&dyn ShadowBackend` once W8.4.e flips the singleton.
-/// Today the `shadow_state()` singleton still returns the concrete
-/// type; this impl just unblocks the trait-object swap.
+/// `ShadowState` satisfies the `ShadowBackend` trait so the FFI
+/// surface can dispatch through one trait object for both the real
+/// backend and this in-memory fallback.
 impl ShadowBackend for ShadowState {
     fn insert_document(&self, doc: ShadowDocument) -> Result<(), ShadowError> {
         ShadowState::insert_document(self, doc)
@@ -63,10 +59,10 @@ impl ShadowBackend for ShadowState {
     }
 }
 
-/// The Wave 8.1 stub backend — an in-memory HashMap of doc_id →
-/// document. Search is a naive substring scan, scored by snippet
-/// position. Sufficient for HaloController state-machine tests +
-/// FFI contract verification; replaced by the real backend in W8.4.
+/// In-memory fallback backend — a HashMap of doc_id → document.
+/// Search is a naive substring scan, scored by snippet position.
+/// Sufficient for HaloController state-machine tests and pre-open FFI
+/// contract verification; production bootstrap opens `RealBackend`.
 pub struct ShadowState {
     inner: RwLock<Inner>,
 }
@@ -124,14 +120,14 @@ impl ShadowState {
         }
     }
 
-    /// Search the index. The W8.1 stub does case-insensitive substring
+    /// Search the index. The fallback does case-insensitive substring
     /// matching across title + body and ranks by:
     ///   - title match (score += 2.0)
     ///   - body match position (closer to start scores higher)
     ///   - exact-token match (score += 0.5)
     ///
-    /// Replaced in W8.4 by the real Model2Vec + usearch HNSW + tantivy
-    /// BM25 + RRF fusion pipeline per the V1 decision.
+    /// The real backend uses Model2Vec + usearch HNSW + tantivy BM25
+    /// + RRF fusion per the V1 decision.
     pub fn search(
         &self,
         query: &str,
@@ -180,7 +176,7 @@ impl ShadowState {
                     title: doc.title.clone(),
                     snippet,
                     score,
-                    source: "stub-substring".to_string(),
+                    source: "in-memory-substring".to_string(),
                 })
             })
             .collect();
@@ -194,8 +190,8 @@ impl ShadowState {
         Ok(hits)
     }
 
-    /// Persist the index. The W8.1 stub records the flush instant for
-    /// the stats endpoint; W8.4 wires real disk persistence.
+    /// Persist the index. The fallback records the flush instant for
+    /// the stats endpoint; `RealBackend` owns disk persistence.
     pub fn flush(&self) -> Result<(), ShadowError> {
         let mut guard = self.inner.write();
         guard.last_flush = Instant::now();
@@ -239,9 +235,9 @@ pub fn shadow_state() -> &'static ShadowState {
 //   1. If `shadow_open_at(path)` has been called successfully, every
 //      `shadow_backend()` call returns the live `RealBackend` (the
 //      W8.4.e production stack).
-//   2. Otherwise, returns the W8.1 stub via `shadow_state()` upcast
-//      to the trait — preserves the original FFI behavior on hosts
-//      that haven't migrated yet.
+//   2. Otherwise, returns the in-memory fallback via `shadow_state()`
+//      upcast to the trait — preserves deterministic pre-open FFI
+//      behavior without claiming persistent search.
 //
 // The runtime upgrade is the entire point: callers (the FFI surface
 // in lib.rs) ALWAYS dispatch through `shadow_backend()`. The Swift
@@ -261,23 +257,23 @@ pub fn open_real_backend_at(path: &Path) -> Result<(), ShadowError> {
     Ok(())
 }
 
-/// Process-wide ShadowBackend handle. Returns the W8.4.e RealBackend
-/// when `open_real_backend_at` has been called; otherwise the W8.1
-/// ShadowState stub (lazily-built singleton — pre-open inserts
-/// share state across calls, just like the original
+/// Process-wide ShadowBackend handle. Returns `RealBackend` when
+/// `open_real_backend_at` has been called; otherwise the in-memory
+/// fallback (lazily-built singleton — pre-open inserts share state
+/// across calls, just like the original
 /// `shadow_state()` semantics).
 pub fn shadow_backend() -> Arc<dyn ShadowBackend> {
     if let Some(real) = REAL_BACKEND.read().clone() {
         return real;
     }
-    static STUB_FALLBACK: OnceLock<Arc<ShadowState>> = OnceLock::new();
-    STUB_FALLBACK
+    static IN_MEMORY_FALLBACK: OnceLock<Arc<ShadowState>> = OnceLock::new();
+    IN_MEMORY_FALLBACK
         .get_or_init(|| Arc::new(ShadowState::new()))
         .clone()
 }
 
 /// Reset the global RealBackend (test-only). Releases the Arc so
-/// the next `shadow_backend()` call falls back to the stub. Used
+/// the next `shadow_backend()` call falls back to the in-memory backend. Used
 /// by the W8.4.g singleton-flip tests to give each test a fresh
 /// world without process-restart.
 #[cfg(test)]
@@ -315,11 +311,11 @@ mod tests {
     // MARK: - W8.4.g singleton flip
 
     #[test]
-    fn shadow_backend_falls_back_to_stub_when_no_real_backend_open() {
+    fn shadow_backend_falls_back_to_in_memory_when_no_real_backend_open() {
         // Reset to ensure a clean world (other tests may have flipped it).
         _reset_real_backend_for_tests();
         let backend = shadow_backend();
-        // Stub semantics: empty doc_id rejected on insert.
+        // Fallback semantics: empty doc_id rejected on insert.
         let result = backend.insert_document(ShadowDocument {
             doc_id: "".to_string(),
             domain: "note".to_string(),
@@ -330,12 +326,12 @@ mod tests {
     }
 
     #[test]
-    fn shadow_backend_stub_fallback_shares_state_across_calls() {
+    fn shadow_backend_in_memory_fallback_shares_state_across_calls() {
         _reset_real_backend_for_tests();
         let a = shadow_backend();
         let b = shadow_backend();
         // Insert through `a`, search through `b` — must hit the same
-        // STUB_FALLBACK singleton.
+        // IN_MEMORY_FALLBACK singleton.
         a.insert_document(ShadowDocument {
             doc_id: "share-test".to_string(),
             domain: "note".to_string(),
@@ -377,6 +373,7 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].doc_id, "n1");
         assert!(hits[0].score > 0.0);
+        assert_eq!(hits[0].source, "in-memory-substring");
     }
 
     #[test]

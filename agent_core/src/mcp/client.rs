@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
@@ -158,12 +158,15 @@ impl McpClient {
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
 
-        // After hardening, re-apply per-server config.env. Order
+        // After hardening, re-apply safe per-server config.env. Order
         // matters: hardening clears env first, config.env overrides
-        // any allowlist values the user wants to customize (e.g. PATH
-        // pointing to a vendored Node).
+        // allowlist values the user wants to customize (e.g. PATH pointing
+        // to a vendored Node). Dynamic-loader and interpreter-option
+        // hijack keys stay blocked even when present in user config.
         for (k, v) in &config.env {
-            cmd.env(k, v);
+            if mcp_config_env_key_allowed(k) {
+                cmd.env(k, v);
+            }
         }
 
         let child = cmd
@@ -266,5 +269,36 @@ impl McpClient {
         for (_, mut conn) in self.servers.drain() {
             let _ = conn.process.kill().await;
         }
+    }
+}
+
+fn mcp_config_env_key_allowed(key: &str) -> bool {
+    if key.is_empty() || key.contains('=') || key.contains('\0') {
+        return false;
+    }
+    !crate::security::SUBPROCESS_DENYLIST
+        .iter()
+        .any(|deny| deny.eq_ignore_ascii_case(key))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mcp_config_env_filter_blocks_loader_and_interpreter_hijacks() {
+        assert!(!mcp_config_env_key_allowed("DYLD_INSERT_LIBRARIES"));
+        assert!(!mcp_config_env_key_allowed("dyld_library_path"));
+        assert!(!mcp_config_env_key_allowed("NODE_OPTIONS"));
+        assert!(!mcp_config_env_key_allowed("PYTHONPATH"));
+        assert!(!mcp_config_env_key_allowed(""));
+        assert!(!mcp_config_env_key_allowed("BAD=KEY"));
+    }
+
+    #[test]
+    fn mcp_config_env_filter_allows_explicit_server_credentials() {
+        assert!(mcp_config_env_key_allowed("ANTHROPIC_API_KEY"));
+        assert!(mcp_config_env_key_allowed("OPENAI_API_KEY"));
+        assert!(mcp_config_env_key_allowed("PATH"));
     }
 }

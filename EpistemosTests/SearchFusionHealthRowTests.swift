@@ -10,8 +10,46 @@ struct SearchFusionHealthRowTests {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
         #expect(settings.contains("SearchFusionHealthRow()"))
+        #expect(settings.contains("ShadowSearchHealthRow()"))
+        #expect(settings.contains("ProcessMemoryHealthRow()"))
+        #expect(settings.contains("Shadow Search shows live Halo backend health and degraded failure classes"))
+        #expect(settings.contains("Process Memory reports resident footprint and pressure state without claiming allocation root cause"))
         #expect(settings.contains("Search Fusion shows live latency + per-source hit distribution"))
         #expect(!settings.contains("setenv(\"EPISTEMOS_RRF_FUSION_V1\""))
+    }
+
+    @Test("Process Memory Health row is read-only and reports resident footprint honestly")
+    func processMemoryHealthRowIsReadOnlyAndReportsResidentFootprint() throws {
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ProcessMemoryHealthRow.swift")
+
+        #expect(row.contains("ProcessMemoryDiagnostics.liveSnapshot()"))
+        #expect(row.contains("mach_task_basic_info"))
+        #expect(row.contains("task_info(mach_task_self_"))
+        #expect(row.contains("PowerGate.isMemoryPressureActive"))
+        #expect(row.contains("does not attempt to classify root allocations"))
+        #expect(!row.contains("Button("))
+        #expect(!row.contains(".task {"))
+        #expect(!row.contains("Timer"))
+        #expect(!row.contains("DispatchSourceTimer"))
+
+        let snapshot = ProcessMemoryDiagnostics.snapshot(
+            residentBytes: 512 * 1_024 * 1_024,
+            physicalMemoryBytes: 16 * 1_024 * 1_024 * 1_024,
+            memoryPressureActive: false
+        )
+        #expect(snapshot.residentBytes == 512 * 1_024 * 1_024)
+        #expect(snapshot.memoryPressureActive == false)
+        #expect(snapshot.status == .nominal)
+        #expect(snapshot.detail.contains("RSS"))
+        #expect(snapshot.detail.contains("pressure clear"))
+
+        let pressure = ProcessMemoryDiagnostics.snapshot(
+            residentBytes: 512 * 1_024 * 1_024,
+            physicalMemoryBytes: 16 * 1_024 * 1_024 * 1_024,
+            memoryPressureActive: true
+        )
+        #expect(pressure.status == .pressure)
+        #expect(pressure.detail.contains("memory pressure active"))
     }
 
     @Test("Search Fusion Health row is read-only and event-driven")
@@ -31,6 +69,25 @@ struct SearchFusionHealthRowTests {
         #expect(!row.contains("Timer"))
         #expect(!row.contains("DispatchSourceTimer"))
         #expect(!row.contains("repeatForever"))
+    }
+
+    @Test("Shadow Search Health row is read-only and event-driven")
+    func shadowSearchHealthRowIsReadOnlyAndEventDriven() throws {
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ShadowSearchHealthRow.swift")
+        let service = try loadMirroredSourceTextFile("Epistemos/Engine/ShadowSearchService.swift")
+
+        #expect(row.contains("ShadowSearchDiagnostics.shared.snapshot()"))
+        #expect(row.contains("ShadowSearchDiagnostics.didChangeNotification"))
+        #expect(row.contains(".onReceive(NotificationCenter.default.publisher("))
+        #expect(row.contains("Task { @MainActor in"))
+        #expect(row.contains("Degraded:"))
+        #expect(service.contains("ShadowSearchDiagnostics.shared.recordFailure("))
+        #expect(service.contains("ShadowSearchDiagnostics.shared.recordSuccess("))
+        #expect(!row.contains("Button("))
+        #expect(!row.contains(".task {"))
+        #expect(!row.contains("while !Task.isCancelled"))
+        #expect(!row.contains("Timer"))
+        #expect(!row.contains("DispatchSourceTimer"))
     }
 
     @Test("Search Fusion metrics summarize latency, hits, and errors")

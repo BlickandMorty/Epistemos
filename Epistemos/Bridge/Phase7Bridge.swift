@@ -250,6 +250,8 @@ final class Phase7Bridge {
 
     private func normalizedPriorityClass(_ priority: String) -> String {
         switch priority.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "immediate":
+            return "immediate"
         case "high", "urgent":
             return "high"
         case "normal", "default":

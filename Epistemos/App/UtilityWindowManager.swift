@@ -118,7 +118,7 @@ enum UtilityPanel: String, CaseIterable {
 
     var defaultSize: NSSize {
         switch self {
-        case .notes: NSSize(width: 320, height: 600)
+        case .notes: NSSize(width: 380, height: 520)
         case .omega: NSSize(width: 680, height: 560)
         case .settings: NSSize(width: 900, height: 680)
         }
@@ -126,7 +126,7 @@ enum UtilityPanel: String, CaseIterable {
 
     var minimumSize: NSSize {
         switch self {
-        case .notes: NSSize(width: 400, height: 300)
+        case .notes: NSSize(width: 300, height: 320)
         case .omega: NSSize(width: 420, height: 320)
         case .settings: NSSize(width: 680, height: 420)
         }
@@ -323,9 +323,14 @@ final class UtilityWindowManager {
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
-            // Prevent SwiftUI content from driving the window size beyond its default.
-            // The content should fill the available space, not push the window to grow.
-            host.sizingOptions = .minSize
+            // Notes has an unbounded tree and must not let SwiftUI content
+            // become the panel's minimum size. The other utilities keep their
+            // source-list minimum sizing.
+            if kind == .notes {
+                host.sizingOptions = []
+            } else {
+                host.sizingOptions = .minSize
+            }
             let cornerRadius: CGFloat? = kind == .settings ? 22 : nil
             panel.contentView = WindowThemeStyler.themedContentView(
                 host: host,

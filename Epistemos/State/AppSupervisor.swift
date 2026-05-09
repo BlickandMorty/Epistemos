@@ -651,10 +651,10 @@ final class AppSupervisor {
         let mlxOpen = await breakers.mlx.isOpen
         if fmOpen && mlxOpen { return false }
 
-        let (available, _) = AppleIntelligenceService.shared.checkAvailability()
-        if available { return true }
-
         if let bootstrap = AppBootstrap.shared {
+            if bootstrap.inferenceState.appleIntelligenceAvailable {
+                return true
+            }
             return !bootstrap.localModelManager.installRecords.isEmpty
         }
 

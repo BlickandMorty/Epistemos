@@ -22,11 +22,11 @@
 //!
 //! Both tools stream their child stdout+stderr into the tool result with
 //! a generous default timeout (5 minutes) and a hard cap (30 minutes).
-//! Working directory and extra env can be set per-invocation. If the
+//! An absolute existing working directory can be set per-invocation. If the
 //! target CLI isn't installed, the tool returns a structured
 //! install-hint message so the caller can recover by installing it.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -107,18 +107,36 @@ fn resolve_binary(name: &str, extra_candidates: &[PathBuf]) -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path) {
             let candidate = dir.join(name);
-            if candidate.is_file() {
+            if is_executable_file(&candidate) {
                 return Some(candidate);
             }
         }
     }
     // Known install locations.
     for candidate in extra_candidates {
-        if candidate.is_file() {
+        if is_executable_file(candidate) {
             return Some(candidate.clone());
         }
     }
     None
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 fn parse_timeout(input: &Value) -> u64 {
@@ -129,11 +147,22 @@ fn parse_timeout(input: &Value) -> u64 {
         .min(MAX_TIMEOUT_SECONDS)
 }
 
-fn parse_working_dir(input: &Value) -> Option<String> {
-    input
-        .get("working_dir")
-        .and_then(Value::as_str)
-        .map(|s| s.to_string())
+fn parse_working_dir(input: &Value) -> Result<Option<PathBuf>, ToolError> {
+    let Some(raw) = input.get("working_dir").and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    let path = PathBuf::from(raw);
+    if !path.is_absolute() {
+        return Err(ToolError::InvalidArguments(
+            "working_dir must be an absolute path".to_string(),
+        ));
+    }
+    if !path.is_dir() {
+        return Err(ToolError::InvalidArguments(
+            "working_dir must be an existing directory".to_string(),
+        ));
+    }
+    Ok(Some(path))
 }
 
 fn missing_binary_payload(name: &str, install_hint: &str) -> String {
@@ -147,7 +176,7 @@ fn missing_binary_payload(name: &str, install_hint: &str) -> String {
 async fn run_passthrough(
     binary: PathBuf,
     args: Vec<String>,
-    working_dir: Option<String>,
+    working_dir: Option<PathBuf>,
     timeout_seconds: u64,
     tool_name: &str,
 ) -> Result<String, ToolError> {
@@ -218,7 +247,7 @@ impl ToolHandler for ClaudeCodeHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
             .to_string();
-        let working_dir = parse_working_dir(input);
+        let working_dir = parse_working_dir(input)?;
         let timeout_seconds = parse_timeout(input);
         let bypass_permissions = input
             .get("bypass_permissions")
@@ -262,7 +291,7 @@ impl ToolHandler for CodexHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
             .to_string();
-        let working_dir = parse_working_dir(input);
+        let working_dir = parse_working_dir(input)?;
         let timeout_seconds = parse_timeout(input);
         let use_sandbox = input
             .get("sandbox")
@@ -309,7 +338,7 @@ impl ToolHandler for GeminiHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
             .to_string();
-        let working_dir = parse_working_dir(input);
+        let working_dir = parse_working_dir(input)?;
         let timeout_seconds = parse_timeout(input);
         let model = input.get("model").and_then(Value::as_str);
 
@@ -349,7 +378,7 @@ impl ToolHandler for KimiHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
             .to_string();
-        let working_dir = parse_working_dir(input);
+        let working_dir = parse_working_dir(input)?;
         let timeout_seconds = parse_timeout(input);
         let model = input.get("model").and_then(Value::as_str);
 
@@ -389,14 +418,41 @@ mod tests {
     #[test]
     fn codex_candidate_paths_include_desktop_app() {
         let paths = codex_candidate_paths();
-        assert!(paths
-            .iter()
-            .any(|p| p.ends_with("Codex.app/Contents/Resources/codex")));
+        assert!(
+            paths
+                .iter()
+                .any(|p| p.ends_with("Codex.app/Contents/Resources/codex"))
+        );
     }
 
     #[test]
     fn resolve_binary_finds_nothing_for_garbage_name() {
         assert!(resolve_binary("this_cli_does_not_exist_xyz_qwertyuiop_", &[]).is_none());
+    }
+
+    #[test]
+    fn resolve_binary_ignores_non_executable_candidate() {
+        let temp = tempfile::tempdir().unwrap();
+        let candidate = temp.path().join("fake-cli");
+        std::fs::write(&candidate, "#!/bin/sh\n").unwrap();
+        assert!(resolve_binary("missing-from-path", &[candidate]).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_binary_accepts_executable_candidate() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let candidate = temp.path().join("fake-cli");
+        std::fs::write(&candidate, "#!/bin/sh\n").unwrap();
+        let mut permissions = std::fs::metadata(&candidate).unwrap().permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&candidate, permissions).unwrap();
+        assert_eq!(
+            resolve_binary("missing-from-path", &[candidate.clone()]),
+            Some(candidate)
+        );
     }
 
     #[test]
@@ -408,6 +464,24 @@ mod tests {
             parse_timeout(&json!({"timeout_seconds": 99_999})),
             MAX_TIMEOUT_SECONDS
         );
+    }
+
+    #[test]
+    fn parse_working_dir_requires_absolute_existing_directory() {
+        use serde_json::json;
+
+        let relative = parse_working_dir(&json!({"working_dir": "relative/path"})).unwrap_err();
+        assert!(format!("{relative}").contains("absolute"));
+
+        let missing = parse_working_dir(&json!({"working_dir": "/definitely/missing/epistemos"}))
+            .unwrap_err();
+        assert!(format!("{missing}").contains("existing directory"));
+
+        let temp = tempfile::tempdir().unwrap();
+        let parsed = parse_working_dir(&json!({"working_dir": temp.path().to_string_lossy()}))
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed, temp.path());
     }
 
     #[test]

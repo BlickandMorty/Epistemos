@@ -23,10 +23,9 @@ use super::registry::{ToolError, ToolHandler};
 pub const WORKSPACE_SEARCH_TOOL_NAME: &str = "workspace_search";
 
 pub const WORKSPACE_SEARCH_TOOL_DESCRIPTION: &str = "\
-Zero-copy SIMD-accelerated codebase search using memory-mapped files. \
-Searches across all files in a workspace directory using ARM64 NEON vector \
-instructions for sub-millisecond scanning of large codebases. Returns \
-matching file paths and relevant excerpts around each match.";
+Codebase search using memory-mapped file reads and byte-pattern scanning. \
+Searches across files in a workspace directory with bounded result and context \
+controls. Returns matching file paths and relevant excerpts around each match.";
 
 pub const WORKSPACE_SEARCH_TOOL_SCHEMA: &str = r#"{
     "type": "object",
@@ -68,6 +67,108 @@ pub fn workspace_search_tool_schema() -> crate::types::ToolSchema {
         description: WORKSPACE_SEARCH_TOOL_DESCRIPTION.to_string(),
         parameters: serde_json::from_str(WORKSPACE_SEARCH_TOOL_SCHEMA).unwrap_or_default(),
     }
+}
+
+const MAX_WORKSPACE_PATH_CHARS: usize = 4096;
+const MAX_WORKSPACE_QUERY_CHARS: usize = 16_000;
+const MAX_SYMBOL_CHARS: usize = 512;
+const MAX_FILE_EXTENSIONS: usize = 32;
+const MAX_EXTENSION_CHARS: usize = 32;
+
+fn required_string_field<'a>(
+    input: &'a Value,
+    field: &str,
+    max_chars: usize,
+) -> Result<&'a str, ToolError> {
+    let value = input
+        .get(field)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("{field} required")))?;
+    let Some(text) = value.as_str() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "{field} must be a string"
+        )));
+    };
+    if text.trim().is_empty() {
+        return Err(ToolError::InvalidArguments(format!(
+            "{field} cannot be blank"
+        )));
+    }
+    if text.chars().count() > max_chars {
+        return Err(ToolError::InvalidArguments(format!(
+            "{field} exceeds {max_chars} character cap"
+        )));
+    }
+    Ok(text)
+}
+
+fn optional_usize_range(
+    input: &Value,
+    field: &str,
+    default: usize,
+    min: usize,
+    max: usize,
+) -> Result<usize, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(default);
+    };
+    let Some(number) = value.as_u64() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "{field} must be an integer"
+        )));
+    };
+    let number = usize::try_from(number)
+        .map_err(|_| ToolError::InvalidArguments(format!("{field} is too large")))?;
+    if !(min..=max).contains(&number) {
+        return Err(ToolError::InvalidArguments(format!(
+            "{field} must be between {min} and {max}"
+        )));
+    }
+    Ok(number)
+}
+
+fn parse_file_extensions(input: &Value) -> Result<Vec<String>, ToolError> {
+    let Some(value) = input.get("file_extensions") else {
+        return Ok(Vec::new());
+    };
+    let Some(items) = value.as_array() else {
+        return Err(ToolError::InvalidArguments(
+            "file_extensions must be an array of strings".into(),
+        ));
+    };
+    if items.len() > MAX_FILE_EXTENSIONS {
+        return Err(ToolError::InvalidArguments(format!(
+            "file_extensions exceeds {MAX_FILE_EXTENSIONS} item cap"
+        )));
+    }
+    let mut extensions = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let Some(extension) = item.as_str() else {
+            return Err(ToolError::InvalidArguments(format!(
+                "file_extensions[{index}] must be a string"
+            )));
+        };
+        let extension = extension.trim_start_matches('.');
+        if extension.is_empty() {
+            return Err(ToolError::InvalidArguments(format!(
+                "file_extensions[{index}] cannot be blank"
+            )));
+        }
+        if extension.chars().count() > MAX_EXTENSION_CHARS {
+            return Err(ToolError::InvalidArguments(format!(
+                "file_extensions[{index}] exceeds {MAX_EXTENSION_CHARS} character cap"
+            )));
+        }
+        if !extension
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+        {
+            return Err(ToolError::InvalidArguments(format!(
+                "file_extensions[{index}] contains unsupported characters"
+            )));
+        }
+        extensions.push(extension.to_string());
+    }
+    Ok(extensions)
 }
 
 /// Result from scanning a single file.
@@ -230,36 +331,16 @@ pub struct WorkspaceSearchHandler;
 #[async_trait]
 impl ToolHandler for WorkspaceSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input
-            .get("workspace_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".to_string()))?;
+        let workspace_path =
+            required_string_field(input, "workspace_path", MAX_WORKSPACE_PATH_CHARS)?;
 
-        let query = input
-            .get("query")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("query required".to_string()))?;
+        let query = required_string_field(input, "query", MAX_WORKSPACE_QUERY_CHARS)?;
 
-        let extensions: Vec<String> = input
-            .get("file_extensions")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
+        let extensions = parse_file_extensions(input)?;
 
-        let max_results = input
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .unwrap_or(20) as usize;
+        let max_results = optional_usize_range(input, "max_results", 20, 1, 100)?;
 
-        let context_lines = input
-            .get("context_lines")
-            .and_then(Value::as_u64)
-            .unwrap_or(3) as usize;
+        let context_lines = optional_usize_range(input, "context_lines", 3, 0, 10)?;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
@@ -708,28 +789,11 @@ pub struct FindSymbolHandler;
 #[async_trait]
 impl ToolHandler for FindSymbolHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input
-            .get("workspace_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let symbol = input
-            .get("symbol")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("symbol required".into()))?;
-        let extensions: Vec<String> = input
-            .get("file_extensions")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
-        let max_results = input
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .unwrap_or(10) as usize;
+        let workspace_path =
+            required_string_field(input, "workspace_path", MAX_WORKSPACE_PATH_CHARS)?;
+        let symbol = required_string_field(input, "symbol", MAX_SYMBOL_CHARS)?;
+        let extensions = parse_file_extensions(input)?;
+        let max_results = optional_usize_range(input, "max_results", 10, 1, 50)?;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
@@ -779,24 +843,10 @@ pub struct GetFunctionSourceHandler;
 #[async_trait]
 impl ToolHandler for GetFunctionSourceHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input
-            .get("workspace_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let function_name = input
-            .get("function_name")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("function_name required".into()))?;
-        let extensions: Vec<String> = input
-            .get("file_extensions")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
+        let workspace_path =
+            required_string_field(input, "workspace_path", MAX_WORKSPACE_PATH_CHARS)?;
+        let function_name = required_string_field(input, "function_name", MAX_SYMBOL_CHARS)?;
+        let extensions = parse_file_extensions(input)?;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
@@ -840,10 +890,7 @@ pub struct GetDependenciesHandler;
 #[async_trait]
 impl ToolHandler for GetDependenciesHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let file_path = input
-            .get("file_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("file_path required".into()))?;
+        let file_path = required_string_field(input, "file_path", MAX_WORKSPACE_PATH_CHARS)?;
 
         let path = PathBuf::from(file_path);
         if !path.is_file() {
@@ -892,28 +939,11 @@ pub struct GetDependentsHandler;
 #[async_trait]
 impl ToolHandler for GetDependentsHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input
-            .get("workspace_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let symbol = input
-            .get("symbol")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("symbol required".into()))?;
-        let extensions: Vec<String> = input
-            .get("file_extensions")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
-        let max_results = input
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .unwrap_or(20) as usize;
+        let workspace_path =
+            required_string_field(input, "workspace_path", MAX_WORKSPACE_PATH_CHARS)?;
+        let symbol = required_string_field(input, "symbol", MAX_SYMBOL_CHARS)?;
+        let extensions = parse_file_extensions(input)?;
+        let max_results = optional_usize_range(input, "max_results", 20, 1, 100)?;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
@@ -967,24 +997,10 @@ pub struct GetChangeImpactHandler;
 #[async_trait]
 impl ToolHandler for GetChangeImpactHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let workspace_path = input
-            .get("workspace_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("workspace_path required".into()))?;
-        let symbol = input
-            .get("symbol")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("symbol required".into()))?;
-        let extensions: Vec<String> = input
-            .get("file_extensions")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(String::from)
-                    .collect()
-            })
-            .unwrap_or_default();
+        let workspace_path =
+            required_string_field(input, "workspace_path", MAX_WORKSPACE_PATH_CHARS)?;
+        let symbol = required_string_field(input, "symbol", MAX_SYMBOL_CHARS)?;
+        let extensions = parse_file_extensions(input)?;
 
         let root = PathBuf::from(workspace_path);
         if !root.is_dir() {
@@ -1145,6 +1161,94 @@ mod tests {
         let input = serde_json::json!({ "query": "test" });
         let result = handler.execute(&input).await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn workspace_argument_helpers_reject_malformed_filters_and_bounds() {
+        let non_array = serde_json::json!({ "file_extensions": "rs" });
+        assert!(parse_file_extensions(&non_array).is_err());
+
+        let non_string_item = serde_json::json!({ "file_extensions": ["rs", 7] });
+        assert!(parse_file_extensions(&non_string_item).is_err());
+
+        let dotted = serde_json::json!({ "file_extensions": [".rs"] });
+        assert_eq!(parse_file_extensions(&dotted).unwrap(), vec!["rs"]);
+
+        let non_integer = serde_json::json!({ "max_results": "10" });
+        assert!(optional_usize_range(&non_integer, "max_results", 20, 1, 100).is_err());
+
+        let out_of_range = serde_json::json!({ "context_lines": 11 });
+        assert!(optional_usize_range(&out_of_range, "context_lines", 3, 0, 10).is_err());
+    }
+
+    #[tokio::test]
+    async fn workspace_handlers_reject_malformed_optional_inputs_before_search() {
+        let handler = WorkspaceSearchHandler;
+        let bad_extensions = handler
+            .execute(&serde_json::json!({
+                "workspace_path": "src",
+                "query": "ToolHandler",
+                "file_extensions": ["rs", false]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_extensions}").contains("file_extensions[1]"));
+
+        let bad_limit = handler
+            .execute(&serde_json::json!({
+                "workspace_path": "src",
+                "query": "ToolHandler",
+                "max_results": 0
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_limit}").contains("max_results"));
+
+        let bad_context = handler
+            .execute(&serde_json::json!({
+                "workspace_path": "src",
+                "query": "ToolHandler",
+                "context_lines": "3"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_context}").contains("context_lines"));
+    }
+
+    #[tokio::test]
+    async fn symbol_handlers_reject_malformed_extensions_and_limits() {
+        let find_symbol = FindSymbolHandler;
+        let bad_limit = find_symbol
+            .execute(&serde_json::json!({
+                "workspace_path": "src",
+                "symbol": "WorkspaceSearchHandler",
+                "max_results": "10"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_limit}").contains("max_results"));
+
+        let get_function = GetFunctionSourceHandler;
+        let bad_extensions = get_function
+            .execute(&serde_json::json!({
+                "workspace_path": "src",
+                "function_name": "collect_paths",
+                "file_extensions": [{}]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_extensions}").contains("file_extensions[0]"));
+
+        let get_dependents = GetDependentsHandler;
+        let bad_dependents_limit = get_dependents
+            .execute(&serde_json::json!({
+                "workspace_path": "src",
+                "symbol": "WorkspaceSearchHandler",
+                "max_results": 101
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_dependents_limit}").contains("max_results"));
     }
 
     #[test]

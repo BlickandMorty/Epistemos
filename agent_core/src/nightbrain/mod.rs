@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -118,6 +118,14 @@ impl TaskOutcome {
         Self {
             items_processed: items,
             items_skipped: 0,
+            completed: true,
+        }
+    }
+
+    pub fn skipped(items: usize) -> Self {
+        Self {
+            items_processed: 0,
+            items_skipped: items,
             completed: true,
         }
     }

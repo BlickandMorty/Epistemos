@@ -1,30 +1,33 @@
 import SwiftUI
 
-/// Deterministic Landing Farm roaming layer for active companions.
+/// Landing-only agent shelf for active companions.
 ///
-/// The field is deliberately local to the Landing Farm: companions get
-/// seeded idle walks here before any graph-presence work touches graph
-/// physics or Metal rendering.
+/// The field is deliberately local to the Landing surface: agents stay in a
+/// compact top-right cluster. They do not roam, walk, or own periodic clocks
+/// while the Landing page is idle.
 struct CompanionRoamingField: View {
     let entries: [CompanionRosterEntry]
     let activeCompanionID: String?
+    var isAnimationActive: Bool = false
     var onActivate: (CompanionRosterEntry) -> Void = { _ in }
-    var onApplyAdapter: (CompanionRosterEntry) -> Void = { _ in }
     var onRequestDelete: (CompanionRosterEntry) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    nonisolated private static let nodeSize: CGFloat = 96
-    nonisolated private static let tileSpan: CGFloat = 132
+    nonisolated private static let nodeSize: CGFloat = 38
+    nonisolated private static let tileSpan: CGFloat = 46
+    nonisolated private static let maxVisibleAgents: Int = 6
+    nonisolated private static let breathingRefreshInterval: TimeInterval = 0.75
+    nonisolated private static let staticSampleDate = Date(timeIntervalSinceReferenceDate: 0)
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                if reduceMotion {
-                    nodes(at: .distantPast, in: proxy.size, reduceMotion: true)
+                if reduceMotion || !isAnimationActive {
+                    nodes(at: Self.staticSampleDate, in: proxy.size)
                 } else {
-                    TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { context in
-                        nodes(at: context.date, in: proxy.size, reduceMotion: false)
+                    TimelineView(.periodic(from: .now, by: Self.breathingRefreshInterval)) { context in
+                        nodes(at: context.date, in: proxy.size)
                     }
                 }
             }
@@ -35,42 +38,37 @@ struct CompanionRoamingField: View {
     }
 
     @ViewBuilder
-    private func nodes(at date: Date, in size: CGSize, reduceMotion: Bool) -> some View {
-        ForEach(entries.indices, id: \.self) { index in
-            let entry = entries[index]
-            companionNode(entry)
+    private func nodes(at date: Date, in size: CGSize) -> some View {
+        let visibleEntries = Array(entries.prefix(Self.maxVisibleAgents))
+        ForEach(visibleEntries.indices, id: \.self) { index in
+            let entry = visibleEntries[index]
+            companionNode(entry, at: date)
                 .frame(width: Self.tileSpan, height: Self.tileSpan)
-                .position(Self.roamingPosition(
-                    for: entry,
+                .position(Self.shelfPosition(
                     index: index,
                     count: entries.count,
-                    in: size,
-                    at: date,
-                    reduceMotion: reduceMotion
+                    in: size
                 ))
                 .zIndex(entry.id == activeCompanionID ? 1 : 0)
         }
     }
 
-    private func companionNode(_ entry: CompanionRosterEntry) -> some View {
+    private func companionNode(_ entry: CompanionRosterEntry, at date: Date?) -> some View {
         CompanionView(
             entry: entry,
             size: Self.nodeSize,
             isActive: entry.id == activeCompanionID,
+            sampledAnimationDate: date,
+            showsMetadata: false,
             onActivate: { onActivate(entry) }
         )
+        .help(agentHelpText(for: entry))
         .contextMenu {
             Button {
                 onActivate(entry)
             } label: {
                 Label("Activate", systemImage: "circle.dashed.inset.filled")
             }
-            Button {
-                onApplyAdapter(entry)
-            } label: {
-                Label("Apply Adapter...", systemImage: "wand.and.stars")
-            }
-            Divider()
             Button(role: .destructive) {
                 onRequestDelete(entry)
             } label: {
@@ -80,50 +78,40 @@ struct CompanionRoamingField: View {
     }
 
     nonisolated static func fieldHeight(for count: Int) -> CGFloat {
-        let rows = max(1, min(3, (max(count, 1) + 2) / 3))
-        return CGFloat(rows) * 136.0
+        let rows = max(1, min(2, (min(max(count, 1), maxVisibleAgents) + 3) / 4))
+        return CGFloat(rows) * 46.0
     }
 
-    nonisolated static func roamingPosition(
-        for entry: CompanionRosterEntry,
+    nonisolated static func shelfPosition(
         index: Int,
         count: Int,
-        in size: CGSize,
-        at date: Date,
-        reduceMotion: Bool
+        in size: CGSize
     ) -> CGPoint {
-        let width = safeDimension(size.width, minimum: tileSpan)
+        let visibleCount = min(max(count, 1), maxVisibleAgents)
+        let width = safeDimension(size.width, minimum: tileSpan * CGFloat(min(visibleCount, 4)))
         let height = safeDimension(size.height, minimum: fieldHeight(for: count))
-        let paddingX = min(width / 2.0, nodeSize * 0.72)
-        let paddingY = min(height / 2.0, nodeSize * 0.64)
-        let availableWidth = max(tileSpan, width)
-        let estimatedColumns = Int(max(1.0, floor(Double(availableWidth / tileSpan))))
-        let columns = max(1, min(max(count, 1), estimatedColumns))
-        let rows = max(1, Int(ceil(Double(max(count, 1)) / Double(columns))))
+        let paddingX = min(width / 2.0, nodeSize * 0.62)
+        let paddingY = min(height / 2.0, nodeSize * 0.56)
+        let columns = min(4, visibleCount)
+        let rows = max(1, Int(ceil(Double(visibleCount) / Double(columns))))
         let column = index % columns
         let row = index / columns
         let anchor = CGPoint(
-            x: axisAnchor(slot: column, slots: columns, lower: paddingX, upper: width - paddingX),
+            x: width - paddingX - CGFloat(column) * tileSpan,
             y: axisAnchor(slot: row, slots: rows, lower: paddingY, upper: height - paddingY)
         )
-
-        guard !reduceMotion else { return anchor }
-
-        var prng = DeterministicPRNG(seedString: "\(entry.identityHash):landing-roam")
-        let xRadius = CGFloat(12.0 + prng.unitDouble() * 24.0)
-        let yRadius = CGFloat(8.0 + prng.unitDouble() * 18.0)
-        let xPeriod = 22.0 + prng.unitDouble() * 18.0
-        let yPeriod = 28.0 + prng.unitDouble() * 20.0
-        let xPhase = prng.unitDouble() * .pi * 2.0
-        let yPhase = prng.unitDouble() * .pi * 2.0
-        let t = date.timeIntervalSinceReferenceDate
-        let x = anchor.x + cos(t * .pi * 2.0 / xPeriod + xPhase) * xRadius
-        let y = anchor.y + sin(t * .pi * 2.0 / yPeriod + yPhase) * yRadius
-
         return CGPoint(
-            x: clamp(x, lower: paddingX, upper: width - paddingX),
-            y: clamp(y, lower: paddingY, upper: height - paddingY)
+            x: clamp(anchor.x, lower: paddingX, upper: width - paddingX),
+            y: clamp(anchor.y, lower: paddingY, upper: height - paddingY)
         )
+    }
+
+    private func agentHelpText(for entry: CompanionRosterEntry) -> String {
+        let status = entry.id == activeCompanionID ? "Active" : "Available"
+        if entry.tagline.isEmpty {
+            return "\(status) agent: \(entry.name)"
+        }
+        return "\(status) agent: \(entry.name) — \(entry.tagline)"
     }
 
     nonisolated private static func safeDimension(_ value: CGFloat, minimum: CGFloat) -> CGFloat {
@@ -145,4 +133,5 @@ struct CompanionRoamingField: View {
     nonisolated private static func clamp(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat {
         min(max(value, lower), upper)
     }
+
 }

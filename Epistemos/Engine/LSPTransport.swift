@@ -47,7 +47,7 @@ nonisolated public protocol LSPTransport: Sendable {
     func shutdown() async
 }
 
-// MARK: - InProcessLSPTransport stub
+// MARK: - InProcessLSPTransport test double
 //
 // Test-only / lifecycle-test transport that satisfies the
 // `LSPTransport` protocol with no LSP server behind it. Every `send`
@@ -78,21 +78,18 @@ public actor InProcessLSPTransport: LSPTransport {
 
     public func send(_ message: LSPMessage) async throws {
         sentMessages.append(message)
-        // Stub behavior: echo a MethodNotFound error response for
-        // every request, ack notifications silently. When the
-        // tower-lsp Rust transport lands, this body becomes:
-        //   try await ffi.lsp_send(message.toJsonString())
-        // and the messages stream is fed by the FFI's response
-        // channel.
+        // Test-double behavior: echo a MethodNotFound error response
+        // for every request and ack notifications silently. Production
+        // callers use RustLSPTransport instead of this actor.
         if case .request(let id, let method, _) = message {
             let error = LSPError(
                 code: -32601, // JSON-RPC MethodNotFound
-                message: "InProcessLSPTransport stub: \(method) not implemented yet",
+                message: "InProcessLSPTransport test transport: no LSP runtime attached for \(method)",
                 data: nil
             )
             messageContinuation.yield(.responseError(id: id, error: error))
         }
-        // Notifications + responses-from-Swift are no-ops in stub mode.
+        // Notifications + responses-from-Swift are no-ops in test mode.
     }
 
     public func shutdown() async {

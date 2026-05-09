@@ -9,7 +9,7 @@ import Testing
 /// cross-ref `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §6).
 ///
 /// The closed `ArtifactRoute` enum is the compile-time guarantee that
-/// every typed artifact has exactly one renderable destination. These
+/// every typed artifact has exactly one route identity. These
 /// tests assert:
 ///   - every [`ArtifactKind`] has a route via `ArtifactRoute.from(kind:id:)`
 ///   - every route's reverse `kind` projection round-trips
@@ -122,5 +122,54 @@ nonisolated struct ArtifactRouteTests {
         }
         #expect(distinctRoutes.count == 6,
                 "Expected exactly 6 distinct route cases — got \(distinctRoutes.sorted())")
+    }
+
+    @Test("ArtifactHostView is v1-deferred and not mounted in production")
+    func artifactHostViewRemainsDeferredUntilResolversAreReal() throws {
+        let hostSource = try loadMirroredSourceTextFile("Epistemos/Views/Workspace/ArtifactHostView.swift")
+
+        #expect(hostSource.contains("ArtifactRouteDeferredPanel("))
+        #expect(hostSource.contains("Deferred in v1"))
+        #expect(hostSource.contains("not a v1 production navigation surface"))
+        #expect(!hostSource.contains("ArtifactRoutePendingPanel"))
+        #expect(!hostSource.contains("Pending slice"))
+        #expect(!hostSource.contains("pendingSliceLabel"))
+        #expect(!hostSource.contains("T+4."))
+
+        let sourceRoot = try sourceMirrorURL(for: "Epistemos")
+        let sourceFiles = try Self.swiftSourceFiles(under: sourceRoot)
+        let mounts = try sourceFiles.compactMap { fileURL -> String? in
+            let relativePath = fileURL.path
+                .replacingOccurrences(of: sourceRoot.path + "/", with: "Epistemos/")
+            if relativePath == "Epistemos/Views/Workspace/ArtifactHostView.swift" {
+                return nil
+            }
+
+            let source = try String(contentsOf: fileURL, encoding: .utf8)
+            return source.contains("ArtifactHostView(") ? relativePath : nil
+        }
+
+        #expect(mounts.isEmpty,
+                "ArtifactHostView must stay unmounted while every destination is v1-deferred; mounts: \(mounts.sorted())")
+    }
+
+    private static func swiftSourceFiles(under root: URL) throws -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var files: [URL] = []
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension == "swift" else { continue }
+            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+            if values.isRegularFile == true {
+                files.append(fileURL)
+            }
+        }
+        return files
     }
 }

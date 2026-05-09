@@ -14,16 +14,101 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
-use super::web_fetch::{html_to_text, secure_redirect_policy, validate_url};
+use super::web_fetch::{
+    html_to_text, read_response_text_limited, secure_redirect_policy, validate_url,
+};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_EXTRACT_URLS: usize = 10;
 const MAX_CRAWL_PAGES: usize = 50;
 const MAX_CRAWL_DEPTH: u32 = 3;
 const MAX_EXTRACT_CONTENT_CHARS: usize = 32_000;
+const MAX_WEB_RESPONSE_BYTES: usize = 512 * 1024;
+const MAX_WEB_QUERY_CHARS: usize = 4_000;
+const MAX_WEB_URL_CHARS: usize = 4_096;
+const MAX_BACKEND_CHARS: usize = 64;
+
+fn required_string<'a>(
+    input: &'a Value,
+    field: &str,
+    max_chars: usize,
+) -> Result<&'a str, ToolError> {
+    let value = input
+        .get(field)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("missing '{field}'")))?;
+    let Some(text) = value.as_str() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' must be a string"
+        )));
+    };
+    if text.trim().is_empty() {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' cannot be blank"
+        )));
+    }
+    if text.chars().count() > max_chars {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' is too long (max {max_chars} chars)"
+        )));
+    }
+    Ok(text)
+}
+
+fn optional_string<'a>(
+    input: &'a Value,
+    field: &str,
+    max_chars: usize,
+) -> Result<Option<&'a str>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    let Some(text) = value.as_str() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' must be a string"
+        )));
+    };
+    if text.chars().count() > max_chars {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' is too long (max {max_chars} chars)"
+        )));
+    }
+    Ok(Some(text))
+}
+
+fn optional_u64_range(
+    input: &Value,
+    field: &str,
+    default: u64,
+    min: u64,
+    max: u64,
+) -> Result<u64, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(default);
+    };
+    let Some(number) = value.as_u64() else {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' must be an integer"
+        )));
+    };
+    if !(min..=max).contains(&number) {
+        return Err(ToolError::InvalidArguments(format!(
+            "'{field}' must be between {min} and {max}"
+        )));
+    }
+    Ok(number)
+}
+
+fn optional_bool(input: &Value, field: &str, default: bool) -> Result<bool, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(default);
+    };
+    value
+        .as_bool()
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a boolean")))
+}
 
 // MARK: - Shared HTTP client
 
@@ -117,16 +202,9 @@ impl WebSearchHandler {
 #[async_trait]
 impl ToolHandler for WebSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let query = input
-            .get("query")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("missing 'query'".into()))?;
-        let limit = input
-            .get("limit")
-            .and_then(Value::as_u64)
-            .unwrap_or(5)
-            .clamp(1, 20) as usize;
-        let backend_override = input.get("backend").and_then(Value::as_str);
+        let query = required_string(input, "query", MAX_WEB_QUERY_CHARS)?;
+        let limit = optional_u64_range(input, "limit", 5, 1, 20)? as usize;
+        let backend_override = optional_string(input, "backend", MAX_BACKEND_CHARS)?;
 
         let (backend, api_key) = detect_backend(backend_override)?;
 
@@ -166,7 +244,7 @@ async fn tavily_search(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("tavily request: {e}")))?;
+        .map_err(|e| ToolError::ExecutionFailed(describe_web_request_error("tavily", e)))?;
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
         return Err(ToolError::ExecutionFailed(format!("tavily HTTP {status}")));
@@ -174,7 +252,7 @@ async fn tavily_search(
     let body: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("tavily parse: {e}")))?;
+        .map_err(|_| ToolError::ExecutionFailed("tavily response parse failed".into()))?;
     let hits = body
         .get("results")
         .and_then(Value::as_array)
@@ -208,7 +286,7 @@ async fn brave_search(
         .query(&[("q", query), ("count", &limit.to_string())])
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("brave request: {e}")))?;
+        .map_err(|e| ToolError::ExecutionFailed(describe_web_request_error("brave", e)))?;
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
         return Err(ToolError::ExecutionFailed(format!("brave HTTP {status}")));
@@ -216,7 +294,7 @@ async fn brave_search(
     let body: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("brave parse: {e}")))?;
+        .map_err(|_| ToolError::ExecutionFailed("brave response parse failed".into()))?;
     let hits = body
         .get("web")
         .and_then(|w| w.get("results"))
@@ -262,7 +340,7 @@ async fn perplexity_search(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("perplexity request: {e}")))?;
+        .map_err(|e| ToolError::ExecutionFailed(describe_web_request_error("perplexity", e)))?;
     if !resp.status().is_success() {
         let status = resp.status().as_u16();
         return Err(ToolError::ExecutionFailed(format!(
@@ -272,7 +350,7 @@ async fn perplexity_search(
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("perplexity parse: {e}")))?;
+        .map_err(|_| ToolError::ExecutionFailed("perplexity response parse failed".into()))?;
 
     // Perplexity returns citations under `citations` (an array of URLs) in
     // addition to the chat content. Merge both into a uniform result list.
@@ -283,10 +361,11 @@ async fn perplexity_search(
         .unwrap_or_default();
     let mut results: Vec<Value> = citations
         .iter()
-        .enumerate()
+        .filter_map(Value::as_str)
+        .filter(|url| validate_url(url).is_ok())
         .take(limit)
-        .map(|(i, cite)| {
-            let url = cite.as_str().unwrap_or_default().to_string();
+        .enumerate()
+        .map(|(i, url)| {
             json!({
                 "url": url,
                 "title": "",
@@ -319,6 +398,23 @@ async fn perplexity_search(
         }
     }
     Ok(results)
+}
+
+fn describe_web_request_error(provider: &str, error: reqwest::Error) -> String {
+    let reason = if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connect"
+    } else if error.is_request() {
+        "request"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_decode() {
+        "decode"
+    } else {
+        "request"
+    };
+    format!("{provider} request failed: {reason}")
 }
 
 pub fn web_search_schema() -> crate::types::ToolSchema {
@@ -362,17 +458,7 @@ impl WebExtractHandler {
 #[async_trait]
 impl ToolHandler for WebExtractHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let urls: Vec<String> = if let Some(single) = input.get("url").and_then(Value::as_str) {
-            vec![single.to_string()]
-        } else if let Some(arr) = input.get("urls").and_then(Value::as_array) {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        } else {
-            return Err(ToolError::InvalidArguments(
-                "provide 'url' (string) or 'urls' (array)".into(),
-            ));
-        };
+        let urls = parse_extract_urls(input)?;
 
         if urls.is_empty() {
             return Err(ToolError::InvalidArguments("no URLs provided".into()));
@@ -421,19 +507,59 @@ impl ToolHandler for WebExtractHandler {
     }
 }
 
+fn parse_extract_urls(input: &Value) -> Result<Vec<String>, ToolError> {
+    if input.get("url").is_some() && input.get("urls").is_some() {
+        return Err(ToolError::InvalidArguments(
+            "provide either 'url' or 'urls', not both".into(),
+        ));
+    }
+    if input.get("url").is_some() {
+        return Ok(vec![
+            required_string(input, "url", MAX_WEB_URL_CHARS)?.to_string(),
+        ]);
+    }
+    if let Some(value) = input.get("urls") {
+        let Some(items) = value.as_array() else {
+            return Err(ToolError::InvalidArguments(
+                "'urls' must be an array".into(),
+            ));
+        };
+        let mut urls = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            let Some(url) = item.as_str() else {
+                return Err(ToolError::InvalidArguments(format!(
+                    "'urls[{index}]' must be a string"
+                )));
+            };
+            if url.trim().is_empty() {
+                return Err(ToolError::InvalidArguments(format!(
+                    "'urls[{index}]' cannot be blank"
+                )));
+            }
+            if url.chars().count() > MAX_WEB_URL_CHARS {
+                return Err(ToolError::InvalidArguments(format!(
+                    "'urls[{index}]' is too long (max {MAX_WEB_URL_CHARS} chars)"
+                )));
+            }
+            urls.push(url.to_string());
+        }
+        return Ok(urls);
+    }
+    Err(ToolError::InvalidArguments(
+        "provide 'url' (string) or 'urls' (array)".into(),
+    ))
+}
+
 async fn fetch_and_extract(client: &Client, url: String) -> Result<(String, String), String> {
     let response = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("fetch failed: {e}"))?;
+        .map_err(|_| "fetch failed".to_string())?;
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }
-    let body = response
-        .text()
-        .await
-        .map_err(|e| format!("read body: {e}"))?;
+    let (body, _) = read_response_text_limited(response, MAX_WEB_RESPONSE_BYTES).await?;
 
     // Try to grab the <title> tag before stripping HTML.
     let title = extract_title(&body);
@@ -527,25 +653,13 @@ impl WebCrawlHandler {
 #[async_trait]
 impl ToolHandler for WebCrawlHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let seed = input
-            .get("url")
-            .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("missing 'url'".into()))?;
+        let seed = required_string(input, "url", MAX_WEB_URL_CHARS)?;
         validate_url(seed).map_err(ToolError::ExecutionFailed)?;
-        let max_pages = input
-            .get("max_pages")
-            .and_then(Value::as_u64)
-            .unwrap_or(10)
-            .clamp(1, MAX_CRAWL_PAGES as u64) as usize;
-        let max_depth = input
-            .get("max_depth")
-            .and_then(Value::as_u64)
-            .unwrap_or(2)
-            .clamp(1, MAX_CRAWL_DEPTH as u64) as u32;
-        let same_host_only = input
-            .get("same_host_only")
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
+        let max_pages =
+            optional_u64_range(input, "max_pages", 10, 1, MAX_CRAWL_PAGES as u64)? as usize;
+        let max_depth =
+            optional_u64_range(input, "max_depth", 2, 1, MAX_CRAWL_DEPTH as u64)? as u32;
+        let same_host_only = optional_bool(input, "same_host_only", true)?;
 
         let seed_host = extract_host(seed).unwrap_or_default();
 
@@ -563,7 +677,20 @@ impl ToolHandler for WebCrawlHandler {
             }
             let fetch_result = self.client.get(&url).send().await;
             let body = match fetch_result {
-                Ok(resp) if resp.status().is_success() => resp.text().await.unwrap_or_default(),
+                Ok(resp) if resp.status().is_success() => {
+                    match read_response_text_limited(resp, MAX_WEB_RESPONSE_BYTES).await {
+                        Ok((body, _)) => body,
+                        Err(error) => {
+                            pages.push(json!({
+                                "url": url,
+                                "depth": depth,
+                                "success": false,
+                                "error": error,
+                            }));
+                            continue;
+                        }
+                    }
+                }
                 Ok(resp) => {
                     pages.push(json!({
                         "url": url,
@@ -578,7 +705,7 @@ impl ToolHandler for WebCrawlHandler {
                         "url": url,
                         "depth": depth,
                         "success": false,
-                        "error": format!("fetch: {e}"),
+                        "error": describe_web_request_error("web_crawl", e),
                     }));
                     continue;
                 }
@@ -616,7 +743,7 @@ impl ToolHandler for WebCrawlHandler {
                         continue;
                     }
                 }
-                if is_crate_web_private(&link) {
+                if validate_url(&link).is_err() {
                     continue;
                 }
                 visited.insert(link.clone());
@@ -639,10 +766,6 @@ impl ToolHandler for WebCrawlHandler {
     }
 }
 
-fn is_crate_web_private(url: &str) -> bool {
-    super::web_fetch::is_private_url(url)
-}
-
 fn extract_host(url: &str) -> Option<String> {
     let without_scheme = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
     let host = without_scheme
@@ -653,11 +776,7 @@ fn extract_host(url: &str) -> Option<String> {
         .next()
         .unwrap_or("")
         .to_ascii_lowercase();
-    if host.is_empty() {
-        None
-    } else {
-        Some(host)
-    }
+    if host.is_empty() { None } else { Some(host) }
 }
 
 fn extract_links(html: &str, base_url: &str) -> Vec<String> {
@@ -868,6 +987,28 @@ mod tests {
         }
     }
 
+    #[test]
+    fn web_request_errors_are_redacted() {
+        let request_error = reqwest::Client::builder()
+            .build()
+            .unwrap()
+            .get("https://example.com/search?q=secret")
+            .header("bad\nheader", "value")
+            .build()
+            .unwrap_err();
+        let msg = describe_web_request_error("brave", request_error);
+        assert!(msg.contains("brave request failed"));
+        assert!(!msg.contains("example.com"));
+        assert!(!msg.contains("secret"));
+    }
+
+    #[test]
+    fn web_search_args_reject_bad_limit_and_backend_types() {
+        assert!(optional_u64_range(&json!({ "limit": "5" }), "limit", 5, 1, 20).is_err());
+        assert!(optional_u64_range(&json!({ "limit": 21 }), "limit", 5, 1, 20).is_err());
+        assert!(optional_string(&json!({ "backend": 7 }), "backend", 64).is_err());
+    }
+
     #[tokio::test]
     async fn web_extract_rejects_too_many_urls() {
         let handler = WebExtractHandler::new().unwrap();
@@ -879,6 +1020,16 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn web_extract_rejects_non_string_url_entries() {
+        let handler = WebExtractHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({ "urls": ["https://example.com", 42] }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("urls[1]"));
+    }
+
+    #[tokio::test]
     async fn web_extract_rejects_private_urls() {
         let handler = WebExtractHandler::new().unwrap();
         let err = handler
@@ -886,6 +1037,28 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("private"));
+    }
+
+    #[tokio::test]
+    async fn web_crawl_rejects_invalid_bound_types_and_ranges() {
+        let handler = WebCrawlHandler::new().unwrap();
+        let non_integer = handler
+            .execute(&json!({ "url": "https://example.com", "max_pages": "2" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{non_integer}").contains("max_pages"));
+
+        let out_of_range = handler
+            .execute(&json!({ "url": "https://example.com", "max_depth": 99 }))
+            .await
+            .unwrap_err();
+        assert!(format!("{out_of_range}").contains("max_depth"));
+
+        let non_bool = handler
+            .execute(&json!({ "url": "https://example.com", "same_host_only": "true" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{non_bool}").contains("same_host_only"));
     }
 
     #[tokio::test]

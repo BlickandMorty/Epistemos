@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Epistemos MoLoRA — Per-Token Multi-Adapter Inference Engine
+Epistemos MoLoRA — Decide-Once Multi-Adapter Inference Engine
 
 Long-lived Python subprocess that serves inference with AdaFuse decide-once
-per-token routing across multiple LoRA adapters.
+prompt-level routing across multiple LoRA adapters.
 
 Protocol (stdin/stdout JSON lines):
   → {"type": "generate", "prompt": "...", "system_prompt": "...", "max_tokens": 512}
@@ -264,7 +264,7 @@ class MoLoRAModel:
 
     def generate_stream(self, prompt: str, system_prompt: str = None, max_tokens: int = 512):
         """
-        Generate tokens with per-token MoLoRA routing.
+        Generate tokens with prompt-level MoLoRA routing.
 
         AdaFuse decide-once: route at the prompt level (layer-0 hidden state),
         apply the same adapter to all layers for the entire generation.

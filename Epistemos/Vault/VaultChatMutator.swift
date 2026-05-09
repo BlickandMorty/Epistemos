@@ -448,7 +448,10 @@ private actor VaultMutationIO {
         #if !EPISTEMOS_APP_STORE
         try await ensureGitRepository(at: diff.repositoryRootURL)
         _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", diff.relativePath], in: diff.repositoryRootURL)
-        _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "commit", "-m", diff.commitMessage], in: diff.repositoryRootURL)
+        _ = try await runGitOffMain(
+            arguments: ["-C", diff.repositoryRootURL.path, "commit", "--no-verify", "-m", diff.commitMessage],
+            in: diff.repositoryRootURL
+        )
         return try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "rev-parse", "HEAD"], in: diff.repositoryRootURL)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         #else
@@ -456,13 +459,12 @@ private actor VaultMutationIO {
         // file write above is the durable user-facing effect of approving
         // the staged mutation -- VaultVerifiedFileWriter has already
         // landed the new bytes on disk and validated the readback. The
-        // git audit-log layer is a Pro/direct extra; in MAS we skip it
-        // honestly and return a placeholder reference so callers
+        // git audit-log layer is a Pro/direct extra; in MAS we record an
+        // explicit file-only reference so callers
         // (`VaultChatMutator.approvePendingDiff` -> stored in
-        // `lastCommitReference`) record the approval without faking a
-        // git SHA. Existing call sites discard the reference (see
-        // `EpistemosApp.swift` -> `_ = try await ... approvePendingDiff()`).
-        return "mas-skipped-\(UUID().uuidString)"
+        // `lastCommitReference`) can distinguish approved writes from
+        // git-backed commits without faking a SHA.
+        return "mas-file-only-\(UUID().uuidString)"
         #endif
     }
 
@@ -670,18 +672,12 @@ private actor VaultMutationIO {
                 DispatchQueue.global(qos: .utility).async {
                     let process = Process.init()
                     let outputPipe = Pipe()
-                    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-                    process.arguments = ["git"] + arguments
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+                    process.arguments = arguments
                     process.currentDirectoryURL = currentDirectoryURL
                     process.standardOutput = outputPipe
                     process.standardError = outputPipe
-
-                    var environment = ProcessInfo.processInfo.environment
-                    environment["GIT_AUTHOR_NAME"] = environment["GIT_AUTHOR_NAME"] ?? "Epistemos"
-                    environment["GIT_AUTHOR_EMAIL"] = environment["GIT_AUTHOR_EMAIL"] ?? "omega@epistemos.local"
-                    environment["GIT_COMMITTER_NAME"] = environment["GIT_COMMITTER_NAME"] ?? "Epistemos"
-                    environment["GIT_COMMITTER_EMAIL"] = environment["GIT_COMMITTER_EMAIL"] ?? "omega@epistemos.local"
-                    process.environment = environment
+                    process.environment = Self.gitEnvironment()
 
                     guard state.store(process: process, continuation: continuation) else {
                         continuation.resume(throwing: CancellationError())
@@ -728,9 +724,9 @@ private actor VaultMutationIO {
         }
         #else
         // Defense-in-depth. The MAS branch of `commit(diff:)` skips
-        // the git layer entirely and returns a placeholder reference,
-        // so this helper is never called in MAS production. Throwing
-        // here protects against a future caller that wires up a path
+        // the git layer entirely and returns a file-only reference, so
+        // this helper is never called in MAS production. Throwing here
+        // protects against a future caller that wires up a path
         // bypassing the early skip.
         _ = arguments
         _ = currentDirectoryURL
@@ -738,6 +734,21 @@ private actor VaultMutationIO {
             "git is not available in the App Store sandbox build; staged vault mutations are committed file-only without a git audit trail."
         )
         #endif
+    }
+
+    private nonisolated static func gitEnvironment() -> [String: String] {
+        [
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8",
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_AUTHOR_NAME": "Epistemos",
+            "GIT_AUTHOR_EMAIL": "omega@epistemos.local",
+            "GIT_COMMITTER_NAME": "Epistemos",
+            "GIT_COMMITTER_EMAIL": "omega@epistemos.local"
+        ]
     }
 }
 

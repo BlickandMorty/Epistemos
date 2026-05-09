@@ -36,6 +36,7 @@ nonisolated enum LocalAgentLoopError: LocalizedError, Equatable {
     case maxTurnsExceeded(Int)
     case invisibleRepairLoop(Int)
     case unsupportedModel(String)
+    case streamingGeneratorUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -45,6 +46,8 @@ nonisolated enum LocalAgentLoopError: LocalizedError, Equatable {
             return "Local agent stopped after \(attempts) consecutive empty repair turns."
         case .unsupportedModel(let modelID):
             return "\(modelID) is not approved for the local agent loop."
+        case .streamingGeneratorUnavailable:
+            return "Local agent reflex streaming is unavailable for this turn."
         }
     }
 }
@@ -535,7 +538,7 @@ actor LocalAgentLoop {
         onToken: @escaping @MainActor (String) -> Void
     ) async throws -> String? {
         guard let streamingGenerator else {
-            preconditionFailure("runReflexTurn called without streamingGenerator")
+            throw LocalAgentLoopError.streamingGeneratorUnavailable
         }
 
         let detector = IncrementalToolCallDetector()

@@ -1110,17 +1110,12 @@ struct NoteDetailWorkspaceView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
             let initialBodyOverride = currentModeBodySnapshot(for: page.id)
-            let readableWidth = NoteDualPreviewLayout.editorReadableWidth(
-                for: initialBodyOverride ?? currentEditorBody(for: page) ?? persistedBodyFor(page),
-                defaultWidth: NoteWorkspaceSurfaceStyle.editorCardSize(for: availableSize).width
-            )
             ProseEditorView(
                 page: page,
                 isEditable: true,
                 initialBodyOverride: initialBodyOverride
             )
-            .frame(width: readableWidth, alignment: .topLeading)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
     

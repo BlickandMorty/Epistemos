@@ -55,6 +55,12 @@ function walkDocument(node: JSONContent, visit: (entry: GraphEntry) => void): vo
   } else if (isGraphContentNode(node)) {
     const raw = textContent(node);
     if (isMarkdownFenceMarker(raw)) return;
+    if (isMarkdownTableSeparator(raw)) return;
+    const image = markdownImageLabel(raw);
+    if (image) {
+      visit({ label: image, kind: 'image' });
+      return;
+    }
     const label = conciseLabel(raw);
     if (label) visit({ label, kind: classifyText(raw) });
   } else if (node.type === 'codeBlock' || node.type === 'code_block') {
@@ -136,17 +142,17 @@ function labelForKind(entry: GraphEntry): string {
 }
 
 function appendClassDefs(lines: string[]): void {
-  lines.push('  classDef root fill:#172033,stroke:#172033,color:#ffffff,stroke-width:2px;');
-  lines.push('  classDef section fill:#eaf3ff,stroke:#5277a0,color:#172033,stroke-width:2px;');
-  lines.push('  classDef claim fill:#f8fafc,stroke:#6b7f99,color:#172033;');
-  lines.push('  classDef evidence fill:#fff7ed,stroke:#d69e2e,color:#422006;');
-  lines.push('  classDef question fill:#f0f9ff,stroke:#38a3c7,color:#123246;');
-  lines.push('  classDef method fill:#f6f1ff,stroke:#8b6bd6,color:#271a48;');
-  lines.push('  classDef link fill:#eff6ff,stroke:#3a86ff,color:#17335f;');
-  lines.push('  classDef code fill:#eef2f7,stroke:#56687f,color:#172033;');
-  lines.push('  classDef diagram fill:#ecfdf5,stroke:#2f9e6d,color:#123524;');
-  lines.push('  classDef image fill:#fff1f2,stroke:#e06c85,color:#4a1421;');
-  lines.push('  classDef gap fill:#fff7ed,stroke:#d69e2e,color:#422006,stroke-dasharray: 4 3;');
+  lines.push('  classDef root fill:#172033,stroke:#172033,color:#ffffff,stroke-width:2px');
+  lines.push('  classDef section fill:#eaf3ff,stroke:#5277a0,color:#172033,stroke-width:2px');
+  lines.push('  classDef claim fill:#f8fafc,stroke:#6b7f99,color:#172033');
+  lines.push('  classDef evidence fill:#fff7ed,stroke:#d69e2e,color:#422006');
+  lines.push('  classDef question fill:#f0f9ff,stroke:#38a3c7,color:#123246');
+  lines.push('  classDef method fill:#f6f1ff,stroke:#8b6bd6,color:#271a48');
+  lines.push('  classDef link fill:#eff6ff,stroke:#3a86ff,color:#17335f');
+  lines.push('  classDef code fill:#eef2f7,stroke:#56687f,color:#172033');
+  lines.push('  classDef diagram fill:#ecfdf5,stroke:#2f9e6d,color:#123524');
+  lines.push('  classDef image fill:#fff1f2,stroke:#e06c85,color:#4a1421');
+  lines.push('  classDef gap fill:#fff7ed,stroke:#d69e2e,color:#422006,stroke-dasharray:4 3');
 }
 
 function textContent(node: JSONContent): string {
@@ -156,11 +162,7 @@ function textContent(node: JSONContent): string {
 }
 
 function conciseLabel(text: string, wordLimit = 8): string | null {
-  const cleaned = text
-    .replace(/\[\[|\]\]/g, '')
-    .replace(/`+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const cleaned = normalizeGraphLabelText(text);
   if (cleaned.length === 0) return null;
   const sentence = cleaned.split(/[.!?]\s+/)[0] ?? cleaned;
   const words = sentence.split(/\s+/).filter(Boolean).slice(0, wordLimit);
@@ -170,6 +172,50 @@ function conciseLabel(text: string, wordLimit = 8): string | null {
 
 function isMarkdownFenceMarker(text: string): boolean {
   return /^```[\w-]*\s*$/.test(text.trim());
+}
+
+function isMarkdownTableSeparator(text: string): boolean {
+  return /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(text.trim());
+}
+
+function markdownImageLabel(text: string): string | null {
+  const match = text.trim().match(/^!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"\n]+")?\)$/);
+  if (!match) return null;
+  const alt = match[1]?.trim();
+  if (alt) return conciseLabel(alt, 7) ?? 'Image evidence';
+  const src = match[2]?.trim() ?? '';
+  const filename = src.split(/[/?#]/).filter(Boolean).at(-1) ?? '';
+  return conciseLabel(filename, 7) ?? 'Image evidence';
+}
+
+function normalizeGraphLabelText(text: string): string {
+  const trimmed = text.trim();
+  const tableCells = markdownTableCells(trimmed);
+  if (tableCells.length > 0) return tableCells.join(' / ');
+
+  return trimmed
+    .replace(/!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"\n]+")?\)/g, (_match, alt, src) => {
+      const label = String(alt).trim();
+      if (label.length > 0) return label;
+      return String(src).split(/[/?#]/).filter(Boolean).at(-1) ?? 'Image evidence';
+    })
+    .replace(/\[([^\]\n]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g, (_match, target, alias) => String(alias || target))
+    .replace(/`+/g, '')
+    .replace(/[|{}<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function markdownTableCells(text: string): string[] {
+  if (!text.includes('|')) return [];
+  const trimmed = text.trim();
+  if (!/^\|.*\|$/.test(trimmed)) return [];
+  if (isMarkdownTableSeparator(trimmed)) return [];
+  return trimmed
+    .split('|')
+    .map((cell) => normalizeGraphLabelText(cell))
+    .filter((cell) => cell.length > 0);
 }
 
 function wikilinkLabels(text: string): string[] {
@@ -189,6 +235,8 @@ function escapeMermaidLabel(label: string): string {
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/`+/g, "'")
+    .replace(/\|/g, ' / ')
     .replace(/\[/g, '(')
-    .replace(/\]/g, ')');
+    .replace(/\]/g, ')')
+    .replace(/[{}<>]/g, ' ');
 }

@@ -15,11 +15,44 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::bridge::AgentEventDelegate;
 
 use super::registry::{ToolError, ToolHandler};
+
+const MAX_APP_NAME_CHARS: usize = 120;
+const MAX_INTERACT_TARGET_CHARS: usize = 2_000;
+const MAX_INTERACT_VALUE_CHARS: usize = 64 * 1024;
+const MAX_WATCH_TARGET_CHARS: usize = 4_096;
+const MAX_WATCH_CONDITION_CHARS: usize = 2_000;
+const MAX_DELEGATE_RESPONSE_CHARS: usize = 256 * 1024;
+const MIN_WATCH_TIMEOUT_SECS: u64 = 1;
+const MAX_WATCH_TIMEOUT_SECS: u64 = 600;
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    let count = value.chars().count();
+    if count > cap {
+        return Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn parse_delegate_json(tool_name: &str, response: String) -> Result<Value, ToolError> {
+    if response.chars().count() > MAX_DELEGATE_RESPONSE_CHARS {
+        return Err(ToolError::ExecutionFailed(format!(
+            "{tool_name} delegate response exceeded {MAX_DELEGATE_RESPONSE_CHARS} character cap"
+        )));
+    }
+
+    serde_json::from_str(&response).map_err(|_| {
+        ToolError::ExecutionFailed(format!(
+            "{tool_name} delegate returned non-JSON response; raw output redacted"
+        ))
+    })
+}
 
 // MARK: - perceive
 
@@ -41,9 +74,15 @@ impl ToolHandler for PerceiveHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'app_name'".into()))?
             .to_string();
+        ensure_char_cap("app_name", &app_name, MAX_APP_NAME_CHARS)?;
         let depth = input
             .get("depth")
-            .and_then(Value::as_str)
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| ToolError::InvalidArguments("'depth' must be a string".into()))
+            })
+            .transpose()?
             .unwrap_or("fast")
             .to_string();
         if !matches!(depth.as_str(), "fast" | "enriched" | "full") {
@@ -63,10 +102,7 @@ impl ToolHandler for PerceiveHandler {
         .await
         .map_err(|e| ToolError::ExecutionFailed(format!("perceive join: {e}")))?;
 
-        // Re-wrap the Swift response so the agent always sees a well-formed
-        // object, even if the Swift side returned a degenerate payload.
-        let parsed: Value = serde_json::from_str(&payload)
-            .unwrap_or_else(|_| json!({ "raw": payload, "error": "non-json delegate response" }));
+        let parsed = parse_delegate_json("perceive", payload)?;
         Ok(json!({
             "app_name": app_name,
             "depth": depth,
@@ -81,8 +117,9 @@ pub fn perceive_schema() -> crate::types::ToolSchema {
         name: "perceive".to_string(),
         description: "Specialty A1 — fused AX + Vision + VLM percept of any running macOS app. \
              Returns structured UI elements (role, label, position, ref) so you can target them \
-             with the 'interact' tool. depth='fast' (AX only, <50ms), 'enriched' (AX + OCR, \
-             <200ms), 'full' (AX + OCR + full VLM screenshot analysis)."
+             with the 'interact' tool. depth='fast' requests AX-only percepts, 'enriched' requests \
+             AX + OCR, and 'full' requests AX + OCR + screenshot analysis when the host delegate \
+             has the required permissions."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -118,6 +155,7 @@ impl ToolHandler for InteractHandler {
             .get("app_name")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'app_name'".into()))?;
+        ensure_char_cap("app_name", app_name, MAX_APP_NAME_CHARS)?;
         let action = input
             .get("action")
             .and_then(Value::as_str)
@@ -134,12 +172,24 @@ impl ToolHandler for InteractHandler {
             .get("target")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'target'".into()))?;
+        ensure_char_cap("target", target, MAX_INTERACT_TARGET_CHARS)?;
+        let value = input
+            .get("value")
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| ToolError::InvalidArguments("'value' must be a string".into()))
+            })
+            .transpose()?;
+        if let Some(value) = value {
+            ensure_char_cap("value", value, MAX_INTERACT_VALUE_CHARS)?;
+        }
 
         let payload = json!({
             "app_name": app_name,
             "action": action,
             "target": target,
-            "value": input.get("value").cloned().unwrap_or(Value::Null),
+            "value": value.map(Value::from).unwrap_or(Value::Null),
         })
         .to_string();
 
@@ -148,8 +198,7 @@ impl ToolHandler for InteractHandler {
             .await
             .map_err(|e| ToolError::ExecutionFailed(format!("interact join: {e}")))?;
 
-        let parsed: Value = serde_json::from_str(&response)
-            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
+        let parsed = parse_delegate_json("interact", response)?;
         Ok(parsed.to_string())
     }
 }
@@ -207,15 +256,31 @@ impl ToolHandler for ScreenWatchHandler {
             .get("target")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'target'".into()))?;
+        ensure_char_cap("target", target, MAX_WATCH_TARGET_CHARS)?;
         let condition = input
             .get("condition")
-            .and_then(Value::as_str)
+            .map(|value| {
+                value.as_str().ok_or_else(|| {
+                    ToolError::InvalidArguments("'condition' must be a string".into())
+                })
+            })
+            .transpose()?
             .unwrap_or("changes");
+        ensure_char_cap("condition", condition, MAX_WATCH_CONDITION_CHARS)?;
         let timeout_secs = input
             .get("timeout_secs")
-            .and_then(Value::as_u64)
-            .unwrap_or(60)
-            .clamp(1, 600);
+            .map(|value| {
+                value.as_u64().ok_or_else(|| {
+                    ToolError::InvalidArguments("'timeout_secs' must be an integer".into())
+                })
+            })
+            .transpose()?
+            .unwrap_or(60);
+        if !(MIN_WATCH_TIMEOUT_SECS..=MAX_WATCH_TIMEOUT_SECS).contains(&timeout_secs) {
+            return Err(ToolError::InvalidArguments(format!(
+                "timeout_secs must be between {MIN_WATCH_TIMEOUT_SECS} and {MAX_WATCH_TIMEOUT_SECS}"
+            )));
+        }
 
         let payload = json!({
             "mode": mode,
@@ -230,13 +295,7 @@ impl ToolHandler for ScreenWatchHandler {
             .await
             .map_err(|e| ToolError::ExecutionFailed(format!("screen_watch join: {e}")))?;
 
-        let parsed: Value = serde_json::from_str(&response).unwrap_or_else(|_| {
-            json!({
-                "raw": response,
-                "triggered": false,
-                "error": "non-json delegate response"
-            })
-        });
+        let parsed = parse_delegate_json("screen_watch", response)?;
         Ok(parsed.to_string())
     }
 }
@@ -372,6 +431,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn perceive_rejects_oversized_app_name() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new("{}", "{}", "{}"));
+        let handler = PerceiveHandler::new(delegate);
+        let app_name = "a".repeat(MAX_APP_NAME_CHARS + 1);
+        let err = handler
+            .execute(&json!({ "app_name": app_name }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("app_name exceeds"));
+    }
+
+    #[tokio::test]
+    async fn perceive_rejects_non_json_delegate_without_echoing_raw() {
+        let raw = "not json sk-secret-token";
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new(raw, "{}", "{}"));
+        let handler = PerceiveHandler::new(delegate);
+        let err = handler
+            .execute(&json!({ "app_name": "Finder" }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[tokio::test]
     async fn interact_forwards_action_payload() {
         let delegate: Arc<dyn AgentEventDelegate> = Arc::new(RecordingDelegate::new(
             "{}",
@@ -409,6 +496,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn interact_rejects_non_string_value() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new("{}", "{}", "{}"));
+        let handler = InteractHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "app_name": "Finder",
+                "action": "type",
+                "target": "search",
+                "value": 7
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("value"));
+    }
+
+    #[tokio::test]
+    async fn interact_rejects_oversized_value() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new("{}", "{}", "{}"));
+        let handler = InteractHandler::new(delegate);
+        let value = "v".repeat(MAX_INTERACT_VALUE_CHARS + 1);
+        let err = handler
+            .execute(&json!({
+                "app_name": "Finder",
+                "action": "type",
+                "target": "search",
+                "value": value
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("value exceeds"));
+    }
+
+    #[tokio::test]
+    async fn interact_rejects_non_json_delegate_without_echoing_raw() {
+        let raw = "not json api_key=do-not-leak";
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new("{}", raw, "{}"));
+        let handler = InteractHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "app_name": "Finder",
+                "action": "click",
+                "target": "Save"
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("api_key"));
+    }
+
+    #[tokio::test]
     async fn screen_watch_forwards_mode_and_condition() {
         let delegate: Arc<dyn AgentEventDelegate> = Arc::new(RecordingDelegate::new(
             "{}",
@@ -440,5 +581,39 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("mode"));
+    }
+
+    #[tokio::test]
+    async fn screen_watch_rejects_invalid_timeout() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new("{}", "{}", "{}"));
+        let handler = ScreenWatchHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "mode": "app_state",
+                "target": "Finder",
+                "timeout_secs": MAX_WATCH_TIMEOUT_SECS + 1
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("timeout_secs"));
+    }
+
+    #[tokio::test]
+    async fn screen_watch_rejects_non_json_delegate_without_echoing_raw() {
+        let raw = "not json password=do-not-leak";
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(RecordingDelegate::new("{}", "{}", raw));
+        let handler = ScreenWatchHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "mode": "app_state",
+                "target": "Finder"
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("password"));
     }
 }

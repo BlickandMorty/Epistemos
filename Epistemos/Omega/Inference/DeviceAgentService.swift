@@ -29,6 +29,7 @@ final class DeviceAgentService {
     /// embedding-similarity match when confidence is high enough. Runs on the
     /// Apple Neural Engine via NLContextualEmbedding / Core ML.
     private var contextualResolver: AppleContextualActionResolver?
+    private var contextualResolverAttempted = false
 
     /// Hardware tier for capability checks.
     private let hardwareTier: HardwareTierManager
@@ -66,18 +67,6 @@ final class DeviceAgentService {
         log.info("Device agent backend set: \(backend.name, privacy: .public), ANE: \(backend.usesANE)")
     }
 
-    /// Enable the Apple Neural Engine contextual resolver. When the
-    /// NLContextualEmbedding assets are present on the device, this resolver
-    /// intercepts UI action resolution and produces a selector via pure
-    /// embedding similarity — which is genuinely Brain 2 ANE execution with
-    /// no custom Core ML model required. If assets are not installed, the
-    /// resolver stays dormant and all calls fall through to the LLM backend.
-    func installContextualResolver() {
-        let resolver = AppleContextualActionResolver()
-        self.contextualResolver = resolver
-        log.info("Contextual ANE resolver installed (ready=\(resolver.isReady))")
-    }
-
     /// Parse an AX tree and identify the target element for an action.
     /// Returns structured JSON: {"selector": "...", "confidence": 0.95, "action": "click"}
     func resolveUIAction(
@@ -88,7 +77,7 @@ final class DeviceAgentService {
         // high-confidence match, we skip the LLM backend entirely — the
         // embedding similarity is deterministic and runs in single-digit ms
         // on the Neural Engine versus ~500ms for an LLM turn.
-        if let resolver = contextualResolver, resolver.isReady,
+        if let resolver = contextualResolverIfAvailable(),
            let fastResult = resolver.resolve(axTreeJson: axTreeJson, intent: userIntent),
            fastResult.confidence >= minimumResolutionConfidence {
             lastLatencyMs = fastResult.latencyMs
@@ -156,6 +145,28 @@ final class DeviceAgentService {
             return 0.5 // Uncertain fallback
         }
         return min(1.0, max(0.0, confidence))
+    }
+
+    /// Lazily enable the Apple Neural Engine contextual resolver. Constructing
+    /// `NLContextualEmbedding` can load Apple language assets, so passive app
+    /// launch leaves it cold. The first real device-action resolution may pay
+    /// that setup cost; if assets are unavailable we remember that and fall
+    /// through to the LLM backend for the session.
+    private func contextualResolverIfAvailable() -> AppleContextualActionResolver? {
+        if let contextualResolver {
+            return contextualResolver.isReady ? contextualResolver : nil
+        }
+        guard !contextualResolverAttempted else { return nil }
+        contextualResolverAttempted = true
+
+        let resolver = AppleContextualActionResolver()
+        guard resolver.isReady else {
+            log.info("Contextual ANE resolver unavailable; using device-action backend")
+            return nil
+        }
+        contextualResolver = resolver
+        log.info("Contextual ANE resolver installed lazily")
+        return resolver
     }
 
     // MARK: - Prompt Construction
@@ -257,6 +268,43 @@ final class AppleOnDeviceBackend: DeviceInferenceBackend {
                 prompt: prompt,
                 systemPrompt: systemPrompt
             )
+        }
+    }
+}
+
+/// Keeps passive launch local-first while preserving Apple Intelligence as a
+/// request-time fallback. FoundationModels availability is intentionally not
+/// queried while AppBootstrap is choosing the backend.
+@MainActor
+final class SharedGPUAppleFallbackBackend: DeviceInferenceBackend {
+    nonisolated let name = "SharedGPU+AppleFallback"
+    nonisolated let usesANE = false
+
+    private let sharedGPUBackend: SharedGPUBackend
+
+    init(sharedGPUBackend: SharedGPUBackend) {
+        self.sharedGPUBackend = sharedGPUBackend
+    }
+
+    nonisolated func generate(prompt: String, systemPrompt: String, maxTokens: Int) async throws -> String {
+        do {
+            return try await sharedGPUBackend.generate(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens
+            )
+        } catch {
+            let sharedError = error
+            do {
+                return try await withTimedMainActorBridge {
+                    try await AppleIntelligenceService.shared.generate(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt
+                    )
+                }
+            } catch {
+                throw sharedError
+            }
         }
     }
 }
@@ -385,12 +433,14 @@ enum DeviceActionType: String, Sendable {
 
 enum DeviceAgentError: Error, LocalizedError {
     case backendNotReady
+    case backendUnavailable(String)
     case lowConfidence(Double)
     case selectorNotFound(String)
 
     var errorDescription: String? {
         switch self {
         case .backendNotReady: "Device agent backend not initialized"
+        case .backendUnavailable(let message): message
         case .lowConfidence(let c): "Low confidence (\(String(format: "%.2f", c))) — requires user verification"
         case .selectorNotFound(let s): "UI element not found: \(s)"
         }
@@ -536,12 +586,15 @@ final class AppleContextualActionResolver {
 /// a known support-directory path and wraps it as a `DeviceInferenceBackend`
 /// that executes on the Apple Neural Engine via `MLComputeUnits.cpuAndNeuralEngine`.
 ///
-/// The loader is permissive: if no model is present, it returns nil and the
-/// DeviceAgentService falls through to its existing backends. This is the
-/// future-ready slot that lets a user drop in a converted action model without
-/// any additional wiring.
+/// The slot is preserved but disabled for v1. A compiled model alone is not
+/// enough to run a safe action backend; the app also needs concrete input/output
+/// feature mapping, validation, and rollback behavior. Until that exists,
+/// `loadIfAvailable` returns nil so DeviceAgentService keeps using its live
+/// AppleOnDevice / SharedGPU backends.
 @MainActor
 enum CoreMLActionBackendLoader {
+    static let actionModelFeatureMappingEnabled = false
+
     static func standardModelURL() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
@@ -552,6 +605,8 @@ enum CoreMLActionBackendLoader {
     }
 
     static func loadIfAvailable(url: URL = standardModelURL()) -> CoreMLActionBackend? {
+        guard actionModelFeatureMappingEnabled else { return nil }
+
         let compiled = resolveCompiledModelURL(baseDir: url) ?? resolveCompiledModelURL(baseDir: url.deletingLastPathComponent())
         guard let compiled else { return nil }
         let config = MLModelConfiguration()
@@ -580,10 +635,10 @@ enum CoreMLActionBackendLoader {
     }
 }
 
-/// Minimal Core ML backend stub. Real inference wiring requires knowing the
-/// model's input/output feature names, so this backend returns a low-confidence
-/// structured response. Replace the `generate(...)` body with the real feature
-/// mapping once an action model is selected.
+/// Deferred Core ML backend shell. Real inference wiring requires knowing the
+/// model's input/output feature names, validation behavior, and rollback path.
+/// If this backend is constructed directly before the loader gate is opened, it
+/// fails honestly instead of returning fake action JSON.
 @MainActor
 final class CoreMLActionBackend: DeviceInferenceBackend {
     nonisolated let name = "CoreML-ANE"
@@ -601,9 +656,8 @@ final class CoreMLActionBackend: DeviceInferenceBackend {
     }
 
     nonisolated func generate(prompt _: String, systemPrompt _: String, maxTokens _: Int) async throws -> String {
-        // Hook point: a bundled action model would map (prompt, ax tree) → selector.
-        // Until a concrete model ships, return a structured "not implemented"
-        // response so callers transparently fall back to the LLM path.
-        return #"{"selector":"","action":"AXPress","confidence":0.0,"note":"coreml-action-backend-stub"}"#
+        throw DeviceAgentError.backendUnavailable(
+            "Core ML action backend is deferred until action-model feature mapping is implemented."
+        )
     }
 }

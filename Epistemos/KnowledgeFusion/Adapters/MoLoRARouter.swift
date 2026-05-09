@@ -2,8 +2,9 @@ import Foundation
 
 // MARK: - MoLoRA Router
 
-/// Mixture of LoRA Experts: routes inference through multiple adapters simultaneously.
-/// Per-token routing selects the best adapter(s) based on task intent.
+/// Mixture of LoRA Experts: routes inference through active adapter choices.
+/// The v1 Swift router performs intent routing; prompt-level AdaFuse
+/// decide-once routing is only available through the optional Pro subprocess.
 ///
 /// CRITICAL: Never fuse adapters permanently into the base model.
 /// Hot-swap only — fusion causes throughput collapse (~21 tok/s → ~7 tok/s on MLX).
@@ -25,7 +26,7 @@ final class MoLoRARouter {
         return path
     }
 
-    /// Whether MoLoRA per-token routing is available (requires centroids + 2+ adapters).
+    /// Whether decide-once MoLoRA routing is available (requires centroids + 2+ adapters).
     var isMoLoRAAvailable: Bool {
         centroidsPath != nil && activeAdapters.count >= 2
     }

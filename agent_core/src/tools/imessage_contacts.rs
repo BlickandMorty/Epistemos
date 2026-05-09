@@ -21,9 +21,9 @@ use std::sync::{Mutex, OnceLock};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -141,6 +141,24 @@ fn contact_to_json(c: &ContactConfig) -> Value {
     })
 }
 
+fn parse_route_tool_tier(input: &Value) -> Result<String, ToolError> {
+    let tool_tier = input
+        .get("tool_tier")
+        .and_then(Value::as_str)
+        .unwrap_or("chat_pro")
+        .to_string();
+    match tool_tier.as_str() {
+        "none" | "chat_lite" | "chat_pro" | "agent" => Ok(tool_tier),
+        "full" => Err(ToolError::InvalidArguments(
+            "tool_tier 'full' is not allowed for iMessage contact routes; use 'agent' at most"
+                .to_string(),
+        )),
+        _ => Err(ToolError::InvalidArguments(format!(
+            "tool_tier '{tool_tier}' invalid"
+        ))),
+    }
+}
+
 // MARK: - Handler
 
 pub struct IMessageContactsHandler;
@@ -243,19 +261,7 @@ fn set_contact(input: &Value) -> Result<String, ToolError> {
         .get("display_name")
         .and_then(Value::as_str)
         .map(String::from);
-    let tool_tier = input
-        .get("tool_tier")
-        .and_then(Value::as_str)
-        .unwrap_or("chat_pro")
-        .to_string();
-    if !matches!(
-        tool_tier.as_str(),
-        "none" | "chat_lite" | "chat_pro" | "agent" | "full"
-    ) {
-        return Err(ToolError::InvalidArguments(format!(
-            "tool_tier '{tool_tier}' invalid"
-        )));
-    }
+    let tool_tier = parse_route_tool_tier(input)?;
     let prompt_mode = input
         .get("prompt_mode")
         .and_then(Value::as_str)
@@ -445,7 +451,7 @@ pub fn imessage_contacts_schema() -> crate::types::ToolSchema {
                 "model": { "type": "string", "description": "Model id like 'qwen-2b', 'claude-sonnet-4-6'." },
                 "tool_tier": {
                     "type": "string",
-                    "enum": ["none", "chat_lite", "chat_pro", "agent", "full"],
+                    "enum": ["none", "chat_lite", "chat_pro", "agent"],
                     "default": "chat_pro"
                 },
                 "prompt_mode": {
@@ -703,6 +709,33 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("tool_tier"));
+    }
+
+    #[tokio::test]
+    async fn set_rejects_full_tool_tier_for_contact_routes() {
+        let _gate = lock_tests();
+        let _db = TempDb::new();
+        let handler = IMessageContactsHandler;
+        let err = handler
+            .execute(&json!({
+                "action": "set",
+                "handle": "full@example.com",
+                "model": "qwen-2b",
+                "tool_tier": "full"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("not allowed"));
+    }
+
+    #[test]
+    fn schema_caps_contact_tool_tier_at_agent() {
+        let schema = imessage_contacts_schema();
+        let tiers = schema.parameters["properties"]["tool_tier"]["enum"]
+            .as_array()
+            .unwrap();
+        assert!(!tiers.iter().any(|tier| tier.as_str() == Some("full")));
+        assert!(tiers.iter().any(|tier| tier.as_str() == Some("agent")));
     }
 
     #[tokio::test]

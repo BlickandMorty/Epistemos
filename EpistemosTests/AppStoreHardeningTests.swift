@@ -465,20 +465,19 @@ struct AppStoreHardeningTests {
         let processInsideMessage: Comment = "VaultChatMutator.swift no longer has Process.init( inside any `#if !EPISTEMOS_APP_STORE` block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
         #expect(processScan.insideExcludedBlock, processInsideMessage)
 
-        // Second marker: the git-launch argument list. Catches the case
+        // Second marker: the git executable selection. Catches the case
         // where someone keeps `Process.init` gated but moves the
-        // git-specific configuration (`process.arguments = ["git"] + ...`)
-        // outside the gate -- which would silently make MAS prepare a
-        // git command even if it cannot run it. Both halves must agree
-        // on the gate.
-        let gitArgsScan = scanForMarkerInGateBranches(
+        // git-specific executable configuration outside the gate --
+        // which would silently make MAS prepare a git command even if
+        // it cannot run it. Both halves must agree on the gate.
+        let gitExecutableScan = scanForMarkerInGateBranches(
             source: source,
-            marker: "process.arguments = [\"git\"]"
+            marker: "process.executableURL = URL(fileURLWithPath: \"/usr/bin/git\")"
         )
-        let gitArgsOutsideMessage: Comment = "VaultChatMutator.swift contains `process.arguments = [\"git\"]` OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. Even if Process.init( is gated, leaking the git-specific argv prep is a sign that the surgical gate has drifted."
-        #expect(!gitArgsScan.outsideExcludedBlock, gitArgsOutsideMessage)
-        let gitArgsInsideMessage: Comment = "VaultChatMutator.swift no longer has `process.arguments = [\"git\"]` inside a `#if !EPISTEMOS_APP_STORE` block, but the file still contains the substring elsewhere. The Pro git-launch shape may have been refactored away; restore it or update this test."
-        #expect(gitArgsScan.insideExcludedBlock, gitArgsInsideMessage)
+        let gitExecutableOutsideMessage: Comment = "VaultChatMutator.swift contains `/usr/bin/git` executable setup OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. Even if Process.init( is gated, leaking the git-specific executable prep is a sign that the surgical gate has drifted."
+        #expect(!gitExecutableScan.outsideExcludedBlock, gitExecutableOutsideMessage)
+        let gitExecutableInsideMessage: Comment = "VaultChatMutator.swift no longer has `/usr/bin/git` executable setup inside a `#if !EPISTEMOS_APP_STORE` block, but the file still contains Process.init(. The Pro git-launch shape may have been refactored away; restore it or update this test."
+        #expect(gitExecutableScan.insideExcludedBlock, gitExecutableInsideMessage)
     }
 
     // MARK: - KnowledgeFusion subprocess-marker regressions (Phase S.2)
@@ -575,9 +574,9 @@ struct AppStoreHardeningTests {
                 "try proc.run()",
             ]
         ),
-        // PythonEnvironmentManager has the Process API markers AND
-        // the installer-pipeline literals (Homebrew installer, brew
-        // install, env-which python sweep).
+        // PythonEnvironmentManager keeps the Pro/direct venv and pip
+        // subprocess path, but must not carry runtime Homebrew/Python
+        // installer-pipeline literals.
         KFMASGateSpec(
             pathComponents: ["KnowledgeFusion", "PythonEnvironmentManager.swift"],
             markers: [
@@ -585,10 +584,6 @@ struct AppStoreHardeningTests {
                 "process.executableURL",
                 "process.arguments",
                 "try process.run()",
-                "/bin/bash",
-                "curl",
-                "/opt/homebrew/bin/brew",
-                "/usr/bin/env",
             ]
         ),
     ]

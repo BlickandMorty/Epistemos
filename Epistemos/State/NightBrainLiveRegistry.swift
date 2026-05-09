@@ -6,10 +6,10 @@ import os
 /// — register / list / run / preempt+reset — as a clean Swift surface
 /// other parts of the app can drive without touching UniFFI directly.
 ///
-/// Closes the "Swift/UniFFI exposure of the Rust NightBrain scheduler
-/// registry is not wired yet" follow-up flagged after the b118d361
-/// pass. Before this wrapper, AppBootstrap called the FFI directly
-/// once at startup but the rest of the app had no surface to:
+/// Exposes the Rust NightBrain scheduler registry follow-up flagged
+/// after the b118d361 pass. Before this wrapper, AppBootstrap called
+/// the FFI directly once at startup but the rest of the app had no
+/// surface to:
 ///
 /// - Trigger an ad-hoc live run (e.g. from the Provenance Console
 ///   diagnostics row's "Run NightBrain pass now" button)
@@ -64,9 +64,10 @@ final class NightBrainLiveRegistry: Sendable {
     /// Returns per-task outcome strings ("name:status:items_processed").
     /// Honours cooperative cancellation via `preempt()`.
     ///
-    /// Today the canonical tasks are NoOp implementations (see Rust
-    /// nightbrain::live::NoOpTask) — real bodies replace them
-    /// incrementally without changing this surface.
+    /// Today the canonical live tasks are NoOp implementations (see
+    /// Rust nightbrain::live::NoOpTask). They report `skipped` rather
+    /// than `complete` until real bodies replace them incrementally
+    /// without changing this surface.
     nonisolated func runRegisteredTasks() -> [String] {
         #if canImport(agent_coreFFI)
         let outcomes = nightbrainRunLiveRegisteredTasks()

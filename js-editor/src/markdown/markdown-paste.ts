@@ -442,7 +442,7 @@ function isSafeHref(href: string): boolean {
   return /^(https?:|epistemos-doc:|mailto:)/i.test(href);
 }
 
-function isSafeImageSrc(src: string): boolean {
+export function isSafeImageSrc(src: string): boolean {
   return /^(https?:|epistemos-doc:|data:image\/)/i.test(src)
     && !/[\u0000-\u001F<>"']/.test(src);
 }

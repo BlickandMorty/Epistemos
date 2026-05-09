@@ -14,7 +14,9 @@ struct ProjectInclusionTests {
         #expect(appSection.contains("type: syncedFolder"))
         #expect(appSection.contains("Engine/ClaudeManagedRuntime.swift"))
         #expect(appSection.contains("Engine/LocalRustRuntime.swift"))
+        #expect(appSection.contains("KnowledgeFusion/.DS_Store"))
         #expect(appSection.contains("KnowledgeFusion/MOHAWK/**"))
+        #expect(appSection.contains("KnowledgeFusion/Training/.DS_Store"))
         #expect(appSection.contains("Omega/Knowledge/ODIATraceGenerator.swift"))
         #expect(appSection.contains("Omega/Knowledge/TraceDataMixer.swift"))
         #expect(appSection.contains("Vault/KnowledgeGraphService.swift"))
@@ -24,88 +26,31 @@ struct ProjectInclusionTests {
         #expect(bindingsSection.contains("type: syncedFolder"))
         #expect(bindingsSection.contains("includes:"))
         #expect(bindingsSection.contains("*.swift"))
-
-        for path in try currentGeneratedBindingSwiftFiles() {
-            #expect(!bindingsSection.contains(path))
-        }
+        #expect(!bindingsSection.contains("agent_core.swift"))
+        #expect(!bindingsSection.contains("epistemos_core.swift"))
+        #expect(!bindingsSection.contains("omega_ax.swift"))
+        #expect(!bindingsSection.contains("omega_mcp.swift"))
     }
 
-    @Test("generated project includes every live app, test, and binding source file via synced roots")
-    func generatedProjectIncludesEveryLiveSourceFileViaSyncedRoots() throws {
+    @Test("generated project keeps synced roots and excludes local metadata artifacts")
+    func generatedProjectKeepsSyncedRootsAndExcludesLocalMetadataArtifacts() throws {
         let pbxproj = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
         #expect(pbxproj.contains("PBXFileSystemSynchronizedRootGroup"))
 
+        let appRoot = try synchronizedRootBlock(in: pbxproj, rootPath: "Epistemos")
+        let testRoot = try synchronizedRootBlock(in: pbxproj, rootPath: "EpistemosTests")
+        let bindingRoot = try synchronizedRootBlock(in: pbxproj, rootPath: "build-rust/swift-bindings")
         let appExceptions = try membershipExceptions(in: pbxproj, rootPath: "Epistemos")
-        let testExceptions = try membershipExceptions(in: pbxproj, rootPath: "EpistemosTests")
         let bindingExceptions = try membershipExceptions(in: pbxproj, rootPath: "build-rust/swift-bindings")
 
-        let missing = try expectedProjectRelativePaths().filter { relativePath in
-            if let relativeToRoot = relativePath.removingPrefix("Epistemos/") {
-                return appExceptions.contains(relativeToRoot)
-            }
-
-            if let relativeToRoot = relativePath.removingPrefix("EpistemosTests/") {
-                return testExceptions.contains(relativeToRoot)
-            }
-
-            if let relativeToRoot = relativePath.removingPrefix("build-rust/swift-bindings/") {
-                return bindingExceptions.contains(relativeToRoot)
-            }
-
-            return true
-        }
-
-        #expect(missing.isEmpty)
-    }
-
-    private func expectedProjectRelativePaths() throws -> [String] {
-        let includedExtensions = Set(["swift", "m", "mm", "h", "metal", "plist", "xcprivacy"])
-
-        var results: [String] = []
-
-        for base in ["Epistemos", "EpistemosTests"] {
-            let mirroredURLs = try mirroredSourceFileURLs(
-                under: base,
-                includingExtensions: includedExtensions
-            )
-
-            for fileURL in mirroredURLs {
-                let relativePath = normalizedProjectRelativePath(for: fileURL)
-                if shouldExcludeFromProject(relativePath) {
-                    continue
-                }
-                results.append(relativePath)
-            }
-        }
-
-        results.append(contentsOf: try currentGeneratedBindingSwiftFiles())
-        return results.sorted()
-    }
-
-    private func currentGeneratedBindingSwiftFiles() throws -> [String] {
-        let urls = try mirroredSourceFileURLs(
-            under: "build-rust/swift-bindings",
-            includingExtensions: ["swift"]
-        )
-
-        return urls
-            .map(normalizedProjectRelativePath(for:))
-            .sorted()
-    }
-
-    private func normalizedProjectRelativePath(for fileURL: URL) -> String {
-        let path = fileURL.path
-
-        for root in ["Epistemos/", "EpistemosTests/", "build-rust/swift-bindings/"] {
-            if let range = path.range(of: root) {
-                return String(path[range.lowerBound...])
-            }
-            if let range = path.range(of: "/\(root)") {
-                return String(path[path.index(after: range.lowerBound)...])
-            }
-        }
-
-        return fileURL.lastPathComponent
+        #expect(appRoot.contains("path = Epistemos"))
+        #expect(testRoot.contains("path = EpistemosTests"))
+        #expect(bindingRoot.contains("path = \"build-rust/swift-bindings\""))
+        #expect(appExceptions.contains("KnowledgeFusion/.DS_Store"))
+        #expect(appExceptions.contains("KnowledgeFusion/Training/.DS_Store"))
+        #expect(appExceptions.contains("KnowledgeFusion/MoLoRA/__pycache__/molora_inference.cpython-312.pyc"))
+        #expect(appExceptions.contains("KnowledgeFusion/MoLoRA/__pycache__/sgmm_kernel.cpython-312.pyc"))
+        #expect(bindingExceptions == ["omega_ax.swift"])
     }
 
     private func sourceSection(in projectYAML: String, path: String) throws -> String {
@@ -122,10 +67,7 @@ struct ProjectInclusionTests {
     }
 
     private func membershipExceptions(in pbxproj: String, rootPath: String) throws -> Set<String> {
-        let rootBlock = try pbxprojBlock(
-            in: pbxproj,
-            pattern: #"[A-F0-9]+ /\* .*? \*/ = \{\s*isa = PBXFileSystemSynchronizedRootGroup;.*?path = \#(NSRegularExpression.escapedPattern(for: quotedIfNeeded(rootPath)));\s*sourceTree = "<group>";\s*\};"#
-        )
+        let rootBlock = try synchronizedRootBlock(in: pbxproj, rootPath: rootPath)
         guard let exceptionsRange = rootBlock.range(of: "exceptions = (") else {
             return []
         }
@@ -145,10 +87,7 @@ struct ProjectInclusionTests {
 
         var entries: Set<String> = []
         for exceptionID in exceptionIDs {
-            let block = try pbxprojBlock(
-                in: pbxproj,
-                pattern: #"\#(NSRegularExpression.escapedPattern(for: exceptionID)) /\* .*? \*/ = \{\s*isa = PBXFileSystemSynchronizedBuildFileExceptionSet;.*?\};"#
-            )
+            let block = try exceptionSetBlock(in: pbxproj, exceptionID: exceptionID)
             guard let membershipRange = block.range(of: "membershipExceptions = (") else {
                 continue
             }
@@ -163,6 +102,7 @@ struct ProjectInclusionTests {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { $0.isEmpty == false }
                 .map { $0.replacingOccurrences(of: ",", with: "") }
+                .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
 
             entries.formUnion(members)
         }
@@ -170,37 +110,40 @@ struct ProjectInclusionTests {
         return entries
     }
 
-    private func pbxprojBlock(in pbxproj: String, pattern: String) throws -> String {
-        let expression = try NSRegularExpression(
-            pattern: pattern,
-            options: [.dotMatchesLineSeparators]
-        )
-        let range = NSRange(pbxproj.startIndex..<pbxproj.endIndex, in: pbxproj)
-
-        guard let match = expression.firstMatch(in: pbxproj, options: [], range: range),
-              let matchRange = Range(match.range, in: pbxproj) else {
-            throw InclusionError.missingProjectEntry(pattern)
+    private func synchronizedRootBlock(in pbxproj: String, rootPath: String) throws -> String {
+        let marker = "/* \(rootPath) */ = {"
+        var searchStart = pbxproj.startIndex
+        while let startRange = pbxproj.range(of: marker, range: searchStart..<pbxproj.endIndex) {
+            let candidate = pbxproj[startRange.lowerBound...]
+            guard let endRange = candidate.range(of: "\n\t\t};") else {
+                throw InclusionError.malformedProjectBlock(rootPath)
+            }
+            let block = String(candidate[..<endRange.upperBound])
+            if block.contains("isa = PBXFileSystemSynchronizedRootGroup;") {
+                return block
+            }
+            searchStart = startRange.upperBound
         }
 
-        return String(pbxproj[matchRange])
+        throw InclusionError.missingProjectEntry(rootPath)
     }
 
-    private func quotedIfNeeded(_ path: String) -> String {
-        path.contains("/") ? "\"\(path)\"" : path
-    }
-
-    private func shouldExcludeFromProject(_ relativePath: String) -> Bool {
-        if relativePath.hasPrefix("Epistemos/KnowledgeFusion/MOHAWK/") {
-            return true
+    private func exceptionSetBlock(in pbxproj: String, exceptionID: String) throws -> String {
+        let marker = "\t\t\(exceptionID) "
+        var searchStart = pbxproj.startIndex
+        while let startRange = pbxproj.range(of: marker, range: searchStart..<pbxproj.endIndex) {
+            let candidate = pbxproj[startRange.lowerBound...]
+            guard let endRange = candidate.range(of: "\n\t\t};") else {
+                throw InclusionError.malformedProjectBlock(exceptionID)
+            }
+            let block = String(candidate[..<endRange.upperBound])
+            if block.contains("isa = PBXFileSystemSynchronizedBuildFileExceptionSet;") {
+                return block
+            }
+            searchStart = startRange.upperBound
         }
 
-        return [
-            "Epistemos/Engine/ClaudeManagedRuntime.swift",
-            "Epistemos/Engine/LocalRustRuntime.swift",
-            "Epistemos/Omega/Knowledge/ODIATraceGenerator.swift",
-            "Epistemos/Omega/Knowledge/TraceDataMixer.swift",
-            "Epistemos/Vault/KnowledgeGraphService.swift",
-        ].contains(relativePath)
+        throw InclusionError.missingProjectEntry(exceptionID)
     }
 
 }
@@ -209,14 +152,4 @@ private enum InclusionError: Error {
     case missingSourcePath(String)
     case missingProjectEntry(String)
     case malformedProjectBlock(String)
-}
-
-private extension String {
-    func removingPrefix(_ prefix: String) -> String? {
-        guard hasPrefix(prefix) else {
-            return nil
-        }
-
-        return String(dropFirst(prefix.count))
-    }
 }

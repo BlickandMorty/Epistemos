@@ -1,25 +1,31 @@
 import AppKit
-import CoreGraphics
 import Foundation
 import SwiftData
 import os
 
 // MARK: - Activity Tracker
 // Adaptive paragraph-level change detection for workspace summaries.
-// Uses idle detection (CGEventSource) instead of rigid polling — scans only after
-// 5 seconds of user idle following activity. Deterministic FNV-1a hashing for
-// cross-session paragraph diffing. Events persisted to ring buffer (hot cache)
-// and flushed to EventStore for permanent history.
+// Uses explicit editor/chat/note signals instead of input event monitoring —
+// scans only after 5 seconds of user idle following in-app activity.
+// Deterministic FNV-1a hashing for cross-session paragraph diffing. Events
+// persisted to ring buffer (hot cache) and flushed to EventStore for permanent
+// history.
 
 private actor ActivityFlagState {
     private var isMarkedActive = false
+    private var lastActivityUptime = ProcessInfo.processInfo.systemUptime
 
     func markActive() {
         isMarkedActive = true
+        lastActivityUptime = ProcessInfo.processInfo.systemUptime
     }
 
     func isActive() -> Bool {
         isMarkedActive
+    }
+
+    func appIdleSeconds() -> Double {
+        max(0, ProcessInfo.processInfo.systemUptime - lastActivityUptime)
     }
 
     func clear() {
@@ -34,11 +40,12 @@ final class ActivityTracker {
     private static let maxEvents = 2000
     private static let maxTrackedTabs = 10
     private static let flushFileLabel = "activity tracker cache"
+    private static let activitySignalThrottleSeconds: TimeInterval = 0.25
 
     private(set) var events: [ActivityEvent] = []
     private var paragraphHashes: [String: [UInt64]] = [:] // pageId -> [FNV-1a hash per paragraph]
     private var scanTask: Task<Void, Never>?
-    private var eventMonitor: Any?
+    private var lastActivitySignalUptime: TimeInterval = 0
     nonisolated private let activityFlagState = ActivityFlagState()
     private(set) var trackingStartedAt: Date?
     let sessionId = UUID().uuidString
@@ -59,16 +66,6 @@ final class ActivityTracker {
         guard scanTask == nil else { return }
         trackingStartedAt = Date()
 
-        // Monitor user activity via NSEvent (keyDown, scrollWheel, leftMouseDown)
-        eventMonitor = NSEvent.addLocalMonitorForEvents(
-            matching: [.keyDown, .scrollWheel, .leftMouseDown]
-        ) { [weak self] event in
-            Task { @MainActor [weak self] in
-                await self?.activityFlagState.markActive()
-            }
-            return event
-        }
-
         // Adaptive scan loop: check idle time, scan only after activity + idle
         scanTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -86,15 +83,10 @@ final class ActivityTracker {
                     // Only scan if user was recently active and is now idle
                     Task {
                         guard await self.activityFlagState.isActive() else { return }
-                        // Check idle across ALL input types — not just keyDown.
-                        // Mouse edits (click, drag, paste via menu) don't register as keyDown.
-                        let keyIdle = CGEventSource.secondsSinceLastEventType(
-                            .combinedSessionState, eventType: .keyDown
-                        )
-                        let mouseIdle = CGEventSource.secondsSinceLastEventType(
-                            .combinedSessionState, eventType: .leftMouseDown
-                        )
-                        let idleSeconds = min(keyIdle, mouseIdle)
+                        // Use app-local event idle time only. System-wide idle
+                        // APIs require Input Monitoring privacy checks and are
+                        // too invasive for passive launch/startup tracking.
+                        let idleSeconds = await self.activityFlagState.appIdleSeconds()
                         guard idleSeconds >= 5 else { return }
 
                         await self.activityFlagState.clear()
@@ -103,17 +95,22 @@ final class ActivityTracker {
                 }
             }
         }
-        Self.log.info("Activity tracking started (adaptive idle detection)")
+        Self.log.info("Activity tracking started (explicit in-app activity signals)")
     }
 
     func stopTracking() {
         scanTask?.cancel()
         scanTask = nil
-        if let monitor = eventMonitor {
-            NSEvent.removeMonitor(monitor)
-            eventMonitor = nil
-        }
         Self.log.info("Activity tracking stopped")
+    }
+
+    func recordInAppActivity() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastActivitySignalUptime >= Self.activitySignalThrottleSeconds else { return }
+        lastActivitySignalUptime = now
+        Task { [activityFlagState] in
+            await activityFlagState.markActive()
+        }
     }
 
     // MARK: - Event Recording
@@ -269,6 +266,7 @@ final class ActivityTracker {
     // MARK: - Ring Buffer
 
     private func appendEvent(_ kind: ActivityEventKind) {
+        recordInAppActivity()
         let event = ActivityEvent(timestamp: Date(), kind: kind)
         events.append(event)
         if events.count > Self.maxEvents {

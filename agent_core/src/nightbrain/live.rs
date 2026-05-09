@@ -2,22 +2,21 @@
 //! Swift side calls into via UniFFI to register canonical maintenance
 //! tasks at app boot.
 //!
-//! Scope: closes the "NightBrain live Rust task registration not fully
-//! wired" follow-up flagged after the Codex continuation pass. Before
-//! this module the FFI surface only exposed `canonical_task_names()`
-//! (the contract list) + `nightbrain_preview_admission(...)` (the gate
-//! preview). There was no path for the Swift host to actually register
-//! task implementations + trigger a run from the live scheduler.
+//! Scope: exposes the live registration surface flagged after the Codex
+//! continuation pass. Before this module the FFI surface only exposed
+//! `canonical_task_names()` (the contract list) +
+//! `nightbrain_preview_admission(...)` (the gate preview). There was no
+//! path for the Swift host to register canonical names or trigger the
+//! scheduler from diagnostics. The registered bodies below are still
+//! placeholders and must stay honest until real task bodies land.
 //!
 //! Approach: a `LiveScheduler` lazy-static singleton holds the canonical
 //! tasks. `register_canonical_tasks()` populates it idempotently with
-//! `NoOpTask` implementations — placeholders that record their name +
-//! execution but perform no real work. Each canonical task body
-//! (event_store_checkpoint_vacuum, search_index_passive_checkpoint, …)
-//! can then be filled in incrementally without changing the registration
-//! surface. What matters here is that the SHAPE of the live registration
-//! is plumbed end-to-end (Swift → FFI → Rust singleton → run), not that
-//! every task body does real work today.
+//! `NoOpTask` implementations — placeholders that record their name and
+//! report `skipped(1)` so diagnostics never confuse them with completed
+//! maintenance work. Each canonical task body (event_store_checkpoint_vacuum,
+//! search_index_passive_checkpoint, …) can then be filled in incrementally
+//! without changing the registration surface.
 //!
 //! Determinism: registration is idempotent (re-registering an already-
 //! present canonical name is a no-op, not a duplicate-name error). This
@@ -44,7 +43,7 @@ fn live_scheduler() -> Arc<Mutex<NightBrainScheduler>> {
 }
 
 /// Placeholder task implementation — records its canonical name and
-/// returns a `complete(0)` outcome. Real task bodies replace this
+/// returns a `skipped(1)` outcome. Real task bodies replace this
 /// pattern incrementally without changing the registration surface.
 ///
 /// The name is `&'static str` because every canonical task name is a
@@ -64,9 +63,10 @@ impl NightBrainTask for NoOpTask {
             return Ok(TaskOutcome::preempted(0));
         }
         // Yield once so cooperative cancellation has a chance to fire on
-        // long task chains. No real work — replace per-task.
+        // long task chains. No real work — report an honest skip until
+        // per-task bodies replace these placeholders.
         tokio::task::yield_now().await;
-        Ok(TaskOutcome::complete(0))
+        Ok(TaskOutcome::skipped(1))
     }
 }
 
@@ -186,15 +186,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn run_live_registered_tasks_completes_every_canonical_task() {
+    async fn run_live_registered_tasks_reports_noop_placeholders_as_skipped() {
         let _guard = test_serializer().lock().await;
         register_canonical_tasks().await;
         reset_live_scheduler().await; // any prior preempts cleared
         let outcomes = run_live_registered_tasks().await.expect("run ok");
         assert_eq!(outcomes.len(), canonical_task_names().len());
         for outcome in &outcomes {
-            assert!(outcome.outcome.completed, "no-op task must complete");
+            assert!(
+                outcome.outcome.completed,
+                "skipped placeholder task must not stop the run loop"
+            );
             assert_eq!(outcome.outcome.items_processed, 0, "no-op processes 0");
+            assert_eq!(
+                outcome.outcome.items_skipped, 1,
+                "no-op placeholder must report an honest skipped body"
+            );
         }
     }
 

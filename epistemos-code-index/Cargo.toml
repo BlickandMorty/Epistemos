@@ -10,7 +10,7 @@ name = "epistemos_code_index"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-# Light deps for the W9.7 base scaffold. The full backend (usearch
+# Light deps for the W9.7 base fallback. The full backend (usearch
 # 2.25 + Model2Vec encoder + tree-sitter symbol extractor) lands in
 # the W9.7 follow-up once the surface + tests + agent-grep API
 # (W9.9) are green. Splitting keeps W9.7 base build under 30 s.

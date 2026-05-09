@@ -108,17 +108,13 @@ struct MessageBubble: View {
     @State private var isHovered = false
     @State private var rating: MessageRating? = nil
 
-    // HELIOS V5 W3.b — Verified Research Mode label hookup.
+    // HELIOS V5 W3.b — Verified Research Mode label guard.
     // HELIOS-W3b guard
     //
-    // Renders [`VRMLabelView`] on assistant replies when the user
-    // has opted into Verified Research Mode (W9 toggle). Until
-    // AnswerPacket emission lands per W1.b, the displayed label is
-    // the safe default `.plausibleButUnverified` — NEVER `.verified`
-    // — because silently promoting unverified claims to verified is
-    // a critical safety violation. See
-    // `Epistemos/Models/AnswerPacket.swift` VRMLabel default.
-    @AppStorage("epistemos.helios.v5.verifiedResearchMode") private var vrmEnabled = false
+    // V1 release freeze: do not render placeholder verification labels.
+    // `VRMLabelView` remains available for future emitted AnswerPacket
+    // labels, but this chat row must not infer a label from UserDefaults
+    // or hardcode `.plausibleButUnverified` as if diagnostics are live.
 
     private var theme: EpistemosTheme { ui.theme }
     private var isUser: Bool { message.role == .user }
@@ -333,13 +329,8 @@ struct MessageBubble: View {
                         if let hit = message.cacheHitPercent, hit > 0 {
                             CacheHitBadge(fraction: hit)
                         }
-                        // HELIOS V5 W3.b — VRM label inline. Renders only
-                        // when the user opted into Verified Research Mode
-                        // (W9). Default `.plausibleButUnverified` until
-                        // W1.b chat-path emission feeds real labels.
-                        if vrmEnabled {
-                            VRMLabelView(.plausibleButUnverified, compact: true)
-                        }
+                        // HELIOS V5 W3.b guard: no placeholder VRM chip
+                        // until the chat path emits real AnswerPacket labels.
                         // R1 wire-up — Apple-native TTS for the
                         // assistant response. ReadAloudButton wraps
                         // EpistemosSpeechSynthesizer (W9.1) so the

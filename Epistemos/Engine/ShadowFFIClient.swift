@@ -10,8 +10,8 @@ import Foundation
 // `shadow_search_json`, `shadow_flush`, `shadow_stats_json`).
 //
 // Why a protocol instead of @_silgen_name calls everywhere:
-//   - Tests can wire a deterministic stub without spinning up the Rust
-//     dylib at unit-test scope.
+//   - Tests can wire a deterministic in-memory client without spinning
+//     up the Rust dylib at unit-test scope.
 //   - The W8.4 real-backend swap (Model2Vec + usearch + tantivy + RRF)
 //     happens on the Rust side; the Swift surface stays identical.
 //   - The eventual UniFFI codegen (W8.4 follow-up) can implement this
@@ -56,7 +56,7 @@ nonisolated public enum ShadowFFIError: Error, Equatable, Sendable {
 
 /// Protocol that mirrors the epistemos-shadow C ABI surface in typed
 /// Swift terms. The W8.4 real implementation calls
-/// `shadow_*_json` via `@_silgen_name`; tests use the stub below.
+/// `shadow_*_json` via `@_silgen_name`; tests use the in-memory fallback below.
 ///
 /// Methods are nonisolated so the actor-bound `ShadowSearchService`
 /// can call them from its own cooperative executor without an extra
@@ -83,8 +83,8 @@ nonisolated public protocol ShadowFFIClient: Sendable {
     /// `shadow.ann.ms` / `shadow.bm25.ms` / `shadow.fusion.ms` /
     /// `shadow.search.total.ms` OSSignposter intervals.
     ///
-    /// Default impl returns `.empty` (all-zero) so the stub client
-    /// stays minimal; production `RustShadowFFIClient` overrides to
+    /// Default impl returns `.empty` (all-zero) so the in-memory test
+    /// client stays minimal; production `RustShadowFFIClient` overrides to
     /// read the per-handle accumulator via the
     /// `shadow_handle_last_timings_json` FFI.
     func lastSearchTimings() -> ShadowSearchTimings
@@ -194,19 +194,19 @@ nonisolated public struct ShadowStatsDTO: Sendable, Hashable, Codable {
     }
 }
 
-// MARK: - StubShadowFFIClient
+// MARK: - InMemoryShadowFFIClient
 //
-// In-memory client matching the W8.1 Rust stub backend's semantics.
+// In-memory client matching the Rust fallback backend's semantics.
 // Used by HaloController tests, ShadowSearchService tests, and the
 // ShadowIndexingService tests so the actor architecture is fully
 // covered without depending on the Rust dylib being loadable.
 
 /// In-memory `ShadowFFIClient` used by tests. Behaviour mirrors the
-/// Rust `ShadowState` stub (substring-match scoring + per-domain
+/// Rust `ShadowState` fallback (substring-match scoring + per-domain
 /// filtering + UTF-8-safe snippet truncation). Thread-safe via an
 /// internal serial queue so tests can call from any actor context.
-nonisolated public final class StubShadowFFIClient: ShadowFFIClient, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "com.epistemos.shadow.stub")
+nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "com.epistemos.shadow.in-memory")
     private var docs: [String: ShadowDocumentDTO] = [:]
     private var lastFlush: Date = .distantPast
 
@@ -260,7 +260,7 @@ nonisolated public final class StubShadowFFIClient: ShadowFFIClient, @unchecked 
                 snippet: snippet,
                 score: score,
                 domain: doc.domain,
-                source: "stub-substring"
+                source: "in-memory-substring"
             )
         }
         hits.sort { $0.score > $1.score }
@@ -273,10 +273,10 @@ nonisolated public final class StubShadowFFIClient: ShadowFFIClient, @unchecked 
     }
 
     public func warm() throws {
-        // The stub has no embedder state — warming is a no-op. Tests
-        // that exercise the warm path observe success without touching
-        // disk or network. Matches the contract: `warm()` is idempotent
-        // and never raises in the happy path.
+        // The in-memory fallback has no embedder state; warming is a
+        // no-op. Tests that exercise the warm path observe success
+        // without touching disk or network. Matches the contract:
+        // `warm()` is idempotent and never raises in the happy path.
     }
 
     public func stats() throws -> ShadowStatsDTO {

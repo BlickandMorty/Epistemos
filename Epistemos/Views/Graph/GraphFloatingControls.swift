@@ -77,16 +77,16 @@ struct GraphFloatingControls: View {
     private var renderModeButton: some View {
         let performance = graphState.performanceModeEnabled
         return ExpandingModeButton(
-            title: "Water",
-            systemImage: performance ? "speedometer" : "water.waves",
+            title: "Pixel",
+            systemImage: performance ? "speedometer" : "square.grid.3x3",
             isActive: performance,
             activeTitle: "Fast",
             variant: .toolbar,
             helpText: performance
                 ? "Performance mode: simple shading"
-                : "Cinematic mode: water nodes",
+                : "Cinematic mode: stepped pixel nodes",
             stableWidth: NativeControlSystem.reservedWidth(
-                for: ["Water", "Fast"],
+                for: ["Pixel", "Fast"],
                 variant: .toolbar
             )
         ) {

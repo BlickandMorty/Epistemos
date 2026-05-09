@@ -2,23 +2,21 @@ import SwiftUI
 
 // MARK: - W9.7 — Vault selector (sidebar surface)
 //
-// Lists the vaults the user has registered (one per model per the
-// LIVING_VAULT_ARCHITECTURE: each model has its own vault + graph)
-// and lets the user switch the active vault from a single sidebar
-// row.
+// Lists vault rows supplied by the caller. In v1 the notes sidebar
+// only has a confirmed active-vault row, so it renders this view as
+// read-only status. Selection becomes live only when the caller
+// supplies a real switch handler and selectable vaults.
 //
 // Implementation note: this view is intentionally minimal — the
 // full backing (security-scoped bookmark resolution, GRDB container
 // swap, graph state reset) is owned by `VaultLifecycleService`
 // and `VaultIndexActor` already. This view is just the SwiftUI
-// surface that triggers `onSelect(vault)` when the user picks a
-// row.
+// surface that can trigger `onSelect(vault)` when the user picks a
+// selectable row.
 //
-// Wiring: drop into `NotesSidebar.swift` next to
-// `ModelVaultsSidebarSection`. `onSelect` should trigger the
-// existing `VaultLifecycleService.switchVault(to:)` path so the
-// container swap, NotesUI reset, and ambient manifest refresh all
-// fire in canonical order.
+// Wiring: callers that have a real `VaultLifecycleService` switch
+// path should pass `selectionEnabled: true` and an `onSelect`
+// handler. Callers without that path should keep the surface read-only.
 
 @MainActor
 public struct VaultSelectorView: View {
@@ -38,11 +36,17 @@ public struct VaultSelectorView: View {
     }
 
     let vaults: [Vault]
-    let onSelect: (Vault) -> Void
+    let selectionEnabled: Bool
+    let onSelect: ((Vault) -> Void)?
     @State private var isExpanded: Bool = true
 
-    public init(vaults: [Vault], onSelect: @escaping (Vault) -> Void) {
+    public init(
+        vaults: [Vault],
+        selectionEnabled: Bool = true,
+        onSelect: ((Vault) -> Void)? = nil
+    ) {
         self.vaults = vaults
+        self.selectionEnabled = selectionEnabled
         self.onSelect = onSelect
     }
 
@@ -62,30 +66,43 @@ public struct VaultSelectorView: View {
 
     @ViewBuilder
     private func row(for vault: Vault) -> some View {
-        Button {
-            guard !vault.isActive else { return }
-            onSelect(vault)
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: vault.isActive ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(vault.isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(vault.displayName)
-                        .font(.callout)
-                        .lineLimit(1)
-                    if let tag = vault.modelTag {
-                        Text(tag)
-                            .font(.caption2.monospaced())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
+        if canSelect(vault), let onSelect {
+            Button {
+                onSelect(vault)
+            } label: {
+                rowContent(for: vault, isSelectable: true)
             }
-            .padding(.vertical, 3)
-            .padding(.horizontal, 6)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+        } else {
+            rowContent(for: vault, isSelectable: false)
+                .accessibilityElement(children: .combine)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func canSelect(_ vault: Vault) -> Bool {
+        selectionEnabled && !vault.isActive && onSelect != nil
+    }
+
+    private func rowContent(for vault: Vault, isSelectable: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: vault.isActive ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(vault.isActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(vault.displayName)
+                    .font(.callout)
+                    .lineLimit(1)
+                if let tag = vault.modelTag {
+                    Text(tag)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .contentShape(Rectangle())
+        .opacity(isSelectable || vault.isActive ? 1.0 : 0.65)
     }
 }
 

@@ -114,6 +114,44 @@ struct EpdocGraphPersistenceTests {
         #expect(edgeCount == 1)
     }
 
+    @Test("upsert replaces generated semantic contains edges on re-projection")
+    func upsertReplacesGeneratedSemanticContainsEdges() throws {
+        let context = try Self.makeContext()
+        try EpdocGraphPersistence.upsert(
+            projection: EpdocGraphProjection(
+                nodeID: "epdoc-doc-4",
+                nodeLabel: "Semantic Draft",
+                nodeWeight: 0.4,
+                nodeType: .document,
+                edges: [
+                    .init(targetID: "Old section", kind: .contains, targetIsLabel: true),
+                ]
+            ),
+            context: context
+        )
+
+        try EpdocGraphPersistence.upsert(
+            projection: EpdocGraphProjection(
+                nodeID: "epdoc-doc-4",
+                nodeLabel: "Semantic Final",
+                nodeWeight: 0.6,
+                nodeType: .document,
+                edges: [
+                    .init(targetID: "New section", kind: .contains, targetIsLabel: true),
+                ]
+            ),
+            context: context
+        )
+
+        let doc = try #require(try Self.node(sourceID: "epdoc-doc-4", context: context))
+        let old = try Self.node(label: "Old section", context: context)
+        let next = try #require(try Self.node(label: "New section", context: context))
+        let outgoing = try Self.edges(from: doc.id, context: context)
+        #expect(!outgoing.contains { $0.targetNodeId == old?.id },
+                "Regenerated semantic .contains edges must not leave stale section targets attached to the document.")
+        #expect(outgoing.contains { $0.targetNodeId == next.id && $0.edgeType == .contains })
+    }
+
     private static func makeContext() throws -> ModelContext {
         let schema = Schema([SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)

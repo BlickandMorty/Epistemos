@@ -361,6 +361,21 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("inference.preferredCloudModel(for: provider)"))
     }
 
+    @Test("local model toolbar subtitles do not query runtime modes per row")
+    func localModelToolbarSubtitlesDoNotQueryRuntimeModesPerRow() throws {
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let marker = "private func localModelSubtitle(for model: LocalModelDescriptor) -> String"
+        let subtitleTail = try #require(rootView.components(separatedBy: marker).dropFirst().first)
+        let subtitleSection = subtitleTail.components(separatedBy: "private func providerSelectionSubtitle")
+            .first ?? ""
+
+        #expect(rootView.contains("localModelSubtitleCache"))
+        #expect(rootView.contains("localModelSubtitleInputsFingerprint"))
+        #expect(rootView.contains("refreshLocalModelSubtitleCache()"))
+        #expect(rootView.contains("staticLocalModelSubtitle("))
+        #expect(!subtitleSection.contains("availableOperatingModes(for:"))
+    }
+
     @Test("managed tool runtime falls back to a writable scratch vault when no vault is attached")
     func managedToolRuntimeFallsBackToWritableScratchVaultWhenNoVaultIsAttached() throws {
         let url = FoundationSafety.managedToolRuntimeVaultDirectory(preferredVaultPath: nil)
@@ -598,6 +613,7 @@ struct RuntimeValidationTests {
 
         #expect(app.contains("func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool"))
         #expect(app.contains("func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool"))
+        #expect(app.contains("func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool"))
         #expect(app.contains(".restorationBehavior(.disabled)"))
         #expect(app.contains("SavedApplicationStatePurger.shouldPurgeAtLaunch()"))
         #expect(app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
@@ -1270,6 +1286,74 @@ struct RuntimeValidationTests {
         #expect(substrateTypes.contains("struct RingBuffer<T: Sendable>: Sendable"))
     }
 
+    @Test("passive launch paths avoid system-wide input and Messages automation TCC probes")
+    func passiveLaunchPathsAvoidSystemWideInputAndAutomationTCCProbes() throws {
+        let activityTracker = try loadRepoTextFile("Epistemos/State/ActivityTracker.swift")
+        let nightBrain = try loadRepoTextFile("Epistemos/State/NightBrainService.swift")
+        let trainingScheduler = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/TrainingScheduler.swift")
+        let iMessageDoctor = try loadRepoTextFile("Epistemos/Omega/iMessageDriver/IMessageNativeSetupDoctor.swift")
+        let channelsSettings = try loadRepoTextFile("Epistemos/Views/Settings/ChannelsSettingsView.swift")
+        let iMessageSettings = try loadRepoTextFile("Epistemos/Views/Settings/IMessageDriverSettingsView.swift")
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let appEnvironment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
+        let appSupervisor = try loadRepoTextFile("Epistemos/State/AppSupervisor.swift")
+        let inferenceState = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+        let afmSessionPool = try loadRepoTextFile("Epistemos/Engine/AFMSessionPool.swift")
+        let settingsView = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let shadowPanel = try loadRepoTextFile("Epistemos/Views/Halo/ShadowPanel.swift")
+        let graphOverlayPanel = try loadRepoTextFile("Epistemos/Views/Graph/GraphOverlayPanel.swift")
+        let hologramOverlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+        let proseTextView = try loadRepoTextFile("Epistemos/Views/Notes/ProseTextView2.swift")
+        let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(!activityTracker.contains("CGEventSource.secondsSinceLastEventType"))
+        #expect(!activityTracker.contains("NSEvent.addLocalMonitorForEvents"))
+        #expect(!activityTracker.contains("NSEvent.addGlobalMonitorForEvents"))
+        #expect(activityTracker.contains("func appIdleSeconds() -> Double"))
+        #expect(activityTracker.contains("func recordInAppActivity()"))
+        #expect(activityTracker.contains("Activity tracking started (explicit in-app activity signals)"))
+        #expect(proseTextView.contains("AppBootstrap.shared?.activityTracker.recordInAppActivity()"))
+        #expect(codeEditor.contains("AppBootstrap.shared?.activityTracker.recordInAppActivity()"))
+        #expect(!nightBrain.contains("CGEventSource.secondsSinceLastEventType"))
+        #expect(nightBrain.contains("process-local quiescence timer"))
+        #expect(nightBrain.contains("requiredDependenciesReady()"))
+        #expect(nightBrain.contains("searchIndexProvider() != nil"))
+        #expect(!trainingScheduler.contains("CGEventSource.secondsSinceLastEventType"))
+        #expect(trainingScheduler.contains("processQuiescenceSeconds()"))
+        #expect(iMessageDoctor.contains("currentStatus(probeAutomation: Bool = false)"))
+        #expect(iMessageDoctor.contains("probeAutomation"))
+        #expect(channelsSettings.contains("currentStatus(probeAutomation: false)"))
+        #expect(channelsSettings.contains("refreshIMessageSetupStatus(probeAutomation: true)"))
+        #expect(iMessageSettings.contains("currentStatus(probeAutomation: false)"))
+        #expect(iMessageSettings.contains("refreshSetupStatus(probeAutomation: true)"))
+        #expect(!appBootstrap.contains("IMessageNativeSetupDoctor.currentStatus"))
+        #expect(!appBootstrap.contains("EpistemosShortcutsProvider.updateAppShortcutParameters()"))
+        #expect(!appBootstrap.contains("AppleIntelligenceService.shared.checkAvailability().available"))
+        #expect(appBootstrap.contains("SharedGPUAppleFallbackBackend(sharedGPUBackend: sharedGPUBackend)"))
+        #expect(!appBootstrap.contains("AFMSessionPool.shared.prewarmAtLaunch"))
+        #expect(!appBootstrap.contains("contentTagging-launch"))
+        #expect(!afmSessionPool.contains("prewarmAtLaunch"))
+        #expect(!afmSessionPool.contains("prewarmed at launch"))
+        #expect(afmSessionPool.contains("prewarmForExplicitClassifierWork"))
+        #expect(!appSupervisor.contains("AppleIntelligenceService.shared.checkAvailability()"))
+        #expect(inferenceState.contains("func refreshAppleIntelligenceAvailability()"))
+        let inferenceInitializer = try #require(
+            inferenceState.range(of: "init(\n        hardwareCapabilitySnapshot:")
+        )
+        let inferenceBodyEnd = try #require(
+            inferenceState.range(of: "\n    func refreshAppleIntelligenceAvailability()")
+        )
+        #expect(!inferenceState[inferenceInitializer.lowerBound..<inferenceBodyEnd.lowerBound].contains("checkAvailability()"))
+        #expect(settingsView.contains("inference.refreshAppleIntelligenceAvailability()"))
+        #expect(!appEnvironment.contains(".environment(bootstrap.screen2AXFusion)"))
+        #expect(!shadowPanel.contains("NSEvent.addGlobalMonitorForEvents"))
+        #expect(!shadowPanel.contains("NSEvent.addLocalMonitorForEvents"))
+        #expect(shadowPanel.contains("NSWindow.didResignKeyNotification"))
+        #expect(!hologramOverlay.contains("NSEvent.addLocalMonitorForEvents"))
+        #expect(!hologramOverlay.contains("NSEvent.addGlobalMonitorForEvents"))
+        #expect(graphOverlayPanel.contains("var keyEventHandler: ((NSEvent) -> Bool)?"))
+    }
+
     @Test("event store graph builder and branded ids avoid unchecked sendable wrappers")
     func eventStoreGraphBuilderAndBrandedIdsAvoidUncheckedSendableWrappers() throws {
         let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
@@ -1324,6 +1408,8 @@ struct RuntimeValidationTests {
 
         #expect(bootstrap.contains("searchIndexProvider: { @MainActor [weak vaultSync] in"))
         #expect(nightBrain.contains("case searchIndexPassiveCheckpoint = \"search_index_passive_checkpoint\""))
+        #expect(nightBrain.contains("private func missingDependency(for jobOrder: [Job]) async -> JobExecutionError?"))
+        #expect(nightBrain.contains("NightBrain: pipeline deferred before run:"))
         #expect(nightBrain.contains("guard let searchIndex = await MainActor.run(body: { searchIndexProvider() }) else {"))
         #expect(nightBrain.contains("throw JobExecutionError.missingSearchIndex"))
         #expect(nightBrain.contains("try searchIndex.passiveCheckpoint()"))
@@ -1426,21 +1512,14 @@ struct RuntimeValidationTests {
         #expect(!bootstrap.contains("// in-process Rust agent_core providers can read them via std::env::var.\n        Self.populateAgentCoreEnvironment()"))
     }
 
-    @Test("launch bootstrap skips app shortcut refresh while tests are running")
-    func launchBootstrapSkipsAppShortcutRefreshWhileTestsAreRunning() throws {
+    @Test("launch bootstrap leaves App Shortcuts refresh user initiated")
+    func launchBootstrapLeavesAppShortcutsRefreshUserInitiated() throws {
         let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
-        let normalized = bootstrap.replacingOccurrences(
-            of: #"\s+"#,
-            with: " ",
-            options: .regularExpression
-        )
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
-        #expect(
-            normalized.range(
-                of: #"if !Self\.isRunningTests \{ EpistemosShortcutsProvider\.updateAppShortcutParameters\(\) \}"#,
-                options: .regularExpression
-            ) != nil
-        )
+        #expect(!bootstrap.contains("EpistemosShortcutsProvider.updateAppShortcutParameters()"))
+        #expect(settings.contains("Button(\"Refresh Siri Shortcuts\")"))
+        #expect(settings.contains("EpistemosShortcutsProvider.updateAppShortcutParameters()"))
     }
 
     @Test("launch agent env hydration skips duplicate work while deferred cloud bootstrap is active")
@@ -2413,9 +2492,21 @@ struct RuntimeValidationTests {
         #expect(metalView.contains("private var currentGraphDrawableScale: CGFloat"))
         #expect(metalView.contains("metalLayer?.contentsScale = GraphDrawableResolutionPolicy.layerContentsScale"))
         #expect(metalView.contains("func pauseEngine()"))
-        #expect(metalView.contains("metalLayer?.drawableSize = .zero"))
+        #expect(metalView.contains("pausedDrawableSize = CGSize(width: 1, height: 1)"))
+        #expect(metalView.contains("metalLayer?.drawableSize = GraphDrawableResolutionPolicy.pausedDrawableSize"))
         #expect(metalView.contains("func resumeEngine()"))
         #expect(metalView.contains("updateMetalLayerBackingProperties()"))
+    }
+
+    @Test("landing wave draw path presents MTK drawables synchronously")
+    func landingWaveDrawPathPresentsMTKDrawablesSynchronously() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift")
+
+        #expect(source.contains("private func renderFrame(in view: MTKView)"))
+        #expect(source.contains("guard !isRenderingFrame else { return }"))
+        #expect(source.contains("guard view.drawableSize.width > 0, view.drawableSize.height > 0 else { return }"))
+        #expect(source.contains("MainActor.assumeIsolated"))
+        #expect(!source.contains("Task { @MainActor in\n                // Late-arriving sizes"))
     }
 
     @Test("graph renderer keeps the 6.5 camera smoothing baseline")
@@ -2746,7 +2837,8 @@ struct RuntimeValidationTests {
         #expect(artifactBlock.contains("Task.sleep"))
         #expect(focusedResponsePanel.contains("Task.sleep"))
         #expect(codeAskBar.contains("Task.sleep"))
-        #expect(inspectMode.contains("Task.sleep"))
+        #expect(inspectMode.contains("EmptyView()"))
+        #expect(!inspectMode.contains("Task.sleep"))
     }
 
     @Test("note insight JSON fallbacks avoid force-cast traps")
@@ -3160,6 +3252,7 @@ struct RuntimeValidationTests {
 
         #expect(source.contains("func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool {\n        false\n    }"))
         #expect(source.contains("func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool {\n        false\n    }"))
+        #expect(source.contains("func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {\n        false\n    }"))
     }
 
     @Test("bootstrap and persistence helpers avoid force-trap fallbacks")
@@ -4097,13 +4190,38 @@ struct RuntimeValidationTests {
 
         #expect(landing.contains("LandingWaveOverlay("))
         #expect(landing.contains("LiquidGreeting("))
-        #expect(landing.contains("searchMode: showingSearchPopover"))
+        #expect(landing.contains("landingSearchInputLine"))
         #expect(landing.contains("TextField(\"\", text: $landingSearchText)"))
+        #expect(landing.contains("if landingSearchText.isEmpty && !landingSearchFocused"))
+        #expect(!landing.contains(".frame(width: 2, height: 2)"))
         #expect(!landing.contains(".appKitPopover("))
         #expect(!landing.contains("SpatialTapGesture("))
         #expect(landing.contains("landingTapLocation"))
         #expect(landing.contains(".onTapGesture(coordinateSpace: .local) { location in"))
-        #expect(landing.contains(".allowsHitTesting(!showingOverlay && !showingSearchPopover)"))
+        #expect(landing.contains("if showingSearchPopover {\n                        dismissLandingSearch()\n                        return\n                    }"))
+        #expect(landing.contains(".allowsHitTesting(false)"))
+        #expect(landing.contains("showLandingSlashMenu"))
+        #expect(landing.contains("SlashCommandPopover("))
+        #expect(landing.contains("handleLandingSearchTextChange(newValue)"))
+        #expect(landing.contains("chat.queuePendingSlashCommand(slashCommand)"))
+    }
+
+    @Test("app menu fallback does not structurally mutate SwiftUI-owned menus")
+    func appMenuFallbackDoesNotStructurallyMutateSwiftUIMenus() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let marker = "private func installKnowledgeGraphMenuFallback()"
+        let start = try #require(app.range(of: marker)?.lowerBound)
+        let tail = app[start...]
+        let end = try #require(tail.range(of: "\n    @objc private func toggleKnowledgeGraphFromMenu")?.lowerBound)
+        let body = String(tail[..<end])
+
+        #expect(body.contains("viewMenu.items.first(where: { $0.title == \"Knowledge Graph\" })"))
+        #expect(body.contains("viewMenu.items.first(where: { $0.title == \"Reveal Current Document in Graph\" })"))
+        #expect(body.contains("item.action = #selector(toggleKnowledgeGraphFromMenu(_:))"))
+        #expect(body.contains("revealItem.action = #selector(revealCurrentDocumentInKnowledgeGraph(_:))"))
+        #expect(!body.contains("insertItem("))
+        #expect(!body.contains("addItem("))
+        #expect(!body.contains("NSMenuItem("))
     }
 
     @Test("chat vault and mini chat runtime surfaces avoid silent fetch save and timer fallbacks")
@@ -4199,7 +4317,7 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("let plannerHasExplicitContext = hasAttachedUserContext || hasRequestedVaultLookup"))
         #expect(coordinator.contains("hasExplicitContext: plannerHasExplicitContext"))
         #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent"))
-        #expect(coordinator.contains("let aiFresh = await MainActor.run { AppleIntelligenceService.shared.checkAvailability() }"))
+        #expect(coordinator.contains("self.inferenceState.refreshAppleIntelligenceAvailability()"))
         #expect(coordinator.contains("buildRequiredAttachmentContractSection()"))
         #expect(coordinator.contains("buildRequestedVaultLookupContractSection()"))
         #expect(coordinator.contains("if deepContext {"))
@@ -4421,6 +4539,63 @@ struct RuntimeValidationTests {
         #expect(pythonEnvironmentManager.contains("process.terminationHandler = { proc in"))
         #expect(!pythonEnvironmentManager.contains("runProcessCaptureSync("))
         #expect(!pythonEnvironmentManager.contains("process.waitUntilExit()"))
+    }
+
+    @Test("python setup uses existing toolchains and a bounded subprocess environment")
+    func pythonSetupUsesExistingToolchainsAndBoundedSubprocessEnvironment() throws {
+        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
+
+        #expect(pythonEnvironmentManager.contains("nonisolated static func pythonToolEnvironment("))
+        #expect(pythonEnvironmentManager.contains("process.environment = Self.pythonToolEnvironment(executable: executable)"))
+        #expect(pythonEnvironmentManager.contains("\"PATH\": resolvedPath"))
+        #expect(pythonEnvironmentManager.contains("environment[\"PYTHONNOUSERSITE\"] = \"1\""))
+        #expect(pythonEnvironmentManager.contains("environment[\"PIP_DISABLE_PIP_VERSION_CHECK\"] = \"1\""))
+        #expect(pythonEnvironmentManager.contains("environment[\"PIP_NO_INPUT\"] = \"1\""))
+        #expect(pythonEnvironmentManager.contains("\"--disable-pip-version-check\""))
+        #expect(pythonEnvironmentManager.contains("\"--no-input\""))
+        #expect(!pythonEnvironmentManager.contains("ProcessInfo.processInfo.environment"))
+        #expect(!pythonEnvironmentManager.contains("raw.githubusercontent.com/Homebrew/install"))
+        #expect(!pythonEnvironmentManager.contains("curl -fsSL"))
+        #expect(!pythonEnvironmentManager.contains("NONINTERACTIVE=1"))
+        #expect(!pythonEnvironmentManager.contains("arguments: [\"install\", \"python@3.12\"]"))
+        #expect(!pythonEnvironmentManager.contains("executable: \"/usr/bin/env\""))
+        #expect(!pythonEnvironmentManager.contains("arguments: [\"which\", \"python3\"]"))
+    }
+
+    @Test("knowledge fusion Python subprocess fallbacks use bounded env and output")
+    func knowledgeFusionPythonSubprocessFallbacksUseBoundedEnvAndOutput() throws {
+        let pythonEnvironmentManager = try loadRepoTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
+        let audioTranscriber = try loadRepoTextFile("Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift")
+        let qLoRATrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift")
+        let ktoTrainer = try loadRepoTextFile("Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift")
+        let moLoRA = try loadRepoTextFile("Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift")
+
+        #expect(pythonEnvironmentManager.contains("final class KnowledgeFusionProcessOutputCapture"))
+        #expect(pythonEnvironmentManager.contains("maxBytes: Int = 64 * 1024"))
+        #expect(pythonEnvironmentManager.contains("nonisolated static func sanitizedProcessOutput("))
+        #expect(pythonEnvironmentManager.contains("[redacted sensitive diagnostic line]"))
+
+        #expect(qLoRATrainer.contains("process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
+        #expect(qLoRATrainer.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
+        #expect(qLoRATrainer.contains("stderrHandle.readabilityHandler = { handle in"))
+        #expect(qLoRATrainer.contains("stderrCapture.stringValue()"))
+
+        #expect(ktoTrainer.contains("process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
+        #expect(ktoTrainer.contains("let stdoutCapture = KnowledgeFusionProcessOutputCapture()"))
+        #expect(ktoTrainer.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
+        #expect(ktoTrainer.contains("let output = stdoutCapture.stringValue()"))
+
+        #expect(audioTranscriber.contains("process.environment = executable == pythonPath"))
+        #expect(audioTranscriber.contains("PythonEnvironmentManager.boundedToolEnvironment(executable: executable)"))
+        #expect(audioTranscriber.contains("private nonisolated static func whisperExecutablePath()"))
+        #expect(audioTranscriber.contains("let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
+        #expect(!audioTranscriber.contains("executable: \"/usr/bin/which\""))
+        #expect(!audioTranscriber.contains("arguments: [\"whisper\"]"))
+
+        #expect(moLoRA.contains("proc.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)"))
+        #expect(moLoRA.contains("private let stderrCapture = KnowledgeFusionProcessOutputCapture()"))
+        #expect(moLoRA.contains("stderrCapture.reset()"))
+        #expect(moLoRA.contains("stderr.fileHandleForReading.readabilityHandler = { [stderrCapture] handle in"))
     }
 
     #if false

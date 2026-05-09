@@ -461,6 +461,7 @@ actor BlockMirrorSyncCoordinator {
 
     private var tasks: [String: Task<Void, Never>] = [:]
     private var generations: [String: UInt64] = [:]
+    private nonisolated static let coalescingDelay: Duration = .milliseconds(25)
 
     func scheduleSync(
         pageId: String,
@@ -476,6 +477,16 @@ actor BlockMirrorSyncCoordinator {
 
         let coordinator = self
         let task = Task.detached(priority: priority) { [pageId, body, modelContainer] in
+            do {
+                try await Task.sleep(for: Self.coalescingDelay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            guard await coordinator.generationIsCurrent(pageId: pageId, generation: generation) else {
+                return
+            }
+
             let context = ModelContext(modelContainer)
             context.autosaveEnabled = false
 

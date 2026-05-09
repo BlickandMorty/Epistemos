@@ -2,7 +2,7 @@
 # Generate the SDF label atlas for graph-engine label rendering.
 #
 # Produces two artifacts committed to Epistemos/Resources/:
-#   - sdf_labels.png   (MTSDF 4-channel 512x512 atlas)
+#   - sdf_labels.png   (MTSDF 4-channel 1024x1024 atlas)
 #   - sdf_labels.json  (per-glyph UV + em-unit metrics)
 #
 # Run this from the repo root. Re-run whenever the font or charset changes.
@@ -12,10 +12,10 @@
 # Parameters per Tier 1 research ("Epistemos Graph SDF Label System — Deep
 # Engineering Report", Part I):
 #   -type mtsdf          : multi-channel + true SDF, 4 RGBA channels
-#   -size 32             : cell size (must be >= 2x stroke width)
+#   -size 48             : glyph size; large enough for crisp graph labels
 #   -emrange 0.4         : distance field range in em units
 #   -pxrange 6           : pixel range for smooth falloff
-#   -dimensions 512 512  : fixed atlas size (ASCII fits easily)
+#   -dimensions 1024 1024: fixed atlas size (ASCII fits easily)
 #   -yorigin top         : Metal texture coords (top-left origin)
 #
 # Per CODEX_PROMPT_CHAIN.md §B-2.
@@ -26,11 +26,12 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${REPO_ROOT}/Epistemos/Resources"
 
 # Variant selection — controls the output filename AND the default font:
-#   --variant retro   → sdf_labels.{png,json}        + RetroGaming.ttf
+#   --variant mono    → sdf_labels.{png,json}        + JetBrainsMono-Regular.ttf
+#   --variant retro   → sdf_labels_retro.{png,json}  + RetroGaming.ttf
 #   --variant system  → sdf_labels_system.{png,json} + Helvetica/SFNS
 # An explicit `-font <path>` overrides the variant's default font.
-# Defaults to "retro" so existing invocations keep working unchanged.
-VARIANT="retro"
+# Defaults to "mono" so graph labels stay high-quality and monospaced.
+VARIANT="mono"
 FONT_PATH=""
 
 while [[ $# -gt 0 ]]; do
@@ -45,16 +46,25 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown argument: $1" >&2
-            echo "Usage: $0 [--variant retro|system] [-font /path/to/font.ttf]" >&2
+            echo "Usage: $0 [--variant mono|retro|system|sfpro] [-font /path/to/font.ttf]" >&2
             exit 1
             ;;
     esac
 done
 
 case "$VARIANT" in
-    retro)
+    mono)
         PNG_OUT="${OUT_DIR}/sdf_labels.png"
         JSON_OUT="${OUT_DIR}/sdf_labels.json"
+        VARIANT_DEFAULT_FONT_CANDIDATES=(
+            "${REPO_ROOT}/Epistemos/Resources/Fonts/JetBrainsMono-Regular.ttf"
+            "/System/Library/Fonts/SFNSMono.ttf"
+            "/System/Library/Fonts/Menlo.ttc"
+        )
+        ;;
+    retro)
+        PNG_OUT="${OUT_DIR}/sdf_labels_retro.png"
+        JSON_OUT="${OUT_DIR}/sdf_labels_retro.json"
         VARIANT_DEFAULT_FONT_CANDIDATES=(
             "${REPO_ROOT}/Epistemos/Resources/Fonts/RetroGaming.ttf"
             "/System/Library/Fonts/Helvetica.ttc"
@@ -79,7 +89,7 @@ case "$VARIANT" in
         )
         ;;
     *)
-        echo "ERROR: Unknown --variant: $VARIANT (expected: retro | system | sfpro)" >&2
+        echo "ERROR: Unknown --variant: $VARIANT (expected: mono | retro | system | sfpro)" >&2
         exit 1
         ;;
 esac
@@ -119,10 +129,10 @@ echo "JSON out: $JSON_OUT"
 msdf-atlas-gen \
     -type mtsdf \
     -font "$FONT_PATH" \
-    -size 32 \
+    -size 48 \
     -emrange 0.4 \
     -pxrange 6 \
-    -dimensions 512 512 \
+    -dimensions 1024 1024 \
     -imageout "$PNG_OUT" \
     -json "$JSON_OUT" \
     -yorigin top

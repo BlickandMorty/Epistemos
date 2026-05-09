@@ -652,6 +652,12 @@ struct BlockEmbeddingTests {
         #expect(serviceSource.contains("detachedEngineUseTracker.closeAndWait()"))
         #expect(serviceSource.contains("detachedEngineUseTracker.begin()"))
         #expect(metalGraphSource.contains("embeddingService.prepareForEngineDestroy()"))
+
+        let engineSource = try loadMirroredSourceTextFile("graph-engine/src/engine.rs")
+        let graphFFISource = try loadMirroredSourceTextFile("graph-engine/src/lib.rs")
+        #expect(engineSource.contains("pub(crate) embedding_store: Mutex<EmbeddingStore>"))
+        #expect(graphFFISource.contains("let embedding_snapshot = engine.embedding_store.lock().clone();"))
+        #expect(graphFFISource.contains("let pairs = embedding_snapshot.all_knn_pairs(k as usize, threshold);"))
     }
 
     @Test("fallback semantic search requires a populated Rust store with a matching dimension")

@@ -207,6 +207,27 @@ nonisolated struct EpistemosDocumentControllerTests {
         #expect(doc.databaseWriter != nil)
     }
 
+    @Test("restorable document reopen is suppressed when launch purges saved state")
+    @MainActor
+    func restorableDocumentReopenFollowsSavedStatePurgePolicy() throws {
+        #expect(!EpistemosDocumentController.shouldSuppressRestorableDocumentReopen(
+            processInfoEnvironment: [:]
+        ))
+        #expect(EpistemosDocumentController.shouldSuppressRestorableDocumentReopen(
+            processInfoEnvironment: ["EPISTEMOS_SKIP_VAULT_RESTORE": "1"]
+        ))
+
+        let source = try loadMirroredSourceTextFile("Epistemos/App/EpistemosDocumentController.swift")
+        #expect(source.contains("override func reopenDocument("),
+                "AppKit restorable .epdoc launches must go through the EpistemosDocumentController gate.")
+        #expect(source.contains("shouldSuppressRestorableDocumentReopen()"),
+                "Restorable document reopen must be denied when Epistemos is intentionally purging saved state.")
+        #expect(source.contains("completionHandler(nil, false, nil)"),
+                "Suppressed restorable reopen should be quiet and not surface a fake document-open error.")
+        #expect(source.contains("super.reopenDocument("),
+                "Explicit reopen paths must still delegate to AppKit when saved-state restore is allowed.")
+    }
+
     // MARK: - F8 projection bridge
 
     @Test("projectAndIndexBlocks is a no-op when databaseWriter is nil")

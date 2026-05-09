@@ -434,6 +434,7 @@ struct LocalModelToolbarMenu: View {
     @State private var showsCloudProviderOptions = false
     @State private var showsActiveCloudModelOptions = false
     @State private var aboutSelection: ChatModelSelection?
+    @State private var localModelSubtitleCache: [String: String] = [:]
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -735,6 +736,25 @@ struct LocalModelToolbarMenu: View {
             : "No supported local runtimes are available yet."
     }
 
+    private var localModelSubtitleInputsFingerprint: String {
+        let visibleModelIDs = (installedSelectableModels + installableSelectableModels)
+            .map(\.id)
+            .sorted()
+            .joined(separator: ",")
+        let preparedOrInstalledIDs = inference.installedLocalTextModelIDs
+            .union(inference.preparedLocalTextModelIDs)
+            .sorted()
+            .joined(separator: ",")
+        return "\(visibleModelIDs)|\(preparedOrInstalledIDs)"
+    }
+
+    private var qwen3UnifiedPickerPairAvailableForSubtitles: Bool {
+        let preparedOrInstalledIDs = inference.installedLocalTextModelIDs
+            .union(inference.preparedLocalTextModelIDs)
+        return preparedOrInstalledIDs.contains(LocalTextModelID.qwen3_4B4Bit.rawValue)
+            && preparedOrInstalledIDs.contains(LocalTextModelID.qwen3_4BThinking25074Bit.rawValue)
+    }
+
     @MainActor
     private func sanitizeReleaseLocalSelectionIfNeeded() {
         guard case .localMLX(let modelID) = inference.preferredChatModelSelection,
@@ -773,6 +793,19 @@ struct LocalModelToolbarMenu: View {
             showsCloudProviderOptions = false
             showsActiveCloudModelOptions = false
         }
+    }
+
+    @MainActor
+    private func refreshLocalModelSubtitleCache() {
+        let qwen3UnifiedPickerPairAvailable = qwen3UnifiedPickerPairAvailableForSubtitles
+        var subtitles: [String: String] = [:]
+        for model in installedSelectableModels + installableSelectableModels {
+            subtitles[model.id] = Self.staticLocalModelSubtitle(
+                for: model,
+                qwen3UnifiedPickerPairAvailable: qwen3UnifiedPickerPairAvailable
+            )
+        }
+        localModelSubtitleCache = subtitles
     }
 
     private var displayedOperatingModes: [EpistemosOperatingMode] {
@@ -844,6 +877,9 @@ struct LocalModelToolbarMenu: View {
         .task(id: activeSplitPopover == .model) {
             guard activeSplitPopover == .model else { return }
             syncModelPickerDisclosureState()
+        }
+        .task(id: localModelSubtitleInputsFingerprint) {
+            refreshLocalModelSubtitleCache()
         }
     }
 
@@ -1569,16 +1605,27 @@ struct LocalModelToolbarMenu: View {
     }
 
     private func localModelSubtitle(for model: LocalModelDescriptor) -> String {
+        localModelSubtitleCache[model.id] ?? Self.staticLocalModelSubtitle(
+            for: model,
+            qwen3UnifiedPickerPairAvailable: false
+        )
+    }
+
+    private static func staticLocalModelSubtitle(
+        for model: LocalModelDescriptor,
+        qwen3UnifiedPickerPairAvailable: Bool
+    ) -> String {
         guard let modelID = LocalTextModelID(rawValue: model.id) else {
             return "On-device model"
         }
 
-        let modes = inference.availableOperatingModes(for: .localMLX(model.id))
         var features: [String] = []
-        if modes.contains(.thinking) {
+        let supportsThinking = modelID.supportsThinkingMode
+            || (qwen3UnifiedPickerPairAvailable && modelID == .qwen3_4B4Bit)
+        if supportsThinking {
             features.append("Thinking")
         }
-        if modes.contains(.agent) {
+        if modelID.canRunLocalAgentLoop {
             features.append("Tools")
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")

@@ -31,36 +31,37 @@ nonisolated struct EpdocCopilotSurfaceTests {
         #expect(argsJSON == Data("[]".utf8))
     }
 
-    @Test("epdoc chrome mounts a native bottom copilot dock")
+    @Test("epdoc chrome mounts native bottom document actions")
     func chromeMountsNativeCopilotDock() throws {
         let chrome = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
         let dock = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocCopilotDockView.swift")
         let inbound = try loadMirroredSourceTextFile("js-editor/src/bridge/inbound.ts")
 
         #expect(chrome.contains("EpdocCopilotDockView("),
-                "Epdoc must expose the document copilot directly in the native editor chrome.")
+                "Epdoc must expose the document actions directly in the native editor chrome.")
         #expect(chrome.contains(".overlay(alignment: .bottomTrailing)"),
-                "The copilot should be a bottom chat bubble, not another top toolbar or in-document fake panel.")
+                "The document actions should stay in bottom native chrome, not inside the WebKit document body.")
         #expect(dock.contains("Visualize document"))
         #expect(dock.contains("Add frontmatter"))
-        #expect(dock.contains("Scatterplot"))
-        #expect(dock.contains("Study callout"))
+        #expect(!dock.contains("Ask Epdoc"))
+        #expect(!dock.contains("TextField("))
+        #expect(!dock.contains("EpdocCopilotMessageBubble"))
         #expect(dock.contains(".regularMaterial"))
         #expect(!dock.contains("WKWebView"),
-                "The copilot dock is native SwiftUI chrome; the document body stays the only WebKit surface.")
+                "The document action dock is native SwiftUI chrome; the document body stays the only WebKit surface.")
         #expect(inbound.contains("insertEpdocFrontmatter"))
         #expect(inbound.contains("function insertEpdocFrontmatter(editor: Editor): boolean"))
     }
 
-    @Test("free-form copilot prompt does not overclaim an unwired agent")
+    @Test("epdoc dock does not expose a free-form chat prompt")
     func freeformPromptDoesNotOverclaimUnwiredAgent() throws {
         let dock = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocCopilotDockView.swift")
 
         #expect(!dock.contains("I sent that to the document agent hook"),
                 "The .epdoc document window does not yet wire a free-form agent loop, so the dock must not claim it sent the prompt.")
-        #expect(dock.contains("Free-form document editing is not wired yet"),
-                "Unknown prompts should honestly disclose the current bounded-transform state.")
-        #expect(dock.contains("freeformAgentEnabled"),
-                "Keep the future hook explicit instead of deleting the intentional scaffold.")
+        #expect(!dock.contains("Free-form document editing is not wired yet"),
+                "The Epdoc window should not show a chat surface; Mini Chat owns free-form document conversation.")
+        #expect(!dock.contains("submitPrompt()"))
+        #expect(!dock.contains("@FocusState"))
     }
 }

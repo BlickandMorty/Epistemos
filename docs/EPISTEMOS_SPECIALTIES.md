@@ -449,12 +449,13 @@ These combine multiple capabilities into higher-order agent behaviors.
 #### D1. `nightbrain_trigger` — On-Demand Background Intelligence
 **Swift:** `NightBrainService.swift`
 
-**What the agent gets:** Trigger any of 11 background maintenance jobs on demand:
+**What the agent gets:** Trigger one implemented NightBrain maintenance job on explicit immediate demand:
 event_checkpoint, search_index_checkpoint, artifact_dedup, workspace_compaction,
 memory_distillation, cloud_knowledge_distillation, session_graph_generation,
-skill_evolution_analysis, ssm_state_pruning, vault_integrity_check, maintenance_log.
+skill_evolution_analysis, ssm_state_pruning, maintenance_log.
 
-Uses `NSBackgroundActivityScheduler` — respects App Nap, battery, thermal state.
+Normal/background scheduling belongs to the host NightBrain idle scheduler. The public Pro
+tool only exposes immediate single-job dispatch and does not advertise deferred placeholder jobs.
 
 **Tool schema:**
 ```json
@@ -462,7 +463,7 @@ Uses `NSBackgroundActivityScheduler` — respects App Nap, battery, thermal stat
   "name": "nightbrain_trigger",
   "params": {
     "job": "enum(memory_distillation|skill_evolution|session_graph|...)",
-    "priority": "enum(normal|immediate)"
+    "priority": "enum(immediate)"
   },
   "returns": { "job_id": "...", "status": "scheduled", "estimated_duration_s": 30 }
 }
@@ -499,12 +500,11 @@ weighted by the knowledge graph's link structure.
 ---
 
 #### D3. `self_evolve` — GEPA Skill Mutation Pipeline
-**Swift:** `SkillEvolutionService.swift`
-**Rust:** `agent_core/src/evolution/` (planned)
+**Rust:** `agent_core/src/tools/intelligence.rs`
 
 **What the agent gets:** Analyze execution traces, detect failure patterns (frequent retries,
-slow execution, consistent errors), propose skill mutations, validate constraints (size,
-semantic preservation), and write new skill versions.
+slow execution, consistent errors), and emit advisory skill mutation proposals.
+It never writes skills; applying a proposal remains an explicit separate `skill_manage` path.
 
 **Ported from:** Hermes `hermes-agent-self-evolution` (GEPA). But yours runs against the vault's
 execution history, not just session logs.
@@ -514,17 +514,16 @@ execution history, not just session logs.
 {
   "name": "self_evolve",
   "params": {
-    "action": "enum(analyze_traces|propose_mutation|validate|apply)",
-    "skill_name": "optional string",
-    "vault_identity": "string"
+    "action": "enum(analyze|propose)",
+    "sessions_to_scan": "integer, default 20, max 200"
   },
   "returns": {
     "proposals": [{
-      "skill": "github-pr-review",
-      "mutation_type": "parameter_adjustment",
-      "rationale": "Detected 73% retry rate on PR comment posting — adding rate limit backoff",
+      "skill": "github-pr-review-optimizer",
+      "mutation_type": "add_retry_backoff",
+      "rationale": "Detected retry/error/latency pattern in trace history",
       "constraints": { "size_ok": true, "semantic_preserved": true },
-      "diff_preview": "..."
+      "status": "proposed"
     }]
   }
 }
@@ -532,16 +531,15 @@ execution history, not just session logs.
 
 ---
 
-#### D4. `mixture_of_minds` — Local + Cloud Ensemble Reasoning
+#### D4. `mixture_of_minds` — Explicit Cloud Ensemble Reasoning
 **Not in Hermes or OpenClaw in this form**
 
-**What the agent gets:** Route a hard problem through BOTH the local model AND a cloud model
-simultaneously, then aggregate. The local model provides privacy-safe initial reasoning; the
-cloud model provides depth. The aggregator picks the best parts of each.
+**What the agent gets:** Route a hard problem through selected external cloud providers
+after `allow_cloud_external_requests=true`, then aggregate returned contributions.
+Missing provider keys produce honest per-model failures.
 
-**Why only Epistemos:** You're the only app with both a local inference engine AND cloud API
-clients in the same process. Hermes/OpenClaw are cloud-only. This is "mixture of agents" but
-with a privacy-first local component.
+**V1 boundary:** This is not a local/offline ensemble and does not use the local model as an
+aggregator. It is an explicit Pro cloud fan-out tool.
 
 **Tool schema:**
 ```json
@@ -549,9 +547,8 @@ with a privacy-first local component.
   "name": "mixture_of_minds",
   "params": {
     "problem": "string",
-    "local_model": "optional — defaults to active local model",
-    "cloud_models": ["claude-sonnet-4-6", "gpt-4o"],
-    "aggregator": "enum(best_of|synthesize|local_first)"
+    "allow_cloud_external_requests": true,
+    "models": ["claude", "openai", "gemini", "perplexity"]
   },
   "returns": {
     "answer": "...",

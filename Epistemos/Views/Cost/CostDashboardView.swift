@@ -2,15 +2,9 @@ import SwiftUI
 
 // MARK: - W9.6 — Cost dashboard
 //
-// Surfaces `estimated_cost_usd` from `agent_core/src/session_insights.rs`
-// per session + a per-session budget gate. When a session crosses
-// the user-configured cap, the agent fires
-// `SessionState::PausedForApproval` (W9.8) with `tool_name="budget_gate"`
-// and the user is prompted to continue.
-//
-// Today this view reads from a Swift-side projection of session
-// insights; full Rust → Swift wiring will reuse the existing
-// agent_core JSON projection that the agent UI already consumes.
+// Surfaces tracked session token/cache telemetry and, when available, tracked
+// cost estimates. Missing cost/provider data is rendered as unavailable rather
+// than as a synthetic $0.00 row.
 
 @MainActor
 @Observable
@@ -33,10 +27,10 @@ public final class BudgetPreferences {
 public struct CostDashboardEntry: Identifiable, Sendable, Hashable {
     public let id: String          // session id
     public let title: String
-    public let provider: String    // claude / perplexity / local
+    public let provider: String?   // claude / perplexity / local, when tracked
     public let inputTokens: Int
     public let outputTokens: Int
-    public let estimatedCostUSD: Double
+    public let estimatedCostUSD: Double?
     public let startedAt: Date
 
     // N1 Phase 1 — Anthropic prompt-cache telemetry (default 0
@@ -57,10 +51,10 @@ public struct CostDashboardEntry: Identifiable, Sendable, Hashable {
     public init(
         id: String,
         title: String,
-        provider: String,
+        provider: String? = nil,
         inputTokens: Int,
         outputTokens: Int,
-        estimatedCostUSD: Double,
+        estimatedCostUSD: Double? = nil,
         startedAt: Date,
         cacheReadInputTokens: Int = 0,
         cacheCreationInputTokens: Int = 0
@@ -103,7 +97,7 @@ public struct CostDashboardView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Agent spend")
                     .font(.title3.weight(.semibold))
-                Text("Per-session estimated cost in USD")
+                Text("Token usage and tracked spend")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -111,6 +105,7 @@ public struct CostDashboardView: View {
             Text(totalCostString)
                 .font(.title3.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.primary)
+                .help(totalCostHelp)
         }
     }
 
@@ -233,14 +228,15 @@ public struct CostDashboardView: View {
                 Text(entry.title)
                     .font(.callout)
                     .lineLimit(1)
-                Text("\(entry.provider) · \(entry.inputTokens) in / \(entry.outputTokens) out")
+                Text(rowSubtitle(for: entry))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(entry.estimatedCostUSD, format: .currency(code: "USD"))
+            Text(costString(for: entry))
                 .font(.callout.monospacedDigit())
-                .foregroundStyle(entry.estimatedCostUSD >= prefs.perSessionCapUSD ? .red : .primary)
+                .foregroundStyle(costTint(for: entry))
+                .help(costHelp(for: entry))
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -248,8 +244,45 @@ public struct CostDashboardView: View {
     }
 
     private var totalCostString: String {
-        let total = entries.reduce(0.0) { $0 + $1.estimatedCostUSD }
+        guard hasTrackedCosts else { return "—" }
+        let total = entries.reduce(0.0) { $0 + ($1.estimatedCostUSD ?? 0) }
         return total.formatted(.currency(code: "USD"))
+    }
+
+    private var totalCostHelp: String {
+        hasTrackedCosts
+            ? "Total of tracked per-session cost estimates."
+            : "Session metrics do not yet include provider cost estimates."
+    }
+
+    private var hasTrackedCosts: Bool {
+        entries.contains { $0.estimatedCostUSD != nil }
+    }
+
+    private func rowSubtitle(for entry: CostDashboardEntry) -> String {
+        let tokenSummary = "\(entry.inputTokens) in / \(entry.outputTokens) out"
+        guard let provider = entry.provider?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !provider.isEmpty
+        else {
+            return tokenSummary
+        }
+        return "\(provider) · \(tokenSummary)"
+    }
+
+    private func costString(for entry: CostDashboardEntry) -> String {
+        guard let estimatedCostUSD = entry.estimatedCostUSD else { return "Not tracked" }
+        return estimatedCostUSD.formatted(.currency(code: "USD"))
+    }
+
+    private func costTint(for entry: CostDashboardEntry) -> Color {
+        guard let estimatedCostUSD = entry.estimatedCostUSD else { return .secondary }
+        return estimatedCostUSD >= prefs.perSessionCapUSD ? .red : .primary
+    }
+
+    private func costHelp(for entry: CostDashboardEntry) -> String {
+        entry.estimatedCostUSD == nil
+            ? "This session record has token telemetry but no provider cost estimate."
+            : "Tracked per-session cost estimate."
     }
 
     // MARK: - Cache hit rate aggregation (N1 Phase 1)

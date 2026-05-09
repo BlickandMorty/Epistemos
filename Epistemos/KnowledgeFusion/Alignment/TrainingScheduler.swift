@@ -9,11 +9,12 @@ import IOKit.ps
 ///
 /// Per ANCHOR 1 Subsystem 4 and Epistemos audit patterns:
 /// - Uses NSBackgroundActivityScheduler with 24-hour interval
-/// - Checks CGEventSourceSecondsSinceLastEventType > 1800 (30 min idle)
+/// - Uses process-local quiescence instead of system-wide input polling
 /// - Defers if battery powered and < 80%
 /// - Maximum 1 concurrent training job
 @MainActor @Observable
 final class TrainingScheduler {
+    private static let processLaunchUptime = ProcessInfo.processInfo.systemUptime
 
     // MARK: - State
 
@@ -137,11 +138,10 @@ final class TrainingScheduler {
         // Rule 1: No concurrent training
         guard !isTrainingActive else { return false }
 
-        // Rule 2: System must be idle > 30 minutes
-        let idleSeconds = CGEventSource.secondsSinceLastEventType(
-            .combinedSessionState,
-            eventType: .mouseMoved
-        )
+        // Rule 2: app process must have been quiescent long enough. System-wide
+        // idle APIs require Input Monitoring/TCC and are not safe for passive
+        // launch/background schedulers in v1.
+        let idleSeconds = Self.processQuiescenceSeconds()
         guard idleSeconds > 1800 else { return false }
 
         // Rule 3: Check power state
@@ -157,11 +157,12 @@ final class TrainingScheduler {
         guard shouldRunTraining() else { return false }
 
         // Autoresearch needs >60 minutes idle
-        let idleSeconds = CGEventSource.secondsSinceLastEventType(
-            .combinedSessionState,
-            eventType: .mouseMoved
-        )
+        let idleSeconds = Self.processQuiescenceSeconds()
         return idleSeconds > 3600
+    }
+
+    private static func processQuiescenceSeconds() -> Double {
+        max(0, ProcessInfo.processInfo.systemUptime - processLaunchUptime)
     }
 
     // MARK: - Callbacks (override in integration)

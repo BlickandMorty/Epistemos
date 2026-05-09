@@ -80,6 +80,7 @@ struct LandingWaveMetalView: NSViewRepresentable {
         private weak var view: MTKView?
         private(set) var renderer: LandingWaveRenderer?
         private var displayLink: CADisplayLink?
+        private var isRenderingFrame = false
         // Observer tokens are written once (on main) and read once (in
         // nonisolated deinit). The `nonisolated(unsafe)` marker is safe here
         // because there's no concurrent access pattern — registration happens
@@ -238,13 +239,23 @@ struct LandingWaveMetalView: NSViewRepresentable {
         }
 
         nonisolated func draw(in view: MTKView) {
-            Task { @MainActor in
-                // Late-arriving sizes: MTKView can present its first valid
-                // drawable without a prior drawableSizeWillChange, so also
-                // retry the cached click here.
-                flushPendingDropIfReady(using: view)
-                renderer?.render(in: view)
+            guard Thread.isMainThread else { return }
+            MainActor.assumeIsolated {
+                renderFrame(in: view)
             }
+        }
+
+        private func renderFrame(in view: MTKView) {
+            guard !isRenderingFrame else { return }
+            guard view.drawableSize.width > 0, view.drawableSize.height > 0 else { return }
+            isRenderingFrame = true
+            defer { isRenderingFrame = false }
+
+            // Late-arriving sizes: MTKView can present its first valid
+            // drawable without a prior drawableSizeWillChange, so also
+            // retry the cached click here.
+            flushPendingDropIfReady(using: view)
+            renderer?.render(in: view)
         }
     }
 }

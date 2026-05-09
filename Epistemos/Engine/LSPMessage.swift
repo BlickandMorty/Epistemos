@@ -6,8 +6,11 @@ import Foundation
 // (cross-ref `epistemos_code_verdict.md` §3 "Intelligence" layer:
 //  SourceKit-LSP / clangd is the actual truth about the code).
 //
-// Pure data + codec for LSP JSON-RPC 2.0 messages over stdio. The
-// LSP transport framing is exactly the HTTP-style header:
+// Pure data + codec for LSP JSON-RPC 2.0 messages. The production
+// editor path sends the JSON-RPC body through `RustLSPTransport` into
+// the in-process Rust kernel; the Content-Length codec remains for
+// protocol compatibility tests and any future external-server adapter.
+// The framed LSP transport shape is the HTTP-style header:
 //
 //     Content-Length: <byte-count>\r\n
 //     [optional headers]\r\n
@@ -26,8 +29,9 @@ import Foundation
 //   - LSPRequestId (string OR int per the JSON-RPC spec)
 //   - LSPError (typed error envelope with code + message + data)
 //
-// W9.8 follow-up wires this codec to a real Subprocess running
-// `xcrun sourcekit-lsp`. The codec itself is ready today.
+// The old subprocess plan has been superseded by the in-process Rust
+// runtime; this file is the shared envelope/codec layer, not an
+// installed SourceKit-LSP subprocess launcher.
 
 // MARK: - Request id
 
@@ -251,7 +255,7 @@ nonisolated public enum LSPMessageCodec {
     public static func encode(_ message: LSPMessage, encoder: JSONEncoder = .lspCanonical) throws -> Data {
         let body = try encoder.encode(message)
         var header = Data()
-        header.append("Content-Length: \(body.count)\r\n\r\n".data(using: .utf8)!)
+        header.append(Data("Content-Length: \(body.count)\r\n\r\n".utf8))
         header.append(body)
         return header
     }

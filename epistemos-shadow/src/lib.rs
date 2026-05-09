@@ -15,12 +15,12 @@
 //! - **Swift `HaloController`** owns the @MainActor UI surface: state
 //!   machine, NSPanel, SwiftUI views. Zero FFI on the typing path.
 //!
-//! ## W8.1 base scope
+//! ## V1 backend scope
 //!
-//! This commit ships the FFI surface + module structure + an
-//! in-memory stub backend so the Swift side can wire against a real
-//! crate today. The actual Model2Vec / usearch / tantivy / RRF
-//! integration lands in W8.4 once the controller + UI tests are green.
+//! The FFI surface dispatches through `ShadowBackend`. App bootstrap
+//! opens the persistent `RealBackend`; an in-memory fallback remains
+//! for pre-open/test contexts and labels its hits explicitly as
+//! fallback results.
 //!
 //! ## Performance budget (per V1 decision §"performance budget")
 //!
@@ -71,8 +71,8 @@ pub struct ShadowHit {
     /// renderer never has to scan the full body.
     pub snippet: String,
     pub score: f32,
-    /// "lexical" | "dense" | "rrf" — origin signal so the UI can
-    /// optionally show provenance.
+    /// "lexical" | "dense" | "rrf" | "in-memory-substring" — origin
+    /// signal so the UI can optionally show provenance.
     pub source: String,
 }
 
@@ -95,10 +95,10 @@ pub struct ShadowStats {
 // instead of aborting the Swift host (matches the Wave 2.4 catch_unwind
 // + panic = "unwind" contract).
 //
-// The W8.1 base uses simple JSON-string-in / JSON-string-out for the
-// document type. UniFFI scaffolding lands in W8.3 with the controller
-// wiring; for the base, the in-memory stub backend is enough to test
-// the surface end-to-end without UniFFI codegen.
+// The C ABI uses simple JSON-string-in / JSON-string-out for the
+// document type. The singleton in state.rs opens the persistent
+// backend during app bootstrap and falls back to an explicitly labeled
+// in-memory backend only before that open succeeds.
 
 use std::ffi::{CStr, CString, c_char};
 use std::ptr;
@@ -256,7 +256,7 @@ pub unsafe extern "C" fn shadow_free_string(ptr: *mut c_char) {
 /// (typically `~/Library/Application Support/Epistemos/shadow`).
 /// Subsequent FFI calls (`shadow_insert_json`, `shadow_search_json`,
 /// `shadow_flush`, `shadow_stats_json`) hit the persistent
-/// RealBackend instead of the W8.1 stub. Idempotent — calling twice
+/// RealBackend instead of the in-memory fallback. Idempotent — calling twice
 /// replaces the live instance. Returns 0 on success, the
 /// `ShadowError` discriminant (e.g. -4 Backend on HF download
 /// failure) otherwise.

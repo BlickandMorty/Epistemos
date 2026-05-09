@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use async_trait::async_trait;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use super::registry::{RiskLevel, ToolError, ToolHandler, ToolTier};
 use super::terminal::TerminalHandler;
@@ -65,10 +65,19 @@ impl CustomToolSpec {
             return Err("input_schema must be a JSON object".to_string());
         }
         if let Some(tier) = &self.tier {
-            parse_tool_tier(tier)?;
+            let parsed = parse_tool_tier(tier)?;
+            if parsed < ToolTier::Agent {
+                return Err("shell-backed custom tools must use tier 'agent' or 'full'".to_string());
+            }
         }
         if let Some(risk_level) = &self.risk_level {
-            parse_risk_level(risk_level)?;
+            let parsed = parse_risk_level(risk_level)?;
+            if parsed == RiskLevel::ReadOnly {
+                return Err(
+                    "shell-backed custom tools must use risk_level 'modification' or 'destructive'"
+                        .to_string(),
+                );
+            }
         }
         Ok(())
     }
@@ -195,7 +204,8 @@ pub fn custom_tool_manage_schema() -> crate::types::ToolSchema {
         name: "tool_manage".to_string(),
         description: "Create, edit, delete, or list user-defined JSON tools. Custom tools are \
              persisted inside the vault and become real callable tools for the model once saved. \
-             They are shell-backed and use a command_template with {{input_name}} placeholders."
+             They are shell-backed, Agent-tier or Full-tier only, and use a command_template with \
+             {{input_name}} placeholders."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -474,8 +484,8 @@ mod tests {
                 "required": ["name"]
             },
             "command_template": "printf %s {{name}}",
-            "risk_level": "read_only",
-            "tier": "chat_lite"
+            "risk_level": "modification",
+            "tier": "agent"
         });
         fs::write(
             tools_dir.join("echo-name.json"),
@@ -505,8 +515,8 @@ mod tests {
             command_template: "printf %s {{name}}".to_string(),
             workdir: None,
             timeout_secs: Some(30),
-            risk_level: Some("read_only".to_string()),
-            tier: Some("chat_lite".to_string()),
+            risk_level: Some("modification".to_string()),
+            tier: Some("agent".to_string()),
         };
 
         let result = CustomToolRuntimeHandler::new(spec)
@@ -535,8 +545,8 @@ mod tests {
                     "required": ["name"]
                 },
                 "command_template": "printf %s {{name}}",
-                "risk_level": "read_only",
-                "tier": "chat_lite"
+                "risk_level": "modification",
+                "tier": "agent"
             }
         });
 
@@ -547,5 +557,49 @@ mod tests {
         let parsed: Value = serde_json::from_str(&listed).unwrap();
         assert_eq!(parsed["count"], json!(1));
         assert_eq!(parsed["tools"][0]["name"], json!("echo-name"));
+    }
+
+    #[test]
+    fn custom_tool_specs_reject_read_only_shell_tools() {
+        let spec = CustomToolSpec {
+            name: "unsafe-echo".to_string(),
+            description: "Echo the provided name.".to_string(),
+            guidance: None,
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" }
+                }
+            }),
+            command_template: "printf %s {{name}}".to_string(),
+            workdir: None,
+            timeout_secs: None,
+            risk_level: Some("read_only".to_string()),
+            tier: Some("agent".to_string()),
+        };
+        let error = spec.validate().unwrap_err();
+        assert!(error.contains("risk_level"));
+    }
+
+    #[test]
+    fn custom_tool_specs_reject_chat_tier_shell_tools() {
+        let spec = CustomToolSpec {
+            name: "unsafe-chat-echo".to_string(),
+            description: "Echo the provided name.".to_string(),
+            guidance: None,
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" }
+                }
+            }),
+            command_template: "printf %s {{name}}".to_string(),
+            workdir: None,
+            timeout_secs: None,
+            risk_level: Some("modification".to_string()),
+            tier: Some("chat_lite".to_string()),
+        };
+        let error = spec.validate().unwrap_err();
+        assert!(error.contains("tier"));
     }
 }

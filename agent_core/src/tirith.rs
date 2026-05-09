@@ -9,8 +9,7 @@
 //!   - Credential exfiltration patterns
 //!
 //! This module provides:
-//!   - Auto-download of tirith binary from GitHub releases
-//!   - SHA-256 + cosign provenance verification
+//!   - Detection of an installed or already-cached tirith binary
 //!   - Async execution with timeout
 //!   - Structured threat reporting
 
@@ -21,10 +20,6 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 // ── Tirith Configuration ───────────────────────────────────────────────────
-
-/// GitHub release info for tirith.
-const TIRITH_REPO: &str = "deepfence/tirith";
-const TIRITH_VERSION: &str = "v1.3.0";
 
 /// Timeout for tirith scan operations.
 const TIRITH_TIMEOUT: Duration = Duration::from_secs(5);
@@ -163,14 +158,18 @@ impl TirithClient {
 
     /// Quick check: is tirith available?
     pub fn is_available(&self) -> bool {
-        self.binary_path.is_some() || find_tirith_in_path().is_some()
+        self.binary_path.as_deref().is_some_and(is_executable_file)
+            || find_tirith_in_path().is_some()
     }
 
     // ── Internal Methods ───────────────────────────────────────────────────
 
     async fn resolve_binary(&mut self) -> Option<PathBuf> {
         if let Some(ref path) = self.binary_path {
-            return Some(path.clone());
+            if is_executable_file(path) {
+                return Some(path.clone());
+            }
+            self.binary_path = None;
         }
 
         // 1. Check PATH
@@ -182,81 +181,12 @@ impl TirithClient {
         // 2. Check cache directory
         let cache_dir = cache_dir()?;
         let cached = cache_dir.join("tirith");
-        if cached.exists() {
+        if is_executable_file(&cached) {
             self.binary_path = Some(cached.clone());
             return Some(cached);
         }
 
-        // 3. Try to download
-        match self.download_tirith(&cache_dir).await {
-            Ok(path) => {
-                self.binary_path = Some(path.clone());
-                Some(path)
-            }
-            Err(e) => {
-                tracing::warn!("Failed to download tirith: {}", e);
-                None
-            }
-        }
-    }
-
-    async fn download_tirith(&self, cache_dir: &Path) -> Result<PathBuf, String> {
-        #[cfg(target_os = "macos")]
-        let platform = "darwin";
-        #[cfg(target_os = "linux")]
-        let platform = "linux";
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-        return Err("Unsupported platform for tirith download".to_string());
-
-        #[cfg(target_arch = "x86_64")]
-        let arch = "amd64";
-        #[cfg(target_arch = "aarch64")]
-        let arch = "arm64";
-        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-        return Err("Unsupported architecture for tirith download".to_string());
-
-        let filename = format!("tirith_{}_{}", platform, arch);
-        let url = format!(
-            "https://github.com/{}/releases/download/{}/{}",
-            TIRITH_REPO, TIRITH_VERSION, filename
-        );
-
-        tracing::info!("Downloading tirith from {}", url);
-
-        let client = reqwest::Client::new();
-        let response = client
-            .get(&url)
-            .timeout(Duration::from_secs(30))
-            .send()
-            .await
-            .map_err(|e| format!("Download failed: {e}"))?;
-
-        if !response.status().is_success() {
-            return Err(format!("Download failed: HTTP {}", response.status()));
-        }
-
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| format!("Failed to read response: {e}"))?;
-
-        let binary_path = cache_dir.join("tirith");
-        std::fs::create_dir_all(cache_dir).map_err(|e| e.to_string())?;
-        std::fs::write(&binary_path, bytes).map_err(|e| e.to_string())?;
-
-        // Make executable
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&binary_path)
-                .map_err(|e| e.to_string())?
-                .permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&binary_path, perms).map_err(|e| e.to_string())?;
-        }
-
-        tracing::info!("Tirith downloaded to {:?}", binary_path);
-        Ok(binary_path)
+        None
     }
 
     async fn run_tirith(&self, binary: &Path, input_file: &Path) -> TirithScanResult {
@@ -336,6 +266,24 @@ impl Default for TirithClient {
 
 fn find_tirith_in_path() -> Option<PathBuf> {
     which::which("tirith").ok()
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
 }
 
 fn cache_dir() -> Option<PathBuf> {
@@ -518,6 +466,15 @@ mod tests {
         let client = TirithClient::new().with_fail_open(false);
         let result = client.fallback_result("test");
         assert_eq!(result.assessment, ThreatAssessment::Critical);
+    }
+
+    #[test]
+    fn tirith_source_has_no_runtime_executable_download_path() {
+        let source = include_str!("tirith.rs");
+        assert!(!source.contains(concat!("download", "_tirith")));
+        assert!(!source.contains(concat!("releases", "/download")));
+        assert!(!source.contains(concat!("reqwest", "::Client::new")));
+        assert!(source.contains("installed or already-cached tirith binary"));
     }
 
     #[test]

@@ -50,9 +50,10 @@ final class LandingWaveRenderer: NSObject {
         var rampIndexCount: Int32 = 0
         var rampCellIndices: (SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>,
                               SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>,
+                              SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>,
                               SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>, SIMD2<Int32>) =
             (.zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero,
-             .zero, .zero, .zero, .zero)
+             .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero)
     }
 
     // MARK: - GPU objects
@@ -281,17 +282,19 @@ final class LandingWaveRenderer: NSObject {
 
         // Copy up to 8 drops into the tuple field.
         withUnsafeMutableBytes(of: &uniforms.drops) { raw in
-            let base = raw.baseAddress!.assumingMemoryBound(to: SIMD4<Float>.self)
+            guard let baseAddress = raw.baseAddress else { return }
+            let base = baseAddress.assumingMemoryBound(to: SIMD4<Float>.self)
             for i in 0..<count {
                 base[i] = drops[i]
             }
         }
 
         // Copy the luminance ramp's atlas cell indices.
-        let rampCount = min(LandingWaveDesign.luminanceRamp.count, 12)
+        let rampCount = min(LandingWaveDesign.luminanceRamp.count, 16)
         uniforms.rampIndexCount = Int32(rampCount)
         withUnsafeMutableBytes(of: &uniforms.rampCellIndices) { raw in
-            let base = raw.baseAddress!.assumingMemoryBound(to: SIMD2<Int32>.self)
+            guard let baseAddress = raw.baseAddress else { return }
+            let base = baseAddress.assumingMemoryBound(to: SIMD2<Int32>.self)
             for i in 0..<rampCount {
                 base[i] = atlas.cellIndex[i]
             }

@@ -909,6 +909,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         return true
     }
 
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // Keep the app alive in the background when NightBrain menu bar agent mode is on
         let menuBarAgent = UserDefaults.standard.bool(forKey: "nightbrain.menuBarAgent")
@@ -1018,18 +1022,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         if let revealItem = viewMenu.items.first(where: { $0.title == "Reveal Current Document in Graph" }) {
             revealItem.target = self
             revealItem.action = #selector(revealCurrentDocumentInKnowledgeGraph(_:))
-            return
-        }
-        let revealItem = NSMenuItem(
-            title: "Reveal Current Document in Graph",
-            action: #selector(revealCurrentDocumentInKnowledgeGraph(_:)),
-            keyEquivalent: ""
-        )
-        revealItem.target = self
-        if let graphItemIndex = viewMenu.items.firstIndex(of: item) {
-            viewMenu.insertItem(revealItem, at: graphItemIndex + 1)
-        } else {
-            viewMenu.addItem(revealItem)
         }
     }
 

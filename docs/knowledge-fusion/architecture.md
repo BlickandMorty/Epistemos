@@ -93,7 +93,7 @@ Multiple adapters loaded into unified memory simultaneously. Routing selects whi
 Routing modes:
 - **Explicit:** User selects adapter from dropdown.
 - **Automatic:** Classify prompt → route to knowledge/style/tool adapter.
-- **MoLoRA (scaffold):** Per-token routing interface defined; full implementation pending custom MLX kernel.
+- **MoLoRA (scaffold):** Swift per-token routing interface is source-preserved but returns nil until a custom MLX kernel exists. The optional Pro subprocess is prompt-level decide-once routing, not per-token routing.
 
 **Files:**
 - `Epistemos/KnowledgeFusion/Adapters/AdapterRegistry.swift`

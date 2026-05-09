@@ -61,6 +61,7 @@ struct LandingWaveGlyphAtlasTests {
     /// an index of 0 reads as "no glyph". The fragment shader relies on this.
     @Test func luminanceRampStartsWithBlank() {
         #expect(LandingWaveDesign.luminanceRamp.first == " ")
-        #expect(LandingWaveDesign.luminanceRamp.count == 12)
+        #expect(LandingWaveDesign.luminanceRamp.count == 16)
+        #expect(LandingWaveDesign.luminanceRamp.contains("@"))
     }
 }

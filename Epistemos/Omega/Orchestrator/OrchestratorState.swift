@@ -1,12 +1,13 @@
 import Foundation
 
-// MARK: - Orchestrator State (Stub)
+// MARK: - Orchestrator State (retired compatibility shim)
 // The full Omega orchestrator has been retired in favor of the Rust agent_core.
-// This stub preserves the public API surface that other files reference
+// This shim preserves the public API surface that other files reference
 // (AppBootstrap, AgentViewModel, views) without the dead agent dependencies.
 
 @MainActor @Observable
 final class OrchestratorState {
+    private static let retiredExecutionMessage = "Omega task execution is retired; use unified chat."
 
     // MARK: - Safety (still used by AgentViewModel)
     let loopDetector = ToolLoopDetector()
@@ -25,20 +26,28 @@ final class OrchestratorState {
     private(set) weak var mcpBridge: MCPBridge?
     weak var agentGraphMemory: AgentGraphMemory?
 
-    // MARK: - Retired Omega Subsystems (stubs for compile compatibility)
+    // MARK: - Retired Omega Subsystems (compatibility state)
     // These will be removed when views are migrated to AgentViewModel.
-    let taskGraph = TaskGraphStub()
-    let confirmationGate = ConfirmationGateStub()
-    let researchPause = ResearchPauseStub()
-    let liveRuntime = LiveRuntimeStub()
-    let researchOrchestrator = ResearchOrchestratorStub()
+    let taskGraph = RetiredTaskGraphState()
+    let confirmationGate = RetiredConfirmationGateState()
+    let researchPause = RetiredResearchPauseState()
+    let liveRuntime = RetiredLiveRuntimeState()
+    let researchOrchestrator = RetiredResearchOrchestratorState()
     var planningService: Any?
 
     func submitTask(_ description: String) async {
-        // No-op — agent tasks now go through Rust agent_core via ChatCoordinator
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        currentTaskDescription = trimmed
+        isExecuting = false
+        isPlanning = false
+        isModelLoading = false
+        planningError = Self.retiredExecutionMessage
+        executionLog = [
+            .fail(Self.retiredExecutionMessage, stepId: UUID(), durationMs: 0)
+        ]
     }
 
-    // MARK: - Setup (no-op — agents retired)
+    // MARK: - Setup (retired registration)
     func registerAgents(
         vaultURL: URL? = nil,
         modelContainer: Any? = nil,
@@ -55,12 +64,13 @@ final class OrchestratorState {
     }
 }
 
-// MARK: - Retired Omega Type Stubs
-// Minimal stubs that preserve the public API surface for views that still
-// reference Omega types. These will be removed when views are fully migrated.
+// MARK: - Retired Omega Compatibility State
+// Minimal retired state objects preserve the public API surface for views
+// that still reference Omega types. These will be removed when views are
+// fully migrated.
 
 @MainActor @Observable
-final class TaskGraphStub {
+final class RetiredTaskGraphState {
     var status: TaskGraphStatus = .idle
     var steps: [AgentStepResult] = []
 }
@@ -70,7 +80,7 @@ enum TaskGraphStatus: String, Sendable {
 }
 
 @MainActor @Observable
-final class ConfirmationGateStub {
+final class RetiredConfirmationGateState {
     var pendingConfirmation: ConfirmationRequest?
 }
 
@@ -86,7 +96,7 @@ enum ConfirmationRiskLevel: String, Sendable {
 }
 
 @MainActor @Observable
-final class ResearchPauseStub {
+final class RetiredResearchPauseState {
     var isPaused = false
     var activeRequest: ResearchRequest?
 }
@@ -97,7 +107,7 @@ struct ResearchRequest {
 }
 
 @MainActor @Observable
-final class LiveRuntimeStub {
+final class RetiredLiveRuntimeState {
     var hasContent = false
     var currentPhase: String = ""
     var lastTurn: String?
@@ -112,6 +122,6 @@ struct PhaseEntry: Identifiable {
 }
 
 @MainActor @Observable
-final class ResearchOrchestratorStub {
+final class RetiredResearchOrchestratorState {
     var isActive = false
 }

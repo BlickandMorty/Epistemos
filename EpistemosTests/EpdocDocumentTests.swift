@@ -170,6 +170,37 @@ struct EpdocDocumentTests {
                 "changing the content body MUST change contentHash")
     }
 
+    @Test("fileWrapper(ofType:) writes complexity metadata and preserves existing metadata")
+    func writePersistsComplexityMetadata() throws {
+        let doc = EpdocDocument()
+        let manifest = doc.package.manifest
+        doc.package.manifest = EpdocManifest(
+            id: manifest.id,
+            kind: manifest.kind,
+            schemaVersion: manifest.schemaVersion,
+            createdAt: manifest.createdAt,
+            updatedAt: manifest.updatedAt,
+            title: manifest.title,
+            contentHash: manifest.contentHash,
+            provenance: manifest.provenance,
+            metadata: ["theme": "solarized-dark"]
+        )
+        doc.setContentJSON(#"""
+        {"type":"doc","content":[
+          {"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Complexity"}]},
+          {"type":"paragraph","content":[{"type":"text","text":"A document with enough structure and prose should write a non-zero complexity scalar into manifest metadata."}]}
+        ]}
+        """#.data(using: .utf8)!)
+
+        let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
+        let decoded = try EpdocPackage(fileWrapper: wrapper)
+        #expect(decoded.manifest.metadata?["theme"] == "solarized-dark")
+        let raw = try #require(decoded.manifest.metadata?["complexity"])
+        let value = try #require(Double(raw))
+        #expect(value > 0.0 && value <= 1.0,
+                "Saved manifest complexity metadata must be a queryable W7.12 scalar; got \(raw)")
+    }
+
     @Test("fileWrapper(ofType:) rejects unknown UTI")
     func writeRejectsUnknownUTI() {
         let doc = EpdocDocument()
@@ -195,8 +226,21 @@ struct EpdocDocumentTests {
     @Test("setTitle marks the document dirty + persists to manifest")
     func setTitleMarksDirty() {
         let doc = EpdocDocument()
+        let manifest = doc.package.manifest
+        doc.package.manifest = EpdocManifest(
+            id: manifest.id,
+            kind: manifest.kind,
+            schemaVersion: manifest.schemaVersion,
+            createdAt: manifest.createdAt,
+            updatedAt: manifest.updatedAt,
+            title: manifest.title,
+            contentHash: manifest.contentHash,
+            provenance: manifest.provenance,
+            metadata: ["complexity": "0.5"]
+        )
         doc.setTitle("Renamed")
         #expect(doc.package.manifest.title == "Renamed")
+        #expect(doc.package.manifest.metadata?["complexity"] == "0.5")
         #expect(doc.isDocumentEdited)
     }
 

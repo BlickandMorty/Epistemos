@@ -85,6 +85,12 @@ pub fn infer_tool_authz_target(
             let output = input.get("output_path")?;
             file_target_from_path(output, Capability::Write)
         }
+        // Text-to-speech can either play audio immediately (no stable
+        // resource) or render to a file. Only gate the output-file path.
+        "text_to_speech" => {
+            let output = input.get("output_path")?;
+            file_target_from_path(output, Capability::Write)
+        }
         // Everything else currently unrecognized. This covers the
         // mutating tools that don't have a natural `ResourceId`
         // today:
@@ -411,6 +417,30 @@ mod tests {
         assert!(
             infer_tool_authz_target("trajectory_export", &input, &write_risk(), None).is_none()
         );
+    }
+
+    // ── text_to_speech output_path arm ────────────────────────────
+    #[test]
+    fn text_to_speech_output_path_emits_file_write() {
+        let input = json!({
+            "text": "hello",
+            "output_path": "/tmp/authz/speech.aiff"
+        });
+        let target = infer_tool_authz_target("text_to_speech", &input, &write_risk(), None)
+            .expect("text_to_speech with output_path should yield a file target");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::File { absolute_path } => {
+                assert_eq!(absolute_path, "/tmp/authz/speech.aiff");
+            }
+            other => panic!("expected File variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn text_to_speech_without_output_path_returns_none() {
+        let input = json!({"text": "hello", "allow_audio_playback": true});
+        assert!(infer_tool_authz_target("text_to_speech", &input, &write_risk(), None).is_none());
     }
 
     // ── non-resourceable mutating tools ───────────────────────────

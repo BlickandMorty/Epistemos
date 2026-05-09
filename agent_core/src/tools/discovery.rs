@@ -5,21 +5,24 @@
 //! * `mcp_discover`  — scan `~/.epistemos/mcp-servers/*.json`, return the
 //!   registered server configs so the UI can surface them and the agent can
 //!   see which MCP tools are available.
-//! * `model_catalog` — query OpenRouter's `/api/v1/models` endpoint for live
-//!   pricing and context-window metadata.
+//! * `model_catalog` — return the local model catalog by default, with an
+//!   explicit opt-in path for OpenRouter's `/api/v1/models` endpoint.
 //!
-//! Both tools are read-only and safe for `ChatLite` tier.
+//! Model catalog reads are safe for `ChatLite` tier when local. MCP discovery
+//! is ChatPro because it can optionally create missing config directories.
 
 use std::path::PathBuf;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
+use super::web_fetch::{read_response_text_limited, secure_redirect_policy};
 
 const HTTP_TIMEOUT: Duration = Duration::from_secs(15);
+const MAX_MODEL_CATALOG_BYTES: usize = 4 * 1024 * 1024;
 
 // ── mcp_discover ──────────────────────────────────────────────────────────
 
@@ -45,6 +48,16 @@ impl ToolHandler for McpDiscoverHandler {
             .get("create_missing")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let allow_create_missing = input
+            .get("allow_create_missing_dirs")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if create_missing && !allow_create_missing {
+            return Err(ToolError::InvalidArguments(
+                "allow_create_missing_dirs must be true before mcp_discover creates missing config directories"
+                    .to_string(),
+            ));
+        }
 
         let mut servers: Vec<Value> = Vec::new();
         let mut scanned: Vec<String> = Vec::new();
@@ -105,16 +118,20 @@ impl ToolHandler for McpDiscoverHandler {
                 // a flat list.
                 if let Some(obj) = parsed.get("mcpServers").and_then(Value::as_object) {
                     for (name, cfg) in obj {
+                        let (config, redacted_secrets) = redact_mcp_config(cfg);
                         servers.push(json!({
                             "name": name,
                             "path": path.display().to_string(),
-                            "config": cfg,
+                            "config": config,
+                            "redacted_secrets": redacted_secrets,
                         }));
                     }
                 } else {
+                    let (config, redacted_secrets) = redact_mcp_config(&parsed);
                     servers.push(json!({
                         "path": path.display().to_string(),
-                        "config": parsed,
+                        "config": config,
+                        "redacted_secrets": redacted_secrets,
                     }));
                 }
             }
@@ -129,6 +146,137 @@ impl ToolHandler for McpDiscoverHandler {
         })
         .to_string())
     }
+}
+
+fn redact_mcp_config(value: &Value) -> (Value, bool) {
+    match value {
+        Value::Object(map) => {
+            let mut redacted = false;
+            let mut out = serde_json::Map::new();
+            for (key, child) in map {
+                if is_sensitive_key(key) {
+                    out.insert(key.clone(), Value::String("[redacted]".to_string()));
+                    redacted = true;
+                } else if key.eq_ignore_ascii_case("args") {
+                    let (scrubbed, child_redacted) = redact_mcp_args(child);
+                    redacted |= child_redacted;
+                    out.insert(key.clone(), scrubbed);
+                } else {
+                    let (scrubbed, child_redacted) = redact_mcp_config(child);
+                    redacted |= child_redacted;
+                    out.insert(key.clone(), scrubbed);
+                }
+            }
+            (Value::Object(out), redacted)
+        }
+        Value::Array(values) => {
+            let mut redacted = false;
+            let mut out = Vec::with_capacity(values.len());
+            for child in values {
+                let (scrubbed, child_redacted) = redact_mcp_config(child);
+                redacted |= child_redacted;
+                out.push(scrubbed);
+            }
+            (Value::Array(out), redacted)
+        }
+        Value::String(text) => redact_env_assignment_string(text)
+            .map(|scrubbed| (Value::String(scrubbed), true))
+            .unwrap_or_else(|| (value.clone(), false)),
+        _ => (value.clone(), false),
+    }
+}
+
+fn redact_mcp_args(value: &Value) -> (Value, bool) {
+    let Some(args) = value.as_array() else {
+        return redact_mcp_config(value);
+    };
+    let mut redacted = false;
+    let mut redact_next = false;
+    let mut out = Vec::with_capacity(args.len());
+    for arg in args {
+        let Some(text) = arg.as_str() else {
+            let (scrubbed, child_redacted) = redact_mcp_config(arg);
+            redacted |= child_redacted;
+            out.push(scrubbed);
+            redact_next = false;
+            continue;
+        };
+
+        if redact_next {
+            out.push(Value::String("[redacted]".to_string()));
+            redacted = true;
+            redact_next = false;
+            continue;
+        }
+
+        if let Some(scrubbed) = redact_env_assignment_string(text) {
+            out.push(Value::String(scrubbed));
+            redacted = true;
+            continue;
+        }
+
+        if let Some((flag, _)) = text.split_once('=') {
+            if is_sensitive_arg_flag(flag) {
+                out.push(Value::String(format!("{flag}=[redacted]")));
+                redacted = true;
+                continue;
+            }
+        }
+
+        out.push(Value::String(text.to_string()));
+        redact_next = is_sensitive_arg_flag(text);
+    }
+    (Value::Array(out), redacted)
+}
+
+fn redact_env_assignment_string(text: &str) -> Option<String> {
+    let (key, _) = text.split_once('=')?;
+    if is_sensitive_key(key) {
+        Some(format!("{key}=[redacted]"))
+    } else {
+        None
+    }
+}
+
+fn is_sensitive_arg_flag(flag: &str) -> bool {
+    let normalized = flag
+        .trim_start_matches('-')
+        .replace('-', "_")
+        .to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "api_key"
+            | "apikey"
+            | "key"
+            | "token"
+            | "access_token"
+            | "auth_token"
+            | "authorization"
+            | "bearer"
+            | "password"
+            | "secret"
+            | "client_secret"
+            | "private_key"
+    )
+}
+
+fn is_sensitive_key(key: &str) -> bool {
+    let normalized = key.replace('-', "_").to_ascii_lowercase();
+    normalized.contains("api_key")
+        || normalized.contains("apikey")
+        || normalized.contains("access_token")
+        || normalized.contains("auth_token")
+        || normalized.contains("refresh_token")
+        || normalized.contains("client_secret")
+        || normalized.contains("private_key")
+        || normalized.contains("password")
+        || normalized.contains("passwd")
+        || normalized.contains("secret")
+        || normalized.contains("token")
+        || normalized == "authorization"
+        || normalized == "bearer"
+        || normalized == "credential"
+        || normalized.ends_with("_key")
 }
 
 pub fn mcp_discover_schema() -> crate::types::ToolSchema {
@@ -147,6 +295,11 @@ pub fn mcp_discover_schema() -> crate::types::ToolSchema {
                     "type": "boolean",
                     "description": "Create the scan directories if missing.",
                     "default": false
+                },
+                "allow_create_missing_dirs": {
+                    "type": "boolean",
+                    "description": "Required when create_missing=true because that creates directories on disk.",
+                    "default": false
                 }
             }
         }),
@@ -163,9 +316,10 @@ impl ModelCatalogHandler {
     pub fn new() -> Result<Self, ToolError> {
         let client = Client::builder()
             .timeout(HTTP_TIMEOUT)
+            .redirect(secure_redirect_policy())
             .user_agent("Epistemos/1.0 (ModelCatalog)")
             .build()
-            .map_err(|e| ToolError::ExecutionFailed(format!("http init: {e}")))?;
+            .map_err(|_| ToolError::ExecutionFailed("model catalog HTTP init failed".into()))?;
         Ok(Self { client })
     }
 }
@@ -176,12 +330,28 @@ impl ToolHandler for ModelCatalogHandler {
         let source = input
             .get("source")
             .and_then(Value::as_str)
-            .unwrap_or("openrouter");
+            .unwrap_or("local");
         let filter = input.get("filter").and_then(Value::as_str);
-        let limit = input.get("limit").and_then(Value::as_u64).unwrap_or(50) as usize;
+        let limit = input
+            .get("limit")
+            .and_then(Value::as_u64)
+            .unwrap_or(50)
+            .clamp(1, 500) as usize;
 
         match source.to_ascii_lowercase().as_str() {
-            "openrouter" => self.fetch_openrouter(filter, limit).await,
+            "openrouter" => {
+                let allow_cloud = input
+                    .get("allow_cloud_external_requests")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                if !allow_cloud {
+                    return Err(ToolError::InvalidArguments(
+                        "allow_cloud_external_requests must be true before model_catalog queries OpenRouter's external model API"
+                            .to_string(),
+                    ));
+                }
+                self.fetch_openrouter(filter, limit).await
+            }
             "local" => self.local_catalog(filter, limit),
             other => Err(ToolError::InvalidArguments(format!(
                 "unknown source '{other}' (expected: openrouter|local)"
@@ -205,17 +375,19 @@ impl ModelCatalogHandler {
             .get("https://openrouter.ai/api/v1/models")
             .send()
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("openrouter request: {e}")))?;
+            .map_err(describe_model_catalog_request_error)?;
         if !resp.status().is_success() {
             return Err(ToolError::ExecutionFailed(format!(
                 "openrouter HTTP {}",
                 resp.status()
             )));
         }
-        let payload: Value = resp
-            .json()
+        let (body, _) = read_response_text_limited(resp, MAX_MODEL_CATALOG_BYTES)
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("openrouter parse: {e}")))?;
+            .map_err(|e| ToolError::ExecutionFailed(format!("openrouter body: {e}")))?;
+        let payload: Value = serde_json::from_str(&body).map_err(|_| {
+            ToolError::ExecutionFailed("openrouter response was not valid JSON".into())
+        })?;
 
         let mut models: Vec<Value> = payload
             .get("data")
@@ -365,11 +537,12 @@ impl ModelCatalogHandler {
 pub fn model_catalog_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "model_catalog".to_string(),
-        description: "Fetch the live model catalog. source='openrouter' hits the public \
-             OpenRouter API for cloud models with live pricing + context windows; \
-             source='local' returns the Epistemos-supported MLX local models. Optional \
-             'filter' substring match on id or name. Results compressed to the fields an \
-             agent needs (id, name, context, pricing, supports_tools)."
+        description: "Fetch the model catalog. Defaults to source='local' for the \
+             Epistemos-supported MLX local models. source='openrouter' hits the public \
+             OpenRouter API for cloud models with live pricing + context windows and \
+             requires allow_cloud_external_requests=true. Optional 'filter' substring \
+             match on id or name. Results compressed to the fields an agent needs \
+             (id, name, context, pricing, supports_tools)."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -377,13 +550,28 @@ pub fn model_catalog_schema() -> crate::types::ToolSchema {
                 "source": {
                     "type": "string",
                     "enum": ["openrouter", "local"],
-                    "default": "openrouter"
+                    "default": "local"
+                },
+                "allow_cloud_external_requests": {
+                    "type": "boolean",
+                    "description": "Required when source='openrouter' because the tool contacts an external model catalog API.",
+                    "default": false
                 },
                 "filter": { "type": "string", "description": "Substring filter on id/name." },
                 "limit": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 }
             }
         }),
     }
+}
+
+fn describe_model_catalog_request_error(error: reqwest::Error) -> ToolError {
+    let mut message = "openrouter request failed".to_string();
+    if error.is_timeout() {
+        message.push_str(": timed out");
+    } else if error.is_connect() {
+        message.push_str(": connection failed");
+    }
+    ToolError::ExecutionFailed(message)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────
@@ -394,9 +582,17 @@ mod tests {
     use serde_json::json;
     use tempfile::tempdir;
 
+    fn restore_env(key: &str, saved: Option<String>) {
+        match saved {
+            Some(value) => std::env::set_var(key, value),
+            None => std::env::remove_var(key),
+        }
+    }
+
     #[tokio::test]
     async fn mcp_discover_returns_empty_when_dirs_missing() {
         // Override HOME so the scanner finds nothing.
+        let _env_guard = crate::test_support::env_lock();
         let dir = tempdir().unwrap();
         let saved = std::env::var("HOME").ok();
         std::env::set_var("HOME", dir.path());
@@ -407,16 +603,45 @@ mod tests {
         let result = handler.execute(&json!({})).await.unwrap();
         assert!(result.contains("\"server_count\":0"));
 
-        if let Some(v) = saved {
-            std::env::set_var("HOME", v);
-        }
-        if let Some(v) = saved_xdg {
-            std::env::set_var("XDG_CONFIG_HOME", v);
-        }
+        restore_env("HOME", saved);
+        restore_env("XDG_CONFIG_HOME", saved_xdg);
+    }
+
+    #[tokio::test]
+    async fn mcp_discover_create_missing_requires_explicit_ack() {
+        let _env_guard = crate::test_support::env_lock();
+        let dir = tempdir().unwrap();
+        let home = dir.path().to_path_buf();
+        let saved = std::env::var("HOME").ok();
+        std::env::set_var("HOME", &home);
+        let saved_xdg = std::env::var("XDG_CONFIG_HOME").ok();
+        std::env::remove_var("XDG_CONFIG_HOME");
+
+        let handler = McpDiscoverHandler;
+        let err = handler
+            .execute(&json!({ "create_missing": true }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_create_missing_dirs"));
+        assert!(!home.join(".epistemos/mcp-servers").exists());
+
+        let result = handler
+            .execute(&json!({
+                "create_missing": true,
+                "allow_create_missing_dirs": true
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("\"created_dirs\""));
+        assert!(home.join(".epistemos/mcp-servers").exists());
+
+        restore_env("HOME", saved);
+        restore_env("XDG_CONFIG_HOME", saved_xdg);
     }
 
     #[tokio::test]
     async fn mcp_discover_parses_openclaw_style_config() {
+        let _env_guard = crate::test_support::env_lock();
         let dir = tempdir().unwrap();
         let home = dir.path().to_path_buf();
         let saved = std::env::var("HOME").ok();
@@ -428,7 +653,7 @@ mod tests {
         std::fs::create_dir_all(&server_dir).unwrap();
         std::fs::write(
             server_dir.join("brave.json"),
-            r#"{"mcpServers":{"brave":{"command":"mcp-brave","args":["--key","X"]}}}"#,
+            r#"{"mcpServers":{"brave":{"command":"mcp-brave","args":["--key","SECRET-BRAVE"],"env":{"BRAVE_API_KEY":"SECRET-ENV"},"headers":{"Authorization":"Bearer SECRET-HEADER"}}}}"#,
         )
         .unwrap();
 
@@ -436,13 +661,46 @@ mod tests {
         let result = handler.execute(&json!({})).await.unwrap();
         assert!(result.contains("\"name\":\"brave\""));
         assert!(result.contains("\"command\":\"mcp-brave\""));
+        assert!(result.contains("\"redacted_secrets\":true"));
+        assert!(!result.contains("SECRET-BRAVE"));
+        assert!(!result.contains("SECRET-ENV"));
+        assert!(!result.contains("SECRET-HEADER"));
+        assert!(result.contains("[redacted]"));
 
-        if let Some(v) = saved {
-            std::env::set_var("HOME", v);
-        }
-        if let Some(v) = saved_xdg {
-            std::env::set_var("XDG_CONFIG_HOME", v);
-        }
+        restore_env("HOME", saved);
+        restore_env("XDG_CONFIG_HOME", saved_xdg);
+    }
+
+    #[test]
+    fn mcp_config_redaction_scrubs_common_secret_shapes() {
+        let config = json!({
+            "command": "server",
+            "env": {
+                "ANTHROPIC_API_KEY": "sk-test",
+                "SAFE_MODE": "1"
+            },
+            "args": [
+                "--token=tok-test",
+                "--password",
+                "pw-test",
+                "OPENAI_API_KEY=sk-openai",
+                "--project",
+                "notes"
+            ],
+            "headers": {
+                "Authorization": "Bearer token-test"
+            }
+        });
+        let (redacted, changed) = redact_mcp_config(&config);
+        let text = redacted.to_string();
+        assert!(changed);
+        assert!(!text.contains("sk-test"));
+        assert!(!text.contains("tok-test"));
+        assert!(!text.contains("pw-test"));
+        assert!(!text.contains("sk-openai"));
+        assert!(!text.contains("token-test"));
+        assert!(text.contains("SAFE_MODE"));
+        assert!(text.contains("notes"));
     }
 
     #[tokio::test]
@@ -457,6 +715,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn model_catalog_defaults_to_local_and_clamps_limit() {
+        let handler = ModelCatalogHandler::new().unwrap();
+        let result = handler
+            .execute(&json!({"filter":"qwen","limit":0}))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["source"], "local");
+        assert_eq!(parsed["returned"], 1);
+    }
+
+    #[tokio::test]
+    async fn model_catalog_openrouter_requires_cloud_ack_before_network() {
+        let handler = ModelCatalogHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({"source":"openrouter"}))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_cloud_external_requests"));
+    }
+
+    #[tokio::test]
     async fn model_catalog_rejects_unknown_source() {
         let handler = ModelCatalogHandler::new().unwrap();
         let err = handler
@@ -464,5 +744,19 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("unknown source"));
+    }
+
+    #[test]
+    fn model_catalog_schema_defaults_local_and_documents_remote_ack() {
+        let schema = model_catalog_schema();
+        assert_eq!(
+            schema.parameters["properties"]["source"]["default"],
+            "local"
+        );
+        assert!(
+            schema
+                .description
+                .contains("allow_cloud_external_requests=true")
+        );
     }
 }

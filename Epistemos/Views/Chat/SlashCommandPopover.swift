@@ -15,6 +15,7 @@ import SwiftUI
 struct SlashCommandPopover: View {
     let commands: [ACCSlashCommand]
     let filter: String
+    var selectedCommand: ACCSlashCommand? = nil
     let onSelect: (ACCSlashCommand) -> Void
 
     @Environment(UIState.self) private var ui
@@ -22,6 +23,10 @@ struct SlashCommandPopover: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var filteredCommands: [ACCSlashCommand] {
+        Self.filteredCommands(commands: commands, filter: filter)
+    }
+
+    static func filteredCommands(commands: [ACCSlashCommand], filter: String) -> [ACCSlashCommand] {
         let query = filter.trimmingCharacters(in: .whitespaces).lowercased()
         guard !query.isEmpty else { return commands }
         return commands.filter { command in
@@ -40,7 +45,10 @@ struct SlashCommandPopover: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(filteredCommands) { command in
-                            SlashCommandRow(command: command) {
+                            SlashCommandRow(
+                                command: command,
+                                isSelected: selectedCommand == command
+                            ) {
                                 onSelect(command)
                             }
                             if command != filteredCommands.last {
@@ -107,6 +115,7 @@ struct SlashCommandPopover: View {
 
 private struct SlashCommandRow: View {
     let command: ACCSlashCommand
+    let isSelected: Bool
     let onSelect: () -> Void
 
     @State private var isHovering = false
@@ -140,7 +149,15 @@ private struct SlashCommandRow: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(isHovering ? Color.secondary.opacity(0.08) : Color.clear)
+            .background((isHovering || isSelected) ? Color.secondary.opacity(0.08) : Color.clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(Color.purple.opacity(0.72))
+                        .frame(width: 2)
+                        .padding(.vertical, 8)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

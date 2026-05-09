@@ -61,14 +61,14 @@ nonisolated private final class SlowShadowFFIClient: ShadowFFIClient, @unchecked
 ///
 /// The actors bridge the @MainActor HaloController to the synchronous
 /// `ShadowFFIClient` so the FFI hop stays off the main thread. Tests
-/// drive the actors through a `StubShadowFFIClient` so the contract is
-/// covered without depending on the Rust dylib being loadable.
+/// drive the actors through an `InMemoryShadowFFIClient` so the contract
+/// is covered without depending on the Rust dylib being loadable.
 @MainActor
-@Suite("Shadow service actors (Wave 8.3)")
+@Suite("Shadow service actors (Wave 8.3)", .serialized)
 struct ShadowServicesTests {
 
-    private static func stubClient() -> StubShadowFFIClient {
-        StubShadowFFIClient()
+    private static func inMemoryClient() -> InMemoryShadowFFIClient {
+        InMemoryShadowFFIClient()
     }
 
     private static func note(_ id: String, title: String = "title", body: String = "body") -> ShadowDocumentDTO {
@@ -82,21 +82,54 @@ struct ShadowServicesTests {
         )
     }
 
-    // MARK: - StubShadowFFIClient sanity
+    // MARK: - InMemoryShadowFFIClient sanity
 
-    @Test("Stub client round-trips a single document via insert + search")
-    func stubClientInsertSearchRoundTrip() throws {
-        let client = Self.stubClient()
+    @Test("In-memory client round-trips a single document via insert + search")
+    func inMemoryClientInsertSearchRoundTrip() throws {
+        let client = Self.inMemoryClient()
         try client.insert(document: Self.note("n1", title: "Kant on duty", body: "Categorical imperative"))
         let hits = try client.search(query: "kant", domain: .notes, limit: 10)
         #expect(hits.count == 1)
         #expect(hits.first?.id == "n1")
         #expect(hits.first?.score ?? 0 > 0)
+        #expect(hits.first?.source == "in-memory-substring")
     }
 
-    @Test("Stub client filters search by domain")
-    func stubClientDomainFilter() throws {
-        let client = Self.stubClient()
+    @Test("Shadow fallback provenance labels are honest")
+    func shadowFallbackProvenanceLabelsAreHonest() throws {
+        let checkedPaths = [
+            "epistemos-shadow/src/state.rs",
+            "epistemos-shadow/src/lib.rs",
+            "epistemos-shadow/src/backend/mod.rs",
+            "Epistemos/Engine/ShadowFFIClient.swift",
+            "Epistemos/Models/HaloState.swift",
+        ]
+
+        for path in checkedPaths {
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(!source.contains("stub-substring"), "\(path) must not emit stale stub provenance")
+            #expect(!source.contains("W8.1 stub"), "\(path) must not describe Shadow fallback as the shipped backend")
+            #expect(!source.contains("ShadowState stub"), "\(path) must use fallback wording")
+            #expect(!source.contains("STUB_FALLBACK"), "\(path) must use fallback wording")
+        }
+
+        let rustState = try loadMirroredSourceTextFile("epistemos-shadow/src/state.rs")
+        let swiftClient = try loadMirroredSourceTextFile("Epistemos/Engine/ShadowFFIClient.swift")
+        let haloState = try loadMirroredSourceTextFile("Epistemos/Models/HaloState.swift")
+
+        #expect(rustState.contains("IN_MEMORY_FALLBACK"))
+        #expect(rustState.contains("source: \"in-memory-substring\""))
+        #expect(swiftClient.contains("source: \"in-memory-substring\""))
+        #expect(swiftClient.contains("InMemoryShadowFFIClient"))
+        #expect(swiftClient.contains("com.epistemos.shadow.in-memory"))
+        #expect(!swiftClient.contains("StubShadowFFIClient"))
+        #expect(!swiftClient.contains("com.epistemos.shadow.stub"))
+        #expect(haloState.contains("\"in-memory-substring\""))
+    }
+
+    @Test("In-memory client filters search by domain")
+    func inMemoryClientDomainFilter() throws {
+        let client = Self.inMemoryClient()
         try client.insert(document: ShadowDocumentDTO(docId: "n1", title: "kant", body: "kant", domain: .notes))
         try client.insert(document: ShadowDocumentDTO(docId: "c1", title: "kant", body: "kant", domain: .chats))
         let notesHits = try client.search(query: "kant", domain: .notes, limit: 10)
@@ -107,9 +140,9 @@ struct ShadowServicesTests {
         #expect(chatsHits.first?.id == "c1")
     }
 
-    @Test("Stub client throws .invalidInput on empty doc_id")
-    func stubClientRejectsEmptyDocId() {
-        let client = Self.stubClient()
+    @Test("In-memory client throws .invalidInput on empty doc_id")
+    func inMemoryClientRejectsEmptyDocId() {
+        let client = Self.inMemoryClient()
         do {
             try client.insert(document: Self.note(""))
             #expect(Bool(false), "must throw on empty doc_id")
@@ -123,9 +156,9 @@ struct ShadowServicesTests {
         }
     }
 
-    @Test("Stub client throws .notFound when removing an unknown doc")
-    func stubClientRemoveUnknown() {
-        let client = Self.stubClient()
+    @Test("In-memory client throws .notFound when removing an unknown doc")
+    func inMemoryClientRemoveUnknown() {
+        let client = Self.inMemoryClient()
         do {
             try client.remove(docId: "missing")
             #expect(Bool(false), "must throw on unknown doc")
@@ -164,7 +197,7 @@ struct ShadowServicesTests {
     @Test("ShadowSearchService.search returns hits from the underlying client")
     func searchServiceReturnsHits() async throws {
         let sink = ShadowSearchAgentEventSink()
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         try client.insert(document: Self.note("n1", title: "Kant", body: "duty"))
         let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
         let hits = await service.search(text: "kant", domain: .notes, limit: 10)
@@ -176,11 +209,11 @@ struct ShadowServicesTests {
     func searchServiceSwallowsErrors() async {
         let sink = ShadowSearchAgentEventSink()
         // Domain mismatch in the client raises an error in the real
-        // backend; the service wrapper logs + returns []. The stub
-        // doesn't error on unknown domain (our enum already constrains
-        // to the two allowed values), so this asserts the .notes
-        // happy-path stays consistent.
-        let client = Self.stubClient()
+        // backend; the service wrapper logs + returns []. The in-memory
+        // fallback doesn't error on unknown domain (our enum already
+        // constrains to the two allowed values), so this asserts the
+        // .notes happy-path stays consistent.
+        let client = Self.inMemoryClient()
         let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
         let hits = await service.search(text: "anything", domain: .notes, limit: 10)
         #expect(hits.isEmpty,
@@ -192,7 +225,7 @@ struct ShadowServicesTests {
         let sink = ShadowSearchAgentEventSink()
         // Force an empty-query case that returns an empty result;
         // searchOrThrow should not throw, just return [].
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         let service = ShadowSearchService(client: client, agentProvenanceRecorder: Self.recorder(sink: sink))
         let hits = try await service.searchOrThrow(text: "", domain: .notes, limit: 5)
         #expect(hits.isEmpty)
@@ -201,7 +234,7 @@ struct ShadowServicesTests {
     @Test("ShadowSearchService.search records sanitized AgentEvents")
     func searchServiceRecordsSanitizedAgentEvents() async throws {
         let sink = ShadowSearchAgentEventSink()
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         try client.insert(document: Self.note(
             "secret-shadow-doc",
             title: "Hidden Orpheus Title",
@@ -246,7 +279,7 @@ struct ShadowServicesTests {
                 "secret-shadow-doc",
                 "Hidden Orpheus Title",
                 "Forbidden shadow body",
-                "stub-substring"
+                "in-memory-substring"
             ]
         )
     }
@@ -255,7 +288,7 @@ struct ShadowServicesTests {
     func searchServiceRecordsCompletedAgentEventsForZeroHitResults() async throws {
         let sink = ShadowSearchAgentEventSink()
         let service = ShadowSearchService(
-            client: Self.stubClient(),
+            client: Self.inMemoryClient(),
             agentProvenanceRecorder: Self.recorder(sink: sink)
         )
 
@@ -275,6 +308,9 @@ struct ShadowServicesTests {
 
     @Test("ShadowSearchService.search records failed AgentEvents with closed failure classes")
     func searchServiceRecordsFailedAgentEventsWithClosedFailureClasses() async throws {
+        ShadowSearchDiagnostics.shared.reset()
+        defer { ShadowSearchDiagnostics.shared.reset() }
+
         let sink = ShadowSearchAgentEventSink()
         let service = ShadowSearchService(
             client: ThrowingShadowFFIClient(error: .backendFailure(detail: "secret backend detail")),
@@ -302,6 +338,47 @@ struct ShadowServicesTests {
             in: sink.events,
             forbidden: ["private recall prompt", "secret backend detail", "backendFailure"]
         )
+
+        let snapshot = ShadowSearchDiagnostics.shared.snapshot()
+        #expect(snapshot.isDegraded)
+        #expect(snapshot.totalSearches == 1)
+        #expect(snapshot.totalFailures == 1)
+        #expect(snapshot.consecutiveFailures == 1)
+        #expect(snapshot.lastDomain == "note")
+        #expect(snapshot.lastHitCount == 0)
+        #expect(snapshot.lastFailureClass == "backend_failure")
+        #expect(!String(describing: snapshot).contains("secret backend detail"))
+    }
+
+    @Test("ShadowSearchDiagnostics recovers after a successful Shadow search")
+    func shadowSearchDiagnosticsRecoversAfterSuccessfulSearch() async throws {
+        ShadowSearchDiagnostics.shared.reset()
+        defer { ShadowSearchDiagnostics.shared.reset() }
+
+        let failingService = ShadowSearchService(
+            client: ThrowingShadowFFIClient(error: .backendFailure(detail: "secret backend detail")),
+            agentProvenanceRecorder: Self.recorder(sink: ShadowSearchAgentEventSink())
+        )
+        _ = await failingService.search(text: "private recall prompt", domain: .notes, limit: 5)
+        #expect(ShadowSearchDiagnostics.shared.snapshot().isDegraded)
+
+        let client = Self.inMemoryClient()
+        try client.insert(document: Self.note("n1", title: "Kant", body: "duty"))
+        let recoveringService = ShadowSearchService(
+            client: client,
+            agentProvenanceRecorder: Self.recorder(sink: ShadowSearchAgentEventSink())
+        )
+        let hits = await recoveringService.search(text: "kant", domain: .notes, limit: 5)
+
+        let snapshot = ShadowSearchDiagnostics.shared.snapshot()
+        #expect(hits.count == 1)
+        #expect(!snapshot.isDegraded)
+        #expect(snapshot.totalSearches == 2)
+        #expect(snapshot.totalFailures == 1)
+        #expect(snapshot.consecutiveFailures == 0)
+        #expect(snapshot.lastDomain == "note")
+        #expect(snapshot.lastHitCount == 1)
+        #expect(snapshot.lastFailureClass == nil)
     }
 
     @Test("Cancelled ShadowSearchService.search records terminal failed AgentEvent")
@@ -339,7 +416,7 @@ struct ShadowServicesTests {
     func invalidSearchServiceInputsDoNotRecordAgentEvents() async {
         let sink = ShadowSearchAgentEventSink()
         let service = ShadowSearchService(
-            client: Self.stubClient(),
+            client: Self.inMemoryClient(),
             agentProvenanceRecorder: Self.recorder(sink: sink)
         )
 
@@ -355,8 +432,8 @@ struct ShadowServicesTests {
     func shadowSearchToolIDsAreMonotonicPerServiceInstance() async throws {
         let sink = ShadowSearchAgentEventSink()
         let recorder = Self.recorder(sink: sink)
-        let firstClient = Self.stubClient()
-        let secondClient = Self.stubClient()
+        let firstClient = Self.inMemoryClient()
+        let secondClient = Self.inMemoryClient()
         try firstClient.insert(document: Self.note("first", title: "Alpha", body: "alpha body"))
         try secondClient.insert(document: Self.note("second", title: "Beta", body: "beta body"))
         let firstService = ShadowSearchService(client: firstClient, agentProvenanceRecorder: recorder)
@@ -381,11 +458,11 @@ struct ShadowServicesTests {
     @Test("ShadowSearchService.searchOrThrow and stats stay direct")
     func searchOrThrowAndStatsStayDirect() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/ShadowSearchService.swift")
-        #expect(source.contains("""
-    public func searchOrThrow(text: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {
-        try client.search(query: text, domain: domain, limit: limit)
-    }
-"""))
+        #expect(source.contains("public func searchOrThrow(text: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {"))
+        #expect(source.contains("let hits = try client.search(query: text, domain: domain, limit: limit)"))
+        #expect(source.contains("ShadowSearchDiagnostics.shared.recordSuccess("))
+        #expect(source.contains("ShadowSearchDiagnostics.shared.recordFailure("))
+        #expect(!source.contains("searchOrThrow(text: String, domain: ShadowDomain, limit: Int) async"))
         #expect(source.contains("""
     public func stats() async throws -> ShadowStatsDTO {
         try client.stats()
@@ -397,7 +474,7 @@ struct ShadowServicesTests {
 
     @Test("Indexing service batches inserts into one flush after debounce")
     func indexingBatchesInserts() async throws {
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         let policy = ShadowIndexingPolicy(flushDebounceMs: 50, maxBatchSize: 256)
         let svc = ShadowIndexingService(client: client, policy: policy)
 
@@ -418,7 +495,7 @@ struct ShadowServicesTests {
 
     @Test("Indexing service coalesces back-to-back ops on the same doc_id")
     func indexingCoalescesSameDocId() async throws {
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         let policy = ShadowIndexingPolicy(flushDebounceMs: 50, maxBatchSize: 256)
         let svc = ShadowIndexingService(client: client, policy: policy)
 
@@ -438,7 +515,7 @@ struct ShadowServicesTests {
 
     @Test("Indexing service handles insert-then-remove coalescing")
     func indexingCoalescesInsertThenRemove() async throws {
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         let policy = ShadowIndexingPolicy(flushDebounceMs: 50, maxBatchSize: 256)
         let svc = ShadowIndexingService(client: client, policy: policy)
 
@@ -459,7 +536,7 @@ struct ShadowServicesTests {
 
     @Test("Indexing service flushes immediately when the batch hits maxBatchSize")
     func indexingForcesFlushAtMaxBatchSize() async throws {
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         let policy = ShadowIndexingPolicy(flushDebounceMs: 10_000, maxBatchSize: 4)
         let svc = ShadowIndexingService(client: client, policy: policy)
 
@@ -476,7 +553,7 @@ struct ShadowServicesTests {
 
     @Test("flushNow drains the queue regardless of debounce timer")
     func indexingFlushNowDrainsImmediately() async throws {
-        let client = Self.stubClient()
+        let client = Self.inMemoryClient()
         let policy = ShadowIndexingPolicy(flushDebounceMs: 10_000, maxBatchSize: 256)
         let svc = ShadowIndexingService(client: client, policy: policy)
 

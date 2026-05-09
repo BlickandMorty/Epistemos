@@ -3206,9 +3206,11 @@ final class InferenceState {
             keychainDelete: resolvedKeychainClosures.delete
         )
 
-        let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
-        self.appleIntelligenceAvailable = available
-        self.appleIntelligenceUnavailableReason = reason
+        // Keep Apple Intelligence passive on launch. Calling FoundationModels
+        // availability can warm TokenGenerationCore/model assets, so the app
+        // only probes it from explicit user work or a Settings refresh.
+        self.appleIntelligenceAvailable = false
+        self.appleIntelligenceUnavailableReason = nil
         if skipCloudCredentialBootstrapOnLaunch {
             initializeDeferredCloudCredentialState()
         } else if deferCloudCredentialBootstrapOnLaunch {
@@ -3325,6 +3327,12 @@ final class InferenceState {
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
+    }
+
+    func refreshAppleIntelligenceAvailability() {
+        let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
+        appleIntelligenceAvailable = available
+        appleIntelligenceUnavailableReason = reason
     }
 
     private nonisolated static func boolPreference(

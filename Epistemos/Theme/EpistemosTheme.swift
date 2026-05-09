@@ -1258,6 +1258,7 @@ enum AppDisplayMode: String, CaseIterable, Sendable, Identifiable {
 
 enum AppDisplayTypography: Sendable {
     nonisolated static let displayFontName = "RetroGaming"
+    nonisolated static let monoFontName = "JetBrainsMono-Regular"
 
     nonisolated static var currentMode: AppDisplayMode {
         AppDisplayMode.current()
@@ -1294,6 +1295,18 @@ enum AppDisplayTypography: Sendable {
         } else {
             .system(size: size, weight: weight, design: design)
         }
+    }
+
+    static func monoFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .custom(monoFontName, size: size).weight(weight)
+    }
+
+    nonisolated static func monoUIFont(
+        size: CGFloat,
+        weight: NSFont.Weight = .regular
+    ) -> NSFont {
+        NSFont(name: monoFontName, size: size)
+            ?? NSFont.monospacedSystemFont(ofSize: size, weight: weight)
     }
 
     nonisolated static func nsFont(

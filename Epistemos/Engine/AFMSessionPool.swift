@@ -26,9 +26,8 @@ import FoundationModels
 // Lifetime contract:
 //   - 10-minute idle recycle (matches existing AppleIntelligenceService
 //     pattern — prevents KV-cache bloat)
-//   - prewarm() at app launch fires a no-op classify so the AFM daemon
-//     loads weights into core (the 1-3 s cost happens before the
-//     first user-facing latency is measured)
+//   - no passive launch prewarm. FoundationModels / TokenGenerationCore
+//     sessions are created only after explicit classifier work begins.
 //   - reset() called on memory pressure / vault switch invalidates
 //     all cached sessions
 //
@@ -91,18 +90,16 @@ public actor AFMSessionPool {
         return s
     }
 
-    /// AP4 — pre-warm the daemon on app launch with a placeholder
-    /// session so the 1-3 s cold start happens BEFORE the user
-    /// triggers their first classify call. Idempotent — subsequent
-    /// prewarms are no-ops.
-    public func prewarmAtLaunch(instructions: String) async {
+    /// Explicit classifier prewarm. This must only run after a user-triggered
+    /// classifier path asks for it; passive app launch must not call it.
+    public func prewarmForExplicitClassifierWork(instructions: String) async {
         guard pool.isEmpty else { return }
         let _ = session(
             useCase: .contentTagging,
             instructions: instructions,
-            useCaseLabel: "contentTagging-launch"
+            useCaseLabel: "contentTagging-explicit"
         )
-        Self.log.info("AFMSessionPool prewarmed at launch")
+        Self.log.info("AFMSessionPool prewarmed for explicit classifier work")
     }
 
     /// Force-evict every pooled session. Call on memory-pressure

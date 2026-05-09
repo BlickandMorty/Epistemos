@@ -125,7 +125,7 @@ nonisolated public struct LSPLocation: Codable, Sendable, Hashable {
 public actor LSPClient {
 
     /// The underlying transport. Typically `RustLSPTransport` in
-    /// production; `InProcessLSPTransport` for the stub-mode tests.
+    /// production; `InProcessLSPTransport` for lifecycle tests.
     public let transport: any LSPTransport
     private let log = Logger(subsystem: "com.epistemos", category: "LSPClient")
 

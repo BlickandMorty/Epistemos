@@ -17,7 +17,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use chrono::Utc;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::storage::contradiction_detector::detect_contradictions;
 use crate::storage::memory_classifier::VaultFact;
@@ -26,6 +26,90 @@ use crate::storage::session_store::list_session_folders;
 use crate::storage::vault::VaultBackend;
 
 use super::registry::{ToolError, ToolHandler};
+
+const MAX_QUERY_CHARS: usize = 4_000;
+const MAX_CONTEXT_CHARS: usize = 16_000;
+const MAX_NOTE_FILTER_TAGS: usize = 32;
+const MAX_TAG_CHARS: usize = 128;
+const MAX_PROVIDER_CHARS: usize = 128;
+const MAX_TEMPORAL_MINUTES: u64 = 525_600;
+const MAX_TEMPORAL_WINDOW_MINUTES: u64 = 1_440;
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    let count = value.chars().count();
+    if count > cap {
+        return Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn optional_string<'a>(input: &'a Value, key: &str) -> Result<Option<&'a str>, ToolError> {
+    match input.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.as_str())),
+        Some(_) => Err(ToolError::InvalidArguments(format!(
+            "'{key}' must be a string"
+        ))),
+    }
+}
+
+fn optional_u64_range(
+    input: &Value,
+    key: &str,
+    default: u64,
+    min: u64,
+    max: u64,
+) -> Result<u64, ToolError> {
+    let value = match input.get(key) {
+        None | Some(Value::Null) => default,
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| ToolError::InvalidArguments(format!("'{key}' must be an integer")))?,
+    };
+    if !(min..=max).contains(&value) {
+        return Err(ToolError::InvalidArguments(format!(
+            "{key} must be between {min} and {max}"
+        )));
+    }
+    Ok(value)
+}
+
+fn optional_u64(input: &Value, key: &str) -> Result<Option<u64>, ToolError> {
+    match input.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| ToolError::InvalidArguments(format!("'{key}' must be an integer")))
+            .map(Some),
+    }
+}
+
+fn parse_note_filter(input: &Value) -> Result<Vec<String>, ToolError> {
+    let Some(value) = input.get("note_filter") else {
+        return Ok(Vec::new());
+    };
+    let Value::Array(items) = value else {
+        return Err(ToolError::InvalidArguments(
+            "'note_filter' must be an array of strings".into(),
+        ));
+    };
+    if items.len() > MAX_NOTE_FILTER_TAGS {
+        return Err(ToolError::InvalidArguments(format!(
+            "note_filter supports at most {MAX_NOTE_FILTER_TAGS} tags"
+        )));
+    }
+    let mut tags = Vec::with_capacity(items.len());
+    for (idx, item) in items.iter().enumerate() {
+        let tag = item.as_str().ok_or_else(|| {
+            ToolError::InvalidArguments(format!("'note_filter[{idx}]' must be a string"))
+        })?;
+        ensure_char_cap(&format!("note_filter[{idx}]"), tag, MAX_TAG_CHARS)?;
+        tags.push(tag.to_string());
+    }
+    Ok(tags)
+}
 
 // MARK: - vault_recall
 
@@ -46,20 +130,9 @@ impl ToolHandler for VaultRecallHandler {
             .get("query")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'query'".into()))?;
-        let top_k = input
-            .get("top_k")
-            .and_then(Value::as_u64)
-            .unwrap_or(5)
-            .clamp(1, 20) as usize;
-        let tag_filter: Vec<String> = input
-            .get("note_filter")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_default();
+        ensure_char_cap("query", query, MAX_QUERY_CHARS)?;
+        let top_k = optional_u64_range(input, "top_k", 5, 1, 20)? as usize;
+        let tag_filter = parse_note_filter(input)?;
 
         let start = Instant::now();
         let results = self
@@ -95,7 +168,7 @@ impl ToolHandler for VaultRecallHandler {
 pub fn vault_recall_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "vault_recall".to_string(),
-        description: "Hybrid semantic + keyword search across the vault with sub-5ms latency. \
+        description: "Hybrid semantic + keyword search across the vault with measured latency. \
              Returns ranked snippets with relevance scores and tags. Use this instead of the \
              generic 'vault_search' tool when you want the full result payload with latency metrics."
             .to_string(),
@@ -140,7 +213,9 @@ impl ToolHandler for ContradictionCheckHandler {
             .get("claim")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'claim'".into()))?;
-        let context = input.get("context").and_then(Value::as_str).unwrap_or("");
+        ensure_char_cap("claim", claim, MAX_QUERY_CHARS)?;
+        let context = optional_string(input, "context")?.unwrap_or("");
+        ensure_char_cap("context", context, MAX_CONTEXT_CHARS)?;
         let scan_query = if context.is_empty() {
             claim.to_string()
         } else {
@@ -231,14 +306,21 @@ impl ToolHandler for SessionSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
         let query = input
             .get("query")
-            .and_then(Value::as_str)
-            .map(|s| s.to_lowercase());
-        let provider_filter = input.get("provider").and_then(Value::as_str);
-        let limit = input
-            .get("limit")
-            .and_then(Value::as_u64)
-            .unwrap_or(20)
-            .clamp(1, 200) as usize;
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| ToolError::InvalidArguments("'query' must be a string".into()))
+            })
+            .transpose()?;
+        if let Some(query) = query {
+            ensure_char_cap("query", query, MAX_QUERY_CHARS)?;
+        }
+        let query = query.map(|s| s.to_lowercase());
+        let provider_filter = optional_string(input, "provider")?;
+        if let Some(provider) = provider_filter {
+            ensure_char_cap("provider", provider, MAX_PROVIDER_CHARS)?;
+        }
+        let limit = optional_u64_range(input, "limit", 20, 1, 200)? as usize;
 
         let sessions = list_session_folders(&self.vault_root)
             .map_err(|e| ToolError::ExecutionFailed(format!("list sessions: {e}")))?;
@@ -332,20 +414,27 @@ impl ToolHandler for NeuralRecallHandler {
             .get("query")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'query'".into()))?;
-        let limit = input
-            .get("limit")
-            .and_then(Value::as_u64)
-            .unwrap_or(5)
-            .clamp(1, 20) as usize;
-        let temporal_minutes_ago = input.get("temporal_minutes_ago").and_then(Value::as_u64);
+        ensure_char_cap("query", query, MAX_QUERY_CHARS)?;
+        let limit = optional_u64_range(input, "limit", 5, 1, 20)? as usize;
+        let temporal_minutes_ago = optional_u64(input, "temporal_minutes_ago")?;
+        if let Some(minutes) = temporal_minutes_ago {
+            if minutes > MAX_TEMPORAL_MINUTES {
+                return Err(ToolError::InvalidArguments(format!(
+                    "temporal_minutes_ago must be at most {MAX_TEMPORAL_MINUTES}"
+                )));
+            }
+        }
 
         // Temporal retrieval takes precedence when specified — this pulls the
         // hot-layer slice for a window around "minutes ago".
         if let Some(minutes) = temporal_minutes_ago {
-            let window = input
-                .get("temporal_window_minutes")
-                .and_then(Value::as_u64)
-                .unwrap_or(5);
+            let window = optional_u64_range(
+                input,
+                "temporal_window_minutes",
+                5,
+                1,
+                MAX_TEMPORAL_WINDOW_MINUTES,
+            )?;
             let results = self.cache.temporal_retrieve(minutes, window);
             let serialised: Vec<Value> = results
                 .into_iter()
@@ -515,6 +604,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn vault_recall_rejects_non_string_note_filter_entry() {
+        let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(Vec::new()));
+        let handler = VaultRecallHandler::new(vault);
+        let err = handler
+            .execute(&json!({
+                "query": "alpha",
+                "note_filter": ["research", 7]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("note_filter[1]"));
+    }
+
+    #[tokio::test]
+    async fn vault_recall_rejects_invalid_top_k() {
+        let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(Vec::new()));
+        let handler = VaultRecallHandler::new(vault);
+        let err = handler
+            .execute(&json!({
+                "query": "alpha",
+                "top_k": 0
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("top_k"));
+    }
+
+    #[tokio::test]
     async fn contradiction_check_flags_numeric_conflict() {
         let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(vec![make_result(
             "arch.md",
@@ -528,6 +645,20 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert!(!parsed["contradictions"].as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn contradiction_check_rejects_non_string_context() {
+        let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(Vec::new()));
+        let handler = ContradictionCheckHandler::new(vault);
+        let err = handler
+            .execute(&json!({
+                "claim": "new fact",
+                "context": ["not", "a", "string"]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("context"));
     }
 
     #[tokio::test]
@@ -553,6 +684,17 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["count"], json!(0));
+    }
+
+    #[tokio::test]
+    async fn session_search_rejects_non_integer_limit() {
+        let dir = tempdir().unwrap();
+        let handler = SessionSearchHandler::new(dir.path().to_path_buf());
+        let err = handler
+            .execute(&json!({ "limit": "many" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("limit"));
     }
 
     #[tokio::test]
@@ -586,5 +728,21 @@ mod tests {
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["mode"], json!("temporal"));
         assert_eq!(parsed["count"], json!(0));
+    }
+
+    #[tokio::test]
+    async fn neural_recall_rejects_invalid_temporal_window() {
+        let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(Vec::new()));
+        let cache = Arc::new(NeuralCache::new(8));
+        let handler = NeuralRecallHandler::new(vault, cache);
+        let err = handler
+            .execute(&json!({
+                "query": "history",
+                "temporal_minutes_ago": 10,
+                "temporal_window_minutes": 0
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("temporal_window_minutes"));
     }
 }

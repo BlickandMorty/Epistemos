@@ -117,6 +117,7 @@
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
 				Engine/LocalRustRuntime.swift,
+				KnowledgeFusion/.DS_Store,
 				KnowledgeFusion/Alignment/scripts/train_kto.py,
 				KnowledgeFusion/MOHAWK/.DS_Store,
 				KnowledgeFusion/MOHAWK/.last_pod_id,
@@ -201,6 +202,7 @@
 				KnowledgeFusion/MoLoRA/tests/test_router.py,
 				KnowledgeFusion/MoLoRA/tests/test_sgmm_kernel.py,
 				KnowledgeFusion/MoLoRA/train_router.py,
+				KnowledgeFusion/Training/.DS_Store,
 				KnowledgeFusion/Training/scripts/train_knowledge.py,
 				KnowledgeFusion/Training/scripts/train_style.py,
 				Omega/Knowledge/ODIATraceGenerator.swift,
@@ -222,6 +224,7 @@
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
 				Engine/LocalRustRuntime.swift,
+				KnowledgeFusion/.DS_Store,
 				KnowledgeFusion/Alignment/scripts/train_kto.py,
 				KnowledgeFusion/MOHAWK/.DS_Store,
 				KnowledgeFusion/MOHAWK/.last_pod_id,
@@ -306,6 +309,7 @@
 				KnowledgeFusion/MoLoRA/tests/test_router.py,
 				KnowledgeFusion/MoLoRA/tests/test_sgmm_kernel.py,
 				KnowledgeFusion/MoLoRA/train_router.py,
+				KnowledgeFusion/Training/.DS_Store,
 				KnowledgeFusion/Training/scripts/train_knowledge.py,
 				KnowledgeFusion/Training/scripts/train_style.py,
 				Omega/Knowledge/ODIATraceGenerator.swift,

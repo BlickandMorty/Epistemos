@@ -198,7 +198,6 @@ final class HologramOverlay {
     /// hosted-overlay view shape without forcing an `AnyView` entry on the
     /// SwiftUI side (doctrine §6 #6).
     private var inspectorHostView: NSView?
-    private var escapeMonitor: Any?
     private var graphState: GraphState
     private var queryEngine: QueryEngine
     private var modelContainer: ModelContainer?
@@ -833,6 +832,7 @@ final class HologramOverlay {
         panel.hasShadow = true
 
         panel.contentView = content
+        installKeyDismissalHandler(on: panel)
         return panel
     }
 
@@ -1463,11 +1463,6 @@ final class HologramOverlay {
     /// Called after the fade-out animation completes.
     private func teardown() {
         cancelScheduledTeardown()
-        // Remove escape key monitor.
-        if let monitor = escapeMonitor {
-            NSEvent.removeMonitor(monitor)
-            escapeMonitor = nil
-        }
         // Remove note window observers.
         if let obs = noteWindowMoveObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = noteWindowResizeObserver { NotificationCenter.default.removeObserver(obs) }
@@ -1678,33 +1673,7 @@ final class HologramOverlay {
 
         window.contentView = contentView
 
-        // Keyboard dismissal: Escape (with text field guard) + Cmd+W.
-        self.escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.isVisible else { return event }
-
-            // Escape — guard: don't consume if a text field is focused.
-            if event.keyCode == 53 {
-                let keyWindow = self.isMinimized ? self.miniPanel : self.window
-                if let responder = keyWindow?.firstResponder,
-                   responder is NSTextView || responder is NSTextField {
-                    return event  // Let text field handle Escape (blur/cancel).
-                }
-                HologramController.shared.hide()
-                return nil
-            }
-
-            // Cmd+W — standard macOS close shortcut.
-            if event.keyCode == 13 {
-                let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                    .subtracting([.capsLock, .numericPad, .function])
-                if mods == .command {
-                    HologramController.shared.hide()
-                    return nil
-                }
-            }
-
-            return event
-        }
+        installKeyDismissalHandler(on: window)
 
         self.window = window
         self.metalView = graphView
@@ -1741,6 +1710,35 @@ final class HologramOverlay {
         // Observe fullscreen transitions and parent window miniaturize.
         observeFullscreenTransitions()
         observeParentMiniaturize()
+    }
+
+    private func installKeyDismissalHandler(on panel: GraphOverlayPanel) {
+        panel.keyEventHandler = { [weak self] event in
+            guard let self, self.isVisible else { return false }
+
+            // Escape — guard: don't consume if a text field is focused.
+            if event.keyCode == 53 {
+                let keyWindow = self.isMinimized ? self.miniPanel : self.window
+                if let responder = keyWindow?.firstResponder,
+                   responder is NSTextView || responder is NSTextField {
+                    return false
+                }
+                HologramController.shared.hide()
+                return true
+            }
+
+            // Cmd+W — standard macOS close shortcut.
+            if event.keyCode == 13 {
+                let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                    .subtracting([.capsLock, .numericPad, .function])
+                if mods == .command {
+                    HologramController.shared.hide()
+                    return true
+                }
+            }
+
+            return false
+        }
     }
 
     private func restoreImmersiveChromeIfNeeded(

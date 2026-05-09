@@ -171,9 +171,17 @@ actor QLoRATrainer {
         }
 
         #if !EPISTEMOS_APP_STORE
+        guard FileManager.default.isExecutableFile(atPath: pythonPath) else {
+            throw QLoRATrainerError.trainingFailed("Python executable not found or not executable.")
+        }
+        guard FileManager.default.isReadableFile(atPath: script.path) else {
+            throw QLoRATrainerError.trainingFailed("Training script not found or not readable.")
+        }
+
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = arguments
+        process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -190,12 +198,19 @@ actor QLoRATrainer {
         )
 
         let stdoutHandle = stdoutPipe.fileHandleForReading
+        let stderrHandle = stderrPipe.fileHandleForReading
+        let stderrCapture = KnowledgeFusionProcessOutputCapture()
         stdoutHandle.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
             if let line = String(data: data, encoding: .utf8) {
                 progressParser.parse(line)
             }
+        }
+        stderrHandle.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            stderrCapture.append(data)
         }
 
         let timeoutSeconds = 3600.0
@@ -204,6 +219,7 @@ actor QLoRATrainer {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 guard state.store(process: process, continuation: continuation) else {
                     stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
                     continuation.resume(throwing: CancellationError())
                     return
                 }
@@ -223,12 +239,12 @@ actor QLoRATrainer {
                 process.terminationHandler = { proc in
                     timeoutTask.cancel()
                     stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
+                    stderrCapture.consumeRemainder(from: stderrHandle)
                     if proc.terminationStatus == 0 {
                         state.resume(returning: ())
                     } else {
-                        let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                        let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-                        state.resume(throwing: QLoRATrainerError.trainingFailed(errorMsg))
+                        state.resume(throwing: QLoRATrainerError.trainingFailed(stderrCapture.stringValue()))
                     }
                 }
 
@@ -237,6 +253,7 @@ actor QLoRATrainer {
                 } catch {
                     timeoutTask.cancel()
                     stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
                     state.resume(throwing: error)
                 }
             }

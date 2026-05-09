@@ -8,6 +8,7 @@
     "check:charts": "node scripts/check-chart-node.mjs",
     "check:code-block": "node scripts/check-code-block-command.mjs",
     "check:document-graph": "node scripts/check-document-graph.mjs",
+    "check:markdown-input-rules": "node scripts/check-markdown-input-rules.mjs",
     "check:markdown-paste": "node scripts/check-markdown-paste.mjs",
     "dev": "webpack --mode development --watch",
     "typecheck": "tsc --noEmit"

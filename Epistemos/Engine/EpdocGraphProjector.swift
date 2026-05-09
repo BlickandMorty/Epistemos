@@ -29,6 +29,8 @@ import Foundation
 //   For each EpdocProvenance.outputArtifacts → .reference edge (this
 //                                              doc → output it produced)
 //   For each `[[wikilink]]` in the body      → .reference edge
+//   For document headings/list items/salient  → .contains edge
+//       paragraph/image alt text
 //
 // Wikilink extraction (V1):
 //   - Scan every text node's body for the `[[…]]` pattern (the
@@ -40,6 +42,14 @@ import Foundation
 //     visibly explorable immediately after save.
 //   - Future: also recognise links with `epistemos-doc://` href
 //     marks (Tiptap-native cross-doc links).
+//
+// Semantic content extraction (V1):
+//   - Uses authored document text only: headings, list items,
+//     blockquotes, image alt/title text, and long paragraph lead
+//     sentences.
+//   - Emits bounded `.contains` label edges so a long document without
+//     explicit wikilinks still projects meaningful graph targets.
+//   - Does not infer theory/proof claims or fabricate canonical types.
 
 // MARK: - Projection value type
 
@@ -98,6 +108,13 @@ nonisolated struct EpdocGraphProjection: Sendable, Hashable {
 // MARK: - Projector
 
 nonisolated enum EpdocGraphProjector {
+    private static let maxSemanticLabelCount = 24
+    private static let maxSemanticLabelLength = 140
+    private static let genericSemanticLabels: Set<String> = [
+        "idea", "ideas", "evidence", "claim", "claims", "question",
+        "questions", "method", "methods", "notes", "summary",
+        "findings", "risks", "todo", "todos",
+    ]
 
     /// Project an `.epdoc` package into the graph data.
     ///
@@ -150,6 +167,14 @@ nonisolated enum EpdocGraphProjector {
                     targetIsLabel: true
                 ))
             }
+            for label in semanticGraphLabels(in: doc, documentTitle: manifest.title) {
+                edges.append(.init(
+                    targetID: label,
+                    kind: .contains,
+                    weight: 0.65,
+                    targetIsLabel: true
+                ))
+            }
         }
 
         return EpdocGraphProjection(
@@ -171,6 +196,23 @@ nonisolated enum EpdocGraphProjector {
         var hits: [String] = []
         scanText(in: node, into: &hits)
         return hits
+    }
+
+    static func semanticGraphLabels(
+        in node: ProseMirrorNode,
+        documentTitle: String
+    ) -> [String] {
+        var labels: [String] = []
+        var seen = Set<String>()
+        collectSemanticLabels(
+            in: node,
+            documentTitle: normalizedInlineLabel(documentTitle) ?? "",
+            insideListItem: false,
+            insideBlockquote: false,
+            labels: &labels,
+            seen: &seen
+        )
+        return labels
     }
 
     private static func scanText(in node: ProseMirrorNode, into hits: inout [String]) {
@@ -201,5 +243,167 @@ nonisolated enum EpdocGraphProjector {
             }
             idx = closeRange.upperBound
         }
+    }
+
+    private static func collectSemanticLabels(
+        in node: ProseMirrorNode,
+        documentTitle: String,
+        insideListItem: Bool,
+        insideBlockquote: Bool,
+        labels: inout [String],
+        seen: inout Set<String>
+    ) {
+        guard labels.count < maxSemanticLabelCount else { return }
+
+        switch node.type {
+        case "heading":
+            appendSemanticLabel(
+                inlineText(in: node),
+                documentTitle: documentTitle,
+                labels: &labels,
+                seen: &seen
+            )
+            return
+
+        case "list_item":
+            appendSemanticLabel(
+                firstSemanticSentence(inlineText(in: node), minimumLength: 12),
+                documentTitle: documentTitle,
+                labels: &labels,
+                seen: &seen
+            )
+            for child in node.content ?? [] {
+                collectSemanticLabels(
+                    in: child,
+                    documentTitle: documentTitle,
+                    insideListItem: true,
+                    insideBlockquote: insideBlockquote,
+                    labels: &labels,
+                    seen: &seen
+                )
+            }
+            return
+
+        case "blockquote":
+            appendSemanticLabel(
+                firstSemanticSentence(inlineText(in: node), minimumLength: 12),
+                documentTitle: documentTitle,
+                labels: &labels,
+                seen: &seen
+            )
+            for child in node.content ?? [] {
+                collectSemanticLabels(
+                    in: child,
+                    documentTitle: documentTitle,
+                    insideListItem: insideListItem,
+                    insideBlockquote: true,
+                    labels: &labels,
+                    seen: &seen
+                )
+            }
+            return
+
+        case "paragraph" where !insideListItem && !insideBlockquote:
+            appendSemanticLabel(
+                firstSemanticSentence(inlineText(in: node), minimumLength: 48),
+                documentTitle: documentTitle,
+                labels: &labels,
+                seen: &seen
+            )
+
+        case "image":
+            appendSemanticLabel(
+                node.attrs?.alt ?? node.attrs?.title,
+                documentTitle: documentTitle,
+                labels: &labels,
+                seen: &seen
+            )
+
+        default:
+            break
+        }
+
+        for child in node.content ?? [] {
+            collectSemanticLabels(
+                in: child,
+                documentTitle: documentTitle,
+                insideListItem: insideListItem,
+                insideBlockquote: insideBlockquote,
+                labels: &labels,
+                seen: &seen
+            )
+        }
+    }
+
+    private static func appendSemanticLabel(
+        _ raw: String?,
+        documentTitle: String,
+        labels: inout [String],
+        seen: inout Set<String>
+    ) {
+        guard labels.count < maxSemanticLabelCount,
+              let normalized = normalizedInlineLabel(raw),
+              let label = documentQualifiedLabel(normalized, documentTitle: documentTitle) else {
+            return
+        }
+        let key = label.lowercased()
+        guard seen.insert(key).inserted else { return }
+        labels.append(label)
+    }
+
+    private static func inlineText(in node: ProseMirrorNode) -> String? {
+        if node.type == "text" { return node.text }
+        let pieces = (node.content ?? []).compactMap { inlineText(in: $0) }
+        guard !pieces.isEmpty else { return nil }
+        return pieces.joined(separator: " ")
+    }
+
+    private static func firstSemanticSentence(_ raw: String?, minimumLength: Int) -> String? {
+        guard let normalized = normalizedInlineLabel(raw),
+              normalized.count >= minimumLength else {
+            return nil
+        }
+        if let sentenceEnd = normalized.firstIndex(where: { ".?!".contains($0) }) {
+            let sentence = String(normalized[...sentenceEnd])
+            if sentence.count >= minimumLength {
+                return sentence
+            }
+        }
+        return normalized
+    }
+
+    private static func normalizedInlineLabel(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let normalized = raw
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "#*-_`[](){}:;,."))
+        guard normalized.count >= 4 else { return nil }
+        guard !normalized.contains("[[") && !normalized.contains("]]") else { return nil }
+        if normalized.count <= maxSemanticLabelLength {
+            return normalized
+        }
+        let end = normalized.index(
+            normalized.startIndex,
+            offsetBy: maxSemanticLabelLength,
+            limitedBy: normalized.endIndex
+        ) ?? normalized.endIndex
+        let prefix = normalized[..<end]
+        let cut = prefix.rangeOfCharacter(from: .whitespacesAndNewlines, options: .backwards)?.lowerBound ?? end
+        let truncated = String(normalized[..<cut]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return truncated.count >= 4 ? truncated : String(prefix).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func documentQualifiedLabel(
+        _ label: String,
+        documentTitle: String
+    ) -> String? {
+        let lower = label.lowercased()
+        guard genericSemanticLabels.contains(lower),
+              !documentTitle.isEmpty,
+              documentTitle.lowercased() != lower else {
+            return label
+        }
+        return normalizedInlineLabel("\(documentTitle): \(label)")
     }
 }

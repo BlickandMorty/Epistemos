@@ -14,10 +14,10 @@ import os
 // gap classification over 9 typed claims) + λ (residency target L0–L3
 // + L7). δ + ρ are Pro; κ + η are Research.
 //
-// FFI status: stub. When `agent_core::resonance::compute_signature_core`
-// is exposed via UniFFI, swap `computeStub(for:)` for the real call. Until
-// then, the Swift mirror computes the same logic and the UI surfaces are
-// fully testable in isolation.
+// FFI status: wired when `agent_coreFFI` is linked. The service calls the
+// Rust `compute_resonance_signature_core` entrypoint for authoritative
+// signatures and keeps the Swift mirror only for previews, tests, and
+// non-FFI builds.
 
 // MARK: - Mirror types (Swift mirror of agent_core::resonance public API)
 
@@ -162,9 +162,9 @@ nonisolated struct ResonanceClaim: Sendable, Hashable {
 ///
 /// **FFI status.** When `agent_coreFFI` is linked the service calls the
 /// Rust `compute_resonance_signature_core` for authoritative signatures.
-/// The Swift `computeStub(for:)` mirror remains as the offline fallback
+/// The Swift `computeSwiftMirror(for:)` path remains as the offline fallback
 /// (tests, previews, and any build that doesn't link agent_coreFFI). On
-/// FFI failure the service logs and falls back to the stub so the UI
+/// FFI failure the service logs and falls back to the mirror so the UI
 /// surface never breaks.
 @MainActor
 @Observable
@@ -183,9 +183,9 @@ final class ResonanceService {
     /// Rolling counter — useful for diagnostics + test assertions.
     private(set) var signaturesComputed: UInt64 = 0
 
-    /// Counts FFI calls vs. stub fallbacks. Diagnostics only.
+    /// Counts FFI calls vs. Swift mirror fallbacks. Diagnostics only.
     private(set) var ffiCallCount: UInt64 = 0
-    private(set) var stubFallbackCount: UInt64 = 0
+    private(set) var swiftMirrorFallbackCount: UInt64 = 0
 
     init() {}
 
@@ -200,13 +200,13 @@ final class ResonanceService {
             signature = try Self.computeViaFFI(claim: claim)
             ffiCallCount &+= 1
         } catch {
-            Self.log.error("Resonance FFI call failed (\(String(describing: error), privacy: .public)); falling back to Swift stub")
-            signature = computeStub(for: claim)
-            stubFallbackCount &+= 1
+            Self.log.error("Resonance FFI call failed (\(String(describing: error), privacy: .public)); falling back to Swift mirror")
+            signature = computeSwiftMirror(for: claim)
+            swiftMirrorFallbackCount &+= 1
         }
         #else
-        let signature = computeStub(for: claim)
-        stubFallbackCount &+= 1
+        let signature = computeSwiftMirror(for: claim)
+        swiftMirrorFallbackCount &+= 1
         #endif
         lastSignature = signature
         signaturesComputed &+= 1
@@ -314,7 +314,7 @@ final class ResonanceService {
 
     // MARK: - Private — Swift mirror of the Rust seed
 
-    private func computeStub(for claim: ResonanceClaim) -> ResonanceSignatureCore {
+    private func computeSwiftMirror(for claim: ResonanceClaim) -> ResonanceSignatureCore {
         ResonanceSignatureCore(
             truth: evaluateTruth(claim),
             class_: classify(claim),

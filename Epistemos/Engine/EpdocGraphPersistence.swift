@@ -52,6 +52,7 @@ enum EpdocGraphPersistence {
         let sourceNodeID = documentNode.id
         let projectedEdgeTypes = Set([
             GraphEdgeType.reference.rawValue,
+            GraphEdgeType.contains.rawValue,
             GraphEdgeType.derivedFrom.rawValue,
             GraphEdgeType.generatedBy.rawValue,
             GraphEdgeType.producedDuring.rawValue,

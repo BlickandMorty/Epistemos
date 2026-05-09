@@ -10,6 +10,7 @@ use rustc_hash::FxHashMap;
 pub const DEFAULT_DIM: usize = 512;
 
 /// SoA embedding storage: maps node index → embedding + cached norm.
+#[derive(Clone)]
 pub struct EmbeddingStore {
     /// Dimension of each embedding vector.
     dim: usize,
@@ -17,6 +18,7 @@ pub struct EmbeddingStore {
     embeddings: FxHashMap<u32, EmbeddingEntry>,
 }
 
+#[derive(Clone)]
 struct EmbeddingEntry {
     vector: Vec<f32>,
     norm: f32,
@@ -372,6 +374,21 @@ mod tests {
 
         store.set(1, &[1.0, 0.0, 0.0, 0.0, 0.0]);
         assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn cloned_snapshot_is_stable_after_store_mutation() {
+        let mut store = EmbeddingStore::new(2);
+        store.set(0, &[1.0, 0.0]);
+        store.set(1, &[0.9, 0.1]);
+
+        let snapshot = store.clone();
+        store.clear();
+
+        assert!(store.is_empty());
+        let pairs = snapshot.all_knn_pairs(1, 0.0);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!((pairs[0].0, pairs[0].1), (0, 1));
     }
 
     #[test]

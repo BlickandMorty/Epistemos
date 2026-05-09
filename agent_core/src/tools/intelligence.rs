@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::bridge::AgentEventDelegate;
 
@@ -38,9 +38,35 @@ const ALLOWED_NIGHTBRAIN_JOBS: &[&str] = &[
     "session_graph_generation",
     "skill_evolution_analysis",
     "ssm_state_pruning",
-    "vault_integrity_check",
     "maintenance_log",
 ];
+
+const MAX_INLINE_NOTE_ID_CHARS: usize = 256;
+const MAX_DELEGATE_RESPONSE_CHARS: usize = 256 * 1024;
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    let count = value.chars().count();
+    if count > cap {
+        return Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn parse_delegate_json(tool_name: &str, response: String) -> Result<Value, ToolError> {
+    if response.chars().count() > MAX_DELEGATE_RESPONSE_CHARS {
+        return Err(ToolError::ExecutionFailed(format!(
+            "{tool_name} delegate response exceeded {MAX_DELEGATE_RESPONSE_CHARS} character cap"
+        )));
+    }
+
+    serde_json::from_str(&response).map_err(|_| {
+        ToolError::ExecutionFailed(format!(
+            "{tool_name} delegate returned non-JSON response; raw output redacted"
+        ))
+    })
+}
 
 pub struct NightBrainTriggerHandler {
     delegate: Arc<dyn AgentEventDelegate>,
@@ -68,12 +94,17 @@ impl ToolHandler for NightBrainTriggerHandler {
         }
         let priority = input
             .get("priority")
-            .and_then(Value::as_str)
-            .unwrap_or("normal")
+            .map(|value| {
+                value.as_str().ok_or_else(|| {
+                    ToolError::InvalidArguments("'priority' must be a string".into())
+                })
+            })
+            .transpose()?
+            .unwrap_or("immediate")
             .to_string();
-        if !matches!(priority.as_str(), "normal" | "immediate") {
+        if priority != "immediate" {
             return Err(ToolError::InvalidArguments(format!(
-                "priority '{priority}' invalid (expected normal|immediate)"
+                "priority '{priority}' invalid (expected immediate; normal scheduling is owned by the host idle scheduler)"
             )));
         }
 
@@ -86,8 +117,7 @@ impl ToolHandler for NightBrainTriggerHandler {
         .await
         .map_err(|e| ToolError::ExecutionFailed(format!("nightbrain join: {e}")))?;
 
-        let parsed: Value = serde_json::from_str(&response)
-            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
+        let parsed = parse_delegate_json("nightbrain_trigger", response)?;
         Ok(json!({
             "job": job,
             "priority": priority,
@@ -104,14 +134,14 @@ pub fn nightbrain_trigger_schema() -> crate::types::ToolSchema {
              demand. Jobs: event_checkpoint, search_index_checkpoint, artifact_dedup, \
              workspace_compaction, memory_distillation, cloud_knowledge_distillation, \
              session_graph_generation, skill_evolution_analysis, ssm_state_pruning, \
-             vault_integrity_check, maintenance_log. Priority: 'normal' (respects App Nap) \
-             or 'immediate' (runs now regardless of thermal/battery state)."
+             maintenance_log. Priority: 'immediate' only; normal/background scheduling is \
+             owned by the host NightBrain idle scheduler, not this tool."
             .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "job": { "type": "string", "enum": ALLOWED_NIGHTBRAIN_JOBS },
-                "priority": { "type": "string", "enum": ["normal", "immediate"], "default": "normal" }
+                "priority": { "type": "string", "enum": ["immediate"], "default": "immediate" }
             },
             "required": ["job"]
         }),
@@ -138,9 +168,15 @@ impl ToolHandler for InlinePartnerHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'note_id'".into()))?
             .to_string();
+        ensure_char_cap("note_id", &note_id, MAX_INLINE_NOTE_ID_CHARS)?;
         let cursor_offset = input
             .get("cursor_offset")
-            .and_then(Value::as_u64)
+            .map(|value| {
+                value.as_u64().ok_or_else(|| {
+                    ToolError::InvalidArguments("'cursor_offset' must be an integer".into())
+                })
+            })
+            .transpose()?
             .ok_or_else(|| ToolError::InvalidArguments("missing 'cursor_offset'".into()))?;
         let cursor_offset_u32 = u32::try_from(cursor_offset).map_err(|_| {
             ToolError::InvalidArguments("cursor_offset exceeds supported range".into())
@@ -154,8 +190,7 @@ impl ToolHandler for InlinePartnerHandler {
         .await
         .map_err(|e| ToolError::ExecutionFailed(format!("inline_partner join: {e}")))?;
 
-        let parsed: Value = serde_json::from_str(&response)
-            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
+        let parsed = parse_delegate_json("inline_partner", response)?;
         Ok(json!({
             "note_id": note_id,
             "cursor_offset": cursor_offset,
@@ -189,6 +224,9 @@ pub fn inline_partner_schema() -> crate::types::ToolSchema {
 }
 
 // MARK: - self_evolve (Specialty D3 — trace analysis only for v1)
+
+const MAX_SELF_EVOLVE_TRACE_BYTES: u64 = 2 * 1024 * 1024;
+const MAX_SELF_EVOLVE_SKIPPED_TRACES: usize = 25;
 
 #[derive(Debug, Clone, Deserialize)]
 struct TraceEventRaw {
@@ -261,19 +299,67 @@ impl SelfEvolveHandler {
         let mut tool_durations: HashMap<String, Vec<u64>> = HashMap::new();
         let mut total_events = 0usize;
         let mut total_sessions_with_data = 0usize;
+        let mut skipped_traces: Vec<Value> = Vec::new();
 
         for path in &session_paths {
             let trace_path = path.join("trace.json");
             if !trace_path.exists() {
                 continue;
             }
+            let session_name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            let metadata = match std::fs::metadata(&trace_path) {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    record_skipped_trace(
+                        &mut skipped_traces,
+                        session_name,
+                        "metadata_failed",
+                        Some(error.to_string()),
+                        None,
+                    );
+                    continue;
+                }
+            };
+            let trace_bytes = metadata.len();
+            if trace_bytes > MAX_SELF_EVOLVE_TRACE_BYTES {
+                record_skipped_trace(
+                    &mut skipped_traces,
+                    session_name,
+                    "trace_too_large",
+                    None,
+                    Some(trace_bytes),
+                );
+                continue;
+            }
             let content = match std::fs::read_to_string(&trace_path) {
-                Ok(c) => c,
-                Err(_) => continue,
+                Ok(content) => content,
+                Err(error) => {
+                    record_skipped_trace(
+                        &mut skipped_traces,
+                        session_name,
+                        "read_failed",
+                        Some(error.to_string()),
+                        Some(trace_bytes),
+                    );
+                    continue;
+                }
             };
             let events: Vec<TraceEventRaw> = match serde_json::from_str(&content) {
                 Ok(e) => e,
-                Err(_) => continue,
+                Err(error) => {
+                    record_skipped_trace(
+                        &mut skipped_traces,
+                        session_name,
+                        "invalid_json",
+                        Some(error.to_string()),
+                        Some(trace_bytes),
+                    );
+                    continue;
+                }
             };
             if events.is_empty() {
                 continue;
@@ -363,6 +449,8 @@ impl SelfEvolveHandler {
             "sessions_with_data": total_sessions_with_data,
             "total_events": total_events,
             "patterns": patterns,
+            "sessions_skipped": skipped_traces.len(),
+            "skipped_traces": skipped_traces,
         })
         .to_string())
     }
@@ -387,7 +475,7 @@ impl SelfEvolveHandler {
                     "slow_p95" => "parallelize_or_cache",
                     _ => "tune_parameters",
                 };
-                let target_skill = format!("{tool}-optimizer");
+                let target_skill = format!("{}-optimizer", advisory_skill_slug(tool));
                 json!({
                     "skill": target_skill,
                     "mutation_type": mutation_type,
@@ -411,6 +499,67 @@ impl SelfEvolveHandler {
     }
 }
 
+fn record_skipped_trace(
+    skipped_traces: &mut Vec<Value>,
+    session: String,
+    reason: &str,
+    error: Option<String>,
+    bytes: Option<u64>,
+) {
+    if skipped_traces.len() >= MAX_SELF_EVOLVE_SKIPPED_TRACES {
+        return;
+    }
+    let mut skipped = json!({
+        "session": session,
+        "reason": reason,
+    });
+    if let Some(bytes) = bytes {
+        skipped["bytes"] = json!(bytes);
+    }
+    if let Some(error) = error {
+        skipped["error"] = json!(error);
+    }
+    skipped_traces.push(skipped);
+}
+
+fn advisory_skill_slug(raw: &str) -> String {
+    let mut slug = String::with_capacity(raw.len().min(64));
+    let mut previous_was_separator = false;
+    for byte in raw.bytes() {
+        let next = match byte {
+            b'a'..=b'z' | b'0'..=b'9' => Some(byte as char),
+            b'A'..=b'Z' => Some((byte + 32) as char),
+            b'-' | b'_' | b'.' | b' ' => {
+                if slug.is_empty() || previous_was_separator {
+                    None
+                } else {
+                    previous_was_separator = true;
+                    Some('-')
+                }
+            }
+            _ => None,
+        };
+        let Some(ch) = next else {
+            continue;
+        };
+        slug.push(ch);
+        if ch != '-' {
+            previous_was_separator = false;
+        }
+        if slug.len() >= 64 {
+            break;
+        }
+    }
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        "tool".to_string()
+    } else {
+        slug
+    }
+}
+
 pub fn self_evolve_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "self_evolve".to_string(),
@@ -430,6 +579,10 @@ pub fn self_evolve_schema() -> crate::types::ToolSchema {
 }
 
 // MARK: - mixture_of_minds (Specialty D4)
+
+const MOM_ALLOWED_MODELS: &[&str] = &["claude", "openai", "gemini", "perplexity"];
+const MAX_MOM_PROBLEM_CHARS: usize = 16_000;
+const MAX_MOM_MODEL_CHARS: usize = 64;
 
 pub struct MixtureOfMindsHandler {
     client: Client,
@@ -454,31 +607,46 @@ impl ToolHandler for MixtureOfMindsHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'problem'".into()))?
             .to_string();
-        let requested: Vec<String> = input
-            .get("models")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_else(|| {
-                vec![
-                    "claude".to_string(),
-                    "openai".to_string(),
-                    "gemini".to_string(),
-                ]
-            });
+        if problem.trim().is_empty() {
+            return Err(ToolError::InvalidArguments(
+                "'problem' cannot be blank".into(),
+            ));
+        }
+        if problem.chars().count() > MAX_MOM_PROBLEM_CHARS {
+            return Err(ToolError::InvalidArguments(format!(
+                "'problem' is too long (max {MAX_MOM_PROBLEM_CHARS} chars)"
+            )));
+        }
+        let allow_cloud =
+            optional_mom_bool(input, "allow_cloud_external_requests")?.unwrap_or(false);
+        if !allow_cloud {
+            return Err(ToolError::InvalidArguments(
+                "allow_cloud_external_requests must be true because mixture_of_minds sends the problem to external model APIs"
+                    .into(),
+            ));
+        }
+        let requested_raw = parse_mom_models(input)?;
 
-        if requested.is_empty() {
+        if requested_raw.is_empty() {
             return Err(ToolError::InvalidArguments(
                 "'models' cannot be empty".into(),
             ));
         }
-        if requested.len() > 4 {
+        if requested_raw.len() > 4 {
             return Err(ToolError::InvalidArguments(
                 "at most 4 models per call".into(),
             ));
+        }
+        let mut requested = Vec::with_capacity(requested_raw.len());
+        for model in requested_raw {
+            let normalized = model.trim().to_ascii_lowercase();
+            if !MOM_ALLOWED_MODELS.contains(&normalized.as_str()) {
+                return Err(ToolError::InvalidArguments(format!(
+                    "unknown model '{model}' (expected one of: {})",
+                    MOM_ALLOWED_MODELS.join(", ")
+                )));
+            }
+            requested.push(normalized);
         }
 
         // Launch every query in parallel.
@@ -491,7 +659,7 @@ impl ToolHandler for MixtureOfMindsHandler {
                 async move {
                     let result = match model.as_str() {
                         "claude" => ask_claude(&client, &problem).await,
-                        "openai" | "gpt" | "gpt-4o" => ask_openai(&client, &problem).await,
+                        "openai" => ask_openai(&client, &problem).await,
                         "gemini" => ask_gemini(&client, &problem).await,
                         "perplexity" => ask_perplexity(&client, &problem).await,
                         other => Err(format!("unknown model '{other}'")),
@@ -541,6 +709,7 @@ impl ToolHandler for MixtureOfMindsHandler {
 
         Ok(json!({
             "problem": problem,
+            "cloud_requests_authorized": allow_cloud,
             "models_requested": requested,
             "models_responded": successful_answers.len(),
             "best": best_answer,
@@ -549,6 +718,51 @@ impl ToolHandler for MixtureOfMindsHandler {
         })
         .to_string())
     }
+}
+
+fn optional_mom_bool(input: &Value, field: &str) -> Result<Option<bool>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    value
+        .as_bool()
+        .map(Some)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a boolean")))
+}
+
+fn parse_mom_models(input: &Value) -> Result<Vec<String>, ToolError> {
+    let Some(value) = input.get("models") else {
+        return Ok(vec![
+            "claude".to_string(),
+            "openai".to_string(),
+            "gemini".to_string(),
+        ]);
+    };
+    let Some(items) = value.as_array() else {
+        return Err(ToolError::InvalidArguments(
+            "'models' must be an array of strings".into(),
+        ));
+    };
+    let mut models = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let Some(model) = item.as_str() else {
+            return Err(ToolError::InvalidArguments(format!(
+                "'models[{index}]' must be a string"
+            )));
+        };
+        if model.trim().is_empty() {
+            return Err(ToolError::InvalidArguments(format!(
+                "'models[{index}]' cannot be blank"
+            )));
+        }
+        if model.chars().count() > MAX_MOM_MODEL_CHARS {
+            return Err(ToolError::InvalidArguments(format!(
+                "'models[{index}]' is too long (max {MAX_MOM_MODEL_CHARS} chars)"
+            )));
+        }
+        models.push(model.to_string());
+    }
+    Ok(models)
 }
 
 async fn ask_claude(client: &Client, problem: &str) -> Result<String, String> {
@@ -565,14 +779,14 @@ async fn ask_claude(client: &Client, problem: &str) -> Result<String, String> {
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("claude request: {e}"))?;
+        .map_err(|e| describe_request_error("claude", e))?;
     if !resp.status().is_success() {
         return Err(format!("claude HTTP {}", resp.status().as_u16()));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| format!("claude parse: {e}"))?;
+        .map_err(|_| "claude response parse failed".to_string())?;
     let text = payload
         .get("content")
         .and_then(Value::as_array)
@@ -600,14 +814,14 @@ async fn ask_openai(client: &Client, problem: &str) -> Result<String, String> {
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("openai request: {e}"))?;
+        .map_err(|e| describe_request_error("openai", e))?;
     if !resp.status().is_success() {
         return Err(format!("openai HTTP {}", resp.status().as_u16()));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| format!("openai parse: {e}"))?;
+        .map_err(|_| "openai response parse failed".to_string())?;
     Ok(payload
         .get("choices")
         .and_then(|c| c.get(0))
@@ -633,14 +847,14 @@ async fn ask_gemini(client: &Client, problem: &str) -> Result<String, String> {
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("gemini request: {e}"))?;
+        .map_err(|e| describe_request_error("gemini", e))?;
     if !resp.status().is_success() {
         return Err(format!("gemini HTTP {}", resp.status().as_u16()));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| format!("gemini parse: {e}"))?;
+        .map_err(|_| "gemini response parse failed".to_string())?;
     Ok(payload
         .get("candidates")
         .and_then(|c| c.get(0))
@@ -666,14 +880,14 @@ async fn ask_perplexity(client: &Client, problem: &str) -> Result<String, String
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("perplexity request: {e}"))?;
+        .map_err(|e| describe_request_error("perplexity", e))?;
     if !resp.status().is_success() {
         return Err(format!("perplexity HTTP {}", resp.status().as_u16()));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| format!("perplexity parse: {e}"))?;
+        .map_err(|_| "perplexity response parse failed".to_string())?;
     Ok(payload
         .get("choices")
         .and_then(|c| c.get(0))
@@ -684,26 +898,49 @@ async fn ask_perplexity(client: &Client, problem: &str) -> Result<String, String
         .to_string())
 }
 
+fn describe_request_error(provider: &str, error: reqwest::Error) -> String {
+    let reason = if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connect"
+    } else if error.is_request() {
+        "request"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_decode() {
+        "decode"
+    } else {
+        "request"
+    };
+    format!("{provider} request failed: {reason}")
+}
+
 pub fn mixture_of_minds_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "mixture_of_minds".to_string(),
-        description: "Specialty D4 — query multiple frontier models (claude, openai, gemini, \
-             perplexity) in parallel and aggregate. Returns each model's contribution plus \
-             a 'best' field chosen by response length. For every cloud model the matching \
-             API key env var must be set (ANTHROPIC_API_KEY, OPENAI_API_KEY, \
-             GEMINI_API_KEY, PERPLEXITY_API_KEY). Max 4 models per call."
+        description: "Specialty D4 — query multiple external cloud models (claude, openai, \
+             gemini, perplexity) in parallel and aggregate. Requires \
+             allow_cloud_external_requests=true because the problem text is sent to provider \
+             APIs. Returns each model's contribution plus a 'best' field chosen by response \
+             length. For every cloud model the matching API key env var must be set \
+             (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY or GOOGLE_API_KEY, \
+             PERPLEXITY_API_KEY). Max 4 models per call."
             .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "problem": { "type": "string", "description": "The question to dispatch." },
+                "allow_cloud_external_requests": {
+                    "type": "boolean",
+                    "description": "Must be true to confirm the problem may be sent to external provider APIs."
+                },
                 "models": {
                     "type": "array",
-                    "items": { "type": "string", "enum": ["claude", "openai", "gemini", "perplexity"] },
+                    "items": { "type": "string", "enum": MOM_ALLOWED_MODELS },
                     "description": "Subset of models to query (default: [claude, openai, gemini])."
                 }
             },
-            "required": ["problem"]
+            "required": ["problem", "allow_cloud_external_requests"]
         }),
     }
 }
@@ -795,6 +1032,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nightbrain_trigger_defaults_to_immediate_priority() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: r#"{"job_id":"n1","status":"scheduled"}"#.to_string(),
+        });
+        let handler = NightBrainTriggerHandler::new(Arc::clone(&delegate));
+        let result = handler
+            .execute(&json!({
+                "job": "maintenance_log"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["priority"], json!("immediate"));
+    }
+
+    #[tokio::test]
     async fn nightbrain_trigger_rejects_unknown_job() {
         let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
             last_payload: Mutex::new(None),
@@ -802,14 +1056,14 @@ mod tests {
         });
         let handler = NightBrainTriggerHandler::new(delegate);
         let err = handler
-            .execute(&json!({ "job": "teleport" }))
+            .execute(&json!({ "job": "vault_integrity_check" }))
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("unknown job"));
     }
 
     #[tokio::test]
-    async fn nightbrain_trigger_rejects_unknown_priority() {
+    async fn nightbrain_trigger_rejects_non_immediate_priority() {
         let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
             last_payload: Mutex::new(None),
             response: "{}".to_string(),
@@ -818,11 +1072,44 @@ mod tests {
         let err = handler
             .execute(&json!({
                 "job": "memory_distillation",
-                "priority": "yesterday"
+                "priority": "normal"
             }))
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("priority"));
+    }
+
+    #[tokio::test]
+    async fn nightbrain_trigger_rejects_non_string_priority() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: "{}".to_string(),
+        });
+        let handler = NightBrainTriggerHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "job": "memory_distillation",
+                "priority": 7
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("priority"));
+    }
+
+    #[tokio::test]
+    async fn nightbrain_trigger_rejects_non_json_delegate_without_echoing_raw() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: "not json api_key=do-not-leak".to_string(),
+        });
+        let handler = NightBrainTriggerHandler::new(delegate);
+        let err = handler
+            .execute(&json!({ "job": "maintenance_log" }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("api_key"));
     }
 
     #[tokio::test]
@@ -857,6 +1144,60 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("cursor_offset"));
+    }
+
+    #[tokio::test]
+    async fn inline_partner_rejects_oversized_note_id() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: "{}".to_string(),
+        });
+        let handler = InlinePartnerHandler::new(delegate);
+        let note_id = "n".repeat(MAX_INLINE_NOTE_ID_CHARS + 1);
+        let err = handler
+            .execute(&json!({
+                "note_id": note_id,
+                "cursor_offset": 0
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("note_id exceeds"));
+    }
+
+    #[tokio::test]
+    async fn inline_partner_rejects_non_integer_cursor_offset() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: "{}".to_string(),
+        });
+        let handler = InlinePartnerHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "note_id": "note-123",
+                "cursor_offset": "42"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("cursor_offset"));
+    }
+
+    #[tokio::test]
+    async fn inline_partner_rejects_non_json_delegate_without_echoing_raw() {
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate {
+            last_payload: Mutex::new(None),
+            response: "not json password=do-not-leak".to_string(),
+        });
+        let handler = InlinePartnerHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "note_id": "note-123",
+                "cursor_offset": 42
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("password"));
     }
 
     // self_evolve -----------------------------------------------------------
@@ -899,9 +1240,35 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         let patterns = parsed["patterns"].as_array().unwrap();
-        assert!(patterns
-            .iter()
-            .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool"));
+        assert!(
+            patterns
+                .iter()
+                .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool")
+        );
+    }
+
+    #[tokio::test]
+    async fn self_evolve_reports_oversized_trace_as_skipped() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("sessions").join("2026-01-01_huge");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("trace.json"),
+            vec![b' '; (MAX_SELF_EVOLVE_TRACE_BYTES + 1) as usize],
+        )
+        .unwrap();
+
+        let handler = SelfEvolveHandler::new(tmp.path().to_path_buf());
+        let result = handler
+            .execute(&json!({ "action": "analyze" }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["sessions_skipped"], json!(1));
+        assert_eq!(
+            parsed["skipped_traces"][0]["reason"],
+            json!("trace_too_large")
+        );
     }
 
     #[tokio::test]
@@ -927,6 +1294,29 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn self_evolve_sanitizes_advisory_skill_name() {
+        let tmp = TempDir::new().unwrap();
+        let events = r#"[
+            {"timestamp":"2026-01-01T00:00:00Z","kind":"tool_call","name":"../Risk Tool!","duration_ms":50,"outcome":"error"},
+            {"timestamp":"2026-01-01T00:00:01Z","kind":"tool_call","name":"../Risk Tool!","duration_ms":50,"outcome":"error"},
+            {"timestamp":"2026-01-01T00:00:02Z","kind":"tool_call","name":"../Risk Tool!","duration_ms":50,"outcome":"success"}
+        ]"#;
+        build_fake_session(tmp.path(), "2026-01-01_slug", events);
+
+        let handler = SelfEvolveHandler::new(tmp.path().to_path_buf());
+        let result = handler
+            .execute(&json!({ "action": "propose" }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(
+            parsed["proposals"][0]["skill"],
+            json!("risk-tool-optimizer")
+        );
+        assert_eq!(advisory_skill_slug("///"), "tool");
+    }
+
+    #[tokio::test]
     async fn self_evolve_rejects_unknown_action() {
         let tmp = TempDir::new().unwrap();
         let handler = SelfEvolveHandler::new(tmp.path().to_path_buf());
@@ -947,11 +1337,77 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mom_requires_cloud_external_consent() {
+        let handler = MixtureOfMindsHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({ "problem": "hello" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_cloud_external_requests"));
+    }
+
+    #[tokio::test]
+    async fn mom_rejects_blank_or_oversized_problem() {
+        let handler = MixtureOfMindsHandler::new().unwrap();
+        let blank = handler
+            .execute(&json!({
+                "problem": "   ",
+                "allow_cloud_external_requests": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{blank}").contains("problem"));
+
+        let oversized = handler
+            .execute(&json!({
+                "problem": "x".repeat(MAX_MOM_PROBLEM_CHARS + 1),
+                "allow_cloud_external_requests": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{oversized}").contains("problem"));
+    }
+
+    #[tokio::test]
+    async fn mom_rejects_malformed_cloud_consent_and_models() {
+        let handler = MixtureOfMindsHandler::new().unwrap();
+        let bad_consent = handler
+            .execute(&json!({
+                "problem": "hello",
+                "allow_cloud_external_requests": "true"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_consent}").contains("allow_cloud_external_requests"));
+
+        let non_array_models = handler
+            .execute(&json!({
+                "problem": "hello",
+                "allow_cloud_external_requests": true,
+                "models": "claude"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{non_array_models}").contains("models"));
+
+        let non_string_model = handler
+            .execute(&json!({
+                "problem": "hello",
+                "allow_cloud_external_requests": true,
+                "models": ["claude", 42]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{non_string_model}").contains("models[1]"));
+    }
+
+    #[tokio::test]
     async fn mom_rejects_empty_models_array() {
         let handler = MixtureOfMindsHandler::new().unwrap();
         let err = handler
             .execute(&json!({
                 "problem": "hello",
+                "allow_cloud_external_requests": true,
                 "models": []
             }))
             .await
@@ -965,11 +1421,41 @@ mod tests {
         let err = handler
             .execute(&json!({
                 "problem": "hello",
+                "allow_cloud_external_requests": true,
                 "models": ["claude", "openai", "gemini", "perplexity", "extra"]
             }))
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("at most"));
+    }
+
+    #[tokio::test]
+    async fn mom_rejects_unknown_model_before_network() {
+        let handler = MixtureOfMindsHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "problem": "hello",
+                "allow_cloud_external_requests": true,
+                "models": ["gpt-4o"]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("unknown model"));
+    }
+
+    #[test]
+    fn mom_schema_requires_cloud_external_consent() {
+        let schema = mixture_of_minds_schema();
+        assert_eq!(
+            schema.parameters["required"],
+            json!(["problem", "allow_cloud_external_requests"])
+        );
+        assert!(
+            schema.description.contains("external cloud models")
+                && schema
+                    .description
+                    .contains("allow_cloud_external_requests=true")
+        );
     }
 
     #[tokio::test]
@@ -989,11 +1475,13 @@ mod tests {
         let result = handler
             .execute(&json!({
                 "problem": "why is the sky blue",
+                "allow_cloud_external_requests": true,
                 "models": ["claude", "openai", "gemini"]
             }))
             .await
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["cloud_requests_authorized"], json!(true));
         assert_eq!(parsed["models_responded"], json!(0));
         let contributions = parsed["contributions"].as_array().unwrap();
         assert_eq!(contributions.len(), 3);

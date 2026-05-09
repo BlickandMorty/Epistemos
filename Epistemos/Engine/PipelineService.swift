@@ -142,6 +142,7 @@ final class PipelineService {
     private let localModelClient: (any LocalConfigurableLLMClient)?
     private let constrainedDecoding: ConstrainedDecodingService?
     private let vaultPathProvider: @MainActor () -> String?
+    private let activeCompanionInstructionProvider: @MainActor () -> String?
     private var pipelineTask: Task<Void, Never>?
     private var activeRunID: UUID?
 
@@ -153,7 +154,8 @@ final class PipelineService {
         eventBus: EventBus,
         localModelClient: (any LocalConfigurableLLMClient)? = nil,
         constrainedDecoding: ConstrainedDecodingService? = nil,
-        vaultPathProvider: @escaping @MainActor () -> String? = { nil }
+        vaultPathProvider: @escaping @MainActor () -> String? = { nil },
+        activeCompanionInstructionProvider: @escaping @MainActor () -> String? = { nil }
     ) {
         self.pipelineState = pipelineState
         self.llmService = llmService
@@ -163,6 +165,7 @@ final class PipelineService {
         self.localModelClient = localModelClient
         self.constrainedDecoding = constrainedDecoding
         self.vaultPathProvider = vaultPathProvider
+        self.activeCompanionInstructionProvider = activeCompanionInstructionProvider
     }
 
     func run(
@@ -418,9 +421,12 @@ final class PipelineService {
             notesContext: notesContext,
             conversationHistory: conversationHistory
         )
-        let additionalSystemPrompt = Self.combinedAdditionalSystemPrompt(
-            base: executionPlan?.additionalSystemPrompt(),
-            hookContext: hookPromptContext
+        let additionalSystemPrompt = Self.joinSystemPromptSections(
+            Self.combinedAdditionalSystemPrompt(
+                base: executionPlan?.additionalSystemPrompt(),
+                hookContext: hookPromptContext
+            ),
+            activeCompanionSystemInstruction()
         )
 
         let reasoningMode: LocalReasoningMode = switch operatingMode {
@@ -734,6 +740,26 @@ final class PipelineService {
         return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
     }
 
+    private func activeCompanionSystemInstruction() -> String? {
+        guard let instruction = activeCompanionInstructionProvider()?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !instruction.isEmpty else {
+            return nil
+        }
+        return instruction
+    }
+
+    nonisolated private static func joinSystemPromptSections(_ sections: String?...) -> String? {
+        let normalized = sections.compactMap { section -> String? in
+            guard let value = section?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !value.isEmpty else {
+                return nil
+            }
+            return value
+        }
+        return normalized.isEmpty ? nil : normalized.joined(separator: "\n\n")
+    }
+
     func cancelActiveRun() {
         guard activeRunID != nil else { return }
         pipelineTask?.cancel()
@@ -837,6 +863,9 @@ final class PipelineService {
             toolExecutionAvailable: false
         ), !manifest.isEmpty {
             systemParts.append(manifest)
+        }
+        if let activeAgent = activeCompanionSystemInstruction() {
+            systemParts.append(activeAgent)
         }
         let systemPrompt: String? = systemParts.isEmpty
             ? nil

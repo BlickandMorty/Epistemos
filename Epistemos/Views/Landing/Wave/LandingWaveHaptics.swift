@@ -8,8 +8,8 @@ import Foundation
 ///
 /// Mapping (matches `LandingWaveDesign.HapticBeatDelay`):
 ///   - t=0.00s  `.levelChange` — impact
-///   - t=0.12s  `.alignment`   — Worthington jet rebound
-///   - t=0.30s  `.levelChange` — primary wave crest
+///   - t=0.19s  `.alignment`   — Worthington jet rebound
+///   - t=0.42s  `.levelChange` — primary wave crest
 ///
 /// Haptic output requires a Magic Trackpad / Force Touch trackpad. External
 /// mouse users get silence — acceptable per the plan.

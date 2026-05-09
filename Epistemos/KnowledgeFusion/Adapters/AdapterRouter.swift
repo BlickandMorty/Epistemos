@@ -12,7 +12,7 @@ enum AdapterRoutingMode: Sendable {
     /// No adapter — use base model only.
     case none
 
-    /// MoLoRA per-token routing (scaffold only — see TODO below).
+    /// MoLoRA per-token routing scaffold. Deferred until the kernel path exists.
     case moloraPerToken
 }
 
@@ -68,11 +68,11 @@ nonisolated struct AdapterRouter: Sendable {
     // Until these prerequisites are available, use Mode A (explicit) or
     // Mode B (automatic per-request) routing instead.
 
-    /// MoLoRA per-token routing is handled by the Python-side AdaFuse router
-    /// in MoLoRAInferenceService. This Swift-side method is not used directly —
-    /// the routing decision happens inside molora_inference.py at layer 0.
-    /// See MoLoRAInferenceService.generate() for the actual routing path.
+    /// Swift-side per-token MoLoRA routing is intentionally unavailable in v1.
+    /// The optional Pro MoLoRA subprocess currently performs prompt-level
+    /// decide-once adapter selection from layer-0 hidden states; it does not
+    /// provide this Swift token-by-token route hook.
     func routeToken(token: Int, context: [Int]) -> UUID? {
-        nil  // Routing handled by Python-side AdaFuse in MoLoRAInferenceService
+        nil
     }
 }

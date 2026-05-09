@@ -126,6 +126,43 @@ struct ArenaTests {
         }
     }
 
+    @Test("Arena diagnostics report path, materialization, and bridge budgets honestly")
+    @MainActor
+    func arenaDiagnosticsReportPathAndBudgets() throws {
+        let container = makeContainer()
+
+        var snapshot = ArenaHealthRow.snapshot(container: container)
+        #expect(snapshot.ok)
+        #expect(snapshot.path?.hasSuffix("/Epistemos/arena.dat") == true)
+        #expect(snapshot.exists == false)
+        #expect(snapshot.byteSize == nil)
+        #expect(snapshot.detail.contains("v\(ArenaBridge.arenaVersion)"))
+        #expect(snapshot.detail.contains("slots \(ArenaBridge.slotCount)"))
+        #expect(snapshot.detail.contains("inline \(ArenaBridge.maxInlinePayloadBytes)/\(ArenaBridge.maxInlineResponseBytes) B"))
+        #expect(snapshot.detail.contains("not materialized"))
+
+        try Data(repeating: 0xA5, count: 128).write(to: container.arenaURL, options: .atomic)
+        snapshot = ArenaHealthRow.snapshot(container: container)
+
+        #expect(snapshot.exists)
+        #expect(snapshot.byteSize == 128)
+        #expect(snapshot.detail.contains("materialized"))
+    }
+
+    @Test("Settings mounts shared arena diagnostics without v2 authority copy")
+    func settingsMountSharedArenaDiagnosticsWithoutV2Copy() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ArenaHealthRow.swift")
+
+        #expect(settings.contains("ArenaHealthRow()"))
+        #expect(settings.contains("Shared Arena reports the app-group arena path and bridge budgets without claiming runtime authority"))
+        #expect(!settings.contains("Cognitive DAG (V2 final lane)"))
+        #expect(row.contains("ArenaPathResolver.resolve(container: container)"))
+        #expect(row.contains("ArenaBridge.arenaVersion"))
+        #expect(row.contains("ArenaBridge.slotCount"))
+        #expect(row.contains("not materialized"))
+    }
+
     @Test("Arena source files reject Epistenos donor spelling drift")
     func arenaSourceFilesRejectDonorSpellingDrift() throws {
         let files = [

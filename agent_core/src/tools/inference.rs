@@ -15,12 +15,46 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::bridge::AgentEventDelegate;
 use crate::routing::{ConfidenceRouter, HeuristicClassifier, LocalTask, RoutingDecision};
 
 use super::registry::{ToolError, ToolHandler};
+
+const MAX_ROUTE_OBJECTIVE_CHARS: usize = 8_000;
+const MAX_SSM_SESSION_ID_CHARS: usize = 128;
+const MAX_SSM_LABEL_CHARS: usize = 120;
+const MAX_CONSTRAINED_PROMPT_CHARS: usize = 16_000;
+const MAX_CUSTOM_EBNF_CHARS: usize = 32_000;
+const MAX_TOOLS_JSON_CHARS: usize = 128 * 1024;
+const MAX_DELEGATE_RESPONSE_CHARS: usize = 256 * 1024;
+const MIN_CONSTRAINED_TOKENS: u64 = 1;
+const MAX_CONSTRAINED_TOKENS: u64 = 4_096;
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    let count = value.chars().count();
+    if count > cap {
+        return Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn parse_delegate_json(tool_name: &str, response: String) -> Result<Value, ToolError> {
+    if response.chars().count() > MAX_DELEGATE_RESPONSE_CHARS {
+        return Err(ToolError::ExecutionFailed(format!(
+            "{tool_name} delegate response exceeded {MAX_DELEGATE_RESPONSE_CHARS} character cap"
+        )));
+    }
+
+    serde_json::from_str(&response).map_err(|_| {
+        ToolError::ExecutionFailed(format!(
+            "{tool_name} delegate returned non-JSON response; raw output redacted"
+        ))
+    })
+}
 
 // MARK: - route_private (Specialty C3)
 
@@ -45,6 +79,7 @@ impl ToolHandler for RoutePrivateHandler {
             .get("objective")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'objective'".into()))?;
+        ensure_char_cap("objective", objective, MAX_ROUTE_OBJECTIVE_CHARS)?;
         let force_local = input
             .get("force_local")
             .and_then(Value::as_bool)
@@ -223,7 +258,12 @@ impl ToolHandler for SsmResumeHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
         let action = input
             .get("action")
-            .and_then(Value::as_str)
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| ToolError::InvalidArguments("'action' must be a string".into()))
+            })
+            .transpose()?
             .unwrap_or("list");
         if !matches!(action, "save" | "load" | "list" | "prune") {
             return Err(ToolError::InvalidArguments(format!(
@@ -231,17 +271,40 @@ impl ToolHandler for SsmResumeHandler {
             )));
         }
 
+        let session_id = input
+            .get("session_id")
+            .map(|value| {
+                value.as_str().ok_or_else(|| {
+                    ToolError::InvalidArguments("'session_id' must be a string".into())
+                })
+            })
+            .transpose()?;
         // Require session_id for save/load/prune; list is fine without it.
-        if matches!(action, "save" | "load" | "prune") && input.get("session_id").is_none() {
+        if matches!(action, "save" | "load" | "prune") && session_id.is_none() {
             return Err(ToolError::InvalidArguments(format!(
                 "action '{action}' requires 'session_id'"
             )));
         }
+        if let Some(session_id) = session_id {
+            ensure_char_cap("session_id", session_id, MAX_SSM_SESSION_ID_CHARS)?;
+        }
+
+        let label = input
+            .get("label")
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| ToolError::InvalidArguments("'label' must be a string".into()))
+            })
+            .transpose()?;
+        if let Some(label) = label {
+            ensure_char_cap("label", label, MAX_SSM_LABEL_CHARS)?;
+        }
 
         let payload = json!({
             "action": action,
-            "session_id": input.get("session_id").cloned().unwrap_or(Value::Null),
-            "label": input.get("label").cloned().unwrap_or(Value::Null),
+            "session_id": session_id.map(Value::from).unwrap_or(Value::Null),
+            "label": label.map(Value::from).unwrap_or(Value::Null),
         })
         .to_string();
 
@@ -249,8 +312,7 @@ impl ToolHandler for SsmResumeHandler {
         let response = tokio::task::spawn_blocking(move || delegate.manage_ssm_state(payload))
             .await
             .map_err(|e| ToolError::ExecutionFailed(format!("ssm_resume join: {e}")))?;
-        let parsed: Value = serde_json::from_str(&response)
-            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
+        let parsed = parse_delegate_json("ssm_resume", response)?;
         Ok(parsed.to_string())
     }
 }
@@ -262,7 +324,8 @@ pub fn ssm_resume_schema() -> crate::types::ToolSchema {
              'save' (persist current hidden state for a session with an optional label), \
              'load' (restore a snapshot without replaying the transcript), \
              'list' (enumerate saved snapshots), 'prune' (evict old snapshots for a session). \
-             State blobs are 6–24 MB; save/load completes in <50 ms via zero-copy mmap."
+             This Rust handler is a bounded audit bridge to the host delegate; storage size and \
+             latency are reported by the delegate implementation."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -297,28 +360,73 @@ impl ToolHandler for ConstrainedGenerateHandler {
         let prompt = input
             .get("prompt")
             .and_then(Value::as_str)
-            .ok_or_else(|| ToolError::InvalidArguments("missing 'prompt'".into()))?
-            .to_string();
+            .ok_or_else(|| ToolError::InvalidArguments("missing 'prompt'".into()))?;
+        ensure_char_cap("prompt", prompt, MAX_CONSTRAINED_PROMPT_CHARS)?;
+        let prompt = prompt.to_string();
         let grammar = input
             .get("grammar")
-            .and_then(Value::as_str)
+            .map(|value| {
+                value
+                    .as_str()
+                    .ok_or_else(|| ToolError::InvalidArguments("'grammar' must be a string".into()))
+            })
+            .transpose()?
             .unwrap_or("tool_call");
         if !matches!(grammar, "tool_call" | "planning" | "custom") {
             return Err(ToolError::InvalidArguments(format!(
                 "grammar '{grammar}' invalid (expected tool_call|planning|custom)"
             )));
         }
-        if grammar == "custom" && input.get("custom_ebnf").is_none() {
+        let custom_ebnf = input
+            .get("custom_ebnf")
+            .map(|value| {
+                value.as_str().ok_or_else(|| {
+                    ToolError::InvalidArguments("'custom_ebnf' must be a string".into())
+                })
+            })
+            .transpose()?;
+        if grammar == "custom" && custom_ebnf.is_none() {
             return Err(ToolError::InvalidArguments(
-                "grammar='custom' requires 'custom_ebnf'".into(),
+                "grammar='custom' requires string 'custom_ebnf'".into(),
             ));
+        }
+        if let Some(custom_ebnf) = custom_ebnf {
+            ensure_char_cap("custom_ebnf", custom_ebnf, MAX_CUSTOM_EBNF_CHARS)?;
+        }
+
+        let tools = input.get("tools").cloned().unwrap_or(Value::Null);
+        if !tools.is_null() && !tools.is_array() {
+            return Err(ToolError::InvalidArguments(
+                "'tools' must be an array when supplied".into(),
+            ));
+        }
+        let tools_len = tools.to_string().chars().count();
+        if tools_len > MAX_TOOLS_JSON_CHARS {
+            return Err(ToolError::InvalidArguments(format!(
+                "tools JSON exceeds {MAX_TOOLS_JSON_CHARS} characters"
+            )));
+        }
+
+        let max_tokens = input
+            .get("max_tokens")
+            .map(|value| {
+                value.as_u64().ok_or_else(|| {
+                    ToolError::InvalidArguments("'max_tokens' must be an integer".into())
+                })
+            })
+            .transpose()?
+            .unwrap_or(256);
+        if !(MIN_CONSTRAINED_TOKENS..=MAX_CONSTRAINED_TOKENS).contains(&max_tokens) {
+            return Err(ToolError::InvalidArguments(format!(
+                "max_tokens must be between {MIN_CONSTRAINED_TOKENS} and {MAX_CONSTRAINED_TOKENS}"
+            )));
         }
 
         let grammar_payload = json!({
             "grammar": grammar,
-            "custom_ebnf": input.get("custom_ebnf").cloned().unwrap_or(Value::Null),
-            "tools": input.get("tools").cloned().unwrap_or(Value::Null),
-            "max_tokens": input.get("max_tokens").cloned().unwrap_or(json!(256)),
+            "custom_ebnf": custom_ebnf.map(Value::from).unwrap_or(Value::Null),
+            "tools": tools,
+            "max_tokens": max_tokens,
         })
         .to_string();
 
@@ -328,8 +436,7 @@ impl ToolHandler for ConstrainedGenerateHandler {
         })
         .await
         .map_err(|e| ToolError::ExecutionFailed(format!("constrained_generate join: {e}")))?;
-        let parsed: Value = serde_json::from_str(&response)
-            .unwrap_or_else(|_| json!({ "raw": response, "error": "non-json delegate response" }));
+        let parsed = parse_delegate_json("constrained_generate", response)?;
         Ok(parsed.to_string())
     }
 }
@@ -337,8 +444,8 @@ impl ToolHandler for ConstrainedGenerateHandler {
 pub fn constrained_generate_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "constrained_generate".to_string(),
-        description: "Specialty C2 — run constrained decoding against the on-device model with \
-             an EBNF grammar so the output is guaranteed structurally valid. Grammars: \
+        description: "Specialty C2 — ask the host delegate to run constrained decoding against \
+             the on-device model with an EBNF grammar, returning only JSON delegate responses. Grammars: \
              'tool_call' (auto-compiled from the tool registry), 'planning' (task-plan JSON), \
              'custom' (supply your own EBNF via custom_ebnf). Used for reliable local tool \
              calling without JSON-schema retries."
@@ -482,6 +589,17 @@ mod tests {
         assert!(format!("{err}").contains("objective"));
     }
 
+    #[tokio::test]
+    async fn route_private_rejects_oversized_objective() {
+        let handler = RoutePrivateHandler::new();
+        let objective = "x".repeat(MAX_ROUTE_OBJECTIVE_CHARS + 1);
+        let err = handler
+            .execute(&json!({ "objective": objective }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("objective exceeds"));
+    }
+
     // ssm_resume ------------------------------------------------------------
 
     #[tokio::test]
@@ -532,6 +650,48 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["success"], json!(true));
+    }
+
+    #[tokio::test]
+    async fn ssm_resume_rejects_oversized_session_id() {
+        let delegate = stub_delegate("{}", "{}");
+        let handler = SsmResumeHandler::new(delegate);
+        let session_id = "s".repeat(MAX_SSM_SESSION_ID_CHARS + 1);
+        let err = handler
+            .execute(&json!({ "action": "save", "session_id": session_id }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("session_id exceeds"));
+    }
+
+    #[tokio::test]
+    async fn ssm_resume_rejects_oversized_label() {
+        let delegate = stub_delegate("{}", "{}");
+        let handler = SsmResumeHandler::new(delegate);
+        let label = "l".repeat(MAX_SSM_LABEL_CHARS + 1);
+        let err = handler
+            .execute(&json!({
+                "action": "save",
+                "session_id": "sess-1",
+                "label": label
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("label exceeds"));
+    }
+
+    #[tokio::test]
+    async fn ssm_resume_rejects_non_json_delegate_without_echoing_raw() {
+        let raw = "not json secret-token=do-not-leak";
+        let delegate = stub_delegate(raw, "{}");
+        let handler = SsmResumeHandler::new(delegate);
+        let err = handler
+            .execute(&json!({ "action": "list" }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("secret-token"));
     }
 
     // constrained_generate --------------------------------------------------
@@ -588,5 +748,75 @@ mod tests {
         let handler = ConstrainedGenerateHandler::new(delegate);
         let err = handler.execute(&json!({})).await.unwrap_err();
         assert!(format!("{err}").contains("prompt"));
+    }
+
+    #[tokio::test]
+    async fn constrained_generate_rejects_oversized_prompt() {
+        let delegate = stub_delegate("{}", "{}");
+        let handler = ConstrainedGenerateHandler::new(delegate);
+        let prompt = "p".repeat(MAX_CONSTRAINED_PROMPT_CHARS + 1);
+        let err = handler
+            .execute(&json!({ "prompt": prompt }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("prompt exceeds"));
+    }
+
+    #[tokio::test]
+    async fn constrained_generate_rejects_non_string_custom_ebnf() {
+        let delegate = stub_delegate("{}", "{}");
+        let handler = ConstrainedGenerateHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "prompt": "hi",
+                "grammar": "custom",
+                "custom_ebnf": null
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("custom_ebnf"));
+    }
+
+    #[tokio::test]
+    async fn constrained_generate_rejects_invalid_max_tokens() {
+        let delegate = stub_delegate("{}", "{}");
+        let handler = ConstrainedGenerateHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "prompt": "hi",
+                "max_tokens": MAX_CONSTRAINED_TOKENS + 1
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("max_tokens"));
+    }
+
+    #[tokio::test]
+    async fn constrained_generate_rejects_oversized_tools_payload() {
+        let delegate = stub_delegate("{}", "{}");
+        let handler = ConstrainedGenerateHandler::new(delegate);
+        let large_tool = "t".repeat(MAX_TOOLS_JSON_CHARS + 1);
+        let err = handler
+            .execute(&json!({
+                "prompt": "hi",
+                "tools": [large_tool]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("tools JSON exceeds"));
+    }
+
+    #[tokio::test]
+    async fn constrained_generate_rejects_non_json_delegate_without_echoing_raw() {
+        let raw = "not json api_key=do-not-leak";
+        let delegate = stub_delegate("{}", raw);
+        let handler = ConstrainedGenerateHandler::new(delegate);
+        let err = handler
+            .execute(&json!({ "prompt": "hi" }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("api_key"));
     }
 }

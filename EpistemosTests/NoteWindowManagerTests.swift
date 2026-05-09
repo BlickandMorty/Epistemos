@@ -268,6 +268,8 @@ struct NoteWindowManagerTests {
         #expect(UtilityPanel.notes.title == "Notes")
         #expect(UtilityPanel.settings.title == "Settings")
         #expect(UtilityPanel.settings.icon == "gearshape")
+        #expect(UtilityPanel.notes.defaultSize.height <= 560)
+        #expect(UtilityPanel.notes.minimumSize.width <= UtilityPanel.notes.defaultSize.width)
         #expect(UtilityPanel.settings.defaultSize.width >= 900)
         #expect(UtilityPanel.settings.defaultSize.height >= 680)
     }
@@ -605,10 +607,10 @@ struct NoteWindowManagerTests {
         #expect(pages[1].contains("Delta"))
     }
 
-    @Test("Landing shortcuts keep sentence case and use the native UI font")
-    func landingShortcutsUseSentenceCaseAndUIFont() {
-        #expect(LandingShortcutDisplay.label("New Note") == "New Note")
-        #expect(LandingShortcutDisplay.label("Click to search") == "Click to search")
+    @Test("Landing shortcuts render lowercase and use the native system font")
+    func landingShortcutsUseLowercaseAndUIFont() {
+        #expect(LandingShortcutDisplay.label("New Note") == "new note")
+        #expect(LandingShortcutDisplay.label("Click to search") == "click to search")
         #expect(LandingShortcutDisplay.fontSize == 12)
         #expect(LandingShortcutDisplay.keyHorizontalPadding == 7)
         #expect(LandingShortcutDisplay.keyVerticalPadding == 4)
@@ -833,5 +835,28 @@ struct NotesSidebarFolderMetricsTests {
 
         #expect(counts["empty"] == 0)
         #expect(counts["parent"] == 0)
+    }
+}
+
+@Suite("Vault selector source guards")
+struct VaultSelectorSourceGuardTests {
+
+    @Test("Single-vault sidebar status is not a clickable no-op selector")
+    func singleVaultSidebarStatusIsReadOnly() throws {
+        let sidebar = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let selector = try loadMirroredSourceTextFile("Epistemos/Views/Sidebar/VaultSelectorView.swift")
+
+        #expect(sidebar.contains("VaultSelectorView("))
+        #expect(sidebar.contains("selectionEnabled: false"),
+                "The sidebar only passes the active vault today, so it must render read-only status instead of a dead selector.")
+        #expect(!sidebar.contains("No-op until the multi-vault data source lands"),
+                "Visible sidebar actions should not be justified by no-op comments.")
+        #expect(selector.contains("let onSelect: ((Vault) -> Void)?"))
+        #expect(selector.contains("private func canSelect(_ vault: Vault) -> Bool"))
+        #expect(selector.contains("selectionEnabled && !vault.isActive && onSelect != nil"),
+                "Rows should become clickable only when a real handler and selectable inactive vault are both present.")
+        #expect(selector.contains("rowContent(for: vault, isSelectable: false)"))
+        #expect(!selector.contains("guard !vault.isActive else { return }"),
+                "Active rows should render as non-buttons, not clickable buttons that immediately return.")
     }
 }

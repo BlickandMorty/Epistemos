@@ -17,11 +17,39 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::bridge::AgentEventDelegate;
 
 use super::registry::{ToolError, ToolHandler};
+
+const MAX_QUESTION_CHARS: usize = 4_000;
+const MAX_CHOICES: usize = 4;
+const MAX_CHOICE_CHARS: usize = 1_000;
+const MAX_DELEGATE_RESPONSE_CHARS: usize = 64 * 1024;
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    let count = value.chars().count();
+    if count > cap {
+        return Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn parse_delegate_json(response: String) -> Result<Value, ToolError> {
+    if response.chars().count() > MAX_DELEGATE_RESPONSE_CHARS {
+        return Err(ToolError::ExecutionFailed(format!(
+            "clarify delegate response exceeded {MAX_DELEGATE_RESPONSE_CHARS} character cap"
+        )));
+    }
+    serde_json::from_str(&response).map_err(|_| {
+        ToolError::ExecutionFailed(
+            "clarify delegate returned non-JSON payload; raw output redacted".into(),
+        )
+    })
+}
 
 pub struct ClarifyHandler {
     delegate: Arc<dyn AgentEventDelegate>,
@@ -40,16 +68,33 @@ impl ToolHandler for ClarifyHandler {
             .get("question")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'question'".into()))?;
-        let choices: Vec<String> = input
-            .get("choices")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect()
-            })
-            .unwrap_or_default();
-        if choices.len() > 4 {
+        ensure_char_cap("question", question, MAX_QUESTION_CHARS)?;
+
+        let choices = match input.get("choices") {
+            Some(Value::Array(arr)) => {
+                if arr.len() > MAX_CHOICES {
+                    return Err(ToolError::InvalidArguments(
+                        "'choices' supports at most 4 options (plus implicit 'Other')".into(),
+                    ));
+                }
+                let mut choices = Vec::with_capacity(arr.len());
+                for (idx, value) in arr.iter().enumerate() {
+                    let choice = value.as_str().ok_or_else(|| {
+                        ToolError::InvalidArguments(format!("'choices[{idx}]' must be a string"))
+                    })?;
+                    ensure_char_cap(&format!("choices[{idx}]"), choice, MAX_CHOICE_CHARS)?;
+                    choices.push(choice.to_string());
+                }
+                choices
+            }
+            Some(_) => {
+                return Err(ToolError::InvalidArguments(
+                    "'choices' must be an array when supplied".into(),
+                ));
+            }
+            None => Vec::new(),
+        };
+        if choices.len() > MAX_CHOICES {
             return Err(ToolError::InvalidArguments(
                 "'choices' supports at most 4 options (plus implicit 'Other')".into(),
             ));
@@ -71,11 +116,7 @@ impl ToolHandler for ClarifyHandler {
                 .await
                 .map_err(|e| ToolError::ExecutionFailed(format!("clarify join error: {e}")))?;
 
-        // The delegate should return a JSON string. Pass it through after a
-        // sanity check so the LLM sees a well-formed payload.
-        let parsed: Value = serde_json::from_str(&response_json).map_err(|e| {
-            ToolError::ExecutionFailed(format!("clarify delegate returned non-JSON payload: {e}"))
-        })?;
+        let parsed = parse_delegate_json(response_json)?;
 
         Ok(json!({
             "question": question,
@@ -217,13 +258,72 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn clarify_rejects_oversized_question() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(ScriptedDelegate::new("{\"response\":\"x\"}"));
+        let handler = ClarifyHandler::new(delegate);
+        let question = "q".repeat(MAX_QUESTION_CHARS + 1);
+        let err = handler
+            .execute(&json!({ "question": question }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("question exceeds"));
+    }
+
+    #[tokio::test]
+    async fn clarify_rejects_non_string_choice() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(ScriptedDelegate::new("{\"response\":\"x\"}"));
+        let handler = ClarifyHandler::new(delegate);
+        let err = handler
+            .execute(&json!({
+                "question": "Pick one",
+                "choices": ["a", 2]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("choices[1]"));
+    }
+
+    #[tokio::test]
+    async fn clarify_rejects_oversized_choice() {
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(ScriptedDelegate::new("{\"response\":\"x\"}"));
+        let handler = ClarifyHandler::new(delegate);
+        let choice = "c".repeat(MAX_CHOICE_CHARS + 1);
+        let err = handler
+            .execute(&json!({
+                "question": "Pick one",
+                "choices": [choice]
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("choices[0] exceeds"));
+    }
+
+    #[tokio::test]
     async fn clarify_errors_on_non_json_delegate_response() {
-        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(ScriptedDelegate::new("not json"));
+        let delegate: Arc<dyn AgentEventDelegate> =
+            Arc::new(ScriptedDelegate::new("not json sk-secret-token"));
         let handler = ClarifyHandler::new(delegate);
         let err = handler
             .execute(&json!({ "question": "?" }))
             .await
             .unwrap_err();
-        assert!(format!("{err}").contains("non-JSON"));
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[tokio::test]
+    async fn clarify_rejects_oversized_delegate_response() {
+        let raw = "r".repeat(MAX_DELEGATE_RESPONSE_CHARS + 1);
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(ScriptedDelegate::new(&raw));
+        let handler = ClarifyHandler::new(delegate);
+        let err = handler
+            .execute(&json!({ "question": "?" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("delegate response exceeded"));
     }
 }

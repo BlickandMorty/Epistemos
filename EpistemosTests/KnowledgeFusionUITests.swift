@@ -207,4 +207,23 @@ struct KnowledgeFusionViewModelTests {
         #expect(!source.contains("try exporter.export("))
         #expect(!source.contains("url.deletingLastPathComponent()"))
     }
+
+    @Test("Train-on-vault registers adapters inactive until explicit review")
+    func trainOnVaultDoesNotAutoActivateUnscoredAdapter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift")
+        let progressSource = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/UI/TrainOnVaultView.swift")
+
+        let registerRange = try #require(source.range(of: "try await registry.register(record)"))
+        let skillsRange = try #require(source.range(of: "// Phase 5: Generate skill files"))
+        let registrationSlice = String(source[registerRange.lowerBound..<skillsRange.lowerBound])
+
+        #expect(source.contains("case registering = \"Registering adapter...\""))
+        #expect(source.contains("newly trained adapters stay inactive until the"))
+        #expect(source.contains("Complete — adapter registered, activate after review"))
+        #expect(progressSource.contains("case .parsing, .generating, .training, .registering:"))
+        #expect(!source.contains("Complete — adapter active"))
+        #expect(!source.contains("Auto-activate the newly trained adapter"))
+        #expect(!registrationSlice.contains("setActive(record.id, active: true)"))
+        #expect(!registrationSlice.contains("activeAdapter = record"))
+    }
 }

@@ -176,13 +176,39 @@ nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hasha
         eyeTreatment: .negativeSpace
     )
 
+    static let blockTall = CompanionBodyKind.block(
+        aspect: .tall,
+        legs: .stubs,
+        antennae: .double,
+        eyeTreatment: .filled
+    )
+
+    static let blockSignal = CompanionBodyKind.block(
+        aspect: .compact,
+        legs: .none,
+        antennae: .single,
+        eyeTreatment: .filled
+    )
+
+    static let blockTwin = CompanionBodyKind.block(
+        aspect: .wide,
+        legs: .stubs,
+        antennae: .double,
+        eyeTreatment: .filled
+    )
+
     static let orb = CompanionBodyKind(family: .orb)
     static let sage = CompanionBodyKind(family: .sage)
 
+    /// Visible v1 agent bodies. The orb renderer/parser stays source-preserved
+    /// for existing rows, but new Landing agents use the Claude-Code-like
+    /// block/sage silhouettes instead of a circular body.
     static let creationPresets: [CompanionBodyKind] = [
         .blockCompact,
         .blockWide,
-        .orb,
+        .blockTall,
+        .blockSignal,
+        .blockTwin,
         .sage,
     ]
 
@@ -194,6 +220,12 @@ nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hasha
             self = .blockCompact
         case "block_wide", "block.wide":
             self = .blockWide
+        case "block_tall", "block.tall":
+            self = .blockTall
+        case "block_signal", "block.signal":
+            self = .blockSignal
+        case "block_twin", "block.twin":
+            self = .blockTwin
         case "sage":
             self = .sage
         case "orb":
@@ -252,6 +284,9 @@ nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hasha
     var displayName: String {
         switch family {
         case .block:
+            if self == .blockTall { return "Tall Block" }
+            if self == .blockSignal { return "Signal Block" }
+            if self == .blockTwin { return "Twin Block" }
             switch blockAspect ?? .compact {
             case .compact: return "Compact Block"
             case .wide: return "Wide Block"
@@ -268,6 +303,15 @@ nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hasha
     var hint: String {
         switch family {
         case .block:
+            if self == .blockTall {
+                return "Tall and watchful. Good for review, synthesis, and slower decisions."
+            }
+            if self == .blockSignal {
+                return "Small and alert. Good for quick local actions and tool checks."
+            }
+            if self == .blockTwin {
+                return "Paired and steady. Good for compare-and-verify tasks."
+            }
             switch blockAspect ?? .compact {
             case .compact:
                 return "Compact, deliberate. Good for local code and precise tool work."

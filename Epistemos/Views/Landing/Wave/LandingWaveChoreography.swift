@@ -24,10 +24,9 @@ struct LandingWaveDropEvent: Equatable {
 /// `docs/LANDING_WAVE_SEARCH_PLAN.md` §6.3.
 enum LandingWaveChoreography {
 
-    /// The 8-beat liquid-drop sequence: impact flash → splash crown → crater →
-    /// Worthington jet → secondary droplet → settle. The visual "concentric
-    /// wave" and later beats are produced by propagation alone — no additional
-    /// impulses after `secondaryDroplet`.
+    /// Compact ASCII warp sequence: impact → small orbital crown → negative
+    /// gravity well → rebound → a few delayed orbital sparks. The visual
+    /// should stay local to the click instead of blooming across the landing.
     static func makeSequence(
         at click: SIMD2<Float>,
         cursorDirection: SIMD2<Float>
@@ -41,53 +40,68 @@ enum LandingWaveChoreography {
             LandingWaveDropEvent(
                 timeOffset: ms(LandingWaveDesign.DropBeatMillis.impactFlash),
                 position: click,
-                radius: 0.8,
+                radius: 0.48,
                 strength: LandingWaveDesign.DropBeatStrength.impactFlash
             )
         )
 
-        // t=30 — splash crown: 6 impulses in a partial arc facing cursor direction.
-        let crownRadius: Float = 3.0
-        for i in 0..<6 {
-            let theta = Float(i) / 6.0 * 2.0 * .pi
+        // t=90 — compact orbit ring. Cursor direction biases brightness, not radius.
+        let crownRadius: Float = 1.18
+        for i in 0..<8 {
+            let theta = Float(i) / 8.0 * 2.0 * .pi
             let forwardBias = max(0, dot2D(SIMD2<Float>(cos(theta), sin(theta)), dir)) * 0.6 + 0.4
             let offset = SIMD2<Float>(cos(theta), sin(theta)) * crownRadius
             events.append(
                 LandingWaveDropEvent(
                     timeOffset: ms(LandingWaveDesign.DropBeatMillis.splashCrown),
                     position: click + offset,
-                    radius: 1.1,
+                    radius: 0.42,
                     strength: LandingWaveDesign.DropBeatStrength.splashCrown * forwardBias
                 )
             )
         }
 
-        // t=60 — cavity: negative impulse carves the crater.
+        // t=160 — gravity well: negative impulse pulls the field inward.
         events.append(
             LandingWaveDropEvent(
                 timeOffset: ms(LandingWaveDesign.DropBeatMillis.crater),
                 position: click,
-                radius: 2.2,
+                radius: 0.98,
                 strength: LandingWaveDesign.DropBeatStrength.crater
             )
         )
 
-        // t=120 — Worthington jet rebound.
+        // t=260 — rebound in the center.
         events.append(
             LandingWaveDropEvent(
                 timeOffset: ms(LandingWaveDesign.DropBeatMillis.worthingtonJet),
                 position: click,
-                radius: 1.4,
+                radius: 0.72,
                 strength: LandingWaveDesign.DropBeatStrength.worthingtonJet
             )
         )
 
-        // t=200 — secondary droplet above the click, small and playful.
+        // t=300-420 — a slow clockwise spiral of tiny ASCII sparks.
+        for i in 0..<4 {
+            let theta = Float(i) / 4.0 * 2.0 * .pi + .pi / 4.0
+            let radius = Float(0.72 - Double(i) * 0.12)
+            let offset = SIMD2<Float>(cos(theta), sin(theta)) * radius
+            events.append(
+                LandingWaveDropEvent(
+                    timeOffset: ms(LandingWaveDesign.DropBeatMillis.worthingtonJet + 40 + i * 34),
+                    position: click + offset,
+                    radius: 0.32,
+                    strength: LandingWaveDesign.DropBeatStrength.secondaryDroplet * (1.0 - Float(i) * 0.12)
+                )
+            )
+        }
+
+        // t=420 — final tiny dot above the well.
         events.append(
             LandingWaveDropEvent(
                 timeOffset: ms(LandingWaveDesign.DropBeatMillis.secondaryDroplet),
-                position: click + SIMD2<Float>(0, -3.0),
-                radius: 0.9,
+                position: click + SIMD2<Float>(0, -1.05),
+                radius: 0.34,
                 strength: LandingWaveDesign.DropBeatStrength.secondaryDroplet
             )
         )

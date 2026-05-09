@@ -53,7 +53,8 @@ private final class MoLoRAReadBufferState: Sendable {
 /// Communicates via stdin/stdout JSON lines (same pattern as QLoRATrainer).
 ///
 /// CRITICAL: Adapters are NEVER fused into base weights.
-/// The Python side loads adapters separately and routes per-token.
+/// The Python side loads adapters separately and performs prompt-level decide-once
+/// routing from layer-0 hidden states.
 @MainActor @Observable
 final class MoLoRAInferenceService {
 
@@ -70,6 +71,7 @@ final class MoLoRAInferenceService {
     private var stdinPipe: Pipe?
     private var stdoutPipe: Pipe?
     private var stderrPipe: Pipe?
+    private let stderrCapture = KnowledgeFusionProcessOutputCapture()
     private let readBufferState = MoLoRAReadBufferState()
 
     // MARK: - Lifecycle
@@ -81,7 +83,7 @@ final class MoLoRAInferenceService {
         adapterConfigs: [MoLoRAAdapterConfig],
         centroidsPath: URL?
     ) async throws {
-        guard state == .idle || state == .error("") || true else { return }
+        guard state != .loading, state != .generating else { return }
 
         // Stop any existing process
         stop()
@@ -113,9 +115,15 @@ final class MoLoRAInferenceService {
         }
 
         #if !EPISTEMOS_APP_STORE
+        guard FileManager.default.isExecutableFile(atPath: pythonPath) else {
+            state = .error("Python executable not found or not executable.")
+            return
+        }
+
         let proc = Process.init()
         proc.executableURL = URL(fileURLWithPath: pythonPath)
         proc.arguments = arguments
+        proc.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)
 
         let stdin = Pipe()
         let stdout = Pipe()
@@ -128,10 +136,17 @@ final class MoLoRAInferenceService {
         self.stdinPipe = stdin
         self.stdoutPipe = stdout
         self.stderrPipe = stderr
+        stderrCapture.reset()
+        stderr.fileHandleForReading.readabilityHandler = { [stderrCapture] handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            stderrCapture.append(data)
+        }
 
         do {
             try proc.run()
         } catch {
+            stderr.fileHandleForReading.readabilityHandler = nil
             state = .error("Failed to launch: \(error.localizedDescription)")
             return
         }
@@ -141,9 +156,9 @@ final class MoLoRAInferenceService {
         if ready {
             state = .ready
         } else {
-            let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
-            let errorMsg = String(data: stderrData, encoding: .utf8)?.prefix(500) ?? "Timeout waiting for model load"
-            state = .error(String(errorMsg))
+            stderr.fileHandleForReading.readabilityHandler = nil
+            let errorMsg = stderrCapture.stringValue()
+            state = .error(errorMsg == "No diagnostic output." ? "Timeout waiting for model load" : errorMsg)
             stop()
         }
         #else
@@ -169,6 +184,7 @@ final class MoLoRAInferenceService {
                 if proc.isRunning { proc.terminate() }
             }
         }
+        stderrPipe?.fileHandleForReading.readabilityHandler = nil
         process = nil
         stdinPipe = nil
         stdoutPipe = nil
@@ -179,7 +195,7 @@ final class MoLoRAInferenceService {
 
     // MARK: - Generation
 
-    /// Generate text with per-token MoLoRA routing.
+    /// Generate text with prompt-level decide-once MoLoRA routing.
     /// Calls onToken for each generated token (for streaming UI).
     func generate(
         prompt: String,

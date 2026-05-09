@@ -6,14 +6,17 @@
 //! Security: SSRF protection (blocks private IPs), URL validation,
 //! response size limits, timeout enforcement.
 
+use std::net::IpAddr;
 use std::time::Duration;
 
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use super::registry::ToolHandler;
+use super::registry::{ToolError, ToolHandler};
 
 const MAX_RESPONSE_BYTES: usize = 512 * 1024; // 512KB
+const MAX_CONTENT_CHARS: usize = 32_000;
+const MAX_URL_CHARS: usize = 4096;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REDIRECT_HOPS: usize = 5;
 
@@ -23,46 +26,64 @@ const MAX_REDIRECT_HOPS: usize = 5;
 /// so the Phase 3 web tools can share the same blocklist without duplicating
 /// the constants.
 pub(crate) fn is_private_url(url: &str) -> bool {
-    let lower = url.to_lowercase();
-    // Block private/internal IPs and localhost
-    let blocked = [
-        "://localhost",
-        "://127.",
-        "://0.",
-        "://10.",
-        "://172.16.",
-        "://172.17.",
-        "://172.18.",
-        "://172.19.",
-        "://172.20.",
-        "://172.21.",
-        "://172.22.",
-        "://172.23.",
-        "://172.24.",
-        "://172.25.",
-        "://172.26.",
-        "://172.27.",
-        "://172.28.",
-        "://172.29.",
-        "://172.30.",
-        "://172.31.",
-        "://192.168.",
-        "://[::1]",
-        "://169.254.",
-        "://metadata.google",
-        "://metadata.aws",
-    ];
-    blocked.iter().any(|b| lower.contains(b))
+    let Ok(parsed) = reqwest::Url::parse(url.trim()) else {
+        return false;
+    };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    let lower = host.to_ascii_lowercase();
+    if lower == "localhost"
+        || lower.ends_with(".localhost")
+        || lower == "metadata.google"
+        || lower.ends_with(".metadata.google")
+        || lower == "metadata.aws"
+        || lower.ends_with(".metadata.aws")
+    {
+        return true;
+    }
+    host.trim_matches(['[', ']'])
+        .parse::<IpAddr>()
+        .is_ok_and(is_private_ip)
+}
+
+fn is_private_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => {
+            ip.is_private() || ip.is_loopback() || ip.is_link_local() || ip.is_unspecified()
+        }
+        IpAddr::V6(ip) => {
+            ip.is_loopback()
+                || ip.is_unspecified()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+        }
+    }
 }
 
 pub(crate) fn validate_url(url: &str) -> Result<(), String> {
-    if url.is_empty() {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
         return Err("URL is required.".to_string());
     }
-    if !url.starts_with("http://") && !url.starts_with("https://") {
+    if trimmed.chars().count() > MAX_URL_CHARS {
+        return Err(format!("URL is too long (max {MAX_URL_CHARS} chars)."));
+    }
+    if trimmed != url {
+        return Err("URL cannot contain leading or trailing whitespace.".to_string());
+    }
+    let parsed = reqwest::Url::parse(trimmed)
+        .map_err(|_| "URL must be a valid http:// or https:// URL.".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
         return Err("URL must start with http:// or https://".to_string());
     }
-    if is_private_url(url) {
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("URLs with embedded credentials are not allowed.".to_string());
+    }
+    if parsed.host_str().is_none() {
+        return Err("URL must include a host.".to_string());
+    }
+    if is_private_url(trimmed) {
         return Err("Access to private/internal URLs is blocked (SSRF protection).".to_string());
     }
     Ok(())
@@ -82,6 +103,24 @@ pub(crate) fn secure_redirect_policy() -> reqwest::redirect::Policy {
             attempt.follow()
         }
     })
+}
+
+pub(crate) async fn read_response_text_limited(
+    response: reqwest::Response,
+    max_bytes: usize,
+) -> Result<(String, usize), String> {
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|_| "read body failed".to_string())?;
+    if bytes.len() > max_bytes {
+        return Err(format!(
+            "response too large: {} bytes (max {max_bytes})",
+            bytes.len()
+        ));
+    }
+    let len = bytes.len();
+    Ok((String::from_utf8_lossy(&bytes).to_string(), len))
 }
 
 // MARK: - HTML to Text
@@ -214,6 +253,17 @@ pub(crate) fn html_to_text(html: &str) -> String {
     clean.trim().to_string()
 }
 
+fn truncate_content(text: &str) -> String {
+    if text.chars().count() <= MAX_CONTENT_CHARS {
+        return text.to_string();
+    }
+    let sliced: String = text.chars().take(MAX_CONTENT_CHARS).collect();
+    format!(
+        "{sliced}...\n\n[Truncated: {} total chars]",
+        text.chars().count()
+    )
+}
+
 // MARK: - Web Fetch Tool
 
 pub struct WebFetchTool {
@@ -245,7 +295,7 @@ impl WebFetchTool {
 
         let response = match self.client.get(url).send().await {
             Ok(r) => r,
-            Err(e) => return json!({"success": false, "error": format!("Request failed: {e}")}),
+            Err(_) => return json!({"success": false, "error": "Request failed"}),
         };
 
         let status = response.status().as_u16();
@@ -264,41 +314,22 @@ impl WebFetchTool {
             .unwrap_or("")
             .to_string();
 
-        // Read body with size limit
-        let bytes = match response.bytes().await {
-            Ok(b) => b,
-            Err(e) => {
-                return json!({"success": false, "error": format!("Failed to read body: {e}")})
-            }
+        let (body, bytes_len) = match read_response_text_limited(response, MAX_RESPONSE_BYTES).await
+        {
+            Ok(body) => body,
+            Err(error) => return json!({"success": false, "error": error}),
         };
-
-        if bytes.len() > MAX_RESPONSE_BYTES {
-            return json!({
-                "success": false,
-                "error": format!("Response too large: {} bytes (max {})", bytes.len(), MAX_RESPONSE_BYTES),
-            });
-        }
-
-        let body = String::from_utf8_lossy(&bytes);
 
         // Extract text based on content type
         let text =
             if content_type.contains("text/html") || content_type.contains("application/xhtml") {
                 html_to_text(&body)
             } else {
-                body.to_string()
+                body
             };
 
-        // Truncate for LLM context budget
-        let truncated = if text.len() > 32_000 {
-            format!(
-                "{}...\n\n[Truncated: {} total chars]",
-                &text[..32_000],
-                text.len()
-            )
-        } else {
-            text
-        };
+        // Truncate for LLM context budget without slicing through UTF-8.
+        let truncated = truncate_content(&text);
 
         json!({
             "success": true,
@@ -306,15 +337,18 @@ impl WebFetchTool {
             "status": status,
             "content_type": content_type,
             "content": truncated,
-            "bytes": bytes.len(),
+            "bytes": bytes_len,
         })
     }
 }
 
 #[async_trait::async_trait]
 impl ToolHandler for WebFetchTool {
-    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let url = input["url"].as_str().unwrap_or("");
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let url = input
+            .get("url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("missing 'url'".into()))?;
         let result = self.fetch_url(url).await;
         Ok(serde_json::to_string(&result).unwrap_or_default())
     }
@@ -346,5 +380,39 @@ mod tests {
         assert!(validate_redirect_target("https://example.com/docs").is_ok());
         assert!(validate_redirect_target("http://127.0.0.1/admin").is_err());
         assert!(validate_redirect_target("http://metadata.google/internal").is_err());
+    }
+
+    #[test]
+    fn validate_url_rejects_private_ipv6_and_embedded_credentials() {
+        assert!(validate_url("http://[::1]/admin").is_err());
+        assert!(validate_url("http://[fc00::1]/admin").is_err());
+        assert!(validate_url("https://user:pass@example.com/docs").is_err());
+        assert!(validate_url(" https://example.com/docs").is_err());
+    }
+
+    #[test]
+    fn is_private_url_detects_literal_and_local_hosts() {
+        assert!(is_private_url("http://10.0.0.5/"));
+        assert!(is_private_url("http://service.localhost/"));
+        assert!(is_private_url("http://169.254.169.254/latest/meta-data"));
+        assert!(!is_private_url("https://example.com/"));
+    }
+
+    #[tokio::test]
+    async fn web_fetch_rejects_missing_or_non_string_url_as_arguments() {
+        let tool = WebFetchTool::new();
+        let missing = tool.execute(&json!({})).await.unwrap_err();
+        assert!(format!("{missing}").contains("'url'"));
+
+        let non_string = tool.execute(&json!({ "url": 42 })).await.unwrap_err();
+        assert!(format!("{non_string}").contains("'url'"));
+    }
+
+    #[test]
+    fn truncate_content_preserves_utf8_boundaries() {
+        let text = "é".repeat(MAX_CONTENT_CHARS + 1);
+        let truncated = truncate_content(&text);
+        assert!(truncated.contains("[Truncated:"));
+        assert!(truncated.starts_with('é'));
     }
 }

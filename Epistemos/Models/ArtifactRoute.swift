@@ -2,10 +2,9 @@ import Foundation
 
 // MARK: - ArtifactRoute (compile-time exhaustive routing)
 //
-// T+4.7 of `docs/audits/deliberation/T+4_cognitive_artifact_spine_deliberation_20260427.md`
-// (cross-ref `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §6).
+// Cross-ref `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §6.
 //
-// Closed enum that maps a typed artifact identity to a renderable surface.
+// Closed enum that maps a typed artifact identity to an artifact route.
 // Used by `ArtifactHostView` (`Epistemos/Views/Workspace/ArtifactHostView.swift`)
 // to dispatch via an exhaustive `@ViewBuilder switch` — NO `AnyView`,
 // per anti-pattern #7 (`docs/_consolidated/00_canonical_authority/MASTER_FUSION.md` §11).
@@ -25,16 +24,15 @@ import Foundation
 //   5. Document the routing in this file's header.
 
 /// Stable opaque artifact id. Treated as a `String` at the routing layer
-/// so generation strategy (UUID v4 / v7 / ULID) is decided downstream
-/// (T+4.5 `.epdoc` package writer + SwiftData persistence). Persists
-/// across renames; never reused.
+/// so generation strategy (UUID v4 / v7 / ULID) is decided downstream.
+/// Persists across renames; never reused.
 public typealias ArtifactID = String
 
 /// Stable opaque run id. Same generation rules as `ArtifactID`. Used to
 /// address an agent run (the parent of a raw-thought sequence).
 public typealias RunID = String
 
-/// Compile-time exhaustive route to a renderable artifact surface.
+/// Compile-time exhaustive route identity for artifact surfaces.
 ///
 /// Closed enum. Equatable + Hashable so SwiftUI navigation stacks can
 /// deduplicate identical routes and `NavigationPath` can encode them
@@ -43,8 +41,7 @@ nonisolated public enum ArtifactRoute: Equatable, Hashable, Sendable {
     /// Canonical user note — opens `ProseEditorView`. Kind id 1.
     case proseNote(ArtifactID)
 
-    /// Rich `.epdoc` package — opens `DocumentEditorHostView`
-    /// (Tiptap-in-WKWebView, T+4.6). Kind id 2.
+    /// Rich `.epdoc` package. Kind id 2.
     case document(ArtifactID)
 
     /// One agent run timeline — opens `RawThoughtTimelineView`. Used for

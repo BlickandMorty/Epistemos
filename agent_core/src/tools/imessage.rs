@@ -17,13 +17,14 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rusqlite::{params, Connection, OpenFlags};
-use serde_json::{json, Value};
+use rusqlite::{Connection, OpenFlags, params};
+use serde_json::{Value, json};
 use tokio::process::Command;
 
 use super::registry::{ToolError, ToolHandler};
 
 const OSASCRIPT_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_OSASCRIPT_OUTPUT_BYTES: usize = 512 * 1024;
 const MAX_MESSAGE_LEN: usize = 8_192;
 const DEFAULT_LIMIT: usize = 25;
 
@@ -110,12 +111,59 @@ async fn run_osascript(script: &str) -> Result<String, ToolError> {
         }
     };
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stderr = decode_limited_output(&output.stderr, "stderr");
+        let exit_code = output.status.code().unwrap_or(-1);
         return Err(ToolError::ExecutionFailed(format!(
-            "osascript failed: {stderr}"
+            "osascript failed: {}",
+            describe_osascript_failure(&stderr, exit_code)
         )));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(decode_limited_output(&output.stdout, "stdout")
+        .trim()
+        .to_string())
+}
+
+fn decode_limited_output(bytes: &[u8], stream: &str) -> String {
+    let capped = bytes.len() > MAX_OSASCRIPT_OUTPUT_BYTES;
+    let slice = &bytes[..bytes.len().min(MAX_OSASCRIPT_OUTPUT_BYTES)];
+    let mut text = String::from_utf8_lossy(slice).into_owned();
+    if capped {
+        text.push_str(&format!(
+            "\n... [{stream} truncated at {MAX_OSASCRIPT_OUTPUT_BYTES} bytes]"
+        ));
+    }
+    text
+}
+
+fn describe_osascript_failure(stderr: &str, exit_code: i32) -> String {
+    let lower = stderr.to_ascii_lowercase();
+    if exit_code == 1743
+        || lower.contains("not authorized")
+        || lower.contains("not authorised")
+        || lower.contains("not permitted")
+        || lower.contains("automation")
+        || lower.contains("tccd")
+    {
+        return "Messages automation permission denied; grant Automation permission for Epistemos/System Events in System Settings".into();
+    }
+    if lower.contains("can't get buddy")
+        || lower.contains("can’t get buddy")
+        || (lower.contains("buddy") && lower.contains("can't get"))
+    {
+        return "recipient could not be resolved in Messages for the selected service".into();
+    }
+    if lower.contains("application isn't running")
+        || lower.contains("application is not running")
+        || lower.contains("messages got an error")
+    {
+        return format!(
+            "Messages returned an AppleScript error (exit code {exit_code}; stderr redacted)"
+        );
+    }
+    if stderr.trim().is_empty() {
+        return format!("Messages AppleScript exited with code {exit_code} and no stderr");
+    }
+    format!("Messages AppleScript failed (exit code {exit_code}; stderr redacted)")
 }
 
 // MARK: - Handler
@@ -599,6 +647,31 @@ mod tests {
     fn applescript_quote_escapes_control_chars() {
         assert_eq!(applescript_quote("a\"b\\c"), "\"a\\\"b\\\\c\"");
         assert_eq!(applescript_quote("a\nb"), "\"a\\nb\"");
+    }
+
+    #[test]
+    fn osascript_output_is_bounded() {
+        let bytes = vec![b'x'; MAX_OSASCRIPT_OUTPUT_BYTES + 16];
+        let output = decode_limited_output(&bytes, "stdout");
+        assert!(output.contains("stdout truncated"));
+        assert!(output.len() < MAX_OSASCRIPT_OUTPUT_BYTES + 128);
+    }
+
+    #[test]
+    fn osascript_failure_redacts_raw_stderr() {
+        let message =
+            describe_osascript_failure("Messages got an error: cannot send sk-secret-token", 1);
+        assert!(message.contains("stderr redacted"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[test]
+    fn osascript_failure_classifies_permissions_and_recipients() {
+        let permission = describe_osascript_failure("Not authorized to send Apple events", 1743);
+        assert!(permission.contains("Automation permission"));
+
+        let recipient = describe_osascript_failure("Messages got an error: Can't get buddy", 1);
+        assert!(recipient.contains("recipient could not be resolved"));
     }
 
     #[tokio::test]

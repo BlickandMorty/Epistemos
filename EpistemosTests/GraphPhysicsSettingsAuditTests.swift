@@ -80,6 +80,26 @@ struct GraphPhysicsSettingsAuditTests {
         steps.map { "\($0.delaySeconds):\($0.presetKey)" }
     }
 
+    private static func swiftSourceFiles(under root: URL) throws -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var files: [URL] = []
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension == "swift" else { continue }
+            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+            if values.isRegularFile == true {
+                files.append(fileURL)
+            }
+        }
+        return files
+    }
+
     @Test("Semantic strength change persists even before engine exists")
     func semanticStrengthPersistsWithoutEngine() {
         clearPhysicsDefaults()
@@ -102,6 +122,42 @@ struct GraphPhysicsSettingsAuditTests {
 
         #expect(source.contains("const CAMERA_LAMBDA: f32 = 6.5;"))
         #expect(source.contains("Was 3.0 (too slow per user 2026-04-04)."))
+    }
+
+    @Test("Deferred graph inspect mode stays empty and unmounted")
+    func deferredGraphInspectModeStaysEmptyAndUnmounted() throws {
+        let inspectPath = "Epistemos/Views/Graph/GraphInspectModeView.swift"
+        let inspectSource = try loadMirroredSourceTextFile(inspectPath)
+
+        #expect(inspectSource.contains("Deferred inspect-mode shell"))
+        #expect(inspectSource.contains("EmptyView()"))
+        #expect(!inspectSource.contains("Placeholder for actual graph layer rendering"))
+        #expect(!inspectSource.contains("Circle()"))
+        #expect(!inspectSource.contains("5-layer depth parallax"))
+        #expect(!inspectSource.contains("Full-screen immersive visualization"))
+        #expect(!inspectSource.contains("Auto-enter inspect mode"))
+
+        let sourceRoot = try sourceMirrorURL(for: "Epistemos")
+        let sourceFiles = try Self.swiftSourceFiles(under: sourceRoot)
+        let mounts = try sourceFiles.flatMap { fileURL -> [String] in
+            let relativePath = fileURL.path
+                .replacingOccurrences(of: sourceRoot.path + "/", with: "Epistemos/")
+            if relativePath == inspectPath {
+                return []
+            }
+
+            let source = try String(contentsOf: fileURL, encoding: .utf8)
+            var matches: [String] = []
+            if source.contains("GraphInspectModeView(") {
+                matches.append("\(relativePath):GraphInspectModeView")
+            }
+            if source.contains("enterInspectMode(") {
+                matches.append("\(relativePath):enterInspectMode")
+            }
+            return matches
+        }
+
+        #expect(mounts.isEmpty, "Deferred graph inspect mode must stay unmounted; mounts: \(mounts.sorted())")
     }
 
     @Test("Presets reset lab state instead of inheriting stale toggles")
@@ -315,20 +371,19 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(state.semanticClusterVersion == 1)
     }
 
-    @Test("Graph defaults to cinematic water mode")
-    func graphDefaultsToCinematicWaterMode() {
+    @Test("Graph defaults to cinematic pixel mode")
+    func graphDefaultsToCinematicPixelMode() {
         clearPhysicsDefaults()
 
         let state = GraphState()
-        let powerOverrideForcesPerformance = PowerGuard.shared.shouldDisableBackground
 
         #expect(!state.performanceModeEnabled)
-        #expect(state.qualityLevel == (powerOverrideForcesPerformance ? 2 : 0))
+        #expect(state.qualityLevel == 0)
         #expect(state.waterNodesEnabled)
     }
 
-    @Test("Performance mode persists, restores, and disables water nodes")
-    func performanceModePersistsAndDisablesWaterNodes() {
+    @Test("Performance mode persists, restores, and disables cinematic pixel nodes")
+    func performanceModePersistsAndDisablesCinematicPixelNodes() {
         clearPhysicsDefaults()
 
         let state = GraphState()
@@ -369,6 +424,88 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(metalGraph.contains("self.needsRender = true"))
         #expect(metalGraph.contains("graph_engine_zoom_to_fit(engine)"))
         #expect(!metalGraph.contains("graph_engine_center_camera(engine)"))
+    }
+
+    @Test("Cinematic graph renderer uses hard stepped pixel nodes without adding a third mode")
+    func cinematicGraphRendererUsesHardSteppedPixelNodesWithoutThirdMode() throws {
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+        let graphState = try loadMirroredSourceTextFile("Epistemos/Graph/GraphState.swift")
+        let controls = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphFloatingControls.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
+
+        #expect(renderer.contains("bool cinematic_mode = in.is_lite < 0.5;"),
+                "Cinematic pixel nodes must be the existing quality_level 0 shader path, not a new mode")
+        #expect(renderer.contains("const float pixel_grid = 9.0;"),
+                "Cinematic nodes must use a hard stepped pixel grid")
+        #expect(renderer.contains("if (pixel_dist > 0.96) discard_fragment();"),
+                "Cinematic node edges must be hard discarded, not smooth water/orb alpha")
+        #expect(renderer.contains("const float cinematic_world_scale = 1.18;"),
+                "Pixel nodes must keep a larger cinematic world-space scale at normal graph zoom")
+        #expect(renderer.contains("const float cinematic_min_world_radius = 13.0;"),
+                "Pixel nodes must remain large enough to show stepped edges without pinning screen size")
+        #expect(!renderer.contains("cinematic_min_screen_radius"),
+                "Cinematic pixel nodes must not clamp to screen pixels because that makes zoom feel fake")
+        #expect(!renderer.contains("effective_radius = screen_radius /"),
+                "Cinematic pixel nodes must scale through the real camera transform, not inverse-zoom sizing")
+        #expect(renderer.contains("if (uniforms.lite_mode > 1.5 && speed > 1.0)"),
+                "Cinematic pixel nodes must not squash/stretch like water beads")
+        #expect(renderer.contains("float cinematic_click_wave = 1.0 - smoothstep"),
+                "Cinematic pixel nodes must keep the click wave cue inside the pixel branch")
+        #expect(renderer.contains("float cinematic_click_sweep = 1.0 - smoothstep"),
+                "Cinematic pixel nodes must keep a local shine sweep when clicked")
+        #expect(renderer.contains("out.node_radius_world = effective_radius;"),
+                "Pixel click animation should scale from real graph radius, not screen overlay math")
+        #expect(renderer.contains("return float4(pixel_color, in.color.a * depth_fade * in.highlight_dim);"),
+                "Cinematic nodes must return from the pixel path before water/performance shading")
+        #expect(renderer.contains("draw_glow: false"),
+                "Cinematic pixel nodes must not keep soft glow/orb instances around the stepped shape")
+        #expect(graphState.contains("PowerGuard may throttle frame pacing/resolution"),
+                "PowerGuard must not silently route the Pixel toolbar mode into performance shading")
+        #expect(renderer.contains("bool performance_mode = in.is_lite > 1.5;"),
+                "Performance mode must remain the existing quality_level >= 2 branch")
+
+        #expect(controls.contains("title: \"Pixel\""))
+        #expect(controls.contains("activeTitle: \"Fast\""))
+        #expect(!controls.contains("title: \"Water\""))
+        #expect(settings.contains("Hard stepped pixel nodes with the full graph surface."))
+        #expect(!settings.contains("Water nodes are on by default"))
+    }
+
+    @Test("Graph labels use crisp monospaced SDF atlas")
+    func graphLabelsUseCrispMonospacedSDFAtlas() throws {
+        let script = try loadMirroredSourceTextFile("scripts/generate-sdf-atlas.sh")
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+        let graphState = try loadMirroredSourceTextFile("Epistemos/Graph/GraphState.swift")
+        let atlasText = try loadMirroredSourceTextFile("Epistemos/Resources/sdf_labels.json")
+
+        #expect(script.contains("VARIANT=\"mono\""))
+        #expect(script.contains("JetBrainsMono-Regular.ttf"))
+        #expect(script.contains("-size 48"))
+        #expect(script.contains("-dimensions 1024 1024"))
+        #expect(graphState.contains("var displayName: String { \"Mono\" }"))
+        #expect(renderer.contains("float atlas_glyph_px = inst.uv_rect.w * u.atlas_height;"))
+        #expect(renderer.contains("float blur_widen = in.blur * 0.08;"))
+        #expect(!renderer.contains("inst.size * (1.0 - blur * 0.5)"))
+
+        let data = Data(atlasText.utf8)
+        let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let atlas = try #require(root["atlas"] as? [String: Any])
+        #expect((atlas["width"] as? NSNumber)?.intValue == 1024)
+        #expect((atlas["height"] as? NSNumber)?.intValue == 1024)
+        #expect((atlas["size"] as? NSNumber)?.intValue == 48)
+
+        let glyphs = try #require(root["glyphs"] as? [[String: Any]])
+        func advance(for scalar: Unicode.Scalar) -> Double? {
+            glyphs
+                .first { ($0["unicode"] as? NSNumber)?.uint32Value == scalar.value }
+                .flatMap { ($0["advance"] as? NSNumber)?.doubleValue }
+        }
+
+        let narrow = try #require(advance(for: "i"))
+        let wide = try #require(advance(for: "W"))
+        let digit = try #require(advance(for: "1"))
+        #expect(abs(narrow - wide) < 0.0001)
+        #expect(abs(narrow - digit) < 0.0001)
     }
 
     @Test("Visual theme defaults to classic when unset")

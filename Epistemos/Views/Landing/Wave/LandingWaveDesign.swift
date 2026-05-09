@@ -26,35 +26,38 @@ enum LandingWaveDesign {
 
     // MARK: - Wave grid
 
-    /// Target number of ASCII cells per 100pt of window width. 1 cell ≈ 7pt wide.
-    static let cellsPer100ptWidth: CGFloat = 14
-    /// Target number of ASCII cells per 100pt of window height. 1 cell ≈ 14pt tall.
-    static let cellsPer100ptHeight: CGFloat = 7
+    /// Target number of ASCII cells per 100pt of window width. Dense enough for
+    /// a visible warp texture while staying bounded to the click neighborhood.
+    static let cellsPer100ptWidth: CGFloat = 20
+    /// Target number of ASCII cells per 100pt of window height.
+    static let cellsPer100ptHeight: CGFloat = 12
     /// Minimum wave grid size regardless of window. Prevents degenerate 1×1 dispatches.
-    static let minGridSize = SIMD2<Int32>(x: 80, y: 32)
-    /// Maximum grid size cap. 200×100 = 20,000 cells — trivial for compute.
-    static let maxGridSize = SIMD2<Int32>(x: 240, y: 120)
+    static let minGridSize = SIMD2<Int32>(x: 96, y: 48)
+    /// Maximum grid size cap. 240×136 = 32,640 cells — denser than the old
+    /// pool at normal window sizes without expanding full-screen cost.
+    static let maxGridSize = SIMD2<Int32>(x: 240, y: 136)
 
     // MARK: - Wave physics (linear 2D wave equation, see plan §6.1)
 
     /// Wave propagation speed squared. CFL stability requires c² ≤ 0.5 for a
-    /// 4-neighbour Laplacian; 0.21 gives visible-but-not-snappy propagation.
-    static let waveSpeedSquared: Float = 0.32
-    /// Per-tick amplitude decay factor. 0.997 lets ripples linger slightly
-    /// longer so the cascade beats (crown → crater → jet) visibly overlap.
-    static let waveDamping: Float = 0.997
+    /// 4-neighbour Laplacian; 0.16 keeps the click bloom slower and tighter.
+    static let waveSpeedSquared: Float = 0.16
+    /// Per-tick amplitude decay factor. Tightened so the smaller click bloom
+    /// resolves cleanly instead of expanding across the whole landing page.
+    static let waveDamping: Float = 0.988
     /// Ambient micro-wave amplitude after the initial drop has settled.
-    /// Pool is never fully still — sells "alive" presence at ~0 GPU cost.
-    static let ambientAmplitude: Float = 0.05
+    /// Keep the resting surface nearly still; the click should read as a
+    /// compact warp, not a full-screen pool.
+    static let ambientAmplitude: Float = 0.006
     /// Upper bound on concurrent in-flight drop impulses the shader will honor.
     static let maxInFlightDrops = 8
 
     // MARK: - ASCII luminance ramp (see plan §7.2)
 
-    /// Density-sorted 12-character ramp used by the wave fragment shader.
-    /// Index 0 (empty) is implicit; the shader maps height → index ∈ [0, 11].
+    /// Density-sorted 16-character ramp used by the wave fragment shader.
+    /// Index 0 (empty) is implicit; the shader maps height → the ramp.
     static let luminanceRamp: [Character] = [
-        " ", "·", ".", "-", "~", ":", "+", "*", "░", "▒", "▓", "█",
+        " ", ".", ":", ";", "i", "l", "!", "+", "*", "x", "%", "#", "░", "▓", "█", "@",
     ]
 
     /// Box-drawing glyph set for the bar-rim emergence beat (see plan §8.3).
@@ -77,14 +80,14 @@ enum LandingWaveDesign {
 
     enum DropBeatMillis {
         static let impactFlash: Int = 0
-        static let splashCrown: Int = 30
-        static let crater: Int = 60
-        static let worthingtonJet: Int = 120
-        static let secondaryDroplet: Int = 200
-        static let concentricWavesStart: Int = 250
-        static let barRimStart: Int = 350
-        static let chromeFadeStart: Int = 480
-        static let settle: Int = 550
+        static let splashCrown: Int = 90
+        static let crater: Int = 160
+        static let worthingtonJet: Int = 260
+        static let secondaryDroplet: Int = 420
+        static let concentricWavesStart: Int = 360
+        static let barRimStart: Int = 480
+        static let chromeFadeStart: Int = 640
+        static let settle: Int = 920
     }
 
     /// Strength multipliers applied to each beat's primary impulse. Boosted
@@ -92,11 +95,11 @@ enum LandingWaveDesign {
     /// earlier values produced ripples that were technically correct but
     /// visually subtle.
     enum DropBeatStrength {
-        static let impactFlash: Float = 8.0
-        static let splashCrown: Float = 4.0
-        static let crater: Float = -5.0  // negative — forms the cavity
-        static let worthingtonJet: Float = 6.5
-        static let secondaryDroplet: Float = 1.5
+        static let impactFlash: Float = 4.9
+        static let splashCrown: Float = 2.1
+        static let crater: Float = -3.8  // negative — forms the cavity
+        static let worthingtonJet: Float = 2.8
+        static let secondaryDroplet: Float = 0.7
     }
 
     // MARK: - Anisotropic ripple (see plan §6.2)
@@ -132,8 +135,8 @@ enum LandingWaveDesign {
 
     enum HapticBeatDelay {
         static let impact: Double = 0.00
-        static let worthingtonJet: Double = 0.12
-        static let waveCrest: Double = 0.30
+        static let worthingtonJet: Double = 0.19
+        static let waveCrest: Double = 0.42
     }
 
     // MARK: - Glyph atlas

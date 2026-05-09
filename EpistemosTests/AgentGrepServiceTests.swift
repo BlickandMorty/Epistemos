@@ -34,12 +34,12 @@ struct AgentGrepServiceTests {
         toolUseId: "tu-zzz"
     )
 
-    private func makeService() -> (AgentGrepService, CodeFileService, StubCodeIndexClient, () -> Void) {
+    private func makeService() -> (AgentGrepService, CodeFileService, InMemoryCodeIndexClient, () -> Void) {
         let (vault, cleanup) = makeVault()
         let files = CodeFileService(vaultRoot: vault)
-        let stub = StubCodeIndexClient()
-        let svc = AgentGrepService(index: stub, files: files)
-        return (svc, files, stub, cleanup)
+        let index = InMemoryCodeIndexClient()
+        let svc = AgentGrepService(index: index, files: files)
+        return (svc, files, index, cleanup)
     }
 
     // MARK: - search
@@ -66,6 +66,33 @@ struct AgentGrepServiceTests {
         #expect(hits[0].provenance?.toolId == "create_code_file")
         #expect(hits[0].provenance?.generatedByRun == "run-9999")
         #expect(hits[0].provenance?.originatedFromThoughtIndex == 4)
+        #expect(hits[0].source == "in-memory-substring")
+    }
+
+    @Test("Code index fallback provenance labels are honest")
+    func codeIndexFallbackProvenanceLabelsAreHonest() throws {
+        let checkedPaths = [
+            "epistemos-code-index/src/state.rs",
+            "epistemos-code-index/src/lib.rs",
+            "epistemos-code-index/Cargo.toml",
+            "Epistemos/Engine/AgentGrepService.swift",
+        ]
+
+        for path in checkedPaths {
+            let source = try loadMirroredSourceTextFile(path)
+            #expect(!source.contains("stub-substring"), "\(path) must not emit stale stub provenance")
+            #expect(!source.contains("W9.7 stub"), "\(path) must not label code-index fallback as shipped backend")
+            #expect(!source.contains("stub backend"), "\(path) must use fallback wording")
+            #expect(!source.contains("codeindex.stub"), "\(path) must use fallback wording")
+            #expect(!source.contains("StubCodeIndexClient"), "\(path) must use behavior-based fallback naming")
+        }
+
+        let rustState = try loadMirroredSourceTextFile("epistemos-code-index/src/state.rs")
+        let swiftService = try loadMirroredSourceTextFile("Epistemos/Engine/AgentGrepService.swift")
+
+        #expect(rustState.contains("source: \"in-memory-substring\""))
+        #expect(swiftService.contains("source: \"in-memory-substring\""))
+        #expect(swiftService.contains("com.epistemos.codeindex.inmemory"))
     }
 
     @Test("search filters by CodeArtifactKind")
@@ -128,7 +155,7 @@ struct AgentGrepServiceTests {
         let (vault, cleanup) = makeVault()
         defer { cleanup() }
         let files = CodeFileService(vaultRoot: vault)
-        let bomb = ThrowingStubIndex()
+        let bomb = ThrowingCodeIndexClient()
         let svc = AgentGrepService(index: bomb, files: files)
         do {
             _ = try svc.search(query: "anything")
@@ -145,14 +172,14 @@ struct AgentGrepServiceTests {
         let (vault, cleanup) = makeVault()
         defer { cleanup() }
         let files = CodeFileService(vaultRoot: vault)
-        let stub = StubCodeIndexClient()
+        let index = InMemoryCodeIndexClient()
         let sink = AgentGrepAgentEventSink()
         let recorder = AgentToolProvenanceRecorder(
             nowMilliseconds: { 111 },
             persist: { event in sink.append(event) }
         )
         let svc = AgentGrepService(
-            index: stub,
+            index: index,
             files: files,
             agentProvenanceRecorder: recorder
         )
@@ -206,7 +233,7 @@ struct AgentGrepServiceTests {
             persist: { event in sink.append(event) }
         )
         let svc = AgentGrepService(
-            index: ThrowingStubIndex(),
+            index: ThrowingCodeIndexClient(),
             files: files,
             agentProvenanceRecorder: recorder
         )
@@ -272,11 +299,11 @@ struct AgentGrepServiceTests {
         #expect(try stub.search(query: "kant", kindFilter: nil, limit: 5).isEmpty)
     }
 
-    // MARK: - StubCodeIndexClient
+    // MARK: - InMemoryCodeIndexClient
 
-    @Test("StubCodeIndexClient rejects empty path on upsert")
-    func stubRejectsEmptyPath() {
-        let stub = StubCodeIndexClient()
+    @Test("InMemoryCodeIndexClient rejects empty path on upsert")
+    func inMemoryRejectsEmptyPath() {
+        let index = InMemoryCodeIndexClient()
         let doc = AgentGrepDocument(
             vaultRelativePath: "",
             kind: .swift,
@@ -284,7 +311,7 @@ struct AgentGrepServiceTests {
             contentHash: "x"
         )
         do {
-            try stub.upsert(document: doc)
+            try index.upsert(document: doc)
             #expect(Bool(false), "must throw")
         } catch {
             // expected
@@ -292,14 +319,14 @@ struct AgentGrepServiceTests {
     }
 }
 
-private final class ThrowingStubIndex: CodeIndexClient, @unchecked Sendable {
+private final class ThrowingCodeIndexClient: CodeIndexClient, @unchecked Sendable {
     func upsert(document: AgentGrepDocument) throws {
-        throw NSError(domain: "ThrowingStub", code: 0)
+        throw NSError(domain: "ThrowingCodeIndexClient", code: 0)
     }
     func remove(vaultRelativePath: String) throws {
-        throw NSError(domain: "ThrowingStub", code: 0)
+        throw NSError(domain: "ThrowingCodeIndexClient", code: 0)
     }
     func search(query: String, kindFilter: CodeArtifactKind?, limit: Int) throws -> [AgentGrepBackendHit] {
-        throw NSError(domain: "ThrowingStub", code: 99)
+        throw NSError(domain: "ThrowingCodeIndexClient", code: 99)
     }
 }
