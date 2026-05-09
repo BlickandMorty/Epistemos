@@ -13,6 +13,6 @@ struct NotesBrowserView: View {
     @Query(sort: \SDFolder.sortOrder) private var allFolders: [SDFolder]
 
     var body: some View {
-        NotesSidebar(allPages: allPages, allFolders: allFolders)
+        SidebarShell(allPages: allPages, allFolders: allFolders)
     }
 }

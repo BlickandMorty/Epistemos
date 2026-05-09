@@ -6463,7 +6463,8 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("private static let maxExpandedListHeight: CGFloat = 320"))
         #expect(source.contains("ScrollView(.vertical)"))
         #expect(source.contains("LazyVStack(alignment: .leading, spacing: 0)"))
-        #expect(source.contains(".frame(maxHeight: Self.maxExpandedListHeight)"))
+        #expect(source.contains("Self.maxExpandedListHeight"))
+        #expect(source.contains("sidebarDisclosure"))
     }
 
     @Test("model vault surfaces stay aligned with the curated visible model set")
