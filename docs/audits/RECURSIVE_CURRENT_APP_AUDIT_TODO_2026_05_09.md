@@ -122,7 +122,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA-P0-003 - Remove or explicitly surface hidden capture metadata in note bodies
 
-Status: PATCHED PARTIAL - PARENT ENV MIRROR REMOVED / CHILD MATRIX PARTIAL
+Status: PATCHED PARTIAL - NEW CAPTURES CLEAN / EXPORT-SHARE-MIGRATION RUNTIME PENDING
 
 Subsystem: text capture, audio capture, note storage, export/share privacy.
 
@@ -143,6 +143,42 @@ Audit steps:
 Acceptance:
 - Private provenance/audio metadata is stored in app-only sidecar/state, or it is visible and intentionally user-controlled.
 - No hidden capture metadata leaks through raw note body or export by default.
+
+Fix-pass evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/TextCapturePipeline.swift`
+  - `EpistemosTests/TextCapturePipelineTests.swift`
+- Tests added/updated:
+  - `TextCapturePipelineTests.captureTextDoesNotPersistHiddenProvenanceComments`
+  - `TextCapturePipelineTests.audioCaptureDoesNotPersistHiddenAudioSourceComments`
+  - `TextCapturePipelineTests.legacyHiddenCaptureCommentsAreStrippedWithoutDroppingVisibleBody`
+  - `TextCapturePipelineTests.audioTranscriptionCapture`
+- Source proof:
+  - `TextCapturePipeline.run(rawText:)` sanitizes legacy hidden capture/audio comments before extraction and persistence.
+  - `TextCapturePipeline.persistNote(...)` no longer JSON-encodes `sourceSpans` into a hidden `<!-- capture-provenance: ... -->` note-body comment.
+  - `TextCapturePipeline.runFromAudio(...)` no longer prepends `<!-- audio-source: ... -->` to the user-visible transcript.
+  - `BlockMirror.sync(...)` receives the sanitized body, so mirrored readable blocks for new captures do not contain the hidden comments.
+- Commands run:
+  - Test-first red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TextCapturePipelineTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: failed before product patch because `TextCapturePipeline.stripHiddenCaptureMetadataComments` did not exist.
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-08-50--0500.xcresult`
+  - Regression check after first patch: same command.
+    - Result: failed because sanitizer trimming reduced an existing 10,000-character bound to 9,999.
+    - Failed xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-11-34--0500.xcresult`
+  - Focused green: same command.
+    - Result: passed, 44 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-14-57--0500.xcresult`
+  - Source guard: `rg -n "capture-provenance|audio-source" Epistemos/Engine/TextCapturePipeline.swift Epistemos/Views/Capture/QuickCaptureView.swift Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift EpistemosTests/TextCapturePipelineTests.swift EpistemosTests/RuntimeValidationTests.swift EpistemosTests/ProductionHardeningTests.swift`
+    - Result: production hits limited to the sanitizer pattern; remaining non-production hits are test assertions/fixtures.
+  - Strict writer guard: `rg -n "<!--\\s*(capture-provenance|audio-source):|body \\+=|sourceNote|JSONEncoder\\(\\).*sourceSpans" Epistemos/Engine/TextCapturePipeline.swift Epistemos/Views/Capture/QuickCaptureView.swift Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift`
+    - Result: no matches.
+  - `git diff --check`
+    - Result: passed.
+- Remaining risk:
+  - Export/share/sync runtime smoke still needs to inspect a real raw backing note and exported/shared payload.
+  - Existing persisted notes are not yet walked and migrated in-place; the sanitizer helper strips legacy comments when invoked, but a startup or explicit migration pass remains pending.
+  - Structured, user-visible provenance sidecar work remains pending if product still needs capture provenance outside note bodies.
 
 ### RCA-P0-004 - Stop credential leakage through process-wide environment inheritance
 
@@ -3507,7 +3543,7 @@ Acceptance:
 
 ### RCA5-P1-006 - Move capture/audio provenance out of hidden note-body HTML comments
 
-Status: TODO
+Status: PATCHED PARTIAL - NEW CAPTURES CLEAN / EXPORT-SHARE-MIGRATION RUNTIME PENDING
 
 Subsystem: `TextCapturePipeline`, quick capture, audio capture, note export/sync.
 
@@ -3524,6 +3560,28 @@ Acceptance:
 
 - Capture/audio provenance lives in sidecars or structured metadata, not invisible note body comments.
 - If provenance is user-visible, the note UI should reveal it intentionally.
+
+Fix-pass evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/TextCapturePipeline.swift`
+  - `EpistemosTests/TextCapturePipelineTests.swift`
+- Tests added/updated:
+  - `TextCapturePipelineTests.captureTextDoesNotPersistHiddenProvenanceComments`
+  - `TextCapturePipelineTests.audioCaptureDoesNotPersistHiddenAudioSourceComments`
+  - `TextCapturePipelineTests.legacyHiddenCaptureCommentsAreStrippedWithoutDroppingVisibleBody`
+  - `TextCapturePipelineTests.audioTranscriptionCapture`
+- Commands run:
+  - Red focused test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TextCapturePipelineTests test CODE_SIGNING_ALLOWED=NO`
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-08-50--0500.xcresult`
+  - Green focused test: same command.
+    - Result: passed, 44 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-14-57--0500.xcresult`
+  - Source guard and strict writer guard listed under `RCA-P0-003`.
+- Result:
+  - New text and audio captures no longer persist invisible capture/audio HTML comments into note bodies or mirrored blocks.
+- Remaining risk:
+  - Existing-note migration plus export/share/sync manual proof remain open.
 
 ### RCA5-P1-007 - Move `QueryEngine` / `QueryRuntime` / live query reevaluation off the main actor and consume typed diffs
 
@@ -5781,7 +5839,7 @@ Important evidence boundary:
 
 ### RCA10-P0-001 - Upgrade hidden capture provenance to confirmed and require migration
 
-Status: PATCHED PARTIAL - PROCESS-WIDE MIRROR REMOVED / CHILD MATRIX PENDING
+Status: PATCHED PARTIAL - NEW CAPTURES CLEAN / EXISTING-NOTE MIGRATION PENDING
 
 Canonical owner:
 
@@ -5844,6 +5902,26 @@ Acceptance:
 - No hidden capture provenance in user note bodies by default.
 - Existing notes receive migration coverage.
 - Provenance remains available in explicit app state where needed.
+
+Fix-pass evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/TextCapturePipeline.swift`
+  - `EpistemosTests/TextCapturePipelineTests.swift`
+- Source proof:
+  - New capture path no longer appends `capture-provenance`.
+  - New audio capture path no longer prepends `audio-source`.
+  - Sanitizer removes legacy hidden capture/audio comments when given legacy bodies.
+- Commands run:
+  - Red focused test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/TextCapturePipelineTests test CODE_SIGNING_ALLOWED=NO`
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-08-50--0500.xcresult`
+  - Green focused test: same command.
+    - Result: passed, 44 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-14-57--0500.xcresult`
+  - Strict writer guard: `rg -n "<!--\\s*(capture-provenance|audio-source):|body \\+=|sourceNote|JSONEncoder\\(\\).*sourceSpans" Epistemos/Engine/TextCapturePipeline.swift Epistemos/Views/Capture/QuickCaptureView.swift Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift`
+    - Result: no matches.
+- Remaining risk:
+  - The existing-note migration is not complete until the app walks stored note bodies, rewrites them without hidden comments, preserves intended provenance in explicit app state if needed, and proves export/share/search/sync payloads are clean at runtime.
 
 ### RCA10-P0-002 - Upgrade process-wide credential environment mirroring to confirmed
 

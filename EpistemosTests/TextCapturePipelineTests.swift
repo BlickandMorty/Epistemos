@@ -203,6 +203,88 @@ struct TextCapturePipelineTests {
         #expect(blocks.allSatisfy { $0.pageId == pages.first?.id })
     }
 
+    @Test("Text capture body does not persist hidden provenance comments")
+    func captureTextDoesNotPersistHiddenProvenanceComments() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        _ = try await pipeline.run(
+            rawText: "Capture privacy note\n\n- [ ] Keep metadata visible only when intentional",
+            modelContext: context
+        )
+
+        let page = try #require(try context.fetch(FetchDescriptor<SDPage>()).first)
+        let body = page.loadBody()
+        #expect(body.contains("Capture privacy note"))
+        #expect(!body.contains("capture-provenance"))
+        #expect(!body.contains("<!--"))
+
+        let blocks = try context.fetch(FetchDescriptor<SDBlock>())
+        #expect(blocks.allSatisfy { !$0.content.contains("capture-provenance") })
+        #expect(blocks.allSatisfy { !$0.content.contains("<!--") })
+    }
+
+    @Test("Audio capture body does not persist hidden audio source comments")
+    func audioCaptureDoesNotPersistHiddenAudioSourceComments() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+        let transcription = TranscribedAudio(
+            id: UUID(),
+            sourceURL: URL(fileURLWithPath: "/tmp/private-recording.m4a"),
+            fullText: "Audio capture privacy note for the release audit.",
+            segments: [
+                AudioSegment(startTime: 0, endTime: 4.2, text: "Audio capture privacy note", speaker: nil),
+            ],
+            wordsPerMinute: 120,
+            hesitationFrequency: 0,
+            speakerCount: 1
+        )
+
+        let result = try await pipeline.runFromAudio(
+            transcription: transcription,
+            modelContext: context
+        )
+
+        #expect(result.rawText.contains("Audio capture privacy note"))
+        #expect(!result.rawText.contains("audio-source"))
+        #expect(!result.rawText.contains("<!--"))
+
+        let page = try #require(try context.fetch(FetchDescriptor<SDPage>()).first)
+        let body = page.loadBody()
+        #expect(body.contains("Audio capture privacy note"))
+        #expect(!body.contains("audio-source"))
+        #expect(!body.contains("capture-provenance"))
+        #expect(!body.contains("private-recording.m4a"))
+        #expect(!body.contains("<!--"))
+    }
+
+    @Test("Legacy hidden capture comments are stripped without dropping visible body")
+    func legacyHiddenCaptureCommentsAreStrippedWithoutDroppingVisibleBody() {
+        let legacyBody = """
+        First visible paragraph.
+
+        <!-- capture-provenance: [{"role":"title","text":"First visible paragraph."}] -->
+
+        Second visible paragraph.
+
+        <!-- audio-source: private-recording.m4a speakers=1 wpm=120 -->
+
+        Third visible paragraph.
+        """
+
+        let migrated = TextCapturePipeline.stripHiddenCaptureMetadataComments(from: legacyBody)
+
+        #expect(migrated.contains("First visible paragraph."))
+        #expect(migrated.contains("Second visible paragraph."))
+        #expect(migrated.contains("Third visible paragraph."))
+        #expect(!migrated.contains("capture-provenance"))
+        #expect(!migrated.contains("audio-source"))
+        #expect(!migrated.contains("private-recording.m4a"))
+        #expect(!migrated.contains("<!--"))
+    }
+
     @Test("Persisted capture returns committed mutation envelope for the note artifact")
     func persistedCaptureReturnsCommittedMutationEnvelope() async throws {
         let pipeline = makePipeline()
@@ -591,10 +673,10 @@ struct TextCapturePipelineTests {
 
         #expect(!result.traceID.isEmpty)
         #expect(!result.title.isEmpty)
-        // Raw text should contain the audio source metadata comment
-        #expect(result.rawText.contains("audio-source"))
-        #expect(result.rawText.contains("test-recording.m4a"))
-        // Cleaned text should also contain the full transcription
+        // Raw and cleaned text should contain only the user-visible transcription.
+        #expect(!result.rawText.contains("audio-source"))
+        #expect(!result.rawText.contains("test-recording.m4a"))
+        #expect(!result.rawText.contains("<!--"))
         #expect(result.cleanedText.contains("meeting"))
     }
 
