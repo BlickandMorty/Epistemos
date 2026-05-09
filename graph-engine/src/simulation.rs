@@ -262,6 +262,21 @@ fn collision_radius_for_node(visual_radius: f32, padding_control: f32) -> f32 {
     visual_radius.max(0.0) + padding_control * COLLISION_SHELL_PADDING_SCALE
 }
 
+const LABEL_COLLISION_SOFT_BLEND: f32 = 0.24;
+const LABEL_COLLISION_MAX_EXTRA: f32 = 52.0;
+
+#[inline]
+fn soft_label_collision_radius(node_radius: f32, label_bubble_radius: f32) -> f32 {
+    let node_radius = node_radius.max(0.0);
+    let label_bubble_radius = label_bubble_radius.max(0.0);
+    if label_bubble_radius <= node_radius {
+        return 0.0;
+    }
+
+    let extra = (label_bubble_radius - node_radius) * LABEL_COLLISION_SOFT_BLEND;
+    node_radius + extra.min(LABEL_COLLISION_MAX_EXTRA)
+}
+
 /// Heavy scalar damping applied during `warm_start` to keep leaves
 /// from overshooting during the initial layout pass (synthesis closing
 /// warning). Replaces `velocity_decay = 0.3` from the legacy warm-start
@@ -782,8 +797,11 @@ impl Simulation {
             self.degrees.push(0); // computed below
             let visual_shell = collision_radius_for_node(node.radius, self.params.collision_radius);
             let label_shell =
-                crate::label_envelope::estimate_label_envelope(node.radius, &node.label)
-                    .bubble_radius;
+                soft_label_collision_radius(
+                    node.radius,
+                    crate::label_envelope::estimate_label_envelope(node.radius, &node.label)
+                        .bubble_radius,
+                );
             self.label_collision_radii.push(label_shell);
             self.collision_radii.push(visual_shell.max(label_shell));
             self.drift.push(0.0);
@@ -2815,6 +2833,30 @@ mod tests {
         assert!(
             sim.collision_radii[0] > visual_shell + 40.0,
             "long labels must expand physics collision bubbles; shell={}, actual={}",
+            visual_shell,
+            sim.collision_radii[0]
+        );
+    }
+
+    #[test]
+    fn wide_label_collision_shell_stays_soft_for_fluid_motion() {
+        let mut graph = Graph::new();
+        graph.add_node(
+            "wide".into(),
+            0.0,
+            0.0,
+            0,
+            1,
+            "CODEX_KIMI_OVERSIGHT_ROUND_033_2".into(),
+        );
+
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        let visual_shell = collision_radius_for_node(sim.radii[0], sim.params.collision_radius);
+        assert!(
+            sim.collision_radii[0] <= visual_shell + 56.0,
+            "label collision should be a soft spacing hint, not a rigid text-size body; shell={}, actual={}",
             visual_shell,
             sim.collision_radii[0]
         );
