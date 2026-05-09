@@ -503,7 +503,7 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             window.minSize = NSSize(width: 1180, height: 620)
             window.styleMask.insert([.resizable, .titled, .closable, .miniaturizable, .fullSizeContentView])
             window.tabbingMode = .preferred
-            window.tabbingIdentifier = "epistemos-note-tabs"
+            window.tabbingIdentifier = NoteWindowManager.noteTabbingIdentifier
 
             // Reuse the same native titlebar path as Prose note windows
             // so .epdoc never drifts back into a separate boxy chrome.
@@ -582,11 +582,9 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
 
     @MainActor
     private static func attachToExistingNoteTabGroup(_ window: NSWindow) {
-        guard let existingWindow = NSApp.windows.first(where: {
-            $0 !== window
-                && $0.isVisible
-                && $0.tabbingIdentifier == "epistemos-note-tabs"
-        }) else {
+        guard let existingWindow = NoteWindowManager.firstAvailableNoteTabGroupWindow(
+            excluding: window
+        ) else {
             return
         }
         ensureEpdocToolbarFits(in: existingWindow)

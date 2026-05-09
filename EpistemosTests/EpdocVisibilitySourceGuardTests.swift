@@ -64,10 +64,12 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Epdoc window MUST extend its content view into the titlebar area via .fullSizeContentView styleMask.")
         #expect(source.contains("window.tabbingMode = .preferred"),
                 "Epdoc windows should join native macOS tabbing, matching prose note windows.")
-        #expect(source.contains("window.tabbingIdentifier = \"epistemos-note-tabs\""),
+        #expect(source.contains("window.tabbingIdentifier = NoteWindowManager.noteTabbingIdentifier"),
                 "Epdoc windows should share the prose note tab group instead of opening as a separate app-like surface.")
         #expect(source.contains("attachToExistingNoteTabGroup(window)"),
                 "New Epdoc windows should attach to the current note/doc tab group when one exists.")
+        #expect(source.contains("NoteWindowManager.firstAvailableNoteTabGroupWindow("),
+                "Epdoc windows should use the shared note/doc tab-group locator so routing stays reciprocal with prose/code notes.")
         #expect(source.contains("ensureEpdocToolbarFits(in: existingWindow)"),
                 "When Epdoc attaches to an existing note tab group, the window must expand enough that the native formatting toolbar does not collapse into overflow.")
         #expect(source.contains("window.minSize = NSSize(width: 1180, height: 620)"),
