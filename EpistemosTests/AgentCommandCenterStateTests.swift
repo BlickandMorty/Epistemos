@@ -148,6 +148,22 @@ struct AgentCommandCenterStateTests {
         )
     }
 
+    @Test func imageSlashCommandIsHiddenWhileImageGenerateIsNotExecutable() {
+        #expect(!ToolSurfacePolicy.isSurfacedToolName("image_generate"))
+        #expect(
+            !ACCSlashCommand.availableCommands(
+                for: EpistemosOperatingMode.allCases
+            ).contains(.image)
+        )
+    }
+
+    @Test func parserDoesNotResolveHiddenImageSlashCommand() {
+        let result = CommandInputParser.parse("/image make a cat")
+
+        #expect(result.slashToken == nil)
+        #expect(result.cleanedQuery == "/image make a cat")
+    }
+
     @Test func slashCommandsProvideVisibleStarterPrompts() {
         #expect(!ACCSlashCommand.plan.suggestedPrompt.isEmpty)
         #expect(ACCSlashCommand.code.suggestedPrompt.contains("Implement"))

@@ -1044,7 +1044,7 @@ Acceptance:
 
 ### RCA-P2-016 - Audit SDF label glyph budget clamp
 
-Status: TODO
+Status: PATCHED - RUST SDF PATH GREEN / MANUAL GRAPH ZOOM SMOKE PENDING
 
 Subsystem: graph renderer, label atlas, per-frame allocations.
 
@@ -1056,6 +1056,31 @@ Audit steps:
 
 Acceptance:
 - Glyph budget is strictly enforced with no unexpected overrun or frame hitch.
+
+2026-05-09 SDF label scaling and budget patch:
+
+- Files changed:
+  - `graph-engine/src/engine.rs`
+  - `graph-engine/src/labels.rs`
+  - `Epistemos/Graph/SDFLabelInstanceBuilder.swift`
+  - `EpistemosTests/SDFLabelInstanceBuilderTests.swift`
+- Product behavior:
+  - Live graph labels stay on the existing Rust SDF/MSDF atlas pipeline.
+  - Label screen size now follows a hybrid zoom curve (`zoom^0.35`) so labels scale with the graph enough to feel spatially attached, then clamp to readable min/max bounds.
+  - Background labels fade/shrink at low readability; hovered, selected, and highlighted labels use a stronger readability floor and score boost.
+  - Per-node label scale is passed into the Rust glyph instance builder; no SwiftUI overlay labels, duplicate text trees, or per-frame text layout allocation were added.
+  - The Swift fallback `SDFLabelInstanceBuilder` budget guard now stops on exact remaining frame budget rather than comparing against atlas glyph count plus remaining budget.
+- Green commands:
+  - `cargo test --manifest-path graph-engine/Cargo.toml labels::tests`
+    - Passed, 5 Rust tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml hybrid_label`
+    - Passed, 2 Rust tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml emphasized_label`
+    - Passed, 1 Rust test.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SDFLabelInstanceBuilderTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed. xcresult summary: 2 passed, 0 failed at `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_08-41-24--0500.xcresult`.
+- Remaining risk:
+  - Manual graph zoom smoke is still pending: dense graph zoom in/out, selected/hovered readability, and subjective crispness/framing compared to the fixed-HUD behavior.
 
 ### RCA-P2-017 - Map generated tests and guard scripts to real user flows
 
@@ -1781,7 +1806,7 @@ Acceptance:
 
 ### RCA2-P1-014 - Reconcile `/image` slash command with runtime and build policy
 
-Status: TODO
+Status: PATCHED - FOCUSED AUTOMATED GREEN / MANUAL COMMAND SMOKE PENDING
 
 Subsystem: slash commands, image generation, tool policy, MAS/Pro build gates.
 
@@ -1802,6 +1827,24 @@ Audit steps:
 
 Acceptance:
 - `/image` appears only in builds/modes where it can actually execute, or it explains unavailability before submit.
+
+2026-05-09 `/image` command truth patch:
+
+- Files changed:
+  - `Epistemos/State/AgentCommandCenterState.swift`
+  - `Epistemos/Engine/CommandInputParser.swift`
+  - `EpistemosTests/AgentCommandCenterStateTests.swift`
+- Product behavior:
+  - `ACCSlashCommand.availableCommands(for:)` now excludes commands that are not executable in the current build.
+  - `/image` is hidden while `ToolSurfacePolicy.isSurfacedToolName("image_generate")` is false.
+  - `CommandInputParser` resolves builtin slash commands only from the available slash-command set, so hidden `/image` remains normal text instead of becoming a command token.
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AgentCommandCenterStateTests -only-testing:EpistemosTests/EpdocSlashMenuViewTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed. xcresult summary: 53 passed, 0 failed at `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_08-35-19--0500.xcresult`.
+  - `cargo test --manifest-path agent_core/Cargo.toml --features pro-build --lib image_generate`
+    - Passed, 7 Rust tests.
+- Remaining risk:
+  - Manual MAS/Core and Pro/direct command-palette smoke is still pending. This patch proves visibility/parser policy and Rust image tool validation, not a full user-facing command inventory report.
 
 ### RCA2-P1-015 - Add App Store scheme test coverage or explicit CI equivalent
 
@@ -2420,7 +2463,7 @@ Acceptance:
 
 ### RCA3-P1-001 - Treat `.epdoc` package-local assets as the canonical image path
 
-Status: TODO
+Status: PARTIALLY PATCHED - SLASH IMAGE LOCAL ASSET ROUTE GREEN / FULL IMAGE MATRIX PENDING
 
 Subsystem: `.epdoc` image insertion, assets directory, content JSON size, graph/search projection.
 
@@ -2442,6 +2485,24 @@ Audit steps:
 Acceptance:
 - Large images are stored in package-local `assets/` by default.
 - Canonical content JSON references stable asset IDs/URLs rather than embedding large data URLs.
+
+2026-05-09 slash image local-asset patch:
+
+- Files changed:
+  - `Epistemos/Views/Epdoc/EpdocSlashMenuView.swift`
+  - `js-editor/src/extensions/image-asset-bridge.ts`
+  - `js-editor/src/extensions/slash-menu.ts`
+  - `Epistemos/Resources/Editor/editor.js.br`
+  - `EpistemosTests/EpdocSlashMenuViewTests.swift`
+- Product behavior:
+  - The `.epdoc` slash-menu item is now labeled `Local image`.
+  - The JS slash-menu image action opens a local image picker and calls `requestPackageImageAsset`, reusing the package asset bridge instead of inserting a remote URL string.
+  - Source guard confirms the old `window.prompt('Image URL')` / direct `insertEpdocImage({ src, alt: '' })` default path is gone.
+- Green command:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AgentCommandCenterStateTests -only-testing:EpistemosTests/EpdocSlashMenuViewTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed. xcresult summary: 53 passed, 0 failed at `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_08-35-19--0500.xcresult`.
+- Remaining risk:
+  - Full toolbar/paste/drop/slash save-reopen-offline image matrix remains pending. This patch specifically closes the slash-menu split, not every `.epdoc` image ingress path.
 
 ### RCA3-P1-002 - Resolve `.epdoc` asset loading and save/projection stutter with timing evidence
 
@@ -2747,7 +2808,7 @@ Acceptance:
 
 ### RCA3-P2-003 - Treat MLX image generation as scaffold unless a provider route is explicit
 
-Status: TODO
+Status: PATCHED - SCAFFOLD HIDDEN BY DEFAULT / MANUAL ROUTE SMOKE PENDING
 
 Subsystem: local image generation, MLX pipelines, `/image` command.
 
@@ -2761,6 +2822,17 @@ Files to inspect:
 Acceptance:
 - Local MLX image generation is hidden/unavailable by default unless real model pipeline is installed.
 - `/image` routes to an actually available provider or explains unavailability.
+
+2026-05-09 command visibility note:
+
+- `/image` is now removed from normal slash-command availability while `image_generate` is not surfaced by `ToolSurfacePolicy`.
+- The parser no longer resolves hidden `/image` into a builtin command token.
+- Rust pro-build image generation tests still prove the underlying tool requires explicit `provider`, surfaces missing MLX delegate truthfully, and requires cloud consent/API key for FAL.
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AgentCommandCenterStateTests -only-testing:EpistemosTests/EpdocSlashMenuViewTests test CODE_SIGNING_ALLOWED=NO`
+  - `cargo test --manifest-path agent_core/Cargo.toml --features pro-build --lib image_generate`
+- Remaining risk:
+  - A generated advertised -> parsed -> compiled -> approved -> executed -> logged -> visible command/tool report is still tracked separately.
 
 ### RCA3-P2-004 - Lock Hermes status to one current truth
 
@@ -3696,7 +3768,7 @@ Acceptance:
 
 ### RCA5-P1-009 - Reconcile `.epdoc` slash image URL insertion with package-local asset semantics
 
-Status: TODO
+Status: PATCHED - FOCUSED AUTOMATED GREEN / OFFLINE REOPEN SMOKE PENDING
 
 Subsystem: `js-editor`, `.epdoc`, slash menu, image node, asset bridge, package persistence.
 
@@ -3718,6 +3790,17 @@ Verification:
 Acceptance:
 
 - Either slash image also stores package-local assets, or UI explicitly labels it as remote URL embedding.
+
+2026-05-09 implementation note:
+
+- The default `.epdoc` slash image action now routes through `requestPackageImageAssetFromPicker`, which uses the same `requestPackageImageAsset` bridge as local package asset storage.
+- The visible slash item label is `Local image` on both Swift and JS catalogues.
+- Source guard confirmed no default `window.prompt('Image URL')` or direct remote URL image insertion remains in `js-editor/src/extensions/slash-menu.ts`.
+- Green command:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AgentCommandCenterStateTests -only-testing:EpistemosTests/EpdocSlashMenuViewTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed. xcresult summary: 53 passed, 0 failed.
+- Remaining risk:
+  - Manual proof remains open for insert via slash, save, quit, disable network, reopen, and inspect `assets/` plus `content.pm.json`.
 
 ### RCA5-P1-010 - Prove `.epdoc` durability and projection latency before promoting the surface
 
@@ -5855,6 +5938,12 @@ Acceptance:
 - `/image` routes to a real configured provider or returns a clear unavailable/setup message.
 - Command/tool truth report marks local MLX image generation as scaffold-only until proven.
 
+2026-05-09 status note:
+
+- `/image` is hidden from normal slash-command availability while `image_generate` is not surfaced.
+- Rust pro-build `image_generate` tests confirm explicit provider and honest unavailable/setup behavior for the underlying tool.
+- The full generated command/tool truth report remains open.
+
 ### RCA9-P2-003 - Treat vendored LLM corpora and dependency trees as dependency surface, not feature proof
 
 Status: CONFIRMED NOT FEATURE PROOF
@@ -7425,7 +7514,7 @@ Acceptance:
 
 ### RCA11-P2-005 - Fix SDF graph label budget guard
 
-Status: CONFIRMED
+Status: PATCHED - FOCUSED AUTOMATED GREEN / MANUAL FRAME-HITCH PROOF PENDING
 
 Subsystem: `SDFLabelInstanceBuilder`, graph label rendering, per-frame budget.
 
@@ -7448,6 +7537,18 @@ SDFLabelInstanceBuilderTests.outputCountNeverExceedsLabelBudget
 SDFLabelInstanceBuilderTests.longLabelsRespectPerFrameBudget
 SDFLabelInstanceBuilderTests.denseGraphLabelsDoNotGrowUploadBufferUnbounded
 ```
+
+2026-05-09 implementation note:
+
+- Fixed `Epistemos/Graph/SDFLabelInstanceBuilder.swift` so each label stops when the exact remaining frame budget is consumed.
+- Added `EpistemosTests/SDFLabelInstanceBuilderTests.swift` with:
+  - `outputCountNeverExceedsLabelBudget`
+  - `longLabelsRespectPerFrameBudget`
+- Green command:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SDFLabelInstanceBuilderTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed. xcresult summary: 2 passed, 0 failed.
+- Remaining risk:
+  - Dense-graph runtime frame-hitch/upload-buffer proof is still pending.
 
 Manual proof:
 
@@ -7656,7 +7757,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA12-P1-002 - Fix the `.epdoc` slash-image persistence split
 
-Status: CONFIRMED
+Status: PATCHED - FOCUSED AUTOMATED GREEN / OFFLINE REOPEN SMOKE PENDING
 
 Canonical link: `RCA5-P1-009`
 
@@ -7690,9 +7791,14 @@ Manual proof:
 - Save, quit, disable network, reopen.
 - Inspect package assets and `content.pm.json`.
 
+2026-05-09 status note:
+
+- Covered by the implementation evidence under `RCA5-P1-009`.
+- Remaining risk is unchanged: offline save/reopen package inspection is still pending.
+
 ### RCA12-P1-003 - Confirm `/image` command truth mismatch and hide until executable
 
-Status: CONFIRMED
+Status: PATCHED - FOCUSED AUTOMATED GREEN / MANUAL COMMAND SMOKE PENDING
 
 Canonical links:
 
@@ -7713,6 +7819,11 @@ Acceptance:
 
 - Typing `/image` in MAS/Core does not advertise a non-working feature.
 - Pro/direct build shows `/image` only when a configured provider/local pipeline can execute it.
+
+2026-05-09 status note:
+
+- Covered by the implementation evidence under `RCA2-P1-014` and `RCA3-P2-003`.
+- Remaining risk is unchanged: manual command-palette smoke and the full command/tool truth report are still pending.
 
 ### RCA12-P1-004 - Fix test harness truth: `run_all_tests.sh` is not all tests
 

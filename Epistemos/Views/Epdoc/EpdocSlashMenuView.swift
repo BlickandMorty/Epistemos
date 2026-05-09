@@ -70,7 +70,7 @@ public extension EpdocSlashMenuItem {
         .init(id: "callout-warning",label: "Callout — Warning",  symbol: "exclamationmark.triangle"),
         .init(id: "callout-danger", label: "Callout — Danger",   symbol: "octagon"),
         .init(id: "table-3x3",      label: "Table 3×3",        symbol: "tablecells"),
-        .init(id: "image",          label: "Image",            symbol: "photo"),
+        .init(id: "image",          label: "Local image",      symbol: "photo"),
         .init(id: "divider",        label: "Divider",          symbol: "minus",                             hint: "⌘⇧R"),
     ]
 

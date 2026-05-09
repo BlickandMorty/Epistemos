@@ -120,8 +120,9 @@ enum SDFLabelInstanceBuilder {
 
         let nodeDist = hypot(node.worldX - cameraWorld.x, node.worldY - cameraWorld.y)
 
+        var emittedForThisLabel = 0
         for char in label {
-            if totalEmitted >= atlas.glyphs.count + budgetRemaining { break }
+            if totalEmitted >= Self.labelBudget || emittedForThisLabel >= budgetRemaining { break }
             guard let glyph = atlas.glyphs[char] ?? atlas.fallbackGlyph else {
                 // Glyph not in atlas and no fallback — skip, but still advance
                 // so subsequent glyphs don't bunch up.
@@ -150,6 +151,7 @@ enum SDFLabelInstanceBuilder {
             inst.nodeDist = Float(nodeDist)
             out.append(inst)
             totalEmitted += 1
+            emittedForThisLabel += 1
 
             penXWorld += glyph.advanceEm * worldPxPerEm
         }

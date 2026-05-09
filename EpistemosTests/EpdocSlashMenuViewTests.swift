@@ -58,6 +58,20 @@ struct EpdocSlashMenuViewTests {
                 "The flowchart slash item now derives from the live document; it must not advertise the old static Mermaid sample.")
     }
 
+    @Test("Slash image insertion defaults to package-local assets")
+    func slashImageInsertionUsesPackageLocalAssetBridge() throws {
+        let item = EpdocSlashMenuItem.defaultCatalogue.first { $0.id == "image" }
+        #expect(item?.label == "Local image")
+
+        let slashMenuSource = try loadMirroredSourceTextFile("js-editor/src/extensions/slash-menu.ts")
+        let assetBridgeSource = try loadMirroredSourceTextFile("js-editor/src/extensions/image-asset-bridge.ts")
+
+        #expect(slashMenuSource.contains("requestPackageImageAssetFromPicker"))
+        #expect(assetBridgeSource.contains("export function requestPackageImageAssetFromPicker"))
+        #expect(!slashMenuSource.contains("window.prompt('Image URL')"))
+        #expect(!slashMenuSource.contains("insertEpdocImage({ src, alt: '' })"))
+    }
+
     @Test("Empty prefix returns the full catalogue (degenerate case)")
     func emptyPrefixReturnsAll() {
         let matches = EpdocSlashMenuItem.matching(prefix: "")

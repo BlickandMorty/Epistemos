@@ -98,9 +98,48 @@ pub(crate) fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Durat
 
 const DEFAULT_CAMERA_FIT_PADDING: f32 = 0.85;
 const MIN_CAMERA_FIT_ZOOM: f32 = 0.35;
+const LABEL_SCREEN_SCALE_EXPONENT: f32 = 0.35;
+const LABEL_BACKGROUND_MIN_SCREEN_PX: f32 = 11.0;
+const LABEL_BACKGROUND_MAX_SCREEN_PX: f32 = 40.0;
+const LABEL_EMPHASIZED_MIN_SCREEN_PX: f32 = 16.0;
+const LABEL_EMPHASIZED_MAX_SCREEN_PX: f32 = 46.0;
+const LABEL_FADE_MIN_SCREEN_PX: f32 = 11.0;
+const LABEL_FADE_FULL_SCREEN_PX: f32 = 18.0;
 
 fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
     zoom.clamp(MIN_CAMERA_FIT_ZOOM, 10.0)
+}
+
+fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0).max(0.0001)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+fn hybrid_label_screen_px(base_screen_px: f32, zoom: f32, emphasized: bool) -> f32 {
+    let scaled = base_screen_px.max(1.0) * zoom.max(0.01).powf(LABEL_SCREEN_SCALE_EXPONENT);
+    if emphasized {
+        scaled.clamp(
+            LABEL_EMPHASIZED_MIN_SCREEN_PX,
+            LABEL_EMPHASIZED_MAX_SCREEN_PX,
+        )
+    } else {
+        scaled.clamp(
+            LABEL_BACKGROUND_MIN_SCREEN_PX,
+            LABEL_BACKGROUND_MAX_SCREEN_PX,
+        )
+    }
+}
+
+fn hybrid_label_world_px_per_em(base_screen_px: f32, zoom: f32, emphasized: bool) -> f32 {
+    hybrid_label_screen_px(base_screen_px, zoom, emphasized) / zoom.max(0.01)
+}
+
+fn background_label_readability_alpha(screen_px: f32) -> f32 {
+    smoothstep(
+        LABEL_FADE_MIN_SCREEN_PX,
+        LABEL_FADE_FULL_SCREEN_PX,
+        screen_px,
+    )
 }
 
 fn should_update_field_lines(
@@ -1185,7 +1224,11 @@ impl Engine {
             self.renderer.target_offset = self.renderer.camera_offset;
         } else {
             // Hover detection.
-            self.hovered_id = self.spatial.query_point(wx, wy);
+            let next_hovered_id = self.spatial.query_point(wx, wy);
+            if self.hovered_id != next_hovered_id {
+                self.hovered_id = next_hovered_id;
+                self.highlight_dirty = true;
+            }
         }
     }
 
@@ -1640,6 +1683,7 @@ impl Engine {
             label: &'a str,
             score: f32,
             opacity: f32,
+            world_px_per_em: f32,
         }
         let mut scored: Vec<Scored<'_>> = Vec::with_capacity(256);
 
@@ -1660,6 +1704,9 @@ impl Engine {
             if selection_active && !is_highlighted {
                 continue;
             }
+            let is_emphasized = is_highlighted
+                || self.selected_id == Some(node.id)
+                || self.hovered_id == Some(node.id);
 
             let r = node.radius.max(0.1);
             let size_component = if bias > 0.0 {
@@ -1717,14 +1764,30 @@ impl Engine {
                 continue;
             }
 
-            let score = layer * size_component * link_boost * proximity;
+            let label_screen_px =
+                hybrid_label_screen_px(self.label_world_px_per_em, zoom, is_emphasized);
+            let world_px_per_em =
+                hybrid_label_world_px_per_em(self.label_world_px_per_em, zoom, is_emphasized);
+            let readability = if is_emphasized {
+                1.0
+            } else {
+                background_label_readability_alpha(label_screen_px)
+            };
+            if readability < 0.01 {
+                continue;
+            }
+
+            let emphasis_boost = if is_emphasized { 1.35 } else { 1.0 };
+            let score =
+                layer * size_component * link_boost * proximity * readability * emphasis_boost;
             scored.push(Scored {
                 x: node.x,
                 y: node.y,
                 radius: node.radius,
                 label: node.label.as_str(),
                 score,
-                opacity: layer * proximity,
+                opacity: (layer * proximity * readability).clamp(0.0, 1.0),
+                world_px_per_em,
             });
         }
 
@@ -1756,9 +1819,9 @@ impl Engine {
             (cap_f.round() as usize).max(1).min(scored.len())
         };
 
-        let mut visible: Vec<(f32, f32, f32, &str, f32)> = Vec::with_capacity(max_nodes);
+        let mut visible: Vec<(f32, f32, f32, &str, f32, f32)> = Vec::with_capacity(max_nodes);
         for s in scored.iter().take(max_nodes) {
-            visible.push((s.x, s.y, s.radius, s.label, s.opacity));
+            visible.push((s.x, s.y, s.radius, s.label, s.opacity, s.world_px_per_em));
         }
 
         let label_color = if self.renderer.light_mode {
@@ -1772,12 +1835,10 @@ impl Engine {
         self.renderer.label_blur_radius = effective_radius;
 
         let mut scratch = std::mem::take(&mut self.label_instance_scratch);
-        let screen_constant_px = self.label_world_px_per_em / zoom.max(0.01);
         crate::labels::build_instances(
             &visible,
             table,
             camera,
-            screen_constant_px,
             label_color,
             self.label_glyph_budget,
             &mut scratch,
@@ -2392,6 +2453,47 @@ mod tests {
     use crate::types::Graph;
     use metal::foreign_types::ForeignType;
     use metal::{Device, MetalLayer};
+
+    #[test]
+    fn hybrid_label_scale_changes_with_zoom_and_clamps_to_readable_bounds() {
+        let base = 28.0;
+        let far = hybrid_label_screen_px(base, 0.35, false);
+        let mid = hybrid_label_screen_px(base, 1.0, false);
+        let near = hybrid_label_screen_px(base, 8.0, false);
+        let extreme = hybrid_label_screen_px(base, 100.0, false);
+
+        assert!(far < mid);
+        assert!(mid < near);
+        assert_eq!(extreme, LABEL_BACKGROUND_MAX_SCREEN_PX);
+        assert!(far >= LABEL_BACKGROUND_MIN_SCREEN_PX);
+    }
+
+    #[test]
+    fn emphasized_label_scale_keeps_a_stronger_readability_floor() {
+        let base = 28.0;
+        let background = hybrid_label_screen_px(base, 0.05, false);
+        let emphasized = hybrid_label_screen_px(base, 0.05, true);
+
+        assert!(emphasized > background);
+        assert_eq!(emphasized, LABEL_EMPHASIZED_MIN_SCREEN_PX);
+        assert!(background_label_readability_alpha(background) < 1.0);
+        assert!(
+            background_label_readability_alpha(emphasized)
+                > background_label_readability_alpha(background)
+        );
+    }
+
+    #[test]
+    fn hybrid_label_world_scale_remains_graph_attached() {
+        let base = 28.0;
+        let far_world = hybrid_label_world_px_per_em(base, 0.5, false);
+        let near_world = hybrid_label_world_px_per_em(base, 2.0, false);
+
+        assert!(far_world > near_world);
+        assert!(
+            hybrid_label_screen_px(base, 2.0, false) > hybrid_label_screen_px(base, 0.5, false)
+        );
+    }
 
     fn make_graph() -> Graph {
         let mut g = Graph::new();
