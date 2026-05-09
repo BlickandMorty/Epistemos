@@ -9261,13 +9261,17 @@ Patch evidence, 2026-05-09 selected-focus dimming restoration slice:
   - `GraphState.selectNode(_:)` now pushes selection into Rust through `graph_engine_select_node(...)` / `graph_engine_clear_selected_node(...)`, so sidebar, inspector, search, context-menu, and canvas selection share the same selected-neighborhood focus path.
   - Rust `Engine::select_node(...)` sets `selected_id` and calls the existing `highlight_neighbors_by_id(...)` path. This restores selected-node neighborhood labels, selected/neighbor focus flags, and surrounding-node dimming without changing the simulation force model.
   - Clearing selection now clears Rust `selected_id` and the selection-derived highlight set together, preventing stale selected focus after UI deselection. Selecting a stale/missing node id also clears the Rust focus instead of preserving the previous highlight.
+  - `Engine::clear_highlight()` and search-highlight activation now also clear `renderer.highlight.root_id`, so a previous selected-folder root cannot keep protected labels or selected-neighborhood dimming alive after selection is cleared or replaced by search.
   - Cinematic and balanced node shader dimming now darkens non-focused nodes in both light and dark mode instead of lightening dark-mode surroundings. Dimmed nodes remain effectively solid (`0.95` alpha floor), so edges stay visually behind opaque node bodies.
   - Node highlight flag coverage now asserts light and dark modes use separate dim flags for non-neighbor nodes.
 - Tests/commands:
   - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml select_node_syncs_selection_and_neighborhood_focus` failed before product patch because `Engine::select_node(...)` and `Engine::clear_selected_node(...)` did not exist.
+  - Regression proof: full `cargo test --manifest-path graph-engine/Cargo.toml` later failed `engine::tests::select_node_syncs_selection_and_neighborhood_focus` because `clear_highlight()` did not clear stale `root_id`; patching root cleanup fixed the failure.
   - `cargo test --manifest-path graph-engine/Cargo.toml select_node_syncs_selection_and_neighborhood_focus` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml engine::tests::selected` passed, 3 tests.
   - `cargo test --manifest-path graph-engine/Cargo.toml light_and_dark_node_highlight_flags_dim_non_neighbors` passed.
   - `cargo test --manifest-path graph-engine/Cargo.toml cinematic_pixel_nodes_apply_selection_dim_without_transparency` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml` passed after stale-root cleanup, 2551 tests passed and 8 ignored.
   - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_15-34-46--0500.xcresult`.
   - Source guard: `rg -n "graph_engine_select_node|graph_engine_clear_selected_node|select_node_syncs_selection_and_neighborhood_focus|light_and_dark_node_highlight_flags_dim_non_neighbors|dim_alpha_floor|0\\.06, 0\\.06, 0\\.06" Epistemos/Graph/GraphState.swift graph-engine/src/engine.rs graph-engine/src/lib.rs graph-engine/src/renderer.rs graph-engine-bridge/graph_engine.h EpistemosTests/GraphPhysicsSettingsAuditTests.swift` confirmed bridge, Swift caller, Rust selection, and shader dimming coverage.
   - `git diff --check` passed.
