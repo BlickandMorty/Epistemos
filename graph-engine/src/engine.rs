@@ -2490,6 +2490,14 @@ impl Engine {
         self.renderer.visual_theme = VisualTheme::from_u8(theme);
     }
 
+    /// Set edge style: 0 = Smooth, 1 = Pixel-Art.
+    pub fn set_edge_style(&mut self, style: u8) {
+        self.renderer.edge_style = crate::renderer::EdgeStyle::from_u8(style);
+        self.quality_rebuild_pending = true;
+        self.highlight_dirty = true;
+        self.idle_frame_count = 0;
+    }
+
     /// Set per-node color override by UUID. Pass alpha=0 to clear.
     /// Updates both Graph node and ECS RenderComponent for theme-agnostic rendering.
     pub fn set_node_color_override(&mut self, uuid: &str, r: f32, g: f32, b: f32, a: f32) {

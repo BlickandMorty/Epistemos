@@ -10,6 +10,7 @@ struct GraphPhysicsSettingsAuditTests {
     private let waterNodesWobbleKey = "epistemos.waterNodes.wobble"
     private let visualThemeKey = "graphVisualTheme"
     private let visualThemeMigrationKey = "epistemos.graph.visualTheme.migratedClassicDefault"
+    private let edgeStyleKey = "epistemos.graph.edgeStyle"
     private let physicsKeys: [String] = [
         "epistemos.physics.hasSavedSettings",
         "epistemos.physics.version",
@@ -59,6 +60,7 @@ struct GraphPhysicsSettingsAuditTests {
         defaults.removeObject(forKey: waterNodesWobbleKey)
         defaults.removeObject(forKey: visualThemeKey)
         defaults.removeObject(forKey: visualThemeMigrationKey)
+        defaults.removeObject(forKey: edgeStyleKey)
     }
 
     private func waitForPreset(
@@ -590,6 +592,34 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(renderer.contains("clamp(inst.thickness_px, MIN_EDGE_WIDTH_PX, MAX_EDGE_WIDTH_PX) * 0.5"))
         #expect(renderer.contains("edge_weight_maps_to_clamped_screen_thickness"))
         #expect(renderer.contains("edge_color_blends_endpoint_palette_when_available"))
+    }
+
+    @Test("Graph edge style is user-visible and backed by Rust renderer")
+    func graphEdgeStyleIsUserVisibleAndBackedByRustRenderer() throws {
+        let graphState = try loadMirroredSourceTextFile("Epistemos/Graph/GraphState.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
+        let metalView = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+        let engine = try loadMirroredSourceTextFile("graph-engine/src/engine.rs")
+        let exports = try loadMirroredSourceTextFile("graph-engine/src/lib.rs")
+        let header = try loadMirroredSourceTextFile("graph-engine-bridge/graph_engine.h")
+
+        #expect(graphState.contains("enum GraphEdgeStyle: UInt8"))
+        #expect(graphState.contains("case pixelArt = 1"))
+        #expect(graphState.contains("var edgeStyle: GraphEdgeStyle"))
+        #expect(graphState.contains("edgeStyleVersion += 1"))
+        #expect(settings.contains("Edge Style"))
+        #expect(settings.contains("Pixel-Art"))
+        #expect(metalView.contains("edgeStyleVersion"))
+        #expect(metalView.contains("graph_engine_set_edge_style(engine, graphState.edgeStyle.rawValue)"))
+        #expect(renderer.contains("enum EdgeStyle"))
+        #expect(renderer.contains("edge_style: EdgeStyle"))
+        #expect(renderer.contains("round(screen0)"))
+        #expect(renderer.contains("if (in.pixel_edge_style > 0.5)"))
+        #expect(renderer.contains("pixel_edge_style_forces_straight_pixel_uniforms_without_quality_downgrade"))
+        #expect(engine.contains("pub fn set_edge_style(&mut self, style: u8)"))
+        #expect(exports.contains("pub extern \"C\" fn graph_engine_set_edge_style"))
+        #expect(header.contains("void graph_engine_set_edge_style(Engine* engine, uint8_t style);"))
     }
 
     @Test("Graph renderer trims edges before Metal upload")
