@@ -585,6 +585,37 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(renderer.contains("cinematic_pixel_nodes_apply_selection_dim_without_transparency"))
     }
 
+    @MainActor
+    @Test("Graph theme node palette keeps solid semantic node colors")
+    func graphThemeNodePaletteKeepsSolidSemanticNodeColors() {
+        let lightFolder = GraphThemeNodePalette.color(for: .folder, theme: .systemLight)
+        let darkFolder = GraphThemeNodePalette.color(for: .folder, theme: .systemDark)
+        let lightNote = GraphThemeNodePalette.color(for: .note, theme: .systemLight)
+        let darkNote = GraphThemeNodePalette.color(for: .note, theme: .systemDark)
+        let tanIdea = GraphThemeNodePalette.color(for: .idea, theme: .tan)
+        let violetIdea = GraphThemeNodePalette.color(for: .idea, theme: .platinumViolet)
+
+        #expect(lightFolder == (r: 0.0, g: 0.0, b: 0.0, a: 1.0))
+        #expect(darkFolder == (r: 1.0, g: 1.0, b: 1.0, a: 1.0))
+        #expect(lightNote.a == 1.0)
+        #expect(darkNote.a == 1.0)
+        #expect(lightNote.b > 0.70)
+        #expect(darkNote.b > 0.70)
+        #expect(tanIdea.a == 1.0)
+        #expect(violetIdea.a == 1.0)
+        #expect(abs(tanIdea.r - violetIdea.r) > 0.02 || abs(tanIdea.b - violetIdea.b) > 0.02)
+    }
+
+    @Test("Metal graph view refreshes node palette when UI theme changes")
+    func metalGraphRefreshesNodePaletteWhenUIThemeChanges() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(source.contains("GraphThemeNodePalette.color(for: node.type, theme: resolvedTheme)"))
+        #expect(source.contains("cachedColorResolvedTheme"))
+        #expect(source.contains("uiState.appearanceSyncKey"))
+        #expect(source.contains("lastAppearanceSyncKey"))
+    }
+
     @Test("Visual theme defaults to classic when unset")
     func visualThemeDefaultsToClassicWhenUnset() {
         clearPhysicsDefaults()

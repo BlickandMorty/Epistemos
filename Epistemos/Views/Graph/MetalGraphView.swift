@@ -7,6 +7,83 @@ import SwiftData
 
 nonisolated private let metalGraphLog = Logger(subsystem: "com.epistemos", category: "MetalGraph")
 
+enum GraphThemeNodePalette {
+    typealias RGBA = (r: Float, g: Float, b: Float, a: Float)
+
+    static func color(for type: GraphNodeType, theme: EpistemosTheme) -> RGBA {
+        if type == .folder {
+            return theme.isDark ? (1.0, 1.0, 1.0, 1.0) : (0.0, 0.0, 0.0, 1.0)
+        }
+
+        let base = baseColor(for: type)
+        let tint = tintColor(for: theme)
+        let amount = tintAmount(for: type, theme: theme)
+        return mix(base, tint, amount)
+    }
+
+    private static func tintAmount(for type: GraphNodeType, theme: EpistemosTheme) -> Float {
+        switch theme {
+        case .systemLight, .systemDark, .light, .oled:
+            return 0.0
+        default:
+            switch type {
+            case .note, .proseNote, .document:
+                return 0.05
+            case .idea:
+                return 0.14
+            default:
+                return 0.10
+            }
+        }
+    }
+
+    private static func baseColor(for type: GraphNodeType) -> RGBA {
+        switch type {
+        case .note:       return (0.39, 0.90, 0.85, 1.0)
+        case .chat:       return (1.00, 0.62, 0.04, 1.0)
+        case .idea:       return (1.00, 0.84, 0.04, 1.0)
+        case .source:     return (0.20, 0.78, 0.35, 1.0)
+        case .folder:     return (0.0, 0.0, 0.0, 1.0)
+        case .quote:      return (0.69, 0.32, 0.87, 1.0)
+        case .tag:        return (0.46, 0.46, 0.50, 1.0)
+        case .block:      return (0.55, 0.78, 0.90, 1.0)
+        case .person:     return (0.83, 0.35, 0.58, 1.0)
+        case .project:    return (0.89, 0.42, 0.16, 1.0)
+        case .topic:      return (0.20, 0.56, 0.95, 1.0)
+        case .decision:   return (0.83, 0.20, 0.18, 1.0)
+        case .event:      return (0.98, 0.56, 0.27, 1.0)
+        case .resource:   return (0.14, 0.55, 0.52, 1.0)
+        case .run:        return (0.42, 0.42, 0.78, 1.0)
+        case .rawThought: return (0.74, 0.58, 0.92, 1.0)
+        case .toolTrace:  return (0.46, 0.50, 0.55, 1.0)
+        case .proseNote:  return (0.34, 0.78, 0.74, 1.0)
+        case .document:   return (0.27, 0.62, 0.60, 1.0)
+        case .code:       return (0.85, 0.55, 0.18, 1.0)
+        case .output:     return (0.40, 0.44, 0.50, 1.0)
+        }
+    }
+
+    private static func tintColor(for theme: EpistemosTheme) -> RGBA {
+        let hex = theme.resolved.headingAccentHex
+        return (
+            Float((hex >> 16) & 0xFF) / 255.0,
+            Float((hex >> 8) & 0xFF) / 255.0,
+            Float(hex & 0xFF) / 255.0,
+            1.0
+        )
+    }
+
+    private static func mix(_ base: RGBA, _ tint: RGBA, _ amount: Float) -> RGBA {
+        let t = min(max(amount, 0.0), 1.0)
+        return (
+            base.r + (tint.r - base.r) * t,
+            base.g + (tint.g - base.g) * t,
+            base.b + (tint.b - base.b) * t,
+            1.0
+        )
+    }
+}
+
 struct GraphNodeBatchPayload {
     var ids: [String] = []
     var xs: [Float] = []
@@ -486,6 +563,8 @@ struct MetalGraphView: NSViewRepresentable {
         nsView.physicsCoordinator = physicsCoordinator
         nsView.dialogueChatState = dialogueChatState
         nsView.uiState = uiState
+        let appearanceSyncKey = uiState.appearanceSyncKey
+        nsView.syncThemeIfNeeded(appearanceSyncKey: appearanceSyncKey)
         let signature = GraphRenderWakeSignature(graphState: graphState)
         guard nsView.lastRenderWakeSignature != signature else { return }
         nsView.lastRenderWakeSignature = signature
@@ -624,6 +703,7 @@ final class MetalGraphNSView: NSView {
     var lastLiteModeVersion: Int = -1
     var lastPushedQualityLevel: UInt8 = 255
     var lastVisualThemeVersion: Int = -1
+    var lastAppearanceSyncKey = ""
     var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
     var searchQuery: String = ""
@@ -633,6 +713,7 @@ final class MetalGraphNSView: NSView {
     // on every commitGraphData(). Only recomputed when store topology or theme changes.
     private var cachedColorTopologyVersion: Int = -1
     private var cachedColorTheme: GraphVisualTheme = .dialogue
+    private var cachedColorResolvedTheme: EpistemosTheme?
     private var cachedDepthColors: [String: DialogueDepthColor] = [:]
 
     // AR6 (master plan Phase 8 / Wave 13 §"Phase 8") — caches the
@@ -694,6 +775,17 @@ final class MetalGraphNSView: NSView {
         if changed {
             applyDialogueDepthPalette()
         }
+        needsRender = true
+    }
+
+    func syncThemeIfNeeded(appearanceSyncKey: String) {
+        guard lastAppearanceSyncKey != appearanceSyncKey else { return }
+        guard engine != nil else { return }
+        lastAppearanceSyncKey = appearanceSyncKey
+        guard let uiState else { return }
+        let theme = uiState.graphOverlayTheme
+        setLightMode(!theme.isDark)
+        applyDialogueDepthPalette()
         needsRender = true
     }
 
@@ -2276,26 +2368,29 @@ final class MetalGraphNSView: NSView {
     private func applyDialogueDepthPalette(for nodeIds: [String]? = nil) {
         guard let graphState else { return }
         let store = graphState.store
-        let shouldColorize = graphState.visualTheme == .dialogue
+        let resolvedTheme = uiState?.graphOverlayTheme ?? (currentLightMode ? .systemLight : .systemDark)
+        let usesDialogueDepth = graphState.visualTheme == .dialogue
         let currentTopology = store.topologyVersion
 
         // Recompute depth-color map only when topology or theme has changed.
         let themeChanged = cachedColorTheme != graphState.visualTheme
+            || cachedColorResolvedTheme != resolvedTheme
         if cachedColorTopologyVersion != currentTopology || themeChanged || cachedDepthColors.isEmpty {
             cachedColorTheme = graphState.visualTheme
+            cachedColorResolvedTheme = resolvedTheme
             let interval = Log.graphPerf.beginInterval("recomputeDepthColors")
             let depths = graphDepthLevels(store: store)
             let maxDepth = depths.values.max() ?? 0
             cachedDepthColors.removeAll(keepingCapacity: true)
             for (nodeId, node) in store.nodes {
-                if shouldColorize {
+                if usesDialogueDepth {
                     cachedDepthColors[nodeId] = dialogueDepthColor(
                         for: node,
                         depth: depths[nodeId] ?? graphBaseDepth(for: node.type),
                         maxDepth: maxDepth
                     )
                 } else {
-                    cachedDepthColors[nodeId] = (0.0, 0.0, 0.0, 0.0)
+                    cachedDepthColors[nodeId] = GraphThemeNodePalette.color(for: node.type, theme: resolvedTheme)
                 }
             }
             cachedColorTopologyVersion = currentTopology
