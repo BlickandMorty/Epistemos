@@ -9241,6 +9241,8 @@ Patch evidence, 2026-05-09 endpoint-palette edge tint slice:
   - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml edge_color_blends_endpoint_palette_when_available` failed before product patch because `edge_color_with_endpoint_palette(...)` did not exist.
   - `cargo test --manifest-path graph-engine/Cargo.toml edge_color_blends_endpoint_palette_when_available` passed.
   - `cargo test --manifest-path graph-engine/Cargo.toml edge_weight_maps_to_clamped_screen_thickness` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml renderer::tests` failed inside the sandbox because Metal `Device::system_default()` was unavailable to renderer tests.
+  - Same `cargo test --manifest-path graph-engine/Cargo.toml renderer::tests` command passed outside the sandbox with host Metal access, 59 tests.
   - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_15-59-33--0500.xcresult`.
 - Remaining risk:
   - Manual dense graph runtime smoke is still required to verify edge tint is visible but not noisy in the user's vault.
