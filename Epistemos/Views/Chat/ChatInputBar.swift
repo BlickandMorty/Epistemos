@@ -10,15 +10,6 @@ enum MainChatComposerLayout {
     static let controlRowTopPadding: CGFloat = 6
 }
 
-private struct ComposerPermissionGrantRow: Identifiable {
-    let id: String
-    let title: String
-    let detail: String
-    let systemImage: String
-    let isRevocable: Bool
-}
-
-
 struct ComposerControlStrip<Content: View>: View {
     let spacing: CGFloat
     var resetKey: String = ""
@@ -477,76 +468,21 @@ struct ChatInputBar: View {
     private var composerTextAreaHeight: CGFloat {
         max(ChatComposerInputMetrics.minHeight, composerHeight)
     }
-    private var permissionGrantRows: [ComposerPermissionGrantRow] {
-        var rows: [ComposerPermissionGrantRow] = []
-
-        if let vaultURL = vaultSync.vaultURL {
-            rows.append(
-                ComposerPermissionGrantRow(
-                    id: "vault:\(vaultURL.path)",
-                    title: vaultURL.lastPathComponent,
-                    detail: "Read + Search active vault",
-                    systemImage: "books.vertical",
-                    isRevocable: false
-                )
-            )
-        }
-
-        rows.append(
-            contentsOf: chat.pendingContextAttachments.map { attachment in
-                ComposerPermissionGrantRow(
-                    id: "context:\(attachment.id)",
-                    title: attachment.title,
-                    detail: grantDetail(for: attachment),
-                    systemImage: attachment.systemImageName,
-                    isRevocable: true
-                )
-            }
-        )
-
-        rows.append(
-            contentsOf: chat.pendingAttachments.map { attachment in
-                ComposerPermissionGrantRow(
-                    id: "file:\(attachment.id)",
-                    title: attachment.name,
-                    detail: "Read attached file",
-                    systemImage: iconForType(attachment.type),
-                    isRevocable: true
-                )
-            }
-        )
-
-        #if !EPISTEMOS_APP_STORE
-        rows.append(
-            ComposerPermissionGrantRow(
-                id: "shell-approval",
-                title: "Shell / external tools",
-                detail: "Ask first for destructive or external work",
-                systemImage: "terminal",
-                isRevocable: false
+    private var currentAccessPlan: ComposerCurrentAccessPlan {
+        ComposerCurrentAccessPlan(
+            vaultURL: vaultSync.vaultURL,
+            contextAttachments: chat.pendingContextAttachments,
+            fileAttachments: chat.pendingAttachments,
+            compiledAllowedToolNames: inference.providerNativeCapabilityToolNameList(
+                for: selectedOperatingMode
             )
         )
-        #endif
-
-        return rows
+    }
+    private var permissionGrantRows: [ComposerResourceGrantRow] {
+        currentAccessPlan.rows
     }
     private var permissionSummaryText: String {
-        var segments: [String] = []
-        if chat.pendingContextAttachments.contains(where: { $0.kind == .note || $0.kind == .folder }) {
-            segments.append("Read + Edit attached notes")
-        } else if !chat.pendingAttachments.isEmpty {
-            segments.append("Read attached files")
-        }
-        if vaultSync.vaultURL != nil {
-            segments.append("Read + Search vault")
-        }
-        #if !EPISTEMOS_APP_STORE
-        segments.append("Shell: ask first")
-        #endif
-        if segments.isEmpty {
-            segments.append("Local chat")
-        }
-        return segments.joined(separator: " · ")
+        currentAccessPlan.summaryText
     }
     var body: some View {
         VStack(spacing: 0) {
@@ -852,10 +788,10 @@ struct ChatInputBar: View {
         .buttonStyle(.plain)
         .popover(isPresented: $showPermissionGrantPopover, arrowEdge: .top) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Current Access")
+                Text("Stored Resource Grants")
                     .font(.headline)
 
-                Text("Removing an attachment revokes the corresponding attached-resource access immediately for this composer.")
+                Text("Removing an attachment revokes the corresponding scoped resource grant immediately for this composer. Non-resource tools are governed by the separate approval policy.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -896,12 +832,8 @@ struct ChatInputBar: View {
             .padding(14)
             .frame(width: 360, alignment: .leading)
         }
-        .accessibilityLabel("Current assistant access")
-        #if EPISTEMOS_APP_STORE
-        .accessibilityHint("Shows attached-resource and vault access for this chat.")
-        #else
-        .accessibilityHint("Shows attached-resource, vault, and shell approval access for this chat.")
-        #endif
+        .accessibilityLabel("Current resource grants")
+        .accessibilityHint("Shows scoped attached-resource and vault access for this chat.")
     }
 
     private var composerTextArea: some View {
@@ -1113,27 +1045,6 @@ struct ChatInputBar: View {
         case .csv: return "tablecells"
         case .text: return "doc.text"
         case .other: return "paperclip"
-        }
-    }
-
-    private func grantDetail(for attachment: ContextAttachment) -> String {
-        switch attachment.kind {
-        case .note:
-            return "Read + Edit attached note"
-        case .chat:
-            return "Read attached chat context"
-        case .allNotes:
-            return "Read + Search attached vault context"
-        case .folder:
-            return "Read + Edit attached folder notes"
-        case .file:
-            // Phase R.4: file-kind attachments carry their Live /
-            // Snapshot mode in the manifest. Summarise appropriately.
-            if attachment.resourceMode == .snapshot {
-                return "Read attached pasted snapshot"
-            } else {
-                return "Read + Edit attached file"
-            }
         }
     }
 
