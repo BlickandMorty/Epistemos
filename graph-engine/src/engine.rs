@@ -1523,6 +1523,25 @@ impl Engine {
         }
     }
 
+    /// Select a node by UUID and apply the same neighborhood focus used by
+    /// graph clicks. This keeps sidebar/inspector selection visually identical
+    /// to direct canvas selection without changing the physics force model.
+    pub fn select_node(&mut self, uuid: &str) {
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
+            self.selected_id = Some(node_id);
+            self.hovered_id = None;
+            self.highlight_neighbors_by_id(node_id);
+        } else {
+            self.clear_selected_node();
+        }
+    }
+
+    /// Clear node selection and the selection-derived focus highlight.
+    pub fn clear_selected_node(&mut self) {
+        self.selected_id = None;
+        self.clear_highlight();
+    }
+
     /// Pin a node at its current position by UUID (called from FFI).
     /// Uses existing d3-style fx/fy constraint — zero new physics code.
     pub fn pin_node(&self, uuid: &str) {
@@ -2972,6 +2991,62 @@ mod tests {
         assert!(ids.contains(&1), "should contain node b (root)");
         assert!(ids.contains(&2), "should contain node c");
         assert_eq!(ids.len(), 3);
+    }
+
+    #[test]
+    fn select_node_syncs_selection_and_neighborhood_focus() {
+        let Some(device) = Device::system_default() else {
+            return;
+        };
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+        engine.stop_physics();
+
+        let selected_uuid = engine.graph.nodes[1].uuid.clone();
+        let selected_id = engine.graph.nodes[1].id;
+
+        engine.select_node(&selected_uuid);
+
+        assert_eq!(engine.selected_id, Some(selected_id));
+        assert!(engine.renderer.highlight.active);
+        assert_eq!(engine.renderer.highlight.root_id, Some(selected_id));
+        assert!(engine.renderer.highlight.highlighted_ids.contains(&0));
+        assert!(
+            engine
+                .renderer
+                .highlight
+                .highlighted_ids
+                .contains(&selected_id)
+        );
+        assert!(engine.renderer.highlight.highlighted_ids.contains(&2));
+        assert!(engine.highlight_dirty);
+
+        engine.select_node("missing-node");
+
+        assert_eq!(engine.selected_id, None);
+        assert!(!engine.renderer.highlight.active);
+        assert!(engine.renderer.highlight.highlighted_ids.is_empty());
+        assert_eq!(engine.renderer.highlight.root_id, None);
+        assert!(engine.highlight_dirty);
+
+        engine.select_node(&selected_uuid);
+        assert_eq!(engine.selected_id, Some(selected_id));
+        assert!(engine.renderer.highlight.active);
+
+        engine.clear_selected_node();
+
+        assert_eq!(engine.selected_id, None);
+        assert!(!engine.renderer.highlight.active);
+        assert!(engine.renderer.highlight.highlighted_ids.is_empty());
+        assert_eq!(engine.renderer.highlight.root_id, None);
+        assert!(engine.highlight_dirty);
     }
 
     #[test]

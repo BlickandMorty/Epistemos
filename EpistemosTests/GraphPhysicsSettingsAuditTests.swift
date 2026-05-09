@@ -597,9 +597,31 @@ struct GraphPhysicsSettingsAuditTests {
         let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
 
         #expect(renderer.contains("float3 selection_dim_target = light"))
+        #expect(renderer.contains(": srgb_to_linear(float3(0.06, 0.06, 0.06));"))
         #expect(renderer.contains("pixel_color = mix(pixel_color, selection_dim_target"))
+        #expect(renderer.contains("float dim_alpha_floor = is_dimmed ? 0.95 : 0.85;"))
         #expect(renderer.contains("return float4(pixel_color, max(in.color.a, 0.95));"))
         #expect(renderer.contains("cinematic_pixel_nodes_apply_selection_dim_without_transparency"))
+        #expect(renderer.contains("light_and_dark_node_highlight_flags_dim_non_neighbors"))
+    }
+
+    @Test("Graph selection sync restores neighborhood focus from every selection surface")
+    func graphSelectionSyncRestoresNeighborhoodFocusFromEverySelectionSurface() throws {
+        let graphState = try loadMirroredSourceTextFile("Epistemos/Graph/GraphState.swift")
+        let header = try loadMirroredSourceTextFile("graph-engine-bridge/graph_engine.h")
+        let engine = try loadMirroredSourceTextFile("graph-engine/src/engine.rs")
+        let exports = try loadMirroredSourceTextFile("graph-engine/src/lib.rs")
+
+        #expect(graphState.contains("graph_engine_select_node(engine"))
+        #expect(graphState.contains("graph_engine_clear_selected_node(engine)"))
+        #expect(header.contains("void graph_engine_select_node(Engine* engine, const char* uuid);"))
+        #expect(header.contains("void graph_engine_clear_selected_node(Engine* engine);"))
+        #expect(engine.contains("pub fn select_node(&mut self, uuid: &str)"))
+        #expect(engine.contains("self.highlight_neighbors_by_id(node_id);"))
+        #expect(engine.contains("pub fn clear_selected_node(&mut self)"))
+        #expect(exports.contains("pub extern \"C\" fn graph_engine_select_node"))
+        #expect(exports.contains("pub extern \"C\" fn graph_engine_clear_selected_node"))
+        #expect(engine.contains("select_node_syncs_selection_and_neighborhood_focus"))
     }
 
     @MainActor

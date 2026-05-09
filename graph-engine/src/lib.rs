@@ -1035,6 +1035,26 @@ pub extern "C" fn graph_engine_highlight_neighbors(engine: *mut Engine, uuid: *c
     });
 }
 
+/// Select a node and apply selection neighborhood focus.
+/// `uuid`: null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_select_node(engine: *mut Engine, uuid: *const c_char) {
+    ffi_catch_unwind!("graph_engine_select_node", {
+        ffi_engine!(engine);
+        let uuid_str = ffi_cstr!(uuid);
+        engine.select_node(uuid_str);
+    });
+}
+
+/// Clear selected node and selection-derived focus.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_clear_selected_node(engine: *mut Engine) {
+    ffi_catch_unwind!("graph_engine_clear_selected_node", {
+        ffi_engine!(engine);
+        engine.clear_selected_node();
+    });
+}
+
 /// Clear neighbor highlighting.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear_highlight(engine: *mut Engine) {

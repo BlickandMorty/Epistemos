@@ -156,6 +156,12 @@ void graph_engine_set_extended_force_params(
 /// Highlight a node and its neighbors (shift+click behavior).
 void graph_engine_highlight_neighbors(Engine* engine, const char* uuid);
 
+/// Select a node and apply selection neighborhood focus.
+void graph_engine_select_node(Engine* engine, const char* uuid);
+
+/// Clear selected node and selection-derived focus.
+void graph_engine_clear_selected_node(Engine* engine);
+
 /// Clear neighbor highlighting.
 void graph_engine_clear_highlight(Engine* engine);
 
