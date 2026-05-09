@@ -39,7 +39,7 @@ enum GraphThemeNodePalette {
 
     private static func baseColor(for type: GraphNodeType) -> RGBA {
         switch type {
-        case .note:       return (0.39, 0.90, 0.85, 1.0)
+        case .note:       return (0.94, 0.08, 0.07, 1.0)
         case .chat:       return (1.00, 0.62, 0.04, 1.0)
         case .idea:       return (1.00, 0.84, 0.04, 1.0)
         case .source:     return (0.20, 0.78, 0.35, 1.0)
@@ -56,8 +56,8 @@ enum GraphThemeNodePalette {
         case .run:        return (0.42, 0.42, 0.78, 1.0)
         case .rawThought: return (0.74, 0.58, 0.92, 1.0)
         case .toolTrace:  return (0.46, 0.50, 0.55, 1.0)
-        case .proseNote:  return (0.34, 0.78, 0.74, 1.0)
-        case .document:   return (0.27, 0.62, 0.60, 1.0)
+        case .proseNote:  return (0.92, 0.11, 0.09, 1.0)
+        case .document:   return (0.88, 0.14, 0.12, 1.0)
         case .code:       return (0.85, 0.55, 0.18, 1.0)
         case .output:     return (0.40, 0.44, 0.50, 1.0)
         }
@@ -578,9 +578,6 @@ struct MetalGraphView: NSViewRepresentable {
 
 final class MetalGraphNSView: NSView {
     private typealias DialogueDepthColor = (r: Float, g: Float, b: Float, a: Float)
-
-    private static let dialogueLightNodeColor: DialogueDepthColor = (0.0, 0.0, 0.0, 1.0)
-    private static let dialogueDarkNodeColor: DialogueDepthColor = (1.0, 1.0, 1.0, 1.0)
 
     nonisolated(unsafe) private var engine: OpaquePointer?
     nonisolated(unsafe) private var activeDisplayLink: CADisplayLink?
@@ -2356,13 +2353,10 @@ final class MetalGraphNSView: NSView {
     private func dialogueDepthColor(
         for node: GraphNodeRecord,
         depth _: Int,
-        maxDepth _: Int
+        maxDepth _: Int,
+        theme: EpistemosTheme
     ) -> DialogueDepthColor {
-        if node.type == .folder {
-            currentLightMode ? Self.dialogueLightNodeColor : Self.dialogueDarkNodeColor
-        } else {
-            (0.0, 0.0, 0.0, 0.0)
-        }
+        GraphThemeNodePalette.color(for: node.type, theme: theme)
     }
 
     private func applyDialogueDepthPalette(for nodeIds: [String]? = nil) {
@@ -2387,7 +2381,8 @@ final class MetalGraphNSView: NSView {
                     cachedDepthColors[nodeId] = dialogueDepthColor(
                         for: node,
                         depth: depths[nodeId] ?? graphBaseDepth(for: node.type),
-                        maxDepth: maxDepth
+                        maxDepth: maxDepth,
+                        theme: resolvedTheme
                     )
                 } else {
                     cachedDepthColors[nodeId] = GraphThemeNodePalette.color(for: node.type, theme: resolvedTheme)
