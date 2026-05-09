@@ -665,6 +665,7 @@ actor VaultIndexActor {
 
                 if changeCount > 0 && changeCount.isMultiple(of: batchSize) {
                     try saveImportProgress("vault import batch progress")
+                    try synthesizeFoldersFromSubfolders()
                     log.info("Vault import progress: \(changeCount, privacy: .public) changes")
                 }
             }

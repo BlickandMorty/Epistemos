@@ -129,6 +129,7 @@ prepare_audit_bundle() {
   plist_add_dict_if_missing "${plist_path}" ":LSEnvironment"
   plist_set_string "${plist_path}" ":LSEnvironment:EPISTEMOS_SKIP_VAULT_RESTORE" "1"
   plist_set_string "${plist_path}" ":LSEnvironment:EPISTEMOS_APPLICATION_SUPPORT_ROOT" "${AUDIT_APP_SUPPORT_ROOT}"
+  plist_set_string "${plist_path}" ":LSEnvironment:EPISTEMOS_AUDIT_ALLOW_SOVEREIGN_GATE" "1"
 
   if [[ "${minimal_home}" == "1" ]]; then
     plist_set_string "${plist_path}" ":LSEnvironment:EPI_HOME_WINDOW_MINIMAL_CONTENT" "1"

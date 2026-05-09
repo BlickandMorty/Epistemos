@@ -152,6 +152,41 @@ struct SovereignGateTests {
         ])
     }
 
+    @Test("Audit launcher can bypass prompting only for the audit bundle")
+    func auditLauncherCanBypassPromptingOnlyForAuditBundle() async {
+        let auditAuthenticator = FakeAuthenticator(results: [false])
+        let auditGate = SovereignGate(
+            authenticator: auditAuthenticator,
+            processInfoEnvironment: [SovereignGate.auditBypassEnvironmentKey: "1"],
+            bundleIdentifier: "com.epistemos.audit"
+        )
+
+        #expect(
+            await auditGate.confirm(
+                .deviceOwnerAuthentication,
+                reason: "Reset audit fixture",
+                now: Date(timeIntervalSince1970: 4_100)
+            ) == .allowed
+        )
+        #expect(auditAuthenticator.requests.isEmpty)
+
+        let productionAuthenticator = FakeAuthenticator(results: [false])
+        let productionGate = SovereignGate(
+            authenticator: productionAuthenticator,
+            processInfoEnvironment: [SovereignGate.auditBypassEnvironmentKey: "1"],
+            bundleIdentifier: "com.epistemos.app"
+        )
+
+        #expect(
+            await productionGate.confirm(
+                .deviceOwnerAuthentication,
+                reason: "Reset production data",
+                now: Date(timeIntervalSince1970: 4_101)
+            ) == .denied(.authenticationFailed)
+        )
+        #expect(productionAuthenticator.requests.count == 1)
+    }
+
     @Test("Failed biometric authentication denies and does not grant grace")
     func failedBiometricAuthenticationDeniesAndDoesNotGrantGrace() async {
         let authenticator = FakeAuthenticator(results: [false, true])

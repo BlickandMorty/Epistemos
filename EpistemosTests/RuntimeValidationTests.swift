@@ -690,6 +690,7 @@ struct RuntimeValidationTests {
         #expect(script.contains("epistemos.lastVaultPath"))
         #expect(script.contains("EPISTEMOS_SKIP_VAULT_RESTORE"))
         #expect(script.contains("EPISTEMOS_APPLICATION_SUPPORT_ROOT"))
+        #expect(script.contains("EPISTEMOS_AUDIT_ALLOW_SOVEREIGN_GATE"))
         #expect(script.contains("AUDIT_APP_SUPPORT_ROOT"))
         #expect(script.contains("build/audit-app-support"))
         #expect(script.contains("clear_audit_runtime_state"))
@@ -2443,6 +2444,37 @@ struct RuntimeValidationTests {
         #expect(sidebar.contains("private nonisolated static func scanEpdocDocuments"))
         #expect(sidebar.contains("private nonisolated static func epdocTitle"))
         #expect(!sidebar.contains("cachedDocumentItems = Self.scanEpdocDocuments(in: vaultSync.vaultURL)"))
+    }
+
+    @Test("large vault imports refresh sidebar folders at batch checkpoints")
+    func largeVaultImportsRefreshSidebarFoldersAtBatchCheckpoints() throws {
+        let indexActor = try loadRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        #expect(indexActor.contains("let batchSize = 200"))
+
+        guard let saveRange = indexActor.range(
+            of: "try saveImportProgress(\"vault import batch progress\")"
+        ) else {
+            Issue.record("Missing batch progress save before folder synthesis")
+            return
+        }
+        guard let synthesizeRange = indexActor.range(
+            of: "try synthesizeFoldersFromSubfolders()",
+            range: saveRange.upperBound..<indexActor.endIndex
+        ) else {
+            Issue.record("Missing folder synthesis after batch progress save")
+            return
+        }
+        guard let progressLogRange = indexActor.range(
+            of: "log.info(\"Vault import progress:",
+            range: synthesizeRange.upperBound..<indexActor.endIndex
+        ) else {
+            Issue.record("Missing progress log after batch folder synthesis")
+            return
+        }
+
+        #expect(saveRange.lowerBound < synthesizeRange.lowerBound)
+        #expect(synthesizeRange.lowerBound < progressLogRange.lowerBound)
     }
 
     @Test("graph selection ignores redundant same-node picks")

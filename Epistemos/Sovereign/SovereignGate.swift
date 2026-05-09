@@ -49,11 +49,22 @@ protocol SovereignGateAuthenticating: AnyObject {
 
 @MainActor
 final class SovereignGate {
+    static let auditBypassEnvironmentKey = "EPISTEMOS_AUDIT_ALLOW_SOVEREIGN_GATE"
+    private static let auditBundleIdentifier = "com.epistemos.audit"
+
     private let authenticator: SovereignGateAuthenticating
+    private let processInfoEnvironment: [String: String]
+    private let bundleIdentifier: String?
     private var sensitiveApprovals: [SovereignGateCategory: Date] = [:]
 
-    init(authenticator: SovereignGateAuthenticating = LocalAuthenticationSovereignAuthenticator()) {
+    init(
+        authenticator: SovereignGateAuthenticating = LocalAuthenticationSovereignAuthenticator(),
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier
+    ) {
         self.authenticator = authenticator
+        self.processInfoEnvironment = processInfoEnvironment
+        self.bundleIdentifier = bundleIdentifier
     }
 
     @discardableResult
@@ -62,6 +73,13 @@ final class SovereignGate {
         reason: String,
         now: Date = Date()
     ) async -> SovereignGateOutcome {
+        if auditBypassEnabled(for: requirement) {
+            guard !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return .denied(.missingReason)
+            }
+            return .allowed
+        }
+
         switch requirement {
         case .none:
             return .allowed
@@ -82,6 +100,16 @@ final class SovereignGate {
 
     func clearGrace() {
         sensitiveApprovals.removeAll(keepingCapacity: true)
+    }
+
+    private func auditBypassEnabled(for requirement: SovereignGateRequirement) -> Bool {
+        guard requirement != .none,
+              bundleIdentifier == Self.auditBundleIdentifier,
+              processInfoEnvironment[Self.auditBypassEnvironmentKey] == "1"
+        else {
+            return false
+        }
+        return true
     }
 
     private func confirmBiometric(
