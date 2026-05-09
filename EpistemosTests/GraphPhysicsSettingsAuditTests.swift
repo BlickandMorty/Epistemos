@@ -539,6 +539,18 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!forces.contains("estimate_label_envelope"))
     }
 
+    @Test("Graph label density uses screen-rect overlap culling")
+    func graphLabelDensityUsesScreenRectOverlapCulling() throws {
+        let engine = try loadMirroredSourceTextFile("graph-engine/src/engine.rs")
+
+        #expect(engine.contains("fn estimated_label_screen_rect("))
+        #expect(engine.contains("occupied_label_rects"))
+        #expect(engine.contains("existing.overlaps(&label_rect)"))
+        #expect(engine.contains("let local_scale = 1.0 - 0.50 * smoothstep"))
+        #expect(engine.contains("label_screen_rect_overlap_detects_actual_text_width"))
+        #expect(engine.contains("crowded_labels_shrink_aggressively_before_culling"))
+    }
+
     @Test("Graph edge thickness derives from edge weight")
     func graphEdgeThicknessDerivesFromEdgeWeight() throws {
         let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
