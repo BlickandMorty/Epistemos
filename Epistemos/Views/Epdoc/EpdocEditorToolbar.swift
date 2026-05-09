@@ -152,12 +152,36 @@ public struct EpdocEditorToolbar: View {
 
     @ViewBuilder
     private var structureGroup: some View {
-        // H1...H6 cycle button — long-press surfaces the level picker;
-        // single click toggles paragraph ↔ H1.
-        toolButton(symbol: "h.square",      shortcut: "⌘1...6",
-                   isActive: model.activeHeadingLevel != nil,
-                   tip: model.activeHeadingLevel.map { "Heading \($0)" } ?? "Heading 1",
-                   command: .insertSlashChoice(blockType: "heading-1"))
+        Menu {
+            Button("Paragraph") {
+                model.dispatch(.runCommand(name: "setParagraph", argsJSON: emptyArgs))
+            }
+            Divider()
+            ForEach(1...6, id: \.self) { level in
+                Button("Heading \(level)") {
+                    model.dispatch(.runCommand(
+                        name: "setHeadingLevel",
+                        argsJSON: headingArgsJSON(level: level)
+                    ))
+                }
+            }
+        } label: {
+            Label(headingMenuTip, systemImage: "h.square")
+                .labelStyle(.iconOnly)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 24, height: 24)
+        }
+        .menuStyle(.borderlessButton)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(model.activeHeadingLevel != nil ? Color.accentColor.opacity(0.15) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(model.activeHeadingLevel != nil ? Color.accentColor.opacity(0.45) : Color.clear, lineWidth: 1)
+        )
+        .help(headingMenuTip + " (⌘1...6)")
+        .accessibilityLabel(Text(headingMenuTip))
         toolButton(symbol: "text.quote",    shortcut: "⌘⇧.",
                    tip: "Quote",          command: .insertSlashChoice(blockType: "blockquote"))
         toolButton(symbol: "list.bullet",   shortcut: "⌘⇧8",
@@ -211,9 +235,17 @@ public struct EpdocEditorToolbar: View {
             .padding(.horizontal, 2)
     }
 
+    private var headingMenuTip: String {
+        model.activeHeadingLevel.map { "Heading \($0)" } ?? "Paragraph / Heading"
+    }
+
     /// Convenience constant for commands that don't take args.
     private var emptyArgs: Data {
         "[]".data(using: .utf8) ?? Data()
+    }
+
+    private func headingArgsJSON(level: Int) -> Data {
+        commandArgsJSON([HeadingCommandArgs(level: level)])
     }
 
     private func promptAndDispatchLink() {
@@ -290,6 +322,10 @@ public struct EpdocEditorToolbar: View {
     private struct ImageCommandArgs: Encodable {
         let src: String
         let alt: String
+    }
+
+    private struct HeadingCommandArgs: Encodable {
+        let level: Int
     }
 
     private static func imageMIMEType(for url: URL) -> String {

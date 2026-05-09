@@ -6,6 +6,7 @@
 // Tiptap editor; unknown commands return false (callers can fall back).
 
 import type { Editor } from '@tiptap/core';
+import type { ResolvedPos } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import type { RectPayload, SelectionPayload } from './outbound';
 import { postBridge } from './outbound';
@@ -112,6 +113,24 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
         }
         return didRun;
       }
+      if (name === 'setHeadingLevel') {
+        const level = headingLevelFromArgs(args);
+        if (level === null) return false;
+        const didRun = setHeadingLevel(editor, level);
+        if (didRun) {
+          postDocumentStats(editor);
+          postDocumentSnapshot(editor);
+        }
+        return didRun;
+      }
+      if (name === 'setParagraph') {
+        const didRun = setParagraph(editor);
+        if (didRun) {
+          postDocumentStats(editor);
+          postDocumentSnapshot(editor);
+        }
+        return didRun;
+      }
       if (name === 'completeImageAssetRequest') {
         const response = imageAssetResponseArgs(args);
         if (!response) return false;
@@ -135,6 +154,67 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
     },
   };
   window.epistemos = epistemos;
+}
+
+function setHeadingLevel(editor: Editor, level: number): boolean {
+  if (!Number.isInteger(level) || level < 1 || level > 6) return false;
+
+  const { state, view } = editor;
+  const depth = textblockDepth(state.selection.$from);
+  if (depth === null || depth <= 0) return false;
+
+  const node = state.selection.$from.node(depth);
+  const headingType = state.schema.nodes.heading;
+  const paragraphType = state.schema.nodes.paragraph;
+  if (!headingType || !paragraphType || !node.isTextblock) return false;
+
+  const position = state.selection.$from.before(depth);
+  const baseAttrs: Record<string, unknown> = { ...(node.attrs as Record<string, unknown>) };
+  delete baseAttrs.level;
+
+  const isSameHeading = node.type === headingType && node.attrs.level === level;
+  const nextType = isSameHeading ? paragraphType : headingType;
+  const nextAttrs = isSameHeading ? baseAttrs : { ...baseAttrs, level };
+  const tr = state.tr.setNodeMarkup(position, nextType, nextAttrs).scrollIntoView();
+  view.dispatch(tr);
+  view.focus();
+  return true;
+}
+
+function setParagraph(editor: Editor): boolean {
+  const { state, view } = editor;
+  const depth = textblockDepth(state.selection.$from);
+  if (depth === null || depth <= 0) return false;
+
+  const node = state.selection.$from.node(depth);
+  const paragraphType = state.schema.nodes.paragraph;
+  if (!paragraphType || !node.isTextblock) return false;
+  if (node.type === paragraphType) {
+    view.focus();
+    return true;
+  }
+
+  const position = state.selection.$from.before(depth);
+  const baseAttrs: Record<string, unknown> = { ...(node.attrs as Record<string, unknown>) };
+  delete baseAttrs.level;
+  const tr = state.tr.setNodeMarkup(position, paragraphType, baseAttrs).scrollIntoView();
+  view.dispatch(tr);
+  view.focus();
+  return true;
+}
+
+function textblockDepth($pos: ResolvedPos): number | null {
+  for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+    if ($pos.node(depth).isTextblock) return depth;
+  }
+  return null;
+}
+
+function headingLevelFromArgs(args: unknown[]): number | null {
+  const first = args[0];
+  if (typeof first !== 'object' || first === null) return null;
+  const rawLevel = (first as { level?: unknown }).level;
+  return typeof rawLevel === 'number' && Number.isInteger(rawLevel) ? rawLevel : null;
 }
 
 function toggleEpdocCodeBlock(editor: Editor): boolean {
