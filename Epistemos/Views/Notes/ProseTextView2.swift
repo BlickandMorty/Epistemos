@@ -416,6 +416,9 @@ final class ProseTextView2: NSTextView {
         super.didChangeText()
         // Synchronous reparse — no debounce. Rust FFI is fast enough for per-keystroke.
         reparseAndInvalidate()
+        Task { @MainActor in
+            AppBootstrap.shared?.activityTracker.recordInAppActivity()
+        }
         notifyFrictionMonitorEdit()
     }
 

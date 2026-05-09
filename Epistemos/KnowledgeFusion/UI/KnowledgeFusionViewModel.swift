@@ -8,7 +8,7 @@ enum KFTrainingState: String, Sendable {
     case parsing = "Parsing vault..."
     case generating = "Generating training data..."
     case training = "Training adapter..."
-    case evaluating = "Evaluating..."
+    case registering = "Registering adapter..."
     case complete = "Complete"
     case error = "Error"
 }
@@ -355,8 +355,10 @@ final class KnowledgeFusionViewModel {
                 }
             }
 
-            // Phase 4: Register
-            trainingState = .evaluating
+            // Phase 4: Register. Quality/deploy evaluation is not wired
+            // for v1, so newly trained adapters stay inactive until the
+            // user explicitly activates them from Settings.
+            trainingState = .registering
             progress = KFProgress(phase: "Registering adapter...", percentage: 0.95, eta: nil)
 
             let record = AdapterRecord(
@@ -376,11 +378,8 @@ final class KnowledgeFusionViewModel {
             )
 
             try await registry.register(record)
-
-            // Auto-activate the newly trained adapter so it's immediately in use
-            try await registry.setActive(record.id, active: true)
             installedAdapters = await registry.listAdapters()
-            activeAdapter = record
+            activeAdapter = await registry.getActiveAdapters().first
 
             // Phase 5: Generate skill files
             progress = KFProgress(phase: "Generating skill files...", percentage: 0.96, eta: nil)
@@ -403,7 +402,7 @@ final class KnowledgeFusionViewModel {
             }
 
             trainingState = .complete
-            progress = KFProgress(phase: "Complete — adapter active, skills generated", percentage: 1.0, eta: nil)
+            progress = KFProgress(phase: "Complete — adapter registered, activate after review", percentage: 1.0, eta: nil)
 
         } catch {
             lastTrainingError = error.localizedDescription

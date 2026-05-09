@@ -4,11 +4,12 @@ import SwiftUI
 /// I-16 (bit-perfect stepped pixels, no anti-aliasing). Each body family is
 /// drawn into a logical 48×48 grid; cells are rendered as discrete squares
 /// (floor/ceil to integer pixel boundaries) so the silhouette reads as 8-bit
-/// pixel-art at the 96pt Farm node size.
+/// pixel-art at the Farm node size.
 ///
-/// The grid is canonical: Orb is a 32px stepped circle in 48×48; Block is a
-/// 48×48 (Compact) or 64×48-stretched (Wide) silhouette; Sage is a 48×64
-/// humanoid squished into the same 48×48 quad with discrete head/body/legs.
+/// The grid is canonical: Block is a 48×48 (Compact) or
+/// 64×48-stretched (Wide) silhouette; Sage is a 48×64 humanoid squished into
+/// the same 48×48 quad with discrete head/body/legs. Legacy Orb rows are
+/// decoded but rendered as compact block agents in v1.
 ///
 /// Animation: phase 0…1 drives the canonical state's frame index via
 /// CompanionAnimationState.frameIndex; idle = ±1px drift / sway, walk =
@@ -42,7 +43,6 @@ struct CompanionAvatarGlyph: View {
                     width: floor(side),
                     height: floor(side)
                 )
-                Self.drawHalo(context: &context, rect: rect, accent: accent, phase: clampedPhase)
                 Self.drawBody(
                     context: &context,
                     rect: rect,
@@ -52,7 +52,6 @@ struct CompanionAvatarGlyph: View {
                     state: reduceMotion ? .idle : state
                 )
             }
-            .drawingGroup()
             if showsIdleBadge {
                 Text("idle")
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -77,7 +76,20 @@ struct CompanionAvatarGlyph: View {
         let frameOffset = stepOffset(phase: phase, state: state)
         switch kind.family {
         case .orb:
-            drawOrb(context: &context, rect: rect, palette: palette, phase: phase, state: state, offset: frameOffset)
+            // Preserve the old Orb renderer below for source history, but do
+            // not surface circular orb companions in v1.
+            drawBlock(
+                context: &context,
+                rect: rect,
+                palette: palette,
+                phase: phase,
+                state: state,
+                offset: frameOffset,
+                aspect: .compact,
+                legs: .stubs,
+                antennae: .none,
+                eyeTreatment: .filled
+            )
         case .block:
             drawBlock(
                 context: &context,
@@ -133,23 +145,6 @@ struct CompanionAvatarGlyph: View {
         let dy: Int
         let leftLeg: Int
         let rightLeg: Int
-    }
-
-    // MARK: - Halo (cosmetic glow ring; not pixel-art — Invariant I-16
-    // applies to the body silhouette, the halo is a cosmetic glow per
-    // Simulation §10.7 smooth category).
-
-    private static func drawHalo(
-        context: inout GraphicsContext,
-        rect: CGRect,
-        accent: Color,
-        phase: CGFloat
-    ) {
-        let pulse = 0.72 + 0.18 * phase
-        let halo = Path(ellipseIn: rect.insetBy(dx: rect.width * 0.04, dy: rect.height * 0.04))
-        context.fill(halo, with: .color(accent.opacity(0.10 + 0.06 * phase)))
-        let inner = Path(ellipseIn: rect.insetBy(dx: rect.width * 0.18 * pulse, dy: rect.height * 0.18 * pulse))
-        context.fill(inner, with: .color(accent.opacity(0.08)))
     }
 
     // MARK: - Orb
@@ -269,21 +264,8 @@ struct CompanionAvatarGlyph: View {
             }
         }
 
-        // Vertical accent spine through the middle (per Block(Wide) DNA).
-        if aspect == .wide {
-            let spineX = appliedLeft + bodyWidth / 2
-            for y in 0..<bodyHeight {
-                fillCell(context: &context, rect: rect, x: spineX, y: appliedTop + y, color: palette.accent)
-            }
-        }
-
-        // Belt accent for Compact (1-cell horizontal stripe at body midpoint).
-        if aspect == .compact {
-            let beltY = appliedTop + bodyHeight - 8
-            for x in 0..<bodyWidth {
-                fillCell(context: &context, rect: rect, x: appliedLeft + x, y: beltY, color: palette.accent)
-            }
-        }
+        // Keep the tiny landing glyphs as solid body silhouettes. Earlier
+        // inner belt/spine cells read as stray grid squares at 38pt dock size.
 
         // Eyes (filled vs. negative-space).
         let eyeY = appliedTop + 8
@@ -311,15 +293,8 @@ struct CompanionAvatarGlyph: View {
             }
         }
 
-        // Mouth — small horizontal accent beneath the eyes (Compact only;
-        // Wide reads via eye-cutout pulse per DNA).
-        if aspect == .compact {
-            let mouthY = eyeY + 6
-            let mouthX0 = appliedLeft + bodyWidth / 2 - 3
-            for col in 0..<6 {
-                fillCell(context: &context, rect: rect, x: mouthX0 + col, y: mouthY, color: Color.black.opacity(0.46))
-            }
-        }
+        // No small mouth/belt pixels: the dock-size bodies should read as
+        // clean Claude-Code-like silhouettes, not subdivided grid blocks.
 
         // Legs.
         let legBaseY = appliedTop + bodyHeight
@@ -441,11 +416,7 @@ struct CompanionAvatarGlyph: View {
             }
         }
 
-        // Belt accent (1-cell horizontal stripe at body midpoint).
-        let beltY = bodyTop + bodyHeight / 2
-        for x in 0..<bodyWidth {
-            fillCell(context: &context, rect: rect, x: baseLeft + x, y: beltY, color: palette.accent)
-        }
+        // No robe belt at landing scale; it read as tiny separated squares.
 
         // Arms (3 cells wide × 8 cells tall, hanging from body's upper edge).
         let armTop = bodyTop + 2

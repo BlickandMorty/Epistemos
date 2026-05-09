@@ -12,6 +12,10 @@
 // The atlas is generated at build time with:
 //     scripts/generate-sdf-atlas.sh
 //
+// The default v1 graph atlas is JetBrains Mono: monospaced enough to match the
+// pixel graph identity, but cleaner than the old blocky retro face at graph
+// label sizes.
+//
 // Critical flags when loading the texture (per Tier 1 §A4):
 //   - SRGB: false  (atlas stores distances, NOT colors — sRGB gamma
 //                   decoding would corrupt the distance field)
@@ -207,7 +211,7 @@ enum SDFLabelAtlasLoader {
     /// msdf-atlas-gen JSON schema (keys we consume):
     /// ```
     /// {
-    ///   "atlas": { "width": 512, "height": 512, "distanceRange": 6, ... },
+    ///   "atlas": { "width": 1024, "height": 1024, "distanceRange": 6, ... },
     ///   "metrics": { "emSize": 1, "lineHeight": 1.2, ... },
     ///   "glyphs": [
     ///     { "unicode": 65,

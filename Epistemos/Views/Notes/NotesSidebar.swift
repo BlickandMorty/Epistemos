@@ -554,6 +554,9 @@ struct NotesSidebar: View {
         ui.notesSidebarBackground
     }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
+    private var hasDisconnectedCachedContent: Bool {
+        vaultSync.vaultURL == nil && (!cachedPageItems.isEmpty || !cachedFolderItems.isEmpty)
+    }
 
     nonisolated static func shouldDisplayInPrimaryTree(
         _ page: SDPage,
@@ -783,6 +786,11 @@ struct NotesSidebar: View {
                 edges: .top
             )
             searchBar
+            if hasDisconnectedCachedContent {
+                DisconnectedCachedVaultNotice()
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+            }
             fileTree(folderItemById: fById, onAction: onAct)
             // Pass 10 — per-model vaults + involvement view. Collapsed
             // by default (@AppStorage-backed) so it never disrupts the
@@ -791,11 +799,9 @@ struct NotesSidebar: View {
             // than inside `fileTree` because it's a parallel top-level
             // surface, not part of the vault's note hierarchy.
             Divider().opacity(0.15)
-            // W9.7 — Vault selector. Today shows the active vault as
-            // a single confirmed row; multi-vault rendering activates
-            // once `VaultLifecycleService.knownVaults` ships (next
-            // PR). The presence of this row is the WRV-visible signal
-            // that the selector pipeline is wired.
+            // W9.7 — Vault status. Today the app can only confirm the
+            // active vault in this sidebar. Keep the row read-only until
+            // a real known-vault list and switch path are mounted.
             VaultSelectorView(
                 vaults: [
                     .init(
@@ -805,11 +811,7 @@ struct NotesSidebar: View {
                         isActive: true
                     )
                 ],
-                onSelect: { _ in
-                    // No-op until the multi-vault data source lands;
-                    // the row already shows the user the selector
-                    // exists so the WRV gate is satisfied.
-                }
+                selectionEnabled: false
             )
             ModelVaultsSidebarSection(onSelectPage: onSelectPage)
                 .padding(.horizontal, 10)
@@ -2811,6 +2813,40 @@ private struct EmptyTreeState: View {
     }
 }
 
+private struct DisconnectedCachedVaultNotice: View {
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Disconnected Local Cache")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.resolved.foreground.color)
+                Text("Rows below are cached local note/graph data. Select a vault before creating, syncing, or trusting disk freshness.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(theme.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(theme.resolved.accent.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(theme.resolved.accent.color.opacity(0.22), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Disconnected Local Cache")
+        .accessibilityHint("Cached local note and graph rows are visible, but no vault is connected.")
+    }
+}
+
 // MARK: - Editor Actions Bar
 // ISOLATED View struct — uses @Query for dirty pages instead of reading
 // vaultSync.dirtyPageCount. SwiftData only re-evaluates when the filtered
@@ -2835,13 +2871,22 @@ private struct EditorActionsBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            SidebarIconButton(icon: "square.and.pencil", tooltip: "New Page") {
+            SidebarIconButton(
+                icon: "square.and.pencil",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Page" : "New Page"
+            ) {
                 onNewPage()
             }
-            SidebarIconButton(icon: "doc.badge.plus", tooltip: "New Document (.epdoc)") {
+            SidebarIconButton(
+                icon: "doc.badge.plus",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Document" : "New Document (.epdoc)"
+            ) {
                 onNewDocument()
             }
-            SidebarIconButton(icon: "folder.badge.plus", tooltip: "New Folder") {
+            SidebarIconButton(
+                icon: "folder.badge.plus",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Folder" : "New Folder"
+            ) {
                 onNewFolder()
             }
             if NotesSidebarMetrics.showsBottomCollectionButton {
@@ -2849,7 +2894,10 @@ private struct EditorActionsBar: View {
                     onNewCollection()
                 }
             }
-            SidebarIconButton(icon: "calendar.badge.plus", tooltip: "New Daily Note") {
+            SidebarIconButton(
+                icon: "calendar.badge.plus",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Daily Note" : "New Daily Note"
+            ) {
                 onTodayJournal()
             }
 
@@ -2859,13 +2907,19 @@ private struct EditorActionsBar: View {
                 .frame(height: 14)
                 .padding(.horizontal, 2)
 
-            SidebarIconButton(icon: "square.and.arrow.down", tooltip: "Save (⌘S)") {
+            SidebarIconButton(
+                icon: "square.and.arrow.down",
+                tooltip: vaultSync.vaultURL == nil ? "No Vault Connected" : "Save (⌘S)"
+            ) {
                 if let pageId = activePageId {
                     vaultSync.savePage(pageId: pageId)
                 }
             }
 
-            SidebarIconButton(icon: "arrow.down.doc", tooltip: "Save All (⇧⌘S)") {
+            SidebarIconButton(
+                icon: "arrow.down.doc",
+                tooltip: vaultSync.vaultURL == nil ? "No Vault Connected" : "Save All (⇧⌘S)"
+            ) {
                 vaultSync.saveAllDirtyPages()
             }
             .overlay(alignment: .topTrailing) {
@@ -2938,6 +2992,9 @@ private struct VaultConnectionButton: View {
                 }
                 .disabled(isVaultDisconnectAuthorizationInFlight)
             } else {
+                Text("Disconnected Local Cache")
+                Text("Rows in Notes/Graph may be cached local data until a vault is selected.")
+                Divider()
                 Button("Select Vault Folder") {
                     VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
                 }

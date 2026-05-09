@@ -143,6 +143,31 @@ struct Phase7BridgeAgentEventTests {
         #expect(Phase7Bridge.supportedJobAliases["event_checkpoint"] == .eventStoreCheckpointVacuum)
     }
 
+    @Test("Immediate NightBrain priority is recorded explicitly")
+    func immediateNightBrainPriorityIsRecordedExplicitly() async throws {
+        var captured: [AgentProvenanceEvent] = []
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 457_500 },
+            persist: { event in
+                captured.append(event)
+                return true
+            }
+        )
+        let bridge = Phase7Bridge(
+            bootstrapProvider: { nil },
+            agentProvenanceRecorder: recorder
+        )
+
+        _ = await bridge.triggerNightbrainJob(
+            jobType: "maintenance_log",
+            priority: "immediate"
+        )
+
+        #expect(captured.allSatisfy { $0.metadata["priority_class"] == "immediate" })
+        let arguments = try Self.jsonObject(from: try #require(captured.first?.tool?.argumentsJSON))
+        #expect(arguments["priority_class"] as? String == "immediate")
+    }
+
     private static func jsonObject(from response: String) throws -> [String: Any] {
         let data = try #require(response.data(using: .utf8))
         return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])

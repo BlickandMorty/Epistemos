@@ -182,7 +182,7 @@ struct GraphForceSettings: View {
 
     private func renderModeSection(gs: Bindable<GraphState>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Mode", icon: graphState.performanceModeEnabled ? "speedometer" : "water.waves")
+            sectionHeader("Mode", icon: graphState.performanceModeEnabled ? "speedometer" : "square.grid.3x3")
 
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -191,7 +191,7 @@ struct GraphForceSettings: View {
                         .foregroundStyle(.secondary)
                     Text(graphState.performanceModeEnabled
                          ? "Simple shading and straight edges for the fastest large-graph view."
-                         : "Water nodes are on by default with the full graph surface.")
+                         : "Hard stepped pixel nodes with the full graph surface.")
                         .font(.system(size: 9))
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)

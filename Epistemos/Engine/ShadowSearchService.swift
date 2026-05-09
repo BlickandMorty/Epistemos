@@ -12,6 +12,118 @@ private enum ShadowSearchFailureClass: String, Sendable {
     case unknownError = "unknown_error"
 }
 
+// MARK: - ShadowSearchDiagnostics
+
+/// Process-local health snapshot for the Halo/Shadow search bridge.
+///
+/// The hot path still returns `[]` on backend errors so Halo does not
+/// throw during typing. This diagnostic surface records only closed
+/// failure classes and counters, never raw backend detail strings.
+nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
+    public struct Snapshot: Equatable, Sendable {
+        public let totalSearches: UInt64
+        public let totalFailures: UInt64
+        public let consecutiveFailures: UInt64
+        public let lastDomain: String?
+        public let lastHitCount: Int?
+        public let lastLatencyMs: Double?
+        public let lastSuccessAt: Date?
+        public let lastFailureAt: Date?
+        public let lastFailureClass: String?
+
+        public var isDegraded: Bool {
+            guard let lastFailureAt, lastFailureClass != ShadowSearchFailureClass.cancelled.rawValue else {
+                return false
+            }
+            guard let lastSuccessAt else { return true }
+            return lastFailureAt >= lastSuccessAt
+        }
+
+        public static let empty = Snapshot(
+            totalSearches: 0,
+            totalFailures: 0,
+            consecutiveFailures: 0,
+            lastDomain: nil,
+            lastHitCount: nil,
+            lastLatencyMs: nil,
+            lastSuccessAt: nil,
+            lastFailureAt: nil,
+            lastFailureClass: nil
+        )
+    }
+
+    public static let shared = ShadowSearchDiagnostics()
+    public static let didChangeNotification = Notification.Name("EpistemosShadowSearchDiagnosticsDidChange")
+
+    private let lock = NSLock()
+    private var current: Snapshot = .empty
+
+    public func snapshot() -> Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        return current
+    }
+
+    public func reset() {
+        update(.empty)
+    }
+
+    fileprivate func recordSuccess(domain: ShadowDomain, hitCount: Int, latencyMs: Double) {
+        lock.lock()
+        let next = Snapshot(
+            totalSearches: current.totalSearches + 1,
+            totalFailures: current.totalFailures,
+            consecutiveFailures: 0,
+            lastDomain: domain.wireValue,
+            lastHitCount: hitCount,
+            lastLatencyMs: Self.safeLatency(latencyMs),
+            lastSuccessAt: Date(),
+            lastFailureAt: current.lastFailureAt,
+            lastFailureClass: nil
+        )
+        current = next
+        lock.unlock()
+        postChange()
+    }
+
+    fileprivate func recordFailure(domain: ShadowDomain, failureClass: ShadowSearchFailureClass, latencyMs: Double) {
+        lock.lock()
+        let next = Snapshot(
+            totalSearches: current.totalSearches + 1,
+            totalFailures: current.totalFailures + 1,
+            consecutiveFailures: current.consecutiveFailures + 1,
+            lastDomain: domain.wireValue,
+            lastHitCount: 0,
+            lastLatencyMs: Self.safeLatency(latencyMs),
+            lastSuccessAt: current.lastSuccessAt,
+            lastFailureAt: Date(),
+            lastFailureClass: failureClass.rawValue
+        )
+        current = next
+        lock.unlock()
+        postChange()
+    }
+
+    private func update(_ snapshot: Snapshot) {
+        lock.lock()
+        current = snapshot
+        lock.unlock()
+        postChange()
+    }
+
+    private func postChange() {
+        NotificationCenter.default.post(
+            name: Self.didChangeNotification,
+            object: self
+        )
+    }
+
+    private static func safeLatency(_ value: Double) -> Double {
+        guard value.isFinite, value >= 0 else { return 0 }
+        return value
+    }
+}
+
 // MARK: - ShadowSearchService
 //
 // Wave 8.3 of the Extended Program Plan
@@ -92,6 +204,11 @@ public actor ShadowSearchService: ShadowSearchServicing {
 
         let startedAt = Date()
         if Task.isCancelled {
+            ShadowSearchDiagnostics.shared.recordFailure(
+                domain: domain,
+                failureClass: .cancelled,
+                latencyMs: 0
+            )
             await recordShadowSearchFailure(
                 runID: runID,
                 actor: actor,
@@ -181,6 +298,11 @@ public actor ShadowSearchService: ShadowSearchServicing {
                 status: .completed,
                 metadata: completedMetadata
             )
+            ShadowSearchDiagnostics.shared.recordSuccess(
+                domain: domain,
+                hitCount: hits.count,
+                latencyMs: elapsed
+            )
             return hits
         } catch {
             Sig.storage.endInterval("shadow.search.total.ms", totalSignpostState)
@@ -189,6 +311,11 @@ public actor ShadowSearchService: ShadowSearchServicing {
                 ? .cancelled
                 : shadowSearchFailureClass(for: error)
             log.warning("shadow search failed: \(String(describing: error), privacy: .public)")
+            ShadowSearchDiagnostics.shared.recordFailure(
+                domain: domain,
+                failureClass: failureClass,
+                latencyMs: elapsed
+            )
             await recordShadowSearchFailure(
                 runID: runID,
                 actor: actor,
@@ -206,7 +333,23 @@ public actor ShadowSearchService: ShadowSearchServicing {
     /// Direct typed search — used by callers that want to surface the
     /// underlying error (e.g. the developer panel).
     public func searchOrThrow(text: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {
-        try client.search(query: text, domain: domain, limit: limit)
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let hits = try client.search(query: text, domain: domain, limit: limit)
+            ShadowSearchDiagnostics.shared.recordSuccess(
+                domain: domain,
+                hitCount: hits.count,
+                latencyMs: (CFAbsoluteTimeGetCurrent() - start) * 1_000
+            )
+            return hits
+        } catch {
+            ShadowSearchDiagnostics.shared.recordFailure(
+                domain: domain,
+                failureClass: shadowSearchFailureClass(for: error),
+                latencyMs: (CFAbsoluteTimeGetCurrent() - start) * 1_000
+            )
+            throw error
+        }
     }
 
     /// Read-only stats snapshot for the developer panel.

@@ -23,16 +23,22 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use lettre::message::{header::ContentType, Message as EmailMessage};
+use lettre::message::{Message as EmailMessage, header::ContentType};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_MESSAGE_LEN: usize = 4_096;
+const MAX_TARGET_CHARS: usize = 2_048;
+const MAX_WEBHOOK_URL_CHARS: usize = 4_096;
+const MAX_ROOM_ID_CHARS: usize = 512;
+const MAX_RECIPIENTS: usize = 50;
+const MAX_RECIPIENT_CHARS: usize = 512;
+const MAX_EMAIL_SUBJECT_CHARS: usize = 998;
 /// Email bodies (text-only, no attachments) can be longer than chat messages —
 /// bump the cap for the email platform only.
 const MAX_EMAIL_LEN: usize = 32_768;
@@ -76,6 +82,7 @@ impl ToolHandler for SendMessageHandler {
                 "message cannot be empty".into(),
             ));
         }
+        let message_chars = message.chars().count();
 
         // Per-platform cap — email gets a larger budget than chat platforms.
         let effective_cap = if platform.eq_ignore_ascii_case("email") {
@@ -83,20 +90,52 @@ impl ToolHandler for SendMessageHandler {
         } else {
             MAX_MESSAGE_LEN
         };
-        if message.len() > effective_cap {
+        if message_chars > effective_cap {
             return Err(ToolError::InvalidArguments(format!(
                 "message exceeds {effective_cap} char cap for platform '{platform}'"
             )));
         }
 
-        let target = input.get("target").and_then(Value::as_str);
-        let webhook_override = input.get("webhook_url").and_then(Value::as_str);
+        let target = optional_string(input, "target")?;
+        if let Some(target) = target {
+            ensure_char_cap("target", target, MAX_TARGET_CHARS)?;
+        }
+        let webhook_override = optional_string(input, "webhook_url")?;
+        if let Some(webhook_url) = webhook_override {
+            ensure_char_cap("webhook_url", webhook_url, MAX_WEBHOOK_URL_CHARS)?;
+        }
+        let allow_custom_webhook_url =
+            optional_bool(input, "allow_custom_webhook_url")?.unwrap_or(false);
 
         match platform.to_ascii_lowercase().as_str() {
-            "slack" => send_slack(&self.client, &message, webhook_override).await,
+            "slack" => {
+                send_slack(
+                    &self.client,
+                    &message,
+                    webhook_override,
+                    allow_custom_webhook_url,
+                )
+                .await
+            }
             "telegram" => send_telegram(&self.client, &message, target).await,
-            "discord" => send_discord(&self.client, &message, webhook_override).await,
-            "webhook" => send_webhook(&self.client, &message, webhook_override).await,
+            "discord" => {
+                send_discord(
+                    &self.client,
+                    &message,
+                    webhook_override,
+                    allow_custom_webhook_url,
+                )
+                .await
+            }
+            "webhook" => {
+                send_webhook(
+                    &self.client,
+                    &message,
+                    webhook_override,
+                    allow_custom_webhook_url,
+                )
+                .await
+            }
             "matrix" => send_matrix(&self.client, &message, target, input).await,
             "whatsapp" => send_whatsapp(&self.client, &message, target, input).await,
             "signal" => send_signal(&self.client, &message, target, input).await,
@@ -114,9 +153,14 @@ async fn send_slack(
     client: &Client,
     message: &str,
     webhook_override: Option<&str>,
+    allow_custom_webhook_url: bool,
 ) -> Result<String, ToolError> {
+    let chars_sent = message.chars().count();
     let webhook = match webhook_override {
-        Some(url) => url.to_string(),
+        Some(url) => {
+            require_custom_webhook_url("slack", allow_custom_webhook_url)?;
+            url.to_string()
+        }
         None => std::env::var("SLACK_WEBHOOK_URL").map_err(|_| {
             ToolError::ExecutionFailed(
                 "SLACK_WEBHOOK_URL not set and no webhook_url provided".into(),
@@ -131,20 +175,19 @@ async fn send_slack(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("slack request: {e}")))?;
+        .map_err(|e| {
+            ToolError::ExecutionFailed(describe_communication_request_error("slack", e))
+        })?;
 
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(ToolError::ExecutionFailed(format!(
-            "slack HTTP {status}: {text}"
-        )));
+        return Err(communication_http_error("slack", status));
     }
     Ok(json!({
         "success": true,
         "platform": "slack",
         "status": status,
-        "chars_sent": message.len(),
+        "chars_sent": chars_sent,
     })
     .to_string())
 }
@@ -156,6 +199,7 @@ async fn send_telegram(
     message: &str,
     target: Option<&str>,
 ) -> Result<String, ToolError> {
+    let chars_sent = message.chars().count();
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
         .map_err(|_| ToolError::ExecutionFailed("TELEGRAM_BOT_TOKEN not set".into()))?;
     let chat_id = target
@@ -173,27 +217,27 @@ async fn send_telegram(
         "text": message,
         "parse_mode": "Markdown",
     });
-    let resp = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("telegram request: {e}")))?;
+    let resp = client.post(&url).json(&body).send().await.map_err(|e| {
+        ToolError::ExecutionFailed(describe_communication_request_error("telegram", e))
+    })?;
     let status = resp.status().as_u16();
+    if !resp.status().is_success() {
+        return Err(communication_http_error("telegram", status));
+    }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("telegram parse: {e}")))?;
+        .map_err(|_| communication_parse_error("telegram"))?;
     if !payload.get("ok").and_then(Value::as_bool).unwrap_or(false) {
         return Err(ToolError::ExecutionFailed(format!(
-            "telegram sendMessage failed (status {status}): {payload}"
+            "telegram sendMessage failed (status {status})"
         )));
     }
     Ok(json!({
         "success": true,
         "platform": "telegram",
         "chat_id": chat_id,
-        "chars_sent": message.len(),
+        "chars_sent": chars_sent,
     })
     .to_string())
 }
@@ -204,9 +248,14 @@ async fn send_discord(
     client: &Client,
     message: &str,
     webhook_override: Option<&str>,
+    allow_custom_webhook_url: bool,
 ) -> Result<String, ToolError> {
+    let chars_sent = message.chars().count();
     let webhook = match webhook_override {
-        Some(url) => url.to_string(),
+        Some(url) => {
+            require_custom_webhook_url("discord", allow_custom_webhook_url)?;
+            url.to_string()
+        }
         None => std::env::var("DISCORD_WEBHOOK_URL").map_err(|_| {
             ToolError::ExecutionFailed(
                 "DISCORD_WEBHOOK_URL not set and no webhook_url provided".into(),
@@ -221,19 +270,18 @@ async fn send_discord(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("discord request: {e}")))?;
+        .map_err(|e| {
+            ToolError::ExecutionFailed(describe_communication_request_error("discord", e))
+        })?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(ToolError::ExecutionFailed(format!(
-            "discord HTTP {status}: {text}"
-        )));
+        return Err(communication_http_error("discord", status));
     }
     Ok(json!({
         "success": true,
         "platform": "discord",
         "status": status,
-        "chars_sent": message.len(),
+        "chars_sent": chars_sent,
     })
     .to_string())
 }
@@ -244,31 +292,28 @@ async fn send_webhook(
     client: &Client,
     message: &str,
     webhook_override: Option<&str>,
+    allow_custom_webhook_url: bool,
 ) -> Result<String, ToolError> {
+    let chars_sent = message.chars().count();
     let webhook = webhook_override.ok_or_else(|| {
         ToolError::InvalidArguments("platform='webhook' requires 'webhook_url' argument".into())
     })?;
+    require_custom_webhook_url("webhook", allow_custom_webhook_url)?;
     validate_outbound_url(webhook)?;
 
     let body = json!({ "text": message });
-    let resp = client
-        .post(webhook)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("webhook request: {e}")))?;
+    let resp = client.post(webhook).json(&body).send().await.map_err(|e| {
+        ToolError::ExecutionFailed(describe_communication_request_error("webhook", e))
+    })?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(ToolError::ExecutionFailed(format!(
-            "webhook HTTP {status}: {text}"
-        )));
+        return Err(communication_http_error("webhook", status));
     }
     Ok(json!({
         "success": true,
         "platform": "webhook",
         "status": status,
-        "chars_sent": message.len(),
+        "chars_sent": chars_sent,
     })
     .to_string())
 }
@@ -289,14 +334,16 @@ async fn send_matrix(
     target: Option<&str>,
     input: &Value,
 ) -> Result<String, ToolError> {
+    let room_id_arg = optional_string(input, "room_id")?;
+    if let Some(room_id) = room_id_arg {
+        ensure_char_cap("room_id", room_id, MAX_ROOM_ID_CHARS)?;
+    }
     let homeserver = std::env::var("MATRIX_HOMESERVER")
         .map_err(|_| ToolError::ExecutionFailed("MATRIX_HOMESERVER not set".into()))?;
     let access_token = std::env::var("MATRIX_ACCESS_TOKEN")
         .map_err(|_| ToolError::ExecutionFailed("MATRIX_ACCESS_TOKEN not set".into()))?;
 
-    let room_id_owned = input
-        .get("room_id")
-        .and_then(Value::as_str)
+    let room_id_owned = room_id_arg
         .map(String::from)
         .or_else(|| target.map(String::from))
         .or_else(|| std::env::var("MATRIX_ROOM_ID").ok())
@@ -327,19 +374,18 @@ async fn send_matrix(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("matrix request: {e}")))?;
+        .map_err(|e| {
+            ToolError::ExecutionFailed(describe_communication_request_error("matrix", e))
+        })?;
 
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(ToolError::ExecutionFailed(format!(
-            "matrix HTTP {status}: {text}"
-        )));
+        return Err(communication_http_error("matrix", status));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("matrix parse: {e}")))?;
+        .map_err(|_| communication_parse_error("matrix"))?;
     let event_id = payload
         .get("event_id")
         .and_then(Value::as_str)
@@ -350,7 +396,7 @@ async fn send_matrix(
         "platform": "matrix",
         "room_id": room_id_owned,
         "event_id": event_id,
-        "chars_sent": message.len(),
+        "chars_sent": message.chars().count(),
     })
     .to_string())
 }
@@ -373,15 +419,11 @@ async fn send_whatsapp(
     target: Option<&str>,
     input: &Value,
 ) -> Result<String, ToolError> {
-    let access_token = std::env::var("WHATSAPP_ACCESS_TOKEN")
-        .map_err(|_| ToolError::ExecutionFailed("WHATSAPP_ACCESS_TOKEN not set".into()))?;
-    let phone_number_id = std::env::var("WHATSAPP_PHONE_NUMBER_ID")
-        .map_err(|_| ToolError::ExecutionFailed("WHATSAPP_PHONE_NUMBER_ID not set".into()))?;
-    let api_version = std::env::var("WHATSAPP_API_VERSION").unwrap_or_else(|_| "v20.0".to_string());
-
-    let recipient = input
-        .get("to")
-        .and_then(Value::as_str)
+    let to = optional_string(input, "to")?;
+    if let Some(to) = to {
+        ensure_char_cap("to", to, MAX_RECIPIENT_CHARS)?;
+    }
+    let recipient = to
         .map(String::from)
         .or_else(|| target.map(String::from))
         .ok_or_else(|| {
@@ -389,6 +431,12 @@ async fn send_whatsapp(
                 "whatsapp needs 'to' or 'target' (E.164 phone like +15551234567)".into(),
             )
         })?;
+
+    let access_token = std::env::var("WHATSAPP_ACCESS_TOKEN")
+        .map_err(|_| ToolError::ExecutionFailed("WHATSAPP_ACCESS_TOKEN not set".into()))?;
+    let phone_number_id = std::env::var("WHATSAPP_PHONE_NUMBER_ID")
+        .map_err(|_| ToolError::ExecutionFailed("WHATSAPP_PHONE_NUMBER_ID not set".into()))?;
+    let api_version = std::env::var("WHATSAPP_API_VERSION").unwrap_or_else(|_| "v20.0".to_string());
 
     let url = format!(
         "https://graph.facebook.com/{}/{}/messages",
@@ -408,19 +456,18 @@ async fn send_whatsapp(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("whatsapp request: {e}")))?;
+        .map_err(|e| {
+            ToolError::ExecutionFailed(describe_communication_request_error("whatsapp", e))
+        })?;
 
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(ToolError::ExecutionFailed(format!(
-            "whatsapp HTTP {status}: {text}"
-        )));
+        return Err(communication_http_error("whatsapp", status));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("whatsapp parse: {e}")))?;
+        .map_err(|_| communication_parse_error("whatsapp"))?;
     let message_id = payload
         .get("messages")
         .and_then(Value::as_array)
@@ -434,7 +481,7 @@ async fn send_whatsapp(
         "platform": "whatsapp",
         "to": recipient,
         "message_id": message_id,
-        "chars_sent": message.len(),
+        "chars_sent": message.chars().count(),
     })
     .to_string())
 }
@@ -458,37 +505,13 @@ async fn send_signal(
     target: Option<&str>,
     input: &Value,
 ) -> Result<String, ToolError> {
+    let recipients = parse_signal_recipients(input, target)?;
+
     let base_url = std::env::var("SIGNAL_CLI_BASE_URL")
         .map_err(|_| ToolError::ExecutionFailed("SIGNAL_CLI_BASE_URL not set".into()))?;
-    if !base_url.starts_with("http://") && !base_url.starts_with("https://") {
-        return Err(ToolError::ExecutionFailed(format!(
-            "SIGNAL_CLI_BASE_URL must be http(s): {base_url}"
-        )));
-    }
+    validate_signal_base_url(&base_url)?;
     let account = std::env::var("SIGNAL_ACCOUNT")
         .map_err(|_| ToolError::ExecutionFailed("SIGNAL_ACCOUNT not set".into()))?;
-
-    // Accept either a single recipient or a comma-separated list.
-    let recipients: Vec<String> = if let Some(to_arr) = input.get("to").and_then(Value::as_array) {
-        to_arr
-            .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect()
-    } else if let Some(s) = input.get("to").and_then(Value::as_str) {
-        s.split(',').map(|p| p.trim().to_string()).collect()
-    } else if let Some(t) = target {
-        t.split(',').map(|p| p.trim().to_string()).collect()
-    } else {
-        return Err(ToolError::InvalidArguments(
-            "signal needs 'to' / 'target' (E.164 number or array of numbers)".into(),
-        ));
-    };
-
-    if recipients.is_empty() {
-        return Err(ToolError::InvalidArguments(
-            "signal 'to' must contain at least one recipient".into(),
-        ));
-    }
 
     let url = format!("{}/v2/send", base_url.trim_end_matches('/'));
     let body = json!({
@@ -497,18 +520,12 @@ async fn send_signal(
         "message": message,
     });
 
-    let resp = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("signal request: {e}")))?;
+    let resp = client.post(&url).json(&body).send().await.map_err(|e| {
+        ToolError::ExecutionFailed(describe_communication_request_error("signal", e))
+    })?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
-        return Err(ToolError::ExecutionFailed(format!(
-            "signal HTTP {status}: {text}"
-        )));
+        return Err(communication_http_error("signal", status));
     }
     // Newer signal-cli-rest-api returns { "timestamp": ... }
     let payload: Value = resp.json().await.unwrap_or_else(|_| json!({}));
@@ -517,7 +534,7 @@ async fn send_signal(
         "platform": "signal",
         "recipients": recipients,
         "timestamp": payload.get("timestamp"),
-        "chars_sent": message.len(),
+        "chars_sent": message.chars().count(),
     })
     .to_string())
 }
@@ -537,6 +554,20 @@ async fn send_signal(
 //   reply_to    optional
 
 async fn send_email(message: &str, input: &Value) -> Result<String, ToolError> {
+    let to = match optional_string(input, "to")? {
+        Some(value) => Some(value),
+        None => optional_string(input, "target")?,
+    }
+    .ok_or_else(|| ToolError::InvalidArguments("email needs 'to'".into()))?;
+    ensure_char_cap("to", to, MAX_RECIPIENT_CHARS)?;
+    let subject = optional_string(input, "subject")?
+        .ok_or_else(|| ToolError::InvalidArguments("email needs 'subject'".into()))?;
+    ensure_char_cap("subject", subject, MAX_EMAIL_SUBJECT_CHARS)?;
+    let reply_to = optional_string(input, "reply_to")?;
+    if let Some(reply_to) = reply_to {
+        ensure_char_cap("reply_to", reply_to, MAX_RECIPIENT_CHARS)?;
+    }
+
     let host = std::env::var("SMTP_HOST")
         .map_err(|_| ToolError::ExecutionFailed("SMTP_HOST not set".into()))?;
     let username = std::env::var("SMTP_USERNAME")
@@ -549,17 +580,6 @@ async fn send_email(message: &str, input: &Value) -> Result<String, ToolError> {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(465);
-
-    let to = input
-        .get("to")
-        .and_then(Value::as_str)
-        .or_else(|| input.get("target").and_then(Value::as_str))
-        .ok_or_else(|| ToolError::InvalidArguments("email needs 'to'".into()))?;
-    let subject = input
-        .get("subject")
-        .and_then(Value::as_str)
-        .ok_or_else(|| ToolError::InvalidArguments("email needs 'subject'".into()))?;
-    let reply_to = input.get("reply_to").and_then(Value::as_str);
 
     let mut builder = EmailMessage::builder()
         .from(
@@ -608,7 +628,7 @@ async fn send_email(message: &str, input: &Value) -> Result<String, ToolError> {
         "platform": "email",
         "to": to,
         "subject": subject,
-        "chars_sent": message.len(),
+        "chars_sent": message.chars().count(),
         "smtp_response_code": response.code().to_string(),
     })
     .to_string())
@@ -616,18 +636,165 @@ async fn send_email(message: &str, input: &Value) -> Result<String, ToolError> {
 
 // MARK: - Helpers
 
-fn validate_outbound_url(url: &str) -> Result<(), ToolError> {
-    if !url.starts_with("https://") && !url.starts_with("http://") {
-        return Err(ToolError::ExecutionFailed(format!(
-            "invalid webhook URL (must be http/https): {url}"
-        )));
+fn optional_string<'a>(input: &'a Value, key: &str) -> Result<Option<&'a str>, ToolError> {
+    match input.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.as_str())),
+        Some(_) => Err(ToolError::InvalidArguments(format!(
+            "'{key}' must be a string"
+        ))),
     }
-    if super::web_fetch::is_private_url(url) {
-        return Err(ToolError::ExecutionFailed(format!(
-            "webhook URL blocked (SSRF protection): {url}"
+}
+
+fn optional_bool(input: &Value, key: &str) -> Result<Option<bool>, ToolError> {
+    match input.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Bool(value)) => Ok(Some(*value)),
+        Some(_) => Err(ToolError::InvalidArguments(format!(
+            "'{key}' must be a boolean"
+        ))),
+    }
+}
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    let count = value.chars().count();
+    if count > cap {
+        return Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} characters"
         )));
     }
     Ok(())
+}
+
+fn parse_signal_recipients(input: &Value, target: Option<&str>) -> Result<Vec<String>, ToolError> {
+    let recipients = match input.get("to") {
+        Some(Value::Array(values)) => {
+            if values.len() > MAX_RECIPIENTS {
+                return Err(ToolError::InvalidArguments(format!(
+                    "signal supports at most {MAX_RECIPIENTS} recipients"
+                )));
+            }
+            let mut recipients = Vec::with_capacity(values.len());
+            for (idx, value) in values.iter().enumerate() {
+                let recipient = value.as_str().ok_or_else(|| {
+                    ToolError::InvalidArguments(format!("'to[{idx}]' must be a string"))
+                })?;
+                push_recipient(&mut recipients, recipient, &format!("to[{idx}]"))?;
+            }
+            recipients
+        }
+        Some(Value::String(value)) => split_recipient_list(value, "to")?,
+        Some(Value::Null) | None => {
+            if let Some(target) = target {
+                split_recipient_list(target, "target")?
+            } else {
+                return Err(ToolError::InvalidArguments(
+                    "signal needs 'to' / 'target' (E.164 number or array of numbers)".into(),
+                ));
+            }
+        }
+        Some(_) => {
+            return Err(ToolError::InvalidArguments(
+                "'to' must be a string or array of strings for signal".into(),
+            ));
+        }
+    };
+
+    if recipients.is_empty() {
+        return Err(ToolError::InvalidArguments(
+            "signal 'to' must contain at least one recipient".into(),
+        ));
+    }
+    if recipients.len() > MAX_RECIPIENTS {
+        return Err(ToolError::InvalidArguments(format!(
+            "signal supports at most {MAX_RECIPIENTS} recipients"
+        )));
+    }
+    Ok(recipients)
+}
+
+fn split_recipient_list(raw: &str, label: &str) -> Result<Vec<String>, ToolError> {
+    let mut recipients = Vec::new();
+    for part in raw.split(',') {
+        push_recipient(&mut recipients, part.trim(), label)?;
+    }
+    Ok(recipients)
+}
+
+fn push_recipient(
+    recipients: &mut Vec<String>,
+    recipient: &str,
+    label: &str,
+) -> Result<(), ToolError> {
+    if recipient.is_empty() {
+        return Ok(());
+    }
+    ensure_char_cap(label, recipient, MAX_RECIPIENT_CHARS)?;
+    recipients.push(recipient.to_string());
+    Ok(())
+}
+
+fn validate_outbound_url(url: &str) -> Result<(), ToolError> {
+    let parsed = reqwest::Url::parse(url).map_err(|_| {
+        ToolError::ExecutionFailed("invalid webhook URL (must be http/https)".into())
+    })?;
+    if !matches!(parsed.scheme(), "https" | "http") {
+        return Err(ToolError::ExecutionFailed(
+            "invalid webhook URL (must be http/https)".into(),
+        ));
+    }
+    if super::web_fetch::is_private_url(url) {
+        return Err(ToolError::ExecutionFailed(
+            "webhook URL blocked (SSRF protection)".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_signal_base_url(url: &str) -> Result<(), ToolError> {
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|_| ToolError::ExecutionFailed("SIGNAL_CLI_BASE_URL must be http(s)".into()))?;
+    if !matches!(parsed.scheme(), "https" | "http") {
+        return Err(ToolError::ExecutionFailed(
+            "SIGNAL_CLI_BASE_URL must be http(s)".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn require_custom_webhook_url(platform: &str, allowed: bool) -> Result<(), ToolError> {
+    if allowed {
+        Ok(())
+    } else {
+        Err(ToolError::InvalidArguments(format!(
+            "allow_custom_webhook_url must be true before send_message can use an explicit webhook_url for platform '{platform}'"
+        )))
+    }
+}
+
+fn describe_communication_request_error(platform: &str, error: reqwest::Error) -> String {
+    let reason = if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connect"
+    } else if error.is_request() {
+        "request"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_decode() {
+        "decode"
+    } else {
+        "request"
+    };
+    format!("{platform} request failed: {reason}")
+}
+
+fn communication_http_error(platform: &str, status: u16) -> ToolError {
+    ToolError::ExecutionFailed(format!("{platform} HTTP {status}"))
+}
+
+fn communication_parse_error(platform: &str) -> ToolError {
+    ToolError::ExecutionFailed(format!("{platform} response parse failed"))
 }
 
 /// Minimal percent-encoding for Matrix room IDs and path segments.
@@ -668,6 +835,10 @@ pub fn send_message_schema() -> crate::types::ToolSchema {
                 "message": { "type": "string", "description": "Message body (max 4,096 chars; 32,768 for email)." },
                 "target": { "type": "string", "description": "Generic recipient field (telegram chat_id, matrix room_id, whatsapp/signal phone, email address)." },
                 "webhook_url": { "type": "string", "description": "Explicit webhook URL for slack|discord|webhook." },
+                "allow_custom_webhook_url": {
+                    "type": "boolean",
+                    "description": "Required when webhook_url is supplied so an agent cannot silently redirect a message to an arbitrary endpoint."
+                },
                 "room_id": { "type": "string", "description": "Matrix room ID override." },
                 "to": { "description": "Explicit recipient (string or array) for whatsapp/signal/email." },
                 "subject": { "type": "string", "description": "Email subject line (required for email)." },
@@ -772,11 +943,15 @@ mod tests {
             .execute(&json!({
                 "platform": "webhook",
                 "message": "hi",
-                "webhook_url": "http://127.0.0.1/evil"
+                "webhook_url": "http://127.0.0.1/evil?token=leak",
+                "allow_custom_webhook_url": true
             }))
             .await
             .unwrap_err();
-        assert!(format!("{err}").contains("SSRF"));
+        let msg = format!("{err}");
+        assert!(msg.contains("SSRF"));
+        assert!(!msg.contains("127.0.0.1"));
+        assert!(!msg.contains("token"));
     }
 
     #[tokio::test]
@@ -786,15 +961,176 @@ mod tests {
             .execute(&json!({
                 "platform": "webhook",
                 "message": "hi",
-                "webhook_url": "ftp://example.com"
+                "webhook_url": "ftp://example.com/secret?token=leak",
+                "allow_custom_webhook_url": true
             }))
             .await
             .unwrap_err();
-        assert!(format!("{err}").contains("http"));
+        let msg = format!("{err}");
+        assert!(msg.contains("http"));
+        assert!(!msg.contains("example.com"));
+        assert!(!msg.contains("token"));
+    }
+
+    #[tokio::test]
+    async fn explicit_webhook_url_requires_consent() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "webhook",
+                "message": "hi",
+                "webhook_url": "https://example.com/hook"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_custom_webhook_url"));
+    }
+
+    #[tokio::test]
+    async fn webhook_consent_must_be_boolean() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "webhook",
+                "message": "hi",
+                "webhook_url": "https://example.com/hook",
+                "allow_custom_webhook_url": "true"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_custom_webhook_url"));
+    }
+
+    #[tokio::test]
+    async fn target_must_be_string() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "telegram",
+                "message": "hi",
+                "target": 12345
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("target"));
+    }
+
+    #[tokio::test]
+    async fn slack_webhook_override_requires_consent_before_network() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "slack",
+                "message": "hi",
+                "webhook_url": "https://example.com/slack"
+            }))
+            .await
+            .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("allow_custom_webhook_url"));
+        assert!(!msg.contains("SLACK_WEBHOOK_URL"));
+    }
+
+    #[test]
+    fn communication_network_errors_are_redacted() {
+        let request_error = || {
+            reqwest::Client::builder()
+                .build()
+                .unwrap()
+                .get("https://example.com/secret?token=leak")
+                .header("bad\nheader", "value")
+                .build()
+                .unwrap_err()
+        };
+        let msg = describe_communication_request_error("slack", request_error());
+        assert!(msg.contains("slack request failed"));
+        assert!(!msg.contains("example.com"));
+        assert!(!msg.contains("token"));
+
+        let http_msg = format!("{}", communication_http_error("discord", 403));
+        assert_eq!(http_msg, "execution failed: discord HTTP 403");
+    }
+
+    #[test]
+    fn send_message_schema_documents_custom_webhook_consent() {
+        let schema = send_message_schema();
+        assert!(
+            schema.parameters["properties"]["allow_custom_webhook_url"]["description"]
+                .as_str()
+                .unwrap()
+                .contains("silently redirect")
+        );
+    }
+
+    #[tokio::test]
+    async fn signal_rejects_non_string_recipient_array_before_env() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "signal",
+                "message": "hi",
+                "to": ["+15551234567", 42]
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("to[1]"));
+        assert!(!message.contains("SIGNAL_CLI_BASE_URL"));
+    }
+
+    #[tokio::test]
+    async fn signal_rejects_empty_recipient_list_before_env() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "signal",
+                "message": "hi",
+                "to": " , "
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("at least one recipient"));
+        assert!(!message.contains("SIGNAL_CLI_BASE_URL"));
+    }
+
+    #[tokio::test]
+    async fn whatsapp_rejects_non_string_to_before_env() {
+        let handler = SendMessageHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "platform": "whatsapp",
+                "message": "hi",
+                "to": ["+15551234567"]
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("to"));
+        assert!(!message.contains("WHATSAPP_ACCESS_TOKEN"));
+    }
+
+    #[tokio::test]
+    async fn email_rejects_oversized_subject_before_env() {
+        let handler = SendMessageHandler::new().unwrap();
+        let subject = "s".repeat(MAX_EMAIL_SUBJECT_CHARS + 1);
+        let err = handler
+            .execute(&json!({
+                "platform": "email",
+                "message": "hi",
+                "to": "a@b.com",
+                "subject": subject
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("subject exceeds"));
+        assert!(!message.contains("SMTP_HOST"));
     }
 
     #[tokio::test]
     async fn slack_without_env_errors() {
+        let _env_guard = crate::test_support::env_lock();
         let saved = std::env::var("SLACK_WEBHOOK_URL").ok();
         std::env::remove_var("SLACK_WEBHOOK_URL");
 
@@ -815,6 +1151,7 @@ mod tests {
 
     #[tokio::test]
     async fn telegram_without_token_errors() {
+        let _env_guard = crate::test_support::env_lock();
         let saved = std::env::var("TELEGRAM_BOT_TOKEN").ok();
         std::env::remove_var("TELEGRAM_BOT_TOKEN");
 
@@ -836,6 +1173,7 @@ mod tests {
 
     #[tokio::test]
     async fn matrix_without_env_errors() {
+        let _env_guard = crate::test_support::env_lock();
         let saved_hs = std::env::var("MATRIX_HOMESERVER").ok();
         let saved_at = std::env::var("MATRIX_ACCESS_TOKEN").ok();
         std::env::remove_var("MATRIX_HOMESERVER");
@@ -860,6 +1198,7 @@ mod tests {
 
     #[tokio::test]
     async fn whatsapp_without_env_errors() {
+        let _env_guard = crate::test_support::env_lock();
         let saved_at = std::env::var("WHATSAPP_ACCESS_TOKEN").ok();
         let saved_id = std::env::var("WHATSAPP_PHONE_NUMBER_ID").ok();
         std::env::remove_var("WHATSAPP_ACCESS_TOKEN");
@@ -882,6 +1221,7 @@ mod tests {
 
     #[tokio::test]
     async fn signal_without_env_errors() {
+        let _env_guard = crate::test_support::env_lock();
         let saved_url = std::env::var("SIGNAL_CLI_BASE_URL").ok();
         let saved_acct = std::env::var("SIGNAL_ACCOUNT").ok();
         std::env::remove_var("SIGNAL_CLI_BASE_URL");
@@ -904,6 +1244,7 @@ mod tests {
 
     #[tokio::test]
     async fn email_requires_subject() {
+        let _env_guard = crate::test_support::env_lock();
         std::env::set_var("SMTP_HOST", "smtp.example.com");
         std::env::set_var("SMTP_USERNAME", "user");
         std::env::set_var("SMTP_PASSWORD", "pw");

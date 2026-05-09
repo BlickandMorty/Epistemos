@@ -19,42 +19,48 @@ import OSLog
 //
 // The schema is **iOS-only on macOS 26**. Compass artifact
 // wf-5db24f87 §"What's new in macOS 26 vs. macOS 15" pre-flagged
-// this: "Trigger surface still iPhone-only Sep 2025; safe to ship
-// for forward compat."
+// this: "Trigger surface still iPhone-only Sep 2025"; v1 keeps the
+// bridge source-preserved for forward compatibility without exposing it
+// as shipped macOS visual search.
 //
-// We ship the IntentValueQuery + bridge logic gated `#if os(iOS)` so
-// when Apple lights up macOS support (rumoured 26.x) we delete the
-// gate and the intent surfaces immediately. On macOS today the file
-// only contributes a NoteVisualSearchService stub used by the
-// graph-engine image-search fallback.
+// v1 ships the macOS side as an honest deferred facade only. The
+// system AppIntent bridge is additionally gated behind the custom
+// `EPISTEMOS_ENABLE_VISUAL_INTELLIGENCE_INTENT` build condition so an
+// experimental iOS target cannot accidentally expose visual search
+// before pixel-buffer conversion and image-note retrieval are real.
 
 nonisolated private let visualLog = Logger(
     subsystem: "com.epistemos",
     category: "VisualIntelligenceIntents"
 )
 
-// MARK: - macOS stub (today)
+// MARK: - macOS deferred facade
 
 /// Minimal Mac-side facade so the rest of the codebase can refer to
 /// "image-based note search" without conditional compilation. On
-/// macOS this falls through to the `HaloController` text-extraction
-/// path; on iOS the `@AppIntent(schema:)` below wires the system
-/// Visual Intelligence affordance directly.
+/// macOS this is unavailable and returns no results; it must not be
+/// presented as shipped visual search until a real image pipeline is
+/// wired.
 nonisolated public enum NoteVisualSearchService {
+    nonisolated static let unavailableOnMacOSMessage =
+        "Visual Intelligence semanticContentSearch is unavailable on macOS; image-note search is deferred."
 
-    /// Forward-compat search hook. macOS today: returns the empty
-    /// set + logs that Visual Intelligence isn't available on the
-    /// platform yet. iOS: reachable via the `@AppIntent` below.
+    /// Forward-compat search hook. macOS v1 returns an empty set and
+    /// logs the unavailable status rather than pretending image-note
+    /// search ran.
     static func search(imageData: Data?) async -> [NoteEntity] {
-        #if os(iOS)
+        #if os(iOS) && EPISTEMOS_ENABLE_VISUAL_INTELLIGENCE_INTENT
         return await iOSImageSearchHook(imageData: imageData)
+        #elseif os(iOS)
+        visualLog.warning("Visual Intelligence intent bridge is compile-time disabled — returning [].")
+        return []
         #else
-        visualLog.debug("Visual Intelligence semanticContentSearch is iOS-only on macOS 26 — returning [].")
+        visualLog.warning("\(Self.unavailableOnMacOSMessage, privacy: .public)")
         return []
         #endif
     }
 
-    #if os(iOS)
+    #if os(iOS) && EPISTEMOS_ENABLE_VISUAL_INTELLIGENCE_INTENT
     /// iOS-only delegate target — populated by the
     /// SearchEpistemosByImageQuery below as the system fires
     /// `values(for:)` per camera capture / screenshot search.
@@ -64,7 +70,7 @@ nonisolated public enum NoteVisualSearchService {
 
 // MARK: - iOS-only @AppIntent + IntentValueQuery
 
-#if os(iOS) && canImport(VisualIntelligence)
+#if os(iOS) && canImport(VisualIntelligence) && EPISTEMOS_ENABLE_VISUAL_INTELLIGENCE_INTENT
 
 import VisualIntelligence
 
@@ -101,7 +107,7 @@ struct SearchEpistemosVisualContentIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<[NoteEntity]> {
         let results = await NoteVisualSearchService.search(
-            imageData: ImageBufferConversion.dataFromBuffer(content.pixelBuffer)
+            imageData: await ImageBufferConversion.dataFromBuffer(content.pixelBuffer)
         )
         return .result(value: results)
     }
@@ -109,14 +115,14 @@ struct SearchEpistemosVisualContentIntent: AppIntent {
 
 #endif
 
-// MARK: - Image conversion helper (cross-platform; no-op on macOS)
+// MARK: - Image conversion helper (deferred on macOS)
 
 nonisolated public enum ImageBufferConversion {
     /// Convert a CVPixelBuffer (from SemanticContentDescriptor) into
     /// JPEG `Data` suitable for the existing image-search pipeline.
-    /// Stub on macOS today — the pixelBuffer arg is iOS-only on the
-    /// Visual Intelligence path; macOS code paths pass `nil` and get
-    /// `nil` back.
+    /// Deferred on macOS today: the pixelBuffer arg is iOS-only on the
+    /// gated Visual Intelligence path; macOS code paths pass `nil` and
+    /// get `nil` back.
     public static func dataFromBuffer(_ buffer: Any?) async -> Data? {
         return nil
     }

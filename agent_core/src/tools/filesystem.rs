@@ -19,7 +19,7 @@ use grep_matcher::Matcher;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::sinks::UTF8;
 use grep_searcher::{BinaryDetection, SearcherBuilder};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use walkdir::WalkDir;
 
 use super::registry::{ToolError, ToolHandler};
@@ -124,7 +124,8 @@ fn is_blocked_filename(path: &Path) -> bool {
 fn is_blocked_for_write(path: &Path) -> Option<String> {
     let abs = path.to_string_lossy();
     for prefix in BLOCKED_WRITE_PREFIXES {
-        if abs.starts_with(prefix) {
+        let exact = prefix.trim_end_matches('/');
+        if abs == exact || abs.starts_with(prefix) {
             return Some(format!("path '{abs}' is in a protected system directory"));
         }
     }
@@ -144,6 +145,73 @@ fn is_blocked_for_write(path: &Path) -> Option<String> {
             "file '{}' is on the sensitive filename blocklist",
             path.display()
         ));
+    }
+    None
+}
+
+fn is_blocked_existing_read_target(path: &Path) -> Option<String> {
+    if let Some(reason) = is_blocked_for_read(path) {
+        return Some(reason);
+    }
+    if let Ok(canonical) = std::fs::canonicalize(path) {
+        if canonical != path {
+            if let Some(reason) = is_blocked_for_read(&canonical) {
+                return Some(format!(
+                    "resolved target '{}' is blocked: {reason}",
+                    canonical.display()
+                ));
+            }
+        }
+    }
+    None
+}
+
+fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
+    let mut current = Some(path);
+    while let Some(candidate) = current {
+        if candidate.exists() {
+            return Some(candidate.to_path_buf());
+        }
+        current = candidate.parent();
+    }
+    None
+}
+
+fn is_blocked_for_write_target(path: &Path) -> Option<String> {
+    if let Some(reason) = is_blocked_for_write(path) {
+        return Some(reason);
+    }
+    if path.exists() {
+        if let Ok(canonical) = std::fs::canonicalize(path) {
+            if canonical != path {
+                if let Some(reason) = is_blocked_for_read(&canonical) {
+                    return Some(format!(
+                        "resolved target '{}' is blocked: {reason}",
+                        canonical.display()
+                    ));
+                }
+                if let Some(reason) = is_blocked_for_write(&canonical) {
+                    return Some(format!(
+                        "resolved target '{}' is blocked: {reason}",
+                        canonical.display()
+                    ));
+                }
+            }
+        }
+    }
+    if let Some(parent) = path.parent() {
+        if let Some(existing_parent) = nearest_existing_ancestor(parent) {
+            if let Ok(canonical_parent) = std::fs::canonicalize(&existing_parent) {
+                if canonical_parent != existing_parent {
+                    if let Some(reason) = is_blocked_for_write(&canonical_parent) {
+                        return Some(format!(
+                            "resolved parent '{}' is blocked: {reason}",
+                            canonical_parent.display()
+                        ));
+                    }
+                }
+            }
+        }
     }
     None
 }
@@ -218,7 +286,7 @@ impl ToolHandler for ReadFileHandler {
             .clamp(1, 2000) as usize;
 
         let resolved = resolve_path(path_arg)?;
-        if let Some(reason) = is_blocked_for_read(&resolved) {
+        if let Some(reason) = is_blocked_existing_read_target(&resolved) {
             return Err(ToolError::ExecutionFailed(reason));
         }
         if !resolved.exists() {
@@ -342,7 +410,7 @@ impl ToolHandler for WriteFileHandler {
             .ok_or_else(|| ToolError::InvalidArguments("missing 'content'".into()))?;
 
         let resolved = resolve_path(path_arg)?;
-        if let Some(reason) = is_blocked_for_write(&resolved) {
+        if let Some(reason) = is_blocked_for_write_target(&resolved) {
             return Err(ToolError::ExecutionFailed(reason));
         }
 
@@ -472,7 +540,7 @@ impl ToolHandler for PatchHandler {
         }
 
         let resolved = resolve_path(path_arg)?;
-        if let Some(reason) = is_blocked_for_write(&resolved) {
+        if let Some(reason) = is_blocked_for_write_target(&resolved) {
             return Err(ToolError::ExecutionFailed(reason));
         }
 
@@ -877,7 +945,7 @@ impl ToolHandler for SearchFilesHandler {
             .unwrap_or(false);
 
         let root = resolve_path(root_arg)?;
-        if let Some(reason) = is_blocked_for_read(&root) {
+        if let Some(reason) = is_blocked_existing_read_target(&root) {
             return Err(ToolError::ExecutionFailed(reason));
         }
         if !root.exists() {
@@ -1138,6 +1206,24 @@ mod tests {
         assert!(format!("{err}").contains("binary"));
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn read_file_blocks_symlink_to_sensitive_filename() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join(".env");
+        let link = dir.path().join("safe-looking-link");
+        std::fs::write(&target, "SECRET=1").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let handler = ReadFileHandler;
+        let err = handler
+            .execute(&json!({ "path": link.to_string_lossy() }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("resolved target"));
+        assert!(format!("{err}").contains("sensitive filename"));
+    }
+
     #[tokio::test]
     async fn read_file_reports_missing_files_with_the_requested_path() {
         let dir = tempdir().unwrap();
@@ -1205,6 +1291,33 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("protected"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn write_file_blocks_existing_symlink_to_sensitive_filename() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join(".env");
+        let link = dir.path().join("safe-write-target");
+        std::fs::write(&target, "SECRET=old").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let handler = WriteFileHandler;
+        let err = handler
+            .execute(&json!({
+                "path": link.to_string_lossy(),
+                "content": "SECRET=new",
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("resolved target"));
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "SECRET=old");
+        assert!(
+            std::fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
     }
 
     #[test]
@@ -1287,6 +1400,28 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("could not locate"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn patch_blocks_symlink_to_sensitive_filename() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join(".env");
+        let link = dir.path().join("safe-patch-target");
+        std::fs::write(&target, "TOKEN=old\n").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let handler = PatchHandler;
+        let err = handler
+            .execute(&json!({
+                "path": link.to_string_lossy(),
+                "old_string": "old",
+                "new_string": "new",
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("resolved target"));
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "TOKEN=old\n");
     }
 
     #[tokio::test]

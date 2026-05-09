@@ -1,7 +1,9 @@
 //! Media Tools — Phase 6 Vision, Image Generation, and Text-to-Speech
 //!
 //! * `vision_analyze` — send an image (URL or local file) plus a question
-//!   to a vision LLM (Claude / Gemini / GPT-4V) and return the analysis.
+//!   to a vision LLM (Claude / GPT-4V) and return the analysis. Every call
+//!   requires `allow_cloud_external_requests=true` because local image bytes
+//!   or image URLs leave the machine.
 //! * `image_generate` — deferred from normal model-facing catalogs until a
 //!   real local image lane is wired. The handler still exists for explicit
 //!   manual use and requires a named `provider` (`"mlx"` or `"fal"`) so
@@ -12,14 +14,14 @@
 //! All cloud-backed tools read API keys from environment variables at call
 //! time so credentials never cross the tool schema boundary.
 
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
 use crate::bridge::AgentEventDelegate;
@@ -27,6 +29,38 @@ use crate::bridge::AgentEventDelegate;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024; // 20MB cap for base64 encoding
 const MAX_TTS_CHARS: usize = 8_000;
+const MIN_TTS_RATE: u64 = 80;
+const MAX_TTS_RATE: u64 = 450;
+const MAX_TTS_VOICE_CHARS: usize = 80;
+
+const BLOCKED_WRITE_PREFIXES: &[&str] = &[
+    "/etc/",
+    "/usr/",
+    "/System/",
+    "/Library/",
+    "/bin/",
+    "/sbin/",
+    "/private/etc/",
+];
+
+const BLOCKED_HOME_SUFFIXES: &[&str] = &[
+    ".ssh/",
+    ".gnupg/",
+    ".aws/",
+    ".docker/",
+    ".config/gh/",
+    ".azure/",
+];
+
+const BLOCKED_FILENAMES: &[&str] = &[
+    ".env",
+    ".pgpass",
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    "credentials",
+    "credentials.json",
+];
 
 fn build_client() -> Result<Client, ToolError> {
     Client::builder()
@@ -70,10 +104,28 @@ impl ToolHandler for VisionAnalyzeHandler {
                 "provide either 'image_url' or 'image_path'".into(),
             ));
         }
+        if image_url.is_some() && image_path.is_some() {
+            return Err(ToolError::InvalidArguments(
+                "provide exactly one of 'image_url' or 'image_path'".into(),
+            ));
+        }
+
+        let normalized_provider = provider.to_ascii_lowercase();
+        if !matches!(normalized_provider.as_str(), "claude" | "openai" | "gpt-4v") {
+            return Err(ToolError::InvalidArguments(format!(
+                "provider '{provider}' invalid (expected claude|openai|gpt-4v)"
+            )));
+        }
+        require_cloud_external_requests(input, "vision_analyze")?;
 
         // Encode the image as base64 if a local path was given.
         let (data_url, media_type, source_label) = if let Some(path) = image_path {
-            let resolved = resolve_path(path)?;
+            let resolved = normalize_path_lexically(&resolve_path(path)?);
+            if let Some(reason) = blocked_local_media_read_path_reason(&resolved) {
+                return Err(ToolError::InvalidArguments(format!(
+                    "image_path is blocked: {reason}"
+                )));
+            }
             let bytes = std::fs::read(&resolved).map_err(|e| {
                 ToolError::ExecutionFailed(format!("read image '{}': {e}", resolved.display()))
             })?;
@@ -96,7 +148,7 @@ impl ToolHandler for VisionAnalyzeHandler {
             (url.clone(), mt.to_string(), url)
         };
 
-        match provider.to_ascii_lowercase().as_str() {
+        match normalized_provider.as_str() {
             "claude" => {
                 claude_vision(
                     &self.client,
@@ -110,10 +162,22 @@ impl ToolHandler for VisionAnalyzeHandler {
             "openai" | "gpt-4v" => {
                 openai_vision(&self.client, &data_url, &question, &source_label).await
             }
-            other => Err(ToolError::InvalidArguments(format!(
-                "provider '{other}' invalid (expected claude|openai|gpt-4v)"
-            ))),
+            _ => unreachable!("provider was validated before network dispatch"),
         }
+    }
+}
+
+fn require_cloud_external_requests(input: &Value, tool_name: &str) -> Result<(), ToolError> {
+    if input
+        .get("allow_cloud_external_requests")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        Ok(())
+    } else {
+        Err(ToolError::InvalidArguments(format!(
+            "allow_cloud_external_requests must be true because {tool_name} sends data to an external provider API"
+        )))
     }
 }
 
@@ -196,18 +260,17 @@ async fn claude_vision(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("claude vision request: {e}")))?;
+        .map_err(|e| ToolError::ExecutionFailed(describe_media_request_error("claude", e)))?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
         return Err(ToolError::ExecutionFailed(format!(
-            "claude vision HTTP {status}: {text}"
+            "claude vision HTTP {status}"
         )));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("claude vision parse: {e}")))?;
+        .map_err(|_| ToolError::ExecutionFailed("claude vision response parse failed".into()))?;
 
     // Concatenate every text content block in the response.
     let analysis = payload
@@ -227,6 +290,7 @@ async fn claude_vision(
         "model": "claude-sonnet-4-6",
         "source": source_label,
         "question": question,
+        "cloud_requests_authorized": true,
         "analysis": analysis,
     })
     .to_string())
@@ -259,18 +323,17 @@ async fn openai_vision(
         .json(&body)
         .send()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("openai vision request: {e}")))?;
+        .map_err(|e| ToolError::ExecutionFailed(describe_media_request_error("openai", e)))?;
     let status = resp.status().as_u16();
     if !resp.status().is_success() {
-        let text = resp.text().await.unwrap_or_default();
         return Err(ToolError::ExecutionFailed(format!(
-            "openai vision HTTP {status}: {text}"
+            "openai vision HTTP {status}"
         )));
     }
     let payload: Value = resp
         .json()
         .await
-        .map_err(|e| ToolError::ExecutionFailed(format!("openai vision parse: {e}")))?;
+        .map_err(|_| ToolError::ExecutionFailed("openai vision response parse failed".into()))?;
     let analysis = payload
         .get("choices")
         .and_then(|c| c.get(0))
@@ -285,17 +348,37 @@ async fn openai_vision(
         "model": "gpt-4o",
         "source": source_label,
         "question": question,
+        "cloud_requests_authorized": true,
         "analysis": analysis,
     })
     .to_string())
 }
 
+fn describe_media_request_error(provider: &str, error: reqwest::Error) -> String {
+    let reason = if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connect"
+    } else if error.is_request() {
+        "request"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_decode() {
+        "decode"
+    } else {
+        "request"
+    };
+    format!("{provider} vision request failed: {reason}")
+}
+
 pub fn vision_analyze_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "vision_analyze".to_string(),
-        description: "Analyze an image (URL or local file) with a vision LLM. Supports \
-             provider='claude' (default, uses ANTHROPIC_API_KEY) or 'openai' (uses \
-             OPENAI_API_KEY with gpt-4o). Local files are base64-encoded in-process; 20MB cap."
+        description: "Analyze an image (URL or local file) with an external vision LLM. \
+             Requires allow_cloud_external_requests=true because image URLs or local file \
+             bytes are sent to provider APIs. Supports provider='claude' (default, uses \
+             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-4o). Local files \
+             are base64-encoded in-process; 20MB cap."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -303,8 +386,17 @@ pub fn vision_analyze_schema() -> crate::types::ToolSchema {
                 "image_url": { "type": "string", "description": "Public URL to the image." },
                 "image_path": { "type": "string", "description": "Local path (supports ~/)." },
                 "question": { "type": "string", "description": "What to ask about the image.", "default": "Describe this image in detail." },
-                "provider": { "type": "string", "enum": ["claude", "openai", "gpt-4v"], "default": "claude" }
-            }
+                "provider": { "type": "string", "enum": ["claude", "openai", "gpt-4v"], "default": "claude" },
+                "allow_cloud_external_requests": {
+                    "type": "boolean",
+                    "description": "Must be true to confirm the image source and question may be sent to external provider APIs."
+                }
+            },
+            "oneOf": [
+                { "required": ["image_url"] },
+                { "required": ["image_path"] }
+            ],
+            "required": ["allow_cloud_external_requests"]
         }),
     }
 }
@@ -324,9 +416,9 @@ pub fn vision_analyze_schema() -> crate::types::ToolSchema {
 //     surfaces it as a tool error. This is an *honest runtime error* from
 //     a real attempt to reach the sidecar — not a permanent stub.
 //
-//   * `"fal"` — explicit cloud opt-in. Hits `https://fal.run/fal-ai/flux/dev`
-//     and requires `FAL_API_KEY`. Preserved unchanged for callers who
-//     name this lane by name.
+//   * `"fal"` — explicit cloud lane. Hits `https://fal.run/fal-ai/flux/dev`
+//     and requires both `allow_cloud_external_requests=true` and
+//     `FAL_API_KEY`.
 //
 // The schema used to default to `"square"` aspect ratio and implicit FAL;
 // `provider` is now required and unnamed calls are rejected. This is a
@@ -398,7 +490,10 @@ impl ToolHandler for ImageGenerateHandler {
 
         match provider.to_ascii_lowercase().as_str() {
             "mlx" => self.execute_mlx(prompt, aspect_ratio).await,
-            "fal" => self.execute_fal(prompt, aspect_ratio).await,
+            "fal" => {
+                require_cloud_external_requests(input, "image_generate provider='fal'")?;
+                self.execute_fal(prompt, aspect_ratio).await
+            }
             other => Err(ToolError::InvalidArguments(format!(
                 "provider '{other}' invalid (expected mlx|fal)"
             ))),
@@ -491,18 +586,15 @@ impl ImageGenerateHandler {
             .json(&body)
             .send()
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("fal request: {e}")))?;
+            .map_err(|e| ToolError::ExecutionFailed(describe_image_generate_request_error(e)))?;
         let status = resp.status().as_u16();
         if !resp.status().is_success() {
-            let text = resp.text().await.unwrap_or_default();
-            return Err(ToolError::ExecutionFailed(format!(
-                "fal HTTP {status}: {text}"
-            )));
+            return Err(ToolError::ExecutionFailed(format!("fal HTTP {status}")));
         }
         let payload: Value = resp
             .json()
             .await
-            .map_err(|e| ToolError::ExecutionFailed(format!("fal parse: {e}")))?;
+            .map_err(|_| ToolError::ExecutionFailed("fal response parse failed".into()))?;
 
         let image_url = payload
             .get("images")
@@ -513,9 +605,9 @@ impl ImageGenerateHandler {
             .to_string();
 
         if image_url.is_empty() {
-            return Err(ToolError::ExecutionFailed(format!(
-                "fal returned no image url (payload: {payload})"
-            )));
+            return Err(ToolError::ExecutionFailed(
+                "fal returned no image url".into(),
+            ));
         }
 
         Ok(json!({
@@ -523,10 +615,28 @@ impl ImageGenerateHandler {
             "model": "flux/dev",
             "prompt": prompt,
             "aspect_ratio": aspect_ratio,
+            "cloud_requests_authorized": true,
             "image_url": image_url,
         })
         .to_string())
     }
+}
+
+fn describe_image_generate_request_error(error: reqwest::Error) -> String {
+    let reason = if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connect"
+    } else if error.is_request() {
+        "request"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_decode() {
+        "decode"
+    } else {
+        "request"
+    };
+    format!("fal request failed: {reason}")
 }
 
 pub fn image_generate_schema() -> crate::types::ToolSchema {
@@ -539,8 +649,9 @@ pub fn image_generate_schema() -> crate::types::ToolSchema {
              §5.1 / §16); when the MLX Flux pipeline is not yet wired the \
              call will surface an explicit runtime error rather than \
              silently escalating to cloud. Use provider='fal' for the \
-             explicit cloud opt-in (requires FAL_API_KEY). Aspect ratios: \
-             landscape, portrait, square (defaults to square)."
+             explicit cloud lane (requires allow_cloud_external_requests=true \
+             and FAL_API_KEY). Aspect ratios: landscape, portrait, square \
+             (defaults to square)."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -554,7 +665,11 @@ pub fn image_generate_schema() -> crate::types::ToolSchema {
                 "provider": {
                     "type": "string",
                     "enum": ["mlx", "fal"],
-                    "description": "mlx = Apple-native sidecar lane (PLAN_V2 §5.1 / §16); fal = explicit cloud opt-in. Required — no default."
+                    "description": "mlx = Apple-native sidecar lane (PLAN_V2 §5.1 / §16); fal = explicit cloud lane requiring allow_cloud_external_requests=true. Required — no default."
+                },
+                "allow_cloud_external_requests": {
+                    "type": "boolean",
+                    "description": "Required only when provider='fal' to confirm the prompt may be sent to FAL."
                 }
             },
             "required": ["prompt", "provider"]
@@ -582,9 +697,20 @@ impl ToolHandler for TextToSpeechHandler {
                 "text exceeds {MAX_TTS_CHARS} char cap"
             )));
         }
-        let voice = input.get("voice").and_then(Value::as_str);
-        let rate = input.get("rate").and_then(Value::as_u64);
+        let voice = parse_tts_voice(input.get("voice"))?;
+        let rate = parse_tts_rate(input.get("rate"))?;
         let output_path = input.get("output_path").and_then(Value::as_str);
+        let allow_audio_playback = input
+            .get("allow_audio_playback")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if output_path.is_none() && !allow_audio_playback {
+            return Err(ToolError::InvalidArguments(
+                "allow_audio_playback must be true when text_to_speech has no output_path because macOS will play audio immediately"
+                    .into(),
+            ));
+        }
+        let resolved_output_path = output_path.map(resolve_tts_output_path).transpose()?;
 
         let mut cmd = tokio::process::Command::new("say");
         // Apply doctrine subprocess hardening. `say` is an Apple-stable
@@ -592,15 +718,14 @@ impl ToolHandler for TextToSpeechHandler {
         // `-r` (rate) / `-o` (output path) / text args; env_clear +
         // kill_on_drop is the right baseline here too.
         crate::security::harden_cli_subprocess(&mut cmd);
-        if let Some(v) = voice {
+        if let Some(v) = &voice {
             cmd.arg("-v").arg(v);
         }
         if let Some(r) = rate {
             cmd.arg("-r").arg(r.to_string());
         }
-        if let Some(path) = output_path {
-            let resolved = resolve_path(path)?;
-            cmd.arg("-o").arg(&resolved);
+        if let Some(resolved) = &resolved_output_path {
+            cmd.arg("-o").arg(resolved);
         }
         cmd.arg(&text);
 
@@ -610,8 +735,12 @@ impl ToolHandler for TextToSpeechHandler {
             .map_err(|e| ToolError::ExecutionFailed(format!("say spawn failed: {e}")))?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            return Err(ToolError::ExecutionFailed(format!("say failed: {stderr}")));
+            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+            let exit_code = output.status.code().unwrap_or(-1);
+            return Err(ToolError::ExecutionFailed(format!(
+                "say failed: {}",
+                describe_say_failure(&stderr, exit_code)
+            )));
         }
 
         Ok(json!({
@@ -620,10 +749,253 @@ impl ToolHandler for TextToSpeechHandler {
             "text_chars": text.len(),
             "voice": voice,
             "rate": rate,
-            "output_path": output_path,
+            "played_audio": resolved_output_path.is_none(),
+            "allow_audio_playback": allow_audio_playback,
+            "output_path": resolved_output_path.as_ref().map(|path| path.display().to_string()),
         })
         .to_string())
     }
+}
+
+fn parse_tts_voice(value: Option<&Value>) -> Result<Option<String>, ToolError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let voice = value
+        .as_str()
+        .ok_or_else(|| ToolError::InvalidArguments("voice must be a string".into()))?;
+    let trimmed = voice.trim();
+    if trimmed.is_empty() {
+        return Err(ToolError::InvalidArguments("voice cannot be empty".into()));
+    }
+    if trimmed.chars().count() > MAX_TTS_VOICE_CHARS {
+        return Err(ToolError::InvalidArguments(format!(
+            "voice exceeds {MAX_TTS_VOICE_CHARS} char cap"
+        )));
+    }
+    if trimmed.chars().any(char::is_control) {
+        return Err(ToolError::InvalidArguments(
+            "voice cannot contain control characters".into(),
+        ));
+    }
+    Ok(Some(trimmed.to_string()))
+}
+
+fn parse_tts_rate(value: Option<&Value>) -> Result<Option<u64>, ToolError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let rate = value
+        .as_u64()
+        .ok_or_else(|| ToolError::InvalidArguments("rate must be an integer".into()))?;
+    if !(MIN_TTS_RATE..=MAX_TTS_RATE).contains(&rate) {
+        return Err(ToolError::InvalidArguments(format!(
+            "rate must be between {MIN_TTS_RATE} and {MAX_TTS_RATE}"
+        )));
+    }
+    Ok(Some(rate))
+}
+
+fn resolve_tts_output_path(path: &str) -> Result<PathBuf, ToolError> {
+    if path.trim() != path {
+        return Err(ToolError::InvalidArguments(
+            "output_path must not contain leading or trailing whitespace".into(),
+        ));
+    }
+    let resolved = normalize_path_lexically(&resolve_path(path)?);
+    if !resolved.is_absolute() {
+        return Err(ToolError::InvalidArguments(
+            "output_path must be absolute or use ~/".into(),
+        ));
+    }
+    if resolved.file_name().is_none() || resolved.is_dir() {
+        return Err(ToolError::InvalidArguments(
+            "output_path must name a file".into(),
+        ));
+    }
+    if let Some(reason) = blocked_output_path_reason(&resolved) {
+        return Err(ToolError::InvalidArguments(format!(
+            "output_path is blocked: {reason}"
+        )));
+    }
+    let Some(parent) = resolved.parent() else {
+        return Err(ToolError::InvalidArguments(
+            "output_path must include a parent directory".into(),
+        ));
+    };
+    if !parent.is_dir() {
+        return Err(ToolError::InvalidArguments(format!(
+            "output_path parent directory does not exist: {}",
+            parent.display()
+        )));
+    }
+    Ok(resolved)
+}
+
+fn normalize_path_lexically(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    let absolute = path.has_root();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() && !absolute {
+                    normalized.push("..");
+                }
+            }
+            Component::Normal(part) => normalized.push(part),
+        }
+    }
+
+    if normalized.as_os_str().is_empty() {
+        if absolute {
+            PathBuf::from(std::path::MAIN_SEPARATOR.to_string())
+        } else {
+            PathBuf::from(".")
+        }
+    } else {
+        normalized
+    }
+}
+
+fn blocked_output_path_reason(path: &Path) -> Option<String> {
+    if let Some(reason) = blocked_write_reason(path) {
+        return Some(reason);
+    }
+    if path.exists() {
+        if let Ok(canonical) = std::fs::canonicalize(path) {
+            if canonical != path {
+                if let Some(reason) = blocked_write_reason(&canonical) {
+                    return Some(format!(
+                        "resolved target '{}' is blocked: {reason}",
+                        canonical.display()
+                    ));
+                }
+            }
+        }
+    }
+    if let Some(parent) = path.parent() {
+        if let Ok(canonical_parent) = std::fs::canonicalize(parent) {
+            if canonical_parent != parent {
+                if let Some(reason) = blocked_write_reason(&canonical_parent) {
+                    return Some(format!(
+                        "resolved parent '{}' is blocked: {reason}",
+                        canonical_parent.display()
+                    ));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn blocked_local_media_read_path_reason(path: &Path) -> Option<String> {
+    if let Some(reason) = blocked_read_reason(path) {
+        return Some(reason);
+    }
+    if path.exists() {
+        if let Ok(canonical) = std::fs::canonicalize(path) {
+            if canonical != path {
+                if let Some(reason) = blocked_read_reason(&canonical) {
+                    return Some(format!(
+                        "resolved target '{}' is blocked: {reason}",
+                        canonical.display()
+                    ));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn blocked_read_reason(path: &Path) -> Option<String> {
+    let abs = path.to_string_lossy();
+    if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy();
+        if let Some(rest) = abs.strip_prefix(home_str.as_ref()) {
+            let trimmed = rest.trim_start_matches('/');
+            if BLOCKED_HOME_SUFFIXES.iter().any(|suffix| {
+                let exact = suffix.trim_end_matches('/');
+                trimmed == exact || trimmed.starts_with(suffix)
+            }) {
+                return Some(format!(
+                    "path '{abs}' is in a protected credential directory"
+                ));
+            }
+        }
+    }
+    if path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| BLOCKED_FILENAMES.contains(&name))
+        .unwrap_or(false)
+    {
+        return Some(format!(
+            "file '{}' is on the sensitive filename blocklist",
+            path.display()
+        ));
+    }
+    None
+}
+
+fn blocked_write_reason(path: &Path) -> Option<String> {
+    let abs = path.to_string_lossy();
+    for prefix in BLOCKED_WRITE_PREFIXES {
+        let exact = prefix.trim_end_matches('/');
+        if abs == exact || abs.starts_with(prefix) {
+            return Some(format!("path '{abs}' is in a protected system directory"));
+        }
+    }
+    if let Some(home) = dirs::home_dir() {
+        let home_str = home.to_string_lossy();
+        if let Some(rest) = abs.strip_prefix(home_str.as_ref()) {
+            let trimmed = rest.trim_start_matches('/');
+            if BLOCKED_HOME_SUFFIXES.iter().any(|suffix| {
+                let exact = suffix.trim_end_matches('/');
+                trimmed == exact || trimmed.starts_with(suffix)
+            }) {
+                return Some(format!(
+                    "path '{abs}' is in a protected credential directory"
+                ));
+            }
+        }
+    }
+    if path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| BLOCKED_FILENAMES.contains(&name))
+        .unwrap_or(false)
+    {
+        return Some(format!(
+            "file '{}' is on the sensitive filename blocklist",
+            path.display()
+        ));
+    }
+    None
+}
+
+fn describe_say_failure(stderr: &str, exit_code: i32) -> String {
+    let lower = stderr.to_ascii_lowercase();
+    if lower.contains("not permitted")
+        || lower.contains("permission")
+        || lower.contains("operation not allowed")
+    {
+        return format!(
+            "macOS say could not access the requested output path (exit code {exit_code}; stderr redacted)"
+        );
+    }
+    if lower.contains("voice") {
+        return format!(
+            "macOS say rejected the requested voice (exit code {exit_code}; stderr redacted)"
+        );
+    }
+    if stderr.trim().is_empty() {
+        return format!("macOS say exited with code {exit_code} and no stderr");
+    }
+    format!("macOS say failed (exit code {exit_code}; stderr redacted)")
 }
 
 pub fn text_to_speech_schema() -> crate::types::ToolSchema {
@@ -631,16 +1003,26 @@ pub fn text_to_speech_schema() -> crate::types::ToolSchema {
         name: "text_to_speech".to_string(),
         description: "Speak text aloud via the macOS `say` command, or render to an audio file. \
              Optional voice (e.g., 'Samantha', 'Alex', 'Ava'), rate (words per minute), and \
-             output_path. When no output_path is set the audio plays immediately. No cloud, \
-             no FFI — pure subprocess. 8,000 char cap."
+             output_path. When no output_path is set the call requires allow_audio_playback=true \
+             because audio plays immediately. output_path must be absolute or use ~/ and writes \
+             a file. No cloud, no FFI — pure subprocess. 8,000 char cap."
             .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "text": { "type": "string" },
                 "voice": { "type": "string", "description": "macOS voice name." },
-                "rate": { "type": "integer", "description": "Words per minute (default ~175)." },
-                "output_path": { "type": "string", "description": "Optional audio file path. Omit to play live." }
+                "rate": {
+                    "type": "integer",
+                    "description": "Words per minute.",
+                    "minimum": MIN_TTS_RATE,
+                    "maximum": MAX_TTS_RATE
+                },
+                "output_path": { "type": "string", "description": "Optional absolute audio file path. Supports ~/ expansion." },
+                "allow_audio_playback": {
+                    "type": "boolean",
+                    "description": "Required when output_path is omitted to confirm macOS may play audio immediately."
+                }
             },
             "required": ["text"]
         }),
@@ -688,11 +1070,84 @@ mod tests {
         let err = handler
             .execute(&json!({
                 "image_path": "/tmp/definitely-not-here-xyz123.png",
-                "question": "what is this?"
+                "question": "what is this?",
+                "allow_cloud_external_requests": true
             }))
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("read image"));
+    }
+
+    #[tokio::test]
+    async fn vision_analyze_requires_cloud_external_consent_before_loading_file() {
+        let handler = VisionAnalyzeHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "image_path": "/tmp/definitely-not-here-xyz123.png",
+                "question": "what is this?"
+            }))
+            .await
+            .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("allow_cloud_external_requests"));
+        assert!(!msg.contains("read image"));
+    }
+
+    #[tokio::test]
+    async fn vision_analyze_blocks_sensitive_local_image_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let sensitive = dir.path().join(".env");
+        std::fs::write(&sensitive, "SECRET=1").unwrap();
+
+        let handler = VisionAnalyzeHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "image_path": sensitive.to_string_lossy(),
+                "question": "what is this?",
+                "allow_cloud_external_requests": true
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("image_path is blocked"));
+        assert!(!message.contains("ANTHROPIC_API_KEY"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn vision_analyze_blocks_symlink_to_sensitive_local_image_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let sensitive = dir.path().join(".env");
+        std::fs::write(&sensitive, "SECRET=1").unwrap();
+        let link = dir.path().join("image.png");
+        std::os::unix::fs::symlink(&sensitive, &link).unwrap();
+
+        let handler = VisionAnalyzeHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "image_path": link.to_string_lossy(),
+                "question": "what is this?",
+                "allow_cloud_external_requests": true
+            }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("resolved target"));
+        assert!(!message.contains("ANTHROPIC_API_KEY"));
+    }
+
+    #[tokio::test]
+    async fn vision_analyze_rejects_ambiguous_image_sources() {
+        let handler = VisionAnalyzeHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "image_url": "https://example.com/image.jpg",
+                "image_path": "/tmp/definitely-not-here-xyz123.png",
+                "allow_cloud_external_requests": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("exactly one"));
     }
 
     #[tokio::test]
@@ -708,6 +1163,48 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("provider"));
+    }
+
+    #[test]
+    fn vision_analyze_schema_requires_cloud_external_consent() {
+        let schema = vision_analyze_schema();
+        assert_eq!(
+            schema.parameters["required"],
+            json!(["allow_cloud_external_requests"])
+        );
+        assert!(
+            schema
+                .description
+                .contains("allow_cloud_external_requests=true")
+        );
+        assert!(
+            schema.parameters["properties"]["allow_cloud_external_requests"]["description"]
+                .as_str()
+                .unwrap()
+                .contains("external provider APIs")
+        );
+    }
+
+    #[test]
+    fn media_cloud_error_messages_do_not_echo_raw_provider_details() {
+        let request_error = || {
+            reqwest::Client::builder()
+                .build()
+                .unwrap()
+                .get("http://127.0.0.1:1/secret?api_key=leak")
+                .header("bad\nheader", "value")
+                .build()
+                .unwrap_err()
+        };
+        let err = describe_media_request_error("openai", request_error());
+        assert!(!err.contains("api_key"));
+        assert!(!err.contains("127.0.0.1"));
+        assert!(err.contains("openai vision request failed"));
+
+        let fal_err = describe_image_generate_request_error(request_error());
+        assert!(!fal_err.contains("api_key"));
+        assert!(!fal_err.contains("127.0.0.1"));
+        assert!(fal_err.contains("fal request failed"));
     }
 
     #[tokio::test]
@@ -793,8 +1290,27 @@ mod tests {
         // FAL is an explicit opt-in. When the user passes `provider: "fal"`
         // but there is no API key, the handler fails explicitly with the
         // FAL_API_KEY message — no silent fallback to MLX, no escalation.
+        let _env_guard = crate::test_support::env_lock();
         let saved = std::env::var("FAL_API_KEY").ok();
         std::env::remove_var("FAL_API_KEY");
+        let handler = ImageGenerateHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "prompt": "a cat",
+                "aspect_ratio": "square",
+                "provider": "fal",
+                "allow_cloud_external_requests": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("FAL_API_KEY"));
+        if let Some(v) = saved {
+            std::env::set_var("FAL_API_KEY", v);
+        }
+    }
+
+    #[tokio::test]
+    async fn image_generate_fal_requires_cloud_external_consent_before_api_key() {
         let handler = ImageGenerateHandler::new().unwrap();
         let err = handler
             .execute(&json!({
@@ -804,10 +1320,9 @@ mod tests {
             }))
             .await
             .unwrap_err();
-        assert!(format!("{err}").contains("FAL_API_KEY"));
-        if let Some(v) = saved {
-            std::env::set_var("FAL_API_KEY", v);
-        }
+        let msg = format!("{err}");
+        assert!(msg.contains("allow_cloud_external_requests"));
+        assert!(!msg.contains("FAL_API_KEY"));
     }
 
     #[tokio::test]
@@ -823,5 +1338,112 @@ mod tests {
         let huge = "x".repeat(MAX_TTS_CHARS + 1);
         let err = handler.execute(&json!({ "text": huge })).await.unwrap_err();
         assert!(format!("{err}").contains("char cap"));
+    }
+
+    #[tokio::test]
+    async fn text_to_speech_requires_playback_consent_without_output_path() {
+        let handler = TextToSpeechHandler;
+        let err = handler
+            .execute(&json!({ "text": "hello" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_audio_playback"));
+    }
+
+    #[tokio::test]
+    async fn text_to_speech_rejects_invalid_rate_before_spawn() {
+        let handler = TextToSpeechHandler;
+        let err = handler
+            .execute(&json!({
+                "text": "hello",
+                "rate": 10,
+                "allow_audio_playback": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("rate"));
+    }
+
+    #[tokio::test]
+    async fn text_to_speech_rejects_relative_output_path_before_spawn() {
+        let handler = TextToSpeechHandler;
+        let err = handler
+            .execute(&json!({
+                "text": "hello",
+                "output_path": "speech.aiff"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("output_path must be absolute"));
+    }
+
+    #[tokio::test]
+    async fn text_to_speech_rejects_missing_output_parent_before_spawn() {
+        let handler = TextToSpeechHandler;
+        let err = handler
+            .execute(&json!({
+                "text": "hello",
+                "output_path": "/tmp/epistemos-missing-parent-xyz/speech.aiff"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("parent directory"));
+    }
+
+    #[tokio::test]
+    async fn text_to_speech_rejects_protected_output_path_before_spawn() {
+        let handler = TextToSpeechHandler;
+        let err = handler
+            .execute(&json!({
+                "text": "hello",
+                "output_path": "/etc/epistemos-speech.aiff"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("protected system directory"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn text_to_speech_rejects_symlink_output_to_sensitive_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let sensitive = dir.path().join(".env");
+        std::fs::write(&sensitive, "SECRET=1").unwrap();
+        let link = dir.path().join("speech.aiff");
+        std::os::unix::fs::symlink(&sensitive, &link).unwrap();
+
+        let handler = TextToSpeechHandler;
+        let err = handler
+            .execute(&json!({
+                "text": "hello",
+                "output_path": link.to_string_lossy()
+            }))
+            .await
+            .unwrap_err();
+
+        assert!(format!("{err}").contains("resolved target"));
+    }
+
+    #[test]
+    fn text_to_speech_say_failure_redacts_raw_stderr() {
+        let message = describe_say_failure("say: token sk-secret-token permission denied", 1);
+        assert!(message.contains("stderr redacted"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[test]
+    fn text_to_speech_schema_documents_playback_consent_and_output_write() {
+        let schema = text_to_speech_schema();
+        assert!(schema.description.contains("allow_audio_playback=true"));
+        assert!(
+            schema.parameters["properties"]["allow_audio_playback"]["description"]
+                .as_str()
+                .unwrap()
+                .contains("play audio immediately")
+        );
+        assert_eq!(
+            schema.parameters["properties"]["rate"]["minimum"],
+            json!(MIN_TTS_RATE)
+        );
     }
 }

@@ -38,8 +38,10 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
 
         #expect(source.contains("let onNewDocument: () -> Void"),
                 "EditorActionsBar needs a dedicated .epdoc creation callback, not a note-only surface.")
-        #expect(source.contains("SidebarIconButton(icon: \"doc.badge.plus\", tooltip: \"New Document (.epdoc)\")"),
-                "Notes sidebar bottom bar must visibly expose .epdoc creation.")
+        #expect(source.contains("icon: \"doc.badge.plus\"")
+                && source.contains("\"Select Vault to Create Document\"")
+                && source.contains("\"New Document (.epdoc)\""),
+                "Notes sidebar bottom bar must visibly expose .epdoc creation when connected and an honest vault-selection prompt when disconnected.")
         #expect(source.contains("NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)"),
                 "Notes sidebar should create .epdoc files directly in the active vault when one is selected.")
         #expect(source.contains("cachedDocumentItems"),
@@ -213,16 +215,26 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Epdoc must convert pasted markdown syntax (# headings, fenced code, Mermaid, charts, images, tables, tasks, inline marks, math, and wikilinks) into real Tiptap nodes immediately instead of waiting for a backspace/retype input rule.")
         #expect(index.contains("epdocMarkdownInputRules()")
                 && markdownInputRules.contains("new InputRule")
-                && markdownInputRules.contains("parseMarkdownPaste(match[1])")
+                && markdownInputRules.contains("tableMarkdownInputFinder")
+                && markdownInputRules.contains("parseMarkdownPaste(markdown)")
                 && markdownInputRules.contains("node.type === 'table'")
                 && markdownInputRules.contains("replaceInputWithBlockAndTrailingParagraph(state, range, tableNode)"),
                 "Epdoc must turn typed Markdown table rows into real Tiptap tables when the divider row is completed.")
+        #expect(markdownInputRules.contains("markdownLinkInputFinder")
+                && markdownInputRules.contains("wikiLinkInputFinder")
+                && markdownInputRules.contains("replaceInputWithInlineLink")
+                && markdownInputRules.contains("epistemos-doc:wiki/${encodeURIComponent(target)}")
+                && package.contains("\"check:markdown-input-rules\""),
+                "Epdoc must turn typed markdown links and wikilinks into real Link marks, not leave them as inert bracket syntax.")
         #expect(imageNode.contains("addInputRules()")
                 && imageNode.contains("parseMarkdownImageLine(match[0])")
                 && imageNode.contains("epdocImage")
+                && imageNode.contains("isSafeImageSrc(src)")
+                && imageNode.contains("blocked unsafe image source")
+                && imageNode.contains("data-epdoc-image-blocked")
                 && imageNode.contains("replaceInputWithBlockAndTrailingParagraph(state, range, imageNode)")
                 && blockInsert.contains("Math.min(range.from + blockNode.nodeSize + 1, tr.doc.content.size)"),
-                "Epdoc must turn typed Markdown image syntax and pasted image URLs into real image nodes, not text placeholders.")
+                "Epdoc must turn safe typed Markdown image syntax and pasted image URLs into real image nodes, while rejecting unsafe image sources from prompts/HTML/JSON render paths.")
         #expect(imageAssetBridge.contains("handlePaste")
                 && imageAssetBridge.contains("handleDOMEvents")
                 && imageAssetBridge.contains("drop")

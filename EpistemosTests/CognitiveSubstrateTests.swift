@@ -1705,8 +1705,8 @@ struct NightBrainCheckpointResumeTests {
         }
     }
 
-    @Test("Missing cloud knowledge job does not checkpoint or report completion")
-    func missingCloudKnowledgeJobDoesNotCheckpointOrReportCompletion() async {
+    @Test("Missing cloud knowledge job preflights as deferred without creating a run")
+    func missingCloudKnowledgeJobPreflightsAsDeferredWithoutCreatingRun() async {
         guard let store = makeTestStore() else {
             Issue.record("Failed to create test EventStore")
             return
@@ -1723,16 +1723,11 @@ struct NightBrainCheckpointResumeTests {
 
         #expect(result == .deferred)
         #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
-
-        let runId = store.mostRecentInterruptedRun()
-        #expect(runId != nil)
-        if let runId {
-            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
-        }
+        #expect(store.mostRecentInterruptedRun() == nil)
     }
 
-    @Test("Missing search index does not checkpoint or report completion")
-    func missingSearchIndexDoesNotCheckpointOrReportCompletion() async {
+    @Test("Missing search index preflights as deferred without creating a run")
+    func missingSearchIndexPreflightsAsDeferredWithoutCreatingRun() async {
         guard let store = makeTestStore() else {
             Issue.record("Failed to create test EventStore")
             return
@@ -1749,16 +1744,11 @@ struct NightBrainCheckpointResumeTests {
 
         #expect(result == .deferred)
         #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
-
-        let runId = store.mostRecentInterruptedRun()
-        #expect(runId != nil)
-        if let runId {
-            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
-        }
+        #expect(store.mostRecentInterruptedRun() == nil)
     }
 
-    @Test("Missing graph memory does not checkpoint or report completion")
-    func missingGraphMemoryDoesNotCheckpointOrReportCompletion() async {
+    @Test("Missing graph memory preflights as deferred without creating a run")
+    func missingGraphMemoryPreflightsAsDeferredWithoutCreatingRun() async {
         guard let store = makeTestStore() else {
             Issue.record("Failed to create test EventStore")
             return
@@ -1775,12 +1765,7 @@ struct NightBrainCheckpointResumeTests {
 
         #expect(result == .deferred)
         #expect(store.completedNightBrainRuns(limit: 10).isEmpty)
-
-        let runId = store.mostRecentInterruptedRun()
-        #expect(runId != nil)
-        if let runId {
-            #expect(store.checkpointedJobTypes(runId: runId).isEmpty)
-        }
+        #expect(store.mostRecentInterruptedRun() == nil)
     }
 
     @Test("Night Brain keeps using the initial EventStore for durable checkpoints")

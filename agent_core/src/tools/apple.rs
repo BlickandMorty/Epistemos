@@ -15,12 +15,13 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::process::Command;
 
 use super::registry::{ToolError, ToolHandler};
 
 const OSASCRIPT_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_OSASCRIPT_OUTPUT_BYTES: usize = 512 * 1024;
 
 // MARK: - AppleScript quoting
 
@@ -73,12 +74,54 @@ async fn run_osascript(script: &str) -> Result<String, ToolError> {
     };
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stderr = decode_limited_output(&output.stderr, "stderr");
+        let exit_code = output.status.code().unwrap_or(-1);
         return Err(ToolError::ExecutionFailed(format!(
-            "osascript failed: {stderr}"
+            "osascript failed: {}",
+            describe_osascript_failure(&stderr, exit_code)
         )));
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(decode_limited_output(&output.stdout, "stdout")
+        .trim()
+        .to_string())
+}
+
+fn decode_limited_output(bytes: &[u8], stream: &str) -> String {
+    let truncated = bytes.len() > MAX_OSASCRIPT_OUTPUT_BYTES;
+    let slice = if truncated {
+        &bytes[..MAX_OSASCRIPT_OUTPUT_BYTES]
+    } else {
+        bytes
+    };
+    let mut text = String::from_utf8_lossy(slice).to_string();
+    if truncated {
+        text.push_str(&format!("\n... [{stream} truncated]"));
+    }
+    text
+}
+
+fn describe_osascript_failure(stderr: &str, exit_code: i32) -> String {
+    let lower = stderr.to_ascii_lowercase();
+    if lower.contains("not authorized")
+        || lower.contains("not authorised")
+        || lower.contains("not allowed")
+        || lower.contains("not permitted")
+        || lower.contains("permission")
+    {
+        return format!("automation permission denied or not granted (exit code {exit_code})");
+    }
+    if lower.contains("can't get")
+        || lower.contains("can’t get")
+        || lower.contains("missing value")
+        || lower.contains("application isn’t running")
+        || lower.contains("application is not running")
+    {
+        return format!("target app item was not found or unavailable (exit code {exit_code})");
+    }
+    if stderr.trim().is_empty() {
+        return format!("target app returned a non-zero status (exit code {exit_code})");
+    }
+    format!("target app returned an error (exit code {exit_code}; stderr redacted)")
 }
 
 // MARK: - apple_notes
@@ -821,6 +864,29 @@ mod tests {
             "\"hello \\\"world\\\" \\\\\""
         );
         assert_eq!(applescript_quote("line\nbreak"), "\"line\\nbreak\"");
+    }
+
+    #[test]
+    fn osascript_output_is_bounded() {
+        let bytes = vec![b'x'; MAX_OSASCRIPT_OUTPUT_BYTES + 16];
+        let output = decode_limited_output(&bytes, "stdout");
+        assert!(output.contains("[stdout truncated]"));
+        assert!(output.len() < MAX_OSASCRIPT_OUTPUT_BYTES + 128);
+    }
+
+    #[test]
+    fn osascript_failure_redacts_raw_stderr() {
+        let message =
+            describe_osascript_failure("Mail got an error: cannot send body sk-secret-token", 1);
+        assert!(message.contains("stderr redacted"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[test]
+    fn osascript_failure_classifies_permissions() {
+        let message = describe_osascript_failure("Not authorized to send Apple events", 1743);
+        assert!(message.contains("permission"));
+        assert!(!message.contains("Not authorized"));
     }
 
     #[tokio::test]

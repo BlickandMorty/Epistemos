@@ -23,7 +23,7 @@ struct IMessageNativeSetupStatus: Equatable, Sendable {
 enum IMessageNativeSetupDoctor {
     static let messagesBundleIdentifier = "com.apple.MobileSMS"
 
-    static func currentStatus() -> IMessageNativeSetupStatus {
+    static func currentStatus(probeAutomation: Bool = false) -> IMessageNativeSetupStatus {
         let databasePath = messagesDatabasePath
         return IMessageNativeSetupStatus(
             messagesDatabasePath: databasePath,
@@ -33,7 +33,9 @@ enum IMessageNativeSetupDoctor {
             databaseFileExists: FileManager.default.fileExists(atPath: databasePath),
             databaseAccessible: canOpenMessagesDatabase(at: databasePath),
             messagesAppAvailable: FileManager.default.fileExists(atPath: messagesAppPath),
-            messagesAutomationGranted: messagesAutomationGranted(promptIfNeeded: false)
+            messagesAutomationGranted: probeAutomation
+                ? messagesAutomationGranted(promptIfNeeded: false)
+                : false
         )
     }
 
@@ -46,7 +48,7 @@ enum IMessageNativeSetupDoctor {
             openAutomationSettings()
         }
         try? await Task.sleep(for: .milliseconds(350))
-        return currentStatus()
+        return currentStatus(probeAutomation: true)
     }
 
     @MainActor

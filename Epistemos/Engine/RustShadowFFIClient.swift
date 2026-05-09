@@ -257,8 +257,8 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
 
 // MARK: - ShadowHit Codable
 //
-// `ShadowHit` lives in Epistemos/Models/HaloState.swift and the W8.1
-// scaffold conforms it to `Hashable`, but not yet `Codable`. The
+// `ShadowHit` lives in Epistemos/Models/HaloState.swift and conforms
+// to `Hashable`, but not yet `Codable`. The
 // search FFI returns `Vec<ShadowHit>` JSON so we need a decoder.
 // Rather than retroactively conform `ShadowHit` itself (and risk the
 // project-wide ripple), we wrap it in a thin DTO and project to the

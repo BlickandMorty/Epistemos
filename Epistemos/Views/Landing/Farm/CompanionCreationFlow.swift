@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 4-step Companion creation wizard. Per Simulation v1.6 Invariant
+/// 4-step Landing agent creation wizard. Per Simulation v1.6 Invariant
 /// I-10, every cosmetic choice maps to a functional ModelProfile —
 /// body grammar selects the silhouette + animation vocabulary, accent
 /// color drives chat surface tinting, persona prompt augments the
@@ -14,29 +14,34 @@ import SwiftUI
 ///
 /// Confirm calls `companionState.createCompanion(...)` directly — no
 /// Sovereign Gate prompt for creation (Reversible action class per
-/// doctrine §A.7; the user can delete the companion freely after).
+/// doctrine §A.7; the user can delete the agent freely after).
 struct CompanionCreationFlow: View {
     @Bindable var companionState: CompanionState
     var theme: EpistemosTheme
     var onDismiss: () -> Void = {}
 
     @State private var step: Int = 0
-    @State private var bodyKind: CompanionBodyKind = .orb
+    @State private var bodyKind: CompanionBodyKind = .blockCompact
     @State private var name: String = ""
     @State private var tagline: String = ""
-    @State private var accentHex: String = "#7BA8E0"
+    @State private var accentHex: String = AgentColorPreset.presets[0].hex
     @State private var personaPrompt: String = ""
 
-    private let presetAccents: [String] = [
-        "#7BA8E0",  // soft blue
-        "#9C8FE5",  // lavender (Sage default)
-        "#E5A87B",  // warm amber
-        "#7BE5A8",  // mint
-        "#E57BB1",  // pink
-        "#A8E57B",  // lime
-        "#7BE5DD",  // teal
-        "#E5C97B",  // gold
-    ]
+    private struct AgentColorPreset: Hashable {
+        let name: String
+        let hex: String
+
+        static let presets: [AgentColorPreset] = [
+            .init(name: "clay", hex: "#D97757"),
+            .init(name: "mint", hex: "#5EC2B7"),
+            .init(name: "lilac", hex: "#9C8FE5"),
+            .init(name: "gold", hex: "#E5B94E"),
+            .init(name: "sky", hex: "#5B8DEF"),
+            .init(name: "rose", hex: "#D85E8E"),
+            .init(name: "lime", hex: "#8BCB4A"),
+            .init(name: "ink", hex: "#7C8798"),
+        ]
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -65,8 +70,8 @@ struct CompanionCreationFlow: View {
             Image(systemName: "person.crop.circle.badge.plus")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(theme.resolved.accent.color)
-            Text("New Companion")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                Text("New Agent")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundStyle(theme.textPrimary)
             Spacer()
             HStack(spacing: 6) {
@@ -126,7 +131,7 @@ struct CompanionCreationFlow: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
-                        Text("Create")
+                        Text("Create Agent")
                     }
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 14)
@@ -166,7 +171,7 @@ struct CompanionCreationFlow: View {
 
     private var bodyStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            stepTitle("Choose a body", subtitle: "Each grammar shapes the silhouette and animation vocabulary.")
+            stepTitle("Choose an agent body", subtitle: "Each grammar shapes the silhouette and animation vocabulary.")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
                 ForEach(CompanionBodyKind.creationPresets, id: \.self) { kind in
                     Button {
@@ -213,19 +218,19 @@ struct CompanionCreationFlow: View {
 
     private var nameStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            stepTitle("Name + tagline", subtitle: "What do they answer to? One short tagline makes them recognizable.")
+            stepTitle("Name + role", subtitle: "What do they answer to? One short role makes the active agent obvious.")
             VStack(alignment: .leading, spacing: 6) {
                 Text("Name")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
-                TextField("", text: $name, prompt: Text("e.g. Sage, Quill, Nova"))
+                TextField("", text: $name, prompt: Text("e.g. Scout, Quill, Nova"))
                     .textFieldStyle(.roundedBorder)
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("Tagline (optional)")
+                Text("Role (optional)")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
-                TextField("", text: $tagline, prompt: Text("e.g. \"reflective companion\""))
+                TextField("", text: $tagline, prompt: Text("e.g. \"careful code reviewer\""))
                     .textFieldStyle(.roundedBorder)
             }
         }
@@ -233,32 +238,43 @@ struct CompanionCreationFlow: View {
 
     private var accentStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            stepTitle("Accent + persona", subtitle: "Color tints chat surfaces tied to this companion. Persona augments the system prompt.")
+            stepTitle("Accent + behavior", subtitle: "Color identifies the agent. Behavior is injected into the next chat turn when active.")
             VStack(alignment: .leading, spacing: 6) {
                 Text("Accent")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
-                HStack(spacing: 10) {
-                    ForEach(presetAccents, id: \.self) { hex in
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 8)], spacing: 8) {
+                    ForEach(AgentColorPreset.presets, id: \.self) { preset in
                         Button {
-                            accentHex = hex
+                            accentHex = preset.hex
                         } label: {
-                            Circle()
-                                .fill(Color(hex: hex) ?? .gray)
-                                .frame(width: 28, height: 28)
-                                .overlay(
-                                    Circle()
-                                        .stroke(accentHex == hex
-                                                ? theme.textPrimary
-                                                : .clear, lineWidth: 2)
-                                )
+                            HStack(spacing: 7) {
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(Color(hex: preset.hex) ?? .gray)
+                                    .frame(width: 18, height: 18)
+                                Text(preset.name)
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(theme.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 6)
+                            .overlay(
+                                Rectangle()
+                                    .stroke(
+                                        accentHex == preset.hex
+                                            ? theme.textPrimary.opacity(0.65)
+                                            : theme.textTertiary.opacity(0.18),
+                                        lineWidth: 1
+                                    )
+                            )
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("Persona prompt (optional)")
+                Text("Agent behavior (optional)")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
                 TextEditor(text: $personaPrompt)
@@ -282,13 +298,13 @@ struct CompanionCreationFlow: View {
             personaPrompt: personaPrompt
         ))
         return VStack(alignment: .center, spacing: 16) {
-            stepTitle("Confirm", subtitle: "This is how they'll appear in the Farm.")
-            CompanionView(entry: preview, size: 96)
+            stepTitle("Confirm", subtitle: "This is how they'll appear in the AGENTS dock.")
+            CompanionView(entry: preview, size: 64)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Body: \(bodyKind.displayName)")
                 Text("Accent: \(accentHex)")
                 if !personaPrompt.isEmpty {
-                    Text("Persona: \(personaPrompt.prefix(80))…")
+                    Text("Behavior: \(personaPrompt.prefix(80))…")
                         .lineLimit(2)
                 }
             }
@@ -318,7 +334,8 @@ struct CompanionCreationFlow: View {
             tagline: tagline.trimmingCharacters(in: .whitespacesAndNewlines),
             bodyKind: bodyKind,
             accentHex: accentHex,
-            personaPrompt: trimmedPersona.isEmpty ? nil : trimmedPersona
+            personaPrompt: trimmedPersona.isEmpty ? nil : trimmedPersona,
+            activateOnCreate: true
         )
         onDismiss()
     }

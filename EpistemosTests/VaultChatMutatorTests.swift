@@ -49,6 +49,21 @@ struct VaultChatMutatorTests {
         #expect(lastCommit.contains("[MEMORY:ADD]"))
     }
 
+    @Test("git subprocess uses direct binary, minimal env, no hooks, and honest MAS reference")
+    func gitSubprocessIsHardened() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Vault/VaultChatMutator.swift")
+
+        #expect(source.contains("URL(fileURLWithPath: \"/usr/bin/git\")"))
+        #expect(!source.contains("URL(fileURLWithPath: \"/usr/bin/env\")"))
+        #expect(source.contains("\"--no-verify\""))
+        #expect(source.contains("process.environment = Self.gitEnvironment()"))
+        #expect(!source.contains("ProcessInfo.processInfo.environment"))
+        #expect(source.contains("\"GIT_TERMINAL_PROMPT\": \"0\""))
+        #expect(source.contains("\"GIT_CONFIG_GLOBAL\": \"/dev/null\""))
+        #expect(source.contains("mas-file-only-"))
+        #expect(!source.contains("placeholder reference"))
+    }
+
     private func temporaryRoot() -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-vault-chat-mutator-\(UUID().uuidString)", isDirectory: true)

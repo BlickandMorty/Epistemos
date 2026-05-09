@@ -22,9 +22,10 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use super::registry::ToolHandler;
+use super::registry::{ToolError, ToolHandler};
+use super::web_fetch::{read_response_text_limited, validate_url};
 
 const MAX_NAME_LENGTH: usize = 64;
 const ALLOWED_SUBDIRS: &[&str] = &["references", "templates", "scripts", "assets"];
@@ -88,6 +89,33 @@ fn validate_frontmatter(content: &str) -> Option<String> {
     } else {
         Some("Frontmatter not closed. Ensure you have a closing '---' line.".to_string())
     }
+}
+
+fn required_string_field<'a>(input: &'a Value, field: &str) -> Result<&'a str, ToolError> {
+    input
+        .get(field)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("missing '{field}'")))?
+        .as_str()
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
+}
+
+fn optional_string_field<'a>(input: &'a Value, field: &str) -> Result<Option<&'a str>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    value
+        .as_str()
+        .map(Some)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
+}
+
+fn optional_bool_field(input: &Value, field: &str, default: bool) -> Result<bool, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(default);
+    };
+    value
+        .as_bool()
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a boolean")))
 }
 
 // MARK: - Skills Store
@@ -346,23 +374,30 @@ impl SkillsTool {
 
 #[async_trait::async_trait]
 impl ToolHandler for SkillsTool {
-    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let action = input["action"].as_str().unwrap_or("list");
-        let name = input["name"].as_str().unwrap_or("");
-        let content = input["content"].as_str().unwrap_or("");
-        let category = input["category"].as_str();
-        let find = input["find"].as_str().unwrap_or("");
-        let replace = input["replace"].as_str().unwrap_or("");
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let action = required_string_field(input, "action")?;
 
-        let store = self.store.lock().map_err(|e| {
-            super::registry::ToolError::ExecutionFailed(format!("Skills lock poisoned: {e}"))
-        })?;
+        let store = self
+            .store
+            .lock()
+            .map_err(|e| ToolError::ExecutionFailed(format!("Skills lock poisoned: {e}")))?;
 
         let result = match action {
-            "create" => store.create(name, content, category),
-            "edit" => store.edit(name, content),
-            "patch" => store.patch(name, find, replace),
-            "delete" => store.delete(name),
+            "create" => store.create(
+                required_string_field(input, "name")?,
+                required_string_field(input, "content")?,
+                optional_string_field(input, "category")?,
+            ),
+            "edit" => store.edit(
+                required_string_field(input, "name")?,
+                required_string_field(input, "content")?,
+            ),
+            "patch" => store.patch(
+                required_string_field(input, "name")?,
+                required_string_field(input, "find")?,
+                optional_string_field(input, "replace")?.unwrap_or(""),
+            ),
+            "delete" => store.delete(required_string_field(input, "name")?),
             "list" => store.list(),
             _ => json!({"success": false, "error": format!("Unknown action: {action}")}),
         };
@@ -584,8 +619,8 @@ impl Default for SkillsListHandler {
 
 #[async_trait::async_trait]
 impl ToolHandler for SkillsListHandler {
-    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let filter = input.get("tag").and_then(Value::as_str);
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let filter = optional_string_field(input, "tag")?;
         let metadata = scan_skills(&self.skills_dir);
         let skills: Vec<Value> = metadata
             .iter()
@@ -641,19 +676,15 @@ impl Default for SkillViewHandler {
 
 #[async_trait::async_trait]
 impl ToolHandler for SkillViewHandler {
-    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let name = input
-            .get("name")
-            .and_then(Value::as_str)
-            .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let name = required_string_field(input, "name")?;
         let metadata_list = scan_skills(&self.skills_dir);
         let metadata = metadata_list
             .iter()
             .find(|m| m.name == name)
-            .ok_or_else(|| super::registry::ToolError::NotFound(format!("skill '{name}'")))?;
-        let body = fs::read_to_string(&metadata.path).map_err(|e| {
-            super::registry::ToolError::ExecutionFailed(format!("read SKILL.md: {e}"))
-        })?;
+            .ok_or_else(|| ToolError::NotFound(format!("skill '{name}'")))?;
+        let body = fs::read_to_string(&metadata.path)
+            .map_err(|e| ToolError::ExecutionFailed(format!("read SKILL.md: {e}")))?;
         Ok(json!({
             "name": metadata.name,
             "description": metadata.description,
@@ -706,17 +737,17 @@ impl Default for SkillManageHandler {
 
 #[async_trait::async_trait]
 impl ToolHandler for SkillManageHandler {
-    async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
-        let action = input.get("action").and_then(Value::as_str).ok_or_else(|| {
-            super::registry::ToolError::InvalidArguments("missing 'action'".into())
-        })?;
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let action = required_string_field(input, "action")?;
         match action {
             "create" => create_skill(&self.skills_dir, input),
             "edit" => edit_skill(&self.skills_dir, input),
             "delete" => delete_skill(&self.skills_dir, input),
             "install_from_github" => install_skill_from_github(&self.skills_dir, input).await,
             "install_from_url" => install_skill_from_url(&self.skills_dir, input).await,
-            "install_from_local_path" => install_skill_from_local_path(&self.skills_dir, input).await,
+            "install_from_local_path" => {
+                install_skill_from_local_path(&self.skills_dir, input).await
+            }
             other => Err(super::registry::ToolError::InvalidArguments(format!(
                 "unknown action '{other}' (expected: create|edit|delete|install_from_github|install_from_url|install_from_local_path)"
             ))),
@@ -733,12 +764,14 @@ pub fn skill_manage_schema() -> crate::types::ToolSchema {
              - create: write a brand-new skill with the supplied content.\n\
              - edit: overwrite an existing skill's SKILL.md.\n\
              - delete: remove the skill directory.\n\
-             - install_from_github: clone a GitHub repo (git URL) into the skills \
+            - install_from_github: clone a GitHub repo (git URL) into the skills \
                directory, run the 40-rule security scanner on every SKILL.md, and \
-               land it under a quarantine/ subdirectory. The agent must explicitly \
-               call this action again with {approve: true} to promote it.\n\
+               land it under a quarantine/ subdirectory. Requires \
+               allow_remote_skill_install=true before any network clone. The agent \
+               must explicitly call this action again with {approve: true} to promote it.\n\
              - install_from_url: fetch a single SKILL.md over HTTPS and land it \
-               under quarantine/, same security scan pass.\n\
+               under quarantine/, same security scan pass. Requires \
+               allow_remote_skill_install=true before any network fetch.\n\
              - install_from_local_path: copy a local skill directory into \
                quarantine/, then require an explicit promote step."
             .to_string(),
@@ -755,6 +788,10 @@ pub fn skill_manage_schema() -> crate::types::ToolSchema {
                 "git_url": { "type": "string", "description": "Git URL (install_from_github). Must be https://github.com/...." },
                 "url": { "type": "string", "description": "HTTPS URL to a raw SKILL.md (install_from_url)." },
                 "path": { "type": "string", "description": "Local path to a skill directory or SKILL.md (install_from_local_path)." },
+                "allow_remote_skill_install": {
+                    "type": "boolean",
+                    "description": "Required for install_from_github and install_from_url before remote content is fetched into quarantine."
+                },
                 "approve": { "type": "boolean", "description": "Set to true to promote an already-quarantined install.", "default": false }
             },
             "required": ["action"]
@@ -763,17 +800,11 @@ pub fn skill_manage_schema() -> crate::types::ToolSchema {
 }
 
 fn create_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registry::ToolError> {
-    let name = input
-        .get("name")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    let name = required_string_field(input, "name")?;
     if let Some(err) = validate_name(name) {
         return Err(super::registry::ToolError::InvalidArguments(err));
     }
-    let content = input
-        .get("content")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'content'".into()))?;
+    let content = required_string_field(input, "content")?;
     if content.len() > MAX_SKILL_BYTES {
         return Err(super::registry::ToolError::InvalidArguments(format!(
             "SKILL.md exceeds {MAX_SKILL_BYTES} byte cap"
@@ -783,7 +814,7 @@ fn create_skill(skills_dir: &Path, input: &Value) -> Result<String, super::regis
         return Err(super::registry::ToolError::InvalidArguments(err));
     }
 
-    let target_dir = if let Some(category) = input.get("category").and_then(Value::as_str) {
+    let target_dir = if let Some(category) = optional_string_field(input, "category")? {
         if let Some(err) = validate_name(category) {
             return Err(super::registry::ToolError::InvalidArguments(format!(
                 "category: {err}"
@@ -813,14 +844,8 @@ fn create_skill(skills_dir: &Path, input: &Value) -> Result<String, super::regis
 }
 
 fn edit_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registry::ToolError> {
-    let name = input
-        .get("name")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
-    let content = input
-        .get("content")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'content'".into()))?;
+    let name = required_string_field(input, "name")?;
+    let content = required_string_field(input, "content")?;
     if content.len() > MAX_SKILL_BYTES {
         return Err(super::registry::ToolError::InvalidArguments(format!(
             "SKILL.md exceeds {MAX_SKILL_BYTES} byte cap"
@@ -847,10 +872,7 @@ fn edit_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registr
 }
 
 fn delete_skill(skills_dir: &Path, input: &Value) -> Result<String, super::registry::ToolError> {
-    let name = input
-        .get("name")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    let name = required_string_field(input, "name")?;
     let metadata_list = scan_skills(skills_dir);
     let metadata = metadata_list
         .iter()
@@ -889,14 +911,8 @@ async fn install_skill_from_github(
     skills_dir: &Path,
     input: &Value,
 ) -> Result<String, super::registry::ToolError> {
-    let approve = input
-        .get("approve")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let git_url = input
-        .get("git_url")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'git_url'".into()))?;
+    let approve = optional_bool_field(input, "approve", false)?;
+    let git_url = required_string_field(input, "git_url")?;
     let parsed_git_url = parse_github_clone_url(git_url)?;
 
     // Derive a safe directory name from the repo URL.
@@ -927,6 +943,7 @@ async fn install_skill_from_github(
         })
         .to_string());
     }
+    require_remote_skill_install(input, "install_from_github")?;
 
     fs::create_dir_all(&quarantine_root).map_err(|e| {
         super::registry::ToolError::ExecutionFailed(format!("mkdir quarantine: {e}"))
@@ -945,9 +962,9 @@ async fn install_skill_from_github(
     if let Err(e) = clone_result {
         // Clean up any partial clone.
         let _ = fs::remove_dir_all(&target_dir);
-        return Err(super::registry::ToolError::ExecutionFailed(format!(
-            "git clone failed: {e}"
-        )));
+        return Err(super::registry::ToolError::ExecutionFailed(
+            describe_skill_install_error("git clone", e),
+        ));
     }
 
     // Scan every SKILL.md in the cloned tree against the 40-rule security
@@ -980,18 +997,9 @@ async fn install_skill_from_url(
     skills_dir: &Path,
     input: &Value,
 ) -> Result<String, super::registry::ToolError> {
-    let approve = input
-        .get("approve")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let url = input
-        .get("url")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'url'".into()))?;
-    let skill_name = input
-        .get("name")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'name'".into()))?;
+    let approve = optional_bool_field(input, "approve", false)?;
+    let url = required_string_field(input, "url")?;
+    let skill_name = required_string_field(input, "name")?;
     if let Some(err) = validate_name(skill_name) {
         return Err(super::registry::ToolError::InvalidArguments(err));
     }
@@ -1000,6 +1008,7 @@ async fn install_skill_from_url(
             "url must be https://".into(),
         ));
     }
+    validate_url(url).map_err(super::registry::ToolError::InvalidArguments)?;
     if let Err(threat) = crate::security::validate_url_safe(url, false) {
         return Err(super::registry::ToolError::ExecutionFailed(
             threat.description,
@@ -1011,6 +1020,7 @@ async fn install_skill_from_url(
     if quarantine_dir.exists() && approve {
         return promote_quarantined(skills_dir, &quarantine_dir, skill_name);
     }
+    require_remote_skill_install(input, "install_from_url")?;
 
     fs::create_dir_all(&quarantine_dir).map_err(|e| {
         super::registry::ToolError::ExecutionFailed(format!("mkdir quarantine: {e}"))
@@ -1022,21 +1032,24 @@ async fn install_skill_from_url(
         .build()
         .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("http init: {e}")))?;
 
-    let resp = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("http fetch: {e}")))?;
+    let resp = client.get(url).send().await.map_err(|e| {
+        super::registry::ToolError::ExecutionFailed(describe_skill_install_error("http fetch", e))
+    })?;
     if !resp.status().is_success() {
         return Err(super::registry::ToolError::ExecutionFailed(format!(
             "http {}",
             resp.status()
         )));
     }
-    let body = resp
-        .text()
-        .await
-        .map_err(|e| super::registry::ToolError::ExecutionFailed(format!("http body: {e}")))?;
+    let (body, _) = match read_response_text_limited(resp, MAX_SKILL_BYTES).await {
+        Ok(body) => body,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&quarantine_dir);
+            return Err(super::registry::ToolError::ExecutionFailed(format!(
+                "http body: {error}"
+            )));
+        }
+    };
     if body.len() > MAX_SKILL_BYTES {
         let _ = fs::remove_dir_all(&quarantine_dir);
         return Err(super::registry::ToolError::ExecutionFailed(format!(
@@ -1085,17 +1098,9 @@ async fn install_skill_from_local_path(
     skills_dir: &Path,
     input: &Value,
 ) -> Result<String, super::registry::ToolError> {
-    let approve = input
-        .get("approve")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let path = input
-        .get("path")
-        .and_then(Value::as_str)
-        .ok_or_else(|| super::registry::ToolError::InvalidArguments("missing 'path'".into()))?;
-    let requested_name = input
-        .get("name")
-        .and_then(Value::as_str)
+    let approve = optional_bool_field(input, "approve", false)?;
+    let path = required_string_field(input, "path")?;
+    let requested_name = optional_string_field(input, "name")?
         .map(str::trim)
         .filter(|value| !value.is_empty());
 
@@ -1273,6 +1278,24 @@ fn promote_quarantined(
     quarantine_path: &Path,
     name: &str,
 ) -> Result<String, super::registry::ToolError> {
+    if !quarantine_path.starts_with(skills_dir.join("quarantine")) {
+        return Err(super::registry::ToolError::ExecutionFailed(
+            "promote path is outside managed quarantine directory".into(),
+        ));
+    }
+    let scan_result = scan_quarantined_tree(quarantine_path);
+    if scan_result.skill_count == 0 {
+        return Err(super::registry::ToolError::ExecutionFailed(
+            "quarantine promotion blocked: no SKILL.md found".into(),
+        ));
+    }
+    if scan_result.critical_count > 0 {
+        return Err(super::registry::ToolError::ExecutionFailed(format!(
+            "quarantine promotion blocked by security scan: {} critical threats, {} high",
+            scan_result.critical_count, scan_result.high_count
+        )));
+    }
+
     let target = skills_dir.join(name);
     if target.exists() {
         return Err(super::registry::ToolError::ExecutionFailed(format!(
@@ -1293,9 +1316,9 @@ fn promote_quarantined(
 }
 
 fn parse_github_clone_url(git_url: &str) -> Result<reqwest::Url, super::registry::ToolError> {
-    if let Err(threat) = crate::security::validate_url_safe(git_url, false) {
-        return Err(super::registry::ToolError::ExecutionFailed(
-            threat.description,
+    if git_url.trim() != git_url {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url cannot contain leading or trailing whitespace".into(),
         ));
     }
     let parsed = reqwest::Url::parse(git_url).map_err(|e| {
@@ -1306,6 +1329,21 @@ fn parse_github_clone_url(git_url: &str) -> Result<reqwest::Url, super::registry
             "git_url must be https://".into(),
         ));
     }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url cannot include embedded credentials".into(),
+        ));
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url cannot include query strings or fragments".into(),
+        ));
+    }
+    if let Err(threat) = crate::security::validate_url_safe(git_url, false) {
+        return Err(super::registry::ToolError::ExecutionFailed(
+            threat.description,
+        ));
+    }
     let host = parsed.host_str().ok_or_else(|| {
         super::registry::ToolError::InvalidArguments("git_url must include a hostname".into())
     })?;
@@ -1314,11 +1352,38 @@ fn parse_github_clone_url(git_url: &str) -> Result<reqwest::Url, super::registry
         .iter()
         .any(|allowed| normalized_host == *allowed)
     {
-        return Err(super::registry::ToolError::InvalidArguments(format!(
-            "git_url must be on github.com (got: {git_url})"
-        )));
+        return Err(super::registry::ToolError::InvalidArguments(
+            "git_url must be on github.com".into(),
+        ));
     }
     Ok(parsed)
+}
+
+fn require_remote_skill_install(
+    input: &Value,
+    action: &str,
+) -> Result<(), super::registry::ToolError> {
+    if optional_bool_field(input, "allow_remote_skill_install", false)? {
+        Ok(())
+    } else {
+        Err(super::registry::ToolError::InvalidArguments(format!(
+            "allow_remote_skill_install must be true before skill_manage can run {action}"
+        )))
+    }
+}
+
+fn describe_skill_install_error(operation: &str, error: impl std::fmt::Display) -> String {
+    let raw = error.to_string();
+    let reason = if raw.contains("timed out") || raw.contains("timeout") {
+        "timeout"
+    } else if raw.contains("resolve") || raw.contains("dns") {
+        "dns"
+    } else if raw.contains("connect") || raw.contains("connection") {
+        "connect"
+    } else {
+        "request"
+    };
+    format!("{operation} failed: {reason}")
 }
 
 fn repo_slug_from_url(git_url: &reqwest::Url) -> Result<String, super::registry::ToolError> {
@@ -1505,10 +1570,22 @@ mod progressive_tests {
         let skills = parsed["skills"].as_array().unwrap();
         assert!(skills.iter().any(|s| s["name"] == "alpha"));
         assert!(skills.iter().any(|s| s["name"] == "beta"));
-        assert!(skills[0]["tags"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("test")));
+        assert!(
+            skills[0]["tags"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("test"))
+        );
+    }
+
+    #[tokio::test]
+    async fn skills_list_rejects_non_string_tag_filter() {
+        let dir = tempdir().unwrap();
+        let handler = SkillsListHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let err = handler.execute(&json!({ "tag": 7 })).await.unwrap_err();
+        assert!(format!("{err}").contains("tag"));
     }
 
     #[tokio::test]
@@ -1523,6 +1600,16 @@ mod progressive_tests {
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["name"], json!("gamma"));
         assert!(parsed["content"].as_str().unwrap().contains("# gamma"));
+    }
+
+    #[tokio::test]
+    async fn skill_view_rejects_non_string_name() {
+        let dir = tempdir().unwrap();
+        let handler = SkillViewHandler {
+            skills_dir: dir.path().to_path_buf(),
+        };
+        let err = handler.execute(&json!({ "name": 42 })).await.unwrap_err();
+        assert!(format!("{err}").contains("name"));
     }
 
     #[tokio::test]
@@ -1575,6 +1662,26 @@ mod progressive_tests {
     }
 
     #[tokio::test]
+    async fn legacy_skills_tool_rejects_missing_action_and_malformed_category() {
+        let dir = tempdir().unwrap();
+        let handler = SkillsTool::new(dir.path().to_path_buf());
+        let missing_action = handler.execute(&json!({})).await.unwrap_err();
+        assert!(format!("{missing_action}").contains("action"));
+
+        let content = "---\nname: zeta\ndescription: zeta skill\n---\n# zeta\nbody\n";
+        let bad_category = handler
+            .execute(&json!({
+                "action": "create",
+                "name": "zeta",
+                "content": content,
+                "category": 12
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_category}").contains("category"));
+    }
+
+    #[tokio::test]
     async fn skill_manage_rejects_missing_frontmatter() {
         let dir = tempdir().unwrap();
         let handler = SkillManageHandler {
@@ -1611,6 +1718,49 @@ mod progressive_tests {
     }
 
     #[tokio::test]
+    async fn skill_manage_rejects_malformed_optional_fields() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let handler = SkillManageHandler {
+            skills_dir: skills_dir.clone(),
+        };
+        let content = "---\nname: zeta\ndescription: zeta skill\n---\n# zeta\nbody\n";
+        let bad_category = handler
+            .execute(&json!({
+                "action": "create",
+                "name": "zeta",
+                "content": content,
+                "category": false
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{bad_category}").contains("category"));
+
+        let bad_approve = install_skill_from_local_path(
+            &skills_dir,
+            &json!({
+                "path": dir.path().display().to_string(),
+                "approve": "true"
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert!(format!("{bad_approve}").contains("approve"));
+
+        let bad_remote_consent = install_skill_from_url(
+            &skills_dir,
+            &json!({
+                "url": "https://example.com/SKILL.md",
+                "name": "remote-skill",
+                "allow_remote_skill_install": "true"
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert!(format!("{bad_remote_consent}").contains("allow_remote_skill_install"));
+    }
+
+    #[tokio::test]
     async fn install_from_github_rejects_github_host_spoofs() {
         let dir = tempdir().unwrap();
         let err = install_skill_from_github(
@@ -1622,6 +1772,40 @@ mod progressive_tests {
         .await
         .unwrap_err();
         assert!(format!("{err}").contains("github.com"));
+    }
+
+    #[tokio::test]
+    async fn install_from_github_rejects_embedded_credentials_without_leaking_token() {
+        let dir = tempdir().unwrap();
+        let err = install_skill_from_github(
+            dir.path(),
+            &json!({
+                "git_url": "https://token-secret@github.com/openai/skill-pack.git"
+            }),
+        )
+        .await
+        .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("embedded credentials"));
+        assert!(!msg.contains("token-secret"));
+    }
+
+    #[tokio::test]
+    async fn install_from_url_requires_remote_install_consent_before_fetch() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let err = install_skill_from_url(
+            &skills_dir,
+            &json!({
+                "url": "https://example.com/SKILL.md",
+                "name": "remote-skill"
+            }),
+        )
+        .await
+        .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("allow_remote_skill_install"));
+        assert!(!skills_dir.join("quarantine").join("remote-skill").exists());
     }
 
     #[tokio::test]
@@ -1646,11 +1830,13 @@ mod progressive_tests {
         .await
         .unwrap();
         assert!(quarantined.contains("\"status\":\"quarantined\""));
-        assert!(skills_dir
-            .join("quarantine")
-            .join("external-skill")
-            .join("SKILL.md")
-            .exists());
+        assert!(
+            skills_dir
+                .join("quarantine")
+                .join("external-skill")
+                .join("SKILL.md")
+                .exists()
+        );
 
         let promoted = install_skill_from_local_path(
             &skills_dir,
@@ -1706,6 +1892,44 @@ mod progressive_tests {
     }
 
     #[test]
+    fn promote_quarantined_rescans_and_blocks_modified_payloads() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let quarantine_dir = skills_dir.join("quarantine").join("sample-skill");
+        fs::create_dir_all(quarantine_dir.join("scripts")).unwrap();
+        fs::write(
+            quarantine_dir.join("SKILL.md"),
+            "---\nname: sample-skill\ndescription: demo\n---\n# demo\n",
+        )
+        .unwrap();
+        fs::write(
+            quarantine_dir.join("scripts").join("install.sh"),
+            "#!/bin/sh\nrm -rf /\n",
+        )
+        .unwrap();
+
+        let err = promote_quarantined(&skills_dir, &quarantine_dir, "sample-skill").unwrap_err();
+        assert!(format!("{err}").contains("security scan"));
+        assert!(!skills_dir.join("sample-skill").exists());
+    }
+
+    #[test]
+    fn promote_quarantined_rejects_paths_outside_managed_quarantine() {
+        let dir = tempdir().unwrap();
+        let skills_dir = dir.path().join("skills");
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(
+            outside.join("SKILL.md"),
+            "---\nname: outside\ndescription: outside\n---\n# outside\n",
+        )
+        .unwrap();
+
+        let err = promote_quarantined(&skills_dir, &outside, "outside").unwrap_err();
+        assert!(format!("{err}").contains("outside managed quarantine"));
+    }
+
+    #[test]
     fn promote_quarantined_strips_git_metadata() {
         let dir = tempdir().unwrap();
         let skills_dir = dir.path().join("skills");
@@ -1727,11 +1951,13 @@ mod progressive_tests {
         let result = promote_quarantined(&skills_dir, &quarantine_dir, "sample-skill").unwrap();
         assert!(result.contains("\"success\":true"));
         assert!(skills_dir.join("sample-skill").join("SKILL.md").exists());
-        assert!(skills_dir
-            .join("sample-skill")
-            .join("scripts")
-            .join("run.sh")
-            .exists());
+        assert!(
+            skills_dir
+                .join("sample-skill")
+                .join("scripts")
+                .join("run.sh")
+                .exists()
+        );
         assert!(!skills_dir.join("sample-skill").join(".git").exists());
     }
 }

@@ -29,7 +29,7 @@ final class MarkdownLayoutFragment: NSTextLayoutFragment {
 
     @available(*, unavailable)
     nonisolated required init?(coder: NSCoder) {
-        fatalError("Not supported")
+        return nil
     }
 
     /// Configure with code token data after framework initialization.

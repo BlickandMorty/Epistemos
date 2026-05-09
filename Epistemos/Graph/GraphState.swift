@@ -413,9 +413,11 @@ enum GraphInteractionMode: Equatable {
 // MARK: - Label Font Family
 
 enum LabelFontFamily: String, CaseIterable, Identifiable, Codable {
+    // Raw value is preserved for old UserDefaults, but the shipped atlas is now
+    // JetBrains Mono. Keeping one bundled atlas avoids a fake font picker.
     case retro
     var id: String { rawValue }
-    var displayName: String { "Retro" }
+    var displayName: String { "Mono" }
     var atlasResourceName: String { "sdf_labels" }
 }
 
@@ -975,11 +977,13 @@ final class GraphState {
     var liteModeVersion: Int = 0
 
     /// Runtime quality level forwarded to Rust.
-    /// 0 = cinematic default, 2 = performance mode.
-    /// Forced to 2 (performance) in eco/lowPower mode regardless of user preference.
+    /// 0 = cinematic pixel default, 2 = performance mode.
+    ///
+    /// PowerGuard may throttle frame pacing/resolution, but it must not silently
+    /// change the graph's visual identity. If the toolbar says Pixel, Rust must
+    /// receive the cinematic pixel shader path.
     var qualityLevel: UInt8 {
         get {
-            if PowerGuard.shared.shouldDisableBackground { return 2 }
             return performanceModeEnabled ? 2 : 0
         }
         set { performanceModeEnabled = newValue >= 2 }
@@ -1035,10 +1039,11 @@ final class GraphState {
     var labelFontVersion: Int = 0
     var labelPolicyVersion: Int = 0
 
-    // MARK: - Water Nodes
+    // MARK: - Cinematic Pixel Nodes
 
-    /// Water nodes are the default cinematic look. Performance mode switches to
-    /// the simpler renderer style and disables water nodes as one coherent mode.
+    /// Legacy FFI flag retained for renderer compatibility. The v1 cinematic
+    /// identity is hard stepped pixel nodes; performance mode switches to the
+    /// simpler existing fast shader as one coherent mode.
     var waterNodesEnabled: Bool {
         !performanceModeEnabled
     }

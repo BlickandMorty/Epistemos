@@ -20,7 +20,7 @@ import OSLog
 
 /// Minimal abstraction over the epistemos-code-index FFI surface.
 /// Real implementation will wrap the C ABI from `epistemos-code-index`
-/// via `@_silgen_name`; tests use the in-memory stub below.
+/// via `@_silgen_name`; tests use the in-memory client below.
 nonisolated public protocol CodeIndexClient: Sendable {
     func upsert(document: AgentGrepDocument) throws
     func remove(vaultRelativePath: String) throws
@@ -331,14 +331,14 @@ public final class AgentGrepService {
     }
 }
 
-// MARK: - Stub backend client
+// MARK: - In-memory backend client
 
 /// In-memory `CodeIndexClient` matching the Rust epistemos-code-index
-/// stub backend's substring scoring + per-kind filter semantics.
+/// fallback backend's substring scoring + per-kind filter semantics.
 /// Used by tests so the agent-grep surface is exercised without
 /// loading the Rust dylib.
-nonisolated public final class StubCodeIndexClient: CodeIndexClient, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "com.epistemos.codeindex.stub")
+nonisolated public final class InMemoryCodeIndexClient: CodeIndexClient, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "com.epistemos.codeindex.inmemory")
     private var docs: [String: AgentGrepDocument] = [:]
 
     public init() {}
@@ -346,7 +346,7 @@ nonisolated public final class StubCodeIndexClient: CodeIndexClient, @unchecked 
     public func upsert(document: AgentGrepDocument) throws {
         if document.vaultRelativePath.isEmpty {
             throw NSError(
-                domain: "StubCodeIndexClient",
+                domain: "InMemoryCodeIndexClient",
                 code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "vault_relative_path was empty"]
             )
@@ -360,7 +360,7 @@ nonisolated public final class StubCodeIndexClient: CodeIndexClient, @unchecked 
         }
         if !removed {
             throw NSError(
-                domain: "StubCodeIndexClient",
+                domain: "InMemoryCodeIndexClient",
                 code: -2,
                 userInfo: [NSLocalizedDescriptionKey: "not found: \(vaultRelativePath)"]
             )
@@ -395,7 +395,7 @@ nonisolated public final class StubCodeIndexClient: CodeIndexClient, @unchecked 
                 score: score,
                 snippet: snippet,
                 symbol: nil,
-                source: "stub-substring"
+                source: "in-memory-substring"
             )
         }
         hits.sort { $0.score > $1.score }

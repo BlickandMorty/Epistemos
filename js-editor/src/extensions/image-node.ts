@@ -1,6 +1,6 @@
 import { InputRule, Node, mergeAttributes } from '@tiptap/core';
 import { replaceInputWithBlockAndTrailingParagraph } from './block-insert';
-import { parseMarkdownImageLine } from '../markdown/markdown-paste';
+import { isSafeImageSrc, parseMarkdownImageLine } from '../markdown/markdown-paste';
 
 const IMAGE_INPUT_RE = /(!\[[^\]\n]*\]\(\S+(?:\s+"[^"\n]+")?\)|https?:\/\/[^\s<>()]+\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#][^\s<>()]*)?)$/i;
 
@@ -27,10 +27,24 @@ export const EpdocImageNode = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'img[src]' }];
+    return [{
+      tag: 'img[src]',
+      getAttrs: node => {
+        if (!(node instanceof HTMLElement)) return false;
+        const src = node.getAttribute('src')?.trim() ?? '';
+        return isSafeImageSrc(src) ? null : false;
+      },
+    }];
   },
 
   renderHTML({ HTMLAttributes }) {
+    const src = typeof HTMLAttributes.src === 'string' ? HTMLAttributes.src.trim() : '';
+    if (!isSafeImageSrc(src)) {
+      return ['div', mergeAttributes({
+        'data-epdoc-image-blocked': '',
+        role: 'note',
+      }), 'Blocked unsafe image source'];
+    }
     return ['img', mergeAttributes(HTMLAttributes, { 'data-epdoc-image': '' })];
   },
 
@@ -40,7 +54,10 @@ export const EpdocImageNode = Node.create({
         options =>
         ({ commands }) => {
           const src = options.src.trim();
-          if (!src) return false;
+          if (!src || !isSafeImageSrc(src)) {
+            console.warn('[epdoc image] blocked unsafe image source');
+            return false;
+          }
           return commands.insertContent({
             type: this.name,
             attrs: {

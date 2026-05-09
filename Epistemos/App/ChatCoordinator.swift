@@ -89,6 +89,15 @@ final class ChatCoordinator {
     self.notesUI = notesUI
   }
 
+  private func appendActiveLandingAgentSystemInstruction(to sections: inout [String]) {
+    guard let instruction = bootstrap.companionState.activeAgentSystemInstruction()?
+      .trimmingCharacters(in: .whitespacesAndNewlines),
+      !instruction.isEmpty else {
+      return
+    }
+    sections.append(instruction)
+  }
+
   private func fetchAll<T: PersistentModel>(
     _ descriptor: FetchDescriptor<T>,
     in context: ModelContext,
@@ -338,9 +347,7 @@ final class ChatCoordinator {
         // pattern already in place for `handleQuery` — Command
         // Center submissions now share the same responsiveness
         // profile.
-        let aiFresh = AppleIntelligenceService.shared.checkAvailability()
-        self.inferenceState.appleIntelligenceAvailable = aiFresh.available
-        self.inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
+        self.inferenceState.refreshAppleIntelligenceAvailability()
 
         let compiled = await compiler.compile(
           request: request,
@@ -535,6 +542,7 @@ final class ChatCoordinator {
     systemParts.append(
       "You are Epistemos, an intelligent knowledge assistant. Be clear, grounded, and helpful.")
     systemParts.append(ChatResponseStyleGuide.mainChatSystemInstruction)
+    appendActiveLandingAgentSystemInstruction(to: &systemParts)
     if let ctx = compiled.notesContext {
       systemParts.append("Context:\n\(ctx)")
     }
@@ -989,6 +997,7 @@ final class ChatCoordinator {
       ChatResponseStyleGuide.mainChatSystemInstruction,
       executionPlan.additionalSystemPrompt(),
     ]
+    appendActiveLandingAgentSystemInstruction(to: &systemInstructions)
     if let slashToken = compiled.requestedSlashToken {
       systemInstructions.append(
         "Requested command: \(slashToken.displayName) (\(slashToken.identifier))."
@@ -1243,7 +1252,8 @@ final class ChatCoordinator {
     graphContextSection: String?,
     fileAttachmentContext: String?,
     workspaceContextSection: String?,
-    conversationHistory: String?
+    conversationHistory: String?,
+    activeAgentSection: String?
   ) -> ChatBrainSnapshot {
     let selection = inferenceState.effectiveChatSurfaceSelection(for: operatingMode)
     let executionPlanPrompt = executionPlan?.additionalSystemPrompt()
@@ -1259,6 +1269,7 @@ final class ChatCoordinator {
       fileAttachmentContext: fileAttachmentContext,
       workspaceContextSection: workspaceContextSection,
       conversationHistory: conversationHistory,
+      activeAgentSection: activeAgentSection,
       executionPlanPrompt: executionPlanPrompt
     )
 
@@ -1289,6 +1300,7 @@ final class ChatCoordinator {
     fileAttachmentContext: String?,
     workspaceContextSection: String?,
     conversationHistory: String?,
+    activeAgentSection: String?,
     executionPlanPrompt: String?
   ) -> [ChatBrainSection] {
     var sections: [ChatBrainSection] = []
@@ -1302,6 +1314,9 @@ final class ChatCoordinator {
           body: "/\(requestedSlashCommand.rawValue) • \(requestedSlashCommand.displayName)"
         )
       )
+    }
+    if let activeAgentSection {
+      sections.append(ChatBrainSection(title: "Active Agent", body: activeAgentSection))
     }
     if let requiredContextContract {
       sections.append(
@@ -1599,10 +1614,8 @@ final class ChatCoordinator {
       }
       let hasVault = bootstrap.ambientManifest != nil
       do {
-        let aiFresh = await MainActor.run { AppleIntelligenceService.shared.checkAvailability() }
         await MainActor.run {
-          self.inferenceState.appleIntelligenceAvailable = aiFresh.available
-          self.inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
+          self.inferenceState.refreshAppleIntelligenceAvailability()
         }
 
         let mode = inferenceState.inferenceMode
@@ -1821,7 +1834,8 @@ final class ChatCoordinator {
           graphContextSection: graphContextSection,
           fileAttachmentContext: fileAttachmentContext,
           workspaceContextSection: workspaceContextSection,
-          conversationHistory: conversationHistory
+          conversationHistory: conversationHistory,
+          activeAgentSection: bootstrap.companionState.activeAgentBrainSection()
         )
         chatState.captureBrainSnapshot(brainSnapshot)
 
@@ -2287,6 +2301,7 @@ final class ChatCoordinator {
     systemParts.append(
       "You are Epistemos, an intelligent knowledge assistant. Be clear, grounded, and helpful.")
     systemParts.append(ChatResponseStyleGuide.mainChatSystemInstruction)
+    appendActiveLandingAgentSystemInstruction(to: &systemParts)
 
     // Capability manifest: tell the model explicitly which tools it
     // has, which it DOESN'T have in this tier, and the rules for

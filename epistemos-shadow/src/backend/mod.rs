@@ -1,25 +1,11 @@
-//! W8.4.a — module skeleton + `ShadowBackend` trait.
+//! Shadow backend trait and production `RealBackend`.
 //!
-//! The real backend (Model2Vec encoder + usearch HNSW + tantivy BM25
-//! + RRF fusion) lands in W8.4.b–.f. This commit ships:
+//! The production backend owns Model2Vec encoding, usearch HNSW,
+//! tantivy BM25, and RRF fusion. The module also keeps the trait used
+//! by the C ABI surface so pre-open/test callers can use the
+//! explicitly labeled in-memory fallback from `state.rs`.
 //!
-//!   - the trait the FFI surface dispatches through
-//!   - empty submodule files (`embedder`, `vector_index`,
-//!     `lexical_index`, `rrf`) so subsequent commits can fill them in
-//!   - a blanket impl for the existing `ShadowState` stub so the
-//!     11 source-guard tests in `state.rs:210-359` keep passing
-//!     against the trait-object dispatch path
-//!
-//! Once W8.4.e ships the `RealBackend`, the FFI dispatch flips from
-//! `&'static ShadowState` to `&'static dyn ShadowBackend` and the
-//! HashMap stub gets deleted. Everything outside `state.rs` already
-//! sees the trait surface, so the swap is a single-file change.
-//!
-//! Per the audit agent's verdict (2026-04-26): test #11
-//! `snippet_handles_unicode_boundary` will hang the first run if
-//! Model2Vec's HuggingFace download is cold. W8.4.b will add a
-//! `shadow_warm()` FFI entry point Swift bootstrap can fire-and-forget
-//! at app start.
+//! `shadow_warm()` pre-initialises the embedder off the search hot path.
 
 pub mod embedder;
 pub mod lexical_index;
@@ -42,9 +28,9 @@ use vector_index::VectorIndex;
 /// Pluggable backend for the Shadow engine. The FFI surface
 /// (`shadow_insert_json` / `shadow_remove_json` / `shadow_search_json`
 /// / `shadow_flush` / `shadow_stats_json` in lib.rs) dispatches every
-/// call through this trait. The W8.1 stub at `state::ShadowState` is
-/// the V1 implementor; W8.4.e replaces it with `RealBackend` (in this
-/// module) without changing the FFI signatures.
+/// call through this trait. `RealBackend` is the production
+/// implementor; `state::ShadowState` is the in-memory fallback used
+/// before `shadow_open_at` succeeds and by deterministic tests.
 ///
 /// Trait is `Send + Sync` because `lib.rs` reaches the singleton
 /// across the FFI boundary on whatever thread the Swift caller hops
@@ -65,8 +51,7 @@ pub trait ShadowBackend: Send + Sync {
     /// Per-stage timings of the most recent search call. Returns
     /// `SearchTimings::default()` (all-zero) for backends that don't
     /// track timings — Swift treats all-zero as "no signal" and skips
-    /// signpost emission. Default impl is the all-zero stub so the
-    /// W8.1 ShadowState placeholder doesn't have to change.
+    /// signpost emission. The in-memory fallback uses this default.
     fn last_timings(&self) -> SearchTimings {
         SearchTimings::default()
     }
@@ -462,8 +447,8 @@ impl ShadowBackend for RealBackend {
 }
 
 /// Pre-truncated snippet centred on the query match (or doc head when
-/// no match). Mirrors the W8.1 stub's algorithm so the Swift inspector's
-/// snippet display is unchanged.
+/// no match). Mirrors the in-memory fallback algorithm so the Swift
+/// inspector's snippet display is unchanged.
 fn build_snippet(body: &str, query: &str) -> String {
     const MAX: usize = 160;
     if body.len() <= MAX {

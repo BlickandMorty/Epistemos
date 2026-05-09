@@ -1,6 +1,24 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { Schema } from '@tiptap/pm/model';
 import { EditorState, TextSelection } from '@tiptap/pm/state';
+
+const codeBlockSource = readFileSync(new URL('../src/extensions/code-block-node.ts', import.meta.url), 'utf8');
+assert.match(
+  codeBlockSource,
+  /export function closingFenceLineRange/,
+  'Epdoc code blocks must keep a typed closing-fence detector',
+);
+assert.match(
+  codeBlockSource,
+  /this\.editor\.commands\.exitCode\(\)/,
+  'Typed closing ``` inside an Epdoc code block must exit to a normal paragraph',
+);
+assert.doesNotMatch(
+  codeBlockSource,
+  /closingFenceLineRange[\s\S]*toggleCodeBlock/,
+  'Closing fence handling should exit the current code block, not toggle a second block',
+);
 
 const schema = new Schema({
   nodes: {

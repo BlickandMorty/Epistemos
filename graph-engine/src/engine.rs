@@ -202,7 +202,7 @@ pub struct Engine {
     pub(crate) search_index: crate::search::SearchIndex,
 
     /// Embedding vectors for semantic similarity (SIMD-accelerated cosine).
-    pub(crate) embedding_store: EmbeddingStore,
+    pub(crate) embedding_store: Mutex<EmbeddingStore>,
 
     /// Built retrieval index loaded from prepared assets for semantic page search.
     pub(crate) prepared_retrieval_store: Option<PreparedRetrievalStore>,
@@ -292,7 +292,7 @@ impl Engine {
             idle_frame_count: 0,
             commit_instant: Instant::now(),
             search_index: crate::search::SearchIndex::new(),
-            embedding_store: EmbeddingStore::new(crate::embedding::DEFAULT_DIM),
+            embedding_store: Mutex::new(EmbeddingStore::new(crate::embedding::DEFAULT_DIM)),
             prepared_retrieval_store: None,
             semantic_neighbors: Mutex::new(Vec::new()),
             quality_level: 0, // Cinematic
@@ -1811,6 +1811,9 @@ impl Engine {
     }
 
     pub fn set_water_nodes(&mut self, style: f32, wobble: f32) {
+        // Legacy FFI name retained for Swift compatibility. The v1 cinematic
+        // node path is stepped pixel-art; this flag is only meaningful for
+        // preserved non-performance fallback shader branches.
         self.renderer.water_style = style.clamp(0.0, 1.0);
         // The sine-based radius wobble reads as distracting jitter in
         // actual use (user feedback 2026-04-24). Force it off at the

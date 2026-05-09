@@ -53,7 +53,7 @@ final class MiniChatWindowController {
         if let attachment {
             resolvedAttachment = attachment
         } else if let bootstrap = AppBootstrap.shared {
-            resolvedAttachment = activeNoteAttachment(in: bootstrap)
+            resolvedAttachment = activeEpdocAttachment() ?? activeNoteAttachment(in: bootstrap)
         } else {
             resolvedAttachment = nil
         }
@@ -176,6 +176,29 @@ final class MiniChatWindowController {
             return nil
         }
         return ComposerReferenceHelpers.noteAttachment(pageID: page.id, title: page.title)
+    }
+
+    private func activeEpdocAttachment() -> ContextAttachment? {
+        let controller = NSDocumentController.shared
+        var openDocuments = controller.documents
+        if let current = controller.currentDocument {
+            openDocuments.removeAll { $0 === current }
+            openDocuments.insert(current, at: 0)
+        }
+        let candidates = openDocuments.compactMap { $0 as? EpdocDocument }
+        for document in candidates {
+            let hasVisibleWindow = document.windowControllers.contains { controller in
+                controller.window?.isKeyWindow == true || controller.window?.isVisible == true
+            }
+            guard hasVisibleWindow, let url = document.fileURL else { continue }
+            let title = document.package.manifest.title
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return ComposerReferenceHelpers.fileContextAttachment(
+                for: url,
+                displayName: title.isEmpty ? url.lastPathComponent : title
+            )
+        }
+        return nil
     }
 }
 

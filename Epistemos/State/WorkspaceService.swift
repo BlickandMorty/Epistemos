@@ -115,6 +115,26 @@ final class WorkspaceService {
         }
     }
 
+    static func wordCountsByPageIdForSnapshot(_ pages: [SDPage]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        counts.reserveCapacity(pages.count)
+
+        var duplicateCount = 0
+        for page in pages {
+            if counts[page.id] == nil {
+                counts[page.id] = page.wordCount
+            } else {
+                duplicateCount += 1
+            }
+        }
+
+        if duplicateCount > 0 {
+            log.warning("Workspace snapshot ignored duplicate page IDs: \(duplicateCount, privacy: .public)")
+        }
+
+        return counts
+    }
+
     // MARK: - Capture
 
     func captureSnapshot() -> WorkspaceSnapshot {
@@ -143,7 +163,7 @@ final class WorkspaceService {
             Self.log.error("Workspace capture: failed to fetch graph node count: \(error.localizedDescription, privacy: .public)")
             graphNodeCount = 0
         }
-        let wordCountsByPageId = Dictionary(uniqueKeysWithValues: allPages.map { ($0.id, $0.wordCount) })
+        let wordCountsByPageId = Self.wordCountsByPageIdForSnapshot(allPages)
 
         // Note tabs in tab-bar order
         let noteManager = NoteWindowManager.shared
@@ -574,7 +594,7 @@ final class WorkspaceService {
             Self.log.error("Workspace diff: failed to fetch current pages: \(error.localizedDescription, privacy: .public)")
             return WorkspaceDiffSummary()
         }
-        let wordCountsByPageId = Dictionary(uniqueKeysWithValues: currentPages.map { ($0.id, $0.wordCount) })
+        let wordCountsByPageId = Self.wordCountsByPageIdForSnapshot(currentPages)
 
         // Current open note IDs
         let currentOpenIds = Set(NoteWindowManager.shared.orderedPageIds())

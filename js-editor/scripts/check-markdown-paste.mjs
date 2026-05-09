@@ -21,8 +21,9 @@ const context = createContext({
 });
 new Script(transpiled, { filename: 'markdown-paste.js' }).runInContext(context);
 
-const { parseMarkdownPaste } = context.module.exports;
+const { isSafeImageSrc, parseMarkdownPaste } = context.module.exports;
 assert.equal(typeof parseMarkdownPaste, 'function');
+assert.equal(typeof isSafeImageSrc, 'function');
 
 const parsed = parseMarkdownPaste(`# Research Spine
 
@@ -91,6 +92,12 @@ assert.equal(image[0].attrs.title, 'Figure 1');
 const bareImage = parseMarkdownPaste('https://cdn.example.com/plots/confidence-scatter.webp?rev=2');
 assert.equal(bareImage[0].type, 'epdocImage');
 assert.equal(bareImage[0].attrs.alt, 'confidence-scatter.webp');
+
+assert.equal(isSafeImageSrc('https://example.com/evidence.png'), true);
+assert.equal(isSafeImageSrc('epistemos-doc:///assets/figure.webp'), true);
+assert.equal(isSafeImageSrc('data:image/png;base64,iVBORw0KGgo='), true);
+assert.equal(isSafeImageSrc('javascript:alert(1)'), false);
+assert.equal(isSafeImageSrc('https://example.com/evil.png" onerror="alert(1)'), false);
 
 const rich = parseMarkdownPaste(`# Rich Inline
 

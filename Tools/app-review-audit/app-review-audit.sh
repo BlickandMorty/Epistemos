@@ -23,8 +23,8 @@
 #   1. Resources/ directory enumeration — every artifact named.
 #   2. No runtime URLSession-download patterns into executable
 #      code paths (model GGUFs / Metal kernels).
-#   3. Every HELIOS V5 Tier-2 Settings toggle defaults to false.
-#   4. No `Process()` / `Pipe()` / `system()` calls outside the
+#   3. HELIOS V5 runtime toggles remain absent for the v1 freeze.
+#   4. No `Process()` / `Process.init()` / `Pipe()` / `system()` calls outside the
 #      established Pro-build-feature gate.
 #
 # Exit codes:
@@ -92,39 +92,25 @@ if [ "${findings}" -eq 0 ]; then
   echo "  no runtime executable-code download patterns detected"
 fi
 
-# Check 3: every HELIOS V5 Tier-2 Settings toggle defaults to false
+# Check 3: HELIOS V5 runtime toggles remain absent for the v1 freeze
 echo ""
-echo "[3/4] HELIOS V5 Tier-2 Settings toggle defaults"
-helios_view="${REPO_ROOT}/Epistemos/Views/Settings/HELIOSv5SettingsView.swift"
-if [ ! -f "${helios_view}" ]; then
-  echo "::warning::HELIOSv5SettingsView.swift not found — skipping Tier-2 default audit"
+echo "[3/4] HELIOS V5 v1 runtime toggle freeze"
+helios_toggle_hits=$(grep -rEn '@AppStorage\("epistemos\.helios\.v5' "${REPO_ROOT}/Epistemos" --include='*.swift' 2>/dev/null || true)
+if [ -n "${helios_toggle_hits}" ]; then
+  echo "::error::W26 §2.5.2 finding — HELIOS v1 freeze forbids runtime AppStorage toggles:"
+  echo "${helios_toggle_hits}"
+  findings=$((findings + 1))
 else
-  required_off_keys=(
-    "epistemos.helios.v5.verifiedResearchMode"
-    "epistemos.helios.v5.hopfieldRetrieval"
-    "epistemos.helios.v5.connectomeBrowser"
-    "epistemos.helios.v5.experimentalMetalKernels"
-    "epistemos.helios.v5.kernel.tMac"
-    "epistemos.helios.v5.kernel.bitnet"
-    "epistemos.helios.v5.kernel.sparseTernaryGEMM"
-  )
-  for key in "${required_off_keys[@]}"; do
-    # Look for `@AppStorage("<key>") ... = false`
-    if ! grep -A1 "@AppStorage(\"${key}\")" "${helios_view}" | grep -q "= false"; then
-      echo "::error::W26 §2.5.2 finding — toggle '${key}' does not default to false"
-      findings=$((findings + 1))
-    fi
-  done
-  if [ "${findings}" -eq 0 ]; then
-    echo "  all 7 HELIOS V5 Tier-2 toggles default OFF"
-  fi
+  echo "  no HELIOS V5 runtime AppStorage toggles detected"
 fi
 
 # Check 4: no Process()/Pipe()/system() calls outside Pro-build gate
 echo ""
 echo "[4/4] Subprocess / shell-execution surface (MAS-only build)"
 forbidden_subprocess_patterns=(
-  "Process\(\)\.run"
+  "Process\("
+  "Process\.init\("
+  "Pipe\("
   "system\(\""
   "popen\("
 )

@@ -22,9 +22,10 @@
 //! ## W9.7 base scope
 //!
 //! This commit ships the FFI surface + module skeleton + an
-//! in-memory stub indexer so the Swift side can wire the agent-grep
-//! API + the AgentGrepService against a real crate today. The actual
-//! Model2Vec + usearch + tree-sitter pipeline is the W9.7 follow-up.
+//! explicitly labeled in-memory fallback indexer so the Swift side can
+//! wire the agent-grep API + the AgentGrepService against a real crate
+//! today. The persistent Model2Vec + usearch + tree-sitter pipeline is
+//! deferred until the W9.7 follow-up.
 
 pub mod error;
 pub mod sidecar;
@@ -68,8 +69,8 @@ pub struct CodeIndexHit {
     /// Optional symbol name when the hit aligned with an extracted
     /// symbol from the W9.7 follow-up symbol pass.
     pub symbol: Option<String>,
-    /// Source signal: "lexical", "dense", "rrf", "stub-substring"
-    /// during W9.7 base.
+    /// Source signal: "lexical", "dense", "rrf", or
+    /// "in-memory-substring" while the fallback indexer is in use.
     pub source: String,
 }
 

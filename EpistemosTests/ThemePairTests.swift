@@ -628,6 +628,82 @@ struct ThemePairTests {
         )
     }
 
+    @Test("Composer overlays own arrow return and escape while visible")
+    func composerOverlaysOwnArrowReturnAndEscapeWhileVisible() {
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.moveDown(_:)),
+                modifierFlags: []
+            ) == .moveDown
+        )
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.moveUp(_:)),
+                modifierFlags: []
+            ) == .moveUp
+        )
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.insertNewline(_:)),
+                modifierFlags: []
+            ) == .confirm
+        )
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.cancelOperation(_:)),
+                modifierFlags: []
+            ) == .cancel
+        )
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.insertNewline(_:)),
+                modifierFlags: [.numericPad]
+            ) == .confirm
+        )
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.moveDown(_:)),
+                modifierFlags: [.numericPad, .function]
+            ) == .moveDown
+        )
+        #expect(
+            ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: [.numericPad],
+                trimmedText: "ready",
+                isProcessing: false
+            ) == .submit
+        )
+        #expect(
+            ChatComposerKeyHandling.overlayCommand(
+                for: #selector(NSResponder.insertNewline(_:)),
+                modifierFlags: [.command]
+            ) == nil
+        )
+    }
+
+    @Test("Reference popover search field owns keyboard selection commands")
+    func referencePopoverSearchFieldOwnsKeyboardSelectionCommands() throws {
+        let source = try loadTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
+
+        #expect(source.contains("private struct ComposerReferenceSearchField: NSViewRepresentable"))
+        #expect(source.contains("controlTextDidChange"))
+        #expect(source.contains("doCommandBy commandSelector"))
+        #expect(source.contains("ChatComposerKeyHandling.overlayCommand("))
+        #expect(source.contains("case .confirm:"))
+        #expect(source.contains("onSelect(selectedChoice)"))
+        #expect(source.contains("selectedChoiceID: selectedChoice?.id"))
+    }
+
+    @Test("Landing inline mention attachments stay visible after keyboard selection")
+    func landingInlineMentionAttachmentsStayVisibleAfterKeyboardSelection() throws {
+        let source = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(source.contains("private var landingInlineContextChips: some View"))
+        #expect(source.contains("if !landingContextAttachments.isEmpty"))
+        #expect(source.contains("landingInlineContextChips"))
+        #expect(source.contains("removeLandingContextAttachment(attachment.id)"))
+    }
+
     @Test("Composer height scaling respects larger landing search typography")
     func composerHeightScalingRespectsLargerLandingSearchTypography() {
         let standardMin = ChatComposerInputMetrics.minHeight(for: ChatComposerInputMetrics.fontSize)

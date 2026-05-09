@@ -111,6 +111,14 @@ nonisolated struct FSRSDecayStateTests {
 #endif
     }
 
+    @Test("FSRS fallback is labeled as minimal state update, not a scheduler placeholder")
+    func fsrsFallbackIsLabeledAsMinimalStateUpdate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/FSRSDecayState.swift")
+        #expect(source.contains("falling back to minimal Swift review-state update"))
+        #expect(source.contains("but does not update difficulty/stability"))
+        #expect(!source.contains("placeholder update"))
+    }
+
     @Test("topAtRisk returns notes ordered ascending by R")
     func topAtRiskOrdering() async {
         let store = FSRSDecayStore.shared

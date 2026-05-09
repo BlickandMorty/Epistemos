@@ -57,7 +57,9 @@ final class EditableTransclusionView: NSView, NSTextViewDelegate {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) {
+        return nil
+    }
 
     private func setupViews() {
         wantsLayer = true

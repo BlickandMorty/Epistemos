@@ -16,6 +16,9 @@ struct ComposerAttachmentEntryAuditTests {
         #expect(mainChat.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
         #expect(landing.contains("ComposerAttachmentEntryHints.landingPlaceholder"))
         #expect(miniChat.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
+        #expect(!landing.contains("Attach (coming soon)"))
+        #expect(!landing.contains("Label(\"attach\", systemImage: \"paperclip\")"))
+        #expect(!landing.contains("visual-only placeholder"))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

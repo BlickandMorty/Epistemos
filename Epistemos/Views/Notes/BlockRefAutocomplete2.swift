@@ -218,7 +218,9 @@ private final class BlockRefListController2: NSViewController, NSTableViewDelega
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) {
+        return nil
+    }
 
     override func loadView() {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))

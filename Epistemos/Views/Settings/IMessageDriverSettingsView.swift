@@ -45,7 +45,7 @@ struct IMessageDriverSettingsView: View {
     @State private var showAddSheet: Bool = false
     @State private var editingContact: IMessageContact?
     @State private var errorMessage: String?
-    @State private var setupStatus = IMessageNativeSetupDoctor.currentStatus()
+    @State private var setupStatus = IMessageNativeSetupDoctor.currentStatus(probeAutomation: false)
     @State private var isRunningNativeSetup: Bool = false
     @State private var setupStatusMessage: String?
 
@@ -149,7 +149,7 @@ struct IMessageDriverSettingsView: View {
                     .disabled(isRunningNativeSetup)
 
                     Button("Refresh setup status") {
-                        Task { await refreshSetupStatus() }
+                        Task { await refreshSetupStatus(probeAutomation: true) }
                     }
                     .disabled(isRunningNativeSetup)
 
@@ -393,7 +393,7 @@ struct IMessageDriverSettingsView: View {
             )
         }
         .task {
-            await refreshSetupStatus()
+            await refreshSetupStatus(probeAutomation: false)
             await refreshContacts()
         }
     }
@@ -496,8 +496,8 @@ struct IMessageDriverSettingsView: View {
         ]
     }
 
-    private func refreshSetupStatus() async {
-        setupStatus = IMessageNativeSetupDoctor.currentStatus()
+    private func refreshSetupStatus(probeAutomation: Bool = false) async {
+        setupStatus = IMessageNativeSetupDoctor.currentStatus(probeAutomation: probeAutomation)
         if setupStatus.nativeBridgeReady {
             setupStatusMessage = "Native Messages bridge looks ready."
         } else if setupStatus.databaseAccessible {

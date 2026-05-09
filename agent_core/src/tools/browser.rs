@@ -8,6 +8,7 @@
 
 use std::env;
 use std::fs;
+use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tempfile::Builder;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -29,6 +30,8 @@ use super::web_fetch::validate_url;
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(30);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(10);
 const SNAPSHOT_CHAR_CAP: usize = 8_000;
+const MAX_BROWSER_OUTPUT_BYTES: usize = 512 * 1024;
+const MAX_BROWSER_ERROR_CHARS: usize = 512;
 
 #[derive(Debug)]
 struct BrowserState {
@@ -228,7 +231,7 @@ async fn navigate_impl(manager: &BrowserManager, input: &Value) -> Result<Value,
 }
 
 async fn snapshot_impl(manager: &BrowserManager, input: &Value) -> Result<Value, ToolError> {
-    let full = input.get("full").and_then(Value::as_bool).unwrap_or(false);
+    let full = optional_bool_field(input, "full")?.unwrap_or(false);
     let mut args = Vec::new();
     if !full {
         args.push("-c".to_string());
@@ -372,14 +375,15 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
         .get("question")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'question'".into()))?;
-    let provider = input
-        .get("provider")
-        .and_then(Value::as_str)
-        .unwrap_or("claude");
-    let annotate = input
-        .get("annotate")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
+    let allow_cloud = optional_bool_field(input, "allow_cloud_external_requests")?.unwrap_or(false);
+    if !allow_cloud {
+        return Err(ToolError::InvalidArguments(
+            "allow_cloud_external_requests must be true because browser_vision sends a browser screenshot to an external vision provider"
+                .to_string(),
+        ));
+    }
+    let provider = optional_string_field(input, "provider")?.unwrap_or("claude");
+    let annotate = optional_bool_field(input, "annotate")?.unwrap_or(false);
     let screenshot_path = next_screenshot_path()?;
     let mut args = Vec::new();
     if annotate {
@@ -409,6 +413,7 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
             "image_path": actual_path.display().to_string(),
             "question": question,
             "provider": provider,
+            "allow_cloud_external_requests": true,
         }))
         .await?;
     let mut vision_value: Value = serde_json::from_str(&vision_raw)
@@ -423,8 +428,8 @@ async fn vision_impl(manager: &BrowserManager, input: &Value) -> Result<Value, T
 }
 
 async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, ToolError> {
-    let clear = input.get("clear").and_then(Value::as_bool).unwrap_or(false);
-    let expression = input.get("expression").and_then(Value::as_str);
+    let clear = optional_bool_field(input, "clear")?.unwrap_or(false);
+    let expression = optional_string_field(input, "expression")?;
     let mut console_args = Vec::new();
     let mut error_args = Vec::new();
     if clear {
@@ -466,6 +471,26 @@ async fn console_impl(manager: &BrowserManager, input: &Value) -> Result<Value, 
         "js_errors": js_errors,
         "evaluation": evaluation,
     }))
+}
+
+fn optional_bool_field(input: &Value, field: &str) -> Result<Option<bool>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    value
+        .as_bool()
+        .map(Some)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a boolean")))
+}
+
+fn optional_string_field<'a>(input: &'a Value, field: &str) -> Result<Option<&'a str>, ToolError> {
+    let Some(value) = input.get(field) else {
+        return Ok(None);
+    };
+    value
+        .as_str()
+        .map(Some)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
 }
 
 fn normalize_ref(raw_ref: &str) -> Result<String, ToolError> {
@@ -674,15 +699,13 @@ async fn run_agent_browser_command(
         }
     };
 
-    let stdout = fs::read_to_string(stdout_file.path())
-        .map_err(|e| ToolError::ExecutionFailed(format!("read browser stdout: {e}")))?;
-    let stderr = fs::read_to_string(stderr_file.path())
-        .map_err(|e| ToolError::ExecutionFailed(format!("read browser stderr: {e}")))?;
-    let stdout = stdout.trim();
-    let stderr = stderr.trim();
+    let stdout = read_limited_browser_output(stdout_file.path(), "stdout")?;
+    let stderr = read_limited_browser_output(stderr_file.path(), "stderr")?;
+    let stdout = stdout.trim().to_string();
+    let stderr = stderr.trim().to_string();
 
     if !stdout.is_empty() {
-        if let Ok(parsed) = serde_json::from_str::<Value>(stdout) {
+        if let Ok(parsed) = serde_json::from_str::<Value>(&stdout) {
             if parsed
                 .get("success")
                 .and_then(Value::as_bool)
@@ -692,13 +715,16 @@ async fn run_agent_browser_command(
                     .get("error")
                     .and_then(Value::as_str)
                     .unwrap_or("agent-browser reported failure");
-                return Err(ToolError::ExecutionFailed(message.to_string()));
+                return Err(ToolError::ExecutionFailed(format!(
+                    "agent-browser '{command_name}' failed: {}",
+                    redact_browser_error_detail(message)
+                )));
             }
             return Ok(parsed);
         }
 
         if command_name == "screenshot" {
-            if let Some(path) = extract_screenshot_path(stdout) {
+            if let Some(path) = extract_screenshot_path(&stdout) {
                 return Ok(json!({
                     "success": true,
                     "data": {
@@ -709,14 +735,19 @@ async fn run_agent_browser_command(
         }
 
         if !status.success() {
+            let code = status.code().unwrap_or(-1);
+            let stream = if stderr.is_empty() {
+                "stdout"
+            } else {
+                "stderr"
+            };
             return Err(ToolError::ExecutionFailed(format!(
-                "agent-browser failed: {}",
-                if stderr.is_empty() { stdout } else { stderr }
+                "agent-browser '{command_name}' failed with exit code {code}; {stream} redacted"
             )));
         }
 
         return Err(ToolError::ExecutionFailed(format!(
-            "agent-browser returned non-JSON output for '{command_name}': {stdout}"
+            "agent-browser returned non-JSON output for '{command_name}' (stdout redacted)"
         )));
     }
 
@@ -725,7 +756,7 @@ async fn run_agent_browser_command(
         let detail = if stderr.is_empty() {
             format!("exit code {code}")
         } else {
-            stderr.to_string()
+            format!("exit code {code}; stderr redacted")
         };
         return Err(ToolError::ExecutionFailed(format!(
             "agent-browser '{command_name}' failed: {detail}"
@@ -736,6 +767,76 @@ async fn run_agent_browser_command(
         "success": true,
         "data": {},
     }))
+}
+
+fn read_limited_browser_output(path: &Path, stream: &str) -> Result<String, ToolError> {
+    let file = fs::File::open(path)
+        .map_err(|e| ToolError::ExecutionFailed(format!("read browser {stream}: {e}")))?;
+    let mut reader = file.take((MAX_BROWSER_OUTPUT_BYTES + 1) as u64);
+    let mut bytes = Vec::with_capacity(MAX_BROWSER_OUTPUT_BYTES.min(8 * 1024));
+    reader
+        .read_to_end(&mut bytes)
+        .map_err(|e| ToolError::ExecutionFailed(format!("read browser {stream}: {e}")))?;
+
+    let truncated = bytes.len() > MAX_BROWSER_OUTPUT_BYTES;
+    if truncated {
+        bytes.truncate(MAX_BROWSER_OUTPUT_BYTES);
+    }
+    let mut text = String::from_utf8_lossy(&bytes).into_owned();
+    if truncated {
+        text.push_str(&format!(
+            "\n... [{stream} truncated at {MAX_BROWSER_OUTPUT_BYTES} bytes]"
+        ));
+    }
+    Ok(text)
+}
+
+fn redact_browser_error_detail(raw: &str) -> String {
+    let collapsed = raw
+        .split_whitespace()
+        .map(redact_browser_error_token)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut limited: String = collapsed.chars().take(MAX_BROWSER_ERROR_CHARS).collect();
+    if collapsed.chars().count() > MAX_BROWSER_ERROR_CHARS {
+        limited.push_str("... [error truncated]");
+    }
+    if limited.is_empty() {
+        "agent-browser reported failure".to_string()
+    } else {
+        limited
+    }
+}
+
+fn redact_browser_error_token(token: &str) -> String {
+    let lower = token.to_ascii_lowercase();
+    if lower.contains("authorization")
+        || lower.contains("cookie")
+        || lower.contains("token=")
+        || lower.contains("api_key=")
+        || lower.contains("apikey=")
+        || lower.contains("password=")
+        || lower.contains("secret=")
+        || lower.contains("bearer")
+        || lower.contains("sk-")
+        || lower.contains("ghp_")
+        || lower.contains("xoxb-")
+    {
+        return "[redacted]".to_string();
+    }
+
+    if let Some(scheme_index) = token.find("://") {
+        let rest = &token[scheme_index + 3..];
+        if rest.contains('@') {
+            return format!(
+                "{}://[redacted]@{}",
+                &token[..scheme_index],
+                rest.rsplit('@').next().unwrap_or("")
+            );
+        }
+    }
+
+    token.to_string()
 }
 
 fn extract_screenshot_path(text: &str) -> Option<String> {
@@ -907,10 +1008,14 @@ pub fn browser_vision_schema() -> crate::types::ToolSchema {
             "type": "object",
             "properties": {
                 "question": { "type": "string" },
+                "allow_cloud_external_requests": {
+                    "type": "boolean",
+                    "description": "Required because browser_vision captures the page and sends the screenshot to an external vision provider."
+                },
                 "provider": { "type": "string", "enum": ["claude", "openai", "gpt-4v"], "default": "claude" },
                 "annotate": { "type": "boolean", "default": false }
             },
-            "required": ["question"]
+            "required": ["question", "allow_cloud_external_requests"]
         }),
     }
 }
@@ -1025,6 +1130,16 @@ EOF
       printf '{"success":true,"data":{"result":"42"}}\n'
     fi
     ;;
+  badjson)
+    printf 'token=sk-secret-token non-json output\n'
+    ;;
+  fail)
+    printf 'stderr token=sk-secret-token\n' >&2
+    exit 7
+    ;;
+  jsonfail)
+    printf '{"success":false,"error":"failed token=sk-secret-token https://user:pass@example.com/path"}\n'
+    ;;
   screenshot)
     printf 'fake png bytes' > "$last"
     printf '{"success":true,"data":{"path":"%s"}}\n' "$last"
@@ -1052,6 +1167,81 @@ esac
             }
         }
         env::join_paths(entries).unwrap()
+    }
+
+    #[tokio::test]
+    async fn browser_non_json_output_is_redacted() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let socket_dir = socket_dir_for_session("non-json-redaction");
+        fs::create_dir_all(&socket_dir).unwrap();
+
+        let err = run_agent_browser_command(
+            "badjson",
+            &[],
+            "non-json-redaction",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("non-JSON output"));
+        assert!(message.contains("stdout redacted"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[tokio::test]
+    async fn browser_failure_output_is_redacted() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let socket_dir = socket_dir_for_session("failure-redaction");
+        fs::create_dir_all(&socket_dir).unwrap();
+
+        let err = run_agent_browser_command(
+            "fail",
+            &[],
+            "failure-redaction",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("exit code 7"));
+        assert!(message.contains("stderr redacted"));
+        assert!(!message.contains("sk-secret-token"));
+    }
+
+    #[tokio::test]
+    async fn browser_json_error_detail_is_scrubbed_and_bounded() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let socket_dir = socket_dir_for_session("json-error-redaction");
+        fs::create_dir_all(&socket_dir).unwrap();
+
+        let err = run_agent_browser_command(
+            "jsonfail",
+            &[],
+            "json-error-redaction",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("[redacted]"));
+        assert!(!message.contains("sk-secret-token"));
+        assert!(!message.contains("user:pass"));
     }
 
     #[tokio::test]
@@ -1157,11 +1347,13 @@ esac
     }
 
     #[tokio::test]
-    async fn browser_vision_reuses_screenshot_flow_before_provider_validation() {
+    async fn browser_vision_requires_cloud_ack_before_screenshot() {
         let _env_guard = env_lock().lock().await;
         let temp = tempfile::tempdir().unwrap();
         let script = make_fake_browser(temp.path());
+        let log_path = temp.path().join("browser.log");
         let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let _log = EnvGuard::set("FAKE_BROWSER_LOG", log_path.as_os_str());
 
         let manager = BrowserManager::new();
         BrowserActionHandler::new(manager.clone(), BrowserAction::Navigate)
@@ -1175,7 +1367,81 @@ esac
             }))
             .await
             .unwrap_err();
-        assert!(format!("{err}").contains("provider 'bogus' invalid"));
+        assert!(format!("{err}").contains("allow_cloud_external_requests"));
+
+        let lines: Vec<String> = fs::read_to_string(&log_path)
+            .unwrap()
+            .lines()
+            .map(|line| line.to_string())
+            .collect();
+        assert_eq!(
+            lines.len(),
+            1,
+            "vision must not screenshot before cloud ack"
+        );
+        assert!(lines[0].contains("open"));
+    }
+
+    #[tokio::test]
+    async fn browser_optional_flags_are_strictly_typed_before_cli_execution() {
+        let manager = BrowserManager::new();
+
+        let snapshot_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Snapshot)
+            .execute(&json!({ "full": "false" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{snapshot_err}").contains("full"));
+
+        let console_clear_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Console)
+            .execute(&json!({ "clear": "true" }))
+            .await
+            .unwrap_err();
+        assert!(format!("{console_clear_err}").contains("clear"));
+
+        let console_expression_err =
+            BrowserActionHandler::new(manager.clone(), BrowserAction::Console)
+                .execute(&json!({ "expression": 42 }))
+                .await
+                .unwrap_err();
+        assert!(format!("{console_expression_err}").contains("expression"));
+
+        let vision_ack_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Vision)
+            .execute(&json!({
+                "question": "What is visible?",
+                "allow_cloud_external_requests": "true"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{vision_ack_err}").contains("allow_cloud_external_requests"));
+
+        let vision_provider_err = BrowserActionHandler::new(manager.clone(), BrowserAction::Vision)
+            .execute(&json!({
+                "question": "What is visible?",
+                "allow_cloud_external_requests": true,
+                "provider": 7
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{vision_provider_err}").contains("provider"));
+
+        let vision_annotate_err = BrowserActionHandler::new(manager, BrowserAction::Vision)
+            .execute(&json!({
+                "question": "What is visible?",
+                "allow_cloud_external_requests": true,
+                "annotate": "yes"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{vision_annotate_err}").contains("annotate"));
+    }
+
+    #[test]
+    fn browser_vision_schema_requires_cloud_ack() {
+        let schema = browser_vision_schema();
+        assert_eq!(
+            schema.parameters["required"],
+            json!(["question", "allow_cloud_external_requests"])
+        );
     }
 
     #[tokio::test]

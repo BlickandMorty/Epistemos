@@ -13,6 +13,16 @@ struct SettingsWindowPresentationTests {
         #expect(source.contains("cornerRadius: CGFloat? = kind == .settings ? 22 : nil"))
     }
 
+    @Test("notes utility window does not let sidebar content force an oversized panel")
+    func notesUtilityWindowDoesNotLetSidebarContentForceOversizedPanel() throws {
+        let source = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
+
+        #expect(source.contains("case .notes: NSSize(width: 380, height: 520)"))
+        #expect(source.contains("case .notes: NSSize(width: 300, height: 320)"))
+        #expect(source.contains("if kind == .notes {\n                host.sizingOptions = []"))
+        #expect(source.contains("host.sizingOptions = .minSize"))
+    }
+
     @Test("settings split view source hides toolbar background and extends sidebar backdrop")
     func settingsSplitViewSourceHidesToolbarBackgroundAndExtendsSidebarBackdrop() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")

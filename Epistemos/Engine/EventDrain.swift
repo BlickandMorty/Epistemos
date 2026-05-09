@@ -161,16 +161,17 @@ nonisolated public protocol EventRingClient: Sendable {
 // The real `RustEventRingClient` implementation that calls into the
 // substrate-rt FFI lives in `RustEventRingClient.swift`, gated behind
 // the `EPISTEMOS_LINK_SUBSTRATE_RT` compile flag. Until the project
-// wiring links the substrate-rt cdylib, tests + the rest of the app
-// use `InMemoryEventRingClient` below.
+// wiring links the substrate-rt cdylib, tests and pre-link paths use
+// `InMemoryEventRingClient` below.
 
-// MARK: - In-memory stub client
+// MARK: - In-memory fallback/test client
 
-/// Thread-safe in-memory `EventRingClient` for tests. Mirrors the
+/// Thread-safe in-memory `EventRingClient` for tests and pre-link fallback
+/// paths. Mirrors the
 /// substrate-rt SPSC semantics (FIFO order; full ring rejects push;
 /// drain returns at most the buffer size).
 nonisolated public final class InMemoryEventRingClient: EventRingClient, @unchecked Sendable {
-    private let queue = DispatchQueue(label: "com.epistemos.eventring.stub")
+    private let queue = DispatchQueue(label: "com.epistemos.eventring.in-memory")
     private var buffer: [GraphEvent] = []
     private let capacity: Int
 

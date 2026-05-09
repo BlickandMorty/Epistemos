@@ -394,7 +394,7 @@ struct TrainOnVaultView: View {
         case .idle:
             EmptyView()
 
-        case .parsing, .generating, .training, .evaluating:
+        case .parsing, .generating, .training, .registering:
             VStack(spacing: 12) {
                 ProgressView(value: vm.progress.percentage) {
                     Text(vm.progress.phase)

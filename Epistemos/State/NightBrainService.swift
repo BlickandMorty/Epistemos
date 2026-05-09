@@ -20,6 +20,7 @@ import os
 
 actor NightBrainService {
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "NightBrain")
+    nonisolated private static let processLaunchUptime = ProcessInfo.processInfo.systemUptime
 
     enum JobExecutionError: LocalizedError {
         case missingSearchIndex
@@ -150,7 +151,14 @@ actor NightBrainService {
         if cfg.requiresAC && !Self.hasNightBrainPowerClearance(battery) { return false }
         guard Self.userIdleSeconds() > cfg.minIdleSeconds else { return false }
         guard Self.thermalPressureLevel() <= 1 else { return false }
+        guard await requiredDependenciesReady() else { return false }
         return true
+    }
+
+    private func requiredDependenciesReady() async -> Bool {
+        let hasSearchIndex = await MainActor.run { searchIndexProvider() != nil }
+        let hasGraphMemory = await MainActor.run { graphMemoryProvider() != nil }
+        return hasSearchIndex && hasGraphMemory && hasCloudKnowledgeJob
     }
 
     func canContinue(idleSeconds: Double, thermalPressureLevel: UInt64, onACPower: Bool) async -> Bool {
@@ -203,13 +211,33 @@ actor NightBrainService {
         return await runPipeline(jobOrder: Job.allCases, bypassContinuationChecks: false)
     }
 
+    private func missingDependency(for jobOrder: [Job]) async -> JobExecutionError? {
+        if jobOrder.contains(.searchIndexPassiveCheckpoint) {
+            let hasSearchIndex = await MainActor.run { searchIndexProvider() != nil }
+            guard hasSearchIndex else { return .missingSearchIndex }
+        }
+
+        if jobOrder.contains(.memoryDistillation) {
+            let hasGraphMemory = await MainActor.run { graphMemoryProvider() != nil }
+            guard hasGraphMemory else { return .missingGraphMemory }
+        }
+
+        if jobOrder.contains(.cloudKnowledgeDistillation), !hasCloudKnowledgeJob {
+            return .missingCloudKnowledgeJob
+        }
+
+        return nil
+    }
+
     /// Trigger a live execution of every Rust-side registered NightBrain
     /// task. Wraps `NightBrainLiveRegistry.runRegisteredTasks()`. The
     /// live tasks are NoOp placeholders today (commit b0d229be); real
     /// task bodies replace them incrementally without changing this
     /// surface. Intended for ad-hoc invocation from diagnostics UI +
     /// the existing 24-hour fallback path. Returns per-task outcome
-    /// strings ("name:status:items_processed").
+    /// strings ("name:status:items_processed"). Placeholder live-task
+    /// bodies report `skipped`, not `complete`, until they are replaced
+    /// with real maintenance work.
     func runLiveRegisteredTasks() async -> [String] {
         await Task.detached(priority: .background) {
             NightBrainLiveRegistry.shared.runRegisteredTasks()
@@ -237,6 +265,13 @@ actor NightBrainService {
         jobOrder: [Job],
         bypassContinuationChecks: Bool
     ) async -> PipelineResult {
+        if let missingDependencyError = await missingDependency(for: jobOrder) {
+            Self.log.info(
+                "NightBrain: pipeline deferred before run: \(missingDependencyError.localizedDescription, privacy: .public)"
+            )
+            return .deferred
+        }
+
         activityToken = ProcessInfo.processInfo.beginActivity(
             options: [.background, .idleSystemSleepDisabled, .automaticTerminationDisabled],
             reason: "Epistemos Night Brain maintenance"
@@ -283,6 +318,14 @@ actor NightBrainService {
 
             do {
                 try await executeJob(job, store: store)
+            } catch let error as JobExecutionError {
+                Self.log.info(
+                    "NightBrain: job \(job.rawValue, privacy: .public) deferred: \(error.localizedDescription, privacy: .public)"
+                )
+                store.updateNightBrainRun(
+                    id: runId, status: "interrupted", completedJobs: completedJobs
+                )
+                return .deferred
             } catch {
                 Self.log.error(
                     "NightBrain: job \(job.rawValue, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
@@ -413,7 +456,10 @@ actor NightBrainService {
     // MARK: - System State Queries
 
     nonisolated static func userIdleSeconds() -> Double {
-        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved)
+        // v1 must not query global input state during background scheduling:
+        // CGEventSource idle checks trip Input Monitoring/TCC on launch. Use a
+        // conservative process-local quiescence timer instead.
+        max(0, ProcessInfo.processInfo.systemUptime - processLaunchUptime)
     }
 
     nonisolated static func isOnACPower() -> Bool {

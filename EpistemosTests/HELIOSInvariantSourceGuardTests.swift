@@ -1678,14 +1678,15 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("orphan"))
     }
 
-    @Test("Stage 6 / W3.b: MessageBubble wires VRMLabelView under VRM toggle")
+    @Test("Stage 6 / W3.b: MessageBubble does not render placeholder VRM labels")
     func stage6MessageBubbleWiresVrmLabel() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
         #expect(source.contains("HELIOS-W3b guard"))
-        // The toggle key matches the W9 AppStorage key — same source of truth.
-        #expect(source.contains("@AppStorage(\"epistemos.helios.v5.verifiedResearchMode\")"))
-        // Critical safety invariant: the placeholder label is never .verified.
-        #expect(source.contains("VRMLabelView(.plausibleButUnverified, compact: true)"))
+        // V1 freeze invariant: no user-default toggle and no placeholder
+        // chip. VRMLabelView can render only after real AnswerPacket labels
+        // are emitted by the chat path.
+        #expect(!source.contains("@AppStorage(\"epistemos.helios.v5.verifiedResearchMode\")"))
+        #expect(!source.contains("VRMLabelView(.plausibleButUnverified, compact: true)"))
         #expect(!source.contains("VRMLabelView(.verified"))
     }
 
@@ -1704,15 +1705,24 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("case removedClaimIds = \"removed_claim_ids\""))
     }
 
-    @Test("Stage 6 / W9-W11.b: HELIOS V5 wired into main SettingsView")
-    func stage6HeliosV5WiredInSettingsView() throws {
+    @Test("Stage 6 / W9-W11.b: HELIOS V5 scaffold is hidden from v1 Settings")
+    func stage6HeliosV5HiddenInSettingsView() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
-        // New SettingsSection enum case.
+        // The SettingsSection enum case is preserved for source guards and
+        // deep-link compatibility.
         #expect(source.contains("case heliosV5 = \"HELIOS V5\""))
-        // Routed to the HELIOSv5SettingsView in the detail builder.
+        // Routed to a read-only deferred scaffold if reached explicitly.
         #expect(source.contains("case .heliosV5: HELIOSv5SettingsView()"))
-        // Listed in visibleSections so it appears in the sidebar.
-        #expect(source.contains(".heliosV5,"))
+        // Not listed in visibleSections, so v1 does not surface HELIOS
+        // runtime controls as a shippable feature.
+        let visibleSectionsStart = try #require(
+            source.range(of: "static var visibleSections: [SettingsSection] {")?.upperBound
+        )
+        let visibleSectionsEnd = try #require(
+            source[visibleSectionsStart...].range(of: "static func safeDetailSelection")?.lowerBound
+        )
+        let visibleSectionsSource = String(source[visibleSectionsStart..<visibleSectionsEnd])
+        #expect(!visibleSectionsSource.contains(".heliosV5"))
     }
 
     @Test("Stage 6 / Σ: Pro + Research compose functions exist")
@@ -2028,26 +2038,15 @@ struct HELIOSInvariantSourceGuardTests {
         }
     }
 
-    @Test("W26: §2.5.2 compliance audit exists + checks 7 Tier-2 toggle defaults")
+    @Test("W26: §2.5.2 compliance audit exists + enforces v1 HELIOS toggle freeze")
     func w26AppReviewAuditExists() throws {
         let source = try loadMirroredSourceTextFile("Tools/app-review-audit/app-review-audit.sh")
         #expect(source.contains("HELIOS-W26 guard"))
-        // Every Tier-2 toggle from W9/W10/W11 is in the required-OFF
-        // assertion list.
-        for key in [
-            "epistemos.helios.v5.verifiedResearchMode",
-            "epistemos.helios.v5.hopfieldRetrieval",
-            "epistemos.helios.v5.connectomeBrowser",
-            "epistemos.helios.v5.experimentalMetalKernels",
-            "epistemos.helios.v5.kernel.tMac",
-            "epistemos.helios.v5.kernel.bitnet",
-            "epistemos.helios.v5.kernel.sparseTernaryGEMM",
-        ] {
-            #expect(
-                source.contains(key),
-                "§2.5.2 audit must require key '\(key)' to default OFF"
-            )
-        }
+        #expect(source.contains("HELIOS V5 v1 runtime toggle freeze"))
+        #expect(source.contains("@AppStorage\\(\"epistemos\\.helios\\.v5"))
+        #expect(source.contains("HELIOS v1 freeze forbids runtime AppStorage toggles"))
+        #expect(source.contains("Process\\.init\\("))
+        #expect(source.contains("Pipe\\("))
     }
 
     @Test("W26: §2.5.2 audit wired as ci.yml step")
@@ -2102,23 +2101,23 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("2008.02217"))
     }
 
-    @Test("W9: Verified Research Mode Settings toggle exists default OFF")
+    @Test("W9: Verified Research Mode Settings scaffold is deferred")
     func w9VerifiedResearchModeToggleExists() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/HELIOSv5SettingsView.swift")
         #expect(source.contains("HELIOS-W9 guard"))
-        // Toggle key matches the AppStorage key spec.
-        #expect(source.contains("epistemos.helios.v5.verifiedResearchMode"))
-        #expect(source.contains("private var vrmEnabled = false"))
-        // VRM parent → Hopfield child wiring.
+        #expect(!source.contains("@AppStorage(\"epistemos.helios.v5"))
+        #expect(!source.contains("Toggle("))
+        #expect(source.contains("Deferred: no chat-path AnswerPacket emission is wired in v1."))
+        // VRM parent -> Hopfield child scaffold remains preserved.
         #expect(source.contains("Modern Hopfield retrieval"))
     }
 
-    @Test("W10: Connectome Browser Settings toggle + bundled atlas exist")
+    @Test("W10: Connectome Browser Settings scaffold + bundled atlas remain preserved")
     func w10ConnectomeBrowserToggleExists() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/HELIOSv5SettingsView.swift")
         #expect(source.contains("HELIOS-W10 guard"))
-        #expect(source.contains("epistemos.helios.v5.connectomeBrowser"))
-        #expect(source.contains("private var connectomeBrowserEnabled = false"))
+        #expect(!source.contains("@AppStorage(\"epistemos.helios.v5.connectomeBrowser\")"))
+        #expect(source.contains("Deferred: bundled atlas metadata remains a research artifact."))
 
         // Bundled atlas JSON ships with the .app per §2.5.2 (not downloaded).
         let atlas = try loadMirroredSourceTextFile("Epistemos/Resources/connectome_atlas_v1.json")
@@ -2127,20 +2126,15 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(atlas.contains("\"tier\": 2"))
     }
 
-    @Test("W11: Experimental Metal Kernels Settings parent + 3 children exist")
+    @Test("W11: Experimental Metal Kernels Settings scaffold is deferred")
     func w11ExperimentalMetalKernelsToggleExists() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/HELIOSv5SettingsView.swift")
         #expect(source.contains("HELIOS-W11 guard"))
-        #expect(source.contains("epistemos.helios.v5.experimentalMetalKernels"))
-        #expect(source.contains("private var metalKernelsEnabled = false"))
-        // 3 children: T-MAC, BitNet, Sparse Ternary GEMM.
-        #expect(source.contains("epistemos.helios.v5.kernel.tMac"))
-        #expect(source.contains("epistemos.helios.v5.kernel.bitnet"))
-        #expect(source.contains("epistemos.helios.v5.kernel.sparseTernaryGEMM"))
-        // All three default false per §2.5.2 Tier-2 compliance.
-        #expect(source.contains("private var tMacEnabled = false"))
-        #expect(source.contains("private var bitnetEnabled = false"))
-        #expect(source.contains("private var sparseTernaryEnabled = false"))
+        #expect(!source.contains("@AppStorage(\"epistemos.helios.v5.experimentalMetalKernels\")"))
+        #expect(!source.contains("epistemos.helios.v5.kernel.tMac"))
+        #expect(!source.contains("epistemos.helios.v5.kernel.bitnet"))
+        #expect(!source.contains("epistemos.helios.v5.kernel.sparseTernaryGEMM"))
+        #expect(source.contains("Deferred: no T-MAC, BitNet, or sparse ternary runtime path is enabled for v1."))
     }
 
     @Test("W8: KV-Direct gate (Tier-1 round-trip equality)")

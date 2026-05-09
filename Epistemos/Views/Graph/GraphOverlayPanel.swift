@@ -10,6 +10,10 @@ enum GraphOverlayPanelPresentation {
 /// Full-screen immersive mode can float independently above system chrome,
 /// while mini/inspector panels stay attached to the app window.
 final class GraphOverlayPanel: NSPanel {
+    /// Window-local key handling hook used by the graph overlay for Escape /
+    /// Cmd-W dismissal. Keeping this on the panel avoids installing app-wide
+    /// NSEvent monitors, which can trip Input Monitoring/TCC during launch.
+    var keyEventHandler: ((NSEvent) -> Bool)?
 
     /// In mini mode, the panel should accept key for graph interactions.
     /// In full-screen overlay mode, it should also accept key (for search, Esc dismiss).
@@ -39,7 +43,17 @@ final class GraphOverlayPanel: NSPanel {
         applyPresentation(.floatingPanel)
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if keyEventHandler?(event) == true {
+            return
+        }
+        super.keyDown(with: event)
+    }
 
     func applyPresentation(_ presentation: GraphOverlayPanelPresentation) {
         switch presentation {

@@ -144,6 +144,13 @@ struct VaultSyncServiceAuditTests {
         return defaults
     }
 
+    private func loadRepoTextFile(_ relativePath: String) throws -> String {
+        let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let repoRoot = testsDirectory.deletingLastPathComponent()
+        let fileURL = repoRoot.appendingPathComponent(relativePath)
+        return try String(contentsOf: fileURL, encoding: .utf8)
+    }
+
     private let vaultBookmarkKey = "epistemos.vaultBookmark"
     private let lastVaultPathKey = "epistemos.lastVaultPath"
     private let trustedSuspiciousVaultPathKey = "epistemos.confirmedSuspiciousVaultPath"
@@ -898,6 +905,147 @@ struct VaultSyncServiceAuditTests {
         let hits = await service.searchFullAsync(query: token, limit: 5)
         #expect(hits.contains { $0.pageId == page.id })
         #expect(hits.first(where: { $0.pageId == page.id })?.snippet.isEmpty == false)
+    }
+
+    @Test("initial vault import publishes vaultChanged after the restored vault is usable")
+    func initialVaultImportPublishesVaultChangedAfterImport() async throws {
+        let container = try makeContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let capturedEvents = Locked<[String]>([])
+        let bus = EventBus()
+        bus.subscribe(id: "vault-sync-audit-capture") { event in
+            if case .vaultChanged = event {
+                capturedEvents.withLock { $0.append("vaultChanged") }
+            }
+        }
+        service.setEventBus(bus)
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        try """
+        ---
+        id: restored-vault-note
+        title: Restored Vault Note
+        ---
+
+        Body that should become visible to graph/search observers after import.
+        """.write(
+            to: vaultURL.appendingPathComponent("Restored Vault Note.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        service.startWatching(
+            vaultURL: vaultURL,
+            refreshAmbientManifestImmediately: false
+        )
+
+        try await waitUntil(timeout: .seconds(30)) {
+            service.isWatching && !service.isIndexing
+        }
+        try await waitUntil {
+            capturedEvents.value.contains("vaultChanged")
+        }
+
+        #expect(capturedEvents.value == ["vaultChanged"])
+    }
+
+    @Test("vault mutation events mark the graph dirty before observers run")
+    func vaultMutationEventsMarkGraphDirtyBeforeObserversRun() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let marker = "private func publishVaultMutation(_ event: AppEvent)"
+        let start = try #require(source.range(of: marker)?.lowerBound)
+        let tail = source[start...]
+        let end = try #require(tail.range(of: "\n    }\n\n    /// Exposed to external mutation paths")?.upperBound)
+        let body = String(tail[..<end])
+
+        #expect(body.contains("vaultMutationEpoch &+= 1"))
+        #expect(body.contains("AppBootstrap.shared?.graphState.needsRefresh = true"))
+        #expect(body.contains("eventBus?.emit(event)"))
+        let graphDirtyRange = try #require(
+            body.range(of: "AppBootstrap.shared?.graphState.needsRefresh = true")
+        )
+        let eventEmitRange = try #require(body.range(of: "eventBus?.emit(event)"))
+        #expect(graphDirtyRange.lowerBound < eventEmitRange.lowerBound)
+        #expect(source.contains("publishVaultMutation(.vaultPageChanged(pageId: pageId))"))
+        #expect(source.contains("publishVaultMutation(.vaultChanged)"))
+        #expect(source.contains("vaultSync?.publishVaultMutation(.vaultChanged)"))
+        #expect(!source.contains("vaultSync?.markVaultMutated()"))
+    }
+
+    @Test("switching from disconnected cached state clears stale notes and graph before importing selected vault")
+    func switchingFromDisconnectedCacheClearsStaleNotesAndGraphBeforeImportingSelectedVault() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let root = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let oldVaultURL = root.appendingPathComponent("OldVault", isDirectory: true)
+        let selectedVaultURL = root.appendingPathComponent("SelectedVault", isDirectory: true)
+        let noteBodiesURL = root.appendingPathComponent("NoteBodies", isDirectory: true)
+        let appSupportURL = root.appendingPathComponent("AppSupport", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("prefs.plist")
+        let recoverySnapshotsURL = root.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: oldVaultURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: selectedVaultURL, withIntermediateDirectories: true)
+
+        try """
+        ---
+        id: selected-vault-note
+        title: Selected Vault Note
+        ---
+
+        Selected vault body.
+        """.write(
+            to: selectedVaultURL.appendingPathComponent("Selected Vault Note.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            let service = VaultSyncService(modelContainer: container)
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+            service.setSearchDatabaseURLForTesting(appSupportURL.appendingPathComponent("search.sqlite"))
+            service.setRequiresSecurityScopedVaultAccessForTesting(false)
+            defer { service.stopWatching(preserveData: true) }
+
+            let stalePage = SDPage(title: "Old Cached Note")
+            stalePage.filePath = oldVaultURL.appendingPathComponent("Old Cached Note.md").path
+            context.insert(stalePage)
+            context.insert(SDFolder(name: "agents"))
+            context.insert(SDGraphNode(type: .note, label: "Old Cached Note", sourceId: stalePage.id))
+            try context.save()
+
+            let didSwitch = await service.switchToVaultAsync(
+                vaultURL: selectedVaultURL,
+                scopeAlreadyAcquired: true,
+                refreshAmbientManifestImmediately: false
+            )
+
+            #expect(didSwitch)
+            try await waitUntil(timeout: .seconds(30)) {
+                service.isWatching && !service.isIndexing
+            }
+
+            let pages = try context.fetch(FetchDescriptor<SDPage>())
+            let folders = try context.fetch(FetchDescriptor<SDFolder>())
+            let graphNodes = try context.fetch(FetchDescriptor<SDGraphNode>())
+            let selectedVaultPath = selectedVaultURL.standardizedFileURL.path
+            let importedPagePath = pages.first?.filePath.map {
+                URL(fileURLWithPath: $0).standardizedFileURL.path
+            }
+
+            #expect(pages.map(\.title) == ["Selected Vault Note"])
+            #expect(importedPagePath?.hasPrefix(selectedVaultPath) == true)
+            #expect(!pages.contains { $0.title == "Old Cached Note" })
+            #expect(!folders.contains { $0.name == "agents" })
+            #expect(!graphNodes.contains { $0.label == "Old Cached Note" })
+        })
     }
 
     @Test("movePage relocates the markdown file into the target vault subfolder")

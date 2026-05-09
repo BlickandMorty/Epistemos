@@ -14,8 +14,8 @@ struct AgentSectionDetailView: View {
         // W9.6 — Agent spend dashboard. Visible in BOTH builds (MAS
         // and Pro) because cost transparency is a privacy/trust
         // surface that applies even when only AFM + local models
-        // are wired (MAS still surfaces a $0.00 placeholder so the
-        // user knows nothing is hitting the network).
+        // are wired. MAS/direct builds render unavailable provider
+        // costs as unavailable, not as synthetic zero spend.
         case spend = "Spend"
         // StructureRegistry — transparency: every @Generable schema
         // the host knows about, with surface + storage + maturity.
@@ -56,7 +56,7 @@ struct AgentSectionDetailView: View {
             case .control: "Tools, recent activity, sessions."
             case .authority: "What the agent can do without asking you first."
             case .overseer: "Read-only audit trail of routing decisions per turn."
-            case .spend: "Per-session estimated cost + budget cap."
+            case .spend: "Token usage, cache rate, and budget cap."
             case .structures: "Every structured-data schema this build produces."
             }
         }
@@ -123,15 +123,10 @@ struct AgentSectionDetailView: View {
             // (MASTER_BUILD_PLAN.md:311) wires real session_metrics
             // rows in: each row carries the input/output/cache token
             // counts that ChatCoordinator persists via
-            // EventStore.saveSessionMetrics after each agent run, so
-            // the "Cache hit rate" row reflects the Anthropic prompt
-            // cache's actual hit rate instead of the empty placeholder.
-            // Provider name + objective + per-session USD are
-            // intentionally left as placeholders here — those columns
-            // aren't tracked in `session_metrics` yet, and the cache
-            // hit rate is the W9.6 success metric per the plan's
-            // success criterion (cached_tokens_share row > 0 % after
-            // second turn).
+            // EventStore.saveSessionMetrics after each agent run. Provider
+            // and per-session cost remain nil until the schema tracks them,
+            // so the UI renders those fields as unavailable rather than
+            // inventing $0.00 estimates.
             SpendDashboardHost()
         case .structures:
             // First reader of the StructureRegistry. Surfaces every
@@ -154,13 +149,11 @@ struct AgentSectionDetailView: View {
 // is `nonisolated` so it dispatches onto the EventStore's serial
 // SQLite queue).
 //
-// Provider / title / per-session USD are placeholders — the
-// session_metrics schema does not yet carry those columns. The W9.6
-// success criterion per MASTER_BUILD_PLAN.md:390 is the aggregate
-// cache hit rate, which depends only on the input + cache_read
-// columns persisted in PR2 — so the row goes live with real numbers
-// even while the per-session list rows show provider="—" / cost="—"
-// until a follow-up extends the schema.
+// Provider and per-session USD are explicitly unavailable here because
+// the session_metrics schema does not yet carry those columns. The W9.6
+// success criterion per MASTER_BUILD_PLAN.md:390 is the aggregate cache
+// hit rate, which depends only on the input + cache_read columns persisted
+// in PR2.
 
 private struct SpendDashboardHost: View {
     @State private var entries: [CostDashboardEntry] = []
@@ -175,10 +168,10 @@ private struct SpendDashboardHost: View {
                     CostDashboardEntry(
                         id: record.sessionId,
                         title: shortTitle(for: record.sessionId),
-                        provider: "—",
+                        provider: nil,
                         inputTokens: record.inputTokens,
                         outputTokens: record.outputTokens,
-                        estimatedCostUSD: 0.0,
+                        estimatedCostUSD: nil,
                         startedAt: record.recordedAt,
                         cacheReadInputTokens: record.cacheReadInputTokens,
                         cacheCreationInputTokens: record.cacheCreationInputTokens

@@ -158,7 +158,7 @@ nonisolated struct EpdocGraphProjectorTests {
 
     @Test("No wikilinks in body → only provenance edges in the projection")
     func wikilinksAbsent() throws {
-        let body = Self.doc([Self.para([Self.text("Plain text, no special syntax.")])])
+        let body = Self.doc([Self.para([Self.text("Short note.")])])
         let m = Self.manifest(id: "doc", title: "Notes",
                               derivedFrom: ["src-only"])
         let p = EpdocGraphProjector.project(
@@ -170,6 +170,37 @@ nonisolated struct EpdocGraphProjectorTests {
         #expect(p.edges.first?.kind == .derivedFrom)
         #expect(p.edges.first?.targetIsLabel == false,
                 "provenance edges target stable manifest ids, not labels")
+    }
+
+    @Test("Long documents without wikilinks still emit authored semantic contains labels")
+    func semanticContainsLabels() throws {
+        let body = Self.doc([
+            ProseMirrorNode(
+                type: "heading",
+                attrs: ProseMirrorAttrs(level: 2),
+                content: [Self.text("Hydrogen shipping constraints")]
+            ),
+            Self.para([
+                Self.text("Port operators need a bounded safety model before liquefied hydrogen shipping can scale across regional corridors.")
+            ]),
+            ProseMirrorNode(type: "bullet_list", content: [
+                ProseMirrorNode(type: "list_item", content: [
+                    Self.para([Self.text("Cryogenic transfer windows must align with crew training and berth availability.")])
+                ])
+            ]),
+        ])
+        let p = EpdocGraphProjector.project(
+            manifest: Self.manifest(id: "doc", title: "Hydrogen memo"),
+            contentJSON: try Self.contentJSON(body)
+        )
+
+        let semanticEdges = p.edges.filter { $0.kind == .contains && $0.targetIsLabel }
+        let labels = semanticEdges.map(\.targetID)
+        #expect(labels.contains("Hydrogen shipping constraints"))
+        #expect(labels.contains("Port operators need a bounded safety model before liquefied hydrogen shipping can scale across regional corridors"))
+        #expect(labels.contains("Cryogenic transfer windows must align with crew training and berth availability"))
+        #expect(!labels.contains("Idea") && !labels.contains("Evidence"),
+                "Semantic graph labels must come from authored document text, not generic placeholder nodes.")
     }
 
     // MARK: - Stability across saves

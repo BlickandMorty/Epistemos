@@ -434,7 +434,7 @@ final class NoteEditorRenderedTableHostingView: NSHostingView<NoteEditorTablePla
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is unavailable")
+        return nil
     }
 
     override var acceptsFirstResponder: Bool { false }

@@ -98,6 +98,54 @@ assert.ok(nodeLines.length >= 10, `expected a rich graph, got ${nodeLines.length
 assert.doesNotMatch(diagram, /Idea/);
 assert.doesNotMatch(diagram, /Evidence\]\s*-->/);
 
+const rawMarkdownDocument = {
+  type: 'doc',
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: 'Runtime Smoke' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: '| Surface | Status |' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: '|---|---|' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: '| Epdoc graph | should not break Mermaid |' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: '![Tiny image](https://example.com/image.png)' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: '```swift' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'func verify() { print("ok") }' }],
+    },
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: '```' }],
+    },
+  ],
+};
+
+const rawDiagram = buildMermaidGraphFromDocument(rawMarkdownDocument);
+assert.match(rawDiagram, /Surface \/ Status/);
+assert.match(rawDiagram, /Epdoc graph \/ should not break Mermaid/);
+assert.match(rawDiagram, /Image evidence: Tiny image|Tiny image/);
+assert.doesNotMatch(rawDiagram, /\|---\|---\|/);
+assert.doesNotMatch(rawDiagram, /!\[Tiny image\]/);
+assert.doesNotMatch(rawDiagram, /```/);
+assert.doesNotMatch(rawDiagram, /classDef .*;$/m);
+
 const emptyDiagram = buildMermaidGraphFromDocument({ type: 'doc', content: [] });
 assert.match(emptyDiagram, /Add headings, claims, evidence, or links/);
 

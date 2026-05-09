@@ -149,6 +149,25 @@ struct DeviceAgentServiceTests {
         )
         #expect(router.isDualBrainActive)
     }
+
+    @Test("Core ML action backend is deferred until feature mapping is real")
+    func coreMLActionBackendIsDeferredUntilFeatureMappingIsReal() throws {
+        let deviceAgent = try loadMirroredSourceTextFile("Epistemos/Omega/Inference/DeviceAgentService.swift")
+        let appBootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(deviceAgent.contains("static let actionModelFeatureMappingEnabled = false"))
+        #expect(deviceAgent.contains("guard actionModelFeatureMappingEnabled else { return nil }"))
+        #expect(deviceAgent.contains("throw DeviceAgentError.backendUnavailable"))
+        #expect(deviceAgent.contains("private func contextualResolverIfAvailable() -> AppleContextualActionResolver?"))
+        #expect(deviceAgent.contains("contextualResolverAttempted = true"))
+        #expect(!appBootstrap.contains("deviceAgent.installContextualResolver()"))
+        #expect(deviceAgent.contains("final class SharedGPUAppleFallbackBackend"))
+        #expect(appBootstrap.contains("SharedGPUAppleFallbackBackend(sharedGPUBackend: sharedGPUBackend)"))
+        #expect(!appBootstrap.contains("AppleIntelligenceService.shared.checkAvailability().available"))
+        #expect(!deviceAgent.contains("coreml-action-backend-stub"))
+        #expect(!deviceAgent.contains("return #\"{\\\"selector\\\":\\\"\\\""))
+        #expect(appBootstrap.contains("CoreMLActionBackendLoader.loadIfAvailable()"))
+    }
 }
 
 @Suite("iMessage Driver Routing")

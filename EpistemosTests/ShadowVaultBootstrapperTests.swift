@@ -36,7 +36,7 @@ nonisolated struct ShadowVaultBootstrapperTests {
         defer { try? FileManager.default.removeItem(at: vault) }
 
         let captureIndexer = CaptureIndexer()
-        let realIndexer = ShadowIndexingService(client: StubShadowFFIClient())
+        let realIndexer = ShadowIndexingService(client: InMemoryShadowFFIClient())
         let bootstrapper = ShadowVaultBootstrapper(
             vaultRoot: vault,
             indexer: realIndexer
@@ -60,14 +60,14 @@ nonisolated struct ShadowVaultBootstrapperTests {
             atomically: true, encoding: .utf8
         )
 
-        let stub = StubShadowFFIClient()
-        let indexer = ShadowIndexingService(client: stub)
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
         let bootstrapper = ShadowVaultBootstrapper(vaultRoot: vault, indexer: indexer)
         await bootstrapper.bootstrap()
         await indexer.flushNow()
 
         // Both notes searchable through the in-memory client snapshot.
-        let stats = try stub.stats()
+        let stats = try client.stats()
         #expect(stats.noteCount == 2)
     }
 
@@ -85,13 +85,13 @@ nonisolated struct ShadowVaultBootstrapperTests {
             atomically: true, encoding: .utf8
         )
 
-        let stub = StubShadowFFIClient()
-        let indexer = ShadowIndexingService(client: stub)
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
         let bootstrapper = ShadowVaultBootstrapper(vaultRoot: vault, indexer: indexer)
         await bootstrapper.bootstrap()
         await indexer.flushNow()
 
-        let stats = try stub.stats()
+        let stats = try client.stats()
         #expect(stats.noteCount == 1, "only .md files should be indexed; got \(stats.noteCount)")
     }
 
@@ -107,8 +107,8 @@ nonisolated struct ShadowVaultBootstrapperTests {
             )
         }
 
-        let stub = StubShadowFFIClient()
-        let indexer = ShadowIndexingService(client: stub)
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
         let bootstrapper = ShadowVaultBootstrapper(
             vaultRoot: vault,
             indexer: indexer,
@@ -368,8 +368,8 @@ nonisolated struct ShadowVaultBootstrapperTests {
             atomically: true, encoding: .utf8
         )
 
-        let stub = StubShadowFFIClient()
-        let indexer = ShadowIndexingService(client: stub)
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
         let bootstrapper = ShadowVaultBootstrapper(vaultRoot: vault, indexer: indexer)
 
         // Run twice — second pass should NOT duplicate.
@@ -379,7 +379,7 @@ nonisolated struct ShadowVaultBootstrapperTests {
         await bootstrapper2.bootstrap()
         await indexer.flushNow()
 
-        let stats = try stub.stats()
+        let stats = try client.stats()
         #expect(stats.noteCount == 1,
                 "doc_id should be vault-relative path so the second run replaces; got \(stats.noteCount)")
     }

@@ -34,7 +34,6 @@ extension View {
             .environment(bootstrap.channelRegistry)
             .environment(bootstrap.constrainedDecoding)
             .environment(bootstrap.hardwareTierManager)
-            .environment(bootstrap.screen2AXFusion)
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
             #if !EPISTEMOS_APP_STORE

@@ -1661,6 +1661,7 @@ final class VaultSyncService {
         recoveryIssue = issue
         guard issue == nil else { return }
 
+        publishVaultMutation(.vaultChanged)
         AppBootstrap.shared?.refreshAmbientManifest()
         AppBootstrap.shared?.scheduleHealthyVaultBodyCleanup()
         if let bootstrap = AppBootstrap.shared {
@@ -1957,6 +1958,11 @@ final class VaultSyncService {
             guard didClear else {
                 return false
             }
+        } else {
+            let didClear = await clearDisconnectedDerivedLocalStateBeforeVaultSwitchIfNeeded()
+            guard didClear else {
+                return false
+            }
         }
 
         return beginWatching(
@@ -2161,6 +2167,52 @@ final class VaultSyncService {
         isIndexing = false
         initialImportCompleted = false
         log.info("VaultSyncService stopped (preserveData=\(preserveData))")
+    }
+
+    private func clearDisconnectedDerivedLocalStateBeforeVaultSwitchIfNeeded() async -> Bool {
+        guard hasDerivedLocalVaultDataForSwitch() else { return true }
+
+        do {
+            try await snapshotLocalStateOffMain()
+        } catch {
+            log.error("Failed to snapshot disconnected local state before vault switch; aborting clear: \(error.localizedDescription, privacy: .public)")
+            handleSnapshotFailureBeforeDestructiveClear(error)
+            return false
+        }
+
+        await clearLocalVaultStateOffMain()
+        return true
+    }
+
+    private func hasDerivedLocalVaultDataForSwitch() -> Bool {
+        let context = modelContainer.mainContext
+        let pageCount = fetchCount(
+            FetchDescriptor<SDPage>(),
+            in: context,
+            label: "cached pages before vault switch"
+        ) ?? 0
+        let folderCount = fetchCount(
+            FetchDescriptor<SDFolder>(),
+            in: context,
+            label: "cached folders before vault switch"
+        ) ?? 0
+        let graphNodeCount = fetchCount(
+            FetchDescriptor<SDGraphNode>(),
+            in: context,
+            label: "cached graph nodes before vault switch"
+        ) ?? 0
+        let graphEdgeCount = fetchCount(
+            FetchDescriptor<SDGraphEdge>(),
+            in: context,
+            label: "cached graph edges before vault switch"
+        ) ?? 0
+        let localBodyCount = managedBodyCountProvider?() ?? NoteFileStorage.managedBodyCount()
+
+        return pageCount > 0
+            || folderCount > 0
+            || graphNodeCount > 0
+            || graphEdgeCount > 0
+            || localBodyCount > 0
     }
 
     /// Delete all vault pages/folders AND graph data from SwiftData.
@@ -2796,6 +2848,7 @@ final class VaultSyncService {
     /// the idle path stays quiet.
     private func publishVaultMutation(_ event: AppEvent) {
         vaultMutationEpoch &+= 1
+        AppBootstrap.shared?.graphState.needsRefresh = true
         eventBus?.emit(event)
     }
 
@@ -2901,13 +2954,12 @@ final class VaultSyncService {
                 log.info("File watcher: re-import complete")
                 await VaultSyncService.rebuildInstantRecallIndex(from: actor)
 
-                // Hop back to main actor for UI state updates. Mark the
-                // vault as mutated so the idle manifest-refresh timer
-                // also notices (even though we refresh here directly,
-                // the epoch bump keeps the polling tick honest).
+                // Hop back to main actor for UI state updates. External
+                // vault changes must use the same canonical mutation event as
+                // in-app saves so graph/search observers cannot miss new
+                // files written outside Epistemos.
                 await MainActor.run { [weak vaultSync = AppBootstrap.shared?.vaultSync] in
-                    AppBootstrap.shared?.graphState.needsRefresh = true
-                    vaultSync?.markVaultMutated()
+                    vaultSync?.publishVaultMutation(.vaultChanged)
                     AppBootstrap.shared?.refreshAmbientManifest()
                 }
 

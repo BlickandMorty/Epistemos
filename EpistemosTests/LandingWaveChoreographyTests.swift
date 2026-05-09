@@ -5,14 +5,14 @@ import Testing
 @Suite("Landing Wave Choreography")
 struct LandingWaveChoreographyTests {
 
-    /// The canonical drop sequence must contain exactly the beats specified in
-    /// the plan: 1 impact + 6 crown impulses + 1 crater + 1 jet + 1 secondary = 10.
+    /// The canonical click sequence stays dense but local: impact + compact
+    /// crown + well + rebound + delayed orbital sparks + final dot = 16.
     @Test func sequenceBeatCount() {
         let events = LandingWaveChoreography.makeSequence(
             at: SIMD2<Float>(40, 20),
             cursorDirection: SIMD2<Float>(0, 0)
         )
-        #expect(events.count == 10)
+        #expect(events.count == 16)
     }
 
     /// The impact flash must fire at t=0, and the secondary droplet must fire
@@ -27,7 +27,7 @@ struct LandingWaveChoreographyTests {
             return
         }
         #expect(first.timeOffset == 0.0)
-        #expect(last.timeOffset > 0.100)
+        #expect(last.timeOffset >= 0.420)
     }
 
     /// Crater beat must be negative strength (the cavity pulse) and all other
@@ -40,6 +40,19 @@ struct LandingWaveChoreographyTests {
         )
         let negatives = events.filter { $0.strength < 0 }
         #expect(negatives.count == 1, "exactly one negative-strength beat (the crater)")
+    }
+
+    @Test func clickBloomStaysCompactAndSlower() {
+        let events = LandingWaveChoreography.makeSequence(
+            at: SIMD2<Float>(40, 20),
+            cursorDirection: SIMD2<Float>(1, 0)
+        )
+        #expect(events.map(\.radius).max() ?? 0 <= 1.18)
+        #expect(events.dropFirst().first?.timeOffset == 0.090)
+        #expect(LandingWaveDesign.waveSpeedSquared == 0.16)
+        #expect(LandingWaveDesign.cellsPer100ptWidth == 20)
+        #expect(LandingWaveDesign.ambientAmplitude <= 0.006)
+        #expect(LandingWaveDesign.luminanceRamp.count == 16)
     }
 }
 

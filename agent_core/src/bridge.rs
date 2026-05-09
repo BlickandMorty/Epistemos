@@ -166,8 +166,10 @@ pub trait AgentEventDelegate: Send + Sync {
     /// `job_type` is one of: event_checkpoint, search_index_checkpoint,
     /// artifact_dedup, workspace_compaction, memory_distillation,
     /// cloud_knowledge_distillation, session_graph_generation,
-    /// skill_evolution_analysis, ssm_state_pruning, vault_integrity_check,
-    /// maintenance_log. `priority` is "normal" or "immediate".
+    /// skill_evolution_analysis, ssm_state_pruning, maintenance_log.
+    /// The public Pro `nightbrain_trigger` tool passes `priority="immediate"`;
+    /// normal/background scheduling belongs to the host NightBrain idle
+    /// scheduler, not this delegate callback.
     /// Returns JSON: `{ job_id, status, estimated_duration_s }`.
     fn trigger_nightbrain_job(&self, job_type: String, priority: String) -> String;
 
@@ -642,12 +644,22 @@ pub fn nightbrain_preview_admission(
     )
 }
 
+fn nightbrain_outcome_status(outcome: &crate::nightbrain::TaskOutcome) -> &'static str {
+    if outcome.completed && outcome.items_skipped > 0 {
+        "skipped"
+    } else if outcome.completed {
+        "complete"
+    } else {
+        "preempted"
+    }
+}
+
 /// Live-scheduler FFI: idempotently register canonical NightBrain tasks
 /// against the process-global singleton scheduler. Called by Swift
 /// `AppBootstrap` at startup. Returns the names that ended up
 /// registered. Idempotent — re-calling does not produce duplicates or
-/// errors. Closes the "NightBrain live Rust task registration not
-/// fully wired" follow-up (2026-05-04).
+/// errors. This registers the live surface only; placeholder bodies
+/// report `skipped` until real task implementations are wired.
 #[uniffi::export]
 pub fn nightbrain_register_canonical_tasks() -> Vec<String> {
     ffi_guard_value!(
@@ -680,9 +692,10 @@ pub fn nightbrain_live_registered_task_names() -> Vec<String> {
 }
 
 /// Live-scheduler FFI: trigger a live execution of every registered
-/// task. Returns per-task outcome names; failures map to "error" strings
-/// rather than throwing across the FFI. Honours cooperative cancellation
-/// via `nightbrain_preempt_live_scheduler`.
+/// task. Returns per-task outcome names; placeholder bodies map to
+/// "skipped" rather than pretending to have completed maintenance work.
+/// Failures map to empty results rather than throwing across the FFI.
+/// Honours cooperative cancellation via `nightbrain_preempt_live_scheduler`.
 #[uniffi::export]
 pub fn nightbrain_run_live_registered_tasks() -> Vec<String> {
     ffi_guard_value!(
@@ -697,11 +710,7 @@ pub fn nightbrain_run_live_registered_tasks() -> Vec<String> {
             outcomes
                 .into_iter()
                 .map(|outcome| {
-                    let status = if outcome.outcome.completed {
-                        "complete"
-                    } else {
-                        "preempted"
-                    };
+                    let status = nightbrain_outcome_status(&outcome.outcome);
                     format!(
                         "{}:{}:{}",
                         outcome.name, status, outcome.outcome.items_processed
@@ -3166,7 +3175,9 @@ mod tests {
     use super::build_preview_session_context_with_opener;
     use super::execute_tool_call_filtered;
     use super::list_tools_for_tier;
+    use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
+    use crate::nightbrain::TaskOutcome;
     use crate::storage::vault::VaultError;
     use serde_json::json;
 
@@ -3206,6 +3217,22 @@ mod tests {
         assert_eq!(preview.resolution_kind, "auto_local_only");
         assert_eq!(preview.effective_provider, "");
         assert!(!preview.supported);
+    }
+
+    #[test]
+    fn nightbrain_live_ffi_reports_placeholder_tasks_as_skipped() {
+        assert_eq!(
+            nightbrain_outcome_status(&TaskOutcome::complete(3)),
+            "complete"
+        );
+        assert_eq!(
+            nightbrain_outcome_status(&TaskOutcome::skipped(1)),
+            "skipped"
+        );
+        assert_eq!(
+            nightbrain_outcome_status(&TaskOutcome::preempted(0)),
+            "preempted"
+        );
     }
 
     #[test]

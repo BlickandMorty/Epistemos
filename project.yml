@@ -47,6 +47,7 @@ targets:
         excludes:
           - Engine/ClaudeManagedRuntime.swift
           - Engine/LocalRustRuntime.swift
+          - KnowledgeFusion/.DS_Store
           - KnowledgeFusion/Alignment/scripts/**
           - KnowledgeFusion/MOHAWK/**
           - KnowledgeFusion/MoLoRA/__pycache__/**
@@ -54,6 +55,7 @@ targets:
           - KnowledgeFusion/MoLoRA/sgmm_kernel.py
           - KnowledgeFusion/MoLoRA/tests/**
           - KnowledgeFusion/MoLoRA/train_router.py
+          - KnowledgeFusion/Training/.DS_Store
           - KnowledgeFusion/Training/scripts/**
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
@@ -141,6 +143,7 @@ targets:
         excludes:
           - Engine/ClaudeManagedRuntime.swift
           - Engine/LocalRustRuntime.swift
+          - KnowledgeFusion/.DS_Store
           - KnowledgeFusion/Alignment/scripts/**
           - KnowledgeFusion/MOHAWK/**
           - KnowledgeFusion/MoLoRA/__pycache__/**
@@ -148,6 +151,7 @@ targets:
           - KnowledgeFusion/MoLoRA/sgmm_kernel.py
           - KnowledgeFusion/MoLoRA/tests/**
           - KnowledgeFusion/MoLoRA/train_router.py
+          - KnowledgeFusion/Training/.DS_Store
           - KnowledgeFusion/Training/scripts/**
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift

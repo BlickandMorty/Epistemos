@@ -407,6 +407,7 @@ struct AssistantComposerOuterHalo: View {
 private enum AssistantToolbarAskBarMetrics {
     static let minHeight: CGFloat = 28
     static let stopBallSize: CGFloat = 22
+    static let submitBallSize: CGFloat = 22
 }
 
 struct AssistantToolbarAskBar<Leading: View>: View {
@@ -502,6 +503,10 @@ struct AssistantToolbarAskBar<Leading: View>: View {
         )
     }
 
+    private var trimmedTextIsEmpty: Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             leading()
@@ -535,6 +540,8 @@ struct AssistantToolbarAskBar<Leading: View>: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(width: fieldWidth, alignment: .leading)
+                .accessibilityLabel(Text(placeholder))
+                .accessibilityHint(Text("Type a question and press Return, or use the submit button."))
 
             if isStreaming {
                 Button(action: onStop) {
@@ -556,6 +563,24 @@ struct AssistantToolbarAskBar<Leading: View>: View {
                         .shadow(color: theme.error.opacity(0.18), radius: 6)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(Text("Stop response"))
+                .help("Stop response")
+            } else {
+                Button(action: onSubmit) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(trimmedTextIsEmpty ? theme.textTertiary.opacity(0.42) : accent.opacity(0.96))
+                        .frame(
+                            width: AssistantToolbarAskBarMetrics.submitBallSize,
+                            height: AssistantToolbarAskBarMetrics.submitBallSize
+                        )
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(trimmedTextIsEmpty)
+                .accessibilityLabel(Text(placeholder))
+                .accessibilityHint(Text("Submit the current question."))
+                .help(placeholder)
             }
         }
         .frame(minHeight: AssistantToolbarAskBarMetrics.minHeight)

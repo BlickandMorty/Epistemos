@@ -422,7 +422,7 @@ pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile 
     match quality_level {
         0 => LodProfile {
             draw_edges: true,
-            draw_glow: true,
+            draw_glow: false,
             cluster_nodes: false,
             edge_degree_threshold: u32::MAX,
             max_edges_per_node: u16::MAX,
@@ -660,6 +660,7 @@ struct NodeVertexOut {
     float  desaturate;     // 0.0 = full color, 1.0 = grayscale
     float  is_lite;        // 1.0 = lite mode, 0.0 = full mode
     float2 world_pos;      // world-space base position for pulse wave
+    float  node_radius_world;
 };
 
 vertex NodeVertexOut node_vertex(
@@ -679,10 +680,12 @@ vertex NodeVertexOut node_vertex(
     float2 corner = corners[vertex_id];
     bool dialogue_theme = uniforms.dialogue_theme > 0.5;
 
-    // Squash & stretch: deform quad along velocity direction (cinematic only).
+    // Performance keeps the old motion deformation. Cinematic v1 is the hard
+    // pixel graph identity, so node silhouettes stay stable instead of wobbling
+    // like water beads.
     float2 vel = velocities[instance_id];
     float speed = length(vel);
-    if (uniforms.lite_mode < 0.5 && speed > 1.0) {
+    if (uniforms.lite_mode > 1.5 && speed > 1.0) {
         float stretch_amount = min(speed * 0.002, 0.25);
         float2 dir = vel / speed;
         float2 perp = float2(-dir.y, dir.x);
@@ -713,6 +716,15 @@ vertex NodeVertexOut node_vertex(
         effective_radius *= 1.0 + wobble * 0.04 * uniforms.water_wobble;
     }
 
+    if (uniforms.lite_mode < 0.5) {
+        const float cinematic_world_scale = 1.18;
+        const float cinematic_min_world_radius = 13.0;
+        effective_radius = max(
+            effective_radius * cinematic_world_scale,
+            cinematic_min_world_radius
+        );
+    }
+
     float2 base_pos = inst.position;
     float2 world_pos = base_pos + corner * effective_radius;
 
@@ -741,6 +753,7 @@ vertex NodeVertexOut node_vertex(
     out.desaturate = desaturate;
     out.is_lite = uniforms.lite_mode;
     out.world_pos = base_pos;
+    out.node_radius_world = effective_radius;
     out.face_type = inst.face_type;
     return out;
 }
@@ -787,12 +800,101 @@ fragment float4 node_fragment(
         return float4(glow_rgb, in.color.a * glow * in.highlight_dim);
     }
 
-    // ── Balanced + Cinematic + Performance: shared node shading ──
+    // ── Cinematic: hard stepped pixel-circle nodes ──
+    // This is the v1 graph identity. It stays inside the same instanced
+    // world/camera renderer as the fast path, so zooming is real camera zoom
+    // rather than a screen-space SVG overlay scaling up.
+    bool performance_mode = in.is_lite > 1.5;
+    bool cinematic_mode = in.is_lite < 0.5;
+    bool light = uniforms.light_mode > 0.5;
+    if (cinematic_mode) {
+        const float pixel_grid = 9.0;
+        float2 pixel_cell = floor((in.uv * 0.5 + 0.5) * pixel_grid);
+        float2 pixel_uv = ((pixel_cell + 0.5) / pixel_grid) * 2.0 - 1.0;
+        float pixel_dist = length(pixel_uv);
+        if (pixel_dist > 0.96) discard_fragment();
+
+        float3 fill = light
+            ? srgb_to_linear(float3(0.055, 0.055, 0.050))
+            : srgb_to_linear(float3(0.930, 0.925, 0.865));
+        float3 rim = light
+            ? srgb_to_linear(float3(0.000, 0.000, 0.000))
+            : srgb_to_linear(float3(0.655, 0.650, 0.590));
+        float3 highlight = light
+            ? srgb_to_linear(float3(0.180, 0.180, 0.165))
+            : srgb_to_linear(float3(1.000, 0.995, 0.930));
+        float3 shadow = light
+            ? srgb_to_linear(float3(0.000, 0.000, 0.000))
+            : srgb_to_linear(float3(0.465, 0.460, 0.420));
+
+        float3 pixel_color = fill;
+        if (pixel_dist > 0.70) {
+            pixel_color = rim;
+        }
+
+        float2 light_dir_2d = normalize(float2(-0.65, -0.76));
+        float light_band = dot(pixel_uv, light_dir_2d);
+        if (light_band > 0.42 && pixel_dist < 0.68) {
+            pixel_color = highlight;
+        } else if (light_band < -0.36 && pixel_dist > 0.42) {
+            pixel_color = shadow;
+        }
+
+        float2 shine_dir = normalize(float2(-0.60, -0.80));
+        float shine_coord = 0.5 + 0.5 * dot(pixel_uv, shine_dir);
+        float shine_mask = (1.0 - smoothstep(0.0, 0.74, pixel_dist))
+            * (1.0 - smoothstep(0.58, 0.76, pixel_dist));
+        float cinematic_static_shine = floor(clamp((1.0 - shine_coord) * 1.45, 0.0, 1.0) * 4.0) / 4.0;
+        if (cinematic_static_shine > 0.60) {
+            pixel_color = mix(pixel_color, highlight, 0.38 * shine_mask);
+        } else if (cinematic_static_shine > 0.35) {
+            pixel_color = mix(pixel_color, highlight, 0.22 * shine_mask);
+        }
+
+        if (uniforms.pulse_time >= 0.0) {
+            float d_to_pulse = length(in.world_pos - uniforms.pulse_origin);
+            float wave_radius = uniforms.pulse_time * 800.0;
+            float ring_dist = abs(d_to_pulse - wave_radius);
+            float ring_width = 58.0 + wave_radius * 0.14;
+            float cinematic_click_wave = 1.0 - smoothstep(0.0, ring_width, ring_dist);
+            float pulse_fade = 1.0 - smoothstep(0.0, 1.85, uniforms.pulse_time);
+            cinematic_click_wave = floor(cinematic_click_wave * 4.0) / 4.0;
+            if (cinematic_click_wave > 0.0) {
+                pixel_color = mix(
+                    pixel_color,
+                    highlight,
+                    cinematic_click_wave * pulse_fade * 0.52
+                );
+            }
+
+            float local_flash = 1.0 - smoothstep(0.0, max(in.node_radius_world * 1.65, 16.0), d_to_pulse);
+            float cinematic_click_sweep = 1.0 - smoothstep(
+                0.08,
+                0.20,
+                abs(dot(pixel_uv, shine_dir) - (uniforms.pulse_time * 2.6 - 0.9))
+            );
+            if (local_flash > 0.0 && cinematic_click_sweep > 0.0) {
+                pixel_color = mix(
+                    pixel_color,
+                    highlight,
+                    local_flash * cinematic_click_sweep * pulse_fade * 0.72
+                );
+            }
+        }
+
+        if (in.desaturate > 0.5) {
+            float lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
+            pixel_color = mix(pixel_color, float3(lum), 0.85);
+        }
+
+        float depth_fade = (in.depth < -0.1) ? 0.72 : 1.0;
+        return float4(pixel_color, in.color.a * depth_fade * in.highlight_dim);
+    }
+
+    // ── Balanced + Performance: shared node shading ──
     // Performance keeps a lighter static version of the default shading so the
     // graph reads similarly while still skipping the cinematic extras.
-    bool performance_mode = in.is_lite > 1.5;
     bool water = uniforms.water_style > 0.5;
-    bool light = uniforms.light_mode > 0.5;
     float base_pixel_strength = performance_mode ? 0.45 : (light ? 0.35 : 0.6);
     float pixel_strength = water ? 0.0 : base_pixel_strength;
     float grid = performance_mode ? 10.0 : 12.0;
@@ -1247,12 +1349,14 @@ vertex LabelVertexOut label_vertex(
     LabelInstance inst = instances[instance_id];
     float2 corner = corners[vertex_id];
 
-    // Radial blur-reveal: smooth transition based on distance to camera focus.
+    // Radial focus fade: keep visible labels sharp. The old implementation
+    // shrank glyph quads and widened the SDF edge enough that graph labels read
+    // blurry even when they were meant to be visible.
     float blur = smoothstep(u.focus_radius, u.blur_radius, inst.node_dist);
 
-    // Early out: if fully invisible, collapse quad to zero size.
-    // The fragment shader also checks, but this saves vertex throughput.
-    float2 world_pos = inst.position + corner * inst.size * (1.0 - blur * 0.5);
+    // Early out is still handled in the fragment shader; keep glyph geometry at
+    // stable size so fade distance does not distort font sharpness.
+    float2 world_pos = inst.position + corner * inst.size;
 
     float2 screen = (world_pos - u.camera_offset) * u.camera_zoom;
     float2 ndc = screen / (u.viewport_size * 0.5) * float2(1, -1);
@@ -1263,7 +1367,7 @@ vertex LabelVertexOut label_vertex(
 
     // Compute screen-space pixel range for proper SDF anti-aliasing.
     float screen_glyph_size = inst.size.y * 2.0 * u.camera_zoom;
-    float atlas_glyph_px = inst.uv_rect.w * 1024.0; // assuming 1024px atlas height
+    float atlas_glyph_px = inst.uv_rect.w * u.atlas_height;
     float screen_px_range = max(screen_glyph_size / atlas_glyph_px * u.px_range, 1.0);
 
     LabelVertexOut out;
@@ -1297,8 +1401,9 @@ fragment float4 label_fragment(
     float edge = 0.5;
     float half_width = 0.5 / in.screen_px_range;
 
-    // Blur widens the smoothstep: crisp = tight band, blurred = wide band → fades out.
-    float blur_widen = in.blur * 0.4; // widen by up to 40% of range
+    // Focus fade should not make readable labels look out of focus. Widen only
+    // a little near the end of the fade, then let alpha do the disappearing.
+    float blur_widen = in.blur * 0.08;
     float edge_min = edge - half_width - blur_widen;
     float edge_max = edge + half_width + blur_widen;
 
@@ -1789,6 +1894,7 @@ impl Renderer {
             ));
         }
 
+        self.label_atlas_height = height as f32;
         self.label_atlas_texture = Some(texture);
         true
     }
@@ -3993,7 +4099,7 @@ mod tests {
         let far = lod_profile_for_zoom(0.05, 0);
         assert_eq!(near, far);
         assert!(near.draw_edges);
-        assert!(near.draw_glow);
+        assert!(!near.draw_glow);
         assert!(!near.cluster_nodes);
     }
 

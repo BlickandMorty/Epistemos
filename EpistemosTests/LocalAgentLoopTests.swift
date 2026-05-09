@@ -105,6 +105,40 @@ struct LocalAgentLoopTests {
         #expect(answer == "Transformer notes found: self-attention, multi-head attention, residual connections.")
     }
 
+    @Test("reflex mode without a streaming generator uses one-shot generation")
+    func reflexModeWithoutStreamingGeneratorUsesOneShotGeneration() async throws {
+        let promptRecorder = PromptRecorder()
+        let responseQueue = ResponseQueue(outputs: ["Plain answer."])
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, onToken in
+                await promptRecorder.record(prompt)
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, _ in
+                Issue.record("No tool should execute without a parsed tool call: \(name)")
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"error":"unexpected tool execution"}"#,
+                    isError: true
+                )
+            }
+        )
+
+        var emitted = ""
+        let output = try await loop.run(
+            objective: "Answer plainly.",
+            tools: [],
+            reflexMode: true,
+            onToken: { token in emitted += token }
+        )
+
+        #expect(output == "Plain answer.")
+        #expect(emitted == "Plain answer.")
+        #expect(await promptRecorder.snapshot().count == 1)
+    }
+
     @Test("local loop records successful tool provenance")
     @MainActor
     func localLoopRecordsSuccessfulToolProvenance() async throws {

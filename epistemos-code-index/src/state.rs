@@ -1,16 +1,14 @@
-//! Process-wide indexer state — W9.7 stub backend.
+//! Process-wide indexer state — in-memory fallback backend.
 //!
-//! In-memory HashMap that satisfies the FFI contract so the Swift
-//! AgentGrepService (W9.9) can be wired against a real crate today.
+//! In-memory HashMap that satisfies the FFI contract for deterministic
+//! tests and pre-real-index wiring of Swift `AgentGrepService` (W9.9).
 //! Search uses a naive substring scan ranked by:
-//!   - symbol match (extracted symbols not yet populated by the W9.7
-//!     follow-up; placeholder column wired through)
+//!   - symbol match once extracted symbols are populated
 //!   - body position (closer to start scores higher)
 //!   - title-of-file match (vault path basename)
 //!
-//! The W9.7 follow-up swaps the body for Model2Vec encoding +
-//! usearch HNSW search + tantivy BM25 + RRF fusion (matching the
-//! Halo Shadow stack).
+//! The persistent code-index backend remains deferred; this fallback
+//! labels hits explicitly as in-memory substring results.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -63,7 +61,7 @@ impl CodeIndexState {
         }
     }
 
-    /// Search the index. Stub semantics:
+    /// Search the index. Fallback semantics:
     ///   - case-insensitive substring match against `body` + path
     ///     basename
     ///   - Optional kind filter (matches CodeArtifactKind.rawValue)
@@ -118,7 +116,7 @@ impl CodeIndexState {
                     score,
                     snippet,
                     symbol: None,
-                    source: "stub-substring".to_string(),
+                    source: "in-memory-substring".to_string(),
                 })
             })
             .collect();
@@ -198,6 +196,7 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].vault_relative_path, "Sources/Foo.swift");
         assert!(hits[0].score > 0.0);
+        assert_eq!(hits[0].source, "in-memory-substring");
     }
 
     #[test]

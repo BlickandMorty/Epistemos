@@ -328,7 +328,7 @@ nonisolated private enum FSRSRustSchedulerBridge {
             )
             return outcome.row.toSwiftDecayRow()
         } catch {
-            log.error("Rust FSRS scheduler failed; falling back to Swift placeholder update: \(String(describing: error), privacy: .public)")
+            log.error("Rust FSRS scheduler failed; falling back to minimal Swift review-state update: \(String(describing: error), privacy: .public)")
             return nil
         }
 #else
@@ -485,8 +485,9 @@ public actor FSRSDecayStore {
     }
 
     /// Record an explicit user grade. Prefers the Rust `fsrs` scheduler
-    /// for D / S / R updates, with the old timestamp/grade/count update
-    /// preserved as a fail-closed fallback.
+    /// for D / S / R updates. If the bridge is unavailable or fails,
+    /// the minimal Swift fallback records timestamp/grade/count and
+    /// resets retrievability, but does not update difficulty/stability.
     public func recordReview(noteId: String, grade: FSRSGrade, now: Date = Date()) {
         var row = rows[noteId] ?? FSRSDecayRow(noteId: noteId)
         if let scheduled = FSRSRustSchedulerBridge.scheduleReview(row: row, grade: grade, now: now) {

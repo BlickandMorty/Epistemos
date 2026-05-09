@@ -93,7 +93,8 @@ What I need you to check is in **Section 6: Audit Checklist** below.
 - Gated by `ShipGate.agentsEnabled`.
 - Executes via `bootstrap.nightBrain.runPipelineForTesting(jobOrder: [job])` — that's the single-job entry point. The "testing" in the name reflects it bypasses idle/power gating when the agent explicitly asks for a run, not that it's a test-only stub.
 - Returns `{ success, job, priority, result, duration_ms }`.
-- Supported aliases: `event_checkpoint`, `search_index_checkpoint`, `artifact_dedup`, `workspace_compaction`, `memory_distillation`, `cloud_knowledge_distillation`, `session_graph_generation`, `skill_evolution_analysis`, `ssm_state_pruning`, `vault_integrity_check`, `maintenance_log`.
+- Public Pro tool aliases: `event_checkpoint`, `search_index_checkpoint`, `artifact_dedup`, `workspace_compaction`, `memory_distillation`, `cloud_knowledge_distillation`, `session_graph_generation`, `skill_evolution_analysis`, `ssm_state_pruning`, `maintenance_log`.
+- `vault_integrity_check` is not implemented by `NightBrainService`; the public Rust schema no longer advertises it. Normal/background scheduling remains owned by the host NightBrain idle scheduler, while the tool path is immediate single-job dispatch.
 
 ### 1.5 iMessage driver — local-MLX routing + group fan-out
 

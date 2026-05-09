@@ -311,24 +311,430 @@ enum CodeEditorPerformancePolicy {
     }
 }
 
-enum CodeEditorLineMetrics {
+nonisolated enum CodeEditorLargeFilePolicy {
+    nonisolated static let largeFileCharacterThreshold = 100_000
+    nonisolated static let largeFileLineThreshold = 10_000
+    nonisolated static let indentGuideViewportOverscanMultiplier: CGFloat = 1.5
+    nonisolated static let maximumIndentGuideWindowLines = 1_200
+
+    nonisolated static func usesViewportScopedIndentGuides(characterCount: Int, lineCount: Int) -> Bool {
+        characterCount >= largeFileCharacterThreshold || lineCount >= largeFileLineThreshold
+    }
+
+    nonisolated static func visibleLineRange(
+        visibleRect: NSRect,
+        lineHeight: CGFloat,
+        lineCount: Int,
+        overscanMultiplier: CGFloat = indentGuideViewportOverscanMultiplier,
+        maximumLineCount: Int = maximumIndentGuideWindowLines
+    ) -> ClosedRange<Int>? {
+        guard lineCount > 0,
+              lineHeight > 0,
+              visibleRect.height > 0,
+              maximumLineCount > 0 else { return nil }
+
+        let overscanHeight = max(0, visibleRect.height * overscanMultiplier)
+        let minY = max(0, visibleRect.minY - overscanHeight)
+        let maxY = max(minY, visibleRect.maxY + overscanHeight)
+        let firstLine = max(1, Int(floor(minY / lineHeight)) + 1)
+        let lastLine = min(lineCount, Int(ceil(maxY / lineHeight)) + 1)
+
+        guard firstLine <= lastLine else { return nil }
+
+        let lineWindowCount = lastLine - firstLine + 1
+        guard lineWindowCount > maximumLineCount else {
+            return firstLine...lastLine
+        }
+
+        let midpoint = max(1, min(lineCount, Int((Double(firstLine + lastLine) / 2.0).rounded())))
+        let halfWindow = max(1, maximumLineCount / 2)
+        let latestStart = max(1, lineCount - maximumLineCount + 1)
+        let start = max(1, min(midpoint - halfWindow, latestStart))
+        let end = min(lineCount, start + maximumLineCount - 1)
+        return start...end
+    }
+}
+
+nonisolated enum CodeEditorLineMetrics {
     /// Count text lines without splitting the full buffer into an array.
     ///
     /// NSTextView represents an empty document as one visual line, and a
     /// trailing newline creates an additional blank line, so the counter starts
     /// at one and increments only on LF bytes. CRLF files are covered by the LF.
-    static func lineCount(_ text: String) -> Int {
+    nonisolated static func lineCount(_ text: String) -> Int {
         var count = 1
         for byte in text.utf8 where byte == UInt8(ascii: "\n") {
             count += 1
         }
         return count
     }
+
+    nonisolated static func lineStartUTF16Offsets(in text: String) -> [Int] {
+        var offsets: [Int] = [0]
+        offsets.reserveCapacity(max(1, text.utf8.count / 32))
+
+        var offset = 0
+        var previousWasCR = false
+        for codeUnit in text.utf16 {
+            offset += 1
+            switch codeUnit {
+            case 10:
+                if previousWasCR {
+                    previousWasCR = false
+                } else {
+                    offsets.append(offset)
+                }
+            case 13:
+                offsets.append(offset)
+                previousWasCR = true
+            default:
+                previousWasCR = false
+            }
+        }
+
+        return offsets
+    }
+
+    nonisolated static func textWindow(
+        in text: String,
+        lineRange: ClosedRange<Int>,
+        lineStartUTF16Offsets: [Int]
+    ) -> (text: String, baseLineNumber: Int)? {
+        guard !lineStartUTF16Offsets.isEmpty,
+              lineRange.lowerBound > 0,
+              lineRange.lowerBound <= lineRange.upperBound else { return nil }
+
+        let lowerIndex = min(lineStartUTF16Offsets.count - 1, lineRange.lowerBound - 1)
+        let startOffset = lineStartUTF16Offsets[lowerIndex]
+        let endOffset: Int
+        if lineRange.upperBound < lineStartUTF16Offsets.count {
+            endOffset = lineStartUTF16Offsets[lineRange.upperBound]
+        } else {
+            endOffset = (text as NSString).length
+        }
+        guard endOffset >= startOffset else { return nil }
+
+        let nsText = text as NSString
+        let range = NSRange(location: startOffset, length: endOffset - startOffset)
+        return (nsText.substring(with: range), lineRange.lowerBound)
+    }
+}
+
+nonisolated enum CodeEditorSearchDirection {
+    case forward
+    case backward
+}
+
+nonisolated enum CodeEditorSearchEngine {
+    static func find(
+        in text: String,
+        query: String,
+        caseSensitive: Bool,
+        direction: CodeEditorSearchDirection,
+        currentRange: NSRange?
+    ) -> NSRange? {
+        let queryLength = (query as NSString).length
+        guard !text.isEmpty, queryLength > 0 else { return nil }
+
+        let source = text as NSString
+        let textLength = source.length
+        let options: NSString.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+
+        switch direction {
+        case .forward:
+            let start = forwardSearchStart(currentRange: currentRange, textLength: textLength)
+            if let range = firstMatch(
+                in: source,
+                query: query,
+                options: options,
+                range: NSRange(location: start, length: textLength - start)
+            ) {
+                return range
+            }
+            guard start > 0 else { return nil }
+            return firstMatch(
+                in: source,
+                query: query,
+                options: options,
+                range: NSRange(location: 0, length: start)
+            )
+
+        case .backward:
+            let end = backwardSearchEnd(currentRange: currentRange, textLength: textLength)
+            if let range = firstMatch(
+                in: source,
+                query: query,
+                options: options.union(.backwards),
+                range: NSRange(location: 0, length: end)
+            ) {
+                return range
+            }
+            guard end < textLength else { return nil }
+            return firstMatch(
+                in: source,
+                query: query,
+                options: options.union(.backwards),
+                range: NSRange(location: end, length: textLength - end)
+            )
+        }
+    }
+
+    private static func firstMatch(
+        in source: NSString,
+        query: String,
+        options: NSString.CompareOptions,
+        range: NSRange
+    ) -> NSRange? {
+        guard range.location >= 0,
+              range.length >= 0,
+              range.location <= source.length,
+              range.length <= source.length - range.location else {
+            return nil
+        }
+        let match = source.range(of: query, options: options, range: range)
+        return match.location == NSNotFound ? nil : match
+    }
+
+    private static func forwardSearchStart(currentRange: NSRange?, textLength: Int) -> Int {
+        guard let currentRange else { return 0 }
+        guard currentRange.location != NSNotFound else { return 0 }
+        let location = min(textLength, max(0, currentRange.location))
+        let length = max(0, currentRange.length)
+        if currentRange.length > 0 {
+            return min(textLength, location + min(length, textLength - location))
+        }
+        return location
+    }
+
+    private static func backwardSearchEnd(currentRange: NSRange?, textLength: Int) -> Int {
+        guard let currentRange else { return textLength }
+        guard currentRange.location != NSNotFound else { return textLength }
+        return min(textLength, max(0, currentRange.location))
+    }
 }
 
 enum CodeEditorReleasePolicy {
     static let semanticSidebarEnabled = false
     static let aiPartnerEnabled = false
+}
+
+nonisolated enum CodeEditorSemanticLSP {
+    private static let supportedLanguages: Set<String> = ["rust", "swift"]
+    private static let pollIntervalNanos: UInt64 = 1_000_000
+
+    static var runtimeAvailable: Bool {
+        #if canImport(agent_coreFFI)
+        true
+        #else
+        false
+        #endif
+    }
+
+    static func supportsLanguage(language: String) -> Bool {
+        supportedLanguages.contains(language.lowercased())
+    }
+
+    static func canRun(language: String) -> Bool {
+        runtimeAvailable && supportsLanguage(language: language)
+    }
+
+    static func unavailableMessage(language: String) -> String {
+        if !supportsLanguage(language: language) {
+            return "Semantic LSP is not available for \(CodeLanguage.displayName(for: language))."
+        }
+        if !runtimeAvailable {
+            return "Semantic LSP unavailable: in-process Rust runtime is not linked in this build."
+        }
+        return "Semantic LSP unavailable."
+    }
+
+    static func documentURL(filePath: String?, language: String) -> URL {
+        if let filePath, !filePath.isEmpty {
+            return URL(fileURLWithPath: filePath)
+        }
+
+        let fileExtension: String
+        switch language.lowercased() {
+        case "rust": fileExtension = "rs"
+        case "swift": fileExtension = "swift"
+        default: fileExtension = "txt"
+        }
+        return URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("epistemos-code-editor")
+            .appendingPathExtension(fileExtension)
+    }
+
+    static func lspPosition(text: String, oneBasedLine: Int, oneBasedColumn: Int) -> LSPPosition {
+        let targetLine = max(0, oneBasedLine - 1)
+        let targetColumn = max(0, oneBasedColumn - 1)
+        var currentLine = 0
+        var lineStart = text.startIndex
+        var index = text.startIndex
+
+        while index < text.endIndex {
+            if currentLine == targetLine {
+                let lineEnd = text[index...].firstIndex(where: \.isNewline) ?? text.endIndex
+                let lineWidth = text[lineStart..<lineEnd].utf16.count
+                return LSPPosition(line: currentLine, character: min(targetColumn, lineWidth))
+            }
+
+            if text[index].isNewline {
+                currentLine += 1
+                text.formIndex(after: &index)
+                lineStart = index
+            } else {
+                text.formIndex(after: &index)
+            }
+        }
+
+        let lineWidth = text[lineStart..<text.endIndex].utf16.count
+        return LSPPosition(line: currentLine, character: min(targetColumn, lineWidth))
+    }
+
+    static func hoverSummary(
+        text: String,
+        language: String,
+        filePath: String?,
+        cursorLine: Int,
+        cursorColumn: Int
+    ) async throws -> String? {
+        let languageId = language.lowercased()
+        guard canRun(language: languageId), !text.isEmpty else { return nil }
+
+        let uri = documentURL(filePath: filePath, language: languageId)
+        let position = lspPosition(
+            text: text,
+            oneBasedLine: cursorLine,
+            oneBasedColumn: cursorColumn
+        )
+        let transport = RustLSPTransport(pollIntervalNanos: pollIntervalNanos)
+        await transport.startPolling()
+
+        let client = LSPClient(transport: transport)
+        await client.startRouting()
+
+        do {
+            _ = try await client.initialize(workspaceRoot: uri.deletingLastPathComponent())
+            try await client.didOpen(uri: uri, languageId: languageId, version: 1, text: text)
+            let hover = try await client.hover(
+                uri: uri,
+                line: position.line,
+                character: position.character
+            )
+            try? await client.didClose(uri: uri)
+            await transport.shutdown()
+            return summarizedHover(hover)
+        } catch {
+            await transport.shutdown()
+            throw error
+        }
+    }
+
+    static func definitionLocation(
+        text: String,
+        language: String,
+        filePath: String?,
+        cursorLine: Int,
+        cursorColumn: Int
+    ) async throws -> LSPLocation? {
+        let languageId = language.lowercased()
+        guard canRun(language: languageId), !text.isEmpty else { return nil }
+
+        let uri = documentURL(filePath: filePath, language: languageId)
+        let position = lspPosition(
+            text: text,
+            oneBasedLine: cursorLine,
+            oneBasedColumn: cursorColumn
+        )
+        let transport = RustLSPTransport(pollIntervalNanos: pollIntervalNanos)
+        await transport.startPolling()
+
+        let client = LSPClient(transport: transport)
+        await client.startRouting()
+
+        do {
+            _ = try await client.initialize(workspaceRoot: uri.deletingLastPathComponent())
+            try await client.didOpen(uri: uri, languageId: languageId, version: 1, text: text)
+            let definitions = try await client.definition(
+                uri: uri,
+                line: position.line,
+                character: position.character
+            )
+            try? await client.didClose(uri: uri)
+            await transport.shutdown()
+            return definitions.first
+        } catch {
+            await transport.shutdown()
+            throw error
+        }
+    }
+
+    static func nsRange(for range: LSPRange, in text: String) -> NSRange? {
+        guard let start = utf16Offset(in: text, line: range.start.line, character: range.start.character),
+              let end = utf16Offset(in: text, line: range.end.line, character: range.end.character),
+              end >= start else {
+            return nil
+        }
+        return NSRange(location: start, length: end - start)
+    }
+
+    static func utf16Offset(in text: String, line targetLine: Int, character targetCharacter: Int) -> Int? {
+        let source = text as NSString
+        let clampedLine = max(0, targetLine)
+        let clampedCharacter = max(0, targetCharacter)
+        var currentLine = 0
+        var lineStart = 0
+
+        while lineStart <= source.length {
+            let lineRange = source.lineRange(for: NSRange(location: lineStart, length: 0))
+            if currentLine == clampedLine {
+                let contentLength = lineContentLength(source: source, lineRange: lineRange)
+                return lineRange.location + min(clampedCharacter, contentLength)
+            }
+
+            let nextLineStart = lineRange.location + lineRange.length
+            guard nextLineStart > lineStart, nextLineStart <= source.length else { break }
+            lineStart = nextLineStart
+            currentLine += 1
+        }
+
+        return nil
+    }
+
+    private static func lineContentLength(source: NSString, lineRange: NSRange) -> Int {
+        var length = lineRange.length
+        while length > 0 {
+            let scalar = source.character(at: lineRange.location + length - 1)
+            if scalar == 10 || scalar == 13 {
+                length -= 1
+            } else {
+                break
+            }
+        }
+        return length
+    }
+
+    static func summarizedHover(_ hover: LSPHoverResult?) -> String? {
+        guard let hover else { return nil }
+        let lines = hover.contents
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let joined = lines.joined(separator: " ")
+        guard !joined.isEmpty else { return nil }
+        if joined.count > 360 {
+            return String(joined.prefix(357)) + "..."
+        }
+        return joined
+    }
+
+    static func userFacingError(_ error: any Error) -> String {
+        let description = String(describing: error)
+        if description.contains("agent_coreFFI not linked") {
+            return "Semantic LSP unavailable: in-process Rust runtime is not linked in this build."
+        }
+        return "Semantic LSP unavailable: \(description)"
+    }
 }
 
 // MARK: - Language Detection
@@ -1210,6 +1616,7 @@ struct CodeEditorView: View {
     @State private var totalLines: Int
     @State private var outlineRefreshTask: Task<Void, Never>?
     @State private var semanticRefreshTask: Task<Void, Never>?
+    @State private var semanticLookupTask: Task<Void, Never>?
     @State private var sourceEditorCoordinator: EpistemosEditorCoordinator?
     @State private var contentDebouncer: CodeEditorContentDebouncer?
     
@@ -1237,8 +1644,12 @@ struct CodeEditorView: View {
     @State private var showGoToLineSheet = false
     @State private var searchQuery = ""
     @State private var searchCaseSensitive = false
+    @State private var activeSearchRange: NSRange?
     @State private var goToLineNumber = ""
     @State private var codeContextBridge: CodeContextBridge?
+    @State private var semanticStatusMessage: String?
+    @State private var semanticStatusIsError = false
+    @State private var semanticStatusIsLoading = false
     
     // MARK: - Outline Navigation (Xcode-style)
     @State private var outlineItems: [OutlineItem] = []
@@ -1277,6 +1688,7 @@ struct CodeEditorView: View {
             .onDisappear {
                 outlineRefreshTask?.cancel()
                 semanticRefreshTask?.cancel()
+                semanticLookupTask?.cancel()
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
@@ -1285,6 +1697,10 @@ struct CodeEditorView: View {
                 sourceEditorCoordinator = nil
             }
             .onChange(of: text) { _, newText in
+                activeSearchRange = nil
+                semanticLookupTask?.cancel()
+                semanticStatusMessage = nil
+                semanticStatusIsLoading = false
                 bindNoteChatContext(with: newText)
                 scheduleOutlineRefresh(for: newText)
             }
@@ -1308,6 +1724,12 @@ struct CodeEditorView: View {
             }
             .onChange(of: ui.theme) { _, _ in
                 applyGutterPreferences()
+            }
+            .onChange(of: searchQuery) { _, _ in
+                activeSearchRange = nil
+            }
+            .onChange(of: searchCaseSensitive) { _, _ in
+                activeSearchRange = nil
             }
     }
 
@@ -1437,6 +1859,26 @@ struct CodeEditorView: View {
                 .help("Find (Cmd-F)")
 
                 Button {
+                    requestSemanticHover()
+                } label: {
+                    Image(systemName: semanticStatusIsLoading ? "info.circle.fill" : "info.circle")
+                        .foregroundStyle(semanticStatusIsLoading ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
+                .help(semanticLSPHelpText)
+
+                Button {
+                    requestSemanticDefinition()
+                } label: {
+                    Image(systemName: "arrow.down.right.circle")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!CodeEditorSemanticLSP.canRun(language: language) || semanticStatusIsLoading)
+                .help(definitionLSPHelpText)
+
+                Button {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                         showOutlineNavigator.toggle()
                     }
@@ -1507,6 +1949,9 @@ struct CodeEditorView: View {
 
             searchBarOverlay
         }
+        .overlay(alignment: .bottomLeading) {
+            semanticLSPStatusOverlay
+        }
         .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
     }
     
@@ -1523,6 +1968,58 @@ struct CodeEditorView: View {
             .padding(.top, 8)
             .padding(.horizontal, 16)
             .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    private var semanticLSPHelpText: String {
+        if CodeEditorSemanticLSP.canRun(language: language) {
+            return "Inspect Symbol"
+        }
+        return CodeEditorSemanticLSP.unavailableMessage(language: language)
+    }
+
+    private var definitionLSPHelpText: String {
+        if CodeEditorSemanticLSP.canRun(language: language) {
+            return "Go to Definition"
+        }
+        return CodeEditorSemanticLSP.unavailableMessage(language: language)
+    }
+
+    @ViewBuilder
+    private var semanticLSPStatusOverlay: some View {
+        if let message = semanticStatusMessage {
+            HStack(alignment: .top, spacing: 8) {
+                if semanticStatusIsLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: semanticStatusIsError ? "exclamationmark.triangle" : "info.circle")
+                        .foregroundStyle(semanticStatusIsError ? Color.orange : Color.accentColor)
+                }
+
+                Text(message)
+                    .font(.caption)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+
+                Spacer(minLength: 8)
+
+                Button {
+                    semanticStatusMessage = nil
+                    semanticStatusIsLoading = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help("Dismiss")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: 520, alignment: .leading)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .padding(12)
         }
     }
     
@@ -1547,9 +2044,6 @@ struct CodeEditorView: View {
     // MARK: - Search Functions
     
     private func findNext() {
-        // Use NSTextFinder for native search
-        // Note: This requires access to the NSTextView which is wrapped by CodeEditSourceEditor
-        // For now, we'll use a simple string search approach
         performSearch(direction: .forward)
     }
     
@@ -1557,16 +2051,140 @@ struct CodeEditorView: View {
         performSearch(direction: .backward)
     }
     
-    private enum SearchDirection {
-        case forward, backward
-    }
-    
-    private func performSearch(direction: SearchDirection) {
-        // Get the selected range or start from beginning/end
-        // This is a simplified implementation
-        // Full implementation would require access to the underlying NSTextView
+    private func performSearch(direction: CodeEditorSearchDirection) {
         guard !searchQuery.isEmpty else { return }
-        _ = direction
+        let currentRange = activeSearchRange ?? editorState.cursorPositions?.first?.range
+        guard let match = CodeEditorSearchEngine.find(
+            in: text,
+            query: searchQuery,
+            caseSensitive: searchCaseSensitive,
+            direction: direction,
+            currentRange: currentRange
+        ) else {
+            NSSound.beep()
+            activeSearchRange = nil
+            return
+        }
+
+        activeSearchRange = match
+        editorState.cursorPositions = [CursorPosition(range: match)]
+        sourceEditorCoordinator?.select(range: match, scrollToVisible: true)
+    }
+
+    // MARK: - Semantic LSP Lookup
+
+    private func requestSemanticHover() {
+        guard CodeEditorSemanticLSP.canRun(language: language) else {
+            semanticStatusMessage = CodeEditorSemanticLSP.unavailableMessage(language: language)
+            semanticStatusIsError = true
+            semanticStatusIsLoading = false
+            return
+        }
+
+        let textSnapshot = text
+        let languageSnapshot = language
+        let filePathSnapshot = filePath
+        let cursorLineSnapshot = cursorLine
+        let cursorColSnapshot = cursorCol
+
+        semanticLookupTask?.cancel()
+        semanticStatusMessage = "Inspecting symbol..."
+        semanticStatusIsError = false
+        semanticStatusIsLoading = true
+
+        semanticLookupTask = Task {
+            do {
+                let summary = try await CodeEditorSemanticLSP.hoverSummary(
+                    text: textSnapshot,
+                    language: languageSnapshot,
+                    filePath: filePathSnapshot,
+                    cursorLine: cursorLineSnapshot,
+                    cursorColumn: cursorColSnapshot
+                )
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    semanticStatusMessage = summary ?? "No symbol information at cursor."
+                    semanticStatusIsError = false
+                    semanticStatusIsLoading = false
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    semanticStatusMessage = CodeEditorSemanticLSP.userFacingError(error)
+                    semanticStatusIsError = true
+                    semanticStatusIsLoading = false
+                }
+            }
+        }
+    }
+
+    private func requestSemanticDefinition() {
+        guard CodeEditorSemanticLSP.canRun(language: language) else {
+            semanticStatusMessage = CodeEditorSemanticLSP.unavailableMessage(language: language)
+            semanticStatusIsError = true
+            semanticStatusIsLoading = false
+            return
+        }
+
+        let textSnapshot = text
+        let languageSnapshot = language
+        let filePathSnapshot = filePath
+        let cursorLineSnapshot = cursorLine
+        let cursorColSnapshot = cursorCol
+        let documentURI = CodeEditorSemanticLSP.documentURL(
+            filePath: filePathSnapshot,
+            language: languageSnapshot
+        ).absoluteString
+
+        semanticLookupTask?.cancel()
+        semanticStatusMessage = "Finding definition..."
+        semanticStatusIsError = false
+        semanticStatusIsLoading = true
+
+        semanticLookupTask = Task {
+            do {
+                let definition = try await CodeEditorSemanticLSP.definitionLocation(
+                    text: textSnapshot,
+                    language: languageSnapshot,
+                    filePath: filePathSnapshot,
+                    cursorLine: cursorLineSnapshot,
+                    cursorColumn: cursorColSnapshot
+                )
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard let definition else {
+                        semanticStatusMessage = "No definition found at cursor."
+                        semanticStatusIsError = false
+                        semanticStatusIsLoading = false
+                        return
+                    }
+
+                    let lineNumber = definition.range.start.line + 1
+                    if definition.uri == documentURI,
+                       let definitionRange = CodeEditorSemanticLSP.nsRange(for: definition.range, in: textSnapshot) {
+                        activeSearchRange = nil
+                        editorState.cursorPositions = [CursorPosition(range: definitionRange)]
+                        sourceEditorCoordinator?.select(range: definitionRange, scrollToVisible: true)
+                        cursorLine = lineNumber
+                        cursorCol = definition.range.start.character + 1
+                        semanticStatusMessage = "Definition selected at line \(lineNumber)."
+                        semanticStatusIsError = false
+                    } else {
+                        let target = URL(string: definition.uri)?.lastPathComponent ?? "another file"
+                        semanticStatusMessage = "Definition found in \(target) at line \(lineNumber); cross-file navigation is not wired yet."
+                        semanticStatusIsError = false
+                    }
+                    semanticStatusIsLoading = false
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    semanticStatusMessage = CodeEditorSemanticLSP.userFacingError(error)
+                    semanticStatusIsError = true
+                    semanticStatusIsLoading = false
+                }
+            }
+        }
     }
     
     // MARK: - Editor Settings Menu
@@ -1847,6 +2465,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private weak var indentGuideView: SegmentedIndentationGuideView?
     private weak var textController: TextViewController?
     private var lastText: String = ""
+    private var lastTextLineStartUTF16Offsets: [Int] = [0]
     private var indentationGuideRefreshTask: Task<Void, Never>?
 
     // Dormant fallback line-number gutter (right-side, theme-aware). The live
@@ -1914,8 +2533,11 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         gutter.layer?.zPosition = 500  // above text background, below carets
         self.gutterView = gutter
 
-        // Initial population
-        gutter.updateLineCount(lastTotalLines)
+        // Initial population. The dormant fallback gutter is usually hidden;
+        // keep its line-number cache cold until it is deliberately enabled.
+        if showGutter {
+            gutter.updateLineCount(lastTotalLines)
+        }
         gutter.updateActiveLine(cursorLine)
     }
 
@@ -1925,6 +2547,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         showGutter = enabled
         gutterView?.isHidden = !enabled
         if enabled, let tv = textController?.textView {
+            updateGutterLineCount(lastTotalLines)
             gutterView?.frame = gutterFrame(in: tv)
             updateGutterScrollOffset()
         }
@@ -1958,8 +2581,8 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     func setIndentationGuidesEnabled(_ enabled: Bool) {
         guard indentGuideView?.isHidden == enabled else { return }
         indentGuideView?.isHidden = !enabled
-        if enabled, let text = textController?.textView?.string {
-            scheduleIndentationGuideRefresh(for: text, immediate: true)
+        if enabled {
+            scheduleIndentationGuideRefresh(for: lastText, immediate: true)
         }
     }
 
@@ -1972,7 +2595,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
             leadingTextInset: textView.textInsets.left
         )
         if !guideView.isHidden {
-            scheduleIndentationGuideRefresh(for: textView.string, immediate: true)
+            scheduleIndentationGuideRefresh(for: lastText, immediate: true)
         }
     }
 
@@ -2004,7 +2627,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
 
     private func updateGutterLineCount(_ count: Int) {
         lastTotalLines = count
-        guard let gutter = gutterView else { return }
+        guard let gutter = gutterView, !gutter.isHidden else { return }
         gutter.updateLineCount(count)
         let nextDigits = CodeLineGutterPolicy.digitCount(for: count)
         if nextDigits != gutterDigitCount {
@@ -2023,11 +2646,17 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         updateGutterLineCount(totalLines)
         gutterView?.updateActiveLine(cursorLine)
     }
+
+    func select(range: NSRange, scrollToVisible: Bool) {
+        textController?.setCursorPositions([CursorPosition(range: range)], scrollToVisible: scrollToVisible)
+    }
     
     /// Sets up VS Code-style segmented indentation guide overlay
     private func setupIndentationGuides(controller: TextViewController) {
         guard let tv = controller.textView else { return }
         self.textController = controller
+        lastText = tv.string
+        lastTextLineStartUTF16Offsets = CodeEditorLineMetrics.lineStartUTF16Offsets(in: lastText)
         
         // Use the new segmented indentation guide
         let guideView = SegmentedIndentationGuideView()
@@ -2059,7 +2688,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
             )
         }
 
-        scheduleIndentationGuideRefresh(for: tv.string, immediate: true)
+        scheduleIndentationGuideRefresh(for: lastText, immediate: true)
     }
 
     private static func visibleIndentColumnCount(for option: IndentOption) -> Int {
@@ -2091,26 +2720,60 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
               let textView = controller.textView,
               let guideView = indentGuideView,
               !guideView.isHidden else { return }
+
+        os_signpost(.begin, log: Self.perfLog, name: "indentGuidesRefresh")
+        defer { os_signpost(.end, log: Self.perfLog, name: "indentGuidesRefresh") }
         
         // Update frame to match parent
         guideView.frame = textView.bounds
         
-        let text = textView.string
+        let text = lastText
+        let lineCount = totalLines > 0 ? totalLines : CodeEditorLineMetrics.lineCount(text)
+        let characterCount = (text as NSString).length
         
         // Get scroll offset for proper positioning
         var scrollOffset: CGFloat = 0
         if let scrollView = textView.enclosingScrollView {
             scrollOffset = -scrollView.documentVisibleRect.origin.y
         }
+
+        let lineRange = indentationGuideLineRange(
+            textView: textView,
+            characterCount: characterCount,
+            lineCount: lineCount,
+            guideView: guideView
+        )
+        let guidePayload: (text: String, lineRange: ClosedRange<Int>?, baseLineNumber: Int)
+        if let lineRange,
+           CodeEditorLargeFilePolicy.usesViewportScopedIndentGuides(
+               characterCount: characterCount,
+               lineCount: lineCount
+           ),
+           let window = CodeEditorLineMetrics.textWindow(
+               in: text,
+               lineRange: lineRange,
+               lineStartUTF16Offsets: lastTextLineStartUTF16Offsets
+           ) {
+            guidePayload = (window.text, nil, window.baseLineNumber)
+        } else {
+            guidePayload = (text, lineRange, 1)
+        }
         
         // Update the segmented guide with current text and cursor position
-        // This parses the text and draws segmented lines per line
-        guideView.updateFromText(text, cursorLine: cursorLine, scrollOffset: scrollOffset)
+        // For large files, parse only the visible viewport window plus
+        // overscan so typing/scrolling does not rebuild a whole-buffer guide.
+        guideView.updateFromText(
+            guidePayload.text,
+            cursorLine: cursorLine,
+            scrollOffset: scrollOffset,
+            lineRange: guidePayload.lineRange,
+            baseLineNumber: guidePayload.baseLineNumber
+        )
     }
 
     private func scheduleIndentationGuideRefresh(for text: String, immediate: Bool = false) {
         indentationGuideRefreshTask?.cancel()
-        let delay = CodeEditorPerformancePolicy.indentationGuideRefreshDelay(characterCount: text.count)
+        let delay = CodeEditorPerformancePolicy.indentationGuideRefreshDelay(characterCount: (text as NSString).length)
         indentationGuideRefreshTask = Task { @MainActor [weak self] in
             if !immediate {
                 try? await Task.sleep(for: delay)
@@ -2126,6 +2789,14 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
               let guideView = indentGuideView,
               !guideView.isHidden else { return }
 
+        if CodeEditorLargeFilePolicy.usesViewportScopedIndentGuides(
+            characterCount: 0,
+            lineCount: totalLines
+        ) {
+            updateIndentationGuides()
+            return
+        }
+
         let scrollOffset: CGFloat
         if let scrollView = textView.enclosingScrollView {
             scrollOffset = -scrollView.documentVisibleRect.origin.y
@@ -2134,6 +2805,28 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         }
         guideView.frame = textView.bounds
         guideView.updateScrollOffset(scrollOffset)
+    }
+
+    private func indentationGuideLineRange(
+        textView: NSView,
+        characterCount: Int,
+        lineCount: Int,
+        guideView: SegmentedIndentationGuideView
+    ) -> ClosedRange<Int>? {
+        guard CodeEditorLargeFilePolicy.usesViewportScopedIndentGuides(
+            characterCount: characterCount,
+            lineCount: lineCount
+        ) else { return nil }
+
+        guard let scrollView = textView.enclosingScrollView else {
+            return 1...min(lineCount, CodeEditorLargeFilePolicy.maximumIndentGuideWindowLines)
+        }
+
+        return CodeEditorLargeFilePolicy.visibleLineRange(
+            visibleRect: scrollView.documentVisibleRect,
+            lineHeight: guideView.lineHeight,
+            lineCount: lineCount
+        )
     }
 
     private func updateActiveIndentationGuideLevel() {
@@ -2173,9 +2866,10 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         // Track selected text for explanation feature
         if let textView = controller.textView {
             let selection = textView.selectedRange()
+            let selectedTextSource = lastText
             if selection.length > 0,
-               let selectedRange = Range(selection, in: textView.string) {
-                onSelectionChange?(String(textView.string[selectedRange]))
+               let selectedRange = Range(selection, in: selectedTextSource) {
+                onSelectionChange?(String(selectedTextSource[selectedRange]))
             } else {
                 onSelectionChange?("")
             }
@@ -2191,6 +2885,10 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
 
         let newText = controller.textView.string
         lastText = newText
+        lastTextLineStartUTF16Offsets = CodeEditorLineMetrics.lineStartUTF16Offsets(in: newText)
+        Task { @MainActor in
+            AppBootstrap.shared?.activityTracker.recordInAppActivity()
+        }
 
         // Fast line counting without array allocation.
         let lineCount = CodeEditorLineMetrics.lineCount(newText)

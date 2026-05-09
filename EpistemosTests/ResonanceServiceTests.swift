@@ -242,6 +242,19 @@ struct ResonanceServiceTests {
         #expect(svc.signaturesComputed == 2)
     }
 
+    @Test("Swift service labels Rust FFI as wired and fallback as mirror, not stub")
+    func serviceFFIStatusIsWiredAndFallbackIsMirror() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/ResonanceService.swift")
+        #expect(source.contains("FFI status: wired"))
+        #expect(source.contains("compute_resonance_signature_core"))
+        #expect(source.contains("computeSwiftMirror(for:)"))
+        #expect(source.contains("swiftMirrorFallbackCount"))
+        #expect(!source.contains("FFI status: stub"))
+        #expect(!source.contains("computeStub(for:)"))
+        #expect(!source.contains("Swift stub"))
+        #expect(!source.contains("stubFallbackCount"))
+    }
+
     @Test("lastSignatureIsCoreCompatible mirrors lastSignature.isCoreCompatible")
     func lastSignatureCompatibilityMirrors() {
         let svc = ResonanceService()

@@ -10,12 +10,13 @@
 //! spawning model is the Tokio runtime already held by agent_core.
 
 use std::collections::{HashMap, VecDeque};
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -32,6 +33,12 @@ const BG_REAP_TTL_SECS: u64 = 1800; // finished jobs kept for 30 minutes
 /// Regex-like prefixes we strip from child process env to avoid leaking creds.
 fn should_strip_env(key: &str) -> bool {
     let upper = key.to_ascii_uppercase();
+    if crate::security::SUBPROCESS_DENYLIST
+        .iter()
+        .any(|deny| deny.eq_ignore_ascii_case(&upper))
+    {
+        return true;
+    }
     upper.contains("KEY")
         || upper.contains("TOKEN")
         || upper.contains("SECRET")
@@ -159,7 +166,7 @@ fn registry() -> Arc<ProcessRegistry> {
 
 // MARK: - Shared helpers
 
-fn build_command(command: &str, workdir: Option<&str>) -> Command {
+fn build_command(command: &str, workdir: Option<&Path>) -> Command {
     let mut cmd = Command::new("sh");
     cmd.arg("-lc").arg(command);
     if let Some(dir) = workdir {
@@ -179,7 +186,35 @@ fn build_command(command: &str, workdir: Option<&str>) -> Command {
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
+    cmd.kill_on_drop(true);
+    #[cfg(unix)]
+    {
+        cmd.process_group(0);
+    }
     cmd
+}
+
+fn parse_workdir(raw: Option<&str>) -> Result<Option<PathBuf>, ToolError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    if raw.trim().is_empty() {
+        return Err(ToolError::InvalidArguments(
+            "workdir cannot be empty".to_string(),
+        ));
+    }
+    let path = PathBuf::from(raw);
+    if !path.is_absolute() {
+        return Err(ToolError::InvalidArguments(
+            "workdir must be an absolute path".to_string(),
+        ));
+    }
+    if !path.is_dir() {
+        return Err(ToolError::InvalidArguments(
+            "workdir must be an existing directory".to_string(),
+        ));
+    }
+    Ok(Some(path))
 }
 
 /// Spawn a child, drain stdout/stderr into the handle buffer, and update the
@@ -290,7 +325,7 @@ impl ToolHandler for TerminalHandler {
             .get("command")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("missing 'command'".into()))?;
-        let workdir = input.get("workdir").and_then(Value::as_str);
+        let workdir = parse_workdir(input.get("workdir").and_then(Value::as_str))?;
         let background = input
             .get("background")
             .and_then(Value::as_bool)
@@ -306,7 +341,7 @@ impl ToolHandler for TerminalHandler {
         }
 
         // Foreground: run to completion under a timeout cap.
-        let mut cmd = build_command(command, workdir);
+        let mut cmd = build_command(command, workdir.as_deref());
         cmd.kill_on_drop(true);
 
         let child_result = cmd.spawn();
@@ -357,7 +392,7 @@ impl ToolHandler for TerminalHandler {
     }
 }
 
-async fn spawn_background(command: &str, workdir: Option<&str>) -> Result<String, ToolError> {
+async fn spawn_background(command: &str, workdir: Option<PathBuf>) -> Result<String, ToolError> {
     let reg = registry();
     reg.reap_stale().await;
     if reg.live_count().await >= MAX_CONCURRENT_PROCESSES {
@@ -366,7 +401,7 @@ async fn spawn_background(command: &str, workdir: Option<&str>) -> Result<String
         )));
     }
 
-    let mut cmd = build_command(command, workdir);
+    let mut cmd = build_command(command, workdir.as_deref());
     // Background jobs must survive when the tool call returns, so do NOT
     // set kill_on_drop here. We rely on the ProcessRegistry for cleanup.
     let child = cmd
@@ -401,7 +436,7 @@ pub fn terminal_schema() -> crate::types::ToolSchema {
             "type": "object",
             "properties": {
                 "command": { "type": "string", "description": "Shell command (executed via sh -lc)." },
-                "workdir": { "type": "string", "description": "Optional working directory." },
+                "workdir": { "type": "string", "description": "Optional absolute existing working directory." },
                 "background": {
                     "type": "boolean",
                     "description": "Spawn in the background and return a session_id.",
@@ -637,6 +672,7 @@ pub fn process_schema() -> crate::types::ToolSchema {
 mod tests {
     use super::*;
     use serde_json::json;
+    use tempfile::tempdir;
 
     #[tokio::test]
     async fn terminal_runs_foreground_command() {
@@ -660,6 +696,53 @@ mod tests {
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["exit_code"], json!(7));
         assert_eq!(parsed["success"], json!(false));
+    }
+
+    #[tokio::test]
+    async fn terminal_accepts_absolute_existing_workdir() {
+        let dir = tempdir().unwrap();
+        let handler = TerminalHandler;
+        let result = handler
+            .execute(&json!({
+                "command": "pwd",
+                "workdir": dir.path(),
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["success"], json!(true));
+        let reported = std::fs::canonicalize(parsed["stdout"].as_str().unwrap().trim()).unwrap();
+        let expected = std::fs::canonicalize(dir.path()).unwrap();
+        assert_eq!(
+            reported, expected,
+            "pwd should run inside the requested absolute workdir"
+        );
+    }
+
+    #[tokio::test]
+    async fn terminal_rejects_relative_workdir_before_spawn() {
+        let handler = TerminalHandler;
+        let err = handler
+            .execute(&json!({
+                "command": "echo should-not-run",
+                "workdir": "relative/path",
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("absolute path"));
+    }
+
+    #[tokio::test]
+    async fn terminal_rejects_missing_workdir_before_spawn() {
+        let handler = TerminalHandler;
+        let err = handler
+            .execute(&json!({
+                "command": "echo should-not-run",
+                "workdir": "/tmp/epistemos-definitely-missing-workdir",
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("existing directory"));
     }
 
     #[tokio::test]
@@ -732,6 +815,9 @@ mod tests {
         assert!(should_strip_env("AWS_SECRET_ACCESS_KEY"));
         assert!(should_strip_env("GITHUB_TOKEN"));
         assert!(should_strip_env("MY_PASSWORD"));
+        assert!(should_strip_env("DYLD_INSERT_LIBRARIES"));
+        assert!(should_strip_env("NODE_OPTIONS"));
+        assert!(should_strip_env("PYTHONPATH"));
         assert!(!should_strip_env("PATH"));
         assert!(!should_strip_env("HOME"));
     }

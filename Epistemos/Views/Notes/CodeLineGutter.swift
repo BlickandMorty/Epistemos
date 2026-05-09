@@ -12,7 +12,7 @@
 // fights the theme.
 //
 // Performance:
-// - Pre-allocated `numberStrings` cache reused with `removeAll(keepingCapacity:)`
+// - Visible-line `numberStringCache` avoids whole-file string allocation
 // - One `NSDictionary` of attributes per redraw, not per line
 // - Drawing scoped to `dirtyRect` only
 // - No per-frame Swift Array allocation
@@ -83,9 +83,9 @@ final class CodeLineGutterView: NSView {
         separator: NSColor.separatorColor
     )
 
-    // Pre-allocated number-string cache.
-    // Reused via `removeAll(keepingCapacity: true)` — no per-frame alloc.
-    private var numberStrings: [NSString] = []
+    // Visible-line cache. The dormant fallback gutter must not allocate one
+    // NSString per file line when a 100k-line buffer opens.
+    private var numberStringCache: [Int: NSString] = [:]
     private var lineCount: Int = 0
     private var activeLine: Int = 1
     private var scrollOffset: CGFloat = 0
@@ -103,8 +103,8 @@ final class CodeLineGutterView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
         rebuildSharedAttrs()
-        // Pre-allocate a typical buffer to avoid early growth churn.
-        numberStrings.reserveCapacity(1024)
+        // Pre-allocate a viewport-sized cache to avoid early growth churn.
+        numberStringCache.reserveCapacity(512)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -132,11 +132,7 @@ final class CodeLineGutterView: NSView {
         let clamped = max(0, count)
         guard clamped != lineCount else { return }
         if clamped < lineCount {
-            numberStrings.removeLast(lineCount - clamped)
-        } else {
-            for n in (lineCount + 1)...clamped {
-                numberStrings.append(String(n) as NSString)
-            }
+            numberStringCache = numberStringCache.filter { $0.key <= clamped }
         }
         lineCount = clamped
         needsDisplay = true
@@ -176,14 +172,14 @@ final class CodeLineGutterView: NSView {
 
         for line in visibleLines {
             let idx = line - 1
-            guard idx < numberStrings.count else { break }
+            guard idx < lineCount else { break }
 
             let y = topInset + scrollOffset + CGFloat(idx) * lineHeight
             // Stop early if we run past the dirty rect.
             if y > dirtyRect.maxY { break }
             if y + lineHeight < dirtyRect.minY { continue }
 
-            let str = numberStrings[idx]
+            let str = stringForLine(line)
             let attrs = (line == activeLine) ? sharedActiveAttrs : sharedAttrs
             let size = str.size(withAttributes: attrs)
 
@@ -206,7 +202,7 @@ final class CodeLineGutterView: NSView {
 
     // MARK: - Helpers
 
-    static func visibleLineRange(
+    nonisolated static func visibleLineRange(
         lineCount: Int,
         lineHeight: CGFloat,
         topInset: CGFloat,
@@ -242,6 +238,18 @@ final class CodeLineGutterView: NSView {
             .foregroundColor: tokens.activeForeground,
             .paragraphStyle: paragraph
         ]
+    }
+
+    private func stringForLine(_ line: Int) -> NSString {
+        if let cached = numberStringCache[line] {
+            return cached
+        }
+        if numberStringCache.count > 2_048 {
+            numberStringCache.removeAll(keepingCapacity: true)
+        }
+        let next = String(line) as NSString
+        numberStringCache[line] = next
+        return next
     }
 
     /// Computes the preferred gutter width for a given digit count and font.

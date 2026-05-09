@@ -4,41 +4,37 @@ import Testing
 
 // MARK: - Helpers
 
-private final class AdapterTestBundleLocator: NSObject {}
-
-private func loadBundledAdapterSourceFile(named fileName: String) throws -> String {
-    let bundle = Bundle(for: AdapterTestBundleLocator.self)
-    let relativePath = "AdapterAudit/\(fileName).txt"
-    guard let resourceURL = bundle.resourceURL else {
-        throw CocoaError(.fileNoSuchFile)
-    }
-    let url = resourceURL.appendingPathComponent(relativePath)
-    guard FileManager.default.fileExists(atPath: url.path) else {
-        throw CocoaError(.fileNoSuchFile)
-    }
-    return try String(contentsOf: url, encoding: .utf8)
-}
-
 private func makeTestAdapter(
     type: AdapterType = .knowledge,
     name: String = "Test Adapter",
     rank: Int = 32
-) -> (record: AdapterRecord, cleanup: () -> Void) {
+) throws -> (record: AdapterRecord, cleanup: () -> Void) {
     let dir = FileManager.default.temporaryDirectory
         .appendingPathComponent("kf-adapter-\(UUID().uuidString)")
-    try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
     // Create minimal adapter files
-    try! Data([0x00]).write(to: dir.appendingPathComponent("adapter_weights.safetensors"))
-    try! "{}".write(to: dir.appendingPathComponent("adapter_config.json"), atomically: true, encoding: .utf8)
+    try Data([0x00]).write(to: dir.appendingPathComponent("adapter_weights.safetensors"))
+    try "{}".write(to: dir.appendingPathComponent("adapter_config.json"), atomically: true, encoding: .utf8)
 
     let metadataPath = dir.appendingPathComponent("training_metadata.json")
     let metadataJSON = """
-    {"adapter_type":"knowledge","source_vault":"test","lora_rank":32,"lora_alpha":64,\
-    "target_modules":["q_proj"],"learning_rate":0.00002,"num_examples":100,"num_iters":50,\
-    "training_duration_seconds":30.0,"created_at":"2026-03-23T00:00:00Z","base_model":"test","quality_score":null}
+    {
+      "adapter_type": "\(type.rawValue)",
+      "source_vault": "test",
+      "lora_rank": \(rank),
+      "lora_alpha": 64,
+      "target_modules": ["q_proj"],
+      "learning_rate": 0.00002,
+      "num_examples": 100,
+      "num_iters": 50,
+      "training_duration_seconds": 30.0,
+      "created_at": "2026-03-23T00:00:00Z",
+      "base_model": "test",
+      "quality_score": null
+    }
     """
-    try! metadataJSON.write(to: metadataPath, atomically: true, encoding: .utf8)
+    try metadataJSON.write(to: metadataPath, atomically: true, encoding: .utf8)
 
     let record = AdapterRecord(
         id: UUID(),
@@ -72,8 +68,8 @@ struct AdapterRegistryTests {
 
         let registry = AdapterRegistry(storagePath: storagePath)
 
-        let (record1, cleanup1) = makeTestAdapter(type: .knowledge, name: "Knowledge A")
-        let (record2, cleanup2) = makeTestAdapter(type: .style, name: "Style B")
+        let (record1, cleanup1) = try makeTestAdapter(type: .knowledge, name: "Knowledge A")
+        let (record2, cleanup2) = try makeTestAdapter(type: .style, name: "Style B")
         defer { cleanup1(); cleanup2() }
 
         try await registry.register(record1)
@@ -98,7 +94,7 @@ struct AdapterRegistryTests {
         defer { try? FileManager.default.removeItem(at: storagePath) }
 
         let registry = AdapterRegistry(storagePath: storagePath)
-        let (record, cleanup) = makeTestAdapter()
+        let (record, cleanup) = try makeTestAdapter()
         defer { cleanup() }
 
         try await registry.register(record)
@@ -116,7 +112,7 @@ struct AdapterRegistryTests {
         defer { try? FileManager.default.removeItem(at: storagePath) }
 
         let registry = AdapterRegistry(storagePath: storagePath)
-        let (record, cleanup) = makeTestAdapter()
+        let (record, cleanup) = try makeTestAdapter()
         defer { cleanup() }
 
         try await registry.register(record)
@@ -132,7 +128,7 @@ struct AdapterRegistryTests {
             .appendingPathComponent("kf-registry-persist-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: storagePath) }
 
-        let (record, cleanup) = makeTestAdapter(name: "Persistent")
+        let (record, cleanup) = try makeTestAdapter(name: "Persistent")
         defer { cleanup() }
 
         // Write
@@ -163,7 +159,7 @@ struct AdapterRegistryTests {
         defer { try? FileManager.default.removeItem(at: storagePath) }
 
         let registry = AdapterRegistry(storagePath: storagePath)
-        let (record, cleanup) = makeTestAdapter()
+        let (record, cleanup) = try makeTestAdapter()
         defer { cleanup() }
 
         try await registry.register(record)
@@ -180,7 +176,7 @@ struct AdapterRegistryTests {
         defer { try? FileManager.default.removeItem(at: storagePath) }
 
         let registry = AdapterRegistry(storagePath: storagePath)
-        let (record, cleanup) = makeTestAdapter()
+        let (record, cleanup) = try makeTestAdapter()
         defer { cleanup() }
 
         try await registry.register(record)
@@ -202,7 +198,7 @@ struct AdapterLoaderTests {
     @Test("Load and unload adapter")
     func loadUnload() async throws {
         let loader = AdapterLoader(maxSimultaneousAdapters: 3)
-        let (record, cleanup) = makeTestAdapter()
+        let (record, cleanup) = try makeTestAdapter()
         defer { cleanup() }
 
         try await loader.load(record)
@@ -218,9 +214,9 @@ struct AdapterLoaderTests {
     func capacityLimit() async throws {
         let loader = AdapterLoader(maxSimultaneousAdapters: 2)
 
-        let (r1, c1) = makeTestAdapter(name: "A1")
-        let (r2, c2) = makeTestAdapter(name: "A2")
-        let (r3, c3) = makeTestAdapter(name: "A3")
+        let (r1, c1) = try makeTestAdapter(name: "A1")
+        let (r2, c2) = try makeTestAdapter(name: "A2")
+        let (r3, c3) = try makeTestAdapter(name: "A3")
         defer { c1(); c2(); c3() }
 
         try await loader.load(r1)
@@ -238,8 +234,8 @@ struct AdapterLoaderTests {
     @Test("Unload all clears everything")
     func unloadAll() async throws {
         let loader = AdapterLoader()
-        let (r1, c1) = makeTestAdapter(name: "B1")
-        let (r2, c2) = makeTestAdapter(name: "B2")
+        let (r1, c1) = try makeTestAdapter(name: "B1")
+        let (r2, c2) = try makeTestAdapter(name: "B2")
         defer { c1(); c2() }
 
         try await loader.load(r1)
@@ -253,7 +249,7 @@ struct AdapterLoaderTests {
     @Test("Memory usage tracking")
     func memoryTracking() async throws {
         let loader = AdapterLoader()
-        let (record, cleanup) = makeTestAdapter(rank: 32)
+        let (record, cleanup) = try makeTestAdapter(rank: 32)
         defer { cleanup() }
 
         try await loader.load(record)
@@ -301,6 +297,40 @@ struct AdapterRouterTests {
         let result = router.routeToken(token: 42, context: [1, 2, 3])
         #expect(result == nil)
     }
+
+    @Test("MoLoRA routing labels do not claim per-token runtime")
+    func moloraRoutingLabelsAreHonestAboutDecideOnceRuntime() throws {
+        let adapterRouter = try loadMirroredSourceTextFile(
+            "Epistemos/KnowledgeFusion/Adapters/AdapterRouter.swift"
+        )
+        let moloraRouter = try loadMirroredSourceTextFile(
+            "Epistemos/KnowledgeFusion/Adapters/MoLoRARouter.swift"
+        )
+        let inferenceService = try loadMirroredSourceTextFile(
+            "Epistemos/KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift"
+        )
+        let pythonService = try loadMirroredSourceTextFile(
+            "Epistemos/KnowledgeFusion/MoLoRA/molora_inference.py"
+        )
+
+        #expect(adapterRouter.contains("Swift-side per-token MoLoRA routing is intentionally unavailable in v1"))
+        #expect(adapterRouter.contains("prompt-level"))
+        #expect(adapterRouter.contains("decide-once adapter selection"))
+        #expect(!adapterRouter.contains("Routing handled by Python-side AdaFuse"))
+
+        #expect(moloraRouter.contains("Whether decide-once MoLoRA routing is available"))
+        #expect(inferenceService.contains("prompt-level decide-once"))
+        #expect(inferenceService.contains("routing from layer-0 hidden states"))
+        #expect(!inferenceService.contains("routes per-token"))
+        #expect(!inferenceService.contains("Generate text with per-token MoLoRA routing"))
+        #expect(!inferenceService.contains("||" + " true"))
+
+        #expect(pythonService.contains("Decide-Once Multi-Adapter Inference Engine"))
+        #expect(pythonService.contains("prompt-level routing across multiple LoRA adapters"))
+        #expect(pythonService.contains("Generate tokens with prompt-level MoLoRA routing"))
+        #expect(!pythonService.contains("Per-Token Multi-Adapter Inference Engine"))
+        #expect(!pythonService.contains("per-token routing across multiple LoRA adapters"))
+    }
 }
 
 // MARK: - AdapterExporter Tests
@@ -310,7 +340,7 @@ struct AdapterExporterTests {
 
     @Test("Export creates valid bundle")
     func exportBundle() throws {
-        let (record, cleanup) = makeTestAdapter(name: "ExportTest")
+        let (record, cleanup) = try makeTestAdapter(name: "ExportTest")
         let outputDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("kf-export-\(UUID().uuidString)")
         defer { cleanup(); try? FileManager.default.removeItem(at: outputDir) }
@@ -327,7 +357,7 @@ struct AdapterExporterTests {
 
     @Test("Export and reimport round-trips")
     func roundTrip() throws {
-        let (record, cleanup) = makeTestAdapter(name: "RoundTrip")
+        let (record, cleanup) = try makeTestAdapter(type: .style, name: "RoundTrip", rank: 16)
         let outputDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("kf-roundtrip-\(UUID().uuidString)")
         let importDir = FileManager.default.temporaryDirectory
@@ -347,7 +377,21 @@ struct AdapterExporterTests {
         let imported = try exporter.importBundle(from: bundlePath, destinationDirectory: importDir)
 
         #expect(FileManager.default.fileExists(atPath: imported.adapterPath.path))
-        #expect(imported.metadata.adapterType == "" || true)  // metadata may be empty from test stub
+        #expect(imported.metadata.adapterType == AdapterType.style.rawValue)
+        #expect(imported.metadata.loraRank == 16)
+        #expect(imported.metadata.targetModules == ["q_proj"])
+    }
+
+    @Test("Export tests do not contain unconditional metadata assertions")
+    func exportTestsDoNotContainUnconditionalMetadataAssertions() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/AdapterManagementTests.swift")
+        let unconditionalAssertionNeedle = "||" + " true"
+        let staleMetadataStubNeedle = "metadata may be empty from test " + "stub"
+        let crashingTryNeedle = "try" + "!"
+
+        #expect(!source.contains(unconditionalAssertionNeedle))
+        #expect(!source.contains(staleMetadataStubNeedle))
+        #expect(!source.contains(crashingTryNeedle))
     }
 
     @Test("Bundle extension is correct")
@@ -372,12 +416,12 @@ struct AdapterFusionSafetyTests {
         ]
 
         for fileName in adapterFiles {
-            let content = try loadBundledAdapterSourceFile(named: fileName)
+            let content = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/Adapters/\(fileName)")
 
             // Check for actual code that would invoke fusion.
             // Strip comments before checking to avoid false positives on safety warnings.
-            let codeLines = content.components(separatedBy: .newlines)
-                .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            let codeLines = content.components(separatedBy: CharacterSet.newlines)
+                .filter { !$0.trimmingCharacters(in: CharacterSet.whitespaces).hasPrefix("//") }
                 .joined(separator: "\n")
 
             #expect(!codeLines.contains("mergeWeights: true"), "Found fusion call in \(fileName)")

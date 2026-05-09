@@ -34,7 +34,7 @@ nonisolated public struct ShadowHit: Sendable, Identifiable, Hashable {
     public let score: Float
     public let domain: ShadowDomain
     /// Origin signal for the optional UI provenance pill (e.g.
-    /// "lexical", "dense", "rrf", "stub-substring" during W8.1).
+    /// "lexical", "dense", "rrf", "in-memory-substring").
     public let source: String
 
     public init(

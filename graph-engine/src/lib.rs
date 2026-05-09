@@ -1614,7 +1614,7 @@ pub extern "C" fn graph_engine_set_node_embedding(
         }
         let slice = unsafe { std::slice::from_raw_parts(data, dim as usize) };
         if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
-            engine.embedding_store.set(idx as u32, slice);
+            engine.embedding_store.lock().set(idx as u32, slice);
         }
     });
 }
@@ -1639,6 +1639,7 @@ pub extern "C" fn graph_engine_set_node_embeddings_batch(
         let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
         let values = unsafe { std::slice::from_raw_parts(data, count * dim) };
 
+        let mut embedding_store = engine.embedding_store.lock();
         for (i, uuid_ptr) in uuid_ptrs.iter().enumerate().take(count) {
             let uuid_str = if uuid_ptr.is_null() {
                 ""
@@ -1649,7 +1650,7 @@ pub extern "C" fn graph_engine_set_node_embeddings_batch(
             if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
                 let start = i * dim;
                 let end = start + dim;
-                engine.embedding_store.set(idx as u32, &values[start..end]);
+                embedding_store.set(idx as u32, &values[start..end]);
             }
         }
     });
@@ -1660,7 +1661,7 @@ pub extern "C" fn graph_engine_set_node_embeddings_batch(
 pub extern "C" fn graph_engine_clear_embeddings(engine: *mut Engine) {
     ffi_catch_unwind!("graph_engine_clear_embeddings", {
         ffi_engine!(engine);
-        engine.embedding_store.clear();
+        engine.embedding_store.lock().clear();
         engine.semantic_neighbors.lock().clear();
         engine.reheat();
     });
@@ -1671,7 +1672,7 @@ pub extern "C" fn graph_engine_clear_embeddings(engine: *mut Engine) {
 pub extern "C" fn graph_engine_embedding_count(engine: *mut Engine) -> u32 {
     ffi_catch_unwind_or!("graph_engine_embedding_count", 0, {
         ffi_engine_or!(engine, 0);
-        engine.embedding_store.len() as u32
+        engine.embedding_store.lock().len() as u32
     })
 }
 
@@ -1680,7 +1681,7 @@ pub extern "C" fn graph_engine_embedding_count(engine: *mut Engine) -> u32 {
 pub extern "C" fn graph_engine_embedding_dimension(engine: *mut Engine) -> u32 {
     ffi_catch_unwind_or!("graph_engine_embedding_dimension", 0, {
         ffi_engine_or!(engine, 0);
-        engine.embedding_store.dimension() as u32
+        engine.embedding_store.lock().dimension() as u32
     })
 }
 
@@ -1693,7 +1694,7 @@ pub extern "C" fn graph_engine_reset_embedding_dimension(engine: *mut Engine, di
         if dim == 0 {
             return 0;
         }
-        if !engine.embedding_store.reset_dimension(dim as usize) {
+        if !engine.embedding_store.lock().reset_dimension(dim as usize) {
             return 0;
         }
         engine.semantic_neighbors.lock().clear();
@@ -1709,8 +1710,9 @@ pub extern "C" fn graph_engine_reset_embedding_dimension(engine: *mut Engine, di
 /// `k`: number of neighbors per node (typically 8).
 /// `threshold`: minimum cosine similarity to include (typically 0.3).
 ///
-/// Thread-safety: the O(n²) KNN computation runs on the calling thread
-/// (may be a background thread). The result is installed via Mutex swap
+/// Thread-safety: the embedding store is cloned under a short Mutex hold, then
+/// the O(n²) KNN computation runs from that snapshot on the calling thread
+/// (which may be a background thread). The result is installed via Mutex swap
 /// so the render loop is never blocked by the computation.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_recompute_semantic_neighbors(
@@ -1720,7 +1722,8 @@ pub extern "C" fn graph_engine_recompute_semantic_neighbors(
 ) {
     ffi_catch_unwind!("graph_engine_recompute_semantic_neighbors", {
         ffi_engine!(engine);
-        let pairs = engine.embedding_store.all_knn_pairs(k as usize, threshold);
+        let embedding_snapshot = engine.embedding_store.lock().clone();
+        let pairs = embedding_snapshot.all_knn_pairs(k as usize, threshold);
         *engine.semantic_neighbors.lock() = pairs;
         // Reheat physics so the new attraction forces take effect.
         engine.reheat();
@@ -1840,6 +1843,7 @@ pub extern "C" fn graph_engine_semantic_search(
         let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
         let hits = engine
             .embedding_store
+            .lock()
             .search(query_vec, limit as usize, 0.0);
 
         unsafe {

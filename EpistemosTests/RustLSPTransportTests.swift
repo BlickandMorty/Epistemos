@@ -48,8 +48,8 @@ struct RustLSPTransportTests {
 
         await transport.shutdown()
         #else
-        // FFI not linked — the stub init throws on send, so we just
-        // verify the type-check succeeds + shutdown is a no-op.
+        // FFI not linked — the unlinked transport fails closed on send,
+        // so this branch only verifies type-check + idempotent shutdown.
         let transport = RustLSPTransport()
         await transport.shutdown()
         #endif
@@ -60,7 +60,7 @@ struct RustLSPTransportTests {
         let transport = RustLSPTransport()
         // Diagnostic accessor is `nonisolated` so callable without await.
         let state = transport.lifecycleStateDebug()
-        // Either the live FFI returns a state string OR the stub
+        // Either the live FFI returns a state string OR the unlinked build
         // returns "ffi_unavailable". Either way, the call succeeds.
         #expect(!state.isEmpty)
         await transport.shutdown()
@@ -75,9 +75,6 @@ struct RustLSPTransportTests {
             Issue.record("expected RustLSPTransportError on send-after-shutdown")
         } catch RustLSPTransportError.transportShutdown {
             // expected
-        } catch RustLSPTransportError.ffiCallFailed {
-            // also acceptable: stub mode throws ffiCallFailed because
-            // FFI isn't linked.
         } catch {
             Issue.record("unexpected error type: \(error)")
         }

@@ -2,29 +2,21 @@ import SwiftUI
 
 // MARK: - ArtifactHostView (typed-spine renderer)
 //
-// T+4.7 of `docs/audits/deliberation/T+4_cognitive_artifact_spine_deliberation_20260427.md`
-// (cross-ref `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §6).
+// Cross-ref `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §6.
 //
-// Compile-time exhaustive `@ViewBuilder` dispatch over `ArtifactRoute`.
+// Source-preserved exhaustive `@ViewBuilder` dispatch over `ArtifactRoute`.
 // The switch yields a different concrete `View` per case — NO `AnyView`,
 // per anti-pattern #7 of the canonical register
 // (`docs/_consolidated/00_canonical_authority/MASTER_FUSION.md` §11).
 //
-// The route's destination View is wrapped in a thin "host" struct so
-// the protected `ProseEditorView` and `CodeEditorView` surfaces stay
-// untouched (per CLAUDE.md DO NOT list). The host resolves the
-// `ArtifactID` / `RunID` to whatever its destination needs (a SwiftData
-// `SDPage`, a `RunSummary`, etc.) and only then constructs the editor.
-//
-// For routes whose final destination editor hasn't shipped yet
-// (`DocumentEditorHostView` lands in T+4.6, `SourceReaderView` /
-// `OutputArtifactView` in later slices), the host displays an explicit
-// "pending implementation" placeholder. These are NOT silent fallbacks
-// (anti-pattern #11) — they declare exactly which kind + id was
-// requested and which slice will fill them in.
+// This host remains unmounted in v1 while artifact-specific resolvers are
+// unfinished. If invoked from a preview or future integration, it renders
+// an explicit v1-deferred panel instead of pretending the destination
+// viewer exists.
 
-/// Top-level dispatcher. Hand it a route and it renders the right
-/// surface for that artifact kind.
+/// Top-level dispatcher. Source-preserved for the typed artifact spine;
+/// not a v1 production navigation surface until the route resolvers below
+/// are replaced with real viewers.
 nonisolated public struct ArtifactHostView: View {
     public let route: ArtifactRoute
 
@@ -65,21 +57,15 @@ nonisolated public struct ProseNoteHost: View {
     }
 
     public var body: some View {
-        // T+4.7 wires the route → host adapter; the actual SDPage
-        // resolution + ProseEditorView construction depends on a
-        // `SwiftData.ModelContext` injection that ships in T+4.9
-        // (Agent patch + provenance workflow links). Surface an
-        // explicit pending-resolution panel until then so the user
-        // sees what was requested and which slice will close the loop.
-        ArtifactRoutePendingPanel(
+        ArtifactRouteDeferredPanel(
             kind: .proseNote,
             id: artifactID,
-            pendingSliceLabel: "T+4.9 (SDPage resolver wiring)"
+            deferredReason: "The note resolver is not enabled for this v1 route."
         )
     }
 }
 
-// MARK: - Document host (Tiptap-in-WKWebView host arrives in T+4.6)
+// MARK: - Document host
 
 nonisolated public struct DocumentHost: View {
     public let artifactID: ArtifactID
@@ -89,10 +75,10 @@ nonisolated public struct DocumentHost: View {
     }
 
     public var body: some View {
-        ArtifactRoutePendingPanel(
+        ArtifactRouteDeferredPanel(
             kind: .document,
             id: artifactID,
-            pendingSliceLabel: "T+4.6 (Document editor host: Tiptap + WKWebView)"
+            deferredReason: "The Epdoc document host is available through the document window flow, not this artifact route."
         )
     }
 }
@@ -101,9 +87,8 @@ nonisolated public struct DocumentHost: View {
 //
 // Wraps `RawThoughtsInspectorView` (`Epistemos/Views/RawThoughts/RawThoughtsInspectorView.swift`).
 // The inspector takes a `RawThoughtsState.RunSummary`; this adapter looks
-// up the summary by `RunID`. Until the lookup pipeline is wired in T+4.3
-// (Raw Thoughts to 100%), present a pending panel so the user sees which
-// run was requested.
+// up the summary by `RunID`. The lookup pipeline is deferred in this
+// v1 route, so the host renders an explicit deferred panel.
 
 nonisolated public struct RawThoughtRunHost: View {
     public let runID: RunID
@@ -113,10 +98,10 @@ nonisolated public struct RawThoughtRunHost: View {
     }
 
     public var body: some View {
-        ArtifactRoutePendingPanel(
+        ArtifactRouteDeferredPanel(
             kind: .run,
             id: runID,
-            pendingSliceLabel: "T+4.3 (Raw Thoughts substrate to 100% — RunSummary resolver)"
+            deferredReason: "The run-summary resolver is not enabled for this v1 route."
         )
     }
 }
@@ -131,10 +116,10 @@ nonisolated public struct SourceHost: View {
     }
 
     public var body: some View {
-        ArtifactRoutePendingPanel(
+        ArtifactRouteDeferredPanel(
             kind: .source,
             id: artifactID,
-            pendingSliceLabel: "T+4.5 (.epdoc package + Source reader)"
+            deferredReason: "The source reader is deferred for the v1 artifact route."
         )
     }
 }
@@ -147,15 +132,10 @@ nonisolated public struct CodeHost: View {
     }
 
     public var body: some View {
-        // `CodeEditorView` (`Epistemos/Views/Notes/CodeEditorView.swift`,
-        // line 1183) takes a richer parameter set than just an artifact
-        // id — its full integration goes through the editor host
-        // pipeline that lands in T+4.9 (agent patch / provenance
-        // graph edges).
-        ArtifactRoutePendingPanel(
+        ArtifactRouteDeferredPanel(
             kind: .code,
             id: artifactID,
-            pendingSliceLabel: "T+4.9 (Code artifact resolver wiring)"
+            deferredReason: "The code artifact resolver is not enabled for this v1 route."
         )
     }
 }
@@ -168,24 +148,24 @@ nonisolated public struct OutputHost: View {
     }
 
     public var body: some View {
-        ArtifactRoutePendingPanel(
+        ArtifactRouteDeferredPanel(
             kind: .output,
             id: artifactID,
-            pendingSliceLabel: "T+4.5 / T+4.9 (Output artifact viewer)"
+            deferredReason: "The output artifact viewer is deferred for the v1 artifact route."
         )
     }
 }
 
-// MARK: - ArtifactRoutePendingPanel (explicit placeholder)
+// MARK: - ArtifactRouteDeferredPanel
 //
-// Honest "this slice hasn't connected yet" surface. Visible enough for
-// the user to know the route reached its router; specific enough that a
-// dev reader can find the next slice in the dependency chain.
+// Honest "this route is not enabled in v1" surface. It is intentionally
+// explicit so accidental preview/integration calls do not look like a
+// working artifact viewer.
 
-nonisolated struct ArtifactRoutePendingPanel: View {
+nonisolated struct ArtifactRouteDeferredPanel: View {
     let kind: ArtifactKind
     let id: String
-    let pendingSliceLabel: String
+    let deferredReason: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -207,10 +187,10 @@ nonisolated struct ArtifactRoutePendingPanel: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Pending slice")
+                Text("Deferred in v1")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(pendingSliceLabel)
+                Text(deferredReason)
                     .font(.body)
             }
 

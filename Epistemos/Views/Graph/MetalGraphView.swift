@@ -147,6 +147,7 @@ nonisolated enum GraphDrawableResolutionPolicy {
     private static let cinematicFullOverlayPixelBudget: CGFloat = 1_600_000
     private static let performanceFullOverlayPixelBudget: CGFloat = 3_000_000
     private static let lowPowerPixelBudget: CGFloat = 1_200_000
+    static let pausedDrawableSize = CGSize(width: 1, height: 1)
 
     static func pixelBudget(qualityLevel: UInt8, lowPowerMode: Bool) -> CGFloat {
         if lowPowerMode { return lowPowerPixelBudget }
@@ -733,7 +734,7 @@ final class MetalGraphNSView: NSView {
         layer.pixelFormat = .bgra8Unorm_srgb  // MUST match Rust renderer pipeline (BGRA8Unorm_sRGB)
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
-        layer.maximumDrawableCount = 3     // Fullscreen water shading needs a spare drawable to avoid visible hitching.
+        layer.maximumDrawableCount = 3     // Fullscreen cinematic graph shading needs a spare drawable to avoid visible hitching.
         // NOTE: presentsWithTransaction intentionally left at default (false). Enabling
         // it would require coordinating commit+waitUntilScheduled+present on the Rust
         // renderer side (graph-engine/src/renderer.rs) — see Phase H follow-up.
@@ -917,7 +918,7 @@ final class MetalGraphNSView: NSView {
         isEnginePaused = true
         stopDisplayLink()
         if let engine { graph_engine_pause(engine) }
-        metalLayer?.drawableSize = .zero
+        metalLayer?.drawableSize = GraphDrawableResolutionPolicy.pausedDrawableSize
     }
 
     /// Resume rendering and physics. Call when overlay is shown.
@@ -1448,7 +1449,7 @@ final class MetalGraphNSView: NSView {
             graph_engine_set_label_world_px_per_em(engine, graphState.labelFontSizePx)
         }
 
-        // Sync water nodes style.
+        // Sync the legacy cinematic-node style flag.
         if let graphState, lastWaterNodesVersion != graphState.waterNodesVersion {
             lastWaterNodesVersion = graphState.waterNodesVersion
             graph_engine_set_water_nodes(engine, graphState.waterNodesEnabled ? 1.0 : 0.0, graphState.waterNodesWobble)

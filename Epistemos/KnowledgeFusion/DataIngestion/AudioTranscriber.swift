@@ -96,11 +96,11 @@ actor AudioTranscriber {
             return .mlxWhisper
         }
 
-        // Check whisper.cpp
-        if let _ = try? await runProcess(
-            executable: "/usr/bin/which",
-            arguments: ["whisper"]
-        ) {
+        if let whisperPath = Self.whisperExecutablePath(),
+           let _ = try? await runProcess(
+            executable: whisperPath,
+            arguments: ["--help"]
+           ) {
             return .whisperCpp
         }
         #endif
@@ -222,8 +222,11 @@ actor AudioTranscriber {
     // MARK: - Whisper.cpp Fallback
 
     private func runWhisperCpp(audioURL: URL) async throws -> Data {
+        guard let whisperPath = Self.whisperExecutablePath() else {
+            throw AudioTranscriberError.noBackendAvailable
+        }
         let output = try await runProcess(
-            executable: "/usr/local/bin/whisper",
+            executable: whisperPath,
             arguments: ["-f", audioURL.path, "-oj", "-l", "auto"]
         )
         guard let data = output.data(using: .utf8) else {
@@ -301,6 +304,10 @@ actor AudioTranscriber {
     // MARK: - Process Execution
 
     private func runProcess(executable: String, arguments: [String]) async throws -> String {
+        guard FileManager.default.isExecutableFile(atPath: executable) else {
+            throw AudioTranscriberError.processFailed("Executable not found or not executable.")
+        }
+
         let timeoutSeconds = 300.0
         let state = ThrowingProcessContinuationState<String>()
         return try await withTaskCancellationHandler {
@@ -308,13 +315,32 @@ actor AudioTranscriber {
                 let process = Process.init()
                 process.executableURL = URL(fileURLWithPath: executable)
                 process.arguments = arguments
+                process.environment = executable == pythonPath
+                    ? PythonEnvironmentManager.pythonToolEnvironment(executable: executable)
+                    : PythonEnvironmentManager.boundedToolEnvironment(executable: executable)
 
                 let stdout = Pipe()
                 let stderr = Pipe()
                 process.standardOutput = stdout
                 process.standardError = stderr
+                let stdoutHandle = stdout.fileHandleForReading
+                let stderrHandle = stderr.fileHandleForReading
+                let stdoutCapture = KnowledgeFusionProcessOutputCapture()
+                let stderrCapture = KnowledgeFusionProcessOutputCapture()
+                stdoutHandle.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
+                    stdoutCapture.append(data)
+                }
+                stderrHandle.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
+                    stderrCapture.append(data)
+                }
 
                 guard state.store(process: process, continuation: continuation) else {
+                    stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
                     continuation.resume(throwing: CancellationError())
                     return
                 }
@@ -333,15 +359,16 @@ actor AudioTranscriber {
 
                 process.terminationHandler = { proc in
                     timeoutTask.cancel()
-                    let outputData = stdout.fileHandleForReading.readDataToEndOfFile()
-                    let output = String(data: outputData, encoding: .utf8) ?? ""
+                    stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
+                    stdoutCapture.consumeRemainder(from: stdoutHandle)
+                    stderrCapture.consumeRemainder(from: stderrHandle)
+                    let output = stdoutCapture.stringValue()
 
                     if proc.terminationStatus == 0 {
                         state.resume(returning: output)
                     } else {
-                        let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
-                        let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-                        state.resume(throwing: AudioTranscriberError.processFailed(errorMsg))
+                        state.resume(throwing: AudioTranscriberError.processFailed(stderrCapture.stringValue()))
                     }
                 }
 
@@ -349,6 +376,8 @@ actor AudioTranscriber {
                     try process.run()
                 } catch {
                     timeoutTask.cancel()
+                    stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
                     state.resume(throwing: error)
                 }
             }
@@ -356,6 +385,13 @@ actor AudioTranscriber {
             state.terminate()
             state.resume(throwing: CancellationError())
         }
+    }
+
+    private nonisolated static func whisperExecutablePath() -> String? {
+        [
+            "/opt/homebrew/bin/whisper",
+            "/usr/local/bin/whisper"
+        ].first { FileManager.default.isExecutableFile(atPath: $0) }
     }
     #endif // !EPISTEMOS_APP_STORE -- end of MLX Whisper / whisper.cpp / runProcess block
 }

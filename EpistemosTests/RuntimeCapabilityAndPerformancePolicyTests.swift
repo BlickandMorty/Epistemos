@@ -359,6 +359,7 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
     @Test("AppBootstrap computer-use services stay lazy at startup")
     func appBootstrapKeepsComputerUseChainLazyAtStartup() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        let environment = try loadMirroredSourceTextFile("Epistemos/App/AppEnvironment.swift")
 
         #expect(source.contains("private var _screenCapture: ScreenCaptureService?"))
         #expect(source.contains("var screenCapture: ScreenCaptureService {"))
@@ -367,6 +368,7 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(source.contains("private var _ambientCapture: AmbientCaptureService?"))
         #expect(source.contains("var ambientCapture: AmbientCaptureService {"))
         #expect(!source.contains("screenCapture: screenCapture,\n            perception: screen2AXFusion"))
+        #expect(!environment.contains(".environment(bootstrap.screen2AXFusion)"))
     }
 
     @Test("AppBootstrap cloud knowledge distillation stays lazy until NightBrain runs")

@@ -1,6 +1,7 @@
 import AppKit
 import GRDB
 import SwiftData
+import os
 
 // MARK: - EpistemosDocumentController
 //
@@ -45,6 +46,10 @@ import SwiftData
 
 @MainActor
 public final class EpistemosDocumentController: NSDocumentController {
+    private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "EpistemosDocumentController"
+    )
 
     /// The writer used to persist the readable-blocks FTS index
     /// for any `EpdocDocument` this controller instantiates.
@@ -131,6 +136,44 @@ public final class EpistemosDocumentController: NSDocumentController {
         )
         injectDependencies(into: doc)
         return doc
+    }
+
+    /// Restorable-state reopen path — invoked by AppKit when reconstructing
+    /// autosaved document windows during launch. Epistemos owns app/workspace
+    /// recovery explicitly, so launches that purge saved state must not
+    /// resurrect a prior unsaved `.epdoc` before the Home scene appears.
+    public override func reopenDocument(
+        for urlOrNil: URL?,
+        withContentsOf contentsURL: URL,
+        display displayDocument: Bool,
+        completionHandler: @escaping (NSDocument?, Bool, Error?) -> Void
+    ) {
+        guard !Self.shouldSuppressRestorableDocumentReopen() else {
+            Self.log.info(
+                "Suppressed restorable document reopen for \(contentsURL.path, privacy: .public)"
+            )
+            completionHandler(nil, false, nil)
+            return
+        }
+
+        super.reopenDocument(
+            for: urlOrNil,
+            withContentsOf: contentsURL,
+            display: displayDocument
+        ) { [weak self] document, documentWasAlreadyOpen, error in
+            if let document {
+                self?.injectDependencies(into: document)
+            }
+            completionHandler(document, documentWasAlreadyOpen, error)
+        }
+    }
+
+    static func shouldSuppressRestorableDocumentReopen(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        SavedApplicationStatePurger.shouldPurgeAtLaunch(
+            processInfoEnvironment: processInfoEnvironment
+        )
     }
 
     // MARK: - Dependency injection

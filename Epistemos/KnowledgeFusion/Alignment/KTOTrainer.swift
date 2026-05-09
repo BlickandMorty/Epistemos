@@ -84,20 +84,44 @@ actor KTOTrainer {
         }
 
         #if !EPISTEMOS_APP_STORE
+        guard FileManager.default.isExecutableFile(atPath: pythonPath) else {
+            throw QLoRATrainerError.trainingFailed("Python executable not found or not executable.")
+        }
+        guard FileManager.default.isReadableFile(atPath: script.path) else {
+            throw QLoRATrainerError.trainingFailed("KTO training script not found or not readable.")
+        }
+
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = arguments
+        process.environment = PythonEnvironmentManager.pythonToolEnvironment(executable: pythonPath)
 
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+        let stdoutHandle = stdoutPipe.fileHandleForReading
+        let stderrHandle = stderrPipe.fileHandleForReading
+        let stdoutCapture = KnowledgeFusionProcessOutputCapture()
+        let stderrCapture = KnowledgeFusionProcessOutputCapture()
+        stdoutHandle.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            stdoutCapture.append(data)
+        }
+        stderrHandle.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            stderrCapture.append(data)
+        }
 
         let timeoutSeconds = 1800.0
         let state = ThrowingProcessContinuationState<Void>()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 guard state.store(process: process, continuation: continuation) else {
+                    stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
                     continuation.resume(throwing: CancellationError())
                     return
                 }
@@ -116,18 +140,22 @@ actor KTOTrainer {
 
                 process.terminationHandler = { proc in
                     timeoutTask.cancel()
+                    stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
+                    stdoutCapture.consumeRemainder(from: stdoutHandle)
+                    stderrCapture.consumeRemainder(from: stderrHandle)
                     if proc.terminationStatus == 0 {
                         state.resume(returning: ())
                     } else {
-                        let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-                        let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown"
-                        state.resume(throwing: QLoRATrainerError.trainingFailed(errorMsg))
+                        state.resume(throwing: QLoRATrainerError.trainingFailed(stderrCapture.stringValue()))
                     }
                 }
                 do {
                     try process.run()
                 } catch {
                     timeoutTask.cancel()
+                    stdoutHandle.readabilityHandler = nil
+                    stderrHandle.readabilityHandler = nil
                     state.resume(throwing: error)
                 }
             }
@@ -137,8 +165,7 @@ actor KTOTrainer {
         }
 
         // Check for "SKIPPED" in output
-        let outputData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: outputData, encoding: .utf8) ?? ""
+        let output = stdoutCapture.stringValue()
         if output.contains("SKIPPED") {
             return KTOTrainingResult(
                 success: true,

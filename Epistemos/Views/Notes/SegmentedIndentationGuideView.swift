@@ -81,13 +81,24 @@ final class SegmentedIndentationGuideView: NSView {
     /// Updates indentation info from text content.
     /// Line y-positions are stored relative (no scroll offset baked in).
     /// The offset is applied at draw time for performance.
-    func updateFromText(_ text: String, cursorLine: Int, scrollOffset: CGFloat = 0) {
+    func updateFromText(
+        _ text: String,
+        cursorLine: Int,
+        scrollOffset: CGFloat = 0,
+        lineRange: ClosedRange<Int>? = nil,
+        baseLineNumber: Int = 1
+    ) {
         self.scrollOffset = scrollOffset
+        visibleRange = lineRange.map {
+            NSRange(location: $0.lowerBound, length: $0.upperBound - $0.lowerBound + 1)
+        } ?? NSRange(location: 0, length: 0)
 
         let parsed = Self.parseIndentLineInfos(
             in: text,
             tabWidth: tabWidth,
-            lineHeight: lineHeight
+            lineHeight: lineHeight,
+            lineRange: lineRange,
+            baseLineNumber: baseLineNumber
         )
         lineInfos = parsed.infos
         maxIndentLevel = parsed.maxIndent
@@ -99,13 +110,16 @@ final class SegmentedIndentationGuideView: NSView {
     private static func parseIndentLineInfos(
         in text: String,
         tabWidth: Int,
-        lineHeight: CGFloat
+        lineHeight: CGFloat,
+        lineRange: ClosedRange<Int>? = nil,
+        baseLineNumber: Int = 1
     ) -> (infos: [IndentLineInfo], maxIndent: Int) {
         let tabColumns = max(1, tabWidth)
         var infos: [IndentLineInfo] = []
-        infos.reserveCapacity(min(4_096, max(1, text.utf8.count / 32)))
+        let reservedLineCount = lineRange.map { $0.upperBound - $0.lowerBound + 1 }
+        infos.reserveCapacity(min(4_096, max(1, reservedLineCount ?? text.utf8.count / 32)))
 
-        var lineNumber = 1
+        var lineNumber = max(1, baseLineNumber)
         var maxIndent = 0
         var leading = true
         var indentColumns = 0
@@ -116,16 +130,18 @@ final class SegmentedIndentationGuideView: NSView {
 
         func finishLine() {
             let indentLevel = indentColumns / tabColumns
-            maxIndent = max(maxIndent, indentLevel)
-            infos.append(IndentLineInfo(
-                lineNumber: lineNumber,
-                indentLevel: indentLevel,
-                hasContent: hasContent,
-                isBlockStart: Self.isBlockStartByte(lastNonWhitespace),
-                isBlockEnd: Self.isBlockEndByte(firstNonWhitespace),
-                yPosition: CGFloat(lineNumber - 1) * lineHeight,
-                lineHeight: lineHeight
-            ))
+            if lineRange?.contains(lineNumber) ?? true {
+                maxIndent = max(maxIndent, indentLevel)
+                infos.append(IndentLineInfo(
+                    lineNumber: lineNumber,
+                    indentLevel: indentLevel,
+                    hasContent: hasContent,
+                    isBlockStart: Self.isBlockStartByte(lastNonWhitespace),
+                    isBlockEnd: Self.isBlockEndByte(firstNonWhitespace),
+                    yPosition: CGFloat(lineNumber - 1) * lineHeight,
+                    lineHeight: lineHeight
+                ))
+            }
 
             lineNumber += 1
             leading = true
@@ -136,6 +152,10 @@ final class SegmentedIndentationGuideView: NSView {
         }
 
         for byte in text.utf8 {
+            if let lineRange, lineNumber > lineRange.upperBound {
+                break
+            }
+
             if skipNextLF {
                 skipNextLF = false
                 if byte == 10 { continue }
@@ -165,7 +185,9 @@ final class SegmentedIndentationGuideView: NSView {
             }
         }
 
-        finishLine()
+        if lineRange.map({ lineNumber <= $0.upperBound }) ?? true {
+            finishLine()
+        }
         return (infos, maxIndent)
     }
 

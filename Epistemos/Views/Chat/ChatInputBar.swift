@@ -89,6 +89,7 @@ struct ChatInputBar: View {
     // Notes Mode @-mention dropdown
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var mentionKeyboardIndex = 0
     @State private var mentionPickerAutofocus = false
     @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
@@ -102,6 +103,7 @@ struct ChatInputBar: View {
     /// everywhere.
     @State private var showSlashMenu = false
     @State private var slashFilter = ""
+    @State private var slashKeyboardIndex = 0
     @State private var selectedSlashCommand: ACCSlashCommand?
 
     private var theme: EpistemosTheme { ui.theme }
@@ -215,6 +217,7 @@ struct ChatInputBar: View {
             if showSlashMenu {
                 showSlashMenu = false
                 slashFilter = ""
+                slashKeyboardIndex = 0
             }
             return
         }
@@ -228,9 +231,11 @@ struct ChatInputBar: View {
         if afterSlash.contains(where: { $0.isWhitespace || $0.isNewline }) {
             showSlashMenu = false
             slashFilter = ""
+            slashKeyboardIndex = 0
             return
         }
         slashFilter = afterSlash
+        slashKeyboardIndex = 0
         showSlashMenu = true
     }
 
@@ -275,13 +280,81 @@ struct ChatInputBar: View {
 
         showSlashMenu = false
         slashFilter = ""
+        slashKeyboardIndex = 0
     }
 
     private func openSlashCommandMenu() {
         guard !supportedSlashCommands.isEmpty else { return }
         slashFilter = ""
+        slashKeyboardIndex = 0
         showSlashMenu = true
         isFocused = true
+    }
+
+    private func handleComposerCommand(_ selector: Selector, modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        guard let command = ChatComposerKeyHandling.overlayCommand(
+            for: selector,
+            modifierFlags: modifierFlags
+        ) else {
+            return false
+        }
+
+        if showMentionDropdown {
+            return handleMentionOverlayCommand(command)
+        }
+        if showSlashMenu {
+            return handleSlashOverlayCommand(command)
+        }
+        return false
+    }
+
+    private func handleMentionOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
+        let choices = mentionKeyboardChoices
+        switch command {
+        case .moveDown:
+            guard !choices.isEmpty else { return true }
+            mentionKeyboardIndex = clamped(mentionKeyboardIndex + 1, count: choices.count)
+            return true
+        case .moveUp:
+            guard !choices.isEmpty else { return true }
+            mentionKeyboardIndex = clamped(mentionKeyboardIndex - 1, count: choices.count)
+            return true
+        case .confirm:
+            guard !choices.isEmpty else { return true }
+            attachMentionReference(choices[clamped(mentionKeyboardIndex, count: choices.count)])
+            return true
+        case .cancel:
+            dismissReferencePopover()
+            return true
+        }
+    }
+
+    private func handleSlashOverlayCommand(_ command: ChatComposerOverlayCommand) -> Bool {
+        let commands = filteredSlashCommands
+        switch command {
+        case .moveDown:
+            guard !commands.isEmpty else { return true }
+            slashKeyboardIndex = clamped(slashKeyboardIndex + 1, count: commands.count)
+            return true
+        case .moveUp:
+            guard !commands.isEmpty else { return true }
+            slashKeyboardIndex = clamped(slashKeyboardIndex - 1, count: commands.count)
+            return true
+        case .confirm:
+            guard !commands.isEmpty else { return true }
+            applySlashCommand(commands[clamped(slashKeyboardIndex, count: commands.count)])
+            return true
+        case .cancel:
+            showSlashMenu = false
+            slashFilter = ""
+            slashKeyboardIndex = 0
+            return true
+        }
+    }
+
+    private func clamped(_ index: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return min(max(index, 0), count - 1)
     }
 
     private var needsCloudBanner: some View {
@@ -341,6 +414,12 @@ struct ChatInputBar: View {
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
         )
     }
+    private var mentionKeyboardChoices: [ComposerReferenceChoice] {
+        ComposerReferenceKeyboardSelection.choices(
+            from: mentionSearchResults,
+            style: referencePopoverStyle
+        )
+    }
     private var composerControlResetKey: String {
         let supportedModes = MainChatOperatingModePreference.supportedModes(
             for: inference,
@@ -367,6 +446,16 @@ struct ChatInputBar: View {
             return nil
         }
         return selectedSlashCommand
+    }
+    private var filteredSlashCommands: [ACCSlashCommand] {
+        SlashCommandPopover.filteredCommands(
+            commands: supportedSlashCommands,
+            filter: slashFilter
+        )
+    }
+    private var highlightedSlashCommand: ACCSlashCommand? {
+        guard !filteredSlashCommands.isEmpty else { return nil }
+        return filteredSlashCommands[clamped(slashKeyboardIndex, count: filteredSlashCommands.count)]
     }
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
@@ -590,6 +679,7 @@ struct ChatInputBar: View {
                         SlashCommandPopover(
                             commands: supportedSlashCommands,
                             filter: slashFilter,
+                            selectedCommand: highlightedSlashCommand,
                             onSelect: { command in
                                 applySlashCommand(command)
                             }
@@ -820,7 +910,10 @@ struct ChatInputBar: View {
             height: $composerHeight,
             isFocused: $isFocused,
             theme: theme,
-            isProcessing: isProcessing
+            isProcessing: isProcessing,
+            onCommand: { selector, modifierFlags in
+                handleComposerCommand(selector, modifierFlags: modifierFlags)
+            }
         ) {
             submitCurrentText()
         }
@@ -861,11 +954,13 @@ struct ChatInputBar: View {
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                 referencePopoverStyle = .mention
                 mentionFilter = filter
+                mentionKeyboardIndex = 0
                 mentionPickerAutofocus = false
                 if !showMentionDropdown { showMentionDropdown = true }
             } else if showMentionDropdown {
                 showMentionDropdown = false
                 referencePopoverStyle = .mention
+                mentionKeyboardIndex = 0
                 mentionPickerAutofocus = false
                 referenceSearch.reset()
             }
@@ -1053,6 +1148,15 @@ struct ChatInputBar: View {
     }
 
     private func submitCurrentText() {
+        if showMentionDropdown {
+            _ = handleMentionOverlayCommand(.confirm)
+            return
+        }
+        if showSlashMenu {
+            _ = handleSlashOverlayCommand(.confirm)
+            return
+        }
+
         guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady else { return }
         let predictedCapability = ChatCapability.predictIntent(
             text: trimmedText,
@@ -1075,6 +1179,7 @@ struct ChatInputBar: View {
         selectedSlashCommand = nil
         showMentionDropdown = false
         referencePopoverStyle = .mention
+        mentionKeyboardIndex = 0
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
@@ -1110,6 +1215,7 @@ struct ChatInputBar: View {
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         referencePopoverStyle = .mention
+        mentionKeyboardIndex = 0
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
@@ -1117,7 +1223,10 @@ struct ChatInputBar: View {
 
     private func dismissReferencePopover() {
         showMentionDropdown = false
+        mentionKeyboardIndex = 0
         mentionPickerAutofocus = false
+        mentionFilter = ""
+        referenceSearch.reset()
     }
 
     private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
@@ -1200,10 +1309,39 @@ enum ChatComposerReturnBehavior: Equatable {
     case ignore
 }
 
+enum ChatComposerOverlayCommand: Equatable {
+    case moveDown
+    case moveUp
+    case confirm
+    case cancel
+}
+
 enum ChatComposerKeyHandling {
     static func isReturnCommand(_ commandSelector: Selector) -> Bool {
         commandSelector == #selector(NSResponder.insertNewline(_:))
             || commandSelector == #selector(NSResponder.insertLineBreak(_:))
+    }
+
+    static func overlayCommand(
+        for commandSelector: Selector,
+        modifierFlags: NSEvent.ModifierFlags
+    ) -> ChatComposerOverlayCommand? {
+        let flags = semanticModifierFlags(modifierFlags)
+        guard flags.isEmpty else { return nil }
+
+        if commandSelector == #selector(NSResponder.moveDown(_:)) {
+            return .moveDown
+        }
+        if commandSelector == #selector(NSResponder.moveUp(_:)) {
+            return .moveUp
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            return .cancel
+        }
+        if isReturnCommand(commandSelector) {
+            return .confirm
+        }
+        return nil
     }
 
     static func returnBehavior(
@@ -1211,7 +1349,7 @@ enum ChatComposerKeyHandling {
         trimmedText: String,
         isProcessing: Bool
     ) -> ChatComposerReturnBehavior {
-        let flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let flags = semanticModifierFlags(modifierFlags)
         let normalizedText = trimmedText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if flags == [.shift] {
@@ -1221,6 +1359,13 @@ enum ChatComposerKeyHandling {
             return (!normalizedText.isEmpty && !isProcessing) ? .submit : .ignore
         }
         return .systemDefault
+    }
+
+    static func semanticModifierFlags(_ modifierFlags: NSEvent.ModifierFlags) -> NSEvent.ModifierFlags {
+        var flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
+        flags.remove(.numericPad)
+        flags.remove(.function)
+        return flags
     }
 }
 
@@ -1265,6 +1410,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
     let theme: EpistemosTheme
     let fontSize: CGFloat
     let isProcessing: Bool
+    let onCommand: ((Selector, NSEvent.ModifierFlags) -> Bool)?
     let onSubmit: () -> Void
 
     init(
@@ -1274,6 +1420,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         theme: EpistemosTheme,
         fontSize: CGFloat = ChatComposerInputMetrics.fontSize,
         isProcessing: Bool,
+        onCommand: ((Selector, NSEvent.ModifierFlags) -> Bool)? = nil,
         onSubmit: @escaping () -> Void
     ) {
         _text = text
@@ -1282,6 +1429,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         self.theme = theme
         self.fontSize = fontSize
         self.isProcessing = isProcessing
+        self.onCommand = onCommand
         self.onSubmit = onSubmit
     }
 
@@ -1393,10 +1541,15 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            let modifierFlags = NSApp.currentEvent?.modifierFlags ?? []
+            if parent.onCommand?(commandSelector, modifierFlags) == true {
+                return true
+            }
+
             guard ChatComposerKeyHandling.isReturnCommand(commandSelector) else { return false }
 
             let behavior = ChatComposerKeyHandling.returnBehavior(
-                modifierFlags: NSApp.currentEvent?.modifierFlags ?? [],
+                modifierFlags: modifierFlags,
                 trimmedText: parent.text.trimmingCharacters(in: .whitespacesAndNewlines),
                 isProcessing: parent.isProcessing
             )

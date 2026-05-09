@@ -20,8 +20,8 @@ import SwiftData
 final class CompanionState {
     private static let log = Logger(subsystem: "com.epistemos", category: "CompanionState")
 
-    /// Currently-foregrounded companion id, if any. The Farm shows
-    /// every active companion; this picks the one whose persona
+    /// Currently-foregrounded companion id, if any. The Landing agent
+    /// dock shows every active agent; this picks the one whose persona
     /// augments the system prompt for the next chat.
     var activeCompanionID: String? = nil
 
@@ -57,7 +57,8 @@ final class CompanionState {
         bodyKind: CompanionBodyKind = .orb,
         accentHex: String = "#7BA8E0",
         loraAdapterPath: String? = nil,
-        personaPrompt: String? = nil
+        personaPrompt: String? = nil,
+        activateOnCreate: Bool = true
     ) -> CompanionRosterEntry? {
         guard let context = modelContext else {
             Self.log.error("createCompanion: ModelContext not attached")
@@ -77,6 +78,9 @@ final class CompanionState {
         } catch {
             Self.log.error("createCompanion: save failed: \(error.localizedDescription, privacy: .public)")
             return nil
+        }
+        if activateOnCreate {
+            activeCompanionID = model.id
         }
         reloadRoster()
         return CompanionRosterEntry(from: model)
@@ -146,6 +150,70 @@ final class CompanionState {
         activeCompanionID = nil
     }
 
+    var activeAgentName: String? {
+        activeAgentEntry?.name
+    }
+
+    var activeAgentEntry: CompanionRosterEntry? {
+        guard let activeCompanionID else { return nil }
+        return roster.first { $0.id == activeCompanionID }
+    }
+
+    /// Active Landing agents are real v1 routing state: the selected agent
+    /// contributes a bounded persona instruction to every main-chat turn.
+    /// This remains honest about scope: agents do not claim a separate model
+    /// or hidden tool authority; they steer the selected Epistemos runtime.
+    func activeAgentSystemInstruction() -> String? {
+        guard let entry = activeAgentEntry else { return nil }
+        return Self.agentSystemInstruction(for: entry)
+    }
+
+    func activeAgentBrainSection() -> String? {
+        guard let entry = activeAgentEntry else { return nil }
+        var lines = [
+            "Name: \(Self.boundedPromptField(entry.name, limit: 80))",
+            "Body: \(entry.bodyKind.displayName)",
+        ]
+        let role = Self.boundedPromptField(entry.tagline, limit: 160)
+        if !role.isEmpty {
+            lines.append("Role: \(role)")
+        }
+        let persona = Self.boundedPromptField(entry.personaPrompt ?? "", limit: 500)
+        if !persona.isEmpty {
+            lines.append("Persona: \(persona)")
+        }
+        lines.append("Scope: prompt/persona layer over the selected model and tool tier.")
+        return lines.joined(separator: "\n")
+    }
+
+    nonisolated static func agentSystemInstruction(for entry: CompanionRosterEntry) -> String? {
+        let name = boundedPromptField(entry.name, limit: 80)
+        guard !name.isEmpty else { return nil }
+
+        var lines = [
+            "Active Epistemos landing agent: \(name).",
+            "Use this agent as the visible working persona for this turn while still following all Epistemos safety, evidence, and tool-permission rules.",
+            "This agent is a user-selected persona over the currently selected model/runtime; do not claim a separate model, unavailable tool access, or autonomous background action.",
+        ]
+        let role = boundedPromptField(entry.tagline, limit: 160)
+        if !role.isEmpty {
+            lines.append("Agent role: \(role).")
+        }
+        let persona = boundedPromptField(entry.personaPrompt ?? "", limit: 800)
+        if !persona.isEmpty {
+            lines.append("Persona directive: \(persona)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    nonisolated private static func boundedPromptField(_ value: String, limit: Int) -> String {
+        let trimmed = value
+            .replacingOccurrences(of: "\0", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit else { return trimmed }
+        return String(trimmed.prefix(limit)) + "…"
+    }
+
     // MARK: - Lookups
 
     func fetch(by id: String) -> CompanionModel? {
@@ -204,11 +272,11 @@ final class CompanionState {
                 personaPrompt: "Reflective tone. Cite reasoning. Respect the user's time."
             ),
             (
-                name: "Orbit",
-                tagline: "Drifting planner · slow & deliberate",
-                bodyKind: .orb,
-                accentHex: "#7B95A8",
-                personaPrompt: "Calm planner. Consider trade-offs before acting."
+                name: "Scout",
+                tagline: "Map reader · finds the next move",
+                bodyKind: .blockWide,
+                accentHex: "#5EC2B7",
+                personaPrompt: "Map the terrain first. Identify the next useful move before acting."
             ),
             (
                 name: "Brick",
@@ -233,10 +301,12 @@ final class CompanionState {
                 tagline: preset.tagline,
                 bodyKind: preset.bodyKind,
                 accentHex: preset.accentHex,
-                personaPrompt: preset.personaPrompt
+                personaPrompt: preset.personaPrompt,
+                activateOnCreate: false
             )
             if first == nil { first = entry }
         }
+        activeCompanionID = first?.id
         return first
     }
 }

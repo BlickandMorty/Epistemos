@@ -21,11 +21,17 @@ use std::sync::{Mutex, OnceLock};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
+
+const MAX_CRON_NAME_CHARS: usize = 120;
+const MAX_CRON_PROMPT_CHARS: usize = 8_000;
+const MAX_CRON_SCHEDULE_CHARS: usize = 120;
+const MAX_CRON_ID_CHARS: usize = 128;
+const MAX_LIST_JOBS: usize = 100;
 
 // MARK: - Storage
 
@@ -172,7 +178,7 @@ impl ToolHandler for CronJobHandler {
                 .map_err(|e| ToolError::ExecutionFailed(format!("cron lock poisoned: {e}")))?;
             match action_owned.as_str() {
                 "create" => create_job(&input_owned),
-                "list" => list_jobs(),
+                "list" => list_jobs(&input_owned),
                 "get" => get_job(&input_owned),
                 "update" => update_job(&input_owned),
                 "remove" => remove_job(&input_owned),
@@ -189,21 +195,10 @@ impl ToolHandler for CronJobHandler {
 }
 
 fn create_job(input: &Value) -> Result<String, ToolError> {
-    let name = input
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or("unnamed-job")
-        .to_string();
-    let prompt = input
-        .get("prompt")
-        .and_then(Value::as_str)
-        .ok_or_else(|| ToolError::InvalidArguments("missing 'prompt'".into()))?
-        .to_string();
-    let schedule = input
-        .get("schedule")
-        .and_then(Value::as_str)
-        .ok_or_else(|| ToolError::InvalidArguments("missing 'schedule' (cron expression)".into()))?
-        .to_string();
+    require_persistent_schedule_ack(input, "create")?;
+    let name = optional_limited_string(input, "name", "unnamed-job", MAX_CRON_NAME_CHARS)?;
+    let prompt = required_limited_string(input, "prompt", MAX_CRON_PROMPT_CHARS)?;
+    let schedule = required_limited_string(input, "schedule", MAX_CRON_SCHEDULE_CHARS)?;
     let enabled = input
         .get("enabled")
         .and_then(Value::as_bool)
@@ -249,13 +244,18 @@ fn create_job(input: &Value) -> Result<String, ToolError> {
     .to_string())
 }
 
-fn list_jobs() -> Result<String, ToolError> {
+fn list_jobs(input: &Value) -> Result<String, ToolError> {
+    let limit = input
+        .get("limit")
+        .and_then(Value::as_u64)
+        .unwrap_or(MAX_LIST_JOBS as u64)
+        .clamp(1, MAX_LIST_JOBS as u64) as usize;
     let conn = connection()?;
     let mut stmt = conn
-        .prepare("SELECT * FROM cron_jobs ORDER BY created_at DESC")
+        .prepare("SELECT * FROM cron_jobs ORDER BY created_at DESC LIMIT ?1")
         .map_err(|e| ToolError::ExecutionFailed(format!("prepare list: {e}")))?;
     let rows = stmt
-        .query_map([], parse_row)
+        .query_map(params![limit as i64], parse_row)
         .map_err(|e| ToolError::ExecutionFailed(format!("query list: {e}")))?;
     let mut jobs = Vec::new();
     for row in rows {
@@ -265,6 +265,7 @@ fn list_jobs() -> Result<String, ToolError> {
     Ok(json!({
         "action": "list",
         "count": jobs.len(),
+        "limit": limit,
         "jobs": jobs,
     })
     .to_string())
@@ -275,6 +276,7 @@ fn get_job(input: &Value) -> Result<String, ToolError> {
         .get("id")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'id'".into()))?;
+    ensure_char_cap("id", id, MAX_CRON_ID_CHARS)?;
     let conn = connection()?;
     let mut stmt = conn
         .prepare("SELECT * FROM cron_jobs WHERE id = ?1")
@@ -295,6 +297,8 @@ fn update_job(input: &Value) -> Result<String, ToolError> {
         .get("id")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'id'".into()))?;
+    ensure_char_cap("id", id, MAX_CRON_ID_CHARS)?;
+    require_persistent_schedule_ack(input, "update")?;
 
     // Load existing job.
     let conn = connection()?;
@@ -311,13 +315,16 @@ fn update_job(input: &Value) -> Result<String, ToolError> {
     };
 
     if let Some(prompt) = input.get("prompt").and_then(Value::as_str) {
+        ensure_char_cap("prompt", prompt, MAX_CRON_PROMPT_CHARS)?;
         job.prompt = prompt.to_string();
     }
     if let Some(schedule) = input.get("schedule").and_then(Value::as_str) {
+        ensure_char_cap("schedule", schedule, MAX_CRON_SCHEDULE_CHARS)?;
         job.next_run = Some(compute_next_run(schedule, Utc::now())?);
         job.schedule = schedule.to_string();
     }
     if let Some(name) = input.get("name").and_then(Value::as_str) {
+        ensure_char_cap("name", name, MAX_CRON_NAME_CHARS)?;
         job.name = name.to_string();
     }
     if let Some(enabled) = input.get("enabled").and_then(Value::as_bool) {
@@ -347,6 +354,7 @@ fn remove_job(input: &Value) -> Result<String, ToolError> {
         .get("id")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'id'".into()))?;
+    ensure_char_cap("id", id, MAX_CRON_ID_CHARS)?;
     let conn = connection()?;
     let count = conn
         .execute("DELETE FROM cron_jobs WHERE id = ?1", params![id])
@@ -362,6 +370,10 @@ fn set_enabled(input: &Value, enabled: bool) -> Result<String, ToolError> {
         .get("id")
         .and_then(Value::as_str)
         .ok_or_else(|| ToolError::InvalidArguments("missing 'id'".into()))?;
+    ensure_char_cap("id", id, MAX_CRON_ID_CHARS)?;
+    if enabled {
+        require_persistent_schedule_ack(input, "resume")?;
+    }
     let conn = connection()?;
     let updated_at = Utc::now();
     let count = conn
@@ -380,6 +392,50 @@ fn set_enabled(input: &Value, enabled: bool) -> Result<String, ToolError> {
         "enabled": enabled,
     })
     .to_string())
+}
+
+fn require_persistent_schedule_ack(input: &Value, action: &str) -> Result<(), ToolError> {
+    if input
+        .get("allow_persistent_schedule")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        Ok(())
+    } else {
+        Err(ToolError::InvalidArguments(format!(
+            "allow_persistent_schedule must be true before cronjob can {action} a job that may run later"
+        )))
+    }
+}
+
+fn required_limited_string(input: &Value, key: &str, cap: usize) -> Result<String, ToolError> {
+    let value = input
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("missing '{key}'")))?;
+    ensure_char_cap(key, value, cap)?;
+    Ok(value.to_string())
+}
+
+fn optional_limited_string(
+    input: &Value,
+    key: &str,
+    default: &str,
+    cap: usize,
+) -> Result<String, ToolError> {
+    let value = input.get(key).and_then(Value::as_str).unwrap_or(default);
+    ensure_char_cap(key, value, cap)?;
+    Ok(value.to_string())
+}
+
+fn ensure_char_cap(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
+    if value.chars().count() > cap {
+        Err(ToolError::InvalidArguments(format!(
+            "{label} exceeds {cap} character cap"
+        )))
+    } else {
+        Ok(())
+    }
 }
 
 // MARK: - Schema
@@ -405,7 +461,12 @@ pub fn cronjob_schema() -> crate::types::ToolSchema {
                 "name": { "type": "string", "description": "Human-readable job name." },
                 "prompt": { "type": "string", "description": "Prompt the agent runs when the job fires." },
                 "schedule": { "type": "string", "description": "Cron expression (6 or 7 fields; seconds are supported)." },
-                "enabled": { "type": "boolean", "description": "Whether the job should run." }
+                "enabled": { "type": "boolean", "description": "Whether the job should run." },
+                "limit": { "type": "integer", "description": "Max jobs returned by list (1-100).", "minimum": 1, "maximum": 100 },
+                "allow_persistent_schedule": {
+                    "type": "boolean",
+                    "description": "Required for create/update/resume because the prompt may run later outside the current turn."
+                }
             }
         }),
     }
@@ -466,7 +527,8 @@ mod tests {
                 "action": "create",
                 "name": expected_name,
                 "prompt": "do the thing",
-                "schedule": "0 0 * * * *"
+                "schedule": "0 0 * * * *",
+                "allow_persistent_schedule": true
             }))
             .await
             .unwrap();
@@ -476,11 +538,48 @@ mod tests {
         let list = handler.execute(&json!({ "action": "list" })).await.unwrap();
         let list_parsed: Value = serde_json::from_str(&list).unwrap();
         assert!(list_parsed["count"].as_u64().unwrap() >= 1);
-        assert!(list_parsed["jobs"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|j| j["name"] == expected_name.as_str()));
+        assert!(
+            list_parsed["jobs"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|j| j["name"] == expected_name.as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn cronjob_create_requires_persistent_schedule_ack() {
+        let _gate = lock_tests();
+        let _db = TempDb::new();
+        let handler = CronJobHandler::new();
+
+        let err = handler
+            .execute(&json!({
+                "action": "create",
+                "prompt": "do the thing",
+                "schedule": "0 0 * * * *"
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("allow_persistent_schedule"));
+    }
+
+    #[tokio::test]
+    async fn cronjob_rejects_oversized_prompt_before_insert() {
+        let _gate = lock_tests();
+        let _db = TempDb::new();
+        let handler = CronJobHandler::new();
+
+        let err = handler
+            .execute(&json!({
+                "action": "create",
+                "prompt": "x".repeat(MAX_CRON_PROMPT_CHARS + 1),
+                "schedule": "0 0 * * * *",
+                "allow_persistent_schedule": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("prompt exceeds"));
     }
 
     #[tokio::test]
@@ -494,7 +593,8 @@ mod tests {
                 "action": "create",
                 "name": "orig",
                 "prompt": "first",
-                "schedule": "0 0 * * * *"
+                "schedule": "0 0 * * * *",
+                "allow_persistent_schedule": true
             }))
             .await
             .unwrap();
@@ -506,7 +606,8 @@ mod tests {
                 "action": "update",
                 "id": id,
                 "prompt": "second",
-                "schedule": "0 */5 * * * *"
+                "schedule": "0 */5 * * * *",
+                "allow_persistent_schedule": true
             }))
             .await
             .unwrap();
@@ -525,7 +626,8 @@ mod tests {
             .execute(&json!({
                 "action": "create",
                 "prompt": "x",
-                "schedule": "0 0 * * * *"
+                "schedule": "0 0 * * * *",
+                "allow_persistent_schedule": true
             }))
             .await
             .unwrap();
@@ -542,6 +644,16 @@ mod tests {
         let resumed = handler
             .execute(&json!({ "action": "resume", "id": id }))
             .await
+            .unwrap_err();
+        assert!(format!("{resumed}").contains("allow_persistent_schedule"));
+
+        let resumed = handler
+            .execute(&json!({
+                "action": "resume",
+                "id": id,
+                "allow_persistent_schedule": true
+            }))
+            .await
             .unwrap();
         let r_parsed: Value = serde_json::from_str(&resumed).unwrap();
         assert_eq!(r_parsed["enabled"], json!(true));
@@ -557,7 +669,8 @@ mod tests {
             .execute(&json!({
                 "action": "create",
                 "prompt": "x",
-                "schedule": "0 0 * * * *"
+                "schedule": "0 0 * * * *",
+                "allow_persistent_schedule": true
             }))
             .await
             .unwrap();

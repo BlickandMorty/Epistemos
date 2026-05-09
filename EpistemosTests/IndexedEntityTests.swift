@@ -116,4 +116,22 @@ struct IndexedEntityTests {
         let matching = await (try? query.entities(matching: "test")) ?? IntentItemCollection(items: [])
         #expect(matching.items.count <= 20)
     }
+
+    @Test("Visual Intelligence intent bridge is deferred honestly on macOS")
+    func visualIntelligenceIntentBridgeIsDeferredHonestlyOnMacOS() async throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Intents/Schemas/VisualIntelligenceIntents.swift")
+
+        #expect(source.contains("macOS deferred facade"))
+        #expect(source.contains("unavailableOnMacOSMessage"))
+        #expect(source.contains("EPISTEMOS_ENABLE_VISUAL_INTELLIGENCE_INTENT"))
+        #expect(source.contains("#if os(iOS) && canImport(VisualIntelligence) && EPISTEMOS_ENABLE_VISUAL_INTELLIGENCE_INTENT"))
+        #expect(!source.localizedCaseInsensitiveContains("stub"))
+        #expect(!source.contains("macOS code paths pass `nil` and get\n    /// `nil` back."))
+
+        #if os(macOS)
+        let results = await NoteVisualSearchService.search(imageData: Data("not-an-image".utf8))
+        #expect(results.isEmpty)
+        #expect(NoteVisualSearchService.unavailableOnMacOSMessage.contains("unavailable on macOS"))
+        #endif
+    }
 }

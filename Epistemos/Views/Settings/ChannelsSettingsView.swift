@@ -10,7 +10,7 @@ struct ChannelsDetailView: View {
     @State private var senderRoutesChannel: ChannelIdentity?
     @State private var relayHealth: [ChannelIdentity: RelayHealthStatus] = [:]
     @State private var relayChecksInFlight: Set<ChannelIdentity> = []
-    @State private var iMessageSetupStatus = IMessageNativeSetupDoctor.currentStatus()
+    @State private var iMessageSetupStatus = IMessageNativeSetupDoctor.currentStatus(probeAutomation: false)
     @State private var isRunningIMessageSetup: Bool = false
     @State private var iMessageSetupMessage: String?
 
@@ -220,7 +220,7 @@ struct ChannelsDetailView: View {
                         }
 
                         Button("Refresh setup status") {
-                            Task { await refreshIMessageSetupStatus() }
+                            Task { await refreshIMessageSetupStatus(probeAutomation: true) }
                         }
                         .disabled(isRunningIMessageSetup)
 
@@ -610,8 +610,8 @@ struct ChannelsDetailView: View {
         return error
     }
 
-    private func refreshIMessageSetupStatus() async {
-        iMessageSetupStatus = IMessageNativeSetupDoctor.currentStatus()
+    private func refreshIMessageSetupStatus(probeAutomation: Bool = false) async {
+        iMessageSetupStatus = IMessageNativeSetupDoctor.currentStatus(probeAutomation: probeAutomation)
         if iMessageSetupStatus.nativeBridgeReady {
             iMessageSetupMessage = "Native Messages bridge looks ready."
         } else if iMessageSetupStatus.databaseAccessible {

@@ -128,10 +128,10 @@ struct SettingsView: View {
         /// both deployment profiles.
         case privacy = "Privacy"
         case provenance = "Provenance Console"
-        // HELIOS V5 W9+W10+W11 — Tier-2 toggle parents (Verified
-        // Research Mode / Connectome Browser / Experimental Metal
-        // Kernels). All toggles default OFF per §2.5.2 compliance.
-        // See `Epistemos/Views/Settings/HELIOSv5SettingsView.swift`.
+        // HELIOS research scaffold. Preserved for source guards and
+        // deep-link compatibility, but not listed in v1 visible settings:
+        // HELIOS is frozen as research/doctrine/guardrails until its WRV
+        // gates are actually satisfied.
         case heliosV5 = "HELIOS V5"
 
         var id: String { rawValue }
@@ -167,7 +167,6 @@ struct SettingsView: View {
                 .vault,
                 .privacy,
                 .provenance,
-                .heliosV5,
             ]
             return sections
         }
@@ -279,7 +278,7 @@ struct SettingsView: View {
             case .provenance:
                 "Read-only audit trail for agent, graph, and mutation projections."
             case .heliosV5:
-                "VRM labels, Connectome Browser, experimental Metal kernels (all default OFF)."
+                "Research-only HELIOS scaffold; v1 runtime controls are deferred."
             }
         }
     }
@@ -714,10 +713,13 @@ private struct GeneralDetailView: View {
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
-                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Halo backend reports the Rust shadow index status; Background Indexing shows the current vault crawl; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query (RRF Phase 6); Cognitive DAG (V2 final lane) reports the typed cognitive substrate's node/edge counts + content-hash root."
+                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Shadow Search shows live Halo backend health and degraded failure classes without exposing backend details; Background Indexing shows the current vault crawl; Process Memory reports resident footprint and pressure state without claiming allocation root cause; Shared Arena reports the app-group arena path and bridge budgets without claiming runtime authority; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query; Cognitive DAG reports node/edge counts + content-hash root."
                 )
                 EditorBundleHealthRow()
+                ShadowSearchHealthRow()
                 BackgroundIndexingHealthRow()
+                ProcessMemoryHealthRow()
+                ArenaHealthRow()
                 OpLogProjectionHealthRow()
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()
@@ -1177,6 +1179,13 @@ private struct InferenceDetailView: View {
                 Text(inference.routingMode.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button {
+                    inference.refreshAppleIntelligenceAvailability()
+                } label: {
+                    Label("Check Apple Intelligence", systemImage: "arrow.clockwise")
+                }
+                .controlSize(.small)
 
                 if inference.appleIntelligenceAvailable {
                     Label(
@@ -3101,6 +3110,9 @@ private struct VaultDetailView: View {
                 } else {
                     Text("No vault connected. Select a folder to sync your markdown notes.")
                         .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Cached local notes or graph rows may still be visible, but they are disconnected from disk until a vault is selected.")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                     Button("Select Vault Folder") {
                         VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)

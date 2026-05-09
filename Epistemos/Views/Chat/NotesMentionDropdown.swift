@@ -237,6 +237,20 @@ enum ComposerReferenceChoice: Identifiable {
     }
 }
 
+enum ComposerReferenceKeyboardSelection {
+    static func choices(
+        from results: ChatCoordinator.ReferenceSearchResults,
+        style: ComposerReferencePopoverStyle
+    ) -> [ComposerReferenceChoice] {
+        var choices: [ComposerReferenceChoice] = []
+        if style != .chatPicker {
+            choices.append(contentsOf: results.notes.map(ComposerReferenceChoice.note))
+        }
+        choices.append(contentsOf: results.chats.map(ComposerReferenceChoice.chat))
+        return choices
+    }
+}
+
 enum ComposerReferencePopoverLayout {
     static let screenInset: CGFloat = 24
     static let minimumWidth: CGFloat = 420
@@ -490,6 +504,7 @@ final class ComposerReferencePopoverBridge {
     let modelContext: ModelContext
     @ObservationIgnored var selectAction: ((ComposerReferenceChoice) -> Void)?
     @ObservationIgnored var queryChangeAction: ((String) -> Void)?
+    @ObservationIgnored var dismissAction: (() -> Void)?
 
     init(
         results: ChatCoordinator.ReferenceSearchResults,
@@ -533,6 +548,9 @@ private struct ComposerReferencePopoverBridgeRoot: View {
             modelContext: bridge.modelContext,
             onSelect: { choice in
                 bridge.selectAction?(choice)
+            },
+            onCancel: {
+                bridge.dismissAction?()
             }
         )
     }
@@ -567,6 +585,7 @@ final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
         )
 
         let queryBinding = configuration.$query
+        let presentedBinding = configuration.$isPresented
         if let bridge {
             bridge.results = configuration.results
             if bridge.query != configuration.query { bridge.query = configuration.query }
@@ -577,6 +596,7 @@ final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
             bridge.manifest = configuration.manifest
             bridge.selectAction = configuration.onSelect
             bridge.queryChangeAction = { queryBinding.wrappedValue = $0 }
+            bridge.dismissAction = { presentedBinding.wrappedValue = false }
         } else {
             let newBridge = ComposerReferencePopoverBridge(
                 results: configuration.results,
@@ -590,6 +610,7 @@ final class ComposerReferencePopoverCoordinator: NSObject, NSPopoverDelegate {
             )
             newBridge.selectAction = configuration.onSelect
             newBridge.queryChangeAction = { queryBinding.wrappedValue = $0 }
+            newBridge.dismissAction = { presentedBinding.wrappedValue = false }
             self.bridge = newBridge
 
             let rootView = ComposerReferencePopoverBridgeRoot(bridge: newBridge)
@@ -713,6 +734,7 @@ struct ComposerReferencePopover: NSViewRepresentable {
 private struct ComposerReferencePopoverContent: View {
     let results: ChatCoordinator.ReferenceSearchResults
     let onSelect: (ComposerReferenceChoice) -> Void
+    let onCancel: () -> Void
     let width: CGFloat
     let maxHeight: CGFloat
     let style: ComposerReferencePopoverStyle
@@ -722,6 +744,7 @@ private struct ComposerReferencePopoverContent: View {
     private let modelContext: ModelContext
 
     @FocusState private var isSearchFocused: Bool
+    @State private var selectedIndex = 0
     @State private var browseInventory = ComposerReferenceBrowserInventory.empty
 
     @Environment(UIState.self) private var ui
@@ -736,7 +759,8 @@ private struct ComposerReferencePopoverContent: View {
         autofocusSearchField: Bool,
         manifest: VaultManifest?,
         modelContext: ModelContext,
-        onSelect: @escaping (ComposerReferenceChoice) -> Void
+        onSelect: @escaping (ComposerReferenceChoice) -> Void,
+        onCancel: @escaping () -> Void
     ) {
         self.results = results
         _query = query
@@ -747,6 +771,7 @@ private struct ComposerReferencePopoverContent: View {
         self.manifest = manifest
         self.modelContext = modelContext
         self.onSelect = onSelect
+        self.onCancel = onCancel
     }
 
     private var usesReducedOverdrawChrome: Bool {
@@ -803,9 +828,14 @@ private struct ComposerReferencePopoverContent: View {
         }
         .onChange(of: results.query) { _, _ in
             refreshBrowseInventoryIfNeeded(force: false)
+            clampSelectedIndex()
         }
         .onChange(of: results.vaultNoteCount) { _, _ in
             refreshBrowseInventoryIfNeeded(force: true)
+            clampSelectedIndex()
+        }
+        .onChange(of: resultCount) { _, _ in
+            clampSelectedIndex()
         }
     }
 
@@ -870,6 +900,7 @@ private struct ComposerReferencePopoverContent: View {
                 results: results,
                 style: style,
                 browseInventory: browseInventory,
+                selectedChoiceID: selectedChoice?.id,
                 onSelect: onSelect
             )
             .padding(.vertical, 8)
@@ -1022,14 +1053,15 @@ private struct ComposerReferencePopoverContent: View {
                 .font(.system(size: style == .notePicker ? 13 : 12, weight: .semibold))
                 .foregroundStyle(theme.textSecondary)
 
-            TextField(
-                "Search notes, chats, tags, folders, and snippets",
-                text: $query
+            ComposerReferenceSearchField(
+                text: $query,
+                placeholder: "Search notes, chats, tags, folders, and snippets",
+                fontSize: style == .notePicker ? 13.5 : 12.5,
+                theme: theme,
+                isFocused: isSearchFocused,
+                onCommand: handleSearchFieldCommand
             )
-            .textFieldStyle(.plain)
-            .font(.system(size: style == .notePicker ? 13.5 : 12.5, weight: .medium, design: .rounded))
-            .foregroundStyle(theme.resolved.foreground.color)
-            .focused($isSearchFocused)
+            .frame(height: style == .notePicker ? 18 : 16)
 
             if !query.isEmpty {
                 Button {
@@ -1078,6 +1110,52 @@ private struct ComposerReferencePopoverContent: View {
 
     private var resultCount: Int {
         results.notes.count + results.chats.count
+    }
+
+    private var keyboardChoices: [ComposerReferenceChoice] {
+        ComposerReferenceKeyboardSelection.choices(from: results, style: style)
+    }
+
+    private var selectedChoice: ComposerReferenceChoice? {
+        let choices = keyboardChoices
+        guard !choices.isEmpty else { return nil }
+        return choices[min(selectedIndex, choices.count - 1)]
+    }
+
+    private func handleSearchFieldCommand(_ command: ChatComposerOverlayCommand) -> Bool {
+        switch command {
+        case .moveDown:
+            moveSelection(by: 1)
+            return true
+        case .moveUp:
+            moveSelection(by: -1)
+            return true
+        case .confirm:
+            guard let selectedChoice else { return false }
+            onSelect(selectedChoice)
+            return true
+        case .cancel:
+            onCancel()
+            return true
+        }
+    }
+
+    private func moveSelection(by delta: Int) {
+        let count = keyboardChoices.count
+        guard count > 0 else {
+            selectedIndex = 0
+            return
+        }
+        selectedIndex = (selectedIndex + delta + count) % count
+    }
+
+    private func clampSelectedIndex() {
+        let count = keyboardChoices.count
+        if count == 0 {
+            selectedIndex = 0
+        } else if selectedIndex >= count {
+            selectedIndex = count - 1
+        }
     }
 
     private func notePickerSidebarButton(
@@ -1154,6 +1232,87 @@ private struct ComposerReferencePopoverContent: View {
     }
 }
 
+private struct ComposerReferenceSearchField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let fontSize: CGFloat
+    let theme: EpistemosTheme
+    let isFocused: Bool
+    let onCommand: (ChatComposerOverlayCommand) -> Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.delegate = context.coordinator
+        textField.stringValue = text
+        textField.placeholderString = placeholder
+        textField.isBordered = false
+        textField.isBezeled = false
+        textField.drawsBackground = false
+        textField.focusRingType = .none
+        textField.lineBreakMode = .byTruncatingTail
+        textField.cell?.usesSingleLineMode = true
+        textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        context.coordinator.applyTheme(to: textField)
+        return textField
+    }
+
+    func updateNSView(_ textField: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        if textField.stringValue != text {
+            textField.stringValue = text
+        }
+        textField.placeholderString = placeholder
+        context.coordinator.applyTheme(to: textField)
+
+        guard isFocused, let window = textField.window else { return }
+        let fieldEditor = textField.currentEditor()
+        if window.firstResponder !== textField && window.firstResponder !== fieldEditor {
+            window.makeFirstResponder(textField)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: ComposerReferenceSearchField
+
+        init(parent: ComposerReferenceSearchField) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else { return }
+            if parent.text != textField.stringValue {
+                parent.text = textField.stringValue
+            }
+        }
+
+        func control(
+            _ control: NSControl,
+            textView: NSTextView,
+            doCommandBy commandSelector: Selector
+        ) -> Bool {
+            let modifierFlags = NSApp.currentEvent?.modifierFlags ?? []
+            guard let command = ChatComposerKeyHandling.overlayCommand(
+                for: commandSelector,
+                modifierFlags: modifierFlags
+            ) else {
+                return false
+            }
+            return parent.onCommand(command)
+        }
+
+        func applyTheme(to textField: NSTextField) {
+            textField.font = .systemFont(ofSize: parent.fontSize, weight: .medium)
+            textField.textColor = NSColor(parent.theme.resolved.foreground.color)
+            textField.backgroundColor = .clear
+        }
+    }
+}
+
 // MARK: - Notes Mention Dropdown
 // Floating dropdown triggered by @ in ChatInputBar during Notes Mode.
 // Shows filtered note titles from the in-memory VaultManifest.
@@ -1162,6 +1321,7 @@ struct NotesMentionDropdown: View {
     let results: ChatCoordinator.ReferenceSearchResults
     let style: ComposerReferencePopoverStyle
     let browseInventory: ComposerReferenceBrowserInventory
+    let selectedChoiceID: String?
     let onSelect: (ComposerReferenceChoice) -> Void
 
     @Environment(UIState.self) private var ui
@@ -1193,7 +1353,10 @@ struct NotesMentionDropdown: View {
                     sectionHeader("Notes")
                     ForEach(results.notes) { choice in
                         Button { onSelect(.note(choice)) } label: {
-                            noteRow(choice)
+                            noteRow(
+                                choice,
+                                isSelected: selectedChoiceID == ComposerReferenceChoice.note(choice).id
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -1207,7 +1370,10 @@ struct NotesMentionDropdown: View {
                     sectionHeader("Chats")
                     ForEach(results.chats) { result in
                         Button { onSelect(.chat(result)) } label: {
-                            chatRow(result)
+                            chatRow(
+                                result,
+                                isSelected: selectedChoiceID == ComposerReferenceChoice.chat(result).id
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -1294,10 +1460,10 @@ struct NotesMentionDropdown: View {
     }
 
     @ViewBuilder
-    private func noteRow(_ choice: NoteMentionChoice) -> some View {
+    private func noteRow(_ choice: NoteMentionChoice, isSelected: Bool) -> some View {
         switch choice {
         case .allNotes:
-            rowChrome {
+            rowChrome(isSelected: isSelected) {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "books.vertical.fill")
                         .font(.system(size: 12, weight: .semibold))
@@ -1326,7 +1492,7 @@ struct NotesMentionDropdown: View {
             }
 
         case .entry(let entry):
-            rowChrome {
+            rowChrome(isSelected: isSelected) {
                 HStack(alignment: .top, spacing: 10) {
                     rowIcon(
                         systemName: results.indexedMatchedNoteIDs.contains(entry.pageId)
@@ -1392,8 +1558,8 @@ struct NotesMentionDropdown: View {
         }
     }
 
-    private func chatRow(_ result: ChatCoordinator.ChatReferenceResult) -> some View {
-        rowChrome {
+    private func chatRow(_ result: ChatCoordinator.ChatReferenceResult, isSelected: Bool) -> some View {
+        rowChrome(isSelected: isSelected) {
             HStack(alignment: .top, spacing: 10) {
                 rowIcon(systemName: "bubble.left.and.bubble.right.fill", tint: theme.textSecondary)
 
@@ -1443,7 +1609,10 @@ struct NotesMentionDropdown: View {
         return manifestSnippet.isEmpty ? nil : manifestSnippet
     }
 
-    private func rowChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    private func rowChrome<Content: View>(
+        isSelected: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         content()
             .padding(.horizontal, style == .notePicker ? 16 : 14)
             .padding(.vertical, style == .notePicker ? 14 : 12)
@@ -1451,14 +1620,21 @@ struct NotesMentionDropdown: View {
             .background {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(
-                        theme.isDark
-                            ? theme.resolved.background.color.opacity(0.94)
-                            : Color.white.opacity(0.94)
+                        isSelected
+                            ? theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.13)
+                            : (theme.isDark
+                                ? theme.resolved.background.color.opacity(0.94)
+                                : Color.white.opacity(0.94))
                     )
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.20 : 0.12), lineWidth: 0.6)
+                    .strokeBorder(
+                        isSelected
+                            ? theme.resolved.accent.color.opacity(theme.isDark ? 0.62 : 0.48)
+                            : theme.glassBorder.opacity(theme.isDark ? 0.20 : 0.12),
+                        lineWidth: isSelected ? 1.1 : 0.6
+                    )
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 3)

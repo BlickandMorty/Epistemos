@@ -180,13 +180,12 @@ nonisolated struct LSPClientTests {
 
     @Test("All RPC methods refuse to run before initialize() with .notInitialized")
     func notInitializedGuards() async throws {
-        // Use the InProcessLSPTransport stub — it returns
-        // MethodNotFound for every request, so the client never
-        // reaches initialize(). The guards in didOpen / didChange /
-        // didClose / hover / definition must therefore all surface
-        // .notInitialized.
-        let stub = InProcessLSPTransport()
-        let client = LSPClient(transport: stub)
+        // Use the InProcessLSPTransport test transport — it returns
+        // MethodNotFound for every request, so the client never reaches
+        // initialize(). The guards in didOpen / didChange / didClose /
+        // hover / definition must therefore all surface .notInitialized.
+        let transport = InProcessLSPTransport()
+        let client = LSPClient(transport: transport)
 
         let url = URL(fileURLWithPath: "/tmp/dummy.swift")
 
@@ -235,6 +234,6 @@ nonisolated struct LSPClientTests {
             #expect(Bool(false), "expected .notInitialized; got \(error)")
         }
 
-        await stub.shutdown()
+        await transport.shutdown()
     }
 }

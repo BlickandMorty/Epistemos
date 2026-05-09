@@ -37,7 +37,7 @@ public struct EditorBundleHealthRow: View {
                 ok: haloOpen,
                 detail: haloOpen
                     ? haloPath ?? "Open"
-                    : "Not opened yet — call shadow_open_at(path) at bootstrap"
+                    : "No active vault selected - Shadow/Halo closed"
             )
         }
         .onAppear { refresh() }
@@ -429,7 +429,7 @@ public struct BackgroundIndexingHealthRow: View {
         var detail: String {
             switch phase {
             case .unavailable:
-                return error ?? "No active vault selected yet"
+                return error ?? "No active vault selected - cached local note/graph data only"
             case .scanning:
                 return appendEtlDetail(to: vaultPath.map { "Scanning \($0)" } ?? "Scanning active vault")
             case .indexing:

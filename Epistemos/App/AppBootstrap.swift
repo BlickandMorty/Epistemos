@@ -1382,8 +1382,8 @@ final class AppBootstrap {
         // Wire CompanionState to the canonical SwiftData ModelContext
         // so the Farm + Notes Sidebar Skin (Simulation v1.6) can read
         // the roster on first paint. seedDefaultIfEmpty is a one-shot
-        // that adds a single "Sage" companion if the user has never
-        // created any — gives the Farm something to show without
+        // that adds a small default agent roster if the user has never
+        // created any — gives the Landing agent dock something to show without
         // forcing the user through the wizard on first launch.
         companionState.attachModelContext(container.mainContext)
         companionState.seedDefaultIfEmpty()
@@ -1624,6 +1624,7 @@ final class AppBootstrap {
         )
 
         // PipelineService — direct local answer streaming + tool-enabled loop
+        let companionStateForPipeline = companionState
         let pipeline = PipelineService(
             pipelineState: pipelineState,
             llmService: llm,
@@ -1634,6 +1635,9 @@ final class AppBootstrap {
             constrainedDecoding: constrainedDecoding,
             vaultPathProvider: { [weak vaultSync] in
                 vaultSync?.vaultURL?.path
+            },
+            activeCompanionInstructionProvider: { [weak companionStateForPipeline] in
+                companionStateForPipeline?.activeAgentSystemInstruction()
             }
         )
 
@@ -1738,10 +1742,8 @@ final class AppBootstrap {
         let deviceBackend: any DeviceInferenceBackend
         if let coreMLBackend = CoreMLActionBackendLoader.loadIfAvailable() {
             deviceBackend = coreMLBackend
-        } else if AppleIntelligenceService.shared.checkAvailability().available {
-            deviceBackend = AppleOnDeviceBackend()
         } else {
-            deviceBackend = SharedGPUBackend(
+            let sharedGPUBackend = SharedGPUBackend(
                 triageService: triage,
                 localModelClient: localMLXClient,
                 constrainedDecoding: constrainedDecoding,
@@ -1749,9 +1751,12 @@ final class AppBootstrap {
                     inference?.activeLocalTextModelID
                 }
             )
+            deviceBackend = SharedGPUAppleFallbackBackend(sharedGPUBackend: sharedGPUBackend)
         }
         deviceAgent.setBackend(deviceBackend)
-        deviceAgent.installContextualResolver()
+        // Device-agent contextual embeddings stay lazy. Constructing the Apple
+        // NL contextual resolver during passive launch can load language assets
+        // before the user asks for computer-use/device-action work.
 
         // ScreenCaptureService, Screen2AXFusion, and AmbientCaptureService now
         // build lazily on first access via the computed-getter pattern declared
@@ -1888,24 +1893,9 @@ final class AppBootstrap {
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.
-        // AP4 — pre-warm the AFM session pool at app launch so the
-        // 1-3 s cold start happens BEFORE the user triggers their
-        // first ontology classification / intake-valve / session
-        // telemetry call. Hidden behind macOS 26 + availability
-        // gate; no-op on older systems / Apple-Intelligence-disabled
-        // devices.
-        if #available(macOS 26.0, *) {
-            Task.detached(priority: .background) {
-                let preheatPrompt = """
-                You are a content classifier for the Epistemos cognitive
-                workspace. Subsequent calls will give you specific
-                instructions; this is a no-op preheat to load weights.
-                """
-                await AFMSessionPool.shared.prewarmAtLaunch(
-                    instructions: preheatPrompt
-                )
-            }
-        }
+        // AFM classifier sessions stay cold during passive launch. The pool
+        // still reuses sessions after explicit classifier work starts, but it
+        // must not warm FoundationModels/TokenGenerationCore before user intent.
 
         // AP7 — bulk-prefetch every `*.epistemos.json` sidecar in
         // the active vault into SidecarCache so the first graph
@@ -2000,11 +1990,9 @@ final class AppBootstrap {
             Log.app.error("PaperclipStateStore init failed: \(error.localizedDescription)")
         }
 
-        // Test hosts can stall on App Shortcut refresh Apple Events; skip that
-        // launch-only side effect when XCTest is driving the app.
-        if !Self.isRunningTests {
-            EpistemosShortcutsProvider.updateAppShortcutParameters()
-        }
+        // App Shortcuts metadata is static and Settings exposes an explicit
+        // refresh action. Do not touch external Shortcuts services during
+        // passive launch; that path has triggered privacy/TCC diagnostics.
 
         // Initialize Agent Command Center state (Phase 5).
         // Tool catalog load calls synchronous Rust FFI (listToolsForTier) which
@@ -2976,7 +2964,13 @@ final class AppBootstrap {
         guard let vaultURL = vaultSync.vaultURL else {
             Log.app.info("W8.7 shadow: skipping init — no active vault URL yet")
             contextualShadowsState.configureShadowSearch(nil)
-            BackgroundIndexingHealthRow.recordUnavailable(reason: "No active vault selected")
+            shadowIndexer = nil
+            lastShadowIndexedVaultPath = nil
+            shadowIndexingInFlightVaultPath = nil
+            EditorBundleHealthRow.recordHaloClosed()
+            BackgroundIndexingHealthRow.recordUnavailable(
+                reason: "No active vault selected - cached local note/graph data only"
+            )
             return
         }
         let vaultPath = vaultURL.path

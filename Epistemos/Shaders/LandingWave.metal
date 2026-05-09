@@ -34,8 +34,8 @@ struct LandingWaveUniforms {
     float4    themeBase;          // RGBA base wave color
     float4    themeAccent;        // RGBA crest color (mixed by |height|)
     int2      atlasGridSize;      // atlas grid dimensions (cells)
-    int       rampIndexCount;     // number of entries in rampCellIndices (≤12)
-    int2      rampCellIndices[12];// atlas cell index per luminance ramp position
+    int       rampIndexCount;     // number of entries in rampCellIndices (≤16)
+    int2      rampCellIndices[16];// atlas cell index per luminance ramp position
 };
 
 struct LandingWaveVertexOut {

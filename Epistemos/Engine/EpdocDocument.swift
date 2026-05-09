@@ -78,7 +78,7 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             contentHash: "",
             provenance: EpdocProvenance(producer: .human)
         )
-        let emptyDoc = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        let emptyDoc = Data(#"{"type":"doc","content":[{"type":"paragraph"}]}"#.utf8)
         self.package = EpdocPackage(manifest: manifest, contentJSON: emptyDoc)
         super.init()
     }
@@ -178,6 +178,10 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         // are ever enabled.
         let pkgSnapshot = MainActor.assumeIsolated { self.package }
         let contentHash = Self.contentHash(of: pkgSnapshot.contentJSON)
+        let metadata = Self.metadataByUpdatingComplexity(
+            pkgSnapshot.manifest.metadata,
+            contentJSON: pkgSnapshot.contentJSON
+        )
         let updated = EpdocManifest(
             id: pkgSnapshot.manifest.id,
             kind: pkgSnapshot.manifest.kind,
@@ -186,7 +190,8 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             updatedAt: now,
             title: pkgSnapshot.manifest.title,
             contentHash: contentHash,
-            provenance: pkgSnapshot.manifest.provenance
+            provenance: pkgSnapshot.manifest.provenance,
+            metadata: metadata
         )
         var pkgCopy = pkgSnapshot
         pkgCopy.manifest = updated
@@ -229,6 +234,19 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     nonisolated static func contentHash(of data: Data) -> String {
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    nonisolated static func metadataByUpdatingComplexity(
+        _ existing: [String: String]?,
+        contentJSON: Data
+    ) -> [String: String]? {
+        var metadata = existing ?? [:]
+        if let complexity = EpdocComplexityCalculator.complexity(jsonData: contentJSON) {
+            metadata["complexity"] = String(max(0.0, min(1.0, complexity)))
+        } else {
+            metadata.removeValue(forKey: "complexity")
+        }
+        return metadata.isEmpty ? nil : metadata
     }
 
     // MARK: - Mutation helpers
@@ -398,7 +416,8 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             updatedAt: manifest.updatedAt,
             title: title,
             contentHash: manifest.contentHash,
-            provenance: manifest.provenance
+            provenance: manifest.provenance,
+            metadata: manifest.metadata
         )
         updateChangeCount(.changeDone)
     }

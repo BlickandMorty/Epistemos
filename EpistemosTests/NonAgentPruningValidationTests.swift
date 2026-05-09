@@ -340,9 +340,39 @@ struct NonAgentPruningValidationTests {
             "Epistemos/Views/Graph/HologramOverlay.swift",
             "Epistemos/Views/Graph/MetalGraphView.swift",
             "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
+            "Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift",
+            "Epistemos/Engine/EpdocDocument.swift",
+            "Epistemos/Engine/LSPMessage.swift",
         ] {
             try expectNoForceUnwraps(in: relativePath)
         }
+    }
+
+    @Test("coder-only AppKit scaffolds fail initialization instead of trapping")
+    func coderOnlyAppKitScaffoldsDoNotTrap() throws {
+        for relativePath in [
+            "Epistemos/Views/Notes/TransclusionOverlayView.swift",
+            "Epistemos/Views/Notes/BlockRefAutocomplete2.swift",
+            "Epistemos/Views/Notes/EditableTransclusionView.swift",
+            "Epistemos/Views/Graph/GraphOverlayPanel.swift",
+            "Epistemos/Views/Notes/NoteWindowManager.swift",
+            "Epistemos/Views/Notes/MarkdownLayoutFragment.swift",
+            "Epistemos/Views/Shared/MarkdownTextView.swift",
+        ] {
+            let source = try loadRepoTextFile(relativePath)
+            #expect(source.contains("required init?(coder: NSCoder)"))
+            #expect(source.contains("return nil"), "\(relativePath) should fail failable coder initialization without trapping")
+            #expect(!source.contains("fatalError("), "\(relativePath) still traps from a coder-only initializer")
+        }
+    }
+
+    @Test("local agent reflex path reports unavailable streaming instead of trapping")
+    func localAgentReflexPathDoesNotPreconditionOnStreaming() throws {
+        let source = try loadRepoTextFile("Epistemos/LocalAgent/LocalAgentLoop.swift")
+
+        #expect(source.contains("case streamingGeneratorUnavailable"))
+        #expect(source.contains("throw LocalAgentLoopError.streamingGeneratorUnavailable"))
+        #expect(!source.contains(#"preconditionFailure("runReflexTurn called without streamingGenerator")"#))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

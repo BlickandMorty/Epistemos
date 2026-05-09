@@ -147,6 +147,38 @@ struct WorkspaceServicePersistenceTests {
     }
 
     @MainActor
+    @Test("workspace word-count snapshots tolerate duplicate page IDs")
+    func workspaceWordCountSnapshotsTolerateDuplicatePageIDs() throws {
+        let first = SDPage(title: "First")
+        first.id = "duplicate-page-id"
+        first.wordCount = 12
+
+        let duplicate = SDPage(title: "Duplicate")
+        duplicate.id = "duplicate-page-id"
+        duplicate.wordCount = 99
+
+        let distinct = SDPage(title: "Distinct")
+        distinct.id = "distinct-page-id"
+        distinct.wordCount = 7
+
+        let counts = WorkspaceService.wordCountsByPageIdForSnapshot([first, duplicate, distinct])
+
+        #expect(counts["duplicate-page-id"] == 12)
+        #expect(counts["distinct-page-id"] == 7)
+        #expect(counts.count == 2)
+    }
+
+    @Test("workspace autosave does not use trapping unique-key dictionaries for pages")
+    func workspaceAutosaveDoesNotUseTrappingUniqueKeyDictionariesForPages() throws {
+        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(!workspaceService.contains("Dictionary(uniqueKeysWithValues: allPages.map { ($0.id, $0.wordCount) })"))
+        #expect(!workspaceService.contains("Dictionary(uniqueKeysWithValues: currentPages.map { ($0.id, $0.wordCount) })"))
+        #expect(workspaceService.contains("wordCountsByPageIdForSnapshot(allPages)"))
+        #expect(workspaceService.contains("wordCountsByPageIdForSnapshot(currentPages)"))
+    }
+
+    @MainActor
     @Test("autoSave reuses the existing auto-save workspace instead of creating duplicates")
     func autoSaveReusesExistingAutoSaveWorkspace() throws {
         let container = try makeModelContainer()

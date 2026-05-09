@@ -53,10 +53,9 @@ public final class ShadowPanel<Content: View>: NSPanel {
 
 // MARK: - ShadowPanelController
 //
-// Owns the lifecycle of the Halo panel + the global mouse-down event
-// monitor that dismisses it on outside click. Per the V1 decision
-// §"Concurrency": @MainActor — touches NSPanel + NSEvent which require
-// it.
+// Owns the lifecycle of the Halo panel + a window-key observer that dismisses
+// it after focus leaves the panel. Per the V1 decision §"Concurrency":
+// @MainActor — touches NSPanel / NSWindow state.
 
 /// Controller that shows / hides the Halo's `ShadowPanel`. The panel
 /// itself is created lazily on first `show(...)` and reused for the
@@ -65,7 +64,7 @@ public final class ShadowPanel<Content: View>: NSPanel {
 public final class ShadowPanelController {
 
     private var panel: NSPanel?
-    private var globalMouseMonitor: Any?
+    private var outsideClickObserver: NSObjectProtocol?
     private let onOutsideClick: @MainActor () -> Void
 
     public init(onOutsideClick: @MainActor @escaping () -> Void) {
@@ -192,7 +191,7 @@ public final class ShadowPanelController {
     /// Hide the panel and detach the outside-click monitor.
     public func hide() {
         panel?.orderOut(nil)
-        detachOutsideClickMonitor()
+        detachOutsideClickObserver()
     }
 
     /// Tear down the panel entirely (used at app shutdown / window close).
@@ -202,30 +201,31 @@ public final class ShadowPanelController {
     }
 
     deinit {
-        // NSEvent.removeMonitor must run on the main thread. The
-        // `globalMouseMonitor` is an opaque token; it's safe to leave
-        // it dangling at process death because the event loop tears
-        // down with the process.
+        // The observer is explicitly detached on hide/dismiss. If process
+        // teardown wins the race, NotificationCenter tears down with it.
     }
 
-    // MARK: - Outside click monitor
+    // MARK: - Outside click observer
 
     private func attachOutsideClickMonitor() {
-        detachOutsideClickMonitor()
-        let callback = onOutsideClick
-        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown]
-        ) { _ in
-            Task { @MainActor in
-                callback()
+        detachOutsideClickObserver()
+        guard let activePanel = panel else { return }
+        outsideClickObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: activePanel,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.panel?.isVisible == true else { return }
+                self.onOutsideClick()
             }
         }
     }
 
-    private func detachOutsideClickMonitor() {
-        if let monitor = globalMouseMonitor {
-            NSEvent.removeMonitor(monitor)
-            globalMouseMonitor = nil
+    private func detachOutsideClickObserver() {
+        if let observer = outsideClickObserver {
+            NotificationCenter.default.removeObserver(observer)
+            outsideClickObserver = nil
         }
     }
 }
