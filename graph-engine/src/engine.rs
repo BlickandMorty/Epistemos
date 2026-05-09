@@ -2111,9 +2111,13 @@ impl Engine {
 
     /// Clear neighbor highlighting.
     pub fn clear_highlight(&mut self) {
-        if self.renderer.highlight.active {
-            self.renderer.highlight.active = false;
-            self.renderer.highlight.highlighted_ids.clear();
+        let had_highlight = self.renderer.highlight.active
+            || !self.renderer.highlight.highlighted_ids.is_empty()
+            || self.renderer.highlight.root_id.is_some();
+        self.renderer.highlight.active = false;
+        self.renderer.highlight.highlighted_ids.clear();
+        self.renderer.highlight.root_id = None;
+        if had_highlight {
             self.highlight_dirty = true;
             self.idle_frame_count = 0;
         }
@@ -2129,6 +2133,7 @@ impl Engine {
 
         let ids = &mut self.renderer.highlight.highlighted_ids;
         ids.clear();
+        self.renderer.highlight.root_id = None;
         self.search_index
             .collect_contains_match_node_ids(query, &mut self.search_highlight_ids_scratch);
 
