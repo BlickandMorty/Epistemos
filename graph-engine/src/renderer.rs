@@ -886,9 +886,9 @@ fragment float4 node_fragment(
         bool cinematic_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
         if (cinematic_dimmed) {
             float3 selection_dim_target = light
-                ? srgb_to_linear(float3(0.28, 0.28, 0.28))
-                : srgb_to_linear(float3(0.62, 0.62, 0.62));
-            pixel_color = mix(pixel_color, selection_dim_target, light ? 0.56 : 0.50);
+                ? srgb_to_linear(float3(0.12, 0.12, 0.12))
+                : srgb_to_linear(float3(0.06, 0.06, 0.06));
+            pixel_color = mix(pixel_color, selection_dim_target, light ? 0.56 : 0.58);
             if (in.desaturate > 0.5) {
                 float lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
                 pixel_color = mix(pixel_color, float3(lum), 0.45);
@@ -936,16 +936,17 @@ fragment float4 node_fragment(
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
         if (is_dimmed) {
-            float3 dim_color = light
-                ? srgb_to_linear(float3(0.18, 0.18, 0.18))
-                : srgb_to_linear(float3(0.82, 0.82, 0.82));
-            result_color = mix(result_color, dim_color, folder_node ? 0.48 : 0.32);
+            float3 selection_dim_target = light
+                ? srgb_to_linear(float3(0.12, 0.12, 0.12))
+                : srgb_to_linear(float3(0.06, 0.06, 0.06));
+            result_color = mix(result_color, selection_dim_target, folder_node ? 0.52 : 0.40);
         }
         if (in.desaturate > 0.5 && !folder_node) {
             float lum = dot(result_color, float3(0.299, 0.587, 0.114));
             result_color = mix(result_color, float3(lum), 0.85);
         }
-        return float4(result_color, max(in.color.a * alpha, 0.85));
+        float dim_alpha_floor = is_dimmed ? 0.95 : 0.85;
+        return float4(result_color, max(in.color.a * alpha, dim_alpha_floor));
     }
 
     float r2 = dot(final_uv, final_uv);
@@ -1059,12 +1060,10 @@ fragment float4 node_fragment(
     // Light mode: keep pure original color, just drop opacity further.
     float3 result_color = lit_color;
     if (is_dimmed) {
-        if (is_light_mode_dim) {
-            result_color = in.color.rgb * 0.92;
-        } else {
-            float lum = dot(lit_color, float3(0.299, 0.587, 0.114));
-            result_color = mix(lit_color, float3(lum) * 1.1, 0.35);
-        }
+        float3 selection_dim_target = light
+            ? srgb_to_linear(float3(0.12, 0.12, 0.12))
+            : srgb_to_linear(float3(0.06, 0.06, 0.06));
+        result_color = mix(lit_color, selection_dim_target, is_light_mode_dim ? 0.40 : 0.48);
     }
 
     // ── Pulse wave glow ──
@@ -1094,7 +1093,8 @@ fragment float4 node_fragment(
         result_color = mix(result_color, float3(lum), 0.85);
     }
 
-    return float4(result_color, max(in.color.a * final_alpha * depth_fade * in.highlight_dim, 0.85));
+    float dim_alpha_floor = is_dimmed ? 0.95 : 0.85;
+    return float4(result_color, max(in.color.a * final_alpha * depth_fade * in.highlight_dim, dim_alpha_floor));
 }
 
 // ── Edge shaders ───────────────────────────────────────────────────
@@ -4169,7 +4169,9 @@ mod tests {
             .expect("renderer source should contain production section");
 
         assert!(production_source.contains("float3 selection_dim_target = light"));
+        assert!(production_source.contains(": srgb_to_linear(float3(0.06, 0.06, 0.06));"));
         assert!(production_source.contains("pixel_color = mix(pixel_color, selection_dim_target"));
+        assert!(production_source.contains("float dim_alpha_floor = is_dimmed ? 0.95 : 0.85;"));
         assert!(production_source.contains("return float4(pixel_color, max(in.color.a, 0.95));"));
     }
 
@@ -4580,6 +4582,33 @@ mod tests {
         assert_eq!(renderer.debug_counters.node_highlight_uploads, 1);
         assert_eq!(renderer.debug_counters.edge_highlight_uploads, 1);
         assert_eq!(renderer.edge_highlight_flag_scratch, vec![1, 2]);
+    }
+
+    #[test]
+    fn light_and_dark_node_highlight_flags_dim_non_neighbors() {
+        if Device::system_default().is_none() {
+            return;
+        }
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.set_viewport_size(1280, 720);
+        renderer.allocate_buffers(&world);
+
+        renderer.highlight.active = true;
+        renderer
+            .highlight
+            .highlighted_ids
+            .insert(world.graph_node[0].node_id);
+        renderer
+            .highlight
+            .highlighted_ids
+            .insert(world.graph_node[1].node_id);
+        renderer.rebuild_highlight_flags(&world);
+        assert_eq!(renderer.highlight_flag_scratch, vec![1, 1, 2]);
+
+        renderer.light_mode = true;
+        renderer.rebuild_highlight_flags(&world);
+        assert_eq!(renderer.highlight_flag_scratch, vec![1, 1, 3]);
     }
 
     #[test]

@@ -2347,6 +2347,12 @@ final class GraphState {
     func selectNode(_ id: String?) {
         guard selectedNodeId != id else { return }
         selectedNodeId = id
+        guard let engine = engineHandle else { return }
+        if let id {
+            id.withCString { graph_engine_select_node(engine, $0) }
+        } else {
+            graph_engine_clear_selected_node(engine)
+        }
     }
 
     var selectedNode: GraphNodeRecord? {
