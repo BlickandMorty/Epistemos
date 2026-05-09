@@ -59,13 +59,13 @@ private struct SidebarPageItem: Identifiable, Equatable {
     }
 }
 
-private struct SidebarDocumentItem: Identifiable, Equatable {
+private struct SidebarDocumentItem: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let url: URL
     let updatedAt: Date
 
-    init(id: String, title: String, url: URL, updatedAt: Date) {
+    nonisolated init(id: String, title: String, url: URL, updatedAt: Date) {
         self.id = id
         self.title = title
         self.url = url
@@ -104,6 +104,28 @@ private struct SidebarFolderItem: Identifiable, Equatable {
             return SidebarPageItem(page)
         }
         descendantPageCount = childPages.count
+    }
+}
+
+private struct NotesSidebarFolderCacheSignature: Equatable {
+    let id: String
+    let name: String
+    let isCollection: Bool
+    let sortOrder: Int
+    let parentId: String?
+    let childFolderIds: [String]
+    let childPageIds: [String]
+    let relativePath: String
+
+    init(_ folder: SDFolder) {
+        id = folder.id
+        name = folder.name
+        isCollection = folder.isCollection
+        sortOrder = folder.sortOrder
+        parentId = folder.parent?.id
+        childFolderIds = (folder.children ?? []).sorted { $0.sortOrder < $1.sortOrder }.map(\.id)
+        childPageIds = (folder.pages ?? []).filter { !$0.isArchived }.map(\.id).sorted()
+        relativePath = folder.relativePath
     }
 }
 
@@ -527,6 +549,7 @@ struct NotesSidebar: View {
     @State private var cachedPageItems: [SidebarPageItem] = []
     @State private var cachedPageById: [String: SidebarPageItem] = [:]
     @State private var cachedFolderItems: [SidebarFolderItem] = []
+    @State private var cachedFolderCacheSignature: [NotesSidebarFolderCacheSignature] = []
     @State private var cachedFolderById: [String: SidebarFolderItem] = [:]
     @State private var cachedChildFolderIdsById: [String: [String]] = [:]
     @State private var cachedPageIdsByFolderId: [String: [String]] = [:]
@@ -544,6 +567,8 @@ struct NotesSidebar: View {
     @State private var cachedBodySearchResultsByQuery: [String: [SidebarPageItem]] = [:]
     @State private var cachedTitleSearchQueryOrder: [String] = []
     @State private var cachedBodySearchQueryOrder: [String] = []
+    @State private var epdocDocumentScanTask: Task<Void, Never>?
+    @State private var epdocDocumentScanVaultURL: URL?
     @State private var hasDailyNotesFolder = false
     @State private var rebuildTask: Task<Void, Never>?
     @State private var bodySearchTask: Task<Void, Never>?
@@ -577,6 +602,8 @@ struct NotesSidebar: View {
     }
 
     private func rebuildCache() {
+        refreshEpdocDocuments(in: vaultSync.vaultURL)
+
         let primaryPages = allPages.filter { page in
             Self.shouldDisplayInPrimaryTree(page)
         }
@@ -585,7 +612,8 @@ struct NotesSidebar: View {
         // expensive rebuild. This prevents the 5s prose editor save cycle from
         // triggering full cache reconstruction when only body/updatedAt changed.
         let newItems = primaryPages.map { SidebarPageItem($0) }
-        if newItems == cachedPageItems && allFolders.count == cachedFolderItems.count {
+        let newFolderSignature = allFolders.map(NotesSidebarFolderCacheSignature.init)
+        if newItems == cachedPageItems && newFolderSignature == cachedFolderCacheSignature {
             return
         }
 
@@ -618,6 +646,7 @@ struct NotesSidebar: View {
             cachedPageSearchCatalog.map { (key: $0.pageId, text: $0.haystack) }
         )
         cachedFolderItems = allFolders.map(SidebarFolderItem.init)
+        cachedFolderCacheSignature = newFolderSignature
 
         // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),
         // match pages to folders using the denormalized subfolder path → folder.relativePath.
@@ -679,7 +708,6 @@ struct NotesSidebar: View {
         cachedLoosePageItems = cachedPageItems.filter {
             !$0.isJournal && $0.folderId == nil && !$0.isTemplate
         }
-        cachedDocumentItems = Self.scanEpdocDocuments(in: vaultSync.vaultURL)
         refreshTitleSearchResults(query: notesUI.searchQuery)
 
         // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
@@ -701,7 +729,34 @@ struct NotesSidebar: View {
         cachedIdeaItems = ideaItems.sorted { $0.createdAt > $1.createdAt }
     }
 
-    private static func scanEpdocDocuments(in vaultURL: URL?) -> [SidebarDocumentItem] {
+    private func refreshEpdocDocuments(in vaultURL: URL?, force: Bool = false) {
+        guard let vaultURL else {
+            epdocDocumentScanTask?.cancel()
+            epdocDocumentScanTask = nil
+            epdocDocumentScanVaultURL = nil
+            cachedDocumentItems = []
+            return
+        }
+
+        guard force || epdocDocumentScanVaultURL != vaultURL else { return }
+
+        epdocDocumentScanTask?.cancel()
+        epdocDocumentScanVaultURL = vaultURL
+        epdocDocumentScanTask = Task { @MainActor in
+            let documents = await Task.detached(priority: .utility) {
+                Self.scanEpdocDocuments(in: vaultURL)
+            }.value
+
+            guard !Task.isCancelled,
+                  epdocDocumentScanVaultURL == vaultURL,
+                  vaultSync.vaultURL == vaultURL else {
+                return
+            }
+            cachedDocumentItems = documents
+        }
+    }
+
+    private nonisolated static func scanEpdocDocuments(in vaultURL: URL?) -> [SidebarDocumentItem] {
         guard let vaultURL else { return [] }
         let fileManager = FileManager.default
         guard let enumerator = fileManager.enumerator(
@@ -732,7 +787,7 @@ struct NotesSidebar: View {
         }
     }
 
-    private static func epdocTitle(at url: URL) -> String? {
+    private nonisolated static func epdocTitle(at url: URL) -> String? {
         let manifestURL = url.appendingPathComponent(EpdocPackageEntry.manifest)
         guard let data = try? Data(contentsOf: manifestURL),
               let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data) else {
@@ -1994,6 +2049,7 @@ struct NotesSidebar: View {
     private func openNewEpdocDocument() {
         do {
             try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+            refreshEpdocDocuments(in: vaultSync.vaultURL, force: true)
             scheduleDeferredRebuild(after: .milliseconds(250), source: "epdoc create")
         } catch {
             NSApplication.shared.presentError(error)
