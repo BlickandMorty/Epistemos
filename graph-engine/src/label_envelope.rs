@@ -7,12 +7,12 @@
 
 const LABEL_ENVELOPE_MAX_CHARS: usize = 32;
 const LABEL_ENVELOPE_MIN_CHARS: usize = 4;
-const LABEL_ENVELOPE_ADVANCE_EM: f32 = 0.54;
-const LABEL_ENVELOPE_WORLD_EM: f32 = 8.0;
+const LABEL_ENVELOPE_ADVANCE_EM: f32 = 0.74;
+const LABEL_ENVELOPE_WORLD_EM: f32 = 16.0;
 const LABEL_ENVELOPE_LINE_HEIGHT_EM: f32 = 1.10;
 const LABEL_ENVELOPE_VERTICAL_GAP_EM: f32 = 0.62;
-const LABEL_ENVELOPE_PAD_WORLD: f32 = 8.0;
-const LABEL_ENVELOPE_MAX_RADIUS: f32 = 118.0;
+const LABEL_ENVELOPE_PAD_WORLD: f32 = 10.0;
+const LABEL_ENVELOPE_MAX_RADIUS: f32 = 240.0;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LabelEnvelope {
@@ -59,6 +59,22 @@ mod tests {
         assert!(envelope.half_height > 0.0);
         assert!(envelope.offset_y < -12.0);
         assert!(envelope.bubble_radius > 70.0);
+    }
+
+    #[test]
+    fn long_label_envelope_tracks_rendered_sdf_label_scale() {
+        let envelope = estimate_label_envelope(12.0, "CODEX_KIMI_OVERSIGHT_ROUND_033_2");
+
+        assert!(
+            envelope.half_width >= 180.0,
+            "physics label envelope must approximate the visible SDF label width; got {}",
+            envelope.half_width
+        );
+        assert!(
+            envelope.bubble_radius >= 190.0,
+            "long selected-neighbor labels need a real collision bubble; got {}",
+            envelope.bubble_radius
+        );
     }
 
     #[test]

@@ -860,6 +860,22 @@ struct GraphForceSettings: View {
                 onChange: { graphState.labelPolicyVersion += 1; graphState.saveLabelPolicy() }
             )
 
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text("Label Bubbles")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("Automatic")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Text("Long labels expand node spacing without changing the force model.")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             forceSlider(
                 label: "Focus Shrink",
                 value: gs.labelFocusShrink,

@@ -9097,6 +9097,28 @@ Patch evidence, 2026-05-09 high-degree selected label cap tightening slice:
 - Remaining risk:
   - Manual dense graph runtime smoke is still required to tune the exact threshold against the user's actual vault screenshots.
 
+Patch evidence, 2026-05-09 rendered-scale label envelope/status slice:
+
+- Files changed:
+  - `Epistemos/Views/Graph/GraphForceSettings.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+  - `graph-engine/src/label_envelope.rs`
+- Product behavior:
+  - The physics label envelope now uses the same wider mono-label advance assumption and a larger world-em scale closer to the visible SDF label size. Long labels such as `CODEX_KIMI_OVERSIGHT_ROUND_033_2` produce a collision bubble above 190 world units instead of the previous too-small 69-world-unit half-width estimate.
+  - The envelope remains bounded (`LABEL_ENVELOPE_MAX_RADIUS = 240.0`) so long titles do not create unbounded graph spacing.
+  - Settings -> Graph -> Display -> Labels now exposes a `Label Bubbles` status row that says long labels expand node spacing without changing the force model. This makes the label-physics behavior visible instead of hidden in Rust internals.
+  - No force equations, integrator timing, Barnes-Hut repulsion, link force, gravity, decay, or edge motion code changed.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml long_label_envelope_tracks_rendered_sdf_label_scale` failed before product patch because the physics label envelope half-width was only `69.12`.
+  - `cargo test --manifest-path graph-engine/Cargo.toml long_label_envelope_tracks_rendered_sdf_label_scale` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label_envelope` passed, 3 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml load_expands_collision_radii_for_wide_labels` passed.
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` failed before the settings row existed; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_16-22-57--0500.xcresult`.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_16-27-13--0500.xcresult`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Manual dense graph runtime smoke is still required to verify whether the larger collision bubbles produce enough label separation without making the graph feel too sparse or changing the preferred fluid feel.
+
 Patch evidence, 2026-05-09 solid folder glare tuning slice:
 
 - Files changed:
