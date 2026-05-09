@@ -51,9 +51,9 @@ struct AgentControlDetailView: View {
     @State private var blocklistDraft: String = ""
     // Phase R.5 — Rust-backed permission grants (I-009/I-010). Populated
     // from `permissionStoreListActive()` in `agent_core`. Surfaced in the
-    // Active Grants section alongside the derived, session-local rows so
-    // the user can see + revoke durable grants stored in Rust. Fresh
-    // launch is empty until the first user-grant phrasing lands.
+    // Stored Resource Grants section alongside the derived, session-local
+    // rows so the user can see + revoke durable grants stored in Rust.
+    // Fresh launch is empty until the first user-grant phrasing lands.
     @State private var rustBackedGrants: [PermissionGrantSummary] = []
     @State private var isRevokingGrantId: String?
 
@@ -242,11 +242,11 @@ struct AgentControlDetailView: View {
 
     private var activeGrantsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Active Grants")
+            Text("Stored Resource Grants")
                 .font(.subheadline.weight(.semibold))
 
             if activeGrantRows.isEmpty && rustBackedGrants.isEmpty {
-                Text("No active grants in this chat right now.")
+                Text("No stored resource grants in this chat right now.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -775,55 +775,21 @@ struct AgentControlDetailView: View {
     }
 
     private var activeGrantRows: [ActiveGrantSettingsRow] {
-        var rows: [ActiveGrantSettingsRow] = []
-
-        if let vaultURL = vaultSync.vaultURL {
-            rows.append(
-                ActiveGrantSettingsRow(
-                    id: "vault:\(vaultURL.path)",
-                    title: vaultURL.lastPathComponent,
-                    detail: "Read + Search active vault",
-                    systemImage: "books.vertical",
-                    isRevocable: false
-                )
+        ComposerCurrentAccessPlan(
+            vaultURL: vaultSync.vaultURL,
+            contextAttachments: chat.pendingContextAttachments,
+            fileAttachments: chat.pendingAttachments
+        )
+        .rows
+        .map {
+            ActiveGrantSettingsRow(
+                id: $0.id,
+                title: $0.title,
+                detail: $0.detail,
+                systemImage: $0.systemImage,
+                isRevocable: $0.isRevocable
             )
         }
-
-        rows.append(
-            contentsOf: chat.pendingContextAttachments.map { attachment in
-                ActiveGrantSettingsRow(
-                    id: "context:\(attachment.id)",
-                    title: attachment.title,
-                    detail: grantDetail(for: attachment),
-                    systemImage: attachment.systemImageName,
-                    isRevocable: true
-                )
-            }
-        )
-
-        rows.append(
-            contentsOf: chat.pendingAttachments.map { attachment in
-                ActiveGrantSettingsRow(
-                    id: "file:\(attachment.id)",
-                    title: attachment.name,
-                    detail: "Read attached file",
-                    systemImage: fileAttachmentIcon(for: attachment.type),
-                    isRevocable: true
-                )
-            }
-        )
-
-        rows.append(
-            ActiveGrantSettingsRow(
-                id: "shell-approval",
-                title: "Shell / external tools",
-                detail: "Ask first for destructive or external work",
-                systemImage: "terminal",
-                isRevocable: false
-            )
-        )
-
-        return rows
     }
 
     private func revokeActiveGrant(_ id: String) {
@@ -833,40 +799,6 @@ struct AgentControlDetailView: View {
         }
         if id.hasPrefix("file:"), let fileID = id.split(separator: ":", maxSplits: 1).last {
             chat.removeAttachment(String(fileID))
-        }
-    }
-
-    private func grantDetail(for attachment: ContextAttachment) -> String {
-        switch attachment.kind {
-        case .note:
-            return "Read + Edit attached note"
-        case .chat:
-            return "Read attached chat context"
-        case .allNotes:
-            return "Read + Search attached vault context"
-        case .folder:
-            return "Read + Edit attached folder notes"
-        case .file:
-            if attachment.resourceMode == .snapshot {
-                return "Read attached pasted snapshot"
-            } else {
-                return "Read + Edit attached file"
-            }
-        }
-    }
-
-    private func fileAttachmentIcon(for type: AttachmentType) -> String {
-        switch type {
-        case .image:
-            return "photo"
-        case .pdf:
-            return "doc.richtext"
-        case .csv:
-            return "tablecells"
-        case .text:
-            return "doc.text"
-        case .other:
-            return "paperclip"
         }
     }
 

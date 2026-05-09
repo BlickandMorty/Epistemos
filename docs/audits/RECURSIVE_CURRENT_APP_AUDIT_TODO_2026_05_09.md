@@ -240,7 +240,7 @@ Implementation evidence, 2026-05-09 credential environment slice:
 
 ### RCA-P1-001 - Move editor asset reads and Brotli decompression off the main actor
 
-Status: TODO
+Status: PATCHED - AUTOMATED PARITY GREEN / MANUAL AGENT SMOKE PENDING
 
 Subsystem: `.epdoc` editor bridge, WKWebView scheme handling, first paint.
 
@@ -1308,6 +1308,36 @@ Audit steps:
 Acceptance:
 - The UI never promises a permission model that the dispatcher does not enforce.
 - Attached-resource writes are impossible outside the explicit grant set unless a new approval is shown and persisted.
+
+2026-05-09 Current Access parity patch:
+
+- Files changed:
+  - `Epistemos/Views/Chat/ComposerCurrentAccessPlan.swift`
+  - `Epistemos/Views/Chat/ChatInputBar.swift`
+  - `Epistemos/Views/Settings/AgentControlSettingsView.swift`
+  - `EpistemosTests/CurrentAccessParityTests.swift`
+- Product behavior:
+  - Composer and Settings now label this surface `Stored Resource Grants`, not a universal capability/current-access ledger.
+  - Shell/external tool approval is no longer listed as a resource grant row.
+  - Composer summary is derived from a shared `ComposerCurrentAccessPlan` and the compiled provider-native capability tool-name list exposed by `InferenceState`.
+  - Live attached resource write affordance is scoped to the exact attached `resourceURI`; snapshot attachments remain read-only.
+- Red command:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CurrentAccessParityTests test CODE_SIGNING_ALLOWED=NO`
+  - Failed because the composer/settings UI still used `Current Access` / `Active Grants` copy and included shell approval rows.
+  - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_05-03-06--0500.xcresult`
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CurrentAccessParityTests test CODE_SIGNING_ALLOWED=NO`
+    - Passed.
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::bridge::tests::attached_resource_from_paste_is_snapshot_read_only`
+    - Passed, 1 Rust test.
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::tool_authz::tests`
+    - Passed, 20 Rust tests.
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib r5_gate_`
+    - Passed, 6 Rust tests.
+  - `rg -n 'Shell / external tools|shell-approval|Text\("Current Access"\)|Text\("Active Grants"\)' Epistemos/Views/Chat/ChatInputBar.swift Epistemos/Views/Settings/AgentControlSettingsView.swift`
+    - No matches.
+- Remaining risk:
+  - Manual agent smoke is still pending for attached note A/B, attached file A/B, grant revocation mid-session, denial copy, and durable provenance/audit row confirmation in the live app.
 
 ### RCA2-P0-002 - Constrain CodeFileService to the vault root
 
@@ -5295,7 +5325,7 @@ Implementation evidence, 2026-05-09:
 
 ### RCA9-P0-004 - Keep database fallback P0 until degraded-mode writes are proven honest
 
-Status: PARTIALLY-FIXED / NEEDS-RUNTIME-PROOF
+Status: PATCHED - AUTOMATED PARITY GREEN / NEEDS-MANUAL-EXECUTOR-SMOKE
 
 Canonical owner: `RCA-P0-002`
 
@@ -5612,6 +5642,24 @@ Acceptance:
 - Permission chips derive from compiled execution plans, not prompt heuristics.
 - Tool args are validated against grants inside the executor.
 - Denial emits a visible user message and a durable audit/provenance row.
+
+2026-05-09 Current Access parity evidence:
+
+- Shared Swift plan added in `Epistemos/Views/Chat/ComposerCurrentAccessPlan.swift`.
+- Composer rows and Settings rows now share that plan; resource-grant UI excludes shell/external approval rows.
+- Provider-native capability summary is derived from `InferenceState.providerNativeCapabilityToolNameList(for:)` instead of prompt heuristics.
+- Added `EpistemosTests/CurrentAccessParityTests.swift` checks for:
+  - attached file A does not grant write access to file B in the Swift plan
+  - snapshot attachments cannot become writable
+  - visible summary matches compiled provider-native tool names
+  - resource-grant surfaces use scoped copy and exclude shell rows
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CurrentAccessParityTests test CODE_SIGNING_ALLOWED=NO`
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::bridge::tests::attached_resource_from_paste_is_snapshot_read_only`
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::tool_authz::tests`
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib r5_gate_`
+- Remaining risk:
+  - The exact prompt-to-live-dispatch manual matrix remains open until a runtime smoke proves denials are visible before mutation and recorded in the audit/provenance surface.
 
 ### RCA9-P1-006 - Harden OAuth callback state and loopback binding
 
@@ -7003,7 +7051,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA11-P1-004 - Label permissions UI as resource grants, not universal capability control
 
-Status: CONFIRMED SCOPE-LIMITED
+Status: PATCHED - SCOPED LABEL GREEN / FULL TOOL LEDGER PENDING
 
 Canonical links:
 
@@ -7040,6 +7088,16 @@ Required proof:
 Acceptance:
 
 - Permissions UI cannot imply universal control over all mutating capabilities.
+
+2026-05-09 scoped label patch:
+
+- Composer popover and Settings grants section now use `Stored Resource Grants`.
+- Shell/external tool approval rows were removed from this resource-grant UI.
+- Added source-guard coverage in `EpistemosTests/CurrentAccessParityTests.resourceGrantSurfacesUseScopedLabel` and `resourceGrantSurfacesExcludeShellApprovalRows`.
+- Green command:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CurrentAccessParityTests test CODE_SIGNING_ALLOWED=NO`
+- Remaining risk:
+  - The broader command/tool truth ledger is still tracked separately; non-resourceable mutating tools still need the advertised -> parsed -> compiled -> approved -> executed -> logged -> visible table before this becomes universal capability proof.
 
 ### RCA11-P1-005 - Resolve Swift tier truth: no app-wide Swift `PRO_BUILD` claim without proof
 
@@ -7730,7 +7788,7 @@ Runtime measurements required before perf claims:
 
 ### RCA12-P1-006 - Treat Current Access as partially evidenced, but not runtime-proven
 
-Status: PARTIALLY-EVIDENCED / NEEDS-RUNTIME-PROOF
+Status: PATCHED - AUTOMATED PARITY GREEN / MANUAL RUNTIME PROOF PENDING
 
 Canonical links:
 
@@ -7756,6 +7814,23 @@ CurrentAccessParityTests.unattachedFileWriteDeniedBeforeMutation
 CurrentAccessParityTests.chipMatchesCompiledAllowedToolNames
 CurrentAccessParityTests.resourceGrantUIExcludesShellUnlessCapabilityLedgerIncludesIt
 ```
+
+2026-05-09 implementation note:
+
+- Added `ComposerCurrentAccessPlan` as the shared composer/settings resource-grant truth for visible rows, exact writable `resourceURI`s, and compiled provider-native tool summary.
+- Added focused parity tests:
+  - `attachedFileAllowsOnlyThatFile`
+  - `snapshotAttachmentCannotBeMutated`
+  - `chipMatchesCompiledAllowedToolNames`
+  - `resourceGrantSurfacesUseScopedLabel`
+  - `resourceGrantSurfacesExcludeShellApprovalRows`
+- Current gap from the original requested test names:
+  - `unattachedFileWriteDeniedBeforeMutation` is covered at the plan/Rust R5 gate level, but the full live agent mutation attempt still needs manual/runtime proof.
+- Green commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CurrentAccessParityTests test CODE_SIGNING_ALLOWED=NO`
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::bridge::tests::attached_resource_from_paste_is_snapshot_read_only`
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::tool_authz::tests`
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib r5_gate_`
 
 ### RCA12-P1-007 - Confirm OAuth callback hardening as secondary-evidence P0 until source reopened
 
