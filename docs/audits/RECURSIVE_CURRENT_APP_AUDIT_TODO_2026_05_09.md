@@ -9060,6 +9060,25 @@ Patch evidence, 2026-05-09 selected-neighbor label density slice:
 - Remaining risk:
   - Manual dense graph smoke is still required on the user's actual vault to tune the subjective balance between neighbor context and aggressive text thinning.
 
+Patch evidence, 2026-05-09 high-degree selected label cap tightening slice:
+
+- Files changed:
+  - `graph-engine/src/engine.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - High-degree selected folders now admit a smaller connected-neighbor label set before screen-cell and rectangle-overlap culling. A 58-label selected neighborhood is capped to 18 label candidates rather than the previous mid-20s range.
+  - The selected-neighbor density target is reduced to 8, so crowded selected neighborhoods shrink/fade/cull faster while sparse selections still reveal their connected labels.
+  - The cap uses floor-based square-root growth so adding more neighbors does not round up into visible text-block regressions.
+  - This is a label candidate budget/culling change only. It does not touch physics forces, integrator timing, or node motion.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_stay_density_bounded` failed because the previous cap exceeded the new `<= 18` high-degree bound.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_high_degree_labels_stay_density_bounded` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml selected_node_can_reveal_connected_neighbor_labels` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label_density` passed, 2 tests.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_15-41-28--0500.xcresult`.
+- Remaining risk:
+  - Manual dense graph runtime smoke is still required to tune the exact threshold against the user's actual vault screenshots.
+
 Patch evidence, 2026-05-09 solid folder glare tuning slice:
 
 - Files changed:

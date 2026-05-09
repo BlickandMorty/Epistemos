@@ -105,9 +105,9 @@ const LABEL_EMPHASIZED_MIN_SCREEN_PX: f32 = 15.0;
 const LABEL_EMPHASIZED_MAX_SCREEN_PX: f32 = 46.0;
 const LABEL_FADE_MIN_SCREEN_PX: f32 = 8.0;
 const LABEL_FADE_FULL_SCREEN_PX: f32 = 22.0;
-const LABEL_SELECTED_NEIGHBOR_MAX_NODES: usize = 34;
-const LABEL_SELECTED_NEIGHBOR_SOFT_TARGET: usize = 20;
-const LABEL_SELECTED_NEIGHBOR_DENSITY_TARGET: usize = 14;
+const LABEL_SELECTED_NEIGHBOR_MAX_NODES: usize = 22;
+const LABEL_SELECTED_NEIGHBOR_SOFT_TARGET: usize = 12;
+const LABEL_SELECTED_NEIGHBOR_DENSITY_TARGET: usize = 8;
 
 fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
     zoom.clamp(MIN_CAMERA_FIT_ZOOM, 10.0)
@@ -245,7 +245,7 @@ fn selected_neighbor_label_cap(scored_count: usize, protected_count: usize) -> u
         scored_count
     } else {
         let overflow = scored_count - LABEL_SELECTED_NEIGHBOR_SOFT_TARGET;
-        let soft_extra = (overflow as f32).sqrt().round() as usize;
+        let soft_extra = (overflow as f32).sqrt().floor() as usize;
         LABEL_SELECTED_NEIGHBOR_SOFT_TARGET + soft_extra
     };
 
@@ -2787,8 +2787,9 @@ mod tests {
             selected_neighbor_density_budget(selected_plus_neighbors, protected_root);
 
         assert!(cap < selected_plus_neighbors);
-        assert!(cap >= 18);
+        assert!(cap <= 18);
         assert!(density_budget < cap);
+        assert!(density_budget <= 8);
 
         let crowded_scale = label_density_scale(selected_plus_neighbors, density_budget, 18, false);
         assert!(crowded_scale <= 0.40);
