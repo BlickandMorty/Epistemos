@@ -9060,6 +9060,25 @@ Patch evidence, 2026-05-09 selected-neighbor label density slice:
 - Remaining risk:
   - Manual dense graph smoke is still required on the user's actual vault to tune the subjective balance between neighbor context and aggressive text thinning.
 
+Patch evidence, 2026-05-09 solid folder glare tuning slice:
+
+- Files changed:
+  - `graph-engine/src/renderer.rs`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+- Product behavior:
+  - Large/high-degree folder hubs keep the old pixel-art glare cue, but the cinematic glare/shadow multipliers are reduced from `0.62/0.16` to `0.24/0.06`.
+  - Balanced mode folder glare/shadow is reduced from `0.48/0.12` to `0.20/0.05`.
+  - Node body opacity remains solid; the cinematic path still returns `max(in.color.a, 0.95)` and the solid-node tests remain green.
+  - Edge z-order remains edges under nodes and labels; render-order test remains green.
+- Tests/commands:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` failed before product patch because the renderer still had the old heavy `folder_pixel_glare * 0.62`; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-40-21--0500.xcresult`.
+  - `cargo test --manifest-path graph-engine/Cargo.toml cinematic_pixel_nodes_apply_selection_dim_without_transparency` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml light_and_dark_graph_nodes_are_solid_not_translucent` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml render_order_keeps_edges_under_nodes_and_labels` passed.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 28 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_14-43-59--0500.xcresult`.
+- Remaining risk:
+  - Manual visual smoke is still required to judge whether the reduced glare reads as enough depth on the user's fullscreen graph without becoming a dramatic gradient.
+
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
 Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS WIRED / COLORED GROUP EDGES + PIXEL EDGE STYLE TODO
