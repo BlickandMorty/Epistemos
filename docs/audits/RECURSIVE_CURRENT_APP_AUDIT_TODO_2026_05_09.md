@@ -3521,7 +3521,7 @@ Patch evidence 2026-05-09:
 
 ### RCA5-P1-005 - Delete temp microphone recordings on every composer voice completion path
 
-Status: TODO
+Status: PATCHED - AUTOMATED CLEANUP TESTS GREEN / MANUAL MIC SMOKE PENDING
 
 Subsystem: `ComposerVoiceInputService`, `VoiceInputButton`, audio transcriber, temp file handling.
 
@@ -3540,6 +3540,37 @@ Acceptance:
 
 - Temp audio is deleted on success, failure, cancellation, and window teardown.
 - Tests cover success/error cleanup.
+
+Fix-pass evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/Engine/ComposerVoiceInputService.swift`
+  - `Epistemos/Views/Chat/ComposerMicButton.swift`
+  - `EpistemosTests/ComposerVoiceInputServiceTests.swift`
+- Patch:
+  - Added injectable temp directory, permission, recorder, and transcription dependencies so cleanup paths can be tested without using a live microphone or Speech session.
+  - Deleted `composer-*.m4a` temp files on successful transcription, transcription error, cancel, failed recorder start, and UI teardown.
+  - Added `ComposerMicButton.onDisappear` teardown so closing/removing the composer surface discards any in-flight temp recording.
+- Tests added:
+  - `successfulTranscriptionDeletesComposerTempAudio`
+  - `transcriptionErrorDeletesComposerTempAudio`
+  - `cancelDeletesComposerTempAudio`
+  - `teardownDeletesComposerTempAudio`
+  - `composerMicViewTearsDownRecordingOnDisappear`
+- Commands:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ComposerVoiceInputServiceTests test CODE_SIGNING_ALLOWED=NO`
+    - Failed before product patch because `ComposerVoiceInputService` lacked injectable recorder/transcriber dependencies and teardown source.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-21-10--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ComposerVoiceInputServiceTests test CODE_SIGNING_ALLOWED=NO`
+    - 5 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-24-26--0500.xcresult`
+  - Source guard: `rg -n "composer-.*m4a|outputURL|removeItem|cleanupRecording|tearDown\(|onDisappear|ComposerVoiceAudioRecording|transcribeAudio" Epistemos/Engine/ComposerVoiceInputService.swift Epistemos/Views/Chat/ComposerMicButton.swift Epistemos/Views/Chat/ChatInputBar.swift Epistemos/Views/Shared/VoiceInputButton.swift EpistemosTests/ComposerVoiceInputServiceTests.swift`
+  - Runtime residue check: `find "${TMPDIR:-/tmp}" -name 'composer-*.m4a' -print 2>/dev/null || true`
+    - No `composer-*.m4a` paths printed.
+  - `git diff --check`
+- Remaining runtime/manual proof:
+  - Real microphone success/error/cancel/window-close smoke is still pending.
+  - The macOS 26 `VoiceInputButton` speech-analyzer draft behavior is tracked separately and remains open under the duplicate dictation/draft item.
 
 ### RCA5-P1-006 - Move capture/audio provenance out of hidden note-body HTML comments
 
@@ -5623,7 +5654,7 @@ Patch evidence 2026-05-09:
 
 ### RCA9-P1-007 - Verify composer voice temp-file cleanup on every path
 
-Status: PARTIALLY-CONFIRMED
+Status: PATCHED - AUTOMATED CLEANUP TESTS GREEN / MANUAL MIC SMOKE PENDING
 
 Canonical owner: `RCA5-P1-005`
 
@@ -5665,6 +5696,27 @@ find "${TMPDIR:-/tmp}" -name 'composer-*.m4a' -print
 Acceptance:
 
 - No `composer-*.m4a` remains after success, failure, cancel, close, or app quit.
+
+Fix-pass evidence 2026-05-09:
+
+- Canonical patch landed under `RCA5-P1-005`.
+- Files changed:
+  - `Epistemos/Engine/ComposerVoiceInputService.swift`
+  - `Epistemos/Views/Chat/ComposerMicButton.swift`
+  - `EpistemosTests/ComposerVoiceInputServiceTests.swift`
+- Automated coverage:
+  - Success, transcription error, cancel, and teardown paths all assert the generated `composer-*.m4a` file is removed.
+  - Source test asserts the composer mic view calls `service.tearDown()` on disappear.
+- Commands:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ComposerVoiceInputServiceTests test CODE_SIGNING_ALLOWED=NO`
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-21-10--0500.xcresult`
+  - Green: same command.
+    - 5 tests passed.
+    - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_03-24-26--0500.xcresult`
+  - `find "${TMPDIR:-/tmp}" -name 'composer-*.m4a' -print 2>/dev/null || true`
+    - No temp composer recordings printed.
+- Remaining risk:
+  - App-quit cleanup is covered through UI disappearance/teardown source and temp residue scan, but still needs live app smoke with a real mic session before full closure.
 
 ### RCA9-P2-001 - Downgrade `AnswerPacket` / VRM to implemented-not-wired until chat emits it
 

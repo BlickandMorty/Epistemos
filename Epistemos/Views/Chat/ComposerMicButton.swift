@@ -25,6 +25,9 @@ struct ComposerMicButton: View {
                 onTranscript(transcript)
             }
         }
+        .onDisappear {
+            service.tearDown()
+        }
     }
 
     @ViewBuilder
