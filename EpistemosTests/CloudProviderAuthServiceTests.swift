@@ -1085,8 +1085,8 @@ struct CloudProviderAgentEnvironmentTests {
         #expect(overrides["MINIMAX_API_KEY"] == "minimax-api-key")
     }
 
-    @Test("refreshing cached cloud credentials repopulates the agent runtime environment")
-    func refreshingCachedCloudCredentialsRepopulatesTheAgentRuntimeEnvironment() throws {
+    @Test("refreshing cached cloud credentials does not mirror secrets into the parent environment")
+    func refreshingCachedCloudCredentialsDoesNotMirrorSecretsIntoParentEnvironment() throws {
         let savedEnvironment = Dictionary(uniqueKeysWithValues: managedEnvVars.map {
             ($0, processEnvironmentValue(for: $0))
         })
@@ -1158,18 +1158,18 @@ struct CloudProviderAgentEnvironmentTests {
             keychainDelete: { _ in }
         )
 
-        #expect(processEnvironmentValue(for: "OPENAI_ACCESS_TOKEN") != nil)
-        #expect(processEnvironmentValue(for: "OPENAI_AUTH_MODE") == "codex")
-        #expect(processEnvironmentValue(for: "OPENAI_CLIENT_VERSION") == OpenAICodexRuntimeMetadata.clientVersion)
-        #expect(processEnvironmentValue(for: "ANTHROPIC_ACCESS_TOKEN") == "anthropic-oauth-token")
-        #expect(processEnvironmentValue(for: "ANTHROPIC_AUTH_MODE") == "oauth")
-        #expect(processEnvironmentValue(for: "GOOGLE_ACCESS_TOKEN") == "google-oauth-token")
-        #expect(processEnvironmentValue(for: "GOOGLE_AUTH_MODE") == "oauth")
-        #expect(processEnvironmentValue(for: "GOOGLE_PROJECT_ID") == "epistemos-auth-project")
+        #expect(processEnvironmentValue(for: "OPENAI_ACCESS_TOKEN") == nil)
+        #expect(processEnvironmentValue(for: "OPENAI_AUTH_MODE") == nil)
+        #expect(processEnvironmentValue(for: "OPENAI_CLIENT_VERSION") == nil)
+        #expect(processEnvironmentValue(for: "ANTHROPIC_ACCESS_TOKEN") == nil)
+        #expect(processEnvironmentValue(for: "ANTHROPIC_AUTH_MODE") == nil)
+        #expect(processEnvironmentValue(for: "GOOGLE_ACCESS_TOKEN") == nil)
+        #expect(processEnvironmentValue(for: "GOOGLE_AUTH_MODE") == nil)
+        #expect(processEnvironmentValue(for: "GOOGLE_PROJECT_ID") == nil)
     }
 
-    @Test("refreshing cached API-key cloud credentials repopulates the agent runtime environment")
-    func refreshingCachedAPIKeyCloudCredentialsRepopulatesTheAgentRuntimeEnvironment() {
+    @Test("refreshing cached API-key cloud credentials does not mirror secrets into the parent environment")
+    func refreshingCachedAPIKeyCloudCredentialsDoesNotMirrorSecretsIntoParentEnvironment() {
         let managedEnvVars = [
             "DEEPSEEK_API_KEY",
             "GLM_API_KEY",
@@ -1208,10 +1208,32 @@ struct CloudProviderAgentEnvironmentTests {
             keychainDelete: { _ in }
         )
 
-        #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == "deepseek-api-key")
-        #expect(processEnvironmentValue(for: "GLM_API_KEY") == "glm-api-key")
-        #expect(processEnvironmentValue(for: "KIMI_API_KEY") == "kimi-api-key")
-        #expect(processEnvironmentValue(for: "MINIMAX_API_KEY") == "minimax-api-key")
+        #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == nil)
+        #expect(processEnvironmentValue(for: "GLM_API_KEY") == nil)
+        #expect(processEnvironmentValue(for: "KIMI_API_KEY") == nil)
+        #expect(processEnvironmentValue(for: "MINIMAX_API_KEY") == nil)
+    }
+
+    @Test("agent core credential environment is scoped and restored")
+    func agentCoreCredentialEnvironmentIsScopedAndRestored() async throws {
+        let envVar = "DEEPSEEK_API_KEY"
+        let savedValue = processEnvironmentValue(for: envVar)
+        defer {
+            setProcessEnvironmentValue(savedValue, for: envVar)
+        }
+        setProcessEnvironmentValue(nil, for: envVar)
+
+        let observed: String? = try await AppBootstrap.withScopedAgentCoreEnvironment(
+            keychainLoad: { key in
+                key == CloudModelProvider.deepseek.apiKeyKeychainKey ? "deepseek-api-key" : nil
+            }
+        ) {
+            guard let rawValue = getenv(envVar) else { return nil }
+            return String(cString: rawValue)
+        }
+
+        #expect(observed == "deepseek-api-key")
+        #expect(processEnvironmentValue(for: envVar) == nil)
     }
 
     @MainActor
@@ -1240,13 +1262,8 @@ struct CloudProviderAgentEnvironmentTests {
         #expect(elapsed < .milliseconds(150))
         #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == nil)
 
-        let deadline = clock.now + .seconds(2)
-        while processEnvironmentValue(for: "DEEPSEEK_API_KEY") != "deepseek-api-key",
-              clock.now < deadline {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-
-        #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == "deepseek-api-key")
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == nil)
         withExtendedLifetime(inference) {}
     }
 

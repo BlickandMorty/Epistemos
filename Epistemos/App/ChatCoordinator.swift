@@ -600,14 +600,16 @@ final class ChatCoordinator {
       }
       Task.detached {
         do {
-          let _ = try await runAgentSession(
-            sessionId: sessionId,
-            objective: compiled.query,
-            providerName: providerName,
-            toolConfig: toolConfig,
-            agentConfig: agentConfig,
-            delegate: delegate
-          )
+          let _ = try await AppBootstrap.withScopedAgentCoreEnvironment {
+            try await runAgentSession(
+              sessionId: sessionId,
+              objective: compiled.query,
+              providerName: providerName,
+              toolConfig: toolConfig,
+              agentConfig: agentConfig,
+              delegate: delegate
+            )
+          }
           continuation.finish()
         } catch {
           continuation.yield(.error(AgentRuntimeError(message: error.localizedDescription)))
@@ -2516,14 +2518,16 @@ final class ChatCoordinator {
 
       Task.detached {
         do {
-          let result = try await runAgentSession(
-            sessionId: sessionId,
-            objective: objective,
-            providerName: providerName,
-            toolConfig: toolConfig,
-            agentConfig: agentConfig,
-            delegate: delegate
-          )
+          let result = try await AppBootstrap.withScopedAgentCoreEnvironment {
+            try await runAgentSession(
+              sessionId: sessionId,
+              objective: objective,
+              providerName: providerName,
+              toolConfig: toolConfig,
+              agentConfig: agentConfig,
+              delegate: delegate
+            )
+          }
           // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — persist
           // the AgentResultFFI token counters (input/output, plus the
           // Anthropic prompt-cache pair surfaced in PR1 b8d779ca) so

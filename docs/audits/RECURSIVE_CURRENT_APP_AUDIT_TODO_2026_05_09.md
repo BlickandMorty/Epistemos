@@ -122,7 +122,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA-P0-003 - Remove or explicitly surface hidden capture metadata in note bodies
 
-Status: TODO
+Status: PATCHED PARTIAL - PARENT ENV MIRROR REMOVED / CHILD MATRIX PARTIAL
 
 Subsystem: text capture, audio capture, note storage, export/share privacy.
 
@@ -146,7 +146,7 @@ Acceptance:
 
 ### RCA-P0-004 - Stop credential leakage through process-wide environment inheritance
 
-Status: TODO
+Status: PATCHED PARTIAL - SCOPED AGENT RUNTIME ENV / CHILD MATRIX PENDING
 
 Subsystem: provider auth, Rust bridge, subprocess/tool execution, CLI passthrough.
 
@@ -168,6 +168,37 @@ Audit steps:
 Acceptance:
 - No spawned process inherits provider credentials unless the user explicitly approved that process as the credential consumer.
 - If env mirroring remains, there is a documented scrub policy and tests for spawned tools/helpers.
+
+Implementation evidence, 2026-05-09 credential environment slice:
+
+- Files changed:
+  - `Epistemos/App/AppBootstrap.swift`
+  - `Epistemos/App/ChatCoordinator.swift`
+  - `EpistemosTests/CloudProviderAuthServiceTests.swift`
+  - `agent_core/src/security.rs`
+- Product patch:
+  - `AppBootstrap.populateAgentCoreEnvironment(keychainLoad:)` no longer reads Keychain and no longer mirrors provider credentials into the parent process environment; it only clears Epistemos-managed provider env slots.
+  - `AppBootstrap.withScopedAgentCoreEnvironment(keychainLoad:operation:)` snapshots all managed provider env vars, applies credentials only around the in-process Rust agent runtime call, restores prior values immediately after success or failure, and serializes overlapping scopes.
+  - Both `ChatCoordinator` `runAgentSession(...)` call paths now execute inside the scoped credential environment.
+  - `agent_core/src/security.rs` denylist now explicitly includes Epistemos provider API keys and OAuth token/auth env names.
+- Tests added/updated:
+  - `CloudProviderAgentEnvironmentTests.refreshingCachedCloudCredentialsDoesNotMirrorSecretsIntoParentEnvironment`
+  - `CloudProviderAgentEnvironmentTests.refreshingCachedAPIKeyCloudCredentialsDoesNotMirrorSecretsIntoParentEnvironment`
+  - `CloudProviderAgentEnvironmentTests.agentCoreCredentialEnvironmentIsScopedAndRestored`
+  - `security::tests::harden_cli_subprocess_clears_provider_secrets`
+- Commands run:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO` failed because the new scoped API was not implemented (`Test-Epistemos-2026.05.09_02-14-52--0500.xcresult`).
+  - Red: same command failed on a Swift `nil` contextual type error while adding the scoped restore test (`Test-Epistemos-2026.05.09_02-25-07--0500.xcresult`).
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO` passed 23 Swift Testing tests (`Test-Epistemos-2026.05.09_02-28-41--0500.xcresult`).
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAgentEnvironmentTests test CODE_SIGNING_ALLOWED=NO` failed because unset env vars were not restored after scoped injection (`Test-Epistemos-2026.05.09_02-32-15--0500.xcresult`).
+  - Green: same `CloudProviderAgentEnvironmentTests` command passed 6 Swift Testing tests (`Test-Epistemos-2026.05.09_02-36-33--0500.xcresult`).
+  - Green: `cargo test --manifest-path agent_core/Cargo.toml harden_cli_subprocess_clears_provider_secrets` passed.
+  - Guard: `rg -n "setenv\\(|unsetenv\\(" Epistemos/App/AppBootstrap.swift Epistemos/State/InferenceState.swift Epistemos/App/ChatCoordinator.swift` now reports env mutation only in the AppBootstrap scoped/clear helpers.
+  - Guard: `rg -n "populateAgentCoreEnvironment\\(|withScopedAgentCoreEnvironment|OPENAI_ACCESS_TOKEN|ANTHROPIC_ACCESS_TOKEN|GOOGLE_ACCESS_TOKEN|HF_TOKEN|DEEPSEEK_API_KEY" Epistemos/App/AppBootstrap.swift Epistemos/App/ChatCoordinator.swift EpistemosTests/CloudProviderAuthServiceTests.swift agent_core/src/security.rs` confirms scoped call sites and secret denylist coverage.
+  - Green: `git diff --check`.
+- Remaining risk:
+  - This closes the parent-process mirroring slice and the `agent_core` subprocess denylist probe slice.
+  - Full product child-process/helper/MCP/XPC matrix is still pending; every `Process`/PTY/MCP/helper launch path still needs the fake-secret env probe required by `AUTH-ENV-P0-B`.
 
 ## P1 Queue
 
@@ -2828,6 +2859,14 @@ Acceptance:
 - Credentials are fetched through a scoped broker or IPC boundary instead of global process env where possible.
 - All remaining environment use is documented, scrubbed, and regression-tested.
 
+Implementation evidence, 2026-05-09 credential environment slice:
+
+- `Epistemos/App/AppBootstrap.swift` no longer populates provider secrets into the parent process env during launch or credential refresh.
+- `Epistemos/App/ChatCoordinator.swift` scopes provider env injection around the two in-process Rust `runAgentSession(...)` call sites that still require env-backed provider construction.
+- `EpistemosTests/CloudProviderAuthServiceTests.swift` proves OAuth/API-key credential refresh leaves parent env empty, scoped injection restores the previous env, and launch-deferred credential bootstrap does not repopulate `DEEPSEEK_API_KEY`.
+- `agent_core/src/security.rs` now denies Epistemos provider API key and OAuth env names in hardened CLI subprocess environments; `cargo test --manifest-path agent_core/Cargo.toml harden_cli_subprocess_clears_provider_secrets` passed.
+- Remaining risk: explicit FFI/session credential delivery would be stronger than scoped env and remains future hardening; complete child-process/helper/MCP/XPC fake-secret matrix is still required.
+
 ### RCA4-P1-002 - Move prose editor full-structure parsing off the per-keystroke hot path
 
 Status: TODO
@@ -4969,7 +5008,7 @@ Acceptance:
 
 ### RCA9-P0-003 - Split credential environment risk into env mirroring and child scrub proof
 
-Status: CONFIRMED-RISK
+Status: PATCHED PARTIAL - AUTH-ENV-P0-A CLOSED / AUTH-ENV-P0-B PARTIAL
 
 Canonical owner: `RCA-P0-004`
 
@@ -5043,6 +5082,12 @@ Acceptance:
 
 - No subprocess/helper/MCP server inherits provider credentials by accident.
 - In-process Rust credential needs are served by explicit config where possible, not by global process env.
+
+Implementation evidence, 2026-05-09:
+
+- `AUTH-ENV-P0-A` is closed for the current Rust agent bridge: parent-process credential mirroring was removed from `AppBootstrap.populateAgentCoreEnvironment`, and the Rust session bridge now uses `withScopedAgentCoreEnvironment` only for the two `runAgentSession(...)` calls in `ChatCoordinator`.
+- Parent-env regression tests now assert credential refresh and deferred bootstrap do not leave `OPENAI_ACCESS_TOKEN`, `ANTHROPIC_ACCESS_TOKEN`, `GOOGLE_ACCESS_TOKEN`, `GOOGLE_PROJECT_ID`, `DEEPSEEK_API_KEY`, `GLM_API_KEY`, `KIMI_API_KEY`, or `MINIMAX_API_KEY` in process env.
+- `AUTH-ENV-P0-B` is partially covered by `agent_core::security::tests::harden_cli_subprocess_clears_provider_secrets`; broader Swift `Process`/MCP/XPC/helper launch probes remain open.
 
 ### RCA9-P0-004 - Keep database fallback P0 until degraded-mode writes are proven honest
 
@@ -5633,7 +5678,7 @@ Important evidence boundary:
 
 ### RCA10-P0-001 - Upgrade hidden capture provenance to confirmed and require migration
 
-Status: CONFIRMED
+Status: PATCHED PARTIAL - PROCESS-WIDE MIRROR REMOVED / CHILD MATRIX PENDING
 
 Canonical owner:
 
@@ -5758,6 +5803,18 @@ Acceptance:
 
 - Provider credentials no longer live in process-wide env by default, or every risk is explicitly scoped and tested.
 - No inherited credentials in child processes.
+
+Implementation evidence, 2026-05-09:
+
+- `Epistemos/App/AppBootstrap.swift` converted launch/refresh credential env population into clearing behavior and added scoped env injection/restoration for the in-process Rust agent runtime.
+- `Epistemos/App/ChatCoordinator.swift` scopes both `runAgentSession(...)` paths.
+- `EpistemosTests/CloudProviderAuthServiceTests.swift` adds parent-env no-mirroring and scoped restore regression tests.
+- `agent_core/src/security.rs` adds explicit denylist entries and a fake-secret child env probe for the Rust hardened CLI path.
+- Green commands:
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAgentEnvironmentTests test CODE_SIGNING_ALLOWED=NO`
+  - `cargo test --manifest-path agent_core/Cargo.toml harden_cli_subprocess_clears_provider_secrets`
+- Remaining risk: the all-child-launch matrix in `AUTH-ENV-P0-B` is still open and must cover Swift helpers, MCP stdio, XPC, Python/training/audio helpers, and any future process wrappers.
 
 ### RCA10-P0-003 - Keep database fallback blocked until model-container init is inspected
 

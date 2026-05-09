@@ -883,6 +883,28 @@ pub const SUBPROCESS_DENYLIST: &[&str] = &[
     "PERL5OPT",
     "PERL5LIB",
     "PERL5DB",
+    // Epistemos-managed provider credentials
+    "OPENAI_API_KEY",
+    "OPENAI_ACCESS_TOKEN",
+    "OPENAI_AUTH_MODE",
+    "OPENAI_CLIENT_VERSION",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_ACCESS_TOKEN",
+    "ANTHROPIC_AUTH_MODE",
+    "GOOGLE_API_KEY",
+    "GOOGLE_ACCESS_TOKEN",
+    "GOOGLE_AUTH_MODE",
+    "GOOGLE_PROJECT_ID",
+    "PERPLEXITY_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GLM_API_KEY",
+    "KIMI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MINIMAX_API_KEY",
+    "XAI_API_KEY",
+    "MISTRAL_API_KEY",
+    "GROQ_API_KEY",
+    "HF_TOKEN",
 ];
 
 /// Apply the canonical CLI-passthrough hardening to a `tokio::process::Command`.
@@ -1146,6 +1168,50 @@ mod tests {
         // Cleanup so we don't pollute neighboring tests.
         std::env::remove_var("LD_PRELOAD");
         std::env::remove_var("DEBUG");
+    }
+
+    #[tokio::test]
+    async fn harden_cli_subprocess_clears_provider_secrets() {
+        let secret_vars = [
+            "OPENAI_API_KEY",
+            "OPENAI_ACCESS_TOKEN",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_ACCESS_TOKEN",
+            "GOOGLE_API_KEY",
+            "GOOGLE_ACCESS_TOKEN",
+            "PERPLEXITY_API_KEY",
+            "OPENROUTER_API_KEY",
+            "HF_TOKEN",
+        ];
+        let saved: Vec<(&str, Option<String>)> = secret_vars
+            .iter()
+            .map(|&var| (var, std::env::var(var).ok()))
+            .collect();
+        for &var in &secret_vars {
+            std::env::set_var(var, format!("fixture-{var}"));
+        }
+
+        let mut cmd = tokio::process::Command::new("env");
+        harden_cli_subprocess(&mut cmd);
+        let output = cmd
+            .output()
+            .await
+            .expect("env binary must exist on test host");
+        let env = String::from_utf8_lossy(&output.stdout);
+
+        for &var in &secret_vars {
+            assert!(
+                !env.contains(&format!("{var}=")),
+                "{var} leaked into hardened child env: {env}"
+            );
+        }
+
+        for (var, value) in saved {
+            match value {
+                Some(value) => std::env::set_var(var, value),
+                None => std::env::remove_var(var),
+            }
+        }
     }
 
     #[tokio::test]
