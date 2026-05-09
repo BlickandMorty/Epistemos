@@ -3,6 +3,16 @@ import Foundation
 import os
 import Speech
 
+protocol ComposerVoiceAudioRecording: AnyObject {
+    @discardableResult
+    func prepareToRecord() -> Bool
+    @discardableResult
+    func record() -> Bool
+    func stop()
+}
+
+extension AVAudioRecorder: ComposerVoiceAudioRecording {}
+
 /// Mic-to-text capture for the chat composer. Records short utterances
 /// with AVAudioRecorder and transcribes them via the shared
 /// `AudioTranscriber` (Apple Speech primary). Meant for utterances a
@@ -26,11 +36,39 @@ final class ComposerVoiceInputService: ObservableObject {
     @Published private(set) var latestTranscript: String = ""
 
     private let log = Logger(subsystem: "com.epistemos", category: "ComposerVoiceInput")
-    private let transcriber = AudioTranscriber()
-    private var recorder: AVAudioRecorder?
+    private let tempDirectory: URL
+    private let permissionProvider: @Sendable () async -> Bool
+    private let recorderFactory: @MainActor (URL, [String: Any]) throws -> ComposerVoiceAudioRecording
+    private let transcribeAudio: @Sendable (URL) async throws -> TranscribedAudio
+
+    private var recorder: ComposerVoiceAudioRecording?
     private var outputURL: URL?
 
-    private init() {}
+    private convenience init() {
+        let transcriber = AudioTranscriber()
+        self.init(
+            tempDirectory: FileManager.default.temporaryDirectory,
+            permissionProvider: { await Self.requestMicrophonePermissionIfNeeded() },
+            recorderFactory: { url, settings in
+                try AVAudioRecorder(url: url, settings: settings)
+            },
+            transcribeAudio: { url in
+                try await transcriber.transcribe(audioURL: url)
+            }
+        )
+    }
+
+    init(
+        tempDirectory: URL = FileManager.default.temporaryDirectory,
+        permissionProvider: @escaping @Sendable () async -> Bool,
+        recorderFactory: @escaping @MainActor (URL, [String: Any]) throws -> ComposerVoiceAudioRecording,
+        transcribeAudio: @escaping @Sendable (URL) async throws -> TranscribedAudio
+    ) {
+        self.tempDirectory = tempDirectory
+        self.permissionProvider = permissionProvider
+        self.recorderFactory = recorderFactory
+        self.transcribeAudio = transcribeAudio
+    }
 
     var isRecording: Bool {
         if case .recording = state { return true }
@@ -58,13 +96,14 @@ final class ComposerVoiceInputService: ObservableObject {
 
     private func start() async {
         state = .requestingPermission
-        let granted = await requestMicrophonePermissionIfNeeded()
+        let granted = await permissionProvider()
         guard granted else {
             state = .error("Microphone permission denied. Grant access in System Settings → Privacy & Security → Microphone.")
             return
         }
 
-        let tempURL = FileManager.default.temporaryDirectory
+        cleanupOutputFileIfNeeded()
+        let tempURL = tempDirectory
             .appendingPathComponent("composer-\(UUID().uuidString).m4a")
 
         let settings: [String: Any] = [
@@ -75,9 +114,10 @@ final class ComposerVoiceInputService: ObservableObject {
         ]
 
         do {
-            let recorder = try AVAudioRecorder(url: tempURL, settings: settings)
+            let recorder = try recorderFactory(tempURL, settings)
             recorder.prepareToRecord()
             guard recorder.record() else {
+                cleanupRecording(at: tempURL)
                 state = .error("Couldn't start recording. Try again or check mic permissions.")
                 return
             }
@@ -101,8 +141,15 @@ final class ComposerVoiceInputService: ObservableObject {
         self.recorder = nil
         state = .transcribing
 
+        defer {
+            cleanupRecording(at: outputURL)
+            if self.outputURL == outputURL {
+                self.outputURL = nil
+            }
+        }
+
         do {
-            let result = try await transcriber.transcribe(audioURL: outputURL)
+            let result = try await transcribeAudio(outputURL)
             let cleaned = result.fullText.trimmingCharacters(in: .whitespacesAndNewlines)
             latestTranscript = cleaned
             state = .idle
@@ -110,7 +157,6 @@ final class ComposerVoiceInputService: ObservableObject {
             log.error("transcription failed: \(error.localizedDescription, privacy: .public)")
             state = .error("Transcription failed: \(error.localizedDescription)")
         }
-        self.outputURL = nil
     }
 
     /// Cancel an active recording without transcribing. Discards the
@@ -118,9 +164,14 @@ final class ComposerVoiceInputService: ObservableObject {
     func cancel() {
         recorder?.stop()
         recorder = nil
-        if let outputURL { try? FileManager.default.removeItem(at: outputURL) }
-        outputURL = nil
+        cleanupOutputFileIfNeeded()
         state = .idle
+    }
+
+    /// Tear down an in-flight composer recording when its owning UI disappears.
+    func tearDown() {
+        cancel()
+        latestTranscript = ""
     }
 
     /// Consume the latest transcript — clears `latestTranscript` so the
@@ -133,7 +184,7 @@ final class ComposerVoiceInputService: ObservableObject {
 
     // MARK: - Permission
 
-    private func requestMicrophonePermissionIfNeeded() async -> Bool {
+    private static func requestMicrophonePermissionIfNeeded() async -> Bool {
         let status = AVCaptureDevice.authorizationStatus(for: .audio)
         switch status {
         case .authorized:
@@ -144,6 +195,21 @@ final class ComposerVoiceInputService: ObservableObject {
             return await AVCaptureDevice.requestAccess(for: .audio)
         @unknown default:
             return false
+        }
+    }
+
+    private func cleanupOutputFileIfNeeded() {
+        guard let outputURL else { return }
+        cleanupRecording(at: outputURL)
+        self.outputURL = nil
+    }
+
+    private func cleanupRecording(at url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            log.error("Failed to delete composer temp audio: \(error.localizedDescription, privacy: .public)")
         }
     }
 }
