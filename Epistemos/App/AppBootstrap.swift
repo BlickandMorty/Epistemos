@@ -2629,11 +2629,41 @@ final class AppBootstrap {
 
     // MARK: - Full Reset
 
-    func resetAllData() async {
+    func clearVaultLifecycleRuntimeState(reason: String, clearWorkspaceRestore: Bool = false) {
         queryTask?.cancel()
         queryTask = nil
+        preparedRetrievalRefreshTask?.cancel()
+        preparedRetrievalRefreshTask = nil
+        healthyVaultBodyCleanupTask?.cancel()
+        healthyVaultBodyCleanupTask = nil
+
         ambientManifest = nil
         vaultSync.ambientManifest = nil
+        queryEngine.resetForVaultLifecycle()
+        queryEngine.invalidateRuntime()
+        contextualShadowsState.resetForVaultLifecycle()
+        ShadowSearchDiagnostics.shared.reset()
+        shadowIndexer = nil
+        lastShadowIndexedVaultPath = nil
+        shadowIndexingInFlightVaultPath = nil
+        lastR3InitializedVaultPath = nil
+        instantRecallService.clearIndex()
+        graphState.resetForVaultLifecycle()
+        if clearWorkspaceRestore {
+            workspaceService.stopAutoSave()
+            workspaceService.clearAutoSavedWorkspace()
+            workspaceService.welcomeBack = nil
+        }
+        EditorBundleHealthRow.recordHaloClosed()
+        BackgroundIndexingHealthRow.recordUnavailable(reason: reason)
+        Log.pipeline.info("Vault lifecycle: cleared runtime state (\(reason, privacy: .public))")
+    }
+
+    func resetAllData() async {
+        clearVaultLifecycleRuntimeState(
+            reason: "Reset Everything started",
+            clearWorkspaceRestore: true
+        )
         let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
         if !didClear {
             await vaultSync.forceClearDerivedLocalStateForFullReset()
@@ -2676,6 +2706,10 @@ final class AppBootstrap {
         chatState.clearMessages()
         notesUI.resetForVaultSwitch()
         pipelineState.reset()
+        clearVaultLifecycleRuntimeState(
+            reason: "Reset Everything completed",
+            clearWorkspaceRestore: true
+        )
 
         inferenceState.setRoutingMode(.auto)
         inferenceState.setPreferredLocalTextModelID(
@@ -2687,7 +2721,6 @@ final class AppBootstrap {
 
         uiState.setActivePanel(.home)
         uiState.needsSetup = true
-        graphState.needsRefresh = true
 
         Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
     }
@@ -2963,7 +2996,7 @@ final class AppBootstrap {
     private func initializeShadowBackendIfReady() {
         guard let vaultURL = vaultSync.vaultURL else {
             Log.app.info("W8.7 shadow: skipping init — no active vault URL yet")
-            contextualShadowsState.configureShadowSearch(nil)
+            contextualShadowsState.resetForVaultLifecycle()
             shadowIndexer = nil
             lastShadowIndexedVaultPath = nil
             shadowIndexingInFlightVaultPath = nil
@@ -2982,7 +3015,7 @@ final class AppBootstrap {
         }
         if vaultPath != lastShadowIndexedVaultPath {
             shadowIndexer = nil
-            contextualShadowsState.configureShadowSearch(nil)
+            contextualShadowsState.resetForVaultLifecycle()
         }
         lastShadowIndexedVaultPath = vaultPath
         shadowIndexingInFlightVaultPath = vaultPath
@@ -3015,7 +3048,7 @@ final class AppBootstrap {
                     )
                     self?.lastShadowIndexedVaultPath = nil
                     self?.shadowIndexingInFlightVaultPath = nil
-                    self?.contextualShadowsState.configureShadowSearch(nil)
+                    self?.contextualShadowsState.resetForVaultLifecycle()
                 }
                 return
             }

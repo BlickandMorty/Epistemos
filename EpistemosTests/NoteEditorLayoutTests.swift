@@ -612,6 +612,17 @@ struct NoteEditorLayoutTests {
         #expect(graphState.needsRefresh)
     }
 
+    @Test("visible code editor file IO is routed through CodeFileService containment")
+    func visibleCodeEditorFileIORoutesThroughCodeFileServiceContainment() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("CodeFileService(vaultRoot:"))
+        #expect(source.contains("files.readCodeFile(at:"))
+        #expect(source.contains("files.updateCodeFile(at:"))
+        #expect(!source.contains("try content.write(toFile:"))
+        #expect(!source.contains("String(contentsOfFile: filePath"))
+    }
+
     @Test("note workspace no longer calls loadBody from its render-time persisted-body fallback")
     func noteWorkspaceRenderPathAvoidsLoadBodyFallback() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")

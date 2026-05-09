@@ -171,6 +171,12 @@ final class QueryEngine {
         errorMessage = nil
     }
 
+    /// Clear all user-visible query state when the active vault changes.
+    func resetForVaultLifecycle() {
+        clear()
+        queryHistory = []
+    }
+
     private func addToHistory(query: String, result: QueryResult) {
         queryHistory.insert(QueryHistoryEntry(
             query: query,

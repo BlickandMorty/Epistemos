@@ -1048,6 +1048,55 @@ struct VaultSyncServiceAuditTests {
         })
     }
 
+    @Test("failed vault selection preserves the previous active vault")
+    func failedVaultSelectionPreservesPreviousActiveVault() async throws {
+        let container = try makeRecoveryContainer()
+        let root = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let currentVaultURL = root.appendingPathComponent("CurrentVault", isDirectory: true)
+        let rejectedVaultURL = root.appendingPathComponent("RejectedVault", isDirectory: true)
+        let noteBodiesURL = root.appendingPathComponent("NoteBodies", isDirectory: true)
+        let appSupportURL = root.appendingPathComponent("AppSupport", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("prefs.plist")
+        let recoverySnapshotsURL = root.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: currentVaultURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: rejectedVaultURL, withIntermediateDirectories: true)
+
+        await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            let service = VaultSyncService(modelContainer: container)
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+            service.setSearchDatabaseURLForTesting(appSupportURL.appendingPathComponent("search.sqlite"))
+            service.setRequiresSecurityScopedVaultAccessForTesting(false)
+            defer { service.stopWatching(preserveData: true) }
+
+            let didStart = await service.switchToVaultAsync(
+                vaultURL: currentVaultURL,
+                scopeAlreadyAcquired: true,
+                refreshAmbientManifestImmediately: false
+            )
+            #expect(didStart)
+            #expect(service.vaultURL?.standardizedFileURL == currentVaultURL.standardizedFileURL)
+            #expect(service.isWatching)
+
+            service.setRequiresSecurityScopedVaultAccessForTesting(true)
+            service.setSecurityScopeAccessOperationForTesting { url in
+                url.standardizedFileURL != rejectedVaultURL.standardizedFileURL
+            }
+            let didSwitch = await service.switchToVaultAsync(
+                vaultURL: rejectedVaultURL,
+                scopeAlreadyAcquired: false,
+                refreshAmbientManifestImmediately: false
+            )
+
+            #expect(!didSwitch)
+            #expect(service.vaultURL?.standardizedFileURL == currentVaultURL.standardizedFileURL)
+            #expect(service.isWatching)
+        })
+    }
+
     @Test("movePage relocates the markdown file into the target vault subfolder")
     func movePageRelocatesFileIntoTargetSubfolder() throws {
         let container = try makeContainer()

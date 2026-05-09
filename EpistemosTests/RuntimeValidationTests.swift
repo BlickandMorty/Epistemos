@@ -3408,7 +3408,11 @@ struct RuntimeValidationTests {
         #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
         #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
-        #expect(resetBody.contains("graphState.needsRefresh = true"))
+        #expect(resetBody.contains("clearVaultLifecycleRuntimeState("))
+        #expect(appBootstrap.contains("queryEngine.resetForVaultLifecycle()"))
+        #expect(appBootstrap.contains("contextualShadowsState.resetForVaultLifecycle()"))
+        #expect(appBootstrap.contains("graphState.resetForVaultLifecycle()"))
+        #expect(!appBootstrap.contains("graphState.needsRefresh = true"))
     }
 
     @Test("model profile persistence avoids silent save failures")

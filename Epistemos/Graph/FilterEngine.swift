@@ -152,6 +152,16 @@ final class FilterEngine {
         selectedVaultFilter = nil
     }
 
+    /// Reset all graph filters when the active vault truth changes.
+    func resetForVaultLifecycle() {
+        activeNodeTypes = Set(GraphNodeType.visibleCases)
+        activeEdgeTypes = Set(GraphEdgeType.visibleCases)
+        savedNodeTypes = nil
+        clearFocus()
+        clearSearchFilter()
+        clearModelFilter()
+    }
+
     // MARK: - Visibility Checks
 
     /// Check whether a node should be visible given all active filters.
