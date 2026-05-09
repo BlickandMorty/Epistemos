@@ -866,8 +866,8 @@ fragment float4 node_fragment(
             float3 folder_shadow_color = light
                 ? srgb_to_linear(float3(0.00, 0.00, 0.00))
                 : srgb_to_linear(float3(0.72, 0.72, 0.72));
-            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.62);
-            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.16);
+            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.24);
+            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.06);
         }
         if (uniforms.pulse_time >= 0.0) {
             float d_to_pulse = length(in.world_pos - uniforms.pulse_origin);
@@ -930,8 +930,8 @@ fragment float4 node_fragment(
             float3 folder_shadow_color = light
                 ? srgb_to_linear(float3(0.00, 0.00, 0.00))
                 : srgb_to_linear(float3(0.72, 0.72, 0.72));
-            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.48);
-            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.12);
+            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.20);
+            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.05);
         }
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;

@@ -457,6 +457,16 @@ struct GraphPhysicsSettingsAuditTests {
                 "Only high-degree/top-level folder hubs should receive the subtle pixel glare")
         #expect(renderer.contains("float folder_pixel_glare = smoothstep"),
                 "Large folder hubs should keep a subtle opaque pixel-glare cue")
+        #expect(renderer.contains("folder_pixel_glare * 0.24"),
+                "Cinematic folder glare should be present but restrained, not a dramatic gradient")
+        #expect(renderer.contains("folder_pixel_shadow * 0.06"),
+                "Cinematic folder shadow should be a minimal solid-body shade cue")
+        #expect(!renderer.contains("folder_pixel_glare * 0.62"),
+                "Old heavy folder glare multiplier is too dramatic for the restored solid-node look")
+        #expect(renderer.contains("folder_pixel_glare * 0.20"),
+                "Balanced folder glare should also stay restrained while preserving the cue")
+        #expect(!renderer.contains("folder_pixel_glare * 0.48"),
+                "Balanced mode must not keep the previous heavier folder gradient")
         #expect(renderer.contains("out.node_radius_world = effective_radius;"),
                 "Pixel click animation should scale from real graph radius, not screen overlay math")
         #expect(renderer.contains("return float4(pixel_color, max(in.color.a, 0.95));"),
