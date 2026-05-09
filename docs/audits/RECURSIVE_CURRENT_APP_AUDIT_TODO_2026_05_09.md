@@ -41,7 +41,7 @@ For every task below:
 
 ### RCA-P0-001 - Re-audit current code against canonical authority floor
 
-Status: TODO
+Status: PATCHED PARTIAL - RECOVERY UI AUTOMATED GREEN / CORRUPT-STORE RUNTIME PROOF PENDING
 
 Subsystem: release truth, doctrine/code authority, post-Helios preservation.
 
@@ -68,7 +68,7 @@ Acceptance:
 
 ### RCA-P0-002 - Prove database fallback cannot create silent in-memory sessions
 
-Status: TODO
+Status: PATCHED PARTIAL - NORMAL EDITING BLOCKED / FAULT-INJECTION RUNTIME MATRIX PENDING
 
 Subsystem: persistence, launch recovery, user trust.
 
@@ -88,6 +88,37 @@ Audit steps:
 Acceptance:
 - Corrupted-store launch displays a hard degraded-mode state that normal users cannot miss.
 - User data cannot be silently created in an in-memory-only session without clear export/recovery affordances.
+
+Fix-pass evidence 2026-05-09:
+
+- Files changed:
+  - `Epistemos/App/AppBootstrap.swift`
+  - `Epistemos/App/RootView.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+  - `EpistemosTests/ProductionHardeningTests.swift`
+- Tests added:
+  - `RuntimeValidationTests.databaseOpenFailureBlocksNormalEditingBehindExplicitRecoveryUI`
+- Source proof:
+  - `AppBootstrap` now records a typed `PersistenceMode` with `.durable(url:)`, `.testInMemory`, and `.inMemoryRecovery(reason:)`.
+  - Persistent store open failure logs and records `Database failed to load; entering recovery-only in-memory mode` before constructing the fallback model container.
+  - `RootView` removed the `Continue Empty` button, changed the alert to `Database Recovery Required`, and adds a persistent `DatabaseRecoveryOverlay` while `databaseError` is non-nil.
+  - The recovery overlay explicitly says `This recovery session is not durable.` and `Notes, chat, capture, vault sync, and .epdoc writes are disabled`.
+- Commands run:
+  - Test-first red command: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: failed before product patch because `PersistenceMode`, recovery-only log text, and `DatabaseRecoveryOverlay` were missing and `Continue Empty` still existed.
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-33-44--0500.xcresult`
+  - Focused source-guard pass: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 263 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-39-29--0500.xcresult`
+  - Existing hardening gate: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AuditHardeningRegressionTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 19 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-48-12--0500.xcresult`
+  - Destructive-action gate: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 33 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-51-07--0500.xcresult`
+- Remaining risk:
+  - Manual corrupt-store runtime smoke is still required: corrupt or lock the SwiftData store, launch, verify the recovery overlay blocks the workspace, attempt notes/chat/capture/.epdoc/vault writes, and relaunch to prove the user was not told temporary edits were durable.
+  - Secondary windows and any pre-existing detached write surfaces still need explicit runtime inspection under a forced store-open failure.
 
 ### RCA-P0-003 - Remove or explicitly surface hidden capture metadata in note bodies
 
@@ -4335,6 +4366,34 @@ Acceptance:
 - Recovery mode is visible on every affected surface.
 - Tests prove no "saved" note/chat/capture disappears after relaunch because it was written to an in-memory fallback.
 
+Fix-pass evidence 2026-05-09:
+
+- Canonical implementation owner: `RCA-P0-002`.
+- Files changed:
+  - `Epistemos/App/AppBootstrap.swift`
+  - `Epistemos/App/RootView.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+  - `EpistemosTests/ProductionHardeningTests.swift`
+- Product behavior now:
+  - Store-open failure still creates a fallback in-memory container only to let the recovery shell render, but the app records `.inMemoryRecovery(reason:)` instead of treating the session as durable.
+  - The user-facing recovery path no longer offers `Continue Empty`; the visible choices are reset or quit.
+  - A persistent recovery overlay blocks the normal workspace and states that notes, chat, capture, vault sync, and `.epdoc` writes are disabled.
+- Commands run:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-33-44--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 263 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-39-29--0500.xcresult`
+  - Green hardening gate: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AuditHardeningRegressionTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 19 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-48-12--0500.xcresult`
+  - Green destructive-action gate: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 33 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-51-07--0500.xcresult`
+- Remaining risk:
+  - Fault-injection runtime matrix still required for corrupt store, migration failure, disk-full, and permission-denied store creation.
+  - Manual attempts for note creation, chat persistence, Quick Capture, `.epdoc` save, graph mutation, settings writes, vault sync, and model-vault writes remain open.
+
 ### RCA8-P0-002 - Enforce zero-inheritance process launch for MCP, CLI, XPC, and helper servers
 
 Status: TODO
@@ -5035,6 +5094,35 @@ Acceptance:
 - No editable surface appears without durable/temporary state truth.
 - The user can export/recover from degraded mode without a false-success save.
 
+Fix-pass evidence 2026-05-09:
+
+- Canonical implementation owner: `RCA-P0-002`.
+- Files changed:
+  - `Epistemos/App/AppBootstrap.swift`
+  - `Epistemos/App/RootView.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+  - `EpistemosTests/ProductionHardeningTests.swift`
+- Delta from earlier partial state:
+  - The old `Continue Empty` branch has been removed rather than renamed.
+  - `AppBootstrap` records `PersistenceMode.inMemoryRecovery(reason:)` on persistent-store open failure.
+  - `RootView` keeps a visible recovery overlay mounted while `databaseError` exists, so the warning is not a one-shot alert.
+  - The recovery copy explicitly says notes, chat, capture, vault sync, and `.epdoc` writes are disabled.
+- Commands run:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-33-44--0500.xcresult`
+  - Green RuntimeValidation: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 263 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-39-29--0500.xcresult`
+  - Green AuditHardeningRegression: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AuditHardeningRegressionTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 19 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-48-12--0500.xcresult`
+  - Green SovereignGate: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 33 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-51-07--0500.xcresult`
+- Remaining risk:
+  - Runtime proof still required under actual corrupt/locked SwiftData store conditions.
+  - The UI now blocks the main workspace, but secondary windows/write surfaces still need manual/runtime verification before this item can be closed.
+
 ### RCA9-P1-001 - Move `AgentGrepService` search and sidecar enrichment off `MainActor`
 
 Status: CONFIRMED-RISK
@@ -5673,7 +5761,7 @@ Acceptance:
 
 ### RCA10-P0-003 - Keep database fallback blocked until model-container init is inspected
 
-Status: NEEDS-RUNTIME-PROOF
+Status: PATCHED PARTIAL - MODEL-CONTAINER INIT INSPECTED / RUNTIME FAULT PROOF PENDING
 
 Canonical owner: `RCA-P0-002`
 
@@ -5698,6 +5786,37 @@ Acceptance:
 - Store-open failure cannot result in normal-looking editable durable surfaces.
 - Any degraded/in-memory session has a persistent banner and export/recovery affordance.
 - Notes, chat, capture, `.epdoc`, vault sync, and model-vault writes are blocked or explicitly temporary.
+
+Fix-pass evidence 2026-05-09:
+
+- Canonical implementation owner: `RCA-P0-002`.
+- Source read:
+  - `Epistemos/App/AppBootstrap.swift` persistent `ModelContainer` construction and catch/fallback path.
+  - `Epistemos/App/RootView.swift` `databaseError` alert and recovery shell.
+- Files changed:
+  - `Epistemos/App/AppBootstrap.swift`
+  - `Epistemos/App/RootView.swift`
+  - `EpistemosTests/RuntimeValidationTests.swift`
+  - `EpistemosTests/ProductionHardeningTests.swift`
+- Source proof:
+  - `AppBootstrap` resolves `.durable(url: modelStoreURL)` only when persistent `ModelContainer` construction succeeds.
+  - On failure, the fallback is labeled `.inMemoryRecovery(reason:)`, emits an explicit persistence fault log/diagnostic, and sets `databaseError`.
+  - `RootView` no longer exposes normal-looking `Continue Empty`; the recovery overlay stays visible and blocks the workspace.
+- Commands run:
+  - Red: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-33-44--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 263 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-39-29--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AuditHardeningRegressionTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 19 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-48-12--0500.xcresult`
+  - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests test CODE_SIGNING_ALLOWED=NO`
+    - Result: passed, 33 Swift Testing tests.
+    - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_01-51-07--0500.xcresult`
+- Remaining risk:
+  - The required corrupt-store, migration-failure, disk-full, and permission-denied launch smokes are still pending.
+  - Export/recovery affordance is currently reset-or-quit focused; any broader export-only degraded workflow remains future work and must not imply durability.
 
 ### RCA10-P0-004 - Keep `CodeFileService` first, but add editor-call and approval-loop proof
 

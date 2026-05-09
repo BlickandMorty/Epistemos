@@ -3406,6 +3406,26 @@ struct RuntimeValidationTests {
         #expect(appBootstrap.contains("Database reset cleanup failed"))
     }
 
+    @Test("database open failure blocks normal editing behind explicit recovery UI")
+    func databaseOpenFailureBlocksNormalEditingBehindExplicitRecoveryUI() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(appBootstrap.contains("enum PersistenceMode: Equatable, Sendable"))
+        #expect(appBootstrap.contains("let persistenceMode: PersistenceMode"))
+        #expect(appBootstrap.contains(".durable(url: modelStoreURL)"))
+        #expect(appBootstrap.contains(".inMemoryRecovery(reason: error.localizedDescription)"))
+        #expect(appBootstrap.contains("Database failed to load; entering recovery-only in-memory mode"))
+
+        #expect(!rootView.contains("Button(\"Continue Empty\")"))
+        #expect(!rootView.contains("continue with an empty session"))
+        #expect(rootView.contains("DatabaseRecoveryOverlay("))
+        #expect(rootView.contains("if let databaseError {"))
+        #expect(rootView.contains("Notes, chat, capture, vault sync, and .epdoc writes are disabled"))
+        #expect(rootView.contains(".alert(\"Database Recovery Required\""))
+        #expect(rootView.contains("This recovery session is not durable."))
+    }
+
     @Test("full reset clears the whole schema and managed note bodies")
     func fullResetClearsTheWholeSchemaAndManagedNoteBodies() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")

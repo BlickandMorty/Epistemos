@@ -264,16 +264,25 @@ struct RootView: View {
                 .transition(.opacity)
             }
         }
+        .overlay {
+            if let databaseError {
+                DatabaseRecoveryOverlay(
+                    error: databaseError,
+                    resetAction: requestDatabaseResetAuthorization,
+                    quitAction: { NSApp.terminate(nil) }
+                )
+                .transition(.opacity)
+            }
+        }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear(perform: handleDatabaseCheck)
-        .alert("Database Error", isPresented: $showDatabaseAlert) {
-            Button("Continue Empty") { }
+        .alert("Database Recovery Required", isPresented: $showDatabaseAlert) {
             Button("Reset Database", role: .destructive) {
                 requestDatabaseResetAuthorization()
             }
             Button("Quit") { NSApp.terminate(nil) }
         } message: {
-            Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
+            Text("The database could not be loaded. This recovery session is not durable. Normal notes, chat, capture, vault sync, and .epdoc writes are blocked until the database is reset or repaired.\n\n\(databaseError?.localizedDescription ?? "")")
         }
     }
 
@@ -1792,6 +1801,56 @@ struct LocalModelToolbarMenu: View {
             }
         }
         .fixedSize()
+    }
+}
+
+
+private struct DatabaseRecoveryOverlay: View {
+    let error: Error
+    let resetAction: () -> Void
+    let quitAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.34)
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Database Recovery Required")
+                        .font(.system(size: 22, weight: .semibold))
+
+                    Text("This recovery session is not durable.")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.red)
+
+                    Text("Notes, chat, capture, vault sync, and .epdoc writes are disabled until the database is reset or the store is repaired and Epistemos is relaunched.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text(error.localizedDescription)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                HStack(spacing: 12) {
+                    Button("Reset Database", role: .destructive) {
+                        resetAction()
+                    }
+
+                    Button("Quit") {
+                        quitAction()
+                    }
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 620, alignment: .leading)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: .black.opacity(0.18), radius: 28, y: 12)
+            .padding(32)
+        }
     }
 }
 

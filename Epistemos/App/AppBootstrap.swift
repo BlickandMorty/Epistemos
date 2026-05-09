@@ -18,6 +18,17 @@ enum ShipGate {
     static let agentsEnabled = true
 }
 
+enum PersistenceMode: Equatable, Sendable {
+    case durable(url: URL)
+    case testInMemory
+    case inMemoryRecovery(reason: String)
+
+    var isDurable: Bool {
+        if case .durable = self { return true }
+        return false
+    }
+}
+
 // MARK: - App Bootstrap
 // Pure state/service factory. Creates state objects, services, and the dependency graph.
 // All behavioral orchestration is delegated to AppCoordinator and ChatCoordinator.
@@ -858,8 +869,9 @@ final class AppBootstrap {
 
     // MARK: - Model Container
     let modelContainer: ModelContainer
-    /// Non-nil when the on-disk database failed to load and we fell back to in-memory.
-    /// RootView shows a recovery alert when this is set.
+    let persistenceMode: PersistenceMode
+    /// Non-nil when the on-disk database failed to load and the app is in
+    /// recovery-only in-memory mode. RootView blocks normal workspace editing.
     var databaseError: Error?
 
     // MARK: - State
@@ -1323,6 +1335,7 @@ final class AppBootstrap {
         let schema = Schema(EpistemosSchema.models)
         let container: ModelContainer
         let dbError: Error?
+        let resolvedPersistenceMode: PersistenceMode
         let fileManager = FileManager.default
         let applicationSupportDirectory = FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
         Self.prepareSharedSubstrateContainer(AppGroupContainer.shared)
@@ -1363,20 +1376,25 @@ final class AppBootstrap {
                 configurations: modelConfiguration
             )
             dbError = nil
+            resolvedPersistenceMode = usesInMemoryModelStore
+                ? .testInMemory
+                : .durable(url: modelStoreURL)
         } catch {
             Log.persistence.error(
-                "Database failed to load, falling back to in-memory: \(error.localizedDescription, privacy: .public)"
+                "Database failed to load; entering recovery-only in-memory mode: \(error.localizedDescription, privacy: .public)"
             )
             RuntimeDiagnostics.record(
                 .fault,
                 category: "Persistence",
-                message: "Database failed to load, falling back to in-memory",
+                message: "Database failed to load; entering recovery-only in-memory mode",
                 metadata: ["error": error.localizedDescription]
             )
             container = Self.makeFallbackModelContainer(schema: schema)
             dbError = error
+            resolvedPersistenceMode = .inMemoryRecovery(reason: error.localizedDescription)
         }
         self.modelContainer = container
+        self.persistenceMode = resolvedPersistenceMode
         self.databaseError = dbError
 
         // Wire CompanionState to the canonical SwiftData ModelContext
