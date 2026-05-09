@@ -9370,6 +9370,27 @@ Patch evidence, 2026-05-09 sparse-cell high-degree label density slice:
   - Manual dense-vault graph smoke is still required to verify the subjective balance: selected-node labels should give useful neighborhood context without forming the white label block shown in the user's screenshots.
   - Runtime screenshots at multiple zoom levels are still needed before this can be marked visually complete.
 
+Patch evidence, 2026-05-09 folder hub semantic sizing slice:
+
+- Files changed:
+  - `Epistemos/Views/Graph/MetalGraphView.swift`
+  - `EpistemosTests/GraphPerformanceTests.swift`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Product behavior:
+  - Folder nodes sent to Rust now use `max(actual graph degree, recursive folder content weight)` for the existing link-count/radius/depth input.
+  - This connects the already-existing `GraphBuilder` recursive folder content count to rendered folder size/depth, so parent folder hubs can become the largest solid folder nodes and qualify for the subtle pixel-glare tier.
+  - Non-folder nodes still use their actual graph degree. No new FFI field, force-model change, edge ordering change, or node transparency change was introduced.
+- Tests/commands:
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPerformanceTests test CODE_SIGNING_ALLOWED=NO` failed before product patch because the new test observed `payload.linkCounts -> [0]` for a folder with semantic weight `57`.
+  - Red xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_17-09-49--0500.xcresult`.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPerformanceTests test CODE_SIGNING_ALLOWED=NO` passed, 23 tests.
+  - Green xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_17-13-40--0500.xcresult`.
+  - Source guard: `rg -n "semanticFolderCount|ffiNodeBatchSendsFolderSemanticWeightForParentHubSizing|folder semantic weight|GraphNodeRecord\\(.*type: \\.folder" Epistemos/Views/Graph/MetalGraphView.swift EpistemosTests/GraphPerformanceTests.swift docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` confirmed the Swift payload and test coverage.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Manual graph smoke is still required to confirm top-level empty folders remain plain, parent folders with substantial descendants become visually prominent, and the subtle glare reads as solid-body depth rather than transparency.
+  - The current signal is recursive content weight, not a dedicated folder-depth field. If product wants glare only for folders that both have descendants and sit at a particular hierarchy level, a separate folder-depth metadata/FFI path remains a future refinement.
+
 Constraints:
 
 - Do not modify `graph-engine/src/forces.rs`.
