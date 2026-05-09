@@ -1418,6 +1418,15 @@ pub extern "C" fn graph_engine_set_visual_theme(engine: *mut Engine, theme: u8) 
     });
 }
 
+/// Set edge style: 0 = Smooth, 1 = Pixel-Art.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_edge_style(engine: *mut Engine, style: u8) {
+    ffi_catch_unwind!("graph_engine_set_edge_style", {
+        ffi_engine!(engine);
+        engine.set_edge_style(style);
+    });
+}
+
 /// Set per-node color override by UUID. Pass alpha=0 to clear the override.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_node_color_override(

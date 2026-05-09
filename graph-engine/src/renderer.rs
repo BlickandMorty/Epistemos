@@ -173,6 +173,7 @@ struct Uniforms {
     light_mode: f32,           // 0.0 = dark background, 1.0 = light background
     water_style: f32,          // 0.0 = retro pixel, 1.0 = water-bead shading
     water_wobble: f32,         // 0.0 = still, 1.0 = breathing radius
+    edge_style: f32,           // 0.0 = smooth, 1.0 = pixel-art hard edge
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -196,6 +197,29 @@ pub(crate) struct LodProfile {
 enum EdgeGeometryKind {
     Curve,
     Straight,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum EdgeStyle {
+    Smooth,
+    PixelArt,
+}
+
+impl EdgeStyle {
+    pub(crate) fn from_u8(value: u8) -> Self {
+        if value == 1 {
+            Self::PixelArt
+        } else {
+            Self::Smooth
+        }
+    }
+
+    fn as_uniform(self) -> f32 {
+        match self {
+            Self::Smooth => 0.0,
+            Self::PixelArt => 1.0,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -702,6 +726,7 @@ struct Uniforms {
     float light_mode;        // 0.0 = dark bg, 1.0 = light bg
     float water_style;       // 0.0 = retro pixel, 1.0 = water-bead
     float water_wobble;      // 0.0 = still, 1.0 = breathing radius
+    float edge_style;        // 0.0 = smooth, 1.0 = pixel-art hard edge
 };
 
 constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
@@ -1158,6 +1183,7 @@ struct LineVertexOut {
     float4 position [[position]];
     float4 color [[flat]];
     float  dist_from_center;
+    float  pixel_edge_style [[flat]];
 };
 
 float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, float t) {
@@ -1226,6 +1252,7 @@ vertex LineVertexOut curve_edge_vertex(
         out.color = inst.color;
     }
     out.dist_from_center = dist_vals[corner];
+    out.pixel_edge_style = u.edge_style;
     return out;
 }
 
@@ -1239,8 +1266,14 @@ vertex LineVertexOut line_edge_vertex(
     LineEdgeInstance inst = instances[instance_id];
 
     float2 screen0 = (inst.p0 - u.camera_offset) * u.camera_zoom;
-    float2 ndc0 = screen0 / (u.viewport_size * 0.5) * float2(1, -1);
     float2 screen1 = (inst.p1 - u.camera_offset) * u.camera_zoom;
+
+    if (u.edge_style > 0.5) {
+        screen0 = round(screen0);
+        screen1 = round(screen1);
+    }
+
+    float2 ndc0 = screen0 / (u.viewport_size * 0.5) * float2(1, -1);
     float2 ndc1 = screen1 / (u.viewport_size * 0.5) * float2(1, -1);
 
     // Direction and perpendicular in NDC space — constant screen-pixel width.
@@ -1283,10 +1316,16 @@ vertex LineVertexOut line_edge_vertex(
         out.color = inst.color;
     }
     out.dist_from_center = dist_vals[vertex_id];
+    out.pixel_edge_style = u.edge_style;
     return out;
 }
 
 fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
+    if (in.pixel_edge_style > 0.5) {
+        if (abs(in.dist_from_center) > 0.94) discard_fragment();
+        return in.color;
+    }
+
     float alpha = 1.0 - smoothstep(0.6, 1.0, abs(in.dist_from_center));
     if (alpha < 0.01) discard_fragment();
     return float4(in.color.rgb, in.color.a * alpha);
@@ -1628,6 +1667,7 @@ pub struct Renderer {
     // Quality level: 0 = Cinematic (full effects), 1 = Balanced (static depth, no glow),
     // 2 = Performance (straight edges, lighter static shading, no glow).
     pub quality_level: u8,
+    pub(crate) edge_style: EdgeStyle,
     // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
     // Previous-frame camera state (retained for future effects / velocity computation).
@@ -1874,6 +1914,7 @@ impl Renderer {
             light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             quality_level: 0, // Cinematic by default
+            edge_style: EdgeStyle::Smooth,
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
@@ -2515,6 +2556,9 @@ impl Renderer {
 
     #[inline]
     fn preferred_edge_geometry_kind(&self) -> EdgeGeometryKind {
+        if self.edge_style == EdgeStyle::PixelArt {
+            return EdgeGeometryKind::Straight;
+        }
         if self.quality_level >= 2 {
             EdgeGeometryKind::Straight
         } else {
@@ -2567,6 +2611,7 @@ impl Renderer {
             light_mode: if self.light_mode { 1.0 } else { 0.0 },
             water_style: self.water_style,
             water_wobble: self.water_wobble,
+            edge_style: self.edge_style.as_uniform(),
         }
     }
 
@@ -4748,6 +4793,24 @@ mod tests {
         assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
         assert!(!renderer.straight_edge_scratch.is_empty());
         assert!(renderer.classic_edge_scratch.is_empty());
+    }
+
+    #[test]
+    fn pixel_edge_style_forces_straight_pixel_uniforms_without_quality_downgrade() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 0;
+        renderer.edge_style = EdgeStyle::PixelArt;
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        let uniforms = renderer.uniforms_for_draw(1280.0, 720.0, 1.0, 0.0);
+
+        assert_eq!(renderer.quality_level, 0);
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
+        assert!(!renderer.straight_edge_scratch.is_empty());
+        assert!(renderer.classic_edge_scratch.is_empty());
+        assert_eq!(uniforms.edge_style, 1.0);
     }
 
     #[test]

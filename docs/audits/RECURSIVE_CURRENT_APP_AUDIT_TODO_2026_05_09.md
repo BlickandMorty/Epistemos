@@ -9155,7 +9155,7 @@ Patch evidence, 2026-05-09 graph label/edge controls exposure slice:
 
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
-Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS WIRED / COLORED GROUP EDGES + PIXEL EDGE STYLE TODO
+Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS + ENDPOINT TINT + OPTIONAL PIXEL EDGE STYLE WIRED / COLORED GROUP EDGES TODO
 
 User signal:
 
@@ -9299,6 +9299,39 @@ Patch evidence, 2026-05-09 selected-focus dimming restoration slice:
   - `git diff --check` passed.
 - Remaining risk:
   - Manual dense graph runtime smoke is still required on the user's actual vault to verify subjective dim strength, selected-neighbor label usefulness, and that the fluid feel remains unchanged under real interaction.
+
+Patch evidence, 2026-05-09 user-visible edge style slice:
+
+- Files changed:
+  - `Epistemos/Graph/GraphState.swift`
+  - `Epistemos/Views/Graph/GraphForceSettings.swift`
+  - `Epistemos/Views/Graph/MetalGraphView.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+  - `graph-engine-bridge/graph_engine.h`
+  - `graph-engine/src/engine.rs`
+  - `graph-engine/src/lib.rs`
+  - `graph-engine/src/renderer.rs`
+- Product behavior:
+  - Settings -> Graph -> Display now exposes an `Edge Style` segmented control with `Smooth` and `Pixel-Art`.
+  - `GraphState.edgeStyle` persists through `epistemos.graph.edgeStyle`, increments `edgeStyleVersion`, and wakes the renderer without touching physics settings.
+  - `MetalGraphView` pushes `graph_engine_set_edge_style(engine, graphState.edgeStyle.rawValue)` on commit and on live edge-style changes.
+  - Rust `Engine::set_edge_style(...)` forwards to the renderer, marks edge buffers for rebuild, and leaves the quality level and simulation force model unchanged.
+  - Pixel-Art edge style forces straight edge geometry even in cinematic quality, snaps edge endpoints to device pixels in the existing line-edge shader, and uses a hard edge fragment cutoff. Nodes, labels, selection dimming, endpoint trimming, z-order, and weighted thickness stay on the existing renderer path.
+  - This is a bounded first pixel-edge slice, not the full restored pre-2026-03-06 offscreen jagged edge pipeline.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml pixel_edge_style_forces_straight_pixel_uniforms_without_quality_downgrade` failed before product patch because `Renderer.edge_style`, `EdgeStyle`, and `Uniforms.edge_style` did not exist.
+  - Red proof: `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` failed after the first product patch because the settings control used dynamic `style.displayName` and did not literally expose the `Pixel-Art` source contract; failed xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_16-42-56--0500.xcresult`.
+  - `cargo test --manifest-path graph-engine/Cargo.toml pixel_edge_style_forces_straight_pixel_uniforms_without_quality_downgrade` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml edge_style` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml renderer::tests` passed, 60 renderer tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml engine::tests::quality_level_change_marks_renderer_for_buffer_rebuild` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml` passed, 2553 tests passed and 8 ignored.
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed, 30 tests, xcresult `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_16-47-51--0500.xcresult`.
+  - `git diff --check` passed.
+- Remaining risk:
+  - Manual graph settings/runtime smoke is still required to verify the segmented control is visible, switching styles redraws edges live, pixel-snapped edges feel intentional rather than noisy, and edges remain below solid node bodies in the user's dense vault.
+  - Full restored jagged pixel-edge pipeline with deterministic jitter, `PixelEdgeInstance`, and old offscreen pixel upscale remains a later isolated sub-slice.
+  - Persistent Obsidian-style graph color groups and OKLab group blending remain TODO.
 
 Constraints:
 

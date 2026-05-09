@@ -278,6 +278,9 @@ void graph_engine_set_quality_level(Engine* engine, uint8_t level);
 /// Set visual theme: 0 = Dialogue (default), 1 = Classic.
 void graph_engine_set_visual_theme(Engine* engine, uint8_t theme);
 
+/// Set edge style: 0 = Smooth, 1 = Pixel-Art.
+void graph_engine_set_edge_style(Engine* engine, uint8_t style);
+
 /// Set per-node color override by UUID. Pass alpha=0 to clear.
 void graph_engine_set_node_color_override(Engine* engine, const char* uuid, float r, float g, float b, float a);
 
