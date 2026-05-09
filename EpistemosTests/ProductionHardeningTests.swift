@@ -1243,7 +1243,9 @@ struct AuditHardeningRegressionTests {
         #expect(rootView.contains(".accessibilityLabel(\"Back to Home\")"))
         #expect(rootView.contains(".accessibilityLabel(\"Settings\")"))
         #expect(rootView.contains(".accessibilityLabel(\"Chat History\")"))
-        #expect(rootView.contains(".alert(\"Database Error\""))
+        #expect(rootView.contains("DatabaseRecoveryOverlay("))
+        #expect(rootView.contains(".alert(\"Database Recovery Required\""))
+        #expect(!rootView.contains("Button(\"Continue Empty\")"))
     }
 
     @MainActor
