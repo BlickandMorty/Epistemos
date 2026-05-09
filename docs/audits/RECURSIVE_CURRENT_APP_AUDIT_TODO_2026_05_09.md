@@ -9410,6 +9410,27 @@ Patch evidence, 2026-05-09 soft label collision physics correction:
 - Remaining risk:
   - Manual dense-vault smoke is still required to tune the subjective balance between label spacing and fluid motion. The intended feel is smooth/fluid first, with label collision acting only as a gentle spacing hint.
 
+Patch evidence, 2026-05-09 water-soft node contact tuning:
+
+- Files changed:
+  - `graph-engine/src/simulation.rs`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Product behavior:
+  - Default collision compliance is now `0.42`, so node overlaps resolve over more frames and contact reads like a fluid/water push instead of rigid discs snapping apart.
+  - Label collision contribution was softened again (`LABEL_COLLISION_SOFT_BLEND = 0.12`, `LABEL_COLLISION_MAX_EXTRA = 28.0`) so long labels can reserve a little space without creating aggressive invisible physics around nodes.
+  - This is still a collision-contact tuning only: link force, charge force, fluid wake, integrator, node palette, edge order, and `graph-engine/src/forces.rs` are unchanged.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml default_collision_compliance_is_water_soft` failed before product patch because default compliance was `0.7`.
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml wide_label_collision_shell_stays_soft_for_fluid_motion` failed under the stricter water-soft bound with `shell=13.08, actual=57.165638`.
+  - `cargo test --manifest-path graph-engine/Cargo.toml default_collision_compliance_is_water_soft` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml wide_label_collision_shell_stays_soft_for_fluid_motion` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml load_expands_collision_radii_for_wide_labels` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml simulation::tests` passed, 189 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml label` passed, 29 tests.
+- Remaining risk:
+  - Manual dense-vault interaction smoke is required: drag a hub through leaves and verify nodes compress/recover like water while avoiding visually permanent overlap.
+  - If live smoke still feels stiff, the next safe knob is further reducing label-shell max extra or exposing contact softness in Graph Display/Laboratory without changing the force model.
+
 Constraints:
 
 - Do not modify `graph-engine/src/forces.rs`.
