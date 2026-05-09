@@ -749,6 +749,22 @@ struct GraphForceSettings: View {
                         onChange: { graphState.pushLabChange() }
                     )
                 }
+
+                labToggle(
+                    label: "Elastic Edges",
+                    isOn: gs.enableElasticEdges,
+                    onChange: { graphState.pushLabChange() }
+                )
+                if graphState.enableElasticEdges {
+                    forceSlider(
+                        label: "Edge Elasticity",
+                        value: gs.edgeElasticity,
+                        range: 0...1,
+                        format: "%.2f",
+                        subtitle: "Loose \u{2194} Taut",
+                        onChange: { graphState.pushLabChange() }
+                    )
+                }
             }
 
             Divider().opacity(0.2)
@@ -822,6 +838,36 @@ struct GraphForceSettings: View {
     private func labelsSection(gs: Bindable<GraphState>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader("Labels", icon: "textformat.abc")
+
+            forceSlider(
+                label: "Outer Labels",
+                value: Binding(
+                    get: { Float(graphState.labelMaxNodes) },
+                    set: { graphState.labelMaxNodes = UInt32($0) }
+                ),
+                range: 0...80,
+                format: "%.0f",
+                subtitle: "Labels visible before zoom",
+                onChange: { graphState.labelPolicyVersion += 1; graphState.saveLabelPolicy() }
+            )
+
+            forceSlider(
+                label: "Base Size",
+                value: gs.labelFontSizePx,
+                range: 10...44,
+                format: "%.0f px",
+                subtitle: "SDF label size",
+                onChange: { graphState.labelPolicyVersion += 1; graphState.saveLabelPolicy() }
+            )
+
+            forceSlider(
+                label: "Focus Shrink",
+                value: gs.labelFocusShrink,
+                range: 0...1,
+                format: "%.2f",
+                subtitle: "Wide \u{2194} Tight focus",
+                onChange: { graphState.labelPolicyVersion += 1; graphState.saveLabelPolicy() }
+            )
 
             forceSlider(
                 label: "Dead Zone",
