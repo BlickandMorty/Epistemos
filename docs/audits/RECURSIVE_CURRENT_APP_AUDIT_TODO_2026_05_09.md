@@ -9333,6 +9333,23 @@ Patch evidence, 2026-05-09 user-visible edge style slice:
   - Full restored jagged pixel-edge pipeline with deterministic jitter, `PixelEdgeInstance`, and old offscreen pixel upscale remains a later isolated sub-slice.
   - Persistent Obsidian-style graph color groups and OKLab group blending remain TODO.
 
+Patch evidence, 2026-05-09 deterministic jagged edge shader slice:
+
+- Files changed:
+  - `graph-engine/src/renderer.rs`
+  - `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+- Product behavior:
+  - The `Pixel-Art` edge style now uses a deterministic shader-side jagged cutoff instead of only a hard antialiased-off line.
+  - The jagged cutoff is derived from fragment position and per-edge `instance_id` seed, so the silhouette is stable for the same edge and does not require per-frame CPU edge geometry rebuilds.
+  - The style still uses the existing straight edge pass, endpoint trimming, weighted thickness, z-order under nodes, and solid-node occlusion. It does not restore pixel nodes or the old offscreen pixel upscale path.
+- Tests/commands:
+  - Red proof: `cargo test --manifest-path graph-engine/Cargo.toml pixel_edge_shader_uses_deterministic_jagged_cutoff` failed after the test was corrected to inspect only the shader block because `pixel_jagged_offset(...)` did not exist.
+  - `cargo test --manifest-path graph-engine/Cargo.toml pixel_edge_shader_uses_deterministic_jagged_cutoff` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml renderer::tests` passed, 61 renderer tests.
+- Remaining risk:
+  - Manual graph smoke is required to tune jagged strength; the current shader is deliberately subtle to avoid noisy dense graphs.
+  - Full old `PixelEdgeInstance` / offscreen nearest-neighbor pixel pipeline is still not restored.
+
 Constraints:
 
 - Do not modify `graph-engine/src/forces.rs`.
