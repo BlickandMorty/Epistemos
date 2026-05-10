@@ -57,6 +57,18 @@ enum NoteWindowThemeStyler {
             window.toolbar?.showsBaselineSeparator = false
         }
         window.toolbarStyle = .unified
+        // Tint the window chrome (toolbar / titlebar area) to the theme's
+        // editor canvas color so themes with non-system backgrounds (e.g.
+        // Nocturne's deep purple-black 0x19141F or Magnolia's pink-cream
+        // 0xF7F2F5) don't render macOS's opaque default chrome material
+        // on top of an otherwise themed body. With
+        // `titlebarAppearsTransparent = true` and `.fullSizeContentView`,
+        // the window backgroundColor shows through the title bar area.
+        let canvasColor = NSColor(
+            NoteWorkspaceSurfaceStyle.canvasBackground(for: uiState.theme)
+        )
+        window.backgroundColor = canvasColor
+
         if let controller = window.contentViewController as? NoteWindowBackdropController {
             controller.syncTheme(uiState: uiState)
         } else {

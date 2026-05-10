@@ -49,6 +49,18 @@ enum HomeWindowIdentity {
     }
 }
 
+enum AppWindowBackdropStyle {
+    nonisolated static func backgroundToken(
+        for theme: EpistemosTheme
+    ) -> EpistemosTheme.ResolvedColorToken {
+        theme.resolved.background
+    }
+
+    nonisolated static func background(for theme: EpistemosTheme) -> Color {
+        backgroundToken(for: theme).color
+    }
+}
+
 enum RootViewDestructiveActionSovereignGate {
     enum Target: Equatable {
         case databaseReset
@@ -152,11 +164,11 @@ struct RootView: View {
     private var rootContent: some View {
         ZStack {
             // Pre-paint the window background so transitions from landing
-            // into chat don't briefly flash the old theme surface at
-            // the title bar. Dark mode = OLED black, light mode = theme bg.
+            // into chat don't briefly flash the old theme surface at the
+            // title bar. Use the selected semantic theme in both appearances.
             // `allowsHitTesting(false)` is CRITICAL — without it the Color
             // swallows clicks, breaking every button on the window.
-            (ui.theme.isDark ? Color.black : ui.theme.resolved.background.color)
+            AppWindowBackdropStyle.background(for: ui.theme)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 

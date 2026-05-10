@@ -32,16 +32,6 @@ const SELECTED_HIGHLIGHT_RING_TYPE: f32 = -2.0;
 const HOVER_HIGHLIGHT_RING_TYPE: f32 = -3.0;
 
 /// Per-instance data for straight-line edge rendering.
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct LineEdgeInstance {
-    p0: [f32; 2],      // offset 0
-    p1: [f32; 2],      // offset 8
-    color: [f32; 4],   // offset 16
-    thickness_px: f32, // offset 32
-    _pad: [f32; 3],    // offset 36
-}
-
 /// Per-instance data for cubic graph-edge rendering.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -210,11 +200,8 @@ struct RenderDebugCounters {
     update_positions_calls: usize,
     classic_buffer_rebuilds: usize,
     node_highlight_uploads: usize,
-    edge_highlight_uploads: usize,
     edge_buffer_allocations: usize,
     edge_buffer_reuses: usize,
-    field_line_buffer_allocations: usize,
-    field_line_buffer_reuses: usize,
     last_total_nodes: usize,
     last_visible_nodes: usize,
     last_total_edges: usize,
@@ -560,18 +547,36 @@ const BASE_NODE_ALPHA: f32 = 1.0;
 const NODE_SHADER_FOCAL_LENGTH: f32 = 2.0;
 const CINEMATIC_NODE_WORLD_SCALE: f32 = 1.18;
 const CINEMATIC_NODE_MIN_WORLD_RADIUS: f32 = 13.0;
-const MIN_EDGE_WIDTH_PX: f32 = 1.15;
-const MAX_EDGE_WIDTH_PX: f32 = 4.20;
+// Per user request 2026-05-10: edges were too thin to read against the
+// dark canvas; they should look like ink strokes, not hairlines. Floor
+// pushed from 1.15 → 2.00 px and ceiling from 4.20 → 6.00 px so even the
+// minimum-weight edge is clearly visible and heavy edges are noticeably
+// thicker. The endpoint-radius clamp inside edge_width_px_for_weight
+// still prevents a thick edge from swallowing a small node disc.
+const MIN_EDGE_WIDTH_PX: f32 = 2.00;
+const MAX_EDGE_WIDTH_PX: f32 = 6.00;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
 #[allow(dead_code)]
 const DIM_ALPHA: f32 = 0.04;
 
+/// Single canonical edge color. **Do not branch on edge_type, selection,
+/// hover, or theme palette here.** Every edge — classic curve, aggregated
+/// rollup, and field-line decorative — must use this value (with optional
+/// alpha trim) so the graph never grows back tinted/jagged/striped variants.
+///
+/// Per user 2026-05-10: edges should read as **thick black ink on light
+/// mode and clearly visible light-grey on dark mode**. The previous tuning
+/// (mid-grey at 0.40 alpha) was too dim against the dark canvas — selected
+/// hubs looked sparse and the user couldn't see their connections at a
+/// glance. Light-mode alpha was bumped to 0.85 (near-opaque ink) and
+/// dark-mode RGB to a true light grey at 0.55 alpha so the strokes are
+/// clearly visible without being garish.
 #[inline]
 fn graph_edge_color_for_appearance(light_mode: bool) -> [f32; 4] {
     if light_mode {
-        [0.18, 0.18, 0.18, 0.58]
+        [0.0, 0.0, 0.0, 0.85]
     } else {
-        [0.72, 0.74, 0.78, 0.64]
+        [0.65, 0.65, 0.65, 0.55]
     }
 }
 
@@ -889,29 +894,55 @@ fragment float4 node_fragment(
             pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.06);
         }
         if (uniforms.pulse_time >= 0.0) {
-            float d_to_pulse = length(in.world_pos - uniforms.pulse_origin);
+            // Pixel-art click pulse. Three deliberate departures from the
+            // old smooth radial wave: (1) chebyshev distance instead of
+            // length(), so the ring is a SQUARE outline marching outward
+            // like a 4-direction game cursor instead of a soft circle;
+            // (2) world-space position is snapped to an 8-unit grid before
+            // distance is measured, giving the ring chunky stepped edges
+            // even as the camera zooms; (3) on top of the expanding ring
+            // we layer a small "+" vector sprite at the click origin that
+            // ticks for the first ~250 ms — a tiny pixel-art directional
+            // marker the user explicitly asked for.
+            float2 pulse_grid = floor((in.world_pos - uniforms.pulse_origin) / 8.0) * 8.0;
+            float2 d_xy = abs(pulse_grid);
+            float d_to_pulse = max(d_xy.x, d_xy.y);
             float wave_radius = uniforms.pulse_time * 800.0;
             float ring_dist = abs(d_to_pulse - wave_radius);
-            float ring_width = 58.0 + wave_radius * 0.14;
+            float ring_width = 56.0 + wave_radius * 0.14;
             float cinematic_click_wave = 1.0 - smoothstep(0.0, ring_width, ring_dist);
+            cinematic_click_wave = floor(cinematic_click_wave * 5.0) / 5.0;
             float pulse_fade = 1.0 - smoothstep(0.0, 1.85, uniforms.pulse_time);
-            cinematic_click_wave = floor(cinematic_click_wave * 4.0) / 4.0;
+            // Vector "+" sprite at the click origin — two perpendicular
+            // bars 5 grid cells long and 1 cell thick, snapped to the
+            // same 8-unit grid. Only burns in for the first 0.25 s, then
+            // fades, so it reads as a hit-marker not a permanent overlay.
+            float spike_fade = 1.0 - smoothstep(0.0, 0.25, uniforms.pulse_time);
+            float horiz_bar = step(d_xy.y, 8.0) * step(d_xy.x, 40.0);
+            float vert_bar = step(d_xy.x, 8.0) * step(d_xy.y, 40.0);
+            float spike = max(horiz_bar, vert_bar) * spike_fade;
+            float pulse_intensity = max(cinematic_click_wave * pulse_fade * 0.55, spike * 0.85);
             float3 pulse_color = light
-                ? srgb_to_linear(float3(0.82, 0.82, 0.82))
-                : srgb_to_linear(float3(0.12, 0.12, 0.12));
-            pixel_color = mix(pixel_color, pulse_color, cinematic_click_wave * pulse_fade * 0.45);
+                ? srgb_to_linear(float3(0.10, 0.10, 0.10))
+                : srgb_to_linear(float3(0.92, 0.92, 0.92));
+            pixel_color = mix(pixel_color, pulse_color, pulse_intensity);
         }
 
         bool cinematic_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
         if (cinematic_dimmed) {
+            // Stronger dim + force-monochrome surrounding nodes. The user
+            // wants unselected siblings to recede HARD — previously the mix
+            // was 0.56 (light) / 0.58 (dark) and grayscale only kicked in
+            // when in.desaturate was already set. Now: mix all the way to
+            // 0.78 / 0.80 toward the dark target, then unconditionally pull
+            // the result toward its own luma so unselected nodes read as
+            // monochrome shadows of themselves regardless of node-type tint.
             float3 selection_dim_target = light
-                ? srgb_to_linear(float3(0.12, 0.12, 0.12))
-                : srgb_to_linear(float3(0.06, 0.06, 0.06));
-            pixel_color = mix(pixel_color, selection_dim_target, light ? 0.56 : 0.58);
-            if (in.desaturate > 0.5) {
-                float lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
-                pixel_color = mix(pixel_color, float3(lum), 0.45);
-            }
+                ? srgb_to_linear(float3(0.10, 0.10, 0.10))
+                : srgb_to_linear(float3(0.05, 0.05, 0.05));
+            pixel_color = mix(pixel_color, selection_dim_target, light ? 0.78 : 0.80);
+            float dim_lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
+            pixel_color = mix(pixel_color, float3(dim_lum), 0.85);
         }
 
         return float4(pixel_color, max(in.color.a, 0.95));
@@ -1119,8 +1150,12 @@ fragment float4 node_fragment(
 // ── Edge shaders ───────────────────────────────────────────────────
 
 constant uint CURVE_EDGE_SEGMENTS = 20;
-constant float MIN_EDGE_WIDTH_PX = 1.15;
-constant float MAX_EDGE_WIDTH_PX = 4.20;
+// Must match the Rust-side `MIN_EDGE_WIDTH_PX` / `MAX_EDGE_WIDTH_PX`
+// constants in renderer.rs. The CPU clamps `thickness_px` to this range
+// before upload; the shader re-clamps as a defensive guard. If the two
+// drift the shader silently caps thick edges, which the user notices.
+constant float MIN_EDGE_WIDTH_PX = 2.00;
+constant float MAX_EDGE_WIDTH_PX = 6.00;
 
 struct CurveEdgeInstance {
     float2 p0;
@@ -1129,15 +1164,18 @@ struct CurveEdgeInstance {
     float2 p1;
     float4 color;
     float thickness_px;
-    float3 _pad;
-};
-
-struct LineEdgeInstance {
-    float2 p0;
-    float2 p1;
-    float4 color;
-    float thickness_px;
-    float3 _pad;
+    // CRITICAL: must be `float _pad[3]` (array, 12B, 4-aligned) — NOT
+    // `float3 _pad` (vector, 16B, 16-aligned). MSL treats `float3` as
+    // having the size/alignment of `float4`, which would inflate this
+    // struct from 64 → 80 bytes. The Rust-side struct is 64 bytes
+    // (`[f32; 3]` pad is 12B/4-aligned). A 16-byte stride mismatch
+    // between CPU writer and GPU reader meant every edge instance after
+    // the first read the wrong bytes — that's where the persistent
+    // bright-green / bright-yellow "ghost" edges came from. They were
+    // the wrong portion of the previous edge's geometry being reinterpreted
+    // as RGBA color floats. The `NodeInstance` struct above already uses
+    // `float _pad[3]` correctly.
+    float _pad[3];
 };
 
 struct LineVertexOut {
@@ -1155,25 +1193,11 @@ float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, floa
     return a * p0 + b * c0 + c * c1 + d * p1;
 }
 
-float4 graph_edge_color_for_flag(float4 base_color, uchar flag) {
-    if (flag == 1 || flag == 3) {
-        return float4(base_color.rgb, max(base_color.a, 0.88));
-    }
-    if (flag == 2) {
-        return float4(base_color.rgb, base_color.a * 0.18);
-    }
-    if (flag == 4) {
-        return float4(base_color.rgb, base_color.a * 0.30);
-    }
-    return base_color;
-}
-
 vertex LineVertexOut curve_edge_vertex(
     uint vertex_id [[vertex_id]],
     uint instance_id [[instance_id]],
     constant CurveEdgeInstance* instances [[buffer(0)]],
-    constant Uniforms& u [[buffer(1)]],
-    constant uchar* edge_flags [[buffer(2)]]
+    constant Uniforms& u [[buffer(1)]]
 ) {
     CurveEdgeInstance inst = instances[instance_id];
     uint segment = vertex_id / 6;
@@ -1208,51 +1232,8 @@ vertex LineVertexOut curve_edge_vertex(
 
     LineVertexOut out;
     out.position = float4(base_ndc[corner], 0.0, 1.0);
-    out.color = graph_edge_color_for_flag(inst.color, edge_flags[instance_id]);
+    out.color = inst.color;
     out.dist_from_center = dist_vals[corner];
-    return out;
-}
-
-vertex LineVertexOut line_edge_vertex(
-    uint vertex_id [[vertex_id]],
-    uint instance_id [[instance_id]],
-    constant LineEdgeInstance* instances [[buffer(0)]],
-    constant Uniforms& u [[buffer(1)]],
-    constant uchar* edge_flags [[buffer(2)]]
-) {
-    LineEdgeInstance inst = instances[instance_id];
-
-    float2 screen0 = (inst.p0 - u.camera_offset) * u.camera_zoom;
-    float2 screen1 = (inst.p1 - u.camera_offset) * u.camera_zoom;
-
-    float2 ndc0 = screen0 / (u.viewport_size * 0.5) * float2(1, -1);
-    float2 ndc1 = screen1 / (u.viewport_size * 0.5) * float2(1, -1);
-
-    // Direction and perpendicular in NDC space — constant screen-pixel width.
-    float2 dir = ndc1 - ndc0;
-    float len = length(dir);
-    if (len < 0.00001) dir = float2(1, 0);
-    else dir /= len;
-
-    float2 perp = float2(-dir.y, dir.x);
-
-    float2 pixel_to_ndc = 2.0 / u.viewport_size;
-    float half_width_px = clamp(inst.thickness_px, MIN_EDGE_WIDTH_PX, MAX_EDGE_WIDTH_PX) * 0.5;
-    float2 offset = perp * half_width_px * pixel_to_ndc;
-
-    // Expand quad in NDC: 6 vertices = 2 triangles per segment.
-    float2 base_ndc[6] = {
-        ndc0 - offset, ndc0 + offset,
-        ndc1 - offset, ndc1 - offset,
-        ndc0 + offset, ndc1 + offset,
-    };
-
-    float dist_vals[6] = { -1, 1, -1, -1, 1, 1 };
-
-    LineVertexOut out;
-    out.position = float4(base_ndc[vertex_id], 0.0, 1.0);
-    out.color = graph_edge_color_for_flag(inst.color, edge_flags[instance_id]);
-    out.dist_from_center = dist_vals[vertex_id];
     return out;
 }
 
@@ -1531,7 +1512,6 @@ pub struct Renderer {
     layer: MetalLayer,
     node_pipeline: RenderPipelineState,
     edge_pipeline: RenderPipelineState,
-    field_line_pipeline: RenderPipelineState,
     node_instance_buf: Option<Buffer>,
     edge_instance_buf: Option<Buffer>,
     uniform_buf: Buffer,
@@ -1553,8 +1533,6 @@ pub struct Renderer {
     node_count: usize,
     face_feature_count: usize,
     edge_instance_count: usize,
-    edge_highlight_flag_buf: Option<Buffer>,
-    edge_highlight_flag_capacity: usize,
     pub use_aggregated_edges: bool,
     aggregated_edge_count: usize,
     /// When true, edges are hidden unless `edge_filter_node` is set.
@@ -1567,19 +1545,8 @@ pub struct Renderer {
     // Per-instance highlight flag buffer (one u8 per instance: 0=normal, non-zero=dim factor×255).
     highlight_flag_buf: Option<Buffer>,
     highlight_flag_capacity: usize,
-    // Magnetic field lines (hover interaction).
-    field_line_buf: Option<Buffer>,
-    pub(crate) field_line_count: usize,
-    field_line_capacity: usize,
-    field_line_flag_buf: Option<Buffer>,
-    field_line_flag_capacity: usize,
-    field_line_hovered_id: Option<u32>,
-    // Reusable scratch buffer for field line segments (avoids per-frame allocation).
-    field_line_scratch: Vec<LineEdgeInstance>,
     // Reusable highlight flag vector (avoids per-frame allocation).
     highlight_flag_scratch: Vec<u8>,
-    edge_highlight_flag_scratch: Vec<u8>,
-    edge_highlight_pairs: Vec<[u32; 2]>,
     // Reusable culled render lists for Classic mode.
     rendered_node_indices: Vec<usize>,
     candidate_entities: Vec<u32>,
@@ -1749,8 +1716,6 @@ impl Renderer {
         let node_frag = library.get_function("node_fragment", None).ok()?;
         let edge_vert = library.get_function("curve_edge_vertex", None).ok()?;
         let edge_frag = library.get_function("line_edge_fragment", None).ok()?;
-        let field_line_vert = library.get_function("line_edge_vertex", None).ok()?;
-        let field_line_frag = library.get_function("line_edge_fragment", None).ok()?;
 
         // Helper to create a pipeline with alpha blending.
         // Returns None if pipeline creation fails (e.g. incompatible GPU).
@@ -1770,7 +1735,6 @@ impl Renderer {
 
         let node_pipeline = make_pipeline(&node_vert, &node_frag)?;
         let edge_pipeline = make_pipeline(&edge_vert, &edge_frag)?;
-        let field_line_pipeline = make_pipeline(&field_line_vert, &field_line_frag)?;
 
         let uniform_buf = device.new_buffer(
             std::mem::size_of::<Uniforms>() as u64,
@@ -1785,7 +1749,6 @@ impl Renderer {
             layer,
             node_pipeline,
             edge_pipeline,
-            field_line_pipeline,
             node_instance_buf: None,
             edge_instance_buf: None,
             uniform_buf,
@@ -1803,8 +1766,6 @@ impl Renderer {
             node_count: 0,
             face_feature_count: 0,
             edge_instance_count: 0,
-            edge_highlight_flag_buf: None,
-            edge_highlight_flag_capacity: 0,
             use_aggregated_edges: false,
             aggregated_edge_count: 0,
             edges_hidden: false,
@@ -1814,13 +1775,6 @@ impl Renderer {
             highlight_flag_buf: None,
             highlight_flag_capacity: 0,
             highlight_flag_scratch: Vec::new(),
-            field_line_buf: None,
-            field_line_count: 0,
-            field_line_capacity: 0,
-            field_line_flag_buf: None,
-            field_line_flag_capacity: 0,
-            field_line_hovered_id: None,
-            field_line_scratch: Vec::new(),
             rendered_node_indices: Vec::new(),
             candidate_entities: Vec::new(),
             edge_candidate_indices: Vec::new(),
@@ -1831,8 +1785,6 @@ impl Renderer {
             classic_node_scratch: Vec::new(),
             classic_edge_scratch: Vec::new(),
             classic_velocity_scratch: Vec::new(),
-            edge_highlight_flag_scratch: Vec::new(),
-            edge_highlight_pairs: Vec::new(),
             light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             quality_level: 0, // Cinematic by default
@@ -2611,7 +2563,6 @@ impl Renderer {
         self.classic_node_scratch.clear();
         self.classic_velocity_scratch.clear();
         self.classic_edge_scratch.clear();
-        self.edge_highlight_pairs.clear();
 
         if lod.cluster_nodes && !self.highlight.active {
             self.density_clusters.clear();
@@ -2967,9 +2918,21 @@ impl Renderer {
                 else {
                     continue;
                 };
-                if world.graph_node[src_index].visible == 0
-                    || world.graph_node[tgt_index].visible == 0
-                {
+                // Visibility cull: drop edges between two filtered-out nodes.
+                // BUT: if either endpoint is the selected/highlighted root, render
+                // the edge anyway. Selecting a node with many connections (e.g.
+                // a folder hub with 20+ neighbors) used to silently drop most of
+                // its edges because the filter had only the focused subgraph as
+                // visible — leaving the user with "only a few edges show when
+                // I select a node." Highlighted edges win over the filter.
+                let src_visible = world.graph_node[src_index].visible != 0;
+                let tgt_visible = world.graph_node[tgt_index].visible != 0;
+                let src_id = world.graph_node[src_index].node_id;
+                let tgt_id = world.graph_node[tgt_index].node_id;
+                let endpoint_is_highlighted_root = self.highlight.active
+                    && (self.highlight.root_id == Some(src_id)
+                        || self.highlight.root_id == Some(tgt_id));
+                if !endpoint_is_highlighted_root && (!src_visible || !tgt_visible) {
                     continue;
                 }
 
@@ -2984,10 +2947,6 @@ impl Renderer {
                 };
 
                 let color = self.classic_edge_instance_color(world, edge, src_index, tgt_index);
-                let highlight_pair = [
-                    world.graph_node[src_index].node_id,
-                    world.graph_node[tgt_index].node_id,
-                ];
                 let edge_weight = if edge.weight.is_finite() {
                     edge.weight.max(0.01)
                 } else {
@@ -3002,7 +2961,14 @@ impl Renderer {
                     ideal_length,
                     curvature,
                 );
-                if !edge_intersects_view(view_bounds, geometry.p0, geometry.p1, c0t, c1t) {
+                // Viewport cull. Same exemption as the visibility cull above:
+                // when the user has selected a hub, every connected edge needs
+                // to render even if one endpoint sits outside the current
+                // viewport (otherwise a 24-connection node visually shows ~5
+                // edges depending on zoom/pan).
+                if !endpoint_is_highlighted_root
+                    && !edge_intersects_view(view_bounds, geometry.p0, geometry.p1, c0t, c1t)
+                {
                     continue;
                 }
                 self.classic_edge_scratch.push(CurveEdgeInstance {
@@ -3014,7 +2980,6 @@ impl Renderer {
                     thickness_px: geometry.thickness_px,
                     _pad: [0.0; 3],
                 });
-                self.edge_highlight_pairs.push(highlight_pair);
             }
         }
 
@@ -3072,7 +3037,6 @@ impl Renderer {
         let base_rgb = aggregated_edge_base_rgb(self.light_mode);
 
         self.classic_edge_scratch.clear();
-        self.edge_highlight_pairs.clear();
         let curvature = (self.edge_curvature() * 0.8).max(0.10);
         for edge in edges {
             let color = [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha];
@@ -3094,7 +3058,6 @@ impl Renderer {
                 thickness_px,
                 _pad: [0.0; 3],
             });
-            self.edge_highlight_pairs.push([u32::MAX, u32::MAX]);
         }
         self.aggregated_edge_count = self.classic_edge_scratch.len();
 
@@ -3414,194 +3377,6 @@ impl Renderer {
         #[cfg(any(test, debug_assertions))]
         {
             self.debug_counters.node_highlight_uploads += 1;
-        }
-    }
-
-    pub fn rebuild_edge_highlight_flags(&mut self) {
-        const EDGE_HIGHLIGHT_DARK: u8 = 1;
-        const EDGE_DIM_DARK: u8 = 2;
-        const EDGE_HIGHLIGHT_LIGHT: u8 = 3;
-        const EDGE_DIM_LIGHT: u8 = 4;
-
-        if self.edge_instance_count == 0 {
-            self.edge_highlight_flag_scratch.clear();
-            return;
-        }
-
-        self.edge_highlight_flag_scratch.clear();
-        self.edge_highlight_flag_scratch
-            .reserve(self.edge_instance_count);
-
-        if self.highlight.active {
-            for pair in &self.edge_highlight_pairs {
-                if pair[0] == u32::MAX || pair[1] == u32::MAX {
-                    self.edge_highlight_flag_scratch.push(0);
-                    continue;
-                }
-                let src_lit = self.highlight.highlighted_ids.contains(&pair[0]);
-                let tgt_lit = self.highlight.highlighted_ids.contains(&pair[1]);
-                let flag = if self.light_mode {
-                    if src_lit && tgt_lit {
-                        EDGE_HIGHLIGHT_LIGHT
-                    } else {
-                        EDGE_DIM_LIGHT
-                    }
-                } else if src_lit && tgt_lit {
-                    EDGE_HIGHLIGHT_DARK
-                } else {
-                    EDGE_DIM_DARK
-                };
-                self.edge_highlight_flag_scratch.push(flag);
-            }
-        } else {
-            self.edge_highlight_flag_scratch
-                .resize(self.edge_instance_count, 0);
-        }
-
-        let needed = self.edge_highlight_flag_scratch.len();
-        if needed > self.edge_highlight_flag_capacity || self.edge_highlight_flag_buf.is_none() {
-            let capacity = (needed * 3 / 2).max(64);
-            self.edge_highlight_flag_buf = Some(
-                self.device
-                    .new_buffer(capacity as u64, MTLResourceOptions::StorageModeShared),
-            );
-            self.edge_highlight_flag_capacity = capacity;
-        }
-        if let Some(buf) = &self.edge_highlight_flag_buf {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    self.edge_highlight_flag_scratch.as_ptr(),
-                    buf.contents() as *mut u8,
-                    needed,
-                );
-            }
-        }
-        #[cfg(any(test, debug_assertions))]
-        {
-            self.debug_counters.edge_highlight_uploads += 1;
-        }
-    }
-
-    /// Generate magnetic field lines for a hovered node.
-    /// Creates 2-3 bezier curves per neighbor, slightly offset, for a field-line fan effect.
-    /// Lines are rendered using the existing edge shader.
-    pub fn update_field_lines(&mut self, hovered: Option<u32>, world: &World, time: f32) {
-        if hovered == self.field_line_hovered_id && hovered.is_some() {
-            // Same node still hovered — just update positions with time animation.
-            if hovered.is_none() {
-                return;
-            }
-        }
-        self.field_line_hovered_id = hovered;
-
-        let Some(hov_id) = hovered else {
-            self.field_line_count = 0;
-            return;
-        };
-
-        let Some(hov_entity) = world.entity_of_node_id(hov_id) else {
-            self.field_line_count = 0;
-            return;
-        };
-        let Some(hov_idx) = world.index_of(hov_entity) else {
-            self.field_line_count = 0;
-            return;
-        };
-        if world.graph_node[hov_idx].visible == 0 {
-            self.field_line_count = 0;
-            return;
-        }
-
-        let hov_pos = [world.transform[hov_idx].x, world.transform[hov_idx].y];
-        let hov_color = self.node_color_for_u8(world.hierarchy[hov_idx].node_type);
-        let field_color = [hov_color[0], hov_color[1], hov_color[2], 0.12];
-
-        // Reuse scratch buffer for field line segments.
-        self.field_line_scratch.clear();
-        const FIELD_LINES_PER_NEIGHBOR: usize = 3;
-        const FIELD_SEGMENTS: usize = 6;
-
-        // Find neighbors from ECS edge topology.
-        for &edge_index in world.edge_indices_for_index(hov_idx) {
-            let edge = &world.edges[edge_index];
-            let neighbor_entity = if edge.source == hov_entity {
-                edge.target
-            } else if edge.target == hov_entity {
-                edge.source
-            } else {
-                continue;
-            };
-
-            let Some(n_idx) = world.index_of(neighbor_entity) else {
-                continue;
-            };
-            if world.graph_node[n_idx].visible == 0 {
-                continue;
-            }
-
-            let n_pos = [world.transform[n_idx].x, world.transform[n_idx].y];
-            let dx = n_pos[0] - hov_pos[0];
-            let dy = n_pos[1] - hov_pos[1];
-            let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-            let px = -dy / dist;
-            let py = dx / dist;
-
-            // Generate multiple field lines with different offsets.
-            for line_i in 0..FIELD_LINES_PER_NEIGHBOR {
-                let offset_t = (line_i as f32 - 1.0) * dist * 0.15;
-                let shimmer = (time * 0.8 + line_i as f32 * 1.5).sin() * dist * 0.04;
-                let cp_offset = offset_t + shimmer;
-
-                let cp = [
-                    (hov_pos[0] + n_pos[0]) * 0.5 + px * cp_offset,
-                    (hov_pos[1] + n_pos[1]) * 0.5 + py * cp_offset,
-                ];
-
-                let mut prev = hov_pos;
-                for seg in 1..=FIELD_SEGMENTS {
-                    let t = seg as f32 / FIELD_SEGMENTS as f32;
-                    let next = bezier_point(hov_pos, cp, n_pos, t);
-                    self.field_line_scratch.push(LineEdgeInstance {
-                        p0: prev,
-                        p1: next,
-                        color: field_color,
-                        thickness_px: 1.2,
-                        _pad: [0.0; 3],
-                    });
-                    prev = next;
-                }
-            }
-        }
-
-        self.field_line_count = self.field_line_scratch.len();
-        if self.field_line_count > 0 {
-            if self.field_line_count > self.field_line_capacity || self.field_line_buf.is_none() {
-                let capacity = (self.field_line_count * 3 / 2).max(64);
-                let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
-                self.field_line_buf = Some(
-                    self.device
-                        .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
-                );
-                self.field_line_capacity = capacity;
-                #[cfg(any(test, debug_assertions))]
-                {
-                    self.debug_counters.field_line_buffer_allocations += 1;
-                }
-            } else {
-                #[cfg(any(test, debug_assertions))]
-                {
-                    self.debug_counters.field_line_buffer_reuses += 1;
-                }
-            }
-            if let Some(buf) = &self.field_line_buf {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        self.field_line_scratch.as_ptr(),
-                        buf.contents() as *mut LineEdgeInstance,
-                        self.field_line_count,
-                    );
-                }
-            }
         }
     }
 
@@ -3957,72 +3732,23 @@ impl Renderer {
             attach_command_buffer_logging(cmd_buf, "renderer_draw");
             let encoder = cmd_buf.new_render_command_encoder(render_desc);
 
-            // Draw edges first (behind nodes)
+            // Draw edges first (behind nodes). Shader uses inst.color directly
+            // — no flag buffer needed (highlighting now happens via node dim,
+            // not edge tint, so the per-edge u8 flag buffer was deleted).
             let effective_edge_count = self.edge_instance_count;
             if effective_edge_count > 0
                 && let Some(inst_buf) = &self.edge_instance_buf
             {
-                // Clamp to buffer capacity to prevent Metal validation crash.
                 let edge_draw = effective_edge_count.min(self.edge_instance_capacity);
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
-                if self.edge_highlight_flag_buf.is_none()
-                    || self.edge_highlight_flag_capacity < edge_draw
-                {
-                    let cap = (edge_draw * 3 / 2).max(64);
-                    self.edge_highlight_flag_buf = Some(
-                        self.device
-                            .new_buffer(cap as u64, MTLResourceOptions::StorageModeShared),
-                    );
-                    self.edge_highlight_flag_capacity = cap;
-                    if let Some(flag_buf) = &self.edge_highlight_flag_buf {
-                        unsafe {
-                            std::ptr::write_bytes(flag_buf.contents() as *mut u8, 0, cap);
-                        }
-                    }
-                }
-                if let Some(flag_buf) = &self.edge_highlight_flag_buf {
-                    encoder.set_vertex_buffer(2, Some(flag_buf), 0);
-                }
                 encoder.draw_primitives_instanced(
                     MTLPrimitiveType::Triangle,
                     0,
                     self.edge_vertices_per_instance(),
                     edge_draw as u64,
                 );
-            }
-
-            // Draw magnetic field lines (hover interaction, between edges and nodes).
-            if self.field_line_count > 0 {
-                let fl_draw = self.field_line_count.min(self.field_line_capacity);
-                if self.field_line_flag_buf.is_none() || self.field_line_flag_capacity < fl_draw {
-                    let cap = (fl_draw * 3 / 2).max(64);
-                    self.field_line_flag_buf = Some(
-                        self.device
-                            .new_buffer(cap as u64, MTLResourceOptions::StorageModeShared),
-                    );
-                    self.field_line_flag_capacity = cap;
-                    if let Some(flag_buf) = &self.field_line_flag_buf {
-                        unsafe {
-                            std::ptr::write_bytes(flag_buf.contents() as *mut u8, 0, cap);
-                        }
-                    }
-                }
-                if let Some(fl_buf) = &self.field_line_buf {
-                    encoder.set_render_pipeline_state(&self.field_line_pipeline);
-                    encoder.set_vertex_buffer(0, Some(fl_buf), 0);
-                    encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
-                    if let Some(flag_buf) = &self.field_line_flag_buf {
-                        encoder.set_vertex_buffer(2, Some(flag_buf), 0);
-                    }
-                    encoder.draw_primitives_instanced(
-                        MTLPrimitiveType::Triangle,
-                        0,
-                        6,
-                        fl_draw as u64,
-                    );
-                }
             }
 
             // Draw nodes: glow instances + regular nodes + highlight rings.
@@ -4118,9 +3844,6 @@ mod tests {
         let edge_pipeline = source
             .find("encoder.set_render_pipeline_state(&self.edge_pipeline)")
             .expect("edge pipeline draw call should exist");
-        let field_line_pipeline = source
-            .find("encoder.set_render_pipeline_state(&self.field_line_pipeline)")
-            .expect("field line pipeline draw call should exist");
         let node_pipeline = source
             .find("encoder.set_render_pipeline_state(&self.node_pipeline)")
             .expect("node pipeline draw call should exist");
@@ -4131,37 +3854,33 @@ mod tests {
             .find("self.draw_dialogue_commands(encoder)")
             .expect("dialogue draw call should exist");
 
-        assert!(edge_pipeline < field_line_pipeline);
-        assert!(field_line_pipeline < node_pipeline);
+        assert!(edge_pipeline < node_pipeline);
         assert!(node_pipeline < label_pass);
         assert!(label_pass < dialogue_pass);
     }
 
+    /// The field-line subsystem (struct, pipeline, shader, scratch buffers,
+    /// updater function, callers) was deleted to eliminate persistent
+    /// thin-tinted-line glitches. This guard prevents accidental
+    /// re-introduction.
     #[test]
-    fn field_line_draw_binds_edge_flag_buffer_required_by_shared_line_shader() {
+    fn field_line_subsystem_is_fully_deleted_from_renderer() {
         let source = std::fs::read_to_string(file!()).expect("renderer source should be readable");
-        let field_line_pipeline = source
-            .find("encoder.set_render_pipeline_state(&self.field_line_pipeline)")
-            .expect("field line pipeline draw call should exist");
-        let node_pass = source[field_line_pipeline..]
-            .find("// Draw nodes:")
-            .map(|offset| field_line_pipeline + offset)
-            .expect("node pass should follow field line pass");
-        let field_line_block = &source[field_line_pipeline..node_pass];
+        let production_source = source
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
 
-        assert!(
-            field_line_block.contains("encoder.set_vertex_buffer(2"),
-            "field lines use line_edge_vertex and must bind the shared edge flag buffer"
-        );
-    }
-
-    #[test]
-    fn shared_line_shader_uniform_buffer_matches_metal_layout_size() {
-        assert_eq!(
-            std::mem::size_of::<Uniforms>(),
-            80,
-            "line_edge_vertex Metal reflection requires an 80-byte Uniforms buffer"
-        );
+        assert!(!production_source.contains("field_line_pipeline"));
+        assert!(!production_source.contains("field_line_buf"));
+        assert!(!production_source.contains("field_line_scratch"));
+        assert!(!production_source.contains("field_line_count"));
+        assert!(!production_source.contains("LineEdgeInstance"));
+        assert!(!production_source.contains("fn update_field_lines"));
+        assert!(!production_source.contains("vertex LineVertexOut line_edge_vertex"));
+        assert!(!production_source.contains("graph_edge_color_for_flag"));
+        assert!(!production_source.contains("edge_highlight_flag_buf"));
+        assert!(!production_source.contains("rebuild_edge_highlight_flags"));
     }
 
     #[test]
@@ -4189,10 +3908,12 @@ mod tests {
             .next()
             .expect("renderer source should contain production section");
 
-        assert!(production_source.contains("float4 graph_edge_color_for_flag("));
-        assert!(production_source.contains("base_color.a * 0.18"));
-        assert!(production_source.contains("base_color.a * 0.30"));
-        assert!(production_source.contains("max(base_color.a, 0.88)"));
+        // graph_edge_color_for_flag deleted along with the flag buffer;
+        // edges now use inst.color directly with no per-flag remapping.
+        assert!(!production_source.contains("graph_edge_color_for_flag"));
+        assert!(!production_source.contains("base_color.a * 0.18"));
+        assert!(!production_source.contains("base_color.a * 0.30"));
+        assert!(!production_source.contains("max(base_color.a, 0.88)"));
         let removed_white_override =
             ["float4(srgb_to_linear(float3(0.70, 0.90, 1.00)),", " 0.75)"].concat();
         assert!(!production_source.contains(&removed_white_override));
@@ -4224,11 +3945,161 @@ mod tests {
         let mut renderer = make_test_renderer();
         renderer.light_mode = true;
         let light = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
-        assert_eq!(light, [0.18, 0.18, 0.18, 0.58]);
+        assert_eq!(light, [0.0, 0.0, 0.0, 0.85]);
 
         renderer.light_mode = false;
         let dark = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
-        assert_eq!(dark, [0.72, 0.74, 0.78, 0.64]);
+        assert_eq!(dark, [0.65, 0.65, 0.65, 0.55]);
+    }
+
+    #[test]
+    fn single_color_edges_do_not_keep_unused_highlight_pair_bookkeeping() {
+        let source = include_str!("renderer.rs");
+        let removed_name = ["edge_highlight", "_pairs"].concat();
+
+        assert!(!source.contains(&removed_name));
+    }
+
+    #[test]
+    fn classic_edge_instance_color_ignores_edge_type_and_palette() {
+        let mut world = make_test_world(3, 120.0);
+        world.render[0].color_override = [0.91, 0.08, 0.08, 1.0];
+        world.render[1].color_override = [0.06, 0.64, 0.15, 1.0];
+        world.render[2].color_override = [1.00, 0.73, 0.00, 1.0];
+
+        let mut renderer = make_test_renderer();
+        renderer.light_mode = false;
+        let baseline = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
+
+        for edge_type in 0u8..=11 {
+            world.edges[0].edge_type = edge_type;
+            let observed = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
+            assert_eq!(
+                observed, baseline,
+                "edge type {edge_type} must not tint edges away from canonical color"
+            );
+        }
+
+        renderer.light_mode = true;
+        let baseline_light = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
+        for edge_type in 0u8..=11 {
+            world.edges[0].edge_type = edge_type;
+            let observed = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
+            assert_eq!(
+                observed, baseline_light,
+                "light-mode edge type {edge_type} must not tint edges"
+            );
+        }
+    }
+
+    #[test]
+    fn aggregated_edge_base_rgb_matches_canonical_edge_color() {
+        let dark_canon = graph_edge_color_for_appearance(false);
+        let dark_agg = aggregated_edge_base_rgb(false);
+        assert_eq!(
+            dark_agg,
+            [dark_canon[0], dark_canon[1], dark_canon[2]],
+            "aggregated edges must share the canonical edge RGB"
+        );
+
+        let light_canon = graph_edge_color_for_appearance(true);
+        let light_agg = aggregated_edge_base_rgb(true);
+        assert_eq!(
+            light_agg,
+            [light_canon[0], light_canon[1], light_canon[2]],
+            "aggregated edges must share the canonical edge RGB in light mode"
+        );
+    }
+
+    #[test]
+    fn edge_endpoints_meet_world_transform_centers_exactly() {
+        let world = make_test_world(2, 200.0);
+        let renderer = make_test_renderer();
+
+        let geometry = renderer
+            .edge_render_geometry_for_indices(&world, &world.edges[0], 0, 1)
+            .expect("test edge should produce geometry");
+
+        assert_eq!(
+            geometry.p0,
+            [world.transform[0].x, world.transform[0].y],
+            "edge p0 must be the source node's world.transform center, not an offset/trimmed point"
+        );
+        assert_eq!(
+            geometry.p1,
+            [world.transform[1].x, world.transform[1].y],
+            "edge p1 must be the target node's world.transform center, not an offset/trimmed point"
+        );
+    }
+
+    #[test]
+    fn renderer_source_has_no_endpoint_trim_or_pixel_or_jagged_edge_paths() {
+        let production_source = include_str!("renderer.rs")
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
+
+        // Endpoint-trim module + helpers were removed because they produced
+        // visibly offset / wrapped / non-attached edges in dense graphs.
+        assert!(!production_source.contains("trim_curve_endpoints"));
+        assert!(!production_source.contains("trim_line_endpoints"));
+        assert!(!production_source.contains("DEFAULT_EDGE_GAP_PX"));
+        assert!(!production_source.contains("crate::edge_trim"));
+        // Pixel-art and jagged edge experiments were superseded by the single
+        // canonical curved edge path.
+        assert!(!production_source.contains("PixelEdgeInstance"));
+        assert!(!production_source.contains("PIXEL_SHADER_SOURCE"));
+        assert!(!production_source.contains("pixel_jagged_offset"));
+        assert!(!production_source.contains("pixel_edge_style"));
+        // Per-edge-type / per-endpoint palette tinting was retired because it
+        // produced green/orange/red rays in dark mode that the user explicitly
+        // rejected.
+        assert!(!production_source.contains("edge_color_with_endpoint_palette"));
+        assert!(!production_source.contains("edge_type_color_light"));
+        assert!(!production_source.contains("edge_type_color("));
+    }
+
+    #[test]
+    fn selected_root_edges_render_even_when_other_endpoint_is_filtered_out() {
+        // Reproduces the user-reported "select a node, only a few edges show"
+        // bug: when a hub is selected but most of its neighbors are filtered
+        // out (or below a fold/zoom-level visibility cutoff), the edges
+        // connecting the selected hub to those neighbors still need to draw
+        // — otherwise a 24-connection node visually appears to have 5.
+        let production_source = include_str!("renderer.rs")
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
+
+        assert!(
+            production_source.contains("endpoint_is_highlighted_root"),
+            "edge cull must explicitly let highlighted-root edges bypass the visible filter"
+        );
+        assert!(
+            production_source.contains("self.highlight.root_id == Some(src_id)")
+                && production_source.contains("self.highlight.root_id == Some(tgt_id)"),
+            "edge cull must compare both endpoints against highlight.root_id"
+        );
+    }
+
+    #[test]
+    fn render_pass_orders_edges_then_nodes() {
+        let production_source = include_str!("renderer.rs")
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
+
+        let edge_pass = production_source
+            .find("encoder.set_render_pipeline_state(&self.edge_pipeline)")
+            .expect("edge pipeline must still be set in the draw pass");
+        let node_pass = production_source
+            .find("encoder.set_render_pipeline_state(&self.node_pipeline)")
+            .expect("node pipeline must still be set in the draw pass");
+
+        assert!(
+            edge_pass < node_pass,
+            "edges must draw before nodes so node bodies occlude edge endpoints"
+        );
     }
 
     #[test]
@@ -4259,12 +4130,6 @@ mod tests {
         // position(8) + radius(4) + z(4) + color(16) + face_type(4) + _pad(12) = 48 bytes.
         // Must be a multiple of 16 to match Metal's float4 alignment stride.
         assert_eq!(std::mem::size_of::<NodeInstance>(), 48);
-    }
-
-    #[test]
-    fn line_edge_instance_size() {
-        // p0(8) + p1(8) + color(16) + thickness(4) + pad(12) = 48 bytes.
-        assert_eq!(std::mem::size_of::<LineEdgeInstance>(), 48);
     }
 
     #[test]
@@ -4689,7 +4554,6 @@ mod tests {
             .highlighted_ids
             .insert(world.graph_node[1].node_id);
         renderer.rebuild_highlight_flags(&world);
-        renderer.rebuild_edge_highlight_flags();
 
         assert_eq!(
             renderer.debug_counters.classic_buffer_rebuilds,
@@ -4697,8 +4561,6 @@ mod tests {
         );
         assert_eq!(renderer.debug_counters.upload_graph_calls, baseline_uploads);
         assert_eq!(renderer.debug_counters.node_highlight_uploads, 1);
-        assert_eq!(renderer.debug_counters.edge_highlight_uploads, 1);
-        assert_eq!(renderer.edge_highlight_flag_scratch, vec![1, 2]);
     }
 
     #[test]
@@ -4728,48 +4590,7 @@ mod tests {
         assert_eq!(renderer.highlight_flag_scratch, vec![1, 1, 3]);
     }
 
-    #[test]
-    fn light_mode_edge_selection_focuses_connected_edges() {
-        let world = make_test_world(3, 120.0);
-        let mut renderer = make_test_renderer();
-        renderer.light_mode = true;
-        renderer.set_viewport_size(1280, 720);
-        renderer.allocate_buffers(&world);
 
-        renderer.highlight.active = true;
-        renderer
-            .highlight
-            .highlighted_ids
-            .insert(world.graph_node[0].node_id);
-        renderer
-            .highlight
-            .highlighted_ids
-            .insert(world.graph_node[1].node_id);
-        renderer.rebuild_edge_highlight_flags();
-
-        assert_eq!(renderer.edge_highlight_flag_scratch, vec![3, 4]);
-    }
-
-    #[test]
-    fn field_line_buffer_reuses_capacity_for_same_hovered_node() {
-        let world = make_test_world(3, 120.0);
-        let mut renderer = make_test_renderer();
-        renderer.set_viewport_size(1280, 720);
-
-        let hovered_id = world.graph_node[1].node_id;
-        renderer.update_field_lines(Some(hovered_id), &world, 0.0);
-        let first_allocations = renderer.debug_counters.field_line_buffer_allocations;
-        let first_count = renderer.field_line_count;
-
-        renderer.update_field_lines(Some(hovered_id), &world, 0.5);
-
-        assert!(first_count > 0);
-        assert_eq!(
-            renderer.debug_counters.field_line_buffer_allocations,
-            first_allocations
-        );
-        assert!(renderer.debug_counters.field_line_buffer_reuses >= 1);
-    }
 
     #[test]
     fn curve_edge_buffer_reuses_capacity_for_same_visible_edge_count() {
@@ -4805,7 +4626,7 @@ mod tests {
     }
 
     #[test]
-    fn smooth_curve_edges_use_node_centers_so_nodes_occlude_connections() {
+    fn smooth_curve_edges_use_node_centers_and_keep_curvature() {
         let world = make_diagonal_edge_world();
         let mut renderer = make_test_renderer();
         renderer.quality_level = 0;
@@ -4818,16 +4639,37 @@ mod tests {
             .expect("smooth curve edge should be emitted");
         let p0 = [world.transform[0].x, world.transform[0].y];
         let p1 = [world.transform[1].x, world.transform[1].y];
+        let ideal_length = renderer.link_distance / world.edges[0].weight.max(0.01);
+        let expected_controls = string_edge_control_points(
+            p0,
+            p1,
+            [0.0, 0.0],
+            [0.0, 0.0],
+            ideal_length,
+            renderer.edge_curvature(),
+        );
 
         assert!(
             approx_eq_pt(edge.p0, p0, 1e-3),
-            "curve start {:?} should use source center {:?}; solid node body occludes the hidden segment",
+            "curve start {:?} should use the source node center {:?}",
             edge.p0,
             p0
         );
         assert!(
+            approx_eq_pt(edge.c0, expected_controls.0, 1e-3),
+            "curve first control {:?} should match the center-to-center curve {:?}",
+            edge.c0,
+            expected_controls.0
+        );
+        assert!(
+            approx_eq_pt(edge.c1, expected_controls.1, 1e-3),
+            "curve second control {:?} should match the center-to-center curve {:?}",
+            edge.c1,
+            expected_controls.1
+        );
+        assert!(
             approx_eq_pt(edge.p1, p1, 1e-3),
-            "curve end {:?} should use target center {:?}; solid node body occludes the hidden segment",
+            "curve end {:?} should use the target node center {:?}",
             edge.p1,
             p1
         );

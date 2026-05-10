@@ -60,6 +60,8 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
 
         #expect(source.contains("NoteWindowChrome.apply(to: window, toolbarIdentifier: \"EpdocDocument\")"),
                 "Epdoc windows MUST reuse NoteWindowChrome so .epdoc and Prose note windows share the same transparent/full-size/unified native titlebar.")
+        #expect(source.contains("hostingController.sceneBridgingOptions = [.all]"),
+                "Epdoc's SwiftUI toolbar must bridge through the native backdrop wrapper; otherwise the formatting toolbar can disappear when themed.")
         #expect(source.contains(".fullSizeContentView"),
                 "Epdoc window MUST extend its content view into the titlebar area via .fullSizeContentView styleMask.")
         #expect(source.contains("window.tabbingMode = .preferred"),
@@ -100,8 +102,26 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
     @Test("Epdoc editor canvas shows the native window theme instead of an OLED WebView plate")
     func epdocEditorCanvasUsesNativeThemeBacking() throws {
         let source = try Self.loadSourceText("Epistemos/Views/Epdoc/EpdocEditorChromeView.swift")
+        let document = try Self.loadSourceText("Epistemos/Engine/EpdocDocument.swift")
+        let utilityWindows = try Self.loadSourceText("Epistemos/App/UtilityWindowManager.swift")
         let css = try Self.loadSourceText("js-editor/src/editor.css")
 
+        #expect(source.contains("@Environment(UIState.self) private var ui: UIState?"),
+                "Epdoc chrome should read the same native UIState theme as the rest of the app when environment injection is available.")
+        #expect(source.contains("EpdocTiptapWebView(controller: controller, theme: theme)"),
+                "The hosted WKWebView must receive the resolved app theme, not only WebKit's light/dark media query.")
+        #expect(source.contains("EpdocEditorThemeStyle.applyScript(for: theme)"),
+                "Epdoc must push semantic theme tokens into CSS variables for custom theme pairs.")
+        #expect(source.contains("NoteWorkspaceSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()"),
+                "Epdoc's native SwiftUI canvas should reuse the same note workspace theme surface.")
+        #expect(document.contains("EpdocEditorDocumentRoot(controller: chromeController)"),
+                "Epdoc document windows should mount through an environment root instead of an isolated SwiftUI island.")
+        #expect(document.contains(".withAppEnvironment(bootstrap)"),
+                "Epdoc document windows must use the same app environment injection path as note windows.")
+        #expect(document.contains("NoteWindowThemeStyler.themedContentController"),
+                "Epdoc windows should reuse the native note-window backdrop renderer for theme surfaces.")
+        #expect(utilityWindows.contains("EpdocDocument.syncOpenDocumentThemes(uiState: uiState)"),
+                "Theme changes should resync already-open .epdoc native window backdrops.")
         #expect(source.contains("view.setValue(false, forKey: \"drawsBackground\")"),
                 "The macOS WKWebView must stop drawing its browser background so the native theme can show through.")
         #expect(source.contains("view.wantsLayer = true"),

@@ -29,6 +29,29 @@ set -e
 # 0. npm availability
 # -------------------------------------------------------------------
 
+# Xcode launched from Finder keeps a minimal PATH; include common Node
+# install locations before checking for npm.
+NODE_PATH_PREFIXES=(
+    "$HOME/.volta/bin"
+    "/opt/homebrew/opt/node@20/bin"
+    "/opt/homebrew/bin"
+    "/usr/local/opt/node@20/bin"
+    "/usr/local/bin"
+)
+
+for NODE_PATH_PREFIX in "${NODE_PATH_PREFIXES[@]}"; do
+    if [ -d "$NODE_PATH_PREFIX" ]; then
+        PATH="$NODE_PATH_PREFIX:$PATH"
+    fi
+done
+export PATH
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    # shellcheck source=/dev/null
+    . "$HOME/.nvm/nvm.sh"
+    nvm use --silent 20 >/dev/null 2>&1 || nvm use --silent --lts >/dev/null 2>&1 || true
+fi
+
 if ! command -v npm &> /dev/null; then
     echo ""
     echo "═══════════════════════════════════════════════════════════════════"

@@ -101,6 +101,7 @@ public final class EpdocEditorChromeController {
 
     // MARK: - Toolbar model (W7.17.a)
     public var toolbarModel: EpdocEditorToolbarModel
+    var theme: EpistemosTheme = .nativeDefault
 
     // MARK: - Floating panel state
     public var slashMenuQuery: String? = nil           // non-nil → panel visible
@@ -370,6 +371,11 @@ public final class EpdocEditorChromeController {
 public struct EpdocEditorChromeView: View {
 
     @Bindable public var controller: EpdocEditorChromeController
+    @Environment(UIState.self) private var ui: UIState?
+
+    private var theme: EpistemosTheme {
+        ui?.theme ?? controller.theme
+    }
 
     public init(controller: EpdocEditorChromeController) {
         self.controller = controller
@@ -377,7 +383,7 @@ public struct EpdocEditorChromeView: View {
 
     public var body: some View {
         ZStack(alignment: .topLeading) {
-            EpdocTiptapWebView(controller: controller)
+            EpdocTiptapWebView(controller: controller, theme: theme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Slash menu (W7.17.b)
@@ -460,14 +466,7 @@ public struct EpdocEditorChromeView: View {
             .hidden()
         }
         .background {
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(nsColor: .controlBackgroundColor).opacity(0.72),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            NoteWorkspaceSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()
         }
     }
 
@@ -482,7 +481,7 @@ public struct EpdocEditorChromeView: View {
             }
         }
         .font(.system(size: 13, weight: .regular))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(theme.textSecondary)
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
         .background(.regularMaterial, in: Capsule())
@@ -508,16 +507,81 @@ public struct EpdocEditorChromeView: View {
     }
 }
 
+@MainActor
+private enum EpdocEditorThemeStyle {
+    static func appearance(for theme: EpistemosTheme) -> NSAppearance? {
+        NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+    }
+
+    static func applyScript(for theme: EpistemosTheme) -> String {
+        let assignments = cssVariables(for: theme)
+            .map { name, value in
+                "root.style.setProperty(\(jsStringLiteral(name)), \(jsStringLiteral(value)));"
+            }
+            .joined()
+        return """
+        (function(){
+          const root = document.documentElement;
+          if (!root) return;
+          root.dataset.epdocTheme = \(jsStringLiteral(theme.rawValue));
+          root.dataset.epdocThemeDark = \(theme.isDark ? "true" : "false");
+          \(assignments)
+        })();
+        """
+    }
+
+    private static func cssVariables(for theme: EpistemosTheme) -> [(String, String)] {
+        let resolved = theme.resolved
+        return [
+            ("--epdoc-bg", "transparent"),
+            ("--epdoc-text-color", cssColor(resolved.foreground.nsColor)),
+            ("--epdoc-muted", cssColor(resolved.mutedForeground.nsColor)),
+            ("--epdoc-accent", cssColor(resolved.accent.nsColor)),
+            ("--epdoc-code-bg", cssColor(resolved.card.nsColor)),
+            ("--epdoc-code-border", cssColor(resolved.border.nsColor)),
+            ("--epdoc-code-fg", cssColor(resolved.foreground.nsColor)),
+            ("--epdoc-card-bg", cssColor(resolved.card.nsColor)),
+            ("--epdoc-card-border", cssColor(resolved.border.nsColor)),
+            ("--epdoc-card-label-fg", cssColor(resolved.foreground.nsColor)),
+            ("--epdoc-syntax-title", cssColor(resolved.headingAccent.nsColor)),
+            ("--epdoc-syntax-keyword", cssColor(resolved.codeType.nsColor)),
+            ("--epdoc-syntax-built-in", cssColor(resolved.accent.nsColor)),
+            ("--epdoc-chart-blue", cssColor(resolved.accent.nsColor)),
+            ("--epdoc-chart-violet", cssColor(resolved.headingAccent.nsColor)),
+        ]
+    }
+
+    private static func cssColor(_ color: NSColor) -> String {
+        let rgb = color.usingColorSpace(.deviceRGB) ?? color
+        let red = min(max(Int((rgb.redComponent * 255).rounded()), 0), 255)
+        let green = min(max(Int((rgb.greenComponent * 255).rounded()), 0), 255)
+        let blue = min(max(Int((rgb.blueComponent * 255).rounded()), 0), 255)
+        let alpha = rgb.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
+    }
+}
+
 // MARK: - Tiptap WKWebView wrapper
 
 @MainActor
 private struct EpdocTiptapWebView: NSViewRepresentable {
 
     let controller: EpdocEditorChromeController
+    let theme: EpistemosTheme
 
     func makeNSView(context: Context) -> WKWebView {
         let userContentController = WKUserContentController()
         userContentController.add(context.coordinator, name: "epdoc")
+        userContentController.addUserScript(
+            WKUserScript(
+                source: EpdocEditorThemeStyle.applyScript(for: theme),
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: true
+            )
+        )
 
         let config = WKWebViewConfiguration()
         config.userContentController = userContentController
@@ -538,6 +602,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         let view = EpdocEditorWebView(frame: .zero, configuration: config)
         view.uiDelegate = context.coordinator
         view.allowsBackForwardNavigationGestures = false
+        view.appearance = EpdocEditorThemeStyle.appearance(for: theme)
         view.setValue(false, forKey: "drawsBackground")
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
@@ -556,6 +621,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         context.coordinator.webView = view
         context.coordinator.installDispatch(into: controller)
         context.coordinator.controller = controller
+        context.coordinator.applyTheme(theme, to: view)
     }
 
     /// Released when SwiftUI tears down the representable (document
@@ -589,6 +655,7 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate {
         weak var webView: WKWebView?
         weak var controller: EpdocEditorChromeController?
+        private var lastAppliedTheme: EpistemosTheme?
 
         // AP1 — outbound coalescing (Wave 13 §"Phase 4 perf — AP1
         // WKWebView bridge batching"). Every `evaluate(_:)` call
@@ -647,6 +714,16 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
             controller.installEditorDispatch { [weak self] cmd in
                 self?.enqueueOutbound(cmd)
             }
+        }
+
+        func applyTheme(_ theme: EpistemosTheme, to webView: WKWebView) {
+            guard lastAppliedTheme != theme else { return }
+            lastAppliedTheme = theme
+            webView.appearance = EpdocEditorThemeStyle.appearance(for: theme)
+            webView.evaluateJavaScript(
+                EpdocEditorThemeStyle.applyScript(for: theme),
+                completionHandler: nil
+            )
         }
 
         /// Tear-down counterpart called from `dismantleNSView` when the

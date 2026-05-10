@@ -789,12 +789,11 @@ impl Simulation {
             self.radii.push(node.radius);
             self.degrees.push(0); // computed below
             let visual_shell = collision_radius_for_node(node.radius, self.params.collision_radius);
-            let label_shell =
-                soft_label_collision_radius(
-                    node.radius,
-                    crate::label_envelope::estimate_label_envelope(node.radius, &node.label)
-                        .bubble_radius,
-                );
+            let label_shell = soft_label_collision_radius(
+                node.radius,
+                crate::label_envelope::estimate_label_envelope(node.radius, &node.label)
+                    .bubble_radius,
+            );
             self.label_collision_radii.push(label_shell);
             self.collision_radii.push(visual_shell.max(label_shell));
             self.drift.push(0.0);

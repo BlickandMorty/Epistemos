@@ -30,9 +30,9 @@ struct EditorBreadcrumbBar: View {
     let items: [EditorBreadcrumbItem]
     let currentLine: Int
     let onSelect: (EditorBreadcrumbItem) -> Void
-    
+
     @State private var hoveredItem: UUID?
-    
+
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
@@ -47,12 +47,12 @@ struct EditorBreadcrumbBar: View {
                         onSelect(item)
                     }
                 )
-                
+
                 if index < items.count - 1 {
                     BreadcrumbSeparator()
                 }
             }
-            
+
             Spacer()
         }
         .padding(.horizontal, 12)

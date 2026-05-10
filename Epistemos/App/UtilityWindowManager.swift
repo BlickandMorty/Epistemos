@@ -255,6 +255,7 @@ final class UtilityWindowManager {
             WindowThemeStyler.apply(to: panel, uiState: uiState)
         }
         NoteWindowManager.shared.syncTheme(uiState: uiState)
+        EpdocDocument.syncOpenDocumentThemes(uiState: uiState)
         MiniChatWindowController.shared.syncTheme(uiState: uiState)
     }
 
