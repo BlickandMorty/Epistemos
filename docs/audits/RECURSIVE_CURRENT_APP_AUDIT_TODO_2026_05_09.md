@@ -9155,7 +9155,13 @@ Patch evidence, 2026-05-09 graph label/edge controls exposure slice:
 
 ### UIX-2026-05-09-009 - Graph visual phase: label bubbles, colored edges, pixel-art edges, endpoint trim
 
-Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED EDGE THICKNESS + ENDPOINT TINT + OPTIONAL PIXEL EDGE STYLE WIRED / COLORED GROUP EDGES TODO
+Status: PARTIAL - LABEL COLLISION ENVELOPE + WEIGHTED SMOOTH CURVE EDGES + SELECTED FOCUS RESTORED / PIXEL EDGE STYLE AND ENDPOINT TRIM REMOVED AFTER RUNTIME REGRESSION / COLORED GROUP EDGES TODO
+
+Supersession note, 2026-05-10:
+
+- Live dense-graph screenshots showed the endpoint-trim and pixel/straight edge variants produced visibly offset, wrapped, and non-attached edges.
+- Current product acceptance for edge rendering is therefore one canonical smooth curved-edge path: source/target node centers, edges drawn behind solid node bodies, no endpoint-trim module, no Pixel-Art edge style UI, no straight-edge style branch, and no graph style FFI.
+- Optional pixel-art edge restoration is no longer active current-product code. If it returns later, it must be a separate isolated PR with screenshots, GPU proof, and no fallback impact on the smooth curve path.
 
 User signal:
 
@@ -9349,6 +9355,34 @@ Patch evidence, 2026-05-09 deterministic jagged edge shader slice:
 - Remaining risk:
   - Manual graph smoke is required to tune jagged strength; the current shader is deliberately subtle to avoid noisy dense graphs.
   - Full old `PixelEdgeInstance` / offscreen nearest-neighbor pixel pipeline is still not restored.
+
+Patch evidence, 2026-05-10 smooth-edge cleanup and buffer-regression guard:
+
+- Files changed:
+  - `Epistemos/Graph/GraphState.swift`
+  - `Epistemos/Views/Graph/GraphForceSettings.swift`
+  - `Epistemos/Views/Graph/MetalGraphView.swift`
+  - `EpistemosTests/GraphPhysicsSettingsAuditTests.swift`
+  - `graph-engine-bridge/graph_engine.h`
+  - `graph-engine/src/engine.rs`
+  - `graph-engine/src/lib.rs`
+  - `graph-engine/src/renderer.rs`
+  - Deleted `graph-engine/src/edge_trim.rs`
+- Product behavior:
+  - Removed the `GraphEdgeStyle` Swift state, persisted defaults keys, Display settings segmented control, MetalGraphView FFI push, Rust `Engine::set_edge_style(...)`, `graph_engine_set_edge_style(...)`, renderer `EdgeStyle`, straight/pixel edge mode, edge-style uniforms, and the endpoint-trim module.
+  - The active renderer now has one smooth curved-edge path. Edges use node center positions again and rely on the existing draw order and solid node bodies to hide the segment under nodes.
+  - Smooth edges remain slightly thicker than the pre-pass rope-thin appearance and keep light/dark neutral grey defaults plus selected-edge focus/dim behavior.
+  - Curve sag is capped so long selected/folder links do not wrap around nodes while still rendering as the original curved line language.
+  - Added renderer debug counters for edge buffer allocations/reuse and a regression test proving a same-size visible edge set reuses existing Metal buffer capacity instead of reallocating.
+- Tests/commands:
+  - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphPhysicsSettingsAuditTests test CODE_SIGNING_ALLOWED=NO` passed.
+  - `cargo test --manifest-path graph-engine/Cargo.toml renderer::tests` passed, 68 tests.
+  - `cargo test --manifest-path graph-engine/Cargo.toml` passed, 2554 tests passed and 8 ignored; doc-tests passed.
+  - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` passed.
+  - Source guards confirm no production `GraphEdgeStyle`, `EdgeStyle`, `edge_style`, `EdgeGeometryKind`, `edge_trim`, `graph_engine_set_edge_style`, `Pixel-Art`, or pixel-edge branch remains.
+  - `git diff --check -- graph-engine/src/renderer.rs graph-engine/src/engine.rs graph-engine/src/lib.rs graph-engine/src/edge_trim.rs graph-engine-bridge/graph_engine.h Epistemos/Graph/GraphState.swift Epistemos/Views/Graph/GraphForceSettings.swift Epistemos/Views/Graph/MetalGraphView.swift EpistemosTests/GraphPhysicsSettingsAuditTests.swift` passed.
+- Remaining risk:
+  - Manual dense-vault graph smoke is still required to verify the user's real graph no longer shows offset/wrapped edges, selected-neighborhood focus still reads correctly, and subjective FPS/interaction smoothness match the automated buffer-reuse and full graph-engine test proof.
 
 Patch evidence, 2026-05-09 sparse-cell high-degree label density slice:
 

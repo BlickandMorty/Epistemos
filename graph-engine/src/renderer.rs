@@ -173,8 +173,6 @@ struct Uniforms {
     light_mode: f32,           // 0.0 = dark background, 1.0 = light background
     water_style: f32,          // 0.0 = retro pixel, 1.0 = water-bead shading
     water_wobble: f32,         // 0.0 = still, 1.0 = breathing radius
-    edge_style: f32,           // 0.0 = smooth, 1.0 = pixel-art hard edge
-    _pad: f32,                 // MSL rounds this float2-aligned uniform struct to 88 bytes
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -192,32 +190,6 @@ pub(crate) struct LodProfile {
     cluster_nodes: bool,
     edge_degree_threshold: u32,
     max_edges_per_node: u16,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum EdgeGeometryKind {
-    Curve,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum EdgeStyle {
-    Smooth,
-    PixelArt,
-}
-
-impl EdgeStyle {
-    pub(crate) fn from_u8(value: u8) -> Self {
-        if value == 1 {
-            Self::PixelArt
-        } else {
-            Self::Smooth
-        }
-    }
-
-    fn as_uniform(self) -> f32 {
-        let _ = self;
-        0.0
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -239,6 +211,8 @@ struct RenderDebugCounters {
     classic_buffer_rebuilds: usize,
     node_highlight_uploads: usize,
     edge_highlight_uploads: usize,
+    edge_buffer_allocations: usize,
+    edge_buffer_reuses: usize,
     field_line_buffer_allocations: usize,
     field_line_buffer_reuses: usize,
     last_total_nodes: usize,
@@ -406,7 +380,8 @@ fn string_edge_control_points(
     let tension_factor = (1.0 - tension * 1.25).clamp(0.12, 1.0);
     let sag = (length * curvature * (0.20 + slack * 0.60) * tension_factor)
         .min(handle * 0.32)
-        .min(length * 0.18);
+        .min(length * 0.18)
+        .min(28.0);
 
     let c0 = [
         p0[0] + direction[0] * handle + normal[0] * sag,
@@ -715,8 +690,6 @@ struct Uniforms {
     float light_mode;        // 0.0 = dark bg, 1.0 = light bg
     float water_style;       // 0.0 = retro pixel, 1.0 = water-bead
     float water_wobble;      // 0.0 = still, 1.0 = breathing radius
-    float edge_style;        // 0.0 = smooth, 1.0 = pixel-art hard edge
-    float _pad;              // keep Metal reflection and Rust buffer allocation at 88 bytes
 };
 
 constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
@@ -1580,7 +1553,6 @@ pub struct Renderer {
     node_count: usize,
     face_feature_count: usize,
     edge_instance_count: usize,
-    edge_geometry_kind: EdgeGeometryKind,
     edge_highlight_flag_buf: Option<Buffer>,
     edge_highlight_flag_capacity: usize,
     pub use_aggregated_edges: bool,
@@ -1623,9 +1595,8 @@ pub struct Renderer {
     pub clear_color: [f64; 4],
     pub light_mode: bool,
     // Quality level: 0 = Cinematic (full effects), 1 = Balanced (static depth, no glow),
-    // 2 = Performance (straight edges, lighter static shading, no glow).
+    // 2 = Performance (lighter static shading, no glow).
     pub quality_level: u8,
-    pub(crate) edge_style: EdgeStyle,
     // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
     // Previous-frame camera state (retained for future effects / velocity computation).
@@ -1832,7 +1803,6 @@ impl Renderer {
             node_count: 0,
             face_feature_count: 0,
             edge_instance_count: 0,
-            edge_geometry_kind: EdgeGeometryKind::Curve,
             edge_highlight_flag_buf: None,
             edge_highlight_flag_capacity: 0,
             use_aggregated_edges: false,
@@ -1866,7 +1836,6 @@ impl Renderer {
             light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             quality_level: 0, // Cinematic by default
-            edge_style: EdgeStyle::Smooth,
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
@@ -2558,14 +2527,7 @@ impl Renderer {
     }
 
     #[inline]
-    fn preferred_edge_geometry_kind(&self) -> EdgeGeometryKind {
-        let _ = self;
-        EdgeGeometryKind::Curve
-    }
-
-    #[inline]
-    fn edge_instance_stride_for(kind: EdgeGeometryKind) -> usize {
-        let _ = kind;
+    fn edge_instance_stride() -> usize {
         std::mem::size_of::<CurveEdgeInstance>()
     }
 
@@ -2604,8 +2566,6 @@ impl Renderer {
             light_mode: if self.light_mode { 1.0 } else { 0.0 },
             water_style: self.water_style,
             water_wobble: self.water_wobble,
-            edge_style: self.edge_style.as_uniform(),
-            _pad: 0.0,
         }
     }
 
@@ -2985,8 +2945,6 @@ impl Renderer {
         let should_draw_edges = lod.draw_edges
             && !lod.cluster_nodes
             && !(self.edges_hidden && self.edge_filter_node.is_none());
-        let edge_geometry_kind = self.preferred_edge_geometry_kind();
-        self.edge_geometry_kind = edge_geometry_kind;
         self.clear_aggregated_edges();
         if should_draw_edges {
             // When filtering to a single node, only collect that node's edges (O(degree) not O(E)).
@@ -3066,7 +3024,7 @@ impl Renderer {
             self.debug_counters.last_visible_edges = self.edge_instance_count;
         }
         if self.edge_instance_count > 0 {
-            let required_stride = Self::edge_instance_stride_for(edge_geometry_kind);
+            let required_stride = Self::edge_instance_stride();
             if self.edge_instance_count > self.edge_instance_capacity
                 || self.edge_instance_buf.is_none()
                 || self.edge_instance_stride != required_stride
@@ -3079,6 +3037,15 @@ impl Renderer {
                 );
                 self.edge_instance_capacity = capacity;
                 self.edge_instance_stride = required_stride;
+                #[cfg(any(test, debug_assertions))]
+                {
+                    self.debug_counters.edge_buffer_allocations += 1;
+                }
+            } else {
+                #[cfg(any(test, debug_assertions))]
+                {
+                    self.debug_counters.edge_buffer_reuses += 1;
+                }
             }
 
             if let Some(buf) = &self.edge_instance_buf {
@@ -3106,7 +3073,6 @@ impl Renderer {
 
         self.classic_edge_scratch.clear();
         self.edge_highlight_pairs.clear();
-        self.edge_geometry_kind = self.preferred_edge_geometry_kind();
         let curvature = (self.edge_curvature() * 0.8).max(0.10);
         for edge in edges {
             let color = [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha];
@@ -3116,8 +3082,7 @@ impl Renderer {
                 edge.p1,
                 [0.0, 0.0],
                 [0.0, 0.0],
-                ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2))
-                    .sqrt(),
+                ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2)).sqrt(),
                 curvature,
             );
             self.classic_edge_scratch.push(CurveEdgeInstance {
@@ -3133,7 +3098,7 @@ impl Renderer {
         }
         self.aggregated_edge_count = self.classic_edge_scratch.len();
 
-        let required_stride = Self::edge_instance_stride_for(self.edge_geometry_kind);
+        let required_stride = Self::edge_instance_stride();
         if self.aggregated_edge_count > self.edge_instance_capacity
             || self.edge_instance_buf.is_none()
             || self.edge_instance_stride != required_stride
@@ -3146,6 +3111,15 @@ impl Renderer {
             );
             self.edge_instance_capacity = capacity;
             self.edge_instance_stride = required_stride;
+            #[cfg(any(test, debug_assertions))]
+            {
+                self.debug_counters.edge_buffer_allocations += 1;
+            }
+        } else {
+            #[cfg(any(test, debug_assertions))]
+            {
+                self.debug_counters.edge_buffer_reuses += 1;
+            }
         }
 
         if let Some(buf) = &self.edge_instance_buf {
@@ -3191,7 +3165,7 @@ impl Renderer {
             self.node_instance_capacity = capacity;
         }
 
-        let required_stride = Self::edge_instance_stride_for(self.preferred_edge_geometry_kind());
+        let required_stride = Self::edge_instance_stride();
         if edge_count > self.edge_instance_capacity
             || self.edge_instance_buf.is_none()
             || self.edge_instance_stride != required_stride
@@ -3204,6 +3178,15 @@ impl Renderer {
             );
             self.edge_instance_capacity = capacity;
             self.edge_instance_stride = required_stride;
+            #[cfg(any(test, debug_assertions))]
+            {
+                self.debug_counters.edge_buffer_allocations += 1;
+            }
+        } else if edge_count > 0 {
+            #[cfg(any(test, debug_assertions))]
+            {
+                self.debug_counters.edge_buffer_reuses += 1;
+            }
         }
 
         self.upload_graph(world);
@@ -4176,8 +4159,8 @@ mod tests {
     fn shared_line_shader_uniform_buffer_matches_metal_layout_size() {
         assert_eq!(
             std::mem::size_of::<Uniforms>(),
-            88,
-            "line_edge_vertex Metal reflection requires an 88-byte Uniforms buffer"
+            80,
+            "line_edge_vertex Metal reflection requires an 80-byte Uniforms buffer"
         );
     }
 
@@ -4266,10 +4249,9 @@ mod tests {
     #[test]
     fn uniforms_size_matches_metal() {
         // Uniforms must match Metal's reflected byte length for the shared
-        // graph shader layout. The explicit pad keeps the MTLBuffer size in
-        // sync with line_edge_vertex and the node shaders.
+        // graph shader layout.
         let size = std::mem::size_of::<Uniforms>();
-        assert_eq!(size, 88, "Uniforms not Metal-layout sized: {size}");
+        assert_eq!(size, 80, "Uniforms not Metal-layout sized: {size}");
     }
 
     #[test]
@@ -4790,6 +4772,28 @@ mod tests {
     }
 
     #[test]
+    fn curve_edge_buffer_reuses_capacity_for_same_visible_edge_count() {
+        let world = make_test_world(8, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.set_viewport_size(1280, 720);
+
+        renderer.update_positions(&world);
+        let allocations_after_first = renderer.debug_counters.edge_buffer_allocations;
+        let reuses_after_first = renderer.debug_counters.edge_buffer_reuses;
+        assert!(allocations_after_first > 0);
+
+        renderer.update_positions(&world);
+        assert_eq!(
+            renderer.debug_counters.edge_buffer_allocations, allocations_after_first,
+            "unchanged edge count should reuse the existing Metal edge buffer"
+        );
+        assert!(
+            renderer.debug_counters.edge_buffer_reuses > reuses_after_first,
+            "same edge layout should record a buffer reuse instead of reallocating"
+        );
+    }
+
+    #[test]
     fn cinematic_quality_keeps_curved_edge_geometry() {
         let world = make_test_world(3, 120.0);
         let mut renderer = make_test_renderer();
@@ -4797,7 +4801,6 @@ mod tests {
         renderer.set_viewport_size(1280, 720);
         renderer.update_positions(&world);
 
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
         assert!(!renderer.classic_edge_scratch.is_empty());
     }
 
@@ -4806,7 +4809,6 @@ mod tests {
         let world = make_diagonal_edge_world();
         let mut renderer = make_test_renderer();
         renderer.quality_level = 0;
-        renderer.edge_style = EdgeStyle::Smooth;
         renderer.set_viewport_size(1280, 720);
         renderer.update_positions(&world);
 
@@ -4848,7 +4850,6 @@ mod tests {
 
         let mut renderer = make_test_renderer();
         renderer.quality_level = 0;
-        renderer.edge_style = EdgeStyle::Smooth;
         renderer.set_viewport_size(1280, 720);
         renderer.update_positions(&world);
 
@@ -4880,25 +4881,20 @@ mod tests {
         renderer.set_viewport_size(1280, 720);
         renderer.update_positions(&world);
 
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
         assert!(!renderer.classic_edge_scratch.is_empty());
     }
 
     #[test]
-    fn edge_style_pixel_art_is_inert_until_reworked() {
-        let world = make_test_world(3, 120.0);
-        let mut renderer = make_test_renderer();
-        renderer.quality_level = 0;
-        renderer.edge_style = EdgeStyle::PixelArt;
-        renderer.set_viewport_size(1280, 720);
-        renderer.update_positions(&world);
+    fn edge_style_dead_code_is_removed() {
+        let production_source = include_str!("renderer.rs")
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
 
-        let uniforms = renderer.uniforms_for_draw(1280.0, 720.0, 1.0, 0.0);
-
-        assert_eq!(renderer.quality_level, 0);
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
-        assert!(!renderer.classic_edge_scratch.is_empty());
-        assert_eq!(uniforms.edge_style, 0.0);
+        assert!(!production_source.contains("enum EdgeStyle"));
+        assert!(!production_source.contains("edge_style"));
+        assert!(!production_source.contains("PixelArt"));
+        assert!(!production_source.contains("EdgeGeometryKind"));
     }
 
     #[test]
@@ -5063,7 +5059,6 @@ mod tests {
 
         renderer.update_positions(&world);
 
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
         assert_eq!(renderer.edge_instance_count, 24);
     }
 

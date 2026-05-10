@@ -120,7 +120,6 @@ struct GraphRenderWakeSignature: Equatable {
     let modeVersion: Int
     let liteModeVersion: Int
     let visualThemeVersion: Int
-    let edgeStyleVersion: Int
     let forceConfigVersion: Int
     let extendedForceConfigVersion: Int
     let clusterConfigVersion: Int
@@ -142,7 +141,6 @@ struct GraphRenderWakeSignature: Equatable {
         self.modeVersion = graphState.modeVersion
         self.liteModeVersion = graphState.liteModeVersion
         self.visualThemeVersion = graphState.visualThemeVersion
-        self.edgeStyleVersion = graphState.edgeStyleVersion
         self.forceConfigVersion = graphState.forceConfigVersion
         self.extendedForceConfigVersion = graphState.extendedForceConfigVersion
         self.clusterConfigVersion = graphState.clusterConfigVersion
@@ -708,7 +706,6 @@ final class MetalGraphNSView: NSView {
     var lastLiteModeVersion: Int = -1
     var lastPushedQualityLevel: UInt8 = 255
     var lastVisualThemeVersion: Int = -1
-    var lastEdgeStyleVersion: Int = -1
     var lastAppearanceSyncKey = ""
     var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
@@ -1104,9 +1101,6 @@ final class MetalGraphNSView: NSView {
         applyDialogueDepthPalette()
         applyCognitiveDepthOverlay()
         lastVisualThemeVersion = graphState.visualThemeVersion
-
-        graph_engine_set_edge_style(engine, graphState.edgeStyle.rawValue)
-        lastEdgeStyleVersion = graphState.edgeStyleVersion
 
         if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
             pushSemanticClusters()
@@ -1524,12 +1518,6 @@ final class MetalGraphNSView: NSView {
             graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
             applyDialogueDepthPalette()
             applyCognitiveDepthOverlay()
-        }
-
-        if let graphState, lastEdgeStyleVersion != graphState.edgeStyleVersion {
-            lastEdgeStyleVersion = graphState.edgeStyleVersion
-            graph_engine_set_edge_style(engine, graphState.edgeStyle.rawValue)
-            needsRender = true
         }
 
         // Sync laboratory params (toggles + knobs for advanced physics).

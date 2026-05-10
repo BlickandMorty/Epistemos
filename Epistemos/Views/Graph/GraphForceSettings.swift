@@ -132,8 +132,6 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 16) {
             titleOverlaySection(gs: gs)
             Divider().opacity(0.3)
-            edgeStyleSection(gs: gs)
-            Divider().opacity(0.3)
             labelsSection(gs: gs)
             Divider().opacity(0.3)
             resetButton
@@ -354,23 +352,6 @@ struct GraphForceSettings: View {
     }
 
     // MARK: - Basic Forces
-
-    private func edgeStyleSection(gs: Bindable<GraphState>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Edges", icon: "point.3.connected.trianglepath.dotted")
-
-            Picker("Edge Style", selection: gs.edgeStyle) {
-                Text("Smooth").tag(GraphEdgeStyle.smooth)
-            }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-
-            Text(graphState.edgeStyle.description)
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
 
     private func basicSection(gs: Bindable<GraphState>) -> some View {
         VStack(alignment: .leading, spacing: 10) {
