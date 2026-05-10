@@ -42,6 +42,16 @@ final class OutlineParserCache {
     /// Return the outline for `(content, language)`. On hit, the
     /// prior result is returned without invoking the parser. On
     /// miss, the parser runs once + the result is memoized.
+    ///
+    /// Files larger than `OutlineParserCache.maxParseBytes` skip the
+    /// parse entirely and return an empty outline. `OutlineParser`
+    /// types (SymbolKind, OutlineItem) are MainActor-isolated by
+    /// the module's default isolation, so the regex walk has to run
+    /// on the main thread. On large files (e.g. a generated
+    /// `graph.json`) that hang exceeded 500 ms and the watchdog
+    /// flagged it. The cap keeps the editor responsive on those
+    /// files at the cost of an empty outline navigator — a fair
+    /// trade since a flat JSON has no useful outline anyway.
     func parse(
         content: String,
         language: String
@@ -52,12 +62,23 @@ final class OutlineParserCache {
             return lastResult
         }
         misses &+= 1
-        let result = OutlineParser.parse(content: content, language: language)
+        let result: [OutlineItem]
+        if content.utf8.count > Self.maxParseBytes {
+            result = []
+        } else {
+            result = OutlineParser.parse(content: content, language: language)
+        }
         lastKey = key
         lastResult = result
         seeded = true
         return result
     }
+
+    /// Hard cap on input size for `parse`. 256 KB is large enough to
+    /// cover normal source files (a 10K-line Swift file is ~300 KB
+    /// at most) while excluding the generated JSON / blob files
+    /// that produce the multi-hundred-millisecond regex walks.
+    static let maxParseBytes: Int = 256 * 1024
 
     /// Drop the memoized entry. Useful when the editor's language
     /// changes mid-session and the host wants to force a re-parse

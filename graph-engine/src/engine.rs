@@ -269,16 +269,6 @@ fn selected_neighbor_density_budget(scored_count: usize, protected_count: usize)
     budget.min(scored_count).max(protected)
 }
 
-fn should_update_field_lines(
-    _quality_level: u8,
-    _hovered_id: Option<u32>,
-    _field_line_count: usize,
-    _dragging: bool,
-    _dialogue_active: bool,
-) -> bool {
-    false
-}
-
 /// Drag state for d3-style fx/fy constraint.
 ///
 /// Beyond the original fx/fy pin mechanism, this tracks an EMA-smoothed
@@ -1079,23 +1069,7 @@ impl Engine {
         let label_highlight_dirty = self.highlight_dirty;
         if instance_buffers_changed || self.highlight_dirty {
             self.renderer.rebuild_highlight_flags(&self.world);
-            self.renderer.rebuild_edge_highlight_flags();
             self.highlight_dirty = false;
-        }
-
-        // Decorative hover field lines are disabled; only clear stale buffers if needed.
-        if should_update_field_lines(
-            self.quality_level,
-            self.hovered_id,
-            self.renderer.field_line_count,
-            self.drag.is_some(),
-            self.renderer.dialogue.active,
-        ) {
-            let time = self.renderer.start_time.elapsed().as_secs_f32();
-            self.renderer
-                .update_field_lines(self.hovered_id, &self.world, time);
-        } else if self.renderer.field_line_count > 0 {
-            self.renderer.update_field_lines(None, &self.world, 0.0);
         }
 
         // Label cache: only rebuild when camera moved significantly (>3% of
@@ -1209,7 +1183,6 @@ impl Engine {
 
             self.selected_id = Some(node_id);
             self.hovered_id = None;
-            self.renderer.update_field_lines(None, &self.world, 0.0);
 
             // Start drag — D3 canonical pattern:
             //   1. Anchor to node's OWN position (no jolt from cursor offset)
@@ -2476,6 +2449,7 @@ impl Engine {
     /// Switch renderer between light and dark mode color palettes.
     pub fn set_light_mode(&mut self, enabled: bool) {
         self.renderer.light_mode = enabled;
+        self.mark_renderer_style_dirty();
     }
 
     /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
@@ -2492,23 +2466,38 @@ impl Engine {
     /// Set visual theme: 0 = Dialogue (default), 1 = Classic.
     pub fn set_visual_theme(&mut self, theme: u8) {
         self.renderer.visual_theme = VisualTheme::from_u8(theme);
+        self.mark_renderer_style_dirty();
     }
 
     /// Set per-node color override by UUID. Pass alpha=0 to clear.
     /// Updates both Graph node and ECS RenderComponent for theme-agnostic rendering.
     pub fn set_node_color_override(&mut self, uuid: &str, r: f32, g: f32, b: f32, a: f32) {
         let color = [r, g, b, a];
+        let mut changed = false;
         if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
             if let Some(&idx) = self.graph.id_to_index.get(&id) {
                 self.graph.nodes[idx].color_override = color;
+                changed = true;
             }
             // Mirror to ECS World
             if let Some(&entity) = self.world.node_id_to_entity.get(&id)
                 && let Some(ei) = self.world.index_of(entity)
             {
                 self.world.render[ei].color_override = color;
+                changed = true;
             }
         }
+        if changed {
+            self.mark_renderer_style_dirty();
+        }
+    }
+
+    fn mark_renderer_style_dirty(&mut self) {
+        // Colors, theme-specific radii, and edge palettes are baked into renderer
+        // instance buffers, so a style-only mutation still needs a buffer rebuild.
+        self.quality_rebuild_pending = true;
+        self.highlight_dirty = true;
+        self.idle_frame_count = 0;
     }
 
     /// Look up a node's UUID by its internal ID and store in the reusable buffer.
@@ -3175,6 +3164,55 @@ mod tests {
 
         assert_eq!(engine.quality_level, 0);
         assert!(!engine.sim.lock().lite_mode);
+    }
+
+    #[test]
+    fn appearance_changes_mark_renderer_for_buffer_rebuild() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+        engine.stop_physics();
+
+        engine.quality_rebuild_pending = false;
+        engine.highlight_dirty = false;
+        engine.idle_frame_count = 9;
+
+        engine.set_light_mode(true);
+
+        assert!(engine.renderer.light_mode);
+        assert!(engine.quality_rebuild_pending);
+        assert!(engine.highlight_dirty);
+        assert_eq!(engine.idle_frame_count, 0);
+
+        engine.quality_rebuild_pending = false;
+        engine.highlight_dirty = false;
+        engine.idle_frame_count = 9;
+
+        engine.set_visual_theme(1);
+
+        assert_eq!(engine.renderer.visual_theme, VisualTheme::Classic);
+        assert!(engine.quality_rebuild_pending);
+        assert!(engine.highlight_dirty);
+        assert_eq!(engine.idle_frame_count, 0);
+
+        engine.quality_rebuild_pending = false;
+        engine.highlight_dirty = false;
+        engine.idle_frame_count = 9;
+
+        let uuid = engine.graph.nodes[0].uuid.clone();
+        engine.set_node_color_override(&uuid, 0.2, 0.3, 0.4, 1.0);
+
+        assert_eq!(engine.graph.nodes[0].color_override, [0.2, 0.3, 0.4, 1.0]);
+        assert!(engine.quality_rebuild_pending);
+        assert!(engine.highlight_dirty);
+        assert_eq!(engine.idle_frame_count, 0);
     }
 
     #[test]
@@ -3981,18 +4019,24 @@ mod tests {
         assert_eq!(sim.lock().haptic_event, 2);
     }
 
+    /// Hard invariant: the field-line subsystem (struct, pipeline, shader,
+    /// gate function, callers, buffers) was deleted from the renderer when
+    /// it kept emitting thin straight tinted lines that didn't respond to
+    /// the canonical edge color. Any reintroduction must clear this test.
     #[test]
-    fn field_lines_disable_while_dragging() {
-        assert!(!should_update_field_lines(0, Some(7), 3, true, false));
-        assert!(!should_update_field_lines(1, Some(7), 3, false, false));
-        assert!(!should_update_field_lines(0, Some(7), 0, false, false));
-        assert!(!should_update_field_lines(0, None, 3, false, false));
-        assert!(!should_update_field_lines(0, Some(7), 3, false, true));
-    }
-
-    #[test]
-    fn field_lines_stay_disabled_for_hovered_nodes() {
-        assert!(!should_update_field_lines(0, Some(7), 0, false, false));
-        assert!(!should_update_field_lines(0, None, 3, false, false));
+    fn field_line_subsystem_is_fully_deleted_from_engine() {
+        let source = include_str!("engine.rs");
+        let production = source
+            .split("mod tests")
+            .next()
+            .expect("engine source should split on tests module");
+        assert!(
+            !production.contains("should_update_field_lines"),
+            "should_update_field_lines was deleted along with the field-line subsystem"
+        );
+        assert!(
+            !production.contains("update_field_lines"),
+            "update_field_lines was deleted along with the field-line subsystem"
+        );
     }
 }

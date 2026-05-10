@@ -163,6 +163,11 @@ struct HologramSearchSidebar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("epistemos.graphChatOperatingMode")
     private var graphChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
+    /// Persisted collapse state. Survives editor↔graph navigation and app
+    /// restarts. When true the sidebar shrinks to a single expand-affordance
+    /// button; when false the full Notes/Query/Chat tabs are visible.
+    @AppStorage("epistemos.graphSidebarCollapsed")
+    private var isCollapsed: Bool = false
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
     @State private var cachedNotesTreeSnapshot = HologramSidebarNotesTreeSnapshot.empty
@@ -215,6 +220,40 @@ struct HologramSearchSidebar: View {
     }
 
     var body: some View {
+        Group {
+            if isCollapsed {
+                collapsedAffordance
+            } else {
+                expandedSidebar
+            }
+        }
+        .animation(reduceMotion ? nil : .smooth(duration: 0.22), value: isCollapsed)
+    }
+
+    /// Tiny button shown when the sidebar is collapsed — restores the
+    /// full panel when pressed. Persists via `@AppStorage` so it survives
+    /// editor↔graph navigation.
+    private var collapsedAffordance: some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+                isCollapsed = false
+            }
+        } label: {
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 36, height: 36)
+        }
+        .buttonStyle(.plain)
+        .help("Show sidebar")
+        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
+        )
+    }
+
+    private var expandedSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
             tabPills
             Divider().opacity(0.2)
@@ -260,6 +299,22 @@ struct HologramSearchSidebar: View {
             tabButton("Query", icon: "point.3.connected.trianglepath.dotted", tab: .query)
             tabButton("Chat", icon: "bubble.left.and.bubble.right", tab: .chat)
             Spacer()
+            // Collapse button — shrinks the sidebar to a single restore
+            // affordance. State is persisted via `@AppStorage` so it
+            // survives going into the editor and back.
+            Button {
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.22)) {
+                    isCollapsed = true
+                }
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.primary.opacity(0.6))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+            .help("Hide sidebar")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

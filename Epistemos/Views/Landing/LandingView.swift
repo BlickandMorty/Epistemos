@@ -413,7 +413,7 @@ struct LandingView: View {
     }
 
     private var landingBackdrop: some View {
-        Color.clear
+        AppWindowBackdropStyle.background(for: theme)
             .ignoresSafeArea()
     }
 

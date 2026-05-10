@@ -1804,7 +1804,10 @@ struct CodeEditorView: View {
             // T+8 Phase-S item 3 — outline cache + diff. The hash-keyed
             // memo short-circuits when (content, language) hasn't
             // changed since last refresh; on miss the parser runs and
-            // the result is memoized for the next refresh.
+            // the result is memoized for the next refresh. Files
+            // above OutlineParserCache.maxParseBytes return an empty
+            // outline (the parser is MainActor-bound and would hang
+            // the UI on multi-hundred-KB blobs like graph.json).
             outlineItems = outlineCache.parse(content: content, language: currentLanguage)
         }
     }
@@ -1815,22 +1818,30 @@ struct CodeEditorView: View {
     }
     
     private var editorContent: some View {
-        ZStack {
+        VStack(spacing: 8) {
+            breadcrumbBar
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+
             HStack(spacing: 0) {
-                mainEditorPane
+                editorWithSearch
                 outlineNavigator
                 if CodeEditorReleasePolicy.semanticSidebarEnabled {
                     semanticSidebar
                 }
             }
-            
-        }
-    }
-    
-    private var mainEditorPane: some View {
-        VStack(spacing: 0) {
-            breadcrumbBar
-            editorWithSearch
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+            )
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
         }
     }
     

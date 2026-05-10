@@ -731,8 +731,10 @@ final class ChatCoordinator {
         let approved: Bool
         if request.isBudgetGate {
           approved = await promptUserForBudgetGateApproval(request)
+        } else if request.requiresHumanApproval {
+          approved = await promptForToolApproval(request)
         } else {
-          approved = !request.requiresHumanApproval
+          approved = true
         }
         recordRustAgentToolEvent(
           recorder: commandCenterProvenanceRecorder,
@@ -753,7 +755,9 @@ final class ChatCoordinator {
             id: request.id,
             toolName: request.toolName,
             riskLevel: String(describing: request.riskLevel),
-            decision: approved ? .approvedAutoReadOnly : .deniedByPolicy,
+            decision: request.requiresHumanApproval
+              ? (approved ? .approvedByUser : .deniedByUser)
+              : .approvedAutoReadOnly,
             at: Date()
           )
         )

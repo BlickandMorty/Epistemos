@@ -980,6 +980,14 @@ final class MetalGraphNSView: NSView {
     private func startDisplayLink() {
         stopDisplayLink()
         let link = self.displayLink(target: self, selector: #selector(handleDisplayLinkTick(_:)))
+        // Request the display's full ProMotion range (120 Hz on M-series
+        // laptops) instead of letting the system default cap at 60.
+        // CADisplayLink defaults to a 60-fps preferred rate on macOS when
+        // no range is set, even on a 120 Hz display, which forces every
+        // GPU frame to wait ~16 ms for vblank instead of ~8 ms.
+        // preferred = 120 with a 60–120 floor keeps us at 120 when the
+        // GPU can sustain it and drops to 60 only if a frame slips.
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
         link.add(to: .main, forMode: .common)
         activeDisplayLink = link
     }

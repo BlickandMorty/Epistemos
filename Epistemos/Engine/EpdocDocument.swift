@@ -7,6 +7,20 @@ import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
+@MainActor
+private struct EpdocEditorDocumentRoot: View {
+    @Bindable var controller: EpdocEditorChromeController
+
+    var body: some View {
+        if let bootstrap = AppBootstrap.shared {
+            EpdocEditorChromeView(controller: controller)
+                .withAppEnvironment(bootstrap)
+        } else {
+            EpdocEditorChromeView(controller: controller)
+        }
+    }
+}
+
 // MARK: - EpdocDocument
 //
 // Wave 7.1 follow-up of the Extended Program Plan
@@ -61,6 +75,14 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     /// `.epdoc`. Injected by `EpistemosDocumentController`; nil keeps previews
     /// and isolated tests in no-graph mode.
     public var graphModelContainer: ModelContainer?
+
+    @MainActor
+    static func syncOpenDocumentThemes(uiState: UIState) {
+        let identifier = NSToolbar.Identifier("EpdocDocument")
+        for window in NSApp.windows where window.toolbar?.identifier == identifier {
+            NoteWindowThemeStyler.apply(to: window, uiState: uiState)
+        }
+    }
 
     public override init() {
         // NSDocument's designated init for new documents. Build a
@@ -438,6 +460,7 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
     nonisolated public override func makeWindowControllers() {
         MainActor.assumeIsolated {
             let chromeController = EpdocEditorChromeController()
+            chromeController.theme = AppBootstrap.shared?.uiState.theme ?? .nativeDefault
             chromeController.loadInitialContent(
                 self.package.contentJSON,
                 title: self.package.manifest.title
@@ -492,10 +515,20 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                 await self?.projectAndPersistGraph(contentJSON: initialContentJSON)
             }
 
-            let chromeView = EpdocEditorChromeView(controller: chromeController)
+            let chromeView = EpdocEditorDocumentRoot(controller: chromeController)
             let hostingController = NSHostingController(rootView: chromeView)
+            hostingController.sceneBridgingOptions = [.all]
+            let contentController: NSViewController
+            if let uiState = AppBootstrap.shared?.uiState {
+                contentController = NoteWindowThemeStyler.themedContentController(
+                    hostingController: hostingController,
+                    uiState: uiState
+                )
+            } else {
+                contentController = hostingController
+            }
 
-            let window = NSWindow(contentViewController: hostingController)
+            let window = NSWindow(contentViewController: contentController)
             window.title = self.package.manifest.title.isEmpty
                 ? "Untitled"
                 : self.package.manifest.title

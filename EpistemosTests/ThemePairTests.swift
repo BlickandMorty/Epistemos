@@ -535,12 +535,25 @@ struct ThemePairTests {
     @Test("Landing backdrop uses the native surface without a startup intro fade")
     func landingBackdropUsesNativeSurfaceWithoutStartupIntroFade() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
 
         #expect(landingView.contains("private var landingBackdrop: some View"))
-        #expect(landingView.contains("Color.clear"))
+        #expect(landingView.contains("AppWindowBackdropStyle.background(for: theme)"))
+        #expect(rootView.contains("AppWindowBackdropStyle.background(for: ui.theme)"))
+        #expect(!rootView.contains("ui.theme.isDark ? Color.black : ui.theme.resolved.background.color"))
         #expect(!landingView.contains("showIntroBackdrop"))
         #expect(!landingView.contains("playLandingIntroIfNeeded()"))
         #expect(!landingView.contains("darkModeLandingBackdrop"))
+    }
+
+    @Test("Landing and root backdrops sample the selected semantic theme instead of OLED")
+    func landingAndRootBackdropsSampleSelectedSemanticThemeInsteadOfOLED() {
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .ember) == EpistemosTheme.ember.resolved.background)
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) == EpistemosTheme.nocturne.resolved.background)
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .platinumDark) == EpistemosTheme.platinumDark.resolved.background)
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .platinumVioletDark) == EpistemosTheme.platinumVioletDark.resolved.background)
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .ember) != EpistemosTheme.oled.resolved.background)
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) != EpistemosTheme.oled.resolved.background)
     }
 
     @Test("Regular display mode keeps ripple-capable surfaces but drops retro display typography")

@@ -115,6 +115,25 @@ struct AuditFixRegressionTests {
         #expect(!coordinator.contains("case .autoAllow:\n                        chatState.appendStreamingText"))
     }
 
+    @Test("command center rust agent path prompts for human-gated tool permission")
+    func commandCenterRustAgentPathPromptsForHumanGatedToolPermission() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+        let functionStart = try #require(coordinator.range(of: "private func runCommandCenterRustAgentPath("))
+        let functionTail = coordinator[functionStart.lowerBound...]
+        let permissionStart = try #require(functionTail.range(of: "case .permissionRequired(let request):"))
+        let permissionTail = functionTail[permissionStart.lowerBound...]
+        let permissionEnd = try #require(permissionTail.range(of: "case .complete("))
+        let permissionBlock = String(permissionTail[..<permissionEnd.lowerBound])
+
+        #expect(permissionBlock.contains("if request.requiresHumanApproval"))
+        #expect(permissionBlock.contains("approved = await promptForToolApproval(request)"))
+        #expect(permissionBlock.contains("approved = true"))
+        #expect(permissionBlock.contains("decision: request.requiresHumanApproval"))
+        #expect(permissionBlock.contains("approved ? .approvedByUser : .deniedByUser"))
+        #expect(!permissionBlock.contains("approved = !request.requiresHumanApproval"))
+        #expect(!permissionBlock.contains("decision: approved ? .approvedAutoReadOnly : .deniedByPolicy"))
+    }
+
     @Test("approval prompts name the persistent permission group and point to quick setup presets")
     func approvalPromptsNameThePersistentPermissionGroupAndPointToQuickSetupPresets() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
