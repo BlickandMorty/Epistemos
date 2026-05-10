@@ -17,29 +17,6 @@ enum GraphVisualTheme: UInt8, CaseIterable, Codable {
     }
 }
 
-enum GraphEdgeStyle: UInt8, CaseIterable, Codable, Identifiable {
-    case smooth = 0
-    case pixelArt = 1
-
-    var id: Self { self }
-
-    var displayName: String {
-        switch self {
-        case .smooth: "Smooth"
-        case .pixelArt: "Pixel-Art"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .smooth:
-            "Soft antialiased graph edges."
-        case .pixelArt:
-            "Hard snapped edges that stay under solid nodes."
-        }
-    }
-}
-
 // MARK: - GraphMode
 // Two graph views matching LogSeq: global (all nodes) and page (node + neighbors).
 
@@ -691,10 +668,6 @@ final class GraphState {
     private static let visualThemeDefaultsKey = "graphVisualTheme"
     private static let visualThemeMigrationDefaultsKey =
         "epistemos.graph.visualTheme.migratedClassicDefault"
-    private static let edgeStyleDefaultsKey = "epistemos.graph.edgeStyle"
-    private static let edgeStyleMigrationDefaultsKey =
-        "epistemos.graph.edgeStyle.migratedSmoothDefault"
-
     private static func persistVisualThemeMigration(
         _ theme: GraphVisualTheme,
         defaults: UserDefaults
@@ -723,28 +696,6 @@ final class GraphState {
         }
         defaults.set(true, forKey: visualThemeMigrationDefaultsKey)
         return theme
-    }
-
-    private static func restoredEdgeStyle(defaults: UserDefaults = .standard) -> GraphEdgeStyle {
-        guard let storedValue = defaults.object(forKey: edgeStyleDefaultsKey) as? NSNumber else {
-            defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)
-            defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
-            return .smooth
-        }
-        let rawValue = storedValue.intValue
-        guard (0...Int(UInt8.max)).contains(rawValue),
-              let style = GraphEdgeStyle(rawValue: UInt8(rawValue)) else {
-            defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)
-            defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
-            return .smooth
-        }
-        if style == .pixelArt {
-            defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)
-            defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
-            return .smooth
-        }
-        defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
-        return style
     }
 
     nonisolated private let engineHandleState = EngineHandleState()
@@ -1101,16 +1052,6 @@ final class GraphState {
         }
     }
     var visualThemeVersion: Int = 0
-
-    var edgeStyle: GraphEdgeStyle = GraphState.restoredEdgeStyle() {
-        didSet {
-            guard edgeStyle != oldValue else { return }
-            UserDefaults.standard.set(Int(edgeStyle.rawValue), forKey: Self.edgeStyleDefaultsKey)
-            edgeStyleVersion += 1
-            notifyGraphRenderSettingsChanged()
-        }
-    }
-    var edgeStyleVersion: Int = 0
 
     // MARK: - Label Policy
 

@@ -10,8 +10,6 @@ struct GraphPhysicsSettingsAuditTests {
     private let waterNodesWobbleKey = "epistemos.waterNodes.wobble"
     private let visualThemeKey = "graphVisualTheme"
     private let visualThemeMigrationKey = "epistemos.graph.visualTheme.migratedClassicDefault"
-    private let edgeStyleKey = "epistemos.graph.edgeStyle"
-    private let edgeStyleMigrationKey = "epistemos.graph.edgeStyle.migratedSmoothDefault"
     private let physicsKeys: [String] = [
         "epistemos.physics.hasSavedSettings",
         "epistemos.physics.version",
@@ -61,8 +59,6 @@ struct GraphPhysicsSettingsAuditTests {
         defaults.removeObject(forKey: waterNodesWobbleKey)
         defaults.removeObject(forKey: visualThemeKey)
         defaults.removeObject(forKey: visualThemeMigrationKey)
-        defaults.removeObject(forKey: edgeStyleKey)
-        defaults.removeObject(forKey: edgeStyleMigrationKey)
     }
 
     private func waitForPreset(
@@ -406,27 +402,6 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(restored.waterNodesEnabled)
     }
 
-    @Test("Graph edge style defaults and migrates back to smooth curves")
-    func graphEdgeStyleDefaultsAndMigratesBackToSmoothCurves() {
-        clearPhysicsDefaults()
-
-        let fresh = GraphState()
-        #expect(fresh.edgeStyle == .smooth)
-
-        let defaults = UserDefaults.standard
-        defaults.set(Int(GraphEdgeStyle.pixelArt.rawValue), forKey: edgeStyleKey)
-        defaults.removeObject(forKey: edgeStyleMigrationKey)
-
-        let migrated = GraphState()
-        #expect(migrated.edgeStyle == .smooth)
-
-        migrated.edgeStyle = .pixelArt
-        let explicit = GraphState()
-        #expect(explicit.edgeStyle == .smooth)
-
-        clearPhysicsDefaults()
-    }
-
     @Test("Graph settings expose section tabs and remove middle water/startup controls")
     func graphSettingsRemoveMiddleWaterAndStartupControls() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
@@ -618,8 +593,8 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!renderer.contains("edge_color_with_endpoint_palette("))
     }
 
-    @Test("Graph edge style is user-visible and backed by Rust renderer")
-    func graphEdgeStyleIsUserVisibleAndBackedByRustRenderer() throws {
+    @Test("Graph edge dead modes are removed from UI Swift and Rust")
+    func graphEdgeDeadModesAreRemovedFromUISwiftAndRust() throws {
         let graphState = try loadMirroredSourceTextFile("Epistemos/Graph/GraphState.swift")
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
         let metalView = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
@@ -628,22 +603,18 @@ struct GraphPhysicsSettingsAuditTests {
         let exports = try loadMirroredSourceTextFile("graph-engine/src/lib.rs")
         let header = try loadMirroredSourceTextFile("graph-engine-bridge/graph_engine.h")
 
-        #expect(graphState.contains("enum GraphEdgeStyle: UInt8"))
-        #expect(graphState.contains("case pixelArt = 1"))
-        #expect(graphState.contains("var edgeStyle: GraphEdgeStyle"))
-        #expect(graphState.contains("return .smooth"))
-        #expect(graphState.contains("if style == .pixelArt"))
-        #expect(graphState.contains("edgeStyleMigrationDefaultsKey"))
-        #expect(graphState.contains("defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)"))
-        #expect(graphState.contains("edgeStyleVersion += 1"))
-        #expect(settings.contains("Edge Style"))
+        #expect(!graphState.contains("enum GraphEdgeStyle"))
+        #expect(!graphState.contains("edgeStyle"))
+        #expect(!settings.contains("Edge Style"))
         #expect(!settings.contains("Pixel-Art"))
-        #expect(metalView.contains("edgeStyleVersion"))
-        #expect(metalView.contains("graph_engine_set_edge_style(engine, graphState.edgeStyle.rawValue)"))
-        #expect(renderer.contains("enum EdgeStyle"))
-        #expect(renderer.contains("edge_style: EdgeStyle"))
+        #expect(!metalView.contains("edgeStyleVersion"))
+        #expect(!metalView.contains("graph_engine_set_edge_style"))
+        let productionRenderer = renderer.split(separator: "mod tests", maxSplits: 1).first.map(String.init) ?? renderer
+        #expect(!productionRenderer.contains("enum EdgeStyle"))
+        #expect(!productionRenderer.contains("edge_style"))
+        #expect(!productionRenderer.contains("PixelArt"))
+        #expect(!productionRenderer.contains("EdgeGeometryKind"))
         #expect(renderer.contains("cinematic_quality_keeps_curved_edge_geometry"))
-        #expect(renderer.contains("edge_style_pixel_art_is_inert_until_reworked"))
         #expect(!renderer.contains("screen0 = round(screen0);"))
         #expect(!renderer.contains("float  pixel_edge_style"))
         #expect(!renderer.contains("in.pixel_edge_style"))
@@ -651,18 +622,22 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(renderer.contains("graph_edge_color_for_flag"))
         #expect(renderer.contains("selected_edges_focus_without_white_color_override"))
         #expect(!renderer.contains("float4(srgb_to_linear(float3(0.70, 0.90, 1.00)), 0.75)"))
-        #expect(engine.contains("pub fn set_edge_style(&mut self, style: u8)"))
-        #expect(exports.contains("pub extern \"C\" fn graph_engine_set_edge_style"))
-        #expect(header.contains("void graph_engine_set_edge_style(Engine* engine, uint8_t style);"))
+        #expect(!engine.contains("pub fn set_edge_style"))
+        #expect(!exports.contains("graph_engine_set_edge_style"))
+        #expect(!header.contains("graph_engine_set_edge_style"))
     }
 
     @Test("Graph renderer keeps smooth curved edges connected under solid nodes")
     func graphRendererKeepsSmoothCurvedEdgesConnectedUnderSolidNodes() throws {
         let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+        let graphLib = try loadMirroredSourceTextFile("graph-engine/src/lib.rs")
 
         #expect(!renderer.contains("crate::edge_trim::trim_line_endpoints("))
+        #expect(!renderer.contains("crate::edge_trim::trim_curve_endpoints("))
+        #expect(!graphLib.contains("pub mod edge_trim;"))
         #expect(renderer.contains("smooth_curve_edges_use_node_centers_so_nodes_occlude_connections"))
-        #expect(renderer.contains("EdgeGeometryKind::Curve"))
+        let productionRenderer = renderer.split(separator: "mod tests", maxSplits: 1).first.map(String.init) ?? renderer
+        #expect(!productionRenderer.contains("EdgeGeometryKind"))
         #expect(renderer.contains("fn performance_quality_keeps_curved_edge_geometry"))
     }
 

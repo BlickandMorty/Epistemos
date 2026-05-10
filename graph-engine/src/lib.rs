@@ -8,7 +8,6 @@ pub mod code_highlight;
 pub mod complexity_weight;
 pub mod ecs;
 pub mod edge_aggregation;
-pub mod edge_trim;
 pub mod embedding;
 pub mod engine;
 pub mod forces;
@@ -1415,15 +1414,6 @@ pub extern "C" fn graph_engine_set_visual_theme(engine: *mut Engine, theme: u8) 
     ffi_catch_unwind!("graph_engine_set_visual_theme", {
         ffi_engine!(engine);
         engine.set_visual_theme(theme);
-    });
-}
-
-/// Set edge style: 0 = Smooth, 1 = Pixel-Art.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_edge_style(engine: *mut Engine, style: u8) {
-    ffi_catch_unwind!("graph_engine_set_edge_style", {
-        ffi_engine!(engine);
-        engine.set_edge_style(style);
     });
 }
 
