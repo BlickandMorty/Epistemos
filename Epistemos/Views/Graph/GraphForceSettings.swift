@@ -361,7 +361,6 @@ struct GraphForceSettings: View {
 
             Picker("Edge Style", selection: gs.edgeStyle) {
                 Text("Smooth").tag(GraphEdgeStyle.smooth)
-                Text("Pixel-Art").tag(GraphEdgeStyle.pixelArt)
             }
             .pickerStyle(.segmented)
             .controlSize(.small)

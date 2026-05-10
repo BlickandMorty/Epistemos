@@ -692,6 +692,8 @@ final class GraphState {
     private static let visualThemeMigrationDefaultsKey =
         "epistemos.graph.visualTheme.migratedClassicDefault"
     private static let edgeStyleDefaultsKey = "epistemos.graph.edgeStyle"
+    private static let edgeStyleMigrationDefaultsKey =
+        "epistemos.graph.edgeStyle.migratedSmoothDefault"
 
     private static func persistVisualThemeMigration(
         _ theme: GraphVisualTheme,
@@ -725,14 +727,23 @@ final class GraphState {
 
     private static func restoredEdgeStyle(defaults: UserDefaults = .standard) -> GraphEdgeStyle {
         guard let storedValue = defaults.object(forKey: edgeStyleDefaultsKey) as? NSNumber else {
+            defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)
+            defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
             return .smooth
         }
         let rawValue = storedValue.intValue
         guard (0...Int(UInt8.max)).contains(rawValue),
               let style = GraphEdgeStyle(rawValue: UInt8(rawValue)) else {
             defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)
+            defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
             return .smooth
         }
+        if style == .pixelArt {
+            defaults.set(Int(GraphEdgeStyle.smooth.rawValue), forKey: edgeStyleDefaultsKey)
+            defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
+            return .smooth
+        }
+        defaults.set(true, forKey: edgeStyleMigrationDefaultsKey)
         return style
     }
 
