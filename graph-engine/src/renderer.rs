@@ -6,7 +6,7 @@ use objc::rc::autoreleasepool;
 use rustc_hash::FxHashMap;
 
 use crate::ecs::World;
-use crate::types::{VisualTheme, edge_type_color, edge_type_color_light};
+use crate::types::VisualTheme;
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
 unsafe extern "C" {
@@ -174,6 +174,7 @@ struct Uniforms {
     water_style: f32,          // 0.0 = retro pixel, 1.0 = water-bead shading
     water_wobble: f32,         // 0.0 = still, 1.0 = breathing radius
     edge_style: f32,           // 0.0 = smooth, 1.0 = pixel-art hard edge
+    _pad: f32,                 // MSL rounds this float2-aligned uniform struct to 88 bytes
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -196,7 +197,6 @@ pub(crate) struct LodProfile {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EdgeGeometryKind {
     Curve,
-    Straight,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -215,10 +215,8 @@ impl EdgeStyle {
     }
 
     fn as_uniform(self) -> f32 {
-        match self {
-            Self::Smooth => 0.0,
-            Self::PixelArt => 1.0,
-        }
+        let _ = self;
+        0.0
     }
 }
 
@@ -275,11 +273,8 @@ fn sort_and_dedup_indices(indices: &mut Vec<usize>) {
 
 #[inline]
 fn aggregated_edge_base_rgb(light_mode: bool) -> [f32; 3] {
-    if light_mode {
-        [0.08, 0.09, 0.11]
-    } else {
-        [0.78, 0.82, 0.88]
-    }
+    let color = graph_edge_color_for_appearance(light_mode);
+    [color[0], color[1], color[2]]
 }
 
 fn clamp_dialogue_box_left(
@@ -387,34 +382,39 @@ fn string_edge_control_points(
     let dx = p1[0] - p0[0];
     let dy = p1[1] - p0[1];
     let length = (dx * dx + dy * dy).sqrt();
-    if length <= f32::EPSILON || curvature <= 0.0 {
-        let handle = length * 0.25;
-        return ([p0[0] + handle, p0[1]], [p1[0] - handle, p1[1]]);
+    if length <= f32::EPSILON {
+        return (p0, p1);
     }
 
     let direction = [dx / length, dy / length];
+    if curvature <= 0.0 {
+        let handle = length * 0.25;
+        return (
+            [p0[0] + direction[0] * handle, p0[1] + direction[1] * handle],
+            [p1[0] - direction[0] * handle, p1[1] - direction[1] * handle],
+        );
+    }
+
+    let _ = (v0, v1);
     let normal = [-direction[1], direction[0]];
     let ideal = ideal_length.max(1.0);
     let slack = ((ideal - length) / ideal).clamp(0.0, 0.75);
     let tension = ((length - ideal) / ideal).clamp(0.0, 1.25);
-    let relative_velocity = [v1[0] - v0[0], v1[1] - v0[1]];
-    let normal_motion = (relative_velocity[0] * normal[0] + relative_velocity[1] * normal[1])
-        .clamp(-180.0, 180.0)
-        / 180.0;
-
-    let handle = length * (0.20 + curvature * 0.26 + slack * 0.12);
-    let velocity_gain = (0.08 + slack * 0.14) * (1.0 - tension * 0.45).max(0.35);
-    let sag = (length * curvature * (0.18 + slack * 0.70) * (1.0 - tension * 0.7).max(0.14)
-        + normal_motion * length * 0.08)
-        .clamp(-length * 0.28, length * 0.28);
+    let curvature = curvature.clamp(0.0, 1.25);
+    let handle =
+        (length * (0.28 + curvature * 0.18 + slack * 0.08)).clamp(length * 0.18, length * 0.48);
+    let tension_factor = (1.0 - tension * 1.25).clamp(0.12, 1.0);
+    let sag = (length * curvature * (0.20 + slack * 0.60) * tension_factor)
+        .min(handle * 0.32)
+        .min(length * 0.18);
 
     let c0 = [
-        p0[0] + direction[0] * handle + normal[0] * sag + v0[0] * velocity_gain,
-        p0[1] + direction[1] * handle + normal[1] * sag + v0[1] * velocity_gain,
+        p0[0] + direction[0] * handle + normal[0] * sag,
+        p0[1] + direction[1] * handle + normal[1] * sag,
     ];
     let c1 = [
-        p1[0] - direction[0] * handle + normal[0] * sag - v1[0] * velocity_gain,
-        p1[1] - direction[1] * handle + normal[1] * sag - v1[1] * velocity_gain,
+        p1[0] - direction[0] * handle + normal[0] * sag,
+        p1[1] - direction[1] * handle + normal[1] * sag,
     ];
     (c0, c1)
 }
@@ -582,13 +582,26 @@ fn z_for_link_count(link_count: u32) -> f32 {
 
 /// Base alpha multiplier for all nodes — subtler ambient presence.
 const BASE_NODE_ALPHA: f32 = 1.0;
-const MIN_EDGE_WIDTH_PX: f32 = 0.70;
-const MAX_EDGE_WIDTH_PX: f32 = 4.00;
+const NODE_SHADER_FOCAL_LENGTH: f32 = 2.0;
+const CINEMATIC_NODE_WORLD_SCALE: f32 = 1.18;
+const CINEMATIC_NODE_MIN_WORLD_RADIUS: f32 = 13.0;
+const MIN_EDGE_WIDTH_PX: f32 = 1.15;
+const MAX_EDGE_WIDTH_PX: f32 = 4.20;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
 #[allow(dead_code)]
 const DIM_ALPHA: f32 = 0.04;
 
+#[inline]
+fn graph_edge_color_for_appearance(light_mode: bool) -> [f32; 4] {
+    if light_mode {
+        [0.18, 0.18, 0.18, 0.58]
+    } else {
+        [0.72, 0.74, 0.78, 0.64]
+    }
+}
+
 fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32 {
+    let weight = if weight.is_finite() { weight } else { 0.0 };
     let t = weight.clamp(0.0, 1.0);
     let weighted = MIN_EDGE_WIDTH_PX + (MAX_EDGE_WIDTH_PX - MIN_EDGE_WIDTH_PX) * t.powf(0.6);
     let min_endpoint_radius = p0_radius.min(p1_radius).max(0.0);
@@ -600,35 +613,11 @@ fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32 
     }
 }
 
-fn edge_color_with_endpoint_palette(
-    base: [f32; 4],
-    source_override: [f32; 4],
-    target_override: [f32; 4],
-) -> [f32; 4] {
-    let source_has_color = source_override[3] > 0.0;
-    let target_has_color = target_override[3] > 0.0;
-    if !source_has_color && !target_has_color {
-        return base;
-    }
-
-    let tint = match (source_has_color, target_has_color) {
-        (true, true) => [
-            (source_override[0] + target_override[0]) * 0.5,
-            (source_override[1] + target_override[1]) * 0.5,
-            (source_override[2] + target_override[2]) * 0.5,
-            1.0,
-        ],
-        (true, false) => source_override,
-        (false, true) => target_override,
-        (false, false) => base,
-    };
-
-    [
-        base[0] * 0.30 + tint[0] * 0.70,
-        base[1] * 0.30 + tint[1] * 0.70,
-        base[2] * 0.30 + tint[2] * 0.70,
-        base[3],
-    ]
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct EdgeRenderGeometry {
+    p0: [f32; 2],
+    p1: [f32; 2],
+    thickness_px: f32,
 }
 
 #[inline]
@@ -727,6 +716,7 @@ struct Uniforms {
     float water_style;       // 0.0 = retro pixel, 1.0 = water-bead
     float water_wobble;      // 0.0 = still, 1.0 = breathing radius
     float edge_style;        // 0.0 = smooth, 1.0 = pixel-art hard edge
+    float _pad;              // keep Metal reflection and Rust buffer allocation at 88 bytes
 };
 
 constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
@@ -1156,10 +1146,8 @@ fragment float4 node_fragment(
 // ── Edge shaders ───────────────────────────────────────────────────
 
 constant uint CURVE_EDGE_SEGMENTS = 20;
-constant float EDGE_DIM_ALPHA_SCALE = 0.15;
-constant float EDGE_DIM_ALPHA_SCALE_LIGHT = 0.42;
-constant float MIN_EDGE_WIDTH_PX = 0.70;
-constant float MAX_EDGE_WIDTH_PX = 4.00;
+constant float MIN_EDGE_WIDTH_PX = 1.15;
+constant float MAX_EDGE_WIDTH_PX = 4.20;
 
 struct CurveEdgeInstance {
     float2 p0;
@@ -1183,8 +1171,6 @@ struct LineVertexOut {
     float4 position [[position]];
     float4 color [[flat]];
     float  dist_from_center;
-    float  pixel_edge_style [[flat]];
-    float  edge_seed [[flat]];
 };
 
 float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, float t) {
@@ -1194,6 +1180,19 @@ float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, floa
     float c = 3.0 * one_minus_t * t * t;
     float d = t * t * t;
     return a * p0 + b * c0 + c * c1 + d * p1;
+}
+
+float4 graph_edge_color_for_flag(float4 base_color, uchar flag) {
+    if (flag == 1 || flag == 3) {
+        return float4(base_color.rgb, max(base_color.a, 0.88));
+    }
+    if (flag == 2) {
+        return float4(base_color.rgb, base_color.a * 0.18);
+    }
+    if (flag == 4) {
+        return float4(base_color.rgb, base_color.a * 0.30);
+    }
+    return base_color;
 }
 
 vertex LineVertexOut curve_edge_vertex(
@@ -1236,25 +1235,8 @@ vertex LineVertexOut curve_edge_vertex(
 
     LineVertexOut out;
     out.position = float4(base_ndc[corner], 0.0, 1.0);
-    uchar flag = edge_flags[instance_id];
-    if (flag == 1) {
-        out.color = float4(srgb_to_linear(float3(0.70, 0.90, 1.00)), 0.75);
-    } else if (flag == 2) {
-        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
-        out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
-    } else if (flag == 3) {
-        float3 focus_rgb = mix(inst.color.rgb, float3(0.02, 0.025, 0.035), 0.32);
-        out.color = float4(focus_rgb, max(inst.color.a, 0.94));
-    } else if (flag == 4) {
-        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
-        float3 dim_rgb = mix(inst.color.rgb, float3(lum), 0.70);
-        out.color = float4(dim_rgb, inst.color.a * EDGE_DIM_ALPHA_SCALE_LIGHT);
-    } else {
-        out.color = inst.color;
-    }
+    out.color = graph_edge_color_for_flag(inst.color, edge_flags[instance_id]);
     out.dist_from_center = dist_vals[corner];
-    out.pixel_edge_style = u.edge_style;
-    out.edge_seed = float(instance_id + 1);
     return out;
 }
 
@@ -1269,11 +1251,6 @@ vertex LineVertexOut line_edge_vertex(
 
     float2 screen0 = (inst.p0 - u.camera_offset) * u.camera_zoom;
     float2 screen1 = (inst.p1 - u.camera_offset) * u.camera_zoom;
-
-    if (u.edge_style > 0.5) {
-        screen0 = round(screen0);
-        screen1 = round(screen1);
-    }
 
     float2 ndc0 = screen0 / (u.viewport_size * 0.5) * float2(1, -1);
     float2 ndc1 = screen1 / (u.viewport_size * 0.5) * float2(1, -1);
@@ -1301,42 +1278,12 @@ vertex LineVertexOut line_edge_vertex(
 
     LineVertexOut out;
     out.position = float4(base_ndc[vertex_id], 0.0, 1.0);
-    uchar flag = edge_flags[instance_id];
-    if (flag == 1) {
-        out.color = float4(srgb_to_linear(float3(0.70, 0.90, 1.00)), 0.75);
-    } else if (flag == 2) {
-        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
-        out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
-    } else if (flag == 3) {
-        float3 focus_rgb = mix(inst.color.rgb, float3(0.02, 0.025, 0.035), 0.32);
-        out.color = float4(focus_rgb, max(inst.color.a, 0.94));
-    } else if (flag == 4) {
-        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
-        float3 dim_rgb = mix(inst.color.rgb, float3(lum), 0.70);
-        out.color = float4(dim_rgb, inst.color.a * EDGE_DIM_ALPHA_SCALE_LIGHT);
-    } else {
-        out.color = inst.color;
-    }
+    out.color = graph_edge_color_for_flag(inst.color, edge_flags[instance_id]);
     out.dist_from_center = dist_vals[vertex_id];
-    out.pixel_edge_style = u.edge_style;
-    out.edge_seed = float(instance_id + 1);
     return out;
 }
 
-float pixel_jagged_offset(LineVertexOut in) {
-    float cell = floor(in.position.x * 0.25 + in.position.y * 0.25 + in.edge_seed * 13.0);
-    float hashed = fract(sin(cell * 12.9898 + in.edge_seed * 78.233) * 43758.5453);
-    return (hashed - 0.5) * 0.18;
-}
-
 fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
-    if (in.pixel_edge_style > 0.5) {
-        float jagged = pixel_jagged_offset(in);
-        float hard_limit = clamp(0.88 + jagged, 0.74, 0.98);
-        if (abs(in.dist_from_center) > hard_limit) discard_fragment();
-        return in.color;
-    }
-
     float alpha = 1.0 - smoothstep(0.6, 1.0, abs(in.dist_from_center));
     if (alpha < 0.01) discard_fragment();
     return float4(in.color.rgb, in.color.a * alpha);
@@ -1611,7 +1558,6 @@ pub struct Renderer {
     layer: MetalLayer,
     node_pipeline: RenderPipelineState,
     edge_pipeline: RenderPipelineState,
-    straight_edge_pipeline: RenderPipelineState,
     field_line_pipeline: RenderPipelineState,
     node_instance_buf: Option<Buffer>,
     edge_instance_buf: Option<Buffer>,
@@ -1653,6 +1599,8 @@ pub struct Renderer {
     field_line_buf: Option<Buffer>,
     pub(crate) field_line_count: usize,
     field_line_capacity: usize,
+    field_line_flag_buf: Option<Buffer>,
+    field_line_flag_capacity: usize,
     field_line_hovered_id: Option<u32>,
     // Reusable scratch buffer for field line segments (avoids per-frame allocation).
     field_line_scratch: Vec<LineEdgeInstance>,
@@ -1670,7 +1618,6 @@ pub struct Renderer {
     density_clusters: FxHashMap<(i32, i32), DensityCluster>,
     classic_node_scratch: Vec<NodeInstance>,
     classic_edge_scratch: Vec<CurveEdgeInstance>,
-    straight_edge_scratch: Vec<LineEdgeInstance>,
     classic_velocity_scratch: Vec<[f32; 2]>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
@@ -1796,12 +1743,8 @@ impl Renderer {
     }
 
     #[inline]
-    fn edge_color(&self, edge_type: u8) -> [f32; 4] {
-        if self.light_mode {
-            edge_type_color_light(edge_type)
-        } else {
-            edge_type_color(edge_type)
-        }
+    fn edge_color(&self, _edge_type: u8) -> [f32; 4] {
+        graph_edge_color_for_appearance(self.light_mode)
     }
 
     pub fn new(device_ptr: *mut c_void, layer_ptr: *mut c_void) -> Option<Self> {
@@ -1835,7 +1778,6 @@ impl Renderer {
         let node_frag = library.get_function("node_fragment", None).ok()?;
         let edge_vert = library.get_function("curve_edge_vertex", None).ok()?;
         let edge_frag = library.get_function("line_edge_fragment", None).ok()?;
-        let straight_edge_vert = library.get_function("line_edge_vertex", None).ok()?;
         let field_line_vert = library.get_function("line_edge_vertex", None).ok()?;
         let field_line_frag = library.get_function("line_edge_fragment", None).ok()?;
 
@@ -1857,7 +1799,6 @@ impl Renderer {
 
         let node_pipeline = make_pipeline(&node_vert, &node_frag)?;
         let edge_pipeline = make_pipeline(&edge_vert, &edge_frag)?;
-        let straight_edge_pipeline = make_pipeline(&straight_edge_vert, &edge_frag)?;
         let field_line_pipeline = make_pipeline(&field_line_vert, &field_line_frag)?;
 
         let uniform_buf = device.new_buffer(
@@ -1873,7 +1814,6 @@ impl Renderer {
             layer,
             node_pipeline,
             edge_pipeline,
-            straight_edge_pipeline,
             field_line_pipeline,
             node_instance_buf: None,
             edge_instance_buf: None,
@@ -1907,6 +1847,8 @@ impl Renderer {
             field_line_buf: None,
             field_line_count: 0,
             field_line_capacity: 0,
+            field_line_flag_buf: None,
+            field_line_flag_capacity: 0,
             field_line_hovered_id: None,
             field_line_scratch: Vec::new(),
             rendered_node_indices: Vec::new(),
@@ -1918,7 +1860,6 @@ impl Renderer {
             density_clusters: FxHashMap::default(),
             classic_node_scratch: Vec::new(),
             classic_edge_scratch: Vec::new(),
-            straight_edge_scratch: Vec::new(),
             classic_velocity_scratch: Vec::new(),
             edge_highlight_flag_scratch: Vec::new(),
             edge_highlight_pairs: Vec::new(),
@@ -2526,6 +2467,24 @@ impl Renderer {
     }
 
     #[inline]
+    fn visual_node_radius_for_edge_width(&self, world: &World, node_index: usize) -> f32 {
+        let radius = self.classic_node_radius(world, node_index);
+        if self.quality_level >= 1 {
+            return radius;
+        }
+
+        let z = z_for_link_count(world.hierarchy[node_index].link_count);
+        let depth = if self.visual_theme == VisualTheme::Dialogue {
+            z * 0.35
+        } else {
+            z
+        };
+        let perspective_scale = NODE_SHADER_FOCAL_LENGTH / (NODE_SHADER_FOCAL_LENGTH - depth);
+        (radius * perspective_scale * CINEMATIC_NODE_WORLD_SCALE)
+            .max(CINEMATIC_NODE_MIN_WORLD_RADIUS)
+    }
+
+    #[inline]
     fn classic_node_instance(&self, world: &World, node_index: usize) -> NodeInstance {
         let co = world.render[node_index].color_override;
         let hierarchy = &world.hierarchy[node_index];
@@ -2556,41 +2515,64 @@ impl Renderer {
         src_index: usize,
         tgt_index: usize,
     ) -> [f32; 4] {
+        let _ = (world, src_index, tgt_index);
         let mut color = self.edge_color(edge.edge_type);
         color[3] *= BASE_NODE_ALPHA;
-        edge_color_with_endpoint_palette(
-            color,
-            world.render[src_index].color_override,
-            world.render[tgt_index].color_override,
-        )
+        color
+    }
+
+    #[inline]
+    fn edge_render_geometry_for_indices(
+        &self,
+        world: &World,
+        edge: &crate::ecs::EdgeComponent,
+        src_index: usize,
+        tgt_index: usize,
+    ) -> Option<EdgeRenderGeometry> {
+        let source_center = [world.transform[src_index].x, world.transform[src_index].y];
+        let target_center = [world.transform[tgt_index].x, world.transform[tgt_index].y];
+        if source_center
+            .iter()
+            .chain(target_center.iter())
+            .any(|value| !value.is_finite())
+        {
+            return None;
+        }
+
+        let source_radius = self.visual_node_radius_for_edge_width(world, src_index);
+        let target_radius = self.visual_node_radius_for_edge_width(world, tgt_index);
+        if !source_radius.is_finite() || !target_radius.is_finite() {
+            return None;
+        }
+
+        let thickness_px = edge_width_px_for_weight(edge.weight, source_radius, target_radius);
+        if !thickness_px.is_finite() {
+            return None;
+        }
+
+        Some(EdgeRenderGeometry {
+            p0: source_center,
+            p1: target_center,
+            thickness_px,
+        })
     }
 
     #[inline]
     fn preferred_edge_geometry_kind(&self) -> EdgeGeometryKind {
-        if self.edge_style == EdgeStyle::PixelArt {
-            return EdgeGeometryKind::Straight;
-        }
-        if self.quality_level >= 2 {
-            EdgeGeometryKind::Straight
-        } else {
-            EdgeGeometryKind::Curve
-        }
+        let _ = self;
+        EdgeGeometryKind::Curve
     }
 
     #[inline]
     fn edge_instance_stride_for(kind: EdgeGeometryKind) -> usize {
-        match kind {
-            EdgeGeometryKind::Curve => std::mem::size_of::<CurveEdgeInstance>(),
-            EdgeGeometryKind::Straight => std::mem::size_of::<LineEdgeInstance>(),
-        }
+        let _ = kind;
+        std::mem::size_of::<CurveEdgeInstance>()
     }
 
     #[inline]
     fn edge_vertices_per_instance(&self) -> u64 {
-        match self.edge_geometry_kind {
-            EdgeGeometryKind::Curve => (CURVE_EDGE_STRIP_SEGMENTS * 6) as u64,
-            EdgeGeometryKind::Straight => 6,
-        }
+        let _ = self;
+        (CURVE_EDGE_STRIP_SEGMENTS * 6) as u64
     }
 
     #[inline]
@@ -2623,6 +2605,7 @@ impl Renderer {
             water_style: self.water_style,
             water_wobble: self.water_wobble,
             edge_style: self.edge_style.as_uniform(),
+            _pad: 0.0,
         }
     }
 
@@ -2668,7 +2651,6 @@ impl Renderer {
         self.classic_node_scratch.clear();
         self.classic_velocity_scratch.clear();
         self.classic_edge_scratch.clear();
-        self.straight_edge_scratch.clear();
         self.edge_highlight_pairs.clear();
 
         if lod.cluster_nodes && !self.highlight.active {
@@ -3033,98 +3015,52 @@ impl Renderer {
                     continue;
                 }
 
-                let p0 = [world.transform[src_index].x, world.transform[src_index].y];
-                let p1 = [world.transform[tgt_index].x, world.transform[tgt_index].y];
-                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
-                    continue;
-                }
-                if !p0[0].is_finite()
-                    || !p0[1].is_finite()
-                    || !p1[0].is_finite()
-                    || !p1[1].is_finite()
-                {
-                    continue;
-                }
                 if !self.edge_allowed_by_lod(world, lod, src_index, tgt_index) {
                     continue;
                 }
 
-                // Recoup node radii so edges terminate at the disc
-                // boundary plus a small gap instead of stabbing into the
-                // node centre (v3 motion-overlay spec, task 1).
-                let r0 = world.graph_node[src_index].radius;
-                let r1 = world.graph_node[tgt_index].radius;
-                let thickness_px = edge_width_px_for_weight(edge.weight, r0, r1);
+                let Some(geometry) =
+                    self.edge_render_geometry_for_indices(world, edge, src_index, tgt_index)
+                else {
+                    continue;
+                };
 
                 let color = self.classic_edge_instance_color(world, edge, src_index, tgt_index);
-                match edge_geometry_kind {
-                    EdgeGeometryKind::Curve => {
-                        let ideal_length = self.link_distance / edge.weight.max(0.01);
-                        let (c0, c1) = string_edge_control_points(
-                            p0,
-                            p1,
-                            [0.0, 0.0],
-                            [0.0, 0.0],
-                            ideal_length,
-                            curvature,
-                        );
-                        if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
-                            continue;
-                        }
-                        let Some((p0t, c0t, c1t, p1t)) = crate::edge_trim::trim_curve_endpoints(
-                            p0,
-                            c0,
-                            c1,
-                            p1,
-                            r0,
-                            r1,
-                            crate::edge_trim::DEFAULT_EDGE_GAP_PX,
-                        ) else {
-                            continue;
-                        };
-                        self.classic_edge_scratch.push(CurveEdgeInstance {
-                            p0: p0t,
-                            c0: c0t,
-                            c1: c1t,
-                            p1: p1t,
-                            color,
-                            thickness_px,
-                            _pad: [0.0; 3],
-                        });
-                    }
-                    EdgeGeometryKind::Straight => {
-                        if !view_bounds.is_none_or(|view| segment_intersects_bounds(view, p0, p1)) {
-                            continue;
-                        }
-                        let Some((p0t, p1t)) = crate::edge_trim::trim_line_endpoints(
-                            p0,
-                            p1,
-                            r0,
-                            r1,
-                            crate::edge_trim::DEFAULT_EDGE_GAP_PX,
-                        ) else {
-                            continue;
-                        };
-                        self.straight_edge_scratch.push(LineEdgeInstance {
-                            p0: p0t,
-                            p1: p1t,
-                            color,
-                            thickness_px,
-                            _pad: [0.0; 3],
-                        });
-                    }
-                }
-                self.edge_highlight_pairs.push([
+                let highlight_pair = [
                     world.graph_node[src_index].node_id,
                     world.graph_node[tgt_index].node_id,
-                ]);
+                ];
+                let edge_weight = if edge.weight.is_finite() {
+                    edge.weight.max(0.01)
+                } else {
+                    1.0
+                };
+                let ideal_length = self.link_distance / edge_weight;
+                let (c0t, c1t) = string_edge_control_points(
+                    geometry.p0,
+                    geometry.p1,
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    ideal_length,
+                    curvature,
+                );
+                if !edge_intersects_view(view_bounds, geometry.p0, geometry.p1, c0t, c1t) {
+                    continue;
+                }
+                self.classic_edge_scratch.push(CurveEdgeInstance {
+                    p0: geometry.p0,
+                    c0: c0t,
+                    c1: c1t,
+                    p1: geometry.p1,
+                    color,
+                    thickness_px: geometry.thickness_px,
+                    _pad: [0.0; 3],
+                });
+                self.edge_highlight_pairs.push(highlight_pair);
             }
         }
 
-        self.edge_instance_count = match edge_geometry_kind {
-            EdgeGeometryKind::Curve => self.classic_edge_scratch.len(),
-            EdgeGeometryKind::Straight => self.straight_edge_scratch.len(),
-        };
+        self.edge_instance_count = self.classic_edge_scratch.len();
         #[cfg(any(test, debug_assertions))]
         {
             self.debug_counters.last_visible_edges = self.edge_instance_count;
@@ -3147,22 +3083,11 @@ impl Renderer {
 
             if let Some(buf) = &self.edge_instance_buf {
                 unsafe {
-                    match edge_geometry_kind {
-                        EdgeGeometryKind::Curve => {
-                            std::ptr::copy_nonoverlapping(
-                                self.classic_edge_scratch.as_ptr(),
-                                buf.contents() as *mut CurveEdgeInstance,
-                                self.edge_instance_count,
-                            );
-                        }
-                        EdgeGeometryKind::Straight => {
-                            std::ptr::copy_nonoverlapping(
-                                self.straight_edge_scratch.as_ptr(),
-                                buf.contents() as *mut LineEdgeInstance,
-                                self.edge_instance_count,
-                            );
-                        }
-                    }
+                    std::ptr::copy_nonoverlapping(
+                        self.classic_edge_scratch.as_ptr(),
+                        buf.contents() as *mut CurveEdgeInstance,
+                        self.edge_instance_count,
+                    );
                 }
             }
         } else {
@@ -3180,49 +3105,33 @@ impl Renderer {
         let base_rgb = aggregated_edge_base_rgb(self.light_mode);
 
         self.classic_edge_scratch.clear();
-        self.straight_edge_scratch.clear();
+        self.edge_highlight_pairs.clear();
         self.edge_geometry_kind = self.preferred_edge_geometry_kind();
         let curvature = (self.edge_curvature() * 0.8).max(0.10);
         for edge in edges {
             let color = [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha];
             let thickness_px = edge_width_px_for_weight(edge.alpha, 20.0, 20.0);
-            match self.edge_geometry_kind {
-                EdgeGeometryKind::Curve => {
-                    let (c0, c1) = string_edge_control_points(
-                        edge.p0,
-                        edge.p1,
-                        [0.0, 0.0],
-                        [0.0, 0.0],
-                        ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2))
-                            .sqrt(),
-                        curvature,
-                    );
-                    self.classic_edge_scratch.push(CurveEdgeInstance {
-                        p0: edge.p0,
-                        c0,
-                        c1,
-                        p1: edge.p1,
-                        color,
-                        thickness_px,
-                        _pad: [0.0; 3],
-                    });
-                }
-                EdgeGeometryKind::Straight => {
-                    self.straight_edge_scratch.push(LineEdgeInstance {
-                        p0: edge.p0,
-                        p1: edge.p1,
-                        color,
-                        thickness_px,
-                        _pad: [0.0; 3],
-                    });
-                }
-            }
+            let (c0, c1) = string_edge_control_points(
+                edge.p0,
+                edge.p1,
+                [0.0, 0.0],
+                [0.0, 0.0],
+                ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2))
+                    .sqrt(),
+                curvature,
+            );
+            self.classic_edge_scratch.push(CurveEdgeInstance {
+                p0: edge.p0,
+                c0,
+                c1,
+                p1: edge.p1,
+                color,
+                thickness_px,
+                _pad: [0.0; 3],
+            });
             self.edge_highlight_pairs.push([u32::MAX, u32::MAX]);
         }
-        self.aggregated_edge_count = match self.edge_geometry_kind {
-            EdgeGeometryKind::Curve => self.classic_edge_scratch.len(),
-            EdgeGeometryKind::Straight => self.straight_edge_scratch.len(),
-        };
+        self.aggregated_edge_count = self.classic_edge_scratch.len();
 
         let required_stride = Self::edge_instance_stride_for(self.edge_geometry_kind);
         if self.aggregated_edge_count > self.edge_instance_capacity
@@ -3241,24 +3150,12 @@ impl Renderer {
 
         if let Some(buf) = &self.edge_instance_buf {
             unsafe {
-                match self.edge_geometry_kind {
-                    EdgeGeometryKind::Curve => {
-                        let ptr = buf.contents() as *mut CurveEdgeInstance;
-                        std::ptr::copy_nonoverlapping(
-                            self.classic_edge_scratch.as_ptr(),
-                            ptr,
-                            self.aggregated_edge_count,
-                        );
-                    }
-                    EdgeGeometryKind::Straight => {
-                        let ptr = buf.contents() as *mut LineEdgeInstance;
-                        std::ptr::copy_nonoverlapping(
-                            self.straight_edge_scratch.as_ptr(),
-                            ptr,
-                            self.aggregated_edge_count,
-                        );
-                    }
-                }
+                let ptr = buf.contents() as *mut CurveEdgeInstance;
+                std::ptr::copy_nonoverlapping(
+                    self.classic_edge_scratch.as_ptr(),
+                    ptr,
+                    self.aggregated_edge_count,
+                );
             }
         }
     }
@@ -4084,14 +3981,7 @@ impl Renderer {
             {
                 // Clamp to buffer capacity to prevent Metal validation crash.
                 let edge_draw = effective_edge_count.min(self.edge_instance_capacity);
-                match self.edge_geometry_kind {
-                    EdgeGeometryKind::Curve => {
-                        encoder.set_render_pipeline_state(&self.edge_pipeline);
-                    }
-                    EdgeGeometryKind::Straight => {
-                        encoder.set_render_pipeline_state(&self.straight_edge_pipeline);
-                    }
-                }
+                encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
                 if self.edge_highlight_flag_buf.is_none()
@@ -4121,14 +4011,35 @@ impl Renderer {
             }
 
             // Draw magnetic field lines (hover interaction, between edges and nodes).
-            if self.field_line_count > 0
-                && let Some(fl_buf) = &self.field_line_buf
-            {
+            if self.field_line_count > 0 {
                 let fl_draw = self.field_line_count.min(self.field_line_capacity);
-                encoder.set_render_pipeline_state(&self.field_line_pipeline);
-                encoder.set_vertex_buffer(0, Some(fl_buf), 0);
-                encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
-                encoder.draw_primitives_instanced(MTLPrimitiveType::Triangle, 0, 6, fl_draw as u64);
+                if self.field_line_flag_buf.is_none() || self.field_line_flag_capacity < fl_draw {
+                    let cap = (fl_draw * 3 / 2).max(64);
+                    self.field_line_flag_buf = Some(
+                        self.device
+                            .new_buffer(cap as u64, MTLResourceOptions::StorageModeShared),
+                    );
+                    self.field_line_flag_capacity = cap;
+                    if let Some(flag_buf) = &self.field_line_flag_buf {
+                        unsafe {
+                            std::ptr::write_bytes(flag_buf.contents() as *mut u8, 0, cap);
+                        }
+                    }
+                }
+                if let Some(fl_buf) = &self.field_line_buf {
+                    encoder.set_render_pipeline_state(&self.field_line_pipeline);
+                    encoder.set_vertex_buffer(0, Some(fl_buf), 0);
+                    encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
+                    if let Some(flag_buf) = &self.field_line_flag_buf {
+                        encoder.set_vertex_buffer(2, Some(flag_buf), 0);
+                    }
+                    encoder.draw_primitives_instanced(
+                        MTLPrimitiveType::Triangle,
+                        0,
+                        6,
+                        fl_draw as u64,
+                    );
+                }
             }
 
             // Draw nodes: glow instances + regular nodes + highlight rings.
@@ -4207,6 +4118,10 @@ impl Renderer {
 mod tests {
     use super::*;
 
+    fn approx_eq_pt(a: [f32; 2], b: [f32; 2], eps: f32) -> bool {
+        (a[0] - b[0]).abs() <= eps && (a[1] - b[1]).abs() <= eps
+    }
+
     #[test]
     fn z_for_link_count_tiers() {
         assert!(z_for_link_count(0) < z_for_link_count(4));
@@ -4220,9 +4135,6 @@ mod tests {
         let edge_pipeline = source
             .find("encoder.set_render_pipeline_state(&self.edge_pipeline)")
             .expect("edge pipeline draw call should exist");
-        let straight_edge_pipeline = source
-            .find("encoder.set_render_pipeline_state(&self.straight_edge_pipeline)")
-            .expect("straight edge pipeline draw call should exist");
         let field_line_pipeline = source
             .find("encoder.set_render_pipeline_state(&self.field_line_pipeline)")
             .expect("field line pipeline draw call should exist");
@@ -4237,14 +4149,40 @@ mod tests {
             .expect("dialogue draw call should exist");
 
         assert!(edge_pipeline < field_line_pipeline);
-        assert!(straight_edge_pipeline < field_line_pipeline);
         assert!(field_line_pipeline < node_pipeline);
         assert!(node_pipeline < label_pass);
         assert!(label_pass < dialogue_pass);
     }
 
     #[test]
-    fn pixel_edge_shader_uses_deterministic_jagged_cutoff() {
+    fn field_line_draw_binds_edge_flag_buffer_required_by_shared_line_shader() {
+        let source = std::fs::read_to_string(file!()).expect("renderer source should be readable");
+        let field_line_pipeline = source
+            .find("encoder.set_render_pipeline_state(&self.field_line_pipeline)")
+            .expect("field line pipeline draw call should exist");
+        let node_pass = source[field_line_pipeline..]
+            .find("// Draw nodes:")
+            .map(|offset| field_line_pipeline + offset)
+            .expect("node pass should follow field line pass");
+        let field_line_block = &source[field_line_pipeline..node_pass];
+
+        assert!(
+            field_line_block.contains("encoder.set_vertex_buffer(2"),
+            "field lines use line_edge_vertex and must bind the shared edge flag buffer"
+        );
+    }
+
+    #[test]
+    fn shared_line_shader_uniform_buffer_matches_metal_layout_size() {
+        assert_eq!(
+            std::mem::size_of::<Uniforms>(),
+            88,
+            "line_edge_vertex Metal reflection requires an 88-byte Uniforms buffer"
+        );
+    }
+
+    #[test]
+    fn edge_shader_has_no_pixel_edge_branch() {
         let source = std::fs::read_to_string(file!()).expect("renderer source should be readable");
         let shader_start = source
             .find("const SHADER_SOURCE")
@@ -4254,11 +4192,29 @@ mod tests {
             .expect("compute shader should follow render shader");
         let shader = &source[shader_start..shader_end];
 
-        assert!(shader.contains("float pixel_jagged_offset("));
-        assert!(shader.contains(
-            "floor(in.position.x * 0.25 + in.position.y * 0.25 + in.edge_seed * 13.0)"
-        ));
-        assert!(shader.contains("float hard_limit = clamp(0.88 + jagged, 0.74, 0.98);"));
+        assert!(!shader.contains("float pixel_jagged_offset("));
+        assert!(!shader.contains("edge_seed"));
+        assert!(!shader.contains("pixel_edge_style"));
+        assert!(!shader.contains("round(screen0)"));
+    }
+
+    #[test]
+    fn selected_edges_focus_without_white_color_override() {
+        let source = include_str!("renderer.rs");
+        let production_source = source
+            .split("mod tests")
+            .next()
+            .expect("renderer source should contain production section");
+
+        assert!(production_source.contains("float4 graph_edge_color_for_flag("));
+        assert!(production_source.contains("base_color.a * 0.18"));
+        assert!(production_source.contains("base_color.a * 0.30"));
+        assert!(production_source.contains("max(base_color.a, 0.88)"));
+        let removed_white_override =
+            ["float4(srgb_to_linear(float3(0.70, 0.90, 1.00)),", " 0.75)"].concat();
+        assert!(!production_source.contains(&removed_white_override));
+        assert!(!production_source.contains("float3 focus_rgb"));
+        assert!(!production_source.contains("float3 dim_rgb"));
     }
 
     #[test]
@@ -4276,19 +4232,20 @@ mod tests {
     }
 
     #[test]
-    fn edge_color_blends_endpoint_palette_when_available() {
-        let base = [0.20, 0.20, 0.20, 0.48];
-        let red = [0.94, 0.08, 0.07, 1.0];
-        let yellow = [1.0, 0.84, 0.04, 1.0];
-        let blended = edge_color_with_endpoint_palette(base, red, yellow);
+    fn graph_edge_color_uses_single_appearance_color() {
+        let mut world = make_test_world(3, 120.0);
+        world.edges[0].edge_type = 9;
+        world.render[0].color_override = [1.0, 0.0, 0.0, 1.0];
+        world.render[1].color_override = [1.0, 0.75, 0.0, 1.0];
 
-        assert!(blended[0] > base[0]);
-        assert!(blended[1] > base[1]);
-        assert!(blended[2] < base[2]);
-        assert_eq!(blended[3], base[3]);
+        let mut renderer = make_test_renderer();
+        renderer.light_mode = true;
+        let light = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
+        assert_eq!(light, [0.18, 0.18, 0.18, 0.58]);
 
-        let fallback = edge_color_with_endpoint_palette(base, [0.0; 4], [0.0; 4]);
-        assert_eq!(fallback, base);
+        renderer.light_mode = false;
+        let dark = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
+        assert_eq!(dark, [0.72, 0.74, 0.78, 0.64]);
     }
 
     #[test]
@@ -4308,13 +4265,11 @@ mod tests {
 
     #[test]
     fn uniforms_size_matches_metal() {
-        // Uniforms must be consistent between Rust and Metal (16-byte aligned).
-        // 17 data floats = 68 bytes, padded to 80 (next 16-byte boundary for
-        // float2-aligned struct in MSL). repr(C) with [f32;2] as largest member
-        // → 8-byte aligned → 72 (next multiple of 8). Let the test verify.
+        // Uniforms must match Metal's reflected byte length for the shared
+        // graph shader layout. The explicit pad keeps the MTLBuffer size in
+        // sync with line_edge_vertex and the node shaders.
         let size = std::mem::size_of::<Uniforms>();
-        assert!(size >= 68, "Uniforms too small: {size}");
-        assert_eq!(size % 4, 0, "Uniforms not 4-byte aligned: {size}");
+        assert_eq!(size, 88, "Uniforms not Metal-layout sized: {size}");
     }
 
     #[test]
@@ -4547,6 +4502,33 @@ mod tests {
     }
 
     #[test]
+    fn string_edge_control_points_leave_nodes_along_centerline() {
+        let p0 = [0.0, 0.0];
+        let p1 = [100.0, 0.0];
+        let (c0, c1) = string_edge_control_points(p0, p1, [0.0, 0.0], [0.0, 0.0], 180.0, 1.0);
+
+        let start = [c0[0] - p0[0], c0[1] - p0[1]];
+        let end = [p1[0] - c1[0], p1[1] - c1[1]];
+        let start_len = (start[0] * start[0] + start[1] * start[1]).sqrt();
+        let end_len = (end[0] * end[0] + end[1] * end[1]).sqrt();
+        let start_dot = start[0] / start_len;
+        let end_dot = end[0] / end_len;
+
+        assert!(
+            start_dot > 0.94,
+            "curve should leave source mostly along the node-center line, dot={start_dot}"
+        );
+        assert!(
+            end_dot > 0.94,
+            "curve should enter target mostly along the node-center line, dot={end_dot}"
+        );
+        assert!(
+            c0[1].abs().max(c1[1].abs()) > 0.0,
+            "curve should remain softly curved, not collapse into a straight line"
+        );
+    }
+
+    #[test]
     fn cubic_bezier_preserves_segment_endpoints() {
         let p0 = [0.0, 0.0];
         let c0 = [30.0, 22.0];
@@ -4601,7 +4583,7 @@ mod tests {
         let light = aggregated_edge_base_rgb(true);
         let dark = aggregated_edge_base_rgb(false);
 
-        assert!(light[0].max(light[1]).max(light[2]) <= 0.11);
+        assert!(light[0].max(light[1]).max(light[2]) <= 0.22);
         assert!(dark[0] > light[0]);
         assert!(dark[1] > light[1]);
         assert!(dark[2] > light[2]);
@@ -4657,6 +4639,28 @@ mod tests {
                 0,
             );
         }
+        World::from_graph(&graph)
+    }
+
+    fn make_diagonal_edge_world() -> World {
+        let mut graph = crate::types::Graph::new();
+        graph.add_node(
+            "source".to_string(),
+            100.0,
+            100.0,
+            0,
+            4,
+            "Source".to_string(),
+        );
+        graph.add_node(
+            "target".to_string(),
+            230.0,
+            185.0,
+            0,
+            4,
+            "Target".to_string(),
+        );
+        graph.add_edge("source", "target", 1.0, 0);
         World::from_graph(&graph)
     }
 
@@ -4743,7 +4747,7 @@ mod tests {
     }
 
     #[test]
-    fn light_mode_edge_highlights_use_separate_flags() {
+    fn light_mode_edge_selection_focuses_connected_edges() {
         let world = make_test_world(3, 120.0);
         let mut renderer = make_test_renderer();
         renderer.light_mode = true;
@@ -4795,7 +4799,64 @@ mod tests {
 
         assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
         assert!(!renderer.classic_edge_scratch.is_empty());
-        assert!(renderer.straight_edge_scratch.is_empty());
+    }
+
+    #[test]
+    fn smooth_curve_edges_use_node_centers_so_nodes_occlude_connections() {
+        let world = make_diagonal_edge_world();
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 0;
+        renderer.edge_style = EdgeStyle::Smooth;
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        let edge = renderer
+            .classic_edge_scratch
+            .first()
+            .expect("smooth curve edge should be emitted");
+        let p0 = [world.transform[0].x, world.transform[0].y];
+        let p1 = [world.transform[1].x, world.transform[1].y];
+
+        assert!(
+            approx_eq_pt(edge.p0, p0, 1e-3),
+            "curve start {:?} should use source center {:?}; solid node body occludes the hidden segment",
+            edge.p0,
+            p0
+        );
+        assert!(
+            approx_eq_pt(edge.p1, p1, 1e-3),
+            "curve end {:?} should use target center {:?}; solid node body occludes the hidden segment",
+            edge.p1,
+            p1
+        );
+    }
+
+    #[test]
+    fn graph_origin_is_valid_edge_geometry_not_an_uninitialized_sentinel() {
+        let mut graph = crate::types::Graph::new();
+        graph.add_node("source".to_string(), 0.0, 0.0, 0, 4, "Source".to_string());
+        graph.add_node(
+            "target".to_string(),
+            140.0,
+            40.0,
+            0,
+            4,
+            "Target".to_string(),
+        );
+        graph.add_edge("source", "target", 1.0, 0);
+        let world = World::from_graph(&graph);
+
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 0;
+        renderer.edge_style = EdgeStyle::Smooth;
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        assert_eq!(
+            renderer.classic_edge_scratch.len(),
+            1,
+            "a node at world origin is a real graph position, not a reason to drop its edge"
+        );
     }
 
     #[test]
@@ -4812,20 +4873,19 @@ mod tests {
     }
 
     #[test]
-    fn performance_quality_switches_to_straight_edge_geometry() {
+    fn performance_quality_keeps_curved_edge_geometry() {
         let world = make_test_world(3, 120.0);
         let mut renderer = make_test_renderer();
         renderer.quality_level = 2;
         renderer.set_viewport_size(1280, 720);
         renderer.update_positions(&world);
 
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
-        assert!(!renderer.straight_edge_scratch.is_empty());
-        assert!(renderer.classic_edge_scratch.is_empty());
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
+        assert!(!renderer.classic_edge_scratch.is_empty());
     }
 
     #[test]
-    fn pixel_edge_style_forces_straight_pixel_uniforms_without_quality_downgrade() {
+    fn edge_style_pixel_art_is_inert_until_reworked() {
         let world = make_test_world(3, 120.0);
         let mut renderer = make_test_renderer();
         renderer.quality_level = 0;
@@ -4836,10 +4896,9 @@ mod tests {
         let uniforms = renderer.uniforms_for_draw(1280.0, 720.0, 1.0, 0.0);
 
         assert_eq!(renderer.quality_level, 0);
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
-        assert!(!renderer.straight_edge_scratch.is_empty());
-        assert!(renderer.classic_edge_scratch.is_empty());
-        assert_eq!(uniforms.edge_style, 1.0);
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
+        assert!(!renderer.classic_edge_scratch.is_empty());
+        assert_eq!(uniforms.edge_style, 0.0);
     }
 
     #[test]
@@ -4994,7 +5053,7 @@ mod tests {
     }
 
     #[test]
-    fn performance_quality_keeps_dense_hub_edges_connected() {
+    fn performance_quality_keeps_dense_hub_edges_curved() {
         let world = make_star_world(24, 180.0);
         let mut renderer = make_test_renderer();
         renderer.quality_level = 2;
@@ -5004,7 +5063,7 @@ mod tests {
 
         renderer.update_positions(&world);
 
-        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
         assert_eq!(renderer.edge_instance_count, 24);
     }
 
