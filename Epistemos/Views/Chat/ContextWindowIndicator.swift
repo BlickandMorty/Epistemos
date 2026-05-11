@@ -41,15 +41,26 @@ struct ContextWindowIndicator: View {
     }
 
     private var contextTooltip: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "text.word.spacing")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text("\(formatTokens(usedTokens)) / \(formatTokens(maxTokens))")
-                .font(.caption.monospaced())
-            Text("(\(usageFraction.isFinite ? Int(usageFraction * 100) : 0)%)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        // RCA13 RCA4-P1-010: `usedTokens` is an ESTIMATE — the
+        // exact-token accounting for injected note bodies +
+        // attachment context is future work (see ChatState
+        // estimatedContextTokens comment). Prefix the value with
+        // "~" + label as estimated so the badge isn't presenting
+        // false precision.
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Image(systemName: "text.word.spacing")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("~\(formatTokens(usedTokens)) / \(formatTokens(maxTokens))")
+                    .font(.caption.monospaced())
+                Text("(\(usageFraction.isFinite ? Int(usageFraction * 100) : 0)%)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text("Estimated context tokens — exact final-request count may differ.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 
