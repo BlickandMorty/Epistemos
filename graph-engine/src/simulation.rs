@@ -7,7 +7,7 @@
 //! and applies velocityDecay as a multiplier. There is no position-Verlet,
 //! no mass division, and no ambient Brownian motion.
 
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 
 use crate::forces;
 use crate::quadtree;
@@ -561,20 +561,6 @@ pub struct Simulation {
     /// Decays to zero over frames. [dx, dy] per node.
     pub snap_back: Vec<[f32; 2]>,
 
-    // ── Snappy selection-extension UX (per user 2026-05-11) ──
-    /// When non-empty, edges with either endpoint in this set get a
-    /// temporarily-extended rest length so the selected node's
-    /// neighborhood springs outward (revealing labels + freeing space
-    /// to read connected nodes). Engine pushes this on select +
-    /// clears it on deselect. Stored as a HashSet for O(1) per-edge
-    /// lookup inside the link force.
-    pub selection_extend_indices: FxHashSet<usize>,
-    /// Multiplier applied to link rest length for edges touching the
-    /// selection set. 1.0 = no effect; 1.7 = neighbors push outward
-    /// to roughly 1.7× the normal spacing. Falls back to 1.0 when no
-    /// node is selected.
-    pub selection_extend_multiplier: f32,
-
     /// GPU-computed N-body forces to apply at next tick start, then drain.
     /// Render thread writes, physics thread reads+clears. Protected by the sim mutex.
     pub gpu_nbody_forces: Option<Vec<[f32; 2]>>,
@@ -702,8 +688,6 @@ impl Simulation {
             mass: Vec::new(),
             decay: Vec::new(),
             snap_back: Vec::new(),
-            selection_extend_indices: FxHashSet::default(),
-            selection_extend_multiplier: 1.0,
             gpu_nbody_forces: None,
             last_tick_instant: std::time::Instant::now(),
             active_waves: crate::motion::waves::ActiveWaves::new(),
@@ -1092,10 +1076,8 @@ impl Simulation {
         // semantic) — only link + center maintain equilibrium. This keeps CPU
         // near-zero when idle while still allowing immediate force response on reheat.
 
-        // Link force (springs along edges, per-edge weight modulates distance).
-        // Per user 2026-05-11: when a node is selected, edges in the
-        // neighborhood get a longer rest length so labels read clearly.
-        forces::force_link_with_selection(
+        // Link force (springs along edges, per-edge weight modulates distance)
+        forces::force_link(
             &self.x,
             &self.y,
             &mut self.vx,
@@ -1108,8 +1090,6 @@ impl Simulation {
             self.params.link_distance,
             self.params.link_strength,
             alpha,
-            Some(&self.selection_extend_indices),
-            self.selection_extend_multiplier,
         );
 
         if !at_floor {
@@ -1580,33 +1560,6 @@ impl Simulation {
         } else {
             self.static_layout = false;
             self.reheat();
-        }
-    }
-
-    /// Set or clear the selection-extension set (per user 2026-05-11
-    /// snappy-edge UX). Engine calls this on `select_node` /
-    /// `clear_selected_node` to push the selected node + its neighbor
-    /// indices into the simulation so the link force can extend their
-    /// rest length and spread them apart. Also bumps the simulation's
-    /// alpha so the spring response is visibly snappy rather than
-    /// having to wait for a future user interaction to wake the
-    /// simulation.
-    pub fn set_selection_extension(
-        &mut self,
-        indices: rustc_hash::FxHashSet<usize>,
-        multiplier: f32,
-    ) {
-        let was_active = !self.selection_extend_indices.is_empty();
-        let now_active = !indices.is_empty();
-        self.selection_extend_indices = indices;
-        self.selection_extend_multiplier = multiplier.max(1.0);
-        if was_active != now_active || self.selection_extend_multiplier != 1.0 {
-            // Wake the simulation so the change animates rather than
-            // sitting frozen until the next user interaction. The
-            // existing tick loop will run the spring force outward
-            // (or pull the nodes back) over the next ~30-60 ticks.
-            self.is_settled = false;
-            self.params.alpha = self.params.alpha.max(0.20);
         }
     }
 

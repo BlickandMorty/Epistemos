@@ -41,54 +41,6 @@ pub fn force_link(
     link_strength_override: f32,
     alpha: f32,
 ) {
-    force_link_with_selection(
-        x,
-        y,
-        vx,
-        vy,
-        edges,
-        edge_weights,
-        degrees,
-        fx,
-        fy,
-        link_distance,
-        link_strength_override,
-        alpha,
-        None,
-        1.0,
-    );
-}
-
-/// Snappy selection-extension variant of `force_link`. When
-/// `selection_extend_indices` is non-empty, edges touching either
-/// endpoint in the set get their rest length multiplied by
-/// `selection_extend_multiplier` — pushing connected nodes outward
-/// so labels read clearly. Multiplier is clamped to >= 1.0 so the
-/// extension never compresses the layout. Per user 2026-05-11.
-#[allow(clippy::too_many_arguments)]
-pub fn force_link_with_selection(
-    x: &[f32],
-    y: &[f32],
-    vx: &mut [f32],
-    vy: &mut [f32],
-    edges: &[(usize, usize)],
-    edge_weights: &[f32],
-    degrees: &[u32],
-    fx: &[Option<f32>],
-    fy: &[Option<f32>],
-    link_distance: f32,
-    link_strength_override: f32,
-    alpha: f32,
-    selection_extend_indices: Option<&rustc_hash::FxHashSet<usize>>,
-    selection_extend_multiplier: f32,
-) {
-    let extend_set = selection_extend_indices.filter(|set| !set.is_empty());
-    let extend_mult = if extend_set.is_some() {
-        selection_extend_multiplier.max(1.0)
-    } else {
-        1.0
-    };
-
     for (ei, &(si, ti)) in edges.iter().enumerate() {
         if si >= x.len() || ti >= x.len() {
             continue;
@@ -102,15 +54,7 @@ pub fn force_link_with_selection(
 
         // Per-edge weight: higher weight = shorter distance, stronger spring.
         let w = edge_weights.get(ei).copied().unwrap_or(1.0).max(0.1);
-        let mut edge_dist = link_distance / w;
-        // Selection-aware extension: nodes connected to the selected
-        // node get more room so labels read clearly. No-op when set
-        // is empty / None.
-        if let Some(set) = extend_set
-            && (set.contains(&si) || set.contains(&ti))
-        {
-            edge_dist *= extend_mult;
-        }
+        let edge_dist = link_distance / w;
 
         // Strength: 1 / min(degree(source), degree(target)), or override.
         // Scaled by weight so containment edges pull harder.
