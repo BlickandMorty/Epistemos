@@ -521,6 +521,15 @@ struct AgentControlDetailView: View {
                 Text("MCP Tool Plane")
                     .font(.headline)
 
+                // RCA13 RCA7-P1-008: this card is a read-only diagnostic.
+                // Tools are invoked through the chat composer / Agent
+                // Center, not from this row. The clarifier makes that
+                // explicit so users + auditors don't think this is the
+                // invocation surface.
+                Text("Read-only diagnostic. Tools are invoked through chat / Agent Center; this card shows what is registered + how often it ran.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 HStack(spacing: 12) {
                     ChannelStatusPill(title: "\(mcpBridge.toolCount) tools", tint: .blue)
                     ChannelStatusPill(title: "\(mcpBridge.executionCount) executions", tint: .green)
