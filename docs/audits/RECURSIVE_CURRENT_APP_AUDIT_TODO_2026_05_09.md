@@ -601,7 +601,7 @@ Acceptance:
 
 ### RCA-P1-015 - Move AgentGrepService search and file reads off the main actor
 
-Status: TODO
+Status: PATCHED 2026-05-10 — true off-main shipped, large-repo runtime profiling pending
 
 Subsystem: agent code search, repo assistance, provenance-enriched search.
 
@@ -618,6 +618,28 @@ Audit steps:
 
 Acceptance:
 - Large repo search does not hitch UI.
+
+Fix-pass evidence 2026-05-11 (rolled up across two commits):
+
+- Commits:
+  - `0c3ae796c` P1-015 AgentGrepService yield-then-work async entry point
+  - `41f3e77d0` RCA5-P1-001 / P1-015 true off-main search
+- Files changed:
+  - `Epistemos/Engine/AgentGrepService.swift` — `searchAsync`
+    now dispatches the FFI search + per-hit sidecar reads to a
+    Task.detached. A new `nonisolated private static
+    performBackendSearchOffMain` helper strips the implicit
+    @MainActor that the enclosing class otherwise imposes on
+    static methods.
+  - `Epistemos/Engine/CodeFileService.swift` — declared
+    `@unchecked Sendable` (all stored properties are Sendable —
+    `URL` + `FileManager`; class is `nonisolated final`) so it
+    can cross actor boundaries into the detached task.
+- Synchronous `search` preserved for the existing test surface
+  and for callers that already run on a background actor.
+- Remaining risk: large-repo (10k-file) Time Profiler + Main
+  Thread Checker run on real hardware still required for
+  acceptance.
 - Results preserve provenance and error reporting.
 
 ### RCA-P1-016 - Fix dead `needsCloud` capability banner contract
