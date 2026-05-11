@@ -3637,24 +3637,15 @@ enum VaultConnectionActions {
 
             // Step 3: reset UI surface — vaultURL is already nil so
             // SwiftUI flips to the empty state on the next pass. The
-            // load-bearing line here is `needsSetup = true` — it
-            // lights up the full-screen SetupView at
-            // RootView.swift:254 which gives the user a path back
-            // into the SetupAssistant sheet to add a new vault.
-            // Without it the user could land on LandingView (no
-            // "Add Vault" affordance there) or stuck inside an
-            // active chat, with no visible way to reconnect.
-            //
-            // Mirrors `AppBootstrap.resetAllData()` post-clear
-            // surface exactly — same two state flips on uiState
-            // + the same chat-message clear that forces
-            // HomeRouter back to LandingView.
+            // setup assistant is re-armed by `setupComplete = false`
+            // below; keep the legacy full-screen SetupView hidden so it
+            // cannot sit between the user and the vault picker.
             AppBootstrap.shared?.chatState.clearMessages()
             notesUI.resetForVaultSwitch()
             NoteWindowManager.shared.resetForVaultRebuild()
             AppBootstrap.shared?.ambientManifest = nil
             AppBootstrap.shared?.uiState.setActivePanel(.home)
-            AppBootstrap.shared?.uiState.needsSetup = true
+            AppBootstrap.shared?.uiState.needsSetup = false
             // Re-arm the SetupAssistant sheet by clearing the
             // first-launch completion flag so the rich setup flow
             // surfaces again instead of being locked out.

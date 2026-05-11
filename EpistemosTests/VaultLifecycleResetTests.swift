@@ -198,7 +198,7 @@ struct VaultLifecycleResetTests {
             #expect(bootstrap.queryEngine.queryHistory.isEmpty)
             #expect(bootstrap.contextualShadowsState.haloSearchService == nil)
             #expect(bootstrap.contextualShadowsState.currentResults.isEmpty)
-            #expect(bootstrap.uiState.needsSetup)
+            #expect(!bootstrap.uiState.needsSetup)
             #expect(bootstrap.uiState.activePanel == .home)
             #expect(defaults.bool(forKey: "epistemos.setupComplete") == false)
         })

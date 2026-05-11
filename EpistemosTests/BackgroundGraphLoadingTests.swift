@@ -250,12 +250,15 @@ struct BackgroundGraphLoadingTests {
         let graphStateSource = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
         let graphViewSource = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
 
-        #expect(controllerSource.contains("if autoLoadGraph, !graphState.isLoaded, let modelContainer {"))
+        #expect(controllerSource.contains("if autoLoadGraph, !hasActiveVault {\n            graphState.resetForVaultLifecycle()\n        }"),
+                "Opening the graph with no active vault must leave the graph empty instead of rebuilding stale local records.")
+        #expect(controllerSource.contains("if autoLoadGraph, hasActiveVault, !graphState.isLoaded, let modelContainer {"))
         #expect(controllerSource.contains("Task(priority: .utility) {"))
         #expect(controllerSource.contains("graphState.shouldSnapNextGlobalRecommitCamera = true\n            Task(priority: .utility)"),
                 "First graph open loads persisted data asynchronously; without a snap request, .epdoc artifact graphs can load off-camera until the user searches.")
         #expect(controllerSource.contains("await graphState.loadGraph(container: modelContainer)"))
         #expect(controllerSource.contains("overlay = HologramOverlay("))
+        #expect(controllerSource.contains("if autoLoadGraph, hasActiveVault, needsRefresh, let modelContainer {"))
         #expect(controllerSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"))
         #expect(controllerSource.contains("if !refreshedIncrementally {"))
         #expect(controllerSource.contains("graphState.shouldSnapNextGlobalRecommitCamera = true"))
@@ -298,8 +301,8 @@ struct BackgroundGraphLoadingTests {
                 "The AppKit fallback should rebind the SwiftUI reveal menu item when it already exists, not leave it as a generic menuAction.")
         #expect(appSource.contains("revealItem.action = #selector(revealCurrentDocumentInKnowledgeGraph(_:))"),
                 "The visible reveal item must route to the concrete AppKit selector in document-launched windows.")
-        #expect(appSource.contains("action: #selector(revealCurrentDocumentInKnowledgeGraph(_:))"),
-                "The document reveal menu item should route through a separate AppKit action.")
+        #expect(appSource.contains(".revealCurrentDocumentInKnowledgeGraph(nil)"),
+                "The SwiftUI reveal command should still dispatch through the separate AppKit document action.")
         #expect(appSource.contains("@objc func revealCurrentDocumentInKnowledgeGraph(_ sender: Any?)"),
                 "The focused .epdoc reveal path should remain explicit and test-pinned.")
         #expect(appSource.contains("HologramController.shared.revealDocument(epdoc.package.manifest.id)"),

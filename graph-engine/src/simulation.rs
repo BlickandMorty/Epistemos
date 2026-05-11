@@ -1033,6 +1033,12 @@ impl Simulation {
         }
 
         let alpha = self.params.alpha;
+        let large_graph_fast_path = n > 9_000;
+        let force_alpha = if large_graph_fast_path {
+            alpha.min(0.012)
+        } else {
+            alpha
+        };
 
         // 2. Apply forces in d3/LogSeq order: link → many-body → collide → center
         //
@@ -1053,10 +1059,8 @@ impl Simulation {
             &self.fy,
             self.params.link_distance,
             self.params.link_strength,
-            alpha,
+            force_alpha,
         );
-
-        let large_graph_fast_path = n > 9_000;
 
         if !at_floor {
             // Torsional springs: equalize angular spacing around hub nodes.
@@ -1102,7 +1106,7 @@ impl Simulation {
                     self.params.charge_strength,
                     self.params.charge_range,
                     1.0, // distance_min (d3 default)
-                    alpha,
+                    force_alpha,
                     &mut self.bodies_scratch,
                     &self.degrees,
                 );
@@ -1118,7 +1122,7 @@ impl Simulation {
                     v.clear();
                 }
             }
-            if !large_graph_fast_path || self.tick_count.is_multiple_of(3) {
+            if !large_graph_fast_path {
                 forces::force_collide_with_full_scratch(
                     &mut self.x,
                     &mut self.y,
@@ -1153,7 +1157,7 @@ impl Simulation {
                 cx,
                 cy,
                 center_str,
-                alpha,
+                force_alpha,
             );
         }
         // Center force handles all nodes uniformly (d3 canonical behavior).
@@ -1362,6 +1366,11 @@ impl Simulation {
         // a mass-less context (i.e., `self.decay.len() != n`), where
         // the scalar path still falls back via `fallback_decay`.
         const MAX_VELOCITY: f32 = 500.0;
+        let max_velocity = if large_graph_fast_path {
+            80.0
+        } else {
+            MAX_VELOCITY
+        };
         let mut max_speed_sq: f32 = 0.0;
 
         // Build viewport active mask — only update positions for visible + 1-hop neighbor nodes.
@@ -1412,7 +1421,7 @@ impl Simulation {
                 n,
                 &active,
                 &decay_taken,
-                MAX_VELOCITY,
+                max_velocity,
                 &mut max_speed_sq,
             );
         }
@@ -1428,7 +1437,7 @@ impl Simulation {
                 &active,
                 n,
                 &decay_taken,
-                MAX_VELOCITY,
+                max_velocity,
                 &mut max_speed_sq,
             );
         }
