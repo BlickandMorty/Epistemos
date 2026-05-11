@@ -88,10 +88,19 @@ final class QueryEngine {
 
     /// Execute a query (NL or structured with ? prefix).
     /// Routes ?-prefix to StructuredQueryParser, natural language to QueryParser.
+    ///
+    /// Per RCA13 P4: the synchronous form froze the search bar because
+    /// `runtime.query(_:)` does SQLite FTS5 reads + (potentially) graph
+    /// embedding lookups on the @MainActor. By splitting the state-flip
+    /// from the heavy work via a `Task { @MainActor in ... }`, SwiftUI
+    /// repaints with `isProcessing=true` BEFORE the FTS5 SQL runs, so
+    /// the spinner is visible and the bar feels responsive on Enter.
+    /// True off-main offload requires restructuring QueryRuntime away
+    /// from `@MainActor` and is deferred as a separate item.
     func execute(query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard let runtime = resolvedRuntime() else {
+        guard resolvedRuntime() != nil else {
             errorMessage = "Query engine not configured"
             return
         }
@@ -100,14 +109,23 @@ final class QueryEngine {
         errorMessage = nil
         currentQuery = trimmed
 
-        // Use the runtime's unified query interface
-        // It automatically handles ? prefix routing
-        let result = runtime.query(trimmed)
-        
-        currentResult = result
-        resultVersion += 1
-        isProcessing = false
-        addToHistory(query: trimmed, result: result)
+        // Hop to the next main-actor tick so SwiftUI gets a paint pass
+        // BEFORE the (potentially slow) FTS5 + graph step runs.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let runtime = self.resolvedRuntime() else {
+                self.errorMessage = "Query engine not configured"
+                self.isProcessing = false
+                return
+            }
+            // Use the runtime's unified query interface — it routes
+            // ? prefix to StructuredQueryParser automatically.
+            let result = runtime.query(trimmed)
+            self.currentResult = result
+            self.resultVersion += 1
+            self.isProcessing = false
+            self.addToHistory(query: trimmed, result: result)
+        }
     }
 
     // MARK: - Reactive Execute
