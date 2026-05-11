@@ -163,6 +163,7 @@ struct Uniforms {
     light_mode: f32,           // 0.0 = dark background, 1.0 = light background
     water_style: f32,          // 0.0 = retro pixel, 1.0 = water-bead shading
     water_wobble: f32,         // 0.0 = still, 1.0 = breathing radius
+    selection_active: f32,     // 1.0 = a node is selected (edges dim toward focus)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -692,6 +693,7 @@ struct Uniforms {
     float light_mode;        // 0.0 = dark bg, 1.0 = light bg
     float water_style;       // 0.0 = retro pixel, 1.0 = water-bead
     float water_wobble;      // 0.0 = still, 1.0 = breathing radius
+    float selection_active;  // 1.0 = a node is selected → dim edges
 };
 
 constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
@@ -1258,10 +1260,18 @@ vertex LineVertexOut curve_edge_vertex(
     return out;
 }
 
-fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
+fragment float4 line_edge_fragment(
+    LineVertexOut in [[stage_in]],
+    constant Uniforms& uniforms [[buffer(0)]]
+) {
     float alpha = 1.0 - smoothstep(0.6, 1.0, abs(in.dist_from_center));
     if (alpha < 0.01) discard_fragment();
-    return float4(in.color.rgb, in.color.a * alpha);
+    // When a node is selected, dim ALL edges so the selection +
+    // neighborhood read with focus instead of a tangle of bright lines
+    // converging on the selected hub. Per user 2026-05-10: the edges
+    // were too sharp/contrasty in dark mode select state.
+    float selection_dim = uniforms.selection_active > 0.5 ? 0.30 : 1.00;
+    return float4(in.color.rgb, in.color.a * alpha * selection_dim);
 }
 
 "#;
@@ -2543,6 +2553,7 @@ impl Renderer {
             light_mode: if self.light_mode { 1.0 } else { 0.0 },
             water_style: self.water_style,
             water_wobble: self.water_wobble,
+            selection_active: if self.highlight.active { 1.0 } else { 0.0 },
         }
     }
 
@@ -3776,6 +3787,10 @@ impl Renderer {
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
+                // Edge fragment shader reads `Uniforms.selection_active`
+                // (added 2026-05-10) to dim all edges while a node is
+                // selected, so the focused neighborhood reads cleanly.
+                encoder.set_fragment_buffer(0, Some(&self.uniform_buf), 0);
                 encoder.draw_primitives_instanced(
                     MTLPrimitiveType::Triangle,
                     0,
