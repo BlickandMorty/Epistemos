@@ -41,17 +41,49 @@ private enum ChatPresentationFormatter {
         ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Per RCA13 RCA2-P2-003: the chat transcript row + MessageBubble
-    /// have a heading lane wired through to display, but this helper —
-    /// the only producer — always returns nil. The lane is dead. Until
-    /// a real heading extractor lands (or the lane is removed
-    /// end-to-end), keep returning nil but make the contract explicit
-    /// so future callers don't expect non-nil output.
+    /// Extract the first-line markdown H1 from the original
+    /// assistant content when `displayContent` would have stripped
+    /// it (first assistant message OR heading matches chat title).
+    /// Returns the heading text so the chat row can render it in
+    /// the dedicated heading lane without duplicating it in-body.
+    /// Per RCA13 RCA2-P2-003 follow-up: real wiring.
+    ///
+    /// Returns nil when:
+    ///   - the original text doesn't start with an H1 (`# `)
+    ///   - displayContent wouldn't strip it (i.e. not the first
+    ///     assistant message AND heading doesn't match the title) —
+    ///     in that case the heading stays in body, no separate lane
+    ///   - heading text is empty / very long (likely an inline
+    ///     sentence, not a title)
+    nonisolated static func heading(
+        forAssistantOriginalContent original: String,
+        chatTitle: String?,
+        isFirstAssistantMessage: Bool
+    ) -> String? {
+        let trimmed = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let firstLine: String
+        if let firstLineEnd = trimmed.firstIndex(of: "\n") {
+            firstLine = String(trimmed[..<firstLineEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            firstLine = trimmed
+        }
+        guard firstLine.hasPrefix("# "), !firstLine.hasPrefix("## ") else {
+            return nil
+        }
+        let heading = String(firstLine.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !heading.isEmpty, heading.count <= 120 else { return nil }
+        let title = chatTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let matchesTitle = heading.caseInsensitiveCompare(title) == .orderedSame
+        guard isFirstAssistantMessage || matchesTitle else { return nil }
+        return heading
+    }
+
+    /// Compatibility shim — old single-arg callers default to no
+    /// heading. New call sites pass the original message text +
+    /// title + first-message flag through.
     nonisolated static func heading(forAssistantText text: String) -> String? {
-        // Intentionally always nil. See RCA13 RCA2-P2-003 — the
-        // heading lane stays in scaffold state until end-to-end
-        // wiring (extractor + tests + copy/export survival) lands.
-        return nil
+        nil
     }
 
     nonisolated static func sourceReferences(
@@ -118,7 +150,13 @@ nonisolated func makeChatTranscriptRows(from messages: [ChatMessage], chatTitle:
                     message: message,
                     originalQuery: lastUserQuery,
                     displayContent: displayContent,
-                    heading: ChatPresentationFormatter.heading(forAssistantText: displayContent),
+                    heading: ChatPresentationFormatter.heading(
+                        forAssistantOriginalContent: UserFacingModelOutput.finalVisibleText(
+                            from: message.content
+                        ),
+                        chatTitle: chatTitle,
+                        isFirstAssistantMessage: assistantMessageCount == 1
+                    ),
                     sourceReferences: ChatPresentationFormatter.sourceReferences(
                         for: message,
                         displayContent: displayContent
