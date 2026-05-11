@@ -3367,18 +3367,21 @@ final class VaultSyncService {
     }
 
     /// Rename a directory in the vault. Both paths are relative to vault root.
-    func renameDirectory(from oldRelativePath: String, to newRelativePath: String) {
+    ///
+    /// Returns `true` on success, `false` if the operation failed (no vault
+    /// URL, move error, etc.). See RCA13-P0-001 transactional safety hardening.
+    @discardableResult
+    func renameDirectory(from oldRelativePath: String, to newRelativePath: String) -> Bool {
         guard let vaultURL else {
             log.warning("Cannot rename directory: no vault URL")
-            return
+            return false
         }
         let oldURL = vaultURL.appendingPathComponent(oldRelativePath, isDirectory: true)
         let newURL = vaultURL.appendingPathComponent(newRelativePath, isDirectory: true)
 
         guard FileManager.default.fileExists(atPath: oldURL.path) else {
             // Directory doesn't exist on disk yet — create the new one instead
-            createDirectory(relativePath: newRelativePath)
-            return
+            return createDirectory(relativePath: newRelativePath)
         }
 
         do {
@@ -3391,8 +3394,10 @@ final class VaultSyncService {
             log.info(
                 "Renamed directory: \(oldRelativePath, privacy: .public) → \(newRelativePath, privacy: .public)"
             )
+            return true
         } catch {
             log.error("Failed to rename directory: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

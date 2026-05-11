@@ -1516,12 +1516,22 @@ struct NotesSidebar: View {
         let folder = SDFolder(name: name)
         folder.isCollection = isCollection
         modelContext.insert(folder)
-        guard persistSidebarMutation(reason: "root folder create", restoreState: {
+        let restoreModel: () -> Void = {
             modelContext.delete(folder)
-        }) else {
+        }
+        guard persistSidebarMutation(reason: "root folder create", restoreState: restoreModel) else {
             return nil
         }
-        vaultSync.createDirectory(relativePath: folder.relativePath)
+        // RCA13: rollback the SDFolder insertion if mkdir fails so the
+        // model can't claim a folder exists with no disk backing.
+        if !vaultSync.createDirectory(relativePath: folder.relativePath) {
+            restoreModel()
+            _ = persistSidebarMutation(
+                reason: "root folder create rollback after FS failure",
+                restoreState: {}
+            )
+            return nil
+        }
         if isCollection {
             CollectionRegistry.shared.setCollection(folder.name, true)
         }
@@ -1695,12 +1705,21 @@ struct NotesSidebar: View {
                 let child = SDFolder(name: "Untitled Folder")
                 child.parent = parent
                 modelContext.insert(child)
-                guard persistSidebarMutation(reason: "subfolder create", restoreState: {
+                let restoreModel: () -> Void = {
                     modelContext.delete(child)
-                }) else {
+                }
+                guard persistSidebarMutation(reason: "subfolder create", restoreState: restoreModel) else {
                     return
                 }
-                vaultSync.createDirectory(relativePath: child.relativePath)
+                // RCA13: rollback the SDFolder insert if mkdir fails.
+                if !vaultSync.createDirectory(relativePath: child.relativePath) {
+                    restoreModel()
+                    _ = persistSidebarMutation(
+                        reason: "subfolder create rollback after FS failure",
+                        restoreState: {}
+                    )
+                    return
+                }
             }
 
         case .toggleCollection(let folderId):
@@ -1722,12 +1741,21 @@ struct NotesSidebar: View {
                 let snapshot = NotesSidebarPageLocationSnapshot(page)
                 page.folder = folder
                 page.subfolder = folder.relativePath
-                guard persistSidebarMutation(reason: "page move to folder", restoreState: {
+                let restoreModel: () -> Void = {
                     snapshot.restore(on: page)
-                }) else {
+                }
+                guard persistSidebarMutation(reason: "page move to folder", restoreState: restoreModel) else {
                     return
                 }
-                vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)
+                // RCA13: rollback the model so SwiftData + disk stay in lockstep.
+                if !vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath) {
+                    restoreModel()
+                    _ = persistSidebarMutation(
+                        reason: "page move to folder rollback after FS failure",
+                        restoreState: {}
+                    )
+                    return
+                }
             }
 
         case .moveFolderInto(let childId, let parentId):
@@ -1738,12 +1766,21 @@ struct NotesSidebar: View {
                 let snapshot = captureFolderMutationSnapshot(child)
                 child.parent = parent
                 syncPagePaths(in: child, oldPath: oldPath)
-                guard persistSidebarMutation(reason: "folder move into folder", restoreState: {
+                let restoreModel: () -> Void = {
                     restoreFolderMutationSnapshot(snapshot)
-                }) else {
+                }
+                guard persistSidebarMutation(reason: "folder move into folder", restoreState: restoreModel) else {
                     return
                 }
-                vaultSync.renameDirectory(from: oldPath, to: child.relativePath)
+                // RCA13: rollback if the directory rename fails.
+                if !vaultSync.renameDirectory(from: oldPath, to: child.relativePath) {
+                    restoreModel()
+                    _ = persistSidebarMutation(
+                        reason: "folder move into folder rollback after FS failure",
+                        restoreState: {}
+                    )
+                    return
+                }
             }
 
         case .movePageToRoot(let pageId):
@@ -1751,12 +1788,21 @@ struct NotesSidebar: View {
                 let snapshot = NotesSidebarPageLocationSnapshot(page)
                 page.folder = nil
                 page.subfolder = nil
-                guard persistSidebarMutation(reason: "page move to root", restoreState: {
+                let restoreModel: () -> Void = {
                     snapshot.restore(on: page)
-                }) else {
+                }
+                guard persistSidebarMutation(reason: "page move to root", restoreState: restoreModel) else {
                     return
                 }
-                vaultSync.movePage(pageId: pageId, toSubfolder: nil)
+                // RCA13: rollback if the file move fails.
+                if !vaultSync.movePage(pageId: pageId, toSubfolder: nil) {
+                    restoreModel()
+                    _ = persistSidebarMutation(
+                        reason: "page move to root rollback after FS failure",
+                        restoreState: {}
+                    )
+                    return
+                }
             }
 
         case .moveFolderToRoot(let folderId):
@@ -1765,12 +1811,21 @@ struct NotesSidebar: View {
                 let snapshot = captureFolderMutationSnapshot(folder)
                 folder.parent = nil
                 syncPagePaths(in: folder, oldPath: oldPath)
-                guard persistSidebarMutation(reason: "folder move to root", restoreState: {
+                let restoreModel: () -> Void = {
                     restoreFolderMutationSnapshot(snapshot)
-                }) else {
+                }
+                guard persistSidebarMutation(reason: "folder move to root", restoreState: restoreModel) else {
                     return
                 }
-                vaultSync.renameDirectory(from: oldPath, to: folder.relativePath)
+                // RCA13: rollback if the directory rename fails.
+                if !vaultSync.renameDirectory(from: oldPath, to: folder.relativePath) {
+                    restoreModel()
+                    _ = persistSidebarMutation(
+                        reason: "folder move to root rollback after FS failure",
+                        restoreState: {}
+                    )
+                    return
+                }
             }
 
         case .createNewPage:
@@ -2037,12 +2092,20 @@ struct NotesSidebar: View {
     private func createFolder(title: String) {
         let folder = SDFolder(name: title)
         modelContext.insert(folder)
-        guard persistSidebarMutation(reason: "folder create", restoreState: {
+        let restoreModel: () -> Void = {
             modelContext.delete(folder)
-        }) else {
+        }
+        guard persistSidebarMutation(reason: "folder create", restoreState: restoreModel) else {
             return
         }
-        vaultSync.createDirectory(relativePath: folder.relativePath)
+        // RCA13: rollback the SDFolder insertion if mkdir fails.
+        if !vaultSync.createDirectory(relativePath: folder.relativePath) {
+            restoreModel()
+            _ = persistSidebarMutation(
+                reason: "folder create rollback after FS failure",
+                restoreState: {}
+            )
+        }
     }
 
     private func createCollection(title: String) {
@@ -2073,10 +2136,18 @@ struct NotesSidebar: View {
                 let locationSnapshot = NotesSidebarPageLocationSnapshot(existing)
                 existing.folder = dailyFolder
                 existing.subfolder = dailyFolder.relativePath
-                if persistSidebarMutation(reason: "journal move to daily folder", restoreState: {
+                let restoreModel: () -> Void = {
                     locationSnapshot.restore(on: existing)
-                }) {
-                    vaultSync.movePage(pageId: existing.id, toSubfolder: dailyFolder.relativePath)
+                }
+                if persistSidebarMutation(reason: "journal move to daily folder", restoreState: restoreModel) {
+                    // RCA13: rollback if the file move fails.
+                    if !vaultSync.movePage(pageId: existing.id, toSubfolder: dailyFolder.relativePath) {
+                        restoreModel()
+                        _ = persistSidebarMutation(
+                            reason: "journal move rollback after FS failure",
+                            restoreState: {}
+                        )
+                    }
                 }
             }
             openInEditor(existing.id)
