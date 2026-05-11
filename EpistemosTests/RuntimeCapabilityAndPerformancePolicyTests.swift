@@ -49,38 +49,13 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         )
     }
 
-    @Test("large idle graph rendering decimates frames without throttling interactions")
-    func largeGraphIdleRenderDecimationPreservesInteractionFrames() {
-        #expect(!GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
-            nodeCount: 9_000,
-            isInteracting: false,
-            hasPendingInput: false,
-            frameCounter: 1
-        ))
-        #expect(GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
-            nodeCount: 10_000,
-            isInteracting: false,
-            hasPendingInput: false,
-            frameCounter: 1
-        ))
-        #expect(!GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
-            nodeCount: 10_000,
-            isInteracting: false,
-            hasPendingInput: false,
-            frameCounter: 4
-        ))
-        #expect(!GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
-            nodeCount: 10_000,
-            isInteracting: true,
-            hasPendingInput: false,
-            frameCounter: 1
-        ))
-        #expect(!GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
-            nodeCount: 10_000,
-            isInteracting: false,
-            hasPendingInput: true,
-            frameCounter: 1
-        ))
+    @Test("large graph rendering does not skip display-link frames")
+    func largeGraphRenderingKeepsDisplayLinkFramesLive() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(!source.contains("shouldSkipLargeGraphIdleFrame("))
+        #expect(!source.contains("largeGraphIdleFrameInterval"))
+        #expect(!source.contains("largeGraphRenderDecimationThreshold"))
     }
 
     @Test("performance graph overlay caps drawable scale without changing mini mode")

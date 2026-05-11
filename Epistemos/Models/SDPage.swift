@@ -84,6 +84,13 @@ final class SDPage {
     /// Persistent cache of outgoing block references ((blockId)).
     /// Extracted during saveBody() to avoid O(N) disk I/O in the graph builder.
     var blockReferences: [String] = []
+    /// Persistent cache of outgoing Obsidian-style wikilinks.
+    /// Stored as canonical destinations ("folder/note", "note") so graph
+    /// rebuilds can materialize note→note edges without rescanning every body.
+    var wikilinkReferences: [String] = []
+    /// Body/fingerprint signature used when the wikilink cache was last refreshed.
+    /// Lets vault imports distinguish "no wikilinks" from "not scanned yet".
+    var wikilinkReferenceScanSignature: String?
 
     // MARK: - Relationships
     // Note: .cascade delete rules work through SwiftData's managed context.
@@ -372,6 +379,13 @@ final class SDPage {
 
     func applyInteractiveDerivedState(from content: String) {
         clearInlineBodyIfNeeded()
+        if content.contains("[[") {
+            wikilinkReferences = WikilinkResolver.extractDestinations(from: content)
+        } else if !wikilinkReferences.isEmpty {
+            wikilinkReferences.removeAll(keepingCapacity: true)
+        }
+        wikilinkReferenceScanSignature = Self.bodyHash(content)
+
         guard content.contains("((") else {
             if !blockReferences.isEmpty {
                 blockReferences.removeAll(keepingCapacity: true)
@@ -384,6 +398,8 @@ final class SDPage {
     func updateBodyDerivedState(from content: String) {
         clearInlineBodyIfNeeded()
         blockReferences = Self.extractBlockReferences(from: content)
+        wikilinkReferences = WikilinkResolver.extractDestinations(from: content)
+        wikilinkReferenceScanSignature = Self.bodyHash(content)
     }
 
     static func extractBlockReferences(from content: String) -> [String] {

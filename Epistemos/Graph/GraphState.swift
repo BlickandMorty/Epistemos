@@ -2545,7 +2545,12 @@ final class GraphState {
         // Build wikilink lookup table once (O(N)) instead of O(N) per wikilink.
         wikilinkLookup.removeAll(keepingCapacity: true)
         for node in store.nodes.values where node.type == .note {
-            wikilinkLookup[node.label.lowercased()] = node
+            for key in WikilinkResolver.lookupKeysForPage(
+                title: node.label,
+                filePath: nil
+            ) {
+                wikilinkLookup[key] = node
+            }
         }
 
         var spansPtr: UnsafeMutablePointer<StyleSpan>?
@@ -2569,7 +2574,7 @@ final class GraphState {
             case 15: // Wikilink — resolve to existing note node and add edge
                 let slice = Array(utf8Bytes[start..<end])
                 guard let raw = String(bytes: slice, encoding: .utf8) else { continue }
-                let target = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let target = WikilinkResolver.canonicalDestination(raw) else { continue }
                 guard !target.isEmpty else { continue }
                 resolveWikilinkEdge(target: target, from: pageNodeId, byteOffset: start, createdAt: createdAt)
 
@@ -2608,7 +2613,11 @@ final class GraphState {
     /// Resolve a wikilink target to an existing note node and create an edge.
     private func resolveWikilinkEdge(target: String, from pageNodeId: String, byteOffset: Int, createdAt: Date) {
         // Use pre-built lookup table if available (built once per buildPageSubgraph call).
-        guard let linkedNode = wikilinkLookup[target.lowercased()] else { return }
+        let linkedNode = WikilinkResolver.lookupKeys(forDestination: target)
+            .lazy
+            .compactMap { self.wikilinkLookup[$0] }
+            .first
+        guard let linkedNode else { return }
 
         // Skip if already connected.
         let existing = store.edges(for: pageNodeId)

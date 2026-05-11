@@ -31,7 +31,7 @@ struct GraphNotePage: View {
 
     var body: some View {
         if let page = pages.first {
-            ProseEditorView(page: page)
+            ProseEditorView(page: page, navigationContext: .graph)
                 .environment(noteChatState)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {

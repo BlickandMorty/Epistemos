@@ -59,6 +59,22 @@ struct GraphStoreLoadFilteringTests {
         #expect(store.nodes[quoteNode.id] == nil)
         #expect(store.edges.isEmpty)
     }
+
+    @Test("large direct loads initialize inside unclamped world bounds")
+    func largeDirectLoadsInitializeInsideUnclampedWorldBounds() {
+        let nodes = (0..<12_000).map { index in
+            SDGraphNode(type: .note, label: "Note \(index)", sourceId: "page-\(index)")
+        }
+
+        let store = GraphStore()
+        store.loadDirect(nodes: nodes, edges: [])
+
+        let maxAbs = store.nodes.values.reduce(Float(0)) { partial, node in
+            max(partial, max(abs(node.position.x), abs(node.position.y)))
+        }
+
+        #expect(maxAbs < 7_000)
+    }
 }
 
 @Suite("GraphStore - Node Operations")

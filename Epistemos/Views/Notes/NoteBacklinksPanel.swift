@@ -10,6 +10,7 @@ struct NoteBacklinksPopover: View {
         let title: String
         var filePath: String? = nil
         var inlineBody: String = ""
+        var wikilinkReferences: [String] = []
         var edgeType: String? = nil  // semantic edge type (supports, contradicts, etc.)
         var source: BacklinkSource = .wikilink
 
@@ -98,7 +99,7 @@ struct NoteBacklinksPopover: View {
 
     private func scanBacklinks() async {
         guard !pageTitle.isEmpty else { return }
-        let target = "[[\(pageTitle)]]"
+        let targetKeys = Set(WikilinkResolver.lookupKeys(forDestination: pageTitle))
         let titleToFind = pageTitle
 
         // Phase 1: Text-based backlinks (existing [[wikilink]] scan)
@@ -121,10 +122,11 @@ struct NoteBacklinksPopover: View {
                 id: page.id,
                 title: page.title,
                 filePath: page.filePath,
-                inlineBody: page.body
+                inlineBody: page.body,
+                wikilinkReferences: page.wikilinkReferences
             )
         }
-        var results = await Self.findBacklinks(candidates: candidates, target: target)
+        var results = await Self.findBacklinks(candidates: candidates, targetKeys: targetKeys)
         let textBacklinkIds = Set(results.map(\.id))
 
         // Phase 2: Graph-based semantic edges (supports, contradicts, expands, questions)
@@ -149,7 +151,7 @@ struct NoteBacklinksPopover: View {
 
     private nonisolated static func findBacklinks(
         candidates: [BacklinkItem],
-        target: String
+        targetKeys: Set<String>
     ) async -> [BacklinkItem] {
         await Task.detached(priority: .utility) { () async -> [BacklinkItem] in
             var results: [BacklinkItem] = []
@@ -159,6 +161,14 @@ struct NoteBacklinksPopover: View {
                 if Task.isCancelled {
                     return []
                 }
+                if candidate.wikilinkReferences.contains(where: {
+                    WikilinkResolver.destinationMatches($0, targetKeys: targetKeys)
+                }) {
+                    results.append(candidate)
+                    continue
+                }
+                guard candidate.wikilinkReferences.isEmpty else { continue }
+
                 let body = await SDPage.loadBodyAsyncFromPrimitives(
                     pageId: candidate.id,
                     filePath: candidate.filePath,
@@ -166,7 +176,8 @@ struct NoteBacklinksPopover: View {
                     mapped: true,
                     fast: true
                 )
-                if body.contains(target) {
+                let links = WikilinkResolver.extractDestinations(from: body)
+                if links.contains(where: { WikilinkResolver.destinationMatches($0, targetKeys: targetKeys) }) {
                     results.append(candidate)
                 }
             }

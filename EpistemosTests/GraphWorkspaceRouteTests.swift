@@ -223,8 +223,18 @@ struct GraphWorkspaceNotePageCompositionTests {
         #expect(source.contains("#Predicate<SDPage> { $0.id == sourceId }"))
         #expect(source.contains("@State private var noteChatState: NoteChatState"))
         #expect(source.contains("NoteChatState(pageId: sourceId)"))
-        #expect(source.contains("ProseEditorView(page: page)"))
+        #expect(source.contains("ProseEditorView(page: page, navigationContext: .graph)"))
         #expect(source.contains(".environment(noteChatState)"))
+    }
+
+    @Test("Graph note context menu opens notes inside graph workspace")
+    func graphContextOpenNoteRoutesInsideGraph() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/MetalGraphView.swift"
+        )
+
+        #expect(source.contains("graphState?.openNote(pageId)"))
+        #expect(!source.contains("HologramController.shared.minimize()"))
     }
 
     @Test("GraphWorkspaceContainer routes .note to GraphNotePage, not a placeholder")

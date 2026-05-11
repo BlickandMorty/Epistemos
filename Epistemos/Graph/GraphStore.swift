@@ -147,6 +147,21 @@ final class GraphStore {
     /// Consumed during load() — if a hint exists, use it instead of random placement.
     var positionHints: [String: SIMD2<Float>] = [:]
 
+    private nonisolated static func initialSpiralSpacing(nodeCount: Int) -> Float {
+        guard nodeCount > 0 else { return 250 }
+        let maxRadius: Float = nodeCount > 9_000 ? 6_800 : 8_500
+        let adaptive = maxRadius / sqrt(Float(nodeCount))
+        return min(250, max(44, adaptive))
+    }
+
+    nonisolated static func initialSpiralPosition(index: Int, nodeCount: Int) -> SIMD2<Float> {
+        let golden = Float.pi * (3.0 - sqrt(5.0))
+        let spacing = initialSpiralSpacing(nodeCount: nodeCount)
+        let r = spacing * sqrt(Float(index))
+        let theta = Float(index) * golden
+        return SIMD2<Float>(r * cos(theta), r * sin(theta))
+    }
+
     // MARK: - Compact Adjacency Storage (W7.4)
     // Replaces two [String: Set<String>] dicts with Int-indexed arrays.
     // Memory: 50K nodes × 5 neighbors × 8 bytes = 2MB vs. ~25MB with Set<String>.
@@ -468,14 +483,9 @@ final class GraphStore {
             estimatedEdgeCount: sdEdges.count
         )
 
-        let golden = Float.pi * (3.0 - sqrt(5.0))
         for (index, sdNode) in visibleNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
-                ?? {
-                    let r: Float = 250.0 * sqrt(Float(index))
-                    let theta = Float(index) * golden
-                    return SIMD2<Float>(r * cos(theta), r * sin(theta))
-                }()
+                ?? Self.initialSpiralPosition(index: index, nodeCount: visibleNodes.count)
 
             let record = GraphNodeRecord(
                 id: sdNode.id,
@@ -508,14 +518,9 @@ final class GraphStore {
             estimatedEdgeCount: sdEdges.count
         )
 
-        let golden = Float.pi * (3.0 - sqrt(5.0))
         for (index, sdNode) in visibleNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
-                ?? {
-                    let r: Float = 250.0 * sqrt(Float(index))
-                    let theta = Float(index) * golden
-                    return SIMD2<Float>(r * cos(theta), r * sin(theta))
-                }()
+                ?? Self.initialSpiralPosition(index: index, nodeCount: visibleNodes.count)
 
             let record = GraphNodeRecord(
                 id: sdNode.id,

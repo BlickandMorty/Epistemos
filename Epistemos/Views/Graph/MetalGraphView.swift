@@ -195,9 +195,6 @@ nonisolated func graphRecommitCameraAction(
 }
 
 nonisolated enum GraphInteractionRenderPolicy {
-    static let largeGraphRenderDecimationThreshold = 9_000
-    private static let largeGraphIdleFrameInterval: UInt32 = 4
-
     static func inFlightWaitMilliseconds(
         isInteracting: Bool,
         lowPowerMode: Bool
@@ -220,20 +217,6 @@ nonisolated enum GraphInteractionRenderPolicy {
 
     static func selectedNodeSampleIntervalFrames(isInteracting: Bool) -> Int {
         isInteracting ? 4 : 1
-    }
-
-    static func shouldSkipLargeGraphIdleFrame(
-        nodeCount: Int,
-        isInteracting: Bool,
-        hasPendingInput: Bool,
-        frameCounter: UInt32
-    ) -> Bool {
-        guard nodeCount > largeGraphRenderDecimationThreshold,
-              !isInteracting,
-              !hasPendingInput else {
-            return false
-        }
-        return frameCounter % largeGraphIdleFrameInterval != 0
     }
 }
 
@@ -766,7 +749,6 @@ final class MetalGraphNSView: NSView {
     private var pendingScrollZoomDelta: Float = 0
     private var pendingPinchZoomAnchor: SIMD2<Float>?
     private var pendingPinchZoomDelta: Float = 0
-    private var largeGraphRenderFrameCounter: UInt32 = 0
     private var currentLightMode = false
 
     // Track whether graph data has been committed.
@@ -1028,22 +1010,6 @@ final class MetalGraphNSView: NSView {
             return
         }
 
-        largeGraphRenderFrameCounter &+= 1
-        let isInteracting = isDraggingNode || isPanning
-        let hasPendingInput =
-            pendingPointerUpdate != nil
-            || pendingScrollPanDelta != .zero
-            || pendingScrollZoomDelta != 0
-            || pendingPinchZoomDelta != 0
-        if GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
-            nodeCount: graphState?.store.nodes.count ?? 0,
-            isInteracting: isInteracting,
-            hasPendingInput: hasPendingInput,
-            frameCounter: largeGraphRenderFrameCounter
-        ) {
-            return
-        }
-
         framePending.store(true, ordering: .relaxed)
         defer { framePending.store(false, ordering: .relaxed) }
         renderFrame()
@@ -1100,10 +1066,11 @@ final class MetalGraphNSView: NSView {
         )
         sendEdgeBatch(edgePayload, to: engine)
 
-        // Entrance animation: always play for small graphs, but skip for very
-        // large graphs or when already committed. Physics still stays active.
+        // Entrance animation: play for small graphs only. Very large vaults keep
+        // their precomputed spiral positions so the Rust entrance layout cannot
+        // stretch disconnected components into the sanitizer clamp square.
         let isSmallGraph = graphState.store.nodeCount <= GraphState.largeGraphEntranceThreshold
-        let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
+        let entrance: UInt8 = (!isCommitted && isSmallGraph) ? 1 : 0
         let shouldSnapInitialGlobalCamera = isCommitted == false && {
             if case .global = graphState.mode { return true }
             return false
@@ -2072,11 +2039,10 @@ final class MetalGraphNSView: NSView {
         guard let info = sender.representedObject as? [String: String],
               let pageId = info["pageId"],
               let nodeId = info["nodeId"] else { return }
-        // Focus the graph on this node, minimize to mini mode, then open the note.
+        // Focus the graph on this node, then route to the graph-native note page.
         isolateNode(nodeId)
         graphState?.selectNode(nodeId)
-        HologramController.shared.minimize()
-        NoteWindowManager.shared.open(pageId: pageId)
+        graphState?.openNote(pageId)
     }
 
     @objc private func contextFocusNode(_ sender: NSMenuItem) {
