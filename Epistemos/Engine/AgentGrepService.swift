@@ -168,14 +168,51 @@ public final class AgentGrepService {
         kindFilter: CodeArtifactKind? = nil,
         limit: Int = 25
     ) async throws -> [AgentGrepHit] {
-        // RCA13 P1-015 incremental win: the truly off-main refactor
-        // would need CodeFileService to opt into Sendable, which
-        // touches a file outside this surface. Until that lands,
-        // give async callers a yield-then-work entry point so UI
-        // input gets a paint pass before the FFI search runs.
-        // Same pattern as QueryEngine.execute() shipped in P4.
-        await Task.yield()
-        return try search(query: query, kindFilter: kindFilter, limit: limit)
+        // RCA13 P1-015 / RCA5-P1-001: true off-main now that
+        // CodeFileService is `@unchecked Sendable` (its stored
+        // properties are all Sendable). CodeIndexClient is
+        // `nonisolated public protocol Sendable`. The detached task
+        // runs the FFI search + per-hit sidecar reads entirely off
+        // the main actor.
+        let capturedIndex = self.index
+        let capturedFiles = self.files
+        return try await Task.detached(priority: .userInitiated) {
+            try Self.performBackendSearchOffMain(
+                index: capturedIndex,
+                files: capturedFiles,
+                query: query,
+                kindFilter: kindFilter,
+                limit: limit
+            )
+        }.value
+    }
+
+    /// Pure-function helper so the Task.detached closure stays
+    /// statically Sendable without `@MainActor` inheritance.
+    /// `nonisolated` strips the implicit @MainActor that this class
+    /// otherwise imposes on static methods.
+    nonisolated private static func performBackendSearchOffMain(
+        index: any CodeIndexClient,
+        files: CodeFileService,
+        query: String,
+        kindFilter: CodeArtifactKind?,
+        limit: Int
+    ) throws -> [AgentGrepHit] {
+        let backendHits = try index.search(query: query, kindFilter: kindFilter, limit: limit)
+        return backendHits.map { hit in
+            let fileURL = files.vaultRoot.appendingPathComponent(hit.vaultRelativePath, isDirectory: false)
+            let sidecar = (try? files.readCodeFile(at: fileURL))?.sidecar
+            return AgentGrepHit(
+                vaultRelativePath: hit.vaultRelativePath,
+                kind: hit.kind,
+                score: hit.score,
+                snippet: hit.snippet,
+                symbol: hit.symbol,
+                source: hit.source,
+                provenance: sidecar?.provenance,
+                crossReferences: sidecar?.crossReferences ?? []
+            )
+        }
     }
 
     /// Search the workspace + return hits enriched with provenance.
