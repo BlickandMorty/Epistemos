@@ -24,15 +24,22 @@ nonisolated struct QueryMessage: Codable, Sendable, Equatable {
 }
 
 /// Emitted on the AgentQueryEngine turn stream. Richer than AgentBackendEvent
-/// because AgentQueryEngine owns session state (usage totals, permission denials,
-/// turn number) that the raw backend stream doesn't know about.
+/// because AgentQueryEngine owns session state (usage totals, turn number)
+/// that the raw backend stream doesn't know about.
+///
+/// Per RCA13 P2-006: the prior shape declared `permissionRequest` and
+/// `permissionDenied` cases that the engine never actually yielded. UI
+/// consumers that pattern-matched on them would silently fail closed
+/// (the match never fired even when a tool call was denied). The
+/// canonical approval surface is `AgentPermissionRequest` driven through
+/// ChatCoordinator + PipelineService — those paths are real. The
+/// engine-stream cases are removed here so the contract is honest:
+/// only emit events the engine actually fires.
 nonisolated enum AgentQueryEngineEvent: Sendable {
     case textDelta(String)
     case thinkingDelta(String)
     case toolStarted(id: String, name: String)
     case toolCompleted(id: String, output: String, isError: Bool)
-    case permissionRequest(toolID: String, toolName: String)
-    case permissionDenied(toolID: String, toolName: String, reason: String)
     case usageUpdate(UsageLedger)
     case turnComplete(turnIndex: Int)
     case sessionComplete(result: AgentQueryEngineResult)
