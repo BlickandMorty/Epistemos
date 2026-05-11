@@ -226,7 +226,13 @@ final class AgentAuthorityStore {
 
     private let persistence: AgentAuthorityPersistence
 
-    init(persistence: AgentAuthorityPersistence = InMemoryAgentAuthorityPersistence()) {
+    /// Per RCA13 P1-025: default to file-backed persistence so that any
+    /// site that forgets to specify the persistence flavor still gets
+    /// durable decisions instead of silently dropping them on quit.
+    /// Tests + previews explicitly opt into
+    /// `InMemoryAgentAuthorityPersistence()` when they want ephemeral
+    /// behavior.
+    init(persistence: AgentAuthorityPersistence = FileBackedAgentAuthorityPersistence()) {
         self.persistence = persistence
         self.snapshot = persistence.load()?.normalized() ?? .default
     }
