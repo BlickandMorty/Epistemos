@@ -3,18 +3,25 @@
  * file styles the in-WebView document area + caret-glued tools only. */
 
 @font-face {
-  font-family: "RetroGaming";
-  src: url("/RetroGaming.ttf") format("truetype");
+  font-family: "Coral Pixels";
+  src: url("/CoralPixels-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "basis33";
+  src: url("/basis33.ttf") format("truetype");
   font-display: swap;
 }
 
 :root {
   --epdoc-page-padding: 34px 56px 64px;
   --epdoc-content-max-width: 820px;
-  --epdoc-display-font: "RetroGaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-  --epdoc-h1-size: 46px;
-  --epdoc-h2-size: 20px;
-  --epdoc-h3-size: 16px;
+  --epdoc-display-font: "Coral Pixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-secondary-display-font: "basis33", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-h1-size: 59px;
+  --epdoc-h2-size: 31px;
+  --epdoc-h3-size: 19px;
   --epdoc-line-height: 1.55;
   --epdoc-text-color: #1f1f1f;
   --epdoc-bg: transparent;
@@ -114,12 +121,18 @@ html, body {
   font-family: var(--epdoc-display-font);
 }
 
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5 {
+  font-family: var(--epdoc-secondary-display-font);
+}
+
 .ProseMirror h1 {
   font-size: var(--epdoc-h1-size);
   font-weight: 700;
   line-height: 1.08;
   margin-top: 1.4em;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
 }
 
 .ProseMirror h2 {
@@ -127,7 +140,7 @@ html, body {
   font-weight: 800;
   line-height: 1.18;
   margin-top: 1.3em;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .ProseMirror h3 { font-size: var(--epdoc-h3-size); font-weight: 600; margin-top: 1.2em; }

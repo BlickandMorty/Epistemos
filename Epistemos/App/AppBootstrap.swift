@@ -1409,7 +1409,7 @@ final class AppBootstrap {
         // counts toward resident memory at idle.
         URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
 
-        // Register custom fonts (RetroGaming, etc.)
+        // Register custom fonts (display, pixel, mono, etc.)
         EpistemosFont.registerFonts()
 
         // Create the SwiftData container against an explicit app-scoped store path.

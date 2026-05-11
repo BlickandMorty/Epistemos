@@ -2,7 +2,7 @@ import SwiftUI
 import os
 
 // MARK: - Font Registration
-// Registers custom fonts bundled with the app (RetroGaming, etc.)
+// Registers custom fonts bundled with the app (display, mono, and pixel families).
 
 enum EpistemosFont {
     private static let logger = Logger(subsystem: "com.epistemos", category: "Font")
@@ -21,6 +21,11 @@ enum EpistemosFont {
     /// same 880KB binary with the same PSName — wasted bundle space.
     static func registerFonts() {
         registerFont(named: "RetroGaming", extension: "ttf")
+        registerFont(named: "CoralPixels-Regular", extension: "ttf")
+        registerFont(named: "basis33", extension: "ttf")
+        registerFont(named: "BitPap", extension: "ttf")
+        registerFont(named: "ColorBasic-Regular", extension: "otf")
+        registerFont(named: "Pixelon", extension: "otf")
         registerFont(named: "Inter-Regular", extension: "ttf")
         registerFont(named: "JetBrainsMono-Regular", extension: "ttf")
         registerClaudeReferenceFontsIfAvailable()

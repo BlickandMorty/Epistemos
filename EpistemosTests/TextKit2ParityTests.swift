@@ -310,8 +310,8 @@ struct InlineTests {
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         #expect(tk1Font != nil)
         #expect(tk2Font != nil)
-        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
+        #expect(!(tk1Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
+        #expect(!(tk2Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     @Test("Bold markers — both stacks ghost the ** delimiters")
@@ -441,8 +441,8 @@ struct InlineTests {
         let offset = 3
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
+        #expect(!(tk1Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
+        #expect(!(tk2Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     // MARK: - Full-Stack Integration (ProseTextView2 delegate pipeline)
@@ -470,7 +470,7 @@ struct InlineTests {
             // "bold" content starts at offset 8 in "Hello **bold** world"
             guard attrStr.length > 8 else { return true }
             let font = attrStr.attribute(.font, at: 8, effectiveRange: nil) as? NSFont
-            if font?.fontName.contains("RetroGaming") != true {
+            if !(font.map { AppDisplayTypography.isDisplayFont($0) } ?? true) {
                 foundNonDisplayFont = true
             }
             return false
@@ -531,7 +531,7 @@ struct ParagraphTests {
         #expect((tk2Font?.pointSize ?? 0) > 15)
     }
 
-    @Test("H1 heading in notes uses RetroGaming display font in both stacks")
+    @Test("H1 heading in notes uses Coral Pixels display font in both stacks")
     func h1UsesDisplayFont() {
         let md = "# Big Heading"
         let tk1 = ParityHelpers.tk1Styled(md, theme: .platinumViolet)
@@ -539,8 +539,8 @@ struct ParagraphTests {
 
         let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
-        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk1Font.map { AppDisplayTypography.isPrimaryDisplayFont($0) } ?? false)
+        #expect(tk2Font.map { AppDisplayTypography.isPrimaryDisplayFont($0) } ?? false)
 
         let expectedColor = NSColor(EpistemosTheme.platinumViolet.fontAccent)
         let tk1Color = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
@@ -1048,8 +1048,8 @@ struct EdgeCaseTests {
         let offset = 5
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
+        #expect(!(tk1Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
+        #expect(!(tk2Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     @Test("Bold blockquote content stays out of the display font in both stacks")
@@ -1061,8 +1061,8 @@ struct EdgeCaseTests {
         let quotedRange = (md as NSString).range(of: "Quoted")
         let tk1Font = tk1.attribute(.font, at: quotedRange.location, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: quotedRange.location, effectiveRange: nil) as? NSFont
-        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
+        #expect(!(tk1Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
+        #expect(!(tk2Font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     // MARK: - Long Single Line

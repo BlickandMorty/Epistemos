@@ -1522,7 +1522,7 @@ struct LandingView: View {
 
     private var dailyBriefContent: some View {
         VStack(spacing: 0) {
-            // Title — RetroGaming font, centered under nav bar
+            // Title — app display font, centered under nav bar
             Text("daily brief")
                 .font(AppDisplayTypography.font(size: 24))
                 .foregroundStyle(theme.fontAccent)

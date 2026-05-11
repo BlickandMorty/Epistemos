@@ -451,16 +451,22 @@ nonisolated struct EpdocEditorBridgeTests {
         let bridge = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocEditorBridge.swift")
 
         #expect(css.contains(#"@font-face"#))
-        #expect(css.contains(#"font-family: "RetroGaming";"#))
-        #expect(css.contains(#"src: url("/RetroGaming.ttf") format("truetype");"#))
-        #expect(webpack.contains(#"url === '/RetroGaming.ttf'"#),
-                "The WKWebView editor should use the app's already-bundled RetroGaming.ttf instead of adding a duplicate Editor asset that Xcode flattens into a resource collision.")
-        #expect(bridge.contains(#"Bundle.main.url(forResource: "RetroGaming", withExtension: "ttf")"#))
-        #expect(css.contains("--epdoc-h1-size: 46px;"),
-                "Prose H1 is MarkdownEditorStyle.noteBaseFontSize + 31 (15 + 31).")
-        #expect(css.contains("--epdoc-h2-size: 20px;"),
-                "Prose H2 is MarkdownEditorStyle.noteBaseFontSize + 5 (15 + 5).")
+        #expect(css.contains(#"font-family: "Coral Pixels";"#))
+        #expect(css.contains(#"src: url("/CoralPixels-Regular.ttf") format("truetype");"#))
+        #expect(css.contains(#"font-family: "basis33";"#))
+        #expect(css.contains(#"src: url("/basis33.ttf") format("truetype");"#))
+        #expect(webpack.contains(#"url === '/CoralPixels-Regular.ttf'"#))
+        #expect(webpack.contains(#"url === '/basis33.ttf'"#),
+                "The WKWebView editor should use the app's already-bundled pixel fonts instead of adding duplicate Editor assets that Xcode flattens into resource collisions.")
+        #expect(bridge.contains(#"EpdocEditorAssetResolver.bundleFont(named: "CoralPixels-Regular", extension: "ttf")"#))
+        #expect(bridge.contains(#"EpdocEditorAssetResolver.bundleFont(named: "basis33", extension: "ttf")"#))
+        #expect(css.contains("--epdoc-h1-size: 59px;"),
+                "Prose H1 is scaled up for Coral's smaller apparent size.")
+        #expect(css.contains("--epdoc-h2-size: 31px;"),
+                "Prose H2 is also Coral and scaled larger than the old secondary font.")
         #expect(css.contains(".ProseMirror h1,\n.ProseMirror h2"))
+        #expect(css.contains(".ProseMirror h3,\n.ProseMirror h4,\n.ProseMirror h5"))
         #expect(css.contains("font-family: var(--epdoc-display-font);"))
+        #expect(css.contains("font-family: var(--epdoc-secondary-display-font);"))
     }
 }

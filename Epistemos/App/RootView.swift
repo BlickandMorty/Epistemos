@@ -2097,7 +2097,7 @@ struct SetupView: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private let fullText = "Welcome to Epistemos..."
-    private var retroFont: Font { AppDisplayTypography.font(size: 38) }
+    private var displayFont: Font { AppDisplayTypography.font(size: 38) }
 
     var body: some View {
         ZStack {
@@ -2108,10 +2108,10 @@ struct SetupView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Typewriter greeting — RetroGaming font, same style as LiquidGreeting
+                // Typewriter greeting — app display font, same style as LiquidGreeting
                 HStack(alignment: .center, spacing: 0) {
                     Text(displayText)
-                        .font(retroFont)
+                        .font(displayFont)
                         .foregroundStyle(theme.fontAccent)
                         .fixedSize(horizontal: true, vertical: true)
                 }

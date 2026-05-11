@@ -84,7 +84,9 @@ struct NoteChatSidebar: View {
                     .foregroundStyle(theme.textTertiary.opacity(0.5))
             }
             Text(displayContent)
-                .font(.system(size: 12))
+                .font(msg.role == .assistant
+                    ? Font(ClaudeAppTypography.noteAssistantUIFont(size: 12))
+                    : .system(size: 12))
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
                 .lineSpacing(2)

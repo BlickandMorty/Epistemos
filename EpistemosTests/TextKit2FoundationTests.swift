@@ -413,7 +413,7 @@ struct InlineMarkdownStylerTests {
 struct NotesSidebarHeaderLayoutTests {
     @Test("Notes sidebar title stays unclipped at page-title size")
     func pageTitleRemainsUnclipped() {
-        #expect(AppHeadingRole.pageTitle.fontSize == 28)
+        #expect(AppHeadingRole.pageTitle.fontSize == 34)
     }
 }
 
@@ -734,7 +734,7 @@ struct TextKit2InlineStyleTests {
         let boldRange = NSRange(location: 8, length: 4)
         let font = result.attribute(.font, at: boldRange.location, effectiveRange: nil) as? NSFont
         #expect(font != nil)
-        #expect(font?.fontName.contains("RetroGaming") == false)
+        #expect(!(font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     @Test("Bold markers are ghosted with low alpha")
@@ -809,7 +809,7 @@ struct TextKit2InlineStyleTests {
         storage.applyInlineStyles(to: attrStr, fullRange: range)
 
         let linkFont = attrStr.attribute(.font, at: 6, effectiveRange: nil) as? NSFont
-        #expect(linkFont?.fontName.contains("RetroGaming") == false)
+        #expect(!(linkFont.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     @Test("Wikilink brackets are ghosted")
@@ -826,7 +826,7 @@ struct TextKit2InlineStyleTests {
         let result = styledString("**bold** and *italic*")
         // "bold" content at position 2..6
         let boldFont = result.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
-        #expect(boldFont?.fontName.contains("RetroGaming") == false)
+        #expect(!(boldFont.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
 
         // "italic" content at position 14..20
         let italicFont = result.attribute(.font, at: 14, effectiveRange: nil) as? NSFont
@@ -865,7 +865,7 @@ struct TextKit2InlineStyleTests {
         // "🎉 " = 2 UTF-16 code units + 1 space = 3
         // "**" = 2, so "bold" starts at 3+2 = 5
         let font = result.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
-        #expect(font?.fontName.contains("RetroGaming") == false)
+        #expect(!(font.map { AppDisplayTypography.isDisplayFont($0) } ?? true))
     }
 
     @Test("Dark theme uses correct ghost marker alpha")

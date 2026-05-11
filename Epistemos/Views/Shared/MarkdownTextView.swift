@@ -22,15 +22,15 @@ enum MarkdownHeadingDisplay {
         let resolvedBaseFontSize = baseFontSize ?? MarkdownEditorStyle.noteBaseFontSize
         switch level {
         case 1:
-            return resolvedBaseFontSize + 31
+            return resolvedBaseFontSize + 39
         case 2:
-            return resolvedBaseFontSize + 5
+            return resolvedBaseFontSize + 13
         case 3:
-            return resolvedBaseFontSize + 1
+            return resolvedBaseFontSize + 4
         case 4:
-            return resolvedBaseFontSize
+            return resolvedBaseFontSize + 2
         default:
-            return max(resolvedBaseFontSize - 1, 9)
+            return max(resolvedBaseFontSize, 9)
         }
     }
 
@@ -1238,20 +1238,25 @@ struct MarkdownTextView: View {
 
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
-        let retroRole = AppHeadingRole.markdownRole(level: level)
+        let headingRole = AppHeadingRole.markdownRole(level: level)
         let fontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
         let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
-        let font: Font =
-            if retroRole != nil {
+        let font: Font = {
+            if level == 1 || level == 2 {
+                AppDisplayTypography.font(size: fontSize, weight: fontWeight)
+            } else if (3...5).contains(level) {
+                AppDisplayTypography.secondaryFont(size: fontSize, weight: fontWeight)
+            } else if headingRole != nil {
                 AppDisplayTypography.font(
                     size: fontSize,
                     weight: fontWeight,
-                    allowDisplayFont: false // No retro font in chat bubbles
+                    allowDisplayFont: false
                 )
             } else {
-                .system(size: fontSize, weight: fontWeight)
+                Font.system(size: fontSize, weight: fontWeight)
             }
-        let topPad = retroRole?.topPadding ?? 6
+        }()
+        let topPad = headingRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
 
