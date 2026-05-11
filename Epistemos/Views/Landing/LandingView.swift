@@ -114,7 +114,7 @@ struct LandingView: View {
     /// the greeting's inline search prompt.
     @FocusState private var landingSearchFocused: Bool
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var trimmedLandingSearchText: String {

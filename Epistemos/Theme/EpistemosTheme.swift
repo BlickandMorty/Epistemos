@@ -5,6 +5,15 @@ import SwiftUI
 // MARK: - Theme Definition
 // 9 themes — 4 light + 5 dark. Platinum Violet is the default pair.
 
+/// Surface tag used by `EpistemosTheme.surfaceVariant(_:)` so we can
+/// scope theme overrides to specific screens (landing / main chat) per
+/// user 2026-05-10. Everything else stays on the canonical theme.
+enum ThemeSurface: Sendable {
+    case landing
+    case mainChat
+    case other
+}
+
 enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case systemLight = "systemLight"
     case systemDark = "systemDark"
@@ -312,6 +321,22 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     nonisolated func resolvedForAppearance(_ appearance: NSAppearance?) -> EpistemosTheme {
         followsSystemAppearance ? Self.systemTheme(for: appearance) : self
+    }
+
+    /// Surface-scoped theme variant. Per user 2026-05-10: only the landing
+    /// page and the main chat should adopt the magnolia-pair dark (nocturne)
+    /// palette when the user picks Platinum Violet dark mode. Notes, Epdoc,
+    /// Settings, Graph, and every other surface keep the original violet
+    /// platinum palette so the user's existing dark-mode experience there
+    /// is preserved.
+    nonisolated func surfaceVariant(_ surface: ThemeSurface) -> EpistemosTheme {
+        guard self == .platinumVioletDark else { return self }
+        switch surface {
+        case .landing, .mainChat:
+            return .nocturne
+        case .other:
+            return self
+        }
     }
 
     nonisolated var isDark: Bool {
@@ -663,42 +688,37 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 nsBackground: .hex(0xDEDEDE)
             )
         case .platinumVioletDark:
-            // Per user 2026-05-10: adopt the magnolia-pair dark palette
-            // (nocturne) for the dark variant. The deep purple-black canvas
-            // + soft rose heading + violet-tinged glass surfaces give
-            // landing + main chat the magnolia-dark feel the user wanted.
-            // The light variant (.platinumViolet) is unchanged.
             return ResolvedTheme(
                 isDark: true,
                 isPlatinum: true,
-                usesNativeWindowBlur: true,
-                background: .hex(0x19141F),
-                foregroundHex: 0xE7DEE8,
-                accent: .hex(0xA8B6D9),
-                headingAccentHex: 0xD7A7B6,
-                markdownHeadingAccentHex: 0xD7A7B6,
+                usesNativeWindowBlur: false,
+                background: .hex(0x1E1E24),
+                foregroundHex: 0xFFFFFF,
+                accent: .hex(0x7B68EE),
+                headingAccentHex: 0xFFFFFF,
+                markdownHeadingAccentHex: 0x7B68EE,
                 preferredMarkdownLinkHex: nil,
-                uiAccent: .hex(0xE7DEE8),
-                muted: .hex(0x27212D),
-                mutedForegroundHex: 0xA89CA8,
-                assistantBubbleForegroundHex: 0xE7DEE8,
+                uiAccent: .hex(0x7B68EE),
+                muted: .hex(0x252530),
+                mutedForegroundHex: 0x9090A0,
+                assistantBubbleForegroundHex: 0xFFFFFF,
                 assistantBubbleBackgroundHex: nil,
                 userBubbleBackgroundHex: nil,
-                border: .hex(0x3B3243),
-                codeType: .hex(0x7DB3C4),
-                glassBg: .hex(0x221C2A, opacity: 0.86),
-                glassBorder: .hex(0x443A4D),
-                glassHover: .hex(0x342B3D, opacity: 0.78),
-                floatingSurfaceTint: .hex(0x141019),
-                navPillBg: .hex(0x140F18, opacity: 0.90),
-                navBubbleActiveBg: .hex(0x3A3046, opacity: 0.78),
-                navBubbleActiveText: .hex(0xEEE4EC, opacity: 0.94),
-                navBubbleInactiveText: .hex(0xA89CA8, opacity: 0.92),
-                card: .hex(0x241E2B, opacity: 0.90),
-                chatSurface: .hex(0x19141F),
-                userBubbleBg: .hex(0x313444),
-                userBubbleText: .hex(0xF2E7EE, opacity: 0.92),
-                nsBackground: .hex(0x19141F)
+                border: .rgba(1, 1, 1, 0.15),
+                codeType: .hex(0x7B68EE),
+                glassBg: .hex(0x2D2D38),
+                glassBorder: .rgba(1, 1, 1, 0.08),
+                glassHover: .hex(0x353545),
+                floatingSurfaceTint: .hex(0x17171D),
+                navPillBg: .hex(0x2D2D38),
+                navBubbleActiveBg: .hex(0x6B5DD6),
+                navBubbleActiveText: .rgba(1, 1, 1, 0.75),
+                navBubbleInactiveText: .rgba(1, 1, 1, 0.6),
+                card: .hex(0x252530),
+                chatSurface: .hex(0x2A2A38),
+                userBubbleBg: .hex(0x7B68EE),
+                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
+                nsBackground: .hex(0x1E1E24)
             )
         }
     }

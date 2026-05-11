@@ -1407,13 +1407,18 @@ impl Engine {
             let dist_sq = dx * dx + dy * dy;
             let click_threshold = 10.0f32; // pixels
 
-            // If it was a click (not a drag) and physics is frozen, zoom to fit
+            // If it was a click (not a drag) and physics is frozen, zoom out
+            // moderately — fit-all reads as too wide on deselect per user
+            // 2026-05-10. Pull the camera back toward fit but stay 1.3×
+            // tighter than the full fit so context is visible without losing
+            // the scale the user was working at.
             if dist_sq < click_threshold * click_threshold {
                 let sim = self.sim.lock();
                 let is_frozen = sim.user_frozen;
                 drop(sim);
                 if is_frozen {
                     self.zoom_to_fit();
+                    self.renderer.target_zoom *= 1.3;
                 }
             }
         }
