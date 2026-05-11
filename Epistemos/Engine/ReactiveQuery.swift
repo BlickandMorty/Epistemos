@@ -109,11 +109,30 @@ final class ReactiveQuery {
 
 extension QueryResult {
     /// Compare two results for meaningful equality (ignoring execution time).
+    ///
+    /// Per RCA13 RCA2-P1-009: prior implementation only checked node-ID
+    /// SETS + edge count. That missed ranking changes, snippet changes,
+    /// score changes, connectionCount changes — anything that could
+    /// alter the visible UI even when the same node IDs were in the
+    /// result. ReactiveQuery treated those as no-ops and never
+    /// re-emitted, so live ranking + snippet refresh was silently dead.
+    ///
+    /// Equivalence now compares: node-ID ORDER (not just set), each
+    /// node's score / snippet / connectionCount / updatedAt, plus the
+    /// edge count. Adding any visible UI field to QueryResultNode
+    /// requires adding it here too.
     func isEquivalent(to other: QueryResult?) -> Bool {
         guard let other else { return false }
-        let selfIds = Set(nodes.map(\.id))
-        let otherIds = Set(other.nodes.map(\.id))
-        return selfIds == otherIds && edges.count == other.edges.count
+        guard nodes.count == other.nodes.count else { return false }
+        guard edges.count == other.edges.count else { return false }
+        for (lhs, rhs) in zip(nodes, other.nodes) {
+            guard lhs.id == rhs.id else { return false }
+            guard lhs.score == rhs.score else { return false }
+            guard lhs.snippet == rhs.snippet else { return false }
+            guard lhs.connectionCount == rhs.connectionCount else { return false }
+            guard lhs.updatedAt == rhs.updatedAt else { return false }
+        }
+        return true
     }
 }
 
