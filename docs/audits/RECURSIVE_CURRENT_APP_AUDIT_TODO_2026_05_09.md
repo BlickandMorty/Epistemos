@@ -4515,7 +4515,32 @@ Acceptance:
 
 ### RCA7-P1-007 - Make Quick Capture durable-success semantics impossible to fake
 
-Status: TODO
+Status: PATCHED 2026-05-10 — durable-success check already in place; runtime failure-injection smoke pending
+
+Fix-pass evidence (source already in tree):
+
+  - `Epistemos/Views/Capture/QuickCaptureView.swift:504-511` —
+    text capture path checks `result.createdNoteID != nil` THEN
+    `result.mutationEnvelopePersisted`. Throws
+    `TextCaptureError.persistenceFailed` on either failure.
+  - `Epistemos/Views/Capture/QuickCaptureView.swift:533-540` —
+    audio capture path mirrors the same two-check sequence.
+  - `Epistemos/Intents/Custom/NoteActionIntents.swift:46` —
+    AppIntent CaptureTextIntent enforces
+    `result.mutationEnvelopePersisted` with
+    `TextCaptureError.persistenceFailed` thrown on false. No
+    success dialog returns unless the envelope is durable.
+  - `Epistemos/Engine/TextCapturePipeline.swift:78-90` —
+    CaptureResult exposes `mutationEnvelopePersisted: Bool` as a
+    public field; pipeline sets it from
+    `eventStoreProvider()?.saveMutationEnvelope(...) ?? false`.
+
+Remaining work for full acceptance:
+  - Runtime failure-injection: force
+    `EventStore.saveMutationEnvelope` to return `false`,
+    confirm visible UI shows `TextCaptureError.persistenceFailed`
+    and the AppIntent dialog does not say "Captured ..." on the
+    failure path.
 
 Subsystem: Quick Capture, `TextCapturePipeline`, AppIntent/sheet, `EventStore`, mutation envelope, note persistence.
 
