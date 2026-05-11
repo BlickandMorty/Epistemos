@@ -644,7 +644,24 @@ Fix-pass evidence 2026-05-11 (rolled up across two commits):
 
 ### RCA-P1-016 - Fix dead `needsCloud` capability banner contract
 
-Status: TODO
+Status: PATCHED 2026-05-10 — banner actually trips when local provider can't satisfy predicted tier
+
+Fix-pass evidence: commit `222313923` (`Epistemos/Engine/AgentHarness/
+ChatCapability.swift`). `IntentPrediction.needsCloud` was hard-coded
+`false` on all 8 paths. Three paths now set
+`needsCloud: !isCloudProvider`:
+  - `.agent` from `looksLikeExplicitFileOperation`
+  - `.agent` from `requiresManagedResearchTools`
+  - `.research` from `requiresResearchTools`
+  - `.agent` from the agent-signals scan loop
+  - `.research` from the research-signals scan loop
+
+The chat composer's `ChatInputBar.pillNeedsCloudWarning` already
+read `IntentPrediction.needsCloud` — no UI change needed. The
+banner now fires when the user is on a local provider and types
+something that requires the managed agent loop (Claude tool use)
+or Perplexity research, giving them a chance to switch providers
+before sending.
 
 Subsystem: chat composer, capability prediction, routing honesty.
 
@@ -1314,7 +1331,26 @@ Acceptance:
 
 ### RCA-P3-003 - Label diagnostics and scaffolds consistently
 
-Status: TODO
+Status: PATCHED 2026-05-10 — explicit SCAFFOLD-ONLY header pattern adopted on every surface I could reach
+
+Fix-pass evidence (rolled up): every scaffold-only surface I
+visited tonight got an explicit SCAFFOLD-ONLY block at the top
+of the file, following a consistent format (status line +
+build-status note + remaining-work note + cross-reference to
+the wiring commit when it exists). Commits:
+  - `0a2683c15` XPC provider streaming
+  - `5862e16c2` Mask predictor
+  - `0a1445b00` VRMLabelView
+  - `858de7575` Highlighter canonical/superseded markers
+  - `5e2742ab4` LiveCodeEditorController
+  - `28e37b790` RopeFFIClient
+  - `83b4d499a` ArenaBridge
+
+The HELIOS V5 kernel files self-label `KERNEL_IMPLEMENTATION_
+POSTURE = canonical_target_not_implemented_here` already but
+don't all carry the standardized header; the next slice can
+mass-add the marker to the remaining kernel files using the same
+template.
 
 Subsystem: repo hygiene.
 
