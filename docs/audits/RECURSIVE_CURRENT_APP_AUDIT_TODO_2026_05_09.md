@@ -3988,7 +3988,34 @@ Acceptance:
 
 ### RCA5-P2-002 - Keep ArenaBridge, ANEBackend, Helios kernels, and XPC provider streaming out of current-product claims
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-10 — explicit SCAFFOLD-ONLY headers on the surfaces I could reach; ArenaBridge + Helios kernels not yet visited
+
+Fix-pass evidence (rolled up):
+  - XPC provider streaming: commit `0a2683c15`
+    (`Epistemos/XPC/ProviderServiceStreamingProtocol.swift`)
+  - ANE / mask predictor: commit `5862e16c2`
+    (`Epistemos/Engine/MaskPredictorService.swift`)
+  - VRMLabelView / AnswerPacket UI: commit `0a1445b00`
+    (`Epistemos/Views/Chat/VRMLabelView.swift`)
+  - LiveCodeEditorController + highlighter drift: commits
+    `5e2742ab4` + `858de7575`
+    (`LiveCodeEditorController.swift`,
+     `SwiftTreeSitterLiveHighlighter.swift`,
+     `SyntaxCoreLiveHighlighter.swift`)
+  - RopeFFIClient: commit `28e37b790`
+    (`Epistemos/Engine/RopeFFIClient.swift`)
+
+Remaining work for full acceptance:
+  - ArenaBridge: file header still lacks an explicit
+    SCAFFOLD-ONLY block calling out the `readSignalEpoch() -> 0`
+    + 5 ms polling + payload-clamp shape.
+  - Helios V5 kernels: many files self-label
+    `KERNEL_IMPLEMENTATION_POSTURE = canonical_target_not_
+    implemented_here` but the SCAFFOLD-ONLY language hasn't been
+    standardized across them.
+  - Settings → HELIOS V5 already says "Deferred: no chat-path
+    AnswerPacket emission is wired in v1" — that surface is honest;
+    the kernel files themselves need the same marker.
 
 Subsystem: ArenaBridge, ANEBackend, Helios kernels, XPC services, provider streaming protocol.
 
