@@ -50,6 +50,11 @@ public struct VoiceInputButton: View {
     @State private var streamTask: Task<Void, Never>?
     @State private var lastPartial: String = ""
     @State private var lastUpdate: Date = .distantPast
+    // RCA13 RCA6-P2-002: every speech partial used to spawn a fresh
+    // 2.1s `Task.sleep` check, producing task buildup under rapid
+    // dictation. Coalesce by holding a single in-flight silence
+    // task and cancelling/replacing it on each partial.
+    @State private var silenceTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(UIState.self) private var ui
 
@@ -179,7 +184,7 @@ public struct VoiceInputButton: View {
                             }
                             onPartial(text)
                             if autoStopOnSilence {
-                                await checkSilenceTimeout()
+                                await scheduleSilenceCheck()
                             }
                         case .final(let text):
                             onFinal(text)
@@ -223,15 +228,23 @@ public struct VoiceInputButton: View {
         }
         streamTask?.cancel()
         streamTask = nil
+        silenceTask?.cancel()
+        silenceTask = nil
         phase = .idle
     }
 
-    /// Auto-stop after 2 s of no `partial` updates. Called from the
-    /// streaming task on every partial; if no partial has arrived in
-    /// the threshold window, stops the stream.
-    private func checkSilenceTimeout() async {
-        try? await Task.sleep(nanoseconds: 2_100_000_000)  // 2.1 s
-        await MainActor.run {
+    /// Auto-stop after 2 s of no `partial` updates. Coalesces under
+    /// rapid partials — cancels the previous in-flight check and
+    /// installs a single new 2.1 s sleep. Per RCA13 RCA6-P2-002:
+    /// without coalescing, every partial spawned a fresh task that
+    /// slept for 2.1 s, producing task buildup proportional to
+    /// dictation speed.
+    @MainActor
+    private func scheduleSilenceCheck() async {
+        silenceTask?.cancel()
+        silenceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_100_000_000)  // 2.1 s
+            if Task.isCancelled { return }
             if phase == .recording, Date().timeIntervalSince(lastUpdate) > 2.0 {
                 stopInternal()
             }
