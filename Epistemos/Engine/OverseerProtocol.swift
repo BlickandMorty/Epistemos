@@ -594,8 +594,16 @@ final class OverseerComplexityRouter {
                 return .managedAgentSession
             }
         case .localMLX, .appleIntelligence:
+            // Per user 2026-05-11: local chat with an attached note
+            // or @-mention also needs the tool path so it can
+            // actually read/edit/search the attached resource. The
+            // cloud branch already OR'd in shouldPlanToolsInChat —
+            // local was missing it and silently degraded to direct
+            // stream, which is why attaching a note for "live edit"
+            // wasn't doing anything in MAS.
             if effectiveIntentPrediction.predicted == .agent
-                || effectiveIntentPrediction.predicted == .research {
+                || effectiveIntentPrediction.predicted == .research
+                || shouldPlanToolsInChat {
                 return .overseerLocalExecution
             }
         }
