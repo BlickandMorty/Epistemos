@@ -118,6 +118,16 @@ struct VaultLifecycleResetTests {
             defer {
                 AppBootstrap.shared = previousShared
             }
+            let defaults = UserDefaults.standard
+            let previousSetupCompleteValue = defaults.object(forKey: "epistemos.setupComplete")
+            defaults.set(true, forKey: "epistemos.setupComplete")
+            defer {
+                if let previousSetupCompleteValue {
+                    defaults.set(previousSetupCompleteValue, forKey: "epistemos.setupComplete")
+                } else {
+                    defaults.removeObject(forKey: "epistemos.setupComplete")
+                }
+            }
 
             let context = bootstrap.modelContainer.mainContext
             let page = SDPage(title: "VAULT_A_ONLY")
@@ -190,6 +200,7 @@ struct VaultLifecycleResetTests {
             #expect(bootstrap.contextualShadowsState.currentResults.isEmpty)
             #expect(bootstrap.uiState.needsSetup)
             #expect(bootstrap.uiState.activePanel == .home)
+            #expect(defaults.bool(forKey: "epistemos.setupComplete") == false)
         })
     }
 

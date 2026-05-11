@@ -941,10 +941,15 @@ final class VaultSyncService {
                 appSupportURL.lastPathComponent,
                 isDirectory: true
             )
+            let heavyweightSkipRoots = heavyweightRecoverySnapshotSkipRoots(
+                appSupportURL: appSupportURL,
+                searchDatabaseURL: defaultSearchDatabaseURL(appSupportURL: appSupportURL)
+            )
             try copyDirectoryContents(
                 at: appSupportURL,
                 to: snapshottedAppSupportURL,
                 skipping: sqliteSourceURLs.filter { $0.deletingLastPathComponent() == appSupportURL }
+                    + heavyweightSkipRoots
             )
 
             for databaseURL in sqliteSourceURLs {
@@ -1161,11 +1166,33 @@ final class VaultSyncService {
         if let appSupportURL = appSupportDirectoryURL() {
             urls.append(appSupportURL.appendingPathComponent("event-store.sqlite"))
         }
-        if let searchDatabaseURL = defaultSearchDatabaseURL() {
-            urls.append(searchDatabaseURL)
-        }
         var seenPaths = Set<String>()
         return urls.filter { seenPaths.insert($0.standardizedFileURL.path).inserted }
+    }
+
+    private nonisolated static func defaultSearchDatabaseURL(appSupportURL: URL) -> URL {
+        appSupportURL.appendingPathComponent("search.sqlite")
+    }
+
+    private nonisolated static func heavyweightRecoverySnapshotSkipRoots(
+        appSupportURL: URL?,
+        searchDatabaseURL: URL?
+    ) -> [URL] {
+        guard let appSupportURL else { return [] }
+        var urls = [
+            appSupportURL.appendingPathComponent("default.store"),
+            appSupportURL.appendingPathComponent("default.store-wal"),
+            appSupportURL.appendingPathComponent("default.store-shm"),
+            appSupportURL.appendingPathComponent("note-bodies", isDirectory: true),
+            appSupportURL.appendingPathComponent("Models", isDirectory: true),
+            appSupportURL.appendingPathComponent("ssm_cache", isDirectory: true),
+            appSupportURL.appendingPathComponent("runtime_diagnostics", isDirectory: true),
+            appSupportURL.appendingPathComponent("style-cache", isDirectory: true),
+        ]
+        if let searchDatabaseURL {
+            urls.append(searchDatabaseURL)
+        }
+        return urls
     }
 
     private nonisolated static func copyDirectoryContents(
@@ -1179,6 +1206,15 @@ final class VaultSyncService {
                 sqliteCompanionURLs(for: url).map(\.standardizedFileURL.path)
             }
         )
+        let skippedRootPaths = Set(skippedRootURLs.map(\.standardizedFileURL.path))
+
+        func isSkipped(_ url: URL) -> Bool {
+            let path = url.standardizedFileURL.path
+            if skippedPaths.contains(path) || skippedRootPaths.contains(path) {
+                return true
+            }
+            return skippedRootPaths.contains { path.hasPrefix($0 + "/") }
+        }
 
         try fm.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
         guard let enumerator = fm.enumerator(
@@ -1190,11 +1226,11 @@ final class VaultSyncService {
         }
 
         while let itemURL = enumerator.nextObject() as? URL {
-            let standardizedPath = itemURL.standardizedFileURL.path
-            if skippedPaths.contains(standardizedPath) {
+            if isSkipped(itemURL) {
+                enumerator.skipDescendants()
                 continue
             }
-
+            let standardizedPath = itemURL.standardizedFileURL.path
             let relativePath = String(standardizedPath.dropFirst(sourceDirectoryURL.standardizedFileURL.path.count + 1))
             let resourceValues = try itemURL.resourceValues(forKeys: [.isDirectoryKey])
             let destinationURL = destinationDirectoryURL.appendingPathComponent(

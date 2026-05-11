@@ -45,29 +45,6 @@ struct GraphFloatingControls: View {
         .glassEffect(.regular.interactive(), in: Capsule())
         .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
         .fixedSize(horizontal: true, vertical: false)
-        .onAppear(perform: enforceDefaultFilters)
-    }
-
-    // MARK: - Default Filter Enforcement
-    // Manual filter toggling was removed — users no longer control node-type visibility.
-    // This enforces the canonical default: show visible artifact/semantic types, hide tag/source/quote.
-    private func enforceDefaultFilters() {
-        var changed = false
-        // Ensure graph-visible artifact/semantic types are on.
-        for type in GraphOverlayControlsDisplay.filterTypes
-            where !graphState.filter.activeNodeTypes.contains(type) {
-            graphState.filter.toggleType(type)
-            changed = true
-        }
-        // Ensure the 3 excluded types (tag/source/quote) stay off.
-        for type in GraphOverlayControlsDisplay.excludedFilterTypes
-            where graphState.filter.activeNodeTypes.contains(type) {
-            graphState.filter.toggleType(type)
-            changed = true
-        }
-        if changed {
-            graphState.requestFilterSync()
-        }
     }
 
     // MARK: - Render Mode

@@ -1066,9 +1066,9 @@ final class MetalGraphNSView: NSView {
         )
         sendEdgeBatch(edgePayload, to: engine)
 
-        // Entrance animation: always play for small graphs (under static threshold),
-        // skip for large graphs or when already committed (mid-session recommit).
-        let isSmallGraph = graphState.store.nodeCount <= GraphState.staticLayoutThreshold
+        // Entrance animation: always play for small graphs, but skip for very
+        // large graphs or when already committed. Physics still stays active.
+        let isSmallGraph = graphState.store.nodeCount <= GraphState.largeGraphEntranceThreshold
         let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
         let shouldSnapInitialGlobalCamera = isCommitted == false && {
             if case .global = graphState.mode { return true }
@@ -1091,7 +1091,7 @@ final class MetalGraphNSView: NSView {
             applyDefaultGlobalCameraFrame(animated: false)
         }
 
-        // Update static layout flag — physics controls grey out when true.
+        // Update user-freeze/static flag — physics controls grey out when true.
         graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
 
         pushForceParams()
@@ -1235,7 +1235,7 @@ final class MetalGraphNSView: NSView {
         }
         graph_engine_refresh_visibility(engine)
 
-        // Re-check static layout — focusing on a subset may re-enable physics.
+        // Re-check user-freeze/static flag after visibility refresh.
         graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
 
         needsRender = true

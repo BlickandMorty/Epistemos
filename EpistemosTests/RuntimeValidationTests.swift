@@ -3529,6 +3529,7 @@ struct RuntimeValidationTests {
         #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
         #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
+        #expect(resetBody.contains("UserDefaults.standard.set(false, forKey: \"epistemos.setupComplete\")"))
         #expect(resetBody.contains("clearVaultLifecycleRuntimeState("))
         #expect(appBootstrap.contains("queryEngine.resetForVaultLifecycle()"))
         #expect(appBootstrap.contains("contextualShadowsState.resetForVaultLifecycle()"))

@@ -2829,6 +2829,7 @@ final class AppBootstrap {
 
         uiState.setActivePanel(.home)
         uiState.needsSetup = true
+        UserDefaults.standard.set(false, forKey: "epistemos.setupComplete")
 
         Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
     }

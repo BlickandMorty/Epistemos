@@ -101,6 +101,29 @@ impl World {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.entities.clear();
+        self.entity_to_index.clear();
+        self.next_entity_id = 0;
+        self.transform.clear();
+        self.velocity.clear();
+        self.hierarchy.clear();
+        self.render.clear();
+        self.graph_node.clear();
+        self.ai.clear();
+        self.edges.clear();
+        self.edge_adjacency.clear();
+        self.spatial_grid.clear();
+        self.node_id_to_entity.clear();
+        self.entity_to_node_id.clear();
+        self.px.clear();
+        self.py.clear();
+        self.pvx.clear();
+        self.pvy.clear();
+        self.pfx.clear();
+        self.pfy.clear();
+    }
+
     pub fn spawn(&mut self, transform: TransformComponent) -> Entity {
         debug_assert!(self.next_entity_id < u32::MAX, "entity ID space exhausted");
         let entity = self.next_entity_id;
@@ -320,6 +343,44 @@ mod tests {
         assert!(world.pfx.capacity() >= 1024);
         assert!(world.pfy.capacity() >= 1024);
         assert_world_invariants(&world);
+    }
+
+    #[test]
+    fn test_world_clear_resets_all_runtime_maps_and_arrays() {
+        let mut world = World::new();
+        let e0 = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 2.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 3.0,
+            y: 4.0,
+            scale: 1.0,
+        });
+        world.node_id_to_entity.insert(42, e0);
+        world.entity_to_node_id.insert(e0, 42);
+        world.edges.push(EdgeComponent {
+            source: e0,
+            target: e1,
+            weight: 1.0,
+            edge_type: 0,
+            _pad0: [0; 3],
+        });
+        world.rebuild_edge_adjacency();
+
+        world.clear();
+
+        assert!(world.is_empty());
+        assert!(world.entity_to_index.is_empty());
+        assert!(world.node_id_to_entity.is_empty());
+        assert!(world.entity_to_node_id.is_empty());
+        assert!(world.edges.is_empty());
+        assert!(world.edge_adjacency.is_empty());
+        assert_world_invariants(&world);
+
+        let next = world.spawn(TransformComponent::default());
+        assert_eq!(next, 0);
     }
 
     #[test]

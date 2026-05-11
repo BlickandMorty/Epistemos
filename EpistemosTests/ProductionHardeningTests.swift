@@ -1016,6 +1016,7 @@ struct AuditHardeningRegressionTests {
         #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
         #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
         #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
+        #expect(resetBody.contains("UserDefaults.standard.set(false, forKey: \"epistemos.setupComplete\")"))
     }
 
     @Test("Omega planner schemas stay aligned with registered MCP tools")

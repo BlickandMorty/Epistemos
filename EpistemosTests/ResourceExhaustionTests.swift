@@ -658,10 +658,10 @@ struct ResourceMemoryPressureTests {
 @MainActor
 struct ResourceEdgeCaseTests {
     
-    @Test("Graph near static layout threshold")
-    func nearStaticLayoutThreshold() {
+    @Test("Graph near large-graph entrance threshold")
+    func nearLargeGraphEntranceThreshold() {
         let store = GraphStore()
-        let threshold = GraphState.staticLayoutThreshold
+        let threshold = GraphState.largeGraphEntranceThreshold
         
         for i in 0..<(threshold - 10) {
             store.addNode(GraphNodeRecord(
@@ -680,10 +680,10 @@ struct ResourceEdgeCaseTests {
         #expect(store.nodeCount == threshold - 10)
     }
     
-    @Test("Graph at static layout threshold")
-    func atStaticLayoutThreshold() {
+    @Test("Graph at large-graph entrance threshold")
+    func atLargeGraphEntranceThreshold() {
         let store = GraphStore()
-        let threshold = GraphState.staticLayoutThreshold
+        let threshold = GraphState.largeGraphEntranceThreshold
         
         for i in 0..<threshold {
             store.addNode(GraphNodeRecord(
@@ -702,10 +702,10 @@ struct ResourceEdgeCaseTests {
         #expect(store.nodeCount == threshold)
     }
     
-    @Test("Graph above static layout threshold")
-    func aboveStaticLayoutThreshold() {
+    @Test("Graph above large-graph entrance threshold")
+    func aboveLargeGraphEntranceThreshold() {
         let store = GraphStore()
-        let count = GraphState.staticLayoutThreshold + 100
+        let count = GraphState.largeGraphEntranceThreshold + 100
         
         for i in 0..<count {
             store.addNode(GraphNodeRecord(

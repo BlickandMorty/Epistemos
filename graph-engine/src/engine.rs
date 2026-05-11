@@ -35,8 +35,13 @@ fn adaptive_physics_hz(node_count: usize) -> f64 {
         501..=1000 => 60.0,
         1001..=3000 => 40.0,
         3001..=5000 => 30.0,
-        _ => 30.0,
+        5001..=9000 => 24.0,
+        _ => 18.0,
     }
+}
+
+fn should_dispatch_gpu_nbody(node_count: usize) -> bool {
+    (2001..=9000).contains(&node_count)
 }
 
 fn recenter_nodes_to_origin(nodes: &mut [crate::types::Node]) {
@@ -487,7 +492,7 @@ impl Engine {
         self.commit_instant = Instant::now();
 
         // Fresh graph load: clear user freeze so physics starts fresh.
-        // User must explicitly re-freeze if they want static layout.
+        // User must explicitly re-freeze if they want physics paused.
         if entrance {
             self.sim.lock().user_frozen = false;
         }
@@ -602,16 +607,15 @@ impl Engine {
             sim.load_from_graph(&self.graph);
             Self::ensure_cluster_assignments(&mut self.cluster_cache, &mut sim);
 
-            // Page mode always gets full physics — it shows a small subset
-            // (focal node + 1-hop neighbors) regardless of total vault size.
-            // But respect user-controlled freeze if active.
+            // Page mode always gets full physics, unless the user-controlled
+            // freeze is active.
             if self.mode == 1 && sim.static_layout && !sim.user_frozen {
                 sim.static_layout = false;
                 sim.is_settled = false;
                 sim.params.alpha = 0.15;
             }
 
-            // Skip physics pre-settle for static layout.
+            // Skip physics pre-settle only while user-frozen.
             if !sim.static_layout {
                 // Pre-settle: run physics ticks before first render so the graph
                 // opens with nodes already near equilibrium (no visible drift).
@@ -690,6 +694,49 @@ impl Engine {
 
         // ── Start Physics ────────────────────────────────────────────
         self.start_physics();
+    }
+
+    /// Clear every graph-derived runtime cache without restarting physics.
+    ///
+    /// Vault disconnect and reset paths need the next frame to draw zero
+    /// instances immediately, but a full commit is too heavy for a synchronous
+    /// FFI clear because it joins/restarts physics and rebuilds large indexes.
+    pub fn clear_pipeline(&mut self) {
+        self.graph.clear();
+
+        {
+            let mut sim = self.sim.lock();
+            sim.load_from_graph(&self.graph);
+            sim.semantic_neighbors.clear();
+            sim.viewport_bounds = None;
+            sim.gpu_nbody_forces = None;
+            sim.clear_fluid_velocity();
+        }
+
+        self.world.clear();
+        self.spatial.build(&self.graph.nodes);
+        self.search_index.build(&self.graph.nodes);
+        self.embedding_store.lock().clear();
+        self.semantic_neighbors.lock().clear();
+        self.prepared_retrieval_store = None;
+        self.cluster_cache = ClusterCache::new();
+
+        self.renderer.clear_instances();
+        self.label_instance_scratch.clear();
+        self.label_cache_camera = [f32::MAX, f32::MAX];
+        self.label_cache_zoom = 0.0;
+        self.search_highlight_ids_scratch.clear();
+        self.gpu_positions_scratch.clear();
+
+        self.selected_id = None;
+        self.hovered_id = None;
+        self.drag = None;
+        self.pan_active = false;
+        self.last_sim_active = false;
+        self.camera_rebuild_pending = false;
+        self.quality_rebuild_pending = false;
+        self.highlight_dirty = true;
+        self.idle_frame_count = 0;
     }
 
     fn start_physics(&mut self) {
@@ -984,11 +1031,15 @@ impl Engine {
         // viewport culling (prevents nodes popping in/out at edges).
         self.renderer.sim_active = sim_active;
 
-        // GPU N-body: dispatch brute-force repulsion on GPU for large graphs.
+        // GPU N-body: dispatch brute-force repulsion on GPU for medium-large
+        // graphs. Above the high-node threshold it becomes O(N²) work that can
+        // dominate the render thread, so those graphs use the simulation's
+        // cheaper large-graph force path instead of freezing or dispatching
+        // massive compute passes.
         // Forces are written to sim.gpu_nbody_forces; the physics thread drains them
         // atomically at the start of its next tick, preventing double-application.
         let n = self.world.len();
-        if n > 2000 && self.renderer.compute_pipeline.is_some() {
+        if should_dispatch_gpu_nbody(n) && self.renderer.compute_pipeline.is_some() {
             self.gpu_positions_scratch.clear();
             self.gpu_positions_scratch.reserve(n);
             for i in 0..n {
@@ -2388,7 +2439,7 @@ impl Engine {
         self.sim.lock().is_settled
     }
 
-    /// Returns true when physics is completely disabled (large graph above threshold).
+    /// Returns true when physics is explicitly frozen.
     pub fn is_static_layout(&self) -> bool {
         self.sim.lock().static_layout
     }
@@ -2700,6 +2751,22 @@ mod tests {
     use crate::types::Graph;
     use metal::foreign_types::ForeignType;
     use metal::{Device, MetalLayer};
+
+    #[test]
+    fn high_node_graphs_skip_quadratic_gpu_nbody_dispatch() {
+        assert!(!should_dispatch_gpu_nbody(2_000));
+        assert!(should_dispatch_gpu_nbody(2_001));
+        assert!(should_dispatch_gpu_nbody(9_000));
+        assert!(!should_dispatch_gpu_nbody(9_001));
+        assert!(!should_dispatch_gpu_nbody(10_000));
+    }
+
+    #[test]
+    fn adaptive_physics_hz_keeps_high_node_graphs_active() {
+        assert_eq!(adaptive_physics_hz(500), 120.0);
+        assert_eq!(adaptive_physics_hz(5_500), 24.0);
+        assert_eq!(adaptive_physics_hz(10_000), 18.0);
+    }
 
     #[test]
     fn hybrid_label_scale_changes_with_zoom_and_clamps_to_readable_bounds() {
@@ -3292,6 +3359,76 @@ mod tests {
             !old_neighbors.contains(&moved_entity),
             "spatial grid should drop the node from its stale position"
         );
+    }
+
+    #[test]
+    fn clear_pipeline_flushes_drawable_runtime_state_without_restarting_physics() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+
+        let physics_thread_id = engine
+            .physics_handle
+            .as_ref()
+            .map(|handle| handle.thread().id())
+            .expect("commit should start physics");
+        assert!(!engine.graph.nodes.is_empty());
+        assert!(!engine.world.is_empty());
+        assert!(!engine.sim.lock().x.is_empty());
+        let (node_count, edge_count, _, _) = engine.renderer.instance_counts_for_tests();
+        assert!(node_count > 0);
+        assert!(edge_count > 0);
+        assert!(!engine.search_index.search("Alpha", 10).is_empty());
+
+        engine.select_node("b");
+        engine.search_highlight("Alpha");
+        engine
+            .embedding_store
+            .lock()
+            .set(0, &vec![0.25; crate::embedding::DEFAULT_DIM]);
+
+        engine.clear_pipeline();
+
+        assert_eq!(
+            engine
+                .physics_handle
+                .as_ref()
+                .map(|handle| handle.thread().id()),
+            Some(physics_thread_id),
+            "clear_pipeline must not stop/restart physics"
+        );
+        assert!(engine.graph.nodes.is_empty());
+        assert!(engine.graph.edges.is_empty());
+        assert!(engine.world.is_empty());
+        assert!(engine.world.node_id_to_entity.is_empty());
+        assert!(engine.world.entity_to_node_id.is_empty());
+        {
+            let sim = engine.sim.lock();
+            assert!(sim.x.is_empty());
+            assert!(sim.y.is_empty());
+            assert!(sim.edges.is_empty());
+            assert!(sim.graph_indices.is_empty());
+            assert!(sim.semantic_neighbors.is_empty());
+        }
+        assert!(engine.spatial.is_empty());
+        assert!(engine.search_index.search("Alpha", 10).is_empty());
+        assert!(engine.embedding_store.lock().is_empty());
+        assert!(engine.semantic_neighbors.lock().is_empty());
+        assert_eq!(engine.renderer.instance_counts_for_tests(), (0, 0, 0, 0));
+        assert!(!engine.renderer.highlight.active);
+        assert!(engine.renderer.highlight.highlighted_ids.is_empty());
+        assert_eq!(engine.selected_id, None);
+        assert_eq!(engine.hovered_id, None);
+        assert!(engine.drag.is_none());
+
+        engine.stop_physics();
     }
 
     #[test]
@@ -3938,37 +4075,36 @@ mod tests {
     }
 
     #[test]
-    fn stress_10000_nodes_static_layout() {
-        // 10000 nodes exceeds static layout threshold (9000).
-        // Physics should be completely disabled.
+    fn stress_10000_nodes_keeps_physics_active() {
+        // 10000 nodes used to exceed the static-layout threshold and freeze.
+        // It should now stay active while using the large-graph force path.
         let graph = make_large_graph(10_000);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
 
-        // Static layout should be active.
-        assert!(sim.static_layout, "3000 nodes should trigger static layout");
-        assert!(sim.is_settled, "static layout should be settled");
-        assert_eq!(sim.params.alpha, 0.0, "alpha should be 0 for static layout");
-
-        // Edges should NOT be in simulation (skipped for performance).
         assert!(
-            sim.edges.is_empty(),
-            "static layout should not load physics edges"
+            !sim.static_layout,
+            "large graphs must not trigger automatic static layout"
+        );
+        assert!(!sim.is_settled, "large graph physics should remain active");
+        assert!(sim.params.alpha > 0.0, "alpha should stay nonzero");
+
+        assert!(
+            !sim.edges.is_empty(),
+            "large graphs should load physics edges"
         );
 
         // Degrees should still be computed (needed for node radius sizing).
         let total_deg: u32 = sim.degrees.iter().sum();
         assert!(
             total_deg > 0,
-            "degrees should be computed for static layout"
+            "degrees should be computed for large graph physics"
         );
 
-        // tick() should be a no-op.
-        let x_before: Vec<f32> = sim.x.clone();
         sim.tick();
-        assert_eq!(
-            sim.x, x_before,
-            "tick() should not modify positions in static layout"
+        assert!(
+            !sim.static_layout,
+            "tick() should not flip back to static layout"
         );
 
         // Verify no NaN/Inf in positions.
@@ -3976,12 +4112,6 @@ mod tests {
             assert!(sim.x[i].is_finite(), "x[{}] not finite", i);
             assert!(sim.y[i].is_finite(), "y[{}] not finite", i);
         }
-
-        // All velocities should be zero.
-        assert!(
-            sim.vx.iter().all(|&v| v == 0.0),
-            "velocities should be zero"
-        );
     }
 
     // ── Anime aesthetic feature tests ────────────────────────────────

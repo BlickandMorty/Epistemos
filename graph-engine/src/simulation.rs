@@ -499,14 +499,14 @@ pub struct Simulation {
     /// Lite mode: skip cluster and semantic forces for faster physics at scale.
     pub lite_mode: bool,
 
-    /// Static layout: physics completely disabled for large graphs (> 1500 nodes).
-    /// Nodes keep their initial positions. Re-evaluated on every `load_from_graph()`,
-    /// so focusing on a small subset automatically re-enables physics.
+    /// Static layout: user-controlled freeze only. Large graphs stay simulated
+    /// via adaptive tick cadence and cheaper force paths instead of silently
+    /// stopping.
     pub static_layout: bool,
 
-    /// User-controlled physics freeze (independent of auto-threshold static_layout).
-    /// When true, `load_from_graph()` preserves `static_layout = true` regardless
-    /// of node count, so graph reloads don't silently unfreeze.
+    /// User-controlled physics freeze.
+    /// When true, `load_from_graph()` preserves `static_layout = true` so graph
+    /// reloads don't silently unfreeze.
     pub user_frozen: bool,
 
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
@@ -599,6 +599,7 @@ fn warm_start_limits(node_count: usize) -> (u16, std::time::Duration) {
         51..=200 => (120, std::time::Duration::from_millis(10)),
         201..=1_000 => (160, std::time::Duration::from_millis(10)),
         1_001..=3_000 => (120, std::time::Duration::from_millis(8)),
+        9_001.. => (0, std::time::Duration::from_millis(0)),
         _ => (96, std::time::Duration::from_millis(6)),
     }
 }
@@ -803,10 +804,10 @@ impl Simulation {
             self.snap_back.push([0.0, 0.0]);
         }
 
-        // Static layout for large graphs: no physics at all.
-        // Skip expensive edge processing — nodes keep spiral/loaded positions.
-        // When user focuses on a subset, visible count drops below threshold
-        // and physics re-enables automatically via the next load_from_graph().
+        // Large graphs still participate in physics. Older builds switched to
+        // a static layout above 9k nodes, which left dense vault graphs feeling
+        // broken. Keep the preallocation, then let adaptive tick cadence and
+        // large-graph force shortcuts carry the cost.
         let node_count = self.x.len();
         if self.bodies_scratch.capacity() < node_count {
             self.bodies_scratch
@@ -816,44 +817,7 @@ impl Simulation {
             self.collision_keys_scratch
                 .reserve(node_count - self.collision_keys_scratch.capacity());
         }
-        const STATIC_LAYOUT_THRESHOLD: usize = 9000;
-        if node_count > STATIC_LAYOUT_THRESHOLD {
-            self.static_layout = true;
-            self.is_settled = true;
-            self.params.alpha = 0.0;
-            // Zero out all velocities — no residual drift.
-            for v in &mut self.vx {
-                *v = 0.0;
-            }
-            for v in &mut self.vy {
-                *v = 0.0;
-            }
-            // Still compute degrees from raw edge data (needed for node radius sizing)
-            // but skip sorting/capping since physics won't run.
-            for edge in &graph.edges {
-                let si_src = graph
-                    .id_to_index
-                    .get(&edge.source)
-                    .and_then(|&gi| graph_to_sim[gi]);
-                let si_tgt = graph
-                    .id_to_index
-                    .get(&edge.target)
-                    .and_then(|&gi| graph_to_sim[gi]);
-                if let (Some(src), Some(tgt)) = (si_src, si_tgt) {
-                    self.degrees[src] += 1;
-                    self.degrees[tgt] += 1;
-                }
-            }
-            for d in &mut self.degrees {
-                if *d == 0 {
-                    *d = 1;
-                }
-            }
-            return;
-        }
-
-        // User freeze overrides auto-threshold: keep physics disabled even
-        // if node count dropped below the threshold (e.g. after focus change).
+        // User freeze is the only static-layout path.
         if self.user_frozen {
             self.static_layout = true;
             self.is_settled = true;
@@ -1092,6 +1056,8 @@ impl Simulation {
             alpha,
         );
 
+        let large_graph_fast_path = n > 9_000;
+
         if !at_floor {
             // Torsional springs: equalize angular spacing around hub nodes.
             // Gated by the `EXPERIMENTAL_MOTION_FORCES_ENABLED` master
@@ -1124,7 +1090,7 @@ impl Simulation {
                         self.vy[i] += force[1];
                     }
                 }
-            } else {
+            } else if !large_graph_fast_path {
                 self.bodies_scratch.clear();
                 forces::force_many_body_with_scratch(
                     &self.x,
@@ -1152,18 +1118,20 @@ impl Simulation {
                     v.clear();
                 }
             }
-            forces::force_collide_with_full_scratch(
-                &mut self.x,
-                &mut self.y,
-                &self.collision_radii,
-                &self.mass,
-                &self.fx,
-                &self.fy,
-                self.params.collision_iterations,
-                self.params.collision_compliance,
-                &mut self.collision_grid,
-                &mut self.collision_keys_scratch,
-            );
+            if !large_graph_fast_path || self.tick_count.is_multiple_of(3) {
+                forces::force_collide_with_full_scratch(
+                    &mut self.x,
+                    &mut self.y,
+                    &self.collision_radii,
+                    &self.mass,
+                    &self.fx,
+                    &self.fy,
+                    self.params.collision_iterations,
+                    self.params.collision_compliance,
+                    &mut self.collision_grid,
+                    &mut self.collision_keys_scratch,
+                );
+            }
         }
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
@@ -1192,7 +1160,8 @@ impl Simulation {
 
         if !at_floor {
             // Cluster cohesion force (skipped in lite mode and at floor).
-            if !self.lite_mode
+            if !large_graph_fast_path
+                && !self.lite_mode
                 && self.params.cluster_strength > 0.001
                 && !self.cluster_ids.is_empty()
             {
@@ -1212,7 +1181,8 @@ impl Simulation {
 
             // Semantic boids flocking (skipped in lite mode and at floor).
             // boids_cohesion scales effective strength: 0 → 50%, 1 → 100% of base.
-            if !self.lite_mode
+            if !large_graph_fast_path
+                && !self.lite_mode
                 && self.params.semantic_strength > 0.001
                 && !self.semantic_neighbors.is_empty()
             {
@@ -1333,7 +1303,8 @@ impl Simulation {
         // uses wall-clock which breaks the `simulation_is_deterministic`
         // regression tests.
         const AMBIENT_SETTLE_GRACE_TICKS: u32 = 60;
-        if self.params.ambient_breath_strength > 0.0
+        if !large_graph_fast_path
+            && self.params.ambient_breath_strength > 0.0
             && self.tick_count > AMBIENT_SETTLE_GRACE_TICKS
             && self.degrees.len() >= n
         {
@@ -1357,7 +1328,10 @@ impl Simulation {
         // relaxation). The resulting field has exactly the intended
         // "light leaf trails through water, heavy hub parts it"
         // texture.
-        if self.params.enable_fluid_dynamics && self.fluid_grid.is_active() {
+        if !large_graph_fast_path
+            && self.params.enable_fluid_dynamics
+            && self.fluid_grid.is_active()
+        {
             // Viscosity maps to decay: 0.0 (watery, fast dissipation) → 1.0 (honey, slow)
             let decay = 0.85 + self.params.fluid_viscosity * 0.13;
             self.fluid_grid.diffuse_and_decay_with(decay);
@@ -1504,7 +1478,7 @@ impl Simulation {
     }
 
     /// Reheat the simulation (for user parameter changes or data reload).
-    /// No-op when in static layout mode (large graphs with physics disabled).
+    /// No-op when the user has frozen physics.
     pub fn reheat(&mut self) {
         if self.static_layout {
             return;
@@ -2537,7 +2511,7 @@ mod tests {
     }
 
     #[test]
-    fn is_settled_with_static_layout() {
+    fn is_settled_with_user_frozen_static_layout() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -2550,6 +2524,7 @@ mod tests {
             );
         }
         let mut sim = Simulation::new();
+        sim.set_user_frozen(true);
         sim.load_from_graph(&graph);
         assert!(sim.is_settled);
         assert!(sim.static_layout);
@@ -3725,11 +3700,11 @@ mod tests {
     }
 
     // =========================================================================
-    // Static Layout Tests (10 tests)
+    // Large Graph Physics Tests
     // =========================================================================
 
     #[test]
-    fn static_layout_triggered_for_many_nodes() {
+    fn large_graphs_keep_physics_active() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3743,8 +3718,9 @@ mod tests {
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        assert!(sim.static_layout);
-        assert!(sim.is_settled);
+        assert!(!sim.static_layout);
+        assert!(!sim.is_settled);
+        assert!(sim.params.alpha > 0.0);
     }
 
     #[test]
@@ -3762,6 +3738,14 @@ mod tests {
 
         assert!(iterations <= 96);
         assert_eq!(budget, std::time::Duration::from_millis(6));
+    }
+
+    #[test]
+    fn warm_start_limits_skip_high_node_sync_work() {
+        let (iterations, budget) = warm_start_limits(10_000);
+
+        assert_eq!(iterations, 0);
+        assert_eq!(budget, std::time::Duration::from_millis(0));
     }
 
     #[test]
@@ -3788,7 +3772,7 @@ mod tests {
     }
 
     #[test]
-    fn static_layout_no_physics() {
+    fn large_graphs_load_physics_edges() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3800,17 +3784,17 @@ mod tests {
                 format!("Node {}", i),
             );
         }
+        for i in 1..10_000 {
+            graph.add_edge("node-0", &format!("node-{}", i), 1.0, 0);
+        }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        let x_before = sim.x[0];
-        for _ in 0..10 {
-            sim.tick();
-        }
-        assert_eq!(sim.x[0], x_before);
+        assert!(!sim.static_layout);
+        assert_eq!(sim.edges.len(), 9_999);
     }
 
     #[test]
-    fn static_layout_velocities_zero() {
+    fn user_freeze_still_zeroes_large_graph_velocities() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3824,6 +3808,7 @@ mod tests {
             graph.nodes[i].vx = 100.0;
         }
         let mut sim = Simulation::new();
+        sim.set_user_frozen(true);
         sim.load_from_graph(&graph);
         for v in &sim.vx {
             assert_eq!(*v, 0.0);
@@ -3831,7 +3816,7 @@ mod tests {
     }
 
     #[test]
-    fn static_layout_alpha_zero() {
+    fn large_graphs_start_with_nonzero_alpha() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3845,11 +3830,11 @@ mod tests {
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        assert_eq!(sim.params.alpha, 0.0);
+        assert!(sim.params.alpha > 0.0);
     }
 
     #[test]
-    fn static_layout_reheat_no_effect() {
+    fn large_graph_reheat_remains_effective() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3864,12 +3849,12 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.reheat();
-        assert!(sim.static_layout);
-        assert_eq!(sim.params.alpha, 0.0);
+        assert!(!sim.static_layout);
+        assert!(sim.params.alpha > 0.0);
     }
 
     #[test]
-    fn static_layout_preserves_positions() {
+    fn large_graph_load_preserves_initial_positions_before_first_tick() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3890,7 +3875,7 @@ mod tests {
     }
 
     #[test]
-    fn static_layout_below_threshold_disabled() {
+    fn large_graph_below_legacy_threshold_active() {
         let mut graph = Graph::new();
         for i in 0..8000 {
             graph.add_node(
@@ -3908,7 +3893,7 @@ mod tests {
     }
 
     #[test]
-    fn static_layout_at_threshold_disabled() {
+    fn large_graph_at_legacy_threshold_active() {
         let mut graph = Graph::new();
         for i in 0..9000 {
             graph.add_node(
@@ -3926,7 +3911,7 @@ mod tests {
     }
 
     #[test]
-    fn static_layout_computes_degrees() {
+    fn large_graph_computes_degrees() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -3948,7 +3933,7 @@ mod tests {
     }
 
     #[test]
-    fn static_layout_min_degree_one() {
+    fn large_graph_min_degree_one() {
         let mut graph = Graph::new();
         for i in 0..3000 {
             graph.add_node(
@@ -4386,7 +4371,7 @@ mod tests {
     }
 
     #[test]
-    fn tick_count_with_static_layout() {
+    fn tick_count_with_user_frozen_static_layout() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
             graph.add_node(
@@ -4399,6 +4384,7 @@ mod tests {
             );
         }
         let mut sim = Simulation::new();
+        sim.set_user_frozen(true);
         sim.load_from_graph(&graph);
         let count_before = sim.tick_count;
         sim.tick();

@@ -190,12 +190,12 @@ struct GraphForceSettings: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Physics Paused")
+                Text("Physics Frozen")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(userFrozen
                      ? "Physics frozen by user. Use the toolbar toggle to resume."
-                     : "Graph exceeds \(GraphState.staticLayoutThreshold) nodes. Focus on a node to enable physics for that cluster.")
+                     : "Physics is paused for this graph state.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
