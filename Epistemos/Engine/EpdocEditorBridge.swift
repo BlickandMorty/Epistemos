@@ -584,30 +584,71 @@ nonisolated public func jsStringLiteral(_ s: String) -> String {
 public final class EpdocEditorSavePipeline {
     private let subject = PassthroughSubject<Data, Never>()
     private var subscription: AnyCancellable?
+    // RCA13 perf+persistence: hold the most-recent enqueued JSON so a
+    // synchronous flush can drain the in-flight debounce window. Without
+    // this, an app quit / window close during the 300ms quiet period
+    // dropped the last keystroke even though NSDocument was marked dirty.
+    private var pendingJson: Data?
+    private let save: @MainActor @Sendable (Data) -> Void
 
     public init(
         debounce: DispatchQueue.SchedulerTimeType.Stride = .milliseconds(300),
         save: @escaping @MainActor @Sendable (Data) -> Void
     ) {
+        self.save = save
         subscription = subject
             .debounce(for: debounce, scheduler: DispatchQueue.main)
-            .sink { json in
+            .sink { [weak self] json in
                 MainActor.assumeIsolated {
                     save(json)
+                    self?.pendingJson = nil
                 }
             }
+        Self.register(self)
     }
 
     /// Push a content change. The pipeline coalesces back-to-back
     /// updates within the debounce window into one save.
     public func enqueue(json: Data) {
+        pendingJson = json
         subject.send(json)
+    }
+
+    /// Drain any in-flight debounce window. Safe to call when no save
+    /// is pending — becomes a no-op. Used by `performTeardown()` so
+    /// app quit can't drop the last keystroke.
+    public func flushNow() {
+        guard let json = pendingJson else { return }
+        pendingJson = nil
+        save(json)
     }
 
     // No deinit cancel needed: AnyCancellable cancels itself on
     // deinit. Adding a manual cancel() call here under Swift 6
     // strict concurrency triggers a "non-Sendable from nonisolated
     // deinit" error and isn't necessary for correctness.
+
+    // MARK: - Shutdown drain registry
+
+    private static var activeInstances: [Weak] = []
+
+    private struct Weak {
+        weak var pipeline: EpdocEditorSavePipeline?
+    }
+
+    private static func register(_ pipeline: EpdocEditorSavePipeline) {
+        activeInstances.removeAll { $0.pipeline == nil }
+        activeInstances.append(Weak(pipeline: pipeline))
+    }
+
+    /// Flush every live pipeline. Call from `applicationShouldTerminate`
+    /// / `applicationWillTerminate` so the last keystroke in any open
+    /// .epdoc editor is on disk before the process exits.
+    public static func flushAllForShutdown() {
+        for slot in activeInstances {
+            slot.pipeline?.flushNow()
+        }
+    }
 }
 
 // MARK: - Errors

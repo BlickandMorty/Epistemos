@@ -964,6 +964,13 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     private func performTeardown() {
         guard !didTeardown else { return }
         didTeardown = true
+        // RCA13 .epdoc persistence: drain every live save pipeline FIRST,
+        // before anything else tears down. If a user typed and quit during
+        // the 300ms debounce window, the in-flight keystroke would have
+        // been dropped — NSDocument's dirty flag was set but the bytes
+        // never reached fileWrapper(ofType:). flushNow() short-circuits
+        // the debounce and saves synchronously.
+        EpdocEditorSavePipeline.flushAllForShutdown()
         guard !Self.isRunningTests else {
             StatusBar.shared.remove()
             HologramController.shared.teardown()
