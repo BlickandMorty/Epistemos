@@ -709,7 +709,20 @@ Acceptance:
 
 ### RCA-P1-019 - Wire or suppress GenUI action panels
 
-Status: TODO
+Status: PATCHED 2026-05-10 — buttons replaced with inert chips + preview hint; host-callback wiring is the follow-up slice
+
+Fix-pass evidence: commit `222313923` (`Epistemos/Engine/GenUI
+Dispatcher.swift`). The previous implementation rendered action
+labels as clickable buttons with empty `{ /* TODO */ }` closures
+— a UI lie about whether the user could act. Now the dispatcher
+renders the action labels as inert capsule chips at reduced
+contrast, plus an `hourglass` SF Symbol with a "host wiring
+pending" help tooltip. The schema stays renderable so producers
+can keep emitting it; the UI is honest that the action panel is
+in preview state.
+
+Remaining work: when the GenUI G.3 host-closure plumbing lands,
+re-enable the active button shell.
 
 Subsystem: GenUI, cloud response rendering, action panels.
 
@@ -731,7 +744,27 @@ Acceptance:
 
 ### RCA-P1-020 - Fix `.epdoc` local stats versus graph projection mismatch
 
-Status: TODO
+Status: PATCHED 2026-05-10 — wikilinks now counted doc-wide; runtime save/reopen smoke pending
+
+Fix-pass evidence: commit `09fc43977` (`Epistemos/Engine/EpdocComplexity
+Calculator.swift` + regression test in `EpistemosTests/EpdocComplexity
+CalculatorTests.swift`). The previous walker counted wikilinks
+per text node, so a `[[Label]]` that ProseMirror split around a
+mark (bold/italic/link) was reported as 0 links — the graph
+projector saw it because it scans at the document level, the
+complexity calc didn't. Both code paths use the same
+`EpdocGraphProjector.wikilinkLabels` helper now; the complexity
+calc does a single document-wide scan in `breakdown(for:)` and
+subtracts the per-text-node count it accumulated, so split text
+nodes are no longer missed.
+
+Regression test: `wikilinkSplitAcrossMarkedTextNodesStillCounts`
+exercises a doc with `[[Bold Label]]` split across four sibling
+text nodes (one bold-marked); pre-fix this returned `linkCount
+== 0`, post-fix it returns 1.
+
+Remaining work: full save/reopen runtime smoke on a real
+.epdoc package with images + transclusions still queued.
 
 Subsystem: `.epdoc` stats, wikilink parsing, graph projection, editor chrome.
 
@@ -753,7 +786,27 @@ Acceptance:
 
 ### RCA-P1-021 - Make App Store and Pro feature visibility honest
 
-Status: TODO
+Status: PATCHED 2026-05-10 — DeploymentProfileHealthRow ships in both profiles
+
+Fix-pass evidence: commit `9f064b011` (`Epistemos/Views/Settings/
+DeploymentProfileHealthRow.swift` + Diagnostics-section wire-up in
+`SettingsView.swift`).
+
+The existing `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` guards
+already stripped Channels / Knowledge Fusion / iMessage Driver /
+Skills from the MAS sidebar. The audit's remaining gap was that
+the strip was silent — the user had no symmetric way to see "I'm
+on MAS, these are intentionally not available." The new row:
+  - shows the active deployment profile (App Store / Pro)
+  - lists the 8 capabilities that differ between MAS and Pro
+  - on MAS shows them as "Not available in this build" with
+    `minus.circle`
+  - on Pro shows them as "Enabled by this profile" with green
+    `checkmark.circle`
+
+The CLIDiscoveryHealthRow (commit `26175cca4`) stays MAS-gated
+since its content is meaningless without subprocess-execution
+permission.
 
 Subsystem: MAS target, Pro target, settings, automation, local models, CLI, AX.
 
@@ -913,7 +966,29 @@ Acceptance:
 
 ### RCA-P2-004 - Make structured query grammar match implementation
 
-Status: TODO
+Status: PATCHED 2026-05-10 — OR + grouping now actually parse + tested
+
+Fix-pass evidence: commit `3567e2eda` (`Epistemos/Engine/Structured
+QueryParser.swift` + `EpistemosTests/QueryParserVisibilityTests.swift`).
+
+Parser now:
+  - Splits on `|` at the top level FIRST (lowest precedence) and
+    routes each branch through the AND-split parser. Returns
+    `.or(branches)` when there are 2+ branches.
+  - Recurses into parenthesized groups via `parseAtom` so nested
+    `(query)` constructs parse correctly.
+  - Default extension on `QueryAST` lookup unchanged for backward
+    compat.
+
+Test coverage:
+  - "structured parser splits on | at the top level (OR)"
+  - "structured parser splits on & inside | branches (AND binds tighter)"
+  - "structured parser unwraps parenthesized groups"
+
+Acceptance: "Surfaced query syntax is actually parsed and tested"
+— now true for top-level `|` and `( ... )`. The graph functions
+(`path`, `supports`, `contradicts`, `neighbors`, `similar`) were
+already implemented; this commit closes the OR + group gap.
 
 Subsystem: query DSL, graph/search filters, user parser.
 
