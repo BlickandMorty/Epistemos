@@ -3142,7 +3142,30 @@ Acceptance:
 
 ### RCA4-P1-004 - Make Vault Organizer mutations transactional across SwiftData and filesystem
 
-Status: TODO
+Status: PATCHED 2026-05-10 — Organizer + NotesSidebar rollback shipped, runtime failure-injection smoke still pending
+
+Fix-pass evidence 2026-05-10:
+
+- Commits:
+  - `a83969d93` P2 Vault Organizer rollback when FS step fails
+  - `32449d351` P2b NotesSidebar mirror rollback for FS-touching sites
+  - `afa81ca36` RCA2-P1-006 organizer session-ID guard
+- Files changed:
+  - `Epistemos/Sync/VaultSyncService.swift` — `movePage`,
+    `createDirectory`, `renameDirectory` now return
+    `@discardableResult Bool` so callers can detect FS failure
+  - `Epistemos/Views/Notes/VaultOrganizerView.swift` — `.moveToFolder`
+    and `.createFolder` capture `restoreModel: () -> Void`, run the
+    SwiftData mutation through `persistSuggestionMutation`, then on
+    FS-failure replay the rollback through `persistSuggestionMutation`
+    again so the model lands back at its pre-mutation state
+  - `Epistemos/Views/Notes/NotesSidebar.swift` — same rollback wired
+    into 6 sites: ensureRootFolder, .newSubfolder,
+    .movePageToFolder, .moveFolderInto, .movePageToRoot,
+    .moveFolderToRoot, createFolder, getOrCreateTodayJournal
+- Remaining risk: runtime failure-injection smoke (umount the vault
+  disk mid-organizer apply, force FS-failure after SwiftData save,
+  verify model + UI + graph + search all roll back together).
 
 Subsystem: Vault Organizer, `VaultSyncService`, SwiftData folders/pages, graph/search projection.
 
