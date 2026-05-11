@@ -26,6 +26,28 @@ import OSLog
 /// without spinning up the Rust crate.
 public protocol ShadowSearchServicing: Sendable {
     func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit]
+
+    /// Same as `search` but surfaces backend failures so the UI can
+    /// show "Search backend unavailable" instead of silently treating
+    /// a crash as "no results." Default impl wraps `search` and
+    /// reports nil error; the production `ShadowSearchService`
+    /// overrides to actually catch FFI errors. Per RCA13 P5.
+    func searchReportingErrors(
+        text: String,
+        domain: ShadowDomain,
+        limit: Int
+    ) async -> (hits: [ShadowHit], errorMessage: String?)
+}
+
+extension ShadowSearchServicing {
+    public func searchReportingErrors(
+        text: String,
+        domain: ShadowDomain,
+        limit: Int
+    ) async -> (hits: [ShadowHit], errorMessage: String?) {
+        let hits = await search(text: text, domain: domain, limit: limit)
+        return (hits: hits, errorMessage: nil)
+    }
 }
 
 /// Telemetry sink so tests can verify the OSSignposter intervals fire
@@ -191,10 +213,24 @@ public final class HaloController {
             try? await Task.sleep(nanoseconds: capturedDebounce)
             if Task.isCancelled { return }
 
-            let hits = await self.search.search(text: captured, domain: capturedDomain, limit: 10)
+            // RCA13 P5: use the error-reporting variant so a backend
+            // crash (vault unmounted, FFI handle invalid, bundle
+            // missing) surfaces as .errorRecoverable instead of an
+            // empty matches list that looks identical to "no hits."
+            let outcome = await self.search.searchReportingErrors(
+                text: captured,
+                domain: capturedDomain,
+                limit: 10
+            )
             if Task.isCancelled { return }
 
-            let above = hits.filter { $0.score >= capturedThreshold }
+            if let message = outcome.errorMessage {
+                self.matches = []
+                self.transition(to: .errorRecoverable(message))
+                return
+            }
+
+            let above = outcome.hits.filter { $0.score >= capturedThreshold }
             self.matches = above
             if above.isEmpty {
                 self.transition(to: keepPanelOpen ? .open(domain: capturedDomain) : .dormant)

@@ -330,6 +330,46 @@ public actor ShadowSearchService: ShadowSearchServicing {
         }
     }
 
+    /// Per RCA13 P5: the controller-facing variant catches the same
+    /// FFI errors as `search` but reports them up the stack so the
+    /// Halo UI can surface "Search backend unavailable" instead of
+    /// silently treating a crashed backend as "no results." The
+    /// default protocol implementation in HaloController.swift wraps
+    /// `search` and reports nil error; this override does the real
+    /// catch + message-shaping.
+    public func searchReportingErrors(
+        text: String,
+        domain: ShadowDomain,
+        limit: Int
+    ) async -> (hits: [ShadowHit], errorMessage: String?) {
+        let normalizedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedText.isEmpty, limit > 0 else { return (hits: [], errorMessage: nil) }
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let hits = try client.search(query: text, domain: domain, limit: limit)
+            ShadowSearchDiagnostics.shared.recordSuccess(
+                domain: domain,
+                hitCount: hits.count,
+                latencyMs: (CFAbsoluteTimeGetCurrent() - start) * 1_000
+            )
+            return (hits: hits, errorMessage: nil)
+        } catch {
+            let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1_000
+            log.warning(
+                "shadow searchReportingErrors failed: \(String(describing: error), privacy: .public)"
+            )
+            ShadowSearchDiagnostics.shared.recordFailure(
+                domain: domain,
+                failureClass: shadowSearchFailureClass(for: error),
+                latencyMs: elapsed
+            )
+            return (
+                hits: [],
+                errorMessage: "Search backend unavailable. Try reopening the vault."
+            )
+        }
+    }
+
     /// Direct typed search — used by callers that want to surface the
     /// underlying error (e.g. the developer panel).
     public func searchOrThrow(text: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {

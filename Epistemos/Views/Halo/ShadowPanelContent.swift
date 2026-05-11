@@ -151,27 +151,58 @@ public struct ShadowPanelContent: View {
         "Rust Cognitive DAG provenance: \(stats.nodeCount) nodes, \(stats.edgeCount) edges, schema version \(stats.schemaVersion)"
     }
 
+    /// Returns the recoverable-error message when the controller has
+    /// transitioned to `.errorRecoverable(...)` (per RCA13 P5 the Halo
+    /// surfaces backend failures here instead of pretending it's an
+    /// empty result set).
+    private var recoverableErrorMessage: String? {
+        if case let .errorRecoverable(message) = controller.state {
+            return message
+        }
+        return nil
+    }
+
+    @ViewBuilder
     private var resultsList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
-                ForEach(controller.matches) { hit in
-                    ShadowRow(
-                        hit: hit,
-                        onHover: { hovering in
-                            hoveredID = hovering ? hit.id : nil
-                        },
-                        onOpen: { handlers.onOpenHit(hit) },
-                        onEdit: { handlers.onBeginEditNote(hit) },
-                        onSummarize: { handlers.onSummarizeChat(hit) }
-                    )
-                    .contextMenu {
-                        if hit.domain == .chats {
-                            Button("Summarise") {
-                                handlers.onSummarizeChat(hit)
+        if let errorMessage = recoverableErrorMessage {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Text("Halo backend unavailable")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary)
+                }
+                Text(errorMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(controller.matches) { hit in
+                        ShadowRow(
+                            hit: hit,
+                            onHover: { hovering in
+                                hoveredID = hovering ? hit.id : nil
+                            },
+                            onOpen: { handlers.onOpenHit(hit) },
+                            onEdit: { handlers.onBeginEditNote(hit) },
+                            onSummarize: { handlers.onSummarizeChat(hit) }
+                        )
+                        .contextMenu {
+                            if hit.domain == .chats {
+                                Button("Summarise") {
+                                    handlers.onSummarizeChat(hit)
+                                }
                             }
-                        }
-                        Button("Open") {
-                            handlers.onOpenHit(hit)
+                            Button("Open") {
+                                handlers.onOpenHit(hit)
+                            }
                         }
                     }
                 }
