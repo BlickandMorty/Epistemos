@@ -314,7 +314,7 @@ final class PipelineService {
         executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         effectiveChatSelection: ChatModelSelection
     ) -> Bool {
-        guard case .localMLX = effectiveChatSelection else {
+        guard case let .localMLX(modelID) = effectiveChatSelection else {
             return false
         }
 
@@ -329,8 +329,20 @@ final class PipelineService {
             }
         }
 
-        // Keep standard local chat simple and fast. Only the explicit
-        // overseer/agent route should opt into the local tool loop.
+        // Per user 2026-05-11: basic chat needs read/search/write tools
+        // for notes — the previous "keep standard local chat simple"
+        // policy meant users typing "find my note about X" or
+        // "@MyNote what changed?" got toolless chat that hallucinated
+        // instead of calling vault_search / vault_read. Now local Fast
+        // / Thinking opts in to the ChatLite tool loop when the model
+        // is large enough to drive it (canRunLocalAgentLoop). The
+        // ChatLite tier is read-only by default; `vault_write` still
+        // gates through AgentAuthority approval + R5 capability so MAS
+        // safety is preserved.
+        if let model = LocalTextModelID(rawValue: modelID),
+           model.canRunLocalAgentLoop {
+            return true
+        }
         return false
     }
 

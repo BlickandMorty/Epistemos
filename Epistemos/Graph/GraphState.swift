@@ -1388,7 +1388,16 @@ final class GraphState {
         if let raw = d.string(forKey: "epistemos.physics.selectedPreset") {
             selectedPhysicsPreset = PhysicsPreset(rawValue: raw)
         } else {
-            selectedPhysicsPreset = nil
+            // Per user 2026-05-11: Observatory is the canonical default
+            // preset. The stored physics defaults (linkDistance=80,
+            // chargeStrength=-300, chargeRange=400, velocityDecay=0.6,
+            // centerStrength=0.03, collisionRadius=26) already match
+            // Observatory's params 1:1 — so highlighting the preset on
+            // first launch is honest about what the user is actually
+            // looking at. Persist it so the picker shows the selection
+            // on subsequent launches.
+            selectedPhysicsPreset = .observatory
+            d.set(PhysicsPreset.observatory.rawValue, forKey: "epistemos.physics.selectedPreset")
         }
         // Master toggle + saved strengths
         if d.object(forKey: "epistemos.physics.savedClusterStrength") != nil {
