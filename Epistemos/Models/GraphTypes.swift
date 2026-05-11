@@ -387,6 +387,13 @@ nonisolated struct GraphFilterSnapshot: Sendable {
             guard connected.contains(node.id) else { return false }
         }
 
+        // 3. Search filter — RCA13 P1-010 fix: snapshot must
+        // mirror FilterEngine and actually consult the matched
+        // set, not just carry it.
+        if let matched = searchMatchedNodeIds {
+            guard matched.contains(node.id) else { return false }
+        }
+
         return true
     }
 

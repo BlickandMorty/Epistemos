@@ -165,6 +165,19 @@ final class FilterEngine {
     // MARK: - Visibility Checks
 
     /// Check whether a node should be visible given all active filters.
+    ///
+    /// Per RCA13 P1-010 / RCA4-P1-007: previously this only checked
+    /// type + focus, leaving `searchMatchedNodeIds` populated but
+    /// unconsulted. Search filters silently lied — the user typed
+    /// a query, the matched-set populated, but every non-matching
+    /// node stayed visible because the renderer's isNodeVisible
+    /// only saw type + focus. Now the search-filter branch
+    /// participates in visibility.
+    ///
+    /// `selectedModelProfileId` / `selectedVaultFilter` still don't
+    /// participate because `GraphNodeRecord` doesn't currently
+    /// carry per-node model/vault provenance — a separate plumbing
+    /// slice is needed before they can affect visibility.
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
         // 1. Type filter
         guard activeNodeTypes.contains(node.type) else { return false }
@@ -172,6 +185,11 @@ final class FilterEngine {
         // 2. Focus filter
         if let connected = focusedConnected {
             guard connected.contains(node.id) else { return false }
+        }
+
+        // 3. Search filter — when set, only matched nodes pass
+        if let matched = searchMatchedNodeIds {
+            guard matched.contains(node.id) else { return false }
         }
 
         return true
