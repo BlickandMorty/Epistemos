@@ -3,6 +3,18 @@ import SwiftData
 import Testing
 @testable import Epistemos
 
+private actor VaultImportProgressRecorder {
+    private var values: [VaultImportProgressSnapshot] = []
+
+    func append(_ snapshot: VaultImportProgressSnapshot) {
+        values.append(snapshot)
+    }
+
+    func snapshots() -> [VaultImportProgressSnapshot] {
+        values
+    }
+}
+
 @Suite("VaultIndexActor")
 @MainActor
 struct VaultIndexActorTests {
@@ -524,6 +536,55 @@ struct VaultIndexActorTests {
         #expect(page.lastSyncedAt != nil)
     }
 
+    @Test("importVault emits progress inventory and final diagnostics")
+    func importVaultProgressIncludesInventoryAndDiagnostics() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let notesURL = vaultURL.appendingPathComponent("Notes", isDirectory: true)
+        let ideasURL = vaultURL.appendingPathComponent("Ideas", isDirectory: true)
+        let archiveURL = vaultURL.appendingPathComponent("Archive", isDirectory: true)
+        let excludedURL = vaultURL.appendingPathComponent("node_modules", isDirectory: true)
+        try FileManager.default.createDirectory(at: notesURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: ideasURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: archiveURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: excludedURL, withIntermediateDirectories: true)
+
+        try "root".write(to: vaultURL.appendingPathComponent("Root.md"), atomically: true, encoding: .utf8)
+        try "plain".write(to: notesURL.appendingPathComponent("Plain.txt"), atomically: true, encoding: .utf8)
+        try "dupe a".write(to: ideasURL.appendingPathComponent("Dupe.md"), atomically: true, encoding: .utf8)
+        try "dupe b".write(to: archiveURL.appendingPathComponent("Dupe.md"), atomically: true, encoding: .utf8)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: vaultURL.appendingPathComponent("image.png"))
+        try "excluded".write(to: excludedURL.appendingPathComponent("Ignored.md"), atomically: true, encoding: .utf8)
+
+        let recorder = VaultImportProgressRecorder()
+        try await actor.importVault(from: vaultURL) { snapshot in
+            await recorder.append(snapshot)
+        }
+
+        let snapshots = await recorder.snapshots()
+        guard let final = snapshots.last else {
+            Issue.record("Expected vault import progress snapshots")
+            return
+        }
+
+        #expect(snapshots.contains { $0.phase == "Scanning vault folder" })
+        #expect(final.isComplete)
+        #expect(final.totalImportableFileCount == 4)
+        #expect(final.discoveredRegularFileCount == 5)
+        #expect(final.unsupportedFileCount == 1)
+        #expect(final.skippedPolicyCount == 1)
+        #expect(final.folderCount == 3)
+        #expect(final.duplicateFileNameCount == 1)
+        #expect(final.fileTypeCounts[".md"] == 3)
+        #expect(final.fileTypeCounts[".txt"] == 1)
+        #expect(final.unsupportedFileTypeCounts[".png"] == 1)
+        #expect(final.skippedPolicyReasonCounts["node_modules"] == 1)
+        #expect(final.uniqueTrackedPathCount == 4)
+    }
+
     @Test("importVault decodes UTF-16 markdown files without corrupting body text")
     func importVaultDecodesUtf16Markdown() async throws {
         let container = try makeContainer()
@@ -555,6 +616,104 @@ struct VaultIndexActorTests {
         #expect(page.title == "Kimi Import")
         #expect(page.loadBody() == "UTF16 café 🚀 body")
         #expect(page.needsVaultSync == false)
+    }
+
+    @Test("importVault repairs malformed external body text instead of skipping the note")
+    func importVaultRepairsMalformedExternalBodyText() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let safePrefix = String(repeating: "safe text ", count: 40)
+            let malformedBody = "\(safePrefix)Alpha\0Beta\u{FEFF}Gamma\u{FFFD} Cafe\u{301}"
+            let fileURL = vaultURL.appendingPathComponent("Malformed.md")
+            try """
+            ---
+            title: Malformed Import
+            ---
+
+            \(malformedBody)
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await actor.importVault(from: vaultURL)
+
+            let verifyContext = ModelContext(container)
+            let pages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            #expect(pages.count == 1)
+
+            guard let page = pages.first else {
+                Issue.record("Expected malformed vault note to import")
+                return
+            }
+
+            let importedBody = page.loadBody()
+            let hasNull = importedBody.unicodeScalars.contains { $0.value == 0x0000 }
+            let hasReplacement = importedBody.unicodeScalars.contains { $0.value == 0xFFFD }
+            let hasMidStringBOM = importedBody.unicodeScalars.dropFirst().contains { $0.value == 0xFEFF }
+
+            #expect(page.title == "Malformed Import")
+            #expect(importedBody.contains("AlphaBetaGamma Café"))
+            #expect(!hasNull)
+            #expect(!hasReplacement)
+            #expect(!hasMidStringBOM)
+            #expect(page.needsVaultSync == false)
+            #expect(page.lastSyncedBodyHash == SDPage.bodyHash(importedBody))
+        }
+    }
+
+    @Test("importVault uses bounded word counting for large external bodies")
+    func importVaultUsesBoundedWordCountingForLargeExternalBodies() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let repeatedLineCount = 80_000
+            let largeBody = String(repeating: "alpha beta gamma\n", count: repeatedLineCount)
+            let fileURL = vaultURL.appendingPathComponent("Large Archive.md")
+            try """
+            ---
+            title: Large Archive
+            ---
+
+            \(largeBody)
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await actor.importVault(from: vaultURL)
+
+            let verifyContext = ModelContext(container)
+            let pages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            #expect(pages.count == 1)
+
+            guard let page = pages.first else {
+                Issue.record("Expected large vault note to import")
+                return
+            }
+
+            #expect(page.title == "Large Archive")
+            #expect(page.wordCount > 0)
+            #expect(abs(page.wordCount - repeatedLineCount * 3) < (repeatedLineCount * 3 / 10))
+            #expect(page.loadBody().hasPrefix("alpha beta gamma"))
+            #expect(page.needsVaultSync == false)
+            #expect(page.lastSyncedBodyHash?.hasPrefix("vault-file:") == true)
+            let pageId = page.id
+            #expect(!NoteFileStorage.bodyExists(pageId: pageId))
+            let blockDescriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate { $0.pageId == pageId }
+            )
+            #expect(try verifyContext.fetch(blockDescriptor).isEmpty)
+        }
     }
 
     @Test("importVault preserves front-matter-like separators in tracked code files")

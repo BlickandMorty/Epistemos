@@ -3109,6 +3109,12 @@ private struct VaultConnectionButton: View {
                 Text(message)
                 Divider()
             }
+            if let details = vaultSync.visibleVaultImportDetails {
+                Text(details.inventorySummary)
+                Text("Result: \(details.mutationSummary)")
+                Text("Diagnostics: \(details.issueSummary)")
+                Divider()
+            }
             if let vaultURL = vaultSync.vaultURL {
                 Text(vaultURL.lastPathComponent)
                 Divider()

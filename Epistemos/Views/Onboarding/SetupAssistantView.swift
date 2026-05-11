@@ -10,6 +10,7 @@ struct SetupAssistantView: View {
 
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
+    @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var currentStep: SetupStep = .welcome
@@ -19,6 +20,10 @@ struct SetupAssistantView: View {
     private var stepTransitionAnimation: Animation? {
         reduceMotion ? nil : Self.stepTransition
     }
+
+    private var theme: EpistemosTheme { ui.theme }
+    private var bodyFont: Font { .system(size: 12, weight: .regular, design: .monospaced) }
+    private var captionFont: Font { .system(size: 10, weight: .medium, design: .monospaced) }
 
     private var selectedCloudSetupProvider: CloudModelProvider {
         inference.activeCloudProvider ?? .google
@@ -33,18 +38,16 @@ struct SetupAssistantView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Progress dots
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(SetupStep.allCases, id: \.self) { step in
-                    Circle()
-                        .fill(step <= currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
-                        .frame(width: 8, height: 8)
+                    Rectangle()
+                        .fill(step <= currentStep ? theme.fontAccent : theme.textTertiary.opacity(0.28))
+                        .frame(width: 14, height: 6)
                 }
             }
-            .padding(.top, 24)
-            .padding(.bottom, 16)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
 
-            // Content
             Group {
                 switch currentStep {
                 case .welcome: welcomeStep
@@ -57,7 +60,10 @@ struct SetupAssistantView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 40)
         }
-        .frame(width: 520, height: 480)
+        .frame(width: 620, height: 620)
+        .background {
+            PixelSetupBackground(theme: theme)
+        }
     }
 
     // MARK: - Welcome
@@ -65,21 +71,19 @@ struct SetupAssistantView: View {
     @ViewBuilder
     private var welcomeStep: some View {
         VStack(spacing: 20) {
-            Image(systemName: "brain.head.profile")
-                .font(.system(size: 56))
-                .foregroundStyle(Color.accentColor)
+            SetupPixelGlyph(kind: .sigil, tint: theme.fontAccent)
             Text("Welcome to Epistemos")
-                .font(.title.bold())
+                .font(AppDisplayTypography.font(size: 24))
+                .foregroundStyle(theme.fontAccent)
             Text("Your local-first knowledge engine. Let's get you set up in a few quick steps.")
-                .font(.body)
-                .foregroundStyle(.secondary)
+                .font(bodyFont)
+                .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
             Spacer()
             Button("Get Started") {
                 withAnimation(stepTransitionAnimation) { currentStep = .vault }
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
         }
         .padding(.vertical, 24)
     }
@@ -89,39 +93,65 @@ struct SetupAssistantView: View {
     @ViewBuilder
     private var vaultStep: some View {
         VStack(spacing: 16) {
-            Image(systemName: "externaldrive.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.blue)
+            SetupPixelGlyph(kind: .vault, tint: .blue)
             Text("Connect Your Vault")
-                .font(.title2.bold())
+                .font(AppDisplayTypography.font(size: 20))
+                .foregroundStyle(theme.fontAccent)
             Text("Choose the folder Epistemos should sync with. The app keeps local note bodies and can import from or sync out to Markdown files in your vault.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(bodyFont)
+                .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             if let url = vaultSync.vaultURL {
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                    Rectangle()
+                        .fill(theme.success)
+                        .frame(width: 8, height: 8)
                     Text(url.lastPathComponent)
-                        .font(.subheadline.bold())
+                        .font(captionFont)
                 }
                 .padding()
                 .background(.green.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            }
+
+            if let details = vaultSync.visibleVaultImportDetails {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        if vaultSync.vaultImportProgress != nil {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(details.compactStatusMessage)
+                            .font(captionFont)
+                            .foregroundStyle(theme.textPrimary)
+                    }
+                    if let fraction = details.progressFraction, vaultSync.vaultImportProgress != nil {
+                        ProgressView(value: fraction)
+                    }
+                    Text(details.inventorySummary)
+                        .font(captionFont)
+                        .foregroundStyle(theme.textSecondary)
+                    Text("Result: \(details.mutationSummary). Diagnostics: \(details.issueSummary).")
+                        .font(captionFont)
+                        .foregroundStyle(theme.textSecondary)
+                }
+                .padding(12)
+                .background(theme.card.opacity(0.85))
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
 
             Spacer()
 
             HStack(spacing: 12) {
                 Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .model } }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
                 Button(vaultSync.vaultURL != nil ? "Change Vault" : "Select Vault Folder") {
                     selectVaultFolder()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
                 Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .model } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
                     .disabled(vaultSync.vaultURL == nil)
             }
         }
@@ -137,46 +167,46 @@ struct SetupAssistantView: View {
         let installedModelLabel = inference.activeLocalTextModelDisplayName
 
         VStack(spacing: 16) {
-            Image(systemName: "cpu.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.purple)
+            SetupPixelGlyph(kind: .chip, tint: .purple)
             Text("Private Note Intelligence")
-                .font(.title2.bold())
+                .font(AppDisplayTypography.font(size: 20))
+                .foregroundStyle(theme.fontAccent)
             Text("Epistemos can run private note intelligence locally on your Mac. Installing a model enables note chat, summarization, and analysis, but you can skip this for now.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(bodyFont)
+                .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             if hasModel {
                 HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                    Rectangle()
+                        .fill(theme.success)
+                        .frame(width: 8, height: 8)
                     Text(verbatim: "Local runtime ready (\(runtimeStatusLabel)): \(installedModelLabel)")
-                        .font(.caption)
+                        .font(captionFont)
                 }
                 .padding()
                 .background(.green.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             } else {
                 Text("You can install a model later in Settings → Inference.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(captionFont)
+                    .foregroundStyle(theme.textTertiary)
             }
 
             Spacer()
 
             HStack(spacing: 12) {
                 Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
                 if !hasModel {
                     Button("Open Settings → Inference") {
                         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
                 }
                 if hasModel {
                     Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
                 }
             }
         }
@@ -188,52 +218,56 @@ struct SetupAssistantView: View {
     @ViewBuilder
     private var agentRuntimeStep: some View {
         VStack(spacing: 16) {
-            Image(systemName: "cloud.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.blue)
+            SetupPixelGlyph(kind: .cloud, tint: .blue)
             Text("Cloud AI (Optional)")
-                .font(.title2.bold())
+                .font(AppDisplayTypography.font(size: 20))
+                .foregroundStyle(theme.fontAccent)
             Text("Connect a cloud AI provider for advanced capabilities like tool use, deep research, and extended reasoning. Local models work great on their own.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(bodyFont)
+                .foregroundStyle(theme.textSecondary)
                 .multilineTextAlignment(.center)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Cloud AI Provider")
-                    .font(.subheadline.weight(.semibold))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Cloud AI Provider")
+                        .font(captionFont)
+                        .foregroundStyle(theme.fontAccent)
 
-                Picker("Cloud AI Provider", selection: cloudSetupProviderBinding) {
-                    ForEach(CloudModelProvider.preferredOrder, id: \.rawValue) { provider in
-                        Text(provider.displayName).tag(provider)
+                    Picker("Cloud AI Provider", selection: cloudSetupProviderBinding) {
+                        ForEach(CloudModelProvider.preferredOrder, id: \.rawValue) { provider in
+                            Text(provider.displayName).tag(provider)
+                        }
                     }
+                    .pickerStyle(.menu)
+
+                    CloudProviderSetupCard(
+                        provider: selectedCloudSetupProvider,
+                        title: "Connect \(selectedCloudSetupProvider.displayName)",
+                        message: selectedCloudSetupProvider.setupHelpText,
+                        footer: selectedCloudSetupProvider.supportsAccountConnection
+                            ? "Start with the provider account flow here. Expand Legacy API Key only if you intentionally want the manual fallback."
+                            : "This provider uses the direct API route in Epistemos today. Open the provider portal, create a key, then use Paste + Save.",
+                        showsDismissTip: false,
+                        pixelPresentation: true
+                    )
                 }
-                .pickerStyle(.menu)
-
-                CloudProviderSetupCard(
-                    provider: selectedCloudSetupProvider,
-                    title: "Connect \(selectedCloudSetupProvider.displayName)",
-                    message: selectedCloudSetupProvider.setupHelpText,
-                    footer: selectedCloudSetupProvider.supportsAccountConnection
-                        ? "Start with the provider account flow here. Expand Legacy API Key only if you intentionally want the manual fallback."
-                        : "This provider uses the direct API route in Epistemos today. Open the provider portal, create a key, then use Paste + Save.",
-                    showsDismissTip: false
-                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, 4)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer()
+            .frame(maxHeight: 300)
 
             HStack(spacing: 12) {
                 Button("Skip") {
                     withAnimation(stepTransitionAnimation) { currentStep = .done }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .secondary))
 
-                Button("Next") {
+                Button("Finish Setup") {
                     withAnimation(stepTransitionAnimation) { currentStep = .done }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
             }
+            .padding(.top, 2)
         }
         .padding(.vertical, 24)
     }
@@ -243,11 +277,10 @@ struct SetupAssistantView: View {
     @ViewBuilder
     private var doneStep: some View {
         VStack(spacing: 20) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.green)
+            SetupPixelGlyph(kind: .check, tint: theme.success)
             Text("You're All Set!")
-                .font(.title.bold())
+                .font(AppDisplayTypography.font(size: 24))
+                .foregroundStyle(theme.fontAccent)
 
             VStack(alignment: .leading, spacing: 8) {
                 statusRow("Vault", done: vaultSync.vaultURL != nil)
@@ -256,8 +289,8 @@ struct SetupAssistantView: View {
             }
 
             Text("You can change any of these in Settings at any time.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(captionFont)
+                .foregroundStyle(theme.textTertiary)
 
             Spacer()
 
@@ -265,8 +298,7 @@ struct SetupAssistantView: View {
                 UserDefaults.standard.set(true, forKey: "epistemos.setupComplete")
                 onComplete()
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(PixelSetupButtonStyle(theme: theme, prominence: .primary))
         }
         .padding(.vertical, 24)
     }
@@ -275,10 +307,11 @@ struct SetupAssistantView: View {
 
     private func statusRow(_ name: String, done: Bool) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(done ? .green : .secondary)
+            Rectangle()
+                .fill(done ? theme.success : theme.textTertiary.opacity(0.4))
+                .frame(width: 8, height: 8)
             Text(name)
-                .font(.subheadline)
+                .font(bodyFont)
         }
     }
 
@@ -306,5 +339,140 @@ enum SetupStep: Int, CaseIterable, Comparable {
 
     static func < (lhs: SetupStep, rhs: SetupStep) -> Bool {
         lhs.rawValue < rhs.rawValue
+    }
+}
+
+private struct PixelSetupBackground: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        ZStack {
+            theme.resolved.background.color
+            VStack(spacing: 10) {
+                ForEach(0..<7, id: \.self) { row in
+                    HStack(spacing: 10) {
+                        ForEach(0..<10, id: \.self) { column in
+                            Rectangle()
+                                .fill(theme.fontAccent.opacity((row + column).isMultiple(of: 3) ? 0.045 : 0.02))
+                                .frame(width: 4, height: 4)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(24)
+        }
+    }
+}
+
+private struct SetupPixelGlyph: View {
+    enum Kind {
+        case sigil
+        case vault
+        case chip
+        case cloud
+        case check
+    }
+
+    let kind: Kind
+    let tint: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let cell = floor(min(size.width, size.height) / 12)
+            let origin = CGPoint(
+                x: floor((size.width - cell * 12) / 2),
+                y: floor((size.height - cell * 12) / 2)
+            )
+            for block in blocks {
+                let rect = CGRect(
+                    x: origin.x + CGFloat(block.x) * cell,
+                    y: origin.y + CGFloat(block.y) * cell,
+                    width: CGFloat(block.w) * cell,
+                    height: CGFloat(block.h) * cell
+                )
+                context.fill(Path(rect), with: .color(block.isAccent ? .white.opacity(0.75) : tint))
+            }
+        }
+        .frame(width: 88, height: 88)
+        .accessibilityHidden(true)
+    }
+
+    private var blocks: [(x: Int, y: Int, w: Int, h: Int, isAccent: Bool)] {
+        switch kind {
+        case .sigil:
+            [
+                (2, 2, 8, 2, false), (2, 4, 2, 6, false), (5, 4, 4, 2, false),
+                (5, 7, 3, 2, false), (2, 10, 8, 1, false), (8, 6, 2, 4, false),
+                (4, 6, 2, 1, true), (4, 8, 2, 1, true)
+            ]
+        case .vault:
+            [
+                (2, 3, 8, 5, false), (1, 8, 10, 2, false), (3, 2, 6, 1, false),
+                (3, 4, 6, 1, true), (8, 6, 1, 1, true)
+            ]
+        case .chip:
+            [
+                (3, 3, 6, 6, false), (1, 4, 2, 1, false), (1, 7, 2, 1, false),
+                (9, 4, 2, 1, false), (9, 7, 2, 1, false), (4, 1, 1, 2, false),
+                (7, 1, 1, 2, false), (4, 9, 1, 2, false), (7, 9, 1, 2, false),
+                (5, 5, 2, 2, true)
+            ]
+        case .cloud:
+            [
+                (3, 5, 7, 3, false), (2, 6, 9, 2, false), (4, 3, 3, 2, false),
+                (7, 4, 3, 2, false), (4, 6, 4, 1, true)
+            ]
+        case .check:
+            [
+                (2, 6, 2, 2, false), (4, 8, 2, 2, false), (6, 6, 2, 2, false),
+                (8, 4, 2, 2, false), (9, 3, 1, 1, false), (4, 8, 1, 1, true)
+            ]
+        }
+    }
+}
+
+private struct PixelSetupButtonStyle: ButtonStyle {
+    enum Prominence {
+        case primary
+        case secondary
+    }
+
+    let theme: EpistemosTheme
+    let prominence: Prominence
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .bold, design: .monospaced))
+            .textCase(.uppercase)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .foregroundStyle(foreground(isPressed: configuration.isPressed))
+            .background(
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(background(isPressed: configuration.isPressed))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(theme.fontAccent.opacity(0.55), lineWidth: 1)
+            )
+    }
+
+    private func foreground(isPressed: Bool) -> Color {
+        switch prominence {
+        case .primary:
+            isPressed ? theme.resolved.background.color.opacity(0.75) : theme.resolved.background.color
+        case .secondary:
+            isPressed ? theme.fontAccent.opacity(0.65) : theme.fontAccent
+        }
+    }
+
+    private func background(isPressed: Bool) -> Color {
+        switch prominence {
+        case .primary:
+            isPressed ? theme.fontAccent.opacity(0.78) : theme.fontAccent
+        case .secondary:
+            isPressed ? theme.fontAccent.opacity(0.14) : theme.fontAccent.opacity(0.06)
+        }
     }
 }

@@ -3280,6 +3280,12 @@ private struct VaultDetailView: View {
                                 .font(.caption)
                         }
                     }
+                    if let details = vaultSync.visibleVaultImportDetails {
+                        VaultImportDiagnosticsView(
+                            snapshot: details,
+                            isActive: vaultSync.vaultImportProgress != nil
+                        )
+                    }
                     HStack(spacing: Spacing.md) {
                         Button("Change Vault") {
                             VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
@@ -3306,6 +3312,12 @@ private struct VaultDetailView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                    }
+                    if let details = vaultSync.visibleVaultImportDetails {
+                        VaultImportDiagnosticsView(
+                            snapshot: details,
+                            isActive: vaultSync.vaultImportProgress != nil
+                        )
                     }
                     Text("No vault connected. Select a folder to sync your markdown notes.")
                         .font(.caption)
@@ -3411,6 +3423,51 @@ private struct VaultDetailView: View {
         case 4: return 300
         default: return 0
         }
+    }
+}
+
+private struct VaultImportDiagnosticsView: View {
+    let snapshot: VaultImportProgressSnapshot
+    let isActive: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: isActive ? "arrow.triangle.2.circlepath" : "checkmark.circle")
+                    .foregroundStyle(isActive ? .orange : .green)
+                Text(isActive ? snapshot.compactStatusMessage : snapshot.primarySummary)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(2)
+            }
+
+            if let fraction = snapshot.progressFraction, isActive {
+                ProgressView(value: fraction)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(snapshot.inventorySummary)
+                Text("Import result: \(snapshot.mutationSummary)")
+                Text("Diagnostics: \(snapshot.issueSummary); \(snapshot.nonVaultPageCount) local-only/non-vault notes; \(snapshot.duplicateFileNameCount) duplicate file names on disk.")
+                if !snapshot.topFileTypes().isEmpty {
+                    Text("Imported file types: \(formatCounts(snapshot.topFileTypes()))")
+                }
+                if !snapshot.topUnsupportedFileTypes().isEmpty {
+                    Text("Unsupported file types excluded: \(formatCounts(snapshot.topUnsupportedFileTypes()))")
+                }
+                if !snapshot.topSkippedPolicyReasons().isEmpty {
+                    Text("Skipped folders/packages: \(formatCounts(snapshot.topSkippedPolicyReasons()))")
+                }
+                Text("Hidden files and package descendants are skipped by the system enumerator before import.")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatCounts(_ pairs: [(String, Int)]) -> String {
+        pairs.map { "\($0.0) \($0.1)" }.joined(separator: ", ")
     }
 }
 

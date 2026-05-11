@@ -291,8 +291,8 @@ struct NoteToolbarGlowTests {
         #expect(!miniChat.contains("ProgressView().controlSize(.small)"))
     }
 
-    @Test("graph chat lives in the sidebar and uses the note style ask bar")
-    func graphChatLivesInSidebarAndUsesTheNoteStyleAskBar() throws {
+    @Test("graph chat lives in the sidebar with a compact square composer")
+    func graphChatLivesInSidebarWithCompactSquareComposer() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
         let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
         let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
@@ -300,7 +300,9 @@ struct NoteToolbarGlowTests {
         let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
         #expect(sidebar.contains("case notes, query, chat"))
-        #expect(sidebar.contains("AssistantToolbarAskBar("))
+        #expect(sidebar.contains("TextField(\"Ask this node\""))
+        #expect(sidebar.contains("RoundedRectangle(cornerRadius: 4"))
+        #expect(sidebar.contains("Resize sidebar"))
         #expect(sidebar.contains("sendGraphChatMessage()"))
         #expect(!sidebar.contains("ChatComposerTextEditor("))
         #expect(!inspector.contains("TextField(\"Ask…\""))

@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated enum FoundationSafety {
+    private static let readableTextInspectionScalarLimit = 16_384
+
     static let applicationSupportOverrideEnvironmentKey = "EPISTEMOS_APPLICATION_SUPPORT_ROOT"
 
     static func isRunningTests(
@@ -189,24 +191,27 @@ nonisolated enum FoundationSafety {
     private static func looksLikeReadableText(_ string: String) -> Bool {
         guard !string.isEmpty else { return true }
 
-        let scalarCount = string.unicodeScalars.count
-        guard scalarCount > 0 else { return true }
+        var inspectedCount = 0
+        var suspiciousCount = 0
 
-        let suspiciousCount = string.unicodeScalars.reduce(into: 0) { result, scalar in
+        for scalar in string.unicodeScalars {
+            guard inspectedCount < readableTextInspectionScalarLimit else { break }
+            inspectedCount += 1
             let value = scalar.value
             if value == 0xFFFD {
-                result += 1
-                return
+                suspiciousCount += 1
+                continue
             }
             if value == 0x09 || value == 0x0A || value == 0x0D {
-                return
+                continue
             }
             if value < 0x20 || (0x7F...0x9F).contains(value) {
-                result += 1
+                suspiciousCount += 1
             }
         }
 
-        return Double(suspiciousCount) / Double(scalarCount) <= 0.05
+        guard inspectedCount > 0 else { return true }
+        return Double(suspiciousCount) / Double(inspectedCount) <= 0.05
     }
 
     private static func normalizedDecodedText(_ string: String) -> String {

@@ -116,6 +116,17 @@ struct NoteFileStorageTests {
         #expect(mapped == content)
     }
 
+    @Test("decodedText handles large imported vault bodies without a full readable-text scan")
+    func decodedTextHandlesLargeImportedVaultBodiesWithBoundedReadableScan() {
+        let content = String(repeating: "vault note line with readable markdown\n", count: 30_000)
+            + "\0unsafe suffix repaired later"
+        let data = Data(content.utf8)
+
+        let decoded = FoundationSafety.decodedText(from: data)
+
+        #expect(decoded == content)
+    }
+
     @Test("readBody decodes UTF-16 note bodies without showing gibberish")
     func readBodyDecodesUtf16Bodies() throws {
         let pageId = makePageId()
@@ -204,6 +215,56 @@ struct NoteFileStorageTests {
         #expect(NoteFileStorage.readBody(pageId: pageId) == content)
         #expect(await writeTask?.value == true)
         #expect(NoteFileStorage.readBody(pageId: pageId) == content)
+    }
+
+    @Test("strict body writes reject unsafe storage scalars")
+    func strictBodyWritesRejectUnsafeStorageScalars() async {
+        let pageId = makePageId()
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let didWrite = await NoteFileStorage.writeBodyAsync(
+            pageId: pageId,
+            content: "Alpha\0Beta"
+        )
+
+        #expect(!didWrite)
+        #expect(!NoteFileStorage.bodyExists(pageId: pageId))
+    }
+
+    @Test("imported vault bodies repair unsafe scalars before managed persistence")
+    func importedVaultBodiesRepairUnsafeScalarsBeforeManagedPersistence() async throws {
+        let pageId = makePageId()
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let imported = "Alpha\0Beta\u{FEFF}Gamma\u{FFFD} Cafe\u{301}"
+        let prepared = NoteFileStorage.prepareImportedVaultBodyForStorage(
+            pageId: pageId,
+            content: imported
+        )
+
+        #expect(prepared == "AlphaBetaGamma Café")
+        #expect(await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: pageId, content: prepared ?? ""))
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "AlphaBetaGamma Café")
+    }
+
+    @Test("large prepared imported vault bodies persist without second canonical pass")
+    func largePreparedImportedVaultBodiesPersistWithoutSecondCanonicalPass() async throws {
+        let pageId = makePageId()
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let decomposedLine = "Cafe\u{301} large import line\n"
+        let imported = String(repeating: decomposedLine, count: 12_000)
+        let prepared = NoteFileStorage.prepareImportedVaultBodyForStorage(
+            pageId: pageId,
+            content: imported
+        )
+
+        #expect(prepared == imported)
+        #expect(await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: pageId, content: prepared ?? ""))
+        let bodyURL = try #require(NoteFileStorage.bodyFileURL(pageId: pageId))
+        let stored = try String(contentsOf: bodyURL, encoding: .utf8)
+        #expect(stored == imported)
+        #expect(NoteFileStorage.readBody(pageId: pageId, fast: true) == imported)
     }
 
     @Test("readBody fails closed when integrity sidecar does not match content")

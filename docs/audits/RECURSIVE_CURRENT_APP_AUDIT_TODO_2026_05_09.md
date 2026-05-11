@@ -39,6 +39,81 @@ For every task below:
 
 ## P0 Queue
 
+### RCA-P0-000 - Launched-app vault/graph restore smoke regression
+
+Status: AUDITING - RUNTIME FAILURE CAPTURED 2026-05-11
+
+Subsystem: vault restore/import, managed note bodies, graph rebuild, loading UX.
+
+Linked runtime issues:
+- `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-11-001
+- `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-11-002
+
+Research signal: The vault is currently the highest-trust path. Recent commit
+`333cde26a` added visible vault activity and graph refresh after initial import,
+but launched-app smoke shows the real audit app can remain stuck on
+`Loading vault "all research"...` while the graph reflects only a partial store.
+
+Runtime evidence 2026-05-11:
+- Computer Use verified launched app `com.epistemos.audit` shows
+  `Loading vault "all research"...`.
+- PID `536` held ~100% CPU for more than 9 minutes.
+- Store counts from `build/audit-app-support/Epistemos/default.store`:
+  `ZSDPAGE=1200`, `ZSDGRAPHNODE=200`, `ZSDGRAPHEDGE=0`, `ZSDFOLDER=139`.
+- Disk count for `/Users/jojo/all research`: 5147 markdown/epdoc files
+  by the manual smoke command, with 5141 `.md` files in the extension breakdown.
+- Logs include `sanitize_and_normalize bridge failed` for null bytes,
+  mid-string BOMs, and replacement characters, followed by
+  `Failed to persist inserted body ...; skipping index upsert`.
+- Sample `/tmp/epistemos-audit-pid536-2.sample.txt` shows the hot path in
+  `NoteFileStorage.persistStagedBody` -> `normalizedStorageContent` ->
+  `EpistemosCoreIntegrityBridge.sanitizeAndNormalizeText`.
+- Follow-up launched-app smoke after imported-body repair reached
+  `ZSDPAGE=1200` and logged repaired malformed bodies, then sampled hot in
+  `VaultIndexActor.countWords` for a large vault body
+  (`/tmp/epistemos-audit-pid33194-sample.txt`).
+- Follow-up launched-app smoke after bounded word counting again reached
+  `ZSDPAGE=1200`, then sampled hot in `BlockMirror.sync(...)` for an oversized
+  imported vault body (`/tmp/epistemos-audit-pid60225-sample.txt`).
+- Follow-up launched-app smoke after bounded block mirroring again reached
+  `ZSDPAGE=1200`, then sampled hot in `FoundationSafety.decodedText(from:)` ->
+  `looksLikeReadableText(_:)` scanning huge imported note bodies
+  (`/tmp/epistemos-audit-pid76208-sample.txt`).
+- Computer Use opened the graph settings popover and confirmed the visible
+  sections are `Presets`, `Physics`, `Display`, `Advanced`; no node-type
+  filter controls are currently reachable.
+- Source check confirmed selected-node behavior highlights neighbors but does
+  not change physics/rest-length expansion.
+
+Audit steps:
+- Fix vault import completeness first. Graph/filter validation is meaningless
+  while the graph is built from a partial import.
+- Add tests for malformed-but-decodable vault files so external null bytes,
+  mid-string BOMs, and replacement characters do not skip entire notes.
+- Keep normal editor writes strict; repair only the imported vault copy that is
+  stored in app-managed note bodies, and do not mutate the user's vault file.
+- Keep vault import metadata bounded: oversized markdown archives must use a
+  fast word-count path instead of pinning NaturalLanguage tokenization.
+- Keep imported-vault block mirroring bounded: oversized archive bodies should
+  import/search/graph without waiting for editable block-row parsing.
+- Keep decoded-text readability checks bounded: file classification must not do
+  an unbounded Unicode scalar pass before import-specific large-body safeguards.
+- Rebuild and relaunch the audit app, then repeat the large-vault smoke:
+  loading UX appears, loading completes, notes/sidebar populate, graph refreshes
+  without app restart, and no old/partial graph state remains.
+- After vault import is verified, expose current `FilterEngine` node-type
+  toggles through a minimal graph settings surface and add selected-neighborhood
+  expansion tests in the Rust graph engine.
+
+Acceptance:
+- The launched app does not remain indefinitely in loading state for the real vault.
+- DB page count is in the same order as the importable vault file count, or every
+  intentionally skipped file is logged with an explicit reason.
+- Graph rebuild produces nodes/edges from the completed import without restart.
+- Graph settings expose Folder/Note/Document/Code/etc. type toggles.
+- Selecting a node visibly expands direct neighbors and focused tests prove only
+  selected direct edges receive the extra spacing.
+
 ### RCA-P0-001 - Re-audit current code against canonical authority floor
 
 Status: PATCHED PARTIAL - RECOVERY UI AUTOMATED GREEN / CORRUPT-STORE RUNTIME PROOF PENDING
