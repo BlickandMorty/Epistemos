@@ -3507,6 +3507,14 @@ enum VaultConnectionActions {
         }
 
         log.error("Vault switch to \(url.lastPathComponent, privacy: .public) failed")
+        // RCA13 vault-add silent-abort fix: surface the failure
+        // so the user knows the picker close wasn't success.
+        // Previously the picker closed and nothing happened —
+        // looked like a soft-broken button.
+        AppBootstrap.shared?.uiState.showToast(
+            "Couldn't open \"\(url.lastPathComponent)\" as a vault. Try a different folder.",
+            type: .error
+        )
         return false
     }
 
@@ -3592,11 +3600,29 @@ enum VaultConnectionActions {
             await Task.yield()
 
             // Step 3: reset UI surface — vaultURL is already nil so
-            // SwiftUI flips to the empty state on the next pass.
+            // SwiftUI flips to the empty state on the next pass. The
+            // load-bearing line here is `needsSetup = true` — it
+            // lights up the full-screen SetupView at
+            // RootView.swift:254 which gives the user a path back
+            // into the SetupAssistant sheet to add a new vault.
+            // Without it the user could land on LandingView (no
+            // "Add Vault" affordance there) or stuck inside an
+            // active chat, with no visible way to reconnect.
+            //
+            // Mirrors `AppBootstrap.resetAllData()` post-clear
+            // surface exactly — same two state flips on uiState
+            // + the same chat-message clear that forces
+            // HomeRouter back to LandingView.
+            AppBootstrap.shared?.chatState.clearMessages()
             notesUI.resetForVaultSwitch()
             NoteWindowManager.shared.resetForVaultRebuild()
             AppBootstrap.shared?.ambientManifest = nil
             AppBootstrap.shared?.uiState.setActivePanel(.home)
+            AppBootstrap.shared?.uiState.needsSetup = true
+            // Re-arm the SetupAssistant sheet by clearing the
+            // first-launch completion flag so the rich setup flow
+            // surfaces again instead of being locked out.
+            UserDefaults.standard.set(false, forKey: "epistemos.setupComplete")
             await Task.yield()
 
             // Step 4: post-teardown clear catches any state emitted
