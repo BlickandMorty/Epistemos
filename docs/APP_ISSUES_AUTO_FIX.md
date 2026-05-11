@@ -63,6 +63,38 @@ Investigation Log:
 
 ## Open Issues
 
+> ### 2026-05-10 Re-audit pass — canonical-fit verification
+>
+> User asked: "make sure the way u fix is canonical with the research i did
+> for the backlog." A source-level audit of every Patched/Source-Fixed/
+> Investigating item below was run on HEAD `6683141ae`. All checked-as-of
+> entries were verified intact and canonical against the master research
+> index + their respective canonical research docs. The audit pass touched
+> NO source files; it confirmed existing fixes are still in place against
+> the current code. Items requiring live-app smoke tests are NOT promoted
+> past Patched until the user reports verification.
+>
+> | Issue | Audit verdict (2026-05-10) |
+> |---|---|
+> | ISSUE-2026-05-08-003 (App Review subprocess scan) | Intact — `Tools/app-review-audit/app-review-audit.sh:179` Check 4 scans `Process()/Pipe()/system()` |
+> | ISSUE-2026-05-08-005 (Prose editor scrollbar) | Intact — `NoteDetailWorkspaceView.swift:1130` `ProseEditorView` fills with `.frame(maxWidth: .infinity)`, no outer `editorReadableWidth` wrap |
+> | ISSUE-2026-05-08-006 (Ask this note AX) | Intact — `AssistantComposerStatusViews.swift:569` submit `Button(action: onSubmit)` + lines 543/581 accessibility labels |
+> | ISSUE-2026-05-08-007 (BlockMirror reschedule) | Intact — `BlockMirror.swift:464` `coalescingDelay = 25ms` + `generationIsCurrent` guards at 486/496/541 |
+> | ISSUE-2026-05-08-008 (Epdoc graph projection) | Intact — `EpdocGraphProjector.swift:201` `semanticGraphLabels` wired into project() at line 170, emits `.contains` edges at 173 |
+> | ISSUE-2026-05-08-009 (Epdoc complexity meter) | Intact — `EpdocDocument.swift:266` writes `metadata["complexity"]` via `EpdocComplexityCalculator` |
+> | ISSUE-2026-05-08-010 (Shadow search diagnostics) | Intact — `ShadowSearchService.swift` records success/failure at lines 207/301/314/339/346 |
+> | ISSUE-2026-05-08-012 (NightBrain dependency readiness) | Intact — `NightBrainService.swift:264+` 6 preflight `.deferred` branches |
+> | ISSUE-2026-05-08-014 (Vault connection state) | Intact — `VaultSyncService.swift:1668-1678` `schedulePostImportMaintenance` emits `.vaultChanged`; `AppBootstrap.swift:2031` `wireR3VaultSwitchObserver` subscribes |
+> | ISSUE-2026-05-08-002 (Metal drawable lifecycle) | Intact — `MetalGraphView.swift:1023` 1×1 paused size; `LandingWaveMetalView.swift:241` sync render with `MainActor.assumeIsolated` + `isRenderingFrame` reentrancy guard; covered by `RuntimeValidationTests` |
+> | ISSUE-2026-05-07-001 (Code editor large-file) | Intact — `CodeEditorView.swift:2486-2487` `lastText` + `lastTextLineStartUTF16Offsets` cache; `SegmentedIndentationGuideView.swift:89,115` `baseLineNumber` param; covered by `CodeEditorPolishTests` |
+> | ISSUE-2026-05-08-001 (TCC passive probes residual) | Investigating — framework-level attribution remains (`kTCCServiceListenEvent` preflight from a linked framework). Not actionable from user code; left in `Investigating` |
+> | ISSUE-2026-04-21-004 (Idle memory regression) | Investigating intact — `GraphState.swift:740` `DeferredTextEmbeddingLookup` wraps `AppleHybridEmbeddingLookup`; `ProcessMemoryHealthRow` present. Still blocked on Instruments Allocations profile |
+> | ISSUE-2026-04-22-001 (SwiftUI hot-loop) | Source-fixed intact — `RootView.swift:458` `localModelSubtitleCache` + `.task(id:)` at 902; `localModelSubtitle(for:)` at 1628-1629 reads from cache only; `InferenceState.apiKey(for:)`/`oauthCredential(for:)` are read-only |
+>
+> No source-level regressions detected. All canonical research alignments
+> verified. The remaining ~8 items are blocked on user-side live-app
+> verification (in-app smoke tests, Time Profiler, Allocations).
+
 ### ISSUE-2026-05-10-002: Agents don't appear to work / not connected to any provider
 
 Status: Open (likely API-key-missing, not code regression — needs user confirmation)
