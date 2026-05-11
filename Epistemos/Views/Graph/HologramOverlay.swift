@@ -302,6 +302,12 @@ final class HologramOverlay {
     /// Companion panel: holds the inspector alongside the mini graph when minimized.
     private var miniInspectorPanel: GraphOverlayPanel?
     private(set) var isMinimized = false
+    /// When true the inspector shows INSIDE the graph panel (the
+    /// `inspectorHostView`); when false it shows in the external
+    /// `miniInspectorPanel`. Per user 2026-05-10: outside-by-default
+    /// with a button to pop it in; embedded variant has a button to
+    /// pop it back out.
+    private(set) var inspectorEmbeddedInGraph = false
     private var selectionObserverTask: Task<Void, Never>?
     private var inspectorPositionTask: Task<Void, Never>?
     /// Dedicated timer for pinned panel position tracking. Runs at ~30fps
@@ -913,7 +919,43 @@ final class HologramOverlay {
             content.addSubview(inspectorView)
         }
 
+        // Pop-in toggle: floats over the top-right corner of the external
+        // inspector. Clicking embeds the inspector inside the graph panel
+        // and dismisses this floating panel. The embedded variant carries
+        // a sibling "pop-out" button that reverses the toggle.
+        addInspectorToggleButton(to: content, symbol: "arrow.down.right.and.arrow.up.left", help: "Embed inspector in graph")
+
         return panel
+    }
+
+    /// Shared pop-in / pop-out button factory. Anchors a small circular
+    /// icon button to the top-right of `content`. Tap triggers
+    /// `toggleInspectorEmbedded()` so the same affordance flips both
+    /// directions (external→embedded on the mini inspector panel,
+    /// embedded→external on the in-window inspectorHostView).
+    private func addInspectorToggleButton(to content: NSView, symbol: String, help: String) {
+        let buttonView = NSHostingView(
+            rootView: Button {
+                MainActor.assumeIsolated {
+                    HologramController.shared.toggleInspectorEmbedded()
+                }
+            } label: {
+                Image(systemName: symbol)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.75))
+                    .frame(width: 26, height: 26)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help(help)
+        )
+        buttonView.translatesAutoresizingMaskIntoConstraints = false
+        buttonView.identifier = NSUserInterfaceItemIdentifier("epistemos.inspectorToggle")
+        content.addSubview(buttonView)
+        NSLayoutConstraint.activate([
+            buttonView.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            buttonView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
+        ])
     }
 
     /// Add a small expand button in the top-right corner of the mini panel.
@@ -1026,8 +1068,11 @@ final class HologramOverlay {
         guard let inspectorHostView,
               let contentView = window?.contentView ?? miniPanel?.contentView else { return }
 
-        // In mini mode the companion miniInspectorPanel handles the inspector.
-        if isMinimized {
+        // In mini mode the companion miniInspectorPanel handles the
+        // inspector — UNLESS the user has popped the inspector INTO the
+        // graph via toggleInspectorEmbedded(). When embedded we want the
+        // in-window inspectorHostView to be the active surface.
+        if isMinimized && !inspectorEmbeddedInGraph {
             inspectorHostView.isHidden = true
             lastInspectorFrame = nil
             resizeMiniInspectorForMode()
@@ -1206,11 +1251,44 @@ final class HologramOverlay {
                     _ = s.graphState.selectedNodeId
                 }
                 guard !Task.isCancelled, let s = self else { return }
-                if s.graphState.selectedNodeId != nil && s.isMinimized {
-                    s.showMiniInspector()
-                } else if s.graphState.selectedNodeId == nil {
+                let hasSelection = s.graphState.selectedNodeId != nil
+                if hasSelection {
+                    if s.inspectorEmbeddedInGraph {
+                        // Embedded variant: show inspectorHostView inside
+                        // the graph panel, don't open the external panel.
+                        s.inspectorHostView?.isHidden = false
+                        s.scheduleInspectorReposition()
+                    } else if s.isMinimized {
+                        s.showMiniInspector()
+                    }
+                } else {
+                    s.inspectorHostView?.isHidden = true
                     s.hideMiniInspector()
                 }
+            }
+        }
+    }
+
+    /// Toggle whether the inspector lives inside the graph panel
+    /// (`inspectorHostView`) or in the external `miniInspectorPanel`.
+    /// Per user 2026-05-10: external is the default; the pop-in button
+    /// on the external panel and the pop-out button on the embedded
+    /// variant both call this.
+    func toggleInspectorEmbedded() {
+        inspectorEmbeddedInGraph.toggle()
+        let hasSelection = graphState.selectedNodeId != nil
+        if inspectorEmbeddedInGraph {
+            // Embed: tear down external, reveal in-window.
+            hideMiniInspector()
+            inspectorHostView?.isHidden = !hasSelection
+            if hasSelection {
+                scheduleInspectorReposition()
+            }
+        } else {
+            // Eject: hide in-window, bring up external.
+            inspectorHostView?.isHidden = true
+            if hasSelection, isMinimized {
+                showMiniInspector()
             }
         }
     }
@@ -1708,8 +1786,13 @@ final class HologramOverlay {
             )
             inspectorView.autoresizesSubviews = true
             inspectorView.isHidden = true
+            inspectorView.wantsLayer = true
             contentView.addSubview(inspectorView)
             self.inspectorHostView = inspectorView
+            // Pop-out toggle anchored to the embedded inspector's top-right.
+            // Clicking ejects the inspector out into the external
+            // miniInspectorPanel.
+            addInspectorToggleButton(to: inspectorView, symbol: "arrow.up.left.and.arrow.down.right", help: "Pop inspector out of graph")
             startInspectorPositionTracking()
         }
 
