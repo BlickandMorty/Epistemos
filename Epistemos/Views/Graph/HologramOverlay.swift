@@ -1556,10 +1556,18 @@ final class HologramOverlay {
         contentView.wantsLayer = true
 
         // Frosted glass background — adapts to system appearance.
+        // Per user 2026-05-10: the full-screen graph was laggy while mini
+        // stayed fluid. The full-screen blur is a retina-sized
+        // `.behindWindow` `.active` composition that re-composites every
+        // frame at 120 Hz even when the window isn't focused. Switching
+        // to `.followsWindowActiveState` keeps the visual identity but
+        // pauses the blur kernel when the user is in another window —
+        // common in the side-by-side workflow. Mini's tiny miniBlur is
+        // 10-20× cheaper so this never mattered there.
         let blur = NSVisualEffectView(frame: screen.frame)
         blur.material = GraphOverlayThemeStyle.blurMaterial(for: theme)
         blur.blendingMode = .behindWindow
-        blur.state = .active
+        blur.state = .followsWindowActiveState
         blur.autoresizingMask = [.width, .height]
         contentView.addSubview(blur)
         self.blurView = blur

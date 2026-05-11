@@ -221,33 +221,13 @@ nonisolated enum GraphInteractionRenderPolicy {
 }
 
 nonisolated enum GraphDrawableResolutionPolicy {
-    private static let cinematicFullOverlayPixelBudget: CGFloat = 2_500_000
-    private static let balancedFullOverlayPixelBudget: CGFloat = 3_500_000
     private static let performanceFullOverlayPixelBudget: CGFloat = 3_000_000
     private static let lowPowerPixelBudget: CGFloat = 1_200_000
     static let pausedDrawableSize = CGSize(width: 1, height: 1)
 
-    /// Per-quality fragment-cost cap for the full graph overlay.
-    /// Per user 2026-05-10: full-screen cinematic was laggy while the mini
-    /// graph stayed fluid. Mini bypasses this cap entirely via the
-    /// `isMiniMode` shortcut in `effectiveScale`. The previous policy left
-    /// cinematic + balanced uncapped (infinite budget), so on retina
-    /// displays the cinematic per-fragment quantization shader dominated
-    /// GPU time and the inFlightSemaphore (value=2) dropped frames. Now
-    /// every quality level has a budget — cinematic is the lowest since
-    /// its per-fragment cost is the highest, and the visual identity
-    /// (pixel-art quantization) is actually crisper at the slightly lower
-    /// drawable resolution.
     static func pixelBudget(qualityLevel: UInt8, lowPowerMode: Bool) -> CGFloat {
         if lowPowerMode { return lowPowerPixelBudget }
-        switch qualityLevel {
-        case 0:
-            return cinematicFullOverlayPixelBudget
-        case 1:
-            return balancedFullOverlayPixelBudget
-        default:
-            return performanceFullOverlayPixelBudget
-        }
+        return qualityLevel >= 2 ? performanceFullOverlayPixelBudget : CGFloat.greatestFiniteMagnitude
     }
 
     static func effectiveScale(
