@@ -76,7 +76,12 @@ struct VaultOrganizerView: View {
             Spacer()
             ProgressView()
                 .controlSize(.regular)
-            Text("Analyzing your vault...")
+            // RCA13 RCA2-P1-005: the scan inspects only the first 20
+            // untagged + first 20 loose notes. The previous copy
+            // ("Analyzing your vault...") implied a full pass; the
+            // honest version names the sample size so a user with
+            // 1000 notes doesn't expect every one to be considered.
+            Text("Sampling first 20 untagged + 20 loose notes…")
                 .font(.epBody)
                 .foregroundStyle(theme.textSecondary)
             Text(scanProgress)
@@ -95,15 +100,20 @@ struct VaultOrganizerView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 40, weight: .ultraLight))
                 .foregroundStyle(theme.textTertiary)
-            Text("Your vault is well-organized")
+            // RCA13 RCA2-P1-005: this state fires whenever the scan
+            // produces zero suggestions — which can also happen if
+            // the AI failed silently or returned malformed JSON. The
+            // honest framing makes clear that the message reflects
+            // the sample we looked at, not the entire vault.
+            Text("No suggestions for the sample we looked at")
                 .font(.epBody)
                 .foregroundStyle(theme.textSecondary)
-            Text("Tap 'Scan' to analyze notes for tagging and folder suggestions.")
+            Text("Vault Organizer samples the first 20 untagged notes and the first 20 loose notes. Tap Scan to re-sample.")
                 .font(.epCaption)
                 .foregroundStyle(theme.textTertiary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
-            Button("Scan Vault") { startScan() }
+                .frame(maxWidth: 320)
+            Button("Scan Sample") { startScan() }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.resolved.accent.color)
             Spacer()
@@ -153,7 +163,9 @@ struct VaultOrganizerView: View {
                     .tint(theme.resolved.accent.color)
                     .font(.epBodyMedium)
             } else {
-                Button("Scan Vault") { startScan() }
+                // RCA13 RCA2-P1-005: button label matches the
+                // sampled scope, not the entire vault.
+                Button("Scan Sample") { startScan() }
                     .buttonStyle(.borderedProminent)
                     .tint(theme.resolved.accent.color)
                     .font(.epBodyMedium)
