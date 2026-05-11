@@ -40,4 +40,43 @@ struct QueryParserVisibilityTests {
         }
         #expect(structuredTypes == [.note])
     }
+
+    // RCA13 P2-004: grammar docs claimed `|` (OR) and `( ... )`
+    // grouping worked. Pre-fix, the parser only split on `&` at the
+    // top level. These tests lock the actual parsing in.
+
+    @Test("structured parser splits on | at the top level (OR)")
+    func structuredParserSplitsOnOR() {
+        let ast = StructuredQueryParser.parse("?type=note | type=idea")
+        guard case .or(let branches)? = ast else {
+            Issue.record("Expected .or for `type=note | type=idea`")
+            return
+        }
+        #expect(branches.count == 2)
+    }
+
+    @Test("structured parser splits on & inside | branches (AND binds tighter)")
+    func structuredParserSplitsAndInsideOR() {
+        let ast = StructuredQueryParser.parse("?type=note & tag=draft | type=idea")
+        guard case .or(let branches)? = ast else {
+            Issue.record("Expected top-level .or for `note&draft | idea`")
+            return
+        }
+        #expect(branches.count == 2)
+        // The first branch should itself be an .and, not a single atom.
+        if case .and(let lhsAtoms) = branches[0] {
+            #expect(lhsAtoms.count == 2)
+        } else {
+            Issue.record("Left branch of OR should be an AND of two atoms")
+        }
+    }
+
+    @Test("structured parser unwraps parenthesized groups")
+    func structuredParserUnwrapsGroups() {
+        let ast = StructuredQueryParser.parse("?(type=note | type=idea)")
+        guard case .or? = ast else {
+            Issue.record("Grouped OR should still parse as .or")
+            return
+        }
+    }
 }
