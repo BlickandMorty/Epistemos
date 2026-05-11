@@ -197,6 +197,15 @@ struct VaultImportProgressSnapshot: Sendable, Equatable {
         sortedCounts(skippedPolicyReasonCounts, limit: limit)
     }
 
+    func withPhase(_ phase: String, isComplete: Bool? = nil) -> VaultImportProgressSnapshot {
+        var copy = self
+        copy.phase = phase
+        if let isComplete {
+            copy.isComplete = isComplete
+        }
+        return copy
+    }
+
     private func sortedCounts(_ counts: [String: Int], limit: Int) -> [(String, Int)] {
         counts
             .sorted { lhs, rhs in
@@ -2511,15 +2520,23 @@ final class VaultSyncService {
         if let searchService {
             await actor.setSearchService(searchService)
         }
+        let importSnapshot: VaultImportProgressSnapshot?
         do {
-            try await actor.importVault(from: url, progress: progressHandler)
+            importSnapshot = try await actor.importVault(from: url, progress: progressHandler)
             Log.vault.info("Initial vault import complete")
 
             await MainActor.run {
                 AppBootstrap.shared?.graphState.needsRefresh = true
             }
 
+            if let importSnapshot {
+                await progressHandler?(importSnapshot.withPhase("Updating Spotlight index", isComplete: false))
+            }
             await actor.spotlightReindexAll()
+
+            if let importSnapshot {
+                await progressHandler?(importSnapshot.withPhase("Building instant recall index", isComplete: false))
+            }
             await rebuildInstantRecallIndex(from: actor)
         } catch {
             Log.vault.error(
@@ -2532,6 +2549,9 @@ final class VaultSyncService {
         if let searchService {
             let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
             let timestamps = await actor.allPageTimestamps()
+            if let importSnapshot {
+                await progressHandler?(importSnapshot.withPhase("Syncing search index", isComplete: false))
+            }
             do {
                 try await searchService.diffSync(
                     swiftDataPages: timestamps,
@@ -2541,6 +2561,9 @@ final class VaultSyncService {
                 Log.vault.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
             }
             Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
+        }
+        if let importSnapshot {
+            await progressHandler?(importSnapshot.withPhase("Vault ready", isComplete: true))
         }
         return true
     }
@@ -2723,13 +2746,19 @@ final class VaultSyncService {
 
         // Re-import vault (handles new files + updates)
         do {
-            try await actor.importVault(from: vaultURL, progress: progressHandler)
+            let importSnapshot = try await actor.importVault(from: vaultURL, progress: progressHandler)
+            if let importSnapshot {
+                await progressHandler(importSnapshot.withPhase("Building instant recall index", isComplete: false))
+            }
+            await Self.rebuildInstantRecallIndex(from: actor)
+
+            if let importSnapshot {
+                await progressHandler(importSnapshot.withPhase("Vault ready", isComplete: true))
+            }
         } catch {
             log.error("Sync import failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
-
-        await Self.rebuildInstantRecallIndex(from: actor)
 
         // Signal the graph to rebuild with synced data
         AppBootstrap.shared?.graphState.needsRefresh = true

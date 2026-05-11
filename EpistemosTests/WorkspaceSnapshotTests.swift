@@ -446,6 +446,10 @@ struct StartupIntegrityTests {
         let sampleOfTwenty = AppBootstrap.startupIntegritySamplePageIdsForTesting(twentyPageIDs)
         #expect(sampleOfTwenty.count == 2)
         #expect(sampleOfTwenty == ["page-1", "page-9"])
+
+        let largePageIDs = (1...9_750).map { "page-\($0)" }
+        let sampleOfLargeVault = AppBootstrap.startupIntegritySamplePageIdsForTesting(largePageIDs)
+        #expect(sampleOfLargeVault.count == 64)
     }
 
     @Test("startup integrity report blocks automatic vault restore after note-body verification failures")
