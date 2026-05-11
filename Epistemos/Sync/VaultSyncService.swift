@@ -3323,20 +3323,28 @@ final class VaultSyncService {
 
     /// Create a physical directory in the vault for an SDFolder.
     /// `relativePath` is the folder's path relative to vault root (e.g. "Projects/2026").
-    func createDirectory(relativePath: String) {
+    ///
+    /// Returns `true` when the directory exists on disk after this call,
+    /// `false` when the FS operation failed (no vault URL, mkdir error, etc.).
+    /// Pre-RCA13 callers ignored failures by accident — see the
+    /// VaultOrganizer move/create transactional-safety hardening.
+    @discardableResult
+    func createDirectory(relativePath: String) -> Bool {
         guard let vaultURL else {
             log.warning("Cannot create directory: no vault URL")
-            return
+            return false
         }
         let dirURL = vaultURL.appendingPathComponent(relativePath, isDirectory: true)
         do {
             suppressFileWatcherForSelfOriginatedChange()
             try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
             log.info("Created directory: \(relativePath, privacy: .public)")
+            return true
         } catch {
             log.error(
                 "Failed to create directory \(relativePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
+            return false
         }
     }
 
@@ -3389,15 +3397,21 @@ final class VaultSyncService {
     }
 
     /// Move a page's markdown file into a different vault subfolder and keep SwiftData in sync.
-    func movePage(pageId: String, toSubfolder subfolder: String?) {
+    ///
+    /// Returns `true` when the move succeeded (file on disk + SwiftData both
+    /// reflect the new location), `false` when any FS / persistence step
+    /// failed. Pre-RCA13 callers ignored failures by accident, leaving
+    /// SwiftData claiming the move while disk stayed in the old location.
+    @discardableResult
+    func movePage(pageId: String, toSubfolder subfolder: String?) -> Bool {
         guard let vaultURL else {
             log.warning("Cannot move page: no vault URL")
-            return
+            return false
         }
 
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = fetchFirst(descriptor, in: context, label: "page move") else { return }
+        guard let page = fetchFirst(descriptor, in: context, label: "page move") else { return false }
 
         let normalizedSubfolder: String? = {
             guard let subfolder else { return nil }
@@ -3452,8 +3466,10 @@ final class VaultSyncService {
                 savePage(pageId: pageId)
             }
             publishVaultMutation(.vaultChanged)
+            return true
         } catch {
             log.error("Failed to move page: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
