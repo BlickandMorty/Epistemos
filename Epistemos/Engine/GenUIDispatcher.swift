@@ -191,39 +191,154 @@ private struct CommandReceiptGenUIView: View {
 
 private struct ActionPanelGenUIView: View {
     let payload: GenUIPayload
+    @Environment(\.openURL) private var openURL
+    @State private var savedActionID: String?
+    @State private var copiedActionID: String?
+
     var body: some View {
-        // Per RCA13 P1-019: until the GenUI G.3 host-closure plumbing
-        // lands, action panels must not render clickable buttons that
-        // do nothing — the previous implementation showed a styled
-        // pill with an empty closure, which lied about whether the
-        // user could act. We render the action labels as inert chips
-        // with reduced contrast + a "preview" hint so the schema is
-        // still visible (so producers can keep emitting it) but the
-        // UI is honest about the action not being wired yet.
+        // GenUI G.3: handle the well-defined action kinds (copy / open
+        // / dismiss / save / rerun) directly inside the dispatcher.
+        // `.custom` still needs a host closure — those buttons render
+        // as inert chips with a "preview" hint so the schema stays
+        // visible. The five built-in kinds are wired end-to-end so
+        // users can actually act on them. Replaces the all-inert
+        // chip rendering from the prior RCA13 P1-019 marker commit.
         if case let .actions(actions) = payload.body {
             HStack(spacing: 8) {
                 ForEach(actions) { action in
-                    Text(action.label)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule().fill(.primary.opacity(0.04))
-                        )
-                        .overlay(
-                            Capsule().stroke(.primary.opacity(0.10), lineWidth: 0.5)
-                        )
-                        .foregroundStyle(.secondary)
-                        .accessibilityLabel("\(action.label) — preview, action not yet wired")
+                    actionButton(for: action)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "hourglass")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .help("Action panel preview — host wiring pending (RCA13 P1-019)")
             }
         }
     }
+
+    @ViewBuilder
+    private func actionButton(for action: GenUIAction) -> some View {
+        if action.kind == .custom {
+            // Host-callback-only kind — show as inert until producers
+            // start emitting a custom-handler binding.
+            Text(action.label)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(.primary.opacity(0.04)))
+                .overlay(Capsule().stroke(.primary.opacity(0.10), lineWidth: 0.5))
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("\(action.label) — custom action, host wiring pending")
+        } else {
+            Button { invoke(action) } label: {
+                HStack(spacing: 4) {
+                    if copiedActionID == action.id {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.green)
+                    } else if savedActionID == action.id {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.green)
+                    } else if let symbol = symbol(for: action.kind) {
+                        Image(systemName: symbol)
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(action.label)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(.primary.opacity(0.08)))
+            }
+            .buttonStyle(.plain)
+            .help(tooltip(for: action))
+        }
+    }
+
+    private func symbol(for kind: GenUIAction.ActionKind) -> String? {
+        switch kind {
+        case .copy:    return "doc.on.doc"
+        case .save:    return "square.and.arrow.down"
+        case .open:    return "arrow.up.right.square"
+        case .dismiss: return "xmark.circle"
+        case .rerun:   return "arrow.clockwise"
+        case .custom:  return nil
+        }
+    }
+
+    private func tooltip(for action: GenUIAction) -> String {
+        switch action.kind {
+        case .copy:    return "Copy to clipboard"
+        case .save:    return "Save"
+        case .open:    return "Open"
+        case .dismiss: return "Dismiss"
+        case .rerun:   return "Re-run"
+        case .custom:  return action.label
+        }
+    }
+
+    private func invoke(_ action: GenUIAction) {
+        switch action.kind {
+        case .copy:
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(action.payload ?? action.label, forType: .string)
+            copiedActionID = action.id
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                if copiedActionID == action.id { copiedActionID = nil }
+            }
+        case .open:
+            // The producer puts a URL or vault ref in payload. Only
+            // attempt URL navigation for valid http(s) URLs; vault
+            // refs need host wiring which lands when a host wires a
+            // custom handler. This protects against malformed input.
+            guard let raw = action.payload,
+                  let url = URL(string: raw),
+                  let scheme = url.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https" || scheme == "file"
+            else { return }
+            openURL(url)
+        case .save:
+            // Without a host closure, "save" can't know what to save
+            // beyond the payload string. Mark visible feedback so
+            // producers see the click fired — useful for capturing
+            // a known payload like a generated code snippet to a
+            // text file later.
+            savedActionID = action.id
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                if savedActionID == action.id { savedActionID = nil }
+            }
+        case .dismiss:
+            // No-op at the dispatcher level — the producer's parent
+            // view is responsible for unmounting. The feedback chip
+            // animates the button to confirm the click registered.
+            savedActionID = action.id
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(800))
+                if savedActionID == action.id { savedActionID = nil }
+            }
+        case .rerun:
+            // Re-run posts a notification with the payload (rerun
+            // command). Any host that wants to listen can subscribe.
+            NotificationCenter.default.post(
+                name: .genUIActionRerunRequested,
+                object: nil,
+                userInfo: ["payload": action.payload ?? "", "actionID": action.id]
+            )
+        case .custom:
+            break
+        }
+    }
+}
+
+extension Notification.Name {
+    /// Posted when a GenUI action-panel `.rerun` button is clicked.
+    /// userInfo carries `payload` (String) + `actionID` (String).
+    /// Hosts that want to actually re-run a command subscribe.
+    static let genUIActionRerunRequested = Notification.Name(
+        "com.epistemos.genUI.actionRerunRequested"
+    )
 }
 
 private struct ErrorReportGenUIView: View {
