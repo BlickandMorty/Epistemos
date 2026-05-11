@@ -938,32 +938,25 @@ fragment float4 node_fragment(
                 float3 canvas_target = srgb_to_linear(float3(0.95, 0.95, 0.95));
                 pixel_color = mix(pixel_color, canvas_target, 0.70);
             } else {
-                // Dark mode: mix HARD toward black + luma collapse so the
-                // dimmed siblings recede as near-black silhouettes. User
-                // wants stronger distinction between selected and
-                // deselected on dark, so the mix goes to 0.92 (was 0.80)
-                // and the dim target deepens to 0.02 (was 0.05).
-                float3 selection_dim_target = srgb_to_linear(float3(0.02, 0.02, 0.02));
-                pixel_color = mix(pixel_color, selection_dim_target, 0.92);
+                // Dark mode: full collapse to near-black + monochrome.
+                // Per user 2026-05-10: dimmed nodes were still showing the
+                // edge crossings inside their disc (because alpha was 0.55
+                // and edges bled through). Going opaque + very dark gives
+                // a clean silhouette that fully covers the edges underneath
+                // while still reading as receded vs the bright selection.
+                float3 selection_dim_target = srgb_to_linear(float3(0.01, 0.01, 0.01));
+                pixel_color = mix(pixel_color, selection_dim_target, 0.96);
                 float dim_lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
-                pixel_color = mix(pixel_color, float3(dim_lum), 0.92);
+                pixel_color = mix(pixel_color, float3(dim_lum), 0.95);
             }
         }
 
-        // Alpha policy: dimmed light-mode nodes must stay opaque so the
-        // canvas-fade ghost still covers edges underneath. Dimmed dark-
-        // mode nodes can drop to 0.55 alpha — the magnolia/dark edges are
-        // soft mid-grey on dark canvas and the dimmed disc itself is
-        // near-black, so the small amount of edge bleed-through reads
-        // as deliberate atmospheric depth rather than as overlap. Selected
-        // nodes and undimmed nodes stay near-opaque.
-        float final_alpha;
-        if (cinematic_dimmed && !light) {
-            final_alpha = 0.55;
-        } else {
-            final_alpha = max(in.color.a, 0.95);
-        }
-        return float4(pixel_color, final_alpha);
+        // Alpha policy: dimmed nodes stay OPAQUE in both modes so the
+        // disc geometry fully covers any edge crossings underneath.
+        // Visual recession comes from the color collapse above, not from
+        // alpha. (Previous 0.55 dark-dim alpha let edges show through the
+        // disc area — see user 2026-05-10 screenshot.)
+        return float4(pixel_color, max(in.color.a, 0.95));
     }
 
     // ── Balanced + Performance: shared node shading ──
@@ -1266,11 +1259,12 @@ fragment float4 line_edge_fragment(
 ) {
     float alpha = 1.0 - smoothstep(0.6, 1.0, abs(in.dist_from_center));
     if (alpha < 0.01) discard_fragment();
-    // When a node is selected, dim ALL edges so the selection +
-    // neighborhood read with focus instead of a tangle of bright lines
-    // converging on the selected hub. Per user 2026-05-10: the edges
-    // were too sharp/contrasty in dark mode select state.
-    float selection_dim = uniforms.selection_active > 0.5 ? 0.30 : 1.00;
+    // When a node is selected, dim ALL edges hard so the selection +
+    // neighborhood read with focus. 0.18 makes the edges nearly fade
+    // into the canvas, leaving the selected hub + neighbor nodes as
+    // the only bright features. Per user 2026-05-10: 0.30 wasn't
+    // enough on dark mode.
+    float selection_dim = uniforms.selection_active > 0.5 ? 0.18 : 1.00;
     return float4(in.color.rgb, in.color.a * alpha * selection_dim);
 }
 
