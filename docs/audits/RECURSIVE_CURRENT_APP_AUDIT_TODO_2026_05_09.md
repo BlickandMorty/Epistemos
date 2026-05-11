@@ -3968,7 +3968,9 @@ Acceptance:
 
 ### RCA5-P2-001 - Treat `LiveCodeEditorController` as implemented-not-wired until product caller exists
 
-Status: TODO
+Status: PATCHED 2026-05-10 — file header now declares SCAFFOLD ONLY
+
+Fix-pass evidence: commit `5e2742ab4` adds an explicit "SCAFFOLD ONLY (RCA13 P3-003)" block at the top of `Epistemos/Engine/LiveCodeEditorController.swift`. The marker says no production SwiftUI surface binds to this controller; the visible code editor uses `CodeEditSourceEditor` with its built-in highlight path; the W9.6 substrate is exercised only by tests + previews; when the wiring slice lands it picks SwiftTreeSitterLiveHighlighter as the canonical highlighter (per the P1-014 commit `858de7575`).
 
 Subsystem: live code editor controller, code editor UI, LSP/editing runtime.
 
@@ -3998,7 +4000,13 @@ Acceptance:
 
 ### RCA5-P2-003 - Audit `AgentAuthorityStore` default persistence and enforcement
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-10 — default flip done, enforcement-at-dispatch test still pending
+
+Fix-pass evidence: commit `3c1081e14` flips the default initializer to `FileBackedAgentAuthorityPersistence()`. Tests and SwiftUI previews still opt into `InMemoryAgentAuthorityPersistence()` explicitly when they want ephemeral state. AppBootstrap + SettingsView call sites already passed the file-backed flavor; the change hardens future construction sites against the in-memory regression the audit flagged.
+
+Remaining work for full acceptance:
+- The `networkFetch: .autoAllow` permission default flagged by the audit is still in place — needs an explicit "ask-first" default with a runtime dispatch-time check.
+- Enforcement-at-dispatch test (trigger web fetch + package-install-like tool, confirm dispatch asks/blocks per the snapshot) is queued.
 
 Subsystem: Agent authority settings, permission enforcement, tool dispatch.
 
