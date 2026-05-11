@@ -2,6 +2,17 @@ import Foundation
 
 // MARK: - RopeFFIClient
 //
+// **SCAFFOLD ONLY (RCA13 RCA2-P2-015).** This Swift consumer for
+// the agent_core rope handle is wired through @_silgen_name + a
+// full roundtrip test suite, but no production Swift code calls
+// `RopeFFIClient` today. The note storage migration that's slated
+// to consume this (per the W9.26 plan) is a future PR.
+//
+// Until that wiring lands, this file is a stable target for the
+// migration to land against — the FFI surface, the threading
+// contract, and the tests are all in place. No UI claim should
+// imply that rope-backed note storage is the active runtime.
+//
 // W9.26 PR3 of N — Swift consumer for the agent_core/src/rope_handle.rs
 // FFI surface. Mirrors the proven RustEventRingClient @_silgen_name
 // pattern (Engine/RustEventRingClient.swift).
