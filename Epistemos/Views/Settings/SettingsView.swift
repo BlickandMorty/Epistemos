@@ -725,6 +725,11 @@ private struct GeneralDetailView: View {
                 GraphEventVisibilityRow()
                 SearchFusionHealthRow()
                 CognitiveDagHealthRow()
+                // RCA13 P1-021: deployment-profile honesty row.
+                // Visible in BOTH profiles so users + auditors can see
+                // at a glance whether this build is MAS or Pro and
+                // which capabilities differ between them.
+                DeploymentProfileHealthRow()
                 #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
                 // Pro-only: surface which agent_core passthrough CLIs
                 // (claude / codex / gemini / kimi) are present on the
