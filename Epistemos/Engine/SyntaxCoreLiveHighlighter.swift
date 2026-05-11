@@ -3,6 +3,23 @@ import os
 
 // MARK: - SyntaxCoreLiveHighlighter
 //
+// **SUPERSEDED (RCA13 P1-014).** This file remains as the Rust-FFI
+// reference implementation, but `SwiftTreeSitterLiveHighlighter`
+// (sibling file) is the canonical W9.6 path per
+// `epistemos_code_verdict.md` §1 + §3. This highlighter only emits
+// semantic tokens for Rust source — see V1.5 LIMITATION below — so
+// using it for Swift/Python/TypeScript/Markdown silently produces
+// plain rendering and an empty token array. The Swift-direct
+// highlighter handles every language CodeLanguagesContainer
+// exports without that drop.
+//
+// Neither this file nor SwiftTreeSitterLiveHighlighter is wired
+// into the production live editor today; the visible code editor
+// (`Epistemos/Views/Notes/CodeEditorView.swift`) uses
+// `CodeEditSourceEditor` with its built-in highlight path. These
+// two LiveHighlighter implementations are exercised only by tests
+// + `LiveCodeEditorController`, which has no production caller.
+//
 // Wave 9.6 follow-up of the Extended Program Plan
 // (cross-ref `epistemos_code_verdict.md` §1: live syntax highlighting
 //  STAYS IN SWIFT via direct C bindings to tree-sitter).
