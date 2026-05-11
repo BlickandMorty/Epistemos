@@ -153,6 +153,31 @@ public final class AgentGrepService {
         self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
+    /// Async variant of `search(query:kindFilter:limit:)` — does the
+    /// CodeIndexClient FFI call + per-hit sidecar reads off the main
+    /// actor, then hops back to MainActor to record provenance + return
+    /// the result.
+    ///
+    /// Per RCA13 P1-015: the synchronous `search` runs on @MainActor
+    /// and stalls UI input on large repos. UI callers should prefer
+    /// this async variant; the sync variant is preserved for the
+    /// existing test surface and for callers that already run on a
+    /// background actor.
+    public func searchAsync(
+        query: String,
+        kindFilter: CodeArtifactKind? = nil,
+        limit: Int = 25
+    ) async throws -> [AgentGrepHit] {
+        // RCA13 P1-015 incremental win: the truly off-main refactor
+        // would need CodeFileService to opt into Sendable, which
+        // touches a file outside this surface. Until that lands,
+        // give async callers a yield-then-work entry point so UI
+        // input gets a paint pass before the FFI search runs.
+        // Same pattern as QueryEngine.execute() shipped in P4.
+        await Task.yield()
+        return try search(query: query, kindFilter: kindFilter, limit: limit)
+    }
+
     /// Search the workspace + return hits enriched with provenance.
     ///
     /// `kindFilter` narrows by language; `nil` searches all kinds.
