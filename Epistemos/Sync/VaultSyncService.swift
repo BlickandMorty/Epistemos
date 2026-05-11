@@ -3532,19 +3532,50 @@ enum VaultConnectionActions {
     }
 
     static func disconnect(notesUI: NotesUIState, vaultSync: VaultSyncService) {
+        // Per user 2026-05-10 + RCA13-P0-001: disconnect was much weaker
+        // than Reset Everything — it never called
+        // `clearVaultLifecycleRuntimeState`, never force-cleared derived
+        // state when no local body data was watched, and dispatched the
+        // entire teardown into a fire-and-forget Task so the UI could
+        // still show stale graph/Halo/shadow rows while the user tried
+        // to pick another vault.
+        //
+        // Now disconnect runs the canonical synchronous clear FIRST so
+        // graph engine payload, query engine, contextual shadows,
+        // shadow indexer, instant recall, and workspace restore are
+        // all wiped before any new vault selection. The async vault
+        // teardown still runs after, and we re-run the clear after it
+        // completes to catch any tasks that emitted rows between the
+        // two phases.
+        AppBootstrap.shared?.clearVaultLifecycleRuntimeState(
+            reason: "Disconnect Vault started",
+            clearWorkspaceRestore: true
+        )
+        notesUI.resetForVaultSwitch()
+        NoteWindowManager.shared.resetForVaultRebuild()
+        AppBootstrap.shared?.ambientManifest = nil
+        AppBootstrap.shared?.uiState.setActivePanel(.home)
+
         Task { @MainActor in
-            // Teardown vault first so vaultURL is nil before UI resets
             let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
             if didClear {
                 vaultSync.dismissRecoveryIssue()
+            } else {
+                // Match resetAllData()'s fallback: when stopWatching
+                // didn't have local body data to clear, force-clear the
+                // derived state path anyway so disconnect can't leave a
+                // half-cleared shadow / instant-recall / search index.
+                await vaultSync.forceClearDerivedLocalStateForFullReset()
             }
             vaultSync.clearPersistedVaultSelection()
 
-            // Now reset UI — vaultURL is already nil, SwiftUI will reflect immediately
-            notesUI.resetForVaultSwitch()
-            NoteWindowManager.shared.resetForVaultRebuild()
-            AppBootstrap.shared?.ambientManifest = nil
-            AppBootstrap.shared?.uiState.setActivePanel(.home)
+            // Second clear after async teardown so any background-emitted
+            // state (e.g. a late shadow index callback) is wiped before
+            // the user picks the next vault.
+            AppBootstrap.shared?.clearVaultLifecycleRuntimeState(
+                reason: "Disconnect Vault completed",
+                clearWorkspaceRestore: true
+            )
         }
     }
 
