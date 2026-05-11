@@ -63,6 +63,83 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-10-002: Agents don't appear to work / not connected to any provider
+
+Status: Open (likely API-key-missing, not code regression — needs user confirmation)
+Priority: P1
+First Observed: 2026-05-10
+Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD `73f0e5009`)
+
+Symptom:
+User reports "agents don't seem like they work and not connected to any
+provider like they supposed to ... that should be in the cli portion but
+that was another issue i had so please make sure that is good as well."
+
+Diagnosis (source audit 2026-05-10):
+
+1. **FFI binding IS compiled in** — the Xcode project uses a
+   `PBXFileSystemSynchronizedRootGroup` at `build-rust/swift-bindings/`
+   that auto-includes every `.swift` file in that directory in the
+   target build. Only `omega_ax.swift` is exception-excluded (from
+   `Epistemos-AppStore` target). `agent_core.swift`, `epistemos_core.swift`,
+   `omega_mcp.swift` ARE compiled. Confirmed by the
+   `28ED660DDD0AE43C1E151F78` exception set in `Epistemos.xcodeproj/
+   project.pbxproj` only listing `omega_ax.swift`. So the
+   `#if canImport(agent_coreFFI)` branch in
+   `Epistemos/Bridge/StreamingDelegate.swift:5` resolves true; the
+   real `runAgentSession` (from the UniFFI wrapper) runs — NOT the
+   `bindingsUnavailable` stub at line 132.
+
+2. **Dispatch path is wired** —
+   `Epistemos/App/ChatCoordinator.swift:604` calls `runAgentSession`
+   inside `AppBootstrap.withScopedAgentCoreEnvironment` which scopes
+   provider API keys from Keychain into env vars around the Rust call
+   (`Epistemos/App/AppBootstrap.swift:753-775`). Provider key
+   mappings (line 716-730) cover Anthropic, OpenAI, Google, Perplexity,
+   OpenRouter, Z.AI/GLM, Kimi, DeepSeek, MiniMax, xAI, Mistral, Groq,
+   HuggingFace.
+
+3. **Likely runtime cause** — Keychain lookup at
+   `Keychain.load(for: "epistemos.anthropic.apiKey")` etc. returns nil,
+   so the env vars aren't set, so the Rust providers see empty
+   `std::env::var("ANTHROPIC_API_KEY")` and fail auth on first HTTP
+   call. The error message "Authentication failed (401). Check the
+   selected provider API key in Settings." exists in
+   `Epistemos/Engine/LLMService.swift:586` and is surfaced in the
+   non-agent (TriageService) path; whether it also surfaces in the
+   agent path needs runtime verification.
+
+4. **CLI passthrough is Pro-only by design** —
+   `agent_core/src/tools/cli_passthrough.rs` (the claude-code / codex /
+   gemini / kimi CLI tools) is gated behind `#[cfg(feature = "pro-build")]`
+   and the registration functions at `agent_core/src/tools/registry.rs:1875+`
+   are also `cfg(feature = "pro-build")`. Per the MAS-First doctrine
+   (`docs/fusion/...`), Pro features are NOT in the MAS-shippable
+   build. The CLIs would surface as agent tools in a Pro build only.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Verify the message at `LLMService.swift:586` reaches the user when
+  the agent path fails auth. If not, plumb it through.
+- Add a Settings → API Keys health row that shows which providers
+  have keys stored (read-only, doesn't expose values).
+
+Destructive Fixes (require user approval):
+- Auto-storing API keys from environment / config files.
+- Surfacing the "missing key" toast without user-side gesture (could
+  spam on every chat send).
+
+Investigation Log:
+- 2026-05-10: New entry. Source audit confirmed the agent FFI plumbing
+  is canonical and not regressed. Most likely cause is user hasn't
+  entered API keys in Settings. CLI passthrough is intentionally
+  Pro-only per the MAS-First doctrine. Quickest verification: open
+  Settings → AI / Inference → Anthropic (or any provider) and confirm
+  an API key is set. Try the agent again. If failure persists with a
+  valid key, the issue moves from "configuration" to "code regression"
+  and needs runtime profiling.
+
+---
+
 ### ISSUE-2026-05-10-001: Halo feature does not work end-to-end for user
 
 Status: Open
