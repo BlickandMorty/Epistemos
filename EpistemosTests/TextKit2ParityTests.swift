@@ -534,15 +534,15 @@ struct ParagraphTests {
     @Test("H1 heading in notes uses RetroGaming display font in both stacks")
     func h1UsesDisplayFont() {
         let md = "# Big Heading"
-        let tk1 = ParityHelpers.tk1Styled(md, theme: .magnolia)
-        let tk2 = ParityHelpers.tk2Styled(md, theme: .magnolia)
+        let tk1 = ParityHelpers.tk1Styled(md, theme: .platinumViolet)
+        let tk2 = ParityHelpers.tk2Styled(md, theme: .platinumViolet)
 
         let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         #expect(tk1Font?.fontName.contains("RetroGaming") == true)
         #expect(tk2Font?.fontName.contains("RetroGaming") == true)
 
-        let expectedColor = NSColor(EpistemosTheme.magnolia.fontAccent)
+        let expectedColor = NSColor(EpistemosTheme.platinumViolet.fontAccent)
         let tk1Color = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
         let tk2Color = tk2.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
         #expect(ParityHelpers.colorsMatch(tk1Color, expectedColor))
@@ -656,8 +656,8 @@ struct ParagraphTests {
     @Test("TK2 display heading markers inherit TK1 font and color treatment")
     func tk2HeadingMarkerStyleMatchesLegacy() {
         let markdown = "# Big Heading"
-        let tk1 = ParityHelpers.tk1Styled(markdown, theme: .magnolia)
-        let tk2 = try! #require(ParityHelpers.tk2DisplayParagraphs(markdown, theme: .magnolia).first)
+        let tk1 = ParityHelpers.tk1Styled(markdown, theme: .platinumViolet)
+        let tk2 = try! #require(ParityHelpers.tk2DisplayParagraphs(markdown, theme: .platinumViolet).first)
 
         let tk1Font = tk1.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
@@ -672,15 +672,15 @@ struct ParagraphTests {
     @Test("TK2 display list and quote markers inherit TK1 syntax colors")
     func tk2DisplaySyntaxMarkerColorsMatchLegacy() {
         let listMarkdown = "- list item"
-        let tk1List = ParityHelpers.tk1Styled(listMarkdown, theme: .magnolia)
-        let tk2List = try! #require(ParityHelpers.tk2DisplayParagraphs(listMarkdown, theme: .magnolia).first)
+        let tk1List = ParityHelpers.tk1Styled(listMarkdown, theme: .platinumViolet)
+        let tk2List = try! #require(ParityHelpers.tk2DisplayParagraphs(listMarkdown, theme: .platinumViolet).first)
         let tk1ListColor = tk1List.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
         let tk2ListColor = tk2List.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
         #expect(ParityHelpers.colorsMatch(tk1ListColor, tk2ListColor))
 
         let quoteMarkdown = "> quoted text"
-        let tk1Quote = ParityHelpers.tk1Styled(quoteMarkdown, theme: .magnolia)
-        let tk2Quote = try! #require(ParityHelpers.tk2DisplayParagraphs(quoteMarkdown, theme: .magnolia).first)
+        let tk1Quote = ParityHelpers.tk1Styled(quoteMarkdown, theme: .platinumViolet)
+        let tk2Quote = try! #require(ParityHelpers.tk2DisplayParagraphs(quoteMarkdown, theme: .platinumViolet).first)
         let tk1QuoteColor = tk1Quote.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
         let tk2QuoteColor = tk2Quote.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
         #expect(ParityHelpers.colorsMatch(tk1QuoteColor, tk2QuoteColor))

@@ -14,7 +14,7 @@ struct ResolvedThemeTests {
 
     @Test("resolved cache matches public theme tokens for key UI surfaces")
     func resolvedCacheMatchesPublicThemeTokens() {
-        let themes: [EpistemosTheme] = [.systemLight, .systemDark, .magnolia, .sunset, .platinumVioletDark]
+        let themes: [EpistemosTheme] = [.systemLight, .systemDark, .platinumViolet, .sunset, .platinumVioletDark]
 
         for theme in themes {
             #expect(theme.resolved.isDark == theme.isDark)

@@ -170,8 +170,12 @@ struct LiquidGreeting: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .shadow(
-            color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear),
-            radius: compact ? 0 : 8
+            color: compact
+                ? .clear
+                : (theme.isDark
+                    ? theme.fontAccent.opacity(0.12)
+                    : Color.black.opacity(0.08)),
+            radius: compact ? 0 : (theme.isDark ? 8 : 5)
         )
     }
 
@@ -198,8 +202,12 @@ struct LiquidGreeting: View {
             value: dynamicSearchFontSize
         )
         .shadow(
-            color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear),
-            radius: compact ? 0 : 8
+            color: compact
+                ? .clear
+                : (theme.isDark
+                    ? theme.fontAccent.opacity(0.12)
+                    : Color.black.opacity(0.08)),
+            radius: compact ? 0 : (theme.isDark ? 8 : 5)
         )
     }
 

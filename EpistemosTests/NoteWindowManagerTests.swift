@@ -374,7 +374,7 @@ struct NoteWindowManagerTests {
             defer { retainWindowFixture(window) }
             let uiState = UIState()
 
-            uiState.setPair(.platinum)
+            uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
             uiState.isSystemDark = true
 
@@ -411,7 +411,7 @@ struct NoteWindowManagerTests {
 
             NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
 
-            uiState.setPair(.platinum)
+            uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
             uiState.isSystemDark = true
             NoteWindowThemeStyler.apply(to: window, uiState: uiState)
@@ -495,8 +495,8 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarMetrics.chatFieldWidth == 220)
         #expect(NoteToolbarMetrics.stripGlowBlurRadius == 6)
         #expect(NoteToolbarDisplay.hidesMenuIndicators)
-        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0)
-        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumDark) == 0)
+        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumViolet) == 0)
+        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumVioletDark) == 0)
     }
 
     @Test("Preview mode stays on the TK2 stack and leaves markdown unchanged")
