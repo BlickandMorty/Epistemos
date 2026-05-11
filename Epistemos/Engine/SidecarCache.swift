@@ -12,6 +12,9 @@ import OSLog
 // 60-FPS pan/zoom; complete CPU stall).
 //
 // Now: first decode populates the cache; subsequent reads are O(1)
+// for both lookup AND touch (RCA13 P2-015 fix). Eviction is O(n)
+// in cache size but only fires when count exceeds `bound`, not on
+// every read.
 // in-memory lookups. Bulk vault-prefetch (AP7) at AppBootstrap time
 // fires `prefetchAll(under:)` so the first frame already has the
 // full vault's sidecars warm.
@@ -44,8 +47,17 @@ nonisolated public final class SidecarCache: @unchecked Sendable {
     /// dictionary lookups; never blocks more than briefly so it's
     /// safe under the SwiftUI render-pass deadline.
     private let lock = OSAllocatedUnfairLock()
-    private var store: [URL: EpistemosSidecar] = [:]
-    private var lru: [URL] = []
+    /// RCA13 P2-015: store payload + a monotonically increasing
+    /// touch counter. Lookup + touch are now O(1) (just dictionary
+    /// access + counter bump). Eviction is O(n) in store size, but
+    /// only fires when count exceeds `bound` — not on every read,
+    /// which was the previous O(n) hot path under the lock.
+    private struct Entry {
+        let sidecar: EpistemosSidecar
+        var lastTouchCounter: UInt64
+    }
+    private var store: [URL: Entry] = [:]
+    private var touchCounter: UInt64 = 0
 
     private init() {}
 
@@ -53,16 +65,18 @@ nonisolated public final class SidecarCache: @unchecked Sendable {
 
     public func lookup(_ url: URL) -> EpistemosSidecar? {
         lock.withLock {
-            guard let s = store[url] else { return nil }
-            touchLocked(url)
-            return s
+            guard var entry = store[url] else { return nil }
+            touchCounter &+= 1
+            entry.lastTouchCounter = touchCounter
+            store[url] = entry
+            return entry.sidecar
         }
     }
 
     public func store(_ sidecar: EpistemosSidecar, for url: URL) {
         lock.withLock {
-            store[url] = sidecar
-            touchLocked(url)
+            touchCounter &+= 1
+            store[url] = Entry(sidecar: sidecar, lastTouchCounter: touchCounter)
             evictLocked()
         }
     }
@@ -70,14 +84,13 @@ nonisolated public final class SidecarCache: @unchecked Sendable {
     public func invalidate(_ url: URL) {
         lock.withLock {
             store.removeValue(forKey: url)
-            if let i = lru.firstIndex(of: url) { lru.remove(at: i) }
         }
     }
 
     public func reset() {
         lock.withLock {
             store.removeAll()
-            lru.removeAll()
+            touchCounter = 0
         }
         Self.log.debug("SidecarCache reset")
     }
@@ -88,15 +101,15 @@ nonisolated public final class SidecarCache: @unchecked Sendable {
 
     // MARK: - Internals (lock-held)
 
-    private func touchLocked(_ url: URL) {
-        if let i = lru.firstIndex(of: url) { lru.remove(at: i) }
-        lru.append(url)
-    }
-
+    /// O(n) eviction — scans for the oldest counter and drops it.
+    /// Only fires when count > bound, which under steady-state load
+    /// happens at most once per insert past 4096, not per read.
     private func evictLocked() {
-        while store.count > Self.bound, let oldest = lru.first {
-            store.removeValue(forKey: oldest)
-            lru.removeFirst()
+        while store.count > Self.bound {
+            guard let oldestURL = store.min(by: {
+                $0.value.lastTouchCounter < $1.value.lastTouchCounter
+            })?.key else { return }
+            store.removeValue(forKey: oldestURL)
         }
     }
 }
