@@ -82,6 +82,13 @@ impl FileReadTracker {
         }
         false
     }
+
+    /// Drop the read-time entry for a path. Used after delete so a
+    /// subsequent create-at-same-path doesn't false-positive the
+    /// stale-file warning.
+    fn forget(&mut self, path: &Path) {
+        self.read_times.remove(path);
+    }
 }
 
 // MARK: - Security
@@ -258,6 +265,32 @@ impl FileOpsTool {
         })
     }
 
+    /// Per user 2026-05-11: chats need to be able to delete notes.
+    /// `delete` uses the same Write-path validation (rejects
+    /// /etc, /System, etc.) plus an explicit existence check so
+    /// the agent gets a clean error instead of a "no such file"
+    /// log. After delete, the tracker entry is dropped so a
+    /// subsequent write to the same path doesn't trigger the
+    /// stale-file warning.
+    fn delete_file(&self, path_str: &str) -> Value {
+        let path = match validate_path(path_str, PathMode::Write) {
+            Ok(p) => p,
+            Err(e) => return json!({"success": false, "error": e}),
+        };
+        if !path.exists() {
+            return json!({"success": false, "error": format!("file not found: {path_str}")});
+        }
+        match fs::remove_file(&path) {
+            Ok(()) => {
+                if let Ok(mut tracker) = self.tracker.lock() {
+                    tracker.forget(&path);
+                }
+                json!({"success": true, "path": path_str, "action": "delete"})
+            }
+            Err(e) => json!({"success": false, "error": format!("Failed to delete: {e}")}),
+        }
+    }
+
     fn write_file(&self, path_str: &str, content: &str) -> Value {
         let path = match validate_path(path_str, PathMode::Write) {
             Ok(p) => p,
@@ -420,9 +453,10 @@ impl ToolHandler for FileOpsTool {
                 optional_string_field(input, "replace")?.unwrap_or(""),
             ),
             "list" => self.list_dir(path),
+            "delete" => self.delete_file(path),
             _ => {
                 return Err(ToolError::InvalidArguments(format!(
-                    "unknown action '{action}' (expected: read|write|patch|list)"
+                    "unknown action '{action}' (expected: read|write|patch|list|delete)"
                 )));
             }
         };
@@ -484,13 +518,13 @@ fn parse_line_range(input: &Value) -> Result<(Option<usize>, Option<usize>), Too
 pub fn file_ops_tool_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "file_ops".to_string(),
-        description: "Read, write, and patch files on the filesystem. Actions: read (with optional line range), write (create/overwrite), patch (find-and-replace), list (directory contents). Warns about stale files modified externally since last read.".to_string(),
+        description: "Read, write, patch, list, and delete files on the filesystem. Actions: read (with optional line range), write (create/overwrite), patch (find-and-replace), list (directory contents), delete (remove file). Warns about stale files modified externally since last read.".to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["read", "write", "patch", "list"],
+                    "enum": ["read", "write", "patch", "list", "delete"],
                     "description": "The operation to perform."
                 },
                 "path": {
@@ -566,6 +600,39 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{unknown}").contains("unknown action"));
+    }
+
+    /// Per user 2026-05-11: confirm `delete` writes are real.
+    /// Creates a file in TMPDIR, deletes it via file_ops, verifies
+    /// the file is gone + that a subsequent delete of the same path
+    /// returns success=false with a "file not found" message.
+    #[tokio::test]
+    async fn file_ops_delete_removes_file_then_reports_not_found() {
+        use std::env;
+        use std::fs;
+        let tool = FileOpsTool::new();
+        let dir = env::temp_dir().join(format!("epistemos-fileops-delete-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("note.md");
+        fs::write(&target, b"# Test note\n").unwrap();
+
+        let first = tool
+            .execute(&json!({ "action": "delete", "path": target.to_string_lossy() }))
+            .await
+            .expect("delete should not error");
+        let parsed: serde_json::Value = serde_json::from_str(&first).unwrap();
+        assert_eq!(parsed["success"], json!(true));
+        assert!(!target.exists());
+
+        let second = tool
+            .execute(&json!({ "action": "delete", "path": target.to_string_lossy() }))
+            .await
+            .expect("delete should not error on missing file");
+        let parsed: serde_json::Value = serde_json::from_str(&second).unwrap();
+        assert_eq!(parsed["success"], json!(false));
+        assert!(parsed["error"].as_str().unwrap().contains("not found"));
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]
