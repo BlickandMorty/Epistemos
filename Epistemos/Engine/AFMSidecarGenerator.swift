@@ -125,7 +125,17 @@ public final class AFMSidecarGenerator: AFMSidecarGenerating {
         category: "AFMSidecarGenerator"
     )
 
-    private static var generationInFlight = false
+    // RCA13 P1-023: bound to N concurrent generations, not 1.
+    // Bulk note import previously serialized every sidecar job through
+    // a global boolean flag — a 20-note import waited 20×AFM-latency
+    // (10-40s) before the last job started. AFMSessionPool already
+    // manages session reuse + recycle so 2 in-flight jobs share
+    // sessions safely. 2 is the canonical M2 Pro ceiling: more jobs
+    // pile up FoundationModels tokens against the 32k practical
+    // context, and Apple Intelligence throttles aggressively past
+    // that on a hardware-limited rig.
+    private static let maxConcurrentGenerations: Int = 2
+    private static var generationInFlightCount: Int = 0
     private static var generationWaiters: [CheckedContinuation<Void, Never>] = []
 
     private init() {}
@@ -251,8 +261,8 @@ public final class AFMSidecarGenerator: AFMSidecarGenerating {
     #endif
 
     private static func acquireGenerationSlot() async {
-        if !generationInFlight {
-            generationInFlight = true
+        if generationInFlightCount < maxConcurrentGenerations {
+            generationInFlightCount += 1
             return
         }
         await withCheckedContinuation { continuation in
@@ -262,8 +272,10 @@ public final class AFMSidecarGenerator: AFMSidecarGenerating {
 
     private static func releaseGenerationSlot() {
         if generationWaiters.isEmpty {
-            generationInFlight = false
+            generationInFlightCount = max(0, generationInFlightCount - 1)
         } else {
+            // Hand the slot directly to the next waiter — the count
+            // stays the same because one job ends as another starts.
             let next = generationWaiters.removeFirst()
             next.resume()
         }
