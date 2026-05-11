@@ -142,7 +142,7 @@ struct ChatView: View {
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.mainChat) }
 
     /// Near-OLED dark grey in dark mode, landing-matched paper white in light mode.
     /// Applied as the root background so main chat reads like a deep dark

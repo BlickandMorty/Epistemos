@@ -542,6 +542,17 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             // so .epdoc never drifts back into a separate boxy chrome.
             NoteWindowChrome.apply(to: window, toolbarIdentifier: "EpdocDocument")
 
+            // Tint the .epdoc window's backgroundColor with the theme's
+            // canvas color so the WKWebView (which uses a transparent
+            // body CSS variable) doesn't show macOS's opaque default
+            // material behind it. Matches the Prose note window path.
+            // Per user 2026-05-10: Epdoc was losing the theme tint because
+            // the window backgroundColor was never set, even though the
+            // hosting content controller already carried the themed backdrop.
+            if let uiState = AppBootstrap.shared?.uiState {
+                NoteWindowThemeStyler.apply(to: window, uiState: uiState)
+            }
+
             // Per-document autosave name keeps each .epdoc's window
             // frame separate. The id from the manifest is stable
             // across renames (per ArtifactHeader contract).
