@@ -1033,8 +1033,8 @@ impl Simulation {
         }
 
         let alpha = self.params.alpha;
-        let large_graph_fast_path = n > 9_000;
-        let force_alpha = if large_graph_fast_path {
+        let high_node_damped_path = n > 9_000;
+        let force_alpha = if high_node_damped_path {
             alpha.min(0.012)
         } else {
             alpha
@@ -1094,7 +1094,7 @@ impl Simulation {
                         self.vy[i] += force[1];
                     }
                 }
-            } else if !large_graph_fast_path {
+            } else {
                 self.bodies_scratch.clear();
                 forces::force_many_body_with_scratch(
                     &self.x,
@@ -1122,20 +1122,18 @@ impl Simulation {
                     v.clear();
                 }
             }
-            if !large_graph_fast_path {
-                forces::force_collide_with_full_scratch(
-                    &mut self.x,
-                    &mut self.y,
-                    &self.collision_radii,
-                    &self.mass,
-                    &self.fx,
-                    &self.fy,
-                    self.params.collision_iterations,
-                    self.params.collision_compliance,
-                    &mut self.collision_grid,
-                    &mut self.collision_keys_scratch,
-                );
-            }
+            forces::force_collide_with_full_scratch(
+                &mut self.x,
+                &mut self.y,
+                &self.collision_radii,
+                &self.mass,
+                &self.fx,
+                &self.fy,
+                self.params.collision_iterations,
+                self.params.collision_compliance,
+                &mut self.collision_grid,
+                &mut self.collision_keys_scratch,
+            );
         }
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
@@ -1164,8 +1162,7 @@ impl Simulation {
 
         if !at_floor {
             // Cluster cohesion force (skipped in lite mode and at floor).
-            if !large_graph_fast_path
-                && !self.lite_mode
+            if !self.lite_mode
                 && self.params.cluster_strength > 0.001
                 && !self.cluster_ids.is_empty()
             {
@@ -1185,8 +1182,7 @@ impl Simulation {
 
             // Semantic boids flocking (skipped in lite mode and at floor).
             // boids_cohesion scales effective strength: 0 → 50%, 1 → 100% of base.
-            if !large_graph_fast_path
-                && !self.lite_mode
+            if !self.lite_mode
                 && self.params.semantic_strength > 0.001
                 && !self.semantic_neighbors.is_empty()
             {
@@ -1307,8 +1303,7 @@ impl Simulation {
         // uses wall-clock which breaks the `simulation_is_deterministic`
         // regression tests.
         const AMBIENT_SETTLE_GRACE_TICKS: u32 = 60;
-        if !large_graph_fast_path
-            && self.params.ambient_breath_strength > 0.0
+        if self.params.ambient_breath_strength > 0.0
             && self.tick_count > AMBIENT_SETTLE_GRACE_TICKS
             && self.degrees.len() >= n
         {
@@ -1332,10 +1327,7 @@ impl Simulation {
         // relaxation). The resulting field has exactly the intended
         // "light leaf trails through water, heavy hub parts it"
         // texture.
-        if !large_graph_fast_path
-            && self.params.enable_fluid_dynamics
-            && self.fluid_grid.is_active()
-        {
+        if self.params.enable_fluid_dynamics && self.fluid_grid.is_active() {
             // Viscosity maps to decay: 0.0 (watery, fast dissipation) → 1.0 (honey, slow)
             let decay = 0.85 + self.params.fluid_viscosity * 0.13;
             self.fluid_grid.diffuse_and_decay_with(decay);
@@ -1366,7 +1358,7 @@ impl Simulation {
         // a mass-less context (i.e., `self.decay.len() != n`), where
         // the scalar path still falls back via `fallback_decay`.
         const MAX_VELOCITY: f32 = 500.0;
-        let max_velocity = if large_graph_fast_path {
+        let max_velocity = if high_node_damped_path {
             80.0
         } else {
             MAX_VELOCITY
@@ -3917,6 +3909,41 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         assert!(!sim.static_layout);
+    }
+
+    #[test]
+    fn above_legacy_threshold_still_applies_spacing_forces() {
+        let mut graph = Graph::new();
+        for i in 0..9_001 {
+            let x = match i {
+                0 => 0.0,
+                1 => 4.0,
+                _ => 50_000.0 + (i as f32) * 20.0,
+            };
+            graph.add_node(
+                format!("node-{}", i),
+                x,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
+        }
+
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.params.center_mode = CenterMode::Off;
+        sim.params.alpha = 0.1;
+        sim.params.alpha_decay = 0.0;
+
+        let before_gap = (sim.x[1] - sim.x[0]).abs();
+        sim.tick();
+        let after_gap = (sim.x[1] - sim.x[0]).abs();
+
+        assert!(
+            after_gap > before_gap,
+            "nodes above the old 9k threshold should still receive spacing forces"
+        );
     }
 
     #[test]

@@ -1479,7 +1479,7 @@ pub extern "C" fn graph_engine_is_settled(engine: *mut Engine) -> u8 {
     })
 }
 
-/// Check if physics is completely disabled (static layout for large graphs).
+/// Check if physics is completely disabled by the user-controlled freeze.
 /// Returns 1 if static (physics off), 0 if physics is active.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_is_static_layout(engine: *mut Engine) -> u8 {

@@ -297,7 +297,7 @@ void graph_engine_set_anchor_rect(Engine* engine, float x, float y, float w, flo
 /// Check if the simulation has settled.
 uint8_t graph_engine_is_settled(Engine* engine);
 
-/// Check if physics is disabled (static layout for graphs > 1500 nodes).
+/// Check if physics is disabled by the user-controlled freeze.
 /// Returns 1 if static (physics off), 0 if physics is active.
 uint8_t graph_engine_is_static_layout(Engine* engine);
 
