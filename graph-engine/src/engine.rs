@@ -1510,6 +1510,28 @@ impl Engine {
         self.renderer.highlight.active = true;
         self.highlight_dirty = true;
         self.idle_frame_count = 0;
+        // Per user 2026-05-11 snappy-edge UX: also push the
+        // highlight set into the simulation so its link force
+        // can extend the rest length of edges touching the
+        // selected neighborhood. Connected nodes spring outward
+        // over ~0.5-1s and labels read clearly. Translates the
+        // u32 node IDs to simulation indices via the World.
+        let mut indices = rustc_hash::FxHashSet::default();
+        if let Some(root_idx) = self.world.index_of_node_id(node_id) {
+            indices.insert(root_idx);
+        }
+        for &neighbor_id in &self.renderer.highlight.highlighted_ids {
+            if let Some(idx) = self.world.index_of_node_id(neighbor_id) {
+                indices.insert(idx);
+            }
+        }
+        // 1.7× extension: enough to visibly spread connected nodes
+        // and reveal their labels without breaking the rest of the
+        // graph's spatial structure. Tunable if it feels too aggressive
+        // / too subtle in practice.
+        self.sim
+            .lock()
+            .set_selection_extension(indices, 1.7);
     }
 
     /// Highlight neighbors of a node by UUID (called from FFI).
@@ -2126,6 +2148,12 @@ impl Engine {
         if had_highlight {
             self.highlight_dirty = true;
             self.idle_frame_count = 0;
+            // Per user 2026-05-11 snappy-edge UX: also release the
+            // simulation-side extension set so the springs retract
+            // the neighbors back to their normal rest length.
+            self.sim
+                .lock()
+                .set_selection_extension(rustc_hash::FxHashSet::default(), 1.0);
         }
     }
 
