@@ -1523,9 +1523,19 @@ final class MetalGraphNSView: NSView {
         }
 
         // Sync camera settings (deselect zoom multiplier + lerp speed).
-        if let graphState, lastCameraConfigVersion != graphState.cameraConfigVersion {
+        // Pushed every frame instead of version-gated — the function is two
+        // f32 field writes on the Rust side, cheaper than the cost of a
+        // missed slider update. The version-check path was unreliable for
+        // this surface (notification observer + render-loop wake) and the
+        // user reported the sliders had no visible effect; this guarantees
+        // current slider values reach the engine on the very next render.
+        if let graphState {
+            graph_engine_set_camera_settings(
+                engine,
+                graphState.cameraDeselectZoomMultiplier,
+                graphState.cameraSpeedLambda
+            )
             lastCameraConfigVersion = graphState.cameraConfigVersion
-            pushCameraSettings()
         }
 
         // Sync quality level when user toggles or PowerGuard forces performance mode.
