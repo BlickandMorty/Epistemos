@@ -1236,11 +1236,15 @@ impl Engine {
             self.selected_id = None;
 
             // Clear highlight on background click and zoom back to fit all nodes.
+            // Per user 2026-05-10: the zoom-back target is tightened by
+            // `deselect_zoom_multiplier` (user-tunable from graph settings)
+            // so the camera doesn't fly back to full fit on every deselect.
             if self.renderer.highlight.active {
                 self.renderer.highlight.active = false;
                 self.renderer.highlight.highlighted_ids.clear();
                 self.idle_frame_count = 0;
                 self.zoom_to_fit();
+                self.renderer.target_zoom *= self.deselect_zoom_multiplier;
             }
         }
     }
