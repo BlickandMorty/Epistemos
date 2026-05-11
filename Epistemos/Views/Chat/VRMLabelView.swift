@@ -4,6 +4,15 @@ import SwiftUI
 //
 // HELIOS-W3 guard
 //
+// **SCAFFOLD ONLY (RCA13 P2-001).** This view ships the SwiftUI
+// pill + glossary mapping per the HELIOS V5 W3 doctrine, but the
+// chat-row integration is NOT wired. No production caller renders
+// VRMLabelView — only the `#Preview` block at the bottom does.
+// Chat emits raw text today; AnswerPacket / VRMLabel are not
+// emitted by any chat response path. Settings → HELIOS V5 already
+// surfaces "Deferred: no chat-path AnswerPacket emission is wired
+// in v1," so the doctrine status is honest at the visible-UI level.
+//
 // Per `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` §3 W3 +
 // `docs/fusion/helios v5 first.md` DOC 1 §1.5 +
 // `docs/HELIOS_V5_DOC_0_INDEX.md` §0.6 (glossary):
