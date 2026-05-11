@@ -32,7 +32,12 @@ import Foundation
 // CRUD surface; it leaves analysis fields empty on create, and
 // preserves them on update.
 
-nonisolated public final class CodeFileService {
+// `@unchecked Sendable`: all stored properties are Sendable
+// (`URL`, `FileManager`) and the class is `nonisolated` + `final`.
+// The unchecked conformance lets callers like `AgentGrepService.search
+// Async` pass a CodeFileService into a Task.detached closure for
+// true off-main I/O (RCA13 P1-015 / RCA5-P1-001).
+nonisolated public final class CodeFileService: @unchecked Sendable {
 
     public enum ServiceError: Error, CustomStringConvertible {
         case nameContainsPathSeparators
