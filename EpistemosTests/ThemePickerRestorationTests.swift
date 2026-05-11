@@ -31,19 +31,19 @@ struct ThemePickerRestorationTests {
 
             let uiState = UIState()
             uiState.isSystemDark = false
-            uiState.setPair(.platinum)
+            uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
 
-            #expect(uiState.activePair == .platinum)
+            #expect(uiState.activePair == .platinumViolet)
             #expect(uiState.themeMode == .custom)
             #expect(uiState.customThemesEnabled)
-            #expect(uiState.theme == .platinum)
+            #expect(uiState.theme == .platinumViolet)
             #expect(uiState.preferredColorScheme == nil)
             #expect(uiState.shouldUseThemeWorkarounds == false)
             #expect(uiState.windowAppearance == nil)
 
             uiState.isSystemDark = true
-            #expect(uiState.theme == .platinumDark)
+            #expect(uiState.theme == .platinumVioletDark)
         }
     }
 

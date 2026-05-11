@@ -3,7 +3,7 @@ import CoreText
 import SwiftUI
 
 // MARK: - Theme Definition
-// 12 themes — 6 light + 6 dark, including neutral and violet Platinum pairs.
+// 9 themes — 4 light + 5 dark. Platinum Violet is the default pair.
 
 enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case systemLight = "systemLight"
@@ -11,13 +11,10 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case light = "light"
     case sunny = "sunny"
     case tan = "tan"
-    case magnolia = "magnolia"
     case sunset = "sunset"
     case oled = "oled"
     case ember = "ember"
     case nocturne = "nocturne"
-    case platinum = "platinum"      // Classic Mac OS 9 Platinum (light)
-    case platinumDark = "platinumDark"  // Beautiful dark variant
     case platinumViolet = "platinumViolet"
     case platinumVioletDark = "platinumVioletDark"
 
@@ -291,13 +288,10 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  "White"
         case .sunny:  "Sunny"
         case .tan:    "Tan"
-        case .magnolia: "Magnolia"
         case .sunset: "Sunset"
         case .oled:   "OLED"
         case .ember:  "Ember"
         case .nocturne: "Nocturne"
-        case .platinum: "Platinum"
-        case .platinumDark: "Platinum Dark"
         case .platinumViolet: "Platinum Violet"
         case .platinumVioletDark: "Platinum Violet Dark"
         }
@@ -503,39 +497,6 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 userBubbleText: .hex(0xF0EBE4, opacity: 0.92),
                 nsBackground: .hex(0xF5EFE6)
             )
-        case .magnolia:
-            return ResolvedTheme(
-                isDark: false,
-                isPlatinum: false,
-                usesNativeWindowBlur: true,
-                background: .hex(0xF7F2F5),
-                foregroundHex: 0x342E35,
-                accent: .hex(0x8E7282),
-                headingAccentHex: 0xB86F8D,
-                markdownHeadingAccentHex: 0xB86F8D,
-                preferredMarkdownLinkHex: nil,
-                uiAccent: .hex(0x342E35),
-                muted: .hex(0xECE4E9),
-                mutedForegroundHex: 0x7E737C,
-                assistantBubbleForegroundHex: 0x342E35,
-                assistantBubbleBackgroundHex: nil,
-                userBubbleBackgroundHex: nil,
-                border: .hex(0xC6BAC3, opacity: 0.42),
-                codeType: .hex(0x6D8CA8),
-                glassBg: .hex(0xFBF7F9, opacity: 0.88),
-                glassBorder: .hex(0xC6BAC3, opacity: 0.30),
-                glassHover: .hex(0xE9DEE5, opacity: 0.78),
-                floatingSurfaceTint: .hex(0xFEFBFD),
-                navPillBg: .hex(0xEFE5EA, opacity: 0.82),
-                navBubbleActiveBg: .hex(0xD8C7D1, opacity: 0.42),
-                navBubbleActiveText: .hex(0x342E35, opacity: 0.92),
-                navBubbleInactiveText: .hex(0x7E737C, opacity: 0.90),
-                card: .hex(0xFCF9FB, opacity: 0.92),
-                chatSurface: .hex(0xFBF7F9),
-                userBubbleBg: .hex(0x6A5F70),
-                userBubbleText: .hex(0xF6F0F5, opacity: 0.94),
-                nsBackground: .hex(0xF7F2F5)
-            )
         case .sunset:
             return ResolvedTheme(
                 isDark: true,
@@ -668,72 +629,6 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 userBubbleText: .hex(0xF2E7EE, opacity: 0.92),
                 nsBackground: .hex(0x19141F)
             )
-        case .platinum:
-            return ResolvedTheme(
-                isDark: false,
-                isPlatinum: true,
-                usesNativeWindowBlur: false,
-                background: .hex(0xDEDEDE),
-                foregroundHex: 0x000000,
-                accent: .hex(0x111111),
-                headingAccentHex: 0x111111,
-                markdownHeadingAccentHex: 0x111111,
-                preferredMarkdownLinkHex: 0x111111,
-                uiAccent: .hex(0x111111),
-                muted: .hex(0xCCCCCC),
-                mutedForegroundHex: 0x555555,
-                assistantBubbleForegroundHex: 0x555555,
-                assistantBubbleBackgroundHex: nil,
-                userBubbleBackgroundHex: 0x111111,
-                border: .rgba(0, 0, 0, 0.2),
-                codeType: .hex(0x111111),
-                glassBg: .hex(0xDDDDDD),
-                glassBorder: .rgba(0, 0, 0, 0.1),
-                glassHover: .hex(0xCCCCCC),
-                floatingSurfaceTint: .hex(0xF4F4F4),
-                navPillBg: .hex(0xDDDDDD),
-                navBubbleActiveBg: .hex(0x111111),
-                navBubbleActiveText: .hex(0xF2F2F2, opacity: 0.94),
-                navBubbleInactiveText: .rgba(0, 0, 0, 0.5),
-                card: .hex(0xDDDDDD),
-                chatSurface: .hex(0xEEEEEE),
-                userBubbleBg: .hex(0x111111),
-                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
-                nsBackground: .hex(0xDEDEDE)
-            )
-        case .platinumDark:
-            return ResolvedTheme(
-                isDark: true,
-                isPlatinum: true,
-                usesNativeWindowBlur: false,
-                background: .hex(0x1E1E24),
-                foregroundHex: 0xFFFFFF,
-                accent: .hex(0xF2F2F2),
-                headingAccentHex: 0xF2F2F2,
-                markdownHeadingAccentHex: 0xF2F2F2,
-                preferredMarkdownLinkHex: nil,
-                uiAccent: .hex(0xF2F2F2),
-                muted: .hex(0x252530),
-                mutedForegroundHex: 0x9090A0,
-                assistantBubbleForegroundHex: 0xFFFFFF,
-                assistantBubbleBackgroundHex: nil,
-                userBubbleBackgroundHex: 0x2A2A38,
-                border: .rgba(1, 1, 1, 0.15),
-                codeType: .hex(0xF2F2F2),
-                glassBg: .hex(0x2D2D38),
-                glassBorder: .rgba(1, 1, 1, 0.08),
-                glassHover: .hex(0x353545),
-                floatingSurfaceTint: .hex(0x17171D),
-                navPillBg: .hex(0x2D2D38),
-                navBubbleActiveBg: .hex(0xF2F2F2),
-                navBubbleActiveText: .hex(0x111111, opacity: 0.88),
-                navBubbleInactiveText: .rgba(1, 1, 1, 0.6),
-                card: .hex(0x252530),
-                chatSurface: .hex(0x2A2A38),
-                userBubbleBg: .hex(0x2A2A38),
-                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
-                nsBackground: .hex(0x1E1E24)
-            )
         case .platinumViolet:
             return ResolvedTheme(
                 isDark: false,
@@ -768,37 +663,42 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 nsBackground: .hex(0xDEDEDE)
             )
         case .platinumVioletDark:
+            // Per user 2026-05-10: adopt the magnolia-pair dark palette
+            // (nocturne) for the dark variant. The deep purple-black canvas
+            // + soft rose heading + violet-tinged glass surfaces give
+            // landing + main chat the magnolia-dark feel the user wanted.
+            // The light variant (.platinumViolet) is unchanged.
             return ResolvedTheme(
                 isDark: true,
                 isPlatinum: true,
-                usesNativeWindowBlur: false,
-                background: .hex(0x1E1E24),
-                foregroundHex: 0xFFFFFF,
-                accent: .hex(0x7B68EE),
-                headingAccentHex: 0xFFFFFF,
-                markdownHeadingAccentHex: 0x7B68EE,
+                usesNativeWindowBlur: true,
+                background: .hex(0x19141F),
+                foregroundHex: 0xE7DEE8,
+                accent: .hex(0xA8B6D9),
+                headingAccentHex: 0xD7A7B6,
+                markdownHeadingAccentHex: 0xD7A7B6,
                 preferredMarkdownLinkHex: nil,
-                uiAccent: .hex(0x7B68EE),
-                muted: .hex(0x252530),
-                mutedForegroundHex: 0x9090A0,
-                assistantBubbleForegroundHex: 0xFFFFFF,
+                uiAccent: .hex(0xE7DEE8),
+                muted: .hex(0x27212D),
+                mutedForegroundHex: 0xA89CA8,
+                assistantBubbleForegroundHex: 0xE7DEE8,
                 assistantBubbleBackgroundHex: nil,
                 userBubbleBackgroundHex: nil,
-                border: .rgba(1, 1, 1, 0.15),
-                codeType: .hex(0x7B68EE),
-                glassBg: .hex(0x2D2D38),
-                glassBorder: .rgba(1, 1, 1, 0.08),
-                glassHover: .hex(0x353545),
-                floatingSurfaceTint: .hex(0x17171D),
-                navPillBg: .hex(0x2D2D38),
-                navBubbleActiveBg: .hex(0x6B5DD6),
-                navBubbleActiveText: .rgba(1, 1, 1, 0.75),
-                navBubbleInactiveText: .rgba(1, 1, 1, 0.6),
-                card: .hex(0x252530),
-                chatSurface: .hex(0x2A2A38),
-                userBubbleBg: .hex(0x7B68EE),
-                userBubbleText: .hex(0xF2F2F2, opacity: 0.94),
-                nsBackground: .hex(0x1E1E24)
+                border: .hex(0x3B3243),
+                codeType: .hex(0x7DB3C4),
+                glassBg: .hex(0x221C2A, opacity: 0.86),
+                glassBorder: .hex(0x443A4D),
+                glassHover: .hex(0x342B3D, opacity: 0.78),
+                floatingSurfaceTint: .hex(0x141019),
+                navPillBg: .hex(0x140F18, opacity: 0.90),
+                navBubbleActiveBg: .hex(0x3A3046, opacity: 0.78),
+                navBubbleActiveText: .hex(0xEEE4EC, opacity: 0.94),
+                navBubbleInactiveText: .hex(0xA89CA8, opacity: 0.92),
+                card: .hex(0x241E2B, opacity: 0.90),
+                chatSurface: .hex(0x19141F),
+                userBubbleBg: .hex(0x313444),
+                userBubbleText: .hex(0xF2E7EE, opacity: 0.92),
+                nsBackground: .hex(0x19141F)
             )
         }
     }
@@ -1080,54 +980,44 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 // MARK: - Theme Pair
 
 enum ThemePair: String, CaseIterable, Codable, Sendable {
-    case magnolia = "magnolia"
+    case platinumViolet = "platinumViolet"
     case classic = "classic"
     case warmth  = "warmth"
     case ember   = "ember"
-    case platinum = "platinum"
-    case platinumViolet = "platinumViolet"
 
     var displayName: String {
         switch self {
-        case .magnolia: "Magnolia"
+        case .platinumViolet: "Platinum Violet"
         case .classic: "Classic"
         case .warmth:  "Warmth"
         case .ember:   "Ember"
-        case .platinum: "Platinum"
-        case .platinumViolet: "Platinum Violet"
         }
     }
 
     var description: String {
         switch self {
-        case .magnolia: "Magnolia · Nocturne"
+        case .platinumViolet: "Platinum Violet · Platinum Violet Dark"
         case .classic: "White · OLED"
         case .warmth:  "Sunny · Sunset"
         case .ember:   "Tan · Ember"
-        case .platinum: "Platinum · Platinum Dark"
-        case .platinumViolet: "Platinum Violet · Platinum Violet Dark"
         }
     }
 
     var lightTheme: EpistemosTheme {
         switch self {
-        case .magnolia: .magnolia
+        case .platinumViolet: .platinumViolet
         case .classic: .light
         case .warmth:  .sunny
         case .ember:   .tan
-        case .platinum: .platinum
-        case .platinumViolet: .platinumViolet
         }
     }
 
     var darkTheme: EpistemosTheme {
         switch self {
-        case .magnolia: .nocturne
+        case .platinumViolet: .platinumVioletDark
         case .classic: .oled
         case .warmth:  .sunset
         case .ember:   .ember
-        case .platinum: .platinumDark
-        case .platinumViolet: .platinumVioletDark
         }
     }
 

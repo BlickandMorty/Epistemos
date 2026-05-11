@@ -23,17 +23,6 @@ struct ThemePairTests {
         body()
     }
 
-    @Test("Magnolia resolves to the new ash-rose light and nocturne dark themes")
-    func magnoliaPairMapping() {
-        #expect(ThemePair.magnolia.lightTheme == .magnolia)
-        #expect(ThemePair.magnolia.darkTheme == .nocturne)
-        #expect(ThemePair.magnolia.resolved(isDark: false) == .magnolia)
-        #expect(ThemePair.magnolia.resolved(isDark: true) == .nocturne)
-        #expect(EpistemosTheme.magnolia.usesNativeWindowBlur)
-        #expect(EpistemosTheme.nocturne.usesNativeWindowBlur)
-        #expect(!EpistemosTheme.light.usesNativeWindowBlur)
-    }
-
     @Test("Font registration ignores already-registered CoreText messages")
     func fontRegistrationAlreadyRegisteredMessagesAreBenign() {
         #expect(EpistemosFont.isBenignRegistrationErrorDescription("already registered"))
@@ -51,10 +40,8 @@ struct ThemePairTests {
         #expect(ThemePair.classic.dockIconResourceName(isDark: true) == nil)
     }
 
-    @Test("Magnolia, Warmth, and Ember do not require runtime dock icon overrides")
+    @Test("Warmth and Ember do not require runtime dock icon overrides")
     func alternatePairsUseAdaptiveResources() {
-        #expect(ThemePair.magnolia.dockIconResourceName(isDark: false) == nil)
-        #expect(ThemePair.magnolia.dockIconResourceName(isDark: true) == nil)
         #expect(ThemePair.warmth.dockIconResourceName(isDark: false) == nil)
         #expect(ThemePair.warmth.dockIconResourceName(isDark: true) == nil)
         #expect(ThemePair.ember.dockIconResourceName(isDark: false) == nil)
@@ -87,7 +74,7 @@ struct ThemePairTests {
 
         #expect(uiState.themeMode == .systemDefault)
         #expect(uiState.customThemesEnabled == false)
-        #expect(uiState.activePair == .classic)
+        #expect(uiState.activePair == .platinumViolet)
         #expect(uiState.preferredColorScheme == nil)
         #expect(uiState.shouldUseThemeWorkarounds == false)
         #expect(uiState.usesNativeWindowBlur == false)
@@ -163,12 +150,12 @@ struct ThemePairTests {
 
             let uiState = UIState()
 
-            uiState.setPair(.magnolia)
+            uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
             uiState.setCustomThemesEnabled(true)
 
             #expect(uiState.customThemesEnabled)
-            #expect(uiState.activePair == .magnolia)
+            #expect(uiState.activePair == .platinumViolet)
             #expect(uiState.themeMode == .custom)
             #expect(uiState.preferredColorScheme == nil)
             #expect(uiState.shouldUseThemeWorkarounds == false)
@@ -191,14 +178,14 @@ struct ThemePairTests {
             #expect(uiState.windowAppearance == nil)
             #expect(uiState.theme == .systemLight)
 
-            uiState.setPair(.platinum)
+            uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
             uiState.setCustomThemesEnabled(true)
             uiState.isSystemDark = true
 
             #expect(uiState.themeMode == .custom)
             #expect(uiState.windowAppearance == nil)
-            #expect(uiState.theme == .platinumDark)
+            #expect(uiState.theme == .platinumVioletDark)
         }
     }
 
@@ -266,7 +253,7 @@ struct ThemePairTests {
             GraphOverlayThemeStyle.surfaceTintColor(for: .tan).usingColorSpace(.deviceRGB)
         )
         let platinumTint = try #require(
-            GraphOverlayThemeStyle.surfaceTintColor(for: .platinum).usingColorSpace(.deviceRGB)
+            GraphOverlayThemeStyle.surfaceTintColor(for: .platinumViolet).usingColorSpace(.deviceRGB)
         )
 
         #expect(abs(tanTint.redComponent - (0xF5 / 255.0)) < 0.02)
@@ -369,39 +356,6 @@ struct ThemePairTests {
         }
     }
 
-    @Test("Magnolia uses a rose display accent for app titles and headings")
-    func magnoliaUsesRoseDisplayAccent() {
-        #expect(EpistemosTheme.magnolia.headingAccentHex == 0xB86F8D)
-    }
-
-    @Test("Platinum pair resolves to distinct light and dark variants")
-    func platinumPairMapping() {
-        #expect(ThemePair.platinum.lightTheme == .platinum)
-        #expect(ThemePair.platinum.darkTheme == .platinumDark)
-        #expect(ThemePair.platinum.resolved(isDark: false) == .platinum)
-        #expect(ThemePair.platinum.resolved(isDark: true) == .platinumDark)
-        #expect(!EpistemosTheme.platinum.isDark)
-        #expect(EpistemosTheme.platinumDark.isDark)
-        #expect(EpistemosTheme.platinum.foregroundHex == 0x000000)
-        #expect(EpistemosTheme.platinumDark.foregroundHex == 0xFFFFFF)
-        #expect(EpistemosTheme.platinum.markdownHeadingAccentHex == 0x111111)
-        #expect(EpistemosTheme.platinumDark.markdownHeadingAccentHex == 0xF2F2F2)
-        #expect(EpistemosTheme.platinum.preferredMarkdownLinkHex == 0x111111)
-        #expect(EpistemosTheme.platinumDark.preferredMarkdownLinkHex == nil)
-        #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinum, level: 1) == EpistemosTheme.platinum.headingAccentHex)
-        #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinumDark, level: 1) == EpistemosTheme.platinumDark.headingAccentHex)
-        #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinum, level: 2) == EpistemosTheme.platinum.markdownHeadingAccentHex)
-        #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinumDark, level: 2) == EpistemosTheme.platinumDark.markdownHeadingAccentHex)
-        #expect(EpistemosTheme.platinum.assistantBubbleForegroundHex == EpistemosTheme.platinum.mutedForegroundHex)
-        #expect(EpistemosTheme.platinumDark.assistantBubbleForegroundHex == EpistemosTheme.platinumDark.foregroundHex)
-        #expect(EpistemosTheme.platinum.assistantBubbleBackgroundHex == nil)
-        #expect(EpistemosTheme.platinumDark.assistantBubbleBackgroundHex == nil)
-        #expect(EpistemosTheme.platinum.userBubbleBackgroundHex == 0x111111)
-        #expect(EpistemosTheme.platinum.userBubbleText == Color(hex: 0xF2F2F2).opacity(0.94))
-        #expect(EpistemosTheme.platinumDark.userBubbleBackgroundHex == 0x2A2A38)
-        #expect(EpistemosTheme.platinumDark.userBubbleText == Color(hex: 0xF2F2F2).opacity(0.94))
-    }
-
     @Test("Platinum Violet pair preserves the accented blue-violet variant")
     func platinumVioletPairMapping() {
         #expect(ThemePair.platinumViolet.lightTheme == .platinumViolet)
@@ -409,11 +363,11 @@ struct ThemePairTests {
         #expect(ThemePair.platinumViolet.resolved(isDark: false) == .platinumViolet)
         #expect(ThemePair.platinumViolet.resolved(isDark: true) == .platinumVioletDark)
         #expect(EpistemosTheme.platinumViolet.markdownHeadingAccentHex == 0x00007B)
-        #expect(EpistemosTheme.platinumVioletDark.markdownHeadingAccentHex == 0x7B68EE)
+        #expect(EpistemosTheme.platinumVioletDark.markdownHeadingAccentHex == 0xD7A7B6)
         #expect(EpistemosTheme.platinumViolet.preferredMarkdownLinkHex == 0x00007B)
         #expect(EpistemosTheme.platinumVioletDark.preferredMarkdownLinkHex == nil)
         #expect(EpistemosTheme.platinumViolet.resolved.accent.color == Color(hex: 0x000080))
-        #expect(EpistemosTheme.platinumVioletDark.resolved.accent.color == Color(hex: 0x7B68EE))
+        #expect(EpistemosTheme.platinumVioletDark.resolved.accent.color == Color(hex: 0xA8B6D9))
     }
 
     @Test("System appearance state reads the global Apple interface style")
@@ -480,25 +434,25 @@ struct ThemePairTests {
         #expect(MarkdownHeadingDisplay.glowRadius(for: 2) == 10)
         #expect(MarkdownHeadingDisplay.glowRadius(for: 3) == 7)
         #expect(MarkdownHeadingDisplay.glowRadius(for: 4) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinum, level: 1) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinum, level: 2) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinum, level: 3) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 1) == 0.38)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 2) == 0.24)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 3) == 0.18)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinum, level: 1) == 0)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinum, level: 2) == 0)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinum, level: 3) == 0)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 1) == 0.34)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 2) == 0.22)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 3) == 0.16)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 1) == nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 2) == nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 3) == nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 4) == nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumDark, level: 1) != nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumDark, level: 2) != nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumDark, level: 3) != nil)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumVioletDark, level: 1) == 0.38)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumVioletDark, level: 2) == 0.24)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumVioletDark, level: 3) == 0.18)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumVioletDark, level: 1) == 0.34)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumVioletDark, level: 2) == 0.22)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumVioletDark, level: 3) == 0.16)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumViolet, level: 1) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumViolet, level: 2) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumViolet, level: 3) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumViolet, level: 4) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumVioletDark, level: 1) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumVioletDark, level: 2) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumVioletDark, level: 3) != nil)
     }
 
     @Test("Markdown preview heading glow stays softer than the editor heading glow")
@@ -510,26 +464,27 @@ struct ThemePairTests {
         #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 1) < MarkdownHeadingDisplay.glowRadius(for: 1))
         #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 2) < MarkdownHeadingDisplay.glowRadius(for: 2))
         #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 3) < MarkdownHeadingDisplay.glowRadius(for: 3))
-        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinum, level: 1) == 0)
-        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinum, level: 2) == 0)
-        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinum, level: 3) == 0)
-        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinum, level: 1) == 0)
-        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinum, level: 2) == 0)
-        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinum, level: 3) == 0)
-        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 1) == 0.2)
-        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 2) == 0.12)
-        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 3) == 0.09)
+        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinumViolet, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinumViolet, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinumViolet, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumViolet, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumViolet, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumViolet, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumVioletDark, level: 1) == 0.2)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumVioletDark, level: 2) == 0.12)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumVioletDark, level: 3) == 0.09)
     }
 
-    @Test("Landing text glow is dark-mode only")
-    func landingTextGlowIsDarkModeOnly() throws {
+    @Test("Landing text shadow differs between dark and light modes")
+    func landingTextShadowDiffersBetweenModes() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
         #expect(landingView.contains(".shadow(color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear, radius: 8)"))
         #expect(liquidGreeting.contains(".shadow("))
-        #expect(liquidGreeting.contains("color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear)"))
-        #expect(liquidGreeting.contains("radius: compact ? 0 : 8"))
+        #expect(liquidGreeting.contains("theme.fontAccent.opacity(0.12)"))
+        #expect(liquidGreeting.contains("Color.black.opacity(0.08)"))
+        #expect(liquidGreeting.contains("radius: compact ? 0 : (theme.isDark ? 8 : 5)"))
     }
 
     @Test("Landing backdrop uses the native surface without a startup intro fade")
@@ -550,7 +505,6 @@ struct ThemePairTests {
     func landingAndRootBackdropsSampleSelectedSemanticThemeInsteadOfOLED() {
         #expect(AppWindowBackdropStyle.backgroundToken(for: .ember) == EpistemosTheme.ember.resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) == EpistemosTheme.nocturne.resolved.background)
-        #expect(AppWindowBackdropStyle.backgroundToken(for: .platinumDark) == EpistemosTheme.platinumDark.resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .platinumVioletDark) == EpistemosTheme.platinumVioletDark.resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .ember) != EpistemosTheme.oled.resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) != EpistemosTheme.oled.resolved.background)

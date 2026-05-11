@@ -63,6 +63,68 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-10-001: Halo feature does not work end-to-end for user
+
+Status: Open
+Priority: P1
+First Observed: 2026-05-10
+Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD ebd26c08f)
+
+Symptom:
+User reports "the halo feature does not work" — opening Halo does not return
+results from the vault. ISSUE-2026-05-08-010 (sanitized diagnostics + Settings
+health row) was Patched, but only addressed surfacing the failure, not the
+actual backend failure.
+
+Suspected Causes (ranked by Explore-agent diagnosis 2026-05-10):
+
+1. **Embedder initialization failure** — `RustShadowFFIClient.init(path:)` at
+   `Epistemos/App/AppBootstrap.swift:3137` throws because `Embedder::global()`
+   at `epistemos-shadow/src/backend/embedder.rs:50` fails to load Model2Vec
+   (`potion-base-8M` HF model, ~30MB). Possible: HF download stall, cold-cache
+   race, or corrupt cached weights deserializing badly in
+   `model2vec_rs::model::StaticModel::from_pretrained()`.
+
+2. **Tantivy lexical index open failure** — even if embedder loads,
+   `RealBackend::open_at()` at `epistemos-shadow/src/backend/mod.rs:146`
+   throws if `<vault>/.epcache/shadow/tantivy/` is corrupted or
+   format-mismatched after an `epistemos-shadow` crate version bump, or if
+   `create_dir_all()` fails with permission denied.
+
+3. **`haloSearchService` nil propagation** — symptom only: button install
+   guard at `Epistemos/Views/Notes/ProseEditorRepresentable2.swift:928`
+   returns early because the FFI client init (Rank 1 or 2) threw and
+   `contextualShadowsState.configureShadowSearch()` was never called.
+
+Bundle State (verified 2026-05-10 against PID 41047):
+- `/Applications/Epistemos.app/Contents/Frameworks/libepistemos_shadow.dylib`
+  present (79 MB, May 10 19:08 build)
+- Symbol `_shadow_handle_open_at` exported, build script wired in Xcode
+- So this is NOT a missing-dylib problem
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Add an explicit error toast / Settings row that surfaces which sub-failure
+  fired (embedder vs tantivy vs IO), distinct from the existing degraded
+  state.
+- Cache the resolved error class on `HaloController` and expose via the
+  health row so future diagnosis doesn't require Console.app.
+
+Destructive Fixes (require user approval):
+- Wiping `~/Library/Caches/.../.epcache/shadow/` (would force re-download).
+- Replacing the Model2Vec embedder with the trigram fallback per
+  doctrine §2.5.
+
+Investigation Log:
+- 2026-05-10: New entry. Explore-agent diagnosis attached above.
+  `log show --predicate 'process == "Epistemos"'` returned no shadow/halo
+  hits over the last 30 min — macOS hardened-runtime redaction makes
+  Console-side verification impossible. Quickest manual verification:
+  open Settings → Shadow backend health row in the live app and report
+  whether it shows "Degraded: backend_failure". If yes → Rank 1 or 2;
+  if no row visible → Rank 3.
+
+---
+
 ### ISSUE-2026-05-08-013: Workspace auto-save crashes on duplicate page IDs
 
 Status: Verified Fixed
@@ -653,7 +715,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-08-020: Graph full-screen performance regression after pixel-node work
 
-Status: Open (`GRAPH-FROZEN`)
+Status: Needs re-verification (graph-frozen pass lifted 2026-05-09)
 Priority: P1
 First Observed: 2026-05-08
 Affected Version: branch `feature/landing-liquid-wave`
@@ -681,6 +743,17 @@ Investigation Log:
   graph renderer, graph shaders, visual modes, or graph physics under the
   explicit graph-rendering freeze. This remains the next graph-authorized
   profiling slice.
+- 2026-05-10: Freeze effectively lifted — 25+ graph-renderer commits landed
+  between 2026-05-08 and HEAD `ebd26c08f`. Most relevant for full-screen
+  perf: the `field_line` subsystem (LineEdgeInstance + line_edge_vertex
+  shader + field_line_pipeline + scratch buffers) was deleted entirely
+  in commit `eeb764b62`, removing a heavy per-frame draw call that scaled
+  with pixel count. Also: `edge_highlight_flag_buf` deleted (one fewer
+  vertex-buffer bind per frame), CurveEdgeInstance struct stride aligned
+  (no more redundant alignment-fix uploads), 120 Hz CADisplayLink wired
+  at `MetalGraphView.swift` `link.preferredFrameRateRange`. The originally-
+  reported regression should be re-tested on a real full-screen pass before
+  any further fix — diagnosis was pre-deletion and is likely stale.
 
 ---
 

@@ -564,17 +564,14 @@ const DIM_ALPHA: f32 = 0.04;
 /// rollup, and field-line decorative — must use this value (with optional
 /// alpha trim) so the graph never grows back tinted/jagged/striped variants.
 ///
-/// Per user 2026-05-10: edges should read as **thick black ink on light
-/// mode and clearly visible light-grey on dark mode**. The previous tuning
-/// (mid-grey at 0.40 alpha) was too dim against the dark canvas — selected
-/// hubs looked sparse and the user couldn't see their connections at a
-/// glance. Light-mode alpha was bumped to 0.85 (near-opaque ink) and
-/// dark-mode RGB to a true light grey at 0.55 alpha so the strokes are
-/// clearly visible without being garish.
+/// Light mode: dark-grey (~0.30) at 0.75 alpha — clearly visible, not
+/// contrasty. Pure black was too harsh; mid-grey at low alpha was too faint.
+/// Dark mode keeps a true light-grey at 0.55 so strokes are clearly visible
+/// against dark canvas without being garish.
 #[inline]
 fn graph_edge_color_for_appearance(light_mode: bool) -> [f32; 4] {
     if light_mode {
-        [0.0, 0.0, 0.0, 0.85]
+        [0.30, 0.30, 0.30, 0.75]
     } else {
         [0.65, 0.65, 0.65, 0.55]
     }
@@ -930,19 +927,22 @@ fragment float4 node_fragment(
 
         bool cinematic_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
         if (cinematic_dimmed) {
-            // Stronger dim + force-monochrome surrounding nodes. The user
-            // wants unselected siblings to recede HARD — previously the mix
-            // was 0.56 (light) / 0.58 (dark) and grayscale only kicked in
-            // when in.desaturate was already set. Now: mix all the way to
-            // 0.78 / 0.80 toward the dark target, then unconditionally pull
-            // the result toward its own luma so unselected nodes read as
-            // monochrome shadows of themselves regardless of node-type tint.
-            float3 selection_dim_target = light
-                ? srgb_to_linear(float3(0.10, 0.10, 0.10))
-                : srgb_to_linear(float3(0.05, 0.05, 0.05));
-            pixel_color = mix(pixel_color, selection_dim_target, light ? 0.78 : 0.80);
-            float dim_lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
-            pixel_color = mix(pixel_color, float3(dim_lum), 0.85);
+            if (light) {
+                // Light mode: fade hard toward canvas but stay opaque so
+                // edges below stay covered. Dropping alpha let edges show
+                // through the dimmed nodes — user wants nodes always over
+                // edges. The strong 0.70 mix toward canvas keeps the
+                // 'barely visible ghost' read.
+                float3 canvas_target = srgb_to_linear(float3(0.95, 0.95, 0.95));
+                pixel_color = mix(pixel_color, canvas_target, 0.70);
+            } else {
+                // Dark mode: mix hard toward black then collapse to luma
+                // so unselected siblings recede as monochrome shadows.
+                float3 selection_dim_target = srgb_to_linear(float3(0.05, 0.05, 0.05));
+                pixel_color = mix(pixel_color, selection_dim_target, 0.80);
+                float dim_lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
+                pixel_color = mix(pixel_color, float3(dim_lum), 0.85);
+            }
         }
 
         return float4(pixel_color, max(in.color.a, 0.95));
@@ -986,10 +986,15 @@ fragment float4 node_fragment(
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
         if (is_dimmed) {
-            float3 selection_dim_target = light
-                ? srgb_to_linear(float3(0.12, 0.12, 0.12))
-                : srgb_to_linear(float3(0.06, 0.06, 0.06));
-            result_color = mix(result_color, selection_dim_target, folder_node ? 0.52 : 0.40);
+            if (light) {
+                // Light mode: fade hard toward canvas; stay opaque so the
+                // ghost still covers the edge underneath.
+                float3 canvas_target = srgb_to_linear(float3(0.95, 0.95, 0.95));
+                result_color = mix(result_color, canvas_target, folder_node ? 0.65 : 0.70);
+            } else {
+                float3 selection_dim_target = srgb_to_linear(float3(0.06, 0.06, 0.06));
+                result_color = mix(result_color, selection_dim_target, folder_node ? 0.52 : 0.40);
+            }
         }
         if (in.desaturate > 0.5 && !folder_node) {
             float lum = dot(result_color, float3(0.299, 0.587, 0.114));
