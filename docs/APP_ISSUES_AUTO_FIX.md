@@ -122,6 +122,19 @@ Investigation Log:
   open Settings → Shadow backend health row in the live app and report
   whether it shows "Degraded: backend_failure". If yes → Rank 1 or 2;
   if no row visible → Rank 3.
+- 2026-05-10 (later): Source audit against canonical research
+  `docs/AMBIENT_RECALL_HALO_MASTER_PLAN.md` §3.2 found that
+  `RustShadowFFIClient.warm()` (which calls Rust `shadow_warm()` →
+  `Embedder::global()`) was NEVER invoked from Swift. The research
+  explicitly says: "the Swift bootstrap should fire `shadow_warm()`
+  at app start to pay the cost off the typing hot path." Wired the
+  warm-up call right after `RustShadowFFIClient(path:)` succeeds in
+  `Epistemos/App/AppBootstrap.swift:3138`. Failures are non-fatal
+  (logged + handle stays usable). This means: on cold cache the
+  ~30 MB Model2Vec download now happens during indexer bootstrap
+  instead of blocking the user's first Halo search; on hot cache the
+  warm is an atomic-fast no-op. Status remains Open until user
+  verifies Halo actually returns results.
 
 ---
 
