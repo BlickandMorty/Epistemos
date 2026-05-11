@@ -122,14 +122,16 @@ struct ArtifactBlockView: View {
                         ArtifactExporter.saveToFile(artifact, convertTo: .yaml)
                     }
                 }
-                // Per RCA13 RCA2-P1-003: the YAML-to-JSON conversion
-                // is not yet implemented (ArtifactExporter.convert only
-                // handles `(.json, .yaml)`; the reverse direction
-                // falls through and writes YAML bytes to a `.json`
-                // file). Surfacing "Save as JSON..." while the
-                // converter is broken produces invalid JSON files, so
-                // the button is hidden until a real YAML parser
-                // lands. The JSON-to-YAML direction stays available.
+                // Per RCA13 RCA2-P1-003 follow-up 2026-05-11: real
+                // MiniYAMLParser landed in ArtifactExporter so the
+                // YAML→JSON path produces parseable output for the
+                // YAML subset our chat artifacts emit. Restoring the
+                // button.
+                if artifact.kind == .yaml {
+                    Button("Save as JSON...") {
+                        ArtifactExporter.saveToFile(artifact, convertTo: .json)
+                    }
+                }
             } label: {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 11, weight: .medium))
@@ -308,8 +310,31 @@ enum ArtifactExporter {
         switch (from, to) {
         case (.json, .yaml):
             return jsonToYAML(content)
+        case (.yaml, .json):
+            return yamlToJSON(content)
         default:
             return content
+        }
+    }
+
+    /// Parse the YAML subset we emit + serialize it back as JSON.
+    /// Handles block-style mappings, lists, scalars (string / bool /
+    /// number / null), and multi-line literal blocks (`|`). Sufficient
+    /// for round-tripping the output of `jsonToYAML` and the typical
+    /// YAML artifacts the chat produces. Falls back to the original
+    /// string if parsing fails so the user always gets *something*
+    /// in the file.
+    private static func yamlToJSON(_ yaml: String) -> String {
+        var parser = MiniYAMLParser(source: yaml)
+        guard let parsed = parser.parseDocument() else { return yaml }
+        do {
+            let data = try JSONSerialization.data(
+                withJSONObject: parsed,
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            return String(data: data, encoding: .utf8) ?? yaml
+        } catch {
+            return yaml
         }
     }
 
@@ -383,5 +408,167 @@ enum ArtifactExporter {
             .replacingOccurrences(of: " ", with: "-")
             .lowercased()
         return cleaned.isEmpty ? "artifact" : String(cleaned.prefix(50))
+    }
+}
+
+// MARK: - Mini YAML parser
+//
+// Reads the flat-block YAML subset that `ArtifactExporter.jsonToYAML`
+// emits + the typical YAML our chat artifacts ship. Supports:
+//   - Block-style mappings (`key: value`, nested via indent)
+//   - Block-style sequences (`- value`, `- \n  key: value`)
+//   - Scalars: bool, integer, float, null, single-quoted string, plain string
+//   - Multi-line literal scalars introduced by `|`
+//   - Comments (`#` at start-of-line or after a space)
+// Does NOT support: flow-style `[a, b]` / `{ a: b }`, anchors `&` / aliases `*`,
+// folded scalars `>`, tags `!!str`, complex keys. The parser falls back to
+// returning nil on anything it doesn't understand; the caller treats that as
+// "leave the source string untouched."
+
+private struct MiniYAMLParser {
+    let lines: [String]
+    var index: Int = 0
+
+    init(source: String) {
+        self.lines = source.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    mutating func parseDocument() -> Any? {
+        skipBlanksAndComments()
+        guard index < lines.count else { return [:] }
+        return parseValue(at: indentOf(lines[index]))
+    }
+
+    private mutating func skipBlanksAndComments() {
+        while index < lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+                index += 1
+            } else {
+                break
+            }
+        }
+    }
+
+    private func indentOf(_ line: String) -> Int {
+        var count = 0
+        for ch in line {
+            if ch == " " { count += 1 }
+            else { break }
+        }
+        return count
+    }
+
+    private mutating func parseValue(at indent: Int) -> Any? {
+        skipBlanksAndComments()
+        guard index < lines.count else { return nil }
+        let line = lines[index]
+        let lineIndent = indentOf(line)
+        if lineIndent < indent { return nil }
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("- ") || trimmed == "-" {
+            return parseSequence(at: lineIndent)
+        }
+        if trimmed.contains(":") {
+            return parseMapping(at: lineIndent)
+        }
+        // Bare scalar — single-line.
+        index += 1
+        return scalar(from: trimmed)
+    }
+
+    private mutating func parseMapping(at indent: Int) -> [String: Any] {
+        var result: [String: Any] = [:]
+        while index < lines.count {
+            skipBlanksAndComments()
+            guard index < lines.count else { break }
+            let line = lines[index]
+            let lineIndent = indentOf(line)
+            if lineIndent < indent { break }
+            if lineIndent > indent {
+                // Trailing over-indented orphan — bail.
+                break
+            }
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard let colon = trimmed.firstIndex(of: ":") else { break }
+            let key = String(trimmed[..<colon]).trimmingCharacters(in: .whitespaces)
+            let after = trimmed.index(after: colon)
+            let valuePart = String(trimmed[after...]).trimmingCharacters(in: .whitespaces)
+            index += 1
+            if valuePart == "|" {
+                result[key] = parseLiteralBlock(at: indent + 2)
+            } else if valuePart.isEmpty {
+                result[key] = parseValue(at: indent + 2) ?? [:]
+            } else {
+                result[key] = scalar(from: valuePart)
+            }
+        }
+        return result
+    }
+
+    private mutating func parseSequence(at indent: Int) -> [Any] {
+        var result: [Any] = []
+        while index < lines.count {
+            skipBlanksAndComments()
+            guard index < lines.count else { break }
+            let line = lines[index]
+            let lineIndent = indentOf(line)
+            if lineIndent < indent { break }
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("- ") || trimmed == "-" else { break }
+            if trimmed == "-" {
+                // Block-form item, indented mapping on next lines.
+                index += 1
+                if let nested = parseValue(at: indent + 2) {
+                    result.append(nested)
+                }
+            } else {
+                let scalarPart = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                index += 1
+                result.append(scalar(from: scalarPart))
+            }
+        }
+        return result
+    }
+
+    private mutating func parseLiteralBlock(at indent: Int) -> String {
+        var collected: [String] = []
+        while index < lines.count {
+            let line = lines[index]
+            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                collected.append("")
+                index += 1
+                continue
+            }
+            let lineIndent = indentOf(line)
+            if lineIndent < indent { break }
+            collected.append(String(line.dropFirst(min(indent, line.count))))
+            index += 1
+        }
+        return collected.joined(separator: "\n")
+    }
+
+    private func scalar(from raw: String) -> Any {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return NSNull() }
+        if trimmed == "null" || trimmed == "~" { return NSNull() }
+        if trimmed == "true" { return true }
+        if trimmed == "false" { return false }
+        if let i = Int(trimmed) { return i }
+        if let d = Double(trimmed) { return d }
+        // Single-quoted: strip + un-escape the duplicated single quote.
+        if trimmed.hasPrefix("'") && trimmed.hasSuffix("'") && trimmed.count >= 2 {
+            let inner = String(trimmed.dropFirst().dropLast())
+            return inner.replacingOccurrences(of: "''", with: "'")
+        }
+        // Double-quoted: strip + un-escape \n, \", \\.
+        if trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"") && trimmed.count >= 2 {
+            let inner = String(trimmed.dropFirst().dropLast())
+            return inner
+                .replacingOccurrences(of: "\\\\", with: "\\")
+                .replacingOccurrences(of: "\\\"", with: "\"")
+                .replacingOccurrences(of: "\\n", with: "\n")
+        }
+        return trimmed
     }
 }
