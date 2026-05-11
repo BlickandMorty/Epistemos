@@ -41,7 +41,16 @@ private enum ChatPresentationFormatter {
         ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Per RCA13 RCA2-P2-003: the chat transcript row + MessageBubble
+    /// have a heading lane wired through to display, but this helper —
+    /// the only producer — always returns nil. The lane is dead. Until
+    /// a real heading extractor lands (or the lane is removed
+    /// end-to-end), keep returning nil but make the contract explicit
+    /// so future callers don't expect non-nil output.
     nonisolated static func heading(forAssistantText text: String) -> String? {
+        // Intentionally always nil. See RCA13 RCA2-P2-003 — the
+        // heading lane stays in scaffold state until end-to-end
+        // wiring (extractor + tests + copy/export survival) lands.
         return nil
     }
 
