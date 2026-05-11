@@ -148,7 +148,17 @@ enum SpotlightIndexer {
         // (SwiftData @Model isn't Sendable).
         let stages: [PageStage] = pages.map(stage)
 
-        Task { @MainActor in
+        // RCA13 P2-013: previously this loop ran inside
+        // `Task { @MainActor in ... }`, pinning batch orchestration +
+        // CSSearchableItem allocation to the main actor. On a medium
+        // vault the awaitable body-load between batches gave the UI
+        // breathing room, but on a large vault the per-page allocation
+        // + dictionary-population work still serialized on MainActor.
+        // PageStage is Sendable, makeItem is nonisolated, and
+        // CSSearchableIndex is thread-safe — the whole loop is safe
+        // off-main on a background task. Vault-load interaction stays
+        // responsive even on 10k+ note vaults.
+        Task.detached(priority: .utility) {
             for batchStart in stride(from: 0, to: total, by: batchSize) {
                 let batchEnd = min(batchStart + batchSize, total)
                 let batch = Array(stages[batchStart..<batchEnd])
