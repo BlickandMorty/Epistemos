@@ -2800,8 +2800,6 @@ final class AppBootstrap {
 
         let defaults = UserDefaults.standard
         let keysToRemove = [
-            ThemeMode.defaultsKey,
-            "epistemos.theme.pair",
             "epistemos.localRoutingMode",
             "epistemos.preferredLocalTextModelID",
             "epistemos.preferredChatModelSelection",

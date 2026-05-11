@@ -447,7 +447,7 @@ final class UIState {
             activePair = storedPair
         } else {
             defaults.removeObject(forKey: Self.themePairDefaultsKey)
-            activePair = .classic
+            activePair = .platinumViolet
         }
     }
 
