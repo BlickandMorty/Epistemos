@@ -725,6 +725,14 @@ private struct GeneralDetailView: View {
                 GraphEventVisibilityRow()
                 SearchFusionHealthRow()
                 CognitiveDagHealthRow()
+                #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+                // Pro-only: surface which agent_core passthrough CLIs
+                // (claude / codex / gemini / kimi) are present on the
+                // user's machine. The MAS sandbox blocks subprocess
+                // execution outright, so this row would be misleading
+                // there — kept Pro-side only per RCA13 P8.
+                CLIDiscoveryHealthRow()
+                #endif
             }
 
             Section("Reset") {
