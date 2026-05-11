@@ -523,7 +523,7 @@ Acceptance:
 
 ### RCA-P1-013 - Surface Shadow search backend failures to Halo users
 
-Status: TODO
+Status: PATCHED 2026-05-10 — automated build green / manual force-throw smoke pending
 
 Subsystem: Halo, Shadow search, recall diagnostics, degraded UI.
 
@@ -543,6 +543,38 @@ Audit steps:
 
 Acceptance:
 - Users can distinguish "no hits" from "recall backend unavailable."
+
+Fix-pass evidence 2026-05-10:
+
+- Files changed:
+  - `Epistemos/Engine/HaloController.swift`
+  - `Epistemos/Engine/ShadowSearchService.swift`
+  - `Epistemos/Views/Halo/ShadowPanelContent.swift`
+- Source proof:
+  - `ShadowSearchServicing` protocol extends with
+    `searchReportingErrors(text:domain:limit:) async -> (hits, errorMessage:)`
+    and ships a default extension that wraps the existing `search` so
+    all 5 test mocks compile unchanged.
+  - `ShadowSearchService` overrides the new method to catch the FFI
+    error, record diagnostics, and return a user-facing message
+    instead of swallowing the throw to `[]`.
+  - `HaloController.scheduleSearch` calls the error-reporting
+    variant. On non-nil `errorMessage` it clears matches and
+    transitions to `.errorRecoverable(message)`.
+  - `ShadowPanelContent.resultsList` renders a "Halo backend
+    unavailable" block with the message when controller.state is
+    `.errorRecoverable`, replacing the empty results list.
+- Commands run:
+  - `xcodebuild -scheme Epistemos -destination 'platform=macOS' build`
+    → BUILD SUCCEEDED.
+- Remaining risk:
+  - Runtime smoke: force the Shadow backend to throw (umount the
+    vault disk mid-session, kill the Rust handle, or revert the
+    bundle path) and verify the panel shows the degraded message.
+  - Force-failure mock test inside `HaloControllerTests` is queued
+    but not in this commit.
+
+Commit: `c115fb481` 2026-05-10.
 
 ### RCA-P1-014 - Resolve live syntax highlighter drift
 
