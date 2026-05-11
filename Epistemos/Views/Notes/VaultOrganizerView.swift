@@ -515,25 +515,56 @@ struct VaultOrganizerView: View {
             page.folder = folder
             page.subfolder = folder.relativePath
             page.updatedAt = .now
-            guard persistSuggestionMutation(reason: "organizer page move", restoreState: {
+            let restoreModel: () -> Void = {
                 page.folder = originalFolder
                 page.subfolder = originalSubfolder
                 page.updatedAt = originalUpdatedAt
-            }) else {
+            }
+            guard persistSuggestionMutation(
+                reason: "organizer page move",
+                restoreState: restoreModel
+            ) else {
                 return
             }
-            vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)
+            // Per RCA13 transactional safety: if the filesystem move
+            // fails, roll back the SwiftData mutation we just persisted.
+            // Without this, the model would claim the note lives in
+            // the new folder while the .md file sits in the old path.
+            if !vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath) {
+                restoreModel()
+                _ = persistSuggestionMutation(
+                    reason: "organizer page move rollback after FS failure",
+                    restoreState: {}
+                )
+                return
+            }
             applied = true
 
         case .createFolder(let name):
             let folder = SDFolder(name: name)
             modelContext.insert(folder)
-            guard persistSuggestionMutation(reason: "organizer folder create", restoreState: {
+            let relativePath = folder.relativePath
+            let restoreModel: () -> Void = {
                 modelContext.delete(folder)
-            }) else {
+            }
+            guard persistSuggestionMutation(
+                reason: "organizer folder create",
+                restoreState: restoreModel
+            ) else {
                 return
             }
-            vaultSync.createDirectory(relativePath: folder.relativePath)
+            // Per RCA13 transactional safety: if mkdir fails, roll
+            // back the SDFolder insertion. Otherwise the model would
+            // claim the folder exists while no directory backs it on
+            // disk, and future file moves into it would silently fail.
+            if !vaultSync.createDirectory(relativePath: relativePath) {
+                restoreModel()
+                _ = persistSuggestionMutation(
+                    reason: "organizer folder create rollback after FS failure",
+                    restoreState: {}
+                )
+                return
+            }
             applied = true
         }
 
