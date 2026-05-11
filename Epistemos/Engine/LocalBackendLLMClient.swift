@@ -11,6 +11,23 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
     private var preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
     private var generateToolSequence: UInt64 = 0
     private var streamToolSequence: UInt64 = 0
+    // RCA13 P1-022: cache the last refreshRuntimeAvailability result
+    // keyed by modelID + a wall-clock stamp so back-to-back generate /
+    // stream calls inside the same chat turn don't flip
+    // inference.availableLocalGenerationRuntimeKinds repeatedly. Every
+    // mutation of that field triggers a SwiftUI observer cascade
+    // (the @Observable @MainActor InferenceState fires every property
+    // setter), which spammed the chat composer's capability pill
+    // re-render on every send. The cache is invalidated when the
+    // prepared-runtime configuration changes (configurePreparedGenerationRuntime
+    // clears it) or when the wall-clock TTL elapses.
+    private struct AvailabilityCacheEntry {
+        let modelID: String?
+        let kinds: Set<BackendRuntimeKind>
+        let timestamp: Date
+    }
+    private var lastAvailabilityCache: AvailabilityCacheEntry?
+    private static let availabilityCacheTTL: TimeInterval = 5.0
 
     init(
         inference: InferenceState,
@@ -32,6 +49,10 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
 
     func configurePreparedGenerationRuntime(_ configuration: PreparedGenerationRuntimeConfiguration?) {
         preparedGenerationRuntimeConfiguration = configuration
+        // RCA13 P1-022: prepared-runtime config changes invalidate the
+        // availability cache so the next generate/stream picks up the
+        // new set instead of serving stale kinds.
+        lastAvailabilityCache = nil
         inference.setPreparedLocalTextModelIDs(
             configuration?.interactiveLocalTextModelIDs(
                 availableRuntimeKinds: inference.availableLocalGenerationRuntimeKinds
@@ -40,7 +61,19 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
     }
 
     func refreshRuntimeAvailability(for modelID: String? = nil) async -> Set<BackendRuntimeKind> {
+        // RCA13 P1-022: short-circuit the FFI + observer cascade when
+        // a recent refresh for the same modelID is still valid.
+        if let cached = lastAvailabilityCache,
+           cached.modelID == modelID,
+           Date().timeIntervalSince(cached.timestamp) < Self.availabilityCacheTTL {
+            return cached.kinds
+        }
         let kinds = await refreshAvailableRuntimeKinds(preparedGenerationRuntimeConfiguration, modelID)
+        lastAvailabilityCache = AvailabilityCacheEntry(
+            modelID: modelID,
+            kinds: kinds,
+            timestamp: Date()
+        )
         inference.setAvailableLocalGenerationRuntimeKinds(kinds)
         inference.setPreparedLocalTextModelIDs(
             preparedGenerationRuntimeConfiguration?.interactiveLocalTextModelIDs(
