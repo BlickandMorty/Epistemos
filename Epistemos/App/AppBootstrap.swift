@@ -1487,8 +1487,16 @@ final class AppBootstrap {
         // that adds a small default agent roster if the user has never
         // created any — gives the Landing agent dock something to show without
         // forcing the user through the wizard on first launch.
+        //
+        // RCA13 P6 first-click responsiveness: attach inline (cheap
+        // property set), defer the seed to the next main-actor tick so
+        // the SwiftData fetch + 4 inserts on first launch don't sit on
+        // the bootstrap critical path. The Farm has a graceful empty
+        // state for the ~1 frame between paint and seed.
         companionState.attachModelContext(container.mainContext)
-        companionState.seedDefaultIfEmpty()
+        Task { @MainActor [weak companionState] in
+            companionState?.seedDefaultIfEmpty()
+        }
 
         let channelRegistry = ChannelRegistryState()
         self.channelRegistry = channelRegistry
