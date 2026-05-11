@@ -3,7 +3,11 @@ import SwiftData
 import AppKit
 
 enum GraphMiniPanelLayout {
-    static let defaultSide: CGFloat = 620
+    // Per user 2026-05-10: the single unified graph (mini ontology) opens
+    // a "little larger" than the previous 620pt default. 900pt gives the
+    // user real working room while keeping the floating-panel feel + the
+    // perf characteristics that made the mini fluid in the first place.
+    static let defaultSide: CGFloat = 900
     static let screenPadding: CGFloat = 24
 
     static func frame(in visibleFrame: NSRect) -> NSRect {
@@ -363,10 +367,9 @@ final class HologramOverlay {
         cancelScheduledTeardown()
         self.noteWindowFrame = noteWindow?.frame
 
-        if isMinimized {
-            restore()
-            return
-        }
+        // Per user 2026-05-10: the graph is always in mini ontology now.
+        // The old `if isMinimized { restore(); return }` branch would have
+        // re-entered full-screen mode, which no longer exists.
 
         // Fast path: if engine is still alive from a soft-hide, just resume + show.
         if let window, let metalView {
@@ -636,7 +639,14 @@ final class HologramOverlay {
 
     /// Restore the mini panel back to the full-screen overlay.
     /// The same window transforms to full-screen — no Metal view reparenting.
+    ///
+    /// Per user 2026-05-10: the unified graph is always in mini ontology;
+    /// there is no full-screen mode to restore to. This function is kept
+    /// as a no-op for any legacy callers (the expand button infrastructure
+    /// has been removed but the symbol may still be referenced). Returns
+    /// immediately without changing state.
     func restore() {
+        guard false else { return }
         guard let metalView, let window, isMinimized else { return }
 
         // Cold-started in mini mode (e.g., via command palette) — no full-screen window exists.
@@ -1547,24 +1557,30 @@ final class HologramOverlay {
         let uiState = AppBootstrap.shared?.uiState
         let theme = GraphOverlayThemeStyle.resolvedTheme(uiState: uiState)
 
-        let window = GraphOverlayPanel(contentRect: screen.frame)
-        window.applyPresentation(.immersiveOverlay)
+        // Per user 2026-05-10: fuse the full-screen and mini graphs into ONE
+        // graph (the mini ontology). The window opens as a floating panel
+        // (resizable, borderless, .floating level) at the new larger
+        // GraphMiniPanelLayout.defaultSide — never as the `.screenSaver`-
+        // level immersive full-screen overlay that was laggy on retina.
+        let initialFrame = GraphMiniPanelLayout.frame(in: screen.visibleFrame)
+        let window = GraphOverlayPanel(contentRect: initialFrame)
+        window.applyPresentation(.floatingPanel)
         window.appearance = GraphOverlayThemeStyle.windowAppearance(for: theme)
 
-        // Build the content: blur + Metal graph + floating controls + search sidebar.
-        let contentView = NSView(frame: screen.frame)
+        // Build the content: Metal graph + floating controls + search sidebar.
+        // No full-screen blur — the floating-panel chrome carries the glass
+        // feel via miniBlur + miniTint added below.
+        let contentView = NSView(frame: initialFrame)
         contentView.wantsLayer = true
+        contentView.layer?.cornerRadius = 16
+        contentView.layer?.masksToBounds = true
 
         // Frosted glass background — adapts to system appearance.
-        // Per user 2026-05-10: the full-screen graph was laggy while mini
-        // stayed fluid. The full-screen blur is a retina-sized
-        // `.behindWindow` `.active` composition that re-composites every
-        // frame at 120 Hz even when the window isn't focused. Switching
-        // to `.followsWindowActiveState` keeps the visual identity but
-        // pauses the blur kernel when the user is in another window —
-        // common in the side-by-side workflow. Mini's tiny miniBlur is
-        // 10-20× cheaper so this never mattered there.
-        let blur = NSVisualEffectView(frame: screen.frame)
+        // Bounded to contentView (panel-sized) instead of full screen.
+        // `.followsWindowActiveState` pauses the blur kernel when window
+        // unfocused. Panel-sized blur is ~10-20× cheaper than the previous
+        // full-screen blur, so the cinematic graph renders fluidly.
+        let blur = NSVisualEffectView(frame: contentView.bounds)
         blur.material = GraphOverlayThemeStyle.blurMaterial(for: theme)
         blur.blendingMode = .behindWindow
         blur.state = .followsWindowActiveState
@@ -1573,7 +1589,7 @@ final class HologramOverlay {
         self.blurView = blur
 
         // Tint overlay for depth — white in light mode for a bright frosted look.
-        let darken = NSView(frame: screen.frame)
+        let darken = NSView(frame: contentView.bounds)
         darken.wantsLayer = true
         darken.layer?.backgroundColor = GraphOverlayThemeStyle.overlayTintColor(
             for: theme
@@ -1582,12 +1598,15 @@ final class HologramOverlay {
         contentView.addSubview(darken)
         self.darkenLayer = darken
 
-        // Metal graph view (fills entire window).
-        let graphView = MetalGraphNSView(frame: screen.frame)
+        // Metal graph view (fills the panel). isMiniMode = true so it
+        // skips the pixel-budget cap and uses the proven-fluid mini render
+        // path (same setting that made the old "minimized" graph snappy).
+        let graphView = MetalGraphNSView(frame: contentView.bounds)
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
         graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
+        graphView.isMiniMode = true
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
@@ -1676,8 +1695,19 @@ final class HologramOverlay {
                 )
             )
             // Use frame-based positioning (updated by inspectorPositionTask).
-            inspectorView.frame = CGRect(x: screen.frame.width - 420, y: 60, width: 380, height: 500)
+            // Per user 2026-05-10: inspector is HIDDEN by default in the
+            // unified graph; the external miniInspectorPanel is the default
+            // visible surface. The in-window inspectorHostView remains as
+            // the "embedded" opt-in variant — toggled via a button on the
+            // external panel (TODO: wire pop-in/pop-out toggle).
+            inspectorView.frame = CGRect(
+                x: max(0, contentView.bounds.width - 420),
+                y: 60,
+                width: 380,
+                height: 500
+            )
             inspectorView.autoresizesSubviews = true
+            inspectorView.isHidden = true
             contentView.addSubview(inspectorView)
             self.inspectorHostView = inspectorView
             startInspectorPositionTracking()
@@ -1691,6 +1721,19 @@ final class HologramOverlay {
 
         self.window = window
         self.metalView = graphView
+
+        // Per user 2026-05-10: the unified graph (mini ontology) wires the
+        // same observers + parent-window attachment + pinned-panel timer
+        // that the old `minimize()` path used to set up. The external
+        // mini inspector panel is now the default node-selection inspector.
+        // `isMinimized = true` keeps every existing "is the graph in mini
+        // mode" check truthy — minimize/restore is no longer a user-facing
+        // state machine; the graph IS the mini.
+        isMinimized = true
+        attachFloatingPanelToMainWindow(window)
+        self.miniPanel = window
+        observeNodeSelection()
+        startPinnedPanelTimer()
 
         // Commit graph data after window is set up.
         DispatchQueue.main.async {
@@ -1781,13 +1824,24 @@ final class HologramOverlay {
         window.applyPresentation(.immersiveOverlay)
     }
 
+    /// Per user 2026-05-10: the single unified graph (mini ontology) always
+    /// presents as a `.floatingPanel` at the GraphMiniPanelLayout size.
+    /// This function used to switch the window into `.immersiveOverlay`
+    /// + full-screen frame, which is what caused the `.screenSaver`-level
+    /// compositor lag. Now both cold-start and warm-reopen paths produce
+    /// the same floating-panel configuration.
     private func prepareImmersiveOverlayWindow(_ window: GraphOverlayPanel, screen: NSScreen?) {
         if let parent = window.parent {
             parent.removeChildWindow(window)
         }
-        window.applyPresentation(.immersiveOverlay)
-        if let screen {
-            window.setFrame(screen.frame, display: true)
+        window.applyPresentation(.floatingPanel)
+        if let screen,
+           !window.isVisible || window.frame.size == screen.frame.size {
+            // Only re-frame to the mini layout when the window hasn't
+            // been user-resized. The user can drag-resize the panel to
+            // whatever size they want; we shouldn't snap it back on
+            // every show().
+            window.setFrame(GraphMiniPanelLayout.frame(in: screen.visibleFrame), display: true)
         }
     }
 

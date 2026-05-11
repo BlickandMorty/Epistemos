@@ -166,8 +166,9 @@ struct HologramSearchSidebar: View {
     /// Persisted collapse state. Survives editor↔graph navigation and app
     /// restarts. When true the sidebar shrinks to a single expand-affordance
     /// button; when false the full Notes/Query/Chat tabs are visible.
+    /// Per user 2026-05-10: defaults to TRUE (collapsed) on first launch.
     @AppStorage("epistemos.graphSidebarCollapsed")
-    private var isCollapsed: Bool = false
+    private var isCollapsed: Bool = true
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
     @State private var cachedNotesTreeSnapshot = HologramSidebarNotesTreeSnapshot.empty
