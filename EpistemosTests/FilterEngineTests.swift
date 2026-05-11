@@ -144,6 +144,34 @@ struct FilterEngineTests {
         #expect(!graph.isNodeTypeVisible(.folder))
     }
 
+    @Test("graph node visibility can hide and restore every user filterable type")
+    func graphNodeVisibilityCanHideAndRestoreEveryUserFilterableType() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.graph.visibleNodeTypes"
+        let previous = defaults.object(forKey: key)
+        defaults.removeObject(forKey: key)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        let graph = GraphState()
+        graph.hideAllUserFilterableNodeTypes()
+
+        for type in GraphState.userFilterableNodeTypes {
+            #expect(!graph.isNodeTypeVisible(type), "\(type.displayName) should be hideable")
+        }
+
+        graph.showAllUserFilterableNodeTypes()
+
+        for type in GraphState.userFilterableNodeTypes {
+            #expect(graph.isNodeTypeVisible(type), "\(type.displayName) should restore")
+        }
+    }
+
     @Test("show all types resets filter")
     func showAllTypesResetsFilter() {
         let engine = FilterEngine()

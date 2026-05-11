@@ -411,6 +411,9 @@ struct GraphPhysicsSettingsAuditTests {
 
         #expect(settings.contains("GraphForceSettingsSection"))
         #expect(settings.contains("case physics = \"Physics\""))
+        #expect(settings.contains("case filters = \"Filters\""))
+        #expect(settings.contains("GraphState.userFilterableNodeTypes"))
+        #expect(settings.contains("graphState.hideAllUserFilterableNodeTypes()"))
         #expect(!settings.contains("Picker(\"Opens in\""))
         #expect(!settings.contains("sectionHeader(\"Water Nodes\""))
         #expect(overlay.contains("static func surfaceTintColor"))

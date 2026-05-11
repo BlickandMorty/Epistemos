@@ -13,6 +13,7 @@ enum GraphForceSettingsLayout {
 private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
     case presets = "Presets"
     case physics = "Physics"
+    case filters = "Filters"
     case display = "Display"
     case advanced = "Advanced"
 
@@ -22,6 +23,7 @@ private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .presets: return "sparkles"
         case .physics: return "bolt"
+        case .filters: return "line.3.horizontal.decrease.circle"
         case .display: return "rectangle.on.rectangle"
         case .advanced: return "slider.horizontal.3"
         }
@@ -58,14 +60,16 @@ struct GraphForceSettings: View {
                         presetsPanel(gs: $gs)
                     case .physics:
                         physicsPanel(gs: $gs)
+                    case .filters:
+                        filtersPanel()
                     case .display:
                         displayPanel(gs: $gs)
                     case .advanced:
                         advancedPanel(gs: $gs)
                     }
                 }
-                .opacity(isStatic && selectedSection != .display ? 0.4 : 1.0)
-                .allowsHitTesting(!isStatic || selectedSection == .display)
+                .opacity(isStatic && selectedSection != .display && selectedSection != .filters ? 0.4 : 1.0)
+                .allowsHitTesting(!isStatic || selectedSection == .display || selectedSection == .filters)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,6 +129,33 @@ struct GraphForceSettings: View {
             advancedSection(gs: gs)
             Divider().opacity(0.3)
             clusterSection(gs: gs)
+        }
+    }
+
+    private func filtersPanel() -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader("Node Types", icon: "square.grid.3x3")
+
+            HStack(spacing: 6) {
+                filterPresetButton("All") {
+                    graphState.showAllUserFilterableNodeTypes()
+                }
+                filterPresetButton("Content") {
+                    graphState.applyContentFocusedNodeVisibility()
+                }
+                filterPresetButton("None") {
+                    graphState.hideAllUserFilterableNodeTypes()
+                }
+            }
+
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+            ], spacing: 6) {
+                ForEach(GraphState.userFilterableNodeTypes, id: \.rawValue) { type in
+                    nodeTypeFilterToggle(type)
+                }
+            }
         }
     }
 
@@ -381,6 +412,50 @@ struct GraphForceSettings: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(isSelected ? .primary : .secondary)
+    }
+
+    private func filterPresetButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(
+                    Color.primary.opacity(0.05),
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+    }
+
+    private func nodeTypeFilterToggle(_ type: GraphNodeType) -> some View {
+        let isVisible = Binding<Bool>(
+            get: { graphState.isNodeTypeVisible(type) },
+            set: { graphState.setNodeTypeVisibility(type, isVisible: $0) }
+        )
+
+        return Toggle(isOn: isVisible) {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(type.swiftUIColor)
+                    .frame(width: 6, height: 6)
+                Text(type.displayName)
+                    .font(.system(size: 10, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+        .toggleStyle(.checkbox)
+        .controlSize(.small)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.primary.opacity(graphState.isNodeTypeVisible(type) ? 0.045 : 0.02),
+            in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+        )
     }
 
     // MARK: - Basic Forces

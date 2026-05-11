@@ -16,6 +16,13 @@ fn jiggle(seed: usize) -> f32 {
 
 // ── Force: Link (Hooke's spring along edges) ────────────────────────────────
 
+#[derive(Clone, Copy)]
+pub struct LinkFocus<'a> {
+    pub root: usize,
+    pub neighbors: &'a [bool],
+    pub distance_multiplier: f32,
+}
+
 /// d3.forceLink() translation.
 ///
 /// For each edge, applies a spring force proportional to the displacement
@@ -41,6 +48,72 @@ pub fn force_link(
     link_strength_override: f32,
     alpha: f32,
 ) {
+    force_link_impl(
+        x,
+        y,
+        vx,
+        vy,
+        edges,
+        edge_weights,
+        degrees,
+        fx,
+        fy,
+        link_distance,
+        link_strength_override,
+        alpha,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn force_link_with_focus(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    edges: &[(usize, usize)],
+    edge_weights: &[f32],
+    degrees: &[u32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
+    link_distance: f32,
+    link_strength_override: f32,
+    alpha: f32,
+    focus: LinkFocus<'_>,
+) {
+    force_link_impl(
+        x,
+        y,
+        vx,
+        vy,
+        edges,
+        edge_weights,
+        degrees,
+        fx,
+        fy,
+        link_distance,
+        link_strength_override,
+        alpha,
+        Some(focus),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn force_link_impl(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    edges: &[(usize, usize)],
+    edge_weights: &[f32],
+    degrees: &[u32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
+    link_distance: f32,
+    link_strength_override: f32,
+    alpha: f32,
+    focus: Option<LinkFocus<'_>>,
+) {
     for (ei, &(si, ti)) in edges.iter().enumerate() {
         if si >= x.len() || ti >= x.len() {
             continue;
@@ -54,7 +127,14 @@ pub fn force_link(
 
         // Per-edge weight: higher weight = shorter distance, stronger spring.
         let w = edge_weights.get(ei).copied().unwrap_or(1.0).max(0.1);
-        let edge_dist = link_distance / w;
+        let focus_multiplier = focus
+            .filter(|focus| {
+                (si == focus.root && focus.neighbors.get(ti).copied().unwrap_or(false))
+                    || (ti == focus.root && focus.neighbors.get(si).copied().unwrap_or(false))
+            })
+            .map(|focus| focus.distance_multiplier.clamp(1.0, 3.0))
+            .unwrap_or(1.0);
+        let edge_dist = link_distance * focus_multiplier / w;
 
         // Strength: 1 / min(degree(source), degree(target)), or override.
         // Scaled by weight so containment edges pull harder.
@@ -976,6 +1056,68 @@ mod tests {
         // Nodes at distance 50 with link_distance 180 → should push apart.
         assert!(vx[0] < 0.0, "node 0 should move left, got {}", vx[0]);
         assert!(vx[1] > 0.0, "node 1 should move right, got {}", vx[1]);
+    }
+
+    #[test]
+    fn focused_link_extends_selected_neighbor_distance() {
+        let x = vec![0.0, 80.0];
+        let y = vec![0.0, 0.0];
+        let mut vx_base = vec![0.0, 0.0];
+        let mut vy_base = vec![0.0, 0.0];
+        let mut vx_focus = vec![0.0, 0.0];
+        let mut vy_focus = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![1.0];
+        let degrees = vec![1, 1];
+        let neighbors = vec![true, true];
+
+        force_link(
+            &x,
+            &y,
+            &mut vx_base,
+            &mut vy_base,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            80.0,
+            0.0,
+            1.0,
+        );
+
+        force_link_with_focus(
+            &x,
+            &y,
+            &mut vx_focus,
+            &mut vy_focus,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            80.0,
+            0.0,
+            1.0,
+            LinkFocus {
+                root: 0,
+                neighbors: &neighbors,
+                distance_multiplier: 1.8,
+            },
+        );
+
+        assert!(
+            vx_base[0].abs() < 0.001 && vx_base[1].abs() < 0.001,
+            "baseline edge should sit near rest length"
+        );
+        assert!(
+            vx_focus[0] < 0.0,
+            "focused root should move away from neighbor"
+        );
+        assert!(
+            vx_focus[1] > 0.0,
+            "focused neighbor should move outward from root"
+        );
     }
 
     #[test]

@@ -81,6 +81,7 @@ const SETTLED_SLEEP_MS: u64 = 50;
 const LOUVAIN_MAX_NODES: usize = 10_000;
 const INTERACTION_MOTION_HOLD: Duration = Duration::from_secs(30);
 const INTERACTION_MOTION_ALPHA_TARGET: f32 = 0.015;
+const SELECTED_NEIGHBOR_DISTANCE_MULTIPLIER: f32 = 1.8;
 
 pub(crate) fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
     if !entrance {
@@ -1285,6 +1286,7 @@ impl Engine {
 
             // Clear selection on background click.
             self.selected_id = None;
+            self.sim.lock().clear_selection_focus();
 
             // Clear highlight on background click and zoom back to fit all nodes.
             // Per user 2026-05-10: the zoom-back target is tightened by
@@ -1559,8 +1561,47 @@ impl Engine {
         self.renderer.highlight.highlighted_ids = self.neighbor_ids(node_id);
         self.renderer.highlight.root_id = Some(node_id);
         self.renderer.highlight.active = true;
+        if self.selected_id == Some(node_id) {
+            self.apply_selected_neighbor_expansion(node_id);
+        } else {
+            self.sim.lock().clear_selection_focus();
+        }
         self.highlight_dirty = true;
         self.idle_frame_count = 0;
+    }
+
+    fn apply_selected_neighbor_expansion(&mut self, node_id: u32) {
+        let neighbor_ids = self.renderer.highlight.highlighted_ids.clone();
+        let Some(root_graph_index) = self.graph.id_to_index.get(&node_id).copied() else {
+            self.sim.lock().clear_selection_focus();
+            return;
+        };
+        let neighbor_graph_indices = neighbor_ids
+            .iter()
+            .filter_map(|neighbor_id| self.graph.id_to_index.get(neighbor_id).copied())
+            .collect::<Vec<_>>();
+        let mut sim = self.sim.lock();
+        let Some(root_index) = sim
+            .graph_indices
+            .iter()
+            .position(|&candidate| candidate == root_graph_index)
+        else {
+            sim.clear_selection_focus();
+            return;
+        };
+        let neighbor_indices = neighbor_graph_indices
+            .iter()
+            .filter_map(|graph_index| {
+                sim.graph_indices
+                    .iter()
+                    .position(|&candidate| candidate == *graph_index)
+            })
+            .collect::<Vec<_>>();
+        sim.set_selection_focus(
+            root_index,
+            neighbor_indices,
+            SELECTED_NEIGHBOR_DISTANCE_MULTIPLIER,
+        );
     }
 
     /// Highlight neighbors of a node by UUID (called from FFI).
@@ -1586,6 +1627,7 @@ impl Engine {
     /// Clear node selection and the selection-derived focus highlight.
     pub fn clear_selected_node(&mut self) {
         self.selected_id = None;
+        self.sim.lock().clear_selection_focus();
         self.clear_highlight();
     }
 
@@ -3136,6 +3178,13 @@ mod tests {
         );
         assert!(engine.renderer.highlight.highlighted_ids.contains(&2));
         assert!(engine.highlight_dirty);
+        let focus = engine
+            .sim
+            .lock()
+            .selection_focus_for_tests()
+            .expect("selection should expand direct neighborhood links");
+        assert_eq!(focus.1, 3);
+        assert!(focus.2 >= SELECTED_NEIGHBOR_DISTANCE_MULTIPLIER);
 
         engine.select_node("missing-node");
 
@@ -3144,6 +3193,7 @@ mod tests {
         assert!(engine.renderer.highlight.highlighted_ids.is_empty());
         assert_eq!(engine.renderer.highlight.root_id, None);
         assert!(engine.highlight_dirty);
+        assert!(engine.sim.lock().selection_focus_for_tests().is_none());
 
         engine.select_node(&selected_uuid);
         assert_eq!(engine.selected_id, Some(selected_id));
@@ -3156,6 +3206,7 @@ mod tests {
         assert!(engine.renderer.highlight.highlighted_ids.is_empty());
         assert_eq!(engine.renderer.highlight.root_id, None);
         assert!(engine.highlight_dirty);
+        assert!(engine.sim.lock().selection_focus_for_tests().is_none());
     }
 
     #[test]

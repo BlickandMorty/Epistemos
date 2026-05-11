@@ -961,6 +961,10 @@ final class GraphState {
         applyNodeVisibilityPreset(Set(Self.userFilterableNodeTypes))
     }
 
+    func hideAllUserFilterableNodeTypes() {
+        applyNodeVisibilityPreset([])
+    }
+
     private func applyNodeVisibilityPreset(_ visibleTypes: Set<GraphNodeType>) {
         var nextTypes = filter.activeNodeTypes
         for type in Self.userFilterableNodeTypes {
