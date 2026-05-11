@@ -2,6 +2,22 @@ import Foundation
 import OSLog
 
 // MARK: - Phase 4: Mask Predictor Service
+//
+// **SCAFFOLD ONLY (RCA13 P2-009).** This file ships the
+// `MaskPredictorService` protocol + payload types + the
+// `PlaceholderMaskPredictor` concrete implementation. The placeholder
+// always returns `.failure(.predictorUnavailable)` from `predict(...)`
+// and exposes `isAvailable = false` so consumers can short-circuit.
+//
+// There is NO trained mask-predictor model loaded today. Settings /
+// onboarding / chat tier UI must not advertise sparsity-aware mask
+// prediction as a working feature. The placeholder lets the planner
+// + overseer code paths compile + test, but every runtime call
+// fails closed.
+//
+// When the V3.2 mask-predictor training slice lands, replace
+// `PlaceholderMaskPredictor` with the trained implementation; the
+// `isAvailable` flag flips and consumers light up automatically.
 
 nonisolated struct PredictedLayerMask: Sendable, Equatable, Codable {
     let layerIndex: Int
