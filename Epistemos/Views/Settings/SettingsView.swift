@@ -775,7 +775,7 @@ private struct GeneralDetailView: View {
                 }
             }
         } message: {
-            Text("This will delete all conversations, notes data, local model state, and preferences. Vault files on disk are preserved. This cannot be undone.")
+            Text("This will delete all conversations, notes data, local model state, and model preferences. Vault files on disk and appearance settings are preserved. This cannot be undone.")
         }
     }
 

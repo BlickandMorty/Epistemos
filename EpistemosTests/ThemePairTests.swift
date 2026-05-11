@@ -363,11 +363,11 @@ struct ThemePairTests {
         #expect(ThemePair.platinumViolet.resolved(isDark: false) == .platinumViolet)
         #expect(ThemePair.platinumViolet.resolved(isDark: true) == .platinumVioletDark)
         #expect(EpistemosTheme.platinumViolet.markdownHeadingAccentHex == 0x00007B)
-        #expect(EpistemosTheme.platinumVioletDark.markdownHeadingAccentHex == 0xD7A7B6)
+        #expect(EpistemosTheme.platinumVioletDark.markdownHeadingAccentHex == 0x7B68EE)
         #expect(EpistemosTheme.platinumViolet.preferredMarkdownLinkHex == 0x00007B)
         #expect(EpistemosTheme.platinumVioletDark.preferredMarkdownLinkHex == nil)
         #expect(EpistemosTheme.platinumViolet.resolved.accent.color == Color(hex: 0x000080))
-        #expect(EpistemosTheme.platinumVioletDark.resolved.accent.color == Color(hex: 0xA8B6D9))
+        #expect(EpistemosTheme.platinumVioletDark.resolved.accent.color == Color(hex: 0x7B68EE))
     }
 
     @Test("System appearance state reads the global Apple interface style")
