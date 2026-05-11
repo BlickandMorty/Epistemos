@@ -26,8 +26,6 @@ struct GraphFloatingControls: View {
 
             forceSettingsButton
 
-            minimizeButton
-
             resetViewButton
 
             Divider()
