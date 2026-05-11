@@ -1418,7 +1418,9 @@ impl Engine {
                 drop(sim);
                 if is_frozen {
                     self.zoom_to_fit();
-                    self.renderer.target_zoom *= 1.3;
+                    // 1.7× tighter than full fit per user 2026-05-10 — the
+                    // previous 1.3× was still reading as too wide on deselect.
+                    self.renderer.target_zoom *= 1.7;
                 }
             }
         }

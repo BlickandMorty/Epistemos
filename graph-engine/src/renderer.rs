@@ -936,16 +936,32 @@ fragment float4 node_fragment(
                 float3 canvas_target = srgb_to_linear(float3(0.95, 0.95, 0.95));
                 pixel_color = mix(pixel_color, canvas_target, 0.70);
             } else {
-                // Dark mode: mix hard toward black then collapse to luma
-                // so unselected siblings recede as monochrome shadows.
-                float3 selection_dim_target = srgb_to_linear(float3(0.05, 0.05, 0.05));
-                pixel_color = mix(pixel_color, selection_dim_target, 0.80);
+                // Dark mode: mix HARD toward black + luma collapse so the
+                // dimmed siblings recede as near-black silhouettes. User
+                // wants stronger distinction between selected and
+                // deselected on dark, so the mix goes to 0.92 (was 0.80)
+                // and the dim target deepens to 0.02 (was 0.05).
+                float3 selection_dim_target = srgb_to_linear(float3(0.02, 0.02, 0.02));
+                pixel_color = mix(pixel_color, selection_dim_target, 0.92);
                 float dim_lum = dot(pixel_color, float3(0.299, 0.587, 0.114));
-                pixel_color = mix(pixel_color, float3(dim_lum), 0.85);
+                pixel_color = mix(pixel_color, float3(dim_lum), 0.92);
             }
         }
 
-        return float4(pixel_color, max(in.color.a, 0.95));
+        // Alpha policy: dimmed light-mode nodes must stay opaque so the
+        // canvas-fade ghost still covers edges underneath. Dimmed dark-
+        // mode nodes can drop to 0.55 alpha — the magnolia/dark edges are
+        // soft mid-grey on dark canvas and the dimmed disc itself is
+        // near-black, so the small amount of edge bleed-through reads
+        // as deliberate atmospheric depth rather than as overlap. Selected
+        // nodes and undimmed nodes stay near-opaque.
+        float final_alpha;
+        if (cinematic_dimmed && !light) {
+            final_alpha = 0.55;
+        } else {
+            final_alpha = max(in.color.a, 0.95);
+        }
+        return float4(pixel_color, final_alpha);
     }
 
     // ── Balanced + Performance: shared node shading ──
