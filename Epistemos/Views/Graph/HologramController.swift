@@ -164,6 +164,10 @@ final class HologramController {
         overlay?.isMinimized ?? false
     }
 
+    private var hasActiveVault: Bool {
+        AppBootstrap.shared?.vaultSync.vaultURL != nil
+    }
+
     // MARK: - Overlay Lifecycle
 
     private func ensureConfiguredFromSharedBootstrap() {
@@ -181,8 +185,12 @@ final class HologramController {
         guard overlay == nil, let graphState else { return }
         let interval = Log.graphPerf.beginInterval("ensureOverlay")
 
+        if autoLoadGraph, !hasActiveVault {
+            graphState.resetForVaultLifecycle()
+        }
+
         // Load graph data on first access without blocking the first overlay show.
-        if autoLoadGraph, !graphState.isLoaded, let modelContainer {
+        if autoLoadGraph, hasActiveVault, !graphState.isLoaded, let modelContainer {
             let loadInterval = Log.graphPerf.beginInterval("loadGraph")
             graphState.shouldSnapNextGlobalRecommitCamera = true
             Task(priority: .utility) {
@@ -199,7 +207,7 @@ final class HologramController {
 
         // Run structural refresh AFTER overlay exists so the graph shows immediately.
         // Uses async path to run GraphBuilder on a background thread.
-        if autoLoadGraph, needsRefresh, let modelContainer {
+        if autoLoadGraph, hasActiveVault, needsRefresh, let modelContainer {
             Task {
                 let refreshInterval = Log.graphPerf.beginInterval("refreshStructuralData")
                 let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
@@ -214,6 +222,10 @@ final class HologramController {
 
     private func loadGraphForDocumentRevealIfNeeded() async {
         guard let graphState, let modelContainer else { return }
+        guard hasActiveVault else {
+            graphState.resetForVaultLifecycle()
+            return
+        }
         if !graphState.isLoaded {
             graphState.shouldSnapNextGlobalRecommitCamera = true
             await graphState.loadGraph(container: modelContainer)

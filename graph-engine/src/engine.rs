@@ -4106,6 +4106,16 @@ mod tests {
             !sim.static_layout,
             "tick() should not flip back to static layout"
         );
+        let max_speed = sim
+            .vx
+            .iter()
+            .zip(sim.vy.iter())
+            .map(|(vx, vy)| (vx * vx + vy * vy).sqrt())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            max_speed <= 80.1,
+            "large-graph mode should stay damped; max_speed={max_speed}"
+        );
 
         // Verify no NaN/Inf in positions.
         for i in 0..sim.x.len() {

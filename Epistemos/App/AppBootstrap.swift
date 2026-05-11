@@ -2828,10 +2828,10 @@ final class AppBootstrap {
         )
 
         uiState.setActivePanel(.home)
-        uiState.needsSetup = true
+        uiState.needsSetup = false
         UserDefaults.standard.set(false, forKey: "epistemos.setupComplete")
 
-        Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
+        Log.pipeline.info("Reset: All data cleared. Setup assistant re-armed.")
     }
 
     private func clearVisualCaches() {
