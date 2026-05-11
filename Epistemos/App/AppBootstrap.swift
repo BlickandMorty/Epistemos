@@ -3153,6 +3153,21 @@ final class AppBootstrap {
                 return
             }
 
+            // Canonical fire-and-log per docs/AMBIENT_RECALL_HALO_MASTER_PLAN.md
+            // §3.2: the Swift bootstrap fires shadow_warm() once so the first
+            // shadow_handle_search doesn't pay the ~30 MB Model2Vec download
+            // cost on the typing hot path. Failures are non-fatal — the
+            // handle is still usable, the first search just blocks 2s on cold
+            // cache. We surface the warm-up failure so the diagnostics row
+            // can distinguish "embedder unavailable" from "tantivy unavailable".
+            do {
+                try client.warm()
+            } catch {
+                Log.app.warning(
+                    "W8.7 shadow: embedder warm failed — \(error.localizedDescription, privacy: .public). First Halo search may block on HF download or fall back."
+                )
+            }
+
             let indexer = ShadowIndexingService(client: client)
             let bootstrapper = ShadowVaultBootstrapper(
                 vaultRoot: vaultURL,
