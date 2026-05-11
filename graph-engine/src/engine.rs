@@ -329,6 +329,12 @@ pub struct Engine {
     // Reusable buffer for returning UUIDs through FFI.
     uuid_buf: Option<CString>,
 
+    /// How tight the camera lands after a deselect (background click) when
+    /// physics is frozen. After `zoom_to_fit()` the renderer's
+    /// `target_zoom` is multiplied by this. 1.0 = fit-all, larger = closer.
+    /// Pushed from Swift via `graph_engine_set_camera_settings`.
+    deselect_zoom_multiplier: f32,
+
     /// SDF label glyph table pushed from Swift once at atlas load time.
     pub(crate) label_glyph_table: Option<crate::labels::GlyphTable>,
     pub(crate) label_instance_scratch: Vec<crate::renderer::LabelInstance>,
@@ -432,6 +438,7 @@ impl Engine {
             mode: 0,
             anchor_rect: None,
             uuid_buf: None,
+            deselect_zoom_multiplier: 1.7,
             label_glyph_table: None,
             label_instance_scratch: Vec::new(),
             label_world_px_per_em: 28.0,
@@ -1418,9 +1425,10 @@ impl Engine {
                 drop(sim);
                 if is_frozen {
                     self.zoom_to_fit();
-                    // 1.7× tighter than full fit per user 2026-05-10 — the
-                    // previous 1.3× was still reading as too wide on deselect.
-                    self.renderer.target_zoom *= 1.7;
+                    // User-tunable multiplier (slider in graph settings,
+                    // pushed via graph_engine_set_camera_settings). 1.0 =
+                    // fit-all, larger = stay closer to the prior view.
+                    self.renderer.target_zoom *= self.deselect_zoom_multiplier;
                 }
             }
         }
@@ -2091,6 +2099,16 @@ impl Engine {
         let _ = wobble;
         self.renderer.water_wobble = 0.0;
         self.idle_frame_count = 0;
+    }
+
+    /// User-tunable camera behavior. Set from the Swift settings panel.
+    /// `deselect_zoom_multiplier` controls how tight the camera lands
+    /// after a deselect (1.0 = fit-all, larger = stay close). `lambda`
+    /// is the camera lerp speed (higher = snappier transitions). Both
+    /// clamped to safe ranges to prevent NaN/instability.
+    pub fn set_camera_settings(&mut self, deselect_zoom_multiplier: f32, lambda: f32) {
+        self.deselect_zoom_multiplier = deselect_zoom_multiplier.clamp(0.5, 5.0);
+        self.renderer.camera_lambda = lambda.clamp(1.0, 40.0);
     }
 
     /// Clear neighbor highlighting.

@@ -1108,6 +1108,44 @@ final class GraphState {
     }
     var waterNodesVersion: Int = 0
 
+    // MARK: - Camera
+
+    /// How close the camera stays to the previous selection when the user
+    /// deselects (clicks empty space). Higher = tighter / less zoom-out;
+    /// 1.0 = full fit-all (the old default), 1.7 = canonical default.
+    /// Range: 1.0 ... 3.0.
+    var cameraDeselectZoomMultiplier: Float = GraphCameraDefaults.load(
+        key: "epistemos.camera.deselectZoomMultiplier",
+        defaultValue: 1.7
+    ) {
+        didSet {
+            UserDefaults.standard.set(
+                Double(cameraDeselectZoomMultiplier),
+                forKey: "epistemos.camera.deselectZoomMultiplier"
+            )
+            cameraConfigVersion += 1
+            notifyGraphRenderSettingsChanged()
+        }
+    }
+    /// Camera lerp lambda. Higher = snappier transitions (zoom/pan/center).
+    /// Range: 4.0 (silky slow) ... 22.0 (instant snap). Default 11.0.
+    var cameraSpeedLambda: Float = GraphCameraDefaults.load(
+        key: "epistemos.camera.speedLambda",
+        defaultValue: 11.0
+    ) {
+        didSet {
+            UserDefaults.standard.set(
+                Double(cameraSpeedLambda),
+                forKey: "epistemos.camera.speedLambda"
+            )
+            cameraConfigVersion += 1
+            notifyGraphRenderSettingsChanged()
+        }
+    }
+    /// Bumped whenever a camera setting changes so `MetalGraphNSView`
+    /// detects the delta and pushes new values to the Rust engine.
+    var cameraConfigVersion: Int = 0
+
     // MARK: - Graph Title
 
     var graphTitleMode: GraphTitleMode = .firstOpen {
@@ -2763,5 +2801,19 @@ final class GraphState {
             let extractor = EntityExtractor(graphState: self)
             await extractor.scanVault(context: context, llmService: llmService)
         }
+    }
+}
+
+/// Helper for the camera UserDefaults bootstrap. Float-valued defaults
+/// where 0 isn't a sensible value: returns the configured default when
+/// the key isn't present (UserDefaults.double returns 0 for missing keys,
+/// which would collapse the slider to its lower bound).
+nonisolated enum GraphCameraDefaults {
+    static func load(key: String, defaultValue: Float) -> Float {
+        let stored = UserDefaults.standard.double(forKey: key)
+        if stored == 0 {
+            return defaultValue
+        }
+        return Float(stored)
     }
 }
