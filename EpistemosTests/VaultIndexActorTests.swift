@@ -716,6 +716,112 @@ struct VaultIndexActorTests {
         }
     }
 
+    @Test("importVault refreshes stale large-file fingerprints without managed body comparison")
+    func importVaultRefreshesStaleLargeFileFingerprint() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let repeatedLineCount = 80_000
+            let largeBody = String(repeating: "alpha beta gamma\n", count: repeatedLineCount)
+            let fileURL = vaultURL.appendingPathComponent("Large Fingerprint.md")
+            try """
+            ---
+            title: Large Fingerprint
+            ---
+
+            \(largeBody)
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await actor.importVault(from: vaultURL)
+
+            let setupContext = ModelContext(container)
+            let importedPages = try setupContext.fetch(FetchDescriptor<SDPage>())
+            #expect(importedPages.count == 1)
+
+            guard let importedPage = importedPages.first else {
+                Issue.record("Expected large vault note to import")
+                return
+            }
+
+            guard let expectedFingerprint = importedPage.lastSyncedBodyHash else {
+                Issue.record("Expected large vault note to store a file fingerprint")
+                return
+            }
+
+            #expect(expectedFingerprint.hasPrefix("vault-file:"))
+            #expect(!NoteFileStorage.bodyExists(pageId: importedPage.id))
+
+            let pageId = importedPage.id
+            importedPage.updatedAt = Date(timeIntervalSince1970: 1)
+            importedPage.lastSyncedBodyHash = "stale-large-file-fingerprint"
+            try setupContext.save()
+
+            let reimportActor = VaultIndexActor(modelContainer: container)
+            let snapshot = try await reimportActor.importVault(from: vaultURL)
+
+            let verifyContext = ModelContext(container)
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate { $0.id == pageId }
+            )
+            let pages = try verifyContext.fetch(descriptor)
+            #expect(pages.count == 1)
+            #expect(pages.first?.lastSyncedBodyHash == expectedFingerprint)
+            #expect(snapshot?.updatedCount == 1)
+
+            let stableSnapshot = try await VaultIndexActor(modelContainer: container)
+                .importVault(from: vaultURL)
+            #expect(stableSnapshot?.updatedCount == 0)
+            #expect(stableSnapshot?.unchangedCount == 1)
+        }
+    }
+
+    @Test("allPagesForRebuild uses bounded previews for large external bodies")
+    func allPagesForRebuildUsesBoundedPreviewsForLargeExternalBodies() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let largeBody = String(repeating: "alpha beta gamma\n", count: 80_000)
+            let fileURL = vaultURL.appendingPathComponent("Large Recall.md")
+            try """
+            ---
+            title: Large Recall
+            ---
+
+            \(largeBody)
+            """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            try await actor.importVault(from: vaultURL)
+
+            let pages = await actor.allPagesForRebuild()
+            #expect(pages.count == 1)
+            #expect(pages.first?.title == "Large Recall")
+            #expect(pages.first?.body.hasPrefix("alpha beta gamma") == true)
+            #expect((pages.first?.body.utf8.count ?? 0) <= 200_000)
+
+            let context = ModelContext(container)
+            let importedPages = try context.fetch(FetchDescriptor<SDPage>())
+            guard let pageId = importedPages.first?.id else {
+                Issue.record("Expected large recall note to import")
+                return
+            }
+            #expect(!NoteFileStorage.bodyExists(pageId: pageId))
+        }
+    }
+
     @Test("importVault preserves front-matter-like separators in tracked code files")
     func importVaultPreservesFrontMatterLikeSeparatorsInTrackedCodeFiles() async throws {
         let container = try makeContainer()
@@ -989,6 +1095,49 @@ struct VaultIndexActorTests {
         #expect(counts.uniqueTrackedVaultPathCount == 1)
         #expect(counts.duplicateTrackedPathCount == 1)
         #expect(counts.nonVaultPageCount == 0)
+    }
+
+    @Test("importVault removes duplicate tracked rows for the same vault file")
+    func importVaultRemovesDuplicateTrackedRows() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let sharedURL = vaultURL.appendingPathComponent("Shared.md")
+        try "Shared body".write(to: sharedURL, atomically: true, encoding: .utf8)
+
+        let older = insertPage(
+            in: context,
+            title: "Older",
+            body: "Older body",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        older.filePath = sharedURL.path
+
+        let newer = insertPage(
+            in: context,
+            title: "Newer",
+            body: "Newer body",
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+        newer.filePath = sharedURL.path
+        try context.save()
+
+        let actor = VaultIndexActor(modelContainer: container)
+        let snapshot = try await actor.importVault(from: vaultURL)
+
+        let verifyContext = ModelContext(container)
+        let canonicalSharedPath = sharedURL.standardizedFileURL.resolvingSymlinksInPath().path
+        let pages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            .filter {
+                guard let filePath = $0.filePath else { return false }
+                return URL(fileURLWithPath: filePath).standardizedFileURL.resolvingSymlinksInPath().path == canonicalSharedPath
+            }
+
+        #expect(pages.count == 1)
+        #expect(snapshot?.deletedCount == 1)
+        #expect(snapshot?.duplicateTrackedPathCount == 0)
     }
 
     @Test("cancelled import does not delete tracked pages from a partial scan")

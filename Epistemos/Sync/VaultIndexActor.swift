@@ -754,6 +754,18 @@ actor VaultIndexActor {
 
                 let existingPage = existingByPath[filePath] ?? existingByPath[Self.canonicalFilePath(filePath)]
                 if let existingPage {
+                    let currentVaultFileFingerprint = Self.largeVaultFileFingerprint(for: fileURL)
+                    if existingPage.lastSyncedBodyHash == currentVaultFileFingerprint,
+                       !NoteFileStorage.bodyExists(pageId: existingPage.id) {
+                        skipCount += 1
+                        if let progress,
+                           processedFileCount == drained.count || processedFileCount.isMultiple(of: progressInterval) {
+                            let snapshot = makeProgressSnapshot(phase: "Importing vault files")
+                            await progress(snapshot)
+                        }
+                        continue
+                    }
+
                     let needsLocalBodyRebuild =
                         !NoteFileStorage.bodyExists(pageId: existingPage.id)
                         && NoteFileStorage.readBody(
@@ -771,7 +783,7 @@ actor VaultIndexActor {
                         // outer sync import loop still has its own
                         // scratch context that releases between pages.
                         do {
-                            let result = try await upsertPage(from: fileURL, vaultURL: url)
+                            let result = try await upsertPage(from: fileURL, vaultURL: url, existingPage: existingPage)
                             switch result {
                             case .updated(let snapshot):
                                 pendingUpdatedPages.append(snapshot)
@@ -882,6 +894,13 @@ actor VaultIndexActor {
             try synthesizeFoldersFromSubfolders()
         } else {
             try repairOrphanedFolderRelationships(vaultURL: url)
+        }
+
+        if completedScan && deleteMissingFiles {
+            let removedDuplicateCount = try removeDuplicateTrackedVaultPages(in: url)
+            if removedDuplicateCount > 0 {
+                deleteCount += removedDuplicateCount
+            }
         }
 
         // Diagnostic: compare disk file count only against vault-backed note pages.
@@ -1232,8 +1251,88 @@ actor VaultIndexActor {
 
     // MARK: - Private Helpers
 
+    @discardableResult
+    private func removeDuplicateTrackedVaultPages(in vaultURL: URL) throws -> Int {
+        let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
+        let vaultRoot = vaultURL.standardizedFileURL.path
+        let trackedPrefix = vaultRoot.hasSuffix("/") ? vaultRoot : vaultRoot + "/"
+        var pagesByCanonicalPath: [String: [SDPage]] = [:]
+
+        for page in pages {
+            guard let filePath = page.filePath else { continue }
+
+            let canonicalPath = Self.canonicalFilePath(filePath)
+            guard canonicalPath.hasPrefix(trackedPrefix),
+                  Self.isImportableNoteFile(URL(fileURLWithPath: canonicalPath))
+            else {
+                continue
+            }
+
+            pagesByCanonicalPath[canonicalPath, default: []].append(page)
+        }
+
+        var removedCount = 0
+        for (path, duplicatePages) in pagesByCanonicalPath where duplicatePages.count > 1 {
+            let orderedPages = duplicatePages.sorted { lhs, rhs in
+                let lhsHasManagedBody = NoteFileStorage.bodyExists(pageId: lhs.id)
+                let rhsHasManagedBody = NoteFileStorage.bodyExists(pageId: rhs.id)
+                if lhsHasManagedBody != rhsHasManagedBody {
+                    return lhsHasManagedBody
+                }
+
+                let lhsSyncedAt = lhs.lastSyncedAt ?? .distantPast
+                let rhsSyncedAt = rhs.lastSyncedAt ?? .distantPast
+                if lhsSyncedAt != rhsSyncedAt {
+                    return lhsSyncedAt > rhsSyncedAt
+                }
+
+                if lhs.updatedAt != rhs.updatedAt {
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+
+                return lhs.id < rhs.id
+            }
+
+            guard let keeper = orderedPages.first else { continue }
+            for duplicate in orderedPages.dropFirst() {
+                removePageArtifacts(duplicate)
+                modelContext.delete(duplicate)
+                removedCount += 1
+            }
+
+            log.warning(
+                "VaultIndex: removed \(orderedPages.count - 1, privacy: .public) duplicate tracked page rows for \(path, privacy: .private); kept page \(keeper.id, privacy: .public)"
+            )
+        }
+
+        if removedCount > 0 {
+            try saveContext("duplicate tracked vault path cleanup")
+        }
+        return removedCount
+    }
+
+    private func removePageArtifacts(_ page: SDPage) {
+        let pageId = page.id
+        SpotlightIndexer.deindex(pageId)
+        do {
+            try searchService?.delete(pageId: pageId)
+        } catch {
+            log.error(
+                "VaultIndex: failed to remove search row for duplicate page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        NoteFileStorage.deleteBody(pageId: pageId)
+        Task { @MainActor in
+            AppBootstrap.shared?.instantRecallService.removeNote(noteId: pageId)
+        }
+    }
+
     /// Upsert a page from a .md file URL. Updates if exists (by filePath), creates if new.
-    private func upsertPage(from fileURL: URL, vaultURL: URL) async throws -> PageUpsertResult {
+    private func upsertPage(
+        from fileURL: URL,
+        vaultURL: URL,
+        existingPage knownExistingPage: SDPage? = nil
+    ) async throws -> PageUpsertResult {
         // Pre-flight check: verify the file is actually readable before attempting I/O.
         // Security-scoped access is process-wide (granted by VaultSyncService), but individual
         // files may be locked, in Trash, symlinked, or otherwise inaccessible.
@@ -1280,6 +1379,7 @@ actor VaultIndexActor {
             predicate: #Predicate { $0.filePath == filePath }
         )
         let existing = try modelContext.fetch(descriptor)
+        let existingPage = knownExistingPage ?? existing.first
 
         let parsedTitle = frontMatter["title"] ?? fileURL.deletingPathExtension().lastPathComponent
         let parsedTags =
@@ -1289,7 +1389,7 @@ actor VaultIndexActor {
         let parsedEmoji = frontMatter["icon"] ?? ""
         let parsedWordCount = countWords(body, filePath: filePath)
 
-        if let page = existing.first {
+        if let page = existingPage {
             let shouldPersistManagedBody = NoteFileStorage.shouldPersistImportedVaultBodyToManagedStorage(body)
             let importedStorageBody: String
             if shouldPersistManagedBody {
@@ -1331,18 +1431,26 @@ actor VaultIndexActor {
 
             // Only preserve in-app body if it's non-empty. A zero-byte note-body
             // (from historical DB reset or write failure) should never win over vault content.
-            // Import rollback needs the managed note snapshot, not the
-            // incoming vault file from `filePath`.
-            let currentBody = page.loadBody(mapped: false)
-            let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
+            // Large vault files intentionally do not mirror into managed storage, so avoid
+            // re-reading the same vault file just to compare it with itself during import.
+            let hasManagedBody = NoteFileStorage.bodyExists(pageId: page.id)
+            let currentBody = shouldPersistManagedBody || hasManagedBody
+                ? page.loadBody(mapped: false, fast: !shouldPersistManagedBody)
+                : ""
+            let preserveBody = hasManagedBody && noteBodyIsNewer && !currentBody.isEmpty
+            let incomingBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
+            let importedBodyChanged = shouldPersistManagedBody
+                ? currentBody != importedStorageBody
+                : page.lastSyncedBodyHash != incomingBodyHash
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
             if missingManagedBodyNeedsRestore
-                || currentBody != importedStorageBody
+                || importedBodyChanged
                 || page.title != parsedTitle
                 || page.tags != parsedTags
                 || page.emoji != parsedEmoji
                 || page.frontMatter != frontMatter
+                || page.filePath != filePath
                 || page.wordCount != parsedWordCount
             {
                 let snapshot = UpdatedPageSnapshot(
@@ -1379,7 +1487,7 @@ actor VaultIndexActor {
                     }
                     updateImportedBodyDerivedState(on: page, body: importedStorageBody, filePath: filePath)
                     BlockMirror.syncImportedVaultBody(pageId: page.id, body: importedStorageBody, modelContext: modelContext)
-                    page.lastSyncedBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
+                    page.lastSyncedBodyHash = incomingBodyHash
                     page.lastSyncedAt = .now
                     page.needsVaultSync = false
                     // Notify editor to reload — vault replaced the body externally.
@@ -1396,6 +1504,7 @@ actor VaultIndexActor {
                 page.tags = parsedTags
                 page.emoji = parsedEmoji
                 page.frontMatter = frontMatter
+                page.filePath = filePath
 
                 // Keep parentPageId from front-matter for backward compat
                 let newParentId = frontMatter["parent"]
@@ -1519,12 +1628,24 @@ actor VaultIndexActor {
 
     private func importedCleanBodyHash(for body: String, fileURL: URL) -> String {
         guard body.utf8.count <= Self.searchIndexBodyByteLimit else {
-            let attributes = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)) ?? [:]
-            let size = (attributes[.size] as? NSNumber)?.int64Value ?? Int64(body.utf8.count)
-            let modifiedAt = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-            return "vault-file:\(size):\(Int(modifiedAt))"
+            return Self.largeVaultFileFingerprint(for: fileURL, fallbackByteCount: body.utf8.count)
         }
         return SDPage.bodyHash(body)
+    }
+
+    nonisolated private static func largeVaultFileFingerprint(
+        for fileURL: URL,
+        fallbackByteCount: Int? = nil
+    ) -> String {
+        let attributes = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)) ?? [:]
+        let size = (attributes[.size] as? NSNumber)?.int64Value ?? Int64(fallbackByteCount ?? 0)
+        let modifiedAt = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        return "vault-file:\(size):\(Int(modifiedAt))"
+    }
+
+    nonisolated private static func vaultFileByteCount(_ fileURL: URL) -> Int64? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+        return (attributes?[.size] as? NSNumber)?.int64Value
     }
 
     nonisolated static func decodedBodyFromReadableVaultFile(at fileURL: URL) -> String? {
@@ -1546,6 +1667,28 @@ actor VaultIndexActor {
             return decode(latin1)
         }
         return nil
+    }
+
+    nonisolated static func decodedBodyPrefixFromReadableVaultFile(
+        at fileURL: URL,
+        byteLimit: Int
+    ) -> String? {
+        guard byteLimit > 0,
+              FileManager.default.isReadableFile(atPath: fileURL.path),
+              let handle = try? FileHandle(forReadingFrom: fileURL) else {
+            return nil
+        }
+        defer { try? handle.close() }
+
+        let data = (try? handle.read(upToCount: byteLimit + 4)) ?? Data()
+        guard !data.isEmpty else { return "" }
+
+        let decoded = String(data: data, encoding: .utf8)
+            ?? String(decoding: data, as: UTF8.self)
+        let body = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
+            ? Self.parseFrontMatter(decoded).1
+            : decoded
+        return Self.utf8Prefix(body, byteLimit: byteLimit)
     }
 
     /// Parse YAML front-matter from markdown content.
@@ -1799,6 +1942,27 @@ actor VaultIndexActor {
         return pages.map { ($0.id, $0.updatedAt) }
     }
 
+    private func bodyForIndexing(_ page: SDPage) async -> String {
+        if let filePath = page.filePath,
+           !NoteFileStorage.bodyExists(pageId: page.id) {
+            let fileURL = URL(fileURLWithPath: filePath)
+            if Self.vaultFileByteCount(fileURL) ?? 0 > Self.searchIndexBodyByteLimit,
+               let preview = Self.decodedBodyPrefixFromReadableVaultFile(
+                   at: fileURL,
+                   byteLimit: Self.searchIndexBodyByteLimit
+               ) {
+                return preview
+            }
+        }
+
+        return await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            mapped: true
+        )
+    }
+
     /// Full page data for a single page (used by diff sync provider).
     ///
     /// Phase R.3: body read via the Sendable-primitive helper. The
@@ -1807,12 +1971,7 @@ actor VaultIndexActor {
     func fullPageData(for pageId: String) async -> (title: String, body: String, tags: String, updatedAt: Date)? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = fetchFirst(descriptor, label: "full page data for \(pageId)") else { return nil }
-        let body = await SDPage.loadBodyAsyncFromPrimitives(
-            pageId: page.id,
-            filePath: page.filePath,
-            inlineBody: page.body,
-            mapped: true
-        )
+        let body = await bodyForIndexing(page)
         return (page.title, body, page.tags.joined(separator: " "), page.updatedAt)
     }
 
@@ -1828,12 +1987,7 @@ actor VaultIndexActor {
         var out: [(id: String, title: String, body: String, tags: String, updatedAt: Date)] = []
         out.reserveCapacity(pages.count)
         for page in pages {
-            let body = await SDPage.loadBodyAsyncFromPrimitives(
-                pageId: page.id,
-                filePath: page.filePath,
-                inlineBody: page.body,
-                mapped: true
-            )
+            let body = await bodyForIndexing(page)
             out.append((page.id, page.title, body, page.tags.joined(separator: " "), page.updatedAt))
         }
         return out
@@ -2210,12 +2364,7 @@ actor VaultIndexActor {
             var items: [CSSearchableItem] = []
             items.reserveCapacity(batch.count)
             for page in batch {
-                let pageBody = await SDPage.loadBodyAsyncFromPrimitives(
-                    pageId: page.id,
-                    filePath: page.filePath,
-                    inlineBody: page.body,
-                    mapped: true
-                )
+                let pageBody = await bodyForIndexing(page)
                 items.append(SpotlightIndexer.makeItem(for: page, body: pageBody))
             }
 
