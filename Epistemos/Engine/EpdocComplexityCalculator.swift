@@ -152,6 +152,20 @@ nonisolated public enum EpdocComplexityCalculator {
     ) -> DocComplexityBreakdown {
         var counts = Counts()
         countNodes(in: doc, into: &counts)
+        // RCA13 P1-020: ProseMirror splits text around marks, so the
+        // per-text-node `extractWikilinks` scan in countNodes can miss
+        // a `[[Label]]` that the editor wrapped in a link / bold / italic
+        // mark — only part of the wikilink lives in any single text
+        // node. The graph projector concatenates text across the doc
+        // via the same wikilinkLabels function, but it's resilient to
+        // the split because the labels appear at higher levels of the
+        // tree. To make the .epdoc stats agree with the graph
+        // projection, override counts.links from a single
+        // document-wide scan here. The countNodes per-text-node hit
+        // is kept for the marks-style `link` count, which still needs
+        // a per-text-node walk.
+        let wikilinkCount = EpdocGraphProjector.wikilinkLabels(in: doc).count
+        counts.links = (counts.links - counts.wikilinkLinksFromTextNodes) + wikilinkCount
 
         let saturated = DocComplexityBreakdown.SaturatedSubScores(
             words: saturateLog(Double(counts.words), ceiling: 5000),
@@ -232,6 +246,11 @@ nonisolated public enum EpdocComplexityCalculator {
         var listItems: Int = 0
         var callouts: Int = 0
         var citations: Int = 0
+        // RCA13 P1-020: track how many of `links` came from the
+        // per-text-node wikilink scan, so breakdown(for:) can subtract
+        // that subtotal and replace it with a document-wide scan that
+        // agrees with the graph projector.
+        var wikilinkLinksFromTextNodes: Int = 0
     }
 
     private static func countNodes(in node: ProseMirrorNode, into counts: inout Counts) {
@@ -243,7 +262,12 @@ nonisolated public enum EpdocComplexityCalculator {
             for mark in node.marks ?? [] {
                 if mark.type == "link" { counts.links += 1 }
             }
-            counts.links += EpdocGraphProjector.wikilinkLabels(in: node).count
+            // Per-text-node wikilink count: counted here so breakdown(for:)
+            // can subtract it and replace with a document-wide rescan that
+            // survives ProseMirror splitting text around marks.
+            let wikilinkHits = EpdocGraphProjector.wikilinkLabels(in: node).count
+            counts.links += wikilinkHits
+            counts.wikilinkLinksFromTextNodes += wikilinkHits
 
         case "heading":
             counts.headings += 1

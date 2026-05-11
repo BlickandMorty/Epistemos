@@ -153,6 +153,29 @@ nonisolated struct EpdocComplexityCalculatorTests {
         #expect(r.saturated.links > 0)
     }
 
+    /// RCA13 P1-020 regression: ProseMirror splits text around marks
+    /// (bold, italic, link), so a wikilink can land as three sibling
+    /// text nodes — `[[`, `Label` (with a bold mark), `]]`. The pre-fix
+    /// per-text-node scan saw none of the three as complete `[[...]]`
+    /// and reported `Links 0` while the graph projector materialized
+    /// the wikilink correctly. The fix scans the whole doc once via
+    /// the same `wikilinkLabels` function the projector uses.
+    @Test("Wikilink split across marked text nodes still counts as one link")
+    func wikilinkSplitAcrossMarkedTextNodesStillCounts() {
+        let boldMark = ProseMirrorMark(type: "bold")
+        let d = Self.doc([
+            Self.para([
+                Self.text("Before "),
+                Self.text("[["),
+                Self.text("Bold Label", marks: [boldMark]),
+                Self.text("]] after."),
+            ])
+        ])
+
+        let r = EpdocComplexityCalculator.breakdown(for: d)
+        #expect(r.linkCount == 1)
+    }
+
     @Test("Math count adds inline + display nodes; saturates at 10")
     func mathCount() {
         var children: [ProseMirrorNode] = []
