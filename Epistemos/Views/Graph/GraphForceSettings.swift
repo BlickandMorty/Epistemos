@@ -132,9 +132,41 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 16) {
             titleOverlaySection(gs: gs)
             Divider().opacity(0.3)
+            cameraSection(gs: gs)
+            Divider().opacity(0.3)
             labelsSection(gs: gs)
             Divider().opacity(0.3)
             resetButton
+        }
+    }
+
+    /// User-tunable camera behavior (deselect zoom tightness + camera lerp
+    /// speed). Live-pushes to the Rust engine via cameraConfigVersion.
+    private func cameraSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Camera")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.primary.opacity(0.8))
+                .textCase(.uppercase)
+                .tracking(0.6)
+
+            forceSlider(
+                label: "Deselect zoom",
+                value: gs.cameraDeselectZoomMultiplier,
+                range: 1.0...3.0,
+                format: "%.2f×",
+                subtitle: "tighter →",
+                onChange: { }
+            )
+
+            forceSlider(
+                label: "Camera speed",
+                value: gs.cameraSpeedLambda,
+                range: 4.0...22.0,
+                format: "%.1f",
+                subtitle: "snappier →",
+                onChange: { }
+            )
         }
     }
 

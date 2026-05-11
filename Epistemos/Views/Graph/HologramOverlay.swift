@@ -308,6 +308,11 @@ final class HologramOverlay {
     /// with a button to pop it in; embedded variant has a button to
     /// pop it back out.
     private(set) var inspectorEmbeddedInGraph = false
+    /// Floating pop-out button shown at the embedded inspector's
+    /// top-right corner. Sibling of `inspectorHostView` on the panel's
+    /// contentView (NOT a child of the NSHostingView, which would
+    /// hide the button under the SwiftUI compositing layer).
+    private var inspectorEjectButton: NSView?
     private var selectionObserverTask: Task<Void, Never>?
     private var inspectorPositionTask: Task<Void, Never>?
     /// Dedicated timer for pinned panel position tracking. Runs at ~30fps
@@ -934,6 +939,20 @@ final class HologramOverlay {
     /// directions (external→embedded on the mini inspector panel,
     /// embedded→external on the in-window inspectorHostView).
     private func addInspectorToggleButton(to content: NSView, symbol: String, help: String) {
+        let buttonView = makeInspectorToggleButton(symbol: symbol, help: help)
+        buttonView.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(buttonView)
+        NSLayoutConstraint.activate([
+            buttonView.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            buttonView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
+        ])
+    }
+
+    /// Builds the toggle button view without auto-attaching it. Use this
+    /// when the button needs to be placed as a sibling overlay (the
+    /// embedded inspector's pop-out button — its parent is the panel's
+    /// contentView, not the NSHostingView around the SwiftUI inspector).
+    private func makeInspectorToggleButton(symbol: String, help: String) -> NSView {
         let buttonView = NSHostingView(
             rootView: Button {
                 MainActor.assumeIsolated {
@@ -949,13 +968,31 @@ final class HologramOverlay {
             .buttonStyle(.plain)
             .help(help)
         )
-        buttonView.translatesAutoresizingMaskIntoConstraints = false
         buttonView.identifier = NSUserInterfaceItemIdentifier("epistemos.inspectorToggle")
-        content.addSubview(buttonView)
-        NSLayoutConstraint.activate([
-            buttonView.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            buttonView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
-        ])
+        return buttonView
+    }
+
+    /// Mirror the eject button's frame + isHidden to track the
+    /// embedded inspectorHostView. Called every time the inspector's
+    /// frame or visibility changes.
+    private func syncInspectorEjectButtonLayout() {
+        guard let inspectorEjectButton, let inspectorHostView else { return }
+        // Hide the button whenever the inspector is hidden OR when the
+        // inspector is in the external (not-embedded) state. The button
+        // is meaningful only as a pop-OUT affordance on the embedded
+        // variant.
+        let shouldShow = inspectorEmbeddedInGraph && !inspectorHostView.isHidden
+        inspectorEjectButton.isHidden = !shouldShow
+        // Pin to the inspector's top-right corner, 10pt inset.
+        let inspectorFrame = inspectorHostView.frame
+        let size: CGFloat = 26
+        let inset: CGFloat = 10
+        inspectorEjectButton.frame = CGRect(
+            x: inspectorFrame.maxX - inset - size,
+            y: inspectorFrame.maxY - inset - size,
+            width: size,
+            height: size
+        )
     }
 
     /// Add a small expand button in the top-right corner of the mini panel.
@@ -1067,6 +1104,7 @@ final class HologramOverlay {
     private func repositionInspector() {
         guard let inspectorHostView,
               let contentView = window?.contentView ?? miniPanel?.contentView else { return }
+        defer { syncInspectorEjectButtonLayout() }
 
         // In mini mode the companion miniInspectorPanel handles the
         // inspector — UNLESS the user has popped the inspector INTO the
@@ -1265,6 +1303,7 @@ final class HologramOverlay {
                     s.inspectorHostView?.isHidden = true
                     s.hideMiniInspector()
                 }
+                s.syncInspectorEjectButtonLayout()
             }
         }
     }
@@ -1291,6 +1330,7 @@ final class HologramOverlay {
                 showMiniInspector()
             }
         }
+        syncInspectorEjectButtonLayout()
     }
 
     private func showMiniInspector() {
@@ -1789,10 +1829,19 @@ final class HologramOverlay {
             inspectorView.wantsLayer = true
             contentView.addSubview(inspectorView)
             self.inspectorHostView = inspectorView
-            // Pop-out toggle anchored to the embedded inspector's top-right.
-            // Clicking ejects the inspector out into the external
-            // miniInspectorPanel.
-            addInspectorToggleButton(to: inspectorView, symbol: "arrow.up.left.and.arrow.down.right", help: "Pop inspector out of graph")
+            // Pop-out toggle floats at the embedded inspector's top-right.
+            // It's a SIBLING on the contentView (not a child of the
+            // NSHostingView) so the SwiftUI compositing layer can't hide
+            // it. Its frame + isHidden track inspectorView via
+            // `syncInspectorEjectButtonLayout()`.
+            let ejectButton = makeInspectorToggleButton(
+                symbol: "arrow.up.left.and.arrow.down.right",
+                help: "Pop inspector out of graph"
+            )
+            ejectButton.isHidden = true
+            contentView.addSubview(ejectButton)
+            self.inspectorEjectButton = ejectButton
+            syncInspectorEjectButtonLayout()
             startInspectorPositionTracking()
         }
 

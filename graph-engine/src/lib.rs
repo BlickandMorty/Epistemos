@@ -992,6 +992,21 @@ pub extern "C" fn graph_engine_magnify(
 
 // ── Force Parameters ────────────────────────────────────────────────────────
 
+/// Push user-tunable camera settings (deselect zoom tightness +
+/// camera lerp speed). Called from Swift whenever the matching
+/// sliders in the graph settings panel move.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_camera_settings(
+    engine: *mut Engine,
+    deselect_zoom_multiplier: f32,
+    lambda: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_camera_settings", {
+        ffi_engine!(engine);
+        engine.set_camera_settings(deselect_zoom_multiplier, lambda);
+    });
+}
+
 /// Update the 4 user-adjustable force parameters and reheat the simulation.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_force_params(

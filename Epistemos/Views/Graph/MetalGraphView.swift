@@ -1120,6 +1120,8 @@ final class MetalGraphNSView: NSView {
         graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
         lastForceConfigVersion = graphState.forceConfigVersion
         lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
+        lastCameraConfigVersion = graphState.cameraConfigVersion
+        pushCameraSettings()
         lastClusterConfigVersion = graphState.clusterConfigVersion
         lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
         lastLabConfigVersion = graphState.labConfigVersion
@@ -1242,6 +1244,7 @@ final class MetalGraphNSView: NSView {
     // MARK: - Force Params
 
     var lastExtendedForceConfigVersion: Int = -1
+    var lastCameraConfigVersion: Int = -1
     var lastClusterConfigVersion: Int = -1
     var lastSemanticClusterVersion: Int = -1
     var lastFilterVersion: Int = 0
@@ -1286,6 +1289,16 @@ final class MetalGraphNSView: NSView {
             decay,
             graphState.centerStrength,
             graphState.collisionRadius
+        )
+        needsRender = true
+    }
+
+    func pushCameraSettings() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_camera_settings(
+            engine,
+            graphState.cameraDeselectZoomMultiplier,
+            graphState.cameraSpeedLambda
         )
         needsRender = true
     }
@@ -1507,6 +1520,12 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastExtendedForceConfigVersion != graphState.extendedForceConfigVersion {
             lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
             pushExtendedForceParams()
+        }
+
+        // Sync camera settings (deselect zoom multiplier + lerp speed).
+        if let graphState, lastCameraConfigVersion != graphState.cameraConfigVersion {
+            lastCameraConfigVersion = graphState.cameraConfigVersion
+            pushCameraSettings()
         }
 
         // Sync quality level when user toggles or PowerGuard forces performance mode.

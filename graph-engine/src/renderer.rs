@@ -1545,6 +1545,9 @@ pub struct Renderer {
     pub target_offset: [f32; 2],
     pub target_zoom: f32,
     pub is_animating: bool,
+    /// Camera lerp lambda. Higher = snappier camera transitions. Tuned
+    /// from a slider in graph settings (pushed via Swift FFI).
+    pub camera_lambda: f32,
     /// Set by the engine each frame so the renderer can skip viewport
     /// culling while physics is moving nodes (prevents edge flicker).
     pub sim_active: bool,
@@ -1781,6 +1784,7 @@ impl Renderer {
             target_offset: [0.0, 0.0],
             target_zoom: 1.0,
             is_animating: false,
+            camera_lambda: 11.0,
             sim_active: false,
             last_frame_time: std::time::Instant::now(),
             glow_count: 0,
@@ -3653,9 +3657,10 @@ impl Renderer {
 
     /// Camera smoothing factor. Higher = faster. 6.5 = snappy response
     /// that still reads as smooth. Was 3.0 (too slow per user 2026-04-04).
-    // Higher = snappier camera. 11.0 lands the lerp ~2× faster than 6.5
-    // (per user 2026-05-10: "speed i wnat it to be more snappy").
-    const CAMERA_LAMBDA: f32 = 11.0;
+    // Default camera lerp lambda. The actual value used per-frame is the
+    // `camera_lambda` field on the Renderer (settable via the Swift
+    // `graph_engine_set_camera_settings` FFI / graph settings slider).
+    const DEFAULT_CAMERA_LAMBDA: f32 = 11.0;
 
     pub fn set_camera_immediately(&mut self, offset: [f32; 2], zoom: f32) {
         self.camera_offset = offset;
@@ -3677,7 +3682,12 @@ impl Renderer {
             return;
         }
 
-        let t = 1.0 - (-Self::CAMERA_LAMBDA * dt).exp();
+        let lambda = if self.camera_lambda > 0.0 {
+            self.camera_lambda
+        } else {
+            Self::DEFAULT_CAMERA_LAMBDA
+        };
+        let t = 1.0 - (-lambda * dt).exp();
 
         self.camera_offset[0] += (self.target_offset[0] - self.camera_offset[0]) * t;
         self.camera_offset[1] += (self.target_offset[1] - self.camera_offset[1]) * t;

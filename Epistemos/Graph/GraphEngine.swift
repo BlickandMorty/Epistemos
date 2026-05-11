@@ -196,6 +196,16 @@ final class GraphEngine {
         graph_engine_set_extended_force_params(h, velocityDecay, centerStrength, collisionRadius)
     }
 
+    /// Push user-tunable camera behavior (deselect zoom tightness +
+    /// camera lerp speed). Wired to the matching graph settings sliders.
+    func setCameraSettings(
+        deselectZoomMultiplier: Float,
+        cameraSpeedLambda: Float
+    ) {
+        guard let h = handle else { return }
+        graph_engine_set_camera_settings(h, deselectZoomMultiplier, cameraSpeedLambda)
+    }
+
     // MARK: - Highlighting
 
     /// Highlight a node and its neighbors (shift+click behavior).

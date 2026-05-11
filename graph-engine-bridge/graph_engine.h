@@ -151,6 +151,14 @@ void graph_engine_set_extended_force_params(
     float collision_radius
 );
 
+/// Push user-tunable camera settings (deselect zoom tightness + camera lerp
+/// speed). Wired to the matching graph settings sliders.
+void graph_engine_set_camera_settings(
+    Engine* engine,
+    float deselect_zoom_multiplier,
+    float camera_lambda
+);
+
 // ── Highlighting ────────────────────────────────────────────────────────────
 
 /// Highlight a node and its neighbors (shift+click behavior).
