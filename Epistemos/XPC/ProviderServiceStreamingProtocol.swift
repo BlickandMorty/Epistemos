@@ -18,12 +18,27 @@ import Foundation
 //   atomic load. Sub-microsecond per token. (Phase 2 follow-up; stage
 //   1 lands first.)
 //
-// **Build status.** This file ships the Swift protocol declarations +
-// the typed wire structs + a Mock client implementation for in-process
-// tests. The actual XPC service launch + entitlement provisioning is
-// V2.4 production work that requires paid Apple Developer Program
-// signing. The protocol exists now so the V2.4 production slice has a
-// concrete target to land against.
+// **Build status — SCAFFOLD ONLY (RCA13 P1-018).** This file ships the
+// Swift protocol declarations + the typed wire structs + a Mock client
+// implementation for in-process tests. There is NO production caller
+// of this streaming surface yet. The actual XPC service launch +
+// entitlement provisioning is V2.4 production work that requires
+// paid Apple Developer Program signing.
+//
+// **What this means for audits / UI:**
+// - No Settings row, no chat-tier descriptor, no provider picker
+//   claims XPC streaming is available. If you find one, that surface
+//   is wrong and should be hidden or labeled "preview".
+// - The Mock at `MockProviderServiceStreaming` is exercised only by
+//   `EpistemosTests/ProviderServiceStreamingTests.swift`, never by
+//   production code paths.
+// - `ProviderServiceClient.classifySurfaceInProcess(_:)` is a real
+//   in-process call — that one is wired. The streaming half is not.
+//
+// The protocol exists now so the V2.4 production slice has a
+// concrete target to land against. Audit-honesty marker per the
+// RCA13 P1-018 acceptance criterion: "production streaming is
+// complete, or the feature is hidden/gated/labeled as scaffold."
 
 // MARK: - Wire types (Codable so they cross XPC + IOSurface cleanly)
 
