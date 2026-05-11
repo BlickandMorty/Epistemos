@@ -288,7 +288,24 @@ Acceptance:
 
 ### RCA-P1-003 - Shrink launch path and prove first-click responsiveness
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-10 — companion seed deferred; deeper launch-path audit still queued
+
+Fix-pass evidence: commit `6393e778d` (`Epistemos/App/AppBootstrap.swift`).
+The bootstrap path's `companionState.seedDefaultIfEmpty()` call
+ran synchronously on init, doing a FetchDescriptor<CompanionModel>
+query + (on first launch with empty store) 4 SwiftData inserts.
+That's 5-50ms of synchronous work on the bootstrap critical path.
+
+The attach call (cheap property set) stays inline; the seed call
+is now wrapped in `Task { @MainActor in ... }` so it runs on the
+next main-actor tick after init returns. The Farm + Notes Sidebar
+Skin already render a graceful empty state for the ~1 frame
+between paint and seed.
+
+Remaining work: the deeper launch-path audit (signposts for
+process launch, bootstrap start/end, first window visible, first
+click accepted) is still queued. Recently-shipped P6 was one
+slice; full timing budget still needs Instruments runs.
 
 Subsystem: startup, `AppBootstrap`, local runtime, vault attach, first window.
 
