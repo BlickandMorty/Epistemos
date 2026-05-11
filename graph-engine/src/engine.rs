@@ -29,15 +29,34 @@ use crate::types::{Graph, VisualTheme};
 use std::collections::HashMap;
 
 /// Adaptive physics tick rate scaled by node count.
+const HIGH_NODE_PHYSICS_THRESHOLD: usize = 9_000;
+
 fn adaptive_physics_hz(node_count: usize) -> f64 {
     match node_count {
         0..=500 => 120.0,
         501..=1000 => 60.0,
         1001..=3000 => 40.0,
         3001..=5000 => 30.0,
-        5001..=9000 => 24.0,
-        _ => 18.0,
+        5001..=HIGH_NODE_PHYSICS_THRESHOLD => 24.0,
+        _ => 10.0,
     }
+}
+
+fn should_sync_positions_for_render(
+    node_count: usize,
+    sim_active: bool,
+    last_sim_active: bool,
+    tick_count: u32,
+    last_synced_tick_count: u32,
+) -> bool {
+    if node_count > HIGH_NODE_PHYSICS_THRESHOLD {
+        return tick_count != last_synced_tick_count || (last_sim_active && !sim_active);
+    }
+    sim_active || last_sim_active
+}
+
+fn renderer_disables_culling_for_physics(node_count: usize, sim_active: bool) -> bool {
+    sim_active && node_count <= HIGH_NODE_PHYSICS_THRESHOLD
 }
 
 fn should_dispatch_gpu_nbody(node_count: usize) -> bool {
@@ -394,6 +413,8 @@ pub struct Engine {
     world: World,
     /// Tracks whether the previous rendered frame still had active physics.
     last_sim_active: bool,
+    /// Last physics tick copied into the render world.
+    last_synced_tick_count: u32,
     /// Defers expensive cull/buffer rebuilds until a camera move finishes.
     camera_rebuild_pending: bool,
     /// Forces a renderer buffer rebuild when render quality changes.
@@ -469,6 +490,7 @@ impl Engine {
             btk_query_kernel: BtkQueryKernel::new(),
             world: World::new(),
             last_sim_active: false,
+            last_synced_tick_count: 0,
             camera_rebuild_pending: false,
             quality_rebuild_pending: false,
             highlight_dirty: true,
@@ -490,6 +512,7 @@ impl Engine {
         // Wake rendering for the new graph data.
         self.idle_frame_count = 0;
         self.commit_instant = Instant::now();
+        self.last_synced_tick_count = 0;
 
         // Fresh graph load: clear user freeze so physics starts fresh.
         // User must explicitly re-freeze if they want physics paused.
@@ -648,8 +671,13 @@ impl Engine {
                     for v in sim.vy.iter_mut() {
                         *v = 0.0;
                     }
-                    sim.params.alpha = 0.008;
-                    sim.params.alpha_decay = 0.008;
+                    if sn > HIGH_NODE_PHYSICS_THRESHOLD {
+                        sim.params.alpha = 0.012;
+                        sim.params.alpha_decay = 0.085;
+                    } else {
+                        sim.params.alpha = 0.008;
+                        sim.params.alpha_decay = 0.008;
+                    }
                 }
 
                 if !entrance {
@@ -733,6 +761,7 @@ impl Engine {
         self.drag = None;
         self.pan_active = false;
         self.last_sim_active = false;
+        self.last_synced_tick_count = 0;
         self.camera_rebuild_pending = false;
         self.quality_rebuild_pending = false;
         self.highlight_dirty = true;
@@ -1000,7 +1029,7 @@ impl Engine {
         let viewport_changed = self.renderer.set_viewport_size(width, height);
 
         // Single lock to read all simulation state — avoids per-field mutex contention.
-        let (sim_active, haptic_event, _is_frozen) = {
+        let (sim_active, haptic_event, _is_frozen, sim_tick_count, sim_node_count) = {
             let mut sim = self.sim.lock();
             // Pass viewport bounds for scoped physics (Phase 4 optimization).
             // At low zoom, when frozen, or within 3s of a commit, simulate ALL nodes.
@@ -1019,17 +1048,31 @@ impl Engine {
                 );
                 sim.viewport_bounds = Some([vp.min_x, vp.min_y, vp.max_x, vp.max_y]);
             }
-            (!sim.is_settled, sim.haptic_event, sim.user_frozen)
+            (
+                !sim.is_settled,
+                sim.haptic_event,
+                sim.user_frozen,
+                sim.tick_count(),
+                sim.x.len(),
+            )
         };
 
-        let positions_changed = sim_active || self.last_sim_active;
+        let positions_changed = should_sync_positions_for_render(
+            sim_node_count,
+            sim_active,
+            self.last_sim_active,
+            sim_tick_count,
+            self.last_synced_tick_count,
+        );
         if positions_changed {
             self.sync_all_positions();
+            self.last_synced_tick_count = sim_tick_count;
         }
         self.last_sim_active = sim_active;
         // Tell the renderer whether physics is running so it can disable
         // viewport culling (prevents nodes popping in/out at edges).
-        self.renderer.sim_active = sim_active;
+        let n = self.world.len();
+        self.renderer.sim_active = renderer_disables_culling_for_physics(n, sim_active);
 
         // GPU N-body: dispatch brute-force repulsion on GPU for medium-large
         // graphs. Above the high-node threshold it becomes O(N²) work that can
@@ -1038,7 +1081,6 @@ impl Engine {
         // massive compute passes.
         // Forces are written to sim.gpu_nbody_forces; the physics thread drains them
         // atomically at the start of its next tick, preventing double-application.
-        let n = self.world.len();
         if should_dispatch_gpu_nbody(n) && self.renderer.compute_pipeline.is_some() {
             self.gpu_positions_scratch.clear();
             self.gpu_positions_scratch.reserve(n);
@@ -2765,7 +2807,26 @@ mod tests {
     fn adaptive_physics_hz_keeps_high_node_graphs_active() {
         assert_eq!(adaptive_physics_hz(500), 120.0);
         assert_eq!(adaptive_physics_hz(5_500), 24.0);
-        assert_eq!(adaptive_physics_hz(10_000), 18.0);
+        assert_eq!(adaptive_physics_hz(10_000), 10.0);
+    }
+
+    #[test]
+    fn high_node_render_sync_waits_for_physics_ticks() {
+        assert!(should_sync_positions_for_render(500, true, true, 10, 10));
+        assert!(!should_sync_positions_for_render(
+            10_000, true, true, 10, 10
+        ));
+        assert!(should_sync_positions_for_render(10_000, true, true, 11, 10));
+        assert!(should_sync_positions_for_render(
+            10_000, false, true, 11, 11
+        ));
+    }
+
+    #[test]
+    fn high_node_active_physics_keeps_renderer_culling_enabled() {
+        assert!(renderer_disables_culling_for_physics(1_000, true));
+        assert!(!renderer_disables_culling_for_physics(10_000, true));
+        assert!(!renderer_disables_culling_for_physics(10_000, false));
     }
 
     #[test]

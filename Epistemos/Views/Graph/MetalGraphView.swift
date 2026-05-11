@@ -195,6 +195,9 @@ nonisolated func graphRecommitCameraAction(
 }
 
 nonisolated enum GraphInteractionRenderPolicy {
+    static let largeGraphRenderDecimationThreshold = 9_000
+    private static let largeGraphIdleFrameInterval: UInt32 = 4
+
     static func inFlightWaitMilliseconds(
         isInteracting: Bool,
         lowPowerMode: Bool
@@ -217,6 +220,20 @@ nonisolated enum GraphInteractionRenderPolicy {
 
     static func selectedNodeSampleIntervalFrames(isInteracting: Bool) -> Int {
         isInteracting ? 4 : 1
+    }
+
+    static func shouldSkipLargeGraphIdleFrame(
+        nodeCount: Int,
+        isInteracting: Bool,
+        hasPendingInput: Bool,
+        frameCounter: UInt32
+    ) -> Bool {
+        guard nodeCount > largeGraphRenderDecimationThreshold,
+              !isInteracting,
+              !hasPendingInput else {
+            return false
+        }
+        return frameCounter % largeGraphIdleFrameInterval != 0
     }
 }
 
@@ -749,6 +766,7 @@ final class MetalGraphNSView: NSView {
     private var pendingScrollZoomDelta: Float = 0
     private var pendingPinchZoomAnchor: SIMD2<Float>?
     private var pendingPinchZoomDelta: Float = 0
+    private var largeGraphRenderFrameCounter: UInt32 = 0
     private var currentLightMode = false
 
     // Track whether graph data has been committed.
@@ -1007,6 +1025,22 @@ final class MetalGraphNSView: NSView {
         // 60fps cap in low-power mode: skip every other frame on ProMotion (120Hz).
         frameSkipCounter &+= 1
         if PowerGuard.shared.shouldThrottleRendering && frameSkipCounter % 2 != 0 {
+            return
+        }
+
+        largeGraphRenderFrameCounter &+= 1
+        let isInteracting = isDraggingNode || isPanning
+        let hasPendingInput =
+            pendingPointerUpdate != nil
+            || pendingScrollPanDelta != .zero
+            || pendingScrollZoomDelta != 0
+            || pendingPinchZoomDelta != 0
+        if GraphInteractionRenderPolicy.shouldSkipLargeGraphIdleFrame(
+            nodeCount: graphState?.store.nodes.count ?? 0,
+            isInteracting: isInteracting,
+            hasPendingInput: hasPendingInput,
+            frameCounter: largeGraphRenderFrameCounter
+        ) {
             return
         }
 

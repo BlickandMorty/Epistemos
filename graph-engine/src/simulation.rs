@@ -993,6 +993,11 @@ impl Simulation {
         self.fluid_grid.clear();
     }
 
+    #[inline]
+    pub(crate) fn tick_count(&self) -> u32 {
+        self.tick_count
+    }
+
     /// One tick of the force simulation.
     /// d3-style velocity Verlet: alpha decay → forces → integration.
     pub fn tick(&mut self) {
@@ -1035,7 +1040,7 @@ impl Simulation {
         let alpha = self.params.alpha;
         let high_node_damped_path = n > 9_000;
         let force_alpha = if high_node_damped_path {
-            alpha.min(0.012)
+            alpha.min(0.006)
         } else {
             alpha
         };
@@ -1122,6 +1127,11 @@ impl Simulation {
                     v.clear();
                 }
             }
+            let collision_compliance = if high_node_damped_path {
+                self.params.collision_compliance.min(0.18)
+            } else {
+                self.params.collision_compliance
+            };
             forces::force_collide_with_full_scratch(
                 &mut self.x,
                 &mut self.y,
@@ -1130,7 +1140,7 @@ impl Simulation {
                 &self.fx,
                 &self.fy,
                 self.params.collision_iterations,
-                self.params.collision_compliance,
+                collision_compliance,
                 &mut self.collision_grid,
                 &mut self.collision_keys_scratch,
             );
@@ -1141,11 +1151,14 @@ impl Simulation {
             Some([ax, ay]) => (ax, ay),
             None => (0.0, 0.0),
         };
-        let center_str = match self.params.center_mode {
+        let mut center_str = match self.params.center_mode {
             CenterMode::Attract => self.params.center_strength,
             CenterMode::Off => 0.0,
             CenterMode::Repel => -self.params.center_strength,
         };
+        if high_node_damped_path {
+            center_str *= 0.12;
+        }
         if center_str.abs() > 0.0001 {
             forces::force_center(
                 &self.x,
@@ -1359,7 +1372,7 @@ impl Simulation {
         // the scalar path still falls back via `fallback_decay`.
         const MAX_VELOCITY: f32 = 500.0;
         let max_velocity = if high_node_damped_path {
-            80.0
+            40.0
         } else {
             MAX_VELOCITY
         };
@@ -3920,14 +3933,7 @@ mod tests {
                 1 => 4.0,
                 _ => 50_000.0 + (i as f32) * 20.0,
             };
-            graph.add_node(
-                format!("node-{}", i),
-                x,
-                0.0,
-                0,
-                1,
-                format!("Node {}", i),
-            );
+            graph.add_node(format!("node-{}", i), x, 0.0, 0, 1, format!("Node {}", i));
         }
 
         let mut sim = Simulation::new();
