@@ -2173,7 +2173,7 @@ final class AppBootstrap {
         let normalized = Array(Set(pageIds.filter { NoteFileStorage.isValidPageId($0) })).sorted()
         guard !normalized.isEmpty else { return [] }
 
-        let sampleSize = min(normalized.count, max(1, normalized.count / 10))
+        let sampleSize = min(normalized.count, max(1, normalized.count / 10), 64)
         guard sampleSize < normalized.count else { return normalized }
 
         let lastIndex = normalized.count - 1
@@ -2358,7 +2358,7 @@ final class AppBootstrap {
                     NoteFileStorage.managedBodyPageIds()
                 ),
                 readBodyData: { pageId in
-                    NoteFileStorage.readBodyData(pageId: pageId, fast: false)
+                    NoteFileStorage.readBodyData(pageId: pageId, fast: true)
                 },
                 eventStoreAvailable: eventStoreAvailable,
                 vaultBookmarkValidation: vaultBookmarkValidation,
