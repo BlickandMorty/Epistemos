@@ -143,24 +143,31 @@ extension ChatCapability {
             )
         }
 
+        // Per RCA13 P1-016: needsCloud was hard-coded false on every
+        // path, making the local-model capability-escalation banner
+        // dead. Per CLAUDE.md the agent + research tiers require
+        // cloud-capable tools (Claude managed agent loop, Perplexity
+        // research). When the user is currently on a local provider
+        // and the prediction lands in one of those tiers, the banner
+        // should warn that the local path can't satisfy the intent.
         if looksLikeExplicitFileOperation(in: normalized) {
             return IntentPrediction(
                 predicted: .agent,
-                needsCloud: false
+                needsCloud: !isCloudProvider
             )
         }
 
         if requiresManagedResearchTools(in: normalized) {
             return IntentPrediction(
                 predicted: .agent,
-                needsCloud: false
+                needsCloud: !isCloudProvider
             )
         }
 
         if requiresResearchTools(in: normalized) {
             return IntentPrediction(
                 predicted: .research,
-                needsCloud: false
+                needsCloud: !isCloudProvider
             )
         }
 
@@ -222,9 +229,13 @@ extension ChatCapability {
 
         for signal in agentSignals {
             if normalized.contains(signal) {
+                // RCA13 P1-016: agent tier requires the managed agent
+                // loop. Local providers can preview .agent but won't
+                // run the real tool dispatcher without a cloud
+                // provider's tool-use path, so warn the user.
                 return IntentPrediction(
                     predicted: .agent,
-                    needsCloud: false
+                    needsCloud: !isCloudProvider
                 )
             }
         }
@@ -237,7 +248,10 @@ extension ChatCapability {
         ]
         for signal in researchSignals {
             if normalized.contains(signal) {
-                return IntentPrediction(predicted: .research, needsCloud: false)
+                // RCA13 P1-016: research tier requires Perplexity Sonar
+                // (cloud). Local providers can't reach external info,
+                // so warn when the user is on local.
+                return IntentPrediction(predicted: .research, needsCloud: !isCloudProvider)
             }
         }
 

@@ -192,18 +192,35 @@ private struct CommandReceiptGenUIView: View {
 private struct ActionPanelGenUIView: View {
     let payload: GenUIPayload
     var body: some View {
+        // Per RCA13 P1-019: until the GenUI G.3 host-closure plumbing
+        // lands, action panels must not render clickable buttons that
+        // do nothing — the previous implementation showed a styled
+        // pill with an empty closure, which lied about whether the
+        // user could act. We render the action labels as inert chips
+        // with reduced contrast + a "preview" hint so the schema is
+        // still visible (so producers can keep emitting it) but the
+        // UI is honest about the action not being wired yet.
         if case let .actions(actions) = payload.body {
             HStack(spacing: 8) {
                 ForEach(actions) { action in
-                    Button(action: { /* GenUI G.3 — wire via host closure when needed */ }) {
-                        Text(action.label)
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(.primary.opacity(0.06)))
-                    }
-                    .buttonStyle(.plain)
+                    Text(action.label)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule().fill(.primary.opacity(0.04))
+                        )
+                        .overlay(
+                            Capsule().stroke(.primary.opacity(0.10), lineWidth: 0.5)
+                        )
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("\(action.label) — preview, action not yet wired")
                 }
+                Spacer(minLength: 0)
+                Image(systemName: "hourglass")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .help("Action panel preview — host wiring pending (RCA13 P1-019)")
             }
         }
     }
