@@ -396,11 +396,14 @@ public actor FSRSDecayStore {
     private var rows: [String: FSRSDecayRow] = [:]
     private var databaseWriter: (any DatabaseWriter)?
 
-    /// Sorted-by-retrievability heap maintained incrementally on
-    /// every `recordReview()` so `topAtRisk()` is O(K) instead of
-    /// O(n log n) per call. Empty until first review; rebuilds
-    /// lazily on first surfacing call after a bulkUpsert.
-    private var sortedByRiskCache: [FSRSDecayRow]?
+    // Note (RCA13 P2-002): an earlier draft kept a `sortedByRiskCache`
+    // field with comments claiming `topAtRisk()` was O(K). The cache
+    // was invalidated on every write but never CONSUMED — the surfacing
+    // method scanned every row, sorted, and prefixed. The field
+    // (+ misleading O(K) comment) is removed in this commit so future
+    // readers don't trust complexity claims that the code doesn't
+    // back. `topAtRisk` stays O(n log n) per call until a real
+    // partial-sort / heap-keyed cache lands; that's a future slice.
 
     public init() {}
 
@@ -421,7 +424,6 @@ public actor FSRSDecayStore {
             let row = $0.toDecayRow()
             return (row.noteId, row)
         })
-        sortedByRiskCache = nil
     }
 
     private func persist(_ row: FSRSDecayRow) {
@@ -468,7 +470,6 @@ public actor FSRSDecayStore {
 
     public func upsert(_ row: FSRSDecayRow) {
         rows[row.noteId] = row
-        sortedByRiskCache = nil
         persist(row)
     }
 
@@ -479,7 +480,6 @@ public actor FSRSDecayStore {
         if let existing = rows[noteId] { return existing }
         let fresh = FSRSDecayRow(noteId: noteId)
         rows[noteId] = fresh
-        sortedByRiskCache = nil
         persist(fresh)
         return fresh
     }
@@ -500,7 +500,6 @@ public actor FSRSDecayStore {
             row.memory.retrievability = 1.0
         }
         rows[noteId] = row
-        sortedByRiskCache = nil
         persist(row)
     }
 
@@ -531,13 +530,11 @@ public actor FSRSDecayStore {
     /// layer once it lands).
     public func bulkUpsert(_ incoming: [FSRSDecayRow]) {
         for row in incoming { rows[row.noteId] = row }
-        sortedByRiskCache = nil
         persistAllRows()
     }
 
     public func reset() {
         rows.removeAll()
-        sortedByRiskCache = nil
         deletePersistedRows()
     }
 }
