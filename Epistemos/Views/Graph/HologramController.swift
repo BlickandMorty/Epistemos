@@ -146,6 +146,12 @@ final class HologramController {
         overlay?.minimize()
     }
 
+    /// Pop the inspector in/out of the graph panel.
+    /// External → embedded → external. See `HologramOverlay`.
+    func toggleInspectorEmbedded() {
+        overlay?.toggleInspectorEmbedded()
+    }
+
     func syncTheme(_ uiState: UIState) {
         overlay?.syncTheme(uiState: uiState)
     }
