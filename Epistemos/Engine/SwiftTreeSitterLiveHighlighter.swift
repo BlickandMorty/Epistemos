@@ -4,6 +4,22 @@ import os
 
 // MARK: - SwiftTreeSitterLiveHighlighter
 //
+// **CANONICAL (RCA13 P1-014).** This is the canonical W9.6
+// `LiveHighlighter` implementation per `epistemos_code_verdict.md`
+// §1 + §3. The sibling `SyntaxCoreLiveHighlighter` is the
+// superseded Rust-FFI reference; this one binds C tree-sitter
+// directly so every language CodeLanguagesContainer exports gets
+// real semantic tokens (vs. the Rust path which only emits tokens
+// for Rust source).
+//
+// **Build status — NOT WIRED into production yet.** The visible
+// code editor (`Epistemos/Views/Notes/CodeEditorView.swift`) uses
+// `CodeEditSourceEditor` with its built-in highlight path. This
+// LiveHighlighter is exercised by tests + by `LiveCodeEditorController`,
+// which has no production caller. The wiring is a separate slice;
+// for now this is the canonical scaffold so when the wiring lands
+// it has one canonical target, not a fork.
+//
 // Wave 9.6 follow-up of the Extended Program Plan
 // (cross-ref `epistemos_code_verdict.md` §1 + §3 — the canonical
 // architectural verdict on Swift-vs-Rust split for the live editor).
