@@ -3105,6 +3105,10 @@ private struct VaultConnectionButton: View {
 
     var body: some View {
         Menu {
+            if let message = vaultSync.vaultActivityMessage {
+                Text(message)
+                Divider()
+            }
             if let vaultURL = vaultSync.vaultURL {
                 Text(vaultURL.lastPathComponent)
                 Divider()

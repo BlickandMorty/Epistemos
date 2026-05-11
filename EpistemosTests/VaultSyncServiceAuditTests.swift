@@ -953,6 +953,44 @@ struct VaultSyncServiceAuditTests {
         #expect(capturedEvents.value == ["vaultChanged"])
     }
 
+    @Test("initial vault import keeps loading status visible until post-import work finishes")
+    func initialVaultImportKeepsLoadingStatusVisibleUntilPostImportWorkFinishes() async throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        try """
+        ---
+        id: loading-status-note
+        title: Loading Status Note
+        ---
+
+        Body that should be imported before the loading indicator clears.
+        """.write(
+            to: vaultURL.appendingPathComponent("Loading Status Note.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        service.startWatching(
+            vaultURL: vaultURL,
+            refreshAmbientManifestImmediately: false
+        )
+
+        #expect(service.isIndexing)
+        #expect(service.vaultActivityMessage?.contains("Loading vault") == true)
+
+        try await waitUntil(timeout: .seconds(30)) {
+            service.isWatching && !service.isIndexing
+        }
+
+        #expect(service.vaultActivityMessage == nil)
+    }
+
     @Test("vault mutation events mark the graph dirty before observers run")
     func vaultMutationEventsMarkGraphDirtyBeforeObserversRun() throws {
         let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
@@ -974,6 +1012,26 @@ struct VaultSyncServiceAuditTests {
         #expect(source.contains("publishVaultMutation(.vaultChanged)"))
         #expect(source.contains("vaultSync?.publishVaultMutation(.vaultChanged)"))
         #expect(!source.contains("vaultSync?.markVaultMutated()"))
+    }
+
+    @Test("initial import refreshes the live graph before clearing the loading state")
+    func initialImportRefreshesLiveGraphBeforeClearingLoadingState() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let taskStart = try #require(source.range(of: "importTask = Task {")?.lowerBound)
+        let taskTail = source[taskStart...]
+        let taskEnd = try #require(taskTail.range(of: "\n        }\n\n\n        if let actor = indexActor")?.upperBound)
+        let taskBody = String(taskTail[..<taskEnd])
+
+        #expect(taskBody.contains("await self.schedulePostImportMaintenance("))
+        #expect(taskBody.contains("self.isIndexing = false"))
+        #expect(source.contains("private func refreshGraphAfterVaultImport() async"))
+        #expect(source.contains("await graphState.loadGraph(container: modelContainer)"))
+        #expect(source.contains("await graphState.refreshStructuralDataAsync("))
+        #expect(!source.contains("await graphState.loadGraph(container: bootstrap.modelContainer)"))
+
+        let maintenanceRange = try #require(taskBody.range(of: "await self.schedulePostImportMaintenance("))
+        let clearLoadingRange = try #require(taskBody.range(of: "self.isIndexing = false"))
+        #expect(maintenanceRange.lowerBound < clearLoadingRange.lowerBound)
     }
 
     @Test("switching from disconnected cached state clears stale notes and graph before importing selected vault")

@@ -224,6 +224,7 @@ final class VaultSyncService {
     /// bookmark exists so the landing page shows a vault sync message on the
     /// very first frame, before the import Task even begins.
     var isIndexing = false
+    var vaultActivityMessage: String?
     var recoveryIssue: VaultRecoveryIssue?
     var isRecoveringLocalState = false
 
@@ -280,7 +281,9 @@ final class VaultSyncService {
         let resolvedDefaults = userDefaults ?? Self.makeDefaultUserDefaults()
         self.modelContainer = modelContainer
         self.defaults = resolvedDefaults
-        self.isIndexing = resolvedDefaults.data(forKey: Self.bookmarkKey) != nil
+        let hasStartupVaultBookmark = resolvedDefaults.data(forKey: Self.bookmarkKey) != nil
+        self.isIndexing = hasStartupVaultBookmark
+        self.vaultActivityMessage = hasStartupVaultBookmark ? "Restoring saved vault..." : nil
         self.autoSaveInterval = resolvedDefaults.double(forKey: Self.autoSaveIntervalKey)
         startObservingPowerModeChangesIfNeeded()
     }
@@ -579,6 +582,7 @@ final class VaultSyncService {
     func clearPendingStartupRestore() {
         guard !isWatching else { return }
         isIndexing = false
+        vaultActivityMessage = nil
     }
 
     func persistVaultSelection(_ url: URL, userConfirmedSuspiciousFolder: Bool = false) {
@@ -667,6 +671,7 @@ final class VaultSyncService {
         isRecoveringLocalState = true
         recoveryIssue = nil
         isIndexing = true
+        vaultActivityMessage = "Recovering vault \"\(vaultURL.lastPathComponent)\"..."
         initialImportCompleted = false
 
         do {
@@ -683,10 +688,12 @@ final class VaultSyncService {
             )
             recoveryIssue = issue
             isRecoveringLocalState = false
+            vaultActivityMessage = nil
             return issue == nil
         } catch {
             isRecoveringLocalState = false
             isIndexing = false
+            vaultActivityMessage = nil
             let snapshot = await buildVaultHealthSnapshot(
                 candidateVaultURL: vaultURL,
                 bookmarkExists: true,
@@ -1714,17 +1721,25 @@ final class VaultSyncService {
         publishVaultMutation(.vaultChanged)
         AppBootstrap.shared?.refreshAmbientManifest()
         AppBootstrap.shared?.scheduleHealthyVaultBodyCleanup()
-        if let bootstrap = AppBootstrap.shared {
-            Task(priority: .utility) {
-                let refreshed = await bootstrap.graphState.refreshStructuralDataAsync(
-                    container: bootstrap.modelContainer
-                )
-                if !refreshed {
-                    await MainActor.run {
-                        bootstrap.graphState.requestRecommit()
-                    }
-                }
-            }
+        await refreshGraphAfterVaultImport()
+    }
+
+    private func refreshGraphAfterVaultImport() async {
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let graphState = bootstrap.graphState
+        graphState.needsRefresh = true
+        graphState.shouldSnapNextGlobalRecommitCamera = true
+
+        if !graphState.isLoaded {
+            await graphState.loadGraph(container: modelContainer)
+            return
+        }
+
+        let refreshed = await graphState.refreshStructuralDataAsync(
+            container: modelContainer
+        )
+        if !refreshed {
+            graphState.requestRecommit()
         }
     }
 
@@ -1733,6 +1748,7 @@ final class VaultSyncService {
         bookmarkExists: Bool
     ) {
         isIndexing = false
+        vaultActivityMessage = nil
         initialImportCompleted = false
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -1776,6 +1792,7 @@ final class VaultSyncService {
 
         guard Self.shouldRestoreVaultFromBookmark() else {
             isIndexing = false
+            vaultActivityMessage = nil
             if Self.isRunningTests || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
                 log.info("Skipping vault bookmark restore under tests")
             } else {
@@ -2106,20 +2123,31 @@ final class VaultSyncService {
         let url = vaultURL
         let svc = searchService
         isIndexing = true
+        vaultActivityMessage = "Loading vault \"\(vaultURL.lastPathComponent)\"..."
         importTask = Task {
-            await Self.performInitialImport(
+            let didImport = await Self.performInitialImport(
                 actor: actor,
                 url: url,
                 searchService: svc
             )
-            await MainActor.run {
-                self.isIndexing = false
+            if didImport {
+                await self.schedulePostImportMaintenance(
+                    vaultURL: url,
+                    bookmarkExists: true,
+                    restoreFailed: false
+                )
+                AppBootstrap.shared?.uiState.showToast(
+                    "Vault loaded: \(url.lastPathComponent)",
+                    type: .success
+                )
+            } else {
+                AppBootstrap.shared?.uiState.showToast(
+                    "Couldn't load vault \"\(url.lastPathComponent)\".",
+                    type: .error
+                )
             }
-            await self.schedulePostImportMaintenance(
-                vaultURL: url,
-                bookmarkExists: true,
-                restoreFailed: false
-            )
+            self.vaultActivityMessage = nil
+            self.isIndexing = false
         }
 
 
@@ -2236,6 +2264,7 @@ final class VaultSyncService {
         vaultURL = nil
         isWatching = false
         isIndexing = false
+        vaultActivityMessage = nil
         initialImportCompleted = false
         log.info("VaultSyncService stopped (preserveData=\(preserveData))")
     }
@@ -2313,29 +2342,36 @@ final class VaultSyncService {
         actor: VaultIndexActor?,
         url: URL,
         searchService: SearchIndexService?
-    ) async {
+    ) async -> Bool {
         let importInterval = Log.vaultPerf.beginInterval("initialVaultImport")
+        guard let actor else {
+            Log.vault.error("Initial vault import failed: no active VaultIndexActor")
+            Log.vaultPerf.endInterval("initialVaultImport", importInterval)
+            return false
+        }
 
         if let searchService {
-            await actor?.setSearchService(searchService)
+            await actor.setSearchService(searchService)
         }
         do {
-            try await actor?.importVault(from: url)
+            try await actor.importVault(from: url)
             Log.vault.info("Initial vault import complete")
 
             await MainActor.run {
                 AppBootstrap.shared?.graphState.needsRefresh = true
             }
 
-            await actor?.spotlightReindexAll()
+            await actor.spotlightReindexAll()
             await rebuildInstantRecallIndex(from: actor)
         } catch {
             Log.vault.error(
                 "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
+            Log.vaultPerf.endInterval("initialVaultImport", importInterval)
+            return false
         }
         Log.vaultPerf.endInterval("initialVaultImport", importInterval)
 
-        if let searchService, let actor {
+        if let searchService {
             let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
             let timestamps = await actor.allPageTimestamps()
             do {
@@ -2348,6 +2384,7 @@ final class VaultSyncService {
             }
             Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
         }
+        return true
     }
 
     private nonisolated static func rebuildInstantRecallIndex(from actor: VaultIndexActor?) async {
@@ -3524,12 +3561,19 @@ enum VaultConnectionActions {
         vaultSync: VaultSyncService,
         beforeSwitch: @escaping @MainActor () -> Void = {}
     ) async -> Bool {
+        vaultSync.vaultActivityMessage = "Checking vault \"\(url.lastPathComponent)\"..."
+        vaultSync.isIndexing = true
         let assessment = await Task.detached(priority: .utility) {
             VaultIndexActor.vaultFolderSelectionAssessment(for: url)
         }.value
 
-        guard shouldProceedWithVaultSelection(url: url, assessment: assessment) else { return false }
+        guard shouldProceedWithVaultSelection(url: url, assessment: assessment) else {
+            vaultSync.vaultActivityMessage = nil
+            vaultSync.isIndexing = false
+            return false
+        }
 
+        vaultSync.vaultActivityMessage = "Opening vault \"\(url.lastPathComponent)\"..."
         let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
         if didSwitch {
             // Reset UI only after successful switch
@@ -3551,6 +3595,8 @@ enum VaultConnectionActions {
             "Couldn't open \"\(url.lastPathComponent)\" as a vault. Try a different folder.",
             type: .error
         )
+        vaultSync.vaultActivityMessage = nil
+        vaultSync.isIndexing = false
         return false
     }
 
@@ -3612,6 +3658,13 @@ enum VaultConnectionActions {
         // yields between heavy steps so the UI repaints between the
         // sync FFI clears.
         Task { @MainActor in
+            vaultSync.vaultActivityMessage = "Disconnecting vault..."
+            vaultSync.isIndexing = true
+            defer {
+                vaultSync.vaultActivityMessage = nil
+                vaultSync.isIndexing = false
+            }
+
             // Step 1: canonical runtime-state clear — graph engine,
             // query engine, contextual shadows, instant recall,
             // workspace restore. Mirrors resetAllData() phase 1.
@@ -3660,6 +3713,7 @@ enum VaultConnectionActions {
                 reason: "Disconnect Vault completed",
                 clearWorkspaceRestore: true
             )
+            AppBootstrap.shared?.uiState.showToast("Vault disconnected", type: .success)
         }
     }
 

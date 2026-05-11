@@ -3269,10 +3269,14 @@ private struct VaultDetailView: View {
                     }
                     LabeledContent("Status") {
                         HStack(spacing: 4) {
+                            if vaultSync.isIndexing {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
                             Circle()
-                                .fill(vaultSync.isWatching ? Color.green : Color.red)
+                                .fill(vaultSync.isIndexing ? Color.orange : (vaultSync.isWatching ? Color.green : Color.red))
                                 .frame(width: 8, height: 8)
-                            Text(vaultSync.isWatching ? "Connected" : "Disconnected")
+                            Text(vaultSync.vaultActivityMessage ?? (vaultSync.isWatching ? "Connected" : "Disconnected"))
                                 .font(.caption)
                         }
                     }
@@ -3294,6 +3298,15 @@ private struct VaultDetailView: View {
                         .disabled(isVaultDisconnectAuthorizationInFlight)
                     }
                 } else {
+                    if let message = vaultSync.vaultActivityMessage {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     Text("No vault connected. Select a folder to sync your markdown notes.")
                         .font(.caption)
                         .foregroundStyle(.secondary)

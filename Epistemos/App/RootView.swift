@@ -238,6 +238,15 @@ struct RootView: View {
                 .animation(.easeInOut(duration: 0.25), value: ui.toastMessage)
             }
         }
+        .overlay(alignment: .top) {
+            if vaultSync.isIndexing || vaultSync.vaultActivityMessage != nil {
+                VaultActivityStatusOverlay(
+                    message: vaultSync.vaultActivityMessage ?? "Loading vault..."
+                )
+                .padding(.top, 18)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
         .frame(
             minWidth: WindowPresentationPolicy.mainWindowMinimumSize.width,
             minHeight: WindowPresentationPolicy.mainWindowMinimumSize.height
@@ -1863,6 +1872,27 @@ private struct DatabaseRecoveryOverlay: View {
             .shadow(color: .black.opacity(0.18), radius: 28, y: 12)
             .padding(32)
         }
+    }
+}
+
+
+private struct VaultActivityStatusOverlay: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+            Text(message)
+                .font(.system(size: 12, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: Capsule())
+        .shadow(color: .black.opacity(0.14), radius: 18, y: 8)
+        .accessibilityLabel(message)
     }
 }
 
