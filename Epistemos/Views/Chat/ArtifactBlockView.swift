@@ -122,11 +122,14 @@ struct ArtifactBlockView: View {
                         ArtifactExporter.saveToFile(artifact, convertTo: .yaml)
                     }
                 }
-                if artifact.kind == .yaml {
-                    Button("Save as JSON...") {
-                        ArtifactExporter.saveToFile(artifact, convertTo: .json)
-                    }
-                }
+                // Per RCA13 RCA2-P1-003: the YAML-to-JSON conversion
+                // is not yet implemented (ArtifactExporter.convert only
+                // handles `(.json, .yaml)`; the reverse direction
+                // falls through and writes YAML bytes to a `.json`
+                // file). Surfacing "Save as JSON..." while the
+                // converter is broken produces invalid JSON files, so
+                // the button is hidden until a real YAML parser
+                // lands. The JSON-to-YAML direction stays available.
             } label: {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 11, weight: .medium))
