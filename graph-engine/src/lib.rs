@@ -591,29 +591,11 @@ pub extern "C" fn graph_engine_destroy(engine: *mut Engine) {
 // ── Graph Data Loading ──────────────────────────────────────────────────────
 
 /// Clear all nodes and edges (call before re-populating).
-///
-/// Per user 2026-05-11: previously this only cleared the source `Graph`
-/// struct (nodes / edges / lookups) — leaving the engine's `World`
-/// (transforms, hierarchy, render components), the `Simulation`
-/// (x / y / vx / vy / edges / degrees / mass), and the renderer's
-/// instance buffers fully populated. The next render frame would
-/// happily draw all the old data even though `Graph` was empty,
-/// which is why disconnecting a vault left thousands of "ghost"
-/// nodes on screen. The fix is to follow the clear with a full
-/// `commit(false)` so the entire pipeline rebuilds from the now-empty
-/// graph: sim loads zero nodes, world reflects an empty entity set,
-/// renderer allocates fresh empty buffers, and physics restarts with
-/// nothing to simulate.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear(engine: *mut Engine) {
     ffi_catch_unwind!("graph_engine_clear", {
         ffi_engine!(engine);
         engine.graph_mut().clear();
-        // Rebuild the entire pipeline from the empty graph — this
-        // is what actually wipes World, Simulation, and the renderer
-        // instance buffers. `entrance=false` skips the BFS initial
-        // layout (no-op anyway for n=0).
-        engine.commit(false);
     });
 }
 
