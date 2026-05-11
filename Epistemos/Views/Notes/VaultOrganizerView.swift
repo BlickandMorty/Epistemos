@@ -3,8 +3,17 @@ import SwiftData
 import os
 
 // MARK: - Vault Organizer View
-// AI-powered vault organization: auto-tagging, folder suggestions, and duplicate detection.
-// Presented as a sheet from the Notes sidebar. Follows "AI suggests → human approves → system executes".
+// AI-powered vault organization: auto-tagging + folder suggestions
+// (and new-folder suggestions when zero folders exist). The current
+// suggestion types are `.addTags`, `.moveToFolder`, `.createFolder` —
+// see OrgSuggestion.swift. Duplicate detection is NOT implemented
+// despite an earlier draft of this header advertising it; the audit
+// (RCA13 RCA2-P2-005) flagged the drift and the claim is removed
+// here. The sample scope is capped at the first 20 untagged + first
+// 20 loose notes per scan (see scanningView copy).
+//
+// Presented as a sheet from the Notes sidebar. Follows
+// "AI suggests → human approves → system executes".
 
 struct VaultOrganizerView: View {
     let allPages: [SDPage]
