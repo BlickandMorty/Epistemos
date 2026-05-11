@@ -167,7 +167,9 @@ struct HologramSearchSidebar: View {
     /// restarts. When true the sidebar shrinks to a single expand-affordance
     /// button; when false the full Notes/Query/Chat tabs are visible.
     /// Per user 2026-05-10: defaults to TRUE (collapsed) on first launch.
-    @AppStorage("epistemos.graphSidebarCollapsed")
+    /// Storage key was rotated to `.v2` so the new default applies even for
+    /// users who had previously persisted `false` under the old key.
+    @AppStorage("epistemos.graphSidebarCollapsed.v2")
     private var isCollapsed: Bool = true
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []

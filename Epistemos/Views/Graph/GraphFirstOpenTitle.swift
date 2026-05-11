@@ -19,9 +19,10 @@ struct GraphFirstOpenTitle: View {
     @State private var overallScale: CGFloat = 1.0
     @State private var hasFinished = false
 
-    private let fullText = "knowledge graph"
-    /// Same timing family as LiquidGreeting / LandingView's typewriter.
-    private let perCharMs: ClosedRange<Int> = 55...90
+    private let fullText = "graph"
+    /// Snappier typewriter per user 2026-05-10: roughly half the previous
+    /// 55-90 ms per char cadence so the title pops fast and clears the way.
+    private let perCharMs: ClosedRange<Int> = 22...40
 
     private var titleColor: Color {
         // High-contrast against the overlay's tint in both modes.
@@ -38,9 +39,12 @@ struct GraphFirstOpenTitle: View {
 
     var body: some View {
         Text(displayText)
-            .font(.custom(AppDisplayTypography.displayFontName, size: 88))
+            // Per user 2026-05-10: shrunk from 88pt to 44pt — the smaller
+            // title fits the unified mini-ontology panel without competing
+            // with the graph itself.
+            .font(.custom(AppDisplayTypography.displayFontName, size: 44))
             .foregroundStyle(titleColor)
-            .tracking(4)
+            .tracking(2)
             // Two-layer shadow: soft glow + crisp offset for depth.
             .shadow(color: shadowColor, radius: 18, x: 0, y: 0)
             .shadow(color: shadowColor.opacity(0.55), radius: 6, x: 0, y: 3)
@@ -66,12 +70,13 @@ struct GraphFirstOpenTitle: View {
         }
 
         // Initial fade/blur-in — the title materializes out of blur.
-        withAnimation(.easeOut(duration: 0.55)) {
+        // Faster overall sequence per user 2026-05-10.
+        withAnimation(.easeOut(duration: 0.28)) {
             opacity = 1.0
             blurRadius = 0.0
         }
         // Short beat before typing starts.
-        try? await Task.sleep(for: .milliseconds(180))
+        try? await Task.sleep(for: .milliseconds(80))
 
         // Typewriter reveal — same timing as LiquidGreeting's typer.
         for i in 1...fullText.count {
@@ -86,11 +91,11 @@ struct GraphFirstOpenTitle: View {
         hasFinished = true
 
         // Hold at full clarity for a beat so the user can read it.
-        try? await Task.sleep(for: .milliseconds(900))
+        try? await Task.sleep(for: .milliseconds(450))
 
         // Blur-out dissolve — title gets blurry AND slightly larger as
         // it fades, so it feels like it's receding into the graph.
-        withAnimation(.easeIn(duration: 0.8)) {
+        withAnimation(.easeIn(duration: 0.45)) {
             blurRadius = 18
             opacity = 0
             overallScale = 1.05
@@ -132,10 +137,12 @@ final class GraphFirstOpenTitleHost {
             view.widthAnchor.constraint(lessThanOrEqualTo: parent.widthAnchor, constant: -80),
         ])
 
-        // Auto-remove after the full animation completes (enter + hold +
-        // exit ≈ 2.7s, plus typewriter time ~1.5s). 4.5s is safely past.
+        // Auto-remove after the full animation completes. New timing
+        // (per user 2026-05-10): blur-in 0.28s + 0.08s gap + typewriter
+        // 5 chars × ~30ms ≈ 0.15s + hold 0.45s + blur-out 0.45s ≈ 1.5s.
+        // 2.0s gives a safe margin.
         Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(4.5))
+            try? await Task.sleep(for: .seconds(2.0))
             self?.hostView?.removeFromSuperview()
             self?.hostView = nil
         }
