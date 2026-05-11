@@ -42,7 +42,13 @@ struct CurveEdgeInstance {
     p1: [f32; 2],
     color: [f32; 4],
     thickness_px: f32,
-    _pad: [f32; 3],
+    /// 1.0 when this edge touches the currently-highlighted neighborhood
+    /// (selected root or its highlighted neighbors). The edge fragment
+    /// shader uses this to skip the selection-active alpha dim, so the
+    /// selected node's edges stay full-brightness while other edges
+    /// recede. 0.0 otherwise.
+    is_highlighted: f32,
+    _pad: [f32; 2],
 }
 
 /// State for the FFT-style dialogue box overlay.
@@ -1180,24 +1186,27 @@ struct CurveEdgeInstance {
     float2 p1;
     float4 color;
     float thickness_px;
-    // CRITICAL: must be `float _pad[3]` (array, 12B, 4-aligned) — NOT
-    // `float3 _pad` (vector, 16B, 16-aligned). MSL treats `float3` as
-    // having the size/alignment of `float4`, which would inflate this
-    // struct from 64 → 80 bytes. The Rust-side struct is 64 bytes
-    // (`[f32; 3]` pad is 12B/4-aligned). A 16-byte stride mismatch
-    // between CPU writer and GPU reader meant every edge instance after
-    // the first read the wrong bytes — that's where the persistent
-    // bright-green / bright-yellow "ghost" edges came from. They were
-    // the wrong portion of the previous edge's geometry being reinterpreted
-    // as RGBA color floats. The `NodeInstance` struct above already uses
-    // `float _pad[3]` correctly.
-    float _pad[3];
+    // 1.0 when this edge touches the highlighted neighborhood (selected
+    // root or one of its highlighted neighbors). The fragment shader uses
+    // this to opt out of the selection-active dim, so the selected node's
+    // edges stay bright while the rest of the graph recedes.
+    float is_highlighted;
+    // CRITICAL: must be `float _pad[2]` (array, 8B, 4-aligned) — NOT
+    // `float2 _pad` (vector, 8B, 8-aligned) and NEVER `float3` (which
+    // MSL treats as `float4`). Combined with `thickness_px` + `is_highlighted`
+    // this keeps the trailing 16 bytes shaped as 4×float, giving a 64-byte
+    // stride that matches the Rust-side struct exactly. A drift here was
+    // the source of the persistent bright-green / bright-yellow "ghost"
+    // edges — every instance after the first read the wrong bytes and
+    // reinterpreted geometry as RGBA color floats.
+    float _pad[2];
 };
 
 struct LineVertexOut {
     float4 position [[position]];
     float4 color [[flat]];
     float  dist_from_center;
+    float  is_highlighted [[flat]];
 };
 
 float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, float t) {
@@ -1250,6 +1259,7 @@ vertex LineVertexOut curve_edge_vertex(
     out.position = float4(base_ndc[corner], 0.0, 1.0);
     out.color = inst.color;
     out.dist_from_center = dist_vals[corner];
+    out.is_highlighted = inst.is_highlighted;
     return out;
 }
 
@@ -1259,12 +1269,16 @@ fragment float4 line_edge_fragment(
 ) {
     float alpha = 1.0 - smoothstep(0.6, 1.0, abs(in.dist_from_center));
     if (alpha < 0.01) discard_fragment();
-    // When a node is selected, dim ALL edges hard so the selection +
-    // neighborhood read with focus. 0.18 makes the edges nearly fade
-    // into the canvas, leaving the selected hub + neighbor nodes as
-    // the only bright features. Per user 2026-05-10: 0.30 wasn't
-    // enough on dark mode.
-    float selection_dim = uniforms.selection_active > 0.5 ? 0.18 : 1.00;
+    // When a node is selected, dim every edge EXCEPT those that touch the
+    // selected node's highlighted neighborhood. The selected hub's own
+    // edges stay full-brightness — light-mode keeps the white edges
+    // crisp, dark-mode keeps them their normal color — while every other
+    // edge falls back to 0.18 alpha. Per user 2026-05-10: previously the
+    // dim applied uniformly so the selected node's edges were just as
+    // washed out as the rest.
+    float dim_factor = uniforms.selection_active > 0.5 ? 0.18 : 1.00;
+    float keep_lit = step(0.5, in.is_highlighted);
+    float selection_dim = mix(dim_factor, 1.00, keep_lit);
     return float4(in.color.rgb, in.color.a * alpha * selection_dim);
 }
 
@@ -3001,6 +3015,14 @@ impl Renderer {
                 {
                     continue;
                 }
+                // An edge belongs to the selected neighborhood when either
+                // endpoint is the highlight root OR sits inside the
+                // highlighted-id set. The fragment shader skips the
+                // selection dim for these so the selected hub stays bright.
+                let touches_highlight = self.highlight.active
+                    && (endpoint_is_highlighted_root
+                        || self.highlight.highlighted_ids.contains(&src_id)
+                        || self.highlight.highlighted_ids.contains(&tgt_id));
                 self.classic_edge_scratch.push(CurveEdgeInstance {
                     p0: geometry.p0,
                     c0: c0t,
@@ -3008,7 +3030,8 @@ impl Renderer {
                     p1: geometry.p1,
                     color,
                     thickness_px: geometry.thickness_px,
-                    _pad: [0.0; 3],
+                    is_highlighted: if touches_highlight { 1.0 } else { 0.0 },
+                    _pad: [0.0; 2],
                 });
             }
         }
@@ -3086,7 +3109,10 @@ impl Renderer {
                 p1: edge.p1,
                 color,
                 thickness_px,
-                _pad: [0.0; 3],
+                // Aggregated edges only render when no hub is in focus,
+                // so the per-instance highlight flag is always 0 here.
+                is_highlighted: 0.0,
+                _pad: [0.0; 2],
             });
         }
         self.aggregated_edge_count = self.classic_edge_scratch.len();
@@ -4176,7 +4202,8 @@ mod tests {
 
     #[test]
     fn curve_edge_instance_size() {
-        // p0(8) + c0(8) + c1(8) + p1(8) + color(16) + thickness(4) + pad(12) = 64 bytes.
+        // p0(8) + c0(8) + c1(8) + p1(8) + color(16) + thickness(4) +
+        // is_highlighted(4) + pad(8) = 64 bytes.
         assert_eq!(std::mem::size_of::<CurveEdgeInstance>(), 64);
     }
 
