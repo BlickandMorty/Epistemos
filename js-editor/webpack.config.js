@@ -72,7 +72,11 @@ module.exports = (_env, argv) => ({
             loader: 'css-loader',
             options: {
               url: {
-                filter: (url) => !(url.startsWith('/assets/') || url === '/RetroGaming.ttf'),
+                filter: (url) => !(
+                  url.startsWith('/assets/')
+                  || url === '/CoralPixels-Regular.ttf'
+                  || url === '/basis33.ttf'
+                ),
               },
             },
           },

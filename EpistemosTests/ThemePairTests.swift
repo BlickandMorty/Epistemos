@@ -382,12 +382,18 @@ struct ThemePairTests {
 
     @Test("App heading roles use the shared display scale")
     func appHeadingRolesUseSharedDisplayScale() {
-        #expect(AppDisplayTypography.displayFontName == "RetroGaming")
-        #expect(AppHeadingRole.pageTitle.fontSize == 28)
+        #expect(AppDisplayTypography.displayFontName == "CoralPixels-Regular")
+        #expect(AppDisplayTypography.secondaryDisplayFontName == "basis33")
+        #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
+        #expect(AppDisplayTypography.displayFontScale == 1.1)
+        #expect(AppHeadingRole.pageTitle.fontSize == 34)
         #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
-        #expect(AppHeadingRole.h1.fontSize == 26)
-        #expect(AppHeadingRole.h2.fontSize == 20)
-        #expect(AppHeadingRole.h3.fontSize == 16)
+        #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.displayFontName)
+        #expect(AppHeadingRole.h2.fontName == AppDisplayTypography.displayFontName)
+        #expect(AppHeadingRole.h3.fontName == AppDisplayTypography.secondaryDisplayFontName)
+        #expect(AppHeadingRole.h1.fontSize == 32)
+        #expect(AppHeadingRole.h2.fontSize == 26)
+        #expect(AppHeadingRole.h3.fontSize == 18)
         #expect(AppHeadingRole.section.fontSize == 12)
     }
 
@@ -510,7 +516,7 @@ struct ThemePairTests {
         #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) != EpistemosTheme.oled.resolved.background)
     }
 
-    @Test("Regular display mode keeps ripple-capable surfaces but drops retro display typography")
+    @Test("Regular display mode keeps ripple-capable surfaces but drops pixel display typography")
     func regularDisplayModePolicy() {
         #expect(AppDisplayMode.opulent.usesDisplayFont)
         #expect(!AppDisplayMode.opulent.reducesASCIIAnimations)
@@ -524,7 +530,7 @@ struct ThemePairTests {
 
         #expect(AppDisplayTypography.isRegularUIFont(font))
         #expect(!AppDisplayTypography.isDisplayFont(font))
-        #expect(AppDisplayTypography.displayFontName == "RetroGaming")
+        #expect(AppDisplayTypography.displayFontName == "CoralPixels-Regular")
     }
 
     @Test("Assistant chrome tokens keep the floating surface hierarchy intact")

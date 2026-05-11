@@ -70,7 +70,7 @@ struct LiquidGreeting: View {
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
     private var greetingFont: Font {
-        AppDisplayTypography.font(size: compact ? 22 : 44)
+        AppDisplayTypography.font(size: compact ? 30 : 68)
     }
     /// Font used for the live search line. Shrinks as the query grows so
     /// long prompts still fit on one visual row — mirrors the behaviour of

@@ -748,8 +748,8 @@ struct TaggedMarkdownTextView: View {
 
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
-        let retroRole = AppHeadingRole.markdownRole(level: level)
-        let baseFontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
+        let headingRole = AppHeadingRole.markdownRole(level: level)
+        let baseFontSize: CGFloat = headingRole?.fontSize ?? (level == 4 ? 15 : 14)
         let fontSize = MarkdownHeadingDisplay.fontSize(
             for: level,
             text: text,
@@ -757,14 +757,16 @@ struct TaggedMarkdownTextView: View {
             nextLevelSize: AppHeadingRole.h2.fontSize
         )
         let font: Font = {
+            let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
             if level == 1 || level == 2 {
-                return .custom(AppDisplayTypography.displayFontName, size: fontSize)
+                return AppDisplayTypography.font(size: fontSize, weight: weight)
+            } else if (3...5).contains(level) {
+                return AppDisplayTypography.secondaryFont(size: fontSize, weight: weight)
             } else {
-                let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
                 return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)
             }
         }()
-        let topPad = retroRole?.topPadding ?? 6
+        let topPad = headingRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
 

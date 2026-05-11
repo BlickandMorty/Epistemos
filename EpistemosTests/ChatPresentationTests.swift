@@ -200,12 +200,14 @@ struct ChatPresentationTests {
       ])
   }
 
-  @Test("chat markdown keeps H1 and H2 retro while H3 plus stay monospaced")
-  func chatMarkdownKeepsH1AndH2RetroWhileH3PlusStayMonospaced() throws {
+  @Test("chat markdown uses Coral for H1 and H2, then Basis33 for H3 through H5")
+  func chatMarkdownUsesDisplayFontHierarchy() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
 
     #expect(source.contains("if level == 1 || level == 2 {"))
-    #expect(source.contains("return .custom(AppDisplayTypography.displayFontName, size: fontSize)"))
+    #expect(source.contains("return AppDisplayTypography.font(size: fontSize, weight: weight)"))
+    #expect(source.contains("} else if (3...5).contains(level) {"))
+    #expect(source.contains("return AppDisplayTypography.secondaryFont(size: fontSize, weight: weight)"))
     #expect(source.contains("return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)"))
   }
 

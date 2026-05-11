@@ -109,6 +109,11 @@ nonisolated enum EpdocEditorAssetResolver {
         }
     }
 
+    static func bundleFont(named name: String, extension ext: String) -> URL? {
+        Bundle.main.url(forResource: name, withExtension: ext)
+            ?? Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Fonts")
+    }
+
     private static func isBrotliEligible(extension ext: String) -> Bool {
         switch ext.lowercased() {
         case "js", "mjs", "css":
@@ -200,8 +205,18 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         let asset: EpdocEditorAssetResponse
         do {
             asset = try EpdocEditorAssetResolver.resolve(relativePath: url.path, assetRoot: assetRoot)
-        } catch EpdocBridgeError.assetNotFound where url.path == "/RetroGaming.ttf" {
-            guard let fontURL = Bundle.main.url(forResource: "RetroGaming", withExtension: "ttf") else {
+        } catch EpdocBridgeError.assetNotFound where url.path == "/CoralPixels-Regular.ttf" {
+            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "CoralPixels-Regular", extension: "ttf") else {
+                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
+                return
+            }
+            asset = EpdocEditorAssetResponse(
+                fileURL: fontURL,
+                mimeType: "font/ttf",
+                contentEncoding: nil
+            )
+        } catch EpdocBridgeError.assetNotFound where url.path == "/basis33.ttf" {
+            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "basis33", extension: "ttf") else {
                 urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
                 return
             }

@@ -24,6 +24,16 @@ require_file() {
     fi
 }
 
+require_font() {
+    local filename="$1"
+    local label="$2"
+    if [ -f "$RESOURCES/$filename" ] || [ -f "$RESOURCES/Fonts/$filename" ]; then
+        pass "$label"
+    else
+        fail "$label missing at $RESOURCES/$filename or $RESOURCES/Fonts/$filename"
+    fi
+}
+
 APP_PATH="${1:-build/Epistemos.app}"
 FRAMEWORKS="$APP_PATH/Contents/Frameworks"
 RESOURCES="$APP_PATH/Contents/Resources"
@@ -74,7 +84,9 @@ for lib in libgraph_engine.a libomega_ax.a; do
 done
 
 require_file "$RESOURCES/model_manifest.json" "Resource: model_manifest.json"
-require_file "$RESOURCES/RetroGaming.ttf" "Resource: RetroGaming.ttf"
+require_font "RetroGaming.ttf" "Resource: RetroGaming.ttf"
+require_font "CoralPixels-Regular.ttf" "Resource: CoralPixels-Regular.ttf"
+require_font "basis33.ttf" "Resource: basis33.ttf"
 require_file "$RESOURCES/PrivacyInfo.xcprivacy" "Resource: PrivacyInfo.xcprivacy"
 require_file "$RESOURCES/KnowledgeFusion/Training/scripts/train_knowledge.py" "Knowledge Fusion training script: train_knowledge.py"
 require_file "$RESOURCES/KnowledgeFusion/Training/scripts/train_style.py" "Knowledge Fusion training script: train_style.py"

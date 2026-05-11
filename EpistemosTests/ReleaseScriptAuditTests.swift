@@ -12,6 +12,8 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("libomega_ax.dylib"))
         #expect(script.contains("model_manifest.json"))
         #expect(script.contains("RetroGaming.ttf"))
+        #expect(script.contains("CoralPixels-Regular.ttf"))
+        #expect(script.contains("basis33.ttf"))
         #expect(script.contains("KnowledgeFusion/Training/scripts/train_knowledge.py"))
         #expect(script.contains("KnowledgeFusion/Training/scripts/train_style.py"))
         #expect(script.contains("KnowledgeFusion/Alignment/scripts/train_kto.py"))

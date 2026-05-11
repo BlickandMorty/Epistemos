@@ -256,10 +256,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading
             )
-            let usesDisplayFont = (level == 1 || level == 2)
+            let usesDisplayFont = (1...5).contains(level)
             let headingFont =
-                if usesDisplayFont {
+                if level == 1 || level == 2 {
                     AppDisplayTypography.nsFont(size: fontSize, weight: weight)
+                } else if (3...5).contains(level) {
+                    AppDisplayTypography.secondaryNSFont(size: fontSize, weight: weight)
                 } else {
                     AppDisplayTypography.regularUIFont(size: fontSize, weight: weight)
                 }
