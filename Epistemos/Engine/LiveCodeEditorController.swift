@@ -4,6 +4,20 @@ import Foundation
 
 // MARK: - LiveCodeEditorController
 //
+// **SCAFFOLD ONLY (RCA13 P3-003).** This controller + the
+// LiveHighlighter protocol + the two highlighter implementations
+// (SwiftTreeSitterLiveHighlighter canonical, SyntaxCoreLiveHighlighter
+// superseded) form a complete W9.6-base substrate, but no production
+// SwiftUI view binds to LiveCodeEditorController today. The visible
+// code editor (`Epistemos/Views/Notes/CodeEditorView.swift`) uses
+// `CodeEditSourceEditor` with its built-in highlight path. This
+// substrate is exercised only by tests + previews.
+//
+// When the live-editor wiring slice lands, this is the canonical
+// `@MainActor @Observable` target for the SwiftUI binding. The
+// W9.6 canonical highlighter (`SwiftTreeSitterLiveHighlighter`) is
+// already labeled as the path to pick — see RCA13 P1-014 commit.
+//
 // Wave 9.6 base of the Extended Program Plan
 // (cross-ref `epistemos_code_verdict.md` §1: live syntax highlighting
 //  STAYS IN SWIFT via SwiftTreeSitter direct C bindings).
