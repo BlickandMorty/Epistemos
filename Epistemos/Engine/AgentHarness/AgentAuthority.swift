@@ -92,19 +92,28 @@ extension AuthorityDecision {
 }
 
 /// Default policy per category. Matches the user's stated defaults:
-/// Auto-allow vault ops + web fetch + github + model downloads; ask first
-/// for installs / downloaded scripts / external app automation / destructive
-/// file ops / writing outside vault; never auto-allow anything system-level.
+/// Auto-allow vault ops + github + model downloads; ask first for network
+/// fetch / installs / downloaded scripts / external app automation /
+/// destructive file ops / writing outside vault; never auto-allow anything
+/// system-level.
+///
+/// Per RCA13 RCA5-P2-003 follow-up 2026-05-11: `networkFetch` flipped from
+/// `.autoAllow` to `.askFirst` so the agent has to surface a prompt before
+/// fetching arbitrary URLs / GitHub repos / remote docs. Auto-allow meant a
+/// silently-spawned tool call could exfiltrate vault content into a remote
+/// fetch; ask-first puts a human in the loop. The "Less Interruptions"
+/// preset keeps network fetch auto-allow for users who genuinely want it,
+/// so the change is per-preset honest, not a one-way ratchet.
 nonisolated enum AgentAuthorityDefaults {
     static func decision(for category: AgentAuthorityCategory) -> AuthorityDecision {
         switch category {
         case .vaultRead,
              .vaultWrite,
-             .networkFetch,
              .downloadArtifact,
              .gitOperation:
             return .autoAllow
-        case .packageInstall,
+        case .networkFetch,
+             .packageInstall,
              .runDownloadedScript,
              .externalAppAutomation,
              .destructiveFileOp,
