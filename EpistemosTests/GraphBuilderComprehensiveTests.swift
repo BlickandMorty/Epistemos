@@ -1394,6 +1394,70 @@ struct GraphBuilderBlockReferenceTests {
     }
 }
 
+@Suite("GraphBuilder - Wikilinks")
+@MainActor
+struct GraphBuilderWikilinkTests {
+
+    @Test("wikilinks materialize note reference edges with Obsidian aliases and headings")
+    func wikilinksMaterializeReferenceEdges() {
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDBlock.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+
+        do {
+            let container = try ModelContainer(for: schema, configurations: [config])
+            let context = ModelContext(container)
+
+            let source = GraphBuilderTestHelpers.createMockPage(id: "source-page", title: "Source")
+            source.wikilinkReferences = WikilinkResolver.extractDestinations(
+                from: "See [[Research/Target Note#Evidence|the target]] and [[Loose Note.md|loose]]."
+            )
+
+            let target = GraphBuilderTestHelpers.createMockPage(id: "target-page", title: "Target Note")
+            target.filePath = "/vault/Research/Target Note.md"
+            target.subfolder = "Research"
+
+            let duplicateBasename = GraphBuilderTestHelpers.createMockPage(id: "other-target-page", title: "Target Note")
+            duplicateBasename.filePath = "/vault/Archive/Target Note.md"
+            duplicateBasename.subfolder = "Archive"
+
+            let loose = GraphBuilderTestHelpers.createMockPage(id: "loose-page", title: "Loose Note")
+            loose.filePath = "/vault/Loose Note.md"
+
+            context.insert(source)
+            context.insert(target)
+            context.insert(duplicateBasename)
+            context.insert(loose)
+            try context.save()
+
+            let result = GraphBuilder().build(context: context)
+            let sourceNode = result.nodes.first { $0.sourceId == source.id }
+            let targetNode = result.nodes.first { $0.sourceId == target.id }
+            let duplicateNode = result.nodes.first { $0.sourceId == duplicateBasename.id }
+            let looseNode = result.nodes.first { $0.sourceId == loose.id }
+
+            let sourceEdges = result.edges.filter {
+                $0.edgeType == .reference && $0.sourceNodeId == sourceNode?.id
+            }
+
+            #expect(sourceEdges.contains { $0.targetNodeId == targetNode?.id })
+            #expect(sourceEdges.contains { $0.targetNodeId == looseNode?.id })
+            #expect(!sourceEdges.contains { $0.targetNodeId == duplicateNode?.id })
+        } catch {
+            Issue.record("Test failed: \(error)")
+        }
+    }
+
+    @Test("wikilink resolver canonicalizes aliases headings and markdown extensions")
+    func wikilinkResolverCanonicalizesObsidianForms() {
+        let links = WikilinkResolver.extractDestinations(
+            from: "[[Folder/My Note.md#Part|alias]] [[My Note|other]] [[#Local Heading]]"
+        )
+
+        #expect(links == ["folder/my note", "my note"])
+        #expect(WikilinkResolver.lookupKeys(forDestination: "Folder/My Note") == ["folder/my note", "my note"])
+    }
+}
+
 @Suite("GraphBuilder - Metadata Preservation")
 @MainActor
 struct GraphBuilderMetadataTests {

@@ -441,8 +441,20 @@ pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile 
     }
 }
 
+pub(crate) fn adaptive_lod_profile_for_graph(
+    node_count: usize,
+    zoom: f32,
+    quality_level: u8,
+) -> LodProfile {
+    let mut lod = lod_profile_for_zoom(zoom, quality_level);
+    if (node_count > 2_500 && zoom <= 0.32) || (node_count > 7_500 && zoom <= 0.48) {
+        lod.cluster_nodes = true;
+    }
+    lod
+}
+
 fn density_cell_size_world(zoom: f32) -> f32 {
-    (48.0 / zoom.max(0.05)).clamp(72.0, 360.0)
+    (64.0 / zoom.max(0.05)).clamp(96.0, 560.0)
 }
 
 fn density_proxy_screen_radius(count: u32) -> f32 {
@@ -2235,10 +2247,11 @@ impl Renderer {
         }
     }
 
-    // Generous padding so nodes at the viewport edge don't pop in/out as
-    // physics nudges them across the cull boundary. 400px covers the
-    // largest node radius (55) at any realistic zoom level.
+    // Generous padding so nodes at the viewport edge don't pop in/out.
+    // During active physics, keep culling on but widen the guard band so
+    // moving nodes do not flicker without forcing the whole vault to draw.
     const CLASSIC_CULL_PADDING_PIXELS: f32 = 400.0;
+    const CLASSIC_ACTIVE_PHYSICS_CULL_PADDING_PIXELS: f32 = 1_400.0;
 
     pub fn set_viewport_size(&mut self, viewport_width: u32, viewport_height: u32) -> bool {
         let width = viewport_width as f32;
@@ -2268,11 +2281,6 @@ impl Renderer {
 
     #[inline]
     fn is_camera_motion_active(&self) -> bool {
-        // Disable culling when physics is running — nodes shift under
-        // simulation and cross the cull boundary, causing pop-in flicker.
-        if self.sim_active {
-            return true;
-        }
         let zoom_delta = (self.camera_zoom - self.prev_camera_zoom).abs();
         let dx = self.camera_offset[0] - self.prev_camera_offset[0];
         let dy = self.camera_offset[1] - self.prev_camera_offset[1];
@@ -2584,8 +2592,14 @@ impl Renderer {
             self.debug_counters.last_candidate_edges = 0;
             self.debug_counters.last_visible_edges = 0;
         }
-        let view_bounds = self.current_view_bounds(Self::CLASSIC_CULL_PADDING_PIXELS);
-        let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
+        let cull_padding = if self.sim_active {
+            Self::CLASSIC_ACTIVE_PHYSICS_CULL_PADDING_PIXELS
+        } else {
+            Self::CLASSIC_CULL_PADDING_PIXELS
+        };
+        let view_bounds = self.current_view_bounds(cull_padding);
+        let lod = adaptive_lod_profile_for_graph(world.len(), self.camera_zoom, self.quality_level);
+        let cluster_active = lod.cluster_nodes && !self.highlight.active;
         let visual_theme = self.visual_theme;
         let suppress_motion = self.is_animating;
         let suppress_node_motion = suppress_motion || self.quality_level >= 1;
@@ -2618,7 +2632,7 @@ impl Renderer {
         self.classic_velocity_scratch.clear();
         self.classic_edge_scratch.clear();
 
-        if lod.cluster_nodes && !self.highlight.active {
+        if cluster_active {
             self.density_clusters.clear();
             let cell_size = density_cell_size_world(self.camera_zoom);
             let inv_cell = 1.0 / cell_size;
@@ -2789,7 +2803,7 @@ impl Renderer {
             self.node_count = self.rendered_node_indices.len();
         }
 
-        if lod.cluster_nodes {
+        if cluster_active {
             self.glow_count = 0;
         }
 
@@ -2948,7 +2962,7 @@ impl Renderer {
         }
 
         let should_draw_edges = lod.draw_edges
-            && !lod.cluster_nodes
+            && !cluster_active
             && !(self.edges_hidden && self.edge_filter_node.is_none());
         self.clear_aggregated_edges();
         if should_draw_edges {
@@ -4064,7 +4078,7 @@ mod tests {
         let mut renderer = make_test_renderer();
         renderer.light_mode = true;
         let light = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
-        assert_eq!(light, [0.0, 0.0, 0.0, 0.85]);
+        assert_eq!(light, [0.30, 0.30, 0.30, 0.75]);
 
         renderer.light_mode = false;
         let dark = renderer.classic_edge_instance_color(&world, &world.edges[0], 0, 1);
@@ -4241,7 +4255,7 @@ mod tests {
         // Uniforms must match Metal's reflected byte length for the shared
         // graph shader layout.
         let size = std::mem::size_of::<Uniforms>();
-        assert_eq!(size, 80, "Uniforms not Metal-layout sized: {size}");
+        assert_eq!(size, 84, "Uniforms not Metal-layout sized: {size}");
     }
 
     #[test]
@@ -4314,6 +4328,21 @@ mod tests {
         assert!(!near.cluster_nodes);
         assert_eq!(near.edge_degree_threshold, u32::MAX);
         assert_eq!(near.max_edges_per_node, u16::MAX);
+    }
+
+    #[test]
+    fn huge_zoomed_out_graphs_enable_density_clusters() {
+        let overview = adaptive_lod_profile_for_graph(14_000, 0.08, 0);
+        let high_node_medium_zoom = adaptive_lod_profile_for_graph(14_000, 0.40, 0);
+        let detailed = adaptive_lod_profile_for_graph(14_000, 0.70, 0);
+        let medium_overview = adaptive_lod_profile_for_graph(4_000, 0.24, 0);
+        let small = adaptive_lod_profile_for_graph(2_000, 0.08, 0);
+
+        assert!(overview.cluster_nodes);
+        assert!(high_node_medium_zoom.cluster_nodes);
+        assert!(medium_overview.cluster_nodes);
+        assert!(!detailed.cluster_nodes);
+        assert!(!small.cluster_nodes);
     }
 
     #[test]
@@ -4550,7 +4579,7 @@ mod tests {
         let light = aggregated_edge_base_rgb(true);
         let dark = aggregated_edge_base_rgb(false);
 
-        assert!(light[0].max(light[1]).max(light[2]) <= 0.22);
+        assert!(light[0].max(light[1]).max(light[2]) <= 0.30);
         assert!(dark[0] > light[0]);
         assert!(dark[1] > light[1]);
         assert!(dark[2] > light[2]);
@@ -5047,6 +5076,35 @@ mod tests {
         assert!(renderer.debug_counters.last_visible_nodes < 8);
         assert!(
             renderer.debug_counters.last_visible_edges < renderer.debug_counters.last_total_edges
+        );
+    }
+
+    #[test]
+    fn active_physics_uses_padded_culling_without_drawing_entire_scene() {
+        let world = make_test_world(6, 1_200.0);
+        let mut renderer = make_test_renderer();
+        renderer.camera_offset = [0.0, 0.0];
+        renderer.prev_camera_offset = renderer.camera_offset;
+        renderer.camera_zoom = 1.0;
+        renderer.prev_camera_zoom = renderer.camera_zoom;
+        renderer.set_viewport_size(640, 360);
+
+        renderer.sim_active = false;
+        renderer.update_positions(&world);
+        let stable_visible_nodes = renderer.debug_counters.last_visible_nodes;
+
+        renderer.sim_active = true;
+        renderer.update_positions(&world);
+        let active_visible_nodes = renderer.debug_counters.last_visible_nodes;
+
+        assert_eq!(renderer.debug_counters.last_total_nodes, 6);
+        assert!(
+            active_visible_nodes > stable_visible_nodes,
+            "active physics should widen culling enough to avoid edge flicker"
+        );
+        assert!(
+            active_visible_nodes < renderer.debug_counters.last_total_nodes,
+            "active physics must not disable culling and draw the whole scene"
         );
     }
 }

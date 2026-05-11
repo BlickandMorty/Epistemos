@@ -38,7 +38,7 @@ fn adaptive_physics_hz(node_count: usize) -> f64 {
         1001..=3000 => 40.0,
         3001..=5000 => 30.0,
         5001..=HIGH_NODE_PHYSICS_THRESHOLD => 24.0,
-        _ => 10.0,
+        _ => 24.0,
     }
 }
 
@@ -55,8 +55,8 @@ fn should_sync_positions_for_render(
     sim_active || last_sim_active
 }
 
-fn renderer_disables_culling_for_physics(node_count: usize, sim_active: bool) -> bool {
-    sim_active && node_count <= HIGH_NODE_PHYSICS_THRESHOLD
+fn renderer_tracks_active_physics(sim_active: bool) -> bool {
+    sim_active
 }
 
 fn should_dispatch_gpu_nbody(node_count: usize) -> bool {
@@ -118,6 +118,26 @@ pub(crate) fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Durat
     } else {
         (60, Duration::from_millis(10))
     }
+}
+
+fn entrance_child_spacing(node_count: usize) -> f32 {
+    if node_count > HIGH_NODE_PHYSICS_THRESHOLD {
+        56.0
+    } else {
+        80.0
+    }
+}
+
+fn entrance_component_spacing(node_count: usize, estimated_components: usize) -> f32 {
+    let child_spacing = entrance_child_spacing(node_count);
+    let max_component_radius = if node_count > HIGH_NODE_PHYSICS_THRESHOLD {
+        6_800.0_f32
+    } else {
+        8_500.0_f32
+    };
+    let estimated_components = estimated_components.max(1) as f32;
+    (max_component_radius / estimated_components.sqrt())
+        .clamp(child_spacing * 1.15, child_spacing * 3.0)
 }
 
 const DEFAULT_CAMERA_FIT_PADDING: f32 = 0.85;
@@ -533,9 +553,10 @@ impl Engine {
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
 
             // Child placement distance: compact enough that the pre-settle physics
-            // only needs fine-tuning, not long-range hauling. Keeps the graph
-            // visually stable from the very first rendered frame.
-            let child_spacing = 80.0_f32;
+            // only needs fine-tuning, not long-range hauling. For huge vaults the
+            // spacing must stay below the sanitizer clamp, otherwise isolated
+            // components get flattened into a visible square border.
+            let child_spacing = entrance_child_spacing(n);
 
             // Build adjacency list from graph edges.
             let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
@@ -562,7 +583,7 @@ impl Engine {
             let mut placed = vec![false; n];
             let mut queue: VecDeque<usize> = VecDeque::with_capacity(n);
             let mut component_index = 0usize;
-            let component_spacing = child_spacing * 3.0;
+            let component_spacing = entrance_component_spacing(n, roots.len());
 
             for &root in &roots {
                 if placed[root] {
@@ -1069,10 +1090,10 @@ impl Engine {
             self.last_synced_tick_count = sim_tick_count;
         }
         self.last_sim_active = sim_active;
-        // Tell the renderer whether physics is running so it can disable
-        // viewport culling (prevents nodes popping in/out at edges).
+        // Tell the renderer whether physics is running so it can widen
+        // viewport culling padding without drawing the whole vault.
         let n = self.world.len();
-        self.renderer.sim_active = renderer_disables_culling_for_physics(n, sim_active);
+        self.renderer.sim_active = renderer_tracks_active_physics(sim_active);
 
         // GPU N-body: dispatch brute-force repulsion on GPU for medium-large
         // graphs. Above the high-node threshold it becomes O(N²) work that can
@@ -2807,7 +2828,7 @@ mod tests {
     fn adaptive_physics_hz_keeps_high_node_graphs_active() {
         assert_eq!(adaptive_physics_hz(500), 120.0);
         assert_eq!(adaptive_physics_hz(5_500), 24.0);
-        assert_eq!(adaptive_physics_hz(10_000), 10.0);
+        assert_eq!(adaptive_physics_hz(10_000), 24.0);
     }
 
     #[test]
@@ -2823,10 +2844,9 @@ mod tests {
     }
 
     #[test]
-    fn high_node_active_physics_keeps_renderer_culling_enabled() {
-        assert!(renderer_disables_culling_for_physics(1_000, true));
-        assert!(!renderer_disables_culling_for_physics(10_000, true));
-        assert!(!renderer_disables_culling_for_physics(10_000, false));
+    fn active_physics_marks_renderer_for_padded_culling() {
+        assert!(renderer_tracks_active_physics(true));
+        assert!(!renderer_tracks_active_physics(false));
     }
 
     #[test]
@@ -2972,6 +2992,19 @@ mod tests {
 
         assert_eq!(sparse, 1.0);
         assert!(crowded < sparse);
+    }
+
+    #[test]
+    fn entrance_spacing_keeps_huge_disconnected_graphs_inside_world_clamp() {
+        let node_count = 14_629;
+        let spacing = entrance_component_spacing(node_count, node_count);
+        let max_radius = spacing * (node_count as f32).sqrt();
+
+        assert!(
+            max_radius < 8_000.0,
+            "huge disconnected vaults should not initialize beyond the sanitizer clamp; got {max_radius}"
+        );
+        assert!(spacing >= entrance_child_spacing(node_count) * 1.15);
     }
 
     fn make_graph() -> Graph {

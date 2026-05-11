@@ -2530,14 +2530,10 @@ final class VaultSyncService {
             }
 
             if let importSnapshot {
-                await progressHandler?(importSnapshot.withPhase("Updating Spotlight index", isComplete: false))
+                await progressHandler?(importSnapshot.withPhase("Starting background indexes", isComplete: false))
             }
-            await actor.spotlightReindexAll()
-
-            if let importSnapshot {
-                await progressHandler?(importSnapshot.withPhase("Building instant recall index", isComplete: false))
-            }
-            await rebuildInstantRecallIndex(from: actor)
+            scheduleSpotlightReindex(from: actor)
+            scheduleInstantRecallIndexRebuild(from: actor)
         } catch {
             Log.vault.error(
                 "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
@@ -2546,12 +2542,31 @@ final class VaultSyncService {
         }
         Log.vaultPerf.endInterval("initialVaultImport", importInterval)
 
-        if let searchService {
+        scheduleSearchIndexDiffSync(from: actor, searchService: searchService)
+        if let importSnapshot {
+            await progressHandler?(importSnapshot.withPhase("Vault ready", isComplete: true))
+        }
+        return true
+    }
+
+    private nonisolated static let instantRecallRebuildBodyCharacterLimit = 16_384
+
+    private nonisolated static func scheduleSpotlightReindex(from actor: VaultIndexActor?) {
+        guard let actor else { return }
+        Task.detached(priority: .utility) {
+            await actor.spotlightReindexAll()
+        }
+    }
+
+    private nonisolated static func scheduleSearchIndexDiffSync(
+        from actor: VaultIndexActor?,
+        searchService: SearchIndexService?
+    ) {
+        guard let actor, let searchService else { return }
+        Task.detached(priority: .utility) {
             let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
+            defer { Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval) }
             let timestamps = await actor.allPageTimestamps()
-            if let importSnapshot {
-                await progressHandler?(importSnapshot.withPhase("Syncing search index", isComplete: false))
-            }
             do {
                 try await searchService.diffSync(
                     swiftDataPages: timestamps,
@@ -2560,22 +2575,49 @@ final class VaultSyncService {
             } catch {
                 Log.vault.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
             }
-            Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
         }
-        if let importSnapshot {
-            await progressHandler?(importSnapshot.withPhase("Vault ready", isComplete: true))
+    }
+
+    private nonisolated static func scheduleInstantRecallIndexRebuild(from actor: VaultIndexActor?) {
+        guard let actor else { return }
+        Task.detached(priority: .utility) {
+            await rebuildInstantRecallIndex(from: actor)
         }
-        return true
     }
 
     private nonisolated static func rebuildInstantRecallIndex(from actor: VaultIndexActor?) async {
         guard let actor else { return }
         let pages = await actor.allPagesForRebuild()
-        let notes = pages.map { (id: $0.id, text: $0.body) }
+        let notes = pages.map { page in
+            (
+                id: page.id,
+                text: boundedInstantRecallText(
+                    title: page.title,
+                    body: page.body,
+                    tags: page.tags
+                )
+            )
+        }
         guard let service = await MainActor.run(body: { AppBootstrap.shared?.instantRecallService }) else {
             return
         }
         await service.rebuildIndexAsync(notes: notes)
+    }
+
+    private nonisolated static func boundedInstantRecallText(
+        title: String,
+        body: String,
+        tags: String
+    ) -> String {
+        let trimmedBody =
+            body.count > instantRecallRebuildBodyCharacterLimit
+            ? String(body.prefix(instantRecallRebuildBodyCharacterLimit))
+            : body
+        let trimmedTags = tags.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTags.isEmpty else {
+            return "\(title)\n\n\(trimmedBody)"
+        }
+        return "\(title)\n\(trimmedTags)\n\n\(trimmedBody)"
     }
 
     // MARK: - Vault Context (Background)
@@ -2748,9 +2790,11 @@ final class VaultSyncService {
         do {
             let importSnapshot = try await actor.importVault(from: vaultURL, progress: progressHandler)
             if let importSnapshot {
-                await progressHandler(importSnapshot.withPhase("Building instant recall index", isComplete: false))
+                await progressHandler(importSnapshot.withPhase("Starting background indexes", isComplete: false))
             }
-            await Self.rebuildInstantRecallIndex(from: actor)
+            Self.scheduleSpotlightReindex(from: actor)
+            Self.scheduleInstantRecallIndexRebuild(from: actor)
+            Self.scheduleSearchIndexDiffSync(from: actor, searchService: searchService)
 
             if let importSnapshot {
                 await progressHandler(importSnapshot.withPhase("Vault ready", isComplete: true))
@@ -3246,7 +3290,7 @@ final class VaultSyncService {
             do {
                 try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
                 log.info("File watcher: re-import complete")
-                await VaultSyncService.rebuildInstantRecallIndex(from: actor)
+                VaultSyncService.scheduleInstantRecallIndexRebuild(from: actor)
 
                 // Hop back to main actor for UI state updates. External
                 // vault changes must use the same canonical mutation event as

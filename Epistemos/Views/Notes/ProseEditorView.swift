@@ -20,11 +20,17 @@ import os
 // - Theme-aware dark mode
 // - Wikilink navigation (via NoteWindowManager)
 
+enum ProseEditorNavigationContext {
+    case notes
+    case graph
+}
+
 struct ProseEditorView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "ProseEditorView")
     let page: SDPage
     var isEditable: Bool = true
     let initialBodyOverride: String?
+    let navigationContext: ProseEditorNavigationContext
 
     @Environment(\.modelContext) private var modelContext
     @Environment(UIState.self) private var ui
@@ -40,10 +46,16 @@ struct ProseEditorView: View {
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
 
-    init(page: SDPage, isEditable: Bool = true, initialBodyOverride: String? = nil) {
+    init(
+        page: SDPage,
+        isEditable: Bool = true,
+        initialBodyOverride: String? = nil,
+        navigationContext: ProseEditorNavigationContext = .notes
+    ) {
         self.page = page
         self.isEditable = isEditable
         self.initialBodyOverride = initialBodyOverride
+        self.navigationContext = navigationContext
         let snapshot = Self.initialBodySnapshot(for: page, preferredBody: initialBodyOverride)
         _bodyText = State(initialValue: snapshot.bodyText)
         _lastPersistedBody = State(initialValue: snapshot.lastPersistedBody)
@@ -397,23 +409,18 @@ struct ProseEditorView: View {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        // Step 1: Exact case-sensitive match (fast, uses SwiftData index).
-        let exactDesc = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.title == trimmed }
-        )
-        // Step 2: Only if exact match fails, scan for case-insensitive match.
-        let lowered = trimmed.lowercased()
-        switch existingPageForWikilink(exactDescriptor: exactDesc, loweredTitle: lowered, title: trimmed) {
+        switch existingPageForWikilink(title: trimmed) {
         case .found(let existing):
             navigateToPage(existing)
         case .notFound:
-            // Create new page for dangling wikilink — stay in same window
             Task {
                 if let newId = await vaultSync.createPage(
                     title: trimmed,
                     allowVaultSelectionPrompt: true
                 ) {
-                    if let navState {
+                    if navigationContext == .graph {
+                        graphState.openNote(newId)
+                    } else if let navState {
                         navState.push(pageId: newId, title: trimmed)
                     } else {
                         NoteWindowManager.shared.open(pageId: newId)
@@ -430,7 +437,9 @@ struct ProseEditorView: View {
         let pageTitle = target.title.isEmpty ? "Untitled" : target.title
         // Skip if navigating to the current page
         guard target.id != page.id else { return }
-        if let navState {
+        if navigationContext == .graph {
+            graphState.openNote(target.id)
+        } else if let navState {
             navState.push(pageId: target.id, title: pageTitle)
         } else {
             NoteWindowManager.shared.open(pageId: target.id)
@@ -472,7 +481,9 @@ struct ProseEditorView: View {
             )
             title = "Untitled"
         }
-        if let navState {
+        if navigationContext == .graph {
+            graphState.openNote(block.pageId)
+        } else if let navState {
             navState.push(pageId: block.pageId, title: title)
         } else {
             NoteWindowManager.shared.open(pageId: block.pageId)
@@ -485,18 +496,36 @@ struct ProseEditorView: View {
         case failed
     }
 
-    private func existingPageForWikilink(
-        exactDescriptor: FetchDescriptor<SDPage>,
-        loweredTitle: String,
-        title: String
-    ) -> WikilinkLookupResult {
+    private func existingPageForWikilink(title: String) -> WikilinkLookupResult {
         do {
+            // Fast exact-title path for common local notes.
+            let exactDescriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.title == title }
+            )
             if let existing = try modelContext.fetch(exactDescriptor).first {
                 return .found(existing)
             }
 
             let allPages = try modelContext.fetch(FetchDescriptor<SDPage>())
-            if let match = allPages.first(where: { $0.title.lowercased() == loweredTitle }) {
+            let targetKeys = WikilinkResolver.lookupKeys(forDestination: title)
+            var lookup: [String: SDPage] = [:]
+            var ambiguous = Set<String>()
+            for page in allPages {
+                for key in WikilinkResolver.lookupKeysForPage(
+                    title: page.title,
+                    filePath: page.filePath,
+                    vaultRelativePath: page.vaultRelativeNotePath
+                ) {
+                    if let existing = lookup[key], existing.id != page.id {
+                        lookup.removeValue(forKey: key)
+                        ambiguous.insert(key)
+                    } else if !ambiguous.contains(key) {
+                        lookup[key] = page
+                    }
+                }
+            }
+
+            if let match = targetKeys.compactMap({ lookup[$0] }).first {
                 return .found(match)
             }
 

@@ -802,10 +802,14 @@ actor VaultIndexActor {
                                 "Failed to update \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
                             )
                         }
-                    } else {
-                        // Unchanged — skip entirely (no disk read, no body load)
-                        skipCount += 1
+                } else {
+                    // Unchanged — skip entirely (no disk read, no body load)
+                    if await backfillWikilinkReferencesIfNeeded(on: existingPage, fileURL: fileURL) {
+                        updateCount += 1
+                        changeCount += 1
                     }
+                    skipCount += 1
+                }
                 } else {
                     // New file — insert. Same Phase R.3 note as above.
                     do {
@@ -1615,6 +1619,9 @@ actor VaultIndexActor {
     }
 
     private func updateImportedBodyDerivedState(on page: SDPage, body: String, filePath: String) {
+        page.wikilinkReferences = WikilinkResolver.extractDestinations(from: body)
+        page.wikilinkReferenceScanSignature = wikilinkScanSignature(for: body, filePath: filePath)
+
         guard body.utf8.count <= Self.importedBodyDerivedStateByteLimit else {
             page.clearInlineBodyIfNeeded()
             if !page.blockReferences.isEmpty {
@@ -1624,6 +1631,46 @@ actor VaultIndexActor {
             return
         }
         page.updateBodyDerivedState(from: body)
+        page.wikilinkReferenceScanSignature = wikilinkScanSignature(for: body, filePath: filePath)
+    }
+
+    private func backfillWikilinkReferencesIfNeeded(on page: SDPage, fileURL: URL) async -> Bool {
+        guard WikilinkResolver.isLikelyMarkdownNote(path: page.filePath ?? fileURL.path) else {
+            return false
+        }
+
+        let signature = page.lastSyncedBodyHash ?? Self.largeVaultFileFingerprint(for: fileURL)
+        guard page.wikilinkReferenceScanSignature != signature else {
+            return false
+        }
+
+        let body = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath ?? fileURL.path,
+            inlineBody: page.body,
+            mapped: true,
+            fast: true
+        )
+        let references = WikilinkResolver.extractDestinations(from: body)
+        guard page.wikilinkReferences != references
+                || page.wikilinkReferenceScanSignature != signature
+        else {
+            return false
+        }
+
+        page.wikilinkReferences = references
+        page.wikilinkReferenceScanSignature = signature
+        return true
+    }
+
+    private func wikilinkScanSignature(for body: String, filePath: String) -> String {
+        guard body.utf8.count > Self.importedBodyDerivedStateByteLimit else {
+            return SDPage.bodyHash(body)
+        }
+        return Self.largeVaultFileFingerprint(
+            for: URL(fileURLWithPath: filePath),
+            fallbackByteCount: body.utf8.count
+        )
     }
 
     private func importedCleanBodyHash(for body: String, fileURL: URL) -> String {

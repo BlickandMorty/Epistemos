@@ -21,15 +21,9 @@ actor BackgroundGraphActor {
         let visibleNodeIds = Set(sdNodes.map(\.id))
 
         var hints = positionHints
-        let golden = Float.pi * (3.0 - sqrt(5.0))
-
         let nodeRecords = sdNodes.enumerated().map { index, sdNode -> GraphNodeRecord in
             let position: SIMD2<Float> = hints.removeValue(forKey: sdNode.id)
-                ?? {
-                    let r: Float = 250.0 * sqrt(Float(index))
-                    let theta = Float(index) * golden
-                    return SIMD2<Float>(r * cos(theta), r * sin(theta))
-                }()
+                ?? GraphStore.initialSpiralPosition(index: index, nodeCount: sdNodes.count)
 
             return GraphNodeRecord(
                 id: sdNode.id,

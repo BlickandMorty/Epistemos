@@ -151,11 +151,19 @@ final class GraphBuilder: Sendable {
         }
 
         // ────────────────────────────────────────────
-        // 1b. Block references — ((blockId)) in page bodies
+        // 1b. References — block refs ((blockId)) and Obsidian wikilinks [[Note]]
         //     Resolves to the block's parent page, creating a note→note
         //     .reference edge. Blocks are NOT individual graph nodes.
         //     Two-pass: collect referenced IDs first, then fetch only those blocks.
         // ────────────────────────────────────────────
+        var referenceEdgeKeys = Set<String>()
+
+        func appendReferenceEdge(source: String, target: String, weight: Double = 1.0) {
+            guard source != target else { return }
+            let key = "\(source)|\(target)|\(GraphEdgeType.reference.rawValue)"
+            guard referenceEdgeKeys.insert(key).inserted else { return }
+            edges.append(SDGraphEdge(source: source, target: target, type: .reference, weight: weight))
+        }
 
         // Pass 1: collect block refs from pages.
         // SDPage extracts these during saveBody() to avoid O(N) disk I/O here.
@@ -187,7 +195,54 @@ final class GraphBuilder: Sendable {
                       targetNoteNodeId != ref.noteNodeId  // skip self-references
                 else { continue }
 
-                edges.append(SDGraphEdge(source: ref.noteNodeId, target: targetNoteNodeId, type: .reference))
+                appendReferenceEdge(source: ref.noteNodeId, target: targetNoteNodeId)
+            }
+        }
+
+        // Obsidian-compatible wikilinks: support aliases, headings, .md suffixes,
+        // and path-qualified links. Links are cached on SDPage during import/save;
+        // fallback body parsing exists only for old rows that predate the cache.
+        var wikilinkLookup: [String: String] = [:]
+        var ambiguousWikilinkKeys = Set<String>()
+
+        func registerWikilinkKey(_ key: String, nodeId: String) {
+            guard !key.isEmpty, !ambiguousWikilinkKeys.contains(key) else { return }
+            if let existing = wikilinkLookup[key], existing != nodeId {
+                wikilinkLookup.removeValue(forKey: key)
+                ambiguousWikilinkKeys.insert(key)
+                return
+            }
+            wikilinkLookup[key] = nodeId
+        }
+
+        for page in pages {
+            guard let nodeId = sourceIdToNodeId[page.id] else { continue }
+            for key in WikilinkResolver.lookupKeysForPage(
+                title: page.title,
+                filePath: page.filePath,
+                vaultRelativePath: page.vaultRelativeNotePath
+            ) {
+                registerWikilinkKey(key, nodeId: nodeId)
+            }
+        }
+
+        for page in pages {
+            guard let sourceNodeId = sourceIdToNodeId[page.id] else { continue }
+            var references = page.wikilinkReferences
+            if references.isEmpty,
+               page.wikilinkReferenceScanSignature == nil,
+               WikilinkResolver.isLikelyMarkdownNote(path: page.filePath) {
+                references = WikilinkResolver.extractDestinations(from: page.loadBody(mapped: true, fast: true))
+            }
+            guard !references.isEmpty else { continue }
+
+            for reference in references {
+                let targetNodeId = WikilinkResolver.lookupKeys(forDestination: reference)
+                    .lazy
+                    .compactMap { wikilinkLookup[$0] }
+                    .first
+                guard let targetNodeId else { continue }
+                appendReferenceEdge(source: sourceNodeId, target: targetNodeId, weight: 2.0)
             }
         }
 
