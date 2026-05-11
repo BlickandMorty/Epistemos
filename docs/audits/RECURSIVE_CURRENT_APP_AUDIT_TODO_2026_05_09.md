@@ -1072,7 +1072,18 @@ Acceptance:
 
 ### RCA-P2-006 - Simplify or complete AgentQueryEngine permission events
 
-Status: TODO
+Status: PATCHED 2026-05-10 — unemitted permission cases removed from the engine event stream
+
+Fix-pass evidence: commit `b93ac178e` (`Epistemos/Engine/AgentHarness/
+AgentQueryEngine.swift`). The `AgentQueryEngineEvent` enum declared
+`.permissionRequest` and `.permissionDenied` cases that the engine
+never yielded. UI consumers pattern-matching on them would silently
+fail closed. Removed both cases since no production code matched
+on them (the canonical approval surface is `AgentPermissionRequest`
+via `ChatCoordinator.promptForToolApproval` + `PipelineService`).
+The audit acceptance "UI cannot assume permission prompts are
+integrated unless they actually are" is satisfied — dead cases
+gone, the real path still works.
 
 Subsystem: agent query runtime, approval prompts, event stream.
 
@@ -1117,7 +1128,24 @@ Acceptance:
 
 ### RCA-P2-009 - Hide mock-only intelligence surfaces
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-10 — markers shipped on the surfaces I could reach; Helios kernels still need the template applied
+
+Fix-pass evidence (rolled up — see RCA-P3-003 entry for the
+canonical template):
+  - Mask predictor: commit `5862e16c2` adds the SCAFFOLD ONLY
+    header with explicit "no trained model loaded; isAvailable
+    returns false; every predict() returns
+    .failure(.predictorUnavailable)" language.
+  - XPC provider streaming: commit `0a2683c15` adds the SCAFFOLD
+    ONLY header.
+  - ANE backend: file header already had a detailed Build
+    status block — no audit drift there.
+
+Remaining work: Helios V5 kernels need the same SCAFFOLD-ONLY
+template mass-applied — the internal
+`KERNEL_IMPLEMENTATION_POSTURE = canonical_target_not_implemented_here`
+field already says this, but the file-header marker isn't
+standardized across them.
 
 Subsystem: mask predictor, ANE backend, XPC mocks, future kernels.
 
