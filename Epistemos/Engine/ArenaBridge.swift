@@ -1,5 +1,22 @@
 import Foundation
 
+// MARK: - ArenaBridge
+//
+// **SCAFFOLD ONLY (RCA13 RCA5-P2-002).** This bridge declares the
+// shared-memory arena wire format (slots, version, payload caps,
+// artefact refs) plus an actor that owns the submission/response
+// queues. The plumbing is in place — including a 5 ms polling
+// loop, payload-size clamps, and version negotiation — but
+// `readSignalEpoch()` currently returns 0 and no production code
+// drives a real arena exchange. The MAS Diagnostics surface
+// labels the row "Shared Arena reports the app-group arena path
+// and bridge budgets without claiming runtime authority," which
+// is honest about what is and isn't wired.
+//
+// Don't count ArenaBridge as a current-product capability until
+// a real producer + consumer pair lands and runtime tests prove
+// epoch advance + payload integrity end-to-end.
+
 enum ArenaOp: UInt16, CaseIterable, Sendable {
     case retrieve = 1
     case plan = 2
