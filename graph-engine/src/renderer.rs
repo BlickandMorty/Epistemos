@@ -866,6 +866,10 @@ fragment float4 node_fragment(
     bool light = uniforms.light_mode > 0.5;
     bool folder_node = in.face_type > 3.5 && in.face_type < 4.5;
     bool large_folder_node = folder_node && in.depth >= 0.45;
+    // Per user 2026-05-10: doc / note nodes (face_type == 1) get the same
+    // diagonal-light "shine" gradient that folder hubs use, scaled down
+    // so it reads as a subtle pixel-art 3D bevel rather than a glare.
+    bool note_node = in.face_type > 0.5 && in.face_type < 1.5;
     if (cinematic_mode) {
         const float pixel_grid = 9.0;
         float2 pixel_cell = floor((in.uv * 0.5 + 0.5) * pixel_grid);
@@ -887,8 +891,28 @@ fragment float4 node_fragment(
             float3 folder_shadow_color = light
                 ? srgb_to_linear(float3(0.00, 0.00, 0.00))
                 : srgb_to_linear(float3(0.72, 0.72, 0.72));
-            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.24);
-            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.06);
+            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.32);
+            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.08);
+        }
+        // Doc / note node directional shine. Same diagonal light dir as
+        // folder hubs so the lighting reads consistent across node types.
+        // Intensities are ~half the folder values — notes are smaller and
+        // a strong gradient would read as garish; this is a subtle bevel.
+        if (note_node) {
+            float2 note_light_dir = normalize(float2(-0.62, -0.78));
+            float note_light_band = dot(pixel_uv, note_light_dir);
+            float note_pixel_glare = smoothstep(0.34, 0.78, note_light_band)
+                * (1.0 - smoothstep(0.06, 0.82, pixel_dist));
+            float note_pixel_shadow = smoothstep(0.36, 0.90, -note_light_band)
+                * smoothstep(0.28, 0.94, pixel_dist);
+            float3 note_glare_color = light
+                ? srgb_to_linear(float3(0.20, 0.20, 0.20))
+                : srgb_to_linear(float3(1.00, 1.00, 1.00));
+            float3 note_shadow_color = light
+                ? srgb_to_linear(float3(0.00, 0.00, 0.00))
+                : srgb_to_linear(float3(0.65, 0.65, 0.65));
+            pixel_color = mix(pixel_color, note_glare_color, note_pixel_glare * 0.18);
+            pixel_color = mix(pixel_color, note_shadow_color, note_pixel_shadow * 0.05);
         }
         if (uniforms.pulse_time >= 0.0) {
             // Pixel-art click pulse. Three deliberate departures from the
@@ -981,7 +1005,7 @@ fragment float4 node_fragment(
     float alpha = mix(smooth_alpha, pixel_alpha, pixel_strength);
     if (alpha < 0.01) discard_fragment();
 
-    if (folder_node || !water) {
+    if (folder_node || note_node || !water) {
         float3 result_color = in.color.rgb;
         if (large_folder_node) {
             float2 folder_light_dir = normalize(float2(-0.62, -0.78));
@@ -996,8 +1020,24 @@ fragment float4 node_fragment(
             float3 folder_shadow_color = light
                 ? srgb_to_linear(float3(0.00, 0.00, 0.00))
                 : srgb_to_linear(float3(0.72, 0.72, 0.72));
-            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.20);
-            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.05);
+            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.28);
+            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.07);
+        }
+        if (note_node) {
+            float2 note_light_dir = normalize(float2(-0.62, -0.78));
+            float note_light_band = dot(final_uv, note_light_dir);
+            float note_pixel_glare = smoothstep(0.34, 0.78, note_light_band)
+                * (1.0 - smoothstep(0.06, 0.82, qdist));
+            float note_pixel_shadow = smoothstep(0.36, 0.90, -note_light_band)
+                * smoothstep(0.28, 0.94, qdist);
+            float3 note_glare_color = light
+                ? srgb_to_linear(float3(0.20, 0.20, 0.20))
+                : srgb_to_linear(float3(1.00, 1.00, 1.00));
+            float3 note_shadow_color = light
+                ? srgb_to_linear(float3(0.00, 0.00, 0.00))
+                : srgb_to_linear(float3(0.65, 0.65, 0.65));
+            result_color = mix(result_color, note_glare_color, note_pixel_glare * 0.16);
+            result_color = mix(result_color, note_shadow_color, note_pixel_shadow * 0.04);
         }
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
