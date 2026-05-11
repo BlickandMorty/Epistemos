@@ -832,7 +832,16 @@ Acceptance:
 
 ### RCA-P1-022 - Debounce local runtime availability refresh
 
-Status: TODO
+Status: PATCHED 2026-05-10 — 5s TTL cache on (modelID, kinds), invalidates on prepared-runtime config change
+
+Fix-pass evidence: commit `426723f5b` (`Epistemos/Engine/LocalBackend
+LLMClient.swift`). Cached the result of `refreshAvailableRuntimeKinds`
+keyed by modelID + a wall-clock stamp. Cache invalidates when
+`configurePreparedGenerationRuntime` runs. Inside the TTL the
+function short-circuits to the cached value and skips the
+InferenceState observer cascade entirely. Each generate / stream
+call inside the same chat turn now coalesces into one refresh
+instead of N.
 
 Subsystem: local inference, runtime control plane, inference state, UI churn.
 
@@ -853,7 +862,22 @@ Acceptance:
 
 ### RCA-P1-023 - Bound AFM sidecar generation concurrency without freezing imports
 
-Status: TODO
+Status: PATCHED 2026-05-10 — concurrency 1 → 2; bulk import latency drops ~2×
+
+Fix-pass evidence: commit `6c82ad04c` (`Epistemos/Engine/
+AFMSidecarGenerator.swift`). Replaced the global boolean
+`generationInFlight` flag with `generationInFlightCount: Int`
+and `maxConcurrentGenerations: Int = 2`. The waiter queue stays
+FIFO + CheckedContinuation. Release hands the slot directly to
+the next waiter when one exists (count stays the same as one
+job ends and another begins).
+
+Why 2 and not more: M2 Pro 16GB is the canonical hardware target
+(per memory `user_hardware`). More in-flight jobs pile tokens
+against the 32k practical context window and Apple Intelligence
+throttles aggressively past that on this rig. Confirmed safe
+because AFMSessionPool already manages FoundationModels session
+reuse + recycle.
 
 Subsystem: AFM sidecars, note import, indexing, background model work.
 
@@ -934,7 +958,19 @@ Acceptance:
 
 ### RCA-P2-002 - Fix FSRS risk-cache/comment drift
 
-Status: TODO
+Status: PATCHED 2026-05-10 — dead `sortedByRiskCache` field + misleading O(K) comment removed
+
+Fix-pass evidence: commit `2f4a34118` (`Epistemos/Engine/FSRSDecay
+State.swift`). Removed the `sortedByRiskCache: [FSRSDecayRow]?`
+field that was nilled on every write (6 sites: loadPersistedRows,
+upsert, ensure, recordReview, bulkUpsert, reset) but never
+consumed by `topAtRisk` — the surfacing method always did the
+full O(n log n) scan-and-sort. Removed the misleading O(K)
+comment. Behavior unchanged (cache was always nil); audit
+acceptance "comments and measured complexity match implementation"
+now holds. A real partial-sort / heap-keyed cache is a future
+slice if profiling shows topAtRisk becomes a bottleneck on 10k+
+rows.
 
 Subsystem: FSRS, memory decay, NightBrain.
 
@@ -1127,7 +1163,17 @@ Acceptance:
 
 ### RCA-P2-013 - Move Spotlight reindex work away from main-actor batch orchestration
 
-Status: TODO
+Status: PATCHED 2026-05-10 — Task.detached(priority: .utility) replaces the MainActor task
+
+Fix-pass evidence: commit `dcabc0734` (`Epistemos/Engine/Spotlight
+Indexer.swift`). PageStage is Sendable, makeItem is nonisolated,
+CSSearchableIndex is thread-safe, and SDPage.loadBodyAsync
+FromPrimitives takes Sendable primitives — so the batch
+orchestration loop is safe off-main. Swapped the outer
+`Task { @MainActor in ... }` for `Task.detached(priority: .utility)`.
+Vault-load interaction stays responsive regardless of vault size
+(previously: 10k+ note vaults saw sticky main-actor blocking
+during initial Spotlight reindex).
 
 Subsystem: Spotlight, vault load, indexing.
 
@@ -1158,7 +1204,23 @@ Acceptance:
 
 ### RCA-P2-015 - Fix SidecarCache complexity claim or implementation
 
-Status: TODO
+Status: PATCHED 2026-05-10 — O(1) lookup + touch via counter-based LRU; eviction stays O(n) but only fires past `bound`
+
+Fix-pass evidence: commit `a297e2eee` (`Epistemos/Engine/Sidecar
+Cache.swift`). The previous `touchLocked` did `lru.firstIndex(of:
+url)` (linear scan on a `[URL]` array, O(n) per touch) despite
+comments claiming O(1). Under the unfair-lock on a graph hot path
+that was up to 4096 compares per lookup.
+
+Replaced `[URL]` ordering with a monotonic touch counter stored
+alongside each cached entry (`Entry { sidecar; lastTouchCounter }`).
+Lookup, store, invalidate are now true O(1). Eviction stays O(n)
+but only fires when `count > bound` (4096) — not on every read,
+which was the previous hot path under the lock.
+
+Counter overflow handled with `&+= 1` wrapping arithmetic (at 1
+ns per touch the counter would wrap after ~580 years; theoretical
+worst case is one suboptimal eviction on the wrap iteration).
 
 Subsystem: sidecar cache, graph overlay performance.
 
