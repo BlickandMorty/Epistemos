@@ -203,18 +203,27 @@ struct VaultOrganizerView: View {
 
             if !untagged.isEmpty {
                 scanProgress = "Analyzing \(untagged.count) untagged notes..."
-                await generateTagSuggestions(for: Array(untagged))
+                await generateTagSuggestions(for: Array(untagged), sessionID: sessionID)
             }
 
             guard !Task.isCancelled else { return }
 
             if !loose.isEmpty {
                 scanProgress = "Finding folder matches for \(loose.count) loose notes..."
-                await generateFolderSuggestions(for: Array(loose))
+                await generateFolderSuggestions(for: Array(loose), sessionID: sessionID)
             }
 
             guard !Task.isCancelled else { return }
         }
+    }
+
+    /// Per RCA13 RCA2-P1-006: only append suggestions if the current
+    /// scan session matches the one that scheduled the work. A user
+    /// cancelling and starting a fresh scan would otherwise see the
+    /// in-flight previous scan's results land in the new suggestion
+    /// list seconds later.
+    private func isCurrentScan(_ sessionID: UUID) -> Bool {
+        scanSessionID == sessionID && !Task.isCancelled
     }
 
     private func cancelScan() {
@@ -232,7 +241,7 @@ struct VaultOrganizerView: View {
 
     // MARK: - Tag Suggestions
 
-    private func generateTagSuggestions(for pages: [SDPage]) async {
+    private func generateTagSuggestions(for pages: [SDPage], sessionID: UUID) async {
         // Batch pages into groups of 8 to keep prompt size manageable
         let batchSize = 8
         for batchStart in stride(from: 0, to: pages.count, by: batchSize) {
@@ -278,6 +287,9 @@ struct VaultOrganizerView: View {
                 )
 
                 let parsed = parseTagSuggestions(result, pages: batch)
+                // RCA13 RCA2-P1-006: skip stale batches whose scan was
+                // cancelled / superseded while we awaited the AI call.
+                guard isCurrentScan(sessionID) else { return }
                 suggestions.append(contentsOf: parsed)
             } catch {
                 Log.vault.warning("⚠️ Tag suggestion batch failed: \(error.localizedDescription, privacy: .public)")
@@ -315,13 +327,13 @@ struct VaultOrganizerView: View {
 
     // MARK: - Folder Suggestions
 
-    private func generateFolderSuggestions(for pages: [SDPage]) async {
+    private func generateFolderSuggestions(for pages: [SDPage], sessionID: UUID) async {
         let existingFolders = allFolders.filter { !$0.isCollection }
         let folderNames = existingFolders.map(\.name)
 
         guard !folderNames.isEmpty else {
             // No folders exist — suggest creating some based on page clusters
-            await generateNewFolderSuggestions(for: pages)
+            await generateNewFolderSuggestions(for: pages, sessionID: sessionID)
             return
         }
 
@@ -359,6 +371,8 @@ struct VaultOrganizerView: View {
                 )
 
                 let parsed = parseFolderSuggestions(result, pages: batch, folders: existingFolders)
+                // RCA13 RCA2-P1-006 stale-batch guard.
+                guard isCurrentScan(sessionID) else { return }
                 suggestions.append(contentsOf: parsed)
             } catch {
                 Log.vault.warning("⚠️ Folder suggestion batch failed: \(error.localizedDescription, privacy: .public)")
@@ -366,7 +380,7 @@ struct VaultOrganizerView: View {
         }
     }
 
-    private func generateNewFolderSuggestions(for pages: [SDPage]) async {
+    private func generateNewFolderSuggestions(for pages: [SDPage], sessionID: UUID) async {
         let titlesWithSnippets = pages.prefix(20).map { page in
             let snippet = page.normalizedBodySnippet(limit: 100, mapped: true)
             return "\"\(page.title)\" — \(snippet)"
@@ -408,6 +422,8 @@ struct VaultOrganizerView: View {
                 return
             }
 
+            // RCA13 RCA2-P1-006 stale-batch guard.
+            guard isCurrentScan(sessionID) else { return }
             for name in names.prefix(5) {
                 suggestions.append(OrgSuggestion(
                     id: UUID().uuidString,
