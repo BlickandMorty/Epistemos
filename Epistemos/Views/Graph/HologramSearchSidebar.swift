@@ -171,11 +171,16 @@ struct HologramSearchSidebar: View {
     /// users who had previously persisted `false` under the old key.
     @AppStorage("epistemos.graphSidebarCollapsed.v2")
     private var isCollapsed: Bool = true
+    @AppStorage("epistemos.graphSidebarWidth.v1")
+    private var sidebarWidthStorage: Double = 400
+    @AppStorage("epistemos.graphSidebarHeight.v1")
+    private var sidebarHeightStorage: Double = 420
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
     @State private var cachedNotesTreeSnapshot = HologramSidebarNotesTreeSnapshot.empty
     @State private var cachedNotesTreeTopologyVersion = -1
     @State private var graphChatLastScrollTime: ContinuousClock.Instant = .now
+    @State private var resizeStartSize = CGSize(width: 400, height: 420)
 
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext?
@@ -185,6 +190,12 @@ struct HologramSearchSidebar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var graphChatAccentColor: Color { theme.resolved.accent.color }
+    private var boundedSidebarWidth: CGFloat {
+        CGFloat(min(max(sidebarWidthStorage, 300), 560))
+    }
+    private var boundedSidebarHeight: CGFloat {
+        CGFloat(min(max(sidebarHeightStorage, 260), 760))
+    }
     private var graphChatStreamingText: String {
         guard inspectorState.chatMessages.last?.role == .assistant else { return "" }
         return inspectorState.chatMessages.last?.text ?? ""
@@ -270,8 +281,10 @@ struct HologramSearchSidebar: View {
                 chatContent
             }
         }
-        .frame(width: 400)
-        .frame(maxHeight: 700)
+        .frame(width: boundedSidebarWidth, height: boundedSidebarHeight)
+        .overlay(alignment: .bottomTrailing) {
+            resizeHandle
+        }
         .onAppear {
             refreshNotesTreeSnapshotIfNeeded()
         }
@@ -292,6 +305,35 @@ struct HologramSearchSidebar: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
         )
+    }
+
+    private var resizeHandle: some View {
+        Image(systemName: "arrow.down.right.and.arrow.up.left")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(theme.textSecondary.opacity(0.72))
+            .frame(width: 28, height: 28)
+            .background(theme.card.opacity(theme.isDark ? 0.74 : 0.88), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.75)
+            )
+            .padding(8)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        sidebarWidthStorage = Double(min(max(resizeStartSize.width + value.translation.width, 300), 560))
+                        sidebarHeightStorage = Double(min(max(resizeStartSize.height + value.translation.height, 260), 760))
+                    }
+                    .onEnded { _ in
+                        resizeStartSize = CGSize(width: boundedSidebarWidth, height: boundedSidebarHeight)
+                    }
+            )
+            .onAppear {
+                resizeStartSize = CGSize(width: boundedSidebarWidth, height: boundedSidebarHeight)
+            }
+            .help("Resize sidebar")
+            .accessibilityLabel("Resize sidebar")
     }
 
     // MARK: - Tab Pills
@@ -738,47 +780,99 @@ struct HologramSearchSidebar: View {
 
     private var graphChatComposer: some View {
         @Bindable var inspectorState = inspectorState
+        let trimmedInput = inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let canSubmit = !trimmedInput.isEmpty && !inspectorState.isChatStreaming
 
-        return AssistantToolbarAskBar(
-            text: $inspectorState.chatInput,
-            placeholder: "Ask this node",
-            phase: graphChatStatusPhase,
-            theme: theme,
-            accent: graphChatAccentColor,
-            isStreaming: inspectorState.isChatStreaming,
-            chromeTuning: .noteAskBar,
-            onSubmit: {
-                sendGraphChatMessage()
-            },
-            onStop: {
-                inspectorState.stopChat()
-            }
-        ) {
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 LocalModelToolbarMenu(
                     variant: .toolbar,
                     operatingMode: graphChatOperatingModeBinding,
                     availableOperatingModes: supportedGraphChatOperatingModes
                 )
-                // Capability pill — graph chat lives in the hologram
-                // sidebar. Same classifier as the other chats so the
-                // signal reads consistently across surfaces.
-                ChatCapabilityPill(
-                    capability: ChatCapability.classify(
-                        isCloudProvider: {
-                            switch inference.preferredChatModelSelection {
-                            case .cloud: true
-                            case .localMLX, .appleIntelligence: false
-                            }
-                        }(),
-                        isAgentExecuting: false,
-                        isResearchMode: false,
-                        isThinkingMode: false
-                    )
-                )
+                .controlSize(.small)
+
+                Spacer(minLength: 8)
+
+                Text(graphChatStatusText)
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(graphChatStatusPhase == .idle ? theme.textTertiary : graphChatAccentColor)
+                    .textCase(.uppercase)
             }
+
+            HStack(spacing: 8) {
+                TextField("Ask this node", text: $inspectorState.chatInput, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...3)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.94))
+                    .tint(graphChatAccentColor)
+                    .onSubmit {
+                        guard canSubmit else { return }
+                        sendGraphChatMessage()
+                    }
+
+                Button {
+                    if inspectorState.isChatStreaming {
+                        inspectorState.stopChat()
+                    } else if canSubmit {
+                        sendGraphChatMessage()
+                    }
+                } label: {
+                    Image(systemName: inspectorState.isChatStreaming ? "stop.fill" : "arrow.up")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(
+                            canSubmit || inspectorState.isChatStreaming
+                                ? graphChatAccentColor
+                                : theme.textTertiary.opacity(0.5)
+                        )
+                        .frame(width: 24, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.58 : 0.82))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.75)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSubmit && !inspectorState.isChatStreaming)
+                .help(inspectorState.isChatStreaming ? "Stop response" : "Ask this node")
+                .accessibilityLabel(inspectorState.isChatStreaming ? "Stop response" : "Ask this node")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(theme.resolved.foreground.color.opacity(0.035))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(theme.border.opacity(0.7), lineWidth: 0.8)
+            )
         }
-        .padding(12)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(theme.card.opacity(theme.isDark ? 0.60 : 0.74))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(theme.border.opacity(0.48), lineWidth: 0.75)
+        )
+        .padding(10)
+    }
+
+    private var graphChatStatusText: String {
+        switch graphChatStatusPhase {
+        case .idle:
+            "ready"
+        case .analyzing:
+            "thinking"
+        case .typing:
+            "typing"
+        }
     }
 
     @ViewBuilder

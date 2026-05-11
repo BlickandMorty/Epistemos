@@ -15,6 +15,8 @@ nonisolated let vaultFoldersRepairedNotification = Notification.Name("VaultFolde
 
 @ModelActor
 actor VaultIndexActor {
+    typealias VaultImportProgressHandler = @Sendable (VaultImportProgressSnapshot) async -> Void
+
     struct SpotlightReindexSnapshot: Sendable {
         let lastIndexDate: Date
         let changedPageCount: Int
@@ -26,6 +28,18 @@ actor VaultIndexActor {
         let uniqueTrackedVaultPathCount: Int
         let duplicateTrackedPathCount: Int
         let nonVaultPageCount: Int
+    }
+
+    struct VaultImportInventory: Sendable, Equatable {
+        let files: [URL]
+        let discoveredRegularFileCount: Int
+        let unsupportedFileCount: Int
+        let skippedPolicyCount: Int
+        let folderCount: Int
+        let duplicateFileNameCount: Int
+        let fileTypeCounts: [String: Int]
+        let unsupportedFileTypeCounts: [String: Int]
+        let skippedPolicyReasonCounts: [String: Int]
     }
 
     struct VaultFolderSelectionAssessment: Sendable, Equatable {
@@ -72,6 +86,9 @@ actor VaultIndexActor {
     nonisolated private static let excludedSuffixes: Set<String> = [
         ".photoslibrary", ".app", ".framework", ".xcodeproj", ".xcworkspace",
     ]
+    nonisolated private static let naturalLanguageWordCountByteLimit = 200_000
+    nonisolated private static let importedBodyDerivedStateByteLimit = 200_000
+    nonisolated private static let searchIndexBodyByteLimit = 200_000
 
     nonisolated private static func canonicalFilePath(_ path: String) -> String {
         URL(fileURLWithPath: path)
@@ -211,17 +228,86 @@ actor VaultIndexActor {
     nonisolated static func drainEnumerator(
         _ enumerator: FileManager.DirectoryEnumerator
     ) -> [URL] {
+        drainEnumeratorWithInventory(enumerator, rootURL: nil).files
+    }
+
+    nonisolated static func drainEnumeratorWithInventory(
+        _ enumerator: FileManager.DirectoryEnumerator,
+        rootURL: URL?
+    ) -> VaultImportInventory {
         var drained: [URL] = []
+        var discoveredRegularFileCount = 0
+        var unsupportedFileCount = 0
+        var skippedPolicyCount = 0
+        var fileTypeCounts: [String: Int] = [:]
+        var unsupportedFileTypeCounts: [String: Int] = [:]
+        var skippedPolicyReasonCounts: [String: Int] = [:]
+        var folderPaths = Set<String>()
+        var fileNameCounts: [String: Int] = [:]
+
         for case let fileURL as URL in enumerator {
             let name = fileURL.lastPathComponent
             if shouldSkipDescendants(for: name) {
+                skippedPolicyCount += 1
+                skippedPolicyReasonCounts[name, default: 0] += 1
                 enumerator.skipDescendants()
                 continue
             }
-            guard isImportableNoteFile(fileURL) else { continue }
+
+            guard isRegularFile(fileURL, label: "vault import candidate") else {
+                continue
+            }
+
+            discoveredRegularFileCount += 1
+            let ext = normalizedExtension(for: fileURL)
+
+            guard isImportableNoteFile(fileURL) else {
+                unsupportedFileCount += 1
+                unsupportedFileTypeCounts[ext, default: 0] += 1
+                continue
+            }
+
             drained.append(fileURL)
+            fileTypeCounts[ext, default: 0] += 1
+            fileNameCounts[name.lowercased(), default: 0] += 1
+
+            if let rootURL {
+                let relativeFolderPath = relativeFolderPath(for: fileURL, rootURL: rootURL)
+                if !relativeFolderPath.isEmpty {
+                    folderPaths.insert(relativeFolderPath)
+                }
+            }
         }
-        return drained
+
+        let duplicateFileNameCount = fileNameCounts.values.reduce(0) { partial, count in
+            partial + max(0, count - 1)
+        }
+
+        return VaultImportInventory(
+            files: drained,
+            discoveredRegularFileCount: discoveredRegularFileCount,
+            unsupportedFileCount: unsupportedFileCount,
+            skippedPolicyCount: skippedPolicyCount,
+            folderCount: folderPaths.count,
+            duplicateFileNameCount: duplicateFileNameCount,
+            fileTypeCounts: fileTypeCounts,
+            unsupportedFileTypeCounts: unsupportedFileTypeCounts,
+            skippedPolicyReasonCounts: skippedPolicyReasonCounts
+        )
+    }
+
+    nonisolated private static func normalizedExtension(for fileURL: URL) -> String {
+        let ext = fileURL.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ext.isEmpty ? "no extension" : ".\(ext)"
+    }
+
+    nonisolated private static func relativeFolderPath(for fileURL: URL, rootURL: URL) -> String {
+        let rootPath = rootURL.standardizedFileURL.path
+        let folderPath = fileURL.deletingLastPathComponent().standardizedFileURL.path
+        guard folderPath.hasPrefix(rootPath) else { return "" }
+        return folderPath
+            .replacingOccurrences(of: rootPath, with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
     private static let importableExtensions: Set<String> = [
@@ -493,19 +579,24 @@ actor VaultIndexActor {
 
     /// Import vault incrementally: only process new, modified, or deleted files.
     /// Compares file modification dates against stored SDPage.updatedAt to skip unchanged files.
-    func importVault(from url: URL, deleteMissingFiles: Bool = true) async throws {
+    @discardableResult
+    func importVault(
+        from url: URL,
+        deleteMissingFiles: Bool = true,
+        progress: VaultImportProgressHandler? = nil
+    ) async throws -> VaultImportProgressSnapshot? {
         let fm = FileManager.default
 
         guard fm.fileExists(atPath: url.path) else {
             log.warning("Vault directory does not exist: \(url.path, privacy: .private)")
-            return
+            return nil
         }
 
         guard fm.isReadableFile(atPath: url.path) else {
             log.error(
                 "Vault directory exists but is not readable (security scope may be missing): \(url.path, privacy: .private)"
             )
-            return
+            return nil
         }
 
         // ── 1. Build lookup of existing pages by filePath ──
@@ -530,7 +621,7 @@ actor VaultIndexActor {
 
         guard let enumerator else {
             log.error("Failed to create directory enumerator for: \(url.path, privacy: .private)")
-            return
+            return nil
         }
 
         var diskPaths = Set<String>()
@@ -538,12 +629,58 @@ actor VaultIndexActor {
         var insertCount = 0
         var updateCount = 0
         var skipCount = 0
+        var deleteCount = 0
         var changeCount = 0
+        var processedFileCount = 0
         var unreadableCount = 0
+        var failedCount = 0
+        var importInventory = VaultImportInventory(
+            files: [],
+            discoveredRegularFileCount: 0,
+            unsupportedFileCount: 0,
+            skippedPolicyCount: 0,
+            folderCount: 0,
+            duplicateFileNameCount: 0,
+            fileTypeCounts: [:],
+            unsupportedFileTypeCounts: [:],
+            skippedPolicyReasonCounts: [:]
+        )
         var pendingInsertedPages = [SDPage]()
         var pendingUpdatedPages = [UpdatedPageSnapshot]()
         let batchSize = 200
         var completedScan = !Task.isCancelled
+
+        func makeProgressSnapshot(
+            phase: String,
+            isComplete: Bool = false,
+            comparableCounts: VaultImportComparableCounts? = nil
+        ) -> VaultImportProgressSnapshot {
+            VaultImportProgressSnapshot(
+                vaultName: url.lastPathComponent,
+                phase: phase,
+                processedFileCount: processedFileCount,
+                totalImportableFileCount: importInventory.files.count,
+                discoveredRegularFileCount: importInventory.discoveredRegularFileCount,
+                unsupportedFileCount: importInventory.unsupportedFileCount,
+                skippedPolicyCount: importInventory.skippedPolicyCount,
+                folderCount: importInventory.folderCount,
+                duplicateFileNameCount: importInventory.duplicateFileNameCount,
+                insertedCount: insertCount,
+                updatedCount: updateCount,
+                unchangedCount: skipCount,
+                deletedCount: deleteCount,
+                unreadableCount: unreadableCount,
+                failedCount: failedCount,
+                trackedVaultPageCount: comparableCounts?.trackedVaultPageCount ?? 0,
+                uniqueTrackedPathCount: comparableCounts?.uniqueTrackedVaultPathCount ?? 0,
+                nonVaultPageCount: comparableCounts?.nonVaultPageCount ?? 0,
+                duplicateTrackedPathCount: comparableCounts?.duplicateTrackedPathCount ?? 0,
+                fileTypeCounts: importInventory.fileTypeCounts,
+                unsupportedFileTypeCounts: importInventory.unsupportedFileTypeCounts,
+                skippedPolicyReasonCounts: importInventory.skippedPolicyReasonCounts,
+                isComplete: isComplete
+            )
+        }
 
         func saveImportProgress(_ label: String) throws {
             do {
@@ -565,6 +702,10 @@ actor VaultIndexActor {
         }
 
         if completedScan {
+            if let progress {
+                let snapshot = makeProgressSnapshot(phase: "Scanning vault folder")
+                await progress(snapshot)
+            }
             // FileManager.DirectoryEnumerator.makeIterator() isn't
             // available from async contexts (Swift 6). Drain the
             // enumerator inside a synchronous helper first, then
@@ -572,7 +713,13 @@ actor VaultIndexActor {
             // `skipDescendants` is still called during the sync pass
             // so the filter is identical to the pre-migration
             // iteration behaviour.
-            let drained = Self.drainEnumerator(enumerator)
+            importInventory = Self.drainEnumeratorWithInventory(enumerator, rootURL: url)
+            let drained = importInventory.files
+            if let progress {
+                let snapshot = makeProgressSnapshot(phase: "Found \(drained.count) importable files")
+                await progress(snapshot)
+            }
+            let progressInterval = max(25, min(250, max(1, drained.count / 40)))
 
             for fileURL in drained {
                 // Allow cooperative cancellation during large vault imports
@@ -582,6 +729,7 @@ actor VaultIndexActor {
                     break
                 }
 
+                processedFileCount += 1
                 let filePath = fileURL.path
                 diskPaths.insert(filePath)
                 diskPathAliases.insert(filePath)
@@ -596,6 +744,11 @@ actor VaultIndexActor {
                 guard fm.isReadableFile(atPath: filePath) else {
                     log.warning("Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public)")
                     unreadableCount += 1
+                    if let progress,
+                       processedFileCount == drained.count || processedFileCount.isMultiple(of: progressInterval) {
+                        let snapshot = makeProgressSnapshot(phase: "Importing vault files")
+                        await progress(snapshot)
+                    }
                     continue
                 }
 
@@ -632,6 +785,7 @@ actor VaultIndexActor {
                                 skipCount += 1
                             }
                         } catch {
+                            failedCount += 1
                             log.error(
                                 "Failed to update \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
                             )
@@ -657,6 +811,7 @@ actor VaultIndexActor {
                             skipCount += 1
                         }
                     } catch {
+                        failedCount += 1
                         log.error(
                             "Failed to index \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
                         )
@@ -667,6 +822,11 @@ actor VaultIndexActor {
                     try saveImportProgress("vault import batch progress")
                     try synthesizeFoldersFromSubfolders()
                     log.info("Vault import progress: \(changeCount, privacy: .public) changes")
+                }
+                if let progress,
+                   processedFileCount == drained.count || processedFileCount.isMultiple(of: progressInterval) {
+                    let snapshot = makeProgressSnapshot(phase: "Importing vault files")
+                    await progress(snapshot)
                 }
             }
         }
@@ -682,11 +842,16 @@ actor VaultIndexActor {
             log.warning(
                 "Vault import returned 0 disk files while \(existingComparableCounts.uniqueTrackedVaultPathCount) tracked vault pages already exist — treating the scan as transient and skipping destructive reconciliation"
             )
-            return
+            let snapshot = makeProgressSnapshot(
+                phase: "No disk files were returned; existing vault data was preserved",
+                isComplete: true,
+                comparableCounts: existingComparableCounts
+            )
+            if let progress { await progress(snapshot) }
+            return snapshot
         }
 
         // ── 3. Delete pages whose files no longer exist on disk ──
-        var deleteCount = 0
         if completedScan && deleteMissingFiles {
             let deletedPaths = allExistingPaths.filter { path in
                 !diskPathAliases.contains(path)
@@ -736,8 +901,18 @@ actor VaultIndexActor {
                     "Vault import mismatch: \(diskPaths.count) disk files vs \(comparableCounts.uniqueTrackedVaultPathCount) tracked DB paths (delta: \(comparableCounts.uniqueTrackedVaultPathCount - diskPaths.count), tracked pages: \(comparableCounts.trackedVaultPageCount), non-vault pages: \(comparableCounts.nonVaultPageCount), duplicate tracked paths: \(comparableCounts.duplicateTrackedPathCount))"
                 )
             }
+            let snapshot = makeProgressSnapshot(
+                phase: "Vault import complete",
+                isComplete: true,
+                comparableCounts: comparableCounts
+            )
+            if let progress { await progress(snapshot) }
+            return snapshot
         } else {
             log.warning("Vault import complete, but tracked page diagnostics were unavailable")
+            let snapshot = makeProgressSnapshot(phase: "Vault import complete", isComplete: true)
+            if let progress { await progress(snapshot) }
+            return snapshot
         }
     }
 
@@ -1112,10 +1287,27 @@ actor VaultIndexActor {
                 $0.trimmingCharacters(in: .whitespaces)
             } ?? []
         let parsedEmoji = frontMatter["icon"] ?? ""
-        let parsedWordCount = countWords(body)
+        let parsedWordCount = countWords(body, filePath: filePath)
 
         if let page = existing.first {
+            let shouldPersistManagedBody = NoteFileStorage.shouldPersistImportedVaultBodyToManagedStorage(body)
+            let importedStorageBody: String
+            if shouldPersistManagedBody {
+                guard let prepared = NoteFileStorage.prepareImportedVaultBodyForStorage(
+                    pageId: page.id,
+                    content: body
+                ) else {
+                    log.error("Failed to prepare imported body for \(page.id, privacy: .public); leaving existing page unchanged")
+                    return .unchanged
+                }
+                importedStorageBody = prepared
+            } else {
+                importedStorageBody = body
+            }
+
             let missingManagedBodyNeedsRestore =
+                shouldPersistManagedBody
+                &&
                 !NoteFileStorage.bodyExists(pageId: page.id)
                 && NoteFileStorage.readBody(
                     pageId: page.id,
@@ -1146,7 +1338,7 @@ actor VaultIndexActor {
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
             if missingManagedBodyNeedsRestore
-                || currentBody != body
+                || currentBody != importedStorageBody
                 || page.title != parsedTitle
                 || page.tags != parsedTags
                 || page.emoji != parsedEmoji
@@ -1176,14 +1368,18 @@ actor VaultIndexActor {
                     log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — note-body newer than vault .md")
                     page.needsVaultSync = true
                 } else {
-                    guard await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body) else {
-                        log.error("Failed to persist imported body for \(page.id, privacy: .public); leaving page dirty")
-                        page.needsVaultSync = true
-                        return .unchanged
+                    if shouldPersistManagedBody {
+                        guard await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: page.id, content: importedStorageBody) else {
+                            log.error("Failed to persist imported body for \(page.id, privacy: .public); leaving page dirty")
+                            page.needsVaultSync = true
+                            return .unchanged
+                        }
+                    } else {
+                        log.warning("Skipping managed body mirror for large imported vault file at \(filePath, privacy: .private); vault file remains source of truth")
                     }
-                    page.updateBodyDerivedState(from: body)
-                    BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
-                    page.lastSyncedBodyHash = SDPage.bodyHash(body)
+                    updateImportedBodyDerivedState(on: page, body: importedStorageBody, filePath: filePath)
+                    BlockMirror.syncImportedVaultBody(pageId: page.id, body: importedStorageBody, modelContext: modelContext)
+                    page.lastSyncedBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
                     page.lastSyncedAt = .now
                     page.needsVaultSync = false
                     // Notify editor to reload — vault replaced the body externally.
@@ -1218,8 +1414,8 @@ actor VaultIndexActor {
                     // folder relationship will be re-wired by synthesis/repair
                 }
 
-                let indexBody = preserveBody ? currentBody : body
-                upsertSearchIndex(page: page, body: indexBody)
+                let indexBody = preserveBody ? currentBody : importedStorageBody
+                upsertSearchIndex(page: page, body: searchIndexBody(indexBody, filePath: filePath))
                 return .updated(snapshot)
             }
             return .unchanged
@@ -1252,16 +1448,35 @@ actor VaultIndexActor {
                 }
             }
 
-            guard await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body) else {
-                log.error("Failed to persist inserted body for \(page.id, privacy: .public); skipping index upsert")
-                return .unchanged
+            let shouldPersistManagedBody = NoteFileStorage.shouldPersistImportedVaultBodyToManagedStorage(body)
+            let importedStorageBody: String
+            if shouldPersistManagedBody {
+                guard let prepared = NoteFileStorage.prepareImportedVaultBodyForStorage(
+                    pageId: page.id,
+                    content: body
+                ) else {
+                    log.error("Failed to prepare inserted body for \(page.id, privacy: .public); skipping index upsert")
+                    return .unchanged
+                }
+                importedStorageBody = prepared
+            } else {
+                importedStorageBody = body
             }
-            page.updateBodyDerivedState(from: body)
-            BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
+
+            if shouldPersistManagedBody {
+                guard await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: page.id, content: importedStorageBody) else {
+                    log.error("Failed to persist inserted body for \(page.id, privacy: .public); skipping index upsert")
+                    return .unchanged
+                }
+            } else {
+                log.warning("Skipping managed body mirror for large imported vault file at \(filePath, privacy: .private); vault file remains source of truth")
+            }
+            updateImportedBodyDerivedState(on: page, body: importedStorageBody, filePath: filePath)
+            BlockMirror.syncImportedVaultBody(pageId: page.id, body: importedStorageBody, modelContext: modelContext)
             page.filePath = filePath
             page.wordCount = parsedWordCount
             page.emoji = parsedEmoji
-            page.lastSyncedBodyHash = SDPage.bodyHash(body)
+            page.lastSyncedBodyHash = importedCleanBodyHash(for: importedStorageBody, fileURL: fileURL)
             page.lastSyncedAt = .now
             page.needsVaultSync = false
 
@@ -1285,9 +1500,31 @@ actor VaultIndexActor {
             page.templateId = frontMatter["template"]
 
             modelContext.insert(page)
-            upsertSearchIndex(page: page, body: body)
+            upsertSearchIndex(page: page, body: searchIndexBody(importedStorageBody, filePath: filePath))
             return .inserted(page)
         }
+    }
+
+    private func updateImportedBodyDerivedState(on page: SDPage, body: String, filePath: String) {
+        guard body.utf8.count <= Self.importedBodyDerivedStateByteLimit else {
+            page.clearInlineBodyIfNeeded()
+            if !page.blockReferences.isEmpty {
+                page.blockReferences.removeAll(keepingCapacity: true)
+            }
+            log.warning("Skipping block-reference extraction for large imported vault body at \(filePath, privacy: .private)")
+            return
+        }
+        page.updateBodyDerivedState(from: body)
+    }
+
+    private func importedCleanBodyHash(for body: String, fileURL: URL) -> String {
+        guard body.utf8.count <= Self.searchIndexBodyByteLimit else {
+            let attributes = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)) ?? [:]
+            let size = (attributes[.size] as? NSNumber)?.int64Value ?? Int64(body.utf8.count)
+            let modifiedAt = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+            return "vault-file:\(size):\(Int(modifiedAt))"
+        }
+        return SDPage.bodyHash(body)
     }
 
     nonisolated static func decodedBodyFromReadableVaultFile(at fileURL: URL) -> String? {
@@ -1417,9 +1654,75 @@ actor VaultIndexActor {
         return title
     }
 
-    /// Count words in text content (NL tokenizer — accurate for non-English).
-    private func countWords(_ text: String) -> Int {
-        NLAnalysisService.wordCount(text)
+    /// Count words in text content. Use native tokenization for normal notes and
+    /// a bounded scanner for huge vault imports so one archive file cannot pin
+    /// the whole import actor.
+    private func countWords(_ text: String, filePath: String? = nil) -> Int {
+        guard !text.isEmpty else { return 0 }
+        guard text.utf8.count <= Self.naturalLanguageWordCountByteLimit else {
+            if let filePath {
+                log.warning("Using fast word count for large imported vault body at \(filePath, privacy: .private)")
+            }
+            return Self.fastVaultWordCount(text)
+        }
+        return NLAnalysisService.wordCount(text)
+    }
+
+    nonisolated private static func fastVaultWordCount(_ text: String) -> Int {
+        var count = 0
+        var insideWord = false
+        var inspectedBytes = 0
+        var reachedLimit = false
+        let wordCharacters = CharacterSet.alphanumerics
+
+        for scalar in text.unicodeScalars {
+            let scalarByteCount = scalar.utf8.count
+            if inspectedBytes + scalarByteCount > naturalLanguageWordCountByteLimit {
+                reachedLimit = true
+                break
+            }
+            inspectedBytes += scalarByteCount
+            if wordCharacters.contains(scalar) {
+                if !insideWord {
+                    count += 1
+                    insideWord = true
+                }
+            } else {
+                insideWord = false
+            }
+        }
+
+        guard reachedLimit, inspectedBytes > 0 else {
+            return count
+        }
+
+        let totalBytes = max(text.utf8.count, inspectedBytes)
+        return max(1, Int(Double(count) * Double(totalBytes) / Double(inspectedBytes)))
+    }
+
+    nonisolated private static func utf8Prefix(_ text: String, byteLimit: Int) -> String {
+        guard byteLimit > 0, text.utf8.count > byteLimit else {
+            return text
+        }
+
+        var scalars = String.UnicodeScalarView()
+        scalars.reserveCapacity(byteLimit)
+        var byteCount = 0
+        for scalar in text.unicodeScalars {
+            let scalarByteCount = scalar.utf8.count
+            guard byteCount + scalarByteCount <= byteLimit else { break }
+            scalars.append(scalar)
+            byteCount += scalarByteCount
+        }
+        return String(scalars)
+    }
+
+    private func searchIndexBody(_ body: String, filePath: String) -> String {
+        guard body.utf8.count > Self.searchIndexBodyByteLimit else {
+            return body
+        }
+        log.warning("Indexing bounded body prefix for large imported vault file at \(filePath, privacy: .private)")
+        return Self.utf8Prefix(body, byteLimit: Self.searchIndexBodyByteLimit)
     }
 
     /// Sanitize a title for use as a filename (Obsidian-compatible superset).

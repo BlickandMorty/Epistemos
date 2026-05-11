@@ -4,6 +4,35 @@ import os
 
 enum BlockMirror {
     private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "BlockMirror")
+    private nonisolated static let importedVaultMirrorByteLimit = 200_000
+
+    nonisolated static func syncImportedVaultBody(pageId: String, body: String, modelContext: ModelContext) {
+        let bodyByteCount = body.utf8.count
+        guard bodyByteCount <= importedVaultMirrorByteLimit else {
+            clear(pageId: pageId, modelContext: modelContext)
+            log.warning(
+                "BlockMirror: skipped imported vault body for page \(pageId, privacy: .public) because \(bodyByteCount, privacy: .public) bytes exceeds mirror limit \(importedVaultMirrorByteLimit, privacy: .public)"
+            )
+            return
+        }
+        sync(pageId: pageId, body: body, modelContext: modelContext)
+    }
+
+    nonisolated static func clear(pageId: String, modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId }
+        )
+        do {
+            let existing = try modelContext.fetch(descriptor)
+            for block in existing {
+                modelContext.delete(block)
+            }
+        } catch {
+            log.error(
+                "BlockMirror: failed to clear existing blocks for page \(pageId, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
 
     nonisolated static func sync(pageId: String, body: String, modelContext: ModelContext) {
         let descriptor = FetchDescriptor<SDBlock>(

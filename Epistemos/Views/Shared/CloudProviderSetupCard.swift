@@ -226,6 +226,7 @@ struct CloudProviderSetupCard: View {
     var showsPasteAndSave = true
     var showsOpenSettings = true
     var showsDismissTip = true
+    var pixelPresentation = false
 
     @State private var isSavingClipboardKey = false
     @State private var isRunningAccountAction = false
@@ -253,6 +254,17 @@ struct CloudProviderSetupCard: View {
     }
     private var hasConfiguredAccess: Bool {
         oauthCredential != nil || hasSavedAPIKey
+    }
+    private var cardCornerRadius: CGFloat { pixelPresentation ? 3 : 12 }
+    private var titleFont: Font {
+        pixelPresentation
+            ? .system(size: compact ? 11 : 12, weight: .bold, design: .monospaced)
+            : .system(size: compact ? 11.5 : 12, weight: .semibold)
+    }
+    private var messageFont: Font {
+        pixelPresentation
+            ? .system(size: compact ? 9.5 : 10, weight: .regular, design: .monospaced)
+            : .system(size: compact ? 10 : 10.5)
     }
     private var inlineGuidanceText: String? {
         if provider == .google, !hasSavedAPIKey, oauthCredential == nil {
@@ -327,14 +339,14 @@ struct CloudProviderSetupCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(resolvedTitle)
-                        .font(.system(size: compact ? 11.5 : 12, weight: .semibold))
+                        .font(titleFont)
                     Text(resolvedMessage)
-                        .font(.system(size: compact ? 10 : 10.5))
+                        .font(messageFont)
                         .foregroundStyle(theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let resolvedFooter {
                         Text(resolvedFooter)
-                            .font(.system(size: 10))
+                            .font(pixelPresentation ? .system(size: 9.5, weight: .regular, design: .monospaced) : .system(size: 10))
                             .foregroundStyle(theme.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -478,11 +490,11 @@ struct CloudProviderSetupCard: View {
         }
         .padding(compact ? 10 : 12)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                 .fill(theme.card.opacity(theme.isDark ? 0.82 : 0.92))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
                 .stroke(theme.border.opacity(theme.isDark ? 0.6 : 0.75), lineWidth: 0.8)
         )
         .sheet(item: $openAIDeviceAuthorization) { authorization in

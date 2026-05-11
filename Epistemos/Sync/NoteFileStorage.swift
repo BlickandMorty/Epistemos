@@ -208,6 +208,33 @@ private enum EpistemosCoreIntegrityBridge {
 /// This allows calling from any actor: MainActor, VaultIndexActor, SDPage (nonisolated), etc.
 enum NoteFileStorage {
     private nonisolated static let logger = Logger(subsystem: "com.epistemos", category: "NoteFileStorage")
+
+    private nonisolated enum StorageNormalizationMode {
+        case strict
+        case repairingImportedVaultText
+    }
+
+    private nonisolated struct ImportedVaultTextRepair {
+        var text = String()
+        var removedNullBytes = 0
+        var removedReplacementCharacters = 0
+        var removedMidStringBOMs = 0
+
+        var changed: Bool {
+            removedNullBytes > 0
+                || removedReplacementCharacters > 0
+                || removedMidStringBOMs > 0
+        }
+    }
+
+    private nonisolated struct StorageScalarInspection {
+        var byteCount = 0
+        var containsUnsafeScalars = false
+    }
+
+    private nonisolated static let importedVaultCanonicalNormalizationByteLimit = 200_000
+    private nonisolated static let importedVaultManagedBodyByteLimit = 1_000_000
+
     private nonisolated static let mutationQueue = NoteFileMutationQueue()
     private nonisolated static let pendingBodyQueue = DispatchQueue(label: "com.epistemos.NoteFileStorage.pending")
     private nonisolated static let storageOverrideQueue = DispatchQueue(label: "com.epistemos.NoteFileStorage.override")
@@ -351,14 +378,112 @@ enum NoteFileStorage {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private nonisolated static func normalizedStorageContent(_ content: String, pageId: String) -> String? {
-        guard !content.isEmpty else { return "" }
-        guard let normalized = EpistemosCoreIntegrityBridge.sanitizeAndNormalizeText(content),
-              !normalized.isEmpty else {
-            logger.error("Rejected unsafe note body content for \(pageId, privacy: .private)")
-            return nil
+    private nonisolated static func inspectStorageScalars(_ content: String) -> StorageScalarInspection {
+        if let inspection = content.utf8.withContiguousStorageIfAvailable({ bytes in
+            inspectStorageBytes(bytes)
+        }) {
+            return inspection
         }
-        return normalized
+        return Array(content.utf8).withUnsafeBufferPointer { bytes in
+            inspectStorageBytes(bytes)
+        }
+    }
+
+    private nonisolated static func inspectStorageBytes(
+        _ bytes: UnsafeBufferPointer<UInt8>
+    ) -> StorageScalarInspection {
+        guard !bytes.isEmpty else { return StorageScalarInspection() }
+        var index = 0
+        while index < bytes.count {
+            let byte = bytes[index]
+            if byte == 0x00 {
+                return StorageScalarInspection(byteCount: bytes.count, containsUnsafeScalars: true)
+            }
+            if byte == 0xEF, index + 2 < bytes.count {
+                let second = bytes[index + 1]
+                let third = bytes[index + 2]
+                if second == 0xBF, third == 0xBD {
+                    return StorageScalarInspection(byteCount: bytes.count, containsUnsafeScalars: true)
+                }
+                if second == 0xBB, third == 0xBF, index > 0 {
+                    return StorageScalarInspection(byteCount: bytes.count, containsUnsafeScalars: true)
+                }
+            }
+            index += 1
+        }
+        return StorageScalarInspection(byteCount: bytes.count, containsUnsafeScalars: false)
+    }
+
+    private nonisolated static func containsUnsafeStorageScalars(_ content: String) -> Bool {
+        inspectStorageScalars(content).containsUnsafeScalars
+    }
+
+    private nonisolated static func repairImportedVaultText(_ content: String, pageId: String) -> String {
+        var repair = ImportedVaultTextRepair()
+        repair.text.reserveCapacity(content.count)
+
+        for (index, scalar) in content.unicodeScalars.enumerated() {
+            switch scalar.value {
+            case 0x0000:
+                repair.removedNullBytes += 1
+            case 0xFFFD:
+                repair.removedReplacementCharacters += 1
+            case 0xFEFF where index > 0:
+                repair.removedMidStringBOMs += 1
+            default:
+                repair.text.unicodeScalars.append(scalar)
+            }
+        }
+
+        if repair.changed {
+            logger.warning(
+                "Repaired unsafe imported vault body for \(pageId, privacy: .private) before managed storage: removed \(repair.removedNullBytes, privacy: .public) null bytes, \(repair.removedReplacementCharacters, privacy: .public) replacement characters, \(repair.removedMidStringBOMs, privacy: .public) mid-string BOMs; source vault file was not modified"
+            )
+        }
+
+        return repair.text
+    }
+
+    private nonisolated static func normalizedStorageContent(
+        _ content: String,
+        pageId: String,
+        mode: StorageNormalizationMode = .strict
+    ) -> String? {
+        guard !content.isEmpty else { return "" }
+        switch mode {
+        case .strict:
+            let inspection = inspectStorageScalars(content)
+            if !inspection.containsUnsafeScalars {
+                return content.precomposedStringWithCanonicalMapping
+            }
+
+            guard let normalized = EpistemosCoreIntegrityBridge.sanitizeAndNormalizeText(content),
+                  !normalized.isEmpty else {
+                logger.error("Rejected unsafe note body content for \(pageId, privacy: .private)")
+                return nil
+            }
+            return normalized
+        case .repairingImportedVaultText:
+            let inspection = inspectStorageScalars(content)
+            let candidate = inspection.containsUnsafeScalars
+                ? repairImportedVaultText(content, pageId: pageId)
+                : content
+
+            guard !candidate.isEmpty else { return "" }
+            let candidateInspection = inspection.containsUnsafeScalars
+                ? inspectStorageScalars(candidate)
+                : inspection
+
+            guard !candidateInspection.containsUnsafeScalars else {
+                logger.error("Rejected unsafe note body content for \(pageId, privacy: .private)")
+                return nil
+            }
+
+            if candidateInspection.byteCount <= importedVaultCanonicalNormalizationByteLimit {
+                return candidate.precomposedStringWithCanonicalMapping
+            }
+            return candidate
+        }
     }
 
     private nonisolated static func integrityToken(for data: Data) -> String {
@@ -543,6 +668,32 @@ enum NoteFileStorage {
     }
 
     @discardableResult
+    private nonisolated static func persistPreparedImportedVaultBody(
+        _ preparedContent: String,
+        pageId: String,
+        url: URL,
+        directory: URL
+    ) -> Bool {
+        guard !containsUnsafeStorageScalars(preparedContent) else {
+            logger.error("Rejected unsafe prepared imported note body content for \(pageId, privacy: .private)")
+            return false
+        }
+        let data = Data(preparedContent.utf8)
+        let hash = integrityToken(for: data)
+        guard persistBody(preparedContent, to: url, pageId: pageId) else {
+            return false
+        }
+        guard persistHash(hash, pageId: pageId, directory: directory) else {
+            logger.error("Failed to persist integrity hash for \(pageId, privacy: .private)")
+            for url in integrityArtifactURLs(pageId: pageId, in: directory) {
+                removeItemIfPresent(at: url, label: url.lastPathComponent)
+            }
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
     private nonisolated static func persistHash(_ hash: String, pageId: String, directory: URL) -> Bool {
         let primaryURL = integrityURL(pageId: pageId, in: directory)
         guard atomicWriteUTF8(hash, to: primaryURL, itemLabel: "\(pageId).integrity") else {
@@ -582,6 +733,14 @@ enum NoteFileStorage {
     @discardableResult
     nonisolated static func writeTextAtomically(_ content: String, to url: URL, itemLabel: String) -> Bool {
         atomicWriteUTF8(content, to: url, itemLabel: itemLabel)
+    }
+
+    nonisolated static func prepareImportedVaultBodyForStorage(pageId: String, content: String) -> String? {
+        normalizedStorageContent(content, pageId: pageId, mode: .repairingImportedVaultText)
+    }
+
+    nonisolated static func shouldPersistImportedVaultBodyToManagedStorage(_ content: String) -> Bool {
+        content.utf8.count <= importedVaultManagedBodyByteLimit
     }
 
     @discardableResult
@@ -964,6 +1123,22 @@ enum NoteFileStorage {
             return false
         }
         return await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
+    }
+
+    @discardableResult
+    nonisolated static func writePreparedImportedVaultBodyAsync(pageId: String, content: String) async -> Bool {
+        let directory = storageDirectory()
+        guard let stagedContent = stageBodyForImmediateRead(pageId: pageId, content: content, directory: directory) else {
+            return false
+        }
+        let url = bodyURL(pageId: pageId, in: directory)
+        let didPersist = await mutationQueue.performAsync {
+            persistPreparedImportedVaultBody(stagedContent, pageId: pageId, url: url, directory: directory)
+        }
+        if didPersist {
+            clearPendingBody(pageId: pageId, directory: directory, matching: stagedContent)
+        }
+        return didPersist
     }
 
     /// Stage a note body for immediate reads and durably persist it in the background.

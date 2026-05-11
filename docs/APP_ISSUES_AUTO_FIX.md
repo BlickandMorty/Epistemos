@@ -63,6 +63,132 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-11-001: Large vault import stalls and graph loads only a partial vault
+
+Status: Investigating
+Priority: P1
+First Observed: 2026-05-11
+Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD `333cde26a`)
+
+Symptom:
+Launched audit app `com.epistemos.audit` was restored against `/Users/jojo/all research`.
+The app remained visible in a `Loading vault "all research"...` state for more than 9 minutes.
+Computer Use showed the loading pill in the real app, not just source state.
+
+Runtime evidence:
+- Audit app PID `536` was still running at ~100% CPU.
+- Store counts in `build/audit-app-support/Epistemos/default.store`:
+  - `ZSDPAGE`: 1200
+  - `ZSDGRAPHNODE`: 200
+  - `ZSDGRAPHEDGE`: 0
+  - `ZSDFOLDER`: 139
+- Disk count for `/Users/jojo/all research`:
+  - `5147` markdown/epdoc files from `find ... -iname '*.md' -o -iname '*.markdown' -o -iname '*.epdoc'`
+  - Extension breakdown includes `5141 md` files.
+- Logs:
+  - `Main thread hang detected: 725ms`
+  - `sanitize_and_normalize bridge failed: ContainsNullByte(message: "text contains null byte")`
+  - `sanitize_and_normalize bridge failed: ContainsMidStringBom(message: "text contains mid-string BOM")`
+  - `sanitize_and_normalize bridge failed: ContainsReplacementCharacter(message: "text contains replacement character")`
+  - `Failed to persist inserted body for ...; skipping index upsert`
+- Fresh sample `/tmp/epistemos-audit-pid536-2.sample.txt` showed the hot path on
+  `com.epistemos.NoteFileStorage.mutation` in `NoteFileStorage.persistStagedBody`
+  -> `NoteFileStorage.normalizedStorageContent`
+  -> `EpistemosCoreIntegrityBridge.sanitizeAndNormalizeText`
+  -> Rust `sanitize_and_normalize`.
+- After the imported-body repair patch, a fresh launched-app run advanced to
+  `ZSDPAGE=1200` and repaired malformed bodies in logs, then remained CPU-bound
+  in `VaultIndexActor.countWords` for a large imported body. Sample:
+  `/tmp/epistemos-audit-pid33194-sample.txt`.
+- After the bounded word-count patch, a fresh launched-app run again reached
+  `ZSDPAGE=1200`; sampling PID `60225` showed the next hot path in
+  `BlockMirror.sync(pageId:body:modelContext:)` while importing an oversized
+  vault body. Sample: `/tmp/epistemos-audit-pid60225-sample.txt`.
+- After the bounded block-mirror patch, a clean launched-app run again reached
+  `ZSDPAGE=1200`; sampling PID `76208` showed the next hot path in
+  `FoundationSafety.decodedText(from:)` -> `looksLikeReadableText(_:)`, which
+  still scanned every Unicode scalar of huge imported note bodies. Sample:
+  `/tmp/epistemos-audit-pid76208-sample.txt`.
+
+Suspected Cause:
+`VaultIndexActor.upsertPage` treats any managed body persistence failure as
+`.unchanged`, so files containing null bytes, mid-string BOMs, or replacement
+characters are skipped instead of imported as repaired vault text. The same
+path serially calls the Rust normalization bridge for every imported body,
+which makes large vault restores visibly stall. A second launched-app pass found
+large imported bodies can also pin `NLAnalysisService.wordCount` during metadata
+parsing. A third launched-app pass found oversized vault bodies can also pin
+`BlockMirror.sync` while parsing/reconciling editable block rows. A fourth pass
+found the readability gate still performed a full Unicode scalar scan before the
+bounded import path could proceed. The graph refresh then reflects only the
+currently persisted subset, producing a partial graph.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Add launched-app/runtime-backed failing tests for importing externally malformed vault files.
+- Repair unsafe imported vault text for internal managed storage without mutating the source vault file.
+- Keep normal editor writes strict so unsafe app-authored content still fails closed.
+- Use bounded word counting for oversized imported vault bodies; exact
+  NaturalLanguage tokenization is not worth blocking vault import completion.
+- Bound imported-vault block mirroring and clear stale block rows for oversized
+  archive bodies; graph/note import must not wait on block-level editing rows.
+- Bound the readable-text scan during decode so huge valid text files do not pin
+  import before malformed-scalar repair and bounded metadata work run.
+- Re-run vault import smoke with Computer Use and compare DB counts/logs before claiming fixed.
+
+Destructive Fixes (require user approval):
+- Rewriting or modifying the user's source vault files.
+- Deleting the user's vault or app support store through the UI.
+
+Investigation Log:
+- 2026-05-11: Added from launched audit app evidence. This is the current top vault blocker; do not move to lower-priority backlog until large vault import completes and graph refreshes without restart.
+
+---
+
+### ISSUE-2026-05-11-002: Graph node-type filters and selected-neighbor expansion are missing from the launched graph
+
+Status: Open
+Priority: P2
+First Observed: 2026-05-11
+Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD `333cde26a`)
+
+Symptom:
+User reports that node-type filters for Folder, Note, Document, Code, etc.
+are not visible or working, selected nodes do not push connected nodes outward,
+and the graph did not load the whole vault.
+
+Runtime/source evidence:
+- Computer Use opened the real graph force-settings popover in the launched audit app.
+  It showed only `Presets`, `Physics`, `Display`, and `Advanced`; no `Filters`
+  section and no Folder/Note/Document/Code toggles were visible.
+- Source has filter state in `GraphState` / `FilterEngine`, including
+  `GraphState.userFilterableNodeTypes == GraphNodeType.visibleCases`, but the
+  current `GraphForceSettingsSection` enum exposes only presets, physics,
+  display, and advanced.
+- `graph-engine/src/engine.rs` selection comment says selection applies
+  neighbor focus "without changing the physics force model", so the requested
+  selected-neighborhood expansion is not implemented in the current engine.
+
+Suspected Cause:
+The type-filter model exists but is not wired to a discoverable graph control
+in the current accepted UI. Selected-node behavior currently highlights and
+labels connected nodes; it does not alter direct-edge rest length or apply any
+selection-specific separation force.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Add a minimal Filters section to the existing graph settings popover without
+  touching graph visual style, labels, camera behavior, or panel popout buttons.
+- Add focused graph-engine tests proving selected direct edges lengthen while
+  non-selected edges keep the normal force model.
+
+Destructive Fixes (require user approval):
+- Replacing the accepted graph toolbar/panel architecture.
+- Rewriting graph visual style, labels, camera, or legacy physics presets.
+
+Investigation Log:
+- 2026-05-11: Added after launched-app force-settings smoke and source verification. Must be handled after or alongside the vault completeness fix because partial graph data can make filter behavior look broken.
+
+---
+
 > ### 2026-05-10 Re-audit pass — canonical-fit verification
 >
 > User asked: "make sure the way u fix is canonical with the research i did

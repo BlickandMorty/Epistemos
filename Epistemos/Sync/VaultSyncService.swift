@@ -101,6 +101,113 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
     }
 }
 
+struct VaultImportProgressSnapshot: Sendable, Equatable {
+    var vaultName: String
+    var phase: String
+    var processedFileCount: Int
+    var totalImportableFileCount: Int
+    var discoveredRegularFileCount: Int
+    var unsupportedFileCount: Int
+    var skippedPolicyCount: Int
+    var folderCount: Int
+    var duplicateFileNameCount: Int
+    var insertedCount: Int
+    var updatedCount: Int
+    var unchangedCount: Int
+    var deletedCount: Int
+    var unreadableCount: Int
+    var failedCount: Int
+    var trackedVaultPageCount: Int
+    var uniqueTrackedPathCount: Int
+    var nonVaultPageCount: Int
+    var duplicateTrackedPathCount: Int
+    var fileTypeCounts: [String: Int]
+    var unsupportedFileTypeCounts: [String: Int]
+    var skippedPolicyReasonCounts: [String: Int]
+    var isComplete: Bool
+
+    static func starting(vaultName: String, phase: String = "Preparing vault import") -> VaultImportProgressSnapshot {
+        VaultImportProgressSnapshot(
+            vaultName: vaultName,
+            phase: phase,
+            processedFileCount: 0,
+            totalImportableFileCount: 0,
+            discoveredRegularFileCount: 0,
+            unsupportedFileCount: 0,
+            skippedPolicyCount: 0,
+            folderCount: 0,
+            duplicateFileNameCount: 0,
+            insertedCount: 0,
+            updatedCount: 0,
+            unchangedCount: 0,
+            deletedCount: 0,
+            unreadableCount: 0,
+            failedCount: 0,
+            trackedVaultPageCount: 0,
+            uniqueTrackedPathCount: 0,
+            nonVaultPageCount: 0,
+            duplicateTrackedPathCount: 0,
+            fileTypeCounts: [:],
+            unsupportedFileTypeCounts: [:],
+            skippedPolicyReasonCounts: [:],
+            isComplete: false
+        )
+    }
+
+    var progressFraction: Double? {
+        guard totalImportableFileCount > 0 else { return nil }
+        return min(1, max(0, Double(processedFileCount) / Double(totalImportableFileCount)))
+    }
+
+    var compactStatusMessage: String {
+        if totalImportableFileCount > 0 {
+            return "\(phase): \(processedFileCount)/\(totalImportableFileCount) files"
+        }
+        return phase
+    }
+
+    var primarySummary: String {
+        if isComplete {
+            return "Imported \(uniqueTrackedPathCount) vault-backed items from \(vaultName)"
+        }
+        return compactStatusMessage
+    }
+
+    var mutationSummary: String {
+        "\(insertedCount) new, \(updatedCount) updated, \(unchangedCount) unchanged, \(deletedCount) deleted"
+    }
+
+    var issueSummary: String {
+        "\(unreadableCount) unreadable, \(failedCount) failed, \(duplicateTrackedPathCount) duplicate tracked paths"
+    }
+
+    var inventorySummary: String {
+        "\(discoveredRegularFileCount) regular files discovered; \(totalImportableFileCount) importable, \(unsupportedFileCount) unsupported, \(skippedPolicyCount) skipped by policy, \(folderCount) folders"
+    }
+
+    func topFileTypes(limit: Int = 6) -> [(String, Int)] {
+        sortedCounts(fileTypeCounts, limit: limit)
+    }
+
+    func topUnsupportedFileTypes(limit: Int = 5) -> [(String, Int)] {
+        sortedCounts(unsupportedFileTypeCounts, limit: limit)
+    }
+
+    func topSkippedPolicyReasons(limit: Int = 5) -> [(String, Int)] {
+        sortedCounts(skippedPolicyReasonCounts, limit: limit)
+    }
+
+    private func sortedCounts(_ counts: [String: Int], limit: Int) -> [(String, Int)] {
+        counts
+            .sorted { lhs, rhs in
+                if lhs.value == rhs.value { return lhs.key < rhs.key }
+                return lhs.value > rhs.value
+            }
+            .prefix(limit)
+            .map { ($0.key, $0.value) }
+    }
+}
+
 private struct VersionCaptureSnapshot: Sendable {
     let pageId: String
     let title: String
@@ -109,6 +216,16 @@ private struct VersionCaptureSnapshot: Sendable {
 }
 
 private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
+
+@MainActor
+private enum VaultImportProgressBridge {
+    static func publish(_ snapshot: VaultImportProgressSnapshot, expectedVaultPath: String) {
+        guard let vaultSync = AppBootstrap.shared?.vaultSync,
+              vaultSync.vaultURL?.standardizedFileURL.path == expectedVaultPath
+        else { return }
+        vaultSync.applyVaultImportProgress(snapshot)
+    }
+}
 
 @MainActor @Observable
 final class VaultSyncService {
@@ -225,6 +342,8 @@ final class VaultSyncService {
     /// very first frame, before the import Task even begins.
     var isIndexing = false
     var vaultActivityMessage: String?
+    var vaultImportProgress: VaultImportProgressSnapshot?
+    var lastVaultImportSummary: VaultImportProgressSnapshot?
     var recoveryIssue: VaultRecoveryIssue?
     var isRecoveringLocalState = false
 
@@ -583,6 +702,37 @@ final class VaultSyncService {
         guard !isWatching else { return }
         isIndexing = false
         vaultActivityMessage = nil
+        vaultImportProgress = nil
+    }
+
+    var visibleVaultImportDetails: VaultImportProgressSnapshot? {
+        vaultImportProgress ?? lastVaultImportSummary
+    }
+
+    fileprivate func beginVaultImportProgress(vaultName: String, phase: String = "Preparing vault import") {
+        vaultImportProgress = .starting(vaultName: vaultName, phase: phase)
+        lastVaultImportSummary = nil
+        vaultActivityMessage = vaultImportProgress?.compactStatusMessage
+    }
+
+    fileprivate func applyVaultImportProgress(_ snapshot: VaultImportProgressSnapshot) {
+        vaultImportProgress = snapshot
+        vaultActivityMessage = snapshot.compactStatusMessage
+        if snapshot.isComplete {
+            lastVaultImportSummary = snapshot
+        }
+    }
+
+    fileprivate func finishVaultImportProgress(keepSummary: Bool) {
+        if keepSummary, let snapshot = vaultImportProgress, snapshot.isComplete {
+            lastVaultImportSummary = snapshot
+        }
+        vaultImportProgress = nil
+    }
+
+    fileprivate func clearVaultImportTelemetry() {
+        vaultImportProgress = nil
+        lastVaultImportSummary = nil
     }
 
     func persistVaultSelection(_ url: URL, userConfirmedSuspiciousFolder: Bool = false) {
@@ -2123,12 +2273,17 @@ final class VaultSyncService {
         let url = vaultURL
         let svc = searchService
         isIndexing = true
-        vaultActivityMessage = "Loading vault \"\(vaultURL.lastPathComponent)\"..."
+        beginVaultImportProgress(vaultName: vaultURL.lastPathComponent, phase: "Loading vault \"\(vaultURL.lastPathComponent)\"")
+        let expectedVaultPath = vaultURL.standardizedFileURL.path
+        let progressHandler: VaultIndexActor.VaultImportProgressHandler = { snapshot in
+            await VaultImportProgressBridge.publish(snapshot, expectedVaultPath: expectedVaultPath)
+        }
         importTask = Task {
             let didImport = await Self.performInitialImport(
                 actor: actor,
                 url: url,
-                searchService: svc
+                searchService: svc,
+                progressHandler: progressHandler
             )
             if didImport {
                 await self.schedulePostImportMaintenance(
@@ -2146,6 +2301,7 @@ final class VaultSyncService {
                     type: .error
                 )
             }
+            self.finishVaultImportProgress(keepSummary: didImport)
             self.vaultActivityMessage = nil
             self.isIndexing = false
         }
@@ -2265,6 +2421,7 @@ final class VaultSyncService {
         isWatching = false
         isIndexing = false
         vaultActivityMessage = nil
+        clearVaultImportTelemetry()
         initialImportCompleted = false
         log.info("VaultSyncService stopped (preserveData=\(preserveData))")
     }
@@ -2341,7 +2498,8 @@ final class VaultSyncService {
     private nonisolated static func performInitialImport(
         actor: VaultIndexActor?,
         url: URL,
-        searchService: SearchIndexService?
+        searchService: SearchIndexService?,
+        progressHandler: VaultIndexActor.VaultImportProgressHandler? = nil
     ) async -> Bool {
         let importInterval = Log.vaultPerf.beginInterval("initialVaultImport")
         guard let actor else {
@@ -2354,7 +2512,7 @@ final class VaultSyncService {
             await actor.setSearchService(searchService)
         }
         do {
-            try await actor.importVault(from: url)
+            try await actor.importVault(from: url, progress: progressHandler)
             Log.vault.info("Initial vault import complete")
 
             await MainActor.run {
@@ -2544,6 +2702,17 @@ final class VaultSyncService {
         guard let vaultURL, let actor = indexActor else { return [] }
         let interval = Log.vaultPerf.beginInterval("syncFromVault")
         defer { Log.vaultPerf.endInterval("syncFromVault", interval) }
+        isIndexing = true
+        beginVaultImportProgress(vaultName: vaultURL.lastPathComponent, phase: "Syncing vault \"\(vaultURL.lastPathComponent)\"")
+        defer {
+            finishVaultImportProgress(keepSummary: true)
+            vaultActivityMessage = nil
+            isIndexing = false
+        }
+        let expectedVaultPath = vaultURL.standardizedFileURL.path
+        let progressHandler: VaultIndexActor.VaultImportProgressHandler = { snapshot in
+            await VaultImportProgressBridge.publish(snapshot, expectedVaultPath: expectedVaultPath)
+        }
 
         let context = modelContainer.mainContext
         do {
@@ -2554,7 +2723,7 @@ final class VaultSyncService {
 
         // Re-import vault (handles new files + updates)
         do {
-            try await actor.importVault(from: vaultURL)
+            try await actor.importVault(from: vaultURL, progress: progressHandler)
         } catch {
             log.error("Sync import failed: \(error.localizedDescription, privacy: .public)")
             return []

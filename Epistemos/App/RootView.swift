@@ -241,7 +241,8 @@ struct RootView: View {
         .overlay(alignment: .top) {
             if vaultSync.isIndexing || vaultSync.vaultActivityMessage != nil {
                 VaultActivityStatusOverlay(
-                    message: vaultSync.vaultActivityMessage ?? "Loading vault..."
+                    message: vaultSync.vaultActivityMessage ?? "Loading vault...",
+                    progress: vaultSync.vaultImportProgress
                 )
                 .padding(.top, 18)
                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -1878,19 +1879,35 @@ private struct DatabaseRecoveryOverlay: View {
 
 private struct VaultActivityStatusOverlay: View {
     let message: String
+    let progress: VaultImportProgressSnapshot?
 
     var body: some View {
-        HStack(spacing: 10) {
-            ProgressView()
-                .controlSize(.small)
-            Text(message)
-                .font(.system(size: 12, weight: .semibold))
-                .lineLimit(1)
-                .truncationMode(.middle)
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 10) {
+                if let fraction = progress?.progressFraction {
+                    ProgressView(value: fraction)
+                        .frame(width: 92)
+                } else {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+                Text(message)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            if let progress {
+                Text("\(progress.mutationSummary) · \(progress.inventorySummary)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: .black.opacity(0.14), radius: 18, y: 8)
         .accessibilityLabel(message)
     }
