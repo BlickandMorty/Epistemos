@@ -25,23 +25,58 @@ enum StructuredQueryParser {
             : input.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return nil }
 
-        // Split on & (AND) at the top level, respecting quotes and parens
-        let parts = splitTopLevel(query, on: "&")
+        return parseQuery(query)
+    }
 
-        if parts.count == 1 {
-            return parseAtom(parts[0].trimmingCharacters(in: .whitespaces))
+    // Per RCA13 P2-004: the grammar docs claimed `|` and grouping
+    // worked but only `&` was actually parsed. Convention: `|` binds
+    // weaker than `&`, so split on `|` at the TOP level first, then
+    // split each branch on `&`. Quotes + parens are already preserved
+    // by `splitTopLevel`. Parenthesized groups are unwrapped in
+    // `parseAtom`.
+    private static func parseQuery(_ query: String) -> QueryAST? {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+
+        // Step 1: split on | (OR) — lowest precedence
+        let orParts = splitTopLevel(trimmed, on: "|")
+        if orParts.count > 1 {
+            let branches = orParts.compactMap {
+                parseQuery($0.trimmingCharacters(in: .whitespaces))
+            }
+            guard !branches.isEmpty else { return nil }
+            return branches.count == 1 ? branches[0] : .or(branches)
         }
 
-        let atoms = parts.compactMap {
-            parseAtom($0.trimmingCharacters(in: .whitespaces))
+        // Step 2: split on & (AND) — higher precedence than |
+        let andParts = splitTopLevel(trimmed, on: "&")
+        if andParts.count > 1 {
+            let atoms = andParts.compactMap {
+                parseAtom($0.trimmingCharacters(in: .whitespaces))
+            }
+            guard !atoms.isEmpty else { return nil }
+            return atoms.count == 1 ? atoms[0] : .and(atoms)
         }
-        guard !atoms.isEmpty else { return nil }
-        return atoms.count == 1 ? atoms[0] : .and(atoms)
+
+        // Single atom
+        return parseAtom(trimmed)
     }
 
     // MARK: - Atom Parsing
 
     private static func parseAtom(_ s: String) -> QueryAST? {
+        // Grouping: ( ... ) — recurse into the full query parser so
+        // a group can contain nested `|` / `&`. Per RCA13 P2-004 the
+        // grammar docs advertised this; it now actually parses.
+        // Guard against unbalanced parens by passing through to the
+        // bare-string fallthrough below.
+        if s.hasPrefix("(") && s.hasSuffix(")") {
+            let inner = String(s.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            if !inner.isEmpty, let ast = parseQuery(inner) {
+                return ast
+            }
+        }
+
         // Negation
         if s.hasPrefix("!") {
             let inner = String(s.dropFirst()).trimmingCharacters(in: .whitespaces)
