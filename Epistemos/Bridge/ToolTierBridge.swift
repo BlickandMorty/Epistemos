@@ -209,10 +209,30 @@ final class ToolTierBridge {
                 distribution: distribution
             )
         } catch {
-            logger.warning("Tool list fetch failed: \(error.localizedDescription, privacy: .public)")
+            // RCA13 RCA2-P1-016: bump from .warning to .error and post
+            // a Notification so any subscribed UI (chat composer
+            // capability pill, command-center diagnostics row) can
+            // distinguish "Rust bindings broke" from "tier intentionally
+            // disabled." Empty return preserved for compatibility, but
+            // the surface is no longer silent.
+            logger.error(
+                "Tool list fetch FAILED (tier=\(self.tier.rawValue, privacy: .public), vault=\(resolvedVaultPath, privacy: .public)): \(error.localizedDescription, privacy: .public). Tool-capable surfaces will run without tools until the next refresh."
+            )
+            NotificationCenter.default.post(
+                name: .toolTierBridgeLoadFailed,
+                object: nil,
+                userInfo: [
+                    "tier": self.tier.rawValue,
+                    "error": error.localizedDescription,
+                ]
+            )
             return []
         }
         #else
+        // RCA13 RCA2-P1-016: build-time #else (no agent_coreFFI in
+        // this target). Log once at error level so anyone running a
+        // debug build without the FFI knows tools are off.
+        logger.error("Tool list fetch unavailable: agent_coreFFI not linked in this build.")
         return []
         #endif
     }
@@ -335,4 +355,16 @@ final class ToolTierBridge {
         }
         return "{\"error\":\"\(message)\",\"success\":false}"
     }
+}
+
+extension Notification.Name {
+    /// Posted when `ToolTierBridge.loadTools()` fails (Rust FFI throw
+    /// or build-time absence of agent_coreFFI). Per RCA13 RCA2-P1-016,
+    /// subscribed UI surfaces can use this to distinguish "tier
+    /// intentionally disabled" from "tools broken" instead of treating
+    /// an empty array as both. userInfo carries `tier` (String) and
+    /// optionally `error` (String).
+    static let toolTierBridgeLoadFailed = Notification.Name(
+        "com.epistemos.toolTierBridge.loadFailed"
+    )
 }
