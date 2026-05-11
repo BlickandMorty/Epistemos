@@ -390,7 +390,7 @@ final class GraphEngine {
         return graph_engine_is_settled(h) != 0
     }
 
-    /// Whether physics is completely disabled (static layout for large graphs > 1500 nodes).
+    /// Whether physics is explicitly frozen by the user.
     var isStaticLayout: Bool {
         guard let h = handle else { return false }
         return graph_engine_is_static_layout(h) != 0

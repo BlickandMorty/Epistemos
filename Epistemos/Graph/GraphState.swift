@@ -533,6 +533,12 @@ enum GraphVaultMode: String, CaseIterable, Sendable {
 final class GraphState {
     private static let schedulerDefaultsVersion = 2
     private static let schedulerDefaultsVersionKey = "epistemos.physics.schedulerDefaultsVersion"
+    private static let nodeVisibilityDefaultsKey = "epistemos.graph.visibleNodeTypes"
+
+    static let userFilterableNodeTypes: [GraphNodeType] = GraphNodeType.visibleCases
+
+    static let contentFocusedNodeTypes: Set<GraphNodeType> = Set(userFilterableNodeTypes)
+        .subtracting([.folder])
 
     private static func defaultTimelineSteps() -> [PhysicsScheduleStep] {
         GraphOverlayPhysicsPolicy.defaultTimelineSignature.map { step in
@@ -709,12 +715,13 @@ final class GraphState {
     private var loadedPreparedRetrievalIndexEngine: OpaquePointer?
     private var loadedPreparedRetrievalIndexManifestPath: String?
 
-    /// True when physics is completely disabled (graph > threshold visible nodes).
+    /// True when physics is explicitly frozen by the user.
     /// Updated after each commit/refresh cycle. UI uses this to grey out physics controls.
     var isStaticLayout: Bool = false
 
-    /// The threshold above which physics is disabled. Shown in the UI tooltip.
-    static let staticLayoutThreshold = 9000
+    /// Large graph threshold where entrance animation is skipped so initial
+    /// load stays snappy. Physics remains active above this threshold.
+    static let largeGraphEntranceThreshold = 9000
 
     /// User-controlled physics freeze (persisted across launches).
     var isPhysicsFrozen: Bool = false
@@ -748,6 +755,7 @@ final class GraphState {
         loadCustomPresetsFromDefaults()
         restorePhysicsSettings()
         restoreLabelPolicy()
+        restoreGraphNodeVisibility()
     }
 
     func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
@@ -934,6 +942,77 @@ final class GraphState {
 
     func requestFilterSync() { filterVersion += 1 }
 
+    func isNodeTypeVisible(_ type: GraphNodeType) -> Bool {
+        filter.activeNodeTypes.contains(type)
+    }
+
+    func setNodeTypeVisibility(_ type: GraphNodeType, isVisible: Bool) {
+        guard filter.setType(type, isVisible: isVisible) else { return }
+        persistGraphNodeVisibility()
+        sanitizeSelectionAfterFilterChange()
+        requestFilterSync()
+    }
+
+    func applyContentFocusedNodeVisibility() {
+        applyNodeVisibilityPreset(Self.contentFocusedNodeTypes)
+    }
+
+    func showAllUserFilterableNodeTypes() {
+        applyNodeVisibilityPreset(Set(Self.userFilterableNodeTypes))
+    }
+
+    private func applyNodeVisibilityPreset(_ visibleTypes: Set<GraphNodeType>) {
+        var nextTypes = filter.activeNodeTypes
+        for type in Self.userFilterableNodeTypes {
+            if visibleTypes.contains(type) {
+                nextTypes.insert(type)
+            } else {
+                nextTypes.remove(type)
+            }
+        }
+        guard filter.setActiveNodeTypes(nextTypes) else { return }
+        persistGraphNodeVisibility()
+        sanitizeSelectionAfterFilterChange()
+        requestFilterSync()
+    }
+
+    private func persistGraphNodeVisibility() {
+        let visibleRawValues = Self.userFilterableNodeTypes
+            .filter { filter.activeNodeTypes.contains($0) }
+            .map(\.rawValue)
+        UserDefaults.standard.set(visibleRawValues, forKey: Self.nodeVisibilityDefaultsKey)
+    }
+
+    private func restoreGraphNodeVisibility() {
+        guard let visibleRawValues = UserDefaults.standard.array(forKey: Self.nodeVisibilityDefaultsKey) as? [String] else {
+            return
+        }
+        let allowedTypes = Set(Self.userFilterableNodeTypes)
+        var nextTypes = filter.activeNodeTypes.subtracting(allowedTypes)
+        for rawValue in visibleRawValues {
+            guard let type = GraphNodeType(rawValue: rawValue),
+                  allowedTypes.contains(type) else {
+                continue
+            }
+            nextTypes.insert(type)
+        }
+        _ = filter.setActiveNodeTypes(nextTypes)
+    }
+
+    private func sanitizeSelectionAfterFilterChange() {
+        if let selectedNodeId,
+           let node = store.nodes[selectedNodeId],
+           !filter.isNodeVisible(node) {
+            selectNode(nil)
+            selectedNodeScreenPoint = nil
+        }
+        if let focusedNodeId = filter.focusedNodeId,
+           let node = store.nodes[focusedNodeId],
+           !filter.isNodeVisible(node) {
+            clearFocus()
+        }
+    }
+
     /// Set to true when the rebuild button is pressed while graph is visible.
     var pendingRebuild = false
 
@@ -941,6 +1020,7 @@ final class GraphState {
     func resetForVaultLifecycle() {
         store.clear()
         filter.resetForVaultLifecycle()
+        restoreGraphNodeVisibility()
 
         vaultMode = .humanVault
         routeHistory = [.canvas]

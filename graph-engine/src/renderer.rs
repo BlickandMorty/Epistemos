@@ -1690,6 +1690,16 @@ impl Renderer {
         self.debug_counters.classic_buffer_rebuilds
     }
 
+    #[cfg(test)]
+    pub(crate) fn instance_counts_for_tests(&self) -> (usize, usize, usize, usize) {
+        (
+            self.node_count,
+            self.edge_instance_count,
+            self.highlight_count,
+            self.label_instance_count,
+        )
+    }
+
     #[inline]
     fn push_face_node(&mut self, position: [f32; 2], radius: f32, color: [f32; 4]) {
         self.classic_node_scratch.push(NodeInstance {
@@ -3156,6 +3166,47 @@ impl Renderer {
     pub fn clear_aggregated_edges(&mut self) {
         self.use_aggregated_edges = false;
         self.aggregated_edge_count = 0;
+    }
+
+    pub fn clear_instances(&mut self) {
+        self.glow_count = 0;
+        self.node_count = 0;
+        self.face_feature_count = 0;
+        self.edge_instance_count = 0;
+        self.aggregated_edge_count = 0;
+        self.use_aggregated_edges = false;
+        self.edges_hidden = false;
+        self.edge_filter_node = None;
+        self.highlight_count = 0;
+        self.highlight.active = false;
+        self.highlight.highlighted_ids.clear();
+        self.highlight.root_id = None;
+        self.highlight_flag_scratch.clear();
+        self.rendered_node_indices.clear();
+        self.candidate_entities.clear();
+        self.edge_candidate_indices.clear();
+        self.edge_candidate_marks.clear();
+        self.edge_budget_scratch.clear();
+        self.density_clusters.clear();
+        self.classic_node_scratch.clear();
+        self.classic_edge_scratch.clear();
+        self.classic_velocity_scratch.clear();
+        self.wind_active = false;
+        self.wind_particle_count = 0;
+        self.dialogue = DialogueState::default();
+        self.dialogue_vertex_scratch.clear();
+        self.label_instance_count = 0;
+        self.compute_last_n = 0;
+        self.compute_in_flight = false;
+
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.last_total_nodes = 0;
+            self.debug_counters.last_visible_nodes = 0;
+            self.debug_counters.last_total_edges = 0;
+            self.debug_counters.last_candidate_edges = 0;
+            self.debug_counters.last_visible_edges = 0;
+        }
     }
 
     /// Pre-allocate GPU buffers with headroom. Call once after commit.
@@ -4658,8 +4709,6 @@ mod tests {
         renderer.rebuild_highlight_flags(&world);
         assert_eq!(renderer.highlight_flag_scratch, vec![1, 1, 3]);
     }
-
-
 
     #[test]
     fn curve_edge_buffer_reuses_capacity_for_same_visible_edge_count() {

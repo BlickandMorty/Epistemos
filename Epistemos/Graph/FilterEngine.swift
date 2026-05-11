@@ -80,11 +80,25 @@ final class FilterEngine {
 
     /// Toggle a node type on or off.
     func toggleType(_ type: GraphNodeType) {
-        if activeNodeTypes.contains(type) {
-            activeNodeTypes.remove(type)
-        } else {
-            activeNodeTypes.insert(type)
+        _ = setType(type, isVisible: !activeNodeTypes.contains(type))
+    }
+
+    /// Set a node type to a specific visibility state.
+    @discardableResult
+    func setType(_ type: GraphNodeType, isVisible: Bool) -> Bool {
+        if isVisible {
+            let result = activeNodeTypes.insert(type)
+            return result.inserted
         }
+        return activeNodeTypes.remove(type) != nil
+    }
+
+    /// Replace the active type mask in one atomic state update.
+    @discardableResult
+    func setActiveNodeTypes(_ types: Set<GraphNodeType>) -> Bool {
+        guard activeNodeTypes != types else { return false }
+        activeNodeTypes = types
+        return true
     }
 
     /// Reset to showing all node types.

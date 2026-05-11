@@ -1576,6 +1576,88 @@ struct VaultSyncServiceAuditTests {
         }
     }
 
+    @Test("recovery snapshots skip heavyweight derived vault caches")
+    func recoverySnapshotsSkipHeavyweightDerivedVaultCaches() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let modelsURL = appSupportURL.appendingPathComponent("Models", isDirectory: true)
+        let ssmCacheURL = appSupportURL.appendingPathComponent("ssm_cache", isDirectory: true)
+        let runtimeDiagnosticsURL = appSupportURL.appendingPathComponent("runtime_diagnostics", isDirectory: true)
+        let recoverySnapshotsURL = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: modelsURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: ssmCacheURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: runtimeDiagnosticsURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+        try "swiftdata".write(
+            to: appSupportURL.appendingPathComponent("default.store"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "search".write(
+            to: appSupportURL.appendingPathComponent("search.sqlite"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "body".write(
+            to: noteBodiesURL.appendingPathComponent("orphan.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "model".write(
+            to: modelsURL.appendingPathComponent("model.bin"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "cache".write(
+            to: ssmCacheURL.appendingPathComponent("state.bin"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "diag".write(
+            to: runtimeDiagnosticsURL.appendingPathComponent("trace.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let page = SDPage(title: "Snapshot Me Lightly")
+        page.saveBody("local body")
+        context.insert(page)
+        try context.save()
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+
+            let didClear = await service.stopWatchingAsync(preserveData: false)
+
+            let latestSnapshot = try latestSnapshotDirectory(in: recoverySnapshotsURL)
+            let snapshottedAppSupport = latestSnapshot.appendingPathComponent(
+                appSupportURL.lastPathComponent,
+                isDirectory: true
+            )
+            #expect(didClear)
+            #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.path))
+            #expect(!FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("default.store").path))
+            #expect(!FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("search.sqlite").path))
+            #expect(!FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("note-bodies").path))
+            #expect(!FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("Models").path))
+            #expect(!FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("ssm_cache").path))
+            #expect(!FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("runtime_diagnostics").path))
+        })
+    }
+
     @MainActor
     @Test("destructive stop aborts the clear when the recovery snapshot fails")
     func destructiveStopAbortsClearWhenSnapshotFails() throws {
@@ -1802,8 +1884,8 @@ struct VaultSyncServiceAuditTests {
         })
     }
 
-    @Test("destructive stop snapshots SQLite state via consistent backups instead of live file copies")
-    func destructiveStopSnapshotsSQLiteStateViaConsistentBackups() async throws {
+    @Test("destructive stop snapshots durable SQLite state and skips derived search index")
+    func destructiveStopSnapshotsDurableSQLiteStateAndSkipsDerivedSearchIndex() async throws {
         let container = try makeRecoveryContainer()
         let service = VaultSyncService(modelContainer: container)
         let root = try makeTempDirectory()
@@ -1857,13 +1939,12 @@ struct VaultSyncServiceAuditTests {
 
         #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.appendingPathComponent("cache.txt").path))
         #expect(FileManager.default.fileExists(atPath: snapshottedEventStoreURL.path))
-        #expect(FileManager.default.fileExists(atPath: snapshottedSearchDatabaseURL.path))
+        #expect(!FileManager.default.fileExists(atPath: snapshottedSearchDatabaseURL.path))
         #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedEventStoreURL.path + "-wal").path))
         #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedEventStoreURL.path + "-shm").path))
         #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedSearchDatabaseURL.path + "-wal").path))
         #expect(!FileManager.default.fileExists(atPath: URL(fileURLWithPath: snapshottedSearchDatabaseURL.path + "-shm").path))
         #expect(try sqliteRowCount(databaseURL: snapshottedEventStoreURL, table: "events") == 1)
-        #expect(try sqliteRowCount(databaseURL: snapshottedSearchDatabaseURL, table: "indexed_pages") == 1)
 
         _ = searchService
     }

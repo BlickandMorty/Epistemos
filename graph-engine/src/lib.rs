@@ -595,7 +595,7 @@ pub extern "C" fn graph_engine_destroy(engine: *mut Engine) {
 pub extern "C" fn graph_engine_clear(engine: *mut Engine) {
     ffi_catch_unwind!("graph_engine_clear", {
         ffi_engine!(engine);
-        engine.graph_mut().clear();
+        engine.clear_pipeline();
     });
 }
 

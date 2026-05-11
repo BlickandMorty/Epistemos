@@ -1175,9 +1175,9 @@ mod tests {
     }
 
     #[test]
-    fn simulation_static_layout_large_graph() {
+    fn simulation_large_graph_keeps_physics_active() {
         let mut g = Graph::new();
-        // Add more than 9000 nodes to trigger static layout
+        // Add more than the old 9000-node threshold. Physics should stay active.
         for i in 0..9500 {
             g.add_node(
                 format!("n{}", i),
@@ -1192,9 +1192,9 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&g);
 
-        assert!(sim.static_layout);
-        assert!(sim.is_settled);
-        assert_eq!(sim.params.alpha, 0.0);
+        assert!(!sim.static_layout);
+        assert!(!sim.is_settled);
+        assert!(sim.params.alpha > 0.0);
     }
 
     #[test]

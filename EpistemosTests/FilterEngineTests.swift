@@ -79,6 +79,71 @@ struct FilterEngineTests {
         #expect(engine.isNodeVisible(noteNode))
     }
 
+    @Test("set type visibility is idempotent")
+    func setTypeVisibilityIsIdempotent() {
+        let engine = FilterEngine()
+        let folderNode = makeNode(id: "folder", type: .folder)
+
+        #expect(!engine.setType(.folder, isVisible: true))
+        #expect(engine.isNodeVisible(folderNode))
+        #expect(engine.setType(.folder, isVisible: false))
+        #expect(!engine.isNodeVisible(folderNode))
+        #expect(!engine.setType(.folder, isVisible: false))
+        #expect(engine.setType(.folder, isVisible: true))
+        #expect(engine.isNodeVisible(folderNode))
+    }
+
+    @Test("graph node visibility preferences hide folders without losing content nodes")
+    func graphNodeVisibilityPreferencesHideFoldersWithoutLosingContentNodes() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.graph.visibleNodeTypes"
+        let previous = defaults.object(forKey: key)
+        defaults.removeObject(forKey: key)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        let graph = GraphState()
+        graph.applyContentFocusedNodeVisibility()
+
+        #expect(!graph.isNodeTypeVisible(.folder))
+        #expect(GraphState.userFilterableNodeTypes == GraphNodeType.visibleCases)
+        #expect(graph.isNodeTypeVisible(.note))
+        #expect(graph.isNodeTypeVisible(.chat))
+        #expect(graph.isNodeTypeVisible(.idea))
+        #expect(graph.isNodeTypeVisible(.document))
+    }
+
+    @Test("graph node visibility hides selected node without deleting store identity")
+    func graphNodeVisibilityHidesSelectedNodeWithoutDeletingStoreIdentity() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.graph.visibleNodeTypes"
+        let previous = defaults.object(forKey: key)
+        defaults.removeObject(forKey: key)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        let graph = GraphState()
+        let folder = makeNode(id: "folder", type: .folder)
+        graph.store.addNode(folder)
+        graph.selectNode(folder.id)
+
+        graph.setNodeTypeVisibility(.folder, isVisible: false)
+
+        #expect(graph.selectedNodeId == nil)
+        #expect(graph.store.nodes[folder.id] != nil)
+        #expect(!graph.isNodeTypeVisible(.folder))
+    }
+
     @Test("show all types resets filter")
     func showAllTypesResetsFilter() {
         let engine = FilterEngine()

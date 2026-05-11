@@ -2999,6 +2999,7 @@ private struct AppearanceDetailContainer: View {
                 currentMode: ui.displayMode,
                 onToggle: onSelectDisplayMode
             )
+            AppearanceGraphNodeVisibilitySection()
             AppearanceEditorSection()
         }
     }
@@ -3142,6 +3143,53 @@ private struct AppearanceEditorSection: View {
                 .foregroundStyle(.secondary)
         } header: {
             Text("Editor")
+        }
+    }
+}
+
+private struct AppearanceGraphNodeVisibilitySection: View {
+    @Environment(GraphState.self) private var graphState
+
+    var body: some View {
+        Section {
+            HStack {
+                Button("Content Only") {
+                    graphState.applyContentFocusedNodeVisibility()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button("Show All") {
+                    graphState.showAllUserFilterableNodeTypes()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            ForEach(GraphState.userFilterableNodeTypes, id: \.self) { type in
+                Toggle(type.settingsDisplayName, isOn: Binding(
+                    get: { graphState.isNodeTypeVisible(type) },
+                    set: { graphState.setNodeTypeVisibility(type, isVisible: $0) }
+                ))
+                .toggleStyle(.switch)
+            }
+
+            Text("Hidden types stay in the vault and can be restored instantly.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("Graph Node Types")
+        }
+    }
+}
+
+private extension GraphNodeType {
+    var settingsDisplayName: String {
+        switch self {
+        case .document:
+            return "Epdoc"
+        default:
+            return displayName
         }
     }
 }
