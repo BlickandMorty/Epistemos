@@ -157,23 +157,63 @@ pub fn k_frame_threshold(fps: f32) -> u32 {
     if fps >= 100.0 { 24 } else { 12 }
 }
 
-/// Velocity floor under which a node counts as "calm" for the sleep
-/// counter. Small enough that real micro-jitter never pings the counter
-/// but large enough that the counter doesn't wedge on FP noise.
+/// Default velocity floor for the sleep counter — kept for backward
+/// compatibility with existing call sites + tests. Production callers
+/// should compute the canonical threshold via `sleep_velocity_threshold`
+/// per canonical-plan locked decision #20.
 pub const SLEEP_VELOCITY_THRESHOLD: f32 = 5e-3;
+
+/// Canonical sleep velocity threshold per
+/// `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` §"Locked
+/// architectural decisions" #20:
+///
+/// > Sleep velocity threshold: `|v| < 0.002 * ideal_edge_length_per_frame`
+///
+/// `ideal_edge_length` is the spring rest length (typically 30 in
+/// production). `fps` is the frame rate the integrator is running at.
+/// The product gives "how far an edge-length-sized translation moves
+/// per frame at the current frame rate"; multiplying by 0.002 gives the
+/// per-frame velocity below which a node counts as calm.
+pub fn sleep_velocity_threshold(ideal_edge_length: f32, fps: f32) -> f32 {
+    let edge_per_frame = ideal_edge_length / fps.max(1.0);
+    0.002 * edge_per_frame
+}
+
+/// Canonical sleep force threshold per
+/// `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` §"Locked
+/// architectural decisions" #21:
+///
+/// > Sleep force threshold: `|F| < 0.01 * repulsion_scale`
+///
+/// `repulsion_scale` is the integrator's repulsion strength constant
+/// (the magnitude factor passed to `repulsion_kernel`). The product
+/// gives the force magnitude below which a node's residual force
+/// counts as negligible.
+pub fn sleep_force_threshold(repulsion_scale: f32) -> f32 {
+    0.01 * repulsion_scale
+}
 
 /// Sleep-update kernel reference. Mirror of `sleep_update.metal`.
 ///
 /// For each node:
-/// - If `|v| < SLEEP_VELOCITY_THRESHOLD`, increment `calm_frame_count[i]`
+/// - If `|v|² < velocity_threshold²` AND `|F|² < force_threshold²`,
+///   increment `calm_frame_count[i]`
 /// - Otherwise reset `calm_frame_count[i] = 0`
 /// - When `calm_frame_count[i] >= k_threshold`, set `propose_sleep[i] = true`
 ///   (caller decides whether to flip the FLAG_SLEEPING bit — atmosphere
 ///   may override per drag-sticky + wake-front rules)
 ///
+/// Per canonical-plan decisions #20 + #21, BOTH the velocity AND the
+/// force must be sub-threshold for a node to count as calm. A node
+/// that's moving slowly but still being pushed isn't ready to sleep.
+///
 /// The kernel does NOT directly mutate flags — that's the integrator's
 /// job once it merges all sleep proposals with the atmosphere
 /// wake-overrides.
+///
+/// Backward compatibility: when `force_x`/`force_y` are `None`, only
+/// the velocity gate is applied (matches the iteration-3 behaviour).
+#[allow(clippy::too_many_arguments)]
 pub fn sleep_update_kernel(
     vel_x: &[f32],
     vel_y: &[f32],
@@ -181,12 +221,47 @@ pub fn sleep_update_kernel(
     propose_sleep: &mut [bool],
     k_threshold: u32,
 ) {
+    sleep_update_kernel_with_force_gate(
+        vel_x, vel_y,
+        None, None,
+        calm_frame_count, propose_sleep,
+        k_threshold,
+        SLEEP_VELOCITY_THRESHOLD,
+        f32::INFINITY, // disable force gate (any force passes)
+    );
+}
+
+/// Extended sleep-update kernel that gates on BOTH velocity AND force
+/// per canonical-plan decisions #20 + #21. Production code should use
+/// this; `sleep_update_kernel` is kept for backward compatibility with
+/// callers that only have velocity data.
+#[allow(clippy::too_many_arguments)]
+pub fn sleep_update_kernel_with_force_gate(
+    vel_x: &[f32],
+    vel_y: &[f32],
+    force_x: Option<&[f32]>,
+    force_y: Option<&[f32]>,
+    calm_frame_count: &mut [u32],
+    propose_sleep: &mut [bool],
+    k_threshold: u32,
+    velocity_threshold: f32,
+    force_threshold: f32,
+) {
     let n = vel_x.len()
         .min(vel_y.len()).min(calm_frame_count.len()).min(propose_sleep.len());
-    let thresh_sq = SLEEP_VELOCITY_THRESHOLD * SLEEP_VELOCITY_THRESHOLD;
+    let v_thresh_sq = velocity_threshold * velocity_threshold;
+    let f_thresh_sq = force_threshold * force_threshold;
     for i in 0..n {
         let speed_sq = vel_x[i] * vel_x[i] + vel_y[i] * vel_y[i];
-        if speed_sq < thresh_sq {
+        let v_calm = speed_sq < v_thresh_sq;
+        let f_calm = match (force_x, force_y) {
+            (Some(fx), Some(fy)) if i < fx.len() && i < fy.len() => {
+                let f_sq = fx[i] * fx[i] + fy[i] * fy[i];
+                f_sq < f_thresh_sq
+            }
+            _ => true, // no force data → force gate passes (legacy behaviour)
+        };
+        if v_calm && f_calm {
             calm_frame_count[i] = calm_frame_count[i].saturating_add(1);
         } else {
             calm_frame_count[i] = 0;
@@ -435,6 +510,80 @@ mod tests {
         let mut propose = vec![false];
         sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
         assert_eq!(counts[0], 6, "sub-threshold velocity counts as calm");
+    }
+
+    #[test]
+    fn sleep_velocity_threshold_matches_canonical_decision_20() {
+        // |v| < 0.002 * ideal_edge_length_per_frame
+        // ideal_edge_length=30, fps=60 → edge_per_frame = 0.5 → threshold = 0.001
+        let t = sleep_velocity_threshold(30.0, 60.0);
+        assert!((t - 0.001).abs() < 1e-9, "30/60 case should give 0.001, got {}", t);
+
+        // 120Hz tighter threshold
+        let t120 = sleep_velocity_threshold(30.0, 120.0);
+        assert!(t120 < t, "120Hz threshold tighter than 60Hz; got {} vs {}", t120, t);
+
+        // Fps clamps to 1 floor
+        let t_low = sleep_velocity_threshold(30.0, 0.0);
+        assert!(t_low.is_finite() && t_low > 0.0);
+    }
+
+    #[test]
+    fn sleep_force_threshold_matches_canonical_decision_21() {
+        // |F| < 0.01 * repulsion_scale
+        assert_eq!(sleep_force_threshold(100.0), 1.0);
+        assert_eq!(sleep_force_threshold(50.0), 0.5);
+        assert_eq!(sleep_force_threshold(0.0), 0.0);
+    }
+
+    #[test]
+    fn sleep_update_with_force_gate_velocity_only_calm() {
+        // Velocity calm, force HIGH → not calm.
+        let vx = vec![0.0_f32];
+        let vy = vec![0.0_f32];
+        let fx = vec![100.0_f32]; // force well above threshold 1.0
+        let fy = vec![0.0_f32];
+        let mut counts = vec![0u32];
+        let mut propose = vec![false];
+        sleep_update_kernel_with_force_gate(
+            &vx, &vy, Some(&fx), Some(&fy),
+            &mut counts, &mut propose, 12,
+            0.001, 1.0, // canonical thresholds
+        );
+        assert_eq!(counts[0], 0, "high force resets counter despite low velocity");
+        assert!(!propose[0]);
+    }
+
+    #[test]
+    fn sleep_update_with_force_gate_both_calm() {
+        let vx = vec![0.0_f32];
+        let vy = vec![0.0_f32];
+        let fx = vec![0.001_f32]; // sub-threshold
+        let fy = vec![0.0_f32];
+        let mut counts = vec![11u32]; // one short of threshold
+        let mut propose = vec![false];
+        sleep_update_kernel_with_force_gate(
+            &vx, &vy, Some(&fx), Some(&fy),
+            &mut counts, &mut propose, 12,
+            0.001, 1.0,
+        );
+        assert_eq!(counts[0], 12);
+        assert!(propose[0], "both velocity + force calm at threshold → propose sleep");
+    }
+
+    #[test]
+    fn sleep_update_with_no_force_data_is_velocity_only() {
+        // Legacy behaviour: when force data is None, only velocity gate applies.
+        let vx = vec![0.0_f32];
+        let vy = vec![0.0_f32];
+        let mut counts = vec![0u32];
+        let mut propose = vec![false];
+        sleep_update_kernel_with_force_gate(
+            &vx, &vy, None, None,
+            &mut counts, &mut propose, 12,
+            0.001, 1.0,
+        );
+        assert_eq!(counts[0], 1);
     }
 
     #[test]
