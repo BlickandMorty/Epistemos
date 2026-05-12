@@ -116,7 +116,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-012: APFS recovery snapshot delete fails on stuck old snapshot
 
-Status: Open (logged from user runtime trace 2026-05-12)
+Status: Patched (`820458df5` breaks retry loop — drops failed-delete from manifest + logs once per snapshot per session)
 Priority: P3
 First Observed: 2026-05-12
 
