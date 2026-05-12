@@ -449,6 +449,18 @@ mod tests {
     }
 
     #[test]
+    fn drag_sticky_default_matches_canonical_decision_26() {
+        // Per canonical-plan §"Locked architectural decisions" #26:
+        //   Drag-no-sleep window: 250 ms post-release
+        // The AtmosphereConfig default must encode this verbatim so
+        // any caller that doesn't override gets the canonical value.
+        let cfg = AtmosphereConfig::default();
+        assert!((cfg.drag_sticky_seconds - 0.25).abs() < f32::EPSILON,
+            "Decision #26: default drag_sticky_seconds must be 0.25 (250 ms), got {}",
+            cfg.drag_sticky_seconds);
+    }
+
+    #[test]
     fn compute_step_sleeping_outside_front_stays_sleeping() {
         let cfg = AtmosphereConfig::default();
         let n = node(1, 0.0, 0.0);
