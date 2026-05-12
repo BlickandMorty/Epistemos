@@ -1654,9 +1654,17 @@ final class MetalGraphNSView: NSView {
         // Rebuild: re-run structural graph builder and full recommit.
         if let graphState, graphState.pendingRebuild {
             graphState.pendingRebuild = false
-            if let context = graphState.modelContext {
-                graphState.refreshStructuralData(context: context)
-                graphState.requestRecommit()
+            if let modelContainer = AppBootstrap.shared?.modelContainer {
+                Task(priority: .utility) { [weak graphState] in
+                    guard let graphState else { return }
+                    let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
+                    if !refreshedIncrementally {
+                        graphState.shouldSnapNextGlobalRecommitCamera = true
+                        graphState.requestRecommit()
+                    }
+                }
+            } else {
+                metalGraphLog.error("Graph rebuild requested without a model container; dropping pending rebuild")
             }
         }
 
