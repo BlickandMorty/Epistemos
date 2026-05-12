@@ -457,6 +457,9 @@ actor SearchIndexService {
             let fts5Available = try isFTS5Available(db)
             if !fts5Available {
                 try dropFTSDependentTriggers(db)
+            } else {
+                try createPageSearchArtifactsIfAvailable(db)
+                try createBlockSearchArtifactsIfAvailable(db)
             }
 
             let pageFTS5 = fts5Available ? try tableExists("page_search", db: db) : false
