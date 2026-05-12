@@ -24,6 +24,7 @@ pub mod markdown;
 pub mod motion;
 pub mod node_state;
 pub mod quadtree;
+pub mod query_reply;
 pub mod recovery;
 pub mod renderer;
 pub mod retrieval_index;
