@@ -71,6 +71,32 @@ nonisolated struct ShadowVaultBootstrapperTests {
         #expect(stats.noteCount == 2)
     }
 
+    @Test("Large markdown files index a bounded prefix instead of the whole body")
+    func largeMarkdownBodyIndexesBoundedPrefix() async throws {
+        let vault = try Self.tempVault()
+        defer { try? FileManager.default.removeItem(at: vault) }
+        let notesDir = vault.appendingPathComponent("notes")
+        let body = "prefix-needle\n"
+            + String(repeating: "a", count: 240_000)
+            + "\ntail-needle"
+        try body.write(
+            to: notesDir.appendingPathComponent("large.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
+        let bootstrapper = ShadowVaultBootstrapper(vaultRoot: vault, indexer: indexer)
+        await bootstrapper.bootstrap()
+        await indexer.flushNow()
+
+        let prefixHits = try client.search(query: "prefix-needle", domain: .notes, limit: 10)
+        let tailHits = try client.search(query: "tail-needle", domain: .notes, limit: 10)
+        #expect(prefixHits.count == 1)
+        #expect(tailHits.isEmpty, "large-file shadow indexing should not read the entire body")
+    }
+
     @Test("Crawl ignores files with the wrong extension (cache files, hidden files, etc.)")
     func ignoresWrongExtension() async throws {
         let vault = try Self.tempVault()
