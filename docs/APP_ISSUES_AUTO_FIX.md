@@ -65,7 +65,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-001: Silent vault-not-connected state hides indexing failure from user
 
-Status: Open
+Status: Patched (NoVaultConnectedBanner shipped in `fdd8e67dc`)
 Priority: P1
 First Observed: 2026-05-12
 
@@ -106,7 +106,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-002: First-launch onboarding does not force vault selection
 
-Status: Open
+Status: Patched (VaultReprompSheet shipped in `b598ce4c5`; predicate tightened against bookmark-restore race in `71ef9f1e9`)
 Priority: P2
 First Observed: 2026-05-12
 
@@ -141,7 +141,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-003: Cognitive DAG shipped but has no user-visible surface
 
-Status: Open
+Status: Patched (empty-state explanation shipped in `26db9ff41`)
 Priority: P3
 First Observed: 2026-05-12
 
@@ -178,7 +178,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-004: Halo button placement (bottom-right of editor) is undiscoverable
 
-Status: Open
+Status: Patched (⌘⇧H keyboard shortcut + tooltip + label shipped in `fb12adc3a`)
 Priority: P2
 First Observed: 2026-05-12
 
@@ -250,7 +250,7 @@ schema work landing first so we know what to release.
 
 ### ISSUE-2026-05-12-006: 2GB idle memory regression (vault + graph + indexes)
 
-Status: Investigating
+Status: Partially Fixed (Force Idle Unload button shipped in `566f3cb67` — manual reclaim path; passive auto-trim still tracked in 005/idle-evict work)
 Priority: P1
 First Observed: 2026-05-12 (superset of ISSUE-2026-04-21-004)
 
@@ -304,7 +304,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-007: Two-axis Startup / Idle Memory settings
 
-Status: Open
+Status: Patched (PerformanceSettingsSection + StartupMode × IdleMemoryMode @AppStorage shipped in `6dd995713`; runtime consumption of the modes is the next-iteration job)
 Priority: P3
 First Observed: 2026-05-12
 
@@ -409,7 +409,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-009: Sidebar + graph slow to open every launch
 
-Status: Open
+Status: Scaffolded (ProjectionCache module shipped in `eb5f16f64` — types + serde + IO + mtime invalidation; live wiring into NotesSidebar + AppBootstrap is the next-iteration job)
 Priority: P2
 First Observed: 2026-05-12 (per user report)
 
