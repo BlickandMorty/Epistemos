@@ -56,6 +56,8 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(!source.contains("shouldSkipLargeGraphIdleFrame("))
         #expect(!source.contains("largeGraphIdleFrameInterval"))
         #expect(!source.contains("largeGraphRenderDecimationThreshold"))
+        #expect(!source.contains("frameSkipCounter"))
+        #expect(!source.contains("60fps cap in low-power mode"))
     }
 
     @Test("performance graph overlay caps drawable scale without changing mini mode")
