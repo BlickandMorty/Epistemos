@@ -170,6 +170,7 @@ struct Uniforms {
     water_style: f32,          // 0.0 = retro pixel, 1.0 = water-bead shading
     water_wobble: f32,         // 0.0 = still, 1.0 = breathing radius
     selection_active: f32,     // 1.0 = a node is selected (edges dim toward focus)
+    _padding0: f32,            // keeps the Rust buffer stride aligned with Metal reflection
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -712,6 +713,7 @@ struct Uniforms {
     float water_style;       // 0.0 = retro pixel, 1.0 = water-bead
     float water_wobble;      // 0.0 = still, 1.0 = breathing radius
     float selection_active;  // 1.0 = a node is selected → dim edges
+    float _padding0;
 };
 
 constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
@@ -2580,6 +2582,7 @@ impl Renderer {
             water_style: self.water_style,
             water_wobble: self.water_wobble,
             selection_active: if self.highlight.active { 1.0 } else { 0.0 },
+            _padding0: 0.0,
         }
     }
 
@@ -4255,7 +4258,7 @@ mod tests {
         // Uniforms must match Metal's reflected byte length for the shared
         // graph shader layout.
         let size = std::mem::size_of::<Uniforms>();
-        assert_eq!(size, 84, "Uniforms not Metal-layout sized: {size}");
+        assert_eq!(size, 88, "Uniforms not Metal-layout sized: {size}");
     }
 
     #[test]

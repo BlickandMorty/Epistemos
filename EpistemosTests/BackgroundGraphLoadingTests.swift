@@ -274,6 +274,12 @@ struct BackgroundGraphLoadingTests {
         #expect(graphViewSource.contains("if let graphState, lastGraphDataVersion != graphState.graphDataVersion {"))
         #expect(graphViewSource.contains("graph_engine_snap_camera_to_fit(engine)"))
         #expect(graphViewSource.contains("if window != nil, !isCommitted, graphState?.isLoaded == true {"))
+        #expect(graphViewSource.contains("Task(priority: .utility) { [weak graphState]"),
+                "The render callback must not synchronously rebuild/persist the structural graph on the main thread when pendingRebuild is set.")
+        #expect(graphViewSource.contains("let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)"),
+                "Frame-time graph rebuilds should use the existing background actor path instead of doing SwiftData work from renderFrame().")
+        #expect(!graphViewSource.contains("graphState.refreshStructuralData(context: context)"),
+                "A sync structural rebuild from renderFrame can block the display link on SwiftData persistence and hang graph open.")
     }
 
     @Test("document-launched graph command has a configured hologram controller")

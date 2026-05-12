@@ -87,6 +87,12 @@ use crate::knowledge_core::{
 };
 use crate::retrieval_index::PreparedRetrievalStore;
 
+const SEMANTIC_NEIGHBOR_RECOMPUTE_MAX_EMBEDDINGS: usize = 1_500;
+
+fn should_recompute_semantic_neighbors(embedding_count: usize) -> bool {
+    (2..=SEMANTIC_NEIGHBOR_RECOMPUTE_MAX_EMBEDDINGS).contains(&embedding_count)
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct GraphEngineByteBuffer {
@@ -1758,10 +1764,14 @@ pub extern "C" fn graph_engine_recompute_semantic_neighbors(
     ffi_catch_unwind!("graph_engine_recompute_semantic_neighbors", {
         ffi_engine!(engine);
         let embedding_snapshot = engine.embedding_store.lock().clone();
-        let pairs = embedding_snapshot.all_knn_pairs(k as usize, threshold);
-        *engine.semantic_neighbors.lock() = pairs;
-        // Reheat physics so the new attraction forces take effect.
-        engine.reheat();
+        if should_recompute_semantic_neighbors(embedding_snapshot.len()) {
+            let pairs = embedding_snapshot.all_knn_pairs(k as usize, threshold);
+            *engine.semantic_neighbors.lock() = pairs;
+            // Reheat physics so the new attraction forces take effect.
+            engine.reheat();
+        } else {
+            engine.semantic_neighbors.lock().clear();
+        }
     });
 }
 
@@ -1772,6 +1782,20 @@ pub extern "C" fn graph_engine_set_semantic_strength(engine: *mut Engine, streng
         ffi_engine!(engine);
         engine.set_semantic_strength(strength);
     });
+}
+
+#[cfg(test)]
+mod semantic_neighbor_recompute_tests {
+    use super::should_recompute_semantic_neighbors;
+
+    #[test]
+    fn skips_empty_tiny_and_large_embedding_sets() {
+        assert!(!should_recompute_semantic_neighbors(0));
+        assert!(!should_recompute_semantic_neighbors(1));
+        assert!(should_recompute_semantic_neighbors(2));
+        assert!(should_recompute_semantic_neighbors(1_500));
+        assert!(!should_recompute_semantic_neighbors(1_501));
+    }
 }
 
 // ── Temporal Index ──────────────────────────────────────────────────────────
