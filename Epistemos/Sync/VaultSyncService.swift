@@ -2042,9 +2042,35 @@ final class VaultSyncService {
 
     // MARK: - Lifecycle
 
+    /// USER REPORT 2026-05-12 v3 migration: `hasEverConnectedAVault` was
+    /// added in `fa2c29f91` and is set on first `persistVaultSelection`
+    /// going forward. Users who connected vaults BEFORE that commit have
+    /// the flag unset, which makes the VaultReprompSheet incorrectly
+    /// auto-prompt them after explicit disconnect (the post-update nag).
+    ///
+    /// This one-time migration detects "user has been using Epistemos
+    /// for a while" via any of three signals and back-fills the flag:
+    ///   - a bookmark currently exists (still has a vault)
+    ///   - lastVaultPath is recorded (had a vault before)
+    ///   - epistemos.setupComplete is true (finished onboarding)
+    ///
+    /// Idempotent — once the flag is true it stays true; the migration
+    /// short-circuits on subsequent calls.
+    fileprivate func migrateHasEverConnectedFlagIfNeeded() {
+        guard !defaults.bool(forKey: Self.hasEverConnectedVaultKey) else { return }
+        let hasBookmark = defaults.data(forKey: Self.bookmarkKey) != nil
+        let hasLastPath = defaults.string(forKey: Self.lastVaultPathKey) != nil
+        let setupComplete = defaults.bool(forKey: "epistemos.setupComplete")
+        if hasBookmark || hasLastPath || setupComplete {
+            defaults.set(true, forKey: Self.hasEverConnectedVaultKey)
+            log.info("migrated hasEverConnectedAVault=true (bookmark=\(hasBookmark, privacy: .public) lastPath=\(hasLastPath, privacy: .public) setup=\(setupComplete, privacy: .public))")
+        }
+    }
+
     /// Restore vault from saved bookmark on app launch.
     /// Call from RootView.onAppear (after NSApp is alive).
     func restoreVaultFromBookmark() async {
+        migrateHasEverConnectedFlagIfNeeded()
         pruneRecoverySnapshotsIfNeeded()
 
         guard Self.shouldRestoreVaultFromBookmark() else {
@@ -2285,6 +2311,8 @@ final class VaultSyncService {
         let interval = Log.vaultPerf.beginInterval("switchToVaultAsync")
         defer { Log.vaultPerf.endInterval("switchToVaultAsync", interval) }
 
+        let vaultName = vaultURL.lastPathComponent
+
         // Already watching this exact vault — no-op
         if isWatching,
            let current = self.vaultURL,
@@ -2297,10 +2325,12 @@ final class VaultSyncService {
         if isWatching,
            !scopeAlreadyAcquired,
            requiresSecurityScopedVaultAccess() {
+            vaultActivityMessage = "Connecting \"\(vaultName)\"... acquiring access"
             let gained = startSecurityScopedAccess(for: vaultURL)
             guard gained else {
                 isIndexing = false
                 recoveryIssue = nil
+                vaultActivityMessage = nil
                 log.error(
                     "Security scope not granted for candidate vault \(vaultURL.path, privacy: .public); keeping current vault active"
                 )
@@ -2311,20 +2341,25 @@ final class VaultSyncService {
         }
 
         if isWatching {
-            let didClear = await stopWatchingAsync(preserveData: false)
+            vaultActivityMessage = "Connecting \"\(vaultName)\"... releasing previous vault"
+            let didClear = await stopWatchingAsync(preserveData: false, skipRecoverySnapshot: true)
             guard didClear else {
                 if acquiredCandidateSecurityScope {
                     vaultURL.stopAccessingSecurityScopedResource()
                 }
+                vaultActivityMessage = nil
                 return false
             }
         } else {
+            vaultActivityMessage = "Connecting \"\(vaultName)\"... clearing stale state"
             let didClear = await clearDisconnectedDerivedLocalStateBeforeVaultSwitchIfNeeded()
             guard didClear else {
+                vaultActivityMessage = nil
                 return false
             }
         }
 
+        vaultActivityMessage = "Connecting \"\(vaultName)\"... starting watcher"
         return beginWatching(
             vaultURL: vaultURL,
             scopeAlreadyAcquired: beginScopeAlreadyAcquired,
