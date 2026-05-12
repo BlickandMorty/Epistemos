@@ -31,6 +31,7 @@ pub mod search;
 pub mod simulation;
 pub mod spatial;
 pub mod types;
+pub mod visibility_kernels;
 pub mod warmstart;
 
 #[cfg(feature = "bolt-graph")]
