@@ -14,6 +14,24 @@ struct CloudStreamingParserTests {
         #expect(CloudStreamingParser.openAITextDelta(from: json) == "hello")
     }
 
+    @Test("OpenAI responses completion snapshot extracts final output text")
+    func openAICompletedSnapshotText() {
+        let json: [String: Any] = [
+            "type": "response.completed",
+            "response": [
+                "output": [[
+                    "type": "message",
+                    "content": [[
+                        "type": "output_text",
+                        "text": "final snapshot"
+                    ]]
+                ]]
+            ]
+        ]
+
+        #expect(CloudStreamingParser.openAICompletedText(from: json) == "final snapshot")
+    }
+
     @Test("OpenAI responses reasoning parser only surfaces summary deltas")
     func openAIResponsesReasoningParserOnlySurfacesSummaries() {
         let summary: [String: Any] = [
@@ -201,6 +219,32 @@ struct CloudStreamingParserTests {
         #expect(CloudStreamingParser.streamError(from: topLevel, eventName: "error")?.isAuthError == true)
     }
 
+    @Test("stream parser surfaces OpenAI failed and incomplete terminal events")
+    func openAITerminalErrors() {
+        let failed: [String: Any] = [
+            "type": "response.failed",
+            "response": [
+                "status": "failed",
+                "error": [
+                    "code": 500,
+                    "message": "backend overloaded"
+                ]
+            ]
+        ]
+        let incomplete: [String: Any] = [
+            "type": "response.incomplete",
+            "response": [
+                "status": "incomplete",
+                "incomplete_details": [
+                    "reason": "max_output_tokens"
+                ]
+            ]
+        ]
+
+        #expect(CloudStreamingParser.streamError(from: failed, eventName: nil)?.localizedDescription.contains("backend overloaded") == true)
+        #expect(CloudStreamingParser.streamError(from: incomplete, eventName: nil)?.localizedDescription.contains("max_output_tokens") == true)
+    }
+
     @Test("SSE transport flushes events when URLSession line iteration omits blank separators")
     func sseTransportFlushesOnNewEventHeader() async throws {
         let payload = """
@@ -260,6 +304,55 @@ struct CloudStreamingParserTests {
         }
 
         #expect(collected == expected)
+    }
+
+    @Test("SSE transport uses OpenAI completion snapshot only when no deltas arrived")
+    func sseTransportUsesOpenAICompletionSnapshotOnlyForEmptyDeltaStreams() async throws {
+        let snapshotOnlyPayload = """
+        event: response.completed
+        data: {"type":"response.completed","response":{"output":[{"type":"message","content":[{"type":"output_text","text":"snapshot answer"}]}]}}
+
+        """
+
+        let snapshotSession = makeStreamingSession(payload: snapshotOnlyPayload)
+        var snapshotRequest = URLRequest(url: URL(string: "https://example.com/responses")!)
+        snapshotRequest.httpMethod = "POST"
+        var snapshotCollected = ""
+        for try await chunk in URLSessionTransportSupport.streamSSE(
+            using: snapshotSession,
+            request: snapshotRequest,
+            invalidResponse: { CloudLLMError.invalidResponse },
+            chunkExtractor: { CloudStreamingParser.openAITextDelta(from: $0) },
+            completionExtractor: { CloudStreamingParser.openAICompletedText(from: $0) }
+        ) {
+            snapshotCollected += chunk
+        }
+
+        let deltaThenSnapshotPayload = """
+        event: response.output_text.delta
+        data: {"type":"response.output_text.delta","delta":"delta answer"}
+
+        event: response.completed
+        data: {"type":"response.completed","response":{"output":[{"type":"message","content":[{"type":"output_text","text":"delta answer"}]}]}}
+
+        """
+
+        let deltaSession = makeStreamingSession(payload: deltaThenSnapshotPayload)
+        var deltaRequest = URLRequest(url: URL(string: "https://example.com/responses")!)
+        deltaRequest.httpMethod = "POST"
+        var deltaCollected = ""
+        for try await chunk in URLSessionTransportSupport.streamSSE(
+            using: deltaSession,
+            request: deltaRequest,
+            invalidResponse: { CloudLLMError.invalidResponse },
+            chunkExtractor: { CloudStreamingParser.openAITextDelta(from: $0) },
+            completionExtractor: { CloudStreamingParser.openAICompletedText(from: $0) }
+        ) {
+            deltaCollected += chunk
+        }
+
+        #expect(snapshotCollected == "snapshot answer")
+        #expect(deltaCollected == "delta answer")
     }
 
     private func makeStreamingSession(payload: String) -> URLSession {

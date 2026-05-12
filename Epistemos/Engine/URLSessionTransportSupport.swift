@@ -18,6 +18,22 @@ actor LastActivityTracker {
     }
 }
 
+actor StreamContentTracker {
+    private let started: ContinuousClock.Instant = .now
+    private var sawContent = false
+
+    func markContent() {
+        sawContent = true
+    }
+
+    func secondsWithoutContent() -> Double? {
+        guard !sawContent else { return nil }
+        let elapsed = ContinuousClock.Instant.now - started
+        return Double(elapsed.components.seconds)
+            + Double(elapsed.components.attoseconds) / 1e18
+    }
+}
+
 nonisolated enum StreamingBufferPolicy {
     static let controlLimit = 256
     // Cloud providers can burst hundreds of tiny text fragments before
@@ -63,6 +79,12 @@ nonisolated enum URLSessionTransportSupport {
     /// still eventually surfacing a dropped connection.
     private static let streamIdleWatchdogSeconds: Double = 300
 
+    /// How long a provider may keep an SSE connection alive without
+    /// yielding either visible text or an explicit reasoning/thinking
+    /// delta. Heartbeats prove the socket is alive, not that the model
+    /// is making user-visible progress.
+    private static let streamFirstContentWatchdogSeconds: Double = 180
+
     /// Streaming SSE read that can optionally emit reasoning deltas
     /// through a side-channel callback in addition to the main string
     /// stream. Used by providers whose wire format carries reasoning in
@@ -86,6 +108,7 @@ nonisolated enum URLSessionTransportSupport {
         request: URLRequest,
         invalidResponse: @escaping @Sendable () -> Error,
         chunkExtractor: @escaping @Sendable ([String: Any]) -> String?,
+        completionExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
         reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
         onReasoning: (@Sendable (String) -> Void)? = nil,
         usageExtractor: (@Sendable ([String: Any]) -> UsageSnapshot?)? = nil,
@@ -99,9 +122,10 @@ nonisolated enum URLSessionTransportSupport {
             // the stream. The monitor task polls this and aborts the
             // run if we've been silent past `streamIdleWatchdogSeconds`.
             let lastActivity = LastActivityTracker()
+            let contentActivity = StreamContentTracker()
             await lastActivity.touch()
 
-            let watchdog = Task.detached { [lastActivity] in
+            let watchdog = Task.detached { [lastActivity, contentActivity] in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(15))
                     if Task.isCancelled { return }
@@ -111,6 +135,16 @@ nonisolated enum URLSessionTransportSupport {
                             throwing: LLMError.apiError(
                                 statusCode: 504,
                                 body: "Model stream went idle for \(Int(idle))s. The provider may be overloaded — try again or switch models."
+                            )
+                        )
+                        return
+                    }
+                    if let contentIdle = await contentActivity.secondsWithoutContent(),
+                       contentIdle > Self.streamFirstContentWatchdogSeconds {
+                        continuation.finish(
+                            throwing: LLMError.apiError(
+                                statusCode: 504,
+                                body: "Model stream stayed alive for \(Int(contentIdle))s without producing text or thinking. Try again or switch models."
                             )
                         )
                         return
@@ -133,8 +167,9 @@ nonisolated enum URLSessionTransportSupport {
 
                 var eventName: String?
                 var dataLines: [String] = []
+                var emittedTextChunks = 0
 
-                func flushEvent() throws {
+                func flushEvent() async throws {
                     guard !dataLines.isEmpty else {
                         eventName = nil
                         return
@@ -166,6 +201,7 @@ nonisolated enum URLSessionTransportSupport {
                        let onReasoning,
                        let reasoning = reasoningExtractor(json),
                        !reasoning.isEmpty {
+                        await contentActivity.markContent()
                         onReasoning(reasoning)
                     }
 
@@ -180,7 +216,16 @@ nonisolated enum URLSessionTransportSupport {
                     }
 
                     if let chunk = chunkExtractor(json), !chunk.isEmpty {
+                        emittedTextChunks += 1
+                        await contentActivity.markContent()
                         continuation.yield(chunk)
+                    } else if emittedTextChunks == 0,
+                              let completionExtractor,
+                              let completionChunk = completionExtractor(json),
+                              !completionChunk.isEmpty {
+                        emittedTextChunks += 1
+                        await contentActivity.markContent()
+                        continuation.yield(completionChunk)
                     }
                 }
 
@@ -197,13 +242,13 @@ nonisolated enum URLSessionTransportSupport {
                     await lastActivity.touch()
 
                     if line.isEmpty {
-                        try flushEvent()
+                        try await flushEvent()
                         continue
                     }
 
                     if line.hasPrefix("event:") {
                         if !dataLines.isEmpty {
-                            try flushEvent()
+                            try await flushEvent()
                         }
                         eventName = sseFieldValue(from: line)
                         continue
@@ -214,7 +259,7 @@ nonisolated enum URLSessionTransportSupport {
                     }
                 }
 
-                try flushEvent()
+                try await flushEvent()
                 continuation.finish()
             } catch {
                 continuation.finish(throwing: error)

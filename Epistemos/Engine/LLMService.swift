@@ -1747,6 +1747,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         return streamSSE(
             request,
             chunkExtractor: { @Sendable json in CloudStreamingParser.openAITextDelta(from: json) },
+            completionExtractor: { @Sendable json in CloudStreamingParser.openAICompletedText(from: json) },
             reasoningExtractor: reasoningExtractor,
             onReasoning: sink,
             usageExtractor: usageExtractor,
@@ -2597,6 +2598,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     private func streamSSE(
         _ request: URLRequest,
         chunkExtractor: @escaping @Sendable ([String: Any]) -> String?,
+        completionExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
         reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
         onReasoning: (@Sendable (String) -> Void)? = nil,
         usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)? = nil,
@@ -2607,6 +2609,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             request: request,
             invalidResponse: { CloudLLMError.invalidResponse },
             chunkExtractor: chunkExtractor,
+            completionExtractor: completionExtractor,
             reasoningExtractor: reasoningExtractor,
             onReasoning: onReasoning,
             usageExtractor: usageExtractor,
@@ -2642,6 +2645,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         var collected = ""
         for try await chunk in streamSSE(request, chunkExtractor: { json in
             CloudStreamingParser.openAITextDelta(from: json)
+        }, completionExtractor: { json in
+            CloudStreamingParser.openAICompletedText(from: json)
         }) {
             collected += chunk
         }
@@ -3176,6 +3181,32 @@ nonisolated enum CloudStreamingParser {
         return json["delta"] as? String
     }
 
+    static func openAICompletedText(from json: [String: Any]) -> String? {
+        guard json["type"] as? String == "response.completed",
+              let response = json["response"] as? [String: Any] else {
+            return nil
+        }
+
+        if let text = response["output_text"] as? String, !text.isEmpty {
+            return text
+        }
+
+        guard let output = response["output"] as? [[String: Any]] else {
+            return nil
+        }
+        let text = output
+            .compactMap { item in item["content"] as? [[String: Any]] }
+            .flatMap { $0 }
+            .compactMap { content in
+                guard (content["type"] as? String) == "output_text" else {
+                    return nil
+                }
+                return content["text"] as? String
+            }
+            .joined()
+        return text.isEmpty ? nil : text
+    }
+
     static func anthropicTextDelta(from json: [String: Any]) -> String? {
         guard json["type"] as? String == "content_block_delta",
               let delta = json["delta"] as? [String: Any],
@@ -3372,6 +3403,31 @@ nonisolated enum CloudStreamingParser {
             let code = error["code"] as? Int ?? 0
             let message = error["message"] as? String ?? ""
             return .apiError(statusCode: code, body: message)
+        }
+
+        switch json["type"] as? String {
+        case "response.failed":
+            let response = json["response"] as? [String: Any]
+            let error = response?["error"] as? [String: Any]
+            let code = (error?["code"] as? Int) ?? 500
+            let message = (error?["message"] as? String)
+                ?? (response?["status"] as? String)
+                ?? "OpenAI response failed."
+            return .apiError(statusCode: code, body: message)
+
+        case "response.incomplete":
+            let response = json["response"] as? [String: Any]
+            let details = response?["incomplete_details"] as? [String: Any]
+            let reason = (details?["reason"] as? String)
+                ?? (response?["status"] as? String)
+                ?? "incomplete"
+            return .apiError(
+                statusCode: 504,
+                body: "OpenAI response incomplete: \(reason)"
+            )
+
+        default:
+            break
         }
 
         if eventName == "error" || json["type"] as? String == "error" {
