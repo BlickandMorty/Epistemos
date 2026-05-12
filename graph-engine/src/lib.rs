@@ -21,10 +21,12 @@ pub mod quadtree;
 pub mod recovery;
 pub mod renderer;
 pub mod retrieval_index;
+pub mod reveal;
 pub mod search;
 pub mod simulation;
 pub mod spatial;
 pub mod types;
+pub mod warmstart;
 
 #[cfg(feature = "bolt-graph")]
 pub mod bolt_bridge;
