@@ -87,6 +87,15 @@ Build a **Rust-orchestrated, Metal-resident force layout** in three phases. Rust
 
 **Goal**: Make the graph feel premium at 10k nodes on CPU physics. Lay all foundations the GPU phase will build on. Ship as v1.1.
 
+**Status (2026-05-12)**: Algorithmic deliverables for Weeks 1-4 shipped on `codex/research-snapshot-2026-05-08`:
+- Week 1 (shared-buffer foundation): `d2d91da18` flipped the default + `913c7329f` shipped synthetic vault generator
+- Week 2 (NodeState + slot scheduler): `bad7943b5`/`e83073d0c`/`75536ae27` shipped `GraphNodeState`, 5 FFI bind methods, `GraphSlotScheduler`, RENDERABLE invariant mirrors
+- Week 3 (GraphPOPE-lite warm-start + RevealController): `57a59222f` shipped `warmstart.rs` (706 lines, 15 tests) + `reveal.rs` (455 lines, 15 tests)
+- Week 4 (causal-atmosphere sleep): `11714ff37` shipped `atmosphere.rs` (476 lines, 19 tests); `c3ed09a8c` shipped `tests/visual_equivalence.rs` (343 lines, 8 tests) — pure-data harness only, pixel-SSIM half pending Metal-render feature gate
+- Engine-integration pass (warmstart → integrator wiring, atmosphere → integrator wiring, RevealController → app shell) is queued as Phase B prerequisite work
+- 2629 graph-engine lib tests pass, 8 integration tests pass, 0 regressions
+- HELIOS V5 anchor-table parity restored alongside (`bdc579315`)
+
 ### Week 1: Shared-buffer foundation
 
 **Deliverables**:
