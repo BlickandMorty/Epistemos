@@ -60,6 +60,12 @@ public final class CognitiveDepthOverlay {
     /// when `setDepth(_:for:persist:)` writes through with persist=true.
     private var pendingOverrides: [String: DepthMarker] = [:]
 
+    private var negativeFallbackUntil: [String: Date] = [:]
+    private var fallbackErrorCount: Int = 0
+    private var nextFallbackAggregateLog: Date = .distantPast
+    private static let negativeFallbackTTL: TimeInterval = 60
+    private static let fallbackAggregateInterval: TimeInterval = 30
+
     private init() {}
 
     /// Touch a key in the LRU + evict the oldest if over the bound.
@@ -86,6 +92,17 @@ public final class CognitiveDepthOverlay {
             touchLRU(key)
             return cached
         }
+        let now = Date()
+        if let negativeUntil = negativeFallbackUntil[key] {
+            if negativeUntil > now {
+                let fallback: DepthMarker = .surface
+                cache[key] = fallback
+                touchLRU(key)
+                return fallback
+            } else {
+                negativeFallbackUntil.removeValue(forKey: key)
+            }
+        }
 
         // Sidecar lookup. Edge-case-hardened: treat ANY decode error
         // as a fall-through (instead of crashing) so a corrupt
@@ -99,9 +116,9 @@ public final class CognitiveDepthOverlay {
                 return sidecar.depth
             }
         } catch {
-            Self.log.debug(
-                "depth lookup fell back to default for \(source.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
+            negativeFallbackUntil[key] = now.addingTimeInterval(Self.negativeFallbackTTL)
+            pruneNegativeFallbackCache()
+            recordDepthFallback(source: source, error: error, now: now)
         }
 
         let fallback: DepthMarker = .surface
@@ -123,6 +140,7 @@ public final class CognitiveDepthOverlay {
         if persist {
             cache[key] = depth
             pendingOverrides.removeValue(forKey: key)
+            negativeFallbackUntil.removeValue(forKey: key)
             do {
                 var sidecar = try EpistemosSidecarStore.read(for: source)
                     ?? EpistemosSidecarStore.mintStub(for: source, depth: depth)
@@ -153,6 +171,7 @@ public final class CognitiveDepthOverlay {
     public func invalidate(_ source: URL) {
         let key = source.path
         cache.removeValue(forKey: key)
+        negativeFallbackUntil.removeValue(forKey: key)
         if let i = lruOrder.firstIndex(of: key) { lruOrder.remove(at: i) }
     }
 
@@ -161,6 +180,9 @@ public final class CognitiveDepthOverlay {
         cache.removeAll()
         lruOrder.removeAll()
         pendingOverrides.removeAll()
+        negativeFallbackUntil.removeAll()
+        fallbackErrorCount = 0
+        nextFallbackAggregateLog = .distantPast
     }
 
     // MARK: - Visualization contract
@@ -212,5 +234,24 @@ public final class CognitiveDepthOverlay {
             warmed += 1
         }
         return warmed
+    }
+
+    private func pruneNegativeFallbackCache() {
+        while negativeFallbackUntil.count > Self.cacheLimit {
+            guard let oldest = negativeFallbackUntil.min(by: { $0.value < $1.value })?.key else {
+                return
+            }
+            negativeFallbackUntil.removeValue(forKey: oldest)
+        }
+    }
+
+    private func recordDepthFallback(source: URL, error: Error, now: Date) {
+        fallbackErrorCount += 1
+        guard now >= nextFallbackAggregateLog else { return }
+        Self.log.warning(
+            "sidecar depth fallback count=\(self.fallbackErrorCount, privacy: .public), lastFile=\(source.lastPathComponent, privacy: .public), lastError=\(error.localizedDescription, privacy: .public)"
+        )
+        fallbackErrorCount = 0
+        nextFallbackAggregateLog = now.addingTimeInterval(Self.fallbackAggregateInterval)
     }
 }
