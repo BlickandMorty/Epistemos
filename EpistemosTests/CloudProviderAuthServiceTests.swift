@@ -422,6 +422,132 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
+    @Test("OpenAI API retries once when the selected reasoning effort is rejected")
+    func openAIAPIReasoningEffortRejectionRetriesWithCompatibleEffort() async throws {
+        let inference = makeInferenceState(keychainValues: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+        ])
+        inference.setChatReasoningTier(.off)
+        let attempts = LockedStringIntMap()
+        let session = makeURLSession { request in
+            attempts.increment("responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            let reasoning = try #require(json["reasoning"] as? [String: Any])
+
+            let url = try #require(request.url)
+            if attempts.value(for: "responses") == 1 {
+                #expect(reasoning["effort"] as? String == "none")
+                let response = try #require(
+                    HTTPURLResponse(url: url, statusCode: 400, httpVersion: nil, headerFields: nil)
+                )
+                let data = """
+                {
+                  "error": {
+                    "message": "Unsupported value: 'none' is not supported with this model. Supported values are: 'low', 'medium', and 'high'.",
+                    "type": "invalid_request_error",
+                    "param": "reasoning.effort"
+                  }
+                }
+                """.data(using: .utf8) ?? Data()
+                return (response, data)
+            }
+
+            #expect(reasoning["effort"] as? String == "low")
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            {
+              "output_text": "retry worked"
+            }
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        let result = try await client.generate(
+            prompt: "Say OK.",
+            systemPrompt: nil,
+            maxTokens: 64,
+            model: .openAIGPT54,
+            operatingMode: .fast
+        )
+
+        #expect(result == "retry worked")
+        #expect(attempts.value(for: "responses") == 2)
+    }
+
+    @MainActor
+    @Test("OpenAI API streaming retries once when the selected reasoning effort is rejected")
+    func openAIAPIStreamingReasoningEffortRejectionRetriesWithCompatibleEffort() async throws {
+        let inference = makeInferenceState(keychainValues: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+        ])
+        inference.setChatReasoningTier(.off)
+        let attempts = LockedStringIntMap()
+        let session = makeURLSession { request in
+            attempts.increment("responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            let reasoning = try #require(json["reasoning"] as? [String: Any])
+
+            let url = try #require(request.url)
+            if attempts.value(for: "responses") == 1 {
+                #expect(reasoning["effort"] as? String == "none")
+                let response = try #require(
+                    HTTPURLResponse(url: url, statusCode: 400, httpVersion: nil, headerFields: nil)
+                )
+                let data = """
+                {
+                  "error": {
+                    "message": "Unsupported value: 'none' is not supported with this model. Supported values are: 'low', 'medium', and 'high'.",
+                    "type": "invalid_request_error",
+                    "param": "reasoning.effort"
+                  }
+                }
+                """.data(using: .utf8) ?? Data()
+                return (response, data)
+            }
+
+            #expect(reasoning["effort"] as? String == "low")
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":"retry"}
+
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":" worked"}
+
+            event: response.completed
+            data: {"type":"response.completed"}
+
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        var output = ""
+        let stream = client.stream(
+            prompt: "Say OK.",
+            systemPrompt: nil,
+            maxTokens: 64,
+            model: .openAIGPT54,
+            operatingMode: .fast
+        )
+        for try await chunk in stream {
+            output += chunk
+        }
+
+        #expect(output == "retry worked")
+        #expect(attempts.value(for: "responses") == 2)
+    }
+
+    @MainActor
     @Test("OpenAI API requests omit json_object mode when web search is enabled")
     func openAIAPIRequestsOmitJSONModeWhenWebSearchIsEnabled() async throws {
         let inference = makeInferenceState(keychainValues: [
