@@ -101,7 +101,15 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
     }
 }
 
+enum VaultPostImportRecallWorkload: Sendable, Equatable {
+    case none
+    case incremental(changedPageIDs: [String], deletedPageIDs: [String])
+    case rebuild
+}
+
 struct VaultImportProgressSnapshot: Sendable, Equatable {
+    nonisolated static let incrementalPostImportIndexChangeLimit = 256
+
     var vaultName: String
     var phase: String
     var processedFileCount: Int
@@ -124,9 +132,12 @@ struct VaultImportProgressSnapshot: Sendable, Equatable {
     var fileTypeCounts: [String: Int]
     var unsupportedFileTypeCounts: [String: Int]
     var skippedPolicyReasonCounts: [String: Int]
+    var postImportChangedPageIDs: [String]
+    var postImportDeletedPageIDs: [String]
+    var postImportChangeIDsAreComplete: Bool
     var isComplete: Bool
 
-    static func starting(vaultName: String, phase: String = "Preparing vault import") -> VaultImportProgressSnapshot {
+    nonisolated static func starting(vaultName: String, phase: String = "Preparing vault import") -> VaultImportProgressSnapshot {
         VaultImportProgressSnapshot(
             vaultName: vaultName,
             phase: phase,
@@ -150,6 +161,9 @@ struct VaultImportProgressSnapshot: Sendable, Equatable {
             fileTypeCounts: [:],
             unsupportedFileTypeCounts: [:],
             skippedPolicyReasonCounts: [:],
+            postImportChangedPageIDs: [],
+            postImportDeletedPageIDs: [],
+            postImportChangeIDsAreComplete: true,
             isComplete: false
         )
     }
@@ -183,6 +197,27 @@ struct VaultImportProgressSnapshot: Sendable, Equatable {
 
     var inventorySummary: String {
         "\(discoveredRegularFileCount) regular files discovered; \(totalImportableFileCount) importable, \(unsupportedFileCount) unsupported, \(skippedPolicyCount) skipped by policy, \(folderCount) folders"
+    }
+
+    nonisolated var postImportMutationCount: Int {
+        insertedCount + updatedCount + deletedCount
+    }
+
+    nonisolated var canApplyIncrementalPostImportIndexing: Bool {
+        isComplete
+            && postImportChangeIDsAreComplete
+            && postImportMutationCount <= Self.incrementalPostImportIndexChangeLimit
+    }
+
+    nonisolated var postImportRecallWorkload: VaultPostImportRecallWorkload {
+        guard canApplyIncrementalPostImportIndexing else { return .rebuild }
+        guard !postImportChangedPageIDs.isEmpty || !postImportDeletedPageIDs.isEmpty else {
+            return .none
+        }
+        return .incremental(
+            changedPageIDs: postImportChangedPageIDs,
+            deletedPageIDs: postImportDeletedPageIDs
+        )
     }
 
     func topFileTypes(limit: Int = 6) -> [(String, Int)] {
@@ -2539,7 +2574,7 @@ final class VaultSyncService {
                 await progressHandler?(importSnapshot.withPhase("Starting background indexes", isComplete: false))
             }
             scheduleSpotlightReindex(from: actor)
-            scheduleInstantRecallIndexRebuild(from: actor)
+            scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
         } catch {
             Log.vault.error(
                 "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
@@ -2588,6 +2623,55 @@ final class VaultSyncService {
         guard let actor else { return }
         Task.detached(priority: .utility) {
             await rebuildInstantRecallIndex(from: actor)
+        }
+    }
+
+    private nonisolated static func scheduleInstantRecallPostImportUpdate(
+        from actor: VaultIndexActor?,
+        snapshot: VaultImportProgressSnapshot?
+    ) {
+        guard let actor else { return }
+        guard let snapshot else {
+            scheduleInstantRecallIndexRebuild(from: actor)
+            return
+        }
+        let changedPageIDs: [String]
+        let deletedPageIDs: [String]
+        switch snapshot.postImportRecallWorkload {
+        case .none:
+            return
+        case .rebuild:
+            scheduleInstantRecallIndexRebuild(from: actor)
+            return
+        case .incremental(let changed, let deleted):
+            changedPageIDs = changed
+            deletedPageIDs = deleted
+        }
+
+        Task.detached(priority: .utility) {
+            var changedNotes: [(id: String, text: String)] = []
+            changedNotes.reserveCapacity(changedPageIDs.count)
+            for pageID in changedPageIDs {
+                guard let page = await actor.fullPageData(for: pageID) else { continue }
+                changedNotes.append((
+                    id: pageID,
+                    text: boundedInstantRecallText(
+                        title: page.title,
+                        body: page.body,
+                        tags: page.tags
+                    )
+                ))
+            }
+
+            await MainActor.run {
+                guard let service = AppBootstrap.shared?.instantRecallService else { return }
+                for pageID in deletedPageIDs {
+                    service.removeNote(noteId: pageID)
+                }
+                for note in changedNotes {
+                    service.indexNote(noteId: note.id, text: note.text)
+                }
+            }
         }
     }
 
@@ -2799,7 +2883,7 @@ final class VaultSyncService {
                 await progressHandler(importSnapshot.withPhase("Starting background indexes", isComplete: false))
             }
             Self.scheduleSpotlightReindex(from: actor)
-            Self.scheduleInstantRecallIndexRebuild(from: actor)
+            Self.scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
             Self.scheduleSearchIndexDiffSync(from: actor, searchService: searchService)
 
             if let importSnapshot {
@@ -3294,9 +3378,9 @@ final class VaultSyncService {
             }
             log.info("File watcher: vault changed externally — re-importing")
             do {
-                try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
+                let importSnapshot = try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
                 log.info("File watcher: re-import complete")
-                VaultSyncService.scheduleInstantRecallIndexRebuild(from: actor)
+                VaultSyncService.scheduleInstantRecallPostImportUpdate(from: actor, snapshot: importSnapshot)
 
                 // Hop back to main actor for UI state updates. External
                 // vault changes must use the same canonical mutation event as

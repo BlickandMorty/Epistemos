@@ -647,8 +647,37 @@ actor VaultIndexActor {
         )
         var pendingInsertedPages = [SDPage]()
         var pendingUpdatedPages = [UpdatedPageSnapshot]()
+        var postImportChangedPageIDs = Set<String>()
+        var postImportDeletedPageIDs = Set<String>()
+        var postImportChangeIDsAreComplete = true
         let batchSize = 200
         var completedScan = !Task.isCancelled
+
+        func markPostImportChangeIDsIncomplete() {
+            postImportChangeIDsAreComplete = false
+            postImportChangedPageIDs.removeAll(keepingCapacity: true)
+            postImportDeletedPageIDs.removeAll(keepingCapacity: true)
+        }
+
+        func recordPostImportChangedPageID(_ pageID: String) {
+            guard postImportChangeIDsAreComplete else { return }
+            postImportChangedPageIDs.insert(pageID)
+            if postImportChangedPageIDs.count + postImportDeletedPageIDs.count
+                > VaultImportProgressSnapshot.incrementalPostImportIndexChangeLimit
+            {
+                markPostImportChangeIDsIncomplete()
+            }
+        }
+
+        func recordPostImportDeletedPageID(_ pageID: String) {
+            guard postImportChangeIDsAreComplete else { return }
+            postImportDeletedPageIDs.insert(pageID)
+            if postImportChangedPageIDs.count + postImportDeletedPageIDs.count
+                > VaultImportProgressSnapshot.incrementalPostImportIndexChangeLimit
+            {
+                markPostImportChangeIDsIncomplete()
+            }
+        }
 
         func makeProgressSnapshot(
             phase: String,
@@ -678,6 +707,13 @@ actor VaultIndexActor {
                 fileTypeCounts: importInventory.fileTypeCounts,
                 unsupportedFileTypeCounts: importInventory.unsupportedFileTypeCounts,
                 skippedPolicyReasonCounts: importInventory.skippedPolicyReasonCounts,
+                postImportChangedPageIDs: postImportChangeIDsAreComplete
+                    ? postImportChangedPageIDs.sorted()
+                    : [],
+                postImportDeletedPageIDs: postImportChangeIDsAreComplete
+                    ? postImportDeletedPageIDs.sorted()
+                    : [],
+                postImportChangeIDsAreComplete: postImportChangeIDsAreComplete,
                 isComplete: isComplete
             )
         }
@@ -788,10 +824,12 @@ actor VaultIndexActor {
                             switch result {
                             case .updated(let snapshot):
                                 pendingUpdatedPages.append(snapshot)
+                                recordPostImportChangedPageID(snapshot.pageId)
                                 updateCount += 1
                                 changeCount += 1
                             case .inserted(let page):
                                 pendingInsertedPages.append(page)
+                                recordPostImportChangedPageID(page.id)
                                 insertCount += 1
                                 changeCount += 1
                             case .unchanged:
@@ -806,6 +844,7 @@ actor VaultIndexActor {
                 } else {
                     // Unchanged — skip entirely (no disk read, no body load)
                     if await backfillWikilinkReferencesIfNeeded(on: existingPage, fileURL: fileURL) {
+                        recordPostImportChangedPageID(existingPage.id)
                         updateCount += 1
                         changeCount += 1
                     }
@@ -818,10 +857,12 @@ actor VaultIndexActor {
                         switch result {
                         case .inserted(let page):
                             pendingInsertedPages.append(page)
+                            recordPostImportChangedPageID(page.id)
                             insertCount += 1
                             changeCount += 1
                         case .updated(let snapshot):
                             pendingUpdatedPages.append(snapshot)
+                            recordPostImportChangedPageID(snapshot.pageId)
                             updateCount += 1
                             changeCount += 1
                         case .unchanged:
@@ -877,6 +918,7 @@ actor VaultIndexActor {
             for path in deletedPaths {
                 if let page = existingByPath[path] {
                     SpotlightIndexer.deindex(page.id)
+                    recordPostImportDeletedPageID(page.id)
                     modelContext.delete(page)
                     deleteCount += 1
                 }
