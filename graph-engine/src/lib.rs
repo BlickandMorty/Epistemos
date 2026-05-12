@@ -20,6 +20,7 @@ pub mod grid_kernels;
 pub mod knowledge_core;
 pub mod label_envelope;
 pub mod labels;
+pub mod lod_renderer;
 pub mod markdown;
 pub mod motion;
 pub mod node_state;
