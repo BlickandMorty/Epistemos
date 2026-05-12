@@ -1071,6 +1071,59 @@ pub extern "C" fn graph_engine_node_state_size_bytes() -> usize {
     std::mem::size_of::<crate::node_state::GraphNodeState>()
 }
 
+/// Canonical scenario IDs for `graph_engine_phase_b_target` lookup.
+/// Wire-stable enum mapping mirroring
+/// `benchmark_harness::BenchmarkScenario`. Swift uses these IDs to read
+/// the canonical-plan-locked targets at runtime without re-encoding the
+/// scenario list on the Swift side.
+const SCENARIO_ID_COLD_OPEN: u32 = 0;
+const SCENARIO_ID_TIME_TO_FLUID: u32 = 1;
+const SCENARIO_ID_STEADY_FPS_ZOOM_OUT: u32 = 2;
+const SCENARIO_ID_STEADY_FPS_ZOOM_IN: u32 = 3;
+const SCENARIO_ID_DRAG_FPS: u32 = 4;
+const SCENARIO_ID_SEARCH_PULSE_FPS: u32 = 5;
+const SCENARIO_ID_MEMORY_RESIDENCY_MB: u32 = 6;
+const SCENARIO_ID_AWAKE_FRACTION: u32 = 7;
+
+/// Look up the Phase B v1.2 acceptance target for a (scenario, vault_size)
+/// combination. Returns `NaN` when no target is defined (per the canonical
+/// plan, not every cell in the matrix has a published gate). The Swift
+/// Settings → Diagnostics view reads this to compare measured values
+/// against canonical-plan-locked thresholds.
+///
+/// `scenario_id` must be one of the `SCENARIO_ID_*` constants. Unknown
+/// IDs return `NaN`.
+///
+/// Per `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` §"Phase B
+/// acceptance criteria (v1.2 ship bar)":
+///   1k:   ≤ 80 ms cold open, 120 fps everywhere
+///   5k:   ≤ 220 ms cold open, 90-120 fps
+///   10k:  ≤ 500 ms cold open, 60-90 zoom-out, 90-120 zoom-in
+///   50k:  ≤ 1.5 s cold open, 30-60 steady, drag ≥ 30 fps
+///   100k: 18 fps zoom-out + cluster LOD (Phase C territory)
+///   Memory: 10k ≤ 400 MB, 50k ≤ 1 GB, 100k ≤ 2 GB
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_phase_b_target(
+    scenario_id: u32,
+    vault_node_count: u32,
+) -> f64 {
+    ffi_catch_unwind_or!("graph_engine_phase_b_target", f64::NAN, {
+        use crate::benchmark_harness::{BenchmarkScenario, phase_b_target};
+        let scenario = match scenario_id {
+            SCENARIO_ID_COLD_OPEN => BenchmarkScenario::ColdOpen,
+            SCENARIO_ID_TIME_TO_FLUID => BenchmarkScenario::TimeToFluid,
+            SCENARIO_ID_STEADY_FPS_ZOOM_OUT => BenchmarkScenario::SteadyFpsZoomOut,
+            SCENARIO_ID_STEADY_FPS_ZOOM_IN => BenchmarkScenario::SteadyFpsZoomIn,
+            SCENARIO_ID_DRAG_FPS => BenchmarkScenario::DragFps,
+            SCENARIO_ID_SEARCH_PULSE_FPS => BenchmarkScenario::SearchPulseFps,
+            SCENARIO_ID_MEMORY_RESIDENCY_MB => BenchmarkScenario::MemoryResidencyMb,
+            SCENARIO_ID_AWAKE_FRACTION => BenchmarkScenario::AwakeFraction,
+            _ => return f64::NAN,
+        };
+        phase_b_target(scenario, vault_node_count).unwrap_or(f64::NAN)
+    })
+}
+
 // ── Input Events ────────────────────────────────────────────────────────────
 
 /// Mouse/trackpad button pressed.

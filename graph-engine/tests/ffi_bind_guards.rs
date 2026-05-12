@@ -34,6 +34,7 @@ unsafe extern "C" {
 
     fn graph_engine_node_state_abi_version() -> u32;
     fn graph_engine_node_state_size_bytes() -> usize;
+    fn graph_engine_phase_b_target(scenario_id: u32, vault_node_count: u32) -> f64;
 }
 
 #[test]
@@ -109,4 +110,53 @@ fn bind_size_constants_match_locked_canonical_values() {
 
     let abi = unsafe { graph_engine_node_state_abi_version() };
     assert_eq!(abi, 1, "ABI version 1 lock per canonical plan");
+}
+
+#[test]
+fn phase_b_target_ffi_matches_canonical_plan_table() {
+    // Scenario IDs (must match the canonical SCENARIO_ID_* constants).
+    const COLD_OPEN: u32 = 0;
+    const STEADY_FPS_ZOOM_OUT: u32 = 2;
+    const STEADY_FPS_ZOOM_IN: u32 = 3;
+    const DRAG_FPS: u32 = 4;
+    const MEMORY_MB: u32 = 6;
+
+    // Per canonical-plan §"Phase B acceptance criteria":
+    // 1k cold open: ≤ 80 ms
+    let t = unsafe { graph_engine_phase_b_target(COLD_OPEN, 1_000) };
+    assert!((t - 80.0).abs() < 1e-9, "1k ColdOpen target should be 80ms, got {}", t);
+
+    // 50k cold open: ≤ 1500 ms
+    let t = unsafe { graph_engine_phase_b_target(COLD_OPEN, 50_000) };
+    assert!((t - 1500.0).abs() < 1e-9);
+
+    // 50k drag: ≥ 30 fps
+    let t = unsafe { graph_engine_phase_b_target(DRAG_FPS, 50_000) };
+    assert!((t - 30.0).abs() < 1e-9);
+
+    // 50k memory: ≤ 1024 MB
+    let t = unsafe { graph_engine_phase_b_target(MEMORY_MB, 50_000) };
+    assert!((t - 1024.0).abs() < 1e-9);
+
+    // 10k zoom-in: ≥ 90 fps
+    let t = unsafe { graph_engine_phase_b_target(STEADY_FPS_ZOOM_IN, 10_000) };
+    assert!((t - 90.0).abs() < 1e-9);
+
+    // 100k zoom-out: ≥ 18 fps
+    let t = unsafe { graph_engine_phase_b_target(STEADY_FPS_ZOOM_OUT, 100_000) };
+    assert!((t - 18.0).abs() < 1e-9);
+}
+
+#[test]
+fn phase_b_target_ffi_returns_nan_for_unknown_scenario() {
+    let t = unsafe { graph_engine_phase_b_target(999, 10_000) };
+    assert!(t.is_nan(), "unknown scenario ID must return NaN, got {}", t);
+}
+
+#[test]
+fn phase_b_target_ffi_returns_nan_for_undefined_cell() {
+    // SearchPulseFps has no defined gates in the canonical plan table.
+    const SEARCH_PULSE_FPS: u32 = 5;
+    let t = unsafe { graph_engine_phase_b_target(SEARCH_PULSE_FPS, 10_000) };
+    assert!(t.is_nan(), "undefined-cell target must return NaN");
 }
