@@ -1849,7 +1849,8 @@ struct RuntimeValidationTests {
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
 
         #expect(app.contains("metadata[\"localModelUnloadRequested\"] = \"true\""))
-        #expect(app.contains("Task(priority: .utility) { [localInferenceService] in"))
+        #expect(app.contains("Task.detached(priority: .utility)"))
+        #expect(app.contains("performMemoryPressureRelief("))
         #expect(app.contains("await localInferenceService.unload()"))
     }
 

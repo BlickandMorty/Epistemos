@@ -590,55 +590,70 @@ final class RuntimeIssueMonitor {
         switch transition {
         case .entered(let level):
             metadata["level"] = level.rawValue
-            // Hand off to the Rust FFI so bounded caches inside the
-            // Rust runtime (ShmPool, session registry) can shed memory
-            // before macOS escalates the pressure level. The relief
-            // record's gain becomes part of the diagnostic metadata.
-            let relief = respondToMemoryPressure(level: level == .critical ? 2 : 1)
-            metadata["rustSegmentsEvicted"] = String(relief.segmentsEvicted)
-            metadata["rustSegmentBytesFreedMB"] = String(relief.segmentBytesFreed / (1024 * 1024))
-            metadata["rustSessionsPruned"] = String(relief.sessionsPruned)
-            // Drain SearchIndexService's GRDB page cache + idle reader
-            // connections. PRAGMA optimize/shrink_memory + DatabasePool
-            // releaseMemory together free 15-50 MB of resident at idle
-            // without losing the index (it's a derivative store).
-            // Best-effort, non-blocking — runs nonisolated.
-            if let searchService = AppBootstrap.shared?.vaultSync.searchService {
-                searchService.releaseMemoryPressureCaches()
-                metadata["searchIndexCachesReleased"] = "true"
-            }
-            if level == .critical,
-               let localInferenceService = AppBootstrap.shared?.localInferenceService {
-                metadata["localModelUnloadRequested"] = "true"
-                Task(priority: .utility) { [localInferenceService] in
-                    await localInferenceService.unload()
-                }
-            }
-            // `WKProcessPool` is deprecated on current macOS SDKs; the
-            // actionable pressure signal is whether document WebViews
-            // are live, since teardown/non-persistent stores reclaim
-            // their own resources when the editor closes.
-            metadata["webViewIdle"] = EpdocWebViewShared.isIdleForMemoryPressure ? "true" : "false"
-            RuntimeDiagnostics.record(
-                level == .critical ? .fault : .warning,
-                category: "Diagnostics",
-                message: "memory_pressure",
-                metadata: metadata
-            )
-            StructuredDiagnosticLogger().log(
-                .memoryPressure(
-                    level: level.rawValue,
-                    usedMB: residentMB,
-                    pressureSource: "dispatch_source",
-                    memoryScope: "process_resident",
-                    isAppActive: NSApp.isActive
+            let searchService = AppBootstrap.shared?.vaultSync.searchService
+            let localInferenceService = level == .critical
+                ? AppBootstrap.shared?.localInferenceService
+                : nil
+            let webViewIdle = EpdocWebViewShared.isIdleForMemoryPressure
+            let isAppActive = NSApp.isActive
+            Task.detached(priority: .utility) {
+                await Self.performMemoryPressureRelief(
+                    level: level,
+                    residentMB: residentMB,
+                    metadata: metadata,
+                    searchService: searchService,
+                    localInferenceService: localInferenceService,
+                    webViewIdle: webViewIdle,
+                    isAppActive: isAppActive
                 )
-            )
+            }
         case .recovered(let previousLevel):
             metadata["level"] = "normal"
             metadata["recoveredFrom"] = previousLevel.rawValue
             recordLifecycle("memory_pressure_recovered", metadata: metadata)
         }
+    }
+
+    private nonisolated static func performMemoryPressureRelief(
+        level: MemoryPressureLevel,
+        residentMB: Int,
+        metadata initialMetadata: [String: String],
+        searchService: SearchIndexService?,
+        localInferenceService: MLXInferenceService?,
+        webViewIdle: Bool,
+        isAppActive: Bool
+    ) async {
+        var metadata = initialMetadata
+        let relief = respondToMemoryPressure(level: level == .critical ? 2 : 1)
+        metadata["rustSegmentsEvicted"] = String(relief.segmentsEvicted)
+        metadata["rustSegmentBytesFreedMB"] = String(relief.segmentBytesFreed / (1024 * 1024))
+        metadata["rustSessionsPruned"] = String(relief.sessionsPruned)
+
+        if let searchService {
+            searchService.releaseMemoryPressureCaches()
+            metadata["searchIndexCachesReleased"] = "true"
+        }
+        if level == .critical, let localInferenceService {
+            metadata["localModelUnloadRequested"] = "true"
+            await localInferenceService.unload()
+        }
+        metadata["webViewIdle"] = webViewIdle ? "true" : "false"
+
+        RuntimeDiagnostics.record(
+            level == .critical ? .fault : .warning,
+            category: "Diagnostics",
+            message: "memory_pressure",
+            metadata: metadata
+        )
+        StructuredDiagnosticLogger().log(
+            .memoryPressure(
+                level: level.rawValue,
+                usedMB: residentMB,
+                pressureSource: "dispatch_source",
+                memoryScope: "process_resident",
+                isAppActive: isAppActive
+            )
+        )
     }
 
     static func publishPowerGateMemoryPressure(_ transition: MemoryPressureTransition) {
