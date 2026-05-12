@@ -842,6 +842,23 @@ struct NotesSidebar: View {
                 edges: .top
             )
             searchBar
+            // ISSUE-2026-05-12-001 — Fresh-user no-vault banner.
+            // Fires when no vault is connected AND there is no cached
+            // local content to fall back on. `DisconnectedCachedVaultNotice`
+            // below handles the cached-rows-but-no-vault case; this one
+            // handles the truly-empty first-launch state so users learn
+            // they need to pick a folder before Halo / Shadow / search
+            // can do anything useful.
+            if vaultSync.vaultURL == nil && !hasDisconnectedCachedContent {
+                NoVaultConnectedBanner {
+                    VaultConnectionActions.selectVaultFolder(
+                        notesUI: notesUI,
+                        vaultSync: vaultSync
+                    )
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
+            }
             if hasDisconnectedCachedContent {
                 DisconnectedCachedVaultNotice()
                     .padding(.horizontal, 12)
@@ -2974,6 +2991,63 @@ private struct DisconnectedCachedVaultNotice: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Disconnected Local Cache")
         .accessibilityHint("Cached local note and graph rows are visible, but no vault is connected.")
+    }
+}
+
+// MARK: - No-Vault Connected Banner (ISSUE-2026-05-12-001)
+
+/// Surfaces the silent vault-not-connected state to fresh users.
+///
+/// Without a filesystem vault selected (`vaultSync.vaultURL`), Halo,
+/// Shadow indexing, and vault-backed search all silently degrade.
+/// Internal SwiftData notes still work, which is why the failure is
+/// invisible — users edit notes happily, then are confused when Halo
+/// reports "No active vault selected" in Diagnostics. The banner
+/// closes that gap with a one-click action to open the folder picker.
+private struct NoVaultConnectedBanner: View {
+    let onSelectFolder: () -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "externaldrive.badge.plus")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("No Vault Connected")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.resolved.foreground.color)
+                    Text("Notes won't appear in search and Halo recall is off until you pick a folder on disk.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.mutedForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            Button(action: onSelectFolder) {
+                Text("Select Vault Folder")
+                    .font(.system(size: 11, weight: .medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(theme.resolved.accent.color)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(theme.resolved.accent.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(theme.resolved.accent.color.opacity(0.22), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No Vault Connected")
+        .accessibilityHint("Tap Select Vault Folder to choose a folder for your Markdown notes; Halo and Shadow indexing will start once a folder is selected.")
     }
 }
 
