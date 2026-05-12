@@ -3997,6 +3997,18 @@ enum VaultConnectionActions {
                 vaultSync.isIndexing = false
             }
 
+            // Step 0 (USER REPORT 2026-05-12 fix): wipe the persisted
+            // bookmark FIRST, before any heavy async teardown. Previous
+            // ordering ran clearPersistedVaultSelection() after
+            // stopWatchingAsync(preserveData: false), which on large
+            // vaults can take 30+ seconds. If the user force-quit during
+            // that window, the bookmark survived → next launch silently
+            // re-mounted the "disconnected" vault. Clearing the bookmark
+            // up front makes the disconnect durable even if the user
+            // kills the app mid-teardown; the worst they get is a stale
+            // graph/shadow index, not a phantom vault re-mount.
+            vaultSync.clearPersistedVaultSelection()
+
             // Step 1: canonical runtime-state clear — graph engine,
             // query engine, contextual shadows, instant recall,
             // workspace restore. Mirrors resetAllData() phase 1.
@@ -4017,7 +4029,6 @@ enum VaultConnectionActions {
             } else {
                 await vaultSync.forceClearDerivedLocalStateForFullReset()
             }
-            vaultSync.clearPersistedVaultSelection()
             await Task.yield()
 
             // Step 3: reset UI surface — vaultURL is already nil so

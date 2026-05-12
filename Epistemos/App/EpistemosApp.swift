@@ -107,8 +107,19 @@ private struct HomeSceneRootContent: View {
                         // gate from ISSUE-2026-05-12-002 — non-modal
                         // (user can dismiss) but persistent across
                         // launches.
-                        setupComplete
+                        //
+                        // CRITICAL: also check that no bookmark is
+                        // pending restore (per the user report dated
+                        // 2026-05-12: the sheet was firing during the
+                        // brief window after launch but before
+                        // restoreVaultFromBookmark() completed). If a
+                        // bookmark exists in defaults, the vault is
+                        // about to be restored; don't show the prompt.
+                        let bookmarkPending = UserDefaults.standard
+                            .data(forKey: "epistemos.vaultBookmark") != nil
+                        return setupComplete
                             && bootstrap.vaultSync.vaultURL == nil
+                            && !bookmarkPending
                             && !vaultReprompDismissedThisSession
                     },
                     set: { isPresented in
