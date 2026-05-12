@@ -200,13 +200,13 @@ struct ChatPresentationTests {
       ])
   }
 
-  @Test("chat markdown uses display typography for H1 and H2 only")
+  @Test("chat markdown uses display typography for H1 through H3")
   func chatMarkdownUsesDisplayFontHierarchy() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
 
-    #expect(source.contains("if (1...2).contains(level) {"))
+    #expect(source.contains("if (1...3).contains(level) {"))
     #expect(source.contains("return AppDisplayTypography.font(size: fontSize, weight: weight, isDark: theme.isDark)"))
-    #expect(source.contains("} else if (3...5).contains(level) {"))
+    #expect(source.contains("} else if (4...5).contains(level) {"))
     #expect(source.contains("return AppDisplayTypography.font(size: fontSize, weight: weight, allowDisplayFont: false)"))
     #expect(source.contains("return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)"))
   }

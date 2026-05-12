@@ -758,9 +758,9 @@ struct TaggedMarkdownTextView: View {
         )
         let font: Font = {
             let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
-            if (1...2).contains(level) {
+            if (1...3).contains(level) {
                 return AppDisplayTypography.font(size: fontSize, weight: weight, isDark: theme.isDark)
-            } else if (3...5).contains(level) {
+            } else if (4...5).contains(level) {
                 return AppDisplayTypography.font(size: fontSize, weight: weight, allowDisplayFont: false)
             } else {
                 return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)

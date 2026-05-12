@@ -444,7 +444,7 @@ nonisolated struct EpdocEditorBridgeTests {
                 "heavy rendered blocks need paint containment so large code, diagram, chart, and image nodes do not invalidate the whole document surface.")
     }
 
-    @Test(".epdoc H1/H2 typography tracks the native prose editor display scale")
+    @Test(".epdoc H1-H3 typography tracks the native prose editor display scale")
     func epdocHeadingsTrackNativeProseDisplayScale() throws {
         let css = try loadMirroredSourceTextFile("js-editor/src/editor.css")
         let webpack = try loadMirroredSourceTextFile("js-editor/webpack.config.js")
@@ -467,9 +467,11 @@ nonisolated struct EpdocEditorBridgeTests {
                 "Prose H1 is scaled up for Coral's smaller apparent size.")
         #expect(css.contains("--epdoc-h2-size: 31px;"),
                 "Prose H2 is also display typography in the active light/dark face.")
+        #expect(css.contains("--epdoc-h3-size: 19px;"),
+                "Prose H3 stays in the display face while H4/H5 remain regular body typography.")
         #expect(css.contains(#"--epdoc-display-font: "Retro Gaming""#))
-        #expect(css.contains(".ProseMirror h1,\n.ProseMirror h2 {"))
-        #expect(!css.contains(".ProseMirror h3,\n.ProseMirror h4,\n.ProseMirror h5 {\n  font-family: var(--epdoc-display-font);"))
+        #expect(css.contains(".ProseMirror h1,\n.ProseMirror h2,\n.ProseMirror h3 {"))
+        #expect(!css.contains(".ProseMirror h4,\n.ProseMirror h5 {\n  font-family: var(--epdoc-display-font);"))
         #expect(css.contains("font-family: var(--epdoc-display-font);"))
     }
 }

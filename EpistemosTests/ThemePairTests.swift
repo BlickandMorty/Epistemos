@@ -380,7 +380,7 @@ struct ThemePairTests {
         )
     }
 
-    @Test("App heading roles use display typography only for the first two heading levels")
+    @Test("App heading roles use display typography for the first three heading levels")
     func appHeadingRolesUseSharedDisplayScale() {
         #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
         #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
@@ -394,7 +394,7 @@ struct ThemePairTests {
         #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
         #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.displayFontName)
         #expect(AppHeadingRole.h2.fontName == AppDisplayTypography.displayFontName)
-        #expect(AppHeadingRole.h3.fontName != AppDisplayTypography.displayFontName)
+        #expect(AppHeadingRole.h3.fontName == AppDisplayTypography.displayFontName)
         #expect(AppHeadingRole.h1.fontSize == 32)
         #expect(AppHeadingRole.h2.fontSize == 26)
         #expect(AppHeadingRole.h3.fontSize == 18)
