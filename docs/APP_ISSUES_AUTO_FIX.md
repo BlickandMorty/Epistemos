@@ -63,6 +63,60 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-12-010: Vault disconnect hangs forever after iteration-1 bookmark-clear reorder
+
+Status: Patched (commit `fa2c29f91` reverts to safe ordering + adds crash-safe `disconnectInProgress` flag)
+Priority: P0
+First Observed: 2026-05-12 (user report directly after iteration-1 fix landed)
+
+Symptom:
+After commit `71ef9f1e9` shipped, the user reported "I cant remove the
+vault it just waits forever / readding a vault etc. its not working
+anymore / it makes me reselect my vault on startup". Three regressions
+in one — the disconnect hung indefinitely AND the re-prompt sheet
+nagged after explicit disconnect AND vault re-selection didn't take.
+
+Root Cause:
+Commit `71ef9f1e9` moved `clearPersistedVaultSelection()` to the very
+top of the disconnect Task block, ahead of `stopWatchingAsync(preserveData: false)`.
+The bookmark in UserDefaults is what makes the URL re-mountable on
+launch, but the in-memory `vaultURL` holds the security-scoped resource
+handle that `stopWatchingAsync` → `prepareToStopWatching` → file watcher
+tear-down + `clearLocalVaultStateOffMain` filesystem snapshot all
+depend on. Clearing UserDefaults first orphaned the session-scoped
+access state and hung the file-watcher subscriber loop.
+
+The re-prompt-nag symptom shared the same root: bookmark cleared too
+eagerly meant the `bookmarkPending` check in the sheet predicate
+flipped false right after disconnect, satisfying all the other
+predicate conditions and firing the sheet again.
+
+Safe Auto-Fix Attempts (applied in `fa2c29f91`):
+- Reverted clear-bookmark-FIRST ordering. `stopWatchingAsync` runs
+  while the security-scoped URL is still live; `clearPersistedVaultSelection`
+  runs AFTER teardown completes.
+- Added `epistemos.disconnectInProgress` UserDefaults flag set at the
+  top of the disconnect Task block (atomic, fast). Cleared after the
+  full teardown. Survives crashes / force-quits.
+- Added `restoreVaultFromBookmark()` recovery check at the very top:
+  if `disconnectInProgress` is true on launch, clear the bookmark + flag
+  immediately and skip restoration. Completes the user's intent even
+  if the original teardown was interrupted by force-quit.
+- Added `epistemos.hasEverConnectedAVault` flag set on first
+  `persistVaultSelection`. VaultReprompSheet predicate now requires
+  `!hasEverConnectedAVault` so explicit-disconnect users aren't nagged.
+
+Destructive Fixes (not applied):
+- Forcing the user back through SetupAssistant after every disconnect.
+- Auto-creating a default vault on disconnect.
+
+Investigation Log:
+- 2026-05-12: User reported regression directly. Re-ordered teardown
+  back to original sequence + added crash-safe flag pattern. Build
+  succeeded. User to confirm.
+
+---
+
 ### ISSUE-2026-05-12-001: Silent vault-not-connected state hides indexing failure from user
 
 Status: Patched (NoVaultConnectedBanner shipped in `fdd8e67dc`)
@@ -106,7 +160,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-002: First-launch onboarding does not force vault selection
 
-Status: Patched (VaultReprompSheet shipped in `b598ce4c5`; predicate tightened against bookmark-restore race in `71ef9f1e9`)
+Status: Patched (VaultReprompSheet shipped in `b598ce4c5`; predicate tightened against bookmark-restore race in `71ef9f1e9`; v2 fix `fa2c29f91` adds `hasEverConnectedAVault` gate so explicit-disconnect doesn't nag)
 Priority: P2
 First Observed: 2026-05-12
 
