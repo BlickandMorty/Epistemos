@@ -531,7 +531,7 @@ struct ParagraphTests {
         #expect((tk2Font?.pointSize ?? 0) > 15)
     }
 
-    @Test("H1 heading in notes uses Coral Pixels display font in both stacks")
+    @Test("H1 heading in light notes uses Coral Pixels display font in both stacks")
     func h1UsesDisplayFont() {
         let md = "# Big Heading"
         let tk1 = ParityHelpers.tk1Styled(md, theme: .platinumViolet)
@@ -547,6 +547,18 @@ struct ParagraphTests {
         let tk2Color = tk2.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
         #expect(ParityHelpers.colorsMatch(tk1Color, expectedColor))
         #expect(ParityHelpers.colorsMatch(tk2Color, expectedColor))
+    }
+
+    @Test("H1 heading in dark notes uses the retro display font in both stacks")
+    func h1UsesDarkDisplayFont() {
+        let md = "# Big Heading"
+        let tk1 = ParityHelpers.tk1Styled(md, theme: .platinumVioletDark)
+        let tk2 = ParityHelpers.tk2Styled(md, theme: .platinumVioletDark)
+
+        let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(tk1Font.map { AppDisplayTypography.isLegacyDisplayFont($0) } ?? false)
+        #expect(tk2Font.map { AppDisplayTypography.isLegacyDisplayFont($0) } ?? false)
     }
 
     @MainActor

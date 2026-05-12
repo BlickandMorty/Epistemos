@@ -70,13 +70,15 @@ struct LiquidGreeting: View {
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
     private var greetingFont: Font {
-        AppDisplayTypography.font(size: compact ? 30 : 68)
+        AppDisplayTypography.font(size: compact ? 28 : 62, isDark: theme.isDark)
     }
     /// Font used for the live search line. Shrinks as the query grows so
     /// long prompts still fit on one visual row — mirrors the behaviour of
     /// note titles (a big headline for a short title, smaller for a long
     /// one, then stable below a floor).
-    private var searchFont: Font { AppDisplayTypography.font(size: dynamicSearchFontSize) }
+    private var searchFont: Font {
+        AppDisplayTypography.font(size: dynamicSearchFontSize, isDark: theme.isDark)
+    }
     /// Dynamic size curve for the search line. Linear ramp between a soft
     /// threshold (start of shrink) and a hard floor (stable minimum). Animated
     /// via the `.animation(..., value: dynamicSearchFontSize)` binding on

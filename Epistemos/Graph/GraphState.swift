@@ -413,12 +413,14 @@ enum GraphInteractionMode: Equatable {
 // MARK: - Label Font Family
 
 enum LabelFontFamily: String, CaseIterable, Identifiable, Codable {
-    // Raw value is preserved for old UserDefaults, but the shipped atlas is now
-    // JetBrains Mono. Keeping one bundled atlas avoids a fake font picker.
+    // Raw value is preserved for old UserDefaults; the actual atlas follows
+    // the active light/dark typography pair.
     case retro
     var id: String { rawValue }
-    var displayName: String { "Mono" }
-    var atlasResourceName: String { "sdf_labels" }
+    var displayName: String { "Theme" }
+    func atlasResourceName(isDark: Bool) -> String {
+        AppDisplayTypography.graphLabelAtlasResourceName(isDark: isDark)
+    }
 }
 
 // MARK: - Graph Title Mode

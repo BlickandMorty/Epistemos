@@ -42,7 +42,7 @@ struct GraphFirstOpenTitle: View {
             // Per user 2026-05-10: shrunk from 88pt to 44pt — the smaller
             // title fits the unified mini-ontology panel without competing
             // with the graph itself.
-            .font(.custom(AppDisplayTypography.displayFontName, size: 44))
+            .font(.custom(AppDisplayTypography.displayFontName(isDark: isDark), size: 44))
             .foregroundStyle(titleColor)
             .tracking(2)
             // Two-layer shadow: soft glow + crisp offset for depth.

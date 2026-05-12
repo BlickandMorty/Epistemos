@@ -257,6 +257,19 @@ impl LabelScreenRect {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct LabelCandidate {
+    node_index: usize,
+    x: f32,
+    y: f32,
+    radius: f32,
+    score: f32,
+    opacity: f32,
+    screen_x: f32,
+    screen_y: f32,
+    protected: bool,
+}
+
 fn estimated_label_screen_rect(
     screen_x: f32,
     screen_y: f32,
@@ -393,6 +406,10 @@ pub struct Engine {
     pub(crate) label_folder_threshold: f32,
     pub(crate) label_note_threshold: f32,
     pub(crate) label_chat_threshold: f32,
+    label_scored_scratch: Vec<LabelCandidate>,
+    label_density_cell_counts: FxHashMap<(i32, i32), usize>,
+    label_occupied_cells: FxHashSet<(i32, i32)>,
+    label_occupied_rects: Vec<LabelScreenRect>,
 
     /// Counts consecutive frames where the engine reported "no more frames needed."
     /// Used to throttle render calls when idle.
@@ -498,6 +515,10 @@ impl Engine {
             label_folder_threshold: 1.0,
             label_note_threshold: 1.0,
             label_chat_threshold: 1.0,
+            label_scored_scratch: Vec::new(),
+            label_density_cell_counts: FxHashMap::default(),
+            label_occupied_cells: FxHashSet::default(),
+            label_occupied_rects: Vec::new(),
             idle_frame_count: 0,
             commit_instant: Instant::now(),
             search_index: crate::search::SearchIndex::new(),
@@ -772,8 +793,11 @@ impl Engine {
 
         self.renderer.clear_instances();
         self.label_instance_scratch.clear();
-        self.label_cache_camera = [f32::MAX, f32::MAX];
-        self.label_cache_zoom = 0.0;
+        self.label_scored_scratch.clear();
+        self.label_density_cell_counts.clear();
+        self.label_occupied_cells.clear();
+        self.label_occupied_rects.clear();
+        self.mark_label_cache_dirty();
         self.search_highlight_ids_scratch.clear();
         self.gpu_positions_scratch.clear();
 
@@ -1859,6 +1883,7 @@ impl Engine {
     /// Enable or disable SDF label rendering.
     pub fn set_labels_enabled(&mut self, enabled: bool) {
         self.renderer.labels_enabled = enabled;
+        self.mark_label_cache_dirty();
     }
 
     #[allow(dead_code)]
@@ -1877,16 +1902,19 @@ impl Engine {
             line_height_em,
             px_range,
         ));
+        self.mark_label_cache_dirty();
     }
 
     pub fn clear_label_glyph_table(&mut self) {
         self.label_glyph_table = None;
         self.label_instance_scratch.clear();
         self.renderer.set_label_instances(&[]);
+        self.mark_label_cache_dirty();
     }
 
     pub fn set_label_world_px_per_em(&mut self, px_per_em: f32) {
         self.label_world_px_per_em = px_per_em.max(1.0);
+        self.mark_label_cache_dirty();
     }
 
     fn rebuild_label_instances(&mut self, width: u32, height: u32) {
@@ -1929,20 +1957,9 @@ impl Engine {
         let selection_active = self.renderer.highlight.active;
         let highlight_ids = &self.renderer.highlight.highlighted_ids;
 
-        struct Scored<'a> {
-            x: f32,
-            y: f32,
-            radius: f32,
-            label: &'a str,
-            score: f32,
-            opacity: f32,
-            screen_x: f32,
-            screen_y: f32,
-            protected: bool,
-        }
-        let mut scored: Vec<Scored<'_>> = Vec::with_capacity(256);
+        self.label_scored_scratch.clear();
 
-        for node in &self.graph.nodes {
+        for (node_index, node) in self.graph.nodes.iter().enumerate() {
             if !node.visible {
                 continue;
             }
@@ -2044,11 +2061,11 @@ impl Engine {
             };
             let score =
                 layer * size_component * link_boost * proximity * readability * emphasis_boost;
-            scored.push(Scored {
+            self.label_scored_scratch.push(LabelCandidate {
+                node_index,
                 x: node.x,
                 y: node.y,
                 radius: node.radius,
-                label: node.label.as_str(),
                 score,
                 opacity: (layer * proximity * readability).clamp(0.0, 1.0),
                 screen_x,
@@ -2057,7 +2074,7 @@ impl Engine {
             });
         }
 
-        scored.sort_unstable_by(|a, b| {
+        self.label_scored_scratch.sort_unstable_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -2066,15 +2083,20 @@ impl Engine {
         // Clamp label count even while a selected folder highlights many
         // neighbors. The selected/hovered/root label gets a score boost and is
         // protected from density culling, but neighbor labels still thin out.
-        let protected_count = scored.iter().filter(|s| s.protected).count();
+        let scored_count = self.label_scored_scratch.len();
+        let protected_count = self
+            .label_scored_scratch
+            .iter()
+            .filter(|s| s.protected)
+            .count();
         let max_nodes = if selection_active {
             // Selection should reveal the selected node's connected neighborhood
             // again, but the density cells below still prevent high-degree
             // folders from turning the viewport into a single text block.
-            selected_neighbor_label_cap(scored.len(), protected_count).min(scored.len())
+            selected_neighbor_label_cap(scored_count, protected_count).min(scored_count)
         } else {
             let outer_max = if self.label_max_nodes == 0 {
-                scored.len()
+                scored_count
             } else {
                 self.label_max_nodes as usize
             };
@@ -2090,7 +2112,7 @@ impl Engine {
             (cap_f.round() as usize)
                 .max(1)
                 .max(protected_count)
-                .min(scored.len())
+                .min(scored_count)
         };
 
         let density_cell_px = if selection_active {
@@ -2098,32 +2120,36 @@ impl Engine {
         } else {
             label_density_cell_screen_px(zoom, pivot)
         };
-        let mut occupied_cells: FxHashSet<(i32, i32)> = FxHashSet::default();
-        let mut cell_counts: FxHashMap<(i32, i32), usize> = FxHashMap::default();
-        for s in scored.iter().filter(|s| !s.protected) {
+        self.label_occupied_cells.clear();
+        self.label_density_cell_counts.clear();
+        for s in self.label_scored_scratch.iter().filter(|s| !s.protected) {
             let cell = label_density_cell_key(s.screen_x, s.screen_y, density_cell_px);
-            *cell_counts.entry(cell).or_insert(0) += 1;
+            *self.label_density_cell_counts.entry(cell).or_insert(0) += 1;
         }
         let mut visible: Vec<(f32, f32, f32, &str, f32, f32)> = Vec::with_capacity(max_nodes);
-        let mut occupied_label_rects: Vec<LabelScreenRect> = Vec::with_capacity(max_nodes);
-        for s in scored.iter() {
+        self.label_occupied_rects.clear();
+        for s in self.label_scored_scratch.iter() {
             if visible.len() >= max_nodes {
                 break;
             }
             let cell = label_density_cell_key(s.screen_x, s.screen_y, density_cell_px);
             if !s.protected {
-                if !occupied_cells.insert(cell) {
+                if !self.label_occupied_cells.insert(cell) {
                     continue;
                 }
             }
-            let local_count = cell_counts.get(&cell).copied().unwrap_or(1);
+            let local_count = self
+                .label_density_cell_counts
+                .get(&cell)
+                .copied()
+                .unwrap_or(1);
             let density_budget = if selection_active {
-                selected_neighbor_density_budget(scored.len(), protected_count)
+                selected_neighbor_density_budget(scored_count, protected_count)
             } else {
                 max_nodes
             };
             let density_scale =
-                label_density_scale(scored.len(), density_budget, local_count, s.protected);
+                label_density_scale(scored_count, density_budget, local_count, s.protected);
             let base_screen_px =
                 hybrid_label_screen_px(self.label_world_px_per_em, zoom, s.protected);
             let min_screen_px = if s.protected {
@@ -2134,24 +2160,26 @@ impl Engine {
             let world_px_per_em =
                 (base_screen_px * density_scale).max(min_screen_px) / zoom.max(0.01);
             let opacity = s.opacity * label_density_opacity(density_scale, s.protected);
+            let label = self.graph.nodes[s.node_index].label.as_str();
             let label_rect = estimated_label_screen_rect(
                 s.screen_x,
                 s.screen_y,
                 s.radius,
-                s.label,
+                label,
                 world_px_per_em,
                 zoom,
                 table.line_height_em,
             );
             if !s.protected
-                && occupied_label_rects
+                && self
+                    .label_occupied_rects
                     .iter()
                     .any(|existing| existing.overlaps(&label_rect))
             {
                 continue;
             }
-            occupied_label_rects.push(label_rect);
-            visible.push((s.x, s.y, s.radius, s.label, opacity, world_px_per_em));
+            self.label_occupied_rects.push(label_rect);
+            visible.push((s.x, s.y, s.radius, label, opacity, world_px_per_em));
         }
 
         let label_color = if self.renderer.light_mode {
@@ -2194,11 +2222,13 @@ impl Engine {
         self.label_folder_threshold = folder_threshold.clamp(0.2, 5.0);
         self.label_note_threshold = note_threshold.clamp(0.2, 5.0);
         self.label_chat_threshold = chat_threshold.clamp(0.2, 5.0);
+        self.mark_label_cache_dirty();
     }
 
     pub fn set_label_extras(&mut self, max_inner_nodes: u32, inner_offset: f32) {
         self.label_max_inner_nodes = max_inner_nodes;
         self.label_inner_offset = inner_offset.clamp(0.0, 5.0);
+        self.mark_label_cache_dirty();
     }
 
     pub fn set_water_nodes(&mut self, style: f32, wobble: f32) {
@@ -2640,7 +2670,13 @@ impl Engine {
         // instance buffers, so a style-only mutation still needs a buffer rebuild.
         self.quality_rebuild_pending = true;
         self.highlight_dirty = true;
+        self.mark_label_cache_dirty();
         self.idle_frame_count = 0;
+    }
+
+    fn mark_label_cache_dirty(&mut self) {
+        self.label_cache_camera = [f32::MAX, f32::MAX];
+        self.label_cache_zoom = 0.0;
     }
 
     /// Look up a node's UUID by its internal ID and store in the reusable buffer.
@@ -3372,6 +3408,8 @@ mod tests {
 
         engine.quality_rebuild_pending = false;
         engine.highlight_dirty = false;
+        engine.label_cache_camera = [12.0, 24.0];
+        engine.label_cache_zoom = 2.0;
         engine.idle_frame_count = 9;
 
         engine.set_light_mode(true);
@@ -3379,6 +3417,8 @@ mod tests {
         assert!(engine.renderer.light_mode);
         assert!(engine.quality_rebuild_pending);
         assert!(engine.highlight_dirty);
+        assert_eq!(engine.label_cache_camera, [f32::MAX, f32::MAX]);
+        assert_eq!(engine.label_cache_zoom, 0.0);
         assert_eq!(engine.idle_frame_count, 0);
 
         engine.quality_rebuild_pending = false;
@@ -3403,6 +3443,41 @@ mod tests {
         assert!(engine.quality_rebuild_pending);
         assert!(engine.highlight_dirty);
         assert_eq!(engine.idle_frame_count, 0);
+    }
+
+    #[test]
+    fn label_policy_changes_dirty_label_cache() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.label_cache_camera = [10.0, 20.0];
+        engine.label_cache_zoom = 3.0;
+        engine.set_label_policy(128, 0.2, 2.0, 0.4, 1.0, 1.1, 1.2);
+        assert_eq!(engine.label_cache_camera, [f32::MAX, f32::MAX]);
+        assert_eq!(engine.label_cache_zoom, 0.0);
+
+        engine.label_cache_camera = [10.0, 20.0];
+        engine.label_cache_zoom = 3.0;
+        engine.set_label_extras(16, 0.8);
+        assert_eq!(engine.label_cache_camera, [f32::MAX, f32::MAX]);
+        assert_eq!(engine.label_cache_zoom, 0.0);
+
+        engine.label_cache_camera = [10.0, 20.0];
+        engine.label_cache_zoom = 3.0;
+        engine.set_label_world_px_per_em(32.0);
+        assert_eq!(engine.label_cache_camera, [f32::MAX, f32::MAX]);
+        assert_eq!(engine.label_cache_zoom, 0.0);
+
+        engine.label_cache_camera = [10.0, 20.0];
+        engine.label_cache_zoom = 3.0;
+        engine.set_labels_enabled(false);
+        assert_eq!(engine.label_cache_camera, [f32::MAX, f32::MAX]);
+        assert_eq!(engine.label_cache_zoom, 0.0);
     }
 
     #[test]
