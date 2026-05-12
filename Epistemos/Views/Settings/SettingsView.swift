@@ -711,6 +711,13 @@ private struct GeneralDetailView: View {
                 }
             }
 
+            Section("Performance") {
+                SettingsDescriptionText(
+                    text: "Tune how aggressively the app warms on launch and how much memory it holds when idle. Default is Instant Launch + Keep Warm — fastest open, but ~1–2 GB resident. Switch to Prepared Launch if cold open feels chaotic, or Low Memory if you want the app to shed graph/MLX/search state after 30 seconds of no interaction."
+                )
+                PerformanceSettingsSection()
+            }
+
             Section("Diagnostics") {
                 SettingsDescriptionText(
                     text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Shadow Search shows live Halo backend health and degraded failure classes without exposing backend details; Background Indexing shows the current vault crawl; Process Memory reports resident footprint and pressure state without claiming allocation root cause; Shared Arena reports the app-group arena path and bridge budgets without claiming runtime authority; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query; Cognitive DAG reports node/edge counts + content-hash root."
