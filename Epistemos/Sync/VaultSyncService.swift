@@ -1197,15 +1197,30 @@ final class VaultSyncService {
     private func pruneRecoverySnapshotsIfNeeded() {
         pruneAPFSSafetySnapshotsIfNeeded()
 
-        guard let snapshotRoot = recoverySnapshotRootURL(),
-              FileManager.default.fileExists(atPath: snapshotRoot.path) else {
+        guard let snapshotRoot = recoverySnapshotRootURL() else {
             return
         }
 
-        do {
-            try Self.pruneRecoverySnapshots(in: snapshotRoot, maxCount: Self.recoverySnapshotLimit)
-        } catch {
-            log.error("Failed to prune recovery snapshots: \(error.localizedDescription, privacy: .public)")
+        // USER REPORT 2026-05-12 (ISSUE-12-011): the original
+        // implementation ran `contentsOfDirectory` + per-entry
+        // `resourceValues(forKeys:)` + `removeItem` on the main thread
+        // synchronously. On launch, this contributes to the multi-
+        // second hang the user observed in their runtime trace.
+        // Move it to a background Task so the bookmark-restore flow
+        // doesn't block on filesystem I/O during app startup. The
+        // limit-enforcement is best-effort anyway — excess snapshots
+        // simply linger one more launch if the task hasn't completed
+        // by the time the next launch arrives.
+        let snapshotLimit = Self.recoverySnapshotLimit
+        Task.detached(priority: .utility) {
+            guard FileManager.default.fileExists(atPath: snapshotRoot.path) else {
+                return
+            }
+            do {
+                try Self.pruneRecoverySnapshots(in: snapshotRoot, maxCount: snapshotLimit)
+            } catch {
+                Self.backgroundLog.error("Failed to prune recovery snapshots: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
