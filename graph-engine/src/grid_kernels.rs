@@ -151,6 +151,12 @@ pub struct CellAggregate {
 }
 
 /// Kernel 4: per-cell mass + centre-of-mass. Mirror of `cell_reduce.metal`.
+///
+/// Per canonical-plan §"Crash hardening" → "NaN / Inf propagation":
+/// individual non-finite member positions are skipped from the sum
+/// (their mass still counts) so a single corrupt position doesn't poison
+/// the centroid of an otherwise-healthy cell. If the final centroid is
+/// somehow still non-finite, it's clamped to zero before writing out.
 pub fn cell_reduce_kernel(
     pos_x: &[f32],
     pos_y: &[f32],
@@ -168,12 +174,18 @@ pub fn cell_reduce_kernel(
         for &node in &scatter[lo..hi.min(scatter.len())] {
             let i = node as usize;
             if i < pos_x.len() && i < pos_y.len() {
-                sum_x += pos_x[i];
-                sum_y += pos_y[i];
+                let px = pos_x[i];
+                let py = pos_y[i];
+                if px.is_finite() && py.is_finite() {
+                    sum_x += px;
+                    sum_y += py;
+                }
             }
         }
-        let centre_x = if mass > 0 { sum_x / mass as f32 } else { 0.0 };
-        let centre_y = if mass > 0 { sum_y / mass as f32 } else { 0.0 };
+        let mut centre_x = if mass > 0 { sum_x / mass as f32 } else { 0.0 };
+        let mut centre_y = if mass > 0 { sum_y / mass as f32 } else { 0.0 };
+        if !centre_x.is_finite() { centre_x = 0.0; }
+        if !centre_y.is_finite() { centre_y = 0.0; }
         aggregates.push(CellAggregate { mass, centre_x, centre_y });
     }
     aggregates
@@ -242,8 +254,14 @@ pub fn repulsion_kernel(
                     let dist_sq = (dx_p * dx_p + dy_p * dy_p).max(1e-6);
                     let dist = dist_sq.sqrt();
                     let magnitude = repulsion_strength / dist_sq;
-                    fx += (dx_p / dist) * magnitude;
-                    fy += (dy_p / dist) * magnitude;
+                    let contrib_x = (dx_p / dist) * magnitude;
+                    let contrib_y = (dy_p / dist) * magnitude;
+                    // Per-neighbour isfinite guard per canonical-plan
+                    // §"Crash hardening" → "NaN / Inf propagation".
+                    if contrib_x.is_finite() && contrib_y.is_finite() {
+                        fx += contrib_x;
+                        fy += contrib_y;
+                    }
                 }
             }
         }
@@ -258,12 +276,18 @@ pub fn repulsion_kernel(
             let dist_sq = (dx_a * dx_a + dy_a * dy_a).max(1e-6);
             let dist = dist_sq.sqrt();
             let magnitude = (agg.mass as f32) * repulsion_strength / dist_sq;
-            fx += (dx_a / dist) * magnitude;
-            fy += (dy_a / dist) * magnitude;
+            let contrib_x = (dx_a / dist) * magnitude;
+            let contrib_y = (dy_a / dist) * magnitude;
+            if contrib_x.is_finite() && contrib_y.is_finite() {
+                fx += contrib_x;
+                fy += contrib_y;
+            }
         }
 
-        force_x[i] = fx;
-        force_y[i] = fy;
+        // Final-pass guard mirrors spring_forces_kernel — clamp non-
+        // finite totals to zero before writing out.
+        force_x[i] = if fx.is_finite() { fx } else { 0.0 };
+        force_y[i] = if fy.is_finite() { fy } else { 0.0 };
     }
 }
 
@@ -442,6 +466,55 @@ mod tests {
         for f in fx.iter().chain(fy.iter()) {
             assert_eq!(*f, 0.0);
         }
+    }
+
+    #[test]
+    fn repulsion_kernel_quarantines_nan_position_inputs() {
+        // A node whose position is NaN must not poison its neighbour's force
+        // accumulation. The kernel skips NaN-producing contributions and
+        // writes a finite output regardless.
+        let cfg = UniformGridConfig { world_half: 10.0, cells_per_axis: 4 };
+        let pos_x = vec![0.0_f32, f32::NAN];
+        let pos_y = vec![0.0_f32, 0.0];
+        let (cell_of_node, counts) = grid_build_kernel(&pos_x, &pos_y, &cfg);
+        let scan = grid_scan_kernel(&counts);
+        let scatter = grid_scatter_kernel(&cell_of_node, &scan);
+        let aggregates = cell_reduce_kernel(&pos_x, &pos_y, &scatter, &scan);
+        let mut fx = vec![0.0_f32; 2];
+        let mut fy = vec![0.0_f32; 2];
+        repulsion_kernel(
+            &pos_x, &pos_y, &cell_of_node, &scatter, &scan, &aggregates,
+            &cfg, &mut fx, &mut fy, 100.0, 1,
+        );
+        // All outputs are finite.
+        for f in fx.iter().chain(fy.iter()) {
+            assert!(f.is_finite(), "repulsion output must be finite even with NaN inputs, got {}", f);
+        }
+    }
+
+    #[test]
+    fn cell_reduce_quarantines_nan_position_inputs() {
+        // Two nodes in cell 0, one with NaN position. The finite one wins;
+        // the NaN one contributes 0 to the sum but still counts as mass.
+        let cfg = UniformGridConfig { world_half: 10.0, cells_per_axis: 2 };
+        // Note: NaN won't map to any cell via `cell_of`, so grid_build will
+        // skip it. Use a real position for both nodes but mock the scatter
+        // / scan to put both in the same cell with one having a NaN position.
+        let pos_x = vec![-5.0_f32, f32::NAN];
+        let pos_y = vec![-5.0_f32, f32::NAN];
+        // Manually construct scan + scatter putting both nodes into cell 0.
+        let scan = vec![0u32, 2, 2, 2, 2];
+        let scatter = vec![0u32, 1];
+        let aggregates = cell_reduce_kernel(&pos_x, &pos_y, &scatter, &scan);
+        // Cell 0 has mass=2 (both nodes counted); centre is from finite
+        // contribution only (-5, -5) divided by 2 = (-2.5, -2.5).
+        assert_eq!(aggregates[0].mass, 2);
+        assert!(aggregates[0].centre_x.is_finite());
+        assert!(aggregates[0].centre_y.is_finite());
+        // (-5 + 0) / 2 = -2.5 (NaN contribution skipped)
+        assert!((aggregates[0].centre_x + 2.5).abs() < 1e-3,
+            "centroid uses only finite contributions, got {}",
+            aggregates[0].centre_x);
     }
 
     #[test]
