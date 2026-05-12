@@ -3,6 +3,7 @@
 
 pub mod adaptive_kernels;
 pub mod atmosphere;
+pub mod benchmark_harness;
 pub mod block_kernel;
 pub mod cluster;
 pub mod cluster_cache;
