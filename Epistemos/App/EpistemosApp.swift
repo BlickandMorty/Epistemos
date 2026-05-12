@@ -76,6 +76,11 @@ private struct HomeSceneRootContent: View {
     let bootstrap: AppBootstrap
     @Binding var showQuickCapture: Bool
     @AppStorage("epistemos.setupComplete") private var setupComplete = false
+    // ISSUE-2026-05-12-002 — post-setup vault re-prompt. Per-launch
+    // flag that resets when the app cold-starts; lets the user dismiss
+    // the re-prompt this session if they really want to use the app
+    // vault-less, but re-fires next launch so they don't forget.
+    @State private var vaultReprompDismissedThisSession = false
 
     var body: some View {
         LaunchIntegrityGateView(bootstrap: bootstrap) {
@@ -91,6 +96,42 @@ private struct HomeSceneRootContent: View {
                     SetupAssistantView {
                         setupComplete = true
                     }
+                    .withAppEnvironment(bootstrap)
+                }
+                .sheet(isPresented: Binding(
+                    get: {
+                        // Fires once per cold launch when setup is done
+                        // but no vault folder has been chosen yet, and
+                        // the user hasn't already dismissed it this
+                        // session. This is the gentle force-selection
+                        // gate from ISSUE-2026-05-12-002 — non-modal
+                        // (user can dismiss) but persistent across
+                        // launches.
+                        setupComplete
+                            && bootstrap.vaultSync.vaultURL == nil
+                            && !vaultReprompDismissedThisSession
+                    },
+                    set: { isPresented in
+                        if !isPresented {
+                            vaultReprompDismissedThisSession = true
+                        }
+                    }
+                )) {
+                    VaultReprompSheet(
+                        onSelectVault: {
+                            VaultConnectionActions.selectVaultFolder(
+                                notesUI: bootstrap.notesUI,
+                                vaultSync: bootstrap.vaultSync
+                            )
+                            // Dismiss the sheet — vaultURL will flip
+                            // non-nil after the picker callback fires,
+                            // and the predicate will go false anyway.
+                            vaultReprompDismissedThisSession = true
+                        },
+                        onDismiss: {
+                            vaultReprompDismissedThisSession = true
+                        }
+                    )
                     .withAppEnvironment(bootstrap)
                 }
                 .sheet(isPresented: Binding(
