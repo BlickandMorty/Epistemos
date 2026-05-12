@@ -1,7 +1,7 @@
 //! Media Tools — Phase 6 Vision, Image Generation, and Text-to-Speech
 //!
 //! * `vision_analyze` — send an image (URL or local file) plus a question
-//!   to a vision LLM (Claude / GPT-4V) and return the analysis. Every call
+//!   to a vision LLM (Claude / OpenAI Responses) and return the analysis. Every call
 //!   requires `allow_cloud_external_requests=true` because local image bytes
 //!   or image URLs leave the machine.
 //! * `image_generate` — deferred from normal model-facing catalogs until a
@@ -25,6 +25,7 @@ use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
 use crate::bridge::AgentEventDelegate;
+use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024; // 20MB cap for base64 encoding
@@ -306,19 +307,22 @@ async fn openai_vision(
         .map_err(|_| ToolError::ExecutionFailed("OPENAI_API_KEY not set".into()))?;
 
     let body = json!({
-        "model": "gpt-4o",
-        "max_tokens": 1024,
-        "messages": [{
+        "model": "gpt-5.4",
+        "max_output_tokens": 1024,
+        "store": false,
+        "text": { "verbosity": "low" },
+        "input": [{
+            "type": "message",
             "role": "user",
             "content": [
-                { "type": "text", "text": question },
-                { "type": "image_url", "image_url": { "url": data_url } }
+                { "type": "input_text", "text": question },
+                { "type": "input_image", "image_url": data_url }
             ]
         }],
     });
 
     let resp = client
-        .post("https://api.openai.com/v1/chat/completions")
+        .post(OPENAI_RESPONSES_API)
         .bearer_auth(api_key)
         .json(&body)
         .send()
@@ -334,18 +338,11 @@ async fn openai_vision(
         .json()
         .await
         .map_err(|_| ToolError::ExecutionFailed("openai vision response parse failed".into()))?;
-    let analysis = payload
-        .get("choices")
-        .and_then(|c| c.get(0))
-        .and_then(|c| c.get("message"))
-        .and_then(|m| m.get("content"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+    let analysis = extract_openai_responses_output_text(&payload);
 
     Ok(json!({
         "provider": "openai",
-        "model": "gpt-4o",
+        "model": "gpt-5.4",
         "source": source_label,
         "question": question,
         "cloud_requests_authorized": true,
@@ -377,7 +374,7 @@ pub fn vision_analyze_schema() -> crate::types::ToolSchema {
         description: "Analyze an image (URL or local file) with an external vision LLM. \
              Requires allow_cloud_external_requests=true because image URLs or local file \
              bytes are sent to provider APIs. Supports provider='claude' (default, uses \
-             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-4o). Local files \
+             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-5.4 Responses). Local files \
              are base64-encoded in-process; 20MB cap."
             .to_string(),
         parameters: json!({
@@ -1205,6 +1202,15 @@ mod tests {
         assert!(!fal_err.contains("api_key"));
         assert!(!fal_err.contains("127.0.0.1"));
         assert!(fal_err.contains("fal request failed"));
+    }
+
+    #[test]
+    fn openai_vision_uses_responses_not_legacy_chat_completions() {
+        let source = include_str!("media.rs");
+        let legacy_fragment = ["api.openai.com", "v1", "chat", "completions"].join("/");
+
+        assert!(source.contains("OPENAI_RESPONSES_API"));
+        assert!(!source.contains(&legacy_fragment));
     }
 
     #[tokio::test]
