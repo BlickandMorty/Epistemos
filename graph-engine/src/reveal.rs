@@ -452,6 +452,50 @@ mod tests {
     }
 
     #[test]
+    fn all_at_once_still_uses_settling_per_decision_8() {
+        // Per canonical-plan §"Locked architectural decisions" #8:
+        //   "All at once" semantics: Skips batching, still uses warm-start + Settling
+        //
+        // The "warm-start" half is the caller's responsibility (the reveal
+        // controller doesn't run warm_start itself; the caller seeds
+        // positions before start()). The "still uses Settling" half is
+        // THIS module's responsibility, and is exactly what this test
+        // pins: AllAtOnce must transition through Settling (not directly
+        // to Steady on the drop frame).
+        let mut c = RevealController::new(500, cfg(RevealStyle::AllAtOnce, 60.0));
+        c.start();
+        let drop = c.tick();
+        // The drop frame's phase report is Seeding (it's the entrance into
+        // the controller); subsequent ticks must show Settling.
+        assert_eq!(drop.batch_end, 500);
+        // Walk a few frames — phase should be Settling, NOT Steady.
+        let mut hit_settling = false;
+        for _ in 0..3 {
+            c.tick();
+            if matches!(c.phase(), RevealPhase::Settling) {
+                hit_settling = true;
+                break;
+            }
+        }
+        assert!(hit_settling,
+            "Decision #8: AllAtOnce must transition through Settling, not jump directly to Steady");
+    }
+
+    #[test]
+    fn all_at_once_alpha_is_non_zero_to_disperse_drop() {
+        // Per canonical-plan: AllAtOnce drops every node in one frame
+        // → integrator needs alpha authority to disperse the cluster.
+        // The controller must compute a non-trivial alpha for the
+        // single-drop frame (not zero).
+        let mut c = RevealController::new(200, cfg(RevealStyle::AllAtOnce, 60.0));
+        c.start();
+        let drop = c.tick();
+        assert!(drop.alpha > 0.04,
+            "AllAtOnce drop alpha must be ≥0.04 to disperse the cluster, got {}",
+            drop.alpha);
+    }
+
+    #[test]
     fn reveal_controller_is_deterministic() {
         let mut a = RevealController::new(500, cfg(RevealStyle::Chronological, 60.0));
         let mut b = RevealController::new(500, cfg(RevealStyle::Chronological, 60.0));
