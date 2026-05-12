@@ -193,6 +193,44 @@ pub fn sleep_force_threshold(repulsion_scale: f32) -> f32 {
     0.01 * repulsion_scale
 }
 
+/// Per canonical-plan §"Locked architectural decisions" #5:
+///
+/// > Sleep activation: Disabled globally until Steady phase
+///
+/// During Idle / Seeding / Ramping / Settling phases, NO node should be
+/// put to sleep, even if it would otherwise satisfy the velocity +
+/// force thresholds. This prevents a premature-sleep pathology where
+/// nodes that are momentarily quiet during the reveal animation get
+/// stuck in `Sleeping` and never integrate the rest of the reveal.
+///
+/// The check takes a `RevealPhase` (from `crate::reveal::RevealPhase`)
+/// and returns `true` only when sleep is globally enabled (Steady).
+pub fn sleep_globally_enabled(phase: crate::reveal::RevealPhase) -> bool {
+    use crate::reveal::RevealPhase;
+    matches!(phase, RevealPhase::Steady)
+}
+
+/// Apply the canonical-plan decision #5 phase gate to a slice of
+/// sleep proposals from `sleep_update_kernel*`. Caller invokes this
+/// AFTER the kernel populates `propose_sleep` and BEFORE the integrator
+/// flips `FLAG_SLEEPING` bits. When sleep is globally disabled, all
+/// proposals are cleared.
+///
+/// This is a separate post-pass (rather than baked into the kernel
+/// signature) because the canonical pipeline runs sleep_update inside
+/// the GPU kernel — phase state lives on CPU, and we drop the gate
+/// in CPU-side post-processing before propagating to the flag mask.
+pub fn apply_sleep_phase_gate(
+    propose_sleep: &mut [bool],
+    phase: crate::reveal::RevealPhase,
+) {
+    if !sleep_globally_enabled(phase) {
+        for p in propose_sleep.iter_mut() {
+            *p = false;
+        }
+    }
+}
+
 /// Sleep-update kernel reference. Mirror of `sleep_update.metal`.
 ///
 /// For each node:
@@ -584,6 +622,46 @@ mod tests {
             0.001, 1.0,
         );
         assert_eq!(counts[0], 1);
+    }
+
+    #[test]
+    fn sleep_globally_enabled_only_in_steady_phase() {
+        use crate::reveal::RevealPhase;
+        assert!(!sleep_globally_enabled(RevealPhase::Idle));
+        assert!(!sleep_globally_enabled(RevealPhase::Seeding));
+        assert!(!sleep_globally_enabled(RevealPhase::Ramping));
+        assert!(!sleep_globally_enabled(RevealPhase::Settling));
+        assert!(sleep_globally_enabled(RevealPhase::Steady));
+    }
+
+    #[test]
+    fn apply_sleep_phase_gate_clears_proposals_pre_steady() {
+        use crate::reveal::RevealPhase;
+        let mut proposals = vec![true, true, false, true];
+        apply_sleep_phase_gate(&mut proposals, RevealPhase::Ramping);
+        // All cleared — sleep disabled during Ramping per decision #5.
+        assert_eq!(proposals, vec![false, false, false, false]);
+    }
+
+    #[test]
+    fn apply_sleep_phase_gate_passes_proposals_through_in_steady() {
+        use crate::reveal::RevealPhase;
+        let mut proposals = vec![true, false, true, true, false];
+        apply_sleep_phase_gate(&mut proposals, RevealPhase::Steady);
+        // Unchanged — sleep is globally enabled in Steady.
+        assert_eq!(proposals, vec![true, false, true, true, false]);
+    }
+
+    #[test]
+    fn apply_sleep_phase_gate_short_circuits_in_seeding() {
+        // Even if every node is calm, NO sleep proposal survives during
+        // Seeding. Important: a node that's calm at frame 0 (because the
+        // reveal hasn't dropped it yet) must not get marked Sleeping
+        // before it ever gets a chance to integrate.
+        use crate::reveal::RevealPhase;
+        let mut proposals = vec![true; 100];
+        apply_sleep_phase_gate(&mut proposals, RevealPhase::Seeding);
+        assert!(proposals.iter().all(|&p| !p));
     }
 
     #[test]
