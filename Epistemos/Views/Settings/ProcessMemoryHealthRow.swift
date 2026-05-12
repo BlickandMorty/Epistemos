@@ -92,29 +92,67 @@ nonisolated enum ProcessMemoryDiagnostics {
 struct ProcessMemoryHealthRow: View {
     @State private var snapshot: ProcessMemoryDiagnostics.Snapshot
 
+    // ISSUE-2026-05-12-006: in-app substitute for Instruments → Allocations.
+    // Tap "Force Idle Unload" to run the same sequence the critical
+    // memory-pressure handler runs, then see the RSS delta in the row.
+    // Lets users diagnose the 2GB idle regression without running
+    // Instruments themselves.
+    @State private var lastReport: AppBootstrap.IdleUnloadReport?
+    @State private var unloadInFlight: Bool = false
+
     init() {
         self._snapshot = State(initialValue: ProcessMemoryDiagnostics.liveSnapshot())
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: iconName)
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 18, height: 18)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Process memory")
-                    .font(.system(size: 13, weight: .medium))
-                Text(snapshot.detail)
-                    .font(.system(size: 11, design: .monospaced))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: iconName)
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 18, height: 18)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Process memory")
+                        .font(.system(size: 13, weight: .medium))
+                    Text(snapshot.detail)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                Image(systemName: statusIconName)
+                    .foregroundStyle(statusStyle)
+                    .font(.system(size: 16))
             }
-            Spacer()
-            Image(systemName: statusIconName)
-                .foregroundStyle(statusStyle)
-                .font(.system(size: 16))
+
+            // Force-unload diagnostic: tap to run the critical-pressure
+            // unload sequence on demand. Reports MB freed + per-subsystem
+            // contribution. Use this to diagnose the 2GB idle regression.
+            HStack(spacing: 8) {
+                Button(action: triggerForceIdleUnload) {
+                    HStack(spacing: 4) {
+                        if unloadInFlight {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
+                        Text(unloadInFlight ? "Unloading…" : "Force Idle Unload")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(unloadInFlight || AppBootstrap.shared == nil)
+
+                if let lastReport {
+                    Text(reportSummary(lastReport))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -122,6 +160,27 @@ struct ProcessMemoryHealthRow: View {
         .onAppear {
             snapshot = ProcessMemoryDiagnostics.liveSnapshot()
         }
+    }
+
+    private func triggerForceIdleUnload() {
+        guard let bootstrap = AppBootstrap.shared else { return }
+        unloadInFlight = true
+        Task { @MainActor in
+            let report = await bootstrap.forceIdleUnload()
+            // Refresh the snapshot so the "after" RSS shows in the row.
+            snapshot = ProcessMemoryDiagnostics.liveSnapshot()
+            lastReport = report
+            unloadInFlight = false
+        }
+    }
+
+    private func reportSummary(_ report: AppBootstrap.IdleUnloadReport) -> String {
+        // Compact one-line summary so the row stays short. Detail is
+        // available in Console.app under com.epistemos.app.Log.app.
+        let mlx = report.mlxUnloaded ? "MLX✓" : "MLX⨯"
+        let search = report.searchCachesReleased ? "Search✓" : "Search⨯"
+        let rust = "Rust\(report.rustSegmentsEvicted)seg/\(report.rustSessionsPruned)sess"
+        return "Freed \(report.mbFreed) MB · \(mlx) · \(search) · \(rust) · \(report.durationMs) ms"
     }
 
     private var iconName: String {
