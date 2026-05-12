@@ -3,7 +3,59 @@
 > **Index status**: CANONICAL-OPERATIONAL — Live session log replacement for older PROGRESS.md; canonical operational.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/30_canonical_operational/`.
 
-Last updated: **2026-05-05** — V2 stretch + canon hardening sprint. **The 2026-04-28 entry below remains canonical for everything before that date; this entry covers 2026-04-29 through 2026-05-05.**
+Last updated: **2026-05-12** — Graph plan Phase A → C algorithmic prep + vault fixes + HELIOS audit + backlog status. **The 2026-04-28 entry below remains canonical for everything before 2026-05-05; the 2026-05-05 entry remains canonical for that sprint; this entry covers 2026-05-12.**
+
+## 2026-05-12 — Canonical graph plan + vault fixes + HELIOS audit (this session, 16+ commits)
+
+**Test counts:**
+| Metric | Pre-session | Post-session |
+|---|---|---|
+| graph-engine lib tests | 2,580 | 2,707 (+127 new across 9 modules) |
+| graph-engine integration tests | 0 | 8 (`visual_equivalence`) |
+| HELIOS canonical-consistency tests (`epistemos-research --features research`) | 113 | 113 (still green) |
+| Swift Epistemos build | green | green (xcodebuild exit 0, SwiftLint warnings only on third-party CodeEdit deps) |
+| HELIOS B5 invariant smoke (`scripts/check-helios-invariants.sh`) | sub-gate 1 FAIL (anchor drift) | PASS (all 3 sub-gates) |
+
+**Major work landed (chronological):**
+
+1. **User-reported vault bug fixes** (`71ef9f1e9`):
+   - Bug 1 — VaultReprompSheet fires when vault IS set: added `bookmarkPending` check so sheet predicate respects the async window while `restoreVaultFromBookmark()` is loading.
+   - Bug 2 — disconnect doesn't actually disconnect: hoisted `clearPersistedVaultSelection()` to the top of the Task block so the bookmark wipe happens BEFORE the 30+ second teardown. Force-quit during disconnect no longer leaves a phantom vault re-mount.
+
+2. **Canonical graph plan Phase A — algorithmic prep** (3 commits):
+   - Week 3 — `warmstart.rs` (GraphPOPE-lite recipe, 706 lines, 15 tests) + `reveal.rs` (5-phase state machine + reveal-style enum, 455 lines, 15 tests) in `57a59222f`
+   - Week 4 part 1 — `atmosphere.rs` (drop-5 formulas for radius / lookahead / hub budget / warm zone / edge propagation, 476 lines, 19 tests) in `11714ff37`
+   - Week 4 part 2 — `tests/visual_equivalence.rs` (deterministic 10s interaction corpus, position-drift + wake-miss harness, 343 lines, 8 tests) in `c3ed09a8c`
+
+3. **Canonical graph plan Phase B — compute-kernel CPU references** (4 commits):
+   - Week 1-2 — `force_kernels.rs` (node-parallel CSR spring forces + symplectic Euler integrator with full flag semantics, 462 lines, 16 tests including the locked-decision #4 RENDERABLE⊥SLEEPING guard) in `dec54aa3b`
+   - Week 3-4 — `grid_kernels.rs` (5-kernel uniform-grid broadphase + cell-aggregate repulsion, 372 lines, 14 tests) in `c7ad79e01`
+   - Week 5-6 — `adaptive_kernels.rs` (FA2 global-speed schedule + wake-front propagation, 242 lines, 14 tests) in `7de49ee89`
+   - Week 7-8 — `visibility_kernels.rs` (frustum cull + `DrawIndirectArgs` mirror, 245 lines, 14 tests) in `d234dd997`
+
+4. **Canonical graph plan Phase C — clustering + benchmark contract** (2 commits):
+   - Week 1-2 — `cluster_hierarchy.rs` (parent + centroid + multilevel build + incremental update, 270 lines, 9 tests) in `c396e93b3`
+   - Week 4 — `benchmark_harness.rs` (`BenchmarkScenario` enum + `BenchmarkResult` serde + `phase_b_target` lookup pinned to canonical-plan acceptance criteria, 281 lines, 11 tests) in `c06da98a8`
+
+5. **HELIOS V5 substrate audit** (`bdc579315`):
+   - `scripts/check-helios-invariants.sh` was failing sub-gate 1 (anchor-table parity) because `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` had legitimately changed in `49d4291f2` (frontmatter + new V6.1 / V6.2 row 4.25) without an accompanying anchor refresh.
+   - Refreshed anchor hash. 14 other anchored docs re-shasum'd, zero drift.
+   - Smoke gate now green: 15/15 anchors parity, 34/34 theorem IDs surfaced, E:15 + H:17 + PCF:10 source-text guards.
+
+6. **Canonical plan status update** (`aafa58ae5`):
+   - Added Status blocks under Phase A / Phase B / Phase C linking each algorithmic-prep commit to its module.
+   - Engine + renderer wiring + MSL `.metal` authoring are explicitly queued as separate work; the math is pinned.
+
+7. **APP_ISSUES backlog status updates** (2 commits):
+   - `907e17c19` ISSUE-2026-05-11-002 → Partially Fixed (Filters UI confirmed shipped in `cabf81df0`; selected-neighbor push-out physics tracked into Phase B).
+   - `1edb5d107` ISSUE-2026-05-10-002 → Patched (APIKeysHealthRow shipped earlier in `58d998566`/`35120f79b`, closes the diagnostic loop).
+
+**What's queued for the next /loop iterations:**
+
+- Engine + renderer wiring of the Phase A/B/C pure-data modules into the live integrator + frame loop.
+- MSL `.metal` translation of `force_kernels` / `grid_kernels` / `adaptive_kernels` / `visibility_kernels` into `Epistemos/Shaders/Graph/`.
+- More APP_ISSUES auto-fix sweeps (ISSUE-2026-05-12-008 first-note hang, ISSUE-2026-05-12-009 sidebar+graph slow open).
+- Cross-canon verification across the 105 HELIOS Swift guard tests + 113 research canonical-consistency tests on every iteration.
 
 ## 2026-05-05 — V2 stretch + canon hardening (this session, ~40 commits)
 
