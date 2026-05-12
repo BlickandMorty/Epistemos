@@ -521,16 +521,22 @@ Implementation: when a builder publishes a new immutable artifact, it atomically
 
 5. **HELIOS substrate binding for graph events** — the HELIOS-native graph ontology prompt I wrote earlier proposes mapping V6.1 substrate (RuntimePlane, InterruptScore, GateAction, NodeKind, EdgeKind, ProductStream) into graph engine concepts. That work is separable from this plan and tracked in `docs/audits/HELIOS_NATIVE_GRAPH_RESEARCH_REQUEST.md`.
 
-## Verification against existing code (2026-05-11)
+## Verification against existing code (2026-05-11; updated 2026-05-12)
 
-- ✅ `Epistemos/Views/Graph/MetalGraphView.swift:634` — Metal-owned `.storageModeShared` buffer exists, behind `EPISTEMOS_USE_SHARED_GRAPH_BUFFERS=1` flag
+- ✅ `Epistemos/Views/Graph/MetalGraphView.swift:634` — Metal-owned `.storageModeShared` buffer exists, default flipped on by `d2d91da18`
 - ✅ `agent_core/src/oplog.rs` — 1,614-line append-only op-log with BLAKE3 chain, single-writer scope
-- ✅ `graph-engine/src/*` — simulation.rs (4,640 lines), types.rs, spatial.rs, ECS modules; 2,570 lib tests passing
+- ✅ `graph-engine/src/*` — simulation.rs (4,640 lines), types.rs, spatial.rs, ECS modules; **2729 lib tests + 44 integration tests = 2773 passing** (was 2,570)
 - ✅ `Epistemos/Models/SDPage.swift` — SwiftData primary; Markdown vault as source of truth
-- ❌ Zero graph-specific `.metal` files — Phase B will add them in `Epistemos/Shaders/Graph/`
-- ❌ Zero warm-start implementation in graph-engine — Phase A Week 3 adds it
-- ❌ Zero causal-atmosphere sleep — Phase A Week 4 adds it
-- ❌ Zero clustering — Phase C Week 1-2 adds it
+- ❌ Zero graph-specific `.metal` files — Phase B will add them in `Epistemos/Shaders/Graph/` (CPU references are pinned in `force_kernels.rs`, `grid_kernels.rs`, `adaptive_kernels.rs`, `visibility_kernels.rs` for MSL translation)
+- ✅ Warm-start implementation: `graph-engine/src/warmstart.rs` (Phase A Week 3, commit `57a59222f`) — GraphPOPE-lite recipe, 15 tests
+- ✅ Reveal controller: `graph-engine/src/reveal.rs` (Phase A Week 3, commit `57a59222f`) — 5-phase state machine, 15 tests
+- ✅ Causal-atmosphere sleep: `graph-engine/src/atmosphere.rs` (Phase A Week 4, commit `11714ff37` + NaN/Inf hardening in `6b876a3d6`) — 22 tests
+- ✅ Cluster hierarchy: `graph-engine/src/cluster_hierarchy.rs` (Phase C Week 1-2, commit `c396e93b3`) — built on existing Louvain in cluster.rs (already shipped pre-session); adds parent + centroid + incremental update layer; 9 tests
+- ✅ Benchmark harness + canonical-plan-locked acceptance targets: `graph-engine/src/benchmark_harness.rs` (commit `c06da98a8`, extended Phase A targets in `31d08acae`) — typed measurement contract + Phase A v1.1 / Phase B v1.2 target lookup; FFI surfaces `graph_engine_phase_a_target` + `graph_engine_phase_b_target` for Swift Settings → Diagnostics consumption; 14 lib tests + 10 FFI tests
+- ✅ Visual-equivalence harness: `graph-engine/tests/visual_equivalence.rs` (Phase A Week 4 part 2, commit `c3ed09a8c`) — 600-frame deterministic 10s interaction corpus, 8 tests
+- ✅ Stress harnesses: `tests/phase_a_stress.rs` + `tests/phase_b_stress.rs` + `tests/phase_c_stress.rs` (10k-node fixtures, 23 tests across all three phases)
+- ✅ NaN/Inf quarantine repros: `tests/nan_injection_repro.rs` (commit `d09c4bfe5`) — closes canonical-plan named failure case
+- ✅ FFI bind-guard repros: `tests/ffi_bind_guards.rs` (commit `7004effb6` + extended in `dd8313598`/`31d08acae`) — closes "Bind a wrong stride and assert engine rejects it cleanly" canonical failure case
 
 ## Confidence and provenance
 
