@@ -524,7 +524,7 @@ struct ReleasePackagingHardeningTests {
         #expect(bundler.contains("NightBrain LaunchAgent bundled"))
         #expect(bundler.contains("rm -f \"$RESOURCES_DIR/LaunchAgents/com.epistemos.nightbrain.plist\""))
         let appStoreGuard = try #require(bundler.range(of: "if is_app_store_build; then"))
-        let bundleCall = try #require(bundler.range(of: "bundle_nightbrain_launchagent"))
+        let bundleCall = try #require(bundler.range(of: "\nbundle_nightbrain_launchagent\n"))
         #expect(appStoreGuard.lowerBound < bundleCall.lowerBound)
     }
 
@@ -610,11 +610,14 @@ struct ReleasePackagingHardeningTests {
     @Test("App Store composer hides shell access affordances")
     func appStoreComposerHidesShellAccessAffordances() throws {
         let inputBar = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let currentAccessPlan = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ComposerCurrentAccessPlan.swift")
 
-        #expect(inputBar.contains("#if !EPISTEMOS_APP_STORE\n        rows.append(\n            ComposerPermissionGrantRow(\n                id: \"shell-approval\""))
-        #expect(inputBar.contains("#if !EPISTEMOS_APP_STORE\n        segments.append(\"Shell: ask first\")"))
-        #expect(inputBar.contains("#if EPISTEMOS_APP_STORE\n        .accessibilityHint(\"Shows attached-resource and vault access for this chat.\")"))
-        #expect(inputBar.contains("segments.append(\"Local chat\")"))
+        #expect(inputBar.contains("ComposerCurrentAccessPlan("))
+        #expect(inputBar.contains(".accessibilityHint(\"Shows scoped attached-resource and vault access for this chat.\")"))
+        #expect(currentAccessPlan.contains("struct ComposerCurrentAccessPlan"))
+        #expect(currentAccessPlan.contains("segments.append(\"Local chat\")"))
+        #expect(!currentAccessPlan.contains("shell-approval"))
+        #expect(!currentAccessPlan.contains("Shell: ask first"))
     }
 
     @Test("Chat surfaces disable send when no runtime is ready")
