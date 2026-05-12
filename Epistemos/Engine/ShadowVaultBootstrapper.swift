@@ -77,6 +77,7 @@ public actor ShadowVaultBootstrapper {
         subsystem: "com.epistemos",
         category: "ShadowVaultBootstrapper"
     )
+    private static let maxMarkdownBodyBytes = 200_000
 
     /// Pluggable file walker so tests can hand a fixture directory
     /// without writing to the user's vault.
@@ -200,7 +201,7 @@ public actor ShadowVaultBootstrapper {
         do {
             switch domain {
             case .notes:
-                let body = try String(contentsOf: url, encoding: .utf8)
+                let body = try Self.loadMarkdownBodyPrefix(from: url)
                 let title = url.deletingPathExtension().lastPathComponent
                 let docID = vaultRelativePath(url) ?? url.path
                 return ShadowDocumentDTO(
@@ -226,6 +227,13 @@ public actor ShadowVaultBootstrapper {
             )
             return nil
         }
+    }
+
+    nonisolated private static func loadMarkdownBodyPrefix(from url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let data = try handle.read(upToCount: maxMarkdownBodyBytes) ?? Data()
+        return String(decoding: data, as: UTF8.self)
     }
 
     nonisolated private func vaultRelativePath(_ url: URL) -> String? {
