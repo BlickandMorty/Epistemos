@@ -74,12 +74,20 @@ impl OpenAIProvider {
         Self::new(auth, model)
     }
 
+    pub fn gpt54() -> Self {
+        Self::from_env("gpt-5.4", "gpt-5.4")
+    }
+
+    pub fn gpt54_mini() -> Self {
+        Self::from_env("gpt-5.4-mini", "gpt-5.4-mini")
+    }
+
     pub fn gpt4o() -> Self {
-        Self::from_env("gpt-4o", "gpt-5.4")
+        Self::gpt54()
     }
 
     pub fn gpt4o_mini() -> Self {
-        Self::from_env("gpt-4o-mini", "gpt-5.4-mini")
+        Self::gpt54_mini()
     }
 
     pub fn o1() -> Self {
@@ -1483,6 +1491,20 @@ mod tests {
                 client_version: "0.200.0".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn legacy_gpt4o_alias_uses_current_gpt54_model() {
+        let provider = OpenAIProvider::gpt4o();
+
+        assert_eq!(provider.model, "gpt-5.4");
+    }
+
+    #[test]
+    fn legacy_gpt4o_mini_alias_uses_current_gpt54_mini_model() {
+        let provider = OpenAIProvider::gpt4o_mini();
+
+        assert_eq!(provider.model, "gpt-5.4-mini");
     }
 
     #[test]
