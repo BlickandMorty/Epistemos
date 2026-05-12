@@ -149,6 +149,52 @@ pub fn wake_propagation_step(
     }
 }
 
+/// K-frame threshold for sleep transitions per drop 5: a node must
+/// stay "calm" (velocity below `SLEEP_VELOCITY_THRESHOLD`) for this many
+/// consecutive frames before being eligible for `Sleeping`. The plan
+/// pins these at 24 @ 120Hz and 12 @ 60Hz.
+pub fn k_frame_threshold(fps: f32) -> u32 {
+    if fps >= 100.0 { 24 } else { 12 }
+}
+
+/// Velocity floor under which a node counts as "calm" for the sleep
+/// counter. Small enough that real micro-jitter never pings the counter
+/// but large enough that the counter doesn't wedge on FP noise.
+pub const SLEEP_VELOCITY_THRESHOLD: f32 = 5e-3;
+
+/// Sleep-update kernel reference. Mirror of `sleep_update.metal`.
+///
+/// For each node:
+/// - If `|v| < SLEEP_VELOCITY_THRESHOLD`, increment `calm_frame_count[i]`
+/// - Otherwise reset `calm_frame_count[i] = 0`
+/// - When `calm_frame_count[i] >= k_threshold`, set `propose_sleep[i] = true`
+///   (caller decides whether to flip the FLAG_SLEEPING bit — atmosphere
+///   may override per drag-sticky + wake-front rules)
+///
+/// The kernel does NOT directly mutate flags — that's the integrator's
+/// job once it merges all sleep proposals with the atmosphere
+/// wake-overrides.
+pub fn sleep_update_kernel(
+    vel_x: &[f32],
+    vel_y: &[f32],
+    calm_frame_count: &mut [u32],
+    propose_sleep: &mut [bool],
+    k_threshold: u32,
+) {
+    let n = vel_x.len()
+        .min(vel_y.len()).min(calm_frame_count.len()).min(propose_sleep.len());
+    let thresh_sq = SLEEP_VELOCITY_THRESHOLD * SLEEP_VELOCITY_THRESHOLD;
+    for i in 0..n {
+        let speed_sq = vel_x[i] * vel_x[i] + vel_y[i] * vel_y[i];
+        if speed_sq < thresh_sq {
+            calm_frame_count[i] = calm_frame_count[i].saturating_add(1);
+        } else {
+            calm_frame_count[i] = 0;
+        }
+        propose_sleep[i] = calm_frame_count[i] >= k_threshold;
+    }
+}
+
 /// Helper — distance from a point to a wake front centre (used by tests
 /// + telemetry; the kernels above compute their own distances inline).
 pub fn distance_to_front(pos_x: f32, pos_y: f32, front: &WakeFront) -> f32 {
@@ -322,5 +368,84 @@ mod tests {
         };
         let d = distance_to_front(0.0, 0.0, &f);
         assert!((d - 5.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn k_frame_threshold_matches_canonical_table() {
+        // 24 @ 120Hz, 12 @ 60Hz per drop 5.
+        assert_eq!(k_frame_threshold(120.0), 24);
+        assert_eq!(k_frame_threshold(100.0), 24);
+        assert_eq!(k_frame_threshold(60.0), 12);
+        assert_eq!(k_frame_threshold(30.0), 12);
+    }
+
+    #[test]
+    fn sleep_update_increments_calm_counter_when_still() {
+        let vx = vec![0.0_f32, 0.0, 0.0];
+        let vy = vec![0.0_f32, 0.0, 0.0];
+        let mut counts = vec![0u32; 3];
+        let mut propose = vec![false; 3];
+        sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
+        assert_eq!(counts, vec![1, 1, 1]);
+        assert!(propose.iter().all(|&p| !p), "1 < 12 → no proposal yet");
+    }
+
+    #[test]
+    fn sleep_update_resets_counter_when_moving() {
+        let vx = vec![0.0_f32, 100.0];
+        let vy = vec![0.0_f32, 0.0];
+        let mut counts = vec![5u32, 5];
+        let mut propose = vec![false; 2];
+        sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
+        assert_eq!(counts[0], 6, "still node keeps counting up");
+        assert_eq!(counts[1], 0, "moving node resets");
+        assert!(!propose[0]);
+        assert!(!propose[1]);
+    }
+
+    #[test]
+    fn sleep_update_proposes_at_threshold() {
+        let vx = vec![0.0_f32];
+        let vy = vec![0.0_f32];
+        let mut counts = vec![11u32]; // one short of threshold 12
+        let mut propose = vec![false];
+        sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
+        // 11+1 = 12 → propose
+        assert_eq!(counts, vec![12]);
+        assert!(propose[0]);
+    }
+
+    #[test]
+    fn sleep_update_proposes_past_threshold() {
+        let vx = vec![0.0_f32];
+        let vy = vec![0.0_f32];
+        let mut counts = vec![100u32]; // already past
+        let mut propose = vec![false];
+        sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
+        assert!(propose[0]);
+        assert_eq!(counts, vec![101]);
+    }
+
+    #[test]
+    fn sleep_update_floor_excludes_fp_noise() {
+        // Tiny FP noise must not reset the counter.
+        let vx = vec![1e-4_f32];
+        let vy = vec![1e-4_f32];
+        let mut counts = vec![5u32];
+        let mut propose = vec![false];
+        sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
+        assert_eq!(counts[0], 6, "sub-threshold velocity counts as calm");
+    }
+
+    #[test]
+    fn sleep_update_saturates_at_u32_max() {
+        let vx = vec![0.0_f32];
+        let vy = vec![0.0_f32];
+        let mut counts = vec![u32::MAX];
+        let mut propose = vec![false];
+        sleep_update_kernel(&vx, &vy, &mut counts, &mut propose, 12);
+        // saturating_add prevents wrap.
+        assert_eq!(counts, vec![u32::MAX]);
+        assert!(propose[0]);
     }
 }
