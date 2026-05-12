@@ -2127,13 +2127,13 @@ final class AppBootstrap {
         commandCenterGlobalHotkeyMonitor = nil
 
         // D4 faculty roster: log the resolved primary agent model so users
-        // can verify which local agent loaded. Default is the 7-8B 4-bit
+        // can verify which local agent is selected. Default is the 7-8B 4-bit
         // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
         // gated on ≥32 GB host RAM + explicit opt-in.
         let primaryAgent = LocalModelCatalog.defaultPrimaryAgentModel
         Log.app.info(
             """
-            Local agent model loaded: \
+            Local agent model selected: \
             \(primaryAgent.displayName, privacy: .public), \
             ~\(primaryAgent.estimated4BitWeightsGB, privacy: .public) GB \
             (host \(inference.hardwareCapabilitySnapshot.roundedMemoryGB, privacy: .public) GB, \
