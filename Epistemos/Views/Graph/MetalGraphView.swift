@@ -614,9 +614,6 @@ final class MetalGraphNSView: NSView {
 
     private var isEnginePaused = false
 
-    /// Frame skip counter for 60fps cap in low-power mode on ProMotion displays.
-    private var frameSkipCounter: UInt64 = 0
-
     // MARK: - Shared Position Buffers (behind EPISTEMOS_USE_SHARED_GRAPH_BUFFERS flag)
 
     private static let useSharedGraphBuffers: Bool = {
@@ -1016,12 +1013,6 @@ final class MetalGraphNSView: NSView {
         guard !isInvalidated.load(ordering: .relaxed) else { return }
         guard renderNeeded.load(ordering: .relaxed) else { return }
         guard !framePending.load(ordering: .relaxed) else { return }
-
-        // 60fps cap in low-power mode: skip every other frame on ProMotion (120Hz).
-        frameSkipCounter &+= 1
-        if PowerGuard.shared.shouldThrottleRendering && frameSkipCounter % 2 != 0 {
-            return
-        }
 
         framePending.store(true, ordering: .relaxed)
         defer { framePending.store(false, ordering: .relaxed) }
