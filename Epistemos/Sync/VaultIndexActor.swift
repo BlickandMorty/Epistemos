@@ -755,8 +755,9 @@ actor VaultIndexActor {
                 let existingPage = existingByPath[filePath] ?? existingByPath[Self.canonicalFilePath(filePath)]
                 if let existingPage {
                     let currentVaultFileFingerprint = Self.largeVaultFileFingerprint(for: fileURL)
+                    let hasManagedBody = NoteFileStorage.bodyExists(pageId: existingPage.id)
                     if existingPage.lastSyncedBodyHash == currentVaultFileFingerprint,
-                       !NoteFileStorage.bodyExists(pageId: existingPage.id) {
+                       hasManagedBody {
                         skipCount += 1
                         if let progress,
                            processedFileCount == drained.count || processedFileCount.isMultiple(of: progressInterval) {
@@ -767,7 +768,7 @@ actor VaultIndexActor {
                     }
 
                     let needsLocalBodyRebuild =
-                        !NoteFileStorage.bodyExists(pageId: existingPage.id)
+                        !hasManagedBody
                         && NoteFileStorage.readBody(
                             pageId: existingPage.id,
                             mapped: false,
