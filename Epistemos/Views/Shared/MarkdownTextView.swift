@@ -1242,7 +1242,7 @@ struct MarkdownTextView: View {
         let fontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
         let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font = {
-            if (1...2).contains(level) {
+            if (1...3).contains(level) {
                 AppDisplayTypography.font(size: fontSize, weight: fontWeight, isDark: theme.isDark)
             } else if headingRole != nil {
                 AppDisplayTypography.font(

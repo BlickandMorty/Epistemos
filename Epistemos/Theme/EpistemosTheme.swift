@@ -1086,10 +1086,8 @@ enum AppHeadingRole: Sendable {
 
     nonisolated var fontName: String {
         switch self {
-        case .pageTitle, .h1, .h2, .chatTitle:
+        case .pageTitle, .h1, .h2, .h3, .chatTitle:
             AppDisplayTypography.displayFontName
-        case .h3:
-            AppDisplayTypography.regularUIFont(size: fontSize).fontName
         case .section:
             AppDisplayTypography.fontName
         }
@@ -1131,9 +1129,9 @@ enum AppHeadingRole: Sendable {
 
     nonisolated var font: Font {
         switch self {
-        case .pageTitle, .h1, .h2, .chatTitle:
+        case .pageTitle, .h1, .h2, .h3, .chatTitle:
             AppDisplayTypography.font(size: fontSize)
-        case .h3, .section:
+        case .section:
             AppDisplayTypography.font(size: fontSize, allowDisplayFont: false)
         }
     }

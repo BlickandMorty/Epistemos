@@ -117,7 +117,8 @@ html, body {
 }
 
 .ProseMirror h1,
-.ProseMirror h2 {
+.ProseMirror h2,
+.ProseMirror h3 {
   font-family: var(--epdoc-display-font);
 }
 
