@@ -3,8 +3,9 @@
 This file preserves the Quick Capture Tools V2 substrate from
 `.claude/worktrees/vigorous-goldberg-3a2d35/` without bulk-copying the donor
 registry. The donor branch contains the richer `Tool` trait, `ToolMeta`,
-variant ladder, `legacy_adapter`, and `v2_catalog/`. Current main keeps the
-legacy `ToolHandler` registry as the shipping runtime.
+variant ladder, `legacy_adapter`, and `v2_catalog/`. Current main still keeps
+the legacy `ToolHandler` implementations as compatibility handlers, but the
+model-facing catalog now surfaces canonical dotted V2 names.
 
 The recovery slice now anchored in main is the compatibility layer:
 
@@ -12,9 +13,16 @@ The recovery slice now anchored in main is the compatibility layer:
 - `v2_name_for_legacy(_:)`
 - `legacy_name_for_v2(_:)`
 - `ToolRegistry::execute_v2(_:_:)`
+- V2-normalized `get_definitions()` / `allowed_tool_names()` output, so agent
+  prompts receive names like `vault.search` and `file.read`, not
+  `vault_search` and `read_file`.
+- V2/legacy-equivalent allowlist checks, so either spelling remains accepted
+  while Swift callers migrate.
 
 Full native `Tool` trait migration remains staged. Do not port the whole
-`v2_catalog/` raw; migrate tools by family after tests prove parity.
+`v2_catalog/` raw; migrate handlers by family after tests prove parity. Until
+then, compatibility handlers are intentionally hidden behind the V2 catalog
+surface rather than exposed to the model as legacy names.
 
 ## Alias Table
 
