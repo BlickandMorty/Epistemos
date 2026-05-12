@@ -63,6 +63,160 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-12-001: Silent vault-not-connected state hides indexing failure from user
+
+Status: Open
+Priority: P1
+First Observed: 2026-05-12
+
+Symptom:
+User can create and edit notes (stored in SwiftData SDPage container) without
+ever connecting a filesystem vault folder. The app gives no UI feedback that
+notes are NOT being indexed by Shadow/Halo and won't appear in vault-backed
+search. User discovered this when Halo silently failed for them — only via
+Settings → Diagnostics did they learn that "No active vault selected" was the
+root cause.
+
+Suspected Cause:
+`AppBootstrap` allows the SwiftData container to operate independently of
+`vaultSync.vaultURL`. Editor, sidebar, and note creation all work against the
+SwiftData store. Shadow indexer + Halo button + Background indexer all gate
+on `vaultSync.vaultURL != nil` at `AppBootstrap.swift:3104`. No visible banner
+or callout exists in any user-facing surface when the vault is disconnected.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Add a dismissible banner above the editor or in the sidebar that says
+  "No vault folder connected — your notes won't appear in search yet.
+  [Connect Vault]" with a button that opens the folder picker.
+- Surface the same warning in the Notes empty state.
+- Add a Settings → Privacy & Storage badge (small dot on the sidebar entry)
+  when no vault is connected.
+
+Destructive Fixes (require user approval):
+- Forcing vault selection at first launch (tracked separately as
+  ISSUE-2026-05-12-002).
+- Auto-creating a default vault folder without user consent.
+
+Investigation Log:
+- 2026-05-12: New entry. Tied to ISSUE-2026-05-10-001 root cause finding.
+  The Halo wiring is canonical; what's missing is user awareness that
+  Halo requires a vault.
+
+---
+
+### ISSUE-2026-05-12-002: First-launch onboarding does not force vault selection
+
+Status: Open
+Priority: P2
+First Observed: 2026-05-12
+
+Symptom:
+A new user can install Epistemos, skip past `SetupAssistantView`, and start
+creating notes without ever picking a vault folder. This produces the silent-
+Halo failure tracked in ISSUE-2026-05-12-001 + ISSUE-2026-05-10-001.
+
+Suspected Cause:
+`Epistemos/Views/Onboarding/SetupAssistantView.swift:321` has a vault-picker
+flow (`canChooseDirectories = true`), but the rest of the app does not gate
+on its completion. A user who closes onboarding without selecting a folder
+enters a degraded state with no recovery prompt.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Make the SetupAssistant non-dismissible until a vault folder is chosen,
+  OR add a re-prompt sheet that appears on every cold-launch when
+  `vaultSync.vaultURL == nil`.
+- Add a "Choose later" escape hatch that explicitly disables Halo and
+  Shadow indexing with a one-time confirmation, then surfaces the banner
+  from ISSUE-2026-05-12-001 persistently.
+
+Destructive Fixes (require user approval):
+- Replacing the existing onboarding flow.
+- Auto-creating a folder.
+
+Investigation Log:
+- 2026-05-12: New entry. Polish item flagged during ISSUE-2026-05-10-001
+  diagnosis. Pairs with the banner work in ISSUE-2026-05-12-001.
+
+---
+
+### ISSUE-2026-05-12-003: Cognitive DAG shipped but has no user-visible surface
+
+Status: Open
+Priority: P3
+First Observed: 2026-05-12
+
+Symptom:
+Phase 8.A-8.G of the Cognitive DAG (10 NodeKind, 10 EdgeKind, Merkle-signed
+edges, 4 dispatch mirrors) is fully implemented in `agent_core/src/cognitive_dag/`
+but has no user-facing UI. The Diagnostics row shows "Cognitive DAG: empty
+(waiting for mirrors)" — the empty state is accurate but the user has no
+way to see node/edge counts, walk DerivesFrom/Contradicts edges, or
+inspect the Merkle root after mutations.
+
+Suspected Cause:
+The DAG was scoped as substrate for sync + provenance, not as a primary
+graph-visualization target. Mirrors (skills / procedural / provenance /
+companion) are wired but the Diagnostics surface only reports the
+"waiting for mirrors" header — no count, no edge sample.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Expand `CognitiveDagHealthRow` to display: node count, edge count by
+  kind, current Merkle root (hash prefix), and a `DerivesFrom` /
+  `Contradicts` walk button that opens a small read-only view.
+- Wire one mirror's emission (Provenance is easiest) so the row stops
+  showing "waiting for mirrors" on every clean launch.
+
+Destructive Fixes (require user approval):
+- Adding the Cognitive DAG as a top-level navigation surface (this is
+  substantial UI work and a product decision).
+
+Investigation Log:
+- 2026-05-12: New entry. Promoted from inventory ⚠️ status. The DAG
+  is real and tested; only the visible surface is missing.
+
+---
+
+### ISSUE-2026-05-12-004: Halo button placement (bottom-right of editor) is undiscoverable
+
+Status: Open
+Priority: P2
+First Observed: 2026-05-12
+
+Symptom:
+When the user has a vault selected and types in the editor,
+`installHaloIfAvailable()` at `ProseEditorRepresentable2.swift:922` adds a
+small `HaloButton` host as a subview of the editor's `NSScrollView`,
+anchored 18pt from the trailing edge and 18pt from the bottom. Users
+report not seeing "a halo thing" when they type because they're expecting
+inline behavior (like Obsidian's link suggester) and the corner button
+is easy to miss.
+
+Suspected Cause:
+The placement is correct per the wiring but suboptimal for discovery.
+Compare to Obsidian's inline link autocomplete (`[[` triggers a popover
+at the cursor). Epistemos's Halo is "results panel" UX, not "as-you-type
+suggester" UX; the button is correct as the entry point but its location
++ size make it functionally invisible.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Add a subtle pulse / shimmer animation on the button the first time
+  it installs in a session, and again the first time it has new results.
+- Add a default-bound keyboard shortcut (e.g., `Cmd+Shift+H`) that
+  opens the panel, with the shortcut shown in the button's tooltip.
+- Move the button from bottom-right to a more discoverable location
+  (e.g., the editor toolbar) and shrink the corner version to an unobtrusive
+  status indicator.
+
+Destructive Fixes (require user approval):
+- Replacing the panel UX entirely with an inline-popover model (substantial
+  rework of the Halo controller and shadow-panel architecture).
+
+Investigation Log:
+- 2026-05-12: New entry. Flagged during ISSUE-2026-05-10-001 diagnosis
+  as a parallel UX bug — even when Halo works, users can't find it.
+
+---
+
 ### ISSUE-2026-05-11-001: Large vault import stalls and graph loads only a partial vault
 
 Status: Investigating
@@ -370,6 +524,41 @@ Investigation Log:
   instead of blocking the user's first Halo search; on hot cache the
   warm is an atomic-fast no-op. Status remains Open until user
   verifies Halo actually returns results.
+- 2026-05-12: **Root cause identified via user-screenshot diagnostic.**
+  User opened Settings → General → Diagnostics. Halo backend row reads
+  `No active vault selected - Shadow/Halo closed` (red X). Background
+  indexing row reads `No active vault selected - cached local note/graph
+  data only` (red X). Both rows derive from the SAME guard at
+  `AppBootstrap.swift:3104`:
+  ```swift
+  guard let vaultURL = vaultSync.vaultURL else {
+      EditorBundleHealthRow.recordHaloClosed()
+      BackgroundIndexingHealthRow.recordUnavailable(...)
+      return
+  }
+  ```
+  The user's notes work because they're stored in SwiftData's internal
+  SQLite container (SDPage models). The Shadow indexer requires a
+  separate filesystem vault folder (`vaultSync.vaultURL` — set via
+  `VaultConnectionActions.selectVaultFolder` at `SettingsView.swift:3410`).
+  These are two parallel "vault" concepts and only the filesystem one
+  feeds Halo.
+  
+  **Actionable user fix:**
+  1. Settings → Privacy & Storage → Vault
+  2. Click "Select Vault Folder" button
+  3. Pick or create a folder (e.g., `~/Documents/Epistemos`)
+  4. Bootstrap fires automatically, Halo backend turns green, button
+     appears in bottom-right of editor as user types
+  
+  **Product-level bug:** the app silently allows note creation when no
+  vault is selected. Users have no idea their notes aren't being indexed.
+  Two follow-up issues filed today: ISSUE-2026-05-12-001 (vault-not-
+  connected banner) and ISSUE-2026-05-12-002 (force vault selection at
+  first launch). Halo itself is not broken — the wiring is canonical.
+  Reclassified from "Halo backend broken" to "Halo silently disabled
+  by missing vault selection." Will close as Verified Fixed once user
+  confirms the picker flow worked.
 
 ---
 
