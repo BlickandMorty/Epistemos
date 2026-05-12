@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn single_successful_call_is_efficient() {
         let calls = vec![(
-            "vault_search".into(),
+            "vault.search".into(),
             "query".into(),
             "found 3 results about MOHAWK".into(),
             false,
@@ -203,25 +203,25 @@ mod tests {
     fn repeated_identical_calls_detect_loops() {
         let calls = vec![
             (
-                "vault_search".into(),
+                "vault.search".into(),
                 "query".into(),
                 "result A".into(),
                 false,
             ),
             (
-                "vault_search".into(),
+                "vault.search".into(),
                 "query".into(),
                 "result A".into(),
                 false,
             ),
             (
-                "vault_search".into(),
+                "vault.search".into(),
                 "query".into(),
                 "result A".into(),
                 false,
             ),
             (
-                "vault_search".into(),
+                "vault.search".into(),
                 "query".into(),
                 "result A".into(),
                 false,
@@ -236,19 +236,19 @@ mod tests {
     fn diverse_calls_with_progress_are_efficient() {
         let calls = vec![
             (
-                "vault_search".into(),
+                "vault.search".into(),
                 "MOHAWK".into(),
                 "found training pipeline documentation".into(),
                 false,
             ),
             (
-                "vault_read".into(),
+                "vault.read".into(),
                 "MOHAWK/README.md".into(),
                 "full content of training pipeline with 15 categories".into(),
                 false,
             ),
             (
-                "vault_read".into(),
+                "vault.read".into(),
                 "MOHAWK/eval.jsonl".into(),
                 "evaluation results showing 92% accuracy on benchmark".into(),
                 false,
@@ -272,7 +272,7 @@ mod tests {
             ("bash".into(), "ls".into(), "error".into(), true),
             ("bash".into(), "cat".into(), "error".into(), true),
             ("bash".into(), "pwd".into(), "error".into(), true),
-            ("vault_search".into(), "q".into(), "ok".into(), false),
+            ("vault.search".into(), "q".into(), "ok".into(), false),
         ];
         let metrics = compute_trajectory_metrics(&calls);
         assert_eq!(metrics.classification, TrajectoryClassification::Failed);

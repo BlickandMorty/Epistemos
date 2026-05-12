@@ -15,7 +15,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::process::Command;
 
 use super::registry::{ToolError, ToolHandler};

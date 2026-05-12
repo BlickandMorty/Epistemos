@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 use super::web_fetch::{
@@ -515,7 +515,7 @@ fn parse_extract_urls(input: &Value) -> Result<Vec<String>, ToolError> {
     }
     if input.get("url").is_some() {
         return Ok(vec![
-            required_string(input, "url", MAX_WEB_URL_CHARS)?.to_string(),
+            required_string(input, "url", MAX_WEB_URL_CHARS)?.to_string()
         ]);
     }
     if let Some(value) = input.get("urls") {
@@ -776,7 +776,11 @@ fn extract_host(url: &str) -> Option<String> {
         .next()
         .unwrap_or("")
         .to_ascii_lowercase();
-    if host.is_empty() { None } else { Some(host) }
+    if host.is_empty() {
+        None
+    } else {
+        Some(host)
+    }
 }
 
 fn extract_links(html: &str, base_url: &str) -> Vec<String> {

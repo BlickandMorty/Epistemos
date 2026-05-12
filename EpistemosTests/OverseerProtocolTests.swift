@@ -56,7 +56,7 @@ struct OverseerProtocolTests {
         #expect(decoded.maskPlan.expertAllowlist == ["expert.alpha", "expert.beta"])
         #expect(decoded.maskPlan.rationale == "Narrow to writing experts.")
         #expect(decoded.loraBlendCoefficients.map(\.adapterID) == ["writing", "research"])
-        #expect(decoded.toolPermissions.map(\.toolName) == ["web_search", "pkm_get"])
+        #expect(decoded.toolPermissions.map(\.toolName) == ["web.search", "vault.read"])
         #expect(decoded.contextSummary.entityIDs == ["Project/Epistemos", "People/Jordan"])
         #expect(decoded.contextSummary.sourceSessionID == "session-42")
     }
@@ -138,16 +138,15 @@ struct OverseerProtocolTests {
         let permissions = OverseerComplexityRouter.fallbackToolPermissions(distribution: .coreAppStore)
         let names = Set(permissions.map(\.toolName))
 
-        #expect(names.contains("vault_search"))
-        #expect(names.contains("web_search"))
+        #expect(names.contains("vault.search"))
+        #expect(names.contains("web.search"))
         #expect(names.allSatisfy {
             ToolSurfacePolicy.isSurfacedToolName($0, distribution: .coreAppStore)
         })
 
         for forbidden in [
-            "run_command",
-            "open_url",
-            "search_web",
+            "action.bash",
+            "web.fetch",
             "browser_navigate",
             "get_ui_tree",
             "docker_run",
@@ -161,13 +160,12 @@ struct OverseerProtocolTests {
         let permissions = OverseerComplexityRouter.fallbackToolPermissions(distribution: .proResearch)
         let byName = Dictionary(uniqueKeysWithValues: permissions.map { ($0.toolName, $0.mode) })
 
-        #expect(byName["vault_search"] == .allow)
-        #expect(byName["web_search"] == .ask)
-        #expect(byName["search_web"] == .ask)
-        #expect(byName["open_url"] == .ask)
-        #expect(byName["run_command"] == .ask)
-        #expect(byName["pkm_write"] == .deny)
-        #expect(byName["delete_file"] == .deny)
+        #expect(byName["vault.search"] == .allow)
+        #expect(byName["web.search"] == .ask)
+        #expect(byName["web.fetch"] == .ask)
+        #expect(byName["action.bash"] == .ask)
+        #expect(byName["vault.write"] == .deny)
+        #expect(byName["file.delete"] == .deny)
     }
 
     private func makePlan() -> OverseerPlanV1 {

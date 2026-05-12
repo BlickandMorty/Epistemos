@@ -66,7 +66,7 @@ mod tests {
             plan_steps: vec![
                 TraceStep {
                     agent: "safari".to_string(),
-                    tool: "open_url".to_string(),
+                    tool: "web.fetch".to_string(),
                     arguments_json: r#"{"url":"https://apple.com"}"#.to_string(),
                     result_json: r#"{"opened":true}"#.to_string(),
                     duration_ms: 150,

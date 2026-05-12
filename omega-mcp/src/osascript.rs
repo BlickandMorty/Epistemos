@@ -241,7 +241,7 @@ where
 
 // ── Tool Wrappers (called by agents via MCPDispatcher) ───────────────────────
 
-/// Tool: open_url — opens a URL in Safari via AppleScript.
+/// Tool: web.fetch (legacy open_url executor) — opens a URL in Safari via AppleScript.
 pub fn tool_open_url(url: &str) -> ToolResult {
     let script = safari_open_location_script(url);
     run_safari_applescript(&script, None)
@@ -266,7 +266,7 @@ pub fn tool_get_page_text(max_length: u32) -> ToolResult {
     run_safari_applescript(&script, Some(15_000))
 }
 
-/// Tool: search_web — searches Google via Safari.
+/// Tool: web.search (legacy search_web executor) — searches Google via Safari.
 pub fn tool_search_web(query: &str) -> ToolResult {
     let encoded = query.replace(' ', "+").replace('"', "%22");
     let url = format!("https://www.google.com/search?q={encoded}");

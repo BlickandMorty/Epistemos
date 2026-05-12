@@ -933,7 +933,7 @@ async fn execute_one_tool(
 
     // Security: classify command risk for bash/shell tools.
     #[cfg(feature = "pro-build")]
-    if name == "bash_execute" || name == "shell" {
+    if name == "action.bash" || name == "bash_execute" || name == "shell" {
         if let Some(command) = input.get("command").and_then(serde_json::Value::as_str) {
             let risk = crate::security::classify_command_risk(command);
             if risk.level == crate::security::CommandRiskLevel::Forbidden {

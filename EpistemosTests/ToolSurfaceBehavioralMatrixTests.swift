@@ -106,12 +106,12 @@ nonisolated struct ToolSurfaceBehavioralMatrixTests {
         // never-surfaced names. Verify the array filter and the per-name
         // check agree on every entry.
         let synthetic: [OmegaToolDefinition] = [
-            tool("vault_search"),
-            tool("vault_read"),
+            tool("vault.search"),
+            tool("vault.read"),
             tool("bash"),
             tool("computer_use"),
             tool("think"),
-            tool("web_search"),
+            tool("web.search"),
             tool("docker"),
         ]
 
@@ -124,7 +124,7 @@ nonisolated struct ToolSurfaceBehavioralMatrixTests {
 
             for tool in synthetic {
                 let perName = ToolSurfacePolicy.isSurfacedToolName(tool.name, distribution: distribution)
-                let inFilter = filteredNames.contains(tool.name)
+                let inFilter = filteredNames.contains(AgentToolNameAliases.canonical(tool.name))
                 #expect(perName == inFilter,
                         "surfacedTools and isSurfacedToolName disagree for \(tool.name) under \(distribution): per-name=\(perName), inFilter=\(inFilter)")
             }
@@ -138,11 +138,11 @@ nonisolated struct ToolSurfaceBehavioralMatrixTests {
         // hold — Pro/Research can surface bash/computer_use while Core
         // cannot.
         let synthetic: [OmegaToolDefinition] = [
-            tool("vault_search"),
-            tool("vault_read"),
-            tool("vault_write"),
-            tool("read_file"),
-            tool("write_file"),
+            tool("vault.search"),
+            tool("vault.read"),
+            tool("vault.write"),
+            tool("file.read"),
+            tool("file.write"),
             tool("patch"),
             tool("search_files"),
             tool("todo"),

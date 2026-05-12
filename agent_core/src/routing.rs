@@ -252,32 +252,32 @@ fn default_tools_for_objective(objective: &str) -> Vec<String> {
     let research_first = contains_any(&normalized, &["web", "research", "current", "latest"])
         && !objective_mentions_local_context(&normalized);
     let mut tools = if research_first {
-        vec!["web_search".to_string()]
+        vec!["web.search".to_string()]
     } else {
-        vec!["vault_search".to_string(), "vault_read".to_string()]
+        vec!["vault.search".to_string(), "vault.read".to_string()]
     };
 
     if contains_any(&normalized, &["write", "create", "update", "note"]) {
-        tools.push("vault_write".to_string());
+        tools.push("vault.write".to_string());
     }
     if contains_any(&normalized, &["web", "research", "current", "latest"])
-        && !tools.iter().any(|tool| tool == "web_search")
+        && !tools.iter().any(|tool| tool == "web.search")
     {
-        tools.push("web_search".to_string());
+        tools.push("web.search".to_string());
     }
     if objective_mentions_local_context(&normalized)
-        && !tools.iter().any(|tool| tool == "vault_search")
+        && !tools.iter().any(|tool| tool == "vault.search")
     {
-        tools.push("vault_search".to_string());
+        tools.push("vault.search".to_string());
     }
     if objective_mentions_local_context(&normalized)
-        && !tools.iter().any(|tool| tool == "vault_read")
+        && !tools.iter().any(|tool| tool == "vault.read")
     {
-        tools.push("vault_read".to_string());
+        tools.push("vault.read".to_string());
     }
     #[cfg(feature = "pro-build")]
     if contains_any(&normalized, &["bash", "shell", "command"]) {
-        tools.push("bash_execute".to_string());
+        tools.push("action.bash".to_string());
     }
 
     tools
@@ -298,8 +298,8 @@ mod tests {
     fn research_queries_prefer_web_search_before_vault_tools() {
         let tools =
             default_tools_for_objective("research Gemini 2.5 and compare the current models");
-        assert_eq!(tools.first().map(String::as_str), Some("web_search"));
-        assert!(!tools.iter().any(|tool| tool == "vault_search"));
+        assert_eq!(tools.first().map(String::as_str), Some("web.search"));
+        assert!(!tools.iter().any(|tool| tool == "vault.search"));
     }
 
     #[test]
@@ -307,8 +307,8 @@ mod tests {
         let tools = default_tools_for_objective(
             "research my notes about Gemini and compare them to the latest release",
         );
-        assert_eq!(tools.first().map(String::as_str), Some("vault_search"));
-        assert!(tools.iter().any(|tool| tool == "vault_read"));
-        assert!(tools.iter().any(|tool| tool == "web_search"));
+        assert_eq!(tools.first().map(String::as_str), Some("vault.search"));
+        assert!(tools.iter().any(|tool| tool == "vault.read"));
+        assert!(tools.iter().any(|tool| tool == "web.search"));
     }
 }

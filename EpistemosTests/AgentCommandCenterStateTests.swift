@@ -128,7 +128,7 @@ struct AgentCommandCenterStateTests {
         #expect(ACCSlashCommand.notes.defaultOperatingMode == .agent)
         #expect(ACCSlashCommand.code.defaultOperatingMode == .agent)
         #expect(ACCSlashCommand.securityReview.defaultOperatingMode == .pro)
-        #expect(ACCSlashCommand.notes.preferredToolNames.contains("vault_write"))
+        #expect(ACCSlashCommand.notes.preferredToolNames.contains("vault.write"))
         #expect(ACCSlashCommand.code.expertAllowlist.contains("coding"))
         #expect(ACCSlashCommand.securityReview.expertAllowlist.contains("security-review"))
     }
@@ -254,9 +254,9 @@ struct AgentCommandCenterStateTests {
     }
 
     @Test func refreshToolCatalogUsesCurrentOperatingMode() {
-        let fastTools = [Self.makeTool(name: "vault_search")]
+        let fastTools = [Self.makeTool(name: "vault.search")]
         let agentTools = [
-            Self.makeTool(name: "vault_search"),
+            Self.makeTool(name: "vault.search"),
             Self.makeTool(name: "send_message"),
         ]
         let state = AgentCommandCenterState(toolCatalogLoader: { _, mode, _ in
@@ -272,18 +272,18 @@ struct AgentCommandCenterStateTests {
         state.selectedOperatingMode = .fast
         state.refreshToolCatalog(from: bridge, vaultPath: "/tmp/test-vault")
 
-        #expect(state.availableTools.map(\.name) == ["vault_search"])
-        #expect(state.toolToggles == ["vault_search": true])
-        #expect(state.mcpToolsByAgent["rust"]?.map(\.name) == ["vault_search"])
+        #expect(state.availableTools.map(\.name) == ["vault.search"])
+        #expect(state.toolToggles == ["vault.search": true])
+        #expect(state.mcpToolsByAgent["rust"]?.map(\.name) == ["vault.search"])
     }
 
     @Test func changingOperatingModeRebuildsCatalogAndPreservesSharedToggleState() {
         let fastTools = [
-            Self.makeTool(name: "vault_search"),
-            Self.makeTool(name: "web_search"),
+            Self.makeTool(name: "vault.search"),
+            Self.makeTool(name: "web.search"),
         ]
         let agentTools = [
-            Self.makeTool(name: "vault_search"),
+            Self.makeTool(name: "vault.search"),
             Self.makeTool(name: "send_message"),
         ]
         // Isolated defaults — AgentCommandCenterState reads activeSpecialist
@@ -305,22 +305,22 @@ struct AgentCommandCenterStateTests {
 
         state.selectedOperatingMode = .fast
         state.refreshToolCatalog(from: bridge, vaultPath: "/tmp/test-vault")
-        state.toggleTool("vault_search")
+        state.toggleTool("vault.search")
 
         state.selectedOperatingMode = .agent
 
-        #expect(state.availableTools.map(\.name) == ["vault_search", "send_message"])
-        #expect(state.toolToggles["vault_search"] == false)
+        #expect(state.availableTools.map(\.name) == ["vault.search", "send_message"])
+        #expect(state.toolToggles["vault.search"] == false)
         #expect(state.toolToggles["send_message"] == true)
-        #expect(state.toolToggles["web_search"] == nil)
+        #expect(state.toolToggles["web.search"] == nil)
     }
 
     @Test func coreAppStoreRefreshToolCatalogFiltersInjectedExternalTools() {
         let state = AgentCommandCenterState(
             toolCatalogLoader: { _, _, _ in
                 [
-                    Self.makeTool(name: "vault_search"),
-                    Self.makeTool(name: "run_command"),
+                    Self.makeTool(name: "vault.search"),
+                    Self.makeTool(name: "action.bash"),
                     Self.makeTool(name: "get_ui_tree"),
                     Self.makeTool(name: "click"),
                 ]
@@ -331,17 +331,17 @@ struct AgentCommandCenterStateTests {
 
         state.refreshToolCatalog(from: MCPBridge(), vaultPath: "/tmp/test-vault")
 
-        #expect(state.availableTools.map(\.name) == ["vault_search"])
-        #expect(state.enabledToolNames == Set(["vault_search"]))
-        #expect(state.mcpToolsByAgent["rust"]?.map(\.name) == ["vault_search"])
+        #expect(state.availableTools.map(\.name) == ["vault.search"])
+        #expect(state.enabledToolNames == Set(["vault.search"]))
+        #expect(state.mcpToolsByAgent["rust"]?.map(\.name) == ["vault.search"])
     }
 
     @Test func proResearchRefreshToolCatalogKeepsInjectedGatewayTools() {
         let state = AgentCommandCenterState(
             toolCatalogLoader: { _, _, _ in
                 [
-                    Self.makeTool(name: "vault_search"),
-                    Self.makeTool(name: "run_command"),
+                    Self.makeTool(name: "vault.search"),
+                    Self.makeTool(name: "action.bash"),
                     Self.makeTool(name: "get_ui_tree"),
                     Self.makeTool(name: "click"),
                 ]
@@ -353,14 +353,14 @@ struct AgentCommandCenterStateTests {
         state.refreshToolCatalog(from: MCPBridge(), vaultPath: "/tmp/test-vault")
 
         #expect(state.availableTools.map(\.name) == [
-            "vault_search",
-            "run_command",
+            "vault.search",
+            "action.bash",
             "get_ui_tree",
             "click",
         ])
         #expect(state.enabledToolNames == Set([
-            "vault_search",
-            "run_command",
+            "vault.search",
+            "action.bash",
             "get_ui_tree",
             "click",
         ]))
@@ -369,20 +369,20 @@ struct AgentCommandCenterStateTests {
     @Test func applyingCodeSpecialistPrefersNextBestLocalBrainAndFocusedToolBundle() {
         let defaults = Self.makeDefaults()
         let fastTools = [
-            Self.makeTool(name: "vault_search"),
-            Self.makeTool(name: "read_file"),
-            Self.makeTool(name: "web_search"),
+            Self.makeTool(name: "vault.search"),
+            Self.makeTool(name: "file.read"),
+            Self.makeTool(name: "web.search"),
         ]
         let agentTools = [
-            Self.makeTool(name: "vault_search"),
-            Self.makeTool(name: "vault_read"),
-            Self.makeTool(name: "read_file"),
-            Self.makeTool(name: "search_files"),
-            Self.makeTool(name: "write_file"),
-            Self.makeTool(name: "patch"),
-            Self.makeTool(name: "bash_execute"),
+            Self.makeTool(name: "vault.search"),
+            Self.makeTool(name: "vault.read"),
+            Self.makeTool(name: "file.read"),
+            Self.makeTool(name: "file.search"),
+            Self.makeTool(name: "file.write"),
+            Self.makeTool(name: "file.patch"),
+            Self.makeTool(name: "action.bash"),
             Self.makeTool(name: "execute_code"),
-            Self.makeTool(name: "web_search"),
+            Self.makeTool(name: "web.search"),
         ]
         let state = AgentCommandCenterState(
             toolCatalogLoader: { _, mode, _ in
@@ -408,13 +408,13 @@ struct AgentCommandCenterStateTests {
         #expect(state.selectedBrain?.id == "local:\(LocalTextModelID.qwen36_35BA3B4Bit.rawValue)")
         #expect(
             state.enabledToolNames == Set([
-                "vault_search",
-                "vault_read",
-                "read_file",
-                "search_files",
-                "write_file",
-                "patch",
-                "bash_execute",
+                "vault.search",
+                "vault.read",
+                "file.read",
+                "file.search",
+                "file.write",
+                "file.patch",
+                "action.bash",
                 "execute_code",
             ])
         )

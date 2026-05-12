@@ -345,10 +345,10 @@ pub fn compile_with_catalog(
         input.preferred_auto_brain.as_ref(),
     );
 
-    let enabled_set: std::collections::BTreeSet<&str> = input
+    let enabled_set: std::collections::BTreeSet<String> = input
         .enabled_tool_names
         .iter()
-        .map(String::as_str)
+        .map(|name| canonical_tool_name(name).to_string())
         .collect();
     let resolved_tool_permissions = resolve_tool_permissions(&enabled_set, &catalog);
 
@@ -363,7 +363,7 @@ pub fn compile_with_catalog(
 
     // Canonicalize requested_tool_names as a sorted unique vec for
     // deterministic output — Swift's `Set<String>` has no ordering.
-    let mut sorted_tool_names: Vec<String> = enabled_set.iter().map(|s| s.to_string()).collect();
+    let mut sorted_tool_names: Vec<String> = enabled_set.iter().cloned().collect();
     sorted_tool_names.sort();
 
     CompiledCommandCenterRequest {
@@ -506,7 +506,7 @@ fn resolve_runtime(
 }
 
 fn resolve_tool_permissions(
-    enabled: &std::collections::BTreeSet<&str>,
+    enabled: &std::collections::BTreeSet<String>,
     catalog: &[ToolCatalogEntry],
 ) -> Vec<ResolvedToolPermission> {
     // Walk the Rust-owned catalog and decide allow/deny for every tool at
@@ -514,13 +514,18 @@ fn resolve_tool_permissions(
     // Rust catalog get synthesized deny entries with a truthful reason —
     // this surfaces an empty-catalog state (e.g. vault unavailable) or a
     // stale Swift UI toggle without silently dropping either side.
-    let catalog_names: std::collections::BTreeSet<&str> =
-        catalog.iter().map(|t| t.name.as_str()).collect();
+    let catalog_names: std::collections::BTreeSet<String> = catalog
+        .iter()
+        .map(|tool| canonical_tool_name(&tool.name).to_string())
+        .collect();
 
     let mut out: Vec<ResolvedToolPermission> = catalog
         .iter()
         .map(|tool| {
-            let decision = if enabled.contains(tool.name.as_str()) {
+            let decision = if enabled
+                .iter()
+                .any(|name| tool_names_equivalent(name, &tool.name))
+            {
                 ToolDecision::Allow {}
             } else {
                 ToolDecision::Deny {
@@ -548,9 +553,9 @@ fn resolve_tool_permissions(
         "not_in_rust_catalog"
     };
     for name in enabled {
-        if !catalog_names.contains(name) {
+        if !catalog_names.contains(name.as_str()) {
             out.push(ResolvedToolPermission {
-                tool_name: name.to_string(),
+                tool_name: name.clone(),
                 agent: "rust".to_string(),
                 description: String::new(),
                 decision: ToolDecision::Deny {
@@ -563,6 +568,18 @@ fn resolve_tool_permissions(
     }
 
     out
+}
+
+fn canonical_tool_name(name: &str) -> &str {
+    crate::tools::registry::v2_name_for_legacy(name).unwrap_or(name)
+}
+
+fn tool_names_equivalent(a: &str, b: &str) -> bool {
+    a == b
+        || crate::tools::registry::v2_name_for_legacy(a).is_some_and(|v2| v2 == b)
+        || crate::tools::registry::v2_name_for_legacy(b).is_some_and(|v2| v2 == a)
+        || crate::tools::registry::legacy_name_for_v2(a).is_some_and(|legacy| legacy == b)
+        || crate::tools::registry::legacy_name_for_v2(b).is_some_and(|legacy| legacy == a)
 }
 
 fn build_execution_policy(
@@ -835,11 +852,12 @@ mod tests {
     #[test]
     fn tool_permissions_allow_only_user_enabled() {
         let catalog = vec![
-            sample_tool("read_file", false),
-            sample_tool("bash_command", true),
-            sample_tool("memory_search", false),
+            sample_tool("file.read", false),
+            sample_tool("action.bash", true),
+            sample_tool("memory.search", false),
         ];
-        let enabled: std::collections::BTreeSet<&str> = ["bash_command"].iter().copied().collect();
+        let enabled: std::collections::BTreeSet<String> =
+            ["action.bash"].into_iter().map(str::to_string).collect();
         let perms = resolve_tool_permissions(&enabled, &catalog);
         assert_eq!(perms.len(), 3);
         let allow: Vec<&str> = perms
@@ -847,13 +865,36 @@ mod tests {
             .filter(|p| matches!(p.decision, ToolDecision::Allow { .. }))
             .map(|p| p.tool_name.as_str())
             .collect();
-        assert_eq!(allow, vec!["bash_command"]);
+        assert_eq!(allow, vec!["action.bash"]);
+    }
+
+    #[test]
+    fn tool_permissions_accept_legacy_enabled_names_against_v2_catalog() {
+        let catalog = vec![
+            sample_tool("file.read", false),
+            sample_tool("vault.write", true),
+        ];
+        let enabled: std::collections::BTreeSet<String> = ["read_file", "vault_write"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let perms = resolve_tool_permissions(&enabled, &catalog);
+        let allowed: Vec<&str> = perms
+            .iter()
+            .filter(|p| matches!(p.decision, ToolDecision::Allow { .. }))
+            .map(|p| p.tool_name.as_str())
+            .collect();
+        assert_eq!(allowed, vec!["file.read", "vault.write"]);
     }
 
     #[test]
     fn empty_tool_toggles_deny_everything() {
-        let catalog = vec![sample_tool("read_file", false), sample_tool("bash", true)];
-        let perms = resolve_tool_permissions(&Default::default(), &catalog);
+        let catalog = vec![
+            sample_tool("file.read", false),
+            sample_tool("action.bash", true),
+        ];
+        let enabled = std::collections::BTreeSet::new();
+        let perms = resolve_tool_permissions(&enabled, &catalog);
         assert!(perms
             .iter()
             .all(|p| matches!(p.decision, ToolDecision::Deny { .. })));
@@ -1051,7 +1092,10 @@ mod tests {
             operating_mode: OperatingMode::Pro,
             slash_token: None,
             brain_override: Some(local_brain("qwen", "Qwen")),
-            enabled_tool_names: vec!["read_file".to_string(), "memory_search".to_string()],
+            enabled_tool_names: vec![
+                "file.read".to_string(),
+                "knowledge.session_search".to_string(),
+            ],
             requested_mentions: vec![],
             resolved_mentions: vec![ResolvedContextRef::Note {
                 id: "p1".to_string(),
@@ -1066,9 +1110,9 @@ mod tests {
             graph_context: None,
         };
         let catalog = vec![
-            sample_tool("read_file", false),
-            sample_tool("memory_search", false),
-            sample_tool("bash", true),
+            sample_tool("file.read", false),
+            sample_tool("knowledge.session_search", false),
+            sample_tool("action.bash", true),
         ];
 
         let compiled = compile_with_catalog(input, catalog);
@@ -1106,7 +1150,7 @@ mod tests {
         let input_json = json!({
             "query": "q",
             "operatingMode": "agent",
-            "enabledToolNames": ["web_search", "vault_read"],
+            "enabledToolNames": ["web.search", "vault.read"],
             "availableBrains": [{ "kind": "appleIntelligence", "identifier": "apple", "displayName": "Apple" }],
             "vaultPath": ""
         })
@@ -1134,7 +1178,9 @@ mod tests {
     fn build_catalog_for_tier_hides_unsupported_image_generation() {
         let vault = tempfile::tempdir().expect("tempdir");
         let catalog = build_catalog_for_tier(vault.path().to_str().unwrap(), "agent");
-        assert!(!catalog.iter().any(|tool| tool.name == "image_generate"));
+        assert!(!catalog
+            .iter()
+            .any(|tool| tool.name == "media.image_generate"));
     }
 
     /// User enabled a tool name that Rust's catalog does not contain at the
@@ -1142,9 +1188,11 @@ mod tests {
     /// deny with reason `not_in_rust_catalog`, never silently drop it.
     #[test]
     fn resolve_tool_permissions_surfaces_unknown_enabled_names() {
-        let catalog = vec![sample_tool("read_file", false)];
-        let enabled: std::collections::BTreeSet<&str> =
-            ["read_file", "ghost_tool"].iter().copied().collect();
+        let catalog = vec![sample_tool("file.read", false)];
+        let enabled: std::collections::BTreeSet<String> = ["file.read", "ghost_tool"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
         let perms = resolve_tool_permissions(&enabled, &catalog);
         assert_eq!(perms.len(), 2);
         let ghost = perms

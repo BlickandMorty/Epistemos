@@ -53,7 +53,10 @@ mod tests {
     fn delta_serializes_in_snake_case() {
         for (op, expected) in [
             (DeltaOp::UpwardGeneralization, "\"upward_generalization\""),
-            (DeltaOp::DownwardSpecialization, "\"downward_specialization\""),
+            (
+                DeltaOp::DownwardSpecialization,
+                "\"downward_specialization\"",
+            ),
             (DeltaOp::LateralResonance, "\"lateral_resonance\""),
             (DeltaOp::ConvergentGather, "\"convergent_gather\""),
             (DeltaOp::DivergentFanout, "\"divergent_fanout\""),

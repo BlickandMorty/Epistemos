@@ -18,7 +18,7 @@ use tempfile::tempdir;
 fn prompt_format_preserves_function_call_contract() {
     let input = RuntimePromptInput {
         tools: vec![RuntimeToolDefinition {
-            name: "read_file".to_string(),
+            name: "file.read".to_string(),
             description: "Read an exact path.".to_string(),
             parameters: json!({
                 "type": "object",
@@ -47,7 +47,7 @@ fn prompt_format_preserves_function_call_contract() {
             "type": "function",
             "function": {
                 "description": "Read an exact path.",
-                "name": "read_file",
+                "name": "file.read",
                 "parameters": {
                     "type": "object",
                     "required": ["path"],
@@ -61,32 +61,27 @@ fn prompt_format_preserves_function_call_contract() {
     assert!(prompt.contains(
         "<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-dict>}\n</tool_call>"
     ));
-    assert!(prompt.contains(
-        "Use tools only for missing context or explicit external side effects."
-    ));
-    assert!(prompt.contains(
-        "LocalAgent is the tool-call and external-intelligence membrane"
-    ));
-    assert!(prompt.contains(
-        "not the graph, Rex, or the deterministic substrate authority"
-    ));
+    assert!(
+        prompt.contains("Use tools only for missing context or explicit external side effects.")
+    );
+    assert!(prompt.contains("LocalAgent is the tool-call and external-intelligence membrane"));
+    assert!(prompt.contains("not the graph, Rex, or the deterministic substrate authority"));
     assert!(prompt.contains(
         "LocalAgent is the single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects"
     ));
-    assert!(prompt.contains(
-        "Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."
-    ));
+    assert!(prompt
+        .contains("Cloud/provider/CLI/MCP/browser/Docker orchestration is Pro/Research only."));
     assert!(prompt.contains(
         "LocalAgent-family prompt formatting may stay Core-safe only when it runs in-process over local context."
     ));
-    assert!(prompt.contains(
-        "must not add a gateway hop when no external context is needed."
-    ));
+    assert!(prompt.contains("must not add a gateway hop when no external context is needed."));
     assert!(prompt.contains(
         "Return external evidence as structured artifacts and provenance, not graph or Rex authority."
     ));
-    assert!(!prompt.contains("Hermes is the"),
-        "Post-2026-05-05 purge: prompt must not bake Hermes-as-gateway doctrine.");
+    assert!(
+        !prompt.contains("Hermes is the"),
+        "Post-2026-05-05 purge: prompt must not bake Hermes-as-gateway doctrine."
+    );
     assert!(prompt.ends_with("Prefer exact paths."));
 }
 
@@ -112,7 +107,7 @@ fn prompt_messages_wrap_tool_results_after_history() {
             content: "Read it.".to_string(),
         }],
         &[RuntimeToolResult {
-            tool_name: "read_file".to_string(),
+            tool_name: "file.read".to_string(),
             result_json: "{\"ok\":true}".to_string(),
             is_error: false,
         }],
@@ -134,15 +129,15 @@ fn function_call_detector_emits_when_closing_tag_arrives() {
 
     assert!(detector.feed("<think>private</think>Hello ").is_none());
     let detection = detector
-        .feed("<tool_call>{\"name\":\"read_file\",\"arguments\":{\"path\":\"docs/a.md\"}}</tool_call>")
+        .feed("<tool_call>{\"name\":\"file.read\",\"arguments\":{\"path\":\"docs/a.md\"}}</tool_call>")
         .expect("complete tool call should emit on closing tag");
 
     assert_eq!(detector.pending_text(), "Hello ");
-    assert_eq!(detection.call.name, "read_file");
+    assert_eq!(detection.call.name, "file.read");
     assert_eq!(detection.call.arguments_json, "{\"path\":\"docs/a.md\"}");
     assert_eq!(
         detection.raw_content,
-        "{\"name\":\"read_file\",\"arguments\":{\"path\":\"docs/a.md\"}}"
+        "{\"name\":\"file.read\",\"arguments\":{\"path\":\"docs/a.md\"}}"
     );
 }
 
@@ -191,13 +186,13 @@ fn bridge_exposes_runtime_prompt_and_tool_parse_entrypoints() {
     assert!(prompt.ends_with("Answer directly."));
 
     let calls_json = agent_core::bridge::runtime_parse_tool_calls(
-        "<tool_call>{\"name\":\"vault_read\",\"arguments\":{\"path\":\"A.md\"}}</tool_call>"
+        "<tool_call>{\"name\":\"vault.read\",\"arguments\":{\"path\":\"A.md\"}}</tool_call>"
             .to_string(),
     )
     .expect("parser bridge should return JSON call list");
     let calls: serde_json::Value = serde_json::from_str(&calls_json).unwrap();
 
-    assert_eq!(calls[0]["name"], "vault_read");
+    assert_eq!(calls[0]["name"], "vault.read");
     assert_eq!(calls[0]["arguments_json"], "{\"path\":\"A.md\"}");
 }
 
@@ -341,7 +336,7 @@ fn procedural_memory_records_and_recalls_skill_outcomes() {
         .record_outcome(&ProcedureOutcomeRecord {
             skill_name: "vault-summarize".to_string(),
             invocation_context_hash: "note:alpha topic:rust".to_string(),
-            steps_taken: vec!["vault_read".to_string(), "summarize".to_string()],
+            steps_taken: vec!["vault.read".to_string(), "summarize".to_string()],
             outcome_summary: "Produced a focused Rust summary.".to_string(),
             duration_ms: 42,
             error_mode: None,
@@ -356,7 +351,7 @@ fn procedural_memory_records_and_recalls_skill_outcomes() {
 
     assert_eq!(recalled.len(), 1);
     assert_eq!(recalled[0].record.skill_name, "vault-summarize");
-    assert_eq!(recalled[0].record.steps_taken, ["vault_read", "summarize"]);
+    assert_eq!(recalled[0].record.steps_taken, ["vault.read", "summarize"]);
     assert!(recalled[0].score > 0.99);
 }
 
@@ -402,16 +397,16 @@ fn procedural_memory_ranks_context_match_and_decay() {
 #[test]
 fn self_evolution_proposes_skill_from_repeated_successful_sequence() {
     let records = vec![
-        procedure_record("research", ["vault_read", "web_fetch"], true, 10),
-        procedure_record("research", ["vault_read", "web_fetch"], true, 20),
-        procedure_record("research", ["vault_read", "web_fetch"], true, 30),
+        procedure_record("research", ["vault.read", "web.fetch"], true, 10),
+        procedure_record("research", ["vault.read", "web.fetch"], true, 20),
+        procedure_record("research", ["vault.read", "web.fetch"], true, 30),
     ];
 
     let candidate = propose_repeated_success_skill(&records, 3)
         .expect("three successful repeated sequences should propose a skill");
 
     assert_eq!(candidate.proposal.name, "learned-vault-read-web-fetch");
-    assert_eq!(candidate.steps_taken, ["vault_read", "web_fetch"]);
+    assert_eq!(candidate.steps_taken, ["vault.read", "web.fetch"]);
     assert_eq!(candidate.repetitions, 3);
     assert!(candidate
         .proposal
@@ -422,9 +417,9 @@ fn self_evolution_proposes_skill_from_repeated_successful_sequence() {
 #[test]
 fn self_evolution_ignores_failed_or_under_repeated_sequences() {
     let records = vec![
-        procedure_record("research", ["vault_read", "web_fetch"], true, 10),
-        procedure_record("research", ["vault_read", "web_fetch"], false, 20),
-        procedure_record("research", ["memory", "web_fetch"], true, 30),
+        procedure_record("research", ["vault.read", "web.fetch"], true, 10),
+        procedure_record("research", ["vault.read", "web.fetch"], false, 20),
+        procedure_record("research", ["memory.curated", "web.fetch"], true, 30),
     ];
 
     assert!(propose_repeated_success_skill(&records, 2).is_none());

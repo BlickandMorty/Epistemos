@@ -14,7 +14,7 @@ This skill instructs Claude on exactly how to recursively run the Rust unit test
 When the USER invokes this skill or asks you to "run the recursive audit," you MUST strictly follow this procedural loop:
 
 ### Phase 1: The Baseline Pass
-1. Run `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml` using the `run_command` tool.
+1. Run `cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml` using the `action.bash` tool.
 2. If tests pass, do not stop. You must verify that the simulation logic holds up to nuanced edge cases.
 
 ### Phase 2: The Nuanced Audit (The "Thinking Process")

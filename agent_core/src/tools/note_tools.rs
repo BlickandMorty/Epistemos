@@ -7,7 +7,7 @@
 //! 4. citation_extractor — Parse and format citations
 //! 5. markdown_table — Generate tables from structured data
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

@@ -173,7 +173,7 @@ extension ChatCapability {
 
         // Agent-tier signals: create/read/write/delete operations, git /
         // filesystem / install / web-fetch verbs, AND lookup verbs that
-        // require a real vault_search/vault_read tool call instead of a
+        // require a real vault.search/vault.read tool call instead of a
         // hallucinated answer. Research 3 (2026-04-19 tool-surface audit)
         // flagged that "find / look up / summarize my note X" was missing
         // here — the user would land in cloud chat with no tools and the

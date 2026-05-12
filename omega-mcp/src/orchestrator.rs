@@ -5,6 +5,34 @@
 
 use serde::{Deserialize, Serialize};
 
+fn canonical_tool_name(name: &str) -> &str {
+    match name {
+        "open_url" => "web.fetch",
+        "search_web" => "web.search",
+        "readpagecontent" => "web.extract",
+        "searchpapers" => "research.search_papers",
+        "read_file" | "vault_read" => "file.read",
+        "write_file" | "vault_write" => "file.write",
+        "list_files" => "file.list",
+        "move_file" => "file.move",
+        "delete_file" => "file.delete",
+        "create_note" => "note.create",
+        "edit_note" => "note.edit",
+        "search_notes" | "vault_search" => "vault.search",
+        "list_notes" => "vault.list",
+        "collectsnippet" => "research.collect_snippet",
+        "savecitation" => "citation.save",
+        "createresearchnote" => "note.research_digest",
+        "run_command" => "action.bash",
+        "run_persistent" => "action.terminal",
+        _ => name,
+    }
+}
+
+fn tool_names_equivalent(left: &str, right: &str) -> bool {
+    canonical_tool_name(left) == canonical_tool_name(right)
+}
+
 // ── Risk Levels ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -260,7 +288,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: format!("Write/summarize: {task}"),
             assigned_agent: "notes".to_string(),
-            tool_name: "create_note".to_string(),
+            tool_name: "note.create".to_string(),
             arguments_json: format!("{{\"title\":\"{}\",\"body\":\"\"}}", escape_json(task)),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -285,7 +313,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: "Open URL in Safari".to_string(),
             assigned_agent: "safari".to_string(),
-            tool_name: "open_url".to_string(),
+            tool_name: "web.fetch".to_string(),
             arguments_json: "{\"url\":\"https://www.apple.com\"}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -310,7 +338,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: "Search the web".to_string(),
             assigned_agent: "safari".to_string(),
-            tool_name: "search_web".to_string(),
+            tool_name: "web.search".to_string(),
             arguments_json: format!("{{\"query\":\"{}\"}}", escape_json(&query)),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -329,7 +357,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: "List files".to_string(),
             assigned_agent: "file".to_string(),
-            tool_name: "list_files".to_string(),
+            tool_name: "file.list".to_string(),
             arguments_json: "{\"path\":\".\"}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -348,7 +376,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: "Create a new note".to_string(),
             assigned_agent: "notes".to_string(),
-            tool_name: "create_note".to_string(),
+            tool_name: "note.create".to_string(),
             arguments_json: "{\"title\":\"New Note\",\"body\":\"\"}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -367,7 +395,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: task.to_string(),
             assigned_agent: "file".to_string(),
-            tool_name: "delete_file".to_string(),
+            tool_name: "file.delete".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::High,
@@ -392,7 +420,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
             id: step_id,
             description: format!("Run: {cmd}"),
             assigned_agent: "terminal".to_string(),
-            tool_name: "run_command".to_string(),
+            tool_name: "action.bash".to_string(),
             arguments_json: format!("{{\"command\":\"{}\"}}", escape_json(&cmd)),
             depends_on: vec![],
             risk_level: RiskLevel::Medium,
@@ -410,7 +438,7 @@ pub fn heuristic_plan(task: &str) -> TaskGraph {
         id: step_id,
         description: task.to_string(),
         assigned_agent: "notes".to_string(),
-        tool_name: "create_note".to_string(),
+        tool_name: "note.create".to_string(),
         arguments_json: format!("{{\"title\":\"{}\",\"body\":\"Load a local AI model in Settings > Inference for intelligent planning.\"}}", escape_json(task)),
         depends_on: vec![],
         risk_level: RiskLevel::Low,
@@ -443,7 +471,11 @@ pub fn validate_agent_toolset(agents: &[AgentDefinition], step: &TaskStep) -> Re
         .find(|a| a.name == step.assigned_agent)
         .ok_or_else(|| format!("Agent '{}' not found", step.assigned_agent))?;
 
-    if !agent.tool_names.contains(&step.tool_name) {
+    if !agent
+        .tool_names
+        .iter()
+        .any(|tool_name| tool_names_equivalent(tool_name, &step.tool_name))
+    {
         return Err(format!(
             "Agent '{}' is not allowed to use tool '{}'. Allowed: {:?}",
             step.assigned_agent, step.tool_name, agent.tool_names
@@ -459,7 +491,7 @@ pub fn default_agents() -> Vec<AgentDefinition> {
         AgentDefinition {
             name: "safari".to_string(),
             description: "Web browsing via AppleScript + AX tree".to_string(),
-            tool_names: vec!["open_url", "get_page_url", "get_page_title", "search_web"]
+            tool_names: vec!["web.fetch", "get_page_url", "get_page_title", "web.search"]
                 .into_iter()
                 .map(String::from)
                 .collect(),
@@ -468,11 +500,11 @@ pub fn default_agents() -> Vec<AgentDefinition> {
             name: "file".to_string(),
             description: "File system operations scoped to vault".to_string(),
             tool_names: vec![
-                "read_file",
-                "write_file",
-                "list_files",
-                "move_file",
-                "delete_file",
+                "file.read",
+                "file.write",
+                "file.list",
+                "file.move",
+                "file.delete",
             ]
             .into_iter()
             .map(String::from)
@@ -481,7 +513,7 @@ pub fn default_agents() -> Vec<AgentDefinition> {
         AgentDefinition {
             name: "notes".to_string(),
             description: "Epistemos note operations".to_string(),
-            tool_names: vec!["create_note", "edit_note", "search_notes", "list_notes"]
+            tool_names: vec!["note.create", "note.edit", "vault.search", "vault.list"]
                 .into_iter()
                 .map(String::from)
                 .collect(),
@@ -489,7 +521,7 @@ pub fn default_agents() -> Vec<AgentDefinition> {
         AgentDefinition {
             name: "terminal".to_string(),
             description: "Shell command execution (ephemeral or persistent PTY)".to_string(),
-            tool_names: vec!["run_command", "run_persistent"]
+            tool_names: vec!["action.bash", "action.terminal"]
                 .into_iter()
                 .map(String::from)
                 .collect(),
@@ -532,7 +564,7 @@ mod tests {
         let graph = heuristic_plan("write me a summary of my essay");
         assert_eq!(graph.steps.len(), 1);
         assert_eq!(graph.steps[0].assigned_agent, "notes");
-        assert_eq!(graph.steps[0].tool_name, "create_note");
+        assert_eq!(graph.steps[0].tool_name, "note.create");
     }
 
     #[test]
@@ -540,7 +572,7 @@ mod tests {
         let graph = heuristic_plan("search the web for MLX benchmarks");
         assert_eq!(graph.steps.len(), 1);
         assert_eq!(graph.steps[0].assigned_agent, "safari");
-        assert_eq!(graph.steps[0].tool_name, "search_web");
+        assert_eq!(graph.steps[0].tool_name, "web.search");
     }
 
     #[test]
@@ -548,14 +580,14 @@ mod tests {
         let graph = heuristic_plan("open Safari and go to apple.com");
         assert_eq!(graph.steps.len(), 1);
         assert_eq!(graph.steps[0].assigned_agent, "safari");
-        assert_eq!(graph.steps[0].tool_name, "open_url");
+        assert_eq!(graph.steps[0].tool_name, "web.fetch");
     }
 
     #[test]
     fn test_heuristic_list_files() {
         let graph = heuristic_plan("list files in my vault");
         assert_eq!(graph.steps[0].assigned_agent, "file");
-        assert_eq!(graph.steps[0].tool_name, "list_files");
+        assert_eq!(graph.steps[0].tool_name, "file.list");
     }
 
     #[test]
@@ -568,7 +600,7 @@ mod tests {
     fn test_heuristic_shell_command() {
         let graph = heuristic_plan("run ls -la");
         assert_eq!(graph.steps[0].assigned_agent, "terminal");
-        assert_eq!(graph.steps[0].tool_name, "run_command");
+        assert_eq!(graph.steps[0].tool_name, "action.bash");
     }
 
     #[test]
@@ -586,7 +618,7 @@ mod tests {
             id: id1.clone(),
             description: "A".to_string(),
             assigned_agent: "file".to_string(),
-            tool_name: "list_files".to_string(),
+            tool_name: "file.list".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -600,7 +632,7 @@ mod tests {
             id: id2.clone(),
             description: "B".to_string(),
             assigned_agent: "terminal".to_string(),
-            tool_name: "run_command".to_string(),
+            tool_name: "action.bash".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![id1.clone()],
             risk_level: RiskLevel::Low,
@@ -646,7 +678,7 @@ mod tests {
             id: "s1".to_string(),
             description: "".to_string(),
             assigned_agent: "safari".to_string(),
-            tool_name: "open_url".to_string(),
+            tool_name: "web.fetch".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -662,7 +694,7 @@ mod tests {
             id: "s2".to_string(),
             description: "".to_string(),
             assigned_agent: "safari".to_string(),
-            tool_name: "delete_file".to_string(),
+            tool_name: "file.delete".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -676,13 +708,33 @@ mod tests {
     }
 
     #[test]
+    fn test_agent_toolset_validation_accepts_legacy_aliases() {
+        let agents = default_agents();
+        let legacy_step = TaskStep {
+            id: "s1".to_string(),
+            description: "".to_string(),
+            assigned_agent: "safari".to_string(),
+            tool_name: "open_url".to_string(),
+            arguments_json: "{}".to_string(),
+            depends_on: vec![],
+            risk_level: RiskLevel::Low,
+            status: StepStatus::Pending,
+            result_json: None,
+            error: None,
+            duration_ms: 0,
+            retry_count: 0,
+        };
+        assert!(validate_agent_toolset(&agents, &legacy_step).is_ok());
+    }
+
+    #[test]
     fn test_graph_completion() {
         let mut graph = TaskGraph::new("test");
         graph.add_step(TaskStep {
             id: "s1".to_string(),
             description: "".to_string(),
             assigned_agent: "file".to_string(),
-            tool_name: "list_files".to_string(),
+            tool_name: "file.list".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::Low,
@@ -705,7 +757,7 @@ mod tests {
             id: "s1".to_string(),
             description: "".to_string(),
             assigned_agent: "file".to_string(),
-            tool_name: "delete_file".to_string(),
+            tool_name: "file.delete".to_string(),
             arguments_json: "{}".to_string(),
             depends_on: vec![],
             risk_level: RiskLevel::High,
@@ -732,8 +784,8 @@ mod tests {
 
         // Verify terminal has both ephemeral and persistent tools
         let terminal = agents.iter().find(|a| a.name == "terminal").unwrap();
-        assert!(terminal.tool_names.contains(&"run_command".to_string()));
-        assert!(terminal.tool_names.contains(&"run_persistent".to_string()));
+        assert!(terminal.tool_names.contains(&"action.bash".to_string()));
+        assert!(terminal.tool_names.contains(&"action.terminal".to_string()));
 
         // Verify computer agent has all 6 tools
         let computer = agents.iter().find(|a| a.name == "computer").unwrap();

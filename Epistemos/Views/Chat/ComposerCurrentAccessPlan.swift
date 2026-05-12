@@ -144,14 +144,14 @@ struct ComposerCurrentAccessPlan: Equatable {
 
     private static func toolSummary(for allowedToolNames: Set<String>) -> String? {
         let toolLabels: [(name: String, label: String)] = [
-            ("web_search", "Web search"),
-            ("web_fetch", "Web fetch"),
-            ("web_extract", "Web extract"),
+            ("web.search", "Web search"),
+            ("web.fetch", "Web fetch"),
+            ("web.extract", "Web extract"),
             ("google_search", "Grounding"),
             ("code_execution", "Provider code"),
         ]
         let labels = toolLabels.compactMap { tool in
-            allowedToolNames.contains(tool.name) ? tool.label : nil
+            AgentToolNameAliases.containsEquivalent(allowedToolNames, tool.name) ? tool.label : nil
         }
 
         guard !labels.isEmpty else { return nil }

@@ -10,7 +10,7 @@ struct LocalToolGrammarTests {
             forceThinking: true
         )
 
-        #expect(plan.fallbackGrammar.validToolNames == ["vault_search"])
+        #expect(plan.fallbackGrammar.validToolNames == ["vault.search"])
         #expect(plan.supportsTrueMasking == LocalToolGrammar.supportsStructuredToolCalling)
         #expect(
             plan.backend == (
@@ -32,7 +32,7 @@ struct LocalToolGrammarTests {
 
     private func sampleTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
-            name: "vault_search",
+            name: "vault.search",
             agent: "notes",
             description: "Search the vault.",
             argumentsExample: #"{"query":"transformers"}"#,

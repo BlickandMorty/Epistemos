@@ -17,7 +17,7 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use chrono::Utc;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::storage::contradiction_detector::detect_contradictions;
 use crate::storage::memory_classifier::VaultFact;
@@ -170,7 +170,7 @@ pub fn vault_recall_schema() -> crate::types::ToolSchema {
         name: "vault_recall".to_string(),
         description: "Hybrid semantic + keyword search across the vault with measured latency. \
              Returns ranked snippets with relevance scores and tags. Use this instead of the \
-             generic 'vault_search' tool when you want the full result payload with latency metrics."
+             generic 'vault.search' tool when you want the full result payload with latency metrics."
             .to_string(),
         parameters: json!({
             "type": "object",

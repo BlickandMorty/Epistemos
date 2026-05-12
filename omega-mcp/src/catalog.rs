@@ -65,7 +65,7 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
         ),
         tool!(
             "readpagecontent", "safari",
-            "Extract the visible text content of Safari's current tab. Use after open_url or search_web",
+            "Extract the visible text content of Safari's current tab. Use after web.fetch or web.search",
             r#"{"maxLength": 4000}"#,
             r#"{"type":"object","properties":{"maxLength":{"type":"integer","description":"Max characters to return, default 4000"}}}"#
         ),

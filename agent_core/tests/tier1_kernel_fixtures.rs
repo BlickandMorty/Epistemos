@@ -28,7 +28,7 @@
 //! These fixtures are PINNED. Changing them is a canon violation.
 
 use agent_core::scope_rex::{
-    kv::direct_gate::{direct_qk_row, reference_qk_row, KvLayout, KvPair, route},
+    kv::direct_gate::{direct_qk_row, reference_qk_row, route, KvLayout, KvPair},
     metal::{
         asa_index::{asa_matmul, dense_matmul, AsaIndex},
         softmax::{half_softmax_post, reference_softmax},
@@ -45,7 +45,9 @@ fn w6_asa_matmul_full_atlas_matches_dense() {
     //   row 0: [1, 2, 3, 4]
     //   row 1: [5, 6, 7, 8]
     //   row 2: [9, 10, 11, 12]
-    let weights: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let weights: Vec<f32> = vec![
+        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+    ];
     let input: [f32; 4] = [0.1, 0.2, 0.3, 0.4];
 
     // ASA with all 3 rows active = identical to dense matmul.
@@ -61,7 +63,9 @@ fn w6_asa_matmul_pinned_dense_canonical_output() {
     //   row 0: [1, 0, -1, 0]
     //   row 1: [0, 1, 0, -1]
     //   row 2: [-1, 0, 1, 0]
-    let weights: Vec<f32> = vec![1.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0, 0.0];
+    let weights: Vec<f32> = vec![
+        1.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, -1.0, 0.0, 1.0, 0.0,
+    ];
     let input: [f32; 4] = [10.0, 20.0, 30.0, 40.0];
     let out = dense_matmul(&input, &weights, 3, 4);
     // Expected:
@@ -74,7 +78,9 @@ fn w6_asa_matmul_pinned_dense_canonical_output() {
 #[test]
 fn w6_asa_matmul_partial_atlas_zeroes_inactive_rows() {
     // Active only row 1. Rows 0 and 2 must produce 0.
-    let weights: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0];
+    let weights: Vec<f32> = vec![
+        1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
+    ];
     let input: [f32; 4] = [0.1, 0.2, 0.3, 0.4];
 
     let partial = AsaIndex::from_active_rows([1]);
@@ -176,7 +182,10 @@ fn w8_kv_route_page_aligned_dispatches_via_direct_path() {
     let layout = KvLayout::new(128, 64, 64, 128);
     assert!(layout.direct_path_eligible());
     let dispatch = route(&layout);
-    assert_eq!(dispatch, agent_core::scope_rex::kv::direct_gate::KvDispatch::Direct);
+    assert_eq!(
+        dispatch,
+        agent_core::scope_rex::kv::direct_gate::KvDispatch::Direct
+    );
 }
 
 #[test]
@@ -185,7 +194,10 @@ fn w8_kv_route_unaligned_seq_len_falls_back_to_reference() {
     let layout = KvLayout::new(100, 64, 64, 128);
     assert!(!layout.direct_path_eligible());
     let dispatch = route(&layout);
-    assert_eq!(dispatch, agent_core::scope_rex::kv::direct_gate::KvDispatch::Reference);
+    assert_eq!(
+        dispatch,
+        agent_core::scope_rex::kv::direct_gate::KvDispatch::Reference
+    );
 }
 
 #[test]
@@ -195,7 +207,10 @@ fn w8_kv_route_asymmetric_kv_dims_falls_back_to_reference() {
     let layout = KvLayout::new(128, 64, 32, 128);
     assert!(!layout.direct_path_eligible());
     let dispatch = route(&layout);
-    assert_eq!(dispatch, agent_core::scope_rex::kv::direct_gate::KvDispatch::Reference);
+    assert_eq!(
+        dispatch,
+        agent_core::scope_rex::kv::direct_gate::KvDispatch::Reference
+    );
 }
 
 #[test]

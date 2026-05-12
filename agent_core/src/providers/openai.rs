@@ -9,11 +9,11 @@ use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tracing::{debug, warn};
 
 use crate::agent_loop::{AgentConfig, AgentError};
-use crate::error::{RetryConfig, with_retry};
+use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_strict_tool_parameters;
 use crate::types::{
@@ -231,6 +231,8 @@ impl OpenAIProvider {
                                     .and_then(Value::as_str)
                                     .unwrap_or_default()
                                     .to_string();
+                                let canonical_name =
+                                    crate::providers::tool_names::canonical_tool_name_from_api(&name);
                                 let arguments = item
                                     .get("arguments")
                                     .and_then(Value::as_str)
@@ -243,12 +245,12 @@ impl OpenAIProvider {
                                 });
                                 let entry = tool_calls.entry(item_id.clone()).or_insert_with(|| ToolCallInProgress {
                                     id: call_id.clone(),
-                                    name: name.clone(),
+                                    name: canonical_name.clone(),
                                     arguments: String::new(),
                                 });
                                 entry.id = call_id;
                                 if !name.is_empty() {
-                                    entry.name = name;
+                                    entry.name = canonical_name;
                                 }
                                 if !arguments.is_empty() {
                                     entry.arguments = arguments;
@@ -557,7 +559,7 @@ fn build_openai_responses_input(messages: &[Message]) -> Vec<Value> {
                                 "type": "function_call",
                                 "id": id,
                                 "call_id": id,
-                                "name": name,
+                                "name": crate::providers::tool_names::api_safe_tool_name(name),
                                 "arguments": serde_json::to_string(tool_input)
                                     .unwrap_or_else(|_| "{}".to_string()),
                             }));
@@ -586,7 +588,7 @@ fn tool_schema_to_responses_json(tool: &ToolSchema) -> Value {
     let parameters = normalized_strict_tool_parameters(&tool.parameters);
     json!({
         "type": "function",
-        "name": tool.name,
+        "name": crate::providers::tool_names::api_safe_tool_name(&tool.name),
         "description": tool.description,
         "parameters": parameters,
         "strict": true,
@@ -867,7 +869,7 @@ mod tests {
             Message::Assistant {
                 content: vec![ContentBlock::ToolUse {
                     id: "fc_call_1".to_string(),
-                    name: "echo".to_string(),
+                    name: "vault.search".to_string(),
                     input: json!({ "message": "hello-world" }),
                 }],
             },
@@ -890,7 +892,7 @@ mod tests {
         assert_eq!(input[1]["type"], "function_call");
         assert_eq!(input[1]["id"], "fc_call_1");
         assert_eq!(input[1]["call_id"], "fc_call_1");
-        assert_eq!(input[1]["name"], "echo");
+        assert_eq!(input[1]["name"], "vault__search");
         assert_eq!(input[2]["type"], "function_call_output");
         assert_eq!(input[2]["call_id"], "fc_call_1");
         assert_eq!(input[2]["output"], "{\"message\":\"hello-world\"}");
@@ -932,12 +934,10 @@ mod tests {
         assert_eq!(input[0]["content"][0]["type"], "input_text");
         assert_eq!(input[0]["content"][0]["text"], "What is this?");
         assert_eq!(input[0]["content"][1]["type"], "input_image");
-        assert!(
-            input[0]["content"][1]["image_url"]
-                .as_str()
-                .unwrap()
-                .starts_with("data:image/png;base64,")
-        );
+        assert!(input[0]["content"][1]["image_url"]
+            .as_str()
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
         assert_eq!(input[1]["type"], "function_call_output");
         assert_eq!(input[1]["call_id"], "fc_call_1");
         assert_eq!(input[1]["output"], "found 3 results");
@@ -946,7 +946,7 @@ mod tests {
     #[test]
     fn responses_tool_schema_is_flat_function_shape() {
         let schema = ToolSchema {
-            name: "read_file".to_string(),
+            name: "file.read".to_string(),
             description: "Read a file".to_string(),
             parameters: json!({
                 "type": "object",
@@ -959,7 +959,7 @@ mod tests {
 
         let tool_json = tool_schema_to_responses_json(&schema);
         assert_eq!(tool_json["type"], "function");
-        assert_eq!(tool_json["name"], "read_file");
+        assert_eq!(tool_json["name"], "file__read");
         assert_eq!(tool_json["description"], "Read a file");
         assert_eq!(tool_json["strict"], true);
         assert!(tool_json["parameters"]["properties"]["path"].is_object());
@@ -968,7 +968,7 @@ mod tests {
     #[test]
     fn responses_tool_schema_closes_object_parameters_recursively_for_strict_mode() {
         let schema = ToolSchema {
-            name: "write_file".to_string(),
+            name: "file.write".to_string(),
             description: "Write a file".to_string(),
             parameters: json!({
                 "type": "object",
@@ -1036,7 +1036,7 @@ mod tests {
                 "content": [{ "type": "input_text", "text": "Ping" }],
             })],
             vec![tool_schema_to_responses_json(&ToolSchema {
-                name: "terminal".to_string(),
+                name: "action.terminal".to_string(),
                 description: "Run a shell command".to_string(),
                 parameters: json!({
                     "type": "object",
@@ -1051,7 +1051,7 @@ mod tests {
         assert_eq!(body["tool_choice"], "auto");
         assert_eq!(body["parallel_tool_calls"], true);
         assert_eq!(body["tools"][0]["type"], "function");
-        assert_eq!(body["tools"][0]["name"], "terminal");
+        assert_eq!(body["tools"][0]["name"], "action__terminal");
         assert!(body["tools"][0]["function"].is_null());
     }
 
@@ -1081,7 +1081,7 @@ mod tests {
             "type": "function_call",
             "id": "fc_item_123",
             "call_id": "call_runtime_456",
-            "name": "read_file",
+            "name": "file__read",
             "arguments": "{\"path\":\"README.md\"}"
         });
 

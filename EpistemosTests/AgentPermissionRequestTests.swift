@@ -8,7 +8,7 @@ struct AgentPermissionRequestTests {
     func vaultReadsAreSensitive() {
         let request = AgentPermissionRequest(
             id: "perm-vault-read",
-            toolName: "vault_read",
+            toolName: "vault.read",
             inputJson: #"{"path":"People/Jojo.md"}"#,
             riskLevel: .readOnly,
             description: "Read a vault note."
@@ -23,7 +23,7 @@ struct AgentPermissionRequestTests {
     func webSearchRemainsAutoApproved() {
         let request = AgentPermissionRequest(
             id: "perm-web-search",
-            toolName: "web_search",
+            toolName: "web.search",
             inputJson: #"{"query":"latest Apple Silicon memory pressure guidance"}"#,
             riskLevel: .readOnly,
             description: "Search the web."

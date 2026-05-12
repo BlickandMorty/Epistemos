@@ -82,7 +82,7 @@ nonisolated struct OverseerToolPermission: Codable, Sendable, Equatable {
 
     func normalized() -> OverseerToolPermission {
         OverseerToolPermission(
-            toolName: Self.trimmed(toolName),
+            toolName: AgentToolNameAliases.canonical(Self.trimmed(toolName)),
             mode: mode
         )
     }
@@ -903,19 +903,15 @@ final class OverseerComplexityRouter {
         distribution: ToolSurfacePolicy.Distribution = .currentBuild
     ) -> [OverseerToolPermission] {
         [
-            OverseerToolPermission(toolName: "vault_search", mode: .allow),
-            OverseerToolPermission(toolName: "vault_get", mode: .allow),
-            OverseerToolPermission(toolName: "pkm_search", mode: .allow),
-            OverseerToolPermission(toolName: "pkm_get", mode: .allow),
-            OverseerToolPermission(toolName: "pkm_graph_neighbors", mode: .allow),
-            OverseerToolPermission(toolName: "web_search", mode: .ask),
-            OverseerToolPermission(toolName: "search_web", mode: .ask),
-            OverseerToolPermission(toolName: "open_url", mode: .ask),
-            OverseerToolPermission(toolName: "run_command", mode: .ask),
-            OverseerToolPermission(toolName: "pkm_write", mode: .deny),
-            OverseerToolPermission(toolName: "edit_file", mode: .deny),
-            OverseerToolPermission(toolName: "delete_file", mode: .deny),
-            OverseerToolPermission(toolName: "create_note", mode: .deny),
+            OverseerToolPermission(toolName: "vault.search", mode: .allow),
+            OverseerToolPermission(toolName: "graph.neighbors", mode: .allow),
+            OverseerToolPermission(toolName: "web.search", mode: .ask),
+            OverseerToolPermission(toolName: "web.fetch", mode: .ask),
+            OverseerToolPermission(toolName: "action.bash", mode: .ask),
+            OverseerToolPermission(toolName: "vault.write", mode: .deny),
+            OverseerToolPermission(toolName: "file.patch", mode: .deny),
+            OverseerToolPermission(toolName: "file.delete", mode: .deny),
+            OverseerToolPermission(toolName: "note.create", mode: .deny),
         ].filter {
             ToolSurfacePolicy.isSurfacedToolName($0.toolName, distribution: distribution)
         }
@@ -931,10 +927,11 @@ final class OverseerComplexityRouter {
 
             for tool in liveTools {
                 guard let mode = permissionMode(for: tool) else { continue }
-                guard seen.insert(tool.name).inserted else { continue }
+                let toolName = AgentToolNameAliases.canonical(tool.name)
+                guard seen.insert(toolName).inserted else { continue }
                 permissions.append(
                     OverseerToolPermission(
-                        toolName: tool.name,
+                        toolName: toolName,
                         mode: mode
                     )
                 )

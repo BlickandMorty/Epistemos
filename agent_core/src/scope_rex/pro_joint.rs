@@ -82,10 +82,10 @@ mod tests {
         let rows = 4;
         let cols = 3;
         let weights = ternary_grid(&[
-            1, 0, -1,  // row 0
-            -1, 1, 0,  // row 1
-            0, 1, -1,  // row 2
-            1, 1, 1,   // row 3
+            1, 0, -1, // row 0
+            -1, 1, 0, // row 1
+            0, 1, -1, // row 2
+            1, 1, 1, // row 3
         ]);
         let input = vec![1.0_f32, 2.0, 3.0];
         let dense_out = t_mac_reference(&input, &weights, rows, cols);
@@ -99,12 +99,7 @@ mod tests {
         let rows = 4;
         let cols = 3;
         // Rows 0 and 2 are zeroed out — non-contributing.
-        let weights = ternary_grid(&[
-            0, 0, 0,
-            -1, 1, 0,
-            0, 0, 0,
-            1, 1, 1,
-        ]);
+        let weights = ternary_grid(&[0, 0, 0, -1, 1, 0, 0, 0, 0, 1, 1, 1]);
         let input = vec![1.0_f32, 2.0, 3.0];
         let dense_out = t_mac_reference(&input, &weights, rows, cols);
         // Conservative mask = {1, 3} (every contributing row).

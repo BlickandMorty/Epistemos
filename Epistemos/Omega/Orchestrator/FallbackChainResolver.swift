@@ -25,14 +25,14 @@ final class FallbackChainResolver {
     /// Order matters — first viable fallback is used.
     private static let fallbackMap: [String: [(agent: String, tool: String)]] = [
         // GUI → CLI fallbacks
-        "click":         [("terminal", "run_persistent")],
-        "type":          [("terminal", "run_persistent")],
-        "see":           [("terminal", "run_command")],
-        "scroll":        [("terminal", "run_persistent")],
+        "click":         [("terminal", "action.terminal")],
+        "type":          [("terminal", "action.terminal")],
+        "see":           [("terminal", "action.bash")],
+        "scroll":        [("terminal", "action.terminal")],
 
         // CLI → GUI fallbacks
-        "run_command":    [("computer", "keys")],
-        "run_persistent": [("computer", "keys")],
+        "action.bash":     [("computer", "keys")],
+        "action.terminal": [("computer", "keys")],
 
         // Automation ↔ Computer cross-fallbacks (same domain, different impl)
         "click_element":  [("computer", "click")],
@@ -49,7 +49,8 @@ final class FallbackChainResolver {
         failedStep: AgentStep,
         failedResult: AgentStepResult
     ) -> FallbackOption? {
-        guard let fallbacks = Self.fallbackMap[failedStep.toolName],
+        let failedToolName = AgentToolNameAliases.canonical(failedStep.toolName)
+        guard let fallbacks = Self.fallbackMap[failedToolName],
               let first = fallbacks.first else {
             return nil
         }
@@ -83,7 +84,10 @@ final class FallbackChainResolver {
         }
 
         // GUI click → CLI: attempt app activation via `open` command.
-        if step.toolName == "click" && toTool == "run_persistent" {
+        let sourceTool = AgentToolNameAliases.canonical(step.toolName)
+        let targetTool = AgentToolNameAliases.canonical(toTool)
+
+        if sourceTool == "click" && targetTool == "action.terminal" {
             if let element = args["element"] as? String {
                 let cmd = "open -a \"\(Self.safeShellEscape(element))\""
                 return Self.jsonObject(["command": cmd])
@@ -92,7 +96,7 @@ final class FallbackChainResolver {
         }
 
         // GUI type → CLI: write text via echo/pbcopy.
-        if step.toolName == "type" && toTool == "run_persistent" {
+        if sourceTool == "type" && targetTool == "action.terminal" {
             if let text = args["text"] as? String {
                 let cmd = "echo \"\(Self.safeShellEscape(text))\" | pbcopy"
                 return Self.jsonObject(["command": cmd])
@@ -100,8 +104,8 @@ final class FallbackChainResolver {
         }
 
         // CLI → GUI keys: type the command into the frontmost app.
-        if (step.toolName == "run_command" || step.toolName == "run_persistent")
-            && toTool == "keys" {
+        if (sourceTool == "action.bash" || sourceTool == "action.terminal")
+            && targetTool == "keys" {
             if let command = args["command"] as? String {
                 return Self.jsonObject(["keys": command, "modifiers": []])
             }

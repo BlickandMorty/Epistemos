@@ -15,31 +15,34 @@ struct ResearchModeTests {
     @Test("All 7 research tools are registered in OmegaToolRegistry")
     func researchToolsAreRegistered() {
         let names = OmegaToolRegistry.all.map(\.name)
-        #expect(names.contains("readpagecontent"))
-        #expect(names.contains("searchpapers"))
-        #expect(names.contains("collectsnippet"))
-        #expect(names.contains("savecitation"))
-        #expect(names.contains("createresearchnote"))
-        #expect(names.contains("analyzecontradiction"))
-        #expect(names.contains("scoreevidence"))
+        #expect(names.contains("web.extract"))
+        #expect(names.contains("research.search_papers"))
+        #expect(names.contains("research.collect_snippet"))
+        #expect(names.contains("citation.save"))
+        #expect(names.contains("note.research_digest"))
+        #expect(names.contains("knowledge.contradiction_check"))
+        #expect(names.contains("knowledge.evidence_score"))
     }
 
     @Test("Research tools are assigned to correct agents")
     func researchToolAgentAssignment() {
+        #expect(OmegaToolRegistry.agent(for: "web.extract") == "safari")
+        #expect(OmegaToolRegistry.agent(for: "research.search_papers") == "safari")
+        #expect(OmegaToolRegistry.agent(for: "research.collect_snippet") == "notes")
+        #expect(OmegaToolRegistry.agent(for: "citation.save") == "notes")
+        #expect(OmegaToolRegistry.agent(for: "note.research_digest") == "notes")
+        #expect(OmegaToolRegistry.agent(for: "knowledge.contradiction_check") == "notes")
+        #expect(OmegaToolRegistry.agent(for: "knowledge.evidence_score") == "notes")
         #expect(OmegaToolRegistry.agent(for: "readpagecontent") == "safari")
-        #expect(OmegaToolRegistry.agent(for: "searchpapers") == "safari")
         #expect(OmegaToolRegistry.agent(for: "collectsnippet") == "notes")
-        #expect(OmegaToolRegistry.agent(for: "savecitation") == "notes")
-        #expect(OmegaToolRegistry.agent(for: "createresearchnote") == "notes")
-        #expect(OmegaToolRegistry.agent(for: "analyzecontradiction") == "notes")
-        #expect(OmegaToolRegistry.agent(for: "scoreevidence") == "notes")
     }
 
     @Test("No research tools are marked destructive or require confirmation")
     func researchToolsAreNonDestructive() {
         let researchNames: Set<String> = [
-            "readpagecontent", "searchpapers", "collectsnippet", "savecitation",
-            "createresearchnote", "analyzecontradiction", "scoreevidence"
+            "web.extract", "research.search_papers", "research.collect_snippet",
+            "citation.save", "note.research_digest",
+            "knowledge.contradiction_check", "knowledge.evidence_score"
         ]
         for tool in OmegaToolRegistry.all where researchNames.contains(tool.name) {
             if tool.destructive {
@@ -54,10 +57,14 @@ struct ResearchModeTests {
     @Test("Planning prompt block includes research tools")
     func planningPromptIncludesResearchTools() {
         let block = OmegaToolRegistry.planningPromptBlock()
-        #expect(block.contains("readpagecontent"))
-        #expect(block.contains("searchpapers"))
-        #expect(block.contains("collectsnippet"))
-        #expect(block.contains("createresearchnote"))
+        #expect(block.contains("web.extract"))
+        #expect(block.contains("research.search_papers"))
+        #expect(block.contains("research.collect_snippet"))
+        #expect(block.contains("note.research_digest"))
+        #expect(!block.contains("readpagecontent"))
+        #expect(!block.contains("searchpapers"))
+        #expect(!block.contains("collectsnippet"))
+        #expect(!block.contains("createresearchnote"))
     }
 
     @Test("D2 graph tools are registered in OmegaToolRegistry")

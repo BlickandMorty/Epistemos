@@ -12,10 +12,10 @@
 
 use std::sync::Arc;
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use crate::agent_loop::{AgentConfig, Effort, run_agent_loop};
+use crate::agent_loop::{run_agent_loop, AgentConfig, Effort};
 use crate::provider::AgentProvider;
 use crate::tools::registry::{ToolHandler, ToolRegistry};
 

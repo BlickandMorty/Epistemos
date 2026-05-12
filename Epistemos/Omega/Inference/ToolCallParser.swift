@@ -223,7 +223,7 @@ nonisolated enum ToolCallParser {
     /// Parse local-model XML-ish plans such as:
     /// `<scratch_pad><name>vault_recall</name><arguments><query>...</query></arguments></scratch_pad>`
     /// and malformed variants like:
-    /// `<tool_call<name>read_file</name<arguments>...</arguments></tool_call>`
+    /// `<tool_call<name>file.read</name<arguments>...</arguments></tool_call>`
     private static func parseStructuredXmlToolCalls(_ text: String) -> [ParsedToolCall]? {
         let normalized = normalizeLooseXml(text)
         let candidates = candidateStructuredXmlBodies(from: normalized)
@@ -257,12 +257,12 @@ nonisolated enum ToolCallParser {
             with: "<tool_call><"
         )
         normalized = normalized.replacingOccurrences(
-            of: #"</([A-Za-z0-9_:-]+)<"#,
+            of: #"</([A-Za-z0-9_.:-]+)<"#,
             with: "</$1><",
             options: .regularExpression
         )
         normalized = normalized.replacingOccurrences(
-            of: #"<([A-Za-z0-9_:-]+)\s*/>"#,
+            of: #"<([A-Za-z0-9_.:-]+)\s*/>"#,
             with: "<$1></$1>",
             options: .regularExpression
         )

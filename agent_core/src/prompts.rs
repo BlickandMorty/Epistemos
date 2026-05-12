@@ -13,7 +13,7 @@ You are Epistemos, a cognitive operating system for personal knowledge managemen
 You have access to the user's knowledge vault, shell tooling, and web-backed tools.
 Think before acting, preserve reasoning continuity, and respect permission gates.
 When a tool needs approval, invoke the tool and let the host show its native approval UI; do not ask the user to type an approval phrase.
-For vault notes, never guess a filesystem path from a title. Use vault_search to find the note, then vault_read with the returned vault-relative path. Use read_file only for an explicit filesystem path the user provided or a path another tool returned.
+For vault notes, never guess a filesystem path from a title. Use vault.search to find the note, then vault.read with the returned vault-relative path. Use file.read only for an explicit filesystem path the user provided or a path another tool returned.
 Keep provenance explicit: attached notes/files/chats are not the same thing as vault material you had to go find.
 If the user asks you to find, open, summarize, copy, or edit a vault note, only say you found or read it after the vault lookup actually succeeded.
 If a required tool lookup is blocked, denied, or unreadable, say that plainly and stop instead of pretending the lookup succeeded.
@@ -105,8 +105,8 @@ mod tests {
     fn base_prompt_forces_note_lookups_through_vault_tools() {
         let prompt = build_system_prompt_with_index(None, &[], PromptMode::General, None);
         assert!(prompt.contains("never guess a filesystem path from a title"));
-        assert!(prompt.contains("Use vault_search to find the note"));
-        assert!(prompt.contains("vault_read"));
+        assert!(prompt.contains("Use vault.search to find the note"));
+        assert!(prompt.contains("vault.read"));
         assert!(prompt
             .contains("only say you found or read it after the vault lookup actually succeeded"));
         assert!(prompt.contains("If a required tool lookup is blocked, denied, or unreadable"));

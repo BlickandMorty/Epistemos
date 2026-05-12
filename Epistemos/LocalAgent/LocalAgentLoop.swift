@@ -418,9 +418,10 @@ actor LocalAgentLoop {
                 ) {
                     let repairSummary = Self.explicitFileRepairSummary(
                         output: output,
-                        nextRequiredTool: requiredFileToolSequence.first(where: {
-                            !completedToolNames.contains($0)
-                        }),
+                        nextRequiredTool: Self.nextIncompleteTool(
+                            in: requiredFileToolSequence,
+                            completedToolNames: completedToolNames
+                        ),
                         requestedPath: requiredExplicitFilePath
                     )
                     Log.pipeline.info(
@@ -499,7 +500,7 @@ actor LocalAgentLoop {
 
             history.append(LocalMessage(role: .assistant, content: output))
             let toolResults = await executeToolCalls(toolCalls, runID: runID)
-            completedToolNames.formUnion(toolCalls.map { $0.name.lowercased() })
+            Self.recordCompletedToolNames(toolCalls.map(\.name), into: &completedToolNames)
             history.append(Self.toolResponseMessage(for: toolResults))
             if let explicitFileAnswer = Self.explicitFileAnswerFromReadResults(
                 toolResults,
@@ -633,7 +634,7 @@ actor LocalAgentLoop {
             consecutiveInvisibleTurns = 0
             history.append(LocalMessage(role: .assistant, content: output))
             let result = await executeToolCall(toolCall, runID: runID)
-            completedToolNames.insert(toolCall.name.lowercased())
+            Self.recordCompletedToolNames([toolCall.name], into: &completedToolNames)
 
             // Check for AX tree mutation (new window, popup, etc.)
             if let onTreeMutated, let freshTree = await onTreeMutated() {
@@ -758,7 +759,7 @@ actor LocalAgentLoop {
                 return nil
             }
             let toolResults = await executeToolCalls(repairedToolCalls, runID: runID)
-            completedToolNames.formUnion(repairedToolCalls.map { $0.name.lowercased() })
+            Self.recordCompletedToolNames(repairedToolCalls.map(\.name), into: &completedToolNames)
             history.append(Self.toolResponseMessage(for: toolResults))
             if let explicitFileAnswer = Self.explicitFileAnswerFromReadResults(
                 toolResults,
@@ -779,9 +780,10 @@ actor LocalAgentLoop {
             ) {
                 let repairSummary = Self.explicitFileRepairSummary(
                     output: output,
-                    nextRequiredTool: requiredFileToolSequence.first(where: {
-                        !completedToolNames.contains($0)
-                    }),
+                    nextRequiredTool: Self.nextIncompleteTool(
+                        in: requiredFileToolSequence,
+                        completedToolNames: completedToolNames
+                    ),
                     requestedPath: requiredExplicitFilePath
                 )
                 Log.pipeline.info(
@@ -864,7 +866,7 @@ actor LocalAgentLoop {
             return nil
         }
         let toolResults = await executeToolCalls(toolCalls, runID: runID)
-        completedToolNames.formUnion(toolCalls.map { $0.name.lowercased() })
+        Self.recordCompletedToolNames(toolCalls.map(\.name), into: &completedToolNames)
         history.append(Self.toolResponseMessage(for: toolResults))
         if let explicitFileAnswer = Self.explicitFileAnswerFromReadResults(
             toolResults,
@@ -897,7 +899,7 @@ actor LocalAgentLoop {
             content: Self.renderedToolCallMessage(for: toolCall)
         ))
         let toolResults = await executeToolCalls([toolCall], runID: runID)
-        completedToolNames.insert(toolCall.name.lowercased())
+        Self.recordCompletedToolNames([toolCall.name], into: &completedToolNames)
         history.append(Self.toolResponseMessage(for: toolResults))
         return Self.explicitFileAnswerFromReadResults(
             toolResults,
@@ -1160,7 +1162,7 @@ actor LocalAgentLoop {
         availableTools: [OmegaToolDefinition]
     ) -> ParsedToolCall {
         guard let tool = availableTools.first(where: {
-            $0.name.caseInsensitiveCompare(toolCall.name) == .orderedSame
+            Self.toolNamesAreEquivalent($0.name, toolCall.name)
         }) else {
             return toolCall
         }
@@ -1183,6 +1185,37 @@ actor LocalAgentLoop {
             name: tool.name,
             argumentsJson: normalizedJson.replacingOccurrences(of: "\\/", with: "/")
         )
+    }
+
+    private nonisolated static func toolNamesAreEquivalent(_ lhs: String, _ rhs: String) -> Bool {
+        let lhsNames = AgentToolNameAliases.equivalentNames(for: lhs)
+        let rhsNames = AgentToolNameAliases.equivalentNames(for: rhs)
+        return !lhsNames.isDisjoint(with: rhsNames)
+    }
+
+    private nonisolated static func completedToolNamesContain(
+        _ completedToolNames: Set<String>,
+        _ toolName: String
+    ) -> Bool {
+        AgentToolNameAliases.containsEquivalent(completedToolNames, toolName)
+    }
+
+    private nonisolated static func nextIncompleteTool(
+        in requiredToolSequence: [String],
+        completedToolNames: Set<String>
+    ) -> String? {
+        requiredToolSequence.first {
+            !completedToolNamesContain(completedToolNames, $0)
+        }
+    }
+
+    private nonisolated static func recordCompletedToolNames(
+        _ toolNames: [String],
+        into completedToolNames: inout Set<String>
+    ) {
+        for toolName in toolNames {
+            completedToolNames.formUnion(AgentToolNameAliases.equivalentNames(for: toolName))
+        }
     }
 
     private nonisolated static func canonicalizeArguments(
@@ -1332,7 +1365,7 @@ actor LocalAgentLoop {
         }
 
         return """
-        You have not produced any user-visible answer yet. If the needed note, file, or tool result is already present in the prompt, answer from that context directly now. Otherwise emit exactly one valid <tool_call> block right now for the next required step. Do not return only <scratch_pad>, <think>, hidden reasoning, or tool-planning text. File tools can use the exact filesystem path the user provided, including absolute paths and ~/ home expansion, or a vault-relative path inside the managed runtime vault or ScratchVault. If the user already supplied an explicit path, use that exact path instead of rewriting it to tmp/example.txt. For write-then-read requests, call write_file first and read_file second on that same exact path. For note creation or updates, use vault_write with a vault-relative .md path and full markdown content, and do not claim success before the corresponding <tool_response>.
+        You have not produced any user-visible answer yet. If the needed note, file, or tool result is already present in the prompt, answer from that context directly now. Otherwise emit exactly one valid <tool_call> block right now for the next required step. Do not return only <scratch_pad>, <think>, hidden reasoning, or tool-planning text. File tools can use the exact filesystem path the user provided, including absolute paths and ~/ home expansion, or a vault-relative path inside the managed runtime vault or ScratchVault. If the user already supplied an explicit path, use that exact path instead of rewriting it to tmp/example.txt. For write-then-read requests, call file.write first and file.read second on that same exact path. For note creation or updates, use vault.write with a vault-relative .md path and full markdown content, and do not claim success before the corresponding <tool_response>.
         """
     }
 
@@ -1342,7 +1375,14 @@ actor LocalAgentLoop {
     ) -> [String] {
         let request = currentRequestText(from: objective)
         let normalized = request.lowercased()
-        let availableToolNames = Set(availableTools.map { $0.name.lowercased() })
+        let writeToolName = AgentToolNameAliases.preferredAvailableName(
+            for: "file.write",
+            availableTools: availableTools
+        )
+        let readToolName = AgentToolNameAliases.preferredAvailableName(
+            for: "file.read",
+            availableTools: availableTools
+        )
 
         let hasConcreteFileTarget = normalized.contains("tmp/")
             || normalized.contains("/tmp/")
@@ -1353,15 +1393,17 @@ actor LocalAgentLoop {
             || normalized.contains(".csv")
             || normalized.contains(".log")
 
-        let requiresWrite = availableToolNames.contains("write_file")
-            && (normalized.contains("write_file")
+        let requiresWrite = writeToolName != nil
+            && (normalized.contains("file.write")
+                || normalized.contains("write_file")
                 || (hasConcreteFileTarget && (
                     normalized.contains("write ")
                         || normalized.contains("save ")
                         || normalized.contains("create ")
                 )))
-        let requiresRead = availableToolNames.contains("read_file")
-            && (normalized.contains("read_file")
+        let requiresRead = readToolName != nil
+            && (normalized.contains("file.read")
+                || normalized.contains("read_file")
                 || (hasConcreteFileTarget && (
                     normalized.contains("read ")
                         || normalized.contains("read it back")
@@ -1371,11 +1413,11 @@ actor LocalAgentLoop {
                 )))
 
         var sequence: [String] = []
-        if requiresWrite {
-            sequence.append("write_file")
+        if requiresWrite, let writeToolName {
+            sequence.append(writeToolName)
         }
-        if requiresRead {
-            sequence.append("read_file")
+        if requiresRead, let readToolName {
+            sequence.append(readToolName)
         }
         return sequence
     }
@@ -1386,7 +1428,14 @@ actor LocalAgentLoop {
     ) -> [String] {
         let request = currentRequestText(from: objective)
         let normalized = request.lowercased()
-        let availableToolNames = Set(availableTools.map { $0.name.lowercased() })
+        let writeToolName = AgentToolNameAliases.preferredAvailableName(
+            for: "vault.write",
+            availableTools: availableTools
+        )
+        let readToolName = AgentToolNameAliases.preferredAvailableName(
+            for: "vault.read",
+            availableTools: availableTools
+        )
 
         let createSignals = [
             "create a new note",
@@ -1410,18 +1459,18 @@ actor LocalAgentLoop {
             "exact note body",
         ]
 
-        let requiresWrite = availableToolNames.contains("vault_write")
+        let requiresWrite = writeToolName != nil
             && createSignals.contains(where: normalized.contains)
-        let requiresRead = availableToolNames.contains("vault_read")
+        let requiresRead = readToolName != nil
             && requiresWrite
             && readBackSignals.contains(where: normalized.contains)
 
         var sequence: [String] = []
-        if requiresWrite {
-            sequence.append("vault_write")
+        if requiresWrite, let writeToolName {
+            sequence.append(writeToolName)
         }
-        if requiresRead {
-            sequence.append("vault_read")
+        if requiresRead, let readToolName {
+            sequence.append(readToolName)
         }
         return sequence
     }
@@ -1562,9 +1611,10 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedPath: String?
     ) -> String? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }),
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ),
         let firstToolCall = toolCalls.first else {
             return nil
         }
@@ -1573,7 +1623,7 @@ actor LocalAgentLoop {
         let actualPath = toolArgumentValue(named: "path", from: firstToolCall.argumentsJson)
         let requestedPathClause = requestedPath.map { #" using the exact path "\#($0)""# } ?? ""
 
-        if actualToolName != nextRequiredTool {
+        if !toolNamesAreEquivalent(actualToolName, nextRequiredTool) {
             let actualPathSentence = actualPath.map { #" on "\#($0)""# } ?? ""
             return """
             You have not satisfied the user's explicit file request yet. The next required tool step is \(nextRequiredTool)\(requestedPathClause). Your last tool call used \(firstToolCall.name)\(actualPathSentence) instead. Emit exactly one valid <tool_call> block now for \(nextRequiredTool)\(requestedPathClause). Do not skip ahead, do not reuse example paths, and wait for the next <tool_response> before continuing.
@@ -1599,14 +1649,15 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedNoteTitle: String?
     ) -> String? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }),
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ),
         let firstToolCall = toolCalls.first else {
             return nil
         }
 
-        guard firstToolCall.name.lowercased() != nextRequiredTool else {
+        guard !toolNamesAreEquivalent(firstToolCall.name, nextRequiredTool) else {
             return nil
         }
 
@@ -1614,8 +1665,8 @@ actor LocalAgentLoop {
             #" for the requested note titled "\#($0)""#
         } ?? ""
         let followUpSentence =
-            nextRequiredTool == "vault_read"
-            ? " Use the same exact note path from the successful vault_write step."
+            toolNamesAreEquivalent(nextRequiredTool, "vault.read")
+            ? " Use the same exact note path from the successful vault.write step."
             : " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
 
         return """
@@ -1641,14 +1692,15 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedPath: String?
     ) -> ParsedToolCall? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }) else {
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) else {
             return nil
         }
 
-        switch nextRequiredTool {
-        case "write_file":
+        switch AgentToolNameAliases.canonical(nextRequiredTool) {
+        case "file.write":
             guard let requestedPath,
                   let content = requestedExplicitWriteContent(
                     in: objective,
@@ -1660,15 +1712,15 @@ actor LocalAgentLoop {
                   ]) else {
                 return nil
             }
-            return ParsedToolCall(name: "write_file", argumentsJson: argumentsJson)
-        case "read_file":
+            return ParsedToolCall(name: nextRequiredTool, argumentsJson: argumentsJson)
+        case "file.read":
             guard let requestedPath,
                   let argumentsJson = toolArgumentsJSONString([
                     "path": requestedPath,
                   ]) else {
                 return nil
             }
-            return ParsedToolCall(name: "read_file", argumentsJson: argumentsJson)
+            return ParsedToolCall(name: nextRequiredTool, argumentsJson: argumentsJson)
         default:
             return nil
         }
@@ -1702,7 +1754,7 @@ actor LocalAgentLoop {
     ) -> String? {
         let escapedPath = NSRegularExpression.escapedPattern(for: requestedPath)
         let patterns = [
-            #"(?is)\b(?:use\s+)?write_file\s+to\s+create\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
+            #"(?is)\b(?:use\s+)?(?:file\.write|write_file)\s+to\s+create\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
             #"(?is)\bcreate\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
             #"(?is)\bwrite\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
         ]
@@ -1792,7 +1844,8 @@ actor LocalAgentLoop {
             return false
         }
 
-        return normalized.contains("read_file")
+        return normalized.contains("file.read")
+            || normalized.contains("read_file")
             || normalized.contains("reply")
             || normalized.contains("same path")
             || normalized.contains("tool")
@@ -1822,11 +1875,13 @@ actor LocalAgentLoop {
         let wantsOnlyFirstLine = requestsOnlyFirstLine(in: objective)
         guard (wantsOnlyFileContents || wantsOnlyFirstLine),
               !requiredToolSequence.isEmpty,
-              requiredToolSequence.allSatisfy(completedToolNames.contains) else {
+              requiredToolSequence.allSatisfy({
+                  completedToolNamesContain(completedToolNames, $0)
+              }) else {
             return nil
         }
 
-        for result in results.reversed() where result.toolName.lowercased() == "read_file" {
+        for result in results.reversed() where toolNamesAreEquivalent(result.toolName, "file.read") {
             guard let content = normalizedExplicitReadContent(from: result.resultJson),
                   !content.isEmpty else {
                 continue
@@ -1900,9 +1955,10 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedPath: String?
     ) -> String? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }) else {
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) else {
             return nil
         }
 
@@ -1936,9 +1992,10 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedNoteTitle: String?
     ) -> String? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }) else {
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) else {
             return nil
         }
 
@@ -1961,8 +2018,8 @@ actor LocalAgentLoop {
             #" for the requested note titled "\#($0)""#
         } ?? ""
         let followUpSentence =
-            nextRequiredTool == "vault_read"
-            ? " Use the same exact note path from the successful vault_write step."
+            toolNamesAreEquivalent(nextRequiredTool, "vault.read")
+            ? " Use the same exact note path from the successful vault.write step."
             : " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
 
         return """
@@ -1975,9 +2032,10 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedPath: String?
     ) -> String? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }) else {
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) else {
             return nil
         }
 
@@ -1995,9 +2053,10 @@ actor LocalAgentLoop {
         completedToolNames: Set<String>,
         requestedNoteTitle: String?
     ) -> String? {
-        guard let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }) else {
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) else {
             return nil
         }
 
@@ -2005,8 +2064,8 @@ actor LocalAgentLoop {
             #" for the requested note titled "\#($0)""#
         } ?? ""
         let followUpSentence =
-            nextRequiredTool == "vault_read"
-            ? " Use the same exact note path from the successful vault_write step."
+            toolNamesAreEquivalent(nextRequiredTool, "vault.read")
+            ? " Use the same exact note path from the successful vault.write step."
             : " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
 
         return """
@@ -2062,9 +2121,10 @@ actor LocalAgentLoop {
         requiredToolSequence: [String],
         requestedPath: String?
     ) -> String {
-        let nextRequiredTool = requiredToolSequence.first(where: {
-            !completedToolNames.contains($0)
-        }) ?? "none"
+        let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) ?? "none"
         let firstToolCall = toolCalls.first
         let actualPath = firstToolCall.flatMap { toolArgumentValue(named: "path", from: $0.argumentsJson) } ?? "nil"
         return [

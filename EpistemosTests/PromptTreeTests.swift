@@ -27,7 +27,7 @@ struct PromptTreeTests {
             identitySystemText: "You are Epistemos.",
             capabilityManifest: "Manifest text",
             toolDefinitionsJSON: """
-                [{"name":"vault_search","description":"Search the vault.","input_schema":{"type":"object"}}]
+                [{"name":"vault.search","description":"Search the vault.","input_schema":{"type":"object"}}]
                 """,
             relevantNotes: ["note-1", "note-2"],
             recentChatsJSON: "{\"turns\":3}",
@@ -46,7 +46,7 @@ struct PromptTreeTests {
         #expect(prompt.identity?.systemText == "You are Epistemos.")
         #expect(prompt.identity?.capabilityManifest == "Manifest text")
         #expect(prompt.tools.count == 1)
-        #expect(prompt.tools.first?.name == "vault_search")
+        #expect(prompt.tools.first?.name == "vault.search")
         #expect(prompt.memory?.recentChats == "{\"turns\":3}")
         #expect(prompt.memory?.relevantNotes == ["note-1", "note-2"])
         #expect(prompt.memory?.ontology == ["concept-a": "Concept A"])
@@ -249,7 +249,7 @@ struct PromptTreeTests {
             identitySystemText: "You are Epistemos.",
             capabilityManifest: nil,
             toolDefinitionsJSON: """
-                [{"name":"vault_search","description":"Search vault.","input_schema":{"type":"object"}}]
+                [{"name":"vault.search","description":"Search vault.","input_schema":{"type":"object"}}]
                 """,
             relevantNotes: ["Note A: cognitive substrate."],
             recentChatsJSON: "{\"turns\":3}",

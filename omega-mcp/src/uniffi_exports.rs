@@ -78,8 +78,9 @@ pub fn builtin_tools_json() -> String {
 // ── Vault Tool Exports ───────────────────────────────────────────────────────
 
 /// Execute a vault tool by name. vault_root is the path to the user's vault.
-/// tool_name is one of: read_file, write_file, list_files, search_notes,
-/// vault_read, vault_write, vault_search.
+/// tool_name is a canonical V2 name such as file.read, file.write,
+/// file.list, vault.search, vault.read, or vault.write. Legacy names are
+/// still accepted for archived callers.
 /// args_json is the tool arguments as JSON.
 /// Returns a JSON ToolResult.
 pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: String) -> String {
@@ -144,7 +145,7 @@ pub fn evaluate_risk_confirmation(risk_level: String) -> String {
 // JSON sentinel so any accidental Swift call fails loudly.
 
 #[cfg(not(feature = "mas-sandbox"))]
-/// Execute open_url tool via Rust osascript wrapper.
+/// Execute the web.fetch/open_url tool via Rust osascript wrapper.
 pub fn tool_open_url(url: String) -> String {
     let result = crate::osascript::tool_open_url(&url);
     serde_json::to_string(&result).unwrap_or_default()
@@ -192,7 +193,7 @@ pub fn tool_get_page_text(_max_length: u32) -> String {
 }
 
 #[cfg(not(feature = "mas-sandbox"))]
-/// Execute search_web tool via Rust osascript wrapper.
+/// Execute the web.search/search_web tool via Rust osascript wrapper.
 pub fn tool_search_web(query: String) -> String {
     let result = crate::osascript::tool_search_web(&query);
     serde_json::to_string(&result).unwrap_or_default()
@@ -204,7 +205,7 @@ pub fn tool_search_web(_query: String) -> String {
 }
 
 #[cfg(not(feature = "mas-sandbox"))]
-/// Execute run_command tool via Rust with allow-list enforcement.
+/// Execute the action.bash/run_command tool via Rust with allow-list enforcement.
 pub fn tool_run_command(command: String, allowed_commands_csv: String) -> String {
     let allowed: Vec<&str> = if allowed_commands_csv.is_empty() {
         vec![]

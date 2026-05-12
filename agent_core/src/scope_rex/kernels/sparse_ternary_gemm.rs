@@ -151,15 +151,21 @@ mod tests {
     use super::*;
 
     fn deterministic_ternary_weights(seed: u64, n: usize, sparsity: f32) -> Vec<TernaryWeight> {
-        let mut state = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+        let mut state = seed
+            .wrapping_mul(2862933555777941757)
+            .wrapping_add(3037000493);
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
-            state = state.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            state = state
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             let r = ((state >> 8) & 0xFFFFFF) as f32 / 16_777_216.0;
             if r < sparsity {
                 out.push(TernaryWeight(0));
             } else {
-                state = state.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+                state = state
+                    .wrapping_mul(2862933555777941757)
+                    .wrapping_add(3037000493);
                 let s = if (state & 1) == 0 { 1 } else { -1 };
                 out.push(TernaryWeight(s));
             }

@@ -390,7 +390,7 @@ mod tests {
             messages.push(Message::assistant(vec![
                 ContentBlock::Thinking {
                     thinking: format!(
-                        "I should search for topic {i}. Decision: use vault_search first."
+                        "I should search for topic {i}. Decision: use vault.search first."
                     ),
                     signature: format!("sig-{i}"),
                 },
@@ -399,7 +399,7 @@ mod tests {
                 },
                 ContentBlock::ToolUse {
                     id: tool_id.clone(),
-                    name: "vault_search".to_string(),
+                    name: "vault.search".to_string(),
                     input: serde_json::json!({"query": format!("quantum computing {i}")}),
                 },
             ]));
@@ -462,7 +462,7 @@ mod tests {
             .expect("summary message with compaction marker not found");
         assert!(summary_text.contains("## Goal"));
         assert!(summary_text.contains("## Tool Actions"));
-        assert!(summary_text.contains("vault_search"));
+        assert!(summary_text.contains("vault.search"));
     }
 
     #[test]
@@ -479,7 +479,7 @@ mod tests {
                 },
                 ContentBlock::ToolUse {
                     id: tool_id.clone(),
-                    name: "vault_search".to_string(),
+                    name: "vault.search".to_string(),
                     input: serde_json::json!({"query": "more research"}),
                 },
             ]));
@@ -531,7 +531,7 @@ mod tests {
 
         assert_eq!(
             retained_thinking,
-            Some("I should search for topic 7. Decision: use vault_search first.")
+            Some("I should search for topic 7. Decision: use vault.search first.")
         );
     }
 

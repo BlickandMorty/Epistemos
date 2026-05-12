@@ -355,8 +355,8 @@ final class ReasoningLoopService {
     private func executeReasoningToolCall(_ call: ToolCallParser.ParsedToolCall) async -> String {
         let query = call.arguments["query"] as? String ?? call.argumentsJson
 
-        switch call.name {
-        case "vault_search", "search_vault", "search":
+        switch AgentToolNameAliases.canonical(call.name) {
+        case "vault.search", "search_vault", "search":
             return await executeVaultSearch(query: query)
         case "graph_search", "search_graph":
             return await executeGraphSearch(query: query)
@@ -400,8 +400,8 @@ final class ReasoningLoopService {
     }
 
     private func isAvailableReasoningTool(_ name: String) -> Bool {
-        switch name {
-        case "vault_search", "search_vault", "search", "graph_search", "search_graph":
+        switch AgentToolNameAliases.canonical(name) {
+        case "vault.search", "search_vault", "search", "graph_search", "search_graph":
             return true
         default:
             return false
@@ -499,7 +499,7 @@ final class ReasoningLoopService {
         let toolSchema = config.enableToolUse ? """
 
         If you need more information, you can request tool calls in JSON format:
-        {"name": "vault_search", "arguments": {"query": "search terms"}}
+        {"name": "vault.search", "arguments": {"query": "search terms"}}
         {"name": "graph_search", "arguments": {"query": "concept name"}}
 
         Include tool calls ONLY if the reasoning has clear gaps that search could fill.

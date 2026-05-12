@@ -333,10 +333,10 @@ final class PipelineService {
         // for notes — the previous "keep standard local chat simple"
         // policy meant users typing "find my note about X" or
         // "@MyNote what changed?" got toolless chat that hallucinated
-        // instead of calling vault_search / vault_read. Now local Fast
+        // instead of calling vault.search / vault.read. Now local Fast
         // / Thinking opts in to the ChatLite tool loop when the model
         // is large enough to drive it (canRunLocalAgentLoop). The
-        // ChatLite tier is read-only by default; `vault_write` still
+        // ChatLite tier is read-only by default; `vault.write` still
         // gates through AgentAuthority approval + R5 capability so MAS
         // safety is preserved.
         if let model = LocalTextModelID(rawValue: modelID),
@@ -860,7 +860,7 @@ final class PipelineService {
         // app-routes + how-to-act brief the Rust-agent path builds.
         //
         // Tool-contract: this direct-stream path cannot execute app
-        // tools (vault_read, fs_read, etc.) — only the Rust agent
+        // tools (vault.read, file.read, etc.) — only the Rust agent
         // path and LocalAgentLoop can. We filter app tools out of
         // the manifest (toolExecutionAvailable: false) and skip the
         // overseer-plan tool prompt so the model isn't lied to about
@@ -949,7 +949,7 @@ final class PipelineService {
     /// the manifest only advertises provider-native tools the request
     /// actually supports (web_search, web_fetch, code_execution,
     /// google_search). This prevents the model from hallucinating
-    /// tool calls for vault_read / fs_read / patch etc. that the
+    /// tool calls for vault.read / file.read / file.patch etc. that the
     /// runtime can't honor.
     private func buildCapabilityManifest(
         operatingMode: EpistemosOperatingMode,
@@ -1050,7 +1050,9 @@ final class PipelineService {
         guard let executionPlan else { return tools }
         let allowed = executionPlan.allowedToolNames
         guard !allowed.isEmpty else { return [] }
-        return tools.filter { allowed.contains($0.name) }
+        return tools.filter {
+            AgentToolNameAliases.containsEquivalent(allowed, $0.name)
+        }
     }
 
     nonisolated private static func encodedToolDefinitionsJSON(

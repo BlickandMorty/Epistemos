@@ -9,7 +9,7 @@ import SwiftUI
 /// a long-running turn is actually progressing.
 ///
 /// Optional `detail` appends a live sub-signal: when the agent is executing
-/// a specific tool, the pill reads e.g. "Agent • web_search" so the user
+    /// a specific tool, the pill reads e.g. "Agent • web.search" so the user
 /// sees what the agent is doing right now without needing the command
 /// center open. Pass nil to hide the detail.
 struct ChatCapabilityPill: View {

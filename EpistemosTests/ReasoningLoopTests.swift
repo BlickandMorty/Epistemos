@@ -229,7 +229,7 @@ struct ReasoningTraceLoggerTests {
                 thinkOutput: "Initial thought",
                 critiqueOutput: "Score: 0.4 — needs more info",
                 qualityScore: 0.4,
-                toolCalls: [ToolCallRecord(toolName: "vault_search", query: "life meaning", result: "found stuff", durationMs: 50)],
+                toolCalls: [ToolCallRecord(toolName: "vault.search", query: "life meaning", result: "found stuff", durationMs: 50)],
                 refinedOutput: "Refined with search results",
                 durationMs: 2000
             ),

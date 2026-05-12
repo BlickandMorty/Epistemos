@@ -429,7 +429,7 @@ struct RuntimeValidationTests {
     @Test("direct-stream manifest suppresses app tools it cannot execute")
     func pipelineDirectStreamManifestSuppressesUnexecutableTools() throws {
         // The direct-stream path (Fast / Thinking for cloud, local non-agent)
-        // cannot execute app tools like vault_read or fs_read — only the
+        // cannot execute app tools like vault.read or file.read — only the
         // Rust agent loop or LocalAgentLoop can. Advertising those tools
         // in the system manifest for direct-stream turns caused models to
         // emit tool-call JSON that the runtime silently ignored, leaving
@@ -4588,13 +4588,13 @@ struct RuntimeValidationTests {
         let noteDelete = try loadMirroredSourceTextFile(".agents/skills/note-delete/SKILL.md")
 
         #expect(noteRead.contains("name: \"Note Read\""))
-        #expect(noteRead.contains("vault_read"))
+        #expect(noteRead.contains("vault.read"))
         #expect(noteWrite.contains("name: \"Note Write\""))
-        #expect(noteWrite.contains("vault_write"))
+        #expect(noteWrite.contains("vault.write"))
         #expect(noteCreate.contains("name: \"Note Create\""))
         #expect(noteCreate.contains("create a new note"))
         #expect(noteDelete.contains("name: \"Note Delete\""))
-        #expect(noteDelete.contains("delete_file"))
+        #expect(noteDelete.contains("file.delete"))
     }
 
     @Test("bundled audit skills keep Codex-compatible frontmatter")

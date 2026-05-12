@@ -315,7 +315,7 @@ struct AuditFixRegressionTests {
         #expect(coordinator.contains("hasRequestedFileOperation ? Self.buildRequestedFileOperationContractSection() : nil"))
     }
 
-    @Test("explicit note writes keep a real vault_write contract across runtime prompts")
+    @Test("explicit note writes keep a real vault.write contract across runtime prompts")
     func explicitNoteWritesKeepAVaultWriteContractAcrossRuntimePrompts() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
         let promptBuilder = try loadAuditSource("Epistemos/LocalAgent/LocalAgentPromptBuilder.swift")
@@ -323,9 +323,9 @@ struct AuditFixRegressionTests {
         #expect(coordinator.contains("let hasRequestedNoteWriteOperation"))
         #expect(coordinator.contains("queryContainsExplicitNoteWriteOperation"))
         #expect(coordinator.contains("buildRequestedNoteWriteContractSection"))
-        #expect(coordinator.contains("Use `vault_write` to create or update the note"))
+        #expect(coordinator.contains("Use `vault.write` to create or update the note"))
         #expect(coordinator.contains("If the user asks you to create or update a note and then read it back"))
-        #expect(promptBuilder.contains("For vault note creation or updates, use vault_write"))
+        #expect(promptBuilder.contains("For vault note creation or updates, use vault.write"))
         #expect(promptBuilder.contains("Do not claim a note was created, updated, or read back"))
     }
 

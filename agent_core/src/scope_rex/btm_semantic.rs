@@ -53,9 +53,7 @@ use crate::provenance::ledger::{Claim, ClaimId};
 /// Stable id for a [`SemanticDelta`]. Wire format is opaque string;
 /// callers choose ULID / UUIDv7 / etc. so the rest of the codebase's
 /// id discipline carries through.
-#[derive(
-    Debug, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct SemanticDeltaId(pub String);
 
@@ -293,11 +291,13 @@ mod tests {
         apply_delta(&mut state, &add).unwrap();
         assert_eq!(state.len(), 2);
 
-        let modify = SemanticDelta::new(delta_id("d-mod")).with_modification(
-            claim("c1", "first updated").with_kind(ClaimKind::Mathematical),
-        );
+        let modify = SemanticDelta::new(delta_id("d-mod"))
+            .with_modification(claim("c1", "first updated").with_kind(ClaimKind::Mathematical));
         apply_delta(&mut state, &modify).unwrap();
-        assert_eq!(state.get(&ClaimId::new("c1")).unwrap().text, "first updated");
+        assert_eq!(
+            state.get(&ClaimId::new("c1")).unwrap().text,
+            "first updated"
+        );
         assert_eq!(
             state.get(&ClaimId::new("c1")).unwrap().kind,
             ClaimKind::Mathematical
@@ -375,8 +375,8 @@ mod tests {
         let mut deltas: Vec<SemanticDelta> = Vec::new();
         for i in 0..50 {
             let id = format!("c{}", i);
-            let d = SemanticDelta::new(delta_id(&format!("d-{}", i)))
-                .with_addition(claim(&id, &id));
+            let d =
+                SemanticDelta::new(delta_id(&format!("d-{}", i))).with_addition(claim(&id, &id));
             deltas.push(d);
         }
         let final_state = replay(ClaimGraphState::new(), &deltas).unwrap();
@@ -418,9 +418,7 @@ mod tests {
 
     #[test]
     fn rewind_target_past_history_end_errors() {
-        let deltas = [
-            SemanticDelta::new(delta_id("d-0")).with_addition(claim("c0", "x")),
-        ];
+        let deltas = [SemanticDelta::new(delta_id("d-0")).with_addition(claim("c0", "x"))];
         assert_eq!(
             rewind(ClaimGraphState::new(), &deltas, 5),
             Err(BtmError::RewindTargetOutOfRange(5, 1))

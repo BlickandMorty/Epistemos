@@ -52,16 +52,15 @@ use crate::scope_rex::metal::softmax::reference_softmax;
 ///
 /// Panics in DEBUG only on shape mismatch. Production paths
 /// validate at boundaries.
-pub fn modern_hopfield_update(
-    stored: &[Vec<f32>],
-    query: &[f32],
-    beta: f32,
-) -> Vec<f32> {
+pub fn modern_hopfield_update(stored: &[Vec<f32>], query: &[f32], beta: f32) -> Vec<f32> {
     if stored.is_empty() {
         return Vec::new();
     }
     let d = query.len();
-    debug_assert!(stored.iter().all(|p| p.len() == d), "patterns must match query dim");
+    debug_assert!(
+        stored.iter().all(|p| p.len() == d),
+        "patterns must match query dim"
+    );
 
     // Step 1: dot products `s_i = β · (Y · q)_i`.
     let scores: Vec<f32> = stored
@@ -115,10 +114,14 @@ mod tests {
     use super::*;
 
     fn deterministic_random(seed: u64, n: usize) -> Vec<f32> {
-        let mut state = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+        let mut state = seed
+            .wrapping_mul(2862933555777941757)
+            .wrapping_add(3037000493);
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
-            state = state.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            state = state
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             let f = ((state >> 8) & 0xFFFFFF) as f32 / 8_388_608.0 - 1.0;
             out.push(f);
         }
@@ -168,10 +171,14 @@ mod tests {
     fn deterministic_bipolar(seed: u64, n: usize) -> Vec<f32> {
         // Canonical Modern Hopfield input: bipolar {-1, +1}.
         // Capacity 2^(d/2) per Ramsauer et al. holds for bipolar.
-        let mut state = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+        let mut state = seed
+            .wrapping_mul(2862933555777941757)
+            .wrapping_add(3037000493);
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
-            state = state.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            state = state
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             out.push(if (state & 1) == 0 { 1.0 } else { -1.0 });
         }
         out

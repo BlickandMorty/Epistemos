@@ -17,8 +17,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use rusqlite::{Connection, OpenFlags, params};
-use serde_json::{Value, json};
+use rusqlite::{params, Connection, OpenFlags};
+use serde_json::{json, Value};
 use tokio::process::Command;
 
 use super::registry::{ToolError, ToolHandler};

@@ -175,12 +175,11 @@ fn w14_sparse_ternary_gemm_round_trip_matches_t_mac_dense() {
     // Sparsity invariant: STG output must match T-MAC dense GEMV
     // for any ternary matrix. This is the substrate-level
     // BIT-IDENTICAL contract between W12 and W14 references.
-    let dense_weights: Vec<TernaryWeight> =
-        [1, -1, 0, 1, 0, 1, -1, 1, -1, 0, 1, 0, 0, 1, 1, -1]
-            .iter()
-            .copied()
-            .map(TernaryWeight)
-            .collect();
+    let dense_weights: Vec<TernaryWeight> = [1, -1, 0, 1, 0, 1, -1, 1, -1, 0, 1, 0, 0, 1, 1, -1]
+        .iter()
+        .copied()
+        .map(TernaryWeight)
+        .collect();
     let sparse = SparseTernaryMatrix::from_dense(&dense_weights, 4, 4);
     let input: [f32; 4] = [1.5, -2.5, 3.5, -4.5];
 

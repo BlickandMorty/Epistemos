@@ -214,31 +214,32 @@ nonisolated enum AgentPermissionCategory: Sendable, Equatable {
 
 extension AgentPermissionRequest {
     nonisolated private static let localDataReadTools: Set<String> = [
-        "vault_read",
-        "vault_search",
-        "vault_recall",
-        "vault_navigate",
-        "session_search",
-        "neural_recall",
-        "contradiction_check",
-        "read_file",
-        "search_files",
+        "vault.read",
+        "vault.search",
+        "knowledge.recall",
+        "graph.vault_navigate",
+        "knowledge.session_search",
+        "knowledge.neural_recall",
+        "knowledge.contradiction_check",
+        "file.read",
+        "file.search",
         "workspace_search",
-        "find_symbol",
-        "get_function_source",
-        "get_dependencies",
-        "get_dependents",
-        "get_change_impact",
-        "graph_query",
+        "workspace.find_symbol",
+        "workspace.get_function_source",
+        "workspace.get_dependencies",
+        "workspace.get_dependents",
+        "workspace.get_change_impact",
+        "graph.query",
         "pkm_get",
         "pkm_search",
         "pkm_list_entity",
-        "pkm_graph_neighbors",
+        "graph.neighbors",
     ]
 
     nonisolated private static let localDataWriteTools: Set<String> = [
-        "vault_write",
-        "write_file",
+        "vault.write",
+        "file.write",
+        "file.patch",
         "patch_file",
         "pkm_write",
     ]
@@ -248,7 +249,7 @@ extension AgentPermissionRequest {
             return .destructive
         }
 
-        let normalizedToolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedToolName = AgentToolNameAliases.canonical(toolName)
         if Self.localDataReadTools.contains(normalizedToolName) {
             return .localDataRead
         }

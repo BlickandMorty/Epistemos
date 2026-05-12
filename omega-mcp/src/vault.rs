@@ -327,20 +327,20 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
     }
 
     let result = match tool_name.as_str() {
-        "read_file" | "vault_read" => {
+        "file.read" | "vault.read" | "read_file" | "vault_read" => {
             let path = args["path"].as_str().unwrap_or("");
             executor.read_file(path)
         }
-        "write_file" | "vault_write" => {
+        "file.write" | "vault.write" | "write_file" | "vault_write" => {
             let path = args["path"].as_str().unwrap_or("");
             let content = args["content"].as_str().unwrap_or("");
             executor.write_file(path, content)
         }
-        "list_files" => {
+        "file.list" | "vault.list" | "list_files" => {
             let path = args["path"].as_str().unwrap_or(".");
             executor.list_files(path)
         }
-        "search_notes" | "vault_search" => {
+        "vault.search" | "search_notes" | "vault_search" => {
             let query = args["query"].as_str().unwrap_or("");
             let limit = args["limit"].as_u64().unwrap_or(10) as usize;
             executor.search_notes(query, limit)
@@ -445,16 +445,13 @@ mod tests {
 
         let result = execute_vault_tool(
             root.clone(),
-            "read_file".to_string(),
+            "file.read".to_string(),
             r#"{"path":"test.md"}"#.to_string(),
         );
         assert!(result.contains("content here"));
 
-        let result = execute_vault_tool(
-            root,
-            "list_files".to_string(),
-            r#"{"path":"."}"#.to_string(),
-        );
+        let result =
+            execute_vault_tool(root, "file.list".to_string(), r#"{"path":"."}"#.to_string());
         assert!(result.contains("test.md"));
     }
 

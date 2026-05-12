@@ -3,7 +3,7 @@ import Foundation
 /// Turns a bare tool name + its JSON input into a short user-facing
 /// phrase so the chat composer pill reads as real activity ("Searching
 /// the web for "quantum decoherence"…") instead of a raw identifier
-/// ("web_search"). Scoped to tools the app actually emits today —
+/// ("web.search"). Scoped to tools the app actually emits today —
 /// unknown tool names fall back to a humanized form of the identifier
 /// so the pill is never blank.
 ///
@@ -29,32 +29,32 @@ enum ToolActivityNarrator {
 
         let input = inputJson.flatMap { decode($0) } ?? [:]
 
-        switch trimmed.lowercased() {
-        case "web_search", "web-search", "browser_search", "safari_search":
+        switch AgentToolNameAliases.canonical(trimmed) {
+        case "web.search", "browser_search", "safari_search":
             if let query = firstString(in: input, keys: ["query", "q", "search"]) {
                 return "Searching the web for \(quote(query))"
             }
             return "Searching the web"
 
-        case "web_fetch", "web-fetch", "browser_navigate", "browser_open":
+        case "web.fetch", "web_fetch", "web-fetch", "browser_navigate", "browser_open":
             if let url = firstString(in: input, keys: ["url", "href", "target"]) {
                 return "Fetching \(trimmedHost(url))"
             }
             return "Fetching a web page"
 
-        case "read_file", "read-file", "file_read":
+        case "file.read", "read-file", "file_read":
             if let path = firstString(in: input, keys: ["path", "file", "file_path"]) {
                 return "Reading \(displayName(for: path))"
             }
             return "Reading a file"
 
-        case "write_file", "write-file", "file_write":
+        case "file.write", "write-file", "file_write":
             if let path = firstString(in: input, keys: ["path", "file", "file_path"]) {
                 return "Writing \(displayName(for: path))"
             }
             return "Writing a file"
 
-        case "patch", "edit", "edit_file", "apply_patch":
+        case "file.patch", "edit", "edit_file", "apply_patch":
             if let path = firstString(in: input, keys: ["path", "file", "file_path"]) {
                 return "Editing \(displayName(for: path))"
             }
@@ -72,25 +72,25 @@ enum ToolActivityNarrator {
             }
             return "Searching the workspace"
 
-        case "vault_read":
+        case "vault.read":
             if let title = firstString(in: input, keys: ["title", "path", "note"]) {
                 return "Reading note \(quote(title))"
             }
             return "Reading a note"
 
-        case "vault_write":
+        case "vault.write":
             if let title = firstString(in: input, keys: ["title", "path", "note"]) {
                 return "Writing note \(quote(title))"
             }
             return "Writing a note"
 
-        case "vault_search", "memory_search", "knowledge_search":
+        case "vault.search", "memory_search", "knowledge_search":
             if let query = firstString(in: input, keys: ["query", "q"]) {
                 return "Searching memory for \(quote(query))"
             }
             return "Searching memory"
 
-        case "terminal", "terminal_run", "bash", "shell", "exec":
+        case "action.terminal", "action.bash", "terminal_run", "bash", "shell", "exec":
             if let command = firstString(in: input, keys: ["command", "cmd", "script"]) {
                 return "Running \(quote(command))"
             }
@@ -99,7 +99,7 @@ enum ToolActivityNarrator {
         case "think":
             return "Thinking through the plan"
 
-        case "todo_write", "todo_update", "todo":
+        case "system.todo", "todo_write", "todo_update":
             return "Updating the plan"
 
         default:
@@ -157,11 +157,12 @@ enum ToolActivityNarrator {
         return quote(urlString)
     }
 
-    /// Turn `vault_search` → "Vault search" for unknown tools so the pill
+    /// Turn `vault.search` → "Vault search" for unknown tools so the pill
     /// at least reads like English rather than showing a snake_case id.
     nonisolated private static func humanize(_ identifier: String) -> String {
         let cleaned = identifier
             .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: ".", with: " ")
             .replacingOccurrences(of: "-", with: " ")
         guard !cleaned.isEmpty else { return identifier }
         return cleaned.prefix(1).uppercased() + cleaned.dropFirst()

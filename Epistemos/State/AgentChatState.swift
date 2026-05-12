@@ -49,7 +49,7 @@ final class AgentChatState {
     var activeToolName: String?
     /// Live tool-input JSON for the currently-running tool call — mirrors
     /// ChatState.activeToolInputJson so the agent surface can drive the
-    /// same ToolActivityNarrator (web_search → "Searching the web for
+    /// same ToolActivityNarrator (web.search → "Searching the web for
     /// 'X'…" etc.). Cleared on completion / error.
     var activeToolInputJson: String?
 

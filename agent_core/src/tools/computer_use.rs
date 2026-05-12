@@ -14,7 +14,7 @@
 //! result returned via shared memory for large payloads (screenshots)
 //! or inline JSON for small results (AX tree summary).
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 

@@ -1,6 +1,120 @@
 import Foundation
 import os
 
+nonisolated enum AgentToolNameAliases {
+    private static let legacyToV2: [String: String] = [
+        "vault_search": "vault.search",
+        "vault_read": "vault.read",
+        "vault_write": "vault.write",
+        "vault_get": "vault.read",
+        "pkm_search": "vault.search",
+        "pkm_get": "vault.read",
+        "pkm_write": "vault.write",
+        "chunk_reduce": "chunk.reduce",
+        "pkm_graph_neighbors": "graph.neighbors",
+        "read_file": "file.read",
+        "write_file": "file.write",
+        "edit_file": "file.patch",
+        "delete_file": "file.delete",
+        "patch": "file.patch",
+        "search_files": "file.search",
+        "list_files": "file.list",
+        "move_file": "file.move",
+        "todo": "system.todo",
+        "vault_recall": "knowledge.recall",
+        "contradiction_check": "knowledge.contradiction_check",
+        "analyzecontradiction": "knowledge.contradiction_check",
+        "scoreevidence": "knowledge.evidence_score",
+        "neural_recall": "knowledge.neural_recall",
+        "session_search": "knowledge.session_search",
+        "create_note": "note.create",
+        "edit_note": "note.edit",
+        "search_notes": "vault.search",
+        "list_notes": "vault.list",
+        "collectsnippet": "research.collect_snippet",
+        "savecitation": "citation.save",
+        "createresearchnote": "note.research_digest",
+        "graph_query": "graph.query",
+        "vault_navigate": "graph.vault_navigate",
+        "memory": "memory.curated",
+        "open_url": "web.fetch",
+        "web_search": "web.search",
+        "search_web": "web.search",
+        "web_fetch": "web.fetch",
+        "readpagecontent": "web.extract",
+        "searchpapers": "research.search_papers",
+        "web_extract": "web.extract",
+        "web_crawl": "web.crawl",
+        "bash_execute": "action.bash",
+        "run_command": "action.bash",
+        "run_persistent": "action.terminal",
+        "terminal": "action.terminal",
+        "process": "system.process",
+        "cronjob": "system.cron",
+        "skills_list": "skills.list",
+        "skill_view": "skills.view",
+        "skill_manage": "skills.manage",
+        "vision_analyze": "media.vision_analyze",
+        "image_generate": "media.image_generate",
+        "text_to_speech": "media.text_to_speech",
+        "mcp_discover": "discovery.mcp_discover",
+        "model_catalog": "discovery.model_catalog",
+        "mixture_of_minds": "intelligence.mixture_of_minds",
+        "find_symbol": "workspace.find_symbol",
+        "get_function_source": "workspace.get_function_source",
+        "get_dependencies": "workspace.get_dependencies",
+        "get_dependents": "workspace.get_dependents",
+        "get_change_impact": "workspace.get_change_impact",
+    ]
+
+    private static let legacyNamesByV2: [String: Set<String>] = {
+        var namesByV2: [String: Set<String>] = [:]
+        for (legacy, v2) in legacyToV2 {
+            namesByV2[v2, default: []].insert(legacy)
+        }
+        return namesByV2
+    }()
+
+    static func canonical(_ toolName: String) -> String {
+        let normalized = toolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return legacyToV2[normalized] ?? normalized
+    }
+
+    static func legacyName(for toolName: String) -> String? {
+        legacyNamesByV2[canonical(toolName)]?.sorted().first
+    }
+
+    static func equivalentNames(for toolName: String) -> Set<String> {
+        let canonicalName = canonical(toolName)
+        var names: Set<String> = [canonicalName]
+        if let legacyNames = legacyNamesByV2[canonicalName] {
+            names.formUnion(legacyNames)
+        }
+        return names
+    }
+
+    static func containsEquivalent(_ names: Set<String>, _ toolName: String) -> Bool {
+        !names.isDisjoint(with: equivalentNames(for: toolName))
+    }
+
+    static func preferredAvailableName(
+        for canonicalName: String,
+        availableTools: [OmegaToolDefinition]
+    ) -> String? {
+        let availableNames = Set(availableTools.map { $0.name.lowercased() })
+        let canonicalName = canonical(canonicalName)
+        if availableNames.contains(canonicalName) {
+            return canonicalName
+        }
+        for legacy in legacyNamesByV2[canonicalName]?.sorted() ?? [] {
+            if availableNames.contains(legacy) {
+                return legacy
+            }
+        }
+        return nil
+    }
+}
+
 nonisolated enum ToolSurfacePolicy {
     enum Distribution: Sendable {
         case currentBuild
@@ -9,19 +123,19 @@ nonisolated enum ToolSurfacePolicy {
     }
 
     static let coreAppStoreAllowedToolNames: Set<String> = [
-        "vault_search",
-        "vault_read",
-        "vault_write",
-        "read_file",
-        "write_file",
-        "patch",
-        "search_files",
-        "todo",
-        "graph_query",
-        "memory",
-        "web_search",
-        "web_extract",
-        "web_crawl",
+        "vault.search",
+        "vault.read",
+        "vault.write",
+        "file.read",
+        "file.write",
+        "file.patch",
+        "file.search",
+        "system.todo",
+        "graph.query",
+        "memory.curated",
+        "web.search",
+        "web.extract",
+        "web.crawl",
     ]
 
     /// User-facing tool surfaces must stay aligned with the runtime contract.
@@ -32,14 +146,31 @@ nonisolated enum ToolSurfacePolicy {
         _ tools: [OmegaToolDefinition],
         distribution: Distribution = .currentBuild
     ) -> [OmegaToolDefinition] {
-        tools.filter { isSurfacedToolName($0.name, distribution: distribution) }
+        var seenCanonicalNames: Set<String> = []
+        return tools.compactMap { tool in
+            let canonicalName = AgentToolNameAliases.canonical(tool.name)
+            guard isSurfacedToolName(canonicalName, distribution: distribution),
+                  seenCanonicalNames.insert(canonicalName).inserted else {
+                return nil
+            }
+
+            return OmegaToolDefinition(
+                name: canonicalName,
+                agent: tool.agent,
+                description: tool.description,
+                argumentsExample: tool.argumentsExample,
+                schemaJson: tool.schemaJson,
+                destructive: tool.destructive,
+                requiresConfirmation: tool.requiresConfirmation
+            )
+        }
     }
 
     static func isSurfacedToolName(
         _ toolName: String,
         distribution: Distribution = .currentBuild
     ) -> Bool {
-        let canonicalToolName = toolName.lowercased()
+        let canonicalToolName = AgentToolNameAliases.canonical(toolName)
         if resolvedDistribution(distribution) == .coreAppStore,
            !coreAppStoreAllowedToolNames.contains(canonicalToolName) {
             return false
@@ -48,7 +179,7 @@ nonisolated enum ToolSurfacePolicy {
         switch canonicalToolName {
         case "think":
             return false
-        case "image_generate":
+        case "media.image_generate":
             return BackendRuntimeKind.allCases.contains {
                 BackendRuntimeCapabilities.runtime($0).supportsImageGenerate
             }

@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 use super::web_fetch::{read_response_text_limited, secure_redirect_policy};
@@ -753,10 +753,8 @@ mod tests {
             schema.parameters["properties"]["source"]["default"],
             "local"
         );
-        assert!(
-            schema
-                .description
-                .contains("allow_cloud_external_requests=true")
-        );
+        assert!(schema
+            .description
+            .contains("allow_cloud_external_requests=true"));
     }
 }

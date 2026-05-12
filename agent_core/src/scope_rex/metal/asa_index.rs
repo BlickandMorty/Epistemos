@@ -113,7 +113,11 @@ impl AsaIndex {
     /// merged index, never fewer.
     pub fn merge(&self, other: &Self) -> Self {
         Self {
-            active_rows: self.active_rows.union(&other.active_rows).copied().collect(),
+            active_rows: self
+                .active_rows
+                .union(&other.active_rows)
+                .copied()
+                .collect(),
         }
     }
 
@@ -200,10 +204,14 @@ mod tests {
     fn deterministic_random(seed: u64, n: usize) -> Vec<f32> {
         // Simple linear congruential generator — deterministic for
         // tests, no proptest dep needed.
-        let mut state = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+        let mut state = seed
+            .wrapping_mul(2862933555777941757)
+            .wrapping_add(3037000493);
         let mut out = Vec::with_capacity(n);
         for _ in 0..n {
-            state = state.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            state = state
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             // Map to roughly [-1, 1]
             let f = ((state >> 8) & 0xFFFFFF) as f32 / 8_388_608.0 - 1.0;
             out.push(f);
