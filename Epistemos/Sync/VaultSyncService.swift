@@ -2437,7 +2437,7 @@ final class VaultSyncService {
     }
 
     @discardableResult
-    func stopWatchingAsync(preserveData: Bool = false) async -> Bool {
+    func stopWatchingAsync(preserveData: Bool = false, skipRecoverySnapshot: Bool = false) async -> Bool {
         if preserveData {
             stopWatching(preserveData: true)
             return true
@@ -2446,12 +2446,21 @@ final class VaultSyncService {
         prepareToStopWatching()
 
         var didClearLocalData = true
-        do {
-            try await snapshotLocalStateOffMain()
-        } catch {
-            didClearLocalData = false
-            log.error("Failed to snapshot local state before clear; aborting destructive stop: \(error.localizedDescription, privacy: .public)")
-            handleSnapshotFailureBeforeDestructiveClear(error)
+        // USER REPORT 2026-05-12 v2 perf: explicit disconnect intentionally
+        // forgets data — the recovery snapshot is wasted I/O. Default
+        // path (recovery, replace-vault, etc.) keeps the snapshot for
+        // safety; only the disconnect button opts out. The snapshot is
+        // the dominant cost on large vaults (APFS clone + SQLite copies);
+        // skipping it converts "30s wait" into "1-3s wait" without
+        // changing the destructive-clear semantics.
+        if !skipRecoverySnapshot {
+            do {
+                try await snapshotLocalStateOffMain()
+            } catch {
+                didClearLocalData = false
+                log.error("Failed to snapshot local state before clear; aborting destructive stop: \(error.localizedDescription, privacy: .public)")
+                handleSnapshotFailureBeforeDestructiveClear(error)
+            }
         }
         if didClearLocalData {
             await clearLocalVaultStateOffMain()
@@ -4064,8 +4073,16 @@ enum VaultConnectionActions {
             // anyway so disconnect can't leave a half-wiped shadow /
             // instant-recall / search index. Matches resetAllData()
             // phase 2 fallback.
+            //
+            // Skip the recovery snapshot — the user has explicitly told
+            // the app to forget this vault, so the snapshot is wasted
+            // I/O on large vaults (30+ seconds of APFS clone + SQLite
+            // copies). The destructive-clear semantics are unchanged.
             vaultSync.vaultActivityMessage = "Disconnecting vault... releasing watcher"
-            let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
+            let didClear = await vaultSync.stopWatchingAsync(
+                preserveData: false,
+                skipRecoverySnapshot: true
+            )
             if didClear {
                 vaultSync.dismissRecoveryIssue()
             } else {
