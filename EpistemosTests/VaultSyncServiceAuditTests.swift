@@ -1014,16 +1014,25 @@ struct VaultSyncServiceAuditTests {
         #expect(!source.contains("vaultSync?.markVaultMutated()"))
     }
 
-    @Test("initial import refreshes the live graph before clearing the loading state")
-    func initialImportRefreshesLiveGraphBeforeClearingLoadingState() throws {
+    @Test("initial import schedules live graph refresh without blocking the loading state")
+    func initialImportSchedulesLiveGraphRefreshWithoutBlockingLoadingState() throws {
         let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
         let taskStart = try #require(source.range(of: "importTask = Task {")?.lowerBound)
         let taskTail = source[taskStart...]
         let taskEnd = try #require(taskTail.range(of: "\n        }\n\n\n        if let actor = indexActor")?.upperBound)
         let taskBody = String(taskTail[..<taskEnd])
+        let maintenanceStart = try #require(source.range(of: "private func schedulePostImportMaintenance(")?.lowerBound)
+        let maintenanceTail = source[maintenanceStart...]
+        let maintenanceEnd = try #require(maintenanceTail.range(of: "\n    }\n\n    private func scheduleGraphRefreshAfterVaultImport()")?.upperBound)
+        let maintenanceBody = String(maintenanceTail[..<maintenanceEnd])
 
         #expect(taskBody.contains("await self.schedulePostImportMaintenance("))
         #expect(taskBody.contains("self.isIndexing = false"))
+        #expect(maintenanceBody.contains("scheduleGraphRefreshAfterVaultImport()"))
+        #expect(!maintenanceBody.contains("await refreshGraphAfterVaultImport()"))
+        #expect(source.contains("private func scheduleGraphRefreshAfterVaultImport()"))
+        #expect(source.contains("Task { @MainActor [weak self] in"))
+        #expect(source.contains("await self?.refreshGraphAfterVaultImport()"))
         #expect(source.contains("private func refreshGraphAfterVaultImport() async"))
         #expect(source.contains("await graphState.loadGraph(container: modelContainer)"))
         #expect(source.contains("await graphState.refreshStructuralDataAsync("))

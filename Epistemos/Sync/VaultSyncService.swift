@@ -1880,7 +1880,13 @@ final class VaultSyncService {
         publishVaultMutation(.vaultChanged)
         AppBootstrap.shared?.refreshAmbientManifest()
         AppBootstrap.shared?.scheduleHealthyVaultBodyCleanup()
-        await refreshGraphAfterVaultImport()
+        scheduleGraphRefreshAfterVaultImport()
+    }
+
+    private func scheduleGraphRefreshAfterVaultImport() {
+        Task { @MainActor [weak self] in
+            await self?.refreshGraphAfterVaultImport()
+        }
     }
 
     private func refreshGraphAfterVaultImport() async {
