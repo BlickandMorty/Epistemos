@@ -223,6 +223,30 @@ struct BackgroundGraphLoadingTests {
         #expect(graphState.graphDataVersion == 1)
     }
 
+    @Test("async loadGraph rebuilds dirty stale persisted structural graph")
+    @MainActor
+    func asyncLoadGraphRebuildsDirtyStalePersistedGraph() async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+
+        let page = SDPage(title: "Actual Imported Note")
+        context.insert(page)
+        let staleNode = SDGraphNode(type: .note, label: "Codex Reopen Smoke", sourceId: "old-page")
+        context.insert(staleNode)
+        try context.save()
+
+        let graphState = GraphState()
+        graphState.needsRefresh = true
+        await graphState.loadGraph(container: container)
+
+        #expect(graphState.isLoaded)
+        #expect(!graphState.needsRefresh)
+        #expect(graphState.store.nodeCount == 1)
+        #expect(graphState.store.nodes.values.contains { $0.label == "Actual Imported Note" })
+        #expect(!graphState.store.nodes.values.contains { $0.label == "Codex Reopen Smoke" })
+        #expect(graphState.graphDataVersion == 1)
+    }
+
     @Test("concurrent async loadGraph callers coalesce to one recommit")
     @MainActor
     func concurrentAsyncLoadGraphCallsCoalesce() async throws {
@@ -266,7 +290,7 @@ struct BackgroundGraphLoadingTests {
 
         #expect(graphStateSource.contains("guard !isLoaded, !isLoadingGraph else { return }"))
         #expect(graphStateSource.contains("store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)"))
-        #expect(graphStateSource.contains("if store.nodeCount == 0, !isBuildingStructural {"))
+        #expect(graphStateSource.contains("if (needsRefresh || store.nodeCount == 0), !isBuildingStructural {"))
         #expect(graphStateSource.contains("_ = await refreshStructuralDataAsync(container: container)"))
         #expect(graphStateSource.contains("if isLoaded {"))
         #expect(graphStateSource.contains("requestRecommit()"))
