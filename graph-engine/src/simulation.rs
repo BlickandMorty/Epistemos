@@ -257,6 +257,28 @@ fn collision_radius_for_node(visual_radius: f32, padding_control: f32) -> f32 {
 
 const LABEL_COLLISION_SOFT_BLEND: f32 = 0.12;
 const LABEL_COLLISION_MAX_EXTRA: f32 = 28.0;
+const LARGE_GRAPH_ADAPTATION_START: usize = 5_000;
+const LARGE_GRAPH_ADAPTATION_FULL: usize = 20_000;
+
+#[inline]
+fn smoothstep01(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+#[inline]
+fn large_graph_adaptation_factor(node_count: usize) -> f32 {
+    if node_count <= LARGE_GRAPH_ADAPTATION_START {
+        return 0.0;
+    }
+    let span = (LARGE_GRAPH_ADAPTATION_FULL - LARGE_GRAPH_ADAPTATION_START) as f32;
+    smoothstep01((node_count - LARGE_GRAPH_ADAPTATION_START) as f32 / span)
+}
+
+#[inline]
+fn lerp_f32(from: f32, to: f32, t: f32) -> f32 {
+    from + (to - from) * t.clamp(0.0, 1.0)
+}
 
 #[inline]
 fn soft_label_collision_radius(node_radius: f32, label_bubble_radius: f32) -> f32 {
@@ -1038,12 +1060,8 @@ impl Simulation {
         }
 
         let alpha = self.params.alpha;
-        let high_node_damped_path = n > 9_000;
-        let force_alpha = if high_node_damped_path {
-            alpha.min(0.006)
-        } else {
-            alpha
-        };
+        let large_graph_adaptation = large_graph_adaptation_factor(n);
+        let force_alpha = alpha * lerp_f32(1.0, 0.06, large_graph_adaptation);
 
         // 2. Apply forces in d3/LogSeq order: link → many-body → collide → center
         //
@@ -1127,11 +1145,11 @@ impl Simulation {
                     v.clear();
                 }
             }
-            let collision_compliance = if high_node_damped_path {
-                self.params.collision_compliance.min(0.18)
-            } else {
-                self.params.collision_compliance
-            };
+            let collision_compliance = lerp_f32(
+                self.params.collision_compliance,
+                self.params.collision_compliance.min(0.18),
+                large_graph_adaptation,
+            );
             forces::force_collide_with_full_scratch(
                 &mut self.x,
                 &mut self.y,
@@ -1156,9 +1174,7 @@ impl Simulation {
             CenterMode::Off => 0.0,
             CenterMode::Repel => -self.params.center_strength,
         };
-        if high_node_damped_path {
-            center_str *= 0.12;
-        }
+        center_str *= lerp_f32(1.0, 0.12, large_graph_adaptation);
         if center_str.abs() > 0.0001 {
             forces::force_center(
                 &self.x,
@@ -1371,11 +1387,7 @@ impl Simulation {
         // a mass-less context (i.e., `self.decay.len() != n`), where
         // the scalar path still falls back via `fallback_decay`.
         const MAX_VELOCITY: f32 = 500.0;
-        let max_velocity = if high_node_damped_path {
-            40.0
-        } else {
-            MAX_VELOCITY
-        };
+        let max_velocity = lerp_f32(MAX_VELOCITY, 40.0, large_graph_adaptation);
         let mut max_speed_sq: f32 = 0.0;
 
         // Build viewport active mask — only update positions for visible + 1-hop neighbor nodes.
@@ -3950,6 +3962,29 @@ mod tests {
             after_gap > before_gap,
             "nodes above the old 9k threshold should still receive spacing forces"
         );
+    }
+
+    #[test]
+    fn large_graph_adaptation_has_no_legacy_9000_step() {
+        let below = large_graph_adaptation_factor(8_999);
+        let at = large_graph_adaptation_factor(9_000);
+        let above = large_graph_adaptation_factor(9_001);
+
+        assert!(below > 0.0);
+        assert!(at > below);
+        assert!(above > at);
+        assert!(
+            (above - below) < 0.001,
+            "crossing 9k should be a smooth adaptation, not a physics cliff"
+        );
+    }
+
+    #[test]
+    fn large_graph_adaptation_only_fully_damps_extreme_graphs() {
+        assert_eq!(large_graph_adaptation_factor(5_000), 0.0);
+        assert!(large_graph_adaptation_factor(10_000) < 0.30);
+        assert_eq!(large_graph_adaptation_factor(20_000), 1.0);
+        assert_eq!(large_graph_adaptation_factor(30_000), 1.0);
     }
 
     #[test]
