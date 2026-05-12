@@ -2639,6 +2639,85 @@ final class AppBootstrap {
         applyPreparedRetrievalRuntimeConfiguration(nil)
     }
 
+    // MARK: - On-Demand Memory Unload (ISSUE-2026-05-12-006)
+
+    /// Result of a manual on-demand idle-unload, reported back to the
+    /// diagnostic UI so the user can see what was actually released
+    /// without spinning up Instruments.
+    public struct IdleUnloadReport: Sendable, Equatable {
+        public let residentMBBefore: Int
+        public let residentMBAfter: Int
+        public let mbFreed: Int
+        public let rustSegmentsEvicted: UInt32
+        public let rustSegmentBytesFreedMB: UInt64
+        public let rustSessionsPruned: UInt32
+        public let mlxUnloaded: Bool
+        public let searchCachesReleased: Bool
+        public let durationMs: Int
+    }
+
+    /// Run the same unload sequence the critical memory-pressure
+    /// handler runs, but on demand and synchronous so the diagnostic
+    /// row can report the actual delta.
+    ///
+    /// This is the in-app substitute for "open Instruments and profile."
+    /// Users can click the Force Idle Unload button, see the RSS drop,
+    /// and report which subsystem actually contributed.
+    @MainActor
+    public func forceIdleUnload() async -> IdleUnloadReport {
+        let start = Date()
+        let before = Self.currentResidentMB()
+
+        // Rust-side relief: shared-memory arena evict + finished-session prune
+        let relief = respondToMemoryPressure(level: 2)
+
+        // Swift-side: search caches
+        let searchService = vaultSync.searchService
+        if let searchService {
+            searchService.releaseMemoryPressureCaches()
+        }
+
+        // Swift-side: MLX inference (model weights + KV cache)
+        var mlxUnloaded = false
+        await localInferenceService.unload()
+        mlxUnloaded = true
+
+        let after = Self.currentResidentMB()
+        let durationMs = Int(Date().timeIntervalSince(start) * 1000)
+
+        Log.app.info(
+            "ForceIdleUnload: \(before, privacy: .public) MB → \(after, privacy: .public) MB, freed \(before - after, privacy: .public) MB in \(durationMs, privacy: .public) ms"
+        )
+
+        return IdleUnloadReport(
+            residentMBBefore: before,
+            residentMBAfter: after,
+            mbFreed: max(0, before - after),
+            rustSegmentsEvicted: relief.segmentsEvicted,
+            rustSegmentBytesFreedMB: relief.segmentBytesFreed / (1024 * 1024),
+            rustSessionsPruned: relief.sessionsPruned,
+            mlxUnloaded: mlxUnloaded,
+            searchCachesReleased: searchService != nil,
+            durationMs: durationMs
+        )
+    }
+
+    /// Helper for ForceIdleUnload diagnostics. Mirrors the existing
+    /// `EpistemosApp.currentMemoryUsageMB()` private helper so the
+    /// before/after measurements use the same accounting basis as
+    /// the rest of the app.
+    private static func currentResidentMB() -> Int {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) { infoPtr in
+            infoPtr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rawPtr in
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), rawPtr, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return 0 }
+        return Int(info.resident_size / (1024 * 1024))
+    }
+
     // MARK: - Database Recovery
 
     func resetDatabaseAndRelaunch() {
