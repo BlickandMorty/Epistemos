@@ -3,7 +3,16 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+// USER REPORT 2026-05-12 (Instruments Hangs trace): SHA-256 checksum
+// in resource_read consumed 11.18 minutes / 27.7% of CPU across the
+// 14-minute hang trace, all in `sha2::sha256::soft::compress` (software
+// SHA-256). On Apple Silicon, BLAKE3 is significantly faster than even
+// hardware SHA-256 (and dramatically faster than software SHA-256).
+// The checksum is purely an opaque optimistic-concurrency version
+// string; the protocol is algorithm-agnostic, so the swap is safe.
+//
+// Removed `use sha2::{Digest, Sha256};` — BLAKE3 is already an
+// agent_core dependency (used by the provenance ledger).
 use walkdir::WalkDir;
 
 use crate::storage::vault::VaultBackend;
@@ -604,13 +613,15 @@ pub async fn delete_note_adapter(
 }
 
 fn checksum(bytes: &[u8]) -> String {
-    let mut digest = Sha256::new();
-    digest.update(bytes);
-    digest
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    // USER REPORT 2026-05-12 — Instruments Hangs trace pinned 11.18 min
+    // / 27.7% of total CPU in `sha2::sha256::soft::compress`. Software
+    // SHA-256 on a hot read path was the dominant CPU consumer in the
+    // app. BLAKE3 on Apple Silicon is ~10× faster than software SHA-256
+    // and produces the same 32-byte hex string shape. The checksum is
+    // an opaque OCC version token — the algorithm choice is internal
+    // and switches atomically for read + write (both ends use this
+    // function), so there's no compatibility break.
+    blake3::hash(bytes).to_hex().to_string()
 }
 
 fn normalize_relative(path: &Path) -> String {
