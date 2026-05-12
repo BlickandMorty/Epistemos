@@ -990,7 +990,7 @@ async fn execute_one_tool(
         return Ok(ToolResult::text(id, truncated, is_error));
     }
 
-    match tool_registry.execute(&name, &input).await {
+    match tool_registry.execute_v2(&name, &input).await {
         Ok(output) => {
             // Security: redact credentials from tool output.
             let redacted = crate::security::redact_credentials(&output);

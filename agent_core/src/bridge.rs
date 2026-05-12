@@ -2784,7 +2784,7 @@ pub async fn execute_tool_call(
                 message: format!("invalid input_json: {e}"),
             })?;
 
-        match registry.execute(&tool_name, &input).await {
+        match registry.execute_v2(&tool_name, &input).await {
             Ok(output) => Ok(ToolExecutionResultFFI {
                 success: true,
                 output_json: output,
@@ -2830,7 +2830,7 @@ pub async fn execute_tool_call_filtered(
                 message: format!("invalid input_json: {e}"),
             })?;
 
-        match registry.execute(&tool_name, &input).await {
+        match registry.execute_v2(&tool_name, &input).await {
             Ok(output) => Ok(ToolExecutionResultFFI {
                 success: true,
                 output_json: output,

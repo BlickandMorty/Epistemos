@@ -2902,6 +2902,24 @@ mod tier_tests {
     }
 
     #[test]
+    fn live_agent_paths_use_v2_tool_dispatch() {
+        let agent_loop_source = include_str!("../agent_loop.rs");
+        let bridge_source = include_str!("../bridge.rs");
+
+        assert!(
+            agent_loop_source.contains("tool_registry.execute_v2(&name, &input).await"),
+            "agent_loop must execute tools through the V2 compatibility dispatch"
+        );
+        assert!(
+            bridge_source
+                .matches("registry.execute_v2(&tool_name, &input).await")
+                .count()
+                >= 2,
+            "Swift-facing single-tool bridges must execute tools through V2 dispatch"
+        );
+    }
+
+    #[test]
     fn bridge_wires_delegate_task_after_provider_resolution() {
         let bridge_source = include_str!("../bridge.rs");
         assert!(

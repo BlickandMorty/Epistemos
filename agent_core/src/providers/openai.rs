@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
-use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::{debug, warn};
 
@@ -21,7 +20,6 @@ use crate::types::{
     ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
 };
 
-const OPENAI_CHAT_COMPLETIONS_API: &str = "https://api.openai.com/v1/chat/completions";
 const OPENAI_RESPONSES_API: &str = "https://api.openai.com/v1/responses";
 const OPENAI_CODEX_RESPONSES_API: &str = "https://chatgpt.com/backend-api/codex/responses";
 const OPENAI_CODEX_AUTH_MODE_ENV: &str = "OPENAI_AUTH_MODE";
@@ -108,197 +106,6 @@ impl OpenAIProvider {
 
     pub fn o3_mini() -> Self {
         Self::from_env("o3-mini", "gpt-5.4")
-    }
-
-    fn api_key_uses_responses_api(&self) -> bool {
-        matches!(self.model, "gpt-5.4" | "gpt-5.4-mini")
-    }
-
-    async fn stream_chat_completions(
-        &self,
-        messages: &[Message],
-        tools: &[ToolSchema],
-        config: &AgentConfig,
-        api_key: String,
-    ) -> Result<MessageStream, AgentError> {
-        let api_messages = build_openai_messages(messages, config.system_prompt.as_deref());
-        let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_openai_json).collect();
-
-        let mut body = json!({
-            "model": self.model,
-            "messages": api_messages,
-            "stream": true,
-            "stream_options": { "include_usage": true },
-        });
-
-        if let Some(max_tokens) = config.max_output_tokens {
-            body["max_completion_tokens"] = json!(max_tokens);
-        }
-
-        if !api_tools.is_empty() {
-            body["tools"] = json!(api_tools);
-        }
-
-        let retry_config = self.retry_config.clone();
-        let client = self.client.clone();
-
-        let response = with_retry(
-            &retry_config,
-            &tokio_util::sync::CancellationToken::new(),
-            || {
-                let client = client.clone();
-                let api_key = api_key.clone();
-                let body = body.clone();
-                async move {
-                    let response = client
-                        .post(OPENAI_CHAT_COMPLETIONS_API)
-                        .header("authorization", format!("Bearer {api_key}"))
-                        .header("content-type", "application/json")
-                        .json(&body)
-                        .send()
-                        .await
-                        .map_err(|error| AgentError::HttpError(error.to_string()))?;
-
-                    if !response.status().is_success() {
-                        let status = response.status().as_u16();
-                        let body = response.text().await.unwrap_or_default();
-                        return Err(AgentError::ApiError { status, body });
-                    }
-
-                    Ok(response)
-                }
-            },
-        )
-        .await?;
-
-        let event_stream = response.bytes_stream().eventsource();
-
-        let parsed_stream = stream! {
-            let mut final_stop_reason = StopReason::EndTurn;
-            let mut final_usage = TokenUsage::default();
-            let mut text_buffer = String::new();
-            let mut tool_calls: HashMap<usize, ToolCallInProgress> = HashMap::new();
-            futures::pin_mut!(event_stream);
-
-            while let Some(event_result) = event_stream.next().await {
-                let event = match event_result {
-                    Ok(event) => event,
-                    Err(error) => {
-                        yield Err(AgentError::StreamError(error.to_string()));
-                        return;
-                    }
-                };
-
-                if event.data == "[DONE]" {
-                    debug!("OpenAI SSE stream received [DONE]");
-                    break;
-                }
-
-                let chunk = match serde_json::from_str::<RawChunk>(&event.data) {
-                    Ok(chunk) => chunk,
-                    Err(error) => {
-                        warn!(data = %event.data, error = %error, "failed to parse OpenAI SSE chunk");
-                        continue;
-                    }
-                };
-
-                if let Some(usage) = chunk.usage {
-                    merge_usage(&mut final_usage, &usage);
-                }
-
-                for choice in chunk.choices {
-                    if let Some(finish_reason) = choice.finish_reason.as_deref() {
-                        final_stop_reason = map_finish_reason(finish_reason);
-                    }
-
-                    if let Some(delta) = choice.delta {
-                        if let Some(reasoning) = delta.reasoning_content {
-                            if !reasoning.is_empty() {
-                                yield Ok(StreamEvent::ThinkingDelta {
-                                    index: 0,
-                                    text: reasoning,
-                                });
-                            }
-                        }
-
-                        if let Some(text) = delta.content {
-                            text_buffer.push_str(&text);
-                            yield Ok(StreamEvent::TextDelta {
-                                index: 0,
-                                text,
-                            });
-                        }
-
-                        for tc_delta in delta.tool_calls {
-                            let tc_index = tc_delta.index;
-
-                            if let Some(id) = tc_delta.id {
-                                let name = tc_delta
-                                    .function
-                                    .as_ref()
-                                    .and_then(|f| f.name.clone())
-                                    .unwrap_or_default();
-                                tool_calls.insert(
-                                    tc_index,
-                                    ToolCallInProgress {
-                                        id,
-                                        name,
-                                        arguments: String::new(),
-                                    },
-                                );
-                            }
-
-                            if let Some(func) = tc_delta.function {
-                                if let Some(name) = func.name {
-                                    if let Some(tc) = tool_calls.get_mut(&tc_index) {
-                                        if tc.name.is_empty() {
-                                            tc.name = name;
-                                        }
-                                    }
-                                }
-                                if let Some(args) = func.arguments {
-                                    if let Some(tc) = tool_calls.get_mut(&tc_index) {
-                                        tc.arguments.push_str(&args);
-                                        yield Ok(StreamEvent::InputJsonDelta {
-                                            index: tc_index,
-                                            partial_json: args,
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !text_buffer.is_empty() {
-                yield Ok(StreamEvent::ContentBlockComplete {
-                    block: ContentBlock::Text { text: text_buffer },
-                });
-            }
-
-            let mut sorted_indices: Vec<usize> = tool_calls.keys().copied().collect();
-            sorted_indices.sort_unstable();
-            for idx in sorted_indices {
-                if let Some(tc) = tool_calls.remove(&idx) {
-                    let input = serde_json::from_str(&tc.arguments).unwrap_or(Value::Null);
-                    yield Ok(StreamEvent::ContentBlockComplete {
-                        block: ContentBlock::ToolUse {
-                            id: tc.id,
-                            name: tc.name,
-                            input,
-                        },
-                    });
-                }
-            }
-
-            yield Ok(StreamEvent::MessageStop {
-                stop_reason: final_stop_reason,
-                usage: final_usage,
-            });
-        };
-
-        Ok(Box::pin(parsed_stream))
     }
 
     async fn stream_openai_responses(
@@ -552,55 +359,6 @@ impl OpenAIProvider {
 }
 
 // ---------------------------------------------------------------------------
-// SSE chunk deserialization types (matching OpenAI streaming response format)
-// ---------------------------------------------------------------------------
-
-#[derive(Deserialize, Debug, Default)]
-struct RawChunk {
-    #[serde(default)]
-    choices: Vec<RawChoice>,
-    usage: Option<UsageData>,
-}
-
-#[derive(Deserialize, Debug, Default)]
-struct RawChoice {
-    delta: Option<RawDelta>,
-    finish_reason: Option<String>,
-}
-
-#[derive(Deserialize, Debug, Default)]
-struct RawDelta {
-    content: Option<String>,
-    // DeepSeek-R1 / some OpenAI-compatible gateways (Together, Groq,
-    // Novita, etc.) put the model's reasoning in a separate field on
-    // the delta. If we don't explicitly capture it serde silently drops
-    // it and the caller never sees the thinking trace. Route it to
-    // ThinkingDelta just like the Responses API reasoning events.
-    reasoning_content: Option<String>,
-    #[serde(default)]
-    tool_calls: Vec<RawToolCallDelta>,
-}
-
-#[derive(Deserialize, Debug, Default, Clone)]
-struct RawToolCallDelta {
-    index: usize,
-    id: Option<String>,
-    function: Option<RawFunctionDelta>,
-}
-
-#[derive(Deserialize, Debug, Default, Clone)]
-struct RawFunctionDelta {
-    name: Option<String>,
-    arguments: Option<String>,
-}
-
-#[derive(Deserialize, Debug, Default)]
-struct UsageData {
-    prompt_tokens: Option<u32>,
-    completion_tokens: Option<u32>,
-}
-
-// ---------------------------------------------------------------------------
 // In-progress tool call accumulator
 // ---------------------------------------------------------------------------
 
@@ -629,20 +387,15 @@ impl AgentProvider for OpenAIProvider {
                         "OPENAI_API_KEY is not configured".to_string(),
                     ));
                 }
-                if self.api_key_uses_responses_api() {
-                    self.stream_openai_responses(
-                        messages,
-                        tools,
-                        config,
-                        OpenAIResponsesAuth::ApiKey {
-                            api_key: api_key.clone(),
-                        },
-                    )
-                    .await
-                } else {
-                    self.stream_chat_completions(messages, tools, config, api_key.clone())
-                        .await
-                }
+                self.stream_openai_responses(
+                    messages,
+                    tools,
+                    config,
+                    OpenAIResponsesAuth::ApiKey {
+                        api_key: api_key.clone(),
+                    },
+                )
+                .await
             }
             OpenAIAuth::Codex {
                 access_token,
@@ -704,129 +457,6 @@ impl AgentProvider for OpenAIProvider {
     fn name(&self) -> &'static str {
         self.model
     }
-}
-
-// ---------------------------------------------------------------------------
-// Message conversion: internal types -> OpenAI Chat Completions format
-// ---------------------------------------------------------------------------
-
-fn build_openai_messages(messages: &[Message], system_prompt: Option<&str>) -> Vec<Value> {
-    let mut api_messages = Vec::with_capacity(messages.len() + 1);
-
-    if let Some(system) = system_prompt {
-        api_messages.push(json!({
-            "role": "system",
-            "content": system,
-        }));
-    }
-
-    for message in messages {
-        match message {
-            Message::User { content } => {
-                // Tool results get emitted as separate "tool" role messages.
-                // Plain text and images become a single "user" message.
-                let mut user_parts: Vec<Value> = Vec::new();
-
-                for item in content {
-                    match item {
-                        UserContent::Text { text } => {
-                            user_parts.push(json!({
-                                "type": "text",
-                                "text": text,
-                            }));
-                        }
-                        UserContent::Image { source } => {
-                            user_parts.push(json!({
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": format!(
-                                        "data:{};base64,{}",
-                                        source.media_type,
-                                        source.data
-                                    ),
-                                },
-                            }));
-                        }
-                        UserContent::ToolResult(result) => {
-                            let text_content = result
-                                .content
-                                .iter()
-                                .filter_map(|entry| match entry {
-                                    ToolResultContent::Text { text } => Some(text.as_str()),
-                                    ToolResultContent::Image { .. } => None,
-                                })
-                                .collect::<Vec<_>>()
-                                .join("\n");
-
-                            api_messages.push(json!({
-                                "role": "tool",
-                                "tool_call_id": result.tool_use_id,
-                                "content": text_content,
-                            }));
-                        }
-                    }
-                }
-
-                if !user_parts.is_empty() {
-                    if user_parts.len() == 1 && user_parts[0]["type"] == "text" {
-                        // Single text content can use the simple string form
-                        api_messages.push(json!({
-                            "role": "user",
-                            "content": user_parts[0]["text"].as_str().unwrap_or(""),
-                        }));
-                    } else {
-                        api_messages.push(json!({
-                            "role": "user",
-                            "content": user_parts,
-                        }));
-                    }
-                }
-            }
-            Message::Assistant { content } => {
-                let mut text_parts = String::new();
-                let mut tool_calls_json: Vec<Value> = Vec::new();
-
-                for block in content {
-                    match block {
-                        ContentBlock::Text { text } => {
-                            text_parts.push_str(text);
-                        }
-                        ContentBlock::Thinking { thinking, .. } => {
-                            // OpenAI has no thinking block; prepend as context
-                            if !thinking.is_empty() {
-                                text_parts.push_str("[thinking]\n");
-                                text_parts.push_str(thinking);
-                                text_parts.push('\n');
-                            }
-                        }
-                        ContentBlock::RedactedThinking { .. } => {}
-                        ContentBlock::ToolUse { id, name, input } => {
-                            tool_calls_json.push(json!({
-                                "id": id,
-                                "type": "function",
-                                "function": {
-                                    "name": name,
-                                    "arguments": serde_json::to_string(input)
-                                        .unwrap_or_else(|_| "{}".to_string()),
-                                },
-                            }));
-                        }
-                    }
-                }
-
-                let mut msg = json!({ "role": "assistant" });
-                if !text_parts.is_empty() || tool_calls_json.is_empty() {
-                    msg["content"] = json!(text_parts);
-                }
-                if !tool_calls_json.is_empty() {
-                    msg["tool_calls"] = json!(tool_calls_json);
-                }
-                api_messages.push(msg);
-            }
-        }
-    }
-
-    api_messages
 }
 
 fn build_openai_responses_input(messages: &[Message]) -> Vec<Value> {
@@ -950,18 +580,6 @@ fn build_openai_responses_input(messages: &[Message]) -> Vec<Value> {
     }
 
     input
-}
-
-fn tool_schema_to_openai_json(tool: &ToolSchema) -> Value {
-    let parameters = normalized_strict_tool_parameters(&tool.parameters);
-    json!({
-        "type": "function",
-        "function": {
-            "name": tool.name,
-            "description": tool.description,
-            "parameters": parameters,
-        },
-    })
 }
 
 fn tool_schema_to_responses_json(tool: &ToolSchema) -> Value {
@@ -1090,11 +708,6 @@ fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
     Some((item_id, call_id))
 }
 
-fn merge_usage(into: &mut TokenUsage, usage: &UsageData) {
-    into.input_tokens = usage.prompt_tokens.unwrap_or(into.input_tokens);
-    into.output_tokens = usage.completion_tokens.unwrap_or(into.output_tokens);
-}
-
 fn merge_codex_usage(into: &mut TokenUsage, usage: &Value) {
     into.input_tokens = usage
         .get("input_tokens")
@@ -1106,16 +719,6 @@ fn merge_codex_usage(into: &mut TokenUsage, usage: &Value) {
         .and_then(Value::as_u64)
         .map(|value| value as u32)
         .unwrap_or(into.output_tokens);
-}
-
-fn map_finish_reason(reason: &str) -> StopReason {
-    match reason {
-        "stop" => StopReason::EndTurn,
-        "tool_calls" => StopReason::ToolUse,
-        "length" => StopReason::MaxTokens,
-        "content_filter" => StopReason::StopSequence,
-        _ => StopReason::EndTurn,
-    }
 }
 
 fn openai_responses_visible_reasoning_delta(payload: &Value) -> Option<String> {
@@ -1141,125 +744,6 @@ mod tests {
     };
     use serde_json::json;
 
-    // -- Message formatting tests --
-
-    #[test]
-    fn formats_system_prompt_as_first_message() {
-        let messages = vec![Message::user_text("hello")];
-        let api_msgs = build_openai_messages(&messages, Some("You are helpful."));
-
-        assert_eq!(api_msgs.len(), 2);
-        assert_eq!(api_msgs[0]["role"], "system");
-        assert_eq!(api_msgs[0]["content"], "You are helpful.");
-        assert_eq!(api_msgs[1]["role"], "user");
-        assert_eq!(api_msgs[1]["content"], "hello");
-    }
-
-    #[test]
-    fn formats_no_system_prompt_when_none() {
-        let messages = vec![Message::user_text("hi")];
-        let api_msgs = build_openai_messages(&messages, None);
-
-        assert_eq!(api_msgs.len(), 1);
-        assert_eq!(api_msgs[0]["role"], "user");
-    }
-
-    #[test]
-    fn formats_assistant_tool_calls() {
-        let messages = vec![Message::Assistant {
-            content: vec![
-                ContentBlock::Text {
-                    text: "Let me search.".to_string(),
-                },
-                ContentBlock::ToolUse {
-                    id: "call_abc".to_string(),
-                    name: "vault_search".to_string(),
-                    input: json!({"query": "rust"}),
-                },
-            ],
-        }];
-        let api_msgs = build_openai_messages(&messages, None);
-
-        assert_eq!(api_msgs.len(), 1);
-        let msg = &api_msgs[0];
-        assert_eq!(msg["role"], "assistant");
-        assert_eq!(msg["content"], "Let me search.");
-        assert_eq!(msg["tool_calls"][0]["id"], "call_abc");
-        assert_eq!(msg["tool_calls"][0]["type"], "function");
-        assert_eq!(msg["tool_calls"][0]["function"]["name"], "vault_search");
-    }
-
-    #[test]
-    fn formats_tool_result_as_tool_role() {
-        let messages = vec![Message::User {
-            content: vec![UserContent::ToolResult(ToolResult {
-                tool_use_id: "call_abc".to_string(),
-                content: vec![ToolResultContent::Text {
-                    text: "found 3 results".to_string(),
-                }],
-                is_error: false,
-            })],
-        }];
-        let api_msgs = build_openai_messages(&messages, None);
-
-        assert_eq!(api_msgs.len(), 1);
-        assert_eq!(api_msgs[0]["role"], "tool");
-        assert_eq!(api_msgs[0]["tool_call_id"], "call_abc");
-        assert_eq!(api_msgs[0]["content"], "found 3 results");
-    }
-
-    #[test]
-    fn formats_image_as_image_url() {
-        let messages = vec![Message::User {
-            content: vec![
-                UserContent::Text {
-                    text: "What is this?".to_string(),
-                },
-                UserContent::Image {
-                    source: ImageSource {
-                        source_type: "base64".to_string(),
-                        media_type: "image/png".to_string(),
-                        data: "abc123".to_string(),
-                    },
-                },
-            ],
-        }];
-        let api_msgs = build_openai_messages(&messages, None);
-
-        assert_eq!(api_msgs.len(), 1);
-        let msg = &api_msgs[0];
-        assert_eq!(msg["role"], "user");
-        let content = msg["content"].as_array().expect("content should be array");
-        assert_eq!(content.len(), 2);
-        assert_eq!(content[0]["type"], "text");
-        assert_eq!(content[1]["type"], "image_url");
-        assert!(content[1]["image_url"]["url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,"));
-    }
-
-    #[test]
-    fn formats_tool_schema_correctly() {
-        let schema = ToolSchema {
-            name: "read_file".to_string(),
-            description: "Read a file".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string" }
-                },
-                "required": ["path"]
-            }),
-        };
-        let tool_json = tool_schema_to_openai_json(&schema);
-
-        assert_eq!(tool_json["type"], "function");
-        assert_eq!(tool_json["function"]["name"], "read_file");
-        assert_eq!(tool_json["function"]["description"], "Read a file");
-        assert!(tool_json["function"]["parameters"]["properties"]["path"].is_object());
-    }
-
     #[test]
     fn openai_responses_reasoning_effort_uses_xhigh_for_max() {
         let config = AgentConfig {
@@ -1271,207 +755,19 @@ mod tests {
         assert_eq!(openai_responses_reasoning_effort(&config), "xhigh");
     }
 
-    // -- SSE chunk parsing tests --
-
     #[test]
-    fn parses_text_delta_chunk() {
-        let raw = r#"{"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}"#;
-        let chunk: RawChunk = serde_json::from_str(raw).expect("parse chunk");
+    fn openai_api_key_provider_has_no_chat_completions_fallback() {
+        let source = include_str!("openai.rs");
+        let legacy_fragment = ["chat", "completions"].join("/");
 
-        assert_eq!(chunk.choices.len(), 1);
-        assert_eq!(
-            chunk.choices[0].delta.as_ref().unwrap().content.as_deref(),
-            Some("Hello")
+        assert!(
+            source.contains("client.post(OPENAI_RESPONSES_API)"),
+            "API-key OpenAI traffic must use the public Responses endpoint"
         );
-        assert!(chunk.choices[0].finish_reason.is_none());
-    }
-
-    #[test]
-    fn parses_tool_call_start_chunk() {
-        let raw = r#"{
-            "choices": [{
-                "delta": {
-                    "tool_calls": [{
-                        "index": 0,
-                        "id": "call_xyz",
-                        "function": { "name": "vault_search", "arguments": "" }
-                    }]
-                },
-                "finish_reason": null
-            }]
-        }"#;
-        let chunk: RawChunk = serde_json::from_str(raw).expect("parse chunk");
-
-        let tc = &chunk.choices[0].delta.as_ref().unwrap().tool_calls[0];
-        assert_eq!(tc.index, 0);
-        assert_eq!(tc.id.as_deref(), Some("call_xyz"));
-        assert_eq!(
-            tc.function.as_ref().unwrap().name.as_deref(),
-            Some("vault_search")
+        assert!(
+            !source.contains(&legacy_fragment),
+            "the legacy Chat Completions fallback must not remain in the live provider"
         );
-    }
-
-    #[test]
-    fn parses_tool_call_argument_delta() {
-        let raw = r#"{
-            "choices": [{
-                "delta": {
-                    "tool_calls": [{
-                        "index": 0,
-                        "function": { "arguments": "{\"query\":" }
-                    }]
-                },
-                "finish_reason": null
-            }]
-        }"#;
-        let chunk: RawChunk = serde_json::from_str(raw).expect("parse chunk");
-
-        let tc = &chunk.choices[0].delta.as_ref().unwrap().tool_calls[0];
-        assert_eq!(
-            tc.function.as_ref().unwrap().arguments.as_deref(),
-            Some("{\"query\":")
-        );
-    }
-
-    #[test]
-    fn parses_finish_reason_tool_calls() {
-        let raw = r#"{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}"#;
-        let chunk: RawChunk = serde_json::from_str(raw).expect("parse chunk");
-
-        assert_eq!(
-            chunk.choices[0].finish_reason.as_deref(),
-            Some("tool_calls")
-        );
-    }
-
-    #[test]
-    fn parses_usage_data() {
-        let raw = r#"{"choices":[],"usage":{"prompt_tokens":42,"completion_tokens":18}}"#;
-        let chunk: RawChunk = serde_json::from_str(raw).expect("parse chunk");
-
-        let usage = chunk.usage.expect("usage present");
-        assert_eq!(usage.prompt_tokens, Some(42));
-        assert_eq!(usage.completion_tokens, Some(18));
-    }
-
-    // -- Tool call assembly tests --
-
-    #[test]
-    fn assembles_tool_call_from_streaming_deltas() {
-        // Simulate the sequence of deltas that OpenAI sends for a tool call
-        let mut tool_calls: HashMap<usize, ToolCallInProgress> = HashMap::new();
-
-        // First delta: tool call start with id and name
-        let start_raw = r#"{
-            "choices": [{
-                "delta": {
-                    "tool_calls": [{
-                        "index": 0,
-                        "id": "call_001",
-                        "function": { "name": "read_file", "arguments": "" }
-                    }]
-                },
-                "finish_reason": null
-            }]
-        }"#;
-        let start_chunk: RawChunk = serde_json::from_str(start_raw).unwrap();
-        for choice in &start_chunk.choices {
-            if let Some(delta) = &choice.delta {
-                for tc_delta in &delta.tool_calls {
-                    if let Some(id) = &tc_delta.id {
-                        let name = tc_delta
-                            .function
-                            .as_ref()
-                            .and_then(|f| f.name.clone())
-                            .unwrap_or_default();
-                        tool_calls.insert(
-                            tc_delta.index,
-                            ToolCallInProgress {
-                                id: id.clone(),
-                                name,
-                                arguments: String::new(),
-                            },
-                        );
-                    }
-                }
-            }
-        }
-
-        // Second delta: argument fragment
-        let arg1_raw = r#"{
-            "choices": [{
-                "delta": {
-                    "tool_calls": [{
-                        "index": 0,
-                        "function": { "arguments": "{\"path\":" }
-                    }]
-                },
-                "finish_reason": null
-            }]
-        }"#;
-        let arg1_chunk: RawChunk = serde_json::from_str(arg1_raw).unwrap();
-        for choice in &arg1_chunk.choices {
-            if let Some(delta) = &choice.delta {
-                for tc_delta in &delta.tool_calls {
-                    if let Some(func) = &tc_delta.function {
-                        if let Some(args) = &func.arguments {
-                            if let Some(tc) = tool_calls.get_mut(&tc_delta.index) {
-                                tc.arguments.push_str(args);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Third delta: remaining argument fragment
-        let arg2_raw = r#"{
-            "choices": [{
-                "delta": {
-                    "tool_calls": [{
-                        "index": 0,
-                        "function": { "arguments": "\"/tmp/test.rs\"}" }
-                    }]
-                },
-                "finish_reason": null
-            }]
-        }"#;
-        let arg2_chunk: RawChunk = serde_json::from_str(arg2_raw).unwrap();
-        for choice in &arg2_chunk.choices {
-            if let Some(delta) = &choice.delta {
-                for tc_delta in &delta.tool_calls {
-                    if let Some(func) = &tc_delta.function {
-                        if let Some(args) = &func.arguments {
-                            if let Some(tc) = tool_calls.get_mut(&tc_delta.index) {
-                                tc.arguments.push_str(args);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Verify assembled tool call
-        let tc = tool_calls.remove(&0).expect("tool call at index 0");
-        assert_eq!(tc.id, "call_001");
-        assert_eq!(tc.name, "read_file");
-
-        let parsed_input: Value = serde_json::from_str(&tc.arguments).expect("valid JSON");
-        assert_eq!(parsed_input["path"], "/tmp/test.rs");
-    }
-
-    // -- Stop reason mapping tests --
-
-    #[test]
-    fn maps_stop_reasons_correctly() {
-        assert_eq!(map_finish_reason("stop"), StopReason::EndTurn);
-        assert_eq!(map_finish_reason("tool_calls"), StopReason::ToolUse);
-        assert_eq!(map_finish_reason("length"), StopReason::MaxTokens);
-        assert_eq!(
-            map_finish_reason("content_filter"),
-            StopReason::StopSequence
-        );
-        assert_eq!(map_finish_reason("unknown_reason"), StopReason::EndTurn);
     }
 
     #[test]
@@ -1490,47 +786,6 @@ mod tests {
             Some("Checking the note structure".to_string())
         );
         assert_eq!(openai_responses_visible_reasoning_delta(&raw), None);
-    }
-
-    // -- Usage merge test --
-
-    #[test]
-    fn merges_usage_correctly() {
-        let mut token_usage = TokenUsage::default();
-        let usage = UsageData {
-            prompt_tokens: Some(100),
-            completion_tokens: Some(50),
-        };
-        merge_usage(&mut token_usage, &usage);
-
-        assert_eq!(token_usage.input_tokens, 100);
-        assert_eq!(token_usage.output_tokens, 50);
-    }
-
-    #[test]
-    fn mixed_user_content_with_tool_results_and_text() {
-        let messages = vec![Message::User {
-            content: vec![
-                UserContent::ToolResult(ToolResult {
-                    tool_use_id: "call_1".to_string(),
-                    content: vec![ToolResultContent::Text {
-                        text: "result data".to_string(),
-                    }],
-                    is_error: false,
-                }),
-                UserContent::Text {
-                    text: "Now do something else".to_string(),
-                },
-            ],
-        }];
-        let api_msgs = build_openai_messages(&messages, None);
-
-        // Should produce a "tool" message and then a "user" message
-        assert_eq!(api_msgs.len(), 2);
-        assert_eq!(api_msgs[0]["role"], "tool");
-        assert_eq!(api_msgs[0]["tool_call_id"], "call_1");
-        assert_eq!(api_msgs[1]["role"], "user");
-        assert_eq!(api_msgs[1]["content"], "Now do something else");
     }
 
     #[test]
@@ -1563,17 +818,6 @@ mod tests {
         let provider = OpenAIProvider::gpt4o_mini();
 
         assert_eq!(provider.model, "gpt-5.4-mini");
-    }
-
-    #[test]
-    fn gpt54_api_key_path_uses_public_responses_api() {
-        let provider = OpenAIProvider::new(OpenAIAuth::ApiKey("sk-test".to_string()), "gpt-5.4");
-        let mini = OpenAIProvider::new(OpenAIAuth::ApiKey("sk-test".to_string()), "gpt-5.4-mini");
-        let legacy = OpenAIProvider::new(OpenAIAuth::ApiKey("sk-test".to_string()), "o3-mini");
-
-        assert!(provider.api_key_uses_responses_api());
-        assert!(mini.api_key_uses_responses_api());
-        assert!(!legacy.api_key_uses_responses_api());
     }
 
     #[test]
@@ -1610,6 +854,51 @@ mod tests {
         assert_eq!(input[2]["type"], "function_call_output");
         assert_eq!(input[2]["call_id"], "fc_call_1");
         assert_eq!(input[2]["output"], "{\"message\":\"hello-world\"}");
+    }
+
+    #[test]
+    fn builds_openai_responses_input_with_text_image_and_tool_result() {
+        let messages = vec![
+            Message::User {
+                content: vec![
+                    UserContent::Text {
+                        text: "What is this?".to_string(),
+                    },
+                    UserContent::Image {
+                        source: ImageSource {
+                            source_type: "base64".to_string(),
+                            media_type: "image/png".to_string(),
+                            data: "abc123".to_string(),
+                        },
+                    },
+                ],
+            },
+            Message::User {
+                content: vec![UserContent::ToolResult(ToolResult {
+                    tool_use_id: "fc_call_1".to_string(),
+                    content: vec![ToolResultContent::Text {
+                        text: "found 3 results".to_string(),
+                    }],
+                    is_error: false,
+                })],
+            },
+        ];
+
+        let input = build_openai_responses_input(&messages);
+
+        assert_eq!(input.len(), 2);
+        assert_eq!(input[0]["type"], "message");
+        assert_eq!(input[0]["role"], "user");
+        assert_eq!(input[0]["content"][0]["type"], "input_text");
+        assert_eq!(input[0]["content"][0]["text"], "What is this?");
+        assert_eq!(input[0]["content"][1]["type"], "input_image");
+        assert!(input[0]["content"][1]["image_url"]
+            .as_str()
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
+        assert_eq!(input[1]["type"], "function_call_output");
+        assert_eq!(input[1]["call_id"], "fc_call_1");
+        assert_eq!(input[1]["output"], "found 3 results");
     }
 
     #[test]
