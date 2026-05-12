@@ -1563,57 +1563,19 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             return try await collectOpenAIResponseText(from: request)
         }
 
-        var body: [String: Any] = [
-            "model": resolvedModel.vendorModelID,
-            "input": input,
-            "store": false,
-        ]
-        if let instructions = openAIResponsesInstructions(
-            systemPrompt: systemPrompt,
-            credential: credential
-        ) {
-            body["instructions"] = instructions
+        let json = try await sendOpenAIResponsesJSON { reasoningCompatibilityFallback in
+            try makeOpenAIResponsesRequest(
+                model: resolvedModel,
+                credential: credential,
+                input: input,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                operatingMode: operatingMode,
+                stream: false,
+                reasoningCompatibilityFallback: reasoningCompatibilityFallback
+            )
         }
-        // Ensure the answer has budget AFTER the reasoning phase burns
-        // its allotment. Without this, Heavy tier on GPT-5.4 can
-        // consume the entire token cap on reasoning and the model
-        // never emits an answer — user-visible as "it just thinks and
-        // never provides the final answer." Floor = user's Settings
-        // slider (or sensible defaults) auto-expanded by tier.
-        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(
-            userRequested: maxTokens,
-            model: resolvedModel,
-            operatingMode: operatingMode
-        )
-        configureOpenAIResponsesBody(
-            &body,
-            model: resolvedModel,
-            operatingMode: operatingMode,
-            credential: credential
-        )
-
-        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
-            throw CloudLLMError.invalidResponse
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let json = try await sendJSON(request)
-        if let text = json["output_text"] as? String, !text.isEmpty {
-            return text
-        }
-        if let output = json["output"] as? [[String: Any]] {
-            let text = output
-                .compactMap { item in item["content"] as? [[String: Any]] }
-                .flatMap { $0 }
-                .compactMap { item in item["text"] as? String }
-                .joined()
-            if !text.isEmpty { return text }
-        }
-        throw CloudLLMError.invalidResponse
+        return try openAIResponseText(from: json)
     }
 
     /// OpenAI structured output via the Responses API `text.format` block.
@@ -1660,46 +1622,19 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             }
         }
 
-        var body: [String: Any] = [
-            "model": resolvedModel.vendorModelID,
-            "input": input,
-            "store": false,
-        ]
-        if let instructions = openAIResponsesInstructions(
-            systemPrompt: systemPrompt,
-            credential: credential
-        ) {
-            body["instructions"] = instructions
+        let json = try await sendOpenAIResponsesJSON { reasoningCompatibilityFallback in
+            try makeOpenAIResponsesRequest(
+                model: resolvedModel,
+                credential: credential,
+                input: input,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                operatingMode: operatingMode,
+                schema: schema,
+                stream: false,
+                reasoningCompatibilityFallback: reasoningCompatibilityFallback
+            )
         }
-        // Ensure the answer has budget AFTER the reasoning phase burns
-        // its allotment. Without this, Heavy tier on GPT-5.4 can
-        // consume the entire token cap on reasoning and the model
-        // never emits an answer — user-visible as "it just thinks and
-        // never provides the final answer." Floor = user's Settings
-        // slider (or sensible defaults) auto-expanded by tier.
-        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(
-            userRequested: maxTokens,
-            model: resolvedModel,
-            operatingMode: operatingMode
-        )
-        configureOpenAIResponsesBody(
-            &body,
-            model: resolvedModel,
-            operatingMode: operatingMode,
-            credential: credential,
-            schema: schema
-        )
-
-        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
-            throw CloudLLMError.invalidResponse
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let json = try await sendJSON(request)
         // Extract raw text from response
         let rawText: String
         if let text = json["output_text"] as? String, !text.isEmpty {
@@ -1745,23 +1680,6 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             )
         ]]
 
-        let request: URLRequest
-        do {
-            request = try makeOpenAIResponsesRequest(
-                model: resolvedModel,
-                credential: credential,
-                input: input,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens,
-                operatingMode: operatingMode,
-                stream: true
-            )
-        } catch {
-            return StreamingBufferPolicy.throwingStream { continuation in
-                continuation.finish(throwing: CloudLLMError.invalidResponse)
-            }
-        }
-
         let sink = self.reasoningSink
         let usage = self.usageSink
         let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
@@ -1773,19 +1691,61 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         let onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = usage.map { cb in
             { @Sendable snapshot in cb(snapshot.inputTokens, snapshot.outputTokens, snapshot.cacheReadTokens) }
         }
-        return streamSSE(
-            request,
-            chunkExtractor: { @Sendable json in CloudStreamingParser.openAITextDelta(from: json) },
-            completionExtractor: { @Sendable json in CloudStreamingParser.openAICompletedText(from: json) },
-            reasoningExtractor: reasoningExtractor,
-            onReasoning: sink,
-            usageExtractor: usageExtractor,
-            onUsage: onUsage,
-            firstContentWatchdogSeconds: openAIFirstContentWatchdogSeconds(
-                for: model,
-                operatingMode: operatingMode
-            )
-        )
+        return StreamingBufferPolicy.throwingStream(limit: StreamingBufferPolicy.textLimit) { continuation in
+            let task = Task {
+                do {
+                    let request = try self.makeOpenAIResponsesRequest(
+                        model: resolvedModel,
+                        credential: credential,
+                        input: input,
+                        systemPrompt: systemPrompt,
+                        maxTokens: maxTokens,
+                        operatingMode: operatingMode,
+                        stream: true
+                    )
+                    do {
+                        try await self.forwardOpenAIResponseStream(
+                            request,
+                            reasoningExtractor: reasoningExtractor,
+                            onReasoning: sink,
+                            usageExtractor: usageExtractor,
+                            onUsage: onUsage,
+                            model: model,
+                            operatingMode: operatingMode,
+                            to: continuation
+                        )
+                    } catch {
+                        guard self.shouldRetryOpenAIReasoningCompatibility(after: error) else {
+                            throw error
+                        }
+                        let fallbackRequest = try self.makeOpenAIResponsesRequest(
+                            model: resolvedModel,
+                            credential: credential,
+                            input: input,
+                            systemPrompt: systemPrompt,
+                            maxTokens: maxTokens,
+                            operatingMode: operatingMode,
+                            stream: true,
+                            reasoningCompatibilityFallback: true
+                        )
+                        try await self.forwardOpenAIResponseStream(
+                            fallbackRequest,
+                            reasoningExtractor: reasoningExtractor,
+                            onReasoning: sink,
+                            usageExtractor: usageExtractor,
+                            onUsage: onUsage,
+                            model: model,
+                            operatingMode: operatingMode,
+                            to: continuation
+                        )
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     private func generateAnthropic(
@@ -2697,6 +2657,48 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         )
     }
 
+    private func sendOpenAIResponsesJSON(
+        makeRequest: (_ reasoningCompatibilityFallback: Bool) throws -> URLRequest
+    ) async throws -> [String: Any] {
+        do {
+            return try await sendJSON(makeRequest(false))
+        } catch {
+            guard shouldRetryOpenAIReasoningCompatibility(after: error) else {
+                throw error
+            }
+            return try await sendJSON(makeRequest(true))
+        }
+    }
+
+    private func forwardOpenAIResponseStream(
+        _ request: URLRequest,
+        reasoningExtractor: (@Sendable ([String: Any]) -> String?)?,
+        onReasoning: (@Sendable (String) -> Void)?,
+        usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)?,
+        onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)?,
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
+        to continuation: AsyncThrowingStream<String, Error>.Continuation
+    ) async throws {
+        let stream = streamSSE(
+            request,
+            chunkExtractor: { @Sendable json in CloudStreamingParser.openAITextDelta(from: json) },
+            completionExtractor: { @Sendable json in CloudStreamingParser.openAICompletedText(from: json) },
+            reasoningExtractor: reasoningExtractor,
+            onReasoning: onReasoning,
+            usageExtractor: usageExtractor,
+            onUsage: onUsage,
+            firstContentWatchdogSeconds: openAIFirstContentWatchdogSeconds(
+                for: model,
+                operatingMode: operatingMode
+            )
+        )
+
+        for try await chunk in stream {
+            continuation.yield(chunk)
+        }
+    }
+
     private func collectOpenAIResponseText(from request: URLRequest) async throws -> String {
         var collected = ""
         for try await chunk in streamSSE(request, chunkExtractor: { json in
@@ -2713,6 +2715,21 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         return collected
     }
 
+    private func openAIResponseText(from json: [String: Any]) throws -> String {
+        if let text = json["output_text"] as? String, !text.isEmpty {
+            return text
+        }
+        if let output = json["output"] as? [[String: Any]] {
+            let text = output
+                .compactMap { item in item["content"] as? [[String: Any]] }
+                .flatMap { $0 }
+                .compactMap { item in item["text"] as? String }
+                .joined()
+            if !text.isEmpty { return text }
+        }
+        throw CloudLLMError.invalidResponse
+    }
+
     private func makeOpenAIResponsesRequest(
         model: CloudTextModelID,
         credential: CloudProviderResolvedCredential,
@@ -2721,7 +2738,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         maxTokens: Int,
         operatingMode: EpistemosOperatingMode,
         schema: CloudJSONSchema? = nil,
-        stream: Bool
+        stream: Bool,
+        reasoningCompatibilityFallback: Bool = false
     ) throws -> URLRequest {
         guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
             throw CloudLLMError.invalidResponse
@@ -2756,7 +2774,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             model: model,
             operatingMode: operatingMode,
             credential: credential,
-            schema: schema
+            schema: schema,
+            reasoningCompatibilityFallback: reasoningCompatibilityFallback
         )
 
         var request = URLRequest(url: url)
@@ -2922,7 +2941,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode,
         credential: CloudProviderResolvedCredential,
-        allowsJSONObjectFormat: Bool
+        allowsJSONObjectFormat: Bool,
+        reasoningCompatibilityFallback: Bool = false
     ) {
         guard let controls = openAIResponseControls(
             for: model,
@@ -2932,7 +2952,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             return
         }
         if let effort = controls.reasoningEffort {
-            var reasoning: [String: Any] = ["effort": effort]
+            var reasoning: [String: Any] = [
+                "effort": reasoningCompatibilityFallback
+                    ? openAICompatibleFallbackReasoningEffort(for: effort)
+                    : effort
+            ]
             if let summary = controls.reasoningSummary {
                 reasoning["summary"] = summary
             }
@@ -2961,7 +2985,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode,
         credential: CloudProviderResolvedCredential,
-        schema: CloudJSONSchema? = nil
+        schema: CloudJSONSchema? = nil,
+        reasoningCompatibilityFallback: Bool = false
     ) {
         let tools = openAIToolsConfiguration()
         let hasJSONIncompatibleTools = openAIToolsConflictWithJSONFormat(tools)
@@ -2970,13 +2995,41 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             model: model,
             operatingMode: operatingMode,
             credential: credential,
-            allowsJSONObjectFormat: schema == nil && !hasJSONIncompatibleTools
+            allowsJSONObjectFormat: schema == nil && !hasJSONIncompatibleTools,
+            reasoningCompatibilityFallback: reasoningCompatibilityFallback
         )
         if !tools.isEmpty && !(schema != nil && hasJSONIncompatibleTools) {
             body["tools"] = tools
         }
         if let schema {
             body["text"] = ["format": openAIResponseFormatSchema(for: schema)]
+        }
+    }
+
+    private nonisolated func shouldRetryOpenAIReasoningCompatibility(after error: Error) -> Bool {
+        guard case LLMError.apiError(let statusCode, let body) = error,
+              statusCode == 400 else {
+            return false
+        }
+
+        let lowercased = body.lowercased()
+        return lowercased.contains("reasoning")
+            && lowercased.contains("effort")
+            && (
+                lowercased.contains("unsupported")
+                    || lowercased.contains("not supported")
+                    || lowercased.contains("invalid")
+            )
+    }
+
+    private nonisolated func openAICompatibleFallbackReasoningEffort(for effort: String) -> String {
+        switch effort {
+        case "none", "minimal":
+            return "low"
+        case "xhigh":
+            return "high"
+        default:
+            return effort
         }
     }
 
