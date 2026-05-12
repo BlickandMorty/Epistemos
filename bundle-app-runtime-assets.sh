@@ -55,6 +55,23 @@ bundle_editor_resources() {
     done < <(find "$EDITOR_SOURCE_DIR" -type f -print0)
 }
 
+bundle_nightbrain_launchagent() {
+    local plist_name="com.epistemos.nightbrain.plist"
+    local source_plist="$SRCROOT/Epistemos/Resources/LaunchAgents/$plist_name"
+    local contents_dir="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH:-${WRAPPER_NAME:-}/Contents}"
+    local launch_agents_dir="$contents_dir/Library/LaunchAgents"
+
+    if [ ! -f "$source_plist" ] || [ -z "$contents_dir" ]; then
+        return
+    fi
+
+    mkdir -p "$launch_agents_dir"
+    cp "$source_plist" "$launch_agents_dir/$plist_name"
+    rm -f "$RESOURCES_DIR/LaunchAgents/com.epistemos.nightbrain.plist"
+    rmdir "$RESOURCES_DIR/LaunchAgents" 2>/dev/null || true
+    echo "NightBrain LaunchAgent bundled at Contents/Library/LaunchAgents/$plist_name"
+}
+
 rm -rf "$KNOWLEDGE_FUSION_DIR/Training/scripts"
 rm -rf "$KNOWLEDGE_FUSION_DIR/Alignment/scripts"
 rm -rf "$KNOWLEDGE_FUSION_DIR/MoLoRA"
@@ -75,6 +92,8 @@ if is_app_store_build; then
     sanitize_app_store_resources
     exit 0
 fi
+
+bundle_nightbrain_launchagent
 
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py" \
     "$KNOWLEDGE_FUSION_DIR/Training/scripts/train_knowledge.py"
