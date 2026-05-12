@@ -712,6 +712,86 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
+    @Test("OpenAI Codex account retries once when reasoning effort is rejected")
+    func openAICodexAccountReasoningEffortRejectionRetriesWithCompatibleEffort() async throws {
+        let expiration = Date(timeIntervalSinceNow: 3_600)
+        let credential = CloudProviderOAuthCredential(
+            provider: .openAI,
+            accessToken: makeJWT(expiration: expiration),
+            refreshToken: "refresh-token",
+            expiresAt: expiration,
+            clientID: OpenAICodexRuntimeMetadata.clientID,
+            clientSecret: nil,
+            projectID: nil,
+            authMode: .openAICodex,
+            accountLabel: "chatgpt@example.com"
+        )
+        let encoded = try JSONEncoder().encode(credential)
+        let encodedString = try #require(String(data: encoded, encoding: .utf8))
+
+        let inference = makeInferenceState(keychainValues: [
+            CloudModelProvider.openAI.oauthKeychainKey: encodedString
+        ])
+        inference.setChatReasoningTier(.off)
+        let attempts = LockedStringIntMap()
+        let session = makeURLSession { request in
+            attempts.increment("responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            let reasoning = try #require(json["reasoning"] as? [String: Any])
+
+            let url = try #require(request.url)
+            #expect(url.path == "/backend-api/codex/responses")
+            if attempts.value(for: "responses") == 1 {
+                #expect(reasoning["effort"] as? String == "none")
+                let response = try #require(
+                    HTTPURLResponse(url: url, statusCode: 400, httpVersion: nil, headerFields: nil)
+                )
+                let data = """
+                {
+                  "error": {
+                    "message": "Unsupported value: 'none' is not supported with this model. Supported values are: 'low', 'medium', and 'high'.",
+                    "type": "invalid_request_error",
+                    "param": "reasoning.effort"
+                  }
+                }
+                """.data(using: .utf8) ?? Data()
+                return (response, data)
+            }
+
+            #expect(reasoning["effort"] as? String == "low")
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":"retry"}
+
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":" worked"}
+
+            event: response.completed
+            data: {"type":"response.completed"}
+
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        let result = try await client.generate(
+            prompt: "Say OK.",
+            systemPrompt: nil,
+            maxTokens: 64,
+            model: .openAIGPT54,
+            operatingMode: .fast
+        )
+
+        #expect(result == "retry worked")
+        #expect(attempts.value(for: "responses") == 2)
+    }
+
+    @MainActor
     @Test("OpenAI Codex agent mode preserves low-effort selections instead of collapsing them to standard")
     func openAICodexAgentModePreservesLowEffortSelection() async throws {
         let expiration = Date(timeIntervalSinceNow: 3_600)

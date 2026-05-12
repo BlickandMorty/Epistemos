@@ -1551,16 +1551,18 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ]]
 
         if case .openAICodex = credential {
-            let request = try makeOpenAIResponsesRequest(
-                model: resolvedModel,
-                credential: credential,
-                input: input,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens,
-                operatingMode: operatingMode,
-                stream: true
-            )
-            return try await collectOpenAIResponseText(from: request)
+            return try await collectOpenAIResponseTextWithReasoningRetry { reasoningCompatibilityFallback in
+                try makeOpenAIResponsesRequest(
+                    model: resolvedModel,
+                    credential: credential,
+                    input: input,
+                    systemPrompt: systemPrompt,
+                    maxTokens: maxTokens,
+                    operatingMode: operatingMode,
+                    stream: true,
+                    reasoningCompatibilityFallback: reasoningCompatibilityFallback
+                )
+            }
         }
 
         let json = try await sendOpenAIResponsesJSON { reasoningCompatibilityFallback in
@@ -1600,17 +1602,19 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ]]
 
         if case .openAICodex = credential {
-            let request = try makeOpenAIResponsesRequest(
-                model: resolvedModel,
-                credential: credential,
-                input: input,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens,
-                operatingMode: operatingMode,
-                schema: schema,
-                stream: true
-            )
-            let rawText = try await collectOpenAIResponseText(from: request)
+            let rawText = try await collectOpenAIResponseTextWithReasoningRetry { reasoningCompatibilityFallback in
+                try makeOpenAIResponsesRequest(
+                    model: resolvedModel,
+                    credential: credential,
+                    input: input,
+                    systemPrompt: systemPrompt,
+                    maxTokens: maxTokens,
+                    operatingMode: operatingMode,
+                    schema: schema,
+                    stream: true,
+                    reasoningCompatibilityFallback: reasoningCompatibilityFallback
+                )
+            }
             guard let data = rawText.data(using: .utf8) else {
                 throw StructuredOutputError.emptyResponse
             }
@@ -2667,6 +2671,19 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 throw error
             }
             return try await sendJSON(makeRequest(true))
+        }
+    }
+
+    private func collectOpenAIResponseTextWithReasoningRetry(
+        makeRequest: (_ reasoningCompatibilityFallback: Bool) throws -> URLRequest
+    ) async throws -> String {
+        do {
+            return try await collectOpenAIResponseText(from: makeRequest(false))
+        } catch {
+            guard shouldRetryOpenAIReasoningCompatibility(after: error) else {
+                throw error
+            }
+            return try await collectOpenAIResponseText(from: makeRequest(true))
         }
     }
 
