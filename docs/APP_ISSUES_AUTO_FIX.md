@@ -63,6 +63,96 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-12-011: Main thread hangs at app startup (969ms + 3182ms)
+
+Status: Open (logged from user runtime trace 2026-05-12)
+Priority: P2
+First Observed: 2026-05-12
+
+Symptom:
+User runtime log shows two main-thread hangs at app startup:
+- 969ms hang right after `Workspace restored: 0 notes, 0 mini chats` +
+  `Activity tracking started`
+- 3182ms hang (coalesced 3 samples) right after
+  `app_became_active` lifecycle event
+
+The 500ms threshold is set by `RuntimeDiagnosticsMonitor` so anything
+over that is a `Main thread hang detected` log.
+
+Suspected Cause:
+- The 969ms hang is likely the SwiftData container load + RootView
+  first render. Pre-existing on the substrate.
+- The 3182ms hang after `app_became_active` is harder to pin down
+  from the trace alone. Candidates (any combination):
+  1. SwiftUI body re-evaluation cascade — `vaultReprompSheet`
+     binding evaluates UserDefaults reads + multiple guards;
+     NoVaultConnectedBanner same shape.
+  2. MLX model warmup (Qwen 3 8B is ~4GB) — `Local agent model
+     selected` log fires before the hang.
+  3. Graph engine init / scene re-layout on first activate.
+  4. Background subscriber storm (NightBrain, ACC catalog refresh,
+     R3 gateway, paperclip, etc.) all fire in parallel.
+
+Safe Auto-Fix Attempts (deferred — needs runtime profiling first):
+- Cache the `vaultReprompSheet` predicate inputs (UserDefaults reads)
+  via `@AppStorage` instead of direct `UserDefaults.standard.bool/data`
+  on every body re-evaluation.
+- Defer MLX model load to first agent invocation rather than first
+  app-active.
+- Move heavy startup work behind `Task.detached(priority: .userInitiated)`.
+
+Destructive Fixes (not appropriate):
+- Removing diagnostic logging.
+- Disabling the watchdog.
+
+Investigation Log:
+- 2026-05-12: First captured in user's runtime trace after the vault
+  disconnect arc landed. Hangs predate the vault fixes — confirmed by
+  process audit (no vault-restoration runs because bookmark is
+  cleared, so the hang isn't on the restore path). Needs Instruments
+  Time Profiler trace to pin down the 3-second hang's actual stack.
+
+---
+
+### ISSUE-2026-05-12-012: APFS recovery snapshot delete fails on stuck old snapshot
+
+Status: Open (logged from user runtime trace 2026-05-12)
+Priority: P3
+First Observed: 2026-05-12
+
+Symptom:
+User runtime log shows:
+- `Failed to prune APFS safety snapshots: Failed to delete local snapshot '2026-04-24-041553'`
+- `Failed to create APFS safety snapshot: Failed to delete local snapshot '2026-04-24-041553'`
+
+The April 24 snapshot is stuck in the local recovery manifest +
+can't be deleted via `tmutil deletelocalsnapshots`. Subsequent
+snapshot creates fail because the prune step fails.
+
+Suspected Cause:
+`tmutil deletelocalsnapshots` requires either user authorization or
+the snapshot to be deletable without admin privilege. The stuck
+April 24 snapshot is likely pinned by macOS for some reason
+(network access, time machine still holding it, recent TM run, etc).
+
+Safe Auto-Fix Attempts:
+- Detect repeated delete failures for the same snapshot ID + skip
+  it in the manifest after N attempts (forget it rather than retry
+  forever).
+- Wrap `Self.backgroundLog.error` with a per-snapshot rate limit so
+  the error doesn't spam the log every prune cycle.
+
+Destructive Fixes (require user approval):
+- Forcing snapshot delete via privileged helper.
+- Calling `tmutil thinlocalsnapshots /` (TM-wide thin).
+
+Investigation Log:
+- 2026-05-12: First captured in user's runtime trace. Background
+  priority, so no main-thread impact. Pre-existing — not introduced
+  by the vault disconnect fix.
+
+---
+
 ### ISSUE-2026-05-12-010: Vault disconnect hangs forever after iteration-1 bookmark-clear reorder
 
 Status: Patched (commit `fa2c29f91` reverts to safe ordering + adds crash-safe `disconnectInProgress` flag)
