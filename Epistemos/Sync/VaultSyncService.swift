@@ -804,12 +804,33 @@ final class VaultSyncService {
         let standardizedPath = url.standardizedFileURL.path
         var didPersistBookmark = false
 
-        do {
-            let bookmark = try makeBookmarkData(for: url, options: .withSecurityScope)
-            defaults.set(bookmark, forKey: Self.bookmarkKey)
-            didPersistBookmark = true
-        } catch {
-            guard !requiresSecurityScopedVaultAccess() else {
+        // USER REPORT 2026-05-12 v4: in DEV builds the app is not
+        // sandboxed and security-scoped bookmark creation can fail with
+        // "The file couldn't be opened" for paths the picker just
+        // accepted. The fallback to a plain bookmark is the *correct*
+        // path in that case, so try plain FIRST in dev builds to avoid
+        // the noisy "Falling back to plain bookmark" warning. In
+        // sandbox / App Store builds, security-scoped is required and
+        // the existing strict path applies.
+        let needsSecurityScope = requiresSecurityScopedVaultAccess()
+
+        if !needsSecurityScope {
+            // Dev / Developer ID build — plain bookmark is sufficient.
+            do {
+                let bookmark = try makeBookmarkData(for: url, options: [])
+                defaults.set(bookmark, forKey: Self.bookmarkKey)
+                didPersistBookmark = true
+            } catch {
+                defaults.removeObject(forKey: Self.bookmarkKey)
+                log.error("Failed to persist plain vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        } else {
+            // Sandboxed build — security-scoped bookmark is required.
+            do {
+                let bookmark = try makeBookmarkData(for: url, options: .withSecurityScope)
+                defaults.set(bookmark, forKey: Self.bookmarkKey)
+                didPersistBookmark = true
+            } catch {
                 defaults.removeObject(forKey: Self.bookmarkKey)
                 log.error(
                     """
@@ -820,22 +841,6 @@ final class VaultSyncService {
                 defaults.removeObject(forKey: Self.trustedSuspiciousVaultPathKey)
                 recoveryIssue = nil
                 return
-            }
-            do {
-                let bookmark = try makeBookmarkData(for: url, options: [])
-                defaults.set(bookmark, forKey: Self.bookmarkKey)
-                didPersistBookmark = true
-                log.warning(
-                    """
-                    Falling back to a plain vault bookmark for \(url.path, privacy: .public) \
-                    after security-scoped persistence failed: \(error.localizedDescription, privacy: .public)
-                    """
-                )
-            } catch {
-                defaults.removeObject(forKey: Self.bookmarkKey)
-                log.error(
-                    "Failed to persist vault bookmark for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
             }
         }
 
