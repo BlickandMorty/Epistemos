@@ -267,6 +267,13 @@ pub struct GraphNodeState {
 
 ## Phase B — Metal compute (8 weeks)
 
+**Status (2026-05-12)**: Algorithmic CPU references for Weeks 1-6 shipped on `codex/research-snapshot-2026-05-08`. The MSL `.metal` translations + engine wiring land on top of these references; the references pin the math so the kernel pass is a translation rather than a fresh design.
+
+- Week 1-2 (spring forces + integration kernel): `dec54aa3b` shipped `force_kernels.rs` (462 lines, 16 tests). Node-parallel CSR gather + symplectic Euler integrator. Includes the locked-decision #4 RENDERABLE ⊥ SLEEPING guard. Output bit-equivalent to edge-parallel reference within 1e-5.
+- Week 3-4 (uniform grid + repulsion): `c7ad79e01` shipped `grid_kernels.rs` (372 lines, 14 tests). Five-kernel pipeline: `grid_build_kernel` / `grid_scan_kernel` / `grid_scatter_kernel` / `cell_reduce_kernel` / `repulsion_kernel`. Cell-size formula matches drop 6 (`2 * median(atmosphere_radius)` capped at `world_size/32`).
+- Week 5-6 (FA2 adaptive speed + wake propagation): `7de49ee89` shipped `adaptive_kernels.rs` (242 lines, 14 tests). Gephi-tolerance bucket schedule (0.1/1.0/10.0), zero-swing protection, multi-front wake propagation.
+- Week 7-8 (visibility compaction + indirect draw) is rendering-surface work and lands once the integrator + renderer consume the kernel records.
+
 **Goal**: Push to 50k nodes at 30-60 fps. Move force computation to GPU. All physics state lives in Metal-visible memory; CPU stops walking the node array.
 
 ### Week 1-2: Spring forces kernel + integration kernel
@@ -355,6 +362,11 @@ pub struct GraphNodeState {
 - Metal validation clean
 
 ## Phase C — Cluster-first multilevel for 50k+ (4 weeks)
+
+**Status (2026-05-12)**: Algorithmic prep for Week 1-2 shipped on `codex/research-snapshot-2026-05-08`. Base Louvain has been in `cluster.rs` since the engine's first revision; this commit adds the hierarchy + centroid + incremental-update layer.
+
+- Week 1-2 (Louvain + hierarchy + centroids): `c396e93b3` shipped `cluster_hierarchy.rs` (270 lines, 9 tests). `build_leaf_clusters` → `build_next_level` → `build_hierarchy` chain; `incremental_edge_update` short-circuits on intra-cluster edges; member-count-weighted centroids at every level. Engine FFI surface (`graph_engine_get_cluster_hierarchy`) lands during engine wiring.
+- Weeks 3-4 (LOD renderer + benchmark harness) need engine + renderer wiring and land separately.
 
 **Goal**: Make 100k-node vaults feel genuinely usable. Adopt cluster-first semantic zoom (the "philosophical" trade — full zoom-out shows cluster centroids, not literal node-per-note).
 
