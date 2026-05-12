@@ -515,3 +515,18 @@ Implementation: when a builder publishes a new immutable artifact, it atomically
 ## Single first action
 
 If you want to start tonight without thinking: change `EPISTEMOS_USE_SHARED_GRAPH_BUFFERS` default from `env-flag` to `true` in `Epistemos/Views/Graph/MetalGraphView.swift:619`. Run the existing test suite. If it passes, you've shipped Phase A Week 1's first deliverable in one line. Tomorrow you can plan the rest.
+
+## Graph-related issues absorbed into this plan (2026-05-12 backlog sweep)
+
+When closing out v1 polish before kicking off this plan, the following graph-specific issues were filed and explicitly deferred here for resolution during the corresponding phase. They are not standalone work items; they should be checked off as side effects of the phase deliverables.
+
+| Issue | Backlog ID | Phase | How this plan resolves it |
+|---|---|---|---|
+| Graph full-screen performance regression after pixel-node work | `ISSUE-2026-05-08-020` | Phase A Week 1 + Phase B | Shared-buffer flip removes the per-frame ferry; GPU compute kernels remove residual CPU bottleneck |
+| Graph node-type filters and selected-neighbor expansion missing | `ISSUE-2026-05-11-002` | Phase B Week 5-6 + Phase C | New `Filters` section in `GraphForceSettingsSection`; selected-edge length modification in the integrate kernel |
+| Graph `pauseEngine()` only sets a bool, doesn't release memory | `ISSUE-2026-05-12-005` | Phase A Week 2 | Extend `pauseEngine()` to call `MetalRuntimeManager.deepUnload()` + drop the NodeState ring buffers when entering Low Memory mode. Required for the two-axis Idle Memory Mode setting (`ISSUE-2026-05-12-007`) to work correctly |
+| First-note-open graph hang on cold cache | `ISSUE-2026-05-12-008` | Phase A Week 3 + Week 4 | GraphPOPE-lite warm-start + causal-atmosphere sleep wake the local neighborhood instantly without re-laying-out the whole graph |
+| Notes sidebar + graph slow to open every time | `ISSUE-2026-05-12-009` | Phase C Week 1-2 + cross-cutting `ProjectionCache` | Cluster pyramid persistence + graph snapshot in `ProjectionCache` (non-graph component) means cold launch reads positions from disk instead of running physics from scratch |
+| 2GB idle memory regression — graph engine contribution | `ISSUE-2026-04-21-004` (graph slice) | Phase A Week 2 | When `pauseEngine()` is upgraded to truly release MTLBuffers + Metal heap scratch, the graph engine's idle contribution drops from ~500MB-1GB to ~50MB (clusters + last-frame positions cached) |
+
+All six issues are checked off when their owning phase's exit gate passes. Do not fix them in isolation — they're already in the plan.
