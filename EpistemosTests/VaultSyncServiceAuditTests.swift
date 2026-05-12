@@ -155,6 +155,35 @@ struct VaultSyncServiceAuditTests {
     private let lastVaultPathKey = "epistemos.lastVaultPath"
     private let trustedSuspiciousVaultPathKey = "epistemos.confirmedSuspiciousVaultPath"
 
+    @Test("tiny vault deltas use incremental post-import recall indexing")
+    func tinyVaultDeltasUseIncrementalPostImportRecallIndexing() {
+        var snapshot = VaultImportProgressSnapshot.starting(vaultName: "Research")
+        snapshot.insertedCount = 1
+        snapshot.deletedCount = 1
+        snapshot.unchangedCount = 14_636
+        snapshot.postImportChangedPageIDs = ["new-note"]
+        snapshot.postImportDeletedPageIDs = ["deleted-note"]
+        snapshot.postImportChangeIDsAreComplete = true
+        snapshot.isComplete = true
+
+        #expect(snapshot.canApplyIncrementalPostImportIndexing)
+        #expect(snapshot.postImportRecallWorkload == .incremental(
+            changedPageIDs: ["new-note"],
+            deletedPageIDs: ["deleted-note"]
+        ))
+    }
+
+    @Test("large vault deltas fall back to full post-import recall rebuild")
+    func largeVaultDeltasFallBackToFullPostImportRecallRebuild() {
+        var snapshot = VaultImportProgressSnapshot.starting(vaultName: "Research")
+        snapshot.insertedCount = VaultImportProgressSnapshot.incrementalPostImportIndexChangeLimit + 1
+        snapshot.postImportChangeIDsAreComplete = false
+        snapshot.isComplete = true
+
+        #expect(!snapshot.canApplyIncrementalPostImportIndexing)
+        #expect(snapshot.postImportRecallWorkload == .rebuild)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(12),
         condition: @escaping @MainActor () async -> Bool
