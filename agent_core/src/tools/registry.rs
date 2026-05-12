@@ -148,7 +148,7 @@ impl ToolTier {
 /// internal/manual use, but do not advertise it through surfaced catalogs
 /// until the runtime lane is genuinely available.
 pub fn is_user_visible_tool(tool_name: &str) -> bool {
-    !matches!(tool_name, "image_generate")
+    !matches!(tool_name, "image_generate" | "media.image_generate")
 }
 
 pub fn is_reserved_tool_name(tool_name: &str) -> bool {
@@ -377,6 +377,16 @@ pub fn legacy_name_for_v2(name: &str) -> Option<&'static str> {
     }
 }
 
+fn surface_name_for_registered(name: &str) -> &str {
+    v2_name_for_legacy(name).unwrap_or(name)
+}
+
+fn allowlist_contains_equivalent(allowlist: &HashSet<String>, name: &str) -> bool {
+    allowlist.contains(name)
+        || v2_name_for_legacy(name).is_some_and(|v2_name| allowlist.contains(v2_name))
+        || legacy_name_for_v2(name).is_some_and(|legacy_name| allowlist.contains(legacy_name))
+}
+
 pub struct ToolRegistry {
     tools: HashMap<String, RegisteredTool>,
     vault: Arc<dyn VaultBackend>,
@@ -533,11 +543,18 @@ impl ToolRegistry {
             return false;
         }
         if let Some(allowlist) = &self.allowed_tool_names {
-            if !allowlist.contains(&tool.name) {
+            if !allowlist_contains_equivalent(allowlist, &tool.name) {
                 return false;
             }
         }
         true
+    }
+
+    fn registered_name_for<'a>(&self, name: &'a str) -> Option<&'a str> {
+        if self.tools.contains_key(name) {
+            return Some(name);
+        }
+        legacy_name_for_v2(name).filter(|legacy_name| self.tools.contains_key(*legacy_name))
     }
 
     pub fn register(&mut self, tool: RegisteredTool) {
@@ -558,16 +575,31 @@ impl ToolRegistry {
     /// capabilities from the model-facing catalog, and honor the Agent
     /// Command Center's per-tool toggle choices.
     pub fn get_definitions(&self) -> Vec<ToolSchema> {
-        self.tools
+        let mut surfaced: HashMap<String, ToolSchema> = HashMap::new();
+        for tool in self
+            .tools
             .values()
             .filter(|tool| self.is_tool_permitted(tool))
-            .filter(|tool| is_user_visible_tool(&tool.name))
-            .map(|tool| ToolSchema {
-                name: tool.name.clone(),
+        {
+            let name = surface_name_for_registered(&tool.name).to_string();
+            if !is_user_visible_tool(&name) {
+                continue;
+            }
+
+            let schema = ToolSchema {
+                name: name.clone(),
                 description: tool.description.clone(),
                 parameters: tool.parameters.clone(),
-            })
-            .collect()
+            };
+
+            if tool.name == name || !surfaced.contains_key(&name) {
+                surfaced.insert(name, schema);
+            }
+        }
+
+        let mut definitions: Vec<ToolSchema> = surfaced.into_values().collect();
+        definitions.sort_by(|a, b| a.name.cmp(&b.name));
+        definitions
     }
 
     /// Return every registered schema regardless of the active tier. Used by
@@ -591,30 +623,32 @@ impl ToolRegistry {
             .values()
             .filter(|tool| self.is_tool_permitted(tool))
             .filter(|tool| is_user_visible_tool(&tool.name))
-            .map(|tool| tool.name.clone())
+            .map(|tool| surface_name_for_registered(&tool.name).to_string())
             .collect();
         names.sort();
+        names.dedup();
         names
     }
 
     pub fn get_risk_level(&self, name: &str) -> RiskLevel {
-        self.tools
-            .get(name)
+        self.registered_name_for(name)
+            .and_then(|registered_name| self.tools.get(registered_name))
             .map(|tool| tool.risk_level.clone())
             .unwrap_or(RiskLevel::ReadOnly)
     }
 
     pub fn get_tier(&self, name: &str) -> ToolTier {
-        self.tools
-            .get(name)
+        self.registered_name_for(name)
+            .and_then(|registered_name| self.tools.get(registered_name))
             .map(|tool| tool.tier)
             .unwrap_or(ToolTier::Agent)
     }
 
     pub async fn execute(&self, name: &str, input: &Value) -> Result<String, ToolError> {
+        let registered_name = self.registered_name_for(name).unwrap_or(name);
         let tool = self
             .tools
-            .get(name)
+            .get(registered_name)
             .ok_or_else(|| ToolError::InvalidArguments(format!("unknown tool: {name}")))?;
         // Second layer of enforcement: even if a model guesses a tool name
         // not in get_definitions(), reject it here against tier AND the
@@ -624,7 +658,7 @@ impl ToolRegistry {
         }
 
         let authz_target = crate::resources::tool_authz::infer_tool_authz_target(
-            name,
+            registered_name,
             input,
             &tool.risk_level,
             self.vault_root_path.as_deref(),
@@ -690,12 +724,6 @@ impl ToolRegistry {
     }
 
     pub async fn execute_v2(&self, name: &str, input: &Value) -> Result<String, ToolError> {
-        if self.tools.contains_key(name) {
-            return self.execute(name, input).await;
-        }
-        if let Some(legacy_name) = legacy_name_for_v2(name) {
-            return self.execute(legacy_name, input).await;
-        }
         self.execute(name, input).await
     }
 
@@ -2619,7 +2647,7 @@ mod tier_tests {
     use super::*;
     use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
     use async_trait::async_trait;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::sync::Mutex as TestMutex;
 
     /// Minimal vault stub for registry construction in unit tests.
@@ -2801,15 +2829,21 @@ mod tier_tests {
         }
 
         assert!(
-            names.contains(&"web_search".to_string()),
-            "chat_lite must expose web_search when a backend is configured, got: {names:?}"
+            names.contains(&"web.search".to_string()),
+            "chat_lite must expose web.search when a backend is configured, got: {names:?}"
         );
         assert!(
-            names.contains(&"vault_recall".to_string()),
-            "chat_lite must expose vault_recall"
+            names.contains(&"knowledge.recall".to_string()),
+            "chat_lite must expose knowledge.recall"
         );
         assert!(names.contains(&"think".to_string()));
-        assert!(names.contains(&"read_file".to_string()));
+        assert!(names.contains(&"file.read".to_string()));
+        assert!(
+            !names.contains(&"web_search".to_string())
+                && !names.contains(&"vault_recall".to_string())
+                && !names.contains(&"read_file".to_string()),
+            "model-facing catalog must surface canonical V2 names, not legacy names: {names:?}"
+        );
     }
 
     #[test]
@@ -2902,6 +2936,85 @@ mod tier_tests {
     }
 
     #[test]
+    fn model_facing_tool_catalog_surfaces_v2_aliases() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        for canonical in [
+            "vault.search",
+            "vault.read",
+            "file.read",
+            "file.search",
+            "knowledge.recall",
+            "graph.neighbors",
+        ] {
+            assert!(
+                names.contains(canonical),
+                "model-facing catalog must expose V2 tool name {canonical}; got {names:?}"
+            );
+        }
+
+        for legacy in [
+            "vault_search",
+            "vault_read",
+            "read_file",
+            "search_files",
+            "vault_recall",
+            "pkm_graph_neighbors",
+        ] {
+            assert!(
+                !names.contains(legacy),
+                "legacy tool name {legacy} must not be model-facing once a V2 alias exists"
+            );
+        }
+    }
+
+    #[test]
+    fn allowed_tool_names_surface_v2_aliases() {
+        let registry = build_registry(ToolTier::Agent);
+        let names = registry.allowed_tool_names();
+
+        assert!(names.contains(&"vault.search".to_string()));
+        assert!(names.contains(&"file.read".to_string()));
+        assert!(!names.contains(&"vault_search".to_string()));
+        assert!(!names.contains(&"read_file".to_string()));
+    }
+
+    #[tokio::test]
+    async fn v2_allowlist_accepts_legacy_and_canonical_callers() {
+        let mut registry = build_registry(ToolTier::Agent);
+        registry.set_allowed_tool_names(Some(HashSet::from(["vault.read".to_string()])));
+
+        let canonical = registry
+            .execute_v2("vault.read", &serde_json::json!({ "path": "note.md" }))
+            .await
+            .expect("canonical V2 name should be allowed");
+        let legacy = registry
+            .execute_v2("vault_read", &serde_json::json!({ "path": "note.md" }))
+            .await
+            .expect("legacy compatibility caller should resolve through the V2 allowlist");
+
+        assert_eq!(canonical, "");
+        assert_eq!(legacy, "");
+    }
+
+    #[test]
+    fn v2_alias_risk_and_tier_match_legacy_handler() {
+        let registry = build_registry(ToolTier::Agent);
+
+        assert_eq!(
+            registry.get_risk_level("file.write"),
+            RiskLevel::Modification
+        );
+        assert_eq!(registry.get_risk_level("file.read"), RiskLevel::ReadOnly);
+        assert_eq!(registry.get_tier("file.write"), ToolTier::Agent);
+    }
+
+    #[test]
     fn live_agent_paths_use_v2_tool_dispatch() {
         let agent_loop_source = include_str!("../agent_loop.rs");
         let bridge_source = include_str!("../bridge.rs");
@@ -2937,13 +3050,21 @@ mod tier_tests {
             .map(|t| t.name)
             .collect();
         assert!(!names.contains(&"terminal".to_string()));
+        assert!(!names.contains(&"action.terminal".to_string()));
         assert!(!names.contains(&"bash_execute".to_string()));
+        assert!(!names.contains(&"action.bash".to_string()));
         assert!(!names.contains(&"send_message".to_string()));
+        assert!(!names.contains(&"communication.send_message".to_string()));
         assert!(!names.contains(&"imessage".to_string()));
+        assert!(!names.contains(&"communication.imessage".to_string()));
         assert!(!names.contains(&"write_file".to_string()));
+        assert!(!names.contains(&"file.write".to_string()));
         assert!(!names.contains(&"patch".to_string()));
+        assert!(!names.contains(&"file.patch".to_string()));
         assert!(!names.contains(&"skill_manage".to_string()));
+        assert!(!names.contains(&"skills.manage".to_string()));
         assert!(!names.contains(&"cronjob".to_string()));
+        assert!(!names.contains(&"system.cron".to_string()));
     }
 
     #[test]
