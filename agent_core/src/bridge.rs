@@ -444,7 +444,8 @@ fn resolve_provider_selection_preview(
     let requested = provider_name.trim();
     match requested {
         "claude_sonnet" | "claude_opus" | "claude_haiku"
-        | "openai" | "openai_gpt4o" | "openai_gpt4o_mini" | "openai_o1" | "openai_o3_mini" => preview(
+        | "openai" | "openai_gpt4o" | "openai_gpt4o_mini" | "openai_gpt54" | "openai_gpt54_mini"
+        | "openai_o1" | "openai_o3_mini" => preview(
             requested,
             "forced",
             requested,
@@ -524,8 +525,10 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         // Perplexity (native API)
         "perplexity" => Ok(Arc::new(PerplexityProvider::sonar_pro())),
         // OpenAI (native API)
-        "openai" | "openai_gpt4o" => Ok(Arc::new(OpenAIProvider::gpt4o())),
-        "openai_gpt4o_mini" => Ok(Arc::new(OpenAIProvider::gpt4o_mini())),
+        "openai" | "openai_gpt4o" | "openai_gpt54" => Ok(Arc::new(OpenAIProvider::gpt54())),
+        "openai_gpt4o_mini" | "openai_gpt54_mini" => {
+            Ok(Arc::new(OpenAIProvider::gpt54_mini()))
+        }
         "openai_o1" => Ok(Arc::new(OpenAIProvider::o1())),
         "openai_o3_mini" => Ok(Arc::new(OpenAIProvider::o3_mini())),
         // OpenRouter (200+ models via universal gateway)
@@ -3188,6 +3191,16 @@ mod tests {
         assert_eq!(preview.requested_provider, "claude_opus");
         assert_eq!(preview.resolution_kind, "forced");
         assert_eq!(preview.effective_provider, "claude_opus");
+        assert!(preview.supported);
+    }
+
+    #[test]
+    fn explicit_openai_gpt54_override_is_supported() {
+        let preview = resolve_provider_selection_preview("handle this with GPT", "openai_gpt54");
+
+        assert_eq!(preview.requested_provider, "openai_gpt54");
+        assert_eq!(preview.resolution_kind, "forced");
+        assert_eq!(preview.effective_provider, "openai_gpt54");
         assert!(preview.supported);
     }
 
