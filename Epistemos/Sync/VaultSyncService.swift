@@ -4052,6 +4052,7 @@ enum VaultConnectionActions {
             // Step 1: canonical runtime-state clear — graph engine,
             // query engine, contextual shadows, instant recall,
             // workspace restore. Mirrors resetAllData() phase 1.
+            vaultSync.vaultActivityMessage = "Disconnecting vault... clearing graph engine"
             AppBootstrap.shared?.clearVaultLifecycleRuntimeState(
                 reason: "Disconnect Vault started",
                 clearWorkspaceRestore: true
@@ -4063,14 +4064,17 @@ enum VaultConnectionActions {
             // anyway so disconnect can't leave a half-wiped shadow /
             // instant-recall / search index. Matches resetAllData()
             // phase 2 fallback.
+            vaultSync.vaultActivityMessage = "Disconnecting vault... releasing watcher"
             let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
             if didClear {
                 vaultSync.dismissRecoveryIssue()
             } else {
+                vaultSync.vaultActivityMessage = "Disconnecting vault... force-clearing state"
                 await vaultSync.forceClearDerivedLocalStateForFullReset()
             }
             // NOW clear the persisted vault selection (safe — stopWatching
             // has released the security-scoped URL).
+            vaultSync.vaultActivityMessage = "Disconnecting vault... finalizing"
             vaultSync.clearPersistedVaultSelection()
             // Also clear the in-progress flag — disconnect completed
             // cleanly, no recovery needed on next launch.
