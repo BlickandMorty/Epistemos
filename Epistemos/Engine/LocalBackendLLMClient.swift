@@ -298,82 +298,29 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         AsyncThrowingStream(
             bufferingPolicy: .bufferingNewest(StreamingBufferPolicy.textLimit)
         ) { continuation in
-            let task = Task { @MainActor in
-                let lifecycleStart = DispatchTime.now()
+            let task = Task.detached(priority: .userInitiated) { [weak self] in
+                guard let self else {
+                    continuation.finish()
+                    return
+                }
                 var provenance: LocalBackendProvenanceContext?
                 var chunkCount = 0
                 var outputCharacterCount = 0
+                var lifecycleStart = DispatchTime.now()
+                let stream: AsyncThrowingStream<String, Error>
                 do {
-                    let preference = runtimePreference(for: modelID, requestedRuntimeKindOverride: requestedRuntimeKind)
-                    provenance = makeStreamProvenanceContext(
+                    let preflight = try await self.prepareLocalBackendStream(
                         prompt: prompt,
                         systemPrompt: systemPrompt,
                         maxTokens: maxTokens,
                         reasoningMode: reasoningMode,
-                        requestedRuntimeKind: preference.requestedRuntimeKind,
-                        resolvedRuntimeKind: nil,
+                        modelID: modelID,
+                        requestedRuntimeKind: requestedRuntimeKind,
                         steeringHintsJSON: steeringHintsJSON
                     )
-                    if let provenance {
-                        recordStreamAgentEvent(
-                            provenance,
-                            kind: .toolCallRequested,
-                            status: .requested
-                        )
-                        recordStreamAgentEvent(
-                            provenance,
-                            kind: .toolCallStarted,
-                            status: .started
-                        )
-                    }
-                    _ = await refreshRuntimeAvailability(for: modelID)
-                    let resolvedRuntimeKind = try await runtimeControlPlane.resolveGenerationRuntimeKind(
-                        requestedRuntimeKind: preference.requestedRuntimeKind
-                    )
-                    if let currentProvenance = provenance {
-                        provenance = Self.localBackendProvenanceContext(
-                            currentProvenance,
-                            prompt: prompt,
-                            systemPrompt: systemPrompt,
-                            maxTokens: maxTokens,
-                            reasoningMode: reasoningMode,
-                            requestedRuntimeKind: preference.requestedRuntimeKind,
-                            resolvedRuntimeKind: resolvedRuntimeKind,
-                            steeringHintsJSON: steeringHintsJSON
-                        )
-                    }
-                    if resolvedRuntimeKind == .mlx,
-                       preference.requestedRuntimeKind == .gguf,
-                       !preference.allowMLXFallback {
-                        throw LocalInferenceRoutingError.runtimeUnavailable
-                    }
-
-                    let stream: AsyncThrowingStream<String, Error>
-                    switch resolvedRuntimeKind {
-                    case .gguf:
-                        stream = ggufClient.stream(
-                            prompt: prompt,
-                            systemPrompt: systemPrompt,
-                            maxTokens: maxTokens,
-                            reasoningMode: reasoningMode,
-                            modelID: modelID,
-                            requestedRuntimeKind: preference.requestedRuntimeKind,
-                            steeringHintsJSON: steeringHintsJSON
-                        )
-                    case .mlx:
-                        stream = mlxClient.stream(
-                            prompt: prompt,
-                            systemPrompt: systemPrompt,
-                            maxTokens: maxTokens,
-                            reasoningMode: reasoningMode,
-                            modelID: modelID,
-                            requestedRuntimeKind: preference.requestedRuntimeKind,
-                            steeringHintsJSON: steeringHintsJSON
-                        )
-                    case .remote:
-                        throw LocalInferenceRoutingError.runtimeUnavailable
-                    }
-
+                    lifecycleStart = preflight.lifecycleStart
+                    provenance = preflight.provenance
+                    stream = preflight.stream
                     for try await token in stream {
                         chunkCount += 1
                         outputCharacterCount += token.count
@@ -381,7 +328,7 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                     }
                     let elapsedMs = Self.localBackendDurationMilliseconds(since: lifecycleStart)
                     if let provenance {
-                        recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallCompleted,
                             resultJSON: Self.localBackendStreamResultJSON(
@@ -400,7 +347,7 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                     if let provenance {
                         var failedMetadata = provenance.metadata
                         failedMetadata["failure_class"] = "cancelled"
-                        recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallFailed,
                             resultJSON: Self.localBackendStreamResultJSON(
@@ -420,7 +367,7 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                     if let provenance {
                         var failedMetadata = provenance.metadata
                         failedMetadata["failure_class"] = failureClass
-                        recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallFailed,
                             resultJSON: Self.localBackendStreamResultJSON(
@@ -438,6 +385,92 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    private func prepareLocalBackendStream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        requestedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
+    ) async throws -> (
+        lifecycleStart: DispatchTime,
+        provenance: LocalBackendProvenanceContext?,
+        stream: AsyncThrowingStream<String, Error>
+    ) {
+        let lifecycleStart = DispatchTime.now()
+        let preference = runtimePreference(for: modelID, requestedRuntimeKindOverride: requestedRuntimeKind)
+        var provenance: LocalBackendProvenanceContext? = makeStreamProvenanceContext(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: reasoningMode,
+            requestedRuntimeKind: preference.requestedRuntimeKind,
+            resolvedRuntimeKind: nil,
+            steeringHintsJSON: steeringHintsJSON
+        )
+        if let provenance {
+            recordStreamAgentEvent(
+                provenance,
+                kind: .toolCallRequested,
+                status: .requested
+            )
+            recordStreamAgentEvent(
+                provenance,
+                kind: .toolCallStarted,
+                status: .started
+            )
+        }
+        _ = await refreshRuntimeAvailability(for: modelID)
+        let resolvedRuntimeKind = try await runtimeControlPlane.resolveGenerationRuntimeKind(
+            requestedRuntimeKind: preference.requestedRuntimeKind
+        )
+        if let currentProvenance = provenance {
+            provenance = Self.localBackendProvenanceContext(
+                currentProvenance,
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                requestedRuntimeKind: preference.requestedRuntimeKind,
+                resolvedRuntimeKind: resolvedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            )
+        }
+        if resolvedRuntimeKind == .mlx,
+           preference.requestedRuntimeKind == .gguf,
+           !preference.allowMLXFallback {
+            throw LocalInferenceRoutingError.runtimeUnavailable
+        }
+
+        let stream: AsyncThrowingStream<String, Error>
+        switch resolvedRuntimeKind {
+        case .gguf:
+            stream = ggufClient.stream(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                modelID: modelID,
+                requestedRuntimeKind: preference.requestedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            )
+        case .mlx:
+            stream = mlxClient.stream(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                modelID: modelID,
+                requestedRuntimeKind: preference.requestedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            )
+        case .remote:
+            throw LocalInferenceRoutingError.runtimeUnavailable
+        }
+        return (lifecycleStart, provenance, stream)
     }
 
     func testConnection() async -> ConnectionTestResult {
