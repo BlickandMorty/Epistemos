@@ -3754,7 +3754,7 @@ impl Renderer {
         }
     }
 
-    /// Camera smoothing factor. Higher = faster. 6.5 = snappy response
+    /// Camera smoothing factor. Higher = faster. 11.0 = snappy response
     /// that still reads as smooth. Was 3.0 (too slow per user 2026-04-04).
     // Default camera lerp lambda. The actual value used per-frame is the
     // `camera_lambda` field on the Renderer (settable via the Swift

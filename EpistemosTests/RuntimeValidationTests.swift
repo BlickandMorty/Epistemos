@@ -422,7 +422,8 @@ struct RuntimeValidationTests {
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(pipeline.contains("let effectiveChatSelection = inference.effectiveChatSurfaceSelection("))
-        #expect(pipeline.contains("guard case .localMLX = effectiveChatSelection else"))
+        #expect(pipeline.contains("guard case let .localMLX(modelID) = effectiveChatSelection else"))
+        #expect(pipeline.contains("model.canRunLocalAgentLoop"))
     }
 
     @Test("direct-stream manifest suppresses app tools it cannot execute")
@@ -505,6 +506,17 @@ struct RuntimeValidationTests {
         let second = AppBootstrap()
         #expect(await second.localInferenceService.profilingSnapshot() == nil)
         #expect(AppBootstrap.shared === second)
+    }
+
+    @Test("bootstrap local model log does not imply eager weight load")
+    func bootstrapLocalModelLogDoesNotImplyEagerWeightLoad() throws {
+        let bootstrap = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/AppBootstrap.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!bootstrap.contains("Local agent model loaded:"))
+        #expect(bootstrap.contains("Local agent model selected:"))
     }
 
     @Test("startup warmups only schedule Metal shader warmup outside tests and debug builds")
@@ -2610,11 +2622,12 @@ struct RuntimeValidationTests {
         #expect(!source.contains("Task { @MainActor in\n                // Late-arriving sizes"))
     }
 
-    @Test("graph renderer keeps the 6.5 camera smoothing baseline")
+    @Test("graph renderer keeps the snappy configurable camera smoothing baseline")
     func graphRendererKeepsTheSnappyCameraBaseline() throws {
         let renderer = try loadRepoTextFile("graph-engine/src/renderer.rs")
 
-        #expect(renderer.contains("const CAMERA_LAMBDA: f32 = 6.5;"))
+        #expect(renderer.contains("camera_lambda: 11.0,"))
+        #expect(renderer.contains("const DEFAULT_CAMERA_LAMBDA: f32 = 11.0;"))
     }
 
     @Test("graph sidebar caches notes tree snapshots across selection churn")
@@ -3275,7 +3288,7 @@ struct RuntimeValidationTests {
         #expect(!source.contains("loadBody(mapped: true)"))
         #expect(!source.contains("NoteFileStorage.writeBody(pageId: snapshot.pageId"))
         #expect(source.contains("private nonisolated static func vaultFileData("))
-        #expect(source.contains("await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)"))
+        #expect(source.contains("await NoteFileStorage.writePreparedImportedVaultBodyAsync(pageId: page.id, content: importedStorageBody)"))
         #expect(source.contains("NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)"))
         #expect(source.contains("page.updateBodyDerivedState(from: body)"))
     }
@@ -3732,7 +3745,8 @@ struct RuntimeValidationTests {
         #expect(applySuggestion.contains("page.subfolder = folder.relativePath"))
         #expect(applySuggestion.contains("page.subfolder = originalSubfolder"))
         #expect(applySuggestion.contains("vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)"))
-        #expect(applySuggestion.contains("guard persistSuggestionMutation(reason: \"organizer folder create\""))
+        #expect(applySuggestion.contains("persistSuggestionMutation("))
+        #expect(applySuggestion.contains("reason: \"organizer folder create\""))
         #expect(applySuggestion.contains("modelContext.delete(folder)"))
         #expect(applySuggestion.contains("guard applied else { return }"))
         #expect(applySuggestion.contains("appliedCount += 1"))
