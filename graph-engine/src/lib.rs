@@ -11,6 +11,7 @@ pub mod ecs;
 pub mod edge_aggregation;
 pub mod embedding;
 pub mod engine;
+pub mod force_kernels;
 pub mod forces;
 pub mod knowledge_core;
 pub mod label_envelope;
