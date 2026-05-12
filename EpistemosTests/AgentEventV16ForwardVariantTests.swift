@@ -22,6 +22,21 @@ struct AgentEventV16ForwardVariantTests {
         .vaultArchived,
     ]
 
+    @Test("new AgentEvent records use schema v2")
+    func newAgentEventRecordsUseSchemaV2() {
+        let event = AgentProvenanceEvent(
+            eventID: "agent-event-schema-v2-\(UUID().uuidString)",
+            runID: "run-schema-v2",
+            sequence: 0,
+            kind: .runStarted,
+            actor: .system,
+            occurredAtMs: 1
+        )
+
+        #expect(AgentProvenanceEvent.currentSchemaVersion == 2)
+        #expect(event.schemaVersion == 2)
+    }
+
     @Test("AgentEvent kind vocabulary includes simulation v1.6 forward variants")
     func agentEventKindVocabularyIncludesSimulationV16ForwardVariants() {
         let allRawValues = Set(AgentProvenanceEventKind.allCases.map(\.rawValue))
