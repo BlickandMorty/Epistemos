@@ -23,6 +23,7 @@ pub mod labels;
 pub mod markdown;
 pub mod motion;
 pub mod node_state;
+pub mod pipeline_order;
 pub mod quadtree;
 pub mod query_reply;
 pub mod recovery;
