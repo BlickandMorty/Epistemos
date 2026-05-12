@@ -158,11 +158,25 @@ pub fn spring_forces_kernel(
             let unit_x = dx / dist;
             let unit_y = dy / dist;
             let magnitude = strength * weight * (dist - rest) * alpha;
-            fx += unit_x * magnitude;
-            fy += unit_y * magnitude;
+            let contrib_x = unit_x * magnitude;
+            let contrib_y = unit_y * magnitude;
+            // Per-edge isfinite guard per canonical-plan §"Crash hardening
+            // checklist" → "NaN / Inf propagation". A single corrupt
+            // neighbour position must not poison this node's force —
+            // skip the contribution, keep the rest of the adjacency
+            // list. The integrate_kernel still quarantines if the whole
+            // node ends up non-finite.
+            if contrib_x.is_finite() && contrib_y.is_finite() {
+                fx += contrib_x;
+                fy += contrib_y;
+            }
         }
-        force_x[i] = fx;
-        force_y[i] = fy;
+        // Final-pass guard: even if individual contributions were
+        // finite, accumulation overflow / Inf cancellation could still
+        // produce a non-finite total. Clamp to zero before writing out
+        // so downstream readers (renderer, telemetry) see a clean value.
+        force_x[i] = if fx.is_finite() { fx } else { 0.0 };
+        force_y[i] = if fy.is_finite() { fy } else { 0.0 };
     }
 }
 
@@ -590,6 +604,28 @@ mod tests {
         assert_eq!(x, vec![0.0]);
         // Integrator doesn't write flags — they're caller's responsibility.
         assert_eq!(flags, vec![(1u32 << 0) | (1u32 << 3)]);
+    }
+
+    #[test]
+    fn spring_kernel_quarantines_nan_neighbor_position() {
+        // Node 1's position is NaN. The kernel must still produce a finite
+        // force for node 0 — the NaN-producing contribution is skipped.
+        let pos_x = vec![0.0_f32, f32::NAN];
+        let pos_y = vec![0.0_f32, 0.0];
+        let (head, neighbours) = build_undirected_csr(2, &[(0, 1)]);
+        let csr = UndirectedCsr { head: &head, neighbours: &neighbours };
+        let mut fx = vec![0.0_f32; 2];
+        let mut fy = vec![0.0_f32; 2];
+        spring_forces_kernel(
+            &pos_x, &pos_y, &csr,
+            &[30.0], &[1.0],
+            &mut fx, &mut fy,
+            1.0, 30.0,
+        );
+        assert!(fx[0].is_finite(), "spring kernel must clamp NaN to 0 in output");
+        assert!(fy[0].is_finite());
+        assert_eq!(fx[0], 0.0, "no contribution from NaN neighbour");
+        assert_eq!(fy[0], 0.0);
     }
 
     #[test]
