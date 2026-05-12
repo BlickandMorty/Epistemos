@@ -1402,6 +1402,24 @@ private struct InferenceDetailView: View {
             }
 
             if inference.cloudModelsEnabled {
+                Section("Cloud Access Health") {
+                    SettingsDescriptionText(
+                        text: "Read-only credential status. This tells you whether Epistemos can see a saved account session or manual API key for each provider, without exposing the key value."
+                    )
+                    ForEach(CloudModelProvider.preferredOrder, id: \.rawValue) { provider in
+                        CloudProviderAccessHealthRow(
+                            provider: provider,
+                            hasAPIKey: inference.apiKey(for: provider) != nil,
+                            hasOAuthSession: inference.oauthCredential(for: provider) != nil,
+                            validationState: inference.cloudValidationState(for: provider),
+                            isActive: inference.activeAIProvider == AIProviderSelection(cloudProvider: provider),
+                            theme: theme
+                        )
+                    }
+                }
+            }
+
+            if inference.cloudModelsEnabled {
                 Section {
                     ForEach(otherCloudProviders, id: \.rawValue) { provider in
                         otherCloudProviderRow(provider: provider)
@@ -1828,6 +1846,69 @@ private struct InferenceDetailView: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
+    }
+
+    private struct CloudProviderAccessHealthRow: View {
+        let provider: CloudModelProvider
+        let hasAPIKey: Bool
+        let hasOAuthSession: Bool
+        let validationState: CloudProviderValidationState
+        let isActive: Bool
+        let theme: EpistemosTheme
+
+        private var accessLabel: String {
+            switch (hasOAuthSession, hasAPIKey) {
+            case (true, true):
+                return "Account + API key saved"
+            case (true, false):
+                return "Account session saved"
+            case (false, true):
+                return "API key saved"
+            case (false, false):
+                return "No saved access"
+            }
+        }
+
+        private var accessIcon: String {
+            (hasOAuthSession || hasAPIKey) ? "key.fill" : "key.slash"
+        }
+
+        private var accessTint: Color {
+            if validationState.isVerified {
+                return theme.success
+            }
+            return (hasOAuthSession || hasAPIKey) ? theme.warning : .secondary
+        }
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: accessIcon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(accessTint)
+                    .frame(width: 16)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(provider.displayName)
+                            .font(.caption.weight(.semibold))
+                        if isActive {
+                            Text("Active")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
+                                .foregroundStyle(theme.resolved.accent.color)
+                        }
+                    }
+
+                    Text("\(accessLabel) · \(validationState.statusBadge)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+        }
     }
 
     @ViewBuilder
