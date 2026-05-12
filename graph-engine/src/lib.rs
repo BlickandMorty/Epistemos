@@ -1085,6 +1085,49 @@ const SCENARIO_ID_SEARCH_PULSE_FPS: u32 = 5;
 const SCENARIO_ID_MEMORY_RESIDENCY_MB: u32 = 6;
 const SCENARIO_ID_AWAKE_FRACTION: u32 = 7;
 
+/// Translate a wire-stable scenario ID to the internal enum. Returns
+/// `None` for unknown IDs.
+fn scenario_id_to_enum(scenario_id: u32) -> Option<crate::benchmark_harness::BenchmarkScenario> {
+    use crate::benchmark_harness::BenchmarkScenario;
+    Some(match scenario_id {
+        SCENARIO_ID_COLD_OPEN => BenchmarkScenario::ColdOpen,
+        SCENARIO_ID_TIME_TO_FLUID => BenchmarkScenario::TimeToFluid,
+        SCENARIO_ID_STEADY_FPS_ZOOM_OUT => BenchmarkScenario::SteadyFpsZoomOut,
+        SCENARIO_ID_STEADY_FPS_ZOOM_IN => BenchmarkScenario::SteadyFpsZoomIn,
+        SCENARIO_ID_DRAG_FPS => BenchmarkScenario::DragFps,
+        SCENARIO_ID_SEARCH_PULSE_FPS => BenchmarkScenario::SearchPulseFps,
+        SCENARIO_ID_MEMORY_RESIDENCY_MB => BenchmarkScenario::MemoryResidencyMb,
+        SCENARIO_ID_AWAKE_FRACTION => BenchmarkScenario::AwakeFraction,
+        _ => return None,
+    })
+}
+
+/// Look up the Phase A v1.1 acceptance target for a (scenario, vault_size)
+/// combination. Returns `NaN` when no target is defined. Phase A is the
+/// CPU-only ship bar — Phase B's GPU bar lives in
+/// `graph_engine_phase_b_target`.
+///
+/// Per `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` §"Phase A
+/// acceptance criteria (v1.1 ship bar)":
+///   1k:  cold open ≤ 200 ms, time-to-fluid ≤ 500 ms, steady 120 fps
+///   5k:  cold open ≤ 600 ms, time-to-fluid ≤ 1.2 s, steady 90-120 fps
+///   10k: cold open ≤ 1.4 s, time-to-fluid ≤ 2 s, steady 60-120 fps
+///   50k: cold open ≤ 4 s, time-to-fluid ≤ 5 s
+///   Memory at 10k: ≤ 400 MB
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_phase_a_target(
+    scenario_id: u32,
+    vault_node_count: u32,
+) -> f64 {
+    ffi_catch_unwind_or!("graph_engine_phase_a_target", f64::NAN, {
+        let Some(scenario) = scenario_id_to_enum(scenario_id) else {
+            return f64::NAN;
+        };
+        crate::benchmark_harness::phase_a_target(scenario, vault_node_count)
+            .unwrap_or(f64::NAN)
+    })
+}
+
 /// Look up the Phase B v1.2 acceptance target for a (scenario, vault_size)
 /// combination. Returns `NaN` when no target is defined (per the canonical
 /// plan, not every cell in the matrix has a published gate). The Swift
@@ -1108,19 +1151,11 @@ pub extern "C" fn graph_engine_phase_b_target(
     vault_node_count: u32,
 ) -> f64 {
     ffi_catch_unwind_or!("graph_engine_phase_b_target", f64::NAN, {
-        use crate::benchmark_harness::{BenchmarkScenario, phase_b_target};
-        let scenario = match scenario_id {
-            SCENARIO_ID_COLD_OPEN => BenchmarkScenario::ColdOpen,
-            SCENARIO_ID_TIME_TO_FLUID => BenchmarkScenario::TimeToFluid,
-            SCENARIO_ID_STEADY_FPS_ZOOM_OUT => BenchmarkScenario::SteadyFpsZoomOut,
-            SCENARIO_ID_STEADY_FPS_ZOOM_IN => BenchmarkScenario::SteadyFpsZoomIn,
-            SCENARIO_ID_DRAG_FPS => BenchmarkScenario::DragFps,
-            SCENARIO_ID_SEARCH_PULSE_FPS => BenchmarkScenario::SearchPulseFps,
-            SCENARIO_ID_MEMORY_RESIDENCY_MB => BenchmarkScenario::MemoryResidencyMb,
-            SCENARIO_ID_AWAKE_FRACTION => BenchmarkScenario::AwakeFraction,
-            _ => return f64::NAN,
+        let Some(scenario) = scenario_id_to_enum(scenario_id) else {
+            return f64::NAN;
         };
-        phase_b_target(scenario, vault_node_count).unwrap_or(f64::NAN)
+        crate::benchmark_harness::phase_b_target(scenario, vault_node_count)
+            .unwrap_or(f64::NAN)
     })
 }
 

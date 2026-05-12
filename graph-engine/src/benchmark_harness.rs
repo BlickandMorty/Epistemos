@@ -99,6 +99,52 @@ pub struct BenchmarkResult {
     pub timestamp_secs: u64,
 }
 
+/// Canonical Phase A v1.1 target lookup. Returns the target value or
+/// `None` when the (scenario, vault_size) combination has no published
+/// target. Targets are pinned to the plan's §"Phase A acceptance
+/// criteria (v1.1 ship bar)" — bumping a target requires a plan
+/// revision + this map update in the same commit.
+///
+/// Per `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md`:
+///   1k:  cold open ≤ 200 ms, time-to-fluid ≤ 500 ms, steady 120 fps
+///   5k:  cold open ≤ 600 ms, time-to-fluid ≤ 1.2 s, steady 90-120 fps
+///   10k: cold open ≤ 1.4 s, time-to-fluid ≤ 2 s, steady 60-120 fps
+///   50k: cold open ≤ 4 s, time-to-fluid ≤ 5 s, best-effort zoom-out
+///   Memory residency at 10k: ≤ 400 MB
+pub fn phase_a_target(scenario: BenchmarkScenario, vault_node_count: u32) -> Option<f64> {
+    use BenchmarkScenario::*;
+    let bucket = match vault_node_count {
+        0..=1_500 => "1k",
+        1_501..=7_500 => "5k",
+        7_501..=20_000 => "10k",
+        20_001..=75_000 => "50k",
+        _ => "100k",
+    };
+    match (scenario, bucket) {
+        // ColdOpen — milliseconds (lower better, v1.1 is more lenient than v1.2)
+        (ColdOpen, "1k")   => Some(200.0),
+        (ColdOpen, "5k")   => Some(600.0),
+        (ColdOpen, "10k")  => Some(1400.0),
+        (ColdOpen, "50k")  => Some(4000.0),
+        // TimeToFluid — milliseconds
+        (TimeToFluid, "1k")  => Some(500.0),
+        (TimeToFluid, "5k")  => Some(1200.0),
+        (TimeToFluid, "10k") => Some(2000.0),
+        (TimeToFluid, "50k") => Some(5000.0),
+        // Steady FPS targets (higher better) — Phase A is CPU-only so
+        // numbers are more modest than Phase B's GPU-accelerated ones.
+        (SteadyFpsZoomOut, "1k")   => Some(120.0),
+        (SteadyFpsZoomOut, "5k")   => Some(90.0),
+        (SteadyFpsZoomOut, "10k")  => Some(60.0),
+        (SteadyFpsZoomIn,  "1k")   => Some(120.0),
+        (SteadyFpsZoomIn,  "5k")   => Some(120.0),
+        (SteadyFpsZoomIn,  "10k")  => Some(90.0),
+        // Memory residency cap
+        (MemoryResidencyMb, "10k") => Some(400.0),
+        _ => None,
+    }
+}
+
 /// Canonical Phase B v1.2 target lookup. Returns the target value or
 /// `None` when the (scenario, vault_size) combination has no published
 /// target. Targets are pinned to the plan's §"Phase B acceptance
@@ -234,6 +280,44 @@ mod tests {
         assert!(!BenchmarkScenario::ColdOpen.higher_is_better());
         assert!(!BenchmarkScenario::MemoryResidencyMb.higher_is_better());
         assert!(!BenchmarkScenario::AwakeFraction.higher_is_better());
+    }
+
+    #[test]
+    fn phase_a_target_matches_plan_table() {
+        // Plan §"Phase A acceptance criteria (v1.1 ship bar)":
+        // 1k cold open: ≤ 200 ms
+        assert_eq!(phase_a_target(BenchmarkScenario::ColdOpen, 1_000), Some(200.0));
+        // 5k time-to-fluid: ≤ 1.2 s
+        assert_eq!(phase_a_target(BenchmarkScenario::TimeToFluid, 5_000), Some(1200.0));
+        // 10k cold open: ≤ 1.4 s
+        assert_eq!(phase_a_target(BenchmarkScenario::ColdOpen, 10_000), Some(1400.0));
+        // 50k cold open: ≤ 4 s
+        assert_eq!(phase_a_target(BenchmarkScenario::ColdOpen, 50_000), Some(4000.0));
+        // 10k memory: ≤ 400 MB (the only Phase A memory gate)
+        assert_eq!(phase_a_target(BenchmarkScenario::MemoryResidencyMb, 10_000), Some(400.0));
+    }
+
+    #[test]
+    fn phase_a_targets_more_lenient_than_phase_b() {
+        // Phase A is CPU-only; Phase B is GPU-accelerated. Therefore B
+        // is tighter on time-to-display metrics + tighter on fps lower
+        // bounds. This sanity test makes the relationship a guard.
+        let a_cold = phase_a_target(BenchmarkScenario::ColdOpen, 10_000).unwrap();
+        let b_cold = phase_b_target(BenchmarkScenario::ColdOpen, 10_000).unwrap();
+        assert!(b_cold < a_cold, "Phase B ColdOpen must be tighter; a={} b={}", a_cold, b_cold);
+
+        let a_fps = phase_a_target(BenchmarkScenario::SteadyFpsZoomIn, 10_000).unwrap();
+        let b_fps = phase_b_target(BenchmarkScenario::SteadyFpsZoomIn, 10_000).unwrap();
+        // Both = 90 here (B isn't always stricter on every FPS cell).
+        assert!(b_fps >= a_fps, "Phase B FPS ≥ Phase A FPS at 10k; a={} b={}", a_fps, b_fps);
+    }
+
+    #[test]
+    fn phase_a_target_returns_none_for_undefined_cell() {
+        // Phase A doesn't gate Drag FPS or Search Pulse FPS — those are
+        // Phase B's job (advanced sleep + adaptive speed).
+        assert!(phase_a_target(BenchmarkScenario::DragFps, 10_000).is_none());
+        assert!(phase_a_target(BenchmarkScenario::SearchPulseFps, 10_000).is_none());
     }
 
     #[test]
