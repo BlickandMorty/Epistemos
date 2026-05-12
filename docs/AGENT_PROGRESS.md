@@ -5,16 +5,18 @@
 
 Last updated: **2026-05-12** — Graph plan Phase A → C algorithmic prep + vault fixes + HELIOS audit + backlog status. **The 2026-04-28 entry below remains canonical for everything before 2026-05-05; the 2026-05-05 entry remains canonical for that sprint; this entry covers 2026-05-12.**
 
-## 2026-05-12 — Canonical graph plan + vault fixes + HELIOS audit (this session, 16+ commits)
+## 2026-05-12 — Canonical graph plan + vault fixes + HELIOS audit (this session, 35 commits and counting)
 
 **Test counts:**
 | Metric | Pre-session | Post-session |
 |---|---|---|
-| graph-engine lib tests | 2,580 | 2,707 (+127 new across 9 modules) |
-| graph-engine integration tests | 0 | 8 (`visual_equivalence`) |
+| graph-engine lib tests | 2,580 | 2,757 (+177 new across 12 modules) |
+| graph-engine integration tests | 0 | 45 across 5 files (`visual_equivalence` 8, `nan_injection_repro` 3, `ffi_bind_guards` 10, `phase_a_stress` 9, `phase_b_stress` 7, `phase_c_stress` 7, doc-test 1) |
 | HELIOS canonical-consistency tests (`epistemos-research --features research`) | 113 | 113 (still green) |
-| Swift Epistemos build | green | green (xcodebuild exit 0, SwiftLint warnings only on third-party CodeEdit deps) |
+| Swift Epistemos build | green | green (xcodebuild exit 0 across 3 sanity checks; SwiftLint warnings only on third-party CodeEdit deps) |
 | HELIOS B5 invariant smoke (`scripts/check-helios-invariants.sh`) | sub-gate 1 FAIL (anchor drift) | PASS (all 3 sub-gates) |
+| Canonical-plan locked decisions with direct code expression | 0 (plan was doc-only on 2026-05-11) | 26 of 42 |
+| **Total tests across the whole session** | 2,580 | **2,802 passing, 0 regressions** |
 
 **Major work landed (chronological):**
 
@@ -46,9 +48,49 @@ Last updated: **2026-05-12** — Graph plan Phase A → C algorithmic prep + vau
    - Added Status blocks under Phase A / Phase B / Phase C linking each algorithmic-prep commit to its module.
    - Engine + renderer wiring + MSL `.metal` authoring are explicitly queued as separate work; the math is pinned.
 
-7. **APP_ISSUES backlog status updates** (2 commits):
+7. **APP_ISSUES backlog status updates** (3 commits):
    - `907e17c19` ISSUE-2026-05-11-002 → Partially Fixed (Filters UI confirmed shipped in `cabf81df0`; selected-neighbor push-out physics tracked into Phase B).
    - `1edb5d107` ISSUE-2026-05-10-002 → Patched (APIKeysHealthRow shipped earlier in `58d998566`/`35120f79b`, closes the diagnostic loop).
+   - `722506ad3` Status sweep of 6 issues stamped Open while their fixes had already shipped (ISSUE-12-001/002/003/004/006/007/009).
+
+8. **Iteration-3 sleep_update gap closure** (`0645b19f7`):
+   - Original Phase B Week 5-6 commit (`7de49ee89`) shipped FA2 + wake_propagation but missed `sleep_update.metal`'s CPU mirror. Iteration 3 closed the gap with `sleep_update_kernel` + `k_frame_threshold` + `SLEEP_VELOCITY_THRESHOLD` const + 7 tests.
+
+9. **Crash-hardening NaN/Inf quarantine arc** (3 commits, 12 tests):
+   - `bc1521ba4` `integrate_kernel` quarantine — pre-update stash + post-update snap-back to prior position on non-finite output (4 tests).
+   - `2f10607b5` extends quarantine to `spring_forces_kernel` + `repulsion_kernel` + `cell_reduce_kernel` (3 tests).
+   - `6b876a3d6` final gaps: `atmosphere_radius` + `lookahead_frames` + `Frustum2D::intersects_circle` + `frustum_cull_nodes` (5 tests). Closes the canonical plan's named "NaN / Inf propagation" hardening row.
+
+10. **Test-harness layer 3 fully populated** (3 commits):
+    - `37475744d` `tests/phase_b_stress.rs` — 7 tests at 10k nodes including 30-frame end-to-end pipeline integration.
+    - `70b5427b6` `tests/phase_a_stress.rs` — 9 tests covering warmstart / reveal / atmosphere at 10k / 50k node scale.
+    - `b2e26db6e` `tests/phase_c_stress.rs` — 7 tests covering cluster_hierarchy + benchmark_harness at 5k-10k nodes.
+
+11. **Named-failure-case repros** (2 commits, closes 2 of 6 canonical failure cases):
+    - `d09c4bfe5` `tests/nan_injection_repro.rs` — 3 tests close "Inject NaN/Inf into integration scratch and verify the kernel quarantines bad state".
+    - `7004effb6` `tests/ffi_bind_guards.rs` — 4 tests close "Bind a wrong stride and assert the engine rejects it cleanly". Plus 3 phase_b_target FFI tests added in `dd8313598` and 4 phase_a_target FFI tests added in `31d08acae`.
+
+12. **Canonical-plan-locked-value FFI surfaces** (2 commits):
+    - `dd8313598` `graph_engine_phase_b_target(scenario_id, vault_node_count) -> f64` — exposes canonical Phase B v1.2 ship-bar targets to Swift.
+    - `31d08acae` `graph_engine_phase_a_target(...)` — adds Phase A v1.1 ship-bar targets via a refactored `scenario_id_to_enum()` helper shared by both phases.
+
+13. **Canonical-plan §Verification block refresh** (`8d3362ce0`):
+    - Flipped 4 red ❌ checks to green ✅ (warmstart / atmosphere / cluster_hierarchy / benchmark_harness) reflecting work shipped this session.
+    - Added 6 new ✅ checks for surfaces that didn't exist on 2026-05-11 (visual-equivalence harness / Phase A/B/C stress harnesses / NaN injection repro / FFI bind-guard repros).
+
+14. **Query freshness contract scaffolding** (`07aaa516e`):
+    - `query_reply.rs` — typed `QueryReply<T>` wrapper + `FreshnessClass` enum (Immediate / NearRealTime / Heavy). Encodes the canonical "indexing N changes" surfaceable lag policy. 9 tests including serde round-trip + UI-helper labels.
+
+15. **Canonical sleep-threshold formulas + phase gate** (3 commits, closes locked decisions #5 + #20 + #21):
+    - `5f3164e4b` `sleep_velocity_threshold(ideal_edge_length, fps)` (decision #20) + `sleep_force_threshold(repulsion_scale)` (decision #21) + `sleep_update_kernel_with_force_gate` extended kernel gating on BOTH velocity AND force. 5 tests.
+    - `8d917bd47` `sleep_globally_enabled(phase) -> bool` + `apply_sleep_phase_gate` post-pass (decision #5: sleep disabled until Steady). 4 tests.
+
+16. **Canonical pipeline pass order** (`4f9f28e71`, closes locked decision #18):
+    - `pipeline_order.rs` — wire-stable u8 enum `PipelineStage` (10 stages) + `CANONICAL_PIPELINE_ORDER` const array + `validate_ordering(stages)` checker. 10 tests including a `canonical_order_matches_decision_18_prose` drift gate.
+
+**Canonical-plan locked-decision close rate (26 of 42 as of iteration 19):**
+- ✅ #1, #2 (existing), #3, #4 (shipped), #5 (this session), #6-#7, #9-#13, #14-#15 (shipped), #16-#17 (shipped), #18 (this session), #19, #20-#21 (this session), #22-#25 (shipped), #27, #28, #31, #32, #37, #38, #39, #40
+- Pending: #8, #26, #29, #30, #33-#36, #41-#42 (mix of Swift-side surfaces + deferred-to-v2+ items)
 
 **What's queued for the next /loop iterations:**
 
@@ -56,6 +98,7 @@ Last updated: **2026-05-12** — Graph plan Phase A → C algorithmic prep + vau
 - MSL `.metal` translation of `force_kernels` / `grid_kernels` / `adaptive_kernels` / `visibility_kernels` into `Epistemos/Shaders/Graph/`.
 - More APP_ISSUES auto-fix sweeps (ISSUE-2026-05-12-008 first-note hang, ISSUE-2026-05-12-009 sidebar+graph slow open).
 - Cross-canon verification across the 105 HELIOS Swift guard tests + 113 research canonical-consistency tests on every iteration.
+- Remaining canonical-plan locked decisions that need engine/Swift integration.
 
 ## 2026-05-05 — V2 stretch + canon hardening (this session, ~40 commits)
 
