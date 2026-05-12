@@ -827,7 +827,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             )
 
             return StreamingBufferPolicy.throwingStream { continuation in
-                let task = Task {
+                let task = Task.detached(priority: .userInitiated) {
                     await self.prepareForRequest()
                     var launch: BackendGenerationLaunch?
                     var output = ""
@@ -867,7 +867,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                             summary: summary
                         )
                         let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
-                        self.recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallCompleted,
                             resultJSON: Self.localGGUFStreamResultJSON(
@@ -884,7 +884,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                         let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
                         var failedMetadata = provenance.metadata
                         failedMetadata["failure_class"] = BackendRuntimeContractError.cancelled.rawValue
-                        self.recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallFailed,
                             resultJSON: Self.localGGUFStreamResultJSON(
@@ -923,7 +923,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                         let mapped = Self.mapBackendError(error)
                         var failedMetadata = provenance.metadata
                         failedMetadata["failure_class"] = mapped.rawValue
-                        self.recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallFailed,
                             resultJSON: Self.localGGUFStreamResultJSON(
@@ -1128,7 +1128,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         }
     }
 
-    private struct LocalGGUFProvenanceContext {
+    private struct LocalGGUFProvenanceContext: Sendable {
         let runID: String
         let toolCallID: String
         let toolName: String
