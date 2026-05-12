@@ -1780,7 +1780,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             reasoningExtractor: reasoningExtractor,
             onReasoning: sink,
             usageExtractor: usageExtractor,
-            onUsage: onUsage
+            onUsage: onUsage,
+            firstContentWatchdogSeconds: openAIFirstContentWatchdogSeconds(
+                for: model,
+                operatingMode: operatingMode
+            )
         )
     }
 
@@ -2631,7 +2635,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
         onReasoning: (@Sendable (String) -> Void)? = nil,
         usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)? = nil,
-        onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = nil
+        onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = nil,
+        firstContentWatchdogSeconds: Double? = nil
     ) -> AsyncThrowingStream<String, Error> {
         URLSessionTransportSupport.streamSSE(
             using: urlSession,
@@ -2642,8 +2647,30 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             reasoningExtractor: reasoningExtractor,
             onReasoning: onReasoning,
             usageExtractor: usageExtractor,
-            onUsage: onUsage
+            onUsage: onUsage,
+            firstContentWatchdogSeconds: firstContentWatchdogSeconds ?? 90
         )
+    }
+
+    private func openAIFirstContentWatchdogSeconds(
+        for model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
+    ) -> Double {
+        switch operatingMode {
+        case .fast:
+            return 45
+        case .agent:
+            return 75
+        case .thinking:
+            return 90
+        case .pro:
+            switch model {
+            case .openAIGPT54:
+                return 120
+            default:
+                return 90
+            }
+        }
     }
 
     private nonisolated static func sseFieldValue(from line: String) -> String {

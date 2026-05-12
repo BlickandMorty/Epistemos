@@ -83,7 +83,9 @@ nonisolated enum URLSessionTransportSupport {
     /// yielding either visible text or an explicit reasoning/thinking
     /// delta. Heartbeats prove the socket is alive, not that the model
     /// is making user-visible progress.
-    private static let streamFirstContentWatchdogSeconds: Double = 180
+    private static let streamFirstContentWatchdogSeconds: Double = 90
+
+    private static let streamWatchdogPollIntervalSeconds: Double = 15
 
     /// Streaming SSE read that can optionally emit reasoning deltas
     /// through a side-channel callback in addition to the main string
@@ -112,7 +114,10 @@ nonisolated enum URLSessionTransportSupport {
         reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
         onReasoning: (@Sendable (String) -> Void)? = nil,
         usageExtractor: (@Sendable ([String: Any]) -> UsageSnapshot?)? = nil,
-        onUsage: (@Sendable (UsageSnapshot) -> Void)? = nil
+        onUsage: (@Sendable (UsageSnapshot) -> Void)? = nil,
+        idleWatchdogSeconds: Double = streamIdleWatchdogSeconds,
+        firstContentWatchdogSeconds: Double = streamFirstContentWatchdogSeconds,
+        watchdogPollIntervalSeconds: Double = streamWatchdogPollIntervalSeconds
     ) -> AsyncThrowingStream<String, Error> {
         ProcessActivity.makeStream(
             reason: "Streaming OpenAI-compatible response",
@@ -123,14 +128,15 @@ nonisolated enum URLSessionTransportSupport {
             // run if we've been silent past `streamIdleWatchdogSeconds`.
             let lastActivity = LastActivityTracker()
             let contentActivity = StreamContentTracker()
+            let watchdogPollDuration = watchdogPollDuration(seconds: watchdogPollIntervalSeconds)
             await lastActivity.touch()
 
             let watchdog = Task.detached { [lastActivity, contentActivity] in
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(15))
+                    try? await Task.sleep(for: watchdogPollDuration)
                     if Task.isCancelled { return }
                     let idle = await lastActivity.secondsSinceTouch()
-                    if idle > Self.streamIdleWatchdogSeconds {
+                    if idle > idleWatchdogSeconds {
                         continuation.finish(
                             throwing: LLMError.apiError(
                                 statusCode: 504,
@@ -140,7 +146,7 @@ nonisolated enum URLSessionTransportSupport {
                         return
                     }
                     if let contentIdle = await contentActivity.secondsWithoutContent(),
-                       contentIdle > Self.streamFirstContentWatchdogSeconds {
+                       contentIdle > firstContentWatchdogSeconds {
                         continuation.finish(
                             throwing: LLMError.apiError(
                                 statusCode: 504,
@@ -273,6 +279,11 @@ nonisolated enum URLSessionTransportSupport {
             return String(value.dropFirst())
         }
         return String(value)
+    }
+
+    private static func watchdogPollDuration(seconds: Double) -> Duration {
+        let milliseconds = max(1, Int((seconds * 1_000).rounded()))
+        return .milliseconds(milliseconds)
     }
 
     private static func collectAsyncBytes(_ bytes: URLSession.AsyncBytes) async throws -> String {
