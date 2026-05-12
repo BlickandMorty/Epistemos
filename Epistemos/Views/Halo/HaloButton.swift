@@ -53,8 +53,14 @@ public struct HaloButton: View {
         .scaleEffect(visible ? 1 : 0.85)
         .allowsHitTesting(visible)
         .animation(.spring(duration: 0.18, bounce: 0.2), value: visible)
-        .help("Show related notes & chats")
+        // ISSUE-2026-05-12-004 — Halo button placement discoverability.
+        // The button lives in the bottom-right corner of the editor, which
+        // users miss. Tooltip now includes the keyboard shortcut so users
+        // can fire Halo from anywhere in the editor without hunting for
+        // the chip. ⌘⇧H is unbound elsewhere in the app per a grep audit.
+        .help("Show related notes & chats (⌘⇧H)")
+        .keyboardShortcut("h", modifiers: [.command, .shift])
         .accessibilityLabel("Show contextual recall")
-        .accessibilityHint("Reveals related notes and chats based on what you're typing")
+        .accessibilityHint("Reveals related notes and chats based on what you're typing. Keyboard shortcut: Command-Shift-H.")
     }
 }
