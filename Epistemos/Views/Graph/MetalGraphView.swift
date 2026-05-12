@@ -614,10 +614,27 @@ final class MetalGraphNSView: NSView {
 
     private var isEnginePaused = false
 
-    // MARK: - Shared Position Buffers (behind EPISTEMOS_USE_SHARED_GRAPH_BUFFERS flag)
-
+    // MARK: - Shared Position Buffers
+    //
+    // Canonical graph plan Phase A Week 1 (2026-05-12): flipped from
+    // env-var-opt-in to default-on. The Metal-allocated .storageModeShared
+    // ring buffer + 3-slot semaphore is now the production path; the
+    // legacy graph_engine_read_positions ferry is retained only as a
+    // debug fallback while the rest of Phase A wires through.
+    //
+    // To opt out (e.g., for A/B perf testing against the old ferry path),
+    // set EPISTEMOS_USE_SHARED_GRAPH_BUFFERS=0 in the launch environment.
+    //
+    // Source: docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md §"Phase A —
+    // CPU foundation + zero-copy" → "Week 1: Shared-buffer foundation".
     private static let useSharedGraphBuffers: Bool = {
-        ProcessInfo.processInfo.environment["EPISTEMOS_USE_SHARED_GRAPH_BUFFERS"] == "1"
+        // Honor an explicit "0" env-var override (for benchmarking or
+        // bisecting regressions against the legacy ferry path); default
+        // to true otherwise.
+        if let raw = ProcessInfo.processInfo.environment["EPISTEMOS_USE_SHARED_GRAPH_BUFFERS"] {
+            return raw != "0"
+        }
+        return true
     }()
 
     private var sharedPositionBuffers: [MTLBuffer] = []
