@@ -22,6 +22,7 @@ use crate::types::{
 };
 
 const OPENAI_CHAT_COMPLETIONS_API: &str = "https://api.openai.com/v1/chat/completions";
+const OPENAI_RESPONSES_API: &str = "https://api.openai.com/v1/responses";
 const OPENAI_CODEX_RESPONSES_API: &str = "https://chatgpt.com/backend-api/codex/responses";
 const OPENAI_CODEX_AUTH_MODE_ENV: &str = "OPENAI_AUTH_MODE";
 const OPENAI_CODEX_ACCESS_TOKEN_ENV: &str = "OPENAI_ACCESS_TOKEN";
@@ -32,6 +33,17 @@ const OPENAI_CODEX_AUTH_MODE: &str = "codex";
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum OpenAIAuth {
     ApiKey(String),
+    Codex {
+        access_token: String,
+        client_version: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum OpenAIResponsesAuth {
+    ApiKey {
+        api_key: String,
+    },
     Codex {
         access_token: String,
         client_version: String,
@@ -96,6 +108,10 @@ impl OpenAIProvider {
 
     pub fn o3_mini() -> Self {
         Self::from_env("o3-mini", "gpt-5.4")
+    }
+
+    fn api_key_uses_responses_api(&self) -> bool {
+        matches!(self.model, "gpt-5.4" | "gpt-5.4-mini")
     }
 
     async fn stream_chat_completions(
@@ -285,17 +301,16 @@ impl OpenAIProvider {
         Ok(Box::pin(parsed_stream))
     }
 
-    async fn stream_codex_responses(
+    async fn stream_openai_responses(
         &self,
         messages: &[Message],
         tools: &[ToolSchema],
         config: &AgentConfig,
-        access_token: String,
-        client_version: String,
+        auth: OpenAIResponsesAuth,
     ) -> Result<MessageStream, AgentError> {
-        let input = build_codex_input(messages);
-        let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_codex_json).collect();
-        let body = build_codex_responses_body(self.model.to_string(), config, input, api_tools);
+        let input = build_openai_responses_input(messages);
+        let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_responses_json).collect();
+        let body = build_openai_responses_body(self.model.to_string(), config, input, api_tools);
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
@@ -305,15 +320,25 @@ impl OpenAIProvider {
             &tokio_util::sync::CancellationToken::new(),
             || {
                 let client = client.clone();
-                let access_token = access_token.clone();
+                let auth = auth.clone();
                 let body = body.clone();
-                let client_version = client_version.clone();
                 async move {
-                    let response = client
-                        .post(OPENAI_CODEX_RESPONSES_API)
-                        .query(&[("client_version", client_version)])
-                        .header("authorization", format!("Bearer {access_token}"))
-                        .header("content-type", "application/json")
+                    let request = match auth {
+                        OpenAIResponsesAuth::ApiKey { api_key } => client
+                            .post(OPENAI_RESPONSES_API)
+                            .header("authorization", format!("Bearer {api_key}"))
+                            .header("content-type", "application/json"),
+                        OpenAIResponsesAuth::Codex {
+                            access_token,
+                            client_version,
+                        } => client
+                            .post(OPENAI_CODEX_RESPONSES_API)
+                            .query(&[("client_version", client_version)])
+                            .header("authorization", format!("Bearer {access_token}"))
+                            .header("content-type", "application/json"),
+                    };
+
+                    let response = request
                         .json(&body)
                         .send()
                         .await
@@ -351,14 +376,14 @@ impl OpenAIProvider {
                 };
 
                 if event.data == "[DONE]" {
-                    debug!("OpenAI Codex SSE stream received [DONE]");
+                    debug!("OpenAI Responses SSE stream received [DONE]");
                     break;
                 }
 
                 let payload = match serde_json::from_str::<Value>(&event.data) {
                     Ok(payload) => payload,
                     Err(error) => {
-                        warn!(data = %event.data, error = %error, "failed to parse OpenAI Codex SSE chunk");
+                        warn!(data = %event.data, error = %error, "failed to parse OpenAI Responses SSE chunk");
                         continue;
                     }
                 };
@@ -391,11 +416,9 @@ impl OpenAIProvider {
                     "response.output_item.added" | "response.output_item.done" => {
                         if let Some(item) = payload.get("item") {
                             if item.get("type").and_then(Value::as_str) == Some("function_call") {
-                                let id = item
-                                    .get("id")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or_default()
-                                    .to_string();
+                                let Some((item_id, call_id)) = response_function_call_ids(item) else {
+                                    continue;
+                                };
                                 let name = item
                                     .get("name")
                                     .and_then(Value::as_str)
@@ -406,23 +429,22 @@ impl OpenAIProvider {
                                     .and_then(Value::as_str)
                                     .unwrap_or_default()
                                     .to_string();
-                                if !id.is_empty() {
-                                    let next_index = tool_order.len();
-                                    tool_indices.entry(id.clone()).or_insert_with(|| {
-                                        tool_order.push(id.clone());
-                                        next_index
-                                    });
-                                    let entry = tool_calls.entry(id.clone()).or_insert_with(|| ToolCallInProgress {
-                                        id: id.clone(),
-                                        name: name.clone(),
-                                        arguments: String::new(),
-                                    });
-                                    if !name.is_empty() {
-                                        entry.name = name;
-                                    }
-                                    if !arguments.is_empty() {
-                                        entry.arguments = arguments;
-                                    }
+                                let next_index = tool_order.len();
+                                tool_indices.entry(item_id.clone()).or_insert_with(|| {
+                                    tool_order.push(item_id.clone());
+                                    next_index
+                                });
+                                let entry = tool_calls.entry(item_id.clone()).or_insert_with(|| ToolCallInProgress {
+                                    id: call_id.clone(),
+                                    name: name.clone(),
+                                    arguments: String::new(),
+                                });
+                                entry.id = call_id;
+                                if !name.is_empty() {
+                                    entry.name = name;
+                                }
+                                if !arguments.is_empty() {
+                                    entry.arguments = arguments;
                                 }
                             }
                         }
@@ -482,7 +504,7 @@ impl OpenAIProvider {
                             .and_then(|error| error.get("message"))
                             .and_then(Value::as_str)
                             .or_else(|| payload.get("message").and_then(Value::as_str))
-                            .unwrap_or("OpenAI Codex request failed")
+                            .unwrap_or("OpenAI Responses request failed")
                             .to_string();
                         yield Err(AgentError::ApiError {
                             status: 400,
@@ -607,8 +629,20 @@ impl AgentProvider for OpenAIProvider {
                         "OPENAI_API_KEY is not configured".to_string(),
                     ));
                 }
-                self.stream_chat_completions(messages, tools, config, api_key.clone())
+                if self.api_key_uses_responses_api() {
+                    self.stream_openai_responses(
+                        messages,
+                        tools,
+                        config,
+                        OpenAIResponsesAuth::ApiKey {
+                            api_key: api_key.clone(),
+                        },
+                    )
                     .await
+                } else {
+                    self.stream_chat_completions(messages, tools, config, api_key.clone())
+                        .await
+                }
             }
             OpenAIAuth::Codex {
                 access_token,
@@ -619,12 +653,14 @@ impl AgentProvider for OpenAIProvider {
                         "OPENAI_ACCESS_TOKEN is not configured".to_string(),
                     ));
                 }
-                self.stream_codex_responses(
+                self.stream_openai_responses(
                     messages,
                     tools,
                     config,
-                    access_token.clone(),
-                    client_version.clone(),
+                    OpenAIResponsesAuth::Codex {
+                        access_token: access_token.clone(),
+                        client_version: client_version.clone(),
+                    },
                 )
                 .await
             }
@@ -793,7 +829,7 @@ fn build_openai_messages(messages: &[Message], system_prompt: Option<&str>) -> V
     api_messages
 }
 
-fn build_codex_input(messages: &[Message]) -> Vec<Value> {
+fn build_openai_responses_input(messages: &[Message]) -> Vec<Value> {
     let mut input = Vec::new();
 
     for message in messages {
@@ -928,7 +964,7 @@ fn tool_schema_to_openai_json(tool: &ToolSchema) -> Value {
     })
 }
 
-fn tool_schema_to_codex_json(tool: &ToolSchema) -> Value {
+fn tool_schema_to_responses_json(tool: &ToolSchema) -> Value {
     let parameters = normalized_strict_tool_parameters(&tool.parameters);
     json!({
         "type": "function",
@@ -939,7 +975,7 @@ fn tool_schema_to_codex_json(tool: &ToolSchema) -> Value {
     })
 }
 
-fn build_codex_responses_body(
+fn build_openai_responses_body(
     model: String,
     config: &AgentConfig,
     input: Vec<Value>,
@@ -960,7 +996,11 @@ fn build_codex_responses_body(
         body["parallel_tool_calls"] = json!(true);
     }
 
-    let reasoning_effort = codex_reasoning_effort(config);
+    if let Some(max_tokens) = config.max_output_tokens {
+        body["max_output_tokens"] = json!(max_tokens);
+    }
+
+    let reasoning_effort = openai_responses_reasoning_effort(config);
     if reasoning_effort != "none" {
         body["reasoning"] = json!({
             "effort": reasoning_effort,
@@ -1019,7 +1059,7 @@ fn load_codex_client_version() -> String {
     from_cache.unwrap_or_else(|| OPENAI_CODEX_DEFAULT_CLIENT_VERSION.to_string())
 }
 
-fn codex_reasoning_effort(config: &AgentConfig) -> &'static str {
+fn openai_responses_reasoning_effort(config: &AgentConfig) -> &'static str {
     if !config.enable_thinking {
         return "none";
     }
@@ -1030,6 +1070,24 @@ fn codex_reasoning_effort(config: &AgentConfig) -> &'static str {
         crate::agent_loop::Effort::High => "high",
         crate::agent_loop::Effort::Max => "xhigh",
     }
+}
+
+fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
+    let item_id = item
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .or_else(|| item.get("call_id").and_then(Value::as_str))
+        .filter(|value| !value.is_empty())?
+        .to_string();
+    let call_id = item
+        .get("call_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(item_id.as_str())
+        .to_string();
+
+    Some((item_id, call_id))
 }
 
 fn merge_usage(into: &mut TokenUsage, usage: &UsageData) {
@@ -1203,14 +1261,14 @@ mod tests {
     }
 
     #[test]
-    fn codex_reasoning_effort_uses_xhigh_for_max() {
+    fn openai_responses_reasoning_effort_uses_xhigh_for_max() {
         let config = AgentConfig {
             enable_thinking: true,
             effort: crate::agent_loop::Effort::Max,
             ..AgentConfig::default()
         };
 
-        assert_eq!(codex_reasoning_effort(&config), "xhigh");
+        assert_eq!(openai_responses_reasoning_effort(&config), "xhigh");
     }
 
     // -- SSE chunk parsing tests --
@@ -1508,7 +1566,18 @@ mod tests {
     }
 
     #[test]
-    fn builds_codex_input_with_function_call_round_trip() {
+    fn gpt54_api_key_path_uses_public_responses_api() {
+        let provider = OpenAIProvider::new(OpenAIAuth::ApiKey("sk-test".to_string()), "gpt-5.4");
+        let mini = OpenAIProvider::new(OpenAIAuth::ApiKey("sk-test".to_string()), "gpt-5.4-mini");
+        let legacy = OpenAIProvider::new(OpenAIAuth::ApiKey("sk-test".to_string()), "o3-mini");
+
+        assert!(provider.api_key_uses_responses_api());
+        assert!(mini.api_key_uses_responses_api());
+        assert!(!legacy.api_key_uses_responses_api());
+    }
+
+    #[test]
+    fn builds_openai_responses_input_with_function_call_round_trip() {
         let messages = vec![
             Message::user_text("Use the tool."),
             Message::Assistant {
@@ -1529,7 +1598,7 @@ mod tests {
             },
         ];
 
-        let input = build_codex_input(&messages);
+        let input = build_openai_responses_input(&messages);
 
         assert_eq!(input.len(), 3);
         assert_eq!(input[0]["type"], "message");
@@ -1544,7 +1613,7 @@ mod tests {
     }
 
     #[test]
-    fn codex_tool_schema_is_flat_function_shape() {
+    fn responses_tool_schema_is_flat_function_shape() {
         let schema = ToolSchema {
             name: "read_file".to_string(),
             description: "Read a file".to_string(),
@@ -1557,7 +1626,7 @@ mod tests {
             }),
         };
 
-        let tool_json = tool_schema_to_codex_json(&schema);
+        let tool_json = tool_schema_to_responses_json(&schema);
         assert_eq!(tool_json["type"], "function");
         assert_eq!(tool_json["name"], "read_file");
         assert_eq!(tool_json["description"], "Read a file");
@@ -1566,7 +1635,7 @@ mod tests {
     }
 
     #[test]
-    fn codex_tool_schema_closes_object_parameters_recursively_for_strict_mode() {
+    fn responses_tool_schema_closes_object_parameters_recursively_for_strict_mode() {
         let schema = ToolSchema {
             name: "write_file".to_string(),
             description: "Write a file".to_string(),
@@ -1585,7 +1654,7 @@ mod tests {
             }),
         };
 
-        let tool_json = tool_schema_to_codex_json(&schema);
+        let tool_json = tool_schema_to_responses_json(&schema);
         assert_eq!(tool_json["strict"], true);
         assert_eq!(tool_json["parameters"]["additionalProperties"], false);
         assert_eq!(
@@ -1595,8 +1664,9 @@ mod tests {
     }
 
     #[test]
-    fn codex_tool_schema_requires_every_property_and_keeps_optional_inputs_nullable() {
-        let tool_json = tool_schema_to_codex_json(&crate::tools::filesystem::read_file_schema());
+    fn responses_tool_schema_requires_every_property_and_keeps_optional_inputs_nullable() {
+        let tool_json =
+            tool_schema_to_responses_json(&crate::tools::filesystem::read_file_schema());
         let mut required_names: Vec<&str> = tool_json["parameters"]["required"]
             .as_array()
             .expect("required array")
@@ -1621,12 +1691,12 @@ mod tests {
     }
 
     #[test]
-    fn codex_request_body_enables_auto_parallel_tool_calls_when_tools_exist() {
+    fn responses_request_body_enables_auto_parallel_tool_calls_when_tools_exist() {
         let config = AgentConfig {
             system_prompt: Some("You are Hermes.".to_string()),
             ..Default::default()
         };
-        let body = build_codex_responses_body(
+        let body = build_openai_responses_body(
             "gpt-5.4".to_string(),
             &config,
             vec![json!({
@@ -1634,7 +1704,7 @@ mod tests {
                 "role": "user",
                 "content": [{ "type": "input_text", "text": "Ping" }],
             })],
-            vec![tool_schema_to_codex_json(&ToolSchema {
+            vec![tool_schema_to_responses_json(&ToolSchema {
                 name: "terminal".to_string(),
                 description: "Run a shell command".to_string(),
                 parameters: json!({
@@ -1655,6 +1725,42 @@ mod tests {
     }
 
     #[test]
+    fn responses_request_body_respects_max_output_tokens() {
+        let config = AgentConfig {
+            max_output_tokens: Some(8192),
+            ..Default::default()
+        };
+        let body = build_openai_responses_body(
+            "gpt-5.4".to_string(),
+            &config,
+            vec![json!({
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "Ping" }],
+            })],
+            Vec::new(),
+        );
+
+        assert_eq!(body["max_output_tokens"], 8192);
+    }
+
+    #[test]
+    fn responses_function_call_identity_prefers_call_id_for_tool_results() {
+        let item = json!({
+            "type": "function_call",
+            "id": "fc_item_123",
+            "call_id": "call_runtime_456",
+            "name": "read_file",
+            "arguments": "{\"path\":\"README.md\"}"
+        });
+
+        let (item_id, call_id) = response_function_call_ids(&item).expect("function ids");
+
+        assert_eq!(item_id, "fc_item_123");
+        assert_eq!(call_id, "call_runtime_456");
+    }
+
+    #[test]
     fn registered_agent_tools_emit_codex_safe_object_schemas() {
         use crate::storage::vault::VaultStore;
         use crate::tools::registry::{ToolRegistry, ToolTier};
@@ -1671,7 +1777,7 @@ mod tests {
         );
 
         for tool in registry.get_definitions() {
-            let tool_json = tool_schema_to_codex_json(&tool);
+            let tool_json = tool_schema_to_responses_json(&tool);
             assert_closed_object_schemas(
                 &tool_json["parameters"],
                 true,
