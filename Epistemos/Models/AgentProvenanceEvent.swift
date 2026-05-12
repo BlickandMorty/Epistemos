@@ -121,7 +121,7 @@ nonisolated public struct AgentToolProvenance: Codable, Sendable, Hashable {
 }
 
 nonisolated public struct AgentProvenanceEvent: Codable, Sendable, Hashable {
-    public static let currentSchemaVersion: UInt32 = 1
+    public static let currentSchemaVersion: UInt32 = 2
 
     public let eventID: String
     public let runID: String
