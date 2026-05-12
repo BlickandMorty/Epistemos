@@ -1844,6 +1844,15 @@ struct RuntimeValidationTests {
         #expect(metalRuntime.contains("inferenceHeap = nil"))
     }
 
+    @Test("app-level critical memory pressure requests local model unload")
+    func appLevelCriticalMemoryPressureRequestsLocalModelUnload() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(app.contains("metadata[\"localModelUnloadRequested\"] = \"true\""))
+        #expect(app.contains("Task(priority: .utility) { [localInferenceService] in"))
+        #expect(app.contains("await localInferenceService.unload()"))
+    }
+
     @Test("local mlx memory preflight uses the interactive chat memory budget")
     func localMLXMemoryPreflightUsesInteractiveChatBudget() throws {
         let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")

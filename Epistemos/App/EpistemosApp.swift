@@ -607,6 +607,13 @@ final class RuntimeIssueMonitor {
                 searchService.releaseMemoryPressureCaches()
                 metadata["searchIndexCachesReleased"] = "true"
             }
+            if level == .critical,
+               let localInferenceService = AppBootstrap.shared?.localInferenceService {
+                metadata["localModelUnloadRequested"] = "true"
+                Task(priority: .utility) { [localInferenceService] in
+                    await localInferenceService.unload()
+                }
+            }
             // `WKProcessPool` is deprecated on current macOS SDKs; the
             // actionable pressure signal is whether document WebViews
             // are live, since teardown/non-persistent stores reclaim
