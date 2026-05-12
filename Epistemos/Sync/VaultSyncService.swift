@@ -1759,13 +1759,50 @@ final class VaultSyncService {
         }
         let snapshotIDsToDelete = sortedManifest.prefix(sortedManifest.count - maxCount).map(\.snapshotID)
 
+        // USER REPORT 2026-05-12 fix (ISSUE-2026-05-12-012): when
+        // `tmutil deletelocalsnapshots` fails on a stuck old snapshot
+        // (macOS pinned it, or it's no longer present), the original
+        // code propagated the error → `saveAPFSSnapshotManifest` never
+        // ran → the stuck snapshot stayed in the manifest → next prune
+        // attempt tried to delete it again → infinite log spam.
+        //
+        // Fix: catch each delete failure independently. If tmutil
+        // refuses to delete a snapshot, drop it from the manifest
+        // anyway — we have no way to recover from a stuck snapshot,
+        // and keeping it in the manifest just generates noise. The
+        // worst case is a stuck snapshot on disk that the user has to
+        // clear themselves via `tmutil thinlocalsnapshots /` later;
+        // that's strictly better than the current "spam errors
+        // forever" behaviour.
+        var deleteFailures: [(snapshotID: String, error: String)] = []
         for snapshotID in snapshotIDsToDelete {
-            _ = try commandRunner(["deletelocalsnapshots", snapshotID])
+            do {
+                _ = try commandRunner(["deletelocalsnapshots", snapshotID])
+            } catch {
+                deleteFailures.append((snapshotID, error.localizedDescription))
+                // Log once per snapshot per session, not per prune cycle.
+                backgroundLog.warning(
+                    "APFS snapshot \(snapshotID, privacy: .public) delete failed; dropping from manifest to stop retry loop: \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
 
         let remainingSnapshotIDs = Set(sortedManifest.suffix(maxCount).map(\.snapshotID))
         let remainingManifest = sortedManifest.filter { remainingSnapshotIDs.contains($0.snapshotID) }
         try saveAPFSSnapshotManifest(remainingManifest, at: manifestURL)
+
+        // Re-throw the first delete failure ONLY if every delete
+        // attempted failed (true I/O / tmutil-unavailable problem).
+        // Partial failure → manifest still updated, no throw, no spam.
+        if !deleteFailures.isEmpty && deleteFailures.count == snapshotIDsToDelete.count {
+            throw NSError(
+                domain: "VaultSyncService.APFSSnapshotPrune",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "All \(snapshotIDsToDelete.count) APFS snapshot deletes failed: \(deleteFailures.first?.error ?? "unknown error")",
+                ]
+            )
+        }
     }
 
     nonisolated static func createAPFSSafetySnapshotForTesting(
