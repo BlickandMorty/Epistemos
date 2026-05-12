@@ -63,6 +63,33 @@ struct SearchIndexServiceIntegrationTests {
         }.value
     }
 
+    private func tableExists(databaseURL: URL, name: String) throws -> Bool {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        defer { sqlite3_close(db) }
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(
+            db,
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?);",
+            -1,
+            &stmt,
+            nil
+        ) == SQLITE_OK else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        defer { sqlite3_finalize(stmt) }
+        let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, name, -1, transient)
+
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        return sqlite3_column_int(stmt, 0) == 1
+    }
+
     private func pragmaValue(databaseURL: URL, pragma: String) throws -> String {
         var db: OpaquePointer?
         guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
@@ -145,6 +172,38 @@ struct SearchIndexServiceIntegrationTests {
 
         let results = try withRetry { try service.search(query: token, limit: 20) }
         #expect(results.contains { $0.pageId == pageId })
+    }
+
+    @Test("startup repairs missing FTS tables after migrations already ran")
+    func startupRepairsMissingFTSTablesAfterMigrationsRan() async throws {
+        guard sqliteSupportsFTS5ForFusionTests() else { return }
+
+        let databaseURL = makeDatabaseURL()
+        do {
+            _ = try SearchIndexService(databaseURL: databaseURL)
+        }
+
+        let dropStatus = try await runSQLiteProcess(
+            databaseURL: databaseURL,
+            schema: """
+            DROP TRIGGER IF EXISTS indexed_pages_ai;
+            DROP TRIGGER IF EXISTS indexed_pages_ad;
+            DROP TRIGGER IF EXISTS indexed_pages_au;
+            DROP TRIGGER IF EXISTS indexed_blocks_ai;
+            DROP TRIGGER IF EXISTS indexed_blocks_ad;
+            DROP TRIGGER IF EXISTS indexed_blocks_au;
+            DROP TABLE IF EXISTS page_search;
+            DROP TABLE IF EXISTS block_search;
+            """
+        )
+        #expect(dropStatus == 0)
+        #expect(try !tableExists(databaseURL: databaseURL, name: "page_search"))
+        #expect(try !tableExists(databaseURL: databaseURL, name: "block_search"))
+
+        _ = try SearchIndexService(databaseURL: databaseURL)
+
+        #expect(try tableExists(databaseURL: databaseURL, name: "page_search"))
+        #expect(try tableExists(databaseURL: databaseURL, name: "block_search"))
     }
 
     @Test("delete removes page from FTS results")
