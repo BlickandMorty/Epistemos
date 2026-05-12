@@ -123,7 +123,7 @@ nonisolated enum StructuredOutputError: Error, LocalizedError, Sendable {
 /// For OpenAI: each schema maps to `response_format.json_schema.schema`.
 nonisolated enum FileEditTool {
     static let editFile = CloudJSONSchema(
-        name: "edit_file",
+        name: "file_patch",
         description: "Replace a range of lines in the active file. Use for targeted edits.",
         schema: [
             "type": "object",
@@ -138,7 +138,7 @@ nonisolated enum FileEditTool {
     )
 
     static let replaceFile = CloudJSONSchema(
-        name: "replace_file",
+        name: "file_replace",
         description: "Replace the entire file content. Use only when the edit affects more than 60% of lines.",
         schema: [
             "type": "object",
@@ -151,7 +151,7 @@ nonisolated enum FileEditTool {
     )
 
     static let insertAtLine = CloudJSONSchema(
-        name: "insert_at_line",
+        name: "file_insert_at_line",
         description: "Insert new lines before a given line number.",
         schema: [
             "type": "object",
@@ -165,7 +165,7 @@ nonisolated enum FileEditTool {
     )
 
     static let deleteLines = CloudJSONSchema(
-        name: "delete_lines",
+        name: "file_delete_lines",
         description: "Delete a range of lines from the file.",
         schema: [
             "type": "object",

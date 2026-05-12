@@ -360,13 +360,10 @@ extension AgentPermissionRequest {
         "fetch_url",
         "github_search",
         "http_fetch",
-        "search_web",
         "tavily_search",
         "web.search",
         "web.fetch",
         "web.extract",
-        "web_fetch",
-        "web_search",
     ]
 
     nonisolated private static let gitOperationTools: Set<String> = [

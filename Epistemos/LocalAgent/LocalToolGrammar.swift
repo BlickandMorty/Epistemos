@@ -55,6 +55,7 @@ nonisolated enum LocalToolGrammar {
         tools: [OmegaToolDefinition],
         forceThinking: Bool
     ) -> ToolCallingPlan {
+        let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
         let fallbackGrammar = ToolSchemaGrammar.compilePlanningGrammar(
             toolSchemas: tools.map(\.localPlanningSchema)
         )

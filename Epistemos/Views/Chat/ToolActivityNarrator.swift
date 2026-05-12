@@ -54,7 +54,7 @@ enum ToolActivityNarrator {
             }
             return "Writing a file"
 
-        case "file.patch", "edit", "edit_file", "apply_patch":
+        case "file.patch", "edit", "apply_patch":
             if let path = firstString(in: input, keys: ["path", "file", "file_path"]) {
                 return "Editing \(displayName(for: path))"
             }

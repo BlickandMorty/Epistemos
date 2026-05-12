@@ -33,6 +33,8 @@ nonisolated enum LocalAgentPromptBuilder {
         additionalInstructions: String? = nil,
         knowledgeIndex: String? = nil
     ) -> String {
+        let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
+
         #if canImport(agent_coreFFI)
         if let prompt = rustSystemPrompt(
             tools: tools,

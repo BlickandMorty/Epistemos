@@ -268,6 +268,7 @@ actor LocalAgentLoop {
             throw LocalAgentLoopError.unsupportedModel(modelID)
         }
 
+        let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
         let runID = Self.makeLocalAgentRunID()
         defer {
             toolCallSequenceByRunID[runID] = nil
@@ -1375,14 +1376,14 @@ actor LocalAgentLoop {
     ) -> [String] {
         let request = currentRequestText(from: objective)
         let normalized = request.lowercased()
-        let writeToolName = AgentToolNameAliases.preferredAvailableName(
+        let hasWriteTool = AgentToolNameAliases.preferredAvailableName(
             for: "file.write",
             availableTools: availableTools
-        )
-        let readToolName = AgentToolNameAliases.preferredAvailableName(
+        ) != nil
+        let hasReadTool = AgentToolNameAliases.preferredAvailableName(
             for: "file.read",
             availableTools: availableTools
-        )
+        ) != nil
 
         let hasConcreteFileTarget = normalized.contains("tmp/")
             || normalized.contains("/tmp/")
@@ -1393,7 +1394,7 @@ actor LocalAgentLoop {
             || normalized.contains(".csv")
             || normalized.contains(".log")
 
-        let requiresWrite = writeToolName != nil
+        let requiresWrite = hasWriteTool
             && (normalized.contains("file.write")
                 || normalized.contains("write_file")
                 || (hasConcreteFileTarget && (
@@ -1401,7 +1402,7 @@ actor LocalAgentLoop {
                         || normalized.contains("save ")
                         || normalized.contains("create ")
                 )))
-        let requiresRead = readToolName != nil
+        let requiresRead = hasReadTool
             && (normalized.contains("file.read")
                 || normalized.contains("read_file")
                 || (hasConcreteFileTarget && (
@@ -1413,11 +1414,11 @@ actor LocalAgentLoop {
                 )))
 
         var sequence: [String] = []
-        if requiresWrite, let writeToolName {
-            sequence.append(writeToolName)
+        if requiresWrite {
+            sequence.append("file.write")
         }
-        if requiresRead, let readToolName {
-            sequence.append(readToolName)
+        if requiresRead {
+            sequence.append("file.read")
         }
         return sequence
     }
@@ -1428,14 +1429,14 @@ actor LocalAgentLoop {
     ) -> [String] {
         let request = currentRequestText(from: objective)
         let normalized = request.lowercased()
-        let writeToolName = AgentToolNameAliases.preferredAvailableName(
+        let hasWriteTool = AgentToolNameAliases.preferredAvailableName(
             for: "vault.write",
             availableTools: availableTools
-        )
-        let readToolName = AgentToolNameAliases.preferredAvailableName(
+        ) != nil
+        let hasReadTool = AgentToolNameAliases.preferredAvailableName(
             for: "vault.read",
             availableTools: availableTools
-        )
+        ) != nil
 
         let createSignals = [
             "create a new note",
@@ -1459,18 +1460,18 @@ actor LocalAgentLoop {
             "exact note body",
         ]
 
-        let requiresWrite = writeToolName != nil
+        let requiresWrite = hasWriteTool
             && createSignals.contains(where: normalized.contains)
-        let requiresRead = readToolName != nil
+        let requiresRead = hasReadTool
             && requiresWrite
             && readBackSignals.contains(where: normalized.contains)
 
         var sequence: [String] = []
-        if requiresWrite, let writeToolName {
-            sequence.append(writeToolName)
+        if requiresWrite {
+            sequence.append("vault.write")
         }
-        if requiresRead, let readToolName {
-            sequence.append(readToolName)
+        if requiresRead {
+            sequence.append("vault.read")
         }
         return sequence
     }

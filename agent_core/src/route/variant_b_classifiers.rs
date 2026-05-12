@@ -131,8 +131,8 @@ fn jaccard(a: &[String], b: &[String]) -> f64 {
 
 /// Single-method abstraction the host plugs in to drive grammar-bound
 /// LLM classification. Swift implements via an MLX session +
-/// llguidance constraint; cloud impls call /chat/completions with
-/// JSON-mode + the schema attached.
+/// llguidance constraint; cloud impls use the provider-specific
+/// structured JSON endpoint with the schema attached.
 #[async_trait]
 pub trait RawJsonLlmClient: Send + Sync {
     /// Returns a JSON value conforming to the supplied schema.
