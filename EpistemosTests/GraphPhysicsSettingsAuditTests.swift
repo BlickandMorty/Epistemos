@@ -116,11 +116,12 @@ struct GraphPhysicsSettingsAuditTests {
         )
     }
 
-    @Test("Renderer camera smoothing stays on the 6.5 buttery baseline")
+    @Test("Renderer camera smoothing stays on the snappy 11.0 baseline")
     func rendererCameraSmoothingStaysOnButteryBaseline() throws {
         let source = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
 
-        #expect(source.contains("const CAMERA_LAMBDA: f32 = 6.5;"))
+        #expect(source.contains("const DEFAULT_CAMERA_LAMBDA: f32 = 11.0;"))
+        #expect(source.contains("11.0 = snappy response"))
         #expect(source.contains("Was 3.0 (too slow per user 2026-04-04)."))
     }
 
@@ -506,7 +507,7 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(script.contains("JetBrainsMono-Regular.ttf"))
         #expect(script.contains("-size 48"))
         #expect(script.contains("-dimensions 1024 1024"))
-        #expect(graphState.contains("var displayName: String { \"Mono\" }"))
+        #expect(graphState.contains("var displayName: String { \"Theme\" }"))
         #expect(renderer.contains("float atlas_glyph_px = inst.uv_rect.w * u.atlas_height;"))
         #expect(renderer.contains("float blur_widen = in.blur * 0.08;"))
         #expect(!renderer.contains("inst.size * (1.0 - blur * 0.5)"))
@@ -569,7 +570,7 @@ struct GraphPhysicsSettingsAuditTests {
         let engine = try loadMirroredSourceTextFile("graph-engine/src/engine.rs")
 
         #expect(engine.contains("fn estimated_label_screen_rect("))
-        #expect(engine.contains("occupied_label_rects"))
+        #expect(engine.contains("label_occupied_rects"))
         #expect(engine.contains("existing.overlaps(&label_rect)"))
         #expect(engine.contains("let local_scale = 1.0 - 0.62 * smoothstep"))
         #expect(engine.contains("fn selected_neighbor_density_budget("))
@@ -585,8 +586,8 @@ struct GraphPhysicsSettingsAuditTests {
     func graphEdgeThicknessDerivesFromEdgeWeight() throws {
         let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
 
-        #expect(renderer.contains("const MIN_EDGE_WIDTH_PX: f32 = 1.15"))
-        #expect(renderer.contains("const MAX_EDGE_WIDTH_PX: f32 = 4.20"))
+        #expect(renderer.contains("const MIN_EDGE_WIDTH_PX: f32 = 2.00"))
+        #expect(renderer.contains("const MAX_EDGE_WIDTH_PX: f32 = 6.00"))
         #expect(renderer.contains("fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32"))
         #expect(renderer.contains("let thickness_px = edge_width_px_for_weight(edge.weight, source_radius, target_radius)"))
         #expect(renderer.contains("fn graph_edge_color_for_appearance(light_mode: bool) -> [f32; 4]"))
@@ -640,7 +641,7 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!renderer.contains("crate::edge_trim::trim_line_endpoints("))
         #expect(!renderer.contains("crate::edge_trim::trim_curve_endpoints("))
         #expect(!graphLib.contains("pub mod edge_trim;"))
-        #expect(renderer.contains("smooth_curve_edges_use_node_centers_so_nodes_occlude_connections"))
+        #expect(renderer.contains("smooth_curve_edges_use_node_centers_and_keep_curvature"))
         let productionRenderer = renderer.split(separator: "mod tests", maxSplits: 1).first.map(String.init) ?? renderer
         #expect(!productionRenderer.contains("EdgeGeometryKind"))
         #expect(renderer.contains("fn performance_quality_keeps_curved_edge_geometry"))
