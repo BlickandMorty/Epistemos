@@ -6319,6 +6319,9 @@ struct InferenceCloudSelectionTests {
         #expect(coordinator.contains("enableThinking: surfaceOperatingMode.capturesReasoningTrace"))
         #expect(coordinator.contains("effort: rustAgentEffort(for: surfaceOperatingMode)"))
         #expect(coordinator.contains("resolveRustProviderName(for: selectedSurface)"))
+        #expect(coordinator.contains("case .openAI: return \"openai_gpt54\""))
+        #expect(coordinator.contains("case \"openai\", \"openai_gpt4o\", \"openai_gpt54\":"))
+        #expect(coordinator.contains("return \"openai_gpt54_mini\""))
         #expect(!coordinator.contains("allowedToolNames: nil"))
     }
 
