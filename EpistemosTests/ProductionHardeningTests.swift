@@ -515,6 +515,19 @@ struct ReleasePackagingHardeningTests {
         #expect(projectSpec.contains("ENABLE_HARDENED_RUNTIME: true"))
     }
 
+    @Test("direct build copies NightBrain LaunchAgent to SMAppService bundle location")
+    func directBuildCopiesNightBrainLaunchAgentToLibraryLocation() throws {
+        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
+
+        #expect(bundler.contains("Contents/Library/LaunchAgents"))
+        #expect(bundler.contains("com.epistemos.nightbrain.plist"))
+        #expect(bundler.contains("NightBrain LaunchAgent bundled"))
+        #expect(bundler.contains("rm -f \"$RESOURCES_DIR/LaunchAgents/com.epistemos.nightbrain.plist\""))
+        let appStoreGuard = try #require(bundler.range(of: "if is_app_store_build; then"))
+        let bundleCall = try #require(bundler.range(of: "bundle_nightbrain_launchagent"))
+        #expect(appStoreGuard.lowerBound < bundleCall.lowerBound)
+    }
+
     @Test("App Store target is sandboxed and excludes direct-distribution entitlements")
     func appStoreTargetUsesSandboxEntitlements() throws {
         let appStoreEntitlements = try loadProductionHardeningRepoTextFile("Epistemos/Epistemos-AppStore.entitlements")
