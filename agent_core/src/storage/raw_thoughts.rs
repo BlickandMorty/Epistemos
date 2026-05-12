@@ -987,7 +987,7 @@ mod tests {
         emitter
             .record(RawThoughtsEvent::ToolUse {
                 id: "tc_001".to_string(),
-                name: "vault_search".to_string(),
+                name: "vault.search".to_string(),
                 input: input.clone(),
             })
             .unwrap();
@@ -1012,7 +1012,7 @@ mod tests {
                 input: parsed,
             } => {
                 assert_eq!(id, "tc_001");
-                assert_eq!(name, "vault_search");
+                assert_eq!(name, "vault.search");
                 assert_eq!(parsed, input);
             }
             other => panic!("expected ToolUse, got {other:?}"),
@@ -1159,7 +1159,7 @@ mod tests {
         emitter
             .record(RawThoughtsEvent::ToolUse {
                 id: "tc_abc".to_string(),
-                name: "vault_search".to_string(),
+                name: "vault.search".to_string(),
                 input: input.clone(),
             })
             .unwrap();
@@ -1181,7 +1181,7 @@ mod tests {
         let body = fs::read_to_string(&sidecar_path).unwrap();
         let sidecar: RawThoughtsToolSidecar = serde_json::from_str(&body).unwrap();
         assert_eq!(sidecar.tool_use_id, "tc_abc");
-        assert_eq!(sidecar.name, "vault_search");
+        assert_eq!(sidecar.name, "vault.search");
         assert_eq!(sidecar.input, input);
         assert_eq!(sidecar.output, "found 2 notes");
         assert!(!sidecar.is_error);

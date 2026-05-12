@@ -4,7 +4,7 @@
 //! to a `(ResourceId, Capability)` pair that the permission store can
 //! decide on. Returns `None` when:
 //!   - The tool is read-only or has no resource argument we can pin
-//!     down (e.g. `think`, `bash_execute`, `web_search`).
+//!     down (e.g. `think`, `action.bash`, `web.search`).
 //!   - The vault root isn't known (can't build a canonical
 //!     `vault://` URI without a stable vault id).
 //!   - The input JSON is missing the field we'd key off.
@@ -60,12 +60,12 @@ pub fn infer_tool_authz_target(
         // vault-relative; vault id comes from the active vault root's
         // last component (matches the Swift-side convention in
         // `AppBootstrap.initializeRustResourceServiceIfReady`).
-        "vault_write" => {
+        "vault.write" | "vault_write" => {
             vault_note_target_from_path(input.get("path")?, vault_root, Capability::Write)
         }
         // Template instantiation writes a new vault note at
         // `output_path`, so it uses the same resource gate as
-        // `vault_write` rather than bypassing Sovereign Gate policy.
+        // `vault.write` rather than bypassing Sovereign Gate policy.
         "note_template" => {
             vault_note_target_from_path(input.get("output_path")?, vault_root, Capability::Write)
         }
@@ -74,10 +74,10 @@ pub fn infer_tool_authz_target(
         // the file if missing and overwrites if present; the gate
         // rides on `Capability::Write` either way (grants carrying
         // `Write` imply the ability to create at the same location).
-        "write_file" => file_target_from_path(input.get("path")?, Capability::Write),
+        "file.write" | "write_file" => file_target_from_path(input.get("path")?, Capability::Write),
         // In-place fuzzy patch — requires the file to already exist,
         // so this is always a `Write` against an existing resource.
-        "patch" => file_target_from_path(input.get("path")?, Capability::Write),
+        "file.patch" | "patch" => file_target_from_path(input.get("path")?, Capability::Write),
         // Training-dataset export. When `output_path` is provided the
         // handler writes a JSONL file; when omitted it returns the
         // first 20 lines inline (no write). Only gate the write path.
@@ -94,7 +94,7 @@ pub fn infer_tool_authz_target(
         // Everything else currently unrecognized. This covers the
         // mutating tools that don't have a natural `ResourceId`
         // today:
-        //   * Shell / passthrough: `bash_execute`, `process`,
+        //   * Shell / passthrough: `action.bash`, `system.process`,
         //     `claude_code`, `codex`. They don't target a single
         //     resource; the command string is the whole thing. Tier
         //     + allowlist gating in `is_tool_permitted` is what
@@ -107,7 +107,7 @@ pub fn infer_tool_authz_target(
         //   * UI / device: `interact`, browser_*. Target is an AX
         //     element or browser tab, not a stable resource.
         //   * Local-state tools: `memory`, `skill_manage`,
-        //     `tool_manage`, `cronjob`, `ssm_resume`,
+        //     `tool_manage`, `system.cron`, `ssm_resume`,
         //     `nightbrain_trigger`. Each could grow a dedicated
         //     variant in `ResourceId` later; for now they bypass.
         //   * Stdio MCP tools: schema is user-supplied; we can't
@@ -209,8 +209,8 @@ mod tests {
     fn vault_write_with_vault_root_emits_vault_note_write() {
         let input = json!({"path": "Inbox/Alpha.md", "content": "body"});
         let root = PathBuf::from("/tmp/my-vault");
-        let target = infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root))
-            .expect("vault_write with a path should yield a target");
+        let target = infer_tool_authz_target("vault.write", &input, &write_risk(), Some(&root))
+            .expect("vault.write with a path should yield a target");
         assert_eq!(target.capability, Capability::Write);
         match target.resource {
             ResourceId::VaultNote { vault_id, note_id } => {
@@ -222,11 +222,26 @@ mod tests {
     }
 
     #[test]
+    fn legacy_vault_write_alias_still_emits_vault_note_write() {
+        let input = json!({"path": "Inbox/Legacy.md", "content": "body"});
+        let root = PathBuf::from("/tmp/my-vault");
+        let target = infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root))
+            .expect("legacy vault_write should keep working as a compatibility alias");
+        match target.resource {
+            ResourceId::VaultNote { vault_id, note_id } => {
+                assert_eq!(vault_id, "my-vault");
+                assert_eq!(note_id, "Inbox/Legacy.md");
+            }
+            _ => panic!("expected VaultNote variant, got {:?}", target.resource),
+        }
+    }
+
+    #[test]
     fn vault_write_strips_leading_slash_from_path() {
         let input = json!({"path": "/Inbox/Beta.md", "content": "body"});
         let root = PathBuf::from("/vaults/main");
-        let target = infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root))
-            .expect("vault_write should normalize leading slash");
+        let target = infer_tool_authz_target("vault.write", &input, &write_risk(), Some(&root))
+            .expect("vault.write should normalize leading slash");
         match target.resource {
             ResourceId::VaultNote { vault_id, note_id } => {
                 assert_eq!(vault_id, "main");
@@ -256,7 +271,7 @@ mod tests {
     fn vault_write_without_vault_root_returns_none() {
         let input = json!({"path": "Inbox/Gamma.md", "content": "body"});
         // No vault root → can't build a canonical URI.
-        assert!(infer_tool_authz_target("vault_write", &input, &write_risk(), None).is_none());
+        assert!(infer_tool_authz_target("vault.write", &input, &write_risk(), None).is_none());
     }
 
     #[test]
@@ -264,7 +279,7 @@ mod tests {
         let input = json!({"content": "body"});
         let root = PathBuf::from("/tmp/my-vault");
         assert!(
-            infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root)).is_none()
+            infer_tool_authz_target("vault.write", &input, &write_risk(), Some(&root)).is_none()
         );
     }
 
@@ -273,11 +288,11 @@ mod tests {
         let input = json!({"path": "", "content": "body"});
         let root = PathBuf::from("/tmp/my-vault");
         assert!(
-            infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root)).is_none()
+            infer_tool_authz_target("vault.write", &input, &write_risk(), Some(&root)).is_none()
         );
         let only_slash = json!({"path": "/", "content": "body"});
         assert!(
-            infer_tool_authz_target("vault_write", &only_slash, &write_risk(), Some(&root))
+            infer_tool_authz_target("vault.write", &only_slash, &write_risk(), Some(&root))
                 .is_none()
         );
     }
@@ -290,7 +305,7 @@ mod tests {
         let input = json!({"path": "Inbox/Anything.md"});
         let root = PathBuf::from("/tmp/my-vault");
         assert!(
-            infer_tool_authz_target("vault_write", &input, &read_risk(), Some(&root)).is_none()
+            infer_tool_authz_target("vault.write", &input, &read_risk(), Some(&root)).is_none()
         );
     }
 
@@ -302,7 +317,7 @@ mod tests {
         let input = json!({"command": "ls -la"});
         let root = PathBuf::from("/tmp/my-vault");
         assert!(
-            infer_tool_authz_target("bash_execute", &input, &destructive_risk(), Some(&root))
+            infer_tool_authz_target("action.bash", &input, &destructive_risk(), Some(&root))
                 .is_none()
         );
     }
@@ -318,16 +333,16 @@ mod tests {
         // we can't even build an id; the gate must allow-and-log.
         let input = json!({"path": "Inbox/NoRoot.md", "content": "body"});
         assert!(
-            infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root)).is_none()
+            infer_tool_authz_target("vault.write", &input, &write_risk(), Some(&root)).is_none()
         );
     }
 
-    // ── write_file arm ────────────────────────────────────────────
+    // ── file.write arm ────────────────────────────────────────────
     #[test]
-    fn write_file_absolute_path_emits_file_write() {
+    fn file_write_absolute_path_emits_file_write() {
         let input = json!({"path": "/tmp/authz/example.txt", "content": "body"});
-        let target = infer_tool_authz_target("write_file", &input, &write_risk(), None)
-            .expect("write_file with absolute path should yield a target");
+        let target = infer_tool_authz_target("file.write", &input, &write_risk(), None)
+            .expect("file.write with absolute path should yield a target");
         assert_eq!(target.capability, Capability::Write);
         match target.resource {
             ResourceId::File { absolute_path } => {
@@ -338,12 +353,12 @@ mod tests {
     }
 
     #[test]
-    fn write_file_home_expanded_path_resolves_under_home() {
+    fn file_write_home_expanded_path_resolves_under_home() {
         let Some(home) = dirs::home_dir() else {
             return; // can't run the assertion in an env without HOME
         };
         let input = json!({"path": "~/scratch/authz.txt", "content": "body"});
-        let target = infer_tool_authz_target("write_file", &input, &write_risk(), None)
+        let target = infer_tool_authz_target("file.write", &input, &write_risk(), None)
             .expect("~/ prefix should still produce a file target");
         match target.resource {
             ResourceId::File { absolute_path } => {
@@ -355,15 +370,15 @@ mod tests {
     }
 
     #[test]
-    fn write_file_missing_path_returns_none() {
+    fn file_write_missing_path_returns_none() {
         let input = json!({"content": "body"});
-        assert!(infer_tool_authz_target("write_file", &input, &write_risk(), None).is_none());
+        assert!(infer_tool_authz_target("file.write", &input, &write_risk(), None).is_none());
     }
 
     #[test]
-    fn write_file_empty_path_returns_none() {
+    fn file_write_empty_path_returns_none() {
         let input = json!({"path": "   ", "content": "body"});
-        assert!(infer_tool_authz_target("write_file", &input, &write_risk(), None).is_none());
+        assert!(infer_tool_authz_target("file.write", &input, &write_risk(), None).is_none());
     }
 
     // ── patch arm ──────────────────────────────────────────────────
@@ -374,8 +389,8 @@ mod tests {
             "old_string": "fn old()",
             "new_string": "fn new()"
         });
-        let target = infer_tool_authz_target("patch", &input, &write_risk(), None)
-            .expect("patch with path should yield a file target");
+        let target = infer_tool_authz_target("file.patch", &input, &write_risk(), None)
+            .expect("file.patch with path should yield a file target");
         assert_eq!(target.capability, Capability::Write);
         match target.resource {
             ResourceId::File { absolute_path } => {
@@ -388,7 +403,7 @@ mod tests {
     #[test]
     fn patch_missing_path_returns_none() {
         let input = json!({"old_string": "x", "new_string": "y"});
-        assert!(infer_tool_authz_target("patch", &input, &write_risk(), None).is_none());
+        assert!(infer_tool_authz_target("file.patch", &input, &write_risk(), None).is_none());
     }
 
     // ── trajectory_export arm ─────────────────────────────────────
@@ -454,8 +469,12 @@ mod tests {
     fn non_resourceable_mutating_tools_return_none() {
         let root = PathBuf::from("/tmp/my-vault");
         let cases: &[(&str, Value, RiskLevel)] = &[
-            ("bash_execute", json!({"command": "ls"}), destructive_risk()),
-            ("process", json!({"action": "list"}), destructive_risk()),
+            ("action.bash", json!({"command": "ls"}), destructive_risk()),
+            (
+                "system.process",
+                json!({"action": "list"}),
+                destructive_risk(),
+            ),
             (
                 "claude_code",
                 json!({"task": "refactor"}),
@@ -538,7 +557,7 @@ mod tests {
                 write_risk(),
             ),
             (
-                "cronjob",
+                "system.cron",
                 json!({"action": "create", "schedule": "* * * * * *", "prompt": "p"}),
                 write_risk(),
             ),

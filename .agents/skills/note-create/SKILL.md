@@ -13,7 +13,7 @@ Use this skill when the task is to create a new note.
 
 1. Decide the best vault-relative path from the user's request, nearby note structure, and vault navigation context.
 2. If the target location is ambiguous, ask one short clarification question.
-3. Create a new note with `vault_write` using full markdown content.
+3. Create a new note with `vault.write` using full markdown content.
 4. When useful, add lightweight frontmatter tags that match the user's request.
 
 ## Guardrails

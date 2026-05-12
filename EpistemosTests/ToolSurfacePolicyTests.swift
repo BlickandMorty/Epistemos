@@ -17,28 +17,28 @@ struct ToolSurfacePolicyTests {
 
     @Test func unsupportedImageGenerationDisappearsFromVisibleToolSurfaces() {
         let filtered = ToolSurfacePolicy.surfacedTools([
-            Self.makeTool(name: "image_generate"),
-            Self.makeTool(name: "vision_analyze"),
-            Self.makeTool(name: "text_to_speech"),
+            Self.makeTool(name: "media.image_generate"),
+            Self.makeTool(name: "media.vision_analyze"),
+            Self.makeTool(name: "media.text_to_speech"),
         ])
 
-        #expect(filtered.map(\.name) == ["vision_analyze", "text_to_speech"])
+        #expect(filtered.map(\.name) == ["media.vision_analyze", "media.text_to_speech"])
     }
 
     @Test func thinkDisappearsFromVisibleToolSurfaces() {
         let filtered = ToolSurfacePolicy.surfacedTools([
             Self.makeTool(name: "think"),
-            Self.makeTool(name: "vault_search"),
+            Self.makeTool(name: "vault.search"),
         ])
 
-        #expect(filtered.map(\.name) == ["vault_search"])
+        #expect(filtered.map(\.name) == ["vault.search"])
     }
 
     @Test func coreAppStoreHiddenGatewayToolsDisappearFromVisibleToolSurfaces() {
         let hidden = [
-            "bash_execute",
-            "terminal",
-            "process",
+            "action.bash",
+            "action.terminal",
+            "system.process",
             "claude_code",
             "codex",
             "gemini",
@@ -50,14 +50,14 @@ struct ToolSurfacePolicyTests {
             "browser_press",
             "browser_close",
             "browser_scroll",
-            "mcp_discover",
-            "vision_analyze",
-            "image_generate",
-            "text_to_speech",
+            "discovery.mcp_discover",
+            "media.vision_analyze",
+            "media.image_generate",
+            "media.text_to_speech",
             "perceive",
             "interact",
             "screen_watch",
-            "cronjob",
+            "system.cron",
             "imessage",
             "imessage_contacts",
             "channel_contacts",
@@ -65,7 +65,7 @@ struct ToolSurfacePolicyTests {
             "apple_reminders",
             "apple_calendar",
             "apple_mail",
-            "skill_manage",
+            "skills.manage",
             "custom_tool_manage",
             "trajectory_export",
             "nightbrain_trigger",
@@ -99,17 +99,17 @@ struct ToolSurfacePolicyTests {
             Self.makeTool(name: "Vault_Search"),
         ], distribution: .coreAppStore)
 
-        #expect(filtered.map(\.name) == ["Vault_Search"])
+        #expect(filtered.map(\.name) == ["vault.search"])
     }
 
     @Test func proResearchGatewayToolsStayVisibleWhenRuntimeCanUseThem() {
         let tools = [
-            "bash_execute",
-            "terminal",
+            "action.bash",
+            "action.terminal",
             "browser_navigate",
-            "mcp_discover",
+            "discovery.mcp_discover",
             "think",
-            "vault_search",
+            "vault.search",
         ].map(Self.makeTool(name:))
 
         let filtered = ToolSurfacePolicy.surfacedTools(
@@ -118,11 +118,11 @@ struct ToolSurfacePolicyTests {
         )
 
         #expect(filtered.map(\.name) == [
-            "bash_execute",
-            "terminal",
+            "action.bash",
+            "action.terminal",
             "browser_navigate",
-            "mcp_discover",
-            "vault_search",
+            "discovery.mcp_discover",
+            "vault.search",
         ])
     }
 
@@ -139,11 +139,11 @@ struct ToolSurfacePolicyTests {
         }
 
         #expect(ToolSurfacePolicy.isSurfacedToolName(
-            "bash_execute",
+            "action.bash",
             distribution: .proResearch
         ) == false)
         #expect(ToolSurfacePolicy.isSurfacedToolName(
-            "vault_search",
+            "vault.search",
             distribution: .proResearch
         ))
     }
@@ -157,8 +157,8 @@ struct ToolSurfacePolicyTests {
         let executor = bridge.toolExecutor()
 
         for toolName in [
-            "run_command",
-            "run_persistent",
+            "action.bash",
+            "action.terminal",
             "get_ui_tree",
             "see",
             "click",
@@ -175,11 +175,11 @@ struct ToolSurfacePolicyTests {
 
     @Test @MainActor func toolExecutionPolicyPreservesAllowedAndProResearchPaths() {
         #expect(ToolTierBridge.executionPolicyDenial(
-            toolName: "vault_search",
+            toolName: "vault.search",
             distribution: .coreAppStore
         ) == nil)
         #expect(ToolTierBridge.executionPolicyDenial(
-            toolName: "run_command",
+            toolName: "action.bash",
             distribution: .proResearch
         ) == nil)
 

@@ -31,10 +31,10 @@ use serde::{Deserialize, Serialize};
 /// feature at a given (layer, token) position.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct FeatureSignal {
-    pub feature_index : u32,
-    pub layer         : u32,
-    pub token_index   : u32,
-    pub activation    : f32,
+    pub feature_index: u32,
+    pub layer: u32,
+    pub token_index: u32,
+    pub activation: f32,
 }
 
 /// Steering mode for the feature observatory's suggested-edits
@@ -58,9 +58,9 @@ pub enum SteeringMode {
 /// Tier-2 §2.5.2 compliance).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct FeatureEdit {
-    pub feature_index : u32,
-    pub layer         : u32,
-    pub multiplier    : f32,   // 1.0 = no change
+    pub feature_index: u32,
+    pub layer: u32,
+    pub multiplier: f32, // 1.0 = no change
 }
 
 /// Feature observatory trait — exposes SAE inspection + suggested
@@ -126,7 +126,11 @@ mod tests {
     #[test]
     fn feature_edit_default_multiplier_is_unity() {
         // Identity edit — multiplier=1.0 means "no change".
-        let e = FeatureEdit { feature_index: 0, layer: 0, multiplier: 1.0 };
+        let e = FeatureEdit {
+            feature_index: 0,
+            layer: 0,
+            multiplier: 1.0,
+        };
         // sanity — this is a no-op edit.
         assert!((e.multiplier - 1.0).abs() < 1e-9);
     }

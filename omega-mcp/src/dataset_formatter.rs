@@ -72,7 +72,7 @@ mod tests {
             request: "test".to_string(),
             plan_steps: vec![TraceStep {
                 agent: "file".to_string(),
-                tool: "read_file".to_string(),
+                tool: "file.read".to_string(),
                 arguments_json: "{}".to_string(),
                 result_json: "{}".to_string(),
                 duration_ms: 10,
@@ -84,7 +84,7 @@ mod tests {
         }];
         let jsonl = format_traces_to_jsonl(&traces);
         assert!(!jsonl.is_empty());
-        assert!(jsonl.contains("read_file"));
+        assert!(jsonl.contains("file.read"));
     }
 
     #[test]

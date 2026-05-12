@@ -163,7 +163,7 @@ impl AgentProvider for GeminiProvider {
             .iter()
             .map(|tool| {
                 json!({
-                    "name": tool.name,
+                    "name": crate::providers::tool_names::api_safe_tool_name(&tool.name),
                     "description": tool.description,
                     "parameters": normalized_tool_parameters(&tool.parameters),
                 })
@@ -252,7 +252,6 @@ impl AgentProvider for GeminiProvider {
         let mut sse_buffer = String::new();
 
         let parsed_stream = stream! {
-            let mut tool_call_index: usize = 0;
             let text_index: usize = 0;
             let mut final_usage = TokenUsage::default();
             let mut final_stop_reason = StopReason::EndTurn;
@@ -328,13 +327,14 @@ impl AgentProvider for GeminiProvider {
 
                                         // Function call
                                         if let Some(fc) = &part.function_call {
+                                            let canonical_name =
+                                                crate::providers::tool_names::canonical_tool_name_from_api(&fc.name);
                                             let block = ContentBlock::ToolUse {
-                                                id: format!("gemini-tool-{}", tool_call_index),
-                                                name: fc.name.clone(),
+                                                id: crate::providers::tool_names::api_safe_tool_name(&canonical_name),
+                                                name: canonical_name,
                                                 input: fc.args.clone(),
                                             };
                                             yield Ok(StreamEvent::ContentBlockComplete { block });
-                                            tool_call_index += 1;
                                         }
                                     }
                                 }
@@ -473,7 +473,7 @@ fn message_to_gemini(message: &Message) -> Value {
                     ContentBlock::Text { text } => json!({ "text": text }),
                     ContentBlock::ToolUse { id: _, name, input } => json!({
                         "functionCall": {
-                            "name": name,
+                            "name": crate::providers::tool_names::api_safe_tool_name(name),
                             "args": input,
                         },
                     }),
@@ -493,8 +493,9 @@ fn message_to_gemini(message: &Message) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_gemini_auth, streaming_request, GeminiAuth};
+    use super::{message_to_gemini, resolve_gemini_auth, streaming_request, GeminiAuth};
     use crate::providers::schema::normalized_tool_parameters;
+    use crate::types::{ContentBlock, Message};
     use reqwest::Client;
     use serde_json::json;
 
@@ -572,6 +573,22 @@ mod tests {
 
         assert_eq!(request.url().query(), Some("alt=sse&key=AIza-legacy-key"));
         assert!(request.headers().get("authorization").is_none());
+    }
+
+    #[test]
+    fn assistant_tool_use_serializes_v2_name_as_gemini_safe_wire_name() {
+        let message = Message::Assistant {
+            content: vec![ContentBlock::ToolUse {
+                id: "ignored".to_string(),
+                name: "vault.search".to_string(),
+                input: json!({"query": "memory"}),
+            }],
+        };
+        let json = message_to_gemini(&message);
+        assert_eq!(
+            json["parts"][0]["functionCall"]["name"].as_str(),
+            Some("vault__search")
+        );
     }
 
     #[test]

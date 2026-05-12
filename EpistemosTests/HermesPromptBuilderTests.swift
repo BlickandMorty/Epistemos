@@ -16,7 +16,7 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("</tool_response>"))
         #expect(prompt.contains("<think></think>"))
         #expect(prompt.contains("Never place raw reasoning"))
-        #expect(prompt.contains("\"name\":\"vault_search\""))
+        #expect(prompt.contains("\"name\":\"vault.search\""))
         #expect(prompt.contains("Semantic plus keyword hybrid search"))
     }
 
@@ -28,8 +28,8 @@ struct HermesPromptBuilderTests {
         ]
         let toolResults = [
             LocalToolResult(
-                toolName: "vault_search",
-                resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md"}]}"#,
+                toolName: "vault.search",
+                resultJson: #"{"name":"vault.search","content":[{"path":"ml/transformers.md"}]}"#,
                 isError: false
             ),
         ]
@@ -47,7 +47,7 @@ struct HermesPromptBuilderTests {
         #expect(messages[2].role == .assistant)
         #expect(messages[3].role == .tool)
         #expect(messages[3].content.contains("<tool_response>"))
-        #expect(messages[3].content.contains("\"name\":\"vault_search\""))
+        #expect(messages[3].content.contains("\"name\":\"vault.search\""))
     }
 
     @Test("system prompt falls back to empty parameters for malformed schema")
@@ -129,7 +129,7 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("vault-relative path inside the active managed runtime vault"))
         #expect(prompt.contains("Do not invent alternate paths, filenames, or directories."))
         #expect(prompt.contains("Use the exact path the user provided instead of rewriting it to tmp/example.txt"))
-        #expect(prompt.contains("If asked to write a file and then read it back, call write_file first and then read_file on that same exact path."))
+        #expect(prompt.contains("If asked to write a file and then read it back, call file.write first and then file.read on that same exact path."))
         #expect(prompt.contains("Do not answer an explicit file read/write request from the requested contents alone"))
     }
 
@@ -139,7 +139,7 @@ struct HermesPromptBuilderTests {
             tools: [sampleTool(), vaultWriteTool(), vaultReadTool()]
         )
 
-        #expect(prompt.contains("For vault note creation or updates, use vault_write"))
+        #expect(prompt.contains("For vault note creation or updates, use vault.write"))
         #expect(prompt.contains("If the user gives a note title but not a path"))
         #expect(prompt.contains("If asked to create or update a note and then read it back"))
         #expect(prompt.contains("Do not claim a note was created, updated, or read back"))
@@ -151,13 +151,13 @@ struct HermesPromptBuilderTests {
 
         #expect(prompt.contains("emit the next <tool_call> immediately"))
         #expect(prompt.contains("User: Write exactly hello to tmp/example.txt and then read it back."))
-        #expect(prompt.contains(#"{"name":"write_file","arguments":{"path":"tmp/example.txt","content":"hello"}}"#))
-        #expect(prompt.contains(#"{"name":"read_file","arguments":{"path":"tmp/example.txt"}}"#))
+        #expect(prompt.contains(#"{"name":"file.write","arguments":{"path":"tmp/example.txt","content":"hello"}}"#))
+        #expect(prompt.contains(#"{"name":"file.read","arguments":{"path":"tmp/example.txt"}}"#))
     }
 
     private func sampleTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
-            name: "vault_search",
+            name: "vault.search",
             agent: "notes",
             description: "Semantic plus keyword hybrid search across the vault.",
             argumentsExample: #"{"query":"transformers"}"#,
@@ -169,7 +169,7 @@ struct HermesPromptBuilderTests {
 
     private func writeTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
-            name: "write_file",
+            name: "file.write",
             agent: "file",
             description: "Write a file.",
             argumentsExample: #"{"path":"tmp/example.txt","content":"hello"}"#,
@@ -181,7 +181,7 @@ struct HermesPromptBuilderTests {
 
     private func readTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
-            name: "read_file",
+            name: "file.read",
             agent: "file",
             description: "Read a file.",
             argumentsExample: #"{"path":"tmp/example.txt"}"#,
@@ -193,7 +193,7 @@ struct HermesPromptBuilderTests {
 
     private func vaultWriteTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
-            name: "vault_write",
+            name: "vault.write",
             agent: "notes",
             description: "Create or update a vault note.",
             argumentsExample: #"{"path":"Quick Thought.md","content":"hello"}"#,
@@ -205,7 +205,7 @@ struct HermesPromptBuilderTests {
 
     private func vaultReadTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
-            name: "vault_read",
+            name: "vault.read",
             agent: "notes",
             description: "Read a vault note.",
             argumentsExample: #"{"path":"Quick Thought.md"}"#,

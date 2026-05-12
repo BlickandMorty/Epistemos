@@ -43,12 +43,12 @@ pub mod resources;
 // HELIOS V5 W1 — SCOPE-Rex full surface module entry. Hosts AnswerPacket
 // (W1), Residency Governor (W4), Semantic BTM V1.5 (W5), Active-Support
 // Atlas (W6) sub-modules. The Core ring (τ + π + λ) lives in `resonance`.
-pub mod scope_rex;
 pub mod rope;
 pub mod rope_handle;
 pub mod route;
 pub mod routing;
 pub mod runtime;
+pub mod scope_rex;
 pub mod security;
 pub mod session;
 pub mod session_insights;
@@ -71,6 +71,7 @@ pub mod providers {
     pub mod perplexity;
     pub mod pricing;
     pub mod schema;
+    pub mod tool_names;
 }
 
 pub mod storage {

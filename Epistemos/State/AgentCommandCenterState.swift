@@ -507,7 +507,10 @@ final class AgentCommandCenterState {
     private func rebuildSpecialistToolToggles(for command: ACCSlashCommand) {
         var nextToggles: [String: Bool] = [:]
         for tool in availableTools {
-            nextToggles[tool.name] = command.preferredToolNames.contains(tool.name)
+            nextToggles[tool.name] = AgentToolNameAliases.containsEquivalent(
+                command.preferredToolNames,
+                tool.name
+            )
         }
         if nextToggles.values.contains(true) {
             toolToggles = nextToggles
@@ -571,7 +574,7 @@ final class AgentCommandCenterState {
         case .todo:
             return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit])
         case .image:
-            // Image gen runs through the `image_generate` tool, not a
+            // Image gen runs through the `media.image_generate` tool, not a
             // chat brain. Return nil so the picker defers to whichever
             // brain the user was already using; the tool call itself
             // doesn't care which model the outer agent is.
@@ -669,7 +672,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     case readBranch = "read-branch"
     case explain
     case todo
-    /// Generate an image via the `image_generate` tool — MLX-first
+    /// Generate an image via the `media.image_generate` tool — MLX-first
     /// (Apple-native Flux pipeline) with Fal as an explicit cloud
     /// opt-in. Routes through Agent mode so the generated image card
     /// renders inline.
@@ -892,120 +895,118 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .ask, .summarize, .explain:
             return [
-                "vault_search",
-                "vault_read",
-                "graph_query",
-                "pkm_graph_neighbors",
+                "vault.search",
+                "vault.read",
+                "graph.query",
+                "graph.neighbors",
             ]
         case .notes:
             return [
-                "vault_search",
-                "vault_read",
-                "vault_write",
-                "vault_navigate",
-                "graph_query",
-                "pkm_graph_neighbors",
+                "vault.search",
+                "vault.read",
+                "vault.write",
+                "graph.vault_navigate",
+                "graph.query",
+                "graph.neighbors",
             ]
         case .plan:
             return [
-                "vault_search",
-                "vault_read",
-                "graph_query",
-                "pkm_graph_neighbors",
-                "vault_navigate",
-                "todo",
+                "vault.search",
+                "vault.read",
+                "graph.query",
+                "graph.neighbors",
+                "graph.vault_navigate",
+                "system.todo",
             ]
         case .research:
             return [
-                "vault_search",
-                "vault_read",
-                "graph_query",
-                "pkm_graph_neighbors",
-                "vault_navigate",
-                "web_search",
-                "web_extract",
-                "web_fetch",
+                "vault.search",
+                "vault.read",
+                "graph.query",
+                "graph.neighbors",
+                "graph.vault_navigate",
+                "web.search",
+                "web.extract",
+                "web.fetch",
             ]
         case .review:
             return [
-                "vault_search",
-                "vault_read",
-                "graph_query",
-                "pkm_graph_neighbors",
-                "read_file",
-                "search_files",
-                "web_search",
-                "web_extract",
+                "vault.search",
+                "vault.read",
+                "graph.query",
+                "graph.neighbors",
+                "file.read",
+                "file.search",
+                "web.search",
+                "web.extract",
             ]
         case .securityReview:
             return [
-                "vault_search",
-                "vault_read",
-                "read_file",
-                "search_files",
-                "graph_query",
-                "pkm_graph_neighbors",
+                "vault.search",
+                "vault.read",
+                "file.read",
+                "file.search",
+                "graph.query",
+                "graph.neighbors",
             ]
         case .debug:
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             return [
-                "vault_search",
-                "vault_read",
-                "read_file",
-                "search_files",
-                "graph_query",
-                "pkm_graph_neighbors",
+                "vault.search",
+                "vault.read",
+                "file.read",
+                "file.search",
+                "graph.query",
+                "graph.neighbors",
             ]
             #else
             return [
-                "vault_search",
-                "vault_read",
-                "read_file",
-                "search_files",
-                "bash_execute",
-                "run_command",
-                "terminal",
-                "process",
+                "vault.search",
+                "vault.read",
+                "file.read",
+                "file.search",
+                "action.bash",
+                "action.terminal",
+                "system.process",
                 "execute_code",
             ]
             #endif
         case .code:
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             return [
-                "vault_search",
-                "vault_read",
-                "read_file",
-                "search_files",
-                "vault_navigate",
+                "vault.search",
+                "vault.read",
+                "file.read",
+                "file.search",
+                "graph.vault_navigate",
             ]
             #else
             return [
-                "vault_search",
-                "vault_read",
-                "read_file",
-                "search_files",
-                "write_file",
-                "patch",
-                "bash_execute",
-                "run_command",
-                "process",
+                "vault.search",
+                "vault.read",
+                "file.read",
+                "file.search",
+                "file.write",
+                "file.patch",
+                "action.bash",
+                "system.process",
                 "execute_code",
             ]
             #endif
         case .readBranch:
             return [
-                "read_file",
-                "search_files",
-                "vault_search",
-                "vault_read",
+                "file.read",
+                "file.search",
+                "vault.search",
+                "vault.read",
             ]
         case .todo:
             return [
-                "todo",
+                "system.todo",
             ]
         case .image:
             return [
-                "image_generate",
+                "media.image_generate",
             ]
         }
     }

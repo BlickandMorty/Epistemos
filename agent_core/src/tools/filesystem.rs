@@ -1,10 +1,10 @@
 //! Filesystem Tools — Phase 1 Core File Operations
 //!
 //! Implements the Hermes/OpenClaw-style primitive file tools:
-//! * `read_file`  — read a text file with line numbers and pagination
-//! * `write_file` — write/overwrite a file with auto-mkdir and blocklist
-//! * `patch`      — targeted find/replace with 5-strategy fuzzy matching
-//! * `search_files` — ripgrep-backed content search with glob filters
+//! * `file.read`  — read a text file with line numbers and pagination
+//! * `file.write` — write/overwrite a file with auto-mkdir and blocklist
+//! * `file.patch` — targeted find/replace with 5-strategy fuzzy matching
+//! * `file.search` — ripgrep-backed content search with glob filters
 //!
 //! These tools are the foundation for every serious coding agent. They
 //! deliberately avoid Swift FFI — everything lives in pure Rust so that
@@ -19,7 +19,7 @@ use grep_matcher::Matcher;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::sinks::UTF8;
 use grep_searcher::{BinaryDetection, SearcherBuilder};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use walkdir::WalkDir;
 
 use super::registry::{ToolError, ToolHandler};
@@ -359,8 +359,8 @@ pub fn read_file_schema() -> crate::types::ToolSchema {
         name: "read_file".to_string(),
         description: "Read a text file with line numbers and pagination. Rejects binary files. \
              Use 'offset' and 'limit' to page through large files (1-indexed lines, default 500, \
-             max 2000 per call). Do not use this to find a vault note by title; use vault_search \
-             first and then vault_read with the returned vault-relative path."
+             max 2000 per call). Do not use this to find a vault note by title; use vault.search \
+             first and then vault.read with the returned vault-relative path."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -386,7 +386,7 @@ fn missing_file_recovery_hint(path_arg: &str) -> String {
 
     if looks_like_note_lookup {
         " If you are trying to open a vault note by title or guessed markdown path, call \
-         vault_search first and then vault_read with the exact vault-relative path it returns."
+         vault.search first and then vault.read with the exact vault-relative path it returns."
             .to_string()
     } else {
         String::new()
@@ -1247,8 +1247,8 @@ mod tests {
             .await
             .unwrap_err();
         let message = format!("{err}");
-        assert!(message.contains("vault_search first"));
-        assert!(message.contains("vault_read"));
+        assert!(message.contains("vault.search first"));
+        assert!(message.contains("vault.read"));
     }
 
     #[tokio::test]
@@ -1312,12 +1312,10 @@ mod tests {
             .unwrap_err();
         assert!(format!("{err}").contains("resolved target"));
         assert_eq!(std::fs::read_to_string(&target).unwrap(), "SECRET=old");
-        assert!(
-            std::fs::symlink_metadata(&link)
-                .unwrap()
-                .file_type()
-                .is_symlink()
-        );
+        assert!(std::fs::symlink_metadata(&link)
+            .unwrap()
+            .file_type()
+            .is_symlink());
     }
 
     #[test]

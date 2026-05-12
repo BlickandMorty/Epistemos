@@ -61,7 +61,11 @@ impl Default for CacheConfig {
             max_age: DEFAULT_MAX_AGE,
             // Tools with side effects must never be cached.
             uncacheable_tools: vec![
+                "action.bash".into(),
+                "action.terminal".into(),
                 "bash".into(),
+                "file.write".into(),
+                "file.delete".into(),
                 "write_file".into(),
                 "delete_file".into(),
                 "terminal".into(),
@@ -132,7 +136,8 @@ impl RecipeCache {
         tool_name: &str,
         input: &serde_json::Value,
     ) -> Result<Option<CacheEntry>, CacheError> {
-        if self.is_uncacheable(tool_name) {
+        let canonical_tool_name = Self::canonical_tool_name(tool_name);
+        if self.is_uncacheable(canonical_tool_name) {
             return Ok(None);
         }
 
@@ -146,7 +151,7 @@ impl RecipeCache {
                 "SELECT output, is_error, created_at, hit_count
                  FROM recipe_cache
                  WHERE tool_name = ?1 AND input_hash = ?2 AND created_at > ?3",
-                params![tool_name, hash, now - max_age_secs],
+                params![canonical_tool_name, hash, now - max_age_secs],
                 |row| {
                     Ok(CacheEntry {
                         output: row.get(0)?,
@@ -163,7 +168,7 @@ impl RecipeCache {
             let _ = conn.execute(
                 "UPDATE recipe_cache SET hit_count = hit_count + 1
                  WHERE tool_name = ?1 AND input_hash = ?2",
-                params![tool_name, hash],
+                params![canonical_tool_name, hash],
             );
         }
 
@@ -179,7 +184,8 @@ impl RecipeCache {
         output: &str,
         is_error: bool,
     ) -> Result<(), CacheError> {
-        if self.is_uncacheable(tool_name) {
+        let canonical_tool_name = Self::canonical_tool_name(tool_name);
+        if self.is_uncacheable(canonical_tool_name) {
             return Ok(());
         }
 
@@ -190,7 +196,7 @@ impl RecipeCache {
         conn.execute(
             "INSERT OR REPLACE INTO recipe_cache (tool_name, input_hash, output, is_error, created_at, hit_count)
              VALUES (?1, ?2, ?3, ?4, ?5, 0)",
-            params![tool_name, hash, output, is_error as i32, now],
+            params![canonical_tool_name, hash, output, is_error as i32, now],
         )?;
 
         // Evict oldest entries if over capacity.
@@ -201,10 +207,11 @@ impl RecipeCache {
 
     /// Remove all entries for a specific tool.
     pub fn invalidate_tool(&self, tool_name: &str) -> Result<u64, CacheError> {
+        let canonical_tool_name = Self::canonical_tool_name(tool_name);
         let conn = self.conn.lock().expect("recipe cache mutex poisoned");
         let count = conn.execute(
             "DELETE FROM recipe_cache WHERE tool_name = ?1",
-            params![tool_name],
+            params![canonical_tool_name],
         )?;
         Ok(count as u64)
     }
@@ -267,7 +274,24 @@ impl RecipeCache {
     // ── Private helpers ──────────────────────────────────────────────
 
     fn is_uncacheable(&self, tool_name: &str) -> bool {
-        self.config.uncacheable_tools.iter().any(|t| t == tool_name)
+        let canonical_tool_name = Self::canonical_tool_name(tool_name);
+        self.config
+            .uncacheable_tools
+            .iter()
+            .any(|t| Self::canonical_tool_name(t) == canonical_tool_name)
+    }
+
+    fn canonical_tool_name(tool_name: &str) -> &str {
+        match tool_name {
+            "read_file" | "vault_read" => "file.read",
+            "write_file" | "vault_write" => "file.write",
+            "delete_file" => "file.delete",
+            "list_files" => "file.list",
+            "search_notes" | "vault_search" => "vault.search",
+            "run_command" | "bash_execute" | "bash" => "action.bash",
+            "run_persistent" | "terminal" => "action.terminal",
+            _ => tool_name,
+        }
     }
 
     fn hash_input(input: &serde_json::Value) -> String {
@@ -364,6 +388,13 @@ mod tests {
 
         // Get should return None.
         assert!(cache.get("bash", &input).unwrap().is_none());
+        assert_eq!(cache.len().unwrap(), 0);
+
+        let write_input = json!({"path": "note.md", "content": "changed"});
+        cache
+            .put("file.write", &write_input, "wrote", false)
+            .unwrap();
+        assert!(cache.get("file.write", &write_input).unwrap().is_none());
         assert_eq!(cache.len().unwrap(), 0);
     }
 

@@ -11,9 +11,9 @@ Use this skill only for explicit deletion requests.
 
 ## Workflow
 
-1. Resolve the note path with `vault_search`, `vault_navigate`, or `vault_read`.
+1. Resolve the note path with `vault.search`, `graph.vault_navigate`, or `vault.read`.
 2. Confirm the exact target note before destructive action.
-3. Use `delete_file` only after the target path is certain and the user has asked for deletion.
+3. Use `file.delete` only after the target path is certain and the user has asked for deletion.
 
 ## Guardrails
 

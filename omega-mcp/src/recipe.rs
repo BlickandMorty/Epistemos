@@ -179,7 +179,7 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             description: format!("Recipe: {name}"),
-            steps_json: r#"[{"agent":"safari","tool":"open_url","args":{"url":"{{url}}"}}]"#
+            steps_json: r#"[{"agent":"safari","tool":"web.fetch","args":{"url":"{{url}}"}}]"#
                 .to_string(),
             parameters: vec![RecipeParameter {
                 name: "url".to_string(),

@@ -22,8 +22,8 @@ struct TaskGraphTests {
     @Test("Adds steps correctly")
     func addSteps() {
         let graph = TaskGraph()
-        let step1 = AgentStep(description: "Step 1", assignedAgent: "file", toolName: "read_file")
-        let step2 = AgentStep(description: "Step 2", assignedAgent: "terminal", toolName: "run_command")
+        let step1 = AgentStep(description: "Step 1", assignedAgent: "file", toolName: "file.read")
+        let step2 = AgentStep(description: "Step 2", assignedAgent: "terminal", toolName: "action.bash")
         graph.addStep(step1)
         graph.addStep(step2)
         #expect(graph.steps.count == 2)
@@ -32,8 +32,8 @@ struct TaskGraphTests {
     @Test("Ready steps returns steps with no pending dependencies")
     func readyStepsNoDeps() {
         let graph = TaskGraph()
-        let step1 = AgentStep(description: "A", assignedAgent: "file", toolName: "read_file")
-        let step2 = AgentStep(description: "B", assignedAgent: "terminal", toolName: "run_command")
+        let step1 = AgentStep(description: "A", assignedAgent: "file", toolName: "file.read")
+        let step2 = AgentStep(description: "B", assignedAgent: "terminal", toolName: "action.bash")
         graph.addStep(step1)
         graph.addStep(step2)
 
@@ -44,8 +44,8 @@ struct TaskGraphTests {
     @Test("Ready steps respects dependencies")
     func readyStepsWithDeps() {
         let graph = TaskGraph()
-        let step1 = AgentStep(description: "A", assignedAgent: "file", toolName: "read_file")
-        let step2 = AgentStep(description: "B", assignedAgent: "terminal", toolName: "run_command", dependsOn: [step1.id])
+        let step1 = AgentStep(description: "A", assignedAgent: "file", toolName: "file.read")
+        let step2 = AgentStep(description: "B", assignedAgent: "terminal", toolName: "action.bash", dependsOn: [step1.id])
         graph.addStep(step1)
         graph.addStep(step2)
 
@@ -64,7 +64,7 @@ struct TaskGraphTests {
     @Test("Marks complete when all steps done")
     func completion() {
         let graph = TaskGraph()
-        let step = AgentStep(description: "Only", assignedAgent: "file", toolName: "read_file")
+        let step = AgentStep(description: "Only", assignedAgent: "file", toolName: "file.read")
         graph.addStep(step)
         #expect(!graph.isComplete)
 
@@ -76,7 +76,7 @@ struct TaskGraphTests {
     @Test("Detects failure")
     func failure() {
         let graph = TaskGraph()
-        let step = AgentStep(description: "Fail", assignedAgent: "file", toolName: "delete_file")
+        let step = AgentStep(description: "Fail", assignedAgent: "file", toolName: "file.delete")
         graph.addStep(step)
 
         graph.recordResult(.fail("Permission denied", stepId: step.id, durationMs: 1))
@@ -87,7 +87,7 @@ struct TaskGraphTests {
     @Test("Reset clears steps, results, and status")
     func reset() {
         let graph = TaskGraph()
-        let step = AgentStep(description: "X", assignedAgent: "file", toolName: "read_file")
+        let step = AgentStep(description: "X", assignedAgent: "file", toolName: "file.read")
         graph.addStep(step)
         graph.recordResult(.ok("{}", stepId: step.id, durationMs: 1))
         #expect(graph.isComplete)

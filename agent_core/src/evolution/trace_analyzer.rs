@@ -263,17 +263,17 @@ mod tests {
         fs::create_dir_all(&s1).unwrap();
         fs::create_dir_all(&s2).unwrap();
 
-        // 4 calls to vault_search in each session
+        // 4 calls to vault.search in each session
         let events = vec![
-            make_trace_event("vault_search", 100, "success"),
-            make_trace_event("vault_search", 100, "success"),
-            make_trace_event("vault_search", 100, "error"),
-            make_trace_event("vault_search", 100, "success"),
+            make_trace_event("vault.search", 100, "success"),
+            make_trace_event("vault.search", 100, "success"),
+            make_trace_event("vault.search", 100, "error"),
+            make_trace_event("vault.search", 100, "success"),
         ];
         write_trace(&s1, &events);
         write_trace(&s2, &events);
 
-        let pattern = analyze_traces(&[s1.as_path(), s2.as_path()], "vault_search").unwrap();
+        let pattern = analyze_traces(&[s1.as_path(), s2.as_path()], "vault.search").unwrap();
         assert!(pattern
             .improvement_signals
             .iter()
@@ -287,14 +287,14 @@ mod tests {
         fs::create_dir_all(&s1).unwrap();
 
         let events = vec![
-            make_trace_event("web_fetch", 6000, "success"),
-            make_trace_event("web_fetch", 7000, "success"),
-            make_trace_event("web_fetch", 8000, "success"),
-            make_trace_event("web_fetch", 9000, "success"),
+            make_trace_event("web.fetch", 6000, "success"),
+            make_trace_event("web.fetch", 7000, "success"),
+            make_trace_event("web.fetch", 8000, "success"),
+            make_trace_event("web.fetch", 9000, "success"),
         ];
         write_trace(&s1, &events);
 
-        let pattern = analyze_traces(&[s1.as_path()], "web_fetch").unwrap();
+        let pattern = analyze_traces(&[s1.as_path()], "web.fetch").unwrap();
         assert!(pattern
             .improvement_signals
             .iter()
@@ -328,8 +328,8 @@ mod tests {
         fs::create_dir_all(&s1).unwrap();
 
         let events = vec![
-            make_trace_event("vault_search", 100, "success"),
-            make_trace_event("vault_write", 50, "success"),
+            make_trace_event("vault.search", 100, "success"),
+            make_trace_event("vault.write", 50, "success"),
         ];
         write_trace(&s1, &events);
 
@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn empty_sessions() {
-        let pattern = analyze_traces(&[], "vault_search").unwrap();
+        let pattern = analyze_traces(&[], "vault.search").unwrap();
         assert_eq!(pattern.sessions_analyzed, 0);
         assert!(pattern.improvement_signals.is_empty());
     }

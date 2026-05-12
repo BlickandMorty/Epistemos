@@ -150,15 +150,15 @@ struct CommandCenterDiagnosticsTests {
     func recordToolExecutionAppendsOrdered() async throws {
         var diagnostics = CommandCenterExecutionDiagnostics()
         diagnostics.recordToolExecution(ACCToolExecutionRecord(
-            id: "t1", toolName: "vault_read", inputSummary: "", resultSummary: "ok",
+            id: "t1", toolName: "vault.read", inputSummary: "", resultSummary: "ok",
             durationMs: 120, isError: false
         ))
         diagnostics.recordToolExecution(ACCToolExecutionRecord(
-            id: "t2", toolName: "vault_write", inputSummary: "", resultSummary: "err",
+            id: "t2", toolName: "vault.write", inputSummary: "", resultSummary: "err",
             durationMs: 240, isError: true
         ))
         #expect(diagnostics.toolHistory.count == 2)
-        #expect(diagnostics.toolHistory[0].toolName == "vault_read")
+        #expect(diagnostics.toolHistory[0].toolName == "vault.read")
         #expect(diagnostics.toolHistory[1].isError)
     }
 
@@ -168,7 +168,7 @@ struct CommandCenterDiagnosticsTests {
         diagnostics.recordPermissionDecision(
             CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
                 id: "p1",
-                toolName: "vault_read",
+                toolName: "vault.read",
                 riskLevel: "readOnly",
                 decision: .approvedAutoReadOnly,
                 at: Date()
@@ -177,7 +177,7 @@ struct CommandCenterDiagnosticsTests {
         diagnostics.recordPermissionDecision(
             CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
                 id: "p2",
-                toolName: "vault_write",
+                toolName: "vault.write",
                 riskLevel: "modification",
                 decision: .deniedByPolicy,
                 at: Date()
@@ -287,7 +287,7 @@ struct CommandCenterDiagnosticsTests {
         var diagnostics = CommandCenterExecutionDiagnostics()
         diagnostics.recordTurnStarted(turn: 5, messageCount: 12)
         diagnostics.recordToolExecution(ACCToolExecutionRecord(
-            toolName: "vault_read", inputSummary: "", resultSummary: "",
+            toolName: "vault.read", inputSummary: "", resultSummary: "",
             durationMs: 10, isError: false
         ))
         diagnostics.markRunning()

@@ -136,9 +136,8 @@ pub fn route(signal: &ResidencySignal) -> Residency {
 
     // OsftCore: the strongest §1.13 path. Verified, useful, and
     // sufficiently anti-forgetting to warrant a full soft fine-tune.
-    let osft_predicate_ok = signal.verification_score > 0.8
-        && signal.gain > 0.2
-        && signal.forgetting > 0.6;
+    let osft_predicate_ok =
+        signal.verification_score > 0.8 && signal.gain > 0.2 && signal.forgetting > 0.6;
     if osft_predicate_ok {
         return Residency::OsftCore;
     }
@@ -324,30 +323,18 @@ mod tests {
     #[test]
     fn all_seven_route_function_arms_are_reachable_with_distinct_inputs() {
         let cases: [(ResidencySignal, Residency); 7] = [
-            (
-                signal(0.99, 0.0, 1.0, 100, 1.0, 1.0),
-                Residency::Quarantine,
-            ),
+            (signal(0.99, 0.0, 1.0, 100, 1.0, 1.0), Residency::Quarantine),
             (
                 signal(0.0, 0.0, 0.49, 100, 1.0, 1.0),
                 Residency::TransientContext,
             ),
-            (
-                signal(0.0, 0.0, 0.6, 4, 0.05, 0.0),
-                Residency::FeatureRule,
-            ),
-            (
-                signal(0.0, 0.0, 0.81, 100, 0.21, 0.61),
-                Residency::OsftCore,
-            ),
+            (signal(0.0, 0.0, 0.6, 4, 0.05, 0.0), Residency::FeatureRule),
+            (signal(0.0, 0.0, 0.81, 100, 0.21, 0.61), Residency::OsftCore),
             (
                 signal(0.0, 0.0, 0.81, 100, 0.21, 0.5),
                 Residency::PsoftAdapter,
             ),
-            (
-                signal(0.0, 0.0, 0.6, 5, 0.5, 0.0),
-                Residency::GrpoPrior,
-            ),
+            (signal(0.0, 0.0, 0.6, 5, 0.5, 0.0), Residency::GrpoPrior),
             (
                 signal(0.0, 0.0, 0.7, 50, 0.5, 0.5),
                 Residency::RetrievalMemory,
@@ -404,9 +391,13 @@ mod tests {
                                 let r = route(&s);
                                 // Sanity: never produces a reserved arm.
                                 assert!(
-                                    !matches!(r, Residency::HarnessRule | Residency::CloudDistilled),
+                                    !matches!(
+                                        r,
+                                        Residency::HarnessRule | Residency::CloudDistilled
+                                    ),
                                     "route() must not produce reserved arm; got {:?} for {:?}",
-                                    r, s
+                                    r,
+                                    s
                                 );
                                 count += 1;
                             }

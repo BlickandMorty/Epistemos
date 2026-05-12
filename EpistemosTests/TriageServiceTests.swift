@@ -1715,8 +1715,8 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.plan.depthBudget.maxTurns >= 10)
         #expect(executionPlan.plan.depthBudget.maxToolCalls >= 8)
         #expect(!executionPlan.plan.toolPermissions.isEmpty)
-        #expect(executionPlan.allowedToolNames.contains("search_web"))
-        #expect(executionPlan.allowedToolNames.contains("write_file"))
+        #expect(executionPlan.allowedToolNames.contains("web.search"))
+        #expect(executionPlan.allowedToolNames.contains("file.write"))
     }
 
     @Test("cloud file-path reads escalate to a managed tools session")
@@ -1740,7 +1740,7 @@ struct OverseerComplexityRouterTests {
 
         #expect(executionPlan.route == .managedAgentSession)
         #expect(executionPlan.plan.route == .managedAgentSession)
-        #expect(executionPlan.allowedToolNames.contains("read_file"))
+        #expect(executionPlan.allowedToolNames.contains("file.read"))
     }
 
     @Test("cloud note-seeking turns with resolved vault context escalate to a managed tools session")
@@ -1765,8 +1765,8 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.route == .managedAgentSession)
         #expect(executionPlan.plan.route == .managedAgentSession)
         #expect(
-            executionPlan.allowedToolNames.contains("vault_read") ||
-            executionPlan.allowedToolNames.contains("readpagecontent")
+            executionPlan.allowedToolNames.contains("vault.read") ||
+            executionPlan.allowedToolNames.contains("web.extract")
         )
     }
 
@@ -1792,12 +1792,12 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.route == .managedAgentSession)
         #expect(executionPlan.plan.route == .managedAgentSession)
         #expect(
-            executionPlan.allowedToolNames.contains("vault_search") ||
-            executionPlan.allowedToolNames.contains("list_notes")
+            executionPlan.allowedToolNames.contains("vault.search") ||
+            executionPlan.allowedToolNames.contains("vault.list")
         )
         #expect(
-            executionPlan.allowedToolNames.contains("vault_read") ||
-            executionPlan.allowedToolNames.contains("readpagecontent")
+            executionPlan.allowedToolNames.contains("vault.read") ||
+            executionPlan.allowedToolNames.contains("web.extract")
         )
     }
 

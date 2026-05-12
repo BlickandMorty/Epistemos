@@ -381,7 +381,7 @@ impl AgentProvider for ClaudeProvider {
                             | ContentBlockStartData::ServerToolUse { id, name, input } => {
                                 BlockInProgress::ToolUse {
                                     id,
-                                    name,
+                                    name: crate::providers::tool_names::canonical_tool_name_from_api(&name),
                                     input_json: initial_input_json(input),
                                 }
                             }
@@ -618,7 +618,7 @@ fn content_block_to_json(block: &ContentBlock) -> Value {
         ContentBlock::ToolUse { id, name, input } => json!({
             "type": "tool_use",
             "id": id,
-            "name": name,
+            "name": crate::providers::tool_names::api_safe_tool_name(name),
             "input": input,
         }),
     }
@@ -626,7 +626,7 @@ fn content_block_to_json(block: &ContentBlock) -> Value {
 
 fn tool_definition_to_claude_json(tool: &ToolSchema) -> Value {
     json!({
-        "name": tool.name,
+        "name": crate::providers::tool_names::api_safe_tool_name(&tool.name),
         "description": tool.description,
         "input_schema": normalized_tool_parameters(&tool.parameters),
     })
@@ -863,7 +863,7 @@ mod tests {
     #[test]
     fn claude_tool_schemas_close_nested_object_parameters() {
         let tool_json = tool_definition_to_claude_json(&ToolSchema {
-            name: "write_file".to_string(),
+            name: "file.write".to_string(),
             description: "Write a file".to_string(),
             parameters: json!({
                 "type": "object",
@@ -879,6 +879,7 @@ mod tests {
             }),
         });
 
+        assert_eq!(tool_json["name"], "file__write");
         assert_eq!(tool_json["input_schema"]["additionalProperties"], false);
         assert_eq!(
             tool_json["input_schema"]["properties"]["options"]["additionalProperties"],

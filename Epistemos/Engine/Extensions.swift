@@ -1366,7 +1366,9 @@ nonisolated enum UserFacingModelOutput {
             " arguments",
             " parameters",
             " find_symbol",
+            " file.read",
             " read_file",
+            " web.search",
             " web_search",
         ]
 

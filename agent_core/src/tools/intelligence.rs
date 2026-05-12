@@ -20,10 +20,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::bridge::AgentEventDelegate;
-use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
+use crate::providers::openai::{extract_openai_responses_output_text, OPENAI_RESPONSES_API};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -1240,11 +1240,9 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         let patterns = parsed["patterns"].as_array().unwrap();
-        assert!(
-            patterns
-                .iter()
-                .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool")
-        );
+        assert!(patterns
+            .iter()
+            .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool"));
     }
 
     #[tokio::test]

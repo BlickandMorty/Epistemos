@@ -418,11 +418,9 @@ mod tests {
     #[test]
     fn codex_candidate_paths_include_desktop_app() {
         let paths = codex_candidate_paths();
-        assert!(
-            paths
-                .iter()
-                .any(|p| p.ends_with("Codex.app/Contents/Resources/codex"))
-        );
+        assert!(paths
+            .iter()
+            .any(|p| p.ends_with("Codex.app/Contents/Resources/codex")));
     }
 
     #[test]

@@ -362,6 +362,9 @@ extension AgentPermissionRequest {
         "http_fetch",
         "search_web",
         "tavily_search",
+        "web.search",
+        "web.fetch",
+        "web.extract",
         "web_fetch",
         "web_search",
     ]
@@ -395,7 +398,7 @@ extension AgentPermissionRequest {
             return .destructiveFileOp
         }
 
-        let normalizedToolName = Self.trimmed(toolName).lowercased()
+        let normalizedToolName = AgentToolNameAliases.canonical(Self.trimmed(toolName))
         if Self.networkFetchTools.contains(normalizedToolName) {
             return .networkFetch
         }

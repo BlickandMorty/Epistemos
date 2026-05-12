@@ -408,7 +408,7 @@ final class ChatCoordinator {
                   case .cloud(let provider, _) = compiled.resolvedRuntime.resolved {
           // Patch 1 (BLOCKER fix): Pro mode + cloud model now routes through
           // the Rust agent loop with the ChatPro tool tier so the user can
-          // actually invoke vault_search / vault_read / vault_write / patch /
+          // actually invoke vault.search / vault.read / vault.write / file.patch /
           // memory. Without this branch the call falls through to
           // PipelineService.shouldUseToolLoop, which short-circuits on
           // `case .localMLX` and silently leaves Pro+Cloud with zero tools.
@@ -564,9 +564,12 @@ final class ChatCoordinator {
     // the legacy `bash` tool. We set enable_bash to true whenever ANY
     // terminal-family tool is allowed so the Rust side doesn't silently
     // drop the registration, then the allowlist narrows it back down.
-    let terminalToolNames: Set<String> = ["bash", "run_command", "run_persistent", "terminal"]
+    let terminalToolNames: Set<String> = [
+      "bash", "run_command", "run_persistent", "terminal",
+      "action.bash", "action.terminal"
+    ]
     let enableBash = !allowedTools.isDisjoint(with: terminalToolNames)
-    let webToolNames: Set<String> = ["web_search", "web", "web_fetch"]
+    let webToolNames: Set<String> = ["web.search", "web_search", "web", "web_fetch"]
     let enableWebSearch = !allowedTools.isDisjoint(with: webToolNames)
     let toolConfig = ToolConfig(
       vaultPath: vaultPath,
@@ -1886,7 +1889,7 @@ final class ChatCoordinator {
         } else if let executionPlan, mode == .api, operatingMode == .pro, isCloudSelectedSurface {
           // Pro + cloud → chat_pro tier, bounded turns (3) +
           // bounded tools (8) per ResolvedExecutionPolicy. Tool
-          // use gated by AgentAuthority; vault_write/patch are
+          // use gated by AgentAuthority; vault.write/file.patch are
           // now ChatPro-tier after research 3.
           do {
             try await self.runRustAgentPath(
@@ -2377,9 +2380,12 @@ final class ChatCoordinator {
         toolDefinitionsJSON: Self.encodedToolDefinitionsJSON(allowedToolDefinitions)
       )
     )
-    let terminalToolNames: Set<String> = ["bash", "run_command", "run_persistent", "terminal"]
+    let terminalToolNames: Set<String> = [
+      "bash", "run_command", "run_persistent", "terminal",
+      "action.bash", "action.terminal"
+    ]
     let enableBash = !allowedTools.isDisjoint(with: terminalToolNames)
-    let webToolNames: Set<String> = ["web_search", "web", "web_fetch", "search_web"]
+    let webToolNames: Set<String> = ["web.search", "web_search", "web", "web_fetch", "search_web"]
     let enableWebSearch = !allowedTools.isDisjoint(with: webToolNames)
     let toolConfig = ToolConfig(
       vaultPath: vaultPath,
@@ -4246,7 +4252,7 @@ final class ChatCoordinator {
           !relativePath.isEmpty
     else { return nil }
 
-    return "Writable attached-note path (use this exact value with `vault_write.path` only when the user asks you to edit this note): \(relativePath)"
+    return "Writable attached-note path (use this exact value with `vault.write.path` only when the user asks you to edit this note): \(relativePath)"
   }
 
   static func buildChatContextPack(
@@ -4668,9 +4674,9 @@ final class ChatCoordinator {
         If provenance matters to the request, you may say it came from the user's notes or vault.
         Do not describe those notes as attached files or uploads.
         Conversation history or attached context may mention the same note, but that is not proof that a vault lookup succeeded for this turn.
-        If note context below includes a canonical vault-relative path, pass that exact path to `vault_read`.
-        When you need the note body and no canonical path is already provided, use `vault_search` first and then `vault_read` with the exact vault-relative path it returns.
-        Never turn a note title by itself into a `read_file` path.
+        If note context below includes a canonical vault-relative path, pass that exact path to `vault.read`.
+        When you need the note body and no canonical path is already provided, use `vault.search` first and then `vault.read` with the exact vault-relative path it returns.
+        Never turn a note title by itself into a `file.read` path.
         If approval is required, wait for it and continue the lookup after approval instead of answering from memory or nearby context.
         If the first lookup attempt fails, retry with a title or fuzzy vault search before you give up.
         If no real vault read succeeds, say plainly that you couldn't find or read the note in the user's notes.
@@ -4684,10 +4690,10 @@ final class ChatCoordinator {
       instruction:
         "The user asked you to create or update a vault note on this turn. Execute a real note write before claiming success.",
       body: """
-        Use `vault_write` to create or update the note with full markdown content.
+        Use `vault.write` to create or update the note with full markdown content.
         If the user gave only a title and not a path, choose a clear human-readable vault-relative `.md` path that matches that requested title.
         If the user gave an explicit vault-relative path, use that exact path.
-        If the user asks you to create or update a note and then read it back, call `vault_write` first and then `vault_read` on that same exact note path.
+        If the user asks you to create or update a note and then read it back, call `vault.write` first and then `vault.read` on that same exact note path.
         Wait for each tool result before deciding the next note step.
         If approval is required, wait for it and continue after approval instead of pretending the write already happened.
         If the write or read-back fails, explain that exact failure instead of claiming the note was created, updated, or verified.
@@ -4723,9 +4729,9 @@ final class ChatCoordinator {
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .lowercased()
     switch normalizedToolName {
-    case "vault_read":
+    case "vault.read", "vault_read":
       return true
-    case "read_file":
+    case "file.read", "read_file":
       guard let data = inputJson.data(using: .utf8),
         let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         let rawPath = value["path"] as? String
@@ -4904,7 +4910,7 @@ final class ChatCoordinator {
           FileManager.default.fileExists(atPath: fileURL.path)
     else { return nil }
 
-    return "Writable file path (use this exact value with `write_file.path` only when the user asks you to edit this attached text file): \(fileURL.path)"
+    return "Writable file path (use this exact value with `file.write.path` only when the user asks you to edit this attached text file): \(fileURL.path)"
   }
 
   private nonisolated static func loadedTextAttachmentBody(for attachment: FileAttachment)

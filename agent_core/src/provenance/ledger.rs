@@ -1032,8 +1032,8 @@ mod tests {
 
     #[test]
     fn v2_claim_with_explicit_kind_round_trips_through_json() {
-        let original = Claim::new(ClaimId::new("c-v2"), "math claim", t())
-            .with_kind(ClaimKind::Mathematical);
+        let original =
+            Claim::new(ClaimId::new("c-v2"), "math claim", t()).with_kind(ClaimKind::Mathematical);
         let json = serde_json::to_string(&original).expect("v2 claim must serialize");
         let parsed: Claim = serde_json::from_str(&json).expect("v2 claim must deserialize");
         assert_eq!(parsed, original);

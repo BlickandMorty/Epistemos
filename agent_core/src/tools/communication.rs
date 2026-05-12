@@ -23,11 +23,11 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
-use lettre::message::{Message as EmailMessage, header::ContentType};
+use lettre::message::{header::ContentType, Message as EmailMessage};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 

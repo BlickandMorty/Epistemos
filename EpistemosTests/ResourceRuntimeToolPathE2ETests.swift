@@ -21,7 +21,7 @@ import Testing
 // R.9 covers the 8 canonical ResourceService-level assertions. This
 // file covers the tool execution path: `execute_tool_call` reaching
 // `ToolRegistry::execute` reaching the R.5 gate reaching
-// `write_file` / `patch` / `vault_write` handlers reaching the Phase
+// `file.write` / `file.patch` / `vault.write` handlers reaching the Phase
 // R.6 verified_write pipeline. A future refactor of the tool
 // registry should surface here, not inside R.9.
 //
@@ -120,7 +120,7 @@ struct ResourceRuntimeToolPathE2ETests {
     //         Live vault note write succeeds and the file on disk
     //         changes and the tool payload reports verified=true.
 
-    @Test("vault_write through executeToolCall changes real file and reports verified=true (I-004..I-008)")
+    @Test("vault.write through executeToolCall changes real file and reports verified=true (I-004..I-008)")
     func vaultWriteThroughToolPathChangesRealFileAndReportsVerified() async throws {
         let vault = try makeScratchVault(label: "vault-write-ok")
         defer { cleanup(vault) }
@@ -136,7 +136,7 @@ struct ResourceRuntimeToolPathE2ETests {
         let result = try await executeToolCall(
             vaultPath: vault.rootURL.path,
             tier: "agent",
-            toolName: "vault_write",
+            toolName: "vault.write",
             inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: payload)
         )
 
@@ -185,7 +185,7 @@ struct ResourceRuntimeToolPathE2ETests {
         let firstCall = try await executeToolCall(
             vaultPath: vault.rootURL.path,
             tier: "agent",
-            toolName: "vault_write",
+            toolName: "vault.write",
             inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: firstPayload)
         )
         #expect(firstCall.success, "first call with grant must succeed: \(firstCall.error ?? "nil")")
@@ -204,7 +204,7 @@ struct ResourceRuntimeToolPathE2ETests {
         let secondCall = try await executeToolCall(
             vaultPath: vault.rootURL.path,
             tier: "agent",
-            toolName: "vault_write",
+            toolName: "vault.write",
             inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: secondPayload)
         )
 
@@ -237,7 +237,7 @@ struct ResourceRuntimeToolPathE2ETests {
     //         registry.rs:3114 so the Swift FFI path surfaces the
     //         same semantic.
 
-    @Test("default-on enforcement denies vault_write without a matching grant (I-014 default gate)")
+    @Test("default-on enforcement denies vault.write without a matching grant (I-014 default gate)")
     func defaultEnforcementDeniesVaultWriteWithoutMatchingGrant() async throws {
         let vault = try makeScratchVault(label: "default-deny")
         defer { cleanup(vault) }
@@ -254,7 +254,7 @@ struct ResourceRuntimeToolPathE2ETests {
         let result = try await executeToolCall(
             vaultPath: vault.rootURL.path,
             tier: "agent",
-            toolName: "vault_write",
+            toolName: "vault.write",
             inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: "should not land")
         )
 
@@ -277,12 +277,12 @@ struct ResourceRuntimeToolPathE2ETests {
     }
 
     // MARK: - I-005 / I-006
-    //         write_file tool (distinct from vault_write) for an
+    //         file.write tool (distinct from vault.write) for an
     //         attached file (Finder-drag) or code file. Proves the
     //         file:// branch of the tool-path pipeline hardens the
     //         same way as the vault-note branch.
 
-    @Test("write_file through executeToolCall edits real file when granted (I-005/I-006)")
+    @Test("file.write through executeToolCall edits real file when granted (I-005/I-006)")
     func writeFileThroughToolPathEditsRealFile() async throws {
         // Scratch dir (not a vault; arbitrary file target, like a
         // Finder-attached code file the user dropped into the composer).
@@ -303,23 +303,23 @@ struct ResourceRuntimeToolPathE2ETests {
         let result = try await executeToolCall(
             vaultPath: tmp.path,
             tier: "full",
-            toolName: "write_file",
+            toolName: "file.write",
             inputJson: inputJSON
         )
 
-        #expect(result.success, "granted write_file must succeed, error=\(result.error ?? "nil")")
+        #expect(result.success, "granted file.write must succeed, error=\(result.error ?? "nil")")
         #expect(result.error == nil)
 
         // Disk-truth proof.
         let onDisk = try String(contentsOf: targetURL, encoding: .utf8)
         #expect(onDisk == newContent,
-                "write_file handler must land exact bytes on disk through the tool path")
+                "file.write handler must land exact bytes on disk through the tool path")
 
         // Tool-payload verified contract.
         if let data = result.outputJson.data(using: .utf8),
            let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             #expect(parsed["verified"] as? Bool == true,
-                    "write_file output must include verified=true")
+                    "file.write output must include verified=true")
         } else {
             Issue.record("outputJson must be valid JSON: \(result.outputJson)")
         }

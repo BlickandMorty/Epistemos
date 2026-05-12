@@ -198,10 +198,7 @@ mod tests {
 
     #[test]
     fn semantic_delta_event_round_trips_through_json() {
-        let event = SemanticDeltaEvent::empty(
-            StateRoot::new([1u8; 32]),
-            StateRoot::new([2u8; 32]),
-        );
+        let event = SemanticDeltaEvent::empty(StateRoot::new([1u8; 32]), StateRoot::new([2u8; 32]));
         let json = serde_json::to_string(&event).unwrap();
         let parsed: SemanticDeltaEvent = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, event);

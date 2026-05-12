@@ -514,11 +514,12 @@ impl SmartApproval {
         // For non-bash tools, use the registry risk level
         match tool_name {
             #[cfg(feature = "pro-build")]
-            "bash_execute" | "shell" => {
+            "action.bash" | "bash_execute" | "shell" => {
                 // Already checked patterns above; if we got here, no dangerous patterns matched
                 ApprovalDecision::AutoApprove
             }
-            "vault_write" | "file_ops" => ApprovalDecision::RequireApproval {
+            "vault.write" | "file.write" | "file.patch" | "vault_write" | "write_file"
+            | "patch" | "file_ops" => ApprovalDecision::RequireApproval {
                 reason: "File modification operation".to_string(),
                 risk_level: "medium".to_string(),
             },
@@ -603,7 +604,7 @@ fn extract_command(_tool_name: &str, _input_json: &str) -> Option<String> {
 /// Extract the command string from tool input JSON.
 #[cfg(feature = "pro-build")]
 fn extract_command(tool_name: &str, input_json: &str) -> Option<String> {
-    if tool_name != "bash_execute" && tool_name != "shell" {
+    if tool_name != "action.bash" && tool_name != "bash_execute" && tool_name != "shell" {
         return None;
     }
     serde_json::from_str::<serde_json::Value>(input_json)

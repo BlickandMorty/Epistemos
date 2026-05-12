@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
@@ -296,9 +296,14 @@ mod tests {
     }
 
     #[test]
-    fn mcp_config_env_filter_allows_explicit_server_credentials() {
-        assert!(mcp_config_env_key_allowed("ANTHROPIC_API_KEY"));
-        assert!(mcp_config_env_key_allowed("OPENAI_API_KEY"));
+    fn mcp_config_env_filter_blocks_process_wide_provider_credentials() {
+        assert!(!mcp_config_env_key_allowed("ANTHROPIC_API_KEY"));
+        assert!(!mcp_config_env_key_allowed("OPENAI_API_KEY"));
+    }
+
+    #[test]
+    fn mcp_config_env_filter_allows_nonsecret_runtime_keys() {
         assert!(mcp_config_env_key_allowed("PATH"));
+        assert!(mcp_config_env_key_allowed("MCP_SERVER_MODE"));
     }
 }

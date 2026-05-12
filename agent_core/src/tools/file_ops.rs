@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -739,12 +739,10 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&output).unwrap();
         assert_eq!(parsed["success"], json!(false));
-        assert!(
-            parsed["error"]
-                .as_str()
-                .unwrap()
-                .contains("protected target")
-        );
+        assert!(parsed["error"]
+            .as_str()
+            .unwrap()
+            .contains("protected target"));
         assert_eq!(fs::read_to_string(&target).unwrap(), "SECRET=old");
     }
 }

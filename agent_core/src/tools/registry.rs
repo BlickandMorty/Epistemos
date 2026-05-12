@@ -5,7 +5,7 @@ use std::sync::{Arc, OnceLock};
 use async_trait::async_trait;
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::storage::vault::{VaultBackend, VaultError};
 use crate::types::ToolSchema;
@@ -40,6 +40,23 @@ fn r5_enforce_enabled() -> bool {
 }
 
 #[cfg(not(feature = "pro-build"))]
+fn mas_forbidden_tool_name(name: &str) -> bool {
+    matches!(
+        name,
+        "action.bash"
+            | "action.terminal"
+            | "bash_execute"
+            | "run_command"
+            | "run_persistent"
+            | "terminal"
+            | "process"
+            | "system.process"
+            | "cronjob"
+            | "system.cron"
+    )
+}
+
+#[cfg(not(feature = "pro-build"))]
 fn mas_allows_bounded_internal_mutation(name: &str, input: &Value) -> bool {
     let action = input
         .get("action")
@@ -61,6 +78,14 @@ fn mas_runtime_preflight(
     input: &Value,
     authz_target: Option<&crate::resources::tool_authz::ToolAuthzTarget>,
 ) -> Result<(), ToolError> {
+    if mas_forbidden_tool_name(&tool.name) {
+        tracing::warn!(
+            tool = tool.name.as_str(),
+            "App Store runtime preflight denied forbidden tool"
+        );
+        return Err(ToolError::PermissionDenied);
+    }
+
     if matches!(tool.risk_level, RiskLevel::Destructive) {
         tracing::warn!(
             tool = tool.name.as_str(),
@@ -110,7 +135,7 @@ impl RiskLevel {
 pub enum ToolTier {
     /// No tools — raw text generation only.
     None,
-    /// Safe read-only research: web_search, vault_recall, read_file, think...
+    /// Safe read-only research: web.search, knowledge.recall, file.read, think...
     ChatLite,
     /// Adds cloud media, local media subprocess, and perception tools on top of ChatLite.
     ChatPro,
@@ -272,26 +297,48 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("vault_search", "vault.search"),
     ("vault_read", "vault.read"),
     ("vault_write", "vault.write"),
+    ("vault_get", "vault.read"),
+    ("pkm_search", "vault.search"),
+    ("pkm_get", "vault.read"),
+    ("pkm_write", "vault.write"),
     ("chunk_reduce", "chunk.reduce"),
     ("pkm_graph_neighbors", "graph.neighbors"),
     ("read_file", "file.read"),
     ("write_file", "file.write"),
+    ("edit_file", "file.patch"),
+    ("delete_file", "file.delete"),
     ("patch", "file.patch"),
     ("search_files", "file.search"),
+    ("list_files", "file.list"),
+    ("move_file", "file.move"),
     ("todo", "system.todo"),
     ("vault_recall", "knowledge.recall"),
     ("contradiction_check", "knowledge.contradiction_check"),
+    ("analyzecontradiction", "knowledge.contradiction_check"),
+    ("scoreevidence", "knowledge.evidence_score"),
     ("neural_recall", "knowledge.neural_recall"),
     ("session_search", "knowledge.session_search"),
+    ("create_note", "note.create"),
+    ("edit_note", "note.edit"),
+    ("search_notes", "vault.search"),
+    ("list_notes", "vault.list"),
     ("note_template", "note.template"),
     ("note_linker", "note.linker"),
     ("research_digest", "note.research_digest"),
+    ("collectsnippet", "research.collect_snippet"),
+    ("createresearchnote", "note.research_digest"),
     ("citation_extractor", "citation.extract"),
+    ("savecitation", "citation.save"),
     ("markdown_table", "markdown.table"),
     ("graph_query", "graph.query"),
     ("vault_navigate", "graph.vault_navigate"),
     ("memory", "memory.curated"),
+    ("open_url", "web.fetch"),
     ("web_search", "web.search"),
+    ("search_web", "web.search"),
+    ("web_fetch", "web.fetch"),
+    ("readpagecontent", "web.extract"),
+    ("searchpapers", "research.search_papers"),
     ("web_extract", "web.extract"),
     ("web_crawl", "web.crawl"),
     ("route_private", "inference.route_private"),
@@ -306,6 +353,8 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
 #[cfg(feature = "pro-build")]
 pub const PRO_LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("bash_execute", "action.bash"),
+    ("run_command", "action.bash"),
+    ("run_persistent", "action.terminal"),
     ("terminal", "action.terminal"),
     ("process", "system.process"),
     ("cronjob", "system.cron"),
@@ -505,7 +554,7 @@ impl ToolRegistry {
         provider: Arc<dyn crate::provider::AgentProvider>,
         current_depth: u32,
     ) {
-        use crate::tools::delegate_task::{DelegateTaskTool, delegate_task_tool_schema};
+        use crate::tools::delegate_task::{delegate_task_tool_schema, DelegateTaskTool};
 
         let mut child_registry = ToolRegistry::with_tier(
             Arc::clone(&self.vault),
@@ -829,7 +878,7 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_eight_discovery(&mut self) {
         use crate::tools::discovery::{
-            McpDiscoverHandler, ModelCatalogHandler, mcp_discover_schema, model_catalog_schema,
+            mcp_discover_schema, model_catalog_schema, McpDiscoverHandler, ModelCatalogHandler,
         };
 
         let mcp = mcp_discover_schema();
@@ -860,7 +909,7 @@ impl ToolRegistry {
 
     #[cfg(feature = "pro-build")]
     fn register_phase_eight_trajectory(&mut self) {
-        use crate::tools::trajectory::{TrajectoryExportHandler, trajectory_export_schema};
+        use crate::tools::trajectory::{trajectory_export_schema, TrajectoryExportHandler};
         if std::env::var_os("DISABLE_TRAJECTORY_EXPORT").is_some() {
             tracing::warn!(
                 "trajectory_export registration skipped because DISABLE_TRAJECTORY_EXPORT is set"
@@ -904,7 +953,7 @@ impl ToolRegistry {
     fn apply_tier_overrides(&mut self) {
         // Tier: ChatLite — safe for even the smallest local model.
         // These are the ones the user specifically called out (web_search,
-        // vault_search, read_file, think) plus the obvious read-only cousins.
+        // vault.search, file.read, think) plus the obvious read-only cousins.
         const CHAT_LITE: &[&str] = &[
             // Research / web
             "web_search",
@@ -981,7 +1030,7 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_seven_intelligence(&mut self) {
         use crate::tools::intelligence::{
-            MixtureOfMindsHandler, SelfEvolveHandler, mixture_of_minds_schema, self_evolve_schema,
+            mixture_of_minds_schema, self_evolve_schema, MixtureOfMindsHandler, SelfEvolveHandler,
         };
 
         // self_evolve needs the vault root for scanning session traces; skip
@@ -1016,7 +1065,7 @@ impl ToolRegistry {
 
     #[cfg(feature = "pro-build")]
     fn register_phase_six_communication(&mut self) {
-        use crate::tools::communication::{SendMessageHandler, send_message_schema};
+        use crate::tools::communication::{send_message_schema, SendMessageHandler};
         match SendMessageHandler::new() {
             Ok(handler) => {
                 let schema = send_message_schema();
@@ -1037,8 +1086,8 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_six_media(&mut self) {
         use crate::tools::media::{
-            ImageGenerateHandler, TextToSpeechHandler, VisionAnalyzeHandler, image_generate_schema,
-            text_to_speech_schema, vision_analyze_schema,
+            image_generate_schema, text_to_speech_schema, vision_analyze_schema,
+            ImageGenerateHandler, TextToSpeechHandler, VisionAnalyzeHandler,
         };
 
         match VisionAnalyzeHandler::new() {
@@ -1084,9 +1133,9 @@ impl ToolRegistry {
 
     #[cfg(feature = "pro-build")]
     fn register_phase_six_imessage(&mut self) {
-        use crate::tools::channel_contacts::{ChannelContactsHandler, channel_contacts_schema};
-        use crate::tools::imessage::{IMessageHandler, imessage_schema};
-        use crate::tools::imessage_contacts::{IMessageContactsHandler, imessage_contacts_schema};
+        use crate::tools::channel_contacts::{channel_contacts_schema, ChannelContactsHandler};
+        use crate::tools::imessage::{imessage_schema, IMessageHandler};
+        use crate::tools::imessage_contacts::{imessage_contacts_schema, IMessageContactsHandler};
 
         let schema = imessage_schema();
         self.register(RegisteredTool {
@@ -1125,7 +1174,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_five_route_private(&mut self) {
-        use crate::tools::inference::{RoutePrivateHandler, route_private_schema};
+        use crate::tools::inference::{route_private_schema, RoutePrivateHandler};
         let schema = route_private_schema();
         self.register(RegisteredTool {
             name: schema.name,
@@ -1140,8 +1189,8 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_four_apple_apps(&mut self) {
         use crate::tools::apple::{
-            AppleCalendarHandler, AppleMailHandler, AppleNotesHandler, AppleRemindersHandler,
             apple_calendar_schema, apple_mail_schema, apple_notes_schema, apple_reminders_schema,
+            AppleCalendarHandler, AppleMailHandler, AppleNotesHandler, AppleRemindersHandler,
         };
 
         let notes = apple_notes_schema();
@@ -1196,7 +1245,7 @@ impl ToolRegistry {
         &mut self,
         delegate: Arc<dyn crate::bridge::AgentEventDelegate>,
     ) {
-        use crate::tools::clarify::{ClarifyHandler, clarify_schema};
+        use crate::tools::clarify::{clarify_schema, ClarifyHandler};
         let schema = clarify_schema();
         self.register(RegisteredTool {
             name: schema.name,
@@ -1210,8 +1259,8 @@ impl ToolRegistry {
         #[cfg(feature = "pro-build")]
         {
             use crate::tools::macos::{
-                InteractHandler, PerceiveHandler, ScreenWatchHandler, interact_schema,
-                perceive_schema, screen_watch_schema,
+                interact_schema, perceive_schema, screen_watch_schema, InteractHandler,
+                PerceiveHandler, ScreenWatchHandler,
             };
 
             // Phase 4: macOS perception stack — Specialties A1/A2/A3.
@@ -1250,8 +1299,8 @@ impl ToolRegistry {
         // runtime — ssm_resume (Mamba state) and constrained_generate (EBNF
         // grammar-guided decoding).
         use crate::tools::inference::{
-            ConstrainedGenerateHandler, SsmResumeHandler, constrained_generate_schema,
-            ssm_resume_schema,
+            constrained_generate_schema, ssm_resume_schema, ConstrainedGenerateHandler,
+            SsmResumeHandler,
         };
 
         let ssm = ssm_resume_schema();
@@ -1279,8 +1328,8 @@ impl ToolRegistry {
         {
             // Phase 7: NightBrain trigger (delegate-backed Specialty D1).
             use crate::tools::intelligence::{
-                InlinePartnerHandler, NightBrainTriggerHandler, inline_partner_schema,
-                nightbrain_trigger_schema,
+                inline_partner_schema, nightbrain_trigger_schema, InlinePartnerHandler,
+                NightBrainTriggerHandler,
             };
             let ip = inline_partner_schema();
             self.register(RegisteredTool {
@@ -1309,7 +1358,7 @@ impl ToolRegistry {
             // available as an explicit `provider: "fal"` opt-in. This call
             // replaces the existing registration entry (register() is
             // insert-or-replace on the tool name key).
-            use crate::tools::media::{ImageGenerateHandler, image_generate_schema};
+            use crate::tools::media::{image_generate_schema, ImageGenerateHandler};
             match ImageGenerateHandler::new_with_delegate(Arc::clone(&delegate)) {
                 Ok(handler) => {
                     let schema = image_generate_schema();
@@ -1329,8 +1378,8 @@ impl ToolRegistry {
 
     fn register_phase_one_filesystem(&mut self) {
         use crate::tools::filesystem::{
-            PatchHandler, ReadFileHandler, SearchFilesHandler, WriteFileHandler, patch_schema,
-            read_file_schema, search_files_schema, write_file_schema,
+            patch_schema, read_file_schema, search_files_schema, write_file_schema, PatchHandler,
+            ReadFileHandler, SearchFilesHandler, WriteFileHandler,
         };
 
         let rf = read_file_schema();
@@ -1375,7 +1424,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_one_file_ops(&mut self) {
-        use crate::tools::file_ops::{FileOpsTool, file_ops_tool_schema};
+        use crate::tools::file_ops::{file_ops_tool_schema, FileOpsTool};
 
         let schema = file_ops_tool_schema();
         self.register(RegisteredTool {
@@ -1391,7 +1440,7 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_one_terminal(&mut self) {
         use crate::tools::terminal::{
-            ProcessHandler, TerminalHandler, process_schema, terminal_schema,
+            process_schema, terminal_schema, ProcessHandler, TerminalHandler,
         };
 
         if self.enable_bash {
@@ -1418,7 +1467,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_one_todo(&mut self) {
-        use crate::tools::todo::{TodoHandler, todo_schema};
+        use crate::tools::todo::{todo_schema, TodoHandler};
         let t = todo_schema();
         self.register(RegisteredTool {
             name: t.name,
@@ -1432,7 +1481,7 @@ impl ToolRegistry {
 
     #[cfg(feature = "pro-build")]
     fn register_phase_one_scheduling(&mut self) {
-        use crate::tools::scheduling::{CronJobHandler, cronjob_schema};
+        use crate::tools::scheduling::{cronjob_schema, CronJobHandler};
         let c = cronjob_schema();
         self.register(RegisteredTool {
             name: c.name,
@@ -1445,7 +1494,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_one_skills_core(&mut self) {
-        use crate::agent_runtime::skills::{SkillsTool, default_skills_dir, skills_tool_schema};
+        use crate::agent_runtime::skills::{default_skills_dir, skills_tool_schema, SkillsTool};
 
         let legacy = skills_tool_schema();
         self.register(RegisteredTool {
@@ -1461,8 +1510,8 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_one_skills_progressive(&mut self) {
         use crate::agent_runtime::skills::{
-            SkillManageHandler, SkillViewHandler, SkillsListHandler, skill_manage_schema,
-            skill_view_schema, skills_list_schema,
+            skill_manage_schema, skill_view_schema, skills_list_schema, SkillManageHandler,
+            SkillViewHandler, SkillsListHandler,
         };
 
         let sl = skills_list_schema();
@@ -1499,8 +1548,8 @@ impl ToolRegistry {
     #[cfg(feature = "pro-build")]
     fn register_phase_one_custom_tools(&mut self) {
         use crate::tools::custom_tools::{
-            CustomToolManageHandler, CustomToolRuntimeHandler, custom_tool_manage_schema,
-            load_custom_tool_specs,
+            custom_tool_manage_schema, load_custom_tool_specs, CustomToolManageHandler,
+            CustomToolRuntimeHandler,
         };
 
         let Some(vault_root) = self.vault_root_path.clone() else {
@@ -1539,8 +1588,8 @@ impl ToolRegistry {
 
     fn register_phase_two_knowledge(&mut self) {
         use crate::tools::knowledge::{
-            ContradictionCheckHandler, NeuralRecallHandler, VaultRecallHandler,
             contradiction_check_schema, neural_recall_schema, vault_recall_schema,
+            ContradictionCheckHandler, NeuralRecallHandler, VaultRecallHandler,
         };
 
         let vr = vault_recall_schema();
@@ -1579,7 +1628,7 @@ impl ToolRegistry {
         // session_search needs the vault root path, not the backend trait.
         // We stash the configured root on the registry so we can wire it in.
         if let Some(root) = self.vault_root_path.clone() {
-            use crate::tools::knowledge::{SessionSearchHandler, session_search_schema};
+            use crate::tools::knowledge::{session_search_schema, SessionSearchHandler};
             let ss = session_search_schema();
             self.register(RegisteredTool {
                 name: ss.name,
@@ -1594,7 +1643,7 @@ impl ToolRegistry {
 
     fn register_phase_two_graph(&mut self) {
         use crate::tools::graph::{
-            GraphQueryHandler, VaultNavigateHandler, graph_query_schema, vault_navigate_schema,
+            graph_query_schema, vault_navigate_schema, GraphQueryHandler, VaultNavigateHandler,
         };
 
         // Both tools operate on the vault root directory. Skip registration
@@ -1627,9 +1676,9 @@ impl ToolRegistry {
 
     fn register_phase_two_note_tools(&mut self) {
         use crate::tools::note_tools::{
-            CitationExtractorTool, MarkdownTableTool, NoteLinkerTool, NoteTemplateTool,
-            ResearchDigestTool, citation_extractor_schema, markdown_table_schema,
-            note_linker_schema, note_template_schema, research_digest_schema,
+            citation_extractor_schema, markdown_table_schema, note_linker_schema,
+            note_template_schema, research_digest_schema, CitationExtractorTool, MarkdownTableTool,
+            NoteLinkerTool, NoteTemplateTool, ResearchDigestTool,
         };
 
         let nt = note_template_schema();
@@ -1686,7 +1735,7 @@ impl ToolRegistry {
     }
 
     fn register_phase_two_memory(&mut self) {
-        use crate::tools::memory::{MemoryTool, memory_tool_schema};
+        use crate::tools::memory::{memory_tool_schema, MemoryTool};
 
         // Memory lives under <vault>/.epistemos/memory when a vault root is
         // available, otherwise fall back to ~/.epistemos/memory so the tool is
@@ -2031,10 +2080,10 @@ impl ToolRegistry {
 
     fn register_phase_three_web(&mut self) {
         use crate::tools::web::{
-            WebCrawlHandler, WebExtractHandler, WebSearchHandler, web_crawl_schema,
-            web_extract_schema, web_search_schema,
+            web_crawl_schema, web_extract_schema, web_search_schema, WebCrawlHandler,
+            WebExtractHandler, WebSearchHandler,
         };
-        use crate::tools::web_fetch::{WebFetchTool, web_fetch_tool_schema};
+        use crate::tools::web_fetch::{web_fetch_tool_schema, WebFetchTool};
 
         let fetch = web_fetch_tool_schema();
         self.register(RegisteredTool {
@@ -2097,11 +2146,11 @@ impl ToolRegistry {
         #[cfg(feature = "pro-build")]
         {
             use crate::tools::browser::{
-                BrowserAction, BrowserActionHandler, BrowserManager, browser_back_schema,
-                browser_click_schema, browser_close_schema, browser_console_schema,
-                browser_get_images_schema, browser_navigate_schema, browser_press_schema,
-                browser_scroll_schema, browser_snapshot_schema, browser_type_schema,
-                browser_vision_schema,
+                browser_back_schema, browser_click_schema, browser_close_schema,
+                browser_console_schema, browser_get_images_schema, browser_navigate_schema,
+                browser_press_schema, browser_scroll_schema, browser_snapshot_schema,
+                browser_type_schema, browser_vision_schema, BrowserAction, BrowserActionHandler,
+                BrowserManager,
             };
 
             let browser_manager = BrowserManager::new();
@@ -2838,8 +2887,10 @@ mod tier_tests {
         );
         assert!(names.contains(&"think".to_string()));
         assert!(names.contains(&"file.read".to_string()));
+        assert!(names.contains(&"web.fetch".to_string()));
         assert!(
             !names.contains(&"web_search".to_string())
+                && !names.contains(&"web_fetch".to_string())
                 && !names.contains(&"vault_recall".to_string())
                 && !names.contains(&"read_file".to_string()),
             "model-facing catalog must surface canonical V2 names, not legacy names: {names:?}"

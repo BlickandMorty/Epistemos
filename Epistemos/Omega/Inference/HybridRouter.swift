@@ -15,7 +15,7 @@ final class HybridRouter {
     // MARK: - Types
 
     enum ExecutionArm: String, Sendable {
-        case cli    // Terminal agent (run_command / run_persistent)
+        case cli    // Terminal agent (action.bash / action.terminal)
         case gui    // Computer agent (see/click/type) or Automation agent
         case either // Both viable; prefer CLI for speed
     }
@@ -89,7 +89,7 @@ final class HybridRouter {
                 arm: .cli, confidence: cliScore,
                 reasoning: "CLI signals dominate (\(String(format: "%.2f", cliScore)) vs \(String(format: "%.2f", guiScore)))",
                 suggestedAgent: "terminal",
-                suggestedTool: "run_persistent"
+                suggestedTool: "action.terminal"
             )
         } else if guiScore > cliScore + 0.1 {
             return RoutingDecision(
@@ -104,7 +104,7 @@ final class HybridRouter {
                 arm: .either, confidence: max(cliScore, guiScore),
                 reasoning: "Ambiguous signals (\(String(format: "%.2f", cliScore)) CLI vs \(String(format: "%.2f", guiScore)) GUI), defaulting to CLI",
                 suggestedAgent: "terminal",
-                suggestedTool: "run_persistent"
+                suggestedTool: "action.terminal"
             )
         }
     }

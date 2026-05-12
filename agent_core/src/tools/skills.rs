@@ -22,7 +22,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 use super::web_fetch::{read_response_text_limited, validate_url};
@@ -1570,12 +1570,10 @@ mod progressive_tests {
         let skills = parsed["skills"].as_array().unwrap();
         assert!(skills.iter().any(|s| s["name"] == "alpha"));
         assert!(skills.iter().any(|s| s["name"] == "beta"));
-        assert!(
-            skills[0]["tags"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("test"))
-        );
+        assert!(skills[0]["tags"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("test")));
     }
 
     #[tokio::test]
@@ -1830,13 +1828,11 @@ mod progressive_tests {
         .await
         .unwrap();
         assert!(quarantined.contains("\"status\":\"quarantined\""));
-        assert!(
-            skills_dir
-                .join("quarantine")
-                .join("external-skill")
-                .join("SKILL.md")
-                .exists()
-        );
+        assert!(skills_dir
+            .join("quarantine")
+            .join("external-skill")
+            .join("SKILL.md")
+            .exists());
 
         let promoted = install_skill_from_local_path(
             &skills_dir,
@@ -1951,13 +1947,11 @@ mod progressive_tests {
         let result = promote_quarantined(&skills_dir, &quarantine_dir, "sample-skill").unwrap();
         assert!(result.contains("\"success\":true"));
         assert!(skills_dir.join("sample-skill").join("SKILL.md").exists());
-        assert!(
-            skills_dir
-                .join("sample-skill")
-                .join("scripts")
-                .join("run.sh")
-                .exists()
-        );
+        assert!(skills_dir
+            .join("sample-skill")
+            .join("scripts")
+            .join("run.sh")
+            .exists());
         assert!(!skills_dir.join("sample-skill").join(".git").exists());
     }
 }

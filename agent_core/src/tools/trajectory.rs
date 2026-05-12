@@ -32,10 +32,10 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::{Component, Path, PathBuf};
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
-use crate::storage::session_store::{SessionFolderInfo, TranscriptTurn, list_session_folders};
+use crate::storage::session_store::{list_session_folders, SessionFolderInfo, TranscriptTurn};
 
 const INLINE_SESSION_CAP: usize = 20;
 const MAX_INLINE_JSONL_BYTES: usize = 512 * 1024;
@@ -552,16 +552,12 @@ mod tests {
         let first: Value = serde_json::from_str(lines[0].as_str().unwrap()).unwrap();
         assert_eq!(first["id"], json!("abc12345"));
         let convs = first["conversations"].as_array().unwrap();
-        assert!(
-            convs
-                .iter()
-                .any(|c| c["from"] == "human" && c["value"] == "hello")
-        );
-        assert!(
-            convs
-                .iter()
-                .any(|c| c["from"] == "gpt" && c["value"] == "hi there")
-        );
+        assert!(convs
+            .iter()
+            .any(|c| c["from"] == "human" && c["value"] == "hello"));
+        assert!(convs
+            .iter()
+            .any(|c| c["from"] == "gpt" && c["value"] == "hi there"));
         assert!(convs.iter().any(|c| c["from"] == "tool_call"));
     }
 

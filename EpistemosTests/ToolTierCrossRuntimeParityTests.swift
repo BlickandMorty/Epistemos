@@ -78,9 +78,9 @@ struct ToolTierCrossRuntimeParityTests {
     /// Contract 2 — destructive tools in the Swift allowlist must NOT be served
     /// at the Rust ChatLite tier. ChatLite is the safe-read-only band; if a
     /// write tool leaks down into ChatLite it bypasses the approval gate. The
-    /// destructive tools the App Store build needs (vault_write / write_file /
-    /// patch) must live at Agent tier in Rust and rely on the approval pipeline
-    /// at runtime.
+    /// destructive tools the App Store build needs (vault.write / file.write /
+    /// file.patch) must live at Agent tier in Rust and rely on the approval
+    /// pipeline at runtime.
     @Test("Destructive App Store allowlist entries stay above ChatLite tier")
     func destructiveCoreAppStoreToolsAreNotChatLite() throws {
         let vaultPath = FileManager.default.temporaryDirectory
@@ -96,9 +96,9 @@ struct ToolTierCrossRuntimeParityTests {
         let chatLiteNames = Set(chatLiteSchemas.map { $0.name.lowercased() })
 
         let destructiveNames: Set<String> = [
-            "vault_write",
-            "write_file",
-            "patch",
+            "vault.write",
+            "file.write",
+            "file.patch",
         ]
 
         let leaked = destructiveNames.intersection(chatLiteNames)

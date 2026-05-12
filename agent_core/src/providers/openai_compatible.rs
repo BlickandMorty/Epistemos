@@ -417,7 +417,7 @@ impl AgentProvider for OpenAICompatibleProvider {
                 json!({
                     "type": "function",
                     "function": {
-                        "name": t.name,
+                        "name": crate::providers::tool_names::api_safe_tool_name(&t.name),
                         "description": t.description,
                         "parameters": normalized_tool_parameters(&t.parameters),
                     }
@@ -553,7 +553,10 @@ impl AgentProvider for OpenAICompatibleProvider {
                                         let entry = tool_calls.entry(idx).or_insert_with(|| {
                                             (
                                                 tc.id.clone().unwrap_or_default(),
-                                                func.name.clone().unwrap_or_default(),
+                                                func.name
+                                                    .as_deref()
+                                                    .map(crate::providers::tool_names::canonical_tool_name_from_api)
+                                                    .unwrap_or_default(),
                                                 String::new(),
                                             )
                                         });
@@ -655,7 +658,7 @@ fn message_to_openai_json(message: &Message) -> Value {
                             "id": id,
                             "type": "function",
                             "function": {
-                                "name": name,
+                                "name": crate::providers::tool_names::api_safe_tool_name(name),
                                 "arguments": serde_json::to_string(input).unwrap_or_default(),
                             },
                         }));
@@ -678,7 +681,9 @@ fn message_to_openai_json(message: &Message) -> Value {
 
 #[cfg(test)]
 mod tests {
+    use super::message_to_openai_json;
     use crate::providers::schema::normalized_tool_parameters;
+    use crate::types::{ContentBlock, Message};
     use serde_json::json;
 
     #[test]
@@ -700,6 +705,22 @@ mod tests {
         assert_eq!(
             normalized["properties"]["options"]["additionalProperties"],
             false
+        );
+    }
+
+    #[test]
+    fn assistant_tool_use_serializes_v2_name_as_openai_safe_wire_name() {
+        let message = Message::Assistant {
+            content: vec![ContentBlock::ToolUse {
+                id: "call-1".to_string(),
+                name: "file.read".to_string(),
+                input: json!({"path": "README.md"}),
+            }],
+        };
+        let json = message_to_openai_json(&message);
+        assert_eq!(
+            json["tool_calls"][0]["function"]["name"].as_str(),
+            Some("file__read")
         );
     }
 }

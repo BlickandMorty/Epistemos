@@ -86,8 +86,8 @@ final class DualBrainRouter {
 
         case "file":
             // File operations need reasoning for content generation
-            switch step.toolName {
-            case "list_files":
+            switch AgentToolNameAliases.canonical(step.toolName) {
+            case "file.list":
                 return .brain2DeviceANE // Simple directory listing
             default:
                 return .brain1ReasoningGPU

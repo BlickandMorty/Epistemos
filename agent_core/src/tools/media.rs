@@ -19,13 +19,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 use crate::bridge::AgentEventDelegate;
-use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
+use crate::providers::openai::{extract_openai_responses_output_text, OPENAI_RESPONSES_API};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024; // 20MB cap for base64 encoding
@@ -1169,11 +1169,9 @@ mod tests {
             schema.parameters["required"],
             json!(["allow_cloud_external_requests"])
         );
-        assert!(
-            schema
-                .description
-                .contains("allow_cloud_external_requests=true")
-        );
+        assert!(schema
+            .description
+            .contains("allow_cloud_external_requests=true"));
         assert!(
             schema.parameters["properties"]["allow_cloud_external_requests"]["description"]
                 .as_str()

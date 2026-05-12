@@ -11,7 +11,7 @@ nonisolated struct OmegaToolDefinition {
 
     var planningSchema: [String: Any] {
         var schema: [String: Any] = [
-            "name": name,
+            "name": AgentToolNameAliases.canonical(name),
             "description": description,
         ]
         if let data = schemaJson.data(using: .utf8),
@@ -80,6 +80,28 @@ nonisolated enum OmegaToolRegistry {
     /// Lazily decoded tool catalog from the Rust `builtinToolsJson()` export.
     /// Falls back to an empty array if the Rust catalog is unavailable or malformed.
     static let all: [OmegaToolDefinition] = {
+        decodedBuiltinTools().map { tool in
+            OmegaToolDefinition(
+                name: AgentToolNameAliases.canonical(tool.name),
+                agent: tool.agent,
+                description: tool.description,
+                argumentsExample: tool.argumentsExample,
+                schemaJson: tool.schemaJson,
+                destructive: tool.destructive,
+                requiresConfirmation: tool.requiresConfirmation
+            )
+        }
+    }()
+
+    private static let registeredNameByCanonicalName: [String: String] = {
+        var names: [String: String] = [:]
+        for tool in decodedBuiltinTools() {
+            names[AgentToolNameAliases.canonical(tool.name)] = tool.name
+        }
+        return names
+    }()
+
+    private static func decodedBuiltinTools() -> [OmegaToolDefinition] {
         let json = builtinToolsJson()
         guard let data = json.data(using: .utf8),
               let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
@@ -104,7 +126,7 @@ nonisolated enum OmegaToolRegistry {
                 requiresConfirmation: requiresConfirmation
             )
         }
-    }()
+    }
 
     static var planningSchemas: [[String: Any]] {
         planningSchemas(distribution: .currentBuild)
@@ -142,9 +164,14 @@ nonisolated enum OmegaToolRegistry {
               let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
             return "[]"
         }
-        let filtered = array.filter { dict in
-            guard let name = dict["name"] as? String else { return false }
-            return ToolSurfacePolicy.isSurfacedToolName(name, distribution: distribution)
+        let filtered = array.compactMap { dict -> [String: Any]? in
+            guard let name = dict["name"] as? String else { return nil }
+            guard ToolSurfacePolicy.isSurfacedToolName(name, distribution: distribution) else {
+                return nil
+            }
+            var canonicalized = dict
+            canonicalized["name"] = AgentToolNameAliases.canonical(name)
+            return canonicalized
         }
         return (try? JSONSerialization.data(
             withJSONObject: filtered,
@@ -160,7 +187,18 @@ nonisolated enum OmegaToolRegistry {
     }
 
     static func agent(for toolName: String) -> String? {
-        all.first(where: { $0.name == toolName })?.agent
+        let canonicalName = AgentToolNameAliases.canonical(toolName)
+        return all.first {
+            AgentToolNameAliases.canonical($0.name) == canonicalName
+        }?.agent
+    }
+
+    static func registeredName(for toolName: String) -> String? {
+        let canonicalName = AgentToolNameAliases.canonical(toolName)
+        if let registeredName = registeredNameByCanonicalName[canonicalName] {
+            return registeredName
+        }
+        return all.contains { $0.name == canonicalName } ? canonicalName : nil
     }
 
     static func planningPromptBlock(
@@ -180,7 +218,7 @@ nonisolated enum OmegaToolRegistry {
 
             lines.append(header)
             for tool in tools {
-                lines.append("- \(tool.name): \(tool.description). Args: \(tool.argumentsExample)")
+                lines.append("- \(AgentToolNameAliases.canonical(tool.name)): \(tool.description). Args: \(tool.argumentsExample)")
             }
         }
 
@@ -275,7 +313,9 @@ final class MCPBridge {
         ) {
             return gateResponse
         }
-        return dispatcher?.dispatch(requestJson: requestJson) ?? "{\"error\":\"Dispatcher not initialized\"}"
+        let dispatchJSON = Self.rustCatalogCompatibleRequestJson(requestJson)
+        let responseJSON = dispatcher?.dispatch(requestJson: dispatchJSON) ?? "{\"error\":\"Dispatcher not initialized\"}"
+        return Self.canonicalizedToolCallResponseJson(responseJSON)
     }
 
     private func policyGateResponse(
@@ -291,17 +331,9 @@ final class MCPBridge {
         let id = request["id"] ?? NSNull()
         switch method {
         case "tools/list":
-            let resolvedDistribution = ToolSurfacePolicy.resolvedDistribution(
-                distribution
-            )
             let visibleTools = OmegaToolRegistry.surfacedTools(
                 distribution: distribution
             )
-            let visibleNames = Set(visibleTools.map(\.name))
-            let allNames = Set(OmegaToolRegistry.all.map(\.name))
-            guard resolvedDistribution != .proResearch || visibleNames != allNames else {
-                return nil
-            }
             return Self.jsonRpcSuccess(
                 id: id,
                 result: [
@@ -331,6 +363,47 @@ final class MCPBridge {
         default:
             return nil
         }
+    }
+
+    private nonisolated static func rustCatalogCompatibleRequestJson(_ requestJson: String) -> String {
+        guard let data = requestJson.data(using: .utf8),
+              var request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              request["method"] as? String == "tools/call",
+              var params = request["params"] as? [String: Any],
+              let toolName = params["name"] as? String,
+              let registeredName = OmegaToolRegistry.registeredName(for: toolName),
+              registeredName != toolName else {
+            return requestJson
+        }
+
+        params["name"] = registeredName
+        request["params"] = params
+
+        guard let encoded = try? JSONSerialization.data(withJSONObject: request, options: [.sortedKeys]),
+              let string = String(data: encoded, encoding: .utf8) else {
+            return requestJson
+        }
+        return string
+    }
+
+    private nonisolated static func canonicalizedToolCallResponseJson(_ responseJson: String) -> String {
+        guard let data = responseJson.data(using: .utf8),
+              var response = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var result = response["result"] as? [String: Any],
+              let toolName = result["tool_name"] as? String else {
+            return responseJson
+        }
+
+        let canonicalName = AgentToolNameAliases.canonical(toolName)
+        guard canonicalName != toolName else { return responseJson }
+        result["tool_name"] = canonicalName
+        response["result"] = result
+
+        guard let encoded = try? JSONSerialization.data(withJSONObject: response, options: [.sortedKeys]),
+              let string = String(data: encoded, encoding: .utf8) else {
+            return responseJson
+        }
+        return string
     }
 
     private func recordToolCallPolicyDenial(

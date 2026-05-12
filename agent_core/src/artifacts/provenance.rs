@@ -107,7 +107,7 @@ pub struct ProvenanceBlock {
     pub generated_by_run: Option<String>,
 
     /// Tool name if the artifact came directly from a tool invocation
-    /// (`vault_search`, `web_fetch`, `code_execution`, etc.). Optional.
+    /// (`vault.search`, `web.fetch`, `code_execution`, etc.). Optional.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tool_id: Option<String>,
 
@@ -221,7 +221,7 @@ mod tests {
             producer: Producer::Agent,
             derived_from: vec![ArtifactRef::full("src-1", ArtifactKind::Source, "Paper")],
             generated_by_run: Some("run-99".to_string()),
-            tool_id: Some("vault_search".to_string()),
+            tool_id: Some("vault.search".to_string()),
             source_artifacts: vec![ArtifactRef::new("src-2")],
             output_artifacts: vec![ArtifactRef::new("out-1")],
         };

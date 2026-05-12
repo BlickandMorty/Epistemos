@@ -58,10 +58,10 @@ struct CurrentAccessParityTests {
             vaultURL: nil,
             contextAttachments: [],
             fileAttachments: [],
-            compiledAllowedToolNames: ["web_search"]
+            compiledAllowedToolNames: ["web.search"]
         )
 
-        #expect(plan.allowedToolNames == Set(["web_search"]))
+        #expect(plan.allowedToolNames == Set(["web.search"]))
         #expect(plan.summaryText == "Web search")
     }
 

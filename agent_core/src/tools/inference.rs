@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::bridge::AgentEventDelegate;
 use crate::routing::{ConfidenceRouter, HeuristicClassifier, LocalTask, RoutingDecision};
@@ -700,7 +700,7 @@ mod tests {
     async fn constrained_generate_tool_call_grammar_ok() {
         let delegate = stub_delegate(
             "{}",
-            r#"{"output":"{\"name\":\"vault_search\"}","tokens_generated":18}"#,
+            r#"{"output":"{\"name\":\"vault.search\"}","tokens_generated":18}"#,
         );
         let handler = ConstrainedGenerateHandler::new(delegate);
         let result = handler

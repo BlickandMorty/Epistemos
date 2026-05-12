@@ -11,9 +11,9 @@ Use this skill for safe note editing.
 
 ## Workflow
 
-1. Resolve the target note with `vault_search`, `vault_navigate`, graph context, or an explicit attachment.
-2. Read the existing note with `vault_read` before changing it.
-3. Write changes back with `vault_write`.
+1. Resolve the target note with `vault.search`, `graph.vault_navigate`, graph context, or an explicit attachment.
+2. Read the existing note with `vault.read` before changing it.
+3. Write changes back with `vault.write`.
 4. Preserve user structure unless they explicitly ask for a rewrite.
 
 ## Guardrails

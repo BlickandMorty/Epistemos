@@ -52,7 +52,7 @@ enum EditorSkill: String, CaseIterable, Identifiable, Sendable {
             You are hardening code by adding comprehensive error handling.
             Add try/catch blocks, guard clauses, input validation, and proper error propagation.
             Ensure resource cleanup in all error paths. Replace force-unwraps with safe alternatives.
-            Use the edit_file tool to apply changes. Preserve existing behavior — only add safety.
+            Use the active targeted edit schema to apply changes. Preserve existing behavior — only add safety.
             """
 
         case .writeTests:
@@ -60,7 +60,7 @@ enum EditorSkill: String, CaseIterable, Identifiable, Sendable {
             You are writing tests for the given code using the project's testing framework.
             Follow TDD principles: write clear, descriptive test names that describe behavior.
             Cover: happy path, error cases, edge cases, and boundary conditions.
-            One assertion per test when possible. Use insert_at_line to add tests.
+            One assertion per test when possible. Use the active insert/edit schema to add tests.
             For Swift: use @Test and #expect (Swift Testing), not XCTest.
             """
 
@@ -79,7 +79,7 @@ enum EditorSkill: String, CaseIterable, Identifiable, Sendable {
             Preserve exact behavior — no functional changes allowed.
             Focus on: naming clarity, function decomposition (<50 lines per function), \
             reducing nesting, extracting shared logic, improving type safety.
-            Use edit_file to apply changes. Explain each refactoring decision.
+            Use the active targeted edit schema to apply changes. Explain each refactoring decision.
             """
 
         case .documentCode:
@@ -88,7 +88,7 @@ enum EditorSkill: String, CaseIterable, Identifiable, Sendable {
             Use the project's documentation style (/// for Swift, /// or // for Rust).
             Include: purpose, parameters, return values, throws/errors, usage examples.
             For complex algorithms, explain the approach and time/space complexity.
-            Use insert_at_line or edit_file to add documentation in place.
+            Use the active insert/edit schema to add documentation in place.
             """
 
         case .debugCode:
@@ -99,7 +99,7 @@ enum EditorSkill: String, CaseIterable, Identifiable, Sendable {
             3. Trace data flow upstream to the source.
             4. Form a single hypothesis and test minimally.
             Fix at the source, not the symptom. One fix at a time.
-            Use edit_file to apply the fix. Explain the root cause.
+            Use the active targeted edit schema to apply the fix. Explain the root cause.
             """
         }
     }

@@ -78,26 +78,26 @@ Return external evidence as structured artifacts and provenance, not graph or Re
         "\n\nIf the answer is already in the conversation context, attached note text, or other provided material, answer directly without calling a tool.\n\
 After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.\n\
 Never repeat the same tool call when the previous <tool_response> already gave you the needed information.\n\
-For vault notes, never guess a filesystem path from a title. Use vault_search first and then vault_read with the returned vault-relative path.\n\
-For vault note creation or updates, use vault_write with a human-readable vault-relative .md path and the full markdown content.\n\
+For vault notes, never guess a filesystem path from a title. Use vault.search first and then vault.read with the returned vault-relative path.\n\
+For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.\n\
 If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.\n\
-If asked to create or update a note and then read it back, call vault_write first and then vault_read on that same exact note path.\n\
+If asked to create or update a note and then read it back, call vault.write first and then vault.read on that same exact note path.\n\
 Do not claim a note was created, updated, or read back before the required <tool_response> confirms the operation succeeded.\n\
 File tools can use the exact filesystem path the user provided, including absolute paths and ~/ home expansion, or a vault-relative path inside the active managed runtime vault (or ScratchVault when no vault is attached).\n\
 Do not invent alternate paths, filenames, or directories.\n\
 Use the exact path the user provided instead of rewriting it to tmp/example.txt or guessing a nearby path.\n\
-If asked to write a file and then read it back, call write_file first and then read_file on that same exact path.\n\
+If asked to write a file and then read it back, call file.write first and then file.read on that same exact path.\n\
 Do not answer an explicit file read/write request from the requested contents alone before the required <tool_response> confirms the operation succeeded.\n\
 For concrete file, note, or search requests, emit the next <tool_call> immediately instead of describing a plan first.\n\
 Example:\n\
 User: Write exactly hello to tmp/example.txt and then read it back.\n\
 Assistant:\n\
 <tool_call>\n\
-{\"name\":\"write_file\",\"arguments\":{\"path\":\"tmp/example.txt\",\"content\":\"hello\"}}\n\
+{\"name\":\"file.write\",\"arguments\":{\"path\":\"tmp/example.txt\",\"content\":\"hello\"}}\n\
 </tool_call>\n\
-After the write_file <tool_response> arrives:\n\
+After the file.write <tool_response> arrives:\n\
 <tool_call>\n\
-{\"name\":\"read_file\",\"arguments\":{\"path\":\"tmp/example.txt\"}}\n\
+{\"name\":\"file.read\",\"arguments\":{\"path\":\"tmp/example.txt\"}}\n\
 </tool_call>"
     );
 

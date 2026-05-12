@@ -21,9 +21,9 @@ use std::sync::{Mutex, OnceLock};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -538,13 +538,11 @@ mod tests {
         let list = handler.execute(&json!({ "action": "list" })).await.unwrap();
         let list_parsed: Value = serde_json::from_str(&list).unwrap();
         assert!(list_parsed["count"].as_u64().unwrap() >= 1);
-        assert!(
-            list_parsed["jobs"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|j| j["name"] == expected_name.as_str())
-        );
+        assert!(list_parsed["jobs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|j| j["name"] == expected_name.as_str()));
     }
 
     #[tokio::test]

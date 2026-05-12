@@ -306,7 +306,7 @@ struct CommandCenterRequestCompilerTests {
     func toolPermissionsFailClosedWithoutVault() async throws {
         let compiler = Self.makeCompiler()
         let compiled = await compiler.compile(
-            request: Self.makeRequest(tools: ["vault_read", "web_search"]),
+            request: Self.makeRequest(tools: ["vault.read", "web.search"]),
             conversationHistory: nil
         )
 
@@ -327,7 +327,7 @@ struct CommandCenterRequestCompilerTests {
         // User intent is preserved verbatim in requestedToolNames, independent
         // of the catalog — this is what a future run with a populated vault
         // will re-evaluate against the real Rust registry.
-        #expect(compiled.requestedToolNames == ["vault_read", "web_search"])
+        #expect(compiled.requestedToolNames == ["vault.read", "web.search"])
     }
 
     // MARK: - Round-trip / Contract Envelope
@@ -338,7 +338,7 @@ struct CommandCenterRequestCompilerTests {
         let compiled = await compiler.compile(
             request: Self.makeRequest(
                 query: "hello world",
-                tools: ["vault_read"],
+                tools: ["vault.read"],
                 brain: .appleIntelligence
             ),
             conversationHistory: "prior turn"
@@ -402,7 +402,7 @@ struct CommandCenterRequestCompilerTests {
         // populated-catalog branch (exercised via the Rust-side tests).
         let compiler = Self.makeCompiler()
         let compiled = await compiler.compile(
-            request: Self.makeRequest(tools: ["vault_read", "run_command"]),
+            request: Self.makeRequest(tools: ["vault.read", "run_command"]),
             conversationHistory: nil
         )
         let allowDecisions = compiled.resolvedToolPermissions.filter {
@@ -411,21 +411,19 @@ struct CommandCenterRequestCompilerTests {
         #expect(Set(allowDecisions.map(\.toolName)) == compiled.allowedToolNames)
     }
 
-    @Test("user-toggled tool names reach the compiled request verbatim, not renamed")
+    @Test("user-toggled legacy tool names compile to canonical V2 names")
     func terminalToolAllowlistPreservesTrueName() async throws {
-        // User toggles ONLY run_command — not the legacy `bash` alias.
-        // The compiled request's `requestedToolNames` field must reflect
-        // user intent verbatim, independent of whether the current Rust
-        // catalog contains these names. This guarantees the Command
-        // Center never silently rewrites tool identifiers between the
-        // user's click and the Rust control plane.
+        // User toggles ONLY run_command — not the older `bash` alias.
+        // The compiled request now canonicalizes that legacy spelling to the
+        // model-facing V2 name before it reaches the Rust control plane.
         let compiler = Self.makeCompiler()
         let compiled = await compiler.compile(
             request: Self.makeRequest(tools: ["run_command"]),
             conversationHistory: nil
         )
 
-        #expect(compiled.requestedToolNames.contains("run_command"))
+        #expect(compiled.requestedToolNames.contains("action.bash"))
+        #expect(!compiled.requestedToolNames.contains("run_command"))
         #expect(!compiled.requestedToolNames.contains("bash"))
         #expect(!compiled.requestedToolNames.contains("run_persistent"))
     }

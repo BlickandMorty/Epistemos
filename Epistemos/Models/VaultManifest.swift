@@ -155,6 +155,6 @@ extension VaultManifest.NoteBody {
         guard let relativePath else { return nil }
         let trimmedPath = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPath.isEmpty else { return nil }
-        return "Canonical vault-relative path (use this with `vault_read`): \(trimmedPath)"
+        return "Canonical vault-relative path (use this with `vault.read`): \(trimmedPath)"
     }
 }

@@ -1028,7 +1028,7 @@ struct PipelineServiceTests {
         )
 
         #expect(executionPlan.route == .overseerLocalExecution)
-        #expect(executionPlan.allowedToolNames.contains("search_web"))
+        #expect(executionPlan.allowedToolNames.contains("web.search"))
     }
 
     @Test("current-info local prompts route into overseer local execution")
@@ -1056,7 +1056,7 @@ struct PipelineServiceTests {
         )
 
         #expect(executionPlan.route == .overseerLocalExecution)
-        #expect(executionPlan.allowedToolNames.contains("search_web"))
+        #expect(executionPlan.allowedToolNames.contains("web.search"))
     }
 
     @Test("local note-writing prompts stay on the local overseer path and expose write tools")
@@ -1084,7 +1084,7 @@ struct PipelineServiceTests {
         )
 
         #expect(executionPlan.route == .overseerLocalExecution)
-        #expect(executionPlan.allowedToolNames.contains("write_file"))
+        #expect(executionPlan.allowedToolNames.contains("file.write"))
     }
 
     @Test("hidden local agent tier backs fast-mode tool execution when overseer escalates")
@@ -1146,8 +1146,8 @@ struct PipelineServiceTests {
         #expect(executionPlan.route == .managedAgentSession)
         #expect(executionPlan.localOperatingMode == .agent)
         #expect(!executionPlan.plan.toolPermissions.isEmpty)
-        #expect(executionPlan.allowedToolNames.contains("search_web"))
-        #expect(executionPlan.allowedToolNames.contains("write_file"))
+        #expect(executionPlan.allowedToolNames.contains("web.search"))
+        #expect(executionPlan.allowedToolNames.contains("file.write"))
     }
 
     @Test("cloud-selected fast tool prompts still promote into the managed agent session")
@@ -1177,8 +1177,8 @@ struct PipelineServiceTests {
         #expect(executionPlan.route == .managedAgentSession)
         #expect(executionPlan.localOperatingMode == .agent)
         #expect(!executionPlan.plan.toolPermissions.isEmpty)
-        #expect(executionPlan.allowedToolNames.contains("search_web"))
-        #expect(executionPlan.allowedToolNames.contains("write_file"))
+        #expect(executionPlan.allowedToolNames.contains("web.search"))
+        #expect(executionPlan.allowedToolNames.contains("file.write"))
     }
 
     // Patch 1 (BLOCKER fix) — verifies that when the user is in Pro mode
@@ -1209,8 +1209,8 @@ struct PipelineServiceTests {
         #expect(ChatToolTier.from(operatingMode: .agent) == .agent)
     }
 
-    @Test("standard local chat modes use the direct stream instead of the local tool loop")
-    @MainActor func standardLocalChatModesUseDirectStream() async throws {
+    @Test("standard local chat modes use the V2 local tool loop when the selected model can drive tools")
+    @MainActor func standardLocalChatModesUseV2LocalToolLoopForCapableModels() async throws {
         for operatingMode: EpistemosOperatingMode in [.fast, .thinking, .pro] {
             let directClient = RecordingConfigurableLocalLLMClient()
             let localToolLoopClient = RecordingConfigurableLocalLLMClient()
@@ -1244,12 +1244,23 @@ struct PipelineServiceTests {
             for try await _ in stream {}
 
             #expect(
-                triage.lastDecision == .localMLX,
-                "Expected local direct routing for \(operatingMode.rawValue)"
+                !localToolLoopClient.streamRequests.isEmpty,
+                "Expected local tool-loop requests for \(operatingMode.rawValue)"
             )
             #expect(
-                localToolLoopClient.streamRequests.isEmpty,
-                "Did not expect local tool-loop requests for \(operatingMode.rawValue)"
+                directClient.streamRequests.isEmpty,
+                "Expected the direct local client to stay idle once the V2 tool loop owns the turn"
+            )
+            let prompt = try #require(localToolLoopClient.streamRequests.last?.prompt)
+            #expect(prompt.contains("\"name\":\"vault.search\""))
+            #expect(prompt.contains("\"name\":\"vault.read\""))
+            #expect(prompt.contains("\"name\":\"web.fetch\""))
+            #expect(!prompt.contains("\"name\":\"vault_search\""))
+            #expect(!prompt.contains("\"name\":\"vault_read\""))
+            #expect(!prompt.contains("\"name\":\"web_fetch\""))
+            #expect(
+                prompt.contains("Attached note body"),
+                "Local tool-loop prompt must preserve direct note context for \(operatingMode.rawValue)"
             )
         }
     }
@@ -1335,8 +1346,8 @@ struct PipelineServiceTests {
                 preconditionFailure("Observed tool executor should not execute the tool after approval is denied.")
             },
             toolMetadataByName: [
-                "read_file": OmegaToolDefinition(
-                    name: "read_file",
+                "file.read": OmegaToolDefinition(
+                    name: "file.read",
                     agent: "rust",
                     description: "Read a local file",
                     argumentsExample: "{}",
@@ -1349,14 +1360,14 @@ struct PipelineServiceTests {
                 recorder.append(event)
             },
             toolApprovalHandler: { request in
-                #expect(request.toolName == "read_file")
+                #expect(request.toolName == "file.read")
                 #expect(request.requiresHumanApproval)
                 return false
             }
         )
 
         let result = await executor(
-            "read_file",
+            "file.read",
             #"{"path":"/tmp/test.txt"}"#
         )
 
@@ -1430,8 +1441,8 @@ struct PipelineServiceTests {
                 preconditionFailure("Denied tool must not execute.")
             },
             toolMetadataByName: [
-                "read_file": OmegaToolDefinition(
-                    name: "read_file",
+                "file.read": OmegaToolDefinition(
+                    name: "file.read",
                     agent: "rust",
                     description: "Read a local file",
                     argumentsExample: "{}",
@@ -1449,7 +1460,7 @@ struct PipelineServiceTests {
             actor: .agent(id: "pipeline-service", modelID: "qwen-local")
         )
 
-        let result = await executor("read_file", #"{"path":"/tmp/denied.txt"}"#)
+        let result = await executor("file.read", #"{"path":"/tmp/denied.txt"}"#)
         #expect(result.isError)
 
         let events = store.agentEvents(runID: runID, limit: 10)
@@ -2187,7 +2198,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(first.loadedNoteIds == Set(["alpha-id"]))
         #expect(first.loadedNoteTitles == ["Alpha"])
         #expect(first.context?.contains("### Referenced Note: Alpha") == true)
-        #expect(first.context?.contains("Canonical vault-relative path (use this with `vault_read`): Research/Alpha.md") == true)
+        #expect(first.context?.contains("Canonical vault-relative path (use this with `vault.read`): Research/Alpha.md") == true)
 
         let second = await ChatCoordinator.resolveNotesContext(
             query: "Use the same note again",
@@ -2255,7 +2266,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(third.context?.contains("## Matched Vault Notes") == true)
         #expect(third.context?.contains("### Vault Match: Beta") == true)
         #expect(third.context?.contains("Beta full body") == true)
-        #expect(third.context?.contains("Canonical vault-relative path (use this with `vault_read`): Beta.md") == true)
+        #expect(third.context?.contains("Canonical vault-relative path (use this with `vault.read`): Beta.md") == true)
         #expect(third.loadedNoteIds == Set(["beta-id", "alpha-id"]))
         #expect(third.loadedNoteTitles == ["Beta", "Alpha"])
 
@@ -2377,7 +2388,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.context?.contains("Treat the inlined `Content:` blocks as the authoritative source") == true)
         #expect(resolution.context?.contains("Do not ask the user to locate, reattach, or restate these notes.") == true)
         #expect(resolution.context?.contains("### Attached Note: Project Atlas") == true)
-        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Research/Project Atlas.md") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault.read`): Research/Project Atlas.md") == true)
         #expect(resolution.context?.contains("Priority: Required context.") == true)
         #expect(resolution.context?.contains("Beta full body") == true)
         #expect(resolution.context?.contains("Alpha full body") == false)
@@ -2385,7 +2396,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.loadedNoteTitles == ["Project Atlas"])
     }
 
-    @Test("live attached notes expose exact vault_write path only when writable")
+    @Test("live attached notes expose exact vault.write path only when writable")
     func liveAttachedNotesExposeWritablePath() async {
         let now = Date()
         let manifest = VaultManifest(
@@ -2441,8 +2452,8 @@ struct ChatCoordinatorPersistenceTests {
             fetchChatMessages: { _ in [] }
         )
 
-        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Research/Project Atlas.md") == true)
-        #expect(resolution.context?.contains("Writable attached-note path (use this exact value with `vault_write.path` only when the user asks you to edit this note): Research/Project Atlas.md") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault.read`): Research/Project Atlas.md") == true)
+        #expect(resolution.context?.contains("Writable attached-note path (use this exact value with `vault.write.path` only when the user asks you to edit this note): Research/Project Atlas.md") == true)
     }
 
     @Test("natural language note requests resolve note context without mention syntax")
@@ -2500,7 +2511,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.loadedNoteIds == Set(["determinism-id"]))
         #expect(resolution.loadedNoteTitles == ["Determinism"])
         #expect(resolution.context?.contains("### Referenced Note: Determinism") == true)
-        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Philosophy/Determinism.md") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault.read`): Philosophy/Determinism.md") == true)
         #expect(resolution.context?.contains("Determinism says every event is fixed by prior causes.") == true)
     }
 
@@ -2678,7 +2689,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.context?.contains("## Requested Note Context") == true)
         #expect(resolution.context?.contains("Do not describe them as attached files or uploads.") == true)
         #expect(resolution.context?.contains("### Referenced Note: All Things Must Go") == true)
-        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Essays/All Things Must Go.md") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault.read`): Essays/All Things Must Go.md") == true)
     }
 
     @Test("pipeline direct stream uses bare prompts and only appends explicit note context")
@@ -3593,7 +3604,7 @@ struct ChatStateLocalMessageTests {
         chatState.startStreaming()
         chatState.recordToolUse(
             id: "tool-1",
-            name: "read_file",
+            name: "file.read",
             inputJson: #"{"path":"/tmp/epistemos_opus41_main_outside_20260422.txt"}"#
         )
         chatState.recordToolResult(
@@ -3616,7 +3627,7 @@ struct ChatStateLocalMessageTests {
             assistant?.contentBlocks == [
                 .toolUse(
                     id: "tool-1",
-                    name: "read_file",
+                    name: "file.read",
                     input: ["path": .string("/tmp/epistemos_opus41_main_outside_20260422.txt")]
                 ),
                 .toolResult(toolUseId: "tool-1", content: "tool smoke ok", isError: false),

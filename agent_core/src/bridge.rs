@@ -2455,7 +2455,9 @@ async fn invoke_skill_inner(
         .find(|skill| skill.name == skill_name)
         .cloned()
         .ok_or_else(|| AgentErrorFFI::AgentError {
-            message: format!("runtime skill '{skill_name}' was not found in profile '{profile_id}'"),
+            message: format!(
+                "runtime skill '{skill_name}' was not found in profile '{profile_id}'"
+            ),
         })?;
 
     let arguments: serde_json::Value =
@@ -2691,7 +2693,7 @@ fn current_unix_seconds() -> i64 {
 // Thinking / Pro modes) can call `list_tools_for_tier` to discover what's
 // available and `execute_tool_call` to run a single tool per user turn.
 //
-// This is how local models get web_search + vault_recall
+// This is how local models get web.search + knowledge.recall
 // without the full agent loop. The Swift side handles the tool-use
 // messaging protocol for whichever model is active.
 
@@ -2886,7 +2888,7 @@ fn build_registry_for_tool_tier(
 }
 
 fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
-    matches!(tool_name, "vault_write")
+    matches!(tool_name, "vault.write" | "vault_write")
 }
 
 // MARK: - Provenance Ledger FFI (V2 Lane 1 — read-only Rust ledger surface)
@@ -3257,7 +3259,7 @@ mod tests {
         )
         .expect("tool list");
 
-        assert!(!tools.iter().any(|tool| tool.name == "image_generate"));
+        assert!(!tools.iter().any(|tool| tool.name == "media.image_generate"));
     }
 
     #[tokio::test]
@@ -3302,13 +3304,13 @@ mod tests {
             .block_on(execute_tool_call_filtered(
                 vault.path().to_string_lossy().to_string(),
                 "agent".to_string(),
-                "vault_write".to_string(),
+                "vault.write".to_string(),
                 json!({
                     "path": "Inbox/Filtered.md",
                     "content": "filtered write ok"
                 })
                 .to_string(),
-                Some(vec!["vault_write".to_string()]),
+                Some(vec!["vault.write".to_string()]),
             ))
             .expect("filtered tool call should not throw");
 
@@ -3319,12 +3321,12 @@ mod tests {
 
         assert!(
             result.success,
-            "filtered vault_write should succeed with a writable backend, error={:?}",
+            "filtered vault.write should succeed with a writable backend, error={:?}",
             result.error
         );
         assert!(
             result.output_json.contains("\"verified\":true"),
-            "vault_write should report readback verification: {}",
+            "vault.write should report readback verification: {}",
             result.output_json
         );
         let written =

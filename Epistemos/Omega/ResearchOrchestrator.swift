@@ -42,14 +42,14 @@ final class ResearchOrchestrator {
     func processResult(toolName: String, resultJson: String) {
         guard isResearchTask else { return }
 
-        switch toolName {
-        case "collectsnippet":
+        switch AgentToolNameAliases.canonical(toolName) {
+        case "research.collect_snippet":
             processSnippetResult(resultJson)
-        case "scoreevidence":
+        case "knowledge.evidence_score":
             processEvidenceResult(resultJson)
-        case "analyzecontradiction":
+        case "knowledge.contradiction_check":
             processContradictionResult(resultJson)
-        case "createresearchnote":
+        case "note.research_digest":
             processResearchNoteResult(resultJson)
         default:
             break
@@ -87,7 +87,7 @@ final class ResearchOrchestrator {
         return true
     }
 
-    /// The session note ID tracked across collectsnippet calls.
+    /// The session note ID tracked across research.collect_snippet calls.
     var sessionNoteId: String? { confidenceState.sessionNoteId }
 
     // MARK: - Result Processing

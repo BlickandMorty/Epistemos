@@ -10,7 +10,7 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 

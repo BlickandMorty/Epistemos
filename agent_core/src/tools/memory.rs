@@ -16,7 +16,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use fs2::FileExt;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
 

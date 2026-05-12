@@ -465,7 +465,7 @@ mod tests {
             "role": "assistant",
             "content": "Editing file",
             "tool_calls": [{
-                "name": "vault_write",
+                "name": "vault.write",
                 "tool_use_id": "tc_2",
                 "input_summary": "writing to memory/decisions.md",
                 "result_summary": null,
