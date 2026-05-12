@@ -1,6 +1,7 @@
 // FFI entry points dereference raw pointers by design — safety is the C caller's contract.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
+pub mod adaptive_kernels;
 pub mod atmosphere;
 pub mod block_kernel;
 pub mod cluster;
