@@ -784,17 +784,17 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 requestedRuntimeKind: requestedRuntimeKind
             )
             return StreamingBufferPolicy.throwingStream { continuation in
-                let task = Task {
+                let task = Task.detached(priority: .userInitiated) {
                     let lifecycleStart = DispatchTime.now()
                     var launch: BackendGenerationLaunch?
                     var output = ""
                     var chunkCount = 0
-                    self.recordStreamAgentEvent(
+                    await self.recordStreamAgentEvent(
                         provenance,
                         kind: .toolCallRequested,
                         status: .requested
                     )
-                    self.recordStreamAgentEvent(
+                    await self.recordStreamAgentEvent(
                         provenance,
                         kind: .toolCallStarted,
                         status: .started
@@ -833,7 +833,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                             summary: summary
                         )
                         let elapsedMs = Self.localMLXDurationMilliseconds(since: lifecycleStart)
-                        self.recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallCompleted,
                             resultJSON: Self.localMLXStreamResultJSON(
@@ -850,7 +850,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                         let elapsedMs = Self.localMLXDurationMilliseconds(since: lifecycleStart)
                         var failedMetadata = provenance.metadata
                         failedMetadata["failure_class"] = BackendRuntimeContractError.cancelled.rawValue
-                        self.recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallFailed,
                             resultJSON: Self.localMLXStreamResultJSON(
@@ -889,7 +889,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                         let mapped = Self.mapBackendError(error)
                         var failedMetadata = provenance.metadata
                         failedMetadata["failure_class"] = mapped.rawValue
-                        self.recordStreamAgentEvent(
+                        await self.recordStreamAgentEvent(
                             provenance,
                             kind: .toolCallFailed,
                             resultJSON: Self.localMLXStreamResultJSON(
@@ -1095,7 +1095,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         }
     }
 
-    private struct LocalMLXProvenanceContext {
+    private struct LocalMLXProvenanceContext: Sendable {
         let runID: String
         let toolCallID: String
         let toolName: String
