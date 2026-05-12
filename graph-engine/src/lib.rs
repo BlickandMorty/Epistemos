@@ -6,6 +6,7 @@ pub mod atmosphere;
 pub mod block_kernel;
 pub mod cluster;
 pub mod cluster_cache;
+pub mod cluster_hierarchy;
 pub mod code_highlight;
 pub mod complexity_weight;
 pub mod ecs;
