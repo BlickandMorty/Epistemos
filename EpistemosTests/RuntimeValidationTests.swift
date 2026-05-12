@@ -6322,6 +6322,8 @@ struct InferenceCloudSelectionTests {
         #expect(coordinator.contains("case .openAI: return \"openai_gpt54\""))
         #expect(coordinator.contains("case \"openai\", \"openai_gpt4o\", \"openai_gpt54\":"))
         #expect(coordinator.contains("return \"openai_gpt54_mini\""))
+        #expect(coordinator.contains("cloudAgentFailureShouldStopFallback"))
+        #expect(coordinator.contains("chatState.addErrorMessage(from: error)"))
         #expect(!coordinator.contains("allowedToolNames: nil"))
     }
 

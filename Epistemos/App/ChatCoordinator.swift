@@ -1810,8 +1810,9 @@ final class ChatCoordinator {
           }
         }
 
+        let selectedSurface = inferenceState.effectiveChatSurfaceSelection(for: operatingMode)
         let isCloudSelectedSurface: Bool = {
-          if case .cloud = inferenceState.effectiveChatSurfaceSelection(for: operatingMode) {
+          if case .cloud = selectedSurface {
             return true
           }
           return false
@@ -1870,9 +1871,17 @@ final class ChatCoordinator {
             )
             usedRustAgent = true
           } catch {
-            Log.pipeline.warning(
-              "Managed agent path unavailable, falling back to local execution: \(String(reflecting: error), privacy: .public)"
-            )
+            if Self.cloudAgentFailureShouldStopFallback(error, selectedSurface: selectedSurface) {
+              Log.pipeline.warning(
+                "Managed cloud agent path failed; surfacing provider error instead of falling back: \(String(reflecting: error), privacy: .public)"
+              )
+              chatState.addErrorMessage(from: error)
+              usedRustAgent = true
+            } else {
+              Log.pipeline.warning(
+                "Managed agent path unavailable, falling back to local execution: \(String(reflecting: error), privacy: .public)"
+              )
+            }
           }
         } else if let executionPlan, mode == .api, operatingMode == .pro, isCloudSelectedSurface {
           // Pro + cloud → chat_pro tier, bounded turns (3) +
@@ -1897,9 +1906,18 @@ final class ChatCoordinator {
             )
             usedRustAgent = true
           } catch {
-            Log.pipeline.warning(
-              "Pro-mode Rust agent path unavailable, falling back to direct stream: \(error.localizedDescription)"
-            )
+            let selectedSurface = inferenceState.effectiveChatSurfaceSelection(for: operatingMode)
+            if Self.cloudAgentFailureShouldStopFallback(error, selectedSurface: selectedSurface) {
+              Log.pipeline.warning(
+                "Pro-mode cloud agent path failed; surfacing provider error instead of falling back: \(String(reflecting: error), privacy: .public)"
+              )
+              chatState.addErrorMessage(from: error)
+              usedRustAgent = true
+            } else {
+              Log.pipeline.warning(
+                "Pro-mode Rust agent path unavailable, falling back to direct stream: \(error.localizedDescription)"
+              )
+            }
           }
         }
 
@@ -2878,6 +2896,19 @@ final class ChatCoordinator {
       return "high"
     case .heavy:
       return "max"
+    }
+  }
+
+  private static func cloudAgentFailureShouldStopFallback(
+    _ error: Error,
+    selectedSurface: ChatModelSelection
+  ) -> Bool {
+    guard case .cloud = selectedSurface else { return false }
+    switch UserFacingChatError.classify(error) {
+    case .authFailure, .rateLimited, .providerUnreachable, .timedOut:
+      return true
+    case .contextOverflow, .modelNotReady, .cancelled, .generic:
+      return false
     }
   }
 
