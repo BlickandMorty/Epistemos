@@ -9,18 +9,18 @@ use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tracing::{debug, warn};
 
 use crate::agent_loop::{AgentConfig, AgentError};
-use crate::error::{with_retry, RetryConfig};
+use crate::error::{RetryConfig, with_retry};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_strict_tool_parameters;
 use crate::types::{
     ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
 };
 
-const OPENAI_RESPONSES_API: &str = "https://api.openai.com/v1/responses";
+pub(crate) const OPENAI_RESPONSES_API: &str = "https://api.openai.com/v1/responses";
 const OPENAI_CODEX_RESPONSES_API: &str = "https://chatgpt.com/backend-api/codex/responses";
 const OPENAI_CODEX_AUTH_MODE_ENV: &str = "OPENAI_AUTH_MODE";
 const OPENAI_CODEX_ACCESS_TOKEN_ENV: &str = "OPENAI_ACCESS_TOKEN";
@@ -732,6 +732,24 @@ fn openai_responses_visible_reasoning_delta(payload: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
+#[cfg_attr(not(any(test, feature = "pro-build")), allow(dead_code))]
+pub(crate) fn extract_openai_responses_output_text(payload: &Value) -> String {
+    if let Some(text) = payload.get("output_text").and_then(Value::as_str) {
+        return text.to_string();
+    }
+
+    payload
+        .get("output")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item.get("content").and_then(Value::as_array))
+        .flatten()
+        .filter_map(|content| content.get("text").and_then(Value::as_str))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -786,6 +804,28 @@ mod tests {
             Some("Checking the note structure".to_string())
         );
         assert_eq!(openai_responses_visible_reasoning_delta(&raw), None);
+    }
+
+    #[test]
+    fn extracts_non_streaming_responses_output_text() {
+        let direct = json!({
+            "output_text": "direct text"
+        });
+        let nested = json!({
+            "output": [{
+                "type": "message",
+                "content": [
+                    { "type": "output_text", "text": "first" },
+                    { "type": "output_text", "text": "second" }
+                ]
+            }]
+        });
+
+        assert_eq!(extract_openai_responses_output_text(&direct), "direct text");
+        assert_eq!(
+            extract_openai_responses_output_text(&nested),
+            "first\nsecond"
+        );
     }
 
     #[test]
@@ -892,10 +932,12 @@ mod tests {
         assert_eq!(input[0]["content"][0]["type"], "input_text");
         assert_eq!(input[0]["content"][0]["text"], "What is this?");
         assert_eq!(input[0]["content"][1]["type"], "input_image");
-        assert!(input[0]["content"][1]["image_url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,"));
+        assert!(
+            input[0]["content"][1]["image_url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,")
+        );
         assert_eq!(input[1]["type"], "function_call_output");
         assert_eq!(input[1]["call_id"], "fc_call_1");
         assert_eq!(input[1]["output"], "found 3 results");

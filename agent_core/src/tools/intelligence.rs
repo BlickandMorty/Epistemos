@@ -23,6 +23,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::bridge::AgentEventDelegate;
+use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -804,12 +805,18 @@ async fn ask_claude(client: &Client, problem: &str) -> Result<String, String> {
 async fn ask_openai(client: &Client, problem: &str) -> Result<String, String> {
     let api_key = std::env::var("OPENAI_API_KEY").map_err(|_| "OPENAI_API_KEY not set")?;
     let body = json!({
-        "model": "gpt-4o",
-        "max_tokens": 1024,
-        "messages": [ { "role": "user", "content": problem } ]
+        "model": "gpt-5.4",
+        "max_output_tokens": 1024,
+        "store": false,
+        "text": { "verbosity": "low" },
+        "input": [{
+            "type": "message",
+            "role": "user",
+            "content": [{ "type": "input_text", "text": problem }]
+        }]
     });
     let resp = client
-        .post("https://api.openai.com/v1/chat/completions")
+        .post(OPENAI_RESPONSES_API)
         .bearer_auth(api_key)
         .json(&body)
         .send()
@@ -822,14 +829,7 @@ async fn ask_openai(client: &Client, problem: &str) -> Result<String, String> {
         .json()
         .await
         .map_err(|_| "openai response parse failed".to_string())?;
-    Ok(payload
-        .get("choices")
-        .and_then(|c| c.get(0))
-        .and_then(|c| c.get("message"))
-        .and_then(|m| m.get("content"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string())
+    Ok(extract_openai_responses_output_text(&payload))
 }
 
 async fn ask_gemini(client: &Client, problem: &str) -> Result<String, String> {
@@ -1456,6 +1456,15 @@ mod tests {
                     .description
                     .contains("allow_cloud_external_requests=true")
         );
+    }
+
+    #[test]
+    fn mixture_openai_uses_responses_not_legacy_chat_completions() {
+        let source = include_str!("intelligence.rs");
+        let legacy_fragment = ["api.openai.com", "v1", "chat", "completions"].join("/");
+
+        assert!(source.contains("OPENAI_RESPONSES_API"));
+        assert!(!source.contains(&legacy_fragment));
     }
 
     #[tokio::test]
