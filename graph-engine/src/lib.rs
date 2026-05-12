@@ -16,6 +16,7 @@ pub mod label_envelope;
 pub mod labels;
 pub mod markdown;
 pub mod motion;
+pub mod node_state;
 pub mod quadtree;
 pub mod recovery;
 pub mod renderer;
@@ -933,6 +934,132 @@ pub extern "C" fn graph_engine_write_positions_to_shared(
         ffi_engine_or!(engine, 0);
         engine.write_positions_to_shared(buffer_index)
     })
+}
+
+// ── Shared NodeState Buffers (Phase A Week 2) ───────────────────────────────
+//
+// Per docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md Phase A Week 2:
+// extend the shared MTLBuffer from position-only (float2 per node) to
+// full GraphNodeState (pos + vel + force + flags + sleep_count + warm,
+// 64-byte aligned). This is the FFI surface the new ring binds against.
+//
+// The Swift caller allocates the shared MTLBuffer via
+// `device.makeBuffer(length:options: .storageModeShared)`, takes the
+// `contents()` pointer, and calls `graph_engine_bind_node_state_slot`
+// once per ring slot at startup. The engine then writes node state
+// directly into the Swift-allocated memory each frame. Rendering reads
+// from the same buffer with no copy.
+//
+// Per canonical plan decision #1: Metal allocates, Rust binds, GPU
+// leases. Decision #37: Every export wrapped in `ffi_catch_unwind!` so
+// a Rust panic never crosses the C ABI. Decision #38: Bound pointers
+// stored with explicit `len_bytes` + `stride` so allocator identity
+// can't drift between Swift and Rust.
+//
+// Bind protocol invariants:
+//   - `stride` must equal `size_of::<GraphNodeState>()` (= 64)
+//   - `len_bytes / stride` is the capacity for that slot
+//   - All three slots must be bound before stepping into bound slots
+//   - Unbind sets the slot's pointer to null; subsequent writes are no-ops
+
+/// Bind a shared MTLBuffer slot to the engine. Called once per ring
+/// slot at startup. Returns true on success, false if validation fails
+/// (null ptr, wrong stride, mismatched ABI version).
+///
+/// # Safety
+/// `ptr` must point to `len_bytes` of writable `.storageModeShared`
+/// Metal memory that stays valid until either the engine is destroyed
+/// or `graph_engine_unbind_node_state_slot` is called for this slot.
+/// The Swift owner is responsible for keeping the underlying
+/// `MTLBuffer` alive for that lifetime; Rust does not free this memory.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_bind_node_state_slot(
+    engine: *mut Engine,
+    slot: u32,
+    ptr: *mut std::ffi::c_void,
+    len_bytes: usize,
+    stride: usize,
+    abi_version: u32,
+) -> bool {
+    ffi_catch_unwind_or!("graph_engine_bind_node_state_slot", false, {
+        ffi_engine_or!(engine, false);
+        if ptr.is_null() {
+            eprintln!("bind_node_state_slot: null ptr");
+            return false;
+        }
+        let expected_stride = std::mem::size_of::<crate::node_state::GraphNodeState>();
+        if stride != expected_stride {
+            eprintln!(
+                "bind_node_state_slot: stride mismatch — slot={slot} stride={stride} expected={expected_stride} (Swift/Rust struct layout drift)"
+            );
+            return false;
+        }
+        let expected_abi = crate::node_state::GRAPH_NODE_STATE_ABI_VERSION;
+        if abi_version != expected_abi {
+            eprintln!(
+                "bind_node_state_slot: ABI version mismatch — slot={slot} abi_version={abi_version} expected={expected_abi} (rebuild Swift bindings)"
+            );
+            return false;
+        }
+        if len_bytes < stride {
+            eprintln!(
+                "bind_node_state_slot: len_bytes < stride — slot={slot} len_bytes={len_bytes} stride={stride}"
+            );
+            return false;
+        }
+        engine.bind_node_state_slot(slot as usize, ptr, len_bytes, stride);
+        true
+    })
+}
+
+/// Unbind a previously-bound slot. Safe to call even if the slot was
+/// never bound. After unbind, subsequent `step_into_bound_slot` calls
+/// for this slot are no-ops.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_unbind_node_state_slot(engine: *mut Engine, slot: u32) {
+    ffi_catch_unwind!("graph_engine_unbind_node_state_slot", {
+        ffi_engine!(engine);
+        engine.unbind_node_state_slot(slot as usize);
+    });
+}
+
+/// Step physics + write NodeState into the specified pre-bound slot.
+/// Returns the number of nodes written, or 0 if the slot is unbound
+/// or has insufficient capacity for the current node count.
+///
+/// # Safety
+/// The GPU must not be reading from `slot` during this call. The Swift
+/// caller is responsible for coordinating via `addCompletedHandler`
+/// or `MTLSharedEvent` per the canonical 3-slot ring protocol.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_step_into_bound_slot(
+    engine: *mut Engine,
+    slot: u32,
+    dt: f32,
+) -> u32 {
+    ffi_catch_unwind_or!("graph_engine_step_into_bound_slot", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.step_into_bound_slot(slot as usize, dt)
+    })
+}
+
+/// Report the current ABI version of `GraphNodeState`. The Swift side
+/// calls this once at startup and asserts it matches the value
+/// compiled into the Swift mirror of the struct, so a Rust↔Swift
+/// version skew fails fast at bind time instead of silently corrupting
+/// memory across the FFI boundary.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_node_state_abi_version() -> u32 {
+    crate::node_state::GRAPH_NODE_STATE_ABI_VERSION
+}
+
+/// Report the canonical size of `GraphNodeState` in bytes. Used by the
+/// Swift bind path to assert `MemoryLayout<GraphNodeState>.stride` matches
+/// the Rust-side `size_of` value. A mismatch indicates the Swift mirror
+/// has drifted and the bind will refuse.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_node_state_size_bytes() -> usize {
+    std::mem::size_of::<crate::node_state::GraphNodeState>()
 }
 
 // ── Input Events ────────────────────────────────────────────────────────────
