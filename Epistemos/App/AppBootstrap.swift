@@ -1402,21 +1402,40 @@ final class AppBootstrap {
         let interval = Log.appPerf.beginInterval("bootstrapInit")
         defer { Log.appPerf.endInterval("bootstrapInit", interval) }
 
+        // USER REPORT 2026-05-12 (ISSUE-12-011 diagnostics): per-step
+        // wall-clock logging so the runtime trace shows exactly which
+        // bootstrap sub-step is responsible for the startup hang. The
+        // overhead is one Date() per step (microseconds) — strictly
+        // diagnostic, can be removed once ISSUE-12-011 is fully closed.
+        let bootstrapStart = Date()
+        func logStep(_ name: String, since: Date) -> Date {
+            let now = Date()
+            let elapsedMs = now.timeIntervalSince(since) * 1000.0
+            if elapsedMs > 50 {
+                Log.app.info("bootstrap step '\(name, privacy: .public)' took \(elapsedMs, format: .fixed(precision: 1)) ms")
+            }
+            return now
+        }
+        var stepClock = bootstrapStart
+
         // Cut the default `URLCache.shared` (4 MB memory + 20 MB disk).
         // Almost every URLSession in this app explicitly opts out of
         // caching (LLM streams, HF downloads, MCP) or uses ephemeral
         // configurations. The shared cache table is dead weight that
         // counts toward resident memory at idle.
         URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
+        stepClock = logStep("urlCache_disable", since: stepClock)
 
         // Register custom fonts (display, pixel, mono, etc.)
         EpistemosFont.registerFonts()
+        stepClock = logStep("registerFonts", since: stepClock)
 
         // Create the SwiftData container against an explicit app-scoped store path.
         // Legacy root-level default.store files are adopted once into the app
         // directory, and known message-column gaps are repaired before opening.
         // Falls back to in-memory only under tests or if container creation fails.
         let schema = Schema(EpistemosSchema.models)
+        stepClock = logStep("schemaLoad", since: stepClock)
         let container: ModelContainer
         let dbError: Error?
         let resolvedPersistenceMode: PersistenceMode
@@ -1454,11 +1473,13 @@ final class AppBootstrap {
             }
             modelConfiguration = ModelConfiguration(url: modelStoreURL)
         }
+        stepClock = logStep("modelStorePrepare", since: stepClock)
         do {
             container = try ModelContainer(
                 for: schema,
                 configurations: modelConfiguration
             )
+            stepClock = logStep("modelContainerInit", since: stepClock)
             dbError = nil
             resolvedPersistenceMode = usesInMemoryModelStore
                 ? .testInMemory
