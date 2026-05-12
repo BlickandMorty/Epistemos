@@ -1456,6 +1456,18 @@ struct GraphBuilderWikilinkTests {
         #expect(links == ["folder/my note", "my note"])
         #expect(WikilinkResolver.lookupKeys(forDestination: "Folder/My Note") == ["folder/my note", "my note"])
     }
+
+    @Test("wikilink resolver includes local Markdown links and ignores external URLs")
+    func wikilinkResolverIncludesLocalMarkdownLinks() {
+        let links = WikilinkResolver.extractDestinations(
+            from: """
+            See [target](Research/Target%20Note.md#Evidence), [loose](Loose Note.markdown),
+            [web](https://example.com), [email](mailto:team@example.com), and [[Classic Link]].
+            """
+        )
+
+        #expect(links == ["research/target note", "loose note", "classic link"])
+    }
 }
 
 @Suite("GraphBuilder - Metadata Preservation")
