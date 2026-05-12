@@ -620,7 +620,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-10-002: Agents don't appear to work / not connected to any provider
 
-Status: Open (likely API-key-missing, not code regression — needs user confirmation)
+Status: Patched (APIKeysHealthRow shipped 35120f79b — surfaces per-provider key state; user still needs to confirm with valid keys)
 Priority: P1
 First Observed: 2026-05-10
 Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD `73f0e5009`)
@@ -692,6 +692,14 @@ Investigation Log:
   an API key is set. Try the agent again. If failure persists with a
   valid key, the issue moves from "configuration" to "code regression"
   and needs runtime profiling.
+- 2026-05-12: APIKeysHealthRow shipped (commits 58d998566 + 35120f79b).
+  Wired into Settings → General → Diagnostics. Lists each canonical
+  provider (Anthropic / OpenAI / Google / Perplexity / OpenRouter /
+  Z.AI / Kimi / DeepSeek / MiniMax / xAI / Mistral / Groq / HuggingFace)
+  with a green/red dot indicating whether `Keychain.load(for:
+  "epistemos.<provider>.apiKey")` returns non-nil. User can now
+  diagnose "missing key" without Console.app or guessing. Status flipped
+  to Patched until user confirms with a valid key.
 
 ---
 
