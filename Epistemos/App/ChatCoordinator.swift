@@ -2898,8 +2898,10 @@ final class ChatCoordinator {
       return "claude_opus"
     case "claude_haiku":
       return "claude_haiku"
-    case "openai", "openai_gpt4o":
-      return "openai_gpt4o"
+    case "openai", "openai_gpt4o", "openai_gpt54":
+      return "openai_gpt54"
+    case "openai_gpt4o_mini", "openai_gpt54_mini":
+      return "openai_gpt54_mini"
     case "gemini", "gemini_flash", "google":
       return "gemini_flash"
     case "gemini_pro":
@@ -2920,7 +2922,7 @@ final class ChatCoordinator {
   private func resolveRustProviderName(for provider: AIProviderSelection) -> String {
     switch provider {
     case .anthropic: return "claude_sonnet"
-    case .openAI: return "openai_gpt4o"
+    case .openAI: return "openai_gpt54"
     case .google: return "gemini_flash"
     case .zai: return "zai"
     case .kimi: return "kimi_coding"
@@ -2949,13 +2951,13 @@ final class ChatCoordinator {
       case .googleGemini25Flash, .googleGemini3FlashPreview:
         return "gemini_flash"
       case .openAIGPT54Mini, .openAIGPT54Nano:
-        return "openai_gpt4o_mini"
+        return "openai_gpt54_mini"
       case .openAIO3Mini:
         return "openai_o3_mini"
       case .openAIO3:
         return "openai_o3_mini"
       case .openAIGPT54, .openAIGPT52, .openAIGPT41, .openAIGPT41Mini:
-        return "openai_gpt4o"
+        return "openai_gpt54"
       case .zaiGLM5, .zaiGLM45Flash:
         return "zai"
       case .kimiK25, .kimiK2Thinking, .kimiK2TurboPreview:
