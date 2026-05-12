@@ -212,6 +212,10 @@ pub fn integrate_kernel(
         let force_scale = force_factors.get(i).copied().unwrap_or(1.0);
         let fx = force_x[i] * force_scale;
         let fy = force_y[i] * force_scale;
+        // Stash pre-update state so we can quarantine NaN/Inf without
+        // propagating bad values onto the next frame.
+        let prev_x = pos_x[i];
+        let prev_y = pos_y[i];
         // Symplectic Euler: v += a*dt, then x += v*dt.
         vel_x[i] += fx * dt_eff;
         vel_y[i] += fy * dt_eff;
@@ -219,6 +223,22 @@ pub fn integrate_kernel(
         vel_y[i] *= velocity_decay;
         pos_x[i] += vel_x[i] * dt_eff;
         pos_y[i] += vel_y[i] * dt_eff;
+        // NaN/Inf quarantine per canonical-plan §"Crash hardening
+        // checklist" → "NaN / Inf propagation: Clamp distances, isfinite
+        // check post-integrate, reset bad nodes." A node that went non-
+        // finite this frame (force overflow, dt_factor NaN, exotic
+        // integrator state) gets its velocity zeroed and its position
+        // snapped back to the prior frame's value. The renderer + the
+        // next integrator pass see a stable node instead of an
+        // off-screen vertex or a NaN-poisoned line endpoint.
+        if !pos_x[i].is_finite() || !pos_y[i].is_finite()
+            || !vel_x[i].is_finite() || !vel_y[i].is_finite()
+        {
+            pos_x[i] = if prev_x.is_finite() { prev_x } else { 0.0 };
+            pos_y[i] = if prev_y.is_finite() { prev_y } else { 0.0 };
+            vel_x[i] = 0.0;
+            vel_y[i] = 0.0;
+        }
     }
 }
 
@@ -461,6 +481,92 @@ mod tests {
         // No force; v *= decay then x += v*dt
         assert!((vx[0] - 6.0).abs() < 1e-6);
         assert!((x[0] - 0.6).abs() < 1e-6);
+    }
+
+    #[test]
+    fn integrate_kernel_quarantines_nan_force() {
+        // A NaN force should not propagate to position/velocity.
+        let mut x = vec![5.0_f32];
+        let mut y = vec![5.0_f32];
+        let mut vx = vec![1.0_f32];
+        let mut vy = vec![1.0_f32];
+        let fx = vec![f32::NAN];
+        let fy = vec![0.0_f32];
+        let flags = vec![1u32 << 1]; // AWAKE
+        integrate_kernel(
+            &mut x, &mut y, &mut vx, &mut vy,
+            &fx, &fy, &flags,
+            0.1, &[1.0], &[1.0], 1.0,
+        );
+        // Position snapped back to prior frame, velocity zeroed.
+        assert_eq!(x, vec![5.0]);
+        assert_eq!(y, vec![5.0]);
+        assert_eq!(vx, vec![0.0]);
+        assert_eq!(vy, vec![0.0]);
+    }
+
+    #[test]
+    fn integrate_kernel_quarantines_inf_force() {
+        let mut x = vec![1.0_f32];
+        let mut y = vec![2.0_f32];
+        let mut vx = vec![0.5_f32];
+        let mut vy = vec![0.5_f32];
+        let fx = vec![f32::INFINITY];
+        let fy = vec![f32::NEG_INFINITY];
+        let flags = vec![1u32 << 1];
+        integrate_kernel(
+            &mut x, &mut y, &mut vx, &mut vy,
+            &fx, &fy, &flags,
+            0.1, &[1.0], &[1.0], 1.0,
+        );
+        // All quarantined back to safe state.
+        assert_eq!(x, vec![1.0]);
+        assert_eq!(y, vec![2.0]);
+        assert_eq!(vx, vec![0.0]);
+        assert_eq!(vy, vec![0.0]);
+    }
+
+    #[test]
+    fn integrate_kernel_quarantines_nan_dt_factor() {
+        // A NaN dt_factor would multiply by NaN → NaN velocity → quarantine.
+        let mut x = vec![0.0_f32];
+        let mut y = vec![0.0_f32];
+        let mut vx = vec![0.0_f32];
+        let mut vy = vec![0.0_f32];
+        let fx = vec![10.0_f32];
+        let fy = vec![0.0_f32];
+        let flags = vec![1u32 << 1];
+        integrate_kernel(
+            &mut x, &mut y, &mut vx, &mut vy,
+            &fx, &fy, &flags,
+            0.1, &[f32::NAN], &[1.0], 1.0,
+        );
+        // All zeroed, position kept at prior frame (also zero).
+        assert!(x[0].is_finite());
+        assert!(y[0].is_finite());
+        assert!(vx[0].is_finite());
+        assert!(vy[0].is_finite());
+    }
+
+    #[test]
+    fn integrate_kernel_quarantines_position_with_nan_history() {
+        // If the prior position was somehow NaN, snap to origin instead.
+        let mut x = vec![f32::NAN];
+        let mut y = vec![0.0_f32];
+        let mut vx = vec![0.0_f32];
+        let mut vy = vec![0.0_f32];
+        let fx = vec![f32::INFINITY];
+        let fy = vec![0.0_f32];
+        let flags = vec![1u32 << 1];
+        integrate_kernel(
+            &mut x, &mut y, &mut vx, &mut vy,
+            &fx, &fy, &flags,
+            0.1, &[1.0], &[1.0], 1.0,
+        );
+        // Non-finite prior → snap to 0,0 (defensive default).
+        assert_eq!(x, vec![0.0]);
+        assert_eq!(y, vec![0.0]);
+        assert_eq!(vx, vec![0.0]);
     }
 
     #[test]
