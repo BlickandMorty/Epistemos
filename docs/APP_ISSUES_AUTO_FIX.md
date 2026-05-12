@@ -542,7 +542,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-11-002: Graph node-type filters and selected-neighbor expansion are missing from the launched graph
 
-Status: Open
+Status: Partially Fixed (Filters UI shipped 2026-05-12 in cabf81df0; selected-neighbor push-out physics still open)
 Priority: P2
 First Observed: 2026-05-11
 Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD `333cde26a`)
@@ -582,6 +582,7 @@ Destructive Fixes (require user approval):
 
 Investigation Log:
 - 2026-05-11: Added after launched-app force-settings smoke and source verification. Must be handled after or alongside the vault completeness fix because partial graph data can make filter behavior look broken.
+- 2026-05-12: Filters UI shipped in commit `cabf81df0 - Expose graph node filters in graph settings` (added to `GraphForceSettings.swift:11-29` `GraphForceSettingsSection.filters` case + `filtersPanel` body at line 145). Per-node-type toggles, "Content Only" / "Show All" presets, and the existing `GraphState.userFilterableNodeTypes` model are now reachable from the popover. The selected-neighbor push-out physics (selected direct edges lengthening while non-selected edges keep the normal force model) is a separate canonical-plan item — the current engine selection only highlights and applies label caps via `selected_neighbor_label_cap`/`selected_neighbor_density_budget` at `graph-engine/src/engine.rs:303-318`. Tracking that physics work alongside the Phase B compute kernels so it lands with the unified force pipeline.
 
 ---
 
