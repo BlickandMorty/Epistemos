@@ -111,27 +111,55 @@ pub struct AtmosphereStep {
 }
 
 /// Compute the atmosphere radius per drop 5's formula.
+///
+/// Per canonical-plan §"Crash hardening" → "NaN / Inf propagation":
+/// non-finite node velocity / heat / radius inputs are sanitised to 0
+/// before the radius math runs, and the final radius is clamped to a
+/// safe upper bound. A node with corrupt physics state must still have
+/// a sane atmosphere envelope so the integrator's wake-front logic
+/// doesn't pull every other node out of sleep when one node's state
+/// goes bad.
 pub fn atmosphere_radius(
     node: &AtmosphereNodeInput,
     cfg: &AtmosphereConfig,
     lookahead_frames: u32,
 ) -> f32 {
-    let base = (node.radius + cfg.collide_radius)
-        .max(0.5 * node.median_incident_rest_length)
+    let radius = if node.radius.is_finite() { node.radius } else { 0.0 };
+    let median_rest = if node.median_incident_rest_length.is_finite() {
+        node.median_incident_rest_length
+    } else { 0.0 };
+    let heat = if node.heat.is_finite() { node.heat.max(0.0) } else { 0.0 };
+    let vx = if node.vx.is_finite() { node.vx } else { 0.0 };
+    let vy = if node.vy.is_finite() { node.vy } else { 0.0 };
+
+    let base = (radius + cfg.collide_radius)
+        .max(0.5 * median_rest)
         .max(cfg.world_size_of_2px);
     let mut r = base * cfg.atmosphere_multiplier;
-    let speed = (node.vx * node.vx + node.vy * node.vy).sqrt();
+    let speed = (vx * vx + vy * vy).sqrt();
     r += speed * cfg.dt * lookahead_frames as f32;
-    r += node.heat * 0.25 * node.median_incident_rest_length;
-    r
+    r += heat * 0.25 * median_rest;
+    // Final isfinite guard — even with sanitised inputs, multiplication
+    // chains could overflow. Clamp the output to a safe envelope.
+    if r.is_finite() { r.max(0.0) } else { 0.0 }
 }
 
 /// L = clamp(ceil(3 + |v| / (median_rest_length * dt * F)), 3, 12)
 pub fn lookahead_frames(node: &AtmosphereNodeInput, cfg: &AtmosphereConfig) -> u32 {
-    let speed = (node.vx * node.vx + node.vy * node.vy).sqrt();
-    let denom = node.median_incident_rest_length.max(1e-6) * cfg.dt * cfg.fps;
+    // Non-finite velocity → speed = 0 → lookahead clamps to floor 3.
+    let vx = if node.vx.is_finite() { node.vx } else { 0.0 };
+    let vy = if node.vy.is_finite() { node.vy } else { 0.0 };
+    let speed = (vx * vx + vy * vy).sqrt();
+    let median_rest = if node.median_incident_rest_length.is_finite() {
+        node.median_incident_rest_length
+    } else { 0.0 };
+    let denom = median_rest.max(1e-6) * cfg.dt * cfg.fps;
     let raw = (3.0 + speed / denom.max(1e-6)).ceil();
-    raw.clamp(3.0, 12.0) as u32
+    if raw.is_finite() {
+        raw.clamp(3.0, 12.0) as u32
+    } else {
+        3
+    }
 }
 
 /// L_drag = L * 2  (per drop 5).
@@ -511,6 +539,50 @@ mod tests {
         let (dt1, f1) = warm_zone_scaling(1.0, 0.0, 1.0);
         assert!((dt1 - 1.0).abs() < 1e-6);
         assert!((f1 - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn atmosphere_radius_quarantines_nan_velocity() {
+        let cfg = AtmosphereConfig::default();
+        let n = AtmosphereNodeInput {
+            id: 1, x: 0.0, y: 0.0, vx: f32::NAN, vy: 0.0,
+            radius: 1.0,
+            median_incident_rest_length: 10.0,
+            heat: 0.0,
+            state: WakeState::Sleeping,
+        };
+        let r = atmosphere_radius(&n, &cfg, 3);
+        assert!(r.is_finite(), "NaN velocity must not poison the radius, got {}", r);
+        assert!(r >= 0.0);
+    }
+
+    #[test]
+    fn atmosphere_radius_quarantines_inf_heat() {
+        let cfg = AtmosphereConfig::default();
+        let n = AtmosphereNodeInput {
+            id: 1, x: 0.0, y: 0.0, vx: 0.0, vy: 0.0,
+            radius: 1.0,
+            median_incident_rest_length: 10.0,
+            heat: f32::INFINITY,
+            state: WakeState::Sleeping,
+        };
+        let r = atmosphere_radius(&n, &cfg, 3);
+        assert!(r.is_finite(), "Inf heat must not poison the radius, got {}", r);
+    }
+
+    #[test]
+    fn lookahead_quarantines_nan_velocity() {
+        let cfg = AtmosphereConfig::default();
+        let n = AtmosphereNodeInput {
+            id: 1, x: 0.0, y: 0.0, vx: f32::NAN, vy: f32::INFINITY,
+            radius: 1.0,
+            median_incident_rest_length: 10.0,
+            heat: 0.0,
+            state: WakeState::Sleeping,
+        };
+        let look = lookahead_frames(&n, &cfg);
+        // Sanitised speed = 0 → lookahead = 3 (floor).
+        assert_eq!(look, 3);
     }
 
     #[test]

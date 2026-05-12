@@ -46,6 +46,17 @@ impl Frustum2D {
 
     /// Does the point + radius circle intersect this frustum?
     pub fn intersects_circle(&self, x: f32, y: f32, radius: f32) -> bool {
+        // Non-finite inputs are dropped from visibility consideration.
+        // Without this guard, `NaN < anything` and `NaN > anything` both
+        // evaluate to `false` → dx/dy collapse to 0 → 0 ≤ r² is `true` →
+        // a NaN-position node gets KEPT as visible, which is the worst
+        // possible answer for a frustum-cull pass. Mirrors the canonical-
+        // plan §"Crash hardening" → "NaN / Inf propagation" policy
+        // applied elsewhere (integrate_kernel, spring_forces_kernel,
+        // repulsion_kernel, cell_reduce_kernel).
+        if !x.is_finite() || !y.is_finite() || !radius.is_finite() {
+            return false;
+        }
         // Distance from point to AABB on each axis, clamped to zero
         // when inside that axis. If the squared distance is within r²,
         // the circle clips the box.
@@ -293,6 +304,29 @@ mod tests {
         let a = frustum_cull_nodes(&pos_x, &pos_y, &radii, &flags, &f);
         let b = frustum_cull_nodes(&pos_x, &pos_y, &radii, &flags, &f);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn intersects_circle_drops_nan_position() {
+        let f = Frustum2D::from_centre_and_half(0.0, 0.0, 10.0, 10.0);
+        // Without the NaN guard, NaN < anything is false and NaN > anything
+        // is false, so dx/dy collapse to 0 and the function returns true.
+        // With the guard, NaN coordinates → false.
+        assert!(!f.intersects_circle(f32::NAN, 0.0, 1.0));
+        assert!(!f.intersects_circle(0.0, f32::NAN, 1.0));
+        assert!(!f.intersects_circle(0.0, 0.0, f32::NAN));
+    }
+
+    #[test]
+    fn frustum_cull_drops_nan_node_positions() {
+        let pos_x = vec![0.0_f32, f32::NAN, 5.0];
+        let pos_y = vec![0.0_f32, 0.0, f32::INFINITY];
+        let radii = vec![1.0_f32; 3];
+        let flags = make_flags(3, true);
+        let f = Frustum2D::from_centre_and_half(0.0, 0.0, 10.0, 10.0);
+        let visible = frustum_cull_nodes(&pos_x, &pos_y, &radii, &flags, &f);
+        // Only node 0 has finite coords inside the frustum.
+        assert_eq!(visible, vec![0]);
     }
 
     #[test]
