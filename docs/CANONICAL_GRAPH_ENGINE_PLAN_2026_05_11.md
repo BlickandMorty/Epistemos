@@ -457,6 +457,12 @@ pub struct GraphNodeState {
 | Stress tests | Nightly | 10k-100k synthetic graphs, random topology diffs, forced reveal bursts, no write-after-read hazards under load, no NaN propagation, no buffer overrun |
 | Sanitizer + validation runs | Nightly + release candidates | ASan + TSan on Rust side; Metal API Validation + Shader Validation on Swift side via dedicated **GraphValidation** Xcode scheme |
 
+**Status (2026-05-12)**: Rows 1 and 3 are fully populated for the canonical-plan modules shipped this session.
+- Row 1 (Rust unit tests): each algorithmic module ships with its own `#[cfg(test)]` block (warmstart 15, reveal 15, atmosphere 22 (+3 NaN guards), force_kernels 20 (+4 NaN guards), grid_kernels 16 (+2 NaN guards), adaptive_kernels 21, cluster_hierarchy 9, benchmark_harness 11, visibility_kernels 16 (+2 NaN guards), node_state 8, slot scheduler 7). 2726 lib tests total.
+- Row 3 (Stress tests): `tests/phase_a_stress.rs` (9 tests), `tests/phase_b_stress.rs` (7 tests), `tests/phase_c_stress.rs` (7 tests), `tests/visual_equivalence.rs` (8 tests). All 10k-node fixtures. 2757 tests passing across the session arc, 0 regressions.
+- Row 2 (Swift integration tests) needs the FFI bindings for the new modules; lands during engine wiring.
+- Row 4 (Sanitizer + validation runs) needs the GraphValidation Xcode scheme; lands during engine wiring.
+
 The GraphValidation scheme is a separate Xcode scheme with both API Validation and Shader Validation always enabled, run via `xcodebuild test` on a macOS CI runner. Maintain it as a hard CI lane; release candidates must pass it before any tag.
 
 Failure cases to make deterministically reproducible:
