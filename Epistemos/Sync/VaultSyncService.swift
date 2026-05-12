@@ -283,6 +283,19 @@ final class VaultSyncService {
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
     fileprivate nonisolated static let skipRestoreEnvironmentKey = "EPISTEMOS_SKIP_VAULT_RESTORE"
+    /// Set at the very start of `disconnect()`. If the app crashes /
+    /// is force-quit mid-disconnect, this flag survives and is detected
+    /// by `restoreVaultFromBookmark()` on the next launch — which then
+    /// clears the bookmark BEFORE attempting any restore. Cleared by
+    /// `disconnect()` when teardown completes cleanly.
+    fileprivate nonisolated static let disconnectInProgressKey = "epistemos.disconnectInProgress"
+    /// Set the first time the user successfully attaches a vault.
+    /// VaultReprompSheet (`ISSUE-2026-05-12-002`) only auto-prompts
+    /// when this flag is unset — i.e., the user has NEVER attached a
+    /// vault before. After explicit disconnect, the flag remains set
+    /// so the user is not pestered with a re-prompt sheet for a vault
+    /// they intentionally removed.
+    fileprivate nonisolated static let hasEverConnectedVaultKey = "epistemos.hasEverConnectedAVault"
     private nonisolated static let backgroundLog = Logger(
         subsystem: "com.epistemos",
         category: "VaultSync"
@@ -781,6 +794,13 @@ final class VaultSyncService {
 
     func persistVaultSelection(_ url: URL, userConfirmedSuspiciousFolder: Bool = false) {
         defaults.set(url.path, forKey: Self.lastVaultPathKey)
+        // USER REPORT 2026-05-12 v2: mark the "has ever connected a
+        // vault" flag so the VaultReprompSheet (ISSUE-2026-05-12-002)
+        // only auto-prompts truly fresh users. Once a user has connected
+        // any vault, explicit disconnect should NOT re-trigger the
+        // prompt — disconnect was intentional, the user knows how to
+        // re-connect manually via Settings.
+        defaults.set(true, forKey: Self.hasEverConnectedVaultKey)
         let standardizedPath = url.standardizedFileURL.path
         var didPersistBookmark = false
 
@@ -1998,6 +2018,21 @@ final class VaultSyncService {
             } else {
                 log.info("Skipping vault bookmark restore via environment override")
             }
+            return
+        }
+
+        // USER REPORT 2026-05-12 v2: crash-safe disconnect recovery.
+        // If the app force-quit during disconnect (long teardown on
+        // large vaults can take 30+ seconds), the in-progress flag
+        // survives. Detect it here, clear the bookmark + flag, and
+        // skip restoration — completing the user's intent even though
+        // the original teardown was interrupted.
+        if defaults.bool(forKey: Self.disconnectInProgressKey) {
+            log.warning("Detected disconnect-in-progress flag from previous launch; completing disconnect by clearing bookmark + skipping restore.")
+            clearPersistedVaultSelection()
+            defaults.removeObject(forKey: Self.disconnectInProgressKey)
+            isIndexing = false
+            vaultActivityMessage = nil
             return
         }
 
@@ -3997,17 +4032,22 @@ enum VaultConnectionActions {
                 vaultSync.isIndexing = false
             }
 
-            // Step 0 (USER REPORT 2026-05-12 fix): wipe the persisted
-            // bookmark FIRST, before any heavy async teardown. Previous
-            // ordering ran clearPersistedVaultSelection() after
-            // stopWatchingAsync(preserveData: false), which on large
-            // vaults can take 30+ seconds. If the user force-quit during
-            // that window, the bookmark survived → next launch silently
-            // re-mounted the "disconnected" vault. Clearing the bookmark
-            // up front makes the disconnect durable even if the user
-            // kills the app mid-teardown; the worst they get is a stale
-            // graph/shadow index, not a phantom vault re-mount.
-            vaultSync.clearPersistedVaultSelection()
+            // Step 0 (USER REPORT 2026-05-12 v2 fix): mark "disconnect in
+            // progress" atomically. The original RCA13-P0-001 fix cleared
+            // the bookmark FIRST so a force-quit couldn't leave the vault
+            // re-mountable, but that ordering hangs `stopWatchingAsync`
+            // because the file-watcher tear-down + filesystem snapshots
+            // depend on the security-scoped URL still being live. The
+            // bookmark in UserDefaults is what makes the URL re-mountable
+            // on launch; the in-memory `vaultURL` is what `stopWatching`
+            // needs to call `stopAccessingSecurityScopedResource()`.
+            //
+            // New pattern: set an in-progress flag immediately. The flag
+            // is persistent across crashes. On next launch, restoration
+            // sees the flag + clears the bookmark BEFORE the bookmark
+            // gets a chance to re-mount the vault. Best of both worlds —
+            // no hang during disconnect AND crash-safe.
+            UserDefaults.standard.set(true, forKey: VaultSyncService.disconnectInProgressKey)
 
             // Step 1: canonical runtime-state clear — graph engine,
             // query engine, contextual shadows, instant recall,
@@ -4029,6 +4069,12 @@ enum VaultConnectionActions {
             } else {
                 await vaultSync.forceClearDerivedLocalStateForFullReset()
             }
+            // NOW clear the persisted vault selection (safe — stopWatching
+            // has released the security-scoped URL).
+            vaultSync.clearPersistedVaultSelection()
+            // Also clear the in-progress flag — disconnect completed
+            // cleanly, no recovery needed on next launch.
+            UserDefaults.standard.removeObject(forKey: VaultSyncService.disconnectInProgressKey)
             await Task.yield()
 
             // Step 3: reset UI surface — vaultURL is already nil so

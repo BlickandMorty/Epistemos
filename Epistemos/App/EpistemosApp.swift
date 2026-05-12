@@ -115,11 +115,22 @@ private struct HomeSceneRootContent: View {
                         // restoreVaultFromBookmark() completed). If a
                         // bookmark exists in defaults, the vault is
                         // about to be restored; don't show the prompt.
+                        //
+                        // USER REPORT 2026-05-12 v2: also gate on
+                        // `hasEverConnectedAVault`. If the user has
+                        // EVER connected a vault, explicit disconnect
+                        // should NOT re-prompt — the user disconnected
+                        // intentionally and knows how to re-connect
+                        // through Settings. The sheet's purpose is
+                        // onboarding (truly-fresh users), not nagging.
                         let bookmarkPending = UserDefaults.standard
                             .data(forKey: "epistemos.vaultBookmark") != nil
+                        let hasEverConnected = UserDefaults.standard
+                            .bool(forKey: "epistemos.hasEverConnectedAVault")
                         return setupComplete
                             && bootstrap.vaultSync.vaultURL == nil
                             && !bookmarkPending
+                            && !hasEverConnected
                             && !vaultReprompDismissedThisSession
                     },
                     set: { isPresented in
