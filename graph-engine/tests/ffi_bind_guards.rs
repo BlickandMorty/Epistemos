@@ -34,6 +34,7 @@ unsafe extern "C" {
 
     fn graph_engine_node_state_abi_version() -> u32;
     fn graph_engine_node_state_size_bytes() -> usize;
+    fn graph_engine_phase_a_target(scenario_id: u32, vault_node_count: u32) -> f64;
     fn graph_engine_phase_b_target(scenario_id: u32, vault_node_count: u32) -> f64;
 }
 
@@ -159,4 +160,55 @@ fn phase_b_target_ffi_returns_nan_for_undefined_cell() {
     const SEARCH_PULSE_FPS: u32 = 5;
     let t = unsafe { graph_engine_phase_b_target(SEARCH_PULSE_FPS, 10_000) };
     assert!(t.is_nan(), "undefined-cell target must return NaN");
+}
+
+#[test]
+fn phase_a_target_ffi_matches_canonical_plan_table() {
+    // Per canonical-plan §"Phase A acceptance criteria (v1.1 ship bar)":
+    // 1k cold open: ≤ 200 ms
+    const COLD_OPEN: u32 = 0;
+    const TIME_TO_FLUID: u32 = 1;
+    const STEADY_FPS_ZOOM_OUT: u32 = 2;
+    const MEMORY_MB: u32 = 6;
+
+    let t = unsafe { graph_engine_phase_a_target(COLD_OPEN, 1_000) };
+    assert!((t - 200.0).abs() < 1e-9, "1k ColdOpen Phase A target should be 200ms, got {}", t);
+
+    // 5k time-to-fluid: ≤ 1200 ms
+    let t = unsafe { graph_engine_phase_a_target(TIME_TO_FLUID, 5_000) };
+    assert!((t - 1200.0).abs() < 1e-9);
+
+    // 10k cold open: ≤ 1400 ms
+    let t = unsafe { graph_engine_phase_a_target(COLD_OPEN, 10_000) };
+    assert!((t - 1400.0).abs() < 1e-9);
+
+    // 50k cold open: ≤ 4000 ms (Phase A is CPU-only, more lenient)
+    let t = unsafe { graph_engine_phase_a_target(COLD_OPEN, 50_000) };
+    assert!((t - 4000.0).abs() < 1e-9);
+
+    // 10k zoom-out: ≥ 60 fps
+    let t = unsafe { graph_engine_phase_a_target(STEADY_FPS_ZOOM_OUT, 10_000) };
+    assert!((t - 60.0).abs() < 1e-9);
+
+    // 10k memory: ≤ 400 MB
+    let t = unsafe { graph_engine_phase_a_target(MEMORY_MB, 10_000) };
+    assert!((t - 400.0).abs() < 1e-9);
+}
+
+#[test]
+fn phase_a_target_ffi_returns_nan_for_unknown_scenario() {
+    let t = unsafe { graph_engine_phase_a_target(999, 10_000) };
+    assert!(t.is_nan(), "unknown scenario ID must return NaN, got {}", t);
+}
+
+#[test]
+fn phase_a_b_targets_differ_at_same_vault_size() {
+    // Phase A (v1.1, CPU) is more lenient than Phase B (v1.2, GPU) at
+    // the same vault size + scenario. Sanity test that the two FFI
+    // surfaces return distinct canonical values.
+    const COLD_OPEN: u32 = 0;
+    let a = unsafe { graph_engine_phase_a_target(COLD_OPEN, 10_000) };
+    let b = unsafe { graph_engine_phase_b_target(COLD_OPEN, 10_000) };
+    // Phase B (≤ 500ms) tighter than Phase A (≤ 1400ms).
+    assert!(b < a, "Phase B ColdOpen target must be tighter than Phase A; got a={} b={}", a, b);
 }
