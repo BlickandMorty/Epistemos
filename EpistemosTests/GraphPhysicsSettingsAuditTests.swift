@@ -411,6 +411,7 @@ struct GraphPhysicsSettingsAuditTests {
 
         #expect(settings.contains("GraphForceSettingsSection"))
         #expect(settings.contains("case physics = \"Physics\""))
+        #expect(settings.contains("case filters = \"Filters\""))
         #expect(!settings.contains("Picker(\"Opens in\""))
         #expect(!settings.contains("sectionHeader(\"Water Nodes\""))
         #expect(overlay.contains("static func surfaceTintColor"))
@@ -429,6 +430,10 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(settings.contains("label: \"Focus Shrink\""))
         #expect(settings.contains("labToggle(\n                    label: \"Elastic Edges\""))
         #expect(settings.contains("label: \"Edge Elasticity\""))
+        #expect(settings.contains("GraphState.userFilterableNodeTypes"))
+        #expect(settings.contains("graphState.setNodeTypeVisibility(type, isVisible: $0)"))
+        #expect(settings.contains("graphState.applyContentFocusedNodeVisibility()"))
+        #expect(settings.contains("graphState.showAllUserFilterableNodeTypes()"))
     }
 
     @Test("Cinematic graph renderer uses hard stepped pixel nodes without adding a third mode")

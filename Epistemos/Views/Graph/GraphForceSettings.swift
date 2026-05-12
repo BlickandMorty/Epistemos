@@ -1,9 +1,7 @@
 import SwiftUI
 
 // MARK: - GraphForceSettings
-// Popover with two sections: Physics Presets + Force Parameter Sliders.
-// Basic section: 4 core params (link distance, charge strength/range, link strength).
-// Advanced section: 5 extended params (friction, gravity, collision, warmth, orbital).
+// Popover with presets, physics, display, filters, and advanced tuning.
 // Each slider change pushes updated params to the Rust engine via GraphState.
 
 enum GraphForceSettingsLayout {
@@ -14,6 +12,7 @@ private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
     case presets = "Presets"
     case physics = "Physics"
     case display = "Display"
+    case filters = "Filters"
     case advanced = "Advanced"
 
     var id: Self { self }
@@ -23,6 +22,7 @@ private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
         case .presets: return "sparkles"
         case .physics: return "bolt"
         case .display: return "rectangle.on.rectangle"
+        case .filters: return "line.3.horizontal.decrease.circle"
         case .advanced: return "slider.horizontal.3"
         }
     }
@@ -60,12 +60,14 @@ struct GraphForceSettings: View {
                         physicsPanel(gs: $gs)
                     case .display:
                         displayPanel(gs: $gs)
+                    case .filters:
+                        filtersPanel
                     case .advanced:
                         advancedPanel(gs: $gs)
                     }
                 }
-                .opacity(isStatic && selectedSection != .display ? 0.4 : 1.0)
-                .allowsHitTesting(!isStatic || selectedSection == .display)
+                .opacity(isStatic && selectedSection != .display && selectedSection != .filters ? 0.4 : 1.0)
+                .allowsHitTesting(!isStatic || selectedSection == .display || selectedSection == .filters)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -137,6 +139,45 @@ struct GraphForceSettings: View {
             labelsSection(gs: gs)
             Divider().opacity(0.3)
             resetButton
+        }
+    }
+
+    private var filtersPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader("Node Types", icon: "line.3.horizontal.decrease.circle")
+
+            HStack(spacing: 8) {
+                Button("Content Only") {
+                    graphState.applyContentFocusedNodeVisibility()
+                }
+                .font(.system(size: 11, weight: .medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button("Show All") {
+                    graphState.showAllUserFilterableNodeTypes()
+                }
+                .font(.system(size: 11, weight: .medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(GraphState.userFilterableNodeTypes, id: \.self) { type in
+                    Toggle(isOn: Binding(
+                        get: { graphState.isNodeTypeVisible(type) },
+                        set: { graphState.setNodeTypeVisibility(type, isVisible: $0) }
+                    )) {
+                        Text(type.settingsDisplayName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                }
+            }
+
+            settingNote("Hidden types stay in the vault and can be restored instantly.")
         }
     }
 
@@ -1016,5 +1057,16 @@ struct GraphForceSettings: View {
             .font(.system(size: 9))
             .foregroundStyle(.tertiary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private extension GraphNodeType {
+    var settingsDisplayName: String {
+        switch self {
+        case .document:
+            return "Epdoc"
+        default:
+            return displayName
+        }
     }
 }
