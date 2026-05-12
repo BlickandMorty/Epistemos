@@ -256,12 +256,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading
             )
-            let usesDisplayFont = (1...5).contains(level)
+            let usesDisplayFont = (1...2).contains(level)
             let headingFont =
-                if level == 1 || level == 2 {
-                    AppDisplayTypography.nsFont(size: fontSize, weight: weight)
-                } else if (3...5).contains(level) {
-                    AppDisplayTypography.secondaryNSFont(size: fontSize, weight: weight)
+                if usesDisplayFont {
+                    AppDisplayTypography.nsFont(size: fontSize, weight: weight, isDark: theme.isDark)
                 } else {
                     AppDisplayTypography.regularUIFont(size: fontSize, weight: weight)
                 }
@@ -1068,24 +1066,71 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
     /// Recompute hidden lines from Rust fold state.
     /// Call after any fold toggle.
-    func recomputeHiddenLines(documentText: String) {
+    func recomputeHiddenLines(documentText _: String? = nil) {
         hiddenLines.removeAll()
 
-        documentText.withCString { cStr in
-            for i in 0..<cachedTypes.count {
-                guard cachedTypes[i].paraType == 1,  // Heading
-                    markdown_is_folded(UInt32(i))
-                else { continue }
+        var activeFoldLevels: [Int] = []
+        for lineIndex in cachedTypes.indices {
+            if cachedTypes[lineIndex].paraType == 1 {
+                let level = headingLevel(at: lineIndex) ?? 1
+                activeFoldLevels.removeAll { $0 >= level }
+            }
 
-                var start: UInt32 = 0
-                var end: UInt32 = 0
-                if markdown_fold_range(cStr, UInt32(i), &start, &end) {
-                    for line in Int(start)..<Int(end) {
-                        hiddenLines.insert(line)
-                    }
-                }
+            if !activeFoldLevels.isEmpty {
+                hiddenLines.insert(lineIndex)
+            }
+
+            if cachedTypes[lineIndex].paraType == 1,
+               markdown_is_folded(UInt32(lineIndex)) {
+                activeFoldLevels.append(headingLevel(at: lineIndex) ?? 1)
             }
         }
+    }
+
+    func foldedContentLineRange(forHeadingAt lineIndex: Int) -> Range<Int>? {
+        guard let level = headingLevel(at: lineIndex) else { return nil }
+        let start = lineIndex + 1
+        guard start < cachedTypes.count else { return nil }
+
+        var end = cachedTypes.count
+        var cursor = start
+        while cursor < cachedTypes.count {
+            if cachedTypes[cursor].paraType == 1,
+               (headingLevel(at: cursor) ?? 1) <= level {
+                end = cursor
+                break
+            }
+            cursor += 1
+        }
+
+        guard start < end else { return nil }
+        return start..<end
+    }
+
+    func textRange(
+        forLines lines: Range<Int>,
+        in contentStorage: NSTextContentStorage
+    ) -> NSTextRange? {
+        guard let range = utf16Range(forLines: lines) else { return nil }
+        let docRange = contentStorage.documentRange
+        guard
+            let start = contentStorage.location(docRange.location, offsetBy: range.location),
+            let end = contentStorage.location(start, offsetBy: range.length)
+        else {
+            return nil
+        }
+        return NSTextRange(location: start, end: end)
+    }
+
+    private func utf16Range(forLines lines: Range<Int>) -> NSRange? {
+        guard !lines.isEmpty else { return nil }
+        let startLine = max(lines.lowerBound, 0)
+        let endLine = min(lines.upperBound, lineStarts.count)
+        guard startLine < endLine, startLine < lineStarts.count else { return nil }
+
+        let start = lineStarts[startLine]
+        let end = endLine < lineStarts.count ? lineStarts[endLine] : documentLength
+        return NSRange(location: start, length: max(end - start, 0))
     }
 
     func isLineInFoldedRange(_ line: Int) -> Bool {

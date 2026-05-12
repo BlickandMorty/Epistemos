@@ -788,6 +788,7 @@ final class MetalGraphNSView: NSView {
         guard let uiState else { return }
         let theme = uiState.graphOverlayTheme
         setLightMode(!theme.isDark)
+        loadSDFLabelAtlasIfAvailable()
         applyDialogueDepthPalette()
         needsRender = true
     }
@@ -892,10 +893,20 @@ final class MetalGraphNSView: NSView {
         }
     }
 
-    private func loadSDFLabelAtlasIfAvailable() {
+    private func currentLabelAtlasResourceName() -> String {
+        let isDark = uiState?.graphOverlayTheme.isDark ?? SystemAppearanceState.isDark()
+        return graphState?.labelFontFamily.atlasResourceName(isDark: isDark)
+            ?? AppDisplayTypography.graphLabelAtlasResourceName(isDark: isDark)
+    }
+
+    private func loadSDFLabelAtlasIfAvailable(force: Bool = false) {
         guard let engineHandle = engine else { return }
         let interval = Log.ffiPerf.beginInterval("loadSDFLabelAtlas")
-        let resourceName = graphState?.labelFontFamily.atlasResourceName ?? "sdf_labels"
+        let resourceName = currentLabelAtlasResourceName()
+        guard force || loadedLabelAtlasResourceName != resourceName else {
+            Log.ffiPerf.endInterval("loadSDFLabelAtlas", interval)
+            return
+        }
         do {
             let atlas = try SDFLabelAtlasLoader.load(
                 resourceName: resourceName,
@@ -911,6 +922,7 @@ final class MetalGraphNSView: NSView {
             )
             pushSDFGlyphTable(atlas: atlas, engineHandle: engineHandle)
             graph_engine_set_labels_enabled(engineHandle, 1)
+            loadedLabelAtlasResourceName = resourceName
         } catch {
             let errorDescription = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
             let labelMaxNodes = graphState?.labelMaxNodes ?? 0
@@ -926,6 +938,7 @@ final class MetalGraphNSView: NSView {
                 """
             )
             graph_engine_set_labels_enabled(engineHandle, 0)
+            loadedLabelAtlasResourceName = resourceName
         }
         Log.ffiPerf.endInterval("loadSDFLabelAtlas", interval)
     }
@@ -1255,6 +1268,7 @@ final class MetalGraphNSView: NSView {
     var lastLabelPolicyVersion: Int = -1
     var lastWaterNodesVersion: Int = -1
     var lastLabelFontVersion: Int = -1
+    private var loadedLabelAtlasResourceName: String?
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -1579,6 +1593,12 @@ final class MetalGraphNSView: NSView {
             )
             graph_engine_set_label_extras(engine, graphState.labelMaxInnerNodes, graphState.labelInnerOffset)
             graph_engine_set_label_world_px_per_em(engine, graphState.labelFontSizePx)
+        }
+
+        if let graphState, lastLabelFontVersion != graphState.labelFontVersion {
+            lastLabelFontVersion = graphState.labelFontVersion
+            loadSDFLabelAtlasIfAvailable(force: true)
+            needsRender = true
         }
 
         // Sync the legacy cinematic-node style flag.

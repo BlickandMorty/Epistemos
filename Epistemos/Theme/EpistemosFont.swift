@@ -22,7 +22,6 @@ enum EpistemosFont {
     static func registerFonts() {
         registerFont(named: "RetroGaming", extension: "ttf")
         registerFont(named: "CoralPixels-Regular", extension: "ttf")
-        registerFont(named: "basis33", extension: "ttf")
         registerFont(named: "BitPap", extension: "ttf")
         registerFont(named: "ColorBasic-Regular", extension: "otf")
         registerFont(named: "Pixelon", extension: "otf")

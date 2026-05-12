@@ -257,14 +257,14 @@ struct NoteEditorLayoutTests {
         let expectedShort = MarkdownHeadingDisplay.fontSize(
             for: 1,
             text: "# \(shortHeading)",
-            baseSize: MarkdownTextStorage.noteBaseFontSize + 31,
-            nextLevelSize: MarkdownTextStorage.noteBaseFontSize + 5
+            baseSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 1),
+            nextLevelSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2)
         )
         let expectedLong = MarkdownHeadingDisplay.fontSize(
             for: 1,
             text: "# \(longHeading)",
-            baseSize: MarkdownTextStorage.noteBaseFontSize + 31,
-            nextLevelSize: MarkdownTextStorage.noteBaseFontSize + 5
+            baseSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 1),
+            nextLevelSize: MarkdownHeadingDisplay.noteHeadingBaseSize(for: 2)
         )
         let previewSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/MarkdownTextView.swift")
 
@@ -382,6 +382,9 @@ struct NoteEditorLayoutTests {
         #expect(foldModeSource.contains("markdown_clear_all_folds()"))
         #expect(foldModeSource.contains("delegate.recomputeHiddenLines(documentText: tv.string)"))
         #expect(foldModeSource.contains("forceContentReEnumeration(tv)"))
+        #expect(bridgeSource.contains("forceContentReEnumeration(tv, lineRange: affectedLines)"))
+        #expect(bridgeSource.contains("invalidateLayout(for: targetRange)"))
+        #expect(!bridgeSource.contains("ensureLayout(for: docRange)"))
         #expect(bridgeSource.contains("coord.applyOutlineFoldMode(outlineFoldMode)"))
         #expect(bridgeSource.contains("applyOutlineFoldMode(parent.outlineFoldMode)"))
     }

@@ -27,6 +27,7 @@ OUT_DIR="${REPO_ROOT}/Epistemos/Resources"
 
 # Variant selection — controls the output filename AND the default font:
 #   --variant mono    → sdf_labels.{png,json}        + JetBrainsMono-Regular.ttf
+#   --variant coral   → sdf_labels_coral.{png,json}  + CoralPixels-Regular.ttf
 #   --variant retro   → sdf_labels_retro.{png,json}  + RetroGaming.ttf
 #   --variant system  → sdf_labels_system.{png,json} + Helvetica/SFNS
 # An explicit `-font <path>` overrides the variant's default font.
@@ -46,7 +47,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown argument: $1" >&2
-            echo "Usage: $0 [--variant mono|retro|system|sfpro] [-font /path/to/font.ttf]" >&2
+            echo "Usage: $0 [--variant mono|coral|retro|system|sfpro] [-font /path/to/font.ttf]" >&2
             exit 1
             ;;
     esac
@@ -60,6 +61,14 @@ case "$VARIANT" in
             "${REPO_ROOT}/Epistemos/Resources/Fonts/JetBrainsMono-Regular.ttf"
             "/System/Library/Fonts/SFNSMono.ttf"
             "/System/Library/Fonts/Menlo.ttc"
+        )
+        ;;
+    coral)
+        PNG_OUT="${OUT_DIR}/sdf_labels_coral.png"
+        JSON_OUT="${OUT_DIR}/sdf_labels_coral.json"
+        VARIANT_DEFAULT_FONT_CANDIDATES=(
+            "${REPO_ROOT}/Epistemos/Resources/Fonts/CoralPixels-Regular.ttf"
+            "/System/Library/Fonts/Helvetica.ttc"
         )
         ;;
     retro)
@@ -89,7 +98,7 @@ case "$VARIANT" in
         )
         ;;
     *)
-        echo "ERROR: Unknown --variant: $VARIANT (expected: mono | retro | system | sfpro)" >&2
+        echo "ERROR: Unknown --variant: $VARIANT (expected: mono | coral | retro | system | sfpro)" >&2
         exit 1
         ;;
 esac

@@ -215,8 +215,8 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
                 mimeType: "font/ttf",
                 contentEncoding: nil
             )
-        } catch EpdocBridgeError.assetNotFound where url.path == "/basis33.ttf" {
-            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "basis33", extension: "ttf") else {
+        } catch EpdocBridgeError.assetNotFound where url.path == "/RetroGaming.ttf" {
+            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "RetroGaming", extension: "ttf") else {
                 urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
                 return
             }

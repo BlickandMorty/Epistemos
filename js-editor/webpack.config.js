@@ -75,7 +75,7 @@ module.exports = (_env, argv) => ({
                 filter: (url) => !(
                   url.startsWith('/assets/')
                   || url === '/CoralPixels-Regular.ttf'
-                  || url === '/basis33.ttf'
+                  || url === '/RetroGaming.ttf'
                 ),
               },
             },

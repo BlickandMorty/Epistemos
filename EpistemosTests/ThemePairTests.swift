@@ -380,17 +380,21 @@ struct ThemePairTests {
         )
     }
 
-    @Test("App heading roles use the shared display scale")
+    @Test("App heading roles use display typography only for the first two heading levels")
     func appHeadingRolesUseSharedDisplayScale() {
-        #expect(AppDisplayTypography.displayFontName == "CoralPixels-Regular")
-        #expect(AppDisplayTypography.secondaryDisplayFontName == "basis33")
+        #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
         #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
-        #expect(AppDisplayTypography.displayFontScale == 1.1)
+        #expect(AppDisplayTypography.displayFontName(isDark: false) == "CoralPixels-Regular")
+        #expect(AppDisplayTypography.displayFontName(isDark: true) == "RetroGaming")
+        #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.1)
+        #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
+        #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: false) == "sdf_labels_coral")
+        #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: true) == "sdf_labels_retro")
         #expect(AppHeadingRole.pageTitle.fontSize == 34)
         #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
         #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.displayFontName)
         #expect(AppHeadingRole.h2.fontName == AppDisplayTypography.displayFontName)
-        #expect(AppHeadingRole.h3.fontName == AppDisplayTypography.secondaryDisplayFontName)
+        #expect(AppHeadingRole.h3.fontName != AppDisplayTypography.displayFontName)
         #expect(AppHeadingRole.h1.fontSize == 32)
         #expect(AppHeadingRole.h2.fontSize == 26)
         #expect(AppHeadingRole.h3.fontSize == 18)
@@ -530,7 +534,7 @@ struct ThemePairTests {
 
         #expect(AppDisplayTypography.isRegularUIFont(font))
         #expect(!AppDisplayTypography.isDisplayFont(font))
-        #expect(AppDisplayTypography.displayFontName == "CoralPixels-Regular")
+        #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
     }
 
     @Test("Assistant chrome tokens keep the floating surface hierarchy intact")

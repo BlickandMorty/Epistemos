@@ -1089,13 +1089,13 @@ enum AppHeadingRole: Sendable {
         case .pageTitle, .h1, .h2, .chatTitle:
             AppDisplayTypography.displayFontName
         case .h3:
-            AppDisplayTypography.secondaryDisplayFontName
+            AppDisplayTypography.regularUIFont(size: fontSize).fontName
         case .section:
             AppDisplayTypography.fontName
         }
     }
 
-    var fontSize: CGFloat {
+    nonisolated var fontSize: CGFloat {
         switch self {
         case .pageTitle: 34
         case .h1: 32
@@ -1106,7 +1106,7 @@ enum AppHeadingRole: Sendable {
         }
     }
 
-    var topPadding: CGFloat {
+    nonisolated var topPadding: CGFloat {
         switch self {
         case .pageTitle, .section, .chatTitle: 0
         case .h1: 16
@@ -1115,27 +1115,25 @@ enum AppHeadingRole: Sendable {
         }
     }
 
-    var tracking: CGFloat {
+    nonisolated var tracking: CGFloat {
         switch self {
         case .section: 0.8
         default: 0
         }
     }
 
-    var animatesOnFirstAppearance: Bool {
+    nonisolated var animatesOnFirstAppearance: Bool {
         switch self {
         case .pageTitle: true
         default: false
         }
     }
 
-    var font: Font {
+    nonisolated var font: Font {
         switch self {
         case .pageTitle, .h1, .h2, .chatTitle:
             AppDisplayTypography.font(size: fontSize)
-        case .h3:
-            AppDisplayTypography.secondaryFont(size: fontSize)
-        case .section:
+        case .h3, .section:
             AppDisplayTypography.font(size: fontSize, allowDisplayFont: false)
         }
     }
@@ -1180,11 +1178,31 @@ enum AppDisplayMode: String, CaseIterable, Sendable, Identifiable {
 }
 
 enum AppDisplayTypography: Sendable {
-    nonisolated static let displayFontName = "CoralPixels-Regular"
-    nonisolated static let secondaryDisplayFontName = "basis33"
+    nonisolated static let coralDisplayFontName = "CoralPixels-Regular"
     nonisolated static let legacyDisplayFontName = "RetroGaming"
     nonisolated static let monoFontName = "JetBrainsMono-Regular"
-    nonisolated static let displayFontScale: CGFloat = 1.1
+    nonisolated static let coralDisplayFontScale: CGFloat = 1.1
+    nonisolated static let legacyDisplayFontScale: CGFloat = 1.0
+
+    nonisolated static var displayFontName: String {
+        displayFontName(isDark: SystemAppearanceState.isDark())
+    }
+
+    nonisolated static var displayFontScale: CGFloat {
+        displayFontScale(isDark: SystemAppearanceState.isDark())
+    }
+
+    nonisolated static func displayFontName(isDark: Bool) -> String {
+        isDark ? legacyDisplayFontName : coralDisplayFontName
+    }
+
+    nonisolated static func graphLabelAtlasResourceName(isDark: Bool) -> String {
+        isDark ? "sdf_labels_retro" : "sdf_labels_coral"
+    }
+
+    nonisolated static func displayFontScale(isDark: Bool) -> CGFloat {
+        isDark ? legacyDisplayFontScale : coralDisplayFontScale
+    }
 
     nonisolated static var currentMode: AppDisplayMode {
         AppDisplayMode.current()
@@ -1208,31 +1226,28 @@ enum AppDisplayTypography: Sendable {
             : regularUIFont(size: NSFont.systemFontSize).fontName
     }
 
-    static func font(
+    nonisolated static func font(
         size: CGFloat,
         weight: Font.Weight = .regular,
         design: Font.Design = .default,
+        isDark: Bool? = nil,
         allowDisplayFont: Bool = true
     ) -> Font {
+        let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
         if allowDisplayFont && currentMode.usesDisplayFont {
-            .custom(displayFontName, size: displayFontSize(for: size))
+            return Font.custom(
+                displayFontName(isDark: resolvedIsDark),
+                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            )
         } else if design == .default {
-            Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
+            return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
         } else {
-            .system(size: size, weight: weight, design: design)
+            return Font.system(size: size, weight: weight, design: design)
         }
     }
 
-    static func monoFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .custom(monoFontName, size: size).weight(weight)
-    }
-
-    static func secondaryFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        if currentMode.usesDisplayFont {
-            .custom(secondaryDisplayFontName, size: size).weight(weight)
-        } else {
-            Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
-        }
+    nonisolated static func monoFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.custom(monoFontName, size: size).weight(weight)
     }
 
     nonisolated static func monoUIFont(
@@ -1246,42 +1261,39 @@ enum AppDisplayTypography: Sendable {
     nonisolated static func nsFont(
         size: CGFloat,
         weight: NSFont.Weight = .regular,
+        isDark: Bool? = nil,
         allowDisplayFont: Bool = true
     ) -> NSFont {
+        let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
         if allowDisplayFont && currentMode.usesDisplayFont {
-            NSFont(name: displayFontName, size: displayFontSize(for: size))
+            return NSFont(
+                name: displayFontName(isDark: resolvedIsDark),
+                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            )
                 ?? NSFont.systemFont(ofSize: size, weight: weight)
         } else {
-            regularUIFont(size: size, weight: weight)
-        }
-    }
-
-    nonisolated static func secondaryNSFont(
-        size: CGFloat,
-        weight: NSFont.Weight = .regular
-    ) -> NSFont {
-        if currentMode.usesDisplayFont {
-            NSFont(name: secondaryDisplayFontName, size: size)
-                ?? NSFont.systemFont(ofSize: size, weight: weight)
-        } else {
-            regularUIFont(size: size, weight: weight)
+            return regularUIFont(size: size, weight: weight)
         }
     }
 
     nonisolated static func isDisplayFont(_ font: NSFont) -> Bool {
-        isPrimaryDisplayFont(font) || isSecondaryDisplayFont(font)
+        isPrimaryDisplayFont(font) || isLegacyDisplayFont(font)
     }
 
     nonisolated static func isPrimaryDisplayFont(_ font: NSFont) -> Bool {
-        font.fontName.contains(displayFontName)
+        font.fontName.contains(coralDisplayFontName)
     }
 
-    nonisolated static func isSecondaryDisplayFont(_ font: NSFont) -> Bool {
-        font.fontName.contains(secondaryDisplayFontName)
+    nonisolated static func isLegacyDisplayFont(_ font: NSFont) -> Bool {
+        font.fontName.contains(legacyDisplayFontName)
     }
 
     nonisolated static func displayFontSize(for size: CGFloat) -> CGFloat {
-        size * displayFontScale
+        displayFontSize(for: size, isDark: SystemAppearanceState.isDark())
+    }
+
+    nonisolated static func displayFontSize(for size: CGFloat, isDark: Bool) -> CGFloat {
+        size * displayFontScale(isDark: isDark)
     }
 
     nonisolated static func preservingFamilyFont(
@@ -1293,10 +1305,10 @@ enum AppDisplayTypography: Sendable {
         let manager = NSFontManager.shared
         let weight: NSFont.Weight = bold ? .bold : .regular
         var resolved: NSFont
-        if isSecondaryDisplayFont(font) {
-            resolved = secondaryNSFont(size: size, weight: weight)
-        } else if isPrimaryDisplayFont(font) {
-            resolved = nsFont(size: size, weight: weight)
+        if isPrimaryDisplayFont(font) {
+            resolved = nsFont(size: size, weight: weight, isDark: false)
+        } else if isLegacyDisplayFont(font) {
+            resolved = nsFont(size: size, weight: weight, isDark: true)
         } else if isRegularUIFont(font) {
             resolved = regularUIFont(size: size, weight: weight)
         } else {

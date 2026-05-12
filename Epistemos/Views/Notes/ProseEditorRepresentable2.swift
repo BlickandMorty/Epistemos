@@ -1438,10 +1438,13 @@ extension ProseEditorRepresentable2 {
 
             let line = delegate.lineIndex(at: headingOffset)
             let isFolded = markdown_is_folded(UInt32(line))
+            let affectedLines = delegate.foldedContentLineRange(forHeadingAt: line).map { foldRange in
+                line..<foldRange.upperBound
+            } ?? line..<(line + 1)
             markdown_set_fold(UInt32(line), !isFolded)
 
             delegate.recomputeHiddenLines(documentText: tv.string)
-            forceContentReEnumeration(tv)
+            forceContentReEnumeration(tv, lineRange: affectedLines)
         }
 
         func clearAllFolds() {
@@ -1476,14 +1479,16 @@ extension ProseEditorRepresentable2 {
         /// Force the content manager to re-enumerate all elements (triggers shouldEnumerate).
         /// An empty performEditingTransaction is not reliable — recordEditAction tells the
         /// content manager that the content range actually changed, forcing re-enumeration.
-        private func forceContentReEnumeration(_ tv: ProseTextView2) {
+        private func forceContentReEnumeration(_ tv: ProseTextView2, lineRange: Range<Int>? = nil) {
             guard let contentStorage = tv.textLayoutManager?.textContentManager
                     as? NSTextContentStorage else { return }
-            let docRange = contentStorage.documentRange
+            let targetRange =
+                lineRange.flatMap { tv.markdownDelegate.textRange(forLines: $0, in: contentStorage) }
+                ?? contentStorage.documentRange
             contentStorage.performEditingTransaction {
-                contentStorage.recordEditAction(in: docRange, newTextRange: docRange)
+                contentStorage.recordEditAction(in: targetRange, newTextRange: targetRange)
             }
-            tv.textLayoutManager?.ensureLayout(for: docRange)
+            tv.textLayoutManager?.invalidateLayout(for: targetRange)
             tv.needsDisplay = true
         }
 
