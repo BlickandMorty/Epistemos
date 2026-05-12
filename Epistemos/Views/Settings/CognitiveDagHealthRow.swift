@@ -50,7 +50,12 @@ public struct CognitiveDagHealthRow: View {
 
     private var detailLabel: String {
         if stats.isEmpty {
-            return "empty (waiting for mirrors)"
+            // ISSUE-2026-05-12-003 — make the empty state explanatory.
+            // The DAG populates on skill loads, claim commits, procedure
+            // recordings, and companion registrations. Tell the user what
+            // they need to do to see this row turn green instead of
+            // leaving "waiting for mirrors" as a mystery.
+            return "empty — populates on skill / claim / procedure / companion events"
         }
         return "\(stats.nodeCount) nodes · \(stats.edgeCount) edges · root \(rootShort)"
     }
