@@ -355,6 +355,35 @@ struct CloudStreamingParserTests {
         #expect(deltaCollected == "delta answer")
     }
 
+    @Test("SSE transport aborts heartbeat-only streams without visible content")
+    func sseTransportAbortsHeartbeatOnlyStreamsWithoutVisibleContent() async throws {
+        let session = makeHeartbeatOnlyStreamingSession()
+        var request = URLRequest(url: URL(string: "https://example.com/responses")!)
+        request.httpMethod = "POST"
+
+        let stream = URLSessionTransportSupport.streamSSE(
+            using: session,
+            request: request,
+            invalidResponse: { CloudLLMError.invalidResponse },
+            chunkExtractor: { CloudStreamingParser.openAITextDelta(from: $0) },
+            firstContentWatchdogSeconds: 0.03,
+            watchdogPollIntervalSeconds: 0.01
+        )
+
+        do {
+            for try await _ in stream {}
+            Issue.record("Expected heartbeat-only stream to fail the first-content watchdog.")
+        } catch let error as LLMError {
+            switch error {
+            case .apiError(let statusCode, let body):
+                #expect(statusCode == 504)
+                #expect(body.contains("without producing text or thinking"))
+            }
+        } catch {
+            Issue.record("Expected LLMError.apiError watchdog failure, got \(error).")
+        }
+    }
+
     private func makeStreamingSession(payload: String) -> URLSession {
         StreamingTestURLProtocol.handler = { request in
             let response = try #require(
@@ -370,6 +399,12 @@ struct CloudStreamingParserTests {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StreamingTestURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    private func makeHeartbeatOnlyStreamingSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HeartbeatOnlyStreamingTestURLProtocol.self]
         return URLSession(configuration: configuration)
     }
 
@@ -440,4 +475,40 @@ private nonisolated final class StreamingTestURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+}
+
+private nonisolated final class HeartbeatOnlyStreamingTestURLProtocol: URLProtocol {
+    private var heartbeatTimer: DispatchSourceTimer?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        let response = HTTPURLResponse(
+            url: request.url ?? URL(string: "https://example.com/responses")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        timer.schedule(deadline: .now(), repeating: .milliseconds(10))
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            self.client?.urlProtocol(self, didLoad: Data(":\n\n".utf8))
+        }
+        heartbeatTimer = timer
+        timer.resume()
+    }
+
+    override func stopLoading() {
+        heartbeatTimer?.cancel()
+        heartbeatTimer = nil
+    }
 }
