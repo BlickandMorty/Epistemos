@@ -86,6 +86,46 @@ fn prompt_format_preserves_function_call_contract() {
 }
 
 #[test]
+fn prompt_format_canonicalizes_legacy_tool_names_before_prompting() {
+    let input = RuntimePromptInput {
+        tools: vec![
+            RuntimeToolDefinition {
+                name: "vault_search".to_string(),
+                description: "Search the vault.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "required": ["query"],
+                    "properties": {
+                        "query": { "type": "string" }
+                    }
+                }),
+            },
+            RuntimeToolDefinition {
+                name: "write_file".to_string(),
+                description: "Write a file.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "required": ["path", "content"],
+                    "properties": {
+                        "path": { "type": "string" },
+                        "content": { "type": "string" }
+                    }
+                }),
+            },
+        ],
+        additional_instructions: None,
+        knowledge_index: None,
+    };
+
+    let prompt = build_system_prompt(&input);
+
+    assert!(prompt.contains("\"name\":\"vault.search\""));
+    assert!(prompt.contains("\"name\":\"file.write\""));
+    assert!(!prompt.contains("vault_search"));
+    assert!(!prompt.contains("write_file"));
+}
+
+#[test]
 fn prompt_format_marks_empty_tool_turns_without_tool_calls() {
     let prompt = build_system_prompt(&RuntimePromptInput {
         tools: Vec::new(),

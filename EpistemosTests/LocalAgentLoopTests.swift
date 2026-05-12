@@ -81,7 +81,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -160,7 +160,7 @@ struct LocalAgentLoopTests {
                 await responseQueue.nextOutput()
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -183,7 +183,7 @@ struct LocalAgentLoopTests {
         #expect(Set(sink.events.map(\.runID)).count == 1)
         #expect(sink.events.first?.runID.hasPrefix("local-agent-") == true)
         #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-agent-tool:1" })
-        #expect(sink.events.allSatisfy { $0.tool?.toolName == "vault_search" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "vault.search" })
         #expect(sink.events.allSatisfy { $0.metadata["source"] == "local_agent_loop" })
         #expect(sink.events.allSatisfy { $0.metadata["surface"] == "local_agent" })
         #expect(sink.events.last?.tool?.status == .completed)
@@ -256,7 +256,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -301,7 +301,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -344,7 +344,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -395,7 +395,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "write_file")
+                #expect(name == "file.write")
                 #expect(argumentsJson.contains("\"path\":\"/tmp/epistemos_local_tool_smoke.txt\""))
                 #expect(argumentsJson.contains("\"content\":\"tool smoke ok\""))
                 return LocalToolResult(
@@ -434,7 +434,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -472,7 +472,7 @@ struct LocalAgentLoopTests {
                 return output
             },
             toolExecutor: { name, argumentsJson in
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
                 return LocalToolResult(
                     toolName: name,
@@ -557,7 +557,7 @@ struct LocalAgentLoopTests {
         )
 
         let executedToolNames = await toolRecorder.snapshot()
-        #expect(executedToolNames == ["vault_search"])
+        #expect(executedToolNames == ["vault.search"])
         #expect(visibleText.contains("Planning the next step. "))
         #expect(visibleText.contains("Transformer notes found after reflex execution."))
         #expect(!visibleText.contains("<tool_call>"))
@@ -658,7 +658,7 @@ struct LocalAgentLoopTests {
             },
             toolExecutor: { name, argumentsJson in
                 await toolRecorder.append(name)
-                #expect(name == "vault_search")
+                #expect(name == "vault.search")
                 #expect(argumentsJson.contains("\"query\":\"hegemony\""))
                 return LocalToolResult(
                     toolName: name,
@@ -680,7 +680,7 @@ struct LocalAgentLoopTests {
         let executedToolNames = await toolRecorder.snapshot()
         #expect(prompts.count == 3)
         #expect(prompts[1].contains("You have not produced any user-visible answer yet."))
-        #expect(executedToolNames == ["vault_search"])
+        #expect(executedToolNames == ["vault.search"])
         #expect(answer == "Hegemony notes found after the repair retry.")
     }
 
@@ -740,7 +740,7 @@ struct LocalAgentLoopTests {
                 await toolCalls.record(name, argumentsJson)
                 return LocalToolResult(
                     toolName: name,
-                    resultJson: name == "read_file"
+                    resultJson: name == "file.read"
                         ? #"{"name":"read_file","content":"tool smoke ok","success":true}"#
                         : #"{"name":"write_file","success":true}"#,
                     isError: false
@@ -761,11 +761,11 @@ struct LocalAgentLoopTests {
         #expect(prompts.count == 4)
         if prompts.count >= 4 {
             #expect(prompts[1].contains("missing required tool step"))
-            #expect(prompts[1].contains("write_file"))
+            #expect(prompts[1].contains("file.write"))
             #expect(prompts[3].contains("missing required tool step"))
-            #expect(prompts[3].contains("read_file"))
+            #expect(prompts[3].contains("file.read"))
         }
-        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(executedCalls.map(\.name) == ["file.write", "file.read"])
         #expect(answer == "tool smoke ok")
     }
 
@@ -827,7 +827,7 @@ struct LocalAgentLoopTests {
                 await toolCalls.record(name, argumentsJson)
                 return LocalToolResult(
                     toolName: name,
-                    resultJson: name == "read_file"
+                    resultJson: name == "file.read"
                         ? #"{"name":"read_file","content":"tool smoke ok","success":true}"#
                         : #"{"name":"write_file","success":true}"#,
                     isError: false
@@ -849,9 +849,9 @@ struct LocalAgentLoopTests {
         if prompts.count >= 2 {
             #expect(prompts[1].contains("tmp/epistemos_live_tool_smoke.txt"))
             #expect(prompts[1].contains("tmp/example.txt"))
-            #expect(prompts[1].contains("write_file"))
+            #expect(prompts[1].contains("file.write"))
         }
-        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(executedCalls.map(\.name) == ["file.write", "file.read"])
         if executedCalls.count == 2 {
             let normalizedWriteArguments = executedCalls[0].argumentsJson
                 .replacingOccurrences(of: "\\/", with: "/")
@@ -939,10 +939,10 @@ struct LocalAgentLoopTests {
         if prompts.count >= 2 {
             #expect(prompts[1].contains(#"exact path "/tmp/absolute-tool-smoke.txt""#))
             #expect(prompts[1].contains("tmp/example.txt"))
-            #expect(prompts[1].contains("read_file"))
+            #expect(prompts[1].contains("file.read"))
             #expect(prompts[1].contains("Do not reuse example paths such as tmp/example.txt"))
         }
-        #expect(executedCalls.map(\.name) == ["read_file"])
+        #expect(executedCalls.map(\.name) == ["file.read"])
         if let executedCall = executedCalls.first {
             let normalizedArguments = executedCall.argumentsJson.replacingOccurrences(of: "\\/", with: "/")
             #expect(normalizedArguments.contains("\"path\":\"/tmp/absolute-tool-smoke.txt\""))
@@ -1010,7 +1010,7 @@ struct LocalAgentLoopTests {
 
         let executedCalls = await toolCalls.snapshot()
         #expect(executedCalls.count == 1)
-        #expect(executedCalls[0].name == "write_file")
+        #expect(executedCalls[0].name == "file.write")
         let argumentsData = try #require(executedCalls[0].argumentsJson.data(using: .utf8))
         let argumentsObject = try #require(
             JSONSerialization.jsonObject(with: argumentsData) as? [String: Any]
@@ -1058,7 +1058,7 @@ struct LocalAgentLoopTests {
                 await toolCalls.record(name, argumentsJson)
                 return LocalToolResult(
                     toolName: name,
-                    resultJson: name == "read_file"
+                    resultJson: name == "file.read"
                         ? #"{"name":"read_file","content":"tool smoke ok","success":true}"#
                         : #"{"name":"write_file","success":true}"#,
                     isError: false
@@ -1075,7 +1075,7 @@ struct LocalAgentLoopTests {
         )
 
         let executedCalls = await toolCalls.snapshot()
-        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(executedCalls.map(\.name) == ["file.write", "file.read"])
         if executedCalls.count == 2 {
             let normalizedWriteArguments = executedCalls[0].argumentsJson
                 .replacingOccurrences(of: "\\/", with: "/")
@@ -1125,7 +1125,7 @@ struct LocalAgentLoopTests {
                 await toolCalls.record(name, argumentsJson)
                 return LocalToolResult(
                     toolName: name,
-                    resultJson: name == "read_file"
+                    resultJson: name == "file.read"
                         ? #"{"content":"1\ttool smoke ok","path":"tmp/tool-smoke.txt","showing":{"from":1,"to":1},"total_lines":1}"#
                         : #"{"name":"write_file","success":true}"#,
                     isError: false
@@ -1142,7 +1142,7 @@ struct LocalAgentLoopTests {
         )
 
         let executedCalls = await toolCalls.snapshot()
-        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(executedCalls.map(\.name) == ["file.write", "file.read"])
         #expect(answer == "tool smoke ok")
     }
 
@@ -1183,7 +1183,7 @@ struct LocalAgentLoopTests {
                 await toolCalls.record(name, argumentsJson)
                 return LocalToolResult(
                     toolName: name,
-                    resultJson: name == "read_file"
+                    resultJson: name == "file.read"
                         ? #"{"content":"1\tmini inside roundtrip ok","path":"/private/tmp/epistemos_smoke_vault/mini_inside_roundtrip_20260422.txt","showing":{"from":1,"to":1},"total_lines":1}"#
                         : #"{"name":"write_file","success":true}"#,
                     isError: false
@@ -1204,7 +1204,7 @@ struct LocalAgentLoopTests {
         )
 
         let executedCalls = await toolCalls.snapshot()
-        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(executedCalls.map(\.name) == ["file.write", "file.read"])
         if executedCalls.count == 2 {
             let normalizedWriteArguments = executedCalls[0].argumentsJson
                 .replacingOccurrences(of: "\\/", with: "/")
@@ -1242,9 +1242,9 @@ struct LocalAgentLoopTests {
             toolExecutor: { name, _ in
                 let resultJson: String
                 switch name {
-                case "write_file":
+                case "file.write":
                     resultJson = #"{"name":"write_file","success":true}"#
-                case "read_file":
+                case "file.read":
                     resultJson = #"{"content":"1\ttool smoke ok","path":"tmp/tool-smoke.txt","showing":{"from":1,"to":1},"total_lines":1}"#
                 default:
                     Issue.record("Unexpected tool call: \(name)")
@@ -1314,9 +1314,9 @@ struct LocalAgentLoopTests {
                 await toolCalls.record(name, argumentsJson)
                 let resultJson: String
                 switch name {
-                case "write_file":
+                case "file.write":
                     resultJson = #"{"name":"write_file","success":true}"#
-                case "read_file":
+                case "file.read":
                     resultJson = #"{"name":"read_file","content":"tool smoke ok"}"#
                 default:
                     resultJson = #"{"name":"unknown"}"#
@@ -1341,11 +1341,11 @@ struct LocalAgentLoopTests {
         let executedCalls = await toolCalls.snapshot()
         #expect(prompts.count == 1)
         if let prompt = prompts.first {
-            #expect(prompt.contains("The next required tool step is write_file"))
+            #expect(prompt.contains("The next required tool step is file.write"))
             #expect(prompt.contains(#"exact path "tmp/tool-smoke.txt""#))
             #expect(prompt.contains("Do not output prose"))
         }
-        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(executedCalls.map(\.name) == ["file.write", "file.read"])
         #expect(answer == "tool smoke ok")
     }
 
@@ -1394,7 +1394,7 @@ struct LocalAgentLoopTests {
 
         let executedCalls = await toolCalls.snapshot()
         #expect(executedCalls.count == 1)
-        #expect(executedCalls[0].name == "write_file")
+        #expect(executedCalls[0].name == "file.write")
         #expect(client.streamRequestCount == 2)
         #expect(client.generateRequestCount == 2)
         #expect(visibleText.isEmpty)
@@ -1464,7 +1464,7 @@ struct LocalAgentLoopTests {
 
         let executedCalls = await toolCalls.snapshot()
         #expect(executedCalls.count == 1)
-        #expect(executedCalls[0].name == "write_file")
+        #expect(executedCalls[0].name == "file.write")
         let argumentsData = try #require(executedCalls[0].argumentsJson.data(using: .utf8))
         let argumentsObject = try #require(
             JSONSerialization.jsonObject(with: argumentsData) as? [String: Any]
@@ -1485,7 +1485,7 @@ struct LocalAgentLoopTests {
             },
             structuredGenerator: { prompt, _, plan, _, _, _, _ in
                 await promptRecorder.record(prompt)
-                #expect(plan.fallbackGrammar.validToolNames == ["vault_search"])
+                #expect(plan.fallbackGrammar.validToolNames == ["vault.search"])
                 return """
                 <think>Use the constrained path.</think>
                 Structured final answer.
@@ -1557,7 +1557,7 @@ struct LocalAgentLoopTests {
 
         let executedCalls = await toolCalls.snapshot()
         #expect(executedCalls.count == 1)
-        #expect(executedCalls[0].name == "write_file")
+        #expect(executedCalls[0].name == "file.write")
         let argumentsData = try #require(executedCalls[0].argumentsJson.data(using: .utf8))
         let argumentsObject = try #require(
             JSONSerialization.jsonObject(with: argumentsData) as? [String: Any]
@@ -1614,8 +1614,8 @@ struct LocalAgentLoopTests {
 
         #expect(prompts.contains(where: { $0.contains("You have not satisfied the user's explicit note request yet.") }))
         #expect(executedCalls.count == 2)
-        #expect(executedCalls[0].name == "vault_write")
-        #expect(executedCalls[1].name == "vault_read")
+        #expect(executedCalls[0].name == "vault.write")
+        #expect(executedCalls[1].name == "vault.read")
         #expect(answer == "main note smoke ok")
     }
 

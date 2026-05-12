@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::tools::registry::v2_name_for_legacy;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RuntimeToolDefinition {
     pub name: String,
@@ -38,7 +40,8 @@ pub struct RuntimeToolResult {
 }
 
 pub fn build_system_prompt(input: &RuntimePromptInput) -> String {
-    let tools_json = formatted_tools_json(&input.tools);
+    let canonical_tools = canonicalized_tools(&input.tools);
+    let tools_json = formatted_tools_json(&canonical_tools);
     let trimmed_instructions = input
         .additional_instructions
         .as_deref()
@@ -101,7 +104,7 @@ After the file.write <tool_response> arrives:\n\
 </tool_call>"
     );
 
-    if input.tools.is_empty() {
+    if canonical_tools.is_empty() {
         prompt.push_str("\nNo tools are available for this turn. Respond directly without emitting <tool_call> tags.");
     }
 
@@ -157,4 +160,25 @@ fn formatted_tools_json(tools: &[RuntimeToolDefinition]) -> String {
         .collect::<Vec<_>>();
 
     serde_json::to_string(&records).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn canonicalized_tools(tools: &[RuntimeToolDefinition]) -> Vec<RuntimeToolDefinition> {
+    let mut names = std::collections::HashSet::with_capacity(tools.len());
+    let mut canonical_tools = Vec::with_capacity(tools.len());
+
+    for tool in tools {
+        let normalized_name = tool.name.trim().to_ascii_lowercase();
+        let canonical_name =
+            v2_name_for_legacy(normalized_name.as_str()).unwrap_or(normalized_name.as_str());
+        if !names.insert(canonical_name.to_string()) {
+            continue;
+        }
+        canonical_tools.push(RuntimeToolDefinition {
+            name: canonical_name.to_string(),
+            description: tool.description.clone(),
+            parameters: tool.parameters.clone(),
+        });
+    }
+
+    canonical_tools
 }

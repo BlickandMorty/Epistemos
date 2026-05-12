@@ -20,6 +20,35 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("Semantic plus keyword hybrid search"))
     }
 
+    @Test("system prompt canonicalizes legacy tool names before the model sees them")
+    func systemPromptCanonicalizesLegacyToolNamesBeforeModelSeesThem() {
+        let legacySearch = OmegaToolDefinition(
+            name: "vault_search",
+            agent: "notes",
+            description: "Search notes.",
+            argumentsExample: #"{"query":"topic"}"#,
+            schemaJson: #"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+        let legacyWrite = OmegaToolDefinition(
+            name: "write_file",
+            agent: "file",
+            description: "Write a file.",
+            argumentsExample: #"{"path":"tmp/example.txt","content":"hello"}"#,
+            schemaJson: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+
+        let prompt = HermesPromptBuilder.systemPrompt(tools: [legacySearch, legacyWrite])
+
+        #expect(prompt.contains(#""name":"vault.search""#))
+        #expect(prompt.contains(#""name":"file.write""#))
+        #expect(!prompt.contains("vault_search"))
+        #expect(!prompt.contains("write_file"))
+    }
+
     @Test("build messages prepends system prompt and appends tool responses")
     func buildMessagesPrependsSystemPromptAndAppendsToolResponses() {
         let history = [

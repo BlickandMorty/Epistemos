@@ -552,25 +552,20 @@ final class ChatCoordinator {
     systemParts.append(executionPlan.additionalSystemPrompt())
 
     let vaultPath = managedToolRuntimeVaultPath()
-    let allowedTools = compiled.allowedToolNames
+    let allowedTools = Set(compiled.allowedToolNames.map(AgentToolNameAliases.canonical))
     // Phase 5 authority: pass the user's explicit per-tool allowlist all
     // the way into the Rust ToolRegistry. The coarse enable_bash /
     // enable_web_search flags remain for backward compatibility with
     // callers that don't populate allowedToolNames, but the explicit
     // allowlist is the authoritative gate on the agent runtime path.
     //
-    // Terminal alias (spec note): ACC surfaces terminal tools as
-    // `run_command` / `run_persistent`; enable_bash historically gated
-    // the legacy `bash` tool. We set enable_bash to true whenever ANY
-    // terminal-family tool is allowed so the Rust side doesn't silently
-    // drop the registration, then the allowlist narrows it back down.
-    let terminalToolNames: Set<String> = [
-      "bash", "run_command", "run_persistent", "terminal",
-      "action.bash", "action.terminal"
-    ]
-    let enableBash = !allowedTools.isDisjoint(with: terminalToolNames)
-    let webToolNames: Set<String> = ["web.search", "web_search", "web", "web_fetch"]
-    let enableWebSearch = !allowedTools.isDisjoint(with: webToolNames)
+    // The explicit V2 allowlist is authoritative. These coarse booleans
+    // only decide which Rust tool families to register before that
+    // allowlist narrows execution back down.
+    let enableBash = AgentToolNameAliases.containsEquivalent(allowedTools, "action.bash")
+      || AgentToolNameAliases.containsEquivalent(allowedTools, "action.terminal")
+    let enableWebSearch = AgentToolNameAliases.containsEquivalent(allowedTools, "web.search")
+      || AgentToolNameAliases.containsEquivalent(allowedTools, "web.fetch")
     let toolConfig = ToolConfig(
       vaultPath: vaultPath,
       enableBash: enableBash,
@@ -2364,7 +2359,7 @@ final class ChatCoordinator {
         capturedAt: brainSnapshotCapturedAt
       )
     }
-    let allowedTools = executionPlan.allowedToolNames
+    let allowedTools = Set(executionPlan.allowedToolNames.map(AgentToolNameAliases.canonical))
     let runtimeToolTier = ChatToolTier(rawValue: toolTier) ?? .agent
     let allowedToolDefinitions = ToolTierBridge(
       vaultPath: vaultPath,
@@ -2380,13 +2375,10 @@ final class ChatCoordinator {
         toolDefinitionsJSON: Self.encodedToolDefinitionsJSON(allowedToolDefinitions)
       )
     )
-    let terminalToolNames: Set<String> = [
-      "bash", "run_command", "run_persistent", "terminal",
-      "action.bash", "action.terminal"
-    ]
-    let enableBash = !allowedTools.isDisjoint(with: terminalToolNames)
-    let webToolNames: Set<String> = ["web.search", "web_search", "web", "web_fetch", "search_web"]
-    let enableWebSearch = !allowedTools.isDisjoint(with: webToolNames)
+    let enableBash = AgentToolNameAliases.containsEquivalent(allowedTools, "action.bash")
+      || AgentToolNameAliases.containsEquivalent(allowedTools, "action.terminal")
+    let enableWebSearch = AgentToolNameAliases.containsEquivalent(allowedTools, "web.search")
+      || AgentToolNameAliases.containsEquivalent(allowedTools, "web.fetch")
     let toolConfig = ToolConfig(
       vaultPath: vaultPath,
       enableBash: enableBash,
@@ -4725,13 +4717,11 @@ final class ChatCoordinator {
     vaultPath: String
   ) -> Bool {
     let normalizedToolName =
-      toolName
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
+      AgentToolNameAliases.canonical(toolName)
     switch normalizedToolName {
-    case "vault.read", "vault_read":
+    case "vault.read":
       return true
-    case "file.read", "read_file":
+    case "file.read":
       guard let data = inputJson.data(using: .utf8),
         let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
         let rawPath = value["path"] as? String

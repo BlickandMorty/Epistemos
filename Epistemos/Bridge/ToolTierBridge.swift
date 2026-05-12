@@ -113,6 +113,30 @@ nonisolated enum AgentToolNameAliases {
         }
         return nil
     }
+
+    static func canonicalizedDefinitions(
+        for tools: [OmegaToolDefinition]
+    ) -> [OmegaToolDefinition] {
+        var seenNames: Set<String> = []
+        var canonicalTools: [OmegaToolDefinition] = []
+        canonicalTools.reserveCapacity(tools.count)
+
+        for tool in tools {
+            let canonicalName = canonical(tool.name)
+            guard seenNames.insert(canonicalName).inserted else { continue }
+            canonicalTools.append(OmegaToolDefinition(
+                name: canonicalName,
+                agent: tool.agent,
+                description: tool.description,
+                argumentsExample: tool.argumentsExample,
+                schemaJson: tool.schemaJson,
+                destructive: tool.destructive,
+                requiresConfirmation: tool.requiresConfirmation
+            ))
+        }
+
+        return canonicalTools
+    }
 }
 
 nonisolated enum ToolSurfacePolicy {

@@ -51,7 +51,7 @@ nonisolated public struct CodeProvenance: Codable, Sendable, Hashable {
     /// sidecar from Wave 3.1).
     public let originatedFromThoughtIndex: UInt32?
     /// Optional tool name when the file was produced by a single
-    /// tool invocation (e.g., `write_file`, `edit_file`).
+    /// tool invocation (e.g., `file.write`, `file.patch`).
     public let toolId: String?
     /// Optional tool_use_id (mirrors the tools/<tool_use_id>.json
     /// sidecar from Wave 3.1) so the inspector can jump from the

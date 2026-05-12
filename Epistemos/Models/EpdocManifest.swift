@@ -56,7 +56,7 @@ nonisolated public struct EpdocProvenance: Codable, Sendable, Hashable {
     /// artifact was produced by an agent run.
     public let generatedByRun: String?
     /// Optional tool name when the artifact came directly from a tool
-    /// invocation (`vault_search`, `web_fetch`, etc.).
+    /// invocation (`vault.search`, `web.fetch`, etc.).
     public let toolId: String?
     public let sourceArtifacts: [EpdocArtifactRef]
     public let outputArtifacts: [EpdocArtifactRef]
