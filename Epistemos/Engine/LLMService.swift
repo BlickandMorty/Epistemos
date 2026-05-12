@@ -855,97 +855,38 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             operatingMode: operatingMode
         )
 
-        return StreamingBufferPolicy.throwingStream { continuation in
-            let task = Task { @MainActor [weak self] in
+        return StreamingBufferPolicy.throwingStream(limit: StreamingBufferPolicy.textLimit) { continuation in
+            let task = Task.detached(priority: .userInitiated) { [weak self] in
                 guard let self else {
                     continuation.finish()
                     return
                 }
 
-                self.recordCloudLLMToolEvent(
-                    runID: runID,
-                    kind: .toolCallRequested,
-                    actor: actor,
-                    toolCallID: toolCallID,
-                    toolName: "cloud_model.stream",
-                    argumentsJSON: argumentsJSON,
-                    status: .requested,
-                    metadata: metadata
-                )
-                self.recordCloudLLMToolEvent(
-                    runID: runID,
-                    kind: .toolCallStarted,
-                    actor: actor,
-                    toolCallID: toolCallID,
-                    toolName: "cloud_model.stream",
-                    argumentsJSON: argumentsJSON,
-                    status: .started,
-                    metadata: metadata
-                )
-                let startedAt = Date()
+                var startedAt = Date()
 
                 do {
-                    let credential = try await self.resolvedCredential(for: model.provider)
-                    let resolvedSystemPrompt = await self.knowledgeAwareSystemPrompt(
-                        from: systemPrompt,
-                        modelID: model.vendorModelID
+                    let preflight = try await self.prepareCloudStream(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt,
+                        maxTokens: maxTokens,
+                        model: model,
+                        operatingMode: operatingMode,
+                        runID: runID,
+                        actor: actor,
+                        toolCallID: toolCallID,
+                        argumentsJSON: argumentsJSON,
+                        metadata: metadata
                     )
-
-                    let upstream: AsyncThrowingStream<String, Error>
-                    switch model.provider {
-                    case .openAI:
-                        upstream = self.streamOpenAI(
-                            model: model,
-                            credential: credential,
-                            prompt: prompt,
-                            systemPrompt: resolvedSystemPrompt,
-                            maxTokens: maxTokens,
-                            operatingMode: operatingMode
-                        )
-                    case .anthropic:
-                        upstream = self.streamAnthropic(
-                            model: model,
-                            credential: credential,
-                            prompt: prompt,
-                            systemPrompt: resolvedSystemPrompt,
-                            maxTokens: maxTokens
-                        )
-                    case .google:
-                        upstream = self.streamGoogle(
-                            model: model,
-                            credential: credential,
-                            prompt: prompt,
-                            systemPrompt: resolvedSystemPrompt,
-                            maxTokens: maxTokens
-                        )
-                    case .zai, .kimi, .deepseek:
-                        upstream = self.streamOpenAICompatible(
-                            provider: model.provider,
-                            model: model,
-                            credential: credential,
-                            prompt: prompt,
-                            systemPrompt: resolvedSystemPrompt,
-                            maxTokens: maxTokens
-                        )
-                    case .minimax:
-                        upstream = self.streamAnthropicCompatible(
-                            provider: .minimax,
-                            model: model,
-                            credential: credential,
-                            prompt: prompt,
-                            systemPrompt: resolvedSystemPrompt,
-                            maxTokens: maxTokens
-                        )
-                    }
+                    startedAt = preflight.startedAt
 
                     var chunkCount = 0
                     var outputUTF8Bytes = 0
-                    for try await token in upstream {
+                    for try await token in preflight.upstream {
                         chunkCount += 1
                         outputUTF8Bytes += token.utf8.count
                         continuation.yield(token)
                     }
-                    self.recordCloudLLMToolEvent(
+                    await self.recordCloudLLMToolEvent(
                         runID: runID,
                         kind: .toolCallCompleted,
                         actor: actor,
@@ -962,7 +903,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                     )
                     continuation.finish()
                 } catch {
-                    self.recordCloudLLMToolEvent(
+                    await self.recordCloudLLMToolEvent(
                         runID: runID,
                         kind: .toolCallFailed,
                         actor: actor,
@@ -982,6 +923,94 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 task.cancel()
             }
         }
+    }
+
+    private func prepareCloudStream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        metadata: [String: String]
+    ) async throws -> (startedAt: Date, upstream: AsyncThrowingStream<String, Error>) {
+        recordCloudLLMToolEvent(
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "cloud_model.stream",
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: metadata
+        )
+        recordCloudLLMToolEvent(
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "cloud_model.stream",
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: metadata
+        )
+        let startedAt = Date()
+        let credential = try await resolvedCredential(for: model.provider)
+        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
+            from: systemPrompt,
+            modelID: model.vendorModelID
+        )
+
+        let upstream: AsyncThrowingStream<String, Error>
+        switch model.provider {
+        case .openAI:
+            upstream = streamOpenAI(
+                model: model,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens,
+                operatingMode: operatingMode
+            )
+        case .anthropic:
+            upstream = streamAnthropic(
+                model: model,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens
+            )
+        case .google:
+            upstream = streamGoogle(
+                model: model,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens
+            )
+        case .zai, .kimi, .deepseek:
+            upstream = streamOpenAICompatible(
+                provider: model.provider,
+                model: model,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens
+            )
+        case .minimax:
+            upstream = streamAnthropicCompatible(
+                provider: .minimax,
+                model: model,
+                credential: credential,
+                prompt: prompt,
+                systemPrompt: resolvedSystemPrompt,
+                maxTokens: maxTokens
+            )
+        }
+        return (startedAt, upstream)
     }
 
     // MARK: - Structured Output (provider-native)
