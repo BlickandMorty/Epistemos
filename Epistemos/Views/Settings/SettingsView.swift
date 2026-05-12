@@ -725,6 +725,11 @@ private struct GeneralDetailView: View {
                 GraphEventVisibilityRow()
                 SearchFusionHealthRow()
                 CognitiveDagHealthRow()
+                // ISSUE-2026-05-10-002 follow-up: per-provider API-key
+                // visibility. Read-only, never displays key values.
+                // Helps users diagnose "agents don't work" by showing
+                // at a glance which providers have a key stored.
+                APIKeysHealthRow()
                 // RCA13 P1-021: deployment-profile honesty row.
                 // Visible in BOTH profiles so users + auditors can see
                 // at a glance whether this build is MAS or Pro and
