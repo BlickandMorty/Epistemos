@@ -217,6 +217,248 @@ Investigation Log:
 
 ---
 
+### ISSUE-2026-05-12-005: Graph engine pauseEngine() doesn't free memory [DEFERRED-TO-GRAPH-PLAN]
+
+Status: Open (deferred to canonical graph plan Phase A Week 2)
+Priority: P2
+First Observed: 2026-05-12
+Affected Version: HEAD `58d998566`
+
+Symptom:
+`MetalGraphView.swift:1023` `pauseEngine()` only sets `isEnginePaused = true`.
+It doesn't release the NodeState ring buffers, the Metal heap scratch, the
+quadtree arena, the label SDF atlas, or any other graph-engine-owned memory.
+Result: even when the graph is offscreen and the engine is paused, the
+graph-engine's resident-memory contribution stays the same.
+
+This is the primary reason a "Low Memory" idle mode (ISSUE-2026-05-12-007) is
+not effective without a graph fix.
+
+Suspected Cause:
+The pause was designed as a "stop physics ticking" primitive, not a "release
+GPU resources" one. There's a `MetalRuntimeManager.deepUnload()` at line
+387 that drops 14 cached `MTLComputePipelineState` refs + `MTLBinaryArchive`
+image, but it's only called from `MLXInferenceService.performUnload` — not
+from the graph engine's pause path.
+
+Resolution:
+Owned by the canonical graph plan at `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md`,
+Phase A Week 2. Do NOT fix in isolation — the fix requires the shared-buffer
+schema work landing first so we know what to release.
+
+---
+
+### ISSUE-2026-05-12-006: 2GB idle memory regression (vault + graph + indexes)
+
+Status: Investigating
+Priority: P1
+First Observed: 2026-05-12 (superset of ISSUE-2026-04-21-004)
+
+Symptom:
+User reports app idles at ~2GB RSS after vault + graph + indexes load on M2 Pro
+16GB. Codex's local canon claims healthy idle should be ~300MB. Per
+`ProcessMemoryHealthRow.swift:54` the "elevated" threshold is 30% of physical
+memory (4.8GB on 16GB), so 2GB is technically "nominal" by the code's scale,
+but the user-perceived idle target is much lower.
+
+Suspected Cause (per code audit 2026-05-12, ranked by likely contribution):
+1. **Graph engine (~500MB-1GB)** — ISSUE-2026-05-12-005 above. `pauseEngine()`
+   doesn't release MTLBuffers.
+2. **MLX inference cache (0-2GB)** — only ~30% of users have a model loaded at
+   any moment, but when loaded `Qwen3-8B-MLX-4bit` is ~4.5GB weights + KV cache.
+   `MLXInferenceService` idle-unload at line 351-357 is 6-10s on 16GB — likely
+   firing but the released memory may not be reaching the OS due to
+   `swift-transformers` retain cycles or MLX arena allocator.
+3. **Tantivy/HNSW mmap (300-500MB)** — these are mmap'd files, so they SHOW in
+   RSS but aren't really pressure. Hard to release without losing query speed.
+4. **SwiftData page cache + GRDB caches (~150MB)** — these have explicit shrink
+   APIs (`SearchIndexService.releaseMemoryPressureCaches()` line 298-322) that
+   fire on memory pressure but not on idle.
+5. **Metal pipelines + binary archive (~80MB)** — `MetalRuntimeManager.deepUnload()`
+   exists but only fires on memory-pressure critical.
+6. **WKWebView WKContent processes (~50MB each)** — the Tiptap editor and KaTeX
+   preview share a pool but each open document still spins up a process.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Profile with Instruments → Allocations on Jojo's M2 Pro for a 5-minute idle
+  session on a real vault. Identify the top contributor concretely. THIS IS THE
+  BLOCKING STEP — all other fixes are theory until this lands.
+- Add a "Force Idle Unload" debug button in Settings → Diagnostics that calls
+  `runtimeManager.performUnload(.aggressive)` + graph engine `pauseEngine()`
+  + `releaseMemoryPressureCaches()`. Measure RSS delta before/after.
+- Wire `MetalRuntimeManager.deepUnload()` into the `.warning` memory-pressure
+  level (currently only fires on `.critical`).
+- Add MLX session GC after idle unload, not just KV cache nil-out.
+
+Destructive Fixes (require user approval):
+- Force-unloading MLX even when a chat session is mid-conversation.
+- Closing all WKWebView documents on app blur.
+
+Investigation Log:
+- 2026-05-12: New entry. Pairs with ISSUE-2026-04-21-004 (original idle memory
+  regression). User asked for strict 200MB idle; honest estimate after all
+  unload paths fire is ~350-500MB floor. 200MB requires structural cuts
+  (e.g., stop bundling MLX entirely for non-AI sessions), which is not v1.
+
+---
+
+### ISSUE-2026-05-12-007: Two-axis Startup / Idle Memory settings
+
+Status: Open
+Priority: P3
+First Observed: 2026-05-12
+
+Symptom:
+User wants explicit control over startup speed vs steady-state memory. Asked
+for "delay startup so everything is cached then opens smoothly" and "strict
+200MB idle." These are two separate axes, not one.
+
+Suspected Cause:
+Not a bug — a missing product surface. Currently the app defaults to a
+middle-ground (lazy load with no idle unload), which is the worst of both
+worlds.
+
+Design (drafted 2026-05-12, blocked on ISSUE-2026-05-12-005 + ISSUE-2026-05-12-006):
+
+| Setting | Options | Default |
+|---|---|---|
+| Startup Mode | Instant Launch / Prepared Launch | Instant |
+| Idle Memory Mode | Keep Warm / Low Memory | Keep Warm |
+
+- **Instant Launch**: app opens immediately, sidebar tree streams in, graph
+  lazy-loads on first navigation
+- **Prepared Launch**: "Preparing vault…" splash for 1-3s while sidebar
+  pre-renders, FTS opens, last graph snapshot loads; then everything is snappy
+- **Keep Warm**: graph engine, MLX cache, Metal pipelines stay resident; idle
+  RSS sits at ~1-2GB; reopening is instant
+- **Low Memory**: after 30s of no interaction, graph engine releases MTLBuffers
+  (requires ISSUE-2026-05-12-005 fix), MLX unloads, Metal pipelines deepUnload,
+  GRDB caches shrink; idle RSS targets ~400MB; reopening graph takes 1-2s
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Stub the Settings UI rows so the user can see the two toggles + their
+  descriptions. Backend wiring is conditional on ISSUE-2026-05-12-005 and
+  ISSUE-2026-05-12-006.
+- Wire only the easy half today: `Idle Memory Mode = Low Memory` triggers
+  `MetalRuntimeManager.deepUnload()` + `SearchIndexService.releaseMemoryPressureCaches()`
+  + MLX unload after 30s of no interaction (this is partial — won't hit 400MB
+  without the graph fix).
+
+Destructive Fixes (require user approval):
+- Changing default behavior. Ship the toggles, default to "Instant + Keep Warm"
+  to match current behavior; users opt in to the alternatives.
+
+Investigation Log:
+- 2026-05-12: New entry. Design is canonical (per Codex's two-axis recommendation
+  and my refinement). Pending: ISSUE-2026-05-12-005 (graph unload) + ISSUE-2026-05-12-006
+  (memory profiling) must land first so the toggles actually do something.
+
+---
+
+### ISSUE-2026-05-12-008: First-note-open hangs slightly on large vaults
+
+Status: Open
+Priority: P2
+First Observed: 2026-05-12 (per user report)
+
+Symptom:
+When opening a note for the first time after launch, the editor hangs briefly
+(~100-500ms) before becoming responsive. Subsequent opens of the same note
+are instant. User suspects "must I have it on large vaults?"
+
+Suspected Cause (ranked):
+1. **BlockMirror first-parse** — `Epistemos/Engine/BlockMirror.swift` parses
+   the note's markdown into block rows on first open. ~10-50ms for small notes,
+   200ms+ for large notes. Block rows persist after first open.
+2. **Graph engine neighborhood wake** — when a note is selected, the graph
+   wakes its neighborhood (currently full re-layout for affected nodes).
+   Causal-atmosphere sleep (canonical graph plan Phase A Week 4) fixes this.
+3. **FTS5 segment open** — if the note's tokens aren't in the recent overlay,
+   the base index segment must be opened on first query.
+4. **HNSW embedding compute** — if the note has no cached embedding, a fresh
+   one is computed.
+5. **NSTextView text storage attribute pass** — large notes trigger a full
+   attribute walk on first load.
+
+Resolution:
+Multi-source. Graph portion (#2) deferred to canonical graph plan. Other
+sources can be addressed independently:
+- Background prewarm of 5 most-recently-modified notes on launch (parses
+  block rows + computes embedding) — sub-50ms first-open for likely-next-note
+- Async BlockMirror so editor renders text immediately, blocks pop in as
+  parsed (~10-50ms gap is invisible to user)
+- FTS5 index segment warm-on-launch (already done via shadow_warm() fix
+  in ISSUE-2026-05-10-001)
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Prewarm MRU notes' block rows in background after `AppBootstrap.shared`
+  finishes initializing.
+- Make BlockMirror parse async by default; editor renders raw text first,
+  block-structure overlays append as parsed.
+
+Destructive Fixes (require user approval):
+- Aggressive prewarming of all notes on launch (memory hit + slow startup
+  on huge vaults).
+
+Investigation Log:
+- 2026-05-12: New entry. Pairs with the 2GB idle issue — both rooted in
+  "graph/index/cache layer doesn't pre-warm or release on a predictable
+  schedule."
+
+---
+
+### ISSUE-2026-05-12-009: Sidebar + graph slow to open every launch
+
+Status: Open
+Priority: P2
+First Observed: 2026-05-12 (per user report)
+
+Symptom:
+User reports notes sidebar and graph "always take a long time to open" — both
+on first launch AND on subsequent re-opens of the graph panel within a session.
+
+Suspected Cause:
+The sidebar tree is rebuilt from `SDPage.recentChatsDescriptor` + folder
+fetches every time the sidebar mounts. The graph engine runs physics from
+scratch every time the panel mounts (no persistent layout snapshot, no
+warm-start from last-known positions).
+
+Resolution:
+Cross-cutting design. The non-graph half is a new `ProjectionCache` layer:
+- Stored at `<vault>/.epcache/projection.bin`
+- Contains: sidebar tree snapshot (folder hierarchy + page IDs + titles),
+  graph snapshot (last frame positions, cluster pyramid, edge CSR), FTS-recent
+  overlay, per-file mtime+hash for invalidation
+- On launch: read cache → render sidebar instantly + render last graph layout
+  instantly; in background, walk the vault, compute mtime+hash diffs, apply
+  only the changes
+- Cache stays valid across launches, invalidates on mtime change or
+  app-version bump
+
+The graph half (warm-start from cached positions, cluster pyramid persistence)
+is owned by the canonical graph plan Phase A Week 3 + Phase C.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Build the sidebar-tree-only half of ProjectionCache as a standalone Rust
+  module in `agent_core/src/projection_cache.rs`. Serde-encoded to disk,
+  read on launch, mtime+hash invalidation. ~3-day task.
+- Wire `NotesSidebar` to read from the cache on mount before falling back
+  to the live SDPage fetch.
+- Add a "Rebuild Cache" button in Settings → Privacy & Storage that wipes
+  `projection.bin` and forces a fresh build.
+
+Destructive Fixes (require user approval):
+- Auto-invalidating the cache on every launch (defeats the point).
+- Storing the cache in iCloud or anywhere syncable (the cache is a
+  per-device-derived artifact, not user data).
+
+Investigation Log:
+- 2026-05-12: New entry. Pairs with ISSUE-2026-05-12-008 (first-note hang)
+  and ISSUE-2026-05-12-007 (startup mode setting) — these three together
+  define the "snappier app open" track.
+
+---
+
 ### ISSUE-2026-05-11-001: Large vault import stalls and graph loads only a partial vault
 
 Status: Investigating
