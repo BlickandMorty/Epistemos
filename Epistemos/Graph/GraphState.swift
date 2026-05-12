@@ -2039,8 +2039,9 @@ final class GraphState {
 
         store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
 
-        // If empty, rebuild structural data through the background actor path too.
-        if store.nodeCount == 0, !isBuildingStructural {
+        // If empty or explicitly dirty, rebuild structural data through
+        // the background actor path too.
+        if (needsRefresh || store.nodeCount == 0), !isBuildingStructural {
             _ = await refreshStructuralDataAsync(container: container)
         } else {
             isLoaded = true
@@ -2060,7 +2061,7 @@ final class GraphState {
             Log.app.error("GraphState: failed to load graph: \(error.localizedDescription, privacy: .public)")
             return
         }
-        if store.nodeCount == 0, !isBuildingStructural {
+        if (needsRefresh || store.nodeCount == 0), !isBuildingStructural {
             buildStructuralGraph(context: context)
             return
         }
