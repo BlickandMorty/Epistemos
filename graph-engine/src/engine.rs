@@ -478,7 +478,34 @@ pub struct Engine {
 
     #[cfg(feature = "shared-position-buffers")]
     shared_position_buffers: crate::shared_buffers::SharedPositionBuffers,
+
+    // Phase A Week 2 — full NodeState ring buffer. Holds up to 4 bound
+    // shared MTLBuffer slots (we use 3 in production; the 4th provides
+    // slack for resize). Each slot is a raw pointer into Swift-allocated
+    // memory; Rust does not own the underlying allocation. Per
+    // `docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` decision #38, we
+    // store `(ptr, len_bytes, stride)` explicitly so allocator identity
+    // can't drift between Swift and Rust.
+    node_state_bound_slots: [Option<NodeStateBinding>; 4],
 }
+
+/// One slot of the NodeState shared-buffer ring. Created by
+/// `Engine::bind_node_state_slot` and destroyed by
+/// `Engine::unbind_node_state_slot`. The pointer is borrowed from
+/// Swift; the engine does not free this memory.
+#[derive(Clone, Copy)]
+struct NodeStateBinding {
+    ptr: *mut crate::node_state::GraphNodeState,
+    capacity: usize,
+}
+
+// SAFETY: `NodeStateBinding` holds a raw pointer that is read/written
+// from a single thread at a time per the 3-slot ring protocol. The
+// Swift caller guarantees one-writer-per-slot via `addCompletedHandler`
+// recycling. We mark `Send` to allow the engine itself to move between
+// threads; `Sync` is NOT implemented because the binding is meant to
+// be accessed serially per slot.
+unsafe impl Send for NodeStateBinding {}
 
 impl Engine {
     pub fn new(device_ptr: *mut c_void, layer_ptr: *mut c_void) -> Option<Self> {
@@ -544,7 +571,150 @@ impl Engine {
             force_alive: false,
             #[cfg(feature = "shared-position-buffers")]
             shared_position_buffers: crate::shared_buffers::SharedPositionBuffers::new(),
+            node_state_bound_slots: [None; 4],
         })
+    }
+
+    // ── Phase A Week 2 — Shared NodeState ring buffer ─────────────────────────
+
+    /// Bind a Swift-allocated shared MTLBuffer slot. Called from
+    /// `graph_engine_bind_node_state_slot` after the FFI has validated
+    /// the inputs. Capacity is `len_bytes / stride`. Stride is verified
+    /// equal to `size_of::<GraphNodeState>()` upstream.
+    pub(crate) fn bind_node_state_slot(
+        &mut self,
+        slot: usize,
+        ptr: *mut std::ffi::c_void,
+        len_bytes: usize,
+        stride: usize,
+    ) {
+        if slot >= self.node_state_bound_slots.len() {
+            eprintln!("bind_node_state_slot: out-of-range slot {slot}");
+            return;
+        }
+        let capacity = len_bytes / stride;
+        self.node_state_bound_slots[slot] = Some(NodeStateBinding {
+            ptr: ptr as *mut crate::node_state::GraphNodeState,
+            capacity,
+        });
+    }
+
+    /// Unbind a slot. After this call, `step_into_bound_slot(slot, _)`
+    /// is a no-op.
+    pub(crate) fn unbind_node_state_slot(&mut self, slot: usize) {
+        if slot < self.node_state_bound_slots.len() {
+            self.node_state_bound_slots[slot] = None;
+        }
+    }
+
+    /// Snapshot current node state into the specified pre-bound slot.
+    /// Returns the number of nodes written.
+    ///
+    /// **NOTE**: this method does NOT advance physics. Physics is
+    /// advanced by the existing `engine.tick(dt)` / `engine.render()`
+    /// loop. This snapshot step is meant to be called AFTER physics
+    /// completes for a frame, so the bound MTLBuffer reflects the
+    /// just-stepped state.
+    ///
+    /// Phase A Week 2 scope: writes `pos`, `vel`, `radius`, and `flags`.
+    /// The remaining fields (`force`, `prev_force`, `heat`, `warm`,
+    /// `sleep_count`) are populated by the GPU physics + causal-
+    /// atmosphere sleep work in subsequent Phase A weeks. Until then,
+    /// callers see default values for those (0, 0, 0, 1.0, 0).
+    pub(crate) fn step_into_bound_slot(&mut self, slot: usize, _dt: f32) -> u32 {
+        let binding = match self.node_state_bound_slots.get(slot).copied().flatten() {
+            Some(b) => b,
+            None => return 0,
+        };
+
+        let live_nodes = self.world.transform.len();
+        let to_write = live_nodes.min(binding.capacity);
+        if to_write == 0 || binding.ptr.is_null() {
+            return 0;
+        }
+
+        // SAFETY:
+        // - `binding.ptr` was validated non-null + correctly-strided by
+        //   the FFI bind path.
+        // - Swift guarantees no concurrent GPU read of this slot via the
+        //   3-slot ring + `addCompletedHandler` recycling protocol.
+        // - We write exactly `to_write` elements, each `size_of::<GraphNodeState>()`
+        //   bytes, which fits in the `binding.capacity` validated above.
+        unsafe {
+            self.write_node_state_into_slot(binding.ptr, to_write);
+        }
+
+        to_write as u32
+    }
+
+    /// True iff at least one ring slot is currently bound. The caller
+    /// (or new step path) can use this to decide whether to use the
+    /// bound-slot fast path or fall back to `graph_engine_read_positions`.
+    pub fn has_bound_node_state_slot(&self) -> bool {
+        self.node_state_bound_slots.iter().any(|s| s.is_some())
+    }
+
+    /// Internal writer — SAFETY: caller has validated `dst` is non-null
+    /// and has capacity for at least `count` elements.
+    ///
+    /// Reads from the ECS world's SoA component arrays
+    /// (`world.transform`, `world.velocity`, `world.graph_node`) instead
+    /// of materializing a single `Node` view, because that's the engine's
+    /// canonical layout — there is no struct-of-struct `Node` Vec.
+    unsafe fn write_node_state_into_slot(
+        &self,
+        dst: *mut crate::node_state::GraphNodeState,
+        count: usize,
+    ) {
+        use crate::node_state::{
+            GraphNodeState, FLAGS_NEWLY_ADDED_AWAKE, FLAG_PINNED, FLAG_RENDERABLE,
+        };
+        let transforms = &self.world.transform;
+        let velocities = &self.world.velocity;
+        let graph_nodes = &self.world.graph_node;
+        let pfx = &self.world.pfx;
+        let pfy = &self.world.pfy;
+        for i in 0..count {
+            let t = transforms.get(i);
+            let v = velocities.get(i);
+            let gn = graph_nodes.get(i);
+            let pinned_fx = pfx.get(i).copied().flatten().is_some();
+            let pinned_fy = pfy.get(i).copied().flatten().is_some();
+
+            let mut flags = FLAGS_NEWLY_ADDED_AWAKE;
+            if pinned_fx || pinned_fy {
+                flags |= FLAG_PINNED;
+            }
+            if let Some(g) = gn {
+                if g.visible == 0 {
+                    flags &= !FLAG_RENDERABLE;
+                }
+            }
+
+            let pos = t.map(|t| [t.x, t.y]).unwrap_or([0.0, 0.0]);
+            let vel = v.map(|v| [v.vx, v.vy]).unwrap_or([0.0, 0.0]);
+            let radius = gn.map(|g| g.radius).unwrap_or(1.0);
+
+            let state = GraphNodeState {
+                pos,
+                vel,
+                force: [0.0, 0.0],
+                prev_force: [0.0, 0.0],
+                mass: 1.0,
+                radius,
+                heat: 0.0,
+                warm: 1.0,
+                sleep_count: 0,
+                flags,
+                _reserved: [0; 2],
+            };
+            // SAFETY: `dst.add(i)` is in-bounds because we capped `count`
+            // at `binding.capacity` and the slot was sized by Swift to
+            // hold that many elements.
+            unsafe {
+                std::ptr::write(dst.add(i), state);
+            }
+        }
     }
 
     /// Commit graph data. Replaces all simulation state, restarts physics.
