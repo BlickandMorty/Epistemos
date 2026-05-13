@@ -88,10 +88,30 @@ These are HELIOS modules where porting forward would deliver concrete app value,
 
 ### Tier A — high ROI, moderate risk
 
-3. **`five_planes.rs` → provenance ledger naming**
-   - Provenance ledger (`agent_core::provenance`) already has "claim" / "evidence" / "retraction" concepts
-   - Five-plane formalism (Audit / Canonical / Truth / Witnessed / Verification) would standardize the vocabulary
-   - Effort: doc-rename pass + per-plane invariant tests
+3. **`five_planes.rs` → provenance ledger plane anchors**
+   - Originally framed as "Five-plane formalism (Audit / Canonical / Truth /
+     Witnessed / Verification) would standardize the vocabulary."
+   - **First-pass discovery (2026-05-12):** the inventory misnamed the planes.
+     The canonical V6.1 §3 five planes are **State / Episodic / Assembly /
+     Controller / Verification** (see
+     `epistemos-research/src/five_planes.rs::RuntimePlane`). The "Audit /
+     Canonical / Truth / Witnessed / Verification" set was a confusion with
+     a different doctrine. Plane numbers (1..5) are fixed by V6.1 §3.
+   - **Step 1 LANDED (2026-05-12):** added the constants
+     `PROVENANCE_STORAGE_PLANE = Episodic` and `PROVENANCE_AUDIT_PLANE = Verification`
+     to `epistemos-research/src/five_planes.rs`, mirroring the existing
+     `acs.rs::ACS_CANONICAL_PLANE / ACS_AUDIT_PLANE` precedent. Provenance
+     ledger storage (`agent_core::provenance::ClaimLedger`) is Episodic;
+     replay-bundle audit (`agent_core::provenance::replay::ReplayBundle` +
+     `epistemos_trace verify | verify-replay`) is Verification.
+   - Doctrine cross-reference blocks added to both
+     `agent_core/src/provenance/ledger.rs` and
+     `agent_core/src/provenance/replay.rs`.
+   - Drift gate `provenance_storage_in_episodic_audit_in_verification` in
+     `five_planes.rs::tests` locks both placements + the inequality
+     invariant (storage ≠ audit) so the two roles can't collapse onto a
+     single plane.
+   - Effort remaining: zero unless the ledger or audit surfaces move.
 
 4. **`shadow_memory.rs::MemoryTier` (+ `self_evolving_l_se.rs`) → ShmPool L0 cross-reference**
    - Originally framed as "Six-tier memory taxonomy (L0–L_SE) matches the

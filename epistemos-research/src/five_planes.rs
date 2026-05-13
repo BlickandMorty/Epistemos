@@ -126,6 +126,29 @@ pub const THREE_STREAMS: [ProductStream; 3] = [
     ProductStream::Vault,
 ];
 
+// ── Provenance ledger plane placement ──────────────────────────────────────
+//
+// The active app's `agent_core::provenance::ClaimLedger` stores exact,
+// addressable claim + evidence records — that's the Episodic plane storage
+// substrate. Replay-bundle export (`ReplayBundle`, `LedgerSnapshot`,
+// `epistemos-trace` verify) lives in the Verification plane substrate (the
+// audit surface that runs WBO / ClaimKind / replay verifiers). This mirrors
+// the `acs.rs` pattern (ACS_CANONICAL_PLANE = Episodic, ACS_AUDIT_PLANE =
+// Verification) and is the canonical placement per V6.1 §3 +
+// v6_1_stream_surface.rs (which explicitly tags the provenance ledger as
+// living below the Verification plane).
+
+/// Plane where the live provenance ledger lives. Episodic stores exact
+/// addressable claim/evidence records; the active-app analog is
+/// `agent_core::provenance::ClaimLedger`.
+pub const PROVENANCE_STORAGE_PLANE: RuntimePlane = RuntimePlane::Episodic;
+
+/// Plane that audits the ledger (replay bundle export, retraction
+/// propagation reports, doctrine lint). Active-app analog is
+/// `agent_core::provenance::replay::ReplayBundle` + the
+/// `epistemos_trace verify | verify-replay` CLI.
+pub const PROVENANCE_AUDIT_PLANE: RuntimePlane = RuntimePlane::Verification;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,6 +221,41 @@ mod tests {
         let set: std::collections::HashSet<ProductStream> =
             THREE_STREAMS.iter().copied().collect();
         assert_eq!(set.len(), 3);
+    }
+
+    /// Doctrine ↔ active-app `agent_core::provenance` plane alignment.
+    ///
+    /// `ClaimLedger` (storage of exact addressable claim/evidence records)
+    /// lives in the Episodic plane per V6.1 §3. `ReplayBundle` +
+    /// `LedgerSnapshot` + the `epistemos_trace verify | verify-replay` CLI
+    /// (the audit surface) live in the Verification plane.
+    ///
+    /// This test locks both placements + an inequality invariant so the two
+    /// constants stay on DIFFERENT planes — a single-plane provenance system
+    /// would conflate storage and audit and violate V6.1 §3's tri-stream-by-
+    /// five-plane orthogonality.
+    ///
+    /// Drift gate: if `agent_core` ever moves the ledger or the audit surface,
+    /// the placement here must change in lockstep with the doctrine cross-
+    /// reference comments in `agent_core/src/provenance/ledger.rs` and
+    /// `agent_core/src/provenance/replay.rs`.
+    #[test]
+    fn provenance_storage_in_episodic_audit_in_verification() {
+        assert_eq!(PROVENANCE_STORAGE_PLANE, RuntimePlane::Episodic);
+        assert_eq!(PROVENANCE_AUDIT_PLANE, RuntimePlane::Verification);
+
+        // Inequality invariant: storage ≠ audit. The two doctrine roles
+        // must remain on distinct planes per V6.1 §3.
+        assert_ne!(PROVENANCE_STORAGE_PLANE, PROVENANCE_AUDIT_PLANE);
+
+        // The provenance storage plane is not the semantic spine
+        // (State plane). Claim ledgers are addressable, exact, replayable —
+        // explicitly NOT the recurrent semantic continuity carrier.
+        assert_ne!(PROVENANCE_STORAGE_PLANE, RuntimePlane::State);
+
+        // The provenance audit plane is doctrine-substrate, no GPU kernel
+        // (matches V6.1 §7 — Verification plane has no Metal kernel).
+        assert!(!PROVENANCE_AUDIT_PLANE.requires_gpu_kernel());
     }
 
     #[test]
