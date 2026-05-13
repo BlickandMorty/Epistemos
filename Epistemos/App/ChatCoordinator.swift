@@ -1846,6 +1846,16 @@ final class ChatCoordinator {
           }
           return false
         }()
+        // USABILITY-001 helper: only providers that publish a
+        // tool-calling API (Claude / OpenAI) qualify for the
+        // chat_lite Rust agent path on Fast/Thinking. Local closure
+        // captures `selectedSurface` so we don't re-resolve.
+        let cloudSurfaceSupportsAgentTier: @Sendable (EpistemosOperatingMode) -> Bool = { _ in
+          if case .cloud(let model) = selectedSurface {
+            return model.provider.supportsAgentTier
+          }
+          return false
+        }
         let snapshotRouteContext = Self.mainChatBrainSnapshotRouteContext(
           inferenceState: inferenceState,
           executionPlan: executionPlan,
@@ -1912,11 +1922,33 @@ final class ChatCoordinator {
               )
             }
           }
-        } else if let executionPlan, mode == .api, operatingMode == .pro, isCloudSelectedSurface {
-          // Pro + cloud → chat_pro tier, bounded turns (3) +
-          // bounded tools (8) per ResolvedExecutionPolicy. Tool
-          // use gated by AgentAuthority; vault.write/file.patch are
-          // now ChatPro-tier after research 3.
+        } else if let executionPlan, mode == .api,
+                  (operatingMode == .pro || operatingMode == .fast || operatingMode == .thinking),
+                  isCloudSelectedSurface,
+                  cloudSurfaceSupportsAgentTier(operatingMode) {
+          // USABILITY-001 fix-pass (2026-05-13): the Pro+cloud branch
+          // is now extended to Fast+cloud and Thinking+cloud when the
+          // provider supports the agent tier. Previously these fell
+          // through to the toolless direct-stream branch even though
+          // BASE_SYSTEM_PROMPT advertises "You have access to the
+          // user's knowledge vault" on every turn. Net effect: user
+          // on cloud Fast asks "find my note about X" → model says
+          // "I don't have tools" or hallucinates. Mirrors the fix
+          // applied to runCommandCenterRustAgentPath above.
+          //
+          // Tool tier mapping (matches CCRC.tier_for_operating_mode):
+          //   .fast / .thinking → chat_lite (read-only)
+          //   .pro              → chat_pro (read + write + memory)
+          //
+          // vault.write still gates through AgentAuthority + R5
+          // capability so MAS safety is preserved on chatLite tier.
+          let (toolTierForCloud, maxTurnsForCloud): (String, UInt32) = {
+            switch operatingMode {
+            case .fast, .thinking: return ("chat_lite", 1)
+            case .pro:             return ("chat_pro", 3)
+            case .agent:           return ("agent", 8)  // unreachable; agent goes via managedAgentSession branch
+            }
+          }()
           do {
             try await self.runRustAgentPath(
               query: effectiveQuery,
@@ -1930,21 +1962,21 @@ final class ChatCoordinator {
               pendingAssistantId: pendingAssistantId,
               executionPlan: executionPlan,
               brainSnapshotCapturedAt: brainSnapshot.capturedAt,
-              toolTier: "chat_pro",
-              maxTurns: 3
+              toolTier: toolTierForCloud,
+              maxTurns: maxTurnsForCloud
             )
             usedRustAgent = true
           } catch {
             let selectedSurface = inferenceState.effectiveChatSurfaceSelection(for: operatingMode)
             if Self.cloudAgentFailureShouldStopFallback(error, selectedSurface: selectedSurface) {
               Log.pipeline.warning(
-                "Pro-mode cloud agent path failed; surfacing provider error instead of falling back: \(String(reflecting: error), privacy: .public)"
+                "Cloud agent path failed (mode=\(operatingMode.rawValue, privacy: .public), tier=\(toolTierForCloud, privacy: .public)); surfacing provider error: \(String(reflecting: error), privacy: .public)"
               )
               chatState.addErrorMessage(from: error)
               usedRustAgent = true
             } else {
               Log.pipeline.warning(
-                "Pro-mode Rust agent path unavailable, falling back to direct stream: \(error.localizedDescription)"
+                "Cloud Rust agent path unavailable (mode=\(operatingMode.rawValue, privacy: .public)), falling back to direct stream: \(error.localizedDescription, privacy: .public)"
               )
             }
           }
