@@ -257,6 +257,86 @@ struct AnswerPacketEmitterTests {
             "legacy packets without interrupt_bucket must decode as .unavailable; got \(decoded.interruptBucket)")
     }
 
+    @Test("Emitter snapshot tracks count + first/last timestamps")
+    func snapshotTracksTimestamps() async {
+        let emitter = await freshEmitter()
+
+        let empty = await emitter.snapshot()
+        #expect(empty.count == 0)
+        #expect(empty.totalEmitted == 0)
+        #expect(empty.firstEmittedAt == nil)
+        #expect(empty.lastEmittedAt == nil)
+        #expect(empty.latest == nil)
+
+        let packet = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20
+        )
+        await emitter.emit(packet)
+
+        let single = await emitter.snapshot()
+        #expect(single.count == 1)
+        #expect(single.totalEmitted == 1)
+        #expect(single.firstEmittedAt != nil)
+        #expect(single.lastEmittedAt != nil)
+        #expect(single.firstEmittedAt == single.lastEmittedAt,
+            "first emit: firstAt and lastAt must be equal")
+        #expect(single.latest?.id == packet.id)
+
+        // Sleep a tick to ensure the second emit has a distinct
+        // timestamp. We don't lock specific intervals here — just
+        // require lastEmittedAt to move forward.
+        try? await Task.sleep(nanoseconds: 2_000_000)
+
+        let second = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 5,
+            outputTokens: 10
+        )
+        await emitter.emit(second)
+
+        let twoEmits = await emitter.snapshot()
+        #expect(twoEmits.count == 2)
+        #expect(twoEmits.totalEmitted == 2)
+        #expect(twoEmits.firstEmittedAt == single.firstEmittedAt,
+            "firstEmittedAt must be sticky across subsequent emits")
+        #expect(twoEmits.lastEmittedAt != nil)
+        if let firstAt = twoEmits.firstEmittedAt, let lastAt = twoEmits.lastEmittedAt {
+            #expect(lastAt >= firstAt,
+                "lastEmittedAt must advance with each emit")
+        }
+        #expect(twoEmits.latest?.id == second.id)
+    }
+
+    @Test("Snapshot Equatable supports change-detection in the diagnostics row")
+    func snapshotEquatable() async {
+        let emitter = await freshEmitter()
+
+        let a = await emitter.snapshot()
+        let b = await emitter.snapshot()
+        #expect(a == b, "two snapshots of an unchanged emitter must be equal")
+
+        await emitter.emit(AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 0,
+            outputTokens: 1
+        ))
+        let c = await emitter.snapshot()
+        #expect(a != c, "snapshot must compare unequal after emit changed state")
+    }
+
+    @Test("didEmitNotification is named correctly and unique")
+    func notificationNameIsStable() {
+        // Lock the wire-level notification name so downstream listeners
+        // (the AnswerPacketHealthRow + any future replay-export consumer)
+        // can subscribe to a stable identifier.
+        #expect(
+            AnswerPacketEmitter.didEmitNotification ==
+                Notification.Name("com.epistemos.answerPacket.didEmit")
+        )
+    }
+
     @Test("turnCompletionStub with attentionMode parameter populates field")
     func stubAcceptsAttentionMode() {
         let staticPacket = AnswerPacket.turnCompletionStub(

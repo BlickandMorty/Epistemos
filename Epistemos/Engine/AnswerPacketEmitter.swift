@@ -58,11 +58,45 @@ public actor AnswerPacketEmitter {
     /// row can show a useful rolling window.
     public static let maxRingSize = 32
 
+    /// Posted (on the main queue) whenever a packet is emitted so the
+    /// Settings → Diagnostics AnswerPacketHealthRow can refresh without
+    /// polling. `object` is `AnswerPacketEmitter.shared`. Read the
+    /// fresh state via `await snapshot()`.
+    public nonisolated static let didEmitNotification = Notification.Name(
+        "com.epistemos.answerPacket.didEmit"
+    )
+
     private var ring: [AnswerPacket] = []
     private var totalEmitted: Int = 0
+    private var firstEmittedAt: Date?
+    private var lastEmittedAt: Date?
 
     private init() {
         ring.reserveCapacity(Self.maxRingSize)
+    }
+
+    /// Immutable snapshot of the emitter's audit state for read-only
+    /// consumers (the Settings health row, the future replay-export
+    /// surface). Returned by value so the caller doesn't hold actor
+    /// isolation while it renders.
+    public struct Snapshot: Sendable, Equatable {
+        public let count: Int
+        public let totalEmitted: Int
+        public let firstEmittedAt: Date?
+        public let lastEmittedAt: Date?
+        public let latest: AnswerPacket?
+    }
+
+    /// Read-only snapshot of the emitter's state. Cheap — clones a
+    /// small fixed-size record + the latest packet.
+    public func snapshot() -> Snapshot {
+        Snapshot(
+            count: ring.count,
+            totalEmitted: totalEmitted,
+            firstEmittedAt: firstEmittedAt,
+            lastEmittedAt: lastEmittedAt,
+            latest: ring.last
+        )
     }
 
     /// Emit an AnswerPacket for a completed chat turn. Drops the oldest
@@ -73,9 +107,22 @@ public actor AnswerPacketEmitter {
             ring.removeFirst(ring.count - Self.maxRingSize)
         }
         totalEmitted &+= 1
+        let now = Date()
+        if firstEmittedAt == nil {
+            firstEmittedAt = now
+        }
+        lastEmittedAt = now
         Self.log.notice(
-            "emit id=\(packet.id, privacy: .public) attentionMode=\(packet.attentionMode.rawValue, privacy: .public) uiLabel=\(packet.uiLabel.rawValue, privacy: .public) ring=\(self.ring.count)/\(Self.maxRingSize)"
+            "emit id=\(packet.id, privacy: .public) attentionMode=\(packet.attentionMode.rawValue, privacy: .public) interruptBucket=\(packet.interruptBucket.rawValue, privacy: .public) uiLabel=\(packet.uiLabel.rawValue, privacy: .public) ring=\(self.ring.count)/\(Self.maxRingSize)"
         )
+        // Post on the main queue so the Settings → Diagnostics
+        // health-row receiver doesn't need to hop threads.
+        Task { @MainActor in
+            NotificationCenter.default.post(
+                name: AnswerPacketEmitter.didEmitNotification,
+                object: AnswerPacketEmitter.shared
+            )
+        }
     }
 
     /// Snapshot of recent packets in chronological order
@@ -107,6 +154,8 @@ public actor AnswerPacketEmitter {
     internal func resetForTesting() {
         ring.removeAll(keepingCapacity: true)
         totalEmitted = 0
+        firstEmittedAt = nil
+        lastEmittedAt = nil
     }
 }
 
