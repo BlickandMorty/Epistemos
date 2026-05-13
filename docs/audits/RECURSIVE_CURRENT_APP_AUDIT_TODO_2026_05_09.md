@@ -1052,18 +1052,60 @@ Acceptance:
 
 ### RCA-P2-001 - Wire or de-scope AnswerPacket / ClaimKind / VRMLabel
 
-Status: TODO
+Status: DONE 2026-05-12 — V6.2 audit channel wired end-to-end through `state: rendered FULL`
+
+Fix-pass evidence: commits `7a00db484` through `e639b6bb4` (the V6.2
+chain). Every chat-turn now emits an AnswerPacket carrying the
+ClaimKind / VRMLabel schemas; MessageBubble renders a three-chip row
+(VRMLabel + attention mode + interrupt bucket) on every assistant
+turn with a bound `answerPacketId`. Settings → General → Diagnostics
+→ AnswerPacket exposes the live ring + per-mode + per-bucket
+histograms.
+
+Promotion ladder, with the commit that landed each step:
+
+```
+state: implemented        (schema only, never emitted)            pre-2026-05-12
+state: emitted            (turn-completion stub in ring)          7a00db484
+state: partially populated (attention_mode live)                  0d757b57f
+state: partially populated (interruptBucket sampled)              9b1db4170
+state: rendered (PARTIAL)  (Settings diagnostics row)             ae3ed7d6f
+state: rendered (PARTIAL)  (per-mode + per-bucket histograms)     854af9b0d
+state: rendered (FULL)     (schema + binding plumbing)            c0c14f98e
+state: rendered (FULL)     (per-bubble chip render)               e639b6bb4
+state: canonical-product-surface (persistent packet + Rust FFI)   pending
+```
+
+Plus follow-on cleanup commits: `a22b6783a` (9 Codable tests),
+`6d2bd399e` (nonisolated AnswerPacket fix for cross-actor Equatable),
+`54db64add` + `fb36626e0` (doctrine-comment refresh), `37b4c5b49`
+(6 LatestAnswerPacketSink end-to-end tests).
 
 Subsystem: chat output, provenance, preserved architecture.
 
-Research signal: Schemas and tests reportedly exist, but real chat does not emit AnswerPacket today.
+Research signal (now stale): "Schemas and tests reportedly exist,
+but real chat does not emit AnswerPacket today." — RESOLVED.
 
-Audit steps:
-- Search every chat response path for AnswerPacket emission.
-- If absent, remove current-product claims or wire the actual path.
+Audit acceptance:
+- Product docs/UI do not imply AnswerPacket exists unless real chat
+  emits it: ✓ — chat now emits, doctrine comments in
+  AnswerPacket.swift / AnswerPacketEmitter.swift refreshed,
+  HELIOSv5SettingsView "Deferred" row points users at the live
+  Diagnostics surface.
 
-Acceptance:
-- Product docs/UI do not imply AnswerPacket exists unless real chat emits it.
+Still pending for `state: canonical-product-surface`:
+- Persisting the packet alongside the ChatMessage so scrollback past
+  the 32-packet ring still renders chips.
+- Rust-side `agent_core::scope_rex::AnswerPacket::new` production
+  caller so claims + residency signals come from the live agent
+  runtime instead of empty placeholders.
+- Substrate hooks: WBO (claim ledger), sheafResidual (cognitive DAG),
+  connectomeAlarm (routing layer) — currently default 0 in
+  `InterruptScoreCpu.sampleTurnBucket`.
+
+These are tracked as `state: canonical-product-surface` follow-ons,
+not RCA-P2-001 (which was about wiring the schema vs de-scoping it).
+The wiring is now real.
 
 ### RCA-P2-002 - Fix FSRS risk-cache/comment drift
 
