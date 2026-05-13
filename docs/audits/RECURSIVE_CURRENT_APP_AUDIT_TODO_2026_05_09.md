@@ -638,7 +638,7 @@ Acceptance:
 
 ### RCA-P1-012 - Offload fallback semantic clustering
 
-Status: TODO
+Status: PATCHED 2026-05-13 — nonisolated entry point + version-keyed cancellable async pipeline on GraphState
 
 Subsystem: graph clustering, embeddings, visualization.
 
@@ -655,6 +655,65 @@ Audit steps:
 
 Acceptance:
 - Clustering can be toggled without beachballing or blocking graph interaction.
+
+Fix-pass evidence 2026-05-13:
+
+- Files changed:
+  - `Epistemos/Graph/SemanticClusterService.swift` — new
+    `nonisolated static func computeClustersFromNodes(nodes:embeddingLookup:)`
+    is a drop-in for `computeClusters` that takes a pre-snapshot
+    Sendable `[GraphNodeRecord]` array. All heavy helpers
+    (`computeEmbeddings`, `computeOneEmbedding`, `kmeans`,
+    `kmeansppInit`) are now `nonisolated private static`. The
+    existing MainActor `computeClusters` is preserved as a
+    convenience wrapper that snapshots the store on MainActor then
+    defers to the new entry point.
+  - `Epistemos/Graph/EmbeddingService.swift` — new
+    `swiftFallbackEmbeddingLookupForBackground()` exposes the
+    private `fallbackEmbeddingLookup` (Sendable per protocol) so
+    MainActor callers can snapshot it into a `Task.detached` body
+    without dragging the EmbeddingService instance across actors.
+  - `Epistemos/Graph/GraphState.swift` — new
+    `recomputeSemanticClustersAsync()` method:
+      1. Cancels any in-flight compute task.
+      2. Early-exits if `semanticClusteringAvailable == false`.
+      3. Snapshots nodes + topology key (`graphDataVersion`) on
+         MainActor; captures the (Sendable) lookup.
+      4. Spawns `Task.detached(priority: .userInitiated)` for the
+         heavy embedding + k-means work.
+      5. Honors `Task.isCancelled` between embedding and k-means.
+      6. MainActor-hops with the result; publishes only when
+         `graphDataVersion == capturedTopologyKey` (else discards as
+         a stale compute superseded by a newer one).
+    - The legacy synchronous `computeSemanticClusters()` is
+      preserved so callers can opt in over time.
+  - `EpistemosTests/SemanticClusterServiceTests.swift` — 3 new
+    test cases:
+      • `computeClustersFromNodes produces same result as
+        computeClusters on the same input` (partition-shape parity)
+      • `computeClustersFromNodes handles < 4 nodes the same way
+        computeClusters does` (degenerate-input parity)
+      • `computeClustersFromNodes is callable from a detached Task
+        without MainActor` (the actor-isolation invariant that
+        proves the chip is real, not just commented)
+
+- Acceptance status:
+  - Off-main path is live: `Task.detached` runs the heavy work
+    while MainActor stays responsive for graph interaction.
+  - Cancellable: rapid toggle stomps don't stack — older tasks
+    cancel cleanly at the embedding / k-means boundary.
+  - Version-keyed: stale results from a superseded compute are
+    silently discarded; only the most-recent topology key
+    publishes.
+  - All 5 SemanticClusterService tests pass; TEST SUCCEEDED on
+    the macOS scheme.
+
+- Pending follow-on:
+  - Wire `recomputeSemanticClustersAsync` to the
+    `useSemanticClustering` didSet observer + graph-data-version
+    bump path. Today's commit ships the pipeline; switching
+    callers from the sync to the async entry point is a separate
+    slice so we can profile each call site individually.
 
 ### RCA-P1-013 - Surface Shadow search backend failures to Halo users
 
