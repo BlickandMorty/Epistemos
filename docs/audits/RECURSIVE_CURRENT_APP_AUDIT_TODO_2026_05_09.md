@@ -2201,14 +2201,28 @@ Acceptance:
 
 ### RCA-P3-002 - Audit Pro bundle weight and build fragility
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `docs/BUNDLE_WEIGHT_AUDIT_2026_05_13.md` documents measurements + target gating + release projections + script discipline
 
 Subsystem: build pipeline, bundle contents, release operations.
 
 Research signal: Pro builds include Rust universal binaries, UniFFI, editor bundle, Python/Hermes/MoLoRA/runtime assets, and multiple scripts. Scripts are disciplined but operationally heavy.
 
+Fix-pass evidence: new `docs/BUNDLE_WEIGHT_AUDIT_2026_05_13.md`
+records the measured bundle weights for both MAS and Pro debug
+builds, breaks them down per-framework + per-resource, and
+documents target gating:
+- MAS: 0 Python files, 0 `libomega_ax`, 0 subprocess strings (also
+  verified RCA4-P0-002)
+- Pro: 10 Python files, `libomega_ax`, subprocess paths intact
+- Both: Halo backend (`libepistemos_shadow`), MCP bridge, llama
+- Estimated Release sizes: MAS ~150-200 MB, Pro ~170-220 MB
+  (vs ~731-771 MB Debug with full debug symbols)
+- Script audit (build-agent-core.sh / build-tiptap-bundle.sh /
+  build-epistemos-shadow.sh / sync-uniffi-bindings.sh): all
+  idempotent, content-hash gated, lock files committed.
+
 Acceptance:
-- Bundle contents are intentional, target-gated, measured, and documented.
+- Bundle contents are intentional, target-gated, measured, and documented. ✅
 
 ### RCA-P3-003 - Label diagnostics and scaffolds consistently
 
