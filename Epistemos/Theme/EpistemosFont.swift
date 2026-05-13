@@ -19,6 +19,19 @@ enum EpistemosFont {
     /// `InterVariable`); pick weight axes via `.weight()` on the variable font. We
     /// don't ship a separate `Inter-SemiBold.ttf` because it would be the
     /// same 880KB binary with the same PSName — wasted bundle space.
+    ///
+    /// 2026-05-13 per-theme font batch: register the four new per-theme
+    /// display faces. The PostScript names differ from the file names
+    /// (verified via `fc-scan`), so the EpistemosTheme `displayFontName`
+    /// / `headingFontName` / `panelFontName` getters return the
+    /// PostScript name not the file basename:
+    ///   MatrixtypeDisplay-9MyE5.ttf → PSName "MatrixTypeDisplay-Regular"
+    ///   RetroByte.ttf               → PSName "RetroByte"
+    ///   Dotemp-8bit2.ttf            → PSName "DotempDemo-8bit"
+    ///   ChonkyPixels.ttf            → PSName "ChonkyPixels"
+    /// Without this registration step, `Font.custom("ChonkyPixels", ...)`
+    /// silently falls back to the system font (audited 2026-05-13 after
+    /// user reported "light-mode fonts are literally not working").
     static func registerFonts() {
         registerFont(named: "RetroGaming", extension: "ttf")
         registerFont(named: "CoralPixels-Regular", extension: "ttf")
@@ -27,6 +40,13 @@ enum EpistemosFont {
         registerFont(named: "Pixelon", extension: "otf")
         registerFont(named: "Inter-Regular", extension: "ttf")
         registerFont(named: "JetBrainsMono-Regular", extension: "ttf")
+
+        // Per-theme display faces (2026-05-13)
+        registerFont(named: "MatrixtypeDisplay-9MyE5", extension: "ttf")
+        registerFont(named: "RetroByte", extension: "ttf")
+        registerFont(named: "Dotemp-8bit2", extension: "ttf")
+        registerFont(named: "ChonkyPixels", extension: "ttf")
+
         registerClaudeReferenceFontsIfAvailable()
     }
 
