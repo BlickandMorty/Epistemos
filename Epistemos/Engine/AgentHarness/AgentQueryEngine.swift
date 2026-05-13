@@ -210,7 +210,16 @@ actor AgentQueryEngine {
             maxTurns: config.maxTurns
         )
 
-        let history = mutableMessages.map { $0.content }
+        // RCA-P2-007 closure 2026-05-13: preserve role + tool_call_id
+        // through the [String] history boundary by emitting each
+        // QueryMessage as a `role:[ tool_call_id]:` prefixed line.
+        // The AgentBackend contract is still string-typed (deferred
+        // bump to `[QueryMessage]` would touch every concrete backend
+        // that ever lands), but the prefixed encoding round-trips the
+        // info so any future backend can reconstruct the structured
+        // shape without losing roles or tool-call identifiers on
+        // multi-turn continuations.
+        let history = mutableMessages.map(Self.encodeHistoryLine)
         let stream = try await backend.execute(
             prompt: prompt,
             history: history,
@@ -335,6 +344,25 @@ actor AgentQueryEngine {
     /// store directly; it goes through submitMessage.
     func currentMessages() -> [QueryMessage] {
         mutableMessages
+    }
+
+    /// Encode a `QueryMessage` into a single-line role-prefixed string
+    /// suitable for the `AgentBackend.execute(history:)` boundary
+    /// (RCA-P2-007 closure 2026-05-13). Format:
+    ///   `<role>: <content>`                                  — user / assistant / system
+    ///   `<role>:[tool_call_id=<id>] <content>`               — tool_result with id
+    ///
+    /// The chosen syntax is hand-decodable by any future backend that
+    /// wants to reconstruct the structured `QueryMessage` shape
+    /// without bumping the protocol contract. Roles map to the
+    /// `Role.rawValue` (which already mirrors the wire format used by
+    /// Claude / OpenAI compatible APIs).
+    nonisolated static func encodeHistoryLine(_ message: QueryMessage) -> String {
+        let role = message.role.rawValue
+        if let toolCallID = message.toolCallID, !toolCallID.isEmpty {
+            return "\(role):[tool_call_id=\(toolCallID)] \(message.content)"
+        }
+        return "\(role): \(message.content)"
     }
 
     private func recordAgentQueryEngineToolEvent(

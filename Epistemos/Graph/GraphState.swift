@@ -2959,8 +2959,17 @@ final class GraphState {
     /// Replaces O(N) linear scan per wikilink with O(1) dictionary lookup.
     private var wikilinkLookup: [String: GraphNodeRecord] = [:]
 
+    /// SCAFFOLD ONLY — RCA-P2-011 classification 2026-05-13.
+    ///
     /// Build the page subgraph from the active note's markdown body.
     /// Wikilinks are resolved to existing graph nodes.
+    ///
+    /// **No production Swift caller reaches this method today.** It
+    /// is reserved for future page-mode subgraph wiring (Wave 7
+    /// follow-up). Lifecycle (`ephemeralNodeIds` / `ephemeralEdgeIds`
+    /// cleanup on mode switch + `wikilinkLookup` rebuild per call)
+    /// stays correct so the moment a UI path wires this in, the
+    /// existing ephemeral-tracking + R.3 cascade behave as documented.
     ///
     /// Phase R.3 async cascade: the body read goes through the
     /// Sendable-primitive strangler-fig helper
