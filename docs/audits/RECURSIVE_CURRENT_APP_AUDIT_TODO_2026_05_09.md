@@ -2626,7 +2626,7 @@ Acceptance:
 
 ### RCA2-P1-003 - Fix artifact YAML-to-JSON export or hide the menu item
 
-Status: TODO
+Status: PATCHED 2026-05-13 — audit signal stale; `yamlToJSON` already implemented via MiniYAMLParser; classification confirmed
 
 Subsystem: Artifact exporter, chat artifact cards, downstream data fidelity.
 
@@ -2646,6 +2646,33 @@ Audit steps:
 
 Acceptance:
 - YAML-to-JSON export produces valid JSON, or the menu item is hidden/disabled with an explanation.
+
+Fix-pass evidence 2026-05-13:
+
+  - Audit signal stale. The `yamlToJSON(_:)` path in
+    `Epistemos/Views/Chat/ArtifactBlockView.swift` lines 320-339
+    is already implemented via `MiniYAMLParser` →
+    `JSONSerialization.data(withJSONObject:options:)`. The
+    converter handles block-style mappings, lists, scalars
+    (string / bool / number / null), and multi-line literal
+    blocks (`|`). Sufficient for the YAML subset our chat
+    artifacts emit.
+  - `ArtifactExporter.convert(_:from:to:)` (line 309-318)
+    dispatches both directions: `(.json, .yaml) → jsonToYAML`
+    AND `(.yaml, .json) → yamlToJSON`. Falls back to the
+    original string for unsupported pairs.
+  - "Save as JSON" menu item at `ArtifactBlockView.swift:131`
+    is reachable only when `artifact.kind == .yaml` (line 130
+    `if artifact.kind == .yaml { ... }`), so the visibility gate
+    matches the converter coverage.
+  - Audit acceptance "YAML-to-JSON export produces valid JSON,
+    or the menu item is hidden/disabled with an explanation" —
+    satisfied by the first clause: the converter exists, the
+    menu only appears when the conversion is supported.
+  - Pending: a focused unit test pinning the conversion behavior
+    is still a future improvement (deferred as low-risk; the
+    MiniYAMLParser path is exercised indirectly through the
+    chat artifact integration tests).
 
 ### RCA2-P1-004 - Remove render-time SwiftData work from chat mention/reference search
 
