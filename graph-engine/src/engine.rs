@@ -1611,6 +1611,13 @@ impl Engine {
     pub fn mouse_moved(&mut self, screen_x: f32, screen_y: f32) {
         self.idle_frame_count = 0;
         let (wx, wy) = self.screen_to_world(screen_x, screen_y);
+        // Snapshot the cursor world position into the simulation so the
+        // cursor-force kernel can sample it next tick. Cheap; ~16 bytes
+        // under the existing sim mutex.
+        {
+            let mut sim = self.sim.lock();
+            sim.cursor_world = [wx, wy];
+        }
         if self.renderer.dialogue.active {
             self.renderer.dialogue.look_target_world = [wx, wy];
         }
@@ -1949,6 +1956,40 @@ impl Engine {
         if alive {
             self.idle_frame_count = 0;
         }
+    }
+
+    // ── User-directed force overlays (added 2026-05-12) ────────────
+
+    /// Configure the cursor force overlay. See `graph_engine_set_cursor_force`
+    /// in lib.rs for the parameter semantics. Wakes the physics if it
+    /// had settled so the new force is visible on the next render.
+    pub fn set_cursor_force(&mut self, mode: u8, strength: f32) {
+        let mut sim = self.sim.lock();
+        sim.cursor_force_mode = mode;
+        sim.cursor_force_strength = strength.clamp(0.0, 1.0);
+        if mode != 0 {
+            sim.is_settled = false;
+            sim.params.alpha = sim.params.alpha.max(0.30);
+        }
+        self.idle_frame_count = 0;
+    }
+
+    /// Configure the shape-bound overlay. See `graph_engine_set_shape_bound`
+    /// in lib.rs for the parameter semantics. Wakes the physics if it
+    /// had settled.
+    pub fn set_shape_bound(&mut self, kind: u8, radius: f32) {
+        let mut sim = self.sim.lock();
+        sim.shape_bound_kind = kind;
+        sim.shape_bound_radius = if radius.is_finite() {
+            radius.max(1.0)
+        } else {
+            1.0
+        };
+        if kind != 0 {
+            sim.is_settled = false;
+            sim.params.alpha = sim.params.alpha.max(0.30);
+        }
+        self.idle_frame_count = 0;
     }
 
     /// Update laboratory physics toggles and tuning knobs.

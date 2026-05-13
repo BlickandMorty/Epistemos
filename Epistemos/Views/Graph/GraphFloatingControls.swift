@@ -17,6 +17,8 @@ struct GraphFloatingControls: View {
     @Environment(GraphState.self) private var graphState
 
     @State private var showForceSettings = false
+    @State private var showCursorForce = false
+    @State private var showShapeBound = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -25,6 +27,10 @@ struct GraphFloatingControls: View {
             renderModeButton
 
             forceSettingsButton
+
+            cursorForceButton
+
+            shapeBoundButton
 
             resetViewButton
 
@@ -113,6 +119,138 @@ struct GraphFloatingControls: View {
         ) {
             GraphForceSettings()
                 .environment(graphState)
+        }
+    }
+
+    // MARK: - Cursor Force (V6.2 toolbar 2026-05-12)
+    // Hold-down, overwhelm-strength force field anchored to the live
+    // cursor. Three modes (suck / repel / vortex) + granular strength
+    // slider. State lives on GraphState; FFI push happens in MetalGraphView.
+
+    private var cursorForceButton: some View {
+        AnchoredPopoverButton(
+            title: "Cursor",
+            systemImage: cursorForceIcon,
+            isPresented: $showCursorForce,
+            isActive: graphState.cursorForceMode != .off,
+            variant: .toolbar,
+            helpText: "Cursor force field",
+            accessibilityLabel: "Cursor force field",
+            idealPopoverWidth: 320,
+            contentPadding: 14,
+            stableWidth: NativeControlSystem.reservedWidth(
+                for: "Cursor",
+                variant: .toolbar,
+                includesDisclosureGlyph: true
+            )
+        ) {
+            cursorForcePanel
+        }
+    }
+
+    private var cursorForceIcon: String {
+        graphState.cursorForceMode == .off
+            ? "scope"
+            : graphState.cursorForceMode.systemImage
+    }
+
+    @ViewBuilder
+    private var cursorForcePanel: some View {
+        @Bindable var binding = graphState
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Cursor Force")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Hold-down field anchored to the cursor. Vortex orbits with a small inward bias for a galaxy-like swirl.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker("Mode", selection: $binding.cursorForceMode) {
+                ForEach(CursorForceMode.allCases) { mode in
+                    Text(mode.shortLabel).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Strength")
+                        .font(.system(size: 11, weight: .medium))
+                    Spacer()
+                    Text(String(format: "%.0f%%", graphState.cursorForceStrength * 100))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $binding.cursorForceStrength, in: 0.05...1.0)
+                    .disabled(graphState.cursorForceMode == .off)
+            }
+        }
+    }
+
+    // MARK: - Shape Bound (V6.2 toolbar 2026-05-12)
+    // Pushes every node toward the interior of an invisible bounding
+    // shape (circle / square / triangle / hexagon / star) centered on
+    // origin. Radius slider scales the formation.
+
+    private var shapeBoundButton: some View {
+        AnchoredPopoverButton(
+            title: "Shape",
+            systemImage: shapeBoundIcon,
+            isPresented: $showShapeBound,
+            isActive: graphState.shapeBoundKind != .off,
+            variant: .toolbar,
+            helpText: "Shape bound formation",
+            accessibilityLabel: "Shape bound formation",
+            idealPopoverWidth: 320,
+            contentPadding: 14,
+            stableWidth: NativeControlSystem.reservedWidth(
+                for: "Shape",
+                variant: .toolbar,
+                includesDisclosureGlyph: true
+            )
+        ) {
+            shapeBoundPanel
+        }
+    }
+
+    private var shapeBoundIcon: String {
+        graphState.shapeBoundKind == .off
+            ? "square.dashed"
+            : graphState.shapeBoundKind.systemImage
+    }
+
+    @ViewBuilder
+    private var shapeBoundPanel: some View {
+        @Bindable var binding = graphState
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Shape Bound")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Push nodes into an invisible geometric formation centered on origin.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Picker("Shape", selection: $binding.shapeBoundKind) {
+                ForEach(ShapeBoundKind.allCases) { kind in
+                    Text(kind.shortLabel).tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Radius")
+                        .font(.system(size: 11, weight: .medium))
+                    Spacer()
+                    Text(String(format: "%.0f", graphState.shapeBoundRadius))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Slider(value: $binding.shapeBoundRadius, in: 200...3000)
+                    .disabled(graphState.shapeBoundKind == .off)
+            }
         }
     }
 

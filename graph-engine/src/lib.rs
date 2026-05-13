@@ -1455,6 +1455,65 @@ pub extern "C" fn graph_engine_set_force_alive(engine: *mut Engine, alive: u8) {
     });
 }
 
+// ── User-directed force overlays (added 2026-05-12) ─────────────────
+//
+// Both setters take the engine + a small parameter set; the simulation
+// applies the corresponding force kernel in `tick()` whenever the mode
+// is non-zero. Cheap — just writes a few fields under the sim mutex.
+
+/// Configure the cursor force overlay.
+///
+/// `mode`:
+///   0 = off
+///   1 = suck (attract nodes toward the live cursor position)
+///   2 = repel (push nodes away from the live cursor position)
+///   3 = vortex (nodes orbit the cursor tangentially)
+///
+/// `strength` is clamped to [0, 1]. The actual force scale is tuned so
+/// `strength = 0.5` is a noticeable but not-overwhelming pull; `1.0`
+/// genuinely crowds the cursor.
+///
+/// The cursor world position is sampled from the live
+/// `graph_engine_mouse_moved` calls — no extra cursor parameter
+/// needed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_cursor_force(
+    engine: *mut Engine,
+    mode: u8,
+    strength: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_cursor_force", {
+        ffi_engine!(engine);
+        engine.set_cursor_force(mode, strength);
+    });
+}
+
+/// Configure the shape-bound overlay. Nodes outside the named shape
+/// get an inward push; nodes inside feel no force.
+///
+/// `kind`:
+///   0 = off
+///   1 = circle
+///   2 = square
+///   3 = triangle
+///   4 = hexagon
+///   5 = 5-point star
+///
+/// `radius` is the shape's half-extent in world units. Reasonable
+/// range is 100..3000. Sub-1.0 values disable the force as a
+/// degenerate-case guard.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_shape_bound(
+    engine: *mut Engine,
+    kind: u8,
+    radius: f32,
+) {
+    ffi_catch_unwind!("graph_engine_set_shape_bound", {
+        ffi_engine!(engine);
+        engine.set_shape_bound(kind, radius);
+    });
+}
+
 // ── Node Pinning ────────────────────────────────────────────────────────────
 
 /// Pin a node at its current position. Uses d3-style fx/fy constraint.

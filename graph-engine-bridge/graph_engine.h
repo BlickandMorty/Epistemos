@@ -228,6 +228,20 @@ void graph_engine_set_user_frozen(Engine* engine, uint8_t frozen);
 /// Set to 1 when pinned inspector panels exist, 0 when they don't.
 void graph_engine_set_force_alive(Engine* engine, uint8_t alive);
 
+// ── User-directed force overlays (V6.2 toolbar — added 2026-05-12) ─
+
+/// Configure the cursor-force overlay.
+///   mode:   0=off, 1=suck, 2=repel, 3=vortex
+///   strength: 0..1 multiplier (clamped). 1.0 = overwhelm.
+/// Uses the live cursor position from graph_engine_mouse_moved.
+void graph_engine_set_cursor_force(Engine* engine, uint8_t mode, float strength);
+
+/// Configure the shape-bound overlay. Nodes outside the named
+/// formation get pushed inward.
+///   kind:    0=off, 1=circle, 2=square, 3=triangle, 4=hexagon, 5=star
+///   radius:  shape half-extent (world units, ~100..3000)
+void graph_engine_set_shape_bound(Engine* engine, uint8_t kind, float radius);
+
 // ── Node Pinning ────────────────────────────────────────────────────────────
 
 /// Pin a node at its current position. Uses d3-style fx/fy constraint.
