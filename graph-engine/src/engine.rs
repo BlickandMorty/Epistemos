@@ -157,8 +157,13 @@ const LABEL_BACKGROUND_MIN_SCREEN_PX: f32 = 8.0;
 const LABEL_BACKGROUND_MAX_SCREEN_PX: f32 = 38.0;
 const LABEL_EMPHASIZED_MIN_SCREEN_PX: f32 = 15.0;
 const LABEL_EMPHASIZED_MAX_SCREEN_PX: f32 = 46.0;
-const LABEL_FADE_MIN_SCREEN_PX: f32 = 8.0;
-const LABEL_FADE_FULL_SCREEN_PX: f32 = 22.0;
+// Per user 2026-05-12: widened the LOD readability fade band from the old
+// [8, 22] px to [5, 28] px so labels glide in/out instead of stepping during
+// zoom. The window is now 23 px wide (was 14) — same midpoint (~16 px), gentler
+// edges. Combined with the per-node zoom-fade in the cinematic shader, the net
+// effect is a noticeably softer transition when zooming out.
+const LABEL_FADE_MIN_SCREEN_PX: f32 = 5.0;
+const LABEL_FADE_FULL_SCREEN_PX: f32 = 28.0;
 const LABEL_SELECTED_NEIGHBOR_MAX_NODES: usize = 22;
 const LABEL_SELECTED_NEIGHBOR_SOFT_TARGET: usize = 12;
 const LABEL_SELECTED_NEIGHBOR_DENSITY_TARGET: usize = 8;
@@ -226,10 +231,16 @@ fn label_density_scale(
 }
 
 fn label_density_opacity(scale: f32, protected: bool) -> f32 {
+    // Per user 2026-05-12: widened the density-driven fade band from [0.58, 0.92]
+    // to [0.42, 0.95]. The previous narrow band (0.34 of range) meant the
+    // transition from "all labels visible" to "labels gone" happened over a
+    // small density swing, which read as a hard step. The wider band (0.53 of
+    // range) feathers the fade so labels fade gradually as the local density
+    // climbs.
     if protected {
         1.0
     } else {
-        smoothstep(0.58, 0.92, scale)
+        smoothstep(0.42, 0.95, scale)
     }
 }
 
@@ -3075,6 +3086,62 @@ mod tests {
     fn active_physics_marks_renderer_for_padded_culling() {
         assert!(renderer_tracks_active_physics(true));
         assert!(!renderer_tracks_active_physics(false));
+    }
+
+    #[test]
+    fn label_fade_band_widens_for_softer_zoom_out_transition() {
+        // Per user 2026-05-12: the LOD zoom-out transition should feel smooth,
+        // not stepped. Verify the readability fade band has been widened.
+        // The window is centered around ~16 px screen size (the rough
+        // perceptual readability midpoint) but now spans [5, 28] instead of
+        // the old [8, 22] — a 23 px range vs 14 px. This makes labels glide
+        // in/out of view as zoom changes rather than popping at the band edge.
+        assert_eq!(LABEL_FADE_MIN_SCREEN_PX, 5.0);
+        assert_eq!(LABEL_FADE_FULL_SCREEN_PX, 28.0);
+        // Width invariant: the band must be wider than the old [8, 22] = 14
+        // window so the transition is gentler.
+        assert!(LABEL_FADE_FULL_SCREEN_PX - LABEL_FADE_MIN_SCREEN_PX > 14.0);
+
+        // At the lower edge: zero readability (label is too small to read).
+        // The old test set this floor at the 8 px mark; the new lower bound
+        // (5 px) means tiny labels still get a brief sub-100% alpha trail
+        // before disappearing entirely.
+        assert_eq!(background_label_readability_alpha(5.0), 0.0);
+        assert!(background_label_readability_alpha(6.0) > 0.0);
+        assert!(background_label_readability_alpha(6.0) < 0.05);
+
+        // Midpoint: ~50% readability at the band midpoint.
+        let mid = (LABEL_FADE_MIN_SCREEN_PX + LABEL_FADE_FULL_SCREEN_PX) * 0.5;
+        let alpha_mid = background_label_readability_alpha(mid);
+        assert!(
+            (alpha_mid - 0.5).abs() < 0.01,
+            "smoothstep midpoint must be ~0.5, got {}",
+            alpha_mid
+        );
+
+        // Above the upper edge: full readability.
+        assert_eq!(background_label_readability_alpha(28.0), 1.0);
+        assert_eq!(background_label_readability_alpha(50.0), 1.0);
+    }
+
+    #[test]
+    fn density_opacity_band_widens_for_gentler_label_fade() {
+        // Per user 2026-05-12: density-driven label fade band widened from
+        // [0.58, 0.92] to [0.42, 0.95]. This means at the same density-scale
+        // input, the label retains MORE opacity — labels fade gradually as
+        // the local density climbs rather than disappearing in a narrow
+        // 0.34-wide step.
+        assert_eq!(label_density_opacity(0.42, false), 0.0);
+        assert!(label_density_opacity(0.50, false) > 0.0);
+        assert_eq!(label_density_opacity(0.95, false), 1.0);
+        assert_eq!(label_density_opacity(1.0, false), 1.0);
+        // Protected labels still bypass the fade entirely.
+        assert_eq!(label_density_opacity(0.0, true), 1.0);
+        assert_eq!(label_density_opacity(0.5, true), 1.0);
+        // Band-width invariant: ≥ 0.5 of the [0, 1] scale range, so the
+        // transition is decisively gentler than the prior 0.34-wide band.
+        let band_width = 0.95 - 0.42;
+        assert!(band_width >= 0.50);
     }
 
     #[test]

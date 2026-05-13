@@ -811,6 +811,16 @@ vertex NodeVertexOut node_vertex(
     float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
     float ndc_z = 0.5 - depth * 0.1;
 
+    // Per-node zoom-fade. As the user zooms OUT, each sprite's screen-space
+    // radius (= world radius × camera_zoom) shrinks. Below ~6 screen-pixels
+    // the sprite is approaching sub-pixel territory and a hard pop on cull
+    // creates the "large nodes disappear, small ones appear" pop the user
+    // reported. The smoothstep band [1.5, 6.5] fades alpha gracefully so the
+    // last few pixels of zoom-out feel like a wash, not a step. Above 6.5 px
+    // the factor is 1.0 — no visible impact on normal viewing distances.
+    float screen_radius_px = effective_radius * uniforms.camera_zoom;
+    float zoom_fade_alpha = smoothstep(1.5, 6.5, screen_radius_px);
+
     // Highlight flags: 0=normal, 1=highlighted (selected+neighbors), 2=dim-dark,
     // 3=dim-light, 5=glow-dim.
     uchar flag = highlight_flags[instance_id];
@@ -826,6 +836,7 @@ vertex NodeVertexOut node_vertex(
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
     out.color = inst.color;
+    out.color.a *= zoom_fade_alpha;
     out.uv = corner;
     out.depth = depth;
     out.highlight_dim = highlight_dim;
