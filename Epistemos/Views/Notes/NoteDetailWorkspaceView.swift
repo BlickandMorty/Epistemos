@@ -143,16 +143,24 @@ enum NoteWorkspaceSurfaceStyle {
     static let bottomPadding: CGFloat = 72
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
-        // RCA finalization 2026-05-13: route incoming theme through
-        // `surfaceVariant(.other)` so any pure-black hero palette
-        // (currently just OLED) softens into its non-hero variant
-        // (`.oledSoft`) when the canvas paints Notes/Outline/Epdoc/
-        // CodeEditor backgrounds. Other themes are identity-mapped.
+        // Eighth pass 2026-05-13: per user feedback "i want the note
+        // workspace to be the same color as the note when its in
+        // preview mode so it has like a dynamic color to it" — paint
+        // the workspace canvas with the same surface-variant softened
+        // theme that the prose editor + preview card both read from.
+        // Use `MarkdownPreviewSurfaceStyle.flatBackground` (= the
+        // preview card's actual paint = `theme.card.opacity(0.92|0.96)`)
+        // so the workspace background matches what the user sees on
+        // the note card in preview mode. On OLED this lifts from
+        // pure `0x000000` to the card grey (`rgba(28, 28, 32, 0.92)`
+        // after OLED→OLED-Soft surface routing); on every other theme
+        // the workspace inherits the theme's card tint dynamically
+        // (cream on Ember, violet on Platinum, etc.).
         let surfaceTheme = theme.surfaceVariant(.other)
         if surfaceTheme.usesNativeWindowBlur {
             return .clear
         }
-        return MarkdownPreviewSurfaceStyle.canvasBackground(for: surfaceTheme)
+        return MarkdownPreviewSurfaceStyle.flatBackground(for: surfaceTheme)
     }
 
     static func editorCardSize(for availableSize: CGSize) -> CGSize {

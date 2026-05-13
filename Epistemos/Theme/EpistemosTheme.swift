@@ -394,33 +394,28 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     /// Display (hero) font name resolved by (themePair, isDark).
-    /// Per user direction 2026-05-13 (seventh pass):
-    ///   Classic LIGHT → CoralPixels-Regular
-    ///   Classic DARK  → RetroGaming (CoralPixels doesn't read well
-    ///                   on the OLED/oledSoft backgrounds, so dark
-    ///                   mode swaps to the legacy retro face)
+    /// Per user direction 2026-05-13 (eighth pass):
+    ///   Classic       → RetroGaming across BOTH modes
+    ///                   (Coral retired — user feedback: "i actually
+    ///                   kinda rlly odnt like it")
     ///   Ember         → ColorBasic-Regular across both modes (case-
     ///                   driven box glyphs via `boxedLabelText`)
     ///   Platinum      → MatrixTypeDisplay-Regular across both modes
     nonisolated var displayFontName: String {
         switch themePair {
-        case .classic:        return isDark
-            ? AppDisplayTypography.legacyDisplayFontName
-            : AppDisplayTypography.coralDisplayFontName
+        case .classic:        return AppDisplayTypography.legacyDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
         case .ember:          return "ColorBasic-Regular"
         }
     }
 
     /// H1-H3 heading font name resolved by (themePair, isDark).
-    /// Seventh pass: Classic dark mode swaps Coral → RetroGaming for
-    /// the same readability reason. Ember stays on ChonkyPixels in
-    /// both modes (sixth pass). Platinum stays on MatrixType.
+    /// Eighth pass: Classic = RetroGaming on BOTH light + dark.
+    /// Ember stays on ChonkyPixels in both modes. Platinum stays
+    /// on MatrixType.
     nonisolated var headingFontName: String {
         switch themePair {
-        case .classic:        return isDark
-            ? AppDisplayTypography.legacyDisplayFontName
-            : AppDisplayTypography.coralDisplayFontName
+        case .classic:        return AppDisplayTypography.legacyDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
         case .ember:          return "ChonkyPixels"
         }
@@ -428,12 +423,10 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     /// Node-title font for the graph node inspector main heading.
     /// On Ember = ChonkyPixels (clean pixels, no case-driven boxes).
-    /// Classic dark mode also swaps to RetroGaming.
+    /// Classic = RetroGaming on BOTH modes (eighth pass).
     nonisolated var nodeTitleFontName: String {
         switch themePair {
-        case .classic:        return isDark
-            ? AppDisplayTypography.legacyDisplayFontName
-            : AppDisplayTypography.coralDisplayFontName
+        case .classic:        return AppDisplayTypography.legacyDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
         case .ember:          return "ChonkyPixels"
         }
@@ -441,13 +434,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     /// Caption font for footer/metadata text (e.g. note word count,
     /// "model-derived" badge, shortcut hints). Ember = MatrixTypeDisplay
-    /// to avoid case-driven boxes on a small caption. Classic dark
-    /// mode swaps Coral → RetroGaming.
+    /// to avoid case-driven boxes on a small caption. Classic =
+    /// RetroGaming on BOTH modes (eighth pass).
     nonisolated var captionFontName: String {
         switch themePair {
-        case .classic:        return isDark
-            ? AppDisplayTypography.legacyDisplayFontName
-            : AppDisplayTypography.coralDisplayFontName
+        case .classic:        return AppDisplayTypography.legacyDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
         case .ember:          return "MatrixTypeDisplay-Regular"
         }
@@ -1409,10 +1400,10 @@ enum AppDisplayTypography: Sendable {
     ///
     /// Reads `epistemos.theme.pair` from UserDefaults so the resolver
     /// doesn't require a theme parameter at every call site. Falls
-    /// back to coral (Classic) when the key is missing or unknown so
-    /// pre-2026-05-13 behavior is preserved for first-launch users.
-    /// The `isDark` parameter is now ignored — each theme's identity
-    /// face holds across both modes per the user's same-day direction.
+    /// back to RetroGaming (Classic) when the key is missing or unknown
+    /// so pre-2026-05-13 behavior is preserved for first-launch users.
+    /// The `isDark` parameter is ignored — each theme's identity face
+    /// holds across both modes per the user's eighth-pass direction.
     /// Theme-pair-aware display font resolver. Reads
     /// `epistemos.theme.pair` from UserDefaults so theme-agnostic
     /// callers (RootView hero, LandingView, NoteDetailWorkspaceView,
@@ -1420,17 +1411,17 @@ enum AppDisplayTypography: Sendable {
     /// theme's identity face without each call site needing a theme
     /// parameter.
     ///
-    /// 2026-05-13 seventh pass: `isDark` is now honored for Classic
-    /// only — Coral doesn't read well on OLED/oledSoft so dark mode
-    /// swaps to RetroGaming. Ember + Platinum keep their identity
-    /// face across both modes.
+    /// Eighth pass 2026-05-13: Classic = RetroGaming on BOTH light + dark
+    /// (CoralPixels retired per user feedback: "i actually kinda rlly
+    /// odnt like it"). Ember + Platinum keep their identity face across
+    /// both modes.
     nonisolated static func displayFontName(isDark: Bool) -> String {
         let raw = UserDefaults.standard.string(forKey: "epistemos.theme.pair") ?? ""
         switch raw {
         case "platinumViolet": return "MatrixTypeDisplay-Regular"
         case "ember":          return "ColorBasic-Regular"
-        case "classic":        return isDark ? legacyDisplayFontName : coralDisplayFontName
-        default:               return isDark ? legacyDisplayFontName : coralDisplayFontName
+        case "classic":        return legacyDisplayFontName
+        default:               return legacyDisplayFontName
         }
     }
 
@@ -1446,7 +1437,10 @@ enum AppDisplayTypography: Sendable {
     }
 
     nonisolated static func displayFontScale(isDark: Bool) -> CGFloat {
-        isDark ? legacyDisplayFontScale : coralDisplayFontScale
+        // Eighth pass 2026-05-13: Classic is RetroGaming (legacy)
+        // across BOTH modes now, so the scale is unified too.
+        _ = isDark
+        return legacyDisplayFontScale
     }
 
     nonisolated static var currentMode: AppDisplayMode {
