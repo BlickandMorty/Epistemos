@@ -50,25 +50,16 @@ final class ProseTextView2: NSTextView {
         if theme.followsSystemAppearance {
             return .clear
         }
-        // Eighth-pass fix (2026-05-13): per user "there is a second
-        // oled voerlay or somethign on the prose editor". Two stacked
-        // bugs were creating that effect:
-        //   (a) The prose editor was reading the raw `theme.background`
-        //       which is OLED-pure-black `0x000000`, while the
-        //       workspace canvas was already softening to OLED-Soft.
-        //   (b) Even with surface-variant softening, painting
-        //       `theme.background` paints a slightly different shade
-        //       than the workspace canvas (which now paints
-        //       `flatBackground` = card-color), creating a visible
-        //       layer.
-        // Fix: route through the SAME `surfaceVariant(.other)` + use
-        // `flatBackground` so the prose editor canvas paints the exact
-        // same color as the workspace canvas it sits inside. No more
-        // second OLED layer; the note feels like one continuous
-        // dynamic-themed surface.
+        // Eighth-pass + 1 (2026-05-13): per user feedback the prose
+        // editor needs to (a) match the workspace canvas color so there
+        // is no "second OLED overlay" and (b) be fully solid (alpha 1.0)
+        // so the WKWebView-style blur slot doesn't leak through.
+        // `solidFlatBackgroundNSColor` returns the card hue with alpha
+        // forced to 1.0 — exact same color the workspace canvas paints
+        // via `NoteWorkspaceSurfaceStyle.canvasBackground`. One
+        // continuous solid themed surface across editor + workspace.
         let surfaceTheme = theme.surfaceVariant(.other)
-        let bg = MarkdownPreviewSurfaceStyle.flatBackground(for: surfaceTheme)
-        return NSColor(bg)
+        return MarkdownPreviewSurfaceStyle.solidFlatBackgroundNSColor(for: surfaceTheme)
     }
 
     @MainActor

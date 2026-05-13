@@ -690,6 +690,23 @@ enum MarkdownPreviewSurfaceStyle {
         theme.card.opacity(theme.isDark ? 0.92 : 0.96)
     }
 
+    /// Eighth-pass+1 (2026-05-13): same hue as `flatBackground` but
+    /// alpha forced to 1.0. The Tiptap WKWebView in the Epdoc editor
+    /// is transparent (`drawsBackground = false`), so any opacity on
+    /// the surrounding canvas painted through SwiftUI shows through
+    /// as a "blur slot" where the desktop / system blur leaks in. Used
+    /// by `NoteWorkspaceSurfaceStyle.canvasBackground` so the workspace
+    /// canvas paints a fully opaque card hue with no see-through, per
+    /// user feedback "can i turn that blur … or do i just make the
+    /// color be full solid".
+    static func solidFlatBackground(for theme: EpistemosTheme) -> Color {
+        Color(nsColor: solidFlatBackgroundNSColor(for: theme))
+    }
+
+    static func solidFlatBackgroundNSColor(for theme: EpistemosTheme) -> NSColor {
+        theme.resolved.card.nsColor.withAlphaComponent(1.0)
+    }
+
     static func borderOpacity(isDark: Bool) -> Double {
         isDark ? 0.18 : 0.12
     }

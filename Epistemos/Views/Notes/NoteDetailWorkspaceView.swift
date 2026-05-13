@@ -143,24 +143,30 @@ enum NoteWorkspaceSurfaceStyle {
     static let bottomPadding: CGFloat = 72
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
-        // Eighth pass 2026-05-13: per user feedback "i want the note
-        // workspace to be the same color as the note when its in
-        // preview mode so it has like a dynamic color to it" — paint
-        // the workspace canvas with the same surface-variant softened
-        // theme that the prose editor + preview card both read from.
-        // Use `MarkdownPreviewSurfaceStyle.flatBackground` (= the
-        // preview card's actual paint = `theme.card.opacity(0.92|0.96)`)
-        // so the workspace background matches what the user sees on
-        // the note card in preview mode. On OLED this lifts from
-        // pure `0x000000` to the card grey (`rgba(28, 28, 32, 0.92)`
-        // after OLED→OLED-Soft surface routing); on every other theme
-        // the workspace inherits the theme's card tint dynamically
-        // (cream on Ember, violet on Platinum, etc.).
+        // Eighth pass + 1 (2026-05-13): paint the workspace canvas
+        // with the SOLID variant of the preview-card hue. Three
+        // requirements stack here:
+        //   1. User wanted the workspace to match the preview card
+        //      color dynamically per theme (eighth pass).
+        //   2. User then noticed the Tiptap WKWebView (`drawsBackground
+        //      = false`) was leaking the desktop / system blur through
+        //      the canvas because `theme.card` carries a baked-in
+        //      0.88-0.92 alpha in most theme palettes, on top of the
+        //      0.92-0.96 opacity `flatBackground` was multiplying in.
+        //      That gave an effective ~0.85 alpha → visible blur slot.
+        //   3. User asked: "can i turn that blur … or do i just make
+        //      the color be full solid" — yes, solid.
+        // Fix: `solidFlatBackground` returns the same card hue with
+        // alpha forced to 1.0 via `NSColor.withAlphaComponent(1.0)`,
+        // so the workspace paints a fully opaque themed surface with
+        // zero see-through. Preview cards keep their own translucent
+        // `flatBackground` so they retain the subtle visual lift over
+        // the (now-solid) canvas.
         let surfaceTheme = theme.surfaceVariant(.other)
         if surfaceTheme.usesNativeWindowBlur {
             return .clear
         }
-        return MarkdownPreviewSurfaceStyle.flatBackground(for: surfaceTheme)
+        return MarkdownPreviewSurfaceStyle.solidFlatBackground(for: surfaceTheme)
     }
 
     static func editorCardSize(for availableSize: CGSize) -> CGSize {
