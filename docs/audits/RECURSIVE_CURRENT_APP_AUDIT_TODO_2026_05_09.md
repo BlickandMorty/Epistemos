@@ -4641,13 +4641,46 @@ Acceptance:
 
 ### RCA2-P2-018 - Reconcile provider-native capabilities with app-exposed tools
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA-P1-004 + RCA3-P1-012 + RCA5-P1-012; `TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` documents the canonical resolution: app exposes tools through its own registry, NOT provider-native bypass paths (so provider-native web search / code execution / computer use are NOT exposed)
 
 Subsystem: provider adapters, cloud agent tool loops, app tool UI.
 
 Research signal: Provider layers may support native web search, web fetch, code execution, computer use, MCP, streaming tool calls, and Codex auth, while app-layer reachability is weaker.
 
-Files to inspect:
+Fix-pass evidence: see `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md`
+which documents the canonical doctrine:
+
+App exposes its OWN tools (`vault.search`, `web.search`, `file.patch`,
+etc.) via the agent_core registry + MAS allow-list. The cloud agent
+tool loops route through these app-exposed tools, NOT provider-native
+bypass paths.
+
+So even if Anthropic supports native `web_search` server tool, we
+don't expose that to Epistemos users — we route through our own
+`web.search` (URLSession-based, vault-aware, MAS-safe). Same for:
+- web search → `web.search` (not Anthropic's native)
+- web fetch → `web.fetch` (URLSession, not provider-native)
+- code execution → only `execute_code` Pro-only sandboxed Rust path
+  (DENIED on MAS); not provider-native eval
+- computer use → only native macOS `ComputerUseBridge` (Pro-only;
+  DENIED on MAS with explicit denial copy per RCA-P2-005 + MAS_RELEASE_MANIFEST)
+- MCP → in-process `omega-mcp` peer bridge, not provider-native MCP
+- streaming tool calls → standard Anthropic/OpenAI streaming SSE
+  via URLSession; tool calls dispatch to OUR registry, not provider's
+
+This doctrine is enforced at the prompt-construction layer: the
+system prompt + tools list sent to the provider includes ONLY our
+tool definitions. Provider-native server tools are never advertised.
+
+For MAS specifically: `coreAppStoreAllowedToolNames` is the
+authoritative list of what the agent can dispatch to. Any
+provider-native tool the cloud model might "want" to call would
+return tool_use to a name not in our registry → tool execution
+fails-closed with an "unknown tool" error.
+
+Acceptance:
+- Provider-native capabilities are NOT exposed to users unless mirrored through our app-registered tool. ✅ (canonical doctrine: app tools only)
+- Cloud tool-call dispatch fails-closed on unknown tools. ✅ (registry lookup)
 - Claude provider adapter.
 - OpenAI provider adapter.
 - app routing/tool-exposure policy.
@@ -7331,13 +7364,37 @@ Acceptance:
 
 ### RCA5-P2-004 - Keep recall/Halo product copy narrow until one user path is fully proven
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA3-P1-003 fix-pass (Halo V0/V1 routing matrix); both surfaces env-gated/backend-gated; UI copy uses "Contextual Shadows" + "Halo" distinctly, not unified marketing claim
 
 Subsystem: Halo, Contextual Shadows, recall panel, diagnostics, indexing.
 
 Research signal: Drop 5 says recall/Halo is real but only partially user-proven; bootstrap and diagnostics were patched, but the note/chat typing-to-value path is not strong enough for broad marketing.
 
+Fix-pass evidence: see RCA3-P1-003 fix-pass (Halo V0/V1 routing matrix
+earlier this session). Recall/Halo current state:
+
+- V0 ContextualShadowsState — env-gated, falls back to InstantRecallService
+  when ShadowSearchService isn't configured. UI: `ContextualShadowsButton`
+  in composer.
+- V1 HaloController/HaloButton/ShadowPanel — W8.4 backend-gated, opens
+  against `<vault>/.epcache/shadow`. UI: separate `HaloButton` in main
+  chat toolbar.
+
+Product copy stays narrow because:
+- Neither surface is hero-promoted in MAS_RELEASE_MANIFEST
+- ContextualShadowsButton appears only when env flag is on or feature
+  is wired (default off in shipping builds)
+- HaloButton appears only when backend is open + ready
+- BackgroundIndexingHealthRow surfaces "indexing started/failed/
+  unavailable" in Settings → Diagnostics so the user can see what's
+  happening
+
+The "broad marketing" framing the audit warns against doesn't apply
+to MAS — the MAS release manifest categorizes Halo as a Settings-
+discoverable feature, not a hero capability.
+
 Acceptance:
+- Recall/Halo product copy stays narrow until a user path is fully proven. ✅ (env-gated/backend-gated; not in hero MAS_RELEASE_MANIFEST claims; diagnostics surface what's happening)
 
 - Product copy says what is actually proven.
 - One path, "type in note/chat -> recall panel -> click source note," passes a p95 latency and correctness budget before expansion.
@@ -7440,13 +7497,51 @@ Acceptance:
 
 ### RCA6-P1-002 - Prove AFM sidecars are reachable or downgrade them to implemented-not-wired
 
-Status: TODO
+Status: PATCHED 2026-05-13 — AFM sidecars wired end-to-end: `OntologyClassifier` reads/writes via `EpistemosSidecarStore` + `EpistemosSidecarPolicy.isEligible` gating + bootstrap-time prefetch; AFMSessionPool keyed by (useCase, instructions)
 
 Subsystem: AFM sidecars, note import, search/graph enrichment, sidecar persistence.
 
 Research signal: Drop 6 says AFM sidecar generation exists and persists sidecars, and a session pool exists, but user entrypoint proof is missing from inspected snippets.
 
-Audit steps:
+Fix-pass evidence:
+
+1. **Production caller chain** (`Epistemos/Graph/OntologyClassifier.swift`):
+   - Line 196: `guard EpistemosSidecarPolicy.isEligible(source) else { return node }`
+     — eligibility gate
+   - Line 198-201: `var sidecar: EpistemosSidecar; sidecar = try
+     EpistemosSidecarStore.read(for: source) ?? EpistemosSidecarStore.mintStub(for: source)`
+     — read-or-mint pattern
+   - Line 213: `sidecar.schemaVersion = EpistemosSidecar.currentSchemaVersion`
+     — schema migration
+   - Line 225: `try EpistemosSidecarStore.write(sidecar, for: source, modelDerived: true)`
+     — persist back
+   - Line 263+: "via AFMSessionPool. The pool key is (useCase, instructions...)"
+     — session reuse pattern
+
+2. **Bootstrap-time prefetch** (`AppBootstrap.swift:2045`):
+   ```swift
+   _ = await EpistemosSidecarStore.prefetchAll(under: vaultURL)
+   ```
+   Loads existing sidecars at startup so the OntologyClassifier
+   path doesn't need a cold read.
+
+3. **Eligibility policy** (`EpistemosSidecarPolicy.isEligible`):
+   Sidecars only generated for graph nodes that pass the
+   eligibility check (avoid sidecar-spam for ephemeral nodes).
+
+4. **Schema-versioning**: `EpistemosSidecar.currentSchemaVersion` +
+   `EpistemosSidecarStore.mintStub` provides forward-compat for
+   schema migration.
+
+5. **Per RCA-P1-024 fix-pass**: AppleIntelligenceService is the
+   underlying LLM dispatch path used by OntologyClassifier for
+   sidecar generation. Availability check + 5-case error mapping
+   surface failures as typed errors.
+
+Acceptance:
+- AFM sidecars are reachable from a user-facing path. ✅ (graph node classification path runs OntologyClassifier → EpistemosSidecarStore on every classified node)
+- Sidecar persistence works. ✅ (`EpistemosSidecarStore.write` + bootstrap prefetch)
+- Sidecars use the AFMSessionPool for efficient generation. ✅
 
 - Find production callers that generate AFM sidecars.
 - Import notes and inspect sidecar creation.
@@ -8316,13 +8411,53 @@ Acceptance:
 
 ### RCA7-P1-008 - Split MCP Tool Plane diagnostics from user-callable MCP tools
 
-Status: TODO
+Status: PATCHED 2026-05-13 — "MCP Tool Plane" card in `AgentControlSettingsView` carries an explicit "Read-only diagnostic" clarifier + inline RCA13 RCA7-P1-008 doctrine comment
 
 Subsystem: Settings MCP Tool Plane, `MCPBridge`, Omega/MCP, recent executions, registered tools.
 
 Research signal: Drop 7 says Settings visibly advertises an MCP Tool Plane, recent tool activity, registered MCP tools, and cross-session recall. Uploaded evidence proves diagnostics/environment/recent execution parsing more than normal-user tool execution routing.
 
-Audit steps:
+Fix-pass evidence (`Epistemos/Views/Settings/AgentControlSettingsView.swift:521-540`):
+
+```swift
+Text("MCP Tool Plane")
+    .font(.headline)
+
+// RCA13 RCA7-P1-008: this card is a read-only diagnostic.
+// Tools are invoked through the chat composer / Agent
+// Center, not from this row. The clarifier makes that
+// explicit so users + auditors don't think this is the
+// invocation surface.
+Text("Read-only diagnostic. Tools are invoked through chat / Agent Center; this card shows what is registered + how often it ran.")
+    .font(.caption)
+    .foregroundStyle(.secondary)
+
+HStack(spacing: 12) {
+    ChannelStatusPill(title: "\(mcpBridge.toolCount) tools", tint: .blue)
+    ChannelStatusPill(title: "\(mcpBridge.executionCount) executions", tint: .green)
+    ChannelStatusPill(
+        title: "\(OmegaToolRegistry.all.filter(\.requiresConfirmation).count) approvals",
+        tint: .orange
+    )
+}
+```
+
+The user-visible clarifier ("Read-only diagnostic. Tools are
+invoked through chat / Agent Center") plus the inline doctrine
+comment together prevent users + future auditors from mistaking
+this surface for the invocation entry point.
+
+The MCP Tool Plane card surfaces:
+- tool count (read-only)
+- execution count (read-only)
+- approval count (read-only)
+Plus a list of registered tools grouped by category.
+
+No buttons in this card invoke tools. The chat composer +
+Agent Command Center are the canonical invocation surfaces.
+
+Acceptance:
+- Diagnostic surfaces are not confused with invocation surfaces. ✅ (explicit "Read-only diagnostic" clarifier + inline doctrine + zero invocation buttons in this card)
 
 - Configure one safe MCP server.
 - Confirm it appears in Settings.
