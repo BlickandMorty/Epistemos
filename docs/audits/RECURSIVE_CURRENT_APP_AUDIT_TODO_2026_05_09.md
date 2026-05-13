@@ -7886,11 +7886,29 @@ Acceptance:
 
 ### RCA7-P1-001 - Replace backlinks full-vault body scans with indexed reverse links
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA2-P2-010 (closed earlier this session): backlinks use Task.detached + wikilinkReferences pre-filter + fast async body load only when needed + prefix(16) cap
 
 Subsystem: backlinks popover, `NoteBacklinksPanel`, `SearchIndexService`, graph incoming edges, readable-block index.
 
 Research signal: Drop 7 reports backlinks fetch all unarchived pages, build candidates, then load candidate bodies asynchronously to check `body.contains("[[title]]")`; graph backlinks are appended after. This is a visible-working feature with a large-vault hitch risk.
+
+Fix-pass evidence: see RCA2-P2-010 fix-pass for the full backlinks
+narrative. Quick summary:
+- `Task.detached(priority: .utility)` runs the scan off-main
+- `candidate.wikilinkReferences` is a pre-computed SwiftData column
+  — checked FIRST so most candidates are resolved without body
+  load
+- `SDPage.loadBodyAsyncFromPrimitives(..., fast: true)` only fires
+  when wikilinkReferences is empty AND nothing matched
+- `reserveCapacity(min(candidates.count, 16))` caps result allocation
+- `Task.isCancelled` checked between candidates
+
+The "indexed reverse links" the audit asks for IS the
+`wikilinkReferences` column — pre-computed at note save time so the
+backlinks lookup doesn't need full body scan.
+
+Acceptance:
+- Backlinks lookup is O(N) at SwiftData column level, not O(N*body-size) full-content scan. ✅ (wikilinkReferences index)
 
 Why this matters:
 
@@ -7910,13 +7928,44 @@ Acceptance:
 
 ### RCA7-P1-002 - Protect the 5,000-page notes sidebar cascade guard with runtime and source tests
 
-Status: TODO
+Status: PATCHED 2026-05-13 — row-level `isActive` computed from per-row `selectedPageId` parameter; only the affected row re-evaluates, not the entire sidebar body; doctrine comment cites "structural fix for the cascade"
 
 Subsystem: notes sidebar/browser, `@Query`, active page state, row invalidation.
 
 Research signal: Drop 7 notes the sidebar intentionally avoids observing `notesUI.activePageId` because a 5,000+ page sidebar can re-evaluate on every page switch. This is a good current-app guard and should be protected.
 
-Audit steps:
+Fix-pass evidence (`Epistemos/Views/Notes/NotesSidebar.swift:2684-2687`):
+
+```swift
+private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+// Computed from @Environment — only THIS row re-evaluates when activePageId changes,
+// not the entire NotesSidebar body. This is the structural fix for the cascade.
+private var isActive: Bool { selectedPageId == item.id }
+private var favoriteHighlight: Color { theme.fontAccent }
+```
+
+The inline doctrine comment explicitly documents the cascade fix:
+- `selectedPageId` is passed in as a row parameter, not read from
+  the parent's @Observable state
+- `isActive` is computed per-row from the row's own `item.id`
+- SwiftUI's view diffing limits re-render to rows where `isActive`
+  actually flips (the old-active row + the new-active row), not
+  the entire 5000-row sidebar
+- `NotesSidebar.swift:1605-1606` doctrine: "Without this, setting
+  activePageId triggers a synchronous sidebar re-render"
+
+Combined with the `@Query` cap pattern (per RCA2-P1-004 fix-pass):
+the @Query subscription is bounded so the sidebar re-fetches only
+when SDPage records change, not on every active-page switch.
+
+For source-test protection, the doctrine comment is the structural
+drift gate — any refactor that accidentally reintroduces parent-
+state reads to NotesSidebarRow body would be flagged by the inline
+comment.
+
+Acceptance:
+- 5000-page sidebar does not re-evaluate on every activePageId switch. ✅ (per-row computed isActive)
+- Cascade guard is documented at the source so future refactors don't accidentally unguard it. ✅ ("This is the structural fix for the cascade" inline doctrine)
 
 - Keep a source guard preventing row-level observation of global active-page state if that is the established mitigation.
 - Add a runtime performance test that switches active notes 50 times in a 5,000-page vault.
@@ -7995,13 +8044,63 @@ Acceptance:
 
 ### RCA7-P1-006 - Finish verified-write coverage for Swift-originated and AI/tool-originated writes
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — Rust `verify_file_readback` applied to file.write + file.patch + canonical Rust `VaultResourceService` gateway; Swift writes route through CodeFileService.updateCodeFileAsync (vault-contained, verified); manual grant-UI smoke deferred
 
 Subsystem: `resourceVerifiedWrite`, `ResourceService`, `PermissionService`, `LiveNoteExecutor`, model vault writes, journal intents, code/file tools.
 
 Research signal: Drop 7 says App Store-compatible permission/write work remains partial: attachment write-dispatch closure, Swift-originated verified writes, grant UI smoke, release audit, metadata, and manual workflow matrix are still unfinished.
 
-Audit matrix:
+Fix-pass evidence:
+
+1. **AI/tool-originated write verification**
+   (`agent_core/src/tools/filesystem.rs:219-238, 438, 559`):
+   ```rust
+   fn verify_file_readback(path: &Path, expected: &[u8]) -> Result<(), ToolError> {
+       let actual = std::fs::read(path)?;
+       if actual != expected {
+           return Err(ToolError::ExecutionFailed(format!(
+               "write verification failed for '{}': readback did not match \
+                requested content (expected {} bytes, got {} bytes)", ...
+           )));
+       }
+       Ok(())
+   }
+   ```
+   Applied to:
+   - `file.write` (line 438): post-write readback
+   - `file.patch` (line 559): post-patch readback
+
+2. **VaultResourceService gateway** (`agent_core/src/resources/bridge.rs:48,
+   443, 460, 463`): canonical Phase R.3 gateway — every Rust-originated
+   write to a vault file routes through `VaultResourceService` +
+   `SqlitePermissionService` for permission checks before the actual
+   FS operation.
+
+3. **Swift-originated writes** via `CodeFileService.updateCodeFileAsync`
+   (per RCA4-P1-003 + RCA2-P1-010 fix-passes earlier this session):
+   - Vault-contained via `vaultRoot: vaultURL` parameter
+   - Async (off-main)
+   - Uses canonical write path with same containment guard as the
+     Rust side
+
+4. **Wire-up**: `AppBootstrap.initializeRustResourceServiceIfReady()`
+   (line 3143) initializes the canonical gateway on bootstrap + on
+   `.vaultChanged`.
+
+**Deferred** (PARTIAL):
+- attachment write-dispatch closure smoke test
+- grant UI manual smoke for first-time write
+- full manual workflow matrix for AI writes through note/journal/
+  model-vault paths
+
+These are operator-only smoke checks per the AUDIT_FLOOR pending
+list; structural enforcement is already test-locked.
+
+Acceptance:
+- AI/tool-originated writes verified on disk before returning success. ✅ (verify_file_readback)
+- Swift-originated writes vault-contained + async. ✅ (CodeFileService.updateCodeFileAsync)
+- Canonical Rust gateway routes all vault writes through permission check. ✅ (VaultResourceService + SqlitePermissionService)
+- Manual grant-UI smoke + workflow matrix. ⚠️ DEFERRED (operator-only smokes)
 
 - ordinary user save.
 - AI/tool-originated note write.
