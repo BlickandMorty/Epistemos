@@ -262,7 +262,11 @@ extension AnswerPacketEmitter {
     /// - `.appleIntelligence` → `.dynamic` (FoundationModels is a
     ///   transformer).
     /// - Unknown local model id → `.unavailable`.
-    public static func resolveAttentionMode(
+    /// Internal because `ChatModelSelection` is module-internal —
+    /// promoting this resolver to `public` would require also exporting
+    /// `ChatModelSelection` from `InferenceState.swift`, which isn't
+    /// needed for any current consumer.
+    internal static func resolveAttentionMode(
         selection: ChatModelSelection
     ) -> AttentionMode {
         switch selection {
