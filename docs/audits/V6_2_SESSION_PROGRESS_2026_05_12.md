@@ -177,14 +177,23 @@ In priority order by visible-user-value:
      message-finalize time.
 
 2. **Cognitive substrate hooks for the unwired signals:**
-   - **WBO** (witnessed-Bayes-outcome) from `ClaimLedger`. Delta in
-     claim confidence since last turn → sampler input.
+   - ~~**WBO** (witnessed-Bayes-outcome) from `ClaimLedger`. Delta in
+     claim confidence since last turn → sampler input.~~ **LANDED
+     `42c12b6fd` 2026-05-12** via `WBOSubstrateObserver` on top of
+     the existing `RustProvenanceLedgerClient.summary().eventCount`
+     FFI. Priming contract (first call returns 0 so we never report
+     a "huge delta" against a long-running ledger), 8-event
+     saturation scale (V6.2 §1.5 task 21-23 expected range),
+     backwards-ledger zero guard, OSAllocatedUnfairLock for
+     concurrent agentic turns. 6 new tests + 2 existing tests
+     reset-primed.
    - **sheafResidual** from cognitive DAG. Local incoherence in the
      claim graph → sampler input.
    - **connectomeAlarm** from routing layer. Per-turn divergence from
      planned route → sampler input.
    Each of these elevates `InterruptScoreCpu.sampleTurnBucket` from
-   "coarse heuristic" to "V6.2 §1.5-calibrated."
+   "coarse heuristic" to "V6.2 §1.5-calibrated." WBO is now live;
+   the remaining two stay at 0 until their hooks land.
 
 3. **Rust-side `agent_core::scope_rex::AnswerPacket` production caller.**
    Today the Rust schema is defined but only test code calls
