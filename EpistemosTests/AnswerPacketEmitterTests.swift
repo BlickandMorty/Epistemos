@@ -35,18 +35,36 @@ struct AnswerPacketEmitterTests {
         #expect(last?.id == packet.id)
     }
 
-    @Test("turnCompletionStub builds a packet with V6.2 first-wiring defaults")
-    func stubCarriesFirstWiringDefaults() {
+    @Test("turnCompletionStub builds a packet with V6.2 canonical-product-surface defaults")
+    func stubCarriesCanonicalProductSurfaceDefaults() {
         let packet = AnswerPacket.turnCompletionStub(
             stopReason: "end_turn",
             inputTokens: 12,
             outputTokens: 34
         )
 
-        // V6.2 first-wiring: schema present, but claims/signals are
-        // empty until Rust-side FFI threads real values through.
+        // V6.2 canon (state: canonical-product-surface, landed
+        // 2026-05-13): claims and residency come from the Rust
+        // production caller, not the Swift stub. Every turn carries
+        // at least one Empirical self-witness claim and one neutral
+        // residency signal — these are the canon-required minimums.
+        // The fallback Swift-only path (empty claims) only fires when
+        // agent_coreFFI is unlinked.
+        #if canImport(agent_coreFFI)
+        #expect(!packet.claims.isEmpty,
+            "Rust producer must emit at least one Empirical self-witness claim when agent_coreFFI is linked; got \(packet.claims.count) claims")
+        #expect(packet.claims.contains { $0.kind == .empirical },
+            "self-witness claim must be Empirical-kind; got kinds \(packet.claims.map(\.kind))")
+        #expect(!packet.residencySignals.isEmpty,
+            "Rust producer must emit at least one neutral residency signal when agent_coreFFI is linked")
+        #else
+        // Fallback path: when the FFI isn't linked the Swift stub
+        // emits empty claims, matching the legacy V6.2 first-wiring
+        // contract.
         #expect(packet.claims.isEmpty)
         #expect(packet.residencySignals.isEmpty)
+        #endif
+
         // Attention mode starts at .unavailable per first-wiring contract;
         // a subsequent commit populates this from the live agent path.
         #expect(packet.attentionMode == .unavailable)
@@ -61,6 +79,62 @@ struct AnswerPacketEmitterTests {
         // can join them on a single key.
         #expect(packet.mutationEnvelopeRef == packet.id)
     }
+
+    #if canImport(agent_coreFFI)
+    @Test("turnCompletionStub stamps the Swift-side interruptBucket on top of the Rust-produced packet")
+    func stubStampsInterruptBucketOnRustProducedPacket() {
+        // V6.2 §1.5: the Rust producer doesn't compute interruptBucket
+        // (the Swift-side InterruptScoreCpu observers own it). The
+        // consumer wiring must stamp the Swift-computed bucket onto
+        // the decoded Rust packet so the audit channel carries both
+        // the canonical claims AND the runtime bucket.
+        let packet = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 50,
+            outputTokens: 100,
+            attentionMode: .dynamic,
+            interruptBucket: .high
+        )
+        #expect(packet.interruptBucket == .high,
+            "Swift-computed interruptBucket must survive the Rust round-trip; got \(packet.interruptBucket)")
+        #expect(packet.attentionMode == .dynamic,
+            "Caller-specified attentionMode must round-trip through the Rust producer")
+    }
+
+    @Test("turnCompletionStub: tool_use stop_reason produces a second Empirical claim documenting the tool call")
+    func stubToolUseEmitsTwoEmpiricalClaims() {
+        let packet = AnswerPacket.turnCompletionStub(
+            stopReason: "tool_use",
+            inputTokens: 25,
+            outputTokens: 75,
+            attentionMode: .dynamic
+        )
+        #expect(packet.claims.count == 2,
+            "tool_use turn must carry two Empirical claims (self-witness + tool-use); got \(packet.claims.count)")
+        #expect(packet.claims.allSatisfy { $0.kind == .empirical })
+        #expect(packet.claims.contains { $0.text.contains("tool execution") },
+            "one claim must document the tool execution; got texts \(packet.claims.map(\.text))")
+    }
+
+    @Test("turnCompletionStub: static_fallback attentionMode emits the doctrine-required acknowledgement claim")
+    func stubStaticFallbackEmitsAckClaim() {
+        let packet = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 25,
+            outputTokens: 75,
+            attentionMode: .staticFallback
+        )
+        // V6.2 doctrine: a static-fallback turn MUST carry a
+        // StaticFallbackAcknowledged claim, otherwise the packet
+        // fails `acknowledgesStaticFallback`.
+        #expect(packet.claims.contains { $0.kind == .staticFallbackAcknowledged },
+            "static_fallback packet must carry a StaticFallbackAcknowledged claim")
+        #expect(packet.acknowledgesStaticFallback,
+            "static_fallback packet must pass acknowledgesStaticFallback after Rust producer wiring")
+        #expect(packet.attentionModeClaimsAreConsistent,
+            "static_fallback packet must pass the attentionMode↔claim consistency invariant")
+    }
+    #endif
 
     @Test("Ring buffer evicts oldest packet beyond maxRingSize")
     func ringBufferEvictsOldest() async {
