@@ -76,8 +76,14 @@ struct LandingGreetingPhrase: Equatable, Sendable {
 
 enum LandingGreetingResolver {
     static let defaultPlaylist: [LandingGreetingPhrase] = {
+        // 2026-05-13 stacked-greeting refresh: the hero now renders the
+        // "Greetings, / Researcher" two-line greeting permanently above
+        // the rotating phrase rail, so the playlist must NOT lead with
+        // the same string (that would re-type it underneath the hero
+        // and read as a duplicate). The opening rail now leads with a
+        // softer prompt that complements the hero instead of repeating
+        // it.
         let opening: [LandingGreetingPhrase] = [
-            LandingGreetingPhrase(text: LiquidGreeting.restingGreeting, durationSeconds: 2.8),
             LandingGreetingPhrase(text: "What's on your mind?", durationSeconds: 2.4),
         ]
 

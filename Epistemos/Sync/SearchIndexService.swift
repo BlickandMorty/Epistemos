@@ -1648,15 +1648,32 @@ actor SearchIndexService {
 
         try dbPool.write { db in
             // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement reused across batch.
-            let stmt = try db.cachedStatement(sql: """
-                INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    title = excluded.title,
-                    body = excluded.body,
-                    tags = excluded.tags,
-                    updatedAt = excluded.updatedAt
-            """)
+            // 2026-05-13 hardening: switched from `cachedStatement` to a
+            // freshly-prepared `makeStatement` for the batch. The cached
+            // statement was occasionally left in a SQLITE error-state
+            // after a row-level failure (constraint violation, large-blob
+            // boundary, etc.), and the NEXT call to upsertPages would
+            // retrieve the same cached statement and trip "invalid reuse
+            // after initialization failure" because GRDB's reset path
+            // returns the lingering step error. Preparing once per batch
+            // costs a single `sqlite3_prepare_v2` but eliminates the
+            // cross-call statement reuse hazard. Logged with `log.error`
+            // on failure so future reproductions surface in Console.app.
+            let stmt: Statement
+            do {
+                stmt = try db.makeStatement(sql: """
+                    INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        title = excluded.title,
+                        body = excluded.body,
+                        tags = excluded.tags,
+                        updatedAt = excluded.updatedAt
+                """)
+            } catch {
+                self.log.error("SearchIndexService.upsertPages prepare failed: \(String(describing: error), privacy: .public)")
+                throw error
+            }
             for page in pages {
                 stmt.setUncheckedArguments([
                     page.id,
@@ -1665,7 +1682,12 @@ actor SearchIndexService {
                     page.tags,
                     page.updatedAt.timeIntervalSinceReferenceDate,
                 ])
-                try stmt.execute()
+                do {
+                    try stmt.execute()
+                } catch {
+                    self.log.error("SearchIndexService.upsertPages execute failed for id=\(page.id, privacy: .public): \(String(describing: error), privacy: .public)")
+                    throw error
+                }
             }
         }
         Self.notifyIndexChanged([.searchPages])

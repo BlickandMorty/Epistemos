@@ -258,7 +258,10 @@ struct LiquidGreeting: View {
                     .font(phraseFont)
                     .foregroundStyle(phraseColor)
                     .lineLimit(1)
-                    .padding(.top, compact ? 4 : 10)
+                    // 2026-05-13 per user direction: drop the rotating
+                    // phrase rail lower so it reads as a sub-line under
+                    // the hero, not as a third stacked greeting line.
+                    .padding(.top, compact ? 12 : 32)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
