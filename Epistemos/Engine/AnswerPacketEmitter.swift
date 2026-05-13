@@ -1,43 +1,43 @@
 // AnswerPacketEmitter.swift
 //
-// V6.2 first wiring for the AnswerPacket audit channel.
+// V6.2 AnswerPacket audit channel — turn-level emit + observability.
 //
 // Per `docs/fusion/helios v6.2.md` §1.3 + §3 and the laptop audit
-// checklist (`docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md`
-// "Next Required Passes"), the AnswerPacket type is currently
-// `state: implemented, not state: wired` — the schema is defined in
-// `Epistemos/Models/AnswerPacket.swift` but no live agent path emits a
-// packet at turn completion. This module is the FIRST WIRING: it records
-// a packet per chat-turn completion in a bounded ring buffer for
-// diagnostic, debug, and replay-export consumption.
+// checklist (`docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md`):
+// every chat-turn completion produces one AnswerPacket, recorded in a
+// bounded 32-packet ring for diagnostic, debug, and replay-export
+// consumption.
 //
 // What this module IS:
 //   * A turn-level audit sink. Every `StreamingDelegate.onComplete` call
-//     produces one packet recorded here.
+//     produces one packet emitted here (`emit(packet)`).
 //   * Thread-safe (actor isolation).
-//   * Bounded (ring buffer of last 32 packets) so a long-running session
-//     can't memory-leak.
-//   * Observable via `count`, `last`, and `recentPackets()` for future
-//     diagnostics-row consumption.
+//   * Bounded (32-packet ring) so a long-running session can't
+//     memory-leak.
+//   * Observable via `snapshot()` + `didEmitNotification` so the
+//     Settings diagnostics row + `LatestAnswerPacketSink` (the
+//     MainActor mirror that feeds MessageBubble's chip row) refresh
+//     event-driven, not polled.
+//   * Source for per-mode + per-bucket monotonic histograms (V6.2
+//     §1.4 attention modes and §1.5 calibration corpus buckets).
 //
-// What this module is NOT (yet, by design):
-//   * The Rust-side `AnswerPacket::new` builder (`agent_core/src/
-//     scope_rex/answer_packet.rs`) is not yet wired into the agent
-//     runtime. Claims / residency signals / witnessedStateRef are
-//     populated with neutral / placeholder values at this layer. A
-//     follow-on commit will pull these from FFI.
-//   * VRMLabelView consumption on the message bubble is a separate
-//     commit. Today the packet is recorded but not rendered. This
-//     module is the audit-channel piece; the visual piece is the
-//     orthogonal "label visible per bubble" follow-on.
+// State 2026-05-12 (`state: rendered FULL`):
+//   ✓ chat path emits packet per turn at StreamingDelegate.onComplete
+//   ✓ attention_mode populated from live InferenceState
+//   ✓ interrupt_bucket sampled via InterruptScoreCpu.sampleTurnBucket
+//   ✓ packet id threaded to ChatMessage.answerPacketId (Option B)
+//   ✓ MessageBubble renders VRMLabelView + attention + bucket chips
+//   ✓ Settings → Diagnostics shows count + histograms
 //
-// Promotion ladder per the canon-hardening protocol:
-//
-//   today:        state: emitted (first wiring — this commit)
-//   next commit:  state: populated (Rust-side claims + attention_mode
-//                                   threaded through via FFI)
-//   later commit: state: rendered (VRMLabelView per message bubble)
-//   release:      state: canonical-product-surface (ship in MAS build)
+// What's still pending for `state: canonical-product-surface`:
+//   * Persisting the packet alongside the ChatMessage so scrollback
+//     past the 32-packet ring still renders chips.
+//   * Rust-side `agent_core::scope_rex::AnswerPacket::new` production
+//     caller so claims + residency signals come from the live agent
+//     runtime instead of empty placeholders.
+//   * Substrate hooks: WBO (claim ledger), sheafResidual (cognitive
+//     DAG), connectomeAlarm (routing layer) — currently default 0 in
+//     `InterruptScoreCpu.sampleTurnBucket`.
 
 import Foundation
 import os
