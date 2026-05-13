@@ -309,6 +309,73 @@ struct AnswerPacketEmitterTests {
         #expect(twoEmits.latest?.id == second.id)
     }
 
+    @Test("Snapshot modeCounts + bucketCounts track per-emit histograms")
+    func snapshotTracksHistograms() async {
+        let emitter = await freshEmitter()
+
+        // Emit 3 dynamic + 1 staticFallback packet with different buckets.
+        let plans: [(AttentionMode, InterruptBucket)] = [
+            (.dynamic, .low),
+            (.dynamic, .low),
+            (.dynamic, .medium),
+            (.staticFallback, .high),
+        ]
+        for (mode, bucket) in plans {
+            let packet = AnswerPacket.turnCompletionStub(
+                stopReason: "end_turn",
+                inputTokens: 10,
+                outputTokens: 20,
+                attentionMode: mode,
+                interruptBucket: bucket
+            )
+            await emitter.emit(packet)
+        }
+
+        let snap = await emitter.snapshot()
+
+        // 4 emits total — sums must agree.
+        #expect(snap.totalEmitted == 4)
+        let modeSum = snap.modeCounts.values.reduce(0, +)
+        let bucketSum = snap.bucketCounts.values.reduce(0, +)
+        #expect(modeSum == snap.totalEmitted,
+            "sum(modeCounts) must equal totalEmitted; got \(modeSum) vs \(snap.totalEmitted)")
+        #expect(bucketSum == snap.totalEmitted,
+            "sum(bucketCounts) must equal totalEmitted; got \(bucketSum) vs \(snap.totalEmitted)")
+
+        // Per-mode + per-bucket breakdowns match the emit plan.
+        #expect(snap.modeCounts[.dynamic] == 3)
+        #expect(snap.modeCounts[.staticFallback] == 1)
+        #expect(snap.modeCounts[.unavailable] ?? 0 == 0)
+        #expect(snap.bucketCounts[.low] == 2)
+        #expect(snap.bucketCounts[.medium] == 1)
+        #expect(snap.bucketCounts[.high] == 1)
+        #expect(snap.bucketCounts[.unavailable] ?? 0 == 0)
+    }
+
+    @Test("Histogram counters survive ring eviction (monotonic)")
+    func histogramSurvivesRingEviction() async {
+        let emitter = await freshEmitter()
+
+        // Emit one more than the ring can hold; histogram counts must
+        // still equal totalEmitted (they're monotonic, not bound by ring).
+        let total = AnswerPacketEmitter.maxRingSize + 5
+        for _ in 0..<total {
+            await emitter.emit(AnswerPacket.turnCompletionStub(
+                stopReason: "end_turn",
+                inputTokens: 0,
+                outputTokens: 1,
+                attentionMode: .dynamic,
+                interruptBucket: .low
+            ))
+        }
+
+        let snap = await emitter.snapshot()
+        #expect(snap.totalEmitted == total)
+        #expect(snap.modeCounts[.dynamic] == total,
+            "monotonic histogram must survive ring eviction; got \(snap.modeCounts[.dynamic] ?? 0)")
+        #expect(snap.bucketCounts[.low] == total)
+    }
+
     @Test("Snapshot Equatable supports change-detection in the diagnostics row")
     func snapshotEquatable() async {
         let emitter = await freshEmitter()
