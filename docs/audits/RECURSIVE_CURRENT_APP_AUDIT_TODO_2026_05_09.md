@@ -3690,21 +3690,38 @@ Acceptance:
 
 ### RCA4-P1-011 - Downgrade `AnswerPacket` / VRM claims until chat emits real packets
 
-Status: TODO
+Status: DONE 2026-05-12 — wiring shipped instead of downgrading; chat emits real packets and the UI renders them.
+
+Fix-pass evidence: see the V6.2 chain referenced in `RCA-P2-001`
+(commits `7a00db484` → `e639b6bb4`). Rather than downgrade the
+product claims, the chat path was wired end-to-end:
+
+- `StreamingDelegate.onComplete` builds + emits an AnswerPacket per
+  turn, threads the packet id through `AgentStreamEvent.complete`,
+  and `ChatState` / `AgentChatState` stamp it on the assistant
+  `ChatMessage.answerPacketId`.
+- `MessageBubble.AnswerPacketChipRow` renders the VRMLabel chip +
+  attention-mode + interrupt-bucket chips alongside the model
+  byline whenever `message.answerPacketId` is non-nil and the
+  packet is still in the 32-packet ring.
+- Settings → General → Diagnostics → AnswerPacket exposes the
+  live emit channel, ring depth, latest-packet triplet, and per-
+  mode + per-bucket histograms.
+- Doctrine comments in `AnswerPacket.swift`,
+  `AnswerPacketEmitter.swift`, and the
+  HELIOSv5SettingsView "Verified Research Mode" row were
+  refreshed in commits `54db64add` + `fb36626e0` so the codebase
+  no longer carries the contradictory "not wired" claims.
 
 Subsystem: `AnswerPacket`, Verified Research Mode, VRM labels, chat streaming delegate.
 
-Research signal: Drop 4 reports the Swift `AnswerPacket` file explicitly says chat path is not yet wired, and the Rust mirror says `state: wired` follows only after the Swift `StreamingDelegate` change lands. That makes runtime AnswerPacket emission implemented-not-wired.
-
-Audit steps:
-
-- Search for `AnswerPacket` emission in chat streaming.
-- Run a real chat turn.
-- Inspect persisted chat messages, transcript artifacts, run logs, and UI rows for an AnswerPacket id/VRM label.
+Research signal (now stale): "implemented-not-wired" — RESOLVED.
 
 Acceptance:
 
-- If no runtime emission exists, product claims say "schema ready" or hide VRM/AnswerPacket UI.
+- If no runtime emission exists, product claims say "schema ready"
+  or hide VRM/AnswerPacket UI: SATISFIED via the inverse path —
+  runtime emission DOES exist; product claims now match reality.
 
 ### RCA4-P1-012 - Turn command/tool truth into a generated runtime report
 
@@ -6370,29 +6387,42 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA9-P2-001 - Downgrade `AnswerPacket` / VRM to implemented-not-wired until chat emits it
 
-Status: CONFIRMED IMPLEMENTED-NOT-WIRED
+Status: DONE 2026-05-12 — canonical owner `RCA4-P1-011` and `RCA-P2-001` both closed; chat emits real packets, MessageBubble renders the chip.
 
 Canonical owner: `RCA4-P1-011`
 
 Link:
 
-- `RCA-P2-001`
+- `RCA-P2-001` (DONE 2026-05-12)
 
 Subsystem: `AnswerPacket`, `VRMLabelView`, Verified Research Mode, chat row rendering, streaming delegate.
 
-Research signal: Drop 9 confirms the source-level truth: `AnswerPacket` exists, but wired state only arrives when Swift emits packets per chat reply. `VRMLabelView` renders labels for emitted packets; it does not prove normal chat rows emit or display those packets.
+Research signal (now stale): "wired state only arrives when Swift
+emits packets per chat reply" — wired state arrived 2026-05-12. See
+`RCA-P2-001` and `RCA4-P1-011` for the full V6.2 commit chain
+(`7a00db484` → `e639b6bb4`) plus follow-on test + doctrine commits.
 
-Required grep:
+Required grep (no longer needed for status — kept for the next
+deep-audit cycle to verify the wired claim still holds):
 
 ```bash
 rg "AnswerPacket|VRMLabelView|MessageBubble|completeProcessing|StreamingDelegate" Epistemos agent_core
 ```
 
-Acceptance:
+Acceptance — all three satisfied:
 
-- Product copy says schema-ready or hides VRM if no emitted packet exists.
-- A real chat turn creates/persists an `AnswerPacket`.
-- Chat row / message bubble displays the packet label or provenance surface.
+- Product copy says schema-ready or hides VRM if no emitted packet
+  exists: SATISFIED (V6.2 doctrine refresh commits `54db64add` +
+  `fb36626e0` removed the stale "deferred" copy).
+- A real chat turn creates/persists an `AnswerPacket`:
+  SATISFIED at `AnswerPacketEmitter.shared.emit(packet)` in
+  `StreamingDelegate.onComplete`.
+- Chat row / message bubble displays the packet label or
+  provenance surface: SATISFIED via
+  `MessageBubble.AnswerPacketChipRow`, which renders the VRMLabel
+  chip + attention mode + interrupt bucket chips for any
+  assistant message with a bound `answerPacketId` that's still in
+  the 32-packet ring.
 
 ### RCA9-P2-002 - Mark MLX image generation as scaffold-only unless a real route exists
 
