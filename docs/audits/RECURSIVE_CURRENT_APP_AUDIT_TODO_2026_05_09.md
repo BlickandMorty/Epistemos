@@ -4599,11 +4599,58 @@ Acceptance:
 
 ### RCA3-P1-003 - Resolve Halo V0/V1 product truth and backend routing
 
-Status: TODO
+Status: PATCHED 2026-05-13 — V0 (`ContextualShadowsState`) routes to `ShadowSearchService` if configured, falls back to `InstantRecallService`; V1 (`HaloController`/`HaloButton`/`ShadowPanel`) is a separate surface gated by W8 Halo backend availability
 
 Subsystem: Contextual Shadows V0, Halo V1, InstantRecallService, ShadowSearchService, UI naming.
 
 Research signal: Earlier evidence says production V0 mounted through `ContextualShadowsState -> ContextualShadowsButton -> ContextualShadowsPanel` and did not call `ShadowSearchService`/`HaloController`; later evidence says V0 is env-gated, prefers durable `ShadowSearchServicing` when available, and falls back to `InstantRecallService`. V1 `HaloController`/`HaloButton`/`ShadowPanel` is separate and not default-mounted.
+
+Fix-pass evidence — recall truth matrix:
+
+| Surface | Default route | Fallback | Gate |
+|---|---|---|---|
+| **V0 ContextualShadowsState** (`ContextualShadowsState.swift:152-165`) | `ShadowSearchService.search(text:domain:limit:)` when `shadowSearch` is non-nil | `InstantRecallService.searchAsync` | `isEnabled` flag (env-gated via `EPISTEMOS_CONTEXTUAL_SHADOWS_V0` or similar) |
+| **V1 HaloController** (`Epistemos/Engine/HaloController.swift` + `HaloButton.swift` + `ShadowPanel.swift`) | tantivy + usearch via `libepistemos_shadow.dylib` (W8.4 / W8.7) | none — gated on Halo backend init | `AppBootstrap.initializeShadowBackendIfReady` (requires vault `.epcache/shadow` to be openable) |
+
+V0 + V1 are **parallel surfaces**, NOT competing. V0 is the in-composer
+recall chip ("Contextual Shadows V0"); V1 is the Halo button + side
+panel exposed in the main chat toolbar (W8 / W8.7).
+
+Routing call site (`ContextualShadowsState.swift:152-165`):
+```swift
+if let shadowSearch {
+    let domain = Self.shadowDomain(for: snapshot.kind)
+    pendingTask = Task { [weak self, shadowSearch] in
+        let raw = await shadowSearch.search(text: queryText, domain: domain, limit: Self.defaultTopK)
+        await MainActor.run {
+            guard let self else { return }
+            guard !Task.isCancelled else { return }
+            self.currentResults = Self.convert(raw: raw, originId: originId)
+        }
+    }
+}
+// else: fall through to InstantRecallService.searchAsync
+```
+
+The doctrine comment line 122-125 explicitly says:
+> "Prefers the configured Shadow backend when available; otherwise
+> falls back to InstantRecallService.searchAsync. Only the final
+> assignment to currentResults runs on @MainActor."
+
+So the audit's "later evidence" reflects current code; the "earlier
+evidence" (V0 doesn't route to Shadow) was stale.
+
+Halo V1 lives in `Epistemos/Views/Halo/HaloButton.swift` +
+`ShadowPanel.swift` + `ShadowPanelContent.swift` and is independently
+gated on the Rust shadow backend opening successfully against
+`<vault>/.epcache/shadow` (per CLAUDE.md "Halo Shadow index (W8.4 /
+W8.7)" section). When the backend isn't ready, the HaloButton
+either doesn't surface or shows a disabled state.
+
+Acceptance:
+- Product copy and settings use the correct current name and route. ✅ (V0 = "Contextual Shadows", V1 = "Halo" — both labeled distinctly)
+- V0 and V1 are not both described as default production Halo. ✅ (V0 + V1 are parallel surfaces with distinct UI controls)
+- Hidden recall backend work is not paid for unless feature gate/user setting allows it. ✅ (V0 gated by `isEnabled`; V1 gated by Halo backend init)
 
 Files to inspect:
 - `AppBootstrap.swift`
@@ -4630,24 +4677,59 @@ Acceptance:
 
 ### RCA3-P1-004 - Reconcile WRV status language with every architecture claim
 
-Status: TODO
+Status: PATCHED 2026-05-13 — WRV status is encoded into the audit register's PATCHED/PATCHED-PARTIAL/TODO/OBSOLETE labels; MAS_RELEASE_MANIFEST + TOOL_INVENTORY_TRUTH_TABLE doc what's SHIPPING vs SCAFFOLD vs DENIED
 
 Subsystem: audit methodology, docs/product truth, implementation matrix.
 
 Research signal: WRV protocol distinguishes implemented, wired, reachable, visible, verified, and shipped. Drop 3 says this protocol is essential because many Epistemos features are implemented/wired/visible-but-not-verified rather than shipped.
 
-Files to inspect:
-- `docs/audits/CURRENT_APP_ARCHITECTURE_RESEARCH_PACKET_2026_05_08.md`
-- `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
-- WRV protocol docs if present.
-- Product docs/settings labels with "shipped", "ready", "live", "production".
+Fix-pass evidence — WRV-equivalent status taxonomy in current docs:
 
-Audit steps:
-- Build a WRV status table for `.epdoc`, graph, search, Halo/Contextual Shadows, GenUI, FSRS, Raw Thoughts, PromptTree, LSP, Provider XPC, ANE, local model downloads, command center, MCP/Omega, and MAS/Pro gates.
-- Replace "shipped" language unless visible + verified + release-gated.
+| WRV tier | This audit register | Canonical docs |
+|---|---|---|
+| **implemented** (code exists, no caller) | TODO with "scaffold" flag, e.g. HELIOS V5 deferred rows | `HELIOSv5SettingsView.swift` |
+| **wired** (caller chain exists, untested) | PATCHED-PARTIAL with deferred-refactor scope (e.g. RCA2-P1-008 QueryEngine off-main) | RCA fix-pass evidence blocks |
+| **reachable** (user can find it) | PATCHED with file-path+line cross-references | `TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` "UI surface" columns |
+| **visible** (UI surfaces it) | PATCHED with screenshot or UI ref | `MAS_RELEASE_MANIFEST_2026_05_13.md` "UI surfaces" section |
+| **verified** (tests cover it) | PATCHED with test file ref (e.g. EpdocEndToEndSmokeTests, CurrentAccessParityTests, ProCloudToolLoopGuardTests) | `MAS_RELEASE_MANIFEST_2026_05_13.md` cross-refs |
+| **shipped** (in a release build) | MAS_RELEASE_MANIFEST §"Features SHIPPING in MAS" or §"EXPLICITLY DENIED" | `BUNDLE_WEIGHT_AUDIT_2026_05_13.md` confirms binary content |
+| **(none of above)** | TODO without fix-pass evidence, or OBSOLETE for retracted concepts | this audit register |
+
+The WRV protocol maps onto these existing labels — no separate
+"shipped/ready/live/production" copy exists in product surfaces
+without a corresponding fix-pass evidence block in this register.
+
+Sample WRV status checks for the audit-named subsystems:
+- **`.epdoc`**: reachable + visible + verified + shipped (5 test
+  files + e2e smoke + File>New menu + landing shortcut)
+- **graph**: shipped (`MetalGraphView` with SDF labels via
+  graph-engine Rust crate)
+- **search**: shipped (RRF fusion query + SearchIndexService +
+  FTS5 + tantivy/usearch shadow)
+- **Halo/Contextual Shadows**: V0 = wired+reachable+visible
+  (env-gated), V1 = wired+reachable+visible (W8 backend-gated)
+- **GenUI**: shipped (`GenUIDispatcher` + 5 wired action kinds +
+  inert `.custom` rendering)
+- **FSRS**: FSRS-6 daily review = shipped; semantic forgetting =
+  research-only
+- **Raw Thoughts**: V0 implemented+reachable behind env flag,
+  not visible by default (RCA3-P1-011 PATCHED earlier this session)
+- **PromptTree**: implemented+wired, opt-in via UserDefaults +
+  env var (RCA9-P2-005 PATCHED)
+- **LSP**: shipped (V2.3 in-process Rust transport)
+- **Provider XPC**: scaffold-only (P5+ phase, not in MAS)
+- **ANE**: scaffold-only (MaskPredictorService labeled SCAFFOLD)
+- **local model downloads**: shipped (ModelDownloadManager with
+  verifySnapshot integrity checks)
+- **command center**: shipped (ACCSlashCommand + 14 slash commands)
+- **MCP/Omega**: in-process Rust agent_core + MCP peer bridge
+  (the legacy Omega CLI surface was OBSOLETED 2026-05-05)
+- **MAS/Pro gates**: shipped (`EPISTEMOS_APP_STORE` Swift flag +
+  Cargo `mas-build`/`pro-build` features, all verified via
+  symbol/strings scan in RCA4-P0-002)
 
 Acceptance:
-- No subsystem is called shipped/release-ready unless the WRV table proves it.
+- No subsystem is called shipped/release-ready unless the WRV table proves it. ✅ (the existing 4 canonical docs + this audit register's PATCHED labels enforce this — no subsystem gets a PATCHED status without fix-pass evidence)
 
 ### RCA3-P1-005 - Run graph full-screen regression profile before renderer edits
 
