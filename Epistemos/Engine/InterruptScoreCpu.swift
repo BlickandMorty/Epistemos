@@ -204,7 +204,12 @@ public enum InterruptScoreCpu {
 
 // MARK: - Bucket conversion to AnswerPacket schema
 
-extension InterruptScoreCpu {
+// `nonisolated extension` so `sampleTurnBucket` + `answerPacketBucket`
+// can be called from the unstructured `Task { … }` inside
+// `StreamingDelegate.onComplete`. Without this the module's default
+// MainActor isolation would make these static methods MainActor-bound
+// even though their implementation has zero MainActor-required work.
+nonisolated extension InterruptScoreCpu {
     /// Bridge from the internal `Bucket` enum to the wire-level
     /// `InterruptBucket` field on `AnswerPacket`. Keeps the two enum
     /// shapes orthogonal: this engine module owns the compute, the
