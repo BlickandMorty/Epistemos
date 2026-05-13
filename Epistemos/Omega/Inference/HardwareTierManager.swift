@@ -118,14 +118,39 @@ final class HardwareTierManager {
 // MARK: - Hardware Tier Enum
 
 /// Classifies Mac hardware into tiers that determine model selection and routing.
+///
+/// # HELIOS doctrine cross-reference
+///
+/// `HardwareTier` is the runtime-detection enum. The canonical doctrine analog
+/// lives in `epistemos-research/src/hardware_profile.rs::HardwareProfile`
+/// (research-tier; `--features research`). HELIOS captures 5 ship-relevant
+/// Apple Silicon profiles; `HardwareTier` captures 7 buckets (including
+/// pre-ship-budget rigs like the 8 GB Air). The non-strict mapping is:
+///
+/// | HardwareTier | HardwareProfile         | notes                                |
+/// |--------------|-------------------------|--------------------------------------|
+/// | .base8       | (none — below floor)    | 8 GB Air; below ship-budget floor    |
+/// | .base12      | (none — below floor)    | 12 GB Air; below ship-budget floor   |
+/// | .base16      | M2Pro16Gb               | V6.2 ship rig per project_v6_2_intake|
+/// | .pro18       | M2Pro18Gb               | user's actual rig 2026-05-12         |
+/// | .pro32       | (no exact match)        | between M2Pro18Gb and M3Max36Gb      |
+/// | .max         | M3Max36Gb               | V5/V6 hardware-correction patch      |
+/// | .ultra       | M2Max64Gb / M3Ultra256Gb| 64 GB+ → 64; 256 GB+ → 256           |
+///
+/// Per-tier `memoryGB * 0.60` (the `computeDualModelBudget` formula in this
+/// file) matches `HardwareProfile.realistic_resident_budget_gb` for .pro18
+/// exactly (10.8 GB), and intentionally diverges for .base16 and .ultra
+/// where HELIOS uses doctrine-derived ceilings rather than capacity fractions.
+/// The drift gate `helios_swift_dual_budget_alignment_table` in
+/// hardware_profile.rs ensures neither side can change silently.
 enum HardwareTier: String, Sendable, CaseIterable {
     case base8    = "base-8GB"     // M1/M2 Air 8GB — single small model only
     case base12   = "base-12GB"    // M2/M3 Air 12GB
-    case base16   = "base-16GB"    // M2/M3/M4 Pro 16GB
-    case pro18    = "pro-18GB"     // M2 Pro 18GB (target baseline)
+    case base16   = "base-16GB"    // M2/M3/M4 Pro 16GB → HELIOS M2Pro16Gb
+    case pro18    = "pro-18GB"     // M2 Pro 18GB (target baseline) → HELIOS M2Pro18Gb
     case pro32    = "pro-32GB"     // M2/M3/M4 Pro 32GB
-    case max      = "max-36GB+"    // M2/M3/M4 Max 36-48GB
-    case ultra    = "ultra-64GB+"  // M1/M2 Ultra 64GB+
+    case max      = "max-36GB+"    // M2/M3/M4 Max 36-48GB → HELIOS M3Max36Gb
+    case ultra    = "ultra-64GB+"  // M1/M2 Ultra 64GB+ → HELIOS M2Max64Gb / M3Ultra256Gb
 
     var memoryGB: Int {
         switch self {

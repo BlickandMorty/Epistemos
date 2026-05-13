@@ -145,6 +145,31 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(cinematicPixels > 5_900_000)
     }
 
+    @Test("HardwareTier doctrine cross-reference to HELIOS HardwareProfile survives renames")
+    func hardwareTierCarriesHELIOSDoctrineCrossReference() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Omega/Inference/HardwareTierManager.swift")
+
+        // The doctrine block must name each canonical HELIOS profile so renaming
+        // a HardwareProfile case in epistemos-research/src/hardware_profile.rs
+        // forces a corresponding update in the active app.
+        #expect(source.contains("HELIOS doctrine cross-reference"))
+        #expect(source.contains("HardwareProfile"))
+        #expect(source.contains("M2Pro16Gb"))
+        #expect(source.contains("M2Pro18Gb"))
+        #expect(source.contains("M3Max36Gb"))
+        #expect(source.contains("M2Max64Gb"))
+        #expect(source.contains("M3Ultra256Gb"))
+
+        // The drift gate test name must also appear so the cross-reference
+        // points to the canonical alignment authority in epistemos-research.
+        #expect(source.contains("helios_swift_dual_budget_alignment_table"))
+
+        // The `0.60` fraction is the Swift-side input to the drift gate.
+        // If this is ever changed, the alignment table in hardware_profile.rs
+        // must change alongside it.
+        #expect(source.contains("totalBytes) * 0.60"))
+    }
+
     @Test("cinematic soft pixel budget engages on high-node vaults to bound GPU fill rate")
     func graphDrawableResolutionPolicyCapsCinematicAtHighNodeCount() {
         // Bounds chosen so native scale (2×) yields 6.4 MP — comfortably above the
