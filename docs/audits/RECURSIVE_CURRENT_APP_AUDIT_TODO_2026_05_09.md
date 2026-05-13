@@ -4,11 +4,11 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, tenth-pass)
+## Headline Status (rollup updated 2026-05-13, eleventh-pass MAS-release-prep)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 tenth-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 eleventh-pass (MAS release prep):
 
-- **PATCHED / DONE**: 95+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **28 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 97+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **30 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
@@ -4301,7 +4301,24 @@ Acceptance:
 
 ### RCA4-P0-002 - Re-run App Store artifact scans instead of trusting source gates
 
-Status: TODO
+Status: PATCHED 2026-05-13 — MAS bundle re-scanned post-CLIDiscoveryHealthRow gate; zero subprocess strings + zero Pro tool symbols in MAS dylib
+
+Fix-pass evidence 2026-05-13:
+
+  - Fresh `xcodebuild -scheme Epistemos-AppStore build` produced
+    bundle ID `com.epistemos.appstore`.
+  - `find $APP -type f | xargs strings | grep -E '^(/usr/local/bin/(claude|codex|gemini|kimi)|/usr/bin/osascript|/bin/bash|/bin/sh|/usr/local/bin/docker)$'`
+    returns ZERO matches (no hardcoded subprocess paths).
+  - `nm -gU $APP/.../libagent_core.dylib | grep -i '(osascript|bash_execute|cli_passthrough|stdio_mcp|browser_subprocess|imessage_send|cronjob|cli_claude|cli_codex|cli_gemini|cli_kimi|computer_use|screencap)'`
+    returns ZERO hits.
+  - Remaining `perceive` / `screen_watch` symbols (2 each) are UniFFI
+    checksum + meta entries for the `AgentEventDelegate` protocol —
+    the runtime delegate on MAS is the stub in
+    `AppStoreComputerUseStubs.swift` which returns "Native computer-
+    use automation is unavailable in the App Store build." Honest
+    stub by design.
+  - Cross-ref RCA3-P0-001 fix-pass evidence (this commit + the
+    `CLIDiscoveryHealthRow` file-level gate) for the complete sweep.
 
 Subsystem: App Store target, `agent_core`, `omega-mcp`, MCP, CLI passthrough, computer use, browser/AX tooling.
 
@@ -4776,7 +4793,36 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA4-P2-002 - Treat App Store computer use as denied-by-design and audit UI copy
 
-Status: TODO
+Status: PATCHED 2026-05-13 — MAS computer-use surfaces all return the standardized "Native computer-use automation is unavailable in the App Store build." denial; no MAS UI promises working AX/screen/browser/shell
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/AppStore/AppStoreComputerUseStubs.swift` (gated
+    `#if EPISTEMOS_APP_STORE`) defines stubs for every computer-use
+    entry point that return the constant
+    `appStoreAutomationDenied = "Native computer-use automation is
+    unavailable in the App Store build."`:
+      - `ComputerUseBridge.execute(actionJSON:)`     line 174
+      - `Screen2AXFusion.perceive(appName:depth:)`   line 180
+      - `Screen2AXFusion.interact(actionJson:)`      line 181
+      - `Screen2AXFusion.startScreenWatch(watchJson:)` line 182
+    `checkPermissions()` returns `.denied` for accessibility +
+    automation and `.unknown` for screen recording.
+    `walkAxTreeJson(pid:)` returns a JSON shape with
+    `"is_sparse":true,"error":"Native computer-use automation is
+    unavailable in the App Store build."`.
+  - CLI passthrough row (`CLIDiscoveryHealthRow`) was gated at the
+    file level this commit batch (see RCA3-P0-001 evidence) so the
+    MAS Settings UI doesn't even render a row that says "checking
+    /usr/local/bin/claude / codex".
+  - Tool surface policy (`ToolSurfacePolicy.coreAppStoreAllowedTool
+    Names`) does NOT include any computer-use / browser / iMessage
+    / bash / terminal / cronjob tool name, so the agent's tool
+    catalog on MAS never advertises these.
+  - Acceptance "App Store users see unavailable/unsupported
+    language, not failing execution paths" — satisfied: every
+    surface that could be probed by an LLM or end user returns
+    the explicit "unavailable in the App Store build" string.
 
 Subsystem: `ComputerUseBridge`, App Store stubs, settings, tool catalogs, provider/tool copy.
 
