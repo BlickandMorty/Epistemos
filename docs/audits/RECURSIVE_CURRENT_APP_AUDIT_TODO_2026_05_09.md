@@ -1789,7 +1789,7 @@ Acceptance:
 
 ### RCA-P2-012 - Finish or de-scope tag/source extraction
 
-Status: TODO
+Status: PATCHED 2026-05-13 — de-scoped at the prompt + schema level; tag/source projection deferred to future work
 
 Subsystem: graph semantic extraction, tags, sources, AI scan.
 
@@ -1802,6 +1802,26 @@ Audit steps:
 
 Acceptance:
 - Tag/source extraction is either implemented end to end or removed from current claims.
+
+Fix-pass evidence 2026-05-13:
+
+  - `EntityExtractor.swift` note-batch prompt no longer asks the
+    LLM for `tags`. The prompt now requests only the field that
+    `processExtractionResult` actually persists (`crossNoteLinks`).
+    Tokens spent on tag output drop to zero on every batch.
+  - `ExtractionResult.tags` flipped from non-optional to optional
+    so older serialized payloads (and any cached fixtures) still
+    decode without errors. `ExtractionResult.sources` stays optional
+    for the same reason. Both fields are explicitly documented as
+    "roadmap-only — not persisted by EntityExtractor."
+  - `EntityExtractor.swift` file-level comment rewritten to say
+    explicitly which extractors are live and which are roadmap.
+    This removes the previous "supports tags and sources" line
+    that read as a current claim.
+  - Audit-register classification: aligns with "remove from
+    current claims" half of the acceptance. Promoting tag/source
+    to a real graph projection is tracked here for resumption.
+  - `Epistemos.app` `xcodebuild build` green after the change.
 
 ### RCA-P2-013 - Move Spotlight reindex work away from main-actor batch orchestration
 

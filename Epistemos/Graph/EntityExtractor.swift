@@ -3,13 +3,27 @@ import Foundation
 import SwiftData
 
 // MARK: - EntityExtractor
-// AI-powered entity extraction that scans notes and chats to find sources,
-// tags, and ideas. Uses the user's configured LLM to extract entities
-// and builds graph nodes + edges from the results.
+// AI-powered entity extraction that scans notes and chats to find
+// cross-note semantic relationships and chat-derived ideas. Uses the
+// user's configured LLM to extract entities and builds graph nodes +
+// edges from the results.
 //
-// Updated for 7-type model: sources (absorbs thinkers/papers/books),
-// tags (absorbs concepts), ideas (absorbs insights/brainDumps).
-// Supports incremental scanning: skips notes whose content hash hasn't changed.
+// Active extractors today (RCA-P2-012 closure 2026-05-13):
+//   - Notes batch → `crossNoteLinks` (supports / contradicts / expands
+//     / questions edges between notes in the same batch).
+//   - Chats with > 2 messages → `ExtractedIdea` (.idea graph nodes
+//     anchored to the originating chat).
+//
+// Roadmap (NOT currently persisted — kept in the schema as optional
+// back-compat fields):
+//   - Source mentions (`ExtractionResult.sources` / `.sourcesShared`)
+//   - Tag classification (`ExtractionResult.tags`)
+// Promoting either back to a live graph projection is tracked under
+// `RCA-P2-012` in the audit register; the prompt no longer requests
+// them so the LLM doesn't burn tokens on unused output.
+//
+// Supports incremental scanning: skips notes whose content hash hasn't
+// changed.
 
 @MainActor
 final class EntityExtractor {
@@ -216,14 +230,20 @@ final class EntityExtractor {
                 }
             }
 
-            // Build extraction prompt with semantic relationship classification
+            // Build extraction prompt with semantic relationship classification.
+            // RCA-P2-012 closure 2026-05-13: tags + sources were asked for
+            // by older drops of this prompt but `processExtractionResult`
+            // only ever persisted `crossNoteLinks`. To stop the LLM from
+            // doing free work that lands in /dev/null we now ask only for
+            // the field we actually use. `ExtractionResult.tags` and
+            // `.sources` stay in the schema as optional fields for
+            // forward-compat (so older serialized payloads still parse)
+            // but they are no longer requested at extraction time.
             let prompt = """
-                Extract entities and relationships from the following notes. Return ONLY valid JSON:
-                {"tags": [{"name": "string", "description": "string or null"}],
-                 "crossNoteLinks": [{"from": "Note Title", "to": "Note Title", "relationship": "supports|contradicts|expands|questions", "reason": "brief explanation"}]}
+                Extract semantic relationships between the following notes. Return ONLY valid JSON:
+                {"crossNoteLinks": [{"from": "Note Title", "to": "Note Title", "relationship": "supports|contradicts|expands|questions", "reason": "brief explanation"}]}
 
                 Rules:
-                - Tags: Abstract themes or concepts that appear substantively.
                 - crossNoteLinks: Semantic relationships BETWEEN notes in this batch.
                   Only include when one note clearly supports, contradicts, expands, or questions another.
                 - Empty array [] if none found.
