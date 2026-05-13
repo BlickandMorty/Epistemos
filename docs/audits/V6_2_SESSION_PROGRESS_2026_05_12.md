@@ -187,8 +187,18 @@ In priority order by visible-user-value:
      backwards-ledger zero guard, OSAllocatedUnfairLock for
      concurrent agentic turns. 6 new tests + 2 existing tests
      reset-primed.
-   - **sheafResidual** from cognitive DAG. Local incoherence in the
-     claim graph → sampler input.
+   - ~~**sheafResidual** from cognitive DAG. Local incoherence in the
+     claim graph → sampler input.~~ **LANDED 2026-05-12** via
+     `SheafResidualSubstrateObserver` on top of a new
+     `contradicts_edge_count` field added to `cognitive_dag_stats_json`
+     FFI. Stateless snapshot of
+     `clamp01((contradictsEdgeCount / nodeCount) / saturationRatio)`
+     with `saturationRatio = 0.5` (half the nodes participating in
+     contradiction edges saturates at 1.0). Backward-compat JSON
+     decoder lets old FFI builds decode the legacy 4-field shape with
+     a zero default. 7 new tests covering empty / mid-point / saturation
+     / clamp / no-contradicts / stateless / doctrine pin, plus
+     forward+backward JSON-shape decoders.
    - **connectomeAlarm** from routing layer. Per-turn divergence from
      planned route → sampler input.
    Each of these elevates `InterruptScoreCpu.sampleTurnBucket` from

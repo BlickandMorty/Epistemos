@@ -233,10 +233,11 @@ nonisolated extension InterruptScoreCpu {
     }
 
     /// Sample a coarse u_t bucket from runtime signals available at
-    /// `StreamingDelegate.onComplete`. V6.2 second-wiring (2026-05-12):
-    /// WBO is now live (sampled from the Rust ClaimLedger event delta);
-    /// sheafResidual + connectomeAlarm remain at 0 until their substrate
-    /// hooks land.
+    /// `StreamingDelegate.onComplete`. V6.2 third-wiring (2026-05-12):
+    /// WBO and sheafResidual are now live (sampled from the Rust
+    /// ClaimLedger event delta and cognitive DAG Contradicts-edge
+    /// density respectively); connectomeAlarm remains at 0 until its
+    /// substrate hook lands.
     ///
     /// Heuristics (acknowledged as crude — V6.2 §1.5 calibration corpus
     /// will refine when the full signal set is wired):
@@ -269,10 +270,11 @@ nonisolated extension InterruptScoreCpu {
         let entropy = Float(outputTokens) / 500.0
         let toolNeed: Float = stopReason == "tool_use" ? 1.0 : 0.0
         let wbo = WBOSubstrateObserver.shared.sampleAndAdvance()
+        let sheafResidual = SheafResidualSubstrateObserver.shared.sample()
         let inputs = InterruptScoreInputs(
             entropy: entropy,
             witnessedBayesOutcome: wbo,
-            sheafResidual: 0,
+            sheafResidual: sheafResidual,
             toolNeed: toolNeed,
             connectomeAlarm: 0
         )
@@ -384,6 +386,80 @@ nonisolated final class WBOSubstrateObserver: Sendable {
             state.initialized = false
             state.lastEventCount = 0
         }
+    }
+}
+
+// MARK: - SheafResidual Substrate Observer (V6.2 §1.4 substrate hook 2026-05-12)
+//
+// Stateless observer of the Rust cognitive DAG that maps
+// `contradicts_edge_count / max(node_count, 1)` to the V6.2
+// sheafResidual signal (clamped to [0, 1]).
+//
+// Doctrine reference: V6.2 §1.4 defines sheafResidual as "the residual
+// of the local sheaf of claims/evidence — high when nearby edges of
+// the claim graph are contradictory." The active-app analog is the
+// `EdgeKind::Contradicts` variant in the cognitive DAG schema. The
+// ratio captures intensity: a graph with 50% contradictory edges
+// among its links is far more incoherent than one with 5%, even if
+// both have the same absolute Contradicts count.
+//
+// Behavior:
+//   1. Reads `RustCognitiveDagClient.stats()` on each call. O(E) on
+//      the Rust side (iteration over edges); this is fine at the
+//      AnswerPacket emit cadence (once per turn).
+//   2. Computes `ratio = contradictsEdgeCount / max(nodeCount, 1)`.
+//      Using nodeCount rather than edgeCount keeps the signal stable
+//      against fan-out: a fact-rich claim with many witnesses but no
+//      contradicts stays at sheafResidual ≈ 0; a controversial claim
+//      drives the ratio up regardless of edge density.
+//   3. Returns `min(1.0, Float(ratio) / saturationRatio)`.
+//      `saturationRatio = 0.5` saturates at 1.0 when contradicts edges
+//      reach half the node count — a clearly incoherent graph.
+//   4. Empty DAGs (nodeCount == 0) report 0 — no signal yet.
+//
+// Stateless on purpose: sheafResidual is a snapshot of CURRENT DAG
+// incoherence, not a delta. Unlike WBO (which measures change since
+// last turn), sheaf residual reflects the standing structural state
+// of the claim graph at the moment of emission.
+nonisolated final class SheafResidualSubstrateObserver: Sendable {
+    /// Contradicts/node ratio at which sheafResidual saturates to 1.0.
+    /// 0.5 = half the nodes are involved in a contradiction edge — a
+    /// clearly incoherent claim graph. Tune up if you want the signal
+    /// to require a heavier contradiction load before reading "HIGH"
+    /// in InterruptScore's bucket; tune down to make minor
+    /// contradictions visible.
+    public static let saturationRatio: Float = 0.5
+
+    /// Process-global singleton. Concurrent calls are safe because the
+    /// observer holds no internal mutable state — every call reads
+    /// fresh stats from the Rust FFI.
+    public static let shared = SheafResidualSubstrateObserver()
+
+    /// Callback used to read the live DAG stats. Defaults to the live
+    /// Rust client; tests inject a controlled stub.
+    private let readStats: @Sendable () -> RustCognitiveDagStats
+
+    public init() {
+        self.readStats = { RustCognitiveDagClient.stats() }
+    }
+
+    /// Test-only initializer that lets a unit test drive the stats
+    /// source deterministically without invoking the Rust FFI.
+    public init(readStats: @escaping @Sendable () -> RustCognitiveDagStats) {
+        self.readStats = readStats
+    }
+
+    /// Sample sheafResidual for the current moment. Stateless: returns
+    /// a snapshot of `clamp01(contradictsEdgeCount / nodeCount /
+    /// saturationRatio)`. See type-level doc.
+    public func sample() -> Float {
+        let stats = readStats()
+        guard stats.nodeCount > 0 else { return 0 }
+        let ratio = Float(stats.contradictsEdgeCount) / Float(stats.nodeCount)
+        let normalized = ratio / Self.saturationRatio
+        if normalized < 0 { return 0 }
+        if normalized > 1 { return 1 }
+        return normalized
     }
 }
 

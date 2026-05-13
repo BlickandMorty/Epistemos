@@ -20,6 +20,13 @@ import os
 nonisolated struct RustCognitiveDagStats: Sendable, Equatable, Decodable {
     let nodeCount: UInt64
     let edgeCount: UInt64
+    /// V6.2 §1.4 substrate hook (2026-05-12): the number of
+    /// `EdgeKind::Contradicts` edges in the DAG. Used by
+    /// `SheafResidualSubstrateObserver` to feed InterruptScore's
+    /// sheafResidual input. Backward-compatible default 0 lets old
+    /// FFI builds + tests decode without breaking — pre-2026-05-12
+    /// JSON omitted this field.
+    let contradictsEdgeCount: UInt64
     /// Hex-encoded BLAKE3 merkle root over the entire DAG (64 chars when
     /// non-empty). Empty stores produce all-zero merkle roots — the
     /// canonical "no content yet" signal.
@@ -29,13 +36,58 @@ nonisolated struct RustCognitiveDagStats: Sendable, Equatable, Decodable {
     enum CodingKeys: String, CodingKey {
         case nodeCount = "node_count"
         case edgeCount = "edge_count"
+        case contradictsEdgeCount = "contradicts_edge_count"
         case merkleRootHex = "merkle_root_hex"
         case schemaVersion = "schema_version"
+    }
+
+    init(
+        nodeCount: UInt64,
+        edgeCount: UInt64,
+        contradictsEdgeCount: UInt64,
+        merkleRootHex: String,
+        schemaVersion: UInt32
+    ) {
+        self.nodeCount = nodeCount
+        self.edgeCount = edgeCount
+        self.contradictsEdgeCount = contradictsEdgeCount
+        self.merkleRootHex = merkleRootHex
+        self.schemaVersion = schemaVersion
+    }
+
+    /// 4-arg compatibility initializer for callers that pre-date the
+    /// `contradictsEdgeCount` field (2026-05-12). Defaults the new
+    /// field to 0 so legacy unit tests don't need updating. New
+    /// production code should use the 5-arg initializer above.
+    init(
+        nodeCount: UInt64,
+        edgeCount: UInt64,
+        merkleRootHex: String,
+        schemaVersion: UInt32
+    ) {
+        self.init(
+            nodeCount: nodeCount,
+            edgeCount: edgeCount,
+            contradictsEdgeCount: 0,
+            merkleRootHex: merkleRootHex,
+            schemaVersion: schemaVersion
+        )
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        nodeCount = try c.decode(UInt64.self, forKey: .nodeCount)
+        edgeCount = try c.decode(UInt64.self, forKey: .edgeCount)
+        // Backward-compat: pre-2026-05-12 JSON did not emit this field.
+        contradictsEdgeCount = try c.decodeIfPresent(UInt64.self, forKey: .contradictsEdgeCount) ?? 0
+        merkleRootHex = try c.decode(String.self, forKey: .merkleRootHex)
+        schemaVersion = try c.decode(UInt32.self, forKey: .schemaVersion)
     }
 
     static let empty = RustCognitiveDagStats(
         nodeCount: 0,
         edgeCount: 0,
+        contradictsEdgeCount: 0,
         merkleRootHex: String(repeating: "0", count: 64),
         schemaVersion: 0
     )
