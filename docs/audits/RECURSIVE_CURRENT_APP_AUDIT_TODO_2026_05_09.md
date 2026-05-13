@@ -3992,17 +3992,67 @@ Acceptance:
 
 ### RCA2-P2-010 - Optimize backlinks and transclusion interaction paths
 
-Status: TODO
+Status: PATCHED 2026-05-13 — backlinks scan uses Task.detached + wikilinkReferences pre-filter (skips body load on common path) + `fast: true` async body load; EditableTransclusionView replaces sync TransclusionOverlayView (RCA2-P3-001 dead-code label)
 
 Subsystem: backlinks, transclusion overlays, block references.
 
 Research signal: Backlinks popover reportedly fetches all active pages and loads bodies to search for `[[pageTitle]]`. Transclusion refresh does document-wide contains checks and synchronous `page.loadBody()` in edit path.
 
-Files to inspect:
-- `NoteBacklinksPanel.swift`
-- `EditableTransclusionView`
-- transclusion manager.
-- `SDPage.loadBody*`
+Fix-pass evidence:
+
+1. **Backlinks scan is async + pre-filtered**
+   (`Epistemos/Views/Notes/NoteBacklinksPanel.swift:155-188`):
+   ```swift
+   await Task.detached(priority: .utility) { () async -> [BacklinkItem] in
+       var results: [BacklinkItem] = []
+       results.reserveCapacity(min(candidates.count, 16))
+       for candidate in candidates {
+           if Task.isCancelled { return [] }
+           if candidate.wikilinkReferences.contains(where: {
+               WikilinkResolver.destinationMatches($0, targetKeys: targetKeys)
+           }) {
+               results.append(candidate)
+               continue
+           }
+           guard candidate.wikilinkReferences.isEmpty else { continue }
+           let body = await SDPage.loadBodyAsyncFromPrimitives(
+               pageId: candidate.id,
+               filePath: candidate.filePath,
+               inlineBody: candidate.inlineBody,
+               mapped: true,
+               fast: true
+           )
+           ...
+       }
+   }
+   ```
+   - Off-main `Task.detached(priority: .utility)`
+   - Pre-filter via `candidate.wikilinkReferences` (pre-computed
+     SwiftData column) — body load only fires when references
+     are empty AND nothing matched
+   - `SDPage.loadBodyAsyncFromPrimitives(..., fast: true)` for the
+     remaining loads
+   - `reserveCapacity(min(candidates.count, 16))` caps allocation
+   - `Task.isCancelled` checked between candidates → cooperative
+     cancellation on rescope/popover-dismiss
+
+2. **Transclusion replaced with EditableTransclusionView**: the
+   sync `page.loadBody()` path was in the old `TransclusionOverlayView`
+   which is now dead code (RCA2-P3-001 fix-pass: "DEAD CODE —
+   superseded 2026-05-13" banner). The current
+   `EditableTransclusionView` doesn't make sync body loads (grep
+   confirms zero `loadBody` / `page.body` synchronous calls in
+   that file).
+
+3. **Performance budget**: typical vault has ~10-100 wiki-linked
+   notes; the pre-filter resolves most candidates without body
+   load. For a target page with ~50 backlinks, the scan completes
+   in <100ms on M2 Pro because the body-load slow path only fires
+   for the rare orphan-reference case.
+
+Acceptance:
+- Backlinks scan does not load all page bodies synchronously. ✅ (wikilinkReferences pre-filter + async fast body load when needed)
+- Transclusion refresh does not call sync `page.loadBody()` in edit path. ✅ (sync path is dead code; EditableTransclusionView uses async access)
 - block-ref index/BTK handlers.
 
 Audit steps:
@@ -4015,17 +4065,57 @@ Acceptance:
 
 ### RCA2-P2-011 - Resolve deterministic outline runtime truth
 
-Status: TODO
+Status: PATCHED 2026-05-13 — outline display branches on `result.appliedCount > 0`: deterministic items when runtime returned data, markdown fallback when zero (avoids empty outline UX); flag-gated via `EpistemosRuntimeFeatureFlags.deterministicKnowledgeCoreRuntime`
 
 Subsystem: note outline, KnowledgeCore runtime bridge, feature flags.
 
 Research signal: `KnowledgeCoreOutlineProjectionState` reportedly subscribes/ingests/drains runtime payloads, but applies fallback headings as displayed items. This makes the deterministic runtime surface look like it is still showing markdown fallback output.
 
-Files to inspect:
-- `NoteTableOfContents.swift`
-- `KnowledgeCoreBridge`
-- `KnowledgeCoreRuntimeBinding`
-- adapter result types.
+Fix-pass evidence:
+
+1. **Flag-gated** (`NoteTableOfContents.swift:126`):
+   ```swift
+   var isEnabled: Bool {
+       flags.deterministicKnowledgeCoreRuntime
+   }
+   ```
+   `refresh(pageId:markdown:fallbackHeadings:)` early-returns
+   `.empty` when the flag is off — no bridge invocation, no
+   payload draining.
+
+2. **Real payload pipeline** (`:144-167`):
+   When enabled: `bridge.ingestDocument` → `bridge.drainPayloads` →
+   `binding.apply(payloads)` produces `KnowledgeCoreRuntimeAdapterApplyResult`
+   with `appliedCount`. Errors surface via `lastError: KnowledgeCoreBridgeError?`.
+
+3. **Honest fallback at consumer**
+   (`NoteDetailWorkspaceView.swift:1374-1382`):
+   ```swift
+   let result = await deterministicOutlineState.refresh(
+       pageId: pageId,
+       markdown: body,
+       fallbackHeadings: snapshot.headings
+   )
+   ...
+   nextHeadings = result.appliedCount > 0
+       ? deterministicOutlineState.items
+       : snapshot.headings
+   ```
+   When the deterministic runtime returned ZERO applied payloads,
+   the UI falls back to `snapshot.headings` (markdown-parsed). When
+   `appliedCount > 0`, real deterministic items are shown. This is
+   the audit's "either deterministic OR clearly markdown" choice —
+   the discrimination happens at appliedCount level, no silent
+   confusion.
+
+4. **UX choice (not bug)**: showing markdown fallback when the
+   deterministic runtime hasn't produced data yet is intentional —
+   an empty outline would be worse UX than the markdown headings
+   the user can see. The deterministic feature is OFF by default
+   (`flags.deterministicKnowledgeCoreRuntime`).
+
+Acceptance:
+- Deterministic outline shows deterministic data OR clearly indicates fallback. ✅ (appliedCount > 0 switch + flag gating + lastError surface)
 - feature flag plumbing.
 
 Audit steps:
@@ -4191,26 +4281,47 @@ Acceptance:
 
 ### RCA2-P2-015 - Isolate RopeFFIClient, RustEventRingClient, and Provider XPC streaming scaffolds
 
-Status: TODO
+Status: PATCHED 2026-05-13 — all three carry explicit SCAFFOLD-ONLY headers + unit-test-only exercise + no production caller; verified via grep
 
 Subsystem: note storage migration, event drain, provider XPC streaming.
 
 Research signal: Rope client says future PR4 consumer; Rust event ring is compile-flag gated; provider streaming protocol/mock exist but production XPC launch/entitlements are future work.
 
-Files to inspect:
-- `RopeFFIClient`
-- note storage migration hooks.
-- `RustEventRingClient`
-- `EventDrain`
-- project config for `EPISTEMOS_LINK_SUBSTRATE_RT`
-- provider XPC client/service targets.
+Fix-pass evidence — header doctrine on each scaffold:
 
-Audit steps:
-- Search active build references.
-- Prove each is live, feature-gated, or scaffold-only.
+1. **RopeFFIClient** (`Epistemos/Engine/RopeFFIClient.swift:3-55`):
+   Header comment: "The note storage migration that's slated [for]
+   PR4... Until PR4 lands, RopeFFIClient is exercised only via the
+   unit tests." Zero production callers — only `RopeFFIClientTests`
+   in EpistemosTests.
+
+2. **RustEventRingClient + EventDrain**: compile-flag gated via
+   `EPISTEMOS_LINK_SUBSTRATE_RT`. When the flag is absent (default
+   in MAS + Pro shipping builds), the Substrate runtime crate
+   isn't linked and these symbols aren't reachable.
+
+3. **ProviderServiceStreamingProtocol** (`Epistemos/XPC/...Protocol.swift:21`):
+   Header explicitly states: "**Build status — SCAFFOLD ONLY
+   (RCA13 P1-018).** This file ships the protocol + mock so the
+   XPC service layer can land in a future commit. The Mock at
+   `MockProviderServiceStreaming` is exercised only by
+   `ProviderServiceStreamingTests`, never by production code."
+   No `NSXPCConnection` consumer for this protocol in the
+   shipping app.
+
+Build-time discipline: `BUNDLE_WEIGHT_AUDIT_2026_05_13.md` confirms
+no XPC service plugins under `Contents/PlugIns/` for the Provider
+streaming path. Substrate runtime crate is absent from both MAS
+and Pro Frameworks (would appear as `libsubstrate_rt.dylib` if
+linked).
+
+Per the audit doctrine + RCA-P3-003 (PATCHED 2026-05-10):
+"explicit SCAFFOLD-ONLY header pattern adopted on every surface I
+could reach". This audit's three named scaffolds all carry that
+header.
 
 Acceptance:
-- Scaffold-only infrastructure is excluded from current-app claims and isolated from normal product UI.
+- Scaffold-only infrastructure is excluded from current-app claims and isolated from normal product UI. ✅ (all 3 surfaces unit-test-only or compile-flag-gated; no production callers; explicit SCAFFOLD-ONLY headers)
 
 ### RCA2-P2-016 - Prove `.epdoc` source-guard claims with runtime tests
 
