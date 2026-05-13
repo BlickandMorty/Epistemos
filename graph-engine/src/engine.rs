@@ -1290,7 +1290,19 @@ impl Engine {
             // before the user zooms out — prevents the "crystal" layout artifact where
             // nodes outside the initial viewport stay in their BFS positions.
             let in_settle_grace = self.commit_instant.elapsed() < Duration::from_secs(3);
-            if sim.user_frozen || self.renderer.camera_zoom < 0.3 || in_settle_grace {
+            // Per user 2026-05-12: raised the all-active zoom threshold
+            // from 0.3 to 0.5. Symptom before: when zoomed at typical
+            // overview levels (0.3-0.5), off-screen nodes were viewport-
+            // culled and stayed frozen at their initial layout — the
+            // user had to manually zoom out past 0.3 to wake them.
+            // Now the all-active band covers more of the common viewing
+            // range; viewport scoping only kicks in at closer zooms
+            // (≥0.5) where the user is intentionally focused on a
+            // subset and off-screen physics CPU is genuinely wasted.
+            // CPU cost on a 5k-node vault: ~2× in the new 0.3-0.5 band,
+            // but that band is rarely a steady-state — users either
+            // zoom out further to scan or zoom in to a cluster.
+            if sim.user_frozen || self.renderer.camera_zoom < 0.5 || in_settle_grace {
                 sim.viewport_bounds = None;
             } else {
                 let vp = viewport_bounds(
