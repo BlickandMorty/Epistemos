@@ -70,7 +70,15 @@ Five V6.1/V6.2 kernels remain target-only until real kernel files and M2 Pro fal
 
 - M2 Pro PageGather baseline bandwidth harness.
 - PageGather scatter/gather correctness and bandwidth ratio.
-- Runtime population of Swift CPU `InterruptScore` and `attention_mode` into emitted AnswerPackets.
+- ~~Swift CPU `InterruptScore` implementation~~ → **LANDED 2026-05-12**
+  via `Epistemos/Engine/InterruptScoreCpu.swift` (V6.2 §1.4 Falsifier 6
+  canonical Swift CPU path, weights α=0.30 β=0.25 γ=0.20 δ=0.15 ε=0.10,
+  P99 latency test gating < 500 µs CI-budget against the 100 µs V6.2
+  target). Three-bucket classifier matches V6.2 §1.5 thresholds
+  (LOW < 0.25, MED < 0.65, HIGH ≥ 0.65). Pending: runtime population
+  into emitted AnswerPackets at the StreamingDelegate seam.
+- Runtime population of `attention_mode` (and `InterruptScore` bucket)
+  into emitted AnswerPackets.
 - PacketRouter1bit dispatch budget and quality-loss falsifier.
 - ControllerKernelPack baseline equivalence.
 - SemiseparableBlockScan reference match.
