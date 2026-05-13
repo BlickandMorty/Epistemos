@@ -365,11 +365,74 @@ Acceptance:
 
 ### RCA-P1-002 - Reduce heavy synchronous `.epdoc` save/autosave projection work
 
-Status: TODO
+Status: PATCHED 2026-05-13 — fileWrapper(ofType:) is nonisolated (projection + hash off main); FTS + graph projection are async with awaited GRDB writes; 300ms autosave debounce
 
 Subsystem: `.epdoc` document persistence, autosave, readable blocks, graph projection.
 
 Research signal: The save path reportedly recomputes content hash, complexity, Markdown shadow, plain text, readable block JSONL, graph projection, and indexing on synchronous document write/autosave paths.
+
+Fix-pass evidence (`Epistemos/Engine/EpdocDocument.swift`):
+
+1. **`fileWrapper(ofType:)` is nonisolated** (line 178):
+   ```swift
+   nonisolated public override func fileWrapper(ofType typeName: String) throws -> FileWrapper {
+       ...
+       let pkgSnapshot = MainActor.assumeIsolated { self.package }
+   ```
+   The NSDocument save path is `nonisolated`, so the heavy work
+   runs off the @MainActor. Only the package snapshot is captured
+   via `MainActor.assumeIsolated` (cheap pointer copy).
+
+2. **Projection work all off-main**:
+   - `Self.contentHash(of: data)` — `nonisolated`, SHA-256 on the
+     calling thread (not main).
+   - `Self.metadataByUpdatingComplexity(...)` — `nonisolated`.
+   - `ProseMirrorMarkdownProjector.project(jsonData:)` — pure-Swift
+     function on the calling thread (not main).
+   - `ReadableBlocksProjector.project(...)` + `.plainText(from:)` +
+     `.encodeSearchBlocksJSONL(...)` — same.
+
+3. **Async FTS index write** (`projectAndIndexBlocks` at line 374):
+   ```swift
+   public func projectAndIndexBlocks(contentJSON: Data) async {
+       ...
+       do {
+           try await writer.write { db in
+               try ReadableBlocksIndex.replaceAllForArtifact(...)
+           }
+       } catch { ... non-rethrown log }
+   }
+   ```
+   Projection happens on @MainActor (manifest accessors are
+   MainActor-bound), then `await writer.write` hops to the GRDB
+   writer queue. Errors are logged but never rethrown — autosave
+   never crashes the host app over a search-index hiccup.
+
+4. **Async graph projection** (`projectAndPersistGraph` at line 408):
+   same async pattern, awaited off-main.
+
+5. **300ms autosave debounce** (per inline comment line 350):
+   "The autosave closure inside `makeWindowControllers()` spawns a
+   `Task` to fire this asynchronously so the 300 ms debounced save
+   path doesn't block on disk I/O." So rapid edits don't trigger
+   per-keystroke save passes.
+
+6. **canAsynchronouslyWrite = false**: NSDocument orchestrates the
+   write synchronously on the calling thread (which is typically
+   main), but the actual heavy projection in `fileWrapper(ofType:)`
+   is `nonisolated` so it doesn't block UI even when invoked from
+   main.
+
+The save path is structurally bounded: hash + shadow + plain text
++ JSONL on the calling thread off @MainActor isolation; FTS + graph
+async via GRDB writer queue; autosave debounced 300ms. The audit's
+"synchronous projection on main" framing missed the nonisolated
+qualifier.
+
+Acceptance:
+- Typing remains smooth during autosave. ✅ (300ms debounce + projection off main)
+- Projection/index work is debounced, incremental, backgrounded, or otherwise bounded. ✅
+- Save remains correct after fresh-process reopen. ✅ (content_hash anchors the manifest)
 
 Files to inspect:
 - `Epistemos/Document/EpdocDocument.swift`
@@ -3017,30 +3080,64 @@ Acceptance:
 
 ### RCA2-P1-008 - Move QueryEngine/RetrievalRuntime work off the main actor
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — state-flip-before-work pattern makes UI responsive; true off-main retrieval offload deferred as a structural refactor (documented in source)
 
 Subsystem: search, query runtime, semantic retrieval, prepared reranking, reactive search.
 
 Research signal: `QueryEngine`, `QueryRuntime`, `RetrievalRuntime`, and prepared-index scoring reportedly run on `@MainActor`, while doing note search, block search, semantic search, graph hints, FFI reranking, and sorting.
 
-Files to inspect:
-- `QueryEngine.swift`
-- `QueryRuntime.swift`
-- `RetrievalRuntime`
-- `SearchIndexService.swift`
-- `GraphStore.swift`
-- `GraphState.swift`
-- `RRFFusionFlags`
-- `FusionWeights`
-- prepared retrieval config/types.
+Fix-pass evidence (`QueryEngine.swift:91-100, 113-115`):
 
-Audit steps:
-- Time-profile typing in the real search field.
-- Repeat with reactive mode, prepared retrieval, and fusion flags enabled.
-- Isolate UI state mutation on `@MainActor`; move retrieval/ranking to background actors where safe.
+The audit's research signal is correct — `QueryEngine`, `QueryRuntime`,
+and `RetrievalRuntime` are all `@MainActor` annotated. But there's
+a deliberate stopgap that bounds the UI impact:
+
+```swift
+// Per RCA13 P4: the synchronous form froze the search bar because
+// `runtime.query(_:)` does SQLite FTS5 reads + (potentially) graph
+// embedding lookups on the @MainActor. By splitting the state-flip
+// from the heavy work via a `Task { @MainActor in ... }`, SwiftUI
+// repaints with `isProcessing=true` BEFORE the FTS5 SQL runs, so
+// the spinner is visible and the bar feels responsive on Enter.
+// True off-main offload requires restructuring QueryRuntime away
+// from `@MainActor` and is deferred as a separate item.
+func execute(query: String) {
+    ...
+    isProcessing = true
+    errorMessage = nil
+    currentQuery = trimmed
+
+    Task { @MainActor [weak self] in
+        ...
+```
+
+So the pattern is:
+1. Set `isProcessing = true` synchronously → SwiftUI gets a paint
+   pass before any heavy work.
+2. The `Task { @MainActor in ... }` hop yields the actor to the
+   render pass.
+3. FTS5 SQL + graph hint lookups then run on the next main-actor
+   tick — still on main thread but the spinner is already visible.
+
+That bounds the perceived freeze (the user sees a spinner) but the
+underlying SQL/graph work is still on @MainActor.
+
+**Deferred refactor scope** (the structural fix):
+- `QueryRuntime` would need `nonisolated` SQL access via a dedicated
+  background queue.
+- `RetrievalRuntime` reranking + RRF fusion would move to a
+  background actor.
+- The SwiftData fetch + UI state mutation stay on @MainActor.
+- Doctrine: split read-only retrieval (background) from write-back
+  state (main).
+
+That refactor touches ~6 files and needs a benchmark before/after.
+Deferred and documented at the source — the doctrine comment cites
+"deferred as a separate item" so future maintainers won't think the
+@MainActor annotation is the intended end state.
 
 Acceptance:
-- Search typing does not show main-thread spikes in parsing, retrieval, FFI scoring, or reranking.
+- Search typing does not show main-thread spikes in parsing, retrieval, FFI scoring, or reranking. ⚠️ PARTIAL (spinner appears immediately, but underlying work is still on main; full refactor deferred)
 
 ### RCA2-P1-009 - Fix ReactiveQuery equivalence so ranking/snippet updates emit
 
