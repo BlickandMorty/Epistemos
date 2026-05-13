@@ -248,17 +248,41 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         // Fix: decompress brotli server-side via Compression.framework
         // before handing bytes to the renderer; advertise plain content
         // (no Content-Encoding header).
-        let data: Data
+        //
+        // RCA8-P1-004 fix-pass (2026-05-13): the Brotli decompression
+        // for editor.js/.css (~213 KB compressed → ~1 MB plain) used to
+        // run synchronously on @MainActor, adding 10-30 ms to cold-open
+        // first-paint. Moved to Task.detached(priority: .userInitiated)
+        // — `urlSchemeTask.didReceive(...)` is documented to be safe
+        // from any thread per WKURLSchemeHandler protocol contract.
+        let mimeType = asset.mimeType
+        let urlForResponse = url
         if asset.contentEncoding == "br" {
-            guard let decompressed = decompressBrotli(rawData) else {
-                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
-                return
+            Task.detached(priority: .userInitiated) {
+                guard let decompressed = decompressBrotli(rawData) else {
+                    urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: urlForResponse.path))
+                    return
+                }
+                let headers = ["Content-Type": mimeType]
+                let response = HTTPURLResponse(
+                    url: urlForResponse,
+                    statusCode: 200,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: headers
+                ) ?? URLResponse(
+                    url: urlForResponse,
+                    mimeType: mimeType,
+                    expectedContentLength: decompressed.count,
+                    textEncodingName: "utf-8"
+                )
+                urlSchemeTask.didReceive(response)
+                urlSchemeTask.didReceive(decompressed)
+                urlSchemeTask.didFinish()
             }
-            data = decompressed
-        } else {
-            data = rawData
+            return
         }
 
+        let data = rawData
         let headers = [
             "Content-Type": asset.mimeType,
         ]
@@ -298,7 +322,9 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
 // margin handles pathological inputs without unbounded allocation.
 // If the decompressed content exceeds the buffer, we retry with a
 // larger one rather than truncating.
-private func decompressBrotli(_ compressed: Data) -> Data? {
+// RCA8-P1-004 fix-pass: `nonisolated` so the URL scheme handler can
+// call this from a Task.detached without inheriting @MainActor.
+nonisolated private func decompressBrotli(_ compressed: Data) -> Data? {
     var bufferSize = max(compressed.count * 64, 1024 * 1024)  // start at ≥1 MB
     let maxBufferSize = 64 * 1024 * 1024                       // cap at 64 MB
     while bufferSize <= maxBufferSize {

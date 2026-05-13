@@ -789,10 +789,17 @@ struct ModelInvolvementContent: View {
 
         var mergedByID: [String: SDMessage] = [:]
         for acceptedModelID in effectiveIDs {
-            let descriptor = FetchDescriptor<SDMessage>(
+            // RCA7-P2-001 fix-pass (2026-05-13): cap each per-model fetch
+            // at 500 most-recent assistant messages. Without the cap, a
+            // user with thousands of turns per model would block the
+            // @MainActor at sheet-open time. 500 covers ~3-6 months of
+            // typical use; older history is still on disk and accessible
+            // via search.
+            var descriptor = FetchDescriptor<SDMessage>(
                 predicate: #Predicate<SDMessage> { $0.authoredByModelID == acceptedModelID },
                 sortBy: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
             )
+            descriptor.fetchLimit = 500
             let fetched: [SDMessage]
             do {
                 fetched = try modelContext.fetch(descriptor)
