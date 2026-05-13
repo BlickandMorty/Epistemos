@@ -233,11 +233,11 @@ nonisolated extension InterruptScoreCpu {
     }
 
     /// Sample a coarse u_t bucket from runtime signals available at
-    /// `StreamingDelegate.onComplete`. V6.2 third-wiring (2026-05-12):
-    /// WBO and sheafResidual are now live (sampled from the Rust
-    /// ClaimLedger event delta and cognitive DAG Contradicts-edge
-    /// density respectively); connectomeAlarm remains at 0 until its
-    /// substrate hook lands.
+    /// `StreamingDelegate.onComplete`. V6.2 fourth-wiring (2026-05-12):
+    /// WBO, sheafResidual, and connectomeAlarm are all live. Each is
+    /// computed from a distinct Rust substrate hook (ClaimLedger event
+    /// delta, cognitive DAG Contradicts-edge density, routing-stats
+    /// route-change delta respectively).
     ///
     /// Heuristics (acknowledged as crude — V6.2 §1.5 calibration corpus
     /// will refine when the full signal set is wired):
@@ -271,12 +271,13 @@ nonisolated extension InterruptScoreCpu {
         let toolNeed: Float = stopReason == "tool_use" ? 1.0 : 0.0
         let wbo = WBOSubstrateObserver.shared.sampleAndAdvance()
         let sheafResidual = SheafResidualSubstrateObserver.shared.sample()
+        let connectomeAlarm = ConnectomeAlarmSubstrateObserver.shared.sampleAndAdvance()
         let inputs = InterruptScoreInputs(
             entropy: entropy,
             witnessedBayesOutcome: wbo,
             sheafResidual: sheafResidual,
             toolNeed: toolNeed,
-            connectomeAlarm: 0
+            connectomeAlarm: connectomeAlarm
         )
         let u = compute(inputs)
         return answerPacketBucket(for: bucket(u))
@@ -460,6 +461,104 @@ nonisolated final class SheafResidualSubstrateObserver: Sendable {
         if normalized < 0 { return 0 }
         if normalized > 1 { return 1 }
         return normalized
+    }
+}
+
+// MARK: - ConnectomeAlarm Substrate Observer (V6.2 §1.4 substrate hook 2026-05-12)
+//
+// Stateful observer of the Rust process-global routing-stats
+// accumulator. Each call to `sampleAndAdvance()` returns the
+// connectomeAlarm signal for the just-completed turn — i.e. how many
+// route changes the routing layer has recorded since the previous
+// sample, normalized to [0, 1].
+//
+// Doctrine reference: V6.2 §1.4 defines connectomeAlarm as "the
+// route-divergence alarm from the routing layer. Higher = the current
+// generation has diverged from the planned route enough to warrant
+// Controller-plane intervention." The honest active-app analog is
+// route-change count: each adjacent decision-with-a-different-
+// provider counts as one divergence event. The signal is conservative
+// — true route stability under a stream of similar objectives reads
+// as 0; rapid provider flipping drives it up.
+//
+// Behavior mirrors `WBOSubstrateObserver`:
+//   1. First call after process start primes the baseline (records the
+//      current route-change count, returns 0). This prevents a
+//      spurious high reading just because the process attached to a
+//      ledger that's been accumulating since boot.
+//   2. Subsequent calls compute
+//        delta = max(0, total_route_changes - last)
+//      store the new total, return clamp01(delta / saturationChanges).
+//   3. `saturationChanges = 3` — three route flips between consecutive
+//      sample points (i.e., in one chat turn) saturates the signal at
+//      1.0. Three flips is a strong indicator of router instability
+//      under V6.2 §1.5 task 21-23 expectations.
+//   4. Backwards-counter reads (defensive against test teardown +
+//      integrity rebuild) report 0 instead of a huge negative cast.
+nonisolated final class ConnectomeAlarmSubstrateObserver: Sendable {
+    /// Route-change count at which connectomeAlarm saturates to 1.0.
+    /// 3 flips per turn = router struggling with the user objective
+    /// stream. Tune via V6.2 §1.5 calibration corpus once it's wired.
+    public static let saturationChanges: Float = 3.0
+
+    /// Process-global singleton. Concurrent agentic turns on different
+    /// tasks could call simultaneously; the lock serializes them.
+    public static let shared = ConnectomeAlarmSubstrateObserver()
+
+    private struct State: Sendable {
+        var initialized: Bool
+        var lastRouteChanges: UInt64
+    }
+
+    private let lock = OSAllocatedUnfairLock<State>(
+        initialState: State(initialized: false, lastRouteChanges: 0)
+    )
+
+    /// Callback used to read the live route-change counter. Defaults
+    /// to the live Rust client; tests inject a controlled stub.
+    private let readRouteChanges: @Sendable () -> UInt64
+
+    public init() {
+        self.readRouteChanges = {
+            RustRoutingStatsClient.stats().totalRouteChanges
+        }
+    }
+
+    /// Test-only initializer that lets a unit test drive the route-
+    /// change counter source deterministically without invoking the
+    /// Rust FFI.
+    public init(readRouteChanges: @escaping @Sendable () -> UInt64) {
+        self.readRouteChanges = readRouteChanges
+    }
+
+    /// Sample connectomeAlarm for the just-completed turn. See type-
+    /// level doc for delta semantics + saturation curve.
+    public func sampleAndAdvance() -> Float {
+        let now = readRouteChanges()
+        return lock.withLock { state in
+            guard state.initialized else {
+                state.initialized = true
+                state.lastRouteChanges = now
+                return 0
+            }
+            let delta: UInt64 = now > state.lastRouteChanges
+                ? now - state.lastRouteChanges
+                : 0
+            state.lastRouteChanges = now
+            let alarm = Float(delta) / Self.saturationChanges
+            if alarm < 0 { return 0 }
+            if alarm > 1 { return 1 }
+            return alarm
+        }
+    }
+
+    /// Test-only reset of the priming state. Lets repeated test cases
+    /// observe deterministic first-call behavior.
+    public func resetForTesting() {
+        lock.withLock { state in
+            state.initialized = false
+            state.lastRouteChanges = 0
+        }
     }
 }
 

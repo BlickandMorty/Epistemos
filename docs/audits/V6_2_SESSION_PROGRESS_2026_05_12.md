@@ -199,8 +199,18 @@ In priority order by visible-user-value:
      a zero default. 7 new tests covering empty / mid-point / saturation
      / clamp / no-contradicts / stateless / doctrine pin, plus
      forward+backward JSON-shape decoders.
-   - **connectomeAlarm** from routing layer. Per-turn divergence from
-     planned route → sampler input.
+   - ~~**connectomeAlarm** from routing layer. Per-turn divergence from
+     planned route → sampler input.~~ **LANDED 2026-05-12** via
+     `ConnectomeAlarmSubstrateObserver` reading a new
+     `routing_stats_json` FFI. Rust gains
+     `RoutingStatsAccumulator::shared()` that records every
+     `ConfidenceRouter::route` call's signature; adjacent decisions
+     with different signatures count as a "route change." Swift
+     observer mirrors the WBO priming pattern (first call returns 0,
+     subsequent calls compute `clamp01(delta / 3.0)`); 3 route flips
+     per turn saturates the signal at 1.0. 5 new tests + JSON-shape
+     decode test + 3 Rust accumulator tests (fresh-per-test
+     instances to avoid parallel-runner races).
    Each of these elevates `InterruptScoreCpu.sampleTurnBucket` from
    "coarse heuristic" to "V6.2 §1.5-calibrated." WBO is now live;
    the remaining two stay at 0 until their hooks land.

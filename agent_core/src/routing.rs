@@ -129,6 +129,21 @@ pub struct ConfidenceRouter {
 
 impl ConfidenceRouter {
     pub fn route(&self, objective: &str) -> RoutingDecision {
+        let decision = self.route_inner(objective);
+        // V6.2 §1.4 substrate hook (2026-05-12): record every routing
+        // decision into the process-global stats accumulator so the
+        // Swift-side ConnectomeAlarmSubstrateObserver can compute the
+        // per-turn route-change delta and feed it into InterruptScore.
+        // The observer reads via `routing_stats_json` (cheap O(1) FFI).
+        RoutingStatsAccumulator::shared().record(&decision);
+        decision
+    }
+
+    /// Internal route-computation (the original `route` body). Kept
+    /// pure so unit tests of the heuristic itself don't perturb the
+    /// process-global stats accumulator. `route` wraps this with
+    /// recording for the production path.
+    fn route_inner(&self, objective: &str) -> RoutingDecision {
         let classified = self.classifier.classify(objective);
 
         if classified.privacy_sensitive {
@@ -281,6 +296,201 @@ fn default_tools_for_objective(objective: &str) -> Vec<String> {
     }
 
     tools
+}
+
+// ── RoutingStatsAccumulator (V6.2 §1.4 substrate hook 2026-05-12) ────
+//
+// Process-global accumulator of routing decisions. Each call to
+// `ConfidenceRouter::route` records into this accumulator; the Swift-
+// side `ConnectomeAlarmSubstrateObserver` polls via FFI to compute the
+// per-turn route-change delta and feed it into InterruptScore.
+//
+// "Route divergence" is intentionally interpreted narrowly here: two
+// adjacent decisions for different providers count as one change. The
+// signal is conservative — true route stability under similar load
+// reads as low connectomeAlarm; unstable routing patterns drive the
+// signal up. This is honest under the V6.1 canon-hardening protocol:
+// we don't pretend to have a "planned vs actual" comparison the
+// routing layer hasn't shipped yet; we surface the closest measurable
+// proxy and document the gap.
+
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+
+/// Compact signature of the last routing decision. Two decisions
+/// with identical signatures are considered "same route." The cloud-
+/// provider variant captures the provider; local variants capture the
+/// task tag. Stored as u32 so atomic ops stay cheap.
+fn route_signature(decision: &RoutingDecision) -> u32 {
+    match decision {
+        RoutingDecision::Local(task) => match task {
+            LocalTask::GhostWrite => 0x0001,
+            LocalTask::Classify => 0x0002,
+            LocalTask::Embed => 0x0003,
+            LocalTask::SimpleTool { max_tools: _ } => 0x0004,
+        },
+        RoutingDecision::LocalWithFallback { fallback, .. } => 0x1000 | provider_tag(fallback),
+        RoutingDecision::Cloud(provider, _) => 0x2000 | provider_tag(provider),
+    }
+}
+
+fn provider_tag(provider: &CloudProvider) -> u32 {
+    match provider {
+        CloudProvider::ClaudeHaiku => 1,
+        CloudProvider::ClaudeSonnet => 2,
+        CloudProvider::ClaudeOpus => 3,
+        CloudProvider::GeminiFlash => 4,
+        CloudProvider::GeminiPro => 5,
+        CloudProvider::Perplexity => 6,
+        CloudProvider::OpenAI => 7,
+    }
+}
+
+/// Process-global routing-decision accumulator. Cheap atomic counters
+/// + a Mutex around the last-signature slot (writes happen at most
+/// once per routing call, never on the render hot path).
+pub struct RoutingStatsAccumulator {
+    total_decisions: AtomicU64,
+    total_route_changes: AtomicU64,
+    last_signature: Mutex<Option<u32>>,
+}
+
+impl RoutingStatsAccumulator {
+    /// Fresh accumulator. Tests use this; production code uses
+    /// `shared()` which returns the process-global instance.
+    pub fn new() -> Self {
+        RoutingStatsAccumulator {
+            total_decisions: AtomicU64::new(0),
+            total_route_changes: AtomicU64::new(0),
+            last_signature: Mutex::new(None),
+        }
+    }
+
+    pub fn shared() -> &'static RoutingStatsAccumulator {
+        static INSTANCE: OnceLock<RoutingStatsAccumulator> = OnceLock::new();
+        INSTANCE.get_or_init(Self::new)
+    }
+
+    pub fn record(&self, decision: &RoutingDecision) {
+        let sig = route_signature(decision);
+        self.total_decisions.fetch_add(1, Ordering::Relaxed);
+        // Lock-poisoning is non-fatal here: we'd rather miss one
+        // change-count update than crash the agent runtime. Fall back
+        // to inner-most value.
+        let mut slot = match self.last_signature.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        if let Some(prev) = *slot {
+            if prev != sig {
+                self.total_route_changes.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        *slot = Some(sig);
+    }
+
+    pub fn total_decisions(&self) -> u64 {
+        self.total_decisions.load(Ordering::Relaxed)
+    }
+
+    pub fn total_route_changes(&self) -> u64 {
+        self.total_route_changes.load(Ordering::Relaxed)
+    }
+
+    /// Test-only reset. Lets unit tests observe deterministic counter
+    /// behavior without leaking state across cases.
+    pub fn reset_for_testing(&self) {
+        self.total_decisions.store(0, Ordering::Relaxed);
+        self.total_route_changes.store(0, Ordering::Relaxed);
+        let mut slot = match self.last_signature.lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        *slot = None;
+    }
+}
+
+#[cfg(test)]
+mod stats_tests {
+    use super::*;
+
+    // Tests use fresh per-test accumulators rather than the global
+    // `shared()` instance so cargo-test's parallel runner can't race
+    // between unrelated cases. Production code still routes through
+    // `RoutingStatsAccumulator::shared()` for one process-global view.
+
+    #[test]
+    fn record_increments_decisions_count() {
+        let acc = RoutingStatsAccumulator::new();
+        let d = RoutingDecision::Cloud(
+            CloudProvider::ClaudeSonnet,
+            CloudConfig {
+                effort: "low".to_string(),
+                tools: vec![],
+                enable_web_search: false,
+                enable_code_execution: false,
+            },
+        );
+        acc.record(&d);
+        acc.record(&d);
+        acc.record(&d);
+        assert_eq!(acc.total_decisions(), 3);
+        // Same route 3x → 0 changes.
+        assert_eq!(acc.total_route_changes(), 0);
+    }
+
+    #[test]
+    fn record_increments_route_changes_on_provider_swap() {
+        let acc = RoutingStatsAccumulator::new();
+        let sonnet = RoutingDecision::Cloud(
+            CloudProvider::ClaudeSonnet,
+            CloudConfig {
+                effort: "low".to_string(),
+                tools: vec![],
+                enable_web_search: false,
+                enable_code_execution: false,
+            },
+        );
+        let opus = RoutingDecision::Cloud(
+            CloudProvider::ClaudeOpus,
+            CloudConfig {
+                effort: "high".to_string(),
+                tools: vec![],
+                enable_web_search: false,
+                enable_code_execution: false,
+            },
+        );
+        acc.record(&sonnet);
+        acc.record(&opus);
+        acc.record(&sonnet);
+        // 3 decisions, 2 swaps (sonnet→opus, opus→sonnet).
+        assert_eq!(acc.total_decisions(), 3);
+        assert_eq!(acc.total_route_changes(), 2);
+    }
+
+    #[test]
+    fn cloud_and_local_with_fallback_have_distinct_signatures() {
+        // Even if the underlying provider matches, the LocalWithFallback
+        // variant should not be conflated with a Cloud decision.
+        let cloud_haiku = RoutingDecision::Cloud(
+            CloudProvider::ClaudeHaiku,
+            CloudConfig {
+                effort: "low".to_string(),
+                tools: vec![],
+                enable_web_search: false,
+                enable_code_execution: false,
+            },
+        );
+        let local_haiku_fallback = RoutingDecision::LocalWithFallback {
+            local: LocalTask::Classify,
+            fallback: CloudProvider::ClaudeHaiku,
+        };
+        let s1 = route_signature(&cloud_haiku);
+        let s2 = route_signature(&local_haiku_fallback);
+        assert_ne!(s1, s2,
+            "Cloud(Haiku) and LocalWithFallback(_, Haiku) must produce distinct route signatures");
+    }
 }
 
 #[cfg(test)]
