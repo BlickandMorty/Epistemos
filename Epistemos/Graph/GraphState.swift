@@ -26,14 +26,16 @@ enum GraphMode: Sendable {
 }
 
 enum GraphOverlayPhysicsPolicy {
-    /// Per user 2026-05-12: Observatory is the canonical default at both the
-    /// opening and resting phase. Observatory carries the fluid-wake swirl
-    /// behavior that is part of the default graph identity. Previously the
-    /// timeline opened in constellation and faded to chaos; that two-phase
-    /// behavior is preserved as `legacyDefaultTimelineSignature` for
-    /// reference but no longer drives the live opening path.
-    static let openingPreset: PhysicsPreset = .observatory
-    static let restingPreset: PhysicsPreset = .observatory
+    /// Per user 2026-05-12 (refined): Gravity Well is the canonical
+    /// default at both the opening and resting phase. The boot-default
+    /// UserDefaults state additionally overrides three of Gravity Well's
+    /// stock values (linkDistance → 500 max, centerStrength → 0,
+    /// enableFluidDynamics → false) — see the first-launch branch in
+    /// `restorePhysicsSettings()` for the override application. The
+    /// previous Observatory + fluid-wake default is preserved as
+    /// `legacyDefaultTimelineSignature` only as a historical reference.
+    static let openingPreset: PhysicsPreset = .gravityWell
+    static let restingPreset: PhysicsPreset = .gravityWell
     static let chaosDelaySeconds: TimeInterval = 4
     static let interactionMotionHoldSeconds: TimeInterval = 30
     static let interactionMotionAlphaTarget: Float = 0.015
@@ -1476,49 +1478,51 @@ final class GraphState {
         if let raw = d.string(forKey: "epistemos.physics.selectedPreset") {
             selectedPhysicsPreset = PhysicsPreset(rawValue: raw)
         } else {
-            // Per user 2026-05-11: Observatory is the canonical default
-            // preset. The stored physics defaults (linkDistance=80,
-            // chargeStrength=-300, chargeRange=400, velocityDecay=0.6,
-            // centerStrength=0.03, collisionRadius=26) already match
-            // Observatory's params 1:1 — so highlighting the preset on
-            // first launch is honest about what the user is actually
-            // looking at. Persist it so the picker shows the selection
-            // on subsequent launches.
-            selectedPhysicsPreset = .observatory
-            d.set(PhysicsPreset.observatory.rawValue, forKey: "epistemos.physics.selectedPreset")
-            // Per user 2026-05-12: also apply Observatory's lab overrides
-            // (enableFluid=true, enableTorsion=true, enableElastic=true,
-            // windX/Y=0, enableOrbital=false) on FIRST LAUNCH so the
-            // canonical fluid-wake swirl is on out of the box. The
-            // overlay-cycle path (`applyOverlayPreset`) intentionally
-            // SKIPS lab overrides because lab toggles are user-owned
-            // — so we only mirror them on this first-launch branch
-            // (the picker case is `if let raw = ...` above and respects
-            // whatever the user already configured).
-            let observatoryLab = PhysicsPreset.observatory.labOverrides
-            if let v = observatoryLab.enableFluid    { enableFluidDynamics = v }
-            if let v = observatoryLab.enableTorsion  { enableTorsionalSprings = v }
-            if let v = observatoryLab.enableElastic  { enableElasticEdges = v }
-            if let v = observatoryLab.fluidViscosity { fluidViscosity = v }
-            if let v = observatoryLab.edgeElasticity { edgeElasticity = v }
-            if let v = observatoryLab.torsionRigidity { torsionRigidity = v }
-            if let v = observatoryLab.boidsCohesion  { boidsCohesion = v }
-            if let v = observatoryLab.windX          { windX = v }
-            if let v = observatoryLab.windY          { windY = v }
-            if let v = observatoryLab.enableOrbital  { enableOrbital = v }
-            if let v = observatoryLab.orbitalSpeed   { orbitalSpeed = v }
-            // Persist the lab values so the picker reflects them next launch.
+            // Per user 2026-05-12 (refined): boot default is Gravity Well
+            // base preset with three explicit overrides:
+            //   - linkDistance:  500 (slider max — wide enough to space
+            //                    isolated singletons clearly without
+            //                    crowding clusters)
+            //   - centerStrength: 0  (no center pull — let charge +
+            //                    collision settle the layout instead)
+            //   - enableFluidDynamics: false (no fluid wake / curl
+            //                    noise; deliberate calm motion)
+            //
+            // Gravity Well's other params (chargeStrength=-180,
+            // chargeRange=320, velocityDecay=0.78, collisionRadius=18,
+            // linkStrength=0.78) are loaded by `applyPreset` so the
+            // picker honestly reflects "Gravity Well" while the three
+            // overrides above sit on top. Existing users with a stored
+            // preset choice in the `if let raw = …` branch above are
+            // not touched.
+            //
+            // Override the base preset values for the three knobs the
+            // user wants different from stock Gravity Well, then
+            // persist everything so the next launch shows the same
+            // state.
+            applyPreset(
+                .gravityWell,
+                persist: false,        // we persist explicitly below
+                applyLabOverrides: false, // lab toggles are independent
+                cancelOverlayCycle: false
+            )
+            // Three explicit overrides on top of Gravity Well:
+            linkDistance = 500.0
+            centerStrength = 0.0
+            enableFluidDynamics = false
+            // Persist preset + the three overrides.
+            d.set(PhysicsPreset.gravityWell.rawValue,
+                  forKey: "epistemos.physics.selectedPreset")
+            d.set(linkDistance, forKey: "epistemos.physics.linkDistance")
+            d.set(centerStrength, forKey: "epistemos.physics.centerStrength")
             d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
-            d.set(enableTorsionalSprings, forKey: "epistemos.physics.enableTorsion")
-            d.set(enableElasticEdges, forKey: "epistemos.physics.enableElastic")
-            d.set(fluidViscosity, forKey: "epistemos.physics.fluidViscosity")
-            d.set(edgeElasticity, forKey: "epistemos.physics.edgeElasticity")
-            d.set(torsionRigidity, forKey: "epistemos.physics.torsionRigidity")
-            d.set(boidsCohesion, forKey: "epistemos.physics.boidsCohesion")
-            d.set(windX, forKey: "epistemos.physics.windX")
-            d.set(windY, forKey: "epistemos.physics.windY")
-            d.set(enableOrbital, forKey: "epistemos.physics.enableOrbital")
-            d.set(orbitalSpeed, forKey: "epistemos.physics.orbitalSpeed")
+            // Persist the rest of Gravity Well's stock values so the
+            // first-launch state survives a relaunch byte-identically.
+            d.set(chargeStrength, forKey: "epistemos.physics.chargeStrength")
+            d.set(chargeRange, forKey: "epistemos.physics.chargeRange")
+            d.set(linkStrength, forKey: "epistemos.physics.linkStrength")
+            d.set(velocityDecay, forKey: "epistemos.physics.velocityDecay")
+            d.set(collisionRadius, forKey: "epistemos.physics.collisionRadius")
         }
         // Master toggle + saved strengths
         if d.object(forKey: "epistemos.physics.savedClusterStrength") != nil {
