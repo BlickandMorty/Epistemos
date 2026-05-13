@@ -1,4 +1,5 @@
 import AppKit
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -66,6 +67,15 @@ struct ChatInputBar: View {
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // RCA2-P1-004 closure 2026-05-13: drop synchronous SwiftData
+    // fetches out of `mentionSearchResults` (which runs on every
+    // body re-evaluation while the @-popover is open). SwiftData's
+    // `@Query` re-fetches only when the underlying chats change, so
+    // the @-search hot path now reads a cached array instead of
+    // calling `modelContext.fetch` per keystroke. `recentChatsDescriptor`
+    // already caps the fetch at 200 entries (SDPage+Queries.swift:106).
+    @Query(SDChat.recentChatsDescriptor) private var recentChatsQuery: [SDChat]
 
     @State private var text = ""
     @State private var isFocused = false
@@ -396,10 +406,15 @@ struct ChatInputBar: View {
                 indexedNoteSnippetsByPageID: [:]
             )
         }
+        // RCA2-P1-004 closure 2026-05-13: feed the cached @Query
+        // result here. The query re-fetches only when SDChat
+        // changes, capped at 200 entries by `recentChatsDescriptor`,
+        // so this branch becomes a constant-time array slice instead
+        // of a per-keystroke SwiftData fetch.
         return ChatCoordinator.searchReferenceResults(
             filter: trimmedMentionFilter,
             manifest: ambientManifest,
-            chats: recentChats(),
+            chats: Array(recentChatsQuery.prefix(20)),
             threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
             indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
@@ -1189,6 +1204,12 @@ struct ChatInputBar: View {
         }
     }
 
+    /// RCA2-P1-004 closure 2026-05-13: legacy ad-hoc fetch path
+    /// kept only so any future caller that genuinely needs a
+    /// fresh, side-effect-aware snapshot can opt in. The composer
+    /// hot path reads from `recentChatsQuery` (an `@Query` that
+    /// re-fetches reactively) so SwiftUI body evaluations no longer
+    /// trigger synchronous SwiftData I/O during @-typing.
     private func recentChats() -> [SDChat] {
         var descriptor = SDChat.recentChatsDescriptor
         descriptor.fetchLimit = 20
