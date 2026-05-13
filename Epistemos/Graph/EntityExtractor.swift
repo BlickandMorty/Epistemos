@@ -467,27 +467,33 @@ final class EntityExtractor {
 
     // MARK: - Block-Level Annotation
 
-    /// Pre-fetch all SDBlocks for a set of page IDs in a single query (avoids N+1).
+    /// Pre-fetch all SDBlocks for a set of page IDs.
+    ///
+    /// RCA-P1-011 (2026-05-13): the previous implementation fired one
+    /// `FetchDescriptor` per page ID, which is the "N+1" pattern the
+    /// audit register flagged — for a 200-page scan that meant 200
+    /// round-trips to SwiftData on the MainActor. The new implementation
+    /// uses a single batched fetch with `pageIdSet.contains($0.pageId)`,
+    /// then groups the result in-memory. Same correctness, one round-
+    /// trip instead of N.
     private func prefetchBlocks(forPageIds pageIds: [String], context: ModelContext) -> [String: [SDBlock]] {
-        // Fetch blocks per page ID to avoid loading the entire SDBlock table.
-        var grouped: [String: [SDBlock]] = [:]
-        for pageId in pageIds {
-            let descriptor = FetchDescriptor<SDBlock>(
-                predicate: #Predicate<SDBlock> { $0.pageId == pageId },
-                sortBy: [SortDescriptor(\SDBlock.order)]
-            )
-            let blocks: [SDBlock]
-            do {
-                blocks = try context.fetch(descriptor)
-            } catch {
-                recordFetchFailure("EntityExtractor: failed to fetch page blocks for annotation", error: error)
-                continue
-            }
-            if !blocks.isEmpty {
-                grouped[pageId] = blocks
-            }
+        guard !pageIds.isEmpty else { return [:] }
+        let pageIdSet = Set(pageIds)
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { pageIdSet.contains($0.pageId) },
+            sortBy: [SortDescriptor(\SDBlock.order)]
+        )
+        let blocks: [SDBlock]
+        do {
+            blocks = try context.fetch(descriptor)
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch page blocks for annotation", error: error)
+            return [:]
         }
-        return grouped
+        // Group by pageId in-memory. For typical scans (10-200 pages,
+        // ~5-50 blocks each) this is a few thousand assignments — far
+        // cheaper than the previous N round-trips to SwiftData.
+        return Dictionary(grouping: blocks, by: \.pageId)
     }
 
     /// Annotate body text with block IDs so the LLM can attribute entities to specific blocks.
