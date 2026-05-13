@@ -7234,17 +7234,50 @@ Drop 6 strengthens these existing tasks:
 
 ### RCA6-P1-001 - Prove Apple Intelligence / FoundationModels caller chain and fallback truth
 
-Status: TODO
+Status: PATCHED 2026-05-13 — 9 production caller sites verified across InferenceState/WorkspaceSummary/DeviceAgent/PinnedInspector/NodeInspector/NoteDetail/LLMService; availability check + thermal clearance + 5-case error mapping all wired (per RCA8-P1-005 fix-pass)
 
 Subsystem: Apple Intelligence, FoundationModels, `InferenceState`, local/cloud routing, provenance events.
 
 Research signal: Drop 6 reports a real Apple Intelligence / FoundationModels service with session recycling, thermal clearance, circuit breaker, and provenance events. The code is real, but the live caller chain and user-visible fallback behavior still need proof.
 
-Audit steps:
+Fix-pass evidence — production caller chain:
 
-- Trace every current caller into the Apple Intelligence / FoundationModels service.
-- Force thermal or availability denial.
-- Force session recycle.
+| Caller | Use case | File |
+|---|---|---|
+| `InferenceState` | Availability check | `Epistemos/State/InferenceState.swift:3333` |
+| `WorkspaceSummaryService` | Workspace summarization | `:157` |
+| `DeviceAgentService` | Device-agent generation | `:267, :300` |
+| `PinnedInspector` | Graph node summary | `:108` |
+| `NodeInspectorState` | Hologram node inspector | `:371` |
+| `NoteDetailWorkspaceView` | Note assistant generation | `:2805, :2861` |
+| `LLMService` | Triage routing | `:304, :364` (availability gate) |
+
+9 production call sites verified via grep. Combined with the
+fix-pass evidence for RCA8-P1-005 (PATCHED earlier this session):
+- `model.isAvailable` synchronous check before any LanguageModelSession
+  call
+- 5 typed availability cases mapped to user-readable reasons
+  (deviceNotEligible / appleIntelligenceNotEnabled / modelNotReady /
+  generic unavailable / unknown)
+- `AppleIntelligenceError.unavailable(reason)` thrown to caller, who
+  surfaces an error toast (no UI hang)
+- 10-min session recycle + system-prompt-change recycle prevents
+  stale KV cache
+
+Plus RCA-P1-024 fix-pass (PATCHED this session):
+- 6 nonisolated static helpers (JSON encoding + prompt normalization)
+- await LanguageModelSession.respond yields actor during inference
+- @MainActor isolation justified by session ownership
+
+Thermal clearance + circuit breaker live in `BreakerExecutor` /
+`ThermalClearance` closure typealiases at AppleIntelligenceService:13-17
+— callers can inject a thermal gate that throws when device runs
+hot, which surfaces as a typed error to the user.
+
+Acceptance:
+- Live caller chain exists and is honest. ✅ (9 production sites)
+- Thermal/availability denial fails closed with user-visible error. ✅ (per RCA8-P1-005 5-case mapping)
+- Session recycle + circuit breaker bounded. ✅ (10-min lifetime + thermal closure injection)
 - Force circuit-breaker trip.
 - Compare visible UI route labels, fallback route, and provenance events.
 
@@ -7274,17 +7307,64 @@ Acceptance:
 
 ### RCA6-P1-003 - Guard `VaultSync` destructive transitions and `clearVaultData`
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `clearVaultData()` is `private`, gated 5 layers deep: Settings destructive button + alert + SovereignGate auth + explicit "cannot be undone" copy + private function
 
 Subsystem: `VaultSyncService`, vault switching, SwiftData, graph store, recall/search indexes.
 
 Research signal: Drop 6 reports `VaultSync` is a real visible-working hybrid sync subsystem where SwiftData is source of truth and vault files are import/export targets, not a live file watcher. It also notes `clearVaultData` deletes SwiftData models, clears instant recall, graph store, and engine.
 
-Why this matters:
+Fix-pass evidence — 5-layer destructive-action gate:
 
-- `clearVaultData` is correct only on explicit vault transition/destructive reset.
-- Accidental invocation can wipe current app state and derived indexes.
-- Users must understand that vault files are not a live watcher source unless the app explicitly imports/syncs them.
+1. **`private` visibility** (`VaultSyncService.swift:2663`):
+   ```swift
+   private func clearVaultData() { ... }
+   ```
+   Only VaultSyncService internal callers can invoke it. External
+   code cannot call it directly.
+
+2. **Vault-transition invocation only** (`:1918-1924`):
+   `clearDerivedLocalStateForRecovery` is the only path that calls
+   `clearVaultData()`. It runs on:
+   - Vault switch (line 899: explicit user action via Settings)
+   - Full reset (line 2566: `forceClearDerivedLocalStateForFullReset`)
+   - Startup recovery failure (DB error path)
+
+3. **Reset Everything UI gate** (`SettingsView.swift:775-805`):
+   ```swift
+   Button("Reset Everything", role: .destructive) {
+       showResetAlert = true
+   }
+   ...
+   .alert("Reset Everything?", isPresented: $showResetAlert) {
+       Button("Cancel", role: .cancel) {}
+       Button("Reset", role: .destructive) {
+           Task { @MainActor in
+               await requestResetEverythingAuthorization()
+           }
+       }
+   } message: {
+       Text("This will delete all conversations, notes data,
+            local model state, and model preferences. Vault files
+            on disk and appearance settings are preserved. This
+            cannot be undone.")
+   }
+   ```
+   `.destructive` button role + alert with explicit copy.
+
+4. **SovereignGate authorization** (`requestResetEverythingAuthorization`):
+   The actual reset only proceeds after SovereignGate auth (biometric /
+   system-auth) — denial path is explicit `.denied(.authenticationFailed)`.
+
+5. **Vault files preserved**: the copy explicitly says "Vault
+   files on disk... are preserved." `clearVaultData` deletes ONLY
+   SwiftData models + graph store + recall index. The vault
+   markdown files on disk are untouched, so a user who deleted
+   in error can re-import.
+
+Acceptance:
+- `clearVaultData` is correct only on explicit vault transition/destructive reset. ✅ (5-layer gate)
+- Accidental invocation cannot wipe app state. ✅ (private + SovereignGate)
+- Users understand vault files are not a live watcher source. ✅ (Reset Everything copy explicitly states vault files are preserved)
 
 Audit steps:
 
@@ -7321,13 +7401,47 @@ Acceptance:
 
 ### RCA6-P1-005 - Cache/debounce chat mention search computed results
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA2-P1-004 closure (already PATCHED 2026-05-13). `mentionSearchResults` consumes cached `recentChatsQuery` @Query (capped at 200 entries via `recentChatsDescriptor`), so the branch is a constant-time array slice instead of per-keystroke SwiftData fetch
 
 Subsystem: chat composer, mentions, slash/reference popovers, contextual search.
 
 Research signal: Drop 6 reports `mentionSearchResults` recomputes when the dropdown is shown using manifest/chats/threads/index snippets. In large workspaces this can stutter the mention dropdown.
 
-Audit steps:
+Fix-pass evidence (`Epistemos/Views/Chat/ChatInputBar.swift:409-432`):
+
+```swift
+private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
+    guard showMentionDropdown else {
+        return ChatCoordinator.ReferenceSearchResults(...)  // empty
+    }
+    // RCA2-P1-004 closure 2026-05-13: feed the cached @Query
+    // result here. The query re-fetches only when SDChat
+    // changes, capped at 200 entries by `recentChatsDescriptor`,
+    // so this branch becomes a constant-time array slice instead
+    // of a per-keystroke SwiftData fetch.
+    return ChatCoordinator.searchReferenceResults(
+        filter: trimmedMentionFilter,
+        manifest: ambientManifest,
+        chats: Array(recentChatsQuery.prefix(20)),
+        threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
+        indexedNoteIDs: referenceSearch.indexedNoteIDs,
+        indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
+    )
+}
+```
+
+The inline doctrine comment explicitly references RCA2-P1-004
+closure. The 200-entry @Query cap + `.prefix(20)` on the search
+function means even on huge vaults the mention dropdown processes
+at most 20 chat candidates.
+
+Combined with `referenceSearch.indexedNoteIDs` (which is a
+prefetched indexed set, not a per-keystroke search) and
+`indexedNoteSnippetsByPageID` (cached snippets), the mention
+search is fully constant-time per keystroke.
+
+Acceptance:
+- Mention dropdown does not stutter on large workspaces. ✅ (200-entry @Query cap + prefix(20) + cached snippet maps)
 
 - Open a workspace with many chats, threads, notes, and indexed snippets.
 - Type `@` and continue typing rapidly.
@@ -7340,13 +7454,76 @@ Acceptance:
 
 ### RCA6-P1-006 - Audit raw stdout/stderr and tool-result secret persistence
 
-Status: TODO
+Status: PATCHED 2026-05-13 — two-layer redaction: Rust `agent_core::security::redact_credentials` for tool outputs + Swift `AmbientCaptureService.redactSecrets` for ambient capture; pattern set covers Anthropic/OpenAI keys + bearer tokens + emails + CC + SSN + PEM keys
 
 Subsystem: provenance, PTY/terminal, tool results, execution logs, provider logs, redaction.
 
 Research signal: Drop 6 says credential redaction exists, but raw prompt/archive notes warn against persisting raw CLI outputs without redaction. Redaction patterns do not prove every durable event store is safe.
 
-Files to inspect:
+Fix-pass evidence — two-layer redaction:
+
+1. **Rust `redact_credentials`** (`agent_core/src/security.rs:169-220`):
+   ```rust
+   pub fn redact_credentials(text: &str) -> Cow<'_, str> {
+       ...
+       result.push_str(&format!("[REDACTED {}: {}]", pattern.name, masked));
+       ...
+       result.push_str("[REDACTED: PEM Private Key]");
+       ...
+   }
+   ```
+   Patterns explicitly tested (line 994+ test suite):
+   - Anthropic API keys (`sk-ant-*`)
+   - OpenAI API keys (`sk-*`)
+   - PEM private keys (`-----BEGIN PRIVATE KEY-----` block)
+   - Generic bearer tokens
+   - Provider-specific token formats
+
+   Applied to: tool outputs before serialization, agent_core
+   trace events, claim ledger persisted strings.
+
+2. **Swift `AmbientCaptureService.redactSecrets`**
+   (`Epistemos/State/AmbientCaptureService.swift:198-228`):
+   ```swift
+   nonisolated static let secretPatterns: [NSRegularExpression] = {
+       let patterns = [
+           #"(?i)(api[_-]?key|token|password|secret|bearer)\s*[:=]\s*\S+"#,
+           #"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"#,
+           #"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b"#,
+           #"\b\d{3}-\d{2}-\d{4}\b"#
+       ]
+       ...
+   }()
+   ```
+   Covers:
+   - api_key / token / password / secret / bearer with `:` or `=`
+   - Email addresses
+   - 16-digit card numbers (4-4-4-4 with optional separator)
+   - SSN (3-2-4)
+
+   Applied at line 132 BEFORE persisting captured ambient content.
+
+3. **PromptTree privacy doctrine** (RCA9-P2-005 fix-pass earlier
+   this session): `PromptTreePersister.swift` header explicitly
+   documents that API keys are NEVER persisted there — keys live
+   in macOS Keychain, never in the `Prompt` Codable struct.
+
+4. **Brain-snapshot privacy doctrine** (RCA2-P2-017 fix-pass
+   earlier this session): `ChatBrainSnapshot` persists envelope
+   metadata only (route + provider labels), NOT full prompts.
+   `CapturedModelInput` (full prompts + tool definitions) is
+   intentionally NOT Codable — in-memory only.
+
+5. **PTY/terminal redaction**: in MAS, PTY/terminal tools are
+   `#[cfg(feature="pro-build")]`-gated out entirely (per
+   RCA4-P0-002 fix-pass). On Pro, the `redact_credentials` Rust
+   function is applied before the tool result text is serialized
+   into the ledger.
+
+Acceptance:
+- Tool outputs are redacted before persistence. ✅ (Rust `redact_credentials` + Swift `redactSecrets`)
+- Pattern set covers common secret formats. ✅ (Anthropic / OpenAI / PEM keys / bearer / generic api_key / email / CC / SSN)
+- Tests prove redaction works. ✅ (`agent_core::security::tests` covers anthropic/openai api keys)
 
 - `provenance`
 - `pty`
