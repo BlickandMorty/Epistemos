@@ -665,8 +665,19 @@ struct ChatInputBar: View {
                             preferSplitToolbarControls: true
                         )
                         attachButton
-                        ComposerMicButton { transcript in
-                            insertVoiceTranscript(transcript)
+                        // RCA4-P1-006 fix-pass (2026-05-13): one mic
+                        // affordance per OS. macOS 26+ uses the native
+                        // `VoiceInputButton` (SpeechAnalyzer) further
+                        // down the bar; earlier OSes use this legacy
+                        // `ComposerMicButton` (W10.10 Whisper.cpp /
+                        // SFSpeechRecognizer fallback). Surfacing both
+                        // simultaneously confused users about which
+                        // mic owned the dictation lifecycle + temp
+                        // files.
+                        if #unavailable(macOS 26.0) {
+                            ComposerMicButton { transcript in
+                                insertVoiceTranscript(transcript)
+                            }
                         }
                     }
 
