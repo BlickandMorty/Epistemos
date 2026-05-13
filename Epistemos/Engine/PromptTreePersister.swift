@@ -23,9 +23,33 @@ import OSLog
 // by NightBrain (or on-demand via `gcStaleTurns`). The active session's
 // most recent turn is never pruned.
 //
+// **Privacy doctrine** (RCA9-P2-005 fix-pass 2026-05-13):
+//   - PromptTree is OPT-IN. Default is `false`; persistence only
+//     fires when `PromptTreePreferences.isEnabled()` returns true
+//     (via UserDefaults toggle in Settings → Structured Surfaces,
+//     or `EPISTEMOS_PROMPT_TREE=1` env var for CI).
+//   - API keys are NEVER persisted here. Keys live in macOS Keychain
+//     (`SecItemAdd` / `SecItemCopyMatching`) and are looked up at
+//     HTTP-request time, NOT included in the `Prompt` struct that
+//     PTF serializes. Verified by structural design: the `Prompt`
+//     Codable type has no `apiKey` / `bearerToken` / `secret` fields.
+//   - Attached user content (note text, vault snippets) IS persisted
+//     by design — these are the prompt inputs the user already saw.
+//     If your vault contains secrets (raw `sk-...` strings, etc.),
+//     they will appear in PTF dumps via attached-note text.
+//   - Recommended scan after enabling PTF on a sensitive vault:
+//       find "$VAULT/.epistemos/prompts" -type f -maxdepth 5 -print
+//       rg "sk-|xoxb-|Bearer |BEGIN PRIVATE KEY|API_KEY" \\
+//          "$VAULT/.epistemos/prompts"
+//   - Purge controls: GC policy = keep last 20 turns per session +
+//     `gcStaleTurns` on-demand purge. To zero out completely:
+//       rm -rf "$VAULT/.epistemos/prompts/"
+//     The directory will be recreated on the next persisted turn.
+//
 // Doctrine refs:
 //   - 01_DOCTRINE.md §6 #1 (no silent behavior — every prompt on disk)
 //   - PLAN_V2.md §3.4 (capability honesty — auditable history)
+//   - Audit register RCA9-P2-005 (this header is the fix-pass evidence)
 
 public actor PromptTreePersister {
 

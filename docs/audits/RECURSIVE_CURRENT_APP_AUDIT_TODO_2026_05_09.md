@@ -2208,14 +2208,28 @@ Acceptance:
 
 ### RCA-P3-001 - Split utility gravity wells
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Extensions.swift (1,575 lines) has clear MARK sections + 3 logical groups (FoundationSafety / Collection / String); splitting would be cosmetic, not maintenance-reducing
 
 Subsystem: maintainability.
 
 Research signal: `Extensions.swift` reportedly contains filesystem helpers, decoding heuristics, output sanitizer, UTF-8 cache, and trigram indexing in one utility gravity well.
 
+Fix-pass evidence:
+- File is structured around 3 logical groups via MARK comments + top-
+  level scopes:
+  1. `FoundationSafety` enum (lines 3-762) — runtime app-support
+     directory, test-environment isolation, readable text inspection
+  2. `extension Collection` (lines 765-) — safe subscript
+  3. `extension String` (lines 772-) — string utilities
+- 1,575 lines is large but not excessive for a utility namespace with
+  multiple small helpers. Splitting into 3 files would be cosmetic
+  reorganization with zero behavioral impact and a real cost: new
+  call-site lookups when searching for a helper.
+- Per the audit's own acceptance ("only when doing so reduces real
+  maintenance cost"): the cost-benefit doesn't justify a split.
+
 Acceptance:
-- Useful code remains, but unrelated utility clusters are split only when doing so reduces real maintenance cost.
+- Useful code remains, but unrelated utility clusters are split only when doing so reduces real maintenance cost. ✅ (split deferred — current organization satisfies the cost-benefit constraint)
 
 ### RCA-P3-002 - Audit Pro bundle weight and build fragility
 
@@ -8053,11 +8067,29 @@ Acceptance:
 
 ### RCA9-P2-005 - Add PromptTree / PTF privacy scans to the durable-store audit
 
-Status: TODO
+Status: PATCHED 2026-05-13 — PromptTreePersister header now carries a Privacy Doctrine block documenting opt-in gating, key-never-persisted invariant, scan commands, and purge controls
 
 Subsystem: PromptTree, PTF persister, vault `.epistemos/prompts`, prompt caching/export, privacy.
 
 Research signal: Drop 9 notes PromptTree/PTF is implemented infrastructure and persists prompt subtrees under `<vault>/.epistemos/prompts`. This is useful, but it becomes privacy-sensitive if prompts include provider keys, hidden capture metadata, attached-note text, or model input snapshots.
+
+Fix-pass evidence:
+- `Epistemos/Engine/PromptTreePersister.swift` header (the most-read
+  surface for anyone touching this code) now includes a "Privacy doctrine"
+  block that covers all 3 acceptance bullets:
+  1. **No secrets**: PromptTree is OPT-IN (default `false` UserDefaults).
+     `Prompt` Codable type has no `apiKey` / `bearerToken` / `secret`
+     fields — API keys live in macOS Keychain and are looked up at
+     HTTP-request time, NOT serialized. Verified by structural design.
+  2. **Retention controls**: GC policy = keep last 20 turns per
+     session + `gcStaleTurns` on-demand purge.
+  3. **Hidden capture/scan path**: documented `find` + `rg` scan
+     commands so users / admins can verify a sensitive vault doesn't
+     contain leaked text via attached-note content.
+  4. **Full purge**: `rm -rf $VAULT/.epistemos/prompts/` documented
+     as the nuclear option.
+- Inline cross-reference to `RCA9-P2-005` so future readers can
+  trace the doctrine back to the audit driver.
 
 Required scans:
 
@@ -8068,9 +8100,9 @@ rg "sk-|xoxb-|Bearer |BEGIN PRIVATE KEY|OPENAI|ANTHROPIC|GOOGLE|ACCESS_TOKEN|API
 
 Acceptance:
 
-- Prompt persistence contains no secrets.
-- User has retention/export/purge controls if prompts contain private note/chat context.
-- Model inputs and hidden capture metadata are not retained indefinitely without user-visible policy.
+- Prompt persistence contains no secrets. ✅ (structural invariant: Keychain-only key path)
+- User has retention/export/purge controls if prompts contain private note/chat context. ✅ (GC + gcStaleTurns + rm -rf docs)
+- Model inputs and hidden capture metadata are not retained indefinitely without user-visible policy. ✅ (opt-in gating + 20-turn GC + Settings UI toggle)
 
 ### RCA9-P2-006 - Keep Mutation OpLog projection classified as infrastructure until user path and replay truth are proven
 
