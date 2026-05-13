@@ -1,6 +1,20 @@
 import Foundation
 import Metal
 
+// MARK: - Mamba2ForwardPass
+//
+// SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-13.
+//
+// Diagnostic-only Mamba-2 forward-pass implementation against a
+// Metal runtime. The class is only constructed from
+// `EpistemosTests/Mamba2MetalRuntimeTests.swift:53` — no production
+// app target wires it in. The actual MLX-Swift Mamba-2 cache path
+// (Phase 1A — see `project_mamba2_runtime` memory) is the live
+// runtime; this file is the cross-check harness used to validate
+// the Metal kernels on Apple Silicon.
+//
+// Activation tracked under audit register `RCA-P2-010`.
+
 enum Mamba2ForwardPassError: LocalizedError, Sendable {
     case diagnosticRequiresAppleSilicon
 

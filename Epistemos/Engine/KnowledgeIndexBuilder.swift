@@ -2,11 +2,22 @@ import Foundation
 import SwiftData
 
 // MARK: - KnowledgeIndexBuilder
+//
+// SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-13.
+//
 // Builds a compact entity table from the knowledge graph and injects it into
 // every agent system prompt. Enables entity resolution by lookup, not search.
 //
 // Reference: Rowboat `knowledge_index.ts` pattern — structured table of all entities
 // passed to agent prompts for entity resolution.
+//
+// **No production caller constructs a `KnowledgeIndexBuilder` today**
+// (`rg "KnowledgeIndexBuilder("` returns no matches in the app
+// target). The Rowboat-style entity-table injection is roadmap work;
+// the canonical prompt-tree pipeline (N1) carries memory + identity
+// references without needing this builder yet.
+//
+// Activation tracked under audit register `RCA-P2-010`.
 //
 // Output format (markdown table, capped at ~2000 tokens / 150 entries):
 // ## Your Knowledge Graph

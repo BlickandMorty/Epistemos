@@ -2,10 +2,21 @@ import Foundation
 
 // MARK: - EventDrain
 //
+// SCAFFOLD ONLY — RCA-P2-008 classification 2026-05-13.
+//
 // Wave 5 follow-up of the Extended Program Plan
 // (cross-ref dpp §5.3-5.6 — Swift EventDrain actor draining at frame
 //  boundaries; the substrate-rt SPSC ring + FFI surface shipped in
 //  W5 base [c0e09d25]).
+//
+// **No production Swift caller constructs an `EventDrain` today**
+// (`rg "EventDrain(client"` returns no matches). The CADisplayLink
+// hookup that would drive `tick(handler:)` ships behind a later
+// graph-engine integration — until that wiring lands the actor +
+// the `RustEventRingClient` FFI shim are reachable in tests + future
+// feature work but have no runtime owner.
+//
+// Activation tracked under audit register `RCA-P2-008`.
 //
 // Per dpp §5.3: "Swift module map (Sources/EpistemosRT/include/) +
 // EventDrain actor draining at frame boundaries."

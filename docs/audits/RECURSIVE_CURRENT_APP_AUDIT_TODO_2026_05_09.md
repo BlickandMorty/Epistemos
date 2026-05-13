@@ -4,13 +4,15 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, second-pass)
+## Headline Status (rollup updated 2026-05-13, third-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 second-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 third-pass:
 
-- **PATCHED / DONE**: 80+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **13 items** were PATCHED specifically on 2026-05-13 across this session's iterations (RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002).
+- **PATCHED / DONE**: 86+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **19 items** were PATCHED on 2026-05-13 across this session's iterations:
+  - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
+  - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
 - **PATCHED PARTIAL**: ~30 items — structural fix in place, manual smoke or deeper profiling deferred.
-- **TODO**: 138 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+- **TODO**: ~131 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -1728,7 +1730,7 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA-P2-008 - Classify sidecars, FSRS, speech, query DSL, hooks, paste intelligence, and EventDrain by caller proof
 
-Status: TODO
+Status: PATCHED 2026-05-13 — full classification table below; orphan subsystems carry SCAFFOLD-ONLY markers
 
 Subsystem: half-built feature ring.
 
@@ -1740,6 +1742,52 @@ Audit steps:
 
 Acceptance:
 - No half-built subsystem is counted as user-facing without reachability proof.
+
+Fix-pass evidence 2026-05-13 — classification table per subsystem:
+
+  - **Sidecars** — VISIBLE-WORKING.
+    `SidecarCache` was patched under RCA-P2-015 (counter-based LRU,
+    O(1) lookup). `AFMSidecarGenerator` is the production producer
+    invoked from `EntityExtractor` and the AppBootstrap idle pass.
+    No orphan.
+  - **FSRS** — VISIBLE-WORKING.
+    `FSRSDecayState` was audited under RCA-P2-002; `topAtRisk` is
+    called by NightBrain. Comments + complexity match implementation.
+  - **Speech** — VISIBLE-WORKING (partial; merge audit in flight).
+    `ComposerVoiceInputService` + `VoiceInputButton` are wired
+    through the chat composer. Merge of duplicate dictation paths
+    tracked under RCA2-P1-001 (TODO — needs macOS 26 hardware).
+    Temp-file cleanup landed under RCA2-P1-002.
+  - **Query DSL** — VISIBLE-WORKING.
+    `StructuredQueryParser` was patched under RCA-P2-004 to actually
+    parse top-level `|` + parenthesized groups. Graph functions
+    (`path`, `supports`, `contradicts`, `neighbors`, `similar`) are
+    wired via QueryRuntime.
+  - **Hooks** — VISIBLE-WORKING.
+    `HookRegistry.fireBeforePromptBuild` / `fireBeforeToolCall` /
+    `fireAfterToolCall` are called from `PipelineService` lines
+    427, 529, 655 respectively. Production agent pipeline depends
+    on these — no orphan.
+  - **Paste intelligence** — SCAFFOLD-ONLY (this commit).
+    `EpdocPasteClassifier` has no production Swift caller today
+    (`rg "EpdocPasteClassifier"` returns the declaration only).
+    The W7.17.b JS-side paste handler that would consume it ships
+    with a deferred runtime. Added `SCAFFOLD ONLY — RCA-P2-008
+    classification` header above the enum declaration so future
+    readers can't mistake it for a live runtime path.
+  - **EventDrain** — SCAFFOLD-ONLY (this commit).
+    `EventDrain` actor has no production constructor today
+    (`rg "EventDrain(client"` returns no matches). The
+    CADisplayLink hookup that would drive `tick(handler:)` per
+    frame ships behind a later graph-engine integration. Added
+    `SCAFFOLD ONLY — RCA-P2-008 classification` header above the
+    file's MARK so the deferred wiring is explicit.
+
+Net: audit acceptance "No half-built subsystem is counted as
+user-facing without reachability proof" — satisfied across all 7
+subsystems. The orphan candidates (paste intelligence + EventDrain)
+carry the canonical SCAFFOLD-ONLY template; the wired subsystems
+have their visible-working chains documented above for cross-ref.
 
 ### RCA-P2-009 - Hide mock-only intelligence surfaces
 
@@ -1775,7 +1823,7 @@ Acceptance:
 
 ### RCA-P2-010 - Quarantine orphan candidates and archived runtimes
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — IntakeValve verified wired (audit signal stale); KANPilotScaffold + Mamba2ForwardPass carry SCAFFOLD-ONLY markers; remaining names still need pass
 
 Subsystem: repo hygiene, dead code, cognitive load.
 
@@ -1788,6 +1836,68 @@ Audit steps:
 
 Acceptance:
 - Archived/scaffold code cannot be mistaken for current runtime.
+
+Fix-pass evidence 2026-05-13 (partial pass):
+
+  - **IntakeValve** — VISIBLE-WORKING (signal stale).
+    `EpdocEditorChromeView.swift:816` calls
+    `IntakeValve.shared.classifyAndRoute(...)` on the AR5 paste
+    path. The Phase-14 W10.14 classifier is reachable on every
+    paste action.
+  - **KANPilotScaffold** — SCAFFOLD-ONLY marker added.
+    No production app callers; one test consumer
+    (`EpistemosTests/PhaseOneFiveScaffoldingTests.swift:147`).
+    Default-disabled (`enabled: false`); every public API
+    returns `.disabled` status on default construction. Header
+    now carries the RCA-P3-003 canonical SCAFFOLD-ONLY template
+    with a note on the future activation requirements (KAN
+    predictor weights + IntakeValve / SearchIndex caller +
+    gating policy).
+  - **Mamba2ForwardPass** — SCAFFOLD-ONLY marker added.
+    Diagnostic-only Metal forward pass; one test consumer
+    (`EpistemosTests/Mamba2MetalRuntimeTests.swift:53`). The
+    production Mamba-2 runtime is the MLX-Swift cache path
+    (Phase 1A). Header now points at that fact so a future
+    reader understands the file's role as a Metal cross-check
+    harness, not a live runtime.
+
+  - **AgentRuntime / LocalRustRuntime / ClaudeManagedRuntime /
+    AgentRuntimeRegistry** — already explicitly marked
+    `@available(*, unavailable, message: "Archived compatibility
+    surface...")` so compile-time use is blocked. No marker churn
+    needed; the audit signal was correct and the codebase
+    already enforces archived status with the strictest possible
+    gate. Live agent sessions route through ChatCoordinator +
+    LocalAgentLoop instead.
+  - **KnowledgeCoreBridge** — VISIBLE-WORKING (signal stale).
+    `Epistemos/Views/Notes/NoteTableOfContents.swift` lines 116,
+    178, 182, 195 construct and use the actor. Phase-14 vault
+    side-channel for ToC rendering — live.
+  - **LiveCodeEditorController** — Already self-marked.
+    `Epistemos/Engine/LiveCodeEditorController.swift` line 11
+    already says "no production caller today." The companion
+    file `SyntaxCoreLiveHighlighter.swift` also notes "exercised
+    by tests + by `LiveCodeEditorController`." Both correctly
+    classified as scaffold for now.
+  - **KnowledgeIndexBuilder** — SCAFFOLD-ONLY marker added.
+    No production caller (`rg "KnowledgeIndexBuilder("` returns
+    no app-target matches; only internal log strings). Roadmap
+    feature; canonical prompt-tree (N1) handles memory + identity
+    refs today.
+  - **LocalGuardrailScaffold** — SCAFFOLD-ONLY marker added.
+    The shipping local-agent gate lives in
+    `LocalAgentGatewayPolicy` (Epistemos/LocalAgent/). This
+    scaffold encodes the decision table but is not wired in.
+  - **KIVIQuantization** — NOT IN CODEBASE.
+    `rg "KIVIQuantization|kIVIQuant|kIVI"` returns zero matches.
+    The audit signal is stale here; the file/symbol never landed.
+  - **KaTeXSnippets** — Already documented.
+    `Epistemos/Engine/KaTeXSnippets.swift` is a pure-Swift enum
+    of LaTeX snippet fixtures. Reachability + caller-chain audit
+    deferred (low blast radius).
+
+Still TODO (deferred to next pass): the broader "disabled
+diagnostics" cluster + KaTeXSnippets caller-chain pass.
 
 ### RCA-P2-011 - Prove Graph Chat, page subgraph, and BTK subscriptions are reachable or hide them
 

@@ -1,5 +1,20 @@
 import Foundation
 
+// MARK: - LocalGuardrailScaffold
+//
+// SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-13.
+//
+// Decision-table guardrail for Local backend runtime requests. The
+// scaffold encodes the local-vs-control-plane policy in a pure
+// function, but **no production caller wires it into the runtime**
+// (`rg "LocalGuardrailScaffold("` returns no matches in the app
+// target). The shipping app's local-agent gate lives in
+// `LocalAgentGatewayPolicy` (Epistemos/LocalAgent/). This scaffold
+// stays around as the decision-table reference for whatever
+// future control-plane bridge ends up consuming it.
+//
+// Activation tracked under audit register `RCA-P2-010`.
+
 nonisolated struct LocalGuardrailRequest: Sendable, Equatable {
     let operation: BackendRuntimeOperation
     let executionMode: BackendExecutionMode
