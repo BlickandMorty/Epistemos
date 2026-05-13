@@ -2347,6 +2347,104 @@ final class GraphState {
         semanticClusterVersion += 1
     }
 
+    // MARK: - Off-main semantic clustering (RCA-P1-012, 2026-05-13)
+
+    /// Task handle for an in-flight async semantic-clustering compute.
+    /// Used to cancel a stale compute when the user toggles or the
+    /// graph topology version moves before the previous compute
+    /// publishes. Owned by MainActor — never accessed from the
+    /// detached compute itself.
+    private var semanticClusterComputeTask: Task<Void, Never>?
+
+    /// Async, cancellable, version-keyed entry point for the fallback
+    /// semantic-clustering pipeline (RCA-P1-012 acceptance: "clustering
+    /// can be toggled without beachballing or blocking graph interaction").
+    ///
+    /// Pipeline:
+    ///   1. On MainActor — snapshot `store.nodes.values` to a Sendable
+    ///      array and capture the current `graphDataVersion` as the
+    ///      topology key. Capture the (Sendable) `fallbackEmbeddingLookup`.
+    ///   2. Cancel any in-flight compute task (older topology — discard).
+    ///   3. Spawn `Task.detached` for the heavy embedding + k-means work.
+    ///   4. On detached side, run `SemanticClusterService.computeClustersFromNodes`.
+    ///      Honor cooperative cancellation between embedding and k-means.
+    ///   5. MainActor-hop with the result. Check the topology key again:
+    ///      if `graphDataVersion` has advanced past the captured value,
+    ///      discard the result silently (a newer compute is already
+    ///      running). Otherwise publish: write `semanticClusterIds` and
+    ///      bump `semanticClusterVersion` so MetalGraphView's pollster
+    ///      picks up the new mapping.
+    ///
+    /// Doctrine: the topology-version discard makes concurrent calls
+    /// deterministic — if the user toggles the clustering setting
+    /// rapidly, only the last compute publishes its result. Beats both
+    /// "drop the result of the slower compute" (timing-dependent) and
+    /// "queue forever" (unbounded latency).
+    func recomputeSemanticClustersAsync() {
+        // Cancel any pending task so the next compute starts from a
+        // clean state. Cancellation is cooperative — the detached
+        // compute checks `Task.isCancelled` at the embedding /
+        // k-means boundary.
+        semanticClusterComputeTask?.cancel()
+        semanticClusterComputeTask = nil
+
+        // Early-out: if clustering isn't available, clear immediately
+        // on MainActor — no need to leave the actor. The fast path
+        // matches the legacy synchronous `computeSemanticClusters`.
+        guard semanticClusteringAvailable else {
+            if !semanticClusterIds.isEmpty {
+                semanticClusterIds.removeAll(keepingCapacity: true)
+                semanticClusterVersion += 1
+            }
+            return
+        }
+
+        // 1. Snapshot inputs on MainActor.
+        let nodesSnapshot = Array(store.nodes.values)
+        let topologyKey = graphDataVersion
+        let embeddingService = self.embeddingService
+
+        // 2 + 3. Spawn detached compute. `Task.detached` escapes the
+        // MainActor isolation so the heavy embedding + k-means runs
+        // on a background-priority worker thread.
+        let task = Task.detached(priority: .userInitiated) { [weak self] in
+            // Pull the lookup back to a Sendable local via MainActor
+            // (the EmbeddingService instance is MainActor-bound).
+            let lookup: any TextEmbeddingLookup = await MainActor.run {
+                embeddingService.swiftFallbackEmbeddingLookupForBackground()
+            }
+
+            // Honor cancellation before the heavy work — if the user
+            // already toggled off or a newer compute fired, bail.
+            if Task.isCancelled { return }
+
+            // 4. Heavy compute off-MainActor.
+            let result = SemanticClusterService.computeClustersFromNodes(
+                nodes: nodesSnapshot,
+                embeddingLookup: lookup
+            )
+
+            // Cancellation check between heavy work and publish — if
+            // we got cancelled during the long k-means iteration,
+            // throw away the result.
+            if Task.isCancelled { return }
+
+            // 5. Publish on MainActor with topology-key check.
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                guard self.graphDataVersion == topologyKey else {
+                    // Stale: a newer compute is already in flight or
+                    // the topology moved. Discard this result.
+                    return
+                }
+                self.semanticClusterIds = result
+                self.semanticClusterVersion += 1
+            }
+        }
+
+        semanticClusterComputeTask = task
+    }
+
     // MARK: - Interactive Creation
 
     var interactionMode: GraphInteractionMode = .idle

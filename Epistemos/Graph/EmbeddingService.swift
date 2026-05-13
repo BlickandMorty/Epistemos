@@ -506,6 +506,16 @@ final class EmbeddingService {
         )
     }
 
+    /// Expose the Apple-fallback `TextEmbeddingLookup` so MainActor
+    /// callers that intend to snapshot it into a `Task.detached` body
+    /// can read it (Sendable per the protocol declaration). Used by
+    /// `GraphState.recomputeSemanticClustersAsync` (RCA-P1-012) to hand
+    /// the lookup to off-main k-means without forcing the EmbeddingService
+    /// instance itself across the MainActor boundary.
+    func swiftFallbackEmbeddingLookupForBackground() -> any TextEmbeddingLookup {
+        fallbackEmbeddingLookup
+    }
+
     /// Push pre-computed block embeddings to the Rust engine via FFI.
     /// Same pattern as node embedding push — requires MainActor for engineHandle access.
     func pushBlockEmbeddings(_ embeddings: [String: [Float]]) {

@@ -50,11 +50,30 @@ enum SemanticClusterService {
     /// Compute semantic cluster IDs for all graph nodes.
     /// Returns a dictionary mapping node UUID → cluster ID.
     /// Nodes without embeddings are assigned cluster 0.
+    ///
+    /// MainActor entry point — convenience wrapper that snapshots the
+    /// store on MainActor (where store is isolated) then defers to the
+    /// nonisolated `computeClustersFromNodes` so the heavy
+    /// embedding + k-means work can run anywhere.
     static func computeClusters(
         store: GraphStore,
         embeddingLookup: any TextEmbeddingLookup
     ) -> [String: UInt32] {
         let nodes = Array(store.nodes.values)
+        return computeClustersFromNodes(nodes: nodes, embeddingLookup: embeddingLookup)
+    }
+
+    /// RCA-P1-012 off-main entry point (2026-05-13). Pure compute over
+    /// Sendable inputs — `GraphNodeRecord` is `Sendable` and
+    /// `TextEmbeddingLookup` is `Sendable` per its protocol declaration.
+    /// Safe to invoke from any actor or background task. Lets
+    /// `GraphState.recomputeSemanticClustersAsync` hop off the
+    /// MainActor for the heavy work and only return to MainActor to
+    /// publish the result.
+    nonisolated static func computeClustersFromNodes(
+        nodes: [GraphNodeRecord],
+        embeddingLookup: any TextEmbeddingLookup
+    ) -> [String: UInt32] {
         guard nodes.count >= 4 else {
             return Dictionary(nodes.map { ($0.id, UInt32(0)) }, uniquingKeysWith: { first, _ in first })
         }
@@ -106,7 +125,7 @@ enum SemanticClusterService {
     /// pre-sized `[[Float]?]` indexed by position. The final
     /// `[String: [Float]]` is built once on the calling thread after
     /// the parallel pass returns.
-    private static func computeEmbeddings(
+    nonisolated private static func computeEmbeddings(
         for nodes: [GraphNodeRecord],
         embeddingLookup: any TextEmbeddingLookup
     ) -> [String: [Float]] {
@@ -178,7 +197,7 @@ enum SemanticClusterService {
 
     /// K-means clustering using cblas_sgemm for distance computation.
     /// The N×K distance matrix is computed in one AMX-accelerated matmul.
-    private static func kmeans(vectors: [[Float]], k: Int, maxIterations: Int) -> [Int] {
+    nonisolated private static func kmeans(vectors: [[Float]], k: Int, maxIterations: Int) -> [Int] {
         let n = vectors.count
         guard n > 0, k > 0 else { return [] }
         let dim = vectors[0].count
@@ -267,7 +286,7 @@ enum SemanticClusterService {
     }
 
     /// K-means++ initialization: choose initial centroids that are spread apart.
-    private static func kmeansppInit(vectors: [[Float]], k: Int) -> [[Float]] {
+    nonisolated private static func kmeansppInit(vectors: [[Float]], k: Int) -> [[Float]] {
         let n = vectors.count
         guard n > 0, k > 0 else { return [] }
 
