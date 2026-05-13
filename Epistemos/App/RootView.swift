@@ -22,6 +22,28 @@ enum HomeWindowIdentity {
         }
     }
 
+    /// Lock the window's AppKit appearance (and the toolbar's, if present)
+    /// to the in-app theme. This is what eliminates the brief flash of an
+    /// old theme at the title bar during the landing → main-chat
+    /// transition: without this, the title bar paints via the SYSTEM
+    /// appearance until the SwiftUI toolbar background materializes (the
+    /// 350 ms reveal gate at the bottom of `rootContent`). With an
+    /// explicit `NSAppearance(named: …)` set, the title bar always
+    /// matches `ui.theme.isDark`.
+    @MainActor
+    static func applyAppearance(to window: NSWindow, isDark: Bool) {
+        let target: NSAppearance? = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        if window.appearance != target {
+            window.appearance = target
+        }
+        if let toolbar = window.toolbar, let _ = toolbar.identifier as String? {
+            // NSToolbar inherits appearance from its window, so no extra
+            // assignment is needed — but stamping the window covers both
+            // the title bar and the toolbar surface in one assignment.
+            _ = toolbar
+        }
+    }
+
     @MainActor
     static func surfaceHomeWindow() {
         NSApp.activate(ignoringOtherApps: true)
@@ -82,16 +104,32 @@ enum RootViewDestructiveActionSovereignGate {
 }
 
 private struct HomeWindowIdentityObserver: NSViewRepresentable {
+    let themeIsDark: Bool
+
     func makeNSView(context: Context) -> HomeWindowIdentityObserverView {
-        HomeWindowIdentityObserverView()
+        let v = HomeWindowIdentityObserverView()
+        v.themeIsDark = themeIsDark
+        return v
     }
 
     func updateNSView(_ nsView: HomeWindowIdentityObserverView, context: Context) {
+        nsView.themeIsDark = themeIsDark
         nsView.applyWindowIdentity()
     }
 }
 
 private final class HomeWindowIdentityObserverView: NSView {
+    /// Latest in-app theme darkness flag, pushed from SwiftUI on every
+    /// theme change. Stamped onto the window's AppKit appearance so the
+    /// title bar / toolbar surface never paints with the system
+    /// appearance during the landing → main-chat transition.
+    var themeIsDark: Bool = false {
+        didSet {
+            guard themeIsDark != oldValue else { return }
+            applyWindowIdentity()
+        }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         applyWindowIdentity()
@@ -100,6 +138,7 @@ private final class HomeWindowIdentityObserverView: NSView {
     func applyWindowIdentity() {
         guard let window else { return }
         HomeWindowIdentity.apply(to: window)
+        HomeWindowIdentity.applyAppearance(to: window, isDark: themeIsDark)
     }
 }
 
@@ -174,7 +213,7 @@ struct RootView: View {
 
             ContentRouter()
         }
-        .background(HomeWindowIdentityObserver())
+        .background(HomeWindowIdentityObserver(themeIsDark: ui.theme.isDark))
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: activeHomeChat)
         .onAppear(perform: handleAppearanceOnAppear)
         .onDisappear {
