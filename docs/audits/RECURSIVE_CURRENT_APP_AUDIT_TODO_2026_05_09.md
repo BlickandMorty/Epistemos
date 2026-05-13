@@ -4961,48 +4961,96 @@ Acceptance:
 
 ### RCA3-P2-004 - Lock Hermes status to one current truth
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Hermes subprocess + UI + namespace REMOVED 2026-05-05; remaining `Hermes*` symbols are forward-compat type aliases mapping to `LocalAgent*` canonical types
 
 Subsystem: Hermes, external CLI/subprocess orchestration, LocalAgent/Omega docs.
 
 Research signal: Canon says some Hermes materials are archive-only/removed from forward work, while other chunks include Hermes subprocess-manager fixes and tests. This creates architecture drift.
 
-Files to inspect:
-- Hermes current docs.
-- build scripts bundling Hermes/runtime assets.
-- LocalAgent/Omega caller paths.
-- MAS/Pro gates.
+Fix-pass evidence — Hermes status truth table:
 
-Audit steps:
-- Create `HERMES_CURRENT_STATUS.md` or equivalent ledger: runtime present, packaged, build target, user visible, Pro-only, removed, archived.
+| Surface | Status | Where |
+|---|---|---|
+| Hermes subprocess (legacy agent runtime) | REMOVED 2026-05-05 | commits `b4c583b0` + `80544415` + `e07e6378` |
+| Hermes UI overlay (HermesBrand, HermesShimmeringSigil, HermesExpertModeView, HermesGraphFacultyGlyph) | REMOVED 2026-05-05 | same purge commits |
+| Hermes namespace in Rust | REMOVED 2026-05-05 | renamed to `agent_core::agent_runtime` |
+| Swift `Hermes*` type aliases | KEPT as forward-compat shims | `Epistemos/LocalAgent/HermesLocalAgentCompatibility.swift` (25+ aliases mapping old Hermes names → LocalAgent canonical types) |
+| Hermes Function-Calling prompt format research | KEPT as reference doctrine | NousResearch upstream — used by LocalAgentPromptBuilder |
+| Hermes Expert Mode chat surface | REMOVED 2026-05-05 + OBSOLETE'd in RCA7-P1-009 | grep returns zero hits for HermesExpertMode in Epistemos/*.swift |
+
+Authoritative cross-reference: memory note
+"project_hermes_removal_2026_05_05" + audit register RCA7-P1-009
+(closed OBSOLETE earlier this session). The CLAUDE.md project rules
+explicitly document the canonical name swap: "Use `LocalAgent*`
+(Swift) or `Runtime*` (Rust) for new local-agent work. HF model
+paths preserved."
+
+The "Hermes subprocess-manager fixes and tests" the audit signal
+mentioned are ARCHIVED in `docs/_archive/hermes-removal-2026-05-05/`
+(per CLAUDE.md "Legacy agent removal archive" file map entry) —
+they capture the pre-removal research + parity report but are not
+current runtime code.
+
+One current truth: **Hermes is the legacy name. LocalAgent (Swift) /
+Runtime (Rust) is canonical. Type aliases are temporary compat shims.**
 
 Acceptance:
-- Hermes is not referenced as current runtime unless packaged and user-reachable in the right build.
+- Hermes is not referenced as current runtime unless packaged and user-reachable in the right build. ✅ (Hermes subprocess GONE; type aliases are compat-only; build doesn't bundle Hermes runtime assets)
 
 ### RCA3-P2-005 - Keep vendored local LLM corpora out of product feature proof
 
-Status: TODO
+Status: PATCHED 2026-05-13 — corpora live in `LocalPackages/.../exclude/` + `.build/checkouts/`; bundle audit confirms only `llama.framework` (8 MB) ships, not source corpora
 
 Subsystem: LocalPackages, llama.cpp, MLX, vendored dependencies, build/bundle size.
 
 Research signal: Packets 19-21 contain large vendored llama.cpp and MLX source forests. These are dependencies/runtime support, not evidence of user-facing features.
 
-Audit steps:
-- Verify build includes only needed library/runtime pieces, not unused tools/server/webui/test corpora.
-- Separate dependency presence from product route in docs.
+Fix-pass evidence:
+
+1. **llama.cpp source lives in `exclude/`** dir:
+   ```
+   LocalPackages/LocalLLMClient/Sources/LocalLLMClientLlamaC/exclude/llama.cpp/...
+   ```
+   The directory name `exclude` is the SPM convention for files
+   intentionally NOT compiled into the target. The local library
+   target only references the headers + a small subset of `.cpp`
+   needed for the bindings, NOT the examples/server/webui/test
+   corpora that fill the full llama.cpp tree.
+
+2. **MLX swift bindings, not C corpus**: `LocalPackages/mlx-swift-lm`
+   is the Swift-level package with the small bindings layer. The C
+   corpus appears only as a build-time checkout in
+   `.build/checkouts/` (build artifact, never bundled).
+
+3. **Bundle weight verified** (see `docs/BUNDLE_WEIGHT_AUDIT_2026_05_13.md`
+   — RCA-P3-002 fix-pass):
+   - `llama.framework`: 8 MB on both MAS and Pro (small bindings,
+     not source corpora)
+   - `Cmlx.bundle`: 4 MB in MAS Resources (MLX bridge bundle, not
+     source)
+   - Pro adds Python training scripts (`train_*.py`, `molora_*.py`,
+     `sgmm_*.py`) but those are intentional Pro features, not
+     vendored corpora drift.
+
+4. **Doc separation**: `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` +
+   `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` describe
+   user-visible features by name, not by underlying dependency
+   source. The dependency presence (llama.framework / MLX SDK /
+   etc.) is documented in `docs/BUNDLE_WEIGHT_AUDIT_2026_05_13.md`
+   separately from product feature claims.
 
 Acceptance:
-- Vendored corpora do not inflate current-app feature claims or MAS bundle unexpectedly.
+- Vendored corpora do not inflate current-app feature claims or MAS bundle unexpectedly. ✅ (SPM `exclude/` dir + `.build/checkouts/` keep source corpora out; bundle audit confirms only 8 MB llama.framework + 4 MB Cmlx.bundle ship)
 
 ### RCA3-P3-001 - Packet-aware audit coverage plan
 
-Status: TODO
+Status: PATCHED 2026-05-13 — packet priority documented here in this entry + cross-referenced in `docs/AUDIT_FLOOR_2026_05_13.md` for future research drops
 
 Subsystem: research workflow, packet prioritization.
 
 Research signal: Drop 3 says next high-value audit is packets 1-10, not another giant prompt. Packets 1-8 contain live Swift app/tests, packet 9 graph/widgets/XPC, packet 10 agent_core/bridge.
 
-Packet priority:
+Packet priority (canonical ordering for future research drops):
 - `01_CODE_PACKET.md`: root + primary `Epistemos` app files.
 - `02_CODE_PACKET.md` through `06_CODE_PACKET.md`: remaining Swift app files.
 - `07_CODE_PACKET.md` and `08_CODE_PACKET.md`: Swift tests.
@@ -5010,8 +5058,20 @@ Packet priority:
 - `10_CODE_PACKET.md`: `agent_core`, graph-engine bridge.
 - `19_CODE_PACKET.md` onward: vendored local model/dependency/research-heavy material; use for dependency/runtime proof, not product reachability.
 
+Fix-pass evidence: this priority list is now the canonical reference
+for audit-drop sequencing. The `docs/AUDIT_FLOOR_2026_05_13.md` doc
+(landed earlier this session for RCA8-P1-001) is the reproducibility
+baseline drops should diff against. Together they provide:
+  - Where to look first (packets 1-10 for caller-chain proof)
+  - What baseline to diff (`audit_floor_commit:
+    6546db9ef10cbe0419bccb859b3ee1b16370bfc4` + Package.resolved hash
+    + 5 Cargo.lock hashes)
+  - Manual smokes pending list (Research Drop 3 Additional Manual
+    Checks section below)
+  - How to claim "PATCHED" vs "TODO" vs "PARTIAL" status
+
 Acceptance:
-- Future researchers work packets 1-10 first for caller-chain proof, then move outward to runtime crates, docs, vendored dependencies, and research corpora.
+- Future researchers work packets 1-10 first for caller-chain proof, then move outward to runtime crates, docs, vendored dependencies, and research corpora. ✅
 
 ### Research Drop 3 Additional Manual Checks
 
