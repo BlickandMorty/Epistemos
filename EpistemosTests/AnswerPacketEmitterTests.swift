@@ -142,4 +142,83 @@ struct AnswerPacketEmitterTests {
         let total = await emitter.emittedTotal
         #expect(total == 10)
     }
+
+    @Test("Resolver: SSM local model → .staticFallback")
+    func resolverSSMModelMapsToStaticFallback() {
+        // Mamba2 is SSM (recurrent fixed-state, not quadratic attention).
+        let mode = AnswerPacketEmitter.resolveAttentionMode(
+            selection: .localMLX(LocalTextModelID.mamba2_2B4Bit.rawValue)
+        )
+        #expect(mode == .staticFallback,
+            "Mamba2 must resolve as .staticFallback per V6.2 §1.4; got \(mode)")
+    }
+
+    @Test("Resolver: non-SSM local model → .dynamic")
+    func resolverNonSSMModelMapsToDynamic() {
+        // Qwen3 is a transformer with quadratic attention.
+        let mode = AnswerPacketEmitter.resolveAttentionMode(
+            selection: .localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        )
+        #expect(mode == .dynamic,
+            "Transformer must resolve as .dynamic per V6.2 §1.4; got \(mode)")
+    }
+
+    @Test("Resolver: cloud model → .dynamic")
+    func resolverCloudModelMapsToDynamic() {
+        // Any concrete CloudTextModelID variant — all cloud transformers
+        // use quadratic attention and resolve as .dynamic. GPT-5.4 is
+        // chosen here because the variant name is stable per
+        // `CloudTextModelID` enum.
+        let mode = AnswerPacketEmitter.resolveAttentionMode(
+            selection: .cloud(.openAIGPT54)
+        )
+        #expect(mode == .dynamic,
+            "Cloud transformer must resolve as .dynamic; got \(mode)")
+    }
+
+    @Test("Resolver: Apple Intelligence → .dynamic")
+    func resolverAppleIntelligenceMapsToDynamic() {
+        let mode = AnswerPacketEmitter.resolveAttentionMode(
+            selection: .appleIntelligence
+        )
+        #expect(mode == .dynamic,
+            "Apple Intelligence FoundationModels is transformer-based; got \(mode)")
+    }
+
+    @Test("Resolver: unknown localMLX id → .unavailable")
+    func resolverUnknownLocalIdMapsToUnavailable() {
+        let mode = AnswerPacketEmitter.resolveAttentionMode(
+            selection: .localMLX("bogus-model-id-that-does-not-exist")
+        )
+        #expect(mode == .unavailable,
+            "Unknown local model id must resolve as .unavailable; got \(mode)")
+    }
+
+    @Test("turnCompletionStub with attentionMode parameter populates field")
+    func stubAcceptsAttentionMode() {
+        let staticPacket = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20,
+            attentionMode: .staticFallback
+        )
+        #expect(staticPacket.attentionMode == .staticFallback)
+
+        let dynamicPacket = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20,
+            attentionMode: .dynamic
+        )
+        #expect(dynamicPacket.attentionMode == .dynamic)
+
+        // Default remains .unavailable for backward compatibility with
+        // first-wiring call sites that don't yet thread attentionMode.
+        let defaultPacket = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20
+        )
+        #expect(defaultPacket.attentionMode == .unavailable)
+    }
 }

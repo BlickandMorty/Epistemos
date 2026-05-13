@@ -113,16 +113,23 @@ public actor AnswerPacketEmitter {
 // MARK: - Construction helpers
 
 extension AnswerPacket {
-    /// Build the V6.2 first-wiring AnswerPacket for a completed chat
-    /// turn. This is the "state: emitted, not yet state: populated"
-    /// construction — claims are empty, attentionMode is unavailable,
-    /// witnessedStateRef + mutationEnvelopeRef carry stable but
-    /// placeholder ids. Subsequent commits populate the real signal
-    /// fields from the Rust-side agent runtime via FFI.
+    /// Build a V6.2 AnswerPacket for a completed chat turn.
+    ///
+    /// State promotion ladder:
+    /// - Without `attentionMode` → the original `state: emitted`
+    ///   first-wiring shape (defaults to `.unavailable`).
+    /// - With a resolved `attentionMode` → `state: populated` partial
+    ///   wiring (per-model attention-mode threaded through from the
+    ///   live runtime via `AnswerPacketEmitter.currentAttentionMode()`).
+    ///
+    /// claims + residencySignals remain empty until the next
+    /// promotion: Rust-side FFI threads real claim/signal values
+    /// from the agent runtime.
     public static func turnCompletionStub(
         stopReason: String,
         inputTokens: Int,
         outputTokens: Int,
+        attentionMode: AttentionMode = .unavailable,
         timestamp: Date = Date()
     ) -> AnswerPacket {
         let turnId = "turn-\(Int(timestamp.timeIntervalSince1970 * 1000))-\(UUID().uuidString.prefix(8))"
@@ -131,10 +138,69 @@ extension AnswerPacket {
             claims: [],
             residencySignals: [],
             uiLabel: .plausibleButUnverified,
-            attentionMode: .unavailable,
+            attentionMode: attentionMode,
             witnessedStateRef: "stop:\(stopReason);in:\(inputTokens);out:\(outputTokens)",
             semanticDeltaRef: nil,
             mutationEnvelopeRef: turnId
         )
+    }
+}
+
+// MARK: - Attention mode resolver (state: populated promotion)
+
+extension AnswerPacketEmitter {
+    /// Resolve the live `AttentionMode` for the current chat-model
+    /// selection. Hops to MainActor to read `AppBootstrap.shared?
+    /// .inferenceState.preferredChatModelSelection`.
+    ///
+    /// Per V6.2 §1.3 + §1.4: the AttentionMode field on the emitted
+    /// AnswerPacket must carry runtime truth about which inference
+    /// path produced the token — quadratic-attention transformer
+    /// (`.dynamic`), recurrent-state SSM Mamba2/Falcon-H1/Jamba
+    /// (`.staticFallback`), or unknown (`.unavailable`).
+    public static func currentAttentionMode() async -> AttentionMode {
+        await MainActor.run { attentionModeFromMainActor() }
+    }
+
+    @MainActor
+    private static func attentionModeFromMainActor() -> AttentionMode {
+        guard let bootstrap = AppBootstrap.shared else {
+            return .unavailable
+        }
+        return resolveAttentionMode(
+            selection: bootstrap.inferenceState.preferredChatModelSelection
+        )
+    }
+
+    /// Pure resolver — public so tests can exercise the mapping
+    /// without standing up an AppBootstrap. Active app callers go
+    /// through `currentAttentionMode()`.
+    ///
+    /// Mapping:
+    /// - `.localMLX(id)` where the model `isSSM` → `.staticFallback`.
+    ///   The SSM family (Mamba2, Falcon-H1, Jamba, LFM 2.5) has a
+    ///   fixed-size recurrent hidden state, not a quadratic KV cache.
+    ///   That IS V6.2's "static fallback" attention path.
+    /// - `.localMLX(id)` for any non-SSM model → `.dynamic` (a
+    ///   transformer using full quadratic attention).
+    /// - `.cloud(_)` → `.dynamic` (Claude, GPT, etc. all use quadratic
+    ///   attention).
+    /// - `.appleIntelligence` → `.dynamic` (FoundationModels is a
+    ///   transformer).
+    /// - Unknown local model id → `.unavailable`.
+    public static func resolveAttentionMode(
+        selection: ChatModelSelection
+    ) -> AttentionMode {
+        switch selection {
+        case .appleIntelligence:
+            return .dynamic
+        case .cloud:
+            return .dynamic
+        case .localMLX(let id):
+            guard let modelID = LocalTextModelID(rawValue: id) else {
+                return .unavailable
+            }
+            return modelID.isSSM ? .staticFallback : .dynamic
+        }
     }
 }
