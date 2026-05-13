@@ -185,13 +185,17 @@ final class FilterEngine {
     /// unconsulted. Search filters silently lied — the user typed
     /// a query, the matched-set populated, but every non-matching
     /// node stayed visible because the renderer's isNodeVisible
-    /// only saw type + focus. Now the search-filter branch
+    /// only saw type + focus. The search-filter branch now
     /// participates in visibility.
     ///
-    /// `selectedModelProfileId` / `selectedVaultFilter` still don't
-    /// participate because `GraphNodeRecord` doesn't currently
-    /// carry per-node model/vault provenance — a separate plumbing
-    /// slice is needed before they can affect visibility.
+    /// RCA-P1-010 second pass (2026-05-13): `selectedVaultFilter`
+    /// now also participates, using the new
+    /// `GraphNodeMetadata.originVaultKey` field for per-node vault
+    /// provenance. The match is **lenient** — nodes with a nil
+    /// `originVaultKey` pass through unconditionally so partial
+    /// rollouts of the provenance field don't hide every node when a
+    /// vault filter is on. Once every node-creation site populates
+    /// the field, the filter becomes fully effective.
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
         // 1. Type filter
         guard activeNodeTypes.contains(node.type) else { return false }
@@ -204,6 +208,16 @@ final class FilterEngine {
         // 3. Search filter — when set, only matched nodes pass
         if let matched = searchMatchedNodeIds {
             guard matched.contains(node.id) else { return false }
+        }
+
+        // 4. Vault filter (RCA-P1-010 second pass, 2026-05-13).
+        // Lenient nil-passthrough: nodes without a declared
+        // `originVaultKey` are not hidden — see the field's doc on
+        // `GraphNodeMetadata` for the partial-rollout rationale.
+        if let vaultKey = selectedVaultFilter,
+           let nodeVaultKey = node.metadata.originVaultKey,
+           nodeVaultKey != vaultKey {
+            return false
         }
 
         return true
