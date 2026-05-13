@@ -368,19 +368,74 @@ final class EntityExtractor {
         var insertedIdeaNodes: [SDGraphNode] = []
         var insertedEdges: [SDGraphEdge] = []
 
+        // RCA-P1-008 dedup (2026-05-13): build an in-memory
+        // `(chatId, label) -> SDGraphNode` lookup so a second scan
+        // of an unchanged chat REUSES the existing idea-node instead
+        // of inserting a fresh duplicate.
+        //
+        // We can't predicate-filter on `meta.originChatId` because the
+        // metadata is stored as a `Data?` blob (JSON-encoded
+        // `GraphNodeMetadata`). The cheaper-than-it-looks alternative
+        // is to fetch all `.idea` nodes once per scan, decode their
+        // metadata in-memory, and bucket by the chat that owns them.
+        // For a vault with tens of thousands of ideas this is still a
+        // single fetch; the per-idea filter is O(n) hash-set work.
+        //
+        // Edges remain dedup-safe because `createEdgeIfNeeded` already
+        // checks (source, target, type) before inserting.
+        let typeRawIdea = GraphNodeType.idea.rawValue
+        let existingIdeaNodes: [SDGraphNode]
+        do {
+            existingIdeaNodes = try context.fetch(
+                FetchDescriptor<SDGraphNode>(
+                    predicate: #Predicate<SDGraphNode> { $0.type == typeRawIdea }
+                )
+            )
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch existing idea nodes for dedup", error: error)
+            existingIdeaNodes = []
+        }
+        let chatId = sourceChat.id
+        let chatIdeaLookup: [String: SDGraphNode] = Dictionary(
+            existingIdeaNodes.compactMap { node -> (String, SDGraphNode)? in
+                guard node.meta.originChatId == chatId else { return nil }
+                return ("\(chatId)::\(node.label)", node)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
         // Ideas (absorbs insights)
         for idea in ideaResult.ideas {
-            let ideaNode = SDGraphNode(type: .idea, label: String(idea.summary.prefix(80)))
-            var meta = GraphNodeMetadata()
-            meta.evidenceGrade = idea.evidenceGrade
-            meta.originChatId = sourceChat.id
-            ideaNode.meta = meta
-            context.insert(ideaNode)
-            insertedIdeaNodes.append(ideaNode)
+            let label = String(idea.summary.prefix(80))
+            let dedupKey = "\(chatId)::\(label)"
 
-            // Link idea back to source chat
-            if let chatId = chatNodeId {
-                if let edge = createEdgeIfNeeded(source: ideaNode.id, target: chatId, type: .reference, context: context) {
+            let ideaNode: SDGraphNode
+            if let existing = chatIdeaLookup[dedupKey] {
+                // Existing idea found — reuse the node so edges stay
+                // attached to a stable id. Refresh evidence_grade if
+                // the new extraction differs.
+                ideaNode = existing
+                if existing.meta.evidenceGrade != idea.evidenceGrade {
+                    var meta = existing.meta
+                    meta.evidenceGrade = idea.evidenceGrade
+                    existing.meta = meta
+                    existing.updatedAt = .now
+                }
+            } else {
+                ideaNode = SDGraphNode(type: .idea, label: label)
+                var meta = GraphNodeMetadata()
+                meta.evidenceGrade = idea.evidenceGrade
+                meta.originChatId = chatId
+                ideaNode.meta = meta
+                context.insert(ideaNode)
+                insertedIdeaNodes.append(ideaNode)
+            }
+
+            // Link idea back to source chat. createEdgeIfNeeded dedupes
+            // on (source, target, type) so a re-scan against the same
+            // (idea, chat, reference) tuple inserts nothing.
+            if let chatGraphNodeId = chatNodeId {
+                if let edge = createEdgeIfNeeded(source: ideaNode.id, target: chatGraphNodeId, type: .reference, context: context) {
                     insertedEdges.append(edge)
                 }
             }
