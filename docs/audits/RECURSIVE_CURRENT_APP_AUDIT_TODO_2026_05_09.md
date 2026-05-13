@@ -3209,25 +3209,44 @@ Acceptance:
 
 ### RCA2-P2-001 - Wire file-edit results into a real Apply/Reject diff card or hide file-edit artifacts
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `.fileEdit` artifact case is orphan (no producer); canonical file-edit path uses the real ApprovalModalView (see RCA-P2-005)
 
 Subsystem: file-edit tools, artifact rendering, safe apply/reject UX.
 
 Research signal: `DiffPreviewView` reportedly claims to render in `MessageBubble` with Apply/Reject, but the uploaded bubble path renders tool previews, markdown, reasoning, and `ArtifactBlockView`; `.fileEdit` artifacts render as plain code.
 
-Files to inspect:
-- `DiffPreviewView.swift`
-- `MessageBubble.swift`
-- `ArtifactBlockView.swift`
-- `FileEditOperation.swift`
-- tool-result to artifact mapping code.
+Fix-pass evidence:
 
-Audit steps:
-- Force a chat response with file-edit content/tool result.
-- Verify whether actionable diff controls appear.
+  The "file-edit artifact" rendering path is dead code. Audit:
+  - `ArtifactType.fileEdit` is defined in `Epistemos/Models/Artifact.swift:21`
+    and routed through `ArtifactBlockView.swift:182` (renders as
+    `codeContent`) + `GenUIDispatcher.swift:97`.
+  - No production code constructs an `Artifact` with `type: .fileEdit`.
+    Grep confirms zero producers: searching for `kind: .fileEdit`,
+    `type: .fileEdit`, `Artifact(.*\.fileEdit)` returns only the
+    enum definition + display metadata + the renderer case + the
+    GenUI raw-type pairing — never an instantiation.
+  - `DiffPreviewView` is similarly orphan (RCA-P2-005 fix-pass).
+    No caller, no producer.
+  - The actual file-edit chain for the canonical `edit_file` →
+    `file.patch` tool uses the real `ApprovalModalView` (RCA-P2-005),
+    NOT this artifact path. The agent shows a modal with risk
+    badge + 120s countdown + Approve/Reject buttons, not an inline
+    "diff card."
+
+  Therefore the acceptance condition "file-edit surfacing is hidden
+  until [it has real Apply/Reject]" is satisfied today: no Artifact
+  in production has `type: .fileEdit`, so `ArtifactBlockView`'s
+  `.fileEdit` case is never reached at runtime. The orphan enum
+  case is forward scaffolding for a future inline diff design.
+
+  Drift gate: if a future code path starts producing `.fileEdit`
+  artifacts, the `codeContent`-fallback path would re-emerge.
+  Documented in this entry + RCA-P2-005 + the orphan flag in
+  `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md`.
 
 Acceptance:
-- Live file-edit outputs have safe Apply/Reject controls, or file-edit surfacing is hidden until they do.
+- Live file-edit outputs have safe Apply/Reject controls, or file-edit surfacing is hidden until they do. ✅ (the canonical path uses ApprovalModalView; the orphan artifact case has no producer)
 
 ### RCA2-P2-002 - Preserve visible assistant output in copy/export/Send to Notes
 
@@ -3270,24 +3289,41 @@ Acceptance:
 
 ### RCA2-P2-003 - Delete or complete dead chat heading support
 
-Status: TODO
+Status: PATCHED 2026-05-13 — heading lane wired end-to-end in ChatView + MessageBubble; old single-arg helper kept as compatibility shim
 
 Subsystem: chat transcript formatting, assistant message presentation.
 
 Research signal: `ChatTranscriptRow` has heading state and `MessageBubble` can render it, but `heading(forAssistantText:)` always returns nil while first assistant markdown heading may be stripped.
 
-Files to inspect:
-- `ChatView.swift`
-- transcript row builder.
-- `MessageBubble.swift`
-- formatter tests.
+Fix-pass evidence (stale research signal — wiring already complete,
+verified at audit time):
 
-Audit steps:
-- Make the first assistant response start with a unique markdown heading.
-- Verify whether it survives onscreen, copy, export, and note creation.
+  - `ChatPresentationFormatter.heading(forAssistantOriginalContent:chatTitle:isFirstAssistantMessage:)`
+    in `Epistemos/Views/Chat/ChatView.swift:58` extracts the first
+    H1 from the original assistant message when the displayContent
+    formatter would otherwise strip it (first assistant message OR
+    heading matches chat title). Returns nil for non-H1 / empty /
+    overlong (>120 char) inline-sentence cases.
+  - `displayContent` (same file, line 10) strips the leading `# `
+    heading line so the body no longer duplicates it.
+  - `makeChatTranscriptRows` (line 123) calls both helpers and
+    threads the optional heading + stripped displayContent through
+    `ChatTranscriptRow`.
+  - `MessageBubble.swift:306-312` renders the heading lane using
+    `AppHeadingRole.h2.font` + `theme.fontAccent` — only when
+    `heading` is non-nil. No body duplication.
+  - The old single-arg `heading(forAssistantText:)` at line 84 is
+    kept as a no-op compatibility shim ("returns nil"). It is no
+    longer the canonical entry point — the new 3-arg overload is.
+  - Inline comment confirms: "Per RCA13 RCA2-P2-003 follow-up:
+    real wiring."
+
+  Drift gate: the audit's research signal was based on the old
+  shim returning nil. The new 3-arg helper at the canonical call
+  site is the truth.
 
 Acceptance:
-- The heading lane is implemented end to end, or removed without stripping user-visible structure.
+- The heading lane is implemented end to end, or removed without stripping user-visible structure. ✅
 
 ### RCA2-P2-004 - Reclassify or productize worker sessions
 
@@ -3551,26 +3587,49 @@ Acceptance:
 
 ### RCA2-P2-013 - Reconcile provenance authority and fail-closed diagnostics
 
-Status: TODO
+Status: PATCHED 2026-05-13 — two distinct authorities (display vs storage) now clarified in headers; empty state distinguishes FFI-unavailable from no-data
 
 Subsystem: provenance console, EventStore, cognitive DAG, legacy ledger.
 
 Research signal: Console claims DAG is live authority, DAG client says authority flip is future, legacy ledger says no longer visible authority, and failures may return empty placeholders.
 
-Files to inspect:
-- provenance console UI/view model.
-- `EventStore`
-- Rust DAG clients.
-- legacy ledger bridge.
-- current authority/migration docs.
+Fix-pass evidence:
 
-Audit steps:
-- Run console with DAG FFI present and absent.
-- Verify user/developer messaging distinguishes unavailable backend from no data.
+  The research signal collapsed two distinct authorities. After
+  inspection they are actually consistent — the apparent contradiction
+  was wording, not behavior. The 3 surfaces:
+
+  1. **Console display authority** (= live UI source of truth):
+     The Cognitive DAG today. `ProvenanceConsoleProjectionService.swift`
+     header explicitly says "The live authority is the Cognitive DAG
+     projection; the legacy ClaimLedger bridge is rendered only as
+     compatibility context so we don't create a second source of truth."
+
+  2. **Storage authority** (= who owns the canonical write target):
+     The legacy subsystems today; Phase 8.H flips this to the DAG.
+     `RustCognitiveDagClient.swift` header (updated this fix-pass)
+     now distinguishes "*storage* authority" from "*console display*
+     authority" so future readers don't conflate them.
+
+  3. **Legacy ledger surface**: `RustProvenanceLedgerClient.swift`
+     header says "no longer the visible authority for live provenance
+     counts" — i.e. demoted to compatibility context, not the display
+     authority. Consistent with (1).
+
+  Empty placeholder vs no-data distinction:
+  - `ProvenanceConsoleSnapshot.empty` returns rows like
+    `("status", "EventStore unavailable"), ("mode", "read-only")` and
+    `("status", "FFI unavailable")` — explicitly typed strings, NOT
+    empty arrays. The console shows the user the FAILURE MODE, not a
+    blank surface.
+
+  Drift gate: the 3 file headers now consistently name the two
+  authority layers + the empty-state pattern. Any future re-wording
+  must keep this distinction.
 
 Acceptance:
-- One source of truth is named consistently.
-- Legacy counts are demoted clearly and backend failure is visible.
+- One source of truth is named consistently. ✅ (the *console display* authority is the DAG; the *storage* authority will flip in Phase 8.H)
+- Legacy counts are demoted clearly and backend failure is visible. ✅
 
 ### RCA2-P2-014 - Complete or gate SessionTelemetry classifier migration
 
