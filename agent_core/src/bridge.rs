@@ -3189,6 +3189,34 @@ pub fn cognitive_dag_stats_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+/// Returns a JSON summary of the global routing accumulator. Shape:
+///
+/// ```json
+/// {
+///   "total_decisions": 17,
+///   "total_route_changes": 4
+/// }
+/// ```
+///
+/// V6.2 §1.4 substrate hook (2026-05-12): the Swift
+/// `ConnectomeAlarmSubstrateObserver` reads this on each AnswerPacket
+/// emit, computes `delta = total_route_changes - last_seen`, and maps
+/// the result through a saturation curve to feed
+/// `InterruptScoreInputs.connectomeAlarm`. Each "route change" is one
+/// adjacent-decision provider/local-task swap; high deltas indicate
+/// unstable routing under the current user-objective stream.
+#[uniffi::export]
+pub fn routing_stats_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let acc = crate::routing::RoutingStatsAccumulator::shared();
+        Ok(format!(
+            r#"{{"total_decisions":{},"total_route_changes":{}}}"#,
+            acc.total_decisions(),
+            acc.total_route_changes(),
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;

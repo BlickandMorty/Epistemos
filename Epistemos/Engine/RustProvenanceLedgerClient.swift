@@ -48,6 +48,54 @@ nonisolated struct RustProvenanceLedgerEvent: Sendable, Equatable {
     let summary: String
 }
 
+// MARK: - V6.2 §1.4 routing stats client (2026-05-12)
+//
+// Read-only mirror of the Rust process-global routing-stats
+// accumulator. Powers `ConnectomeAlarmSubstrateObserver` which feeds
+// the connectomeAlarm input to InterruptScore.
+
+/// Decoded shape of `routing_stats_json()`.
+nonisolated struct RustRoutingStats: Sendable, Equatable, Decodable {
+    let totalDecisions: UInt64
+    let totalRouteChanges: UInt64
+
+    enum CodingKeys: String, CodingKey {
+        case totalDecisions = "total_decisions"
+        case totalRouteChanges = "total_route_changes"
+    }
+
+    static let empty = RustRoutingStats(totalDecisions: 0, totalRouteChanges: 0)
+}
+
+/// Read-only Swift client for the global Rust routing-stats
+/// accumulator. Falls back to `.empty` on FFI failure; never throws.
+nonisolated enum RustRoutingStatsClient {
+
+    private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "RustRoutingStatsClient"
+    )
+
+    /// Fetch the current routing stats. Cheap O(1) FFI call (two atomic
+    /// loads on the Rust side); safe to call from any thread.
+    static func stats() -> RustRoutingStats {
+        #if canImport(agent_coreFFI)
+        do {
+            let json = try routingStatsJson()
+            return try JSONDecoder().decode(
+                RustRoutingStats.self,
+                from: Data(json.utf8)
+            )
+        } catch {
+            log.error("Routing stats FFI failed (\(String(describing: error), privacy: .public)); returning empty")
+            return .empty
+        }
+        #else
+        return .empty
+        #endif
+    }
+}
+
 /// Read-only Swift client for the legacy global Rust `ClaimLedger`. Falls
 /// back to `.empty` summary + empty event list when the FFI is not linked or
 /// when the FFI call errors — never throws to the caller, never blocks the UI.

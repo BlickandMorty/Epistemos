@@ -255,10 +255,12 @@ struct InterruptScoreCpuTests {
 
     @Test("sampleTurnBucket: short boilerplate response → LOW")
     func sampleShortResponseClassifiesAsLow() {
-        // Reset the WBO observer so the priming contract holds for this
-        // test — without this, a non-zero WBO contribution from an
-        // earlier-running test could nudge a borderline bucket.
+        // Reset both observers so the priming contracts hold for this
+        // test — without this, a non-zero WBO/connectomeAlarm
+        // contribution from an earlier-running test could nudge a
+        // borderline bucket.
         WBOSubstrateObserver.shared.resetForTesting()
+        ConnectomeAlarmSubstrateObserver.shared.resetForTesting()
         // 20 output tokens → entropy ≈ 0.04 (very low).
         // toolNeed = 0 (no tool call). WBO primes to 0.
         // u_t ≈ 0.30 * 0.04 = 0.012 → LOW (< 0.25).
@@ -273,10 +275,11 @@ struct InterruptScoreCpuTests {
 
     @Test("sampleTurnBucket: tool_use stop reason boosts toward HIGH")
     func sampleToolUseBoostsBucket() {
-        // Reset the WBO observer so the first call below primes WBO=0
-        // and subsequent calls also stay at 0 (no event activity in the
-        // test ledger between immediate samples).
+        // Reset observers so the first call primes both deltas to 0.
+        // Subsequent calls also stay at 0 (no test-side route changes
+        // or ledger events between samples).
         WBOSubstrateObserver.shared.resetForTesting()
+        ConnectomeAlarmSubstrateObserver.shared.resetForTesting()
         // 100 output tokens → entropy ≈ 0.20.
         // toolNeed = 1.0 (tool_use stop).
         // u_t = 0.30 * 0.20 + 0.15 * 1.0 = 0.06 + 0.15 = 0.21 — still LOW.
@@ -598,6 +601,7 @@ struct InterruptScoreCpuTests {
         // and one of the four valid wire values. Existing per-bucket
         // assertions are above.
         WBOSubstrateObserver.shared.resetForTesting()
+        ConnectomeAlarmSubstrateObserver.shared.resetForTesting()
         let bucket = InterruptScoreCpu.sampleTurnBucket(
             stopReason: "end_turn",
             inputTokens: 100,
@@ -606,6 +610,99 @@ struct InterruptScoreCpuTests {
         let valid: Set<InterruptBucket> = [.low, .medium, .high, .unavailable]
         #expect(valid.contains(bucket),
             "sampleTurnBucket must return one of {low, medium, high, unavailable}; got \(bucket)")
+    }
+
+    // MARK: - V6.2 §1.4 connectomeAlarm substrate hook (2026-05-12)
+
+    @Test("ConnectomeAlarm observer: first call primes baseline and returns 0")
+    func connectomeAlarmObserverPrimesOnFirstCall() {
+        let stub = WBOStubCounter(initial: 5)
+        let observer = ConnectomeAlarmSubstrateObserver(readRouteChanges: { stub.value })
+        let first = observer.sampleAndAdvance()
+        #expect(first == 0,
+            "first call must prime baseline and return 0, got \(first)")
+        let second = observer.sampleAndAdvance()
+        #expect(second == 0,
+            "second sample with no new route changes must remain 0, got \(second)")
+    }
+
+    @Test("ConnectomeAlarm observer: delta of 3 route changes saturates at 1.0")
+    func connectomeAlarmObserverSaturatesAtThreeChanges() {
+        // saturationChanges = 3 — three route flips per turn = router
+        // instability. Saturates connectomeAlarm at 1.0.
+        let stub = WBOStubCounter(initial: 10)
+        let observer = ConnectomeAlarmSubstrateObserver(readRouteChanges: { stub.value })
+
+        _ = observer.sampleAndAdvance()  // prime
+
+        // 1 change → alarm = 1/3 ≈ 0.333.
+        stub.value = 11
+        let oneThird = observer.sampleAndAdvance()
+        #expect(abs(oneThird - (1.0 / 3.0)) < 1e-6,
+            "1-change delta must yield alarm = 1/3, got \(oneThird)")
+
+        // 0 → alarm = 0.
+        let zero = observer.sampleAndAdvance()
+        #expect(zero == 0)
+
+        // 3 → alarm = 1.0 (saturation).
+        stub.value = 14
+        let saturated = observer.sampleAndAdvance()
+        #expect(abs(saturated - 1.0) < 1e-6,
+            "3-change delta must saturate at 1.0, got \(saturated)")
+
+        // 10 → alarm clamped at 1.0.
+        stub.value = 24
+        #expect(observer.sampleAndAdvance() == 1.0)
+    }
+
+    @Test("ConnectomeAlarm observer: backward counter reads as zero")
+    func connectomeAlarmObserverGuardAgainstBackwardsCounter() {
+        let stub = WBOStubCounter(initial: 20)
+        let observer = ConnectomeAlarmSubstrateObserver(readRouteChanges: { stub.value })
+        _ = observer.sampleAndAdvance()  // prime at 20
+        stub.value = 5  // counter "resets"
+        let postReset = observer.sampleAndAdvance()
+        #expect(postReset == 0,
+            "backward counter must read as 0, got \(postReset)")
+        // Resume from new baseline: 5 → 8 = delta 3 = alarm 1.0.
+        stub.value = 8
+        let recovered = observer.sampleAndAdvance()
+        #expect(abs(recovered - 1.0) < 1e-6)
+    }
+
+    @Test("ConnectomeAlarm saturation constant matches doctrine value")
+    func connectomeAlarmSaturationConstantMatchesDoctrine() {
+        // Three route flips per turn saturates connectomeAlarm at 1.0
+        // per V6.2 §1.5 task 21-23 expected router-instability range.
+        // Doctrine pin — if a future calibration moves this, the test
+        // breaks to force the update.
+        #expect(ConnectomeAlarmSubstrateObserver.saturationChanges == 3.0)
+    }
+
+    @Test("ConnectomeAlarm observer: resetForTesting re-primes baseline")
+    func connectomeAlarmObserverResetReprimesBaseline() {
+        let stub = WBOStubCounter(initial: 100)
+        let observer = ConnectomeAlarmSubstrateObserver(readRouteChanges: { stub.value })
+        _ = observer.sampleAndAdvance()  // prime at 100
+        stub.value = 101
+        #expect(observer.sampleAndAdvance() > 0)
+        observer.resetForTesting()
+        stub.value = 1_000  // huge jump
+        let zeroAgain = observer.sampleAndAdvance()
+        #expect(zeroAgain == 0,
+            "resetForTesting() must clear the baseline so the next call re-primes; got \(zeroAgain)")
+    }
+
+    @Test("RustRoutingStats decodes JSON shape")
+    func routingStatsDecodesShape() throws {
+        let json = #"{"total_decisions":17,"total_route_changes":4}"#
+        let stats = try JSONDecoder().decode(
+            RustRoutingStats.self,
+            from: Data(json.utf8)
+        )
+        #expect(stats.totalDecisions == 17)
+        #expect(stats.totalRouteChanges == 4)
     }
 }
 
