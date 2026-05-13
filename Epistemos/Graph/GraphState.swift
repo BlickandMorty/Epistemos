@@ -1970,6 +1970,102 @@ final class GraphState {
         }
     }
 
+    /// Restore every user-tunable physics setting to the canonical V3
+    /// boot defaults (Gravity Well preset + 3 overrides: linkDistance
+    /// 500, centerStrength 0, enableFluidDynamics off). Mirrors the
+    /// signature applied by `migrateLegacySchedulerDefaultsIfNeeded`
+    /// but without the "looks like old defaults" gating, so the user
+    /// can always recover from any customization. Also clears the
+    /// cursor force + shape bound overlays + the lab tunables, restores
+    /// the default scheduler timeline, and unfreezes physics.
+    ///
+    /// Per user 2026-05-12: there was no "go back to defaults" path —
+    /// once the user touched any force value, they were stuck with
+    /// their custom state. This method is the single source of truth
+    /// the Reset-to-defaults button calls. After resetting the values,
+    /// it persists them and restarts the overlay cycle so the graph
+    /// snaps to the new state without a relaunch.
+    func resetPhysicsToCanonicalDefaults() {
+        // Suppress the per-property `didSet` saves while we cascade
+        // through dozens of assignments. We save once at the end.
+        isRestoringPhysicsSettings = true
+        defer { isRestoringPhysicsSettings = false }
+
+        // Core preset values — Gravity Well as the canonical resting
+        // shape, with three overrides per V3 doctrine.
+        selectedPhysicsPreset = .gravityWell
+        linkDistance = 500.0
+        chargeStrength = PhysicsPreset.gravityWell.chargeStrength
+        chargeRange = PhysicsPreset.gravityWell.chargeRange
+        linkStrength = PhysicsPreset.gravityWell.linkStrength
+        velocityDecay = PhysicsPreset.gravityWell.velocityDecay
+        centerStrength = 0.0
+        collisionRadius = PhysicsPreset.gravityWell.collisionRadius
+
+        // Laboratory tunables — V3 doctrine wants fluid OFF; the rest
+        // restore to their canonical "neutral" defaults.
+        enableFluidDynamics = false
+        enableTorsionalSprings = false
+        enableElasticEdges = true
+        fluidViscosity = 0.5
+        edgeElasticity = 0.5
+        torsionRigidity = 0.5
+        boidsCohesion = 0.0
+        windX = 0.0
+        windY = 0.0
+        enableOrbital = false
+        orbitalSpeed = 0.3
+
+        // Cluster + semantic — neutral.
+        clusterStrength = 0.0
+        centerMode = 0
+        semanticStrength = 0.0
+        useSemanticClustering = false
+        disableClusteringAndSemantics = false
+
+        // User-directed force overlays — off.
+        cursorForceMode = .off
+        cursorForceStrength = 0.5
+        shapeBoundKind = .off
+        shapeBoundRadius = 800.0
+
+        // Scheduler — V3 defaults (opening → resting, then default timeline).
+        schedulerMode = .simple
+        simpleOpeningPresetKey = GraphOverlayPhysicsPolicy.openingPresetKey
+        simpleOpeningDelaySeconds = GraphOverlayPhysicsPolicy.chaosDelaySeconds
+        simpleRestingPresetKey = GraphOverlayPhysicsPolicy.restingPresetKey
+        timelineSteps = Self.defaultTimelineSteps()
+        interactionMotionHoldSeconds = GraphOverlayPhysicsPolicy.interactionMotionHoldSeconds
+        interactionMotionAlphaTarget = GraphOverlayPhysicsPolicy.interactionMotionAlphaTarget
+        startupViewMode = .fullOverlay
+
+        // Camera knobs back to defaults.
+        cameraDeselectZoomMultiplier = 1.0
+        cameraSpeedLambda = 6.0
+
+        // Unfreeze physics.
+        if isPhysicsFrozen {
+            isPhysicsFrozen = false
+            physicsFrozenVersion += 1
+        }
+
+        // Bump every version counter that the render loop watches so
+        // MetalGraphView re-pushes the cleaned state to Rust on the
+        // next tick.
+        forceConfigVersion += 1
+        extendedForceConfigVersion += 1
+        clusterConfigVersion += 1
+        semanticForceConfigVersion += 1
+        labConfigVersion += 1
+        userForceOverlayVersion &+= 1
+        cameraConfigVersion += 1
+
+        savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
+        // Restart the overlay cycle so opening → resting fires again.
+        startOverlayPhysicsCycle()
+    }
+
     private func runSimpleScheduler() {
         applyOverlayPresetByKey(simpleOpeningPresetKey)
         let delayNs = UInt64(max(0.0, simpleOpeningDelaySeconds) * 1_000_000_000)
