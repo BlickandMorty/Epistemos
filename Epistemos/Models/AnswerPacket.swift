@@ -11,10 +11,17 @@ import Foundation
 // is enforced by the Rust side's `#[serde(rename_all = "snake_case")]`
 // + the snake_case CodingKeys here.
 //
-// Tier 1 (MAS-safe): strictly additive structs. The chat path is not yet
-// wired to populate AnswerPacket per reply — that lands in the W1 follow-up
-// slice. Until then, these types compile + serialize round-trip cleanly,
-// the canon-hardening WRV state is `state: implemented` (not `wired`).
+// Tier 1 (MAS-safe): strictly additive structs.
+//
+// State 2026-05-12: chat path emits a packet per turn via
+// StreamingDelegate.onComplete → AnswerPacketEmitter. The
+// canon-hardening WRV state is now `state: rendered (FULL)`:
+// `MessageBubble.AnswerPacketChipRow` looks up the packet via
+// `LatestAnswerPacketSink.shared.packet(for: message.answerPacketId)`
+// and renders the three V6.2 chips. Pending follow-on:
+// `state: canonical-product-surface` — persisting the packet
+// alongside the ChatMessage so scrollback past the 32-packet ring
+// still renders chips, plus Rust-side claim FFI.
 //
 // Cross-references:
 // - docs/HELIOS_V5_DOC_0_INDEX.md §0.1 (concept-to-doc map),
@@ -246,8 +253,10 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
     }
 }
 
-/// Swift mirror of Rust `AnswerPacket`. Tier 1 schema; not yet emitted
-/// by the chat path (`state: implemented`, not `state: wired`).
+/// Swift mirror of Rust `AnswerPacket`. Tier 1 schema. State as of
+/// 2026-05-12: emitted per chat-turn (`state: rendered FULL`) — the
+/// chip row in MessageBubble surfaces the audit channel on every
+/// assistant message bubble with a bound `answerPacketId`.
 // `nonisolated` because the module defaults to MainActor isolation
 // (per CLAUDE.md) — without this, the synthesized Equatable
 // conformance becomes MainActor-isolated and `AnswerPacketEmitter

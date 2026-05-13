@@ -37,7 +37,7 @@ public struct HELIOSv5SettingsView: View {
             Section {
                 DeferredHeliosRow(
                     title: "Verified Research Mode",
-                    detail: "Deferred: no chat-path AnswerPacket emission is wired in v1."
+                    detail: "V6.2 first wiring landed 2026-05-12: every chat turn emits an AnswerPacket with attention_mode + interrupt_bucket. See Settings → General → Diagnostics → AnswerPacket for the live audit channel."
                 )
                 DeferredHeliosRow(
                     title: "Modern Hopfield retrieval",

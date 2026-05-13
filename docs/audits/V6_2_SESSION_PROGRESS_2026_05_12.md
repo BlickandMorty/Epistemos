@@ -61,9 +61,13 @@ state: partially populated (attention_mode live)                  ✓ 0d757b57f
 state: partially populated (interruptBucket sampled)              ✓ 9b1db4170
 state: rendered (PARTIAL — diagnostics row)                       ✓ ae3ed7d6f
 state: rendered (PARTIAL — per-mode + per-bucket histograms)      ✓ 854af9b0d
-state: rendered (FULL — VRMLabelView per message bubble)          ← next move
-state: canonical-product-surface
+state: rendered (FULL — schema + binding plumbing)                ✓ c0c14f98e
+state: rendered (FULL — VRMLabelView + attention + bucket chips)  ✓ e639b6bb4
+state: canonical-product-surface (persistent packet + Rust FFI)   ← post-session
 ```
+
+Plus follow-on cleanup commits (a22b6783a Codable tests, 6d2bd399e
+nonisolated fix, doctrine-comment refresh).
 
 Components shipped:
 
