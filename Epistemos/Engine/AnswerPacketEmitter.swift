@@ -184,7 +184,12 @@ public actor AnswerPacketEmitter {
 
 // MARK: - Construction helpers
 
-extension AnswerPacket {
+// `nonisolated extension` so `turnCompletionStub` can be called from
+// the unstructured `Task { … }` inside `StreamingDelegate.onComplete`.
+// Without this the module's default MainActor isolation would make the
+// static factory MainActor-bound; AnswerPacket itself is `nonisolated`
+// (see Models/AnswerPacket.swift) so its members can be too.
+nonisolated extension AnswerPacket {
     /// Build a V6.2 AnswerPacket for a completed chat turn.
     ///
     /// State promotion ladder:
