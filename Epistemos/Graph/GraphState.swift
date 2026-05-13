@@ -3161,29 +3161,32 @@ final class GraphState {
 
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
+            //
+            // RCA-P1-009 (2026-05-13): the placeholder SDGraphNode is
+            // dropped after the page exists and `buildStructuralGraph`
+            // rebuilds the canonical note-node from the SDPage. Without
+            // this swap, two SDGraphNodes ended up with the same
+            // `sourceId == pageId` (one manual, one structural) — the
+            // duplicate the audit register flagged.
             Task { @MainActor in
+                let placeholderId = sdNode.id
                 guard let pageId = await AppBootstrap.shared?.vaultSync.createPage(
                     title: safeLabel,
                     allowVaultSelectionPrompt: true
                 ) else {
                     context.delete(sdNode)
-                    store.positionHints.removeValue(forKey: sdNode.id)
+                    store.positionHints.removeValue(forKey: placeholderId)
                     return
                 }
 
-                sdNode.sourceId = pageId
-                guard persistManualGraphMutation(
-                    context: context,
-                    rollback: {
-                        sdNode.sourceId = nil
-                        context.delete(sdNode)
-                        store.positionHints.removeValue(forKey: sdNode.id)
-                    }
-                ) else {
-                    return
-                }
-                buildStructuralGraph(context: context)
-                requestRecommit()
+                swapManualPlaceholderForStructuralNoteNode(
+                    placeholder: sdNode,
+                    placeholderId: placeholderId,
+                    placeholderPosition: position,
+                    pageId: pageId,
+                    danglingManualEdge: nil,
+                    context: context
+                )
             }
         } else {
             guard persistManualGraphMutation(
@@ -3235,31 +3238,40 @@ final class GraphState {
 
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
+            //
+            // RCA-P1-009 (2026-05-13): swap the placeholder for the
+            // structural-rebuild's canonical node and rewrite the
+            // manual edge to target the canonical id. Without this,
+            // the edge silently dangles to the deleted placeholder
+            // ID while the user sees the structural note alongside
+            // — the "stale manual edges" the audit register flagged.
             Task { @MainActor in
+                let placeholderId = sdNode.id
+                let danglingEdge = DanglingManualEdge(
+                    sourceId: sdEdge.sourceNodeId,
+                    placeholderTargetId: sdEdge.targetNodeId,
+                    edge: sdEdge,
+                    type: sdEdge.edgeType,
+                    weight: sdEdge.weight
+                )
                 guard let pageId = await AppBootstrap.shared?.vaultSync.createPage(
                     title: safeLabel,
                     allowVaultSelectionPrompt: true
                 ) else {
                     context.delete(sdNode)
                     context.delete(sdEdge)
-                    store.positionHints.removeValue(forKey: sdNode.id)
+                    store.positionHints.removeValue(forKey: placeholderId)
                     return
                 }
 
-                sdNode.sourceId = pageId
-                guard persistManualGraphMutation(
-                    context: context,
-                    rollback: {
-                        sdNode.sourceId = nil
-                        context.delete(sdNode)
-                        context.delete(sdEdge)
-                        store.positionHints.removeValue(forKey: sdNode.id)
-                    }
-                ) else {
-                    return
-                }
-                buildStructuralGraph(context: context)
-                requestRecommit()
+                swapManualPlaceholderForStructuralNoteNode(
+                    placeholder: sdNode,
+                    placeholderId: placeholderId,
+                    placeholderPosition: position,
+                    pageId: pageId,
+                    danglingManualEdge: danglingEdge,
+                    context: context
+                )
             }
         } else {
             guard persistManualGraphMutation(
@@ -3298,6 +3310,112 @@ final class GraphState {
             requestIncrementalAdd(node: record)
             requestIncrementalAddEdge(edgeRecord)
         }
+    }
+
+    // MARK: - RCA-P1-009 placeholder ↔ structural-node swap (2026-05-13)
+
+    /// Pre-computed manual-edge state captured BEFORE the placeholder
+    /// is deleted. The structural rebuild will mint a new SDGraphNode
+    /// with a different id, so the original `SDGraphEdge` is
+    /// re-created against the new node id.
+    ///
+    /// Not Sendable on purpose — `SDGraphEdge` is a `@Model` and
+    /// can't cross actor boundaries safely. The entire swap path
+    /// stays on MainActor (it's invoked inside `Task { @MainActor in
+    /// … }` from the create-node paths), so the struct never leaves
+    /// the actor.
+    private struct DanglingManualEdge {
+        let sourceId: String
+        let placeholderTargetId: String
+        let edge: SDGraphEdge
+        let type: GraphEdgeType
+        let weight: Double
+    }
+
+    /// Drop the manual placeholder SDGraphNode (and any dangling
+    /// manual edge that pointed to it), rebuild the structural graph
+    /// so the canonical note-node for the SDPage exists, then
+    /// re-attach the position hint + manual edge against the canonical
+    /// node id.
+    ///
+    /// Before this helper:
+    ///   - Two SDGraphNodes shared the same `sourceId == pageId` —
+    ///     the manual placeholder (created at click time) and the
+    ///     structural rebuild's auto-generated entry.
+    ///   - The manual SDGraphEdge pointed at the placeholder's UUID,
+    ///     which the user couldn't see (the renderer shows the
+    ///     structural node), so the edge was silently dangling.
+    ///
+    /// After this helper:
+    ///   - One SDGraphNode per page (the structural one).
+    ///   - The manual edge points at the structural node id.
+    ///   - The position hint follows the structural id.
+    private func swapManualPlaceholderForStructuralNoteNode(
+        placeholder: SDGraphNode,
+        placeholderId: String,
+        placeholderPosition: SIMD2<Float>,
+        pageId: String,
+        danglingManualEdge: DanglingManualEdge?,
+        context: ModelContext
+    ) {
+        // Step 1: detach the placeholder + dangling manual edge.
+        context.delete(placeholder)
+        if let dangling = danglingManualEdge {
+            context.delete(dangling.edge)
+        }
+        store.positionHints.removeValue(forKey: placeholderId)
+
+        // Step 2: rebuild structural graph so the canonical SDGraphNode
+        // for the new page appears in the SwiftData store.
+        buildStructuralGraph(context: context)
+
+        // Step 3: resolve the canonical node id (the structural rebuild's
+        // entry for this page) so we can re-key the position hint and
+        // edge.
+        let typeRaw = GraphNodeType.note.rawValue
+        let descriptor = FetchDescriptor<SDGraphNode>(
+            predicate: #Predicate<SDGraphNode> {
+                $0.type == typeRaw && $0.sourceId == pageId && !$0.isManual
+            }
+        )
+        let canonical: SDGraphNode?
+        do {
+            canonical = try context.fetch(descriptor).first
+        } catch {
+            Log.app.error("RCA-P1-009: failed to fetch structural node for page \(pageId): \(error.localizedDescription)")
+            canonical = nil
+        }
+        guard let canonical else {
+            // Structural rebuild didn't produce a node for this page —
+            // the SDPage may have been deleted by a race, or the
+            // GraphBuilder failed. Either way, nothing left to wire.
+            Log.app.error("RCA-P1-009: structural rebuild did not produce a note-node for page \(pageId)")
+            return
+        }
+
+        // Step 4: re-key the position hint onto the canonical id so
+        // the user's click position is preserved through the swap.
+        store.positionHints[canonical.id] = placeholderPosition
+
+        // Step 5: re-create the manual edge against the canonical id
+        // (if one existed).
+        if let dangling = danglingManualEdge {
+            let replacement = SDGraphEdge(
+                source: dangling.sourceId,
+                target: canonical.id,
+                type: dangling.type,
+                weight: dangling.weight
+            )
+            replacement.isManual = true
+            context.insert(replacement)
+        }
+
+        // Step 6: persist the manual mutation (the new edge, if any).
+        // If persist fails the rollback won't re-create the placeholder
+        // (the structural node is now the canonical truth); the
+        // manual edge is simply absent, which is the safe degradation.
+        _ = persistManualGraphMutation(context: context, rollback: {})
+        requestRecommit()
     }
 
     /// Connect two existing nodes with an edge.

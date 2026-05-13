@@ -527,7 +527,7 @@ Acceptance:
 
 ### RCA-P1-009 - Fix graph-created note placeholder duplication and stale manual edges
 
-Status: TODO
+Status: PATCHED 2026-05-13 — placeholder swapped for structural node + manual edge rewritten to canonical id
 
 Subsystem: graph manual editing, note creation, structural rebuild.
 
@@ -548,6 +548,59 @@ Audit steps:
 Acceptance:
 - Graph-created notes produce one durable note node.
 - Edges point to the durable structural node after restart.
+
+Root cause (2026-05-13):
+
+  - `GraphState.createNode(type:.note)` and `createConnectedNode(type:.note)`
+    insert a manual `SDGraphNode` placeholder at click time and then
+    asynchronously call `vaultSync.createPage`. On success they set
+    `placeholder.sourceId = pageId` and call `buildStructuralGraph`.
+  - `GraphBuilder.persist` fetches existing non-manual nodes with
+    `#Predicate { !$0.isManual }` to dedupe. The manual placeholder
+    is *excluded* from the dedup map, so the structural rebuild inserts
+    a fresh non-manual SDGraphNode with the same `sourceId == pageId`
+    → TWO SDGraphNodes for one page (the placeholder dup the audit flagged).
+  - The manual SDGraphEdge from `createConnectedNode` was created with
+    `target == placeholder.id`. The renderer shows the structural
+    node (different id), so the edge dangled to the invisible
+    placeholder — the "stale manual edge" the audit flagged.
+
+Fix-pass evidence 2026-05-13:
+
+  - Files changed:
+    - `Epistemos/Graph/GraphState.swift` —
+      - New private `DanglingManualEdge` struct captures the manual
+        edge's shape (source/type/weight) before the placeholder is
+        deleted.
+      - New `swapManualPlaceholderForStructuralNoteNode(...)` helper:
+        (1) deletes the placeholder + dangling edge, (2) re-keys
+        the position hint off the placeholder ID, (3) runs
+        `buildStructuralGraph` so the canonical node appears,
+        (4) fetches the canonical id via
+        `#Predicate { type == note && sourceId == pageId && !isManual }`,
+        (5) re-attaches the position hint to the canonical id,
+        (6) re-creates the manual SDGraphEdge against the canonical
+        id, (7) persists + recommits.
+      - Both `createNode(type:.note)` and `createConnectedNode(type:.note)`
+        now route through the helper. The non-note paths are unchanged.
+
+  - Acceptance status:
+    - Graph-created notes produce ONE durable SDGraphNode (the
+      structural one) — the placeholder is deleted before the
+      structural rebuild runs.
+    - Manual edges from `createConnectedNode(type:.note)` point at
+      the structural node's id after the swap, so they remain
+      attached across app restarts.
+
+  - Pending follow-on (separate slice):
+    - Add a SwiftData integration test that exercises
+      `createConnectedNode(type:.note)` end-to-end with a real
+      ModelContainer + vault stub, then asserts (a) exactly one
+      SDGraphNode with `sourceId == pageId` and (b) the manual
+      edge's `targetNodeId` matches that node's id. Today's commit
+      ships the structural fix; the integration test is a separate
+      slice because `vaultSync.createPage` requires a vault fixture
+      that's heavier than the rest of the audit-loop chips.
 
 ### RCA-P1-010 - Make graph filters actually affect visibility or hide the UI
 
