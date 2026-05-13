@@ -53,6 +53,42 @@ public enum AttentionMode: String, Codable, Hashable, Sendable, CaseIterable {
     public static let `default`: AttentionMode = .unavailable
 }
 
+/// EPISTEMOS V6.2 — turn-level InterruptScore (u_t) bucket sampled at
+/// AnswerPacket emit time. Mirrors `InterruptScoreCpu.Bucket` (LOW/MED/
+/// HIGH per V6.2 §1.5 thresholds 0.25 / 0.65) plus an `.unavailable`
+/// sentinel for packets emitted before any signal source is wired.
+///
+/// The bucket is a per-TURN summary; V6.2 §1.4 Falsifier 6 specifies
+/// u_t as per-TOKEN. The packet-level snapshot captures the bucket the
+/// turn ended in — the Controller-plane veto cadence depends on the
+/// bucket at the moment the streaming terminates, not on the entire
+/// per-token trajectory.
+///
+/// Default is `.unavailable` so older packets never imply that the
+/// runtime had genuine interrupt-score signals merely because the
+/// field exists.
+public enum InterruptBucket: String, Codable, Hashable, Sendable, CaseIterable {
+    case low
+    case medium
+    case high
+    case unavailable
+
+    public static let `default`: InterruptBucket = .unavailable
+
+    /// V6.2 §1.5 calibration-corpus mapping: LOW = boilerplate /
+    /// continuation / format completion; MED = multi-step reasoning,
+    /// cross-file refactor, retrieval QA; HIGH = novel theorem, OOD
+    /// prompt, tool-call, agentic multi-hop.
+    public var shortLabel: String {
+        switch self {
+        case .low: return "Low"
+        case .medium: return "Med"
+        case .high: return "High"
+        case .unavailable: return "—"
+        }
+    }
+}
+
 /// HELIOS V5 W3 — Verified Research Mode UI label.
 ///
 /// 4-arm collapse of the 9-claim π Kleene K3 classification per
@@ -218,6 +254,10 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
     public var residencySignals: [ResidencySignal]
     public var uiLabel: VRMLabel
     public var attentionMode: AttentionMode
+    /// V6.2 §1.4 Falsifier 6: turn-level u_t bucket sampled at emit time.
+    /// Default `.unavailable` until the runtime threads real signal
+    /// sources (entropy / WBO / sheaf / tool-need / connectome-alarm).
+    public var interruptBucket: InterruptBucket
     public var witnessedStateRef: String
     public var semanticDeltaRef: String?
     public var mutationEnvelopeRef: String
@@ -228,6 +268,7 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         residencySignals: [ResidencySignal] = [],
         uiLabel: VRMLabel = .plausibleButUnverified,
         attentionMode: AttentionMode = .unavailable,
+        interruptBucket: InterruptBucket = .unavailable,
         witnessedStateRef: String,
         semanticDeltaRef: String? = nil,
         mutationEnvelopeRef: String
@@ -237,6 +278,7 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         self.residencySignals = residencySignals
         self.uiLabel = uiLabel
         self.attentionMode = attentionMode
+        self.interruptBucket = interruptBucket
         self.witnessedStateRef = witnessedStateRef
         self.semanticDeltaRef = semanticDeltaRef
         self.mutationEnvelopeRef = mutationEnvelopeRef
@@ -269,6 +311,7 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         case residencySignals = "residency_signals"
         case uiLabel = "ui_label"
         case attentionMode = "attention_mode"
+        case interruptBucket = "interrupt_bucket"
         case witnessedStateRef = "witnessed_state_ref"
         case semanticDeltaRef = "semantic_delta_ref"
         case mutationEnvelopeRef = "mutation_envelope_ref"
@@ -281,6 +324,9 @@ public struct AnswerPacket: Codable, Hashable, Sendable {
         self.residencySignals = try c.decode([ResidencySignal].self, forKey: .residencySignals)
         self.uiLabel = try c.decode(VRMLabel.self, forKey: .uiLabel)
         self.attentionMode = try c.decodeIfPresent(AttentionMode.self, forKey: .attentionMode) ?? .unavailable
+        // V6.2 backward-compat: pre-V6.2 packets don't carry
+        // `interrupt_bucket`; decode missing as `.unavailable`.
+        self.interruptBucket = try c.decodeIfPresent(InterruptBucket.self, forKey: .interruptBucket) ?? .unavailable
         self.witnessedStateRef = try c.decode(String.self, forKey: .witnessedStateRef)
         self.semanticDeltaRef = try c.decodeIfPresent(String.self, forKey: .semanticDeltaRef)
         self.mutationEnvelopeRef = try c.decode(String.self, forKey: .mutationEnvelopeRef)

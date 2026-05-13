@@ -96,9 +96,21 @@ Five V6.1/V6.2 kernels remain target-only until real kernel files and M2 Pro fal
   `.unavailable`. `StreamingDelegate.onComplete` resolves the live
   value via MainActor hop and threads it into every emitted packet.
   6 new tests cover every branch of the resolver.
-- Runtime population of `InterruptScore` bucket per turn — pending;
-  InterruptScoreCpu module exists, runtime emit-time sampling of
-  H/WBO/Sheaf/ToolNeed/ConnectomeAlarm still needs wiring.
+- ~~Runtime population of `InterruptScore` bucket per turn~~ →
+  **FIRST WIRING LANDED 2026-05-12**. AnswerPacket gained an
+  `interruptBucket: InterruptBucket` field (Codable wire form
+  `"interrupt_bucket"`, backward-compat via `decodeIfPresent` so
+  legacy packets decode as `.unavailable`).
+  `InterruptScoreCpu.sampleTurnBucket(stopReason:inputTokens:outputTokens:)`
+  computes a coarse bucket at emit time from the runtime signals
+  available at the StreamingDelegate seam: entropy ≈ `outputTokens / 500`
+  + `toolNeed = 1.0 when stopReason == "tool_use"`. Other canonical
+  signals (WBO / sheafResidual / connectomeAlarm) default to 0 until
+  their substrate hooks land.
+  Net: every emitted AnswerPacket now carries an actionable bucket
+  (LOW / MEDIUM / HIGH / .unavailable). Full V6.2 §1.5-calibrated
+  signal extraction lands when the cognitive substrate hooks are
+  wired through.
 - Rust-side claims + residency signals threaded into emitted
   AnswerPackets via FFI — pending.
 - PacketRouter1bit dispatch budget and quality-loss falsifier.

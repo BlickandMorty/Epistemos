@@ -476,11 +476,22 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         let outTokens = Int(outputTokens)
         Task {
             let attentionMode = await AnswerPacketEmitter.currentAttentionMode()
+            // V6.2 #4: sample the InterruptScore bucket at emit time
+            // using runtime signals available at this seam (stop_reason
+            // + token counts). Other canonical signals (WBO / sheaf /
+            // connectome) default to 0 until their substrate hooks
+            // land — `sampleTurnBucket` documents the heuristic.
+            let interruptBucket = InterruptScoreCpu.sampleTurnBucket(
+                stopReason: stopReason,
+                inputTokens: inTokens,
+                outputTokens: outTokens
+            )
             let packet = AnswerPacket.turnCompletionStub(
                 stopReason: stopReason,
                 inputTokens: inTokens,
                 outputTokens: outTokens,
-                attentionMode: attentionMode
+                attentionMode: attentionMode,
+                interruptBucket: interruptBucket
             )
             await AnswerPacketEmitter.shared.emit(packet)
         }

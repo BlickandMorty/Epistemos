@@ -233,6 +233,76 @@ struct InterruptScoreCpuTests {
             "novel-theorem u=\(u) must classify as .high per V6.2 §1.5 task 20")
     }
 
+    // MARK: - V6.2 #4: AnswerPacket bucket sampling at emit time
+
+    @Test("Bucket→InterruptBucket bridge maps all three values")
+    func bucketBridgeMapsAllValues() {
+        #expect(InterruptScoreCpu.answerPacketBucket(for: .low) == .low)
+        #expect(InterruptScoreCpu.answerPacketBucket(for: .medium) == .medium)
+        #expect(InterruptScoreCpu.answerPacketBucket(for: .high) == .high)
+    }
+
+    @Test("sampleTurnBucket returns .unavailable when no tokens produced")
+    func sampleReturnsUnavailableForZeroOutput() {
+        let bucket = InterruptScoreCpu.sampleTurnBucket(
+            stopReason: "end_turn",
+            inputTokens: 50,
+            outputTokens: 0
+        )
+        #expect(bucket == .unavailable,
+            "zero-output turn must yield .unavailable, not a default bucket")
+    }
+
+    @Test("sampleTurnBucket: short boilerplate response → LOW")
+    func sampleShortResponseClassifiesAsLow() {
+        // 20 output tokens → entropy ≈ 0.04 (very low).
+        // toolNeed = 0 (no tool call).
+        // u_t ≈ 0.30 * 0.04 = 0.012 → LOW (< 0.25).
+        let bucket = InterruptScoreCpu.sampleTurnBucket(
+            stopReason: "end_turn",
+            inputTokens: 30,
+            outputTokens: 20
+        )
+        #expect(bucket == .low,
+            "short response with no tool call must classify as LOW; got \(bucket)")
+    }
+
+    @Test("sampleTurnBucket: tool_use stop reason boosts toward HIGH")
+    func sampleToolUseBoostsBucket() {
+        // 100 output tokens → entropy ≈ 0.20.
+        // toolNeed = 1.0 (tool_use stop).
+        // u_t = 0.30 * 0.20 + 0.15 * 1.0 = 0.06 + 0.15 = 0.21 — still LOW.
+        let lowBucket = InterruptScoreCpu.sampleTurnBucket(
+            stopReason: "tool_use",
+            inputTokens: 50,
+            outputTokens: 100
+        )
+        // Same response WITHOUT tool_use: u_t = 0.06 only.
+        let lowerBucket = InterruptScoreCpu.sampleTurnBucket(
+            stopReason: "end_turn",
+            inputTokens: 50,
+            outputTokens: 100
+        )
+        // Both are LOW at this token-count, but ordering must hold:
+        // tool_use never produces a STRICTLY-LOWER bucket than end_turn
+        // for the same token volume. Stronger assertion: a longer
+        // response with a tool_use stop should land at MEDIUM.
+        #expect(lowBucket == .low || lowBucket == .medium)
+        #expect(lowerBucket == .low)
+        _ = lowerBucket // explicit-use clarification
+
+        // Long response with tool_use → MEDIUM territory.
+        // 500 output tokens → entropy ≈ 1.0 (clamped).
+        // u_t = 0.30 + 0.15 = 0.45 — MEDIUM.
+        let medBucket = InterruptScoreCpu.sampleTurnBucket(
+            stopReason: "tool_use",
+            inputTokens: 50,
+            outputTokens: 500
+        )
+        #expect(medBucket == .medium,
+            "long tool_use response must classify as MEDIUM; got \(medBucket)")
+    }
+
     @Test("Inputs struct equality is structural")
     func inputsEqualityIsStructural() {
         let a = InterruptScoreInputs(

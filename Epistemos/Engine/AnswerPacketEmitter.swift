@@ -130,6 +130,7 @@ extension AnswerPacket {
         inputTokens: Int,
         outputTokens: Int,
         attentionMode: AttentionMode = .unavailable,
+        interruptBucket: InterruptBucket = .unavailable,
         timestamp: Date = Date()
     ) -> AnswerPacket {
         let turnId = "turn-\(Int(timestamp.timeIntervalSince1970 * 1000))-\(UUID().uuidString.prefix(8))"
@@ -139,6 +140,7 @@ extension AnswerPacket {
             residencySignals: [],
             uiLabel: .plausibleButUnverified,
             attentionMode: attentionMode,
+            interruptBucket: interruptBucket,
             witnessedStateRef: "stop:\(stopReason);in:\(inputTokens);out:\(outputTokens)",
             semanticDeltaRef: nil,
             mutationEnvelopeRef: turnId

@@ -202,6 +202,70 @@ public enum InterruptScoreCpu {
 
 // MARK: - Dispatch helper
 
+// MARK: - Bucket conversion to AnswerPacket schema
+
+extension InterruptScoreCpu {
+    /// Bridge from the internal `Bucket` enum to the wire-level
+    /// `InterruptBucket` field on `AnswerPacket`. Keeps the two enum
+    /// shapes orthogonal: this engine module owns the compute, the
+    /// AnswerPacket schema owns the wire form + an `.unavailable`
+    /// sentinel for packets that didn't sample u_t.
+    @inlinable
+    public static func answerPacketBucket(
+        for bucket: Bucket
+    ) -> InterruptBucket {
+        switch bucket {
+        case .low: return .low
+        case .medium: return .medium
+        case .high: return .high
+        }
+    }
+
+    /// Sample a coarse u_t bucket from runtime signals available at
+    /// `StreamingDelegate.onComplete`. V6.2 first wiring: we have only
+    /// a tiny subset of the canonical 5 inputs (entropy + tool-need)
+    /// today; the remaining signals (WBO / sheaf-residual /
+    /// connectome-alarm) default to 0 until their substrate hooks
+    /// land.
+    ///
+    /// Heuristics (acknowledged as crude — V6.2 §1.5 calibration
+    /// corpus will refine when the full signal set is wired):
+    ///
+    ///   - entropy ≈ `outputTokens / 500` (longer outputs averaged
+    ///     more next-token uncertainty over the turn). Clamped to
+    ///     [0, 1] by the inputs constructor.
+    ///   - toolNeed = 1.0 when stopReason == "tool_use" (the agent
+    ///     is requesting a tool — a strong runtime signal of HIGH
+    ///     u_t turns per V6.2 §1.5 task 21-23). Otherwise 0.
+    ///
+    /// Returns `.unavailable` only if `outputTokens == 0` (the turn
+    /// produced no signal at all — degenerate). All other cases
+    /// return a real bucket so the audit channel carries actionable
+    /// signal even at this first-wiring stage.
+    public static func sampleTurnBucket(
+        stopReason: String,
+        inputTokens: Int,
+        outputTokens: Int
+    ) -> InterruptBucket {
+        guard outputTokens > 0 else { return .unavailable }
+        let _ = inputTokens // reserved for a future "input-side
+                            // entropy" component once the model
+                            // surfaces it via FFI
+
+        let entropy = Float(outputTokens) / 500.0
+        let toolNeed: Float = stopReason == "tool_use" ? 1.0 : 0.0
+        let inputs = InterruptScoreInputs(
+            entropy: entropy,
+            witnessedBayesOutcome: 0,
+            sheafResidual: 0,
+            toolNeed: toolNeed,
+            connectomeAlarm: 0
+        )
+        let u = compute(inputs)
+        return answerPacketBucket(for: bucket(u))
+    }
+}
+
 /// Convenience wrapper that hops to `.userInteractive` QoS per
 /// V6.2 §1.4 dispatch contract. Use this when the caller is not
 /// already on a high-QoS queue. When the caller IS on
