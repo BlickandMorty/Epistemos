@@ -138,16 +138,33 @@ fn entrance_child_spacing(node_count: usize) -> f32 {
     }
 }
 
+/// Per user 2026-05-12: isolated/singleton components were fanning out
+/// across the entire viewport on a phyllotaxis spiral whose radius scaled
+/// to ~8500 world units. The user's vault of mostly-disconnected notes
+/// reads as a star-field instead of a compact graph.
+///
+/// Cut the per-tier `max_component_radius` roughly in half (8500 → 5000
+/// for typical vaults, 6800 → 4500 for huge vaults) AND drop the lower-
+/// clamp floor from `child_spacing * 1.15` to `child_spacing * 0.8` so
+/// singletons can pack tighter than multi-node components (a 0-degree
+/// node doesn't need fanout buffer). Upper clamp lowered from
+/// `child_spacing * 3.0` to `child_spacing * 1.6` so small-component
+/// vaults don't waste space on a sparse spiral.
+///
+/// Combined effect: a vault of ~500 isolated notes now opens with a
+/// max-radius of ~2900 units (down from ~5400). The disk is compact
+/// enough that the camera-fit zoom centers it in the viewport without
+/// requiring the user to manually re-zoom in.
 fn entrance_component_spacing(node_count: usize, estimated_components: usize) -> f32 {
     let child_spacing = entrance_child_spacing(node_count);
     let max_component_radius = if node_count > HIGH_NODE_PHYSICS_THRESHOLD {
-        6_800.0_f32
+        4_500.0_f32
     } else {
-        8_500.0_f32
+        5_000.0_f32
     };
     let estimated_components = estimated_components.max(1) as f32;
     (max_component_radius / estimated_components.sqrt())
-        .clamp(child_spacing * 1.15, child_spacing * 3.0)
+        .clamp(child_spacing * 0.8, child_spacing * 1.6)
 }
 
 const DEFAULT_CAMERA_FIT_PADDING: f32 = 0.85;
@@ -3295,11 +3312,36 @@ mod tests {
         let spacing = entrance_component_spacing(node_count, node_count);
         let max_radius = spacing * (node_count as f32).sqrt();
 
+        // Per user 2026-05-12: tightened the per-tier max so isolated /
+        // singleton components don't fan across the whole viewport. The
+        // hard ceiling stays well inside the sanitizer clamp (10_000
+        // world units) so NaN-recovery doesn't fire on entrance.
         assert!(
-            max_radius < 8_000.0,
-            "huge disconnected vaults should not initialize beyond the sanitizer clamp; got {max_radius}"
+            max_radius < 6_500.0,
+            "huge disconnected vaults must initialize tighter; got {max_radius}"
         );
-        assert!(spacing >= entrance_child_spacing(node_count) * 1.15);
+        // Spacing floor: singletons can pack tighter than multi-node
+        // components — the floor is now `child_spacing * 0.8` (down
+        // from 1.15) so a vault of mostly-isolated notes (degree 0)
+        // compresses into a readable central disc instead of spreading
+        // uniformly to the periphery.
+        assert!(spacing >= entrance_child_spacing(node_count) * 0.8);
+    }
+
+    #[test]
+    fn entrance_spacing_compacts_typical_vault_dramatically() {
+        // Per user 2026-05-12 screenshot: a ~500-component vault was
+        // fanning out across the whole viewport. After the spacing
+        // tightening, the max-radius for a typical mid-size isolated
+        // vault should land in the low-thousands, not the high-
+        // thousands.
+        let typical = 500;
+        let spacing = entrance_component_spacing(typical, typical);
+        let max_radius = spacing * (typical as f32).sqrt();
+        assert!(
+            max_radius < 3_000.0,
+            "500-component vault must open compact; got max_radius={max_radius}"
+        );
     }
 
     fn make_graph() -> Graph {

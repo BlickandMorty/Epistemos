@@ -981,11 +981,18 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     var pressedOverlay: Color { isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.08) }
 
     var userBubbleBg: Color {
-        resolved.userBubbleBg.color
+        // Per user 2026-05-12: dark mode user bubble flips to white so
+        // the on-right message stands out clearly against the now-theme-
+        // native chat background (which is no longer near-OLED). Light
+        // mode keeps its per-theme bubble color since the user only
+        // flagged the dark-mode bubble.
+        isDark ? Color.white : resolved.userBubbleBg.color
     }
 
     var userBubbleText: Color {
-        resolved.userBubbleText.color
+        // Pair the dark-mode white bubble with black text for readability.
+        // Light mode keeps its per-theme text color.
+        isDark ? Color.black : resolved.userBubbleText.color
     }
 
     var sidebarBackground: Color { glassBg }
