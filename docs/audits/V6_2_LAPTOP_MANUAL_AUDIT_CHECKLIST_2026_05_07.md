@@ -75,10 +75,19 @@ Five V6.1/V6.2 kernels remain target-only until real kernel files and M2 Pro fal
   canonical Swift CPU path, weights α=0.30 β=0.25 γ=0.20 δ=0.15 ε=0.10,
   P99 latency test gating < 500 µs CI-budget against the 100 µs V6.2
   target). Three-bucket classifier matches V6.2 §1.5 thresholds
-  (LOW < 0.25, MED < 0.65, HIGH ≥ 0.65). Pending: runtime population
-  into emitted AnswerPackets at the StreamingDelegate seam.
+  (LOW < 0.25, MED < 0.65, HIGH ≥ 0.65).
+- ~~AnswerPacket per-turn emission~~ → **FIRST WIRING LANDED 2026-05-12**
+  via `Epistemos/Engine/AnswerPacketEmitter.swift` + hookup at
+  `Epistemos/Bridge/StreamingDelegate.swift::onComplete`. Every chat
+  turn now produces an AnswerPacket recorded in a bounded ring (last
+  32 packets). State promotion: `state: implemented` →
+  `state: emitted`. Remaining ladder for full V6.2 close-out:
+  `state: populated` (Rust-side claims + signals via FFI),
+  `state: rendered` (VRMLabelView on the message bubble),
+  `state: canonical-product-surface`.
 - Runtime population of `attention_mode` (and `InterruptScore` bucket)
-  into emitted AnswerPackets.
+  into emitted AnswerPackets — schema accepts them today; live values
+  land in the `state: populated` promotion.
 - PacketRouter1bit dispatch budget and quality-loss falsifier.
 - ControllerKernelPack baseline equivalence.
 - SemiseparableBlockScan reference match.
