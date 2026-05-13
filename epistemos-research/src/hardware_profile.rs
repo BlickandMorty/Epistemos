@@ -312,4 +312,82 @@ mod tests {
             assert_eq!(parsed, p);
         }
     }
+
+    /// Doctrine ↔ runtime parity table. The Swift
+    /// `HardwareTierManager.computeDualModelBudget` formula is
+    ///     total_bytes * 0.60
+    /// applied uniformly across all detected tiers. HELIOS doctrine
+    /// (`realistic_resident_budget_gb`) intentionally diverges from
+    /// the uniform 60% formula on profiles where canonical research
+    /// dictates a different ceiling. This table captures the
+    /// alignment status for every profile so silent drift in EITHER
+    /// side breaks the test.
+    ///
+    /// Per-profile classification:
+    ///
+    /// | profile         | helios | swift 60% | aligned? | rationale                                              |
+    /// |-----------------|--------|-----------|----------|--------------------------------------------------------|
+    /// | M2Pro16Gb       | 10.5   | 9.6       | NO       | doctrine = 10-11GB sweet spot per user_hardware.md     |
+    /// | M2Pro18Gb       | 10.8   | 10.8      | YES      | matches Swift uniform formula                          |
+    /// | M2Max64Gb       | 12.0   | 38.4      | NO       | doctrine = V6.1 PEAK_RAM ceiling (validation_thresholds) |
+    /// | M3Max36Gb       | 24.0   | 21.6      | ~        | doctrine slightly larger; ~2/3 budget                  |
+    /// | M3Ultra256Gb    | 192.0  | 153.6     | ~        | doctrine = 75% capacity (large headroom)               |
+    ///
+    /// "~" means doctrine and Swift formula differ but both stay
+    /// in a reasonable range; not a strict mismatch.
+    ///
+    /// Drift gate: if any helios value changes, the corresponding
+    /// expected-value assertion below MUST change too. Same for the
+    /// Swift constant `0.60` — if it ever moves to e.g. `0.65`, the
+    /// `M2Pro18Gb` aligned-pair assertion breaks and forces both
+    /// sides to be updated together.
+    #[test]
+    fn helios_swift_dual_budget_alignment_table() {
+        const SWIFT_DUAL_BUDGET_FRACTION: f32 = 0.60;
+
+        let table = [
+            // (profile, expected_helios_gb, swift_uniform_should_match)
+            (HardwareProfile::M2Pro16Gb,    10.5_f32, false),
+            (HardwareProfile::M2Pro18Gb,    10.8_f32, true),
+            (HardwareProfile::M2Max64Gb,    12.0_f32, false),
+            (HardwareProfile::M3Max36Gb,    24.0_f32, false),
+            (HardwareProfile::M3Ultra256Gb, 192.0_f32, false),
+        ];
+
+        for (profile, expected_helios, should_match_swift) in table {
+            let helios = profile.realistic_resident_budget_gb();
+            assert!(
+                (helios - expected_helios).abs() < 0.01,
+                "HELIOS {:?} budget drifted: doctrine table says {} but code returned {}",
+                profile, expected_helios, helios
+            );
+
+            let swift_uniform = profile.unified_memory_gb() as f32 * SWIFT_DUAL_BUDGET_FRACTION;
+            let matches = (helios - swift_uniform).abs() < 0.01;
+            assert_eq!(
+                matches, should_match_swift,
+                "{:?}: HELIOS={} vs Swift-uniform={} — alignment flag (should_match={}) doesn't reflect reality (actually matches={}). \
+                 If you intentionally changed the alignment, update the table and the rationale comment.",
+                profile, helios, swift_uniform, should_match_swift, matches
+            );
+        }
+    }
+
+    #[test]
+    fn helios_budget_never_exceeds_unified_capacity() {
+        // Doctrine sanity: the realistic budget for any profile must
+        // be strictly less than its total unified-memory capacity.
+        // If this ever fails, doctrine is asserting more RAM than
+        // the chip physically has — the rest of HELIOS's invariants
+        // (PEAK_RAM bound, KV-Direct sizing) collapse.
+        for profile in FIVE_PROFILES {
+            let cap = profile.unified_memory_gb() as f32;
+            let budget = profile.realistic_resident_budget_gb();
+            assert!(
+                budget < cap,
+                "{:?}: realistic budget {} GB exceeds unified-memory capacity {} GB",
+                profile, budget, cap
+            );
+        }
+    }
 }

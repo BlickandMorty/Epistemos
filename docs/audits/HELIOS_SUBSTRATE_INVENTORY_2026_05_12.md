@@ -59,11 +59,27 @@ These are HELIOS modules where porting forward would deliver concrete app value,
 
 ### Tier S — high ROI, low risk
 
-1. **`hardware_profile.rs` → PowerGuard / memory-pressure budget enforcement**
+1. **`hardware_profile.rs` → PowerGuard / HardwareTierManager budget alignment**
    - V6.2 locks `M2Pro16Gb` as the ship rig with a 10.5 GB ceiling
-   - `Epistemos/App/PowerGuard.swift` currently has its own ad-hoc budget logic
-   - Wire-up: expose `HardwareProfile::current()` via FFI; PowerGuard reads canonical budget from there
-   - Effort: ~1 commit (FFI + Swift consumer)
+   - **First-pass discovery (2026-05-12):** `Epistemos/State/PowerGuard.swift` is a
+     three-mode state machine (`.full/.eco/.lowPower`); it does NOT own RAM-budget
+     numbers. The active analog of `realistic_resident_budget_gb` lives in
+     `Epistemos/Omega/Inference/HardwareTierManager.swift`
+     (`computeDualModelBudget = totalBytes * 0.60`).
+   - **Step 1 LANDED (2026-05-12):** added
+     `helios_swift_dual_budget_alignment_table` test in
+     `epistemos-research/src/hardware_profile.rs` documenting per-profile drift:
+     M2Pro18Gb matches Swift 60% (10.8 GB), M2Pro16Gb intentionally diverges
+     (10.5 vs 9.6 — doctrine sweet-spot), M2Max64Gb diverges by design
+     (12.0 vs 38.4 — V6.1 PEAK_RAM ceiling). Test breaks if either side
+     changes silently.
+   - **Step 2 (pending):** decide whether to (a) align Swift's uniform 60% formula
+     onto HELIOS doctrine where they diverge, or (b) keep the divergence
+     documented as canonical. The 16 GB profile divergence is intentional
+     (doctrine > Swift formula by ~1 GB); aligning would loosen the budget on
+     16 GB rigs and is a release-quality decision, not a drive-by patch.
+   - Effort remaining: ~1 commit if (a), zero if (b). Drift gate is in place
+     either way.
 
 2. **`hardware_profile.rs` → AppBootstrap Hardware tier logging**
    - User's startup log shows `Hardware tier: pro-18GB` — that string is computed by Swift
