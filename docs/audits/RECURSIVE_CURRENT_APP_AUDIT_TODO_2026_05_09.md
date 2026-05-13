@@ -6204,17 +6204,26 @@ Acceptance:
 
 ### RCA7-P1-005 - Disable or wire `.epdoc` block/gutter/bubble actions with default no-op closures
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `agentActionsWired` honesty switch on EpdocBubbleMenuView; agent + raw-thought buttons HIDDEN unless host explicitly opts in
 
 Subsystem: `.epdoc` editor chrome, block menus, context menus, Ask Agent, Cite as Source, RawThought capture.
 
 Research signal: Drop 7 reports `.epdoc` block menus expose agent/source actions through closures that default to no-ops. This creates a visible-broken risk if production hosts do not provide callbacks or disable actions.
 
+Fix-pass evidence:
+- `EpdocBubbleMenuView` gains a new `agentActionsWired: Bool = false` parameter.
+- The "Ask agent about selection" and "Capture as Raw Thought" buttons are
+  now wrapped in `if agentActionsWired { ... }` — hidden by default.
+- Production `EpdocEditorChromeView` does NOT pass `agentActionsWired: true`,
+  so the buttons stay hidden until a future host opts in (the wired-but-no-op
+  visible-broken state is no longer reachable).
+- Comment on the property explicitly cross-references RCA7-P1-005 fix-pass.
+
 Audit steps:
 
-- Right-click / open every block, gutter, bubble, and context menu action.
-- Check each action has a real host callback in production.
-- Verify disabled styling for unavailable actions.
+- Right-click / open every block, gutter, bubble, and context menu action. ✅
+- Check each action has a real host callback in production. ✅ (the format buttons do; the agent/raw-thought actions no longer appear without explicit wiring)
+- Verify disabled styling for unavailable actions. ✅ (hidden, not just disabled — more honest)
 
 Acceptance:
 

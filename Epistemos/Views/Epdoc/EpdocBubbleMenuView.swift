@@ -31,6 +31,13 @@ public struct EpdocBubbleMenuView: View {
     /// Capture the selected text as a new RawThought attached to the
     /// current document. Wires into RawThoughtsState (Wave 3.1).
     public let onCaptureAsRawThought: @Sendable @MainActor (String) -> Void
+    /// RCA7-P1-005 honesty switch (2026-05-13): when both `onAskAgent`
+    /// and `onCaptureAsRawThought` are left at their no-op defaults,
+    /// the host hasn't wired the EXCEED actions. In that case the two
+    /// buttons are HIDDEN rather than rendered as broken no-ops.
+    /// Production hosts that wire either callback must also pass
+    /// `agentActionsWired: true` so the buttons surface.
+    public let agentActionsWired: Bool
 
     public init(
         selectedText: String,
@@ -40,13 +47,15 @@ public struct EpdocBubbleMenuView: View {
         isCodeActive: Bool = false,
         onCommand: @escaping @Sendable @MainActor (EpdocEditorCommand) -> Void = { _ in },
         onAskAgent: @escaping @Sendable @MainActor (String) -> Void = { _ in },
-        onCaptureAsRawThought: @escaping @Sendable @MainActor (String) -> Void = { _ in }
+        onCaptureAsRawThought: @escaping @Sendable @MainActor (String) -> Void = { _ in },
+        agentActionsWired: Bool = false
     ) {
         self.selectedText = selectedText
         self.isBoldActive = isBoldActive
         self.isItalicActive = isItalicActive
         self.isHighlightActive = isHighlightActive
         self.isCodeActive = isCodeActive
+        self.agentActionsWired = agentActionsWired
         self.onCommand = onCommand
         self.onAskAgent = onAskAgent
         self.onCaptureAsRawThought = onCaptureAsRawThought
@@ -67,13 +76,17 @@ public struct EpdocBubbleMenuView: View {
             divider
             formatButton(symbol: "link",          isActive: false,
                          tip: "Insert link (⌘K)",  command: .runCommand(name: "setLink",         argsJSON: emptyArgs))
-            divider
-            // EXCEED features — agent + thought capture.
-            actionButton(symbol: "sparkles", tip: "Ask agent about selection") {
-                onAskAgent(selectedText)
-            }
-            actionButton(symbol: "bolt.badge.clock", tip: "Capture as Raw Thought (⚡)") {
-                onCaptureAsRawThought(selectedText)
+            // EXCEED features — agent + thought capture. Per
+            // RCA7-P1-005 fix-pass these are hidden until the host
+            // wires the callbacks (no more visible-broken no-ops).
+            if agentActionsWired {
+                divider
+                actionButton(symbol: "sparkles", tip: "Ask agent about selection") {
+                    onAskAgent(selectedText)
+                }
+                actionButton(symbol: "bolt.badge.clock", tip: "Capture as Raw Thought (⚡)") {
+                    onCaptureAsRawThought(selectedText)
+                }
             }
         }
         .padding(.horizontal, 6)
