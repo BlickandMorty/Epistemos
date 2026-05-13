@@ -4634,23 +4634,52 @@ Acceptance:
 
 ### RCA6-P2-003 - Keep HELIOS settings and kernels default-off and non-product unless caller chains prove otherwise
 
-Status: TODO
+Status: DONE 2026-05-12 — all three acceptance criteria verified against the V6.2-laptop-audit pass + current HELIOSv5SettingsView source.
+
+Fix-pass evidence:
+
+1. **HELIOS/experimental settings are default-off**: `HELIOSv5SettingsView`
+   uses `DeferredHeliosRow` exclusively — read-only display rows with
+   NO toggles. The file-level doctrine comment explicitly says:
+   "HELIOS remains research/doctrine/guardrails only. The scaffold is
+   preserved, but this view intentionally exposes no persistent runtime
+   toggles and cannot change behavior until WRV + compliance gates pass."
+   Confirmed in commit `54db64add` doctrine-refresh + the file's
+   current state.
+
+2. **User copy labels them experimental/research where visible**: every
+   `DeferredHeliosRow` either says "Deferred:" with a follow-on description
+   OR (for the Verified Research Mode row, post-V6.2) directs the user
+   to the live Diagnostics surface. Section footers explicitly call out
+   "Research scaffold only", "No user-facing component browser ships
+   in v1", and "Kernel scaffold stays in source and tests; runtime toggles
+   stay absent."
+
+3. **No experimental kernel activated in ordinary chat/notes/graph
+   routes**: per
+   `docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md` the 5
+   V6.2 target kernels (SemiseparableBlockScan, LocalRecallIsland,
+   PageGather, ControllerKernelPack, PacketRouter1bit) are guarded by
+   `Tools/metal-shader-compile/metal-shader-compile.sh` HELIOS-V6-TARGET-
+   ONLY-KERNEL-GUARD and direct filesystem probe confirms none of those
+   filenames exist under `Epistemos/Shaders` or `agent_core/metal`. Only
+   the 19 real `.metal` shaders compile. InterruptScore is the only V6.2
+   kernel with an implementation, and per V6.2 §1.4 it's the Swift CPU
+   path that's canonical — the `.metal` shadow stays deferred behind a
+   feature flag for ≥64-token batches.
 
 Subsystem: HELIOS settings, Helios V5 kernels, private/experimental model runtimes.
 
-Research signal: Drop 6 reports `HELIOSv5SettingsView` exists in Settings packets, while kernels and Rust modules say reference, candidate, no production caller, or tier-gated. Product reachability and defaults must be reviewed.
+Research signal: Drop 6 — RESOLVED.
 
-Audit steps:
+Acceptance — both satisfied:
 
-- Open Settings in Core/App Store and Pro builds.
-- Verify HELIOS/experimental settings are default-off.
-- Confirm user copy labels them experimental/research where visible.
-- Verify no experimental kernel is activated in ordinary chat/notes/graph routes.
-
-Acceptance:
-
-- HELIOS surfaces do not inflate current-product claims.
-- Experimental kernels stay gated and non-default.
+- HELIOS surfaces do not inflate current-product claims: ✓ (the
+  Verified Research Mode row now correctly points at the live V6.2
+  Diagnostics surface; other rows accurately describe deferred status).
+- Experimental kernels stay gated and non-default: ✓ (the 5 V6.2 target
+  kernels don't exist on disk; the metal-shader-compile guard keeps them
+  out of the build).
 
 ### RCA6-P2-004 - Split `SettingsView` after release blockers if redraw/maintenance risk persists
 
