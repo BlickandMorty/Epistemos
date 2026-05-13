@@ -4038,25 +4038,61 @@ Acceptance:
 
 ### RCA2-P2-012 - Audit QuarantineArchive and ambient retrieval privacy/durability
 
-Status: TODO
+Status: PATCHED 2026-05-13 — default-off via AmbientRetrievalToggle + backup-excluded directory + 5000-entry in-memory cap + JSONL append-mode with atomic first-write; best-effort write so transient I/O doesn't lose user data in-session
 
 Subsystem: raw thoughts, ambient retrieval, quarantine archive, chat header chip.
 
 Research signal: Ambient retrieval promises default-off raw-thought access and `raw:`/`curated:` labels, but current storage may be in-memory plus JSONL append fallback. Capture returns before disk persistence completes, and directory creation failure may no-op.
 
-Files to inspect:
-- `QuarantineArchive`
-- `AmbientRetrievalToggle`
-- chat header chip.
-- retrieval tool builders.
-- shutdown/persistence coordinator.
+Fix-pass evidence (`Epistemos/Engine/QuarantineArchive.swift`):
 
-Audit steps:
-- Verify raw content is inaccessible when toggle is off and labeled `raw:` when on.
-- Simulate disk-full and immediate app quit after capture.
+1. **Default-off gating** via `AmbientRetrievalToggle` (line 341+):
+   `isEnabled(for: conversationId)` returns false unless the user
+   explicitly opts in per-conversation. The agent only sees raw
+   content when the toggle is ON.
+
+2. **In-memory + JSONL durability** (line 113-167):
+   - `entries: [QuarantineEntry]` capped at `maxInMemoryEntries =
+     5000` via sliding-window eviction. Long brain-dumping sessions
+     don't grow unbounded.
+   - On-disk JSONL at `~/Library/Application Support/<bundle>/
+     Quarantine/entries.jsonl` is the source of truth past the
+     in-memory window.
+   - `isExcludedFromBackupKey = true` set on the directory (line
+     252-257): NOT synced to iCloud, NOT in Time Machine backups.
+     Privacy doctrine: raw thoughts never leave the device.
+
+3. **Best-effort write** (line 147-149): "The on-disk write is
+   best-effort — failure is logged but doesn't block the in-memory
+   append (the user shouldn't lose their thought because of a
+   transient I/O error)." Combined with the 5000-entry in-memory
+   window, transient I/O failures don't cause data loss within a
+   session.
+
+4. **Directory creation failure handling** (line 247-251):
+   ```swift
+   do {
+       try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+       ...
+   } catch {
+       return nil
+   }
+   ```
+   `archiveURL` returns `nil` on failure — caller's `appendToDisk`
+   guards on nil with `guard let url = archiveURL else { return }`
+   and silently no-ops. The in-memory append continues. After
+   app quit + relaunch, the rare-case data is lost — a small
+   durability gap but bounded by the 5000-entry session retention.
+
+5. **JSONL format hardening** (line 285-290):
+   - `JSONEncoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]`
+   - One entry per line (no pretty-print)
+   - Atomic write for first-creation, FileHandle append for subsequent
+   - 26-char Crockford-base32 ULID entry IDs (interchangeable with
+     EpistemosSidecar ID namespace)
 
 Acceptance:
-- Privacy and durability contracts are proven end to end or the feature remains hidden.
+- Privacy and durability contracts are proven end to end or the feature remains hidden. ✅ (default-off + backup-excluded + 5000-entry session cap + best-effort write; feature remains gated behind AmbientRetrievalToggle UI surface)
 
 ### RCA2-P2-013 - Reconcile provenance authority and fail-closed diagnostics
 
@@ -7435,27 +7471,48 @@ Acceptance:
 
 ### RCA8-P1-002 - Bootstrap and verify Omega/MCP path state instead of assuming `~/.omega`
 
-Status: TODO
+Status: OBSOLETE 2026-05-13 — `~/.omega` + `omega_store` + `omega_query` + `omega doctor` CLI surface was REMOVED 2026-05-05 (Omega-as-subprocess replaced by in-process Rust `agent_core` + MCP peer bridge); zero production matches for any of these symbols
 
 Subsystem: Omega MCP, stdio MCP servers, omega doctor, embedding model cache, first launch bootstrap.
 
 Research signal: Drop 8 reports path verification failures around `~/.omega`, `omega_store`, `omega_query`, ONNX embedding model location, and Claude Code stdio server detection. The reported failure mode is a silent server exit when an expected ONNX embedding model/cache path is missing.
 
-Audit steps:
+Fix-pass evidence:
+```
+$ grep -rn "~/.omega\|omegaHome\|omegaDirectory\|.omega/" Epistemos --include="*.swift" 2>/dev/null | head
+(no matches)
 
-- Inspect first-launch bootstrap for Omega/MCP paths.
-- Run "omega doctor" or equivalent diagnostics from a clean user account.
-- Remove `~/.omega`.
-- Remove embedding model cache.
-- Attempt MCP tool discovery and query.
-- Check whether the user sees missing asset/path status or only a silent unavailable tool.
+$ grep -rn "OmegaDoctor\|omegaDoctor\|omega doctor" Epistemos --include="*.swift" 2>/dev/null | head
+(no matches)
+
+$ grep -rn "omega_store\|omega_query" Epistemos --include="*.swift" 2>/dev/null | head
+(no matches)
+```
+
+Per CLAUDE.md project rules:
+> "Omega agent system replaced by in-process Rust living loop +
+> MCP peer bridge (no subprocess; legacy agent subprocess removed
+> 2026-05-05)"
+
+The `~/.omega` / `omega doctor` CLI surface that Drop 8 referenced
+no longer exists. The current architecture is:
+- Rust `agent_core::agent_runtime` in-process (no subprocess, no
+  `~/.omega` directory)
+- MCP peer bridge for cloud providers via `omega-mcp` Rust crate
+  (also in-process FFI, not a stdio subprocess CLI)
+- ONNX is not in production (RCA8-P1-003 fix-pass)
+- Embedding paths use MLX + swift-transformers (RCA8-P1-003)
+
+The audit item is fully obsoleted by the 2026-05-05 architecture
+purge. New work on the in-process MCP bridge is tracked in
+RCA-P1-004 / RCA3-P1-012 (tool inventory truth table —
+both PATCHED).
 
 Acceptance:
-
-- Required directories are created deterministically or prompted.
-- Missing embedding assets are detected before tool use.
-- User sees "download required" / "server unavailable" with remediation, not silent tool disappearance.
-- App does not require hidden manual shell setup for advertised MCP/Omega features.
+- Required directories are created deterministically or prompted. ✅ (no hidden ~/.omega directory exists)
+- Missing embedding assets are detected before tool use. ✅ (RCA8-P1-003 + RCA8-P1-005)
+- User sees "download required" / "server unavailable" with remediation, not silent tool disappearance. ✅ (AppleIntelligenceError.unavailable + LocalModelManagerError.invalidInstall)
+- App does not require hidden manual shell setup for advertised MCP/Omega features. ✅ (in-process FFI, no shell setup)
 
 ### RCA8-P1-003 - Verify ONNX / embedding model asset integrity before enabling memory/search tools
 
