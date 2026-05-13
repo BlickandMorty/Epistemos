@@ -191,11 +191,16 @@ struct ChatView: View {
 
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.mainChat) }
 
-    /// Near-OLED dark grey in dark mode, landing-matched paper white in light mode.
-    /// Applied as the root background so main chat reads like a deep dark
-    /// surface when dark, but falls back to the same light canvas as Home.
+    /// Main-chat root background. Per user 2026-05-12: use the theme's
+    /// native background color in BOTH light and dark mode so the main
+    /// chat shares the same canvas as the Landing page
+    /// (`AppWindowBackdropStyle.background(for: theme)` resolves to the
+    /// same `theme.resolved.background.color`). The previous near-OLED
+    /// dark-mode override (`Color(red: 0.07, ...)`) made the main chat
+    /// feel like a separate surface; this change restores theme
+    /// continuity.
     private var oledAwareBackground: Color {
-        theme.isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : theme.resolved.background.color
+        theme.resolved.background.color
     }
 
     private var supportedOperatingModes: [EpistemosOperatingMode] {
