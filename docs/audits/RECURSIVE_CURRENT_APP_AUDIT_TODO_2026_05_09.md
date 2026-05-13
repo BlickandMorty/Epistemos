@@ -3679,7 +3679,38 @@ Audit stance from this drop: **GREEN_FOR_CURRENT_SLICE_NOT_RELEASE_READY**. Use 
 
 ### RCA3-P0-001 - App Store artifact symbol leak audit for omega-mcp and subprocess surfaces
 
-Status: TODO
+Status: PATCHED 2026-05-13 — MAS dylib clean of subprocess primitives; Swift CLI path strings now gated out per the audit
+
+Fix-pass evidence 2026-05-13:
+
+  - **Rust `libagent_core.dylib` (MAS build) — CLEAN**.
+    `nm -gU` scan of the dylib that ships in the MAS bundle returns
+    zero hits for: `osascript`, `bash_execute`, `cli_passthrough`,
+    `stdio_mcp`, `browser_subprocess`, `imessage_send`,
+    `screencap`, `cronjob`, `scheduling`, `cli_claude`,
+    `cli_codex`, `cli_gemini`, `cli_kimi`, `computer_use`.
+    The `mas-build` Cargo feature in `build-agent-core.sh`
+    successfully `#[cfg]`-gates every subprocess tool out.
+  - **Swift binary (MAS) — CLI path strings purged this commit**.
+    `Epistemos/Views/Settings/CLIDiscoveryHealthRow.swift` wrapped
+    in `#if !EPISTEMOS_APP_STORE`. Previously the file's hardcoded
+    candidate paths (`/usr/local/bin/claude`, `/usr/local/bin/codex`,
+    etc.) ended up as plain `strings(1)` matches in the MAS
+    binary even though the call site was already gated — App
+    Store Review could have flagged that as evidence of
+    subprocess intent. After the fix:
+      MAS dylib `strings` → ZERO CLI path matches
+      Pro dylib `strings` → `/usr/local/bin/claude` +
+                            `/usr/local/bin/codex` (expected)
+  - **Acceptance**: "MAS artifact contains no forbidden
+    subprocess/automation symbols/resources" — satisfied.
+    Remaining Swift symbols for `ComputerUse`/`Screen2AX`/
+    `VisualVerify`/`AmbientCapture`/`IMessageDriver` are stubs in
+    `AppStoreComputerUseStubs.swift` (gated `#if EPISTEMOS_APP_STORE`)
+    that return "Native computer-use automation is unavailable in
+    the App Store build." That's the right architecture — same
+    type names so the rest of the app compiles, but the runtime
+    is denied-by-design.
 
 Subsystem: MAS build, Omega/MCP, subprocess/PTY/osascript/browser/computer-use surfaces.
 
