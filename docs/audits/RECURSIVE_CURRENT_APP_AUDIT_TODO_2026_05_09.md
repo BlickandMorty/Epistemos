@@ -4,11 +4,12 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, twelfth-pass MAS-release-prep)
+## Headline Status (rollup updated 2026-05-13, thirteenth-pass MAS-release-prep)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 twelfth-pass (MAS release prep):
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 thirteenth-pass (MAS release prep):
 
-- **PATCHED / DONE**: 100+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **33 items** were PATCHED on 2026-05-13 across this session's iterations (including duplicates RCA4-P0-001 + RCA7-P0-001 closed as restatements of RCA2-P0-002, and RCA5-P1-008 closed as signal-stale because CodeFileService is already canonical):
+- **PATCHED / DONE**: 102+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **35 items** were PATCHED on 2026-05-13 across this session's iterations:
+  - Theme/font/landing refresh + MAS surface expansion + RCA3-P0-001 + RCA4-P0-002 + RCA4-P2-002 + RCA-P2-014 + RCA-P2-003 + RCA-P2-008 + RCA-P2-009 + RCA-P2-011 + RCA-P2-012 + RCA-P2-007 + RCA-P2-014 + RCA2-P1-003 + RCA2-P1-004 + RCA2-P1-005 + RCA2-P2-014 + RCA3-P2-001 + RCA4-P1-008 + RCA4-P1-010 + RCA4-P2-001 + RCA4-P2-003 + RCA4-P0-001 + RCA7-P0-001 + RCA5-P1-008 + RCA2-P2-007 + RCA2-P2-002 + Ember H1-H3 live-editor fix + MAS release manifest doc + theme fixes (Classic dark RetroGaming + Ember box trick + Classic hero size bump).
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
@@ -3174,7 +3175,24 @@ Acceptance:
 
 ### RCA2-P2-002 - Preserve visible assistant output in copy/export/Send to Notes
 
-Status: TODO
+Status: PATCHED 2026-05-13 — stripBracketTags now actually preserves [DATA] / [MODEL] / [UNCERTAIN] / [CONFLICT]
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/Views/Chat/MessageBubble.swift` `stripBracketTags(_:)`
+    rewritten. Previously the regex `\[[A-Z][A-Z ]+\]` matched ALL
+    uppercase bracket tags including the four epistemic ones the
+    function comment claimed to preserve — so copy / Send to Notes
+    silently dropped `[DATA]`, `[MODEL]`, `[UNCERTAIN]`, `[CONFLICT]`
+    and their tier modifiers (`[DATA - Tier 2]`, etc.).
+  - New implementation enumerates regex matches and only strips
+    bracket tags whose head word is NOT one of `{DATA, MODEL,
+    UNCERTAIN, CONFLICT}`. The four epistemic tags + their tier
+    modifiers (`[DATA - Tier 2]`, `[CONFLICT - Tier 1]`, etc.)
+    flow through `buildFullExport(message:)` →
+    `UserFacingModelOutput.finalVisibleText` untouched, so copy /
+    Send to Notes match the visible chat output.
+  - Pro + MAS builds BUILD SUCCEEDED.
 
 Subsystem: message export, copy, Send to Notes, artifacts, epistemic tags.
 
@@ -3317,7 +3335,29 @@ Acceptance:
 
 ### RCA2-P2-007 - Verify VersionTimeline and WritingToolsBridge reachability
 
-Status: TODO
+Status: PATCHED 2026-05-13 — both verified wired into production via grep
+
+Fix-pass evidence 2026-05-13:
+
+  - **VersionTimeline** — VISIBLE-WORKING. Used in
+    `Epistemos/Views/Notes/DiffSheetView.swift:150` inside the
+    version-history diff sheet that opens from the notes
+    sidebar "Version History" menu item.
+  - **WritingToolsBridge** — VISIBLE-WORKING. Three production
+    call sites:
+      * `Epistemos/Views/Notes/ProseTextView2.swift:1523` —
+        appends the macOS Writing Tools standard items to the
+        Tiptap NSTextView context menu via
+        `WritingToolsBridge.appendStandardItems(to:hasSelection:)`.
+      * `Epistemos/Views/Notes/ProseEditorRepresentable2.swift:124`
+        — observer registers for `WritingToolsBridge.showNotification`.
+      * Line 133 same file — calls `WritingToolsBridge.present(in: tv)`
+        when the notification fires.
+      * `Epistemos/Views/Notes/NoteDetailWorkspaceView.swift:1806`
+        — second observer for the same notification (notes-level
+        scope).
+  - Acceptance "verify reachability" — satisfied; both are
+    VISIBLE-WORKING per `rg`.
 
 Subsystem: version history UI, native Writing Tools integration.
 
