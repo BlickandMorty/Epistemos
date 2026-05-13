@@ -3168,6 +3168,13 @@ private struct ThemePairCard: View {
     let action: () -> Void
 
     var body: some View {
+        // RCA finalization 2026-05-13: more cinematic theme preview.
+        // Pulled the two tiny swatches down to a single, larger
+        // duotone window — left half = light variant with a "GREETINGS"
+        // hero sample in that pair's display font, right half = dark
+        // variant with the same sample. Subtle gradient on each half
+        // plus a faint scanline glow on the dark side mimics the live
+        // OLED/Platinum dark look so the preview reads at a glance.
         Button(action: action) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
@@ -3188,23 +3195,20 @@ private struct ThemePairCard: View {
                     }
                 }
 
-                HStack(spacing: Spacing.xs) {
-                    ThemePairSwatch(color: pair.lightTheme.resolved.background.color)
-                    ThemePairSwatch(color: pair.darkTheme.resolved.background.color)
-                }
+                ThemePairCinematicPreview(pair: pair)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.sm)
             .background(cardBackground)
             .overlay(cardBorder)
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("\(pair.displayName) theme pair"))
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
             .fill(
                 isSelected
                     ? theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.14)
@@ -3213,27 +3217,119 @@ private struct ThemePairCard: View {
     }
 
     private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
             .stroke(
                 isSelected
                     ? theme.resolved.accent.color.opacity(0.72)
                     : theme.resolved.border.color.opacity(theme.isDark ? 0.42 : 0.58),
-                lineWidth: isSelected ? 1.2 : 1
+                lineWidth: isSelected ? 1.4 : 1
             )
     }
 }
 
-private struct ThemePairSwatch: View {
-    let color: Color
+/// Cinematic duotone preview pane for a ThemePair. Renders the light
+/// + dark variants side by side at a poster scale (rather than two
+/// tiny color swatches), with a hero "GREETINGS" sample in the pair's
+/// display font and faint chat-line ghost rows below it so the user
+/// gets a live feel for the typography + palette before applying it.
+private struct ThemePairCinematicPreview: View {
+    let pair: ThemePair
+
+    private static let cornerRadius: CGFloat = 8
+    private static let height: CGFloat = 78
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 5, style: .continuous)
-            .fill(color)
-            .frame(width: 34, height: 18)
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+        HStack(spacing: 0) {
+            ThemePairCinematicHalf(theme: pair.lightTheme, accentSide: .left)
+            ThemePairCinematicHalf(theme: pair.darkTheme, accentSide: .right)
+        }
+        .frame(height: Self.height)
+        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        )
+        .overlay(
+            // Razor-thin divider between the two halves to keep the
+            // duotone seam crisp even on tightly-matched palettes.
+            Rectangle()
+                .fill(Color.primary.opacity(0.18))
+                .frame(width: 1)
+        )
+    }
+}
+
+private struct ThemePairCinematicHalf: View {
+    enum AccentSide { case left, right }
+
+    let theme: EpistemosTheme
+    let accentSide: AccentSide
+
+    var body: some View {
+        let resolved = theme.resolved
+        // ALL-CAPS for Classic per the user direction; other themes
+        // keep mixed case so each pair shows off its actual feel.
+        let heroText = theme.prefersUppercaseDisplay ? "GREETINGS" : "Greetings"
+        let heroFont = AppDisplayTypography.headingFont(size: 12, weight: .bold, theme: theme)
+        let heroColor = Color(hex: resolved.headingAccentHex)
+        let bodyColor = Color(hex: resolved.foregroundHex).opacity(0.55)
+        let ghostLineColor = Color(hex: resolved.foregroundHex).opacity(0.18)
+        return ZStack {
+            // Background gradient — biases the brighter end of the
+            // palette to the inner seam so the duotone feels lit.
+            LinearGradient(
+                colors: [
+                    resolved.background.color,
+                    resolved.background.color.opacity(0.92),
+                    resolved.muted.color.opacity(0.55)
+                ],
+                startPoint: accentSide == .left ? .topTrailing : .topLeading,
+                endPoint: accentSide == .left ? .bottomLeading : .bottomTrailing
             )
+
+            // Faint scanlines on dark variants only — evokes the OLED
+            // / Platinum dark look without committing pixels.
+            if theme.isDark {
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                resolved.accent.color.opacity(0.0),
+                                resolved.accent.color.opacity(0.10),
+                                resolved.accent.color.opacity(0.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .blendMode(.plusLighter)
+                    .opacity(0.5)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(heroText)
+                    .font(heroFont)
+                    .foregroundStyle(heroColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+
+                // Two ghost lines simulating chat bubbles — quick read
+                // of the body type contrast against background.
+                Capsule()
+                    .fill(ghostLineColor)
+                    .frame(width: 56, height: 4)
+                Capsule()
+                    .fill(ghostLineColor)
+                    .frame(width: 40, height: 4)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .foregroundStyle(bodyColor)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

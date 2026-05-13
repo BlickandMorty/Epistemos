@@ -60,7 +60,10 @@ struct DiffSheetView: View {
         self._liveBody = State(initialValue: currentBody)
     }
 
-    private var theme: EpistemosTheme { ui.theme }
+    // RCA finalization 2026-05-13: diff sheet is a non-hero surface,
+    // route through `surfaceVariant(.other)` so OLED lifts to
+    // `.oledSoft`.
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     private var selectedVersion: SDPageVersion? {
         versions.first { $0.id == selectedVersionId }
@@ -959,7 +962,10 @@ struct ReadOnlyVersionView: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    // RCA finalization 2026-05-13: read-only version view is a
+    // non-hero surface (notes diff history); softens OLED to
+    // `.oledSoft`.
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(spacing: 0) {

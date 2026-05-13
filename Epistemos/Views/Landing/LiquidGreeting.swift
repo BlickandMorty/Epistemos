@@ -230,16 +230,26 @@ struct LiquidGreeting: View {
         }
     }
 
+    /// Apply Classic-theme uppercase if the active theme prefers it.
+    /// ChonkyPixels reads best ALL-CAPS per user direction 2026-05-13;
+    /// other themes keep mixed case (Platinum + Ember). The transform
+    /// is applied at render time so the typewriter state stays in
+    /// canonical mixed-case (which keeps timing, backspace, and
+    /// shared-prefix calculations correct).
+    private func displayCased(_ text: String) -> String {
+        theme.prefersUppercaseDisplay ? text.uppercased() : text
+    }
+
     /// Two-line stacked greeting with rotating phrases below. Each line
     /// gets its own typewriter so the user sees "Greetings," appear,
     /// pause, then "Researcher" arrive on its own row.
     private var stackedGreeting: some View {
         VStack(alignment: .center, spacing: compact ? 2 : 4) {
-            Text(line1)
+            Text(displayCased(line1))
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)
-            Text(line2)
+            Text(displayCased(line2))
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)

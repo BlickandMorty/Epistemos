@@ -431,17 +431,39 @@ final class PinnedInspectorManager {
 /// the overlay at the node's screen coordinates.
 struct PinnedInspectorPanel: View {
     @Bindable var inspector: PinnedInspector
+    let theme: EpistemosTheme
     let onClose: () -> Void
 
+    init(
+        inspector: PinnedInspector,
+        theme: EpistemosTheme = .platinumViolet,
+        onClose: @escaping () -> Void
+    ) {
+        self.inspector = inspector
+        self.theme = theme
+        self.onClose = onClose
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        // RCA finalization 2026-05-13: thread the theme through the
+        // pinned-inspector card so Classic gets ChonkyPixels + ALL
+        // CAPS on its title + summary lines (matching the Classic
+        // hero treatment in LiquidGreeting). Other themes keep the
+        // system font sizes unchanged.
+        let titleFont = AppDisplayTypography.panelFont(size: 12, weight: .semibold, theme: theme)
+        let bodyFont = AppDisplayTypography.panelFont(size: 11, weight: .regular, theme: theme)
+        let nodeLabel = inspector.node?.label ?? "Node"
+        let titleText = theme.prefersUppercaseDisplay ? nodeLabel.uppercased() : nodeLabel
+        let summarizingText = theme.prefersUppercaseDisplay ? "SUMMARIZING…" : "Summarizing..."
+        let emptyText = theme.prefersUppercaseDisplay ? "NO SUMMARY YET" : "No summary yet"
+        return VStack(alignment: .leading, spacing: 8) {
             // Header: node name + close button
             HStack {
                 Image(systemName: "pin.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                Text(inspector.node?.label ?? "Node")
-                    .font(.system(size: 12, weight: .semibold))
+                Text(titleText)
+                    .font(titleFont)
                     .lineLimit(1)
                 Spacer()
                 Button { onClose() } label: {
@@ -458,18 +480,20 @@ struct PinnedInspectorPanel: View {
             if inspector.isSummarizing {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Summarizing...")
-                        .font(.system(size: 11))
+                    Text(summarizingText)
+                        .font(bodyFont)
                         .foregroundStyle(.secondary)
                 }
             } else if !inspector.displayedSummary.isEmpty {
-                Text(inspector.displayedSummary)
-                    .font(.system(size: 11))
+                let summary = inspector.displayedSummary
+                let displayedSummary = theme.prefersUppercaseDisplay ? summary.uppercased() : summary
+                Text(displayedSummary)
+                    .font(bodyFont)
                     .foregroundStyle(.primary)
                     .lineLimit(8)
             } else {
-                Text("No summary yet")
-                    .font(.system(size: 11))
+                Text(emptyText)
+                    .font(bodyFont)
                     .foregroundStyle(.tertiary)
             }
         }

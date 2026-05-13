@@ -575,7 +575,7 @@ struct NotesSidebar: View {
     @State private var bodySearchTask: Task<Void, Never>?
     @State private var titleSearchResults: [SidebarPageItem] = []
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
     private var sidebarBackground: Color {
         ui.notesSidebarBackground
     }
@@ -2205,7 +2205,7 @@ private struct VaultHeader: View {
     let onAction: (SidebarAction) -> Void
 
     @Environment(UIState.self) private var ui
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -2261,7 +2261,7 @@ private struct FolderRow: View {
     @State private var isRenaming = false
     @State private var renameValue = ""
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
     private var isExpanded: Bool { notesUI.expandedFolderIds.contains(item.id) }
 
     var body: some View {
@@ -2441,7 +2441,7 @@ private struct JournalFolderRow: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -2509,7 +2509,7 @@ private struct IdeasFolderRow: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -2563,7 +2563,7 @@ private struct IdeaRow: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         Button {
@@ -2607,7 +2607,7 @@ private struct DocumentsSection: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -2633,7 +2633,7 @@ private struct DocumentRow: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         Button {
@@ -2680,7 +2680,7 @@ private struct FileRow: View {
     @State private var isRenaming = false
     @State private var renameValue = ""
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
     // Computed from @Environment — only THIS row re-evaluates when activePageId changes,
     // not the entire NotesSidebar body. This is the structural fix for the cascade.
     private var isActive: Bool { selectedPageId == item.id }
@@ -2872,7 +2872,7 @@ private struct SearchResultRow: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         Button {
@@ -2936,7 +2936,7 @@ private struct EmptyTreeState: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
@@ -2963,7 +2963,7 @@ private struct EmptyTreeState: View {
 private struct DisconnectedCachedVaultNotice: View {
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -3009,7 +3009,7 @@ private struct NoVaultConnectedBanner: View {
 
     @Environment(UIState.self) private var ui
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

@@ -12,7 +12,7 @@ struct NoteChatSidebar: View {
         detachThreshold: 72
     )
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(spacing: 0) {

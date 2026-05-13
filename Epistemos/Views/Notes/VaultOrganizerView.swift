@@ -32,7 +32,11 @@ struct VaultOrganizerView: View {
     @State private var scanProgress = ""
     @State private var appliedCount = 0
 
-    private var theme: EpistemosTheme { ui.theme }
+    // RCA finalization 2026-05-13: vault organizer is a non-hero
+    // surface, so route through `surfaceVariant(.other)` so OLED
+    // lifts into `.oledSoft` (and any future per-surface variant
+    // takes effect automatically).
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(spacing: 0) {

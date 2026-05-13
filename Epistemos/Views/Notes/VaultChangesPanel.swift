@@ -19,7 +19,7 @@ struct VaultChangesPanel: View {
 
     @State private var diffRequest: DiffPresentationRequest?
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -113,7 +113,7 @@ private struct DirtyPageRow: View {
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         HStack(spacing: 8) {
