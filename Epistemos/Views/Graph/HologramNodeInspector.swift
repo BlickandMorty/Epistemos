@@ -756,7 +756,15 @@ struct HologramNodeInspector: View {
                 role: .pageTitle,
                 color: theme.fontAccent,
                 animateOnAppear: true,
-                animationKey: node.id
+                animationKey: node.id,
+                // 2026-05-13 sixth pass: route the selected-node title
+                // through `theme.nodeTitleFontName` so Ember picks
+                // ChonkyPixels instead of the case-driven ColorBasic
+                // box glyphs.
+                fontOverride: Font.custom(
+                    theme.nodeTitleFontName,
+                    size: AppHeadingRole.pageTitle.fontSize
+                )
             )
             .lineLimit(3)
 

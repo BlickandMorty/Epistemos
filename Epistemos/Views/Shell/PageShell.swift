@@ -6,6 +6,12 @@ struct TypewriterHeading: View {
     let color: Color
     var animateOnAppear: Bool? = nil
     var animationKey: String? = nil
+    /// 2026-05-13 sixth pass: optional explicit font that overrides
+    /// `role.font`. Used by the graph node inspector to render the
+    /// main node title in `theme.nodeTitleFontName` (ChonkyPixels on
+    /// Ember) instead of the global display font (which on Ember
+    /// would case-render as the white-on-black boxed glyphs).
+    var fontOverride: Font? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(UIState.self) private var ui
@@ -19,7 +25,7 @@ struct TypewriterHeading: View {
     var body: some View {
         HStack(alignment: .center, spacing: 2) {
             Text(displayText)
-                .font(role.font)
+                .font(fontOverride ?? role.font)
                 .foregroundStyle(color)
         }
         .onAppear {
