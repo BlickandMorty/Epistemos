@@ -259,7 +259,19 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             let usesDisplayFont = (1...3).contains(level)
             let headingFont =
                 if usesDisplayFont {
-                    AppDisplayTypography.nsFont(size: fontSize, weight: weight, isDark: theme.isDark)
+                    // 2026-05-13 follow-up: route live-editor H1-H3
+                    // through `theme.headingFontName` (Ember →
+                    // ChonkyPixels, Classic → Coral/RetroGaming,
+                    // Platinum → MatrixTypeDisplay) instead of the
+                    // hero face. Matches the SwiftUI MarkdownTextView
+                    // + chat TaggedMarkdownTextView heading paths so
+                    // editing a note shows the same H1-H3 font that
+                    // its preview / chat reply would render.
+                    AppDisplayTypography.nsHeadingFont(
+                        size: fontSize,
+                        weight: weight,
+                        theme: theme
+                    )
                 } else {
                     AppDisplayTypography.regularUIFont(size: fontSize, weight: weight)
                 }

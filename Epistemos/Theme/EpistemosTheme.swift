@@ -1565,6 +1565,34 @@ enum AppDisplayTypography: Sendable {
         }
     }
 
+    /// Theme-aware NSFont resolver for H1-H3 in the live note editor
+    /// (TextKit `NSTextView`). 2026-05-13 follow-up: the existing
+    /// `nsFont(size:weight:isDark:)` returns the hero face (which on
+    /// Ember is ColorBasic-Regular = case-driven box glyphs). Notes
+    /// headings should instead use `theme.headingFontName` (Ember →
+    /// ChonkyPixels, Classic → CoralPixels/RetroGaming, Platinum →
+    /// MatrixTypeDisplay-Regular) — matching the SwiftUI
+    /// `MarkdownTextView` + `TaggedMarkdownTextView` chat heading
+    /// paths that already go through
+    /// `AppDisplayTypography.headingFont(size:weight:theme:)`.
+    nonisolated static func nsHeadingFont(
+        size: CGFloat,
+        weight: NSFont.Weight = .regular,
+        theme: EpistemosTheme,
+        allowDisplayFont: Bool = true
+    ) -> NSFont {
+        let resolvedIsDark = theme.isDark
+        if allowDisplayFont && currentMode.usesDisplayFont {
+            return NSFont(
+                name: theme.headingFontName,
+                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            )
+                ?? NSFont.systemFont(ofSize: size, weight: weight)
+        } else {
+            return regularUIFont(size: size, weight: weight)
+        }
+    }
+
     nonisolated static func isDisplayFont(_ font: NSFont) -> Bool {
         isPrimaryDisplayFont(font) || isLegacyDisplayFont(font)
     }
