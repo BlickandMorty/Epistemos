@@ -96,6 +96,14 @@ struct ChatInputBar: View {
     @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var showPermissionGrantPopover = false
 
+    /// RCA2-P1-001 (2026-05-13) — captured draft prefix for the
+    /// macOS 26 `VoiceInputButton`. Becomes non-nil on the first
+    /// partial of a dictation pass and nil after the final transcript
+    /// is appended via `insertVoiceTranscript`. Prevents `text =
+    /// partial` / `text = final` from clobbering whatever the user
+    /// had already typed before tapping the mic.
+    @State private var voiceDraftPrefix: String?
+
     /// Slash-command menu. Surfaces the ACCSlashCommand catalog — plan,
     /// notes, code, debug, research, etc. — the moment the user types
     /// `/` at the start of the composer. Preserves the shortcut users
@@ -704,19 +712,56 @@ struct ChatInputBar: View {
                     // `dictationAutoStop` preference (auto =
                     // 2s-silence stop; manual = explicit Stop tap).
                     if #available(macOS 26.0, *) {
+                        // RCA2-P1-001 PATCHED 2026-05-13:
+                        // Both `onPartial` and `onFinal` now route through
+                        // a state machine that:
+                        //   1. Captures the existing draft once when
+                        //      dictation starts (`voiceDraftPrefix`).
+                        //   2. Renders `prefix + " " + transcript` for
+                        //      partials (volatile — replaces on each
+                        //      partial without clobbering the draft).
+                        //   3. On final, calls the shared
+                        //      `insertVoiceTranscript` helper so the
+                        //      final transcript is APPENDED to the draft
+                        //      with the same spacing rules used by the
+                        //      legacy `ComposerMicButton` path.
+                        // No more `text = partial` / `text = final`
+                        // direct assignment that obliterated a typed
+                        // draft when the user hit the mic button.
                         VoiceInputButton(
                             style: .iconWithPulse,
                             autoStopOnSilence: VoicePreferences.shared
                                 .dictationAutoStop == .auto,
                             onPartial: { partial in
-                                // Append the partial to the composer
-                                // so the user sees the live transcript
-                                // while they speak. Replaced on every
-                                // partial (volatile range semantics).
-                                text = partial
+                                // Lazy-capture the draft prefix on the
+                                // first partial of this dictation pass.
+                                if voiceDraftPrefix == nil {
+                                    voiceDraftPrefix = text
+                                }
+                                let prefix = voiceDraftPrefix ?? ""
+                                let trimmedPartial = partial.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if trimmedPartial.isEmpty {
+                                    text = prefix
+                                } else if prefix.isEmpty {
+                                    text = trimmedPartial
+                                } else if prefix.last?.isWhitespace == true {
+                                    text = prefix + trimmedPartial
+                                } else {
+                                    text = prefix + " " + trimmedPartial
+                                }
                             },
                             onFinal: { final in
-                                text = final
+                                // Restore the original draft, then route
+                                // through the shared append helper so the
+                                // final transcript joins the draft instead
+                                // of replacing it. Clear the dictation
+                                // state-machine marker so the next pass
+                                // captures a fresh prefix.
+                                if let prefix = voiceDraftPrefix {
+                                    text = prefix
+                                }
+                                voiceDraftPrefix = nil
+                                insertVoiceTranscript(final)
                             }
                         )
                     }
