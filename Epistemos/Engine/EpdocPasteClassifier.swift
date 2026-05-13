@@ -2,12 +2,23 @@ import Foundation
 
 // MARK: - EpdocPasteClassifier
 //
+// SCAFFOLD ONLY — RCA-P2-008 classification 2026-05-13.
+//
 // Wave 7.17.b paste-as-block intelligence. Pure-Swift classifier
 // that inspects pasted text and decides which Tiptap block type
 // the user almost certainly meant. The JS-side paste handler
 // (W7.17.b runtime, deferred) ferries pasted text across the
 // bridge → calls this classifier → dispatches the matching
 // `insertSlashChoice(blockType:)` command.
+//
+// **No production Swift caller reaches this classifier today**
+// (`rg "EpdocPasteClassifier"` returns this declaration only).
+// The W7.17.b JS-side paste handler that would consume it ships
+// with the editor bundle's deferred runtime. Until that runtime
+// lands the classifier remains reachable in tests + future
+// feature work but has no live UI path.
+//
+// Activation tracked under audit register `RCA-P2-008`.
 //
 // Per the W7.17.b plan: "YouTube URL → embed; markdown table →
 // real Tiptap table; mermaid fence → live diagram; code →

@@ -1,5 +1,20 @@
 import Foundation
 
+// MARK: - KANPilotScaffold
+//
+// SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-13.
+//
+// Phase-1.5 pilot scaffold for a KAN-style routing predictor that
+// would bias retrieval candidate scoring off the main path. The
+// struct ships with `enabled: false` defaults + a single production
+// callsite (`EpistemosTests/PhaseOneFiveScaffoldingTests.swift:147`).
+// No app target wires it in — every public API returns the
+// `.disabled` status when constructed with defaults.
+//
+// Activation tracked under audit register `RCA-P2-010`. Future
+// promotion needs (a) the KAN predictor weights, (b) the
+// IntakeValve / SearchIndex caller, (c) the gating policy.
+
 nonisolated enum KANPilotScope: String, Sendable, Equatable {
     case offMainPath = "off_main_path"
 }
