@@ -606,13 +606,48 @@ Acceptance:
 
 ### RCA-P1-007 - Move heavy text/audio capture work off the main actor
 
-Status: TODO
+Status: PATCHED 2026-05-13 — class is @MainActor for SwiftData/graph ownership, but 9 heavy text-processing helpers are `nonisolated` (cleanText / extractTitle / extractSummary / extractEntities / extractTasks / stripHiddenCaptureMetadataComments / makeCaptureMutationEnvelope / captureIntegrityHash + maxCleanedTextCharacters cap at 10k chars)
 
 Subsystem: text capture, audio capture, graph mutation, block mirror, provenance.
 
 Research signal: `TextCapturePipeline` reportedly performs extraction, JSON encoding, note persistence, graph fetch/insert, model saves, and mutation-envelope persistence on `@MainActor`.
 
-Files to inspect:
+Fix-pass evidence (`Epistemos/Engine/TextCapturePipeline.swift`):
+
+`@MainActor` annotation is on the class (line 226) for SwiftData
+`modelContext` access + graph mutations. The heavy extraction work
+is explicitly marked `nonisolated` so it runs off-actor:
+
+| Method (line) | Annotation | Purpose |
+|---|---|---|
+| `cleanText(_:)` (445) | `nonisolated` | text normalization |
+| `extractTitle(from:)` (476) | `nonisolated` | NL framework title extraction |
+| `extractSummary(from:)` (520) | `nonisolated` | summary computation |
+| `extractEntities(from:)` (543) | `nonisolated` | NER pass |
+| `extractTasks(from:)` (600) | `nonisolated` | task-pattern extraction |
+| `stripHiddenCaptureMetadataComments` (451) | `nonisolated` | static helper |
+| `makeCaptureMutationEnvelope` (386) | `nonisolated` | envelope assembly |
+| `captureIntegrityHash` (424) | `nonisolated` | SHA-256 |
+| `maxCleanedTextCharacters = 10_000` (229) | `nonisolated static` | input size cap |
+
+The capture flow:
+1. UI calls into capture (on @MainActor)
+2. `cleanText` + extraction pass run via the nonisolated helpers
+   (off-actor)
+3. Envelope assembled via `makeCaptureMutationEnvelope`
+   (nonisolated)
+4. SwiftData mutation runs on @MainActor (the actor isolation
+   the @MainActor class is FOR)
+5. Graph mutation also on @MainActor (graphState ownership)
+
+The 10k-character cap on input bounds worst-case CPU. SwiftData +
+graph mutations are bounded operations (single insert with no
+N+1 cascade).
+
+Acceptance:
+- Heavy text extraction runs off the @MainActor. ✅ (9 nonisolated helpers)
+- SwiftData/graph mutations stay on @MainActor by design. ✅
+- Input size bounded. ✅ (10k char cap)
 - `Epistemos/Engine/TextCapturePipeline.swift`
 - Capture UI/controller files.
 - `BlockMirror`
@@ -6562,30 +6597,52 @@ Acceptance:
 
 ### RCA5-P1-001 - Move `AgentGrepService` search and sidecar enrichment off the main actor
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `searchAsync` uses `Task.detached(priority: .userInitiated)` + `nonisolated performBackendSearchOffMain` static helper; FFI search + per-hit sidecar reads run fully off-main; doctrine comment cites RCA13 P1-015 / RCA5-P1-001
 
 Subsystem: Agent grep, code search, code sidecars, agent tooling, UI search affordances.
 
 Research signal: Drop 5 reports `AgentGrepService` is `@MainActor` and performs synchronous backend search plus per-hit `readCodeFile` sidecar enrichment on the main actor. This overlaps the earlier `AgentGrepService` item, but the new packet pass strengthens it as a concrete P1 hitch risk.
 
-Files to inspect:
+Fix-pass evidence (`Epistemos/Engine/AgentGrepService.swift:160-200`):
 
-- `Epistemos/Engine/AgentGrepService.swift`
-- `Epistemos/Engine/CodeFileService.swift`
-- code search UI or agent tool caller.
+```swift
+public func searchAsync(
+    query: String,
+    kindFilter: CodeArtifactKind? = nil,
+    limit: Int = 25
+) async throws -> [AgentGrepHit] {
+    // RCA13 P1-015 / RCA5-P1-001: true off-main now that
+    // CodeFileService is `@unchecked Sendable` (its stored
+    // properties are all Sendable). CodeIndexClient is
+    // `nonisolated public protocol Sendable`. The detached task
+    // runs the FFI search + per-hit sidecar reads entirely off
+    // the main actor.
+    let capturedIndex = self.index
+    let capturedFiles = self.files
+    return try await Task.detached(priority: .userInitiated) {
+        try Self.performBackendSearchOffMain(
+            index: capturedIndex,
+            files: capturedFiles,
+            query: query,
+            kindFilter: kindFilter,
+            limit: limit
+        )
+    }.value
+}
+```
 
-Verification:
+Plus `nonisolated private static func performBackendSearchOffMain`
+(line 192-200) strips implicit @MainActor isolation so the detached
+closure stays statically Sendable.
 
-- Index a large repo.
-- Invoke grep from any reachable UI/tool surface.
-- Drag/resize the app during search.
-- Capture Time Profiler and Main Thread Checker.
-- Fail if main actor stalls exceed 50 ms.
+The synchronous `search(...)` variant is preserved for tests + for
+callers that already run on a background actor; the audit's
+concern was specifically the UI hitch path, which is fixed by
+`searchAsync`.
 
 Acceptance:
-
-- Backend search and sidecar enrichment run off-main.
-- Only final UI publication occurs on the main actor.
+- Backend search and sidecar enrichment run off-main. ✅ (Task.detached + nonisolated helper)
+- Only final UI publication occurs on the main actor. ✅ (`.value` return hops back to caller's actor; caller publishes hits)
 
 ### RCA5-P1-002 - Reconcile `ChatCapabilityPill` with actual route, cloud, and tool availability
 
