@@ -342,10 +342,71 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     nonisolated var isDark: Bool {
         resolved.isDark
     }
-    
+
     /// Whether this theme uses Platinum styling (beveled buttons, racing stripes)
     var isPlatinum: Bool {
         resolved.isPlatinum
+    }
+
+    /// Reverse map an `EpistemosTheme` to the user-facing `ThemePair`
+    /// it belongs to. Used by the per-theme display-font + heading-
+    /// font resolution so the landing hero, H1-H3, and other display
+    /// surfaces pick the right typeface per (themePair, isDark) cell.
+    ///
+    /// Themes that aren't part of a pair (system / nocturne /
+    /// retired sunny+sunset) fall back to `.classic` so they still
+    /// resolve a sane font.
+    nonisolated var themePair: ThemePair {
+        switch self {
+        case .platinumViolet, .platinumVioletDark: return .platinumViolet
+        case .light, .oled: return .classic
+        case .tan, .ember: return .ember
+        case .systemLight, .systemDark, .sunny, .sunset, .nocturne:
+            return .classic
+        }
+    }
+
+    /// Display (hero) font name resolved by (themePair, isDark).
+    /// Light-mode platinum / classic / ember each pick a distinct
+    /// typeface; dark mode keeps the existing RetroGaming font
+    /// across all themes per user direction 2026-05-13.
+    nonisolated var displayFontName: String {
+        if isDark {
+            return AppDisplayTypography.legacyDisplayFontName  // RetroGaming
+        }
+        switch themePair {
+        case .platinumViolet: return "MatrixTypeDisplay-Regular"
+        case .classic:        return "ColorBasic-Regular"
+        case .ember:          return "RetroByte"
+        }
+    }
+
+    /// H1-H3 heading font name resolved by (themePair, isDark).
+    /// Platinum and Ember swap the heading face to match their hero;
+    /// Classic keeps its existing CoralPixels for headings (only the
+    /// hero gets the Color Basic swap per user direction).
+    nonisolated var headingFontName: String {
+        if isDark {
+            return AppDisplayTypography.legacyDisplayFontName  // RetroGaming
+        }
+        switch themePair {
+        case .platinumViolet: return "MatrixTypeDisplay-Regular"
+        case .classic:        return "CoralPixels-Regular"
+        case .ember:          return "DotempDemo-8bit"
+        }
+    }
+
+    /// Whether H1-H3 headings should render with a glow on this
+    /// theme. Dark mode already glows on every theme via the existing
+    /// shadow pipeline; Platinum light mode gets a matching brown
+    /// glow per user direction 2026-05-13 to mirror the dark-mode
+    /// look ("classic retro Mac pixel words that are brown").
+    nonisolated var headingGlows: Bool {
+        if isDark { return true }
+        switch themePair {
+        case .platinumViolet: return true
+        case .classic, .ember: return false
+        }
     }
 
     var colorScheme: ColorScheme { isDark ? .dark : .light }
@@ -1009,14 +1070,12 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 enum ThemePair: String, CaseIterable, Codable, Sendable {
     case platinumViolet = "platinumViolet"
     case classic = "classic"
-    case warmth  = "warmth"
     case ember   = "ember"
 
     var displayName: String {
         switch self {
         case .platinumViolet: "Platinum Violet"
         case .classic: "Classic"
-        case .warmth:  "Warmth"
         case .ember:   "Ember"
         }
     }
@@ -1025,7 +1084,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         switch self {
         case .platinumViolet: "Platinum Violet · Platinum Violet Dark"
         case .classic: "White · OLED"
-        case .warmth:  "Sunny · Sunset"
         case .ember:   "Tan · Ember"
         }
     }
@@ -1034,7 +1092,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         switch self {
         case .platinumViolet: .platinumViolet
         case .classic: .light
-        case .warmth:  .sunny
         case .ember:   .tan
         }
     }
@@ -1043,7 +1100,6 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         switch self {
         case .platinumViolet: .platinumVioletDark
         case .classic: .oled
-        case .warmth:  .sunset
         case .ember:   .ember
         }
     }
@@ -1255,6 +1311,29 @@ enum AppDisplayTypography: Sendable {
             return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
         } else {
             return Font.system(size: size, weight: weight, design: design)
+        }
+    }
+
+    /// Theme-aware heading font for H1-H3 (RCA finalization 2026-05-13).
+    /// Routes through `EpistemosTheme.headingFontName` so each
+    /// ThemePair picks its own light-mode H1-H3 typeface
+    /// (Platinum → MatrixTypeDisplay, Classic → CoralPixels, Ember →
+    /// DotempDemo-8bit). Dark mode falls back to the legacy
+    /// RetroGaming face on every theme.
+    nonisolated static func headingFont(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        theme: EpistemosTheme,
+        allowDisplayFont: Bool = true
+    ) -> Font {
+        let resolvedIsDark = theme.isDark
+        if allowDisplayFont && currentMode.usesDisplayFont {
+            return Font.custom(
+                theme.headingFontName,
+                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            )
+        } else {
+            return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
         }
     }
 
