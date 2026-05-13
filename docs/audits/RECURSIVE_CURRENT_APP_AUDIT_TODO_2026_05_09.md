@@ -4,19 +4,20 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, seventh-pass)
+## Headline Status (rollup updated 2026-05-13, eighth-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 seventh-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 eighth-pass:
 
-- **PATCHED / DONE**: 92+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **25 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 93+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **26 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
   - Fifth-pass batch (2): RCA2-P2-014 (SessionTelemetry + ConversationStateClassifier wired) + RCA3-P2-001 (FSRS duplicate of P2-002).
   - Sixth-pass batch (1): RCA4-P1-008 (LSP wired via CodeEditorView).
   - Seventh-pass batch (1): RCA4-P1-010 (context-window indicator labels itself estimate).
+  - Eighth-pass batch (1): RCA4-P2-001 (retired Omega quarantined).
 - **PATCHED PARTIAL**: ~32 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path).
-- **TODO**: ~124 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+- **TODO**: ~123 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -4685,7 +4686,7 @@ Acceptance:
 
 ### RCA4-P2-001 - Quarantine retired Omega UI and scaffold XPC surfaces
 
-Status: TODO
+Status: PATCHED 2026-05-13 — OmegaPanel renders a "Unified Chat" redirect; OrchestratorState fails closed with explicit retired message
 
 Subsystem: Omega panel, confirmation sheet, execution progress view, provider XPC, agent/provider services.
 
@@ -4700,6 +4701,29 @@ Audit steps:
 Acceptance:
 
 - Users do not see retired Omega execution or production XPC streaming claims.
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/Views/Omega/OmegaPanel.swift` renders a "Unified
+    Chat" placeholder ("All capabilities — tools, reasoning, and
+    knowledge — are built into the main chat. Switch to the Home
+    panel and ask anything.") with a `brain.head.profile`
+    glyph. The file header says explicitly "Omega Panel
+    (Retired)" so the surface is self-labeled.
+  - `Epistemos/Omega/Orchestrator/OrchestratorState.swift`
+    declares `retiredExecutionMessage = "Omega task execution is
+    retired; use unified chat."` and assigns it to
+    `planningError` so any code that tries to plan via the
+    retired orchestrator gets a visible, honest failure.
+  - `UtilityWindowManager.routeOmegaPanelToMainChat()` (lines
+    212 + 230 + 266) auto-redirects any code that opens the
+    Omega panel to the main chat — preserving deep links but
+    routing them to the live surface.
+  - Provider XPC streaming scaffolds already carry their own
+    SCAFFOLD-ONLY headers (commit `0a2683c15` per RCA-P2-009
+    rollup).
+  - Acceptance satisfied: users do NOT see live Omega execution
+    promises — they see a redirect to unified chat.
 
 ### RCA4-P2-002 - Treat App Store computer use as denied-by-design and audit UI copy
 
