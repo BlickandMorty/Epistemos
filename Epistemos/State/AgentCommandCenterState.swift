@@ -79,6 +79,18 @@ final class AgentCommandCenterState {
 
     /// Start in a middle lane: capable, but not full destructive-agent scope.
     /// The user can explicitly choose Agent when they want the full tier.
+    ///
+    /// 2026-05-13 defensive change: `rebuildToolCatalog()` ultimately
+    /// calls into Rust via UniFFI. The first Rust call triggers
+    /// `uniffiEnsureAgentCoreInitialized()` which `fatalError`s if the
+    /// Swift bindings checksum doesn't match the dylib's. When this
+    /// setter fires during `AppBootstrap.init` (which assigns the
+    /// initial value), a checksum mismatch took down the entire app
+    /// launch with no UI. Deferring the rebuild onto the @MainActor
+    /// queue (via `Task { @MainActor in ... }`) lets the init complete
+    /// + the UI render at least once before any potential Rust fatal,
+    /// so a future bindings-drift bug manifests as a visible error
+    /// instead of a launch crash.
     var selectedOperatingMode: EpistemosOperatingMode = .pro {
         didSet {
             let sanitizedMode = sanitizedOperatingMode(selectedOperatingMode)
@@ -86,7 +98,9 @@ final class AgentCommandCenterState {
                 selectedOperatingMode = sanitizedMode
                 return
             }
-            rebuildToolCatalog()
+            Task { @MainActor [weak self] in
+                self?.rebuildToolCatalog()
+            }
         }
     }
 
