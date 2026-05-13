@@ -3141,6 +3141,7 @@ fn cognitive_dag_store() -> &'static crate::cognitive_dag::storage::InMemoryDagS
 /// {
 ///   "node_count": 42,
 ///   "edge_count": 87,
+///   "contradicts_edge_count": 3,
 ///   "merkle_root_hex": "9f86d081884c7d65...",
 ///   "schema_version": 1
 /// }
@@ -3150,6 +3151,13 @@ fn cognitive_dag_store() -> &'static crate::cognitive_dag::storage::InMemoryDagS
 /// the DAG is large; the Swift consumer should poll on an interval, not
 /// on every UI tick). The merkle_root_hex is the canonical content hash
 /// — two stores with identical content produce identical hex.
+///
+/// `contradicts_edge_count` (V6.2 §1.4 substrate hook 2026-05-12): the
+/// number of `EdgeKind::Contradicts` edges in the snapshot. Powers the
+/// Swift-side `SheafResidualSubstrateObserver` that produces the V6.2
+/// sheafResidual input to InterruptScore. Iterating snapshot.edges is
+/// O(E); for production DAGs this is fine since polling cadence is
+/// 1 Hz (Halo ribbon) or 5 s (diagnostics row), not per-frame.
 #[uniffi::export]
 pub fn cognitive_dag_stats_json() -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
@@ -3165,10 +3173,16 @@ pub fn cognitive_dag_stats_json() -> Result<String, AgentErrorFFI> {
             use std::fmt::Write;
             let _ = write!(&mut hex, "{:02x}", byte);
         }
+        let contradicts_count = snapshot
+            .edges
+            .iter()
+            .filter(|e| matches!(e.kind, crate::cognitive_dag::edge::EdgeKind::Contradicts { .. }))
+            .count();
         Ok(format!(
-            r#"{{"node_count":{},"edge_count":{},"merkle_root_hex":"{}","schema_version":{}}}"#,
+            r#"{{"node_count":{},"edge_count":{},"contradicts_edge_count":{},"merkle_root_hex":"{}","schema_version":{}}}"#,
             snapshot.nodes.len(),
             snapshot.edges.len(),
+            contradicts_count,
             hex,
             snapshot.schema_version,
         ))

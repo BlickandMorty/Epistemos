@@ -440,6 +440,156 @@ struct InterruptScoreCpuTests {
             "resetForTesting() must clear the baseline so the next call re-primes and returns 0; got \(zeroAgain)")
     }
 
+    // MARK: - V6.2 §1.4 sheafResidual substrate hook (2026-05-12)
+
+    @Test("Sheaf residual: empty DAG yields zero residual")
+    func sheafResidualEmptyDagYieldsZero() {
+        // No nodes → no incoherence to measure. Returns 0 (V6.2 §1.4
+        // "no signal yet" sentinel).
+        let observer = SheafResidualSubstrateObserver(readStats: {
+            RustCognitiveDagStats(
+                nodeCount: 0,
+                edgeCount: 0,
+                contradictsEdgeCount: 0,
+                merkleRootHex: String(repeating: "0", count: 64),
+                schemaVersion: 1
+            )
+        })
+        #expect(observer.sample() == 0,
+            "empty DAG must report 0 sheafResidual")
+    }
+
+    @Test("Sheaf residual: contradicts/node = 0.5 saturates at 1.0")
+    func sheafResidualSaturatesAtHalfNodeCount() {
+        // SaturationRatio = 0.5 — once contradicts edges reach half the
+        // node count, the residual reads 1.0 (clearly incoherent).
+        let observer = SheafResidualSubstrateObserver(readStats: {
+            RustCognitiveDagStats(
+                nodeCount: 100,
+                edgeCount: 200,
+                contradictsEdgeCount: 50,
+                merkleRootHex: String(repeating: "a", count: 64),
+                schemaVersion: 1
+            )
+        })
+        let residual = observer.sample()
+        #expect(abs(residual - 1.0) < 1e-6,
+            "contradicts/node = 0.5 must saturate sheafResidual at 1.0, got \(residual)")
+    }
+
+    @Test("Sheaf residual: contradicts/node = 0.25 yields ~0.5")
+    func sheafResidualLinearMidpoint() {
+        // 25 contradicts / 100 nodes = 0.25 ratio.
+        // 0.25 / saturationRatio (0.5) = 0.5.
+        let observer = SheafResidualSubstrateObserver(readStats: {
+            RustCognitiveDagStats(
+                nodeCount: 100,
+                edgeCount: 200,
+                contradictsEdgeCount: 25,
+                merkleRootHex: String(repeating: "a", count: 64),
+                schemaVersion: 1
+            )
+        })
+        let residual = observer.sample()
+        #expect(abs(residual - 0.5) < 1e-6,
+            "contradicts/node = 0.25 must yield sheafResidual ≈ 0.5, got \(residual)")
+    }
+
+    @Test("Sheaf residual: contradicts above half-node count clamps to 1.0")
+    func sheafResidualClampsAboveSaturation() {
+        // Pathological case: every node is in a contradiction.
+        // ratio = 2.0; normalized = 4.0; must clamp to 1.0.
+        let observer = SheafResidualSubstrateObserver(readStats: {
+            RustCognitiveDagStats(
+                nodeCount: 10,
+                edgeCount: 100,
+                contradictsEdgeCount: 20,
+                merkleRootHex: String(repeating: "a", count: 64),
+                schemaVersion: 1
+            )
+        })
+        #expect(observer.sample() == 1.0,
+            "overflow contradicts must clamp sheafResidual to 1.0")
+    }
+
+    @Test("Sheaf residual: zero contradicts on a populated graph yields 0")
+    func sheafResidualNoContradictsYieldsZero() {
+        // A coherent claim graph: many nodes, many edges, but zero
+        // Contradicts edges. sheafResidual must read 0 (no incoherence).
+        let observer = SheafResidualSubstrateObserver(readStats: {
+            RustCognitiveDagStats(
+                nodeCount: 100,
+                edgeCount: 500,
+                contradictsEdgeCount: 0,
+                merkleRootHex: String(repeating: "a", count: 64),
+                schemaVersion: 1
+            )
+        })
+        #expect(observer.sample() == 0,
+            "no contradicts → zero residual on a populated graph")
+    }
+
+    @Test("Sheaf residual: saturation constant matches doctrine value")
+    func sheafResidualSaturationConstantMatchesDoctrine() {
+        // 0.5 = "half of all nodes participate in a contradiction edge"
+        // saturates sheafResidual at 1.0. Doctrine pin; if a future
+        // calibration moves this, the test breaks to force a doctrine
+        // update.
+        #expect(SheafResidualSubstrateObserver.saturationRatio == 0.5)
+    }
+
+    @Test("Sheaf residual: stateless — same input produces same output across calls")
+    func sheafResidualStateless() {
+        // Unlike WBO, sheafResidual is stateless. Calling it N times
+        // against the same stats must produce N identical values.
+        let stub = WBOStubCounter(initial: 0)  // unused; just to make a unique closure-capture
+        _ = stub
+        let observer = SheafResidualSubstrateObserver(readStats: {
+            RustCognitiveDagStats(
+                nodeCount: 40,
+                edgeCount: 80,
+                contradictsEdgeCount: 8,
+                merkleRootHex: String(repeating: "c", count: 64),
+                schemaVersion: 1
+            )
+        })
+        let r1 = observer.sample()
+        let r2 = observer.sample()
+        let r3 = observer.sample()
+        #expect(r1 == r2 && r2 == r3,
+            "stateless observer must produce identical output across repeated calls; got \(r1), \(r2), \(r3)")
+        // 8 / 40 = 0.2 ratio; / 0.5 saturation = 0.4 normalized.
+        #expect(abs(r1 - 0.4) < 1e-6,
+            "8 contradicts / 40 nodes must yield sheafResidual = 0.4, got \(r1)")
+    }
+
+    @Test("RustCognitiveDagStats decodes contradicts_edge_count when present")
+    func dagStatsDecodesContradictsField() throws {
+        // Forward-compat JSON with the new field present.
+        let json = #"{"node_count":10,"edge_count":20,"contradicts_edge_count":3,"merkle_root_hex":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","schema_version":1}"#
+        let stats = try JSONDecoder().decode(
+            RustCognitiveDagStats.self,
+            from: Data(json.utf8)
+        )
+        #expect(stats.contradictsEdgeCount == 3)
+        #expect(stats.nodeCount == 10)
+    }
+
+    @Test("RustCognitiveDagStats decodes legacy JSON without contradicts_edge_count")
+    func dagStatsLegacyDecodesAsZeroContradicts() throws {
+        // Backward-compat: pre-2026-05-12 JSON had no contradicts_edge_count.
+        // decodeIfPresent must default it to 0 so the bridge stays usable
+        // across a phased Rust ↔ Swift rollout.
+        let json = #"{"node_count":10,"edge_count":20,"merkle_root_hex":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","schema_version":1}"#
+        let stats = try JSONDecoder().decode(
+            RustCognitiveDagStats.self,
+            from: Data(json.utf8)
+        )
+        #expect(stats.contradictsEdgeCount == 0,
+            "legacy JSON without contradicts_edge_count must decode as 0")
+        #expect(stats.nodeCount == 10)
+    }
+
     @Test("sampleTurnBucket: integration path does not crash with WBO observer wired")
     func sampleTurnBucketIntegrationDoesNotRegress() {
         // Smoke test that the .shared observer path runs end-to-end
