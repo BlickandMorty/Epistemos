@@ -9,12 +9,21 @@ import os
 //
 // **Doctrine note** (cognitive DAG doctrine §10): the DAG runs alongside
 // the seven existing subsystems through Phase 8.A-G; Phase 8.H flips
-// authority. This client is READ-ONLY — Swift can observe DAG content
-// but cannot write to it. Writes happen through the four DagMirror impls
-// (Skills/Procedural/Provenance/Companion) wired into the Rust write
-// paths. This is the doctrine-safe minimal surface that removes the
+// *storage* authority (DAG becomes the canonical write target with no
+// parallel writes to legacy subsystems). This client is READ-ONLY —
+// Swift can observe DAG content but cannot write to it. Writes happen
+// through the four DagMirror impls (Skills/Procedural/Provenance/
+// Companion) wired into the Rust write paths.
+//
+// Note: this is the *storage* authority. The *console display* authority
+// is already the Cognitive DAG today — see
+// `ProvenanceConsoleProjectionService.swift` where the live snapshot reads
+// from the DAG and the legacy ClaimLedger appears only as compatibility
+// context. RCA2-P2-013 fix-pass distinguishes these two layers.
+//
+// This is the doctrine-safe minimal surface that removes the
 // cognitive_dag module's orphan status from the app's perspective ahead
-// of the Phase 8.H authority flip.
+// of the Phase 8.H storage-authority flip.
 
 /// Decoded shape of `cognitive_dag_stats_json()`.
 nonisolated struct RustCognitiveDagStats: Sendable, Equatable, Decodable {
