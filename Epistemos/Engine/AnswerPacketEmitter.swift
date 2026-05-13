@@ -202,7 +202,7 @@ nonisolated extension AnswerPacket {
     /// claims + residencySignals remain empty until the next
     /// promotion: Rust-side FFI threads real claim/signal values
     /// from the agent runtime.
-    public static func turnCompletionStub(
+    nonisolated public static func turnCompletionStub(
         stopReason: String,
         inputTokens: Int,
         outputTokens: Int,

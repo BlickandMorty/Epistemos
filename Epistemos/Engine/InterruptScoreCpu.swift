@@ -32,7 +32,7 @@ import Foundation
 ///
 /// Per V6.2 §1.4:
 ///   u_t = α·H + β·WBO + γ·Sheaf + δ·ToolNeed + ε·ConnectomeAlarm
-public struct InterruptScoreInputs: Sendable, Equatable {
+nonisolated public struct InterruptScoreInputs: Sendable, Equatable {
     /// H: per-token surprise / entropy signal. Higher = more
     /// uncertain next-token distribution.
     public let entropy: Float
@@ -123,7 +123,12 @@ public struct InterruptScoreInputs: Sendable, Equatable {
 /// (`.userInteractive`) per V6.2 §1.4. The function itself is
 /// `@inlinable` + `@inline(__always)` so call sites that already run
 /// on the right queue pay zero indirection cost.
-public enum InterruptScoreCpu {
+// `nonisolated` so the enum's static members + nested types are
+// callable from nonisolated contexts (the unstructured Task inside
+// StreamingDelegate.onComplete). The compute is pure arithmetic;
+// MainActor isolation was implicit from the module default and
+// never load-bearing.
+nonisolated public enum InterruptScoreCpu {
     // V6.2 §1.4 canonical weights. The sum is exactly 1.0:
     //   0.30 + 0.25 + 0.20 + 0.15 + 0.10 = 1.00
     // This means the output u_t is guaranteed to land in [0, 1]
@@ -216,7 +221,7 @@ nonisolated extension InterruptScoreCpu {
     /// AnswerPacket schema owns the wire form + an `.unavailable`
     /// sentinel for packets that didn't sample u_t.
     @inlinable
-    public static func answerPacketBucket(
+    nonisolated public static func answerPacketBucket(
         for bucket: Bucket
     ) -> InterruptBucket {
         switch bucket {
@@ -247,7 +252,7 @@ nonisolated extension InterruptScoreCpu {
     /// produced no signal at all — degenerate). All other cases
     /// return a real bucket so the audit channel carries actionable
     /// signal even at this first-wiring stage.
-    public static func sampleTurnBucket(
+    nonisolated public static func sampleTurnBucket(
         stopReason: String,
         inputTokens: Int,
         outputTokens: Int
