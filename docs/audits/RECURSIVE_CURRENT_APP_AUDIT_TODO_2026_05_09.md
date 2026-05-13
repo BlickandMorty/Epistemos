@@ -4,11 +4,11 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, eleventh-pass MAS-release-prep)
+## Headline Status (rollup updated 2026-05-13, twelfth-pass MAS-release-prep)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 eleventh-pass (MAS release prep):
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 twelfth-pass (MAS release prep):
 
-- **PATCHED / DONE**: 97+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **30 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 100+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **33 items** were PATCHED on 2026-05-13 across this session's iterations (including duplicates RCA4-P0-001 + RCA7-P0-001 closed as restatements of RCA2-P0-002, and RCA5-P1-008 closed as signal-stale because CodeFileService is already canonical):
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
@@ -4257,7 +4257,28 @@ Evidence discipline for this drop:
 
 ### RCA4-P0-001 - Fix `CodeFileService` vault containment before any agent file tooling ships
 
-Status: TODO
+Status: PATCHED 2026-05-13 — duplicate of RCA2-P0-002 (containment structurally in place since W7; 5-test drift gate pins the invariant)
+
+Fix-pass evidence 2026-05-13:
+
+  - This audit item is the RCA4 restatement of RCA2-P0-002. The
+    actual fix landed under that entry — `Epistemos/Engine/Code
+    FileService.swift` now uses:
+      * `private func containedSourceURL(_:)` (line 314)
+      * `pathEscapesVault` error case (line 51 + 72)
+      * `resolvingSymlinksInPath().standardizedFileURL` before
+        prefix check (lines 302 + 311 + 318)
+    Every read / update / sidecar / list helper routes through
+    `containedSourceURL(...)` before any filesystem I/O.
+  - Drift gate: `EpistemosTests/CodeFileServiceContainmentTests.swift`
+    pins 5 invariants (absolute path outside vault, `..` traversal,
+    update with absolute escape path, symlink chain to outside,
+    source-grep regression check for the three method names).
+  - Acceptance "External paths fail closed before any read/write" —
+    satisfied. Same code path also gates the agent file tooling
+    (the MAS-allowed `file.read` / `file.write` / `file.patch` tools
+    in `ToolSurfacePolicy.coreAppStoreAllowedToolNames` flow
+    through CodeFileService via the Rust→Swift bridge).
 
 Subsystem: `CodeFileService`, code editor, agent code tools, sidecars, filesystem writes.
 
@@ -5255,7 +5276,22 @@ Acceptance:
 
 ### RCA5-P1-008 - Route visible code-note saves through canonical `CodeFileService`
 
-Status: TODO
+Status: PATCHED 2026-05-13 — audit signal stale; save path already routes through `CodeFileService.updateCodeFileAsync(at:vaultRoot:body:)`
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/Views/Notes/NoteDetailWorkspaceView.swift` line 1163
+    calls `CodeFileService.updateCodeFileAsync(at:vaultRoot:body:)`
+    inside the code-file save handler. The save then applies the
+    SwiftData mutation only AFTER the CodeFileService write
+    succeeds (`try Self.applyDirectCodeFileSave(...)` at line 1173,
+    inside the same `do { try await ... }` block).
+  - Read path at line 1626 also goes through
+    `CodeFileService.readCodeFileAsync(...)`.
+  - Vault containment is enforced upstream by RCA2-P0-002 /
+    RCA4-P0-001 (CodeFileService.containedSourceURL).
+  - Acceptance "CodeFileService canonicality holds for real user
+    edits" — satisfied.
 
 Subsystem: code-file notes, `NoteDetailWorkspaceView`, `CodeEditorView`, `CodeFileService`, sidecars, provenance.
 
@@ -5838,7 +5874,7 @@ Drop 7 strengthens these existing tasks:
 
 ### RCA7-P0-001 - Treat `CodeFileService` containment as the first fix before any AI code-file exposure
 
-Status: TODO
+Status: PATCHED 2026-05-13 — duplicate of RCA2-P0-002 / RCA4-P0-001; CodeFileService containment in place + 5-test drift gate
 
 Subsystem: `CodeFileService`, agent file tools, code editor, sidecars.
 
