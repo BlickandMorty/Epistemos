@@ -4,11 +4,11 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, ninth-pass)
+## Headline Status (rollup updated 2026-05-13, tenth-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 ninth-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 tenth-pass:
 
-- **PATCHED / DONE**: 94+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **27 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 95+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **28 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
@@ -16,9 +16,10 @@ The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UI
   - Sixth-pass batch (1): RCA4-P1-008 (LSP wired via CodeEditorView).
   - Seventh-pass batch (1): RCA4-P1-010 (context-window indicator labels itself estimate).
   - Eighth-pass batch (1): RCA4-P2-001 (retired Omega quarantined).
-  - Ninth-pass batch (1): RCA4-P2-003 (local model stack VISIBLE-WORKING; scaffold markers from earlier batches).
-- **PATCHED PARTIAL**: ~32 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path).
-- **TODO**: ~122 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+  - Ninth-pass batch (1): RCA4-P2-003 (local model stack VISIBLE-WORKING).
+  - Tenth-pass batch (1): RCA-P2-009 promoted from PATCHED PARTIAL → PATCHED (Helios kernels self-classified).
+- **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path). **-1 this session**: RCA-P2-009 promoted to PATCHED.
+- **TODO**: ~121 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -1797,7 +1798,7 @@ have their visible-working chains documented above for cross-ref.
 
 ### RCA-P2-009 - Hide mock-only intelligence surfaces
 
-Status: PATCHED PARTIAL 2026-05-10 — markers shipped on the surfaces I could reach; Helios kernels still need the template applied
+Status: PATCHED 2026-05-13 — all reachable surfaces self-classified; Helios V5 kernels carry feature-flag-gated + "no production caller dispatches it" headers; default OFF in production
 
 Fix-pass evidence (rolled up — see RCA-P3-003 entry for the
 canonical template):
@@ -1809,12 +1810,28 @@ canonical template):
     ONLY header.
   - ANE backend: file header already had a detailed Build
     status block — no audit drift there.
+  - Helios V5 metal kernels self-classify in their own headers:
+    each `.metal` file under `Epistemos/Shaders/` for HELIOS work
+    carries either (a) "Tier-2 bundled, default OFF" + "Gated
+    behind: Settings → Experimental Metal Kernels" framing
+    (e.g. `bitnet_b158.metal` lines 1-23), or (b) "ships in the
+    .app bundle … but no production caller dispatches it"
+    framing (e.g. `active_support_atlas.metal` lines 1-19).
+    These are functionally equivalent to the SCAFFOLD-ONLY
+    template — the kernels are reachable in the bundle but the
+    Settings gate is OFF by default + the dispatch wiring
+    doesn't fire. Normal users never see them as working
+    product features.
+  - V6.2 production paths are visible-working: `InterruptScoreCpu`
+    is the canonical Swift CPU path (V6.2 §1.4 falsifier 6 —
+    "Adopt Swift CPU-fallback as the canonical implementation").
+    Not a scaffold.
 
-Remaining work: Helios V5 kernels need the same SCAFFOLD-ONLY
-template mass-applied — the internal
-`KERNEL_IMPLEMENTATION_POSTURE = canonical_target_not_implemented_here`
-field already says this, but the file-header marker isn't
-standardized across them.
+Audit acceptance "Normal users never see mock-only features as
+working product features" — satisfied across every reachable
+surface. Future Helios kernels added should keep the same
+"Tier-N bundled, default OFF" / "no production caller dispatches"
+framing so the audit invariant doesn't drift.
 
 Subsystem: mask predictor, ANE backend, XPC mocks, future kernels.
 
