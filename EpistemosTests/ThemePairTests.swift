@@ -388,8 +388,12 @@ struct ThemePairTests {
         #expect(AppDisplayTypography.displayFontName(isDark: true) == "RetroGaming")
         #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.1)
         #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
-        #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: false) == "sdf_labels_coral")
-        #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: true) == "sdf_labels_retro")
+        // Per user 2026-05-12: graph node labels use the JetBrainsMono
+        // monospace atlas (the v1 "before" identity) in both light and
+        // dark mode. The per-theme `_coral` and `_retro` atlases stay
+        // bundled for any future per-theme override.
+        #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: false) == "sdf_labels")
+        #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: true) == "sdf_labels")
         #expect(AppHeadingRole.pageTitle.fontSize == 34)
         #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
         #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.displayFontName)

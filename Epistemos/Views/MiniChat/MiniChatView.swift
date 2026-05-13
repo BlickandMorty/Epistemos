@@ -42,8 +42,25 @@ struct MiniChatView: View {
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
+            // Frosted-glass stack per user 2026-05-12: keep a real blur
+            // layer (ultraThinMaterial = the lightest macOS blur) but
+            // overlay a colored tint so the glass reads as a frost color,
+            // not just a window-content blur. The tint reduces the
+            // visible "blurriness" by hiding more of the background while
+            // the blur itself still softens edges underneath. White frost
+            // in light mode (0.55 opacity), darker frost in dark mode
+            // (0.32 opacity — dark frost reads heavier so it can sit at
+            // lower opacity and still feel anchored).
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(
+                            theme.isDark
+                                ? Color.black.opacity(0.32)
+                                : Color.white.opacity(0.55)
+                        )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .strokeBorder(
