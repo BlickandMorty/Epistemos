@@ -7,10 +7,44 @@ import UniformTypeIdentifiers
 private enum MessageRating { case up, down }
 
 /// Strips non-epistemic bracket tags (e.g. [CAUSAL INFERENCE]) from response text.
-/// Preserves [DATA], [MODEL], [UNCERTAIN], [CONFLICT] for TaggedMarkdownTextView.
+/// Preserves [DATA], [MODEL], [UNCERTAIN], [CONFLICT] (including their tier
+/// modifiers like `[DATA - Tier 2]` / `[CONFLICT - Tier 1]`) for downstream
+/// rendering by `TaggedMarkdownTextView`.
+///
+/// RCA2-P2-002 closure 2026-05-13: previously the regex
+/// `\[[A-Z][A-Z ]+\]` matched ALL uppercase bracket tags including the four
+/// epistemic ones the comment claimed to preserve, so copy / Send to Notes
+/// silently dropped them. Fix: split into a preserved-tag check and a
+/// strip-everything-else pass.
 private func stripBracketTags(_ text: String) -> String {
-    text.replacingOccurrences(of: "\\[[A-Z][A-Z ]+\\]", with: "", options: .regularExpression)
-        .trimmingCharacters(in: .whitespacesAndNewlines)
+    let preservedTagHeads: Set<String> = ["DATA", "MODEL", "UNCERTAIN", "CONFLICT"]
+    let pattern = "\\[[A-Z][A-Z 0-9\\-]+\\]"
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    let ns = text as NSString
+    let fullRange = NSRange(location: 0, length: ns.length)
+    var result = ""
+    var cursor = 0
+    regex.enumerateMatches(in: text, range: fullRange) { match, _, _ in
+        guard let match else { return }
+        let r = match.range
+        if r.location > cursor {
+            result += ns.substring(with: NSRange(location: cursor, length: r.location - cursor))
+        }
+        let tag = ns.substring(with: r)
+        // Pull the "head word" — the first ALPHA token after `[` — and decide.
+        let inner = String(tag.dropFirst().dropLast())
+        let head = inner.prefix(while: { $0.isLetter }).uppercased()
+        if preservedTagHeads.contains(head) {
+            result += tag
+        }
+        cursor = r.location + r.length
+    }
+    if cursor < ns.length {
+        result += ns.substring(with: NSRange(location: cursor, length: ns.length - cursor))
+    }
+    return result.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
 // MARK: - Full Export Builder
