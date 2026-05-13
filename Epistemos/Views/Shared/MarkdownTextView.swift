@@ -120,7 +120,11 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func shadowOpacity(for theme: EpistemosTheme, level: Int) -> Double {
-        guard theme.isDark else { return 0 }
+        // RCA finalization 2026-05-13: glow extends to themes whose
+        // `headingGlows` flag is on (dark mode of any theme, plus
+        // Platinum light mode). Other light-mode themes still get
+        // 0 — Classic + Ember light keep their flat-pixel look.
+        guard theme.headingGlows else { return 0 }
         return switch level {
         case 1:
             0.38
@@ -134,7 +138,7 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func overlayOpacity(for theme: EpistemosTheme, level: Int) -> Double {
-        guard theme.isDark else { return 0 }
+        guard theme.headingGlows else { return 0 }
         return switch level {
         case 1:
             0.34
@@ -1243,7 +1247,11 @@ struct MarkdownTextView: View {
         let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font = {
             if (1...3).contains(level) {
-                AppDisplayTypography.font(size: fontSize, weight: fontWeight, isDark: theme.isDark)
+                // RCA finalization 2026-05-13: theme-aware H1-H3 font
+                // — Platinum + Ember swap their light-mode heading
+                // face; Classic keeps CoralPixels; dark mode keeps
+                // RetroGaming.
+                AppDisplayTypography.headingFont(size: fontSize, weight: fontWeight, theme: theme)
             } else if headingRole != nil {
                 AppDisplayTypography.font(
                     size: fontSize,
