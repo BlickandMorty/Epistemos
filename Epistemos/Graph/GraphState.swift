@@ -1486,6 +1486,39 @@ final class GraphState {
             // on subsequent launches.
             selectedPhysicsPreset = .observatory
             d.set(PhysicsPreset.observatory.rawValue, forKey: "epistemos.physics.selectedPreset")
+            // Per user 2026-05-12: also apply Observatory's lab overrides
+            // (enableFluid=true, enableTorsion=true, enableElastic=true,
+            // windX/Y=0, enableOrbital=false) on FIRST LAUNCH so the
+            // canonical fluid-wake swirl is on out of the box. The
+            // overlay-cycle path (`applyOverlayPreset`) intentionally
+            // SKIPS lab overrides because lab toggles are user-owned
+            // — so we only mirror them on this first-launch branch
+            // (the picker case is `if let raw = ...` above and respects
+            // whatever the user already configured).
+            let observatoryLab = PhysicsPreset.observatory.labOverrides
+            if let v = observatoryLab.enableFluid    { enableFluidDynamics = v }
+            if let v = observatoryLab.enableTorsion  { enableTorsionalSprings = v }
+            if let v = observatoryLab.enableElastic  { enableElasticEdges = v }
+            if let v = observatoryLab.fluidViscosity { fluidViscosity = v }
+            if let v = observatoryLab.edgeElasticity { edgeElasticity = v }
+            if let v = observatoryLab.torsionRigidity { torsionRigidity = v }
+            if let v = observatoryLab.boidsCohesion  { boidsCohesion = v }
+            if let v = observatoryLab.windX          { windX = v }
+            if let v = observatoryLab.windY          { windY = v }
+            if let v = observatoryLab.enableOrbital  { enableOrbital = v }
+            if let v = observatoryLab.orbitalSpeed   { orbitalSpeed = v }
+            // Persist the lab values so the picker reflects them next launch.
+            d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
+            d.set(enableTorsionalSprings, forKey: "epistemos.physics.enableTorsion")
+            d.set(enableElasticEdges, forKey: "epistemos.physics.enableElastic")
+            d.set(fluidViscosity, forKey: "epistemos.physics.fluidViscosity")
+            d.set(edgeElasticity, forKey: "epistemos.physics.edgeElasticity")
+            d.set(torsionRigidity, forKey: "epistemos.physics.torsionRigidity")
+            d.set(boidsCohesion, forKey: "epistemos.physics.boidsCohesion")
+            d.set(windX, forKey: "epistemos.physics.windX")
+            d.set(windY, forKey: "epistemos.physics.windY")
+            d.set(enableOrbital, forKey: "epistemos.physics.enableOrbital")
+            d.set(orbitalSpeed, forKey: "epistemos.physics.orbitalSpeed")
         }
         // Master toggle + saved strengths
         if d.object(forKey: "epistemos.physics.savedClusterStrength") != nil {
