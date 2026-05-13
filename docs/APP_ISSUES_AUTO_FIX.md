@@ -63,6 +63,62 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-12-013: Graph feels below 120 fps at high vault count even in cinematic mode
+
+Status: Patched (cinematic soft pixel-budget shipped — verify next runtime trace)
+Priority: P2
+First Observed: 2026-05-12
+
+Symptom:
+User reports the graph "still feels low frames" at high vault counts despite the
+ProMotion 120 Hz target and despite the 27.7% checksum CPU regression already
+having been fixed (BLAKE3 swap). No stutter, just below-cap framerate at scale.
+
+Investigation:
+- `MetalGraphView.swift:1017` confirms `CAFrameRateRange(min:60, max:120, pref:120)`
+  on the `CADisplayLink` — there is no explicit FPS cap.
+- `GraphDrawableResolutionPolicy.pixelBudget` (MetalGraphView.swift:228):
+  - lowPower → 1.2 MP
+  - qualityLevel ≥ 2 (performance) → 3 MP
+  - qualityLevel = 0 (cinematic, DEFAULT) → `.greatestFiniteMagnitude`
+- `GraphState.performanceModeEnabled` defaults to `false` (GraphState.swift:1093).
+- `graph-engine/src/simulation.rs:231` `PHYS_TICK_DT = 1.0/60.0` — physics
+  integrates @60 Hz; that's not the render cap.
+- Net: cinematic mode renders at FULL native Retina with **no pixel budget**.
+  On a 14" MBP (1512×982 pts × 2 = 5.94 MP) plus the cinematic `waterNodes`
+  pixel shader (heavier per-fragment than the perf shader), at high node count
+  fragment shader cost × sprite count saturates the GPU before the 120 Hz
+  vsync deadline.
+
+Safe Auto-Fix Applied:
+- Added `cinematicHighNodeBudget = 5_000_000` and
+  `cinematicHighNodeThreshold = 9_000` (mirrors
+  `GraphState.largeGraphEntranceThreshold` so the two large-graph optimizations
+  activate at the same vault size).
+- `pixelBudget(qualityLevel:lowPowerMode:nodeCount:)` and
+  `effectiveScale(...nodeCount:)` now take an optional `nodeCount`; default = 0
+  preserves existing test contracts.
+- `updateMetalLayerBackingProperties` (MetalGraphView.swift:~2327) threads
+  `graphState?.store.nodeCount ?? 0` so the cap actually engages.
+- On 14" MBP at high vault: scale drops from 2.0 → ~1.84 (16% pixel reduction,
+  cinematic identity preserved). On external 5K Retina (~21 MP native): scale
+  clamps to 1.0 (~80% fragment headroom recovered). Below 9k nodes the path
+  is byte-identical to before — no regression for normal vaults.
+- Test: `RuntimeCapabilityAndPerformancePolicyTests` ::
+  `graphDrawableResolutionPolicyCapsCinematicAtHighNodeCount` locks in the
+  threshold + scale-floor + cinematic-vs-performance gap.
+
+Open Follow-ups:
+- If the user still sees sub-120 fps after the fix, the bottleneck is sprite
+  count / draw-call count rather than fill rate. Next investigation step:
+  capture an Instruments Animation Hitches trace (DIAGNOSTIC_PLAYBOOK.md
+  Tier 9) and identify whether the cost is in `graph_engine_render` (Rust
+  draw-call loop) or `commandBuffer.commit/present` (GPU submission).
+- Consider an additional cap tier above ~30k nodes that also reduces label
+  density (`labelMaxNodes`) and edge density.
+
+---
+
 ### ISSUE-2026-05-12-011: Main thread hangs at app startup (969ms + 3182ms)
 
 Status: Open (logged from user runtime trace 2026-05-12)
