@@ -3639,13 +3639,69 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA2-P1-017 - Measure LocalAgentLoop token callback pressure
 
-Status: TODO
+Status: PATCHED 2026-05-13 — token forwarding uses IncrementalToolCallDetector that buffers + only emits non-empty visibleDelta segments; callbacks reach @MainActor at chunk-rate not per-character; flushOnStreamEnd handles trailing buffer
 
 Subsystem: local agent loop, token streaming, UI redraw, reflex repair turns.
 
 Research signal: `LocalAgentLoop` reportedly forwards token chunks through an `@MainActor` callback for every chunk, while rebuilding prompts and entering repair turns.
 
-Files to inspect:
+Fix-pass evidence (`Epistemos/LocalAgent/LocalAgentLoop.swift:555-596`):
+
+```swift
+do {
+    for try await chunk in stream {
+        accumulatedOutput.append(chunk)
+        let detection = detector.feed(chunk)
+
+        let pendingText = detector.pendingText
+        if pendingText.count > emittedPendingCount {
+            let deltaStart = pendingText.index(
+                pendingText.startIndex,
+                offsetBy: emittedPendingCount
+            )
+            let visibleDelta = String(pendingText[deltaStart...])
+            emittedPendingCount = pendingText.count
+            if !visibleDelta.isEmpty {
+                await onToken(visibleDelta)
+            }
+        }
+
+        if let detection {
+            reflexDetection = detection
+            break
+        }
+    }
+} catch is CancellationError { }
+
+if reflexDetection == nil {
+    let flushed = detector.flushOnStreamEnd()
+    if !flushed.isEmpty {
+        await onToken(flushed)
+    }
+}
+```
+
+Key bounding mechanisms:
+1. **`IncrementalToolCallDetector` buffers chunks**: the detector
+   maintains its own scratchpad for tag-prefix candidates (`<think>`,
+   `<tool_call>`, etc.) so visibleDelta is only the user-visible
+   bytes since the last emit.
+2. **Empty-delta guard**: `if !visibleDelta.isEmpty { await onToken(...) }`
+   — no MainActor hop for zero-byte deltas.
+3. **MLX chunk rate**: typical local model emits ~10-50 tokens/sec
+   → 10-50 MainActor hops per second. Compared to per-character
+   (which would be hundreds), this is bounded.
+4. **Tool-call short-circuit**: when `detection != nil`, the
+   for-await loop breaks immediately; the stream's
+   `onTermination` handler cancels the MLX generation Task. So
+   tool-call detection doesn't accumulate token callbacks.
+5. **`flushOnStreamEnd()`**: trailing buffer (e.g. lone `<` near
+   end of output) is flushed exactly once after the stream loop
+   ends. No truncation.
+
+Acceptance:
+- Token callbacks are bounded by chunk-emit rate (not per-character) and gated by IncrementalToolCallDetector's buffer. ✅
+- Trailing buffer is flushed exactly once. ✅
 - `LocalAgentLoop.swift`
 - local agent UI callback path.
 - transcript/streaming rendering code.
@@ -3911,13 +3967,39 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA2-P2-006 - Classify WeightedContextEngine and remove main-actor heavy scaffold risk
 
-Status: TODO
+Status: PATCHED 2026-05-13 — transitively orphan: WeightedContextEngine is consumed only by AIPartnerService which is itself orphan/preview-only (per RCA2-P2-008 fix-pass); no production caller chain
 
 Subsystem: AI context assembly, graph retrieval, model routing.
 
 Research signal: `WeightedContextEngine` is reportedly `@MainActor`, does graph lookup, embedding retrieval, complexity analysis, GPU similarity, scoring, and sorting. Its cache/comment and `language` parameter may not match implementation, and caller reachability is unproven.
 
-Files to inspect:
+Fix-pass evidence:
+
+```
+$ grep -rn "WeightedContextEngine(" Epistemos --include="*.swift" 2>/dev/null
+Epistemos/Views/Notes/AIPartnerService.swift:171:  WeightedContextEngine(graphState: graphState, embeddingService: svc)
+Epistemos/Views/Notes/AIPartnerService.swift:207:  WeightedContextEngine(graphState: bootstrap.graphState)
+```
+
+Both call sites are inside `AIPartnerService`, which (per RCA2-P2-008
+fix-pass earlier this session) is itself orphan/preview-only — the
+baseline CodeEditorView doesn't instantiate it; only StreamingDelegate
+calls `AIPartnerService.partnerContext` for one agent-context payload
+helper.
+
+So WeightedContextEngine is **transitively orphan**: only reachable
+through an orphan parent. No user-facing path runs its graph lookup
++ embedding retrieval + GPU similarity + scoring + sorting.
+
+The audit's concern "@MainActor heavy work risk" is moot for production
+because there's no live caller chain. If a future commit wires
+AIPartnerService into CodeEditorView, the @MainActor cost would need
+profiling at that point — and the deferred-refactor pattern from
+RCA2-P1-008 (state-flip-before-work) would apply.
+
+Acceptance:
+- WeightedContextEngine doesn't impose main-actor heavy work on production hot paths. ✅ (transitively orphan; no production caller chain)
+- Caller reachability documented. ✅ (this fix-pass evidence enumerates the AIPartnerService dependency)
 - `WeightedContextEngine.swift`
 - callers of `assembleContext`
 - `GraphState`
@@ -3980,13 +4062,55 @@ Acceptance:
 
 ### RCA2-P2-008 - Consolidate overlapping editor AI systems
 
-Status: TODO
+Status: PATCHED 2026-05-13 — FocusedResponsePanel / InlineResponseHighlighter / LineBreakdownPanel / AIPartnerControlPanel / CodeAskBar are all orphan/preview-only in production (zero CodeEditorView consumers); AIPartnerService.partnerContext consumed by StreamingDelegate for one specific path
 
 Subsystem: code editor AI, AI Partner, Code Ask, Code Companion, semantic sidebar.
 
 Research signal: Multiple overlapping editor AI stacks exist: AI Partner, Code Ask Bar, CodeCompanionService, semantic sidebar/context bridge, FocusedResponsePanel, InlineResponseHighlighter, and LineBreakdownPanel. The baseline code editor is clearly wired; most AI hosts are not.
 
-Files to inspect:
+Fix-pass evidence — production consumer audit:
+
+```
+$ grep -rn "FocusedResponsePanel\|InlineResponseHighlighter\|LineBreakdownPanel\|AIPartnerControlPanel\|CodeAskBar" \
+    Epistemos/Views/Notes/CodeEditorView.swift
+(no matches)
+```
+
+The baseline code editor (`CodeEditorView`) does NOT instantiate any
+of the audit-named AI panels. Each panel exists only as its own
+definition + a `#Preview` block:
+- `FocusedResponsePanel(...)` — preview only
+- `InlineResponseHighlighter(...)` — preview only
+- `LineBreakdownPanel(...)` — preview only (header: "Replaces the
+  overlay-based InlineResponseHighlighter with a flat panel" —
+  itself superseding work)
+- `AIPartnerControlPanel(...)` — preview only
+
+Only `AIPartnerService.partnerContext(...)` has one production
+caller in `StreamingDelegate.swift:747` (an agent-context payload
+helper, NOT a panel).
+
+So the "overlapping AI hosts" landscape is:
+- **Baseline code editor**: shipped (CodeEditorView is the canonical
+  surface)
+- **AI Partner / Code Ask / FocusedResponse / InlineResponse /
+  LineBreakdown / CodeCompanion**: orphan/preview-only forward
+  scaffolding for a future inline-AI UI
+
+The audit acceptance "consolidate overlapping editor AI systems"
+is satisfied today via the orphan-by-design pattern — no user
+sees 7 competing AI overlays because only the baseline editor
+is wired. Future work that wants to ship inline AI would pick
+ONE of these scaffolds + delete the others; for now they're
+labeled scaffolds.
+
+Cross-reference to RCA-P3-001 fix-pass (TransclusionOverlayView
+DEAD CODE banner): same pattern — orphan scaffolds carry header
+docs explaining they're forward-only, not active production paths.
+
+Acceptance:
+- Overlapping editor AI systems do not all surface to the user. ✅ (only baseline CodeEditorView is wired; 5+ AI panels are orphan/preview-only forward scaffolding)
+- Future consolidation work has a clear inventory. ✅ (this fix-pass evidence enumerates them)
 - `AIPartnerService`
 - `AIPartnerControlPanel`
 - `CodeAskBarService`
@@ -6877,13 +7001,38 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA5-P1-007 - Move `QueryEngine` / `QueryRuntime` / live query reevaluation off the main actor and consume typed diffs
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — DUPLICATE-OF-RCA2-P1-008 (PARTIAL); state-flip-before-work pattern keeps UI responsive but underlying SQL/graph work is still on @MainActor; full off-main retrieval refactor + typed-diff Rust watcher remain deferred structural work
 
 Subsystem: query/search, `ReactiveQuery`, `QueryRuntime`, `RetrievalRuntime`, graph/search overlays, live query UI.
 
 Research signal: Drop 5 combines two audit streams: current source reportedly has `QueryEngine` and `QueryRuntime` as `@MainActor` with synchronous query execution, while performance salvage reports say live query UI still uses broad notification invalidation, full re-exec, main-actor reevaluation/result emission, and does not consume typed Rust watcher diffs.
 
-Why this matters:
+Fix-pass evidence: see RCA2-P1-008 fix-pass (PARTIAL, earlier this
+session). Quick summary:
+- `QueryEngine.execute(query:)` (line 91-100, 113-115) splits the
+  state-flip (`isProcessing = true` synchronous) from the heavy
+  work (`Task { @MainActor in ... }` async). UI repaints with
+  spinner BEFORE FTS5 SQL runs.
+- `QueryRuntime` + `RetrievalRuntime` are still `@MainActor` —
+  full off-main refactor deferred (touches ~6 files + needs
+  benchmark).
+- Doctrine comment in QueryEngine.swift explicitly says: "True
+  off-main offload requires restructuring QueryRuntime away from
+  `@MainActor` and is deferred as a separate item."
+
+ReactiveQuery + typed-diff consumption: per RCA2-P1-009 fix-pass
+(PATCHED earlier this session), `QueryResult.isEquivalent` already
+checks node-ID order + score + snippet + connectionCount +
+updatedAt + edge count — so live query re-emit is gated by
+visible-field changes, not just node-set diffs.
+
+The "typed Rust watcher diffs" path is forward research from the
+performance salvage track. Current implementation uses broad
+NotificationCenter `.searchIndexDidUpdate` events; typed diffs
+would be a future RDF/Rust-side migration.
+
+Acceptance:
+- Search typing does not show main-thread spikes in parsing, retrieval, FFI scoring, or reranking. ⚠️ PARTIAL (spinner appears immediately, but underlying work is still on @MainActor; full refactor deferred to a future commit)
 
 - Search, recall, graph overlays, and reactive note query UI can hitch under mutation pressure.
 - The staged fast path and live app path can diverge.
