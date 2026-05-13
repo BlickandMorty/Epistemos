@@ -453,6 +453,24 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
 
     func onComplete(stopReason: String, inputTokens: UInt32, outputTokens: UInt32) {
         Log.agentStreaming.emitEvent("delegate.complete", "\(stopReason) in=\(inputTokens) out=\(outputTokens)")
+
+        // V6.2 mandate (helios v6.2.md §1.3 + §3 + laptop audit
+        // checklist "Next Required Passes"): every chat-turn completion
+        // emits an AnswerPacket. This is the FIRST WIRING — the audit
+        // ring buffer in AnswerPacketEmitter. Claims / residency signals
+        // / real attention_mode land in subsequent commits as Rust-side
+        // FFI threads them through. See
+        // `Epistemos/Engine/AnswerPacketEmitter.swift` for the full
+        // promotion ladder (emitted → populated → rendered → canonical).
+        let packet = AnswerPacket.turnCompletionStub(
+            stopReason: stopReason,
+            inputTokens: Int(inputTokens),
+            outputTokens: Int(outputTokens)
+        )
+        Task {
+            await AnswerPacketEmitter.shared.emit(packet)
+        }
+
         continuation.yield(
             .complete(
                 stopReason: stopReason,
