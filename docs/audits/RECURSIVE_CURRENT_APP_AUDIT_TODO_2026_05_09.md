@@ -713,7 +713,7 @@ Commit: `c115fb481` 2026-05-10.
 
 ### RCA-P1-014 - Resolve live syntax highlighter drift
 
-Status: TODO
+Status: PATCHED 2026-05-13 — verdict pinned by source-grep drift gate; production editor uses CodeEditSourceEditor; alternative highlighters remain non-production scaffolding
 
 Subsystem: live code editor, LSP, syntax highlighting, feature flags.
 
@@ -733,6 +733,55 @@ Audit steps:
 
 Acceptance:
 - Users never select a highlighter path that silently drops expected language highlighting.
+
+Fix-pass evidence 2026-05-13:
+
+Verdict (already documented in `SyntaxCoreLiveHighlighter.swift` +
+`epistemos_code_verdict.md` §1 + §3): the production live editor
+(`Epistemos/Views/Notes/CodeEditorView.swift`) uses
+`CodeEditSourceEditor`'s built-in tree-sitter highlighter, which
+supports every language `CodeArtifactKind` exports. The two
+alternative implementations (`SyntaxCoreLiveHighlighter` Rust-FFI,
+`SwiftTreeSitterLiveHighlighter` Swift-direct) remain as scaffolding
+for the W9.6 follow-up but are NOT wired into production today.
+`LiveCodeEditorController` is the base controller that binds to a
+`LiveHighlighter`; it also has no production caller — only tests
+instantiate it. Therefore the acceptance criterion ("user never
+selects a path that silently drops") is met today because there is
+no user-facing selector for the partial-language paths.
+
+This commit pins that verdict programmatically with a source-grep
+drift gate so a future commit that wires the alternative paths into
+production without first resolving the per-language gap is caught
+by CI.
+
+- Files added:
+  - `EpistemosTests/LiveHighlighterVerdictGuardTests.swift` — 4-test
+    drift gate. Asserts:
+      1. `LiveCodeEditorController(` does not appear in any of the
+         candidate production editor files (CodeEditorView,
+         ProseEditorView, EpdocEditorChromeView).
+      2. `SyntaxCoreLiveHighlighter.swift` retains its V1.5
+         LIMITATION header + the explicit Rust-only acknowledgement
+         + an RCA-P1-014 cross-reference.
+      3. Runtime check: `SyntaxCoreLiveHighlighter` returns `[]`
+         tokens for Swift/Python/TypeScript source (proof that the
+         drop is real, not just claimed in documentation).
+      4. Walks every `.swift` file under `Epistemos/` (excluding the
+         three highlighter implementation files themselves) and
+         asserts neither alternative-highlighter class is
+         constructor-invoked.
+
+- Lift conditions for the gate:
+  1. Ship per-language `.scm` queries for syntax-core to close the
+     Rust-only token gap, OR
+  2. Wire `SwiftTreeSitterLiveHighlighter` as the canonical path
+     (no per-language gap), OR
+  3. Ship a Settings toggle that surfaces the choice with the
+     Rust-only limitation in the label so the user is choosing
+     with eyes open.
+
+- All 4 verdict-guard tests pass; TEST SUCCEEDED on the macOS scheme.
 
 ### RCA-P1-015 - Move AgentGrepService search and file reads off the main actor
 
