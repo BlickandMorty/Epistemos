@@ -166,10 +166,36 @@ These are HELIOS modules where porting forward would deliver concrete app value,
 
 ### Tier B — useful, larger lift
 
-6. **`mas_capability_lattice.rs` → computer-use capability hardening**
-   - Computer-use MCP uses ad-hoc capability strings ("full", "click", "read")
-   - MAS lattice formalizes capability transitions
-   - Effort: ~3-5 commits to fully wire
+6. **`mas_capability_lattice.rs` → ToolTier capability-coverage cross-reference**
+   - Originally framed as "Computer-use MCP uses ad-hoc capability strings."
+   - **First-pass discovery (2026-05-12):**
+     - The "full / click / read" strings in computer_use.rs are *actions*,
+       not capabilities. The MAS lattice describes a different axis: a
+       12-capability × 3-deployment-tier matrix (MasCore / Pro / Research).
+     - The active app's `ToolTier` (None/ChatLite/ChatPro/Agent/Full) is the
+       chat-mode-aware tool-exposure ladder; the MAS lattice is the
+       deployment-tier-aware capability shipping policy. They are orthogonal
+       axes — renaming `ToolTier` variants to match `Capability` would
+       conflate them.
+     - Audited active-app coverage of the 12 HELIOS capabilities:
+       * 5 shipped in MAS baseline (SelectedVaultRetrieval, TouchIdGating,
+         AppGroupSharedSubstrate, CuratedLocalToolManifests,
+         FirstPartyCloudProviderAdapters).
+       * 3 shipped on Pro only (ShellOrSubprocessOrchestration,
+         AppleEventsAutomation, BrowserAutomation).
+       * 4 not implemented yet (SandboxedXpcHelper = state:candidate;
+         ArbitraryDownloadedSkills + RawAneOrPrivateFrameworks +
+         UnrestrictedWasmOrJit = intentionally not in MAS).
+   - **Step 1 LANDED (2026-05-12):** doctrine cross-reference block on
+     `agent_core::tools::registry::ToolTier` with the full 12-row coverage
+     table mapping each HELIOS Capability to its active-app analog +
+     shipping status. Drift gate
+     `active_app_capability_coverage_table_locked` in
+     `mas_capability_lattice.rs::tests` locks the 12 canonical capability
+     names (rename → test break) + the MAS-baseline-vs-Pro-only posture
+     invariants from the cross-reference table.
+   - Effort remaining: zero unless HELIOS adds capabilities OR the active
+     app's MAS/Pro shipping posture for any of the 12 changes.
 
 7. **`learning_modes.rs` → chat metadata standardization**
    - Chat metadata has string-based mode fields
