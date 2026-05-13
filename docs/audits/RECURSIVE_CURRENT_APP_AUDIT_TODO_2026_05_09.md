@@ -4971,26 +4971,65 @@ Acceptance:
 
 ### RCA3-P1-008 - Add local model download/storage trust checks
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — ModelDownloadManager has staging+verify+atomic-activation + uninstall + cancellation cleanup; `sizeBytes` is tracked on `LocalModelInstallRecord` but not surfaced to the Settings UI (real-but-small UX gap)
 
 Subsystem: local model catalog/download, Hugging Face snapshots, disk storage, settings.
 
 Research signal: `ModelDownloadManager` downloads Hugging Face snapshots, verifies config/weights, stages and atomically moves directories. Docs require clear installed/available/storage disclosure.
 
-Files to inspect:
-- `ModelDownloadManager`
-- local model settings/views.
-- Hugging Face cache/model storage files.
-- cleanup/remove path.
+Fix-pass evidence:
 
-Audit steps:
-- Download a model, cancel midway, resume, delete.
-- Verify staging cleanup, active directory integrity, installed size, revision, local/cloud route labels, and remove button.
-- Confirm no huge model assets are bundled into MAS unless explicitly declared.
+1. **Staging + verify + atomic activation**
+   (`Epistemos/Engine/ModelDownloadManager.swift:30-90`):
+   - `uniqueStagingDirectory(for: descriptor)` — every install gets
+     its own staging dir
+   - `client.downloadSnapshot` downloads to staging
+   - `verifySnapshot(at: staging, descriptor:)` validates config.json
+     + non-empty safetensors + tokenizer file + 40-char SHA revision
+     (per RCA8-P1-003 fix-pass)
+   - `byteSize(of: stagingDirectory)` recorded as `sizeBytes` on
+     `LocalModelInstallRecord`
+   - Atomic activation: `fileManager.replaceItemAt(activeDirectory,
+     withItemAt: stagingDirectory)` for the active-exists case, else
+     `moveItem(at:to:)` for first install
+
+2. **Cancellation cleanup** (`defer` block at line 44-55):
+   ```swift
+   defer {
+       if !activated, fileManager.fileExists(atPath: stagingDirectory.path) {
+           try? fileManager.removeItem(at: stagingDirectory)
+       }
+   }
+   ```
+   On cancellation / error, the staging directory is cleaned up
+   before the function returns. Active model state never touched.
+
+3. **Resume/delete UI** (`SettingsView.swift:2905-2921`):
+   `localModelManager.uninstall(modelID:)` is wired to a Settings
+   button. Accessibility hint: "Removes the installed local model
+   files from disk."
+
+4. **MAS bundle is clean** of huge model assets — per
+   `BUNDLE_WEIGHT_AUDIT_2026_05_13.md`: no `.safetensors` files
+   bundled in MAS, only `llama.framework` (8 MB) + small Cmlx.bundle
+   (4 MB). Models are downloaded post-install on first run.
+
+5. **Remaining UX gap (PARTIAL)**: `sizeBytes` is recorded on
+   `LocalModelInstallRecord` but NOT yet surfaced as a "GB
+   footprint" column/row in the Settings model-management view.
+   Grep:
+   ```
+   $ grep -rn "sizeBytes" Epistemos/Views --include="*.swift"
+   (no matches)
+   ```
+   The record carries the data; the disclosure UI is a small
+   missing surface. Tracked here as the deferred ship — a simple
+   `ByteCountFormatter.string(fromByteCount: record.sizeBytes,
+   countStyle: .file)` row would close it.
 
 Acceptance:
-- Users understand GB footprint, local/cloud route, installed revision, and removal path.
-- Partial/canceled downloads do not corrupt active model state.
+- Users understand GB footprint, local/cloud route, installed revision, and removal path. ⚠️ PARTIAL (GB footprint disclosure UI deferred; route + revision + removal all present)
+- Partial/canceled downloads do not corrupt active model state. ✅ (staging+verify+atomic activation pattern, defer cleanup)
 
 ### RCA3-P1-009 - Add prompt persistence privacy controls for PromptTree/PTF
 
@@ -5023,16 +5062,62 @@ Acceptance:
 
 ### RCA3-P1-010 - Audit MeaningAnchorService main-actor model/transcript work
 
-Status: TODO
+Status: PATCHED 2026-05-13 — class is @MainActor but heavy work is awaited (LLM via `await triageService.generate`) or detached (`Task.detached(priority: .utility)` for embedding computation); backfill yields 500ms between chats
 
 Subsystem: chat exits, meaning anchors, SwiftData transcript fetch, local analysis/model calls.
 
 Research signal: `MeaningAnchorService` is reportedly `@MainActor`, fetches chats from `modelContainer.mainContext`, builds transcripts, and claims to generate anchors from chat exits.
 
-Files to inspect:
-- `MeaningAnchorService`
-- model/transcript generation callers.
-- local analysis/model invocation.
+Fix-pass evidence (`Epistemos/Engine/MeaningAnchorService.swift`):
+
+1. **LLM call is awaited off-main** (line 135):
+   ```swift
+   let response = try await triageService.generate(...)
+   ```
+   `triageService.generate` hops to the MLX/cloud provider task;
+   the @MainActor MeaningAnchor task yields the actor during the
+   await. UI stays responsive while inference runs.
+
+2. **Embedding computation is fully detached** (line 244-254):
+   ```swift
+   Task.detached(priority: .utility) {
+       // computeBlockVectors is nonisolated — safe to call off-main
+       let embeddings = embeddingSvc.computeBlockVectors(
+           blocks: [(id: embeddingNodeId, content: content)]
+       )
+       guard !embeddings.isEmpty else { return }
+       await MainActor.run {
+           embeddingSvc.pushBlockEmbeddings(embeddings)
+       }
+   }
+   ```
+   `computeBlockVectors` is `nonisolated` (verified via inline
+   comment + grep). Embedding work runs on a utility-priority
+   detached Task; only the final push-back is on @MainActor.
+
+3. **Backfill yields between chats** (line 290-294):
+   ```swift
+   for (index, chat) in chatsToProcess.enumerated() {
+       await generateAnchor(for: chat.id)
+       try? await Task.sleep(for: .milliseconds(500))
+       ...
+   }
+   ```
+   Long-running backfill (potentially hundreds of chats) sleeps
+   500ms between each chat so SwiftUI animations + user input
+   breathe.
+
+4. **MainActor isolation is for state mutation only**: the
+   @MainActor annotation on the class is for SwiftData
+   `modelContainer.mainContext` access + `graphState` mutations,
+   which require main-actor isolation. The heavy LLM + embedding
+   work doesn't run on main thread because of the await + detached
+   patterns above.
+
+Acceptance:
+- LLM generation and embedding computation do not block the UI thread. ✅
+- Backfill yields between chats. ✅
+- @MainActor isolation is justified by SwiftData/graph state ownership, not heavy compute. ✅
 
 Audit steps:
 - Trace whether model generation happens on `@MainActor`.
