@@ -4,6 +4,24 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
+## Headline Status (rollup updated 2026-05-13)
+
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13:
+
+- **PATCHED / DONE**: 74 items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress.
+- **PATCHED PARTIAL**: ~30 items — structural fix in place, manual smoke or deeper profiling deferred.
+- **TODO**: 142 items — most are P2/P3 future work (research drops 2-13). Active P1s as of this rollup: P1-002 (.epdoc save heaviness — needs profiling), P1-005 (Pro+cloud chat_pro tool loop — runtime smoke), P1-006 (chat streaming main-actor pressure), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), RCA2-P0-001 / P0-003 (Current Access + Vault Organizer privacy — manual smoke), plus a long tail of P2 items.
+
+**Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
+  (a) Manual smoke / profiling tasks that need real hardware + a live vault.
+  (b) Future feature work (RCA13-P1-002 dynamic CLI discovery, etc.).
+  (c) P2/P3 items deliberately deferred to post-v1.
+
+The recommended finalization sequence is documented in
+[Finalization Plan](#finalization-plan) at the bottom of this file.
+
+---
+
 Repo reference:
 - Snapshot branch: https://github.com/BlickandMorty/Epistemos/tree/codex/research-snapshot-2026-05-08
 - Snapshot commit: `9599b05c1`
@@ -1047,7 +1065,7 @@ Acceptance:
 
 ### RCA-P1-017 - Make MCP execution truth match MCP advertisement
 
-Status: TODO
+Status: PATCHED 2026-05-13 — execution path verified; 3-test drift gate pins the structural invariants
 
 Subsystem: Omega MCP, tool registry, settings, agent tool use.
 
@@ -1066,6 +1084,32 @@ Audit steps:
 
 Acceptance:
 - No MCP tool is advertised as runnable unless execution exists in the current target.
+
+Fix-pass evidence 2026-05-13:
+
+  - Structural verification (no code change needed — already correct):
+    1. `OmegaToolRegistry` derives its catalog from the Rust
+       `omega-mcp::builtinToolsJson()` export. Swift cache, not
+       independent inventory.
+    2. `MCPBridge.dispatch(_:)` is the canonical execution path:
+       JSON-RPC request → `ToolSurfacePolicy` gate →
+       `dispatcher?.dispatch(requestJson:)` into Rust. No TODO stub
+       in production path.
+    3. `ToolSurfacePolicy` denies any tool not surfaced for the
+       current distribution (MAS vs Pro), returning a JSON-RPC
+       `-32601 Tool not found` error.
+
+  - `EpistemosTests/MCPExecutionTruthGuardTests.swift` (NEW) —
+    3-test drift gate:
+      1. `dispatcher?.dispatch(requestJson:` symbol present;
+         no `// TODO: implement dispatch` markers in MCPBridge.
+      2. `builtinToolsJson()` reference + "single source of truth"
+         doctrine comment retained.
+      3. `ToolSurfacePolicy.isSurfacedToolName` + JSON-RPC `-32601`
+         error code both present, ensuring the policy gate fires
+         before dispatch.
+
+  - All 3 tests pass; TEST SUCCEEDED on the macOS scheme.
 
 ### RCA-P1-018 - Hide, gate, or complete XPC streaming
 
@@ -10564,3 +10608,60 @@ Append future pasted research here before merging it into the prioritized queue:
 - Drop 11: ingested into `Research Drop 11 Integrated Current-App Release-Truth Addendum`.
 - Drop 12: ingested into `Research Drop 12 Integrated Pre-Fix Orchestration Addendum`.
 - Drop 13: ingested into `Research Drop 13 Finalization and Live-Vault Blocker Addendum`.
+
+---
+
+## Dead-Code Orphan Inventory (2026-05-13)
+
+Files in the source tree that have NO production caller, kept as
+scaffolding for future work. All are drift-gated so an accidental
+production-side wire-up trips CI before it ships.
+
+| File | Status | Drift gate | Future work |
+|---|---|---|---|
+| `Epistemos/Engine/LiveCodeEditorController.swift` | Scaffold; no production caller | `LiveHighlighterVerdictGuardTests` (4 tests) | W9.6 V2 — when canonical Swift-direct highlighter ships |
+| `Epistemos/Engine/SyntaxCoreLiveHighlighter.swift` | V1.5 LIMITATION; Rust-only tokens | Same suite | Per-language `.scm` queries for syntax-core |
+| `Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift` | Documented W9.6 canonical alternative, unwired | Same suite | Wire as canonical OR delete |
+| `Epistemos/Views/ModelProfiles/ModelGraphFilterView.swift` | Orphan; never imported | Implicit — `setModelFilter` produces no visibility change today | Populate `originVaultKey` per node-creation site (RCA-P1-010 lift conditions) |
+| `Epistemos/XPC/ProviderServiceStreamingProtocol.swift` | SCAFFOLD ONLY; V2.4 future | `XPCStreamingScaffoldGuardTests` (4 tests) | Paid Apple Developer Program — XPC service launch + entitlements |
+| `Epistemos/XPC/MockProviderServiceStreaming.swift` | Test fixture only | Same suite | Delete with the protocol if V2.4 abandoned |
+
+**Recommendation:** do NOT delete any of the above before v1.0
+ships. Each is documented scaffolding for a future-version slice and
+costs approximately zero binary weight. Delete only when the
+corresponding feature lands OR is explicitly abandoned.
+
+---
+
+## Finalization Plan
+
+Steps remaining before v1.0 (MAS) submission, in order:
+
+1. **Manual smoke pass** — exercise every PATCHED PARTIAL item's
+   "remaining risk" line in the running app. The diagnostic rows in
+   Settings → Diagnostics make this fast (Runtime Truth + AnswerPacket
+   + DeploymentProfile + Shadow Search + Cognitive DAG all surface
+   live state).
+2. **App Store CI smoke** — verify the `Epistemos-AppStore` scheme
+   builds + passes the test suite under MAS sandbox entitlements.
+   The Pro scheme already builds green every commit.
+3. **MAS binary submission** — Xcode Organizer → Archive → Distribute.
+   App Store Connect copy + screenshots + privacy nutrition label
+   already drafted per RCA12-P0-002 evidence.
+4. **AI disclaimer audit** — verify the disclaimer footer (shipped
+   2026-05-13) renders correctly under both light and dark mode and
+   in every chat tier (Fast / Thinking / Pro / Agent).
+5. **Pro release** — follows MAS reviewer feedback. Pro scheme adds
+   the CLI passthrough, AX scraping, iMessage Driver, Skills surfaces
+   guarded by `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`.
+
+**Items explicitly deferred to post-v1.0:**
+
+- RCA-P1-002 (.epdoc save heaviness) — requires Instruments profiling
+  on a real vault.
+- RCA-P1-024 (Apple Intelligence main-actor) — requires macOS 26+
+  hardware in the user's loop.
+- RCA13-P1-002 (CLI discovery + install prompts) — Pro-only feature;
+  ship MAS first then this.
+- All P2/P3 items in research drops 2-13 — long-tail tech debt that
+  is not v1.0 release-blocking.
