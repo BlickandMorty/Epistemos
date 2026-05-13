@@ -182,12 +182,30 @@ struct BreadcrumbBuilder {
         return breadcrumbs
     }
     
+    /// Find the symbol path that contains the cursor's current line.
+    ///
+    /// **Limitation (RCA2-P1-013 PARTIAL):** `OutlineItem` carries only
+    /// `lineNumber` (the symbol's start line), no end line. So this
+    /// function approximates "containment" as `item.lineNumber <=
+    /// currentLine` — which catches every symbol that *starts* before
+    /// the cursor, even ones the cursor has scrolled past. For
+    /// short files + typical scrolling this is usually correct (the
+    /// cursor is inside the deepest symbol it started after), but for
+    /// cursors that have moved past a symbol's body the breadcrumb
+    /// will keep showing it until a deeper symbol matches.
+    ///
+    /// Proper fix: add `endLine` to `OutlineItem` + compute it in every
+    /// parser (Swift/Rust/JS/etc.) + change the containment check to
+    /// `item.lineNumber <= currentLine && currentLine <= item.endLine`.
+    /// Deferred until the parsers can supply endLine reliably; the
+    /// imprecision is documented + the `prefix(2)` clamp keeps the
+    /// visible breadcrumb to at most 2 deep so the impact is bounded.
     private static func findContainingItems(
         _ items: [OutlineItem],
         currentLine: Int
     ) -> [OutlineItem] {
         var result: [OutlineItem] = []
-        
+
         for item in items {
             if item.lineNumber <= currentLine {
                 // Check if this is the most specific item
@@ -204,7 +222,7 @@ struct BreadcrumbBuilder {
                 }
             }
         }
-        
+
         // Return only the most specific item (last in hierarchy)
         return Array(result.prefix(2))
     }
