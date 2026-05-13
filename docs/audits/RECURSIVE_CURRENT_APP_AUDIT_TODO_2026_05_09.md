@@ -723,7 +723,7 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA-P1-011 - Move graph scan orchestration and N+1 block fetches off hot UI paths
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — block fetch N+1 collapsed to a single batched query; full MainActor offload deferred
 
 Subsystem: graph scan, entity extraction, SwiftData, page body reads.
 
@@ -742,6 +742,21 @@ Audit steps:
 
 Acceptance:
 - Large scan is cancellable, progress-visible, and does not block UI input.
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/Graph/EntityExtractor.swift::prefetchBlocks` —
+    previous implementation fired one `FetchDescriptor` per page ID
+    inside a loop, which for a 200-page scan meant 200 SwiftData
+    round-trips on the MainActor.
+  - Now uses a single batched fetch with
+    `#Predicate { pageIdSet.contains($0.pageId) }`, then groups
+    the result via `Dictionary(grouping:by:\.pageId)`. Same
+    correctness, one round-trip instead of N.
+  - Pending follow-on: full MainActor offload of EntityExtractor
+    requires audit of every method and shared-state access. The
+    structural-rebuild + page-hashing path remain MainActor-bound
+    for now; this commit ships the lowest-hanging perf win.
 
 ### RCA-P1-012 - Offload fallback semantic clustering
 
@@ -2122,7 +2137,7 @@ Acceptance:
 
 ### RCA2-P0-002 - Constrain CodeFileService to the vault root
 
-Status: TODO
+Status: PATCHED 2026-05-13 — containment structurally in place since W7; 5-test drift gate pins the invariant
 
 Subsystem: code editor, code-file CRUD, agent filesystem tools, sidecar provenance.
 
@@ -2145,7 +2160,33 @@ Acceptance:
 - All code-file read/write/create/delete paths require canonical containment under the active vault or explicitly approved external workspace root.
 - Escapes fail closed with visible error, no sidecar write, and no partial filesystem mutation.
 
-### RCA2-P0-003 - Privacy-audit Vault Organizer scan prompts before treating it as safe
+Fix-pass evidence 2026-05-13:
+
+  - Structural defenses confirmed in place since the W7 hardening
+    pass:
+    - `CodeFileService.containedSourceURL(_:)` resolves symlinks +
+      standardizes the URL, then calls `vaultRelativePath(for:root:)`.
+    - `vaultRelativePath` throws `ServiceError.pathEscapesVault`
+      if the file path doesn't have the canonical root path as
+      prefix. The `hasPrefix(rootPath + "/")` check normalizes
+      trailing slashes.
+  - `EpistemosTests/CodeFileServiceContainmentTests.swift` (NEW) —
+    5-test drift gate exercising every escape vector:
+      1. Absolute path outside the vault root: `read` throws
+         `pathEscapesVault`.
+      2. `..` traversal that resolves outside the vault: same.
+      3. Update with an absolute escape path: throws + the target
+         file's bytes remain unchanged (defense check that the
+         containment fires BEFORE any filesystem mutation).
+      4. Symlink chain in the vault pointing to an outside file:
+         `resolvingSymlinksInPath` resolves before the prefix check
+         fires, so the escape is denied.
+      5. Source-grep pin: asserts
+         `private func containedSourceURL`,
+         `pathEscapesVault`, and `resolvingSymlinksInPath`
+         all remain in `CodeFileService.swift` so a future rename
+         or removal surfaces in code review.
+  - All 5 tests pass; TEST SUCCEEDED on the macOS scheme.
 
 Status: TODO
 
