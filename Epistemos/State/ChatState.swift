@@ -704,7 +704,8 @@ final class ChatState {
     func completeProcessing(
         messageId: String = UUID().uuidString,
         mode: InferenceMode,
-        resolvedModelLabel: String? = nil
+        resolvedModelLabel: String? = nil,
+        answerPacketId: String? = nil
     ) {
         guard let chatId = activeChatId else { return }
 
@@ -821,7 +822,13 @@ final class ChatState {
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: thinkingTraceForMessage,
             thinkingDurationSeconds: thinkingDuration,
-            cacheHitPercent: lastTurnCacheHitPercent
+            cacheHitPercent: lastTurnCacheHitPercent,
+            // V6.2 Option B: stamp the audit-channel packet id so the
+            // MessageBubble VRMLabelView render can look up the
+            // packet via `AnswerPacketEmitter.shared.recentPackets()`.
+            // Nil for paths that bypass the audit emit (e.g. local-
+            // only chat without runAgentSession).
+            answerPacketId: answerPacketId
         )
         lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
