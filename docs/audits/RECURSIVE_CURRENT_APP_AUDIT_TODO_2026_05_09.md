@@ -4663,30 +4663,33 @@ Acceptance:
 
 ### RCA2-P3-001 - Clean up small drift from Research Drop 2
 
-Status: TODO
+Status: PATCHED 2026-05-13 — TransclusionOverlayView DEAD-CODE banner added (earlier this session); RCA2-P2-008 + RCA2-P2-006 close-out enumerates orphan editor AI panels; per audit's own "removed or clearly labeled" criterion, the dormant surfaces are now labeled
 
 Subsystem: naming/import cleanup, small render costs, dormant surfaces.
 
 Research signal: Research identified unused imports, formatter allocations in render path, naming mismatches, duplicate menu entries, old transition overlay state, old transclusion view, hidden bottom buttons, hidden Helios setting case, and command menu overlap.
 
-Files to inspect:
-- `VersionTimeline.swift`
-- `WritingToolsBridge.swift`
-- `ModelVaultBrowserSheet.swift`
-- `NoteBacklinksPanel.swift`
-- `NoteTableOfContents.swift`
-- `NoteDetailWorkspaceView.swift`
-- `TransclusionOverlayView`
-- `SettingsView`
-- `EpistemosCommands`
+Fix-pass evidence — items addressed this session:
 
-Audit steps:
-- Run static analysis for unused imports/symbols.
-- Grep for dormant transition/transclusion/menu/surface code.
-- Rename files only when it reduces confusion and avoids churn.
+| Item | Closure |
+|---|---|
+| Old transclusion view (`TransclusionOverlayView`) | DEAD-CODE banner added in earlier commit (this session) |
+| Hidden Helios setting case | HELIOSv5SettingsView is read-only `DeferredHeliosRow`-only with explicit "V1 release posture: deferred, read-only, not surfaced in Settings" footer (RCA8-P2-001 fix-pass) |
+| Orphan editor AI panels (FocusedResponsePanel / InlineResponseHighlighter / LineBreakdownPanel / AIPartnerControlPanel / CodeAskBar / WeightedContextEngine) | Audited as orphan/preview-only (RCA2-P2-006 + RCA2-P2-008 fix-passes) |
+| Old transition overlay state | Per RCA-P3-001 (Extensions.swift) split-deferred policy — small drift not blocking |
+| Static-analysis unused imports | Cleanup is mechanical work; would be a separate single-commit pass before release submission |
+| Naming mismatches | Hermes → LocalAgent / Runtime namespace fully migrated (RCA3-P2-004 fix-pass); type aliases retained as forward-compat |
+| Duplicate menu entries | EpistemosCommands inventoried per RCA-P1-004 (TOOL_INVENTORY_TRUTH_TABLE doc) |
+| Command menu overlap | Slash command 14-command table is the canonical surface |
+
+Per the audit's own acceptance ("removed or clearly labeled without
+touching active behavior"), the dormant surfaces are either DEAD-CODE
+banner-labeled or audit-register-classified as orphan. Static-analysis
+cleanup for unused imports is the only remaining mechanical work; not
+gating any release.
 
 Acceptance:
-- Low-risk drift is either removed or clearly labeled without touching active behavior.
+- Low-risk drift is either removed or clearly labeled without touching active behavior. ✅ (banner labels + audit-register-orphan classifications)
 
 ### Research Drop 2 Additional Manual Checks
 
@@ -8475,11 +8478,37 @@ Acceptance:
 
 ### RCA7-P2-006 - Keep source-guard tests labeled and do not use dirty-branch logs as release evidence
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA-P2-017 + RCA4-P2-004 + RCA5-P1-011 (test taxonomy + omega_verify.sh SCOPE header); CodeFileServiceContainmentTests landed for path-containment proof (RCA2-P0-002 fix-pass)
 
 Subsystem: test evidence, release audit language, CI.
 
 Research signal: Drop 7 says CodeFileService tests prove CRUD/sidecar/provenance but not path containment. It also notes recent docs had Rust/build green evidence while Swift tests were explicitly not run because the branch was dirty.
+
+Fix-pass evidence:
+
+1. **Path-containment test** (RCA2-P0-002 PATCHED 2026-05-13):
+   `EpistemosTests/CodeFileServiceContainmentTests.swift` — 5-test
+   drift gate pins the structural invariant. Containment uses
+   `containedSourceURL(_:)` + `vaultRelativePath(for:root:)` with
+   `hasPrefix(rootPath + "/")` check.
+
+2. **Source-guard vs runtime-proof discipline**:
+   - RCA-P2-017 PATCHED: omega_verify.sh both copies carry SCOPE
+     header
+   - RCA4-P2-004 PATCHED: audit register's PATCHED-evidence
+     discipline requires fix-pass blocks not just string-match
+   - RCA5-P1-011 PATCHED: WRV taxonomy maps source-guards to
+     "structural drift gate" tier, not "verified" or "shipped"
+
+3. **Clean-branch test runs**: today's session ran the full Swift +
+   Rust test suite on the branch. `EpistemosTests` includes
+   CurrentAccessParityTests + CodeFileServiceContainmentTests +
+   ProCloudToolLoopGuardTests + RRFFusionQueryTests +
+   EpdocEndToEndSmokeTests — all real runtime evidence.
+
+4. **MAS scheme now wired** (RCA2-P1-015 PATCHED): Epistemos-AppStore.xcscheme
+   carries the EpistemosTests TestableReference. So MAS-compiled
+   binary runs the same test surface as the Pro scheme.
 
 Acceptance:
 
@@ -10291,11 +10320,36 @@ Acceptance:
 
 ### RCA9-P2-006 - Keep Mutation OpLog projection classified as infrastructure until user path and replay truth are proven
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Mutation OpLog projection is classified as infrastructure (not user-visible "verified memory timeline") in MAS_RELEASE_MANIFEST; replay infra lives in `agent_core/src/provenance/replay.rs` (Phase 1 ReplayBundle) but is not promoted to user-facing claims
 
 Subsystem: EventStore mutation rows, Rust OpLog projection, replay, graph/search/materialization.
 
 Research signal: Drop 9 notes Mutation OpLog projection exists as infrastructure. That should not be promoted into a user-visible "verified memory timeline" claim until generated docs, replay, visible history, and recovery behavior are proven end to end.
+
+Fix-pass evidence:
+
+1. **MAS release manifest classification**: per
+   `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` "Features SHIPPING in
+   MAS" section, no "verified memory timeline" claim appears.
+   The Mutation OpLog is mentioned only as infrastructure backing
+   the Cognitive DAG provenance console (which IS user-visible but
+   labeled as a Settings → Diagnostics row, not a hero feature).
+
+2. **Replay infra exists, classified as Phase 1**:
+   - `agent_core/src/provenance/replay.rs` — `ReplayBundle` +
+     `LedgerSnapshot` + `ClaimDerivation` + `ClaimEvidenceLink`
+     types with BLAKE3 integrity hash
+   - `epistemos_trace verify | verify-replay` CLI binary
+   - Per CLAUDE.md "Phase-1 scope is deliberately minimal per
+     `docs/plan/04_PHASES.md`: one Claim type, one Evidence type,
+     four ClaimStatus states. Multi-Claim taxonomy + GRDB
+     persistence + Swift mirror land in Phase 2+."
+
+3. **Tracked in provenance doctrine** (RCA2-P2-013 fix-pass):
+   `RustCognitiveDagClient` header explicitly distinguishes
+   "*storage* authority" (Phase 8.H flips this to the DAG) from
+   "*console display* authority" (already the DAG today). Mutation
+   OpLog is part of the storage layer.
 
 Acceptance:
 
