@@ -38,6 +38,10 @@ struct GraphForceSettings: View {
     @State private var renameTargetId: UUID? = nil
     @State private var renameDraft = ""
     @State private var selectedSection: GraphForceSettingsSection = .presets
+    /// "Reset to Defaults" confirmation gate. Set true to surface the
+    /// confirmation dialog before clobbering the user's custom force
+    /// settings.
+    @State private var showResetConfirmation = false
 
     private var isStatic: Bool { graphState.isStaticLayout }
 
@@ -117,6 +121,8 @@ struct GraphForceSettings: View {
             Divider().opacity(0.3)
             presetSection
             customPresetsSection
+            Divider().opacity(0.3)
+            resetButton
         }
     }
 
@@ -127,6 +133,8 @@ struct GraphForceSettings: View {
             advancedSection(gs: gs)
             Divider().opacity(0.3)
             clusterSection(gs: gs)
+            Divider().opacity(0.3)
+            resetButton
         }
     }
 
@@ -653,8 +661,16 @@ struct GraphForceSettings: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(graphState.timelineSteps.indices, id: \.self) { idx in
-                    timelineStepRow(index: idx)
+                // Iterate by stable `\.id` (PhysicsScheduleStep.id: UUID)
+                // rather than `\.indices, id: \.self`. The latter crashes
+                // on delete: SwiftUI re-evaluates the row body for the
+                // pre-removal index before the diff fires, and
+                // `timelineSteps[staleIndex]` reads past the shrunk
+                // array. Identity-keyed iteration removes that hazard
+                // because the deleted row disappears from the layout
+                // cycle atomically with the array shrink.
+                ForEach(graphState.timelineSteps) { step in
+                    timelineStepRow(stepID: step.id)
                 }
             }
             Button {
@@ -674,43 +690,58 @@ struct GraphForceSettings: View {
         }
     }
 
-    private func timelineStepRow(index: Int) -> some View {
-        let step = graphState.timelineSteps[index]
-        return HStack(spacing: 6) {
-            Text("#\(index + 1)")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 22, alignment: .leading)
-            Text("+\(String(format: "%.1f", step.delaySeconds))s")
-                .font(.system(size: 10).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 48, alignment: .leading)
-            Text(displayNameForPresetKey(step.presetKey))
-                .font(.system(size: 11, weight: .medium))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer()
-            Button {
-                graphState.timelineSteps.remove(at: index)
-                graphState.pushSchedulerChange()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 12))
+    @ViewBuilder
+    private func timelineStepRow(stepID: UUID) -> some View {
+        // Resolve the live index on every evaluation; bail out cleanly if
+        // the step was removed during the same render pass. This is
+        // belt-and-suspenders alongside the identity-keyed ForEach above:
+        // even if a context-menu callback fires after the step has been
+        // removed by another path, we never crash.
+        if let index = graphState.timelineSteps.firstIndex(where: { $0.id == stepID }) {
+            let step = graphState.timelineSteps[index]
+            HStack(spacing: 6) {
+                Text("#\(index + 1)")
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .frame(width: 22, alignment: .leading)
+                Text("+\(String(format: "%.1f", step.delaySeconds))s")
+                    .font(.system(size: 10).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 48, alignment: .leading)
+                Text(displayNameForPresetKey(step.presetKey))
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+                Button {
+                    // Re-resolve at click time. Without the recheck, a
+                    // double-click race could try to remove an already-
+                    // removed row.
+                    if let idx = graphState.timelineSteps.firstIndex(where: { $0.id == stepID }) {
+                        graphState.timelineSteps.remove(at: idx)
+                        graphState.pushSchedulerChange()
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Color.primary.opacity(0.04),
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-        )
-        .contextMenu {
-            ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
-                Button(preset.rawValue) {
-                    graphState.timelineSteps[index].presetKey = String(describing: preset)
-                    graphState.pushSchedulerChange()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Color.primary.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .contextMenu {
+                ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
+                    Button(preset.rawValue) {
+                        if let idx = graphState.timelineSteps.firstIndex(where: { $0.id == stepID }) {
+                            graphState.timelineSteps[idx].presetKey = String(describing: preset)
+                            graphState.pushSchedulerChange()
+                        }
+                    }
                 }
             }
         }
@@ -983,15 +1014,38 @@ struct GraphForceSettings: View {
 
     // MARK: - Reset
 
+    /// "Reset to Defaults" — the canonical recovery path. Calls
+    /// `GraphState.resetPhysicsToCanonicalDefaults()` which restores
+    /// the V3 boot defaults (Gravity Well preset + center force off +
+    /// linkDistance 500 + fluid off) and clears every user-overlay
+    /// (cursor force, shape bound, lab tunables, timeline). Per user
+    /// 2026-05-12: there was no "go back to defaults" path before
+    /// this; once any value was edited the user was stuck with
+    /// their custom state forever.
     private var resetButton: some View {
         HStack {
             Spacer()
-            Button("Reset to Deep Sea") {
-                graphState.startOverlayPhysicsCycle()
+            Button {
+                showResetConfirmation = true
+            } label: {
+                Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                    .font(.system(size: 11, weight: .medium))
             }
-            .font(.system(size: 11))
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Restore the Gravity Well boot defaults (center force off, linkDistance 500, fluid off). Clears cursor force, shape bound, lab tunables, and the timeline.")
+            .confirmationDialog(
+                "Reset all physics to defaults?",
+                isPresented: $showResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset", role: .destructive) {
+                    graphState.resetPhysicsToCanonicalDefaults()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This restores the Gravity Well boot defaults and clears every customization: cursor force, shape bound, lab tunables, scheduler timeline, frozen state, and camera knobs. Custom presets and node-type filters are preserved.")
+            }
         }
     }
 
