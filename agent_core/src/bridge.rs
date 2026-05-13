@@ -3189,6 +3189,73 @@ pub fn cognitive_dag_stats_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+/// V6.2 AnswerPacket production caller (2026-05-12). Build a fully-
+/// populated Rust AnswerPacket from a turn-completion's runtime inputs
+/// and return the JSON-serialized form. See
+/// `crate::scope_rex::produce::produce_turn_completion_packet` for
+/// the production-caller body + claim emission rules.
+///
+/// String inputs use the canonical wire form:
+///   - `attention_mode_wire`: `"dynamic"` | `"static_fallback"` |
+///     `"unavailable"` (anything else → `Unavailable`)
+///   - `vrm_label_wire`: `"verified"` | `"plausible_but_unverified"` |
+///     `"speculative"` | `"blocked"` (anything else →
+///     `PlausibleButUnverified`)
+///
+/// `packet_id`, `witnessed_state_id`, `mutation_envelope_id` may be
+/// empty — the producer substitutes `"unset-turn"` / `"ws-turn"` /
+/// `"me-turn"` sentinels respectively.
+///
+/// Returns the canonical AnswerPacket JSON (Codable-decodable on the
+/// Swift side). On Rust panic during construction, returns the FFI
+/// AgentError path.
+#[uniffi::export]
+pub fn produce_answer_packet_json(
+    packet_id: String,
+    stop_reason: String,
+    output_tokens: u32,
+    attention_mode_wire: String,
+    vrm_label_wire: String,
+    witnessed_state_id: String,
+    mutation_envelope_id: String,
+    created_at_ms: i64,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::scope_rex::answer_packet::{AttentionMode, VrmLabel};
+        use crate::scope_rex::produce::{
+            produce_turn_completion_packet, TurnCompletionInputs,
+        };
+
+        let attention_mode = match attention_mode_wire.as_str() {
+            "dynamic" => AttentionMode::Dynamic,
+            "static_fallback" => AttentionMode::StaticFallback,
+            _ => AttentionMode::Unavailable,
+        };
+        let vrm_label = match vrm_label_wire.as_str() {
+            "verified" => VrmLabel::Verified,
+            "plausible_but_unverified" => VrmLabel::PlausibleButUnverified,
+            "speculative" => VrmLabel::Speculative,
+            "blocked" => VrmLabel::Blocked,
+            _ => VrmLabel::PlausibleButUnverified,
+        };
+
+        let inputs = TurnCompletionInputs {
+            packet_id,
+            stop_reason,
+            output_tokens,
+            attention_mode,
+            vrm_label,
+            witnessed_state_id,
+            mutation_envelope_id,
+            created_at_ms,
+        };
+        let pkt = produce_turn_completion_packet(inputs);
+        serde_json::to_string(&pkt).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("AnswerPacket serialization failed: {err}"),
+        })
+    })
+}
+
 /// Returns a JSON summary of the global routing accumulator. Shape:
 ///
 /// ```json
