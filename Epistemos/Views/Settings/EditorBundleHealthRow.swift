@@ -437,10 +437,42 @@ public struct BackgroundIndexingHealthRow: View {
             case .paused:
                 return appendEtlDetail(to: error.map { "Paused - \($0)" } ?? "Paused")
             case .complete:
-                return appendEtlDetail(to: shadowPath.map { "Complete — \($0)" } ?? "Complete")
+                // RCA-P2-014 closure 2026-05-13: surface the index
+                // freshness + the standing watcher caveat so users
+                // know external edits since launch aren't auto-
+                // indexed yet. FSEvents wiring is deferred (W8.7.b);
+                // until it ships, the Shadow recall is only
+                // launch-fresh.
+                let basePath = shadowPath ?? ""
+                let stamp = relativeStamp(from: updatedAt)
+                let freshness: String
+                switch (basePath.isEmpty, stamp.isEmpty) {
+                case (true, true):
+                    freshness = "Complete — external edits since launch are not auto-indexed"
+                case (true, false):
+                    freshness = "Complete \(stamp) — external edits since launch are not auto-indexed"
+                case (false, true):
+                    freshness = "Complete — \(basePath) — external edits since launch are not auto-indexed"
+                case (false, false):
+                    freshness = "Complete \(stamp) — \(basePath) — external edits since launch are not auto-indexed"
+                }
+                return appendEtlDetail(to: freshness)
             case .failed:
                 return error.map { "Failed — \($0)" } ?? "Failed"
             }
+        }
+
+        /// Relative time label for the snapshot timestamp ("12s ago",
+        /// "3m ago", "2h ago"). Empty string when the timestamp is
+        /// missing — used for freshness rendering in the `.complete`
+        /// detail string (RCA-P2-014 closure).
+        private func relativeStamp(from date: Date?) -> String {
+            guard let date else { return "" }
+            let interval = Date().timeIntervalSince(date)
+            if interval < 1 { return "just now" }
+            if interval < 60 { return "\(Int(interval))s ago" }
+            if interval < 3_600 { return "\(Int(interval / 60))m ago" }
+            return "\(Int(interval / 3_600))h ago"
         }
 
         private func progressDetail(prefix: String) -> String {

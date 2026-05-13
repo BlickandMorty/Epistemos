@@ -115,30 +115,53 @@ public enum StructureRegistry {
     /// JSON projection for the MCP resource. Same data, machine-
     /// readable so the on-device LLM can ingest the catalog as a
     /// structured tool result.
+    ///
+    /// RCA-P2-003 closure 2026-05-13: the envelope now splits
+    /// `active_schemas` (full + partial maturity) from
+    /// `roadmap_gaps` (raw maturity) so any agent or settings
+    /// consumer can tell implemented features from gap markers
+    /// without having to interpret the `maturity` enum. The legacy
+    /// flat `schemas` array is kept for back-compat (same content,
+    /// same field order) but a `schemas_legacy_note` flag warns
+    /// that new consumers should prefer the split arrays.
     public static func jsonCatalog() -> String {
-        let entries = canonicalSchemas.map { s in
-            [
-                "id": s.id,
-                "surface": s.surface,
-                "storage": s.storage.rawValue,
-                "swift_type": s.swiftType,
-                "profiles": s.profiles.map(\.rawValue).sorted(),
-                "maturity": s.maturity.rawValue,
-                "summary": s.summary,
-            ] as [String: Any]
-        }
+        let entries = canonicalSchemas.map(Self.schemaDict)
+        let activeEntries = canonicalSchemas
+            .filter { $0.maturity != .raw }
+            .map(Self.schemaDict)
+        let gapEntries = canonicalSchemas
+            .filter { $0.maturity == .raw }
+            .map(Self.schemaDict)
         let envelope: [String: Any] = [
-            "version": 1,
+            "version": 2,
             "generated_at": ISO8601DateFormatter().string(from: Date()),
+            "active_schemas": activeEntries,
+            "roadmap_gaps": gapEntries,
             "schemas": entries,
+            "schemas_legacy_note": "`schemas` mixes active + roadmap entries; new consumers should use `active_schemas` and `roadmap_gaps`. `roadmap_gaps` lists features that are not implemented yet — never treat them as live capabilities.",
         ]
         guard
             let data = try? JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys, .prettyPrinted]),
             let str = String(data: data, encoding: .utf8)
         else {
-            return "{\"version\":1,\"schemas\":[]}"
+            return "{\"version\":2,\"schemas\":[]}"
         }
         return str
+    }
+
+    /// Serialize one `StructureSchemaDescriptor` to the dict shape
+    /// used inside `jsonCatalog()`. Pulled out so the split arrays
+    /// stay byte-identical to the legacy flat array.
+    nonisolated private static func schemaDict(_ s: StructureSchemaDescriptor) -> [String: Any] {
+        [
+            "id": s.id,
+            "surface": s.surface,
+            "storage": s.storage.rawValue,
+            "swift_type": s.swiftType,
+            "profiles": s.profiles.map(\.rawValue).sorted(),
+            "maturity": s.maturity.rawValue,
+            "summary": s.summary,
+        ]
     }
 }
 
