@@ -82,7 +82,11 @@ nonisolated public final class SidecarCache: @unchecked Sendable {
     }
 
     public func invalidate(_ url: URL) {
-        lock.withLock {
+        // `removeValue(forKey:)` returns the evicted entry (an
+        // `Optional<EpistemosSidecar>`); the closure therefore returns
+        // that optional, which `withLock` propagates. Discard with
+        // `_ =` so Swift 6 strict-result-of-call doesn't warn-as-error.
+        _ = lock.withLock {
             store.removeValue(forKey: url)
         }
     }

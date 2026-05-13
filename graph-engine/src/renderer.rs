@@ -669,14 +669,12 @@ fn srgb_to_linear_rgba(c: [f32; 4]) -> [f32; 4] {
     [c[0].powf(2.2), c[1].powf(2.2), c[2].powf(2.2), c[3]]
 }
 
-/// Evaluate a quadratic bezier at parameter t in [0, 1].
-fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
-    let s = 1.0 - t;
-    [
-        s * s * p0[0] + 2.0 * s * t * cp[0] + t * t * p1[0],
-        s * s * p0[1] + 2.0 * s * t * cp[1] + t * t * p1[1],
-    ]
-}
+// Removed 2026-05-12: legacy quadratic `bezier_point` evaluator. The
+// render path moved to `cubic_bezier_point` (line 393) months ago;
+// the quadratic helper has been dead code since. If a future edge
+// renderer needs a quadratic bezier, restore from `c99c6e577` (the
+// commit that introduced it) — it's a four-line evaluator that's
+// faster to rewrite than to keep warning-suppressed.
 
 // ── Metal Shader Source ─────────────────────────────────────────────────────
 
