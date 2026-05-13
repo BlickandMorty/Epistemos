@@ -146,20 +146,86 @@ nonisolated enum ToolSurfacePolicy {
         case proResearch
     }
 
+    /// Tools the MAS (App Store) build advertises + executes. Every
+    /// canonical name here points at a Rust tool implementation that
+    /// has been audited to:
+    ///   1. NOT spawn a subprocess (osascript, bash, browser shim,
+    ///      computer-use, iMessage outbound, cronjob, etc.)
+    ///   2. NOT escape the vault root for filesystem ops
+    ///   3. NOT require Accessibility / screen-recording / iMessage
+    ///      Full Disk Access entitlements (those are Pro-only)
+    ///
+    /// 2026-05-13 expansion (mas-release-prep): added the
+    /// multi-agent + multi-model + vault-knowledge + composer tools
+    /// the user asked for ("CLI + local agents + cloud agents + tool
+    /// use looping + model looping + agent looping ... it shouldn't
+    /// have Pro capabilities but should still be as good"):
+    ///
+    ///   * `delegate_task` — agent-loop primitive. Spawns a child
+    ///     agent on the same Tokio runtime (no subprocess) with
+    ///     bounded depth 2 + 64 KB response cap. Enables
+    ///     "agent loops agents".
+    ///   * `intelligence.mixture_of_minds` — model-loop primitive.
+    ///     Fans out a problem to up to 4 cloud models in parallel
+    ///     (URLSession only, no subprocess) and aggregates.
+    ///     Requires user-provided API keys + `allow_cloud_external_
+    ///     requests=true` so it never silently leaks to cloud.
+    ///   * `knowledge.recall` / `.contradiction_check` /
+    ///     `.session_search` / `.neural_recall` — vault knowledge
+    ///     fetchers. Pure Rust + GRDB / Tantivy / HNSW lookups, no
+    ///     subprocess.
+    ///   * `note_template` / `note_linker` — note authoring helpers
+    ///     scoped to the active vault (uses the existing vault
+    ///     write surface that's already on the MAS list).
+    ///   * `clarify` — agent asks the user a follow-up question;
+    ///     pure in-process prompt round-trip.
+    ///   * `skills.list` / `skills.view` / `skills.manage` — skill
+    ///     catalog reads + writes scoped to the vault's
+    ///     `.epistemos/skills/` directory.
     static let coreAppStoreAllowedToolNames: Set<String> = [
+        // Vault primitives (verified sandbox-safe)
         "vault.search",
         "vault.read",
         "vault.write",
+        "vault.list",
+        // File ops scoped to vault root
         "file.read",
         "file.write",
         "file.patch",
         "file.search",
+        // System
         "system.todo",
+        // Graph + memory
         "graph.query",
+        "graph.neighbors",
+        "graph.vault_navigate",
         "memory.curated",
+        // Web (HTTPS via URLSession, no subprocess)
         "web.search",
         "web.extract",
         "web.crawl",
+        "web.fetch",
+        // 2026-05-13 MAS expansion — multi-agent + multi-model + vault knowledge
+        "delegate_task",
+        "intelligence.mixture_of_minds",
+        "knowledge.recall",
+        "knowledge.contradiction_check",
+        "knowledge.evidence_score",
+        "knowledge.session_search",
+        "knowledge.neural_recall",
+        "note.create",
+        "note.edit",
+        "note.research_digest",
+        "note_template",
+        "note_linker",
+        "clarify",
+        "skills.list",
+        "skills.view",
+        "skills.manage",
+        "research.collect_snippet",
+        "research.search_papers",
+        "citation.save",
+        "chunk.reduce",
     ]
 
     /// User-facing tool surfaces must stay aligned with the runtime contract.
