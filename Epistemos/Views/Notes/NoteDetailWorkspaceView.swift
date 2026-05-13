@@ -809,7 +809,13 @@ struct NoteDetailWorkspaceView: View {
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
         ) { _ in refreshTabCount() }
         .onReceive(
-            NotificationCenter.default.publisher(for: .init("ProseEditorUserDidType"))
+            // RCA2-P1-012 fix-pass (2026-05-13): subscribe to the
+            // unconditional `ProseEditorContentDidChange` notification
+            // (fires on every type) instead of the length<=10-gated
+            // `ProseEditorUserDidType`. Now word count + outline
+            // metrics refresh live for notes of ANY length, not just
+            // empty / near-empty ones.
+            NotificationCenter.default.publisher(for: .init("ProseEditorContentDidChange"))
         ) { notification in
             guard (notification.userInfo as? [String: String])?["pageId"] == pageId else { return }
             wordCountDebounce?.cancel()
