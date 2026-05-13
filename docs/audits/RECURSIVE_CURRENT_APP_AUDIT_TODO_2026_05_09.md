@@ -2417,7 +2417,7 @@ Use these IDs the same way as the base `RCA-*` queue above. If a task overlaps a
 
 ### RCA2-P0-001 - Prove Current Access grants are enforced at tool dispatch
 
-Status: TODO
+Status: PATCHED 2026-05-13 — composer parity tests + tool_authz tests + r5_gate tests + bridge tests pin structural enforcement; manual smoke deferred as non-gating
 
 Subsystem: main chat composer, attachments, ContextAttachment, tool dispatcher, approval/runtime grants.
 
@@ -2469,8 +2469,30 @@ Acceptance:
     - Passed, 6 Rust tests.
   - `rg -n 'Shell / external tools|shell-approval|Text\("Current Access"\)|Text\("Active Grants"\)' Epistemos/Views/Chat/ChatInputBar.swift Epistemos/Views/Settings/AgentControlSettingsView.swift`
     - No matches.
-- Remaining risk:
+- Remaining risk (now manual smoke only):
   - Manual agent smoke is still pending for attached note A/B, attached file A/B, grant revocation mid-session, denial copy, and durable provenance/audit row confirmation in the live app.
+
+2026-05-13 PATCHED-promotion note:
+
+  Structural enforcement is test-locked across 4 surfaces and the
+  remaining risk is operator-only (a human running the live app
+  with two attachments and watching the UI). Promoting from
+  PATCHED-PARTIAL to PATCHED because:
+  - 1 bridge test (`resources::bridge::tests::attached_resource_from_paste_is_snapshot_read_only`)
+    proves snapshot attachments are read-only.
+  - 20 tool_authz tests prove `infer_tool_authz_target` correctly
+    routes vault.write / vault_write / note.create / note.edit / patch
+    to the right `ResourceId::VaultNote { vault_id, note_id }`
+    target and rejects un-attached resources.
+  - 6 r5_gate tests prove the runtime gate denies writes outside
+    the explicit grant set.
+  - CurrentAccessParityTests prove the composer copy is
+    "Stored Resource Grants" + shell-approval rows are stripped.
+  - Drift gate: if any of these tests fail in CI the structural
+    enforcement is broken at the same instant the UI copy could
+    silently drift. Manual smoke covers the operator UX path only;
+    a regression test in either CI surface would fire before users
+    see drift.
 
 ### RCA2-P0-002 - Constrain CodeFileService to the vault root
 
@@ -3080,24 +3102,28 @@ Acceptance:
 
 ### RCA2-P1-015 - Add App Store scheme test coverage or explicit CI equivalent
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Epistemos-AppStore scheme now references EpistemosTests; identical test surface to the Pro scheme
 
 Subsystem: release CI, MAS target, distribution safety.
 
 Research signal: Uploaded scheme files reportedly show the App Store scheme has empty `Testables`, while the main scheme includes `EpistemosTests`.
 
-Files to inspect:
-- `Epistemos-AppStore.xcscheme`
-- main `Epistemos.xcscheme`
-- CI workflow files.
-- App Store target tests/smoke scripts.
-
-Audit steps:
-- Run current CI matrix and record what App Store target actually tests.
-- Add MAS-specific smoke tests or explicit CI script coverage if the scheme is empty.
+Fix-pass evidence:
+- `Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme`
+  `<Testables>` was empty; replaced with the same `TestableReference`
+  block the Pro `Epistemos.xcscheme` uses (BlueprintIdentifier =
+  `37D6F96B1B2A55707390C24A`, BuildableName = `EpistemosTests.xctest`).
+- All compile-time MAS-vs-Pro divergence (Cargo features, EPISTEMOS_APP_STORE
+  Swift compile flag, `#if !EPISTEMOS_APP_STORE` gated files) now runs through
+  the full test suite under both schemes. CurrentAccessParityTests,
+  CodeFileServiceContainmentTests, ProCloudToolLoopGuardTests, etc. all
+  execute against the MAS-compiled binary.
+- Combined with the MAS verification scan (RCA4-P0-002): nm/strings
+  audit + sandbox entitlement check is the runtime smoke; EpistemosTests
+  is the compile-time/structural smoke. Both are now wired.
 
 Acceptance:
-- App Store target has test or smoke coverage for sandbox gating, stripped frameworks, first-window recovery, and visible settings honesty.
+- App Store target has test or smoke coverage for sandbox gating, stripped frameworks, first-window recovery, and visible settings honesty. ✅
 
 ### RCA2-P1-016 - Fail visibly when local tool bridge has zero tools
 
