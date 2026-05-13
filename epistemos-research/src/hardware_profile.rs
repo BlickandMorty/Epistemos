@@ -33,9 +33,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HardwareProfile {
-    /// M2 Pro 16GB — user's actual deployment target.
-    /// Realistic budget: ~10-11GB for weights+KV.
+    /// M2 Pro 16GB — V6.2 canonical user ship target as of 2026-05-06
+    /// directive. Realistic budget: ~10-11GB for weights+KV.
     M2Pro16Gb,
+    /// M2 Pro 18GB — user's actual deployment rig per runtime
+    /// hardware-tier detection 2026-05-12 ("Hardware tier: pro-18GB,
+    /// dual budget: 10800MB"). Same chip family as M2Pro16Gb but
+    /// the 2GB extra capacity gives a marginally bigger budget. The
+    /// `Epistemos/Omega/Inference/HardwareTierManager.swift` `pro18`
+    /// tier maps onto this profile.
+    M2Pro18Gb,
     /// M2 Max 64GB — V6.1's canonical performance target
     /// (e.g. PEAK_RAM_GB_MAX = 12.0 references this profile).
     M2Max64Gb,
@@ -51,6 +58,7 @@ impl HardwareProfile {
     pub fn unified_memory_gb(self) -> u32 {
         match self {
             HardwareProfile::M2Pro16Gb => 16,
+            HardwareProfile::M2Pro18Gb => 18,
             HardwareProfile::M2Max64Gb => 64,
             HardwareProfile::M3Max36Gb => 36,
             HardwareProfile::M3Ultra256Gb => 256,
@@ -63,6 +71,7 @@ impl HardwareProfile {
     pub fn realistic_resident_budget_gb(self) -> f32 {
         match self {
             HardwareProfile::M2Pro16Gb => 10.5,    // 10-11GB sweet spot
+            HardwareProfile::M2Pro18Gb => 10.8,    // Swift HardwareTierManager: 18 * 0.60 = 10.8
             HardwareProfile::M2Max64Gb => 12.0,    // V6.1 canonical PEAK_RAM_GB_MAX
             HardwareProfile::M3Max36Gb => 24.0,    // ~2/3 of total (substantial app overhead)
             HardwareProfile::M3Ultra256Gb => 192.0, // 75% of total
@@ -74,6 +83,7 @@ impl HardwareProfile {
     pub fn sweet_spot_model_b(self) -> f32 {
         match self {
             HardwareProfile::M2Pro16Gb => 7.0,     // 4-bit 7-8B sweet spot
+            HardwareProfile::M2Pro18Gb => 8.0,     // Marginally bigger headroom than 16GB
             HardwareProfile::M2Max64Gb => 13.0,    // larger headroom
             HardwareProfile::M3Max36Gb => 8.0,     // Qwen3-8B fits comfortably
             HardwareProfile::M3Ultra256Gb => 70.0, // Hermes-4 70B class
@@ -86,6 +96,7 @@ impl HardwareProfile {
     pub fn max_practical_context_k(self) -> u32 {
         match self {
             HardwareProfile::M2Pro16Gb => 32,      // 32k tight; 128k requires KV-Direct
+            HardwareProfile::M2Pro18Gb => 32,      // Same chip family, similar tight ceiling
             HardwareProfile::M2Max64Gb => 128,     // V6.1 canonical 128k target
             HardwareProfile::M3Max36Gb => 64,      // 64k comfortable
             HardwareProfile::M3Ultra256Gb => 1000, // 1M context per V6.1
@@ -93,16 +104,33 @@ impl HardwareProfile {
     }
 
     /// True when this profile is the user's actual deployment
-    /// target per the 2026-05-06 hardware confirmation.
+    /// target. As of 2026-05-12 runtime detection, the user is on
+    /// M2 Pro 18GB (not 16GB as previously believed). Both profiles
+    /// represent valid M2 Pro ship targets — `M2Pro16Gb` is the
+    /// canonical V6.2 ship doctrine entry; `M2Pro18Gb` is the
+    /// observed runtime variant.
     pub fn is_actual_user_target(self) -> bool {
-        matches!(self, HardwareProfile::M2Pro16Gb)
+        matches!(self, HardwareProfile::M2Pro16Gb | HardwareProfile::M2Pro18Gb)
     }
 }
 
 /// All four canonical Apple Silicon profiles in canonical order
-/// (smallest to largest).
+/// (smallest to largest). Kept as `FOUR_PROFILES` for backward
+/// compatibility — `M2Pro18Gb` is documented in `FIVE_PROFILES`
+/// without disturbing existing callers of `FOUR_PROFILES`.
 pub const FOUR_PROFILES: [HardwareProfile; 4] = [
     HardwareProfile::M2Pro16Gb,
+    HardwareProfile::M3Max36Gb,
+    HardwareProfile::M2Max64Gb,
+    HardwareProfile::M3Ultra256Gb,
+];
+
+/// Extended profile list including `M2Pro18Gb` (the observed user
+/// runtime variant 2026-05-12). Use this when iterating across all
+/// shippable M2 Pro variants.
+pub const FIVE_PROFILES: [HardwareProfile; 5] = [
+    HardwareProfile::M2Pro16Gb,
+    HardwareProfile::M2Pro18Gb,
     HardwareProfile::M3Max36Gb,
     HardwareProfile::M2Max64Gb,
     HardwareProfile::M3Ultra256Gb,
@@ -228,6 +256,57 @@ mod tests {
     #[test]
     fn hardware_profile_round_trips_through_json() {
         for p in FOUR_PROFILES {
+            let json = serde_json::to_string(&p).unwrap();
+            let parsed: HardwareProfile = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed, p);
+        }
+    }
+
+    #[test]
+    fn m2_pro_18gb_matches_swift_dual_budget() {
+        // Swift `HardwareTierManager.computeDualModelBudget` computes
+        // `tier.memoryGB * 1_000_000_000 * 0.60`. For pro18:
+        //   18 * 1_000_000_000 * 0.60 = 10_800_000_000 = 10.8 GB.
+        // The HELIOS `realistic_resident_budget_gb` for M2Pro18Gb is
+        // calibrated to match this exact value so doctrine + runtime
+        // stay aligned.
+        let helios = HardwareProfile::M2Pro18Gb.realistic_resident_budget_gb();
+        let swift_dual_budget_gb = 18.0_f32 * 0.60;
+        assert!((helios - swift_dual_budget_gb).abs() < 0.01,
+            "HELIOS M2Pro18Gb budget ({}) must match Swift dual-budget formula ({}) within 0.01 GB",
+            helios, swift_dual_budget_gb);
+    }
+
+    #[test]
+    fn m2_pro_18gb_is_recognized_user_target() {
+        // 2026-05-12 user-trace shows actual hardware is M2 Pro 18GB.
+        // is_actual_user_target should accept both 16GB and 18GB M2
+        // Pro variants since both represent valid V6.2 ship targets.
+        assert!(HardwareProfile::M2Pro18Gb.is_actual_user_target());
+        assert!(HardwareProfile::M2Pro16Gb.is_actual_user_target());
+        assert!(!HardwareProfile::M2Max64Gb.is_actual_user_target());
+    }
+
+    #[test]
+    fn five_profiles_are_distinct() {
+        let set: std::collections::HashSet<HardwareProfile> =
+            FIVE_PROFILES.iter().copied().collect();
+        assert_eq!(set.len(), 5);
+    }
+
+    #[test]
+    fn five_profiles_unified_memory_grows_monotonically() {
+        let mut last = 0_u32;
+        for profile in FIVE_PROFILES {
+            let cap = profile.unified_memory_gb();
+            assert!(cap >= last, "unified-memory order monotonic: got {} after {}", cap, last);
+            last = cap;
+        }
+    }
+
+    #[test]
+    fn five_profiles_round_trip_through_json() {
+        for p in FIVE_PROFILES {
             let json = serde_json::to_string(&p).unwrap();
             let parsed: HardwareProfile = serde_json::from_str(&json).unwrap();
             assert_eq!(parsed, p);
