@@ -404,17 +404,47 @@ final class ChatCoordinator {
               message: "The selected tools brain is unavailable: \(reason)."
             )
           }
-        } else if effectiveOperatingMode == .pro,
-                  case .cloud(let provider, _) = compiled.resolvedRuntime.resolved {
-          // Patch 1 (BLOCKER fix): Pro mode + cloud model now routes through
-          // the Rust agent loop with the ChatPro tool tier so the user can
-          // actually invoke vault.search / vault.read / vault.write / file.patch /
-          // memory. Without this branch the call falls through to
-          // PipelineService.shouldUseToolLoop, which short-circuits on
-          // `case .localMLX` and silently leaves Pro+Cloud with zero tools.
-          // Local Pro keeps its existing PipelineService.runToolLoop path
-          // (which already maps .pro → ChatToolTier.chatPro via
-          // ChatToolTier.from(operatingMode:)).
+        } else if (effectiveOperatingMode == .pro
+                   || effectiveOperatingMode == .fast
+                   || effectiveOperatingMode == .thinking),
+                  case .cloud(let provider, _) = compiled.resolvedRuntime.resolved,
+                  let cloudProvider = CloudModelProvider(rawValue: provider),
+                  cloudProvider.supportsAgentTier {
+          // USABILITY-001 fix-pass (2026-05-13): extended the Pro+Cloud
+          // Rust agent branch to ALSO catch Fast+Cloud and Thinking+Cloud
+          // when the provider supports the agent tier. Previously these
+          // fell through to the toolless direct-stream branch below, even
+          // though the system prompt (BASE_SYSTEM_PROMPT) advertises
+          // "You have access to the user's knowledge vault". Net effect:
+          // user on cloud Fast/Thinking asked "find my note about X" and
+          // the model either honestly said "I don't have tools to do that"
+          // (contradicting the prompt) or hallucinated. This was the
+          // biggest single usability gap users reported.
+          //
+          // Tool tier mapping:
+          //   .fast  → .chatLite (read-only: vault.search / vault.read / etc.)
+          //   .thinking → .chatLite
+          //   .pro   → .chatPro  (read + write + memory + skills)
+          //
+          // vault.write still gates through AgentAuthority + R5 capability
+          // so MAS safety is preserved on chatLite read-only tier.
+          //
+          // Patch 1 (BLOCKER fix) history: Pro mode + cloud model originally
+          // got this branch. The Pipeline.shouldUseToolLoop short-circuits
+          // on `case .localMLX` so cloud falls through to direct stream;
+          // we have to catch cloud at the ChatCoordinator layer.
+          let toolTier: ChatToolTier
+          switch effectiveOperatingMode {
+          case .fast, .thinking:
+            toolTier = .chatLite
+          case .pro:
+            toolTier = .chatPro
+          case .agent:
+            // Agent mode is handled by the earlier branch (the
+            // sequenced `if`/`else if` above this one); this case
+            // is defensive — should never be reached.
+            toolTier = .agent
+          }
           try await self.runCommandCenterRustAgentPath(
             compiled: compiled,
             providerName: self.resolveRustProviderName(
@@ -424,7 +454,7 @@ final class ChatCoordinator {
             agentChat: agentChat,
             accState: accState,
             executionPlan: executionPlan,
-            toolTier: .chatPro
+            toolTier: toolTier
           )
         } else {
           // Standard pipeline for fast/thinking/pro — pass resolved

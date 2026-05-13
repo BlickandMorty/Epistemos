@@ -314,21 +314,10 @@ final class PipelineService {
         executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         effectiveChatSelection: ChatModelSelection
     ) -> Bool {
-        // RCA-USABILITY fix (2026-05-13): the previous gate returned
-        // false for `.cloud(_)` so cloud Fast/Thinking got toolless
-        // chat — but the system prompt advertises "you have access
-        // to the user's knowledge vault" regardless. Net effect: when
-        // a user typed "find my note about X" on a cloud model in
-        // Fast/Thinking, the model either honestly said "I don't have
-        // tools" (contradicting the system prompt) or hallucinated
-        // results. This is the biggest usability gap the user reported:
-        // "it would literally have read vault access by default."
-        //
-        // Fix: extend the local-MLX ChatLite tool-loop policy (added
-        // 2026-05-11 per the inline comment below) to cloud + Apple
-        // Intelligence too. Same ChatLite read-only tier; vault.write
-        // still gates through AgentAuthority + R5 capability so MAS
-        // safety is preserved.
+        guard case let .localMLX(modelID) = effectiveChatSelection else {
+            return false
+        }
+
         if let executionPlan {
             switch executionPlan.route {
             case .managedAgentSession:
@@ -340,41 +329,25 @@ final class PipelineService {
             }
         }
 
-        // Per user 2026-05-11 (extended 2026-05-13 to cloud + AFM):
-        // basic chat needs read/search/write tools for notes — the
-        // previous "keep standard local chat simple" policy meant
-        // users typing "find my note about X" or "@MyNote what
-        // changed?" got toolless chat that hallucinated instead of
-        // calling vault.search / vault.read. ChatLite tier is
-        // read-only by default; `vault.write` still gates through
-        // AgentAuthority approval + R5 capability so MAS safety is
-        // preserved.
-        switch effectiveChatSelection {
-        case let .localMLX(modelID):
-            if let model = LocalTextModelID(rawValue: modelID),
-               model.canRunLocalAgentLoop {
-                return true
-            }
-            return false
-
-        case .cloud(let model):
-            // Cloud Fast/Thinking now opts into ChatLite tools too.
-            // Only providers with real tool-calling support are
-            // eligible — Perplexity-class search models don't have a
-            // function-calling API shape we can drive. The same
-            // `supportsAgentTier` check Auto-promote uses (per
-            // MainChatSubmissionRouter.autoPromotedMode) gates this.
-            return model.provider.supportsAgentTier
-
-        case .appleIntelligence:
-            // AFM can't drive tools (per ChatCoordinator AgentRuntimeError
-            // copy at line ~398: "Apple Intelligence can't drive Agent mode").
-            // Keep AFM Fast/Thinking toolless — the model is honest
-            // about not having tools, no contradiction with the system
-            // prompt because the system prompt doesn't reach AFM via
-            // this path.
-            return false
+        // Per user 2026-05-11: basic chat needs read/search/write tools
+        // for notes — the previous "keep standard local chat simple"
+        // policy meant users typing "find my note about X" or
+        // "@MyNote what changed?" got toolless chat that hallucinated
+        // instead of calling vault.search / vault.read. Now local Fast
+        // / Thinking opts in to the ChatLite tool loop when the model
+        // is large enough to drive it (canRunLocalAgentLoop). The
+        // ChatLite tier is read-only by default; `vault.write` still
+        // gates through AgentAuthority approval + R5 capability so MAS
+        // safety is preserved.
+        //
+        // Cloud Fast/Thinking + AFM are handled at the ChatCoordinator
+        // layer via runCommandCenterRustAgentPath — they don't flow
+        // through this Pipeline branch.
+        if let model = LocalTextModelID(rawValue: modelID),
+           model.canRunLocalAgentLoop {
+            return true
         }
+        return false
     }
 
     private func resolvedManagedToolRuntimeVaultPath() -> String {
