@@ -292,6 +292,216 @@ fn large_graph_adaptation_factor(node_count: usize) -> f32 {
     smoothstep01((node_count - LARGE_GRAPH_ADAPTATION_START) as f32 / span)
 }
 
+// ── User-directed force kernels (added 2026-05-12) ─────────────────
+//
+// `apply_cursor_force` and `apply_shape_bound` are called once per
+// physics tick when the corresponding mode is non-zero. They mutate
+// vx/vy in place, scaled by `alpha` so they cooperate with d3's
+// per-tick alpha decay (forces fade as the graph settles).
+//
+// The cursor force uses a max-radius gate (`CURSOR_FORCE_MAX_RADIUS`)
+// so distant nodes don't feel a token-thin pull from the cursor; only
+// nodes within that radius participate. Inside the radius, the force
+// follows an inverse-square law clamped at the minimum-distance floor
+// (`CURSOR_FORCE_MIN_DIST_SQ`) to prevent divergence near the cursor.
+//
+// The shape bound uses signed-distance functions (SDFs) for each
+// shape kind. Nodes inside the shape feel no force; nodes outside
+// get a push toward the boundary with magnitude proportional to the
+// overshoot distance.
+
+/// Max radius (world units) of the cursor force field. Nodes outside
+/// this radius from the cursor see no force. Tuned so the cursor
+/// "overwhelms" within its zone but doesn't tractor-beam across the
+/// whole graph.
+const CURSOR_FORCE_MAX_RADIUS: f32 = 2500.0;
+
+/// Minimum squared distance for the cursor-force denominator (world
+/// units). Below this, the inverse-square formula would diverge; the
+/// floor keeps the force finite when a node is right under the cursor.
+const CURSOR_FORCE_MIN_DIST_SQ: f32 = 100.0; // 10² world units
+
+/// Cursor force scale — chosen so `strength = 1.0` at typical
+/// distance (~500 world units) produces a velocity change that's
+/// visibly stronger than charge equilibrium. "Overwhelm" feel.
+const CURSOR_FORCE_SCALE: f32 = 8000.0;
+
+/// Vortex tangential speed coefficient. Larger = faster orbit.
+const CURSOR_VORTEX_TANGENTIAL_SCALE: f32 = 5000.0;
+
+#[inline]
+fn apply_cursor_force(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    cursor_x: f32,
+    cursor_y: f32,
+    mode: u8,
+    strength: f32,
+    alpha: f32,
+) {
+    if !(cursor_x.is_finite() && cursor_y.is_finite()) {
+        return;
+    }
+    let max_radius_sq = CURSOR_FORCE_MAX_RADIUS * CURSOR_FORCE_MAX_RADIUS;
+    let strength = strength.clamp(0.0, 1.0);
+    let k = strength * alpha;
+    for i in 0..x.len() {
+        let dx = cursor_x - x[i];
+        let dy = cursor_y - y[i];
+        let dist_sq = dx * dx + dy * dy;
+        if dist_sq > max_radius_sq {
+            continue;
+        }
+        let dist_sq = dist_sq.max(CURSOR_FORCE_MIN_DIST_SQ);
+        let inv_dist = dist_sq.sqrt().recip();
+        // Unit vector from node toward cursor.
+        let ux = dx * inv_dist;
+        let uy = dy * inv_dist;
+        // Magnitude with inverse-square falloff.
+        let mag = k * CURSOR_FORCE_SCALE / dist_sq;
+        match mode {
+            1 => {
+                // Suck: accelerate toward cursor.
+                vx[i] += ux * mag;
+                vy[i] += uy * mag;
+            }
+            2 => {
+                // Repel: accelerate away from cursor.
+                vx[i] -= ux * mag;
+                vy[i] -= uy * mag;
+            }
+            3 => {
+                // Vortex: tangential force (perpendicular to the
+                // node→cursor vector). Plus a tiny inward bias so the
+                // orbit converges instead of flying apart.
+                let tx = -uy;
+                let ty = ux;
+                let vortex_mag = k * CURSOR_VORTEX_TANGENTIAL_SCALE / dist_sq.max(1.0);
+                vx[i] += tx * vortex_mag + ux * mag * 0.20;
+                vy[i] += ty * vortex_mag + uy * mag * 0.20;
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Shape bound strength coefficient. The per-node force is scaled by
+/// `overshoot * SHAPE_BOUND_SCALE * alpha`. Tuned so a 100-unit
+/// overshoot at alpha=1 produces a strongly-corrective push.
+const SHAPE_BOUND_SCALE: f32 = 0.04;
+
+/// Returns the signed distance from `(px, py)` to the boundary of the
+/// named shape centered at origin with given radius. Positive = node
+/// is outside (push inward); negative or zero = node is inside (no
+/// force). Each SDF uses the standard formula and assumes the shape
+/// is centered on origin.
+#[inline]
+fn shape_signed_distance_outward(kind: u8, radius: f32, px: f32, py: f32) -> f32 {
+    match kind {
+        1 => {
+            // Circle: |p| - r.
+            (px * px + py * py).sqrt() - radius
+        }
+        2 => {
+            // Axis-aligned square: max(|x|, |y|) - r.
+            px.abs().max(py.abs()) - radius
+        }
+        3 => {
+            // Equilateral triangle pointing up, inscribed in radius r.
+            // Standard SDF (Inigo Quilez):
+            //   k = sqrt(3)
+            //   p.x = |p.x| - r
+            //   p.y = p.y + r / k
+            //   if (p.x + k*p.y > 0): p = (p.x - k*p.y, -k*p.x - p.y) / 2
+            //   p.x -= clamp(p.x, -2*r, 0)
+            //   d = -length(p) * sign(p.y)
+            let k = 1.7320508_f32; // sqrt(3)
+            let mut qx = px.abs() - radius;
+            let mut qy = py + radius / k;
+            if qx + k * qy > 0.0 {
+                let new_qx = (qx - k * qy) * 0.5;
+                let new_qy = (-k * qx - qy) * 0.5;
+                qx = new_qx;
+                qy = new_qy;
+            }
+            qx -= qx.clamp(-2.0 * radius, 0.0);
+            -((qx * qx + qy * qy).sqrt()) * qy.signum()
+        }
+        4 => {
+            // Regular hexagon, pointy-top, circumradius r.
+            // SDF: max(|p.x|*k_x + p.y*k_y, |p.y|) - r * k_x_unit
+            // Standard formulation:
+            //   p = abs(p)
+            //   p -= 2 * min(dot(k_xy, p), 0) * k_xy
+            //   p -= (clamp(p.x, -r*k_z, r*k_z), r)
+            //   return length(p) * sign(p.y)
+            // Constants: k = (-sqrt(3)/2, 1/2, sqrt(3)/3)
+            let kx = -0.8660254_f32; // -sqrt(3)/2
+            let ky = 0.5_f32;
+            let kz = 0.5773503_f32; // sqrt(3)/3 = tan(30°)
+            let mut qx = px.abs();
+            let mut qy = py.abs();
+            let dot_min = (kx * qx + ky * qy).min(0.0);
+            qx -= 2.0 * dot_min * kx;
+            qy -= 2.0 * dot_min * ky;
+            let cx = qx.clamp(-radius * kz, radius * kz);
+            qx -= cx;
+            qy -= radius;
+            (qx * qx + qy * qy).sqrt() * qy.signum()
+        }
+        5 => {
+            // 5-point star, approximate. Use a simple polar formulation:
+            // r_eff(θ) = r * (1 - inner_pull * |sin(2.5θ + π/2)|)
+            // Points face up; inner_pull controls how spiky.
+            let theta = py.atan2(px);
+            let r_pt = (px * px + py * py).sqrt();
+            let inner_pull = 0.42_f32;
+            let lobe = (2.5 * theta + std::f32::consts::FRAC_PI_2).sin().abs();
+            let r_eff = radius * (1.0 - inner_pull * lobe);
+            r_pt - r_eff
+        }
+        _ => -1.0, // Unknown kind: report inside (no force).
+    }
+}
+
+#[inline]
+fn apply_shape_bound(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    kind: u8,
+    radius: f32,
+    alpha: f32,
+) {
+    if !(radius.is_finite() && radius > 1.0) {
+        return;
+    }
+    let k = SHAPE_BOUND_SCALE * alpha;
+    for i in 0..x.len() {
+        let px = x[i];
+        let py = y[i];
+        let d = shape_signed_distance_outward(kind, radius, px, py);
+        if d <= 0.0 {
+            continue; // Inside the shape — no force.
+        }
+        // Push inward: gradient of |p| toward origin, scaled by overshoot.
+        // For simplicity we use the radial direction toward origin for
+        // every shape; the per-shape SDF only affects WHETHER the node
+        // is pushed, not the direction. This is a known approximation —
+        // perfect SDFs would gradient via finite differences. Good
+        // enough for the visual goal.
+        let r = (px * px + py * py).sqrt().max(0.0001);
+        let nx = -px / r;
+        let ny = -py / r;
+        let mag = k * d;
+        vx[i] += nx * mag;
+        vy[i] += ny * mag;
+    }
+}
+
 #[inline]
 fn lerp_f32(from: f32, to: f32, t: f32) -> f32 {
     from + (to - from) * t.clamp(0.0, 1.0)
@@ -603,6 +813,34 @@ pub struct Simulation {
     /// GPU-computed N-body forces to apply at next tick start, then drain.
     /// Render thread writes, physics thread reads+clears. Protected by the sim mutex.
     pub gpu_nbody_forces: Option<Vec<[f32; 2]>>,
+
+    // ── User-directed force overlays (added 2026-05-12) ────────────
+    /// Live cursor position in world space. Updated by `Engine::mouse_moved`.
+    /// Used by the cursor-force kernel to apply a per-node radial /
+    /// tangential force when `cursor_force_mode != 0`. Initialised to
+    /// origin; physics tick reads as a snapshot.
+    pub cursor_world: [f32; 2],
+
+    /// Cursor force mode: 0=off, 1=suck (attract to cursor),
+    /// 2=repel (push from cursor), 3=vortex (orbit cursor tangentially).
+    /// Set by the graph toolbar's Cursor Force popover via FFI.
+    pub cursor_force_mode: u8,
+
+    /// Cursor force strength multiplier, 0..1. Multiplied into the
+    /// per-node force; 1.0 = overwhelm equilibrium (nodes really crowd
+    /// the cursor). Default 0.5.
+    pub cursor_force_strength: f32,
+
+    /// Shape bound kind: 0=off, 1=circle, 2=square, 3=triangle,
+    /// 4=hexagon, 5=star. Pushes nodes inward toward the named
+    /// geometric formation centered on origin. Set by the graph
+    /// toolbar's Shape Bound popover via FFI.
+    pub shape_bound_kind: u8,
+
+    /// Shape bound radius (world units). The invisible boundary's
+    /// half-extent. Nodes outside the shape get an inward push
+    /// proportional to overshoot. Default 800.
+    pub shape_bound_radius: f32,
     /// Timestamp of last tick() completion. Used by render thread to extrapolate
     /// positions between physics ticks for smooth sub-tick motion.
     pub last_tick_instant: std::time::Instant,
@@ -729,6 +967,14 @@ impl Simulation {
             decay: Vec::new(),
             snap_back: Vec::new(),
             gpu_nbody_forces: None,
+            // User-directed force overlays — all default to off / neutral
+            // so existing call sites see byte-identical behavior until
+            // a toolbar control flips them on.
+            cursor_world: [0.0, 0.0],
+            cursor_force_mode: 0,
+            cursor_force_strength: 0.5,
+            shape_bound_kind: 0,
+            shape_bound_radius: 800.0,
             last_tick_instant: std::time::Instant::now(),
             active_waves: crate::motion::waves::ActiveWaves::new(),
             curl_field: crate::motion::curl::CurlField::default(),
@@ -1205,6 +1451,40 @@ impl Simulation {
             );
         }
         // Center force handles all nodes uniformly (d3 canonical behavior).
+
+        // ── User-directed force overlays (added 2026-05-12) ───────
+        // Cursor force: 1=suck (attract to cursor), 2=repel
+        // (push from cursor), 3=vortex (orbit tangentially). All use
+        // inverse-square falloff with a max-radius gate so distant
+        // nodes don't feel a token-thin pull from the cursor.
+        if self.cursor_force_mode != 0 && self.cursor_force_strength > 0.001 {
+            apply_cursor_force(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                self.cursor_world[0],
+                self.cursor_world[1],
+                self.cursor_force_mode,
+                self.cursor_force_strength,
+                force_alpha,
+            );
+        }
+
+        // Shape bound: 1=circle, 2=square, 3=triangle, 4=hexagon,
+        // 5=star. Nodes outside the shape get an inward push
+        // proportional to overshoot.
+        if self.shape_bound_kind != 0 && self.shape_bound_radius > 1.0 {
+            apply_shape_bound(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                self.shape_bound_kind,
+                self.shape_bound_radius,
+                force_alpha,
+            );
+        }
 
         if !at_floor {
             // Cluster cohesion force (skipped in lite mode and at floor).

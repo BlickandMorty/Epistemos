@@ -126,6 +126,7 @@ struct GraphRenderWakeSignature: Equatable {
     let semanticForceConfigVersion: Int
     let semanticClusterVersion: Int
     let labConfigVersion: Int
+    let userForceOverlayVersion: Int
     let physicsFrozenVersion: Int
     let labelPolicyVersion: Int
     let waterNodesVersion: Int
@@ -147,6 +148,7 @@ struct GraphRenderWakeSignature: Equatable {
         self.semanticForceConfigVersion = graphState.semanticForceConfigVersion
         self.semanticClusterVersion = graphState.semanticClusterVersion
         self.labConfigVersion = graphState.labConfigVersion
+        self.userForceOverlayVersion = graphState.userForceOverlayVersion
         self.physicsFrozenVersion = graphState.physicsFrozenVersion
         self.labelPolicyVersion = graphState.labelPolicyVersion
         self.waterNodesVersion = graphState.waterNodesVersion
@@ -1151,6 +1153,10 @@ final class MetalGraphNSView: NSView {
         lastClusterConfigVersion = graphState.clusterConfigVersion
         lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
         lastLabConfigVersion = graphState.labConfigVersion
+        // Seed user-directed force overlays so persisted cursor/shape
+        // state survives a fresh graph commit.
+        pushUserForceOverlays()
+        lastUserForceOverlayVersion = graphState.userForceOverlayVersion
         lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
         lastModeVersion = graphState.modeVersion
         lastGraphDataVersion = graphState.graphDataVersion
@@ -1269,6 +1275,7 @@ final class MetalGraphNSView: NSView {
 
     // MARK: - Force Params
 
+    var lastUserForceOverlayVersion: Int = -1
     var lastExtendedForceConfigVersion: Int = -1
     var lastCameraConfigVersion: Int = -1
     var lastClusterConfigVersion: Int = -1
@@ -1297,6 +1304,24 @@ final class MetalGraphNSView: NSView {
             graphState.chargeStrength * chargeScale,
             graphState.chargeRange * rangeScale,
             graphState.linkStrength
+        )
+        needsRender = true
+    }
+
+    /// Push the user-directed cursor force + shape-bound state to the
+    /// Rust simulation. Called from updateNSView and the render loop
+    /// when `graphState.userForceOverlayVersion` changes.
+    func pushUserForceOverlays() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_cursor_force(
+            engine,
+            graphState.cursorForceMode.ffiValue,
+            graphState.cursorForceStrength
+        )
+        graph_engine_set_shape_bound(
+            engine,
+            graphState.shapeBoundKind.ffiValue,
+            graphState.shapeBoundRadius
         )
         needsRender = true
     }
@@ -1588,6 +1613,13 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastLabConfigVersion != graphState.labConfigVersion {
             lastLabConfigVersion = graphState.labConfigVersion
             pushLabParams()
+        }
+
+        // Sync user-directed force overlays (V6.2 toolbar 2026-05-12).
+        // Cursor force (suck/repel/vortex) + shape bound (5 shapes).
+        if let graphState, lastUserForceOverlayVersion != graphState.userForceOverlayVersion {
+            lastUserForceOverlayVersion = graphState.userForceOverlayVersion
+            pushUserForceOverlays()
         }
 
         // Sync SDF label policy (density + layer transition + focus shrink + font size).

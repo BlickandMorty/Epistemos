@@ -79,6 +79,105 @@ private final class EngineHandleState: Sendable {
     }
 }
 
+// MARK: - User-directed force overlays (V6.2 toolbar — added 2026-05-12)
+
+/// Cursor-force overlay mode. While active, the graph engine reads the
+/// live cursor position from `graph_engine_mouse_moved` and applies a
+/// radial / tangential force to every node within ~2500 world units of
+/// the cursor.
+///
+/// - `.off`: no cursor force.
+/// - `.suck`: nodes accelerate toward the cursor (inverse-square pull).
+/// - `.repel`: nodes accelerate away from the cursor (inverse-square push).
+/// - `.vortex`: nodes orbit the cursor tangentially with a small inward
+///   bias so the orbit converges into a galaxy-like swirl.
+enum CursorForceMode: String, CaseIterable, Identifiable, Codable, Sendable {
+    case off
+    case suck
+    case repel
+    case vortex
+
+    var id: String { rawValue }
+
+    /// Wire value passed to `graph_engine_set_cursor_force`.
+    /// 0 = off, 1 = suck, 2 = repel, 3 = vortex.
+    var ffiValue: UInt8 {
+        switch self {
+        case .off: return 0
+        case .suck: return 1
+        case .repel: return 2
+        case .vortex: return 3
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .off: return "circle.dashed"
+        case .suck: return "scope"
+        case .repel: return "circle.dotted.and.circle"
+        case .vortex: return "tornado"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .off: return "Off"
+        case .suck: return "Suck"
+        case .repel: return "Repel"
+        case .vortex: return "Vortex"
+        }
+    }
+}
+
+/// Shape-bound overlay kind. While active, the graph engine pushes
+/// every node toward the interior of an invisible bounding shape
+/// centered on origin with `shapeBoundRadius` half-extent.
+enum ShapeBoundKind: String, CaseIterable, Identifiable, Codable, Sendable {
+    case off
+    case circle
+    case square
+    case triangle
+    case hexagon
+    case star
+
+    var id: String { rawValue }
+
+    /// Wire value passed to `graph_engine_set_shape_bound`.
+    /// 0 = off, 1 = circle, 2 = square, 3 = triangle, 4 = hexagon, 5 = star.
+    var ffiValue: UInt8 {
+        switch self {
+        case .off: return 0
+        case .circle: return 1
+        case .square: return 2
+        case .triangle: return 3
+        case .hexagon: return 4
+        case .star: return 5
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .off: return "circle.dashed"
+        case .circle: return "circle"
+        case .square: return "square"
+        case .triangle: return "triangle"
+        case .hexagon: return "hexagon"
+        case .star: return "star"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .off: return "Off"
+        case .circle: return "○"
+        case .square: return "▢"
+        case .triangle: return "△"
+        case .hexagon: return "⬡"
+        case .star: return "★"
+        }
+    }
+}
+
 // MARK: - Physics Presets
 
 enum PhysicsPreset: String, CaseIterable, Identifiable {
@@ -1366,6 +1465,54 @@ final class GraphState {
         notifyGraphRenderSettingsChanged()
     }
 
+    // ── User-directed force overlays (V6.2 toolbar 2026-05-12) ──
+    // Cursor force: follows the live cursor; suck/repel/vortex.
+    // Mutations push immediately to Rust via FFI from MetalGraphView's
+    // `pushUserForceOverlaysIfChanged()`.
+    var cursorForceMode: CursorForceMode = .off {
+        didSet {
+            guard cursorForceMode != oldValue else { return }
+            userForceOverlayVersion &+= 1
+            saveUserForceOverlays()
+        }
+    }
+    /// 0..1 strength multiplier for the cursor force. Default 0.5 =
+    /// noticeable; 1.0 = overwhelm equilibrium.
+    var cursorForceStrength: Float = 0.5 {
+        didSet {
+            guard cursorForceStrength != oldValue else { return }
+            userForceOverlayVersion &+= 1
+            saveUserForceOverlays()
+        }
+    }
+    /// Shape-bound: pushes nodes into a named formation.
+    var shapeBoundKind: ShapeBoundKind = .off {
+        didSet {
+            guard shapeBoundKind != oldValue else { return }
+            userForceOverlayVersion &+= 1
+            saveUserForceOverlays()
+        }
+    }
+    /// World-unit radius of the shape-bound formation. Default 800.
+    var shapeBoundRadius: Float = 800.0 {
+        didSet {
+            guard shapeBoundRadius != oldValue else { return }
+            userForceOverlayVersion &+= 1
+            saveUserForceOverlays()
+        }
+    }
+    /// Monotonic version counter — MetalGraphView watches this to know
+    /// when to re-push the cursor + shape state to Rust via FFI.
+    var userForceOverlayVersion: Int = 0
+
+    private func saveUserForceOverlays() {
+        let d = UserDefaults.standard
+        d.set(cursorForceMode.rawValue, forKey: "epistemos.physics.cursorForceMode")
+        d.set(cursorForceStrength, forKey: "epistemos.physics.cursorForceStrength")
+        d.set(shapeBoundKind.rawValue, forKey: "epistemos.physics.shapeBoundKind")
+        d.set(shapeBoundRadius, forKey: "epistemos.physics.shapeBoundRadius")
+    }
+
     // ── Laboratory (advanced physics toggles + knobs) ──
     var enableFluidDynamics: Bool = false
     var enableTorsionalSprings: Bool = false
@@ -1483,6 +1630,29 @@ final class GraphState {
             windY = d.float(forKey: "epistemos.physics.windY")
             enableOrbital = d.bool(forKey: "epistemos.physics.enableOrbital")
             orbitalSpeed = d.float(forKey: "epistemos.physics.orbitalSpeed")
+        }
+        // User-directed force overlays (V6.2 toolbar 2026-05-12). Each
+        // key falls back to the type's default when absent so first-
+        // launch users get a clean off state.
+        if let raw = d.string(forKey: "epistemos.physics.cursorForceMode"),
+           let mode = CursorForceMode(rawValue: raw) {
+            cursorForceMode = mode
+        }
+        if d.object(forKey: "epistemos.physics.cursorForceStrength") != nil {
+            let s = d.float(forKey: "epistemos.physics.cursorForceStrength")
+            if s.isFinite, s > 0 {
+                cursorForceStrength = max(0.0, min(1.0, s))
+            }
+        }
+        if let raw = d.string(forKey: "epistemos.physics.shapeBoundKind"),
+           let kind = ShapeBoundKind(rawValue: raw) {
+            shapeBoundKind = kind
+        }
+        if d.object(forKey: "epistemos.physics.shapeBoundRadius") != nil {
+            let r = d.float(forKey: "epistemos.physics.shapeBoundRadius")
+            if r.isFinite, r > 1 {
+                shapeBoundRadius = max(1.0, min(5000.0, r))
+            }
         }
         if let raw = d.string(forKey: "epistemos.physics.selectedPreset") {
             selectedPhysicsPreset = PhysicsPreset(rawValue: raw)

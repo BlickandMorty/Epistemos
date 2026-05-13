@@ -1230,6 +1230,12 @@ struct LineVertexOut {
     float4 color [[flat]];
     float  dist_from_center;
     float  is_highlighted [[flat]];
+    // V6.2 selected-edge electric flow (added 2026-05-12):
+    // `t_along_edge` is 0.0 at the curve's p0 endpoint and 1.0 at p1.
+    // Interpolated per-fragment so the line_edge_fragment can sample
+    // a pulse pattern flowing parent→child along the edge whenever
+    // `is_highlighted > 0.5`.
+    float  t_along_edge;
 };
 
 float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, float t) {
@@ -1277,12 +1283,17 @@ vertex LineVertexOut curve_edge_vertex(
     };
 
     float dist_vals[6] = { -1, 1, -1, -1, 1, 1 };
+    // t_along_edge: 0 at p0, 1 at p1, linearly interpolated through
+    // each segment. The two endpoints of this segment are at t0 and t1
+    // (parameter values along the cubic bezier).
+    float t_vals[6] = { t0, t0, t1, t1, t0, t1 };
 
     LineVertexOut out;
     out.position = float4(base_ndc[corner], 0.0, 1.0);
     out.color = inst.color;
     out.dist_from_center = dist_vals[corner];
     out.is_highlighted = inst.is_highlighted;
+    out.t_along_edge = t_vals[corner];
     return out;
 }
 
@@ -1302,7 +1313,36 @@ fragment float4 line_edge_fragment(
     float dim_factor = uniforms.selection_active > 0.5 ? 0.18 : 1.00;
     float keep_lit = step(0.5, in.is_highlighted);
     float selection_dim = mix(dim_factor, 1.00, keep_lit);
-    return float4(in.color.rgb, in.color.a * alpha * selection_dim);
+
+    // V6.2 selected-edge electric flow (added 2026-05-12):
+    // When this edge is highlighted (touches the selected node), render
+    // a flowing current animation: a sequence of bright pulses traveling
+    // from p0 (t=0) toward p1 (t=1). Gives selected nodes a "live wire"
+    // look that the user immediately recognizes as the active selection.
+    //
+    // Algorithm:
+    //   pulse_phase = t_along_edge * pulse_count - time * pulse_speed
+    //   pulse = exp(-fract(pulse_phase)² / pulse_width²)
+    // This produces a Gaussian-shaped bright spot whose center moves
+    // along the edge at constant speed; `fract` makes it repeat per
+    // unit interval, giving multiple visible pulses on long edges.
+    float3 final_rgb = in.color.rgb;
+    float final_alpha = in.color.a * alpha * selection_dim;
+    if (keep_lit > 0.5) {
+        const float pulse_count = 2.5;   // ≈2-3 visible pulses per edge
+        const float pulse_speed = 1.40;  // cycles per second
+        const float pulse_width = 0.12;  // narrow = sharp current packets
+        float phase = in.t_along_edge * pulse_count - uniforms.time * pulse_speed;
+        float local = fract(phase);
+        // Center the Gaussian at 0.5 of each repeat so it tapers symmetrically.
+        float dist_from_peak = local - 0.5;
+        float pulse = exp(-(dist_from_peak * dist_from_peak) / (pulse_width * pulse_width));
+        // Brighten the edge color where the pulse sits + lift alpha.
+        float3 glow_color = float3(0.85, 0.95, 1.00); // pale cyan-white
+        final_rgb = mix(final_rgb, glow_color, pulse * 0.85);
+        final_alpha = clamp(final_alpha + pulse * 0.35, 0.0, 1.0);
+    }
+    return float4(final_rgb, final_alpha);
 }
 
 "#;
