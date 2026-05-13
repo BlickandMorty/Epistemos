@@ -394,52 +394,50 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     /// Display (hero) font name resolved by (themePair, isDark).
-    /// Light-mode platinum / classic / ember each pick a distinct
-    /// typeface; dark mode keeps the existing RetroGaming font
-    /// across all themes per user direction 2026-05-13.
-    ///
-    /// Classic refresh 2026-05-13 (second pass): hero swapped from
-    /// `ColorBasic-Regular` to `ChonkyPixels` for both light AND
-    /// dark Classic sub-themes — the user wanted the same chunky
-    /// pixel feel on both white and OLED backgrounds.
+    /// Per user direction 2026-05-13 (third pass):
+    ///   Classic  → CoralPixels-Regular across both modes
+    ///   Ember    → DotempDemo-8bit across both modes
+    ///   Platinum → MatrixTypeDisplay-Regular across both modes
+    /// The "dark mode falls back to RetroGaming" pattern is retired
+    /// here — the user wants each theme to keep its identity face in
+    /// dark mode too. The previous ChonkyPixels-for-Classic + RetroByte-
+    /// for-Ember + dark-mode-RetroGaming pass is reverted.
     nonisolated var displayFontName: String {
         switch themePair {
-        case .classic:        return "ChonkyPixels"
-        case .platinumViolet: return isDark ? AppDisplayTypography.legacyDisplayFontName : "MatrixTypeDisplay-Regular"
-        case .ember:          return isDark ? AppDisplayTypography.legacyDisplayFontName : "RetroByte"
+        case .classic:        return AppDisplayTypography.coralDisplayFontName
+        case .platinumViolet: return "MatrixTypeDisplay-Regular"
+        case .ember:          return "DotempDemo-8bit"
         }
     }
 
     /// H1-H3 heading font name resolved by (themePair, isDark).
-    /// Classic now ships ChonkyPixels across both modes (hero + H1-H3
-    /// share the same chunky face). Platinum + Ember swap their
-    /// light-mode heading face; dark mode of Platinum + Ember falls
-    /// back to RetroGaming.
+    /// Per user direction 2026-05-13 (third pass): H1-H3 mirror the
+    /// hero font on every theme so the page has a unified typographic
+    /// identity instead of a heading/body split.
     nonisolated var headingFontName: String {
         switch themePair {
-        case .classic:        return "ChonkyPixels"
-        case .platinumViolet: return isDark ? AppDisplayTypography.legacyDisplayFontName : "MatrixTypeDisplay-Regular"
-        case .ember:          return isDark ? AppDisplayTypography.legacyDisplayFontName : "DotempDemo-8bit"
+        case .classic:        return AppDisplayTypography.coralDisplayFontName
+        case .platinumViolet: return "MatrixTypeDisplay-Regular"
+        case .ember:          return "DotempDemo-8bit"
         }
     }
 
     /// Panel font name — used for graph node-inspector pop-ups and
     /// other secondary panel chrome where the heading face would feel
-    /// too heavy. Classic uses ChonkyPixels here too per user
-    /// direction 2026-05-13. Other themes route to the heading font
-    /// for visual consistency until a per-theme panel face is needed.
+    /// too heavy. Per the same 2026-05-13 third-pass direction,
+    /// every theme reuses its hero face for panels so the identity
+    /// holds end-to-end.
     nonisolated var panelFontName: String {
-        switch themePair {
-        case .classic: return "ChonkyPixels"
-        default:       return headingFontName
-        }
+        headingFontName
     }
 
-    /// Whether the Classic-theme uppercase treatment applies to this
-    /// theme. ChonkyPixels reads best ALL-CAPS per the user direction
-    /// for the Classic theme; other themes keep mixed case.
+    /// Whether the active theme prefers ALL-CAPS rendering for the
+    /// stacked hero and H1-H3 headings. Retired 2026-05-13: the
+    /// user reverted Classic from ChonkyPixels (which read best
+    /// ALL-CAPS) back to CoralPixels (which reads naturally in mixed
+    /// case), so no theme requests forced uppercase anymore.
     nonisolated var prefersUppercaseDisplay: Bool {
-        themePair == .classic
+        false
     }
 
     /// Whether H1-H3 headings should render with a glow on this
@@ -1340,8 +1338,28 @@ enum AppDisplayTypography: Sendable {
         displayFontScale(isDark: SystemAppearanceState.isDark())
     }
 
+    /// Theme-pair-aware display font resolver. Per user direction
+    /// 2026-05-13 (third pass): the active theme pair determines the
+    /// hero font globally so any theme-agnostic call site
+    /// (`AppDisplayTypography.font(size:)`,
+    /// `AppDisplayTypography.displayFontName`) returns the right
+    /// face for whichever theme the user is on.
+    ///
+    /// Reads `epistemos.theme.pair` from UserDefaults so the resolver
+    /// doesn't require a theme parameter at every call site. Falls
+    /// back to coral (Classic) when the key is missing or unknown so
+    /// pre-2026-05-13 behavior is preserved for first-launch users.
+    /// The `isDark` parameter is now ignored — each theme's identity
+    /// face holds across both modes per the user's same-day direction.
     nonisolated static func displayFontName(isDark: Bool) -> String {
-        isDark ? legacyDisplayFontName : coralDisplayFontName
+        let _ = isDark
+        let raw = UserDefaults.standard.string(forKey: "epistemos.theme.pair") ?? ""
+        switch raw {
+        case "platinumViolet": return "MatrixTypeDisplay-Regular"
+        case "ember":          return "DotempDemo-8bit"
+        case "classic":        return coralDisplayFontName
+        default:               return coralDisplayFontName
+        }
     }
 
     nonisolated static func graphLabelAtlasResourceName(isDark: Bool) -> String {
