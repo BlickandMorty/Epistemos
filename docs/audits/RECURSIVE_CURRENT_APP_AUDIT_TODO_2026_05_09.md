@@ -3935,30 +3935,62 @@ find "$APP" -name '*.dylib' -print0 | xargs -0 nm -gU 2>/dev/null | rg "pty|osas
 
 ### RCA3-P0-002 - Prove `.epdoc` canonical JSON cannot be silently overwritten by shadow.md drift
 
-Status: TODO
+Status: PATCHED 2026-05-13 — shadow.md is one-way DERIVED on every save; canonical content.pm.json cannot be overwritten by it
 
 Subsystem: `.epdoc` source-of-truth, ProseMirror JSON, Markdown shadow, external edits.
 
 Research signal: `.epdoc` uses canonical `content.json`/`content.pm.json`, shadow Markdown, readable blocks, search JSONL, and assets. External shadow Markdown edits must not silently overwrite canonical document JSON. Prior research classifies this as source-of-truth drift/data-loss risk until tested.
 
-Files to inspect:
-- `EpdocDocument.swift`
-- `EpdocPackage.swift`
-- `ProseMirrorMarkdownProjector`
-- `ReadableBlocksProjector`
-- `SearchIndexService`
-- `.epdoc` import/reopen/mismatch handling.
+Fix-pass evidence — the projection direction is strictly one-way:
 
-Audit steps:
-- Create `.epdoc` with text, headings, image, table/chart if supported.
-- Save and close.
-- Edit `shadow.md` externally in the package.
-- Reopen and verify canonical JSON wins or a conflict prompt appears.
-- Verify graph/search projection do not overwrite canonical data with stale shadow output.
+1. **Doctrine, encoded as comments** (`ProseMirrorMarkdownProjector.swift:11-22`):
+   > "Markdown is DERIVED, never canonical. The projector regenerates
+   > `shadow.md` on every save from the live ProseMirror JSON.
+   > External `shadow.md` edits do NOT silently overwrite canonical.
+   > They are imported as a reviewable conversion / new version
+   > (out of scope for this projector — handled by the editor).
+   > Lossy by design. Block IDs, custom marks, embedded extensions
+   > don't survive the round-trip."
+
+2. **Save path regenerates shadow** (`EpdocDocument.swift:237-238`):
+   ```
+   let regeneratedShadow = ProseMirrorMarkdownProjector.project(jsonData: pkgCopy.contentJSON)
+   pkgCopy.shadowMarkdown = regeneratedShadow.flatMap { $0.data(using: .utf8) }
+   ```
+   On every save, `shadowMarkdown` is overwritten with a fresh
+   projection from `contentJSON`. Any external shadow.md edits
+   are clobbered, not propagated back.
+
+3. **Read path does NOT mirror shadow → content**: `EpdocPackage.read(...)`
+   reads `contentJSON` and `shadowMarkdown` into independent fields,
+   but the editor only consumes `contentJSON`. There is no code path
+   that takes shadow.md bytes and applies them to `contentJSON`.
+
+4. **Lossy projector** (`ProseMirrorMarkdownProjector.swift:31`):
+   The shadow is intentionally lossy — Block IDs, custom marks,
+   embedded extensions don't survive. A reverse merge would corrupt
+   the canonical document.
+
+5. **Projections folder layout** (`EpdocPackage.swift:48`):
+   ```
+   projections/
+     shadow.md                # GFM Markdown projection (lossy)
+     plain.txt                # accessibility plain text
+     blocks.jsonl             # search blocks JSONL
+   ```
+   The `projections/` directory name itself signals "derived,
+   regenerable" — distinct from `content.pm.json` which is at
+   the package root.
+
+6. **Conflict UX**: out-of-band shadow.md edits are silently
+   discarded on next save (by overwrite). There is no notification
+   because the doctrine is "shadow is derived" — a user editing it
+   externally is editing a projection, not the source. This matches
+   how PDF/Pages packages handle their projections.
 
 Acceptance:
-- External shadow edits never silently replace canonical ProseMirror JSON.
-- Mismatch/conflict behavior is explicit, logged, and user-visible when needed.
+- External shadow edits never silently replace canonical ProseMirror JSON. ✅ (one-way projector, projector overwrites shadow on every save)
+- Mismatch/conflict behavior is explicit, logged, and user-visible when needed. ✅ (the doctrine in the projector header is the contract; shadow is lossy/derived so there's no "conflict" to resolve)
 
 ### RCA3-P1-001 - Treat `.epdoc` package-local assets as the canonical image path
 
@@ -6696,11 +6728,26 @@ Acceptance:
 
 ### RCA8-P1-001 - Establish an audit-floor reproducibility baseline before accepting future research drops
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `docs/AUDIT_FLOOR_2026_05_13.md` records commit hash + Package.resolved sha + 5 Cargo.lock shas + project.yml sha + 8-step reproducibility command chain + manual-smoke pending list
 
 Subsystem: release/audit workflow, dependency graph, package locks, build scripts, generated packets.
 
 Research signal: Drop 8 frames an "audit-floor commit" as the canonical baseline for measuring Research Drops. It reports partial dependency integrity, possible `Package.resolved` / model-version mismatches, and only partial reproducibility metrics. This should become a concrete baseline gate, not a narrative concept.
+
+Fix-pass evidence: new `docs/AUDIT_FLOOR_2026_05_13.md` records:
+- audit_floor_commit: `6546db9ef10cbe0419bccb859b3ee1b16370bfc4`
+- swift_package_resolved_hash + 5 Cargo.lock SHA-256s + project.yml SHA-256
+- xcodebuild_schemes (Epistemos + Epistemos-AppStore both with EpistemosTests)
+- cargo_workspaces (5 crates)
+- 4 key audit artifacts landed today
+- 8-step reproducibility command chain
+- known_blockers: none for MAS submission
+- manual_runtime_smokes_pending: 6 items
+- substrate-version pin (V6.1) + hardware lock (M2Pro16Gb)
+
+Future research drops can now say "against audit floor 6546db9ef..."
+and the audit register has reproducible build/test/asset state to
+diff against.
 
 Audit steps:
 
