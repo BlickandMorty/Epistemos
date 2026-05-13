@@ -472,12 +472,17 @@ struct HologramNodeInspector: View {
         text: String,
         role: AppHeadingRole
     ) -> some View {
-        // RCA finalization 2026-05-13: thread the theme into the
-        // heading transform so Classic uppercases H1-H3 inside the
-        // graph node inspector pop-up (matches the Classic hero
-        // ChonkyPixels treatment).
+        // 2026-05-13 fifth pass: on Ember, panel preview headings
+        // (which are H1-H3 surfaces inside the graph node inspector)
+        // get the boxed glyph form via `boxedLabelText(_:)`. The
+        // heading font itself is `role.font` (AppHeadingRole goes
+        // through the UserDefaults-aware `displayFontName` resolver,
+        // so Ember picks up ColorBasic-Regular here). The lowercase
+        // transform switches ColorBasic to its boxed glyph variant.
         previewMarkdownText(
-            markdown: MarkdownHeadingDisplay.displayText(text, level: headingLevel(for: role), theme: theme),
+            markdown: theme.boxedLabelText(
+                MarkdownHeadingDisplay.displayText(text, level: headingLevel(for: role), theme: theme)
+            ),
             font: role.font,
             color: MarkdownHeadingDisplay.foregroundColor(for: theme, level: headingLevel(for: role)),
             rippleEnabled: false
@@ -528,11 +533,12 @@ struct HologramNodeInspector: View {
     // MARK: - Section Header
 
     private func sectionHeader(_ section: Section, icon: String, title: String, preview: String) -> some View {
-        // RCA finalization 2026-05-13: route the section title +
-        // preview text through the theme-aware panel font so
-        // Classic (ChonkyPixels) gets its ALL-CAPS treatment. Other
-        // themes keep the system caption weight + casing.
-        let labelTitle = theme.prefersUppercaseDisplay ? title.uppercased() : title
+        // 2026-05-13 fifth pass: on Ember, section titles ("Profile",
+        // "Summary", "Relationships") + their truncated preview text
+        // route through `theme.boxedLabelText(_:)` which lowercases the
+        // string so ColorBasic-Regular renders the white-on-black
+        // boxed glyph form. Other themes pass through unchanged.
+        let labelTitle = theme.boxedLabelText(title)
         let panelTitleFont = AppDisplayTypography.panelFont(size: 12, weight: .semibold, theme: theme)
         let panelPreviewFont = AppDisplayTypography.panelFont(size: 11, weight: .regular, theme: theme)
         return Button {
@@ -555,7 +561,7 @@ struct HologramNodeInspector: View {
                 .foregroundStyle(.secondary)
 
                 if expandedSection != section && !preview.isEmpty {
-                    let previewText = theme.prefersUppercaseDisplay ? preview.uppercased() : preview
+                    let previewText = theme.boxedLabelText(preview)
                     Text("— \(previewText)")
                         .font(panelPreviewFont)
                         .foregroundStyle(.quaternary)
