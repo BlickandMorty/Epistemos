@@ -215,11 +215,29 @@ In priority order by visible-user-value:
    "coarse heuristic" to "V6.2 §1.5-calibrated." WBO is now live;
    the remaining two stay at 0 until their hooks land.
 
-3. **Rust-side `agent_core::scope_rex::AnswerPacket` production caller.**
+3. ~~**Rust-side `agent_core::scope_rex::AnswerPacket` production caller.**
    Today the Rust schema is defined but only test code calls
    `AnswerPacket::new`. Wiring the agent runtime to build packets on
    the Rust side + flow them across FFI lets the audit channel carry
-   claims + residency signals (currently empty).
+   claims + residency signals (currently empty).~~ **PRODUCTION
+   CALLER LANDED 2026-05-12** via the new
+   `agent_core::scope_rex::produce::produce_turn_completion_packet`
+   function + `bridge::produce_answer_packet_json` FFI. Produced
+   packets carry:
+   - Empirical self-witness claim every turn (`{"text":"turn
+     completed: N tokens, stop_reason=S","kind":"empirical"}`)
+   - Empirical tool-use observation when `stop_reason == "tool_use"`
+   - StaticFallbackAcknowledged claim when `attention_mode ==
+     StaticFallback` (required by doctrine-consistency invariant
+     `AnswerPacket::acknowledges_static_fallback`)
+   - One neutral `ResidencySignal` (placeholder until the Residency
+     Governor wires per W4)
+   Swift consumer is the next chip: replacing
+   `AnswerPacketEmitter.turnCompletionStub` with the Rust-produced
+   JSON would advance the ladder from `state: populated` to
+   `state: canonical-product-surface`. The Rust path stands today
+   alongside the Swift stub as a parity-testing target via
+   `RustAnswerPacketProducerClient`.
 
 4. **Manual smoke-test runs** (per `docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md`):
    - Live note/editor/Halo selection smoke with logs.

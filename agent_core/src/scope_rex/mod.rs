@@ -55,6 +55,11 @@ pub mod ontology;
 // pro-build feature; never in MAS.
 #[cfg(feature = "pro-build")]
 pub mod pro_joint;
+// V6.2 production caller for AnswerPacket. Builds a fully-populated
+// Rust AnswerPacket from runtime turn-completion inputs; exposed
+// across FFI via `bridge::produce_answer_packet_json`. See module
+// docs for the emission-ladder state this commit advances.
+pub mod produce;
 pub mod residency;
 pub mod retrieval;
 pub mod witnessed_state;
