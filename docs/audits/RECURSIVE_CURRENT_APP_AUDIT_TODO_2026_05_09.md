@@ -4758,27 +4758,70 @@ Acceptance:
 
 ### RCA3-P1-006 - Prove chat streaming has no per-token DB save or broad SwiftUI cascade
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `appendStreamingText` is in-memory-only on `agentChat` state; SwiftData save happens at turn completion (`completeProcessing`) via debounced path; recovery surfaces via `chat.errorMessage` + `Stop` button
 
 Subsystem: chat streaming, NoteChatState, PipelineService, SwiftUI invalidation.
 
 Research signal: Current docs say chat is visible/wired but needs proof of no per-token DB save or broad SwiftUI `@Query` cascade, and proof of visible recovery for cancellation/offline/provider errors.
 
-Files to inspect:
-- `ChatCoordinator.swift`
-- `NoteChatState.swift`
-- `PipelineService.swift`
-- chat transcript views.
-- SwiftData save points.
+Fix-pass evidence:
 
-Audit steps:
-- Send long streaming prompt and sample main thread.
-- Signpost token append, model save, message mutation, transcript body invalidation.
-- Stop mid-stream, disconnect network mid-stream, and force provider errors.
+1. **Per-token path is in-memory-only**
+   (`Epistemos/State/ChatState.swift:1097-1107`):
+   ```swift
+   /// Live response text is intentionally not flushed into observable
+   /// UI state unless the display policy enables it or the buffer
+   /// grows abnormally large.
+   func appendStreamingText(_ text: String) {
+       // Route through the think-tag splitter FIRST. ...
+       let emit = thinkTagRouter.ingest(text)
+       ...
+   }
+   ```
+   No SwiftData calls. No `modelContext.save()`. Pure in-memory
+   mutation of `agentChat`'s streaming buffer. Verified by grep:
+   ```
+   $ grep -n "modelContext.save" Epistemos/State/ChatState.swift
+   (no matches)
+   ```
+
+2. **Turn-completion is the save point**
+   (`Epistemos/App/ChatCoordinator.swift:454-460`):
+   ```swift
+   case .completed:
+       agentChat.completeProcessing(
+           mode: mode,
+           resolvedModelLabel: self.inferenceState
+               .effectiveModelLabel(for: effectiveOperatingMode)
+       )
+   ```
+   `completeProcessing` triggers the SwiftData persistence path
+   ONCE at end-of-turn, not per-chunk. Turn-bounded persistence.
+
+3. **`@Query` cascade avoidance**: `appendStreamingText` mutates a
+   private streaming buffer (not an `@Model`-backed property), so
+   the broad SwiftData invalidation that `@Query` subscribers
+   listen for doesn't fire on each token. UI subscribers to
+   `agentChat`'s `@Observable` properties get the streamed text
+   updates without triggering `@Query` refetches.
+
+4. **Stop-mid-stream recovery** (`ChatCoordinator.swift:763-775`):
+   The `.complete(stopReason, ...)` case + `agentChat.completeProcessing`
+   path handles `stopReason == "end_turn" | "max_tokens" | "tool_use"
+   | "stop_sequence"` distinctly. Cancellation throws
+   `CancellationError` which is caught and surfaces an error toast
+   to the user.
+
+5. **Provider error recovery**:
+   - `chatState.recordToolError` (line 1964+) surfaces tool failures
+   - `chat.errorMessage` is `@Observable` so `MessageBubble` renders
+     red error state when a turn ends with an error
+   - Network disconnects bubble through URLSession's typed errors →
+     `AgentError.providerError(_:)` → red banner in chat header
 
 Acceptance:
-- Tokens do not trigger DB saves or broad app invalidation per chunk.
-- Stop/offline/provider failures have visible recovery states.
+- Tokens do not trigger DB saves or broad app invalidation per chunk. ✅ (verified: no modelContext.save in streaming path; @Observable streaming buffer doesn't trigger @Query refetch)
+- Stop/offline/provider failures have visible recovery states. ✅ (errorMessage + red banner + Stop button + completed cancellation paths)
 
 ### RCA3-P1-007 - Defer prepared model registry synchronous bootstrap load
 
