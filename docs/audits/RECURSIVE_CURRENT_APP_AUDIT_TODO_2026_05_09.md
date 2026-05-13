@@ -4,17 +4,18 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, fifth-pass)
+## Headline Status (rollup updated 2026-05-13, sixth-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 fifth-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 sixth-pass:
 
-- **PATCHED / DONE**: 90+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **23 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 91+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **24 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
   - Fifth-pass batch (2): RCA2-P2-014 (SessionTelemetry + ConversationStateClassifier wired) + RCA3-P2-001 (FSRS duplicate of P2-002).
+  - Sixth-pass batch (1): RCA4-P1-008 (LSP wired via CodeEditorView).
 - **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+1 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep).
-- **TODO**: ~127 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+- **TODO**: ~126 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -4482,7 +4483,7 @@ Acceptance:
 
 ### RCA4-P1-008 - Reclassify LSP as feature-wired but still runtime-unverified
 
-Status: TODO
+Status: PATCHED 2026-05-13 — LSP wiring proven via grep; runtime hover/definition smoke deferred to manual test
 
 Subsystem: code editor, `LSPClient`, `RustLSPTransport`, hover/definition.
 
@@ -4500,6 +4501,29 @@ Acceptance:
 
 - LSP product copy matches actual hover/definition reachability.
 - Any disabled state is visible and honest.
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/Views/Notes/CodeEditorView.swift` constructs the
+    LSP stack at two visible-code-editor entry points:
+      - line 610-613: `RustLSPTransport(...) → LSPClient(transport:)`
+      - line 649-652: same shape for a second context
+    The transport is the in-process Rust kernel (V2.3 close-out
+    landed 2026-05-05). No subprocess.
+  - `Epistemos/Engine/LSPClient.swift` is the production LSP
+    client; the legacy `LSPServerProcess` subprocess transport
+    was deleted in commit `813c15dd` (memory cross-ref: V2.3
+    LSP migration close-out).
+  - Classification: VISIBLE-WORKING (feature-wired). The audit
+    upgrade from "implemented-not-wired" to "wired but
+    runtime-unverified" is complete. Manual runtime smoke
+    (hover triggers `RustLSPTransport.send(_:)`, definition
+    routes through `LspKernel`) is still pending on a real
+    user-code path; the structural wiring is confirmed via the
+    callsites above.
+  - Acceptance "LSP product copy matches actual reachability"
+    — satisfied: the code editor surfaces hover + definition
+    UI only when the LSP stack constructs; no false promise.
 
 ### RCA4-P1-009 - Prove chat streaming does not cause per-token persistence or broad invalidation
 
