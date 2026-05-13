@@ -2,11 +2,25 @@ import Foundation
 
 // MARK: - ExtractionResult
 // Codable struct for parsing LLM JSON responses from note entity extraction.
-// Updated for 7-type model: sources (absorbs thinkers), tags (absorbs concepts).
+//
+// RCA-P2-012 closure 2026-05-13: only `crossNoteLinks` is currently
+// persisted by `EntityExtractor.processExtractionResult`. The
+// `sources` + `tags` arrays remain in the schema as optional
+// back-compat fields so legacy serialized payloads still parse, but
+// the extraction prompt no longer asks for them — promoting either
+// to a live graph projection is future work. See audit register
+// `RCA-P2-012` for the resumption plan.
 
 nonisolated struct ExtractionResult: Codable, Sendable {
+    /// Roadmap-only: serialized for back-compat with older LLM
+    /// payloads that returned source mentions; not currently
+    /// persisted by `EntityExtractor`.
     var sources: [ExtractedSource]?
-    var tags: [ExtractedTag]
+    /// Roadmap-only: serialized for back-compat with older LLM
+    /// payloads that returned tags; not currently persisted by
+    /// `EntityExtractor`. Optional so newer prompts that omit the
+    /// field decode without error.
+    var tags: [ExtractedTag]?
     var crossNoteLinks: [CrossNoteLink]?
 
     nonisolated struct ExtractedSource: Codable, Sendable {
