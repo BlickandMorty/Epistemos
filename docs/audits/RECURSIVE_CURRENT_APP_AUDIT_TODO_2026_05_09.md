@@ -1583,7 +1583,7 @@ Acceptance:
 
 ### RCA-P2-003 - Split active runtime schemas from roadmap gaps in StructureRegistry
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `jsonCatalog()` now splits `active_schemas` vs `roadmap_gaps`; settings UI already labels raw entries red
 
 Subsystem: agent introspection, MCP resources, settings diagnostics.
 
@@ -1596,6 +1596,23 @@ Audit steps:
 
 Acceptance:
 - Agents and settings cannot confuse gaps with implemented features.
+
+Fix-pass evidence 2026-05-13:
+
+  - `StructureRegistry.jsonCatalog()` envelope bumped to `version: 2`
+    and now exposes two split arrays:
+    - `active_schemas` — every descriptor with `maturity ∈ {.full, .partial}`
+    - `roadmap_gaps` — every descriptor with `maturity == .raw`
+    The flat legacy `schemas` array is kept for back-compat plus a
+    `schemas_legacy_note` warns new consumers to prefer the split
+    arrays and explicitly says "never treat `roadmap_gaps` as live
+    capabilities."
+  - Settings UI already labels raw-maturity entries with a red
+    "Raw" badge in `StructuredSurfacesView` (`maturityTint`
+    `.raw → .red`, `countsByMaturity.raw` exposed in the totals
+    summary). No regressions there.
+  - `Epistemos.app` `xcodebuild build` green after the registry +
+    settings + audit-doc updates.
 
 ### RCA-P2-004 - Make structured query grammar match implementation
 
@@ -1813,7 +1830,7 @@ Acceptance:
 
 ### RCA-P2-014 - Add freshness proof for Shadow vault indexing
 
-Status: TODO
+Status: PATCHED 2026-05-13 — UI now explicitly reports the watcher gap; FSEvents auto-refresh stays deferred to W8.7.b
 
 Subsystem: Shadow indexing, Halo recall, file watchers.
 
@@ -1826,6 +1843,22 @@ Audit steps:
 
 Acceptance:
 - Shadow recall stays fresh after external changes, or UI reports index is stale/manual refresh required.
+
+Fix-pass evidence 2026-05-13:
+
+  - `BackgroundIndexingHealthRow.Snapshot.detail` now appends a
+    relative timestamp + the explicit caveat
+    `"external edits since launch are not auto-indexed"` whenever
+    the bootstrap phase is `.complete`. The line shows up as the
+    only freshness signal users see in Settings → Diagnostics, so
+    the audit's second-clause acceptance ("UI reports index is
+    stale / manual refresh required") is satisfied without
+    shipping the deferred FSEvents wiring (W8.7.b).
+  - The first-clause acceptance ("Shadow recall stays fresh after
+    external changes") stays deferred: the W8.7.b file-system
+    watcher remains explicitly out of scope until the Halo Wave 8
+    follow-up. Surfacing the staleness in the UI is the bridge
+    until that wiring lands.
 
 ### RCA-P2-015 - Fix SidecarCache complexity claim or implementation
 
