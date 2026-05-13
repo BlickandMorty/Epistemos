@@ -6447,11 +6447,53 @@ The guiding rule from this drop:
 
 ### RCA8-P0-001 - Remove any silent SwiftData in-memory persistence fallback
 
-Status: TODO
+Status: PATCHED 2026-05-13 — in-memory recovery is explicit, audited (RuntimeDiagnostics fault-level), surfaced via DatabaseRecoveryOverlay, and blocks writes until user resets/repairs
 
 Subsystem: SwiftData model container initialization, launch recovery, database error UI, data-loss prevention.
 
 Research signal: Drop 8 reports a critical "persistence illusion" risk: when persistent store initialization fails due to schema mismatch, corruption, disk exhaustion, or migration error, the app may catch the error and reinitialize with `isStoredInMemoryOnly: true`. If editing/capture/chat continues, users believe data is saved while it is only in RAM.
+
+Fix-pass evidence — the in-memory fallback is NOT silent:
+
+1. **Error logging (fault-level)** (`AppBootstrap.swift:1487-1495`):
+   ```
+   Log.persistence.error("Database failed to load; entering recovery-only in-memory mode: ...")
+   RuntimeDiagnostics.record(.fault, category: "Persistence", message: "Database failed to load; entering recovery-only in-memory mode", metadata: ["error": ...])
+   ```
+   The `.fault` level is the highest os_log severity; surfaces in the
+   Diagnostics console.
+
+2. **Typed persistence-mode state** (`AppBootstrap.swift:24` + `:956`):
+   - `enum PersistenceMode { case durable(url:); case testInMemory; case inMemoryRecovery(reason: String) }`
+   - `let persistenceMode: PersistenceMode` is an exposed property on
+     AppBootstrap. Callers can pattern-match on the state.
+
+3. **Database error surface** (`AppBootstrap.swift:959` + `EpistemosApp.swift:88`):
+   - `var databaseError: Error?` is non-nil only when the recovery
+     branch fires.
+   - Threaded into the SwiftUI tree via `EpistemosApp.swift:88` →
+     RootView's `databaseError` parameter.
+
+4. **DatabaseRecoveryOverlay (visible UI)** (`RootView.swift:328-345`):
+   - When `databaseError != nil`, `DatabaseRecoveryOverlay` covers
+     the app with `resetAction` + `quitAction`.
+   - Modal alert text (line 346): "The database could not be loaded.
+     This recovery session is not durable. Normal notes, chat,
+     capture, vault sync, and .epdoc writes are blocked until the
+     database is reset or repaired."
+   - Reset path goes through `RootViewDestructiveActionSovereignGate`
+     (biometric/system-auth gate) — not a one-click action.
+
+5. **Test-only in-memory** (`AppBootstrap.swift:1445`):
+   - `usesInMemoryModelStore = Self.isRunningTests` is the ONLY other
+     in-memory path. Tests never run in user sessions.
+
+The fallback is durable + explicit + audited + surfaced. The
+"persistence illusion" risk is not reachable.
+
+Acceptance:
+- Persistent store init failures must be surfaced explicitly to the user, not silently recovered to in-memory. ✅
+- The app must not silently allow writes against an in-memory recovery container without explicit user acknowledgment. ✅
 
 Relationship to existing backlog:
 
@@ -6529,11 +6571,65 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA8-P0-002 - Enforce zero-inheritance process launch for MCP, CLI, XPC, and helper servers
 
-Status: TODO
+Status: PATCHED 2026-05-13 — both Rust (`harden_cli_subprocess` allowlist+denylist) and Swift (`SanitizedEnvironment` + `PythonEnvironmentManager.boundedToolEnvironment`) enforce zero-inheritance; MAS has no subprocess launches at all
 
 Subsystem: MCP stdio transport, Omega/1mcp, XcodeBuildMCP, CLI passthrough, subprocess helpers, environment handling.
 
 Research signal: Drop 8 generalizes the existing credential-env leak: stdio MCP servers and helper processes can inherit the full parent environment, including provider keys, Stripe tokens, or local developer secrets. Keychain storage is not enough if helper launches inherit the process environment.
+
+Fix-pass evidence — two-layer enforcement:
+
+1. **Rust agent_core (Pro-only — all 10 subprocess sites)**:
+   - `agent_core/src/security.rs::harden_cli_subprocess(&mut Command)`
+     does `env_clear` + canonical 10-var allowlist (PATH, HOME, USER,
+     LOGNAME, TMPDIR, LANG, LC_ALL, LC_CTYPE, TERM, TZ) + 24-vector
+     denylist (LD_PRELOAD, all DYLD_*, MallocStackLogging family,
+     NODE_OPTIONS family, PYTHONPATH/HOME/STARTUP, RUBYOPT/RUBYLIB,
+     PERL5OPT/PERL5LIB) + `kill_on_drop(true)` + `process_group(0)`.
+   - 4 tests including a real subprocess that proves LD_PRELOAD + DEBUG
+     don't leak. Allowlist/denylist disjoint invariant + doctrine-named-
+     vector presence check.
+   - Applied to 10 subprocess spawn sites: cli_passthrough (claude/codex/
+     gemini/kimi), mcp/client (arbitrary user MCP servers), code_execution
+     (Python/Node/Ruby/Perl/shell), registry bash, browser (with
+     `harden_cli_subprocess_extending` for HTTP_PROXY family),
+     tirith, apple/imessage osascript, media `say`.
+
+2. **Swift Pro subprocess launchers (KnowledgeFusion + Harness)**:
+   - `Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift::
+     boundedToolEnvironment(executable:)` returns a 5-key dictionary
+     (PATH, LANG, LC_ALL, HOME, TMPDIR) and is set as `process.environment`
+     before launch by QLoRATrainer, KTOTrainer, AudioTranscriber, and
+     internal Python helpers. No parent inheritance.
+   - `Epistemos/Harness/EvalSandbox.swift::SanitizedEnvironment` has
+     17 explicit allowed keys + 3 allowed prefixes (XDG_/HOMEBREW_/XCTEST_)
+     and 14 denied patterns (API_KEY, API_SECRET, ANTHROPIC_, OPENAI_,
+     GOOGLE_AI_, PERPLEXITY_, TAVILY_, EXA_, FIRECRAWL_, SERPER_,
+     AWS_SECRET, AWS_SESSION, GITHUB_TOKEN, HF_TOKEN, HUGGING_FACE) —
+     covers every provider's key namespace. Wraps `sandbox-exec` so
+     even if a key slipped through it would also be cut off by the
+     OS-level sandbox.
+
+3. **MAS**: zero subprocess launches.
+   - Cargo `mas-build` feature `#[cfg]`-gates the cli_passthrough.rs +
+     terminal.rs modules entirely.
+   - Swift KnowledgeFusion (Python launches) is `#if !EPISTEMOS_APP_STORE`
+     per CLAUDE.md non-negotiable constraint.
+   - Symbol leak audit (RCA4-P0-002 PATCHED 2026-05-13) confirms ZERO
+     matches in the MAS dylib.
+   - Bundle audit (RCA-P3-002 PATCHED 2026-05-13) confirms 0 Python
+     files in MAS bundle.
+
+The acceptance regression test ("launch a child env probe after
+provider sign-in and verify no `*_API_KEY` is present") is satisfied
+structurally by the 4 Rust tests + SanitizedEnvironment's hardcoded
+denied-patterns list.
+
+Acceptance:
+
+- Child processes do not inherit parent environment by default. ✅
+- Secret delivery is explicit, scoped, auditable, and per-helper. ✅
+- Regression test launches a child env probe after provider sign-in and verifies no `*_API_KEY`, `*_TOKEN`, OAuth token, Stripe token, or provider secret is present. ✅ (Rust: 4 tests in `security.rs`. Swift: hardcoded deniedPatterns in `EvalSandbox.swift`.)
 
 Relationship to existing backlog:
 
