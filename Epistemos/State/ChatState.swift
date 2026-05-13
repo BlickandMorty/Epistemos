@@ -445,6 +445,32 @@ final class ChatState {
     // memory only, so app relaunch wiped it. This section mirrors it to a
     // single JSON file under ApplicationSupport. Writes are debounced so
     // rapid-fire capture bursts during streaming don't thrash the disk.
+    //
+    // **Privacy doctrine** (RCA2-P2-017 fix-pass 2026-05-13):
+    //   - Persistence path:
+    //       ~/Library/Application Support/Epistemos/brain_snapshots.json
+    //     User-visible from Finder; user can purge with `rm`.
+    //   - Sensitive content scope: `ChatBrainSnapshot` is the *envelope*
+    //     metadata only — query string, resolved query, operating mode,
+    //     route summary, provider/model labels. It does NOT include the
+    //     full prompt body, system prompts, message history, or tool
+    //     definitions that get sent to the model. Those live in
+    //     `CapturedModelInput` (see line ~100) which is intentionally
+    //     NOT Codable and lives in @Observable memory only — purged on
+    //     relaunch.
+    //   - Retention policy: brain snapshots are kept indefinitely until
+    //     the user manually deletes the chat (which clears its entry in
+    //     `brainSnapshotsByChat`) or deletes the JSON file directly.
+    //     2-second debounce on writes coalesces streaming bursts.
+    //   - Purge: deleting a chat removes its key from the dictionary;
+    //     the next persist tick writes the smaller dictionary. To zero
+    //     out completely: `rm` the JSON file (idempotent — recreated on
+    //     next capture).
+    //   - Why this is safer than PromptTree: PromptTree (RCA9-P2-005)
+    //     persists FULL prompts on disk. Brain snapshots persist only
+    //     route + provider metadata. They're useful for the user to
+    //     see "what context did this turn use" without leaking the raw
+    //     prompts to disk.
 
     private nonisolated static let brainSnapshotPersistenceDebounceNanos: UInt64 = 2_000_000_000
 

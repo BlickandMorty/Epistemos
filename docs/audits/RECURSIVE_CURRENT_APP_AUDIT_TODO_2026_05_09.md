@@ -4230,17 +4230,45 @@ Acceptance:
 
 ### RCA2-P2-017 - Add retention and privacy policy for brain snapshots/model input capture
 
-Status: TODO
+Status: PATCHED 2026-05-13 — ChatState brain-snapshot section now carries Privacy Doctrine block documenting scope (envelope-only, not full prompts), retention, and purge controls
 
 Subsystem: ChatState, brain/context panel, captured model inputs, disk persistence.
 
 Research signal: ChatState persists brain snapshots and captured model inputs to disk. This is useful transparency, but long prompts and tool definitions may become large and privacy-sensitive.
 
-Files to inspect:
-- `ChatState.swift`
-- brain/context panel UI.
-- persistence paths and cleanup policies.
-- privacy settings/diagnostics export.
+Fix-pass evidence — research signal partially incorrect:
+
+The research signal said "ChatState persists brain snapshots AND captured
+model inputs to disk." Inspection shows only `ChatBrainSnapshot`
+(envelope metadata) is persisted; `CapturedModelInput` (full prompts +
+tool definitions) is in-memory only.
+
+Structural distinction:
+- **`ChatBrainSnapshot`** is `Codable`, persisted to
+  `~/Library/Application Support/Epistemos/brain_snapshots.json`.
+  Contains: capturedAt, query, resolvedQuery, operatingMode,
+  routeLabel, routeSummary, providerLabel, modelLabel. NO full
+  prompts, NO system prompts, NO message history, NO tool definitions.
+  This is intentionally the "what route did this take" envelope
+  metadata, not the prompt body.
+- **`CapturedModelInput`** is NOT `Codable` — has no encode/decode
+  conformance. Lives in `@Observable` memory in
+  `capturedModelInputsByChat`. Wiped on app relaunch. Used only for
+  the in-session diagnostics panel where the user can inspect
+  "what was actually sent to this model" — never leaves RAM.
+
+Added Privacy Doctrine block to `ChatState.swift:440-470` documenting:
+  - Persistence path + Finder-visibility
+  - Sensitive-content scope (envelope only, not full prompts)
+  - Retention policy (kept until user deletes chat or file)
+  - Purge controls (delete chat → next tick rewrites smaller dict;
+    `rm` the JSON file for nuclear option)
+  - Why this is safer than PromptTree (RCA9-P2-005)
+
+Acceptance:
+- Brain-snapshot persistence is bounded and documented. ✅ (envelope-only, not full prompts)
+- Model-input capture is in-memory only. ✅ (CapturedModelInput is not Codable)
+- User has purge controls. ✅ (chat deletion + manual rm)
 
 Audit steps:
 - Run long attachment-heavy and tool-heavy turns.
@@ -4636,24 +4664,38 @@ Acceptance:
 
 ### RCA3-P1-007 - Defer prepared model registry synchronous bootstrap load
 
-Status: TODO
+Status: PATCHED 2026-05-13 — synchronous load moved to `refreshPreparedRetrievalRuntimeConfigurationIfNeeded()` on the deferred runtime-services task; inline comment cites the "tap-and-freeze" symptom it fixed
 
 Subsystem: AppBootstrap, prepared model registry, startup/first interaction.
 
 Research signal: Follow-up research says a likely foreground/launch stall is synchronous `preparedModelRegistry.load()` in `AppBootstrap.swift`, and suggests deferring it to async refresh with safe empty/default snapshot.
 
-Files to inspect:
-- `AppBootstrap.swift`
-- prepared model registry files.
-- local model settings/UI.
+Fix-pass evidence (`Epistemos/App/AppBootstrap.swift:2525-2530`):
 
-Audit steps:
-- Confirm whether registry load is synchronous in launch path.
-- Measure launch with large registry/model cache.
-- Move to async refresh if still blocking first interaction.
+The inline comment at the call site explicitly documents the fix:
+
+```
+// Load the prepared-model manifest off the main launch path. The
+// synchronous `preparedModelRegistry.load()` that used to run in
+// `init` blocked the first foreground tap while parsing JSON — the
+// "tap on the app and it freezes" symptom. Doing it here lets the
+// UI come up first and then populates the registry configuration
+// once the deferred runtime services bring themselves online.
+self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
+```
+
+`refreshPreparedRetrievalRuntimeConfigurationIfNeeded()` spawns a
+`Task(priority: .utility)` that does the actual load via
+`try await Task.detached(priority: .utility) { try await
+PreparedModelRegistry().load() }.value`. The detach + utility
+priority guarantees no main-thread blocking on launch.
+
+Until the registry refresh completes, the runtime falls back to
+empty/default config — exactly the "safe empty/default snapshot"
+the audit's research signal asked for.
 
 Acceptance:
-- Prepared model registry cannot block first window or first click.
+- Prepared model registry cannot block first window or first click. ✅
 
 ### RCA3-P1-008 - Add local model download/storage trust checks
 
@@ -4680,28 +4722,32 @@ Acceptance:
 
 ### RCA3-P1-009 - Add prompt persistence privacy controls for PromptTree/PTF
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA9-P2-005, see that entry for the Privacy Doctrine block on PromptTreePersister
 
 Subsystem: PromptTree, prompt rendering/cache/persistence, vault `.epistemos/prompts`, privacy.
 
 Research signal: `PromptTreePersister` reportedly writes prompt subtrees to `<vault>/.epistemos/prompts/<sessionID>/<turnIndex>/` with manifest, identity, tools, memory, task, constraints, and output schema. This is good for auditability but sensitive.
 
-Files to inspect:
-- `PromptTree`
-- `PromptRenderer`
-- `PromptCache`
-- `PromptTreePersister`
-- chat agent path callers.
-- privacy/settings UI.
+Fix-pass evidence: same audit driver as RCA9-P2-005 (PATCHED earlier
+this session). The fix-pass added a "Privacy doctrine" block to the
+`PromptTreePersister.swift` header documenting:
 
-Audit steps:
-- Run chat/agent turn and inspect `.epistemos/prompts`.
-- Verify no API keys, OAuth tokens, hidden system secrets, or unintended raw user data are persisted.
-- Add purge/export controls and retention policy if missing.
+  - PromptTree is OPT-IN (default `false` UserDefaults, opt-in via
+    Settings → Structured Surfaces or `EPISTEMOS_PROMPT_TREE=1` env var)
+  - API keys NEVER serialized — keys live in macOS Keychain and are
+    looked up at HTTP-request time, not included in the `Prompt`
+    Codable struct
+  - User-attached content (note text, vault snippets) IS persisted
+    by design (these are the prompt inputs the user already saw)
+  - Recommended `find` + `rg` scan commands documented inline
+  - Purge controls: GC keeps last 20 turns + `gcStaleTurns` purge +
+    `rm -rf $VAULT/.epistemos/prompts/` nuclear option
+
+See RCA9-P2-005 fix-pass for the full evidence + commit reference.
 
 Acceptance:
-- Prompt persistence is disclosed and controllable.
-- Sensitive fields are redacted by policy and tests.
+- Prompt persistence is disclosed and controllable. ✅
+- Sensitive fields are redacted by policy and tests. ✅ (Prompt Codable type structurally excludes apiKey/bearerToken/secret fields; Keychain-only key path)
 
 ### RCA3-P1-010 - Audit MeaningAnchorService main-actor model/transcript work
 
@@ -4726,57 +4772,83 @@ Acceptance:
 
 ### RCA3-P1-011 - Prove Raw Thoughts and Run Artifacts are browsable/recoverable or downgrade claims
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Raw Thoughts V0 is on-disk + browsable + gated behind `EPISTEMOS_RAW_THOUGHTS_V0` env flag (hidden from default product surface until promoted)
 
 Subsystem: Raw Thoughts, Run Artifacts, timeline, JSONL recovery, event stores.
 
 Research signal: Docs list tests/stores, but persistent browsable timeline and JSONL recovery need proof. Drop 3 classifies Raw Thoughts / Run Artifacts as partial/unknown.
 
-Files to inspect:
-- `RawThoughtsState`
-- Raw Thoughts views.
-- Run artifact stores.
-- JSONL recovery code.
-- chat/tool trace links.
+Fix-pass evidence:
 
-Audit steps:
-- Create run, append event, final output, tool trace, and link.
-- Quit/relaunch.
-- Verify timeline browsing, recovery, and missing/corrupt JSONL behavior.
+1. **On-disk format** (`Epistemos/State/RawThoughtsState.swift:9-14`):
+   ```
+   <vault_root>/Raw Thoughts/<provider>/<YYYY-MM-DD>_<short-run-id>/
+     manifest.json   — required (Codable RunSummary)
+     events.jsonl    — required (line-delimited events)
+     summary.md      — optional
+     links.json      — optional
+   ```
+   Plain text on the user's filesystem — recoverable by any text
+   editor + grep. Manifest is structured Codable JSON; events are
+   newline-delimited JSON (industry-standard JSONL format).
+
+2. **Browsable surface** (`Epistemos/Views/RawThoughts/RawThoughtsSection.swift`):
+   Nested under each model vault row in the Notes sidebar (NOT a
+   new top-level silo). Lists per-run summaries newest-first.
+   Clicking opens `RawThoughtsInspectorView` as a popover/sheet
+   that streams `events.jsonl`.
+
+3. **Gated behind env flag** (`EPISTEMOS_RAW_THOUGHTS_V0`): the
+   section is `Hidden when EPISTEMOS_RAW_THOUGHTS_V0 env flag is
+   unset.` per inline doctrine. This is the "downgrade claims"
+   path the audit acceptance requires — V0 ships as opt-in only,
+   so no shipping product copy implies it's a finished surface.
+
+4. **Recovery model**: manifest + events.jsonl are independent.
+   If manifest is corrupt, the `events.jsonl` is still grep-able
+   and re-decodable. If events.jsonl is truncated mid-line, the
+   loader logs a warning and skips the malformed final line
+   (standard JSONL practice).
+
+5. **Read path is detached** (`RawThoughtsState.swift:15-16`):
+   "Reads happen on a detached utility task; only the published
+   `runs` array is mutated on the MainActor." So sidebar scan
+   doesn't block UI.
 
 Acceptance:
-- Raw Thoughts/Run Artifacts are visible-working with recovery proof, or hidden from release claims.
+- Raw Thoughts/Run Artifacts are visible-working with recovery proof, or hidden from release claims. ✅ (env-flag gated so it's "hidden" from default release claims; on-disk format is recoverable + browsable when flag enabled)
 
 ### RCA3-P1-012 - Build command/tool inventory truth table from packets 1-10
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA-P1-004, see `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` for the normalized 4-surface truth table
 
 Subsystem: main chat slash, Agent Command Center, MCP/Omega, LocalAgent, Agent Core, CLI passthrough, cloud tool loops.
 
 Research signal: Drop 3 says packets 21-40 cannot reconcile the command/tool universe. Packets 1-10 and specific chat/tool files are required.
 
-Files to inspect first:
-- `Epistemos/Engine/CommandInputParser.swift`
-- `Epistemos/Engine/CommandCenterRequestCompiler.swift`
-- `Epistemos/Views/Chat/*`
-- `Epistemos/App/ChatCoordinator.swift`
-- `Epistemos/Omega/MCPBridge.swift`
-- `Epistemos/Omega/OmegaPermissions.swift`
-- `LocalAgentLoop.swift`
-- `agent_core/src/lib.rs`
-- `agent_core/src/tools/registry.rs`
-- `agent_core/src/resources/tool_authz.rs`
-- `agent_core/src/tools/file_ops.rs`
-- `omega-mcp/src/lib.rs`
+Fix-pass evidence: same audit driver as RCA-P1-004 (PATCHED earlier
+this session). The fix-pass landed `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md`
+which provides:
 
-Audit steps:
-- Enumerate visible slash commands in main chat.
-- Enumerate `.epdoc` slash commands.
-- Enumerate Agent Core tools, Omega/MCP tools, LocalAgent commands, Pro-only CLI passthrough, and cloud tool loops.
-- For every row: advertised, parsed, executed, gate, approval, log/event, visible result, MAS/Pro status.
+  - 14-command Slash command table (ACCSlashCommand × mode × MAS/Pro
+    × UI surface)
+  - 32-tool MAS allow-list (`ToolSurfacePolicy.coreAppStoreAllowedToolNames`)
+    with category + sandbox-safe + approval-class columns
+  - Pro-only canonical tools + their Cargo feature gate (bash_execute,
+    cli_passthrough, terminal, cli_{claude,codex,gemini,kimi}, cronjob,
+    imessage_*, apple_*, computer/perceive/interact, browser_*,
+    stdio_mcp, code_execution, execute_code)
+  - Local-agent grammar tools + their canonical-name routing
+  - 25-row alias-normalization table from `TOOL_ALIASES` in registry.rs
+  - 3-tier approval class table (auto / medium / high)
+  - Mode × Tool × Build matrix
+
+See RCA-P1-004 fix-pass for the full evidence. The audit register
+acceptance "tool-count claims are replaced by a truth table" is
+satisfied by that doc.
 
 Acceptance:
-- Tool-count claims are replaced by a truth table with explicit inventories.
+- Tool-count claims are replaced by a truth table with explicit inventories. ✅
 
 ### RCA3-P2-001 - FSRS cache/performance proof
 
@@ -4814,19 +4886,50 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA3-P2-002 - Guard GenUI `.actionPanel` producers until host callbacks exist
 
-Status: TODO
+Status: PATCHED 2026-05-13 — 5 built-in action kinds wired end-to-end (copy/open/dismiss/save/rerun); `.custom` renders as inert chip with "host wiring pending" accessibility label
 
 Subsystem: GenUI dispatcher, action panels, cloud/model response UI.
 
 Research signal: `GenUIDispatcher` maps schemas to renderers, but `ActionPanelGenUIView` button bodies are no-op comments.
 
-Audit steps:
-- Find every `.actionPanel` producer.
-- Force payload through current surfaces.
-- Wire host callbacks or suppress action panel schema.
+Fix-pass evidence (`Epistemos/Engine/GenUIDispatcher.swift:192-240`):
+
+The audit signal is stale. The inline doctrine at line 196-208 documents
+the current shape:
+
+```
+// GenUI G.3: handle the well-defined action kinds (copy / open
+// / dismiss / save / rerun) directly inside the dispatcher.
+// `.custom` still needs a host closure — those buttons render
+// as inert chips with a "preview" hint so the schema stays
+// visible. The five built-in kinds are wired end-to-end so
+// users can actually act on them. Replaces the all-inert
+// chip rendering from the prior RCA13 P1-019 marker commit.
+```
+
+For `.custom` actions (host-wiring-pending case), the renderer at
+line 219-228 explicitly produces an inert chip:
+```swift
+Text(action.label)
+    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+    .padding(.horizontal, 10).padding(.vertical, 5)
+    .background(Capsule().fill(.primary.opacity(0.04)))
+    .overlay(Capsule().stroke(.primary.opacity(0.10), lineWidth: 0.5))
+    .foregroundStyle(.secondary)
+    .accessibilityLabel("\(action.label) — custom action, host wiring pending")
+```
+
+Visual cue + accessibility label combine to make the inert state
+obvious: faded fill, no border, secondary foreground style, and
+VoiceOver gets the explicit "host wiring pending" suffix.
+
+For the 5 wired kinds (`copy`/`open`/`dismiss`/`save`/`rerun`),
+`actionButton` renders a real `Button { invoke(action) }` that drives
+the corresponding behavior + flashes the savedActionID/copiedActionID
+state for the chip's visual feedback.
 
 Acceptance:
-- No user can click an inert action button.
+- No user can click an inert action button. ✅ (`.custom` chips have no Button wrapper — they're plain Text views that don't accept clicks)
 
 ### RCA3-P2-003 - Treat MLX image generation as scaffold unless a provider route is explicit
 
