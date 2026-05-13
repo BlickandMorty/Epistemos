@@ -394,31 +394,33 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     /// Display (hero) font name resolved by (themePair, isDark).
-    /// Per user direction 2026-05-13 (third pass):
+    /// Per user direction 2026-05-13 (fourth pass):
     ///   Classic  → CoralPixels-Regular across both modes
-    ///   Ember    → DotempDemo-8bit across both modes
+    ///   Ember    → ColorBasic-Regular across both modes (replaces
+    ///              the DotempDemo-8bit third-pass choice; user wants
+    ///              the regular Color Basic — the variant without the
+    ///              black box around each letter)
     ///   Platinum → MatrixTypeDisplay-Regular across both modes
-    /// The "dark mode falls back to RetroGaming" pattern is retired
-    /// here — the user wants each theme to keep its identity face in
-    /// dark mode too. The previous ChonkyPixels-for-Classic + RetroByte-
-    /// for-Ember + dark-mode-RetroGaming pass is reverted.
     nonisolated var displayFontName: String {
         switch themePair {
         case .classic:        return AppDisplayTypography.coralDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .ember:          return "DotempDemo-8bit"
+        case .ember:          return "ColorBasic-Regular"
         }
     }
 
     /// H1-H3 heading font name resolved by (themePair, isDark).
-    /// Per user direction 2026-05-13 (third pass): H1-H3 mirror the
-    /// hero font on every theme so the page has a unified typographic
-    /// identity instead of a heading/body split.
+    /// H1-H3 mirror the hero font on every theme so the page has a
+    /// unified typographic identity instead of a heading/body split.
+    /// Includes chat-bubble H1-H3 (TaggedMarkdownTextView), notes H1-H3
+    /// (MarkdownTextView), graph node-inspector preview headings, and
+    /// every other surface that calls
+    /// `AppDisplayTypography.headingFont(size:weight:theme:)`.
     nonisolated var headingFontName: String {
         switch themePair {
         case .classic:        return AppDisplayTypography.coralDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .ember:          return "DotempDemo-8bit"
+        case .ember:          return "ColorBasic-Regular"
         }
     }
 
@@ -1356,7 +1358,7 @@ enum AppDisplayTypography: Sendable {
         let raw = UserDefaults.standard.string(forKey: "epistemos.theme.pair") ?? ""
         switch raw {
         case "platinumViolet": return "MatrixTypeDisplay-Regular"
-        case "ember":          return "DotempDemo-8bit"
+        case "ember":          return "ColorBasic-Regular"
         case "classic":        return coralDisplayFontName
         default:               return coralDisplayFontName
         }
