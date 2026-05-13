@@ -1811,6 +1811,12 @@ final class AppBootstrap {
         AppBootstrap.shared = self
         sovereignGateLifecycleObserver.start(gate: sovereignGate)
 
+        // V6.2 Option B: start the LatestAnswerPacketSink so SwiftUI
+        // bubble renders can synchronously look up the AnswerPacket
+        // bound to a ChatMessage.answerPacketId. Idempotent — safe
+        // to call multiple times if AppBootstrap is reconstructed.
+        LatestAnswerPacketSink.shared.start()
+
         self._workspaceService = WorkspaceService(modelContainer: container)
         self._workspaceSummaryService = WorkspaceSummaryService(
             triageService: triage, activityTracker: activityTracker, modelContainer: container
