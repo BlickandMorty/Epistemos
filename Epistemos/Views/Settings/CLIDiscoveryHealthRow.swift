@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import SwiftUI
 
 // MARK: - CLIDiscoveryHealthRow
@@ -11,9 +12,13 @@ import SwiftUI
 // row reports what the runtime would actually find when it tries
 // to spawn a passthrough.
 //
-// Gated to the Pro build at the call site in SettingsView — the App
-// Store build never shows this row because MAS sandbox blocks CLI
-// passthrough entirely.
+// 2026-05-13 MAS release-prep: gate the entire file with
+// `#if !EPISTEMOS_APP_STORE`. Previously the call site in SettingsView
+// was gated but the file itself compiled into MAS — the candidate
+// paths (`/usr/local/bin/claude`, `/usr/local/bin/codex`, etc.)
+// ended up as plain strings in the MAS binary, which would flag
+// in App Store Review as evidence of subprocess intent. Per
+// RCA3-P0-001 / RCA4-P0-002 MAS-artifact symbol leak audit.
 
 @MainActor
 public struct CLIDiscoveryHealthRow: View {
@@ -169,3 +174,5 @@ struct CLIDiscoveryHealthRow_Previews: PreviewProvider {
     }
 }
 #endif
+
+#endif // !EPISTEMOS_APP_STORE
