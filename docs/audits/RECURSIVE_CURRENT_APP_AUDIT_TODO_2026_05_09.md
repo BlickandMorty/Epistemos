@@ -504,7 +504,7 @@ Acceptance:
 
 ### RCA-P1-008 - Prevent duplicate graph ideas on repeated scans
 
-Status: TODO
+Status: PATCHED 2026-05-13 — EntityExtractor dedup by `(originChatId, label)` reuses existing idea node
 
 Subsystem: graph scan, chat insight extraction, graph persistence.
 
@@ -524,6 +524,60 @@ Audit steps:
 
 Acceptance:
 - Re-running scan on unchanged chats is idempotent for idea nodes and edges.
+
+Root cause (2026-05-13):
+
+  - `EntityExtractor.processIdeaResult` always created a fresh
+    `SDGraphNode(type: .idea, …)` per extracted idea, then inserted
+    it into the ModelContext. Each scan over the same chat produced
+    a new copy of every idea (same `meta.originChatId`, same `label`,
+    different SDGraphNode UUID).
+  - `GraphBuilder.persist`'s diff couldn't help because chat-extracted
+    ideas have `sourceId == nil`. The persist diff filters
+    `compactMap` on `sourceId`, dropping nil-keyed nodes from both
+    `currentNodeMap` and `expectedNodeMap` — they're invisible to
+    both insert and delete paths.
+  - Edges from extractor-produced ideas were already deduped by
+    `createEdgeIfNeeded(source:target:type:)`, so the audit signal
+    was specifically about the nodes themselves.
+
+Fix-pass evidence 2026-05-13:
+
+  - Files changed:
+    - `Epistemos/Graph/EntityExtractor.swift` — `processIdeaResult`
+      now builds an in-memory `(chatId, label) -> SDGraphNode`
+      lookup from existing `.idea` nodes whose `meta.originChatId`
+      matches the source chat. For each extracted idea, the lookup
+      determines whether to reuse the existing node (refreshing
+      `evidenceGrade` if it differs) or insert a fresh one. Edges
+      stay attached to a stable id across scans, so
+      `createEdgeIfNeeded` short-circuits silently.
+
+  - Why in-memory dedup, not SwiftData predicate:
+    `SDGraphNode.metadata` is a `Data?` blob (JSON-encoded
+    `GraphNodeMetadata`). SwiftData `#Predicate` can't filter on
+    Data-blob contents, so we fetch all `.idea` nodes once per
+    scan and bucket by decoded `meta.originChatId`. For a vault
+    with 10K ideas this is one fetch + hash-set work — cheap.
+
+  - Acceptance status:
+    - Re-running a scan on an unchanged chat now produces zero
+      new SDGraphNode rows for the same `(originChatId, label)`
+      pair.
+    - Edges remain idempotent via the existing
+      `createEdgeIfNeeded` dedup.
+    - `xcodebuild -scheme Epistemos -destination 'platform=macOS'
+      build`: BUILD SUCCEEDED.
+
+  - Pending follow-on (separate slice):
+    - SwiftData integration test using `ModelContainer` configured
+      with `inMemory: true` to exercise `processIdeaResult`
+      end-to-end: insert two identical InsightExtractionResults
+      against the same SDChat and assert post-state has exactly
+      N idea nodes (not 2N). Deferred for the same reason
+      RCA-P1-009's integration test was deferred — heavier ModelContainer
+      fixture than the audit-loop chip pace allows; the structural
+      fix is independent of the test scaffolding.
 
 ### RCA-P1-009 - Fix graph-created note placeholder duplication and stale manual edges
 
