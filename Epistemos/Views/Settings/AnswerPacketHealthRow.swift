@@ -16,9 +16,9 @@ import SwiftUI
 //   state: implemented → schema only
 //   state: emitted     → turn-completion stub recorded
 //   state: partially populated → attention_mode + interruptBucket sampled
-//   state: rendered (PARTIAL) ← THIS ROW
-//   state: rendered (FULL)    → VRMLabelView per message bubble (follow-on)
-//   state: canonical-product-surface → MAS-shippable audit channel
+//   state: rendered (PARTIAL) ← THIS ROW (Settings diagnostics)
+//   state: rendered (FULL)    → MessageBubble chip per assistant turn (LANDED 2026-05-12, commit e639b6bb4)
+//   state: canonical-product-surface → persistent packet on ChatMessage + Rust FFI claims (pending)
 //
 // This row exposes:
 //   - lifetime count (total packets emitted this process)
