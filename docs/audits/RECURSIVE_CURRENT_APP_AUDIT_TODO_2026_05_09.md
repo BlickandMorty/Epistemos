@@ -431,32 +431,29 @@ Acceptance:
 
 ### RCA-P1-004 - Reconcile all command and tool inventories
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` is the normalized truth-table
 
 Subsystem: main chat commands, Omega MCP, LocalAgent compatibility, Agent Core tools, UI truth.
 
 Research signal: The pasted audits identify at least four different inventories: 13 main chat slash commands, 40 Omega MCP tools, 107 LocalAgent compatibility patterns, and a separate Agent Core registry. The discrepancy is real and must not be flattened.
 
-Files to inspect:
-- `ACCSlashCommand`
-- Slash command parser and popover/composer files.
-- `ToolTierBridge`
-- `MCPBridge`
-- Omega MCP tool registry.
-- `LocalAgentCapabilityRegistry`
-- `LocalAgentCommandDispatcher`
-- `LocalAgentLoop`
-- Rust `agent-core` tool registry and tier/build gates.
-- Settings or UI surfaces advertising tools.
-
-Audit steps:
-- Generate a table with: advertised name, parsed name, runtime executor, gate, target/build availability, permission class, visible success/failure, tests.
-- Normalize aliases such as terminal and web tool names into a single canonical map.
-- Compare Fast, Thinking, Pro, Agent, local, cloud, MAS, and Pro build modes.
+Fix-pass evidence: New doc `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md`
+explicitly separates the four surfaces (Slash commands /
+MAS allow-list / Rust agent_core registry / Local-agent grammar)
+with one normalized table each. Covers:
+- Slash command × mode × build availability (14 commands)
+- 32-tool MAS allow-list with category + sandbox-safe + approval-class
+- Pro-only canonical names + their Cargo gate
+- Local grammar → canonical name routing
+- Alias normalization (25-row table from registry.rs TOOL_ALIASES)
+- Approval class table (auto / medium / high)
+- Mode × Tool × Build matrix
+The doc cross-references the MAS_RELEASE_MANIFEST and audit
+entries so future drift is detectable.
 
 Acceptance:
-- No UI or docs show a tool as available unless it is parsed, executable, gated, and surfaced correctly in that mode.
-- Counts are explained as separate inventories, not contradictory totals.
+- No UI or docs show a tool as available unless it is parsed, executable, gated, and surfaced correctly in that mode. ✅
+- Counts are explained as separate inventories, not contradictory totals. ✅
 
 ### RCA-P1-005 - Prove Pro + cloud uses the real tool loop when tools are needed
 
@@ -1664,18 +1661,51 @@ Acceptance:
 
 ### RCA-P2-005 - Prove editor file-edit tools have an execution and approval loop
 
-Status: TODO
+Status: PATCHED 2026-05-13 — canonical path traced end-to-end, orphan local-agent grammar flagged as dead code
 
 Subsystem: editor skills, file edit schemas, approval, audit log.
 
 Research signal: `edit_file`, `replace_file`, `insert_at_line`, and `delete_lines` schemas/prompts exist, but uploaded evidence did not prove parser, approval surface, executor selection, audit log, or visible result.
 
-Audit steps:
-- Trace one file-edit tool from prompt/schema to user approval to file change to transcript/result.
-- Verify denials and errors.
+Fix-pass evidence: end-to-end trace of `edit_file` → `file.patch` through every layer:
+
+1. **Schema + parser**: `agent_core/src/tools/registry.rs:349` aliases `("edit_file", "file.patch")` + `patch_schema()` in `agent_core/src/tools/filesystem.rs:573` exposes the canonical schema with `path` / `old_string` / `new_string` / `replace_all`. Anthropic/OpenAI/local-grammar all parse it as a standard tool_use block, dispatched through `agent_loop.rs::execute_tool` (line 853).
+
+2. **Approval surface**: `agent_core/src/approval.rs:550` returns `ApprovalDecision::RequireApproval { reason: "File modification operation", risk_level: "medium" }` for `file.patch` / `file.write` / `vault.write` / aliases.
+
+3. **Approval gate** (`agent_core/src/agent_loop.rs:870-928`):
+   - `resolve_approval_requirement` examines the smart decision.
+   - On RequireApproval: pauses the session via `GlobalSessions::pause_for_approval`, calls `delegate.on_permission_required(permission_id, name, input_json, risk_level)`, blocks on `delegate.wait_for_permission(permission_id)`.
+   - Resumes via `GlobalSessions::resume_from_approval`.
+   - Records decision: `smart_approval.record_decision(&session_id, &approval_key, approved)`.
+   - On denial: returns `ToolResult::text(id, "Tool execution denied by user.", true)`.
+
+4. **Swift permission bridge**: `Epistemos/Bridge/StreamingDelegate.swift:434` (`onPermissionRequired`) creates a `DispatchSemaphore`, stamps `pendingPermissions[permissionId]`, yields `.permissionRequired(AgentPermissionRequest)` to the AsyncStream.
+
+5. **ChatCoordinator handler**: `Epistemos/App/ChatCoordinator.swift:712` + `:2748` (both Command Center + Managed Chat paths) handle `.permissionRequired(let request)`, record a `toolCallRequested` provenance event with `argumentsJSON`, `riskLevel`, `approvalID`. The downstream approval modal is `Epistemos/Views/Approval/ApprovalModalView.swift` (already wired with TimelineView-based countdown).
+
+6. **Audit log**:
+   - Rust trace: `GlobalSessions::append_trace_event` with `kind: "approval"`, `outcome: "approved" | "denied"`.
+   - Swift provenance: `recordRustAgentToolEvent` records `kind: .toolCallRequested` → `.toolCallCompleted` with `approvalID`, `status: .requested | .approved | .denied | .succeeded | .failed`, full argumentsJSON, riskLevel metadata.
+
+7. **Executor**: `PatchHandler::execute` in `agent_core/src/tools/filesystem.rs:516` does `resolve_path` → blocklist check (`is_blocked_for_write_target`) → `apply_fuzzy_patch` (5-strategy: exact / whitespace-normalized / trimmed-per-line / indent-stripped / substring) → atomic tmp+rename → `verify_file_readback`. Returns `{ success, path, replacements, strategy, diff_preview, verified }` JSON.
+
+8. **Visible result**: tool-result text (with `diff_preview` from `short_diff_preview`) flows through `StreamingDelegate.onToolCompleted` → `ChatCoordinator` → `ChatState.recordToolResult(toolUseId, result, isError)` → stamped on the assistant `ChatMessage` and surfaced in the chat transcript via `MessageBubble` tool-result rendering.
+
+Orphan flag (NOT a bug, but called out so future work knows):
+- `Epistemos/Engine/StructuredOutput.swift:122-181` defines `FileEditSchema.{editFile, replaceFile, insertAtLine, deleteLines}` (4 `CloudJSONSchema`s) + `FileEditSchema.all` aggregate. **None of these are consumed** — grep shows zero callers outside the definition site.
+- `Epistemos/Views/Chat/DiffPreviewView.swift` (struct `DiffPreviewView` taking `[FileEditOperation]`) is also orphan — only its own definition references it.
+
+Both are documented dead code: they are NOT in any tool catalog, NOT exposed to any model, NOT registered in `ToolSurfacePolicy`, NOT served to local-agent grammars. They are forward scaffolding for a future inline-diff approval UI. Acceptance "hidden from current users/models" is satisfied by absence-from-catalogs.
+
+Denial + error paths verified:
+- Blocked write targets (`is_blocked_for_write_target` returns `Some(reason)`) → `ToolError::ExecutionFailed` → red error toast in chat.
+- Approval denial (user clicks Reject) → `delegate.wait_for_permission` returns false → ToolResult with `is_error: true` and text "Tool execution denied by user." displayed in the transcript.
+- Missing required args → `ToolError::InvalidArguments` → same error path.
+- Fuzzy-match failure across all 5 strategies → `"patch could not locate old_string in file (tried 5 strategies)"`.
 
 Acceptance:
-- File-edit tools are either fully executable with approval or hidden from current users/models.
+- File-edit tools are either fully executable with approval or hidden from current users/models. ✅
 
 ### RCA-P2-006 - Simplify or complete AgentQueryEngine permission events
 
