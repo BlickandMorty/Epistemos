@@ -456,18 +456,32 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
 
         // V6.2 mandate (helios v6.2.md §1.3 + §3 + laptop audit
         // checklist "Next Required Passes"): every chat-turn completion
-        // emits an AnswerPacket. This is the FIRST WIRING — the audit
-        // ring buffer in AnswerPacketEmitter. Claims / residency signals
-        // / real attention_mode land in subsequent commits as Rust-side
-        // FFI threads them through. See
-        // `Epistemos/Engine/AnswerPacketEmitter.swift` for the full
-        // promotion ladder (emitted → populated → rendered → canonical).
-        let packet = AnswerPacket.turnCompletionStub(
-            stopReason: stopReason,
-            inputTokens: Int(inputTokens),
-            outputTokens: Int(outputTokens)
-        )
+        // emits an AnswerPacket. The audit ring buffer in
+        // AnswerPacketEmitter carries the live record.
+        //
+        // State: PARTIALLY POPULATED (2026-05-12 follow-on). Resolved
+        // `attentionMode` is now threaded from
+        // `AnswerPacketEmitter.currentAttentionMode()` (which reads the
+        // live `InferenceState.preferredChatModelSelection`):
+        //   .localMLX SSM model  → .staticFallback
+        //   .localMLX transformer → .dynamic
+        //   .cloud / .appleIntelligence → .dynamic
+        //   unknown → .unavailable
+        //
+        // Still pending in subsequent promotion to fully `state: populated`:
+        //   - claims + residencySignals threaded from Rust agent runtime via FFI
+        //   - InterruptScore bucket per-turn snapshot
+        //   - witnessedStateRef pulled from Rust witnessed_state module
+        let inTokens = Int(inputTokens)
+        let outTokens = Int(outputTokens)
         Task {
+            let attentionMode = await AnswerPacketEmitter.currentAttentionMode()
+            let packet = AnswerPacket.turnCompletionStub(
+                stopReason: stopReason,
+                inputTokens: inTokens,
+                outputTokens: outTokens,
+                attentionMode: attentionMode
+            )
             await AnswerPacketEmitter.shared.emit(packet)
         }
 

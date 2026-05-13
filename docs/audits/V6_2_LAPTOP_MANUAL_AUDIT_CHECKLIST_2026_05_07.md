@@ -85,9 +85,22 @@ Five V6.1/V6.2 kernels remain target-only until real kernel files and M2 Pro fal
   `state: populated` (Rust-side claims + signals via FFI),
   `state: rendered` (VRMLabelView on the message bubble),
   `state: canonical-product-surface`.
-- Runtime population of `attention_mode` (and `InterruptScore` bucket)
-  into emitted AnswerPackets — schema accepts them today; live values
-  land in the `state: populated` promotion.
+- ~~Runtime population of `attention_mode` into emitted AnswerPackets~~
+  → **LANDED 2026-05-12** as `state: partially populated`. Resolver
+  `AnswerPacketEmitter.resolveAttentionMode(selection:)` maps the
+  live `InferenceState.preferredChatModelSelection`:
+  `.localMLX(ssm-model)` → `.staticFallback` (Mamba2 / Falcon-H1 /
+  Jamba / LFM 2.5 have recurrent fixed-state, not quadratic KV
+  attention), `.localMLX(transformer)` → `.dynamic`, `.cloud(_)` →
+  `.dynamic`, `.appleIntelligence` → `.dynamic`, unknown id →
+  `.unavailable`. `StreamingDelegate.onComplete` resolves the live
+  value via MainActor hop and threads it into every emitted packet.
+  6 new tests cover every branch of the resolver.
+- Runtime population of `InterruptScore` bucket per turn — pending;
+  InterruptScoreCpu module exists, runtime emit-time sampling of
+  H/WBO/Sheaf/ToolNeed/ConnectomeAlarm still needs wiring.
+- Rust-side claims + residency signals threaded into emitted
+  AnswerPackets via FFI — pending.
 - PacketRouter1bit dispatch budget and quality-loss falsifier.
 - ControllerKernelPack baseline equivalence.
 - SemiseparableBlockScan reference match.
