@@ -70,6 +70,11 @@ public actor AnswerPacketEmitter {
     private var totalEmitted: Int = 0
     private var firstEmittedAt: Date?
     private var lastEmittedAt: Date?
+    // Monotonic per-mode + per-bucket emit counters. Survive ring
+    // eviction so the diagnostics-row "histogram" view reflects the
+    // full session, not just the current ring window.
+    private var modeCounts: [AttentionMode: Int] = [:]
+    private var bucketCounts: [InterruptBucket: Int] = [:]
 
     private init() {
         ring.reserveCapacity(Self.maxRingSize)
@@ -85,17 +90,30 @@ public actor AnswerPacketEmitter {
         public let firstEmittedAt: Date?
         public let lastEmittedAt: Date?
         public let latest: AnswerPacket?
+        /// Monotonic per-attention-mode emit count. Sums to
+        /// `totalEmitted`. Useful for verifying V6.2 §1.4 attention-
+        /// mode invariants over a session.
+        public let modeCounts: [AttentionMode: Int]
+        /// Monotonic per-interrupt-bucket emit count. Sums to
+        /// `totalEmitted`. Useful for verifying V6.2 §1.5 bucket
+        /// distribution (a healthy session has a mix of LOW/MED/HIGH;
+        /// all-LOW would suggest the bucket sampler isn't getting
+        /// signal).
+        public let bucketCounts: [InterruptBucket: Int]
     }
 
     /// Read-only snapshot of the emitter's state. Cheap — clones a
-    /// small fixed-size record + the latest packet.
+    /// small fixed-size record + the latest packet + the two
+    /// histogram dicts (≤4 entries each).
     public func snapshot() -> Snapshot {
         Snapshot(
             count: ring.count,
             totalEmitted: totalEmitted,
             firstEmittedAt: firstEmittedAt,
             lastEmittedAt: lastEmittedAt,
-            latest: ring.last
+            latest: ring.last,
+            modeCounts: modeCounts,
+            bucketCounts: bucketCounts
         )
     }
 
@@ -107,6 +125,9 @@ public actor AnswerPacketEmitter {
             ring.removeFirst(ring.count - Self.maxRingSize)
         }
         totalEmitted &+= 1
+        // Monotonic histogram counters — survive ring eviction.
+        modeCounts[packet.attentionMode, default: 0] &+= 1
+        bucketCounts[packet.interruptBucket, default: 0] &+= 1
         let now = Date()
         if firstEmittedAt == nil {
             firstEmittedAt = now
@@ -156,6 +177,8 @@ public actor AnswerPacketEmitter {
         totalEmitted = 0
         firstEmittedAt = nil
         lastEmittedAt = nil
+        modeCounts.removeAll(keepingCapacity: true)
+        bucketCounts.removeAll(keepingCapacity: true)
     }
 }
 

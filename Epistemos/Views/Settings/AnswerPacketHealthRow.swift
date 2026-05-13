@@ -47,7 +47,9 @@ public struct AnswerPacketHealthRow: View {
                 totalEmitted: 0,
                 firstEmittedAt: nil,
                 lastEmittedAt: nil,
-                latest: nil
+                latest: nil,
+                modeCounts: [:],
+                bucketCounts: [:]
             )
         )
     }
@@ -79,6 +81,26 @@ public struct AnswerPacketHealthRow: View {
                     ok: true,
                     detail: lastEmitDetail
                 )
+                // Histogram rows — per-mode + per-bucket distributions
+                // give the user a quick visual on whether the runtime
+                // is hitting all V6.2 §1.4 attention modes and §1.5
+                // bucket regions, or stuck in a single state.
+                if !snapshot.modeCounts.isEmpty {
+                    row(
+                        label: "By attention mode",
+                        symbol: "chart.bar.horizontal",
+                        ok: true,
+                        detail: modeHistogramDetail
+                    )
+                }
+                if !snapshot.bucketCounts.isEmpty {
+                    row(
+                        label: "By interrupt bucket",
+                        symbol: "chart.bar.fill",
+                        ok: true,
+                        detail: bucketHistogramDetail
+                    )
+                }
             } else {
                 row(
                     label: "Latest packet",
@@ -138,6 +160,29 @@ public struct AnswerPacketHealthRow: View {
             return "Never"
         }
         return Self.relativeTime(date)
+    }
+
+    /// `dynamic: 12 · static_fallback: 5 · unavailable: 1` style.
+    /// Ordered by canonical AttentionMode declaration so the row
+    /// reads stably across sessions.
+    private var modeHistogramDetail: String {
+        let order: [AttentionMode] = [.dynamic, .staticFallback, .unavailable]
+        let parts: [String] = order.compactMap { mode in
+            guard let count = snapshot.modeCounts[mode], count > 0 else { return nil }
+            return "\(mode.rawValue): \(count)"
+        }
+        return parts.isEmpty ? "no signal yet" : parts.joined(separator: " · ")
+    }
+
+    /// `low: 8 · medium: 6 · high: 2 · unavailable: 1` style.
+    /// Ordered by V6.2 §1.5 calibration corpus (LOW < MED < HIGH).
+    private var bucketHistogramDetail: String {
+        let order: [InterruptBucket] = [.low, .medium, .high, .unavailable]
+        let parts: [String] = order.compactMap { bucket in
+            guard let count = snapshot.bucketCounts[bucket], count > 0 else { return nil }
+            return "\(bucket.rawValue): \(count)"
+        }
+        return parts.isEmpty ? "no signal yet" : parts.joined(separator: " · ")
     }
 
     // MARK: - Row primitive (matches SearchFusionHealthRow / EditorBundleHealthRow)
