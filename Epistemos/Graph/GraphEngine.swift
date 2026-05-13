@@ -758,6 +758,19 @@ extension GraphEngine {
     }
 }
 
+/// SCAFFOLD ONLY — RCA-P2-011 classification 2026-05-13.
+///
+/// `BTKSubscriptionState` is the @Observable wrapper intended to drive
+/// outline / property / linked-block live views over the Rust
+/// `btk_subscribe_*` FFI. No production caller currently constructs
+/// one (`rg "BTKSubscriptionState"` returns this declaration only) so
+/// the class is reachable in tests + future feature work but has no
+/// runtime owner today. Lifecycle (`startPolling` / `stopPolling` /
+/// `close`) is correct, so the moment a feature opts in it can be
+/// wired without revisiting the polling contract.
+///
+/// Reachability proof + activation tracked under audit register
+/// `RCA-P2-011`.
 @MainActor
 @Observable
 final class BTKSubscriptionState {

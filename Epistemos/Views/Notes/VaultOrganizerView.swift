@@ -31,6 +31,12 @@ struct VaultOrganizerView: View {
     @State private var scanSessionID: UUID?
     @State private var scanProgress = ""
     @State private var appliedCount = 0
+    /// RCA2-P1-005 closure 2026-05-13: counter incremented every
+    /// time a scan batch fails (triage error OR malformed JSON).
+    /// Surfaces in the empty-state copy so users see "scan failed"
+    /// instead of false-success "no suggestions" when the backend
+    /// was actually broken.
+    @State private var scanFailureCount = 0
 
     // RCA finalization 2026-05-13: vault organizer is a non-hero
     // surface, so route through `surfaceVariant(.other)` so OLED
@@ -113,19 +119,31 @@ struct VaultOrganizerView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 40, weight: .ultraLight))
                 .foregroundStyle(theme.textTertiary)
-            // RCA13 RCA2-P1-005: this state fires whenever the scan
-            // produces zero suggestions — which can also happen if
-            // the AI failed silently or returned malformed JSON. The
-            // honest framing makes clear that the message reflects
-            // the sample we looked at, not the entire vault.
-            Text("No suggestions for the sample we looked at")
-                .font(.epBody)
-                .foregroundStyle(theme.textSecondary)
-            Text("Vault Organizer samples the first 20 untagged notes and the first 20 loose notes. Tap Scan to re-sample.")
-                .font(.epCaption)
-                .foregroundStyle(theme.textTertiary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
+            // RCA13 RCA2-P1-005 closure 2026-05-13: the empty state
+            // distinguishes "scan succeeded with no suggestions" from
+            // "scan FAILED" so the user is never told their vault is
+            // organized when the LLM or JSON decoder actually
+            // crashed. The failure copy comes through when
+            // `scanFailureCount > 0` for the most recent run.
+            if scanFailureCount > 0 {
+                Text("Scan ran into errors — \(scanFailureCount) batch\(scanFailureCount == 1 ? "" : "es") failed")
+                    .font(.epBody)
+                    .foregroundStyle(theme.textSecondary)
+                Text("The triage backend returned an error or the AI response was malformed. No suggestions were produced for this sample. Tap Scan to retry.")
+                    .font(.epCaption)
+                    .foregroundStyle(theme.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            } else {
+                Text("No suggestions for the sample we looked at")
+                    .font(.epBody)
+                    .foregroundStyle(theme.textSecondary)
+                Text("Vault Organizer samples the first 20 untagged notes and the first 20 loose notes. Tap Scan to re-sample.")
+                    .font(.epCaption)
+                    .foregroundStyle(theme.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
             Button("Scan Sample") { startScan() }
                 .buttonStyle(.borderedProminent)
                 .tint(theme.resolved.accent.color)
@@ -197,6 +215,9 @@ struct VaultOrganizerView: View {
         isScanning = true
         suggestions = []
         appliedCount = 0
+        // RCA2-P1-005 closure 2026-05-13: reset the failure counter at
+        // scan start so the next empty-state reflects only this run.
+        scanFailureCount = 0
 
         let sessionID = UUID()
         scanSessionID = sessionID
@@ -316,11 +337,53 @@ struct VaultOrganizerView: View {
                 // RCA13 RCA2-P1-006: skip stale batches whose scan was
                 // cancelled / superseded while we awaited the AI call.
                 guard isCurrentScan(sessionID) else { return }
-                suggestions.append(contentsOf: parsed)
+                // RCA2-P1-005 closure 2026-05-13: parser failures still
+                // count as a scan-batch failure so the empty-state
+                // can tell the user the AI response was bad instead of
+                // implying the vault is well organized.
+                if parsed.isEmpty,
+                   parseTagSuggestionsFailed(result, pages: batch) {
+                    scanFailureCount += 1
+                } else {
+                    suggestions.append(contentsOf: parsed)
+                }
             } catch {
                 Log.vault.warning("⚠️ Tag suggestion batch failed: \(error.localizedDescription, privacy: .public)")
+                // RCA2-P1-005 closure 2026-05-13: increment counter so
+                // the empty-state can render the "Scan ran into
+                // errors" copy instead of false-success.
+                if isCurrentScan(sessionID) {
+                    scanFailureCount += 1
+                }
             }
         }
+    }
+
+    /// RCA2-P1-005 closure 2026-05-13: returns true when the LLM
+    /// response is non-empty but the JSON decoder rejected it, OR
+    /// when the response is itself empty/whitespace. Used to drive
+    /// the scan-failed counter so the empty-state can distinguish
+    /// "no suggestions" from "the AI response was malformed."
+    private func parseTagSuggestionsFailed(_ json: String, pages _: [SDPage]) -> Bool {
+        let cleaned = json
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.isEmpty { return true }
+        guard let data = cleaned.data(using: .utf8) else { return true }
+        return (try? JSONDecoder().decode([TagSuggestionItem].self, from: data)) == nil
+    }
+
+    /// RCA2-P1-005 closure 2026-05-13: same shape as
+    /// `parseTagSuggestionsFailed` but for folder-suggestion JSON.
+    private func parseFolderSuggestionsFailed(_ json: String) -> Bool {
+        let cleaned = json
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.isEmpty { return true }
+        guard let data = cleaned.data(using: .utf8) else { return true }
+        return (try? JSONDecoder().decode([FolderSuggestionItem].self, from: data)) == nil
     }
 
     private func parseTagSuggestions(_ json: String, pages: [SDPage]) -> [OrgSuggestion] {
@@ -402,9 +465,19 @@ struct VaultOrganizerView: View {
                 let parsed = parseFolderSuggestions(result, pages: batch, folders: existingFolders)
                 // RCA13 RCA2-P1-006 stale-batch guard.
                 guard isCurrentScan(sessionID) else { return }
-                suggestions.append(contentsOf: parsed)
+                // RCA2-P1-005 closure: see tag-suggestion sibling for
+                // the rationale on counting JSON-decode failures.
+                if parsed.isEmpty,
+                   parseFolderSuggestionsFailed(result) {
+                    scanFailureCount += 1
+                } else {
+                    suggestions.append(contentsOf: parsed)
+                }
             } catch {
                 Log.vault.warning("⚠️ Folder suggestion batch failed: \(error.localizedDescription, privacy: .public)")
+                if isCurrentScan(sessionID) {
+                    scanFailureCount += 1
+                }
             }
         }
     }

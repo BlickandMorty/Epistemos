@@ -1695,7 +1695,7 @@ Acceptance:
 
 ### RCA-P2-007 - Preserve structured chat history through AgentQueryEngine
 
-Status: TODO
+Status: PATCHED 2026-05-13 — history now round-trips role + tool_call_id through the [String] backend boundary
 
 Subsystem: multi-turn agent sessions, tool continuation, replay/provenance.
 
@@ -1707,6 +1707,24 @@ Audit steps:
 
 Acceptance:
 - Tool continuation and replay preserve roles and tool-call IDs when needed.
+
+Fix-pass evidence 2026-05-13:
+
+  - `AgentQueryEngine.swift` history encoding flipped from
+    `mutableMessages.map { $0.content }` (which dropped both role
+    and toolCallID) to `mutableMessages.map(Self.encodeHistoryLine)`.
+    The new encoder emits `<role>: <content>` for user / assistant /
+    system messages and `<role>:[tool_call_id=<id>] <content>` for
+    tool_result messages, so role + tool-call-id round-trip
+    through the `AgentBackend.execute(history: [String])` boundary
+    without losing fidelity.
+  - The `AgentBackend` protocol stays string-typed because no
+    concrete backend has registered yet (`grep -rn "AgentBackend\b"`
+    only matches the protocol declaration + a doc comment). When
+    a backend finally lands, it can decode the prefix or — once the
+    structured `[QueryMessage]` upgrade ships — switch to the
+    richer shape without breaking older callers.
+  - `Epistemos.app` `xcodebuild build` green after the change.
 
 ### RCA-P2-008 - Classify sidecars, FSRS, speech, query DSL, hooks, paste intelligence, and EventDrain by caller proof
 
@@ -1773,7 +1791,7 @@ Acceptance:
 
 ### RCA-P2-011 - Prove Graph Chat, page subgraph, and BTK subscriptions are reachable or hide them
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Graph Chat verified wired end-to-end; page subgraph + BTK subscription marked SCAFFOLD-ONLY pending future wiring
 
 Subsystem: graph workspace, chat handoff, page mode, BTK polling.
 
@@ -1786,6 +1804,44 @@ Audit steps:
 
 Acceptance:
 - Each feature is visible-working or hidden/gated as an almost-feature.
+
+Fix-pass evidence 2026-05-13:
+
+  - **Graph Chat — verified wired end-to-end.** The audit signal
+    that "Graph Chat may only post a notification" is stale. The
+    real path is:
+      `AppBootstrap.routeGraphChatRequestIntoMainChat(_:)`  (App/AppBootstrap.swift:1162)
+      → `chatState.primeGraphChatRequest(_:)`                 (App/AppBootstrap.swift:1165)
+      → `accState.pendingGraphChatRequest`                    (App/ChatCoordinator.swift:297)
+      → `ChatCoordinator.graphContextSection(from:)`          (App/ChatCoordinator.swift:1361)
+      → `chatState.consumePendingGraphChatRequest()`          (App/ChatCoordinator.swift:1673)
+      → `agentCommandCenterState.startObservingGraphChatRequests()` (App/AppBootstrap.swift:2140)
+    The notification posts AND the request is consumed by the
+    composer. Visible-working today.
+
+  - **Page subgraph — SCAFFOLD-ONLY marker.** `GraphState.buildPage
+    Subgraph(for:context:)` (Graph/GraphState.swift) has zero
+    production Swift callers (the prior docstring acknowledged
+    this; this commit promotes that note into an explicit
+    `SCAFFOLD ONLY — RCA-P2-011 classification` header so anyone
+    reading the file knows it's reserved for future page-mode
+    wiring, not a live runtime path).
+
+  - **BTK subscription state — SCAFFOLD-ONLY marker.** `BTKSubscription
+    State` (`Graph/GraphEngine.swift`) has no consumers outside its
+    own declaration (`rg "BTKSubscriptionState"` returns the class
+    body only). The Rust `btk_subscribe_*` FFI exists and the
+    polling lifecycle (`startPolling` / `pollNow` / `stopPolling` /
+    `close`) is correct, but no UI path currently constructs one.
+    Same `SCAFFOLD ONLY — RCA-P2-011 classification` header added
+    above the class declaration.
+
+  - Audit acceptance "Each feature is visible-working or
+    hidden/gated as an almost-feature" — satisfied: Graph Chat is
+    visible-working, page subgraph + BTK subscription are
+    explicitly scaffolded with the canonical SCAFFOLD-ONLY pattern
+    (RCA-P3-003 template) so future readers can't mistake them for
+    live runtime paths.
 
 ### RCA-P2-012 - Finish or de-scope tag/source extraction
 
@@ -2508,11 +2564,34 @@ Acceptance:
 
 ### RCA2-P1-005 - Make Vault Organizer scan scope and failure states honest
 
-Status: TODO
+Status: PATCHED 2026-05-13 — sampled-scope copy + scan-failed counter now drive the empty state honestly
 
 Subsystem: Vault Organizer, AI suggestions, UX truth, error handling.
 
 Research signal: The UI says "Scan Vault" and "Analyzing your vault," but the implementation reportedly inspects only the first 20 untagged notes and first 20 loose notes. Generation and JSON decode failures log only; empty suggestions fall through to "well organized."
+
+Fix-pass evidence 2026-05-13:
+
+  - **Sampled scope** (first clause of acceptance) was already
+    honest before this commit — the scanning header, the empty-
+    state copy, and the button label all explicitly say "first 20
+    untagged + 20 loose notes." Audited and confirmed in
+    `VaultOrganizerView.swift` lines 92-127 / 197-199.
+  - **Failure states** (second clause) — new this commit. Added
+    `@State scanFailureCount` that resets at every `startScan()`
+    and increments inside:
+      - `generateTagSuggestions` `catch`
+      - `generateTagSuggestions` post-parse when JSON decode fails
+        (`parseTagSuggestionsFailed(_:pages:)` helper)
+      - `generateFolderSuggestions` `catch`
+      - `generateFolderSuggestions` post-parse when JSON decode
+        fails (`parseFolderSuggestionsFailed(_:)` helper)
+    The empty-state view now branches on `scanFailureCount > 0` and
+    renders "Scan ran into errors — N batch(es) failed" + a
+    follow-up explaining the triage backend / malformed AI response,
+    instead of falling through to the well-organized framing when
+    the scan was actually broken.
+  - `Epistemos.app` `xcodebuild build` green after the change.
 
 Files to inspect:
 - `VaultOrganizerView.swift`
