@@ -63,6 +63,67 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-12-014: LOD zoom-out transition still feels too harsh
+
+Status: Patched (iteration 3 — per-node shader fade + wider label fade bands)
+Priority: P2
+First Observed: 2026-05-12
+
+Symptom:
+User reports the LOD transition during zoom-out has improved but still feels
+too harsh — "the nodes should like have the right amount and then smoothly
+do it." Translation: at any zoom there's a "right" density of visible
+elements; the transition BETWEEN density states should be a smooth fade,
+not a step.
+
+Investigation:
+- The `lod_renderer.rs` module shipped in `857d9161e` is scaffolding only.
+  Its `LodTransitionState` 200 ms crossfade was never wired into the live
+  render path.
+- The actual harsh behavior is two coupled steps:
+  1. Per-node sprite cull is binary — at the viewport edge the sprite
+     pops from full-alpha to gone, with no fade zone (renderer.rs
+     `collect_visible_node_indices` only does inside-bounds vs outside).
+  2. Label fade bands were narrow: `LABEL_FADE_MIN_SCREEN_PX..MAX = 8..22 px`
+     (14 px window), `label_density_opacity = smoothstep(0.58, 0.92)`
+     (0.34-wide window). Both transitions completed in a small band of
+     zoom motion → reads as a step.
+
+Safe Auto-Fix Applied:
+- `node_vertex` Metal shader (renderer.rs node_vertex): added a per-node
+  zoom-fade factor:
+    `screen_radius_px = effective_radius * uniforms.camera_zoom;`
+    `zoom_fade_alpha = smoothstep(1.5, 6.5, screen_radius_px);`
+    `out.color.a *= zoom_fade_alpha;`
+  Above ~6.5 px screen radius the factor is 1.0 (no impact at normal
+  viewing). Below 6.5 px the sprite alpha tapers gracefully to 0 by 1.5 px
+  so tiny sprites fade out instead of popping when zooming way out.
+- `LABEL_FADE_MIN_SCREEN_PX 8.0 → 5.0` and
+  `LABEL_FADE_FULL_SCREEN_PX 22.0 → 28.0`. Window widens from 14 px to 23
+  px around the same perceptual midpoint (~16 px).
+- `label_density_opacity` smoothstep band widened from `[0.58, 0.92]` to
+  `[0.42, 0.95]`. Density-driven label fades are now 0.53 of range instead
+  of 0.34 — labels fade in/out gradually as local density climbs.
+
+Tests (both new, in graph-engine/src/engine.rs):
+- `label_fade_band_widens_for_softer_zoom_out_transition` — asserts the
+  new constants, the midpoint = 0.5 smoothstep behavior, and the
+  band-width invariant (>14 px).
+- `density_opacity_band_widens_for_gentler_label_fade` — asserts the new
+  density-opacity edges, protected-label bypass, and band-width invariant
+  (≥0.5 of range).
+
+Full graph-engine suite (2,775 tests) passes.
+
+Open Follow-ups:
+- If the user still finds the transition stepped at the very-low-zoom
+  end, the next move is to wire `lod_renderer.rs`'s `LodTransitionState`
+  crossfade (200 ms alpha-blend between centroid/mixed/leaf-only tiers)
+  into the live render path. Currently it's scaffolding for the cluster
+  multilevel path that hasn't shipped yet.
+
+---
+
 ### ISSUE-2026-05-12-013: Graph feels below 120 fps at high vault count (REOPENED + retargeted)
 
 Status: Patched via physics-rate doubling + cinematic-cap REVERTED per user
