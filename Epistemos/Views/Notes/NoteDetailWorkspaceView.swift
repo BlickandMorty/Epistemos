@@ -1041,8 +1041,13 @@ struct NoteDetailWorkspaceView: View {
             // Code files have their own status bar — hide the word count overlay
             if !isCodeFile {
                 noteFooterBubble {
+                    // 2026-05-13 sixth pass: route the word-count caption
+                    // through `theme.captionFontName` so Ember renders
+                    // it in MatrixTypeDisplay-Regular instead of the
+                    // case-driven ColorBasic boxes. Classic + Platinum
+                    // get their hero font as before.
                     Text("\(wordCount) words")
-                        .font(AppDisplayTypography.font(size: 13))
+                        .font(.custom(ui.theme.captionFontName, size: 13))
                         .monospacedDigit()
                         .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
                 }
