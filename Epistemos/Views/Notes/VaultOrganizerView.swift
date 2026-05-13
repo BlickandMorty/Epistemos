@@ -288,11 +288,24 @@ struct VaultOrganizerView: View {
             """
 
             do {
+                // RCA2-P0-003 (2026-05-13): pin Vault Organizer scans
+                // to the local-first triage path. Without an explicit
+                // operatingMode argument the call would inherit the
+                // ambient default, which can route to cloud for Pro/
+                // Agent users. The user clicks "Scan Vault" expecting
+                // an on-device pass; routing their note titles +
+                // snippets through cloud silently would violate that
+                // intent. `.fast` mode biases the triage toward
+                // localMLX / Apple Intelligence; if neither is
+                // available the call still falls back through the
+                // existing cloud path so the feature remains
+                // functional, but the default surface is local-first.
                 let result = try await triage.generateGeneral(
                     prompt: prompt,
                     systemPrompt: nil,
                     operation: .brainstorm,
-                    contentLength: prompt.count
+                    contentLength: prompt.count,
+                    operatingMode: .fast
                 )
 
                 let parsed = parseTagSuggestions(result, pages: batch)
@@ -372,11 +385,14 @@ struct VaultOrganizerView: View {
             """
 
             do {
+                // RCA2-P0-003: local-first triage; see tag-suggestion
+                // doctrine comment above for the privacy rationale.
                 let result = try await triage.generateGeneral(
                     prompt: prompt,
                     systemPrompt: nil,
                     operation: .brainstorm,
-                    contentLength: prompt.count
+                    contentLength: prompt.count,
+                    operatingMode: .fast
                 )
 
                 let parsed = parseFolderSuggestions(result, pages: batch, folders: existingFolders)
@@ -413,11 +429,14 @@ struct VaultOrganizerView: View {
         """
 
         do {
+            // RCA2-P0-003: local-first triage; see tag-suggestion
+            // doctrine comment above for the privacy rationale.
             let result = try await triage.generateGeneral(
                 prompt: prompt,
                 systemPrompt: nil,
                 operation: .brainstorm,
-                contentLength: prompt.count
+                contentLength: prompt.count,
+                operatingMode: .fast
             )
 
             let cleaned = result
