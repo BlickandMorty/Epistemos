@@ -30,6 +30,22 @@
 //! CLI. Phase 1 ships the type + acceptance tests; the CLI binary lands
 //! in the sibling `epistemos-provenance-standard` repo.
 //!
+//! # HELIOS doctrine cross-reference
+//!
+//! `ReplayBundle` / `LedgerSnapshot` + the `epistemos_trace verify |
+//! verify-replay` CLI live in the **Verification** plane (plane 5) per
+//! V6.1 §3 — they're the audit surface that runs replay verifiers over
+//! the claim ledger. The canonical anchor lives in
+//! `epistemos-research/src/five_planes.rs::PROVENANCE_AUDIT_PLANE`
+//! (research-tier, `--features research`).
+//!
+//! The storage-side surface (`ClaimLedger`) is plane 2 (Episodic) — see
+//! `provenance::ledger` for its doctrine block.
+//!
+//! Drift gate: the test
+//! `epistemos-research/src/five_planes.rs::tests::provenance_storage_in_episodic_audit_in_verification`
+//! locks both placements + the inequality invariant (storage ≠ audit).
+//!
 //! ## Byte-equivalence guarantee
 //!
 //! Per `04_PHASES.md` Phase-1 acceptance: "2 tests for ReplayBundle

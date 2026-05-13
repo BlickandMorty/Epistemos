@@ -22,6 +22,24 @@
 //!
 //! The ledger is in-memory for Phase 1. Persistence onto GRDB / SQLite
 //! lands in Phase 2 once the API surface is settled.
+//!
+//! # HELIOS doctrine cross-reference
+//!
+//! `ClaimLedger` stores exact, addressable claim + evidence records — that
+//! places it in the **Episodic** plane (plane 2) per V6.1 §3. The canonical
+//! anchor lives in `epistemos-research/src/five_planes.rs::PROVENANCE_STORAGE_PLANE`
+//! (research-tier, `--features research`). This mirrors the existing
+//! `acs.rs::ACS_CANONICAL_PLANE = Episodic` precedent.
+//!
+//! The audit-side surface (ReplayBundle / LedgerSnapshot / `epistemos_trace
+//! verify`) is plane 5 (Verification) — see `provenance::replay` for its
+//! doctrine block.
+//!
+//! Drift gate: the test
+//! `epistemos-research/src/five_planes.rs::tests::provenance_storage_in_episodic_audit_in_verification`
+//! locks both placements + the inequality invariant (storage ≠ audit).
+//! Any move of the ledger or the replay verifier in agent_core must
+//! update the constants in five_planes.rs in lockstep.
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
