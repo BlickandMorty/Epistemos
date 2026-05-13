@@ -93,10 +93,31 @@ These are HELIOS modules where porting forward would deliver concrete app value,
    - Five-plane formalism (Audit / Canonical / Truth / Witnessed / Verification) would standardize the vocabulary
    - Effort: doc-rename pass + per-plane invariant tests
 
-4. **`self_evolving_l_se.rs` → memory eviction policy**
-   - Six-tier memory taxonomy (L0–L_SE) matches the existing memory-pressure response in `agent_core::shared_memory.rs`
-   - Already have `evict_stale` + `evict_oldest_n` hooks — could rename to L_n tiers + add canonical TTL per tier
-   - Effort: ~2 commits
+4. **`shadow_memory.rs::MemoryTier` (+ `self_evolving_l_se.rs`) → ShmPool L0 cross-reference**
+   - Originally framed as "Six-tier memory taxonomy (L0–L_SE) matches the
+     existing memory-pressure response in `agent_core::shared_memory.rs`."
+   - **First-pass discovery (2026-05-12):**
+     - The 5-tier ladder (L0-L4) lives in `shadow_memory.rs::MemoryTier`, not
+       `self_evolving_l_se.rs`. L_SE is the SELF-EVOLVING extension that runs
+       ALONGSIDE the ladder (LMM with surprise gradient + nightly SEAL-DoRA).
+     - `agent_core::shared_memory::ShmPool` is single-tier — session-scoped
+       shared-memory segments with TTL + count eviction, raw-byte payloads.
+       That's the **L0 ExactHot** equivalent (bf16_fp16 codec). L1-L4 aren't
+       implemented in active code; they're canonical doctrine targets per
+       the canon-hardening protocol (`state: candidate`).
+     - Renaming `evict_stale` → `evict_l0_stale` would be cosmetic and lose
+       the simple "single tier" semantics. The honest move is to document
+       the cross-reference and lock the alignment with a drift gate.
+   - **Step 1 LANDED (2026-05-12):** doctrine cross-reference block on
+     `agent_core::shared_memory::ShmPool` with the full 5-tier table + the
+     "L0 only, L1-L4 are doctrine targets" status. Drift gate
+     `active_app_shmpool_implements_l0_exact_hot_only` in
+     `epistemos-research/src/shadow_memory.rs::tests` locks:
+     (a) the L0 canonical name + codec id,
+     (b) the L1-L4 canonical names,
+     (c) the count invariant (5 doctrine tiers − 1 active = 4 unimplemented).
+   - Effort remaining: zero unless agent_core implements L1/L2/L3/L4 tier
+     semantics; drift gate is in place either way.
 
 5. **`gate_action.rs` → ApprovalDecision doctrine cross-reference**
    - Originally framed as "GateAction taxonomy gives canonical names for

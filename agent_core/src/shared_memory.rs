@@ -223,6 +223,34 @@ const MAX_SEGMENT_SIZE: usize = 16 * 1024 * 1024;
 /// certainly an orphan (the consumer crashed or never ran).
 pub const DEFAULT_SHM_TTL: Duration = Duration::from_secs(300);
 
+/// `ShmPool` is the active app's single-tier shared-memory pool.
+///
+/// # HELIOS doctrine cross-reference
+///
+/// HELIOS canon (in `epistemos-research/src/shadow_memory.rs::MemoryTier`,
+/// research-tier, `--features research`) defines a five-tier shadow-memory
+/// hierarchy plus the self-evolving L_SE extension that runs alongside it
+/// (see `epistemos-research/src/self_evolving_l_se.rs`):
+///
+/// | tier  | canonical name        | codec                              | substrate                |
+/// |-------|-----------------------|------------------------------------|--------------------------|
+/// | L0    | L0ExactHot            | bf16_fp16                          | unified RAM (this pool)  |
+/// | L1    | L1CompressedResidual  | sherry_1_25bit_on_residual         | unified RAM              |
+/// | L2    | L2ShadowSketch        | sparse_jl_over_frp+countsketch     | DRAM + MLX shadow store  |
+/// | L3    | L3SsdOracle           | nf4_or_3bit_groupwise              | NVMe                     |
+/// | L4    | L4HermesCascade       | raw_prompt                         | cloud reasoning escalate |
+/// | L_SE  | self-evolving (LMM)   | titans_mac + nightly_seal_dora     | per-user adapter         |
+///
+/// `ShmPool` implements **L0 ExactHot only** today — session-scoped, full-byte
+/// payload storage with TTL + count eviction. The other tiers are canonical
+/// targets per the canon-hardening protocol (`state: candidate`, not
+/// `state: canon`) and have NO active-app implementation in this crate.
+///
+/// Drift gate: the test
+/// `epistemos-research/src/shadow_memory.rs::tests::active_app_shmpool_implements_l0_exact_hot_only`
+/// locks (a) the L0 canonical name, (b) the L0 codec id, and (c) the
+/// count invariant (5 doctrine tiers minus 1 active = 4 unimplemented).
+/// Any rename in HELIOS forces a corresponding update here, and vice versa.
 pub struct ShmPool;
 
 impl ShmPool {
