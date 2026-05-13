@@ -194,6 +194,69 @@ struct AnswerPacketEmitterTests {
             "Unknown local model id must resolve as .unavailable; got \(mode)")
     }
 
+    @Test("turnCompletionStub with interruptBucket parameter populates field")
+    func stubAcceptsInterruptBucket() {
+        let mediumPacket = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20,
+            interruptBucket: .medium
+        )
+        #expect(mediumPacket.interruptBucket == .medium)
+
+        let highPacket = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20,
+            interruptBucket: .high
+        )
+        #expect(highPacket.interruptBucket == .high)
+
+        // Default remains .unavailable for backward compatibility.
+        let defaultPacket = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20
+        )
+        #expect(defaultPacket.interruptBucket == .unavailable)
+    }
+
+    @Test("AnswerPacket Codable round-trips with interruptBucket field")
+    func answerPacketRoundTripsWithBucket() throws {
+        let packet = AnswerPacket.turnCompletionStub(
+            stopReason: "end_turn",
+            inputTokens: 10,
+            outputTokens: 20,
+            attentionMode: .staticFallback,
+            interruptBucket: .medium
+        )
+        let encoded = try JSONEncoder().encode(packet)
+        let decoded = try JSONDecoder().decode(AnswerPacket.self, from: encoded)
+        #expect(decoded.interruptBucket == .medium)
+        #expect(decoded.attentionMode == .staticFallback)
+    }
+
+    @Test("AnswerPacket Codable: missing interrupt_bucket decodes as .unavailable (backward-compat)")
+    func legacyPacketDecodesUnavailableBucket() throws {
+        // Simulate an older packet emitted before the V6.2 #4 schema
+        // bump — JSON without the `interrupt_bucket` key. The decoder
+        // must accept it and produce `.unavailable`.
+        let legacyJSON = """
+        {
+            "id": "legacy-1",
+            "claims": [],
+            "residency_signals": [],
+            "ui_label": "plausible_but_unverified",
+            "attention_mode": "unavailable",
+            "witnessed_state_ref": "stop:end_turn;in:0;out:0",
+            "mutation_envelope_ref": "legacy-1"
+        }
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AnswerPacket.self, from: legacyJSON)
+        #expect(decoded.interruptBucket == .unavailable,
+            "legacy packets without interrupt_bucket must decode as .unavailable; got \(decoded.interruptBucket)")
+    }
+
     @Test("turnCompletionStub with attentionMode parameter populates field")
     func stubAcceptsAttentionMode() {
         let staticPacket = AnswerPacket.turnCompletionStub(
