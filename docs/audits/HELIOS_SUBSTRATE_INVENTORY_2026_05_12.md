@@ -197,16 +197,62 @@ These are HELIOS modules where porting forward would deliver concrete app value,
    - Effort remaining: zero unless HELIOS adds capabilities OR the active
      app's MAS/Pro shipping posture for any of the 12 changes.
 
-7. **`learning_modes.rs` → chat metadata standardization**
-   - Chat metadata has string-based mode fields
-   - Canonical enum would catch typos at compile time
-   - Effort: ~2 commits
+7. **`learning_modes.rs` → chat metadata standardization** — NO ACTIVE ANALOG
+   - Originally framed as "could replace string-based learning-mode field in
+     chat metadata."
+   - **First-pass discovery (2026-05-12):** HELIOS `LearningMode` is
+     `{ Freeze, FastWeight, LoRA, Sketch }` — these are TRAINING-PIPELINE
+     modes (frozen weights vs fast-weight programming vs LoRA fine-tuning
+     vs gradient sketching). The active app has no training pipeline; the
+     chat-mode/routing enums it does have (`LocalRoutingMode`,
+     `ChatModelSelection`, `ToolTier`) are about INFERENCE-time model
+     selection and tool exposure, a different axis. Renaming any of those
+     to `LearningMode::Freeze` would conflate inference behavior with
+     training mode and confuse downstream readers.
+   - **Verdict (2026-05-12):** no code change. `LearningMode` stays
+     research-only with no doctrine cross-reference candidate. The donor-
+     distillation + SEAL-DoRA paths it serves are training-pipeline
+     doctrine targets per canon-hardening protocol; they don't ship in MAS.
+     If a future training pipeline lands in the active app, revisit then.
 
-### Tier C — naming only, mostly cosmetic
+### Tier C — naming only, mostly cosmetic (CLOSING AUDIT 2026-05-12)
 
-8. **`stack_roles.rs`** — rename internal subsystem roles
-9. **`acs.rs`** — diagnostics health row
-10. **`engram.rs`** — meaning-anchor naming
+8. **`stack_roles.rs`** — rename internal subsystem roles → ALREADY IMPLICIT
+   - HELIOS `StackRole = { RustSpine, MlxHand, MetalNerves }` IS the active
+     app's three-language split, already documented at the top of
+     `CLAUDE.md`: "Swift 6.0 + Rust (UniFFI FFI) + Metal compute shaders."
+   - No active-app enum exists to "rename"; the role split is structural
+     (file paths, languages, build configurations). Adding a doctrine
+     cross-reference would be either redundant with CLAUDE.md or would
+     require introducing a synthetic enum that nothing reads from.
+   - **Verdict (2026-05-12):** no code change. The role split is honest
+     and visible at the project root.
+
+9. **`acs.rs`** — diagnostics health row → ACS NOT IMPLEMENTED
+   - The Settings → General → Diagnostics row exists
+     (`EditorBundleHealthRow`, `SearchFusionHealthRow`, etc.), but ACS
+     itself ("Anchored Cognitive Substrate") is research-tier and has
+     no active-app implementation — there's nothing to surface yet.
+   - **Verdict (2026-05-12):** deferred. Revisit if/when ACS anchors
+     land in agent_core; until then the diagnostics surface should
+     not advertise a feature that doesn't exist.
+
+10. **`engram.rs`** — meaning-anchor naming → DIFFERENT SEMANTICS, DO NOT CONFLATE
+    - The inventory hinted at unifying HELIOS `EngramTable` with the
+      active app's `MeaningAnchor` (Epistemos/Engine/MeaningAnchorService.swift).
+      Closer inspection shows they're DIFFERENT abstractions:
+      * HELIOS `EngramTable` is a static-knowledge hash table (facts /
+        signatures / dates / API contracts) separated from dynamic
+        reasoning — Lane 3 RESEARCH-ONLY, "NEVER ships in MAS" per the
+        module's posture comment.
+      * Active app `MeaningAnchor` is a per-chat structured snapshot
+        (topic, summary, insights, related notes, broader theme,
+        confidence) emitted on chat exit and stored as a `.idea`-type
+        graph node. It powers retrieval bias + prompt injection.
+    - Renaming `MeaningAnchor` → `Engram*` would be a semantic regression
+      that confuses readers into thinking the active app implements
+      HELIOS's static-knowledge separation, which it doesn't.
+    - **Verdict (2026-05-12):** no code change. Names stay distinct.
 
 ## Items explicitly NOT migrating
 
@@ -229,3 +275,47 @@ If user wants to actively migrate HELIOS work forward, the highest-leverage comm
 Total: ~1 week of focused work to fold the highest-impact HELIOS substrate into the active app.
 
 The rest (Tier B, Tier C) can be opportunistic during related feature work.
+
+---
+
+## Closing audit summary (2026-05-12)
+
+Six items shipped as documentation + drift-gate cross-references during the
+HELIOS V5 loop, two deferred with verdict notes, two left with "no
+migration possible" verdicts. Every item that had a defensible active-app
+analog now has both a doctrine comment on the active side AND a drift gate
+on the research side so neither tier can change silently.
+
+| # | Item                                            | Outcome                          |
+|---|-------------------------------------------------|----------------------------------|
+| S1 | `hardware_profile.rs` ↔ Swift dual-budget      | Drift gate (alignment table)     |
+| S2 | `HardwareTier` ↔ `HardwareProfile`             | Doctrine cross-reference         |
+| A3 | `five_planes.rs` ↔ provenance ledger           | Plane anchors + drift gate       |
+| A4 | `shadow_memory.rs::MemoryTier` ↔ ShmPool       | L0-only cross-reference + gate   |
+| A5 | `gate_action.rs` ↔ `ApprovalDecision`          | Partial mapping + drift gate     |
+| B6 | `mas_capability_lattice.rs` ↔ `ToolTier`       | 12-row coverage table + gate     |
+| B7 | `learning_modes.rs` → chat metadata            | **No analog** (training pipeline) |
+| C8 | `stack_roles.rs` → subsystem roles             | **Already implicit** (CLAUDE.md) |
+| C9 | `acs.rs` → diagnostics health row              | **Deferred** (ACS not impl)      |
+| C10| `engram.rs` → meaning-anchor naming            | **Different semantics**          |
+
+**What was achieved:** the substrate isolation gap from the start of the
+loop ("zero direct references from active app to `epistemos_research::*`,
+hermetically isolated by design") is now bridged by 6 documented cross-
+references plus drift-gate tests that fire on either-side rename. The
+research substrate stays research-tier per canon-hardening protocol; the
+active app gets the canonical names + status as inline doctrine without
+linking the gated crate.
+
+**What was NOT achieved:** no actual HELIOS module promoted from
+`state: candidate` to `state: canon`. That requires WRV (Witnessed-
+Reachable-Visible) proof per the canon-hardening protocol and was never
+the goal of the loop. The drift gates make a future promotion safer by
+ensuring the doctrine and active code stay aligned in the meantime.
+
+**Items explicitly left at doctrine-only state:** the five M2 Max kernels
+(`m2_max_kernels.rs`), the L_SE Titans-MAC + SEAL-DoRA pipeline, the ACS
+constitutive field, and the Engram static-knowledge separation. Per
+canon: `KERNEL_IMPLEMENTATION_POSTURE = canonical_target_not_implemented_here`.
+
+Total: 6 commits, 6 drift gates, 0 semantic risk, full inventory close-out.
