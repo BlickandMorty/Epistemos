@@ -226,9 +226,26 @@ const PHYS_GAMMA_BASE: f32 = 2.5;
 const PHYS_DAMPING_ALPHA: f32 = 0.5;
 /// Simulation tick interval in seconds. The integrator is still unit-step
 /// per tick (d3 convention); `PHYS_TICK_DT` only shows up inside the
-/// pre-baked `decay[i]` calculation. A later commit migrates the whole
-/// tick to explicit `dt`-based semi-implicit Euler.
-const PHYS_TICK_DT: f32 = 1.0 / 60.0;
+/// pre-baked `decay[i]` calculation and the curl-noise time driver
+/// (`curl_t_s = tick_count * PHYS_TICK_DT`).
+///
+/// Per user 2026-05-12: physics tick rate raised to 120 Hz to match the
+/// CADisplayLink ProMotion render rate ("isn't that what the animations
+/// are also"). Because the physics loop now runs up to 120 Hz (see
+/// `adaptive_physics_hz` in engine.rs) AND `PHYS_TICK_DT = 1/120`,
+/// per-wall-clock-second simulation evolution is byte-identical to the
+/// old 60 Hz / dt=1/60 path:
+///
+///   * 60 ticks/s × 1/60 s/tick = 1.0 s/s simulated
+///   * 120 ticks/s × 1/120 s/tick = 1.0 s/s simulated
+///
+/// Damping (decay_for_mass) and curl_t_s likewise produce the same
+/// wall-clock outcome at either rate. Only the temporal sampling
+/// density doubles, which is what makes motion read as smooth at 120 fps.
+///
+/// A later commit migrates the whole tick to explicit `dt`-based
+/// semi-implicit Euler.
+const PHYS_TICK_DT: f32 = 1.0 / 120.0;
 const COLLISION_SHELL_PADDING_SCALE: f32 = 0.08;
 
 /// Per-node damping coefficient γ, scaled by mass. Heavier nodes get

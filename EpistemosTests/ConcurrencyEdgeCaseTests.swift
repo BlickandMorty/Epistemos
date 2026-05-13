@@ -488,14 +488,19 @@ struct ConcurrencySwiftDataTests {
 @MainActor
 struct ConcurrencyGraphStateTests {
 
-    @Test("Overlay physics policy opens in constellation and hands off to Chaos")
+    @Test("Overlay physics policy stays in Observatory at both opening and resting phase")
     func overlayPhysicsPolicyDefaults() {
-        #expect(GraphOverlayPhysicsPolicy.openingPreset == .constellation)
-        #expect(GraphOverlayPhysicsPolicy.restingPreset == .chaos)
+        // Per user 2026-05-12: Observatory is the canonical default at both
+        // phases (it carries the fluid-wake swirl behavior). The previous
+        // constellation → chaos two-phase timeline is recorded in
+        // legacyDefaultTimelineSignature for reference but no longer drives
+        // the live opening path.
+        #expect(GraphOverlayPhysicsPolicy.openingPreset == .observatory)
+        #expect(GraphOverlayPhysicsPolicy.restingPreset == .observatory)
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .constellation)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .constellation)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .observatory)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .observatory)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .observatory)
     }
 
     @Test("Overlay interaction warmth window stays extended for 30 seconds")

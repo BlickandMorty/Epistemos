@@ -219,27 +219,26 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(PhysicsPreset.halo.chargeRange < PhysicsPreset.constellation.chargeRange)
     }
 
-    @Test("Overlay cycle reaches chaos in 4 seconds from the constellation opening preset without enabling fluid wake")
+    @Test("Overlay cycle stays in Observatory at both phases without enabling fluid wake")
     func overlayCycleKeepsFluidWakeOffByDefault() async {
         clearPhysicsDefaults()
 
+        // Per user 2026-05-12 directive: Observatory is the canonical default
+        // at both phases. The previous constellation → chaos timeline is
+        // preserved as legacyDefaultTimelineSignature for historical reference.
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .constellation)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .observatory)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .observatory)
 
         let state = GraphState()
         state.startOverlayPhysicsCycle()
 
-        #expect(await waitForPreset(.constellation, in: state))
-        #expect(state.selectedPhysicsPreset == .constellation)
-        #expect(!state.enableFluidDynamics)
-
-        #expect(await waitForPreset(.chaos, in: state))
-        #expect(state.selectedPhysicsPreset == .chaos)
+        #expect(await waitForPreset(.observatory, in: state))
+        #expect(state.selectedPhysicsPreset == .observatory)
         #expect(!state.enableFluidDynamics)
     }
 
-    @Test("Graph rebuild requests restart in constellation and mark rebuild pending")
+    @Test("Graph rebuild requests restart in Observatory and mark rebuild pending")
     func graphRebuildRequestStartsConstellationCycle() async {
         clearPhysicsDefaults()
 
@@ -247,8 +246,8 @@ struct GraphPhysicsSettingsAuditTests {
         state.requestGraphRebuild()
 
         #expect(state.pendingRebuild)
-        #expect(await waitForPreset(.constellation, in: state))
-        #expect(state.selectedPhysicsPreset == .constellation)
+        #expect(await waitForPreset(.observatory, in: state))
+        #expect(state.selectedPhysicsPreset == .observatory)
         #expect(!state.enableFluidDynamics)
     }
 

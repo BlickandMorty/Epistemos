@@ -223,37 +223,15 @@ nonisolated enum GraphInteractionRenderPolicy {
 nonisolated enum GraphDrawableResolutionPolicy {
     private static let performanceFullOverlayPixelBudget: CGFloat = 3_000_000
     private static let lowPowerPixelBudget: CGFloat = 1_200_000
-
-    /// Soft cinematic cap that engages only when the graph has more nodes than
-    /// `cinematicHighNodeThreshold`. The 14" MBP renders at 1512×982 pts × 2 ≈ 5.9 MP
-    /// natively; an external 5K can drive ~21 MP. The cinematic pixel shader does
-    /// non-trivial per-fragment work, so at 120 Hz a high-sprite-count vault becomes
-    /// fill-rate bound. 5 MP sits midway between performance-mode (3 MP) and native
-    /// 14" MBP (5.9 MP) — on the internal display this is a ~16% pixel reduction
-    /// (scale ≈ 1.84×, still above the non-Retina baseline of 1.0), on external
-    /// Retina it clamps to 1.0 and recovers ~80% of fragment headroom. Cinematic
-    /// remains uncapped on normal-size vaults so identity is preserved.
-    private static let cinematicHighNodeBudget: CGFloat = 5_000_000
-
-    /// Node-count threshold above which the cinematic-mode soft pixel budget kicks
-    /// in. Matches `GraphState.largeGraphEntranceThreshold` so the entrance-skip
-    /// optimization and the fill-rate cap activate at the same vault size.
-    static let cinematicHighNodeThreshold: Int = 9_000
-
     static let pausedDrawableSize = CGSize(width: 1, height: 1)
 
-    /// - Parameter nodeCount: Current graph node count. Pass 0 to opt out of the
-    ///   high-node cinematic soft cap (preserves the original always-native behavior
-    ///   for callers that haven't been threaded with vault size yet, e.g. unit tests).
-    static func pixelBudget(
-        qualityLevel: UInt8,
-        lowPowerMode: Bool,
-        nodeCount: Int = 0
-    ) -> CGFloat {
+    /// Cinematic mode always renders at full native Retina regardless of node count.
+    /// Per user 2026-05-12: pixel-art identity is the canonical look on every vault
+    /// size; do NOT trade resolution for fps. Performance / low-power modes still
+    /// cap because they're explicit fast paths the user opts into.
+    static func pixelBudget(qualityLevel: UInt8, lowPowerMode: Bool) -> CGFloat {
         if lowPowerMode { return lowPowerPixelBudget }
-        if qualityLevel >= 2 { return performanceFullOverlayPixelBudget }
-        if nodeCount >= cinematicHighNodeThreshold { return cinematicHighNodeBudget }
-        return CGFloat.greatestFiniteMagnitude
+        return qualityLevel >= 2 ? performanceFullOverlayPixelBudget : CGFloat.greatestFiniteMagnitude
     }
 
     static func effectiveScale(
@@ -261,8 +239,7 @@ nonisolated enum GraphDrawableResolutionPolicy {
         backingScale: CGFloat,
         isMiniMode: Bool,
         lowPowerMode: Bool,
-        qualityLevel: UInt8,
-        nodeCount: Int = 0
+        qualityLevel: UInt8
     ) -> CGFloat {
         guard boundsSize.width.isFinite,
               boundsSize.height.isFinite,
@@ -279,11 +256,7 @@ nonisolated enum GraphDrawableResolutionPolicy {
         }
 
         let nativePixels = boundsSize.width * backingScale * boundsSize.height * backingScale
-        let budget = pixelBudget(
-            qualityLevel: qualityLevel,
-            lowPowerMode: lowPowerMode,
-            nodeCount: nodeCount
-        )
+        let budget = pixelBudget(qualityLevel: qualityLevel, lowPowerMode: lowPowerMode)
         guard nativePixels > budget else {
             return backingScale
         }
@@ -2355,8 +2328,7 @@ final class MetalGraphNSView: NSView {
             backingScale: backingScale,
             isMiniMode: isMiniMode,
             lowPowerMode: PowerGuard.shared.shouldThrottleRendering,
-            qualityLevel: graphState?.qualityLevel ?? 0,
-            nodeCount: graphState?.store.nodeCount ?? 0
+            qualityLevel: graphState?.qualityLevel ?? 0
         )
         graphDrawableScale = effectiveScale
         metalLayer?.contentsScale = GraphDrawableResolutionPolicy.layerContentsScale(backingScale: backingScale)

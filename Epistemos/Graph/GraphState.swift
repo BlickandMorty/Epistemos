@@ -26,8 +26,14 @@ enum GraphMode: Sendable {
 }
 
 enum GraphOverlayPhysicsPolicy {
-    static let openingPreset: PhysicsPreset = .constellation
-    static let restingPreset: PhysicsPreset = .chaos
+    /// Per user 2026-05-12: Observatory is the canonical default at both the
+    /// opening and resting phase. Observatory carries the fluid-wake swirl
+    /// behavior that is part of the default graph identity. Previously the
+    /// timeline opened in constellation and faded to chaos; that two-phase
+    /// behavior is preserved as `legacyDefaultTimelineSignature` for
+    /// reference but no longer drives the live opening path.
+    static let openingPreset: PhysicsPreset = .observatory
+    static let restingPreset: PhysicsPreset = .observatory
     static let chaosDelaySeconds: TimeInterval = 4
     static let interactionMotionHoldSeconds: TimeInterval = 30
     static let interactionMotionAlphaTarget: Float = 0.015
