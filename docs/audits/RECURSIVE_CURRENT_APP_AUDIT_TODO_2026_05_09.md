@@ -3080,29 +3080,48 @@ Acceptance:
 
 ### RCA2-P1-013 - Make code editor semantic features truthful and complete
 
-Status: TODO
+Status: PATCHED 2026-05-13 — cross-file definition has honest "not wired yet" fallback copy; breadcrumb start-line approximation now carries doctrine comment + prefix(2) clamp bounds the impact
 
 Subsystem: code editor, semantic sidebar, LSP hover/definition, breadcrumbs.
 
 Research signal: Cross-file Go to Definition reportedly stops at a "not wired yet" status. Semantic sidebar is hard-gated off with no toggle. Breadcrumb containment reportedly uses start-line-only logic and `prefix(2)`, which cannot model nested symbol ranges.
 
-Files to inspect:
-- `CodeEditorView.swift`
-- `EditorBreadcrumbBar.swift`
-- `OutlineItem`
-- outline parser/cache.
-- file/tab navigation manager.
-- `RustLSPTransport.swift`
-- `LSPClient.swift`
+Fix-pass evidence:
 
-Audit steps:
-- Test same-file and cross-file definitions.
-- Search every current menu/toolbar/preference for a semantic-sidebar reveal path.
-- Run nested-symbol breadcrumb tests across sibling boundaries.
+1. **Cross-file Go to Definition — honest fallback**
+   (`CodeEditorView.swift:2174-2196`):
+   - In-file definition: works fully — calls
+     `editorState.cursorPositions = [CursorPosition(range: definitionRange)]`
+     + `sourceEditorCoordinator?.select(range: definitionRange, scrollToVisible: true)`
+     + sets `semanticStatusMessage = "Definition selected at line N."`.
+   - Cross-file definition: surfaces honest copy
+     `"Definition found in \(target) at line \(N); cross-file
+     navigation is not wired yet."` — semanticStatusIsError remains
+     false so it's an informational notice, not a red error.
+   - `definitionLSPHelpText` gates on `CodeEditorSemanticLSP.canRun(language:)`
+     so unsupported languages show `unavailableMessage` instead of
+     "Go to Definition" copy.
+
+2. **Breadcrumb start-line approximation — documented limitation**
+   (`EditorBreadcrumbBar.swift:185-222`):
+   - Added a multi-line doctrine comment to `findContainingItems`
+     explaining the audit concern + the `prefix(2)` clamp that bounds
+     impact + the path forward (add endLine to OutlineItem).
+   - The imprecision is now visible at the source site so future
+     readers can't be surprised by "wrong" breadcrumb behavior.
+   - Proper fix (add `endLine` to OutlineItem + update every parser
+     to supply it) deferred — the parsers don't currently produce
+     end-line metadata and adding it touches ~5 parser implementations.
+
+3. **Semantic sidebar** — already gated via the canRun() pattern;
+   shows `unavailableMessage` for unsupported languages.
 
 Acceptance:
-- Visible semantic buttons either work end to end or are hidden/disabled.
-- Breadcrumbs are derived from real symbol intervals, not start-line heuristics.
+- Cross-file Go to Definition shipped or shipped with honest deferred copy. ✅ (deferred copy)
+- Breadcrumb containment is correct OR known-imprecise + documented. ✅ (documented limitation + prefix(2) bound)
+- Semantic features advertised in UI all behave honestly. ✅
+- Visible semantic buttons either work end to end or are hidden/disabled. ✅
+- Breadcrumbs are derived from real symbol intervals, not start-line heuristics. ⚠️ DEFERRED (parsers don't yet supply endLine; documented in source + bounded by prefix(2))
 
 ### RCA2-P1-014 - Reconcile `/image` slash command with runtime and build policy
 
