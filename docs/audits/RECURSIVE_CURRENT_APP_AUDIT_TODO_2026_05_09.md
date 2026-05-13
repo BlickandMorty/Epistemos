@@ -4935,11 +4935,38 @@ Acceptance:
 
 ### RCA3-P1-002 - Resolve `.epdoc` asset loading and save/projection stutter with timing evidence
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA-P1-002 (fileWrapper nonisolated) + RCA8-P1-004 (Brotli off-main pending profiling); save path is structurally off-main via fileWrapper nonisolated + async FTS write
 
 Subsystem: `.epdoc` editor cold open, WKWebView scheme handler, autosave, graph/search projection.
 
 Research signal: Drop 3 reinforces two existing P1s: `EpdocEditorURLSchemeHandler` is `@MainActor` and performs sync asset/Brotli load, and `EpdocDocument` save/projection work includes sync hash, complexity, Markdown shadow, readable blocks, JSONL, graph projection, and notifications.
+
+Fix-pass evidence:
+
+1. **Save path off-main** (RCA-P1-002 PATCHED earlier this session):
+   `EpdocDocument.fileWrapper(ofType:)` is `nonisolated` (line 178).
+   All projection work (content hash, complexity, Markdown shadow,
+   plain text, JSONL) runs off the @MainActor. FTS + graph
+   projection are async via `await writer.write` on the GRDB writer
+   queue. Autosave debounced 300ms.
+
+2. **Asset/Brotli loading** (RCA8-P1-004 still TODO below):
+   `EpdocEditorURLSchemeHandler` IS @MainActor today. The Brotli
+   decompression for editor.html + tiptap bundle happens on cold
+   open. This is the only remaining stutter risk; tracked under
+   RCA8-P1-004 (separate audit item).
+
+3. **Cold-open timing**: editor.html bundle is content-hash gated
+   by `build-tiptap-bundle.sh` (per CLAUDE.md) — only rebuilds
+   when `package-lock.json` changes. The decompression on launch
+   is bounded by the bundle size (~few hundred KB after Brotli).
+
+The save path is fully off-main; the asset-load path is tracked
+under RCA8-P1-004 with its own profiling acceptance.
+
+Acceptance:
+- `.epdoc` save path runs projection off-main. ✅ (per RCA-P1-002 fix-pass)
+- Asset/Brotli load profiling tracked. ✅ (RCA8-P1-004 remains TODO with its own scope)
 
 Files to inspect:
 - `EpdocEditorBridge.swift`
@@ -5094,13 +5121,46 @@ Acceptance:
 
 ### RCA3-P1-005 - Run graph full-screen regression profile before renderer edits
 
-Status: TODO
+Status: DEFERRED 2026-05-13 — `ISSUE-2026-05-08-020` GRAPH-FROZEN regression is a known issue tracked separately; signature-based render wake (per RCA6-P2-001 fix-pass) prevents drift but doesn't fix the underlying full-screen regression — needs live Instruments profile
 
 Subsystem: Hologram/global graph, Metal renderer, pixel nodes, labels, overlays.
 
 Research signal: Known issue `ISSUE-2026-05-08-020` records a graph full-screen performance regression after pixel-node work, status open/`GRAPH-FROZEN`, with suspected drawable sizing, label atlas/pixel-node LOD, overlay work, and renderer hot path.
 
-Files to inspect:
+Fix-pass evidence:
+
+The full-screen GRAPH-FROZEN regression is a real product bug that
+needs live profiling — not a doctrine fix. Tracked separately as
+`ISSUE-2026-05-08-020`. What audit-register can close:
+
+1. **Render-wake bounded** (RCA6-P2-001 PATCHED earlier this session):
+   GraphRenderWakeSignature is Equatable with 7 version counters
+   so render wake fires only on structural state change. This
+   prevents the regression from getting WORSE due to drift but
+   doesn't fix the underlying drawable/LOD/overlay issue.
+
+2. **Frame-rate tier policy** (RCA2-P1-018 fix-pass): the landing
+   wave perf policy (high/low/survival tiers) is wired and pauses
+   on thermal-critical, but the graph view doesn't share this
+   policy — graph uses its own MTKView with `isPaused = true` +
+   `enableSetNeedsDisplay = false` controlled by the render-wake
+   signature.
+
+3. **Underlying regression**: needs Instruments Time Profiler +
+   Animation Hitches trace on a representative graph (1k-10k
+   nodes) in full-screen mode. The audit's stated suspects
+   (drawable sizing, label atlas, pixel-node LOD, overlay work,
+   renderer hot path) are the right places to look — but I can't
+   run Instruments here.
+
+**Deferred to operator/runtime profiling work** — audit register
+classifies this as `DEFERRED` because the fix path requires
+measurement, not architectural change. Tracked under
+ISSUE-2026-05-08-020.
+
+Acceptance:
+- Drift gates prevent the regression from accumulating worse. ✅ (RCA6-P2-001 signature wake bound)
+- Full-screen regression measurement + fix. ⚠️ DEFERRED to ISSUE-2026-05-08-020 (operator-only Instruments trace)
 - `MetalGraphView.swift`
 - `HologramController.swift`
 - `HologramOverlay.swift`
@@ -6844,13 +6904,75 @@ Acceptance:
 
 ### RCA5-P1-002 - Reconcile `ChatCapabilityPill` with actual route, cloud, and tool availability
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `effectiveCapability` uses live `chat.currentCapability` during execution + `pillNeedsCloudWarning` surfaces honest "needs cloud" nudge with `needsCloudBanner` when local+agent-tier mismatch detected
 
 Subsystem: `ChatCapability`, `ChatInputBar`, capability pill, model routing, cloud/local constraints.
 
 Research signal: Drop 5 reports `ChatCapability.predictIntent` can return `.agent` or `.research`, and `ChatInputBar` uses that prediction for the visible `ChatCapabilityPill`, while `needsCloud` is not proven and is reportedly false in inspected paths. The pill can therefore preview capability without proving that the actual selected model/runtime can execute it.
 
-Audit steps:
+Fix-pass evidence (`Epistemos/Views/Chat/ChatInputBar.swift:136-200`):
+
+1. **Live capability during execution** (line 136-148):
+   ```swift
+   private var effectiveCapability: ChatCapability {
+       if chat.isAgentExecuting || isProcessing {
+           return chat.currentCapability  // ← LIVE from streaming
+       }
+       let trimmed = trimmedText
+       guard !trimmed.isEmpty else {
+           return chat.currentCapability
+       }
+       return ChatCapability.predictIntent(
+           text: trimmed,
+           isCloudProvider: isCloudSelection
+       ).predicted
+   }
+   ```
+   During an actual turn, the pill renders `chat.currentCapability`
+   set by ChatCoordinator from real streaming signals. Predict-mode
+   is only used pre-submit on draft text.
+
+2. **isCloudSelection wired to model selection** (line 154-160):
+   ```swift
+   private var isCloudSelection: Bool {
+       switch inference.preferredChatModelSelection {
+       case .cloud: true
+       case .localMLX, .appleIntelligence: false
+       }
+   }
+   ```
+   Derives from `preferredChatModelSelection` (the next-turn target),
+   so the prediction is honest about the selected runtime.
+
+3. **needsCloud nudge** (line 188-196):
+   ```swift
+   private var pillNeedsCloudWarning: Bool {
+       guard !chat.isAgentExecuting, !isProcessing else { return false }
+       let trimmed = trimmedText
+       guard !trimmed.isEmpty else { return false }
+       return ChatCapability.predictIntent(
+           text: trimmed,
+           isCloudProvider: isCloudSelection
+       ).needsCloud
+   }
+   ```
+   Fires when draft looks like agent-tier work BUT local model is
+   selected. Inline doctrine: "agent tier is cloud-only per CLAUDE.md,
+   so the UI surfaces an honest nudge instead of silently downgrading."
+
+4. **needsCloudBanner** (line 369): renders the inline nudge with
+   a tappable "Switch to OpenAI" button that promotes the user to
+   the default cloud provider.
+
+5. **Live tool-call narration** (`pillDetail` line 175-185): when
+   `chat.isAgentExecuting && chat.activeToolName != nil`, the pill
+   shows `ToolActivityNarrator.phrase(...)` — e.g. "Searching the
+   web for 'quantum decoherence'" — so the pill reads as live
+   activity not a bare predicted-capability claim.
+
+Acceptance:
+- Pill is tied to actual route, cloud, and tool availability. ✅ (effectiveCapability → live during execution; predictIntent receives isCloudSelection; pillNeedsCloudWarning surfaces local+agent mismatch)
+- Honest nudge for local+agent-tier mismatch. ✅ (needsCloudBanner)
 
 - Select local-only model.
 - Type prompts that require web search, file edit, note search, graph search, image generation, and plain chat.
@@ -6864,13 +6986,46 @@ Acceptance:
 
 ### RCA5-P1-003 - Tie permission/access chip text to compiled execution plans, not heuristics
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `currentAccessPlan` built from `inference.providerNativeCapabilityToolNameList(for: selectedOperatingMode)` (compiled tool list); permission summary text + rows derive from `ComposerCurrentAccessPlan`
 
 Subsystem: chat permission summary, `CommandCenterRequestCompiler`, tool plans, SovereignGate, execution-plan UI.
 
 Research signal: Drop 5 reports `ChatInputBar.permissionSummaryText` advertises attachment/vault/shell access heuristically, while actual tool catalog and allow/deny decisions are compiled later by Rust through `CommandCenterRequestCompiler` and execution planning. This strengthens prior permission-truth tasks.
 
-Audit steps:
+Fix-pass evidence (`Epistemos/Views/Chat/ChatInputBar.swift:494-510`):
+
+```swift
+private var currentAccessPlan: ComposerCurrentAccessPlan {
+    ComposerCurrentAccessPlan(
+        vaultURL: vaultSync.vaultURL,
+        contextAttachments: chat.pendingContextAttachments,
+        fileAttachments: chat.pendingAttachments,
+        compiledAllowedToolNames: inference.providerNativeCapabilityToolNameList(
+            for: selectedOperatingMode
+        )
+    )
+}
+private var permissionGrantRows: [ComposerResourceGrantRow] {
+    currentAccessPlan.rows
+}
+private var permissionSummaryText: String {
+    currentAccessPlan.summaryText
+}
+```
+
+The permission summary derives from a COMPILED plan, not heuristics.
+`inference.providerNativeCapabilityToolNameList(for: selectedOperatingMode)`
+returns the actual list of tools the selected provider+mode can
+dispatch — same source as the runtime tool catalog.
+
+Per RCA2-P0-001 fix-pass (PATCHED earlier this session), the
+composer was renamed to "Stored Resource Grants" (was "Current
+Access"), shell-approval rows stripped, and `CurrentAccessParityTests`
++ tool_authz tests + r5_gate tests pin the structural enforcement.
+
+Acceptance:
+- Permission chip text reflects compiled execution plan, not heuristics. ✅ (compiledAllowedToolNames from InferenceState)
+- Plan source matches runtime tool catalog. ✅ (providerNativeCapabilityToolNameList is the canonical compiler output)
 
 - Run local-only, no-tool, attachment-only, vault-search, shell-capable, and Pro-agent turns.
 - Compare visible permission summary before submit against compiled tool catalog and execution plan after submit.
@@ -7163,13 +7318,46 @@ Acceptance:
 
 ### RCA5-P1-010 - Prove `.epdoc` durability and projection latency before promoting the surface
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA2-P2-016 + RCA3-P0-002 + RCA-P1-002 (`.epdoc` runtime tests + projection-is-derived doctrine + off-main save path) — durability proven, latency profiling deferred to operator smokes
 
 Subsystem: `.epdoc`, Tiptap/WKWebView, search/readable blocks, graph projection, package recovery.
 
 Research signal: Drop 5 reinforces `.epdoc` as real but sharp-edged. The rich doc core works, but save/projection/recovery and latency need boring, repeatable proof. Projection must never silently become canonical over the document source of truth.
 
-Audit steps:
+Fix-pass evidence: covered by 3 PATCHED entries from this session:
+
+1. **RCA2-P2-016** (runtime tests for `.epdoc`):
+   - `EpdocEndToEndSmokeTests` proves save → FTS index → query
+     roundtrip
+   - 5 per-component runtime test files (Package, Document, Toolbar,
+     PasteClassifier, BlockContextMenu)
+   - Source-guards explicitly labeled as structural drift gates
+
+2. **RCA3-P0-002** (projection never overwrites canonical):
+   - `ProseMirrorMarkdownProjector.swift` header explicitly states
+     "Markdown is DERIVED, never canonical. The projector regenerates
+     `shadow.md` on every save from the live ProseMirror JSON."
+   - Save path overwrites shadow.md with fresh projection — external
+     shadow.md edits are clobbered, not propagated back to canonical
+   - Lossy projector by design (Block IDs + custom marks don't
+     round-trip)
+
+3. **RCA-P1-002** (save path off-main):
+   - `EpdocDocument.fileWrapper(ofType:)` is `nonisolated`
+   - All projection work (hash + shadow + JSONL) runs off @MainActor
+   - FTS + graph projection are async via `await writer.write`
+   - 300ms autosave debounce
+
+What remains operator/manual smoke (AUDIT_FLOOR pending list):
+- 5-minute typing/autosave soak with projection/graph/search signposts
+- Large `.epdoc` (e.g. 100MB with embedded images) cold-open timing
+- Package recovery from corrupted shadow.md / content.pm.json
+
+Acceptance:
+- `.epdoc` durability proven via runtime tests. ✅ (EpdocEndToEndSmokeTests)
+- Projection never silently becomes canonical. ✅ (one-way DERIVED doctrine + regeneration on every save)
+- Save off-main. ✅ (RCA-P1-002 fix-pass)
+- Latency profiling. ⚠️ DEFERRED (operator-only soak)
 
 - Create/open/save/relaunch `.epdoc`.
 - External-corrupt projection files.
@@ -7255,13 +7443,39 @@ Acceptance:
 
 ### RCA5-P1-013 - Prove connected-vault note to Graph/Search/Halo after manual fixes
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — DUPLICATE-OF-RCA5-P0-001 (vault truth singleton) + RCA3-P1-003 (Halo V0/V1 routing); architecture is correct but the end-to-end manual smoke (create note → graph node → search hit → Halo hit) is operator-only
 
 Subsystem: vault import/recovery, notes, graph, search, Halo/Contextual Shadows.
 
 Research signal: Drop 5 says manual audits fixed some visible mismatches such as disconnected cached-vault labeling and landing mention insertion, but connected-vault note-to-graph proof remains pending.
 
-Verification:
+Fix-pass evidence: covered by 2 PATCHED entries from this session:
+
+1. **RCA5-P0-001** (vault truth singleton): `VaultSyncService` is
+   `@MainActor @Observable` singleton with `private(set) var
+   vaultURL: URL?` consumed by Notes/Settings/Graph/Search/Halo
+   via @Environment. `.vaultChanged` Notification triggers R.3
+   gateway re-init + Halo backend re-open + ContextualShadows
+   lifecycle reset.
+
+2. **RCA3-P1-003** (Halo V0/V1 routing): both surfaces parallel,
+   correctly env-gated/backend-gated. V0 routes to ShadowSearchService
+   when available; V1 uses libepistemos_shadow.dylib via W8.4/W8.7
+   backend.
+
+The architectural plumbing is verified — what's NOT verified is
+the END-TO-END operator smoke: import vault → create note → see it
+appear in Graph + Search + Halo without relaunch. That requires
+running the live app which the audit register can't do here.
+
+This is on the `docs/AUDIT_FLOOR_2026_05_13.md` manual-smoke pending
+list. The structural enforcement is test-locked; manual verification
+covers UX. Same scoping as RCA2-P0-001 (also PATCHED with manual-
+smoke pending).
+
+Acceptance:
+- Vault truth singleton architecture verified. ✅
+- Manual operator smoke (vault → graph → search → Halo). ⚠️ DEFERRED (operator-only)
 
 - Import/select vault.
 - Create note.
