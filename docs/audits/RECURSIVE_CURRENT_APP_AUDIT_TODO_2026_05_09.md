@@ -4,11 +4,11 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, eighth-pass)
+## Headline Status (rollup updated 2026-05-13, ninth-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 eighth-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 ninth-pass:
 
-- **PATCHED / DONE**: 93+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **26 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 94+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **27 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
@@ -16,8 +16,9 @@ The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UI
   - Sixth-pass batch (1): RCA4-P1-008 (LSP wired via CodeEditorView).
   - Seventh-pass batch (1): RCA4-P1-010 (context-window indicator labels itself estimate).
   - Eighth-pass batch (1): RCA4-P2-001 (retired Omega quarantined).
+  - Ninth-pass batch (1): RCA4-P2-003 (local model stack VISIBLE-WORKING; scaffold markers from earlier batches).
 - **PATCHED PARTIAL**: ~32 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path).
-- **TODO**: ~123 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+- **TODO**: ~122 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -4745,7 +4746,7 @@ Acceptance:
 
 ### RCA4-P2-003 - Preserve local model stack as current-wired, but keep advanced runtime claims exact
 
-Status: TODO
+Status: PATCHED 2026-05-13 — local model stack confirmed VISIBLE-WORKING; KAN/Mamba2/LocalGuardrail scaffolds carry SCAFFOLD-ONLY markers from RCA-P2-010 batch; KIVI not in codebase
 
 Subsystem: local model manager, MLX, GGUF, local backend, KIVI/KAN/Mamba diagnostics, guardrail scaffolds.
 
@@ -4755,6 +4756,36 @@ Acceptance:
 
 - Local model selection/download/generation stays current.
 - KIVI/KAN/Mamba/private ANE/activation steering/guardrail scaffold claims stay hidden or developer-only unless runtime mounted.
+
+Fix-pass evidence 2026-05-13:
+
+  - **Local model stack** — VISIBLE-WORKING.
+    `AppBootstrap` constructs `MLXInferenceService`, the local
+    model manager (`ModelDownloadManager`), the GGUF + MLX
+    catalog, and the local backend client. These are the
+    Settings/Inference-tab user-facing surfaces and remain
+    classified as current.
+  - **KAN scaffold** — SCAFFOLD-ONLY marker added in this
+    session (commit `d06440f49`, see RCA-P2-010 fix-pass
+    evidence). `KANPilotScaffold` defaults to `enabled: false`
+    and is only constructed from a single test consumer.
+  - **Mamba2 diagnostic** — SCAFFOLD-ONLY marker added in this
+    session (commit `d06440f49`). `Mamba2ForwardPass` is the
+    Metal cross-check harness; the production Mamba-2 runtime
+    is the MLX-Swift cache path (Phase 1A).
+  - **LocalGuardrailScaffold** — SCAFFOLD-ONLY marker added in
+    this session (commit `d06440f49`). The shipping local-agent
+    gate is `LocalAgentGatewayPolicy`.
+  - **KIVI** — NOT IN CODEBASE.
+    Confirmed under RCA-P2-010 fix-pass evidence; the audit
+    signal is stale.
+  - **Activation steering** — `ActivationProbe`-style scaffolds
+    classified under RCA-P2-009 (PATCHED PARTIAL 2026-05-10).
+  - **Private ANE backend** — `ANEBackend` has the explicit
+    SCAFFOLD-ONLY header per RCA-P2-009 fix-pass evidence.
+  - Acceptance satisfied: live stack stays current, scaffolds
+    carry the canonical SCAFFOLD-ONLY pattern from
+    RCA-P3-003 / RCA-P2-010 batches.
 
 ### RCA4-P2-004 - Split source guards from runtime proof in release language
 
