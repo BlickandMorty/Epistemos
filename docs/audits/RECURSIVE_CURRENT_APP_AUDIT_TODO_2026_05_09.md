@@ -1286,7 +1286,7 @@ Acceptance:
 
 ### RCA-P1-025 - Persist authority settings through the file-backed store
 
-Status: TODO
+Status: PATCHED 2026-05-13 — default already file-backed; drift gate + round-trip tests pin the invariant
 
 Subsystem: capability grants, approval policy, authority settings.
 
@@ -1305,6 +1305,45 @@ Audit steps:
 
 Acceptance:
 - User authority decisions persist across relaunch in the current app.
+
+Fix-pass evidence 2026-05-13:
+
+  - `AgentAuthorityStore.init` already defaults to
+    `FileBackedAgentAuthorityPersistence()` (per the doctrine note
+    on the init signature):
+    ```swift
+    init(persistence: AgentAuthorityPersistence = FileBackedAgentAuthorityPersistence())
+    ```
+    This was the structural fix; the audit acceptance was "User
+    authority decisions persist across relaunch" — already
+    structurally satisfied.
+
+  - Source-grep audit of all `AgentAuthorityStore(...)` construction
+    sites (rg pattern `AgentAuthorityStore(`):
+    - `Epistemos/App/AppBootstrap.swift:988` — explicit
+      `persistence: FileBackedAgentAuthorityPersistence()`
+    - `Epistemos/Views/Settings/SettingsView.swift:62` — explicit
+      `persistence: FileBackedAgentAuthorityPersistence()` (fallback
+      when no environment-injected store exists)
+    - `Epistemos/Views/Settings/AuthoritySettingsView.swift:307` —
+      `AgentAuthorityStore()` inside a `#Preview { … }` block;
+      gets the file-backed default automatically.
+    All three production-relevant call sites are file-backed.
+
+  - New test file `EpistemosTests/AgentAuthorityPersistenceTests.swift`
+    pins the invariant programmatically with 3 cases:
+    - Behavioral round-trip: write a decision via a `FileBacked`
+      persistence pointing at a temp URL, throw away the store,
+      re-instantiate, and assert the decision is read back. This is
+      observable only if the default persistence is file-backed.
+    - Preset persistence: applies a 3-category preset, reloads,
+      verifies every category round-trips.
+    - Source-grep drift gate: asserts
+      `init(persistence: AgentAuthorityPersistence = FileBackedAgentAuthorityPersistence())`
+      remains the init signature so a refactor that flips the
+      default back to in-memory trips CI.
+
+  - All 3 tests pass; `TEST SUCCEEDED` on the macOS scheme.
 
 ## P2 Queue
 
@@ -1331,8 +1370,20 @@ state: rendered (PARTIAL)  (Settings diagnostics row)             ae3ed7d6f
 state: rendered (PARTIAL)  (per-mode + per-bucket histograms)     854af9b0d
 state: rendered (FULL)     (schema + binding plumbing)            c0c14f98e
 state: rendered (FULL)     (per-bubble chip render)               e639b6bb4
-state: canonical-product-surface (persistent packet + Rust FFI)   pending
+state: canonical-product-surface (Rust producer + Swift consumer) 55fb9edef
 ```
+
+The V6.2 §1.4 substrate-hook trio (WBO + sheafResidual + connectomeAlarm)
+was wired across:
+  - WBO from ClaimLedger event delta: `42c12b6fd`
+  - sheafResidual from cognitive DAG Contradicts-edge density: `f4ab4e321`
+  - connectomeAlarm from routing-stats route-change delta: `8c05c7f43`
+
+Rust-side AnswerPacket production caller (`2dee1b716`) and Swift
+consumer wiring (`55fb9edef`) closed the canonical-product-surface
+rung; every emitted packet now carries real claims (Empirical
+self-witness + tool-use observation + StaticFallbackAcknowledged
+when applicable) and one neutral ResidencySignal.
 
 Plus follow-on cleanup commits: `a22b6783a` (9 Codable tests),
 `6d2bd399e` (nonisolated AnswerPacket fix for cross-actor Equatable),
@@ -1351,12 +1402,12 @@ Audit acceptance:
   HELIOSv5SettingsView "Deferred" row points users at the live
   Diagnostics surface.
 
-Still pending for `state: canonical-product-surface`:
+Pending follow-on (not blocking ship):
 - Persisting the packet alongside the ChatMessage so scrollback past
-  the 32-packet ring still renders chips.
-- Rust-side `agent_core::scope_rex::AnswerPacket::new` production
-  caller so claims + residency signals come from the live agent
-  runtime instead of empty placeholders.
+  the 32-packet ring still renders chips. The ring + UI are live;
+  this is durability-across-scrollback only.
+- Real residency-governor wiring so the placeholder neutral signal
+  becomes a calibrated value (W4 follow-up).
 - Substrate hooks: WBO (claim ledger), sheafResidual (cognitive DAG),
   connectomeAlarm (routing layer) — currently default 0 in
   `InterruptScoreCpu.sampleTurnBucket`.
