@@ -27,7 +27,7 @@ import Foundation
 /// `#[serde(rename_all = "snake_case")]` directive.
 /// V5 locks five epistemic arms; V6.1 adds a runtime-admission arm
 /// for static 9:1 fallback acknowledgement.
-public enum ClaimKind: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated public enum ClaimKind: String, Codable, Hashable, Sendable, CaseIterable {
     case empirical
     case mathematical
     case codeInvariant = "code_invariant"
@@ -45,7 +45,7 @@ public enum ClaimKind: String, Codable, Hashable, Sendable, CaseIterable {
 ///
 /// The default is `.unavailable` so older packets never imply dynamic
 /// interrupt execution merely because the field was absent.
-public enum AttentionMode: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated public enum AttentionMode: String, Codable, Hashable, Sendable, CaseIterable {
     case dynamic
     case staticFallback = "static_fallback"
     case unavailable
@@ -67,7 +67,7 @@ public enum AttentionMode: String, Codable, Hashable, Sendable, CaseIterable {
 /// Default is `.unavailable` so older packets never imply that the
 /// runtime had genuine interrupt-score signals merely because the
 /// field exists.
-public enum InterruptBucket: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated public enum InterruptBucket: String, Codable, Hashable, Sendable, CaseIterable {
     case low
     case medium
     case high
@@ -95,7 +95,7 @@ public enum InterruptBucket: String, Codable, Hashable, Sendable, CaseIterable {
 /// `docs/fusion/helios v5 first.md` §1.9. The chat row's
 /// `VRMLabelView` renders one of these four states for every emitted
 /// AnswerPacket.
-public enum VRMLabel: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated public enum VRMLabel: String, Codable, Hashable, Sendable, CaseIterable {
     case verified
     case plausibleButUnverified = "plausible_but_unverified"
     case speculative
@@ -129,7 +129,7 @@ public enum VRMLabel: String, Codable, Hashable, Sendable, CaseIterable {
 /// HELIOS V5 W4 — pure-data input to the Residency Governor.
 /// Mirrors Rust `ResidencySignal`. The Governor itself is the W4 slice;
 /// this struct is W1's input type carried by AnswerPacket.
-public struct ResidencySignal: Codable, Hashable, Sendable {
+nonisolated public struct ResidencySignal: Codable, Hashable, Sendable {
     public var safetyRisk: Float
     public var privacy: Float
     public var verificationScore: Float
@@ -196,7 +196,7 @@ public enum Residency: String, Codable, Hashable, Sendable, CaseIterable {
 }
 
 /// Status mirror for a Claim — tracks the Rust `ClaimStatus` 4-arm.
-public enum ClaimStatus: String, Codable, Hashable, Sendable {
+nonisolated public enum ClaimStatus: String, Codable, Hashable, Sendable {
     case active
     case atRisk = "at_risk"
     case needsRevalidation = "needs_revalidation"
@@ -206,7 +206,7 @@ public enum ClaimStatus: String, Codable, Hashable, Sendable {
 /// Swift mirror of Rust `Claim`. Field order matches the Rust struct;
 /// `kind` is decoded with a default of `.empirical` for v1 archive
 /// backward-compat (matches Rust `#[serde(default)]`).
-public struct Claim: Codable, Hashable, Sendable {
+nonisolated public struct Claim: Codable, Hashable, Sendable {
     public var id: String
     public var text: String
     public var status: ClaimStatus
@@ -248,7 +248,16 @@ public struct Claim: Codable, Hashable, Sendable {
 
 /// Swift mirror of Rust `AnswerPacket`. Tier 1 schema; not yet emitted
 /// by the chat path (`state: implemented`, not `state: wired`).
-public struct AnswerPacket: Codable, Hashable, Sendable {
+// `nonisolated` because the module defaults to MainActor isolation
+// (per CLAUDE.md) — without this, the synthesized Equatable
+// conformance becomes MainActor-isolated and `AnswerPacketEmitter
+// .Snapshot` (which holds `latest: AnswerPacket?` and is itself
+// nonisolated by virtue of the enclosing actor) can't compare it.
+// AnswerPacket carries only Sendable value-type fields so
+// MainActor isolation was never load-bearing here — it was
+// implicit from the module default. This declaration makes the
+// nonisolation explicit so cross-actor use is honest.
+nonisolated public struct AnswerPacket: Codable, Hashable, Sendable {
     public var id: String
     public var claims: [Claim]
     public var residencySignals: [ResidencySignal]
