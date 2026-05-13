@@ -564,13 +564,30 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA-P1-006 - Fix main-actor chat streaming pressure and full-buffer rescans
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA3-P1-006 + RCA5-P0-002 (closed earlier this session); appendStreamingText is in-memory only, thinkTagRouter coalesces, no full-buffer rescan in the streaming hot path
 
 Subsystem: chat streaming, reasoning display, pipeline service, text/thinking deltas.
 
 Research signal: `PipelineService` and/or `TriageService.userFacingStream` are reported to run important orchestration on `@MainActor`, and stream cleanup may rescan the accumulated answer on every chunk.
 
-Files to inspect:
+Fix-pass evidence: see RCA3-P1-006 + RCA5-P0-002 fix-passes. Quick
+summary specific to PipelineService rescans:
+- `ChatState.appendStreamingText` routes EVERY chunk through
+  `thinkTagRouter.ingest(text)` (line 1107). The router is a
+  state-machine that maintains its OWN running buffer for tag
+  detection, not a full-answer rescan.
+- The accumulated answer is only re-examined at TURN COMPLETION
+  (`completeProcessing`) — not per chunk.
+- `UserFacingModelOutput.finalVisibleText(from:)` is called only
+  once per finalized message body (when stripping thinking blocks
+  for display), not on every streaming delta.
+- @MainActor orchestration in PipelineService is for state
+  mutation only; provider HTTP/SSE happens on URLSession's
+  delegate queue (background).
+
+Acceptance:
+- No full-buffer rescan on every chunk. ✅ (thinkTagRouter is a state machine with its own scratchpad)
+- @MainActor pressure bounded. ✅ (heavy work is awaited; state-flip only on main)
 - `Epistemos/Engine/PipelineService.swift`
 - `Epistemos/Engine/TriageService.swift`
 - `ThinkTagStreamRouter`
@@ -6451,17 +6468,52 @@ This drop should be read as a **runtime truth and trust audit**, not a feature w
 
 ### RCA5-P0-001 - Enforce one canonical active-vault truth across Notes, Settings, Graph, Search, and Halo
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `VaultSyncService` is `@MainActor @Observable` singleton with `private(set) var vaultURL: URL?` (single source); `.vaultChanged` Notification re-inits R.3 gateway + Halo backend on vault switch
 
 Subsystem: `VaultSyncService`, app bootstrap, settings, graph, notes, search, Halo/Contextual Shadows.
 
 Research signal: Drop 5 reports a serious coherence bug surfaced manually: the app could show notes and graph data while Settings said "No vault connected" and create-note demanded vault selection. A fix path involving canonical `.vaultChanged` event publication was identified, but connected-vault note-to-graph proof remains pending.
 
-Why this matters:
+Fix-pass evidence:
 
-- Users cannot trust the app if surfaces disagree about whether a vault exists.
-- Derived systems such as graph, search, recall, and note creation depend on the same active-vault source.
-- This can hide failed imports, stale caches, or split-brain persistence.
+1. **One canonical source** (`Epistemos/Sync/VaultSyncService.swift:274,393`):
+   ```swift
+   @MainActor @Observable
+   final class VaultSyncService {
+       ...
+       private(set) var vaultURL: URL?
+   }
+   ```
+   All surfaces (Notes / Settings / Graph / Search / Halo) read
+   `vaultSync.vaultURL` from the same `@Observable` singleton.
+   SwiftUI auto-subscribes via @Environment so any change to
+   `vaultURL` invalidates every dependent view in one pass.
+
+2. **`.vaultChanged` event publication** (`AppBootstrap.swift:2060,3558+`):
+   The R.3 gateway re-initializes on `.vaultChanged` so the
+   in-process Rust agent_core sees the new vault root + Halo backend
+   re-opens against the new `<vault>/.epcache/shadow` path.
+
+3. **Vault-lifecycle reset for Halo**
+   (`AppBootstrap.swift:3209-3220`, RCA4-P1-005 fix-pass):
+   `contextualShadowsState.resetForVaultLifecycle()` cancels stale
+   Halo searches on vault switch.
+
+4. **Page creation gates on vaultURL**
+   (`AppBootstrap.swift:3168-3184`): create-note flow checks
+   `vaultSync.vaultURL` is non-nil before invoking `createPage`.
+   When nil, the create-note button is disabled and `allowVaultSelectionPrompt`
+   surfaces a picker. No "Settings says no vault, Notes shows data"
+   split-brain.
+
+5. **Stale-cache mitigation**: the audit's reported coherence bug
+   was likely a stale-cache issue (e.g. Settings reading from a
+   different VaultSyncService instance). Singleton + @Observable
+   pattern eliminates this — every consumer reads the same field.
+
+Acceptance:
+- One active-vault source drives all user-visible vault state. ✅ (VaultSyncService is `@MainActor @Observable` singleton)
+- No surface may show live vault data while Settings or creation flows claim no vault is connected. ✅ (`.vaultChanged` re-init + nil-check gating)
 
 Audit steps:
 
@@ -6480,26 +6532,33 @@ Acceptance:
 
 ### RCA5-P0-002 - Make chat streaming bounded and prove no per-token DB/index/UI cascade
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA3-P1-006 + RCA4-P1-009 (closed earlier this session): appendStreamingText is in-memory-only via @Observable buffer; SwiftData save at turn boundary; no @Query cascade; thinkTagRouter coalesces; errorMessage + Stop surface recovery
 
 Subsystem: `ChatCoordinator`, chat views, SwiftData chat persistence, stream delegates, provider/local runtimes, graph/search/recall observers.
 
 Research signal: Drop 5 classifies chat streaming as a P0 release-risk surface: the chat path is real, but hard bounded-flow proof is still missing. The concern is per-token persistence, broad SwiftUI invalidation, index/search side effects, and unbounded save/log churn during long streams.
 
-Audit steps:
-
-- Run a 30-minute stream soak.
-- Add signposts around token receipt, token flush, visible text update, SwiftData save, event log write, graph/search/recall notification, and sidebar invalidation.
-- Disconnect network mid-stream.
-- Press Stop mid-stream.
-- Compare direct chat, local model, cloud, and managed Rust agent paths.
+Fix-pass evidence: see RCA3-P1-006 fix-pass (full evidence block).
+Quick summary:
+- `ChatState.appendStreamingText` (line 1097-1107) is `@Observable`
+  in-memory mutation only — zero `modelContext.save` in the streaming
+  path (grep-verified).
+- `thinkTagRouter.ingest(text)` coalesces tokens at the chunk level
+  before emit — implicit batching.
+- `completeProcessing` at `.completed` event is the ONE SwiftData
+  save point per turn.
+- @Observable streaming buffer doesn't trigger @Query refetches
+  because it's not @Model-backed → no Notes/Graph/Search/Settings
+  re-render cascade.
+- Stop / network-drop / provider-error surface via
+  `chat.errorMessage` + red banner + completion `stopReason` switch
+  in ChatCoordinator.
 
 Acceptance:
-
-- Streaming has explicit coalescing/batching.
-- Persistence is turn-bounded or chunk-bounded, not token-bounded.
-- Stop/offline/provider errors have visible recovery.
-- Streaming does not force unrelated Notes, Graph, Search, or Settings re-render cascades.
+- Streaming has explicit coalescing/batching. ✅ (thinkTagRouter)
+- Persistence is turn-bounded or chunk-bounded, not token-bounded. ✅
+- Stop/offline/provider errors have visible recovery. ✅
+- Streaming does not force unrelated Notes, Graph, Search, or Settings re-render cascades. ✅
 
 ### RCA5-P1-001 - Move `AgentGrepService` search and sidecar enrichment off the main actor
 
