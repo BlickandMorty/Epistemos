@@ -417,4 +417,92 @@ mod tests {
             assert_eq!(parsed, row.capability);
         }
     }
+
+    /// Doctrine ↔ active-app capability coverage table lock.
+    ///
+    /// The active app's `agent_core::tools::registry::ToolTier` carries a
+    /// 12-row doctrine cross-reference table mapping each HELIOS
+    /// Capability variant to the active-app analog (if any) and its
+    /// shipping status. If HELIOS renames a Capability variant or grows
+    /// the lattice, that table goes stale silently — this test breaks
+    /// to force a sync.
+    ///
+    /// This test ONLY locks the canonical capability *names* (the JSON
+    /// snake_case wire form). Per-capability availability semantics are
+    /// already locked by the surrounding tests in this module; this is
+    /// the additional gate that fires on rename.
+    #[test]
+    fn active_app_capability_coverage_table_locked() {
+        // Order matches the table in agent_core/src/tools/registry.rs.
+        let canonical_names: [(Capability, &str); 12] = [
+            (Capability::SelectedVaultRetrieval,         "\"selected_vault_retrieval\""),
+            (Capability::TouchIdGating,                  "\"touch_id_gating\""),
+            (Capability::AppGroupSharedSubstrate,        "\"app_group_shared_substrate\""),
+            (Capability::SandboxedXpcHelper,             "\"sandboxed_xpc_helper\""),
+            (Capability::CuratedLocalToolManifests,      "\"curated_local_tool_manifests\""),
+            (Capability::FirstPartyCloudProviderAdapters,"\"first_party_cloud_provider_adapters\""),
+            (Capability::ArbitraryDownloadedSkills,      "\"arbitrary_downloaded_skills\""),
+            (Capability::ShellOrSubprocessOrchestration, "\"shell_or_subprocess_orchestration\""),
+            (Capability::AppleEventsAutomation,          "\"apple_events_automation\""),
+            (Capability::BrowserAutomation,              "\"browser_automation\""),
+            (Capability::RawAneOrPrivateFrameworks,      "\"raw_ane_or_private_frameworks\""),
+            (Capability::UnrestrictedWasmOrJit,          "\"unrestricted_wasm_or_jit\""),
+        ];
+
+        // Count invariant: 12 canonical capabilities. If this changes, the
+        // active-app coverage table in registry.rs MUST be updated alongside.
+        assert_eq!(canonical_names.len(), 12);
+        assert_eq!(CAPABILITY_LATTICE.len(), canonical_names.len(),
+            "lattice and coverage table size must agree — if you added a row, \
+             update the table in agent_core/src/tools/registry.rs (ToolTier \
+             doctrine block) too");
+
+        // Serialized wire-form lock. A rename of any variant breaks this
+        // table; that's the drift signal.
+        for (cap, expected_json) in canonical_names {
+            assert_eq!(serde_json::to_string(&cap).unwrap(), expected_json,
+                "Capability::{:?} renamed without updating the active-app \
+                 coverage table in agent_core/src/tools/registry.rs", cap);
+        }
+
+        // Cross-reference posture lock: the three "MAS baseline + shipped
+        // in active app" rows must remain Available in MasCore.
+        let mas_baseline_shipping = [
+            Capability::SelectedVaultRetrieval,
+            Capability::TouchIdGating,
+            Capability::AppGroupSharedSubstrate,
+            Capability::CuratedLocalToolManifests,
+        ];
+        for cap in mas_baseline_shipping {
+            assert!(
+                cap.row().mas_core.ships(),
+                "{:?} is documented as shipped in agent_core's MAS build, \
+                 but lattice says it doesn't ship in MasCore — coverage \
+                 table is stale",
+                cap
+            );
+        }
+
+        // Cross-reference posture lock: the three rows the active app
+        // ships only on the Pro deployment tier must NOT ship in MasCore.
+        let pro_only_shipping = [
+            Capability::ShellOrSubprocessOrchestration,
+            Capability::AppleEventsAutomation,
+            Capability::BrowserAutomation,
+        ];
+        for cap in pro_only_shipping {
+            assert!(
+                !cap.row().mas_core.ships(),
+                "{:?} is documented as Pro-only in agent_core, but lattice \
+                 says it DOES ship in MasCore — coverage table is stale",
+                cap
+            );
+            assert!(
+                cap.row().pro.ships(),
+                "{:?} is documented as shipped on Pro in agent_core, but \
+                 lattice says it doesn't ship in Pro — coverage table is stale",
+                cap
+            );
+        }
+    }
 }

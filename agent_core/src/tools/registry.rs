@@ -131,6 +131,47 @@ impl RiskLevel {
 /// `<= T`. This is how normal chat modes (fast/thinking/pro) can get a
 /// curated set of read-only research tools without inheriting the full
 /// destructive surface the agent loop uses.
+///
+/// # HELIOS doctrine cross-reference
+///
+/// `ToolTier` is the **chat-mode-aware** tool-exposure ladder. The
+/// **deployment-tier-aware** capability matrix lives in
+/// `epistemos-research/src/mas_capability_lattice.rs` (research-tier,
+/// `--features research`) and is a different axis:
+///
+///   - `ToolTier` (this enum, active app): None/ChatLite/ChatPro/Agent/Full
+///     — controls which tools are exposed within a single deployment.
+///   - `DeploymentTier` (HELIOS canon): MasCore / Pro / Research
+///     — controls which capabilities ship in each distribution channel.
+///   - `Capability` (HELIOS canon): 12 named capabilities (SelectedVault-
+///     Retrieval, TouchIdGating, AppGroupSharedSubstrate, SandboxedXpc-
+///     Helper, CuratedLocalToolManifests, FirstPartyCloudProvider-
+///     Adapters, ArbitraryDownloadedSkills, ShellOrSubprocessOrchestration,
+///     AppleEventsAutomation, BrowserAutomation, RawAneOrPrivateFrameworks,
+///     UnrestrictedWasmOrJit).
+///
+/// Active-app implementation status per HELIOS capability (audited
+/// 2026-05-12):
+///
+/// | HELIOS Capability                  | Active-app analog                                        | status     |
+/// |------------------------------------|----------------------------------------------------------|------------|
+/// | SelectedVaultRetrieval             | `Epistemos/Sync/VaultSyncService.swift` (security bookmark) | shipped    |
+/// | TouchIdGating                      | LocalAuthentication biometric path                       | shipped    |
+/// | AppGroupSharedSubstrate            | `agent_core::shared_memory::ShmPool` (L0 only)           | shipped    |
+/// | SandboxedXpcHelper                 | XPC doctrine, state: candidate                           | NOT shipped|
+/// | CuratedLocalToolManifests          | `agent_core::tools::registry::ToolTier` (this enum)      | shipped    |
+/// | FirstPartyCloudProviderAdapters    | `agent_core::providers::{claude, perplexity, ...}`       | shipped    |
+/// | ArbitraryDownloadedSkills          | (intentionally not in MAS per doctrine)                  | NOT shipped|
+/// | ShellOrSubprocessOrchestration     | `agent_core::tools::cli_passthrough` (Pro feature)       | shipped (Pro) |
+/// | AppleEventsAutomation              | `agent_core::tools::apple::imessage` (osascript)         | shipped (Pro) |
+/// | BrowserAutomation                  | `agent_core::tools::browser` + chrome MCP                | shipped (Pro) |
+/// | RawAneOrPrivateFrameworks          | (research only, never product)                           | NOT shipped|
+/// | UnrestrictedWasmOrJit              | (deferred per MAS-First doctrine)                        | NOT shipped|
+///
+/// Drift gate: the test
+/// `epistemos-research/src/mas_capability_lattice.rs::tests::active_app_capability_coverage_table_locked`
+/// locks the 12 canonical capability names so HELIOS can't rename a
+/// row without forcing this table to update.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ToolTier {
     /// No tools — raw text generation only.
