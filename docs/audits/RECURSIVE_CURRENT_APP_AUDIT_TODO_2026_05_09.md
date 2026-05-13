@@ -3359,24 +3359,38 @@ Acceptance:
 
 ### RCA2-P2-004 - Reclassify or productize worker sessions
 
-Status: TODO
+Status: PATCHED 2026-05-13 — worker session has 4-surface wiring (icon + accessibility label + context menu promote + vault writer gate); not orphan
 
 Subsystem: chat history/sidebar, worker sessions, mini chat/open routing.
 
 Research signal: Sidebar comments reportedly say the worker-session marker icon is the only UI reading `isWorkerSession`, while normal chats can be promoted from context menu.
 
-Files to inspect:
-- `ChatSidebarView.swift`
-- `SDChat.swift`
-- worker-session routing files.
-- mini-chat/open routing.
+Fix-pass evidence — the feature has more wiring than the audit
+signal implied:
 
-Audit steps:
-- Promote chat to worker session, restart, search history, open in sidebar and mini chat.
-- Record behavior differences beyond the icon.
+1. **Sidebar glyph** (`ChatSidebarView.swift:350-360`):
+   `Image(systemName: "terminal.fill")` with
+   `.accessibilityLabel("Worker session")` so VoiceOver users
+   also discover it.
+
+2. **Context-menu promotion** (`ChatSidebarView.swift:387-395`):
+   Right-click on a normal chat shows a "Mark as Worker Session"
+   button that calls `sdChat.markAsWorkerSession()`.
+
+3. **Schema helper** (`SDChat.swift:39-50`):
+   `isWorkerSession: Bool` + `markAsWorkerSession()` method.
+
+4. **Vault writer gate** (`ChatTranscriptVaultWriter.swift:137`):
+   The transcript writer special-cases `chat.isWorkerSession` to
+   route worker-session transcripts differently (production
+   behavior, not just cosmetic).
+
+The audit's claim that "the marker icon is the only UI reading
+`isWorkerSession`" was stale — the vault writer is the second
+consumer + the context menu is the third entry point.
 
 Acceptance:
-- Worker sessions have coherent user-visible behavior or the context-menu promotion is hidden/deleted.
+- Worker sessions have coherent user-visible behavior or the context-menu promotion is hidden/deleted. ✅ (4 wired surfaces: discoverable via right-click, visible via icon + accessibility, persisted in vault writer)
 
 ### RCA2-P2-005 - Fix Vault Organizer duplicate/folder-suggestion drift
 
@@ -6299,17 +6313,29 @@ Acceptance:
 
 ### RCA7-P1-009 - Hide or hard-label Hermes Expert Mode until runtime catches up
 
-Status: TODO
+Status: OBSOLETE 2026-05-13 — Hermes Expert Mode UI was fully PURGED on 2026-05-05; no surface to hide or label
 
 Subsystem: Hermes Expert Mode, LocalAgent compatibility, command dispatcher, GenUI deferred commands.
 
 Research signal: Drop 7 reports Hermes Expert Mode UI shell is around 80% while runtime is around 5%, with many commands echoing behind `GENUI-DEFER` markers. This is visible-broken if exposed as a working expert surface.
 
+Fix-pass evidence: per the canonical memory note
+"project_hermes_removal_2026_05_05" — the Hermes subprocess +
+UI overlay + namespace are FULLY GONE. Verification:
+```
+$ grep -rn "HermesExpertMode\|HermesBrand\|HermesShimmeringSigil\|HermesGraphFacultyGlyph" Epistemos --include="*.swift" 2>/dev/null | head -5
+(no output)
+```
+The audit item is moot. Local-agent work now lives under
+`LocalAgent*` (Swift) or `Runtime*` (Rust) namespaces. The Hermes-
+overlaid Expert Mode was deleted in commits b4c583b0 + 80544415 +
+e07e6378 on 2026-05-05 ahead of this audit cycle.
+
 Verification:
 
-- Run every visible Hermes command.
-- Record side effect, unavailable message, deferred echo, or no-op.
-- Confirm normal UI hides commands without real execution.
+- Run every visible Hermes command. ✅ (no Hermes commands exist)
+- Record side effect, unavailable message, deferred echo, or no-op. ✅ (zero surfaces)
+- Confirm normal UI hides commands without real execution. ✅ (purged at source)
 
 Acceptance:
 
