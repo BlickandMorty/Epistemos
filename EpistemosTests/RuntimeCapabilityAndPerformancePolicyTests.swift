@@ -145,6 +145,72 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(cinematicPixels > 5_900_000)
     }
 
+    @Test("cinematic soft pixel budget engages on high-node vaults to bound GPU fill rate")
+    func graphDrawableResolutionPolicyCapsCinematicAtHighNodeCount() {
+        // Bounds chosen so native scale (2×) yields 6.4 MP — comfortably above the
+        // 5 MP soft cap so we can prove the cap activates without flipping on a
+        // ±100 KP perturbation. 14" MBP in points is 1512×982 (5.94 MP at 2×) —
+        // the larger 1600×1000 bounds simulate an external display or vault inside
+        // a wider window. The same code path applies at any size above the cap.
+        let bounds = CGSize(width: 1_600, height: 1_000)
+        let lowDensityScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: bounds,
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 0,
+            nodeCount: 100
+        )
+        let highDensityScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: bounds,
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 0,
+            nodeCount: 20_000
+        )
+        let highDensityPerformanceScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: bounds,
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 2,
+            nodeCount: 20_000
+        )
+
+        // Cinematic stays native on a small vault — identity preserved.
+        #expect(lowDensityScale == 2.0)
+        // High-node cinematic drops below native to bound per-frame fragment cost,
+        // but stays above 1.0 (non-Retina baseline) so the cinematic look survives.
+        #expect(highDensityScale < 2.0)
+        #expect(highDensityScale >= 1.0)
+        // Performance mode at the same node count still caps lower than cinematic
+        // soft cap (3 MP < 9 MP), so the explicit fast path remains faster.
+        #expect(highDensityPerformanceScale < highDensityScale)
+
+        // Boundary: exactly at the threshold the soft cap activates.
+        let thresholdScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: bounds,
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 0,
+            nodeCount: GraphDrawableResolutionPolicy.cinematicHighNodeThreshold
+        )
+        #expect(thresholdScale < 2.0)
+
+        // One below: no cap.
+        let justBelowScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: bounds,
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 0,
+            nodeCount: GraphDrawableResolutionPolicy.cinematicHighNodeThreshold - 1
+        )
+        #expect(justBelowScale == 2.0)
+    }
+
     @Test("fullscreen cinematic drawable scale matches native CAMetalLayer contents scale")
     func fullscreenCinematicDrawableScaleKeepsLayerContentsScaleNative() {
         let drawableScale = GraphDrawableResolutionPolicy.effectiveScale(
