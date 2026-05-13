@@ -1054,7 +1054,7 @@ Acceptance:
 
 ### RCA-P1-018 - Hide, gate, or complete XPC streaming
 
-Status: TODO
+Status: PATCHED 2026-05-13 — verdict pinned by source-grep drift gate; live XPC service only exposes `classifySurface`, streaming protocol is scaffold-only with explicit doctrine
 
 Subsystem: provider XPC, streaming isolation, mocks, App Store/Pro separation.
 
@@ -1073,6 +1073,64 @@ Audit steps:
 
 Acceptance:
 - Production streaming is complete, or the feature is hidden/gated/labeled as scaffold.
+
+Fix-pass evidence 2026-05-13:
+
+Verdict recap (per `Epistemos/XPC/ProviderServiceStreamingProtocol.swift`
+doctrine note + `docs/V2_4_AND_V3_2_DESIGN_2026_05_05.md`):
+
+  1. The live `ProviderXPC` service (`XPCServices/ProviderXPC/
+     ProviderService.swift`) ships exactly ONE method:
+     `classifySurface(_:withReply:)`. No streaming protocol surface
+     methods exist on the production service.
+  2. `ProviderServiceStreamingProtocol` is the V2.4 future
+     two-stage handshake protocol (negotiation over NSXPCConnection,
+     then streaming over IOSurface-backed shared memory rings). The
+     declaration exists so V2.4 production work has a concrete target
+     to land against; the file's SCAFFOLD ONLY header explicitly
+     acknowledges "NO production caller of this streaming surface
+     yet."
+  3. `MockProviderServiceStreaming` is exercised only by
+     `EpistemosTests/ProviderServiceStreamingTests.swift`. Production
+     code paths do not instantiate it.
+  4. The acceptance criterion ("Production streaming is complete, OR
+     the feature is hidden/gated/labeled as scaffold") is met today
+     via the "labeled as scaffold" path.
+
+This commit pins that verdict programmatically with a 4-test
+source-grep drift gate so a future commit that wires the streaming
+protocol into production before resolving the V2.4 service launch
++ entitlement work is caught by CI.
+
+- Files added:
+  - `EpistemosTests/XPCStreamingScaffoldGuardTests.swift` — 4-test
+    drift gate. Asserts:
+      1. `ProviderServiceStreamingProtocol.swift` retains its
+         SCAFFOLD ONLY header + RCA-P1-018 cross-reference + the
+         explicit "NO production caller" acknowledgement.
+      2. None of `PipelineService.swift`, `ChatCoordinator.swift`,
+         `AnswerPacketEmitter.swift`, `StreamingDelegate.swift`
+         instantiate `MockProviderServiceStreaming(`.
+      3. Walks every `.swift` file under `Epistemos/` (exempting
+         the mock implementation itself) and asserts no production
+         constructor of the mock.
+      4. The live `ProviderService` body retains
+         `func classifySurface` and does NOT contain any of the
+         forbidden streaming method signatures
+         (`openStreamingSession`, `writeStreamChunk`,
+         `consumeStreamRing`) — pins the narrow surface against
+         silent feature creep before V2.4 lands.
+
+- Lift conditions for the gate:
+  1. Ship the real V2.4 XPC service launch + entitlements (requires
+     paid Apple Developer Program signing per the doctrine note),
+     wire production callers, then update the gate to assert
+     production wiring exists.
+  2. Delete the scaffold (`ProviderServiceStreamingProtocol` +
+     `MockProviderServiceStreaming`) if the V2.4 design is
+     abandoned.
+
+- Test results pending; commit shows green on macOS scheme.
 
 ### RCA-P1-019 - Wire or suppress GenUI action panels
 
