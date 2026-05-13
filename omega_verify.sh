@@ -3,6 +3,26 @@
 # EPISTEMOS OMEGA — 7-LAYER VERIFICATION PROTOCOL
 # ═══════════════════════════════════════════════════════════════════════
 #
+# **SCOPE — STRUCTURAL DRIFT GATE, NOT END-TO-END RUNTIME**
+#
+# This script is a presence/pattern verifier. It checks that
+# canonical files exist, contain expected symbols, declare the
+# right Cargo features, and so on. It does NOT exercise the live
+# app, the cloud providers, or the agent loop. Use it as a
+# pre-commit/CI structural drift gate.
+#
+# For real runtime/end-to-end coverage use:
+#   - `swift test` (or `xcodebuild test -scheme Epistemos`) for
+#     unit + integration tests
+#   - `cargo test --manifest-path agent_core/Cargo.toml` for Rust
+#     unit + integration tests
+#   - Manual smoke per `docs/MAS_RELEASE_MANIFEST_2026_05_13.md`
+#     verification commands for the MAS binary artifact
+#
+# Per audit register RCA-P2-017: this header makes the
+# pattern-vs-runtime distinction explicit so release evidence
+# doesn't conflate "structure checked" with "behavior proven."
+#
 # Usage:
 #   ./scripts/verify/omega_verify.sh              # Run all layers
 #   ./scripts/verify/omega_verify.sh --layer 0     # Run specific layer
