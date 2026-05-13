@@ -4,13 +4,13 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13)
+## Headline Status (rollup updated 2026-05-13, second-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 second-pass:
 
-- **PATCHED / DONE**: 74 items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress.
+- **PATCHED / DONE**: 80+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **13 items** were PATCHED specifically on 2026-05-13 across this session's iterations (RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002).
 - **PATCHED PARTIAL**: ~30 items — structural fix in place, manual smoke or deeper profiling deferred.
-- **TODO**: 142 items — most are P2/P3 future work (research drops 2-13). Active P1s as of this rollup: P1-002 (.epdoc save heaviness — needs profiling), P1-005 (Pro+cloud chat_pro tool loop — runtime smoke), P1-006 (chat streaming main-actor pressure), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), RCA2-P0-001 / P0-003 (Current Access + Vault Organizer privacy — manual smoke), plus a long tail of P2 items.
+- **TODO**: 138 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
