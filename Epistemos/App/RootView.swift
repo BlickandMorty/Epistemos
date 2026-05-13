@@ -72,10 +72,26 @@ enum HomeWindowIdentity {
 }
 
 enum AppWindowBackdropStyle {
+    /// Eighth-pass+2 fix (2026-05-13): the window backdrop ALWAYS routes
+    /// through `surfaceVariant(.mainChat)` so it matches whatever surface
+    /// the active view is painting. Landing + main chat both map to the
+    /// same variant via `surfaceVariant`'s policy:
+    ///   .platinumVioletDark → .nocturne for both .landing + .mainChat
+    ///   .oled                → .oled    for both .landing + .mainChat
+    ///   everything else      → identity
+    /// so a single resolution covers both surfaces and eliminates the
+    /// "top bar flickers a different theme" the user reported during
+    /// landing → main-chat transition. Previously the backdrop painted
+    /// the RAW `theme.resolved.background` while landing/chat views
+    /// painted their surface-variant colors; on Platinum-violet-dark
+    /// the raw theme (purple) and the variant (nocturne grey) differ,
+    /// so the system toolbar glass — which tints from the window
+    /// background — briefly leaked the purple hue during the SwiftUI
+    /// transition before the variant repainted.
     nonisolated static func backgroundToken(
         for theme: EpistemosTheme
     ) -> EpistemosTheme.ResolvedColorToken {
-        theme.resolved.background
+        theme.surfaceVariant(.mainChat).resolved.background
     }
 
     nonisolated static func background(for theme: EpistemosTheme) -> Color {
