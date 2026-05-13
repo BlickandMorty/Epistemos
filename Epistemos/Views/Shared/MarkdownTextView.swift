@@ -102,8 +102,23 @@ enum MarkdownHeadingDisplay {
         }
     }
 
+    /// Backwards-compatible single-arg form. Returns the text
+    /// untouched. Used by call sites that don't have access to the
+    /// active theme — they get the canonical mixed-case text.
     nonisolated static func displayText(_ text: String, level: Int) -> String {
         return text
+    }
+
+    /// Theme-aware heading transform. Applies the Classic-theme
+    /// uppercase treatment to H1-H3 per user direction 2026-05-13;
+    /// every other theme falls through to the canonical text. The
+    /// transform only fires for levels 1-3 because deeper levels
+    /// (H4-H6) keep their mixed case for typographic rhythm.
+    nonisolated static func displayText(_ text: String, level: Int, theme: EpistemosTheme) -> String {
+        guard (1...3).contains(level), theme.prefersUppercaseDisplay else {
+            return text
+        }
+        return text.uppercased()
     }
 
     nonisolated static func foregroundColor(for theme: EpistemosTheme, level: Int) -> Color {
@@ -1264,7 +1279,7 @@ struct MarkdownTextView: View {
         }()
         let topPad = headingRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
-        let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
+        let displayText = MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
 
         inlineMarkdown(displayText, baseFontSize: fontSize)
             .font(font)

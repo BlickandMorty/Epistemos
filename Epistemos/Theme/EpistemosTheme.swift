@@ -22,6 +22,19 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case tan = "tan"
     case sunset = "sunset"
     case oled = "oled"
+    /// Internal-only Classic dark variant that lifts the pure
+    /// 0x000000 OLED background to a near-OLED dark grey for
+    /// non-hero surfaces (Notes, Epdoc, Settings, Graph chrome)
+    /// per user direction 2026-05-13: OLED is reserved for the
+    /// landing greeting + main chat where the deep black reads
+    /// best; everywhere else gets a softer dark grey so embedded
+    /// content (note bodies, settings rows, graph panels) doesn't
+    /// punch a hole through the window.
+    ///
+    /// Not exposed in user-facing pickers — `ThemePair.classic`
+    /// still maps to `.oled` for the dark theme; `oledSoft` is
+    /// reached only through `surfaceVariant(.other)`.
+    case oledSoft = "oledSoft"
     case ember = "ember"
     case nocturne = "nocturne"
     case platinumViolet = "platinumViolet"
@@ -299,6 +312,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .tan:    "Tan"
         case .sunset: "Sunset"
         case .oled:   "OLED"
+        case .oledSoft: "OLED Soft"
         case .ember:  "Ember"
         case .nocturne: "Nocturne"
         case .platinumViolet: "Platinum Violet"
@@ -323,18 +337,31 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         followsSystemAppearance ? Self.systemTheme(for: appearance) : self
     }
 
-    /// Surface-scoped theme variant. Per user 2026-05-10: only the landing
-    /// page and the main chat should adopt the magnolia-pair dark (nocturne)
-    /// palette when the user picks Platinum Violet dark mode. Notes, Epdoc,
-    /// Settings, Graph, and every other surface keep the original violet
-    /// platinum palette so the user's existing dark-mode experience there
-    /// is preserved.
+    /// Surface-scoped theme variant. Per user direction 2026-05-10/05-13:
+    /// some dark themes need to lift their pure-black hero palette into a
+    /// softer dark grey on non-hero surfaces (notes, settings, graph
+    /// chrome) so embedded content doesn't punch a hole through the
+    /// window.
+    ///
+    /// - `.platinumVioletDark` → `.nocturne` on landing + main chat,
+    ///   stays violet platinum elsewhere.
+    /// - `.oled` → stays pure OLED on landing + main chat (deep black
+    ///   hero), softens to `.oledSoft` on every other surface (near-OLED
+    ///   dark grey 0x0F0F11 background).
+    /// - Every other theme is identity.
     nonisolated func surfaceVariant(_ surface: ThemeSurface) -> EpistemosTheme {
-        guard self == .platinumVioletDark else { return self }
-        switch surface {
-        case .landing, .mainChat:
-            return .nocturne
-        case .other:
+        switch self {
+        case .platinumVioletDark:
+            switch surface {
+            case .landing, .mainChat: return .nocturne
+            case .other: return self
+            }
+        case .oled:
+            switch surface {
+            case .landing, .mainChat: return .oled
+            case .other: return .oledSoft
+            }
+        default:
             return self
         }
     }
@@ -359,7 +386,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     nonisolated var themePair: ThemePair {
         switch self {
         case .platinumViolet, .platinumVioletDark: return .platinumViolet
-        case .light, .oled: return .classic
+        case .light, .oled, .oledSoft: return .classic
         case .tan, .ember: return .ember
         case .systemLight, .systemDark, .sunny, .sunset, .nocturne:
             return .classic
@@ -370,30 +397,49 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// Light-mode platinum / classic / ember each pick a distinct
     /// typeface; dark mode keeps the existing RetroGaming font
     /// across all themes per user direction 2026-05-13.
+    ///
+    /// Classic refresh 2026-05-13 (second pass): hero swapped from
+    /// `ColorBasic-Regular` to `ChonkyPixels` for both light AND
+    /// dark Classic sub-themes — the user wanted the same chunky
+    /// pixel feel on both white and OLED backgrounds.
     nonisolated var displayFontName: String {
-        if isDark {
-            return AppDisplayTypography.legacyDisplayFontName  // RetroGaming
-        }
         switch themePair {
-        case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .classic:        return "ColorBasic-Regular"
-        case .ember:          return "RetroByte"
+        case .classic:        return "ChonkyPixels"
+        case .platinumViolet: return isDark ? AppDisplayTypography.legacyDisplayFontName : "MatrixTypeDisplay-Regular"
+        case .ember:          return isDark ? AppDisplayTypography.legacyDisplayFontName : "RetroByte"
         }
     }
 
     /// H1-H3 heading font name resolved by (themePair, isDark).
-    /// Platinum and Ember swap the heading face to match their hero;
-    /// Classic keeps its existing CoralPixels for headings (only the
-    /// hero gets the Color Basic swap per user direction).
+    /// Classic now ships ChonkyPixels across both modes (hero + H1-H3
+    /// share the same chunky face). Platinum + Ember swap their
+    /// light-mode heading face; dark mode of Platinum + Ember falls
+    /// back to RetroGaming.
     nonisolated var headingFontName: String {
-        if isDark {
-            return AppDisplayTypography.legacyDisplayFontName  // RetroGaming
-        }
         switch themePair {
-        case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .classic:        return "CoralPixels-Regular"
-        case .ember:          return "DotempDemo-8bit"
+        case .classic:        return "ChonkyPixels"
+        case .platinumViolet: return isDark ? AppDisplayTypography.legacyDisplayFontName : "MatrixTypeDisplay-Regular"
+        case .ember:          return isDark ? AppDisplayTypography.legacyDisplayFontName : "DotempDemo-8bit"
         }
+    }
+
+    /// Panel font name — used for graph node-inspector pop-ups and
+    /// other secondary panel chrome where the heading face would feel
+    /// too heavy. Classic uses ChonkyPixels here too per user
+    /// direction 2026-05-13. Other themes route to the heading font
+    /// for visual consistency until a per-theme panel face is needed.
+    nonisolated var panelFontName: String {
+        switch themePair {
+        case .classic: return "ChonkyPixels"
+        default:       return headingFontName
+        }
+    }
+
+    /// Whether the Classic-theme uppercase treatment applies to this
+    /// theme. ChonkyPixels reads best ALL-CAPS per the user direction
+    /// for the Classic theme; other themes keep mixed case.
+    nonisolated var prefersUppercaseDisplay: Bool {
+        themePair == .classic
     }
 
     /// Whether H1-H3 headings should render with a glow on this
@@ -648,6 +694,47 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 userBubbleBg: .hex(0x2A2A2A),
                 userBubbleText: .hex(0xDADADE, opacity: 0.88),
                 nsBackground: .hex(0x000000)
+            )
+        case .oledSoft:
+            // RCA finalization 2026-05-13: near-OLED dark grey
+            // palette for non-hero Classic-dark surfaces (Notes,
+            // Settings, Graph chrome). Background lifts from
+            // 0x000000 to 0x0F0F11 so embedded surfaces don't
+            // punch a hole; muted + card layers nudge up a couple
+            // of stops to keep separation visible. Foreground +
+            // accents inherit from OLED so the typographic feel
+            // stays continuous.
+            return ResolvedTheme(
+                isDark: true,
+                isPlatinum: false,
+                usesNativeWindowBlur: false,
+                background: .hex(0x0F0F11),
+                foregroundHex: 0xDADADE,
+                accent: .hex(0xDADADE),
+                headingAccentHex: 0xF4F4F4,
+                markdownHeadingAccentHex: 0xF4F4F4,
+                preferredMarkdownLinkHex: nil,
+                uiAccent: .hex(0xDADADE),
+                muted: .hex(0x1A1A1D),
+                mutedForegroundHex: 0x9A9AA0,
+                assistantBubbleForegroundHex: 0xDADADE,
+                assistantBubbleBackgroundHex: nil,
+                userBubbleBackgroundHex: nil,
+                border: Token.rgba(58.0 / 255.0, 58.0 / 255.0, 62.0 / 255.0, 0.55),
+                codeType: .hex(0x56B6B6),
+                glassBg: Token.rgba(24.0 / 255.0, 24.0 / 255.0, 27.0 / 255.0, 0.82),
+                glassBorder: Token.rgba(58.0 / 255.0, 58.0 / 255.0, 62.0 / 255.0, 0.32),
+                glassHover: Token.rgba(36.0 / 255.0, 36.0 / 255.0, 40.0 / 255.0, 0.7),
+                floatingSurfaceTint: .hex(0x2E2E33),
+                navPillBg: Token.rgba(18.0 / 255.0, 18.0 / 255.0, 22.0 / 255.0, 0.85),
+                navBubbleActiveBg: Token.rgba(32.0 / 255.0, 32.0 / 255.0, 36.0 / 255.0, 0.7),
+                navBubbleActiveText: .hex(0xDADADE, opacity: 0.92),
+                navBubbleInactiveText: Token.rgba(180.0 / 255.0, 180.0 / 255.0, 184.0 / 255.0, 0.92),
+                card: Token.rgba(28.0 / 255.0, 28.0 / 255.0, 32.0 / 255.0, 0.92),
+                chatSurface: .hex(0x0F0F11),
+                userBubbleBg: .hex(0x33333A),
+                userBubbleText: .hex(0xDADADE, opacity: 0.88),
+                nsBackground: .hex(0x0F0F11)
             )
         case .ember:
             return ResolvedTheme(
@@ -1330,6 +1417,27 @@ enum AppDisplayTypography: Sendable {
         if allowDisplayFont && currentMode.usesDisplayFont {
             return Font.custom(
                 theme.headingFontName,
+                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            )
+        } else {
+            return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
+        }
+    }
+
+    /// Theme-aware panel font for graph node-inspector pop-ups and
+    /// similar secondary panel chrome (RCA finalization 2026-05-13).
+    /// Routes through `EpistemosTheme.panelFontName` — Classic uses
+    /// ChonkyPixels, others reuse their heading face.
+    nonisolated static func panelFont(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        theme: EpistemosTheme,
+        allowDisplayFont: Bool = true
+    ) -> Font {
+        let resolvedIsDark = theme.isDark
+        if allowDisplayFont && currentMode.usesDisplayFont {
+            return Font.custom(
+                theme.panelFontName,
                 size: displayFontSize(for: size, isDark: resolvedIsDark)
             )
         } else {

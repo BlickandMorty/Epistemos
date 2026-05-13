@@ -143,10 +143,16 @@ enum NoteWorkspaceSurfaceStyle {
     static let bottomPadding: CGFloat = 72
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
-        if theme.usesNativeWindowBlur {
+        // RCA finalization 2026-05-13: route incoming theme through
+        // `surfaceVariant(.other)` so any pure-black hero palette
+        // (currently just OLED) softens into its non-hero variant
+        // (`.oledSoft`) when the canvas paints Notes/Outline/Epdoc/
+        // CodeEditor backgrounds. Other themes are identity-mapped.
+        let surfaceTheme = theme.surfaceVariant(.other)
+        if surfaceTheme.usesNativeWindowBlur {
             return .clear
         }
-        return MarkdownPreviewSurfaceStyle.canvasBackground(for: theme)
+        return MarkdownPreviewSurfaceStyle.canvasBackground(for: surfaceTheme)
     }
 
     static func editorCardSize(for availableSize: CGSize) -> CGSize {

@@ -774,7 +774,10 @@ struct TaggedMarkdownTextView: View {
         }()
         let topPad = headingRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
-        let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
+        // RCA finalization 2026-05-13: thread the theme through so
+        // Classic uppercases H1-H3 (matches the Classic hero
+        // ChonkyPixels treatment in LiquidGreeting).
+        let displayText = MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
 
         taggedInlineMarkdown(
             displayText,

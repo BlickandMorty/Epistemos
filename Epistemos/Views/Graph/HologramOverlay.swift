@@ -1183,9 +1183,15 @@ final class HologramOverlay {
         // Don't double-add
         guard pinnedInspectorViews[pinned.id] == nil else { return }
 
+        // RCA finalization 2026-05-13: feed the resolved overlay
+        // theme to the pinned-inspector card so Classic (ChonkyPixels +
+        // ALL CAPS) flows through. Other themes get their canonical
+        // panel font.
+        let overlayTheme = GraphOverlayThemeStyle.resolvedTheme()
         let view = HologramOverlayHostedViewBuilder.host(
             PinnedInspectorPanel(
                 inspector: pinned,
+                theme: overlayTheme,
                 onClose: { [weak self] in self?.unpinInspector(id: pinned.id) }
             )
         )
