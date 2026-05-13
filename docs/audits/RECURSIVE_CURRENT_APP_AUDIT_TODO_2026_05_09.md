@@ -2385,7 +2385,7 @@ Acceptance:
 
 ### RCA2-P1-002 - Delete successful voice recording temp files
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `defer { cleanupRecording(at: outputURL) }` covers both success and failure paths; 3-test drift gate pins the invariants
 
 Subsystem: composer voice input, temp file privacy, STT.
 
@@ -2752,7 +2752,7 @@ Acceptance:
 
 ### RCA2-P1-016 - Fail visibly when local tool bridge has zero tools
 
-Status: TODO
+Status: PATCHED 2026-05-13 — error-level log + toolTierBridgeLoadFailed Notification structurally in place; 3-test drift gate pins the invariants
 
 Subsystem: ToolTierBridge, local agent loop, command center, runtime diagnostics.
 
@@ -2771,6 +2771,26 @@ Audit steps:
 
 Acceptance:
 - Tool-capable surfaces fail closed with visible diagnostics when tools are unavailable.
+
+Fix-pass evidence 2026-05-13:
+
+  - Structural verification: `ToolTierBridge` (around line 366-385)
+    catch branch:
+    - Logs at `.error` level with "Tool list fetch FAILED" phrase
+      (NOT `.warning` — explicit level bump from research-3).
+    - Posts `Notification.Name.toolTierBridgeLoadFailed` so
+      capability-aware UI (chat composer pill, command-center
+      diagnostics) can show "tools unavailable" instead of
+      silently running zero-tools mode.
+    - Returns `[]` for compatibility (existing call sites can't
+      crash), but the failure is no longer silent.
+  - The `#else` branch (no agent_coreFFI) also logs at error
+    level with "agent_coreFFI not linked".
+  - `EpistemosTests/ToolTierBridgeVisibleFailureGuardTests.swift`
+    (NEW) — 3-test drift gate pinning these invariants so a
+    refactor that downgrades the log level or removes the
+    notification trips CI.
+  - All 3 tests pass; TEST SUCCEEDED on the macOS scheme.
 
 ### RCA2-P1-017 - Measure LocalAgentLoop token callback pressure
 
