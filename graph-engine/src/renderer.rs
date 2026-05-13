@@ -24,7 +24,14 @@ struct NodeInstance {
     z: f32,             // offset 12 — depth for perspective/parallax
     color: [f32; 4],    // offset 16
     face_type: f32, // offset 32 — 0=none, 1=note..8=block, -1=face feature, -2/-3=highlight rings
-    _pad: [f32; 3], // offset 36 — alignment padding to 48 bytes (Metal float4 → 16-byte struct stride)
+    /// Per-user 2026-05-12: `is_parent` adds the Minecraft-esque vector
+    /// shading (folder_light_dir glare + shadow) to any node that has
+    /// children — not just folder hubs. 1.0 when `link_count >= 3`.
+    /// Threaded through the vertex shader into `NodeVertexOut.is_parent`
+    /// so the fragment shader can decide whether to run the parent
+    /// shading path independently of face_type.
+    is_parent: f32, // offset 36 (was _pad[0])
+    _pad: [f32; 2], // offset 40 — padding to 48 bytes (Metal float4 stride)
 }
 
 const FACE_FEATURE_TYPE: f32 = -1.0;
@@ -724,7 +731,8 @@ struct NodeInstance {
     float  z;
     float4 color;
     float  face_type;   // 0=none, 1=note..8=block, -1=face feature, -2/-3=highlight rings
-    float  _pad[3];     // alignment padding to 48 bytes (float4 → 16-byte struct stride)
+    float  is_parent;   // 1.0 when link_count >= 3 (hubs get vector shading)
+    float  _pad[2];     // alignment padding to 48 bytes (float4 → 16-byte struct stride)
 };
 
 struct NodeVertexOut {
@@ -738,6 +746,7 @@ struct NodeVertexOut {
     float  is_lite;        // 1.0 = lite mode, 0.0 = full mode
     float2 world_pos;      // world-space base position for pulse wave
     float  node_radius_world;
+    float  is_parent;      // 1.0 = node has children → extra vector shading
 };
 
 vertex NodeVertexOut node_vertex(
@@ -843,6 +852,7 @@ vertex NodeVertexOut node_vertex(
     out.world_pos = base_pos;
     out.node_radius_world = effective_radius;
     out.face_type = inst.face_type;
+    out.is_parent = inst.is_parent;
     return out;
 }
 
@@ -897,6 +907,13 @@ fragment float4 node_fragment(
     bool light = uniforms.light_mode > 0.5;
     bool folder_node = in.face_type > 3.5 && in.face_type < 4.5;
     bool large_folder_node = folder_node && in.depth >= 0.45;
+    // Per user 2026-05-12: any parent node (link_count >= 3) gets the
+    // vector light-dir shading, not just folder hubs. Gives every
+    // hub the Minecraft-esque shading the user wants. Light direction
+    // matches large_folder_node so two adjacent hubs read as lit from
+    // the same off-screen "sun."
+    bool parent_node = in.is_parent > 0.5;
+    bool shaded_hub = large_folder_node || parent_node;
     if (cinematic_mode) {
         const float pixel_grid = 9.0;
         float2 pixel_cell = floor((in.uv * 0.5 + 0.5) * pixel_grid);
@@ -905,7 +922,7 @@ fragment float4 node_fragment(
         if (pixel_dist > 0.96) discard_fragment();
 
         float3 pixel_color = in.color.rgb;
-        if (large_folder_node) {
+        if (shaded_hub) {
             float2 folder_light_dir = normalize(float2(-0.62, -0.78));
             float folder_light_band = dot(pixel_uv, folder_light_dir);
             float folder_pixel_glare = smoothstep(0.34, 0.78, folder_light_band)
@@ -918,8 +935,15 @@ fragment float4 node_fragment(
             float3 folder_shadow_color = light
                 ? srgb_to_linear(float3(0.00, 0.00, 0.00))
                 : srgb_to_linear(float3(0.72, 0.72, 0.72));
-            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.24);
-            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.06);
+            // Folder hubs keep the original mild mix (0.24/0.06); generic
+            // parent hubs get a slightly stronger glare so the shading
+            // reads on smaller nodes too. The intensity scales with
+            // link_count via the existing z-depth tier (large_folder_node
+            // path gets 0.24/0.06; parent-only path gets 0.30/0.08).
+            float glare_mix = large_folder_node ? 0.24 : 0.30;
+            float shadow_mix = large_folder_node ? 0.06 : 0.08;
+            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * glare_mix);
+            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * shadow_mix);
         }
         if (uniforms.pulse_time >= 0.0) {
             // Pixel-art click pulse. Three deliberate departures from the
@@ -1005,9 +1029,9 @@ fragment float4 node_fragment(
     float alpha = mix(smooth_alpha, pixel_alpha, pixel_strength);
     if (alpha < 0.01) discard_fragment();
 
-    if (folder_node || !water) {
+    if (folder_node || !water || parent_node) {
         float3 result_color = in.color.rgb;
-        if (large_folder_node) {
+        if (shaded_hub) {
             float2 folder_light_dir = normalize(float2(-0.62, -0.78));
             float folder_light_band = dot(final_uv, folder_light_dir);
             float folder_pixel_glare = smoothstep(0.34, 0.78, folder_light_band)
@@ -1020,8 +1044,13 @@ fragment float4 node_fragment(
             float3 folder_shadow_color = light
                 ? srgb_to_linear(float3(0.00, 0.00, 0.00))
                 : srgb_to_linear(float3(0.72, 0.72, 0.72));
-            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.20);
-            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.05);
+            // Same scaling rule as the cinematic path so the two modes
+            // produce a consistent hub look. Folder hubs keep the
+            // original 0.20/0.05 mix; generic parent hubs get 0.26/0.07.
+            float glare_mix = large_folder_node ? 0.20 : 0.26;
+            float shadow_mix = large_folder_node ? 0.05 : 0.07;
+            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * glare_mix);
+            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * shadow_mix);
         }
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
@@ -1301,7 +1330,18 @@ fragment float4 line_edge_fragment(
     LineVertexOut in [[stage_in]],
     constant Uniforms& uniforms [[buffer(0)]]
 ) {
-    float alpha = 1.0 - smoothstep(0.6, 1.0, abs(in.dist_from_center));
+    // Per-user 2026-05-12: highlighted edges (electric beam) need to be
+    // visibly THICKER than ambient edges, not just brightened. The
+    // alpha taper for highlighted edges therefore runs out farther
+    // (1.4 instead of 1.0) so the soft-edge skirt extends past the
+    // base line geometry — the "Dragon Ball Z beam" look the user
+    // asked for. Non-highlighted edges keep the original 0.6→1.0 taper.
+    float keep_lit_raw = in.is_highlighted;
+    bool is_beam = keep_lit_raw > 0.5;
+    float taper_outer = is_beam ? 1.40 : 1.00;
+    float taper_inner = is_beam ? 0.30 : 0.60;
+    float dist = abs(in.dist_from_center);
+    float alpha = 1.0 - smoothstep(taper_inner, taper_outer, dist);
     if (alpha < 0.01) discard_fragment();
     // When a node is selected, dim every edge EXCEPT those that touch the
     // selected node's highlighted neighborhood. The selected hub's own
@@ -1311,10 +1351,11 @@ fragment float4 line_edge_fragment(
     // dim applied uniformly so the selected node's edges were just as
     // washed out as the rest.
     float dim_factor = uniforms.selection_active > 0.5 ? 0.18 : 1.00;
-    float keep_lit = step(0.5, in.is_highlighted);
+    float keep_lit = step(0.5, keep_lit_raw);
     float selection_dim = mix(dim_factor, 1.00, keep_lit);
 
-    // V6.2 selected-edge electric flow (added 2026-05-12):
+    // V6.2 selected-edge electric flow (added 2026-05-12, expressivity
+    // pass 2026-05-12 evening per user "DBZ beam" request):
     // When this edge is highlighted (touches the selected node), render
     // a flowing current animation: a sequence of bright pulses traveling
     // from p0 (t=0) toward p1 (t=1). Gives selected nodes a "live wire"
@@ -1326,21 +1367,54 @@ fragment float4 line_edge_fragment(
     // This produces a Gaussian-shaped bright spot whose center moves
     // along the edge at constant speed; `fract` makes it repeat per
     // unit interval, giving multiple visible pulses on long edges.
+    //
+    // Expressivity additions (user-driven):
+    //   • core_alpha — a sustained brightness across the full beam, not
+    //     just at the pulse, so the beam reads as "energized" even
+    //     between pulses (no more "thin gray wire when no pulse is
+    //     visible" gap)
+    //   • outer_halo — a soft falloff into the skirt of the taper (the
+    //     0.8→1.4 dist band) painted in glow_color so the beam has a
+    //     visible bloom around the bright core
+    //   • pulse_width 0.12 → 0.22 — chunkier pulse "packets" that read
+    //     as kamehameha-style energy balls instead of pinpoint sparks
+    //   • mix amount 0.85 → 0.95 — pulse peak almost fully recolors
+    //     to glow_color so the beam saturates white-hot at its center
     float3 final_rgb = in.color.rgb;
     float final_alpha = in.color.a * alpha * selection_dim;
     if (keep_lit > 0.5) {
         const float pulse_count = 2.5;   // ≈2-3 visible pulses per edge
-        const float pulse_speed = 1.40;  // cycles per second
-        const float pulse_width = 0.12;  // narrow = sharp current packets
+        const float pulse_speed = 1.55;  // cycles per second — a touch faster than before so the energy reads as "active"
+        const float pulse_width = 0.22;  // wider Gaussian → chunkier energy packets (was 0.12)
         float phase = in.t_along_edge * pulse_count - uniforms.time * pulse_speed;
         float local = fract(phase);
         // Center the Gaussian at 0.5 of each repeat so it tapers symmetrically.
         float dist_from_peak = local - 0.5;
         float pulse = exp(-(dist_from_peak * dist_from_peak) / (pulse_width * pulse_width));
-        // Brighten the edge color where the pulse sits + lift alpha.
         float3 glow_color = float3(0.85, 0.95, 1.00); // pale cyan-white
-        final_rgb = mix(final_rgb, glow_color, pulse * 0.85);
-        final_alpha = clamp(final_alpha + pulse * 0.35, 0.0, 1.0);
+
+        // Sustained core brightness — the beam reads as energized even
+        // between pulses. Stronger toward the centerline (dist 0) and
+        // fades through the outer skirt.
+        float core_factor = 1.0 - smoothstep(0.0, 0.5, dist);
+        float core_alpha = core_factor * 0.45;
+
+        // Outer halo — paints the beam's skirt (the new 0.5..1.4 taper
+        // band) in glow_color so the beam appears wrapped in a soft
+        // bloom. Fades out toward the very edge of the taper.
+        float halo_factor = smoothstep(0.5, 1.05, dist) * (1.0 - smoothstep(1.05, 1.40, dist));
+
+        // Mix everything: ambient core, traveling pulse peak, outer halo.
+        final_rgb = mix(final_rgb, glow_color, core_alpha);
+        final_rgb = mix(final_rgb, glow_color, pulse * 0.95);
+        final_rgb = mix(final_rgb, glow_color, halo_factor * 0.65);
+
+        // Lift alpha: core thickens the visible beam, pulse adds a punch
+        // at the moving packet, halo softens the outer band.
+        final_alpha = clamp(final_alpha
+            + core_factor * 0.20
+            + pulse * 0.50
+            + halo_factor * 0.30, 0.0, 1.0);
     }
     return float4(final_rgb, final_alpha);
 }
@@ -1771,7 +1845,8 @@ impl Renderer {
             z: 0.99,
             color,
             face_type: FACE_FEATURE_TYPE, // face feature circle, not a node
-            _pad: [0.0; 3],
+            is_parent: 0.0,
+            _pad: [0.0; 2],
         });
         self.classic_velocity_scratch.push([0.0, 0.0]);
     }
@@ -2530,13 +2605,17 @@ impl Renderer {
         let z = z_for_link_count(hierarchy.link_count);
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
         let face_type = (world.hierarchy[node_index].node_type as f32) + 1.0;
+        // Parent hubs (≥3 links) get the Minecraft-esque vector shading
+        // — see fragment shader's `shaded_hub` branch.
+        let is_parent: f32 = if hierarchy.link_count >= 3 { 1.0 } else { 0.0 };
         NodeInstance {
             position: [world.transform[node_index].x, world.transform[node_index].y],
             radius: self.classic_node_radius(world, node_index),
             z,
             color,
             face_type,
-            _pad: [0.0; 3],
+            is_parent,
+            _pad: [0.0; 2],
         }
     }
 
@@ -2741,7 +2820,12 @@ impl Renderer {
                     z: z_for_link_count(cluster.max_link_count),
                     color,
                     face_type: 0.0,
-                    _pad: [0.0; 3],
+                    // Density-proxy bubble — represents a cluster, not a
+                    // single node; the cluster's child count is encoded
+                    // by radius, so the parent shading would be
+                    // double-counted. Off.
+                    is_parent: 0.0,
+                    _pad: [0.0; 2],
                 });
                 self.classic_velocity_scratch.push(render_velocity(
                     cluster.sum_vx * inv_count,
@@ -2789,7 +2873,13 @@ impl Renderer {
                             z: z + HUB_GLOW_Z_OFFSET,
                             color: [color[0], color[1], color[2], HUB_GLOW_ALPHA],
                             face_type: 0.0,
-                            _pad: [0.0; 3],
+                            // Glow halo around a hub — the hub itself is
+                            // drawn separately by `classic_node_instance`
+                            // with the real `is_parent` flag set. The
+                            // halo stays unshaded so it reads as a soft
+                            // bloom, not a lit sphere.
+                            is_parent: 0.0,
+                            _pad: [0.0; 2],
                         });
                         self.classic_velocity_scratch.push([0.0, 0.0]);
                         glow_emitted += 1;
@@ -2806,7 +2896,11 @@ impl Renderer {
                             z: z + CONF_GLOW_Z_OFFSET,
                             color: [color[0], color[1], color[2], glow_alpha],
                             face_type: 0.0,
-                            _pad: [0.0; 3],
+                            // Same rule — confidence-glow halos stay
+                            // unshaded; the node disc draws with the
+                            // real is_parent flag.
+                            is_parent: 0.0,
+                            _pad: [0.0; 2],
                         });
                         self.classic_velocity_scratch.push([0.0, 0.0]);
                         glow_emitted += 1;
@@ -2831,7 +2925,9 @@ impl Renderer {
                         z: -0.50,
                         color: [0.7, 0.85, 1.0, 0.08],
                         face_type: 0.0,
-                        _pad: [0.0; 3],
+                        // Wind particle, not a node — no parent shading.
+                        is_parent: 0.0,
+                        _pad: [0.0; 2],
                     });
                     self.classic_velocity_scratch.push([0.0, 0.0]);
                 }
@@ -3430,7 +3526,9 @@ impl Renderer {
                     z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [color[0], color[1], color[2], 0.58],
                     face_type: SELECTED_HIGHLIGHT_RING_TYPE,
-                    _pad: [0.0; 3],
+                    // Highlight rings are SDF rings, not lit discs.
+                    is_parent: 0.0,
+                    _pad: [0.0; 2],
                 };
             }
             idx += 1;
@@ -3450,7 +3548,8 @@ impl Renderer {
                     z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [1.0, 1.0, 1.0, 0.32],
                     face_type: HOVER_HIGHLIGHT_RING_TYPE,
-                    _pad: [0.0; 3],
+                    is_parent: 0.0,
+                    _pad: [0.0; 2],
                 };
             }
             idx += 1;
