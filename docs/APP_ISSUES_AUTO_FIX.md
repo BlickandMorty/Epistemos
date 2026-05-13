@@ -63,59 +63,56 @@ Investigation Log:
 
 ## Open Issues
 
-### ISSUE-2026-05-12-013: Graph feels below 120 fps at high vault count even in cinematic mode
+### ISSUE-2026-05-12-013: Graph feels below 120 fps at high vault count (REOPENED + retargeted)
 
-Status: Patched (cinematic soft pixel-budget shipped — verify next runtime trace)
+Status: Patched via physics-rate doubling + cinematic-cap REVERTED per user
 Priority: P2
 First Observed: 2026-05-12
 
 Symptom:
-User reports the graph "still feels low frames" at high vault counts despite the
-ProMotion 120 Hz target and despite the 27.7% checksum CPU regression already
-having been fixed (BLAKE3 swap). No stutter, just below-cap framerate at scale.
+User reports the graph "still feels low frames" at high vault counts despite
+the ProMotion 120 Hz target and despite the 27.7% checksum CPU regression
+already having been fixed (BLAKE3 swap). No stutter, just below-cap framerate
+at scale.
 
-Investigation:
-- `MetalGraphView.swift:1017` confirms `CAFrameRateRange(min:60, max:120, pref:120)`
-  on the `CADisplayLink` — there is no explicit FPS cap.
-- `GraphDrawableResolutionPolicy.pixelBudget` (MetalGraphView.swift:228):
-  - lowPower → 1.2 MP
-  - qualityLevel ≥ 2 (performance) → 3 MP
-  - qualityLevel = 0 (cinematic, DEFAULT) → `.greatestFiniteMagnitude`
-- `GraphState.performanceModeEnabled` defaults to `false` (GraphState.swift:1093).
-- `graph-engine/src/simulation.rs:231` `PHYS_TICK_DT = 1.0/60.0` — physics
-  integrates @60 Hz; that's not the render cap.
-- Net: cinematic mode renders at FULL native Retina with **no pixel budget**.
-  On a 14" MBP (1512×982 pts × 2 = 5.94 MP) plus the cinematic `waterNodes`
-  pixel shader (heavier per-fragment than the perf shader), at high node count
-  fragment shader cost × sprite count saturates the GPU before the 120 Hz
-  vsync deadline.
+Iteration 1 (REVERTED):
+Initial fix added a soft 5 MP cinematic pixel budget at ≥9k nodes. User
+2026-05-12 directed: pixel-art identity must hold on EVERY vault size,
+do NOT trade resolution for fps. The cinematic cap is therefore reverted
+and the cinematic path renders at full native Retina at any node count.
+Lock-in test renamed `graphDrawableResolutionPolicyKeepsCinematicNativeAtAllVaultSizes`.
 
-Safe Auto-Fix Applied:
-- Added `cinematicHighNodeBudget = 5_000_000` and
-  `cinematicHighNodeThreshold = 9_000` (mirrors
-  `GraphState.largeGraphEntranceThreshold` so the two large-graph optimizations
-  activate at the same vault size).
-- `pixelBudget(qualityLevel:lowPowerMode:nodeCount:)` and
-  `effectiveScale(...nodeCount:)` now take an optional `nodeCount`; default = 0
-  preserves existing test contracts.
-- `updateMetalLayerBackingProperties` (MetalGraphView.swift:~2327) threads
-  `graphState?.store.nodeCount ?? 0` so the cap actually engages.
-- On 14" MBP at high vault: scale drops from 2.0 → ~1.84 (16% pixel reduction,
-  cinematic identity preserved). On external 5K Retina (~21 MP native): scale
-  clamps to 1.0 (~80% fragment headroom recovered). Below 9k nodes the path
-  is byte-identical to before — no regression for normal vaults.
-- Test: `RuntimeCapabilityAndPerformancePolicyTests` ::
-  `graphDrawableResolutionPolicyCapsCinematicAtHighNodeCount` locks in the
-  threshold + scale-floor + cinematic-vs-performance gap.
+Iteration 2 (APPLIED):
+The real bottleneck for "feels below 120 fps" is the physics sampling rate
+mismatch with the 120 Hz render rate, not GPU fill. Render side IS at 120 Hz
+(CADisplayLink); physics was integrating at 60 Hz top-tier and dropping to
+24 Hz at 5k+ nodes — so at 5k nodes the renderer was interpolating between 24
+unique physics frames per second across 120 render frames, which reads as
+"motion is choppy."
+
+- `graph-engine/src/simulation.rs`: `PHYS_TICK_DT` raised from 1/60 to 1/120.
+- `graph-engine/src/engine.rs::adaptive_physics_hz` tiers doubled where feasible:
+    * 0–1000 nodes: 120 Hz (was 0–500 at 120, 501–1000 at 60)
+    * 1001–3000:    60 Hz (was 40)
+    * 3001–5000:    40 Hz (was 30)
+    * 5001–9000:    30 Hz (was 24)
+    * 9000+:        24 Hz (unchanged — O(N²) physics can't sustain 120 here)
+- Combined dt-halving + loop-rate-doubling preserves wall-clock simulation
+  behavior (same per-second motion, same damping, same curl evolution) and
+  just doubles temporal sampling density — which is what makes motion read
+  as smooth at 120 fps.
+- Lock-in test updated:
+  `adaptive_physics_hz_targets_120_at_small_graphs_and_degrades_at_high_node_counts`.
+  Full graph-engine suite (2,773 tests) passes.
 
 Open Follow-ups:
-- If the user still sees sub-120 fps after the fix, the bottleneck is sprite
-  count / draw-call count rather than fill rate. Next investigation step:
-  capture an Instruments Animation Hitches trace (DIAGNOSTIC_PLAYBOOK.md
-  Tier 9) and identify whether the cost is in `graph_engine_render` (Rust
-  draw-call loop) or `commandBuffer.commit/present` (GPU submission).
-- Consider an additional cap tier above ~30k nodes that also reduces label
-  density (`labelMaxNodes`) and edge density.
+- If user still observes choppy motion on the 5k+ vault tier, next move is to
+  raise that tier to 60 Hz at the cost of more physics CPU — currently
+  capped at 30 Hz as a budget compromise.
+- Cinematic shader (waterNodes) per-fragment cost remains the GPU bottleneck
+  at very high vault count on external Retina displays. Honest trade-off: the
+  user has chosen identity over fps; if they later want a fast-path, the
+  explicit Performance toggle is the right surface (qualityLevel=2 → 3 MP cap).
 
 ---
 

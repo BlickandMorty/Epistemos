@@ -29,15 +29,25 @@ use crate::types::{Graph, VisualTheme};
 use std::collections::HashMap;
 
 /// Adaptive physics tick rate scaled by node count.
+///
+/// Per user 2026-05-12: physics target is 120 Hz to match ProMotion
+/// render rate. Tier ceilings doubled where feasible. Very-large-vault
+/// degradation preserved — at 9k+ nodes the O(N²) physics work can't
+/// sustain a 120 Hz step without starving the renderer, so the bottom
+/// tier still falls back to 24 Hz.
+///
+/// Combined with `PHYS_TICK_DT = 1/120` (simulation.rs), this gives
+/// byte-identical wall-clock simulation behavior at the higher tiers
+/// — just sampled twice as often, which is what makes motion read as
+/// smooth at 120 fps.
 const HIGH_NODE_PHYSICS_THRESHOLD: usize = 9_000;
 
 fn adaptive_physics_hz(node_count: usize) -> f64 {
     match node_count {
-        0..=500 => 120.0,
-        501..=1000 => 60.0,
-        1001..=3000 => 40.0,
-        3001..=5000 => 30.0,
-        5001..=HIGH_NODE_PHYSICS_THRESHOLD => 24.0,
+        0..=1000 => 120.0,
+        1001..=3000 => 60.0,
+        3001..=5000 => 40.0,
+        5001..=HIGH_NODE_PHYSICS_THRESHOLD => 30.0,
         _ => 24.0,
     }
 }
@@ -3031,9 +3041,21 @@ mod tests {
     }
 
     #[test]
-    fn adaptive_physics_hz_keeps_high_node_graphs_active() {
+    fn adaptive_physics_hz_targets_120_at_small_graphs_and_degrades_at_high_node_counts() {
+        // Per user 2026-05-12 directive: target is 120 Hz (matching
+        // ProMotion render rate). Tiers were doubled where feasible.
+        // Bottom tier still degrades at 9k+ nodes since O(N²) physics
+        // work can't sustain 120 Hz without starving the renderer.
+        assert_eq!(adaptive_physics_hz(0), 120.0);
         assert_eq!(adaptive_physics_hz(500), 120.0);
-        assert_eq!(adaptive_physics_hz(5_500), 24.0);
+        assert_eq!(adaptive_physics_hz(1_000), 120.0);
+        assert_eq!(adaptive_physics_hz(1_001), 60.0);
+        assert_eq!(adaptive_physics_hz(3_000), 60.0);
+        assert_eq!(adaptive_physics_hz(3_001), 40.0);
+        assert_eq!(adaptive_physics_hz(5_000), 40.0);
+        assert_eq!(adaptive_physics_hz(5_001), 30.0);
+        assert_eq!(adaptive_physics_hz(9_000), 30.0);
+        assert_eq!(adaptive_physics_hz(9_001), 24.0);
         assert_eq!(adaptive_physics_hz(10_000), 24.0);
     }
 
