@@ -310,6 +310,14 @@ fn large_graph_adaptation_factor(node_count: usize) -> f32 {
 // get a push toward the boundary with magnitude proportional to the
 // overshoot distance.
 
+/// Alpha floor used while a user-directed force overlay is active. The
+/// natural simulation alpha decays toward 0 once the graph settles; we
+/// hold it at this floor so cursor/shape forces stay visible across the
+/// session. 0.30 is one third of the d3-canonical initial alpha (1.0)
+/// — strong enough that the per-tick velocity change is plainly visible
+/// without overwhelming the structural forces (link/center/charge).
+const USER_OVERLAY_ALPHA_FLOOR: f32 = 0.30;
+
 /// Max radius (world units) of the cursor force field. Nodes outside
 /// this radius from the cursor see no force. Tuned so the cursor
 /// "overwhelms" within its zone but doesn't tractor-beam across the
@@ -321,13 +329,17 @@ const CURSOR_FORCE_MAX_RADIUS: f32 = 2500.0;
 /// floor keeps the force finite when a node is right under the cursor.
 const CURSOR_FORCE_MIN_DIST_SQ: f32 = 100.0; // 10² world units
 
-/// Cursor force scale — chosen so `strength = 1.0` at typical
-/// distance (~500 world units) produces a velocity change that's
-/// visibly stronger than charge equilibrium. "Overwhelm" feel.
-const CURSOR_FORCE_SCALE: f32 = 8000.0;
+/// Cursor force scale — chosen so `strength = 1.0` at typical distance
+/// (~500 world units) and the user-overlay alpha floor (0.30) produces
+/// a velocity change of ~5 world-units/tick, which is comparable to
+/// `force_center` and clearly overwhelms equilibrium drift. "Overwhelm
+/// strength" per V6.2 toolbar spec.
+const CURSOR_FORCE_SCALE: f32 = 8_000_000.0;
 
-/// Vortex tangential speed coefficient. Larger = faster orbit.
-const CURSOR_VORTEX_TANGENTIAL_SCALE: f32 = 5000.0;
+/// Vortex tangential speed coefficient. Larger = faster orbit. Tuned
+/// against `CURSOR_FORCE_SCALE` so vortex mode produces a visibly
+/// faster orbit than suck/repel at the same strength.
+const CURSOR_VORTEX_TANGENTIAL_SCALE: f32 = 5_000_000.0;
 
 #[inline]
 fn apply_cursor_force(
@@ -388,9 +400,11 @@ fn apply_cursor_force(
 }
 
 /// Shape bound strength coefficient. The per-node force is scaled by
-/// `overshoot * SHAPE_BOUND_SCALE * alpha`. Tuned so a 100-unit
-/// overshoot at alpha=1 produces a strongly-corrective push.
-const SHAPE_BOUND_SCALE: f32 = 0.04;
+/// `overshoot * SHAPE_BOUND_SCALE * alpha`. Tuned so at the user-
+/// overlay alpha floor (0.30) a 100-unit overshoot produces a per-tick
+/// velocity change of ~8 world-units, i.e. a node 100 units outside
+/// the boundary returns to it inside ~1 second at 60 fps.
+const SHAPE_BOUND_SCALE: f32 = 0.25;
 
 /// Returns the signed distance from `(px, py)` to the boundary of the
 /// named shape centered at origin with given radius. Positive = node
@@ -1300,6 +1314,20 @@ impl Simulation {
         // 1. Alpha decay — converges toward alpha_target.
         self.params.alpha += (alpha_target - self.params.alpha) * self.params.alpha_decay;
 
+        // ── User-directed force overlay wake hook (2026-05-12) ─────
+        // If the user has activated cursor force or shape bound, force
+        // alpha to a working floor so the kernel produces visible motion
+        // on every tick. Without this, the natural alpha decay silences
+        // the user-overlay forces after a few seconds. Keep above the
+        // settled check below so `is_settled` evaluates false while these
+        // are active.
+        let user_overlay_active =
+            (self.cursor_force_mode != 0 && self.cursor_force_strength > 0.001)
+                || (self.shape_bound_kind != 0 && self.shape_bound_radius > 1.0);
+        if user_overlay_active {
+            self.params.alpha = self.params.alpha.max(USER_OVERLAY_ALPHA_FLOOR);
+        }
+
         // Clamp alpha to a small floor instead of letting it reach zero.
         const ALPHA_FLOOR: f32 = 0.0001;
         let at_floor = self.params.alpha < ALPHA_FLOOR;
@@ -1309,7 +1337,7 @@ impl Simulation {
 
         // Settled = alpha at floor and no nodes being dragged.
         let any_fixed = self.fx.iter().any(|f| f.is_some());
-        self.is_settled = at_floor && !any_fixed;
+        self.is_settled = at_floor && !any_fixed && !user_overlay_active;
 
         // When settled, zero all velocities and skip forces entirely.
         // Drag/interaction triggers reheat via fix_node → is_settled becomes false,
