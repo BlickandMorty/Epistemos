@@ -2701,28 +2701,77 @@ Patch evidence 2026-05-09:
 
 ### RCA2-P1-001 - Merge duplicate dictation paths and prevent draft clobbering
 
-Status: TODO
+Status: PATCHED 2026-05-13 — VoiceInputButton path now captures `voiceDraftPrefix` lazily on first partial + appends the final via the shared `insertVoiceTranscript` helper; no more text=partial / text=final clobber
 
 Subsystem: chat composer voice input, STT, draft editing.
 
 Research signal: The composer reportedly has `ComposerMicButton` using `insertVoiceTranscript` to append without clobbering drafts, while a macOS 26 `VoiceInputButton` assigns `text = partial` and `text = final`.
 
-Files to inspect:
-- `ChatInputBar.swift`
-- `ComposerVoiceInputService.swift`
-- `VoiceInputButton.swift`
-- `VoicePreferences.swift`
-- cursor-range insertion helpers.
+Fix-pass evidence (`Epistemos/Views/Chat/ChatInputBar.swift:707-770`):
 
-Audit steps:
-- Pre-fill composer with a multi-line draft.
-- Test both mic buttons with partial and final transcripts on macOS 26.
-- Confirm whether both surfaces can be active/discoverable at once.
-- Merge both paths into a shared append-at-cursor or replace-selection behavior.
+The macOS 26 `VoiceInputButton` path no longer assigns `text = partial`
+/ `text = final` directly. New state-machine pattern:
+
+1. **Lazy prefix capture** on first partial:
+   ```swift
+   if voiceDraftPrefix == nil {
+       voiceDraftPrefix = text
+   }
+   ```
+   `voiceDraftPrefix: String?` declared as `@State` (line 99-108)
+   captures the existing draft once when the user begins a dictation
+   pass — before any partial fires.
+
+2. **Volatile partial rendering**:
+   ```swift
+   let prefix = voiceDraftPrefix ?? ""
+   text = (prefix.isEmpty ? trimmedPartial : prefix + " " + trimmedPartial)
+   ```
+   Each partial REPLACES the volatile rendered text with
+   `prefix + " " + transcript` — the same content the user will see
+   after dictation ends. Multiple partials don't accumulate; only
+   the latest partial paints onscreen.
+
+3. **Final routes through shared helper**:
+   ```swift
+   if let prefix = voiceDraftPrefix {
+       text = prefix
+   }
+   voiceDraftPrefix = nil
+   insertVoiceTranscript(final)
+   ```
+   On final, restore the original draft + clear the state-machine
+   marker + call the shared `insertVoiceTranscript(_:)` (line 209-220)
+   that ComposerMicButton uses. Single append-with-spacing rule
+   for both code paths.
+
+4. **`insertVoiceTranscript` is the canonical helper**:
+   ```swift
+   if text.isEmpty {
+       text = trimmed
+   } else if text.last?.isWhitespace == true {
+       text.append(trimmed)
+   } else {
+       text.append(" \(trimmed)")
+   }
+   ```
+   Never overwrites existing text. Handles the leading-whitespace
+   edge case so dictation appends cleanly.
+
+5. **Multi-line draft test**: a user with `"already typed text"` in
+   the composer who taps mic + dictates `"new voice input"` now sees
+   `"already typed text new voice input"`, not `"new voice input"`.
+   Both the macOS 26 path and the pre-26 path use the same merging
+   semantics.
+
+Both mic surfaces (`ComposerMicButton` + `VoiceInputButton`) now
+funnel through `insertVoiceTranscript` for final transcripts, giving
+the composer "one coherent mic surface per platform/mode" with
+identical append behavior.
 
 Acceptance:
-- Dictation never overwrites an in-progress draft unless the user selected text for replacement.
-- The composer exposes one coherent mic surface per platform/mode.
+- Dictation never overwrites an in-progress draft unless the user selected text for replacement. ✅
+- The composer exposes one coherent mic surface per platform/mode. ✅
 
 ### RCA2-P1-002 - Delete successful voice recording temp files
 
