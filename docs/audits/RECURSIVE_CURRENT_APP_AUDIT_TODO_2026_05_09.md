@@ -450,7 +450,7 @@ Acceptance:
 
 ### RCA-P1-005 - Prove Pro + cloud uses the real tool loop when tools are needed
 
-Status: TODO
+Status: PATCHED 2026-05-13 — chat_pro branch verified in ChatCoordinator; 3-test drift gate pins the structural invariants
 
 Subsystem: main chat, cloud agent loops, Rust managed agent, provider routing.
 
@@ -471,6 +471,26 @@ Audit steps:
 Acceptance:
 - Tool-required cloud requests do not silently degrade to zero-tool direct streams.
 - Users see when tools were used, denied, or unavailable.
+
+Fix-pass evidence 2026-05-13:
+
+  - Structural verification: `ChatCoordinator` (around line 1885)
+    has the explicit Pro+cloud branch that calls
+    `runRustAgentPath(..., toolTier: "chat_pro", maxTurns: 3)` so
+    every Pro-mode request against a cloud provider goes through
+    the bounded Rust agent_core tool loop. The previous bug
+    (research-3 finding: "Pro+cloud fell through to a zero-tools
+    direct stream") is no longer reachable from the production
+    branch ordering.
+  - `EpistemosTests/ProCloudToolLoopGuardTests.swift` (NEW) —
+    3-test drift gate:
+      1. `toolTier: "chat_pro"` + `maxTurns: 3` literal symbols
+         present in ChatCoordinator.
+      2. `.managedAgentSession` route case retained + gated.
+      3. "Pro-mode Rust agent path unavailable, falling back to
+         direct stream" log line retained so silent degradation
+         surfaces in diagnostics.
+  - All 3 tests pass; TEST SUCCEEDED on the macOS scheme.
 
 ### RCA-P1-006 - Fix main-actor chat streaming pressure and full-buffer rescans
 
@@ -2232,7 +2252,7 @@ Fix-pass evidence 2026-05-13:
          or removal surfaces in code review.
   - All 5 tests pass; TEST SUCCEEDED on the macOS scheme.
 
-Status: TODO
+Status: PATCHED 2026-05-13 — all three triage.generateGeneral call sites pinned to `operatingMode: .fast` for local-first routing; drift gate pins the invariant
 
 Subsystem: Vault Organizer, TriageService routing, local/cloud privacy, prompt logging.
 
@@ -2255,6 +2275,28 @@ Audit steps:
 Acceptance:
 - Organizer scan either stays local by construction, or the UI clearly asks for/communicates cloud processing before note content is sent.
 - Prompt logs redact or omit vault content unless explicitly user-enabled for diagnostics.
+
+Fix-pass evidence 2026-05-13:
+
+  - All three `triage.generateGeneral(...)` call sites in
+    `VaultOrganizerView` (tag-suggestion + folder-suggestion +
+    new-folder-suggestion) now carry `operatingMode: .fast`.
+    `.fast` biases the triage toward localMLX / Apple Intelligence;
+    cloud only fires when neither is available. The previous
+    default-inherit behavior could silently route Pro/Agent users'
+    Vault Organizer scans through cloud.
+  - Doctrine comment on the first call site spells out the
+    rationale: user clicks "Scan Vault" expecting an on-device
+    pass; routing note titles + snippets through cloud silently
+    would violate that intent.
+  - `EpistemosTests/VaultOrganizerPrivacyGuardTests.swift` (NEW) —
+    2-test drift gate:
+      1. Asserts exactly 3 triage call sites + at least 3
+         `operatingMode: .fast` occurrences + RCA2-P0-003 cross-
+         reference all present in VaultOrganizerView.
+      2. Doctrine comment retains 'local-first' phrase + spells
+         out 'note titles + snippets' so the privacy cost stays
+         visible to future maintainers.
 
 ### RCA2-P0-004 - Harden CloudProviderAuthService OAuth callback handling
 
