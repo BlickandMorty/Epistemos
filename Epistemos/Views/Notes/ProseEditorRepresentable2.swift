@@ -863,8 +863,28 @@ extension ProseEditorRepresentable2 {
 
             // ── NON-CRITICAL ───────────────────────────────────
 
+            // RCA2-P1-012 fix-pass (2026-05-13): the existing
+            // `ProseEditorUserDidType` notification fires ONLY for
+            // documents <= 10 chars long because it was originally
+            // wired to the template overlay (which only paints on
+            // empty / near-empty notes). The word-count + outline
+            // refresh subscribed to the SAME notification, so on any
+            // note longer than 10 chars the metrics never updated
+            // live — they only refreshed on document open + on
+            // `pageBodyDidChange` (save-time, debounced through
+            // GRDB). The fix is two notifications: keep the
+            // template-overlay one gated on length <= 10, and post a
+            // SEPARATE `ProseEditorContentDidChange` notification on
+            // every type so the metrics subscriber refreshes
+            // regardless of document length.
+            let lengthForGating = tv.textStorage?.length ?? 0
+            NotificationCenter.default.post(
+                name: .init("ProseEditorContentDidChange"),
+                object: nil,
+                userInfo: ["pageId": currentPageId]
+            )
             // Notify template overlay that user started typing (short docs only).
-            if tv.textStorage?.length ?? 0 <= 10 {
+            if lengthForGating <= 10 {
                 NotificationCenter.default.post(
                     name: .init("ProseEditorUserDidType"),
                     object: nil,
