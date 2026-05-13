@@ -192,16 +192,30 @@ public actor AnswerPacketEmitter {
 nonisolated extension AnswerPacket {
     /// Build a V6.2 AnswerPacket for a completed chat turn.
     ///
-    /// State promotion ladder:
+    /// State promotion ladder (canon-hardening WRV markers):
     /// - Without `attentionMode` → the original `state: emitted`
     ///   first-wiring shape (defaults to `.unavailable`).
-    /// - With a resolved `attentionMode` → `state: populated` partial
+    /// - With a resolved `attentionMode` → `state: partially populated`
     ///   wiring (per-model attention-mode threaded through from the
     ///   live runtime via `AnswerPacketEmitter.currentAttentionMode()`).
-    ///
-    /// claims + residencySignals remain empty until the next
-    /// promotion: Rust-side FFI threads real claim/signal values
-    /// from the agent runtime.
+    /// - **2026-05-13: `state: canonical-product-surface`.** This
+    ///   factory first attempts to build the packet via
+    ///   `RustAnswerPacketProducerClient.produceJson(...)` (the
+    ///   `agent_core::scope_rex::produce::produce_turn_completion_packet`
+    ///   production caller). When the FFI is linked + the JSON decodes,
+    ///   the returned packet carries non-empty claims (Empirical
+    ///   self-witness every turn, Empirical tool-use observation when
+    ///   stop_reason == "tool_use", StaticFallbackAcknowledged when
+    ///   attention_mode == .staticFallback) and one neutral
+    ///   ResidencySignal — the canonical Rust-produced shape. The
+    ///   Swift-side `interruptBucket` (computed by the V6.2 substrate-
+    ///   hook observers) is then stamped on top, because the Rust
+    ///   producer does not have visibility into the Swift InterruptScore
+    ///   observers yet.
+    /// - Fallback: if the FFI is not linked or the JSON decode fails,
+    ///   the original Swift stub path runs (empty claims + signals).
+    ///   This keeps the audit ring populated even when the Rust path
+    ///   is unavailable.
     nonisolated public static func turnCompletionStub(
         stopReason: String,
         inputTokens: Int,
@@ -211,6 +225,33 @@ nonisolated extension AnswerPacket {
         timestamp: Date = Date()
     ) -> AnswerPacket {
         let turnId = "turn-\(Int(timestamp.timeIntervalSince1970 * 1000))-\(UUID().uuidString.prefix(8))"
+        let witnessedRef = "stop:\(stopReason);in:\(inputTokens);out:\(outputTokens)"
+
+        // Preferred path: ask the Rust production caller for a packet
+        // populated with claims + residency. Falls through to the Swift
+        // stub path if the FFI is unlinked or the decode fails.
+        if let rustPacket = packetFromRustProducer(
+            packetId: turnId,
+            stopReason: stopReason,
+            outputTokens: outputTokens,
+            attentionMode: attentionMode,
+            witnessedStateRef: witnessedRef,
+            mutationEnvelopeRef: turnId,
+            timestamp: timestamp
+        ) {
+            // Rust producer doesn't compute interruptBucket — that's a
+            // Swift-side V6.2 substrate-hook observer's job. Stamp it
+            // on top of the Rust-produced packet so the audit channel
+            // carries both the canonical claims AND the runtime bucket.
+            var stamped = rustPacket
+            stamped.interruptBucket = interruptBucket
+            return stamped
+        }
+
+        // Fallback path — Rust FFI absent or decode failed. Emit the
+        // original empty-claims stub so the audit ring still gets a
+        // well-formed packet for this turn. This path is exercised
+        // in test builds that don't link agent_coreFFI.
         return AnswerPacket(
             id: turnId,
             claims: [],
@@ -218,10 +259,46 @@ nonisolated extension AnswerPacket {
             uiLabel: .plausibleButUnverified,
             attentionMode: attentionMode,
             interruptBucket: interruptBucket,
-            witnessedStateRef: "stop:\(stopReason);in:\(inputTokens);out:\(outputTokens)",
+            witnessedStateRef: witnessedRef,
             semanticDeltaRef: nil,
             mutationEnvelopeRef: turnId
         )
+    }
+
+    /// Bridge from runtime inputs → Rust producer FFI → decoded Swift
+    /// AnswerPacket. Returns nil on any failure so the caller can
+    /// fall through to the Swift stub path.
+    nonisolated private static func packetFromRustProducer(
+        packetId: String,
+        stopReason: String,
+        outputTokens: Int,
+        attentionMode: AttentionMode,
+        witnessedStateRef: String,
+        mutationEnvelopeRef: String,
+        timestamp: Date
+    ) -> AnswerPacket? {
+        // Wire-form mapping: Swift enum → snake_case Rust contract.
+        let attentionWire: RustAnswerPacketAttentionWire
+        switch attentionMode {
+        case .dynamic: attentionWire = .dynamic
+        case .staticFallback: attentionWire = .staticFallback
+        case .unavailable: attentionWire = .unavailable
+        }
+        let request = RustAnswerPacketProduceRequest(
+            packetId: packetId,
+            stopReason: stopReason,
+            outputTokens: UInt32(max(0, outputTokens)),
+            attentionMode: attentionWire,
+            vrmLabel: .plausibleButUnverified,
+            witnessedStateId: witnessedStateRef,
+            mutationEnvelopeId: mutationEnvelopeRef,
+            createdAtMs: Int64(timestamp.timeIntervalSince1970 * 1000)
+        )
+        guard let json = RustAnswerPacketProducerClient.produceJson(request: request),
+              let data = json.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(AnswerPacket.self, from: data)
     }
 }
 
