@@ -760,13 +760,14 @@ final class ChatCoordinator {
           )
         )
 
-      case .complete(let stopReason, let inputTokens, let outputTokens, _):
+      case .complete(let stopReason, let inputTokens, let outputTokens, let answerPacketId, _):
         Log.agentStreaming.emitEvent("acc.complete", "\(stopReason)")
         receivedAgentContent = true
         finalizedAssistantMessage = true
         agentChat.completeProcessing(
           mode: .api,
-          resolvedModelLabel: resolvedAgentModelLabel
+          resolvedModelLabel: resolvedAgentModelLabel,
+          answerPacketId: answerPacketId
         )
         if let response = agentChat.lastCompletedAssistantResponse {
           agentChat.absorbAgentResponseIntoPlanDocument(response)
@@ -2789,7 +2790,7 @@ final class ChatCoordinator {
         )
         capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
 
-      case .complete(_, let inputTokens, let outputTokens, _):
+      case .complete(_, let inputTokens, let outputTokens, let answerPacketId, _):
         receivedAgentContent = true
         finalizedAssistantMessage = true
         if requiresVerifiedVaultRead, !successfulRequiredVaultRead {
@@ -2804,7 +2805,8 @@ final class ChatCoordinator {
         chatState.completeProcessing(
           messageId: pendingAssistantId,
           mode: .api,
-          resolvedModelLabel: resolvedModelLabel
+          resolvedModelLabel: resolvedModelLabel,
+          answerPacketId: answerPacketId
         )
         persistCompletedAgentTurn()
         Log.pipeline.info("Agent session complete: \(inputTokens)in/\(outputTokens)out")

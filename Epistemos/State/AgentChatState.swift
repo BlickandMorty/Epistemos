@@ -360,7 +360,11 @@ final class AgentChatState {
 
     // MARK: - Completion
 
-    func completeProcessing(mode: InferenceMode, resolvedModelLabel: String? = nil) {
+    func completeProcessing(
+        mode: InferenceMode,
+        resolvedModelLabel: String? = nil,
+        answerPacketId: String? = nil
+    ) {
         guard let sessionId = activeSessionId else { return }
         flushThinkTagRouter()
         flushStreamingTokens()
@@ -442,7 +446,12 @@ final class AgentChatState {
             authoredByModelID: authorship.modelID,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
-            thinkingDurationSeconds: thinkingDurationSeconds
+            thinkingDurationSeconds: thinkingDurationSeconds,
+            // V6.2 Option B: stamp the audit-channel packet id (nil on
+            // legacy paths or when no AnswerPacket was emitted for this
+            // turn — e.g. cancelled / interrupted completions). See
+            // docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md.
+            answerPacketId: answerPacketId
         )
 
         messages.append(assistantMessage)

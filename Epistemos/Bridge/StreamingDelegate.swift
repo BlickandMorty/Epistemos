@@ -177,7 +177,21 @@ nonisolated enum AgentStreamEvent: Sendable {
     case contextCompacting(tokens: Int)
     case contextCompacted(messageCount: Int)
     case turnStarted(turn: Int, messageCount: Int)
-    case complete(stopReason: String, inputTokens: Int, outputTokens: Int, history: [[String: String]]?)
+    // `answerPacketId` is the id of the V6.2 AnswerPacket emitted for
+    // this turn. Nil for legacy paths or when emit failed; non-nil
+    // packets are guaranteed to be in
+    // `AnswerPacketEmitter.shared.recentPackets()` by the time this
+    // event is delivered (packet is emitted BEFORE the yield in
+    // `onComplete`, so there's no race). Per
+    // `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`
+    // Option B.
+    case complete(
+        stopReason: String,
+        inputTokens: Int,
+        outputTokens: Int,
+        answerPacketId: String?,
+        history: [[String: String]]?
+    )
     case error(AgentRuntimeError)
 }
 
@@ -454,33 +468,17 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     func onComplete(stopReason: String, inputTokens: UInt32, outputTokens: UInt32) {
         Log.agentStreaming.emitEvent("delegate.complete", "\(stopReason) in=\(inputTokens) out=\(outputTokens)")
 
-        // V6.2 mandate (helios v6.2.md §1.3 + §3 + laptop audit
-        // checklist "Next Required Passes"): every chat-turn completion
-        // emits an AnswerPacket. The audit ring buffer in
-        // AnswerPacketEmitter carries the live record.
-        //
-        // State: PARTIALLY POPULATED (2026-05-12 follow-on). Resolved
-        // `attentionMode` is now threaded from
-        // `AnswerPacketEmitter.currentAttentionMode()` (which reads the
-        // live `InferenceState.preferredChatModelSelection`):
-        //   .localMLX SSM model  → .staticFallback
-        //   .localMLX transformer → .dynamic
-        //   .cloud / .appleIntelligence → .dynamic
-        //   unknown → .unavailable
-        //
-        // Still pending in subsequent promotion to fully `state: populated`:
-        //   - claims + residencySignals threaded from Rust agent runtime via FFI
-        //   - InterruptScore bucket per-turn snapshot
-        //   - witnessedStateRef pulled from Rust witnessed_state module
+        // V6.2 Option B per the per-bubble binding research doc
+        // (`docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`):
+        // build + emit the AnswerPacket BEFORE yielding `.complete`,
+        // and thread the packet id through the stream event so
+        // ChatState can stamp it on the assistant ChatMessage. The
+        // emit-then-yield ordering eliminates the race that existed
+        // when emit ran in a fire-and-forget Task.
         let inTokens = Int(inputTokens)
         let outTokens = Int(outputTokens)
         Task {
             let attentionMode = await AnswerPacketEmitter.currentAttentionMode()
-            // V6.2 #4: sample the InterruptScore bucket at emit time
-            // using runtime signals available at this seam (stop_reason
-            // + token counts). Other canonical signals (WBO / sheaf /
-            // connectome) default to 0 until their substrate hooks
-            // land — `sampleTurnBucket` documents the heuristic.
             let interruptBucket = InterruptScoreCpu.sampleTurnBucket(
                 stopReason: stopReason,
                 inputTokens: inTokens,
@@ -494,17 +492,20 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
                 interruptBucket: interruptBucket
             )
             await AnswerPacketEmitter.shared.emit(packet)
-        }
-
-        continuation.yield(
-            .complete(
-                stopReason: stopReason,
-                inputTokens: Int(inputTokens),
-                outputTokens: Int(outputTokens),
-                history: nil
+            // Packet is now committed in the ring. Yield with its id
+            // so downstream consumers (ChatState.completeProcessing)
+            // can bind it to the new ChatMessage.id deterministically.
+            continuation.yield(
+                .complete(
+                    stopReason: stopReason,
+                    inputTokens: inTokens,
+                    outputTokens: outTokens,
+                    answerPacketId: packet.id,
+                    history: nil
+                )
             )
-        )
-        continuation.finish()
+            continuation.finish()
+        }
     }
 
     func onError(message: String) {

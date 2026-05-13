@@ -278,6 +278,18 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// small "cache 78%" badge next to the model label so the user
     /// can see the prompt-caching win land turn-to-turn.
     var cacheHitPercent: Double?
+    /// V6.2 audit-channel binding (Option B per
+    /// `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`).
+    /// References the AnswerPacket emitted at turn-completion for
+    /// this message. Stamped by `ChatState.completeProcessing` from
+    /// the `.complete` stream event's `answerPacketId` field —
+    /// guaranteed to be in `AnswerPacketEmitter.shared
+    /// .recentPackets()` if non-nil, because the packet was committed
+    /// to the ring BEFORE the stream event yielded. Nil for legacy
+    /// messages, user messages, or paths that bypass the audit emit
+    /// (errors, cancellations). The MessageBubble VRMLabelView
+    /// render reads this field; nil → no chip.
+    var answerPacketId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -303,7 +315,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         errorKind: UserFacingChatErrorKind? = nil,
         thinkingTrace: String? = nil,
         thinkingDurationSeconds: Double? = nil,
-        cacheHitPercent: Double? = nil
+        cacheHitPercent: Double? = nil,
+        answerPacketId: String? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -329,6 +342,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.thinkingTrace = thinkingTrace
         self.thinkingDurationSeconds = thinkingDurationSeconds
         self.cacheHitPercent = cacheHitPercent
+        self.answerPacketId = answerPacketId
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.
