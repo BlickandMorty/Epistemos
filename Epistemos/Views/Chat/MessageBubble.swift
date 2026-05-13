@@ -362,6 +362,18 @@ struct MessageBubble: View {
                     }
                 }
 
+                // AI-disclaimer phrase (RCA-finalization 2026-05-13).
+                // Standard App Store / Apple-AI-guideline footnote shown
+                // once per assistant message so the user is reminded
+                // that AI-generated content can be wrong. Identical to
+                // ChatGPT / Gemini / Claude conventions. Excluded from
+                // user-authored messages because the disclaimer only
+                // applies to AI output. Single-line, quiet font weight
+                // so it sits in the byline channel.
+                if !isUser {
+                    AIDisclaimerFooter(theme: theme)
+                }
+
                 // Toolbar — always rendered at fixed height, opacity-only transition
                 MessageToolbar(
                     message: message,
@@ -377,6 +389,26 @@ struct MessageBubble: View {
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - AI Disclaimer Footer (RCA-finalization 2026-05-13)
+
+/// One-line "AI can be wrong" disclaimer footer shown under every
+/// assistant message. Required by Apple App Review Guideline 4.2 +
+/// 5.1.1 for apps that surface generative-AI content to the user.
+///
+/// Wording is intentionally short + non-claim-bearing — "verify
+/// important info" is the standard pattern (ChatGPT, Gemini, Claude
+/// all use variants of this).
+private struct AIDisclaimerFooter: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        Text("Epistemos AI can make mistakes. Verify important info.")
+            .font(.system(size: 10))
+            .foregroundStyle(theme.textTertiary)
+            .padding(.top, 2)
     }
 }
 
