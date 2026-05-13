@@ -4,16 +4,17 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, fourth-pass)
+## Headline Status (rollup updated 2026-05-13, fifth-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 fourth-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 fifth-pass:
 
-- **PATCHED / DONE**: 88+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **21 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 90+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **23 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
+  - Fifth-pass batch (2): RCA2-P2-014 (SessionTelemetry + ConversationStateClassifier wired) + RCA3-P2-001 (FSRS duplicate of P2-002).
 - **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+1 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep).
-- **TODO**: ~129 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+- **TODO**: ~127 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -3424,11 +3425,39 @@ Acceptance:
 
 ### RCA2-P2-014 - Complete or gate SessionTelemetry classifier migration
 
-Status: TODO
+Status: PATCHED 2026-05-13 — both classifiers wired into production; no naive-summarizer fallback remains
 
 Subsystem: session continuation, compaction, conversation state.
 
 Research signal: SessionTelemetry schema says it replaces the naive summarizer, while classifier service says legacy prose call sites remain until migration.
+
+Fix-pass evidence 2026-05-13:
+
+  - `SessionTelemetryClassifier.shared.distill(...)` fires at
+    every accomplished-session boundary via
+    `HarnessIntegration.swift:237`, and the result is persisted
+    via `EventStore.shared?.saveSessionTelemetry(...)`
+    (`HarnessIntegration.swift:246`). Schema-first AR3 pipeline
+    is live.
+  - `ConversationStateClassifier.shared.rebuild(...)` fires
+    inside `ChatCoordinator.swift:2585` (AR2 per master plan) and
+    seeds the cached state through `setState(...)` at line 2599.
+    Downstream readers (e.g. `Intents/Schemas/CognitiveIntents
+    .swift:170` `currentState(for: id)`) consume the cached
+    object directly.
+  - Source-grep audit (`rg "naive summarizer|legacy summary|
+    SessionSummary\b"`) returns zero matches in the app target.
+    The "legacy prose call sites" the research called out are
+    already gone — the two structured classifiers ARE the
+    production path.
+  - Both schemas registered in `StructureRegistry` with
+    `maturity: .full` (`conversation_state` row 195;
+    `session_telemetry` row 196). RCA-P2-003 split-array
+    catalog (this session) exposes them under
+    `active_schemas`, never `roadmap_gaps`.
+  - Audit acceptance "Migration of every active session-summary
+    call site is complete or the legacy path is gated" —
+    satisfied: there is no legacy path left to gate.
 
 Files to inspect:
 - `SessionTelemetryClassifier`
@@ -3975,7 +4004,7 @@ Acceptance:
 
 ### RCA3-P2-001 - FSRS cache/performance proof
 
-Status: TODO
+Status: PATCHED 2026-05-13 — closed as duplicate of RCA-P2-002 (sortedByRiskCache + misleading comment removed under that entry); benchmarks deferred to future scaling pass
 
 Subsystem: FSRS decay, GRDB persistence, review UI.
 
@@ -3988,6 +4017,24 @@ Audit steps:
 
 Acceptance:
 - FSRS status is implemented with measured complexity, or optimization claims are removed.
+
+Fix-pass evidence 2026-05-13:
+
+  - This audit item is the RCA3 restatement of RCA-P2-002. The
+    actual fix landed under that entry in commit `2f4a34118`:
+    the dead `sortedByRiskCache: [FSRSDecayRow]?` field was
+    removed along with the misleading O(K) comment. `topAtRisk`
+    now scans-and-sorts each call (true O(n log n)) and the
+    file documents the behavior accordingly.
+  - Acceptance "optimization claims are removed" — satisfied.
+    A real partial-sort / heap-keyed cache is a future slice if
+    profiling shows `topAtRisk` becomes a bottleneck on 10k+
+    rows, but the audit register no longer carries a false
+    claim of O(K) cached lookups.
+  - The 10k / 100k benchmark is the second-clause acceptance
+    ("implemented with measured complexity"). Deferring to a
+    future scaling pass — the immediate audit lie (comment
+    drift) is gone, which is the priority.
 
 ### RCA3-P2-002 - Guard GenUI `.actionPanel` producers until host callbacks exist
 
