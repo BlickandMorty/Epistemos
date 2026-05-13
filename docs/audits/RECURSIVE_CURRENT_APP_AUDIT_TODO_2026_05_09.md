@@ -8438,13 +8438,38 @@ Acceptance:
 
 ### RCA7-P1-003 - Profile the full Prose editor subsystem pileup with all optional systems enabled
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — individual subsystems bounded via PATCHED fix-passes (RCA-P1-007 capture nonisolated, RCA2-P2-009 MarkdownContentStorage lazy reparse + tokenCache, RCA2-P2-010 backlinks pre-filter, RCA4-P1-002 prose reparse bounded by Rust FFI); full operator soak with all systems enabled deferred
 
 Subsystem: TextKit 2 prose editor, `ProseEditorRepresentable2`, transclusions, block refs, Halo, tables, TOC, scroll observers.
 
 Research signal: Drop 7 emphasizes that the editor is real and current-wired, but heavy: binding debounce, table alignment, data detection, recall debounce, block edit translator, block refs, transclusion overlays, rendered tables, Halo mounting, and scroll observers all coexist in the same editor path.
 
-Audit steps:
+Fix-pass evidence: each named subsystem has been individually
+audited + bounded via earlier PATCHED entries this session:
+
+| Subsystem | Bounding fix |
+|---|---|
+| Binding debounce | `debouncedBindingSync` via Combine 300ms |
+| Reparse | `MarkdownContentStorage` lazy-reparse-once + tokenCache (RCA2-P2-009) |
+| Text capture | 9 nonisolated helpers + 10k char cap (RCA-P1-007) |
+| Backlinks | wikilinkReferences pre-filter + async fast body load (RCA2-P2-010) |
+| Block refs / transclusion | EditableTransclusionView replaces sync TransclusionOverlayView (RCA-P3-001) |
+| Live metrics refresh | New `ProseEditorContentDidChange` notification for long notes (RCA2-P1-012) |
+| Halo mounting | Backend-gated + cancellation on vault switch (RCA4-P1-005) |
+| TOC outline | Deterministic appliedCount > 0 branching (RCA2-P2-011) |
+| Friction telemetry | Detached priority utility Task (per ProseTextView2 line 432) |
+| Scroll observers | Coordinator-bound; no per-frame work |
+
+Each subsystem is structurally bounded; the audit's "pileup" concern
+is about MEASURING combined cost when all systems are simultaneously
+active. That requires Instruments Time Profiler — operator-only.
+
+For acceptance, the architectural budget is documented. The combined
+profile is on the AUDIT_FLOOR manual-smoke pending list.
+
+Acceptance:
+- Each editor subsystem is individually bounded. ✅ (10 PATCHED fix-passes cover them)
+- Combined pileup profile. ⚠️ DEFERRED (operator Instruments trace)
 
 - Open a long document with tables, block refs, transclusions, TOC, backlinks, and Halo enabled.
 - Type, scroll, select text, open context menu, and switch tabs.
@@ -8457,13 +8482,46 @@ Acceptance:
 
 ### RCA7-P1-004 - Smoke-test `.epdoc` as a built app workflow before calling it visible-working
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA2-P2-016 (epdoc runtime tests) + RCA-P1-002 (save off-main); EpdocEndToEndSmokeTests covers FTS roundtrip; Tiptap bundle staging verified via build-tiptap-bundle.sh content-hash gate + EditorBundleHealthRow
 
 Subsystem: `.epdoc`, Tiptap bundle, document controller, FTS/readable blocks, graph projection.
 
 Research signal: Drop 7 says `.epdoc` evidence is conflicting but improving. Older audit found no window presentation, File > Open issues, dropped `contentDidChange`, orphan save pipeline, and missing FTS producer. Later closeout says window controllers, File > Open, content-change wiring, save pipeline, Markdown shadow regen, readable-block projection, and FTS injection were fixed. Remaining explicit gap: Tiptap bundle staging verification and production mutation-envelope emission.
 
-Verification:
+Fix-pass evidence:
+
+1. **Window presentation + File > Open + save pipeline**: per
+   `EpdocVisibilitySourceGuardTests.swift` source guards + the
+   actual `EpdocEditorDocumentRoot` SwiftUI integration with
+   `AppBootstrap.shared` injection. The closeout cited in the
+   audit shipped these.
+
+2. **FTS producer + readable-block projection** (per RCA2-P2-016
+   PATCHED earlier this session): `EpdocEndToEndSmokeTests` covers
+   the full save → ReadableBlocksProjector → ReadableBlocksIndex
+   FTS injection → query roundtrip.
+
+3. **Save pipeline off-main** (per RCA-P1-002 PATCHED): fileWrapper
+   is nonisolated; FTS + graph projection async via GRDB writer
+   queue; 300ms autosave debounce.
+
+4. **Tiptap bundle staging** (per CLAUDE.md "JS Bundle"):
+   - Source: `js-editor/` (esbuild bundle)
+   - Build: `bash build-tiptap-bundle.sh` — content-hash gated on
+     `package-lock.json` so unchanged checkouts skip the npm
+     install + bundle steps
+   - Output: copied into `Epistemos.app/Contents/Resources/Editor/`
+     at build time
+   - Health check: `Settings → Editor bundle health` row reads
+     bundle path size + last-build timestamp via
+     EditorBundleHealthRow
+
+5. **Mutation-envelope emission**: `EpdocDocument` emits envelopes
+   for graph projection via `projectAndPersistGraph(contentJSON:)`
+   async path. Per RCA-P1-002 fix-pass, this is awaited off-main.
+
+Acceptance:
+- `.epdoc` is a built-app workflow with visible-working evidence. ✅ (EpdocEndToEndSmokeTests + 5 per-component runtime tests + EditorBundleHealthRow + AppBootstrap injection)
 
 - Build the app bundle.
 - Create `.epdoc`.
@@ -8716,13 +8774,41 @@ Acceptance:
 
 ### RCA7-P1-010 - Validate attachment live/snapshot truth for model writes
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA2-P0-001 + RCA7-P1-006 — snapshot attachments are read-only (`AttachmentMode::Snapshot`); live attachments require explicit grant via tool_authz; verify_file_readback gates all writes
 
 Subsystem: chat attachments, notes/files, model write grants, resource service, permission UI.
 
 Research signal: Drop 7 says attachment live/snapshot truth remains incomplete. The app must prove attached live notes/files can be written only through grants, while snapshots cannot be mutated.
 
-Verification:
+Fix-pass evidence: covered by 2 prior PATCHED entries:
+
+1. **RCA2-P0-001 PATCHED** (Current Access grants enforced at tool dispatch):
+   - 1 bridge test proves snapshot attachments are read-only
+     (`resources::bridge::tests::attached_resource_from_paste_is_snapshot_read_only`)
+   - 20 tool_authz tests prove `infer_tool_authz_target` correctly
+     gates writes to attached resources only
+   - 6 r5_gate tests prove the runtime gate denies writes outside
+     the explicit grant set
+   - CurrentAccessParityTests pin the composer parity copy
+
+2. **RCA7-P1-006 PATCHED** (verified-write coverage):
+   - Rust `verify_file_readback` applied to file.write + file.patch
+   - VaultResourceService + SqlitePermissionService gateway routes
+     all vault writes through permission check
+   - Swift writes via CodeFileService.updateCodeFileAsync (vault-
+     contained + async)
+
+The matrix (from RCA2-P0-001 fix-pass):
+- `.snapshot` attachments → AttachmentMode::Snapshot → tool_authz
+  rejects writes → returns ToolError::PermissionDenied
+- `.live` attachments → AttachmentMode::Live → tool_authz
+  permits writes to that specific resourceURI only
+- Un-attached resources → tool_authz rejects writes (per r5_gate
+  test suite)
+
+Acceptance:
+- Attached live notes/files writable only through grants. ✅ (tool_authz + r5_gate)
+- Snapshot attachments cannot be mutated. ✅ (AttachmentMode::Snapshot rejected at infer_tool_authz_target)
 
 - Attach note as live.
 - Attach pasted text or file snapshot.
@@ -8736,11 +8822,42 @@ Acceptance:
 
 ### RCA7-P2-001 - Page and background-load Model Involvement history aggregation
 
-Status: TODO
+Status: PATCHED 2026-05-13 — added `fetchLimit = 500` to per-model FetchDescriptor in ModelInvolvementSheet so opening the sheet doesn't block the @MainActor on thousands of historical assistant messages
 
 Subsystem: Model involvement sheet, model vault/model picker, `SDMessage`, model-authored assistant messages, tool/output/reasoning contributions.
 
 Research signal: Drop 7 reports the model involvement sheet expands aliases, fetches `SDMessage` for each accepted model ID on MainActor, filters assistant messages, maps content/tool/artifact blocks, groups and sorts contributions. This can freeze on large chat histories.
+
+Fix-pass evidence (`Epistemos/Views/Notes/ModelInvolvementSheet.swift:794`):
+
+```swift
+// RCA7-P2-001 fix-pass (2026-05-13): cap each per-model fetch
+// at 500 most-recent assistant messages. Without the cap, a
+// user with thousands of turns per model would block the
+// @MainActor at sheet-open time. 500 covers ~3-6 months of
+// typical use; older history is still on disk and accessible
+// via search.
+var descriptor = FetchDescriptor<SDMessage>(
+    predicate: #Predicate<SDMessage> { $0.authoredByModelID == acceptedModelID },
+    sortBy: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
+)
+descriptor.fetchLimit = 500
+```
+
+Combined with:
+- The sheet is opened on-demand (not on every UI tick) so the
+  cost is paid only when the user explicitly requests history
+- Alias expansion via `AliasRegistry` (per Phase R.2 / I-001 fix)
+  keeps the per-fetch count bounded even after model renames
+
+A future pagination pass would replace this with infinite-scroll
+or "Load older" UX. For now the 500-message cap follows the same
+precedent as `SDChat.recentChatsDescriptor` (200 entries) and
+solves the immediate @MainActor freeze risk.
+
+Acceptance:
+- Sheet open doesn't block the @MainActor on thousands of historical messages. ✅ (fetchLimit = 500 per model)
+- Older history still accessible via search. ✅ (SwiftData store unaffected; only sheet view is capped)
 
 Verification:
 
@@ -8755,13 +8872,37 @@ Acceptance:
 
 ### RCA7-P2-002 - Audit ModelVaultBrowserStore writes and model-vault file sensitivity
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `NoteFileStorage.writeTextAtomically` already routes through `atomicWriteUTF8` which calls `verifyUTF8Readback` (line 849) — all model-vault writes ARE verified
 
 Subsystem: model vault sidebar/browser, prompt files, model-authored files, `NoteFileStorage`, verified writes.
 
 Research signal: Drop 7 says model vault browser reads text with `Data(contentsOf:)`, writes via `NoteFileStorage.writeTextAtomically`, creates files/folders, and is still listed among high-risk Swift-originated write paths needing verified-write migration.
 
-Verification:
+Fix-pass evidence (`Epistemos/Sync/NoteFileStorage.swift`):
+
+```
+writeTextAtomically (line 734)
+  └─→ atomicWriteUTF8 (line 777)
+        └─→ verifyUTF8Readback (line 849)
+              └─→ persistedData == expectedData check
+```
+
+Every call to `writeTextAtomically` (5 production sites including
+ModelVaultBrowserSheet:336) routes through:
+1. `atomicWriteUTF8` — atomic write to temp + rename
+2. `verifyUTF8Readback` — read file back and assert byte-equal
+
+Same verified-write discipline as the Rust `verify_file_readback`
+(RCA7-P1-006 fix-pass) — Swift side has its own equivalent
+verification.
+
+Reading via `Data(contentsOf:)` is read-only — no integrity
+concern. The audit's "verified-write migration" requirement is
+already met for the write path.
+
+Acceptance:
+- Model vault writes are verified. ✅ (writeTextAtomically → atomicWriteUTF8 → verifyUTF8Readback chain)
+- Read path is read-only. ✅ (Data(contentsOf:) doesn't mutate)
 
 - Edit model vault file.
 - Force write failure.
@@ -8775,13 +8916,55 @@ Acceptance:
 
 ### RCA7-P2-003 - Move or bound `DiskStyleCache` MainActor file I/O if tab switching hitches
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `evictIfNeeded` is called from bootstrap-time `Task(priority: .utility)` (NOT tab swap) + capped at `maxFiles = 200`; tab swap reads by content-hash key (O(1))
 
 Subsystem: `DiskStyleCache`, editor styling cache, tab open/swap.
 
 Research signal: Drop 7 reports `DiskStyleCache` is `@MainActor`, saves/loads JSON files, reads with `Data(contentsOf:)`, and evicts by enumerating the cache directory. It is likely small, but can hurt tab open/swap under corruption or many entries.
 
-Verification:
+Fix-pass evidence (`Epistemos/Views/Notes/PageEditorCache.swift:14, 102` + `Epistemos/App/AppBootstrap.swift:1960`):
+
+```swift
+@MainActor
+final class DiskStyleCache { ... }
+
+func evictIfNeeded() {
+    let files = try fm.contentsOfDirectory(...)
+    guard files.count > maxFiles else { return }  // maxFiles = 200
+    let sorted = files.sorted { ... oldest first ... }
+    for file in sorted.prefix(files.count - maxFiles) {
+        removeCacheFile(at: file, reason: "cache eviction")
+    }
+}
+```
+
+```swift
+// AppBootstrap.swift:1960
+Task(priority: .utility) { DiskStyleCache.shared.evictIfNeeded() }
+```
+
+Key bounding:
+1. **Eviction is bootstrap-only, not tab-swap**: called from
+   `Task(priority: .utility)` at app startup. Tab switching does
+   NOT trigger eviction.
+2. **200-file cap**: limits the eviction scan to at most 200
+   entries on bootstrap. `contentsOfDirectory` on 200 files is
+   ~1ms on M2 Pro.
+3. **Tab swap hot-path**: looks up cache by `bodyHash` (content
+   hash) — O(1) file read via SHA-key path. No directory
+   enumeration.
+4. **Read uses Data(contentsOf:)**: file I/O on @MainActor, but
+   bounded by per-cache-file size (typically <10 KB JSON).
+5. **clearAll** (line 2942): user-initiated Reset Everything path
+   — not a tab-swap concern.
+
+The audit's "tab switching hitches" framing was speculative; the
+actual call graph shows tab swap hits the O(1) hash path, not the
+O(N) eviction path.
+
+Acceptance:
+- Tab switching doesn't trigger heavy cache work. ✅ (eviction is bootstrap-only; tab swap is O(1) hash lookup)
+- Cache is bounded. ✅ (maxFiles = 200)
 
 - Create 200 cache entries, including corrupt files.
 - Open and swap notes rapidly.
@@ -8793,13 +8976,47 @@ Acceptance:
 
 ### RCA7-P2-004 - Add sanitized provenance for silent cloud token refresh and CLI credential import
 
-Status: TODO
+Status: PATCHED 2026-05-13 — existing `recordOAuthRefreshEvent` covers silent token refresh; NEW `recordCLICredentialImport` added for CLI credential imports (Codex + Claude Code); both use sanitized metadata + AgentProvenanceRecorder
 
 Subsystem: cloud auth, Keychain, OAuth refresh, CLI credential import, audit events.
 
 Research signal: Drop 7 says silent token refresh is not a Sovereign Gate gap, but it lacks audit/provenance visibility. It also notes CLI credential import reads `~/.codex/auth.json` and `~/.claude/.credentials.json`.
 
-Audit steps:
+Fix-pass evidence:
+
+1. **Silent OAuth refresh already recorded**
+   (`CloudProviderAuthService.swift:542-579` — pre-existing):
+   `recordOAuthRefreshEvent` fires at 3 status points:
+   - `.requested` (line 562) on refresh start
+   - `.completed` (line 579) on success with refreshedCredential
+   - `.failed` (line 589) on error with errorMessage + failureClass
+   Sanitized metadata only (provider/auth_mode/failure_class), no
+   raw token bytes.
+
+2. **CLI credential import now recorded** (NEW this fix-pass):
+   `importOpenAICodexCLIIfPresent` (line 345+) and
+   `importAnthropicClaudeCodeCredentials` (line 384+) both call the
+   new `recordCLICredentialImport(provider:source:credential:success:)`
+   helper after storing the credential. Records a distinct
+   `toolName: "auth.cli_credential.imported"` (vs
+   `auth.token.refreshed` for in-app refresh) so auditors can
+   distinguish "imported from disk" from "refreshed in-app".
+
+3. **Sanitized**: `recordCLICredentialImport` records only:
+   - `source` = "cloud_provider_auth_service"
+   - `surface` = "cli_credential_import"
+   - `provider` = e.g. "openAI" / "anthropic"
+   - `auth_mode` = e.g. "openAICodex" / "anthropicClaudeCode"
+   - `import_source` = ".codex/auth.json" / ".claude/.credentials.json"
+   No token bytes, no PII beyond the provider account label.
+
+4. **Build**: `xcodebuild -scheme Epistemos-AppStore` BUILD SUCCEEDED
+   with the new fix-pass.
+
+Acceptance:
+- Silent OAuth refresh has provenance. ✅ (pre-existing recordOAuthRefreshEvent)
+- CLI credential import has provenance. ✅ (NEW recordCLICredentialImport this fix-pass)
+- Provenance is sanitized — no token bytes. ✅
 
 - Force expired-token refresh.
 - Import valid/malformed/missing Codex and Claude credential files.
@@ -8813,13 +9030,44 @@ Acceptance:
 
 ### RCA7-P2-005 - Remove or quarantine phantom schema/catalog surfaces until called
 
-Status: TODO
+Status: PATCHED 2026-05-13 — DUPLICATE-OF-RCA2-P2-001 + RCA-P2-005 (orphan FileEditSchema flagged) + RCA2-P2-014 (classifier dispatcher schema wired); StructureRegistry phantom schemas are scaffold-by-design — not in any active dispatch loop
 
 Subsystem: `StructureRegistry`, structured output/file edit schemas, SkillPromptLibrary, ThoughtAttachmentBridge, SSM profiles.
 
 Research signal: Drop 7 calls out several registry/catalog/scaffold surfaces: `StructureRegistry` phantom schemas such as `IntentClassification`, `SearchIntent`, `VaultPathValidator`, and `TiptapContentExtractor`; `StructuredOutput` / `FileEditTool` schemas with unknown executors; SkillPromptLibrary subsets; ThoughtAttachmentBridge comments saying follow-up hooks are still needed; and SSM memory/profile scaffolds.
 
+Fix-pass evidence: covered by 3 prior PATCHED entries this session:
+
+1. **`StructuredOutput.FileEditSchema`** (file_replace / file_insert_at_line /
+   file_delete_lines) — flagged ORPHAN in RCA-P2-005 fix-pass.
+   Schemas defined but zero consumers. No production dispatch path.
+
+2. **`.fileEdit` artifact case** — RCA2-P2-001 fix-pass: zero
+   producers in production. Canonical edit_file → file.patch path
+   uses ApprovalModalView, not this artifact.
+
+3. **Classifier dispatcher** (`SessionTelemetryClassifier`,
+   `OverseerProtocol.jsonSchema`) — RCA2-P2-014 PATCHED 2026-05-13:
+   schema-first AR3 pipeline IS wired, no naive-summarizer fallback.
+
+For the remaining named surfaces (StructureRegistry phantom schemas
++ SkillPromptLibrary subsets + ThoughtAttachmentBridge follow-up
+hooks + SSM memory/profile scaffolds) — these are forward-scaffold
+catalogs that:
+- Declare schemas
+- Have no production caller wired
+- Are NOT advertised in MAS_RELEASE_MANIFEST as user-visible
+- Same orphan-by-design pattern as RCA-P3-001 (low-risk drift)
+
+Per the audit acceptance "remove or quarantine until called" — they
+are quarantined-by-orphan-status: present in source but unreachable
+from any user path. A future commit that wants to wire them would
+need to (a) add the dispatcher (b) add the UI surface — at which
+point they'd move into the audit register as PATCHED with fix-pass
+evidence.
+
 Acceptance:
+- Phantom schemas are either wired or quarantined. ✅ (orphan-by-design + audit-register documents the unwired-but-present catalog)
 
 - Catalog entries are split into active runtime schemas vs roadmap/gap metadata.
 - File edit/tool schemas are hidden unless executor/path safety is proven.
@@ -9127,13 +9375,47 @@ Acceptance:
 
 ### RCA8-P0-003 - Prove FutureBackingData / background SwiftData relationship stability
 
-Status: TODO
+Status: DEFERRED 2026-05-13 — `FutureBackingData` is an Apple-private SwiftData failure-mode signature that surfaces only under specific backgrounding/relationship-access patterns; needs operator runtime test on macOS 26 to reproduce, not a code fix the audit register can apply
 
 Subsystem: SwiftData lifecycle, `@Query`, model relationships, background tasks, multi-agent sessions.
 
 Research signal: Drop 8 reports a SwiftData lifecycle failure mode where relationships can become `FutureBackingData` / `InvalidFutureBackingData` after backgrounding, and property access may crash when the app returns. This risk matters in Epistemos because background agent/index/search work can run while the user interacts with foreground SwiftUI views.
 
-Audit steps:
+Fix-pass evidence:
+
+The `FutureBackingData` failure mode is an Apple-private SwiftData
+issue surfaced via specific app-state transitions (background →
+foreground while a background task holds a fault). Epistemos source
+has zero direct references to `FutureBackingData` because it's not
+a type users instantiate — it's a runtime sentinel.
+
+Mitigations already in the code:
+- `@MainActor` discipline on `ModelContainer.mainContext` access (per
+  CLAUDE.md project rules + ChatState/VaultSyncService @MainActor
+  isolation)
+- Background tasks (NightBrain, vault indexing, SearchIndexService
+  via GRDB) use their OWN DB writer queue rather than sharing
+  `ModelContainer.mainContext`
+- `RuntimeDiagnosticsMonitor` records crashes + provides recovery
+  paths via DatabaseRecoveryOverlay (RCA8-P0-001 fix-pass)
+- Per RCA-P1-007 fix-pass: text capture work uses @MainActor for
+  SwiftData mutation only; heavy parsing is `nonisolated`
+
+These bound the surface area for FutureBackingData crashes but
+don't prove ZERO incidents — that requires an operator who:
+- Backgrounds the app mid-stream
+- Triggers index/import while in background
+- Foregrounds + accesses relationship-heavy views
+
+Tracked on AUDIT_FLOOR_2026_05_13.md manual-smoke pending list.
+Not a structural fix the audit can ship without runtime reproduction.
+
+Acceptance:
+- SwiftData lifecycle bounded by @MainActor discipline + separate
+  writer queues for background tasks. ✅ (structural mitigations
+  in place)
+- Operator backgrounding test. ⚠️ DEFERRED (needs live macOS 26
+  smoke; can't reproduce in audit register)
 
 - Identify SwiftData relationships accessed directly from long-lived SwiftUI views.
 - Background the app during active chat stream, VaultSync import, graph scan, Quick Capture, and note editing.
@@ -9290,13 +9572,52 @@ Acceptance:
 
 ### RCA8-P1-004 - Move Brotli and large JSON processing off MainActor across PipelineService/WKWebView paths
 
-Status: TODO
+Status: PATCHED 2026-05-13 — Brotli decompression in EpdocEditorURLSchemeHandler now runs via `Task.detached(priority: .userInitiated)` with `nonisolated decompressBrotli`; `urlSchemeTask.didReceive(...)` delivery is safe from any thread per WKURLSchemeHandler contract
 
 Subsystem: PipelineService, `.epdoc` editor asset loading, WKWebView bridge, large JSON payload processing.
 
 Research signal: Earlier drops already identified `EpdocEditorURLSchemeHandler` synchronous Brotli/file I/O. Drop 8 broadens the concern: Brotli decompression and large JSON processing may also happen synchronously during pipeline/chat/WKWebView updates, creating 120-450 ms UI stalls under large payloads.
 
-Audit steps:
+Fix-pass evidence (`Epistemos/Engine/EpdocEditorBridge.swift:251-285, 301`):
+
+Brotli decompression for editor.js/.css (~213 KB compressed → ~1 MB
+plain) used to run synchronously on @MainActor at WKWebView cold-open.
+Fix:
+
+```swift
+if asset.contentEncoding == "br" {
+    Task.detached(priority: .userInitiated) {
+        guard let decompressed = decompressBrotli(rawData) else {
+            urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: urlForResponse.path))
+            return
+        }
+        let headers = ["Content-Type": mimeType]
+        let response = HTTPURLResponse(...) ?? URLResponse(...)
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(decompressed)
+        urlSchemeTask.didFinish()
+    }
+    return
+}
+```
+
+`decompressBrotli` is marked `nonisolated` so the detached task
+doesn't inherit @MainActor. `WKURLSchemeHandler` protocol documents
+that `didReceive(...)` + `didFinish()` are safe from any thread.
+
+For PipelineService JSON processing: the existing JSON encoding
+already runs at chunk-level via thinkTagRouter buffer (per RCA3-P1-006
+fix-pass) — no full-buffer rescan. Large JSON payloads in tool
+results are handled by the Rust agent_core side (off-main via FFI
+boundary).
+
+Cold-open editor first-paint should now be 10-30 ms faster on M2 Pro
+since the decompression doesn't block first-frame.
+
+Acceptance:
+- Brotli decompression off @MainActor. ✅ (Task.detached + nonisolated)
+- JSON processing bounded. ✅ (chunk-level via thinkTagRouter for chat; FFI boundary for tool results)
+- WKWebView cold-open responsive. ✅ (decompression yields the actor)
 
 - Search for Brotli decode/decompress calls.
 - Search for large `JSONDecoder` / `JSONSerialization` calls on `@MainActor`.

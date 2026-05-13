@@ -366,7 +366,19 @@ final class CloudProviderAuthService {
             authMode: .openAICodex,
             accountLabel: openAIAccountLabel(fromAccessToken: accessToken)
         )
-        return storeOAuthCredential(credential)
+        let stored = storeOAuthCredential(credential)
+        // RCA7-P2-004 fix-pass (2026-05-13): record CLI credential
+        // import as a provenance event so silent OAuth state changes
+        // are auditable. Mirrors the recordOAuthRefreshEvent pattern
+        // but uses a distinct toolName so the user / auditor can
+        // distinguish "imported from disk" from "refreshed in-app".
+        recordCLICredentialImport(
+            provider: .openAI,
+            source: ".codex/auth.json",
+            credential: credential,
+            success: stored
+        )
+        return stored
     }
 
     func importAnthropicClaudeCodeCredentials() -> AnthropicClaudeCodeImportResult {
@@ -383,12 +395,57 @@ final class CloudProviderAuthService {
                 "Claude Code credentials were found, but they did not contain a usable Anthropic account session. Reconnect in Claude Code, then retry import."
             )
         }
-        guard storeOAuthCredential(credential) else {
+        let stored = storeOAuthCredential(credential)
+        // RCA7-P2-004 fix-pass (2026-05-13): record CLI credential
+        // import as a provenance event (Anthropic Claude Code path).
+        recordCLICredentialImport(
+            provider: .anthropic,
+            source: ".claude/.credentials.json",
+            credential: credential,
+            success: stored
+        )
+        guard stored else {
             return .failure(
                 "Epistemos couldn't store the imported Claude Code account session in the Apple Keychain."
             )
         }
         return .imported(credential)
+    }
+
+    /// RCA7-P2-004 fix-pass: record CLI credential import as a
+    /// distinct provenance event (vs in-app OAuth refresh) so the
+    /// audit log can distinguish "imported from disk" from "refreshed
+    /// in-app". Sanitized — only metadata (provider + source path +
+    /// success bool), no token bytes.
+    private func recordCLICredentialImport(
+        provider: CloudModelProvider,
+        source: String,
+        credential: CloudProviderOAuthCredential,
+        success: Bool
+    ) {
+        guard let agentProvenanceRecorder else { return }
+        let toolCallID = "auth-cli-import:\(provider.rawValue)"
+        let metadata: [String: String] = [
+            "source": "cloud_provider_auth_service",
+            "surface": "cli_credential_import",
+            "provider": provider.rawValue,
+            "auth_mode": credential.authMode.rawValue,
+            "import_source": source,
+        ]
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "auth-cli-import-\(provider.rawValue)",
+            traceID: nil,
+            kind: .toolCallCompleted,
+            actor: .agent(id: "cloud-provider-auth-service", modelID: nil),
+            toolCallID: toolCallID,
+            toolName: "auth.cli_credential.imported",
+            argumentsJSON: Self.oauthRefreshArgumentsJSON(for: credential),
+            resultJSON: nil,
+            durationMs: nil,
+            status: success ? .completed : .failed,
+            errorMessage: success ? nil : "Keychain store failed",
+            metadata: metadata
+        )
     }
 
     nonisolated func anthropicClaudeCodeCredential(from data: Data) -> CloudProviderOAuthCredential? {
