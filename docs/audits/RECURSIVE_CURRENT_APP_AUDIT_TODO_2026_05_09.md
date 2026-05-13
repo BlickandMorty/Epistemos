@@ -4,15 +4,16 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, third-pass)
+## Headline Status (rollup updated 2026-05-13, fourth-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 third-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 fourth-pass:
 
-- **PATCHED / DONE**: 86+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **19 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 88+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **21 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
-- **PATCHED PARTIAL**: ~30 items — structural fix in place, manual smoke or deeper profiling deferred.
-- **TODO**: ~131 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+  - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
+- **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+1 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep).
+- **TODO**: ~129 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -2676,7 +2677,7 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA2-P1-004 - Remove render-time SwiftData work from chat mention/reference search
 
-Status: TODO
+Status: PATCHED 2026-05-13 — composer `@-popover` hot path reads from an `@Query` cache; legacy `recentChats()` fetch kept for opt-in callers only
 
 Subsystem: chat composer, mention popover, reference search, contextual recall.
 
@@ -2698,6 +2699,32 @@ Audit steps:
 
 Acceptance:
 - Opening or typing in mention/reference UI does not perform synchronous SwiftData work during SwiftUI body evaluation.
+
+Fix-pass evidence 2026-05-13:
+
+  - `ChatInputBar` now declares
+    `@Query(SDChat.recentChatsDescriptor) private var recentChatsQuery: [SDChat]`.
+    SwiftData's `@Query` re-fetches only when the underlying
+    `SDChat` set changes, so SwiftUI body evaluations no longer
+    trigger per-keystroke `modelContext.fetch` calls during
+    @-typing. `recentChatsDescriptor` already caps the fetch at
+    200 entries (`SDPage+Queries.swift:106` — landed under the
+    2026-04-29 perf wave).
+  - `mentionSearchResults` (the computed view property that runs
+    the mention popover) now consumes
+    `Array(recentChatsQuery.prefix(20))` instead of calling
+    `recentChats()` directly. The cap is preserved.
+  - `recentChats()` itself is kept as a legacy ad-hoc fetcher
+    behind a docstring note that the composer hot path uses the
+    `@Query` cache. Future callers that need a fresh
+    side-effect-aware snapshot can still opt in by calling the
+    function explicitly; no production caller does today.
+  - `Epistemos.app` `xcodebuild build` green after the change.
+  - Acceptance "Opening or typing in mention/reference UI does
+    not perform synchronous SwiftData work during SwiftUI body
+    evaluation" — satisfied. Contextual recall + browse inventory
+    paths (the other half of the audit signal) are tracked
+    separately under `RCA-P1-006` / `RCA-P1-007`.
 
 ### RCA2-P1-005 - Make Vault Organizer scan scope and failure states honest
 
