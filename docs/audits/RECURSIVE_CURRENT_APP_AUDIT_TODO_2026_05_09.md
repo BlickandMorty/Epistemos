@@ -551,7 +551,7 @@ Acceptance:
 
 ### RCA-P1-010 - Make graph filters actually affect visibility or hide the UI
 
-Status: TODO
+Status: PATCHED 2026-05-13 — search + type + focus + vault filter all participate in visibility; ModelGraphFilterView remains orphan pending node-creation-site plumbing of originVaultKey
 
 Subsystem: graph search, filter state, renderer snapshot, sidebar UI.
 
@@ -570,6 +570,49 @@ Audit steps:
 
 Acceptance:
 - Every visible filter control changes visible graph state, or the control is hidden.
+
+Fix-pass evidence 2026-05-13:
+
+- Files changed:
+  - `Epistemos/Models/GraphTypes.swift` — `GraphNodeMetadata` gains a
+    `originVaultKey: String?` field for per-node vault provenance.
+  - `Epistemos/Graph/FilterEngine.swift` — `isNodeVisible` now
+    consults `selectedVaultFilter` against the new
+    `metadata.originVaultKey` field with lenient nil-passthrough.
+  - `Epistemos/Models/GraphTypes.swift::GraphFilterSnapshot` —
+    mirrors the vault filter so background-renderer paths return
+    identical visibility to the MainActor path.
+  - `EpistemosTests/FilterEngineTests.swift` — 6 new gated test
+    cases covering: filter inactive, matched-key visible, mismatch
+    hides, nil-passthrough, clear-restores-visibility, snapshot
+    parity with FilterEngine.
+
+- Acceptance status:
+  - Search + type + focus + vault filter all participate in
+    `isNodeVisible` (search and type were earlier-patched;
+    vault landed today).
+  - `ModelGraphFilterView` is still orphan code (no `@import`
+    site outside its own definition); it cannot be triggered
+    by the user today. When it is brought back online, the
+    underlying plumbing will route correctly because `setModelFilter`
+    populates the same `selectedVaultFilter` field that
+    `isNodeVisible` now reads.
+  - Lenient nil-passthrough is intentional: until every node-
+    creation site populates `originVaultKey`, hiding nil-key nodes
+    would make every vault filter blank the graph. As future
+    commits populate the field per node-creation site, the filter
+    becomes progressively effective without breaking existing
+    behavior.
+
+- Pending follow-on (separate slice):
+  - Populate `originVaultKey` at each node-creation site
+    (SwiftData → GraphStore migration, GraphState.addNode,
+    EntityExtractor, semantic-cluster service, etc.). When all
+    sites are populated, the lenient contract can tighten to
+    strict (nil key → hidden when filter is active).
+  - Surface `ModelGraphFilterView` via the graph sidebar so
+    the wiring becomes user-visible. Currently the view stays
+    orphan as scaffolding.
 
 ### RCA-P1-011 - Move graph scan orchestration and N+1 block fetches off hot UI paths
 

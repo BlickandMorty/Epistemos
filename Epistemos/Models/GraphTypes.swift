@@ -356,6 +356,20 @@ nonisolated struct GraphNodeMetadata: Codable, Sendable, Equatable {
     var clusterTheme: String?
     var originChatId: String?
     var originNoteId: String?
+    /// Per-node vault provenance — set by the node creator to declare
+    /// which model-profile vault this node belongs to. Used by
+    /// `FilterEngine.selectedVaultFilter` to scope the visible graph
+    /// to a single vault.
+    ///
+    /// **Lenient nil-passthrough contract (RCA-P1-010, 2026-05-13):**
+    /// when the user has activated a vault filter but a node's
+    /// `originVaultKey` is nil, the node passes through visibility. This
+    /// avoids the footgun where a partially-rolled-out provenance field
+    /// would make every vault filter hide every node. As future commits
+    /// populate `originVaultKey` per node-creation site, the filter
+    /// becomes progressively effective without breaking existing
+    /// behavior.
+    var originVaultKey: String?
 }
 
 // MARK: - Snapshots
@@ -368,6 +382,11 @@ nonisolated struct GraphFilterSnapshot: Sendable {
     let focusedNodeId: String?
     let focusedConnected: Set<String>?
     let searchMatchedNodeIds: Set<String>?
+    /// Vault filter (RCA-P1-010 second pass, 2026-05-13). When set,
+    /// nodes whose `metadata.originVaultKey` is non-nil AND mismatches
+    /// this string are hidden. Lenient nil-passthrough — see field doc
+    /// on `GraphNodeMetadata.originVaultKey`.
+    let selectedVaultFilter: String?
 
     @MainActor
     init(filter: FilterEngine) {
@@ -376,6 +395,7 @@ nonisolated struct GraphFilterSnapshot: Sendable {
         focusedNodeId = filter.focusedNodeId
         focusedConnected = filter.focusedConnected
         searchMatchedNodeIds = filter.searchMatchedNodeIds
+        selectedVaultFilter = filter.selectedVaultFilter
     }
 
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
@@ -385,6 +405,17 @@ nonisolated struct GraphFilterSnapshot: Sendable {
         // 2. Focus filter
         if let connected = focusedConnected {
             guard connected.contains(node.id) else { return false }
+        }
+
+        // 4. Vault filter — RCA-P1-010 second pass (2026-05-13).
+        // Lenient nil-passthrough; see GraphNodeMetadata.originVaultKey
+        // for the rationale. The snapshot mirrors FilterEngine's check
+        // so background renderers and the main path return identical
+        // visibility.
+        if let vaultKey = selectedVaultFilter,
+           let nodeVaultKey = node.metadata.originVaultKey,
+           nodeVaultKey != vaultKey {
+            return false
         }
 
         // 3. Search filter — RCA13 P1-010 fix: snapshot must

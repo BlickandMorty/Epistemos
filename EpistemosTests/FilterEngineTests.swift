@@ -225,4 +225,104 @@ struct FilterEngineTests {
         #expect(!engine.activeNodeTypes.contains(.source))
         #expect(!engine.activeNodeTypes.contains(.quote))
     }
+
+    // MARK: - RCA-P1-010 second pass — vault filter visibility (2026-05-13)
+
+    /// Helper for vault-filter tests: nodes carry an explicit
+    /// `originVaultKey` so the filter has provenance to check.
+    private func makeVaultNode(
+        id: String,
+        vaultKey: String?
+    ) -> GraphNodeRecord {
+        var metadata = GraphNodeMetadata()
+        metadata.originVaultKey = vaultKey
+        return GraphNodeRecord(
+            id: id,
+            type: .note,
+            label: id,
+            sourceId: nil,
+            metadata: metadata,
+            weight: 1.0,
+            createdAt: .now,
+            position: .zero,
+            velocity: .zero
+        )
+    }
+
+    @Test("vault filter inactive: every node passes regardless of originVaultKey")
+    func vaultFilterInactiveAllowsEveryNode() {
+        let engine = FilterEngine()
+        let alpha = makeVaultNode(id: "alpha", vaultKey: "vault-A")
+        let beta = makeVaultNode(id: "beta", vaultKey: "vault-B")
+        let orphan = makeVaultNode(id: "orphan", vaultKey: nil)
+
+        #expect(engine.selectedVaultFilter == nil)
+        #expect(engine.isNodeVisible(alpha))
+        #expect(engine.isNodeVisible(beta))
+        #expect(engine.isNodeVisible(orphan))
+    }
+
+    @Test("vault filter active + matching key: matched nodes visible")
+    func vaultFilterActiveMatchedNodesVisible() {
+        let engine = FilterEngine()
+        engine.setModelFilter(profileId: "profile-A", vaultKey: "vault-A")
+        let alpha = makeVaultNode(id: "alpha", vaultKey: "vault-A")
+        #expect(engine.isNodeVisible(alpha),
+            "nodes with originVaultKey == selectedVaultFilter must remain visible")
+    }
+
+    @Test("vault filter active + mismatched key: node hidden")
+    func vaultFilterActiveMismatchHides() {
+        let engine = FilterEngine()
+        engine.setModelFilter(profileId: "profile-A", vaultKey: "vault-A")
+        let beta = makeVaultNode(id: "beta", vaultKey: "vault-B")
+        #expect(!engine.isNodeVisible(beta),
+            "nodes whose declared originVaultKey doesn't match the filter must be hidden")
+    }
+
+    @Test("vault filter active + nil originVaultKey: lenient passthrough")
+    func vaultFilterActiveNilOriginPasses() {
+        // Lenient nil-passthrough contract — nodes without a declared
+        // vault key still pass when a vault filter is active. This
+        // prevents the partial-rollout footgun where every node would
+        // get hidden the moment a vault filter was selected, before
+        // the originVaultKey field was populated at every creation
+        // site. See GraphNodeMetadata.originVaultKey doc.
+        let engine = FilterEngine()
+        engine.setModelFilter(profileId: "profile-A", vaultKey: "vault-A")
+        let orphan = makeVaultNode(id: "orphan", vaultKey: nil)
+        #expect(engine.isNodeVisible(orphan),
+            "nil originVaultKey must pass through vault filter (lenient nil-passthrough)")
+    }
+
+    @Test("vault filter clear returns to all-visible state")
+    func vaultFilterClearRestoresVisibility() {
+        let engine = FilterEngine()
+        engine.setModelFilter(profileId: "profile-A", vaultKey: "vault-A")
+        let beta = makeVaultNode(id: "beta", vaultKey: "vault-B")
+        #expect(!engine.isNodeVisible(beta))
+
+        engine.clearModelFilter()
+        #expect(engine.selectedVaultFilter == nil)
+        #expect(engine.isNodeVisible(beta),
+            "after clearModelFilter, mismatched nodes must be visible again")
+    }
+
+    @Test("GraphFilterSnapshot mirrors vault-filter visibility decision")
+    func snapshotMirrorsVaultFilter() {
+        let engine = FilterEngine()
+        engine.setModelFilter(profileId: "profile-A", vaultKey: "vault-A")
+        let snapshot = engine.snapshot()
+
+        let alpha = makeVaultNode(id: "alpha", vaultKey: "vault-A")
+        let beta = makeVaultNode(id: "beta", vaultKey: "vault-B")
+        let orphan = makeVaultNode(id: "orphan", vaultKey: nil)
+
+        // Snapshot's visibility must match the engine's exactly so
+        // background-renderer paths return the same answer as the
+        // MainActor path.
+        #expect(snapshot.isNodeVisible(alpha) == engine.isNodeVisible(alpha))
+        #expect(snapshot.isNodeVisible(beta) == engine.isNodeVisible(beta))
+        #expect(snapshot.isNodeVisible(orphan) == engine.isNodeVisible(orphan))
+    }
 }
