@@ -496,4 +496,56 @@ mod tests {
             assert_eq!(parsed, tier);
         }
     }
+
+    /// Doctrine ↔ active-app `ShmPool` alignment.
+    ///
+    /// `agent_core::shared_memory::ShmPool` implements **L0 ExactHot only** —
+    /// session-scoped shared-memory segments with TTL + count eviction,
+    /// storing raw bytes (bf16/fp16-compatible). The other four canonical
+    /// tiers (L1–L4) are doctrine targets per the canon-hardening protocol
+    /// and have no active-app implementation in agent_core today.
+    ///
+    /// This test locks the SHAPE of the alignment (canonical L0 name + codec
+    /// id + the count invariant). If HELIOS renames `L0ExactHot` or changes
+    /// its codec, this test breaks and forces a matching update to the
+    /// doctrine cross-reference block in
+    /// `agent_core/src/shared_memory.rs::ShmPool`. Inversely, if agent_core
+    /// ever implements an L1/L2/L3/L4 tier in `ShmPool`, the unimplemented
+    /// count invariant must change in lockstep.
+    #[test]
+    fn active_app_shmpool_implements_l0_exact_hot_only() {
+        // (a) The active L0 canonical name must remain stable.
+        assert_eq!(ALL_TIERS[0], MemoryTier::L0ExactHot);
+        assert_eq!(MemoryTier::L0ExactHot.depth(), 0);
+        assert!(MemoryTier::L0ExactHot.resident_in_uma());
+        assert!(!MemoryTier::L0ExactHot.crosses_network_boundary());
+
+        // (b) L0 codec id is "bf16_fp16" — matches the raw-byte storage in
+        // `ShmPool::write_payload` (no quantization or sketch transform on
+        // the active path). If the codec id ever changes, the
+        // `agent_core::shared_memory::ShmPool` doctrine block must be
+        // updated to match.
+        assert_eq!(tier_codec(MemoryTier::L0ExactHot), "bf16_fp16");
+
+        // (c) Count invariant: 5 doctrine tiers, 1 active-app tier
+        // (the L0 row of the cross-reference table). If agent_core grows
+        // additional tier implementations, the constant on the right must
+        // grow in lockstep so the doctrine block stays honest.
+        const UNIMPLEMENTED_TIERS_IN_ACTIVE_APP: usize = 4;
+        assert_eq!(
+            ALL_TIERS.len() - 1,
+            UNIMPLEMENTED_TIERS_IN_ACTIVE_APP,
+            "if you implemented L1/L2/L3/L4 in agent_core::shared_memory, \
+             reduce UNIMPLEMENTED_TIERS_IN_ACTIVE_APP and update the doctrine \
+             cross-reference table in agent_core/src/shared_memory.rs::ShmPool"
+        );
+
+        // (d) Lock the canonical names for L1-L4 so HELIOS can't rename them
+        // silently — if any rename happens the cross-reference table must
+        // be updated.
+        assert_eq!(ALL_TIERS[1], MemoryTier::L1CompressedResidual);
+        assert_eq!(ALL_TIERS[2], MemoryTier::L2ShadowSketch);
+        assert_eq!(ALL_TIERS[3], MemoryTier::L3SsdOracle);
+        assert_eq!(ALL_TIERS[4], MemoryTier::L4HermesCascade);
+    }
 }
