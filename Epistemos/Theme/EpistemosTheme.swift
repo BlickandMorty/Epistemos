@@ -1195,7 +1195,14 @@ enum AppDisplayTypography: Sendable {
     }
 
     nonisolated static func graphLabelAtlasResourceName(isDark: Bool) -> String {
-        isDark ? "sdf_labels_retro" : "sdf_labels_coral"
+        // Per user 2026-05-12: graph node labels use the JetBrainsMono
+        // monospace SDF atlas in BOTH light and dark mode (the "before"
+        // identity). The dark-only `sdf_labels_retro` (RetroGaming) and
+        // light-only `sdf_labels_coral` (CoralPixels) atlases remain
+        // bundled for any future per-theme override but the default
+        // graph identity is the monospaced v1 atlas.
+        _ = isDark
+        return "sdf_labels"
     }
 
     nonisolated static func displayFontScale(isDark: Bool) -> CGFloat {
