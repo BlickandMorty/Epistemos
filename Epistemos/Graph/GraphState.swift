@@ -541,7 +541,16 @@ enum GraphVaultMode: String, CaseIterable, Sendable {
 
 @MainActor @Observable
 final class GraphState {
-    private static let schedulerDefaultsVersion = 2
+    // Per user 2026-05-12: bump to version 3 to migrate Observatory-era
+    // boot defaults (selectedPreset=observatory, linkDistance=80,
+    // centerStrength=0.03) to the new Gravity Well variant
+    // (selectedPreset=gravityWell, linkDistance=500, centerStrength=0,
+    // enableFluidDynamics=false). Without this migration, users who
+    // picked up Observatory as the default during the earlier 2026-05-12
+    // session don't see the new Gravity-Well + 3-override boot state
+    // because the first-launch branch in restorePhysicsSettings skips
+    // when any selectedPreset key is already stored.
+    private static let schedulerDefaultsVersion = 3
     private static let schedulerDefaultsVersionKey = "epistemos.physics.schedulerDefaultsVersion"
     private static let nodeVisibilityDefaultsKey = "epistemos.graph.visibleNodeTypes"
 
@@ -1585,6 +1594,41 @@ final class GraphState {
                 expected: GraphOverlayPhysicsPolicy.legacyDefaultTimelineSignature
            ) {
             timelineSteps = Self.defaultTimelineSteps()
+            didMigrate = true
+        }
+
+        // Version-3 migration (per user 2026-05-12): bring users on the
+        // Observatory-era boot defaults onto the new Gravity Well +
+        // 3-override boot state. We only touch users who look like
+        // they're on the OLD default state — anyone who's customized
+        // their physics settings is left alone.
+        //
+        // OLD-defaults signature:
+        //   selectedPreset == .observatory
+        //   linkDistance ≈ 80 (Observatory stock)
+        //   centerStrength ≈ 0.03 (Observatory stock)
+        //   chargeStrength ≈ -300 (Observatory stock)
+        //
+        // If any of those four are different, the user has customized;
+        // we skip the migration and just bump the version key.
+        if storedVersion < 3,
+           selectedPhysicsPreset == .observatory,
+           abs(linkDistance - 80.0) < 0.5,
+           abs(centerStrength - 0.03) < 0.005,
+           abs(chargeStrength - (-300.0)) < 1.0 {
+            // Detected Observatory boot state — apply Gravity Well +
+            // 3 overrides without going through applyPreset (which
+            // would cancel the overlay cycle and persist via
+            // savePhysicsSettings; we want to be more surgical here).
+            selectedPhysicsPreset = .gravityWell
+            linkDistance = 500.0
+            chargeStrength = PhysicsPreset.gravityWell.chargeStrength
+            chargeRange = PhysicsPreset.gravityWell.chargeRange
+            linkStrength = PhysicsPreset.gravityWell.linkStrength
+            velocityDecay = PhysicsPreset.gravityWell.velocityDecay
+            centerStrength = 0.0
+            collisionRadius = PhysicsPreset.gravityWell.collisionRadius
+            enableFluidDynamics = false
             didMigrate = true
         }
 
