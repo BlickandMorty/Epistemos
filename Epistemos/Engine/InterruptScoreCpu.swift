@@ -23,6 +23,7 @@
 // can route based on the V6.2-canonical thresholds.
 
 import Foundation
+import os
 
 // MARK: - Inputs
 
@@ -232,18 +233,21 @@ nonisolated extension InterruptScoreCpu {
     }
 
     /// Sample a coarse u_t bucket from runtime signals available at
-    /// `StreamingDelegate.onComplete`. V6.2 first wiring: we have only
-    /// a tiny subset of the canonical 5 inputs (entropy + tool-need)
-    /// today; the remaining signals (WBO / sheaf-residual /
-    /// connectome-alarm) default to 0 until their substrate hooks
-    /// land.
+    /// `StreamingDelegate.onComplete`. V6.2 second-wiring (2026-05-12):
+    /// WBO is now live (sampled from the Rust ClaimLedger event delta);
+    /// sheafResidual + connectomeAlarm remain at 0 until their substrate
+    /// hooks land.
     ///
-    /// Heuristics (acknowledged as crude — V6.2 §1.5 calibration
-    /// corpus will refine when the full signal set is wired):
+    /// Heuristics (acknowledged as crude — V6.2 §1.5 calibration corpus
+    /// will refine when the full signal set is wired):
     ///
     ///   - entropy ≈ `outputTokens / 500` (longer outputs averaged
     ///     more next-token uncertainty over the turn). Clamped to
     ///     [0, 1] by the inputs constructor.
+    ///   - WBO = `WBOSubstrateObserver.shared.sampleAndAdvance()` — see
+    ///     that observer for delta semantics; first call returns 0
+    ///     (priming), subsequent calls return `clamp01(eventDelta /
+    ///     WBOSubstrateObserver.scaleEvents)`.
     ///   - toolNeed = 1.0 when stopReason == "tool_use" (the agent
     ///     is requesting a tool — a strong runtime signal of HIGH
     ///     u_t turns per V6.2 §1.5 task 21-23). Otherwise 0.
@@ -251,7 +255,7 @@ nonisolated extension InterruptScoreCpu {
     /// Returns `.unavailable` only if `outputTokens == 0` (the turn
     /// produced no signal at all — degenerate). All other cases
     /// return a real bucket so the audit channel carries actionable
-    /// signal even at this first-wiring stage.
+    /// signal even at this wiring stage.
     nonisolated public static func sampleTurnBucket(
         stopReason: String,
         inputTokens: Int,
@@ -264,15 +268,122 @@ nonisolated extension InterruptScoreCpu {
 
         let entropy = Float(outputTokens) / 500.0
         let toolNeed: Float = stopReason == "tool_use" ? 1.0 : 0.0
+        let wbo = WBOSubstrateObserver.shared.sampleAndAdvance()
         let inputs = InterruptScoreInputs(
             entropy: entropy,
-            witnessedBayesOutcome: 0,
+            witnessedBayesOutcome: wbo,
             sheafResidual: 0,
             toolNeed: toolNeed,
             connectomeAlarm: 0
         )
         let u = compute(inputs)
         return answerPacketBucket(for: bucket(u))
+    }
+}
+
+// MARK: - WBO Substrate Observer (V6.2 §1.4 substrate hook 2026-05-12)
+//
+// Process-global observer of the Rust `ClaimLedger.events_since(0).len()`
+// counter. Each call to `sampleAndAdvance()` returns the WBO (witnessed-
+// Bayes-outcome) signal for the just-completed turn — i.e. how many
+// new evidence_committed / claim_committed / claim_status_changed /
+// retraction events have been emitted since the previous sample.
+//
+// Doctrine reference: V6.2 §1.4 calls for WBO to be the per-turn
+// confidence delta on the witnessed evidence set. The closest active-
+// app analog is the ledger's event count: every claim/evidence/retraction
+// event represents one unit of witnessed-state shift. Using the delta as
+// WBO turns the ledger into a live confidence-shift sampler without
+// needing a per-claim confidence field on the Rust side.
+//
+// Behavior:
+//   1. First call after process start "primes" the baseline by recording
+//      the current event count and returning 0. This avoids reporting a
+//      spurious WBO=1.0 on the first emit when the ledger may have
+//      decades of legacy events from a long-running session.
+//   2. Each subsequent call computes `delta = max(0, now - last)`,
+//      stores `now`, and returns `min(1.0, Float(delta) / scaleEvents)`.
+//      `scaleEvents = 8` saturates at WBO=1.0 when 8+ events fire in a
+//      single turn (a busy retrieval / tool-call turn).
+//   3. If the underlying FFI returns `.empty` (e.g. the legacy ledger
+//      isn't linked into this build), `eventCount == 0` and the delta
+//      stays at 0 forever — graceful degradation.
+//
+// Thread-safety: `OSAllocatedUnfairLock` over a tiny `(initialized,
+// lastCount)` state. All access goes through `sampleAndAdvance()` or
+// `resetForTesting()`; both methods take the lock once and release.
+nonisolated final class WBOSubstrateObserver: Sendable {
+    /// 8 events per turn saturates WBO at 1.0. A typical retrieval-heavy
+    /// agentic turn commits 3-6 events (one per evidence + one per claim
+    /// + one per retraction); 8+ marks "definitely an evidentially
+    /// active turn." See V6.2 §1.5 calibration task 21-23 for the
+    /// tool-call-heavy expected range.
+    public static let scaleEvents: Float = 8.0
+
+    /// Process-global singleton. Wrapped in a lock so concurrent
+    /// `sampleAndAdvance()` calls (e.g. two parallel chat turns) cannot
+    /// double-count or lose updates.
+    public static let shared = WBOSubstrateObserver()
+
+    private struct State: Sendable {
+        var initialized: Bool
+        var lastEventCount: UInt64
+    }
+
+    private let lock = OSAllocatedUnfairLock<State>(
+        initialState: State(initialized: false, lastEventCount: 0)
+    )
+
+    /// Callback used to read the live event count. Defaults to the live
+    /// Rust ledger client; tests replace it with a controlled stub.
+    private let readEventCount: @Sendable () -> UInt64
+
+    /// Initializer used in production reads the live `RustProvenanceLedgerClient`.
+    public init() {
+        self.readEventCount = {
+            RustProvenanceLedgerClient.summary().eventCount
+        }
+    }
+
+    /// Test-only initializer that lets a unit test drive the event-count
+    /// source deterministically without invoking the Rust FFI.
+    public init(readEventCount: @escaping @Sendable () -> UInt64) {
+        self.readEventCount = readEventCount
+    }
+
+    /// Sample WBO for the just-completed turn. See type-level doc.
+    /// Returns a value in `[0, 1]` clamped by `InterruptScoreInputs`'s
+    /// constructor regardless of any underlying drift.
+    public func sampleAndAdvance() -> Float {
+        let now = readEventCount()
+        return lock.withLock { state in
+            // Priming: first call records the baseline, returns 0.
+            guard state.initialized else {
+                state.initialized = true
+                state.lastEventCount = now
+                return 0
+            }
+            let delta: UInt64 = now > state.lastEventCount
+                ? now - state.lastEventCount
+                : 0
+            state.lastEventCount = now
+            let wbo = Float(delta) / Self.scaleEvents
+            // `InterruptScoreInputs.init` will re-clamp, but doing it
+            // here keeps the returned value self-consistent for tests.
+            if wbo < 0 { return 0 }
+            if wbo > 1 { return 1 }
+            return wbo
+        }
+    }
+
+    /// Test-only reset of the priming state. Lets repeated test cases
+    /// observe deterministic first-call behavior without spinning up a
+    /// fresh observer.
+    public func resetForTesting() {
+        lock.withLock { state in
+            state.initialized = false
+            state.lastEventCount = 0
+        }
     }
 }
 

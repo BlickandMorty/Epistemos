@@ -255,8 +255,12 @@ struct InterruptScoreCpuTests {
 
     @Test("sampleTurnBucket: short boilerplate response → LOW")
     func sampleShortResponseClassifiesAsLow() {
+        // Reset the WBO observer so the priming contract holds for this
+        // test — without this, a non-zero WBO contribution from an
+        // earlier-running test could nudge a borderline bucket.
+        WBOSubstrateObserver.shared.resetForTesting()
         // 20 output tokens → entropy ≈ 0.04 (very low).
-        // toolNeed = 0 (no tool call).
+        // toolNeed = 0 (no tool call). WBO primes to 0.
         // u_t ≈ 0.30 * 0.04 = 0.012 → LOW (< 0.25).
         let bucket = InterruptScoreCpu.sampleTurnBucket(
             stopReason: "end_turn",
@@ -269,6 +273,10 @@ struct InterruptScoreCpuTests {
 
     @Test("sampleTurnBucket: tool_use stop reason boosts toward HIGH")
     func sampleToolUseBoostsBucket() {
+        // Reset the WBO observer so the first call below primes WBO=0
+        // and subsequent calls also stay at 0 (no event activity in the
+        // test ledger between immediate samples).
+        WBOSubstrateObserver.shared.resetForTesting()
         // 100 output tokens → entropy ≈ 0.20.
         // toolNeed = 1.0 (tool_use stop).
         // u_t = 0.30 * 0.20 + 0.15 * 1.0 = 0.06 + 0.15 = 0.21 — still LOW.
@@ -328,5 +336,141 @@ struct InterruptScoreCpuTests {
         )
         #expect(a == b)
         #expect(a != c)
+    }
+
+    // MARK: - V6.2 §1.4 WBO substrate hook (2026-05-12)
+
+    @Test("WBO observer: first call primes baseline and returns 0")
+    func wboObserverPrimesOnFirstCall() {
+        // Hand-roll a controlled observer so we don't touch .shared and
+        // don't depend on the live Rust ledger surface.
+        let stub = WBOStubCounter(initial: 42)  // pretend the ledger has been active for a while
+        let observer = WBOSubstrateObserver(readEventCount: { stub.value })
+        // First call must return 0 even though the underlying count is 42.
+        // This is the priming contract: we never report a "huge delta"
+        // just because the process attached to a long-running ledger.
+        let first = observer.sampleAndAdvance()
+        #expect(first == 0,
+            "WBO first call must prime the baseline and return 0, got \(first)")
+        // No external change between calls → delta 0 → still 0.
+        let second = observer.sampleAndAdvance()
+        #expect(second == 0,
+            "Second sample with no event activity must remain 0, got \(second)")
+    }
+
+    @Test("WBO observer: per-turn delta of N events yields WBO ≈ N/8")
+    func wboObserverDeltaScalesByEightEvents() {
+        // Variable-driven stub lets us advance the simulated event count
+        // between samples just as the live ledger would.
+        let stub = WBOStubCounter(initial: 100)
+        let observer = WBOSubstrateObserver(readEventCount: { stub.value })
+
+        // Prime.
+        _ = observer.sampleAndAdvance()
+        #expect(stub.value == 100)
+
+        // 4 events fire → delta 4, WBO ≈ 4/8 = 0.5.
+        stub.value = 104
+        let half = observer.sampleAndAdvance()
+        #expect(abs(half - 0.5) < 1e-6,
+            "WBO with 4-event delta must be 0.5, got \(half)")
+
+        // 0 events fire → delta 0, WBO = 0.
+        let zero = observer.sampleAndAdvance()
+        #expect(zero == 0,
+            "WBO with no new events must be 0, got \(zero)")
+
+        // 8 events fire → delta 8, WBO = 1.0 (saturation).
+        stub.value = 112
+        let saturated = observer.sampleAndAdvance()
+        #expect(abs(saturated - 1.0) < 1e-6,
+            "WBO with 8-event delta must saturate at 1.0, got \(saturated)")
+
+        // 100 events fire → delta 100, WBO clamped at 1.0.
+        stub.value = 212
+        let clamped = observer.sampleAndAdvance()
+        #expect(clamped == 1.0,
+            "WBO with 100-event delta must clamp to 1.0, got \(clamped)")
+    }
+
+    @Test("WBO observer: ledger going backwards reads as zero delta")
+    func wboObserverGuardAgainstBackwardsLedger() {
+        // Defensive: if the underlying ledger ever resets (e.g. test
+        // teardown, integrity rebuild) the observer must read 0, not a
+        // huge negative cast.
+        let stub = WBOStubCounter(initial: 50)
+        let observer = WBOSubstrateObserver(readEventCount: { stub.value })
+
+        // Prime at 50.
+        _ = observer.sampleAndAdvance()
+        // Ledger "resets" to 10.
+        stub.value = 10
+        let postReset = observer.sampleAndAdvance()
+        #expect(postReset == 0,
+            "Backwards ledger must read as 0 WBO (not a negative cast or huge delta), got \(postReset)")
+
+        // From 10, advance to 18 → delta 8 → WBO 1.0.
+        stub.value = 18
+        let recovered = observer.sampleAndAdvance()
+        #expect(abs(recovered - 1.0) < 1e-6,
+            "After backwards-ledger handling, WBO must resume measuring delta from new baseline; got \(recovered)")
+    }
+
+    @Test("WBO scale constant matches doctrine value")
+    func wboScaleConstantMatchesDoctrine() {
+        // 8 events saturates WBO at 1.0 — see V6.2 §1.4 substrate-hook
+        // commentary. A future calibration may move this; the test
+        // breaks to force a doctrine update.
+        #expect(WBOSubstrateObserver.scaleEvents == 8.0)
+    }
+
+    @Test("WBO observer: resetForTesting re-primes baseline")
+    func wboObserverResetForTestingReprimesBaseline() {
+        let stub = WBOStubCounter(initial: 200)
+        let observer = WBOSubstrateObserver(readEventCount: { stub.value })
+        _ = observer.sampleAndAdvance()  // prime at 200
+        stub.value = 204
+        let nonZero = observer.sampleAndAdvance()
+        #expect(nonZero > 0)
+
+        observer.resetForTesting()
+        stub.value = 1_000  // huge jump, but the next call re-primes
+        let zeroAgain = observer.sampleAndAdvance()
+        #expect(zeroAgain == 0,
+            "resetForTesting() must clear the baseline so the next call re-primes and returns 0; got \(zeroAgain)")
+    }
+
+    @Test("sampleTurnBucket: integration path does not crash with WBO observer wired")
+    func sampleTurnBucketIntegrationDoesNotRegress() {
+        // Smoke test that the .shared observer path runs end-to-end
+        // and produces a real bucket. The exact bucket depends on the
+        // live Rust ledger state; we only assert the return is non-nil
+        // and one of the four valid wire values. Existing per-bucket
+        // assertions are above.
+        WBOSubstrateObserver.shared.resetForTesting()
+        let bucket = InterruptScoreCpu.sampleTurnBucket(
+            stopReason: "end_turn",
+            inputTokens: 100,
+            outputTokens: 120
+        )
+        let valid: Set<InterruptBucket> = [.low, .medium, .high, .unavailable]
+        #expect(valid.contains(bucket),
+            "sampleTurnBucket must return one of {low, medium, high, unavailable}; got \(bucket)")
+    }
+}
+
+/// Tiny mutable counter used as a controlled stand-in for the live Rust
+/// ledger event count in the WBO observer tests. Lives in test scope only.
+///
+/// `nonisolated final class … @unchecked Sendable` so the @Sendable
+/// closure passed to `WBOSubstrateObserver.init(readEventCount:)` can
+/// read `value` without tripping the module-default-MainActor isolation
+/// rule. The tests mutate `value` from the test scope only, never
+/// concurrently — `@unchecked Sendable` reflects the cooperative single-
+/// writer contract.
+nonisolated private final class WBOStubCounter: @unchecked Sendable {
+    var value: UInt64
+    init(initial: UInt64) {
+        self.value = initial
     }
 }
