@@ -219,26 +219,29 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(PhysicsPreset.halo.chargeRange < PhysicsPreset.constellation.chargeRange)
     }
 
-    @Test("Overlay cycle stays in Observatory at both phases without enabling fluid wake")
+    @Test("Overlay cycle stays in Gravity Well at both phases without enabling fluid wake")
     func overlayCycleKeepsFluidWakeOffByDefault() async {
         clearPhysicsDefaults()
 
-        // Per user 2026-05-12 directive: Observatory is the canonical default
-        // at both phases. The previous constellation → chaos timeline is
-        // preserved as legacyDefaultTimelineSignature for historical reference.
+        // Per user 2026-05-12 (refined): Gravity Well is the canonical
+        // default at both phases. The boot defaults additionally override
+        // linkDistance → 500 max, centerStrength → 0, fluid wake → off
+        // (see restorePhysicsSettings first-launch branch). The previous
+        // Observatory + fluid-wake variant is preserved as
+        // legacyDefaultTimelineSignature for historical reference.
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .observatory)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .observatory)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .gravityWell)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .gravityWell)
 
         let state = GraphState()
         state.startOverlayPhysicsCycle()
 
-        #expect(await waitForPreset(.observatory, in: state))
-        #expect(state.selectedPhysicsPreset == .observatory)
+        #expect(await waitForPreset(.gravityWell, in: state))
+        #expect(state.selectedPhysicsPreset == .gravityWell)
         #expect(!state.enableFluidDynamics)
     }
 
-    @Test("Graph rebuild requests restart in Observatory and mark rebuild pending")
+    @Test("Graph rebuild requests restart in Gravity Well and mark rebuild pending")
     func graphRebuildRequestStartsConstellationCycle() async {
         clearPhysicsDefaults()
 
@@ -246,9 +249,33 @@ struct GraphPhysicsSettingsAuditTests {
         state.requestGraphRebuild()
 
         #expect(state.pendingRebuild)
-        #expect(await waitForPreset(.observatory, in: state))
-        #expect(state.selectedPhysicsPreset == .observatory)
+        #expect(await waitForPreset(.gravityWell, in: state))
+        #expect(state.selectedPhysicsPreset == .gravityWell)
         #expect(!state.enableFluidDynamics)
+    }
+
+    @Test("First-launch boot defaults apply Gravity Well + linkDistance max + center 0 + fluid off")
+    func firstLaunchBootDefaultsMatchUserSpec() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+
+        // Selected preset is Gravity Well.
+        #expect(state.selectedPhysicsPreset == .gravityWell)
+        // Three explicit overrides on top of Gravity Well's stock values
+        // per user 2026-05-12 directive:
+        #expect(state.linkDistance == 500.0,
+            "linkDistance must default to slider max (500); got \(state.linkDistance)")
+        #expect(state.centerStrength == 0.0,
+            "centerStrength must default to 0 (off); got \(state.centerStrength)")
+        #expect(!state.enableFluidDynamics,
+            "fluid wake (enableFluidDynamics) must default to off")
+        // Other params follow Gravity Well's stock values so the picker
+        // selection is honest about which base preset is loaded:
+        #expect(state.chargeStrength == PhysicsPreset.gravityWell.chargeStrength)
+        #expect(state.chargeRange == PhysicsPreset.gravityWell.chargeRange)
+        #expect(state.velocityDecay == PhysicsPreset.gravityWell.velocityDecay)
+        #expect(state.collisionRadius == PhysicsPreset.gravityWell.collisionRadius)
     }
 
     @Test("legacy default scheduler migrates to the new constellation opening cycle")

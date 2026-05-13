@@ -488,19 +488,20 @@ struct ConcurrencySwiftDataTests {
 @MainActor
 struct ConcurrencyGraphStateTests {
 
-    @Test("Overlay physics policy stays in Observatory at both opening and resting phase")
+    @Test("Overlay physics policy stays in Gravity Well at both opening and resting phase")
     func overlayPhysicsPolicyDefaults() {
-        // Per user 2026-05-12: Observatory is the canonical default at both
-        // phases (it carries the fluid-wake swirl behavior). The previous
-        // constellation → chaos two-phase timeline is recorded in
-        // legacyDefaultTimelineSignature for reference but no longer drives
-        // the live opening path.
-        #expect(GraphOverlayPhysicsPolicy.openingPreset == .observatory)
-        #expect(GraphOverlayPhysicsPolicy.restingPreset == .observatory)
+        // Per user 2026-05-12 (refined): Gravity Well is the canonical
+        // default at both phases. The boot-default UserDefaults state
+        // additionally overrides linkDistance → 500 max, centerStrength
+        // → 0, enableFluidDynamics → false (see restorePhysicsSettings).
+        // The previous Observatory + fluid-wake default is recorded in
+        // legacyDefaultTimelineSignature for historical reference only.
+        #expect(GraphOverlayPhysicsPolicy.openingPreset == .gravityWell)
+        #expect(GraphOverlayPhysicsPolicy.restingPreset == .gravityWell)
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .observatory)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .observatory)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .observatory)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .gravityWell)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .gravityWell)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .gravityWell)
     }
 
     @Test("Overlay interaction warmth window stays extended for 30 seconds")
