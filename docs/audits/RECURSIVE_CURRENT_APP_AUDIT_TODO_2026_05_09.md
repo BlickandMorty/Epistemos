@@ -4,18 +4,19 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, sixth-pass)
+## Headline Status (rollup updated 2026-05-13, seventh-pass)
 
-The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 sixth-pass:
+The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 seventh-pass:
 
-- **PATCHED / DONE**: 91+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **24 items** were PATCHED on 2026-05-13 across this session's iterations:
+- **PATCHED / DONE**: 92+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **25 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Second-pass batch (13): RCA-P1-008, P1-009, P1-010, P1-012, P1-014, P1-018, P1-025 + RCA2-P0-002, P0-003 + RCA-P1-005, P1-011, P1-017 + RCA2-P1-016 + RCA2-P1-002.
   - Third-pass batch (6): RCA-P2-003, P2-007, P2-008, P2-011, P2-012, P2-014 + RCA2-P1-005.
   - Fourth-pass batch (2): RCA2-P1-003 (yamlToJSON signal stale) + RCA2-P1-004 (composer @-popover @Query cache).
   - Fifth-pass batch (2): RCA2-P2-014 (SessionTelemetry + ConversationStateClassifier wired) + RCA3-P2-001 (FSRS duplicate of P2-002).
   - Sixth-pass batch (1): RCA4-P1-008 (LSP wired via CodeEditorView).
-- **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+1 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep).
-- **TODO**: ~126 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
+  - Seventh-pass batch (1): RCA4-P1-010 (context-window indicator labels itself estimate).
+- **PATCHED PARTIAL**: ~32 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path).
+- **TODO**: ~124 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
@@ -3218,7 +3219,7 @@ Acceptance:
 
 ### RCA2-P2-005 - Fix Vault Organizer duplicate/folder-suggestion drift
 
-Status: TODO
+Status: PATCHED PARTIAL 2026-05-13 — duplicate claim removed from header; folder-matching limitation explicitly documented; full-path migration deferred
 
 Subsystem: Vault Organizer product scope.
 
@@ -3238,6 +3239,38 @@ Audit steps:
 Acceptance:
 - Organizer claims match implemented suggestion types.
 - Folder matching uses stable IDs or full relative paths.
+
+Fix-pass evidence 2026-05-13:
+
+  - **First-clause acceptance** ("claims match implemented
+    suggestion types") — already satisfied. The
+    `VaultOrganizerView.swift` file header at lines 5-13 says
+    explicitly: "auto-tagging + folder suggestions (and new-
+    folder suggestions when zero folders exist). The current
+    suggestion types are `.addTags`, `.moveToFolder`,
+    `.createFolder` — see OrgSuggestion.swift. Duplicate
+    detection is NOT implemented despite an earlier draft of
+    this header advertising it; the audit (RCA13 RCA2-P2-005)
+    flagged the drift and the claim is removed here."
+  - **Second-clause acceptance** ("Folder matching uses stable
+    IDs or full relative paths") — partial.
+    `parseFolderSuggestions` at line 566 matches with
+    `folders.first(where: { $0.name.lowercased() == folderName
+    .lowercased() })`. This is name-only, lowercased. For
+    duplicate leaf names in different branches this picks the
+    first match — a known limitation. The LLM only sees folder
+    NAMES today (line 382-383 prompt:
+    `Available folders: [\(folderNames.map { "\"\($0)\"" }.
+    joined(separator: ", "))]` from `existingFolders.map(\.name)`)
+    so the match strategy is internally consistent with the
+    prompt contract.
+    Promoting to a stable-ID / full-path match requires both
+    (a) emitting full vault-relative paths in the prompt and
+    (b) decoding them on the way back. Tracked as future work
+    under this audit entry — non-blocker because the duplicate
+    folder-name pattern is rare in practice and the duplicate-
+    detection claim itself (the louder lie) has already been
+    removed from the file header.
 
 ### RCA2-P2-006 - Classify WeightedContextEngine and remove main-actor heavy scaffold risk
 
@@ -4551,7 +4584,7 @@ Acceptance:
 
 ### RCA4-P1-010 - Make chat context accounting visibly approximate or exact
 
-Status: TODO
+Status: PATCHED 2026-05-13 — `ContextWindowIndicator` already prefixes the value with `~` and labels it as an estimate
 
 Subsystem: chat context badge, attachments, note bodies, token estimator, provider request compiler.
 
@@ -4568,6 +4601,26 @@ Audit steps:
 Acceptance:
 
 - The badge is either exact for the final provider request or clearly labeled as an estimate.
+
+Fix-pass evidence 2026-05-13:
+
+  - `Epistemos/Views/Chat/ContextWindowIndicator.swift` lines
+    43-65 already render the badge as
+    `~<usedTokens> / <maxTokens> (<percent>%)` plus the explicit
+    secondary line "Estimated context tokens — exact final-
+    request count may differ." The `~` prefix + the labeled
+    caveat together satisfy the second-clause acceptance
+    ("clearly labeled as an estimate").
+  - The doctrine comment on lines 44-49 explicitly cross-refs
+    RCA13 RCA4-P1-010 so future maintainers don't drift the
+    badge back to false-precision wording.
+  - Exact-token accounting for injected note bodies + attachment
+    context remains future work (first-clause acceptance), but
+    the badge no longer overstates trust. No further chip-away
+    needed to close this audit entry; promoting to exact-token
+    accounting is a separate, larger slice that depends on the
+    final-request compiler having a single canonical token
+    counter.
 
 ### RCA4-P1-011 - Downgrade `AnswerPacket` / VRM claims until chat emits real packets
 
