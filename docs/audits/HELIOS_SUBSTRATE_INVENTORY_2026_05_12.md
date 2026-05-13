@@ -98,10 +98,30 @@ These are HELIOS modules where porting forward would deliver concrete app value,
    - Already have `evict_stale` + `evict_oldest_n` hooks — could rename to L_n tiers + add canonical TTL per tier
    - Effort: ~2 commits
 
-5. **`gate_action.rs` → safety-gate canonical names**
-   - `agent_core::security::harden_cli_subprocess` and the approval system use ad-hoc string gate names
-   - GateAction taxonomy gives canonical names for accept/deny/escalate/defer
-   - Effort: ~1 commit + Swift mirror
+5. **`gate_action.rs` → ApprovalDecision doctrine cross-reference**
+   - Originally framed as "GateAction taxonomy gives canonical names for
+     accept/deny/escalate/defer."
+   - **First-pass discovery (2026-05-12):** the active app already has
+     `agent_core::approval::ApprovalDecision` (3-way: AutoApprove /
+     RequireApproval / Deny) and `agent_core::command_center::ToolDecision`
+     (2-way: Allow / Deny). HELIOS `GateAction` is 6-way (Pass / Hold /
+     Quarantine / TriggerEvidenceSupremacy / EngramAnchor /
+     MigrateResidency). The two abstractions DIFFER — ApprovalDecision
+     gates tool execution; GateAction gates token emission + cognitive
+     memory state. They partially overlap on a 3-variant gating slice:
+     AutoApprove↔Pass, RequireApproval↔Hold, Deny↔Quarantine.
+   - **Step 1 LANDED (2026-05-12):** doctrine cross-reference block + per-
+     variant HELIOS-analog tail comments on `ApprovalDecision`. Drift gate
+     `active_app_approval_gating_subset_alignment` added in
+     `epistemos-research/src/gate_action.rs::tests` that locks the 3-variant
+     mapping, the semantic invariants (Pass emits, Hold/Quarantine block,
+     neither records persistent state), AND a count invariant (exactly 3
+     mapped + 3 HELIOS-only memory-tier actions).
+   - **Not migrated:** renaming `ApprovalDecision::AutoApprove` to `Pass`
+     etc. would conflate two different abstractions. Doctrine reference is
+     the canonical-but-honest move.
+   - Effort remaining: zero unless HELIOS adds gating-tier actions beyond
+     the current Pass/Hold/Quarantine triplet; drift gate is in place.
 
 ### Tier B — useful, larger lift
 

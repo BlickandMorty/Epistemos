@@ -276,13 +276,42 @@ pub struct PatternMatch {
 
 // ── Approval Decision ──────────────────────────────────────────────────────
 
+/// Tool-approval verdict emitted by the active app's tool gate. The canonical
+/// doctrine analog lives in
+/// `epistemos-research/src/gate_action.rs::GateAction` (research-tier; the
+/// 6-way ResonanceGate taxonomy). The two enums describe different
+/// abstractions — ApprovalDecision gates **tool execution** (does the user
+/// need to confirm before this tool runs?); GateAction gates **token
+/// emission** + cognitive-memory state transitions. They partially overlap
+/// on the "let it through / block / pause" axis but HELIOS's last three
+/// variants (TriggerEvidenceSupremacy, EngramAnchor, MigrateResidency)
+/// belong to the cognitive resonance gate and have no active-app analog yet.
+///
+/// Partial mapping (the only axis where the active app and HELIOS overlap):
+///
+/// | ApprovalDecision    | GateAction         | meaning                  |
+/// |---------------------|--------------------|--------------------------|
+/// | AutoApprove         | Pass               | let it through           |
+/// | RequireApproval     | Hold               | pause for user/evidence  |
+/// | Deny                | Quarantine         | block                    |
+/// | —                   | TriggerEvidenceSupremacy | (HELIOS-only)      |
+/// | —                   | EngramAnchor       | (HELIOS-only memory op)  |
+/// | —                   | MigrateResidency   | (HELIOS-only memory op)  |
+///
+/// If either side changes the gating slice (Pass/Hold/Quarantine vs
+/// AutoApprove/RequireApproval/Deny), the drift test in
+/// `epistemos-research/src/gate_action.rs::tests::active_app_approval_gating_subset_alignment`
+/// must be updated alongside it so the mapping stays honest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ApprovalDecision {
-    /// Auto-approved (safe operation or in allowlist)
+    /// Auto-approved (safe operation or in allowlist).
+    /// HELIOS analog: `GateAction::Pass`.
     AutoApprove,
-    /// Requires user approval via delegate
+    /// Requires user approval via delegate.
+    /// HELIOS analog: `GateAction::Hold`.
     RequireApproval { reason: String, risk_level: String },
-    /// Denied (matches blocklist or critical pattern)
+    /// Denied (matches blocklist or critical pattern).
+    /// HELIOS analog: `GateAction::Quarantine`.
     Deny { reason: String },
 }
 

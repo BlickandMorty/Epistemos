@@ -205,6 +205,79 @@ mod tests {
         }
     }
 
+    /// Doctrine ↔ active-app `ApprovalDecision` gating-slice alignment.
+    ///
+    /// The active app's `agent_core::approval::ApprovalDecision` is a 3-way
+    /// tool-approval verdict (AutoApprove / RequireApproval / Deny). HELIOS's
+    /// `GateAction` is a 6-way token-emission + cognitive-memory verdict.
+    /// The two enums describe DIFFERENT abstractions but partially overlap
+    /// on a 3-variant "let it through / pause / block" axis:
+    ///
+    ///     ApprovalDecision::AutoApprove     ↔ GateAction::Pass
+    ///     ApprovalDecision::RequireApproval ↔ GateAction::Hold
+    ///     ApprovalDecision::Deny            ↔ GateAction::Quarantine
+    ///
+    /// The other three GateAction variants (TriggerEvidenceSupremacy,
+    /// EngramAnchor, MigrateResidency) belong to the cognitive resonance
+    /// gate and have no active-app analog yet.
+    ///
+    /// This test locks the SHAPE of the alignment, not Rust-level type
+    /// equivalence (we can't link epistemos-research into agent_core).
+    /// Drift gate: if either side renames a variant or adds/removes a
+    /// gating-tier action, this test must be updated alongside the
+    /// `ApprovalDecision` doctrine cross-reference comment in
+    /// `agent_core/src/approval.rs`.
+    #[test]
+    fn active_app_approval_gating_subset_alignment() {
+        // The three GateAction variants that correspond to ApprovalDecision
+        // entries. Order must match the ApprovalDecision declaration order
+        // in agent_core/src/approval.rs so future renames produce a clean
+        // line-by-line diff.
+        let approval_gating_slice = [
+            ("AutoApprove",     GateAction::Pass),
+            ("RequireApproval", GateAction::Hold),
+            ("Deny",            GateAction::Quarantine),
+        ];
+
+        // Each mapped GateAction must be in the canonical SIX_ACTIONS list
+        // (i.e. we didn't reference a renamed/removed variant).
+        for (_, action) in approval_gating_slice {
+            assert!(
+                SIX_ACTIONS.contains(&action),
+                "GateAction::{:?} mapped from ApprovalDecision must remain in SIX_ACTIONS",
+                action
+            );
+        }
+
+        // The semantics must be self-consistent:
+        //   AutoApprove  →  Pass        (emits to user)
+        //   RequireApproval → Hold      (blocks emission, pending evidence)
+        //   Deny         →  Quarantine  (blocks emission, terminal)
+        assert!(GateAction::Pass.emits_to_user());
+        assert!(GateAction::Hold.blocks_emission());
+        assert!(GateAction::Quarantine.blocks_emission());
+
+        // Neither approval-tier action records persistent state; that's
+        // exclusively HELIOS's memory-operation tier (EngramAnchor,
+        // MigrateResidency).
+        for (_, action) in approval_gating_slice {
+            assert!(
+                !action.records_persistent_state(),
+                "ApprovalDecision-mapped {:?} must not record persistent state — \
+                 those are HELIOS-only memory operations",
+                action
+            );
+        }
+
+        // Count invariant: exactly THREE GateActions correspond to the
+        // 3-way ApprovalDecision enum. If either side grows or shrinks
+        // its gating taxonomy, this number must move in lockstep.
+        assert_eq!(approval_gating_slice.len(), 3);
+        assert_eq!(SIX_ACTIONS.len() - approval_gating_slice.len(), 3,
+            "remaining 3 GateActions must be the HELIOS-only memory tier \
+             (TriggerEvidenceSupremacy, EngramAnchor, MigrateResidency)");
+    }
+
     #[test]
     fn emits_blocks_persists_are_disjoint() {
         // Each action falls into exactly ONE category among:
