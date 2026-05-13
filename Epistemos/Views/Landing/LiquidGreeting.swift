@@ -5,15 +5,20 @@ enum LiquidGreetingTiming {
     nonisolated static func retractDelay() -> Duration { .milliseconds(15) }
     nonisolated static func holdDelay(for phrase: LandingGreetingPhrase) -> Duration { .seconds(phrase.durationSeconds) }
     nonisolated static func transitionDelay() -> Duration { .milliseconds(320) }
-    /// Pause between the "Greetings," line completing and the
-    /// "Researcher" line starting to type. Gives the stacked greeting
-    /// a beat of breathing room so the second line reads as a follow-
-    /// on, not part of the same typing pass.
+    /// Pause between line 1 of a hero pair completing and line 2
+    /// starting to type. Gives the stacked layout a beat of breathing
+    /// room so line 2 reads as a follow-on, not part of the same
+    /// typing pass.
     nonisolated static func researcherLineDelay() -> Duration { .milliseconds(280) }
-    /// Pause between the "Researcher" line completing and the rotating
-    /// phrases starting. Holds the full greeting onscreen briefly so
-    /// the user reads it before the phrase loop begins.
-    nonisolated static func phrasesStartDelay() -> Duration { .milliseconds(420) }
+    /// Hold the fully-typed stacked hero on screen between pairs.
+    /// Long enough to read the two lines comfortably without feeling
+    /// stuck. 2026-05-13 third pass — replaces the phrase-rail
+    /// `holdDelay(for:)` per-phrase duration since every hero pair
+    /// holds for the same length now.
+    nonisolated static func heroHoldDelay() -> Duration { .milliseconds(2600) }
+    /// Legacy alias for `heroHoldDelay`. Kept so any out-of-tree caller
+    /// referencing `phrasesStartDelay` continues to compile.
+    nonisolated static func phrasesStartDelay() -> Duration { heroHoldDelay() }
 
     nonisolated static func typingDelay(forStep step: Int) -> Duration {
         switch normalizedCycleIndex(forStep: step, count: 4) {
@@ -53,33 +58,34 @@ enum LiquidGreetingTiming {
     }
 }
 
-// MARK: - LiquidGreeting (stacked layout 2026-05-13)
+// MARK: - LiquidGreeting (hero-only loop 2026-05-13 third pass)
 //
-// Renders the landing-page greeting as three stacked typewriter lines:
-//   1. "Greetings,"  (hero font, theme-resolved)
-//   2. "Researcher"  (hero font, theme-resolved)
-//   3. Rotating phrases (smaller font: coral on light, JetBrainsMono
-//      on dark) typing out below the greeting and above the commands.
-//
-// Per user direction 2026-05-13:
-//   - Hero size reduced (was 62pt, "huge"; now sits at 44pt expanded /
-//     22pt compact so it has presence without dominating the page).
-//   - Stacked greeting + smaller continuous phrase rail.
-//   - Light-mode hero font picked per ThemePair (Platinum →
-//     MatrixTypeDisplay-Regular, Classic → ColorBasic-Regular,
-//     Ember → RetroByte). Dark mode keeps RetroGaming everywhere.
-//   - Phrases use CoralPixels in light mode (all themes), JetBrainsMono
-//     in dark mode.
+// Per user direction 2026-05-13 (third pass): the smaller rotating
+// phrase rail underneath the hero is REMOVED. The landing greeting now
+// loops two stacked hero pairs:
+//   1. "Greetings,"  /  "Researcher"
+//   2. "Click anywhere"  /  "to start a conversation"
+// Both pairs render in the hero font + size — no separate smaller
+// font. The hero typewriter cycles: types pair 1, holds, backspaces,
+// types pair 2, holds, backspaces, repeats. Each theme's hero font
+// (Classic → CoralPixels, Platinum → MatrixTypeDisplay, Ember →
+// DotempDemo-8bit) applies to BOTH pairs.
 
 struct LiquidGreeting: View {
-    nonisolated static let greetingLine1 = "Greetings,"
-    nonisolated static let greetingLine2 = "Researcher"
+    /// Stacked hero pair — both lines render in the hero font + size.
+    nonisolated struct HeroPair: Equatable, Sendable {
+        let line1: String
+        let line2: String
+    }
+
+    nonisolated static let greetingPair = HeroPair(line1: "Greetings,", line2: "Researcher")
+    nonisolated static let promptPair = HeroPair(line1: "Click anywhere", line2: "to start a conversation")
+    nonisolated static let heroPairs: [HeroPair] = [greetingPair, promptPair]
+
+    nonisolated static let greetingLine1 = greetingPair.line1
+    nonisolated static let greetingLine2 = greetingPair.line2
     /// Back-compat alias for callers that previously referenced the
-    /// single-line greeting. Most call sites pre-2026-05-13 used this
-    /// to seed `LandingGreetingPhrase` playlists; the new stacked
-    /// layout publishes the same string via `greetingLine1 + " " +
-    /// greetingLine2` so search snapshots / accessibility readers
-    /// still get the full label.
+    /// single-line greeting.
     nonisolated static let restingGreeting = "\(greetingLine1) \(greetingLine2)"
 
     @Environment(UIState.self) private var ui
@@ -98,40 +104,24 @@ struct LiquidGreeting: View {
     /// the user's typed text IS the displayed prompt.
     var searchText: String = ""
 
-    /// Live first-line content. Empty during pre-typing, fills as the
-    /// "Greetings," text types out, stays full while line 2 + phrases
-    /// run, gets backspaced when search mode activates or retract
-    /// fires.
+    /// Live first-line content for the active hero pair. Empty during
+    /// pre-typing, fills as `pair.line1` types out, gets backspaced
+    /// during the inter-pair transition.
     @State private var line1: String = ""
     /// Same shape for the second line.
     @State private var line2: String = ""
-    /// Live rotating-phrase text. Independent typewriter loop driven
-    /// by `runPhraseLoop()` once both greeting lines are filled.
-    @State private var phraseText: String = ""
     @State private var searchReady: Bool = false
     @State private var cursorVisible: Bool = true
 
     private var theme: EpistemosTheme { ui.theme }
-    private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
 
-    /// Hero font for the two stacked greeting lines. Theme-resolved
-    /// (Platinum → MatrixTypeDisplay, Classic → Color Basic, Ember →
-    /// RetroByte; dark mode → RetroGaming for all). Sized smaller
-    /// than the previous single-line 62pt hero per user direction.
+    /// Hero font for the two stacked lines. Theme-resolved: Classic →
+    /// CoralPixels, Platinum → MatrixTypeDisplay, Ember →
+    /// DotempDemo-8bit. Both light + dark modes share the same face on
+    /// each theme per user direction 2026-05-13 (third pass).
     private var heroFont: Font {
         let size: CGFloat = compact ? 22 : 44
         return Font.custom(theme.displayFontName, size: size)
-    }
-
-    /// Smaller font for the rotating phrases. Light mode = coral
-    /// pixel (CoralPixels-Regular) regardless of theme; dark mode =
-    /// JetBrainsMono (the "chat monospace font" per user direction).
-    private var phraseFont: Font {
-        let size: CGFloat = compact ? 13 : 18
-        let name = theme.isDark
-            ? AppDisplayTypography.monoFontName
-            : AppDisplayTypography.coralDisplayFontName
-        return Font.custom(name, size: size)
     }
 
     /// Search-line font shrinks as the query grows — same dynamic
@@ -154,11 +144,6 @@ struct LiquidGreeting: View {
     private var greetingColor: Color {
         theme.fontAccent.opacity(theme.isDark ? 0.94 : 0.9)
     }
-    /// Phrases get a quieter color than the hero — secondary so the
-    /// eye lands on the greeting first.
-    private var phraseColor: Color {
-        theme.fontAccent.opacity(theme.isDark ? 0.70 : 0.66)
-    }
 
     /// Block cursor metrics scaled to the current search font.
     private var cursorMetrics: CGSize {
@@ -171,7 +156,7 @@ struct LiquidGreeting: View {
     }
 
     private var taskKey: String {
-        "\(shouldAnimate)_\(retractNow)_\(searchMode)_\(ui.landingGreetingPlaylistSignature)"
+        "\(shouldAnimate)_\(retractNow)_\(searchMode)"
     }
 
     var body: some View {
@@ -190,20 +175,15 @@ struct LiquidGreeting: View {
             guard shouldAnimate else {
                 line1 = Self.greetingLine1
                 line2 = Self.greetingLine2
-                phraseText = ""
                 return
             }
             line1 = ""
             line2 = ""
-            phraseText = ""
             guard await pause(LiquidGreetingTiming.startupDelay()) else { return }
-            await typeIntoLine(Self.greetingLine1, lineIndex: 1)
-            guard !Task.isCancelled else { return }
-            guard await pause(LiquidGreetingTiming.researcherLineDelay()) else { return }
-            await typeIntoLine(Self.greetingLine2, lineIndex: 2)
-            guard !Task.isCancelled else { return }
-            guard await pause(LiquidGreetingTiming.phrasesStartDelay()) else { return }
-            await runPhraseLoop()
+            // 2026-05-13 third pass: loop the two stacked hero pairs
+            // (Greetings/Researcher ↔ Click anywhere/to start a
+            // conversation). No smaller-font phrase rail underneath.
+            await runHeroLoop()
         }
         .task(id: searchReady && searchMode) {
             while !Task.isCancelled && searchReady && searchMode {
@@ -230,39 +210,21 @@ struct LiquidGreeting: View {
         }
     }
 
-    /// Apply Classic-theme uppercase if the active theme prefers it.
-    /// ChonkyPixels reads best ALL-CAPS per user direction 2026-05-13;
-    /// other themes keep mixed case (Platinum + Ember). The transform
-    /// is applied at render time so the typewriter state stays in
-    /// canonical mixed-case (which keeps timing, backspace, and
-    /// shared-prefix calculations correct).
-    private func displayCased(_ text: String) -> String {
-        theme.prefersUppercaseDisplay ? text.uppercased() : text
-    }
-
-    /// Two-line stacked greeting with rotating phrases below. Each line
-    /// gets its own typewriter so the user sees "Greetings," appear,
-    /// pause, then "Researcher" arrive on its own row.
+    /// Two-line stacked hero. Each line gets its own typewriter so the
+    /// user sees `pair.line1` appear, pause, then `pair.line2` arrive
+    /// on its own row. Both lines render in the hero font + size; the
+    /// smaller-font phrase rail underneath was removed 2026-05-13
+    /// (third pass) per user direction.
     private var stackedGreeting: some View {
         VStack(alignment: .center, spacing: compact ? 2 : 4) {
-            Text(displayCased(line1))
+            Text(line1)
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)
-            Text(displayCased(line2))
+            Text(line2)
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)
-            if !phraseText.isEmpty || shouldAnimate {
-                Text(phraseText)
-                    .font(phraseFont)
-                    .foregroundStyle(phraseColor)
-                    .lineLimit(1)
-                    // 2026-05-13 per user direction: drop the rotating
-                    // phrase rail lower so it reads as a sub-line under
-                    // the hero, not as a third stacked greeting line.
-                    .padding(.top, compact ? 12 : 32)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .shadow(
@@ -321,12 +283,8 @@ struct LiquidGreeting: View {
 
     @MainActor
     private func retractText() async {
-        // Backspace phrases first (smaller surface, fastest disappear),
-        // then line 2, then line 1.
-        while !phraseText.isEmpty && !Task.isCancelled {
-            phraseText.removeLast()
-            guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
-        }
+        // Backspace line 2 first, then line 1. (The smaller phrase
+        // rail was removed 2026-05-13 third pass.)
         while !line2.isEmpty && !Task.isCancelled {
             line2.removeLast()
             guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
@@ -342,12 +300,8 @@ struct LiquidGreeting: View {
     @MainActor
     private func enterSearchMode() async {
         searchReady = false
-        // Backspace every line in reverse order so the morph reads as
-        // a unified retraction rather than three races.
-        while !phraseText.isEmpty && !Task.isCancelled {
-            phraseText.removeLast()
-            guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
-        }
+        // Backspace both lines in reverse order so the morph reads as
+        // a unified retraction.
         while !line2.isEmpty && !Task.isCancelled {
             line2.removeLast()
             guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
@@ -378,66 +332,58 @@ struct LiquidGreeting: View {
         }
     }
 
-    /// Rotating-phrase loop. Cycles through the playlist, typing each
-    /// phrase character-by-character into the smaller phrase rail
-    /// below the greeting. Backspaces between phrases share-prefix-
-    /// aware so adjacent phrases morph rather than fully clearing.
+    /// Stacked-hero loop. Cycles through the `heroPairs` list (greeting
+    /// → click-anywhere → greeting → …), typing each pair in line1 +
+    /// line2 stacked, holding, then backspacing both lines before the
+    /// next pair lands. Replaces the previous smaller-font phrase rail.
+    ///
+    /// Hold duration is fixed at 2.6 s per pair — long enough to read
+    /// without feeling stuck. Backspace runs line 2 → line 1 (matches
+    /// `retractText`) so the user sees the pair retract from the
+    /// bottom up.
     @MainActor
-    private func runPhraseLoop() async {
-        let activePlaylist = playlist
-        guard !activePlaylist.isEmpty else { return }
-        var phraseIndex = 0
+    private func runHeroLoop() async {
+        let pairs = Self.heroPairs
+        guard !pairs.isEmpty else { return }
+        var index = 0
         while !Task.isCancelled {
-            let current = activePlaylist[phraseIndex]
-            let next = activePlaylist[(phraseIndex + 1) % activePlaylist.count]
-            let keepFrom = sharedPrefixLength(phraseText, current.text)
-            await typeIntoPhraseFrom(current.text, startAt: keepFrom)
+            let pair = pairs[index]
+            await typeIntoLine(pair.line1, lineIndex: 1)
             guard !Task.isCancelled else { return }
-            guard await pause(LiquidGreetingTiming.holdDelay(for: current)) else { return }
-            let keepTo = sharedPrefixLength(current.text, next.text)
-            await untypePhraseTo(current.text, stopAt: keepTo)
+            guard await pause(LiquidGreetingTiming.researcherLineDelay()) else { return }
+            await typeIntoLine(pair.line2, lineIndex: 2)
+            guard !Task.isCancelled else { return }
+            guard await pause(LiquidGreetingTiming.heroHoldDelay()) else { return }
+            await backspaceLine(lineIndex: 2)
+            guard !Task.isCancelled else { return }
+            await backspaceLine(lineIndex: 1)
             guard !Task.isCancelled else { return }
             guard await pause(LiquidGreetingTiming.transitionDelay()) else { return }
-            phraseIndex = (phraseIndex + 1) % activePlaylist.count
+            index = (index + 1) % pairs.count
         }
     }
 
-    private func sharedPrefixLength(_ a: String, _ b: String) -> Int {
-        var count = 0
-        for (ca, cb) in zip(a, b) {
-            guard ca == cb else { break }
-            count += 1
-        }
-        return count
-    }
-
+    /// Backspace one of the two hero lines character-by-character. Uses
+    /// the same per-step cadence as the existing `untypingDelay` so the
+    /// retraction reads at the same speed as the (retired) phrase
+    /// rail's untype path.
     @MainActor
-    private func typeIntoPhraseFrom(_ phrase: String, startAt: Int) async {
-        guard !phrase.isEmpty else {
-            phraseText = ""
+    private func backspaceLine(lineIndex: Int) async {
+        switch lineIndex {
+        case 1:
+            while !line1.isEmpty && !Task.isCancelled {
+                let nextLen = line1.count
+                line1.removeLast()
+                guard await pause(LiquidGreetingTiming.untypingDelay(forStep: nextLen)) else { return }
+            }
+        case 2:
+            while !line2.isEmpty && !Task.isCancelled {
+                let nextLen = line2.count
+                line2.removeLast()
+                guard await pause(LiquidGreetingTiming.untypingDelay(forStep: nextLen)) else { return }
+            }
+        default:
             return
-        }
-        let start = max(startAt, 0)
-        guard start < phrase.count else {
-            phraseText = phrase
-            return
-        }
-        if start == 0 { phraseText = "" }
-        for index in (start + 1)...phrase.count {
-            guard !Task.isCancelled else { return }
-            phraseText = String(phrase.prefix(index))
-            guard await pause(LiquidGreetingTiming.typingDelay(forStep: index)) else { return }
-        }
-    }
-
-    @MainActor
-    private func untypePhraseTo(_ phrase: String, stopAt: Int) async {
-        var index = phrase.count
-        let floor = max(stopAt, 0)
-        while index > floor && !Task.isCancelled {
-            index -= 1
-            phraseText = String(phrase.prefix(index))
-            guard await pause(LiquidGreetingTiming.untypingDelay(forStep: index)) else { return }
         }
     }
 }
