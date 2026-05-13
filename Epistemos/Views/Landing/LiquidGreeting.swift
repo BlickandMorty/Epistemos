@@ -117,10 +117,19 @@ struct LiquidGreeting: View {
 
     /// Hero font for the two stacked lines. Theme-resolved: Classic →
     /// CoralPixels, Platinum → MatrixTypeDisplay, Ember →
-    /// DotempDemo-8bit. Both light + dark modes share the same face on
-    /// each theme per user direction 2026-05-13 (third pass).
+    /// ColorBasic-Regular. Both light + dark modes share the same face
+    /// on each theme.
+    ///
+    /// 2026-05-13 fifth pass: Classic gets a slight size bump per user
+    /// direction ("increase the size of the greeting on the classic
+    /// mode a little"). CoralPixels has a higher x-height than
+    /// MatrixType/ColorBasic so the same point size reads as smaller —
+    /// bumping ~14% closes the perceptual gap.
     private var heroFont: Font {
-        let size: CGFloat = compact ? 22 : 44
+        let baseSize: CGFloat = compact ? 22 : 44
+        let size: CGFloat = theme.themePair == .classic
+            ? baseSize * 1.14
+            : baseSize
         return Font.custom(theme.displayFontName, size: size)
     }
 
@@ -215,13 +224,19 @@ struct LiquidGreeting: View {
     /// on its own row. Both lines render in the hero font + size; the
     /// smaller-font phrase rail underneath was removed 2026-05-13
     /// (third pass) per user direction.
+    ///
+    /// 2026-05-13 fifth pass: on Ember, `line1` is rendered in the
+    /// plain (no-box) glyph form via `plainLabelText` (uppercases the
+    /// text so ColorBasic's A-Z glyphs render) and `line2` is rendered
+    /// in the boxed form via `boxedLabelText` (lowercases so a-z
+    /// renders as white-on-black). Other themes pass through unchanged.
     private var stackedGreeting: some View {
         VStack(alignment: .center, spacing: compact ? 2 : 4) {
-            Text(line1)
+            Text(theme.plainLabelText(line1))
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)
-            Text(line2)
+            Text(theme.boxedLabelText(line2))
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)

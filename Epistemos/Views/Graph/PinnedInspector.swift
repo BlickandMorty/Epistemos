@@ -453,9 +453,12 @@ struct PinnedInspectorPanel: View {
         let titleFont = AppDisplayTypography.panelFont(size: 12, weight: .semibold, theme: theme)
         let bodyFont = AppDisplayTypography.panelFont(size: 11, weight: .regular, theme: theme)
         let nodeLabel = inspector.node?.label ?? "Node"
-        let titleText = theme.prefersUppercaseDisplay ? nodeLabel.uppercased() : nodeLabel
-        let summarizingText = theme.prefersUppercaseDisplay ? "SUMMARIZING…" : "Summarizing..."
-        let emptyText = theme.prefersUppercaseDisplay ? "NO SUMMARY YET" : "No summary yet"
+        // 2026-05-13 fifth pass: on Ember, panel labels route through
+        // `boxedLabelText` (lowercase) so ColorBasic renders the
+        // white-on-black boxed glyph form. Other themes pass through.
+        let titleText = theme.boxedLabelText(nodeLabel)
+        let summarizingText = theme.boxedLabelText("Summarizing...")
+        let emptyText = theme.boxedLabelText("No summary yet")
         return VStack(alignment: .leading, spacing: 8) {
             // Header: node name + close button
             HStack {
@@ -486,7 +489,7 @@ struct PinnedInspectorPanel: View {
                 }
             } else if !inspector.displayedSummary.isEmpty {
                 let summary = inspector.displayedSummary
-                let displayedSummary = theme.prefersUppercaseDisplay ? summary.uppercased() : summary
+                let displayedSummary = theme.boxedLabelText(summary)
                 Text(displayedSummary)
                     .font(bodyFont)
                     .foregroundStyle(.primary)

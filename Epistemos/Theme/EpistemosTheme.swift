@@ -394,12 +394,14 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     /// Display (hero) font name resolved by (themePair, isDark).
-    /// Per user direction 2026-05-13 (fourth pass):
+    /// Per user direction 2026-05-13 (fifth pass):
     ///   Classic  → CoralPixels-Regular across both modes
-    ///   Ember    → ColorBasic-Regular across both modes (replaces
-    ///              the DotempDemo-8bit third-pass choice; user wants
-    ///              the regular Color Basic — the variant without the
-    ///              black box around each letter)
+    ///   Ember    → ColorBasic-Regular across both modes. This font
+    ///              has a CASE-BASED box trick: A-Z renders as plain
+    ///              letter outlines, a-z renders as white-on-black
+    ///              boxed glyphs. We exploit the case via
+    ///              `boxedLabelText(_:)` / `plainLabelText(_:)`
+    ///              transforms below.
     ///   Platinum → MatrixTypeDisplay-Regular across both modes
     nonisolated var displayFontName: String {
         switch themePair {
@@ -410,34 +412,64 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     /// H1-H3 heading font name resolved by (themePair, isDark).
-    /// H1-H3 mirror the hero font on every theme so the page has a
-    /// unified typographic identity instead of a heading/body split.
-    /// Includes chat-bubble H1-H3 (TaggedMarkdownTextView), notes H1-H3
-    /// (MarkdownTextView), graph node-inspector preview headings, and
-    /// every other surface that calls
-    /// `AppDisplayTypography.headingFont(size:weight:theme:)`.
+    /// Per user direction 2026-05-13 (fifth pass): Ember H1-H3
+    /// switched OFF ColorBasic and onto `RetroByte` — the case-based
+    /// box trick "gets tricky" inside long heading text so headings
+    /// get their own dedicated face. Classic + Platinum still mirror
+    /// their hero font.
     nonisolated var headingFontName: String {
         switch themePair {
         case .classic:        return AppDisplayTypography.coralDisplayFontName
         case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .ember:          return "ColorBasic-Regular"
+        case .ember:          return "RetroByte"
         }
     }
 
-    /// Panel font name — used for graph node-inspector pop-ups and
-    /// other secondary panel chrome where the heading face would feel
-    /// too heavy. Per the same 2026-05-13 third-pass direction,
-    /// every theme reuses its hero face for panels so the identity
-    /// holds end-to-end.
+    /// Panel font name — used for graph node-inspector pop-ups
+    /// (summary / relationships / profile section titles + node
+    /// labels + preview heading text).
+    ///
+    /// On Ember the panel font intentionally stays on
+    /// ColorBasic-Regular (not the H1-H3 RetroByte) so panel labels
+    /// can switch to the BOXED glyph form by being lowercased before
+    /// render. See `boxedLabelText(_:)`. On Classic + Platinum it
+    /// mirrors `headingFontName` like before.
     nonisolated var panelFontName: String {
-        headingFontName
+        switch themePair {
+        case .ember: return "ColorBasic-Regular"
+        default:     return headingFontName
+        }
+    }
+
+    /// 2026-05-13 fifth pass — Ember-only case transforms.
+    ///
+    /// Ember's hero/panel face (ColorBasic-Regular) ships TWO glyph
+    /// styles in one font: uppercase letters render as plain pixel
+    /// outlines, lowercase letters render as white-on-black boxed
+    /// glyphs. So the case of the input string drives the visual
+    /// "regular vs box" choice without changing fonts.
+    ///
+    /// `boxedLabelText(_:)` lowercases the text on Ember (= boxes on
+    /// render) and leaves it unchanged on every other theme. Used by:
+    ///   - LiquidGreeting line 2 "Researcher" / "to start a conversation"
+    ///   - Graph node-inspector section header title (Profile /
+    ///     Summary / Relationships)
+    ///   - Graph PinnedInspectorPanel node label
+    ///   - Graph first-open title (already lowercased upstream; this
+    ///     helper just protects the invariant for future call sites)
+    nonisolated func boxedLabelText(_ text: String) -> String {
+        themePair == .ember ? text.lowercased() : text
+    }
+
+    /// Counterpart of `boxedLabelText`: uppercases on Ember so the
+    /// text renders with the plain (no-box) glyph form. Used by:
+    ///   - LiquidGreeting line 1 "Greetings," / "Click anywhere"
+    nonisolated func plainLabelText(_ text: String) -> String {
+        themePair == .ember ? text.uppercased() : text
     }
 
     /// Whether the active theme prefers ALL-CAPS rendering for the
-    /// stacked hero and H1-H3 headings. Retired 2026-05-13: the
-    /// user reverted Classic from ChonkyPixels (which read best
-    /// ALL-CAPS) back to CoralPixels (which reads naturally in mixed
-    /// case), so no theme requests forced uppercase anymore.
+    /// stacked hero and H1-H3 headings. Retired 2026-05-13.
     nonisolated var prefersUppercaseDisplay: Bool {
         false
     }
