@@ -51,7 +51,6 @@
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		DF83A55045962D57B510A3AE /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
-		E1411145209B0CCD99C5C608 /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = 0F027974EDAC4F43D4D90730 /* GGUFRuntimeBridge */; };
 		E5C918B7DB7D7E04D07548A6 /* EpistemosSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */; };
 		E5F98A62361C1EBB82523B92 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
 		E70B453353C9AB5E24A29DFA /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = C8E5F5988876E85975B20613 /* HuggingFace */; };
@@ -407,7 +406,6 @@
 				7BA33DAD72F26B5969AF58A4 /* MLXLMCommon in Frameworks */,
 				9306CA2B6D16680A144B5317 /* MLXLLM in Frameworks */,
 				B6058CDDBAC6D239758DE0BE /* MLXVLM in Frameworks */,
-				E1411145209B0CCD99C5C608 /* GGUFRuntimeBridge in Frameworks */,
 				BE22FF112091A73278DA1574 /* CodeEditSourceEditor in Frameworks */,
 				30E13BBA08D4E40824E55896 /* SwiftTreeSitter in Frameworks */,
 				F5784C6AD6DA3C05A246766E /* CodeEditLanguages in Frameworks */,
@@ -651,7 +649,6 @@
 				335D46D689DC43CC5B86CBE9 /* MLXLMCommon */,
 				ACAC129448E9C89398D377EA /* MLXLLM */,
 				EE721F274D3687D9B714DFE8 /* MLXVLM */,
-				0F027974EDAC4F43D4D90730 /* GGUFRuntimeBridge */,
 				4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */,
 				64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */,
 				22D76D69CE0A05A612129C53 /* CodeEditLanguages */,
@@ -818,7 +815,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nrm -f \"${frameworks_dir}/libomega_ax.dylib\"\nrm -rf \"${frameworks_dir}/AXorcist.framework\"\n";
+			shellScript = "set -euo pipefail\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nrm -f \"${frameworks_dir}/libomega_ax.dylib\"\nrm -rf \"${frameworks_dir}/AXorcist.framework\"\nrm -rf \"${frameworks_dir}/llama.framework\"\n";
 		};
 		9ECE8015F787406179285179 /* Build Rust Engine */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1529,10 +1526,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
-		};
-		0F027974EDAC4F43D4D90730 /* GGUFRuntimeBridge */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GGUFRuntimeBridge;
 		};
 		10AF46C8B7755E4D5270CE5D /* MLX */ = {
 			isa = XCSwiftPackageProductDependency;

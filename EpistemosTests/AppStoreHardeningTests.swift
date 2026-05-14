@@ -363,6 +363,35 @@ struct AppStoreHardeningTests {
         #expect(source.contains("Epistemos patch: MLX CPU JIT disabled."))
     }
 
+    @Test("App Store target does not link GGUF llama runtime")
+    func appStoreTargetDoesNotLinkGGUFLlamaRuntime() throws {
+        let spec = try loadMirroredSourceTextFile("project.yml")
+        let pbxproj = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
+
+        let proTarget = Self.sourceSection(
+            in: spec,
+            startingAt: "  Epistemos:",
+            endingBefore: "  Epistemos-AppStore:"
+        )
+        let appStoreTarget = Self.sourceSection(
+            in: spec,
+            startingAt: "  Epistemos-AppStore:",
+            endingBefore: "  # AR1"
+        )
+        let appStorePBXTarget = Self.sourceSection(
+            in: pbxproj,
+            startingAt: "/* Epistemos-AppStore */ = {\n\t\t\tisa = PBXNativeTarget;",
+            endingBefore: "/* End PBXNativeTarget section */"
+        )
+
+        #expect(proTarget?.contains("GGUFRuntimeBridge") == true)
+        #expect(appStoreTarget != nil)
+        #expect(appStorePBXTarget != nil)
+        #expect(appStoreTarget?.contains("GGUFRuntimeBridge") == false)
+        #expect(appStorePBXTarget?.contains("GGUFRuntimeBridge") == false)
+        #expect(appStoreTarget?.contains("rm -rf \"${frameworks_dir}/llama.framework\"") == true)
+    }
+
     @Test("App Store scheme has tests or CI runs a dedicated MAS artifact gate")
     func appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate() throws {
         let scheme = try loadMirroredSourceTextFile(
