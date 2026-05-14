@@ -3381,33 +3381,33 @@ mod tier_tests {
                 "chat_pro missing lite tool '{name}'"
             );
         }
-        // Pro adds vision_analyze + text_to_speech.
-        assert!(pro_names.contains("vision_analyze"));
-        assert!(pro_names.contains("text_to_speech"));
+        // Pro adds media/perception tools under the model-facing V2 names.
+        assert!(pro_names.contains("media.vision_analyze"));
+        assert!(pro_names.contains("media.text_to_speech"));
         assert_eq!(
-            pro.get_risk_level("text_to_speech"),
+            pro.get_risk_level("media.text_to_speech"),
             RiskLevel::Modification
         );
         let vision = pro_definitions
             .iter()
-            .find(|tool| tool.name == "vision_analyze")
-            .expect("chat_pro should expose vision_analyze");
+            .find(|tool| tool.name == "media.vision_analyze")
+            .expect("chat_pro should expose media.vision_analyze");
         assert_eq!(
             vision.parameters["required"],
             serde_json::json!(["allow_cloud_external_requests"])
         );
         let mixture = pro_definitions
             .iter()
-            .find(|tool| tool.name == "mixture_of_minds")
-            .expect("chat_pro should expose mixture_of_minds");
+            .find(|tool| tool.name == "intelligence.mixture_of_minds")
+            .expect("chat_pro should expose intelligence.mixture_of_minds");
         assert_eq!(
             mixture.parameters["required"],
             serde_json::json!(["problem", "allow_cloud_external_requests"])
         );
         let catalog = pro_definitions
             .iter()
-            .find(|tool| tool.name == "model_catalog")
-            .expect("chat_pro should expose model_catalog through chat_lite");
+            .find(|tool| tool.name == "discovery.model_catalog")
+            .expect("chat_pro should expose discovery.model_catalog through chat_lite");
         assert_eq!(
             catalog.parameters["properties"]["source"]["default"],
             serde_json::json!("local")
@@ -3421,7 +3421,7 @@ mod tier_tests {
             .into_iter()
             .map(|tool| tool.name)
             .collect();
-        assert!(pro_with_root_names.contains("self_evolve"));
+        assert!(pro_with_root_names.contains("intelligence.self_evolve"));
     }
 
     #[cfg(feature = "pro-build")]
@@ -3452,9 +3452,9 @@ mod tier_tests {
                 "agent tier missing pro tool '{name}'"
             );
         }
-        // Agent tier includes the destructive tools Pro hides.
-        assert!(agent_names.contains("terminal"));
-        assert!(agent_names.contains("send_message"));
+        // Agent tier includes the destructive tools Pro hides, surfaced under V2 names.
+        assert!(agent_names.contains("action.terminal"));
+        assert!(agent_names.contains("communication.send_message"));
     }
 
     #[cfg(feature = "pro-build")]
