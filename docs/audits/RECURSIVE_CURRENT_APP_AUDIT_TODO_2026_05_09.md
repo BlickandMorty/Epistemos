@@ -4,9 +4,11 @@ Date: 2026-05-09
 
 Status: Living backlog. This file ingests the first pasted research set and turns it into a recursive Codex work queue.
 
-## Headline Status (rollup updated 2026-05-13, thirteenth-pass MAS-release-prep)
+## Headline Status (rollup updated 2026-05-14, Codex MAS release-gate closure addendum)
 
 The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 thirteenth-pass (MAS release prep):
+
+Codex red-team addendum 2026-05-14: four release-gate entries were reopened by fresh verification and operator evidence. Follow-up closure pass: RCA8-P1-004, RCA9-P0-002, and RCA12-P0-002 are structurally patched and scanner/build verified; RCA8-P0-003 is patched with MAS scratch-vault zero-crash soak evidence, but still requires Pro/direct rerun evidence. Treat MAS/Pro release readiness as blocked until the remaining live-smoke/pro-rerun gates in `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md` close: protected graph spinner, MAS note ask-bar simple rewrite live smoke, Pro cloud/provider smoke or waiver, Pro vault/schema rerun, and five consecutive recursive zero-new-blocker passes.
 
 - **PATCHED / DONE**: 102+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **35 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Theme/font/landing refresh + MAS surface expansion + RCA3-P0-001 + RCA4-P0-002 + RCA4-P2-002 + RCA-P2-014 + RCA-P2-003 + RCA-P2-008 + RCA-P2-009 + RCA-P2-011 + RCA-P2-012 + RCA-P2-007 + RCA-P2-014 + RCA2-P1-003 + RCA2-P1-004 + RCA2-P1-005 + RCA2-P2-014 + RCA3-P2-001 + RCA4-P1-008 + RCA4-P1-010 + RCA4-P2-001 + RCA4-P2-003 + RCA4-P0-001 + RCA7-P0-001 + RCA5-P1-008 + RCA2-P2-007 + RCA2-P2-002 + Ember H1-H3 live-editor fix + MAS release manifest doc + theme fixes (Classic dark RetroGaming + Ember box trick + Classic hero size bump).
@@ -22,7 +24,7 @@ The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UI
 - **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path). **-1 this session**: RCA-P2-009 promoted to PATCHED.
 - **TODO**: ~121 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
-**Net release-blocker assessment:** the TODO items above this line are NOT v1.0 release blockers. The architectural defenses (security, performance, audit, scaffold-vs-production isolation) are structurally in place with drift gates. Remaining work is either:
+**Net release-blocker assessment update:** the 2026-05-13 "not release blockers" assessment is superseded for MAS/Pro submission by the 2026-05-14 Codex release ledger. The older TODO taxonomy remains useful for backlog triage, but release readiness now requires closing the remaining runtime/live-smoke gates first. Remaining non-reopened work is still either:
   (a) Manual smoke / profiling tasks that need real hardware + a live vault.
   (b) Future feature work (RCA13-P1-002 dynamic CLI discovery, etc.).
   (c) P2/P3 items deliberately deferred to post-v1.
@@ -9375,13 +9377,23 @@ Acceptance:
 
 ### RCA8-P0-003 - Prove FutureBackingData / background SwiftData relationship stability
 
-Status: DEFERRED 2026-05-13 — `FutureBackingData` is an Apple-private SwiftData failure-mode signature that surfaces only under specific backgrounding/relationship-access patterns; needs operator runtime test on macOS 26 to reproduce, not a code fix the audit register can apply
+Status: PATCHED-2026-05-14 / MAS SCRATCH SOAK PASS / PRO RERUN REQUIRED — operator App Store crash evidence reproduced the deferred `FutureBackingData` / background SwiftData relationship-access risk. Follow-up fix snapshots SwiftData page primitives before async body/index reads; targeted vault release-gate tests pass and an isolated MAS scratch-vault import/Notes/schema soak completed with zero new crash reports. Pro/direct rerun evidence is still required before release-ready.
 
 Subsystem: SwiftData lifecycle, `@Query`, model relationships, background tasks, multi-agent sessions.
 
 Research signal: Drop 8 reports a SwiftData lifecycle failure mode where relationships can become `FutureBackingData` / `InvalidFutureBackingData` after backgrounding, and property access may crash when the app returns. This risk matters in Epistemos because background agent/index/search work can run while the user interacts with foreground SwiftUI views.
 
-Fix-pass evidence:
+Crash evidence added 2026-05-14:
+
+- Bundle: `com.epistemos.appstore` (MAS scheme, sandboxed).
+- Signal: `EXC_BREAKPOINT (SIGTRAP)` from `Swift._assertionFailure`, not a Rust, graph, Metal, or memory-pressure crash.
+- Crash chain: `SDPage.tags.getter` -> `VaultIndexActor.allPagesForRebuild()` (`Epistemos/Sync/VaultIndexActor.swift:2081`) -> `VaultSyncService.rebuildInstantRecallIndex(from:)` (`Epistemos/Sync/VaultSyncService.swift:2816`) -> `scheduleInstantRecallIndexRebuild` detached utility task (`Epistemos/Sync/VaultSyncService.swift:2761`).
+- Concurrent main-thread chain: `NotesSidebar.rebuildCache()` mutating the cached sidebar folder array around `Epistemos/Views/Notes/NotesSidebar.swift:686`, triggered by `scheduleDeferredRebuild` around `Epistemos/Views/Notes/NotesSidebar.swift:1433`.
+- The accessed property is `SDPage.tags: [String]` (`Epistemos/Models/SDPage.swift:34`), which is SwiftData-persisted Codable array storage.
+- Timing: launch 20:14:50 -> crash 20:27:31, after enough runtime for vault diff sync and instant-recall rebuild scheduling, with foreground sidebar rebuilding active.
+- Scope: not graph, not Metal, not Rust agent_core, and not one of the chat-tool-parity commits. This is a SwiftData/vault lifecycle release gate.
+
+Prior fix-pass evidence:
 
 The `FutureBackingData` failure mode is an Apple-private SwiftData
 issue surfaced via specific app-state transitions (background →
@@ -9401,21 +9413,22 @@ Mitigations already in the code:
 - Per RCA-P1-007 fix-pass: text capture work uses @MainActor for
   SwiftData mutation only; heavy parsing is `nonisolated`
 
-These bound the surface area for FutureBackingData crashes but
-don't prove ZERO incidents — that requires an operator who:
-- Backgrounds the app mid-stream
-- Triggers index/import while in background
-- Foregrounds + accesses relationship-heavy views
-
-Tracked on AUDIT_FLOOR_2026_05_13.md manual-smoke pending list.
-Not a structural fix the audit can ship without runtime reproduction.
+These bound the surface area for FutureBackingData crashes but did not
+prove zero incidents. The operator App Store crash above became the
+runtime reproduction for the focused SwiftData/vault lifecycle fix.
+Follow-up evidence is recorded in
+`docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md`:
+`VaultIndexActor.allPagesForRebuild` now snapshots primitives before
+awaiting body/index work; the MAS scratch-vault soak imported five
+wikilink/tag notes, opened Notes, verified `ZSDPAGE` schema columns,
+and found no new crash reports. Pro/direct rerun remains open.
 
 Acceptance:
 - SwiftData lifecycle bounded by @MainActor discipline + separate
   writer queues for background tasks. ✅ (structural mitigations
   in place)
-- Operator backgrounding test. ⚠️ DEFERRED (needs live macOS 26
-  smoke; can't reproduce in audit register)
+- Operator backgrounding/runtime test. ⚠️ MAS scratch-vault zero-crash
+  rerun passed after fix; Pro/direct rerun evidence still required.
 
 - Identify SwiftData relationships accessed directly from long-lived SwiftUI views.
 - Background the app during active chat stream, VaultSync import, graph scan, Quick Capture, and note editing.
@@ -9572,7 +9585,7 @@ Acceptance:
 
 ### RCA8-P1-004 - Move Brotli and large JSON processing off MainActor across PipelineService/WKWebView paths
 
-Status: PATCHED 2026-05-13 — Brotli decompression in EpdocEditorURLSchemeHandler now runs via `Task.detached(priority: .userInitiated)` with `nonisolated decompressBrotli`; `urlSchemeTask.didReceive(...)` delivery is safe from any thread per WKURLSchemeHandler contract
+Status: PATCHED-2026-05-14 — the Swift 6 sending/data-race warning from `Task.detached(priority: .userInitiated)` capturing main actor-isolated `urlSchemeTask` is fixed with actor-safe URL scheme response delivery. Both `Epistemos` and `Epistemos-AppStore` builds now complete without this warning; Epdoc targeted tests pass per `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md`.
 
 Subsystem: PipelineService, `.epdoc` editor asset loading, WKWebView bridge, large JSON payload processing.
 
@@ -10168,7 +10181,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA9-P0-002 - Promote App Store artifact scanning above source-guard proof
 
-Status: PATCHED - RELEASE ARTIFACT SCAN GREEN / MANUAL MAS UI SWEEP PENDING
+Status: PATCHED-2026-05-14 — isolated `Epistemos-AppStore` artifact scans now pass the stronger `scripts/scan_appstore_bundle.sh` gate and the MAS manifest narrow strings/`nm` scans. Fixes compile Pro-only legacy aliases/tool residue out of MAS, scrub MAS-only binary payloads, and keep Pro functionality in the direct build. Live MAS UI smoke remains tracked separately.
 
 Canonical owner: `RCA4-P0-002`
 
@@ -12686,7 +12699,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA12-P0-002 - Promote App Store artifact verification to the first release-truth gate
 
-Status: PATCHED - RELEASE ARTIFACT PROOF GREEN / MANUAL MAS UI SWEEP PENDING
+Status: PATCHED-2026-05-14 — App Store artifact verification is now a green release-truth gate for the current bundle: clean wrapper MAS builds pass `scripts/scan_appstore_bundle.sh`, MAS manifest narrow strings, MAS manifest `nm`, and broad undefined fork/exec import review after excluding the GGUF/llama runtime from `Epistemos-AppStore`. Manual MAS UI smoke and remaining runtime gates are tracked in the final recursive release audit.
 
 Canonical links:
 
