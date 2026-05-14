@@ -55,6 +55,20 @@ final class ChatCoordinator {
     let loadedNoteTitles: [String]
   }
 
+  struct VaultLookupFallbackResult: Sendable {
+    let answer: String
+    let loadedNoteIds: Set<String>
+    let loadedNoteTitles: [String]
+  }
+
+  private struct VaultLookupFallbackCandidate {
+    let pageId: String
+    let title: String
+    let relativePath: String?
+    let snippet: String
+    let score: Double
+  }
+
   nonisolated static let allNotesMentionToken = "All Notes"
   nonisolated static let maxFileAttachmentContextBytes = min(
     FileAttachmentBuilder.maxPreviewBytes, 131_072)
@@ -2011,6 +2025,29 @@ final class ChatCoordinator {
             }
           }
 
+          @MainActor func completeWithIndexedVaultFallbackIfPossible() async -> Bool {
+            guard hasVault, hasRequestedVaultLookup else { return false }
+            guard
+              let fallback = await Self.buildIndexedVaultLookupFallbackAnswer(
+                query: query,
+                manifest: bootstrap.ambientManifest,
+                searchFull: { [vaultSync] phrase, limit in
+                  await vaultSync.searchFullAsync(query: phrase, limit: limit)
+                }
+              )
+            else { return false }
+
+            chatState.loadedNoteIds = fallback.loadedNoteIds
+            chatState.loadedNoteTitles = fallback.loadedNoteTitles
+            chatState.appendLocalMessage(
+              role: .assistant,
+              content: fallback.answer,
+              loadedNoteTitles: fallback.loadedNoteTitles
+            )
+            persistCompletedMainChatTurn()
+            return true
+          }
+
           let stream = pipeline.run(
             query: effectiveQuery,
             mode: mode,
@@ -2084,12 +2121,18 @@ final class ChatCoordinator {
                   .effectiveModelLabel(for: effectiveOperatingMode)
               ) {
                 persistCompletedMainChatTurn()
+              } else if Self.shouldUseIndexedVaultFallback(forPipelineErrorMessage: msg),
+                        await completeWithIndexedVaultFallbackIfPossible() {
+                Log.pipeline.warning(
+                  "Local chat tool loop failed; answered explicit vault lookup from indexed fallback"
+                )
               } else {
                 chatState.addErrorMessage(
                   UserFacingChatError.message(
                     from: AgentRuntimeError(message: msg)
                   )
                 )
+                persistCompletedMainChatTurn()
               }
             }
           }
@@ -3521,6 +3564,108 @@ final class ChatCoordinator {
     )
   }
 
+  static func buildIndexedVaultLookupFallbackAnswer(
+    query: String,
+    manifest: VaultManifest?,
+    limit: Int = 6,
+    searchFull: @escaping (String, Int) async -> [SearchResult]
+  ) async -> VaultLookupFallbackResult? {
+    let phrases = vaultLookupFallbackSearchPhrases(from: query)
+    guard !phrases.isEmpty else { return nil }
+
+    let entriesByPageID = Dictionary(
+      uniqueKeysWithValues: (manifest?.entries ?? []).map { ($0.pageId, $0) }
+    )
+    var candidatesByPageID: [String: VaultLookupFallbackCandidate] = [:]
+    let resultLimit = max(limit, 1)
+    let searchLimit = resultLimit * 2
+
+    for (phraseIndex, phrase) in phrases.enumerated() {
+      let results = await searchFull(phrase, searchLimit)
+      for (offset, result) in results.enumerated() {
+        let pageId = result.pageId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pageId.isEmpty else { continue }
+
+        let entry = entriesByPageID[pageId]
+        let resultTitle = result.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let entryTitle = entry?.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title: String
+        if !resultTitle.isEmpty {
+          title = resultTitle
+        } else if let entryTitle, !entryTitle.isEmpty {
+          title = entryTitle
+        } else {
+          title = pageId
+        }
+
+        let resultSnippet = cleanedVaultSearchSnippet(result.snippet)
+        let entrySnippet = cleanedVaultSearchSnippet(entry?.snippet ?? "")
+        let snippet = resultSnippet.isEmpty ? entrySnippet : resultSnippet
+        let score = result.rank + Double((phrases.count - phraseIndex) * 100) - Double(offset)
+
+        let candidate = VaultLookupFallbackCandidate(
+          pageId: pageId,
+          title: title,
+          relativePath: entry?.relativePath,
+          snippet: snippet,
+          score: score
+        )
+
+        if let existing = candidatesByPageID[pageId], existing.score >= candidate.score {
+          continue
+        }
+        candidatesByPageID[pageId] = candidate
+      }
+    }
+
+    let ranked = candidatesByPageID.values.sorted {
+      if $0.score != $1.score { return $0.score > $1.score }
+      return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+    }
+    let selected = Array(ranked.prefix(resultLimit))
+    let loadedTitles = uniquePreservingOrder(selected.map(\.title))
+    let loadedIds = Set(selected.map(\.pageId))
+    let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !selected.isEmpty else {
+      return VaultLookupFallbackResult(
+        answer: "I couldn't find any indexed vault notes matching \"\(displayQuery)\".",
+        loadedNoteIds: [],
+        loadedNoteTitles: []
+      )
+    }
+
+    var lines = ["I found these indexed vault matches for \"\(displayQuery)\":"]
+    for candidate in selected {
+      let path = candidate.relativePath?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      let pathSuffix: String
+      if let path, !path.isEmpty {
+        pathSuffix = " (`\(path)`)"
+      } else {
+        pathSuffix = ""
+      }
+      lines.append("- **\(candidate.title)**\(pathSuffix)")
+      if !candidate.snippet.isEmpty {
+        lines.append("  \(candidate.snippet)")
+      }
+    }
+
+    return VaultLookupFallbackResult(
+      answer: lines.joined(separator: "\n"),
+      loadedNoteIds: loadedIds,
+      loadedNoteTitles: loadedTitles
+    )
+  }
+
+  nonisolated static func shouldUseIndexedVaultFallback(
+    forPipelineErrorMessage message: String
+  ) -> Bool {
+    let normalized = message.lowercased()
+    return normalized.contains("empty repair turns")
+      || normalized.contains("invisible repair")
+  }
+
   static func searchReferenceResults(
     filter: String,
     manifest: VaultManifest?,
@@ -3968,6 +4113,13 @@ final class ChatCoordinator {
     return results
   }
 
+  private nonisolated static func cleanedVaultSearchSnippet(_ snippet: String) -> String {
+    snippet
+      .replacingOccurrences(of: "<b>", with: "")
+      .replacingOccurrences(of: "</b>", with: "")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
   private nonisolated static func explicitNoteReferenceTitle(in query: String) -> String? {
     extractedExplicitNoteReferenceTitle(in: query, lowercased: true)
   }
@@ -4007,7 +4159,8 @@ final class ChatCoordinator {
     let normalized = normalizedSearchField(query)
     guard !normalized.isEmpty else { return false }
     let cues = [
-      "note", "essay", "draft", "wrote", "written", "mentioned", "mentioning",
+      "note", "essay", "draft", "wrote", "written", "mention", "mentions",
+      "mentioned", "mentioning",
       "summarize it", "summarize that", "find", "look for", "show me", "open",
       "a few weeks ago", "few weeks ago", "last week", "yesterday", "earlier",
     ]
@@ -4021,7 +4174,7 @@ final class ChatCoordinator {
     var phrases = [trimmedQuery]
     let patterns = [
       #/(?i)\b(?:essay|note|draft)\s+(?:on|about)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open|where)\b|[?.!,]|$)/#,
-      #/(?i)\b(?:mentioned|mentioning)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
+      #/(?i)\b(?:mention|mentions|mentioned|mentioning)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
       #/(?i)\b(?:called|titled)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
     ]
 
@@ -4040,6 +4193,30 @@ final class ChatCoordinator {
       phrases.append(explicitTitle)
     }
 
+    return uniquePreservingOrder(phrases)
+  }
+
+  private nonisolated static func vaultLookupFallbackSearchPhrases(from query: String) -> [String] {
+    let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedQuery.isEmpty else { return [] }
+
+    var phrases: [String] = []
+    let patterns = [
+      #/(?i)\b(?:mention|mentions|mentioned|mentioning|contain|contains|containing|reference|references|referencing)\s+["“]?(.+?)["”]?(?=\s+(?:in\s+(?:my\s+)?(?:notes|vault)|please|and|or|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
+      #/(?i)\b(?:notes?|vault)\s+(?:about|on)\s+["“]?(.+?)["”]?(?=\s+(?:please|and|or|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
+    ]
+    for pattern in patterns {
+      if let match = trimmedQuery.firstMatch(of: pattern) {
+        let phrase = String(match.output.1)
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+          .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’"))
+        if !phrase.isEmpty {
+          phrases.append(phrase)
+        }
+      }
+    }
+
+    phrases.append(contentsOf: noteLookupSearchPhrases(from: trimmedQuery))
     return uniquePreservingOrder(phrases)
   }
 
