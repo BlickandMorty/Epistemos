@@ -2418,7 +2418,7 @@ struct RuntimeValidationTests {
         #expect(landingView.contains("LandingViewStateSync"))
         #expect(landingView.contains("LandingViewStateSync.reassertHomeSurface(ui)"))
         #expect(rootView.contains("HomeWindowIdentity.apply(to: window)"))
-        #expect(rootView.contains(".background(HomeWindowIdentityObserver())"))
+        #expect(rootView.contains(".background(HomeWindowIdentityObserver(themeIsDark: ui.theme.isDark))"))
         #expect(rootView.contains(".onAppear {"))
         #expect(rootView.contains("updateWindowOcclusion()"))
         #expect(rootView.contains("try await Task.sleep(for: .milliseconds(150))"))
@@ -4490,7 +4490,9 @@ struct RuntimeValidationTests {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
         #expect(coordinator.contains("let isCloudSelectedSurface: Bool"))
-        #expect(coordinator.contains("} else if let executionPlan, mode == .api, operatingMode == .pro, isCloudSelectedSurface {"))
+        #expect(coordinator.contains("(operatingMode == .pro || operatingMode == .fast || operatingMode == .thinking)"))
+        #expect(coordinator.contains("isCloudSelectedSurface"))
+        #expect(coordinator.contains("cloudSurfaceSupportsAgentTier(operatingMode)"))
     }
 
     @Test("workspace and attachment-heavy chats keep lightweight workspace context on the default path")
