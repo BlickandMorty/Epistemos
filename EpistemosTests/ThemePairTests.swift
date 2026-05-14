@@ -40,10 +40,10 @@ struct ThemePairTests {
         #expect(ThemePair.classic.dockIconResourceName(isDark: true) == nil)
     }
 
-    @Test("Warmth and Ember do not require runtime dock icon overrides")
+    @Test("Platinum Violet and Ember do not require runtime dock icon overrides")
     func alternatePairsUseAdaptiveResources() {
-        #expect(ThemePair.warmth.dockIconResourceName(isDark: false) == nil)
-        #expect(ThemePair.warmth.dockIconResourceName(isDark: true) == nil)
+        #expect(ThemePair.platinumViolet.dockIconResourceName(isDark: false) == nil)
+        #expect(ThemePair.platinumViolet.dockIconResourceName(isDark: true) == nil)
         #expect(ThemePair.ember.dockIconResourceName(isDark: false) == nil)
         #expect(ThemePair.ember.dockIconResourceName(isDark: true) == nil)
     }
