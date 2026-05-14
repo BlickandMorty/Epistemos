@@ -10,8 +10,9 @@ import Foundation
 /// zero-tools direct stream" as the load-bearing tool-truth bug.
 /// The fix lives in `ChatCoordinator`'s execution-plan branch:
 ///   - Agent mode + cloud → managedAgentSession (full tool surface)
-///   - Pro mode + cloud → chat_pro tier (bounded 3 turns + 8 tools)
-///   - Fast/Thinking + anything → existing Swift pipeline
+///   - Pro mode + cloud → chat_pro tier, including promoted managed plans
+///   - Fast/Thinking + cloud direct branch → chat_lite
+///   - Fast/Thinking + promoted managed plan → full Agent tier
 ///
 /// Without this gate a future refactor that re-orders the branches
 /// or drops the `chat_pro` toolTier argument could silently
@@ -23,18 +24,33 @@ struct ProCloudToolLoopGuardTests {
 
     @Test("ChatCoordinator routes Pro+cloud through runRustAgentPath with chat_pro tier")
     func proCloudUsesChatProTier() throws {
+        let managedBudget = try #require(ChatCoordinator.cloudToolBudget(
+            for: .pro,
+            isCloudSelectedSurface: true,
+            supportsAgentTier: true,
+            managedAgentSession: true
+        ))
+        #expect(managedBudget.toolTier == .chatPro)
+        #expect(managedBudget.maxTurns == 3)
+
+        let directBudget = try #require(ChatCoordinator.cloudToolBudget(
+            for: .pro,
+            isCloudSelectedSurface: true,
+            supportsAgentTier: true,
+            managedAgentSession: false
+        ))
+        #expect(directBudget.toolTier == .chatPro)
+        #expect(directBudget.maxTurns == 3)
+
         let source = try loadMirroredSourceTextFile(
             "Epistemos/App/ChatCoordinator.swift"
         )
-        // The Pro+cloud branch must hand `chat_pro` as the tool tier.
-        #expect(source.contains("toolTier: \"chat_pro\""),
-            "ChatCoordinator must pass toolTier: \"chat_pro\" for Pro+cloud requests so the Rust agent_core dispatches with the bounded tool budget — see RCA-P1-005")
-        // The bounded-turn budget (3) is part of the doctrine — too
-        // many turns and Pro behaves like Agent; too few and tool
-        // use is impossible. Pin the value here so accidental
-        // budget drift fails CI.
-        #expect(source.contains("maxTurns: 3"),
-            "ChatCoordinator must keep maxTurns: 3 for the chat_pro branch so the tool budget matches research-3 + ResolvedExecutionPolicy")
+        #expect(source.contains("let managedCloudToolBudget = Self.cloudToolBudget("),
+            "ChatCoordinator must compute the cloud tier override before the managedAgentSession branch so Pro+cloud promoted plans do not default to the full Agent tier — see RCA-P1-005")
+        #expect(source.contains("toolTier: managedToolTier"),
+            "ChatCoordinator must pass the computed Pro+cloud tool tier into runRustAgentPath for promoted managed plans — see RCA-P1-005")
+        #expect(source.contains("maxTurns: managedMaxTurns"),
+            "ChatCoordinator must pass the computed Pro+cloud turn budget into runRustAgentPath for promoted managed plans — see RCA-P1-005")
         // The doctrine comment must retain the explicit reason for
         // the chat_pro override so future refactors can't innocently
         // delete it without realizing they're re-introducing the
@@ -43,8 +59,36 @@ struct ProCloudToolLoopGuardTests {
             "ChatCoordinator Pro+cloud doctrine comment must retain its tool-truth justification — see RCA-P1-005")
     }
 
+    @Test("ChatCoordinator keeps Fast and Thinking cloud tiers deterministic")
+    func cloudFastThinkingBudgetsStayDeterministic() throws {
+        for mode in [EpistemosOperatingMode.fast, .thinking] {
+            let directBudget = try #require(ChatCoordinator.cloudToolBudget(
+                for: mode,
+                isCloudSelectedSurface: true,
+                supportsAgentTier: true,
+                managedAgentSession: false
+            ))
+            #expect(directBudget.toolTier == .chatLite)
+            #expect(directBudget.maxTurns == 1)
+
+            #expect(ChatCoordinator.cloudToolBudget(
+                for: mode,
+                isCloudSelectedSurface: true,
+                supportsAgentTier: true,
+                managedAgentSession: true
+            ) == nil)
+        }
+    }
+
     @Test("ChatCoordinator's managedAgentSession route is reachable for Agent mode")
     func agentModeReachesManagedAgentSession() throws {
+        #expect(ChatCoordinator.cloudToolBudget(
+            for: .agent,
+            isCloudSelectedSurface: true,
+            supportsAgentTier: true,
+            managedAgentSession: true
+        ) == nil)
+
         let source = try loadMirroredSourceTextFile(
             "Epistemos/App/ChatCoordinator.swift"
         )
@@ -63,12 +107,14 @@ struct ProCloudToolLoopGuardTests {
         let source = try loadMirroredSourceTextFile(
             "Epistemos/App/ChatCoordinator.swift"
         )
-        // The Pro+cloud fallback path emits a warning when the Rust
-        // agent path fails and the fallback to direct stream fires.
+        // The cloud fallback paths emit warnings when the Rust agent
+        // path fails and fallback is allowed.
         // The audit acceptance — "Users see when tools were used,
         // denied, or unavailable" — depends on this log line + the
         // chat_pro tier symbol staying present.
-        #expect(source.contains("Pro-mode Rust agent path unavailable, falling back to direct stream"),
-            "ChatCoordinator must keep the Pro-mode-fallback warning log so silent tool-loop degradation surfaces in diagnostics — see RCA-P1-005")
+        #expect(source.contains("Managed agent path unavailable (mode="),
+            "ChatCoordinator must keep the managed-agent fallback warning log so silent tool-loop degradation surfaces in diagnostics — see RCA-P1-005")
+        #expect(source.contains("Cloud Rust agent path unavailable (mode="),
+            "ChatCoordinator must keep the direct cloud fallback warning log so silent tool-loop degradation surfaces in diagnostics — see RCA-P1-005")
     }
 }
