@@ -7552,13 +7552,15 @@ Acceptance:
 
 ### RCA5-P2-003 - Audit `AgentAuthorityStore` default persistence and enforcement
 
-Status: PATCHED PARTIAL 2026-05-10 — default flip done, enforcement-at-dispatch test still pending
+Status: PATCHED 2026-05-14 — default file-backed persistence and dispatch-time authority enforcement are guarded
 
 Fix-pass evidence: commit `3c1081e14` flips the default initializer to `FileBackedAgentAuthorityPersistence()`. Tests and SwiftUI previews still opt into `InMemoryAgentAuthorityPersistence()` explicitly when they want ephemeral state. AppBootstrap + SettingsView call sites already passed the file-backed flavor; the change hardens future construction sites against the in-memory regression the audit flagged.
 
-Remaining work for full acceptance:
-- The `networkFetch: .autoAllow` permission default flagged by the audit is still in place — needs an explicit "ask-first" default with a runtime dispatch-time check.
-- Enforcement-at-dispatch test (trigger web fetch + package-install-like tool, confirm dispatch asks/blocks per the snapshot) is queued.
+Closure evidence 2026-05-14:
+- `AgentAuthorityDefaults.decision(for: .networkFetch)` is now `.askFirst` and `AgentPermissionRequestTests.webSearchRoutesThroughNativeApprovalGate` verifies `web.search` is human-gated and categorized as `networkFetch`.
+- `AgentAuthorityPersistenceTests.productionAuthorityStoresStayDurable` verifies production construction uses `AppBootstrap.shared?.agentAuthorityStore` or explicit `FileBackedAgentAuthorityPersistence()`, with only the SwiftUI preview using `AgentAuthorityStore()` directly.
+- `AgentAuthorityPersistenceTests.toolDispatchConsultsStoredAuthorityBeforeExecution` verifies the local command-center tool executor, command-center Rust agent, managed Rust agent, and main pipeline approval handlers route through `promptForToolApproval` / `storedAuthorityDecision` before executing tools or resolving Rust permissions.
+- Verification: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAuthorityDispatchGuard -only-testing:EpistemosTests/AgentAuthorityPersistenceTests test CODE_SIGNING_ALLOWED=NO -quiet` passed.
 
 Subsystem: Agent authority settings, permission enforcement, tool dispatch.
 
@@ -10558,7 +10560,7 @@ Acceptance:
 
 ### RCA9-P1-003 - Reconcile authority persistence and actual dispatch enforcement
 
-Status: PARTIALLY-FIXED / NEEDS-RUNTIME-PROOF
+Status: PATCHED 2026-05-14 — DURABLE POLICY + DISPATCH ENFORCEMENT GUARDED
 
 Canonical owner: `RCA-P1-025`
 
@@ -10592,6 +10594,11 @@ Acceptance:
 - Policy persists.
 - Active grants UI separates persisted policy, stored grants, transient attachments, and static explanatory rows.
 - Tool dispatch consults the same authority truth before execution.
+
+Closure evidence 2026-05-14:
+
+- The durable-policy portion is covered by `AgentAuthorityPersistenceTests.defaultStoreUsesFileBackedPersistence`, `presetPersistsAcrossReload`, and `productionAuthorityStoresStayDurable`.
+- The dispatch-enforcement portion is covered by `AgentAuthorityPersistenceTests.toolDispatchConsultsStoredAuthorityBeforeExecution`; it pins the local tool executor, Rust command-center path, managed Rust path, and pipeline approval handler before tool execution or permission resolution.
 
 ### RCA9-P1-004 - Generate a command/tool truth report from runtime registries
 
