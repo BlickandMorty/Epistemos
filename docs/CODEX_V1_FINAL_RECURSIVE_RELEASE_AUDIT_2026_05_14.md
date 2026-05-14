@@ -118,6 +118,20 @@ Result: Swift source-guard test gates cleared; zero-streak remains 0 because MAS
 - `V1-GATE-SWIFT-004`: PASS after test-only updates. RuntimeValidation source guards now match current RootView `HomeWindowIdentityObserver(themeIsDark:)` usage and cloud-agent routing across Pro/Fast/Thinking when the selected cloud surface supports the agent tier.
 - No production files were changed in this pass. No graph rendering files were touched.
 
+### Pass 6 - 2026-05-14
+
+Result: required Rust/default, Rust/Pro, research tests, and clean App Store scanner checks passed; zero-streak remains 0 because live smoke, vault zero-crash/runtime proof, and the import-level MAS review risk remain unresolved.
+
+- Clean isolated App Store Debug build passed at `/tmp/EpistemosAppStoreGateDD/Build/Products/Debug/Epistemos.app`.
+- Release isolated App Store build attempt at `/tmp/EpistemosAppStoreReleaseDD` was stopped after it sat idle with only `xcodebuild` alive and no child compiler/script processes for more than 15 minutes. This is recorded as a Release-only tooling/build hang, not as a source compile failure.
+- `V1-GATE-MAS-001`: PASS on the clean isolated App Store Debug app. Official scanner reported no prohibited runtime strings, exported/linkage symbols, or prohibited resource residue. Manifest narrow string scan and `libagent_core.dylib` narrow symbol scan also passed.
+- `V1-GATE-MAS-002`: still OPEN as MAS review risk. Broader undefined-import inventory still shows `_execvp`, `_fork`, and `_posix_spawnp` in `Epistemos.debug.dylib`, plus `_execlp` and `_fork` in bundled `llama.framework`. No app-target object/archive scan identified a first-party object carrying those imports.
+- `V1-GATE-RUST-PRO-001`: FAIL reproduced in `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build`: stale Pro tier tests expected legacy model-facing names (`vision_analyze`, `terminal`) even though the current catalog surfaces canonical V2 names (`media.vision_analyze`, `action.terminal`). Fixed test expectations only; no registry behavior changed.
+- Rust verification now passes:
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib` - PASS, 1089 passed.
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1302 passed.
+  - `cargo test --manifest-path epistemos-research/Cargo.toml --features research` - PASS, 492 lib tests + 113 canonical consistency tests passed.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
@@ -193,6 +207,17 @@ Verification:
 
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+
+### Pro Rust tier-catalog source-guard cleanup - 2026-05-14
+
+Changed:
+
+- `agent_core/src/tools/registry.rs`: updated Pro-only tier tests to assert the current model-facing V2 tool names for media, discovery, intelligence, terminal, and messaging surfaces.
+
+Verification:
+
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build tools::registry::tier_tests` - PASS, 36 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1302 passed.
 
 ## Current Verdict
 
