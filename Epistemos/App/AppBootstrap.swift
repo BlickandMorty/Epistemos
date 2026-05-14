@@ -1243,14 +1243,25 @@ final class AppBootstrap {
         )
         let legacyURL = legacyRootModelStoreURL(applicationSupportDirectory: applicationSupportDirectory)
 
+        if fileManager.fileExists(atPath: legacyURL.path) {
+            try repairLegacyStoreColumnsIfNeeded(at: legacyURL)
+        }
+
         if !fileManager.fileExists(atPath: destinationURL.path),
            fileManager.fileExists(atPath: legacyURL.path) {
             try VaultSyncService.backupSQLiteDatabaseIfPresent(at: legacyURL, to: destinationURL)
         }
 
-        try repairLegacyMessageColumnsIfNeeded(at: destinationURL)
-        try repairLegacyPageColumnsIfNeeded(at: destinationURL)
+        try repairLegacyStoreColumnsIfNeeded(at: destinationURL)
+        try verifyRequiredLegacyStoreColumns(at: destinationURL)
         return destinationURL
+    }
+
+    private nonisolated static func repairLegacyStoreColumnsIfNeeded(
+        at storeURL: URL
+    ) throws {
+        try repairLegacyMessageColumnsIfNeeded(at: storeURL)
+        try repairLegacyPageColumnsIfNeeded(at: storeURL)
     }
 
     private nonisolated static func repairLegacyMessageColumnsIfNeeded(
@@ -1318,6 +1329,64 @@ final class AppBootstrap {
                     db: db
                 )
             }
+        }
+    }
+
+    private nonisolated static func verifyRequiredLegacyStoreColumns(
+        at storeURL: URL
+    ) throws {
+        guard FileManager.default.fileExists(atPath: storeURL.path) else { return }
+
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(
+            storeURL.path,
+            &db,
+            SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
+            nil
+        ) == SQLITE_OK, let db else {
+            throw sqliteStoreError(
+                domain: "AppBootstrap.ModelStore.VerifyOpen",
+                code: -1,
+                storeURL: storeURL,
+                db: db
+            )
+        }
+        defer { sqlite3_close(db) }
+
+        try verifyRequiredColumns(
+            in: "ZSDMESSAGE",
+            requiredColumns: legacyMessageColumns.map(\.name),
+            db: db,
+            storeURL: storeURL
+        )
+        try verifyRequiredColumns(
+            in: "ZSDPAGE",
+            requiredColumns: legacyPageColumns.map(\.name),
+            db: db,
+            storeURL: storeURL
+        )
+    }
+
+    private nonisolated static func verifyRequiredColumns(
+        in tableName: String,
+        requiredColumns: [String],
+        db: OpaquePointer,
+        storeURL: URL
+    ) throws {
+        let columnNames = try sqliteColumnNames(in: tableName, db: db, storeURL: storeURL)
+        guard !columnNames.isEmpty else { return }
+
+        let missingColumns = requiredColumns.filter { !columnNames.contains($0) }
+        guard missingColumns.isEmpty else {
+            throw NSError(
+                domain: "AppBootstrap.ModelStore.VerifyColumns",
+                code: 1,
+                userInfo: [
+                    NSFilePathErrorKey: storeURL.path,
+                    NSLocalizedDescriptionKey:
+                        "\(tableName) missing required columns: \(missingColumns.joined(separator: ", "))",
+                ]
+            )
         }
     }
 

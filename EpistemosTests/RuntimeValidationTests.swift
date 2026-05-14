@@ -269,6 +269,48 @@ struct RuntimeValidationTests {
         #expect(!backupPageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
     }
 
+    @Test("bootstrap repairs legacy root and app-scoped stores when both exist")
+    func bootstrapRepairsLegacyRootAndAppScopedStoresWhenBothExist() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppBootstrapDualStoreRepair-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let legacyStoreURL = AppBootstrap.legacyRootModelStoreURL(applicationSupportDirectory: root)
+        let appScopedStoreURL = AppBootstrap.persistentModelStoreURL(applicationSupportDirectory: root)
+
+        for storeURL in [legacyStoreURL, appScopedStoreURL] {
+            try createSQLiteDatabase(
+                at: storeURL,
+                statements: [
+                    """
+                    CREATE TABLE ZSDPAGE (
+                        Z_PK INTEGER PRIMARY KEY,
+                        Z_ENT INTEGER,
+                        Z_OPT INTEGER,
+                        ZID VARCHAR,
+                        ZTITLE VARCHAR,
+                        ZTAGS BLOB
+                    );
+                    """,
+                    "INSERT INTO ZSDPAGE (Z_PK, Z_ENT, Z_OPT, ZID, ZTITLE, ZTAGS) VALUES (1, 1, 1, 'legacy-page', 'Legacy Page', X'00');",
+                ]
+            )
+        }
+
+        let destinationStoreURL = try AppBootstrap.preparePersistentModelStoreIfNeeded(
+            applicationSupportDirectory: root,
+            fileManager: .default
+        )
+
+        #expect(destinationStoreURL == appScopedStoreURL)
+        for storeURL in [legacyStoreURL, appScopedStoreURL] {
+            let pageColumns = try sqliteColumnNames(in: "ZSDPAGE", databaseURL: storeURL)
+            #expect(pageColumns.contains("ZWIKILINKREFERENCES"))
+            #expect(pageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
+        }
+    }
+
     @MainActor
     @Test("inference surfaces serial fallback runtime health from local mlx profiles")
     func inferenceSurfacesSerialFallbackRuntimeHealth() async {
@@ -2537,10 +2579,13 @@ struct RuntimeValidationTests {
 
         #expect(sidebar.contains("struct NotesSidebarFolderCacheSignature"))
         #expect(sidebar.contains("@State private var cachedFolderCacheSignature: [NotesSidebarFolderCacheSignature] = []"))
-        #expect(sidebar.contains("let newFolderSignature = allFolders.map(NotesSidebarFolderCacheSignature.init)"))
+        #expect(sidebar.contains("let newPageItemsByFolderId = Dictionary("))
+        #expect(sidebar.contains("NotesSidebarFolderCacheSignature("))
         #expect(sidebar.contains("newFolderSignature == cachedFolderCacheSignature"))
         #expect(sidebar.contains("cachedFolderCacheSignature = newFolderSignature"))
         #expect(!sidebar.contains("allFolders.count == cachedFolderItems.count"))
+        #expect(!sidebar.contains("childPageIds = (folder.pages ?? [])"))
+        #expect(!sidebar.contains("let pages = (folder.pages ?? [])"))
 
         #expect(sidebar.contains("@State private var epdocDocumentScanTask: Task<Void, Never>?"))
         #expect(sidebar.contains("private func refreshEpdocDocuments"))
