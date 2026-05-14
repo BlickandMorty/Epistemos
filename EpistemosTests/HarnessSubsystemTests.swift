@@ -1274,6 +1274,64 @@ struct SanitizedEnvironmentTests {
         #expect(allowed.contains("XDG_"))
         #expect(allowed.contains("HOMEBREW_"))
     }
+
+    @Test("Filters sensitive extras before child launch")
+    func filtersSensitiveExtrasBeforeChildLaunch() {
+        let env = SanitizedEnvironment.build(extras: [
+            "TMPDIR": "/tmp/epistemos-safe",
+            "OPENAI_API_KEY": "must-not-leak",
+            "XDG_RUNTIME_DIR": "/tmp/epistemos-xdg",
+        ])
+
+        #expect(env["TMPDIR"] == "/tmp/epistemos-safe")
+        #expect(env["XDG_RUNTIME_DIR"] == "/tmp/epistemos-xdg")
+        #expect(env["OPENAI_API_KEY"] == nil)
+    }
+
+    @Test("Completion checker subprocess scrubs inherited provider credentials")
+    func completionCheckerSubprocessScrubsInheritedProviderCredentials() async {
+        let openAIMarker = "epistemos-openai-leak-\(UUID().uuidString)"
+        let anthropicMarker = "epistemos-anthropic-leak-\(UUID().uuidString)"
+        setenv("OPENAI_API_KEY", openAIMarker, 1)
+        setenv("ANTHROPIC_API_KEY", anthropicMarker, 1)
+        defer {
+            unsetenv("OPENAI_API_KEY")
+            unsetenv("ANTHROPIC_API_KEY")
+        }
+
+        let result = await runCommand(
+            "env",
+            arguments: [],
+            at: FileManager.default.temporaryDirectory,
+            timeout: 10
+        )
+
+        #expect(result.exitCode == 0)
+        #expect(!result.stdout.contains(openAIMarker))
+        #expect(!result.stdout.contains(anthropicMarker))
+        #expect(!result.stdout.contains("OPENAI_API_KEY="))
+        #expect(!result.stdout.contains("ANTHROPIC_API_KEY="))
+    }
+
+    @Test("Pro Swift subprocess launchers assign sanitized child environments")
+    func proSwiftSubprocessLaunchersAssignSanitizedChildEnvironments() throws {
+        let completionChecker = try loadMirroredSourceTextFile("Epistemos/Harness/CompletionChecker.swift")
+        let harnessLab = try loadMirroredSourceTextFile("Epistemos/Harness/HarnessLab.swift")
+        let vaultSync = try loadMirroredSourceTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let screenCapture = try loadMirroredSourceTextFile("Epistemos/Omega/Vision/ScreenCaptureService.swift")
+        let adapterExporter = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/Adapters/AdapterExporter.swift")
+        let embodiedCapture = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift")
+        let pythonEnvironment = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/PythonEnvironmentManager.swift")
+
+        #expect(completionChecker.contains("process.environment = SanitizedEnvironment.build()"))
+        #expect(harnessLab.contains("process.environment = SanitizedEnvironment.build()"))
+        #expect(vaultSync.contains("process.environment = SanitizedEnvironment.build()"))
+        #expect(screenCapture.contains("kickTask.environment = SanitizedEnvironment.build()"))
+        #expect(adapterExporter.contains("process.environment = SanitizedEnvironment.build()"))
+        #expect(embodiedCapture.contains("process.environment = SanitizedEnvironment.build()"))
+        #expect(pythonEnvironment.contains("nonisolated static func boundedToolEnvironment(executable: String) -> [String: String]"))
+        #expect(!pythonEnvironment.contains("ProcessInfo.processInfo.environment"))
+    }
 }
 
 // MARK: - Phase 8: Volatile Project Root Tests

@@ -209,6 +209,7 @@ func runCommand(
                 process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
                 process.arguments = [executable] + arguments
                 process.currentDirectoryURL = workingDirectory
+                process.environment = SanitizedEnvironment.build()
 
                 let stdoutPipe = Pipe()
                 let stderrPipe = Pipe()

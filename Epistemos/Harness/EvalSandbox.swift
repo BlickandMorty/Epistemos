@@ -23,7 +23,7 @@ import os
 enum SanitizedEnvironment {
 
     /// Keys that are always preserved from the parent environment.
-    static let allowedKeys: Set<String> = [
+    nonisolated static let allowedKeys: Set<String> = [
         "PATH", "HOME", "USER", "LOGNAME",
         "LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES",
         "TERM", "SHELL", "TMPDIR",
@@ -36,7 +36,7 @@ enum SanitizedEnvironment {
     ]
 
     /// Prefix patterns for keys that are preserved (e.g., XDG_*).
-    static let allowedPrefixes: [String] = [
+    nonisolated static let allowedPrefixes: [String] = [
         "XDG_",
         "HOMEBREW_",
         "XCTEST_",
@@ -44,7 +44,7 @@ enum SanitizedEnvironment {
 
     /// Known sensitive key patterns that must NEVER pass through,
     /// even if they match an allowed prefix.
-    static let deniedPatterns: [String] = [
+    nonisolated static let deniedPatterns: [String] = [
         "API_KEY", "API_SECRET", "SECRET_KEY", "ACCESS_TOKEN",
         "AUTH_TOKEN", "BEARER_TOKEN", "PRIVATE_KEY",
         "ANTHROPIC_", "OPENAI_", "GOOGLE_AI_", "PERPLEXITY_",
@@ -55,7 +55,7 @@ enum SanitizedEnvironment {
 
     /// Build a sanitized environment dictionary from the current process environment.
     /// Returns only safe keys — everything else is dropped.
-    static func build(extras: [String: String] = [:]) -> [String: String] {
+    nonisolated static func build(extras: [String: String] = [:]) -> [String: String] {
         let source = ProcessInfo.processInfo.environment
         var result: [String: String] = [:]
 
@@ -65,21 +65,24 @@ enum SanitizedEnvironment {
             result[key] = value
         }
 
-        // Override TMPDIR to point at our volatile root if provided
+        // Override TMPDIR to point at our volatile root if provided. Extras
+        // still flow through the same allow/deny policy so callers cannot
+        // accidentally smuggle provider tokens into a child process.
         for (k, v) in extras {
+            guard isAllowed(k), !isDenied(k) else { continue }
             result[k] = v
         }
 
         return result
     }
 
-    private static func isAllowed(_ key: String) -> Bool {
+    private nonisolated static func isAllowed(_ key: String) -> Bool {
         if allowedKeys.contains(key) { return true }
         for prefix in allowedPrefixes where key.hasPrefix(prefix) { return true }
         return false
     }
 
-    private static func isDenied(_ key: String) -> Bool {
+    private nonisolated static func isDenied(_ key: String) -> Bool {
         let upper = key.uppercased()
         for pattern in deniedPatterns where upper.contains(pattern) { return true }
         return false

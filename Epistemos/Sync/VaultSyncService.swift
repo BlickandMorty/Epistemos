@@ -1658,6 +1658,7 @@ final class VaultSyncService {
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tmutil")
         process.arguments = arguments
+        process.environment = SanitizedEnvironment.build()
 
         let stdout = Pipe()
         let stderr = Pipe()

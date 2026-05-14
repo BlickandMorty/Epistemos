@@ -5,11 +5,56 @@ use crate::types::AutomationResult;
 use std::process::Command;
 use std::time::Instant;
 
+const SUBPROCESS_ALLOWLIST: &[&str] = &[
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LC_MESSAGES",
+    "TERM",
+    "SHELL",
+    "TMPDIR",
+    "__CF_USER_TEXT_ENCODING",
+];
+const SUBPROCESS_DENYLIST: &[&str] = &[
+    "OPENAI_API_KEY",
+    "OPENAI_ACCESS_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_ACCESS_TOKEN",
+    "GOOGLE_API_KEY",
+    "GOOGLE_ACCESS_TOKEN",
+    "PERPLEXITY_API_KEY",
+    "OPENROUTER_API_KEY",
+    "HF_TOKEN",
+];
+
+fn hardened_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    command.env_clear();
+    for &key in SUBPROCESS_ALLOWLIST {
+        if SUBPROCESS_DENYLIST.contains(&key) {
+            continue;
+        }
+        if let Ok(value) = std::env::var(key) {
+            command.env(key, value);
+        }
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    command
+}
+
 /// List all installed shortcuts. Returns JSON array of names.
 pub fn list_shortcuts() -> AutomationResult {
     let start = Instant::now();
 
-    let output = match Command::new("/usr/bin/shortcuts").arg("list").output() {
+    let output = match hardened_command("/usr/bin/shortcuts").arg("list").output() {
         Ok(o) => o,
         Err(e) => {
             return AutomationResult {
@@ -44,7 +89,7 @@ pub fn list_shortcuts() -> AutomationResult {
 pub fn run_shortcut(name: &str, input: Option<&str>) -> AutomationResult {
     let start = Instant::now();
 
-    let mut cmd = Command::new("/usr/bin/shortcuts");
+    let mut cmd = hardened_command("/usr/bin/shortcuts");
     cmd.arg("run").arg(name);
 
     if let Some(inp) = input {
@@ -97,6 +142,54 @@ pub fn run_shortcut(name: &str, input: Option<&str>) -> AutomationResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn restore_env(saved: Vec<(&'static str, Option<String>)>) {
+        for (var, value) in saved {
+            match value {
+                Some(value) => std::env::set_var(var, value),
+                None => std::env::remove_var(var),
+            }
+        }
+    }
+
+    #[test]
+    fn test_shortcuts_command_scrubs_provider_secrets() {
+        let _guard = ENV_LOCK.lock().expect("env lock poisoned");
+        let secret_vars = [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY",
+            "PERPLEXITY_API_KEY",
+            "HF_TOKEN",
+        ];
+        let saved: Vec<(&'static str, Option<String>)> = secret_vars
+            .iter()
+            .map(|&var| (var, std::env::var(var).ok()))
+            .collect();
+        for &var in &secret_vars {
+            std::env::set_var(var, format!("omega-ax-fixture-{var}"));
+        }
+
+        let output = hardened_command("/usr/bin/env")
+            .output()
+            .expect("env binary must exist on test host");
+        restore_env(saved);
+
+        let env = String::from_utf8_lossy(&output.stdout);
+        for &var in &secret_vars {
+            assert!(
+                !env.contains(&format!("{var}=")),
+                "{var} leaked into omega-ax child env: {env}"
+            );
+            assert!(
+                !env.contains(&format!("omega-ax-fixture-{var}")),
+                "{var} fixture value leaked into omega-ax child env: {env}"
+            );
+        }
+    }
 
     #[test]
     fn test_list_shortcuts_runs() {

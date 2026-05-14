@@ -164,6 +164,7 @@ nonisolated struct AdapterExporter: Sendable {
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-c", "-k", "--sequesterRsrc", sourceDir.path, destination.path]
+        process.environment = SanitizedEnvironment.build()
 
         try process.run()
         process.waitUntilExit()
@@ -187,6 +188,7 @@ nonisolated struct AdapterExporter: Sendable {
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-x", "-k", zipPath.path, destination.path]
+        process.environment = SanitizedEnvironment.build()
 
         try process.run()
         process.waitUntilExit()

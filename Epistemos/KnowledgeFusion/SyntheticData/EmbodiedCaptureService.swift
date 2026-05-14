@@ -268,6 +268,7 @@ final class EmbodiedCaptureService {
             let process = Process.init()
             process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
             process.arguments = ["-x", "-C", path.path]
+            process.environment = SanitizedEnvironment.build()
 
             do {
                 try process.run()

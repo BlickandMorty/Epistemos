@@ -339,7 +339,7 @@ Implementation evidence, 2026-05-09 credential environment slice:
   - Green: `git diff --check`.
 - Remaining risk:
   - This closes the parent-process mirroring slice and the `agent_core` subprocess denylist probe slice.
-  - Full product child-process/helper/MCP/XPC matrix is still pending; every `Process`/PTY/MCP/helper launch path still needs the fake-secret env probe required by `AUTH-ENV-P0-B`.
+  - 2026-05-14 follow-up closed the current-v1 Swift helper + Pro Rust helper child-process fake-secret matrix for known shipping launchers. Future/new helper surfaces still require the same probe before release.
 
 ## P1 Queue
 
@@ -5893,7 +5893,7 @@ Acceptance:
 
 ### RCA4-P1-001 - Replace process-wide credential environment mirroring with scoped credential delivery
 
-Status: PATCHED PARTIAL 2026-05-13 — process-wide mirroring REMOVED 2026-05-09; credentials now scoped to `withScopedAgentCoreEnvironment(operation:)` window around Rust runAgentSession; FFI-only delivery remains future hardening
+Status: PATCHED PARTIAL 2026-05-14 — process-wide mirroring REMOVED 2026-05-09; current-v1 child launch matrix scrubbed/probed 2026-05-14; FFI-only delivery remains future hardening
 
 Subsystem: `AppBootstrap`, agent_core bridge, provider auth, subprocess and XPC launch.
 
@@ -5931,7 +5931,13 @@ Implementation evidence, 2026-05-09 credential environment slice:
 - `Epistemos/App/ChatCoordinator.swift` scopes provider env injection around the two in-process Rust `runAgentSession(...)` call sites that still require env-backed provider construction.
 - `EpistemosTests/CloudProviderAuthServiceTests.swift` proves OAuth/API-key credential refresh leaves parent env empty, scoped injection restores the previous env, and launch-deferred credential bootstrap does not repopulate `DEEPSEEK_API_KEY`.
 - `agent_core/src/security.rs` now denies Epistemos provider API key and OAuth env names in hardened CLI subprocess environments; `cargo test --manifest-path agent_core/Cargo.toml harden_cli_subprocess_clears_provider_secrets` passed.
-- Remaining risk: explicit FFI/session credential delivery would be stronger than scoped env and remains future hardening; complete child-process/helper/MCP/XPC fake-secret matrix is still required.
+- 2026-05-14 current-v1 child matrix follow-up:
+  - Swift `Process` launchers for harness completion checks, proposer agent runs, Time Machine recovery helpers, replayd restart, adapter zip/unzip, and embodied screenshot capture now assign `SanitizedEnvironment.build()`.
+  - `SanitizedEnvironment.build(extras:)` now filters extras through the same allow/deny policy and is explicitly `nonisolated` for Swift 6 subprocess call sites.
+  - `omega-mcp` osascript/open/pgrep/zsh child launchers and `omega-ax` shortcuts launchers now use local hardened allowlist environments and fake-secret regression probes.
+  - Python/training/audio child launchers were inspected and already use `PythonEnvironmentManager.boundedToolEnvironment(...)` / `pythonToolEnvironment(...)`, which construct fixed environments and do not read `ProcessInfo.processInfo.environment`.
+  - Green commands: `EpistemosTests/SanitizedEnvironmentTests` passed 6 Swift tests; `cargo test --manifest-path omega-mcp/Cargo.toml --lib` passed 145 tests; `cargo test --manifest-path omega-ax/Cargo.toml --lib` passed 13 tests.
+- Remaining risk: explicit FFI/session credential delivery would be stronger than scoped env and remains future hardening.
 
 ### RCA4-P1-002 - Move prose editor full-structure parsing off the per-keystroke hot path
 
@@ -10280,7 +10286,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA9-P0-003 - Split credential environment risk into env mirroring and child scrub proof
 
-Status: PATCHED PARTIAL - AUTH-ENV-P0-A CLOSED / AUTH-ENV-P0-B PARTIAL
+Status: PATCHED-2026-05-14 - AUTH-ENV-P0-A CLOSED / AUTH-ENV-P0-B CURRENT-V1 CHILD MATRIX CLOSED
 
 Canonical owner: `RCA-P0-004`
 
@@ -10359,7 +10365,14 @@ Implementation evidence, 2026-05-09:
 
 - `AUTH-ENV-P0-A` is closed for the current Rust agent bridge: parent-process credential mirroring was removed from `AppBootstrap.populateAgentCoreEnvironment`, and the Rust session bridge now uses `withScopedAgentCoreEnvironment` only for the two `runAgentSession(...)` calls in `ChatCoordinator`.
 - Parent-env regression tests now assert credential refresh and deferred bootstrap do not leave `OPENAI_ACCESS_TOKEN`, `ANTHROPIC_ACCESS_TOKEN`, `GOOGLE_ACCESS_TOKEN`, `GOOGLE_PROJECT_ID`, `DEEPSEEK_API_KEY`, `GLM_API_KEY`, `KIMI_API_KEY`, or `MINIMAX_API_KEY` in process env.
-- `AUTH-ENV-P0-B` is partially covered by `agent_core::security::tests::harden_cli_subprocess_clears_provider_secrets`; broader Swift `Process`/MCP/XPC/helper launch probes remain open.
+- `AUTH-ENV-P0-B` current-v1 closure, 2026-05-14:
+  - Swift `Process` launchers for harness completion checks, proposer agent runs, Time Machine recovery helpers, replayd restart, adapter export/import zip work, and embodied screenshot capture now assign `SanitizedEnvironment.build()`.
+  - `SanitizedEnvironment.build(extras:)` filters caller extras through the allow/deny policy so provider keys cannot be reintroduced through overrides.
+  - `EpistemosTests/SanitizedEnvironmentTests.completionCheckerSubprocessScrubsInheritedProviderCredentials` first failed with fake `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` visible in `env`, then passed after the sanitizer assignment.
+  - `EpistemosTests/SanitizedEnvironmentTests.proSwiftSubprocessLaunchersAssignSanitizedChildEnvironments` guards the known Swift helper launch matrix.
+  - `omega-mcp` now hardens osascript/open/pgrep/zsh children and `omega-ax` now hardens shortcuts children. Their fake-secret probes passed in `cargo test --manifest-path omega-mcp/Cargo.toml --lib` and `cargo test --manifest-path omega-ax/Cargo.toml --lib`.
+  - `agent_core` MCP/CLI/tool child launches remain covered by `harden_cli_subprocess*` and the existing fake-secret tests.
+  - Python/training/audio paths were inspected and use fixed `PythonEnvironmentManager` environments rather than inherited parent env.
 
 ### RCA9-P0-004 - Keep database fallback P0 until degraded-mode writes are proven honest
 
@@ -11247,7 +11260,7 @@ Implementation evidence, 2026-05-09:
   - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
   - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAgentEnvironmentTests test CODE_SIGNING_ALLOWED=NO`
   - `cargo test --manifest-path agent_core/Cargo.toml harden_cli_subprocess_clears_provider_secrets`
-- Remaining risk: the all-child-launch matrix in `AUTH-ENV-P0-B` is still open and must cover Swift helpers, MCP stdio, XPC, Python/training/audio helpers, and any future process wrappers.
+- 2026-05-14 follow-up: current-v1 `AUTH-ENV-P0-B` is closed for known Swift helpers, `agent_core` MCP/CLI/tool children, `omega-mcp`, `omega-ax`, and Python/training/audio wrappers. Future/new helper surfaces must add the same fake-secret probe before being release-eligible.
 
 ### RCA10-P0-003 - Keep database fallback blocked until model-container init is inspected
 

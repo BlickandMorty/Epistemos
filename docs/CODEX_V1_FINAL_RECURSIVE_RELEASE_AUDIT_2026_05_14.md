@@ -2,7 +2,7 @@
 
 Scope: current Epistemos v1 only, for both Mac App Store (`Epistemos-AppStore`) and Pro/direct (`Epistemos`) builds. Helios/V6.2 migration, Lean verification stack, research-tier kernels, speculative architecture rewrites, and post-v1 research work are excluded unless they affect the current shipping app.
 
-Protected surfaces observed: no graph rendering, Metal/SDF renderer, layout, camera, physics, selection visuals, or hologram overlay visuals were changed. No vault/database reset, deletion, casual migration, or user-data mutation was performed. `~/Epistemos-RETRO`, `src-tauri`, and `~/meta-analytical-pfc` were not touched.
+Protected surfaces observed: no graph rendering, Metal/SDF renderer, layout, camera, physics, or selection visuals were changed. `HologramOverlay.swift` was touched only for the user-provided graph-note screenshot, limited to transparent AppKit route-host backing; no renderer/camera/physics/overlay animation behavior changed. No vault/database reset, deletion, casual migration, or user-data mutation was performed. `~/Epistemos-RETRO`, `src-tauri`, and `~/meta-analytical-pfc` were not touched.
 
 ## Phase 0 Snapshot
 
@@ -24,8 +24,8 @@ Recursive register strict `Status:` count snapshot from `docs/audits/RECURSIVE_C
 
 | Status | Count |
 |---|---:|
-| PATCHED | 186 |
-| PATCHED PARTIAL | 24 |
+| PATCHED | 187 |
+| PATCHED PARTIAL | 23 |
 | PATCHED BUT NOT CLOSED | 0 |
 | PATCHED BUT WATCH | 0 |
 | REOPENED | 0 |
@@ -764,6 +764,27 @@ Verification:
 - `xcrun xcresulttool get test-results summary --path build/xcode-results/2026-05-14-153010-80004.xcresult` - PASS, `passedTests: 3`, `failedTests: 0`.
 - `git diff --check` - PASS.
 
+### Current-v1 child-process credential scrub closure - 2026-05-14
+
+Changed:
+
+- `RCA9-P0-003` / `AUTH-ENV-P0-B` is closed for the current v1 launch matrix. This targets local/cloud agent and Pro tool-use safety: provider credentials must not leak from the app process into subprocess helpers, MCP/tool shims, shell helpers, or automation helpers.
+- Swift `Process` launchers now assign `SanitizedEnvironment.build()` in `Epistemos/Harness/CompletionChecker.swift`, `Epistemos/Harness/HarnessLab.swift`, `Epistemos/Sync/VaultSyncService.swift`, `Epistemos/Omega/Vision/ScreenCaptureService.swift`, `Epistemos/KnowledgeFusion/Adapters/AdapterExporter.swift`, and `Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift`.
+- `Epistemos/Harness/EvalSandbox.swift`: `SanitizedEnvironment.build(extras:)` is explicitly `nonisolated` for Swift 6 subprocess call sites and filters caller extras through the same allow/deny policy.
+- `omega-mcp/src/osascript.rs`: osascript, open, pgrep, and zsh shell children now use a hardened allowlist environment with provider-token denylist.
+- `omega-ax/src/shortcuts.rs`: shortcuts children now use the same hardened allowlist environment.
+- `EpistemosTests/HarnessSubsystemTests.swift`: added a failing fake-secret env probe for `runCommand`, an extras-filter test, and a source guard over known Swift Pro helper launchers. Python/training/audio wrappers were inspected and remain on fixed `PythonEnvironmentManager` environments, not inherited parent env.
+- No graph renderer/camera/physics, vault data, provider credential storage, cloud routing, local model routing, or tool approval behavior changed.
+
+Verification:
+
+- Red before patch: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosSwiftChildEnvRed -only-testing:EpistemosTests/SanitizedEnvironmentTests test CODE_SIGNING_ALLOWED=NO -quiet` - FAIL. `env` printed fake `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`; source guard also caught missing `process.environment`.
+- Red before Rust patch: `cargo test --manifest-path omega-mcp/Cargo.toml test_run_command_scrubs_provider_secrets` - FAIL. `tool_run_command("env")` leaked fake provider keys into the zsh child.
+- Green after patch: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosSwiftChildEnvGreen -only-testing:EpistemosTests/SanitizedEnvironmentTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS; xcresult `build/xcode-results/2026-05-14-155711-1205.xcresult`, `passedTests: 6`, `failedTests: 0`.
+- `cargo test --manifest-path omega-mcp/Cargo.toml --lib` - PASS, 145 passed.
+- `cargo test --manifest-path omega-ax/Cargo.toml --lib` - PASS, 13 passed.
+- `git diff --check` - PASS.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, AgentAuthority dispatch enforcement, CodeFileService/tool-write approval-loop proof, automated note ask-bar rewrite checks, OAuth callback loopback/forged-state proof, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, AgentAuthority dispatch enforcement, CodeFileService/tool-write approval-loop proof, current-v1 child-process credential scrub proof, automated note ask-bar rewrite checks, OAuth callback loopback/forged-state proof, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
