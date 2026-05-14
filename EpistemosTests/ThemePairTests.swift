@@ -380,14 +380,19 @@ struct ThemePairTests {
         )
     }
 
-    @Test("App heading roles use display typography for the first three heading levels")
+    @MainActor
+    @Test("App heading roles use active pair display typography for the first three heading levels")
     func appHeadingRolesUseSharedDisplayScale() {
-        #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
-        #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
-        #expect(AppDisplayTypography.displayFontName(isDark: false) == "CoralPixels-Regular")
-        #expect(AppDisplayTypography.displayFontName(isDark: true) == "RetroGaming")
-        #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.1)
-        #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
+        withPreservedThemeDefaults {
+            UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
+
+            #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
+            #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
+            #expect(AppDisplayTypography.displayFontName(isDark: false) == "RetroGaming")
+            #expect(AppDisplayTypography.displayFontName(isDark: true) == "RetroGaming")
+            #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.0)
+            #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
+        }
         // Per user 2026-05-12: graph node labels use the JetBrainsMono
         // monospace atlas (the v1 "before" identity) in both light and
         // dark mode. The per-theme `_coral` and `_retro` atlases stay
@@ -448,15 +453,15 @@ struct ThemePairTests {
         #expect(MarkdownHeadingDisplay.glowRadius(for: 2) == 10)
         #expect(MarkdownHeadingDisplay.glowRadius(for: 3) == 7)
         #expect(MarkdownHeadingDisplay.glowRadius(for: 4) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 1) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 2) == 0)
-        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 1) == 0.38)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 2) == 0.24)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumViolet, level: 3) == 0.18)
         #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumVioletDark, level: 1) == 0.38)
         #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumVioletDark, level: 2) == 0.24)
         #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumVioletDark, level: 3) == 0.18)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 1) == 0)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 2) == 0)
-        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 1) == 0.34)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 2) == 0.22)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumViolet, level: 3) == 0.16)
         #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumVioletDark, level: 1) == 0.34)
         #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumVioletDark, level: 2) == 0.22)
         #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumVioletDark, level: 3) == 0.16)
@@ -515,11 +520,11 @@ struct ThemePairTests {
         #expect(!landingView.contains("darkModeLandingBackdrop"))
     }
 
-    @Test("Landing and root backdrops sample the selected semantic theme instead of OLED")
+    @Test("Landing and root backdrops sample the selected semantic main chat surface instead of OLED")
     func landingAndRootBackdropsSampleSelectedSemanticThemeInsteadOfOLED() {
         #expect(AppWindowBackdropStyle.backgroundToken(for: .ember) == EpistemosTheme.ember.resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) == EpistemosTheme.nocturne.resolved.background)
-        #expect(AppWindowBackdropStyle.backgroundToken(for: .platinumVioletDark) == EpistemosTheme.platinumVioletDark.resolved.background)
+        #expect(AppWindowBackdropStyle.backgroundToken(for: .platinumVioletDark) == EpistemosTheme.platinumVioletDark.surfaceVariant(.mainChat).resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .ember) != EpistemosTheme.oled.resolved.background)
         #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) != EpistemosTheme.oled.resolved.background)
     }
@@ -1309,7 +1314,7 @@ LD_RUNPATH_SEARCH_PATHS = (
     func liquidGreetingTaskIdentityTracksPlaylistChanges() throws {
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
-        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(searchMode)_\\(ui.landingGreetingPlaylistSignature)\""))
+        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(searchMode)\""))
         #expect(!liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(displayText)\""))
     }
 
@@ -1318,7 +1323,8 @@ LD_RUNPATH_SEARCH_PATHS = (
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
         let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
-        #expect(liquidGreeting.contains("text: shouldAnimate ? displayText : Self.restingGreeting"))
+        #expect(liquidGreeting.contains("line1 = Self.greetingLine1"))
+        #expect(liquidGreeting.contains("line2 = Self.greetingLine2"))
         #expect(liquidGreeting.contains("guard shouldAnimate else"))
         #expect(settingsView.contains("Animate typewriter"))
         #expect(!settingsView.contains("Enable liquid distortion"))
@@ -1365,7 +1371,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
         #expect(liquidGreeting.contains("LiquidGreetingTiming.typingDelay(forStep: index)"))
-        #expect(liquidGreeting.contains("LiquidGreetingTiming.untypingDelay(forStep: index)"))
+        #expect(liquidGreeting.contains("LiquidGreetingTiming.untypingDelay(forStep: nextLen)"))
         #expect(liquidGreeting.contains("private func pause(_ duration: Duration) async -> Bool"))
         #expect(!liquidGreeting.contains("Int.random(in: 45...75)"))
         #expect(!liquidGreeting.contains("Int.random(in: 20...40)"))

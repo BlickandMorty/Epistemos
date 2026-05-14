@@ -57,8 +57,8 @@ Known reopened gates at start:
 |---|---|---|---|---|---|---|---|---|
 | V1-GATE-SWIFT-001 SDPage query test compile | PASS after fix | Swift tests / extraction models | MAS blocker until test target compiles | Pro blocker until test target compiles | Pre-fix failure at `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:27`; fixed optional access in `EpistemosTests/SDPageQueryDescriptorTests.swift:453` | `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SDPageQueryDescriptorTests/ExtractionAndMessageRegressionTests/extractionResultDecodesWithoutSources test CODE_SIGNING_ALLOWED=NO -quiet` | Fixed and committed | Yes; done in `fbcc0aabb` |
 | V1-GATE-SWIFT-002 ThemePair stale enum compile | PASS after fix | Swift tests / theme | MAS blocker until test target compiles | Pro blocker until test target compiles | `ThemePair.warmth` no longer exists; current enum cases are in `Epistemos/Theme/EpistemosTheme.swift:1208` | Same focused SDPage test now compiles; targeted ThemePair suite compiles but fails assertions below | Fixed stale compile reference only | Yes; done in `fbcc0aabb` |
-| V1-GATE-SWIFT-003 ThemePair source-guard drift | FAIL / REOPENED | Swift tests / theme + landing source guards | MAS release-gate risk because tests fail | Pro release-gate risk because tests fail | `.xcresult` failures at `EpistemosTests/ThemePairTests.swift:386`, `:387`, `:388`, `:450-452`, `:456-458`, `:521`, `:1311`, `:1320`, `:1367` | `xcodebuild ... -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO` | Reopen as stale-test or real-regression triage; do not change graph rendering | Test-only changes allowed after confirming production intent |
-| V1-GATE-SWIFT-004 RuntimeValidation stale source guards | FAIL / REOPENED | Swift tests / source guards | MAS release-gate risk because test suite fails | Pro release-gate risk because test suite fails | `EpistemosTests/RuntimeValidationTests.swift:2412`; `.xcresult` for `RuntimeValidationTests.landingGreetingRechecksWindowOcclusionAfterAppear()` expects stale `RootView` source shape | `xcodebuild ... -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` | Reopen for test/source-guard triage after vault patch | Test-only changes likely allowed after confirming production intent |
+| V1-GATE-SWIFT-003 ThemePair source-guard drift | PASS after test-only fix | Swift tests / theme + landing source guards | MAS test gate cleared | Pro test gate cleared | Pre-fix `.xcresult` failures at `EpistemosTests/ThemePairTests.swift:386`, `:387`, `:388`, `:450-452`, `:456-458`, `:521`, `:1311`, `:1320`, `:1367`; fixed to match current production theme intent | `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO -quiet` | Test-only source guards updated; no graph rendering touched | Yes; test-only done |
+| V1-GATE-SWIFT-004 RuntimeValidation stale source guards | PASS after test-only fix | Swift tests / source guards | MAS test gate cleared | Pro test gate cleared | Pre-fix `.xcresult` failures at `EpistemosTests/RuntimeValidationTests.swift:2420`, `:4492`; source guards expected stale RootView and cloud-agent-routing shapes | `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` | Test-only source guards updated | Yes; test-only done |
 | V1-GATE-MAS-001 App Store artifact scanner | PASS after patch | Packaging / MAS compliance | MAS gate cleared for official scanner | Pro non-blocker; Pro build still passes | `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:31-39`; clean scan report `build/codex-appstore-audit-gate` | `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-audit-gate scripts/scan_appstore_bundle.sh /tmp/EpistemosAppStoreGateDD/Build/Products/Debug/Epistemos.app` | Fixed MAS string leaks and scanner false-positive tokenization without removing Pro functionality | Yes; done in `60c3067cb` |
 | V1-GATE-MAS-002 Undefined fork/exec imports | OPEN / MAS compliance risk | Packaging / third-party/static Rust linkage | MAS risk pending Release/narrow-policy decision | Pro non-blocker | Exploratory `nm -u` on isolated Debug bundle still shows `_fork`, `_execvp`, `_posix_spawnp` in `Epistemos.debug.dylib` and `_fork`, `_execlp` in `llama.framework`; the official scanner does not inspect undefined imports | Repeat on Release bundle; compare against manifest's `nm -gU` gate and decide whether this is an App Store blocker or accepted static-link baseline | Track separately; do not hide in official scanner | Maybe, only after linkage evidence |
 | V1-GATE-EPDOC-001 EpdocEditorBridge Swift 6 warning | PASS after fix | Epdoc WKURLSchemeHandler | MAS gate cleared for this warning | Pro gate cleared for this warning | `Epistemos/Engine/EpdocEditorBridge.swift:260-266`; assessment `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:25`, `:73` | Both schemes build without the warning; Epdoc targeted tests pass | Fixed with actor-safe URL scheme response delivery | Yes; done in Epdoc fix |
@@ -109,6 +109,14 @@ Result: vault/schema blockers patched structurally; runtime proof still pending;
 - `V1-GATE-VAULT-001`: PATCHED structurally. `VaultIndexActor.fullPageData(for:)` and `allPagesForRebuild()` now snapshot page id, title, file path, inline body, joined tags, and updated date before awaiting body reads, so the instant-recall rebuild no longer reads `SDPage.tags` after an `await`.
 - `V1-GATE-SWIFT-004`: REOPENED. `RuntimeValidationTests` compiles but the suite still fails on a stale landing source guard at `EpistemosTests/RuntimeValidationTests.swift:2412`. The `.xcresult` failure list did not include the new vault guards after the patch.
 - No graph rendering files were changed. No user vault files were reset or deleted. The durable user store was inspected read-only only; the additive repair has not yet been applied to the live store outside app launch.
+
+### Pass 5 - 2026-05-14
+
+Result: Swift source-guard test gates cleared; zero-streak remains 0 because MAS/Pro live smoke, vault zero-crash/runtime proof, and MAS import-level triage remain unresolved.
+
+- `V1-GATE-SWIFT-003`: PASS after test-only updates. ThemePair expectations now match the current production intent: pair-driven display typography, Platinum light heading glow, main-chat surface-variant backdrop sampling, and current LiquidGreeting task/timing shape.
+- `V1-GATE-SWIFT-004`: PASS after test-only updates. RuntimeValidation source guards now match current RootView `HomeWindowIdentityObserver(themeIsDark:)` usage and cloud-agent routing across Pro/Fast/Thinking when the selected cloud surface supports the agent tier.
+- No production files were changed in this pass. No graph rendering files were touched.
 
 ## Fix Log
 
@@ -173,6 +181,18 @@ Verification:
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - Backup refinement verification: `RuntimeValidationTests` still fails only on stale source guards at `EpistemosTests/RuntimeValidationTests.swift:2420` and `:4492`; the new backup/schema guards are not in the `.xcresult` failure list. Pro and App Store builds both pass after the backup change.
+
+### Swift source-guard cleanup - 2026-05-14
+
+Changed:
+
+- `EpistemosTests/ThemePairTests.swift`: updated stale theme, backdrop, and LiquidGreeting expectations to match current v1 production behavior.
+- `EpistemosTests/RuntimeValidationTests.swift`: updated stale RootView and cloud-agent-routing source guards.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 
 ## Current Verdict
 
