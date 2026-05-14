@@ -526,6 +526,23 @@ Verification:
 - MAS manifest narrow `nm -gU` scan against `build/audit-appstore-derived-data/Build/Products/Debug/Epistemos.app/Contents/Frameworks/libagent_core.dylib` - PASS, no matches.
 - MAS built product bundle id check: `com.epistemos.appstore`.
 
+### Note ask-bar rewrite verification follow-up - 2026-05-14
+
+Changed:
+
+- No production source changed. This pass separated automated note rewrite coverage from the still-blocked live MAS scratch-vault smoke.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosNoteAskRewriteVerification -only-testing:EpistemosTests/NoteChatStateTests/toolbarAskStreamsInlineAndAutoCommits -only-testing:EpistemosTests/NoteChatStateTests/operationSubmitRoutesThinkTagsAwayFromInlineEditor -only-testing:EpistemosTests/TriageServiceTests/notesSimpleOperationsUseAppleIntelligence -only-testing:EpistemosTests/TriageServiceTests/notesGenerateUsesLocalPath test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- Automated coverage proves the simple note ask-bar rewrite path streams inline, auto-commits through `NoteChatState`, routes think-tag output away from the inline editor, and classifies simple note operations onto the expected local/Apple Intelligence path.
+
+Live MAS scratch-vault smoke:
+
+- BLOCKED by vault-safety constraints in this environment. The isolated MAS audit app correctly rejected a CLI-created bookmark for `build/live-smoke-scratch-vault` as not security-scoped, which confirms the sandbox gate is active.
+- A Computer Use file-picker attempt did not reliably navigate to the scratch folder and instead selected the currently open user vault location. The app was killed before any note rewrite or note mutation was executed.
+- No source, graph files, or user vault note content was changed. Runtime-only scratch files under `build/` were used for this attempt.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, and the MAS graph surface opens without a no-vault crash. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop and cloud routing contract checks are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: note ask-bar simple rewrite smoke remains incomplete in a safe no-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, RCA8/vault soak evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, and the MAS graph surface opens without a no-vault crash. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, and automated note ask-bar rewrite checks are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, RCA8/vault soak evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.
