@@ -336,23 +336,123 @@ real regression.
 
 ---
 
-## 9. Audit Register Status
+## 9. Audit Register Status — THE BIG RESEARCH-DRIVEN BACKLOG
 
-`docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`:
-- **273 total Status entries**
-- **206 PATCHED**
-- **17 CONFIRMED** (observational; not action items)
-- **3 DEFERRED** (graph fullscreen perf needs Instruments, SwiftData
-  `FutureBackingData` reproducibility, hackathon-tier "DO NOT START
-  BEFORE P0-P1 CLOSURE" architecture lane)
-- **1 OPEN** (`RCA11-P1-002` — graph fullscreen perf; runtime profiling
-  task, not a code fix)
-- **Rest:** PATCHED variants (PARTIAL / FOCUSED-AUTOMATED-GREEN /
-  SOURCE-REOPENED) — all need operator smoke on real hardware
+This is **the giant research backlog the user asked you to check**. It's
+the canonical "did Claude actually fix what the research drops surfaced"
+ledger. **Read it cover-to-cover** before you stamp anything green.
 
-**Codex: agree or disagree** with closure of these items. Pick a random
-sample of 5 PATCHED items and verify the cited fix actually shipped (file
-+ line numbers should be reachable). Flag any drift.
+### Primary file
+
+**`docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`** — 14,680
+lines, ~216 items across Research Drops 1–13 + RCA2–13 + UIX-2026-05-09.
+
+The audit register is the **living truth** for whether the app is
+release-ready. Headline as of 2026-05-13 (Claude's thirteenth-pass):
+
+| Status | Count | Meaning |
+|---|---|---|
+| `PATCHED` (base + variants) | ~206 | Structural fix shipped, often pinned by a drift-gate test |
+| `PATCHED PARTIAL` | ~31 | Structural fix in place; manual smoke/profiling deferred |
+| `CONFIRMED` | 17 | Observational entries; not action items |
+| `DEFERRED` | 3 | Architecture lane / hardware-gated / SwiftData reproducibility |
+| `OPEN` | 1 | `RCA11-P1-002` graph fullscreen perf — runtime profiling task, not a code fix |
+| `TODO` | 0 (the Claude session closed the last 109 in 2 days) |
+
+### Pair file (Codex's existing prompt for the same register)
+
+**`docs/audits/CODEX_RECURSIVE_FIX_PROMPT_2026_05_09.md`** — 430-line
+terminal prompt with the recursive fix protocol the user originally
+wrote for Codex. Phase 0 (repo state inspection), required fix order
+(P0 vault lifecycle → CodeFileService containment → ... → finalization),
+hard rules ("never trust docs as runtime proof", "test-first", "minimal
+fixes only").
+
+**Read both files before you do anything else in §10.**
+
+### Companion canon files referenced by the audit register
+
+These are listed inside the Codex prompt at lines 29–42 — the supporting
+research/audit/canon sources that gave rise to register entries. Codex
+should pull these on a "need-to-know-for-the-entry-you're-verifying" basis,
+not all up front:
+
+- `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` — the research-corpus index
+- `docs/KNOWN_ISSUES_REGISTER.md` — the older 19-bug registry that fed into the audit
+- `docs/audits/V1_RELEASE_AUDIT_2026_05_07.md`
+- `docs/audits/V1_DEEP_INTERACTION_AUDIT_2026_05_08.md`
+- `docs/audits/PERFORMANCE_CONCURRENCY_AUDIT.md`
+- `docs/audits/PRIVACY_APP_STORE_AUDIT.md`
+- `docs/audits/USER_WIRING_CAPABILITY_MAP.md`
+- `docs/audits/DATA_PERSISTENCE_INDEXING_AUDIT.md`
+- `docs/audits/PRE_HELIOS_FEATURE_AUDIT_2026_05_06.md`
+- `docs/CLI_CONFIG_COMPILATION_RESEARCH.md`
+- `docs/future-work-audit.md`
+
+### The 22 verbatim research packets
+
+`docs/audits/codebase-verbatim-packets-2026-05-09/00_INDEX.md` through
+`22_CODE_PACKET.md`. These are the literal source dumps the audit register
+was built against. Use them when verifying a PATCHED item's evidence
+chain reaches "I can see the code from the packet matches the code on
+disk today."
+
+### What Codex should actually do with the register
+
+1. **Read the register top-to-bottom once.** Skim if you have to, but
+   notice the cadence — every entry has a `Status:` line, a `Subsystem:`
+   line, a `Research signal:` line (what the research drop reported), and
+   then evidence (file paths, line numbers, commit hashes, command
+   outputs).
+
+2. **Sample 10 random PATCHED items.** For each, walk the cited evidence:
+   - Open the file at the cited line(s).
+   - Confirm the fix described is actually present in the current code.
+   - Run the cited test/grep/command and confirm it returns the cited result.
+   - If any of these three fail, the PATCHED status is drift — flag the
+     entry by name in your assessment doc and recommend reopening it.
+
+3. **Pay special attention to these PATCHED categories**, which the user
+   has been burned by in prior sessions:
+   - **"Structural fix landed but manual smoke pending"** — the drift gate
+     test passes but no human has actually exercised the feature on real
+     hardware. The audit register marks these as `PATCHED PARTIAL` or
+     `FOCUSED AUTOMATED GREEN / MANUAL SMOKE PENDING`. Skim 5 of these
+     and assess whether the remaining manual smoke is plausible to do in
+     this session via computer-use (see §10.4 of this handoff).
+   - **"Doc claims X is wired, but I cannot find the call chain"** — the
+     classic drift mode. The register has a `RCA12 Pre-Build Recursive
+     Fix Order` section that lists items where Claude couldn't reach the
+     evidence; verify those are now reachable.
+   - **"OBSOLETE" closures** — entries marked OBSOLETE should have a
+     specific reason (feature retracted, doctrine changed, supersedure
+     by a different fix). Confirm the cited reason still holds.
+
+4. **Specifically verify the `Finalization Plan` at the bottom of the
+   register** (lines 14649–14694). Five steps:
+   1. Manual smoke pass on every PATCHED PARTIAL "remaining risk" line
+   2. App Store CI smoke (Epistemos-AppStore scheme builds + tests pass)
+   3. MAS binary submission (Xcode Organizer → Archive → Distribute)
+   4. AI disclaimer audit (footer renders in all 4 tiers + light/dark)
+   5. Pro release (follows MAS reviewer feedback)
+
+5. **The register explicitly defers** these items to post-v1.0; do not
+   try to close them in this session:
+   - `RCA-P1-002` (.epdoc save heaviness) — needs Instruments profiling
+   - `RCA-P1-024` (Apple Intelligence main-actor) — needs macOS 26+ hardware
+   - `RCA13-P1-002` (CLI discovery + install prompts) — Pro-only feature
+   - All P2/P3 items in research drops 2–13 — long-tail tech debt
+
+### Codex acceptance bar for the register (in addition to §10 below)
+
+- Wrote at least 10-sample audit verification result into your
+  assessment doc with file paths + line numbers + result.
+- Flagged any drift between PATCHED status and reachable evidence.
+- Confirmed the `Finalization Plan` 5 steps are still the correct
+  release-prep sequence (no missing step, no obsolete step).
+- Re-rolled-up the count at the top of the register if your sample
+  surfaces any reopens (do this in a follow-up commit so the count is
+  honest).
 
 ---
 
@@ -444,9 +544,30 @@ Use the `computer-use` MCP tools to:
 6. **Take a final screenshot** of the running app to confirm the build is
    clean.
 
-### 10.5 Audit register sanity sample
+### 10.5 Audit register sanity sample — the big research-driven check
 
-Per §9, pick 5 PATCHED items at random and verify the cited fix exists.
+Per §9, read **`docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`**
+(14,680 lines) and **`docs/audits/CODEX_RECURSIVE_FIX_PROMPT_2026_05_09.md`**
+(the paired Codex prompt) cover-to-cover, then:
+
+1. Sample **10** PATCHED items at random — for each, verify the cited
+   evidence (file paths, line numbers, commit hashes, command outputs)
+   matches the current code. Flag drift.
+2. Sample **3** PATCHED PARTIAL items — for each, assess whether the
+   remaining manual smoke is plausible to do in this session via
+   computer-use (§10.4 of this handoff). If so, do it.
+3. Sample **2** OBSOLETE items — confirm the cited supersedure reason
+   still holds.
+4. Verify the `Finalization Plan` at the bottom of the register (lines
+   14649–14694) — 5-step release-prep sequence — is still correct.
+5. Record all findings in `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md`
+   with explicit file/line citations.
+
+If your sample uncovers drift (PATCHED status with broken evidence), do a
+follow-up commit on `codex/research-snapshot-2026-05-08` that:
+- Reopens the entry by changing `Status: PATCHED` to `Status: REOPENED-2026-05-13 <reason>`
+- Adjusts the rollup counts at the top of the register
+- Adds the new findings to your assessment doc
 
 ### 10.6 Independent assessment of MAS readiness
 
@@ -497,13 +618,40 @@ nm -gU "$APP/Contents/Frameworks/libagent_core.dylib" 2>/dev/null | \
 
 ## 12. Files You'll Want Open
 
-Top-level read-firsts for context:
-- `CLAUDE.md` — project rules + non-negotiable constraints
-- `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` — authoritative MAS feature inventory
-- `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` — audit register
-- `docs/audits/V6_2_SESSION_PROGRESS_2026_05_12.md` — V6.2 substrate progress
-- `docs/fusion/helios v6.2.md` — V6.2 canon (architecture / falsifiers / Tier-Map)
-- `docs/fusion/EPISTEMOS_V6_2_CANON_INTAKE_2026_05_07.md` — V6.2 intake (load-bearing deltas)
+### Mandatory read-firsts (in this order)
+
+1. **`CLAUDE.md`** — project rules + non-negotiable constraints
+2. **`AGENTS.md`** — Codex-specific guardrails
+3. **`docs/audits/CODEX_RECURSIVE_FIX_PROMPT_2026_05_09.md`** — your
+   existing recursive-fix protocol (430 lines)
+4. **`docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`** —
+   the giant ~216-item research-driven audit register (14,680 lines)
+5. **`docs/MAS_RELEASE_MANIFEST_2026_05_13.md`** — authoritative MAS feature inventory
+6. **`docs/audits/V6_2_SESSION_PROGRESS_2026_05_12.md`** — V6.2 substrate progress
+7. **`docs/fusion/helios v6.2.md`** — V6.2 canon (architecture / falsifiers / Tier-Map)
+8. **`docs/fusion/EPISTEMOS_V6_2_CANON_INTAKE_2026_05_07.md`** — V6.2 intake (load-bearing deltas)
+9. **`docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`** — research-corpus index (pull from here as needed for §9 audit-entry verification)
+
+### Companion audit/canon files (pull on demand)
+
+Listed in the Codex prompt at lines 29–42:
+- `docs/KNOWN_ISSUES_REGISTER.md` — older 19-bug registry that fed into the audit
+- `docs/audits/V1_RELEASE_AUDIT_2026_05_07.md`
+- `docs/audits/V1_DEEP_INTERACTION_AUDIT_2026_05_08.md`
+- `docs/audits/PERFORMANCE_CONCURRENCY_AUDIT.md`
+- `docs/audits/PRIVACY_APP_STORE_AUDIT.md`
+- `docs/audits/USER_WIRING_CAPABILITY_MAP.md`
+- `docs/audits/DATA_PERSISTENCE_INDEXING_AUDIT.md`
+- `docs/audits/PRE_HELIOS_FEATURE_AUDIT_2026_05_06.md`
+- `docs/CLI_CONFIG_COMPILATION_RESEARCH.md`
+- `docs/future-work-audit.md`
+
+### Verbatim research packets (the raw source dumps the audit register was built against)
+
+`docs/audits/codebase-verbatim-packets-2026-05-09/00_INDEX.md` and
+`01_CODE_PACKET.md`–`22_CODE_PACKET.md`. Use these for "I can see the
+packet code matches the on-disk code today" verification of PATCHED
+items.
 
 Touched this session:
 - `Epistemos/Views/Chat/ChatInputBar.swift` (951a74c38)
@@ -521,13 +669,24 @@ Tightly-coupled with the fixes:
 
 ## 13. Acceptance Bar (TL;DR for Codex)
 
-✅ All four commits build clean
-✅ Both MAS leak audits return ZERO matches
-✅ Existing Swift + Rust tests pass
+✅ All four commits build clean (`Epistemos` + `Epistemos-AppStore` schemes)
+✅ Both MAS leak audits return ZERO matches (strings + nm)
+✅ Existing Swift + Rust tests pass (`swift test`, `cargo test` on both
+   `agent_core` and `epistemos-research`)
 ✅ Graph rendering / layout / edges / selection unchanged by `f5f50d0ac`
+   (screenshot before/after navigation away+back)
 ✅ At least one live computer-use smoke pass against the running app
-✅ Random sample of 5 PATCHED audit items verified
-✅ Written assessment doc at `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md`
+   covering main chat, note ask-bar, graph chat
+✅ **Read `RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` cover-to-cover**
+✅ **Read `CODEX_RECURSIVE_FIX_PROMPT_2026_05_09.md` cover-to-cover**
+✅ Random sample of **10 PATCHED + 3 PATCHED-PARTIAL + 2 OBSOLETE** audit
+   items verified against current code
+✅ `Finalization Plan` 5-step sequence verified still correct
+✅ Any drift surfaced → reopened entries + count rollup updated +
+   findings recorded
+✅ Written assessment doc at
+   `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md` with explicit
+   file/line citations and go/no-go recommendation
 
 If any of the above fails, **halt and escalate** before continuing.
 
