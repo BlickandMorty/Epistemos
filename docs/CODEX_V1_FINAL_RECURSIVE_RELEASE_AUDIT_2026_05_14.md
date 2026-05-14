@@ -132,6 +132,15 @@ Result: required Rust/default, Rust/Pro, research tests, and clean App Store sca
   - `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1302 passed.
   - `cargo test --manifest-path epistemos-research/Cargo.toml --features research` - PASS, 492 lib tests + 113 canonical consistency tests passed.
 
+### Pass 7 - 2026-05-14
+
+Result: live store schema repair and backup behavior verified; MAS live smoke reopened a chat UI livelock, now patched structurally; zero-streak remains 0 pending rerun of MAS and Pro smoke.
+
+- `V1-GATE-VAULT-002`: PASS for runtime schema repair. Before relaunch, read-only SQLite inspection showed the live store still lacked `ZWIKILINKREFERENCES` and `ZWIKILINKREFERENCESCANSIGNATURE`, and the existing `default.store.pre-column-repair.backup` was zero bytes from an interrupted backup attempt. After launching the rebuilt App Store app, the backup was replaced with a valid 377475072-byte SQLite database and the live `ZSDPAGE` table contained both wiki-link columns. Backup `PRAGMA integrity_check` returned `ok` and the backup preserved the pre-repair schema.
+- `V1-GATE-LIVE-MAS-001`: REOPENED during main-chat vault-query smoke. App Store build passed Settings diagnostics, hidden HELIOS v1 posture, Cognitive DAG row, and main-chat `hi`. Submitting `What notes in my vault mention train?` caused the app to become unavailable to Computer Use (`noWindowsAvailable` / timeout) while PID 19240 stayed alive at about 99% CPU. `/tmp/epistemos-mas-vault-query-sample.txt` shows the main thread spending samples in SwiftUI `LazyStack` layout and `ScrollActionDispatcher.updateValue`, with a `ChatView.body` `onScrollGeometryChange` closure on the stack; Rust worker threads were parked.
+- `V1-GATE-LIVE-MAS-002`: PATCHED structurally. `ChatView`, `MiniChatView`, and `NoteChatSidebar` now keep `onScrollGeometryChange` transforms pure by emitting a `CGFloat` distance-to-bottom. Hysteresis is applied in the action via `ScrollStability.updatedAutoFollowState`, avoiding reads of `@State autoFollow` inside the geometry transform that matched the observed AttributeGraph/scroll feedback loop. MAS live smoke rerun remains required.
+- No graph rendering files were edited. `HologramSearchSidebar` was not touched because the reproduced failure was in the main-chat scroll stack, and graph rendering remains protected.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
@@ -218,6 +227,23 @@ Verification:
 
 - `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build tools::registry::tier_tests` - PASS, 36 passed.
 - `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1302 passed.
+
+### Live schema repair and chat scroll livelock patch - 2026-05-14
+
+Changed:
+
+- `Epistemos/App/AppBootstrap.swift`: invalid or zero-byte pre-column-repair backups are now replaced before additive schema repair, and a failed preflight repair no longer deletes the live store artifacts.
+- `Epistemos/Sync/VaultSyncService.swift`: SQLite backup now writes to a uniquely named temp file and only replaces the destination after a successful backup/copy; SQLite backup retry handling is bounded and no longer sleeps on every successful step.
+- `EpistemosTests/RuntimeValidationTests.swift`: verifies invalid pre-column backups are replaced before page-column repair.
+- `Epistemos/Views/Chat/ChatView.swift`, `Epistemos/Views/MiniChat/MiniChatView.swift`, `Epistemos/Views/Notes/NoteChatSidebar.swift`: scroll geometry observation emits distance-to-bottom and applies follow-mode hysteresis outside the transform.
+- `EpistemosTests/ScrollStabilityTests.swift`, `EpistemosTests/MiniChatViewAuditTests.swift`: source guards prevent reintroducing `@State autoFollow` reads inside scroll geometry transforms.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ScrollStabilityTests -only-testing:EpistemosTests/MiniChatViewAuditTests -only-testing:EpistemosTests/RuntimeValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug build CODE_SIGNING_ALLOWED=NO` - PASS; still prints the existing non-fatal SwiftLint plugin output-folder failures after `** BUILD SUCCEEDED **`.
+- Live store schema check after App Store launch - PASS as noted in Pass 7.
+- MAS live-smoke rerun after the scroll patch - pending.
 
 ## Current Verdict
 

@@ -277,13 +277,17 @@ private struct MiniChatThread: View {
                         .padding(.vertical, 18)
                     }
                     .onScrollGeometryChange(
-                        for: Bool.self,
+                        for: CGFloat.self,
                         of: { geometry in
-                            ScrollStability.followMode(for: geometry, from: autoFollow)
+                            ScrollStability.distanceToBottom(for: geometry)
                         }
-                    ) { _, isFollowingBottom in
-                        guard isFollowingBottom != autoFollow.isFollowingBottom else { return }
-                        autoFollow.setFollowingBottom(isFollowingBottom)
+                    ) { _, distanceToBottom in
+                        let next = ScrollStability.updatedAutoFollowState(
+                            from: autoFollow,
+                            distanceToBottom: distanceToBottom
+                        )
+                        guard next != autoFollow else { return }
+                        autoFollow = next
                     }
                     .onChange(of: miniChatThread?.messages.count) { _, _ in
                         guard autoFollow.isFollowingBottom else { return }
