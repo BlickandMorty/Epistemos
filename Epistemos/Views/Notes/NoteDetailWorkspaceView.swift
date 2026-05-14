@@ -1924,6 +1924,36 @@ struct NoteDetailWorkspaceView: View {
         let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        // USABILITY-001 follow-up (note ask bar, 2026-05-13): when the
+        // user's query looks like agent-tier work ("find my note about
+        // X", "edit my essay on Y", etc.), the inline TriageService path
+        // can't dispatch app tools (vault.search / vault.read / file.*)
+        // — they only live in the Rust agent_core + LocalAgentLoop
+        // paths that main chat routes through. So instead of running an
+        // inline turn that's structurally guaranteed to hallucinate ("I
+        // can't read your vault"), we transparently escalate to main
+        // chat where the full tool surface is available. The current
+        // note is preserved as a `ContextAttachment` so the model still
+        // has its content + capabilities to read/edit it.
+        //
+        // Non-agent intents (rewrite/summarize/explain/expand) stay on
+        // the existing inline path so the fast in-note transform UX is
+        // unchanged.
+        let isCloudProvider: Bool = {
+            switch inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode) {
+            case .cloud: return true
+            case .localMLX, .appleIntelligence: return false
+            }
+        }()
+        let prediction = ChatCapability.predictIntent(
+            text: trimmed,
+            isCloudProvider: isCloudProvider
+        )
+        if prediction.predicted == .agent || prediction.predicted == .research {
+            routeToolbarAskToMainChat()
+            return
+        }
+
         noteChatState.submitToolbarQuery(
             trimmed,
             triageService: triageService,
