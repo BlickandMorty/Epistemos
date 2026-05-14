@@ -1315,6 +1315,19 @@ mod tests {
     }
 
     #[test]
+    fn read_only_tools_require_approval_when_read_auto_approval_is_disabled() {
+        let requirement =
+            resolve_approval_requirement(RiskLevel::ReadOnly, false, ApprovalDecision::AutoApprove)
+                .expect("permission policy should not deny")
+                .expect(
+                    "read-only tools should still require approval when auto-approve is disabled",
+                );
+
+        assert_eq!(requirement.risk_level, "read_only");
+        assert!(requirement.reason.contains("Tool policy requires approval"));
+    }
+
+    #[test]
     fn smart_approval_denials_short_circuit_execution() {
         let denial = resolve_approval_requirement(
             RiskLevel::Destructive,

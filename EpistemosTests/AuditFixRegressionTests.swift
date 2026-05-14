@@ -134,6 +134,31 @@ struct AuditFixRegressionTests {
         #expect(!permissionBlock.contains("decision: approved ? .approvedAutoReadOnly : .deniedByPolicy"))
     }
 
+    @Test("managed Rust agent entry points keep read approvals delegated to Swift")
+    func managedRustAgentEntryPointsKeepReadApprovalsDelegatedToSwift() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+
+        func agentConfigBlock(after functionMarker: String) throws -> String {
+            let functionStart = try #require(coordinator.range(of: functionMarker))
+            let functionTail = coordinator[functionStart.lowerBound...]
+            let configStart = try #require(functionTail.range(of: "let agentConfig = AgentConfigFFI("))
+            let configTail = functionTail[configStart.lowerBound...]
+            let configEnd = try #require(configTail.range(of: "var capturedDelegate"))
+            return String(configTail[..<configEnd.upperBound])
+        }
+
+        let commandCenterConfig = try agentConfigBlock(
+            after: "private func runCommandCenterRustAgentPath("
+        )
+        let mainChatConfig = try agentConfigBlock(after: "private func runRustAgentPath(")
+
+        for config in [commandCenterConfig, mainChatConfig] {
+            #expect(config.contains("autoApproveReads: false"))
+            #expect(config.contains("autoApproveWrites: false"))
+            #expect(!config.contains("autoApproveReads: true"))
+        }
+    }
+
     @Test("approval prompts name the persistent permission group and point to quick setup presets")
     func approvalPromptsNameThePersistentPermissionGroupAndPointToQuickSetupPresets() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
