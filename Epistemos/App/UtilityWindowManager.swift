@@ -24,6 +24,8 @@ enum WindowThemeStyler {
         }
 
         host.translatesAutoresizingMaskIntoConstraints = false
+        host.wantsLayer = true
+        host.layer?.backgroundColor = NSColor.clear.cgColor
         container.addSubview(host)
         NSLayoutConstraint.activate([
             host.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -174,6 +176,9 @@ enum UtilityPanelChrome {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
+        panel.hasShadow = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "NotesSidebarToolbar")
         panel.toolbar = toolbar
         panel.toolbarStyle = .unifiedCompact
