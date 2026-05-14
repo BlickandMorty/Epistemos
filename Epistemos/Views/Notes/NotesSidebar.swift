@@ -81,11 +81,11 @@ private struct SidebarFolderItem: Identifiable, Equatable {
     let parentId: String?
     var childFolderIds: [String]
     let relativePath: String
-    /// Child pages — populated from folder.pages (primary) or subfolder match (fallback).
+    /// Child pages from the active page query, with subfolder matching as fallback.
     var childPages: [SidebarPageItem]
     var descendantPageCount: Int
 
-    init(_ folder: SDFolder) {
+    init(_ folder: SDFolder, childPages: [SidebarPageItem] = []) {
         id = folder.id
         name = folder.name
         isCollection = folder.isCollection
@@ -93,17 +93,13 @@ private struct SidebarFolderItem: Identifiable, Equatable {
         parentId = folder.parent?.id
         childFolderIds = (folder.children ?? []).sorted { $0.sortOrder < $1.sortOrder }.map(\.id)
         relativePath = folder.relativePath
-        // Primary: read directly from folder.pages (v3 pattern).
-        // Deduplicate by ID to prevent SwiftUI duplicate ID crashes.
-        let pages = (folder.pages ?? []).filter { !$0.isArchived }
-            .sorted { $0.updatedAt > $1.updatedAt }
         var seenIds = Set<String>()
-        childPages = pages.compactMap { page in
-            guard !seenIds.contains(page.id) else { return nil }
+        self.childPages = childPages.filter { page in
+            guard !seenIds.contains(page.id) else { return false }
             seenIds.insert(page.id)
-            return SidebarPageItem(page)
+            return true
         }
-        descendantPageCount = childPages.count
+        descendantPageCount = self.childPages.count
     }
 }
 
@@ -117,14 +113,14 @@ private struct NotesSidebarFolderCacheSignature: Equatable {
     let childPageIds: [String]
     let relativePath: String
 
-    init(_ folder: SDFolder) {
+    init(_ folder: SDFolder, childPageIds: [String]) {
         id = folder.id
         name = folder.name
         isCollection = folder.isCollection
         sortOrder = folder.sortOrder
         parentId = folder.parent?.id
         childFolderIds = (folder.children ?? []).sorted { $0.sortOrder < $1.sortOrder }.map(\.id)
-        childPageIds = (folder.pages ?? []).filter { !$0.isArchived }.map(\.id).sorted()
+        self.childPageIds = childPageIds.sorted()
         relativePath = folder.relativePath
     }
 }
@@ -613,7 +609,19 @@ struct NotesSidebar: View {
         // expensive rebuild. This prevents the 5s prose editor save cycle from
         // triggering full cache reconstruction when only body/updatedAt changed.
         let newItems = primaryPages.map { SidebarPageItem($0) }
-        let newFolderSignature = allFolders.map(NotesSidebarFolderCacheSignature.init)
+        let newPageItemsByFolderId = Dictionary(
+            grouping: newItems.filter { !$0.isArchived && $0.folderId != nil },
+            by: { $0.folderId ?? "" }
+        )
+        let newPageIdsByFolderId = newPageItemsByFolderId.mapValues { pages in
+            pages.map(\.id)
+        }
+        let newFolderSignature = allFolders.map { folder in
+            NotesSidebarFolderCacheSignature(
+                folder,
+                childPageIds: newPageIdsByFolderId[folder.id] ?? []
+            )
+        }
         if newItems == cachedPageItems && newFolderSignature == cachedFolderCacheSignature {
             return
         }
@@ -646,11 +654,16 @@ struct NotesSidebar: View {
         cachedPageSearchTrigramIndex.rebuild(
             cachedPageSearchCatalog.map { (key: $0.pageId, text: $0.haystack) }
         )
-        cachedFolderItems = allFolders.map(SidebarFolderItem.init)
+        cachedFolderItems = allFolders.map { folder in
+            SidebarFolderItem(
+                folder,
+                childPages: newPageItemsByFolderId[folder.id] ?? []
+            )
+        }
         cachedFolderCacheSignature = newFolderSignature
 
-        // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),
-        // match pages to folders using the denormalized subfolder path → folder.relativePath.
+        // Fallback: if the active page query has not resolved a folder relationship,
+        // match pages to folders using the denormalized subfolder path -> folder.relativePath.
         // This catches the case where VaultIndexActor assigned page.folder on a background
         // actor and the relationship hasn't faulted into the main context yet.
         let anyFolderEmpty = cachedFolderItems.contains { $0.childPages.isEmpty }
