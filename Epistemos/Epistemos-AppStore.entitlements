@@ -1,16 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-  ════════════════════════════════════════════════════════════════════
-  Epistemos — Mac App Store entitlements (MAS-first, 2026-05-14)
-  ════════════════════════════════════════════════════════════════════
-
-  Per `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md`. Active
-  surface only — Pro-tier capabilities live in the Pro entitlements
-  file. App Group restored 2026-05-14 after paid Apple Developer
-  Program enrollment activated; shared container `group.com.epistemos.shared`
-  registered at developer.apple.com.
--->
 <plist version="1.0">
 <dict>
 	<key>com.apple.security.app-sandbox</key>
