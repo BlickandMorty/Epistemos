@@ -2855,6 +2855,9 @@ private struct LocalModelRow: View {
     private var metaItems: some View {
         Text(descriptor.familyName)
         Text(descriptor.approximateDownloadLabel)
+        if case .installed(let record) = state {
+            Text("Installed \(installedStorageLabel(for: record))")
+        }
         if let model = LocalTextModelID(rawValue: descriptor.id) {
             Text("Chat \(model.minimumRecommendedInteractiveMemoryGB) GB")
         } else {
@@ -2880,12 +2883,19 @@ private struct LocalModelRow: View {
 
     private var metaAccessibilityLabel: String {
         var parts: [String] = [descriptor.familyName, descriptor.approximateDownloadLabel]
+        if case .installed(let record) = state {
+            parts.append("Installed footprint \(installedStorageLabel(for: record))")
+        }
         if let model = LocalTextModelID(rawValue: descriptor.id) {
             parts.append("Chat minimum \(model.minimumRecommendedInteractiveMemoryGB) gigabytes")
         } else {
             parts.append("Minimum \(descriptor.minimumRecommendedMemoryGB) gigabytes")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private func installedStorageLabel(for record: LocalModelInstallRecord) -> String {
+        ByteCountFormatter.string(fromByteCount: record.sizeBytes, countStyle: .file)
     }
 
     // Guards isFinite — Int(Double) traps on NaN/Infinity.
