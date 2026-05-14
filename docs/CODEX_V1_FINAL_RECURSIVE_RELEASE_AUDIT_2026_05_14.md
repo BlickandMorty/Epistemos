@@ -13,7 +13,7 @@ Recorded at start of audit:
 | Working directory | `/Users/jojo/Downloads/Epistemos` |
 | Branch | `codex/research-snapshot-2026-05-08` |
 | Starting HEAD | `f2ec53514` |
-| Current HEAD after local fixes | `60c3067cb` |
+| Current HEAD before Epdoc fix | `3cc7b2fc9` |
 | Starting dirty files | `M docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`; `?? docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md` |
 | Current dirty files | pre-existing `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` and untracked `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md`, unless noted in later entries |
 | Recent starting commits | `f2ec53514`, `1feb73423`, `9b74c615d`, `f5f50d0ac`, `3a43066df`, `951a74c38` |
@@ -60,7 +60,7 @@ Known reopened gates at start:
 | V1-GATE-SWIFT-003 ThemePair source-guard drift | FAIL / REOPENED | Swift tests / theme + landing source guards | MAS release-gate risk because tests fail | Pro release-gate risk because tests fail | `.xcresult` failures at `EpistemosTests/ThemePairTests.swift:386`, `:387`, `:388`, `:450-452`, `:456-458`, `:521`, `:1311`, `:1320`, `:1367` | `xcodebuild ... -only-testing:EpistemosTests/ThemePairTests test CODE_SIGNING_ALLOWED=NO` | Reopen as stale-test or real-regression triage; do not change graph rendering | Test-only changes allowed after confirming production intent |
 | V1-GATE-MAS-001 App Store artifact scanner | PASS after patch | Packaging / MAS compliance | MAS gate cleared for official scanner | Pro non-blocker; Pro build still passes | `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:31-39`; clean scan report `build/codex-appstore-audit-gate` | `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-audit-gate scripts/scan_appstore_bundle.sh /tmp/EpistemosAppStoreGateDD/Build/Products/Debug/Epistemos.app` | Fixed MAS string leaks and scanner false-positive tokenization without removing Pro functionality | Yes; done in `60c3067cb` |
 | V1-GATE-MAS-002 Undefined fork/exec imports | OPEN / MAS compliance risk | Packaging / third-party/static Rust linkage | MAS risk pending Release/narrow-policy decision | Pro non-blocker | Exploratory `nm -u` on isolated Debug bundle still shows `_fork`, `_execvp`, `_posix_spawnp` in `Epistemos.debug.dylib` and `_fork`, `_execlp` in `llama.framework`; the official scanner does not inspect undefined imports | Repeat on Release bundle; compare against manifest's `nm -gU` gate and decide whether this is an App Store blocker or accepted static-link baseline | Track separately; do not hide in official scanner | Maybe, only after linkage evidence |
-| V1-GATE-EPDOC-001 EpdocEditorBridge Swift 6 warning | FAIL / REOPENED | Epdoc WKURLSchemeHandler | MAS blocker risk under Swift 6 strict concurrency | Pro blocker risk under Swift 6 strict concurrency | `Epistemos/Engine/EpdocEditorBridge.swift:260-263`; assessment `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:25`, `:73` | Build both schemes and confirm warning absent | Minimal actor-safe URL scheme response delivery | Yes |
+| V1-GATE-EPDOC-001 EpdocEditorBridge Swift 6 warning | PASS after fix | Epdoc WKURLSchemeHandler | MAS gate cleared for this warning | Pro gate cleared for this warning | `Epistemos/Engine/EpdocEditorBridge.swift:260-266`; assessment `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:25`, `:73` | Both schemes build without the warning; Epdoc targeted tests pass | Fixed with actor-safe URL scheme response delivery | Yes; done in Epdoc fix |
 | V1-GATE-VAULT-001 RCA8-P0-003 SwiftData tags crash | FAIL / REOPENED | Vault / SwiftData lifecycle / instant recall | MAS blocker | Pro blocker if same lifecycle applies | `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:53-61`; `Epistemos/Sync/VaultIndexActor.swift:2072-2082`; `Epistemos/Sync/VaultSyncService.swift:2758-2762`, `:2814-2824` | Zero-crash rerun/soak on App Store and Pro bundles with existing user data untouched | Minimal vault-safe snapshot/access fix only after evidence; no data reset | Yes, with rollback-safe plan |
 | V1-GATE-VAULT-002 local store schema error | FAIL / REOPENED | SwiftData/CoreData store compatibility | MAS blocker for live smoke | Pro blocker if same local store path is used | `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:42-50` | Launch against current local store; verify no `ZWIKILINKREFERENCESCANSIGNATURE` errors without mutating user vault casually | Diagnose schema/migration/recovery path; no destructive reset | Yes, only safe migration/recovery |
 | V1-GATE-LIVE-MAS-001 MAS live smoke incomplete | BLOCKED | Runtime UI / MAS | MAS blocker | Pro not covered | `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md:42-51` | Computer Use: settings diagnostics, HELIOS V5 off, Cognitive DAG row, chat `hi`, chat vault query, note ask-bar rewrite/escalation, graph inspector summarize/escalation, graph unchanged screenshots | Blocked by runtime store errors until fixed | No broad UI changes without reproduced bug |
@@ -93,6 +93,13 @@ Result: MAS official artifact scanner cleared; new import-level MAS risk added; 
 - `V1-GATE-MAS-002`: OPEN. An exploratory import scan outside the official gate still shows undefined `_fork`, `_execvp`, and `_posix_spawnp` in the app debug dylib and `_fork`, `_execlp` in `llama.framework`. Static Rust archives all show the same Rust std process imports, so this needs Release-bundle triage rather than a broad refactor.
 - `V1-GATE-EPDOC-001`: FAIL still present in both MAS and Pro builds.
 
+### Pass 3 - 2026-05-14
+
+Result: Epdoc Swift 6 warning cleared; zero-streak remains 0 because vault/runtime, ThemePair source-guard drift, Pro/MAS live smoke, and undefined import triage remain unresolved.
+
+- `V1-GATE-EPDOC-001`: PASS. The Brotli response path now performs decompression in a detached child task but resumes the inherited `@MainActor` task before touching `WKURLSchemeTask`, eliminating the Swift 6 sending/data-race warning without moving response delivery off the actor.
+- Verification covered MAS build, Pro build, and targeted Epdoc bridge/source-guard tests. No graph rendering or vault/database code was touched.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
@@ -123,6 +130,18 @@ Verification:
 - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-audit-gate scripts/scan_appstore_bundle.sh /tmp/EpistemosAppStoreGateDD/Build/Products/Debug/Epistemos.app` - PASS.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet` - PASS; still emits `V1-GATE-EPDOC-001` warning.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/AppStoreHardeningTests/appStoreArtifactScanInspectsFinalBundleStringsSymbolsExecutablesAndResources -only-testing:EpistemosTests/HermesGatewayEvidenceContractTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+
+### Epdoc URL scheme race fix - 2026-05-14
+
+Changed:
+
+- `Epistemos/Engine/EpdocEditorBridge.swift`: kept Brotli decompression off-actor while returning to the inherited `@MainActor` task before calling `WKURLSchemeTask` response methods.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug build CODE_SIGNING_ALLOWED=NO -quiet` - PASS; `V1-GATE-EPDOC-001` warning absent.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/EpdocEditorBridgeTests -only-testing:EpistemosTests/EpdocVisibilitySourceGuardTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO -quiet` - PASS; `V1-GATE-EPDOC-001` warning absent.
 
 ## Current Verdict
 

@@ -252,14 +252,17 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         // RCA8-P1-004 fix-pass (2026-05-13): the Brotli decompression
         // for editor.js/.css (~213 KB compressed → ~1 MB plain) used to
         // run synchronously on @MainActor, adding 10-30 ms to cold-open
-        // first-paint. Moved to Task.detached(priority: .userInitiated)
-        // — `urlSchemeTask.didReceive(...)` is documented to be safe
-        // from any thread per WKURLSchemeHandler protocol contract.
+        // first-paint. Decompress off-actor, then return to the inherited
+        // MainActor task before touching WKURLSchemeTask. That keeps Swift 6
+        // concurrency clean while preserving the off-main decode work.
         let mimeType = asset.mimeType
         let urlForResponse = url
         if asset.contentEncoding == "br" {
-            Task.detached(priority: .userInitiated) {
-                guard let decompressed = decompressBrotli(rawData) else {
+            Task(priority: .userInitiated) {
+                let decompressed = await Task.detached(priority: .userInitiated) {
+                    decompressBrotli(rawData)
+                }.value
+                guard let decompressed else {
                     urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: urlForResponse.path))
                     return
                 }
