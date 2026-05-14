@@ -19,6 +19,7 @@ import SwiftData
 
 struct GraphNotePage: View {
     let sourceId: String
+    @Environment(UIState.self) private var ui
     @Query private var pages: [SDPage]
     @State private var noteChatState: NoteChatState
 
@@ -31,9 +32,12 @@ struct GraphNotePage: View {
 
     var body: some View {
         if let page = pages.first {
-            ProseEditorView(page: page, navigationContext: .graph)
-                .environment(noteChatState)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ZStack {
+                GraphNotePageGlassBackdrop(theme: ui.theme)
+                ProseEditorView(page: page, navigationContext: .graph)
+                    .environment(noteChatState)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         } else {
             notFoundFallback
         }
@@ -53,5 +57,29 @@ struct GraphNotePage: View {
                 .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct GraphNotePageGlassBackdrop: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+            Rectangle()
+                .fill(theme.isDark ? Color.black.opacity(0.32) : Color.white.opacity(0.55))
+            LinearGradient(
+                colors: [
+                    theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.08),
+                    Color.clear,
+                    theme.fontAccent.opacity(theme.isDark ? 0.10 : 0.06),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }

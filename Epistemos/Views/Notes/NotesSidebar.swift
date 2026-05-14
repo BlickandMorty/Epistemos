@@ -500,6 +500,159 @@ enum NotesSidebarHoverHapticStyle: Sendable {
     }
 }
 
+private struct NotesSidebarGlassBackdrop: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+            Rectangle()
+                .fill(theme.isDark ? Color.black.opacity(0.32) : Color.white.opacity(0.55))
+            LinearGradient(
+                colors: [
+                    theme.resolved.accent.color.opacity(theme.isDark ? 0.16 : 0.08),
+                    Color.clear,
+                    theme.fontAccent.opacity(theme.isDark ? 0.10 : 0.06),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            NotesSidebarPixelDither(theme: theme)
+                .opacity(theme.isDark ? 0.30 : 0.22)
+        }
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(theme.glassBorder.opacity(theme.isDark ? 0.46 : 0.34))
+                .frame(width: 0.5)
+        }
+    }
+}
+
+private struct NotesSidebarPixelDither: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        Canvas { context, size in
+            let step: CGFloat = 7
+            let pixel: CGFloat = 1.5
+            let columns = max(Int(size.width / step), 1)
+            let rows = max(Int(size.height / step), 1)
+            let accent = theme.resolved.accent.color.opacity(theme.isDark ? 0.16 : 0.11)
+            let highlight = Color.white.opacity(theme.isDark ? 0.05 : 0.22)
+
+            for row in 0...rows {
+                for column in 0...columns {
+                    let key = (column * 31 + row * 17) % 19
+                    guard key == 0 || key == 7 else { continue }
+                    let rect = CGRect(
+                        x: CGFloat(column) * step,
+                        y: CGFloat(row) * step,
+                        width: key == 0 ? pixel : 1,
+                        height: key == 0 ? pixel : 1
+                    )
+                    context.fill(Path(rect), with: .color(key == 0 ? accent : highlight))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct NotesSidebarHeaderChrome: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(theme.isDark ? 0.28 : 0.18)
+            NotesSidebarPixelDither(theme: theme)
+                .opacity(theme.isDark ? 0.18 : 0.12)
+            Rectangle()
+                .fill(theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.30))
+                .frame(height: 0.5)
+        }
+    }
+}
+
+private struct NotesSidebarSearchChrome: View {
+    let theme: EpistemosTheme
+    let isFocused: Bool
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+        shape
+            .fill(.ultraThinMaterial)
+            .overlay {
+                shape.fill(
+                    theme.isDark
+                        ? Color.black.opacity(isFocused ? 0.22 : 0.16)
+                        : Color.white.opacity(isFocused ? 0.46 : 0.34)
+                )
+            }
+            .overlay {
+                NotesSidebarPixelDither(theme: theme)
+                    .clipShape(shape)
+                    .opacity(isFocused ? 0.20 : 0.12)
+            }
+            .overlay {
+                shape.strokeBorder(
+                    isFocused
+                        ? theme.resolved.accent.color.opacity(0.36)
+                        : theme.glassBorder.opacity(theme.isDark ? 0.48 : 0.36),
+                    lineWidth: 0.65
+                )
+            }
+    }
+}
+
+private struct NotesSidebarRowChrome: View {
+    let theme: EpistemosTheme
+    var isActive = false
+    var isDropTarget = false
+    var isFavorite = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+        if isActive || isDropTarget || isFavorite {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    shape.fill(tint)
+                }
+                .overlay {
+                    NotesSidebarPixelDither(theme: theme)
+                        .clipShape(shape)
+                        .opacity(isActive || isDropTarget ? 0.24 : 0.12)
+                }
+                .overlay {
+                    shape.strokeBorder(border, lineWidth: isDropTarget ? 0.9 : 0.55)
+                }
+        }
+    }
+
+    private var tint: Color {
+        if isDropTarget {
+            return theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.14)
+        }
+        if isActive {
+            return theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.11)
+        }
+        return theme.fontAccent.opacity(theme.isDark ? 0.12 : 0.08)
+    }
+
+    private var border: Color {
+        if isDropTarget {
+            return theme.resolved.accent.color.opacity(0.46)
+        }
+        if isActive {
+            return theme.resolved.accent.color.opacity(theme.isDark ? 0.36 : 0.28)
+        }
+        return theme.glassBorder.opacity(theme.isDark ? 0.44 : 0.30)
+    }
+}
+
 // MARK: - Notes Sidebar
 // Obsidian-style file tree: vault → folders (SDFolder) → pages.
 // Loose pages (not in any folder) appear at root level alongside folders.
@@ -572,9 +725,6 @@ struct NotesSidebar: View {
     @State private var titleSearchResults: [SidebarPageItem] = []
 
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
-    private var sidebarBackground: Color {
-        ui.notesSidebarBackground
-    }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
     private var hasDisconnectedCachedContent: Bool {
         vaultSync.vaultURL == nil && (!cachedPageItems.isEmpty || !cachedFolderItems.isEmpty)
@@ -849,7 +999,9 @@ struct NotesSidebar: View {
             .padding(.horizontal, 16)
             .padding(.top, NotesSidebarMetrics.headerTopPadding)
             .padding(.bottom, NotesSidebarMetrics.headerBottomPadding)
-            .background(sidebarBackground)
+            .background {
+                NotesSidebarHeaderChrome(theme: theme)
+            }
             .ignoresSafeArea(
                 NotesSidebarMetrics.overlapsTitlebar ? .container : [],
                 edges: .top
@@ -907,7 +1059,10 @@ struct NotesSidebar: View {
             }
             bottomBar
         }
-        .background(sidebarBackground)
+        .background {
+            NotesSidebarGlassBackdrop(theme: theme)
+                .ignoresSafeArea()
+        }
         .onAppear {
             rebuildCache()
             // Deferred rebuild: VaultIndexActor may still be wiring folder relationships
@@ -977,14 +1132,9 @@ struct NotesSidebar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(
-                    isSearchFocused
-                        ? (theme.isDark ? Color.white.opacity(0.10) : Color.black.opacity(0.08))
-                        : (theme.isDark ? Color.white.opacity(0.05) : Color.black.opacity(0.04))
-                )
-        )
+        .background {
+            NotesSidebarSearchChrome(theme: theme, isFocused: isSearchFocused)
+        }
         .padding(.horizontal, 12)
         .padding(.top, NotesSidebarMetrics.searchBarTopPadding)
         .padding(.bottom, 6)
@@ -2329,15 +2479,18 @@ private struct FolderRow: View {
                 .padding(.trailing, 10)
                 .padding(.vertical, 4)
                 .background {
-                    if isDropTarget {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(theme.resolved.accent.color.opacity(0.15))
-                    }
+                    NotesSidebarRowChrome(
+                        theme: theme,
+                        isDropTarget: isDropTarget,
+                        isFavorite: item.isCollection
+                    )
                 }
                 .overlay(
-                    RoundedRectangle(cornerRadius: 5)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(
-                            isDropTarget ? theme.resolved.accent.color.opacity(0.4) : Color.clear, lineWidth: 1)
+                            isDropTarget ? theme.resolved.accent.color.opacity(0.4) : Color.clear,
+                            lineWidth: 1
+                        )
                 )
                 .contentShape(Rectangle())
             }
@@ -2771,13 +2924,11 @@ private struct FileRow: View {
                 .padding(.trailing, 10)
                 .padding(.vertical, 4)
                 .background {
-                    if isActive {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(theme.resolved.accent.color.opacity(0.1))
-                    } else if item.isFavorite {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(favoriteHighlight.opacity(theme.isDark ? 0.10 : 0.08))
-                    }
+                    NotesSidebarRowChrome(
+                        theme: theme,
+                        isActive: isActive,
+                        isFavorite: item.isFavorite
+                    )
                 }
                 .contentShape(Rectangle())
             }

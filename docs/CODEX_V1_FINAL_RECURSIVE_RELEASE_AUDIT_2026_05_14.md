@@ -628,6 +628,20 @@ Verification:
 - MAS manifest narrow strings scan against `/tmp/EpistemosV1MASBuildPostAgentTools/Build/Products/Debug/Epistemos.app` - PASS, no matches for exact forbidden executable paths.
 - MAS manifest narrow `nm -gU` scan against `/tmp/EpistemosV1MASBuildPostAgentTools/Build/Products/Debug/Epistemos.app/Contents/Frameworks/libagent_core.dylib` - PASS, no forbidden process-launch symbols.
 
+### Sidebar and graph-note glass polish - 2026-05-14
+
+Changed:
+
+- `Epistemos/Views/Notes/NotesSidebar.swift`: the Notes sidebar now uses the same frosted-glass recipe as Mini Chat: `.ultraThinMaterial` plus the light/dark tint ratios `Color.white.opacity(0.55)` and `Color.black.opacity(0.32)`. Search/header/selected-row chrome also gets a restrained pixel dither so the sidebar reads as pixel-art liquid glass instead of flat system chrome.
+- `Epistemos/Views/Graph/GraphNotePage.swift`: graph-launched note editing now has a matching frosted wallpaper behind the editor.
+- `Epistemos/Views/Notes/ProseEditorView.swift` and `Epistemos/Views/Notes/ProseEditorRepresentable2.swift`: the shared TextKit editor only becomes transparent when `navigationContext == .graph`; normal note tabs keep the existing solid editor background.
+- No graph renderer, Metal/SDF renderer, node layout, edge geometry, selection visuals, camera behavior, graph physics, vault schema, or vault data code was changed.
+
+Verification:
+
+- `git diff --check` - PASS.
+- `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosSidebarGraphGlassTests -only-testing:EpistemosTests/SidebarShellValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS scratch-vault import/Notes/schema path has zero-crash evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, and automated note ask-bar rewrite checks are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the MAS scratch-vault graph now reliably stalls on the protected graph loading spinner, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, Pro RCA8/vault rerun evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS scratch-vault import/Notes/schema path has zero-crash evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, automated note ask-bar rewrite checks, and the requested sidebar/graph-note glass polish source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the MAS scratch-vault graph now reliably stalls on the protected graph loading spinner, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, Pro RCA8/vault rerun evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.

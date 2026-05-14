@@ -31,6 +31,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var onPageFlush: ((String, String) -> Void)?
     var graphState: GraphState?
     var outlineFoldMode: OutlineFoldMode = .expanded
+    var usesTransparentEditorBackground: Bool = false
 
     static let verticalInset: CGFloat = 40
 
@@ -43,6 +44,12 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
+
+    private func applyEditorBackgroundMode(to tv: ProseTextView2) {
+        guard usesTransparentEditorBackground else { return }
+        tv.drawsBackground = false
+        tv.backgroundColor = .clear
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let coord = context.coordinator
@@ -60,6 +67,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         )
 
         tv.applyTheme(theme)
+        applyEditorBackgroundMode(to: tv)
 
         // Load initial content
         let body = pageBody
@@ -531,6 +539,7 @@ extension ProseEditorRepresentable2 {
             guard let tv = textView else { return }
             lastTheme = parent.theme
             tv.applyTheme(parent.theme)
+            parent.applyEditorBackgroundMode(to: tv)
             renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
         }
 
