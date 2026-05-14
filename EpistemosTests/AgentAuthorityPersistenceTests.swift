@@ -122,4 +122,105 @@ struct AgentAuthorityPersistenceTests {
         #expect(source.contains("RCA13 P1-025") || source.contains("RCA-P1-025"),
             "AgentAuthorityStore doctrine note must cross-reference RCA-P1-025 to preserve the post-mortem context")
     }
+
+    @Test("Production authority stores are shared or explicitly file-backed")
+    func productionAuthorityStoresStayDurable() throws {
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let authoritySettings = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/AuthoritySettingsView.swift"
+        )
+
+        #expect(bootstrap.contains("let agentAuthorityStore = AgentAuthorityStore("))
+        #expect(bootstrap.contains("persistence: FileBackedAgentAuthorityPersistence()"))
+        #expect(settings.contains("AppBootstrap.shared?.agentAuthorityStore"))
+        #expect(settings.contains("?? AgentAuthorityStore(persistence: FileBackedAgentAuthorityPersistence())"))
+
+        let appProductionSources = [bootstrap, settings].joined(separator: "\n")
+        #expect(
+            !appProductionSources.contains("AgentAuthorityStore()"),
+            "shipping app code must not construct an implicit authority store; use AppBootstrap.shared?.agentAuthorityStore or explicit FileBackedAgentAuthorityPersistence()"
+        )
+        #expect(
+            authoritySettings.contains("AuthoritySettingsView(store: AgentAuthorityStore())"),
+            "AuthoritySettingsView keeps its default constructor confined to the SwiftUI preview; AgentAuthorityStore() itself is file-backed."
+        )
+    }
+
+    @Test("Tool dispatch consults stored authority before executor resolution")
+    func toolDispatchConsultsStoredAuthorityBeforeExecution() throws {
+        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+        let promptBlock = try sourceSlice(
+            coordinator,
+            from: "private func promptForToolApproval(_ request: AgentPermissionRequest) async -> Bool",
+            to: "private func seedApprovedR5WriteGrantIfNeeded"
+        )
+        #expect(promptBlock.contains("switch storedAuthorityDecision(for: request)"))
+        #expect(promptBlock.contains("case .autoAllow:"))
+        #expect(promptBlock.contains("case .neverAllow:"))
+        #expect(promptBlock.contains("return false"))
+        #expect(promptBlock.contains("case .askFirst:"))
+        #expect(promptBlock.contains("promptUserForToolApproval("))
+
+        let commandCenterLocalBlock = try sourceSlice(
+            coordinator,
+            from: "private func runCommandCenterLocalAgentPath(",
+            to: "private func commandCenterPlanDocumentSeed("
+        )
+        try expectOrdered(
+            in: commandCenterLocalBlock,
+            "let approved = await self.promptForToolApproval(permissionRequest)",
+            "let result = await baseToolExecutor(name, argumentsJson)"
+        )
+
+        let commandCenterRustBlock = try sourceSlice(
+            coordinator,
+            from: "private func runCommandCenterRustAgentPath(",
+            to: "private func commandCenterExecutionPlan("
+        )
+        try expectOrdered(
+            in: commandCenterRustBlock,
+            "approved = await promptForToolApproval(request)",
+            "capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"
+        )
+
+        let managedRustBlock = try sourceSlice(
+            coordinator,
+            from: "// Process the agent stream",
+            to: "persistCompletedAgentTurn()"
+        )
+        try expectOrdered(
+            in: managedRustBlock,
+            "switch storedAuthorityDecision(for: request)",
+            "capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)"
+        )
+
+        let pipelineHandlerCount = coordinator.components(
+            separatedBy: "return await self.promptForToolApproval(request)"
+        ).count - 1
+        #expect(
+            pipelineHandlerCount >= 2,
+            "main chat and command-center pipeline handlers must delegate tool approval to ChatCoordinator.promptForToolApproval so persisted authority decisions are enforced before local tool execution"
+        )
+    }
+
+    private func sourceSlice(_ source: String, from startMarker: String, to endMarker: String) throws -> String {
+        let start = try #require(source.range(of: startMarker))
+        let tail = source[start.lowerBound...]
+        let end = try #require(tail.range(of: endMarker))
+        return String(tail[..<end.lowerBound])
+    }
+
+    private func expectOrdered(
+        in source: String,
+        _ firstMarker: String,
+        _ secondMarker: String
+    ) throws {
+        let first = try #require(source.range(of: firstMarker))
+        let second = try #require(source.range(of: secondMarker))
+        #expect(
+            first.lowerBound < second.lowerBound,
+            "'\(firstMarker)' must appear before '\(secondMarker)'"
+        )
+    }
 }
