@@ -564,6 +564,9 @@ Verification:
 - `jq empty Epistemos/Resources/Localizable.xcstrings` - PASS. `plutil -lint` does not parse this checkout's `.xcstrings` JSON file and reports `Unexpected character { at line 1`, so JSON validation is the resource integrity check for this file.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosThemeDefaultAfterFix2 -only-testing:EpistemosTests/ThemePairTests -only-testing:EpistemosTests/ThemePickerRestorationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/EpistemosMASAppearanceBuild build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-appearance-2026-05-14 scripts/scan_appstore_bundle.sh /tmp/EpistemosMASAppearanceBuild/Build/Products/Debug/Epistemos.app` - PASS.
+- MAS manifest narrow strings scan against `/tmp/EpistemosMASAppearanceBuild/Build/Products/Debug/Epistemos.app` - PASS, no matches.
+- MAS manifest narrow `nm -gU` scan against `/tmp/EpistemosMASAppearanceBuild/Build/Products/Debug/Epistemos.app/Contents/Frameworks/libagent_core.dylib` - PASS, no matches.
 
 ## Current Verdict
 
