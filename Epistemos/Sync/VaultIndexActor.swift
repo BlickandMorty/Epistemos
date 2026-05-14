@@ -42,6 +42,24 @@ actor VaultIndexActor {
         let skippedPolicyReasonCounts: [String: Int]
     }
 
+    private struct PageIndexingSnapshot: Sendable {
+        let id: String
+        let title: String
+        let filePath: String?
+        let inlineBody: String
+        let tagsJoined: String
+        let updatedAt: Date
+
+        init(page: SDPage) {
+            id = page.id
+            title = page.title
+            filePath = page.filePath
+            inlineBody = page.body
+            tagsJoined = page.tags.joined(separator: " ")
+            updatedAt = page.updatedAt
+        }
+    }
+
     struct VaultFolderSelectionAssessment: Sendable, Equatable {
         let importableNoteFileCount: Int
         let otherRegularFileCount: Int
@@ -2032,9 +2050,13 @@ actor VaultIndexActor {
         return pages.map { ($0.id, $0.updatedAt) }
     }
 
-    private func bodyForIndexing(_ page: SDPage) async -> String {
-        if let filePath = page.filePath,
-           !NoteFileStorage.bodyExists(pageId: page.id) {
+    private func bodyForIndexing(
+        pageId: String,
+        filePath: String?,
+        inlineBody: String
+    ) async -> String {
+        if let filePath,
+           !NoteFileStorage.bodyExists(pageId: pageId) {
             let fileURL = URL(fileURLWithPath: filePath)
             if Self.vaultFileByteCount(fileURL) ?? 0 > Self.searchIndexBodyByteLimit,
                let preview = Self.decodedBodyPrefixFromReadableVaultFile(
@@ -2046,10 +2068,26 @@ actor VaultIndexActor {
         }
 
         return await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: pageId,
+            filePath: filePath,
+            inlineBody: inlineBody,
+            mapped: true
+        )
+    }
+
+    private func bodyForIndexing(_ page: SDPage) async -> String {
+        await bodyForIndexing(
             pageId: page.id,
             filePath: page.filePath,
-            inlineBody: page.body,
-            mapped: true
+            inlineBody: page.body
+        )
+    }
+
+    private func bodyForIndexing(_ snapshot: PageIndexingSnapshot) async -> String {
+        await bodyForIndexing(
+            pageId: snapshot.id,
+            filePath: snapshot.filePath,
+            inlineBody: snapshot.inlineBody
         )
     }
 
@@ -2061,8 +2099,9 @@ actor VaultIndexActor {
     func fullPageData(for pageId: String) async -> (title: String, body: String, tags: String, updatedAt: Date)? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = fetchFirst(descriptor, label: "full page data for \(pageId)") else { return nil }
-        let body = await bodyForIndexing(page)
-        return (page.title, body, page.tags.joined(separator: " "), page.updatedAt)
+        let snapshot = PageIndexingSnapshot(page: page)
+        let body = await bodyForIndexing(snapshot)
+        return (snapshot.title, body, snapshot.tagsJoined, snapshot.updatedAt)
     }
 
     /// All pages formatted for a full FTS5 rebuild.
@@ -2077,8 +2116,9 @@ actor VaultIndexActor {
         var out: [(id: String, title: String, body: String, tags: String, updatedAt: Date)] = []
         out.reserveCapacity(pages.count)
         for page in pages {
-            let body = await bodyForIndexing(page)
-            out.append((page.id, page.title, body, page.tags.joined(separator: " "), page.updatedAt))
+            let snapshot = PageIndexingSnapshot(page: page)
+            let body = await bodyForIndexing(snapshot)
+            out.append((snapshot.id, snapshot.title, body, snapshot.tagsJoined, snapshot.updatedAt))
         }
         return out
     }
