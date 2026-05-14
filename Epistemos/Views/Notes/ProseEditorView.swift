@@ -225,7 +225,8 @@ struct ProseEditorView: View {
             noteChatState: noteChatState,
             onPageFlush: flush,
             graphState: graphState,
-            outlineFoldMode: notesUI.outlineFoldMode
+            outlineFoldMode: notesUI.outlineFoldMode,
+            usesTransparentEditorBackground: navigationContext == .graph
         )
         .onAppear {
             repairOrphanedInlineAIResponseIfNeeded()
