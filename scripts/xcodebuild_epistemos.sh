@@ -14,6 +14,8 @@ main_invocation_is_package_resolution=0
 main_invocation_is_test_like=0
 result_bundle_path=""
 extra_xcodebuild_args=()
+derived_data_path=""
+cloned_source_packages_path=""
 
 argument_present() {
   local expected="$1"
@@ -129,6 +131,42 @@ resolve_package_dependencies() {
   xcodebuild "${resolve_args[@]}" -resolvePackageDependencies
 }
 
+patch_mlx_package_checkouts() {
+  local build_dir="${BUILD_DIR:-}"
+  local source_packages_dir="${cloned_source_packages_path}"
+
+  if [[ -n "${derived_data_path}" ]]; then
+    build_dir="${derived_data_path}"
+    if [[ -z "${source_packages_dir}" ]]; then
+      source_packages_dir="${derived_data_path}/SourcePackages"
+    fi
+  fi
+
+  BUILD_DIR="${build_dir}" \
+    EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR="${source_packages_dir}" \
+    bash "${ROOT_DIR}/scripts/patch_mlx_metal_warnings.sh"
+}
+
+index=0
+args=("$@")
+while [[ "${index}" -lt "${#args[@]}" ]]; do
+  case "${args[${index}]}" in
+    -derivedDataPath)
+      index=$((index + 1))
+      if [[ "${index}" -lt "${#args[@]}" ]]; then
+        derived_data_path="${args[${index}]}"
+      fi
+      ;;
+    -clonedSourcePackagesDirPath)
+      index=$((index + 1))
+      if [[ "${index}" -lt "${#args[@]}" ]]; then
+        cloned_source_packages_path="${args[${index}]}"
+      fi
+      ;;
+  esac
+  index=$((index + 1))
+done
+
 for arg in "$@"; do
   if [[ "${arg}" == "-resolvePackageDependencies" ]]; then
     main_invocation_is_package_resolution=1
@@ -183,6 +221,7 @@ fi
 
 if [[ "${main_invocation_is_package_resolution}" != "1" ]]; then
   resolve_package_dependencies "$@"
+  patch_mlx_package_checkouts
 fi
 
 if [[ "${#extra_xcodebuild_args[@]}" -gt 0 ]]; then

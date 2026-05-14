@@ -339,6 +339,18 @@ struct ReleaseScriptAuditTests {
         #expect(!script.contains("-derivedDataPath \"$DERIVED_DATA_PATH\" \\\n    -destination 'platform=macOS' \\\n    test"))
     }
 
+    @Test("xcodebuild wrapper patches MLX package checkouts after resolution")
+    func xcodebuildWrapperPatchesMLXPackageCheckoutsAfterResolution() throws {
+        let wrapper = try loadReleaseScript("scripts/xcodebuild_epistemos.sh")
+        let patcher = try loadReleaseScript("scripts/patch_mlx_metal_warnings.sh")
+
+        #expect(wrapper.contains("resolve_package_dependencies \"$@\""))
+        #expect(wrapper.contains("patch_mlx_package_checkouts"))
+        #expect(wrapper.contains("EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR"))
+        #expect(patcher.contains("EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR"))
+        #expect(patcher.contains("Source/Cmlx/mlx/mlx/backend/cpu/jit_compiler.cpp"))
+    }
+
     @Test("mlx swift lm stays vendored in repo with the epistemos runtime patches")
     func mlxSwiftLMPackageStaysVendoredAndPatched() throws {
         let projectYAML = try loadReleaseScript("project.yml")
