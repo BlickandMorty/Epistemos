@@ -141,6 +141,17 @@ Result: live store schema repair and backup behavior verified; MAS live smoke re
 - `V1-GATE-LIVE-MAS-002`: PATCHED structurally. `ChatView`, `MiniChatView`, and `NoteChatSidebar` now keep `onScrollGeometryChange` transforms pure by emitting a `CGFloat` distance-to-bottom. Hysteresis is applied in the action via `ScrollStability.updatedAutoFollowState`, avoiding reads of `@State autoFollow` inside the geometry transform that matched the observed AttributeGraph/scroll feedback loop. MAS live smoke rerun remains required.
 - No graph rendering files were edited. `HologramSearchSidebar` was not touched because the reproduced failure was in the main-chat scroll stack, and graph rendering remains protected.
 
+### Pass 8 - 2026-05-14
+
+Result: the main-chat MAS vault-query silent-drop/livelock regression is patched and the exact current-file MAS Debug artifact scans clean; zero-streak remains 0 because note ask-bar smoke, graph inspector smoke, full Pro smoke, Release-only build-hang triage, broad undefined-import review triage, and the five-pass recursive streak remain incomplete.
+
+- `V1-GATE-LIVE-MAS-001`: PATCHED/PARTIAL. After the scroll fix, the App Store app no longer became unavailable during `What notes in my vault mention train?`, but the local direct-chat pipeline dropped the turn after `Local agent stopped after 2 consecutive invisible repair turns`. `ChatCoordinator` now treats only invisible/empty repair-loop failures for explicit vault lookups as eligible for a deterministic indexed vault fallback, appends a visible assistant answer, and persists both the user and assistant rows. Non-vault pipeline errors now persist the visible user-facing error turn instead of silently dropping the submitted turn.
+- Live MAS evidence: launching the App Store app initially showed the `Vault Rebuild Needed` overlay while the imported index had `0|0` page/file-path rows; no rebuild action was taken. The app import completed on its own and read-only SQLite later reported `592|592` for `ZSDPAGE` rows with file paths. Resubmitting `What notes in my vault mention train?` persisted `ZSDMESSAGE` rows `user|What notes in my vault mention train?` and `assistant|I found these indexed vault matches for "train": ...` with `ZISERROR=0`; Computer Use showed the answer and source count after manual scroll. This clears the original silent-drop/livelock blocker but leaves a v1 polish risk for initial chat auto-scroll and the transient startup rebuild overlay.
+- Code evidence: `Epistemos/App/ChatCoordinator.swift:2028` gates the fallback to explicit vault lookups, `Epistemos/App/ChatCoordinator.swift:2124` uses it only after invisible/empty repair-loop errors, `Epistemos/App/ChatCoordinator.swift:3567` builds the indexed fallback answer, and `Epistemos/App/ChatCoordinator.swift:4199` extracts softer vault-query phrases such as `mention train`.
+- Regression evidence: `EpistemosTests/PipelineServiceTests.swift:2636` covers soft vault mention fallback answer construction and `EpistemosTests/RuntimeValidationTests.swift:4564` guards the direct-chat error/fallback persistence shape.
+- Clean exact-current MAS artifact verification: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/EpistemosAppStoreGateFallbackPostFormat build CODE_SIGNING_ALLOWED=NO -quiet` passed. `scripts/scan_appstore_bundle.sh /tmp/EpistemosAppStoreGateFallbackPostFormat/Build/Products/Debug/Epistemos.app` passed with no prohibited runtime strings, no prohibited runtime symbols, and no prohibited research/tool resource residue. The MAS manifest narrow strings scan and `libagent_core.dylib` narrow `nm -gU` scan also returned zero matches.
+- No graph rendering files were edited. Vault/database actions in this pass were read-only inspections only; no rebuild was triggered.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
@@ -244,6 +255,26 @@ Verification:
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug build CODE_SIGNING_ALLOWED=NO` - PASS; still prints the existing non-fatal SwiftLint plugin output-folder failures after `** BUILD SUCCEEDED **`.
 - Live store schema check after App Store launch - PASS as noted in Pass 7.
 - MAS live-smoke rerun after the scroll patch - pending.
+
+### Main-chat vault lookup fallback after local repair loops - 2026-05-14
+
+Changed:
+
+- `Epistemos/App/ChatCoordinator.swift`: when the direct local pipeline returns an invisible/empty repair-loop error for an explicit vault lookup, main chat now falls back to indexed vault search, appends a visible assistant answer, and persists the completed turn. Other direct-pipeline errors now persist the visible error turn.
+- `Epistemos/App/ChatCoordinator.swift`: softer vault-query phrase extraction now recognizes `mention` / `mentions` in addition to `mentioned` / `mentioning`.
+- `EpistemosTests/PipelineServiceTests.swift`: added a regression test for the indexed fallback answer used by `What notes in my vault mention train?`.
+- `EpistemosTests/RuntimeValidationTests.swift`: added a source guard for the direct-chat fallback/error persistence path.
+
+Verification:
+
+- Failing check first: the new targeted `PipelineServiceTests/softVaultMentionPromptBuildsIndexedFallbackAnswer` failed before implementation because `ChatCoordinator.buildIndexedVaultLookupFallbackAnswer` did not exist.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTargetedFallbackTests -only-testing:EpistemosTests/PipelineServiceTests/softVaultMentionPromptBuildsIndexedFallbackAnswer -only-testing:EpistemosTests/RuntimeValidationTests/directMainChatVaultToolLoopFailuresPersistVisibleTurns test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `git diff --check -- Epistemos/App/ChatCoordinator.swift EpistemosTests/PipelineServiceTests.swift EpistemosTests/RuntimeValidationTests.swift` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/EpistemosAppStoreGateFallbackPostFormat build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-audit-gate-after-chat-fallback-postformat scripts/scan_appstore_bundle.sh /tmp/EpistemosAppStoreGateFallbackPostFormat/Build/Products/Debug/Epistemos.app` - PASS.
+- MAS manifest narrow strings scan against `/tmp/EpistemosAppStoreGateFallbackPostFormat/Build/Products/Debug/Epistemos.app` - PASS, no matches.
+- MAS manifest narrow `nm -gU` scan against `Contents/Frameworks/libagent_core.dylib` - PASS, no matches.
+- MAS live main-chat vault query smoke - PASS for the original blocker: the app remained responsive and persisted visible user + assistant rows for `What notes in my vault mention train?`; manual scroll was required to see the latest answer, so auto-scroll remains a polish/manual-smoke risk.
 
 ## Current Verdict
 

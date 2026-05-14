@@ -2633,6 +2633,67 @@ struct ChatCoordinatorPersistenceTests {
         #expect(psych.context?.contains("Psychoneuroimmunology body.") == true)
     }
 
+    @Test("soft vault mention prompts build an indexed fallback answer")
+    func softVaultMentionPromptBuildsIndexedFallbackAnswer() async {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "train-id",
+                    title: "Train Notes",
+                    relativePath: "Research/Train Notes.md",
+                    tags: ["transit"],
+                    folderName: "Research",
+                    wordCount: 220,
+                    snippet: "Freight train schedule notes.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        #expect(ChatCoordinator.queryContainsExplicitNoteContext("What notes in my vault mention train?"))
+
+        let fallback = await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "What notes in my vault mention train?",
+            manifest: manifest,
+            limit: 3
+        ) { phrase, _ in
+            phrase == "train"
+                ? [
+                    SearchResult(
+                        pageId: "train-id",
+                        title: "",
+                        snippet: "Freight <b>train</b> schedule notes.",
+                        rank: 4.2
+                    )
+                ]
+                : []
+        }
+
+        #expect(fallback?.loadedNoteIds == Set(["train-id"]))
+        #expect(fallback?.loadedNoteTitles == ["Train Notes"])
+        #expect(fallback?.answer.contains("Train Notes") == true)
+        #expect(fallback?.answer.contains("Research/Train Notes.md") == true)
+        #expect(fallback?.answer.contains("<b>") == false)
+        #expect(fallback?.answer.contains("Freight train schedule notes.") == true)
+        #expect(
+            ChatCoordinator.shouldUseIndexedVaultFallback(
+                forPipelineErrorMessage: "Local agent stopped after 2 consecutive empty repair turns."
+            )
+        )
+        #expect(
+            !ChatCoordinator.shouldUseIndexedVaultFallback(
+                forPipelineErrorMessage: "No usable local model is available."
+            )
+        )
+    }
+
     @Test("requested vault note context keeps provenance distinct from attached uploads")
     func requestedVaultNoteContextKeepsProvenanceDistinctFromAttachments() async {
         let now = Date()

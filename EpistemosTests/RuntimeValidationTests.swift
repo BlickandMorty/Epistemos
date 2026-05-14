@@ -4561,6 +4561,17 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("[Today's Conversations]"))
     }
 
+    @Test("direct main-chat vault tool-loop failures persist visible fallback or error turns")
+    func directMainChatVaultToolLoopFailuresPersistVisibleTurns() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("completeWithIndexedVaultFallbackIfPossible()"))
+        #expect(coordinator.contains("buildIndexedVaultLookupFallbackAnswer("))
+        #expect(coordinator.contains("shouldUseIndexedVaultFallback(forPipelineErrorMessage: msg)"))
+        #expect(coordinator.contains("chatState.addErrorMessage("))
+        #expect(coordinator.contains("persistCompletedMainChatTurn()"))
+    }
+
     @Test("rust agent paths finalize completed turns and salvage silent stream endings")
     func rustAgentPathsFinalizeCompletedTurnsAndSalvageSilentStreamEndings() throws {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
