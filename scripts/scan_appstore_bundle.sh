@@ -16,7 +16,10 @@ find "$APP" -type f -print > "$REPORT_DIR/files.txt"
 # Required audit reference from the recursive release backlog:
 # pty|osascript|cli_passthrough|bash_execute|Command::new|fork|exec|docker|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl
 FORBIDDEN_STRING_PATTERN='(^|[^A-Za-z0-9_])(pty|osascript|cli_passthrough|bash_execute|Command::new|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])docker([^A-Za-z0-9_-]|$)'
-FORBIDDEN_SYMBOL_PATTERN='(^|[^A-Za-z0-9_])(_?fork|_?vfork|_?posix_spawn|_?exec(l|le|lp|v|ve|vp|vpe)?)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_])(pty|osascript|cli_passthrough|bash_execute|Command::new|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])docker([^A-Za-z0-9_-]|$)'
+# Match exported Mach-O symbol tokens, not arbitrary substrings inside Rust
+# mangled type names such as `std..sys..process..posix_spawn..PosixSpawnattr`.
+FORBIDDEN_PROCESS_SYMBOL_PATTERN='(^|[[:space:]])(_?fork|_?vfork|_?posix_spawn(p|attr|_file_actions)?|_?exec(l|le|lp|v|ve|vp|vpe)?)([[:space:]]|$)'
+FORBIDDEN_SYMBOL_PATTERN="${FORBIDDEN_PROCESS_SYMBOL_PATTERN}|(^|[^A-Za-z0-9_])(pty|osascript|cli_passthrough|bash_execute|Command::new|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl)([^A-Za-z0-9_]|$)|(^|[^A-Za-z0-9_.])docker([^A-Za-z0-9_-]|$)"
 FORBIDDEN_RESOURCE_PATTERN='MOHAWK|MoLoRA|raw Helios|research packets|Hermes|omega_ax|omega-mcp|pty'
 
 findings=0

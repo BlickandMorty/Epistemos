@@ -341,6 +341,10 @@ struct AppStoreHardeningTests {
             "scripts/scan_appstore_bundle.sh must scan fork/exec as Mach-O symbol/linkage evidence, not only as raw strings."
         )
         #expect(
+            source.contains("FORBIDDEN_PROCESS_SYMBOL_PATTERN='(^|[[:space:]])"),
+            "scripts/scan_appstore_bundle.sh must match fork/exec as symbol tokens, not substrings inside Rust-mangled type names."
+        )
+        #expect(
             !source.contains("FORBIDDEN_STRING_PATTERN='(^|[^A-Za-z0-9_])(pty|osascript|cli_passthrough|bash_execute|Command::new|fork|exec|docker|stdio_mcp|ScreenCaptureKit|AXUIElement|/bin/sh|/bin/bash|/usr/bin/python|launchctl)"),
             "scripts/scan_appstore_bundle.sh should not fail raw string scans on generic exec/fork text such as SQL exec logs; fork/exec belong in the symbol/linkage gate."
         )

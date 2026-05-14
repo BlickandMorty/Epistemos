@@ -17,6 +17,7 @@ struct TimeoutError: Error, LocalizedError {
 /// Thread-safe continuation state for subprocess-backed async wrappers.
 /// Ensures the continuation resumes exactly once and exposes best-effort
 /// termination for timeout/cancellation handlers.
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 final class ThrowingProcessContinuationState<Result: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     nonisolated(unsafe) private var process: Process?
@@ -101,6 +102,7 @@ final class ProcessContinuationState<Result: Sendable>: @unchecked Sendable {
         return continuation
     }
 }
+#endif
 
 /// Thread-safe continuation state for general async bridge helpers.
 /// Allows timeout/cancellation handlers to win races against late completions.

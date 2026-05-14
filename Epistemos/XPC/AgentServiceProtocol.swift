@@ -136,8 +136,10 @@ extension LocalAgentGatewaySurface {
             return .mcpWebTool
         case "browsercomputeruse", "browser-computer-use", "browser", "computer-use":
             return .browserComputerUse
+        #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
         case "dockerdevcontainer", "docker-devcontainer", "docker", "devcontainer":
             return .dockerDevcontainer
+        #endif
         case "explicitexternalsideeffect", "explicit-external-side-effect", "external-side-effect":
             return .explicitExternalSideEffect
         default:

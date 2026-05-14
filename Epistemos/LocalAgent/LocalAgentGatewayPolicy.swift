@@ -29,7 +29,9 @@ nonisolated enum LocalAgentGatewaySurface: CaseIterable, Sendable {
     case cliDelegation
     case mcpWebTool
     case browserComputerUse
+    #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
     case dockerDevcontainer
+    #endif
     case explicitExternalSideEffect
 
     static let cloudProviderSurfaces: [Self] = [
@@ -41,13 +43,18 @@ nonisolated enum LocalAgentGatewaySurface: CaseIterable, Sendable {
         .codexAccountProvider,
     ]
 
-    static let externalGatewaySurfaces: [Self] = cloudProviderSurfaces + [
-        .cliDelegation,
-        .mcpWebTool,
-        .browserComputerUse,
-        .dockerDevcontainer,
-        .explicitExternalSideEffect,
-    ]
+    static let externalGatewaySurfaces: [Self] = {
+        var surfaces: [Self] = cloudProviderSurfaces + [
+            .cliDelegation,
+            .mcpWebTool,
+            .browserComputerUse,
+        ]
+        #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
+        surfaces.append(.dockerDevcontainer)
+        #endif
+        surfaces.append(.explicitExternalSideEffect)
+        return surfaces
+    }()
 }
 
 nonisolated struct LocalAgentGatewayDecision: Equatable, Sendable {
@@ -163,6 +170,7 @@ nonisolated enum LocalAgentGatewayPolicy {
                 evidenceReturn: .structuredEvidenceProvenance,
                 reason: "Browser and computer-use actions are external side-effect surfaces."
             )
+        #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
         case .dockerDevcontainer:
             Decision(
                 tier: .proResearch,
@@ -173,6 +181,7 @@ nonisolated enum LocalAgentGatewayPolicy {
                 evidenceReturn: .structuredEvidenceProvenance,
                 reason: "Docker and devcontainer work is external runtime orchestration."
             )
+        #endif
         case .explicitExternalSideEffect:
             Decision(
                 tier: .proResearch,
