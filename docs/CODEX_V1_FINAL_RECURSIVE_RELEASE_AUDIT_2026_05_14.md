@@ -479,6 +479,19 @@ Verification:
 - Removed only Epistemos-named `/tmp` build artifacts, freeing about 205 GiB; no source, vault, graph, or user data paths were touched.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentApprovalDelegationTests -only-testing:EpistemosTests/AuditFixRegressionTests/managedRustAgentEntryPointsKeepReadApprovalsDelegatedToSwift test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 
+### Agent/tool routing follow-up checks - 2026-05-14
+
+Changed:
+
+- No production code changed in this follow-up. This pass verifies the user's reopened priority that local and cloud agents/tool use must work, including deterministic local tool behavior.
+
+Verification:
+
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentApprovalDelegationTests -only-testing:EpistemosTests/LocalAgentLoopTests/reflexModeInjectsMissingToolStepsUntilRequiredReadWriteSequenceCompletes -only-testing:EpistemosTests/LocalAgentLoopTests/reflexModeRejectsExamplePathToolDriftUntilExactRequestedFilePathIsUsed -only-testing:EpistemosTests/LocalAgentLoopTests/reflexModeRejectsExamplePathDriftForExplicitAbsoluteFilesystemPaths test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentApprovalDelegationTests -only-testing:EpistemosTests/PipelineServiceTests/cloudManifestIncludesProviderNativeWebSearch -only-testing:EpistemosTests/PipelineServiceTests/cloudFastToolPromptsUseManagedAgentSession -only-testing:EpistemosTests/PipelineServiceTests/proModeUsesChatProToolTier -only-testing:EpistemosTests/PipelineServiceTests/explicitLocalWebSearchQueriesUseToolCapableRoute -only-testing:EpistemosTests/ProCloudToolLoopGuardTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- Local deterministic coverage: `LocalAgentLoop` reflex mode forces the required read/write tool sequence, rejects example-path drift, and rejects absolute-path drift before allowing the loop to complete.
+- Cloud/tool routing coverage: fake-key/in-memory tests prove provider-native web-search manifest wiring, Pro `chat_pro` tool tier selection, Fast cloud managed-agent escalation for explicit tool prompts, and local web-search prompt routing. These checks do not prove live provider calls on this machine.
+
 ## Current Verdict
 
-Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, the Pro/cloud promoted managed-agent tool budget gate is fixed and targeted-tested, and read-only web/tool research now routes through native approval instead of silently bypassing the authority gate. Managed Rust agent entry points now have explicit Swift and Rust regression coverage showing read-only tool approvals are delegated to the native queue. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, first-run web approval live smoke is still pending, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, the Pro/cloud promoted managed-agent tool budget gate is fixed and targeted-tested, and read-only web/tool research now routes through native approval instead of silently bypassing the authority gate. Managed Rust agent entry points now have explicit Swift and Rust regression coverage showing read-only tool approvals are delegated to the native queue. Local deterministic tool-loop and cloud routing contract checks are green. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, first-run web approval live smoke is still pending, and the required five consecutive zero-new-blocker recursive passes have not been completed.
