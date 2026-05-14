@@ -450,7 +450,7 @@ struct ExtractionAndMessageRegressionTests {
         let decoded = try JSONDecoder().decode(ExtractionResult.self, from: data)
 
         #expect(decoded.sources == nil)
-        #expect(decoded.tags.map(\.name) == ["Quantum"])
+        #expect(decoded.tags?.map(\.name) == ["Quantum"])
     }
 
     @Test("chat insight extraction tolerates missing shared sources payload")
