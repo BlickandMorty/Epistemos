@@ -1303,8 +1303,12 @@ final class AppBootstrap {
 
         let columnNames = try sqliteColumnNames(in: tableName, db: db, storeURL: storeURL)
         guard !columnNames.isEmpty else { return }
+        let missingColumns = columns.filter { !columnNames.contains($0.name) }
+        guard !missingColumns.isEmpty else { return }
 
-        for column in columns where !columnNames.contains(column.name) {
+        try backupModelStoreBeforeLegacyColumnRepairIfNeeded(at: storeURL)
+
+        for column in missingColumns {
             let sql = "ALTER TABLE \(tableName) ADD COLUMN \(column.name) \(column.declaration);"
             guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
                 throw sqliteStoreError(
@@ -1315,6 +1319,17 @@ final class AppBootstrap {
                 )
             }
         }
+    }
+
+    private nonisolated static func backupModelStoreBeforeLegacyColumnRepairIfNeeded(
+        at storeURL: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        let backupURL = storeURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("default.store.pre-column-repair.backup", isDirectory: false)
+        guard !fileManager.fileExists(atPath: backupURL.path) else { return }
+        try VaultSyncService.backupSQLiteDatabaseIfPresent(at: storeURL, to: backupURL)
     }
 
     private nonisolated static func sqliteColumnNames(

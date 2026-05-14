@@ -199,10 +199,14 @@ struct RuntimeValidationTests {
             applicationSupportDirectory: root,
             fileManager: .default
         )
+        let backupStoreURL = destinationStoreURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("default.store.pre-column-repair.backup")
 
         #expect(destinationStoreURL == AppBootstrap.persistentModelStoreURL(applicationSupportDirectory: root))
         #expect(destinationStoreURL.path == root.appendingPathComponent("Epistemos/default.store").path)
         #expect(FileManager.default.fileExists(atPath: destinationStoreURL.path))
+        #expect(FileManager.default.fileExists(atPath: backupStoreURL.path))
 
         let columns = try sqliteColumnNames(in: "ZSDMESSAGE", databaseURL: destinationStoreURL)
         #expect(columns.contains("ZTHINKINGTRACE"))
@@ -211,6 +215,10 @@ struct RuntimeValidationTests {
         let pageColumns = try sqliteColumnNames(in: "ZSDPAGE", databaseURL: destinationStoreURL)
         #expect(pageColumns.contains("ZWIKILINKREFERENCES"))
         #expect(pageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
+
+        let backupPageColumns = try sqliteColumnNames(in: "ZSDPAGE", databaseURL: backupStoreURL)
+        #expect(!backupPageColumns.contains("ZWIKILINKREFERENCES"))
+        #expect(!backupPageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
     }
 
     @MainActor
