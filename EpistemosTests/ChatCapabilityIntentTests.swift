@@ -47,6 +47,11 @@ struct ChatCapabilityIntentTests {
             "what notes in my vault mention train?",
             "show related notes in my vault",
             "search my notes for kant",
+            "what's the gist of my notes about hegemony?",
+            "do i have notes about dopamine?",
+            "anything in my notes about release planning?",
+            "remind me what i wrote about kant in my notes",
+            "what did i write about graph rendering?",
         ]
 
         for prompt in prompts {

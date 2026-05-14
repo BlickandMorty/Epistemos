@@ -5,10 +5,11 @@
 //!
 //!   * `vault_recall`       — hybrid semantic+keyword search with latency
 //!   * `contradiction_check`— surface epistemic conflicts before writing
+//!   * `scoreevidence`      — deterministic source URL confidence scoring
 //!   * `session_search`     — browse past sessions recorded in the vault
 //!   * `neural_recall`      — tiered hot/warm/cold cache lookup
 //!
-//! All four are pure Rust wrappers around services already implemented in
+//! All five are pure Rust wrappers around services already implemented in
 //! `agent_core::storage::*`. They require no FFI bridge.
 
 use std::path::{Path, PathBuf};
@@ -287,6 +288,122 @@ pub fn contradiction_check_schema() -> crate::types::ToolSchema {
             "required": ["claim"]
         }),
     }
+}
+
+// MARK: - scoreevidence
+
+pub struct EvidenceScoreHandler;
+
+#[async_trait]
+impl ToolHandler for EvidenceScoreHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let url = input
+            .get("url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("missing 'url'".into()))?;
+        ensure_char_cap("url", url, MAX_QUERY_CHARS)?;
+        let source_type = match optional_string(input, "sourceType")? {
+            Some(value) => Some(value),
+            None => optional_string(input, "source_type")?,
+        };
+        if let Some(source_type) = source_type {
+            ensure_char_cap("sourceType", source_type, MAX_TAG_CHARS)?;
+        }
+
+        let (tier, confidence) = evidence_score(url, source_type);
+
+        Ok(json!({
+            "url": url,
+            "sourceType": source_type,
+            "tier": tier,
+            "confidence": confidence,
+        })
+        .to_string())
+    }
+}
+
+pub fn evidence_score_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "scoreevidence".to_string(),
+        description: "Deterministically score a research source URL into an evidence tier and confidence. No network or LLM call.".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "url": { "type": "string", "description": "Source URL to score." },
+                "sourceType": {
+                    "type": "string",
+                    "description": "Optional override: arxiv, peer_reviewed, news, blog, or primary."
+                },
+                "source_type": {
+                    "type": "string",
+                    "description": "Alias for sourceType."
+                }
+            },
+            "required": ["url"]
+        }),
+    }
+}
+
+fn evidence_score(url: &str, source_type: Option<&str>) -> (&'static str, f64) {
+    if let Some(source_type) = source_type.map(str::to_lowercase) {
+        match source_type.as_str() {
+            "arxiv" => return ("arxivPreprint", 0.70),
+            "peer_reviewed" => return ("peerReviewed", 0.85),
+            "news" => return ("news", 0.50),
+            "blog" => return ("blog", 0.30),
+            "primary" => return ("primaryData", 0.95),
+            _ => {}
+        }
+    }
+
+    let lowered = url.to_lowercase();
+    if lowered.contains("doi.org")
+        || lowered.contains("pubmed")
+        || lowered.contains("nature.com")
+        || lowered.contains("science.org")
+        || lowered.contains("springer.com")
+        || lowered.contains("wiley.com")
+        || lowered.contains("cell.com")
+        || lowered.contains("thelancet.com")
+        || lowered.contains("pnas.org")
+        || lowered.contains("pmc.ncbi")
+        || (lowered.contains(".edu") && lowered.contains("/publications"))
+    {
+        return ("peerReviewed", 0.85);
+    }
+    if lowered.contains(".gov") || lowered.contains("who.int") {
+        return ("primaryData", 0.95);
+    }
+    if lowered.contains("arxiv.org")
+        || lowered.contains("biorxiv.org")
+        || lowered.contains("medrxiv.org")
+        || lowered.contains("ssrn.com")
+        || lowered.contains("openreview.net")
+    {
+        return ("arxivPreprint", 0.70);
+    }
+    if lowered.contains("nytimes.com")
+        || lowered.contains("reuters.com")
+        || lowered.contains("bbc.com")
+        || lowered.contains("bbc.co.uk")
+        || lowered.contains("apnews.com")
+        || lowered.contains("washingtonpost.com")
+        || lowered.contains("economist.com")
+        || lowered.contains("theguardian.com")
+    {
+        return ("news", 0.50);
+    }
+    if lowered.contains("medium.com")
+        || lowered.contains("substack.com")
+        || lowered.contains("wordpress.com")
+        || lowered.contains("blogspot.com")
+        || lowered.contains("dev.to")
+        || lowered.contains("hashnode.")
+    {
+        return ("blog", 0.30);
+    }
+
+    ("unknown", 0.20)
 }
 
 // MARK: - session_search
@@ -672,6 +789,30 @@ mod tests {
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["safe_to_write"], json!(true));
         assert_eq!(parsed["contradictions"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn evidence_score_matches_swift_research_tiers() {
+        let handler = EvidenceScoreHandler;
+
+        let result = handler
+            .execute(&json!({ "url": "https://pubmed.ncbi.nlm.nih.gov/12345" }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["tier"], json!("peerReviewed"));
+        assert_eq!(parsed["confidence"], json!(0.85));
+
+        let result = handler
+            .execute(&json!({
+                "url": "https://example.com/post",
+                "sourceType": "primary"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["tier"], json!("primaryData"));
+        assert_eq!(parsed["confidence"], json!(0.95));
     }
 
     #[tokio::test]

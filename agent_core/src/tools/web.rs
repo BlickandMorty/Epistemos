@@ -13,7 +13,7 @@ use std::collections::{HashSet, VecDeque};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use reqwest::Client;
+use reqwest::{Client, Url};
 use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
@@ -30,6 +30,7 @@ const MAX_WEB_RESPONSE_BYTES: usize = 512 * 1024;
 const MAX_WEB_QUERY_CHARS: usize = 4_000;
 const MAX_WEB_URL_CHARS: usize = 4_096;
 const MAX_BACKEND_CHARS: usize = 64;
+const MAX_PAPER_RESULTS: u64 = 20;
 
 fn required_string<'a>(
     input: &'a Value,
@@ -435,6 +436,114 @@ pub fn web_search_schema() -> crate::types::ToolSchema {
                     "enum": ["tavily", "brave", "perplexity"],
                     "description": "Optional explicit backend override."
                 }
+            },
+            "required": ["query"]
+        }),
+    }
+}
+
+// MARK: - research.search_papers
+
+pub struct SearchPapersHandler {
+    client: Client,
+}
+
+impl SearchPapersHandler {
+    pub fn new() -> Result<Self, ToolError> {
+        Ok(Self {
+            client: build_client()?,
+        })
+    }
+}
+
+#[async_trait]
+impl ToolHandler for SearchPapersHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let query = required_string(input, "query", MAX_WEB_QUERY_CHARS)?;
+        let limit = optional_u64_range(input, "limit", 5, 1, MAX_PAPER_RESULTS)? as usize;
+        let year_min = optional_u64_range(input, "yearMin", 0, 0, 3000)?;
+
+        let mut url = Url::parse("https://api.semanticscholar.org/graph/v1/paper/search")
+            .map_err(|e| ToolError::ExecutionFailed(format!("semantic scholar URL: {e}")))?;
+        {
+            let mut pairs = url.query_pairs_mut();
+            pairs.append_pair("query", query);
+            pairs.append_pair("limit", &limit.to_string());
+            pairs.append_pair(
+                "fields",
+                "title,authors,year,citationCount,url,abstract,venue,externalIds",
+            );
+            if year_min > 0 {
+                pairs.append_pair("year", &format!("{year_min}-"));
+            }
+        }
+
+        let resp = self.client.get(url).send().await.map_err(|e| {
+            ToolError::ExecutionFailed(describe_web_request_error("semantic_scholar", e))
+        })?;
+        if !resp.status().is_success() {
+            return Err(ToolError::ExecutionFailed(format!(
+                "semantic_scholar HTTP {}",
+                resp.status().as_u16()
+            )));
+        }
+        let payload: Value = resp.json().await.map_err(|_| {
+            ToolError::ExecutionFailed("semantic_scholar response parse failed".into())
+        })?;
+        let papers = payload
+            .get("data")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .take(limit)
+            .enumerate()
+            .map(|(index, paper)| {
+                let authors = paper
+                    .get("authors")
+                    .and_then(Value::as_array)
+                    .map(|values| {
+                        values
+                            .iter()
+                            .filter_map(|author| author.get("name").and_then(Value::as_str))
+                            .take(8)
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                json!({
+                    "position": index + 1,
+                    "title": paper.get("title").and_then(Value::as_str).unwrap_or(""),
+                    "authors": authors,
+                    "year": paper.get("year").cloned().unwrap_or(Value::Null),
+                    "citationCount": paper.get("citationCount").cloned().unwrap_or(Value::Null),
+                    "venue": paper.get("venue").and_then(Value::as_str).unwrap_or(""),
+                    "url": paper.get("url").and_then(Value::as_str).unwrap_or(""),
+                    "abstract": paper.get("abstract").and_then(Value::as_str).unwrap_or(""),
+                    "externalIds": paper.get("externalIds").cloned().unwrap_or_else(|| json!({})),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        Ok(json!({
+            "query": query,
+            "backend": "semantic_scholar",
+            "count": papers.len(),
+            "results": papers,
+        })
+        .to_string())
+    }
+}
+
+pub fn search_papers_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "searchpapers".to_string(),
+        description: "Search academic papers on Semantic Scholar. Returns title, authors, year, citation count, URL, and abstract.".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "query": { "type": "string", "description": "Academic paper search query" },
+                "limit": { "type": "integer", "default": 5, "minimum": 1, "maximum": 20 },
+                "yearMin": { "type": "integer", "description": "Minimum publication year" }
             },
             "required": ["query"]
         }),

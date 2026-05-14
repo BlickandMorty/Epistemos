@@ -349,6 +349,10 @@ struct ReleaseScriptAuditTests {
         #expect(wrapper.contains("EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR"))
         #expect(patcher.contains("EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR"))
         #expect(patcher.contains("Source/Cmlx/mlx/mlx/backend/cpu/jit_compiler.cpp"))
+        #expect(patcher.contains("prepare_swiftlint_plugin_output_dirs"))
+        #expect(patcher.contains("codeeditsourceeditor.output/CodeEditSourceEditor"))
+        #expect(patcher.contains("codeedittextview.output/CodeEditTextView"))
+        #expect(patcher.contains("SwiftLint/Output"))
     }
 
     @Test("mlx swift lm stays vendored in repo with the epistemos runtime patches")

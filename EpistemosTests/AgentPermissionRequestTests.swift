@@ -112,4 +112,40 @@ struct AgentPermissionRequestTests {
 
         #expect(request.authorityCategory(vaultPath: "/Users/jojo/Downloads/EpistemosVault") == .outOfVaultFileAccess)
     }
+
+    @Test("approved vault write requests derive R5 resource grant URIs")
+    func approvedVaultWritesDeriveR5GrantURIs() {
+        let request = AgentPermissionRequest(
+            id: "perm-template",
+            toolName: "note.template",
+            inputJson: ##"{"output_path":"Inbox/Created.md","template":"# Hi"}"##,
+            riskLevel: .modification,
+            description: "Create a note from a template."
+        )
+
+        #expect(request.permissionCategory == .localDataWrite)
+        #expect(request.requiresHumanApproval)
+        #expect(
+            request.r5WriteGrantResourceURI(vaultPath: "/Users/jojo/Vault")
+                == "vault://Vault/note/Inbox/Created.md"
+        )
+        #expect(request.authorityCategory(vaultPath: "/Users/jojo/Vault") == .vaultWrite)
+    }
+
+    @Test("research collection requests derive deterministic R5 inbox grants")
+    func researchCollectionDerivesDefaultR5InboxGrant() {
+        let request = AgentPermissionRequest(
+            id: "perm-snippet",
+            toolName: "research.collect_snippet",
+            inputJson: #"{"text":"quoted","sourceUrl":"https://example.com"}"#,
+            riskLevel: .modification,
+            description: "Collect a research snippet."
+        )
+
+        #expect(request.permissionCategory == .localDataWrite)
+        #expect(
+            request.r5WriteGrantResourceURI(vaultPath: "/Users/jojo/Vault")
+                == "vault://Vault/note/Research/Agent Research Inbox.md"
+        )
+    }
 }

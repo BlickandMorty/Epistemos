@@ -18,12 +18,17 @@ const MAX_TEMPLATE_CHARS: usize = 256 * 1024;
 const MAX_TEMPLATE_RESULT_CHARS: usize = 512 * 1024;
 const MAX_TEMPLATE_VARIABLES: usize = 128;
 const MAX_TEMPLATE_VARIABLE_CHARS: usize = 64 * 1024;
+const MAX_NOTE_TITLE_CHARS: usize = 240;
+const MAX_NOTE_BODY_CHARS: usize = 512 * 1024;
 const MAX_NOTE_LINK_STEMS: usize = 5_000;
 const MAX_RESEARCH_NOTES: usize = 50;
 const MAX_RESEARCH_NOTE_CHARS: usize = 1_000_000;
 const MAX_RESEARCH_TAGS: usize = 200;
 const MAX_KEY_SENTENCES: usize = 10;
 const MAX_CITATION_TEXT_CHARS: usize = 200_000;
+const MAX_RESEARCH_SNIPPET_CHARS: usize = 64 * 1024;
+const MAX_RESEARCH_SOURCE_CHARS: usize = 4_096;
+const DEFAULT_RESEARCH_SESSION_NOTE: &str = "Research/Agent Research Inbox.md";
 const MAX_TABLE_ROWS: usize = 500;
 const MAX_TABLE_COLUMNS: usize = 50;
 const MAX_TABLE_CELL_CHARS: usize = 2_000;
@@ -127,6 +132,120 @@ pub fn note_template_schema() -> crate::types::ToolSchema {
                 "variables": { "type": "object", "description": "Key-value pairs for {{variable}} interpolation" }
             },
             "required": ["template", "output_path"]
+        }),
+    }
+}
+
+// ── Note Create / Edit Tools ───────────────────────────────────────────────
+
+pub struct NoteCreateTool {
+    vault: Arc<dyn VaultBackend>,
+}
+
+impl NoteCreateTool {
+    pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
+        Self { vault }
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for NoteCreateTool {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let title = required_string_field(input, "title")?;
+        ensure_char_limit("title", title, MAX_NOTE_TITLE_CHARS)?;
+        let body = optional_string_field(input, "body")?.unwrap_or("");
+        ensure_char_limit("body", body, MAX_NOTE_BODY_CHARS)?;
+        let path = first_string_field(input, &["path", "note_path"])
+            .map(str::to_string)
+            .unwrap_or_else(|| note_path_from_title(title));
+
+        let content = if body.trim().starts_with('#') {
+            body.to_string()
+        } else if body.trim().is_empty() {
+            format!("# {title}\n")
+        } else {
+            format!("# {title}\n\n{body}")
+        };
+
+        self.vault
+            .write(&path, &content, None, false)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        Ok(json!({
+            "success": true,
+            "path": path,
+            "title": title,
+            "size": content.len(),
+        })
+        .to_string())
+    }
+}
+
+pub fn note_create_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "create_note".to_string(),
+        description: "Create a vault note from a title and optional markdown body. If path is omitted, writes to Notes/<title>.md.".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "title": { "type": "string", "description": "Note title" },
+                "body": { "type": "string", "description": "Markdown body" },
+                "path": { "type": "string", "description": "Optional vault-relative output path" },
+                "note_path": { "type": "string", "description": "Alias for path" }
+            },
+            "required": ["title"]
+        }),
+    }
+}
+
+pub struct NoteEditTool {
+    vault: Arc<dyn VaultBackend>,
+}
+
+impl NoteEditTool {
+    pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
+        Self { vault }
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for NoteEditTool {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let path = first_string_field(input, &["path", "note_path", "id", "note_id"]).ok_or_else(
+            || ToolError::InvalidArguments("path, note_path, id, or note_id required".into()),
+        )?;
+        let body = required_string_field(input, "body")?;
+        ensure_char_limit("body", body, MAX_NOTE_BODY_CHARS)?;
+
+        self.vault
+            .write(path, body, None, false)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        Ok(json!({
+            "success": true,
+            "path": path,
+            "size": body.len(),
+        })
+        .to_string())
+    }
+}
+
+pub fn note_edit_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "edit_note".to_string(),
+        description: "Replace the markdown body of a vault note. The path, note_path, id, or note_id field must identify a vault-relative note path.".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "path": { "type": "string", "description": "Vault-relative note path" },
+                "note_path": { "type": "string", "description": "Alias for path" },
+                "id": { "type": "string", "description": "Legacy alias for path" },
+                "note_id": { "type": "string", "description": "Legacy alias for path" },
+                "body": { "type": "string", "description": "Replacement markdown body" }
+            },
+            "required": ["body"]
         }),
     }
 }
@@ -499,6 +618,152 @@ pub fn citation_extractor_schema() -> crate::types::ToolSchema {
     }
 }
 
+// ── Research Collection Tools ───────────────────────────────────────────────
+
+pub struct ResearchCollectSnippetTool {
+    vault: Arc<dyn VaultBackend>,
+}
+
+impl ResearchCollectSnippetTool {
+    pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
+        Self { vault }
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for ResearchCollectSnippetTool {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let text = required_string_field(input, "text")?;
+        let source_url = required_string_field(input, "sourceUrl")
+            .or_else(|_| required_string_field(input, "source_url"))?;
+        let source_title =
+            first_string_field(input, &["sourceTitle", "source_title"]).unwrap_or(source_url);
+        ensure_char_limit("text", text, MAX_RESEARCH_SNIPPET_CHARS)?;
+        ensure_char_limit("sourceUrl", source_url, MAX_RESEARCH_SOURCE_CHARS)?;
+        ensure_char_limit("sourceTitle", source_title, MAX_RESEARCH_SOURCE_CHARS)?;
+
+        let path = research_session_note_path(input);
+        let now = chrono::Utc::now().to_rfc3339();
+        let escaped = text
+            .lines()
+            .map(|line| format!("> {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let entry = format!(
+            "## Snippet - {source_title}\n\n{escaped}\n\nSource: [{source_title}]({source_url})\nCollected: {now}\n"
+        );
+
+        let tags = ["research".to_string()];
+        self.vault
+            .write(&path, &entry, Some(&tags), true)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        Ok(json!({
+            "success": true,
+            "sessionNoteId": path,
+            "path": path,
+            "text": text,
+            "sourceUrl": source_url,
+            "sourceTitle": source_title,
+            "appended": true,
+        })
+        .to_string())
+    }
+}
+
+pub fn research_collect_snippet_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "collectsnippet".to_string(),
+        description: "Append a quoted source snippet to a vault-scoped research session note."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "text": { "type": "string", "description": "Quoted passage or excerpt" },
+                "sourceUrl": { "type": "string", "description": "Source URL" },
+                "sourceTitle": { "type": "string", "description": "Source title" },
+                "sessionNotePath": { "type": "string", "description": "Vault-relative research note path; defaults to Research/Agent Research Inbox.md" },
+                "sessionNoteId": { "type": "string", "description": "Legacy alias for sessionNotePath" }
+            },
+            "required": ["text", "sourceUrl"]
+        }),
+    }
+}
+
+pub struct CitationSaveTool {
+    vault: Arc<dyn VaultBackend>,
+}
+
+impl CitationSaveTool {
+    pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
+        Self { vault }
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolHandler for CitationSaveTool {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let title = required_string_field(input, "title")?;
+        let url = required_string_field(input, "url")?;
+        let authors = optional_string_field(input, "authors")?.unwrap_or("");
+        let date = optional_string_field(input, "date")?.unwrap_or("");
+        ensure_char_limit("title", title, MAX_RESEARCH_SOURCE_CHARS)?;
+        ensure_char_limit("url", url, MAX_RESEARCH_SOURCE_CHARS)?;
+        ensure_char_limit("authors", authors, MAX_RESEARCH_SOURCE_CHARS)?;
+        ensure_char_limit("date", date, MAX_RESEARCH_SOURCE_CHARS)?;
+
+        let path = research_session_note_path(input);
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut line = format!("- [{title}]({url})");
+        if !authors.trim().is_empty() {
+            line.push_str(&format!(" - {authors}"));
+        }
+        if !date.trim().is_empty() {
+            line.push_str(&format!(" ({date})"));
+        }
+        let entry = format!("## Citation\n\n{line}\nSaved: {now}\n");
+
+        let tags = ["research".to_string()];
+        self.vault
+            .write(&path, &entry, Some(&tags), true)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+
+        Ok(json!({
+            "success": true,
+            "sessionNoteId": path,
+            "path": path,
+            "title": title,
+            "url": url,
+            "authors": authors,
+            "date": date,
+            "appended": true,
+        })
+        .to_string())
+    }
+}
+
+pub fn citation_save_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "savecitation".to_string(),
+        description: "Append a formal citation to a vault-scoped research session note."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "title": { "type": "string", "description": "Citation title" },
+                "authors": { "type": "string", "description": "Authors" },
+                "url": { "type": "string", "description": "Citation URL" },
+                "date": { "type": "string", "description": "Publication date" },
+                "sessionNotePath": { "type": "string", "description": "Vault-relative research note path; defaults to Research/Agent Research Inbox.md" },
+                "sessionNoteId": { "type": "string", "description": "Legacy alias for sessionNotePath" }
+            },
+            "required": ["title", "url"]
+        }),
+    }
+}
+
 // ── Markdown Table Tool ─────────────────────────────────────────────────────
 
 pub struct MarkdownTableTool;
@@ -667,6 +932,43 @@ fn optional_string_field<'a>(input: &'a Value, field: &str) -> Result<Option<&'a
         .ok_or_else(|| ToolError::InvalidArguments(format!("'{field}' must be a string")))
 }
 
+fn first_string_field<'a>(input: &'a Value, fields: &[&str]) -> Option<&'a str> {
+    fields
+        .iter()
+        .find_map(|field| input.get(*field).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn research_session_note_path(input: &Value) -> String {
+    first_string_field(
+        input,
+        &[
+            "sessionNotePath",
+            "session_note_path",
+            "path",
+            "sessionNoteId",
+            "session_note_id",
+        ],
+    )
+    .unwrap_or(DEFAULT_RESEARCH_SESSION_NOTE)
+    .to_string()
+}
+
+fn note_path_from_title(title: &str) -> String {
+    let mut slug = String::new();
+    for ch in title.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch);
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    let slug = slug.trim_matches('-');
+    let stem = if slug.is_empty() { "Untitled" } else { slug };
+    format!("Notes/{stem}.md")
+}
+
 fn ensure_char_limit(label: &str, value: &str, cap: usize) -> Result<(), ToolError> {
     let count = value.chars().count();
     if count > cap {
@@ -800,6 +1102,72 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("variables exceeds"));
+    }
+
+    #[tokio::test]
+    async fn note_create_and_edit_write_vault_notes() {
+        let vault = Arc::new(StubVault::new(HashMap::new()));
+        let create = NoteCreateTool::new(vault.clone());
+        let edit = NoteEditTool::new(vault.clone());
+
+        let created = create
+            .execute(&json!({
+                "title": "Agent Tool Note",
+                "body": "Draft body"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&created).unwrap();
+        assert_eq!(parsed["path"], json!("Notes/Agent-Tool-Note.md"));
+
+        edit.execute(&json!({
+            "path": "Notes/Agent-Tool-Note.md",
+            "body": "# Agent Tool Note\n\nEdited"
+        }))
+        .await
+        .unwrap();
+
+        let writes = vault.writes.lock().unwrap();
+        assert_eq!(writes.len(), 2);
+        assert_eq!(writes[0].0, "Notes/Agent-Tool-Note.md");
+        assert!(writes[0].1.contains("Draft body"));
+        assert!(writes[1].1.contains("Edited"));
+    }
+
+    #[tokio::test]
+    async fn research_collect_and_citation_save_append_to_session_note() {
+        let vault = Arc::new(StubVault::new(HashMap::new()));
+        let collect = ResearchCollectSnippetTool::new(vault.clone());
+        let save = CitationSaveTool::new(vault.clone());
+
+        let collected = collect
+            .execute(&json!({
+                "text": "Important finding.",
+                "sourceUrl": "https://example.com/paper",
+                "sourceTitle": "Example Paper"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&collected).unwrap();
+        assert_eq!(
+            parsed["sessionNoteId"],
+            json!(DEFAULT_RESEARCH_SESSION_NOTE)
+        );
+
+        save.execute(&json!({
+            "title": "Example Paper",
+            "authors": "Ada Lovelace",
+            "url": "https://example.com/paper"
+        }))
+        .await
+        .unwrap();
+
+        let writes = vault.writes.lock().unwrap();
+        assert_eq!(writes.len(), 2);
+        assert_eq!(writes[0].0, DEFAULT_RESEARCH_SESSION_NOTE);
+        assert!(writes[0].1.contains("> Important finding."));
+        assert_eq!(writes[1].0, DEFAULT_RESEARCH_SESSION_NOTE);
+        assert!(writes[1].1.contains("Ada Lovelace"));
     }
 
     #[tokio::test]

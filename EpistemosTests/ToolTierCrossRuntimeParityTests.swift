@@ -30,6 +30,13 @@ struct ToolTierCrossRuntimeParityTests {
         ("TAVILY_API_KEY", "epistemos-parity-test-placeholder"),
     ]
 
+    /// Tools that are registered only on the managed Rust agent-session path
+    /// because they need the Swift delegate/UI, not the generic one-shot tier
+    /// list used by normal chat tool execution.
+    private static let lateBoundAgentSessionTools: Set<String> = [
+        "clarify.ask",
+    ]
+
     /// Contract 1 — every name in `coreAppStoreAllowedToolNames` must exist
     /// somewhere in the Rust registry. The Rust `Full` tier is the union of
     /// every registered tool, so it's the right denominator: a name that's
@@ -58,7 +65,9 @@ struct ToolTierCrossRuntimeParityTests {
         let rustNames = Set(schemas.map { $0.name.lowercased() })
 
         let swiftAllowed = ToolSurfacePolicy.coreAppStoreAllowedToolNames
-        let missing = swiftAllowed.subtracting(rustNames)
+        let missing = swiftAllowed
+            .subtracting(rustNames)
+            .subtracting(Self.lateBoundAgentSessionTools)
 
         #expect(
             missing.isEmpty,
@@ -73,6 +82,20 @@ struct ToolTierCrossRuntimeParityTests {
             test file.
             """
         )
+
+        let lateBoundAllowed = swiftAllowed.intersection(Self.lateBoundAgentSessionTools)
+        if !lateBoundAllowed.isEmpty {
+            let bridgeSource = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
+            let registrySource = try loadMirroredSourceTextFile("agent_core/src/tools/registry.rs")
+            #expect(
+                bridgeSource.contains("tool_registry.register_delegate_tools"),
+                "Late-bound MAS tools must be installed on the managed Rust agent-session path."
+            )
+            #expect(
+                registrySource.contains("clarify_schema()"),
+                "clarify.ask must remain registered by the delegate-aware tool installer."
+            )
+        }
     }
 
     /// Contract 2 — destructive tools in the Swift allowlist must NOT be served

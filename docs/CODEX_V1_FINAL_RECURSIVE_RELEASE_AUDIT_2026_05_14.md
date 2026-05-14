@@ -592,6 +592,42 @@ Verification:
 - Reopened graph from the same scratch-vault MAS audit app. Result: REOPENED/BLOCKED. The graph stayed on the red loading spinner immediately after launch and after a 35-second dwell. Screenshot evidence: `build/live-smoke-evidence/mas-vault-soak-graph-spinner-2026-05-14.png` and `build/live-smoke-evidence/mas-vault-soak-graph-spinner-after35s-2026-05-14.png`.
 - Because graph rendering is protected, this pass documents evidence only. Any patch touching graph rendering/layout/camera/physics/selection/overlay requires explicit approval before editing those files.
 
+### Agent/tool executable surface closure - 2026-05-14
+
+Changed:
+
+- `Epistemos/Bridge/ToolTierBridge.swift`: MAS-visible tool aliases now canonicalize the note/research/composer surfaces consistently, Pro-only delegation/model-loop/skill-management tools stay out of the MAS allowlist, and Rust `modification` risk now maps to Swift `requiresConfirmation` instead of only `destructive`.
+- `agent_core/src/tools/registry.rs`, `agent_core/src/tools/note_tools.rs`, `agent_core/src/tools/web.rs`, and `agent_core/src/tools/knowledge.rs`: tools that were previously catalog-visible but inert in the real chat executor now have executable Rust handlers for `vault.list`, `note.create`, `note.edit`, `research.collect_snippet`, `research.search_papers`, `citation.save`, and `knowledge.evidence_score`.
+- `Epistemos/App/ChatCoordinator.swift`, `Epistemos/Bridge/StreamingDelegate.swift`, and `agent_core/src/resources/tool_authz.rs`: approved vault-note write requests now derive matching R.5 `vault://.../note/...` resource grants for note templates, note create/edit, research snippet collection, and citation saving before Rust enforces resource writes.
+- `Epistemos/Engine/AgentHarness/ChatCapability.swift`: soft first-person vault lookup prompts such as `what did I write about graph rendering?` now route to the local/cloud tool-capable path instead of plain chat.
+- `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` and `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md`: MAS tool inventory updated to reflect executable note/research tools and native approval/R.5 gating.
+- No graph rendering files were edited. No user vault/database files were reset, deleted, migrated, or mutated.
+
+Failing checks first:
+
+- Targeted Swift parity failed before the `knowledge.evidence_score` Rust handler because `ToolSurfacePolicy.coreAppStoreAllowedToolNames` referenced a Rust tool that did not exist at any tier.
+- The same parity run showed stale test policy for `web_fetch`; MAS manifest allows canonical `web.fetch` over HTTPS, so the legacy alias now canonicalizes into the allowed surface instead of being treated as hidden.
+- The broader Swift batch then failed on `ChatCapabilityIntentTests/softPluralVaultLookupPromptsPredictAgentIntent()` because `what did i write about graph rendering?` predicted `.local` instead of `.agent`.
+
+Verification:
+
+- `git diff --check` - PASS.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib tools::knowledge::tests::` - PASS, 12 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib tier_tests::` - PASS, 38 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib resources::tool_authz::tests` - PASS, 25 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib note_tools::tests::` - PASS, 10 passed.
+- `xcodebuild ... -only-testing:EpistemosTests/AgentPermissionRequestTests -only-testing:EpistemosTests/ToolSurfacePolicyTests -only-testing:EpistemosTests/ToolTierCrossRuntimeParityTests -only-testing:EpistemosTests/CoreMASBoundarySourceGuardTests/toolTierBridgeCoreAllowlistIsInProcess test CODE_SIGNING_ALLOWED=NO -quiet` - PASS, 21 passed.
+- `xcodebuild ... -only-testing:EpistemosTests/ChatCapabilityIntentTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS after classifier fix.
+- `xcodebuild ... -only-testing:EpistemosTests/AppStoreHardeningTests/appStoreSourceCannotCanImportGGUFRuntimeFromSharedDerivedData -only-testing:EpistemosTests/ReleaseScriptAuditTests/xcodebuildWrapperPatchesMLXPackageCheckoutsAfterResolution -only-testing:EpistemosTests/ToolSurfacePolicyTests -only-testing:EpistemosTests/CoreMASBoundarySourceGuardTests/toolTierBridgeCoreAllowlistIsInProcess -only-testing:EpistemosTests/ToolTierCrossRuntimeParityTests -only-testing:EpistemosTests/ChatCapabilityIntentTests -only-testing:EpistemosTests/AgentPermissionRequestTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS, 32 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib` - PASS, 1098 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1311 passed.
+- `cargo test --manifest-path epistemos-research/Cargo.toml --features research` - PASS, 492 unit tests and 113 canonical-consistency tests passed.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosV1ProBuildPostAgentTools build CODE_SIGNING_ALLOWED=NO -quiet` - PASS; known MLX C++17 warnings only.
+- `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/EpistemosV1MASBuildPostAgentTools build CODE_SIGNING_ALLOWED=NO -quiet` - PASS; wrapper patched the MLX Metal warning and MLX CPU JIT shell helper before build.
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-agent-tools-2026-05-14 scripts/scan_appstore_bundle.sh /tmp/EpistemosV1MASBuildPostAgentTools/Build/Products/Debug/Epistemos.app` - PASS; no prohibited runtime strings, symbols, research residues, or tool residues.
+- MAS manifest narrow strings scan against `/tmp/EpistemosV1MASBuildPostAgentTools/Build/Products/Debug/Epistemos.app` - PASS, no matches for exact forbidden executable paths.
+- MAS manifest narrow `nm -gU` scan against `/tmp/EpistemosV1MASBuildPostAgentTools/Build/Products/Debug/Epistemos.app/Contents/Frameworks/libagent_core.dylib` - PASS, no forbidden process-launch symbols.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS scratch-vault import/Notes/schema path has zero-crash evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, and automated note ask-bar rewrite checks are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the MAS scratch-vault graph now reliably stalls on the protected graph loading spinner, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, Pro RCA8/vault rerun evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS scratch-vault import/Notes/schema path has zero-crash evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, and automated note ask-bar rewrite checks are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the MAS scratch-vault graph now reliably stalls on the protected graph loading spinner, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, Pro RCA8/vault rerun evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.

@@ -32,9 +32,14 @@ nonisolated enum AgentToolNameAliases {
             "edit_note": "note.edit",
             "search_notes": "vault.search",
             "list_notes": "vault.list",
+            "note_template": "note.template",
+            "note_linker": "note.linker",
+            "research_digest": "note.research_digest",
             "collectsnippet": "research.collect_snippet",
             "savecitation": "citation.save",
             "createresearchnote": "note.research_digest",
+            "citation_extractor": "citation.extract",
+            "markdown_table": "markdown.table",
             "graph_query": "graph.query",
             "vault_navigate": "graph.vault_navigate",
             "memory": "memory.curated",
@@ -46,6 +51,7 @@ nonisolated enum AgentToolNameAliases {
             "searchpapers": "research.search_papers",
             "web_extract": "web.extract",
             "web_crawl": "web.crawl",
+            "clarify": "clarify.ask",
             "skills_list": "skills.list",
             "skill_view": "skills.view",
             "skill_manage": "skills.manage",
@@ -163,32 +169,26 @@ nonisolated enum ToolSurfacePolicy {
     ///      Full Disk Access entitlements (those are Pro-only)
     ///
     /// 2026-05-13 expansion (mas-release-prep): added the
-    /// multi-agent + multi-model + vault-knowledge + composer tools
+    /// vault-knowledge + composer tools
     /// the user asked for ("CLI + local agents + cloud agents + tool
     /// use looping + model looping + agent looping ... it shouldn't
     /// have Pro capabilities but should still be as good"):
     ///
-    ///   * `delegate_task` — agent-loop primitive. Spawns a child
-    ///     agent on the same Tokio runtime (no subprocess) with
-    ///     bounded depth 2 + 64 KB response cap. Enables
-    ///     "agent loops agents".
-    ///   * `intelligence.mixture_of_minds` — model-loop primitive.
-    ///     Fans out a problem to up to 4 cloud models in parallel
-    ///     (URLSession only, no subprocess) and aggregates.
-    ///     Requires user-provided API keys + `allow_cloud_external_
-    ///     requests=true` so it never silently leaks to cloud.
     ///   * `knowledge.recall` / `.contradiction_check` /
     ///     `.session_search` / `.neural_recall` — vault knowledge
     ///     fetchers. Pure Rust + GRDB / Tantivy / HNSW lookups, no
     ///     subprocess.
-    ///   * `note_template` / `note_linker` — note authoring helpers
+    ///   * `note.template` / `note.linker` — note authoring helpers
     ///     scoped to the active vault (uses the existing vault
     ///     write surface that's already on the MAS list).
-    ///   * `clarify` — agent asks the user a follow-up question;
+    ///   * `clarify.ask` — agent asks the user a follow-up question;
     ///     pure in-process prompt round-trip.
-    ///   * `skills.list` / `skills.view` / `skills.manage` — skill
-    ///     catalog reads + writes scoped to the vault's
-    ///     `.epistemos/skills/` directory.
+    ///   * Pro-only subagent / model-loop primitives stay out of
+    ///     Core App Store because Rust registers `delegate_task` and
+    ///     `intelligence.mixture_of_minds` only under `pro-build`.
+    ///   * Pro-only skill management stays out of Core App Store because
+    ///     Rust registers `skills.list` / `skills.view` / `skills.manage`
+    ///     only under the `pro-build` feature.
     static let coreAppStoreAllowedToolNames: Set<String> = [
         // Vault primitives (verified sandbox-safe)
         "vault.search",
@@ -212,9 +212,7 @@ nonisolated enum ToolSurfacePolicy {
         "web.extract",
         "web.crawl",
         "web.fetch",
-        // 2026-05-13 MAS expansion — multi-agent + multi-model + vault knowledge
-        "delegate_task",
-        "intelligence.mixture_of_minds",
+        // 2026-05-13 MAS expansion — vault knowledge + note composition
         "knowledge.recall",
         "knowledge.contradiction_check",
         "knowledge.evidence_score",
@@ -223,12 +221,9 @@ nonisolated enum ToolSurfacePolicy {
         "note.create",
         "note.edit",
         "note.research_digest",
-        "note_template",
-        "note_linker",
-        "clarify",
-        "skills.list",
-        "skills.view",
-        "skills.manage",
+        "note.template",
+        "note.linker",
+        "clarify.ask",
         "research.collect_snippet",
         "research.search_papers",
         "citation.save",
@@ -422,14 +417,16 @@ final class ToolTierBridge {
                 schemas = try listToolsForTier(vaultPath: resolvedVaultPath, tier: tier.rawValue)
             }
             let tools = schemas.map { schema in
-                OmegaToolDefinition(
+                let riskLevel = schema.riskLevel.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .lowercased()
+                return OmegaToolDefinition(
                     name: schema.name,
                     agent: "rust",
                     description: schema.description,
                     argumentsExample: "{}",
                     schemaJson: schema.parametersJson,
-                    destructive: schema.riskLevel == "destructive",
-                    requiresConfirmation: schema.riskLevel == "destructive"
+                    destructive: riskLevel == "destructive",
+                    requiresConfirmation: riskLevel == "modification" || riskLevel == "destructive"
                 )
             }
             return ToolSurfacePolicy.surfacedTools(

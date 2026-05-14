@@ -254,6 +254,11 @@ extension AgentPermissionRequest {
         "vault.write",
         "file.write",
         "file.patch",
+        "note.create",
+        "note.edit",
+        "note.template",
+        "research.collect_snippet",
+        "citation.save",
         "patch_file",
         "pkm_write",
     ]
@@ -329,6 +334,9 @@ extension AgentPermissionRequest {
         }
         return [
             object?["path"] as? String,
+            object?["output_path"] as? String,
+            object?["sessionNotePath"] as? String,
+            object?["session_note_path"] as? String,
             object?["query"] as? String,
             object?["url"] as? String,
             object?["command"] as? String,
@@ -367,6 +375,99 @@ extension AgentPermissionRequest {
             return nil
         }
         return value
+    }
+
+    nonisolated func r5WriteGrantResourceURI(vaultPath: String?) -> String? {
+        let normalizedToolName = AgentToolNameAliases.canonical(toolName)
+        guard let object = jsonObject else { return nil }
+
+        switch normalizedToolName {
+        case "vault.write":
+            return vaultNoteGrantURI(
+                path: Self.firstString(in: object, keys: ["path"]),
+                vaultPath: vaultPath
+            )
+        case "note.template":
+            return vaultNoteGrantURI(
+                path: Self.firstString(in: object, keys: ["output_path"]),
+                vaultPath: vaultPath
+            )
+        case "note.create":
+            let explicitPath = Self.firstString(in: object, keys: ["path", "note_path"])
+            let derivedPath = explicitPath ?? Self.notePathFromTitle(
+                Self.firstString(in: object, keys: ["title"])
+            )
+            return vaultNoteGrantURI(path: derivedPath, vaultPath: vaultPath)
+        case "note.edit":
+            return vaultNoteGrantURI(
+                path: Self.firstString(in: object, keys: ["path", "note_path", "id", "note_id"]),
+                vaultPath: vaultPath
+            )
+        case "research.collect_snippet", "citation.save":
+            return vaultNoteGrantURI(
+                path: Self.researchSessionNotePath(from: object),
+                vaultPath: vaultPath
+            )
+        case "file.write", "file.patch":
+            guard let path = Self.firstString(in: object, keys: ["path"]) else { return nil }
+            return "file://\(path)"
+        default:
+            return nil
+        }
+    }
+
+    nonisolated private func vaultNoteGrantURI(path: String?, vaultPath: String?) -> String? {
+        guard let path = path?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty else {
+            return nil
+        }
+        let vaultID = URL(fileURLWithPath: vaultPath ?? "")
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedVaultID = vaultID.isEmpty ? "default" : vaultID
+        let normalizedPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !normalizedPath.isEmpty else { return nil }
+        return "vault://\(resolvedVaultID)/note/\(normalizedPath)"
+    }
+
+    nonisolated private static func firstString(
+        in object: [String: Any],
+        keys: [String]
+    ) -> String? {
+        for key in keys {
+            if let value = object[key] as? String {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    return trimmed
+                }
+            }
+        }
+        return nil
+    }
+
+    nonisolated private static func researchSessionNotePath(from object: [String: Any]) -> String {
+        firstString(
+            in: object,
+            keys: ["sessionNotePath", "session_note_path", "path", "sessionNoteId", "session_note_id"]
+        ) ?? "Research/Agent Research Inbox.md"
+    }
+
+    nonisolated private static func notePathFromTitle(_ title: String?) -> String? {
+        guard let title = title?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !title.isEmpty else {
+            return nil
+        }
+        let allowed = CharacterSet.alphanumerics
+        let slug = title.unicodeScalars.reduce(into: "") { partial, scalar in
+            if allowed.contains(scalar) {
+                partial.unicodeScalars.append(scalar)
+            } else if !partial.hasSuffix("-") {
+                partial.append("-")
+            }
+        }
+        .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        let fileStem = slug.isEmpty ? "Untitled" : slug
+        return "Notes/\(fileStem).md"
     }
 }
 

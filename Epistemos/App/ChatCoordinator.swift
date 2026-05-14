@@ -3287,6 +3287,7 @@ final class ChatCoordinator {
     let authorityStore = bootstrap.agentAuthorityStore
     switch storedAuthorityDecision(for: request) {
     case .autoAllow:
+      await seedApprovedR5WriteGrantIfNeeded(for: request)
       return true
     case .neverAllow:
       return false
@@ -3300,15 +3301,44 @@ final class ChatCoordinator {
     )
     switch choice {
     case .allowOnce:
+      await seedApprovedR5WriteGrantIfNeeded(for: request)
       return true
     case .alwaysAllow:
       authorityStore.setDecision(.autoAllow, for: authorityCategory)
+      await seedApprovedR5WriteGrantIfNeeded(for: request)
       return true
     case .applyLessInterruptions:
       authorityStore.applyPreset(AgentAuthorityQuickSetupPreset.lessInterruptions.decisions)
+      await seedApprovedR5WriteGrantIfNeeded(for: request)
       return true
     case .deny:
       return false
+    }
+  }
+
+  private func seedApprovedR5WriteGrantIfNeeded(for request: AgentPermissionRequest) async {
+    guard request.permissionCategory == .localDataWrite,
+          let resourceURI = request.r5WriteGrantResourceURI(vaultPath: vaultSync.vaultURL?.path)
+    else {
+      return
+    }
+
+    let alreadyGranted = await permissionStoreCheck(
+      resourceUri: resourceURI,
+      capability: "Write"
+    )
+    guard !alreadyGranted else { return }
+
+    let grantID = await permissionStoreRecordUserGrantFromStatement(
+      statement: Self.r4LiveAttachmentDefaultGrantStatement,
+      resourceUri: resourceURI,
+      capabilityNames: ["Write"],
+      scopeName: Self.r5GrantScope
+    )
+    if let grantID, !grantID.isEmpty {
+      Log.pipeline.info(
+        "R.5 approval: recorded write grant \(grantID, privacy: .public) for \(resourceURI, privacy: .public)"
+      )
     }
   }
 

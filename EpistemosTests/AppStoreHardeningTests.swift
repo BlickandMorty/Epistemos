@@ -392,6 +392,18 @@ struct AppStoreHardeningTests {
         #expect(appStoreTarget?.contains("rm -rf \"${frameworks_dir}/llama.framework\"") == true)
     }
 
+    @Test("App Store source cannot canImport the GGUF runtime from shared DerivedData")
+    func appStoreSourceCannotCanImportGGUFRuntimeFromSharedDerivedData() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/LocalGGUFClient.swift")
+        let guardedImport = "#if !EPISTEMOS_APP_STORE && canImport(GGUFRuntimeBridge)"
+
+        #expect(source.contains(guardedImport))
+        #expect(
+            source.components(separatedBy: "#if canImport(GGUFRuntimeBridge)").count == 1,
+            "LocalGGUFClient.swift must not use a bare canImport(GGUFRuntimeBridge) guard. A prior Pro build leaves GGUFRuntimeBridge in shared DerivedData, making App Store builds import the Pro-only llama module."
+        )
+    }
+
     @Test("App Store scheme has tests or CI runs a dedicated MAS artifact gate")
     func appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate() throws {
         let scheme = try loadMirroredSourceTextFile(

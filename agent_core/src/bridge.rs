@@ -2888,7 +2888,21 @@ fn build_registry_for_tool_tier(
 }
 
 fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
-    matches!(tool_name, "vault.write" | "vault_write")
+    matches!(
+        tool_name,
+        "vault.write"
+            | "vault_write"
+            | "note.create"
+            | "create_note"
+            | "note.edit"
+            | "edit_note"
+            | "note.template"
+            | "note_template"
+            | "research.collect_snippet"
+            | "collectsnippet"
+            | "citation.save"
+            | "savecitation"
+    )
 }
 
 // MARK: - Provenance Ledger FFI (V2 Lane 1 — read-only Rust ledger surface)
@@ -3176,7 +3190,12 @@ pub fn cognitive_dag_stats_json() -> Result<String, AgentErrorFFI> {
         let contradicts_count = snapshot
             .edges
             .iter()
-            .filter(|e| matches!(e.kind, crate::cognitive_dag::edge::EdgeKind::Contradicts { .. }))
+            .filter(|e| {
+                matches!(
+                    e.kind,
+                    crate::cognitive_dag::edge::EdgeKind::Contradicts { .. }
+                )
+            })
             .count();
         Ok(format!(
             r#"{{"node_count":{},"edge_count":{},"contradicts_edge_count":{},"merkle_root_hex":"{}","schema_version":{}}}"#,
@@ -3222,9 +3241,7 @@ pub fn produce_answer_packet_json(
 ) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
         use crate::scope_rex::answer_packet::{AttentionMode, VrmLabel};
-        use crate::scope_rex::produce::{
-            produce_turn_completion_packet, TurnCompletionInputs,
-        };
+        use crate::scope_rex::produce::{produce_turn_completion_packet, TurnCompletionInputs};
 
         let attention_mode = match attention_mode_wire.as_str() {
             "dynamic" => AttentionMode::Dynamic,

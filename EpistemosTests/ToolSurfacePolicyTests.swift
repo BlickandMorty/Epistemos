@@ -65,13 +65,21 @@ struct ToolSurfacePolicyTests {
             "apple_reminders",
             "apple_calendar",
             "apple_mail",
+            "delegate_task",
+            "intelligence.mixture_of_minds",
+            "mixture_of_minds",
+            "skills.list",
+            "skills.view",
             "skills.manage",
+            "skills",
+            "skills_list",
+            "skill_view",
+            "skill_manage",
             "custom_tool_manage",
             "trajectory_export",
             "nightbrain_trigger",
             "inline_partner",
             "execute_code",
-            "web_fetch",
             "docker_run",
             "file_edit",
         ]
@@ -91,6 +99,23 @@ struct ToolSurfacePolicyTests {
         )
 
         #expect(filtered.map(\.name) == allowed)
+    }
+
+    @Test func coreAppStorePolicyAcceptsRustV2AndLegacyAgentToolNames() {
+        let filtered = ToolSurfacePolicy.surfacedTools([
+            Self.makeTool(name: "note_template"),
+            Self.makeTool(name: "note.linker"),
+            Self.makeTool(name: "web_fetch"),
+            Self.makeTool(name: "clarify"),
+            Self.makeTool(name: "clarify.ask"),
+        ], distribution: .coreAppStore)
+
+        #expect(filtered.map(\.name) == [
+            "note.template",
+            "note.linker",
+            "web.fetch",
+            "clarify.ask",
+        ])
     }
 
     @Test func coreAppStorePolicyCanonicalizesToolNameCase() {

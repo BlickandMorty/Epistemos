@@ -1,6 +1,6 @@
 import Foundation
 
-#if canImport(GGUFRuntimeBridge)
+#if !EPISTEMOS_APP_STORE && canImport(GGUFRuntimeBridge)
 import GGUFRuntimeBridge
 #endif
 
@@ -445,7 +445,7 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
         modelID: String,
         reasoningMode: LocalReasoningMode
     ) async throws -> LocalGGUFEngine {
-#if canImport(GGUFRuntimeBridge)
+#if !EPISTEMOS_APP_STORE && canImport(GGUFRuntimeBridge)
         let session = try await LocalGGUFSwiftSession(
             modelURL: modelURL,
             modelID: modelID,
@@ -476,7 +476,7 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
     }
 }
 
-#if canImport(GGUFRuntimeBridge)
+#if !EPISTEMOS_APP_STORE && canImport(GGUFRuntimeBridge)
 actor LocalGGUFSwiftSession {
     private let session: GGUFSessionBridge
 

@@ -833,6 +833,7 @@ impl ToolRegistry {
         self.register_vault_search();
         self.register_vault_read();
         self.register_vault_write();
+        self.register_vault_list();
         self.register_think_tool();
         self.register_chunk_reduce();
         self.register_workspace_search();
@@ -998,6 +999,7 @@ impl ToolRegistry {
         const CHAT_LITE: &[&str] = &[
             // Research / web
             "web_search",
+            "searchpapers",
             "web_extract",
             "web_fetch",
             // Vault reads
@@ -1629,8 +1631,9 @@ impl ToolRegistry {
 
     fn register_phase_two_knowledge(&mut self) {
         use crate::tools::knowledge::{
-            contradiction_check_schema, neural_recall_schema, vault_recall_schema,
-            ContradictionCheckHandler, NeuralRecallHandler, VaultRecallHandler,
+            contradiction_check_schema, evidence_score_schema, neural_recall_schema,
+            vault_recall_schema, ContradictionCheckHandler, EvidenceScoreHandler,
+            NeuralRecallHandler, VaultRecallHandler,
         };
 
         let vr = vault_recall_schema();
@@ -1649,6 +1652,16 @@ impl ToolRegistry {
             description: cc.description,
             parameters: cc.parameters,
             handler: Box::new(ContradictionCheckHandler::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let es = evidence_score_schema();
+        self.register(RegisteredTool {
+            name: es.name,
+            description: es.description,
+            parameters: es.parameters,
+            handler: Box::new(EvidenceScoreHandler),
             risk_level: RiskLevel::ReadOnly,
             tier: ToolTier::Agent,
         });
@@ -1717,10 +1730,32 @@ impl ToolRegistry {
 
     fn register_phase_two_note_tools(&mut self) {
         use crate::tools::note_tools::{
-            citation_extractor_schema, markdown_table_schema, note_linker_schema,
-            note_template_schema, research_digest_schema, CitationExtractorTool, MarkdownTableTool,
-            NoteLinkerTool, NoteTemplateTool, ResearchDigestTool,
+            citation_extractor_schema, citation_save_schema, markdown_table_schema,
+            note_create_schema, note_edit_schema, note_linker_schema, note_template_schema,
+            research_collect_snippet_schema, research_digest_schema, CitationExtractorTool,
+            CitationSaveTool, MarkdownTableTool, NoteCreateTool, NoteEditTool, NoteLinkerTool,
+            NoteTemplateTool, ResearchCollectSnippetTool, ResearchDigestTool,
         };
+
+        let nc = note_create_schema();
+        self.register(RegisteredTool {
+            name: nc.name,
+            description: nc.description,
+            parameters: nc.parameters,
+            handler: Box::new(NoteCreateTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let ne = note_edit_schema();
+        self.register(RegisteredTool {
+            name: ne.name,
+            description: ne.description,
+            parameters: ne.parameters,
+            handler: Box::new(NoteEditTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
 
         let nt = note_template_schema();
         self.register(RegisteredTool {
@@ -1761,6 +1796,26 @@ impl ToolRegistry {
             parameters: ce.parameters,
             handler: Box::new(CitationExtractorTool),
             risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+
+        let cs = citation_save_schema();
+        self.register(RegisteredTool {
+            name: cs.name,
+            description: cs.description,
+            parameters: cs.parameters,
+            handler: Box::new(CitationSaveTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        let rcs = research_collect_snippet_schema();
+        self.register(RegisteredTool {
+            name: rcs.name,
+            description: rcs.description,
+            parameters: rcs.parameters,
+            handler: Box::new(ResearchCollectSnippetTool::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::Modification,
             tier: ToolTier::Agent,
         });
 
@@ -1890,6 +1945,43 @@ impl ToolRegistry {
                 "required": ["path"]
             }),
             handler: Box::new(VaultReadHandler { vault }),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_vault_list(&mut self) {
+        let vault = Arc::clone(&self.vault);
+        self.register(RegisteredTool {
+            name: "list_notes".to_string(),
+            description: "List vault-relative note paths under an optional folder prefix."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Optional vault-relative folder path to list",
+                        "default": "."
+                    },
+                    "path_prefix": {
+                        "type": "string",
+                        "description": "Alias for path"
+                    },
+                    "prefix": {
+                        "type": "string",
+                        "description": "Alias for path"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum note paths to return",
+                        "default": 50,
+                        "minimum": 1,
+                        "maximum": 200
+                    }
+                }
+            }),
+            handler: Box::new(VaultListHandler { vault }),
             risk_level: RiskLevel::ReadOnly,
             tier: ToolTier::Agent,
         });
@@ -2121,8 +2213,8 @@ impl ToolRegistry {
 
     fn register_phase_three_web(&mut self) {
         use crate::tools::web::{
-            web_crawl_schema, web_extract_schema, web_search_schema, WebCrawlHandler,
-            WebExtractHandler, WebSearchHandler,
+            search_papers_schema, web_crawl_schema, web_extract_schema, web_search_schema,
+            SearchPapersHandler, WebCrawlHandler, WebExtractHandler, WebSearchHandler,
         };
         use crate::tools::web_fetch::{web_fetch_tool_schema, WebFetchTool};
 
@@ -2152,6 +2244,21 @@ impl ToolRegistry {
                 });
             }
             Err(e) => tracing::warn!("web_search registration skipped: {e}"),
+        }
+
+        match SearchPapersHandler::new() {
+            Ok(handler) => {
+                let schema = search_papers_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+                    tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!("searchpapers registration skipped: {e}"),
         }
 
         match WebExtractHandler::new() {
@@ -2414,6 +2521,53 @@ impl ToolHandler for VaultReadHandler {
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("path required".to_string()))?;
         self.vault.read(path).await.map_err(map_vault_error)
+    }
+}
+
+struct VaultListHandler {
+    vault: Arc<dyn VaultBackend>,
+}
+
+#[async_trait]
+impl ToolHandler for VaultListHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let path_prefix = input
+            .get("path")
+            .or_else(|| input.get("path_prefix"))
+            .or_else(|| input.get("prefix"))
+            .and_then(Value::as_str)
+            .unwrap_or(".")
+            .trim();
+        let path_prefix = if path_prefix.is_empty() {
+            "."
+        } else {
+            path_prefix
+        };
+        let limit = input.get("limit").and_then(Value::as_u64).unwrap_or(50) as usize;
+        let limit = limit.clamp(1, 200);
+
+        let mut entries = self
+            .vault
+            .list(path_prefix)
+            .await
+            .map_err(map_vault_error)?;
+        entries.sort();
+        entries.dedup();
+
+        if entries.is_empty() {
+            return Ok(format!("No notes found under `{path_prefix}`."));
+        }
+
+        let total = entries.len();
+        let mut lines: Vec<String> = entries
+            .into_iter()
+            .take(limit)
+            .map(|path| format!("- {path}"))
+            .collect();
+        if total > limit {
+            lines.push(format!("- ...and {} more", total - limit));
+        }
+        Ok(lines.join("\n"))
     }
 }
 
@@ -2783,8 +2937,24 @@ mod tier_tests {
             );
             Ok(())
         }
-        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
-            Ok(Vec::new())
+        async fn list(&self, path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            let notes = self
+                .notes
+                .lock()
+                .map_err(|_| VaultError::DatabaseError("test vault lock poisoned".to_string()))?;
+            let prefix = path_prefix.trim();
+            let prefix = if prefix.is_empty() || prefix == "." {
+                ""
+            } else {
+                prefix.trim_matches('/')
+            };
+            let mut paths: Vec<String> = notes
+                .keys()
+                .filter(|path| prefix.is_empty() || path.starts_with(prefix))
+                .cloned()
+                .collect();
+            paths.sort();
+            Ok(paths)
         }
         async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
             Ok(false)
@@ -2967,10 +3137,14 @@ mod tier_tests {
             .collect();
 
         for required in [
+            "create_note",
+            "edit_note",
             "note_template",
             "note_linker",
             "research_digest",
             "citation_extractor",
+            "savecitation",
+            "collectsnippet",
             "markdown_table",
         ] {
             assert!(
@@ -2981,6 +3155,14 @@ mod tier_tests {
 
         assert_eq!(
             registry.get_risk_level("note_template"),
+            RiskLevel::Modification
+        );
+        assert_eq!(
+            registry.get_risk_level("note.create"),
+            RiskLevel::Modification
+        );
+        assert_eq!(
+            registry.get_risk_level("research.collect_snippet"),
             RiskLevel::Modification
         );
         assert_eq!(
@@ -3039,9 +3221,16 @@ mod tier_tests {
         for canonical in [
             "vault.search",
             "vault.read",
+            "vault.list",
+            "note.create",
+            "note.edit",
+            "research.collect_snippet",
+            "citation.save",
+            "research.search_papers",
             "file.read",
             "file.search",
             "knowledge.recall",
+            "knowledge.evidence_score",
             "graph.neighbors",
         ] {
             assert!(
@@ -3053,9 +3242,16 @@ mod tier_tests {
         for legacy in [
             "vault_search",
             "vault_read",
+            "create_note",
+            "edit_note",
+            "list_notes",
+            "collectsnippet",
+            "savecitation",
+            "searchpapers",
             "read_file",
             "search_files",
             "vault_recall",
+            "scoreevidence",
             "pkm_graph_neighbors",
         ] {
             assert!(
@@ -3072,8 +3268,14 @@ mod tier_tests {
 
         assert!(names.contains(&"vault.search".to_string()));
         assert!(names.contains(&"file.read".to_string()));
+        assert!(names.contains(&"vault.list".to_string()));
+        assert!(names.contains(&"note.create".to_string()));
+        assert!(names.contains(&"research.collect_snippet".to_string()));
+        assert!(names.contains(&"citation.save".to_string()));
+        assert!(names.contains(&"research.search_papers".to_string()));
         assert!(!names.contains(&"vault_search".to_string()));
         assert!(!names.contains(&"read_file".to_string()));
+        assert!(!names.contains(&"list_notes".to_string()));
     }
 
     #[tokio::test]
@@ -3092,6 +3294,35 @@ mod tier_tests {
 
         assert_eq!(canonical, "");
         assert_eq!(legacy, "");
+    }
+
+    #[tokio::test]
+    async fn vault_list_executes_through_v2_and_legacy_names() {
+        let vault = Arc::new(NullVault::default());
+        {
+            let mut notes = vault.notes.lock().unwrap();
+            notes.insert("research/alpha.md".to_string(), "Alpha".to_string());
+            notes.insert("research/beta.md".to_string(), "Beta".to_string());
+            notes.insert("daily/today.md".to_string(), "Today".to_string());
+        }
+        let registry =
+            ToolRegistry::with_tier(vault, true, None::<std::path::PathBuf>, ToolTier::Agent);
+
+        let canonical = registry
+            .execute_v2(
+                "vault.list",
+                &serde_json::json!({ "path": "research", "limit": 1 }),
+            )
+            .await
+            .expect("canonical vault.list should execute");
+        let legacy = registry
+            .execute_v2("list_notes", &serde_json::json!({ "path_prefix": "daily" }))
+            .await
+            .expect("legacy list_notes should execute");
+
+        assert!(canonical.contains("- research/alpha.md"));
+        assert!(canonical.contains("...and 1 more"));
+        assert_eq!(legacy, "- daily/today.md");
     }
 
     #[test]
