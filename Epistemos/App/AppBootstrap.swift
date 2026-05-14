@@ -1208,6 +1208,11 @@ final class AppBootstrap {
         ("ZAUTHOREDBYMODELID", "TEXT"),
     ]
 
+    private nonisolated static let legacyPageColumns: [(name: String, declaration: String)] = [
+        ("ZWIKILINKREFERENCES", "BLOB"),
+        ("ZWIKILINKREFERENCESCANSIGNATURE", "VARCHAR"),
+    ]
+
     nonisolated static func legacyRootModelStoreURL(
         applicationSupportDirectory: URL
     ) -> URL {
@@ -1244,11 +1249,37 @@ final class AppBootstrap {
         }
 
         try repairLegacyMessageColumnsIfNeeded(at: destinationURL)
+        try repairLegacyPageColumnsIfNeeded(at: destinationURL)
         return destinationURL
     }
 
     private nonisolated static func repairLegacyMessageColumnsIfNeeded(
         at storeURL: URL
+    ) throws {
+        try repairLegacyColumnsIfNeeded(
+            at: storeURL,
+            tableName: "ZSDMESSAGE",
+            columns: legacyMessageColumns,
+            alterDomain: "Message"
+        )
+    }
+
+    private nonisolated static func repairLegacyPageColumnsIfNeeded(
+        at storeURL: URL
+    ) throws {
+        try repairLegacyColumnsIfNeeded(
+            at: storeURL,
+            tableName: "ZSDPAGE",
+            columns: legacyPageColumns,
+            alterDomain: "Page"
+        )
+    }
+
+    private nonisolated static func repairLegacyColumnsIfNeeded(
+        at storeURL: URL,
+        tableName: String,
+        columns: [(name: String, declaration: String)],
+        alterDomain: String
     ) throws {
         guard FileManager.default.fileExists(atPath: storeURL.path) else { return }
 
@@ -1270,14 +1301,14 @@ final class AppBootstrap {
 
         sqlite3_busy_timeout(db, 1_000)
 
-        let columnNames = try sqliteColumnNames(in: "ZSDMESSAGE", db: db, storeURL: storeURL)
+        let columnNames = try sqliteColumnNames(in: tableName, db: db, storeURL: storeURL)
         guard !columnNames.isEmpty else { return }
 
-        for column in legacyMessageColumns where !columnNames.contains(column.name) {
-            let sql = "ALTER TABLE ZSDMESSAGE ADD COLUMN \(column.name) \(column.declaration);"
+        for column in columns where !columnNames.contains(column.name) {
+            let sql = "ALTER TABLE \(tableName) ADD COLUMN \(column.name) \(column.declaration);"
             guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
                 throw sqliteStoreError(
-                    domain: "AppBootstrap.ModelStore.AlterMessage",
+                    domain: "AppBootstrap.ModelStore.Alter\(alterDomain)",
                     code: Int(sqlite3_errcode(db)),
                     storeURL: storeURL,
                     db: db

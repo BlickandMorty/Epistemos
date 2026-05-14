@@ -181,6 +181,17 @@ struct RuntimeValidationTests {
                 );
                 """,
                 "INSERT INTO ZSDMESSAGE (Z_PK, Z_ENT, Z_OPT, ZID) VALUES (1, 1, 1, 'legacy-message');",
+                """
+                CREATE TABLE ZSDPAGE (
+                    Z_PK INTEGER PRIMARY KEY,
+                    Z_ENT INTEGER,
+                    Z_OPT INTEGER,
+                    ZID VARCHAR,
+                    ZTITLE VARCHAR,
+                    ZTAGS BLOB
+                );
+                """,
+                "INSERT INTO ZSDPAGE (Z_PK, Z_ENT, Z_OPT, ZID, ZTITLE, ZTAGS) VALUES (1, 1, 1, 'legacy-page', 'Legacy Page', X'00');",
             ]
         )
 
@@ -196,6 +207,10 @@ struct RuntimeValidationTests {
         let columns = try sqliteColumnNames(in: "ZSDMESSAGE", databaseURL: destinationStoreURL)
         #expect(columns.contains("ZTHINKINGTRACE"))
         #expect(columns.contains("ZTHINKINGDURATIONSECONDS"))
+
+        let pageColumns = try sqliteColumnNames(in: "ZSDPAGE", databaseURL: destinationStoreURL)
+        #expect(pageColumns.contains("ZWIKILINKREFERENCES"))
+        #expect(pageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
     }
 
     @MainActor
@@ -1694,6 +1709,17 @@ struct RuntimeValidationTests {
         #expect(vaultSync.contains("await Self.performInitialImport("))
         #expect(vaultSync.contains("private nonisolated static func performInitialImport("))
         #expect(vaultSync.contains("private nonisolated static func rebuildInstantRecallIndex("))
+    }
+
+    @Test("instant recall rebuild snapshots SwiftData page primitives before awaiting body reads")
+    func instantRecallRebuildSnapshotsSwiftDataPagePrimitivesBeforeAwaitingBodyReads() throws {
+        let actor = try loadRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        #expect(actor.contains("private struct PageIndexingSnapshot: Sendable"))
+        #expect(actor.contains("let snapshot = PageIndexingSnapshot(page: page)"))
+        #expect(actor.contains("out.append((snapshot.id, snapshot.title, body, snapshot.tagsJoined, snapshot.updatedAt))"))
+        #expect(!actor.contains("let body = await bodyForIndexing(page)\n        return (page.title, body, page.tags.joined(separator: \" \"), page.updatedAt)"))
+        #expect(!actor.contains("let body = await bodyForIndexing(page)\n            out.append((page.id, page.title, body, page.tags.joined(separator: \" \"), page.updatedAt))"))
     }
 
     @Test("shared scheme keeps test bundle out of normal app builds")
