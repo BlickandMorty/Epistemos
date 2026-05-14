@@ -1837,6 +1837,10 @@ struct NoteDetailWorkspaceView: View {
         ui.theme.resolved.accent.color
     }
 
+    private var toolbarAskPlaceholder: String {
+        noteChatState.error ?? "Ask this note"
+    }
+
     private var toolbarAskCapability: ChatCapability {
         let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let isCloudProvider: Bool = {
@@ -1870,7 +1874,7 @@ struct NoteDetailWorkspaceView: View {
 
         return AssistantToolbarAskBar(
             text: $chat.inputText,
-            placeholder: "Ask this note",
+            placeholder: toolbarAskPlaceholder,
             phase: toolbarAskStatusPhase,
             theme: ui.theme,
             accent: toolbarAskAccentColor,
