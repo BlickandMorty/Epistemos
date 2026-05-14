@@ -11310,7 +11310,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA10-P0-004 - Keep `CodeFileService` first, but add editor-call and approval-loop proof
 
-Status: PATCHED PARTIAL - SERVICE + VISIBLE EDITOR AUTOMATED GREEN / APPROVAL LOOP PENDING
+Status: PATCHED 2026-05-14 — SERVICE + VISIBLE EDITOR + AGENT WRITE APPROVAL LOOP GUARDED
 
 Canonical owner: `RCA4-P0-001`
 
@@ -11351,7 +11351,14 @@ Fix-pass evidence 2026-05-09:
 
 - Service and visible editor routing portions are covered by the RCA9-P0-001 evidence above.
 - `LiveCodeEditorControllerTests` remained green after containment hardening.
-- Approval-loop enforcement is still not closed; keep this item open until Current Access/tool grant tests prove agent/tool-originated code writes cannot execute without a scoped grant.
+
+Closure evidence 2026-05-14:
+
+- The required containment tests are present in `EpistemosTests/CodeFileServiceTests.swift`: `readRejectsExternalAbsoluteURL`, `updateRejectsExternalAbsoluteURLAndPreservesOutsideFile`, `createRejectsRelativeDirectoryTraversal`, `createRejectsAbsoluteRelativeDirectory`, `readAndUpdateRejectEscapingSymlink`, `readRejectsPrefixCollisionOutsideVault`, and `listRejectsSpoofedEpcacheSidecar`.
+- `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` now includes `fileWriteWithoutGrantIsRejectedAndPreservesDisk`, proving an agent/tool-originated `file.write` without a scoped R.5 grant is denied before disk mutation.
+- Rust-side R.6 bridge denial remains covered by `resources::bridge::tests::verified_write_bridge_denies_when_no_grant_covers_resource`.
+- Verification: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosCodeFileAgentGrant -only-testing:EpistemosTests/ResourceRuntimeToolPathE2ETests/fileWriteWithoutGrantIsRejectedAndPreservesDisk test CODE_SIGNING_ALLOWED=NO -quiet` passed.
+- Verification: `cargo test --manifest-path agent_core/Cargo.toml --lib resources::bridge::tests::verified_write_bridge_denies_when_no_grant_covers_resource` passed.
 
 ### RCA10-P1-001 - Upgrade `.epdoc` URL-scheme asset work to confirmed P1
 

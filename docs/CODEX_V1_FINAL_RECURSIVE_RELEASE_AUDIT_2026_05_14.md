@@ -24,8 +24,8 @@ Recursive register strict `Status:` count snapshot from `docs/audits/RECURSIVE_C
 
 | Status | Count |
 |---|---:|
-| PATCHED | 185 |
-| PATCHED PARTIAL | 25 |
+| PATCHED | 186 |
+| PATCHED PARTIAL | 24 |
 | PATCHED BUT NOT CLOSED | 0 |
 | PATCHED BUT WATCH | 0 |
 | REOPENED | 0 |
@@ -734,6 +734,20 @@ Verification:
 - Baseline before the new guard: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAuthorityDispatchBaseline -only-testing:EpistemosTests/AgentAuthorityPersistenceTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - After adding the guard: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAuthorityDispatchGuard -only-testing:EpistemosTests/AgentAuthorityPersistenceTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 
+### Code file agent-write approval-loop closure - 2026-05-14
+
+Changed:
+
+- `RCA10-P0-004` is closed for current v1: CodeFileService containment and visible-editor routing were already covered; the missing proof was that agent/tool-originated `file.write` cannot mutate disk without a scoped R.5 grant.
+- `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift`: added `fileWriteWithoutGrantIsRejectedAndPreservesDisk`, which calls the real `executeToolCall` path for `file.write` without seeding a grant and asserts denial plus unchanged disk bytes.
+- `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`: promoted `RCA10-P0-004` from partial to patched.
+- No production CodeFileService, editor, Rust tool registry, vault, graph, or UI behavior changed.
+
+Verification:
+
+- `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosCodeFileAgentGrant -only-testing:EpistemosTests/ResourceRuntimeToolPathE2ETests/fileWriteWithoutGrantIsRejectedAndPreservesDisk test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib resources::bridge::tests::verified_write_bridge_denies_when_no_grant_covers_resource` - PASS, 1 passed.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, AgentAuthority dispatch enforcement, automated note ask-bar rewrite checks, OAuth callback loopback/forged-state proof, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, AgentAuthority dispatch enforcement, CodeFileService/tool-write approval-loop proof, automated note ask-bar rewrite checks, OAuth callback loopback/forged-state proof, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
