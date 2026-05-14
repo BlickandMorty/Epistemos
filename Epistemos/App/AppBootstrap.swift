@@ -1328,8 +1328,56 @@ final class AppBootstrap {
         let backupURL = storeURL
             .deletingLastPathComponent()
             .appendingPathComponent("default.store.pre-column-repair.backup", isDirectory: false)
-        guard !fileManager.fileExists(atPath: backupURL.path) else { return }
+        if fileManager.fileExists(atPath: backupURL.path) {
+            guard !legacyColumnRepairBackupIsUsable(at: backupURL) else { return }
+            try fileManager.removeItem(at: backupURL)
+        }
         try VaultSyncService.backupSQLiteDatabaseIfPresent(at: storeURL, to: backupURL)
+    }
+
+    private nonisolated static func legacyColumnRepairBackupIsUsable(at backupURL: URL) -> Bool {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(
+            backupURL.path,
+            &db,
+            SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
+            nil
+        ) == SQLITE_OK, let db else {
+            return false
+        }
+        defer { sqlite3_close(db) }
+
+        guard let tableCount = try? sqliteUserTableCount(db: db, storeURL: backupURL) else {
+            return false
+        }
+        return tableCount > 0
+    }
+
+    private nonisolated static func sqliteUserTableCount(
+        db: OpaquePointer,
+        storeURL: URL
+    ) throws -> Int {
+        var statement: OpaquePointer?
+        let query = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';"
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            throw sqliteStoreError(
+                domain: "AppBootstrap.ModelStore.TableCount",
+                code: Int(sqlite3_errcode(db)),
+                storeURL: storeURL,
+                db: db
+            )
+        }
+        defer { sqlite3_finalize(statement) }
+
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            throw sqliteStoreError(
+                domain: "AppBootstrap.ModelStore.TableCountStep",
+                code: Int(sqlite3_errcode(db)),
+                storeURL: storeURL,
+                db: db
+            )
+        }
+        return Int(sqlite3_column_int(statement, 0))
     }
 
     private nonisolated static func sqliteColumnNames(
@@ -1515,7 +1563,6 @@ final class AppBootstrap {
                         "storePath": modelStoreURL.path,
                     ]
                 )
-                try? Self.removeModelStoreArtifacts(at: modelStoreURL, fileManager: fileManager)
             }
             modelConfiguration = ModelConfiguration(url: modelStoreURL)
         }

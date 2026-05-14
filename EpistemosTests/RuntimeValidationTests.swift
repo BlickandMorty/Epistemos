@@ -221,6 +221,54 @@ struct RuntimeValidationTests {
         #expect(!backupPageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
     }
 
+    @Test("bootstrap replaces invalid pre-column backups before repairing page columns")
+    func bootstrapReplacesInvalidPreColumnBackupsBeforeRepairingPageColumns() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppBootstrapInvalidBackupRepair-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let storeURL = AppBootstrap.persistentModelStoreURL(applicationSupportDirectory: root)
+        try createSQLiteDatabase(
+            at: storeURL,
+            statements: [
+                """
+                CREATE TABLE ZSDPAGE (
+                    Z_PK INTEGER PRIMARY KEY,
+                    Z_ENT INTEGER,
+                    Z_OPT INTEGER,
+                    ZID VARCHAR,
+                    ZTITLE VARCHAR,
+                    ZTAGS BLOB
+                );
+                """,
+                "INSERT INTO ZSDPAGE (Z_PK, Z_ENT, Z_OPT, ZID, ZTITLE, ZTAGS) VALUES (1, 1, 1, 'legacy-page', 'Legacy Page', X'00');",
+            ]
+        )
+
+        let backupStoreURL = storeURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("default.store.pre-column-repair.backup")
+        FileManager.default.createFile(atPath: backupStoreURL.path, contents: Data())
+
+        let destinationStoreURL = try AppBootstrap.preparePersistentModelStoreIfNeeded(
+            applicationSupportDirectory: root,
+            fileManager: .default
+        )
+
+        #expect(destinationStoreURL == storeURL)
+        #expect((try FileManager.default.attributesOfItem(atPath: backupStoreURL.path)[.size] as? NSNumber)?.intValue ?? 0 > 0)
+
+        let pageColumns = try sqliteColumnNames(in: "ZSDPAGE", databaseURL: destinationStoreURL)
+        #expect(pageColumns.contains("ZWIKILINKREFERENCES"))
+        #expect(pageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
+
+        let backupPageColumns = try sqliteColumnNames(in: "ZSDPAGE", databaseURL: backupStoreURL)
+        #expect(backupPageColumns.contains("ZTAGS"))
+        #expect(!backupPageColumns.contains("ZWIKILINKREFERENCES"))
+        #expect(!backupPageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
+    }
+
     @MainActor
     @Test("inference surfaces serial fallback runtime health from local mlx profiles")
     func inferenceSurfacesSerialFallbackRuntimeHealth() async {

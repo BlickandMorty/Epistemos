@@ -81,6 +81,34 @@ struct ScrollStabilityTests {
         #expect(!ScrollStability.followMode(for: geometry, from: detached))
     }
 
+    @Test("chat scroll geometry observers do not read auto-follow state in the transform")
+    func chatScrollGeometryObserversDoNotReadAutoFollowStateInTransform() throws {
+        let sourcePaths = [
+            "Epistemos/Views/Chat/ChatView.swift",
+            "Epistemos/Views/MiniChat/MiniChatView.swift",
+            "Epistemos/Views/Notes/NoteChatSidebar.swift"
+        ]
+
+        for sourcePath in sourcePaths {
+            let source = try loadMirroredSourceTextFile(sourcePath)
+
+            #expect(source.contains(".onScrollGeometryChange("), "\(sourcePath) should observe scroll geometry")
+            #expect(source.contains("for: CGFloat.self"), "\(sourcePath) should observe a pure distance value")
+            #expect(
+                source.contains("ScrollStability.distanceToBottom(for: geometry)"),
+                "\(sourcePath) should compute distance directly from geometry"
+            )
+            #expect(
+                source.contains("ScrollStability.updatedAutoFollowState("),
+                "\(sourcePath) should apply hysteresis in the action"
+            )
+            #expect(
+                !source.contains("ScrollStability.followMode(for: geometry, from: autoFollow)"),
+                "\(sourcePath) must not capture @State in the geometry transform"
+            )
+        }
+    }
+
     @MainActor
     @Test("scroll work coalescer collapses rapid notifications into a single pass")
     func scrollWorkCoalescerCollapsesRapidNotifications() async throws {

@@ -221,18 +221,16 @@ struct MiniChatViewAuditTests {
         #expect(miniChatSource.contains("isThinkingMode: selectedOperatingMode == .thinking"))
     }
 
-    @Test("mini chat scroll follow uses shared bool hysteresis instead of rewriting state every geometry tick")
-    func miniChatScrollFollowUsesSharedBoolHysteresis() throws {
+    @Test("mini chat scroll follow keeps geometry observation pure")
+    func miniChatScrollFollowKeepsGeometryObservationPure() throws {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
         #expect(miniChatSource.contains(".onScrollGeometryChange("))
-        #expect(miniChatSource.contains("for: Bool.self"))
-        #expect(miniChatSource.contains("ScrollStability.followMode(for: geometry, from: autoFollow)"))
-        #expect(miniChatSource.contains("guard isFollowingBottom != autoFollow.isFollowingBottom else { return }"))
-        #expect(miniChatSource.contains("autoFollow.setFollowingBottom(isFollowingBottom)"))
-        #expect(!miniChatSource.contains("for: CGFloat.self"))
-        #expect(!miniChatSource.contains("ScrollStability.distanceToBottom(for:)"))
-        #expect(!miniChatSource.contains("autoFollow = nextState"))
+        #expect(miniChatSource.contains("for: CGFloat.self"))
+        #expect(miniChatSource.contains("ScrollStability.distanceToBottom(for: geometry)"))
+        #expect(miniChatSource.contains("ScrollStability.updatedAutoFollowState("))
+        #expect(miniChatSource.contains("autoFollow = next"))
+        #expect(!miniChatSource.contains("ScrollStability.followMode(for: geometry, from: autoFollow)"))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

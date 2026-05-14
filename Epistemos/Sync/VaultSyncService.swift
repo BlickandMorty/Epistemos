@@ -1496,16 +1496,18 @@ final class VaultSyncService {
         ]
     }
 
-    private nonisolated static func replaceFileCopy(from sourceURL: URL, to destinationURL: URL) throws {
+    private nonisolated static func replaceOrMoveFile(from temporaryURL: URL, to destinationURL: URL) throws {
         let fileManager = FileManager.default
-        try fileManager.createDirectory(
-            at: destinationURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
         if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
+            _ = try fileManager.replaceItemAt(
+                destinationURL,
+                withItemAt: temporaryURL,
+                backupItemName: nil,
+                options: [.usingNewMetadataOnly]
+            )
+        } else {
+            try fileManager.moveItem(at: temporaryURL, to: destinationURL)
         }
-        try fileManager.copyItem(at: sourceURL, to: destinationURL)
     }
 
     private nonisolated static func isSQLiteDatabaseFile(at url: URL) -> Bool {
@@ -1518,21 +1520,27 @@ final class VaultSyncService {
     }
 
     nonisolated static func backupSQLiteDatabaseIfPresent(at sourceURL: URL, to destinationURL: URL) throws {
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: sourceURL.path) else {
             return
         }
 
-        guard isSQLiteDatabaseFile(at: sourceURL) else {
-            try replaceFileCopy(from: sourceURL, to: destinationURL)
-            return
-        }
-
-        try FileManager.default.createDirectory(
+        try fileManager.createDirectory(
             at: destinationURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            try FileManager.default.removeItem(at: destinationURL)
+        let temporaryURL = destinationURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(
+                ".\(destinationURL.lastPathComponent).tmp-\(UUID().uuidString)",
+                isDirectory: false
+            )
+        defer { try? fileManager.removeItem(at: temporaryURL) }
+
+        guard isSQLiteDatabaseFile(at: sourceURL) else {
+            try fileManager.copyItem(at: sourceURL, to: temporaryURL)
+            try replaceOrMoveFile(from: temporaryURL, to: destinationURL)
+            return
         }
 
         var sourceDB: OpaquePointer?
@@ -1549,7 +1557,7 @@ final class VaultSyncService {
 
         var destinationDB: OpaquePointer?
         guard sqlite3_open_v2(
-            destinationURL.path,
+            temporaryURL.path,
             &destinationDB,
             SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
             nil
@@ -1557,41 +1565,53 @@ final class VaultSyncService {
             throw sqliteBackupError(
                 domain: "VaultSyncService.SQLiteBackup.OpenDestination",
                 code: -1,
-                databaseURL: destinationURL,
+                databaseURL: temporaryURL,
                 db: destinationDB
             )
         }
-        defer { sqlite3_close(destinationDB) }
 
-        sqlite3_busy_timeout(sourceDB, 1_000)
-        sqlite3_busy_timeout(destinationDB, 1_000)
+        do {
+            defer { sqlite3_close(destinationDB) }
 
-        guard let backup = sqlite3_backup_init(destinationDB, "main", sourceDB, "main") else {
-            throw sqliteBackupError(
-                domain: "VaultSyncService.SQLiteBackup.Init",
-                code: Int(sqlite3_errcode(destinationDB)),
-                databaseURL: sourceURL,
-                db: destinationDB
-            )
-        }
-        defer { sqlite3_backup_finish(backup) }
+            sqlite3_busy_timeout(sourceDB, 1_000)
+            sqlite3_busy_timeout(destinationDB, 1_000)
 
-        var resultCode: Int32
-        repeat {
-            resultCode = sqlite3_backup_step(backup, 128)
-            if resultCode == SQLITE_OK || resultCode == SQLITE_BUSY || resultCode == SQLITE_LOCKED {
-                sqlite3_sleep(25)
+            guard let backup = sqlite3_backup_init(destinationDB, "main", sourceDB, "main") else {
+                throw sqliteBackupError(
+                    domain: "VaultSyncService.SQLiteBackup.Init",
+                    code: Int(sqlite3_errcode(destinationDB)),
+                    databaseURL: sourceURL,
+                    db: destinationDB
+                )
             }
-        } while resultCode == SQLITE_OK || resultCode == SQLITE_BUSY || resultCode == SQLITE_LOCKED
+            defer { sqlite3_backup_finish(backup) }
 
-        guard resultCode == SQLITE_DONE else {
-            throw sqliteBackupError(
-                domain: "VaultSyncService.SQLiteBackup.Step",
-                code: Int(resultCode),
-                databaseURL: sourceURL,
-                db: destinationDB
-            )
+            var resultCode: Int32
+            var busyRetryCount = 0
+            repeat {
+                resultCode = sqlite3_backup_step(backup, 512)
+                if resultCode == SQLITE_OK {
+                    busyRetryCount = 0
+                } else if resultCode == SQLITE_BUSY || resultCode == SQLITE_LOCKED {
+                    busyRetryCount += 1
+                    if busyRetryCount > 200 {
+                        break
+                    }
+                    sqlite3_sleep(25)
+                }
+            } while resultCode == SQLITE_OK || resultCode == SQLITE_BUSY || resultCode == SQLITE_LOCKED
+
+            guard resultCode == SQLITE_DONE else {
+                throw sqliteBackupError(
+                    domain: "VaultSyncService.SQLiteBackup.Step",
+                    code: Int(resultCode),
+                    databaseURL: sourceURL,
+                    db: destinationDB
+                )
+            }
         }
+
+        try replaceOrMoveFile(from: temporaryURL, to: destinationURL)
     }
 
     private nonisolated static func sqliteBackupError(
