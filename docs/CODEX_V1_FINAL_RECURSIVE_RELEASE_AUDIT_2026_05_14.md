@@ -464,6 +464,21 @@ Verification:
 - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-approval-gate scripts/scan_appstore_bundle.sh /tmp/EpistemosMASApprovalGateBuild/Build/Products/Debug/Epistemos.app` - PASS.
 - MAS manifest narrow strings scan and narrow `nm -gU` scan against `/tmp/EpistemosMASApprovalGateBuild/Build/Products/Debug/Epistemos.app` - PASS, no matches.
 
+### Managed Rust agent read-approval delegation guard - 2026-05-14
+
+Changed:
+
+- `EpistemosTests/AuditFixRegressionTests.swift`: added a source regression proving both `runCommandCenterRustAgentPath` and `runRustAgentPath` pass `autoApproveReads: false`/`autoApproveWrites: false` into `AgentConfigFFI`, so read-only web/tool calls still surface through Swift's native approval queue.
+- `agent_core/src/agent_loop.rs`: added a Rust unit regression proving `resolve_approval_requirement` still emits an approval requirement for `RiskLevel::ReadOnly` when read auto-approval is disabled.
+
+Verification:
+
+- `git diff --check -- EpistemosTests/AuditFixRegressionTests.swift agent_core/src/agent_loop.rs` - PASS.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib read_only_tools_require_approval_when_read_auto_approval_is_disabled` - PASS, 1 passed, 1089 filtered out.
+- First Swift targeted attempt was BLOCKED by `/tmp` derived-data exhaustion: `No space left on device` while building Swift package objects under `/tmp/EpistemosAgentApprovalDelegationTests`.
+- Removed only Epistemos-named `/tmp` build artifacts, freeing about 205 GiB; no source, vault, graph, or user data paths were touched.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentApprovalDelegationTests -only-testing:EpistemosTests/AuditFixRegressionTests/managedRustAgentEntryPointsKeepReadApprovalsDelegatedToSwift test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+
 ## Current Verdict
 
-Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, the Pro/cloud promoted managed-agent tool budget gate is fixed and targeted-tested, and read-only web/tool research now routes through native approval instead of silently bypassing the authority gate. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, first-run web approval live smoke is still pending, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, the Pro/cloud promoted managed-agent tool budget gate is fixed and targeted-tested, and read-only web/tool research now routes through native approval instead of silently bypassing the authority gate. Managed Rust agent entry points now have explicit Swift and Rust regression coverage showing read-only tool approvals are delegated to the native queue. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, first-run web approval live smoke is still pending, and the required five consecutive zero-new-blocker recursive passes have not been completed.
