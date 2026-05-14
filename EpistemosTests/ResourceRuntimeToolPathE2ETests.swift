@@ -326,4 +326,35 @@ struct ResourceRuntimeToolPathE2ETests {
 
         _ = await permissionStoreRevoke(grantId: grantID)
     }
+
+    @Test("file.write through executeToolCall is denied without a scoped grant")
+    func fileWriteWithoutGrantIsRejectedAndPreservesDisk() async throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("e2e-write-file-denied-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let targetURL = tmp.appendingPathComponent("attached_code_file.swift")
+        let original = "// original content must survive\n"
+        try original.write(to: targetURL, atomically: true, encoding: .utf8)
+
+        let rejected = "// rejected mutation \(UUID().uuidString)\n"
+        let result = try await executeToolCall(
+            vaultPath: tmp.path,
+            tier: "full",
+            toolName: "file.write",
+            inputJson: try writeFileInputJSON(path: targetURL.path, content: rejected)
+        )
+
+        #expect(!result.success, "ungranted file.write must be rejected by the R.5 tool gate")
+        if let err = result.error {
+            #expect(
+                err.lowercased().contains("permission") || err.lowercased().contains("denied"),
+                "denial error must name permission/denied, got: \(err)"
+            )
+        }
+
+        let onDisk = try String(contentsOf: targetURL, encoding: .utf8)
+        #expect(onDisk == original, "ungranted file.write must not mutate disk before denial")
+    }
 }
