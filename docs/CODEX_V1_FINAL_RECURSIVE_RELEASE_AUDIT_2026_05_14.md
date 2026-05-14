@@ -567,6 +567,8 @@ Verification:
 - `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-appearance-2026-05-14 scripts/scan_appstore_bundle.sh /tmp/EpistemosMASAppearanceBuild/Build/Products/Debug/Epistemos.app` - PASS.
 - MAS manifest narrow strings scan against `/tmp/EpistemosMASAppearanceBuild/Build/Products/Debug/Epistemos.app` - PASS, no matches.
 - MAS manifest narrow `nm -gU` scan against `/tmp/EpistemosMASAppearanceBuild/Build/Products/Debug/Epistemos.app/Contents/Frameworks/libagent_core.dylib` - PASS, no matches.
+- Live MAS smoke used `/Users/jojo/Downloads/Epistemos/build/audit-appearance-app/EpistemosAppearanceAudit.app`, bundle id `com.epistemos.audit.appearance`, and app data `/Users/jojo/Downloads/Epistemos/build/audit-appearance-support`. First-run setup skipped vault/model/cloud without attaching a vault. Settings > Appearance showed Platinum Violet selected by default, no Follow macOS/System section, and `Readable fonts` toggled on live without restart. Defaults confirmed `epistemos.theme.pair = platinumViolet`, `epistemos.theme.mode = custom`, and `epistemos.typography.readableFontsEnabled = 1`.
+- Screenshot evidence: `build/live-smoke-evidence/mas-appearance-default-readable-toggle-2026-05-14.png`.
 
 ## Current Verdict
 
