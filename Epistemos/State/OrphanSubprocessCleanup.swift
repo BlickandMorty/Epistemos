@@ -15,6 +15,32 @@ import os
 
 private let cleanupLog = Logger(subsystem: "com.epistemos.state", category: "SubprocessCleanup")
 
+#if EPISTEMOS_APP_STORE || MAS_SANDBOX
+@MainActor
+final class OrphanSubprocessCleanup {
+    init(processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment) {
+        _ = processInfoEnvironment
+    }
+
+    func trackPID(_ pid: pid_t) {
+        _ = pid
+    }
+
+    func untrack(_ pid: pid_t) {
+        _ = pid
+    }
+
+    var trackedCount: Int {
+        0
+    }
+
+    func cleanupAll() {}
+
+    func cleanupProcessTree(rootPID: pid_t) {
+        _ = rootPID
+    }
+}
+#else
 @MainActor
 final class OrphanSubprocessCleanup {
 
@@ -179,3 +205,4 @@ final class OrphanSubprocessCleanup {
     private var _sigTermSource: DispatchSourceSignal?
     private var _sigIntSource: DispatchSourceSignal?
 }
+#endif

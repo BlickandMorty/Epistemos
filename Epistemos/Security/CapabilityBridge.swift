@@ -311,8 +311,10 @@ private extension LocalAgentGatewaySurface {
             "mcp_web_tool"
         case .browserComputerUse:
             "browser_computer_use"
+        #if !EPISTEMOS_APP_STORE && !MAS_SANDBOX
         case .dockerDevcontainer:
             "docker_devcontainer"
+        #endif
         case .explicitExternalSideEffect:
             "explicit_external_side_effect"
         }
