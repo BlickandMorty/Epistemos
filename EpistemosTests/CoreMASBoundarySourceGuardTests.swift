@@ -205,10 +205,11 @@ struct CoreMASBoundarySourceGuardTests {
         // These are the only tools a sandboxed App Store build can satisfy
         // without subprocess, CLI, MCP, or browser-use. Anything else added
         // here without a corresponding capability gate is Pro leakage.
-        for required in ["vault_search", "vault_read", "vault_write",
-                         "read_file", "write_file", "patch", "search_files",
-                         "todo", "graph_query", "memory",
-                         "web_search", "web_extract", "web_crawl"] {
+        for required in ["vault.search", "vault.read", "vault.write", "vault.list",
+                         "file.read", "file.write", "file.patch", "file.search",
+                         "system.todo", "graph.query", "memory.curated",
+                         "web.search", "web.extract", "web.crawl",
+                         "note.template", "note.linker", "clarify.ask"] {
             #expect(allowlist.contains("\"\(required)\""),
                     "Core App Store allowlist must include \(required)")
         }
@@ -218,6 +219,9 @@ struct CoreMASBoundarySourceGuardTests {
         // someone tried to smuggle Pro capability into Core.
         for forbidden in ["bash", "shell_exec", "browser_use", "computer_use",
                           "docker", "mcp_call", "cli_passthrough",
+                          "delegate_task", "intelligence.mixture_of_minds",
+                          "note_template", "note_linker", "clarify",
+                          "skills.list", "skills.view", "skills.manage", "skills",
                           ] {
             #expect(!allowlist.contains("\"\(forbidden)\""),
                     "Core App Store allowlist must NOT contain \(forbidden) — that is a Pro/Research capability")

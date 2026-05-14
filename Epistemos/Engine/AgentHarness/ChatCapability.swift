@@ -323,8 +323,14 @@ extension ChatCapability {
         let mentionsVaultCorpus = normalized.contains("vault")
             || normalized.contains("my notes")
             || normalized.contains("my note")
+            || normalized.contains("notes about")
+            || normalized.contains("note about")
             || normalized.contains("notes in")
             || normalized.contains("note in")
+            || normalized.contains("wrote about")
+            || normalized.contains("what did i write")
+            || normalized.contains("what i wrote")
+            || normalized.contains("did i write about")
         guard mentionsVaultCorpus else { return false }
 
         let lookupSignals = [
@@ -334,6 +340,13 @@ extension ChatCapability {
             "locate ",
             "show ",
             "which ",
+            "do i have",
+            "anything in ",
+            "what did i write",
+            "what i wrote",
+            "wrote about",
+            "gist of",
+            "remind me",
             "what note",
             "what notes",
             "read ",

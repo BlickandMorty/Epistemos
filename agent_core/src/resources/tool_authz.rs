@@ -66,8 +66,20 @@ pub fn infer_tool_authz_target(
         // Template instantiation writes a new vault note at
         // `output_path`, so it uses the same resource gate as
         // `vault.write` rather than bypassing Sovereign Gate policy.
-        "note_template" => {
+        "note_template" | "note.template" => {
             vault_note_target_from_path(input.get("output_path")?, vault_root, Capability::Write)
+        }
+        "create_note" | "note.create" => {
+            let path = note_create_path_value(input)?;
+            vault_note_target_from_path(&path, vault_root, Capability::Write)
+        }
+        "edit_note" | "note.edit" => {
+            let path = first_string_path_value(input, &["path", "note_path", "id", "note_id"])?;
+            vault_note_target_from_path(&path, vault_root, Capability::Write)
+        }
+        "collectsnippet" | "research.collect_snippet" | "savecitation" | "citation.save" => {
+            let path = research_session_note_path_value(input);
+            vault_note_target_from_path(&path, vault_root, Capability::Write)
         }
         // Generic filesystem write — absolute (or `~/`-expanded) path.
         // The handler in `tools::filesystem::WriteFileHandler` creates
@@ -138,6 +150,49 @@ fn vault_note_target_from_path(
         },
         capability,
     })
+}
+
+fn first_string_path_value(input: &Value, keys: &[&str]) -> Option<Value> {
+    keys.iter()
+        .find_map(|key| input.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| Value::String(value.to_string()))
+}
+
+fn research_session_note_path_value(input: &Value) -> Value {
+    first_string_path_value(
+        input,
+        &[
+            "sessionNotePath",
+            "session_note_path",
+            "path",
+            "sessionNoteId",
+            "session_note_id",
+        ],
+    )
+    .unwrap_or_else(|| Value::String("Research/Agent Research Inbox.md".to_string()))
+}
+
+fn note_create_path_value(input: &Value) -> Option<Value> {
+    if let Some(path) = first_string_path_value(input, &["path", "note_path"]) {
+        return Some(path);
+    }
+    let title = input.get("title")?.as_str()?.trim();
+    if title.is_empty() {
+        return None;
+    }
+    let mut slug = String::new();
+    for ch in title.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch);
+        } else if !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    let slug = slug.trim_matches('-');
+    let stem = if slug.is_empty() { "Untitled" } else { slug };
+    Some(Value::String(format!("Notes/{stem}.md")))
 }
 
 /// Shared helper for arms whose input shape is `{ "path": String }`
@@ -262,6 +317,79 @@ mod tests {
             ResourceId::VaultNote { vault_id, note_id } => {
                 assert_eq!(vault_id, "main");
                 assert_eq!(note_id, "Templates/Alpha.md");
+            }
+            _ => panic!("expected VaultNote variant"),
+        }
+    }
+
+    #[test]
+    fn note_create_derives_title_path_for_vault_note_write() {
+        let input = json!({"title": "Agent Tool Note", "body": "body"});
+        let root = PathBuf::from("/vaults/main");
+        let target = infer_tool_authz_target("note.create", &input, &write_risk(), Some(&root))
+            .expect("note.create should gate the derived title path");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::VaultNote { vault_id, note_id } => {
+                assert_eq!(vault_id, "main");
+                assert_eq!(note_id, "Notes/Agent-Tool-Note.md");
+            }
+            _ => panic!("expected VaultNote variant"),
+        }
+    }
+
+    #[test]
+    fn note_edit_accepts_legacy_note_id_for_vault_note_write() {
+        let input = json!({"note_id": "Inbox/Edited.md", "body": "updated"});
+        let root = PathBuf::from("/vaults/main");
+        let target = infer_tool_authz_target("edit_note", &input, &write_risk(), Some(&root))
+            .expect("edit_note should gate note_id as a vault note path");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::VaultNote { vault_id, note_id } => {
+                assert_eq!(vault_id, "main");
+                assert_eq!(note_id, "Inbox/Edited.md");
+            }
+            _ => panic!("expected VaultNote variant"),
+        }
+    }
+
+    #[test]
+    fn research_collection_defaults_to_session_inbox_write() {
+        let input = json!({"text": "quoted", "sourceUrl": "https://example.com"});
+        let root = PathBuf::from("/vaults/main");
+        let target = infer_tool_authz_target(
+            "research.collect_snippet",
+            &input,
+            &write_risk(),
+            Some(&root),
+        )
+        .expect("research.collect_snippet should gate the default session inbox");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::VaultNote { vault_id, note_id } => {
+                assert_eq!(vault_id, "main");
+                assert_eq!(note_id, "Research/Agent Research Inbox.md");
+            }
+            _ => panic!("expected VaultNote variant"),
+        }
+    }
+
+    #[test]
+    fn citation_save_uses_explicit_session_note_path() {
+        let input = json!({
+            "title": "Paper",
+            "url": "https://example.com/paper",
+            "sessionNotePath": "Research/Papers.md"
+        });
+        let root = PathBuf::from("/vaults/main");
+        let target = infer_tool_authz_target("citation.save", &input, &write_risk(), Some(&root))
+            .expect("citation.save should gate an explicit session note path");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::VaultNote { vault_id, note_id } => {
+                assert_eq!(vault_id, "main");
+                assert_eq!(note_id, "Research/Papers.md");
             }
             _ => panic!("expected VaultNote variant"),
         }

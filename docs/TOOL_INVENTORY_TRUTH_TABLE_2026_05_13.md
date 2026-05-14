@@ -40,7 +40,7 @@ Gate check: `availableCommands(for:)` filters by
 
 ## 2. MAS tool allow-list — `coreAppStoreAllowedToolNames` (32 tools)
 
-Source: `Epistemos/Bridge/ToolTierBridge.swift:185`.
+Source: `Epistemos/Bridge/ToolTierBridge.swift:192`.
 
 | Canonical name | Category | Sandbox-safe? | Approval class |
 |---|---|---|---|
@@ -57,12 +57,10 @@ Source: `Epistemos/Bridge/ToolTierBridge.swift:185`.
 | `graph.neighbors` | graph | ✅ | auto |
 | `graph.vault_navigate` | graph | ✅ | auto |
 | `memory.curated` | memory | ✅ | auto |
-| `web.search` | web (URLSession) | ✅ | auto |
-| `web.extract` | web (URLSession) | ✅ | auto |
-| `web.crawl` | web (URLSession) | ✅ | auto |
-| `web.fetch` | web (URLSession) | ✅ | auto |
-| `delegate_task` | multi-agent | ✅ | auto (depth-capped to 2) |
-| `intelligence.mixture_of_minds` | multi-model | ✅ | requires `allow_cloud_external_requests=true` + API keys |
+| `web.search` | web (URLSession) | ✅ | ask/native approval |
+| `web.extract` | web (URLSession) | ✅ | ask/native approval |
+| `web.crawl` | web (URLSession) | ✅ | ask/native approval |
+| `web.fetch` | web (URLSession) | ✅ | ask/native approval |
 | `knowledge.recall` | knowledge | ✅ | auto |
 | `knowledge.contradiction_check` | knowledge | ✅ | auto |
 | `knowledge.evidence_score` | knowledge | ✅ | auto |
@@ -71,15 +69,12 @@ Source: `Epistemos/Bridge/ToolTierBridge.swift:185`.
 | `note.create` | note | ✅ | medium |
 | `note.edit` | note | ✅ | medium |
 | `note.research_digest` | note | ✅ | auto |
-| `note_template` | note | ✅ | auto |
-| `note_linker` | note | ✅ | auto |
-| `clarify` | composer | ✅ | auto |
-| `skills.list` | skill | ✅ | auto |
-| `skills.view` | skill | ✅ | auto |
-| `skills.manage` | skill | ✅ | medium |
-| `research.collect_snippet` | research | ✅ | auto |
-| `research.search_papers` | research | ✅ | auto |
-| `citation.save` | research | ✅ | auto |
+| `note.template` | note | ✅ | medium |
+| `note.linker` | note | ✅ | auto |
+| `clarify.ask` | composer | ✅ | auto |
+| `research.collect_snippet` | research | ✅ | medium |
+| `research.search_papers` | research | ✅ | ask/native approval |
+| `citation.save` | research | ✅ | medium |
 | `chunk.reduce` | composer | ✅ | auto |
 
 Filter logic: `isSurfacedToolName(canonicalName, distribution:)`
@@ -106,12 +101,20 @@ The full Pro catalog is the MAS list above PLUS:
 | `stdio_mcp` / user MCP clients | subprocess to user-provided MCP servers | Pro-only |
 | `code_execution` (Python / Node / Ruby / Perl / shell) | subprocess + interpreter | Pro-only |
 | `execute_code` | subprocess + sandbox | requires approval; Pro-only |
+| `delegate_task` | subagent spawning is Pro/runtime-gated | `#[cfg(feature="pro-build")]` |
+| `intelligence.mixture_of_minds` | multi-model loop requires Pro provider/API-key policy | `#[cfg(feature="pro-build")]` |
+| `skills.list` / `skills.view` / `skills.manage` | progressive skill management is Pro-only today | `#[cfg(feature="pro-build")]` |
 
 MAS reality check: `mas-build` Cargo feature `#[cfg]`-gates the
 entire `cli_passthrough.rs` + `terminal.rs` modules out of the
 Rust dylib. Symbol scan (`nm -gU libagent_core.dylib`) on MAS
 build returns ZERO matches for all of the above (verified
 2026-05-13 in RCA4-P0-002 fix-pass).
+
+The legacy `skills` facade remains registered in Rust for backward
+compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible
+planning/tool surfaces hide it with the same policy that hides the progressive
+`skills.*` tools.
 
 ## 4. Local-agent grammar — `LocalAgentCapabilityRegistry`
 
@@ -137,11 +140,11 @@ capability dispatcher. Documented in RCA-P2-005 fix-pass.
 | Fast | 0 | 1 | ✅ | ✅ |
 | Thinking | 0 | 1 (with reasoning) | ✅ | ✅ |
 | Pro | 8 | 3 | ✅ (MAS tools only) | ✅ (full surface) |
-| Agent | 32 | 8 | ✅ (MAS tools only) | ✅ (full surface) |
+| Agent | 32 | 8 | ✅ (32 MAS tools only) | ✅ (full surface) |
 
 Loop depth budget: `OverseerDepthBudget` (Swift) bounds turn × tool
-escalation. `delegate_task` adds a separate child-spawn depth cap
-of 2 (`delegate_task::MAX_DEPTH`).
+escalation. In Pro builds, `delegate_task` adds a separate
+child-spawn depth cap of 2 (`delegate_task::MAX_DEPTH`).
 
 ## Alias normalization table
 
@@ -177,15 +180,19 @@ All of these alias-routes resolve to the canonical name below.
 | `collectsnippet` | `research.collect_snippet` |
 | `createresearchnote` | `note.research_digest` |
 | `citation_extractor` | `citation.extract` |
+| `markdown_table` | `markdown.table` |
+| `clarify` | `clarify.ask` |
 
 ## Approval classes
 
-Source: `agent_core/src/approval.rs:540-562`.
+Source: `agent_core/src/approval.rs:540-562` plus Swift native approval
+overrides in `Epistemos/Bridge/StreamingDelegate.swift`.
 
 | Risk | Tools | UX |
 |---|---|---|
-| auto-approve | read/search/list/web/knowledge | tool result inline; no modal |
-| medium | `file.write` / `file.patch` / `vault.write` / `note.create` / `note.edit` / `skills.manage` | ApprovalModalView with 120s deadline |
+| auto-approve | local read/search/list/knowledge tools | tool result inline; no modal |
+| ask/native approval | read-only network tools such as `web.search` / `web.fetch` / `web.extract` / `web.crawl` | ApprovalModalView with 120s deadline |
+| medium | `file.write` / `file.patch` / `vault.write` / `note.create` / `note.edit` / `note.template` / `research.collect_snippet` / `citation.save`; Pro also includes `skills.manage` | ApprovalModalView with 120s deadline |
 | high | `execute_code` (Pro-only); `subprocess` aliases (Pro-only) | ApprovalModalView; risk badge; always requires explicit click |
 
 ## Cross-references

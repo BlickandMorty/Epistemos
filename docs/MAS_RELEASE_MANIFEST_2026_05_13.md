@@ -33,7 +33,7 @@ MAS?" during App Store Review prep and customer-support escalations.
   calls). Tool loops are bounded by `OverseerDepthBudget`.
 
 ### Tool surface (`ToolSurfacePolicy.coreAppStoreAllowedToolNames`)
-30+ canonical tool names exposed to the agent runtime on MAS:
+32 canonical tool names exposed to MAS-visible tool surfaces:
 
 **Vault + filesystem (scoped to vault root)**
 - `vault.search`, `vault.read`, `vault.write`, `vault.list`
@@ -48,10 +48,7 @@ MAS?" during App Store Review prep and customer-support escalations.
 
 **Web (HTTPS via URLSession — no subprocess)**
 - `web.search`, `web.extract`, `web.crawl`, `web.fetch`
-
-**Multi-agent / multi-model loops**
-- `delegate_task` — child agent spawn (in-process Tokio, depth-cap 2)
-- `intelligence.mixture_of_minds` — multi-model cloud fan-out (URLSession only, requires `allow_cloud_external_requests=true` + API keys)
+- These read-only network tools route through the native approval gate.
 
 **Vault knowledge**
 - `knowledge.recall` (`vault_recall`)
@@ -62,15 +59,16 @@ MAS?" during App Store Review prep and customer-support escalations.
 
 **Note authoring**
 - `note.create`, `note.edit`, `note.research_digest`
-- `note_template`, `note_linker`
+- `note.template`, `note.linker`
 
 **Composer helpers**
-- `clarify` — agent asks the user a follow-up question
-- `research.collect_snippet`, `research.search_papers`
-- `citation.save`
+- `clarify.ask` — managed Rust agent sessions ask the user a follow-up question through the Swift delegate UI
+- `research.search_papers` — read-only network tool, routed through native approval
+- `research.collect_snippet`, `citation.save` — vault-scoped writes, routed through native approval plus the Rust R.5 resource grant gate
 - `chunk.reduce`
 
-**Skill management**
+**Pro-only tool surfaces hidden from MAS**
+- `delegate_task`, `intelligence.mixture_of_minds`
 - `skills.list`, `skills.view`, `skills.manage`
 
 ### Slash command CLI (`ACCSlashCommand`)

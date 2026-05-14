@@ -12,6 +12,7 @@ readonly jit_disabled_marker="Epistemos patch: MLX CPU JIT disabled."
 
 candidate_files=()
 candidate_jit_files=()
+candidate_swiftlint_plugin_roots=()
 
 add_candidate_checkout_dir() {
   local checkout_dir="$1"
@@ -23,8 +24,9 @@ add_candidate_checkout_dir() {
 
 add_candidate_root() {
   local root="$1"
-  if [[ -n "${root}" ]]; then
+  if [[ -n "${root}" && "${root}" != "/" ]]; then
     add_candidate_checkout_dir "${root}/SourcePackages/checkouts"
+    candidate_swiftlint_plugin_roots+=("${root}/Build/Intermediates.noindex/BuildToolPluginIntermediates")
   fi
 }
 
@@ -37,6 +39,9 @@ add_build_dir_candidate() {
 
 if [[ -n "${BUILD_DIR:-}" ]]; then
   add_candidate_root "${BUILD_DIR}"
+  if [[ "${BUILD_DIR}" != "/" ]]; then
+    candidate_swiftlint_plugin_roots+=("${BUILD_DIR}/../Intermediates.noindex/BuildToolPluginIntermediates")
+  fi
   add_build_dir_candidate "../.."
   add_build_dir_candidate "../../.."
 fi
@@ -155,6 +160,21 @@ patch_jit_file() {
   return 1
 }
 
+prepare_swiftlint_plugin_output_dirs() {
+  local root="$1"
+  local target
+
+  [[ -n "${root}" ]] || return 1
+  for target in \
+    "codeeditsourceeditor.output/CodeEditSourceEditor" \
+    "codeeditsourceeditor.output/CodeEditSourceEditorTests" \
+    "codeedittextview.output/CodeEditTextView" \
+    "codeedittextview.output/CodeEditTextViewTests"
+  do
+    /bin/mkdir -p "${root}/${target}/SwiftLint/Output"
+  done
+}
+
 patched_any=0
 while IFS= read -r file; do
   if patch_file "${file}"; then
@@ -167,6 +187,12 @@ while IFS= read -r file; do
     patched_any=1
   fi
 done < <(/usr/bin/printf '%s\n' "${candidate_jit_files[@]}" | /usr/bin/sort -u)
+
+while IFS= read -r root; do
+  if prepare_swiftlint_plugin_output_dirs "${root}"; then
+    patched_any=1
+  fi
+done < <(/usr/bin/printf '%s\n' "${candidate_swiftlint_plugin_roots[@]}" | /usr/bin/sort -u)
 
 if [[ "${patched_any}" == "0" ]]; then
   echo "MLX Metal warning patch: no mlx-swift checkout found yet"
