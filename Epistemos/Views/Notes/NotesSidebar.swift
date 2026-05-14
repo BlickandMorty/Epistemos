@@ -505,21 +505,13 @@ private struct NotesSidebarGlassBackdrop: View {
 
     var body: some View {
         ZStack {
+            Color.clear
             Rectangle()
                 .fill(.ultraThinMaterial)
             Rectangle()
                 .fill(theme.isDark ? Color.black.opacity(0.32) : Color.white.opacity(0.55))
-            LinearGradient(
-                colors: [
-                    theme.resolved.accent.color.opacity(theme.isDark ? 0.16 : 0.08),
-                    Color.clear,
-                    theme.fontAccent.opacity(theme.isDark ? 0.10 : 0.06),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
             NotesSidebarPixelDither(theme: theme)
-                .opacity(theme.isDark ? 0.30 : 0.22)
+                .opacity(theme.isDark ? 0.14 : 0.08)
         }
         .overlay(alignment: .trailing) {
             Rectangle()
