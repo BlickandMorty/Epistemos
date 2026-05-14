@@ -20,7 +20,7 @@ struct GraphWorkspaceContainer: View {
                     .allowsHitTesting(false)
 
             case .note(let id):
-                graphPageBackdrop
+                graphNoteBackdrop
 
                 VStack(spacing: 0) {
                     graphPageHeader(title: "Note")
@@ -48,6 +48,12 @@ struct GraphWorkspaceContainer: View {
             .fill(.ultraThinMaterial)
             .ignoresSafeArea()
             .allowsHitTesting(true)
+    }
+
+    private var graphNoteBackdrop: some View {
+        Color.clear
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
     }
 
     private func graphPageHeader(title: String) -> some View {

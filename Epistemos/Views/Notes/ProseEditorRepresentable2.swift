@@ -45,10 +45,16 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
 
-    private func applyEditorBackgroundMode(to tv: ProseTextView2) {
+    private func applyEditorBackgroundMode(to tv: ProseTextView2, in scrollView: NSScrollView?) {
         guard usesTransparentEditorBackground else { return }
+        scrollView?.drawsBackground = false
+        scrollView?.backgroundColor = .clear
+        scrollView?.contentView.drawsBackground = false
+        scrollView?.contentView.backgroundColor = .clear
         tv.drawsBackground = false
         tv.backgroundColor = .clear
+        tv.enclosingScrollView?.drawsBackground = false
+        tv.enclosingScrollView?.backgroundColor = .clear
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -67,7 +73,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         )
 
         tv.applyTheme(theme)
-        applyEditorBackgroundMode(to: tv)
+        applyEditorBackgroundMode(to: tv, in: scrollView)
 
         // Load initial content
         let body = pageBody
@@ -318,6 +324,7 @@ extension ProseEditorRepresentable2 {
         func handleUpdate() {
             guard let tv = textView else { return }
             tv.markdownDelegate.usesRenderedTableOverlays = false
+            parent.applyEditorBackgroundMode(to: tv, in: scrollView)
 
             // Page swap
             if parent.pageId != currentPageId {
@@ -539,7 +546,7 @@ extension ProseEditorRepresentable2 {
             guard let tv = textView else { return }
             lastTheme = parent.theme
             tv.applyTheme(parent.theme)
-            parent.applyEditorBackgroundMode(to: tv)
+            parent.applyEditorBackgroundMode(to: tv, in: scrollView)
             renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
         }
 
