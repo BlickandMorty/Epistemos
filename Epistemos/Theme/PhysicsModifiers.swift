@@ -630,8 +630,7 @@ struct ASCIIFrameAnimationText: View {
     @Environment(UIState.self) private var ui
 
     private var shouldAnimate: Bool {
-        !reduceMotion && !ui.displayMode.reducesASCIIAnimations && !ui.windowOccluded
-            && configuration.frames.count > 1
+        !reduceMotion && !ui.windowOccluded && configuration.frames.count > 1
     }
 
     var body: some View {

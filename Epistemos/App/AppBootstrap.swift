@@ -2950,19 +2950,6 @@ final class AppBootstrap {
         relaunchApp()
     }
 
-    func applyDisplayModeAndRelaunch(_ mode: AppDisplayMode) {
-        uiState.setDisplayMode(mode)
-        clearVisualCaches()
-
-        guard !Self.isRunningTests else {
-            Log.app.info("Skipping display-mode relaunch under tests")
-            return
-        }
-
-        Log.app.info("Display mode updated to \(mode.rawValue, privacy: .public) — relaunching")
-        relaunchApp()
-    }
-
     func relaunchSkippingRestoreAndDiscardSession() {
         guard !Self.isRunningTests else {
             Log.app.info("Skipping skip-restore relaunch under tests")

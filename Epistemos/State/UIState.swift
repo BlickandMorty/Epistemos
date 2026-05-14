@@ -256,7 +256,7 @@ final class UIState {
 
     private var isNormalizingLandingGreetingLibrary = false
 
-    var themeMode: ThemeMode = .systemDefault {
+    var themeMode: ThemeMode = .custom {
         didSet {
             UserDefaults.standard.set(themeMode.rawValue, forKey: ThemeMode.defaultsKey)
         }
@@ -316,9 +316,9 @@ final class UIState {
         "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0)"
     }
 
-    var displayMode: AppDisplayMode = .opulent {
+    var readableFontsEnabled: Bool = false {
         didSet {
-            UserDefaults.standard.set(displayMode.rawValue, forKey: AppDisplayMode.defaultsKey)
+            AppDisplayTypography.setReadableFontsEnabled(readableFontsEnabled)
         }
     }
 
@@ -392,7 +392,7 @@ final class UIState {
         isSystemDark = SystemAppearanceState.isDark()
         restoreThemeDefaults()
         clearLegacyLandingGreetingDefaults()
-        displayMode = AppDisplayMode.current()
+        readableFontsEnabled = AppDisplayTypography.readableFontsEnabled()
         if let storedGreetingSourceMode = UserDefaults.standard.string(
             forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
         ),
@@ -442,10 +442,10 @@ final class UIState {
         let defaults = UserDefaults.standard
         if let rawMode = defaults.string(forKey: ThemeMode.defaultsKey),
             let storedMode = ThemeMode(rawValue: rawMode) {
-            themeMode = storedMode
+            themeMode = storedMode == .systemDefault ? .custom : storedMode
         } else {
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
-            themeMode = .systemDefault
+            themeMode = .custom
         }
 
         if let rawPair = defaults.string(forKey: Self.themePairDefaultsKey),
@@ -509,7 +509,9 @@ final class UIState {
         themeMode = enabled ? .custom : .systemDefault
     }
 
-    func setDisplayMode(_ mode: AppDisplayMode) { displayMode = mode }
+    func setReadableFontsEnabled(_ enabled: Bool) {
+        readableFontsEnabled = enabled
+    }
 
     // MARK: - Navigation Methods
 

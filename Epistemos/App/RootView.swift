@@ -235,6 +235,10 @@ struct RootView: View {
         .onDisappear {
             appearanceObserver.stop()
         }
+        .onChange(of: ui.readableFontsEnabled) { _, _ in
+            // Observing the preference here redraws typography live without
+            // restarting the app or resetting graph/navigation view identity.
+        }
         .onChange(of: ui.appearanceSyncKey) { _, _ in
             UtilityWindowManager.shared.syncTheme(uiState: ui)
             HologramController.shared.syncTheme(ui)
@@ -2211,13 +2215,6 @@ struct SetupView: View {
             withAnimation(.easeIn(duration: 0.4)) { overlayOpacity = 1 }
         }
         .task {
-            if ui.displayMode.reducesASCIIAnimations {
-                displayText = fullText
-                typingDone = true
-                buttonOpacity = 1
-                return
-            }
-
             // Small initial delay
             try? await Task.sleep(for: .milliseconds(600))
 

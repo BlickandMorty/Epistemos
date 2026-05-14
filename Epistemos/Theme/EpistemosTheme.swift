@@ -1347,39 +1347,16 @@ enum AppHeadingRole: Sendable {
     }
 }
 
-enum AppDisplayMode: String, CaseIterable, Sendable, Identifiable {
-    nonisolated static let defaultsKey = "epistemos.display.mode"
-
-    case opulent
-    case regular
-
-    nonisolated var id: String { rawValue }
-
-    nonisolated var displayName: String {
-        switch self {
-        case .opulent: "Opulent"
-        case .regular: "Regular"
-        }
-    }
-
-    nonisolated var usesDisplayFont: Bool { self == .opulent }
-    nonisolated var reducesASCIIAnimations: Bool { self == .regular }
-
-    nonisolated static func current(defaults: UserDefaults = .standard) -> AppDisplayMode {
-        guard
-            let rawValue = defaults.string(forKey: defaultsKey),
-            let mode = AppDisplayMode(rawValue: rawValue)
-        else {
-            return .opulent
-        }
-        return mode
-    }
-}
-
 enum AppDisplayTypography: Sendable {
+    nonisolated static let legacyDisplayModeDefaultsKey = "epistemos.display.mode"
+    nonisolated static let readableFontsDefaultsKey = "epistemos.typography.readableFontsEnabled"
     nonisolated static let coralDisplayFontName = "CoralPixels-Regular"
     nonisolated static let legacyDisplayFontName = "RetroGaming"
     nonisolated static let monoFontName = "JetBrainsMono-Regular"
+    nonisolated static let readableFontRegularName = "AvenirNext-Regular"
+    nonisolated static let readableFontMediumName = "AvenirNext-Medium"
+    nonisolated static let readableFontSemiboldName = "AvenirNext-DemiBold"
+    nonisolated static let readableFontBoldName = "AvenirNext-Bold"
     nonisolated static let coralDisplayFontScale: CGFloat = 1.1
     nonisolated static let legacyDisplayFontScale: CGFloat = 1.0
 
@@ -1400,8 +1377,8 @@ enum AppDisplayTypography: Sendable {
     ///
     /// Reads `epistemos.theme.pair` from UserDefaults so the resolver
     /// doesn't require a theme parameter at every call site. Falls
-    /// back to RetroGaming (Classic) when the key is missing or unknown
-    /// so pre-2026-05-13 behavior is preserved for first-launch users.
+    /// back to Platinum Violet when the key is missing or unknown so
+    /// first-launch users see the v1 default app theme immediately.
     /// The `isDark` parameter is ignored — each theme's identity face
     /// holds across both modes per the user's eighth-pass direction.
     /// Theme-pair-aware display font resolver. Reads
@@ -1421,7 +1398,7 @@ enum AppDisplayTypography: Sendable {
         case "platinumViolet": return "MatrixTypeDisplay-Regular"
         case "ember":          return "ColorBasic-Regular"
         case "classic":        return legacyDisplayFontName
-        default:               return legacyDisplayFontName
+        default:               return "MatrixTypeDisplay-Regular"
         }
     }
 
@@ -1443,11 +1420,34 @@ enum AppDisplayTypography: Sendable {
         return legacyDisplayFontScale
     }
 
-    nonisolated static var currentMode: AppDisplayMode {
-        AppDisplayMode.current()
+    nonisolated static func readableFontsEnabled(defaults: UserDefaults = .standard) -> Bool {
+        if defaults.object(forKey: readableFontsDefaultsKey) != nil {
+            return defaults.bool(forKey: readableFontsDefaultsKey)
+        }
+        return defaults.string(forKey: legacyDisplayModeDefaultsKey) == "regular"
+    }
+
+    nonisolated static func setReadableFontsEnabled(
+        _ enabled: Bool,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(enabled, forKey: readableFontsDefaultsKey)
+        defaults.removeObject(forKey: legacyDisplayModeDefaultsKey)
     }
 
     nonisolated static func regularUIFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        let fontName: String = if weight >= .bold {
+            readableFontBoldName
+        } else if weight >= .semibold {
+            readableFontSemiboldName
+        } else if weight >= .medium {
+            readableFontMediumName
+        } else {
+            readableFontRegularName
+        }
+        if let font = NSFont(name: fontName, size: size) {
+            return font
+        }
         let uiType: CTFontUIFontType = weight >= .semibold ? .emphasizedSystem : .system
         guard let ctFont = CTFontCreateUIFontForLanguage(uiType, size, nil) else {
             return NSFont.systemFont(ofSize: size, weight: weight)
@@ -1456,13 +1456,15 @@ enum AppDisplayTypography: Sendable {
     }
 
     nonisolated static func isRegularUIFont(_ font: NSFont) -> Bool {
-        font.fontName.hasPrefix(".SFNS") || font.fontName.hasPrefix(".AppleSystemUIFont")
+        font.fontName.hasPrefix("AvenirNext")
+            || font.fontName.hasPrefix(".SFNS")
+            || font.fontName.hasPrefix(".AppleSystemUIFont")
     }
 
     nonisolated static var fontName: String {
-        currentMode.usesDisplayFont
-            ? displayFontName
-            : regularUIFont(size: NSFont.systemFontSize).fontName
+        readableFontsEnabled()
+            ? regularUIFont(size: NSFont.systemFontSize).fontName
+            : displayFontName
     }
 
     nonisolated static func font(
@@ -1473,7 +1475,7 @@ enum AppDisplayTypography: Sendable {
         allowDisplayFont: Bool = true
     ) -> Font {
         let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
-        if allowDisplayFont && currentMode.usesDisplayFont {
+        if allowDisplayFont && !readableFontsEnabled() {
             return Font.custom(
                 displayFontName(isDark: resolvedIsDark),
                 size: displayFontSize(for: size, isDark: resolvedIsDark)
@@ -1498,7 +1500,7 @@ enum AppDisplayTypography: Sendable {
         allowDisplayFont: Bool = true
     ) -> Font {
         let resolvedIsDark = theme.isDark
-        if allowDisplayFont && currentMode.usesDisplayFont {
+        if allowDisplayFont && !readableFontsEnabled() {
             return Font.custom(
                 theme.headingFontName,
                 size: displayFontSize(for: size, isDark: resolvedIsDark)
@@ -1519,7 +1521,7 @@ enum AppDisplayTypography: Sendable {
         allowDisplayFont: Bool = true
     ) -> Font {
         let resolvedIsDark = theme.isDark
-        if allowDisplayFont && currentMode.usesDisplayFont {
+        if allowDisplayFont && !readableFontsEnabled() {
             return Font.custom(
                 theme.panelFontName,
                 size: displayFontSize(for: size, isDark: resolvedIsDark)
@@ -1548,7 +1550,7 @@ enum AppDisplayTypography: Sendable {
         allowDisplayFont: Bool = true
     ) -> NSFont {
         let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
-        if allowDisplayFont && currentMode.usesDisplayFont {
+        if allowDisplayFont && !readableFontsEnabled() {
             return NSFont(
                 name: displayFontName(isDark: resolvedIsDark),
                 size: displayFontSize(for: size, isDark: resolvedIsDark)
@@ -1576,7 +1578,7 @@ enum AppDisplayTypography: Sendable {
         allowDisplayFont: Bool = true
     ) -> NSFont {
         let resolvedIsDark = theme.isDark
-        if allowDisplayFont && currentMode.usesDisplayFont {
+        if allowDisplayFont && !readableFontsEnabled() {
             return NSFont(
                 name: theme.headingFontName,
                 size: displayFontSize(for: size, isDark: resolvedIsDark)
