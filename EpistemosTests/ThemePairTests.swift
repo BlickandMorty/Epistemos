@@ -49,8 +49,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState defaults to native system appearance when no theme settings are stored")
-    func uiStateDefaultsToSystemDefaultAppearance() {
+    @Test("UIState defaults to the Platinum Violet app theme when no theme settings are stored")
+    func uiStateDefaultsToPlatinumVioletAppearance() {
         let defaults = UserDefaults.standard
         let keys = [
             ThemeMode.defaultsKey,
@@ -72,9 +72,13 @@ struct ThemePairTests {
 
         let uiState = UIState()
 
-        #expect(uiState.themeMode == .systemDefault)
-        #expect(uiState.customThemesEnabled == false)
+        #expect(uiState.themeMode == .custom)
+        #expect(uiState.customThemesEnabled)
         #expect(uiState.activePair == .platinumViolet)
+        uiState.isSystemDark = false
+        #expect(uiState.theme == .platinumViolet)
+        uiState.isSystemDark = true
+        #expect(uiState.theme == .platinumVioletDark)
         #expect(uiState.preferredColorScheme == nil)
         #expect(uiState.shouldUseThemeWorkarounds == false)
         #expect(uiState.usesNativeWindowBlur == false)
@@ -114,8 +118,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState preserves valid theme defaults on init")
-    func uiStatePreservesValidThemeDefaultsOnInit() {
+    @Test("UIState migrates legacy system-default theme mode to the selected app theme")
+    func uiStateMigratesLegacySystemDefaultThemeModeOnInit() {
         let defaults = UserDefaults.standard
         let keys = [ThemeMode.defaultsKey, UIState.themePairDefaultsKey]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
@@ -134,9 +138,9 @@ struct ThemePairTests {
 
         let uiState = UIState()
 
-        #expect(uiState.themeMode == .systemDefault)
+        #expect(uiState.themeMode == .custom)
         #expect(uiState.activePair == .ember)
-        #expect(defaults.string(forKey: ThemeMode.defaultsKey) == ThemeMode.systemDefault.rawValue)
+        #expect(defaults.string(forKey: ThemeMode.defaultsKey) == ThemeMode.custom.rawValue)
         #expect(defaults.string(forKey: UIState.themePairDefaultsKey) == ThemePair.ember.rawValue)
     }
 
@@ -174,9 +178,9 @@ struct ThemePairTests {
             let uiState = UIState()
             uiState.isSystemDark = false
 
-            #expect(uiState.themeMode == .systemDefault)
+            #expect(uiState.themeMode == .custom)
             #expect(uiState.windowAppearance == nil)
-            #expect(uiState.theme == .systemLight)
+            #expect(uiState.theme == .platinumViolet)
 
             uiState.setPair(.platinumViolet)
             uiState.setThemeMode(.custom)
@@ -198,6 +202,7 @@ struct ThemePairTests {
             defaults.removeObject(forKey: UIState.themePairDefaultsKey)
 
             let uiState = UIState()
+            uiState.setThemeMode(.systemDefault)
 
             uiState.isSystemDark = false
             #expect(uiState.theme == .systemLight)
@@ -218,6 +223,7 @@ struct ThemePairTests {
             defaults.removeObject(forKey: UIState.themePairDefaultsKey)
 
             let uiState = UIState()
+            uiState.setThemeMode(.systemDefault)
 
             #expect(uiState.themeMode == .systemDefault)
             uiState.isSystemDark = false
@@ -529,20 +535,31 @@ struct ThemePairTests {
         #expect(AppWindowBackdropStyle.backgroundToken(for: .nocturne) != EpistemosTheme.oled.resolved.background)
     }
 
-    @Test("Regular display mode keeps ripple-capable surfaces but drops pixel display typography")
-    func regularDisplayModePolicy() {
-        #expect(AppDisplayMode.opulent.usesDisplayFont)
-        #expect(!AppDisplayMode.opulent.reducesASCIIAnimations)
-        #expect(!AppDisplayMode.regular.usesDisplayFont)
-        #expect(AppDisplayMode.regular.reducesASCIIAnimations)
+    @Test("Readable font preference is independent from landing and animation policy")
+    func readableFontPreferencePolicy() {
+        let defaults = UserDefaults(suiteName: "ThemePairReadableFontPreference")!
+        defaults.removePersistentDomain(forName: "ThemePairReadableFontPreference")
+        defer { defaults.removePersistentDomain(forName: "ThemePairReadableFontPreference") }
+
+        #expect(!AppDisplayTypography.readableFontsEnabled(defaults: defaults))
+        defaults.set("regular", forKey: AppDisplayTypography.legacyDisplayModeDefaultsKey)
+        #expect(AppDisplayTypography.readableFontsEnabled(defaults: defaults))
+        AppDisplayTypography.setReadableFontsEnabled(false, defaults: defaults)
+        #expect(!AppDisplayTypography.readableFontsEnabled(defaults: defaults))
+        #expect(defaults.string(forKey: AppDisplayTypography.legacyDisplayModeDefaultsKey) == nil)
     }
 
-    @Test("Regular display mode uses the macOS UI font family")
-    func regularDisplayModeUsesMacOSUIFontFamily() {
+    @Test("Readable font preference uses Avenir Next when available")
+    func readableFontPreferenceUsesReadableUIFontFamily() {
         let font = AppDisplayTypography.regularUIFont(size: 13)
 
         #expect(AppDisplayTypography.isRegularUIFont(font))
         #expect(!AppDisplayTypography.isDisplayFont(font))
+        #expect(
+            font.fontName.hasPrefix("AvenirNext")
+                || font.fontName.hasPrefix(".SFNS")
+                || font.fontName.hasPrefix(".AppleSystemUIFont")
+        )
         #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
     }
 
@@ -1142,22 +1159,33 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState restores saved display mode from defaults")
-    func uiStateRestoresDisplayMode() {
+    @Test("UIState migrates legacy regular display mode into readable fonts")
+    func uiStateMigratesLegacyRegularDisplayMode() {
         let defaults = UserDefaults.standard
-        let previous = defaults.string(forKey: AppDisplayMode.defaultsKey)
+        let legacyKey = AppDisplayTypography.legacyDisplayModeDefaultsKey
+        let readableKey = AppDisplayTypography.readableFontsDefaultsKey
+        let previousLegacy = defaults.object(forKey: legacyKey)
+        let previousReadable = defaults.object(forKey: readableKey)
         defer {
-            if let previous {
-                defaults.set(previous, forKey: AppDisplayMode.defaultsKey)
+            if let previousLegacy {
+                defaults.set(previousLegacy, forKey: legacyKey)
             } else {
-                defaults.removeObject(forKey: AppDisplayMode.defaultsKey)
+                defaults.removeObject(forKey: legacyKey)
+            }
+            if let previousReadable {
+                defaults.set(previousReadable, forKey: readableKey)
+            } else {
+                defaults.removeObject(forKey: readableKey)
             }
         }
 
-        defaults.set(AppDisplayMode.regular.rawValue, forKey: AppDisplayMode.defaultsKey)
+        defaults.removeObject(forKey: readableKey)
+        defaults.set("regular", forKey: legacyKey)
 
         let uiState = UIState()
-        #expect(uiState.displayMode == .regular)
+        #expect(uiState.readableFontsEnabled)
+        #expect(defaults.string(forKey: legacyKey) == nil)
+        #expect(defaults.bool(forKey: readableKey))
     }
 
     @MainActor

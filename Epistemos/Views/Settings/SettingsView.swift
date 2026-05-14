@@ -3031,49 +3031,19 @@ private struct LocalModelRow: View {
 
 private struct AppearanceDetailView: View {
     @Environment(UIState.self) private var ui
-    @State private var regularModeDraft = false
-    @State private var pendingDisplayMode: AppDisplayMode?
-    @State private var showDisplayModeAlert = false
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         AppearanceDetailContainer(
-            regularModeDraft: $regularModeDraft,
-            showDisplayModeAlert: $showDisplayModeAlert,
             ui: ui,
-            theme: theme,
-            onSelectDisplayMode: scheduleDisplayModeChange,
-            onCancelDisplayRestart: resetDisplayModeDraft,
-            onApplyDisplayRestart: applyPendingDisplayModeChange
+            theme: theme
         )
-    }
-
-    private func scheduleDisplayModeChange(_ nextMode: AppDisplayMode) {
-        pendingDisplayMode = nextMode
-        showDisplayModeAlert = true
-    }
-
-    private func resetDisplayModeDraft() {
-        regularModeDraft = ui.displayMode == .regular
-        pendingDisplayMode = nil
-    }
-
-    private func applyPendingDisplayModeChange() {
-        if let pendingDisplayMode {
-            AppBootstrap.shared?.applyDisplayModeAndRelaunch(pendingDisplayMode)
-        }
-        pendingDisplayMode = nil
     }
 }
 
 private struct AppearanceDetailContainer: View {
-    @Binding var regularModeDraft: Bool
-    @Binding var showDisplayModeAlert: Bool
     let ui: UIState
     let theme: EpistemosTheme
-    let onSelectDisplayMode: (AppDisplayMode) -> Void
-    let onCancelDisplayRestart: () -> Void
-    let onApplyDisplayRestart: () -> Void
 
     var body: some View {
         configuredForm
@@ -3082,31 +3052,12 @@ private struct AppearanceDetailContainer: View {
     private var configuredForm: some View {
         appearanceForm
             .formStyle(.grouped)
-            .onAppear {
-                Task { @MainActor in
-                    regularModeDraft = ui.displayMode == .regular
-                }
-            }
-            .onChange(of: ui.displayMode) { _, mode in
-                regularModeDraft = mode == .regular
-            }
-            .alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
-                Button("Cancel", role: .cancel, action: onCancelDisplayRestart)
-                Button("Restart Now", action: onApplyDisplayRestart)
-            } message: {
-                Text("Epistemos will relaunch to rebuild style caches. Your vault and saved data stay intact.")
-            }
     }
 
     private var appearanceForm: some View {
         Form {
-            AppearanceSystemSection(theme: theme)
             AppearanceThemePairSection(ui: ui, theme: theme)
-            AppearanceDisplayModeSection(
-                regularModeDraft: $regularModeDraft,
-                currentMode: ui.displayMode,
-                onToggle: onSelectDisplayMode
-            )
+            AppearanceTypographySection(ui: ui)
             AppearanceGraphNodeVisibilitySection()
             AppearanceEditorSection()
         }
@@ -3121,30 +3072,14 @@ private struct AppearanceThemePairSection: View {
         GridItem(.adaptive(minimum: 154), spacing: Spacing.sm, alignment: .top),
     ]
 
-    private var followsMacOS: Binding<Bool> {
-        Binding(
-            get: { ui.themeMode == .systemDefault },
-            set: { followsSystem in
-                if followsSystem {
-                    ui.setThemeMode(.systemDefault)
-                } else {
-                    ui.setThemeMode(.custom)
-                }
-            }
-        )
-    }
-
     var body: some View {
         Section {
-            Toggle("Follow macOS", isOn: followsMacOS)
-                .toggleStyle(.switch)
-
             LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
                 ForEach(ThemePair.allCases, id: \.self) { pair in
                     ThemePairCard(
                         pair: pair,
                         theme: theme,
-                        isSelected: ui.themeMode == .custom && ui.activePair == pair
+                        isSelected: ui.activePair == pair
                     ) {
                         ui.setPair(pair)
                         ui.setThemeMode(.custom)
@@ -3398,52 +3333,22 @@ private extension GraphNodeType {
     }
 }
 
-private struct AppearanceSystemSection: View {
-    let theme: EpistemosTheme
+private struct AppearanceTypographySection: View {
+    let ui: UIState
 
     var body: some View {
         Section {
-            LabeledContent("Appearance") {
-                Text("Follows macOS")
-                    .foregroundStyle(.secondary)
-                    .fontWeight(.medium)
-            }
-            Button("Open System Settings") {
-                guard let url = URL(
-                    string: "x-apple.systempreferences:com.apple.preference.general"
-                ) else { return }
-                NSWorkspace.shared.open(url)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        } header: {
-            Text("System")
-        }
-    }
-}
-
-
-
-private struct AppearanceDisplayModeSection: View {
-    @Binding var regularModeDraft: Bool
-    let currentMode: AppDisplayMode
-    let onToggle: (AppDisplayMode) -> Void
-
-    var body: some View {
-        Section {
-            Toggle("Regular Mode", isOn: $regularModeDraft)
+            Toggle("Readable fonts", isOn: Binding(
+                get: { ui.readableFontsEnabled },
+                set: { ui.setReadableFontsEnabled($0) }
+            ))
                 .toggleStyle(.switch)
-                .onChange(of: regularModeDraft) { _, enabled in
-                    let nextMode: AppDisplayMode = enabled ? .regular : .opulent
-                    guard nextMode != currentMode else { return }
-                    onToggle(nextMode)
-                }
 
-            Text("Uses standard system fonts, simplifies the landing greeting, and reduces animations. Restart required.")
+            Text("Uses Avenir Next for app chrome, notes, chat, and document text. Landing-page display typography stays unchanged.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } header: {
-            Text("Display Mode")
+            Text("Typography")
         }
     }
 }

@@ -43,7 +43,7 @@ struct TypewriterHeading: View {
     @MainActor
     private func animateIfNeeded() async {
         let shouldAnimate = animateOnAppear ?? role.animatesOnFirstAppearance
-        guard shouldAnimate, !reduceMotion, !ui.displayMode.reducesASCIIAnimations else {
+        guard shouldAnimate, !reduceMotion else {
             displayText = text
             return
         }
