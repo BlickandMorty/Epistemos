@@ -6,14 +6,25 @@ if [[ "${EPISTEMOS_PATCH_MLX_METAL_WARNINGS:-1}" == "0" ]]; then
 fi
 
 readonly relative_path="Source/Cmlx/mlx-generated/metal/steel/attn/kernels/steel_attention.metal"
+readonly jit_relative_path="Source/Cmlx/mlx/mlx/backend/cpu/jit_compiler.cpp"
 readonly warning_flag="-Wc++17-extensions"
+readonly jit_disabled_marker="Epistemos patch: MLX CPU JIT disabled."
 
 candidate_files=()
+candidate_jit_files=()
+
+add_candidate_checkout_dir() {
+  local checkout_dir="$1"
+  if [[ -n "${checkout_dir}" ]]; then
+    candidate_files+=("${checkout_dir}/mlx-swift/${relative_path}")
+    candidate_jit_files+=("${checkout_dir}/mlx-swift/${jit_relative_path}")
+  fi
+}
 
 add_candidate_root() {
   local root="$1"
   if [[ -n "${root}" ]]; then
-    candidate_files+=("${root}/SourcePackages/checkouts/mlx-swift/${relative_path}")
+    add_candidate_checkout_dir "${root}/SourcePackages/checkouts"
   fi
 }
 
@@ -25,14 +36,29 @@ add_build_dir_candidate() {
 }
 
 if [[ -n "${BUILD_DIR:-}" ]]; then
+  add_candidate_root "${BUILD_DIR}"
   add_build_dir_candidate "../.."
   add_build_dir_candidate "../../.."
+fi
+
+if [[ -n "${EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR:-}" ]]; then
+  cloned_root="$(cd "${EPISTEMOS_CLONED_SOURCE_PACKAGES_DIR}" 2>/dev/null && pwd -P || true)"
+  if [[ -n "${cloned_root}" ]]; then
+    add_candidate_checkout_dir "${cloned_root}/checkouts"
+    add_candidate_checkout_dir "${cloned_root}"
+  fi
 fi
 
 while IFS= read -r file; do
   candidate_files+=("${file}")
 done < <(/usr/bin/find "${HOME}/Library/Developer/Xcode/DerivedData" \
   -path "*/SourcePackages/checkouts/mlx-swift/${relative_path}" \
+  -print 2>/dev/null || true)
+
+while IFS= read -r file; do
+  candidate_jit_files+=("${file}")
+done < <(/usr/bin/find "${HOME}/Library/Developer/Xcode/DerivedData" \
+  -path "*/SourcePackages/checkouts/mlx-swift/${jit_relative_path}" \
   -print 2>/dev/null || true)
 
 patch_file() {
@@ -76,12 +102,71 @@ patch_file() {
   return 1
 }
 
+patch_jit_file() {
+  local file="$1"
+  local tmp
+
+  [[ -f "${file}" ]] || return 1
+
+  if /usr/bin/grep -Fq -- "${jit_disabled_marker}" "${file}"; then
+    return 0
+  fi
+
+  if ! /usr/bin/grep -Fq -- "FILE* pipe = popen" "${file}"; then
+    return 1
+  fi
+
+  /bin/chmod u+w "${file}" 2>/dev/null || true
+  tmp="$(/usr/bin/mktemp "${TMPDIR:-/tmp}/mlx-cpu-jit.XXXXXX")"
+
+  if /usr/bin/awk -v marker="${jit_disabled_marker}" '
+    BEGIN { in_exec = 0; saw_return = 0; replaced = 0 }
+    $0 == "std::string JitCompiler::exec(const std::string& cmd) {" {
+      print "std::string JitCompiler::exec(const std::string& cmd) {"
+      print "  (void)cmd;"
+      print "  throw std::runtime_error(\"" marker "\");"
+      print "}"
+      in_exec = 1
+      replaced = 1
+      next
+    }
+    in_exec == 1 {
+      if ($0 == "  return ret;") {
+        saw_return = 1
+        next
+      }
+      if (saw_return == 1 && $0 == "}") {
+        in_exec = 0
+        saw_return = 0
+      }
+      next
+    }
+    { print }
+    END { if (replaced != 1 || in_exec != 0) exit 42 }
+  ' "${file}" > "${tmp}"; then
+    /bin/cp "${tmp}" "${file}"
+    /bin/rm -f "${tmp}"
+    echo "Patched MLX CPU JIT shell helper: ${file}"
+    return 0
+  fi
+
+  /bin/rm -f "${tmp}"
+  echo "warning: could not patch MLX CPU JIT shell helper in ${file}" >&2
+  return 1
+}
+
 patched_any=0
 while IFS= read -r file; do
   if patch_file "${file}"; then
     patched_any=1
   fi
 done < <(/usr/bin/printf '%s\n' "${candidate_files[@]}" | /usr/bin/sort -u)
+
+while IFS= read -r file; do
+  if patch_jit_file "${file}"; then
+    patched_any=1
+  fi
+done < <(/usr/bin/printf '%s\n' "${candidate_jit_files[@]}" | /usr/bin/sort -u)
 
 if [[ "${patched_any}" == "0" ]]; then
   echo "MLX Metal warning patch: no mlx-swift checkout found yet"

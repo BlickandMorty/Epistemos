@@ -354,6 +354,15 @@ struct AppStoreHardeningTests {
         )
     }
 
+    @Test("App Store build patch disables MLX CPU JIT shell helper")
+    func appStoreBuildPatchDisablesMLXCPUJITShellHelper() throws {
+        let source = try loadMirroredSourceTextFile("scripts/patch_mlx_metal_warnings.sh")
+
+        #expect(source.contains("Source/Cmlx/mlx/mlx/backend/cpu/jit_compiler.cpp"))
+        #expect(source.contains("FILE* pipe = popen"))
+        #expect(source.contains("Epistemos patch: MLX CPU JIT disabled."))
+    }
+
     @Test("App Store scheme has tests or CI runs a dedicated MAS artifact gate")
     func appStoreSchemeHasTestsOrCIRunsDedicatedMASArtifactGate() throws {
         let scheme = try loadMirroredSourceTextFile(
