@@ -950,10 +950,85 @@ struct HologramSearchSidebar: View {
 
     private func sendGraphChatMessage() {
         guard let modelContext else { return }
+
+        // USABILITY-001 follow-up (graph chat, 2026-05-13): the inline
+        // graph-inspector chat routes through `triageService.streamGeneral`
+        // which delivers native cloud tools (web_search / web_fetch /
+        // google_search / code_execution) automatically — but cannot
+        // dispatch app tools (vault.search, vault.read, file.*) because
+        // those only live in the Rust agent_core + LocalAgentLoop paths.
+        //
+        // When the user's query reads as agent-tier work ("find related
+        // notes", "edit my essay on Y", etc.), the inline turn was
+        // structurally guaranteed to hallucinate or refuse. So we
+        // transparently re-route through main chat with the selected
+        // graph node attached as a `ContextAttachment` so the full
+        // app-tool surface dispatches correctly (vault.search, etc.).
+        //
+        // Per user directive 2026-05-13: graph rendering must NOT be
+        // disrupted — only the chat behavior changes. The Metal graph
+        // view + node layout + edges stay untouched; only the panel
+        // switches to home (the user can navigate back via the graph
+        // button in the sidebar; graph state is preserved).
+        //
+        // Non-agent intents (summarize/explain/expand) stay on the
+        // existing inline path so the in-graph inspection UX is
+        // unchanged.
+        let trimmed = inspectorState.chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, !inspectorState.isChatStreaming {
+            let isCloudProvider: Bool = {
+                switch inference.effectiveChatSurfaceSelection(for: selectedGraphChatOperatingMode) {
+                case .cloud: return true
+                case .localMLX, .appleIntelligence: return false
+                }
+            }()
+            let prediction = ChatCapability.predictIntent(
+                text: trimmed,
+                isCloudProvider: isCloudProvider
+            )
+            if (prediction.predicted == .agent || prediction.predicted == .research),
+               let bootstrap = AppBootstrap.shared {
+                inspectorState.chatInput = ""
+                bootstrap.chatState.startNewChat()
+                if let nodeAttachment = graphNodeContextAttachment {
+                    bootstrap.chatState.addContextAttachment(nodeAttachment)
+                }
+                ui.setActivePanel(.home)
+                MainChatSubmissionRouter.submit(
+                    trimmed,
+                    operatingMode: selectedGraphChatOperatingMode,
+                    chat: bootstrap.chatState,
+                    orchestrator: bootstrap.orchestratorState,
+                    inference: inference
+                )
+                return
+            }
+        }
+
         inspectorState.sendMessage(
             store: graphState.store,
             modelContext: modelContext,
             operatingMode: selectedGraphChatOperatingMode
+        )
+    }
+
+    /// Wraps the currently-selected graph node as a main-chat
+    /// `ContextAttachment` so the auto-escalated tool-enabled turn has
+    /// the node body inlined + can dispatch vault tools against it.
+    /// Returns nil when there's no selected node OR the node isn't a
+    /// note (we only have a stable page targetId for note-typed nodes
+    /// today). For non-note nodes the escalation still proceeds — the
+    /// model gets the user's query without node context.
+    private var graphNodeContextAttachment: ContextAttachment? {
+        guard let node = inspectorState.selectedNode,
+              node.type == .note,
+              let sourceId = node.sourceId else {
+            return nil
+        }
+        return ContextAttachment(
+            kind: .note,
+            targetId: sourceId,
+            title: node.label.isEmpty ? "Untitled" : node.label
         )
     }
 
