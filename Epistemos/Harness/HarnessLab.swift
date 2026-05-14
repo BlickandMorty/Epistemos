@@ -950,6 +950,7 @@ actor ProposerOrchestrator {
                     let resolvedCommand = Self.resolveAgentCommand(agentCommand)
                     process.executableURL = URL(fileURLWithPath: resolvedCommand)
                     process.arguments = ["--print", "--input-file", promptFile.path]
+                    process.environment = SanitizedEnvironment.build()
 
                     let stdoutPipe = Pipe()
                     let stderrPipe = Pipe()

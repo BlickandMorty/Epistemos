@@ -153,6 +153,7 @@ final class ScreenCaptureService {
             let kickTask = Process.init()
             kickTask.executableURL = URL(fileURLWithPath: "/bin/launchctl")
             kickTask.arguments = ["kickstart", "-k", "gui/\(uid)/com.apple.replayd"]
+            kickTask.environment = SanitizedEnvironment.build()
             do {
                 try kickTask.run()
                 kickTask.waitUntilExit()

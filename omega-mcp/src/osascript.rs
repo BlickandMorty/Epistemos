@@ -13,6 +13,50 @@ const SAFARI_LAUNCH_DELAY_MS: u64 = 500;
 const APP_LAUNCH_TIMEOUT_MS: u64 = 5_000;
 const APP_LAUNCH_POLL_MS: u64 = 100;
 const SAFARI_LAUNCH_RETRIES: usize = 3;
+const SUBPROCESS_ALLOWLIST: &[&str] = &[
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "LC_MESSAGES",
+    "TERM",
+    "SHELL",
+    "TMPDIR",
+    "__CF_USER_TEXT_ENCODING",
+];
+const SUBPROCESS_DENYLIST: &[&str] = &[
+    "OPENAI_API_KEY",
+    "OPENAI_ACCESS_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_ACCESS_TOKEN",
+    "GOOGLE_API_KEY",
+    "GOOGLE_ACCESS_TOKEN",
+    "PERPLEXITY_API_KEY",
+    "OPENROUTER_API_KEY",
+    "HF_TOKEN",
+];
+
+fn hardened_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    command.env_clear();
+    for &key in SUBPROCESS_ALLOWLIST {
+        if SUBPROCESS_DENYLIST.contains(&key) {
+            continue;
+        }
+        if let Ok(value) = std::env::var(key) {
+            command.env(key, value);
+        }
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    command
+}
 
 /// Execute an AppleScript string via osascript.
 /// Returns a structured ToolResult with stdout, error parsing, and duration.
@@ -35,7 +79,7 @@ fn run_osascript(args: &[&str], timeout_ms: Option<u64>) -> ToolResult {
     let start = Instant::now();
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
 
-    let output = match Command::new("/usr/bin/osascript").args(args).output() {
+    let output = match hardened_command("/usr/bin/osascript").args(args).output() {
         Ok(o) => o,
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as u64;
@@ -145,7 +189,7 @@ fn safari_page_text_script(limit: u32) -> String {
 
 fn launch_application(app_name: &str) -> Result<(), ToolResult> {
     let start = Instant::now();
-    let output = Command::new("/usr/bin/open")
+    let output = hardened_command("/usr/bin/open")
         .args(["-a", app_name])
         .output();
 
@@ -186,7 +230,7 @@ fn launch_application(app_name: &str) -> Result<(), ToolResult> {
 fn wait_for_application_process(app_name: &str, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     loop {
-        if Command::new("/usr/bin/pgrep")
+        if hardened_command("/usr/bin/pgrep")
             .args(["-x", app_name])
             .output()
             .map(|output| output.status.success())
@@ -287,7 +331,7 @@ pub fn tool_run_command(command: &str, allowed_commands: &[&str]) -> ToolResult 
         );
     }
 
-    let output = match Command::new("/bin/zsh").args(["-c", command]).output() {
+    let output = match hardened_command("/bin/zsh").args(["-c", command]).output() {
         Ok(o) => o,
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as u64;
@@ -329,6 +373,18 @@ pub fn tool_run_command(command: &str, allowed_commands: &[&str]) -> ToolResult 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn restore_env(saved: Vec<(&'static str, Option<String>)>) {
+        for (var, value) in saved {
+            match value {
+                Some(value) => std::env::set_var(var, value),
+                None => std::env::remove_var(var),
+            }
+        }
+    }
 
     #[test]
     fn test_app_not_running_error_is_retryable() {
@@ -401,6 +457,42 @@ mod tests {
         let result = tool_run_command("echo hello", &["echo", "ls"]);
         assert!(result.success);
         assert!(result.data_json.contains("hello"));
+    }
+
+    #[test]
+    fn test_run_command_scrubs_provider_secrets() {
+        let _guard = ENV_LOCK.lock().expect("env lock poisoned");
+        let secret_vars = [
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY",
+            "PERPLEXITY_API_KEY",
+            "HF_TOKEN",
+        ];
+        let saved: Vec<(&'static str, Option<String>)> = secret_vars
+            .iter()
+            .map(|&var| (var, std::env::var(var).ok()))
+            .collect();
+        for &var in &secret_vars {
+            std::env::set_var(var, format!("omega-mcp-fixture-{var}"));
+        }
+
+        let result = tool_run_command("env", &["env"]);
+        restore_env(saved);
+
+        assert!(result.success, "env command failed: {result:?}");
+        for &var in &secret_vars {
+            assert!(
+                !result.data_json.contains(&format!("{var}=")),
+                "{var} leaked into omega-mcp shell child: {}",
+                result.data_json
+            );
+            assert!(
+                !result.data_json.contains(&format!("omega-mcp-fixture-{var}")),
+                "{var} fixture value leaked into omega-mcp shell child: {}",
+                result.data_json
+            );
+        }
     }
 
     #[test]
