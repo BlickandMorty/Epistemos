@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Testing
 @testable import Epistemos
 
@@ -1336,6 +1337,41 @@ struct LocalOAuthCallbackValidationTests {
         }
     }
 
+    @Test("live OAuth callback server listens only on loopback and rejects forged state")
+    func liveOAuthCallbackServerListensOnlyOnLoopbackAndRejectsForgedState() async throws {
+        let server = try await LocalOAuthCallbackServer.start(
+            path: "/oauth2callback",
+            expectedState: "expected-state"
+        )
+        defer {
+            Task {
+                await server.stop()
+            }
+        }
+
+        let port = await server.currentPort()
+        let lsofOutput = try await Self.lsofListenOutput(for: port)
+        #expect(lsofOutput.contains("127.0.0.1:\(port)"))
+        #expect(!lsofOutput.contains("*:\(port)"))
+
+        async let authorizationResult: OAuthCallbackAuthorizationResult = server.waitForAuthorizationResult(
+            timeout: Duration.seconds(5)
+        )
+        guard let url = URL(string: "http://127.0.0.1:\(port)/oauth2callback?code=forged-code&state=wrong-state") else {
+            Issue.record("Failed to construct OAuth callback URL.")
+            return
+        }
+        _ = try await URLSession.shared.data(from: url)
+
+        let result = try await authorizationResult
+        switch result {
+        case .failure(let message):
+            #expect(!message.isEmpty)
+        case .success(let code):
+            Issue.record("Forged OAuth callback unexpectedly authorized code \(code).")
+        }
+    }
+
     private static func request(_ target: String, host: String = "127.0.0.1:65535") -> Data {
         """
         GET \(target) HTTP/1.1\r
@@ -1343,6 +1379,33 @@ struct LocalOAuthCallbackValidationTests {
         Connection: close\r
         \r
         """.data(using: .utf8) ?? Data()
+    }
+
+    private static func lsofListenOutput(for port: UInt16) async throws -> String {
+        var lastOutput = ""
+        for _ in 0..<10 {
+            lastOutput = try runLsofListenOutput(for: port)
+            if lastOutput.contains("127.0.0.1:\(port)") {
+                return lastOutput
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        return lastOutput
+    }
+
+    private static func runLsofListenOutput(for port: UInt16) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        process.arguments = ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     private func expectInvalidCallback(_ body: () throws -> Void) {

@@ -1370,7 +1370,7 @@ nonisolated enum OAuthCallbackRequestValidator {
     }
 }
 
-private actor LocalOAuthCallbackServer {
+actor LocalOAuthCallbackServer {
     private let listener: NWListener
     private(set) var port: UInt16 = 0
     private let path: String

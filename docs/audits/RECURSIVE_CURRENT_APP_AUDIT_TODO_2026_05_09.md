@@ -2796,7 +2796,7 @@ Fix-pass evidence 2026-05-13:
 
 ### RCA2-P0-004 - Harden CloudProviderAuthService OAuth callback handling
 
-Status: PATCHED - AUTOMATED VALIDATION GREEN / BROWSER RUNTIME SMOKE PENDING
+Status: PATCHED 2026-05-14 — AUTOMATED VALIDATION GREEN / LIVE LOOPBACK + FORGED-STATE PROOF GREEN / BROWSER ACCOUNT SMOKE PENDING
 
 Subsystem: cloud auth, Google OAuth, local callback server, provider credentials.
 
@@ -2850,9 +2850,11 @@ Patch evidence 2026-05-09:
   - `rg -n "LocalOAuthCallbackServer.start|OAuthCallbackRequestValidator|state|code_challenge|requiredLocalEndpoint|NWListener\\(" Epistemos/Engine/CloudProviderAuthService.swift EpistemosTests/CloudProviderAuthServiceTests.swift`
   - `rg -n "URLComponents\\(string: \\\"http://127\\.0\\.0\\.1\\(target\\)\\\"|NWListener\\(using: parameters, on: \\.any\\)" Epistemos/Engine/CloudProviderAuthService.swift`
   - The remaining `NWListener(... on: .any)` match is expected because the port is ephemeral; loopback binding is enforced by `parameters.requiredLocalEndpoint`.
+- Runtime closure proof 2026-05-14:
+  - `LocalOAuthCallbackValidationTests.liveOAuthCallbackServerListensOnlyOnLoopbackAndRejectsForgedState` starts the real callback server, verifies `lsof -nP -iTCP:<port> -sTCP:LISTEN` reports `127.0.0.1:<port>` and not `*:<port>`, sends a forged callback with the wrong `state`, and asserts it resolves as failure instead of authorizing the code.
+  - The callback actor was changed from file-private to module-internal only so `@testable` can start the real server in this runtime proof; no public API or behavior changed.
 - Remaining risk:
-  - Real browser Google sign-in callback smoke is still pending.
-  - `lsof`/network reachability proof for the live callback port is still pending.
+  - Real browser Google sign-in callback smoke is still pending because this machine/session does not have a live Google OAuth account setup path to complete. The callback listener and forged-state runtime proof are now green.
 
 ### RCA2-P1-001 - Merge duplicate dictation paths and prevent draft clobbering
 
@@ -12952,7 +12954,7 @@ CurrentAccessParityTests.resourceGrantUIExcludesShellUnlessCapabilityLedgerInclu
 
 ### RCA12-P1-007 - Confirm OAuth callback hardening as secondary-evidence P0 until source reopened
 
-Status: SOURCE REOPENED / PATCHED - AUTOMATED VALIDATION GREEN / RUNTIME SMOKE PENDING
+Status: PATCHED 2026-05-14 — AUTOMATED VALIDATION GREEN / LIVE LOOPBACK + FORGED-STATE PROOF GREEN / BROWSER ACCOUNT SMOKE PENDING
 
 Canonical links:
 
@@ -13002,8 +13004,10 @@ Patch evidence 2026-05-09:
   - Green: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudProviderAuthServiceTests test CODE_SIGNING_ALLOWED=NO`
     - 23 tests passed.
     - xcresult: `/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-ctkiyqxaarezsccbouumxcpfxvtl/Logs/Test/Test-Epistemos-2026.05.09_02-53-18--0500.xcresult`
+- Runtime closure proof 2026-05-14:
+  - `LocalOAuthCallbackValidationTests.liveOAuthCallbackServerListensOnlyOnLoopbackAndRejectsForgedState` starts the actual `LocalOAuthCallbackServer`, confirms the live listening socket is loopback-only via `lsof`, and proves a forged callback with the wrong `state` returns failure rather than `.success(code)`.
 - Remaining risk:
-  - Browser sign-in, forged local callback, and `lsof` loopback runtime checks are still pending.
+  - Browser sign-in remains a provider-account smoke item. The source-reopened callback hardening issue is no longer open: current source was checked, deterministic negative tests are green, and the live loopback/forged-state proof is green.
 
 ### RCA12-P2-001 - Keep three-lane brain work parked behind current-app blockers
 
