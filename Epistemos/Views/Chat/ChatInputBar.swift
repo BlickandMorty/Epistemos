@@ -182,17 +182,56 @@ struct ChatInputBar: View {
     }
 
     /// True when the composer draft looks like agent-tier work (creating /
-    /// editing / deleting / installing / automating) BUT the user is on a
-    /// local model — agent tier is cloud-only per CLAUDE.md, so the UI
-    /// surfaces an honest nudge instead of silently downgrading.
+    /// editing / deleting / installing / automating) BUT the active surface
+    /// can't actually drive that work to completion. Two cases qualify per
+    /// CLAUDE.md's honest-capability-gating rule:
+    ///
+    ///   (1) User is on a local model — agent tier is cloud-only.
+    ///   (2) USABILITY-001 follow-up (2026-05-13): user is on a cloud
+    ///       provider that doesn't publish a Claude/OpenAI-shaped
+    ///       tool-calling API (Google/Z.AI/Kimi/MiniMax/DeepSeek) per
+    ///       `CloudModelProvider.supportsAgentTier`. The Rust agent loop
+    ///       only ships first-class drivers for OpenAI + Anthropic today,
+    ///       so an "agent-intent" turn on those providers silently falls
+    ///       through to the toolless direct-stream path. Better to surface
+    ///       an honest nudge than ship a turn that's structurally
+    ///       guaranteed to fail.
+    ///
+    /// Tapping the banner promotes to OpenAI; the existing
+    /// `needsCloudBanner` copy works for both cases because the action
+    /// is the same.
     private var pillNeedsCloudWarning: Bool {
         guard !chat.isAgentExecuting, !isProcessing else { return false }
         let trimmed = trimmedText
         guard !trimmed.isEmpty else { return false }
-        return ChatCapability.predictIntent(
+        let prediction = ChatCapability.predictIntent(
             text: trimmed,
             isCloudProvider: isCloudSelection
-        ).needsCloud
+        )
+        // Case (1): predictIntent.needsCloud is `true` whenever the user
+        // is on local AND the intent needs cloud-tier tools.
+        if prediction.needsCloud { return true }
+        // Case (2): user is on cloud but the active cloud provider can't
+        // run the Rust agent_loop today, and the intent is agent-tier.
+        if isCloudSelection,
+           !cloudSurfaceSupportsAgentTier,
+           prediction.predicted == .agent || prediction.predicted == .research {
+            return true
+        }
+        return false
+    }
+
+    /// Mirrors `InferenceState.CloudModelProvider.supportsAgentTier` for
+    /// the currently-selected chat surface. Used by `pillNeedsCloudWarning`
+    /// case (2) to nudge cloud-but-not-tool-capable users to switch
+    /// providers before they fire an agent-tier turn that can't dispatch
+    /// tools. Returns `false` for local/AFM/non-cloud selections — those
+    /// are covered by case (1) via `predictIntent.needsCloud`.
+    private var cloudSurfaceSupportsAgentTier: Bool {
+        guard case .cloud(let model) = inference.preferredChatModelSelection else {
+            return false
+        }
+        return model.provider.supportsAgentTier
     }
 
     /// Inline nudge shown when the classifier predicts agent-tier work but
