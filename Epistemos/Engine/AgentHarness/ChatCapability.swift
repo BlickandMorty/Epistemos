@@ -143,31 +143,31 @@ extension ChatCapability {
             )
         }
 
-        // Per RCA13 P1-016: needsCloud was hard-coded false on every
-        // path, making the local-model capability-escalation banner
-        // dead. Per CLAUDE.md the agent + research tiers require
-        // cloud-capable tools (Claude managed agent loop, Perplexity
-        // research). When the user is currently on a local provider
-        // and the prediction lands in one of those tiers, the banner
-        // should warn that the local path can't satisfy the intent.
         if looksLikeExplicitFileOperation(in: normalized) {
             return IntentPrediction(
                 predicted: .agent,
-                needsCloud: !isCloudProvider
+                needsCloud: false
             )
         }
 
         if requiresManagedResearchTools(in: normalized) {
             return IntentPrediction(
                 predicted: .agent,
-                needsCloud: !isCloudProvider
+                needsCloud: false
             )
         }
 
         if requiresResearchTools(in: normalized) {
             return IntentPrediction(
                 predicted: .research,
-                needsCloud: !isCloudProvider
+                needsCloud: false
+            )
+        }
+
+        if requiresVaultLookupTools(in: normalized) {
+            return IntentPrediction(
+                predicted: .agent,
+                needsCloud: false
             )
         }
 
@@ -229,13 +229,9 @@ extension ChatCapability {
 
         for signal in agentSignals {
             if normalized.contains(signal) {
-                // RCA13 P1-016: agent tier requires the managed agent
-                // loop. Local providers can preview .agent but won't
-                // run the real tool dispatcher without a cloud
-                // provider's tool-use path, so warn the user.
                 return IntentPrediction(
                     predicted: .agent,
-                    needsCloud: !isCloudProvider
+                    needsCloud: false
                 )
             }
         }
@@ -248,10 +244,7 @@ extension ChatCapability {
         ]
         for signal in researchSignals {
             if normalized.contains(signal) {
-                // RCA13 P1-016: research tier requires Perplexity Sonar
-                // (cloud). Local providers can't reach external info,
-                // so warn when the user is on local.
-                return IntentPrediction(predicted: .research, needsCloud: !isCloudProvider)
+                return IntentPrediction(predicted: .research, needsCloud: false)
             }
         }
 
@@ -326,6 +319,36 @@ extension ChatCapability {
         return fileVerbSignals.contains { normalized.contains($0) }
     }
 
+    private static func requiresVaultLookupTools(in normalized: String) -> Bool {
+        let mentionsVaultCorpus = normalized.contains("vault")
+            || normalized.contains("my notes")
+            || normalized.contains("my note")
+            || normalized.contains("notes in")
+            || normalized.contains("note in")
+        guard mentionsVaultCorpus else { return false }
+
+        let lookupSignals = [
+            "find ",
+            "search ",
+            "look up ",
+            "locate ",
+            "show ",
+            "which ",
+            "what note",
+            "what notes",
+            "read ",
+            "open ",
+            "summarize ",
+            "related note",
+            "related notes",
+            "mention ",
+            "mentions ",
+            "mentioned ",
+            "mentioning ",
+        ]
+        return lookupSignals.contains { normalized.contains($0) }
+    }
+
     private static func requiresResearchTools(in normalized: String) -> Bool {
         if requiresManagedResearchTools(in: normalized) {
             return true
@@ -373,10 +396,9 @@ extension ChatCapability {
 }
 
 /// Output of the pre-submission intent classifier. `predicted` is the
-/// capability the turn should run at; `needsCloud` is true only when the
-/// heuristic wanted `.agent` but the user is on a local model — a cue the
-/// UI uses to surface a "switch to cloud to run this as an agent" banner
-/// instead of silently downgrading the user's intent.
+/// capability the turn should run at; `needsCloud` is kept for older UI
+/// call sites, but current v1 local and cloud surfaces both have a
+/// tool-capable dispatch path for predicted agent/research turns.
 nonisolated struct IntentPrediction: Equatable, Sendable {
     public let predicted: ChatCapability
     public let needsCloud: Bool

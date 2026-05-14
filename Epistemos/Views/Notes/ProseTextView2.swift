@@ -695,7 +695,23 @@ final class ProseTextView2: NSTextView {
             endLine = markdownDelegate.lineIndex(at: offset)
         }
 
-        markdownDelegate.visibleLineRange = startLine..<(endLine + 1)
+        markdownDelegate.visibleLineRange = Self.normalizedVisibleLineRange(
+            startLine: startLine,
+            endLine: endLine,
+            lineCount: markdownDelegate.lineCount
+        )
+    }
+
+    nonisolated static func normalizedVisibleLineRange(
+        startLine: Int,
+        endLine: Int,
+        lineCount: Int
+    ) -> Range<Int> {
+        let boundedLineCount = max(lineCount, 0)
+        let lower = min(max(startLine, 0), boundedLineCount)
+        let boundedEnd = min(max(endLine, lower), boundedLineCount)
+        let upper = min(max(boundedEnd + 1, lower + 1), boundedLineCount + 1)
+        return lower..<upper
     }
 
     // MARK: - Factory

@@ -40,6 +40,26 @@ struct ChatCapabilityIntentTests {
         #expect(prediction.needsCloud == false)
     }
 
+    @Test("soft plural vault lookup prompts predict agent intent")
+    func softPluralVaultLookupPromptsPredictAgentIntent() {
+        let prompts = [
+            "find notes in my vault that mention train",
+            "what notes in my vault mention train?",
+            "show related notes in my vault",
+            "search my notes for kant",
+        ]
+
+        for prompt in prompts {
+            let local = ChatCapability.predictIntent(text: prompt, isCloudProvider: false)
+            let cloud = ChatCapability.predictIntent(text: prompt, isCloudProvider: true)
+
+            #expect(local.predicted == .agent, "\"\(prompt)\" should route to tools locally")
+            #expect(local.needsCloud == false)
+            #expect(cloud.predicted == .agent, "\"\(prompt)\" should route to tools on cloud")
+            #expect(cloud.needsCloud == false)
+        }
+    }
+
     @Test("essay and draft vault lookup verbs predict agent intent")
     func essayAndDraftLookupVerbsPredictAgentIntent() {
         let prompts = [

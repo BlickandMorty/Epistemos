@@ -163,6 +163,17 @@ struct ProseTextView2Tests {
         #expect(textView.markdownDelegate.visibleLineRange.upperBound <= textView.markdownDelegate.lineCount + 1)
     }
 
+    @Test("visible line range clamps inverted TextKit fragment order")
+    func visibleLineRangeClampsInvertedFragmentOrder() {
+        let range = ProseTextView2.normalizedVisibleLineRange(
+            startLine: 12,
+            endLine: 4,
+            lineCount: 20
+        )
+
+        #expect(range == 12..<13)
+    }
+
     @Test("Initial state has no active line")
     func initialNoActiveLine() {
         let (_, textView) = ProseTextView2.makeTextKit2()
