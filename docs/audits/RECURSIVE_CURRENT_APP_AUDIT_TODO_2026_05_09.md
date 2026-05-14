@@ -8,7 +8,7 @@ Status: Living backlog. This file ingests the first pasted research set and turn
 
 The register holds **~216 items** across Research Drop 1, RCA2-12, RCA13, and UIX-2026-05-09. As of 2026-05-13 thirteenth-pass (MAS release prep):
 
-Codex red-team addendum 2026-05-14: four release-gate entries were reopened by fresh verification and operator evidence. Follow-up closure pass: RCA8-P1-004, RCA9-P0-002, and RCA12-P0-002 are structurally patched and scanner/build verified; RCA8-P0-003 is patched with MAS and isolated Pro scratch-vault zero-crash/zero-runtime-issue soak evidence. Treat MAS/Pro release readiness as blocked until the remaining live-smoke gates in `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md` close: protected graph spinner, MAS note ask-bar simple rewrite live smoke, Pro cloud/provider smoke or waiver, and five consecutive recursive zero-new-blocker passes.
+Codex red-team addendum 2026-05-14: four release-gate entries were reopened by fresh verification and operator evidence. Follow-up closure pass: RCA8-P1-004, RCA9-P0-002, and RCA12-P0-002 are structurally patched and scanner/build verified; RCA8-P0-003 is patched with MAS and isolated Pro scratch-vault zero-crash/zero-runtime-issue soak evidence. A later closure pass promoted RCA3-P1-008 from PATCHED PARTIAL to PATCHED by surfacing per-model installed disk footprint in Settings. Treat MAS/Pro release readiness as blocked until the remaining live-smoke gates in `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md` close: protected graph spinner, MAS note ask-bar simple rewrite live smoke, Pro cloud/provider smoke or waiver, and five consecutive recursive zero-new-blocker passes.
 
 - **PATCHED / DONE**: 102+ items — structural fix shipped, often with a programmatic drift-gate test pinning the invariant so future refactors can't silently regress. **35 items** were PATCHED on 2026-05-13 across this session's iterations:
   - Theme/font/landing refresh + MAS surface expansion + RCA3-P0-001 + RCA4-P0-002 + RCA4-P2-002 + RCA-P2-014 + RCA-P2-003 + RCA-P2-008 + RCA-P2-009 + RCA-P2-011 + RCA-P2-012 + RCA-P2-007 + RCA-P2-014 + RCA2-P1-003 + RCA2-P1-004 + RCA2-P1-005 + RCA2-P2-014 + RCA3-P2-001 + RCA4-P1-008 + RCA4-P1-010 + RCA4-P2-001 + RCA4-P2-003 + RCA4-P0-001 + RCA7-P0-001 + RCA5-P1-008 + RCA2-P2-007 + RCA2-P2-002 + Ember H1-H3 live-editor fix + MAS release manifest doc + theme fixes (Classic dark RetroGaming + Ember box trick + Classic hero size bump).
@@ -21,7 +21,7 @@ Codex red-team addendum 2026-05-14: four release-gate entries were reopened by f
   - Eighth-pass batch (1): RCA4-P2-001 (retired Omega quarantined).
   - Ninth-pass batch (1): RCA4-P2-003 (local model stack VISIBLE-WORKING).
   - Tenth-pass batch (1): RCA-P2-009 promoted from PATCHED PARTIAL → PATCHED (Helios kernels self-classified).
-- **PATCHED PARTIAL**: ~31 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path). **-1 this session**: RCA-P2-009 promoted to PATCHED.
+- **PATCHED PARTIAL**: ~30 items — structural fix in place, manual smoke or deeper profiling deferred. **+2 this 2026-05-13 session**: RCA-P2-010 (orphan-candidate sweep) + RCA2-P2-005 (folder match name-vs-path). **-2 through 2026-05-14 closure**: RCA-P2-009 promoted to PATCHED, then RCA3-P1-008 promoted to PATCHED after per-model storage disclosure shipped.
 - **TODO**: ~121 items — most are P2/P3 future work (research drops 2-13). Remaining active P1s: P1-002 (.epdoc save heaviness — needs profiling), P1-006 (chat streaming main-actor pressure — large refactor), P1-007 (capture work off main actor), P1-024 (Apple Intelligence main-actor profile — needs M-series hardware), RCA13-P1-002 (CLI discovery — user-facing feature work), plus a long tail of P2 items.
 
 **Net release-blocker assessment update:** the 2026-05-13 "not release blockers" assessment is superseded for MAS/Pro submission by the 2026-05-14 Codex release ledger. The older TODO taxonomy remains useful for backlog triage, but release readiness now requires closing the remaining runtime/live-smoke gates first. Remaining non-reopened work is still either:
@@ -5283,7 +5283,7 @@ Acceptance:
 
 ### RCA3-P1-008 - Add local model download/storage trust checks
 
-Status: PATCHED PARTIAL 2026-05-13 — ModelDownloadManager has staging+verify+atomic-activation + uninstall + cancellation cleanup; `sizeBytes` is tracked on `LocalModelInstallRecord` but not surfaced to the Settings UI (real-but-small UX gap)
+Status: PATCHED 2026-05-14 — ModelDownloadManager has staging+verify+atomic-activation + uninstall + cancellation cleanup; `sizeBytes` is tracked on `LocalModelInstallRecord` and surfaced per installed model in the Settings model-management row.
 
 Subsystem: local model catalog/download, Hugging Face snapshots, disk storage, settings.
 
@@ -5326,21 +5326,19 @@ Fix-pass evidence:
    bundled in MAS, only `llama.framework` (8 MB) + small Cmlx.bundle
    (4 MB). Models are downloaded post-install on first run.
 
-5. **Remaining UX gap (PARTIAL)**: `sizeBytes` is recorded on
-   `LocalModelInstallRecord` but NOT yet surfaced as a "GB
-   footprint" column/row in the Settings model-management view.
-   Grep:
+5. **Installed footprint surfaced (2026-05-14 closure)**:
+   `sizeBytes` is recorded on `LocalModelInstallRecord` and now
+   appears in the Settings -> Inference -> Manage Local Models row
+   when a model is installed:
    ```
-   $ grep -rn "sizeBytes" Epistemos/Views --include="*.swift"
-   (no matches)
+   $ rg -n "installedStorageLabel|record.sizeBytes" Epistemos/Views/Settings/SettingsView.swift
    ```
-   The record carries the data; the disclosure UI is a small
-   missing surface. Tracked here as the deferred ship — a simple
-   `ByteCountFormatter.string(fromByteCount: record.sizeBytes,
-   countStyle: .file)` row would close it.
+   The row displays `Installed <size>` and includes `Installed
+   footprint <size>` in the accessibility label. Source guard:
+   `LocalModelInfrastructureTests.localModelManagerRowsExposeInstalledDiskFootprint`.
 
 Acceptance:
-- Users understand GB footprint, local/cloud route, installed revision, and removal path. ⚠️ PARTIAL (GB footprint disclosure UI deferred; route + revision + removal all present)
+- Users understand GB footprint, local/cloud route, installed revision, and removal path. ✅
 - Partial/canceled downloads do not corrupt active model state. ✅ (staging+verify+atomic activation pattern, defer cleanup)
 
 ### RCA3-P1-009 - Add prompt persistence privacy controls for PromptTree/PTF

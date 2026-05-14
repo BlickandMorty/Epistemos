@@ -53,6 +53,16 @@ struct LocalModelInfrastructureTests {
         #expect(source.contains("descriptor.matchingGlobs + [\"model.safetensors\"]"))
     }
 
+    @Test("local model manager rows expose installed disk footprint")
+    func localModelManagerRowsExposeInstalledDiskFootprint() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(source.contains("installedStorageLabel(for record: LocalModelInstallRecord)"))
+        #expect(source.contains("ByteCountFormatter.string(fromByteCount: record.sizeBytes, countStyle: .file)"))
+        #expect(source.contains("Text(\"Installed \\(installedStorageLabel(for: record))\")"))
+        #expect(source.contains("parts.append(\"Installed footprint \\(installedStorageLabel(for: record))\")"))
+    }
+
     @Test("live install smoke accepts the same tokenizer artifacts as the installer")
     func liveInstallSmokeAcceptsInstallerTokenizerArtifacts() throws {
         let installerSource = try loadMirroredSourceTextFile("Epistemos/Engine/ModelDownloadManager.swift")

@@ -24,8 +24,8 @@ Recursive register strict `Status:` count snapshot from `docs/audits/RECURSIVE_C
 
 | Status | Count |
 |---|---:|
-| PATCHED | 180 |
-| PATCHED PARTIAL | 27 |
+| PATCHED | 183 |
+| PATCHED PARTIAL | 26 |
 | PATCHED BUT NOT CLOSED | 1 |
 | PATCHED BUT WATCH | 1 |
 | REOPENED | 0 |
@@ -691,6 +691,21 @@ Verification:
 - `rg -n "Status: (REOPENED|SOURCE REOPENED|OPEN|PATCHED PARTIAL|DEFERRED|TODO)|reopened|REOPENED" docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` - PASS for release-gate reconciliation; only the historical prose, one source-reopened runtime-smoke item, one `OPEN`, and non-release `PATCHED PARTIAL`/`DEFERRED` items remain.
 - `git diff --check` - PASS.
 
+### Local model footprint disclosure closure - 2026-05-14
+
+Changed:
+
+- `RCA3-P1-008` current-v1 UX gap closed: `LocalModelInstallRecord.sizeBytes` is now visible per installed model in the Settings -> Inference -> Manage Local Models row metadata, not only in the total storage row.
+- `Epistemos/Views/Settings/SettingsView.swift`: installed rows append `Installed <size>` using `ByteCountFormatter.string(fromByteCount: record.sizeBytes, countStyle: .file)`, and the same value is included in the row accessibility label as `Installed footprint <size>`.
+- `EpistemosTests/LocalModelInfrastructureTests.swift`: added a source guard proving the per-model installed footprint stays wired to `LocalModelInstallRecord.sizeBytes`.
+- No model download, install, deletion, routing, MAS gating, vault, or graph runtime code changed.
+
+Verification:
+
+- Red source check before the product patch: `rg -n "installedStorageLabel\\(for record: LocalModelInstallRecord\\)|ByteCountFormatter\\.string\\(fromByteCount: record\\.sizeBytes" Epistemos/Views/Settings/SettingsView.swift` - FAIL, no matches.
+- `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosLocalModelFootprintRed -only-testing:EpistemosTests/LocalModelInfrastructureTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `git diff --check` - PASS.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, automated note ask-bar rewrite checks, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, automated note ask-bar rewrite checks, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
