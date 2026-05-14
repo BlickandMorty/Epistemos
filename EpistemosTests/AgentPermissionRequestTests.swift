@@ -19,8 +19,8 @@ struct AgentPermissionRequestTests {
         #expect(request.approvalTargetSummary == "People/Jojo.md")
     }
 
-    @Test("web search remains auto-approved as an external read-only tool")
-    func webSearchRemainsAutoApproved() {
+    @Test("web search routes through the native approval gate")
+    func webSearchRoutesThroughNativeApprovalGate() {
         let request = AgentPermissionRequest(
             id: "perm-web-search",
             toolName: "web.search",
@@ -30,8 +30,23 @@ struct AgentPermissionRequestTests {
         )
 
         #expect(request.permissionCategory == .genericRead)
-        #expect(!request.requiresHumanApproval)
+        #expect(request.requiresHumanApproval)
+        #expect(request.authorityCategory(vaultPath: nil) == .networkFetch)
         #expect(request.approvalTargetSummary == "latest Apple Silicon memory pressure guidance")
+    }
+
+    @Test("non-network generic read tools stay auto-approved")
+    func nonNetworkGenericReadToolsStayAutoApproved() {
+        let request = AgentPermissionRequest(
+            id: "perm-think",
+            toolName: "think",
+            inputJson: #"{"thought":"plan next step"}"#,
+            riskLevel: .readOnly,
+            description: "Internal reasoning tool."
+        )
+
+        #expect(request.permissionCategory == .genericRead)
+        #expect(!request.requiresHumanApproval)
     }
 
     @Test("file ops read and patch actions split into sensitive read vs write categories")

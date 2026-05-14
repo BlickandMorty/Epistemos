@@ -258,6 +258,26 @@ extension AgentPermissionRequest {
         "pkm_write",
     ]
 
+    nonisolated private static let networkReadToolsRequiringApproval: Set<String> = [
+        "browser_open",
+        "fetch_url",
+        "github_search",
+        "http_fetch",
+        "tavily_search",
+        "web.search",
+        "web.fetch",
+        "web.extract",
+        "web.crawl",
+    ]
+
+    nonisolated private static let externalAppReadToolsRequiringApproval: Set<String> = [
+        "browser",
+        "browser_snapshot",
+        "browser_get_images",
+        "browser_vision",
+        "browser_console",
+    ]
+
     nonisolated var permissionCategory: AgentPermissionCategory {
         if riskLevel == .destructive {
             return .destructive
@@ -292,7 +312,7 @@ extension AgentPermissionRequest {
     }
 
     nonisolated var requiresHumanApproval: Bool {
-        isBudgetGate || permissionCategory != .genericRead
+        isBudgetGate || permissionCategory != .genericRead || isAuthorityGatedExternalRead
     }
 
     nonisolated var approvalReason: String {
@@ -317,6 +337,12 @@ extension AgentPermissionRequest {
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .first { !$0.isEmpty }
+    }
+
+    nonisolated private var isAuthorityGatedExternalRead: Bool {
+        let normalizedToolName = AgentToolNameAliases.canonical(toolName)
+        return Self.networkReadToolsRequiringApproval.contains(normalizedToolName)
+            || Self.externalAppReadToolsRequiringApproval.contains(normalizedToolName)
     }
 
     nonisolated private var normalizedFileOpsAction: String? {

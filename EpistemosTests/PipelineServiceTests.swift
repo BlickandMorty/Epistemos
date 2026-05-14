@@ -1388,6 +1388,54 @@ struct PipelineServiceTests {
         #expect(resultJson.contains("denied by the user"))
     }
 
+    @Test("observed local tool executor gates read-only network fetches")
+    @MainActor func observedLocalToolExecutorGatesReadOnlyNetworkFetches() async {
+        let mock = MockLLMClient()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let executor = pipeline.observedToolExecutor(
+            { _, _ in
+                preconditionFailure("Read-only network tools must wait for approval before execution.")
+            },
+            toolMetadataByName: [
+                "web.search": OmegaToolDefinition(
+                    name: "web.search",
+                    agent: "rust",
+                    description: "Search the web",
+                    argumentsExample: "{}",
+                    schemaJson: #"{"type":"object","properties":{"query":{"type":"string"}}}"#,
+                    destructive: false,
+                    requiresConfirmation: false
+                )
+            ],
+            toolEventHandler: nil,
+            toolApprovalHandler: { request in
+                #expect(request.toolName == "web.search")
+                #expect(request.requiresHumanApproval)
+                #expect(request.authorityCategory(vaultPath: nil) == .networkFetch)
+                return false
+            }
+        )
+
+        let result = await executor(
+            "web.search",
+            #"{"query":"latest Apple Silicon memory pressure guidance"}"#
+        )
+
+        #expect(result.isError)
+        #expect(result.resultJson.contains("denied by the user"))
+    }
+
     @Test("observed local tool executor persists successful AgentEvent provenance")
     @MainActor func observedLocalToolExecutorPersistsSuccessfulAgentEventProvenance() async throws {
         let pipeline = makePipelineServiceForToolProvenanceTests()

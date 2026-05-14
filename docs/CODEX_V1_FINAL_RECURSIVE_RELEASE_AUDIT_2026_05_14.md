@@ -445,6 +445,25 @@ Verification:
 - `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1302 passed.
 - `cargo test --manifest-path epistemos-research/Cargo.toml --features research` - PASS, 492 lib tests, 113 canonical consistency tests, 0 doctests.
 
+### Native approval gate for read-only network tools - 2026-05-14
+
+Changed:
+
+- `Epistemos/Bridge/StreamingDelegate.swift`: read-only network/web research tools (`web.search`, `web.fetch`, `web.extract`, `web.crawl`, and supported legacy backend names) now set `requiresHumanApproval` so they enter the native approval queue instead of bypassing the authority gate as generic read-only tools.
+- `Epistemos/Bridge/StreamingDelegate.swift`: read-only Pro browser inspection tools (`browser_snapshot`, `browser_get_images`, `browser_vision`, `browser_console`) also enter the approval gate; internal non-network generic read tools such as `think` still auto-approve.
+- `Epistemos/Engine/AgentHarness/AgentAuthority.swift`: authority categorization now names `web.crawl` as Network Fetch and the read-only browser tools as external app automation.
+- `EpistemosTests/AgentPermissionRequestTests.swift`, `EpistemosTests/PipelineServiceTests.swift`: added regressions for native approval on `web.search` and for preserving auto-approval on non-network generic reads.
+
+Verification:
+
+- Failing check first: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentPermissionGateTests -only-testing:EpistemosTests/AgentPermissionRequestTests test CODE_SIGNING_ALLOWED=NO -quiet` - FAIL before product patch. Failure summary: `AgentPermissionRequestTests.webSearchRoutesThroughNativeApprovalGate()` at `EpistemosTests/AgentPermissionRequestTests.swift:32`; `request.requiresHumanApproval` was `false` for `web.search`.
+- `git diff --check -- Epistemos/Bridge/StreamingDelegate.swift Epistemos/Engine/AgentHarness/AgentAuthority.swift EpistemosTests/AgentPermissionRequestTests.swift EpistemosTests/PipelineServiceTests.swift` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentPermissionGateTests -only-testing:EpistemosTests/AgentPermissionRequestTests -only-testing:EpistemosTests/PipelineServiceTests/observedLocalToolExecutorGatesReadOnlyNetworkFetches test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosProApprovalGateBuild build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/EpistemosMASApprovalGateBuild build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-approval-gate scripts/scan_appstore_bundle.sh /tmp/EpistemosMASApprovalGateBuild/Build/Products/Debug/Epistemos.app` - PASS.
+- MAS manifest narrow strings scan and narrow `nm -gU` scan against `/tmp/EpistemosMASApprovalGateBuild/Build/Products/Debug/Epistemos.app` - PASS, no matches.
+
 ## Current Verdict
 
-Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, and the Pro/cloud promoted managed-agent tool budget gate is now fixed and targeted-tested. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, the Pro/cloud promoted managed-agent tool budget gate is fixed and targeted-tested, and read-only web/tool research now routes through native approval instead of silently bypassing the authority gate. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, first-run web approval live smoke is still pending, and the required five consecutive zero-new-blocker recursive passes have not been completed.
