@@ -24,11 +24,11 @@ Recursive register strict `Status:` count snapshot from `docs/audits/RECURSIVE_C
 
 | Status | Count |
 |---|---:|
-| PATCHED | 176 |
+| PATCHED | 180 |
 | PATCHED PARTIAL | 27 |
 | PATCHED BUT NOT CLOSED | 1 |
 | PATCHED BUT WATCH | 1 |
-| REOPENED | 4 |
+| REOPENED | 0 |
 | SOURCE REOPENED | 1 |
 | OPEN | 1 |
 | DEFERRED | 2 |
@@ -641,6 +641,18 @@ Verification:
 
 - `git diff --check` - PASS.
 - `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosSidebarGraphGlassTests -only-testing:EpistemosTests/SidebarShellValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+
+### Recursive register reconciliation - 2026-05-14
+
+Changed:
+
+- `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`: reconciled stale reopened release-gate statuses with current verification evidence. RCA8-P1-004, RCA9-P0-002, and RCA12-P0-002 are now marked `PATCHED-2026-05-14`; RCA8-P0-003 is now `PATCHED-2026-05-14 / MAS SCRATCH SOAK PASS / PRO RERUN REQUIRED`.
+- Updated the snapshot count above from `REOPENED = 4` to `REOPENED = 0` and `PATCHED = 180`. Remaining release blockers are runtime/live-smoke gates, not stale reopened artifact/Epdoc entries.
+
+Verification:
+
+- `rg -n "Status: (REOPENED|SOURCE REOPENED|OPEN|PATCHED PARTIAL|DEFERRED|TODO)|reopened|REOPENED" docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` - PASS for release-gate reconciliation; only the historical prose, one source-reopened runtime-smoke item, one `OPEN`, and non-release `PATCHED PARTIAL`/`DEFERRED` items remain.
+- `git diff --check` - PASS.
 
 ## Current Verdict
 
