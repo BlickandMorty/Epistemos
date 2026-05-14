@@ -492,6 +492,40 @@ Verification:
 - Local deterministic coverage: `LocalAgentLoop` reflex mode forces the required read/write tool sequence, rejects example-path drift, and rejects absolute-path drift before allowing the loop to complete.
 - Cloud/tool routing coverage: fake-key/in-memory tests prove provider-native web-search manifest wiring, Pro `chat_pro` tool tier selection, Fast cloud managed-agent escalation for explicit tool prompts, and local web-search prompt routing. These checks do not prove live provider calls on this machine.
 
+### Isolated Pro and MAS live-smoke continuation - 2026-05-14
+
+Changed:
+
+- No production source changed. This pass used isolated audit bundles and app-support roots to avoid attaching or mutating the user's normal vault.
+
+Pro/direct smoke:
+
+- Prepared Pro audit bundle at `/Users/jojo/Downloads/Epistemos/build/audit-app/EpistemosAudit.app`, bundle id `com.epistemos.audit`, app data `/Users/jojo/Downloads/Epistemos/build/audit-app-support`.
+- Launched Pro audit app and selected `Continue Without a Vault`. Result: first-run no-vault path rendered; no user vault was attached.
+- Settings diagnostics rendered. Runtime truth reported Pro deployment, no active vault, Cognitive DAG `0 nodes, 0 edges, schema version 1`, no provider keys stored, and Pro-only surfaces enabled: CLI passthrough, Channels, Knowledge Fusion, iMessage Driver, Skills, NightBrain LaunchAgent, AX/computer-use, and Bash/MultiEdit/WebFetch local tools.
+- Pro Agent settings rendered with MCP tool plane: `40 tools`, `0 executions`, `4 approvals`; Authority defaults showed file access outside vault `Ask first`, network fetch `Ask first`, destructive file operations `Ask first`, and system/protected paths `Never`.
+- Pro mini chat initially blocked on `Set Up Model` in the isolated app-support root. Copied only the production model manifest into the isolated support root, then symlinked the isolated DeepSeek active-model slot to the existing production DeepSeek model directory so the smoke could read installed model weights without attaching a vault.
+- Pro mini chat then selected `Tools/Thinking - R1 7B`. Fast mode correctly rejected DeepSeek R1 with the user-facing guard that this model always emits thinking traces. Thinking mode reached local model resolution and failed at memory preflight: `DeepSeek R1 7B needs about 12 GB of free memory but only 5 GB is available right now`.
+- Pro cloud live execution remains BLOCKED: no OpenAI/Anthropic/Google provider account or API key is available in the isolated app (`No provider keys stored`).
+
+MAS smoke:
+
+- Built exact MAS Debug app with `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath build/audit-appstore-derived-data build CODE_SIGNING_ALLOWED=NO` - PASS.
+- Cloned that product into `/Users/jojo/Downloads/Epistemos/build/audit-appstore-app/EpistemosMASAudit.app`, bundle id `com.epistemos.audit.mas`, app data `/Users/jojo/Downloads/Epistemos/build/audit-appstore-support`.
+- MAS onboarding rendered. Skipped vault, local model setup, and cloud provider setup. Continued without a vault; no user vault was attached.
+- MAS Settings diagnostics rendered. Runtime truth reported `Mode Fast`, `Provider Local - Qwen/Qwen3-4B-MLX-4bit`, `Capability Local - Running on-device. Fast replies, no tools, no network`, `Tool loop Local direct stream`, and `Subprocess CLIs are not available in this build`.
+- MAS deployment profile rendered as `App Store (MAS sandbox)` with Pro-only surfaces listed as not available: CLI passthrough, Channels, Knowledge Fusion, iMessage Driver, Skills, NightBrain LaunchAgent, AX/computer-use, and Bash/MultiEdit/WebFetch local tools.
+- MAS Agent authority settings rendered without the Pro `Less Interruptions` posture and with network fetch `Ask first`, file access outside vault `Ask first`, destructive file operations `Ask first`, and system/protected paths `Never`.
+- MAS mini chat rendered and stayed disabled with `Fast - Set Up Model`; no tool/chat generation was attempted because the isolated MAS support root has no installed model or provider key.
+- MAS graph view opened to the no-vault empty canvas and toolbar without crashing. No graph code or graph state was changed.
+
+Verification:
+
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-live-mas-2026-05-14 scripts/scan_appstore_bundle.sh build/audit-appstore-derived-data/Build/Products/Debug/Epistemos.app` - PASS.
+- MAS manifest narrow strings scan against `build/audit-appstore-derived-data/Build/Products/Debug/Epistemos.app` - PASS, no matches.
+- MAS manifest narrow `nm -gU` scan against `build/audit-appstore-derived-data/Build/Products/Debug/Epistemos.app/Contents/Frameworks/libagent_core.dylib` - PASS, no matches.
+- MAS built product bundle id check: `com.epistemos.appstore`.
+
 ## Current Verdict
 
-Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, the Pro/cloud promoted managed-agent tool budget gate is fixed and targeted-tested, and read-only web/tool research now routes through native approval instead of silently bypassing the authority gate. Managed Rust agent entry points now have explicit Swift and Rust regression coverage showing read-only tool approvals are delegated to the native queue. Local deterministic tool-loop and cloud routing contract checks are green. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, first-run web approval live smoke is still pending, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, and the MAS graph surface opens without a no-vault crash. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop and cloud routing contract checks are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: note ask-bar simple rewrite smoke remains incomplete in a safe no-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, RCA8/vault soak evidence remains incomplete, and the required five consecutive zero-new-blocker recursive passes have not been completed.
