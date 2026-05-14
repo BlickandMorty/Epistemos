@@ -364,6 +364,7 @@ extension AgentPermissionRequest {
         "web.search",
         "web.fetch",
         "web.extract",
+        "web.crawl",
     ]
 
     nonisolated private static let gitOperationTools: Set<String> = [
@@ -387,6 +388,11 @@ extension AgentPermissionRequest {
         "applescript",
         "computer",
         "computer_use",
+        "browser",
+        "browser_snapshot",
+        "browser_get_images",
+        "browser_vision",
+        "browser_console",
         "ui_automation",
     ]
 
