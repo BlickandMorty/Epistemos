@@ -287,7 +287,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA-P0-004 - Stop credential leakage through process-wide environment inheritance
 
-Status: PATCHED PARTIAL - SCOPED AGENT RUNTIME ENV / CHILD MATRIX PENDING
+Status: PATCHED PARTIAL - SCOPED AGENT RUNTIME ENV / CURRENT-V1 CHILD MATRIX CLOSED
 
 Subsystem: provider auth, Rust bridge, subprocess/tool execution, CLI passthrough.
 
@@ -340,6 +340,7 @@ Implementation evidence, 2026-05-09 credential environment slice:
 - Remaining risk:
   - This closes the parent-process mirroring slice and the `agent_core` subprocess denylist probe slice.
   - 2026-05-14 follow-up closed the current-v1 Swift helper + Pro Rust helper child-process fake-secret matrix for known shipping launchers. Future/new helper surfaces still require the same probe before release.
+  - 2026-05-14 subprocess sweep also confirmed Pro git staging uses `VaultChatMutator.gitEnvironment()` (fixed allowlist, no parent env) and KnowledgeFusion Python/training/audio launchers use `PythonEnvironmentManager.boundedToolEnvironment(...)` / `pythonToolEnvironment(...)`.
 
 ## P1 Queue
 
@@ -563,6 +564,18 @@ Fix-pass evidence 2026-05-13:
          direct stream" log line retained so silent degradation
          surfaces in diagnostics.
   - All 3 tests pass; TEST SUCCEEDED on the macOS scheme.
+  - 2026-05-14 Pro/cloud diagnostics follow-up:
+    `Epistemos/Views/Settings/APIKeysHealthRow.swift` now counts
+    OAuth/account sessions via `InferenceState.oauthCredential(for:)`,
+    not only legacy API keys via `apiKey(for:)`. This keeps the
+    Pro cloud-agent setup/status surface honest for Codex CLI /
+    Claude Code account imports.
+  - Red/green:
+    `CloudProviderAccessHealthRowTests` failed before the patch on
+    missing `oauthCredential(for: provider)` and stale
+    `No provider keys stored` copy, then passed after the row was
+    changed to `No provider access stored` plus
+    `Account session saved` / `API key saved` states.
 
 ### RCA-P1-006 - Fix main-actor chat streaming pressure and full-buffer rescans
 

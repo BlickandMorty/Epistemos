@@ -747,10 +747,10 @@ private struct GeneralDetailView: View {
                 // is event-driven via `didEmitNotification`. Per
                 // docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md.
                 AnswerPacketHealthRow()
-                // ISSUE-2026-05-10-002 follow-up: per-provider API-key
-                // visibility. Read-only, never displays key values.
+                // ISSUE-2026-05-10-002 follow-up: per-provider cloud
+                // access visibility. Read-only, never displays credential values.
                 // Helps users diagnose "agents don't work" by showing
-                // at a glance which providers have a key stored.
+                // at a glance which providers have account/API-key access.
                 APIKeysHealthRow()
                 // RCA13 P1-021: deployment-profile honesty row.
                 // Visible in BOTH profiles so users + auditors can see
