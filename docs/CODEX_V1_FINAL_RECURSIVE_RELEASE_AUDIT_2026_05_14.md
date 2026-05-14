@@ -420,6 +420,31 @@ Verification:
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosProNoGGUFCheck build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - Pro bundle GGUF preservation check - PASS: `/tmp/EpistemosProNoGGUFCheck/Build/Products/Debug/Epistemos.app/Contents/Frameworks/llama.framework` exists.
 
+### Pro/cloud managed agent tool budget - 2026-05-14
+
+Changed:
+
+- `Epistemos/App/ChatCoordinator.swift`: added `cloudToolBudget(...)` so current v1 cloud tool routing is explicit and testable. Pro cloud turns now use `chat_pro` with 3 max turns in both the direct cloud branch and promoted `managedAgentSession` branch.
+- `Epistemos/App/ChatCoordinator.swift`: kept Fast/Thinking cloud direct turns on `chat_lite` with 1 max turn, while Fast/Thinking turns promoted to `managedAgentSession` retain the full Agent tier so explicit tool-required requests can still execute.
+- `EpistemosTests/ProCloudToolLoopGuardTests.swift`: updated stale source-string guards to assert the real budget helper behavior and the managed-branch `toolTier`/`maxTurns` handoff.
+
+Verification:
+
+- Failing check first: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentToolBudgetTests -only-testing:EpistemosTests/ProCloudToolLoopGuardTests test CODE_SIGNING_ALLOWED=NO -quiet` - FAIL before patch because the old guard still expected literal `toolTier: "chat_pro"`/`maxTurns: 3` in the direct branch and did not cover promoted managed plans.
+- `git diff --check -- Epistemos/App/ChatCoordinator.swift EpistemosTests/ProCloudToolLoopGuardTests.swift` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentToolBudgetTests -only-testing:EpistemosTests/ProCloudToolLoopGuardTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosAgentToolBudgetTests -only-testing:EpistemosTests/ProCloudToolLoopGuardTests -only-testing:EpistemosTests/PipelineServiceTests/cloudFastToolPromptsUseManagedAgentSession -only-testing:EpistemosTests/PipelineServiceTests/proModeUsesChatProToolTier test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosProAgentToolBudgetBuild build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/EpistemosMASAgentToolBudgetBuild build CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-agent-tool-budget scripts/scan_appstore_bundle.sh /tmp/EpistemosMASAgentToolBudgetBuild/Build/Products/Debug/Epistemos.app` - PASS.
+- MAS manifest narrow strings scan and narrow `nm -gU` scan against `/tmp/EpistemosMASAgentToolBudgetBuild/Build/Products/Debug/Epistemos.app` - PASS, no matches.
+- `./scripts/xcodebuild_epistemos.sh -quiet -project Epistemos.xcodeproj -scheme Epistemos-AppStore -destination 'platform=macOS' -configuration Release -derivedDataPath /tmp/EpistemosAppStoreReleaseAgentToolBudget CODE_SIGNING_ALLOWED=NO build` - PASS.
+- `EPISTEMOS_APPSTORE_SCAN_REPORT_DIR=build/codex-appstore-release-agent-tool-budget scripts/scan_appstore_bundle.sh /tmp/EpistemosAppStoreReleaseAgentToolBudget/Build/Products/Release/Epistemos.app` - PASS.
+- MAS manifest narrow strings scan, narrow `nm -gU` scan, and refined broad undefined import scan against `/tmp/EpistemosAppStoreReleaseAgentToolBudget/Build/Products/Release/Epistemos.app` - PASS, no matches.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib` - PASS, 1089 passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --features pro-build` - PASS, 1302 passed.
+- `cargo test --manifest-path epistemos-research/Cargo.toml --features research` - PASS, 492 lib tests, 113 canonical consistency tests, 0 doctests.
+
 ## Current Verdict
 
-Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, but note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent smoke is blocked by missing provider keys, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS artifact/import gates are green on the clean wrapper-built Release app, and the Pro/cloud promoted managed-agent tool budget gate is now fixed and targeted-tested. Remaining blockers: note ask-bar simple rewrite smoke remains blocked by user-data safety, Pro cloud-agent live smoke is blocked by missing provider keys, and the required five consecutive zero-new-blocker recursive passes have not been completed.

@@ -937,6 +937,24 @@ final class ChatCoordinator {
     return String(trimmed.prefix(500)) + "..."
   }
 
+  nonisolated static func cloudToolBudget(
+    for operatingMode: EpistemosOperatingMode,
+    isCloudSelectedSurface: Bool,
+    supportsAgentTier: Bool,
+    managedAgentSession: Bool
+  ) -> (toolTier: ChatToolTier, maxTurns: UInt32)? {
+    guard isCloudSelectedSurface, supportsAgentTier else { return nil }
+
+    switch operatingMode {
+    case .pro:
+      return (.chatPro, 3)
+    case .fast, .thinking:
+      return managedAgentSession ? nil : (.chatLite, 1)
+    case .agent:
+      return nil
+    }
+  }
+
   private static func rustAgentPermissionMetadata(
     base: [String: String],
     request: AgentPermissionRequest
@@ -1899,15 +1917,26 @@ final class ChatCoordinator {
         )
         chatState.captureBrainSnapshot(brainSnapshot)
 
-        // Route: Agent mode uses managed-agent (full tool surface),
-        // Pro mode on cloud gets a bounded chat_pro tool loop so
-        // note lookups / writes actually hit tools instead of
+        // Route: Agent mode uses managed-agent (full tool surface).
+        // Pro mode on cloud gets a bounded chat_pro tool loop even
+        // when the overseer promotes the turn into managedAgentSession,
+        // so note lookups / writes actually hit tools instead of
         // hallucinating (fixes the root cause research 3 surfaced:
         // Pro+cloud fell through to a zero-tools direct stream).
-        // Fast / Thinking stay on the existing Swift pipeline so
-        // we don't regress the simplest paths.
+        // Fast / Thinking cloud turns use chat_lite only when they
+        // stayed in the direct cloud branch. If the overseer promoted
+        // them to managedAgentSession, keep the full Agent tier so an
+        // explicit tool-required request like note creation can execute.
         var usedRustAgent = false
+        let managedCloudToolBudget = Self.cloudToolBudget(
+          for: operatingMode,
+          isCloudSelectedSurface: isCloudSelectedSurface,
+          supportsAgentTier: cloudSurfaceSupportsAgentTier(operatingMode),
+          managedAgentSession: true
+        )
         if let executionPlan, mode == .api, executionPlan.route == .managedAgentSession {
+          let managedToolTier = managedCloudToolBudget?.toolTier.rawValue ?? ChatToolTier.agent.rawValue
+          let managedMaxTurns = managedCloudToolBudget?.maxTurns ?? 25
           do {
             try await self.runRustAgentPath(
               query: effectiveQuery,
@@ -1920,26 +1949,31 @@ final class ChatCoordinator {
               hasVault: hasVault,
               pendingAssistantId: pendingAssistantId,
               executionPlan: executionPlan,
-              brainSnapshotCapturedAt: brainSnapshot.capturedAt
+              brainSnapshotCapturedAt: brainSnapshot.capturedAt,
+              toolTier: managedToolTier,
+              maxTurns: managedMaxTurns
             )
             usedRustAgent = true
           } catch {
             if Self.cloudAgentFailureShouldStopFallback(error, selectedSurface: selectedSurface) {
               Log.pipeline.warning(
-                "Managed cloud agent path failed; surfacing provider error instead of falling back: \(String(reflecting: error), privacy: .public)"
+                "Managed cloud agent path failed (mode=\(operatingMode.rawValue, privacy: .public), tier=\(managedToolTier, privacy: .public)); surfacing provider error instead of falling back: \(String(reflecting: error), privacy: .public)"
               )
               chatState.addErrorMessage(from: error)
               usedRustAgent = true
             } else {
               Log.pipeline.warning(
-                "Managed agent path unavailable, falling back to local execution: \(String(reflecting: error), privacy: .public)"
+                "Managed agent path unavailable (mode=\(operatingMode.rawValue, privacy: .public), tier=\(managedToolTier, privacy: .public)), falling back to local execution: \(String(reflecting: error), privacy: .public)"
               )
             }
           }
         } else if let executionPlan, mode == .api,
-                  (operatingMode == .pro || operatingMode == .fast || operatingMode == .thinking),
-                  isCloudSelectedSurface,
-                  cloudSurfaceSupportsAgentTier(operatingMode) {
+                  let cloudToolBudget = Self.cloudToolBudget(
+                    for: operatingMode,
+                    isCloudSelectedSurface: isCloudSelectedSurface,
+                    supportsAgentTier: cloudSurfaceSupportsAgentTier(operatingMode),
+                    managedAgentSession: false
+                  ) {
           // USABILITY-001 fix-pass (2026-05-13): the Pro+cloud branch
           // is now extended to Fast+cloud and Thinking+cloud when the
           // provider supports the agent tier. Previously these fell
@@ -1956,13 +1990,8 @@ final class ChatCoordinator {
           //
           // vault.write still gates through AgentAuthority + R5
           // capability so MAS safety is preserved on chatLite tier.
-          let (toolTierForCloud, maxTurnsForCloud): (String, UInt32) = {
-            switch operatingMode {
-            case .fast, .thinking: return ("chat_lite", 1)
-            case .pro:             return ("chat_pro", 3)
-            case .agent:           return ("agent", 8)  // unreachable; agent goes via managedAgentSession branch
-            }
-          }()
+          let toolTierForCloud = cloudToolBudget.toolTier.rawValue
+          let maxTurnsForCloud = cloudToolBudget.maxTurns
           do {
             try await self.runRustAgentPath(
               query: effectiveQuery,
