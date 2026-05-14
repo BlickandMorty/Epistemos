@@ -748,6 +748,22 @@ Verification:
 - `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosCodeFileAgentGrant -only-testing:EpistemosTests/ResourceRuntimeToolPathE2ETests/fileWriteWithoutGrantIsRejectedAndPreservesDisk test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - `cargo test --manifest-path agent_core/Cargo.toml --lib resources::bridge::tests::verified_write_bridge_denies_when_no_grant_covers_resource` - PASS, 1 passed.
 
+### Graph note route AppKit transparency follow-up - 2026-05-14
+
+Changed:
+
+- User screenshot evidence showed the graph-launched note editor still painting the theme slab instead of the graph panel blur. The earlier SwiftUI-only `Color.clear` guard was insufficient because AppKit hosting/text layers could still carry opaque backing.
+- `Epistemos/Views/Graph/HologramOverlay.swift`: `HologramOverlayHostedViewBuilder.host` now clears the `NSHostingView` layer backing (`NSColor.clear`, `isOpaque = false`) so graph route SwiftUI hosts can reveal the existing graph blur/tint behind them.
+- `Epistemos/Views/Notes/ProseEditorRepresentable2.swift`: the already graph-only `usesTransparentEditorBackground` path now clears `NSScrollView`, clip view, and `ProseTextView2` CALayers as well as `drawsBackground`/`backgroundColor`.
+- `EpistemosTests/SidebarShellValidationTests.swift`: tightened the graph note blur guard to prove both the route host and TextKit layer stack stay transparent. Normal note tabs still do not pass `usesTransparentEditorBackground: true`.
+- No graph renderer, Metal/SDF renderer, node layout, edge geometry, selection visuals, camera behavior, graph physics, vault schema, or vault data code was changed. The only protected graph-adjacent file touched here was `HologramOverlay.swift`, limited to the route host's transparent AppKit backing for the user-provided graph-note screenshot.
+
+Verification:
+
+- `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosGraphNoteBlurGuard -only-testing:EpistemosTests/SidebarShellValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
+- `xcrun xcresulttool get test-results summary --path build/xcode-results/2026-05-14-153010-80004.xcresult` - PASS, `passedTests: 3`, `failedTests: 0`.
+- `git diff --check` - PASS.
+
 ## Current Verdict
 
 Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, AgentAuthority dispatch enforcement, CodeFileService/tool-write approval-loop proof, automated note ask-bar rewrite checks, OAuth callback loopback/forged-state proof, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
