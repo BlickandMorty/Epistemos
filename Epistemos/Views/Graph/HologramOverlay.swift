@@ -138,9 +138,13 @@ fileprivate enum HologramOverlayHostedViewBuilder {
         _ content: Content,
         bootstrap: AppBootstrap? = AppBootstrap.shared
     ) -> NSHostingView<HologramOverlayHostedView<Content>> {
-        NSHostingView(
+        let hostingView = NSHostingView(
             rootView: HologramOverlayHostedView(content: content, bootstrap: bootstrap)
         )
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.isOpaque = false
+        return hostingView
     }
 }
 

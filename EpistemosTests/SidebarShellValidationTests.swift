@@ -44,6 +44,9 @@ struct SidebarShellValidationTests {
         let graphWorkspaceSource = try loadMirroredSourceTextFile(
             "Epistemos/Views/Graph/GraphWorkspaceContainer.swift"
         )
+        let graphOverlaySource = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/HologramOverlay.swift"
+        )
         let proseEditorSource = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
         let representableSource = try loadMirroredSourceTextFile(
             "Epistemos/Views/Notes/ProseEditorRepresentable2.swift"
@@ -54,6 +57,8 @@ struct SidebarShellValidationTests {
         #expect(graphWorkspaceSource.contains("Color.clear"))
         #expect(graphWorkspaceSource.contains("case .note(let id):\n                graphNoteBackdrop"))
         #expect(graphWorkspaceSource.contains("private var graphPageBackdrop: some View"))
+        #expect(graphOverlaySource.contains("hostingView.layer?.backgroundColor = NSColor.clear.cgColor"))
+        #expect(graphOverlaySource.contains("hostingView.layer?.isOpaque = false"))
         #expect(graphNotePageSource.contains("Color.clear"))
         #expect(!graphNotePageSource.contains("GraphNotePageGlassBackdrop"))
         #expect(!graphNotePageSource.contains("LinearGradient("))
@@ -61,6 +66,10 @@ struct SidebarShellValidationTests {
         #expect(representableSource.contains("usesTransparentEditorBackground: Bool = false"))
         #expect(representableSource.contains("scrollView?.drawsBackground = false"))
         #expect(representableSource.contains("scrollView?.contentView.drawsBackground = false"))
+        #expect(representableSource.contains("scrollView?.layer?.backgroundColor = NSColor.clear.cgColor"))
+        #expect(representableSource.contains("scrollView?.layer?.isOpaque = false"))
+        #expect(representableSource.contains("tv.layer?.backgroundColor = NSColor.clear.cgColor"))
+        #expect(representableSource.contains("tv.layer?.isOpaque = false"))
         #expect(representableSource.contains("parent.applyEditorBackgroundMode(to: tv, in: scrollView)"))
         #expect(representableSource.contains("tv.drawsBackground = false"))
         #expect(!noteWorkspaceSource.contains("usesTransparentEditorBackground: true"))

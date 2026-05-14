@@ -51,8 +51,17 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         scrollView?.backgroundColor = .clear
         scrollView?.contentView.drawsBackground = false
         scrollView?.contentView.backgroundColor = .clear
+        scrollView?.wantsLayer = true
+        scrollView?.layer?.backgroundColor = NSColor.clear.cgColor
+        scrollView?.layer?.isOpaque = false
+        scrollView?.contentView.wantsLayer = true
+        scrollView?.contentView.layer?.backgroundColor = NSColor.clear.cgColor
+        scrollView?.contentView.layer?.isOpaque = false
         tv.drawsBackground = false
         tv.backgroundColor = .clear
+        tv.wantsLayer = true
+        tv.layer?.backgroundColor = NSColor.clear.cgColor
+        tv.layer?.isOpaque = false
         tv.enclosingScrollView?.drawsBackground = false
         tv.enclosingScrollView?.backgroundColor = .clear
     }
