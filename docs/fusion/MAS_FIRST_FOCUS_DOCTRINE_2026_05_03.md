@@ -244,31 +244,38 @@ Verification: every build must pass with
 
 ---
 
-## 4.5 Free-Tier Build Adaptations (TEMP-FREE-TIER, 2026-05-03)
+## 4.5 Free-Tier Build Adaptations (TEMP-FREE-TIER, 2026-05-03 → RESTORED 2026-05-14)
 
-**The user's current signing certificate is a free Personal Team** (no
-paid $99/yr Apple Developer Program membership yet). Free Personal
-Teams can build, run, and debug locally indefinitely — they CANNOT
-generate provisioning profiles for App Groups, push notifications,
-CloudKit, or anything that requires Apple Developer Portal
-registration.
+**Update 2026-05-14:** Paid Apple Developer Program enrolled and
+activated. App Group `group.com.epistemos.shared` registered at
+developer.apple.com and restored in both
+`Epistemos-AppStore.entitlements` and `Epistemos.entitlements`.
+TEMP-FREE-TIER markers below are kept as historical record only.
 
-To unblock local development NOW, two surgical adaptations are made
-under explicit `TEMP-FREE-TIER` markers. Each adaptation is fully
-documented in the file it touches with restoration steps.
+### 4.5.0 Restoration verification
 
-### 4.5.1 App Groups removed from `Epistemos-AppStore.entitlements`
+When the paid Developer Team activated 2026-05-14:
 
-| What | Why | Impact | Restoration |
-|---|---|---|---|
-| `com.apple.security.application-groups` block removed | Free tier can't generate provisioning profiles for App Groups | Main app + bundled XPC services cannot share a filesystem container; the data path between processes MUST be XPC messages (not shared `/Library/Group Containers/group.com.epistemos.shared/` files) | When paid Developer Team available: register App Group at developer.apple.com → update Xcode signing → restore the block per the file header comment → verify XPC services work |
+1. ✅ Apple Developer Program activated
+2. ✅ App Group `group.com.epistemos.shared` registered at developer.apple.com → Identifiers → App Groups
+3. ✅ Xcode → Signing & Capabilities updated to paid Team for both `Epistemos` and `Epistemos-AppStore` targets
+4. ✅ App Group capability added in Xcode for both targets
+5. ✅ `com.apple.security.application-groups` key restored in both `.entitlements` files
+6. ✅ This §4.5 row updated
+7. Pending: verify XPC services that need shared container work (post Wave F XPC Mastery implementation)
 
-**This is actually a more secure architecture.** Per the advice that
-prompted this adaptation, "the XPC boundary becomes the only data path"
-— exactly what the XPC Mastery Doctrine §1.4 prescribes
-(capability-token-only IPC). The App Group is operational convenience
-for the future paid build; living without it forces the architectural
-discipline we want anyway.
+### 4.5.1 App Groups (historical — RESTORED 2026-05-14)
+
+| What | Why (historical) | Status |
+|---|---|---|
+| `com.apple.security.application-groups` block | Free tier could not generate provisioning profiles for App Groups | RESTORED 2026-05-14 — paid Team available |
+
+**Design discipline preserved:** Even with App Groups now available,
+the XPC boundary remains the canonical data path per XPC Mastery
+Doctrine §1.4 (capability-token-only IPC). Shared container is the
+fallback for high-frequency / high-volume cases only (per IOSurface
+zero-copy pattern in XPC Mastery Doctrine §9). The discipline forced
+by the TEMP-FREE-TIER period is now the architectural floor.
 
 ### 4.5.2 XPC services design under TEMP-FREE-TIER
 
