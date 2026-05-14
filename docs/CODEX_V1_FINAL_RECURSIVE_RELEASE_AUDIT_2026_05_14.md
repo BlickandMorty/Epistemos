@@ -24,12 +24,12 @@ Recursive register strict `Status:` count snapshot from `docs/audits/RECURSIVE_C
 
 | Status | Count |
 |---|---:|
-| PATCHED | 183 |
+| PATCHED | 184 |
 | PATCHED PARTIAL | 26 |
-| PATCHED BUT NOT CLOSED | 1 |
-| PATCHED BUT WATCH | 1 |
+| PATCHED BUT NOT CLOSED | 0 |
+| PATCHED BUT WATCH | 0 |
 | REOPENED | 0 |
-| SOURCE REOPENED | 1 |
+| SOURCE REOPENED | 0 |
 | OPEN | 1 |
 | DEFERRED | 2 |
 | TODO | 0 |
@@ -688,7 +688,7 @@ Changed:
 
 Verification:
 
-- `rg -n "Status: (REOPENED|SOURCE REOPENED|OPEN|PATCHED PARTIAL|DEFERRED|TODO)|reopened|REOPENED" docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` - PASS for release-gate reconciliation; only the historical prose, one source-reopened runtime-smoke item, one `OPEN`, and non-release `PATCHED PARTIAL`/`DEFERRED` items remain.
+- `rg -n "Status: (REOPENED|SOURCE REOPENED|OPEN|PATCHED PARTIAL|DEFERRED|TODO)|reopened|REOPENED" docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` - PASS for release-gate reconciliation; only historical prose, one `OPEN`, and non-release `PATCHED PARTIAL`/`DEFERRED` items remain after the OAuth callback loopback closure.
 - `git diff --check` - PASS.
 
 ### Local model footprint disclosure closure - 2026-05-14
@@ -706,6 +706,20 @@ Verification:
 - `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosLocalModelFootprintRed -only-testing:EpistemosTests/LocalModelInfrastructureTests test CODE_SIGNING_ALLOWED=NO -quiet` - PASS.
 - `git diff --check` - PASS.
 
+### OAuth callback loopback runtime proof - 2026-05-14
+
+Changed:
+
+- `RCA12-P1-007` source-reopened OAuth callback hardening is closed. Current source was checked and the remaining `lsof`/forged-callback runtime proof now runs against the real `LocalOAuthCallbackServer`.
+- `Epistemos/Engine/CloudProviderAuthService.swift`: `LocalOAuthCallbackServer` changed from file-private to module-internal so `@testable import Epistemos` can start the actual server in tests. This is not a public API change.
+- `EpistemosTests/CloudProviderAuthServiceTests.swift`: added `liveOAuthCallbackServerListensOnlyOnLoopbackAndRejectsForgedState`, which starts the callback server, verifies the listening socket is `127.0.0.1:<port>` and not `*:<port>` via `lsof`, sends a wrong-state callback to the live port, and asserts the result is failure rather than an authorized code.
+
+Verification:
+
+- Red test-first run: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosOAuthCallbackLiveRed -only-testing:EpistemosTests/LocalOAuthCallbackValidationTests test CODE_SIGNING_ALLOWED=NO -quiet` - FAIL before product visibility patch: `cannot find 'LocalOAuthCallbackServer' in scope`.
+- Green rerun of the same command after the visibility patch - PASS.
+- Browser Google sign-in remains a provider-account smoke item, not a source-reopened callback-integrity blocker.
+
 ## Current Verdict
 
-Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, automated note ask-bar rewrite checks, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
+Not release-ready. MAS build/scanner/live UI smoke are green for the isolated no-vault path, MAS Pro-only surfaces are hidden in diagnostics, the MAS and Pro scratch-vault import/Notes/schema paths now have isolated zero-runtime-issue evidence, and the first-run Platinum appearance/readable-font settings fix is green. Pro/direct diagnostics and Agent settings render with the expected Pro-only tool surfaces and approval posture. Local deterministic tool-loop, cloud routing contract checks, executable note/research tool parity, approval-to-R.5 grant bridging, automated note ask-bar rewrite checks, OAuth callback loopback/forged-state proof, per-model local storage disclosure, and the requested real-glass sidebar/graph-note source guards are green, but live Pro local generation is blocked on this machine by memory pressure for the only installed agent-capable model, and live Pro cloud-agent execution is blocked by missing provider keys. Remaining blockers: the scratch-vault graph has a protected first-open camera/framing bug where persisted nodes exist but are invisible until the user clicks Zoom to Fit, live MAS note ask-bar simple rewrite smoke remains incomplete in a safe scratch-vault/model-ready setup, first-run web approval live smoke is still pending because no live local/cloud tool turn can execute here, and the required five consecutive zero-new-blocker recursive passes have not been completed.
