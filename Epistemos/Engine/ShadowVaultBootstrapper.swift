@@ -198,6 +198,21 @@ public actor ShadowVaultBootstrapper {
         url: URL,
         domain: ShadowVaultDomain
     ) async -> ShadowDocumentDTO? {
+        // Sidecar metadata (commit 389ba93f3 + e1f8a1862): tag every
+        // emitted doc with the vault directory's name as
+        // `originVaultKey`. Matches the convention AppBootstrap uses
+        // when it builds `vaultID = rawName` from the vault root's
+        // last path component for the R.3 gateway, so the lenient
+        // nil-passthrough vault filter on the Halo side can match
+        // against the same identifier used elsewhere.
+        //
+        // Absolute path would be over-fitted (user moving their vault
+        // breaks the key); the folder name stays stable across
+        // location moves. Pre-2026-05-15 indexed docs continue to
+        // round-trip with nil via the optional default.
+        let vaultKey = vaultRoot.lastPathComponent.isEmpty
+            ? nil
+            : vaultRoot.lastPathComponent
         do {
             switch domain {
             case .notes:
@@ -208,7 +223,8 @@ public actor ShadowVaultBootstrapper {
                     docId: docID,
                     title: title,
                     body: body,
-                    domain: .notes
+                    domain: .notes,
+                    originVaultKey: vaultKey
                 )
             case .chats:
                 let data = try Data(contentsOf: url)
@@ -218,7 +234,8 @@ public actor ShadowVaultBootstrapper {
                     docId: docID,
                     title: chat.title ?? url.deletingPathExtension().lastPathComponent,
                     body: chat.flattened(),
-                    domain: .chats
+                    domain: .chats,
+                    originVaultKey: vaultKey
                 )
             }
         } catch {

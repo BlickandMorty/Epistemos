@@ -97,21 +97,20 @@ nonisolated struct ShadowVaultBootstrapperTests {
         #expect(tailHits.isEmpty, "large-file shadow indexing should not read the entire body")
     }
 
-    @Test("Bootstrap-emitted hits carry originVaultKey == nil until vault-identity convention lands")
-    func bootstrapEmittedHitsCarryNilOriginVaultKey() async throws {
-        // Until ShadowVaultBootstrapper learns the canonical vault
-        // identity (absolute path? bookmark hash? user-chosen vault id?
-        // — the convention isn't established yet), every emitted DTO
-        // carries `originVaultKey == nil` and the lenient nil-passthrough
-        // on the search side keeps results visible across vault filters.
+    @Test("Bootstrap-emitted hits carry originVaultKey from the vault directory name")
+    func bootstrapEmittedHitsCarryVaultDirectoryName() async throws {
+        // ShadowVaultBootstrapper tags every emitted doc with the vault
+        // directory's name as `originVaultKey`. Matches the convention
+        // AppBootstrap uses (`vaultID = rawName` from vault root's last
+        // path component) so the Halo-side vault filter can match
+        // against the same identifier the rest of the app uses.
         //
-        // This test PINS that current state. When the bootstrapper
-        // gains a real `originVaultKey` populated at insert time, this
-        // test SHOULD trip — that's the right reminder to update the
-        // assertion (and remove the lenient-nil-passthrough caveat from
-        // FilterEngine's vault-filter docstring at that point).
+        // Absolute path would be over-fitted (user moving their vault
+        // would invalidate the key); the directory name is stable
+        // across location moves.
         let vault = try Self.tempVault()
         defer { try? FileManager.default.removeItem(at: vault) }
+        let expectedVaultKey = vault.lastPathComponent
         let notesDir = vault.appendingPathComponent("notes")
         try "Halo note".write(
             to: notesDir.appendingPathComponent("halo.md"),
@@ -126,8 +125,8 @@ nonisolated struct ShadowVaultBootstrapperTests {
 
         let hits = try client.search(query: "halo", domain: .notes, limit: 10)
         #expect(hits.count == 1)
-        #expect(hits.first?.originVaultKey == nil,
-                "ShadowVaultBootstrapper emits docs with nil originVaultKey today (partial-rollout escape valve). Update this test when the bootstrapper learns vault identity.")
+        #expect(hits.first?.originVaultKey == expectedVaultKey,
+                "ShadowVaultBootstrapper MUST tag every emitted doc with vault root's last path component as originVaultKey")
     }
 
     @Test("Crawl ignores files with the wrong extension (cache files, hidden files, etc.)")
