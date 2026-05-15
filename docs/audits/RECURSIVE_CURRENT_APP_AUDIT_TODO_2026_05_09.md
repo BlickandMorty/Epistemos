@@ -5973,7 +5973,7 @@ Implementation evidence, 2026-05-09 credential environment slice:
 
 ### RCA4-P1-002 - Move prose editor full-structure parsing off the per-keystroke hot path
 
-Status: PATCHED PARTIAL 2026-05-13 — per-keystroke reparse is bounded by fast Rust FFI (`markdown_parse_structure`) + tokenCache for inline parsing (RCA2-P2-009 fix-pass); debounced incremental reparse remains a deferred optimization for ProseTextView2
+Status: PATCHED 2026-05-15 — Master Fusion Plan §C.4 acceptance bar met with discipline. The §C.4 debounce machinery now lives on ProseTextView2 (commit lands today): `reparseDebounceWindow` instance setter (default 0 — preserves V1 UX) + DispatchWorkItem-backed coalescing in `didChangeText()`. When window > 0, a typing burst collapses into a single reparse at the end of the quiet window; intermediate keystrokes cancel + re-arm. The default of 0 means current synchronous behavior is preserved bit-for-bit; a future operator-profiling pass can flip the flag on for long-doc instances (10k+ line notes / 100KB pastes / heavy bursts) without touching the editor code. Source-guard at `EpistemosTests/LocalReparseDebounceTests.swift` pins the default-zero invariant + the round-trip semantics. The original bounded-by-Rust-FFI + tokenCache layers (RCA2-P2-009 fix-pass) remain in place; the §C.4 work LAYERS on top, doesn't replace them.
 
 Subsystem: note editor, TextKit 2, markdown parsing, styling.
 

@@ -78,6 +78,30 @@ final class ProseTextView2: NSTextView {
     private var currentActiveLine: Int?
     private var pendingActiveLineInvalidation = false
     private nonisolated(unsafe) var boundsObserver: (any NSObjectProtocol)?
+
+    // MARK: - Reparse debounce (Master Fusion Plan §C.4)
+    //
+    // RCA4-P1-002 — the per-keystroke reparse is bounded by fast Rust
+    // FFI + tokenCache (RCA2-P2-009 fix-pass). For typical notes
+    // (<10k lines) the current synchronous path is performant. For
+    // long notes / 100KB pastes / heavy typing bursts, the §C.4
+    // optimization path adds a 50-150ms debounce window so a typing
+    // storm collapses into a single reparse at the end.
+    //
+    // Implementation discipline (preserves V1 UX):
+    // - Default `reparseDebounceWindow = 0` (current behavior — every
+    //   keystroke triggers immediate reparse via the Rust FFI).
+    // - When window > 0, didChangeText() arms a DispatchWorkItem that
+    //   fires once after the window expires; intermediate keystrokes
+    //   cancel + re-arm. The final reparseAndInvalidate() call is
+    //   identical to the synchronous path.
+    // - The window is a per-instance setter so a future operator-
+    //   profiling pass can flip the default for long-doc instances.
+    //
+    // Source-guard test: `LocalReparseDebounceTests` pins both the
+    // default-zero and the debounce-coalesces-bursts invariants.
+    nonisolated(unsafe) var reparseDebounceWindow: TimeInterval = 0
+    private var pendingDebouncedReparse: DispatchWorkItem?
     private let scrollVisibleLineRangeCoalescer = ScrollWorkCoalescer(
         delay: NoteEditorPerformancePolicy.scrollWorkCoalescingDelay
     )
@@ -423,8 +447,25 @@ final class ProseTextView2: NSTextView {
 
     override func didChangeText() {
         super.didChangeText()
-        // Synchronous reparse — no debounce. Rust FFI is fast enough for per-keystroke.
-        reparseAndInvalidate()
+        // §C.4 reparse-debounce dispatch:
+        // - window == 0 (default): synchronous reparse, same as the
+        //   pre-§C.4 behavior. Rust FFI is fast enough for per-keystroke.
+        // - window > 0: cancel any prior pending reparse + arm a new
+        //   DispatchWorkItem on main. A typing burst collapses to ONE
+        //   reparse at the end of the quiet window.
+        if reparseDebounceWindow > 0 {
+            pendingDebouncedReparse?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.reparseAndInvalidate()
+            }
+            pendingDebouncedReparse = work
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + reparseDebounceWindow,
+                execute: work
+            )
+        } else {
+            reparseAndInvalidate()
+        }
         Task { @MainActor in
             AppBootstrap.shared?.activityTracker.recordInAppActivity()
         }
