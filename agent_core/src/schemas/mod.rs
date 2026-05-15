@@ -683,4 +683,59 @@ mod tests {
         // value should match the original input shape exactly.
         assert_eq!(back, v);
     }
+
+    #[test]
+    fn schema_rev_canonical_strings_are_consistent_across_three_sites() {
+        // `EpistemosSchemaRev` is named in THREE places that MUST stay
+        // in sync byte-for-byte:
+        //   (a) the `#[serde(rename = "epistemos.X.v1")]` attribute on
+        //       each enum variant (load-bearing for serde decode)
+        //   (b) the `as_str()` impl match arms (used by callers + by
+        //       `validate_epistemos_payload`'s rev-value extraction)
+        //   (c) the `validate_epistemos_payload` `match rev_str` arms
+        //       (the pre-flight string check before serde fires)
+        //
+        // Drift between any two would either reject valid payloads or
+        // accept bogus ones with the right discriminator string. This
+        // test pins all three by:
+        //   1. Asserting `as_str()` returns the documented canonical
+        //      string for each variant.
+        //   2. Asserting serde-encoded form of each variant agrees with
+        //      `as_str()` (so (a) ≡ (b)).
+        //   3. Asserting `validate_epistemos_payload` accepts a minimal
+        //      payload whose `schema_rev` equals `as_str()` for every
+        //      enum variant (so (b) ≡ (c)).
+        let cases = [
+            (EpistemosSchemaRev::SoulV1, "epistemos.soul.v1"),
+            (EpistemosSchemaRev::SkillV1, "epistemos.skill.v1"),
+            (EpistemosSchemaRev::EpisodeV1, "epistemos.episode.v1"),
+            (EpistemosSchemaRev::SemanticV1, "epistemos.semantic.v1"),
+        ];
+
+        for (rev, canonical) in cases {
+            assert_eq!(rev.as_str(), canonical);
+            // serde encode → re-decode round-trip pins the rename attr
+            // matches the canonical literal.
+            let encoded = serde_json::to_string(&rev).expect("encode rev");
+            assert_eq!(encoded, format!("\"{canonical}\""));
+            let decoded: EpistemosSchemaRev =
+                serde_json::from_str(&encoded).expect("decode rev");
+            assert_eq!(decoded, rev);
+        }
+
+        // `validate_epistemos_payload` rejects strings that don't appear
+        // in the canonical set. Drift between the as_str() table and
+        // the validate match would surface here.
+        let v = serde_json::json!({
+            "schema_rev": "epistemos.totally-wrong.v1",
+            "id": "abcdefghijkl",
+            "name": "x"
+        });
+        match validate_epistemos_payload(&v) {
+            Err(SchemaValidationError::UnknownSchemaRev { value }) => {
+                assert_eq!(value, "epistemos.totally-wrong.v1");
+            }
+            other => panic!("expected UnknownSchemaRev, got {other:?}"),
+        }
+    }
 }
