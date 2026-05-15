@@ -155,4 +155,171 @@ That sentence is enough for a cold-start session to pick up exactly where this o
 
 ---
 
-*— End of New-Session Handoff. 9 sections. Read in order, then pick the next item.*
+## 10. Recursive backlog landscape — the FULL research / audit / progress universe
+
+The §1 list is the **read-in-order top 5** docs. The list below is the full landscape — open these as you need them; don't try to read all at once.
+
+### 10.1 Recursive audit register family (the source-of-truth for "what's broken")
+
+| Doc | Role |
+|---|---|
+| `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` | **Master audit register** — ~216 items across RCA2-RCA13 + UIX-2026-05-09 + Research Drops 1-13. Every item has Status: CONFIRMED / PATCHED / PATCHED PARTIAL / TODO. **Read this every session start.** |
+| `docs/audits/CODEX_RECURSIVE_FIX_PROMPT_2026_05_09.md` | **The recursive-pass protocol Codex follows** — 10 absolute rules including "test-first for each fix", "minimal fixes only", "never revert user changes", "update the audit log after every closed item". Adopt these rules for any session continuing the work. |
+| `docs/audits/MASTER_HARDENING_WIRING_AUDIT.md` | Wiring audit of hardening surfaces |
+| `docs/audits/2026-03-11-recursive-dead-code-audit.md` | Older recursive dead-code audit (historical context) |
+
+### 10.2 Research index family (the "look here before coding" docs)
+
+| Doc | Role |
+|---|---|
+| `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` | **The research entry point per CLAUDE.md.** Every concept / mini-task / term maps to (a) canonical source on disk, (b) supporting docs, (c) code anchors, (d) tier classification, (e) one load-bearing claim verbatim. Search by name first. |
+| `docs/VISION_BACKLOG.md` | Complete vision backlog tiers (Tier 0 moat: iMessage / OpenClaw / Model Council / GTD Quick Capture / Personas / Pause Screen) — most are Pro/post-V1 |
+| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` | Rank-2 authority chain; sits above `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` |
+| `docs/MASTER_BUILD_PLAN.md` | Original full build spec |
+| `docs/MASTER_HARDENING_AND_HARNESS_PLAN.md` | Hardening + test harness plan |
+| `docs/MASTER_MODEL_STACK_PLAN.md` | Local model catalog policy (pinned commit SHAs, Honesty Ledger §6) |
+
+### 10.3 Codex V1 audit family (latest pre-V1 closure work)
+
+| Doc | Role |
+|---|---|
+| `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md` | Codex's master 36-commit recursive audit pass with Phase 0 snapshot + protected-surface log |
+| `docs/CODEX_V1_CLOSURE_VERIFICATION_2026_05_14.md` | Claude's verification of Codex's closure claims |
+| `docs/CODEX_NEXT_SESSION_KICKOFF_2026_05_14.md` | Earlier session's kickoff doc; superseded by this handoff |
+| `docs/CODEX_MAS_READINESS_ASSESSMENT_2026_05_13.md` | MAS readiness assessment |
+| `docs/CODEX_HANDOFF_2026_05_13_CHAT_TOOL_PARITY.md` | Chat + tool parity handoff |
+| `docs/CODEX_FULL_HANDOFF_2026_05_05.md` | 2026-05-05 full handoff (Hermes-removal context) |
+| `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` | Per-tool truth table (visibility / executability / capability) |
+
+### 10.4 Recursive-pass discipline (per Master Fusion Plan §E.1)
+
+To click "Submit for Review" on the App Store, the plan requires:
+> **5 consecutive Codex recursive passes find zero new V1 blockers.**
+
+Each pass = 1 session that:
+1. Pulls latest main
+2. Reads `RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` **cover-to-cover**
+3. Scans for new issues introduced by recent commits
+4. Verifies no new V1 blockers
+5. Appends a pass record to `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md` Recursive Pass Log
+6. **If pass adds a NEW blocker, the counter resets.** Estimated 5-7 days (1 pass per day, sometimes 2 if light).
+
+### 10.5 Per-session startup protocol (from CLAUDE.md)
+
+Run these checks at the START of every new session:
+1. Read `docs/APP_ISSUES_AUTO_FIX.md` — fix any `Status: Open` runtime issues opportunistically (non-destructive)
+2. Read `docs/AGENT_PROGRESS.md` — see what's done + what's next
+3. Read the current sprint file from `docs/sprint-sessions/` (e.g. `sprint-omega-1-foundation.md`)
+4. Run `git status --short` + `git log --oneline -10` (catch uncommitted work)
+5. Then read the §1 top-5 of THIS handoff doc
+6. **After completing each task**, run its verification command before moving to the next
+7. **After completing all sprint tasks**, update `docs/AGENT_PROGRESS.md` with ✅ and today's date
+
+### 10.6 Fusion doctrine corpus (every PR in Phase B/C/D checks against these)
+
+Most important (cited from Master Fusion Plan §7 doctrines section):
+- `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` — Phase D primary source
+- `docs/fusion/COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md` — B.1-B.4 source (Variant Ladder tier discipline)
+- `docs/fusion/COGNITIVE_WEIGHT_CLASS_DOCTRINE_2026_05_04.md` — B.6 source (W1 weight class)
+- `docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md` — B.8 source (GenUI dispatcher pattern)
+- `docs/fusion/COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md` — D.12 source (in-process MCP)
+- `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md` — Phase 8.A-G LANDED; 8.H deferred
+- `docs/fusion/HONEST_HANDLE_FFI_DOCTRINE_2026_05_04.md` — all FFI work
+- `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` — Pro/MAS gating discipline
+- `docs/fusion/LIVE_FILE_COMPILER_DOCTRINE_2026_05_04.md` — NightBrain integration (B.9)
+- `docs/fusion/LOCAL_CANON_FIRST_SPECIFICITY_PROTOCOL_2026_05_04.md` — all PRs (research-first protocol)
+
+Helios research source (DO NOT IMPLEMENT — substrate landed, toggles OFF):
+- `docs/fusion/helios v5 first.md` (754L)
+- `docs/fusion/helios v5 updated.md` (625L) — v5.2 truly final
+
+V6.1 + V6.2 lock (canonical target only, not implemented this slice):
+- `docs/audits/V6_1_LEAN_REALITY_MATRIX_2026_05_06.md` — V6.1 5-plane formalism + interrupt-score eq + 5 M2 Max kernels GREEN_FOR_THIS_SLICE_NOT_RELEASE_READY
+
+### 10.7 Implementation prompts + chain docs (historical Codex bootstraps)
+
+If you need to understand *how* Codex was prompted at various stages:
+- `docs/CODEX_PROMPT_CHAIN.md` — original prompt chain
+- `docs/CODEX_MASTER_PROMPT.md` — master prompt
+- `docs/CODEX_MANIFESTO.md` — Codex manifesto
+- `docs/CODEX_SESSION_PROMPT.md` — session prompt template
+- `docs/MASTER_SESSION_PROMPT_v2.md` — current master session prompt
+- `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — agent fusion research prompt
+
+### 10.8 Research deep-dives (read when working on the specific subsystem)
+
+- `docs/GOOSE_AGENT_RESEARCH.md` + `GOOSE_AGENT_RESEARCH_2.md` — Goose Rust agent core
+- `docs/CONTROL_PLANE_RESEARCH.md` — control plane research
+- `docs/CODE_EDITOR_STACK_RESEARCH.md` — code editor stack
+- `docs/CUSTOM_TEXT_ENGINE_RESEARCH.md` — text engine
+- `docs/CLI_CONFIG_COMPILATION_RESEARCH.md` — CLI passthrough
+- `docs/GRAPH_SDF_LABEL_RESEARCH_PROMPT.md` — graph SDF labels (graph-protected!)
+- `docs/HELIOS_V5_SESSION_START_PROMPT_2026_05_05.md` — Helios V5 context (don't implement; just understand)
+
+### 10.9 Substrate Track Register (Phase / Track / Lane vocabulary)
+
+`docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md` — the canonical 16-track feature register T0-T15 across 4 zones.
+
+**Vocabulary discipline:** "Track" T0-T15 = features; "Lane A/B/..." = git branches (existing convention). NEVER conflate. Memory entry `project_substrate_track_register` carries this rule.
+
+---
+
+## 11. The "make sure all the research is satisfied" checklist
+
+Before claiming any work is "done", run this 7-item check:
+
+1. ☑️ **Research-first**: searched `MASTER_RESEARCH_INDEX_2026_05_02.md` for the concept BEFORE coding (per CLAUDE.md "RESEARCH-FIRST FOR EVERY TASK")
+2. ☑️ **Audit row updated**: closed item has the audit row in `RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` updated to PATCHED with evidence + commands + remaining risk
+3. ☑️ **Implementation Log row appended**: row in `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §8 with commit SHA + acceptance evidence + WRV status (Wired+Reachable+Visible+Verified)
+4. ☑️ **Build green**: xcodebuild + cargo test both clean
+5. ☑️ **Source-guard test**: a test pins the new invariant so future refactors can't silently erode it
+6. ☑️ **8-question PR discipline**: per `MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` §6 — Stage/Wave + GenUI route + Sovereign + Pro impact + App Group + Variant Ladder + Atlas update + Disambiguation
+7. ☑️ **Push to `codex/research-snapshot-2026-05-08`** — never just commit locally
+
+If any of these are missing, the work isn't actually done — flag it as a deferred row.
+
+---
+
+## 12. The "what's recursively still TODO" snapshot (2026-05-15)
+
+From `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` strict status counts (read for live numbers; this is just a snapshot):
+
+| Status | ~Count (snapshot) | Action |
+|---|---|---|
+| **CONFIRMED** | ~30 | next-up; needs structural fix |
+| **PATCHED** | ~140 (after today's pass) | done; keep regression tests green |
+| **PATCHED PARTIAL** | ~16 (after today's pass) | manual smoke / deeper profiling deferred |
+| **TODO** | ~121 | most are P2/P3 future work (Research Drops 2-13) |
+
+**Active P1s remaining** (per audit register row 25):
+- P1-002 (.epdoc save heaviness — needs profiling)
+- P1-006 (chat streaming main-actor pressure — large refactor)
+- P1-007 (capture work off main actor)
+- P1-024 (Apple Intelligence main-actor profile — needs M-series hardware)
+- RCA13-P1-002 (CLI discovery — user-facing feature work)
+
+Plus a long tail of P2 items.
+
+---
+
+## 13. Branch + main + worktree state
+
+```bash
+# Active work:
+git checkout codex/research-snapshot-2026-05-08
+git log --oneline -25  # last 25 commits — todays's work
+
+# Compare against main:
+git log --oneline codex/research-snapshot-2026-05-08 ^main | head -25
+
+# DO NOT TOUCH (per CLAUDE.md):
+# ~/Epistemos-RETRO/, src-tauri/, ~/meta-analytical-pfc/
+
+# Worktree inventory:
+# docs/fusion/WORKTREE_INVENTORY_2026_04_30.md
+# docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md
+```
+
+---
+
+*— End of New-Session Handoff. 13 sections. Read §1 in order; rest are reference. The §11 7-item check is your "did I satisfy ALL the research" gate.*
