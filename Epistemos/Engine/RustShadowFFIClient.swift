@@ -272,6 +272,11 @@ nonisolated private struct ShadowHitDTO: Decodable {
     let score: Float
     let domain: ShadowDomain
     let source: String
+    /// Sidecar metadata mirrored from the Rust `ShadowHit.origin_vault_key`.
+    /// Decodes to `nil` when the Rust side omitted the field
+    /// (`skip_serializing_if = "Option::is_none"`) — the lenient
+    /// nil-passthrough contract.
+    let originVaultKey: String?
 
     enum CodingKeys: String, CodingKey {
         case id = "doc_id"
@@ -280,6 +285,7 @@ nonisolated private struct ShadowHitDTO: Decodable {
         case score
         case domain
         case source
+        case originVaultKey = "origin_vault_key"
     }
 
     nonisolated func toModel() -> ShadowHit {
@@ -289,7 +295,8 @@ nonisolated private struct ShadowHitDTO: Decodable {
             snippet: snippet,
             score: score,
             domain: domain,
-            source: source
+            source: source,
+            originVaultKey: originVaultKey
         )
     }
 }

@@ -36,6 +36,13 @@ nonisolated public struct ShadowHit: Sendable, Identifiable, Hashable {
     /// Origin signal for the optional UI provenance pill (e.g.
     /// "lexical", "dense", "rrf", "in-memory-substring").
     public let source: String
+    /// Sidecar metadata — which vault this hit originated from.
+    /// Mirrors the Rust `ShadowHit.origin_vault_key` field and the
+    /// `GraphNodeMetadata.originVaultKey` contract on the graph side.
+    /// `nil` for hits the indexer didn't tag (lenient nil-passthrough
+    /// so partial-rollout doesn't hide every hit when a vault filter
+    /// is active).
+    public let originVaultKey: String?
 
     public init(
         id: String,
@@ -43,7 +50,8 @@ nonisolated public struct ShadowHit: Sendable, Identifiable, Hashable {
         snippet: String,
         score: Float,
         domain: ShadowDomain,
-        source: String = ""
+        source: String = "",
+        originVaultKey: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -51,6 +59,7 @@ nonisolated public struct ShadowHit: Sendable, Identifiable, Hashable {
         self.score = score
         self.domain = domain
         self.source = source
+        self.originVaultKey = originVaultKey
     }
 }
 

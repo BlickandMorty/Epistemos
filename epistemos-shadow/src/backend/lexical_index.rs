@@ -313,6 +313,7 @@ mod tests {
             domain: "note".to_string(),
             title: title.to_string(),
             body: body.to_string(),
+            origin_vault_key: None,
         }
     }
 
@@ -336,6 +337,7 @@ mod tests {
             domain: "chat".to_string(),
             title: "y".to_string(),
             body: "report".to_string(),
+            origin_vault_key: None,
         })
         .unwrap();
         let note_hits = idx.search("report", "note", 10).unwrap();

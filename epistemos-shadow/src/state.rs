@@ -177,6 +177,7 @@ impl ShadowState {
                     snippet,
                     score,
                     source: "in-memory-substring".to_string(),
+                    origin_vault_key: doc.origin_vault_key.clone(),
                 })
             })
             .collect();
@@ -321,6 +322,7 @@ mod tests {
             domain: "note".to_string(),
             title: "x".to_string(),
             body: "y".to_string(),
+            origin_vault_key: None,
         });
         assert!(matches!(result, Err(ShadowError::InvalidInput { .. })));
     }
@@ -337,6 +339,7 @@ mod tests {
             domain: "note".to_string(),
             title: "shared".to_string(),
             body: "body shared body".to_string(),
+            origin_vault_key: None,
         })
         .unwrap();
         let hits = b.search("shared", "note", 5).unwrap();
@@ -356,6 +359,7 @@ mod tests {
             title: title.into(),
             body: body.into(),
             domain: "note".into(),
+            origin_vault_key: None,
         }
     }
 
@@ -374,6 +378,40 @@ mod tests {
         assert_eq!(hits[0].doc_id, "n1");
         assert!(hits[0].score > 0.0);
         assert_eq!(hits[0].source, "in-memory-substring");
+    }
+
+    #[test]
+    fn origin_vault_key_round_trips_through_search() {
+        // Sidecar metadata B.x — `origin_vault_key` set on a
+        // ShadowDocument must echo back on the matching ShadowHit so the
+        // host can apply the same lenient nil-passthrough vault filter
+        // the graph already uses.
+        let state = fresh_state();
+        state
+            .insert_document(ShadowDocument {
+                doc_id: "n-vk".into(),
+                title: "Kant on duty".into(),
+                body: "Categorical imperative discussion".into(),
+                domain: "note".into(),
+                origin_vault_key: Some("vault-alpha".into()),
+            })
+            .unwrap();
+        let hits = state.search("kant", "note", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].origin_vault_key.as_deref(), Some("vault-alpha"));
+    }
+
+    #[test]
+    fn origin_vault_key_nil_passthrough_preserved() {
+        // Docs inserted without a vault key emit hits with None — the
+        // lenient nil-passthrough contract documented on GraphNodeMetadata.
+        let state = fresh_state();
+        state
+            .insert_document(note("n-nil", "Title", "body"))
+            .unwrap();
+        let hits = state.search("body", "note", 10).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert!(hits[0].origin_vault_key.is_none());
     }
 
     #[test]
@@ -402,6 +440,7 @@ mod tests {
                 title: "x".into(),
                 body: "x".into(),
                 domain: "unknown".into(),
+                origin_vault_key: None,
             })
             .unwrap_err();
         assert!(matches!(err, ShadowError::InvalidInput { .. }));
@@ -416,6 +455,7 @@ mod tests {
                 title: "t".into(),
                 body: "b".into(),
                 domain: "note".into(),
+                origin_vault_key: None,
             })
             .unwrap_err();
         assert!(matches!(err, ShadowError::InvalidInput { .. }));
@@ -433,6 +473,7 @@ mod tests {
                 title: "kant chat".into(),
                 body: "kant chat body".into(),
                 domain: "chat".into(),
+                origin_vault_key: None,
             })
             .unwrap();
         let notes = state.search("kant", "note", 10).unwrap();
@@ -501,6 +542,7 @@ mod tests {
                 title: "x".into(),
                 body: "y".into(),
                 domain: "chat".into(),
+                origin_vault_key: None,
             })
             .unwrap();
         let stats = state.stats().unwrap();

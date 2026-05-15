@@ -368,6 +368,10 @@ impl ShadowBackend for RealBackend {
                     snippet: build_snippet(&doc.body, query),
                     score: rrf_score,
                     source: source.to_string(),
+                    // Mirror the indexed sidecar metadata back to the
+                    // search caller so the Swift host can apply the
+                    // same vault-filter contract used by the graph.
+                    origin_vault_key: doc.origin_vault_key.clone(),
                 })
             })
             .collect();
@@ -501,6 +505,7 @@ mod tests {
             domain: "note".to_string(),
             title: "Quarterly Report".to_string(),
             body: "Revenue grew by 12 percent across all regions.".to_string(),
+            origin_vault_key: None,
         };
         backend.insert_document(doc).unwrap();
 
@@ -529,6 +534,7 @@ mod tests {
                     domain: "note".to_string(),
                     title: "Persistent quarterly".to_string(),
                     body: "Revenue grew 12 percent across all regions.".to_string(),
+                    origin_vault_key: None,
                 })
                 .unwrap();
             backend.flush().unwrap();
@@ -557,6 +563,7 @@ mod tests {
                 domain: "note".into(),
                 title: "x".into(),
                 body: "report".into(),
+                origin_vault_key: None,
             })
             .unwrap();
         backend
@@ -565,6 +572,7 @@ mod tests {
                 domain: "chat".into(),
                 title: "y".into(),
                 body: "report".into(),
+                origin_vault_key: None,
             })
             .unwrap();
         let note_hits = backend.search("report", "note", 5).unwrap();
