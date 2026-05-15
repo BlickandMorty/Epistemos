@@ -257,6 +257,43 @@ struct FilterEngineTests {
                 "applyHumanVaultMode MUST restore user's pre-agent-mode customization, not snap to defaultActiveCases")
     }
 
+    @Test("resetForVaultLifecycle clears every filter back to default-active baseline")
+    func resetForVaultLifecycleClearsEveryFilterToBaseline() {
+        // Vault truth changing (disconnect → reconnect, switch active
+        // vault, etc.) must wipe every transient filter — type,
+        // edge-type, savedNodeTypes, focus, search, model — back to
+        // the canonical default. Without this, a stale focus or
+        // search filter persists across vault boundaries and the
+        // new vault renders as "no results" until the user manually
+        // clears the filter.
+        let engine = FilterEngine()
+        // Mutate every filter axis.
+        engine.setType(.folder, isVisible: true)
+        engine.setType(.document, isVisible: false)
+        engine.toggleEdgeType(.reference)
+        engine.applyAgentVaultMode()  // savedNodeTypes captured
+        engine.focusOn(nodeId: "x", connectedSet: ["x", "y"])
+        engine.searchFilter = "needle"
+        engine.setModelFilter(profileId: "p1", vaultKey: "v1")
+
+        engine.resetForVaultLifecycle()
+
+        #expect(engine.activeNodeTypes == Set(GraphNodeType.defaultActiveCases))
+        #expect(engine.activeEdgeTypes == Set(GraphEdgeType.visibleCases))
+        #expect(engine.focusedNodeId == nil)
+        #expect(engine.focusedConnected == nil)
+        #expect(engine.searchFilter.isEmpty)
+        #expect(engine.searchMatchedNodeIds == nil)
+        #expect(engine.selectedModelProfileId == nil)
+        #expect(engine.selectedVaultFilter == nil)
+        // savedNodeTypes is private. The behavioral proof that it's
+        // cleared: a follow-up `applyHumanVaultMode()` MUST land on
+        // `defaultActiveCases`, not on the pre-reset customization.
+        engine.applyHumanVaultMode()
+        #expect(engine.activeNodeTypes == Set(GraphNodeType.defaultActiveCases),
+                "resetForVaultLifecycle MUST clear savedNodeTypes so applyHumanVaultMode falls back to defaultActiveCases")
+    }
+
     @Test("human vault mode falls back to defaultActiveCases when never customized")
     func humanVaultModeFallsBackToDefaultActiveCasesWhenNeverCustomized() {
         // When `applyHumanVaultMode` runs without a prior
