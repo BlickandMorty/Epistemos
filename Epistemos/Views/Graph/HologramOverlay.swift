@@ -1424,6 +1424,20 @@ final class HologramOverlay {
         controlsHostView?.isHidden = !isCanvas
         sidebarHostView?.isHidden = !isCanvas
 
+        // User-authorized UI change 2026-05-14: hide the Metal canvas
+        // view itself when leaving graph route. Previously the engine
+        // was paused (last frame frozen) but the rendered nodes
+        // remained visible behind the note/folder panel — even with
+        // the panel's own blur on top, the static nodes bled around
+        // edges and showed through. Hiding the AppKit view stops the
+        // bleed entirely; the route panel's blur is what the user
+        // wants behind the note content, not the graph last frame.
+        // Renderer / camera / layout / edges / physics / hologram
+        // overlay visuals are UNTOUCHED — this is purely a `isHidden`
+        // flip on the NSView. Engine pause/resume below preserves the
+        // existing CVDisplayLink discipline.
+        metalView?.isHidden = !isCanvas
+
         if isCanvas {
             repositionInspector()
             updatePinnedInspectorPositions()
