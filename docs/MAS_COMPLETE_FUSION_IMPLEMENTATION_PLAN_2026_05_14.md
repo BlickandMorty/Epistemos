@@ -898,7 +898,7 @@ Per `MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` §6:
 ## 7. Cross-references
 
 ### Top floor
-- `CLAUDE.md` · `AGENTS.md` · `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` · `docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`
+- `CLAUDE.md` · `AGENTS.md` · `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` · `docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` · `docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` (native agent architecture, post-V1)
 
 ### Doctrines (every PR in B/C/D checks against these)
 - `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` (Phase D primary source)
@@ -936,6 +936,8 @@ Codex/Claude append rows here as items ship. Required fields: date · phase · i
 | 2026-05-14 | C.15 | Orphan/scaffold quarantine — KaTeXSnippets + KIVIQuantization + variant_ladder canonical SCAFFOLD-ONLY headers + RCA-P2-010 row closure | `06819a33a` | cargo build clean + xcodebuild BUILD SUCCEEDED + 3 surfaces marked + audit row updated | ✅ Wired+Reachable+Visible+Verified |
 | 2026-05-14 | C.6 | Vault Organizer V1 known-limitation tooltip (RCA2-P2-005) | `8547c0aa9` | xcodebuild BUILD SUCCEEDED + `.help(...)` tooltip on `.moveToFolder` row + audit row updated with V1.1 deferral note | ✅ Wired+Reachable+Visible+Verified |
 | 2026-05-14 | C.10 | CodeFileService canonical first-fix-pass collapse (RCA9-P0-001) | `504c2696d` | RCA9-P0-001 status flipped to PATCHED 2026-05-14 + canonical-owner pointer to RCA4-P0-001 + 5-test drift-gate suite cited by name | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-15 | (urgent) | list_notes auto-routes to vault.search on `query` param (RCA-LOCAL-AGENT-VAULT-LIST-001) — fixes user-reported "Qwen listed only 7 irrelevant notes" bug | `41be78202` | cargo test --lib => 1099 passed (up from 1098; +1 new auto-route source-guard test); tool description rewritten to nudge agents toward vault.search for relevance; total-count + alphabetical-disclaimer header added to list output | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-15 | design | Hermes Agent Core 2.0 design doc — native agent architecture with executor adapters (post-V1-MAS sequencing) | (this commit) | New canonical doc at `docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` (16 sections, ~600 lines) — covers AgentBlueprint, AgentExecutor trait, 5-layer architecture, MAS vs Pro split matrix, native tool surface (12 MAS + 10 Pro), local model routing strategy for M2 Pro 16GB, mapping of every commit shipped 2026-05-13/14/15 to the new architecture, 6-week implementation timeline, 6 test acceptance bars | ✅ Doctrine doc |
 
 ## 9. Atlas Drift Log
 

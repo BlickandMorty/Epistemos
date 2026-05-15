@@ -1,0 +1,566 @@
+# Hermes Agent Core 2.0 — Native Agent Architecture
+**Date:** 2026-05-15
+**Status:** v0.1 design (canonical target — sequenced after V1 MAS submission per Master Fusion plan)
+**Authority:** Doctrine doc. Lives at rank 4 of the authority chain, just below `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`. Replaces the scattered agent design notes across `IMPLEMENTATION_PLAN_FROM_ADVICE.md`, `project_helios_v5_substrate_landed.md`, and the `agent_runtime/` ad-hoc seams.
+
+> The architecture sentence:
+> *Epistemos agents are Hermes-governed native agents whose executor can be local, cloud, MCP, or Pro CLI, but whose memory, permissions, schemas, artifacts, and audit trail always belong to Epistemos.*
+
+---
+
+## 0. The single hardest problem this design solves
+
+The user's complaint: *"the agent feels demo-like. With the local Qwen model the agent listed only the first 7 vault notes which were not relevant."*
+
+That bug has TWO root causes — and the architecture in this doc fixes both:
+
+1. **Tool-choice drift** (small local models pick the wrong tool name). Fixed today via `list_notes → vault.search` auto-route on `query` param (commit `41be78202`). The design here generalizes that into the **Variant Ladder** (§7) so every tool route auto-promotes from cheap-deterministic to LLM-bound when needed.
+
+2. **Identity drift** (the agent feels owned by whichever model is serving the turn). Fixed by making **agent identity belong to Epistemos**: the user creates an `AgentBlueprint` once, picks a provider, and the same memory/tools/permissions/audit trail apply whether the brain is Local MLX, Anthropic, OpenAI Responses, or a Pro-only Claude Code CLI.
+
+---
+
+## 1. North star — agent identity belongs to Epistemos, not the provider
+
+User-facing model:
+
+```
+"Research Assistant"
+  Provider:    Claude Sonnet 4.5  (or: Local Qwen 3.6, OpenAI o3, …)
+  Memory:      Current vault + selected notes
+  Tools:       note.search, note.read, note.create, graph.search, web.search
+  Permissions: ask before writing
+  Output:      AnswerPacket + citations + RunEventLog
+```
+
+**Provider is replaceable.** Memory, tools, permissions, schema contracts, artifacts, and audit trail are NOT.
+
+This is the inverse of how Claude Code / Codex / Goose / OpenHands package agents — they assume their CLI is the agent. We package the agent and treat their CLI as one possible executor adapter.
+
+---
+
+## 2. The 5-layer architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Swift Agent UI                                                 │
+│    • Create Agent sheet (Simple mode + Expert mode)             │
+│    • RunEventLog timeline                                       │
+│    • Approval cards (SCOPE-Rex native approval UI)              │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  AgentBlueprint (Rust + Swift typed twins)                      │
+│    • id, display_name, system_prompt, persona                   │
+│    • provider_policy, model_policy, runtime_tier                │
+│    • tool_policy, memory_scope, output_contract                 │
+│    • budget, permission, checkpoint                             │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Hermes Agent Core (agent_core/src/agent_runtime/)              │
+│    • MissionPacket → Stream<AgentEvent> → AnswerPacket          │
+│    • ContextCondenser (6-layer compaction)                      │
+│    • ProviderRouter (privacy-class-aware fallback)              │
+│    • VariantLadder dispatch (every tool route)                  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  Executor Registry — every executor implements one trait        │
+│    ├── LocalMLXExecutor          (MAS-allowed)                  │
+│    ├── AnthropicMessagesExecutor (MAS-allowed)                  │
+│    ├── OpenAIResponsesExecutor   (MAS-allowed)                  │
+│    ├── OpenAICompatibleExecutor  (MAS-allowed; Ollama/LM Studio)│
+│    ├── MCPExecutor               (MAS-allowed if user-approved) │
+│    └── ProCLIExecutor            (Pro-only)                     │
+│        ├── ClaudeCodeAdapter                                    │
+│        ├── CodexCLIAdapter                                      │
+│        ├── GooseAdapter                                         │
+│        ├── AiderAdapter                                         │
+│        └── OpenHandsAdapter                                     │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  SCOPE-Rex Governance (every executor wrapped, never raw)       │
+│    • SovereignGate.validate_mission(&mission)                   │
+│    • SovereignGate.validate_event(&event)                       │
+│    • RunEventLog.record(&event) (typed, append-only)            │
+│    • TypedArtifact / MutationEnvelope / ClaimLedger             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The invariant the entire system pivots on:
+
+```
+MissionPacket  →  Stream<AgentEvent>  →  AnswerPacket + Artifacts
+```
+
+Every provider — local Qwen, Claude API, Codex CLI — has to produce events that shape.
+
+---
+
+## 3. AgentBlueprint — the typed agent identity
+
+`agent_core/src/agent_runtime/blueprint.rs` (new, replaces ad-hoc seams):
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentBlueprint {
+    pub id: AgentId,
+    pub display_name: String,
+    pub description: String,
+    pub persona: Option<String>,                  // optional persona prompt
+    pub system_prompt_template: SystemPromptSpec, // template + variable bindings
+    pub provider_policy: ProviderPolicy,
+    pub model_policy: ModelPolicy,
+    pub memory_scope: MemoryScope,
+    pub tool_policy: ToolPolicy,
+    pub permission_policy: PermissionPolicy,
+    pub output_contract: OutputContract,
+    pub budget: BudgetPolicy,
+    pub runtime_tier: RuntimeTier,
+    pub checkpoint_policy: CheckpointPolicy,
+    pub schema_rev: SchemaRev,                    // hash for migrations
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuntimeTier {
+    MasNative,    // App Store sandbox; HTTPS + local MLX + native tools only
+    ProCli,       // Pro direct-distribution; CLI subprocess adapters allowed
+    Research,     // Pro + research-tier features (Lean, falsifier, etc.)
+    Omega,        // Pro + research + experimental simulation paths
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ProviderPolicy {
+    LocalMLX { model_id: String, profile: LocalMLXRunProfile },
+    AnthropicMessages { model: String },
+    OpenAIResponses { model: String },
+    OpenAICompatible { base_url: String, model: String, api_key_keychain_account: Option<String> },
+    MCP { server_id: String },
+    ProCLI { adapter: CliAdapterKind, command: PathBuf, env_policy: EnvPolicy },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CliAdapterKind {
+    ClaudeCode,    // `claude` binary
+    Codex,         // `codex` binary
+    Goose,         // `goose` binary
+    Aider,         // `aider` binary
+    OpenHands,     // OpenHands local server adapter
+    SweAgent,      // mini-swe-agent runner
+}
+```
+
+This is the **single source of truth** for what an agent IS. Created once by the user, persisted in `vault/agents/<id>.json` (or `<id>.epbundle` if you want full provenance), loaded by the runtime when the user runs a mission.
+
+---
+
+## 4. The Executor trait — the spine that makes providers interchangeable
+
+```rust
+use async_trait::async_trait;
+use futures_core::Stream;
+use std::pin::Pin;
+
+pub type AgentEventStream =
+    Pin<Box<dyn Stream<Item = Result<AgentEvent, AgentError>> + Send>>;
+
+#[async_trait]
+pub trait AgentExecutor: Send + Sync {
+    fn id(&self) -> ExecutorId;
+    fn capabilities(&self) -> ExecutorCapabilities;
+    async fn execute(
+        &self,
+        packet: MissionPacket,
+        ctx: ExecutionContext,
+    ) -> Result<AgentEventStream, AgentError>;
+}
+```
+
+`MissionPacket` and `AgentEvent` are the load-bearing structs — every provider serializes its native protocol into these types before crossing back into Epistemos.
+
+### 4.1 The five canonical AgentEvent variants
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AgentEvent {
+    SessionStarted(SessionStarted),
+    ModelStarted(ModelStarted),
+    ModelDelta(ModelDelta),
+    ToolProposed(ToolCallEnvelope),
+    ApprovalRequested(ApprovalRequest),
+    ApprovalResolved(ApprovalDecision),
+    ToolStarted(ToolStarted),
+    ToolOutput(ToolOutput),
+    ArtifactProposed(TypedArtifact),
+    MutationProposed(MutationEnvelope),
+    MutationCommitted(MutationEnvelope),
+    CheckpointSaved(Checkpoint),
+    SessionCompacted(ContextCompaction),
+    SessionCompleted(AnswerPacket),
+    SessionFailed(AgentFailure),
+}
+```
+
+The UI renders this as a timeline, not raw logs. The user SEES what the agent is doing.
+
+---
+
+## 5. SCOPE-Rex governance wrapper — every executor wrapped, never raw
+
+This is the single most important invariant:
+
+```rust
+pub struct GovernedExecutor<E> {
+    inner: E,
+    policy: Arc<SovereignGate>,
+    log: Arc<RunEventLog>,
+}
+
+#[async_trait]
+impl<E: AgentExecutor> AgentExecutor for GovernedExecutor<E> {
+    async fn execute(&self, packet: MissionPacket, ctx: ExecutionContext)
+        -> Result<AgentEventStream, AgentError>
+    {
+        self.policy.validate_mission(&packet, &ctx).await?;
+        self.log.record(AgentEvent::SessionStarted(/* … */)).await?;
+
+        let stream = self.inner.execute(packet, ctx).await?;
+        Ok(Box::pin(stream.then({
+            let policy = self.policy.clone();
+            let log = self.log.clone();
+            move |event| {
+                let policy = policy.clone();
+                let log = log.clone();
+                async move {
+                    let event = event?;
+                    policy.validate_event(&event).await?;
+                    log.record(event.clone()).await?;
+                    Ok(event)
+                }
+            }
+        })))
+    }
+}
+```
+
+**No executor emits an event the policy layer did not inspect.** This is what makes Hermes 2.0 fundamentally different from Goose / OpenHands / Claude Agent SDK — in those systems the agent is the policy. Here Epistemos is the policy.
+
+---
+
+## 6. MAS vs Pro split — the clearest line in the design
+
+Per `MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` + Apple App Review Guideline 2.5.2:
+
+| Capability | MAS | Pro | Why |
+|---|---|---|---|
+| Anthropic Messages API | ✅ | ✅ | HTTPS only |
+| OpenAI Responses API | ✅ | ✅ | HTTPS only |
+| OpenAI-compatible localhost (Ollama, LM Studio) | ✅ | ✅ | localhost HTTPS; user controls server |
+| Local MLX in-process | ✅ | ✅ | no subprocess; in-app inference |
+| MCP client (user-approved) | ✅ | ✅ | gated by SovereignGate consent |
+| Native Epistemos tools (note.*, graph.*, …) | ✅ | ✅ | in-app, schema-bound |
+| Claude Code CLI subprocess | ❌ | ✅ | spawns `claude` binary |
+| Codex CLI subprocess | ❌ | ✅ | spawns `codex` binary |
+| Goose CLI subprocess | ❌ | ✅ | spawns `goose` binary |
+| Aider subprocess | ❌ | ✅ | spawns `aider` binary |
+| OpenHands local server | ❌ | ✅ | spawns Python server |
+| SWE-agent / mini-SWE | ❌ | ✅ | subprocess + Docker risk |
+| Arbitrary shell tool | ❌ | ✅ | bash_execute Pro-only |
+| Browser automation | ❌ | ✅ | computer-use Pro-only |
+| iMessage outbound channel | ❌ | ✅ | osascript Pro-only |
+| Web search (HTTP) | ✅ | ✅ | HTTPS; cited in approval card |
+| File system writes outside vault | ❌ | ✅ | sandbox forbids on MAS |
+
+CI gate stays: `strings` + `nm -gU` on the MAS bundle must return zero matches for the Pro-only allowlist (`bash_execute`, `cli_passthrough`, `osascript`, etc.).
+
+---
+
+## 7. The native Epistemos tool surface — 12 MAS + 10 Pro
+
+### 7.1 MAS-allowed (the spine)
+
+| Tool | Purpose | VariantLadder tiers |
+|---|---|---|
+| `vault.search` | Relevance-ranked note search (BM25 + embeddings + RRF) | T1 Tantivy → T2 embedding → T3 RRF fused |
+| `vault.read` | Read a vault-relative path | T1 only |
+| `vault.list` | Browse paths under a folder (auto-routes to vault.search on `query`; **shipped 41be78202**) | T1 + auto-route to T1/T2/T3 of vault.search |
+| `note.create` | Create a new note (with frontmatter, tags) | T1 + contradiction-detection pre-flight |
+| `note.edit` | Edit an existing note (typed diff) | T1 + readback verify |
+| `graph.search` | Find graph nodes by query | T1 + T2 |
+| `graph.neighbors` | List neighbors of a graph node | T1 only |
+| `research.collect_snippet` | Save a snippet to vault with citation | T1 |
+| `citation.save` | Persist a citation record | T1 |
+| `research.search_papers` | Search Semantic Scholar / arXiv | T1 HTTP only |
+| `web.search` | HTTPS web search (user-approval card) | T1 HTTP only |
+| `ask_user` | Surface a clarify card (uses `epistemos.clarify.v1` GenUI schema) | T1 only |
+
+### 7.2 Pro-additional
+
+| Tool | Purpose |
+|---|---|
+| `repo.map` | Aider-style repo map (RepoContextGraph) |
+| `repo.read_file_window` | SWE-agent custom file viewer |
+| `repo.search` | tree-sitter symbol search |
+| `repo.apply_patch` | Apply unified diff (with rollback checkpoint) |
+| `repo.run_tests` | Run targeted test (sandboxed; explicit approval) |
+| `repo.git_diff` | Show unstaged diff |
+| `repo.git_commit` | Commit staged changes |
+| `shell.run_approved` | bash_execute (per-command approval) |
+| `cli.delegate` | Hand off to Claude Code / Codex / Goose / Aider |
+| `mcp.call` | Invoke a user-installed MCP tool |
+
+### 7.3 Per-tool typed metadata
+
+Every tool MUST declare:
+
+```rust
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub input_schema: serde_json::Value,
+    pub output_schema: serde_json::Value,
+    pub capability: Capability,
+    pub mutation_kind: MutationKind,
+    pub approval: ApprovalMode,
+    pub availability: ToolAvailability,
+    pub variant_ladder: VariantLadderSpec,   // tier configuration
+    pub weight_class: CognitiveWeight,       // W1 metadata for ranking
+}
+```
+
+`ToolAvailability::Mas | Pro | Research | Omega` already exists conceptually in `ToolSurfacePolicy.coreAppStoreAllowedToolNames` — the new design just makes it a typed field on every tool.
+
+---
+
+## 8. Local model strategy — fusing models into a unified Epistemos brain
+
+### 8.1 Hardware reality (M2 Pro 16GB — `V6_2_HARDWARE_LOCK`)
+
+Realistic budget:
+- Total unified memory: 16 GB
+- OS + Swift app: ~4 GB
+- KV cache @ 32k context: ~1.5 GB (with KIVI 2-bit quantization scaffolded at W9.30)
+- Model + working tensors: ~9-10.5 GB usable
+
+So a 4-bit 7B-12B is the sweet spot. A 4-bit MoE 30B-35B-A3B (3B active) lands at ~9 GB on disk + ~3 GB active KV — fits, with care.
+
+### 8.2 The "Epistemos local brain" — a routed fusion, not a single model
+
+Don't commit to one model. **Route by task**:
+
+| Task class | Model | Why | RAM |
+|---|---|---|---|
+| Default chat (`canActAsAgent: false` for tool calls; great for direct stream) | **Gemma 4 4B-it 4-bit** | strong long-context (1M tokens for gemma 3 27B family); excellent base for natural assistant turn | ~2.5 GB |
+| Long-context document analysis | **Gemma 3 27B-QAT 4-bit** | 1M token context; QAT recovers quant loss; best-in-class for "read this whole 200-page doc" | ~12 GB (hot path; expect swap) |
+| Agentic tool calling (Hermes `<tool_call>` grammar) | **Qwen 3.6 35B-A3B Unsloth 4-bit** | MoE 3B-active → fast; Unsloth quant preserves the Hermes-style tool-call grammar that MLXStructured enforces | ~9 GB |
+| Coding agent | **Qwen3-Coder 30B-A3B Instruct 4-bit** | trained on code + tool-use; same `<tool_call>` grammar; MoE so fast | ~9 GB |
+| Reasoning / planning | **DeepSeek-R1-Distill-Qwen-7B 4-bit** | distilled R1 reasoning into a 7B body; great for the planner role | ~4 GB |
+| Speed-critical short turn | **LFM2 2.6B 4-bit** | SSM hybrid; ultra-fast | ~1.5 GB |
+| Hybrid SSM long-context | **Falcon-H1R 7B 4-bit** | hybrid Mamba-attention; fast on long context | ~4 GB |
+| Voice / quick capture | **Jamba Reasoning 3B BF16** | tiny + reasoning-trained; perfect for ambient capture summarization | ~6 GB BF16 |
+
+**Routing policy** (`agent_core/src/agent_runtime/local_router.rs` — new):
+
+```rust
+pub fn select_local_model(packet: &MissionPacket, available_ram_gb: f32) -> LocalTextModelID {
+    use MissionIntent::*;
+
+    match (packet.intent(), available_ram_gb) {
+        (AgenticToolCalling, ram) if ram >= 9.0 => Qwen36_35BA3B_Unsloth4Bit,
+        (CodingAgent, ram)        if ram >= 9.0 => Qwen3Coder30BA3B4Bit,
+        (LongDocumentAnalysis, ram) if ram >= 12.0 => Gemma3_27BQAT4Bit,
+        (Planning, _)             => DeepseekR1Distill7B,
+        (DirectChat, _)           => Gemma4_4B4Bit,
+        (QuickCapture, _)         => Lfm2_2B4Bit,
+        // … fallback to gemma4_4b as the universal default
+        _ => Gemma4_4B4Bit,
+    }
+}
+```
+
+### 8.3 Why NOT a single fused MoE?
+
+Tempting answer: train one custom MoE that combines Gemma's long-context with Qwen's tool-calling. Reality on M2 Pro 16GB:
+
+- A 4-bit 16-expert MoE @ 4B-A1B would land ~5-6 GB resident
+- Training requires GPU rental or Mac Studio M2 Ultra; not feasible on the user's laptop
+- The expert-selection routing introduces latency penalty when the "wrong" expert is chosen
+- Goodfire VPD distillation (V6.1 5-plane research) is a *future* path, but it's labelled `canonical_target_not_implemented_here` in the V6.1 reality matrix — don't bet V1 on it
+
+**Routed fusion** (select the right OFF-THE-SHELF model per task) beats trying to train one custom model that does everything mediocre, given the user's hardware constraint.
+
+The "Epistemos brain" identity comes from the **MissionPacket + SCOPE-Rex governance + RunEventLog**, not from the underlying weights.
+
+---
+
+## 9. Schema-first contracts — wired into `epistemos.*.v1` schemas (B.5)
+
+The `epistemos.{soul,skill,episode,semantic}.v1.schema.json` files shipped today (commit `9b7629752`) are exactly the typed contracts Hermes 2.0 needs:
+
+| Schema | Role in Hermes 2.0 |
+|---|---|
+| `epistemos.soul.v1` | One per user-model pairing. Holds preferences, agent persona, identity layer. Loaded into every AgentBlueprint at runtime. |
+| `epistemos.skill.v1` | Voyager-style skill library entries. Loaded into `tool_policy.skills`. Skills marketplace surfaces them. |
+| `epistemos.episode.v1` | Every RunEventLog entry that crosses the "remembered" threshold gets persisted as an episode. |
+| `epistemos.semantic.v1` | ClaimLedger entries — atemporal facts. Hermes 2.0 emits these via `MutationProposed → ClaimLedger::record()`. |
+
+So `MutationEnvelope` already validates payloads against these schemas — every `AgentEvent::ArtifactProposed` / `MutationProposed` flows through that validator.
+
+---
+
+## 10. Variant Ladder integration (B.1) — the universal dispatch shape
+
+`agent_core/src/variant_ladder/mod.rs` (marked SCAFFOLD-ONLY today in commit `06819a33a`) becomes the canonical dispatch path for every tool route in Hermes 2.0.
+
+```rust
+let ladder: VariantLadder<SearchQuery, SearchResults> = VariantLadder::new()
+    .tier_1(deterministic_tantivy_bm25)    // floor ≥ 0.85
+    .tier_2(embedding_search)              // floor ≥ 0.75
+    .tier_3(rrf_fused_search)              // floor ≥ 0.70
+    .tier_4(grammar_bound_llm_search)      // escalate only on user opt-in
+    .escalate_on_empty(false)              // RCA-A3 default
+    .log_to(provenance_console);
+
+let result = ladder.dispatch(query, ctx).await?;
+```
+
+Every `tool.execute()` becomes:
+
+```rust
+async fn execute(&self, input: Value, ctx: ExecutionContext) -> Result<String, ToolError> {
+    self.variant_ladder.dispatch(input, ctx).await
+}
+```
+
+This is how we make the agent feel "smart" — not by giving it a bigger model, but by making every tool capable of escalating from cheap-deterministic to LLM-bound when needed, AND of staying cheap when not.
+
+---
+
+## 11. The work shipped this week explicitly maps into Hermes 2.0
+
+| Shipped 2026-05-13/14/15 | Hermes 2.0 surface |
+|---|---|
+| LockBusy retry + read-only fallback (`f7f3c273a`) | Foundation: vault writer reliability is the prerequisite for `note.create` / `note.edit` in any executor. |
+| Gemma/Mistral excluded from `canActAsAgent` (`930b86989`) | `ProviderPolicy::LocalMLX` capability layer. Gemma stays available for `DirectChat` intent; only blocked for `AgenticToolCalling`. |
+| `epistemos.{soul,skill,episode,semantic}.v1` schemas (`9b7629752`) | The typed contracts §9 describes. |
+| `/image` hidden until provider lands (`e48205e3b`) | Honest capability gating — Hermes 2.0 follows the same rule for every executor. |
+| Graph hide on note route (`2e356269b` + `8e371de91`) | Surface-isolation discipline. Same pattern for executor-specific UI panels. |
+| Orphan scaffold quarantine (`06819a33a`) | Cleared `variant_ladder/`, `KaTeXSnippets`, `KIVIQuantization` so they can be promoted cleanly when Hermes 2.0 wires them. |
+| Vault Organizer V1 known-limitation tooltip (`8547c0aa9`) | Honesty surface — same rule applies to executor capabilities. |
+| CodeFileService canonical fix-pass collapse (`504c2696d`) | First example of "the structural fix is in place; the design doc names it canonically" — exactly the discipline Hermes 2.0 demands across all 30+ tools. |
+| `list_notes` auto-route to `vault.search` (`41be78202`) | First concrete instance of Variant Ladder dispatch — tool auto-promotes from path-list (T1) to relevance-ranked (T1/T2/T3 of vault.search) on intent signal. |
+
+All forward-compatible. Hermes 2.0 doesn't require rewriting any of these.
+
+---
+
+## 12. The 6-week implementation timeline (post-V1-MAS-submission)
+
+Per Master Fusion Plan §B + §D acceptance bars, Hermes 2.0 starts AFTER:
+- ✅ Phase A V1 ship gates resolved (user side)
+- ✅ Phase B core items (B.1 Variant Ladder retrofit, B.4 reasoning cap, B.5 schemas) merged
+- ✅ Phase C core items (C.1, C.7, C.8, C.11, C.12, C.16, C.17) merged
+- ✅ Phase D Stage 1 (D.1 VaultXPC + D.2 CapabilityGrant) merged
+- ✅ V1 MAS submitted
+
+Then Hermes 2.0 lands in 6 weeks:
+
+| Week | Goal | Artifacts |
+|---|---|---|
+| **1** | Make agents actually run | `AgentBlueprint`, `MissionPacket`, `AgentEvent`, `AgentExecutor` trait, `AnthropicMessagesExecutor`, `OpenAIResponsesExecutor`, Swift run sheet, `RunEventLog` timeline. **Pass:** user runs one agent and sees streamed events. |
+| **2** | Native tools | `note.search` / `note.read` / `note.create` / `note.edit` / `graph.search` / `ask_user` + tool approval UI. **Pass:** agent creates a note from current note context. |
+| **3** | SCOPE-Rex governance | `GovernedExecutor` wrapper, `SovereignGate.validate_*`, `RunEventLog` schema, `MutationEnvelope` enforced on every artifact. **Pass:** no tool executes without policy gate + event log. |
+| **4** | Local model path | `LocalMLXExecutor`, `OpenAICompatibleExecutor` (Ollama / LM Studio), provider router, Keychain BYOK. **Pass:** same agent runs on cloud OR local provider; routing decided by `ProviderPolicy`. |
+| **5** | Repo tools (Pro only) | `RepoContextGraph` (Aider-style repo map), `repo.read_file_window` (SWE-agent custom viewer), `repo.apply_patch` with rollback checkpoint. **Pass:** agent proposes patch but cannot apply without approval. |
+| **6** | Pro CLI adapters | `ClaudeCodeAdapter`, `CodexCLIAdapter`, `GooseAdapter`, `AiderAdapter`, `OpenHandsAdapter`, Pro-only entitlement gate. **Pass:** Pro build launches Claude Code as governed executor; MAS build cannot import the module. |
+
+**MVP shipped at end of Week 2:** "Run Native Research Agent" on a note → outline + 3 citations + propose new note → user approves save → `AnswerPacket` returned + RunEventLog timeline shown.
+
+---
+
+## 13. Tests + acceptance bars
+
+```rust
+// 1. Smoke test
+"Create a note called Agent Test with one sentence"
+  → AgentEvent::ToolProposed(note.create)
+  → ApprovalRequested → ApprovalResolved::Approved
+  → ToolStarted → ToolOutput
+  → ArtifactProposed(TypedArtifact)
+  → MutationCommitted → SessionCompleted(AnswerPacket)
+  → Note visible in UI
+  → RunEventLog has the full timeline
+
+// 2. Tool denial test
+"Delete all notes"
+  → ToolProposed(note.delete_many) [doesn't exist; ApprovalDecision::DeniedByPolicy]
+  → SovereignGate denies
+  → SessionFailed(AgentFailure::PolicyDenial)
+  → User sees denial card; no mutation
+
+// 3. Provider fallback test
+Anthropic unavailable
+  → ProviderRouter falls back to OpenAI (or local) per policy
+  → RunEventLog records the fallback decision
+  → User sees "fallback to local Qwen" badge
+
+// 4. Schema conformance test
+LLM emits malformed AnswerPacket
+  → MutationEnvelope rejects with SchemaViolation
+  → SessionFailed(AgentFailure::SchemaConformance)
+  → No silent markdown fallback
+
+// 5. Pro CLI gating test
+MAS build attempts CliExecutor
+  → compile-time `#[cfg(feature = "pro-build")]` excludes the module
+  → If somehow runtime: CapabilityDenied error
+  → MAS bundle leak audit passes (zero matches)
+
+// 6. Patch rollback test
+Agent proposes patch
+  → ApprovalResolved::Approved
+  → repo.apply_patch creates checkpoint
+  → Lint/test fail
+  → checkpoint restored
+  → UI shows rollback card with reason
+```
+
+---
+
+## 14. Open questions deliberately deferred
+
+1. **Sub-agents (Claude Agent SDK pattern)**. The design includes `AgentEvent::ToolProposed → agent.spawn_subagent` but the implementation is post-V1.
+2. **Multi-agent ACS** (V2.7 per `post_recovery_v2_plan`). Same.
+3. **Context condenser** (OpenHands-style 6-layer compaction). Implementation lives in `agent_core/src/compaction.rs` today; needs to be wired into the `AgentExecutor` lifecycle in Week 3.
+4. **Repo map ranking** (Aider's graph-centrality algorithm). Rust port lives in `epistemos-repo-map` crate (new); Week 5 deliverable.
+5. **MCP marketplace** (OpenClaw / Goose extensions). Post-V1; needs SovereignGate consent UI.
+6. **Goodfire VPD distillation** for a custom Epistemos brain MoE. V6.1 research-tier; explicitly NOT on the V1 path.
+
+---
+
+## 15. Cross-references
+
+- `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` — overall sequencing
+- `docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` — Atlas of primitives
+- `docs/fusion/COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md` — §10 source
+- `docs/fusion/COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md` — kernel collapse philosophy
+- `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` — Wave F XPC services that Hermes 2.0 will run inside
+- `docs/fusion/MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` — Pro gating discipline
+- `docs/fusion/HONEST_HANDLE_FFI_DOCTRINE_2026_05_04.md` — FFI contracts
+- `agent_core/schemas/README.md` — typed contracts
+- `agent_core/src/agent_runtime/` — current in-process agent runtime (this design supersedes its ad-hoc seams)
+- `agent_core/src/variant_ladder/mod.rs` — typed dispatch seam (orphan; promoted to canonical here)
+
+---
+
+## 16. Architecture sentence (for repetition)
+
+> *Epistemos agents are Hermes-governed native agents whose executor can be local, cloud, MCP, or Pro CLI, but whose memory, permissions, schemas, artifacts, and audit trail always belong to Epistemos.*
+
+That sentence is the test for every PR touching the agent surface. If a change makes a provider's identity bleed into Epistemos, reject the change.
+
+---
+
+*— End of Hermes Agent Core 2.0 design v0.1. 16 sections. Lands AFTER V1 MAS submission per the Master Fusion Plan sequencing.*
