@@ -987,6 +987,54 @@ mod tests {
     }
 
     #[test]
+    fn ladder_walk_record_from_walk_preserves_deferred_outcome() {
+        // The other half of the from_walk contract: a walk that did NOT
+        // resolve (every tier declined or was skipped by policy) must
+        // still produce a usable LadderWalkRecord with the full
+        // declined-attempt trail. The audit surface needs to show "we
+        // tried these variants in this order and none returned" so the
+        // user can spot a stuck ladder. Resolution=None on the walk
+        // becomes "no Accepted outcome in the attempts list" on the
+        // record.
+        use crate::variant_ladder::LadderTier;
+        let walk = LadderWalk::<String> {
+            resolution: None,
+            attempts: vec![
+                LadderAttempt {
+                    tier: LadderTier::Deterministic,
+                    variant_name: "vault_search.t1.lexical_bm25".to_string(),
+                    outcome: LadderAttemptOutcome::Declined,
+                },
+                LadderAttempt {
+                    tier: LadderTier::Classical,
+                    variant_name: "vault_search.t3.rrf_hybrid".to_string(),
+                    outcome: LadderAttemptOutcome::Declined,
+                },
+                LadderAttempt {
+                    tier: LadderTier::Cloud,
+                    variant_name: "vault_search.t6.cloud_synth".to_string(),
+                    outcome: LadderAttemptOutcome::SkippedByPolicy,
+                },
+            ],
+        };
+
+        let record = LadderWalkRecord::from_walk("span-deferred", "vault_search", &walk);
+
+        assert_eq!(record.attempts.len(), 3);
+        assert!(record
+            .attempts
+            .iter()
+            .all(|a| a.outcome != LadderAttemptOutcome::Accepted),
+            "deferred walk MUST NOT have any Accepted attempt — the audit surface relies on that invariant");
+        // The SkippedByPolicy entry survives — this is the load-bearing
+        // signal that the ladder hit EscalationPolicy::Never on T4+.
+        assert!(record
+            .attempts
+            .iter()
+            .any(|a| a.outcome == LadderAttemptOutcome::SkippedByPolicy));
+    }
+
+    #[test]
     fn v3_walk_input_order_is_irrelevant() {
         // Two bundles built from the same walk set in opposite orders
         // must emit identical bytes (build-time sort guarantees this).
