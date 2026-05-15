@@ -529,6 +529,117 @@ Agent proposes patch
 
 ---
 
+## 13.5 Distillation from 2026-05-15 second research wave (refines §8 + §10)
+
+A second pass of cross-research (Goose multi-provider Rust core / OpenHands typed-event SDK / SWE-agent ACI / Aider repo-map ranking / OpenClaw channel gateway) returned five concrete refinements to the design above. None of them changes the §1 architecture sentence; all of them sharpen specific sections.
+
+### 13.5.1 Refined local-model lineup — benchmark-grounded, not just RAM-grounded
+
+The §8.2 table was RAM-budget-driven. The new research backs that with HumanEval scores + adds three models we don't currently expose in `LocalTextModelID`. Adding them to the enum is V2.x work (new model HuggingFace IDs + capability rows); cataloging them as doctrine targets here unblocks that work later.
+
+| Task class | Recommended (new) | HumanEval (cited) | RAM 4-bit | In catalog today? |
+|---|---|---|---|---|
+| Coding agent — primary | **Qwen 3.5 7B** | ~76/100 | ~5-6 GB | ❌ (we have 35B-A3B Unsloth, not 3.5 7B) |
+| Coding agent — backup | **Qwen3-Coder 30B-A3B** | grammar-bound | ~9 GB | ✅ |
+| Reasoning / planning | **Phi-4 14B** | strong | ~8 GB | ❌ (V2.x add) |
+| Quick sub-tasks | **Phi-4-mini 3.8B** | light reasoning | ~2.5-4 GB | ❌ (V2.x add) |
+| Default chat | Gemma 4 4B (kept) | natural assistant | ~2.5 GB | ✅ |
+| Speed-critical | LFM2 2.6B (kept) | SSM hybrid | ~1.5 GB | ✅ |
+| Tiny QA / translation | **Nemotron Nano 4B** | tiny | ~3-4 GB | ❌ (V2.x add) |
+| Long doc analysis | Gemma 3 27B QAT (kept) | 1M token context | ~12 GB | ✅ |
+
+Action: when the Hermes 2.0 implementation lands (post-V1), the V2.x model catalog expansion adds Phi-4 14B / Phi-4-mini 3.8B / Nemotron Nano 4B as `LocalTextModelID` cases with capability rows. Until then, the `select_local_model` router in §8.2 uses the available substitutes (Qwen 3.6 35B-A3B Unsloth where Qwen 3.5 7B would have been; DeepSeek-R1-Distill 7B where Phi-4 14B would have been).
+
+### 13.5.2 The 4-layer local brain (refines §8 routing)
+
+The second wave made the routing-by-task-class pattern explicit as a 4-layer architecture:
+
+```
+┌────────────────────────────────────────┐
+│  Controller (Rust — Hermes Agent Core) │   selects sub-task + executor
+│  • MissionPacket.intent()              │
+│  • select_local_model(packet, ram)     │
+└────────────────────────────────────────┘
+                  ↓
+   ┌──────────────┬────────────────┬────────────────┐
+   ↓              ↓                ↓                ↓
+┌─────────┐  ┌─────────┐    ┌─────────┐      ┌─────────┐
+│Reasoning│  │ Coding  │    │  Tiny   │      │ Chat    │
+│Phi-4 14B│  │Qwen 3.5 │    │Phi-4    │      │Gemma 4  │
+│ (8 GB)  │  │ 7B (6GB)│    │mini /   │      │ 4B      │
+│         │  │         │    │Nemotron │      │(2.5GB)  │
+└─────────┘  └─────────┘    └─────────┘      └─────────┘
+   plan        edit          quick QA          direct
+   outline     patch         translation       stream
+```
+
+The `Controller` (Rust) chooses which "brain" answers a turn. A single agent run can hop between brains: outline (Reasoning) → write code (Coding) → polish (Reasoning) → name suggestions (Tiny). Because the entire stream still flows through MissionPacket → AgentEvent → SCOPE-Rex, the user sees one timeline; the model swap is invisible at the audit layer.
+
+This is the practical answer to "should I train one custom MoE?" — no. **Route between off-the-shelf specialists** that already exist on HuggingFace + MLX-community.
+
+### 13.5.3 Contextual retrieval — wire it through the existing Halo Shadow stack
+
+The "first 7 irrelevant notes" bug had ONE specific fix today (commit `41be78202` — `list_notes` auto-routes to `vault.search`). The second research wave reframes the WHY: every agent retrieval should be a RAG-style pipeline (embedding + BM25 hybrid), not a list-and-pray.
+
+We already have the substrate:
+- `Epistemos-shadow` (Rust crate, BM25 + HNSW + RRF fusion at k=60)
+- `RRFFusionQuery.swift` (Swift mirror + `SearchFusionMetrics`)
+- `RustShadowFFIClient` (production FFI)
+- `ShadowVaultBootstrapper` (crawls `<vault>/notes/**/*.md` + `<vault>/chats/**/*.json`)
+
+So the work isn't to BUILD retrieval. The work is to make every agent retrieval tool **route through Shadow by default** — which is exactly what the §B.1 Variant Ladder retrofit accomplishes for `vault.search`. The B.2 tool registry (committed `c2b7eaab5`) already documents which tools populate T1/T2/T3 (BM25 / embedding / RRF-fused).
+
+This locks the pattern: every retrieval tool's Variant Ladder MUST include the Shadow fusion path at T3. Tools that don't (e.g. `vault.list` pre-auto-route) are stamped with the alphabetical-not-relevance disclaimer.
+
+### 13.5.4 Repo map ranking — PageRank-by-dependency-graph, not just file order
+
+§5 of the design + §B.1 retrofit reference Aider's repo-map but didn't pin the ranking algorithm. The second research wave makes it explicit:
+
+> Aider's docs explain that it sends a concise map of key files, classes, methods, signatures, and relevant symbols to the model, then ranks the map by dependency graph relevance and token budget.
+
+For `repo.map` (Pro tool — §7.2), this means:
+
+```rust
+pub fn rank_repo_context(
+    graph: &RepoContextGraph,
+    query: &str,
+    changed_files: &[PathBuf],
+    token_budget: usize,
+) -> RepoMapSlice {
+    // 1. lexical query match (T1 BM25 over symbol names + signatures)
+    // 2. changed-file proximity (BFS from `changed_files` over `Imports` / `Calls` edges)
+    // 3. dependency centrality (PageRank with damping=0.85 over the directed
+    //    edge graph — same heuristic Aider uses)
+    // 4. symbol importance (boost public exports + types + tests)
+    // 5. token budget packing (greedy fill to budget, dropping
+    //    lower-scoring entries first)
+    todo!() // V2.x implementation lands in Pro repo tools (Week 5 of the timeline §12)
+}
+```
+
+This is doctrine — the actual code lives in a new `epistemos-repo-map` crate per §15 layout. Pinning the algorithm now means the V2.x PR has a single sentence to satisfy.
+
+### 13.5.5 OpenClaw channel-gateway pattern — gated post-V1.1
+
+The second wave surfaces OpenClaw's idea of a multi-channel gateway (iMessage / Slack / Discord / etc. as agent inbound channels). Already in the Substrate Track Register as **Phase K — iMessage as Channel** with Pro-only workspace-scoped dispatch profiles. **Stays excluded from V1**; the design here points at it without owning it.
+
+### 13.5.6 Net update to the §13 acceptance bars
+
+Add **test #7 to §13**:
+
+```rust
+// 7. RAG retrieval relevance test
+"Find notes about state space models in my vault"
+  → AgentEvent::ToolProposed(vault.search) [NOT list_notes]
+  → vault.hybrid_search returns RRF-fused top-N
+  → results have score ≥ FLOOR_T3 (0.70)
+  → user sees relevance-ranked notes (not alphabetical first-N)
+```
+
+This pins the user's specific reported bug ("Qwen listed only 7 irrelevant notes") into the acceptance bar so any future regression fails CI.
+
+---
+
 ## 14. Open questions deliberately deferred
 
 1. **Sub-agents (Claude Agent SDK pattern)**. The design includes `AgentEvent::ToolProposed → agent.spawn_subagent` but the implementation is post-V1.
