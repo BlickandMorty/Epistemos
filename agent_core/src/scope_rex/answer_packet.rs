@@ -384,6 +384,39 @@ mod tests {
     }
 
     #[test]
+    fn attention_mode_serializes_in_snake_case_with_safe_default() {
+        // V6.1's `attention_mode` field crosses the FFI to the Swift
+        // `AnswerPacket` mirror. Wire format pinned here so the two
+        // sides can't drift. `static_fallback` is the load-bearing
+        // compound — without this gate, a serde rename quirk could
+        // emit `staticfallback` or `static-fallback` and silently
+        // orphan every prior packet.
+        use serde_json::to_string;
+        assert_eq!(to_string(&AttentionMode::Dynamic).unwrap(), "\"dynamic\"");
+        assert_eq!(
+            to_string(&AttentionMode::StaticFallback).unwrap(),
+            "\"static_fallback\""
+        );
+        assert_eq!(
+            to_string(&AttentionMode::Unavailable).unwrap(),
+            "\"unavailable\""
+        );
+
+        // The Default impl backstop: pre-V6.1 packets that omit
+        // `attention_mode` MUST decode to `Unavailable`, not silently
+        // claim Dynamic. (The Default impl already enforces this at
+        // the type level; this assertion pins it at the test level so
+        // a future rewrite of Default doesn't shift the safety contract.)
+        assert_eq!(AttentionMode::default(), AttentionMode::Unavailable,
+                   "pre-V6.1 packets MUST decode to Unavailable — never Dynamic by accident");
+
+        // Round-trip in: historic packets with the canonical strings
+        // must decode cleanly.
+        let m: AttentionMode = serde_json::from_str("\"static_fallback\"").unwrap();
+        assert_eq!(m, AttentionMode::StaticFallback);
+    }
+
+    #[test]
     fn residency_signal_neutral_is_safe_default() {
         let s = ResidencySignal::neutral();
         // Per §1.13 thresholds, a neutral signal must NOT trip
