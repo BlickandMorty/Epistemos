@@ -209,7 +209,13 @@ where
 
     /// Walk the ladder; first variant to return `Some` wins. Returns
     /// the (resolved-by tier, name, output) so audit logs can record
-    /// which variant resolved.
+    /// which variant resolved. The `attempts` field on the returned
+    /// resolution carries the full audit trail (every variant tried
+    /// including the winning one as the last entry).
+    ///
+    /// Convenience wrapper over [`resolve_walk`] for callers that only
+    /// care about the resolution. For full audit-trail-when-the-ladder-
+    /// declined behavior, use `resolve_walk` directly.
     ///
     /// Honors `escalation_policy`:
     /// - `Never` (default): skip any variant whose tier is > Tier 3.
@@ -221,22 +227,58 @@ where
     ///   readability + symmetry.)
     /// - `Always`: walk all tiers in order.
     pub async fn resolve(&self, input: &Input) -> Option<LadderResolution<Output>> {
+        self.resolve_walk(input).await.resolution
+    }
+
+    /// Walk the ladder and return the full audit trail. The
+    /// [`LadderWalk`] result carries the resolution (Some / None) AND
+    /// the per-variant `attempts` list — every variant the ladder
+    /// tried, including the declined / skipped-by-policy ones. Used by
+    /// downstream audit surfaces (Provenance Console / LadderLog /
+    /// replay) that want to show "tried T1 (declined), tried T3
+    /// (accepted)" even when the ladder ultimately defers.
+    pub async fn resolve_walk(&self, input: &Input) -> LadderWalk<Output> {
+        let mut attempts: Vec<LadderAttempt> = Vec::with_capacity(self.variants.len());
         for variant in &self.variants {
             // Gate: if Never, refuse to walk into the generative tier.
             if matches!(self.escalation_policy, EscalationPolicy::Never)
                 && !variant.tier().allowed_without_opt_in()
             {
+                attempts.push(LadderAttempt {
+                    tier: variant.tier(),
+                    variant_name: variant.name().to_string(),
+                    outcome: LadderAttemptOutcome::SkippedByPolicy,
+                });
                 continue;
             }
             if let Some(output) = variant.try_resolve(input).await {
-                return Some(LadderResolution {
+                attempts.push(LadderAttempt {
+                    tier: variant.tier(),
+                    variant_name: variant.name().to_string(),
+                    outcome: LadderAttemptOutcome::Accepted,
+                });
+                let resolution = LadderResolution {
                     tier: variant.tier(),
                     variant_name: variant.name().to_string(),
                     output,
+                    attempts: attempts.clone(),
+                };
+                return LadderWalk {
+                    resolution: Some(resolution),
+                    attempts,
+                };
+            } else {
+                attempts.push(LadderAttempt {
+                    tier: variant.tier(),
+                    variant_name: variant.name().to_string(),
+                    outcome: LadderAttemptOutcome::Declined,
                 });
             }
         }
-        None
+        LadderWalk {
+            resolution: None,
+            attempts,
+        }
     }
 
     /// Snapshot for diagnostic surfaces.
@@ -248,11 +290,59 @@ where
     }
 }
 
+/// Outcome of a single variant attempt during a ladder walk. Recorded
+/// in `LadderResolution.attempts` + `LadderWalk.attempts` so audit
+/// surfaces (Provenance Console / future LadderLog rows / replay)
+/// can show the full ladder trace, not just the winning variant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LadderAttemptOutcome {
+    /// Variant returned `Some(output)`; this attempt is the
+    /// resolving one. There is at most one `Accepted` outcome per
+    /// walk and (when present) it is always the LAST entry in the
+    /// attempts list.
+    Accepted,
+    /// Variant returned `None`; the ladder fell through to the next.
+    Declined,
+    /// Variant was skipped by the escalation policy (Tier 4+ under
+    /// `EscalationPolicy::Never`). No `try_resolve` call was made.
+    SkippedByPolicy,
+}
+
+/// One audit-trail row recording a variant attempt during
+/// [`VariantLadder::resolve_walk`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct LadderAttempt {
+    pub tier: LadderTier,
+    pub variant_name: String,
+    pub outcome: LadderAttemptOutcome,
+}
+
+/// Result of a full ladder walk including the audit trail.
+///
+/// The `resolution` field carries the winning variant's output (or
+/// `None` if the ladder deferred). The `attempts` field carries the
+/// full per-variant audit trail — every variant the ladder TRIED,
+/// including the declined / skipped-by-policy ones. When `resolution`
+/// is `Some`, the last entry of `attempts` is the same variant +
+/// `LadderAttemptOutcome::Accepted`. When `resolution` is `None`,
+/// every entry in `attempts` is `Declined` or `SkippedByPolicy`.
+#[derive(Debug, Clone)]
+pub struct LadderWalk<Output> {
+    pub resolution: Option<LadderResolution<Output>>,
+    pub attempts: Vec<LadderAttempt>,
+}
+
 #[derive(Debug, Clone)]
 pub struct LadderResolution<Output> {
     pub tier: LadderTier,
     pub variant_name: String,
     pub output: Output,
+    /// Full audit trail: every variant the ladder tried before (and
+    /// including) the resolving one. The resolving entry is the LAST
+    /// element. Use [`VariantLadder::resolve_walk`] when you need the
+    /// attempts even on a deferred (`None`) outcome.
+    pub attempts: Vec<LadderAttempt>,
 }
 
 #[cfg(test)]
@@ -486,5 +576,139 @@ mod tests {
         assert_eq!(json, "\"on_empty\"");
         let json = serde_json::to_string(&EscalationPolicy::Always).unwrap();
         assert_eq!(json, "\"always\"");
+    }
+
+    // -----------------------------------------------------------------
+    // Master Fusion Plan §B.1 — LadderAttempt audit trail
+    // -----------------------------------------------------------------
+
+    #[tokio::test]
+    async fn resolve_walk_records_declined_then_accepted_attempts_in_order() {
+        // Pre-condition: a 2-tier ladder where T1 (Deterministic)
+        // declines and T2 (Embedding) accepts. The audit trail must
+        // record BOTH attempts, with the declined one first.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::Embedding,
+                name: "emb",
+                return_value: 100,
+            }))
+            .unwrap();
+
+        let walk = ladder.resolve_walk(&5).await;
+        assert_eq!(walk.attempts.len(), 2);
+        assert_eq!(walk.attempts[0].variant_name, "det");
+        assert_eq!(walk.attempts[0].outcome, LadderAttemptOutcome::Declined);
+        assert_eq!(walk.attempts[1].variant_name, "emb");
+        assert_eq!(walk.attempts[1].outcome, LadderAttemptOutcome::Accepted);
+
+        // Resolution echoes the same attempts in its embedded field.
+        let resolution = walk.resolution.expect("must resolve");
+        assert_eq!(resolution.attempts, walk.attempts);
+        assert_eq!(
+            resolution.attempts.last().unwrap().outcome,
+            LadderAttemptOutcome::Accepted,
+            "the resolving attempt MUST be the last entry in attempts"
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_walk_records_all_declines_when_ladder_defers() {
+        // When every variant declines, resolution is None but
+        // attempts still capture the full audit trail. This is the
+        // value of resolve_walk over resolve: callers can see
+        // "tried T1 (declined), tried T2 (declined)" even when the
+        // ladder defers.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Embedding,
+                name: "emb",
+            }))
+            .unwrap();
+
+        let walk = ladder.resolve_walk(&42).await;
+        assert!(walk.resolution.is_none(), "no variant accepted → resolution=None");
+        assert_eq!(walk.attempts.len(), 2);
+        assert!(walk.attempts.iter().all(|a| a.outcome == LadderAttemptOutcome::Declined));
+    }
+
+    #[tokio::test]
+    async fn resolve_walk_records_skipped_by_policy_for_tier_4_under_never() {
+        // EscalationPolicy::Never gates Tier 4+. The walk must
+        // record the SkippedByPolicy outcome so audit surfaces can
+        // show "we would have tried T4 but policy forbade it".
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Classical,
+                name: "cls",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::SmallLLM,
+                name: "small_llm",
+                return_value: 999,
+            }))
+            .unwrap();
+        // Default escalation policy = Never.
+
+        let walk = ladder.resolve_walk(&7).await;
+        assert!(walk.resolution.is_none(),
+                "Never policy must NOT let T4 fire even though it would accept");
+        assert_eq!(walk.attempts.len(), 2);
+        assert_eq!(walk.attempts[0].variant_name, "cls");
+        assert_eq!(walk.attempts[0].outcome, LadderAttemptOutcome::Declined);
+        assert_eq!(walk.attempts[1].variant_name, "small_llm");
+        assert_eq!(walk.attempts[1].outcome, LadderAttemptOutcome::SkippedByPolicy);
+    }
+
+    #[tokio::test]
+    async fn resolve_wrapper_returns_same_resolution_as_resolve_walk() {
+        // resolve() is the thin wrapper. Pin that it returns the
+        // SAME resolution as resolve_walk().resolution so callers
+        // that don't need the full walk don't get a different code
+        // path.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+                return_value: 11,
+            }))
+            .unwrap();
+
+        let via_resolve = ladder.resolve(&5).await.expect("must resolve");
+        let walk = ladder.resolve_walk(&5).await;
+        let via_walk = walk.resolution.expect("walk must resolve");
+        assert_eq!(via_resolve.tier, via_walk.tier);
+        assert_eq!(via_resolve.variant_name, via_walk.variant_name);
+        assert_eq!(via_resolve.output, via_walk.output);
+        assert_eq!(via_resolve.attempts, via_walk.attempts);
+    }
+
+    #[test]
+    fn ladder_attempt_outcome_serializes_to_snake_case_for_audit_logs() {
+        // Wire format anchor for downstream Provenance Console row.
+        let json = serde_json::to_string(&LadderAttemptOutcome::Accepted).unwrap();
+        assert_eq!(json, "\"accepted\"");
+        let json = serde_json::to_string(&LadderAttemptOutcome::Declined).unwrap();
+        assert_eq!(json, "\"declined\"");
+        let json = serde_json::to_string(&LadderAttemptOutcome::SkippedByPolicy).unwrap();
+        assert_eq!(json, "\"skipped_by_policy\"");
     }
 }
