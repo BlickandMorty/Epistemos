@@ -640,6 +640,154 @@ This pins the user's specific reported bug ("Qwen listed only 7 irrelevant notes
 
 ---
 
+## 13.6 Distillation from 2026-05-15 third research wave — Hermes-spine convergence
+
+The third research wave was three independent traces (Unified Local Agent Framework / Integrated Agent Architecture / Hermes-Spine Design) that all converged on the same architecture. Convergence from independent sources is itself a doctrine signal — when three traces independently land on "single Rust agent loop + typed events + schema-driven tools + Aider-style repo map + provider-agnostic executor trait + governance wrapper + MAS/Pro split," it stops being a design choice and starts being a discovered invariant.
+
+What §13.6 contributes that wasn't already in §1-§13.5:
+
+### 13.6.1 The GovernedExecutor pattern (sharpens §3 + §4)
+
+§3 declared the `AgentExecutor` trait. §13.6 makes the **wrapper pattern** explicit: every concrete executor is itself wrapped by a `GovernedExecutor` that runs the SCOPE-Rex policy + RunEventLog write before and after every tool call. The trait stays the same; the policy fold-over is mandatory.
+
+```rust
+struct GovernedExecutor<E: AgentExecutor> {
+    inner: E,
+    policy: PolicyChecker,
+    log: Arc<RunEventLog>,
+}
+
+#[async_trait]
+impl<E: AgentExecutor> AgentExecutor for GovernedExecutor<E> {
+    async fn execute(&self, packet: MissionPacket, ctx: ExecutionContext)
+        -> Result<Pin<Box<dyn Stream<Item=Result<AgentEvent,AgentError>> + Send>>, AgentError>
+    {
+        let stream = self.inner.execute(packet, ctx).await?;
+        Ok(Box::pin(self.log.clone().wrap_stream(stream, self.policy.clone())))
+    }
+}
+```
+
+The doctrine rule: **no executor is registered with `ProviderRouter` unwrapped**. Constructor of every executor returns `Arc<GovernedExecutor<Self>>`, not `Arc<Self>`. This is enforced by a source-guard test (Week 1 deliverable): `rg "register_executor.*Box::new" agent_core/src/ | grep -v Governed` must return zero matches.
+
+### 13.6.2 Tool schemas compile into multiple targets
+
+§9 declared tool contracts. §13.6 makes the **multi-target codegen** explicit: one `ToolDefinition` produces:
+
+| Target | Output | Used by |
+|---|---|---|
+| Anthropic Messages | `tools[]` JSON with `name + description + input_schema` | `AnthropicExecutor` |
+| OpenAI Responses | `tools[]` JSON with `type: "function"` shape | `OpenAIResponsesExecutor` |
+| Local GBNF grammar | Compiled `*.gbnf` for `LocalToolGrammar.buildToolCallingPlan` | `LocalMLXExecutor` (Qwen 3.6 / Gemma 4) |
+| Pro CLI args | argv synth (e.g. `--prompt=$1`, `--json-out`) | `ClaudeCLIExecutor`, `CodexCLIExecutor` |
+| Swift UI form | SwiftUI form bindings via `JSONSchema` decoder | Tool-input editing UI (Pro Settings) |
+| MCP tool list | `tools/list` response shape per MCP spec | `MCPBridge` (Swift) |
+
+Single source of truth = `ToolDefinition { name, input_schema, output_schema, requires_approval, availability }`. Codegen lives in `agent_core/src/tools/codegen/` (new module — Week 2 deliverable). This means a tool added in one place becomes available in every provider/UI surface automatically; no drift between Anthropic's tool block and the local Qwen grammar.
+
+### 13.6.3 ACI discipline — lint/test before write
+
+§5 (Repo map) mentioned Aider's edit loop. §13.6 makes the ACI rule from SWE-agent explicit: **every code-mutation tool runs lint + tests before writing**. Not as a follow-up; as part of the tool's contract.
+
+For `ApplyPatch`:
+
+```rust
+pub struct ApplyPatchArgs {
+    pub patch: String,            // unified-diff
+    pub run_checks_before_commit: Vec<CheckSpec>,  // ["build", "unit", "lint"]
+    pub rollback_on_check_failure: bool,           // default true
+}
+
+pub struct ApplyPatchResult {
+    pub success: bool,
+    pub commit_sha: Option<String>,    // None if rolled back
+    pub check_outcomes: Vec<CheckOutcome>,
+    pub diff_preview: String,           // short_diff_preview for UI
+    pub verified: bool,                 // verify_file_readback
+    pub rolled_back: bool,
+    pub rollback_reason: Option<String>,
+}
+```
+
+Source-guard test: every code-mutation tool definition in `tools/registry.rs` must declare `requires_post_check: true` in its metadata. (Doctrine pin lives in `agent_core/src/tools/registry.rs:tests`.)
+
+### 13.6.4 Multi-model orchestration within a single turn
+
+§13.5.2 introduced the 4-layer brain. §13.6 makes the **intra-turn model-swap** explicit: the Controller may swap models within a single user turn based on the current sub-task.
+
+```
+user: "research state space models and draft a brief"
+  │
+  ├─ Controller dispatch:
+  │
+  ├─ Reasoning brain (Mistral Small 7B or Phi-4 14B if RAM permits)
+  │   → outline sections [planning sub-task]
+  │
+  ├─ Retrieval (Tier 1-3 via Shadow + RRF)
+  │   → fetch top-N notes [no LLM]
+  │
+  ├─ Coding brain (Qwen 3.6 35B-A3B Unsloth via MLX)
+  │   → if a draft includes code snippets / analysis
+  │
+  ├─ Reasoning brain (same Phi-4 14B)
+  │   → synthesize draft + polish
+  │
+  └─ Tiny brain (Gemma 4 4B)
+      → suggest filename / tags / cite-list
+```
+
+User sees one timeline. AgentEvent stream stamps each ToolCall + ModelDelta with the underlying executor ID so the Provenance Console can show "this paragraph came from Phi-4 14B, this code from Qwen 3.6, this tag from Gemma 4 4B." This is the practical fulfillment of "Epistemos is the guardian; the model is just a brain."
+
+### 13.6.5 ProviderRouter is the single dispatch point
+
+§4 declared executors. §13.6 names the dispatch surface: `ProviderRouter` (in `agent_core/src/provider/router.rs`, new). The router consults:
+
+1. `MissionPacket.preferred_executor` (user UI selection — Settings > Agents > [agent_name] > Provider)
+2. `MissionPacket.intent_class` (Controller's sub-task class)
+3. `PolicyContext` (MAS forbids CLI; Pro permits)
+4. Runtime availability (model loaded? cloud reachable? CLI installed?)
+
+Selection is logged into the AgentEvent stream as `RouterDecided { selected: ExecutorId, alternatives: Vec<ExecutorId>, reason: String }` so the audit trail captures why a particular executor was chosen for a given turn.
+
+The MAS/Pro split:
+
+```rust
+fn select_executor(packet: &MissionPacket, ctx: &PolicyContext) -> Result<ExecutorId, RouterError> {
+    let preferred = packet.preferred_executor.clone();
+    match preferred {
+        ExecutorId::ClaudeCli | ExecutorId::CodexCli | ExecutorId::GeminiCli | ExecutorId::KimiCli => {
+            ctx.permission.require_pro()
+                .map_err(|_| RouterError::ExecutorRequiresProBuild { id: preferred.clone() })?;
+            // Pro-only path
+        }
+        _ => {}  // MAS-safe path
+    }
+    // ... availability checks, fallback to default brain if preferred is unavailable
+    Ok(preferred)
+}
+```
+
+Source-guard test: `cargo test --manifest-path agent_core/Cargo.toml --features mas-build provider::router::mas_forbids_cli_executors` proves the MAS feature flag rejects all CLI executors at compile + runtime time.
+
+### 13.6.6 Net update to §12 timeline
+
+Add **Week 0 (pre-Week 1)** — Provider abstraction lift:
+
+- Lift Goose's `Provider` enum pattern (block/goose Rust source) into `agent_core/src/provider/`. This is a 1-day spike, not a port — just enough to give us the multi-provider registry shape before Week 1 lands the `MissionPacket → AgentEventStream` loop.
+- Define `ToolDefinition` codegen module skeleton (Week 2 detailed work; Week 0 sets the trait shape so Week 1 executors can speak it).
+
+Net plan stays 6 weeks total; Week 0 is internal, not a delivery week.
+
+### 13.6.7 Architecture sentence — third-wave reinforced
+
+The §16 sentence holds. The third wave specifically reinforces the second half:
+
+> *Epistemos agents are Hermes-governed native agents whose executor can be local, cloud, MCP, or Pro CLI, but whose memory, permissions, schemas, artifacts, and audit trail always belong to Epistemos.*
+
+The third wave's convergence on `GovernedExecutor` + multi-target tool codegen + 4-layer local brain orchestration directly serves the second half. No design changes; tighter implementation contracts.
+
+---
+
 ## 14. Open questions deliberately deferred
 
 1. **Sub-agents (Claude Agent SDK pattern)**. The design includes `AgentEvent::ToolProposed → agent.spawn_subagent` but the implementation is post-V1.
