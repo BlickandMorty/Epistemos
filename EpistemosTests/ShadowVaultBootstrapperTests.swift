@@ -97,6 +97,39 @@ nonisolated struct ShadowVaultBootstrapperTests {
         #expect(tailHits.isEmpty, "large-file shadow indexing should not read the entire body")
     }
 
+    @Test("Bootstrap-emitted hits carry originVaultKey == nil until vault-identity convention lands")
+    func bootstrapEmittedHitsCarryNilOriginVaultKey() async throws {
+        // Until ShadowVaultBootstrapper learns the canonical vault
+        // identity (absolute path? bookmark hash? user-chosen vault id?
+        // — the convention isn't established yet), every emitted DTO
+        // carries `originVaultKey == nil` and the lenient nil-passthrough
+        // on the search side keeps results visible across vault filters.
+        //
+        // This test PINS that current state. When the bootstrapper
+        // gains a real `originVaultKey` populated at insert time, this
+        // test SHOULD trip — that's the right reminder to update the
+        // assertion (and remove the lenient-nil-passthrough caveat from
+        // FilterEngine's vault-filter docstring at that point).
+        let vault = try Self.tempVault()
+        defer { try? FileManager.default.removeItem(at: vault) }
+        let notesDir = vault.appendingPathComponent("notes")
+        try "Halo note".write(
+            to: notesDir.appendingPathComponent("halo.md"),
+            atomically: true, encoding: .utf8
+        )
+
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
+        let bootstrapper = ShadowVaultBootstrapper(vaultRoot: vault, indexer: indexer)
+        await bootstrapper.bootstrap()
+        await indexer.flushNow()
+
+        let hits = try client.search(query: "halo", domain: .notes, limit: 10)
+        #expect(hits.count == 1)
+        #expect(hits.first?.originVaultKey == nil,
+                "ShadowVaultBootstrapper emits docs with nil originVaultKey today (partial-rollout escape valve). Update this test when the bootstrapper learns vault identity.")
+    }
+
     @Test("Crawl ignores files with the wrong extension (cache files, hidden files, etc.)")
     func ignoresWrongExtension() async throws {
         let vault = try Self.tempVault()
