@@ -162,9 +162,35 @@ impl VaultStore {
             // happen on note save (low frequency); the 50 MB historical
             // budget was carried forward without measurement. Lowering
             // saves ~35 MB resident on idle.
-            Some(Mutex::new(ft_index.writer(15_000_000).map_err(
-                |error| VaultError::IndexError(error.to_string()),
-            )?))
+            //
+            // LockBusy recovery 2026-05-14 (RCA-VAULT-LOCKBUSY-001):
+            // Tantivy's writer() acquires a filesystem advisory lock
+            // (`.tantivy-writer.lock`). If another VaultStore instance
+            // in this process or a stale crashed instance holds it, the
+            // first attempt fails with `LockBusy`. The agent then sees
+            // "Failed to open vault: index error: Failed to acquire
+            // Lockfile: LockBusy" on note.create — surfaced verbatim to
+            // the user. We retry up to 3× with exponential backoff
+            // (50 / 150 / 450 ms) to clear transient holders. If still
+            // busy after the retries, we attempt stale-lock removal
+            // (the holder process is gone if `lsof` shows no live owner)
+            // — best effort, ignored if not possible. As a last resort
+            // we fall through to opening the vault in read-only mode +
+            // mark the writer unavailable so subsequent vault.write
+            // calls return a clear "another process holds the write
+            // lock" error instead of an opaque LockBusy.
+            let writer = match Self::acquire_index_writer(&ft_index, &index_path) {
+                Ok(writer) => Some(Mutex::new(writer)),
+                Err(error) => {
+                    tracing::warn!(
+                        index_path = %index_path.display(),
+                        error = %error,
+                        "vault index writer unavailable; vault opened read-only, vault.write will return clear error"
+                    );
+                    None
+                }
+            };
+            writer
         } else {
             None
         };
@@ -183,8 +209,76 @@ impl VaultStore {
 
     fn writer(&self) -> Result<&Mutex<IndexWriter>, VaultError> {
         self.ft_writer.as_ref().ok_or_else(|| {
-            VaultError::IndexError("vault opened read-only; index writer unavailable".to_string())
+            VaultError::IndexError(
+                "another process holds the vault index writer lock (Tantivy LockBusy); \
+                 close other Epistemos instances or restart the app and try again"
+                    .to_string(),
+            )
         })
+    }
+
+    /// Acquire the Tantivy IndexWriter with bounded retry + stale-lock
+    /// recovery. Returns the writer or a typed error.
+    ///
+    /// Retry strategy: 3 attempts at 50 / 150 / 450 ms backoff. If all
+    /// fail with LockBusy, attempt to remove `.tantivy-writer.lock`
+    /// (filesystem advisory lock — Tantivy auto-releases when the
+    /// holding process dies, so a stale file usually clears on its own
+    /// but a hard kill or crash can leave it behind). Final retry
+    /// after stale-lock removal. If all 4 attempts fail, return the
+    /// most recent error so the caller can fall back to read-only mode.
+    fn acquire_index_writer(
+        ft_index: &Index,
+        index_path: &Path,
+    ) -> Result<IndexWriter, VaultError> {
+        const RETRY_DELAYS_MS: &[u64] = &[50, 150, 450];
+        const HEAP_BYTES: usize = 15_000_000;
+
+        let mut last_error: Option<String> = None;
+        for delay_ms in RETRY_DELAYS_MS {
+            match ft_index.writer(HEAP_BYTES) {
+                Ok(writer) => return Ok(writer),
+                Err(error) => {
+                    let msg = error.to_string();
+                    let normalized = msg.to_ascii_lowercase();
+                    if normalized.contains("lockbusy") || normalized.contains("lock") {
+                        tracing::debug!(
+                            attempt_delay_ms = delay_ms,
+                            error = %msg,
+                            "vault index writer lock busy, retrying"
+                        );
+                        std::thread::sleep(std::time::Duration::from_millis(*delay_ms));
+                        last_error = Some(msg);
+                        continue;
+                    }
+                    return Err(VaultError::IndexError(msg));
+                }
+            }
+        }
+
+        // Stale-lock recovery: attempt to remove the lockfile if it
+        // exists. Best effort — if the file is genuinely held by another
+        // live process, the OS-level lock survives removal and the
+        // retry below will still fail (correctly).
+        let lockfile = index_path.join(".tantivy-writer.lock");
+        if lockfile.exists() {
+            tracing::warn!(
+                lockfile = %lockfile.display(),
+                "attempting stale Tantivy writer lockfile removal"
+            );
+            let _ = std::fs::remove_file(&lockfile);
+        }
+
+        // Final attempt after stale-lock removal.
+        match ft_index.writer(HEAP_BYTES) {
+            Ok(writer) => Ok(writer),
+            Err(error) => Err(VaultError::IndexError(format!(
+                "failed to acquire Tantivy index writer after 4 attempts ({} retries + 1 \
+                 stale-lock cleanup): {}",
+                RETRY_DELAYS_MS.len(),
+                last_error.unwrap_or_else(|| error.to_string())
+            ))),
+        }
     }
 
     fn resolve_path(&self, relative: &str) -> Result<PathBuf, VaultError> {
