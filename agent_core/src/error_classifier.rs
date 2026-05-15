@@ -337,4 +337,39 @@ mod tests {
         let classified = classify(&AgentError::Cancelled);
         assert_eq!(classified.category, ErrorCategory::Unrecoverable);
     }
+
+    #[test]
+    fn local_provider_not_allowed_is_unrecoverable_with_actionable_hint() {
+        // CLAUDE.md honest-capability-gating: "Local models get
+        // fast/thinking/research. Cloud models get agent/liveAgent."
+        // The agent loop refuses to start for a local provider with
+        // `AgentError::LocalProviderNotAllowed`. The recovery hint
+        // is what the UI surfaces to the user — drift here would
+        // either tell users to do the wrong thing (retry, refresh
+        // credentials, etc.) or strip the cloud-provider naming so
+        // the message becomes vague.
+        let error = AgentError::LocalProviderNotAllowed(
+            "provider 'qwen3.5-4b' runs on-device; the agent loop requires a cloud provider"
+                .into(),
+        );
+        let classified = classify(&error);
+        assert_eq!(classified.category, ErrorCategory::Unrecoverable);
+        assert!(!classified.should_retry,
+                "LocalProviderNotAllowed MUST NOT be retried — the local provider isn't going to change runtime");
+        assert!(!classified.should_fallback,
+                "LocalProviderNotAllowed MUST NOT auto-fallback — the user picked a local provider on purpose");
+        assert!(!classified.should_rotate_credential);
+        // Hint MUST tell the user the actionable fix and name at least
+        // one cloud provider so they know what to switch to.
+        assert!(classified.recovery_hint.contains("cloud provider"),
+                "recovery hint must reference 'cloud provider' explicitly; got: {}",
+                classified.recovery_hint);
+        assert!(
+            classified.recovery_hint.contains("Claude")
+                || classified.recovery_hint.contains("GPT")
+                || classified.recovery_hint.contains("Gemini"),
+            "recovery hint must name at least one cloud provider; got: {}",
+            classified.recovery_hint
+        );
+    }
 }
