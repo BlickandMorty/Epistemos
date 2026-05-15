@@ -69,6 +69,7 @@ use thiserror::Error;
 
 use crate::cognitive_dag::storage::DagSnapshot;
 use crate::mutations::MutationEnvelope;
+use crate::variant_ladder::LadderAttempt;
 
 use super::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
 
@@ -80,11 +81,22 @@ use super::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
 /// - v2: adds optional `dag_snapshot` (Phase 8.F — replay verification
 ///   via merkle root parity). Old v1 bundles deserialize cleanly under
 ///   v2 readers; new bundles without a DAG snapshot still emit v1.
-pub const REPLAY_BUNDLE_SCHEMA_VERSION: u32 = 2;
+/// - v3: adds optional `ladder_walks` — audit trail of variant-ladder
+///   resolutions (B.1 6/N). Carries one [`LadderWalkRecord`] per walk
+///   so the Provenance Console can replay every variant attempt
+///   (Accepted / Declined / SkippedByPolicy) without needing to know
+///   the ladder's `Output` type. Old v1/v2 bundles deserialize cleanly
+///   under v3 readers (`ladder_walks` defaults to empty when absent).
+pub const REPLAY_BUNDLE_SCHEMA_VERSION: u32 = 3;
 
 /// Schema version for bundles that lack a DAG snapshot. Pre-Phase-8.F
 /// callers can stay on this version forever.
 pub const REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY: u32 = 1;
+
+/// Schema version for bundles with a DAG snapshot but no ladder-walk
+/// audit trail. Phase-8.F callers that don't run the variant ladder
+/// stay on this version.
+pub const REPLAY_BUNDLE_SCHEMA_VERSION_WITH_DAG: u32 = 2;
 
 // ---------------------------------------------------------------------------
 // LedgerSnapshot — deterministic view of a `ClaimLedger`
@@ -145,6 +157,38 @@ impl LedgerSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// LadderWalkRecord — output-agnostic variant-ladder audit trail
+// ---------------------------------------------------------------------------
+
+/// One ladder walk's audit trail, in a form that the bundle can carry
+/// without dragging the ladder's generic `Output` type through the
+/// wire format. B.1 6/N (2026-05-15).
+///
+/// The Provenance Console reconstructs the walk from `attempts` —
+/// every variant the ladder tried, in order, with its outcome
+/// (Accepted / Declined / SkippedByPolicy). The resolving variant
+/// (when one exists) is the LAST entry with `Accepted`. Diagnostic
+/// surfaces that only want to show "tier X / variant Y won" can read
+/// the last attempt directly rather than scanning.
+///
+/// Two records are equal iff their `walk_id` is equal AND every
+/// other field is byte-equal. `walk_id` is the caller's choice of
+/// stable identifier (typically a span id or query uuid).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LadderWalkRecord {
+    /// Stable identifier for this walk. The bundle deduplicates walks
+    /// by this id (sorting + dedup at build time).
+    pub walk_id: String,
+    /// Which ladder tool emitted this walk (e.g. `"vault_search"`).
+    /// Mirrors the `tracing` event target so a walk in a `.epbundle`
+    /// can be cross-referenced with the original ladder-log span.
+    pub tool: String,
+    /// Full audit trail in attempt order. When the walk resolved,
+    /// the last entry's `outcome` is `LadderAttemptOutcome::Accepted`.
+    pub attempts: Vec<LadderAttempt>,
+}
+
+// ---------------------------------------------------------------------------
 // ReplayBundle — the .epbundle artifact
 // ---------------------------------------------------------------------------
 
@@ -183,6 +227,13 @@ pub struct ReplayBundle {
     /// serialization when None so v1 bundles stay byte-identical.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub dag_snapshot: Option<DagSnapshot>,
+    /// B.1 6/N — variant-ladder audit trail. One record per walk;
+    /// sorted by `walk_id` at build time so two bundles built from
+    /// the same input set are byte-equal. Empty when no walks were
+    /// recorded (or the writer was a v1/v2 caller); `skip_serializing_if`
+    /// keeps v1/v2 bundles byte-identical to pre-v3 outputs.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub ladder_walks: Vec<LadderWalkRecord>,
     /// BLAKE3 hex (lowercase 64-char) over the canonical JSON of the
     /// bundle WITH `integrity_hash` set to the empty string. Verifiable
     /// via `verify_integrity()`.
@@ -224,6 +275,7 @@ impl ReplayBundle {
             ledger,
             mutations,
             None,
+            Vec::new(),
             REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY,
         )
     }
@@ -247,6 +299,32 @@ impl ReplayBundle {
             ledger,
             mutations,
             Some(dag_snapshot),
+            Vec::new(),
+            REPLAY_BUNDLE_SCHEMA_VERSION_WITH_DAG,
+        )
+    }
+
+    /// B.1 6/N — build a bundle that carries the full variant-ladder
+    /// audit trail. The DAG snapshot is optional so a v3 bundle that
+    /// records ladder walks but no cognitive-DAG state stays compact.
+    /// Schema bumps to v3 to signal the extended payload.
+    pub fn build_with_walks(
+        bundle_id: String,
+        run_id: Option<String>,
+        generated_at_ms: i64,
+        ledger: &ClaimLedger,
+        mutations: Vec<MutationEnvelope>,
+        dag_snapshot: Option<DagSnapshot>,
+        ladder_walks: Vec<LadderWalkRecord>,
+    ) -> Result<Self, BundleError> {
+        Self::build_inner(
+            bundle_id,
+            run_id,
+            generated_at_ms,
+            ledger,
+            mutations,
+            dag_snapshot,
+            ladder_walks,
             REPLAY_BUNDLE_SCHEMA_VERSION,
         )
     }
@@ -258,6 +336,7 @@ impl ReplayBundle {
         ledger: &ClaimLedger,
         mut mutations: Vec<MutationEnvelope>,
         dag_snapshot: Option<DagSnapshot>,
+        mut ladder_walks: Vec<LadderWalkRecord>,
         schema_version: u32,
     ) -> Result<Self, BundleError> {
         // Sort mutations by (run_id then sequence) for determinism. A
@@ -268,6 +347,13 @@ impl ReplayBundle {
                 .then_with(|| a.sequence.cmp(&b.sequence))
                 .then_with(|| a.mutation_id.cmp(&b.mutation_id))
         });
+        // Sort ladder walks by `(tool, walk_id)` and dedup by walk_id
+        // so the bundle is deterministic regardless of input order
+        // and a caller that double-records a walk doesn't corrupt the
+        // audit trail. Duplicate walk_ids resolve to the FIRST entry
+        // after sort (stable across builds).
+        ladder_walks.sort_by(|a, b| a.tool.cmp(&b.tool).then_with(|| a.walk_id.cmp(&b.walk_id)));
+        ladder_walks.dedup_by(|a, b| a.walk_id == b.walk_id && a.tool == b.tool);
         let snapshot = LedgerSnapshot::from_ledger(ledger);
         let dag_is_empty = dag_snapshot
             .as_ref()
@@ -277,6 +363,7 @@ impl ReplayBundle {
             && snapshot.claims.is_empty()
             && snapshot.evidence.is_empty()
             && dag_is_empty
+            && ladder_walks.is_empty()
         {
             return Err(BundleError::EmptyBundle);
         }
@@ -288,6 +375,7 @@ impl ReplayBundle {
             mutations,
             ledger: snapshot,
             dag_snapshot,
+            ladder_walks,
             integrity_hash: String::new(),
         };
         let hash = bundle.compute_integrity_hash()?;
@@ -636,9 +724,10 @@ mod tests {
             dag,
         )
         .unwrap();
-        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION);
+        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION_WITH_DAG);
         assert!(bundle.dag_snapshot.is_some());
         assert!(bundle.dag_snapshot.as_ref().unwrap().nodes.len() >= 3);
+        assert!(bundle.ladder_walks.is_empty());
     }
 
     #[test]
@@ -734,6 +823,192 @@ mod tests {
             .verify_replay()
             .expect_err("outer-hash tamper must fail verify_replay");
         assert!(matches!(err, BundleError::IntegrityMismatch { .. }));
+    }
+
+    // ── B.1 6/N — LadderWalk into ReplayBundle (schema v3) ─────────────────
+
+    use crate::variant_ladder::{LadderAttemptOutcome, LadderTier};
+
+    fn seed_walks() -> Vec<LadderWalkRecord> {
+        vec![
+            LadderWalkRecord {
+                walk_id: "walk-b".to_string(),
+                tool: "vault_search".to_string(),
+                attempts: vec![
+                    LadderAttempt {
+                        tier: LadderTier::Deterministic,
+                        variant_name: "vault_search.t1.lexical_bm25".to_string(),
+                        outcome: LadderAttemptOutcome::Declined,
+                    },
+                    LadderAttempt {
+                        tier: LadderTier::Classical,
+                        variant_name: "vault_search.t3.rrf_hybrid".to_string(),
+                        outcome: LadderAttemptOutcome::Accepted,
+                    },
+                ],
+            },
+            LadderWalkRecord {
+                walk_id: "walk-a".to_string(),
+                tool: "vault_search".to_string(),
+                attempts: vec![LadderAttempt {
+                    tier: LadderTier::Deterministic,
+                    variant_name: "vault_search.t1.lexical_bm25".to_string(),
+                    outcome: LadderAttemptOutcome::Accepted,
+                }],
+            },
+        ]
+    }
+
+    #[test]
+    fn build_with_walks_emits_v3_schema() {
+        let ledger = seed_ledger();
+        let bundle = ReplayBundle::build_with_walks(
+            "v3-bundle".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            seed_walks(),
+        )
+        .unwrap();
+        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION);
+        assert_eq!(bundle.ladder_walks.len(), 2);
+        // walk_id sort puts "walk-a" before "walk-b"
+        assert_eq!(bundle.ladder_walks[0].walk_id, "walk-a");
+        assert_eq!(bundle.ladder_walks[1].walk_id, "walk-b");
+    }
+
+    #[test]
+    fn v3_bundle_round_trips_byte_equal() {
+        let ledger = seed_ledger();
+        let b1 = ReplayBundle::build_with_walks(
+            "v3-rt".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            seed_walks(),
+        )
+        .unwrap();
+        let bytes = b1.to_epbundle_bytes().unwrap();
+        let b2 = ReplayBundle::from_epbundle_bytes(&bytes).unwrap();
+        let bytes2 = b2.to_epbundle_bytes().unwrap();
+        assert_eq!(bytes, bytes2, "v3 bundle must round-trip byte-equal");
+        b2.verify_integrity()
+            .expect("round-tripped v3 bundle must verify");
+    }
+
+    #[test]
+    fn v3_walk_input_order_is_irrelevant() {
+        // Two bundles built from the same walk set in opposite orders
+        // must emit identical bytes (build-time sort guarantees this).
+        let ledger = seed_ledger();
+        let walks_1 = seed_walks();
+        let mut walks_2 = seed_walks();
+        walks_2.reverse();
+        let b1 = ReplayBundle::build_with_walks(
+            "v3-det".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            walks_1,
+        )
+        .unwrap();
+        let b2 = ReplayBundle::build_with_walks(
+            "v3-det".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            walks_2,
+        )
+        .unwrap();
+        assert_eq!(b1.to_epbundle_bytes().unwrap(), b2.to_epbundle_bytes().unwrap());
+    }
+
+    #[test]
+    fn v3_walks_are_deduped_by_id() {
+        // Caller double-records the same walk — the bundle keeps one.
+        let ledger = seed_ledger();
+        let mut walks = seed_walks();
+        walks.push(walks[0].clone());
+        let bundle = ReplayBundle::build_with_walks(
+            "v3-dedup".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            walks,
+        )
+        .unwrap();
+        assert_eq!(bundle.ladder_walks.len(), 2);
+    }
+
+    #[test]
+    fn v3_tampering_with_walk_invalidates_hash() {
+        let ledger = seed_ledger();
+        let mut bundle = ReplayBundle::build_with_walks(
+            "v3-tamper".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            seed_walks(),
+        )
+        .unwrap();
+        bundle.verify_integrity()
+            .expect("freshly-built v3 bundle verifies");
+        bundle.ladder_walks[0].attempts[0].outcome = LadderAttemptOutcome::Declined;
+        match bundle.verify_integrity() {
+            Err(BundleError::IntegrityMismatch { .. }) => {}
+            other => panic!("expected IntegrityMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn v1_bundle_bytes_still_parse_under_v3_reader() {
+        // A bundle minted by the old `build` path (no DAG, no walks)
+        // must still parse under the v3-reading code path. The
+        // `skip_serializing_if = Vec::is_empty` + `default` annotation
+        // guarantees back-compat: v1 bytes contain no `ladder_walks`
+        // field; v3 reader defaults it to an empty Vec.
+        let b1 = seed_bundle(); // v1 — uses `build`, no DAG, no walks
+        assert_eq!(b1.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY);
+        let bytes = b1.to_epbundle_bytes().unwrap();
+        let b2 = ReplayBundle::from_epbundle_bytes(&bytes).unwrap();
+        assert_eq!(b2.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY);
+        assert!(b2.ladder_walks.is_empty());
+        b2.verify_integrity()
+            .expect("v1 bundle bytes still verify under v3 reader");
+    }
+
+    #[test]
+    fn v3_build_with_dag_and_walks_combines_both() {
+        // Caller can ship both DAG snapshot AND ladder walks in one v3 bundle.
+        let ledger = seed_ledger();
+        let dag = seed_dag_snapshot();
+        let bundle = ReplayBundle::build_with_walks(
+            "v3-full".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            Some(dag),
+            seed_walks(),
+        )
+        .unwrap();
+        assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION);
+        assert!(bundle.dag_snapshot.is_some());
+        assert_eq!(bundle.ladder_walks.len(), 2);
+        bundle.verify_replay()
+            .expect("v3 bundle with DAG + walks must verify_replay");
     }
 
     #[test]
