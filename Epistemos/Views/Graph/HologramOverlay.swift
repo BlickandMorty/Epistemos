@@ -1424,32 +1424,40 @@ final class HologramOverlay {
         controlsHostView?.isHidden = !isCanvas
         sidebarHostView?.isHidden = !isCanvas
 
-        // User-authorized UI change 2026-05-14: hide the entire graph
-        // visual stack when leaving canvas for a note/folder route.
-        // Previously:
-        //   - Metal engine was paused (last frame frozen) but the
-        //     rendered nodes remained visible
-        //   - blurView + darkenLayer (the graph "stage" backing)
-        //     remained visible behind the note panel
-        //   - The route panel's own blur was meant to be the
-        //     visual surface behind the note content, not the
-        //     graph stage bleeding through
+        // User-authorized UI change 2026-05-14, REFINED 2026-05-15
+        // (RCA-GRAPH-NOTE-BLUR-001):
         //
-        // Now hides as a unit: metalView + blurView + darkenLayer
-        // when !isCanvas. Each flips back to visible when returning
-        // to canvas. Renderer / camera / layout / edges / physics /
-        // hologram overlay visuals are UNTOUCHED — these are purely
-        // `isHidden` flips on the NSView hosts. Engine pause/resume
-        // below preserves the existing CVDisplayLink discipline.
+        // The intent is: when navigating from canvas to a note/folder
+        // route, hide the graph NODES (Metal-rendered content) and
+        // graph controls, but KEEP the blur wallpaper + darken layer
+        // visible underneath the note panel. The blur + darken
+        // together form the "graph ontology" wallpaper aesthetic; the
+        // note editor is supposed to INHERIT that blur, not get a
+        // plain background.
         //
-        // Note: blurView + darkenLayer are also independently toggled
-        // by the minimize/maximize flow at lines 591/698 + 1969 —
-        // those paths set them to `false` (visible) but a subsequent
-        // route change to a note will hide them again via this
-        // function, which is the intended order.
+        // History of this site:
+        //   - 2026-05-13 and earlier: nothing on this path. Result:
+        //     graph nodes bled through the note panel.
+        //   - 2026-05-14 (commit 8e371de91): metalView + blurView +
+        //     darkenLayer ALL hidden on !isCanvas. Result: graph
+        //     nodes correctly hidden BUT the blur wallpaper that
+        //     was supposed to back the note panel disappeared too —
+        //     user-reported "compeltly got rid of the blur background
+        //     i just wanted the graph node stuff to not be there".
+        //   - 2026-05-15 (this commit): only metalView is hidden on
+        //     !isCanvas. blurView + darkenLayer stay visible so the
+        //     note panel inherits the graph's blur ontology.
+        //
+        // The Metal engine itself is paused/resumed below — when the
+        // graph route returns, the engine resumes and starts producing
+        // frames again. While paused, the last frame would be visible
+        // if metalView were not hidden; hiding metalView is what
+        // actually keeps the graph nodes off the screen.
+        //
+        // Renderer / camera / layout / edges / physics / hologram
+        // overlay visuals are UNTOUCHED — this is purely an
+        // `isHidden` flip on the Metal NSView host.
         metalView?.isHidden = !isCanvas
-        blurView?.isHidden = !isCanvas
-        darkenLayer?.isHidden = !isCanvas
 
         if isCanvas {
             repositionInspector()
