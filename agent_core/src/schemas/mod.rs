@@ -546,6 +546,46 @@ mod tests {
     }
 
     #[test]
+    fn validate_id_boundary_cases_match_canonical_pattern() {
+        // Pin the 12-char `[a-z0-9]` pattern at every boundary so a
+        // regex tweak (e.g. someone widening to `[a-zA-Z0-9]` or
+        // changing the length to 16) trips immediately.
+
+        // Accept: exactly 12 chars, lowercase alphanumeric.
+        assert!(validate_id("test", "abcdef012345").is_ok());
+        assert!(validate_id("test", "000000000000").is_ok(),
+                "all digits is valid");
+        assert!(validate_id("test", "abcdefghijkl").is_ok(),
+                "all lowercase letters is valid");
+
+        // Reject: wrong length.
+        assert!(validate_id("test", "abcdef01234").is_err(),
+                "11 chars must reject (one too short)");
+        assert!(validate_id("test", "abcdef0123456").is_err(),
+                "13 chars must reject (one too long)");
+        assert!(validate_id("test", "").is_err(),
+                "empty string must reject");
+
+        // Reject: wrong character class.
+        assert!(validate_id("test", "ABCDEF012345").is_err(),
+                "uppercase must reject ([a-z0-9] only)");
+        assert!(validate_id("test", "abc-def01234").is_err(),
+                "hyphen must reject");
+        assert!(validate_id("test", "abc_def01234").is_err(),
+                "underscore must reject");
+        assert!(validate_id("test", "abc def01234").is_err(),
+                "space must reject");
+
+        // Confirm `ID_PATTERN_STR` is anchored — partial-match strings
+        // would silently leak through if the `^...$` anchors were
+        // dropped.
+        assert!(validate_id("test", "prefix_abcdef012345").is_err(),
+                "prefixed valid 12-char substring must reject");
+        assert!(validate_id("test", "abcdef012345_suffix").is_err(),
+                "suffixed valid 12-char substring must reject");
+    }
+
+    #[test]
     fn semantic_payload_validates_9_arm_claim_kind() {
         let v = serde_json::json!({
             "schema_rev": "epistemos.semantic.v1",
