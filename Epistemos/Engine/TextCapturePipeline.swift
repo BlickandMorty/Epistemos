@@ -468,6 +468,44 @@ final class TextCapturePipeline {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// RCA-P0-003 migration pass: walk every managed-body file in
+    /// `NoteFileStorage` and rewrite any body that still contains a
+    /// hidden `<!-- capture-provenance: … -->` or `<!-- audio-source:
+    /// … -->` comment.
+    ///
+    /// New captures already strip these via `run(rawText:)` /
+    /// `runFromAudio(...)`. This method handles the existing-on-disk
+    /// case so vaults that pre-date the 2026-05-09 sanitizer no longer
+    /// leak metadata through raw markdown, export, or share.
+    ///
+    /// Idempotent — bodies without hidden comments are read, found
+    /// clean, and skipped (no write). Bounded by
+    /// `NoteFileStorage.managedBodyPageIds()` so the cost scales with
+    /// the existing vault size, not with the per-launch cost. Callers
+    /// should gate this behind a UserDefaults migration flag so it
+    /// runs exactly once across all launches.
+    ///
+    /// Returns the count of bodies actually rewritten.
+    nonisolated static func migrateLegacyCaptureMetadataInManagedBodies(
+        in directory: URL? = nil
+    ) -> Int {
+        let pageIds = NoteFileStorage.managedBodyPageIds(in: directory)
+        var migrated = 0
+        for pageId in pageIds {
+            // `fast: true` skips the integrity-hash verify on read
+            // (it'd re-fire on the write below anyway) and avoids the
+            // legacy-rich-text fallback path.
+            let body = NoteFileStorage.readBody(pageId: pageId, fast: true)
+            guard !body.isEmpty else { continue }
+            let sanitized = stripHiddenCaptureMetadataComments(from: body)
+            if sanitized != body {
+                NoteFileStorage.writeBody(pageId: pageId, content: sanitized)
+                migrated += 1
+            }
+        }
+        return migrated
+    }
+
     // MARK: - Title Extraction
 
     /// Extracts a title from the first line or first sentence.
