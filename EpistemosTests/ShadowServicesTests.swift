@@ -172,6 +172,72 @@ struct ShadowServicesTests {
         }
     }
 
+    // MARK: - ShadowDocumentDTO sidecar wire format
+
+    @Test("ShadowDocumentDTO omits origin_vault_key when nil (pre-sidecar byte-identical contract)")
+    func shadowDocumentDTOOmitsNilOriginVaultKey() throws {
+        // Pre-sidecar consumers (vaults indexed before 2026-05-15) must
+        // see byte-identical document JSON. The Rust side enforces this
+        // via `skip_serializing_if = "Option::is_none"`; the Swift side
+        // mirrors it through a custom `encode(to:)` that uses
+        // `encodeIfPresent` for the field. Without this, every
+        // document JSON would gain a `"origin_vault_key": null` entry
+        // and break wire-format parity.
+        let doc = ShadowDocumentDTO(
+            docId: "n1",
+            title: "Kant on duty",
+            body: "Categorical imperative",
+            domain: .notes
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let bytes = try encoder.encode(doc)
+        let json = String(data: bytes, encoding: .utf8) ?? ""
+        #expect(!json.contains("origin_vault_key"),
+                "nil originVaultKey MUST NOT serialize an `origin_vault_key` field; got: \(json)")
+    }
+
+    @Test("ShadowDocumentDTO round-trips origin_vault_key when populated")
+    func shadowDocumentDTORoundTripsOriginVaultKey() throws {
+        // Populated case: the field encodes as `"origin_vault_key"`
+        // (snake_case per Rust contract) and decodes back to the same
+        // value. This is the load-bearing wire-format parity the
+        // shadow sidecar work (commit 2add62b8e) depends on.
+        let original = ShadowDocumentDTO(
+            docId: "n2",
+            title: "vault-alpha note",
+            body: "body",
+            domain: .notes,
+            originVaultKey: "vault-alpha"
+        )
+        let encoder = JSONEncoder()
+        let bytes = try encoder.encode(original)
+        let json = String(data: bytes, encoding: .utf8) ?? ""
+        #expect(json.contains("\"origin_vault_key\""))
+        #expect(json.contains("\"vault-alpha\""))
+
+        let decoded = try JSONDecoder().decode(ShadowDocumentDTO.self, from: bytes)
+        #expect(decoded.originVaultKey == "vault-alpha")
+        #expect(decoded.docId == original.docId)
+        #expect(decoded.title == original.title)
+        #expect(decoded.body == original.body)
+    }
+
+    @Test("ShadowDocumentDTO decodes pre-sidecar JSON without origin_vault_key field")
+    func shadowDocumentDTODecodesPreSidecarJSON() throws {
+        // The other half of byte-identical: a document JSON that
+        // predates the field must still decode cleanly with
+        // `originVaultKey == nil`. Without this, the rollout
+        // would break every doc indexed before 2026-05-15.
+        let preSidecarJSON = """
+        {"doc_id":"old-n1","title":"Old","body":"body","domain":"note"}
+        """
+        let data = Data(preSidecarJSON.utf8)
+        let decoded = try JSONDecoder().decode(ShadowDocumentDTO.self, from: data)
+        #expect(decoded.originVaultKey == nil)
+        #expect(decoded.docId == "old-n1")
+    }
+
     // MARK: - ShadowFFIError code mapping
 
     @Test("ShadowFFIError mirrors the Rust ShadowError numeric discriminants")
