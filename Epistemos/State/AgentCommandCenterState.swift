@@ -767,7 +767,16 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     var isExecutableInCurrentBuild: Bool {
         switch self {
         case .image:
-            ToolSurfacePolicy.isSurfacedToolName("image_generate")
+            // C.11 close-out 2026-05-14: hide `/image` from the slash
+            // menu in ALL builds until a real provider route lands
+            // (MLX Flux on-device OR Fal cloud opt-in). Both
+            // `is_user_visible_tool` (Rust) + `coreAppStoreAllowedToolNames`
+            // (Swift MAS list) classify `image_generate` as scaffold
+            // today — surfacing the slash command without a runtime
+            // would lie to the user. Re-enable by removing this `false`
+            // when `media.image_generate` becomes a working route.
+            // Tracks: RCA12-P1-003 / RCA2-P1-014 / RCA3-P2-003.
+            false
         default:
             true
         }
