@@ -23,7 +23,7 @@
 //! lets AppBootstrap call register_canonical_tasks unconditionally
 //! without tracking whether it ran before.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
@@ -38,34 +38,54 @@ use super::{
 /// is initialised on first access and never reconstructed.
 static LIVE_SCHEDULER: OnceLock<Arc<Mutex<NightBrainScheduler>>> = OnceLock::new();
 
-/// Maximum number of `MaintenanceLogEntry` rows kept in the in-process
-/// ring buffer. Past this cap the oldest entry is evicted on each
-/// append. Sized for ~1 week of nightly maintenance at 36 runs/day
-/// (~256 / 36 ≈ 7 days) — generous given each entry is < 96 bytes.
-pub const MAINTENANCE_LOG_RING_CAPACITY: usize = 256;
+// ---------------------------------------------------------------------------
+// ObservationTask — generic substrate for observation-only NightBrain bodies
+// ---------------------------------------------------------------------------
+//
+// Per Master Fusion Plan §B.9 incremental rollout, the third parallel
+// observation lane is the trigger to extract a small generic. Four
+// canonical NightBrain task names share the same contract today:
+//
+//   - maintenance_log               — pure NightBrain self-audit
+//   - search_index_passive_checkpoint — host owns Tantivy commit; this
+//                                       task records the join key
+//   - event_store_checkpoint_vacuum  — host owns the event-store
+//                                       vacuum; this task records the
+//                                       join key
+//   - workspace_snapshot_compaction  — host owns workspace state; this
+//                                       task records the join key
+//
+// All four want the same shape: append ONE row to a per-lane ring with
+// `{task_name, observed_at_ms, completed}`, report `complete(1)`,
+// honor cooperative preemption. So they share one struct
+// (`ObservationTask`) and one HashMap-keyed ring store (`LANE_RINGS`).
+//
+// The remaining 6 canonical task names need real work, not observation
+// (dedupe_artifacts, memory_distillation, cloud_knowledge_distillation,
+// session_graph_generation, skill_evolution_analysis, ssm_state_pruning).
+// They stay on `NoOpTask` until their real implementation slices land —
+// dressing them up as ObservationTask would be the "real body" anti-
+// pattern the project rules forbid.
 
-/// Process-global bounded ring buffer of maintenance-log entries.
-/// Read by `recent_maintenance_log_entries()`; written by
-/// `MaintenanceLogTask`. Bounded so a long-running app can't grow
-/// unbounded memory just because NightBrain ran for weeks.
-static MAINTENANCE_LOG: OnceLock<Arc<Mutex<VecDeque<MaintenanceLogEntry>>>> = OnceLock::new();
+/// Maximum number of rows kept per observation lane. Past this cap the
+/// oldest entry is evicted on each append. Sized for ~1 week of
+/// nightly maintenance at 36 runs/day (~256 / 36 ≈ 7 days), generous
+/// given each entry is < 96 bytes.
+pub const OBSERVATION_LANE_RING_CAPACITY: usize = 256;
 
-fn maintenance_log() -> Arc<Mutex<VecDeque<MaintenanceLogEntry>>> {
-    MAINTENANCE_LOG
-        .get_or_init(|| {
-            Arc::new(Mutex::new(VecDeque::with_capacity(
-                MAINTENANCE_LOG_RING_CAPACITY,
-            )))
-        })
-        .clone()
-}
+/// Back-compat aliases — external callers (FFI surfaces, host-side
+/// Swift) can keep referring to `MAINTENANCE_LOG_RING_CAPACITY` and
+/// `SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY` as before. Both alias
+/// the same canonical capacity constant.
+pub const MAINTENANCE_LOG_RING_CAPACITY: usize = OBSERVATION_LANE_RING_CAPACITY;
+pub const SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY: usize = OBSERVATION_LANE_RING_CAPACITY;
 
-/// One canonical row in the maintenance-log ring buffer. Surfaces the
-/// canonical task name + observed-at timestamp + whether the body
-/// actually executed (vs. preempted). Serializable so a future FFI
-/// surface can read it without touching the in-memory ring directly.
+/// One row in any observation lane. Surfaces the canonical task name
+/// + observed-at timestamp + whether the body executed (vs. preempted).
+/// Serializable so a future FFI surface can read lane snapshots
+/// without touching the in-memory rings directly.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MaintenanceLogEntry {
+pub struct ObservationLogEntry {
     /// Canonical task name from `CANONICAL_TASK_NAMES`.
     pub task_name: String,
     /// UTC unix milliseconds at observation.
@@ -75,123 +95,96 @@ pub struct MaintenanceLogEntry {
     pub completed: bool,
 }
 
-/// Real `maintenance_log` task body. Replaces the `NoOpTask` placeholder
-/// for the `"maintenance_log"` canonical name. Records ONE row in the
-/// process-global `MAINTENANCE_LOG` ring buffer (bounded at
-/// [`MAINTENANCE_LOG_RING_CAPACITY`]) with the observed timestamp + the
-/// task's completion status. Reports `complete(1)` so diagnostics
-/// distinguish a real body from the `skipped(1)` placeholder.
-///
-/// This is the first non-`NoOpTask` body landed under Master Fusion
-/// Plan §B.9. It establishes the pattern: each task body owns its own
-/// struct, registers via `register_canonical_tasks`, honors
-/// `ctx.is_cancelled()` for cooperative preemption, returns
-/// `TaskOutcome::complete(n)` (not `skipped(1)`). Other canonical names
-/// (`event_store_checkpoint_vacuum`, `dedupe_artifacts`, etc.) follow
-/// the same pattern in subsequent slices.
-struct MaintenanceLogTask;
+/// Type aliases preserve the existing public API. `MaintenanceLogEntry`
+/// and `SearchIndexCheckpointEntry` are the same shape as
+/// `ObservationLogEntry`, kept as named aliases so any consumer
+/// (Swift FFI surface, downstream Rust crate) that imported the old
+/// names continues to compile.
+pub type MaintenanceLogEntry = ObservationLogEntry;
+pub type SearchIndexCheckpointEntry = ObservationLogEntry;
 
-#[async_trait]
-impl NightBrainTask for MaintenanceLogTask {
-    fn name(&self) -> &str {
-        "maintenance_log"
-    }
+/// Lane key in `LANE_RINGS`. Must match a name in `CANONICAL_TASK_NAMES`
+/// to keep the audit trail joinable against the registered task set.
+type LaneName = &'static str;
 
-    async fn run(&self, ctx: &TaskCtx) -> Result<TaskOutcome> {
-        if ctx.is_cancelled() {
-            return Ok(TaskOutcome::preempted(0));
-        }
-        let observed_at_ms = chrono::Utc::now().timestamp_millis();
-        let entry = MaintenanceLogEntry {
-            task_name: "maintenance_log".to_string(),
-            observed_at_ms,
-            completed: true,
-        };
-        let log = maintenance_log();
-        let mut guard = log.lock().await;
-        if guard.len() >= MAINTENANCE_LOG_RING_CAPACITY {
-            guard.pop_front();
-        }
-        guard.push_back(entry);
-        // Yield once for cooperative cancellation parity with the
-        // placeholder task body — a future tighter implementation may
-        // remove this if profiling shows the yield is the dominant
-        // cost (unlikely; the lock + push is microseconds).
-        drop(guard);
-        tokio::task::yield_now().await;
-        Ok(TaskOutcome::complete(1))
-    }
-}
-
-/// Snapshot of the most-recent `limit` maintenance-log entries.
-/// Newest entry is the last element (`VecDeque::back`). `limit = 0`
-/// returns an empty Vec without locking the ring; otherwise the call
-/// briefly holds the maintenance-log Mutex.
-pub async fn recent_maintenance_log_entries(limit: usize) -> Vec<MaintenanceLogEntry> {
-    if limit == 0 {
-        return Vec::new();
-    }
-    let log = maintenance_log();
-    let guard = log.lock().await;
-    let total = guard.len();
-    let take = limit.min(total);
-    guard.iter().skip(total - take).cloned().collect()
-}
-
-// ---------------------------------------------------------------------------
-// search_index_passive_checkpoint — B.9 2/10
-// ---------------------------------------------------------------------------
-//
-// Parallel ring to `MAINTENANCE_LOG` but for the search-index lane.
-// Recording is in-process only; the actual Tantivy commit is driven by
-// Swift's `SearchIndexService.flush_index_files()` on the host side.
-// What this lane gives diagnostics is a deterministic "checkpoint
-// observation was scheduled by NightBrain at T" signal that the host
-// can join against its own commit log to detect drift.
-//
-// If a third lane (`dedupe_artifacts`, `ssm_state_pruning`, …) needs
-// the same shape, it's time to extract `LaneRing<T>` + `LaneTask` into
-// a small generic. Two parallel rings is acceptable copy; three is the
-// trigger.
-
-pub const SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY: usize = 256;
-
-static SEARCH_INDEX_CHECKPOINT_LOG: OnceLock<Arc<Mutex<VecDeque<SearchIndexCheckpointEntry>>>> =
+/// Process-global HashMap-keyed observation lane store. Each lane has
+/// its own bounded ring buffer. Initialized on first access and never
+/// reconstructed. The outer Mutex serializes inserts across lanes;
+/// per-lane Mutex contention is bounded because each lane only has
+/// one writer (its `ObservationTask`).
+static LANE_RINGS: OnceLock<Arc<Mutex<HashMap<LaneName, VecDeque<ObservationLogEntry>>>>> =
     OnceLock::new();
 
-fn search_index_checkpoint_log() -> Arc<Mutex<VecDeque<SearchIndexCheckpointEntry>>> {
-    SEARCH_INDEX_CHECKPOINT_LOG
-        .get_or_init(|| {
-            Arc::new(Mutex::new(VecDeque::with_capacity(
-                SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
-            )))
-        })
+fn lane_rings() -> Arc<Mutex<HashMap<LaneName, VecDeque<ObservationLogEntry>>>> {
+    LANE_RINGS
+        .get_or_init(|| Arc::new(Mutex::new(HashMap::new())))
         .clone()
 }
 
-/// One row in the search-index checkpoint observation lane.
-/// Same shape as [`MaintenanceLogEntry`] but typed separately so the
-/// FFI surface can route the two lanes to distinct Swift diagnostics
-/// rows without sniffing `task_name`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SearchIndexCheckpointEntry {
-    pub task_name: String,
-    pub observed_at_ms: i64,
-    pub completed: bool,
+/// Append one entry to the named lane, evicting the oldest row if the
+/// lane is at capacity. Idempotently creates the lane on first append.
+async fn append_to_lane(lane: LaneName, entry: ObservationLogEntry) {
+    let rings = lane_rings();
+    let mut guard = rings.lock().await;
+    let ring = guard
+        .entry(lane)
+        .or_insert_with(|| VecDeque::with_capacity(OBSERVATION_LANE_RING_CAPACITY));
+    if ring.len() >= OBSERVATION_LANE_RING_CAPACITY {
+        ring.pop_front();
+    }
+    ring.push_back(entry);
 }
 
-/// Real `search_index_passive_checkpoint` task body. Records ONE row in
-/// the process-global `SEARCH_INDEX_CHECKPOINT_LOG` ring buffer per
-/// run. Body is intentionally observation-only: the host owns the
-/// Tantivy commit, this task ships the audit trail. Reports
-/// `complete(1)` so diagnostics distinguish a real body from
-/// `skipped(1)` placeholders.
-struct SearchIndexPassiveCheckpointTask;
+/// Snapshot of the most-recent `limit` entries on the named lane.
+/// Newest entry is the last element. `limit = 0` returns an empty Vec
+/// without locking the rings; otherwise the call briefly holds the
+/// HashMap Mutex.
+pub async fn recent_lane_entries(lane: LaneName, limit: usize) -> Vec<ObservationLogEntry> {
+    if limit == 0 {
+        return Vec::new();
+    }
+    let rings = lane_rings();
+    let guard = rings.lock().await;
+    let Some(ring) = guard.get(lane) else {
+        return Vec::new();
+    };
+    let total = ring.len();
+    let take = limit.min(total);
+    ring.iter().skip(total - take).cloned().collect()
+}
+
+/// Back-compat reader: returns the maintenance_log lane. Wraps
+/// [`recent_lane_entries`] with the canonical name as the lane key.
+pub async fn recent_maintenance_log_entries(limit: usize) -> Vec<MaintenanceLogEntry> {
+    recent_lane_entries("maintenance_log", limit).await
+}
+
+/// Back-compat reader: returns the search_index_passive_checkpoint
+/// lane. Wraps [`recent_lane_entries`] with the canonical name as the
+/// lane key.
+pub async fn recent_search_index_checkpoint_entries(
+    limit: usize,
+) -> Vec<SearchIndexCheckpointEntry> {
+    recent_lane_entries("search_index_passive_checkpoint", limit).await
+}
+
+/// Generic observation-only task body. Records ONE row in the lane
+/// keyed by its canonical name per scheduler run. Reports
+/// `complete(1)`. Honors `ctx.is_cancelled()` for cooperative
+/// preemption.
+///
+/// Use only when observation-only is the intended contract. Tasks
+/// that need real work (memory_distillation, dedupe_artifacts, etc.)
+/// must implement a dedicated struct rather than masquerade as an
+/// `ObservationTask`.
+struct ObservationTask {
+    canonical_name: &'static str,
+}
 
 #[async_trait]
-impl NightBrainTask for SearchIndexPassiveCheckpointTask {
+impl NightBrainTask for ObservationTask {
     fn name(&self) -> &str {
-        "search_index_passive_checkpoint"
+        self.canonical_name
     }
 
     async fn run(&self, ctx: &TaskCtx) -> Result<TaskOutcome> {
@@ -199,36 +192,15 @@ impl NightBrainTask for SearchIndexPassiveCheckpointTask {
             return Ok(TaskOutcome::preempted(0));
         }
         let observed_at_ms = chrono::Utc::now().timestamp_millis();
-        let entry = SearchIndexCheckpointEntry {
-            task_name: "search_index_passive_checkpoint".to_string(),
+        let entry = ObservationLogEntry {
+            task_name: self.canonical_name.to_string(),
             observed_at_ms,
             completed: true,
         };
-        let log = search_index_checkpoint_log();
-        let mut guard = log.lock().await;
-        if guard.len() >= SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY {
-            guard.pop_front();
-        }
-        guard.push_back(entry);
-        drop(guard);
+        append_to_lane(self.canonical_name, entry).await;
         tokio::task::yield_now().await;
         Ok(TaskOutcome::complete(1))
     }
-}
-
-/// Snapshot of the most-recent `limit` search-index checkpoint entries.
-/// Same shape contract as [`recent_maintenance_log_entries`].
-pub async fn recent_search_index_checkpoint_entries(
-    limit: usize,
-) -> Vec<SearchIndexCheckpointEntry> {
-    if limit == 0 {
-        return Vec::new();
-    }
-    let log = search_index_checkpoint_log();
-    let guard = log.lock().await;
-    let total = guard.len();
-    let take = limit.min(total);
-    guard.iter().skip(total - take).cloned().collect()
 }
 
 fn live_scheduler() -> Arc<Mutex<NightBrainScheduler>> {
@@ -289,14 +261,26 @@ pub async fn register_canonical_tasks() -> Vec<String> {
             continue;
         }
         // Per Master Fusion Plan §B.9: replace `NoOpTask` placeholders
-        // with real bodies as they land, one at a time. Today
-        // `maintenance_log` + `search_index_passive_checkpoint` have
-        // real bodies; the remaining 8 canonical names stay on
-        // `NoOpTask` until their slices land.
-        let task: Arc<dyn NightBrainTask> = match *canonical_name {
-            "maintenance_log" => Arc::new(MaintenanceLogTask),
-            "search_index_passive_checkpoint" => Arc::new(SearchIndexPassiveCheckpointTask),
-            _ => Arc::new(NoOpTask { canonical_name }),
+        // with real bodies as they land, one at a time. Observation-
+        // only bodies (where the host owns the real work and this
+        // task is the audit-trail join key) share `ObservationTask`.
+        // Tasks that need real work (dedupe_artifacts,
+        // memory_distillation, cloud_knowledge_distillation,
+        // session_graph_generation, skill_evolution_analysis,
+        // ssm_state_pruning) stay on NoOp until their slices land —
+        // dressing them up as ObservationTask is the "real body" anti-
+        // pattern the project rules forbid.
+        let is_observation_lane = matches!(
+            *canonical_name,
+            "maintenance_log"
+                | "search_index_passive_checkpoint"
+                | "event_store_checkpoint_vacuum"
+                | "workspace_snapshot_compaction"
+        );
+        let task: Arc<dyn NightBrainTask> = if is_observation_lane {
+            Arc::new(ObservationTask { canonical_name })
+        } else {
+            Arc::new(NoOpTask { canonical_name })
         };
         // The non-idempotent error here would only fire on a name
         // collision — guarded against above. Treat any residual error
@@ -403,7 +387,10 @@ mod tests {
             );
             let is_real_body = matches!(
                 outcome.name.as_str(),
-                "maintenance_log" | "search_index_passive_checkpoint"
+                "maintenance_log"
+                    | "search_index_passive_checkpoint"
+                    | "event_store_checkpoint_vacuum"
+                    | "workspace_snapshot_compaction"
             );
             if is_real_body {
                 // §B.9 real body — completed=true, processed=1.
@@ -573,6 +560,106 @@ mod tests {
             snapshot.len(),
             runs
         );
+    }
+
+    // -- Master Fusion §B.9 3/10 + 4/10 — generic ObservationTask --------
+
+    #[tokio::test]
+    async fn event_store_checkpoint_vacuum_uses_observation_task() {
+        let _guard = test_serializer().lock().await;
+        register_canonical_tasks().await;
+        reset_live_scheduler().await;
+
+        let before =
+            recent_lane_entries("event_store_checkpoint_vacuum", OBSERVATION_LANE_RING_CAPACITY)
+                .await;
+        let _ = run_live_registered_tasks().await.expect("run ok");
+        let after =
+            recent_lane_entries("event_store_checkpoint_vacuum", OBSERVATION_LANE_RING_CAPACITY)
+                .await;
+        assert_eq!(
+            after.len(),
+            (before.len() + 1).min(OBSERVATION_LANE_RING_CAPACITY),
+            "one run must append exactly one row to the event_store lane"
+        );
+        let latest = after.last().expect("post-run lane must be non-empty");
+        assert_eq!(latest.task_name, "event_store_checkpoint_vacuum");
+        assert!(latest.completed);
+        assert!(latest.observed_at_ms > 0);
+    }
+
+    #[tokio::test]
+    async fn workspace_snapshot_compaction_uses_observation_task() {
+        let _guard = test_serializer().lock().await;
+        register_canonical_tasks().await;
+        reset_live_scheduler().await;
+
+        let before =
+            recent_lane_entries("workspace_snapshot_compaction", OBSERVATION_LANE_RING_CAPACITY)
+                .await;
+        let _ = run_live_registered_tasks().await.expect("run ok");
+        let after =
+            recent_lane_entries("workspace_snapshot_compaction", OBSERVATION_LANE_RING_CAPACITY)
+                .await;
+        assert_eq!(
+            after.len(),
+            (before.len() + 1).min(OBSERVATION_LANE_RING_CAPACITY),
+            "one run must append exactly one row to the workspace lane"
+        );
+        let latest = after.last().expect("post-run lane must be non-empty");
+        assert_eq!(latest.task_name, "workspace_snapshot_compaction");
+        assert!(latest.completed);
+    }
+
+    #[tokio::test]
+    async fn non_observation_lanes_remain_noop_skips() {
+        // The 6 canonical names that need real work (not just
+        // observation) must keep reporting `skipped(1)` until their
+        // dedicated implementation slices land.
+        let _guard = test_serializer().lock().await;
+        register_canonical_tasks().await;
+        reset_live_scheduler().await;
+        let outcomes = run_live_registered_tasks().await.expect("run ok");
+
+        for name in [
+            "dedupe_artifacts",
+            "memory_distillation",
+            "cloud_knowledge_distillation",
+            "session_graph_generation",
+            "skill_evolution_analysis",
+            "ssm_state_pruning",
+        ] {
+            let outcome = outcomes
+                .iter()
+                .find(|o| o.name == name)
+                .unwrap_or_else(|| panic!("canonical name {name} must be registered"));
+            assert_eq!(
+                outcome.outcome.items_skipped, 1,
+                "non-observation lane ({name}) must still report skipped(1) until its real body lands"
+            );
+            assert_eq!(outcome.outcome.items_processed, 0);
+            // And the observation lane store must NOT have a ring for
+            // this name (it shouldn't be written to).
+            let ring_snapshot =
+                recent_lane_entries(canonical_name_to_static(name), OBSERVATION_LANE_RING_CAPACITY)
+                    .await;
+            assert!(
+                ring_snapshot.is_empty(),
+                "non-observation task ({name}) must NOT have written to a lane ring"
+            );
+        }
+    }
+
+    /// Test helper: map a canonical name (`&str`) back to its
+    /// `&'static str` form using the registered set. Lets the
+    /// `non_observation_lanes_remain_noop_skips` test pass a static
+    /// lane key into `recent_lane_entries`.
+    fn canonical_name_to_static(name: &str) -> &'static str {
+        super::super::CANONICAL_TASK_NAMES
+            .iter()
+            .copied()
+            .find(|n| *n == name)
+            .unwrap_or("")
     }
 
     #[tokio::test]
