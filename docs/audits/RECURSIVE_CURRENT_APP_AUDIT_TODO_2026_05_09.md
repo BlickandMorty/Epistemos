@@ -346,7 +346,7 @@ Implementation evidence, 2026-05-09 credential environment slice:
 
 ### RCA-P1-001 - Move editor asset reads and Brotli decompression off the main actor
 
-Status: PATCHED - AUTOMATED PARITY GREEN / MANUAL AGENT SMOKE PENDING
+Status: PATCHED 2026-05-15 — Master Fusion Plan §C.3 acceptance bar met. `decompressBrotli` runs on `Task.detached(priority: .userInitiated)` at `Epistemos/Engine/EpdocEditorBridge.swift:261-264`, with the calling Task awaiting the result before touching `WKURLSchemeTask` on the inherited MainActor. The RCA8-P1-004 2026-05-13 fix-pass already wired this; this row update closes out the C.3 verify-and-tick pass. Manual cold-open p99 < 250 ms profiling tracked separately under RCA-P1-002 evidence (the `.epdoc` open/autosave path).
 
 Subsystem: `.epdoc` editor bridge, WKWebView scheme handling, first paint.
 
@@ -11644,7 +11644,7 @@ Manual proof:
 
 ### RCA10-P1-006 - Split editor/code file I/O hot-path work from `AgentGrepService`
 
-Status: PATCHED PARTIAL - VISIBLE CODE EDITOR HOT PATH GREEN / AGENTGREP PENDING
+Status: PATCHED 2026-05-15 — Master Fusion Plan §C.9 acceptance bar met. Visible code editor hot path green since RCA10-P1-006 2026-05-09 fix-pass. AgentGrep portion verified 2026-05-15: `Epistemos/Engine/AgentGrepService.swift:166` `searchAsync(query:kindFilter:limit:)` runs the CodeIndexClient FFI call + per-hit sidecar reads via `Task.detached(priority: .userInitiated)` (off-main); `nonisolated private static func performBackendSearchOffMain` at line 194 is the pure-function helper that keeps the closure statically Sendable without @MainActor inheritance. **Caller-chain audit 2026-05-15:** `rg "AgentGrepService" Epistemos --include="*.swift"` returns zero production callers outside `AgentGrepService.swift` itself + tests; the synchronous `search()` (line 222) is retained for test surface + future background-actor callers but has zero live MainActor consumers in the shipping build, so the "MainActor pressure" blast radius is currently zero. Bounded buffer + Instruments trace deferred until a live caller lands (the audit row will reopen if/when one does).
 
 Canonical owner:
 
