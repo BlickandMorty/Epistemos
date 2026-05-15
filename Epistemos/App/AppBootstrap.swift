@@ -1243,12 +1243,35 @@ final class AppBootstrap {
         )
         let legacyURL = legacyRootModelStoreURL(applicationSupportDirectory: applicationSupportDirectory)
 
-        if fileManager.fileExists(atPath: legacyURL.path) {
+        // Two scenarios diverge here:
+        //
+        // (a) **Dual stores** — legacy AND destination both exist
+        // independently. Both need column-repair in place so that
+        // any tool that still reads the legacy path sees the same
+        // schema. The `bootstrapRepairsLegacyRootAndAppScopedStores
+        // WhenBothExist` test pins this contract.
+        //
+        // (b) **Adoption** — only legacy exists. We copy it to the
+        // destination, then repair the destination. Repairing legacy
+        // ALSO in this branch would place the `default.store.pre-
+        // column-repair.backup` at the legacy parent (the user's
+        // Application Support root) rather than next to the
+        // destination — recovery tooling would then be pointed at the
+        // wrong path. The `bootstrapAdoptsLegacyRootStoresIntoTheApp
+        // ScopedPathAndRepairsMessageColumns` test pins backup
+        // placement at the destination parent.
+        //
+        // Branch the logic so the dual-store case still repairs legacy
+        // but the adoption case lets the destination repair create the
+        // single, co-located backup.
+        let legacyExists = fileManager.fileExists(atPath: legacyURL.path)
+        let destinationExists = fileManager.fileExists(atPath: destinationURL.path)
+
+        if legacyExists && destinationExists {
             try repairLegacyStoreColumnsIfNeeded(at: legacyURL)
         }
 
-        if !fileManager.fileExists(atPath: destinationURL.path),
-           fileManager.fileExists(atPath: legacyURL.path) {
+        if !destinationExists, legacyExists {
             try VaultSyncService.backupSQLiteDatabaseIfPresent(at: legacyURL, to: destinationURL)
         }
 
