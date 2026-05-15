@@ -45,6 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         body: "Revenue grew across regions; compute spend held flat; new \
                vault index latency dropped 40% versus the prior quarter."
             .to_string(),
+        origin_vault_key: None,
     })?;
 
     let _hits = backend.search("revenue", "note", 5)?;

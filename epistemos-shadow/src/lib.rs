@@ -60,6 +60,14 @@ pub struct ShadowDocument {
     /// "note" | "chat" — see `ShadowDomain`. Stored as a string in the
     /// FFI surface so adding a new domain is a non-breaking change.
     pub domain: String,
+    /// Sidecar metadata: which vault this doc originated from.
+    /// Mirrors `GraphNodeMetadata.originVaultKey` on the Swift side
+    /// (`Epistemos/Models/GraphTypes.swift`) and feeds the same lenient
+    /// nil-passthrough vault filter — when None, the doc passes every
+    /// vault filter (partial-rollout escape valve). `#[serde(default)]`
+    /// so pre-sidecar `docs.json` snapshots reload without error.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_vault_key: Option<String>,
 }
 
 /// One result returned to the Swift controller.
@@ -74,6 +82,14 @@ pub struct ShadowHit {
     /// "lexical" | "dense" | "rrf" | "in-memory-substring" — origin
     /// signal so the UI can optionally show provenance.
     pub source: String,
+    /// Sidecar metadata mirrored from the source `ShadowDocument`.
+    /// When the indexer populated `origin_vault_key`, the search path
+    /// echoes it back so the Halo panel can render a vault-origin pill
+    /// AND so the graph's lenient nil-passthrough vault filter applies
+    /// uniformly across Shadow + graph node visibility.
+    /// `#[serde(default)]` so pre-sidecar FFI wire format still parses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_vault_key: Option<String>,
 }
 
 /// Aggregate index stats for the developer panel.
