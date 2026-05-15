@@ -1035,6 +1035,50 @@ mod tests {
     }
 
     #[test]
+    fn empty_attempts_walk_record_round_trips_through_json() {
+        // An empty LadderWalkRecord (no attempts) is a legitimate
+        // state — produced when a caller's ladder was constructed
+        // but never had any variants pushed (e.g. an integration test
+        // that builds a stub ladder, or a config bug that left the
+        // variant registry unset on launch). Recording the walk
+        // anyway preserves the audit trail: someone tried to use the
+        // ladder, the dispatch happened, zero variants ran.
+        //
+        // Pin that the empty case serializes + deserializes cleanly.
+        // Without this, a future "guard against empty attempts"
+        // change could silently reject a legitimate-but-empty walk
+        // record from being persisted in a bundle.
+        let empty_record = LadderWalkRecord {
+            walk_id: "span-empty".to_string(),
+            tool: "vault_search".to_string(),
+            attempts: vec![],
+        };
+        let json = serde_json::to_string(&empty_record).expect("serialize empty");
+        let decoded: LadderWalkRecord =
+            serde_json::from_str(&json).expect("decode empty");
+        assert_eq!(decoded, empty_record);
+        assert!(decoded.attempts.is_empty());
+        assert_eq!(decoded.walk_id, "span-empty");
+
+        // The bundle accepts a walks vec containing an empty record —
+        // the empty-bundle guard rejects "everything empty", not a
+        // legitimate empty walk alongside ledger content.
+        let ledger = seed_ledger();
+        let bundle = ReplayBundle::build_with_walks(
+            "empty-walk".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            vec![empty_record],
+        )
+        .expect("bundle with empty walk must build (ledger has content)");
+        assert_eq!(bundle.ladder_walks.len(), 1);
+        assert!(bundle.ladder_walks[0].attempts.is_empty());
+    }
+
+    #[test]
     fn v3_walk_input_order_is_irrelevant() {
         // Two bundles built from the same walk set in opposite orders
         // must emit identical bytes (build-time sort guarantees this).
