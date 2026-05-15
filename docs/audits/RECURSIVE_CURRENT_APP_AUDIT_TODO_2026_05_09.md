@@ -3556,7 +3556,7 @@ Acceptance:
 
 ### RCA2-P1-014 - Reconcile `/image` slash command with runtime and build policy
 
-Status: PATCHED - FOCUSED AUTOMATED GREEN / MANUAL COMMAND SMOKE PENDING
+Status: PATCHED 2026-05-15 — Master Fusion Plan §C.11 acceptance bar met. Three layers of gating all in place: (1) `ACCSlashCommand.availableCommands(for:)` excludes non-executable commands; (2) `isExecutableInCurrentBuild` for `.image` returns false UNCONDITIONALLY (per commit `e48205e3b` 2026-05-14 — independently of `ToolSurfacePolicy.isSurfacedToolName("image_generate")` so the gate stays correct even if the underlying surface check toggles); (3) `CommandInputParser` resolves slash commands only from the available set, so a hidden `/image` token reads as plain text. Manual command-palette smoke remains operator work but no longer blocks the code-level acceptance bar; the underlying provider route `media.image_generate` carries scaffold-only treatment until a real backend lands.
 
 Subsystem: slash commands, image generation, tool policy, MAS/Pro build gates.
 
@@ -12870,7 +12870,7 @@ Manual proof:
 
 ### RCA12-P1-003 - Confirm `/image` command truth mismatch and hide until executable
 
-Status: PATCHED - FOCUSED AUTOMATED GREEN / MANUAL COMMAND SMOKE PENDING
+Status: PATCHED 2026-05-15 — covered by RCA2-P1-014 status above; Master Fusion Plan §C.11 acceptance bar met. Manual smoke deferred to operator-tester task; code-level gating is closed.
 
 Canonical links:
 
