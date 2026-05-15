@@ -264,4 +264,50 @@ mod tests {
         let decoded: CognitiveWeight = serde_json::from_str(&encoded).expect("decode");
         assert_eq!(w, decoded);
     }
+
+    #[test]
+    fn enum_wire_format_pins_snake_case_for_swift_ffi_parity() {
+        // Both `CognitiveWeightClass` and `ContextPlacement` cross the
+        // FFI boundary into Swift, which decodes the snake_case wire
+        // values directly (per Swift CognitiveWeightTests
+        // `wireFormatUsesSnakeCase`). Pin the Rust side so the two
+        // sides can't drift independently.
+        //
+        // Compound-word variants are the load-bearing ones:
+        //   `StrongAnchor` → `strong_anchor`
+        //   `PolicyGrade` → `policy_grade`
+        //   `AboveFold` → `above_fold`
+        //   `ImmutableSystem` → `immutable_system`
+        // (No all-caps abbreviations here, unlike LadderTier::SmallLLM
+        // which produces `small_l_l_m` — so these stay clean.)
+        use serde_json::to_string;
+        assert_eq!(to_string(&CognitiveWeightClass::Soft).unwrap(), "\"soft\"");
+        assert_eq!(to_string(&CognitiveWeightClass::Preferred).unwrap(), "\"preferred\"");
+        assert_eq!(
+            to_string(&CognitiveWeightClass::StrongAnchor).unwrap(),
+            "\"strong_anchor\""
+        );
+        assert_eq!(
+            to_string(&CognitiveWeightClass::PolicyGrade).unwrap(),
+            "\"policy_grade\""
+        );
+
+        assert_eq!(to_string(&ContextPlacement::Trailing).unwrap(), "\"trailing\"");
+        assert_eq!(to_string(&ContextPlacement::Inline).unwrap(), "\"inline\"");
+        assert_eq!(
+            to_string(&ContextPlacement::AboveFold).unwrap(),
+            "\"above_fold\""
+        );
+        assert_eq!(
+            to_string(&ContextPlacement::ImmutableSystem).unwrap(),
+            "\"immutable_system\""
+        );
+
+        // Round-trip in: a Swift-encoded payload using these strings
+        // must decode cleanly back to the canonical enum values.
+        let cls: CognitiveWeightClass = serde_json::from_str("\"policy_grade\"").unwrap();
+        assert_eq!(cls, CognitiveWeightClass::PolicyGrade);
+        let place: ContextPlacement = serde_json::from_str("\"immutable_system\"").unwrap();
+        assert_eq!(place, ContextPlacement::ImmutableSystem);
+    }
 }
