@@ -10025,15 +10025,19 @@ The strongest current fix order remains:
 
 ### RCA9-P0-001 - Collapse `CodeFileService` containment into the first canonical fix
 
-Status: PATCHED - AUTOMATED GREEN / MANUAL PENDING
+Status: PATCHED 2026-05-14 — canonical-owner naming reconciliation complete (Master Fusion Plan §C.10); structural fix in place + 5-test drift gate; runtime UI proof remains for V1 manual workflow matrix (RCA9-P0-001-MANUAL row tracks it separately).
+
+C.10 acceptance bar (per `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §C.10):
+- ✅ Audit doc update — done 2026-05-14: this status line + canonical-owner / merge-link pointers below + RCA4-P0-001 row + RCA-P0-002 row all converge on the same fix evidence.
+- ✅ Source-guard test pinning canonical surface — `EpistemosTests/CodeFileServiceContainmentTests.swift` `sourceDoctrinePin` test pins the 3 symbols (`containedSourceURL` / `pathEscapesVault` / `resolvingSymlinksInPath`); 5-test suite covers absolute-outside / `..`-traversal / update-outside / symlink-escape + symbol pin.
 
 Canonical owner: `RCA4-P0-001`
 
-Merge / link:
+Merge / link (all share the RCA4-P0-001 evidence — this is the canonical first-canonical-fix-pass naming collapse):
 
-- `RCA2-P0-002`
-- `RCA7-P0-001`
-- `RCA5-P1-008`
+- `RCA2-P0-002` — original drift-gate
+- `RCA7-P0-001` — verified-write coverage parallel
+- `RCA5-P1-008` — visible code-note save routing
 
 Subsystem: `CodeFileService`, visible code editor, agent file tools, sidecars, provenance, file reads/writes.
 
