@@ -440,6 +440,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn vault_search_handler_emits_ladder_walk_trace_with_canonical_target_and_fields() {
+        // B.1 4/N source-guard: pins the tracing emission shape so a
+        // future refactor that drops the trace (or renames the target)
+        // gets caught here before Provenance Console subscribers
+        // silently break.
+        let registry_src = include_str!("../tools/registry.rs");
+        assert!(
+            registry_src.contains("ladder.resolve_walk("),
+            "VaultSearchHandler MUST call resolve_walk (not resolve) so the audit trail is captured"
+        );
+        assert!(
+            registry_src.contains("target: \"vault_search.ladder_walk\""),
+            "VaultSearchHandler MUST emit the canonical tracing target \"vault_search.ladder_walk\" so Swift subscribers can filter"
+        );
+        // Pin the structured fields that downstream consumers parse.
+        for field in [
+            "query = %query",
+            "resolved = walk.resolution.is_some()",
+            "resolved_variant = %resolved_variant",
+            "attempts_count = walk.attempts.len()",
+            "attempts = %attempts_json",
+        ] {
+            assert!(
+                registry_src.contains(field),
+                "VaultSearchHandler ladder_walk trace MUST include structured field `{field}` for downstream parsing"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn default_lexical_search_trait_method_delegates_to_hybrid_search() {
         // Architectural pin: backends that don't override

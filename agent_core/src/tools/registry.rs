@@ -2474,14 +2474,20 @@ struct VaultSearchHandler {
 #[async_trait]
 impl ToolHandler for VaultSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        // Master Fusion Plan §B.1 1/N (this PR): vault.search dispatch
-        // now walks the typed Variant Ladder at
-        // `crate::tools::vault_search_ladder`. Today the ladder ships
-        // one tier (T3 RRF hybrid via VaultBackend::hybrid_search) with
-        // FLOOR_T3 = 0.70. When T1 lexical-only + T2 embedding-only
-        // land in a follow-up slice, this call site does not change —
-        // the ladder constructor adds variants and the resolve() walk
-        // honors the new tiers automatically.
+        // Master Fusion Plan §B.1: vault.search dispatch walks the
+        // typed Variant Ladder at `crate::tools::vault_search_ladder`.
+        // As of B.1 2/N the ladder ships T1 (lexical-only via
+        // VaultBackend::lexical_search, FLOOR_T1 = 0.85) → T3 (RRF
+        // hybrid, FLOOR_T3 = 0.70). When T2 embedding-only lands in a
+        // follow-up slice, this call site does not change — the
+        // ladder constructor adds variants and resolve_walk() honors
+        // the new tiers automatically.
+        //
+        // §B.1 4/N (this PR): switched to `resolve_walk()` so we get
+        // the full per-attempt audit trail (not just the winning tier)
+        // and emit a structured tracing event per call. Future Swift
+        // ChatCoordinator + Provenance Console rows subscribe to the
+        // `target = "vault_search.ladder_walk"` tracing target.
         use crate::tools::vault_search_ladder::{
             build_vault_search_ladder, VaultSearchLadderInput,
         };
@@ -2513,8 +2519,46 @@ impl ToolHandler for VaultSearchHandler {
         let ladder = build_vault_search_ladder()
             .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
-        let resolution = ladder.resolve(&ladder_input).await;
-        let Some(resolution) = resolution else {
+        let walk = ladder.resolve_walk(&ladder_input).await;
+
+        // Emit a structured trace for every walk — resolved OR
+        // deferred. The `target` is stable so a Swift-side
+        // tracing-subscriber can filter to just ladder events for the
+        // Provenance Console. The attempts vec is serialized to a
+        // compact JSON array so the consumer can parse without a
+        // dedicated FFI struct.
+        let attempts_json = serde_json::to_string(
+            &walk
+                .attempts
+                .iter()
+                .map(|a| {
+                    serde_json::json!({
+                        "tier": format!("{:?}", a.tier),
+                        "variant": &a.variant_name,
+                        "outcome": &a.outcome,
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap_or_else(|_| "[]".to_string());
+        let resolved_variant = walk
+            .resolution
+            .as_ref()
+            .map(|r| r.variant_name.clone())
+            .unwrap_or_else(|| "deferred".to_string());
+        tracing::info!(
+            target: "vault_search.ladder_walk",
+            query = %query,
+            limit = limit,
+            tag_filter_count = walk_tag_count(&ladder_input.tags),
+            resolved = walk.resolution.is_some(),
+            resolved_variant = %resolved_variant,
+            attempts_count = walk.attempts.len(),
+            attempts = %attempts_json,
+            "vault.search ladder walk complete"
+        );
+
+        let Some(resolution) = walk.resolution else {
             // Doctrine §6: "Defer is a first-class outcome." Every tier
             // declined (e.g. no result met FLOOR_T3 = 0.70). Surface
             // honestly rather than silently escalating.
@@ -2543,6 +2587,11 @@ impl ToolHandler for VaultSearchHandler {
             .collect::<Vec<_>>()
             .join("\n\n"))
     }
+}
+
+/// Tag-filter count helper — keeps the tracing macro readable.
+fn walk_tag_count(tags: &[String]) -> usize {
+    tags.len()
 }
 
 struct VaultReadHandler {
