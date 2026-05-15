@@ -3991,6 +3991,16 @@ Fix-pass evidence 2026-05-13:
     detection claim itself (the louder lie) has already been
     removed from the file header.
 
+  - **V1 known-limitation surface 2026-05-14** (Master Fusion
+    Plan §C.6): added a `.help(...)` tooltip on the
+    `.moveToFolder` suggestion row text in
+    `Epistemos/Views/Notes/VaultOrganizerView.swift`:
+    "Matches by folder name. If duplicate folder names exist
+    in different branches, the first match wins." User now
+    sees the honest scope; full-path / stable-ID matching
+    explicitly deferred to V1.1. The audit row stays PATCHED
+    PARTIAL until V1.1 closes the second-clause acceptance bar.
+
 ### RCA2-P2-006 - Classify WeightedContextEngine and remove main-actor heavy scaffold risk
 
 Status: PATCHED 2026-05-13 — transitively orphan: WeightedContextEngine is consumed only by AIPartnerService which is itself orphan/preview-only (per RCA2-P2-008 fix-pass); no production caller chain

@@ -800,6 +800,12 @@ private struct SuggestionCard: View {
             Text("Move to \(name)")
                 .font(.epCaption)
                 .foregroundStyle(theme.textSecondary)
+                // RCA13 RCA2-P2-005 (V1 known-limitation surface):
+                // folder match is name-only, lowercased — if two folders
+                // share a leaf name across different branches, the first
+                // match wins. Tooltip documents the limitation honestly.
+                // Full-path / stable-ID matching is deferred to V1.1.
+                .help("Matches by folder name. If duplicate folder names exist in different branches, the first match wins.")
         case .createFolder(let name):
             Text("Create folder: \(name)")
                 .font(.epCaption)
