@@ -1954,7 +1954,11 @@ impl ToolRegistry {
         let vault = Arc::clone(&self.vault);
         self.register(RegisteredTool {
             name: "list_notes".to_string(),
-            description: "List vault-relative note paths under an optional folder prefix."
+            description: "List vault-relative note paths under an optional folder prefix. \
+                Returns paths sorted alphabetically (not by relevance). \
+                IF YOU WANT NOTES ABOUT A TOPIC or relevance-ranked results, USE vault.search INSTEAD — \
+                list_notes is only for browsing a known folder structure. \
+                Pass `query` to auto-route this call to vault.search for convenience."
                 .to_string(),
             parameters: json!({
                 "type": "object",
@@ -1971,6 +1975,11 @@ impl ToolRegistry {
                     "prefix": {
                         "type": "string",
                         "description": "Alias for path"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "If supplied, this call is auto-routed to vault.search for \
+                            relevance-ranked results. Use this for any 'find notes about X' intent."
                     },
                     "limit": {
                         "type": "integer",
@@ -2531,6 +2540,58 @@ struct VaultListHandler {
 #[async_trait]
 impl ToolHandler for VaultListHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        // RCA-LOCAL-AGENT-VAULT-LIST-001 (2026-05-15): if the caller
+        // supplied a `query`, route this call to vault.search rather
+        // than returning the alphabetically-first N paths. This is the
+        // fix for the user-reported "Qwen listed only 7 irrelevant
+        // notes" bug — relevance-ranked results are vastly more useful
+        // than alphabetical filesystem-order for any "find notes about
+        // X" intent, and small local models often pick list_notes when
+        // they should pick vault.search.
+        if let Some(query) = input
+            .get("query")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|q| !q.is_empty())
+        {
+            let limit = input.get("limit").and_then(Value::as_u64).unwrap_or(10) as usize;
+            let limit = limit.clamp(1, 20);
+            let results = self
+                .vault
+                .hybrid_search(query, limit, &[])
+                .await
+                .map_err(map_vault_error)?;
+
+            if results.is_empty() {
+                return Ok(format!(
+                    "No notes matched `{query}` (auto-routed from list_notes to vault.search). \
+                     Try a different query or call list_notes without `query` to browse paths."
+                ));
+            }
+
+            let header = format!(
+                "Auto-routed to vault.search for relevance (query: `{query}`). \
+                 Returned {} result{}:",
+                results.len(),
+                if results.len() == 1 { "" } else { "s" }
+            );
+            let body = results
+                .iter()
+                .enumerate()
+                .map(|(index, result)| {
+                    format!(
+                        "{}. **{}** (score: {:.2})\n{}",
+                        index + 1,
+                        result.path,
+                        result.score,
+                        result.excerpt
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            return Ok(format!("{header}\n\n{body}"));
+        }
+
         let path_prefix = input
             .get("path")
             .or_else(|| input.get("path_prefix"))
@@ -2559,13 +2620,20 @@ impl ToolHandler for VaultListHandler {
         }
 
         let total = entries.len();
-        let mut lines: Vec<String> = entries
-            .into_iter()
-            .take(limit)
-            .map(|path| format!("- {path}"))
-            .collect();
+        let mut lines: Vec<String> = Vec::with_capacity(limit.min(total) + 3);
+        lines.push(format!(
+            "Vault has {} note{} under `{path_prefix}` (alphabetical, NOT relevance-ranked).",
+            total,
+            if total == 1 { "" } else { "s" },
+        ));
+        lines.extend(entries.iter().take(limit).map(|path| format!("- {path}")));
         if total > limit {
-            lines.push(format!("- ...and {} more", total - limit));
+            lines.push(format!(
+                "- ...and {} more (alphabetical truncation). \
+                 To find notes ABOUT a topic, call vault.search with a query — \
+                 alphabetical listing rarely shows the most relevant ones first.",
+                total - limit
+            ));
         }
         Ok(lines.join("\n"))
     }
@@ -3322,7 +3390,66 @@ mod tier_tests {
 
         assert!(canonical.contains("- research/alpha.md"));
         assert!(canonical.contains("...and 1 more"));
-        assert_eq!(legacy, "- daily/today.md");
+        // RCA-LOCAL-AGENT-VAULT-LIST-001 (2026-05-15): list_notes now
+        // prepends a "Vault has N notes under …" header line and an
+        // "alphabetical, NOT relevance-ranked" disclaimer so small
+        // local models stop returning the alphabetically-first N as if
+        // they were relevant. Pin both signals.
+        assert!(
+            legacy.contains("- daily/today.md"),
+            "list_notes output must still contain the path; got: {legacy}"
+        );
+        assert!(
+            legacy.contains("Vault has 1 note"),
+            "list_notes output must include total-count diagnostic; got: {legacy}"
+        );
+        assert!(
+            legacy.contains("NOT relevance-ranked"),
+            "list_notes output must include the alphabetical disclaimer so the model \
+             prefers vault.search for relevance; got: {legacy}"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_notes_auto_routes_to_vault_search_when_query_supplied() {
+        // RCA-LOCAL-AGENT-VAULT-LIST-001 source-guard test:
+        // when the agent passes a `query` argument to list_notes (a
+        // common Qwen / small-LM tool-confusion pattern), the call
+        // is routed to vault.search internally so the model never
+        // gets the alphabetical-irrelevant-first-N failure mode.
+        let vault = Arc::new(NullVault::default());
+        {
+            let mut notes = vault.notes.lock().unwrap();
+            notes.insert(
+                "research/alpha.md".to_string(),
+                "Alpha discusses state space models in depth.".to_string(),
+            );
+            notes.insert(
+                "daily/today.md".to_string(),
+                "Today I learned about graph neural networks.".to_string(),
+            );
+        }
+        let registry =
+            ToolRegistry::with_tier(vault, true, None::<std::path::PathBuf>, ToolTier::Agent);
+
+        let result = registry
+            .execute_v2(
+                "vault.list",
+                &serde_json::json!({ "query": "alpha", "limit": 3 }),
+            )
+            .await
+            .expect("vault.list with `query` should auto-route to vault.search");
+
+        // NullVault returns empty hybrid_search results, so we go down
+        // the empty-result branch — but the response still tags the
+        // call as auto-routed so the agent knows the routing happened.
+        assert!(
+            result.contains("auto-routed from list_notes to vault.search")
+                || result.contains("Auto-routed to vault.search"),
+            "list_notes with `query` must surface the auto-route disclaimer so the agent \
+             knows the call took the vault.search path (relevance), not the alphabetical \
+             path; got: {result}"
+        );
     }
 
     #[test]
