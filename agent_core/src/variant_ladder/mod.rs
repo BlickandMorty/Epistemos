@@ -625,6 +625,7 @@ mod tests {
         assert_eq!(json, "\"always\"");
     }
 
+
     // -----------------------------------------------------------------
     // Master Fusion Plan §B.1 — LadderAttempt audit trail
     // -----------------------------------------------------------------
@@ -751,12 +752,26 @@ mod tests {
     #[test]
     fn ladder_attempt_outcome_serializes_to_snake_case_for_audit_logs() {
         // Wire format anchor for downstream Provenance Console row.
+        // `SkippedByPolicy` is the load-bearing one — recorded when
+        // the §6 EscalationPolicy::Never gate skips a Tier 4+ variant
+        // without opt-in. A camelCase or PascalCase form would orphan
+        // every prior `.epbundle` audit log.
         let json = serde_json::to_string(&LadderAttemptOutcome::Accepted).unwrap();
         assert_eq!(json, "\"accepted\"");
         let json = serde_json::to_string(&LadderAttemptOutcome::Declined).unwrap();
         assert_eq!(json, "\"declined\"");
         let json = serde_json::to_string(&LadderAttemptOutcome::SkippedByPolicy).unwrap();
         assert_eq!(json, "\"skipped_by_policy\"");
+
+        // Round-trip IN: a hand-written audit log produced before
+        // any code change must decode cleanly — proving the wire
+        // format is anchored both directions.
+        let decoded: LadderAttemptOutcome =
+            serde_json::from_str("\"skipped_by_policy\"").unwrap();
+        assert_eq!(decoded, LadderAttemptOutcome::SkippedByPolicy);
+        let decoded: LadderAttemptOutcome =
+            serde_json::from_str("\"accepted\"").unwrap();
+        assert_eq!(decoded, LadderAttemptOutcome::Accepted);
     }
 
     // -----------------------------------------------------------------
