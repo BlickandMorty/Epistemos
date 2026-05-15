@@ -1424,19 +1424,32 @@ final class HologramOverlay {
         controlsHostView?.isHidden = !isCanvas
         sidebarHostView?.isHidden = !isCanvas
 
-        // User-authorized UI change 2026-05-14: hide the Metal canvas
-        // view itself when leaving graph route. Previously the engine
-        // was paused (last frame frozen) but the rendered nodes
-        // remained visible behind the note/folder panel — even with
-        // the panel's own blur on top, the static nodes bled around
-        // edges and showed through. Hiding the AppKit view stops the
-        // bleed entirely; the route panel's blur is what the user
-        // wants behind the note content, not the graph last frame.
-        // Renderer / camera / layout / edges / physics / hologram
-        // overlay visuals are UNTOUCHED — this is purely a `isHidden`
-        // flip on the NSView. Engine pause/resume below preserves the
-        // existing CVDisplayLink discipline.
+        // User-authorized UI change 2026-05-14: hide the entire graph
+        // visual stack when leaving canvas for a note/folder route.
+        // Previously:
+        //   - Metal engine was paused (last frame frozen) but the
+        //     rendered nodes remained visible
+        //   - blurView + darkenLayer (the graph "stage" backing)
+        //     remained visible behind the note panel
+        //   - The route panel's own blur was meant to be the
+        //     visual surface behind the note content, not the
+        //     graph stage bleeding through
+        //
+        // Now hides as a unit: metalView + blurView + darkenLayer
+        // when !isCanvas. Each flips back to visible when returning
+        // to canvas. Renderer / camera / layout / edges / physics /
+        // hologram overlay visuals are UNTOUCHED — these are purely
+        // `isHidden` flips on the NSView hosts. Engine pause/resume
+        // below preserves the existing CVDisplayLink discipline.
+        //
+        // Note: blurView + darkenLayer are also independently toggled
+        // by the minimize/maximize flow at lines 591/698 + 1969 —
+        // those paths set them to `false` (visible) but a subsequent
+        // route change to a note will hide them again via this
+        // function, which is the intended order.
         metalView?.isHidden = !isCanvas
+        blurView?.isHidden = !isCanvas
+        darkenLayer?.isHidden = !isCanvas
 
         if isCanvas {
             repositionInspector()
