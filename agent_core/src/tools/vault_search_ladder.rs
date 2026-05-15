@@ -274,6 +274,31 @@ mod tests {
         assert_eq!(FLOOR_T3, 0.70);
     }
 
+    #[test]
+    fn doctrine_floors_descend_monotonically_b_1() {
+        // §B.1 design intent: each lower tier accepts at a LOWER
+        // confidence threshold — high-confidence matches resolve at
+        // T1, medium at T2, low at T3, anything else falls off the
+        // ladder. Pin the strict descent so a doctrine-discussion
+        // about "tighten T2 to 0.80" can't accidentally invert the
+        // monotonic chain (which would let T2 reject matches that T1
+        // would have accepted — a logical contradiction in the ladder
+        // dispatch invariant).
+        //
+        // Strict less-than (not ≤) — flat-tied floors collapse the
+        // ladder semantics (T1 = T2 means T1 already covers
+        // everything T2 would).
+        assert!(FLOOR_T2 < FLOOR_T1,
+                "FLOOR_T2 ({FLOOR_T2}) MUST be strictly below FLOOR_T1 ({FLOOR_T1})");
+        assert!(FLOOR_T3 < FLOOR_T2,
+                "FLOOR_T3 ({FLOOR_T3}) MUST be strictly below FLOOR_T2 ({FLOOR_T2})");
+
+        // All floors live in [0, 1] — they're confidence scores.
+        assert!((0.0..=1.0).contains(&FLOOR_T1));
+        assert!((0.0..=1.0).contains(&FLOOR_T2));
+        assert!((0.0..=1.0).contains(&FLOOR_T3));
+    }
+
     #[tokio::test]
     async fn t3_variant_accepts_when_top_score_is_at_or_above_floor() {
         // Top score = 0.72 ≥ FLOOR_T3 = 0.70 → accept.
