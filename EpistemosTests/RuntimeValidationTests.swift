@@ -3661,6 +3661,49 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("This recovery session is not durable."))
     }
 
+    // RCA-P0-002 fault-injection unit coverage. The source-guard test
+    // above pins the wiring; these tests exercise the actual
+    // `PersistenceMode` enum so a refactor that subtly broadens
+    // `isDurable` or collapses `.inMemoryRecovery` into a default-bool
+    // fails CI without needing a corrupt-store smoke run.
+    //
+    // What's still NOT covered automatically (called out in the audit
+    // entry's "Remaining risk"): a real corrupted-SwiftData-store
+    // launch, the workspace hide visual under load, and any pre-
+    // existing detached write surfaces. Those remain manual smoke.
+
+    @Test("PersistenceMode.isDurable is true only for the .durable case")
+    func persistenceModeIsDurableReflectsCase() throws {
+        let durable = PersistenceMode.durable(url: URL(fileURLWithPath: "/tmp/test.store"))
+        let testInMemory = PersistenceMode.testInMemory
+        let recovery = PersistenceMode.inMemoryRecovery(reason: "store open failed")
+
+        #expect(durable.isDurable == true)
+        #expect(testInMemory.isDurable == false)
+        #expect(recovery.isDurable == false,
+                "recovery mode MUST report non-durable so any caller gating writes on isDurable blocks correctly")
+    }
+
+    @Test("PersistenceMode equality honors the recovery reason")
+    func persistenceModeEquatabilityHonorsReason() throws {
+        // Two recovery sessions with different reasons must NOT compare
+        // equal — otherwise diagnostic surfaces that key off
+        // PersistenceMode would collapse distinct failure modes into
+        // one. Guards against an accidental `Equatable` synthesis
+        // regression that ignores associated values.
+        let a = PersistenceMode.inMemoryRecovery(reason: "missing store file")
+        let b = PersistenceMode.inMemoryRecovery(reason: "schema mismatch")
+        #expect(a != b)
+
+        let aDup = PersistenceMode.inMemoryRecovery(reason: "missing store file")
+        #expect(a == aDup)
+
+        // Different cases with same superficial info still differ.
+        let url = URL(fileURLWithPath: "/tmp/test.store")
+        let durable = PersistenceMode.durable(url: url)
+        #expect(durable != PersistenceMode.testInMemory)
+    }
+
     @Test("full reset clears the whole schema and managed note bodies")
     func fullResetClearsTheWholeSchemaAndManagedNoteBodies() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
