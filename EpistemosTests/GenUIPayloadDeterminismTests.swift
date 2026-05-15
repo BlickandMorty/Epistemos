@@ -130,4 +130,37 @@ struct GenUIPayloadDeterminismTests {
         #expect(registered == allCases,
                 "GenUIDispatcher.render switch must have a branch for every GenUISchema case")
     }
+
+    @Test("Every GenUISchema case has at least one canonical body pairing")
+    func everySchemaCaseHasACanonicalBodyPairing() {
+        // The `canonicalBody(_:)` switch routes each GenUISchema to
+        // its expected GenUIBody case. Adding a new schema variant
+        // without updating canonicalBody would silently fall through
+        // to `default` → return false → every payload of that schema
+        // would render as FallbackGenUIView with no surface-side
+        // signal that the schema-body pairing was forgotten.
+        //
+        // Pin: every schema case has SOME body that returns true so
+        // the pairing isn't omitted. We don't need to enumerate the
+        // exact body each schema expects (the existing source-guard
+        // tests cover individual mappings); the cross-coverage check
+        // here is the only thing that fails for "added a new schema,
+        // forgot the canonicalBody arm".
+        let candidateBodies: [GenUIBody] = [
+            .raw(""),
+            .rows(headers: [], cells: []),
+            .keyValues([]),
+            .actions([]),
+            .error(title: "x", detail: "", hint: nil, options: []),
+            .progress(label: "x", total: 1.0, value: 0.0),
+            .provenanceChain([]),
+            .clarify(question: "q", choices: [], allowFreeText: true),
+        ]
+        for schema in GenUISchema.allCases {
+            let hasAtLeastOnePairing = candidateBodies
+                .contains { schema.canonicalBody($0) }
+            #expect(hasAtLeastOnePairing,
+                    "GenUISchema.\(schema) has no canonical body pairing — adding it requires updating `GenUISchema.canonicalBody(_:)`")
+        }
+    }
 }
