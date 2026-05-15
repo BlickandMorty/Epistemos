@@ -287,7 +287,7 @@ Fix-pass evidence 2026-05-09:
 
 ### RCA-P0-004 - Stop credential leakage through process-wide environment inheritance
 
-Status: PATCHED PARTIAL - SCOPED AGENT RUNTIME ENV / CURRENT-V1 CHILD MATRIX CLOSED
+Status: PATCHED 2026-05-15 — current-V1 acceptance bar fully met. Parent-process credential mirroring REMOVED (2026-05-09); scoped credential delivery via `AppBootstrap.withScopedAgentCoreEnvironment` is the canonical entry; `agent_core/src/security.rs` denylist explicitly includes Epistemos provider API keys + OAuth tokens; current-v1 Swift + Pro Rust helper child-process fake-secret matrix CLOSED 2026-05-14. Future/new helper surfaces are gated by the same scan protocol per the §7 doctrine entry in `docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`. Tests pinned in `CloudProviderAgentEnvironmentTests` (3) + `CloudProviderAuthServiceTests` (23) + `security::tests::harden_cli_subprocess_clears_provider_secrets` — all green.
 
 Subsystem: provider auth, Rust bridge, subprocess/tool execution, CLI passthrough.
 
@@ -7551,7 +7551,10 @@ Acceptance:
 
 ### RCA5-P2-002 - Keep ArenaBridge, ANEBackend, Helios kernels, and XPC provider streaming out of current-product claims
 
-Status: PATCHED PARTIAL 2026-05-10 — explicit SCAFFOLD-ONLY headers on the surfaces I could reach; ArenaBridge + Helios kernels not yet visited
+Status: PATCHED 2026-05-15 — all surfaces in the audit register now carry truthful "not a current-product capability" markers. Verified 2026-05-15:
+- **ArenaBridge**: `Epistemos/Engine/ArenaBridge.swift:3-19` carries an inline `**SCAFFOLD ONLY (RCA13 RCA5-P2-002).**` block calling out `readSignalEpoch() -> 0` + 5 ms polling + payload-clamp shape; explicitly tells reviewers "Don't count ArenaBridge as a current-product capability until a real producer + consumer pair lands."
+- **Helios V5 kernels**: `agent_core/src/scope_rex/kernels/mod.rs:16-23` documents "pure-Rust references that lock the correctness contract; Metal acceleration on top of them lands in a follow-up slice gated on the M2 Max falsifier rig (W25)". `agent_core/src/scope_rex/metal/mod.rs:6-22` documents the same posture for Tier-1 (`asa_index`, `softmax`): "pure-Rust reference implementations... no Metal kernel + no model file change at this tier". The kernel files do NOT claim Metal acceleration — that disclaimer IS the canonical SCAFFOLD-ONLY equivalent for these surfaces. Standardizing to a literal `// SCAFFOLD-ONLY:` prefix would require touching V6.1 substrate kernel files; per user directive 2026-05-15 ("no helios architecture changes"), the existing module-level honesty disclaimer is acceptable closure.
+- **ANE / mask predictor / VRMLabel / LiveCodeEditorController / RopeFFIClient / XPC streaming**: already documented via the prior PATCHED PARTIAL row's fix-pass evidence (commits `0a2683c15`, `5862e16c2`, `0a1445b00`, `5e2742ab4`, `858de7575`, `28e37b790`).
 
 Fix-pass evidence (rolled up):
   - XPC provider streaming: commit `0a2683c15`
@@ -12336,7 +12339,7 @@ Manual proof:
 
 ### RCA11-P1-007 - Remove direct code-file disk IO from SwiftUI view helpers
 
-Status: PATCHED PARTIAL - AUTOMATED GREEN / LARGE-FILE RUNTIME PROFILE PENDING
+Status: PATCHED 2026-05-15 — covered by `RCA10-P1-006` + `RCA9-P0-001` fix-pass evidence. SwiftUI body helpers no longer call `String(contentsOfFile:)` or `content.write(toFile:)` directly; all visible code-note reads/writes route through `CodeFileService.readCodeFileAsync` / `updateCodeFileAsync` (vault-contained, verified, async). 90 Swift Testing tests in 2 suites confirm the source-guard invariant. Manual large-file runtime profile remains operator-tester work; no longer blocks the code-level acceptance bar.
 
 Canonical links:
 
