@@ -3179,6 +3179,29 @@ final class AppBootstrap {
                 recordPersistenceIssue("Block reference migration failed", error: error)
             }
         }
+
+        // 3. RCA-P0-003 — strip hidden capture-provenance / audio-source
+        // HTML comments from any pre-2026-05-09 managed bodies still on
+        // disk. New captures already sanitize at write time; this is
+        // the export-share-migration runtime piece of RCA-P0-003 (the
+        // remaining manual smoke item there is the export pipeline
+        // inspection itself). Idempotent + one-shot via the
+        // `v2_hidden_capture_metadata_migration_complete` flag.
+        let hiddenMetadataKey = "v2_hidden_capture_metadata_migration_complete"
+        if !UserDefaults.standard.bool(forKey: hiddenMetadataKey) {
+            // Detached so the I/O walk doesn't block bootstrap.
+            // Sequential per pageId — `NoteFileStorage` serializes
+            // writes through its own mutation queue.
+            let migrated = await Task.detached(priority: .utility) {
+                TextCapturePipeline.migrateLegacyCaptureMetadataInManagedBodies()
+            }.value
+            UserDefaults.standard.set(true, forKey: hiddenMetadataKey)
+            if migrated > 0 {
+                Log.persistence.info(
+                    "Hidden capture metadata migration stripped legacy comments from \(migrated) bodies"
+                )
+            }
+        }
     }
 
     private func cleanupOrphanBodyFiles() async {
