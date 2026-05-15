@@ -148,12 +148,27 @@ nonisolated public struct ShadowDocumentDTO: Sendable, Hashable, Codable {
     public let title: String
     public let body: String
     public let domain: ShadowDomain
+    /// Sidecar metadata — which vault this document originated from.
+    /// Mirrors `Rust ShadowDocument.origin_vault_key: Option<String>`
+    /// and the search-side `ShadowHit.originVaultKey` so the indexer
+    /// can populate the field on insert and the search path echoes it
+    /// back on hit. `nil` matches `Option::None` on the Rust side;
+    /// `JSONEncoder` drops the field when nil so pre-sidecar consumers
+    /// see byte-identical document JSON.
+    public let originVaultKey: String?
 
-    public init(docId: String, title: String, body: String, domain: ShadowDomain) {
+    public init(
+        docId: String,
+        title: String,
+        body: String,
+        domain: ShadowDomain,
+        originVaultKey: String? = nil
+    ) {
         self.docId = docId
         self.title = title
         self.body = body
         self.domain = domain
+        self.originVaultKey = originVaultKey
     }
 
     /// Wire format: snake_case keys + domain encoded as
@@ -163,6 +178,21 @@ nonisolated public struct ShadowDocumentDTO: Sendable, Hashable, Codable {
         case title
         case body
         case domain
+        case originVaultKey = "origin_vault_key"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(docId, forKey: .docId)
+        try container.encode(title, forKey: .title)
+        try container.encode(body, forKey: .body)
+        try container.encode(domain, forKey: .domain)
+        // Skip-empty mirror of the Rust `skip_serializing_if =
+        // "Option::is_none"` on `ShadowDocument.origin_vault_key`.
+        // Without this, Swift would emit `"origin_vault_key": null`
+        // and break the pre-sidecar byte-identical contract on
+        // documents that never populated the field.
+        try container.encodeIfPresent(originVaultKey, forKey: .originVaultKey)
     }
 }
 
