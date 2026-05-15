@@ -343,6 +343,68 @@ impl LedgerEvent {
 /// index turns an evidence retraction into an O(1) lookup of affected
 /// claims; the `claim_derives` reverse index turns a claim retraction
 /// into an O(1) lookup of downstream claims.
+// ---------------------------------------------------------------------------
+// Knowledge Sieve + Gap Winner Rule (Master Fusion Plan §B.7)
+// ---------------------------------------------------------------------------
+//
+// Per `docs/fusion/jordan's research/kimis deep research/ternary_reconceptualization.md`
+// §3.2-3.6. A claim's "prime / composite / gap" tier is derived from
+//
+//   - **prime**:  claim with HIGH normalized in-degree (many downstream
+//                 dependents); a structural carrier. `weight(C) = d(C) /
+//                 max(d(C') for all C' in KB)` (§3.2).
+//   - **composite**: claim with LOW in-degree; entailed by primes, eligible
+//                 for derivation-on-demand (§3.6 Knowledge Sieve).
+//   - **gap**:    AtRisk / NeedsRevalidation / Retracted claims — the
+//                 "waiting / unverified" tier the No-Later-Simpler-
+//                 Composite curriculum deprioritizes (§3.4).
+//
+// The Gap Winner Rule (§3.3) governs retrieval: the winner of a
+// retrieval set is the leftmost min-dependency carrier — i.e. the prime
+// with the FEWEST upstream prerequisites that still has a non-zero
+// downstream dependent count. That gives consumers (RRF k=60 fusion in
+// `epistemos-shadow`, future memory.semantic_recall) a deterministic
+// ranking order without invoking an LLM.
+
+/// Tier in the prime / composite / gap taxonomy.
+///
+/// Derived from the ClaimLedger's adjacency graph + claim status at
+/// rank time. Order: `Gap` < `Composite` < `Prime` so a `(tier, weight)`
+/// natural ordering sorts gap → composite → prime ascending.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimTier {
+    /// Status ∈ {`AtRisk`, `NeedsRevalidation`, `Retracted`} — the
+    /// curriculum-deprioritized "waiting / unverified" set.
+    Gap,
+    /// Active, but has zero downstream dependents — derivable from
+    /// primes via the Knowledge Sieve.
+    Composite,
+    /// Active and carrier of downstream structure (`claim_derives`
+    /// non-empty). Anchors that survive aggressive compression.
+    Prime,
+}
+
+/// One ranked claim returned by [`ClaimLedger::rank_by_prime_composite_gap`].
+///
+/// Fields are denormalized for downstream consumers (RRF rank-boost
+/// term, Provenance Console UI, NightBrain task budgeters) so they
+/// don't have to re-walk the adjacency maps.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RankedClaim {
+    pub claim_id: ClaimId,
+    pub tier: ClaimTier,
+    pub dependents: usize,
+    pub dependencies: usize,
+    /// HELIOS V5 W2 — claim kind passed through for downstream filters.
+    pub kind: ClaimKind,
+    /// Active / AtRisk / NeedsRevalidation / Retracted.
+    pub status: ClaimStatus,
+    /// Created-at timestamp, surfaced so consumers can tiebreak by
+    /// recency without having to fetch the full Claim back.
+    pub created_at_ms: i64,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ClaimLedger {
     claims: HashMap<ClaimId, Claim>,
@@ -698,6 +760,93 @@ impl ClaimLedger {
                 report: report.clone(),
             },
         ));
+    }
+
+    // -- Knowledge Sieve + Gap Winner Rule (Master Fusion §B.7) ------------
+
+    /// Rank every claim in the ledger by the prime / composite / gap
+    /// taxonomy per `ternary_reconceptualization.md` §3.2-3.6.
+    ///
+    /// Tier resolution:
+    ///   - `Gap` — claim status ∈ {`AtRisk`, `NeedsRevalidation`,
+    ///     `Retracted`}. Curriculum-deprioritized.
+    ///   - `Composite` — `Active`, `claim_derives` empty (no downstream
+    ///     dependents). Eligible for derivation-on-demand.
+    ///   - `Prime` — `Active`, `claim_derives` non-empty (structural
+    ///     carrier). High weight.
+    ///
+    /// Output order (highest-rank first → lowest):
+    ///   1. Tier descending: `Prime` → `Composite` → `Gap`
+    ///   2. Within a tier, dependents descending (Gap-Winner: more
+    ///      carriers first)
+    ///   3. Then dependencies ascending (Gap Winner's "leftmost
+    ///      min-dependency carrier" rule — fewer prereqs ranks higher)
+    ///   4. Then created_at_ms ascending (older = more established)
+    ///   5. Final tiebreak: claim_id lexicographic (determinism anchor)
+    ///
+    /// Determinism: every collection consulted by this method is sorted
+    /// before iteration, so two ledgers in equal state produce
+    /// byte-identical output. Pin this with the
+    /// `ranking_is_deterministic_across_repeated_calls` test.
+    pub fn rank_by_prime_composite_gap(&self) -> Vec<RankedClaim> {
+        // Sort claim ids for deterministic iteration. BTreeMap would
+        // give us this for free but we don't want to disturb the
+        // existing HashMap-backed adjacency storage; sorting at rank
+        // time is cheap relative to the ranking sort itself.
+        let mut ids: Vec<&ClaimId> = self.claims.keys().collect();
+        ids.sort();
+
+        let mut ranked: Vec<RankedClaim> = ids
+            .into_iter()
+            .map(|id| {
+                let claim = &self.claims[id];
+                let dependents = self
+                    .claim_derives
+                    .get(id)
+                    .map(|s| s.len())
+                    .unwrap_or(0);
+                let dependencies = self
+                    .claim_derived_from
+                    .get(id)
+                    .map(|s| s.len())
+                    .unwrap_or(0);
+                let tier = match (claim.status, dependents) {
+                    (ClaimStatus::Retracted, _)
+                    | (ClaimStatus::AtRisk, _)
+                    | (ClaimStatus::NeedsRevalidation, _) => ClaimTier::Gap,
+                    (ClaimStatus::Active, 0) => ClaimTier::Composite,
+                    (ClaimStatus::Active, _) => ClaimTier::Prime,
+                };
+                RankedClaim {
+                    claim_id: claim.id.clone(),
+                    tier,
+                    dependents,
+                    dependencies,
+                    kind: claim.kind,
+                    status: claim.status,
+                    created_at_ms: claim.created_at_ms,
+                }
+            })
+            .collect();
+
+        // Sort: prime → composite → gap, then dependents desc,
+        // dependencies asc (Gap Winner), then created_at asc, then id.
+        // `sort_by` is stable so equal-key claims keep ledger-id order.
+        ranked.sort_by(|a, b| {
+            // tier: descending (Prime > Composite > Gap when reversed)
+            b.tier
+                .cmp(&a.tier)
+                // dependents: descending (more carriers first)
+                .then_with(|| b.dependents.cmp(&a.dependents))
+                // dependencies: ascending (fewer prereqs wins per
+                // Gap Winner Rule §3.3)
+                .then_with(|| a.dependencies.cmp(&b.dependencies))
+                // created_at: ascending (older = more established)
+                .then_with(|| a.created_at_ms.cmp(&b.created_at_ms))
+                // final tiebreak: claim id (determinism anchor)
+                .then_with(|| a.claim_id.cmp(&b.claim_id))
+        });
+        ranked
     }
 }
 
@@ -1078,5 +1227,175 @@ mod tests {
             let json = serde_json::to_string(&kind).unwrap();
             assert_eq!(json, expected, "wire format for {:?}", kind);
         }
+    }
+
+    // -- Master Fusion §B.7 Knowledge Sieve + Gap Winner Rule -------------
+
+    #[test]
+    fn rank_classifies_basic_ledger_as_two_primes_one_composite() {
+        // seed_basic_ledger() builds: c1 → c2 → c3. c1 + c2 have
+        // downstream dependents (Prime); c3 has none (Composite).
+        let ledger = seed_basic_ledger();
+        let ranked = ledger.rank_by_prime_composite_gap();
+        assert_eq!(ranked.len(), 3);
+
+        let by_id: std::collections::HashMap<String, &RankedClaim> =
+            ranked.iter().map(|r| (r.claim_id.0.clone(), r)).collect();
+
+        // c1 — 1 dependent (c2), 0 deps → Prime.
+        let c1 = by_id.get("c1").expect("c1 must rank");
+        assert_eq!(c1.tier, ClaimTier::Prime);
+        assert_eq!(c1.dependents, 1);
+        assert_eq!(c1.dependencies, 0);
+
+        // c2 — 1 dependent (c3), 1 dep (c1) → Prime.
+        let c2 = by_id.get("c2").expect("c2 must rank");
+        assert_eq!(c2.tier, ClaimTier::Prime);
+        assert_eq!(c2.dependents, 1);
+        assert_eq!(c2.dependencies, 1);
+
+        // c3 — 0 dependents, 1 dep (c2) → Composite.
+        let c3 = by_id.get("c3").expect("c3 must rank");
+        assert_eq!(c3.tier, ClaimTier::Composite);
+        assert_eq!(c3.dependents, 0);
+        assert_eq!(c3.dependencies, 1);
+    }
+
+    #[test]
+    fn rank_gap_winner_orders_primes_by_dependents_then_fewest_dependencies() {
+        // c1 + c2 are both Prime. Gap Winner Rule §3.3 says the
+        // leftmost min-dependency carrier wins. c1 has 0 dependencies,
+        // c2 has 1 → c1 ranks above c2.
+        let ledger = seed_basic_ledger();
+        let ranked = ledger.rank_by_prime_composite_gap();
+
+        let positions: std::collections::HashMap<String, usize> = ranked
+            .iter()
+            .enumerate()
+            .map(|(i, r)| (r.claim_id.0.clone(), i))
+            .collect();
+        assert!(
+            positions["c1"] < positions["c2"],
+            "c1 (fewer deps) must rank above c2; got {:?}",
+            ranked
+                .iter()
+                .map(|r| (r.claim_id.0.clone(), r.tier))
+                .collect::<Vec<_>>()
+        );
+
+        // And both primes outrank the composite c3.
+        assert!(positions["c2"] < positions["c3"]);
+    }
+
+    #[test]
+    fn rank_deprioritizes_retracted_claims_to_gap_tier() {
+        // Retract c1's only evidence (ev-a) → c1 + c2 + c3 cascade to
+        // AtRisk per existing retraction propagation. AtRisk maps to
+        // Gap tier; all three claims should rank below any active
+        // primes (none exist after retraction).
+        let mut ledger = seed_basic_ledger();
+        ledger.retract_evidence(&EvidenceId::new("ev-a")).unwrap();
+
+        let ranked = ledger.rank_by_prime_composite_gap();
+        assert!(ranked.iter().all(|r| r.tier == ClaimTier::Gap),
+            "after evidence retraction every claim must fall into Gap tier; got {:?}",
+            ranked.iter().map(|r| (r.claim_id.0.clone(), r.tier)).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn rank_explicitly_retracted_claim_is_gap_even_if_downstream_dependents_exist() {
+        // If you retract a claim DIRECTLY (not its evidence), the
+        // claim itself goes to Retracted status. It must rank as Gap
+        // regardless of how many dependents it had.
+        let mut ledger = seed_basic_ledger();
+        ledger.retract_claim(&ClaimId::new("c1")).unwrap();
+
+        let ranked = ledger.rank_by_prime_composite_gap();
+        let by_id: std::collections::HashMap<String, &RankedClaim> =
+            ranked.iter().map(|r| (r.claim_id.0.clone(), r)).collect();
+
+        let c1 = by_id["c1"];
+        assert_eq!(c1.status, ClaimStatus::Retracted);
+        assert_eq!(c1.tier, ClaimTier::Gap);
+        // c1 had 1 dependent (c2) before retraction — the dependent
+        // count is reported but the tier reflects status.
+        assert_eq!(c1.dependents, 1);
+    }
+
+    #[test]
+    fn ranking_is_deterministic_across_repeated_calls() {
+        // Determinism is the rank doctrine anchor — repeated calls on
+        // an unchanged ledger must produce byte-identical output for
+        // the Provenance Console replay path.
+        let ledger = seed_basic_ledger();
+        let a = ledger.rank_by_prime_composite_gap();
+        let b = ledger.rank_by_prime_composite_gap();
+        let c = ledger.rank_by_prime_composite_gap();
+        assert_eq!(a, b);
+        assert_eq!(b, c);
+
+        // And the JSON serialization is byte-equal too (Provenance
+        // Console replay path serializes ranked output into the
+        // .epbundle replay shape).
+        let ja = serde_json::to_string(&a).unwrap();
+        let jb = serde_json::to_string(&b).unwrap();
+        assert_eq!(ja, jb, "serialized ranking must be byte-equal across calls");
+    }
+
+    #[test]
+    fn rank_orders_gap_below_composite_below_prime_globally() {
+        // Construct a 4-claim ledger:
+        //   - c-prime: 1 dependent, status Active → Prime
+        //   - c-composite: 0 dependents, Active → Composite
+        //   - c-gap-needsreval: 0 dependents, NeedsRevalidation → Gap
+        //   - c-gap-retracted: explicitly retracted → Gap
+        let mut l = ClaimLedger::new();
+        l.commit_evidence(Evidence::new(EvidenceId::new("ev"), "src", t()))
+            .unwrap();
+        l.commit_claim(
+            Claim::new(ClaimId::new("c-prime"), "p", t()),
+            vec![],
+            vec![EvidenceId::new("ev")],
+        )
+        .unwrap();
+        l.commit_claim(
+            Claim::new(ClaimId::new("c-derived"), "d", t()),
+            vec![ClaimId::new("c-prime")],
+            vec![],
+        )
+        .unwrap();
+        l.commit_claim(
+            Claim::new(ClaimId::new("c-composite"), "c", t()),
+            vec![],
+            vec![EvidenceId::new("ev")],
+        )
+        .unwrap();
+        l.commit_claim(
+            Claim::new(ClaimId::new("c-gap-retracted"), "g1", t()),
+            vec![],
+            vec![EvidenceId::new("ev")],
+        )
+        .unwrap();
+        l.retract_claim(&ClaimId::new("c-gap-retracted")).unwrap();
+
+        let ranked = l.rank_by_prime_composite_gap();
+        let tiers: Vec<ClaimTier> = ranked.iter().map(|r| r.tier).collect();
+
+        // Global ordering invariant: Prime block first, then any
+        // Composite block, then any Gap block. Find the first index
+        // where the tier transitions and assert monotonic-non-increase.
+        for window in tiers.windows(2) {
+            // Tier ordering reverses naturally on cmp; we want
+            // Prime > Composite > Gap when reading left-to-right.
+            assert!(
+                window[0] >= window[1],
+                "tier order violated: {window:?} — full tiers = {tiers:?}"
+            );
+        }
+
+        // And the actual block tiers must match the seeded fixture.
+        assert_eq!(tiers.first(), Some(&ClaimTier::Prime));
+        assert_eq!(tiers.last(), Some(&ClaimTier::Gap));
     }
 }
