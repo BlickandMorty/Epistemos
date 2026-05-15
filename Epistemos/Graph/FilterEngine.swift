@@ -9,8 +9,11 @@ final class FilterEngine {
 
     // MARK: - State
 
-    /// Which node types are currently visible. Starts with all visible types active.
-    private(set) var activeNodeTypes: Set<GraphNodeType> = Set(GraphNodeType.visibleCases)
+    /// Which node types are currently visible. Starts with the
+    /// canonical `defaultActiveCases` set (visibleCases minus folder
+    /// per user direction 2026-05-15 — folder nodes are an opt-in
+    /// rather than the default-on clutter).
+    private(set) var activeNodeTypes: Set<GraphNodeType> = Set(GraphNodeType.defaultActiveCases)
     /// Which edge types are currently visible. Starts with all graph-visible relationship types active.
     private(set) var activeEdgeTypes: Set<GraphEdgeType> = Set(GraphEdgeType.visibleCases)
 
@@ -67,9 +70,12 @@ final class FilterEngine {
 
     // MARK: - Computed
 
-    /// True if any filter is active (not all types shown, or focused).
+    /// True if any filter is active (not the default-active set, or focused).
+    /// Per user direction 2026-05-15, the baseline "no filter" state is
+    /// `defaultActiveCases` (visibleCases minus folder) — not
+    /// `visibleCases` — so toggling folder on counts as filtering.
     var isFiltered: Bool {
-        activeNodeTypes.count != GraphNodeType.visibleCases.count
+        activeNodeTypes != Set(GraphNodeType.defaultActiveCases)
             || activeEdgeTypes.count != GraphEdgeType.visibleCases.count
             || focusedNodeId != nil
             || selectedModelProfileId != nil
@@ -103,7 +109,7 @@ final class FilterEngine {
 
     /// Reset to showing all node types.
     func showAllTypes() {
-        activeNodeTypes = Set(GraphNodeType.visibleCases)
+        activeNodeTypes = Set(GraphNodeType.defaultActiveCases)
     }
 
     /// Toggle an edge type on or off.
@@ -132,9 +138,13 @@ final class FilterEngine {
         activeNodeTypes = [.idea, .tag]
     }
 
-    /// Restore human vault mode — show all standard node types.
+    /// Restore human vault mode — show the canonical default-active
+    /// node-type set. When the user had saved a custom set before
+    /// entering agent vault mode, we restore that exact set; otherwise
+    /// fall back to `defaultActiveCases` (per user direction 2026-05-15
+    /// — folders disabled by default).
     func applyHumanVaultMode() {
-        activeNodeTypes = savedNodeTypes ?? Set(GraphNodeType.visibleCases)
+        activeNodeTypes = savedNodeTypes ?? Set(GraphNodeType.defaultActiveCases)
         savedNodeTypes = nil
     }
 
@@ -168,7 +178,7 @@ final class FilterEngine {
 
     /// Reset all graph filters when the active vault truth changes.
     func resetForVaultLifecycle() {
-        activeNodeTypes = Set(GraphNodeType.visibleCases)
+        activeNodeTypes = Set(GraphNodeType.defaultActiveCases)
         activeEdgeTypes = Set(GraphEdgeType.visibleCases)
         savedNodeTypes = nil
         clearFocus()
