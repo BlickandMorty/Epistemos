@@ -14,6 +14,13 @@ import Testing
 @MainActor
 final class MockShadowSearchService: ShadowSearchServicing, @unchecked Sendable {
     var nextResults: [ShadowHit] = []
+    /// When non-nil, the next `searchReportingErrors` call surfaces this
+    /// as `errorMessage` (and yields the empty hit list) — same shape
+    /// the production `ShadowSearchService.searchReportingErrors` returns
+    /// after catching an FFI throw. Used by the RCA-P1-013 force-failure
+    /// tests so the degraded-UI contract is pinned without depending on
+    /// the real Rust backend being able to crash on command.
+    var nextErrorMessage: String?
     private(set) var callCount: Int = 0
     private(set) var lastQuery: String = ""
     private(set) var lastDomain: ShadowDomain = .notes
@@ -27,6 +34,28 @@ final class MockShadowSearchService: ShadowSearchServicing, @unchecked Sendable 
             self.lastLimit = limit
         }
         return await MainActor.run { self.nextResults }
+    }
+
+    /// Explicit override of the error-reporting variant so the test can
+    /// inject a failure message. The default extension would otherwise
+    /// always report nil — bypassing the production code path that
+    /// transitions HaloController to `.errorRecoverable`.
+    nonisolated func searchReportingErrors(
+        text: String,
+        domain: ShadowDomain,
+        limit: Int
+    ) async -> (hits: [ShadowHit], errorMessage: String?) {
+        let snapshot: (results: [ShadowHit], error: String?) = await MainActor.run {
+            self.callCount += 1
+            self.lastQuery = text
+            self.lastDomain = domain
+            self.lastLimit = limit
+            return (self.nextResults, self.nextErrorMessage)
+        }
+        if let message = snapshot.error {
+            return (hits: [], errorMessage: message)
+        }
+        return (hits: snapshot.results, errorMessage: nil)
     }
 }
 
@@ -328,6 +357,60 @@ struct HaloControllerTests {
             #expect(msg == "backend not yet ready")
         } else {
             #expect(Bool(false), "expected .errorRecoverable; got \(ctrl.state)")
+        }
+    }
+
+    // MARK: - RCA-P1-013 — force-failure path
+
+    /// RCA-P1-013 acceptance: a backend that reports an `errorMessage`
+    /// during a search must surface in the controller as
+    /// `.errorRecoverable(message)`, NOT a silent empty-matches state
+    /// that looks like "no hits." Pins the degraded-UI contract.
+    @Test("backend-reported errorMessage drives controller to .errorRecoverable")
+    func backendErrorTransitionsToErrorRecoverable() async {
+        let (ctrl, mock) = mockController(results: [sampleHit("n1", score: 0.9)])
+        mock.nextErrorMessage = "Search backend unavailable. Try reopening the vault."
+        ctrl.editorTextDidChange("kant on duty")
+        await Self.waitForState(ctrl, until: { state in
+            if case .errorRecoverable = state { return true }
+            return false
+        })
+        if case let .errorRecoverable(msg) = ctrl.state {
+            #expect(msg == "Search backend unavailable. Try reopening the vault.")
+        } else {
+            #expect(Bool(false), "expected .errorRecoverable; got \(ctrl.state)")
+        }
+        // Matches must be cleared so the UI doesn't render stale hits
+        // alongside a "backend unavailable" banner.
+        #expect(ctrl.matches.isEmpty)
+        #expect(mock.callCount == 1)
+    }
+
+    /// Recovery contract: once the backend stops reporting errors, the
+    /// next successful query must transition out of `.errorRecoverable`
+    /// to `.available` (or `.dormant` when no hits clear the threshold).
+    /// Without this, a single transient failure would latch the UI into
+    /// the degraded state permanently.
+    @Test("recovery from .errorRecoverable when subsequent search succeeds")
+    func recoveryFromBackendErrorOnNextSearch() async {
+        let (ctrl, mock) = mockController(results: [sampleHit("n1", score: 0.9)])
+        mock.nextErrorMessage = "backend gone"
+        ctrl.editorTextDidChange("kant on duty")
+        await Self.waitForState(ctrl, until: { state in
+            if case .errorRecoverable = state { return true }
+            return false
+        })
+        // Backend recovers — clear the injected error and type a new query.
+        mock.nextErrorMessage = nil
+        ctrl.editorTextDidChange("kant on freedom")
+        await Self.waitForState(ctrl, until: { state in
+            if case .available = state { return true }
+            return false
+        })
+        if case let .available(count) = ctrl.state {
+            #expect(count == 1)
+        } else {
+            #expect(Bool(false), "expected .available after recovery; got \(ctrl.state)")
         }
     }
 
