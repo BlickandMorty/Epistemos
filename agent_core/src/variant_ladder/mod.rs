@@ -486,6 +486,34 @@ mod tests {
         assert!(!LadderTier::Cloud.allowed_without_opt_in());
     }
 
+    #[test]
+    fn ladder_tier_numeric_values_match_doctrine_assignments() {
+        // `tier_ordering_matches_doctrine` (above) pins relative
+        // numeric order. This test pins the EXACT integer values from
+        // doctrine §2's tier table.
+        //
+        // Load-bearing for two reasons beyond the relative ordering:
+        //   (a) `allowed_without_opt_in` compares against
+        //       `Classical as u8` literally — adding a new variant
+        //       between Classical and SmallLLM would silently shift
+        //       SmallLLM to u8=4 → 5 and either widen or narrow the
+        //       opt-in gate without anyone noticing.
+        //   (b) Any future downstream consumer that persists or
+        //       transmits the numeric tier (analytics dashboards,
+        //       debug logs, FFI surfaces) would silently corrupt
+        //       audit history across a renumber.
+        //
+        // Adding a new tier requires explicit consideration of where
+        // it falls relative to the opt-in line — this test forces
+        // that conversation by failing on any unintended renumber.
+        assert_eq!(LadderTier::Deterministic as u8, 1);
+        assert_eq!(LadderTier::Embedding as u8, 2);
+        assert_eq!(LadderTier::Classical as u8, 3);
+        assert_eq!(LadderTier::SmallLLM as u8, 4);
+        assert_eq!(LadderTier::MidLLM as u8, 5);
+        assert_eq!(LadderTier::Cloud as u8, 6);
+    }
+
     // -----------------------------------------------------------------
     // Master Fusion Plan §B.3 — escalate_on_empty default + opt-in gate
     // -----------------------------------------------------------------
