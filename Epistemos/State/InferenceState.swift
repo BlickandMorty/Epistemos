@@ -476,6 +476,75 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         canActAsAgent && LocalToolGrammar.supportsStructuredToolCalling
     }
 
+    /// Master Fusion Plan §B.4 / "Brief Is Better" doctrine — the per-model
+    /// soft cap on the `<think>...</think>` reasoning block in tokens.
+    /// `0` means "no cap; emit unbounded reasoning".
+    ///
+    /// Doctrine: small models (≤4B) get a tight cap because they wander when
+    /// allowed to reason for long; mid models (7-9B) get a moderate cap;
+    /// MoE / large dense models get the canonical doctrine default 256. The
+    /// `~32 for Qwen 7B` literal value in the audit text is the floor for
+    /// the smallest agent-tier coder; everything below it has even tighter
+    /// caps per the Brief-Is-Better study.
+    ///
+    /// Wiring status today: this method is the **doctrine surface**. Live
+    /// enforcement at GBNF compile is deferred — MLXStructured's
+    /// `AnyTextFormat()` does not currently expose a maxLength parameter, so
+    /// the cap is enforced at a higher layer (post-decode token-budget
+    /// trimming in the agent loop) until either (a) MLXStructured grows a
+    /// bounded-text format OR (b) we ship a small post-decode reasoning
+    /// trimmer. Either way, callers that need the cap NOW can read it
+    /// from this method; the test suite pins the values so a future
+    /// refactor that erodes the doctrine fails CI.
+    ///
+    /// See:
+    /// - `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §B.4
+    /// - `docs/fusion/jordan's research/deterministicapp.md` §1 (Brief Is Better)
+    var reasoningTokenCap: Int {
+        switch self {
+        // Tiny (≤2B): tightest cap. These reason in chains-of-thought that
+        // drift quickly; force concise reasoning.
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit,
+             .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking,
+             .lfm25_VL1B, .lfm25_Audio1B,
+             .lfm2_2B4Bit, .mamba2_2B4Bit, .falconH1_1B4Bit:
+            return 16
+
+        // Small (3-4B): "Brief Is Better" canonical floor — 32 tokens.
+        // Includes Gemma 4 4B, Qwen 3 4B, Qwen 3.5 4B, DeepSeek-R1-Distill
+        // smaller variants, Llama 3.2 3B, SmolLM3, gemma 3 4B QAT.
+        case .qwen35_4B4Bit, .qwen3_4B4Bit, .qwen3_4BThinking25074Bit,
+             .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma3_4BQAT4Bit,
+             .llama32_3BInstruct4Bit, .smolLM3_3B4Bit, .jamba3B,
+             .bonsai4B2Bit:
+            return 32
+
+        // Mid (7-9B): moderate cap. Qwen 3 8B + Qwen 3.5 9B + Falcon-H1R
+        // 7B + DeepSeek-R1-Distill-Qwen-7B + Devstral.
+        case .qwen35_9B4Bit, .qwen3_8B4Bit,
+             .falconH1R_7B4Bit, .deepseekR1Distill7B,
+             .qwen25Coder7B, .bonsai8B2Bit,
+             .devstralSmall2505_4Bit:
+            return 64
+
+        // Larger dense + MoE coding/agentic models: canonical doctrine
+        // default 256 tokens. These have the headroom to reason at length
+        // without drifting; the cap exists to prevent runaway thinking
+        // chains, not to throttle them.
+        case .qwen35_27B4Bit,
+             .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
+             .localAgent43_36B4Bit, .localAgent43_36B3Bit,
+             .qwopus27Bv3, .qwopusMoE35BA3B,
+             .qwqFlagship32B4Bit, .llama4Scout17B16E4Bit,
+             .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
+             .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .gemma3_27BQAT4Bit, .mistralSmall31_24B4Bit:
+            return 256
+        }
+    }
+
     var isExperimentalForEpistemos: Bool {
         switch self {
         case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking,
