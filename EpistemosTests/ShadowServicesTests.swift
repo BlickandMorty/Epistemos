@@ -223,6 +223,39 @@ struct ShadowServicesTests {
         #expect(decoded.body == original.body)
     }
 
+    @Test("InMemoryShadowFFIClient echoes origin_vault_key from doc to hit (Rust state.rs parity)")
+    func inMemoryClientEchoesOriginVaultKey() throws {
+        // The Rust `state.rs` in-memory fallback copies the document's
+        // `origin_vault_key` onto the matching `ShadowHit`. The Swift
+        // `InMemoryShadowFFIClient` must mirror that contract so tests
+        // exercising the fallback path see the field round-trip — without
+        // it, the lenient nil-passthrough vault filter would silently
+        // drop the key on the Swift side and the two backends would
+        // diverge.
+        let client = Self.inMemoryClient()
+        try client.insert(document: ShadowDocumentDTO(
+            docId: "vault-alpha-n1",
+            title: "Kant",
+            body: "duty",
+            domain: .notes,
+            originVaultKey: "vault-alpha"
+        ))
+        try client.insert(document: ShadowDocumentDTO(
+            docId: "no-key-n2",
+            title: "Kant",
+            body: "duty alt",
+            domain: .notes
+        ))
+        let hits = try client.search(query: "kant", domain: .notes, limit: 10)
+        #expect(hits.count == 2)
+        let alphaHit = hits.first { $0.id == "vault-alpha-n1" }
+        let nilKeyHit = hits.first { $0.id == "no-key-n2" }
+        #expect(alphaHit?.originVaultKey == "vault-alpha",
+                "in-memory client MUST echo originVaultKey from doc to hit")
+        #expect(nilKeyHit?.originVaultKey == nil,
+                "doc inserted without originVaultKey MUST produce a hit with originVaultKey == nil")
+    }
+
     @Test("ShadowDocumentDTO decodes pre-sidecar JSON without origin_vault_key field")
     func shadowDocumentDTODecodesPreSidecarJSON() throws {
         // The other half of byte-identical: a document JSON that
