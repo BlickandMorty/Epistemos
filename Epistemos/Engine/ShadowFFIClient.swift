@@ -290,7 +290,12 @@ nonisolated public final class InMemoryShadowFFIClient: ShadowFFIClient, @unchec
                 snippet: snippet,
                 score: score,
                 domain: doc.domain,
-                source: "in-memory-substring"
+                source: "in-memory-substring",
+                // Mirror the Rust `state.rs` fallback backend — the
+                // sidecar key on the stored document is echoed back on
+                // the search hit so the lenient nil-passthrough vault
+                // filter applies uniformly across both code paths.
+                originVaultKey: doc.originVaultKey
             )
         }
         hits.sort { $0.score > $1.score }
