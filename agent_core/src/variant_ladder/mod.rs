@@ -549,6 +549,8 @@ mod tests {
                 return_value: 1000,
             }))
             .unwrap();
+        // VARIANT-LADDER-DEFER: test-only opt-in to Tier 4+ Always policy
+        // for the b3 audit; production routes default to `Never`.
         let ladder = ladder.with_escalation_policy(EscalationPolicy::Always);
         let res = ladder.resolve(&7).await.expect("Always policy escalates");
         assert_eq!(res.tier, LadderTier::SmallLLM);
@@ -573,6 +575,9 @@ mod tests {
                 return_value: 9999,
             }))
             .unwrap();
+        // VARIANT-LADDER-DEFER: test-only opt-in to OnEmpty policy that
+        // unlocks Tier 4+ when lower tiers all return None. Production
+        // routes default to `Never`.
         let ladder = ladder.with_escalation_policy(EscalationPolicy::OnEmpty);
 
         // Embedding tier produces a value first; cloud never runs.
