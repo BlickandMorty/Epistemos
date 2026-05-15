@@ -418,22 +418,44 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     }
 
     var canActAsAgent: Bool {
+        // RCA-LOCAL-AGENT-GRAMMAR-001 (2026-05-14): Gemma 3 / Gemma 4
+        // and Mistral families REMOVED from the canActAsAgent list.
+        // The Hermes-style `<tool_call>` XML grammar this app uses is
+        // a Qwen / Hermes / DeepSeek-distill convention; Gemma family
+        // models emit malformed output (e.g. `xml\`\`\`xml <tool_response`)
+        // when asked to call tools through that grammar — observed on
+        // gemma3_4BQAT4Bit per user 2026-05-14 screenshot. Until we
+        // wire Gemma-family-specific tool-call grammars (Gemma uses a
+        // different convention — function-call JSON inside the natural
+        // assistant turn, not `<tool_call>` XML), the router escalates
+        // these to Qwen (local) or to the cloud agent loop when an
+        // agent-intent query lands. Mistral family same rationale.
+        //
+        // To re-enable a model here: prove its tool-call grammar is
+        // honored by MLXStructured strict masking OR document a working
+        // soft-guidance template in LocalToolGrammar.swift, then add a
+        // source-guard test that exercises a `vault.write` round-trip
+        // for the model and confirms the tool_call is parsed correctly.
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
              .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
              .qwen3_4B4Bit, .qwen3_8B4Bit,
              .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
              .localAgent43_36B4Bit, .localAgent43_36B3Bit,
-             .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
-             .gemma3_4BQAT4Bit,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B, .qwqFlagship32B4Bit, .qwen25Coder7B,
-             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit,
              .llama4Scout17B16E4Bit,
              .lfm2_2B4Bit,
              .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
              .jamba3B, .falconH1R_7B4Bit:
             true
+        // Gemma 3/4 family + Mistral family: parked until grammar
+        // support lands. They remain great for Fast/Thinking direct-
+        // stream chat — just not exposed as agent-tier tool callers.
+        case .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit,
+             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
+            false
         default:
             false
         }
