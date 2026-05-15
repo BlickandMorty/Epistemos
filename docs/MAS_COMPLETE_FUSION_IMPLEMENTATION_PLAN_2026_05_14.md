@@ -931,6 +931,11 @@ Codex/Claude append rows here as items ship. Required fields: date · phase · i
 | Date | Phase | Item | Commit | Acceptance evidence | WRV status |
 |---|---|---|---|---|---|
 | 2026-05-14 | A | Paid Apple Developer + App Group restoration end-to-end | `6ccb26068` + `cb4a38f8d` | Apple Developer paid + App Group registered + 3 entitlements files restored + Pro Debug signed bundle confirms App Group via codesign | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-14 | (urgent) | Tantivy LockBusy retry + stale-lock recovery + read-only fallback (RCA-VAULT-LOCKBUSY-001) | `f7f3c273a` | `cargo test --manifest-path agent_core/Cargo.toml --lib` => 1098 passed, 0 failed | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-14 | (urgent) | Local-agent: exclude Gemma 3/4 + Mistral from canActAsAgent (RCA-LOCAL-AGENT-GRAMMAR-001) | `930b86989` | `xcodebuild -scheme Epistemos build` => BUILD SUCCEEDED; agent-tier router now escalates Gemma/Mistral agent-intent queries to Qwen or cloud loop | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-14 | C.15 | Orphan/scaffold quarantine — KaTeXSnippets + KIVIQuantization + variant_ladder canonical SCAFFOLD-ONLY headers + RCA-P2-010 row closure | `06819a33a` | cargo build clean + xcodebuild BUILD SUCCEEDED + 3 surfaces marked + audit row updated | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-14 | C.6 | Vault Organizer V1 known-limitation tooltip (RCA2-P2-005) | `8547c0aa9` | xcodebuild BUILD SUCCEEDED + `.help(...)` tooltip on `.moveToFolder` row + audit row updated with V1.1 deferral note | ✅ Wired+Reachable+Visible+Verified |
+| 2026-05-14 | C.10 | CodeFileService canonical first-fix-pass collapse (RCA9-P0-001) | `504c2696d` | RCA9-P0-001 status flipped to PATCHED 2026-05-14 + canonical-owner pointer to RCA4-P0-001 + 5-test drift-gate suite cited by name | ✅ Wired+Reachable+Visible+Verified |
 
 ## 9. Atlas Drift Log
 
