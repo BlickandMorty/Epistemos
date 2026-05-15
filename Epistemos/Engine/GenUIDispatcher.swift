@@ -54,6 +54,8 @@ final class GenUIDispatcher {
             SearchResultSetGenUIView(payload: payload)
         case .provenanceTrace:
             ProvenanceTraceGenUIView(payload: payload)
+        case .clarify:
+            ClarifyGenUIView(payload: payload)
         }
     }
 
@@ -522,6 +524,211 @@ private struct ProvenanceTraceEventRow: View {
                 .fill(.secondary.opacity(0.24))
                 .frame(width: 2)
         }
+    }
+}
+
+// MARK: - Clarify (Master Fusion §B.8 1/N)
+
+/// Notification posted when the user resolves a clarify card. The
+/// `userInfo` carries `payloadID` (the clarify payload's id), `response`
+/// (the user's text answer — equal to the chosen choice OR the
+/// free-text input), and `choiceIndex` (the integer index 0..<N when
+/// the user clicked a choice chip, OR `nil` when they typed free-text).
+///
+/// Wire format matches the Rust `ClarifyHandler` return shape:
+///   `{ question, response, choice_index }`
+///
+/// ChatCoordinator subscribes to this notification (B.8 2/N) and
+/// threads the response back into the running agent loop via
+/// `AgentEventDelegate::ask_user_question` resolution.
+extension Notification.Name {
+    static let clarifyCardResolved = Notification.Name("EpistemosClarifyCardResolved")
+}
+
+/// UserInfo keys for `.clarifyCardResolved`. String constants so test
+/// code + ChatCoordinator can pin against them without re-encoding the
+/// literals.
+enum ClarifyCardNotificationKey {
+    static let payloadID = "payloadID"
+    static let response = "response"
+    static let choiceIndex = "choiceIndex"
+}
+
+/// Renderer for `GenUISchema.clarify` payloads. Mirrors the Rust
+/// `agent_core::tools::clarify::ClarifyHandler` emission shape: a typed
+/// question + zero-to-four predefined choices + optional free-text
+/// fallback.
+///
+/// User interaction:
+///   - Tapping a choice chip posts `Notification.Name.clarifyCardResolved`
+///     with `response = chosen choice text` and `choiceIndex = the
+///     0-indexed position`. The chip's state flips to "✓ selected" so
+///     repeat taps are visually no-ops.
+///   - Typing in the free-text field + pressing Return posts the same
+///     notification with `response = typed text` and `choiceIndex = nil`.
+///
+/// After resolution the card collapses to an "Answered: …" summary so
+/// the chat transcript shows what the user said without re-rendering
+/// the interactive controls.
+///
+/// **Boundary:** This view does NOT directly call into the Rust agent
+/// loop. It only emits the notification. The ChatCoordinator (B.8 2/N
+/// follow-up) subscribes + routes the response into the running agent
+/// session. Keeping the renderer transport-free means the same view
+/// works for unit tests, previews, and future surfaces (Provenance
+/// Console replay) that aren't part of a live agent session.
+private struct ClarifyGenUIView: View {
+    let payload: GenUIPayload
+    @State private var freeTextDraft: String = ""
+    @State private var resolvedAnswer: String?
+
+    var body: some View {
+        if case let .clarify(question, choices, allowFreeText) = payload.body {
+            if let answer = resolvedAnswer {
+                resolvedView(question: question, answer: answer)
+            } else {
+                interactiveView(
+                    question: question,
+                    choices: choices,
+                    allowFreeText: allowFreeText
+                )
+            }
+        }
+    }
+
+    private func interactiveView(
+        question: String,
+        choices: [String],
+        allowFreeText: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Text("Clarify")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+            }
+
+            Text(question)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !choices.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(Array(choices.enumerated()), id: \.offset) { index, choice in
+                        choiceButton(choice, choiceIndex: index)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+
+            if allowFreeText {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.cursor")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                    TextField("Other (free-text answer)", text: $freeTextDraft)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .onSubmit { submitFreeText() }
+                        .accessibilityLabel("Free-text clarify response — press return to submit")
+                    if !freeTextDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button { submitFreeText() } label: {
+                            Image(systemName: "return")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Submit free-text answer")
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(.primary.opacity(0.04))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .stroke(.primary.opacity(0.08), lineWidth: 0.5)
+                )
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+    }
+
+    private func resolvedView(question: String, answer: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.green)
+                Text("Answered")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+            }
+            Text(question)
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(answer)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.primary.opacity(0.03))
+        )
+    }
+
+    private func choiceButton(_ choice: String, choiceIndex: Int) -> some View {
+        Button {
+            submit(response: choice, choiceIndex: choiceIndex)
+        } label: {
+            Text(choice)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(.primary.opacity(0.08)))
+                .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
+        .help("Pick this answer")
+        .accessibilityLabel("Choose '\(choice)'")
+    }
+
+    private func submitFreeText() {
+        let trimmed = freeTextDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        submit(response: trimmed, choiceIndex: nil)
+    }
+
+    private func submit(response: String, choiceIndex: Int?) {
+        guard resolvedAnswer == nil else { return } // already resolved
+        resolvedAnswer = response
+        var userInfo: [AnyHashable: Any] = [
+            ClarifyCardNotificationKey.payloadID: payload.id,
+            ClarifyCardNotificationKey.response: response,
+        ]
+        if let idx = choiceIndex {
+            userInfo[ClarifyCardNotificationKey.choiceIndex] = idx
+        }
+        NotificationCenter.default.post(
+            name: .clarifyCardResolved,
+            object: nil,
+            userInfo: userInfo
+        )
     }
 }
 
