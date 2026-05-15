@@ -2045,7 +2045,7 @@ Acceptance:
 
 ### RCA-P2-010 - Quarantine orphan candidates and archived runtimes
 
-Status: PATCHED PARTIAL 2026-05-13 — IntakeValve verified wired (audit signal stale); KANPilotScaffold + Mamba2ForwardPass carry SCAFFOLD-ONLY markers; remaining names still need pass
+Status: PATCHED PARTIAL 2026-05-14 — IntakeValve verified wired (audit signal stale); KANPilotScaffold + Mamba2ForwardPass + KnowledgeIndexBuilder + LocalGuardrailScaffold carry SCAFFOLD-ONLY markers; KaTeXSnippets + KIVIQuantization + variant_ladder/mod.rs marker added 2026-05-14; LiveCodeEditorController self-marked; archived AgentRuntime/LocalRustRuntime/ClaudeManagedRuntime carry @available(*, unavailable) which is the strongest possible quarantine. Remaining: disabled-diagnostics cluster sweep.
 
 Subsystem: repo hygiene, dead code, cognitive load.
 
@@ -2110,16 +2110,25 @@ Fix-pass evidence 2026-05-13 (partial pass):
     The shipping local-agent gate lives in
     `LocalAgentGatewayPolicy` (Epistemos/LocalAgent/). This
     scaffold encodes the decision table but is not wired in.
-  - **KIVIQuantization** — NOT IN CODEBASE.
-    `rg "KIVIQuantization|kIVIQuant|kIVI"` returns zero matches.
-    The audit signal is stale here; the file/symbol never landed.
-  - **KaTeXSnippets** — Already documented.
-    `Epistemos/Engine/KaTeXSnippets.swift` is a pure-Swift enum
-    of LaTeX snippet fixtures. Reachability + caller-chain audit
-    deferred (low blast radius).
+  - **KIVIQuantization** — SCAFFOLD-ONLY marker added 2026-05-14.
+    The 2026-05-13 audit signal was wrong; the file exists at
+    `Epistemos/Engine/KIVIQuantization.swift`. 0 external Swift
+    callers; the actual KIVIKVCache class lives in the local
+    mlx-swift-lm fork. This file is the activation shim only.
+    Re-promotion criteria documented in the header.
+  - **KaTeXSnippets** — SCAFFOLD-ONLY marker added 2026-05-14.
+    Caller-chain audit completed 2026-05-14: 0 external Swift
+    callers. Re-promotion when the Tiptap math node bridge
+    starts requesting slash-snippet templates via
+    `KaTeXSnippet.curated()`.
+  - **variant_ladder/mod.rs** (Rust seam) — SCAFFOLD-ONLY
+    marker added 2026-05-14. Typed contract exported but
+    consumed by 0 production tool routes. Re-promote when
+    Master Fusion Plan §B.1 wires `vault.search` dispatch
+    through `VariantLadder<I,O>`.
 
 Still TODO (deferred to next pass): the broader "disabled
-diagnostics" cluster + KaTeXSnippets caller-chain pass.
+diagnostics" cluster.
 
 ### RCA-P2-011 - Prove Graph Chat, page subgraph, and BTK subscriptions are reachable or hide them
 

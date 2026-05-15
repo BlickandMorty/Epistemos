@@ -1,5 +1,16 @@
 //! Variant Ladder — typed seam for the No-LLM-First discipline.
 //!
+//! SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-14.
+//! Typed contract exported via `agent_core::variant_ladder::*` but
+//! consumed by 0 production tool routes today. The reference variants
+//! in `agent_core/src/route/variant_b_classifiers.rs` and
+//! `agent_core/src/route/variant_c_providers.rs` implement the same
+//! tier-1→tier-4 discipline by hand without going through this
+//! generic seam. Re-promote when `agent_core/src/tools/registry.rs`
+//! dispatch for `vault.search` (Master Fusion Plan §B.1) walks this
+//! `VariantLadder<I,O>` instead of inline tier code — that's the
+//! highest-ROI no-compromise win in the V1 ship plan.
+//!
 //! Doctrine: `docs/fusion/COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md`
 //! Source: `docs/fusion/research/PLAN_V2.md` §1.4 +
 //! `docs/fusion/salvage/from-vigorous-goldberg/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md`

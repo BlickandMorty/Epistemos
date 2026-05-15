@@ -1,5 +1,18 @@
 import Foundation
 
+// SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-14.
+//
+// Static data table for a slash-menu KaTeX-snippet picker that the
+// Tiptap WKWebView editor *would* surface, but the runtime hookup
+// (W7.7 — bridge call from KaTeX node to this table) is not wired
+// in the shipping build. 0 external Swift callers as of audit
+// 2026-05-14. Kept in source as the canonical curated subset
+// (~50 entries) so the eventual W7.7 wiring has a single truth
+// to import; the table is pure data with no rendering logic.
+//
+// Re-promote to ACTIVE when the Tiptap math node bridge actually
+// requests slash-snippet templates via `KaTeXSnippet.curated()`.
+//
 // MARK: - KaTeXSnippets
 //
 // Wave 7.10 of the Extended Program Plan

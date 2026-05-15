@@ -1,5 +1,15 @@
 import Foundation
 
+// SCAFFOLD ONLY — RCA-P2-010 classification 2026-05-14.
+//
+// 0 external Swift callers as of audit 2026-05-14. App-side
+// runtime feature-flag + integration plumbing for the W9.30 KIVI
+// 2-bit asymmetric KV-cache quantizer. The real KIVIKVCache class
+// lives in the local mlx-swift-lm fork; this file is the activation
+// shim. Re-promote when the env-var path is wired into the MLX
+// runtime entry point AND a perplexity regression test gates the
+// default-on flip.
+//
 // MARK: - W9.30 — KIVI per-channel/per-token KV quantization
 //
 // SCAFFOLD per docs/RESEARCH_DOSSIER_TIER_3_4.md §W9.30:
