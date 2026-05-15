@@ -138,6 +138,99 @@ pub async fn recent_maintenance_log_entries(limit: usize) -> Vec<MaintenanceLogE
     guard.iter().skip(total - take).cloned().collect()
 }
 
+// ---------------------------------------------------------------------------
+// search_index_passive_checkpoint — B.9 2/10
+// ---------------------------------------------------------------------------
+//
+// Parallel ring to `MAINTENANCE_LOG` but for the search-index lane.
+// Recording is in-process only; the actual Tantivy commit is driven by
+// Swift's `SearchIndexService.flush_index_files()` on the host side.
+// What this lane gives diagnostics is a deterministic "checkpoint
+// observation was scheduled by NightBrain at T" signal that the host
+// can join against its own commit log to detect drift.
+//
+// If a third lane (`dedupe_artifacts`, `ssm_state_pruning`, …) needs
+// the same shape, it's time to extract `LaneRing<T>` + `LaneTask` into
+// a small generic. Two parallel rings is acceptable copy; three is the
+// trigger.
+
+pub const SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY: usize = 256;
+
+static SEARCH_INDEX_CHECKPOINT_LOG: OnceLock<Arc<Mutex<VecDeque<SearchIndexCheckpointEntry>>>> =
+    OnceLock::new();
+
+fn search_index_checkpoint_log() -> Arc<Mutex<VecDeque<SearchIndexCheckpointEntry>>> {
+    SEARCH_INDEX_CHECKPOINT_LOG
+        .get_or_init(|| {
+            Arc::new(Mutex::new(VecDeque::with_capacity(
+                SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
+            )))
+        })
+        .clone()
+}
+
+/// One row in the search-index checkpoint observation lane.
+/// Same shape as [`MaintenanceLogEntry`] but typed separately so the
+/// FFI surface can route the two lanes to distinct Swift diagnostics
+/// rows without sniffing `task_name`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SearchIndexCheckpointEntry {
+    pub task_name: String,
+    pub observed_at_ms: i64,
+    pub completed: bool,
+}
+
+/// Real `search_index_passive_checkpoint` task body. Records ONE row in
+/// the process-global `SEARCH_INDEX_CHECKPOINT_LOG` ring buffer per
+/// run. Body is intentionally observation-only: the host owns the
+/// Tantivy commit, this task ships the audit trail. Reports
+/// `complete(1)` so diagnostics distinguish a real body from
+/// `skipped(1)` placeholders.
+struct SearchIndexPassiveCheckpointTask;
+
+#[async_trait]
+impl NightBrainTask for SearchIndexPassiveCheckpointTask {
+    fn name(&self) -> &str {
+        "search_index_passive_checkpoint"
+    }
+
+    async fn run(&self, ctx: &TaskCtx) -> Result<TaskOutcome> {
+        if ctx.is_cancelled() {
+            return Ok(TaskOutcome::preempted(0));
+        }
+        let observed_at_ms = chrono::Utc::now().timestamp_millis();
+        let entry = SearchIndexCheckpointEntry {
+            task_name: "search_index_passive_checkpoint".to_string(),
+            observed_at_ms,
+            completed: true,
+        };
+        let log = search_index_checkpoint_log();
+        let mut guard = log.lock().await;
+        if guard.len() >= SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY {
+            guard.pop_front();
+        }
+        guard.push_back(entry);
+        drop(guard);
+        tokio::task::yield_now().await;
+        Ok(TaskOutcome::complete(1))
+    }
+}
+
+/// Snapshot of the most-recent `limit` search-index checkpoint entries.
+/// Same shape contract as [`recent_maintenance_log_entries`].
+pub async fn recent_search_index_checkpoint_entries(
+    limit: usize,
+) -> Vec<SearchIndexCheckpointEntry> {
+    if limit == 0 {
+        return Vec::new();
+    }
+    let log = search_index_checkpoint_log();
+    let guard = log.lock().await;
+    let total = guard.len();
+    let take = limit.min(total);
+    guard.iter().skip(total - take).cloned().collect()
+}
+
 fn live_scheduler() -> Arc<Mutex<NightBrainScheduler>> {
     LIVE_SCHEDULER
         .get_or_init(|| Arc::new(Mutex::new(NightBrainScheduler::new())))
@@ -197,12 +290,13 @@ pub async fn register_canonical_tasks() -> Vec<String> {
         }
         // Per Master Fusion Plan §B.9: replace `NoOpTask` placeholders
         // with real bodies as they land, one at a time. Today
-        // `maintenance_log` has a real body; the other 9 canonical
-        // names stay on `NoOpTask` until their slices land.
-        let task: Arc<dyn NightBrainTask> = if *canonical_name == "maintenance_log" {
-            Arc::new(MaintenanceLogTask)
-        } else {
-            Arc::new(NoOpTask { canonical_name })
+        // `maintenance_log` + `search_index_passive_checkpoint` have
+        // real bodies; the remaining 8 canonical names stay on
+        // `NoOpTask` until their slices land.
+        let task: Arc<dyn NightBrainTask> = match *canonical_name {
+            "maintenance_log" => Arc::new(MaintenanceLogTask),
+            "search_index_passive_checkpoint" => Arc::new(SearchIndexPassiveCheckpointTask),
+            _ => Arc::new(NoOpTask { canonical_name }),
         };
         // The non-idempotent error here would only fire on a name
         // collision — guarded against above. Treat any residual error
@@ -307,18 +401,24 @@ mod tests {
                 outcome.outcome.completed,
                 "task must not stop the run loop"
             );
-            if outcome.name == "maintenance_log" {
-                // §B.9 first real body — completed=true, processed=1.
+            let is_real_body = matches!(
+                outcome.name.as_str(),
+                "maintenance_log" | "search_index_passive_checkpoint"
+            );
+            if is_real_body {
+                // §B.9 real body — completed=true, processed=1.
                 assert_eq!(
                     outcome.outcome.items_processed, 1,
-                    "maintenance_log real body must process exactly 1 row"
+                    "{} real body must process exactly 1 row",
+                    outcome.name
                 );
                 assert_eq!(
                     outcome.outcome.items_skipped, 0,
-                    "maintenance_log real body must NOT report a skip"
+                    "{} real body must NOT report a skip",
+                    outcome.name
                 );
             } else {
-                // All other 9 canonical names still NoOp placeholders.
+                // Remaining canonical names still NoOp placeholders.
                 assert_eq!(
                     outcome.outcome.items_processed, 0,
                     "no-op placeholder ({}) must process 0",
@@ -425,5 +525,91 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(10)).await;
         let names = live_registered_task_names().await;
         assert!(!names.is_empty());
+    }
+
+    // -- Master Fusion §B.9 2/10 — search_index_passive_checkpoint --------
+
+    #[tokio::test]
+    async fn search_index_checkpoint_task_appends_a_row_per_run() {
+        let _guard = test_serializer().lock().await;
+        register_canonical_tasks().await;
+        reset_live_scheduler().await;
+
+        let before =
+            recent_search_index_checkpoint_entries(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY).await;
+        let _ = run_live_registered_tasks().await.expect("run ok");
+        let after =
+            recent_search_index_checkpoint_entries(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY).await;
+        assert_eq!(
+            after.len(),
+            (before.len() + 1).min(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY),
+            "one run must append exactly one row (or stay at capacity)"
+        );
+
+        let latest = after.last().expect("post-run log must be non-empty");
+        assert_eq!(latest.task_name, "search_index_passive_checkpoint");
+        assert!(latest.completed);
+        assert!(latest.observed_at_ms > 0);
+    }
+
+    #[tokio::test]
+    async fn search_index_checkpoint_ring_is_bounded_to_capacity() {
+        let _guard = test_serializer().lock().await;
+        register_canonical_tasks().await;
+        reset_live_scheduler().await;
+
+        let runs = SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY + 16;
+        for _ in 0..runs {
+            reset_live_scheduler().await;
+            let _ = run_live_registered_tasks().await.expect("run ok");
+        }
+        let snapshot = recent_search_index_checkpoint_entries(
+            SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY + 64,
+        )
+        .await;
+        assert!(
+            snapshot.len() <= SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
+            "ring must never grow past capacity; got {} after {} runs",
+            snapshot.len(),
+            runs
+        );
+    }
+
+    #[tokio::test]
+    async fn parallel_lanes_grow_independently() {
+        // Each task body writes to its own ring; a single scheduler run
+        // must grow both the maintenance_log + search_index lanes by
+        // exactly one row each.
+        let _guard = test_serializer().lock().await;
+        register_canonical_tasks().await;
+        reset_live_scheduler().await;
+
+        let m_before = recent_maintenance_log_entries(MAINTENANCE_LOG_RING_CAPACITY)
+            .await
+            .len();
+        let s_before = recent_search_index_checkpoint_entries(
+            SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
+        )
+        .await
+        .len();
+        let _ = run_live_registered_tasks().await.expect("run ok");
+        let m_after = recent_maintenance_log_entries(MAINTENANCE_LOG_RING_CAPACITY)
+            .await
+            .len();
+        let s_after = recent_search_index_checkpoint_entries(
+            SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY,
+        )
+        .await
+        .len();
+        assert_eq!(
+            m_after,
+            (m_before + 1).min(MAINTENANCE_LOG_RING_CAPACITY),
+            "maintenance_log lane must grow by one"
+        );
+        assert_eq!(
+            s_after,
+            (s_before + 1).min(SEARCH_INDEX_CHECKPOINT_LOG_RING_CAPACITY),
+            "search_index_passive_checkpoint lane must grow by one"
+        );
     }
 }
