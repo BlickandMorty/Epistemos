@@ -49,6 +49,7 @@ pub mod rope_handle;
 pub mod route;
 pub mod routing;
 pub mod runtime;
+pub mod schemas;
 pub mod scope_rex;
 pub mod security;
 pub mod session;
