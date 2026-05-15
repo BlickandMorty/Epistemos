@@ -235,6 +235,48 @@ struct FilterEngineTests {
         #expect(!engine.activeNodeTypes.contains(.quote))
     }
 
+    @Test("human vault mode restores user's saved customization round-trip")
+    func humanVaultModeRoundTripRestoresUserCustomization() {
+        // User customized the type filter (folders on, document off) BEFORE
+        // entering agent vault mode. After bouncing through agent mode and
+        // back, the engine must restore the EXACT user-chosen set, NOT
+        // collapse to `defaultActiveCases`. Pins the savedNodeTypes
+        // round-trip contract.
+        let engine = FilterEngine()
+        engine.setType(.folder, isVisible: true)
+        engine.setType(.document, isVisible: false)
+        let customized = engine.activeNodeTypes
+        #expect(customized.contains(.folder))
+        #expect(!customized.contains(.document))
+
+        engine.applyAgentVaultMode()
+        #expect(engine.activeNodeTypes == [.idea, .tag])
+
+        engine.applyHumanVaultMode()
+        #expect(engine.activeNodeTypes == customized,
+                "applyHumanVaultMode MUST restore user's pre-agent-mode customization, not snap to defaultActiveCases")
+    }
+
+    @Test("human vault mode falls back to defaultActiveCases when never customized")
+    func humanVaultModeFallsBackToDefaultActiveCasesWhenNeverCustomized() {
+        // When `applyHumanVaultMode` runs without a prior
+        // `applyAgentVaultMode` (e.g. first launch with vault mode toggled
+        // straight from a system reset), the engine must restore the
+        // canonical default-active set — per user direction 2026-05-15
+        // that means folder is OFF, NOT the full visibleCases bag.
+        let engine = FilterEngine()
+        // Mutate active set so we can see the restore overwrite it.
+        engine.setType(.document, isVisible: false)
+        #expect(!engine.activeNodeTypes.contains(.document))
+
+        engine.applyHumanVaultMode()
+
+        #expect(engine.activeNodeTypes == Set(GraphNodeType.defaultActiveCases))
+        // Specifically: folder MUST stay off in the fallback path.
+        #expect(!engine.activeNodeTypes.contains(.folder),
+                "fallback to defaultActiveCases must respect 2026-05-15 folder-off-by-default")
+    }
+
     // MARK: - RCA-P1-010 second pass — vault filter visibility (2026-05-13)
 
     /// Helper for vault-filter tests: nodes carry an explicit
