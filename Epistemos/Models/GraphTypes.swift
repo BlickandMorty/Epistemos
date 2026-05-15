@@ -79,6 +79,20 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     /// default type filter before the user ever sees them.
     static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block } + appLevelCases
 
+    /// Default node-type filter applied when the graph first appears
+    /// + when the user resets filters. Per user direction 2026-05-15,
+    /// `folder` is DISABLED by default — folder nodes clutter the
+    /// visible graph at typical zoom levels even though they remain
+    /// available via the filter UI for explicit opt-in. Users who
+    /// want to see folder nodes toggle them on through the graph
+    /// settings popover; the cluttering doesn't bite first-launch UX.
+    ///
+    /// This is the single source of truth for the "default-visible"
+    /// node-type set. `FilterEngine` reads it for initialization,
+    /// reset, and clear-all-filters. Adding or removing a type from
+    /// the default set changes all those entry points consistently.
+    static let defaultActiveCases: [GraphNodeType] = visibleCases.filter { $0 != .folder }
+
     /// Semantic entity types — used for Knowledge Index grouping.
     static let entityTypes: [GraphNodeType] = [.person, .project, .topic, .decision, .event, .resource]
 

@@ -84,13 +84,18 @@ struct FilterEngineTests {
         let engine = FilterEngine()
         let folderNode = makeNode(id: "folder", type: .folder)
 
-        #expect(!engine.setType(.folder, isVisible: true))
-        #expect(engine.isNodeVisible(folderNode))
-        #expect(engine.setType(.folder, isVisible: false))
+        // Folder is OFF by default per user direction 2026-05-15.
+        // First setType(.folder, isVisible: true) → changes state.
         #expect(!engine.isNodeVisible(folderNode))
-        #expect(!engine.setType(.folder, isVisible: false))
         #expect(engine.setType(.folder, isVisible: true))
         #expect(engine.isNodeVisible(folderNode))
+        // Setting visible-when-visible is a no-op.
+        #expect(!engine.setType(.folder, isVisible: true))
+        // Toggling back off.
+        #expect(engine.setType(.folder, isVisible: false))
+        #expect(!engine.isNodeVisible(folderNode))
+        // No-op when already invisible.
+        #expect(!engine.setType(.folder, isVisible: false))
     }
 
     @Test("graph node visibility preferences hide folders without losing content nodes")
@@ -133,6 +138,10 @@ struct FilterEngineTests {
         }
 
         let graph = GraphState()
+        // Per user direction 2026-05-15, `.folder` is OFF by default —
+        // enable it explicitly here so the node is actually selectable
+        // before exercising the hide-clears-selection contract.
+        graph.setNodeTypeVisibility(.folder, isVisible: true)
         let folder = makeNode(id: "folder", type: .folder)
         graph.store.addNode(folder)
         graph.selectNode(folder.id)

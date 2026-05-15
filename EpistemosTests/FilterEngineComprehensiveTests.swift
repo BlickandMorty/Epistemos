@@ -49,14 +49,20 @@ struct FilterTestHelpers {
 @MainActor
 struct FilterEngineInitializationTests {
     
-    @Test("default initialization has all types active")
-    func defaultInitializationAllTypesActive() {
+    @Test("default initialization has the defaultActiveCases set (folder disabled by default 2026-05-15)")
+    func defaultInitializationDefaultActiveCases() {
         let engine = FilterEngine()
-        
-        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
-        for type in GraphNodeType.visibleCases {
+
+        // Per user direction 2026-05-15: folder is DISABLED by default
+        // to avoid graph clutter at typical zoom. The baseline is
+        // `defaultActiveCases` (visibleCases minus folder), not
+        // `visibleCases`.
+        #expect(engine.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count)
+        for type in GraphNodeType.defaultActiveCases {
             #expect(engine.activeNodeTypes.contains(type))
         }
+        // Explicit anchor for the folder-disabled-by-default rule.
+        #expect(!engine.activeNodeTypes.contains(.folder))
     }
     
     @Test("default initialization has no focus")
@@ -101,41 +107,60 @@ struct FilterEngineTypeToggleTests {
     @Test("toggle multiple types")
     func toggleMultipleTypes() {
         let engine = FilterEngine()
-        
+
         engine.toggleType(.note)
         engine.toggleType(.tag)
         engine.toggleType(.source)
-        
+
         #expect(!engine.activeNodeTypes.contains(.note))
         #expect(!engine.activeNodeTypes.contains(.tag))
         #expect(!engine.activeNodeTypes.contains(.source))
-        #expect(engine.activeNodeTypes.contains(.folder))
+        // Folder stays OFF by default (user direction 2026-05-15).
+        // Toggling .note/.tag/.source doesn't affect the folder state.
+        #expect(!engine.activeNodeTypes.contains(.folder))
         #expect(engine.activeNodeTypes.contains(.chat))
         #expect(engine.activeNodeTypes.contains(.idea))
         #expect(engine.activeNodeTypes.contains(.quote))
     }
-    
-    @Test("toggle all types results in empty set")
+
+    @Test("toggling every defaultActiveCases type lands in empty set")
     func toggleAllTypesResultsEmpty() {
         let engine = FilterEngine()
-        
-        for type in GraphNodeType.visibleCases {
+
+        // Toggle every type that's ON by default → end up at empty set.
+        // Folder starts OFF, so iterating defaultActiveCases (which
+        // excludes folder) reaches the empty-set state correctly.
+        for type in GraphNodeType.defaultActiveCases {
             engine.toggleType(type)
         }
-        
+
         #expect(engine.activeNodeTypes.isEmpty)
         #expect(engine.isFiltered)
     }
-    
-    @Test("toggle last type back on restores visibility")
+
+    @Test("toggle last type back on restores defaultActiveCases set")
     func toggleLastTypeBackOn() {
         let engine = FilterEngine()
-        
+
         engine.toggleType(.note)
-        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count - 1)
-        
+        #expect(engine.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count - 1)
+
         engine.toggleType(.note)
-        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+        #expect(engine.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count)
+    }
+
+    @Test("opt-in: toggling folder ON adds it to the active set")
+    func folderOptInToggle() {
+        // Per user direction 2026-05-15: folder is opt-in. Starts OFF,
+        // becomes ON after the first toggle. This pins the opt-in
+        // contract — users can still see folder nodes when they ask
+        // for them through the graph settings popover.
+        let engine = FilterEngine()
+        #expect(!engine.activeNodeTypes.contains(.folder))
+        engine.toggleType(.folder)
+        #expect(engine.activeNodeTypes.contains(.folder))
+        engine.toggleType(.folder)
+        #expect(!engine.activeNodeTypes.contains(.folder))
     }
 }
 
@@ -143,15 +168,20 @@ struct FilterEngineTypeToggleTests {
 @MainActor
 struct FilterEngineShowAllTypesTests {
     
-    @Test("showAllTypes restores all types")
+    @Test("showAllTypes restores the defaultActiveCases set (folder stays opt-in)")
     func showAllTypesRestoresAll() {
         let engine = FilterEngine()
-        
+
         engine.toggleType(.note)
         engine.toggleType(.tag)
         engine.showAllTypes()
-        
-        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+
+        // "Show all" restores the DEFAULT-active set, not literally
+        // all visibleCases — folder remains opt-in even after the
+        // restore-all gesture. Users who want to see folder nodes
+        // must toggle them on explicitly (post-restore).
+        #expect(engine.activeNodeTypes.count == GraphNodeType.defaultActiveCases.count)
+        #expect(!engine.activeNodeTypes.contains(.folder))
     }
     
     @Test("showAllTypes clears isFiltered")
