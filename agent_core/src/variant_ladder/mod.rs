@@ -311,7 +311,13 @@ pub enum LadderAttemptOutcome {
 
 /// One audit-trail row recording a variant attempt during
 /// [`VariantLadder::resolve_walk`].
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Implements `Serialize` + `Deserialize` so the audit trail can flow
+/// into a Provenance Console replay bundle (`ReplayBundle` in
+/// `agent_core::provenance::replay`) without a remap layer. The
+/// `tier` field reuses `LadderTier`'s existing snake_case serde
+/// shape; `outcome` uses `LadderAttemptOutcome`'s shape.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LadderAttempt {
     pub tier: LadderTier,
     pub variant_name: String,
@@ -327,13 +333,21 @@ pub struct LadderAttempt {
 /// is `Some`, the last entry of `attempts` is the same variant +
 /// `LadderAttemptOutcome::Accepted`. When `resolution` is `None`,
 /// every entry in `attempts` is `Declined` or `SkippedByPolicy`.
-#[derive(Debug, Clone)]
+///
+/// Implements `Serialize` + `Deserialize` when `Output` does — lets
+/// the full walk serialize into a Provenance Console replay bundle
+/// when the ladder's output type is itself serializable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "Output: Serialize + serde::de::DeserializeOwned")]
 pub struct LadderWalk<Output> {
     pub resolution: Option<LadderResolution<Output>>,
     pub attempts: Vec<LadderAttempt>,
 }
 
-#[derive(Debug, Clone)]
+/// Result of a successful ladder resolution. Implements `Serialize`
+/// + `Deserialize` when `Output` does.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "Output: Serialize + serde::de::DeserializeOwned")]
 pub struct LadderResolution<Output> {
     pub tier: LadderTier,
     pub variant_name: String,
@@ -710,5 +724,85 @@ mod tests {
         assert_eq!(json, "\"declined\"");
         let json = serde_json::to_string(&LadderAttemptOutcome::SkippedByPolicy).unwrap();
         assert_eq!(json, "\"skipped_by_policy\"");
+    }
+
+    // -----------------------------------------------------------------
+    // Master Fusion Plan §B.1 5/N — serde derives on the audit trail
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn ladder_attempt_round_trips_through_json() {
+        let attempt = LadderAttempt {
+            tier: LadderTier::Classical,
+            variant_name: "VaultSearchT3RrfHybrid".to_string(),
+            outcome: LadderAttemptOutcome::Accepted,
+        };
+        let json = serde_json::to_string(&attempt).expect("serialize");
+        // Wire-format pin — the registry.rs tracing emission relies on
+        // these exact key names and snake_case enum values.
+        assert!(json.contains("\"tier\":\"classical\""),
+                "tier must serialize as snake_case `classical`; got {json}");
+        assert!(json.contains("\"variant_name\":\"VaultSearchT3RrfHybrid\""),
+                "variant_name must be the canonical key; got {json}");
+        assert!(json.contains("\"outcome\":\"accepted\""),
+                "outcome must serialize as snake_case `accepted`; got {json}");
+
+        let decoded: LadderAttempt = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(decoded, attempt);
+    }
+
+    #[tokio::test]
+    async fn ladder_walk_round_trips_through_json_when_output_is_serializable() {
+        // Prove the LadderWalk<Output> serde derive works end-to-end
+        // when Output: Serialize + DeserializeOwned. This is the
+        // architectural anchor: future ReplayBundle integration can
+        // serialize an entire walk + resolution into the replay JSON.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::Embedding,
+                name: "emb",
+                return_value: 100,
+            }))
+            .unwrap();
+
+        let walk = ladder.resolve_walk(&5).await;
+        let json = serde_json::to_string(&walk).expect("walk serialize");
+        let decoded: LadderWalk<u32> = serde_json::from_str(&json).expect("walk deserialize");
+
+        let resolved = decoded.resolution.expect("must round-trip with resolution");
+        assert_eq!(resolved.tier, LadderTier::Embedding);
+        assert_eq!(resolved.variant_name, "emb");
+        assert_eq!(resolved.output, 105);
+        assert_eq!(resolved.attempts.len(), 2);
+        assert_eq!(decoded.attempts.len(), 2);
+        assert_eq!(decoded.attempts[0].outcome, LadderAttemptOutcome::Declined);
+        assert_eq!(decoded.attempts[1].outcome, LadderAttemptOutcome::Accepted);
+    }
+
+    #[tokio::test]
+    async fn ladder_walk_round_trips_when_resolution_is_none() {
+        // Defer case: resolution is None but attempts still flow
+        // through the serde derive intact.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+
+        let walk = ladder.resolve_walk(&42).await;
+        let json = serde_json::to_string(&walk).expect("walk serialize");
+        let decoded: LadderWalk<u32> = serde_json::from_str(&json).expect("walk deserialize");
+        assert!(decoded.resolution.is_none());
+        assert_eq!(decoded.attempts.len(), 1);
+        assert_eq!(decoded.attempts[0].outcome, LadderAttemptOutcome::Declined);
     }
 }

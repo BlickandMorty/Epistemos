@@ -2524,23 +2524,11 @@ impl ToolHandler for VaultSearchHandler {
         // Emit a structured trace for every walk — resolved OR
         // deferred. The `target` is stable so a Swift-side
         // tracing-subscriber can filter to just ladder events for the
-        // Provenance Console. The attempts vec is serialized to a
-        // compact JSON array so the consumer can parse without a
-        // dedicated FFI struct.
-        let attempts_json = serde_json::to_string(
-            &walk
-                .attempts
-                .iter()
-                .map(|a| {
-                    serde_json::json!({
-                        "tier": format!("{:?}", a.tier),
-                        "variant": &a.variant_name,
-                        "outcome": &a.outcome,
-                    })
-                })
-                .collect::<Vec<_>>(),
-        )
-        .unwrap_or_else(|_| "[]".to_string());
+        // Provenance Console. `LadderAttempt` now derives Serialize
+        // (added in B.1 5/N) so the attempts vec serializes directly
+        // via serde — no manual JSON construction needed.
+        let attempts_json = serde_json::to_string(&walk.attempts)
+            .unwrap_or_else(|_| "[]".to_string());
         let resolved_variant = walk
             .resolution
             .as_ref()
