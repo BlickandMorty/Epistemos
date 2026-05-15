@@ -243,11 +243,24 @@ public struct ShadowRow: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(spacing: 6) {
                 Text(hit.title)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(1)
                 Spacer()
+                // §B.6 W1 wiring: render the 4-tier cognitive-weight
+                // badge alongside the existing ScoreBar. Today we
+                // derive the weight from `hit.score` (raw retrieval
+                // confidence); when EpistemosSidecar metadata flows
+                // through the Shadow FFI (sidecar→hit field
+                // bridging, separate slice), this switches to a
+                // sidecar-sourced CognitiveWeight without changing
+                // the badge component. `policyAuthority` stays false
+                // here regardless — W1 silent-downgrade is enforced
+                // inside `CognitiveWeight.init(rawScore:)`.
+                CognitiveWeightBadge(
+                    weight: CognitiveWeight(rawScore: hit.score)
+                )
                 ScoreBar(score: hit.score)
             }
             Text(hit.snippet)
@@ -263,7 +276,9 @@ public struct ShadowRow: View {
         .onTapGesture { onOpen() }
         .swipeActions { Button("Edit", action: onEdit) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(hit.title), score \(Int(hit.score * 100)) percent")
+        .accessibilityLabel(
+            "\(hit.title), \(CognitiveWeight(rawScore: hit.score).class.shortLabel) weight, score \(Int(hit.score * 100)) percent"
+        )
     }
 
     private var sourceAndActions: some View {

@@ -141,6 +141,32 @@ struct CognitiveWeightTests {
                 "PolicyGrade tooltip must reference the W1/W2 boundary")
     }
 
+    @Test("ShadowRow renders CognitiveWeightBadge derived from hit.score (B.6 W1 wiring)")
+    func shadowRowRendersCognitiveWeightBadge() throws {
+        // Drift gate: pin that ShadowPanelContent.ShadowRow uses
+        // CognitiveWeightBadge(weight: CognitiveWeight(rawScore: hit.score))
+        // in its result-row header. If a refactor drops the badge or
+        // breaks the rawScore-from-hit-score wiring, this trips
+        // before the W1 visual contract regresses.
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Halo/ShadowPanelContent.swift"
+        )
+        #expect(
+            source.contains("CognitiveWeightBadge("),
+            "ShadowRow MUST render CognitiveWeightBadge in its result-row header"
+        )
+        #expect(
+            source.contains("CognitiveWeight(rawScore: hit.score)"),
+            "ShadowRow MUST derive the badge weight from hit.score until sidecar metadata flows through"
+        )
+        // Accessibility label must surface the weight class so VoiceOver
+        // users hear the 4-tier classification, not just the raw score.
+        #expect(
+            source.contains(".class.shortLabel"),
+            "ShadowRow accessibility label MUST include the weight class short label"
+        )
+    }
+
     @Test("Encoded weight round-trips back through the decoder")
     func roundTripsThroughJSON() throws {
         let original = CognitiveWeight(rawScore: 0.70)
