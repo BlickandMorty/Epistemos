@@ -269,6 +269,82 @@ struct RuntimeValidationTests {
         #expect(!backupPageColumns.contains("ZWIKILINKREFERENCESCANSIGNATURE"))
     }
 
+    @Test("bootstrap leaves a healthy app-scoped store alone when no legacy exists")
+    func bootstrapLeavesHealthyAppScopedStoreAloneWithNoLegacy() throws {
+        // The production-steady-state path: every launch AFTER the
+        // legacy-root adoption is done. Destination exists and is
+        // already in current-schema shape (all ZWIKILINK* + ZTHINKING*
+        // columns present); there's no legacy root to adopt. The
+        // function should be a no-op repair pass and return the
+        // destination URL unchanged.
+        //
+        // No backup file should appear at the destination parent
+        // because the schema is current — column-repair only creates
+        // a backup when it has missing columns to ALTER in.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "AppBootstrapHealthyDestinationOnly-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let destinationURL = AppBootstrap.persistentModelStoreURL(
+            applicationSupportDirectory: root
+        )
+        try createSQLiteDatabase(
+            at: destinationURL,
+            statements: [
+                // All four legacy ZSDMESSAGE columns the repair pass
+                // looks for (see AppBootstrap.legacyMessageColumns).
+                // Missing any one would trigger a backup-and-ALTER pass
+                // and make this test's no-backup assertion false.
+                """
+                CREATE TABLE ZSDMESSAGE (
+                    Z_PK INTEGER PRIMARY KEY,
+                    Z_ENT INTEGER,
+                    Z_OPT INTEGER,
+                    ZID VARCHAR,
+                    ZTHINKINGTRACE TEXT,
+                    ZTHINKINGDURATIONSECONDS DOUBLE,
+                    ZAUTHOREDBYPROVIDERID TEXT,
+                    ZAUTHOREDBYMODELID TEXT
+                );
+                """,
+                """
+                CREATE TABLE ZSDPAGE (
+                    Z_PK INTEGER PRIMARY KEY,
+                    Z_ENT INTEGER,
+                    Z_OPT INTEGER,
+                    ZID VARCHAR,
+                    ZTITLE VARCHAR,
+                    ZTAGS BLOB,
+                    ZWIKILINKREFERENCES BLOB,
+                    ZWIKILINKREFERENCESCANSIGNATURE VARCHAR
+                );
+                """,
+            ]
+        )
+
+        let returned = try AppBootstrap.preparePersistentModelStoreIfNeeded(
+            applicationSupportDirectory: root,
+            fileManager: .default
+        )
+
+        #expect(returned == destinationURL)
+        #expect(FileManager.default.fileExists(atPath: destinationURL.path))
+
+        // No backup needed when there's nothing to repair — the
+        // existence check protects against an over-eager backup that
+        // would accumulate stale .pre-column-repair.backup files at
+        // every healthy launch.
+        let backupURL = destinationURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("default.store.pre-column-repair.backup")
+        #expect(!FileManager.default.fileExists(atPath: backupURL.path),
+                "healthy store should not produce a pre-column-repair backup")
+    }
+
     @Test("bootstrap repairs legacy root and app-scoped stores when both exist")
     func bootstrapRepairsLegacyRootAndAppScopedStoresWhenBothExist() throws {
         let root = FileManager.default.temporaryDirectory
