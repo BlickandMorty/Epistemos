@@ -4625,10 +4625,26 @@ struct RuntimeValidationTests {
     func proRustAgentPathStaysScopedToCloudSelectedTurns() throws {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
+        // The pro / fast / thinking → cloud-agent gate used to be an
+        // inline `(operatingMode == .pro || operatingMode == .fast ||
+        // operatingMode == .thinking)` expression. The USABILITY-001
+        // refactor (commits 5663f0cf6 + a537ec438 + 15e0e2da8 + 19d09afaa)
+        // consolidated it into `cloudToolBudget(for:isCloudSelectedSurface:
+        // supportsAgentTier:managedAgentSession:)` which switches on
+        // operatingMode and returns nil for ineligible modes. The drift
+        // gate now pins the structural invariants of THAT shape so the
+        // test doesn't go stale every time the inline expression is
+        // rewritten.
         #expect(coordinator.contains("let isCloudSelectedSurface: Bool"))
-        #expect(coordinator.contains("(operatingMode == .pro || operatingMode == .fast || operatingMode == .thinking)"))
         #expect(coordinator.contains("isCloudSelectedSurface"))
         #expect(coordinator.contains("cloudSurfaceSupportsAgentTier(operatingMode)"))
+        #expect(coordinator.contains("Self.cloudToolBudget("))
+        #expect(coordinator.contains("guard isCloudSelectedSurface, supportsAgentTier else { return nil }"))
+        // Per-mode branches in cloudToolBudget — these are the real
+        // gate that USABILITY-001 turns on.
+        #expect(coordinator.contains("case .pro:"))
+        #expect(coordinator.contains("case .fast, .thinking:"))
+        #expect(coordinator.contains("case .agent:"))
     }
 
     @Test("workspace and attachment-heavy chats keep lightweight workspace context on the default path")
