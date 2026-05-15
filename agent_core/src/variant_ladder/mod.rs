@@ -487,6 +487,36 @@ mod tests {
     }
 
     #[test]
+    fn ladder_tier_serializes_to_snake_case_for_audit_logs() {
+        // `LadderTier` is named in `LadderAttempt` audit-trail
+        // records, which cross into `.epbundle` archives via
+        // `ReplayBundle.ladder_walks`. Pinning the wire format here
+        // means audits stay parseable across releases.
+        //
+        // Note the LLM-variant casing: serde's `rename_all =
+        // "snake_case"` splits between every capital letter, so
+        // `SmallLLM` becomes `small_l_l_m` rather than the more
+        // readable `small_llm`. That's not pretty but it's the
+        // canonical wire format and any audit log on disk already
+        // matches it. A future PR that wants `small_llm` MUST add an
+        // explicit `#[serde(rename = "small_llm")]` to that variant
+        // AND ship a migration; this test fails if either side drifts.
+        use serde_json::to_string;
+        assert_eq!(to_string(&LadderTier::Deterministic).unwrap(), "\"deterministic\"");
+        assert_eq!(to_string(&LadderTier::Embedding).unwrap(), "\"embedding\"");
+        assert_eq!(to_string(&LadderTier::Classical).unwrap(), "\"classical\"");
+        assert_eq!(to_string(&LadderTier::SmallLLM).unwrap(), "\"small_l_l_m\"");
+        assert_eq!(to_string(&LadderTier::MidLLM).unwrap(), "\"mid_l_l_m\"");
+        assert_eq!(to_string(&LadderTier::Cloud).unwrap(), "\"cloud\"");
+
+        // Round-trip in: a historical audit log decodes cleanly.
+        let decoded: LadderTier = serde_json::from_str("\"small_l_l_m\"").unwrap();
+        assert_eq!(decoded, LadderTier::SmallLLM);
+        let decoded: LadderTier = serde_json::from_str("\"mid_l_l_m\"").unwrap();
+        assert_eq!(decoded, LadderTier::MidLLM);
+    }
+
+    #[test]
     fn ladder_tier_numeric_values_match_doctrine_assignments() {
         // `tier_ordering_matches_doctrine` (above) pins relative
         // numeric order. This test pins the EXACT integer values from
