@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistemos.app/schemas/epistemos.semantic.v1",
+  "title": "epistemos.semantic.v1",
+  "description": "CoALA-style semantic memory fact. A typed claim about the world or the user that has been extracted, verified, and committed for future reference. Distinguished from epistemos.episode.v1 by atemporality: 'user prefers Pacific time' is semantic; 'user moved time pref to Pacific on 2026-05-14' is episodic. Stored append-only with retraction-propagation per ClaimLedger. Recall via memory.semantic_recall.",
+  "type": "object",
+  "required": [
+    "schema_rev",
+    "fact_id",
+    "predicate",
+    "subject",
+    "object",
+    "confidence",
+    "claim_kind"
+  ],
+  "properties": {
+    "schema_rev": {
+      "type": "string",
+      "const": "epistemos.semantic.v1"
+    },
+    "fact_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]{12}$"
+    },
+    "predicate": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Typed relation. Must come from the predicate-vocabulary enum maintained in soul.md (user-extensible)."
+    },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Canonical concept id or proper noun (e.g. 'user', 'project_epistemos', 'concept_attention_as_interrupt')."
+    },
+    "object": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Canonical concept id, literal value, or short noun phrase."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Posterior confidence after retraction propagation. 0.0 = retracted, 1.0 = user-confirmed."
+    },
+    "claim_kind": {
+      "type": "string",
+      "enum": [
+        "verified_empirical",
+        "verified_mathematical",
+        "verified_code_invariant",
+        "plausible_empirical",
+        "plausible_causal",
+        "speculative",
+        "refuted_empirical",
+        "refuted_mathematical",
+        "blocked_safety"
+      ],
+      "description": "9-arm Kleene K3 claim classifier per helios v5 first.md §1.5. The π field of the Resonance Σ-signature."
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["note", "url", "ledger_entry", "user_attestation", "tool_observation"]
+          },
+          "ref": {
+            "type": "string",
+            "description": "Path / URL / id pointing at the evidence."
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Supporting evidence. knowledge.qa_over_vault REFUSES to surface a fact without at least one evidence entry (the 'untraceable claim' invariant)."
+    },
+    "established_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this fact entered the ledger."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "retracted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Set when claim is retracted. Retraction propagates to dependent facts per ClaimLedger.RetractionPropagated."
+    },
+    "retracts": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9]{12}$" },
+      "description": "fact_ids this claim retracts. Bounded-walk depth ≤ MAX_RETRACTION_WALK_DEPTH = 16 per ledger.rs."
+    },
+    "derives_from": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9]{12}$" },
+      "description": "Other fact_ids this claim was derived from. Drives DerivesFrom edges in the Cognitive DAG."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+      "maxItems": 10
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistemos.app/schemas/epistemos.episode.v1",
+  "title": "epistemos.episode.v1",
+  "description": "CoALA-style timestamped episodic memory entry. One row = one user-or-agent event the system might want to recall later by time/place/topic. Stored append-only in the episodic ledger. Schema-validated writes flow through MutationEnvelope. Recall via memory.episodic_recall tool (MAS bounded mutation allowlist: action=add/replace/remove/read).",
+  "type": "object",
+  "required": [
+    "schema_rev",
+    "episode_id",
+    "occurred_at",
+    "kind",
+    "content"
+  ],
+  "properties": {
+    "schema_rev": {
+      "type": "string",
+      "const": "epistemos.episode.v1"
+    },
+    "episode_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]{12}$",
+      "description": "12-char stable id."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the event occurred (ISO 8601). Different from recorded_at which may lag."
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this episode was written to the ledger."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "user_capture",
+        "user_action",
+        "agent_response",
+        "agent_tool_call",
+        "system_event",
+        "session_summary"
+      ],
+      "description": "Category for retrieval filtering."
+    },
+    "actor": {
+      "type": "string",
+      "enum": ["user", "agent", "system"],
+      "description": "Whose action this records."
+    },
+    "content": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192,
+      "description": "Short natural-language summary of what happened. NOT the full payload — that lives in the linked artifacts."
+    },
+    "context": {
+      "type": "object",
+      "description": "Optional structured context anchors.",
+      "properties": {
+        "vault_path": {
+          "type": "string",
+          "description": "Vault-relative path of the note this episode is anchored to, if any."
+        },
+        "chat_id": {
+          "type": "string",
+          "description": "Chat session id if the episode happened in chat."
+        },
+        "tool_call_id": {
+          "type": "string",
+          "description": "AgentEvent / RunEventLog id linking to provenance ledger."
+        },
+        "location": {
+          "type": "string",
+          "description": "User-provided or system-inferred location tag (e.g. 'home', 'office'). Optional."
+        }
+      }
+    },
+    "salience": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "TF-IDF + user-engagement-derived salience score in [0,1]. Used by memory.score budget allocation."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+      "maxItems": 20
+    },
+    "linked_episodes": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9]{12}$" },
+      "maxItems": 16,
+      "description": "A-MEM-style memory-evolution links (arxiv:2502.12110) to other episodes for graph-walk recall."
+    }
+  },
+  "additionalProperties": false
+}

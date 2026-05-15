@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistemos.app/schemas/epistemos.skill.v1",
+  "title": "epistemos.skill.v1",
+  "description": "Voyager-style executable skill: code body + natural-language description. Stored as MD+JSON frontmatter under <vault>/skills/<skill_id>.md. Schema-validated writes flow through MutationEnvelope. Skills can be invoked by the agent runtime via skills.list / skills.view / skills.manage tools (Pro tier; not exposed on MAS).",
+  "type": "object",
+  "required": [
+    "schema_rev",
+    "skill_id",
+    "name",
+    "description",
+    "body",
+    "created_at"
+  ],
+  "properties": {
+    "schema_rev": {
+      "type": "string",
+      "const": "epistemos.skill.v1"
+    },
+    "skill_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]{12}$",
+      "description": "12-char stable id."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Human-readable skill name."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Natural-language description of what the skill does, when to use it, and any caveats. LLM-readable; used by skills.list + agent planning."
+    },
+    "body": {
+      "type": "object",
+      "description": "Executable body. Either a code block (interpreted by WASMExecXPC) OR a plan template (interpreted by the agent runtime).",
+      "oneOf": [
+        {
+          "title": "code",
+          "type": "object",
+          "required": ["kind", "language", "source"],
+          "properties": {
+            "kind": { "const": "code" },
+            "language": {
+              "type": "string",
+              "enum": ["javascript", "python", "wasm"],
+              "description": "Runtime selector. wasm = arbitrary Wasmtime module."
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 65536,
+              "description": "Source code or base64 wasm. WASMExecXPC sandboxes execution."
+            },
+            "inputs": {
+              "type": "array",
+              "items": { "type": "object", "required": ["name", "type"] }
+            }
+          }
+        },
+        {
+          "title": "plan",
+          "type": "object",
+          "required": ["kind", "steps"],
+          "properties": {
+            "kind": { "const": "plan" },
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "required": ["tool", "arguments"],
+                "properties": {
+                  "tool": {
+                    "type": "string",
+                    "description": "Canonical Tools-V2 dotted name (e.g. 'vault.search')."
+                  },
+                  "arguments": { "type": "object" },
+                  "depends_on": {
+                    "type": "array",
+                    "items": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+      "maxItems": 10
+    },
+    "requires_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["vault.read", "vault.write", "file.read", "file.write", "web.fetch", "web.search", "memory.curated", "computer_use"]
+      },
+      "description": "Capability set required to execute. Maps to CapabilityGrant bitflags per XPC_MASTERY_DOCTRINE §4."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "discovered_via": {
+      "type": "string",
+      "enum": ["user", "self_evolution", "import", "marketplace"],
+      "default": "user",
+      "description": "How this skill entered the vault."
+    },
+    "execution_count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "success_count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  },
+  "additionalProperties": false
+}
