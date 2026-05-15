@@ -144,6 +144,11 @@ nonisolated enum GenUISchema: String, Codable, Sendable, CaseIterable, Hashable 
     case searchResultSet
     /// AgentEvent chain or replay summary; recursive payload.
     case provenanceTrace
+    /// Agent clarify request — typed question + optional multiple-choice
+    /// + optional free-text input. Body must be `.clarify(...)`.
+    /// Mirrors `agent_core::tools::clarify::ClarifyHandler` emission
+    /// per Master Fusion Plan §B.8.
+    case clarify
 
     /// Whether the body shape matches what this schema expects.
     /// Renderers can `precondition(canonicalBody(payload.body))` to
@@ -173,6 +178,8 @@ nonisolated enum GenUISchema: String, Codable, Sendable, CaseIterable, Hashable 
             return true
         case (.provenanceTrace, .provenanceChain):
             return true
+        case (.clarify, .clarify):
+            return true
         default:
             return false
         }
@@ -198,6 +205,11 @@ indirect nonisolated enum GenUIBody: Codable, Sendable, Hashable {
     case progress(label: String, total: Double, value: Double)
     /// Recursive payload chain for provenance traces.
     case provenanceChain([GenUIPayload])
+    /// Clarify request body: typed `question` prompt + zero-to-four
+    /// predefined `choices` (plain strings the user picks) + an
+    /// `allowFreeText` flag for an open-text fallback. Mirrors the
+    /// Rust `ClarifyHandler` payload shape (`{question, choices}`).
+    case clarify(question: String, choices: [String], allowFreeText: Bool)
 }
 
 // MARK: - Helper structs
@@ -335,6 +347,33 @@ extension GenUIPayload {
             schema: .errorReport,
             title: title,
             body: .error(title: title, detail: detail, hint: hint, options: options)
+        )
+    }
+
+    /// Clarify request card. Mirrors the Rust `ClarifyHandler` shape
+    /// per Master Fusion Plan §B.8. `choices` may be empty (free-form
+    /// answer required); cap at 4 to match the Rust-side MAX_CHOICES
+    /// constraint. Setting `allowFreeText = true` AND providing choices
+    /// gives the user both a multi-choice picker AND an "Other…" entry.
+    static func clarify(
+        question: String,
+        choices: [String] = [],
+        allowFreeText: Bool = true,
+        id: String = UUID().uuidString,
+        metadata: [String: String] = [:],
+        createdAt: Date = .now
+    ) -> GenUIPayload {
+        .init(
+            id: id,
+            schema: .clarify,
+            title: "",
+            body: .clarify(
+                question: question,
+                choices: choices,
+                allowFreeText: allowFreeText
+            ),
+            metadata: metadata,
+            createdAt: createdAt
         )
     }
 }
