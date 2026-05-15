@@ -2474,11 +2474,24 @@ struct VaultSearchHandler {
 #[async_trait]
 impl ToolHandler for VaultSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        // Master Fusion Plan §B.1 1/N (this PR): vault.search dispatch
+        // now walks the typed Variant Ladder at
+        // `crate::tools::vault_search_ladder`. Today the ladder ships
+        // one tier (T3 RRF hybrid via VaultBackend::hybrid_search) with
+        // FLOOR_T3 = 0.70. When T1 lexical-only + T2 embedding-only
+        // land in a follow-up slice, this call site does not change —
+        // the ladder constructor adds variants and the resolve() walk
+        // honors the new tiers automatically.
+        use crate::tools::vault_search_ladder::{
+            build_vault_search_ladder, VaultSearchLadderInput,
+        };
+
         let query = input
             .get("query")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("query required".to_string()))?;
-        let limit = input.get("limit").and_then(Value::as_u64).unwrap_or(5) as usize;
+        let limit = (input.get("limit").and_then(Value::as_u64).unwrap_or(5) as usize)
+            .clamp(1, 20);
         let tags: Vec<String> = input
             .get("tags")
             .and_then(Value::as_array)
@@ -2491,25 +2504,39 @@ impl ToolHandler for VaultSearchHandler {
             })
             .unwrap_or_default();
 
-        let results = self
-            .vault
-            .hybrid_search(query, limit.clamp(1, 20), &tags)
-            .await
-            .map_err(map_vault_error)?;
+        let ladder_input = VaultSearchLadderInput {
+            query: query.to_string(),
+            limit,
+            tags,
+            backend: self.vault.clone(),
+        };
+        let ladder = build_vault_search_ladder()
+            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
-        if results.is_empty() {
-            return Ok("No matching notes found in vault.".to_string());
-        }
+        let resolution = ladder.resolve(&ladder_input).await;
+        let Some(resolution) = resolution else {
+            // Doctrine §6: "Defer is a first-class outcome." Every tier
+            // declined (e.g. no result met FLOOR_T3 = 0.70). Surface
+            // honestly rather than silently escalating.
+            return Ok(
+                "No notes matched with high enough confidence (ladder declined; no tier above floor)."
+                    .to_string(),
+            );
+        };
 
-        Ok(results
+        Ok(resolution
+            .output
+            .results
             .iter()
             .enumerate()
             .map(|(index, result)| {
                 format!(
-                    "{}. **{}** (score: {:.2})\n{}",
+                    "{}. **{}** (score: {:.2}, tier: {:?}, variant: {})\n{}",
                     index + 1,
                     result.path,
                     result.score,
+                    resolution.tier,
+                    resolution.variant_name,
                     result.excerpt
                 )
             })

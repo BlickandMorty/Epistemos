@@ -116,6 +116,7 @@ pub mod tools {
     pub mod registry;
     pub mod think;
     pub mod todo;
+    pub mod vault_search_ladder;
     pub mod web;
     pub mod web_fetch;
     pub mod workspace_search;
