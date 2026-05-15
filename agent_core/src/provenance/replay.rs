@@ -69,7 +69,7 @@ use thiserror::Error;
 
 use crate::cognitive_dag::storage::DagSnapshot;
 use crate::mutations::MutationEnvelope;
-use crate::variant_ladder::LadderAttempt;
+use crate::variant_ladder::{LadderAttempt, LadderWalk};
 
 use super::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
 
@@ -186,6 +186,32 @@ pub struct LadderWalkRecord {
     /// Full audit trail in attempt order. When the walk resolved,
     /// the last entry's `outcome` is `LadderAttemptOutcome::Accepted`.
     pub attempts: Vec<LadderAttempt>,
+}
+
+impl LadderWalkRecord {
+    /// Convert a typed [`LadderWalk<O>`] into the bundle-portable
+    /// record by attaching the caller's `walk_id` + `tool` context.
+    /// The walk's generic `Output` is discarded — only the attempt
+    /// audit trail crosses into the bundle, exactly as documented on
+    /// [`LadderWalkRecord`].
+    ///
+    /// The typical caller pattern:
+    /// ```text
+    /// let walk = ladder.resolve_walk(&input).await;
+    /// let record = LadderWalkRecord::from_walk(span_id, "vault_search", &walk);
+    /// // … push `record` into the per-session walks buffer
+    /// ```
+    pub fn from_walk<O>(
+        walk_id: impl Into<String>,
+        tool: impl Into<String>,
+        walk: &LadderWalk<O>,
+    ) -> Self {
+        Self {
+            walk_id: walk_id.into(),
+            tool: tool.into(),
+            attempts: walk.attempts.clone(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -898,6 +924,66 @@ mod tests {
         assert_eq!(bytes, bytes2, "v3 bundle must round-trip byte-equal");
         b2.verify_integrity()
             .expect("round-tripped v3 bundle must verify");
+    }
+
+    #[test]
+    fn ladder_walk_record_from_walk_copies_attempts_and_attaches_context() {
+        // `LadderWalkRecord::from_walk` is the ergonomic seam that lets
+        // a `vault_search`-style caller hand `resolve_walk()`'s typed
+        // `LadderWalk<Output>` to the bundle builder without scraping
+        // fields by hand. The conversion drops `Output` but preserves
+        // the full attempt audit trail in order.
+        use crate::variant_ladder::{LadderResolution, LadderTier};
+        let walk = LadderWalk::<String> {
+            resolution: Some(LadderResolution {
+                tier: LadderTier::Deterministic,
+                variant_name: "vault_search.t1.lexical_bm25".to_string(),
+                output: "resolved-output-not-in-bundle".to_string(),
+                attempts: vec![LadderAttempt {
+                    tier: LadderTier::Deterministic,
+                    variant_name: "vault_search.t1.lexical_bm25".to_string(),
+                    outcome: LadderAttemptOutcome::Accepted,
+                }],
+            }),
+            attempts: vec![
+                LadderAttempt {
+                    tier: LadderTier::Deterministic,
+                    variant_name: "vault_search.t1.lexical_bm25".to_string(),
+                    outcome: LadderAttemptOutcome::Declined,
+                },
+                LadderAttempt {
+                    tier: LadderTier::Classical,
+                    variant_name: "vault_search.t3.rrf_hybrid".to_string(),
+                    outcome: LadderAttemptOutcome::Accepted,
+                },
+            ],
+        };
+
+        let record = LadderWalkRecord::from_walk("span-42", "vault_search", &walk);
+
+        assert_eq!(record.walk_id, "span-42");
+        assert_eq!(record.tool, "vault_search");
+        assert_eq!(record.attempts.len(), 2);
+        assert_eq!(record.attempts, walk.attempts);
+
+        // The record must drop into the bundle's walks list without
+        // further massaging.
+        let ledger = seed_ledger();
+        let bundle = ReplayBundle::build_with_walks(
+            "from-walk-rt".to_string(),
+            None,
+            t(),
+            &ledger,
+            vec![seed_mutation(1, "m-1")],
+            None,
+            vec![record],
+        )
+        .unwrap();
+        bundle
+            .verify_integrity()
+            .expect("bundle from from_walk record must verify");
+        assert_eq!(bundle.ladder_walks.len(), 1);
+        assert_eq!(bundle.ladder_walks[0].walk_id, "span-42");
     }
 
     #[test]
