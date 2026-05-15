@@ -95,6 +95,37 @@ where
     async fn try_resolve(&self, input: &Input) -> Option<Output>;
 }
 
+/// Whether and when this ladder is allowed to escalate to Tier 4+
+/// (a generative LLM tier). Per doctrine §6 / Master Fusion Plan
+/// §B.3: default is `Never` — no ladder may silently invoke a Tier 4+
+/// variant. The agent must either:
+/// - Use a `/cloud` slash command (signals user intent),
+/// - ⌥-submit (signals user intent),
+/// - Toggle Settings → "Escalate to LLM on empty result", or
+/// - Construct the ladder with an explicit `EscalationPolicy::OnEmpty`
+///   AND carry a `// VARIANT-LADDER-DEFER:` source marker that the
+///   audit register records.
+///
+/// The default is intentionally restrictive because Tier 4+ variants
+/// are the ones that cost user budget (cloud tokens) and erode
+/// determinism (LLM output drift). Tiers 1-3 stay always-on (per
+/// `LadderTier::allowed_without_opt_in()`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EscalationPolicy {
+    /// Never escalate beyond `LadderTier::Classical` (Tier 3). Default.
+    /// If all 1-3 variants fall through, resolve returns `None`.
+    #[default]
+    Never,
+    /// Escalate to Tier 4+ ONLY when every lower tier returned `None`.
+    /// Requires an audit marker per doctrine §6.
+    OnEmpty,
+    /// Always allow ladder to walk through all variants including
+    /// Tier 4+. Reserved for user-opt-in paths (slash command, etc.)
+    /// where the explicit intent has already been recorded.
+    Always,
+}
+
 /// Ordered ladder of variants. `resolve(input)` walks them in tier
 /// order; first to return `Some` wins. The ladder enforces strict
 /// escalation: variants must be sorted by tier ascending. Adding a
@@ -106,6 +137,10 @@ where
     Output: Send + Sync + 'static,
 {
     variants: Vec<Arc<dyn LadderVariant<Input, Output>>>,
+    /// Default: `EscalationPolicy::Never`. Per Master Fusion Plan §B.3,
+    /// the registry never auto-escalates to a generative tier without
+    /// explicit user opt-in.
+    escalation_policy: EscalationPolicy,
 }
 
 impl<Input, Output> Default for VariantLadder<Input, Output>
@@ -116,6 +151,7 @@ where
     fn default() -> Self {
         Self {
             variants: Vec::new(),
+            escalation_policy: EscalationPolicy::default(),
         }
     }
 }
@@ -153,11 +189,45 @@ where
         Ok(())
     }
 
+    /// Set the escalation policy. Default is `Never`. Setting this to
+    /// `OnEmpty` or `Always` requires a `// VARIANT-LADDER-DEFER:`
+    /// source marker per doctrine §6 + Master Fusion Plan §B.3, and
+    /// the construction site must be audit-registered.
+    ///
+    /// Returns `self` for builder chaining: `ladder.with_escalation_policy(p)`.
+    pub fn with_escalation_policy(mut self, policy: EscalationPolicy) -> Self {
+        self.escalation_policy = policy;
+        self
+    }
+
+    /// Read the current escalation policy. Used by `resolve()` to gate
+    /// Tier 4+ variants and by audit surfaces to enumerate what each
+    /// ladder is allowed to do.
+    pub fn escalation_policy(&self) -> EscalationPolicy {
+        self.escalation_policy
+    }
+
     /// Walk the ladder; first variant to return `Some` wins. Returns
     /// the (resolved-by tier, name, output) so audit logs can record
     /// which variant resolved.
+    ///
+    /// Honors `escalation_policy`:
+    /// - `Never` (default): skip any variant whose tier is > Tier 3.
+    ///   If all 1-3 variants return `None`, the ladder returns `None`
+    ///   instead of escalating to Tier 4+.
+    /// - `OnEmpty`: walk Tier 4+ only after every 1-3 variant returned
+    ///   `None`. (This is equivalent to the natural walk order because
+    ///   `push()` enforces ascending tier; this variant is for
+    ///   readability + symmetry.)
+    /// - `Always`: walk all tiers in order.
     pub async fn resolve(&self, input: &Input) -> Option<LadderResolution<Output>> {
         for variant in &self.variants {
+            // Gate: if Never, refuse to walk into the generative tier.
+            if matches!(self.escalation_policy, EscalationPolicy::Never)
+                && !variant.tier().allowed_without_opt_in()
+            {
+                continue;
+            }
             if let Some(output) = variant.try_resolve(input).await {
                 return Some(LadderResolution {
                     tier: variant.tier(),
@@ -310,5 +380,111 @@ mod tests {
         assert!(!LadderTier::SmallLLM.allowed_without_opt_in());
         assert!(!LadderTier::MidLLM.allowed_without_opt_in());
         assert!(!LadderTier::Cloud.allowed_without_opt_in());
+    }
+
+    // -----------------------------------------------------------------
+    // Master Fusion Plan §B.3 — escalate_on_empty default + opt-in gate
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn b3_default_escalation_policy_is_never() {
+        // The doctrine default: a freshly constructed VariantLadder
+        // MUST NOT escalate to a generative tier. Any change here
+        // requires a corresponding doctrine update + audit row per
+        // Master Fusion Plan §B.3.
+        let ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        assert_eq!(ladder.escalation_policy(), EscalationPolicy::Never);
+
+        let default_ladder: VariantLadder<u32, u32> = VariantLadder::default();
+        assert_eq!(default_ladder.escalation_policy(), EscalationPolicy::Never);
+    }
+
+    #[tokio::test]
+    async fn b3_never_policy_skips_generative_tiers_even_when_only_path() {
+        // With EscalationPolicy::Never, the ladder MUST refuse to walk
+        // into Tier 4+ even if every Tier 1-3 variant returned None
+        // and only a Tier 4+ variant remains.
+        let mut ladder: VariantLadder<u32, u32> = VariantLadder::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::SmallLLM,
+                name: "llm",
+                return_value: 1000,
+            }))
+            .unwrap();
+        // Default policy is Never — the LLM never runs.
+        let res = ladder.resolve(&5).await;
+        assert!(
+            res.is_none(),
+            "Never policy must refuse to invoke a generative tier; got {res:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn b3_always_policy_unlocks_generative_tiers_when_lower_tiers_fall_through() {
+        // VARIANT-LADDER-DEFER: this exercises EscalationPolicy::Always
+        // which is reserved for user-opt-in callers — the audit row
+        // for the construction site is required by doctrine §6.
+        let mut ladder = VariantLadder::<u32, u32>::new();
+        ladder
+            .push(Arc::new(AlwaysNoneVariant {
+                tier: LadderTier::Deterministic,
+                name: "det",
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::SmallLLM,
+                name: "llm",
+                return_value: 1000,
+            }))
+            .unwrap();
+        let ladder = ladder.with_escalation_policy(EscalationPolicy::Always);
+        let res = ladder.resolve(&7).await.expect("Always policy escalates");
+        assert_eq!(res.tier, LadderTier::SmallLLM);
+        assert_eq!(res.output, 1007);
+    }
+
+    #[tokio::test]
+    async fn b3_on_empty_policy_escalates_only_after_all_lower_tiers_fall_through() {
+        // VARIANT-LADDER-DEFER: this exercises EscalationPolicy::OnEmpty.
+        let mut ladder = VariantLadder::<u32, u32>::new();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::Embedding,
+                name: "emb",
+                return_value: 100,
+            }))
+            .unwrap();
+        ladder
+            .push(Arc::new(AlwaysSomeVariant {
+                tier: LadderTier::Cloud,
+                name: "cloud",
+                return_value: 9999,
+            }))
+            .unwrap();
+        let ladder = ladder.with_escalation_policy(EscalationPolicy::OnEmpty);
+
+        // Embedding tier produces a value first; cloud never runs.
+        let res = ladder.resolve(&3).await.expect("emb resolved");
+        assert_eq!(res.tier, LadderTier::Embedding);
+        assert_eq!(res.output, 103);
+        assert_ne!(res.variant_name, "cloud", "Cloud must not run when emb resolved");
+    }
+
+    #[test]
+    fn b3_escalation_policy_serializes_to_snake_case_for_audit_logs() {
+        let json = serde_json::to_string(&EscalationPolicy::Never).unwrap();
+        assert_eq!(json, "\"never\"");
+        let json = serde_json::to_string(&EscalationPolicy::OnEmpty).unwrap();
+        assert_eq!(json, "\"on_empty\"");
+        let json = serde_json::to_string(&EscalationPolicy::Always).unwrap();
+        assert_eq!(json, "\"always\"");
     }
 }
