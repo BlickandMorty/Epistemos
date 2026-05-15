@@ -12,12 +12,27 @@
 //!   - Tier 5 (MidLLM): grammar-bound rerank (opt-in only)
 //!   - Tier 6 (Cloud): never auto, slash-command only
 //!
-//! This first slice (B.1 1/N) ships ONLY the Tier 3 RRF hybrid variant
-//! because `VaultBackend` today exposes a single `hybrid_search` method.
-//! Adding Tier 1 (lexical-only) + Tier 2 (embedding-only) needs new
-//! trait methods on every `VaultBackend` impl, which is a separate
-//! slice (§B.1 2/N). Tier 4+ is gated behind `EscalationPolicy::OnEmpty`
-//! per §B.3 (committed `7cb1ed426`) and stays off by default.
+//! B.1 1/N shipped only Tier 3. **B.1 2/N (this slice) adds Tier 1**
+//! (lexical-only via the new `VaultBackend::lexical_search` trait
+//! method). Tier 2 (embedding-only) is intentionally NOT included
+//! today — adding a `VaultBackend::embedding_search` method that just
+//! delegates to `hybrid_search` would be the fake-tier anti-pattern.
+//! T2 lands when a real vector-backed VaultBackend impl exists (e.g.
+//! one wrapping `epistemos-shadow`'s HNSW index). Tier 4+ stays
+//! gated behind `EscalationPolicy::OnEmpty` per §B.3 (committed
+//! `7cb1ed426`) and stays off by default.
+//!
+//! The two-tier ladder routes:
+//!   - High-confidence exact match (top score ≥ 0.85) → Tier 1
+//!     accepts (cheap deterministic path, no fusion compute on a
+//!     fused-capable backend).
+//!   - Medium confidence (0.70 ≤ top < 0.85) → Tier 1 declines,
+//!     Tier 3 accepts (escalate to fused if available; for
+//!     `VaultStore`'s Tantivy-only impl, T3 returns the same
+//!     candidates as T1 — the floor is the differentiation).
+//!   - Low confidence (top < 0.70) → both decline, ladder returns
+//!     None → handler surfaces the doctrine §6 "Defer is a
+//!     first-class outcome" message.
 //!
 //! Confidence floors per doctrine §4.2:
 //!   - `FLOOR_T1 = 0.85`
@@ -71,6 +86,49 @@ pub struct VaultSearchLadderOutput {
     pub results: Vec<SearchResult>,
 }
 
+/// Tier 1 — pure BM25 / lexical-only search via the new
+/// `VaultBackend::lexical_search` trait method. The cheapest tier
+/// (no embedding compute, no fusion); accepts only when the top
+/// result's score is at or above `FLOOR_T1 = 0.85` (high-confidence
+/// exact match).
+///
+/// On backends whose `hybrid_search` is already lexical-only (e.g.
+/// `VaultStore`), the default trait implementation has T1 delegate to
+/// `hybrid_search` — the floor differentiation is what makes T1
+/// useful even there. On backends with a real RRF-fused
+/// `hybrid_search` (e.g. an `epistemos-shadow` adapter), T1 saves
+/// the embedding lookup + RRF compute when a high-confidence
+/// keyword match exists.
+pub struct VaultSearchT1LexicalBm25;
+
+#[async_trait]
+impl LadderVariant<VaultSearchLadderInput, VaultSearchLadderOutput>
+    for VaultSearchT1LexicalBm25
+{
+    fn tier(&self) -> LadderTier {
+        LadderTier::Deterministic
+    }
+
+    fn name(&self) -> &str {
+        "VaultSearchT1LexicalBm25"
+    }
+
+    async fn try_resolve(
+        &self,
+        input: &VaultSearchLadderInput,
+    ) -> Option<VaultSearchLadderOutput> {
+        let results = match input
+            .backend
+            .lexical_search(&input.query, input.limit, &input.tags)
+            .await
+        {
+            Ok(rs) => rs,
+            Err(_) => return None,
+        };
+        accept_above_floor(results, FLOOR_T1)
+    }
+}
+
 /// Tier 3 — RRF k=60 hybrid fusion via `VaultBackend::hybrid_search`.
 ///
 /// Per the §B.1 acceptance, this tier accepts when the top result's
@@ -120,10 +178,11 @@ fn accept_above_floor(
     }
 }
 
-/// Construct the canonical `vault.search` ladder. Today this is a
-/// single-tier ladder (T3 RRF hybrid). Adding T1 + T2 is purely
-/// additive; the consumer side (VaultSearchHandler) doesn't change
-/// when new tiers land.
+/// Construct the canonical `vault.search` ladder. As of §B.1 2/N this
+/// is a two-tier ladder (T1 lexical-only + T3 RRF hybrid). Adding T2
+/// (embedding-only) lands when a real vector-backed VaultBackend is
+/// wired — `VariantLadder::push()` enforces tier-ascending order so a
+/// future T2 must be inserted between T1 and T3.
 ///
 /// Default escalation policy is `Never` per §B.3 — no Tier 4+ variant
 /// can fire silently. Construction sites that need LLM escalation must
@@ -133,6 +192,7 @@ pub fn build_vault_search_ladder(
 ) -> Result<VariantLadder<VaultSearchLadderInput, VaultSearchLadderOutput>, crate::variant_ladder::LadderError>
 {
     let mut ladder = VariantLadder::new();
+    ladder.push(Arc::new(VaultSearchT1LexicalBm25))?;
     ladder.push(Arc::new(VaultSearchT3RrfHybrid))?;
     Ok(ladder)
 }
@@ -279,22 +339,127 @@ mod tests {
     }
 
     #[test]
-    fn ladder_ships_exactly_one_tier_today() {
-        // §B.1 1/N source-guard. This number changes when T1 + T2 land.
-        // Counter-intuitively, the GUARD is the assertion — when a
-        // future PR adds T1/T2, this test breaks intentionally and
-        // forces the reviewer to update the count + the doctrine row.
+    fn ladder_ships_two_tiers_today() {
+        // §B.1 2/N source-guard. T1 + T3 today; T2 remains deferred
+        // until a real vector-backed VaultBackend lands (would be a
+        // fake tier today since `lexical_search` + future
+        // `embedding_search` would both delegate to `hybrid_search`).
         let ladder = build_vault_search_ladder().expect("ladder must build");
         let names_and_tiers = ladder.variant_names_and_tiers();
         assert_eq!(
             names_and_tiers.len(),
-            1,
-            "B.1 ships one tier today; update this count when T1+T2 land. Got: {:?}",
+            2,
+            "B.1 ships two tiers today (T1 + T3); update this count when T2 lands. Got: {:?}",
             names_and_tiers
         );
         assert_eq!(
             names_and_tiers[0],
-            ("VaultSearchT3RrfHybrid".to_string(), LadderTier::Classical)
+            ("VaultSearchT1LexicalBm25".to_string(), LadderTier::Deterministic),
+            "T1 must come first per tier-ascending order"
+        );
+        assert_eq!(
+            names_and_tiers[1],
+            ("VaultSearchT3RrfHybrid".to_string(), LadderTier::Classical),
+            "T3 must come after T1 per tier-ascending order"
+        );
+    }
+
+    // -- Master Fusion §B.1 2/N — T1 lexical-only variant -----------------
+
+    #[tokio::test]
+    async fn t1_variant_accepts_when_top_score_is_at_or_above_floor() {
+        // FLOOR_T1 = 0.85. Top score 0.90 ≥ 0.85 → accept.
+        let canned = vec![result("notes/a.md", 0.90), result("notes/b.md", 0.40)];
+        let inp = input(canned);
+        let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
+        let output = resolved.expect("T1 must accept top_score=0.90");
+        assert_eq!(output.results.len(), 2);
+        assert_eq!(output.results[0].path, "notes/a.md");
+    }
+
+    #[tokio::test]
+    async fn t1_variant_declines_when_top_score_is_below_floor() {
+        // FLOOR_T1 = 0.85. Top score 0.80 < 0.85 → decline.
+        // This is the key floor-differentiation case: T1 declines so
+        // the ladder falls through to T3, which has FLOOR_T3 = 0.70
+        // and accepts the same candidates.
+        let canned = vec![result("notes/a.md", 0.80)];
+        let inp = input(canned);
+        let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
+        assert!(
+            resolved.is_none(),
+            "T1 must decline when top_score < FLOOR_T1; ladder falls through to T3"
+        );
+    }
+
+    #[tokio::test]
+    async fn t1_variant_declines_on_empty_results() {
+        let inp = input(vec![]);
+        let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
+        assert!(resolved.is_none(), "T1 must decline on empty backend results");
+    }
+
+    #[tokio::test]
+    async fn ladder_resolves_via_t1_for_high_confidence_match() {
+        // Top score 0.92 → above T1 floor 0.85 → ladder resolves at
+        // T1, T3 never runs. The variant_name in LadderResolution
+        // is the proof that T1 won.
+        let canned = vec![result("notes/exact-match.md", 0.92)];
+        let inp = input(canned);
+        let ladder = build_vault_search_ladder().expect("ladder must build");
+        let resolution = ladder.resolve(&inp).await.expect("ladder must resolve");
+        assert_eq!(resolution.tier, LadderTier::Deterministic);
+        assert_eq!(resolution.variant_name, "VaultSearchT1LexicalBm25");
+    }
+
+    #[tokio::test]
+    async fn ladder_falls_through_t1_to_t3_for_medium_confidence_match() {
+        // Top score 0.78 → below T1 floor (0.85) but above T3 floor
+        // (0.70). Ladder MUST fall through T1 → T3 and resolve at T3.
+        let canned = vec![result("notes/fuzzy-match.md", 0.78)];
+        let inp = input(canned);
+        let ladder = build_vault_search_ladder().expect("ladder must build");
+        let resolution = ladder.resolve(&inp).await.expect("ladder must resolve");
+        assert_eq!(
+            resolution.tier,
+            LadderTier::Classical,
+            "0.78 score must fall through T1 (0.85 floor) to T3 (0.70 floor)"
+        );
+        assert_eq!(resolution.variant_name, "VaultSearchT3RrfHybrid");
+    }
+
+    #[tokio::test]
+    async fn ladder_returns_none_when_both_tiers_decline() {
+        // Top score 0.40 → below BOTH floors → ladder declines.
+        let canned = vec![result("notes/weak.md", 0.40)];
+        let inp = input(canned);
+        let ladder = build_vault_search_ladder().expect("ladder must build");
+        assert!(
+            ladder.resolve(&inp).await.is_none(),
+            "ladder must defer when neither tier's floor is met"
+        );
+    }
+
+    #[tokio::test]
+    async fn default_lexical_search_trait_method_delegates_to_hybrid_search() {
+        // Architectural pin: backends that don't override
+        // lexical_search MUST get an identical-shape result via the
+        // default trait impl. This proves T1 stays correct for
+        // VaultStore-style impls (whose hybrid_search is already
+        // lexical-only).
+        let canned = vec![result("notes/a.md", 0.95)];
+        let backend = Arc::new(FakeVaultBackend { canned: canned.clone() });
+        let via_hybrid = backend
+            .hybrid_search("anything", 5, &[])
+            .await
+            .expect("hybrid_search ok");
+        let via_lexical = backend
+            .lexical_search("anything", 5, &[])
+            .await
+            .expect("lexical_search ok");
+        assert_eq!(
+            via_hybrid, via_lexical,
+            "default lexical_search MUST delegate to hybrid_search and return identical results"
         );
     }
 }

@@ -27,6 +27,35 @@ pub trait VaultBackend: Send + Sync {
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError>;
 
+    /// Tier-1 lexical-only search per
+    /// `COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md` §4.2 — pure
+    /// BM25 / keyword index match, no embedding component, no RRF
+    /// fusion. Used by the `vault.search` Variant Ladder Tier 1 path
+    /// (`agent_core::tools::vault_search_ladder`).
+    ///
+    /// Default delegates to [`hybrid_search`] so backends that don't
+    /// (yet) differentiate continue to compile. Backends that DO have
+    /// a true RRF-fused `hybrid_search` (e.g. one wrapping
+    /// `epistemos-shadow`'s Tantivy + HNSW combo) MUST override this
+    /// method with a lexical-only path — otherwise the ladder's T1
+    /// tier does the same work as T3 and the strategy-differentiation
+    /// is fake.
+    ///
+    /// For backends whose `hybrid_search` is already lexical-only
+    /// (e.g. `VaultStore`'s Tantivy-only impl), the default delegation
+    /// is correct: T1 = T3 method, T1 = stricter floor (0.85 vs 0.70).
+    /// The ladder still routes high-confidence exact matches through
+    /// T1 first, which keeps the doctrine's "cheap deterministic tier
+    /// first" invariant honest.
+    async fn lexical_search(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<Vec<SearchResult>, VaultError> {
+        self.hybrid_search(query, limit, tag_filter).await
+    }
+
     async fn search(&self, query: &str, limit: usize) -> Result<Vec<String>, VaultError> {
         let results = self.hybrid_search(query, limit, &[]).await?;
         Ok(results
