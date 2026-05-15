@@ -1398,4 +1398,45 @@ mod tests {
         assert_eq!(tiers.first(), Some(&ClaimTier::Prime));
         assert_eq!(tiers.last(), Some(&ClaimTier::Gap));
     }
+
+    #[test]
+    fn claim_tier_natural_ordering_is_gap_lt_composite_lt_prime() {
+        // The doc comment on `ClaimTier` promises "`Gap < Composite <
+        // Prime` so a `(tier, weight)` natural ordering sorts gap →
+        // composite → prime ascending." Sort code elsewhere relies on
+        // this — e.g. the rank_by_prime_composite_gap consumer that
+        // chains `sort_by(|a, b| b.tier.cmp(&a.tier))` for descending
+        // tier order. Pin the natural ordering directly so a future
+        // refactor that reorders the enum variants trips before any
+        // downstream caller silently inverts.
+        assert!(ClaimTier::Gap < ClaimTier::Composite);
+        assert!(ClaimTier::Composite < ClaimTier::Prime);
+        assert!(ClaimTier::Gap < ClaimTier::Prime);
+
+        // PartialOrd consistent with Ord (derived together).
+        assert_eq!(
+            ClaimTier::Gap.partial_cmp(&ClaimTier::Prime),
+            Some(std::cmp::Ordering::Less)
+        );
+
+        // Sorting a mixed vec must produce gap → composite → prime.
+        let mut tiers = vec![
+            ClaimTier::Prime,
+            ClaimTier::Gap,
+            ClaimTier::Composite,
+            ClaimTier::Prime,
+            ClaimTier::Gap,
+        ];
+        tiers.sort();
+        assert_eq!(
+            tiers,
+            vec![
+                ClaimTier::Gap,
+                ClaimTier::Gap,
+                ClaimTier::Composite,
+                ClaimTier::Prime,
+                ClaimTier::Prime,
+            ]
+        );
+    }
 }
