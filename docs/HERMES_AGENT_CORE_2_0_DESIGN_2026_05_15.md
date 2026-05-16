@@ -853,6 +853,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | `intelligence.mixture_of_minds` Gemini contributor (`agent_core::tools::intelligence::ask_gemini`) | HTTPS `generateContent` direct call to Google Gemini | ✅ MAS-compatible transport, but Pro/tool-policy gated as `intelligence.mixture_of_minds` | D self-audit reconciled on 2026-05-16. §5.0 found the primary `GeminiProvider` correctly wired to Gemini 2.5 with header-based auth, while the D4 cloud ensemble helper still called retired `gemini-1.5-pro` and placed the API key in the URL query. The helper now uses `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent` and sends the key via `x-goog-api-key`. Source guard: `tools::intelligence::tests::mixture_gemini_uses_current_endpoint_without_url_key` under `pro-build`. |
 
+### 7.4.10 D Self-Audit: Legacy Provider Source Comments
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Claude, OpenAI, and Perplexity first-party provider modules | HTTPS provider adapters in `agent_core/src/providers/{claude,openai,perplexity}.rs` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16. §5.0 found the newer provider modules already started with required `//! Source:` comments, but legacy Claude/OpenAI/Perplexity modules did not. The modules now start with official API source comments for Anthropic Messages/tool-use/extended-thinking, OpenAI Responses/function-calling/reasoning/streaming, and Perplexity Sonar chat completions. Source guards: `module_starts_with_official_source_comments` in each provider test module. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

@@ -1,3 +1,8 @@
+//! Source: https://platform.openai.com/docs/api-reference/responses/create
+//! Source: https://platform.openai.com/docs/guides/function-calling?api-mode=responses
+//! Source: https://platform.openai.com/docs/guides/reasoning
+//! Source: https://platform.openai.com/docs/guides/streaming-responses
+
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -763,6 +768,28 @@ mod tests {
         ContentBlock, ImageSource, Message, ToolResult, ToolResultContent, UserContent,
     };
     use serde_json::json;
+
+    #[test]
+    fn module_starts_with_official_source_comments() {
+        let source = include_str!("openai.rs");
+
+        assert!(
+            source.starts_with(
+                "//! Source: https://platform.openai.com/docs/api-reference/responses/create\n"
+            ),
+            "OpenAI provider must start with official API source comments"
+        );
+        assert!(
+            source.contains(
+                "//! Source: https://platform.openai.com/docs/guides/function-calling?api-mode=responses"
+            ),
+            "OpenAI provider must cite the official Responses tool-calling contract"
+        );
+        assert!(
+            source.contains("//! Source: https://platform.openai.com/docs/guides/reasoning"),
+            "OpenAI provider must cite the official reasoning contract"
+        );
+    }
 
     #[test]
     fn openai_responses_reasoning_effort_uses_xhigh_for_max() {

@@ -305,6 +305,13 @@ and sends API-key auth with `x-goog-api-key`; the pro-build source guard
 `mixture_gemini_uses_current_endpoint_without_url_key` rejects the retired
 `gemini-1.5-pro` path and `?key=` URL-secret pattern.
 
+D self-audit 2026-05-16: legacy first-party provider modules
+`agent_core/src/providers/{claude,openai,perplexity}.rs` now start with the
+same required `//! Source:` official-doc comments already present on Gemini
+and OpenAI-compatible provider expansions. Focused guards named
+`module_starts_with_official_source_comments` fail if those source anchors
+drift out of the module prologue.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list

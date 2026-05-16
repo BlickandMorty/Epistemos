@@ -1,3 +1,8 @@
+//! Source: https://docs.anthropic.com/en/api/messages
+//! Source: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview
+//! Source: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+//! Source: https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming
+
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -670,6 +675,28 @@ mod tests {
     use crate::types::{ContentBlock, StopReason, TokenUsage, ToolSchema};
     use reqwest::Client;
     use serde_json::json;
+
+    #[test]
+    fn module_starts_with_official_source_comments() {
+        let source = include_str!("claude.rs");
+
+        assert!(
+            source.starts_with("//! Source: https://docs.anthropic.com/en/api/messages\n"),
+            "Claude provider must start with official API source comments"
+        );
+        assert!(
+            source.contains(
+                "//! Source: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview"
+            ),
+            "Claude provider must cite the official tool-use contract"
+        );
+        assert!(
+            source.contains(
+                "//! Source: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking"
+            ),
+            "Claude provider must cite the official extended-thinking contract"
+        );
+    }
 
     #[test]
     fn preserves_thinking_signature_in_json() {
