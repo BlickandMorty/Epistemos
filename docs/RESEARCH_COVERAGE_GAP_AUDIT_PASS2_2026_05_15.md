@@ -2138,6 +2138,57 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 1/3-5; STAY at 3-min. Watching for sustained quiet (0-2 commits for multiple iters) before retrying low-touch.
 
+#### Status pulse (iter 121, 2026-05-16) — 🎯 B WAVE I A2UI CATALOG COMPLETE 24/24
+
+- **Window since iter 120:** 1 sibling commit (sub-threshold pulse):
+  - `837c3ca41` (B) Wave I A2UI batch 4 — **catalog COMPLETE (24/24)**.
+
+- **§5.0 spot-check Wave I batch 4 (final):**
+
+  | Component | File | Tests |
+  |---|---|---|
+  | Toast (4-tier severity + auto_dismiss_ms floor 500ms) | `toast.rs` | 6 |
+  | Alert (severity + title/body + dedupe-checked actions) | `alert.rs` | 6 |
+  | Modal (4-size + dismissible + title/body required) | `modal.rs` | 5 |
+  | Tooltip (4-placement + delay 0..=5000ms) | `tooltip.rs` | 6 |
+  | Breadcrumbs (items + invariant: last item must not link) | `breadcrumbs.rs` | 6 |
+  | NavigationRail (items with unique keys + icon + badge cap 999) | `navigation_rail.rs` | 9 |
+  | (umbrella) | `mod.rs` | +4 |
+
+  **Batch 4 total: 42 tests.**
+
+- **🎯 Wave I A2UI portfolio FULLY CLOSED at iter 121:**
+
+  | Batch | Iter | Components | Tests | Files |
+  |---|---|---|---|---|
+  | 1 | 117 | 6 (cap_chip/chart/key_value_grid/markdown/progress_bar/table) | 35 | 7 |
+  | 2 | 119 | 6 (citation/code/confidence/diff/provenance/tool_call) | 33 | 6 |
+  | 3 | 120 | 6 (accordion/carousel/pagination/quote/toc/tabs) | 42 | 6 |
+  | 4 | 121 | 6 (toast/alert/modal/tooltip/breadcrumbs/nav_rail) | 42 | 7 |
+  | **Total** | — | **24/24** | **~152 tests** | **~26 files** |
+
+  Wave I closure at iter 121 matches iter-120 projection EXACTLY.
+
+- **🎯 B's session-completed waves (cumulative):**
+  1. J research-tier (J1-J9 closed iter 93)
+  2. B.6.4-B.6.14 long-tail (closed iter 110)
+  3. B.6.15-B.6.20 V6.1 additions (5/6 closed iter 101; B.6.18 skip)
+  4. Wave G (Tamagotchi + sprite atlas + animations + scheduler + lora hot-swap; closed iter 116; 84 tests)
+  5. B.7 substrate (Brain Export + Tamagotchi base; iter 111)
+  6. **Wave I A2UI catalog (24/24; closed iter 121; 152 tests)**
+
+  Total B research-tier + user-product substrate this session: substantial.
+
+- **§5.0 verdict: CLEAN.** Wave I closure aligns with driver §5 Phase B.5 + MASTER_FUSION §6 Wave I.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **19 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min.
+
+- **Iter 122+ candidates:** Watch B's next phase post-Wave-I-close (B is plowing through driver §5 priority queue at ~1 wave per 6-10 iters); Phase C.2 mass MASTER_RESEARCH_INDEX update increasingly overdue with all these wave closures.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
