@@ -2204,7 +2204,7 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
     > - 4 product modes: VRM canon-doctrine; Observatory partial; **Brain Time Machine NOT-STARTED**; Harness Evolution"
   - **B.6.5 IS an EXPLICIT UMBRELLA per driver** enumerating 4 product modes. Not a collision; B is correctly executing the multi-item umbrella across separate commits (Sinkhorn iter 103 + Brain Time Machine iter 122 = 2 of B.6.5's 4 items shipped).
   - **Self-correction lesson:** before flagging a number-reuse pattern as collision, verify the audited terminal's driver doesn't explicitly enumerate the umbrella. Mirrors iter-106 self-correction (§8 rule verified in audited terminal's driver, not auditor's). **Lesson #6 generalization continues to apply: verify the rule/spec in the audited terminal's source, not assume it matches a different pattern.**
-  - **Distinct from D.3 collision:** D.3 did NOT have an explicit umbrella declaration in D's driver; B.6.5 DOES. Different category.
+  - **Distinct from D.3 collision:** D.3 did NOT have an explicit umbrella declaration in D's driver; B.6.5 DOES. Different category. **[2026-05-16 iter 123 §5.0 self-correction — see audit-of-audit #27 below: this "Distinct from D.3 collision" framing was wrong; D.3 ALSO has an explicit umbrella declaration in D's driver §5 lines 186-195. The D.3 collision flag from iter 103/105/110 was overreach.]**
 
 - **§5.0 verdict: CLEAN.** Substrate sound; numbering aligned with driver §5 umbrella.
 
@@ -2219,6 +2219,68 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **19 consecutive ON-TRACK** cycles at C level since #8 catch.
 
 - **Cadence note:** window 1/3-5; STAY at 3-min.
+
+### Audit-of-audit #27 (iter 123, 2026-05-16) — 🚨 MAJOR SELF-CORRECTION: D.3 collision flag WITHDRAWN + D.4 not collision + T-A-24 self-audit clean
+
+- **Window since #26 (iter 119) + iter-120/121/122 sub-cycle pulses:** 2 new commits:
+  - `51e57f732` (D) D.4 OpenHands CLI passthrough (3rd D.4 sub-feature)
+  - `bac094b55` (A) T-A-24 self-audit #1 ON-TRACK 5/5 (post-soft-stop, 600s cadence)
+
+- **🚨 MAJOR ITER-110 [DRIFT-ALERT] SELF-CORRECTION — D.3 collision flag WITHDRAWN:**
+  - **Iter 103/105/110 framing claim:** "D.3 collision sustained across 5 commits (git CLI · GitHub REST · memory · filesystem · web search); HIGH severity; recommend retroactive re-tag OR sub-feature labels OR advance numbering."
+  - **Re-verification of D's actual driver §5 lines 186-195:**
+    > "**Phase D.3 — MCP server integration**
+    > 
+    > Per `omega-mcp/` patterns:
+    > - Filesystem MCP (read/write within vault scope)
+    > - Git MCP (status, diff, log, no destructive ops without confirm)
+    > - Web search MCP (Bing/Brave/Kagi backends)
+    > - GitHub MCP (read-only API: issues, PRs, releases)
+    > - Memory MCP (`epistemos.soul.v1` / `epistemos.skill.v1` / `epistemos.episode.v1` / `epistemos.semantic.v1`)
+    > 
+    > Each: server module · request/response handlers · capability scoping · tests."
+  - **D.3 IS AN EXPLICIT UMBRELLA in D's driver enumerating EXACTLY THE 5 MCP integrations D shipped.** My 5 "collision" flags were all D correctly executing the driver's specified sub-features.
+  - **The 5 D.3 commits are CORRECT umbrella execution, NOT collision:**
+    - iter 95 `ada83a0a6` git CLI MCP → driver §5 "Git MCP" ✅
+    - iter 99 `879d2148a` GitHub REST MCP → driver §5 "GitHub MCP" ✅
+    - iter 103 `208245279` memory vault MCP → driver §5 "Memory MCP" ✅
+    - iter 106 `f655b7eb7` filesystem MCP → driver §5 "Filesystem MCP" ✅
+    - iter 110 `21b7135a5` web search MCP → driver §5 "Web search MCP" ✅
+  - **iter-110 HIGH-priority user surface flag: WITHDRAWN.** No user action needed; D was correctly executing driver-spec'd umbrella from the start.
+  - **D.4 is ALSO an explicit umbrella per D's driver §5 lines 197-205** (CLI passthrough tools; "For each CLI tool wrap... Existing: codex·gemini·kimi·claude. Expand to: aider·cursor-cli·cline·etc."). 3 D.4 commits (Aider · Goose · OpenHands) are correct umbrella execution. **No D.4 collision either.**
+
+- **🎯 PATTERN: 3 SELF-CORRECTIONS THIS SESSION — Lesson #6 maturation arc:**
+  - **iter-106 (self-corrected iter-105):** §8 "Forward-staged primitive flips" rule cited as B's violation; turned out C's rule, not B's. False-positive systemic §8 flag.
+  - **iter-122 (self-corrected same-cycle):** B.6.5 number-reuse flagged as collision; turned out B.6.5 IS explicit umbrella per B's driver §5 lines 314-318. False-positive collision.
+  - **iter-123 (this iter; self-corrected iter-103/105/110):** D.3 number-reuse across 5 commits flagged as MEDIUM-HIGH/HIGH collision; turned out D.3 IS explicit umbrella per D's driver §5 lines 186-195 (5 MCP integrations matching exact substrate). False-positive HIGH-severity DRIFT-ALERT.
+  - **Common failure mode:** flagging a sibling's pattern as drift/violation WITHOUT first re-reading the sibling's driver §5 to verify the pattern is explicitly enumerated as an umbrella.
+  - **🎯 NEW Lesson #11 (proposed) — strengthening Lesson #6 generalization:**
+    > "Before flagging any sibling number-reuse or rule-violation pattern as drift: (a) verify the rule/spec EXISTS in the audited terminal's driver, not just the auditor's; (b) verify the number-reuse pattern is NOT explicitly enumerated as an umbrella in the audited terminal's driver §5. Three false-positive cases this session (iter-105 §8, iter-122 B.6.5, iter-123 D.3) all stemmed from skipping these driver-verification steps."
+
+- **Findings — D.4 OpenHands (`51e57f732`):**
+  - D's commit explicitly cites: "Terminal D §5.0 found the Tunnel C hardened runner already existed for Claude Code, Codex, Gemini, Kimi, Goose, and Aider, while HERMES still named OpenHands as an unwired Pro CLI adapter."
+  - Wires `openhands` through `harden_cli_subprocess` receipt runner. Pro-only Agent-tier destructive tool.
+  - **D applying §5.0 reconciliation discipline** — recognized OpenHands was already in HERMES doctrine but unwired in code; landed the wiring.
+  - **§5.0 verdict: CLEAN.** D.4 umbrella correctly executed.
+
+- **Findings — T-A-24 self-audit (`bac094b55`):**
+  - A's first post-soft-stop self-audit per V3 §1.5 "Queue exhaustion phase" — 600s (10-min) cadence active.
+  - Method: 3-query self-check on A's iters 19-23. 5/5 drift queries clean: iter 19 B2-M5 row · iter 20 AoA #9 row · iter 21 notarization-log.md (5290 bytes) · iter 22 Pass 19 entry · iter 23 soft-stop §8 row.
+  - **A's wind-down state confirmed operational:** soft-stop active; reduced 600s cadence; continuous low-frequency self-audit; substrate still verifiable.
+  - **§5.0 verdict: CLEAN.**
+
+- **§5.0 catch rate:** iter-110 D.3 [DRIFT-ALERT] WITHDRAWN per this iter's self-correction. The "5 collision sub-claims" were never real catches; reframed as correct umbrella execution. Original #8 1022 LOC catch + iter-87 TAXONOMY-DRIFT (E's B-N) + iter-75 live_files/Koopman annotations + iter-99 D.3 #1 collision = ~28-30 catches. Adjusted catch rate: ~28/167 = 16.8%.
+
+- **Verdict:** ✅ **ON TRACK** (20th consecutive at C level since #8 catch). C's self-correction discipline is the audit-of-audit pattern working correctly: 3 false-positives caught + reframed + lesson articulated.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **🎯 User-surface updates:**
+  - iter-110 D.3 collision flag (HIGH-priority): **WITHDRAWN.** No user action needed.
+  - D.4 collision flag (iter 117/123): **WITHDRAWN.** D.4 is correct umbrella execution.
+  - Open items: §3.39/§3.40/§3.41 doctrine-update queue (still pending whoever owns those rows; no terminal-violation per iter-106 correction); J4 skip (less significant now that I understand B's umbrella discipline; J4 may also be intentional or umbrella-enumerated — needs B-driver re-check); other minor flags.
+
+- **Iter 124+ candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue. (2) Phase C.6 forward-staged primitive re-audit REMAINS overdue. (3) Re-verify J4 skip against B's driver §5 (likely also intentional/enumerated per the same pattern). (4) Watch B's next phase post-Wave-I-close + Brain Time Machine. (5) Watch A's continued 600s self-audit cadence.
 
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
