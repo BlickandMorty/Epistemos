@@ -20,18 +20,28 @@ const SUBPROCESS_ALLOWLIST: &[&str] = &[
 const SUBPROCESS_DENYLIST: &[&str] = &[
     "OPENAI_API_KEY",
     "OPENAI_ACCESS_TOKEN",
+    "OPENAI_AUTH_MODE",
+    "OPENAI_CLIENT_VERSION",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_ACCESS_TOKEN",
+    "ANTHROPIC_AUTH_MODE",
     "GOOGLE_API_KEY",
     "GOOGLE_ACCESS_TOKEN",
+    "GOOGLE_AUTH_MODE",
+    "GOOGLE_PROJECT_ID",
     "GEMINI_API_KEY",
     "PERPLEXITY_API_KEY",
     "OPENROUTER_API_KEY",
+    "GLM_API_KEY",
     "MOONSHOT_API_KEY",
+    "KIMI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MINIMAX_API_KEY",
     "CODESTRAL_API_KEY",
     "MISTRAL_API_KEY",
     "XAI_API_KEY",
     "TOGETHER_API_KEY",
+    "GROQ_API_KEY",
     "HF_TOKEN",
 ];
 
@@ -52,4 +62,47 @@ pub(crate) fn hardened_command(program: &str) -> Command {
         command.process_group(0);
     }
     command
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn denylist_contains_agent_core_provider_secret_aliases() {
+        let required = [
+            "OPENAI_API_KEY",
+            "OPENAI_ACCESS_TOKEN",
+            "OPENAI_AUTH_MODE",
+            "OPENAI_CLIENT_VERSION",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_ACCESS_TOKEN",
+            "ANTHROPIC_AUTH_MODE",
+            "GOOGLE_API_KEY",
+            "GOOGLE_ACCESS_TOKEN",
+            "GOOGLE_AUTH_MODE",
+            "GOOGLE_PROJECT_ID",
+            "GEMINI_API_KEY",
+            "PERPLEXITY_API_KEY",
+            "OPENROUTER_API_KEY",
+            "GLM_API_KEY",
+            "MOONSHOT_API_KEY",
+            "KIMI_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "MINIMAX_API_KEY",
+            "XAI_API_KEY",
+            "CODESTRAL_API_KEY",
+            "MISTRAL_API_KEY",
+            "TOGETHER_API_KEY",
+            "GROQ_API_KEY",
+            "HF_TOKEN",
+        ];
+
+        for key in required {
+            assert!(
+                SUBPROCESS_DENYLIST.contains(&key),
+                "{key} must be scrubbed from omega-mcp subprocess children"
+            );
+        }
+    }
 }
