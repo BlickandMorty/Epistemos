@@ -224,6 +224,29 @@ Every 20-30 iters: re-verify the 6 forward-staged primitives are still NOT-START
 
 If any has been implemented by sibling: flip its doctrine status from forward-staged to LANDED.
 
+## §5.5 Harden-later policy (Terminal C audit responsibility)
+
+Terminal C's role spans both phases. In **Phase 1**, audit feature builds for §5.0 / drift / non-canon framing / cut-corners. In **Phase 2** (post-V1 hardening), audit hardening sweep per `docs/HARDENING_TRACKER_2026_05_16.md`.
+
+- ✅ During Phase 1: flag features that ship without `HARDENING_TRACKER §2` rows (i.e., didn't queue the hardening checklist)
+- ✅ During Phase 2: flag features marked ✅ on hardening axes that regress (CI failure · bench drift)
+- ❌ Never fix the drift yourself — surface to the owning terminal per §1.5
+
+## §5.6 Lockstep doc updates (audit-row appends)
+
+Every audit-of-audit cycle commit MUST touch (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
+- ✓ `RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §9` audit-of-audit register row
+- ✓ `MAS_COMPLETE_FUSION §8` Implementation Log row cross-referencing the §9 entry
+- ✓ `FEATURE_CHANGE_TRACKER` entries verified (audit pass-through for sibling commits)
+
+Conditional: `CANONICAL_DOC_INDEX_2026_05_16.md` update if new canon emerges from audit findings.
+
+If you find drift that requires sibling-scope code edit: STOP + write `[DRIFT-ALERT]` §8 row + surface. Never fix sibling code.
+
+## §5.7 Canonical doc index ownership
+
+You maintain `docs/CANONICAL_DOC_INDEX_2026_05_16.md` — the master "table of contents" for every canonical doc. Update when new doctrine emerges. Anti-drift reference: `docs/ANTI_DRIFT_SYSTEM.md` (5-layer drift defense — Terminal C operationalizes Layers 4-5 for the parallel run).
+
 ## §6. Per-iteration protocol
 
 1. State check (§3) — `git fetch origin` + `git log --all --oneline -20`

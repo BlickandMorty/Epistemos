@@ -223,6 +223,37 @@ Per `agent_core/src/tools/registry.rs`:
 - Tool safety gate (per-tool capability scope per macaroons framework)
 - Tool tests (every tool has a test demonstrating its contract)
 
+## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
+
+Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)** until A's §0 victory. In Phase 1:
+
+- ✅ Research-first per provider API docs · test-first per `harden_cli_subprocess` discipline · minimal-fix
+- ✅ Acceptance: provider/tool responds end-to-end on happy path · ONE streaming + ONE non-streaming test · §8 row appended
+- ⚠️ TOLERATED in Phase 1: known TODOs · partial provider feature coverage (e.g., tools only · no thinking blocks initially) · suboptimal retry logic
+- ❌ NOT TOLERATED: fake/stub providers · API key leakage · `harden_cli_subprocess` skipped · capability scope undefined
+
+Phase 2 hardening for providers: adversarial input fuzzing · network failure handling · retry exponential backoff · cost tracking telemetry · provider drift detection.
+
+Ship provider → log axes to `HARDENING_TRACKER §2` → move to next provider.
+
+## §5.6 Lockstep doc updates (per provider/tool ship)
+
+Every new-provider commit MUST touch (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
+- ✓ Provider module (`agent_core/src/providers/<name>.rs`) with `//! Source: <API docs URL>` doc comment
+- ✓ At least 1 streaming + 1 non-streaming test
+- ✓ `MAS_COMPLETE_FUSION §8` Implementation Log row
+- ✓ `FEATURE_CHANGE_TRACKER §3` row
+- ✓ `HARDENING_TRACKER §2` row (all axes ⬜ in Phase 1)
+- ✓ `docs/legal/licenses.md` (lockstep — if new HTTP client / SDK dep added)
+- ✓ `docs/HERMES_AGENT_CORE_2_0_DESIGN §7.1` tool inventory + `§6.1` 4-Tunnel distribution row
+- ✓ `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` row
+
+Conditional: `RECURSIVE_TODO` (if closes a provider-related CONFIRMED).
+
+## §5.7 Canonical doc index pointer
+
+Read `docs/CANONICAL_DOC_INDEX_2026_05_16.md` on first session. Anti-drift reference: `docs/ANTI_DRIFT_SYSTEM.md`. §1.5 SCOPE BOUNDARY = Layer 2; §5.0 reconciliation = Layer 3.
+
 ## §6. Per-iteration protocol
 
 1. State check (§3) + fetch origin
