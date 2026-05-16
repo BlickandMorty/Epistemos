@@ -482,3 +482,33 @@ The decision-only items dwarf the implementation items. **Most of PASS 2 closes 
 ---
 
 *— End of Research Coverage Gap Audit PASS 2. 37 confirmed gaps, 6 search agents, all 6 canonical docs + PASS 1 grep-verified, every gap routable. 4 stale candidates rejected with transparency receipts.*
+
+---
+
+## 9. Audit-of-audit register
+
+Durable log of dispassionate verification cycles spawned every ~10 loop iterations to catch drift between (a) commit-message claims · (b) doctrine row Status (2026-05-16) blocks · (c) §8 Implementation Log entries · (d) actual on-disk content. Verdicts here are independent of the underlying slice commits; they are bookkeeping rows that prove the loop self-audits.
+
+### Audit-of-audit #1 (iter 10, 2026-05-16, commit `bc9068763`)
+- **Window:** iters 1–9 (B-5 immutable rule · B-6 ArtifactKind · A-3 Specialty registry · B-1/B-2/B-3/B-4 Compromise rows · audit-of-audit framing slice).
+- **Findings:** All 9 commits verified at exact line citations. No drift. Surfaced 2 new gaps folded into PASS 2 (B2-M12 Engram L4 · B2-M13 ACS).
+- **Verdict:** ✅ ON TRACK.
+
+### Audit-of-audit #2 (iter 20, 2026-05-16, commit `a68e4c864`)
+- **Window:** iters 11–19 (B-6 NoOpTask audit fold · H-2 idle Compromise · B2-2/B2-3/B2-4 routings · H-3/B2-H6 EditPage · B2-H4 Windows port · MASTER_FUSION §3.39 Adaptation split · §3.38 Graph Engine 42 decisions · MASTER_FUSION §3.40 forward · audit-of-audit cycle).
+- **Findings:** All 9 commits verified. Surfaced **B2-H18 Capability Tunnels · B2-H19 per-live-file egress allowlist · B2-M14 differential privacy** as new HIGH/MEDIUM rows. Verdict PASS 2 trust-but-verify items 1–4 rejected as already in-scope.
+- **Verdict:** ✅ ON TRACK; 3 new gap rows folded in.
+
+### Audit-of-audit #3 (iter 30, 2026-05-16, commit `06d0b0c03`)
+- **Window:** iters 21–29 (RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL new doc · H-1 startup hang Compromise · H-2 idle regression Compromise · B2-H5/H12/H13/H14/H15 routings · MASTER_FUSION §3.36 SAE AUC 0.90 · §3.37 N1 Prompt Tree · MASTER_FUSION §3.38 Graph Engine row tightening · MASTER_FUSION §3.39 Adaptation Subsystem split row · audit-of-audit cycle).
+- **Findings:** All 10 commits verified. Caught one soft-framing drift in §3.38 row ("Phase A SHIPPED" overstated source plan's "algorithmic deliverables shipped + engine-integration queued") and corrected in this commit. Surfaced **B2-H20 ephemeral capability tokens · B2-M15 `epistemos-code-index` Wave 9.7 anchor** as new rows. Verdict PASS 2 trust-but-verify items rejected as in-scope.
+- **Verdict:** ✅ ON TRACK after §3.38 row tightening; 2 new gap rows folded in.
+
+### Audit-of-audit #4 (iter 40, 2026-05-16, commit landed by this row's commit)
+- **Window:** iters 31–39 (9 commits since `06d0b0c03`): `541d97a78` H-4 Multi-Overseer · `2b02cf1c9` H-5 Adaptation/Compute split audit · `4b509eb6e` H-7 GRPO · `55cb92e5b` H-8 MLA+TransMLA · `1a20d65d2` H-9 Run Ledger · `6d88da2a1` H-10 Auto-research · `56115b64a` H-11 Obscura cross-link · `1dc2cf055` B2-M1 Loop Profiles · `ea5d09d75` B2-M2 Control Plane.
+- **Method:** For each commit, grep verified (a) named destination section exists at claimed location · (b) cross-link targets resolve · (c) §8 Implementation Log row matches commit content · (d) audit-register Status block matches doctrine row landing site. Total verification queries: 14.
+- **Findings:** All 9 commit landing sites verify with strong-positive grep counts (§13.7 Multi-Overseer = 1 header · §3.40 Run Ledger = 5 hits · §13.5.10 Auto-research = 3 hits · §13.8 Hermes Vault = 17 hits incl. body uses · §15 Control Plane = 1 header · etc). All 7 Hermes 2.0 cross-link targets exist (§3 · §10 · §13.5.7 · §13.5.10 · §13.6.5 · §13.7 · §13.8). MASTER_FUSION §3.35 NightBrain φ present (8 hits). `agent_core/src/schemas/mod.rs` substrate exists (validates the B2-M2 sibling-schema claim). Five Laws Law 5 cited in NEW_SESSION_HANDOFF (2 hits — validates B2-M1 "no Python in MAS" claim). §8 Implementation Log row count = 45 (43 + 2 for this audit-of-audit cycle's additions matches expected). No drift. No soft-framing overstatements detected.
+- **New gaps surfaced:** None. Phase F PASS-2 MEDIUM-tier is documentation-only with no shipping-substrate exposure; the 2 doctrine rows added in iters 38–39 are forward-staged correctly.
+- **Verdict:** ✅ ON TRACK. No corrections needed. Phase F PASS-2 MEDIUM-tier 2/15 cleared. Phase F continues at iter 41 with B2-M3 Nano Model Training row → MASTER_FUSION §"Local Models + Training" expand.
+
+*Next audit-of-audit: #5 at iter 50 (10 iters from now). Window will be iters 41–49 = B2-M3..B2-M11 (Phase F MEDIUM-tier closure pass).*
