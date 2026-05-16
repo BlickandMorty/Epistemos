@@ -71,6 +71,58 @@ pub fn ssd_scan_scalar(
     Ok(SsdScanResult { y, final_state: state })
 }
 
+/// Verify the per-step decay invariant `|a[t]| < 1 - tol` for every t.
+/// SSD scans are bounded-state when the state-update coefficient is
+/// strictly below unit-modulus; values at or above 1 let the state
+/// grow unboundedly under non-zero input.
+///
+/// Returns `Ok(true)` if every `a[t]` satisfies the invariant;
+/// `Ok(false)` otherwise. Returns `Err(LengthMismatch)` only when
+/// `a` is empty (treated as a length-0 vs length-0 mismatch is
+/// vacuously valid, so empty input returns `Ok(true)`).
+///
+/// Counterpart to `mamba3::verify_a_stability` (iter 99) and
+/// `rwkv7::verify_decay_stability` (iter 101).
+pub fn ssd_stability_check(a: &[f32], tol: f32) -> bool {
+    if a.is_empty() {
+        return true;
+    }
+    let bound = 1.0 - tol;
+    for &av in a {
+        if !av.is_finite() {
+            return false;
+        }
+        if av.abs() >= bound {
+            return false;
+        }
+    }
+    true
+}
+
+/// Maximum absolute element-wise difference between two SSD scan
+/// outputs. The §6 acceptance bar metric: per Helios v6.2 stage 6
+/// the bar is `max |y_ref - y_kernel| ≤ 1e-3` in fp16 across 100
+/// seeds. This is the substrate-floor diff helper that kernel
+/// acceptance harnesses call. Returns `None` if the two outputs
+/// have different lengths.
+pub fn compare_scans(reference: &SsdScanResult, kernel: &SsdScanResult) -> Option<f32> {
+    if reference.y.len() != kernel.y.len() {
+        return None;
+    }
+    let mut max_diff = 0.0_f32;
+    for i in 0..reference.y.len() {
+        let d = (reference.y[i] - kernel.y[i]).abs();
+        if d > max_diff {
+            max_diff = d;
+        }
+    }
+    let state_diff = (reference.final_state - kernel.final_state).abs();
+    if state_diff > max_diff {
+        max_diff = state_diff;
+    }
+    Some(max_diff)
+}
+
 /// Block-scan variant: split the time axis into chunks of `block_size`,
 /// scan each chunk, chain the terminal state into the next chunk's
 /// initial state. Output is identical to `ssd_scan_scalar` (block
@@ -237,5 +289,97 @@ mod tests {
             assert!((r_one_block.y[i] - r_two_blocks.y[i]).abs() < 1e-6);
         }
         assert!((r_one_block.final_state - r_two_blocks.final_state).abs() < 1e-6);
+    }
+
+    // ── ssd_stability_check + compare_scans (iter 125) ──────────────────────
+
+    #[test]
+    fn stability_empty_input_passes_vacuously() {
+        assert!(ssd_stability_check(&[], 1e-6));
+    }
+
+    #[test]
+    fn stability_decay_below_one_passes() {
+        assert!(ssd_stability_check(&[0.5_f32, 0.9, 0.99, -0.5], 1e-6));
+    }
+
+    #[test]
+    fn stability_decay_at_one_rejected() {
+        assert!(!ssd_stability_check(&[0.5_f32, 1.0, 0.5], 1e-6));
+    }
+
+    #[test]
+    fn stability_decay_above_one_rejected() {
+        assert!(!ssd_stability_check(&[0.5_f32, 1.5, 0.5], 1e-6));
+    }
+
+    #[test]
+    fn stability_negative_decay_above_one_in_magnitude_rejected() {
+        assert!(!ssd_stability_check(&[-1.5_f32], 1e-6));
+    }
+
+    #[test]
+    fn stability_nan_rejected() {
+        assert!(!ssd_stability_check(&[0.5_f32, f32::NAN], 1e-6));
+    }
+
+    #[test]
+    fn compare_scans_identical_returns_zero() {
+        let n = 4;
+        let a = vec![0.5_f32; n];
+        let b = vec![1.0_f32; n];
+        let c = vec![1.0_f32; n];
+        let x = vec![1.0_f32; n];
+        let r1 = ssd_scan_scalar(&a, &b, &c, &x, 0.0).unwrap();
+        let r2 = ssd_scan_scalar(&a, &b, &c, &x, 0.0).unwrap();
+        let diff = compare_scans(&r1, &r2).unwrap();
+        assert!((diff - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn compare_scans_detects_perturbation() {
+        let r_ref = SsdScanResult {
+            y: vec![1.0, 2.0, 3.0],
+            final_state: 0.5,
+        };
+        let r_pert = SsdScanResult {
+            y: vec![1.0, 2.05, 3.0],
+            final_state: 0.5,
+        };
+        let diff = compare_scans(&r_ref, &r_pert).unwrap();
+        assert!((diff - 0.05).abs() < 1e-6);
+    }
+
+    #[test]
+    fn compare_scans_includes_final_state_diff() {
+        // y vectors identical but final_state differs → diff comes
+        // from the state comparison.
+        let r_ref = SsdScanResult { y: vec![1.0, 2.0], final_state: 0.5 };
+        let r_pert = SsdScanResult { y: vec![1.0, 2.0], final_state: 0.8 };
+        let diff = compare_scans(&r_ref, &r_pert).unwrap();
+        assert!((diff - 0.3).abs() < 1e-6);
+    }
+
+    #[test]
+    fn compare_scans_length_mismatch_returns_none() {
+        let r1 = SsdScanResult { y: vec![1.0, 2.0], final_state: 0.0 };
+        let r2 = SsdScanResult { y: vec![1.0, 2.0, 3.0], final_state: 0.0 };
+        assert!(compare_scans(&r1, &r2).is_none());
+    }
+
+    #[test]
+    fn compare_scans_helios_acceptance_bar_satisfied_for_identical_scans() {
+        // §6 acceptance: max |y_ref - y_kernel| ≤ 1e-3 in fp16 over
+        // 100 seeds. For identical scans the diff is 0, well under
+        // the bar.
+        let n = 16;
+        let a = vec![0.9_f32; n];
+        let b = vec![1.0_f32; n];
+        let c = vec![1.0_f32; n];
+        let x: Vec<f32> = (0..n).map(|i| (i as f32 * 0.1).sin()).collect();
+        let r_ref = ssd_scan_scalar(&a, &b, &c, &x, 0.0).unwrap();
+        let r_block = ssd_block_scan_scalar(&a, &b, &c, &x, 0.0, 4).unwrap();
+        let diff = compare_scans(&r_ref, &r_block).unwrap();
+        assert!(diff < 1e-3, "diff={} exceeds Helios §6 acceptance bar", diff);
     }
 }
