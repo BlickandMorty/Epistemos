@@ -98,6 +98,38 @@ impl From<PackError> for GemvError {
     }
 }
 
+impl GemvBlock {
+    /// Sparsity fraction `(GEMV_BLOCK_TRITS − nonzero_count) /
+    /// GEMV_BLOCK_TRITS`. A block with all zeros has sparsity 1.0;
+    /// a block with every slot nonzero has sparsity 0.0. Useful as
+    /// the input to skip-zero memory-bandwidth optimizers.
+    pub fn sparsity_fraction(&self) -> f32 {
+        let nz = (self.nonzero_count as usize).min(GEMV_BLOCK_TRITS);
+        (GEMV_BLOCK_TRITS - nz) as f32 / GEMV_BLOCK_TRITS as f32
+    }
+
+    /// Bytes-on-the-wire for one GemvBlock: 4 (packed u32) + 4 (fp32
+    /// scale) + 1 (u8 nonzero_count) = 9 bytes. Padding to native
+    /// alignment lives at the caller's container layout.
+    pub const fn effective_bytes() -> usize {
+        4 + 4 + 1
+    }
+}
+
+/// Number of GemvBlocks needed for a `rows × cols` weight matrix.
+/// `cols` MUST be a multiple of [`GEMV_BLOCK_TRITS`] — the kernel
+/// rejects unpadded callers. Returns `None` if either dimension is 0
+/// or cols is not a multiple of the block stride.
+pub fn dense_block_count(rows: usize, cols: usize) -> Option<usize> {
+    if rows == 0 || cols == 0 {
+        return None;
+    }
+    if cols % GEMV_BLOCK_TRITS != 0 {
+        return None;
+    }
+    Some(rows * (cols / GEMV_BLOCK_TRITS))
+}
+
 /// Block-scaled ternary matrix-vector multiply (CPU reference).
 ///
 /// `weights`: row-major. `weights[r]` is the block-list for row `r`.
@@ -349,5 +381,74 @@ mod tests {
         trits[2] = Trit::Pos;
         let b = block(&trits, 1.0);
         assert_eq!(b.nonzero_count, 3);
+    }
+
+    // ── sparsity_fraction + effective_bytes + dense_block_count (iter 113) ──
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn sparsity_fraction_all_zero_is_one() {
+        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: 0 };
+        assert!(approx(b.sparsity_fraction(), 1.0, 1e-6));
+    }
+
+    #[test]
+    fn sparsity_fraction_all_nonzero_is_zero() {
+        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: GEMV_BLOCK_TRITS as u8 };
+        assert!(approx(b.sparsity_fraction(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn sparsity_fraction_half_nonzero_is_half() {
+        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: (GEMV_BLOCK_TRITS / 2) as u8 };
+        assert!(approx(b.sparsity_fraction(), 0.5, 1e-6));
+    }
+
+    #[test]
+    fn sparsity_fraction_clamps_at_one_if_count_overflows() {
+        // nonzero_count > GEMV_BLOCK_TRITS is a caller bug; the
+        // sparsity fraction clamps to 0.0 (saturates at "fully dense")
+        // rather than going negative.
+        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: 250 };
+        assert!(approx(b.sparsity_fraction(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn effective_bytes_is_nine() {
+        // 4 (packed) + 4 (scale) + 1 (nonzero_count).
+        assert_eq!(GemvBlock::effective_bytes(), 9);
+    }
+
+    #[test]
+    fn dense_block_count_zero_dim_returns_none() {
+        assert!(dense_block_count(0, 16).is_none());
+        assert!(dense_block_count(4, 0).is_none());
+    }
+
+    #[test]
+    fn dense_block_count_unpadded_cols_returns_none() {
+        // 17 is not a multiple of GEMV_BLOCK_TRITS = 16.
+        assert!(dense_block_count(4, 17).is_none());
+    }
+
+    #[test]
+    fn dense_block_count_matches_formula() {
+        // 4 rows × 32 cols = 4 × 2 = 8 blocks.
+        assert_eq!(dense_block_count(4, 32), Some(8));
+        // 1 × 16 = 1.
+        assert_eq!(dense_block_count(1, 16), Some(1));
+        // 1024 × 1024 = 1024 × 64 = 65_536.
+        assert_eq!(dense_block_count(1024, 1024), Some(65_536));
+    }
+
+    #[test]
+    fn dense_block_count_byte_estimate_matches_effective_bytes() {
+        // For a 1024×1024 matrix, total wire bytes = block_count × 9.
+        let blocks = dense_block_count(1024, 1024).unwrap();
+        let bytes = blocks * GemvBlock::effective_bytes();
+        assert_eq!(bytes, 589_824); // 65_536 × 9
     }
 }
