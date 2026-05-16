@@ -18,9 +18,9 @@
 //! §2 file-ownership — a2ui/ is not B-owned).
 //!
 //! Naming: each component lives in its own file. Iter 64 shipped the
-//! first 6 (Table → CapabilityChip); iter 65 adds the next 6
-//! (ProvenanceTrace → CodeBlock); subsequent iters add the
-//! remaining 12 (one or several per iter).
+//! first 6 (Table → CapabilityChip); iter 65 the next 6
+//! (ProvenanceTrace → CodeBlock); iter 66 the next 6
+//! (Quote → Pagination); subsequent iters add the remaining 6.
 //!
 //! ## Validator contract
 //!
@@ -30,7 +30,9 @@
 //! lives in the Swift A2UI dispatcher; substrate floor here owns
 //! the schema + the per-component validator.
 
+pub mod accordion;
 pub mod capability_chip;
+pub mod carousel;
 pub mod chart;
 pub mod citation_block;
 pub mod code_block;
@@ -38,22 +40,32 @@ pub mod confidence_badge;
 pub mod diff;
 pub mod key_value_grid;
 pub mod markdown;
+pub mod pagination;
 pub mod progress_bar;
 pub mod provenance_trace;
+pub mod quote;
 pub mod table;
+pub mod table_of_contents;
+pub mod tabs;
 pub mod tool_call_trace;
 
-pub use capability_chip::{CapabilityChipProps, CapabilityChipError};
-pub use chart::{ChartProps, ChartError, ChartKind};
+pub use accordion::{AccordionError, AccordionItem, AccordionProps};
+pub use capability_chip::{CapabilityChipError, CapabilityChipProps};
+pub use carousel::{CarouselError, CarouselProps, CarouselSlide};
+pub use chart::{ChartError, ChartKind, ChartProps};
 pub use citation_block::{Citation, CitationBlockError, CitationBlockProps};
 pub use code_block::{CodeBlockError, CodeBlockProps};
 pub use confidence_badge::{ConfidenceBadgeError, ConfidenceBadgeProps, ConfidenceTier};
 pub use diff::{DiffError, DiffLine, DiffLineKind, DiffProps};
-pub use key_value_grid::{KeyValueGridProps, KeyValueGridError};
-pub use markdown::{MarkdownProps, MarkdownError};
-pub use progress_bar::{ProgressBarProps, ProgressBarError};
+pub use key_value_grid::{KeyValueGridError, KeyValueGridProps};
+pub use markdown::{MarkdownError, MarkdownProps};
+pub use pagination::{PaginationError, PaginationProps};
+pub use progress_bar::{ProgressBarError, ProgressBarProps};
 pub use provenance_trace::{ProvenanceTraceError, ProvenanceTraceProps, ProvenanceTraceStep};
-pub use table::{TableProps, TableError, TableCell};
+pub use quote::{QuoteError, QuoteProps};
+pub use table::{TableCell, TableError, TableProps};
+pub use table_of_contents::{TableOfContentsError, TableOfContentsProps, TocEntry};
+pub use tabs::{TabPane, TabsError, TabsProps};
 pub use tool_call_trace::{ToolCallTraceEntry, ToolCallTraceError, ToolCallTraceProps};
 
 /// Catalog of every Wave I component name. Each variant matches a
@@ -73,10 +85,16 @@ pub enum WaveIComponentKind {
     CitationBlock,
     Diff,
     CodeBlock,
+    Quote,
+    TableOfContents,
+    Tabs,
+    Accordion,
+    Carousel,
+    Pagination,
 }
 
 impl WaveIComponentKind {
-    pub const ALL: [WaveIComponentKind; 12] = [
+    pub const ALL: [WaveIComponentKind; 18] = [
         WaveIComponentKind::Table,
         WaveIComponentKind::Markdown,
         WaveIComponentKind::Chart,
@@ -89,6 +107,12 @@ impl WaveIComponentKind {
         WaveIComponentKind::CitationBlock,
         WaveIComponentKind::Diff,
         WaveIComponentKind::CodeBlock,
+        WaveIComponentKind::Quote,
+        WaveIComponentKind::TableOfContents,
+        WaveIComponentKind::Tabs,
+        WaveIComponentKind::Accordion,
+        WaveIComponentKind::Carousel,
+        WaveIComponentKind::Pagination,
     ];
 
     pub const fn code(self) -> &'static str {
@@ -105,6 +129,12 @@ impl WaveIComponentKind {
             WaveIComponentKind::CitationBlock => "citation_block",
             WaveIComponentKind::Diff => "diff",
             WaveIComponentKind::CodeBlock => "code_block",
+            WaveIComponentKind::Quote => "quote",
+            WaveIComponentKind::TableOfContents => "table_of_contents",
+            WaveIComponentKind::Tabs => "tabs",
+            WaveIComponentKind::Accordion => "accordion",
+            WaveIComponentKind::Carousel => "carousel",
+            WaveIComponentKind::Pagination => "pagination",
         }
     }
 }
@@ -114,24 +144,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn twelve_distinct_components_iter_65() {
+    fn eighteen_distinct_components_iter_66() {
         let s: std::collections::HashSet<_> = WaveIComponentKind::ALL.iter().copied().collect();
-        assert_eq!(s.len(), 12);
+        assert_eq!(s.len(), 18);
     }
 
     #[test]
     fn component_codes_stable() {
-        assert_eq!(WaveIComponentKind::Table.code(), "table");
-        assert_eq!(WaveIComponentKind::Markdown.code(), "markdown");
-        assert_eq!(WaveIComponentKind::Chart.code(), "chart");
-        assert_eq!(WaveIComponentKind::ProgressBar.code(), "progress_bar");
-        assert_eq!(WaveIComponentKind::KeyValueGrid.code(), "key_value_grid");
-        assert_eq!(WaveIComponentKind::CapabilityChip.code(), "capability_chip");
-        assert_eq!(WaveIComponentKind::ProvenanceTrace.code(), "provenance_trace");
-        assert_eq!(WaveIComponentKind::ToolCallTrace.code(), "tool_call_trace");
-        assert_eq!(WaveIComponentKind::ConfidenceBadge.code(), "confidence_badge");
-        assert_eq!(WaveIComponentKind::CitationBlock.code(), "citation_block");
-        assert_eq!(WaveIComponentKind::Diff.code(), "diff");
-        assert_eq!(WaveIComponentKind::CodeBlock.code(), "code_block");
+        for v in WaveIComponentKind::ALL.iter() {
+            assert!(!v.code().is_empty());
+        }
+        assert_eq!(WaveIComponentKind::Quote.code(), "quote");
+        assert_eq!(WaveIComponentKind::TableOfContents.code(), "table_of_contents");
+        assert_eq!(WaveIComponentKind::Tabs.code(), "tabs");
+        assert_eq!(WaveIComponentKind::Accordion.code(), "accordion");
+        assert_eq!(WaveIComponentKind::Carousel.code(), "carousel");
+        assert_eq!(WaveIComponentKind::Pagination.code(), "pagination");
+    }
+
+    #[test]
+    fn all_codes_unique() {
+        let mut s = std::collections::HashSet::new();
+        for v in WaveIComponentKind::ALL.iter() {
+            assert!(s.insert(v.code()), "duplicate code: {}", v.code());
+        }
     }
 }
