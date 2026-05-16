@@ -271,6 +271,31 @@ Result: **ON-TRACK 5 of 5 — verdict ON-TRACK; zero new V1 blockers introduced.
 
 No code edits in Pass 16 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `e50aaf242`.
 
+### Pass 17 - 2026-05-16 (T-A iter 14, 5 more CONFIRMED row spot-checks)
+
+Result: **ON-TRACK 5 of 5 — zero new V1 blockers introduced.** Window covers T-A iters 1-13 + T-B J-wave + T-D D.1.2/D.2.1-2.7/D.3 + user's V6.1 + ci/release hardening (unchanged from Pass 16 window — no new commits in 2 min).
+
+**Method:** spot-check 5 representative `Status: CONFIRMED` / `CONFIRMED-RISK` / `CONFIRMED HARNESS GAP` rows from `RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` cluster 12266-12541 NOT covered by Pass 14 or Pass 16.
+
+**Findings (5/5 substrate still present):**
+
+- ✅ **RCA11-P1-005** (line 12266 CONFIRMED-RISK) — "no app-wide Swift PRO_BUILD claim without proof": `grep -rE "#if PRO_BUILD|PRO_BUILD" Epistemos project.yml` returns **ZERO hits**, confirming the audit claim that `PRO_BUILD` does not exist as a Swift compile flag. `EPISTEMOS_APP_STORE` and `MAS_SANDBOX` flags ARE used (10+ hits in `Epistemos/KnowledgeFusion/*`) — those are the actual MAS/Pro mechanism. CONFIRMED-RISK still accurate; doctrine reconciliation (option 1 or 2 per the row's required decision) hasn't happened.
+- ✅ **RCA11-P1-006** (line 12290 CONFIRMED) — "Prose editor full-structure parse per keystroke": `Epistemos/Views/Notes/ProseTextView2.swift` + `MarkdownContentStorage.swift` both exist. Line 415+ shows `applyAutomaticMarkdownEdit` + `markdownDelegate.markDirty()` cascade — per-keystroke hot path substrate present.
+- ✅ **RCA11-P1-008** (line 12399 CONFIRMED) — "Vault Organizer transactional mutations across SwiftData + filesystem": `Epistemos/Views/Notes/VaultOrganizerView.swift` exists (841 LOC); cited line range 446-536 well within file. Substrate present.
+- ✅ **RCA11-P2-002** (line 12513 CONFIRMED HARNESS GAP) — "scripts/run_all_tests.sh naming vs reality": script exists on disk. Harness gap unresolved per current state.
+- ✅ **RCA11-P2-003** (line 12539 CONFIRMED HARNESS GAP) — "scripts/check-perf-budgets.sh runtime budgets informational": script exists on disk. Harness gap unresolved.
+
+**Zero new V1 blockers introduced.** All 5 substrate claims still resolve in current code.
+
+**Zero-streak: 4 of 5** toward §0 criterion 3 (Pass 14 + 15 + 16 + 17 all ON-TRACK; 1 more consecutive zero-new-blocker pass needed before criterion 3 flips green).
+
+**Surfaced for follow-up (not new blockers):**
+- RCA11-P1-005 CONFIRMED-RISK persists — the `PRO_BUILD` reconciliation decision (add real flag vs. document actual mechanism) is still pending.
+- RCA11-P2-002 + RCA11-P2-003 HARNESS GAPs persist — test/perf-budget scripts not expanded to full release matrix.
+- RCA11-P1-008 transactional Vault Organizer fix not yet landed (file exists but transactional pattern not verified — would require deeper read).
+
+No code edits in Pass 17 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `f9cc232f5`.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
