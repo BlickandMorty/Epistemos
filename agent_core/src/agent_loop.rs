@@ -1397,6 +1397,38 @@ mod tests {
     }
 
     #[test]
+    fn default_agent_config_disables_network_and_system_capabilities() {
+        // Safety baseline: the agent loop runs with NO ambient
+        // capabilities out of the box. Web search / fetch / code
+        // execution / computer use are off and must be enabled
+        // explicitly by the caller.
+        //
+        // The CLAUDE.md gating doctrine ("Local models get
+        // fast/thinking/research. Cloud models get agent/liveAgent.
+        // Never fake agent capability") relies on these defaults —
+        // if any of them silently flipped to true, a vanilla
+        // AgentConfig::default() would expose tools that the local
+        // model has no legitimate way to invoke.
+        let cfg = super::AgentConfig::default();
+        assert!(
+            !cfg.enable_web_search,
+            "web_search MUST be opt-in (network exfil + cost)"
+        );
+        assert!(
+            !cfg.enable_web_fetch,
+            "web_fetch MUST be opt-in (network exfil + cost)"
+        );
+        assert!(
+            !cfg.enable_code_execution,
+            "code_execution MUST be opt-in (sandbox escape risk)"
+        );
+        assert!(
+            !cfg.enable_computer_use,
+            "computer_use MUST be opt-in (full-screen access risk)"
+        );
+    }
+
+    #[test]
     fn default_permission_config_keeps_destructive_actions_manual() {
         // Safety-critical default: PermissionConfig MUST require
         // explicit user approval for modification and destructive
