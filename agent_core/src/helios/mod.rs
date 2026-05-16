@@ -41,6 +41,7 @@
 pub mod controller_pack;
 pub mod packet_router;
 pub mod page_gather;
+pub mod ssd_block_scan;
 
 pub use controller_pack::{
     argmax_reduce, copy_range, max_reduce, scalar_add_in_place, scalar_mul_in_place,
@@ -51,4 +52,7 @@ pub use packet_router::{
 };
 pub use page_gather::{
     gather, gather_with_scale, HeliosError, PageGatherStats,
+};
+pub use ssd_block_scan::{
+    ssd_block_scan_scalar, ssd_scan_scalar, SsdScanError, SsdScanResult,
 };
