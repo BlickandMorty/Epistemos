@@ -4142,6 +4142,60 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 163+ candidates:** (1) Watch B's next portfolio transition (J7 #3 Leech-24 + J2/J6/J8/J9 sub-features expected). (2) Watch 7th loop's next move (F-VaultRecall-50 Fix C V1.x OR new diagnosis OR §17 wind-down). (3) Watch A T-A-31 1800s fire. (4) Phase C.2 + C.7.3 still pending. (5) Next §7 meta-cycle at iter 190 (28 iters away).
 
+#### Status pulse (iter 163, 2026-05-16) — 🎯 7TH LOOP CLOSES F-VaultRecall-50 (full task arc diagnosis→fix→close + V1 Ship Ledger §11 item 14 ✅ RESOLVED) + B begins J2 portfolio expansion (kv_implant J2 #1) — 2 commits CLEAN
+
+- **Window since iter 162 close:** 2 sibling commits (sub-threshold, but contains MAJOR task-closure milestone):
+  - `c984aa189` (B iter 128) `research/kv_implant: size-accounting diagnostics (J2 #1)` — B transitions to J2 portfolio
+  - `7dc3e1c6a` (7th audit-row loop iter-82) `docs(iter-82): F-VaultRecall-50 CLOSED — verification + V1 Ship Ledger §11 row 14 RESOLVED`
+
+- **🎯 7TH AUDIT-ROW LOOP CLOSES F-VaultRecall-50 — EXEMPLARY TASK-ARC CLOSURE:**
+  - **Commit body verbatim:** "Closes the F-VaultRecall-50 audit-row chain. The advisor-named load-bearing product bug is no longer load-bearing."
+  - **🎯 LESSON #15 FULLY DEMONSTRATED END-TO-END:** 7th loop's task-3 scope (product-code work per user iter-79 authorization) executed completely:
+    - iter 79 (`7b6c40d74`) — DIAGNOSIS (3 converging defects identified at vault.rs:495-548)
+    - iter 81 (`2281c73f0`) — FIX B SHIPPED (2 of 3 defects; ~70 LOC; cargo 1190→1194)
+    - **iter 82 (this iter `7dc3e1c6a`) — CLOSE** (verification + V1 Ship Ledger §11 item 14 ✅ RESOLVED + DIAGNOSIS doc §8 implementation-status section)
+  - **Verification this iter:**
+    - cargo 1194/1194 re-verified (1.24s)
+    - cargo test strip_query_chatter → 4 of 4 passing in 0.00s
+    - cargo clippy -D warnings has 8 pre-existing baseline errors from UNRELATED files (interrupt-score lines 167-175) — **NOT in 7th loop's Fix B**; vault.rs Fix B is lint-clean by inspection
+  - **🎯 EXEMPLARY §5.0 CATCH this iter:** 7th loop caught minor gap — V1 Ship Ledger §11 had 13 items in iter 77 (loop iter, our iter 153) but F-VaultRecall-50 was NOT yet a numbered row (only mentioned in prose). **Added as item 14 with explicit ✅ RESOLVED marker** citing iter-81 commit `2281c73f0`. This is the kind of cross-doc consistency catch that the audit-of-audit register pattern is designed to surface.
+  - **3 doc edits landed:**
+    1. V1 Ship Ledger §11 → item 14 added (F-VaultRecall-50 RESOLVED with citation to iter-81 commit + cargo 1190→1194 acceptance + 2-of-3-defects-fixed scope statement)
+    2. V1 Ship Ledger §10 status-transition log → new row added (OPEN → Fix B SHIPPED iter 81 commit `2281c73f0`)
+    3. F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md → new §8 "Implementation status (iter 81-82 close)" covering: what landed (3 vault.rs edits + 4 tests with line ranges) · acceptance verified · defect coverage table (1+2 FIXED · 3 V1.x-deferred) · effect on Day-in-the-Life 1:15 PM canonical bug input · cross-references
+  - **Why iter 82 close not extension:** iter-79 diagnosis spec said Fix B = ~15 LOC + 4 tests; iter 81 delivered ~70 LOC + 4 tests (larger due to chatter-list expansion to 30 tokens + 7-category organization + AND-conjunction logic). All within scope. Defect 3 (score clamp) clearly recorded as V1.x in both Ship Ledger row 14 AND diagnosis §8.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** Full diagnosis-fix-close arc with complete doc trail and cross-doc consistency.
+
+- **🎯 Findings — B `research/kv_implant: size-accounting diagnostics (J2 #1)` (`c984aa189`) — J2 #1 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 128. **B transitions to J2 portfolio expansion** as predicted iter 162 (after Helios completion iter 162).
+  - J2 #1 kv_implant memory-accounting substrate-floor expansion (J2 cognition_observatory portfolio sub-feature).
+  - Substrate: `KvShape::byte_size(dtype)` (`element_count() * dtype.byte_size()`; bytes for one tensor) · `LayerKVSnapshot::bytes()` (`keys.len() + values.len()`; total bytes-on-the-wire for one layer) · `KvCacheSnapshot::layer_count()` (convenience accessor) · `KvCacheSnapshot::total_bytes()` (sum across all layers — "snapshot size on disk" diagnostic).
+  - **dtype byte sizes PINNED (fp16=2, fp32=4, int8=1)** — doctrine pin per IEEE 754 + INT spec.
+  - 6 new unit tests.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 LESSON #15 FULLY VALIDATED END-TO-END:** the 7th audit-row loop's 3-task-scope history now demonstrates complete progression:
+  - **Task 1 (iters 73-75):** Audit-row maintenance (3 candidates) → §17 wind-down iter 75
+  - **Task 2 (iters 76-78):** 3 integration artifacts → closure iter 78
+  - **Task 3 (iters 79-82):** Product-bug diagnosis → fix → close → V1 Ship Ledger consistency update
+  - **All 3 tasks closed with full discipline.** Loop may §17 wind-down again now that F-VaultRecall-50 is closed and 3 task-scopes have completed.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 47 CONSECUTIVE COMMITS ACROSS ITERS 130-163:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - Phase 2-Helios B.2 (iters 159-162): 6 Helios B.2 expansions (portfolio complete 6×8)
+  - **Phase 2-J2 (iter 163): 1 J2 #1 substrate-floor expansion (begins J2 portfolio expansion)**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite containing F-VaultRecall-50 closure milestone.
+
+- **36 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2. Average ~2.7/iter.
+
+- **Iter 164+ candidates:** (1) Watch for 7th loop's potential §17 wind-down (all 3 task-scopes now closed) OR new task pivot. (2) Watch B's continued J2 portfolio expansion (more J2 sub-features) + remaining J6/J8/J9 + J7 #3 Leech-24. (3) Watch A T-A-31 1800s fire. (4) Watch for any next D self-audit. (5) Phase C.2 + C.7.3 still pending; next §7 meta-cycle at iter 190.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
