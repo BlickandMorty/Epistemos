@@ -1617,6 +1617,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 106+ candidates:** (1) Verify whether the iter-105 systemic flag prompts B to backfill §3.39/§3.40/§3.41 statuses. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update still pending. (3) D Phase D.0 gating + D.3 collision both still pending user surface. (4) Phase C.6 forward-staged primitive re-audit.
 
+### Audit-of-audit #22 (iter 106, 2026-05-16) — 🎯 ITER-105 SELF-CORRECTION + B.6.9/B.6.10 + 4th D.3 + A §0 criterion 3 GREEN
+
+- **Window since #21 (iter 105):** 4 new commits + carry-forward §8-rule verification:
+  - `94eac7916` (B) B.6.9 LadderLog + iter-50 §7 audit ON-TRACK
+  - `f655b7eb7` (D) D.3 filesystem MCP — **4th D.3 collision**
+  - `dd8ff6ae2` (A) T-A-15 Pass 18 — **§0 criterion 3 GREEN, zero-streak 5/5 achieved**
+  - `fd09ce327` (B) B.6.10 4-schema MD+JSON hybrid_memory parser
+
+- **🎯 ITER-105 SELF-CORRECTION (mirror of A's Pass-15 reframe pattern from iter 99):**
+  - **Iter-105 framing claim:** "B's B.6.6 / B.6.7 / B.6.8 violated B's own §8 lockstep rule (Forward-staged primitive flips)."
+  - **Re-verification of B's actual driver §8:** `grep -n -A 10 "^## §8" docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md` returns: "Same 8 immutable + 4 lockstep rules from Terminal A's §8. Additional rule for research tier: each new module under `agent_core/src/research/` MUST cite primary source paper in a `//! Source:` doc comment."
+  - **Re-verification of A's actual §8 (the shared baseline):** 4 lockstep rules are (1) ResidencyLevel B2-M12, (2) ACS B2-M13, (3) New Cargo workspace crates B2-M15 + licenses.md, (4) XPC entitlement changes. **NONE of A's 4 cover "Forward-staged primitive flips" doctrine update.**
+  - **The "Forward-staged primitive flips" §8 rule is in C's driver ONLY** (my driver §8 says "Same 8 immutable rules + 4 lockstep rules as Terminal A. Plus: ... **Forward-staged primitive flips**: if you move a primitive from forward-staged to LANDED, update both PASS-2 audit Status + MASTER_FUSION inventory in the same commit"). That "Plus" addition is C-specific.
+  - **Conclusion:** B's B.6.6/B.6.7/B.6.8 commits did NOT violate B's own §8 rules. **The iter-105 "systemic discipline failure" framing was OVERREACH — same false-positive pattern A caught in its Pass 14→15 reframe.**
+  - **The REAL finding stands:** §3.39 Compute Steering + §3.40 Run Ledger + §3.41 MOHAWK doctrine rows are stale relative to their landed substrate at B's HEAD. This is genuine doctrine-vs-substrate drift, BUT it's not a B-violation because B has no per-commit obligation to update those §3.x rows. It's a **doctrine-update queue** that's pending; the "who updates §3.x rows when substrate lands" question is architectural and not yet resolved in the driver corpus.
+  - **Reclassified severity:** the drift is LOW-MEDIUM (was framed MEDIUM-HIGH). NOT a §9 escalation. Documented for the doctrine-update queue when B's branch upmerges or when whoever owns §3.39/§3.40/§3.41 rows next touches them.
+  - **§9 escalation rule "3+ commits in a row" does NOT apply** because that's specifically for "UNVERIFIED claims" (substrate-claim drift), not lockstep-rule violations against a rule the terminal doesn't have. My iter-105 cite of §9 was incorrectly applied.
+  - **Lesson #6 self-application:** my §8-violation framing relied on the WRONG §8 (mine, not B's). I should have read B's actual driver §8 before claiming B was violating it. The same pattern as A's Pass 14 false-positive (relying on A's own candidate path rather than the audit-row's cited path). **Lesson #6 generalizes to "Audit-of-audit cycles must verify the RULE being applied is in the audited terminal's driver, not the auditor's driver."**
+  - **Action taken this iter:** PASS-2 §9 register row #21 stands as the historical record (audit-of-audit findings are append-only), but this iter-106 row provides the §5.0 self-correction so future readers don't propagate the overreach framing. MAS_COMPLETE_FUSION §8 #21 row also receives a follow-up §5.0 correction note.
+
+- **Findings — 4 new commits this window:**
+
+  **B.6.9 confidence_floors (`94eac7916`):** 14 tests. Two-in-one commit: iter 50 §7 audit verdict + B.6.9 LadderLog/confidence_floors substrate. **B's iter-50 §7 self-audit is ON-TRACK** (B's audit cycle on its own iters 41-49). **§5.0 verdict: CLEAN.**
+
+  **B.6.10 hybrid_memory (`fd09ce327`):** 15 tests. 4-schema MD+JSON memory parser (epistemos.soul.v1 + skill.v1 + episode.v1 + semantic.v1). **§5.0 verdict: CLEAN.**
+
+  **D.3 filesystem MCP (`f655b7eb7`) — ⚠️ 4TH D.3 COLLISION:**
+  - `git log --all --oneline | grep "feat(D.3):" | wc -l` = **4**.
+  - Commits: iter 95 git CLI + iter 99 GitHub REST + iter 103 memory vault + iter 106 filesystem reconcile.
+  - D.3 is now established as D's "MCP executors" umbrella name. **Severity stays MEDIUM-HIGH** (sustained pattern); recommendation unchanged — surface to user.
+  - **§5.0 verdict on substrate at row level: CLEAN.** Commit explicitly cites §5.0 found omega-mcp vault executor already handled vault-scoped read/write/list/search; D.3 filesystem reconciles canonical names (file.read/write/list/search) in the catalog.
+
+  **T-A-15 Pass 18 (`dd8ff6ae2`) — 🎯 A §0 criterion 3 GREEN:** Milestone — A's "Phase E.1 5 consecutive Codex recursive passes with zero new V1 blockers added" flipped PENDING → GREEN. A's wind-down/low-touch trigger condition met. A may transition to lower cadence next; C should track. **§5.0 verdict: CLEAN.**
+
+- **§5.0 catch rate:** was 28/147 = 19.0% at #21 (pre-correction). **Self-correction this iter ADJUSTS the catch-rate denominator** but doesn't change the catch count (no new substrate catches; the iter-105 "systemic" claim was reclassified from MEDIUM-HIGH to LOW-MEDIUM doctrine-update-queue finding). +4 commits this iter → **28/151 = 18.5%**.
+
+- **Verdict:** ✅ **ON TRACK** (15th consecutive ON-TRACK at C level since #8 catch). C caught its own framing error within 1 iter — exactly the Lesson #6 + #7 + #8 layered discipline working.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry, includes self-correction) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 107+ candidates:** (1) Watch A's cadence transition post §0 criterion 3 GREEN. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update remains pending (J5..J12 + EML + B.6.x portfolio). (3) D.3 collision now 4 commits — pending user surface. (4) Phase C.6 forward-staged primitive re-audit (long overdue since #8 iter 74 baseline).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
