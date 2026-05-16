@@ -168,6 +168,41 @@ pub fn run_synthetic_harness(
 
 pub const STAGE_8_BUDGET_MS: u64 = 30 * 60 * 1000;
 
+impl HarnessReport {
+    /// Minimum per-task accuracy. None if `per_task_accuracy` is
+    /// empty. The actual bar value to compare to the §8 acceptance
+    /// threshold.
+    pub fn worst_task_accuracy(&self) -> Option<f32> {
+        self.per_task_accuracy
+            .iter()
+            .map(|(_, a)| *a)
+            .fold(None, |acc, a| match acc {
+                None => Some(a),
+                Some(b) => Some(if a < b { a } else { b }),
+            })
+    }
+
+    /// (task, accuracy) pairs for every task below `threshold`.
+    /// Used in the control-room "why did stage 8 fail?" view.
+    pub fn tasks_below_threshold(&self, threshold: f32) -> Vec<(Task, f32)> {
+        self.per_task_accuracy
+            .iter()
+            .filter_map(|&(t, a)| if a < threshold { Some((t, a)) } else { None })
+            .collect()
+    }
+
+    /// `total_wall_clock_ms / budget_ms`. 0.0-1.0 = within budget;
+    /// >1.0 = over budget. Returns `None` if `budget_ms == 0`.
+    /// Useful for surfacing "we're at 80% of the wall-clock budget"
+    /// before the boolean within_budget flips false.
+    pub fn budget_utilization(&self) -> Option<f32> {
+        if self.budget_ms == 0 {
+            return None;
+        }
+        Some(self.total_wall_clock_ms as f32 / self.budget_ms as f32)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -293,5 +328,128 @@ mod tests {
         let report = run_synthetic_harness(32_768, STAGE_8_BUDGET_MS, &plan).unwrap();
         assert!(report.within_budget);
         assert!(report.overall_accuracy >= 0.95);
+    }
+
+    // ── worst_task_accuracy + tasks_below + budget_utilization (iter 127) ───
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn worst_task_accuracy_empty_returns_none() {
+        let r = HarnessReport {
+            context_tokens: 0,
+            per_task_accuracy: vec![],
+            overall_accuracy: 0.0,
+            total_wall_clock_ms: 0,
+            budget_ms: 1000,
+            within_budget: true,
+        };
+        assert!(r.worst_task_accuracy().is_none());
+    }
+
+    #[test]
+    fn worst_task_accuracy_picks_minimum() {
+        let r = HarnessReport {
+            context_tokens: 32_768,
+            per_task_accuracy: vec![
+                (Task::NiahSingle1, 0.96),
+                (Task::NiahMultikey1, 0.88),
+                (Task::VariableTracking, 0.99),
+            ],
+            overall_accuracy: 0.943,
+            total_wall_clock_ms: 100,
+            budget_ms: 1000,
+            within_budget: true,
+        };
+        assert!(approx(r.worst_task_accuracy().unwrap(), 0.88, 1e-6));
+    }
+
+    #[test]
+    fn tasks_below_threshold_empty_when_all_pass() {
+        let r = HarnessReport {
+            context_tokens: 32_768,
+            per_task_accuracy: vec![
+                (Task::NiahSingle1, 0.96),
+                (Task::NiahMultikey1, 0.98),
+            ],
+            overall_accuracy: 0.97,
+            total_wall_clock_ms: 100,
+            budget_ms: 1000,
+            within_budget: true,
+        };
+        assert!(r.tasks_below_threshold(0.95).is_empty());
+    }
+
+    #[test]
+    fn tasks_below_threshold_returns_failures() {
+        let r = HarnessReport {
+            context_tokens: 32_768,
+            per_task_accuracy: vec![
+                (Task::NiahSingle1, 0.96),
+                (Task::NiahMultikey1, 0.88),
+                (Task::BabiLong, 0.92),
+            ],
+            overall_accuracy: 0.92,
+            total_wall_clock_ms: 100,
+            budget_ms: 1000,
+            within_budget: true,
+        };
+        let failures = r.tasks_below_threshold(0.95);
+        assert_eq!(failures.len(), 2);
+        assert_eq!(failures[0].0, Task::NiahMultikey1);
+        assert_eq!(failures[1].0, Task::BabiLong);
+    }
+
+    #[test]
+    fn budget_utilization_zero_budget_returns_none() {
+        let r = HarnessReport {
+            context_tokens: 0,
+            per_task_accuracy: vec![],
+            overall_accuracy: 0.0,
+            total_wall_clock_ms: 0,
+            budget_ms: 0,
+            within_budget: true,
+        };
+        assert!(r.budget_utilization().is_none());
+    }
+
+    #[test]
+    fn budget_utilization_half_when_half_consumed() {
+        let r = HarnessReport {
+            context_tokens: 32_768,
+            per_task_accuracy: vec![],
+            overall_accuracy: 0.0,
+            total_wall_clock_ms: 500,
+            budget_ms: 1000,
+            within_budget: true,
+        };
+        assert!(approx(r.budget_utilization().unwrap(), 0.5, 1e-6));
+    }
+
+    #[test]
+    fn budget_utilization_over_one_when_over_budget() {
+        let r = HarnessReport {
+            context_tokens: 32_768,
+            per_task_accuracy: vec![],
+            overall_accuracy: 0.0,
+            total_wall_clock_ms: 1500,
+            budget_ms: 1000,
+            within_budget: false,
+        };
+        assert!(approx(r.budget_utilization().unwrap(), 1.5, 1e-6));
+    }
+
+    #[test]
+    fn budget_utilization_under_one_iff_within_budget_for_realistic_run() {
+        // Cross-surface invariant: within_budget == (utilization <= 1.0).
+        let plan: Vec<(Task, u32, u32, u64)> = Task::RULER_THIRTEEN
+            .iter()
+            .map(|&t| (t, 50, 48, 2_500))
+            .collect();
+        let report = run_synthetic_harness(32_768, STAGE_8_BUDGET_MS, &plan).unwrap();
+        let util = report.budget_utilization().unwrap();
+        assert_eq!(report.within_budget, util <= 1.0);
     }
 }
