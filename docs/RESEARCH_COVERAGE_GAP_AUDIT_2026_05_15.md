@@ -90,6 +90,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md`. Referenced 16× in audit register as P9 design ticket, ZERO references in `MAS_COMPLETE_FUSION` / `HERMES_AGENT_CORE_2_0_DESIGN`.
 - **What it is:** "Attach note to chat → in-place edit with provenance" — MAS-shippable hero V1 capability per the design doc.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §7.1 (add `edit_note_block` / `EditPage` macaroon to MAS-allowed tools). OR `MAS_COMPLETE_FUSION` §B.10 new row.
+- **Status (2026-05-16):** ✅ DECISION RECORDED — **V1.1 defer for full feature (recommended); V1 ships read-only attach-note stub.** Macaroon primitives EXIST at `agent_core/src/cognitive_dag/macaroons.rs` + `dispatch.rs`; missing tool layer + single-use semantic + ledger integration. Design doc itself still marked AWAITING_USER_SIGNOFF. Full decision + 2 user-override alternatives in `MAS_COMPLETE_FUSION` §10 Compromises Recorded (paired with PASS 2 B2-H6). **User input requested**: confirm V1.1 defer OR override to full V1 / Pro-only.
 
 ### H-4. Overseer hierarchy (Planner / Guardrail / Critique / Budget)
 - **Source:** `docs/fusion/research/OVERSEER_AND_AGENT_HIERARCHY.md` + `docs/fusion/research/kimi-latest/hermes_gateway_architecture.md` §L6
@@ -216,7 +217,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 | **B-6 Hermes-parity salvage verification** | ✅ VERIFIED 2026-05-16 — NOT A V1 BLOCKER. `credential_pool.rs` + `session_persistence.rs` are dead files (not in `lib.rs`, uncompiled); `error_classifier.rs` compiles + 7 tests pass but has zero production callers. Audited risk cannot materialize. Follow-up orphan-disposition decision tracked separately. |
 | **B-1 / B-2 / B-3 / B-4 Wave 7-11 user-product items** | ✅ DECISIONS RECORDED 2026-05-16 — all 4 rows landed in `MAS_COMPLETE_FUSION` §10 Compromises Recorded. Recommended paths: B-1 V1.1 defer · B-2 V1.1 defer · B-3 V1 simple form + V1.1 full form · B-4 V1.1 defer. Each row carries 2 user-override alternatives. **User input requested** to confirm/override. |
 | **H-1 / H-2 startup hang + memory regression** | RUNTIME: 2 user-action profiling tasks; route through Phase A |
-| **H-3 Local Engineering Agent / Attach-Note-To-Chat** | DECISION + IMPLEMENTATION: pick "ship in V1" (high-leverage hero feature) OR "post-V1" with explicit row |
+| **H-3 Local Engineering Agent / Attach-Note-To-Chat** | ✅ DECISION RECORDED 2026-05-16 — V1.1 defer (recommended), V1 ships read-only `note.attach_readonly` stub. See `MAS_COMPLETE_FUSION §10` (H-3 / B2-H6 row) for full alternatives. |
 
 ### Triage for V1.1 / post-V1 (route into Hermes 2.0 6-week plan)
 

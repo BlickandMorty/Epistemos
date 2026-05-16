@@ -313,6 +313,8 @@ CI gate stays: `strings` + `nm -gU` on the MAS bundle must return zero matches f
 | `research.search_papers` | Search Semantic Scholar / arXiv | T1 HTTP only |
 | `web.search` | HTTPS web search (user-approval card) | T1 HTTP only |
 | `ask_user` | Surface a clarify card (uses `epistemos.clarify.v1` GenUI schema) | T1 only |
+| `note.attach_readonly` | **V1 stub** — attach a note to chat for citation/context, READ-ONLY (no edit, no mutation) | T1 only |
+| `edit_note_block` *(V1.1 deferred)* | **V1.1 hero tool** — capability-gated agent edit of a single note block via single-use macaroon. Tool signature `edit_note_block(page_id, block_id, new_markdown, capability_token)`. Macaroon primitives live at `agent_core/src/cognitive_dag/macaroons.rs` + `dispatch.rs`; pending V1.1 work is the tool layer + single-use semantic on top of `Macaroon` + ledger row per edit + Undo button in chat transcript. Design doc: `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md` (status AWAITING_USER_SIGNOFF). V1 vs V1.1 decision row at `MAS_COMPLETE_FUSION §10` (H-3 / B2-H6). | T1 + macaroon pre-flight |
 
 ### 7.2 Pro-additional
 
