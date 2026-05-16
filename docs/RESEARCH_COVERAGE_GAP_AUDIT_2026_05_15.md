@@ -127,6 +127,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/fusion/jordan's research/uasa.agent.final.md` §1.3
 - **What it is:** Per-token/per-thought cryptographic attestation lineage. Distinct from `ClaimLedger` (which tracks claims, not tokens) and `.epbundle` (provenance ledger snapshot).
 - **Destination:** `MASTER_FUSION` §provenance row (add Run Ledger as token-level primitive separate from claim-level ClaimLedger).
+- **Status (2026-05-16):** ✅ RESOLVED with explicit doctrine boundary. Landed as new `MASTER_FUSION §3.40 "Run Ledger — per-token cryptographic attestation"`. Section covers: per-token attestation as the finer-grained primitive on the provenance ladder · **explicit disambiguation from all 4 already-shipped provenance primitives** (ClaimLedger = per-claim · ExecutionReceipt §5.1 = per-tool-call · RunEventLog = per-run-event · `.epbundle` = session-boundary snapshot) sourced from the doctrine note at `agent_core/src/scope_rex/answer_packet.rs:26-30` · **naming-collision warning** — proposed concrete type name when implemented should be `TokenAttestationLedger` or `PerTokenLedger` rather than `RunLedger` to avoid the existing `RunEventLog` proximity · Apple Silicon cost note (per-token signing is non-trivial) · research-tier post-V1 with Pro V1.x trigger gated on cross-machine `.epbundle` replay needing token-level verification. Closes the "Run Ledger ≠ ClaimLedger ≠ .epbundle" framing without leaving room for accidental name collision with the existing RunEventLog.
 
 ### H-10. Auto-research loops (Karpathy pattern)
 - **Source:** `~/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md` §5
@@ -233,7 +234,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 | H-5 Adaptation Subsystem + Compute Steering | ✅ RESOLVED 2026-05-16 (split) — Adaptation half SHIPPED (`AdaptationExecutor.swift` + Rust FFI), Compute Steering half NOT-STARTED. Doctrine pointer at MASTER_FUSION §3.39 with explicit split. §5.0 catch #9. |
 | H-7 GRPO | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22 Continual learning` table, pairs with OFTv2 line 352; NOT-STARTED in code, scope_rex/residency.rs:81 name-drop only. |
 | H-8 MLA | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22` alongside KIVI/MiniKV/TurboQuant; 4-16× KV cache compression with decoupled RoPE; TransMLA retrofit path; NOT-STARTED in code. |
-| H-9 Run Ledger | MASTER_FUSION §provenance |
+| H-9 Run Ledger | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.40` with explicit disambiguation from 4 existing provenance primitives + naming-collision warning (rename to `TokenAttestationLedger` when implemented). NOT-STARTED. |
 | H-10 / M-2 Auto-research + Eidos Plus | Hermes 2.0 §13.5 distillation test #8 OR NightBrain task body |
 | M-3 Cloud-as-Teacher | Hermes 2.0 §13.5 + B.9 NightBrain |
 | M-1 Eidos search | MASTER_FUSION §3.x neural-search-engine |
