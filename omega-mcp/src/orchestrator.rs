@@ -503,6 +503,7 @@ pub fn default_agents() -> Vec<AgentDefinition> {
                 "file.read",
                 "file.write",
                 "file.list",
+                "file.search",
                 "file.move",
                 "file.delete",
             ]
