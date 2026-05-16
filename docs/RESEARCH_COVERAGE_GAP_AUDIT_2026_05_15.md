@@ -115,6 +115,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/fusion/jordan's research/uasa.agent.final.md` §6.2.3 — MLX-Swift pseudocode for rule-based-reward GRPO on Apple Silicon.
 - **What it is:** Local-RL training path; companion to OFTv2 QLoRA.
 - **Destination:** `MASTER_FUSION` §continual-learning row (add GRPO alongside OFTv2 / DSC / coSO).
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new row in `MASTER_FUSION §3.22 Continual learning` table — pairs with OFTv2 line 352. Section captures: GRPO = group-relative policy optimization with **rule-based rewards** (no preference dataset, no reward model) · MLX-Swift pseudocode source `uasa.agent.final.md §6.2.3` · distinguishes from SFT (no labeled targets) and RLHF (no reward model) · existing name-drop at `agent_core/src/scope_rex/residency.rs:81` ("GRPO prior distilled into the policy gradient") but **NOT-STARTED in actual training infra**. Research-tier; pairs operationally with the SHIPPED Adaptation Subsystem half of H-5 once the OFTv2 4-bit path lands.
 
 ### H-8. MLA (Multi-Head Latent Attention) + TransMLA retrofit
 - **Source:** `docs/fusion/jordan's research/uasa.agent.final.md` §3.3 — DeepSeek's low-rank KV compression with decoupled RoPE.
@@ -229,7 +230,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 |---|---|
 | H-4 Overseer hierarchy | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §13.7 with 4-role decomposition (Planner / Guardrail / Critique / Budget) + cooperation pipeline + mapping to existing primitives + VSM cross-link. |
 | H-5 Adaptation Subsystem + Compute Steering | ✅ RESOLVED 2026-05-16 (split) — Adaptation half SHIPPED (`AdaptationExecutor.swift` + Rust FFI), Compute Steering half NOT-STARTED. Doctrine pointer at MASTER_FUSION §3.39 with explicit split. §5.0 catch #9. |
-| H-7 GRPO | MASTER_FUSION §continual-learning |
+| H-7 GRPO | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22 Continual learning` table, pairs with OFTv2 line 352; NOT-STARTED in code, scope_rex/residency.rs:81 name-drop only. |
 | H-8 MLA | MASTER_FUSION §local-inference |
 | H-9 Run Ledger | MASTER_FUSION §provenance |
 | H-10 / M-2 Auto-research + Eidos Plus | Hermes 2.0 §13.5 distillation test #8 OR NightBrain task body |
