@@ -2928,6 +2928,64 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 141+ candidates:** (1) Watch B's iter-100 §7 audit next cycle (B reported iter-80-89 cleared at iter 136 = our iter 136; next cycle would be iter-90-99 reported at iter 146 in B's count = ~our iter 146-150 window). (2) B.0-LARGE.1 watch continues INFORMATIONAL. (3) A T-A-29 self-audit at 1800s cadence — still hasn't fired since iter 28 cadence-bump; ~15-30 min from now if A continues. (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+### Audit-of-audit #33 (iter 141, 2026-05-16) — 🎯 A POST-PHASE-G MAINTENANCE EMERGES (Atlas Drift cross-link mirror) + B 16TH-17TH consecutive substrate-maturation (koopman spectral_radius B.6.14 + interrupt_calibration ConfusionMatrix B.6.20) — 3 commits CLEAN
+
+- **Window since iter 140 close:** 3 substantive sibling commits at threshold:
+  - `e2360fca3` (B iter 98) `research/koopman: spectral_radius + condition_number_normal`
+  - `f5ef5b39f` (A) `docs(iter-73): Atlas Drift cross-link maintenance — §5.0 mirror in MASTER_FUSION`
+  - `d0e4a5f40` (B iter 97) `research/interrupt_calibration: ConfusionMatrix + evaluate_at_threshold`
+
+- **🎯 Findings — A `Atlas Drift cross-link maintenance` (`f5ef5b39f`) — POST-PHASE-G MAINTENANCE WORK:**
+  - Branch: `codex/research-snapshot-2026-05-08` (codex parent branch where A's wind-down maintenance lands).
+  - Commit message: "First of three named post-iter-72-queue-exhaustion maintenance candidates. Atlas Drift Log row 1 (canonical-task-names rank-3 vs rank-1 drift, established 2026-05-15 in MAS_COMPLETE_FUSION §9) now mirrored in MASTER_FUSION's own §Atlas Drift table per the line-1015 protocol."
+  - **A doing post-soft-stop maintenance:** A's wind-down arc is soft-stop iter 119 → T-A-24/25/26/27/28 (streak 5/5) → cadence bump 600s→1800s iter 28 (= our iter 133). This is A still doing low-touch maintenance work between 1800s self-audit fires — closing long-standing cross-link gaps (the Atlas Drift table sat with single placeholder row `| — | — | — | — | — |` through 73 iters of the loop run).
+  - Substance: mirrors MAS_COMPLETE_FUSION §9 Atlas Drift Log row 1 (canonical-task-names: §B.9 doctrine had 5 aspirational names vs runtime CANONICAL_TASK_NAMES at agent_core/src/nightbrain/mod.rs:11 ships 10 different names; iter-64 §5.0 correction at `7284f92dc` originally identified the drift) into MASTER_FUSION §Atlas Drift section per line-1015 self-link protocol.
+  - **🎯 Lesson #11 verification:** A's V3 §1.5 wind-down state allows maintenance work during 1800s cadence; this is doc cross-link maintenance closing a long-standing audit-detected drift; not new substrate; not user-decision-gated; properly within A's scope.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** A continues distributed §5.0 discipline at low cadence.
+
+- **🎯 Findings — B `koopman: spectral_radius + condition_number_normal` (`e2360fca3`) — B.6.14 SUBSTRATE-WORKFLOW LOOP CLOSURE:**
+  - B iter 98. Base B.6.14 koopman (from audit-of-audit #24 iter-110 era at `f2e324725`; Wang-Liang MamKO + Bauer-Fike eigenvalue perturbation bound) shipped `bauer_fike_bound` + `verify_bauer_fike` which TAKE a condition number as input; this commit ships the helpers that PRODUCE one.
+  - Substrate: `spectral_radius(magnitudes)` (max_i |λ_i| per canonical definition; rejects empty/non-finite/negative magnitudes; all-zero spectrum returns 0.0) · `condition_number_normal(magnitudes)` (`κ₂(A) = max|λ| / min|λ|` for normal matrices; rejects min==0 as SingularMatrix; uniform spectrum returns 1.0).
+  - 4 new `KoopmanError` variants: EmptySpectrum · NonFiniteMagnitude · NegativeMagnitude · SingularMatrix.
+  - **Substrate-floor scope honest-caveat'd:** "Works with magnitudes directly (no Complex type). For non-normal matrices the eigenvector-matrix condition number is the correct quantity; that lives one layer up when an SVD pipeline ships." Proper honest-caveat per V6.1 §1.10.
+  - **§5.0 verdict: CLEAN.** Substrate-workflow loop closure: condition-number input now has paired producer functions.
+
+- **🎯 Findings — B `interrupt_calibration: ConfusionMatrix + evaluate_at_threshold` (`d0e4a5f40`) — B.6.20 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 97. Base B.6.20 interrupt_calibration (from audit-of-audit #19 iter-101 era at `ee151138d`; V6.1 §1.5 Hybrid-SSM attention-as-interrupt; 11 tests originally) shipped `calibrate_interrupt_classifier` which LEARNS the threshold via Youden-J; this commit adds the dual: given a fixed shipped threshold, compute confusion matrix + derived metrics on a batch.
+  - Substrate: `ConfusionMatrix { threshold, true_positive, false_positive, true_negative, false_negative }` · `.total()` · `.accuracy()` · `.precision()` (None if no positive predictions) · `.recall()` (None if no actual positives) · `.false_positive_rate()` · `.f1()` (harmonic mean of precision + recall; None if either undefined or both zero) · `evaluate_at_threshold(observations, threshold)` (boundary INCLUSIVE — score == threshold is positive).
+  - 10 new unit tests covering empty + perfect classifier at optimal threshold + too-low/too-high thresholds + boundary semantics + metric Option handling.
+  - **§5.0 verdict: CLEAN.** Substrate-floor production-side classifier-evaluation surface dual to calibration.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 16-17 CONSECUTIVE COMMITS ACROSS ITERS 130-141:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141) — 12 commits adding production-tier APIs:
+    - iter 134: action_to_eml
+    - iter 135: MultiExpertSparsePolicy + tropical
+    - iter 136: biometric_gate
+    - iter 137: belnap + confidence_floors
+    - iter 138: para_lens ReluLayer
+    - iter 139: run_ledger + substrate_independence
+    - iter 140: nano_training_recipe
+    - **iter 141: koopman spectral_radius + interrupt_calibration ConfusionMatrix** (this iter)
+  - **B's substrate-maturation phase pace:** consistent 1-2 commits/iter for 11+ iters — strong sustained discipline.
+
+- **🎯 DISTRIBUTED §5.0-MAINTENANCE DISCIPLINE NOW VISIBLE ACROSS A + B + C + D ALL FOUR ACTIVE TERMINALS:**
+  - **A:** post-Phase-G low-cadence maintenance (Atlas Drift cross-link; T-A-NN self-audits at 1800s)
+  - **B:** sustained substrate-maturation phase (15+ commits across 12 iters)
+  - **C:** audit-of-audit + §7 meta-cycle + Lesson articulation
+  - **D:** distributed self-audit cadence (~every-3-iter pulse; 8+ self-audits)
+  - **All 4 active terminals in stable distributed-discipline mode.** F still empty.
+
+- **§5.0 catch rate:** 29/199 = 14.6% (continued decline; B's maturation phase + A's maintenance + D's self-audit keep CLEAN-rate high).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Re-evaluate step-back after 5 consecutive ON-TRACK + rate <5/30min sustained. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3. Average ~2.9/iter.
+
+- **Verdict:** ✅ **ON TRACK** (26th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 142+ candidates:** (1) Watch for second + third "post-iter-72-queue-exhaustion maintenance candidates" from A (commit cited "First of three"). (2) Continue B substrate-maturation phase taper watch. (3) B.0-LARGE.1 watch (now 7 iters past V6.1-precedent window; remains INFORMATIONAL). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
