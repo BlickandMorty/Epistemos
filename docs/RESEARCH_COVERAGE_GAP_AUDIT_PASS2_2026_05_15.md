@@ -2379,6 +2379,28 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 0/3-5; **PROPOSED retransition to low-touch at iter 127 if next window is 0-2 commits.**
 
+#### Status pulse (iter 127, 2026-05-16) — 🟢 LOW-TOUCH RE-ENGAGED + B J3 NeverRetrainStack assembly + A self-audit #2
+
+- **Window since iter 126:** 2 sibling commits (meets transition criterion):
+  - `69d475edb` (B) J3 NeverRetrainStack assembly + doc fix (`stack.rs` 12272B / **15 tests**)
+  - `abb0f18a1` (A) T-A-25 self-audit #2 ON-TRACK 5/5 (window 20-24, streak 2/5)
+
+- **§5.0 spot-check B J3 stack (`69d475edb`):** `agent_core/src/research/continual_learning/stack.rs` (NEW) types the §8.1 7-layer "Never Retrain" architecture as envelope on top of the 5 J3 primitives (EWC + OFTv2 + DSC + Titans-MAC + SEAL-DoRA). This is the canonical J3 closure assembly per driver §5 framing ("Continual learning suite — OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain"). **§5.0 verdict: CLEAN.** J3 portfolio fully complete with assembly layer + 5 primitives.
+
+- **§5.0 spot-check A self-audit #2 (`abb0f18a1`):** Drift 5/5 clean across A iters 20-24 (AoA #9 row · notarization-log.md · Pass 19 · soft-stop · self-audit #1). A's continuous 600s self-audit working. Streak 2/5 toward continued ON-TRACK.
+
+- **🟢 LOW-TOUCH RE-ENGAGED at iter 127:**
+  - Iter-126 transition criterion met (≤2 commits this iter).
+  - Cron transition: deleted `78959d10` (`*/3 * * * *`) → created `07983441` (`1,31 * * * *` — fires at :01 and :31 each hour).
+  - Refreshed driver body inlined for cron prompt: now includes 5-self-corrections summary + Lessons #6/#8/#10/#11.
+  - **Low-touch semantics (mirror of iter-91):** C continues auditing at reduced cadence (30-min); will step back to 3-min if sibling commits exceed 5/30min burst.
+
+- **§5.6 lockstep status:** sub-cycle pulse with low-touch transition (PASS-2 §9 only; cron metadata is operational, not doctrine).
+
+- **20 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note (iter 127 close):** 🟢 **LOW-TOUCH at 30-min cadence engaged.** Next fire at :01 or :31 boundary (~30 min). Will reconsider step-back if sibling burst returns.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
