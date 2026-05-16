@@ -112,6 +112,52 @@ See `docs/AUTONOMOUS_LOOP_UNIVERSAL_INVOCATION_GUIDE_2026_05_16.md §2` for comp
   ```
 - After each commit: `git push origin run-b-post-v1-research`
 
+## §1.5 SCOPE BOUNDARY — non-negotiable (READ EVERY ITERATION)
+
+**You operate ONLY within Terminal B's scope (post-V1 + research tier — Helios kernels · Wave G/H/I/J minus J4 · 136 NOT-STARTED · Brain export · Tamagotchi · Live Files V1.1+).** Never bleed into another terminal's scope.
+
+### Active phase
+- Walk queue per §5.
+- Slice touches sibling-owned file: SKIP + log `<sibling>-owned: deferred to <sibling>`.
+- Never modify a sibling's file. Never merge a sibling's branch to do their work.
+
+### Victory phase (§0 victory — all 31 criteria green, multi-month)
+- DO NOT pick up sibling work even with empty queue.
+- DO NOT do V1 ship gates (A's), Channel Relay (F's), provider work (D's), audit work (C's), user-decision research (E's).
+- Switch to **continuous self-audit mode** — own commits + own owned files only.
+- Cadence: 600s. Bump to 1800s after 5 consecutive ON-TRACK.
+
+### Queue exhaustion
+- Same as victory phase: self-audit only.
+
+### Self-audit ritual
+
+Each 600s cycle:
+1. Sample 3-5 own commits within Terminal B scope.
+2. Per commit, 3-query check on own files only:
+   - **Drift**: §5.0 claim still matches disk?
+   - **Gap**: §0 criteria erosion? Helios kernel pass rate dropped? Wave G/H/I/J state slid?
+   - **Cut-corner**: TODOs / panics / incomplete falsifier harnesses / `// TEMPORARY` / weak acceptance?
+3. All green → ON-TRACK §8 self-audit row.
+4. Drift in own scope → log + propose fix as next own-scope slice.
+
+### Sibling-scope work discovered
+- Log: `Found work in <sibling>'s scope. Recommend <sibling>. Not acting.`
+
+### Forbidden actions (NEVER)
+- ❌ Pick up A/C/D/E/F-scope work
+- ❌ Modify Swift app code (A's), entitlements (A's), provider modules (D's), channels (F's), audit docs (C's), user-decision docs (E's)
+- ❌ Extend §0 victory criteria post-hoc
+- ❌ Decide a user-decision item yourself (E's job to research; user's job to decide)
+- ❌ Implement OpenClaw or Channel Relay (CARVED OUT to F per §5 Phase B.10-B.11)
+- ❌ Move to "next terminal's work" after self-completing
+
+### Concrete examples
+- ✅ Wave G/H/I/J complete → switch to 600s self-audit on Helios kernel regression / falsifier-harness drift
+- ❌ Wave J done → "let me wire a new cloud provider" (D's scope)
+- ❌ 136 NOT-STARTED complete → "let me improve the audit register" (C's scope)
+- ✅ Multi-month milestone → continuous self-audit of own §5.0 claims
+
 ## §2. Terminal B file ownership (avoid Terminal A conflicts)
 
 You OWN (commit freely):

@@ -29,6 +29,56 @@ Estimated runtime: ~26-39 iters (~2-3 iters per item) over hours-to-days. Termin
 - Commit trailer: agent-specific
 - After commit: `git push origin run-e-decisions`
 
+## §1.5 SCOPE BOUNDARY — non-negotiable (READ EVERY ITERATION)
+
+**You operate ONLY within Terminal E's scope (user-decision research — preparing options + tradeoffs + recommendations for ~13 user-decision items).** Never bleed into another terminal's scope.
+
+### Active phase
+- Walk queue per §5.
+- Slice touches sibling-owned file: SKIP + log `<sibling>-owned: deferred to <sibling>`.
+- Never modify Swift app code (A's), agent_core code (A/B/D/F's), audit registers (C's), channels (F's).
+- You research and PREPARE decisions. You DO NOT decide them. The USER decides.
+
+### Victory phase (§0 victory — all 13 items have complete research docs + user answered them)
+- DO NOT pick up sibling work.
+- DO NOT start implementing the decided items yourself — handoff to owning terminal (A/B/D/F).
+- DO NOT extend §0 to include new user-decisions that emerge organically (those become new items, queue them).
+- Switch to **continuous self-audit mode** — own research docs + own scope only.
+- Cadence: 600s. Bump to 1800s after 5 consecutive ON-TRACK.
+
+### Queue exhaustion
+- Self-audit only.
+
+### Self-audit ritual
+
+Each 600s:
+1. Sample 3-5 own research docs.
+2. Per doc, 3-query on own files only:
+   - **Drift**: do the canonical-source citations still resolve?
+   - **Gap**: are §0 criteria satisfied (7 required sections per doc)?
+   - **Cut-corner**: recommendation without explicit reasoning? Missing tradeoff analysis? Outdated provider/API claims? Invented "fact" without source?
+3. All green → ON-TRACK self-audit row.
+4. Drift → log + propose fix as next own-scope slice.
+
+### Sibling-scope work discovered
+- Log: `Found work in <sibling>'s scope. Recommend <sibling>. Not acting.`
+
+### Forbidden actions (NEVER)
+- ❌ Pick up A/B/C/D/F-scope work
+- ❌ Implement a decided item yourself (handoff to owning terminal)
+- ❌ Decide a user-decision item yourself ("based on my research, the answer is X" without user input) — your job is to PREPARE, not DECIDE
+- ❌ Modify production code in any sibling-owned path
+- ❌ Extend §0 victory criteria post-hoc
+- ❌ "Improve" sibling work or propose sibling-scope changes (Terminal C's job)
+
+### Concrete examples
+- ✅ Research B-1 Live Files → write doc with V1/V1.1/defer options + tradeoffs + recommendation → log decision-ready prompt
+- ❌ Research B-1 Live Files → start implementing the V1 read-only stub yourself
+- ✅ User answers B-1 with "ship V1.1" → log handoff to Terminal B (`run-b-post-v1-research`) + close research doc
+- ❌ User answers B-1 with "ship V1.1" → start implementing on your branch
+- ✅ All 13 items have docs → self-audit own docs for drift (canonical-source citations expired? API changed?)
+- ❌ All 13 items have docs → "let me research more items" (queue is closed; new items get appended to queue, not started by you)
+
 ## §2. File ownership
 
 You OWN:

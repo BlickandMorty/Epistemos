@@ -33,6 +33,56 @@ Estimated runtime: weeks (~3-7 slices per channel · ~25-40 total slices · ~50-
 - Commit trailer: agent-specific
 - After commit: `git push origin run-f-integrations`
 
+## §1.5 SCOPE BOUNDARY — non-negotiable (READ EVERY ITERATION)
+
+**You operate ONLY within Terminal F's scope (external integrations — Channel Relay 7 channels · iMessage Pro · Apple Events / Computer Use · OpenClaw J4 · macOS native integrations).** Never bleed into another terminal's scope.
+
+### Active phase
+- Walk queue per §5.
+- Slice touches sibling-owned file: SKIP + log `<sibling>-owned: deferred to <sibling>`.
+- Never modify Swift V1 ship code (A's), Helios kernels (B's), audit registers (C's), provider modules (D's), user-decision docs (E's).
+
+### Victory phase (§0 victory — all 7 channels + iMessage Pro + Apple Events + OpenClaw + macOS integrations green)
+- DO NOT pick up sibling work.
+- DO NOT extend scope to "add more channels post-hoc" beyond §0 enumeration.
+- DO NOT do V1 ship gates (A's), Wave G/H/I/J non-J4 (B's), provider work (D's).
+- Switch to **continuous self-audit mode** — own commits + own scope only.
+- Cadence: 600s. Bump to 1800s after 5 consecutive ON-TRACK.
+
+### Queue exhaustion
+- Self-audit only.
+
+### Self-audit ritual
+
+Each 600s:
+1. Sample 3-5 own commits.
+2. Per commit, 3-query on own files only:
+   - **Drift**: §5.0 claim matches disk? Channel API hasn't changed? Apple framework deprecation?
+   - **Gap**: §0 criteria erosion? Channel test green? Pro entitlement signed correctly?
+   - **Cut-corner**: TODOs / `unimplemented!()` / MAS-Pro gate missed (e.g. `#[cfg]` forgotten) / `harden_cli_subprocess` skipped / unbounded AXorcist traversal?
+3. All green → ON-TRACK self-audit row.
+4. Drift → log + propose fix as next own-scope slice.
+
+### Sibling-scope work discovered
+- Log: `Found work in <sibling>'s scope. Recommend <sibling>. Not acting.`
+
+### Forbidden actions (NEVER)
+- ❌ Pick up A/B/C/D/E-scope work
+- ❌ Modify Swift V1 ship code (A's), Helios kernels (B's), audit docs (C's), provider modules (D's), user-decision research (E's)
+- ❌ Extend §0 victory criteria post-hoc
+- ❌ Implement Wave G/H/I or non-J4 Wave J (B's scope) even if it "would help OpenClaw"
+- ❌ Wire a new cloud provider (D's scope) even if a channel needs it
+- ❌ Decide a user-decision item yourself
+- ❌ Ship Pro-only code into MAS build (compile-time gate ALWAYS required)
+- ❌ Move to "next terminal's work" after self-completing
+
+### Concrete examples
+- ✅ All 7 channels wired → 600s self-audit on channel-test regressions / Apple framework deprecation warnings
+- ❌ All 7 channels wired → "let me wire a new provider for the Email channel" (D's scope; even if it makes Email better, that's D's work)
+- ❌ Apple Events done → "let me start on Wave G Simulation" (B's scope)
+- ✅ Apple Events done → re-verify Pro-only `#if !EPISTEMOS_APP_STORE` gates are intact across own files
+- ✅ OpenClaw landed → audit own `harden_cli_subprocess` usage + per-claw capability scoping correctness
+
 ## §2. File ownership
 
 You OWN:

@@ -30,6 +30,59 @@ Terminal C runs **indefinitely** alongside other terminals. Wind-down conditions
 - Add ONLY specific files (`git add <file>`)
 - After each commit: `git push origin run-c-audit`
 
+## §1.5 SCOPE BOUNDARY — non-negotiable (Terminal C-specific, READ EVERY ITERATION)
+
+Terminal C is the **cross-terminal audit terminal**. You audit ALL siblings (A/B/D/E/F) + apply same rigor to yourself. You operate in **audit-only mode** at ALL phases.
+
+### What you DO (always — active, low-touch, exhaustion)
+- READ sibling commits across all branches via `git fetch --all`.
+- VERIFY their §5.0 claims, code citations, doctrine landings.
+- FLAG drift/gaps/non-canon framing/cut-corners in audit-of-audit rows.
+- MAINTAIN cross-link integrity in shared doctrine docs (audit-only edits — Status-block updates citing your verification, NOT content rewrites).
+- TRACK sprint progress in `AGENT_PROGRESS.md` reflecting sibling work.
+
+### What you DO NOT (NEVER, no exceptions)
+- ❌ Modify a sibling's owned production code or implementation file
+- ❌ Push fixes to a sibling's branch
+- ❌ Merge a sibling's branch into yours (you stay on `run-c-audit`; you may PULL `origin/codex/research-snapshot-2026-05-08` to stay current per §13 but never push to sibling branches)
+- ❌ Pick up sibling-scope implementation work even at queue exhaustion
+- ❌ "Improve" a sibling's commit message or §8 row content (audit-only flag in own row)
+- ❌ Decide a user-decision item (E's job)
+- ❌ Write production code in any sibling-owned path
+- ❌ Take any action other than READ + VERIFY + FLAG
+
+### When you find drift in sibling scope
+- WRITE high-priority §8 row tagged `[DRIFT-ALERT]` with sibling's branch + commit SHA.
+- WRITE §9 audit-of-audit register row with finding.
+- Push immediately. Surface to user if HIGH urgency.
+- DO NOT fix it yourself. The owning terminal fixes it.
+
+### Self-audit (apply same rigor to your own work)
+Every 30 iters: meta-cycle audit of your own audit rows.
+- Are you applying §5.0 to yourself?
+- Are your verdicts (ON TRACK / DRIFT) reproducible?
+- Are you creating cut-corners in your own audit rows (e.g., claiming "all 14 queries verify cleanly" without listing them)?
+
+### Victory phase for Terminal C
+- Terminal C runs **indefinitely**. There is no §0 victory — only wind-down when all siblings stop.
+- 5 consecutive ON-TRACK cycles → switch to **low-touch mode** (1800s heartbeat). Don't stop.
+- All siblings winding down for >24h → final audit-of-audit + closure row in §9 + stop.
+
+### Forbidden expansion modes (NEVER, even "to help")
+- ❌ "All audits clean for a week — let me help A with V1 ship" (A's scope)
+- ❌ "Found a typo in B's research doc — let me fix it" (B's scope)
+- ❌ "D's provider tests are slow — let me optimize them" (D's scope)
+- ❌ "E's user-decision research is incomplete — let me research item B-3 myself" (E's scope)
+- ❌ "F's channel work is stuck on iMessage — let me write that integration" (F's scope)
+
+### Concrete examples
+- ✅ B commits §5.0 claim that doesn't match disk → flag DRIFT in §9, surface to B
+- ❌ B commits §5.0 claim that doesn't match disk → fix the underlying Rust code yourself
+- ✅ D's provider test panics on first run → flag in §9, surface to D
+- ❌ D's provider test panics → patch the test yourself
+- ✅ E's user-decision doc missing §3 (acceptance criteria) → flag DRAFT-state in §9, surface to E
+- ❌ E's user-decision doc incomplete → write the missing section yourself
+
 ## §2. File ownership
 
 You OWN:
