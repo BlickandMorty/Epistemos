@@ -379,6 +379,44 @@ Channel Relay (7 channels: telegram · slack · discord · whatsapp · signal ·
 
 OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-16 universal-prompt update, this work is owned by **Terminal F** as Phase F.5. If you find yourself wanting to touch `agent_core/src/openclaw/`: SKIP + log "F-owned: deferred to Terminal F".
 
+### Phase B.0 — F-ULP-Oracle (W1) — Monday deliverable, FIRST priority, ALL other Wave J BLOCKED on this (NEW 2026-05-16)
+
+**Execution order rule:** Phase B.0 runs BEFORE Phase B.1 (Wave J), B.2 (Helios kernels), B.3-B.5 (Waves G/H/I), and B.6 (NOT-STARTED inventory). B.0 gates the AnswerPacket schema freeze; nothing else can ship until B.0.4 (ULP fixture) passes.
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.1`. **THE Monday deliverable.** AnswerPacket schema does NOT ship until F-ULP-Oracle passes. Disciplinary commitment: no claim envelope without a verified arithmetic floor.
+
+- **B.0.1** — Vendor `oxieml` (cool-japan/oxieml, MIT) into `epikernel-eml-ir/` as path-dep submodule, READ-ONLY. Tag commit.
+- **B.0.2** — Vendor `eml-lean` (tomdif/eml-lean, claims 0-sorry) into `epikernel-lean/vendored/eml-lean/`. Run `lake build` + `grep sorry/admit`. If anything other than 0 sorry: file tracked deviation + proceed.
+- **B.0.3** — Land `morph_eval_reduced.metal v0.1` in `epikernel-kernel-pack/`. Implement ONLY `exp`, `ln`, and fused intrinsic `eml(x,y) = exp(x) − ln(y)` plus log-sampled stress-point harness.
+- **B.0.4** — Land ULP fixture in `epikernel-eml-ir/tests/ulp_oracle.rs`: 412k log-sampled points across `[2⁻¹⁵, 2¹⁵] × [2⁻¹⁵, 2¹⁵]` + 2,048 stress points (denormals · ±0 · ±∞ · NaN · branch cuts of `ln`). Tolerance: ≤ 2 ULP fp16 in `[0.5, 2]`. Budget: < 90s wall-clock M2 Pro.
+- **B.0.5** — Verify Lean toolchain pin against `leanprover-community.github.io/mathlib4` TODAY. If locked stack's 4.29.1 doesn't resolve, downgrade to latest stable (4.25.0 verified 2025-11-14). Document divergence in `doctrine/STACK_DIVERGENCES.md`.
+- **B.0.6** — **GATE**: AnswerPacket schema freeze blocked until B.0.4 passes. Open `doctrine/CAVEATS.md` + paste §1.10 from integration doc verbatim.
+
+### Phase B.1-V6.1 — Wave J Research tier ADDITIONS (J10-J14, additive to original B.1)
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §2 Terminal B`:
+
+- **J10 Mamba-3** (arXiv:2603.15569 March 2026) — exponential-trapezoidal discretization · complex-valued state · MIMO formulation · RoPE-trick recurrence. +0.6-1.8 pts vs Gated DeltaNet at 1.5B.
+- **J11 Test-Time Regression unification** (Wang-Shi-Fox arXiv:2501.12352 v3 2025-05-02) — strongest public anchor for `LatticeCoder + TestTimeRegressor` traits. Unifies linear attention · SSMs · fast-weight programmers · online learners · softmax attention.
+- **J12 RWKV-7 "Goose"** (arXiv:2503.14456) — 2.9B Apache 2.0 · generalized delta rule · recognizes all regular languages · exceeds TC⁰ · constant-memory RNN.
+- **J13 Titans-MAC** (Behrouz-Zhong-Mirrokni arXiv:2501.00663) — Memory-as-Context + Memory-as-Gate + Memory-as-Layer · long-term memory MLP updating weights at test time via gradient-of-surprise.
+- **J14 DoRA** (Liu et al. arXiv:2402.09353, ICML 2024 Oral) — magnitude/direction weight decomposition · right PEFT primitive for M2 Pro fine-tuning.
+
+### Phase B.2-V6.1 — Helios kernels UPDATE (refines original B.2 with V6.1 substrate)
+
+`SemiseparableBlockScan.metal` aligns to cartesia-metal reference for Mamba-2 SSD. **F-128K-Recall** validated against **Granite-4.0-H-Micro's validated 128k window** (NOT theoretical 512k). `morph_eval_reduced.metal` shipped via Phase B.0.
+
+### Phase B.6-V6.1 — 136 NOT-STARTED MASTER_FUSION items ADDITIONS (B.6.15-B.6.20, additive to original B.6)
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §2 Terminal B`:
+
+- **B.6.15 Tropical-affine completeness for ReLU** (T-Tropical-Affine, F-Tropical-Side-Quest) — narrow ReLU class (depth ≤4, hidden ≤64) · tropical-affine basis fit · ε-bounded approx drift. Budget: 4h Metal. Publishable: NeurIPS 2026 / ICML 2026.
+- **B.6.16 Action-to-EML / Lean-verified Euler-Lagrange** (T-Action-to-EML, F-Action-Demo) — harmonic oscillator + simple pendulum: action `S[q] = ∫ L dt` → eml-IR → symbolic Euler-Lagrange via oxieml → numerical solve → **Lean-verified conservation**. Budget: <1 day CPU + Lean. Publishable: Journal of Symbolic Computation. **THE killer demo.**
+- **B.6.17 Substrate-independence** (T-Substrate-Independence, F-BZ-Substrate-Independence) — Belousov-Zhabotinsky chemical substrate · sandpile SOC · coupled metronomes Kuramoto. AR(1) Hadamard residual variance ratio comparator against silicon-LLM. ≤$250 BZ kit. Publishable: Foundations of Physics / PRL.
+- **B.6.18 DoRA PEFT primitive** — implement for M2 Pro fine-tuning per arXiv:2402.09353.
+- **B.6.19 `Para(Lens(Smooth))`** ↔ Rust trait correspondence (Cruttwell-Gavranović-Ghani-Wilson-Zanasi arXiv:2103.01931 + arXiv:2404.00408) — 1:1 mapping with `Para<P, A, B>` Rust trait. Publishable: ACT / NeurIPS.
+- **B.6.20 Hybrid-SSM + attention-as-interrupt thesis** — `u_t = α·H_t + β·WBO_t + γ·Sheaf_t + δ·ToolNeed_t + ε·ConnectomeAlarm_t`. F-Interrupt-Calibration: 30-task corpus tuning τ_low / τ_high · AUROC ≥ 0.85. Emit `STATIC_FALLBACK_ACKNOWLEDGED` ClaimKind when interrupt-logic fails → fixed 9:1 SSM:attention ratio (honest audit-traced operating mode, not hidden fallback).
+
 ## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
 
 Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)** until §0 victory across all of A/B's targets. Phase 1: shallow-but-shipped. Phase 2 (post-victory hardening) triggers when user says "BEGIN PHASE 2 HARDENING".

@@ -230,6 +230,22 @@ Per `mas_architecture_research.md` + kimi `definitive/capstone/mas_release` rese
 
 **F.6.5 Notifications** — `UserNotifications` framework. Agent-emitted notifications (morning report · NightBrain wake · etc.).
 
+### Phase F.7 — Codex CLI as MCP server (Pro tier, NEW 2026-05-16)
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §2 Terminal F`. The verified-supported `codex mcp-server` mode is the clean Pro-tier integration; no bespoke shelling needed.
+
+- **F.7.1** `epikernel-codex-bridge` crate (Pro-only · `cfg(feature = "pro")`)
+- **F.7.2** `codex mcp-server` mode integration — Codex CLI itself runs as MCP server
+- **F.7.3** MCP-over-stdio protocol loop emitting `ExecutorEvent` (per Terminal D's Phase D.0 `Executor` trait)
+- **F.7.4** Tests: tool list cache · ping batching · cross-process call latency
+- **F.7.5** Implements `Executor` trait so it's a first-class provider in `MissionPacket` dispatch (via Terminal D's `ExecutorRegistry`)
+
+### Phase F.8 — Claude Code as MCP server + ACP layer (Pro tier, NEW 2026-05-16)
+
+- **F.8.1** `claude-code mcp-server` mode integration — same pattern as F.7
+- **F.8.2** ACP (Agent Client Protocol) layer per Goose's bidirectional Client+Server framing — let Epistemos act as both client and server, consuming Claude Code / Codex as upstream "provider" agents over ACP
+- **F.8.3** Per Goose's roadmap (ACP layer), this enables agentic-to-agentic dispatch where one Hermes session can subagent-dispatch to a Claude Code or Codex MCP server
+
 ## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
 
 Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)**. Phase 2 (post-V1 hardening) triggers when user says "BEGIN PHASE 2 HARDENING".

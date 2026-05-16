@@ -615,7 +615,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-008: First-note-open hangs slightly on large vaults
 
-Status: Open
+Status: Patched (BlockMirror prewarm covers both inline + disk-load paths; graph/FTS/HNSW sub-causes are separate, deferred to canonical graph plan)
 Priority: P2
 First Observed: 2026-05-12 (per user report)
 
@@ -667,6 +667,35 @@ Investigation Log:
   path is `Epistemos/Sync/BlockMirror.swift` (verified via
   `find Epistemos -name "BlockMirror*"` → single hit at the Sync path).
   Updated above. Iter 2+ MRU-prewarm work should target the Sync path.
+- 2026-05-16 (T-A iter 2, partial patch): shipped `AppBootstrap.prewarmRecentBlockMirrors(modelContext:limit:)`
+  in `Epistemos/App/AppBootstrap+Prewarm.swift` + wired into init flow after
+  `AppBootstrap.shared = self` (line 2003) as a `Task.detached(priority: .utility)`
+  with a dedicated `ModelContext(container)`. Inline-body pages parse at
+  launch; disk-only pages (production majority — `body` is cleared after
+  `saveBody()`) are counted+logged as `skipped_disk_only` but not yet
+  prewarmed. 3 unit tests landed at `EpistemosTests/AppBootstrapPrewarmTests.swift`
+  (synced-and-skipped split · empty store · limit cap). xcodebuild Debug
+  build green; cargo 1190 baseline holds. Iter 3 should extend to the
+  disk-load path via `SDPage.loadBodyAsyncFromPrimitives` so the prewarm
+  actually amortizes the first-open hang in production.
+- 2026-05-16 (T-A iter 3, full patch): function converted to `async` and now
+  uses `SDPage.loadBodyAsyncFromPrimitives(pageId:filePath:inlineBody:)` for
+  body acquisition — the canonical R.3 fallback chain (managed sidecar → R.3
+  gateway → inline → raw vault file). Signature changed from `modelContext:
+  ModelContext` to `modelContainer: ModelContainer` to satisfy Swift 6
+  strict-concurrency Sendable rules (ModelContext isn't Sendable; the
+  function now creates its own ModelContext internally and calls
+  `modelContext.save()` after BlockMirror.sync inserts so other contexts
+  see the new SDBlocks). 5 unit tests now pass (3 from iter 2 + 2 new:
+  disk-only-page prewarmed via filePath + missing-file gracefully skipped
+  with synced=0). Per-page `(id, filePath, body)` snapshotted before any
+  `await` to avoid SwiftData object-lifecycle races. **Cause #1 of this
+  issue (BlockMirror first-parse) is now structurally covered.** Other
+  causes (#2 graph engine neighborhood wake, #3 FTS5 segment open,
+  #4 HNSW embedding compute, #5 NSTextView attribute pass) are separate
+  concerns: #2 is owned by the canonical graph plan; #3 was patched
+  earlier via shadow_warm (per ISSUE-2026-05-10-001); #4 + #5 are
+  outside Phase B scope. Closing this row as Patched.
 
 ---
 
@@ -968,7 +997,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-10-001: Halo feature does not work end-to-end for user
 
-Status: Open
+Status: Patched (diagnosability surface — init-failure class now visible in Settings; root-cause repro still needed for embedder/tantivy failures themselves)
 Priority: P1
 First Observed: 2026-05-10
 Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD ebd26c08f)
@@ -1018,6 +1047,35 @@ Destructive Fixes (require user approval):
   doctrine §2.5.
 
 Investigation Log:
+- 2026-05-16 (T-A iter 4, diagnosability fix): added init-failure recording
+  so the two Shadow-init failure modes (handleOpen — `RustShadowFFIClient(path:)`
+  throws, tantivy/IO; and embedderWarm — `client.warm()` throws, Model2Vec
+  HF download / cold-cache race) are now visible in Settings →
+  Diagnostics → "Shadow backend" row WITHOUT Console.app. Implementation:
+  new public enum `ShadowInitFailureClass` (cases `.handleOpen` =
+  `"handle_open"` · `.embedderWarm` = `"embedder_warm"`) at top of
+  `Epistemos/Engine/ShadowSearchService.swift`; `ShadowSearchDiagnostics.Snapshot`
+  extended with `lastInitFailureClass` + `lastInitFailureAt` fields and
+  `isDegraded` updated to account for them; new public method
+  `ShadowSearchDiagnostics.shared.recordInitFailure(class:)` wired into
+  the two AppBootstrap catch sites (line ~3461 handle-open catch +
+  line ~3494 warm() catch); `ShadowSearchHealthRow.backendDetail` extended
+  to render "Init failed: <class> — Halo unavailable until next launch"
+  when degraded, and "Init failed: <class> — recovered (no searches yet)"
+  when init failed but no degraded state because a search hasn't surfaced
+  yet. **§5.0 catch:** the original audit row + iter 3 next-pointer framed
+  the work as "HaloErrorClass enum on HaloController" but `HaloController`
+  is a pure state machine (debounce + match list, no init responsibility).
+  The actual diagnostic data layer is `ShadowSearchDiagnostics` (in
+  `ShadowSearchService.swift`) feeding `ShadowSearchHealthRow`. Implemented
+  on the correct surface — function naming follows the existing
+  `recordSuccess` / `recordFailure` pattern. 4 unit tests in
+  `EpistemosTests/ShadowInitDiagnosticsTests.swift` (records-and-degraded ·
+  handleOpen-vs-embedderWarm distinct · recovery on successful search ·
+  reset clears state). The fix does NOT address the root cause of the
+  embedder failures (HF model download stall / corrupt cache / etc.) —
+  user-side reproduction with a known-failing HF cache is still needed
+  to triage that. The patch unblocks remote diagnosis without Console.app.
 - 2026-05-10: New entry. Explore-agent diagnosis attached above.
   `log show --predicate 'process == "Epistemos"'` returned no shadow/halo
   hits over the last 30 min — macOS hardened-runtime redaction makes

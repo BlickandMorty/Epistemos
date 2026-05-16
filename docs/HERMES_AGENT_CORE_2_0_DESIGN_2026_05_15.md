@@ -299,11 +299,13 @@ impl<E: AgentExecutor> AgentExecutor for GovernedExecutor<E> {
 
 **No executor emits an event the policy layer did not inspect.** This is what makes Hermes 2.0 fundamentally different from Goose / OpenHands / Claude Agent SDK — in those systems the agent is the policy. Here Epistemos is the policy.
 
-### 5.1 ExecutionReceipt + Capability — SHIPPED provenance primitive
+### 5.1 ExecutionReceipt + Capability — SHIPPED-TYPES, ORPHAN-EMISSION (§5.0 correction T-A iter 6)
 
 **Code:** `agent_core/src/effect/receipt.rs` (173 LOC). PASS 2 gap audit B2-H13.
 
-Every governed tool invocation produces a signed **`ExecutionReceipt`** before the result flows back to the agent loop. The receipt is the on-the-wire proof that a specific tool ran with a specific capability set at a specific time, and its output hash is what downstream consumers (ClaimLedger, RunEventLog, Provenance Console) cite.
+**§5.0 correction (T-A iter 6, 2026-05-16):** the original doctrine below stated "Every governed tool invocation produces a signed `ExecutionReceipt` before the result flows back to the agent loop." That's an aspirational design statement, not the production reality. Verification commands: (i) `grep -rn "ExecutionReceipt\|HmacSha256SigningKey\|SigningKey\b" agent_core/src/ | grep -v "src/effect/"` returns ZERO hits — no callsite outside `effect/` itself constructs / signs / verifies an ExecutionReceipt; (ii) `grep -rln "ExecutionReceipt\|HmacSha256\|effect::Capability" agent_core/src/agent_runtime/ agent_core/src/agent_loop.rs` returns ZERO files — production `agent_runtime` (function_call.rs, mod.rs, procedural_memory.rs, prompt_format.rs, self_evolution.rs, skills.rs) does not touch the receipt path at all; (iii) `grep -rln "ExecutionReceipt" agent_core/tests` returns `effect_salvage.rs` + `heal_loop_fixtures.md` only; (iv) `grep -rn "ExecutionReceipt" Epistemos/` returns ZERO hits — no Swift surface consumes signed receipts either. **Production tool calls (`agent_runtime::function_call::execute_tool_call` etc.) return raw `ToolExecutionResult` payloads with a `"verified": true` boolean per the I-007/I-008 verified-write hardening; they do NOT emit signed `ExecutionReceipt` records.** Same orphan pattern as §5.4 IntentDispatcher (see iter-5 §5.0 correction). **Wiring is V1.x scope**, not V1 — the receipt path must be threaded through every governed tool invocation point and reconciled with the existing `"verified": true` payload contract, without regressing the verified-write E2E test in `ResourceRuntimeToolPathE2ETests`. The TYPES + tests are SHIPPED (read further below); the EMISSION is not.
+
+Every governed tool invocation [aspirational; see §5.0 correction above] produces a signed **`ExecutionReceipt`** before the result flows back to the agent loop. The receipt is the on-the-wire proof that a specific tool ran with a specific capability set at a specific time, and its output hash is what downstream consumers (ClaimLedger, RunEventLog, Provenance Console) cite.
 
 **`Capability` enum** — 4 variants encoding the capability axes the receipt cares about:
 
@@ -531,9 +533,11 @@ This section closes that gap. The enum stays in `epistemos-research` (Lane 3 RES
 - MASTER_FUSION §3.18 Provenance ledger (Phase 1) — Plane 5 substrate.
 - `docs/audits/HELIOS_SUBSTRATE_INVENTORY_2026_05_12.md` — drift-discovery context (drift gate commit `9e19bcf08` 2026-05-12).
 
-### 5.4 Intent → Effect dispatch + Applier subsystem — SHIPPED (B2-M10)
+### 5.4 Intent → Effect dispatch + Applier subsystem — SHIPPED-TYPES, ORPHAN-DISPATCH (B2-M10, §5.0 correction T-A iter 5)
 
-**Source:** PASS 2 audit row B2-M10 framed this subsystem as living in `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/effect/`. **§5.0 reconciliation finding: the entire 6-file subsystem is already in main at `agent_core/src/effect/`**, registered at `agent_core/src/lib.rs:19` (`pub mod effect;`). Audit was stale — this section records the doctrine retroactively.
+**Source:** PASS 2 audit row B2-M10 framed this subsystem as living in `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/effect/`. **§5.0 reconciliation finding (iter 38, 2026-05-16): the entire 6-file subsystem is already in main at `agent_core/src/effect/`**, registered at `agent_core/src/lib.rs:19` (`pub mod effect;`). Audit was stale — this section records the doctrine retroactively.
+
+**Second §5.0 correction (T-A iter 5, 2026-05-16):** the doctrine below initially framed the subsystem as "all consumed by the agent runtime." Reality on disk is narrower: the 6-file substrate is **complete + integration-tested** (see `agent_core/tests/effect_salvage.rs`, `tests/undo_salvage.rs`, `tests/heal_salvage.rs`, `tests/format_salvage.rs` — all four reference `Intent::VaultWrite` / `Intent::ConceptCreate` / `Intent::MemoryWrite` + exercise `IntentDispatcher` end-to-end). But **no production callsite in `agent_core/src/` outside `effect/` itself ever constructs `IntentDispatcher` or emits `Intent::Vault*` / `Intent::Concept*` / `Intent::MemoryWrite`**. Verification: `grep -rn "IntentDispatcher::\|with_vault\|with_concept\|with_memory" agent_core/src/ | grep -v "effect/"` returns zero hits; `grep -rn "Intent::VaultWrite\|Intent::VaultMove\|Intent::ConceptCreate\|Intent::MemoryWrite" agent_core/src/` returns one hit at `effect/memory_applier.rs:30` (a pattern-match inside the applier — not an emission). Only `heal/mod.rs` and `heal/log.rs` import from `effect` (and only `ApplyError`, an enum re-use — not the dispatch path). **Production agent_runtime (`agent_core::agent_runtime`) and `agent_loop.rs` do NOT route through `IntentDispatcher` today.** Wiring the dispatcher into the production loop is V1.x scope (re-classified below in the V1/Pro boundary), not V1.
 
 ### The architecture in one sentence
 
@@ -627,8 +631,8 @@ The Applier types are the canonical citizens of Plane 4 — they are how the run
 
 ### V1 / Pro / Post-V1 boundary
 
-- **MAS V1:** Effect subsystem is ALREADY SHIPPED. Vault + Concept + Memory Appliers all consumed by the agent runtime. No additional V1 work.
-- **V1.1:** The Reversal/Undo path (via `Inverse` + `is_reversible()`) is the substrate for B-3 Confidence Meter's re-learn-on-low-confidence path and for the V1.1 `edit_note_block` macaroon's per-edit Undo row (H-3 / B2-H6).
+- **MAS V1:** Effect subsystem TYPES + tests are SHIPPED (6 files, 722 LOC, 4 integration test suites). **Production wiring of `IntentDispatcher` into `agent_runtime`/`agent_loop` is NOT in V1 scope** — the existing agent loop emits tool-call results through the legacy path (`ToolRegistry::execute` + `ResourceService::verified_write`), and that path is what's actually ship-verified for MAS. Wire-in lifts to V1.x because (a) it requires routing the existing tool-handler success/error paths through `IntentDispatcher::apply` without regressing the verified-write contract (see I-007 / I-008), and (b) `Effect::VaultWrote` must coexist with the current `vault_write` tool-handler's `"verified": true` payload without double-counting writes.
+- **V1.x (was V1 in earlier framing — §5.0 corrected T-A iter 5):** wire `IntentDispatcher` into the production `agent_runtime` path so emitted Intents flow through the typed Applier surface in production, not only in tests. Plus the Reversal/Undo path (via `Inverse` + `is_reversible()`) as the substrate for B-3 Confidence Meter's re-learn-on-low-confidence path and the V1.1 `edit_note_block` macaroon's per-edit Undo row (H-3 / B2-H6).
 - **Pro V1.x:** Additional Applier types may be added (e.g. `ScreenCaptureApplier` for ScreenCaptureKit mutations · `AXApplier` for AXorcist mutations). All inherit the same `IntentDispatcher → Applier → Effect/Inverse/ApplyError` contract.
 
 ### Cross-references
@@ -786,7 +790,37 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 
 **App Review reviewer answer (cite this verbatim if asked "why not a web wrapper?"):** Three perception capabilities (A1-A3) literally cannot exist in a web app — there is no browser API for cross-application AX tree reads, system-wide CGEvent injection, or system-wide screen capture. Thirteen more (B1-B6, C1-C4, D1-D3) require in-process MLX-Swift, GRDB, Tantivy/usearch, or Metal compute shaders that the browser sandbox cannot reach without subprocess hops that would void the MAS hardened-runtime guarantees. The remaining three (D4 cloud, D5 cron, D6 query) lose 30-100ms latency per call when routed through HTTP/IPC instead of staying in-process. **The 19 specialties are the moat; the web wrapper would be a slower, weaker subset of D4 + D6.**
 
-**Tool-surface mapping (follow-up integration slice, not part of B2-1):** The §7.1 / §7.2 tool tables expose a *subset* of these specialties as named LLM-callable tools (e.g. B1 `vault_recall` → `vault.search`; B2 `graph_query` → `graph.search` / `graph.neighbors`). Specialties without a current tool-surface row (e.g. B3 `contradiction_check`, C4 `metal_benchmark`, D5 `live_note`) are exposed via Swift APIs and in-app UI, not via the agent's tool registry — yet. Future slices may promote any specialty to a tool row when the agent loop needs to invoke it directly.
+**Tool-surface mapping (§5.0-verified T-A iter 7, 2026-05-16):** The §7.1 / §7.2 tool tables expose **15 of the 19 specialties** as named LLM-callable tools in `agent_core/src/tools/registry.rs` (verified via per-specialty grep on the registry source). The 4 specialties NOT yet promoted to tool rows are exposed via Swift APIs and in-app UI only:
+
+| Specialty | Tool-row in registry? | Registry alias / handler |
+|---|---|---|
+| A1 perceive | ✅ | `intelligence.perceive` family |
+| A2 interact | ✅ | `intelligence.interact` family |
+| A3 screen_watch | ✅ | `intelligence.screen_watch` family |
+| B1 vault_recall | ✅ | `vault.search` (alias: `vault_recall`, `pkm_search`, `search_notes`) |
+| B2 graph_query | ✅ | `graph.search` / `graph.neighbors` (alias: `graph_query`) |
+| B3 contradiction_check | ✅ | `knowledge.contradiction_check` (alias: `analyzecontradiction`) |
+| B4 vault_navigate | ✅ | (alias entry in registry) |
+| B5 neural_recall | ✅ | `knowledge.neural_recall` |
+| B6 knowledge_distill | ❌ | Swift-only (`CloudKnowledgeDistillationService.swift`) |
+| C1 ssm_resume | ✅ | `inference.ssm_resume` |
+| C2 constrained_generate | ✅ | `inference.constrained_generate` |
+| C3 route_private | ✅ | `inference.route_private` |
+| C4 metal_benchmark | ❌ | Swift-only (`MetalRuntimeManager.swift`) |
+| D1 nightbrain_trigger | ✅ | `intelligence.nightbrain_trigger` |
+| D2 inline_partner | ✅ | `intelligence.inline_partner` |
+| D3 self_evolve | ✅ | `intelligence.self_evolve` |
+| D4 mixture_of_minds | ✅ | `intelligence.mixture_of_minds` |
+| D5 live_note | ❌ | Swift-only (`LiveNoteExecutor.swift` + `LiveNoteScanner.swift`) |
+| D6 dataview | ❌ | Swift-only (`DataviewService.swift`) |
+
+**§5.0 corrections to prior doctrine (T-A iter 7):**
+- Prior framing said "Specialties without a current tool-surface row (e.g. B3 `contradiction_check`, C4 `metal_benchmark`, D5 `live_note`)". Verification: B3 IS registered (alias `analyzecontradiction` at `agent_core/src/tools/registry.rs:357`); C4 and D5 are correctly identified as not-yet-promoted. Prior framing also omitted B6 `knowledge_distill` and D6 `dataview` from the not-yet list.
+- True NOT-promoted set is **{B6 knowledge_distill, C4 metal_benchmark, D5 live_note, D6 dataview}** = 4 specialties (not 3). Verification command: `for s in perceive interact screen_watch vault_recall graph_query contradiction_check vault_navigate neural_recall knowledge_distill ssm_resume constrained_generate route_private metal_benchmark nightbrain_trigger inline_partner self_evolve mixture_of_minds live_note dataview; do grep -cE "\"$s\"|name:\s*\"$s\"" agent_core/src/tools/registry.rs; done` returns nonzero counts for 15 of 19.
+
+**File-presence audit (T-A iter 7):** all 18 Swift files + 6 Rust files cited as backing implementations exist on disk (Screen2AXFusion.swift · AXorcistBridge.swift · ScreenCaptureService.swift · VisualVerifyLoop.swift · InstantRecallService.swift · ConstrainedDecodingService.swift · ToolSchemaGrammar.swift · ConfidenceRouter.swift · DualBrainRouter.swift · MetalRuntimeManager.swift · Mamba2ForwardPass.swift · NightBrainService.swift · AIPartnerService.swift · LiveNoteExecutor.swift · LiveNoteScanner.swift · DataviewService.swift · SSMStateService.swift · CloudKnowledgeDistillationService.swift + `agent_core/src/storage/{contradiction_detector,hyperbolic_topology,neural_cache,ssm_state}.rs` + `graph-engine/src/engine.rs` + `agent_core/src/tools/intelligence.rs`). The substrate side of §7.4 is fully present.
+
+Future slices may promote any of the 4 remaining specialties (B6 / C4 / D5 / D6) to a tool row when the agent loop needs to invoke them directly. None are V1-blocking — the Swift-API surfaces remain canonical for in-app UI consumption.
 
 **UI marking for premium moves (follow-up design slice, not part of B2-1):** Visual badge / accent (likely a small gradient ring + tooltip) marking UI affordances that invoke a specialty, so users can scan a surface and see *which buttons are doing something only Epistemos can do*. Lives in `Theme/PhysicsModifiers.swift` as a new `.specialty(let id: SpecialtyID)` modifier; routed through `CognitiveWeightBadge` already in main. Tracked separately from B2-1 — this slice ships the registry, not the marking.
 
