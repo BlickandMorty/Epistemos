@@ -28,9 +28,19 @@
 //!
 //! The repair is conservative: never narrows, never drops fields,
 //! never marks a previously-optional field as required.
+//!
+//! ## Diff (iter 79)
+//!
+//! [`diff`] is the inverse-direction primitive: given two schemas
+//! (produced by repair, by hand, or by external schema evolution),
+//! enumerate the deltas as `SchemaChange` events and flag whether
+//! the overall diff is backward-compatible via `is_breaking()`.
+//! Useful for CI gates and audit logs.
 
+pub mod diff;
 pub mod repair;
 
+pub use diff::{diff_schemas, SchemaChange, SchemaDiff};
 pub use repair::{
     repair_schema, validate_value, FieldSchema, FieldType, RepairPolicy, RepairReport, Schema,
     SchemaError, Value, ValidationError,
