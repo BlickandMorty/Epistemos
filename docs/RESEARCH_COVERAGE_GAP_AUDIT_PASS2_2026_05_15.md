@@ -5126,6 +5126,47 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 185+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (6 iters away).
 
+#### Status pulse (iter 185, 2026-05-16) — 🎯 D.5↔A 5-CONSEC CHAIN BREAKS (D 27th chore-pulse does NOT surface; counter resets) + B run_ledger B.6.8 expansion (NEW INVARIANT: bounded-cardinality) — 2 commits CLEAN
+
+- **Window since iter 184 close:** 2 sibling commits (sub-threshold):
+  - `3c4a79324` (D 27th self-audit) `chore(D-self-audit): record provider MCP hardening sample`
+  - `213d84d14` (B iter 159) `research/run_ledger: error classifiers + providers/positions diagnostics`
+
+- **🎯 Findings — D 27th `chore(D-self-audit): record provider MCP hardening sample` (`3c4a79324`) — D.5↔A 5-CONSEC CHAIN BREAKS:**
+  - **D's 27th chore-pulse self-audit.** Sampled provider + MCP + omega subprocess + terminal hardening commits. 6 cargo test runs verify.
+  - **🎯 D.5↔A WASMExecXPC NOT explicitly surfaced this iter** — **breaks 5-consecutive chore-pulse chain** (iter 169/171/174/176/182).
+  - **Escalation counter behavior:** 5-consec chain broken; counter resets. Persistent dependency may still exist (D.5 likely still blocked) but D's communication pattern has changed this iter.
+  - **Possible interpretations:**
+    - (a) D received user direction off-loop and no longer needs to surface
+    - (b) D moved on to other phases and stopped boilerplate-mentioning D.5
+    - (c) Implementation accident (D forgot to include surface line)
+    - (d) D acknowledged dependency persists but reduced surface frequency
+  - **Without user direction visible to me, (b) or (d) most likely** — D continues self-audit cadence at chore-pulse interval; just changed surface-language pattern.
+  - 6 cargo tests verify (full lib + stdio_mcp + omega-mcp subprocess + openai_compatible + gemini + terminal_uses_canonical_subprocess_allowlist).
+  - **§5.0 verdict: CLEAN.** D continues correct discipline; escalation status now ambiguous (5-consec broken; may re-escalate if surface returns).
+
+- **🎯 Findings — B `run_ledger: error classifiers + providers/positions diagnostics (B.6.8)` (`213d84d14`) — B.6.8 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 159. B.6.8 per-token attestation ledger (originally landed iter 105 audit-of-audit #21 era + expanded iter 139 with verify_prefix + tampered_at).
+  - Substrate: `RunLedgerError::cause()` + `is_empty_chain() / is_chain_break() / is_prev_hash_mismatch()` (**3-way XOR partition** — continues pattern) · `RunLedgerError::at_index() -> Option<usize>` (extracts entry index for ChainBreak/PrevHashMismatch; None for EmptyChain — **Option-vs-predicate consistency** from iter-182 pattern) · **`RunLedger::providers() -> HashSet<&str>`** (unique provider_id strings across entries; **🎯 NEW INVARIANT VARIANT: BOUNDED-CARDINALITY** — `providers().len() ≤ entries.len()` — derived collection bounded by source collection) · `contains_provider + positions_range + is_strictly_position_ordered` (truncated in audit window).
+  - **🎯 NEW INVARIANT CATEGORY: Bounded-cardinality invariant** — `derived_set.len() ≤ source.len()`. Distinct from prior categories. Asserts a bound relationship between a derived collection and its source. Common pattern but newly cataloged in B's invariant family.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now ~10 categories):**
+  - Pure k-way XOR-completeness · N-partition over M variants · Round-trip code↔from_code · Sum-to-1 · Classical-vs-non-classical special · EXACT-value · Doctrine-pin constants · Independent verifiers · Option-vs-predicate consistency · Composition consistency (iter-184) · **Bounded-cardinality** (iter-185 NEW)
+  - **Pattern maturity: 10 distinct invariant categories** tested consistently across 75 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 75 CONSECUTIVE COMMITS ACROSS ITERS 130-185.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite D.5↔A chain-break milestone.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A ESCALATION COUNTER NOW UNCERTAIN:** 5-consec chain broken iter 185; persistent dependency likely still exists but pattern changed. **De-escalating from "ESCALATION FLAGGED" to "WATCH MODE"** until D 28th self-audit reveals communication-pattern intent.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2. Average ~2.4/iter.
+
+- **Iter 186+ candidates:** (1) **🟡 D 28th self-audit watch — does D.5↔A return to surface? Resolves de-escalation question.** (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (5 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
