@@ -240,4 +240,29 @@ mod tests {
         assert_eq!(r.kind, None);
         assert_eq!(r.title, None);
     }
+
+    #[test]
+    fn producer_serde_rejects_unknown_string_without_panic() {
+        // Defensive cross-FFI decoder gate. Companion to
+        // `producer_serde_round_trips_snake_case` — the serde string
+        // form must also reject unknown variants gracefully so a
+        // `.epbundle` or persisted EpdocManifest emitted by a future
+        // Swift / Rust build adding a hypothetical "bot" / "tool" /
+        // "imported" producer decodes to Err on this build rather than
+        // panicking mid-replay.
+        let result: Result<Producer, _> = serde_json::from_str("\"bot\"");
+        assert!(
+            result.is_err(),
+            "Producer serde decoder must reject unknown producer kinds"
+        );
+        let result: Result<Producer, _> = serde_json::from_str("\"\"");
+        assert!(result.is_err(), "empty string must reject");
+        // PascalCase rejects — only snake_case is canonical, matching
+        // the Swift `EpdocProducer` String raw value.
+        let result: Result<Producer, _> = serde_json::from_str("\"Human\"");
+        assert!(
+            result.is_err(),
+            "PascalCase must reject — only snake_case is canonical"
+        );
+    }
 }
