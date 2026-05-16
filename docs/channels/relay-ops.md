@@ -16,6 +16,10 @@ Run the relay server anywhere your connector can reach it:
 epistemos_channel_relay --listen 0.0.0.0:8787
 ```
 
+The relay server binary is Pro-only and is compiled by `agent_core` only with
+`--no-default-features --features pro-build,channel-relay-tools`. The extra
+tool feature keeps standalone relay binaries out of the app bridge build.
+
 Optional environment:
 
 ```bash
@@ -34,12 +38,18 @@ epistemos_channel_relay --listen 0.0.0.0:8787 --db "$HOME/.epistemos/channel_rel
 Run one worker per outbound connector channel:
 
 ```bash
-epistemos_channel_worker --channel telegram --relay http://127.0.0.1:8787
-epistemos_channel_worker --channel slack --relay http://127.0.0.1:8787
-epistemos_channel_worker --channel discord --relay http://127.0.0.1:8787
-epistemos_channel_worker --channel whatsapp --relay http://127.0.0.1:8787
-epistemos_channel_worker --channel signal --relay http://127.0.0.1:8787
-epistemos_channel_worker --channel email --relay http://127.0.0.1:8787
+epistemos_channel_worker_telegram --relay http://127.0.0.1:8787
+epistemos_channel_worker_slack --relay http://127.0.0.1:8787
+epistemos_channel_worker_discord --relay http://127.0.0.1:8787
+epistemos_channel_worker_whatsapp --relay http://127.0.0.1:8787
+epistemos_channel_worker_signal --relay http://127.0.0.1:8787
+epistemos_channel_worker_email --relay http://127.0.0.1:8787
+```
+
+Build the relay tools explicitly:
+
+```bash
+cargo build --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,channel-relay-tools --bins
 ```
 
 Optional flags:
@@ -51,11 +61,17 @@ Optional flags:
 --once
 ```
 
+The generic debug form remains available in Pro builds:
+
+```bash
+epistemos_channel_worker --channel telegram --relay http://127.0.0.1:8787
+```
+
 ## Connector Env
 
 - `telegram`: `TELEGRAM_BOT_TOKEN`
-- `slack`: none if the webhook URL is stored in the channel route
-- `discord`: none if the webhook URL is stored in the channel route
+- `slack`: none if the webhook URL is stored in the channel route; otherwise `SLACK_WEBHOOK_URL`
+- `discord`: none if the webhook URL is stored in the channel route; otherwise `DISCORD_WEBHOOK_URL`
 - `whatsapp`: `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, optional `WHATSAPP_API_VERSION`
 - `signal`: `SIGNAL_CLI_BASE_URL`, `SIGNAL_ACCOUNT`
 - `email`: `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, optional `SMTP_PORT`
