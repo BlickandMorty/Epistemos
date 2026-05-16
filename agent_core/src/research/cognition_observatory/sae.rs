@@ -157,12 +157,52 @@ pub fn evaluate_against_gate(observations: &[LabeledScore]) -> Result<SaeVerdict
 }
 
 /// Bundle of feature-firing observations for one held-out validation set.
-/// Reserved for the future training-pipeline layer; this substrate floor
-/// holds only the AUC math.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ValidationSet {
     pub vault_domain: String,
     pub observations: Vec<LabeledScore>,
+}
+
+/// Per-validation-set class distribution.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ClassBalance {
+    pub total: usize,
+    pub positives: usize,
+    pub negatives: usize,
+}
+
+impl ClassBalance {
+    /// Fraction of observations that are positive (= hallucination).
+    /// Returns `None` if `total == 0` (rate is undefined on empty set).
+    pub fn positive_rate(&self) -> Option<f32> {
+        if self.total == 0 {
+            return None;
+        }
+        Some(self.positives as f32 / self.total as f32)
+    }
+
+    /// True iff both classes have at least one member — the prerequisite
+    /// for `auc_roc` to succeed.
+    pub fn has_both_classes(&self) -> bool {
+        self.positives > 0 && self.negatives > 0
+    }
+}
+
+impl ValidationSet {
+    /// Compute the class-balance breakdown of this set.
+    pub fn class_balance(&self) -> ClassBalance {
+        let total = self.observations.len();
+        let positives = self.observations.iter().filter(|o| o.is_hallucination).count();
+        let negatives = total - positives;
+        ClassBalance { total, positives, negatives }
+    }
+
+    /// Convenience: run [`evaluate_against_gate`] on this set's
+    /// observations. Production callers shouldn't reach into
+    /// `.observations` for the common path.
+    pub fn evaluate(&self) -> Result<SaeVerdict, SaeAucError> {
+        evaluate_against_gate(&self.observations)
+    }
 }
 
 #[cfg(test)]
@@ -323,5 +363,111 @@ mod tests {
         ];
         let auc = auc_roc(&v).unwrap();
         assert!((auc - 0.92).abs() < 1e-6, "auc={}", auc);
+    }
+
+    // ── ValidationSet + ClassBalance tests (iter 103) ───────────────────────
+
+    fn vs(observations: Vec<LabeledScore>) -> ValidationSet {
+        ValidationSet { vault_domain: "test".into(), observations }
+    }
+
+    #[test]
+    fn class_balance_empty() {
+        let s = vs(vec![]);
+        let cb = s.class_balance();
+        assert_eq!(cb.total, 0);
+        assert_eq!(cb.positives, 0);
+        assert_eq!(cb.negatives, 0);
+        assert!(cb.positive_rate().is_none());
+        assert!(!cb.has_both_classes());
+    }
+
+    #[test]
+    fn class_balance_balanced() {
+        let s = vs(vec![
+            obs(0.1, false),
+            obs(0.2, false),
+            obs(0.8, true),
+            obs(0.9, true),
+        ]);
+        let cb = s.class_balance();
+        assert_eq!(cb.total, 4);
+        assert_eq!(cb.positives, 2);
+        assert_eq!(cb.negatives, 2);
+        assert!((cb.positive_rate().unwrap() - 0.5).abs() < 1e-6);
+        assert!(cb.has_both_classes());
+    }
+
+    #[test]
+    fn class_balance_single_class_positives() {
+        let s = vs(vec![obs(0.5, true), obs(0.9, true)]);
+        let cb = s.class_balance();
+        assert_eq!(cb.positives, 2);
+        assert_eq!(cb.negatives, 0);
+        assert!(!cb.has_both_classes());
+        assert!((cb.positive_rate().unwrap() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn class_balance_single_class_negatives() {
+        let s = vs(vec![obs(0.1, false), obs(0.5, false)]);
+        let cb = s.class_balance();
+        assert_eq!(cb.positives, 0);
+        assert_eq!(cb.negatives, 2);
+        assert!(!cb.has_both_classes());
+        assert!((cb.positive_rate().unwrap() - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn evaluate_passes_when_observations_separate_classes() {
+        // Perfect separation → AUC 1.0 > 0.90 → GatePassed.
+        let s = vs(vec![
+            obs(0.1, false),
+            obs(0.2, false),
+            obs(0.8, true),
+            obs(0.9, true),
+        ]);
+        let verdict = s.evaluate().unwrap();
+        assert!(verdict.passed());
+        assert!((verdict.auc() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn evaluate_below_gate_when_classifier_random() {
+        // Interleaved scores → AUC ~ 0.5 < 0.90 → BelowGate.
+        let s = vs(vec![
+            obs(0.1, true),
+            obs(0.2, false),
+            obs(0.3, true),
+            obs(0.4, false),
+        ]);
+        let verdict = s.evaluate().unwrap();
+        assert!(!verdict.passed());
+        match verdict {
+            SaeVerdict::BelowGate { gap, .. } => assert!(gap > 0.0),
+            _ => panic!("expected BelowGate"),
+        }
+    }
+
+    #[test]
+    fn evaluate_propagates_single_class_error() {
+        let s = vs(vec![obs(0.5, true), obs(0.9, true)]);
+        let err = s.evaluate().unwrap_err();
+        assert!(matches!(err, SaeAucError::SingleClass { .. }));
+    }
+
+    #[test]
+    fn evaluate_propagates_empty_error() {
+        let s = vs(vec![]);
+        let err = s.evaluate().unwrap_err();
+        assert_eq!(err, SaeAucError::EmptyObservations);
+    }
+
+    #[test]
+    fn class_balance_serde_roundtrip() {
+        let cb = ClassBalance { total: 10, positives: 3, negatives: 7 };
+        let json = serde_json::to_string(&cb).unwrap();
+        let back: ClassBalance = serde_json::from_str(&json).unwrap();
+        assert_eq!(cb, back);
     }
 }
