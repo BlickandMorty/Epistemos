@@ -22,6 +22,7 @@ pub mod eml;
 pub mod hyperdynamic_schemas;
 pub mod mamba3;
 pub mod paper_registry;
+pub mod rwkv7;
 pub mod sherry_lattice;
 pub mod ternary;
 pub mod test_time_regression;
