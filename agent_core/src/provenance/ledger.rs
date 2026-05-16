@@ -1400,6 +1400,30 @@ mod tests {
     }
 
     #[test]
+    fn claim_tier_serializes_to_snake_case_for_ranked_claim_audit() {
+        // `ClaimTier` is part of `RankedClaim`'s wire format, which
+        // the Provenance Console + RRF tier-boost surfaces consume.
+        // The boost map's keys (in `epistemos-shadow::backend::rrf::
+        // rrf_fuse_with_tier_boosts`) string-match against this
+        // wire format — a serde casing change would silently break
+        // the cross-crate handoff.
+        use serde_json::to_string;
+        assert_eq!(to_string(&ClaimTier::Gap).unwrap(), "\"gap\"");
+        assert_eq!(to_string(&ClaimTier::Composite).unwrap(), "\"composite\"");
+        assert_eq!(to_string(&ClaimTier::Prime).unwrap(), "\"prime\"");
+
+        // Round-trip in: a historical RankedClaim JSON or external
+        // analytics dashboard must decode the snake_case strings
+        // cleanly.
+        let decoded: ClaimTier = serde_json::from_str("\"gap\"").unwrap();
+        assert_eq!(decoded, ClaimTier::Gap);
+        let decoded: ClaimTier = serde_json::from_str("\"composite\"").unwrap();
+        assert_eq!(decoded, ClaimTier::Composite);
+        let decoded: ClaimTier = serde_json::from_str("\"prime\"").unwrap();
+        assert_eq!(decoded, ClaimTier::Prime);
+    }
+
+    #[test]
     fn claim_tier_natural_ordering_is_gap_lt_composite_lt_prime() {
         // The doc comment on `ClaimTier` promises "`Gap < Composite <
         // Prime` so a `(tier, weight)` natural ordering sorts gap →
