@@ -35,6 +35,7 @@
 pub mod autopoiesis;
 pub mod kuramoto;
 pub mod notch_delta;
+pub mod vsm;
 
 pub use autopoiesis::{
     check_operational_closure, AutopoiesisError, ComponentId, OperationalClosureVerdict,
@@ -47,3 +48,4 @@ pub use kuramoto::{
 pub use notch_delta::{
     notch_delta_step, NotchDeltaCell, NotchDeltaError, NotchDeltaNetwork, NotchDeltaParams,
 };
+pub use vsm::{check_vsm_consistency, VsmError, VsmLevel, VsmUnit};
