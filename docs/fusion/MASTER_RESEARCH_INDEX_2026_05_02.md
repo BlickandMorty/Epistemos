@@ -745,6 +745,50 @@ Microsoft, 2B params, production. {-1, 0, +1} weights. 58.5% information density
 
 **Roadmap status (per `ternary kernel.md`):** block-scaled GEMV ✅ → fused projection + residual island ✅ → fused RMSNorm ✅ → KV fingerprint ✅ → activation tap ✅ → steering delta ✅. **ALL KERNELS LANDED** as of audit-of-audit #9 close (iter 81). Pending forward-work: backend `is_available()` flipping to `true` for `TernaryMetal` once Metal kernels graduate from stubs to wired implementations; cross-bound integration with `agent_core/src/cognitive_dag/` for Companion lifecycle (Phase 8 already SHIPPED); benchmark suite against `mlx-swift-examples`.
 
+### Wave J2 Cognition Observatory portfolio — Rust (PORTFOLIO CLOSED 4/4 kernels + umbrella; verified 2026-05-16, Terminal C audit-of-audit #12 iter 88)
+**Source branch:** `run-b-post-v1-research` (not yet merged to `codex/research-snapshot-2026-05-08`).
+**Substrate (43 tests across kernels; gated behind `feature = "research"`):**
+| Slice | File | Bytes | Tests | Commit |
+|---|---|---|---|---|
+| Umbrella | `agent_core/src/research/cognition_observatory/mod.rs` | 2378 | 0 | `c9ad21183` |
+| #1 KV implantation | `agent_core/src/research/cognition_observatory/kv_implant.rs` | 12106 | 10 | `c9ad21183` |
+| #2 Glass Pipe — atomic-write-index ring | `agent_core/src/research/cognition_observatory/glass_pipe.rs` | 7257 | 9 | `8b91a424f` |
+| #3 Weight Surgery — 9-target WeightPatcher | `agent_core/src/research/cognition_observatory/weight_patcher.rs` | 13677 | 11 | `e1918cb20` |
+| #4 SAE Observatory — AUC 0.90 doctrine pin | `agent_core/src/research/cognition_observatory/sae.rs` | 10900 | 13 | `fb688e065` |
+
+**Portfolio totals:** 5 files / ~46.3 KB / **43 tests** across kernels (0 in umbrella).
+
+**Donor research (citations resolve on disk):**
+- MASTER_FUSION §3.26 (KV implantation + Glass Pipe + weight surgery, Pro/Research tier) — at line 401.
+- MASTER_FUSION §3.36 (SAE Cognition Observatory — AUC 0.90 acceptance pin) — at line 529.
+- Cunningham et al., arXiv:2309.08600 — "Sparse Autoencoders Find Highly Interpretable Features in Language Models" (SAE methodology).
+- Bricken et al., 2023 Anthropic transformer-circuits.pub — "Towards Monosemanticity: Decomposing Language Models" (SAE-on-residual-stream construction).
+- Hanley & McNeil 1982 — AUC trapezoidal-integration definition.
+- `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_UNIFIED_MEMORY_CONTROL_ROOM.md` lines 419-510 (KVCacheImplanter Swift spec) + lines 588-637 (WeightPatcher Swift spec).
+- `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_ANE_GLASS_BALL_ASSESSMENT.md` (ANE honesty boundaries).
+
+**Architecture (per MASTER_FUSION §3.26):** GlassPipe is the control-room reader half (fixed-size circular fp32 buffer with atomic write index); Metal compute-kernel write half lives in Swift/Metal (forward-staged). WeightPatcher is the LoRA-delta envelope with 9-target enum {QProj, KProj, VProj, OProj, Gate, Up, Down, Embed, LmHead} + caller-owned snapshot/revert. SAE module implements AUC 0.90 doctrine pin from MASTER_FUSION §3.36.
+
+**Pending forward-work:** Metal compute-kernel write half for Glass Pipe; backend wiring for actual MLX-Rust integration of WeightPatcher; per-vault SAE validation set construction + AUC measurement to clear the 0.90 doctrine acceptance threshold.
+
+### Wave J3 Continual Learning suite — Rust (umbrella + EWC substrate floor; verified 2026-05-16, Terminal C audit-of-audit #12 iter 88)
+**Source branch:** `run-b-post-v1-research`.
+**Substrate (14 tests in EWC; first of N kernels; gated behind `feature = "research"`):**
+| Slice | File | Bytes | Tests | Commit |
+|---|---|---|---|---|
+| Umbrella | `agent_core/src/research/continual_learning/mod.rs` | 2736 | 0 | `50da364ae` |
+| #1 EWC — Elastic Weight Consolidation | `agent_core/src/research/continual_learning/ewc.rs` | 9156 | 14 | `50da364ae` |
+
+**Donor research (citations resolve on disk):**
+- Kirkpatrick et al., PNAS 2017, arXiv:1612.00796 — canonical EWC equation 3 (Fisher-weighted quadratic penalty anchoring θ to θ*).
+- `docs/fusion/jordan's research/kimis deep research/research/continual_learning_online.md` §8 "Never Retrain" architecture + §8.3 open questions (unified EWC+LoRA+FastWeights proof gap; Fisher threshold τ_prime heuristic; ANE backward-pass unavailable).
+- `osft_psoft_coso_fusion.md` (OSFT/PSOFT/COSO lane reference).
+- Driver J3 row "Continual learning suite — OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain".
+
+**EWC is the §8.1 "Protection" layer** of the Never Retrain stack. The Fisher-information matrix at the optimum of task A weights the quadratic penalty anchoring θ to θ*; this prevents catastrophic forgetting when subsequent tasks update θ.
+
+**Pending forward-work (driver J3 row roadmap):** OFTv2 · DSC · Titans-MAC · SEAL-DoRA. All NOT-STARTED at iter 88.
+
 ### Engram O(1) hash recall (partial)
 DeepSeek V4 Preview (April 24, 2026). Hashed N-gram embeddings for static knowledge with O(1) recall. Sparsity Allocation Law: 20-25% to memory, 75-80% to compute.
 
