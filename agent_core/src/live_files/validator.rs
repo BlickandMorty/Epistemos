@@ -53,6 +53,62 @@ pub enum LivePlanValidationError {
     ExpiresBeforeCompiled { compiled_at: String, expires_at: String },
 }
 
+impl LivePlanValidationError {
+    /// Stable identifier for the field/cause the validation failed on.
+    /// Used by the control-room "fix this plan" UI to highlight the
+    /// exact LivePlanV1 field that's broken.
+    pub const fn field(&self) -> &'static str {
+        match self {
+            LivePlanValidationError::EmptyLivefileId => "livefile_id",
+            LivePlanValidationError::EmptySourceUri => "source_uri",
+            LivePlanValidationError::EmptyPlanVersion => "plan_version",
+            LivePlanValidationError::EmptyPlanHash => "plan_hash",
+            LivePlanValidationError::EmptyCompiledAt => "compiled_at",
+            LivePlanValidationError::EmptyIntentSummary => "intent.summary",
+            LivePlanValidationError::NoTriggers => "triggers",
+            LivePlanValidationError::ZeroBudget => "eligibility.budget",
+            LivePlanValidationError::ExpiresBeforeCompiled { .. } => "expires_at",
+        }
+    }
+
+    /// Predicate: this error is an "empty required string" failure.
+    /// Covers livefile_id / source_uri / plan_version / plan_hash /
+    /// compiled_at / intent.summary.
+    pub const fn is_empty_field(&self) -> bool {
+        matches!(
+            self,
+            LivePlanValidationError::EmptyLivefileId
+                | LivePlanValidationError::EmptySourceUri
+                | LivePlanValidationError::EmptyPlanVersion
+                | LivePlanValidationError::EmptyPlanHash
+                | LivePlanValidationError::EmptyCompiledAt
+                | LivePlanValidationError::EmptyIntentSummary
+        )
+    }
+
+    /// Predicate: this error is the empty-triggers failure.
+    pub const fn is_no_triggers(&self) -> bool {
+        matches!(self, LivePlanValidationError::NoTriggers)
+    }
+
+    /// Predicate: this error is the all-zero budget failure.
+    pub const fn is_zero_budget(&self) -> bool {
+        matches!(self, LivePlanValidationError::ZeroBudget)
+    }
+
+    /// Predicate: this error is the temporal-ordering failure.
+    pub const fn is_temporal(&self) -> bool {
+        matches!(self, LivePlanValidationError::ExpiresBeforeCompiled { .. })
+    }
+}
+
+/// Predicate: this plan passes the structural validator. Alias for
+/// `validate_plan(plan).is_ok()`. The "is the runner safe to admit
+/// this plan?" check that does not surface the failure reason.
+pub fn is_valid_plan(plan: &LivePlanV1) -> bool {
+    validate_plan(plan).is_ok()
+}
+
 pub fn validate_plan(plan: &LivePlanV1) -> Result<(), LivePlanValidationError> {
     if plan.livefile_id.is_empty() {
         return Err(LivePlanValidationError::EmptyLivefileId);
@@ -257,5 +313,107 @@ mod tests {
         p.source_uri = String::new();
         p.intent.summary = String::new();
         assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyLivefileId);
+    }
+
+    // ── diagnostic surface (iter 147) ────────────────────────────────────────
+
+    #[test]
+    fn is_valid_plan_matches_validate_plan() {
+        // Cross-surface invariant: is_valid_plan(p) iff validate_plan(p).is_ok().
+        assert!(is_valid_plan(&ok_plan()));
+        let mut bad = ok_plan();
+        bad.livefile_id = String::new();
+        assert!(!is_valid_plan(&bad));
+        assert_eq!(is_valid_plan(&bad), validate_plan(&bad).is_ok());
+    }
+
+    #[test]
+    fn field_returns_unique_identifier_per_variant() {
+        // Cross-surface: each variant has a distinct field() identifier.
+        let variants = [
+            LivePlanValidationError::EmptyLivefileId,
+            LivePlanValidationError::EmptySourceUri,
+            LivePlanValidationError::EmptyPlanVersion,
+            LivePlanValidationError::EmptyPlanHash,
+            LivePlanValidationError::EmptyCompiledAt,
+            LivePlanValidationError::EmptyIntentSummary,
+            LivePlanValidationError::NoTriggers,
+            LivePlanValidationError::ZeroBudget,
+            LivePlanValidationError::ExpiresBeforeCompiled {
+                compiled_at: "a".into(),
+                expires_at: "b".into(),
+            },
+        ];
+        let fields: std::collections::HashSet<_> = variants.iter().map(|v| v.field()).collect();
+        assert_eq!(fields.len(), 9, "fields={:?}", fields);
+    }
+
+    #[test]
+    fn classifier_predicates_partition_all_variants() {
+        // Cross-surface invariant: exactly one of is_empty_field /
+        // is_no_triggers / is_zero_budget / is_temporal is true for
+        // every variant.
+        let variants = [
+            LivePlanValidationError::EmptyLivefileId,
+            LivePlanValidationError::EmptySourceUri,
+            LivePlanValidationError::EmptyPlanVersion,
+            LivePlanValidationError::EmptyPlanHash,
+            LivePlanValidationError::EmptyCompiledAt,
+            LivePlanValidationError::EmptyIntentSummary,
+            LivePlanValidationError::NoTriggers,
+            LivePlanValidationError::ZeroBudget,
+            LivePlanValidationError::ExpiresBeforeCompiled {
+                compiled_at: "a".into(),
+                expires_at: "b".into(),
+            },
+        ];
+        for v in &variants {
+            let quad = [
+                v.is_empty_field(),
+                v.is_no_triggers(),
+                v.is_zero_budget(),
+                v.is_temporal(),
+            ];
+            assert_eq!(quad.iter().filter(|t| **t).count(), 1, "{:?}", v);
+        }
+    }
+
+    #[test]
+    fn empty_field_classifier_covers_six_variants() {
+        // The six "empty required string" variants.
+        let empties = [
+            LivePlanValidationError::EmptyLivefileId,
+            LivePlanValidationError::EmptySourceUri,
+            LivePlanValidationError::EmptyPlanVersion,
+            LivePlanValidationError::EmptyPlanHash,
+            LivePlanValidationError::EmptyCompiledAt,
+            LivePlanValidationError::EmptyIntentSummary,
+        ];
+        for v in &empties {
+            assert!(v.is_empty_field(), "expected is_empty_field for {:?}", v);
+        }
+    }
+
+    #[test]
+    fn error_from_real_validation_carries_correct_field() {
+        // Cross-surface: validate_plan returns an error whose field()
+        // identifies the actual offending fixture field.
+        let mut p = ok_plan();
+        p.plan_hash = String::new();
+        let err = validate_plan(&p).unwrap_err();
+        assert_eq!(err.field(), "plan_hash");
+        assert!(err.is_empty_field());
+
+        let mut p = ok_plan();
+        p.eligibility.budget = LivePlanBudget { tokens: 0, ms: 0, usd: 0.0 };
+        let err = validate_plan(&p).unwrap_err();
+        assert_eq!(err.field(), "eligibility.budget");
+        assert!(err.is_zero_budget());
+
+        let mut p = ok_plan();
+        p.expires_at = Some("2026-05-01T00:00:00Z".into());
+        let err = validate_plan(&p).unwrap_err();
+        assert_eq!(err.field(), "expires_at");
+        assert!(err.is_temporal());
     }
 }
