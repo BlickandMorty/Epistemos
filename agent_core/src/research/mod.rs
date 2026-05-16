@@ -24,3 +24,4 @@ pub mod mamba3;
 pub mod paper_registry;
 pub mod sherry_lattice;
 pub mod ternary;
+pub mod test_time_regression;
