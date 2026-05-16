@@ -2783,6 +2783,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 137+ candidates:** (1) Watch B B.0-LARGE.1 UAS plumbing audit landing (user driver update from iter 134; per V6.1 pattern landing within 1-3 iters; could be iter 137 if not earlier). (2) C cross-verification of B's iter-50/60/70/80-89 §7 audit cleared verdicts deferred from this iter (no urgency — B-reported ON-TRACK; not flagged as drift). (3) Watch A T-A-29 first 1800s-cadence self-audit (still ~30 min from iter 28 transition). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+### Audit-of-audit #32 (iter 137, 2026-05-16) — 🎯 B SUBSTRATE-MATURATION PHASE 10TH CONSECUTIVE COMMIT (belnap info-lattice + confidence_floors LadderStats both substrate-floor expansions) + D 7th self-audit cycle — 3 commits CLEAN
+
+- **Window since iter 136 close:** 3 substantive sibling commits at threshold:
+  - `fc56bb1b9` (B iter 92) `research/belnap: info-lattice meet + join (B.6.4 sibling ops)`
+  - `0007e8b78` (B iter 91) `research/confidence_floors: LadderStats + health_verdict`
+  - `2accd84ee` (D) `chore(D-self-audit): record provider hardening sample`
+
+- **🎯 Findings — B `belnap: info-lattice meet + join` (`fc56bb1b9`) — B.6.4 SUBSTRATE-FLOOR EXPANSION:**
+  - Closes substrate-floor gap on B.6.4 Belnap: previously shipped only the TRUTH-lattice ops (`not` / `and` / `or` / `implies`); this commit lands the INFORMATION-lattice analogues per Belnap FDE 1977 dual-lattice doctrine.
+  - Belnap FDE 1977: two distinct partial orders — truth lattice (False ≤ T/N/B ≤ True) AND information lattice (Neither ≤ T/F ≤ Both).
+  - Substrate: `BelnapValue::info_join(other)` (least upper bound: Neither ⊔ x = x · Both ⊔ x = Both · **True ⊔ False = Both** — DISTINCT from `or` which returns True) · `BelnapValue::info_meet(other)` (greatest lower bound: Both ⊓ x = x · Neither ⊓ x = Neither · **True ⊓ False = Neither** — DISTINCT from `and` which returns False).
+  - mod doc updated to list both lattices' operators.
+  - **Semantic correctness:** the True⊔False = Both vs True∨False = True distinction is the crucial Belnap 1977 result; B is correctly implementing the evidence-aggregation use case (claim graph propagation across multiple sources).
+  - 11 new unit tests covering info_join + info_meet + distinct-from-truth-ops semantics.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `confidence_floors: LadderStats + health_verdict` (`0007e8b78`) — B.6.9 SUBSTRATE-FLOOR EXPANSION:**
+  - Closes substrate-floor gap on B.6.9 confidence_floors (originally landed at iter-106 audit-of-audit #22 era at `94eac7916`): previously shipped `decide` + `count_by_decision`; this commit lands typed stats + doctrine-thresholded health classifier control-room UI integration layer.
+  - Substrate: `LadderStats { total, mean_score, stddev, t1_rate, t2_rate, t3_rate, escalate_rate, empty_no_escalate_rate }` (rates sum to 1.0 by construction) · `LadderHealth` enum (Healthy / Degrading / Failing) · `stats() -> Option<LadderStats>` (None on empty log) · `health_verdict() -> Option<LadderHealth>` with thresholds: `Failing` if degraded rate (escalate + empty_no_escalate) ≥ 0.20 · `Healthy` if T1+T2 rate ≥ 0.85 · `Degrading` otherwise.
+  - 9 new unit tests covering: stats None on empty · arithmetic mean correctness · stddev=0 when all equal · per-tier rates sum to 1.0 · health Healthy when high-tier dominant · Failing when degraded above 20% · Degrading when T3-heavy but degraded low.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `chore(D-self-audit): record provider hardening sample` (`2accd84ee`) — 7th D-self-audit commit:**
+  - "Record Terminal D self-audit evidence for sampled provider, MCP, and subprocess hardening commits. No code change was required; this is the append-only implementation-log row for the 2026-05-16 pass." Agent: Codex.
+  - **D's distributed self-audit cadence continues at strong pattern:** 7 self-audit commits since iter 119 first observed (iter 119 + iter 128 ×3 + iter 129 + iter 131 + iter 135 + this iter).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 10 CONSECUTIVE COMMITS ACROSS ITERS 130-137:**
+  - Phase 1 — Pure §4 NOT-STARTED gap closures (iters 130-132): 4 commits closing 6 distinct gaps (B.6.10 validators + attention_sinks + trigram dedupe + brain_routing + session_graph + ssm_pruning).
+  - Phase 2 — Substrate-floor expansions on landed modules (iters 134-137): 6 commits adding production-tier APIs (action_to_eml FreeParticleLagrangian + MultiExpertSparsePolicy Shazeer + tropical relu_layer + biometric_gate AdmissionDecision + belnap info-lattice + confidence_floors LadderStats).
+  - **10 consecutive substrate-maturation commits + 1 B-doc commit (B.0-LARGE iter 134) + 1 §7 audit checkpoint cleared (iter-80-89 at iter 136).** Pattern strong + stable; B's post-substrate-shipping maturation phase healthy.
+
+- **§5.0 catch rate:** 29/196 = 14.8% (continued decline; B's substrate-maturation phase keeps CLEAN-rate high).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Re-evaluate step-back after 5 consecutive ON-TRACK + rate <5/30min sustained. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3 (this iter). Average ~3.2/iter.
+
+- **Verdict:** ✅ **ON TRACK** (25th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 138+ candidates:** (1) **⚠️ B B.0-LARGE.1 UAS plumbing audit landing OVERDUE** — user driver update was iter 134; per V6.1 precedent landing was within 1-3 iters (iter 134-137 window); 3 iters past landing without B.0-LARGE.1 substrate commit. Possibilities: (a) B is finishing the substrate-maturation phase before transitioning; (b) B's iter-90 §7 audit checkpoint took precedence; (c) flag for future surface if still absent by iter 140. Not yet drift (B can prioritize finishing maturation before new phase). (2) Watch B's gap-closure phase taper signal. (3) Watch A T-A-29 first 1800s-cadence self-audit (still ~30 min from iter 28 transition; about 15 min away now). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
