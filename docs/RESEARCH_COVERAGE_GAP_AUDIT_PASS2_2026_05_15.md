@@ -1539,6 +1539,33 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 104+ candidates:** (1) Verify MASTER_FUSION §3.39 Compute Steering status — does B.6.6 LANDED flip the NOT-STARTED there? If not, lockstep gap. (2) Surface D.3 escalation + D Phase D.0 gating to user (MEDIUM-HIGH + HIGH priority items). (3) Phase C.2 mass MASTER_RESEARCH_INDEX update remains pending. (4) Phase C.6 forward-staged primitive re-audit (long overdue since #8 baseline).
 
+#### Status pulse (iter 104, 2026-05-16) — B.6.7 MOHAWK CLEAN + ⚠️ §8 LOCKSTEP GAPS: §3.39 Compute Steering + §3.41 MOHAWK both stale post-substrate landing
+
+- **Window since #20 (iter 103):** 1 sibling commit + iter-103 lockstep flag verification:
+  - `ccdd9e724` (B) B.6.7 MOHAWK distillation + layer placement + quant table.
+
+- **§5.0 spot-check B.6.7:** `agent_core/src/research/nano_training_recipe.rs` · **16 tests**. Per-target training plan converting teacher transformer → small SSM via 3-stage MOHAWK distillation. Acceptance bar: MLX-LM v0.31.1+ native execution (Mamba-1/Mamba-2/Nemotron-H/Jamba). **§5.0 verdict: CLEAN.**
+
+- **🎯 §8 LOCKSTEP GAP CONFIRMED — §3.39 Compute Steering (from iter 103 flag):**
+  - **§3.39 status at B's HEAD:** line 567 still titled "Adaptation Subsystem + Compute Steering — schema-first adapter dispatch (Adaptation SHIPPED · **Compute Steering NOT-STARTED**)". Line 579 still reads "Compute Steering — schema spec... NOT shipped — `rg "compute_budget|compute_profile|MicroTTT|ComputeSteering"` across `agent_core/src/` + `Epistemos/` returns **zero hits**. ... **NOT-STARTED**".
+  - **Actual substrate at B's HEAD:** `agent_core/src/research/compute_steering.rs` (15 tests; `ComputeBudget` struct + `DispatchDecision` + `SteeringError` + `SteeringPolicy` trait + `GreedySingleExpertPolicy`) + `epistemos-core/src/compute_steering.rs` (additional types: `ComputeProfile` enum + `ExpertBudgetClass` + `KVPolicyKind` + `ComputeBudget` + `StructuredMaskPlan` + `ValidatedMask` + `MaskCompileError` + `MaskingState` + `PredictedMask` + `LayerBlockMask`).
+  - **Lesson #6 inverted pattern:** the §3.39 grep `compute_budget|compute_profile|MicroTTT|ComputeSteering` is TECHNICALLY STILL zero hits (case-sensitive snake_case) because B's actual code uses `ComputeBudget` / `ComputeProfile` (PascalCase struct names) — different identifier names than the grep pattern predicted. **Grep claim technically still correct; spirit ("Compute Steering NOT-STARTED") is now WRONG because substrate landed.** Same Lesson #6 trap from the other direction: relying on the literal grep without verifying spirit.
+  - **§8 lockstep rule violation:** "Forward-staged primitive flips: if you move a primitive from forward-staged to LANDED, update both PASS-2 audit Status + MASTER_FUSION inventory in the same commit." B's B.6.6 commit (`3fe340a2e`) landed Compute Steering substrate but did NOT touch MASTER_FUSION (`git show --stat 3fe340a2e | grep MASTER_FUSION` returns empty). **§8 LOCKSTEP GAP.**
+
+- **🎯 §8 LOCKSTEP GAP CONFIRMED — §3.41 MOHAWK (this iter's verify):**
+  - **§3.41 status at B's HEAD:** line 584 titled "Nano Model Training Recipe — 75/25 Mamba-2/Attention hybrid + MOHAWK distillation (B2-M3)". Line 604 reads "MOHAWK distillation hyperparameters (validated, **NOT-STARTED** in code)".
+  - **Actual substrate at B's HEAD:** `agent_core/src/research/nano_training_recipe.rs` (16 tests; this iter's B.6.7).
+  - **§8 lockstep violation:** B.6.7 commit (`ccdd9e724`) landed MOHAWK substrate but did NOT touch MASTER_FUSION. **§8 LOCKSTEP GAP.**
+
+- **Severity assessment for both gaps:** MEDIUM (mild because substrate is on B's branch not yet in main; doctrine status in main is technically correct for main's state). BUT the §8 rule is **per-commit-when-substrate-flips**, regardless of branch. B's B.6.6 + B.6.7 commits **violated §8 lockstep at commit time**. Once B's branch upmerges into `codex/research-snapshot-2026-05-08`, these gaps become loud in main.
+- **Per §1.5 audit-only:** flag-only. C does NOT edit §3.39/§3.41 content rows (sibling-owned content). **Surface to user / B with MEDIUM priority.**
+
+- **Iter 104 takeaway:** Lesson #6 generalizes — substrate-claim verification (lesson #6 iter 74) extends to substrate-status-claim verification when substrate LANDS. The doctrine row's grep claim can stay literally true while substrate exists under different identifier names; the SPIRIT of the claim ("NOT-STARTED") is what audit-of-audit must verify. **Phase C.7.3 honest-caveats discipline applies to status-block claims, not just citation claims.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only; per iter-84 clarification lockstep applies to full audit-of-audit cycles, and this is a single-commit + carry-forward flag). MAS_COMPLETE_FUSION §8 row deferred to next full cycle.
+
+- **13 consecutive ON-TRACK cycles** since #8 catch. The §8 lockstep gaps are sibling-owned doctrine drift, NOT C-level audit drift. C correctly catches and flags.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
