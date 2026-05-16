@@ -44,6 +44,80 @@ impl PacketRouterStats {
         let smaller = self.routed_to_lane_0.min(self.routed_to_lane_1) as f32;
         smaller / (self.total_inputs as f32) * 2.0
     }
+
+    /// `|lane_0 - lane_1| / total` — the complement of [`Self::balance`]
+    /// scaled to `[0, 1]`. 0 = perfectly balanced; 1 = full skew (all
+    /// inputs routed to one lane). Returns 0.0 for empty input.
+    pub fn skew_fraction(&self) -> f32 {
+        if self.total_inputs == 0 {
+            return 0.0;
+        }
+        let diff = (self.routed_to_lane_0 as i64 - self.routed_to_lane_1 as i64).unsigned_abs();
+        diff as f32 / self.total_inputs as f32
+    }
+
+    /// Routing-quality verdict at default thresholds. `Balanced` if
+    /// both lanes have at least 40% share; `Skewed` if one lane is
+    /// majority but the minority lane still has at least 5%;
+    /// `Degenerate` if one lane has fewer than 5%.
+    pub fn quality(&self) -> RoutingQuality {
+        if self.total_inputs == 0 {
+            return RoutingQuality::Degenerate;
+        }
+        let total = self.total_inputs as f32;
+        let l0 = self.routed_to_lane_0 as f32 / total;
+        let l1 = self.routed_to_lane_1 as f32 / total;
+        let min_share = l0.min(l1);
+        if min_share >= 0.4 {
+            RoutingQuality::Balanced
+        } else if min_share >= 0.05 {
+            RoutingQuality::Skewed
+        } else {
+            RoutingQuality::Degenerate
+        }
+    }
+}
+
+/// Verdict on a router's distribution between lanes 0 and 1.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum RoutingQuality {
+    /// Both lanes hold ≥40% of inputs.
+    Balanced,
+    /// Minority lane holds ≥5% but <40% of inputs.
+    Skewed,
+    /// Minority lane holds <5% (or no inputs at all).
+    Degenerate,
+}
+
+/// Route then immediately un-route an input; verify the result
+/// matches the original element-wise. End-to-end correctness check
+/// that exercises both [`route_1bit`] and [`unroute_1bit`]. Returns
+/// `Ok(())` on byte-identical reconstruction or `Err(usize)` of the
+/// first differing index.
+pub fn roundtrip_verify(
+    inputs: &[f32],
+    bits: &[bool],
+) -> Result<(), RoundtripError> {
+    let (routed, _stats) = route_1bit(inputs, bits)
+        .map_err(RoundtripError::Router)?;
+    let restored = unroute_1bit(&routed, inputs.len())
+        .map_err(RoundtripError::Router)?;
+    for i in 0..inputs.len() {
+        if inputs[i] != restored[i] {
+            return Err(RoundtripError::Mismatch {
+                index: i,
+                original: inputs[i],
+                restored: restored[i],
+            });
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RoundtripError {
+    Router(PacketRouterError),
+    Mismatch { index: usize, original: f32, restored: f32 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -260,5 +334,106 @@ mod tests {
         assert_eq!(stats.routed_to_lane_1, 500);
         let merged = unroute_1bit(&routed, inputs.len()).unwrap();
         assert_eq!(merged, inputs);
+    }
+
+    // ── skew_fraction + quality + roundtrip_verify tests (iter 123) ─────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn skew_fraction_empty_input_zero() {
+        let s = PacketRouterStats {
+            total_inputs: 0,
+            routed_to_lane_0: 0,
+            routed_to_lane_1: 0,
+        };
+        assert!(approx(s.skew_fraction(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn skew_fraction_perfect_balance_zero() {
+        let s = PacketRouterStats {
+            total_inputs: 100,
+            routed_to_lane_0: 50,
+            routed_to_lane_1: 50,
+        };
+        assert!(approx(s.skew_fraction(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn skew_fraction_full_skew_one() {
+        let s = PacketRouterStats {
+            total_inputs: 100,
+            routed_to_lane_0: 100,
+            routed_to_lane_1: 0,
+        };
+        assert!(approx(s.skew_fraction(), 1.0, 1e-6));
+    }
+
+    #[test]
+    fn quality_balanced_when_both_lanes_at_least_40pct() {
+        // 50/50 = balanced.
+        let s = PacketRouterStats {
+            total_inputs: 100,
+            routed_to_lane_0: 50,
+            routed_to_lane_1: 50,
+        };
+        assert_eq!(s.quality(), RoutingQuality::Balanced);
+        // 40/60 = balanced (boundary).
+        let s = PacketRouterStats {
+            total_inputs: 100,
+            routed_to_lane_0: 40,
+            routed_to_lane_1: 60,
+        };
+        assert_eq!(s.quality(), RoutingQuality::Balanced);
+    }
+
+    #[test]
+    fn quality_skewed_when_minority_between_5_and_40() {
+        // 20/80 = skewed.
+        let s = PacketRouterStats {
+            total_inputs: 100,
+            routed_to_lane_0: 20,
+            routed_to_lane_1: 80,
+        };
+        assert_eq!(s.quality(), RoutingQuality::Skewed);
+    }
+
+    #[test]
+    fn quality_degenerate_when_minority_below_5pct() {
+        // 3/97 = degenerate (3% < 5%).
+        let s = PacketRouterStats {
+            total_inputs: 100,
+            routed_to_lane_0: 3,
+            routed_to_lane_1: 97,
+        };
+        assert_eq!(s.quality(), RoutingQuality::Degenerate);
+    }
+
+    #[test]
+    fn quality_degenerate_for_empty_input() {
+        let s = PacketRouterStats {
+            total_inputs: 0,
+            routed_to_lane_0: 0,
+            routed_to_lane_1: 0,
+        };
+        assert_eq!(s.quality(), RoutingQuality::Degenerate);
+    }
+
+    #[test]
+    fn roundtrip_verify_succeeds_on_clean_input() {
+        let inputs: Vec<f32> = (0..16).map(|i| i as f32).collect();
+        let bits: Vec<bool> = (0..16).map(|i| i % 2 == 0).collect();
+        assert!(roundtrip_verify(&inputs, &bits).is_ok());
+    }
+
+    #[test]
+    fn roundtrip_verify_detects_bits_length_mismatch() {
+        let inputs = vec![1.0_f32, 2.0];
+        let bits = vec![true];
+        let err = roundtrip_verify(&inputs, &bits).unwrap_err();
+        assert!(matches!(err, RoundtripError::Router(_)));
     }
 }
