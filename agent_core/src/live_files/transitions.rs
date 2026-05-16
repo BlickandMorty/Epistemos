@@ -49,6 +49,14 @@ pub enum TransitionGuard {
 }
 
 impl TransitionGuard {
+    pub const ALL: [TransitionGuard; 5] = [
+        TransitionGuard::None,
+        TransitionGuard::SignatureValid,
+        TransitionGuard::EligibilityGreen,
+        TransitionGuard::RunnerAdmitted,
+        TransitionGuard::UserAck,
+    ];
+
     pub const fn code(self) -> &'static str {
         match self {
             TransitionGuard::None => "none",
@@ -58,6 +66,17 @@ impl TransitionGuard {
             TransitionGuard::UserAck => "g4_user_ack",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|g| g.code() == code)
+    }
+
+    /// Predicate: this guard requires no caller witness — the edge
+    /// is unconditionally legal when the source state matches.
+    pub const fn is_none_guard(self) -> bool {
+        matches!(self, TransitionGuard::None)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -65,6 +84,48 @@ pub enum TransitionError {
     IllegalTransition { from: LiveFileState, to: LiveFileState },
     GuardFailed { from: LiveFileState, to: LiveFileState, guard: TransitionGuard },
     RevokedIsTerminal,
+}
+
+impl TransitionError {
+    pub const fn is_illegal_edge(&self) -> bool {
+        matches!(self, TransitionError::IllegalTransition { .. })
+    }
+
+    pub const fn is_guard_failed(&self) -> bool {
+        matches!(self, TransitionError::GuardFailed { .. })
+    }
+
+    pub const fn is_terminal_source(&self) -> bool {
+        matches!(self, TransitionError::RevokedIsTerminal)
+    }
+}
+
+/// Predicate: `(from, to)` is a legal edge in the transition graph.
+/// Cross-surface invariant: `is_legal_edge(f, t) iff guard_for(f, t).is_some()`.
+pub fn is_legal_edge(from: LiveFileState, to: LiveFileState) -> bool {
+    guard_for(from, to).is_some()
+}
+
+/// All `(target_state, guard)` pairs reachable from `from` in one step.
+/// Cross-surface invariant: `outbound_edges(Revoked).is_empty()` per
+/// the §5 "Revoked is one-way terminal" doctrine.
+pub fn outbound_edges(from: LiveFileState) -> Vec<(LiveFileState, TransitionGuard)> {
+    LiveFileState::ALL
+        .iter()
+        .copied()
+        .filter_map(|to| guard_for(from, to).map(|g| (to, g)))
+        .collect()
+}
+
+/// All `(source_state, guard)` pairs that can transition INTO `to`.
+/// Cross-surface invariant: `inbound_edges(Revoked).len() == 9` —
+/// every non-Revoked state has an edge into Revoked.
+pub fn inbound_edges(to: LiveFileState) -> Vec<(LiveFileState, TransitionGuard)> {
+    LiveFileState::ALL
+        .iter()
+        .copied()
+        .filter_map(|from| guard_for(from, to).map(|g| (from, g)))
+        .collect()
 }
 
 /// Return the guard required to transition `from → to`, or `None` if
@@ -260,6 +321,120 @@ mod tests {
         assert!(guard_for(Static, Running).is_none());
         assert!(guard_for(Completed, Running).is_none());
         assert!(guard_for(Revoked, Static).is_none());
+    }
+
+    // ── diagnostic surface (iter 146) ────────────────────────────────────────
+
+    #[test]
+    fn guard_all_includes_five_distinct() {
+        let s: std::collections::HashSet<_> = TransitionGuard::ALL.iter().copied().collect();
+        assert_eq!(s.len(), 5);
+    }
+
+    #[test]
+    fn guard_from_code_roundtrips_all() {
+        // Cross-surface invariant: from_code(g.code()) == Some(g) for all guards.
+        for g in TransitionGuard::ALL.iter().copied() {
+            assert_eq!(TransitionGuard::from_code(g.code()), Some(g));
+        }
+    }
+
+    #[test]
+    fn guard_from_code_unknown_returns_none() {
+        assert_eq!(TransitionGuard::from_code("not-a-guard"), None);
+        assert_eq!(TransitionGuard::from_code("G1"), None); // case-sensitive
+    }
+
+    #[test]
+    fn is_none_guard_only_for_none() {
+        for g in TransitionGuard::ALL.iter().copied() {
+            assert_eq!(g.is_none_guard(), g == TransitionGuard::None);
+        }
+    }
+
+    #[test]
+    fn is_legal_edge_matches_guard_for() {
+        // Cross-surface invariant: is_legal_edge(f, t) iff guard_for(f, t).is_some()
+        for f in LiveFileState::ALL.iter().copied() {
+            for t in LiveFileState::ALL.iter().copied() {
+                assert_eq!(is_legal_edge(f, t), guard_for(f, t).is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn outbound_edges_revoked_is_empty() {
+        // §5 invariant: Revoked has no outbound edges (one-way terminal).
+        assert!(outbound_edges(Revoked).is_empty());
+    }
+
+    #[test]
+    fn inbound_edges_revoked_covers_nine_states() {
+        // §5 invariant: every non-Revoked state has an edge into Revoked.
+        let inbound = inbound_edges(Revoked);
+        assert_eq!(inbound.len(), 9);
+        for (_, g) in &inbound {
+            assert_eq!(*g, TransitionGuard::UserAck);
+        }
+        assert!(!inbound.iter().any(|(f, _)| *f == Revoked));
+    }
+
+    #[test]
+    fn outbound_inbound_sum_invariant() {
+        // Cross-surface invariant: the sum of |outbound_edges| over all
+        // states equals the sum of |inbound_edges| over all states —
+        // each edge is counted once in each direction.
+        let outbound_total: usize = LiveFileState::ALL
+            .iter()
+            .map(|s| outbound_edges(*s).len())
+            .sum();
+        let inbound_total: usize = LiveFileState::ALL
+            .iter()
+            .map(|s| inbound_edges(*s).len())
+            .sum();
+        assert_eq!(outbound_total, inbound_total);
+    }
+
+    #[test]
+    fn no_orphan_states_every_state_has_inbound_or_is_initial() {
+        // §4 invariant (FINAL_SYNTHESIS): no orphan states. Every
+        // non-Static state must have at least one inbound edge.
+        for s in LiveFileState::ALL.iter().copied() {
+            if s == Static {
+                continue; // Static is the initial state — no inbound required.
+            }
+            assert!(!inbound_edges(s).is_empty(), "orphan state {:?}", s);
+        }
+    }
+
+    #[test]
+    fn attempt_transition_alignment_with_is_legal_edge() {
+        // Cross-surface invariant: attempt_transition(f, t, true).is_ok()
+        // iff f != Revoked AND is_legal_edge(f, t).
+        for f in LiveFileState::ALL.iter().copied() {
+            for t in LiveFileState::ALL.iter().copied() {
+                let expected = f != Revoked && is_legal_edge(f, t);
+                let got = attempt_transition(f, t, true).is_ok();
+                assert_eq!(got, expected, "{:?} → {:?}", f, t);
+            }
+        }
+    }
+
+    #[test]
+    fn transition_error_classifiers_partition() {
+        let illegal = TransitionError::IllegalTransition { from: Static, to: Running };
+        let failed = TransitionError::GuardFailed {
+            from: LiveCandidate,
+            to: Compiled,
+            guard: TransitionGuard::SignatureValid,
+        };
+        let terminal = TransitionError::RevokedIsTerminal;
+        // Cross-surface invariant: exactly one of the three predicates
+        // is true for any TransitionError variant.
+        for e in [illegal, failed, terminal] {
+            let trio = [e.is_illegal_edge(), e.is_guard_failed(), e.is_terminal_source()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
     }
 
     #[test]
