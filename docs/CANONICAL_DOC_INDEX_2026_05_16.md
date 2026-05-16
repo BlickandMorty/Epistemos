@@ -43,7 +43,7 @@
 | Path | Purpose | Primary owner | Update cadence |
 |---|---|---|---|
 | `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md` (PASS-1) | HIGH/MED/LOW-tier rows + Status blocks; L-1..L-5 closed | C maintains; all terminals append Status | Every commit that closes a row |
-| `docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` (PASS-2) | B2-H/M/L-tier rows · §9 Audit-of-audit register · §10 Phase Completion Ledger | C maintains | Every audit-of-audit cycle |
+| `docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` (PASS-2) | B2-H/M/L-tier rows · §9 Audit-of-audit register (cycles #1-#10 as of 2026-05-16 iter 83; including the iter-74 [DRIFT-ALERT] cycle #8 + #8-continuation iter-75 + #8-follow-up iter-76 documenting Trust-but-verify lesson #6 + lesson-#6 sweep · cycle #9 J1 portfolio close + #10 J2 open / canonical-flow infrastructure) · §10 Phase Completion Ledger | C maintains | Every audit-of-audit cycle |
 | `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` | ~242 RCA/UIX rows; ~30 CONFIRMED + 6 TODO at session start | A primary (closes bugs); C audits | Every bug-fix commit |
 | `docs/APP_ISSUES_AUTO_FIX.md` | 30 Open opportunistic runtime fixes | A primary | Per-fix commit |
 | `docs/audits/CODEX_RECURSIVE_FIX_PROMPT_2026_05_09.md` | Codex's recursive fix protocol (10 rules); P0 Wave 0 vault lifecycle blocker | A reference | Reference (don't modify) |

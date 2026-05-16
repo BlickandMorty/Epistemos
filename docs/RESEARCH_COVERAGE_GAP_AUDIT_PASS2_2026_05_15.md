@@ -825,6 +825,32 @@ Late in iter 80 a fresh `git fetch --all` surfaced significant sibling work that
 
 - **§5.0 catch rate:** was 28/91 = 30.8%; +5 commits this iter, 0 fresh catches → 28/96 = 29.2%.
 
+#### §5.6 lockstep clarification (iter 84, 2026-05-16) — audit-only commits + FEATURE_CHANGE_TRACKER applicability
+
+Probed `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md` structure to resolve the iter-83 §5.6 lockstep open question:
+
+- **§2 "Required doc-update checklist per feature"** — 12-row table; every required row begins with `agent_core/src/...` or `Epistemos/...` (i.e., **code paths**). The checklist is gated on a feature-code commit; audit-only commits do not touch code, so §2's required cells are not applicable.
+- **§3 "Per-feature tracker"** — append rows when features ship. Format: 14-column row `# · Feature · Shipped · Terminal · Code · Tests · §8 · MF · HRM · Lic · AR · RT · AI · GA · HT`. Currently has 0 rows (placeholder `_(first row: append on first Phase 1 feature ship)_`).
+- **§4 "Audit responsibility"** — explicit Terminal C reads-the-tracker discipline: (1) ON-TRACK for rows ✓ across the board · (2) DRIFT flag for ⚠ cells · (3) incomplete flag for _(empty)_ cells past 24h.
+
+**Resolution:** Audit-only commits (mine, e.g., audit-of-audit cycles) ship NO new feature code, so they do NOT need to append §3 rows. My §5.6 lockstep requirement reduces to PASS-2 §9 + MAS_COMPLETE_FUSION §8 (both honored this audit cycle). The FEATURE_CHANGE_TRACKER §4 obligation IS to read-and-flag — I verify sibling feature commits comply.
+
+**Sibling-feature §3 compliance check (iter 84):**
+- §3 currently has 0 substantive rows; only the `_(first row)_` placeholder.
+- Recent sibling features that should populate §3 per §4 24h transitional window: J1 substrate floor + 6 kernels (B) · J2 umbrella + Glass Pipe (B) · D.2.5/D.2.7 providers + routing fix (D) · D.2.2 Kimi refresh (D) · E's 4 user-decision research drops · the `acf19c1dd` infrastructure commit itself.
+- **Transitional window not yet exceeded.** `acf19c1dd` landed 2026-05-16 ~12:21; 24h elapses 2026-05-17 ~12:21. Per §4 rule (3), §3 incomplete-cells DRIFT flag fires at that boundary if siblings haven't backfilled.
+- **No DRIFT flag this iter.** Surfacing the pending obligation in PASS-2 §9 for visibility; not blocking any current audit verdict.
+
+#### CANONICAL_DOC_INDEX cross-link update (iter 84) — Phase C.2/C.5 housekeeping
+
+Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for PASS-2 to reference the §9 register's iter-74 [DRIFT-ALERT] cycle #8 + continuation iter-75 + follow-up iter-76 (Trust-but-verify lesson #6) + cycle #9 J1 portfolio close + #10 J2 open / canonical-flow infrastructure. The cross-link makes the §9 register's drift-detection track navigable from the master index — closes the loop between the C-owned doc and the C-owned audit register.
+
+#### Iter 84 net findings
+- 0 substantive new drift.
+- §5.6 lockstep applicability resolved (audit-only commits don't append FEATURE_CHANGE_TRACKER §3; do verify §3 compliance for sibling features).
+- §3 sibling-feature backfill: pending 24h transitional window expiry ~2026-05-17 12:21.
+- CANONICAL_DOC_INDEX §3 row updated for cross-link navigability.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
