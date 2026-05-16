@@ -32,9 +32,14 @@
 //! SiliconSwarm's empirical 6.31× Apple Silicon speedup) rather than
 //! loose biological analogies.
 
+pub mod autopoiesis;
 pub mod kuramoto;
 pub mod notch_delta;
 
+pub use autopoiesis::{
+    check_operational_closure, AutopoiesisError, ComponentId, OperationalClosureVerdict,
+    ProductionEdge, ProductionNetwork,
+};
 pub use kuramoto::{
     kuramoto_step, order_parameter, KuramotoError, KuramotoNetwork, KuramotoOscillator,
     OrderParameter,
