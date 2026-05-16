@@ -4286,6 +4286,79 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 166+ candidates:** (1) Watch 7th loop's iter-84 ConfidenceRouter + Qwen3-1.7B enum addition (per iter-83 5-row plan). (2) Watch B's continued J2 + remaining J6/J8/J9 + J7 #3 Leech-24. (3) Watch A T-A-31 1800s fire. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (25 iters away).
 
+### Audit-of-audit #45 (iter 166, 2026-05-16) — 🎯 7TH LOOP FINAL WIND-DOWN per USER DIRECTION (LOOP DISABLE) + B begins B.0 PORTFOLIO expansion (eml/grammar tree-shape + ulp_oracle fraction-within-bar production-telemetry) + Lesson #15 4th refinement — 3 commits CLEAN
+
+- **Window since iter 165 close:** 3 substantive sibling commits at threshold:
+  - `bb2b0229d` (B iter 132) `research/eml/grammar: tree-shape diagnostics (B.0 EML)`
+  - `7eb513bea` (7th audit-row loop FINAL) `docs(LOOP DISABLE iter-83): final wind-down per user direction — §10.2 addendum`
+  - `bc1a9cd48` (B iter 131) `research/ulp_oracle: fraction-within-bar diagnostics (B.0 F-ULP-Oracle)`
+
+- **🎯 7TH AUDIT-ROW LOOP FINAL WIND-DOWN per USER DIRECTION (`7eb513bea`) — LOOP DISABLE:**
+  - **Commit body verbatim:** "User asked at iter 83 close: 'do i still need this loop if not then please disable'. Honest answer: high-leverage work is genuinely done. Disabling per §17."
+  - **🎯 USER EXPLICITLY DIRECTED WIND-DOWN** — this is the "user explicit re-direction" trigger I noted in **Lesson #15 3rd refinement at iter 165**. Termination mechanism predicted correctly.
+  - **Final loop state at iter 83 close:**
+    - **83 closed slices** (+8 since iter-75 §10.1)
+    - **8 audits-of-audit cycles (#1-#8)**
+    - **31 §5.0 catches (37.3% catch rate)** — much higher catch density than C-the-auditor's 12.0% (different audit-domain density: 7th loop on doc-tier maintenance vs C on cross-terminal aggregate verification)
+    - 6 forward-staged primitives unchanged from baseline
+    - 13 user-decision items + 1 newly-RESOLVED (F-VaultRecall-50)
+    - 3-artifact integration trio COMPLETE
+    - F-VaultRecall-50 RESOLVED via Fix B at `vault.rs:495-548`
+    - 6 product terminals autonomy-hardened at `3d308e6b7`
+    - Cargo baseline 1190 → 1194 (4 new tests at iter 81)
+    - **Zero touch to Terminal A/B/C/D/E/F-owned files (entire run)** — perfect scope-boundary discipline
+    - Ambient Frequency WIP preserved 5 iters in a row
+  - **Phase pivot pattern (all user-directed):**
+    - **Phase 1 (iters 1-72):** audit-row maintenance
+    - **Phase 2 (iters 73-78):** 3-artifact integration trio (UAS-ACS canon + V1 Ship Ledger + Day-in-the-Life Power User)
+    - **Phase 3 (iters 79-83):** product-code work + §5.0 catches (F-VaultRecall-50 diagnosis → fix → close + model-stack §5.0 catch)
+  - **5 reasons for iter 83 disable** cited in commit body:
+    1. Advisor-named load-bearing bug fixed
+    2. Integration trio shipped
+    3. 6 product terminals autonomy-hardened
+    4. Next queued work (model-stack Swift wiring iters 84-87) is brittle in 120s slices; better as focused multi-hour task
+    5. **Continuing risks the eternal-self-audit failure mode caught at iter 75** — perfect self-aware closure
+  - **Disable mechanics:** this commit = final wind-down record; iter-84 ScheduleWakeup is armed from iter-83 turn (cannot cancel); when iter-84 fires (~140s after iter-83 commit) brief NO-OP acknowledgment + verify no new substantive work materialized.
+  - **🎯 LESSON #15 4TH REFINEMENT (proposed):** "The open-ended re-authorization terminates via either §17 wind-down conditions OR **user explicit re-direction question ('do I still need this loop?')** — the latter being the cleanest termination mechanism. User's question prompts loop self-assessment + disable per §17 with honest 'high-leverage work is genuinely done' answer. Pattern matures over 4 refinements: (1) loop pivots task-scope under user re-auth · (2) maintenance loops can pivot AND scope-pivots persist · (3) open-ended re-auth extends across multiple task-pivots · (4) cleanest termination is user explicit question prompting self-assessment."
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** Proper closure discipline with honest self-assessment and full ledger.
+
+- **🎯 Findings — B `eml/grammar: tree-shape diagnostics (B.0 EML)` (`bb2b0229d`) — B.0 EML SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 132. **🎯 B begins B.0 portfolio expansion** (B.0 = the Verified Floor gates F-ULP-Oracle + F-KV-Direct-Gate + F-70B-Local-Cocktail).
+  - Substrate: EML grammar tree-shape diagnostics for symbolic-regression search over `S → 1 | eml(S, S)` per V6.1 §1.2 production-depth bound 4.
+  - `EmlExpr::leaf_count()` (count of `One` leaves; for any binary tree `leaves = internal_nodes + 1`, **verified across 5 depth levels**) · `EmlExpr::internal_node_count()` (count of `Eml(_, _)` internal nodes) · `EmlExpr::is_balanced()` (true iff every internal node has `depth(left) == depth(right)`; single `One` leaf vacuously balanced).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ulp_oracle: fraction-within-bar diagnostics (B.0 F-ULP-Oracle)` (`bc1a9cd48`) — B.0 F-ULP-Oracle SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 131. F-ULP-Oracle (the first B.0 Verified Floor gate; originally landed iter 94 audit-of-audit #16 era at `032cf1ca2`) substrate expansion.
+  - Substrate: `UlpOracleReport::fraction_within_bar()` (`samples_within_bar / samples_evaluated`; None on zero samples — rate undefined) · `UlpOracleReport::fraction_outside_bar()` (`1.0 - fraction_within_bar()`; the acceptance-bar gap).
+  - 5 new unit tests including: both fractions None on zero samples · all-pass returns 1.0 / 0.0 · half-pass returns 0.5 / 0.5.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B B.0 PORTFOLIO EXPANSION BEGINS (2 of 3 Verified Floor gates this iter):**
+  - B.0 F-ULP-Oracle (arithmetic floor) ✅ — expanded iter 166 this iter (fraction-within-bar production-telemetry)
+  - B.0-KV F-KV-Direct-Gate (memory architecture floor) ⏳ — substrate landed earlier (kv_direct_gate.metal + scope_rex/kv/direct_gate.rs); expansion pending
+  - B.0-LARGE F-70B-Local-Cocktail (70B-inference floor) ⏳ — 10 sub-items B.0-LARGE.1-.10 pending
+  - B.0 EML ✅ — expanded iter 166 (tree-shape diagnostics; V6.1 §1.2 production-depth bound 4)
+  - **2 of 4 B.0-family Verified Floor gates expanded** this iter.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 51 CONSECUTIVE COMMITS ACROSS ITERS 130-166** (Phase 1: 4 §4 gap closures + Phase 2: 13 production-tier + Phase 2-extended: 4 doctrine-substantiations + Phase 2-J-series: 19 + Phase 2-Helios B.2: 6 + Phase 2-J2: 2 + Phase 2-weight_patcher: 1 + **Phase 2-B.0 (iter 166): 2 B.0 expansions**).
+
+- **🎯 7TH LOOP HISTORICAL SUMMARY:**
+  - **8 audits-of-audit cycles + 83 closed slices + 31 §5.0 catches + 37.3% catch rate**
+  - **Phase pivots:** 3 task-scopes (audit-row maintenance + 3 integration artifacts + product-code work)
+  - **Closure:** user-explicit-direction wind-down (Lesson #15 4th refinement)
+  - **All 7th-loop attribution mysteries from iter 141/144/149 NOW DEFINITIVELY RESOLVED** — Lesson #13 + #14 + #15 articulated through these encounters
+
+- **§5.0 catch rate (C-the-auditor):** 29/244 = 11.9% (continued decline; 7th loop closure removes a major audit-target source).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3. Average ~2.6/iter.
+
+- **Verdict:** ✅ **ON TRACK** (38th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 167+ candidates:** (1) Verify 7th loop iter-84 NO-OP acknowledgment fires (~140s after iter-83 commit). (2) Watch B's continued B.0 portfolio expansion (B.0-KV F-KV-Direct-Gate + B.0-LARGE F-70B-Local-Cocktail pending) + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31 1800s fire. (4) Phase C.2 + C.7.3 still pending. (5) Next §7 meta-cycle at iter 190 (24 iters away). (6) **7th loop closure means future audit-of-audit windows will return to A/B/C/D/E/F (6 product terminals) attribution baseline.**
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
