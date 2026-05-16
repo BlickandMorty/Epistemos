@@ -62,6 +62,59 @@ impl NightBrainTaskKind {
     pub const fn requires_pro(self) -> bool {
         matches!(self, NightBrainTaskKind::CloudKnowledgeDistillation)
     }
+
+    /// Reverse lookup for [`Self::canonical_name`]. `None` for
+    /// unknown names. Used by the registry that maps wire-form
+    /// task names back to typed kinds.
+    pub fn from_canonical_name(name: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|k| k.canonical_name() == name)
+    }
+}
+
+impl TaskError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            TaskError::EmptyInput { .. } => "empty_input",
+            TaskError::ProEntitlementRequired { .. } => "pro_entitlement_required",
+        }
+    }
+
+    /// The task kind that produced this error. Every variant carries
+    /// a kind, so this is total.
+    pub const fn task_kind(&self) -> NightBrainTaskKind {
+        match self {
+            TaskError::EmptyInput { kind } => *kind,
+            TaskError::ProEntitlementRequired { kind } => *kind,
+        }
+    }
+
+    pub const fn is_empty_input(&self) -> bool {
+        matches!(self, TaskError::EmptyInput { .. })
+    }
+
+    pub const fn is_pro_required(&self) -> bool {
+        matches!(self, TaskError::ProEntitlementRequired { .. })
+    }
+}
+
+impl TaskRunReport {
+    /// Predicate: `items_processed = items_dropped + items_emitted`.
+    /// Every task's report SHOULD satisfy this (every input item is
+    /// either dropped or emitted, never both, never neither).
+    /// Cross-surface invariant verified across all 6 task bodies.
+    pub fn is_balanced(&self) -> bool {
+        self.items_processed == self.items_dropped + self.items_emitted
+    }
+
+    /// Fraction of inputs dropped: `items_dropped / items_processed`.
+    /// `None` when processed=0 (rate undefined).
+    pub fn drop_fraction(&self) -> Option<f64> {
+        if self.items_processed == 0 {
+            return None;
+        }
+        Some(self.items_dropped as f64 / self.items_processed as f64)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -722,5 +775,106 @@ mod tests {
         let state = vec![(100, 0.5_f32), (200, 0.5)];
         let (kept, _) = ssm_state_pruning_by_magnitude(&state, 1).unwrap();
         assert_eq!(kept, vec![(200, 0.5)]);
+    }
+
+    // ── diagnostic surface (iter 163) ────────────────────────────────────────
+
+    #[test]
+    fn from_canonical_name_roundtrips_all() {
+        for k in NightBrainTaskKind::ALL.iter().copied() {
+            assert_eq!(
+                NightBrainTaskKind::from_canonical_name(k.canonical_name()),
+                Some(k),
+            );
+        }
+        assert_eq!(NightBrainTaskKind::from_canonical_name("DedupeArtifacts"), None);
+        assert_eq!(NightBrainTaskKind::from_canonical_name(""), None);
+    }
+
+    #[test]
+    fn task_error_cause_distinct() {
+        let variants = [
+            TaskError::EmptyInput { kind: NightBrainTaskKind::DedupeArtifacts },
+            TaskError::ProEntitlementRequired { kind: NightBrainTaskKind::CloudKnowledgeDistillation },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn task_error_classifier_partition() {
+        let variants = [
+            TaskError::EmptyInput { kind: NightBrainTaskKind::DedupeArtifacts },
+            TaskError::ProEntitlementRequired { kind: NightBrainTaskKind::CloudKnowledgeDistillation },
+        ];
+        // Cross-surface invariant: is_empty_input XOR is_pro_required.
+        for e in &variants {
+            assert_ne!(e.is_empty_input(), e.is_pro_required());
+        }
+    }
+
+    #[test]
+    fn task_error_task_kind_extracts_kind() {
+        // Cross-surface: error's task_kind matches the kind in the variant.
+        for k in NightBrainTaskKind::ALL.iter().copied() {
+            let empty = TaskError::EmptyInput { kind: k };
+            assert_eq!(empty.task_kind(), k);
+        }
+        let pro = TaskError::ProEntitlementRequired {
+            kind: NightBrainTaskKind::CloudKnowledgeDistillation,
+        };
+        assert_eq!(pro.task_kind(), NightBrainTaskKind::CloudKnowledgeDistillation);
+    }
+
+    #[test]
+    fn report_is_balanced_for_dedupe_real_output() {
+        // Cross-surface invariant: every real task output has
+        // items_processed = items_dropped + items_emitted.
+        let ids = vec!["a".into(), "b".into(), "a".into(), "c".into(), "b".into()];
+        let (_, r) = dedupe_artifacts(&ids).unwrap();
+        assert!(r.is_balanced());
+    }
+
+    #[test]
+    fn report_is_balanced_for_memory_distillation_real_output() {
+        let entries = vec!["a".into(), "long entry".into(), "mid".into()];
+        let (_, r) = memory_distillation(&entries).unwrap();
+        assert!(r.is_balanced());
+    }
+
+    #[test]
+    fn report_is_balanced_for_ssm_pruning_real_output() {
+        let state = vec![(500, 0.1), (900, 0.2), (1000, 0.3), (200, 0.05)];
+        let (_, r) = ssm_state_pruning(&state, 100).unwrap();
+        assert!(r.is_balanced());
+    }
+
+    #[test]
+    fn report_is_balanced_for_magnitude_pruning_real_output() {
+        let state = vec![(100, 0.1_f32), (200, -0.5), (300, 0.2), (400, 0.9)];
+        let (_, r) = ssm_state_pruning_by_magnitude(&state, 2).unwrap();
+        assert!(r.is_balanced());
+    }
+
+    #[test]
+    fn report_drop_fraction_matches_arithmetic() {
+        let r = TaskRunReport {
+            kind: NightBrainTaskKind::DedupeArtifacts,
+            items_processed: 10,
+            items_dropped: 3,
+            items_emitted: 7,
+        };
+        assert!((r.drop_fraction().unwrap() - 0.3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn report_drop_fraction_none_on_zero_processed() {
+        let r = TaskRunReport {
+            kind: NightBrainTaskKind::DedupeArtifacts,
+            items_processed: 0,
+            items_dropped: 0,
+            items_emitted: 0,
+        };
+        assert_eq!(r.drop_fraction(), None);
     }
 }
