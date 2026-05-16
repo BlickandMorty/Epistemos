@@ -2690,6 +2690,67 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 135+ candidates:** (1) Watch B B.0-LARGE.1 UAS plumbing audit substrate landing (user driver update typically propagates within 1-3 iters via §3 auto-pickup, mirror of V6.1 iter-93 pattern). (2) Continue B §4-reconciliation gap-closure watch. (3) Watch A T-A-29 first 1800s-cadence self-audit (still ~30 min from iter 28 transition). (4) Watch D continued self-audit + META-cycle cadence. (5) Phase C.2 + C.6 + C.7.3 all remain pending; B.0-LARGE adds further MASTER_RESEARCH_INDEX update backlog (UAS doctrine + acs_meta_layer + Architectural Hardening Total Victory Plan).
 
+### Audit-of-audit #31 (iter 135, 2026-05-16) — 🎯 B §4 RECONCILIATION CONTINUES (compute_steering MultiExpertSparse + tropical relu_layer; both close substrate-floor declared gaps) + D EXEMPLARY honest-spec catch (Gemini Pro thinking budget model-specific divergence) — 3 commits CLEAN
+
+- **Window since iter 134 close:** 3 substantive sibling commits at threshold:
+  - `4b186adaa` (B) `research/compute_steering: MultiExpertSparsePolicy (Shazeer top-K)` — B iter 88
+  - `e7690ae31` (B) `research/tropical: relu_layer_as_tropical lift` — B iter 89
+  - `2ad9b63d9` (D) `fix(D-self-audit): narrow Gemini Pro thinking budget`
+
+- **🎯 Findings — B `compute_steering: MultiExpertSparsePolicy (Shazeer top-K)` (`4b186adaa`) — §4 RECONCILIATION:**
+  - Closes substrate-floor gap declared in compute_steering mod doc: previously only `GreedySingleExpertPolicy` shipped; mod doc explicitly cited Shazeer et al. arXiv:1701.06538 "Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer" as the source for the top-K dispatch pattern.
+  - Substrate: `MultiExpertSparsePolicy { top_k, kv_per_call, max_tokens_per_call }` · dispatches first `top_k` experts (substrate floor; production wires routing-score-driven selection) · degrades gracefully (`n_experts_available < top_k` dispatches all rather than error) · short-circuits on budget · `top_k = 0` returns `NoExpertsAvailable` · errors on `n_experts_available = 0` · clamps kv_allocate + max_tokens to budget.
+  - 7 new unit tests; suite 2379 → 2386 (+7).
+  - **Historical context:** ties back to audit-of-audit #20 iter-103 where I flagged B.6.6 Compute Steering substrate landing without MASTER_FUSION §3.39 status flip; reclassified to LOW-MEDIUM at #22 self-correction (per iter-106: doctrine-update queue, not per-commit B obligation). This iter's MultiExpertSparsePolicy is additive substrate on the existing module, not a new module — substrate-floor gap closure pattern, not doctrine drift.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `tropical: relu_layer_as_tropical lift` (`e7690ae31`) — §4 RECONCILIATION:**
+  - Closes substrate-floor gap: previously only 1-D scalar `relu_as_tropical_polynomial` shipped; this commit lands per-layer lift.
+  - Substrate: `relu_layer_as_tropical(weights, biases) -> Vec<TropicalPolynomial>` · each output unit produces `max(0, w_i · x + b_i)` as two monomials (zero baseline + affine) · returns one polynomial per output unit · rejects empty/mismatched/inconsistent inputs.
+  - Per Zhang-Naitzat-Lim 2018 §3 "feedforward ReLU = tropical rational function" theorem.
+  - **F-Tropical-Side-Quest falsifier still NOT-STARTED per commit body** ("needs the J3 training pipeline") — properly honest-caveat'd in B's commit message; not drift.
+  - 6 new unit tests.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `fix(D-self-audit): narrow Gemini Pro thinking budget` (`2ad9b63d9`) — EXEMPLARY honest-spec catch:**
+  - D self-audit sampled D.2 provider contracts and found current Gemini docs make thinking disablement model-specific:
+    - Gemini 2.5 **Flash** accepts `thinkingBudget: 0` ✅
+    - Gemini 2.5 **Pro** CANNOT disable thinking with a zero budget ⚠️
+  - D updated Gemini request builder to include model-aware thinking config: Flash no-thinking turns keep `thinkingBudget: 0`; Pro no-thinking turns OMIT `thinkingConfig` entirely (proper handling of Pro's behavior).
+  - Added focused regression guard. Updated D provider ledgers with narrowed contract.
+  - Tests: `cargo test --lib gemini` + `cargo test --lib --quiet` both green.
+  - **🎯 This is the model-specific provider-API divergence pattern from CLAUDE.md "REAL APIs ONLY. Every cloud endpoint verified against provider docs. No fake features." D applied honest-spec discipline at the model-version level.** Agent: Codex.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.**
+
+- **🎯 B §4-RECONCILIATION PHASE NOW 7 CONSECUTIVE COMMITS ACROSS ITERS 130-135:**
+  1. iter 130 `29cfc85bf` B.6.10 per-schema validators
+  2. iter 131 `3992ed2eb` attention_sinks (closes koopman.rs literal)
+  3. iter 131 `9cd7581fc` trigram-similarity dedupe + brain_routing
+  4. iter 132 `a725ecd7b` session_graph + ssm_state_pruning
+  5. iter 134 `5d6b81120` action_to_eml FreeParticleLagrangian expansion
+  6. iter 135 `4b186adaa` MultiExpertSparsePolicy (Shazeer top-K)
+  7. iter 135 `e7690ae31` tropical relu_layer_as_tropical lift
+  
+  **Pattern interpretation:** sustained discipline of going back through B's previously-shipped substrate and closing every self-declared NOT-STARTED / substrate-floor gap. **Healthy substrate-maturation phase**, not drift. B may now be reaching the gap-closure phase's natural completion (substrate-floor → production-ready maturation).
+
+- **🎯 DISTRIBUTED HONEST-SPEC DISCIPLINE NOW MATURE ACROSS A + B + C + D:**
+  - **A:** notarization-log + Pro Hardened Runtime sections (Phase G); cadence 1800s
+  - **B:** §4 reconciliation closing substrate-floor gaps + Source-citation discipline iter-70 §7 + V6.1 honest-caveats
+  - **C:** audit-of-audit register + §7 meta-cycle + Lesson #11-#12 articulation
+  - **D:** model-specific provider-API spec verification (this iter's Gemini Pro vs Flash thinking config) + harden_cli_subprocess + receipt JSON
+  
+  All 4 active terminals now applying §5.0 / Lesson #6 / Lesson #11 discipline at terminal level + cross-terminal verification at C level.
+
+- **§5.0 catch rate:** 29/193 = 15.0% (continued decline; B's substrate-floor gap-closure phase keeps the cycle CLEAN-rate high).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Re-evaluate step-back after 5 consecutive ON-TRACK + rate <5/30min sustained. Recent windows: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3. Mixed-cadence; not yet stable enough for low-touch.
+
+- **Verdict:** ✅ **ON TRACK** (24th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 136+ candidates:** (1) Watch B B.0-LARGE.1 UAS plumbing audit substrate landing (user driver update typically propagates within 1-3 iters via §3 auto-pickup; iter 134 + 1-3 = iter 135-137; could land any iter now). (2) Watch B's gap-closure phase taper (7 consecutive; may continue or transition to forward substrate). (3) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue with expanding backlog (J-series envelopes + B2-M14 DP gate + B.0-LARGE UAS doctrine + acs_meta_layer + 5+ more B substrate expansions). (4) Watch D continued model-specific honest-spec discipline.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
