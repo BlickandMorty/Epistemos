@@ -112,6 +112,71 @@ pub fn euler_lagrange_residual<L: Lagrangian>(
     Ok(max_res)
 }
 
+// ── Additional Lagrangians + analytic-solution generators (iter 87) ────────
+//
+// The substrate-floor base shipped HarmonicOscillator. These sibling pieces
+// expand the corpus the F-Action-Demo falsifier can exercise:
+//   - FreeParticleLagrangian (`L = ½m·ẋ²`) — simplest non-trivial Lagrangian.
+//   - harmonic_oscillator_solution(...) — analytic trajectory generator.
+//   - free_particle_solution(...) — analytic trajectory generator.
+
+/// Free particle: `L = ½m·ẋ²`. Euler-Lagrange gives `ẍ = 0`
+/// (constant velocity).
+pub struct FreeParticleLagrangian {
+    pub mass: f64,
+}
+
+impl Lagrangian for FreeParticleLagrangian {
+    fn evaluate(&self, _x: f64, x_dot: f64, _t: f64) -> f64 {
+        0.5 * self.mass * x_dot * x_dot
+    }
+    fn d_dx(&self, _x: f64, _x_dot: f64, _t: f64) -> f64 {
+        0.0
+    }
+    fn d_d_xdot(&self, _x: f64, x_dot: f64, _t: f64) -> f64 {
+        self.mass * x_dot
+    }
+}
+
+/// Analytic harmonic-oscillator trajectory `x(t) = amplitude · cos(ω·t)`.
+/// Useful for testing `euler_lagrange_residual` against a known-good
+/// solution. Returns `(x_samples, t_samples)` with `n` uniformly-spaced
+/// samples at step `dt`.
+pub fn harmonic_oscillator_solution(
+    amplitude: f64,
+    omega: f64,
+    n: usize,
+    dt: f64,
+) -> Result<(Vec<f64>, Vec<f64>), ActionError> {
+    if dt <= 0.0 {
+        return Err(ActionError::NonPositiveDt { dt });
+    }
+    if n < 5 {
+        return Err(ActionError::EmptyTrajectory);
+    }
+    let t: Vec<f64> = (0..n).map(|i| (i as f64) * dt).collect();
+    let x: Vec<f64> = t.iter().map(|tv| amplitude * (omega * tv).cos()).collect();
+    Ok((x, t))
+}
+
+/// Analytic free-particle trajectory `x(t) = x0 + v · t`.
+pub fn free_particle_solution(
+    x0: f64,
+    v: f64,
+    n: usize,
+    dt: f64,
+) -> Result<(Vec<f64>, Vec<f64>), ActionError> {
+    if dt <= 0.0 {
+        return Err(ActionError::NonPositiveDt { dt });
+    }
+    if n < 5 {
+        return Err(ActionError::EmptyTrajectory);
+    }
+    let t: Vec<f64> = (0..n).map(|i| (i as f64) * dt).collect();
+    let x: Vec<f64> = t.iter().map(|tv| x0 + v * tv).collect();
+    Ok((x, t))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,5 +293,78 @@ mod tests {
         let x: Vec<f64> = t.clone();
         let res = euler_lagrange_residual(&h, &x, &t).unwrap();
         assert!(res > 0.05, "residual={}", res);
+    }
+
+    // ── FreeParticleLagrangian + solution generators (iter 87) ──────────────
+
+    #[test]
+    fn free_particle_partials_correct() {
+        let p = FreeParticleLagrangian { mass: 3.0 };
+        assert_eq!(p.evaluate(99.0, 2.0, 0.0), 6.0);  // ½·3·4 = 6
+        assert_eq!(p.d_dx(99.0, 2.0, 0.0), 0.0);
+        assert_eq!(p.d_d_xdot(99.0, 2.0, 0.0), 6.0); // m·v = 6
+    }
+
+    #[test]
+    fn free_particle_constant_velocity_satisfies_eom() {
+        let p = FreeParticleLagrangian { mass: 1.0 };
+        let (x, t) = free_particle_solution(0.0, 1.5, 200, 0.001).unwrap();
+        let res = euler_lagrange_residual(&p, &x, &t).unwrap();
+        // Linear trajectory: every finite-difference derivative is exact;
+        // residual should be ~0.
+        assert!(res < 1e-9, "residual={}", res);
+    }
+
+    #[test]
+    fn free_particle_cosine_violates_eom() {
+        // Wrong trajectory for free particle: cosine — non-constant velocity.
+        let p = FreeParticleLagrangian { mass: 1.0 };
+        let (x, t) = harmonic_oscillator_solution(1.0, 1.0, 200, 0.001).unwrap();
+        let res = euler_lagrange_residual(&p, &x, &t).unwrap();
+        assert!(res > 0.01, "expected large residual, got {}", res);
+    }
+
+    #[test]
+    fn harmonic_solution_generator_matches_inline_cosine_test() {
+        // Reproduces `cosine_trajectory_satisfies_harmonic_oscillator_eom`
+        // via the generator API to prove the helper is equivalent.
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let (x, t) = harmonic_oscillator_solution(1.0, 1.0, 200, 0.001).unwrap();
+        let res = euler_lagrange_residual(&h, &x, &t).unwrap();
+        assert!(res < 1e-3, "residual={}", res);
+    }
+
+    #[test]
+    fn harmonic_solution_generator_rejects_bad_inputs() {
+        assert!(matches!(
+            harmonic_oscillator_solution(1.0, 1.0, 200, 0.0).unwrap_err(),
+            ActionError::NonPositiveDt { .. }
+        ));
+        assert!(matches!(
+            harmonic_oscillator_solution(1.0, 1.0, 3, 0.001).unwrap_err(),
+            ActionError::EmptyTrajectory
+        ));
+    }
+
+    #[test]
+    fn free_particle_solution_rejects_bad_inputs() {
+        assert!(matches!(
+            free_particle_solution(0.0, 1.0, 200, -0.5).unwrap_err(),
+            ActionError::NonPositiveDt { .. }
+        ));
+        assert!(matches!(
+            free_particle_solution(0.0, 1.0, 4, 0.001).unwrap_err(),
+            ActionError::EmptyTrajectory
+        ));
+    }
+
+    #[test]
+    fn free_particle_zero_velocity_is_also_a_solution() {
+        let p = FreeParticleLagrangian { mass: 1.0 };
+        let (x, t) = free_particle_solution(7.0, 0.0, 200, 0.001).unwrap();
+        let res = euler_lagrange_residual(&p, &x, &t).unwrap();
+        assert!(res < 1e-9);
+        // All positions equal x0.
+        assert!(x.iter().all(|&v| (v - 7.0).abs() < 1e-12));
     }
 }
