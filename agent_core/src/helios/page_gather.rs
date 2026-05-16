@@ -35,6 +35,29 @@ pub struct PageGatherStats {
     pub sequential: bool,
 }
 
+impl PageGatherStats {
+    /// Total bytes read from source given a per-element size.
+    /// Substrate-floor input to STREAM-comparable bandwidth
+    /// estimates: divide by elapsed seconds to get GB/s.
+    /// f32 elements use `element_size = 4`; f16 = 2; u32 = 4.
+    pub fn bytes_read(&self, element_size: usize) -> usize {
+        self.elements_read * element_size
+    }
+
+    /// Fraction of source the gather touched: `(max_index + 1) /
+    /// source_len`. Returns `None` if `source_len == 0`. A value
+    /// near 1.0 means the gather sweeps the whole source (random
+    /// access across the entire working set — the scatter
+    /// acceptance bar case); near 0 means a small contiguous window.
+    pub fn source_coverage(&self, source_len: usize) -> Option<f32> {
+        if source_len == 0 {
+            return None;
+        }
+        let touched = (self.max_index as usize).saturating_add(1);
+        Some(touched as f32 / source_len as f32)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HeliosError {
     /// `indices[i]` was >= `source.len()`.
@@ -248,5 +271,72 @@ mod tests {
         let mut out = vec![99.0_f32];
         gather(&src, &idx, &mut out).unwrap();
         assert_eq!(out, vec![1.0]);
+    }
+
+    // ── bytes_read + source_coverage tests (iter 122) ───────────────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn bytes_read_f32_is_four_per_element() {
+        let s = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        assert_eq!(s.bytes_read(4), 400);
+    }
+
+    #[test]
+    fn bytes_read_f16_is_two_per_element() {
+        let s = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        assert_eq!(s.bytes_read(2), 200);
+    }
+
+    #[test]
+    fn bytes_read_zero_elements_is_zero() {
+        let s = PageGatherStats { elements_read: 0, max_index: 0, sequential: true };
+        assert_eq!(s.bytes_read(4), 0);
+    }
+
+    #[test]
+    fn bytes_read_stream_baseline_512mb_check() {
+        // STREAM-comparable: 512 MB working set at f32 = 128M elements.
+        // bytes_read(4) for 128M = 512 MB exactly.
+        let s = PageGatherStats {
+            elements_read: 128 * 1024 * 1024,
+            max_index: 128 * 1024 * 1024 - 1,
+            sequential: true,
+        };
+        assert_eq!(s.bytes_read(4), 512 * 1024 * 1024);
+    }
+
+    #[test]
+    fn source_coverage_full_sweep_returns_one() {
+        // gather over the whole source [0..len-1] → max_index = len-1
+        // → coverage = len/len = 1.0.
+        let s = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        assert!(approx(s.source_coverage(100).unwrap(), 1.0, 1e-6));
+    }
+
+    #[test]
+    fn source_coverage_window_quarter_returns_quarter() {
+        // gather first 25 of 100 → max_index = 24 → coverage = 25/100 = 0.25.
+        let s = PageGatherStats { elements_read: 25, max_index: 24, sequential: true };
+        assert!(approx(s.source_coverage(100).unwrap(), 0.25, 1e-6));
+    }
+
+    #[test]
+    fn source_coverage_empty_source_returns_none() {
+        let s = PageGatherStats { elements_read: 0, max_index: 0, sequential: true };
+        assert!(s.source_coverage(0).is_none());
+    }
+
+    #[test]
+    fn source_coverage_single_element_at_end_still_full_coverage() {
+        // gather one element at the last index → max_index = len-1
+        // → coverage = 1.0 even though only 1 element gathered. This
+        // is the design point: source_coverage measures the WORKING
+        // SET TOUCHED, not the elements_read.
+        let s = PageGatherStats { elements_read: 1, max_index: 99, sequential: false };
+        assert!(approx(s.source_coverage(100).unwrap(), 1.0, 1e-6));
     }
 }
