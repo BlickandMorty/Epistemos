@@ -667,6 +667,80 @@ Pillar 4 (Reinforcement Learning, GRPO) is covered separately by **§3.22 Contin
 
 ---
 
+### 3.42 Differential Privacy on Auto-Research Telemetry — ε ≤ 0.5 Laplace gate (B2-M14)
+
+**Source:** `~/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md §5.4` lines 446-461. PASS 2 audit row B2-M14 (audit-fold from audit-of-audit #2 at iter 20).
+
+**Why this row is canon, not just code.** The Auto-Research loop substrate (Hermes 2.0 §13.5.10, landed iter 36) writes a *morning report* aggregating wins/losses across nightly experiments. Without a privacy gate, those aggregates can leak individual query content — **even back to the user's own future LLMs** through prompt-context absorption. The DP gate is the architectural answer: aggregate statistics are noised before they're written to any context that downstream models will see. **"The user's queries stay private even from themselves-tomorrow."**
+
+### The canonical formula
+
+Per FINAL_SYNTHESIS.md §5.4 lines 450-459 (verbatim shape):
+
+```rust
+// agent_core/src/auto_research/dp.rs  (NOT-STARTED)
+pub fn dp_aggregate(values: &[f64], epsilon: f64) -> f64 {
+    let sensitivity = 1.0;    // counting sensitivity per record
+    let scale = sensitivity / epsilon;
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let noise = laplace_sample(0.0, scale);
+    mean + noise
+}
+```
+
+**Three doctrine constants frozen here:**
+
+| Constant | Value | Source rationale |
+|---|---|---|
+| **ε (epsilon)** | **≤ 0.5** | FINAL_SYNTHESIS §5.4 line 448 — strictest auto-research budget; tighter than typical academic-DP defaults (ε=1.0 to ε=5.0) because the noise covers the entire morning report, not a single per-query gate. |
+| **Sensitivity** | **1.0** | Counting sensitivity per record — each experiment contributes at most 1 to any aggregate count. Follows from the rule that aggregates are over discrete experiment outcomes (win / loss / discovery), not over real-valued user data. |
+| **Noise mechanism** | **Laplace(scale = sensitivity / epsilon)** | Standard Laplace mechanism (Dwork et al. 2006 *Calibrating Noise to Sensitivity in Private Data Analysis*). At sensitivity = 1.0 and ε = 0.5, scale = 2.0 → Laplace(0, 2) noise added to each aggregate. |
+
+### What gets noised vs what stays plaintext
+
+| Field class | Mechanism | Why |
+|---|---|---|
+| Aggregate counts ("wins applied", "wins not applied", "discoveries to investigate") | `dp_aggregate(counts, ε=0.5)` per category | Counts can leak query topics via correlation (e.g. spike in `wins applied` in a category narrows the user's recent work to that topic). |
+| Aggregate latencies / costs | `dp_aggregate(latencies_ms, ε=0.5)` | Latency distributions leak model-routing decisions which leak query difficulty/sensitivity. |
+| Individual experiment IDs | **NOT in report** | Reports are aggregates only — individual experiment IDs never reach the morning summary, so they can't leak. |
+| User-facing prose summaries | **Pre-aggregated; not per-experiment** | The LLM that synthesizes the prose reads the noised aggregates, not the raw experiment log. |
+| Run-Ledger / ClaimLedger / ExecutionReceipt entries | **Not affected** | These are per-call provenance attestations under SCOPE-Rex governance (§3.40 + Hermes 2.0 §5.1) — they stay plaintext because they're not exposed to LLM-context surfaces. The DP gate is specifically for the **report-to-LLM context boundary**, not for ledger integrity. |
+
+### ε-budget composition discipline
+
+Auto-Research runs nightly — composition matters. Two rules:
+
+1. **Per-night budget = ε_total ≤ 0.5.** All aggregates in a single morning report SHARE the budget via the parallel-composition theorem (Dwork & Roth 2014 *The Algorithmic Foundations of Differential Privacy* §3.4). Distinct categories with disjoint records compose in parallel; aggregates over the same record-set compose sequentially. For the morning report's typical shape (5-10 categorical aggregates over disjoint experiment subsets), parallel composition holds and each aggregate gets the full ε = 0.5.
+2. **Cross-night composition is NOT additive in V1.** Reports across multiple mornings are NOT treated as one DP query (would force ε to grow without bound). V1 doctrine: each morning is a fresh ε = 0.5 budget. Post-V1 evaluation: whether to add cross-night ε-accounting if the report-to-LLM context becomes a long-running attack surface.
+
+### §5.0 reconciliation — what already exists and what this row adds
+
+| Component | State | Role of this row |
+|---|---|---|
+| `agent_core/src/auto_research/` directory | **NOT-STARTED** — `ls` returns "No such file or directory" 2026-05-16 | Doctrine row freezes the `dp.rs` API shape so when the auto-research substrate ships (Wave 9+ research-tier), the DP gate ships in the same module. |
+| Hermes 2.0 §13.5.10 Auto-research loops | LANDED iter 36; cross-links B2-M14 in 3 places (lines 1125, 1146, 1169) | This row provides the destination for those forward cross-links — §13.5.10 was anchor-pointing to a doctrine row that didn't yet exist; now it does. |
+| ClaimLedger / ExecutionReceipt / RunEventLog / .epbundle | SHIPPED (§3.18 + Hermes 2.0 §5.1 + Run Ledger §3.40 forward-stage) | DP gate is ORTHOGONAL — those primitives attest *what happened*, the DP gate ensures *what's reported about what happened* doesn't leak. Both stay; they don't compose. |
+| Per-fetch capability tokens (B2-H20 ephemeral) | NOT-STARTED — surfaced by audit-of-audit #3 | Sibling privacy primitive at a different layer: B2-H20 gates per-fetch external access; B2-M14 gates per-aggregate reportable statistics. |
+
+### V1 / Pro / Post-V1 boundary
+
+- **V1 (MAS ship):** No-op. Auto-research telemetry doesn't exist; nothing to gate.
+- **Wave 9+ Pro V1.x:** When `agent_core/src/auto_research/` lands (per PASS 1 H-10 + M-2 trigger), `dp.rs` lands in the same commit as `mod.rs` + `report.rs`. The audit-row gate: any PR adding a `report.rs` aggregate output without going through `dp_aggregate(_, ε ≤ 0.5)` fails review per this row.
+- **Post-V1 evaluation:** cross-night ε-accounting if the report-to-LLM context becomes a long-running attack surface; budget-tightening if specific aggregate categories prove too leaky empirically.
+
+### Cross-references
+
+- B2-M14 PASS 2 audit row.
+- `~/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md §5.4` lines 446-461 — canonical source with verbatim `dp_aggregate` code shape.
+- Hermes 2.0 §13.5.10 Auto-research loops (landed iter 36, commit `6d88da2a1`) — the surface this gate protects.
+- §3.40 Run Ledger — sibling provenance primitive; ORTHOGONAL, not composed.
+- §3.18 Provenance ledger / Hermes 2.0 §5.1 ExecutionReceipt — sibling per-tool-call attestation; not noised by this gate.
+- PASS 1 H-10 Auto-research loops + PASS 1 M-2 Eidos Plus deliberation engine — substrate triggers for the auto-research surface itself.
+- PASS 2 B2-H20 Ephemeral capability tokens — sibling privacy primitive at the per-fetch layer (different scope, complementary).
+- Dwork et al. 2006 + Dwork & Roth 2014 §3.4 — canonical DP literature for Laplace mechanism + parallel composition.
+
+---
+
 ### 3.40 Run Ledger — per-token cryptographic attestation (NOT-STARTED, distinct from 4 existing provenance primitives)
 
 | Concept | Source | Status |
