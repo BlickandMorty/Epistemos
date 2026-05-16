@@ -1897,6 +1897,32 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 114+ candidates:** (1) Watch A's Phase F skip-counter (2/3 → 3/3 = soft-stop trigger). (2) Phase C.2 mass MASTER_RESEARCH_INDEX update (extremely overdue). (3) D.3 collision flag still pending user resolution. (4) Phase C.6 forward-staged primitive re-audit (39 iters past baseline).
 
+#### Status pulse (iter 114, 2026-05-16) — B Phase B.3 G3 60-FPS scheduler + B's iter-60 §7 ON-TRACK
+
+- **Window since #25 (iter 113):** 1 sibling commit (sub-threshold pulse):
+  - `5ef59a7ec` (B) Phase B.3 G3 60-FPS scheduler + iter-60 §7 audit ON-TRACK.
+
+- **§5.0 spot-check:** `agent_core/src/tamagotchi/scheduler.rs` · 6058 bytes / **14 tests**. 60-FPS scheduler substrate per driver §5 Phase B.3 G3. Two-in-one with B's iter-60 §7 self-audit cycle covering iters 51-59 (ON-TRACK).
+  - **B's §7 self-audit cadence:** iters 10/20/30/40/50/60 — 6 self-audit cycles complete on B's side. All ON-TRACK per B's own reports; C cross-verified iter-30 (commit `b3d985b37`, audit-of-audit #15) and iter-40 (commit `6fe87a986`, audit-of-audit #18). Iter-50 + iter-60 verdicts are B-reported only; deferred for C cross-verification.
+  - **§5.0 verdict: CLEAN.**
+
+- **Tamagotchi substrate growth tracker:**
+
+  | File | Bytes | Tests | Phase |
+  |---|---|---|---|
+  | `mod.rs` | 7469 | 15 | B.7 (iter 111) |
+  | `animation.rs` | 7848 | 13 | B.3 G1 (iter 112) |
+  | `sprite_atlas.rs` | (verified iter 113) | 14 | B.3 G2 (iter 113) |
+  | `scheduler.rs` | 6058 | 14 | B.3 G3 (iter 114) |
+  - **Total: 56 tests across 4 files** in tamagotchi/. Substantial substrate accumulating in 4 iters.
+  - Pattern: B is building Tamagotchi user-product layer at ~1 module per iter post-research-tier-close. At this rate, full Tamagotchi substrate likely closes within 5-10 more iters.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **18 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; staying at 3-min. Will reconsider low-touch if window drops to 0-2 sustained.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
