@@ -64,6 +64,12 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#
         ),
         tool!(
+            "web.search", "web",
+            "Search the web through a configured HTTPS search backend. Provider must be Brave or Kagi; credentials are host-injected and never supplied in tool arguments.",
+            r#"{"query": "search terms", "provider": "brave", "limit": 10}"#,
+            r#"{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":400},"provider":{"type":"string","enum":["brave","kagi"],"description":"Required when both Brave and Kagi credentials are configured; otherwise WEB_SEARCH_PROVIDER or the only configured backend is used."},"limit":{"type":"integer","minimum":1,"maximum":20},"offset":{"type":"integer","minimum":0,"maximum":9},"country":{"type":"string","maxLength":64},"searchLang":{"type":"string","maxLength":64},"uiLang":{"type":"string","maxLength":64},"freshness":{"type":"string","maxLength":64},"safeSearch":{"type":"string","maxLength":64},"extraSnippets":{"type":"boolean"}},"required":["query"]}"#
+        ),
+        tool!(
             "readpagecontent", "safari",
             "Extract the visible text content of Safari's current tab. Use after web.fetch or web.search",
             r#"{"maxLength": 4000}"#,
@@ -487,5 +493,17 @@ mod tests {
                 "missing D3 Memory MCP tool {expected}"
             );
         }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_web_search_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        assert!(
+            names.contains("web.search"),
+            "missing D3 web.search MCP tool"
+        );
     }
 }

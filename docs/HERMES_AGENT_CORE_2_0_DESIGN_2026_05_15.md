@@ -837,6 +837,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Vault-scoped filesystem tools (`file.read`, `file.write`, `file.list`, `file.search`) | Local filesystem inside the selected vault via `omega-mcp::vault` | ✅ MAS-compatible local vault I/O — no subprocess, no network | D.3 reconciled on 2026-05-16. §5.0 found the vault executor already handled read/write/list/search under legacy and vault aliases, but the MCP catalog did not advertise canonical dotted file tools and `file.search` was not accepted by `execute_vault_tool`. The catalog now exposes `file.read`, `file.write`, `file.list`, and `file.search`; legacy names remain for archived callers; the executor routes `file.search` through the existing mmap-backed vault markdown search. Safety boundary remains vault-root scoping with traversal rejection and hidden-directory exclusion during recursive search. |
 
+### 7.4.8 D.3 Web Search MCP Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Web search (`web.search`) | HTTPS GET through `omega-mcp::web_search` to Brave Search or Kagi Search | ✅ MAS-compatible transport — no subprocess; user approval and Swift allow-list surfacing remain host policy | D.3 reconciled on 2026-05-16. Queue wording named Bing/Brave/Kagi, but Bing Search APIs retired on 2025-08-11, so this slice wires only current official backends: Brave `https://api.search.brave.com/res/v1/web/search` with `X-Subscription-Token`, and Kagi `https://kagi.com/api/v0/search` with `Authorization: Bot`. `execute_web_search_tool(tool_name, args_json)` rejects credentials in tool arguments, requires explicit `provider`/`WEB_SEARCH_PROVIDER` when both backends are configured, clamps query/filter/limit inputs, normalizes provider results to `title`, `url`, `snippet`, `published`, and returns a JSON `ToolResult` receipt. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

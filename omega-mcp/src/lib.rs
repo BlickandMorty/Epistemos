@@ -31,6 +31,7 @@ pub mod trace_logger;
 pub mod transport;
 pub mod types;
 pub mod vault;
+pub mod web_search;
 
 // Re-export types for UniFFI
 pub use dispatcher::MCPDispatcher;
