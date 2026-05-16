@@ -2986,6 +2986,50 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 142+ candidates:** (1) Watch for second + third "post-iter-72-queue-exhaustion maintenance candidates" from A (commit cited "First of three"). (2) Continue B substrate-maturation phase taper watch. (3) B.0-LARGE.1 watch (now 7 iters past V6.1-precedent window; remains INFORMATIONAL). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 142, 2026-05-16) — 🎯 B SUBSTRATE-MATURATION EXTENDS TO J-SERIES (mamba3 J10 substantiates V6.1 §1.4 A-stability doctrine) + D 9th self-audit — 2 commits CLEAN
+
+- **Window since iter 141 close:** 2 sibling commits (sub-threshold):
+  - `2bf79cfb1` (B iter 99) `research/mamba3: C32::abs + verify_a_stability (J10)`
+  - `5f507b8be` (D) `chore(D-self-audit): record provider source hardening sample`
+
+- **🎯 Findings — B `mamba3: C32::abs + verify_a_stability` (`2bf79cfb1`) — J10 SUBSTRATE EXPANSION + DOCTRINE SUBSTANTIATION:**
+  - **🎯 Substantiates V6.1 §1.4 doctrine claim:** "exponential-trapezoidal is A-stable" — previously a paper-citation claim; this commit lands a **code-verifiable checker**.
+  - Substrate: `C32::abs(self) -> f32` (magnitude `|z| = sqrt(re² + im²)`; was missing — only `norm_sq` squared-magnitude shipped) · `verify_a_stability(a, dt, tol) -> Result<bool, _>` (returns true iff `Re(a) ≤ 0` AND discretized pole `|a_d| ≤ 1 + tol`; returns false (NOT error) when `Re(a) > 0` — substrate doesn't promise stability outside left half plane).
+  - **Doctrine pin:** every left-half-plane pole produces a discrete pole inside the unit disk; every imaginary pole maps to the unit circle exactly. Test coverage substantiates both.
+  - 10 new unit tests including: abs zero/one/i/(3,4)→5 + consistency with norm_sq across 4 inputs; a-stability for left-half-plane; false for right-half-plane; **purely imaginary pole maps to unit circle within fp32 tol (the RoPE-trick canonical case)**; origin pole gives integrator `a_d = 1`; **4×4 = 16-point sweep across left half plane all stable**.
+  - **🎯 First J-series module in B's substrate-maturation phase** — J10 (originally landed iter 96 audit-of-audit #17 at `e6991ecad`-era; Wang-Shi-Fox arXiv:2501.12352 v3 Pillar IV).
+  - **§5.0 verdict: CLEAN.** Doctrine-substantiation pattern: B is now closing the gap between V6.1 paper-citation claims and code-verifiable runtime checkers.
+
+- **🎯 Findings — D `chore(D-self-audit): record provider source hardening sample` (`5f507b8be`) — 9th D-self-audit cycle:**
+  - D sampled 6 cargo test surfaces with explicit pass-verification:
+    - Gemini provider
+    - `stdio_mcp_client_module_is_pro_gated` (D.1.2 stdio MCP framework)
+    - `terminal_uses_canonical_subprocess_allowlist` (harden_cli_subprocess)
+    - `mixture_gemini_uses_current_endpoint_without_url_key` (D.2 Gemini API)
+    - `module_starts_with_official_source_comments` (B's `//! Source:` convention)
+    - omega-mcp full
+  - All cargo tests passed; pure audit-evidence commit.
+  - **D self-audit cadence stable:** 9 self-audit commits since iter 119 first observed (9 in 23 iters = ~every-2.6-iter pulse).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 18 CONSECUTIVE COMMITS ACROSS ITERS 130-142:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141) — 12 commits adding production-tier APIs across B.6.x modules
+  - **Phase 2-extended (iter 142)** — J-series module expansion begins (mamba3 J10 doctrine-substantiation)
+  - Pattern: B's maturation phase is BROADENING from B.6.x to J-series modules. Coverage expanding.
+
+- **🎯 NEW PATTERN — DOCTRINE-SUBSTANTIATION:** B's mamba3 commit shifts the substrate-maturation pattern from "add production-tier APIs" to "**substantiate paper-citation doctrine claims with code-verifiable checkers**". This is the V6.1 §1.10 honest-caveats discipline applied PROACTIVELY at the substrate level (vs reactively at audit time). **🎯 Aligns with Phase C.7.3 honest-caveats enforcement** that has been deferred since iter 93. B is implementing what C.7.3 was meant to audit.
+
+- **⚠️ B.0-LARGE.1 LANDING LATENCY: 8 iters past V6.1-precedent window.** Remains INFORMATIONAL per iter-139 reclassification. Will not escalate unless 10+ iters pass (2 more iters of patience).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **26 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2. Average ~2.8/iter.
+
+- **Iter 143+ candidates:** (1) Watch for B's iter-100 milestone (mamba3 J10 was iter 99; iter-100 typically triggers B's §7 audit cycle per every-10-iter cadence — could land iter 143-145). (2) Watch for 2nd + 3rd A post-iter-72-queue-exhaustion maintenance candidates. (3) B.0-LARGE.1 watch (8 iters past). (4) Phase C.2 + C.6 + C.7.3 all remain pending (C.7.3 now partially addressed by B's doctrine-substantiation pattern).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
