@@ -649,6 +649,29 @@ After the iter-74/75/76 substrate corrections, verify cross-link integrity remai
 - **Iter 77 net findings:** 0 broken cross-links. Doctrine network integrity intact after #8 corrections.
 - **Verdict:** ✅ **CROSS-LINK SURFACE HEALTHY.** Phase C.3 cadence (every 10-15 iters; last full audit at #6 iter 60) re-honored. Next Phase C.3 sweep due around iter 87-92.
 
+#### Self-audit (iter 79, 2026-05-16) — applying lesson #6 to my own session commits
+
+Re-verified all numerical claims I made across iters 73-78:
+
+| Iter | Claim | Re-verify | Verdict |
+|---|---|---|---|
+| 73 | Wave J1 substrate LOCs: 17+49+69+118+129 = 382 (from `git show 562e23d83:`) | 17+49+69+118+129 = 382 | ✅ EXACT |
+| 73 | J1 test count: 3+6+4 = 13 | 3+6+4 = 13 | ✅ EXACT |
+| 74 | heal/ LOCs: mod.rs 161 + log.rs 301 + breaker.rs 1 = 463 | 161+301+1 = 463 | ✅ EXACT |
+| 74 | circuit_breaker.rs LOC: 306 | 306 | ✅ EXACT |
+| 75 | live_files/mod.rs LOC: 253 | 253 | ✅ EXACT |
+| 77 | 5 commit SHAs cited by #8 resolve | All 5 resolve | ✅ EXACT |
+
+- **Self-audit verdict:** ✅ All numerical claims this session re-verify exactly. Lesson #6 discipline (independent re-grep) applied to my own work — passes. No self-deception drift in my audit corrections.
+
+#### Phase C.5 spot-check (iter 79) — driver §2 references "`RECURSIVE_TODO §5` triage section" but no §5 anchor exists in target doc
+
+Driver `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_C_2026_05_16.md:110` lists Terminal-C-owned scope as `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md §5 triage section`. Re-grep against current doc structure (`grep -nE "^## 5\." docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`) returns **zero hits**. The doc has `## Headline Status` · `## Scope` · `## Recursive Audit Method` · `## Status Tags` · `## P0 Queue` · `## P1 Queue` · `## P2 Queue` · `## P3 Queue` · `## Verification Waves` · `## Exact Manual Checks To Schedule` · `## Next File Batches` · `## Research Drop {2..10} Integrated Backlog Addendum`. No explicit "§5" or "5. Triage" section.
+
+- **Interpretation:** The driver §2 may reference a forward-staged §5 triage section that has yet to be created (similar pattern to the iter-62 doctrine row that forward-staged `heal/` schema before the substrate landed), OR the reference is to a different doc, OR §5 is internal to one of the P0/P1/P2/P3 queues without a top-level anchor.
+- **Audit-only treatment (per memory `feedback_check_driver_prompt_idempotency_before_cron`):** I will NOT edit the driver mid-loop — driver edits during cron firing risk leaving HEAD on wrong branch / breaking idempotency. Flagged here for user attention; the resolution is either (a) create a §5 anchor in RECURSIVE_TODO with the triage table, (b) update driver §2 to reference an existing section anchor, or (c) leave both as-is if the §5 is intentionally forward-staged.
+- **Phase C.5 net for iter 79:** flagged 1 driver-vs-target-doc anchor mismatch; no edit action taken (audit-only).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
