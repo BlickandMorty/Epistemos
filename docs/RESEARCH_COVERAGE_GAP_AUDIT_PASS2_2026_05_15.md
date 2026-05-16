@@ -363,6 +363,37 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | **Swift-WinUI / NPU scheduling as separate gaps** — Agent 6 split B6-A3 + B6-A4 | Subsumed by B2-H4 Windows porting research bundle. | MERGE — single Windows-research pointer. |
 | **CMS-X v3 safety-bit information-bottleneck** — Agent 3 flagged | Already in PASS 1 H-6 GTM doc section. | REJECT — covered. |
 
+### §5.1 Re-sweep audit (iter 74, 2026-05-16)
+
+Maintenance candidate 2 of 3 (Atlas Drift cross-link was 1 of 3 in iter 73). Each of the 9 rejection rows above re-verified against current main post-iter-73 state. Plus 4 bonus code-citation spot-checks pulled from audit-of-audit #7's verification claims (NIGHTBRAIN 949 LOC · ChannelIdentity 7 cases · 4 legal artifacts · macaroons.rs 930 LOC).
+
+**Verdict: all 9 rejections continue to hold. Two surface "drifts" surfaced and resolved as post-PASS-2 enrichment, not regressions. All 4 bonus code-citation spot-checks pass exactly.**
+
+| # | Original rejection | Re-sweep verification | Verdict |
+|---|---|---|---|
+| 1 | Halo Shadow Crate | `epistemos-shadow/Cargo.toml` present (1861 bytes, mtime 2026-04-26) | ✅ HOLDS |
+| 2 | Phase R sequencing gates | `grep "Phase R"` returns 1 hit MASTER_FUSION + 5 hits MAS_COMPLETE_FUSION (was 0 at PASS-2 time). **Resolution:** all hits are post-PASS-2 enrichment — MASTER_FUSION line 501 §3.34 names `Wave 9.33+ / Phase R+` (new cluster naming via B2-H3 Instant Recall landing iter 32), MAS_COMPLETE_FUSION 5 hits are §8 historical audit verdicts containing the phrase `"no Phase R in canon"` proving the OLD Phase R framing is still absent. | ✅ HOLDS (old framing absent; new Phase R+ naming is legit Wave 9.33 cluster, not the rejected "prerequisite gating") |
+| 3 | InterruptScoreCpu oracle | `grep "InterruptScore"` returns 4 hits in MASTER_FUSION (unchanged) | ✅ HOLDS |
+| 4 | session_insights "orphan" | `grep "session_insights" agent_core/src/lib.rs` returns `pub mod session_insights;` (unchanged) | ✅ HOLDS |
+| 5 | Sparse Autoencoder Observatory (SAELens/Qwen-Scope/NNsight/Neuronpedia) | `grep -iE "saelens\|qwen-scope\|nnsight\|neuronpedia"` MASTER_FUSION = 0 hits (was non-zero at PASS-2 time). **Resolution:** the specific tool names dropped, but the CONCEPT is now formalized at MASTER_FUSION line 529 `### 3.36 SAE Cognition Observatory — hallucination detection AUC 0.90` (landed via B2-H11 iter 33). Tool-name drop is a doctrine improvement (refactored from name-drop to AUC-pinned acceptance bar per the §3.36 row's own "Why this row is load-bearing" framing). | ✅ HOLDS (concept stronger than at PASS-2 time, not weaker) |
+| 6 | Sinkhorn-projected routing matrix | `grep -ci "sinkhorn"` MASTER_FUSION = 3 hits (unchanged) | ✅ HOLDS |
+| 7 | V6.2 AnswerPacket per-bubble sign-off (merged to L-2) | L-2 row in PASS-1 audit returns 8 grep hits — merged surface intact | ✅ HOLDS |
+| 8 | Swift-WinUI / NPU as separate (merged to B2-H4) | B2-H4 returns 6 hits in PASS-2 — merged surface intact | ✅ HOLDS |
+| 9 | CMS-X v3 safety-bit (covered by PASS-1 H-6) | H-6 returns 4 hits in PASS-1 — coverage intact | ✅ HOLDS |
+
+#### Bonus code-citation spot-checks (audit-of-audit #6/#7 claims re-verified)
+
+| Claim | Original audit row | Re-sweep result | Status |
+|---|---|---|---|
+| NIGHTBRAIN 949 LOC (mod.rs 247 + live.rs 702) | iter-64 §5.0 correction (`7284f92dc`) + audit-of-audit #7 finding | `wc -l agent_core/src/nightbrain/{mod.rs,live.rs}` = 247 + 702 = **949** exactly | ✅ MATCH |
+| ChannelIdentity 7 cases | B2-L3 §5.0 catch (iter 65 `b6b27edd4`) | grep returns exactly 7 cases: `imessage · telegram · slack · discord · whatsapp · signal · email` | ✅ MATCH |
+| 4 legal artifacts on disk | B2-L4 §5.0 cross-link (iter 66 `ba75b8cc2`) | `ls` returns all 4: `privacy-policy.md` (2632 B) · `licenses.md` (3682 B) · `PRIVACY_APP_STORE_AUDIT.md` (8863 B) · `PrivacyInfo.xcprivacy` (1549 B) | ✅ MATCH |
+| macaroons.rs 930 LOC | B2-H20 forward-staging (iter 31 H-4 + audit-of-audit #5) | `wc -l agent_core/src/cognitive_dag/macaroons.rs` = **930** exactly | ✅ MATCH |
+
+**§5 trust-but-verify lesson #6 (added iter 74):** the 2 surface "drifts" found in re-sweep (Phase R hits + SAE Observatory name-drop) both resolved as post-PASS-2 enrichment when verified against the actual hit text. **Pattern: a row-count-only verification is insufficient for `Phase R` and SAE Observatory style claims — you must read the hit context to distinguish (a) the originally-rejected framing reappearing from (b) a new, doctrine-legitimate use of the same lexical token landing in canon.** Future audit cycles should adopt: `grep -n` + read hit line for these two specific terms when they appear in any verification table.
+
+**§5.0 catch rate after iter 74:** unchanged at 25/74 = 33.8% (no new catches surfaced; re-sweep is verification-only, doesn't add new catches but proves the existing rejection rationale is still load-bearing post-context-compaction). **Cargo test baseline 1190/1190 holds** (verified by background run during this iter; doc-only diff with zero production-code touch).
+
 ---
 
 ## 6. Decision matrix — what to do NOW vs DEFER
