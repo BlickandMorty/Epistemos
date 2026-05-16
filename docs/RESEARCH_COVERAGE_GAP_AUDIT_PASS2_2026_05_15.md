@@ -5059,6 +5059,46 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 183+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES — now 5-consec chore-pulse surface**. (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (8 iters away).
 
+#### Status pulse (iter 183, 2026-05-16) — 🎯 B CROSSES 3000-TEST THRESHOLD on run-b-post-v1-research branch (substrate_independence + attention_sinks expansions) — 2 commits CLEAN
+
+- **Window since iter 182 close:** 2 sibling commits (sub-threshold):
+  - `2199608d5` (B iter 157) `research/substrate_independence: Substrate predicates + worst_pair`
+  - `a84ed581f` (B iter 156) `research/attention_sinks: min/sum/is_uniform + error classifiers`
+
+- **🎯 Findings — B `attention_sinks: min/sum/is_uniform + error classifiers (B.6.14)` (`a84ed581f`) — 🎯 B 3000-TEST THRESHOLD MILESTONE:**
+  - B iter 156. **🎯 Commit message verbatim: "This commit crosses the 3000-test threshold for the run-b-post-v1-research branch."** B's substrate-maturation phase has now produced >3000 tests across the entire run-b-post-v1-research branch.
+  - B.6.14 spectral attention-sinks detection (originally landed iter 110 audit-of-audit #24 era at `f2e324725` "B.6.14 Koopman + Bauer-Fike") + iter-131 `3992ed2eb` attention_sinks substrate-floor expansion (closes koopman.rs NOT-STARTED literal) — this iter further expansion.
+  - Substrate: `AttentionSpectrum::min() -> f64` (smallest eigenvalue at last index since descending-sorted) · `sum() -> f64` (spectral trace / total attention mass) · `is_strictly_positive() -> bool` (**stronger than construction-time check which allows 0** — production-tier strictness predicate) · `is_uniform` (truncated) · `AttentionSinkError::cause()` + **spectrum-vs-param classifier partition** · `detect_sinks_with_default` convenience wrapper.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `substrate_independence: Substrate predicates + worst_pair (B.6.17)` (`2199608d5`) — B.6.17 F-BZ-SUBSTRATE-INDEPENDENCE HARNESS SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 157. B.6.17 F-BZ-Substrate-Independence harness (originally landed iter 100 §7 meta-cycle era; expanded iter 139 with relative-error metric).
+  - Substrate: `Substrate::ALL + from_code(&str) -> Option<Self>` (enumeration constant + reverse code lookup; round-trip pattern) · `Substrate::is_real_hardware() / is_mock()` (**2-WAY PARTITION OVER 4 VARIANTS** — 3 real-hardware CPU/GPU/ANE vs 1 mock; cross-surface invariant: exactly one true per variant) · `SubstrateError::cause()` (stable wire identifier for 4 failure variants) · `SubstrateError::is_input_error() / is_param_error()` (**2-WAY PARTITION OVER 4 VARIANTS** — 3 input errors Empty/LengthMismatch/Duplicate vs 1 param error NonPositiveTolerance; cross-surface invariant tested) · `worst_pair` accessor on both report variants.
+  - **🎯 N-PARTITION-OVER-M-VARIANTS PATTERN EXTENDED: 2-over-4 (TWO PARTITIONS, ONE COVERING 3 VARIANTS)** — appears twice in this single commit (Substrate + SubstrateError). Adds to family: iter-180 BiometricGateError 3-over-4 + iter-181 SinkhornError 3-over-5 + **iter-183 Substrate 2-over-4 + SubstrateError 2-over-4** (this iter).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-PARTITION FAMILY SUMMARY (N-over-M variants):**
+  - 2-way pure XOR (N == M = 2): PlaneZ + CompanionState + Substrate (this iter — 2-over-4 not pure 2-XOR; correction: 2-over-4 is different from 2-XOR) — wait, Substrate is 2-over-4, not 2-XOR. Let me reclassify.
+  - **Pure k-way XOR (N == M):** PlaneZ 2-way · CompanionState 2-way · BrainSnapshot 3-way · TransitionError 3-way · DpError 3-way · HealOutcome 3-way · LivePlanValidationError 4-way · LadderDecision 3-way (iter-182)
+  - **N-partition over M variants where one or more partitions cover multiple variants:** BiometricGateError 3-over-4 (iter-180; per_op_tier covers 2) · SinkhornError 3-over-5 (iter-181; input_error covers 3) · **Substrate 2-over-4 (iter-183 this; real_hardware covers 3)** · **SubstrateError 2-over-4 (iter-183 this; input_error covers 3)**
+  - **Round-trip:** all `code()/from_code()` instances across many modules
+  - **Option-vs-predicate consistency:** iter-182 LadderDecision accepted_at_tier (NEW iter-182)
+  - **Sum-to-1:** iter-173 EmaSmoother + iter-137 confidence_floors
+  - **Classical-vs-non-classical special:** iter-179 BelnapValue
+  - **EXACT-value verifications + Doctrine-pin constants + Independent verifiers:** see prior pulses
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 73 CONSECUTIVE COMMITS ACROSS ITERS 130-183 + 3000-TEST THRESHOLD CROSSED ON B BRANCH.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite 3000-test milestone.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🚨 D.5↔A WASMExecXPC ESCALATION STILL FLAGGED:** D not active this iter; escalation persistent.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2. Average ~2.5/iter.
+
+- **Iter 184+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES** (5-consec). (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (7 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
