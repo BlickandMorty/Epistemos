@@ -9,6 +9,7 @@ pub mod dataset_formatter;
 pub mod dispatcher;
 #[cfg(not(feature = "mas-sandbox"))]
 pub mod git;
+pub mod github;
 pub mod graph_search_backend;
 pub mod graph_tools;
 pub mod logger;

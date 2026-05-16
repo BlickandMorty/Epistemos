@@ -819,6 +819,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Git repository inspection (`git.status`, `git.diff`, `git.log`) | Local Git subprocess through `omega-mcp::git` | ❌ Pro-only — `omega-mcp` compiles the executor out under `mas-sandbox` | D.3 wired on 2026-05-16. The executor validates `repo_root` as an existing Git worktree, runs `/usr/bin/git -C <repo> --no-pager`, exposes no mutating verbs, rejects absolute/traversing/option-like diff pathspecs, clamps retained stdout/stderr to 1 MiB, and uses the shared omega subprocess hardener that scrubs provider API keys before child launch. UniFFI entry point: `execute_git_tool(repo_root, tool_name, args_json)`. |
 
+### 7.4.5 D.3 GitHub MCP Read-Only Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| GitHub repository inspection (`github.repo`, `github.issues`, `github.pulls`, `github.releases`) | HTTPS GET requests through `omega-mcp::github` to GitHub REST | ✅ MAS-compatible transport — no subprocess; Swift MAS allow-list surfacing remains Terminal A scope | D.3 wired on 2026-05-16. The executor validates owner/repo slugs before URL construction, rejects credentials in tool arguments, uses `GITHUB_TOKEN`/`GH_TOKEN` only when the host injects them, sets GitHub's versioned REST headers, exposes only GET endpoints, filters pull requests out of `github.issues`, normalizes issue/PR/release/repo output, and returns JSON `ToolResult` receipts through UniFFI entry point `execute_github_tool(tool_name, args_json)`. Source docs: GitHub REST `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/issues`, `GET /repos/{owner}/{repo}/pulls`, and `GET /repos/{owner}/{repo}/releases`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

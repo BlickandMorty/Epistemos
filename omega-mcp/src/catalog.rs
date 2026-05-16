@@ -194,6 +194,31 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"maxCount": 20, "oneline": true}"#,
             r#"{"type":"object","properties":{"maxCount":{"type":"integer","description":"Commit count, clamped to 1...100"},"oneline":{"type":"boolean","description":"Return git --oneline output"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"}}}"#
         ),
+        // ── GitHub MCP Agent (read-only D.3 HTTPS surface) ───────────────
+        tool!(
+            "github.repo", "github",
+            "Read GitHub repository metadata via GET /repos/{owner}/{repo}. Public repositories work without a token; private repositories use GITHUB_TOKEN or GH_TOKEN.",
+            r#"{"owner": "octocat", "repo": "Hello-World"}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string","description":"GitHub owner or organization login"},"repo":{"type":"string","description":"Repository name without .git"}},"required":["owner","repo"]}"#
+        ),
+        tool!(
+            "github.issues", "github",
+            "List repository issues via GitHub REST. Pull requests are filtered out client-side; this is read-only.",
+            r#"{"owner": "octocat", "repo": "Hello-World", "state": "open", "perPage": 30}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"state":{"type":"string","enum":["open","closed","all"],"default":"open"},"sort":{"type":"string","enum":["created","updated","comments"],"default":"created"},"direction":{"type":"string","enum":["asc","desc"],"default":"desc"},"labels":{"type":"string","description":"Comma-separated label names"},"since":{"type":"string","description":"ISO 8601 timestamp"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
+        ),
+        tool!(
+            "github.pulls", "github",
+            "List repository pull requests via GitHub REST. Read-only.",
+            r#"{"owner": "octocat", "repo": "Hello-World", "state": "open", "perPage": 30}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"state":{"type":"string","enum":["open","closed","all"],"default":"open"},"sort":{"type":"string","enum":["created","updated","popularity","long-running"],"default":"created"},"direction":{"type":"string","enum":["asc","desc"],"default":"desc"},"head":{"type":"string","description":"Filter by head user/org and branch, e.g. octocat:feature"},"base":{"type":"string","description":"Filter by base branch"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
+        ),
+        tool!(
+            "github.releases", "github",
+            "List repository releases via GitHub REST. Read-only.",
+            r#"{"owner": "octocat", "repo": "Hello-World", "perPage": 10}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
+        ),
         // ── Automation Agent ──────────────────────────────────────────────
         tool!(
             "get_ui_tree", "automation",
@@ -287,6 +312,7 @@ mod tests {
         assert!(agents.contains("notes"), "missing notes agent");
         assert!(agents.contains("terminal"), "missing terminal agent");
         assert!(agents.contains("git"), "missing git agent");
+        assert!(agents.contains("github"), "missing github agent");
         assert!(agents.contains("automation"), "missing automation agent");
         assert!(agents.contains("computer"), "missing computer agent");
     }
@@ -360,6 +386,25 @@ mod tests {
 
         for expected in ["git.status", "git.diff", "git.log"] {
             assert!(names.contains(expected), "missing D3 git tool {expected}");
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_github_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in [
+            "github.repo",
+            "github.issues",
+            "github.pulls",
+            "github.releases",
+        ] {
+            assert!(
+                names.contains(expected),
+                "missing D3 GitHub tool {expected}"
+            );
         }
     }
 }
