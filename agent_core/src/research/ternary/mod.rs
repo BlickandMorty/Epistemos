@@ -21,7 +21,8 @@
 //! 1. Ternary packing / unpacking ([`pack`]).
 //! 2. Block-scaled ternary GEMV ([`gemv`] — CPU reference + Metal stub at
 //!    `Epistemos/Shaders/ternary_gemv.metal`; Metal dispatch wire-in pending).
-//! 3. Fused ternary projection with residual island add (NOT-STARTED).
+//! 3. Fused ternary projection with residual island add ([`residual_island`]
+//!    — CPU reference; Metal fusion pending).
 //! 4. Fused RMSNorm + ternary projection (NOT-STARTED).
 //! 5. Ternary KV fingerprint kernel (NOT-STARTED — distinct from full KV
 //!    ternarization, which is intentionally deferred per `ternary kernel.md`).
@@ -44,9 +45,13 @@
 pub mod backend;
 pub mod gemv;
 pub mod pack;
+pub mod residual_island;
 pub mod trit;
 
 pub use backend::{BackendKind, TernaryBackend};
 pub use gemv::{gemv_block_scaled, GemvBlock, GemvError, GEMV_BLOCK_TRITS};
 pub use pack::{pack_trits_u32, unpack_trits_u32, PackError, TRITS_PER_U32};
+pub use residual_island::{
+    fused_gemv_residual, ResidualIsland, ResidualIslandError, ResidualIslandRow,
+};
 pub use trit::Trit;
