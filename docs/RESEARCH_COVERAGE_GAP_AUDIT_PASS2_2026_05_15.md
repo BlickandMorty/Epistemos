@@ -88,6 +88,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 
 ### B2-H4. Windows port research (10-doc handoff structure)
 - **Source:** [_consolidated/60_deferred_research/windows_research/00_README.md](_consolidated/60_deferred_research/windows_research/00_README.md) + 10 subdocs (incl. `10_windows_port_decision_matrix.md`)
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new `NEW_SESSION_HANDOFF §14 "Deferred Windows research (post-V1, do not integrate into V1 work)"` with: (a) explicit post-V1 status note · (b) full 10-doc table mapping each file (00-10) to its purpose · (c) 4 non-negotiables from `00_README.md` + `02_hardware_target_and_windows_constraints.md` (no Tauri/Electron/WebView · preserve native split · preserve local AI · preserve perf rules) · (d) "when to look at this bundle" gate (AFTER V1 macOS ships + Pro tier ships + concrete Windows-over-Linux distribution decision) · (e) explicit warning NOT to optimize macOS code for "easier Windows port" speculatively.
 - **What it is:** Complete porting blueprint with non-negotiables: no Tauri/Electron/WebView, preserve native split, preserve local AI, preserve perf. Swift-WinUI vs Swift-WinRT vs Direct3D + WinRT comparison. NPU scheduling (Intel Core Ultra, OpenVINO) on Dell XPS 16.
 - **Destination:** `NEW_SESSION_HANDOFF_2026_05_15.md` §"Deferred Windows Research" — explicitly mark post-V1, do not integrate into V1 work; pointer + non-negotiables.
 
@@ -300,7 +301,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H1 Five Laws | ✅ RESOLVED 2026-05-16 — `NEW_SESSION_HANDOFF §3` rule 7 carries all 5 laws verbatim. CLAUDE.md promotion is user-approval-gated. |
 | B2-H2 Per-model Knowledge Vaults | ✅ RESOLVED 2026-05-16 — Hermes 2.0 §13.5.7 with 2-layer architecture + per-model token table + NightBrain integration + UI surface. |
 | B2-H3 Instant Recall (Mamba state) | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.34` with 4-phase plan + Key Numbers table + boundary vs Shadow Sketch / vault.search / L4 Engram. |
-| B2-H4 Windows port (10-doc bundle) | NEW_SESSION_HANDOFF §"Deferred Windows" |
+| B2-H4 Windows port (10-doc bundle) | ✅ RESOLVED 2026-05-16 — landed as `NEW_SESSION_HANDOFF §14` with 10-doc table + 4 non-negotiables + "when to look at this" gate. |
 | B2-H5 Graph filter UI | MAS_COMPLETE_FUSION §C |
 | B2-H7 Spectral Memory | Hermes 2.0 §memory |
 | B2-H8 Golden-ratio scheduling | MASTER_FUSION §scheduling |

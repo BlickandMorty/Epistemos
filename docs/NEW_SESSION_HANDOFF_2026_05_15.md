@@ -344,4 +344,37 @@ git log --oneline codex/research-snapshot-2026-05-08 ^main | head -25
 
 ---
 
-*— End of New-Session Handoff. 13 sections. Read §1 in order; rest are reference. The §11 7-item check is your "did I satisfy ALL the research" gate.*
+## 14. Deferred Windows research (post-V1, do not integrate into V1 work)
+
+The Windows port research is **explicitly post-V1**. V1 ships MAS macOS only. The research bundle exists so the eventual port has a starting position, not because anything in V1 depends on it. Do NOT pull these docs into a V1 slice; pointer only.
+
+**Location (10-doc bundle):** `docs/_consolidated/60_deferred_research/windows_research/` (mirror at `docs/windows_research_handoff/` for the final decision matrix).
+
+| # | File | Purpose |
+|---|---|---|
+| 00 | `00_README.md` | Handoff overview — read this first when the port becomes active |
+| 01 | `01_master_google_research_prompt.md` | The research-collection prompt that produced the rest of the bundle |
+| 02 | `02_hardware_target_and_windows_constraints.md` | Dell XPS 16 + Intel Core Ultra + NPU scheduling targets; non-negotiables |
+| 03 | `03_app_architecture_and_bootstrap.md` | Native shell choice (Swift-WinUI / Swift-WinRT / Direct3D + WinRT) + app lifecycle |
+| 04 | `04_ai_routing_and_local_inference.md` | OpenVINO + ONNX Runtime + DirectML routing; how local-tier inference maps off Apple Silicon |
+| 05 | `05_persistence_models_and_vault.md` | SQLite + GRDB-equivalent on Windows; vault file watching with `ReadDirectoryChangesW` |
+| 06 | `06_notes_editor_and_textkit_patterns.md` | TextKit 2 → RichEdit / TextServices Framework equivalent; preserving the editor invariants |
+| 07 | `07_chat_surfaces_and_session_patterns.md` | NoteChatState / streaming UI parity |
+| 08 | `08_graph_engine_and_rust_ffi.md` | Rust-FFI surface that already exists carries over; Metal → DirectX 12 compute |
+| 09 | `09_performance_rules_and_antipatterns.md` | Windows-specific perf rules + Apple-only antipatterns that map differently |
+| 10 | `10_windows_port_decision_matrix.md` | Final Swift-WinUI vs Swift-WinRT vs Direct3D+WinRT comparison; recommended path |
+
+**Non-negotiables (from `00_README.md` + `02_hardware_target_and_windows_constraints.md`):**
+
+1. **No Tauri, no Electron, no WebView.** The port keeps the native split — Swift app shell (or native equivalent) + Rust agent_core + DirectML/OpenVINO for local inference.
+2. **Preserve the native split.** Rust `agent_core` + `epistemos-shadow` carry over unchanged. The OS adapter layer (AX → UIA on Windows · ScreenCaptureKit → Graphics.Capture API · MLX → DirectML/OpenVINO) is the only port surface.
+3. **Preserve local AI.** No cloud fallback added during the port. Local-tier inference must work on the Windows hardware target before submission.
+4. **Preserve perf.** Apple Silicon perf rules apply: pre-allocate buffers, debounce hot paths, zero per-frame allocations in render loops, no `repeatForever` animations.
+
+**When to look at this bundle:** AFTER V1 macOS ships + ANY Pro tier ships + a concrete distribution decision routes Windows ahead of Linux. Until then, treat as deferred reference material — do NOT optimize the macOS codebase for "easier Windows port" speculatively.
+
+Source: `docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` B2-H4 (resolved 2026-05-16).
+
+---
+
+*— End of New-Session Handoff. 14 sections. Read §1 in order; rest are reference. The §11 7-item check is your "did I satisfy ALL the research" gate. §14 is post-V1 reference only.*
