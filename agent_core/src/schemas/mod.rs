@@ -293,11 +293,28 @@ pub enum SkillBody {
         language: SkillCodeLanguage,
         source: String,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        inputs: Vec<Value>,
+        inputs: Vec<SkillCodeInput>,
     },
     Plan {
         steps: Vec<SkillPlanStep>,
     },
+}
+
+/// One declared input parameter for a `SkillBody::Code` skill.
+///
+/// Mirrors the disk schema's `properties.body.oneOf[0].properties.inputs.items`
+/// requirement of `["name", "type"]`. The disk schema deliberately omits
+/// `additionalProperties: false`, so we capture unrecognized fields via
+/// `#[serde(flatten)]` rather than rejecting them — extension data
+/// (description / default / hint) round-trips losslessly until the
+/// schema grows typed fields for them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillCodeInput {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    #[serde(default, flatten, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, Value>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -645,6 +662,79 @@ mod tests {
         } else {
             panic!("expected Skill variant");
         }
+    }
+
+    #[test]
+    fn skill_code_inputs_require_name_and_type() {
+        // The disk schema declares `body.oneOf[0].properties.inputs.items.required = [name, type]`.
+        // Before SkillCodeInput existed, Rust accepted `Vec<Value>` and any
+        // shape passed; this test pins the new typed gate so a malformed
+        // input item (missing name or missing type) is rejected at parse time.
+        let missing_type = serde_json::json!({
+            "schema_rev": "epistemos.skill.v1",
+            "skill_id": "aaaabbbbcccc",
+            "name": "Sample",
+            "description": "x",
+            "body": {
+                "kind": "code",
+                "language": "javascript",
+                "source": "return input;",
+                "inputs": [{"name": "topic"}]
+            },
+            "created_at": "2026-05-15T00:00:00Z"
+        });
+        let err = validate_epistemos_payload(&missing_type)
+            .expect_err("inputs[i] must have `type`");
+        assert!(
+            matches!(err, SchemaValidationError::Deserialize(_)),
+            "missing `type` must surface as Deserialize, got: {err:?}"
+        );
+
+        let missing_name = serde_json::json!({
+            "schema_rev": "epistemos.skill.v1",
+            "skill_id": "aaaabbbbcccc",
+            "name": "Sample",
+            "description": "x",
+            "body": {
+                "kind": "code",
+                "language": "javascript",
+                "source": "return input;",
+                "inputs": [{"type": "string"}]
+            },
+            "created_at": "2026-05-15T00:00:00Z"
+        });
+        let err = validate_epistemos_payload(&missing_name)
+            .expect_err("inputs[i] must have `name`");
+        assert!(matches!(err, SchemaValidationError::Deserialize(_)));
+
+        // Well-formed input — with an extra field — round-trips losslessly.
+        // The disk schema does not declare `additionalProperties: false` on
+        // input items, so unknown extension keys must survive a round-trip
+        // (e.g. a future `description` / `default` field added by tooling
+        // before the schema catches up).
+        let good = serde_json::json!({
+            "schema_rev": "epistemos.skill.v1",
+            "skill_id": "aaaabbbbcccc",
+            "name": "Sample",
+            "description": "x",
+            "body": {
+                "kind": "code",
+                "language": "javascript",
+                "source": "return input;",
+                "inputs": [{
+                    "name": "topic",
+                    "type": "string",
+                    "description": "free-form topic phrase"
+                }]
+            },
+            "created_at": "2026-05-15T00:00:00Z"
+        });
+        let payload = validate_epistemos_payload(&good).expect("valid skill payload");
+        let back = serde_json::to_value(&payload).expect("re-serialize");
+        assert_eq!(
+            back, good,
+            "SkillCodeInput must round-trip extension fields via #[serde(flatten)]"
+        );
     }
 
     #[test]
