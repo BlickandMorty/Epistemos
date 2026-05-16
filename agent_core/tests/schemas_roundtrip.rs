@@ -278,3 +278,127 @@ fn semantic_payload_with_retracts_and_derives_from_round_trips() {
     let back = serde_json::to_value(&payload).expect("re-serialize");
     assert_eq!(back, v);
 }
+
+/// Drift gate: for every field the disk JSON schema lists as `required`,
+/// the corresponding Rust struct field MUST also be required (non-`Option`,
+/// non-`#[serde(default)]`). If a future schema edit promotes a field to
+/// `required` but the Rust mirror still treats it as optional, runtime
+/// `validate_epistemos_payload` would accept payloads the JSON schema
+/// rejects — a real drift visible only at the boundary.
+///
+/// Strategy: take a known-good fixture, programmatically delete each
+/// field named in the disk `required` array (skipping `schema_rev`,
+/// already covered by the dispatcher), and assert Rust rejects with
+/// `Deserialize` (the serde "missing field" path).
+#[test]
+fn disk_required_fields_match_rust_required_fields() {
+    fn assert_each_required_field_makes_rust_reject_when_removed(
+        rev: EpistemosSchemaRev,
+        good: Value,
+    ) {
+        let schema = load_schema(rev);
+        let required: Vec<String> = schema
+            .get("required")
+            .and_then(|r| r.as_array())
+            .unwrap_or_else(|| panic!("{} schema must declare `required` array", rev.as_str()))
+            .iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect();
+        assert!(
+            !required.is_empty(),
+            "{} schema must have at least one required field",
+            rev.as_str()
+        );
+
+        for field in &required {
+            // `schema_rev` is dispatcher-required and surfaces a
+            // distinct `MissingSchemaRev` error — covered by the
+            // existing top-level test; skip here.
+            if field == "schema_rev" {
+                continue;
+            }
+            let mut probe = good.clone();
+            let removed = probe
+                .as_object_mut()
+                .unwrap_or_else(|| panic!("{} fixture must be a JSON object", rev.as_str()))
+                .remove(field);
+            assert!(
+                removed.is_some(),
+                "{} fixture must contain `{field}` so removal is meaningful — \
+                 fixture drift suspected",
+                rev.as_str()
+            );
+            let err = match validate_epistemos_payload(&probe) {
+                Ok(_) => panic!(
+                    "{} schema lists `{field}` as required, but Rust accepted \
+                     the payload after removing it — disk↔code drift. Rust \
+                     struct must remove the `Option<...>`/`#[serde(default)]` \
+                     so missing `{field}` is rejected at parse time.",
+                    rev.as_str()
+                ),
+                Err(e) => e,
+            };
+            assert!(
+                matches!(err, SchemaValidationError::Deserialize(_)),
+                "{} removing required field `{field}` must surface as \
+                 Deserialize error (serde missing-field), got: {err:?}",
+                rev.as_str()
+            );
+        }
+    }
+
+    // Reuse the schema's own known-good fixtures so the test stays
+    // honest if the JSON schemas evolve.
+    let soul_good = serde_json::json!({
+        "schema_rev": "epistemos.soul.v1",
+        "soul_id": "abcdef012345",
+        "model_id": "qwen3-4b-4bit",
+        "identity": {
+            "name": "Jordan",
+            "voice": "concise / no hedging / cites sources"
+        },
+        "preferences": {"tone": "concise"},
+        "updated_at": "2026-05-15T20:00:00Z"
+    });
+    let skill_good = serde_json::json!({
+        "schema_rev": "epistemos.skill.v1",
+        "skill_id": "abcdef012345",
+        "name": "echo",
+        "description": "Returns its input.",
+        "body": {"kind": "code", "language": "javascript", "source": "return input;"},
+        "created_at": "2026-05-15T00:00:00Z"
+    });
+    let episode_good = serde_json::json!({
+        "schema_rev": "epistemos.episode.v1",
+        "episode_id": "555566667777",
+        "occurred_at": "2026-05-15T20:00:00Z",
+        "kind": "user_capture",
+        "content": "x"
+    });
+    let semantic_good = serde_json::json!({
+        "schema_rev": "epistemos.semantic.v1",
+        "fact_id": "111122223333",
+        "predicate": "prefers",
+        "subject": "user",
+        "object": "pacific_time",
+        "confidence": 1.0,
+        "claim_kind": "verified_empirical"
+    });
+
+    assert_each_required_field_makes_rust_reject_when_removed(
+        EpistemosSchemaRev::SoulV1,
+        soul_good,
+    );
+    assert_each_required_field_makes_rust_reject_when_removed(
+        EpistemosSchemaRev::SkillV1,
+        skill_good,
+    );
+    assert_each_required_field_makes_rust_reject_when_removed(
+        EpistemosSchemaRev::EpisodeV1,
+        episode_good,
+    );
+    assert_each_required_field_makes_rust_reject_when_removed(
+        EpistemosSchemaRev::SemanticV1,
+        semantic_good,
+    );
+}
