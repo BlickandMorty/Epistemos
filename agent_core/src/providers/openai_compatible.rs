@@ -1,5 +1,10 @@
 //! OpenAI-Compatible Provider — Universal provider for any /v1/chat/completions API
 //! Source: https://platform.openai.com/docs/api-reference/chat/create-chat-completion
+//! Source: https://openrouter.ai/docs/api/reference/overview
+//! Source: https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request
+//! Source: https://openrouter.ai/docs/api/reference/streaming
+//! Source: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+//! Source: https://openrouter.ai/docs/guides/routing/provider-selection
 //! Source: https://docs.mistral.ai/mistral-vibe/using-fim-api
 //! Source: https://docs.mistral.ai/models/model-cards/codestral-25-08
 //! Source: https://docs.mistral.ai/api/endpoint/chat
@@ -22,7 +27,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::agent_loop::{AgentConfig, AgentError};
+use crate::agent_loop::{AgentConfig, AgentError, Effort};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_tool_parameters;
@@ -45,6 +50,7 @@ pub struct OpenAICompatibleProvider {
 #[derive(Clone, Copy)]
 enum RequestExtension {
     KimiThinking,
+    OpenRouterReasoning,
 }
 
 impl OpenAICompatibleProvider {
@@ -90,6 +96,9 @@ impl OpenAICompatibleProvider {
                     "type": if config.enable_thinking { "enabled" } else { "disabled" }
                 });
             }
+            Some(RequestExtension::OpenRouterReasoning) => {
+                body["reasoning"] = openrouter_reasoning_config(config);
+            }
             None => {}
         }
     }
@@ -110,6 +119,10 @@ impl OpenAICompatibleProvider {
     // ========================================================================
 
     // --- OpenRouter (200+ models) ---
+    // Source: https://openrouter.ai/docs/api/reference/overview
+    // Source: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+    // Endpoint: https://openrouter.ai/api/v1/chat/completions
+    // Auth: OPENROUTER_API_KEY
     pub fn openrouter(model: &str) -> Self {
         Self::new(
             std::env::var("OPENROUTER_API_KEY").unwrap_or_default(),
@@ -119,7 +132,7 @@ impl OpenAICompatibleProvider {
             ProviderCapabilities {
                 max_context_tokens: 200_000,
                 max_output_tokens: 32_000,
-                supports_thinking: false,
+                supports_thinking: true,
                 supports_vision: true,
                 supports_web_search: false,
                 supports_code_execution: false,
@@ -132,7 +145,8 @@ impl OpenAICompatibleProvider {
             },
         )
         .with_header("HTTP-Referer", "https://epistemos.app")
-        .with_header("X-Title", "Epistemos")
+        .with_header("X-OpenRouter-Title", "Epistemos")
+        .with_request_extension(RequestExtension::OpenRouterReasoning)
     }
 
     // --- Ollama (local, no API key) ---
@@ -468,6 +482,7 @@ struct StreamChoice {
 #[derive(Deserialize, Debug)]
 struct DeltaContent {
     content: Option<String>,
+    reasoning: Option<String>,
     reasoning_content: Option<String>,
     tool_calls: Option<Vec<ToolCallDelta>>,
 }
@@ -638,7 +653,7 @@ impl AgentProvider for OpenAICompatibleProvider {
 
                         if let Some(delta) = &choice.delta {
                             // Text content
-                            if let Some(thinking) = kimi_reasoning_delta_text(delta) {
+                            if let Some(thinking) = openai_compatible_reasoning_delta_text(delta) {
                                 yield Ok(StreamEvent::ThinkingDelta {
                                     index: text_index,
                                     text: thinking.to_string(),
@@ -765,10 +780,34 @@ fn kimi_supports_thinking(model: &str) -> bool {
     kimi_supports_configurable_thinking(model) || model.contains("thinking")
 }
 
-fn kimi_reasoning_delta_text(delta: &DeltaContent) -> Option<&str> {
+fn openrouter_reasoning_config(config: &AgentConfig) -> Value {
+    if config.enable_thinking {
+        json!({
+            "effort": openrouter_reasoning_effort(config.effort),
+            "exclude": false
+        })
+    } else {
+        json!({
+            "effort": "none",
+            "exclude": true
+        })
+    }
+}
+
+fn openrouter_reasoning_effort(effort: Effort) -> &'static str {
+    match effort {
+        Effort::Low => "low",
+        Effort::Medium => "medium",
+        Effort::High => "high",
+        Effort::Max => "xhigh",
+    }
+}
+
+fn openai_compatible_reasoning_delta_text(delta: &DeltaContent) -> Option<&str> {
     delta
         .reasoning_content
         .as_deref()
+        .or(delta.reasoning.as_deref())
         .filter(|text| !text.is_empty())
 }
 
@@ -844,8 +883,8 @@ fn message_to_openai_json(message: &Message) -> Value {
 #[cfg(test)]
 mod tests {
     use super::message_to_openai_json;
-    use super::{kimi_reasoning_delta_text, OpenAICompatibleProvider, StreamChunk};
-    use crate::agent_loop::AgentConfig;
+    use super::{openai_compatible_reasoning_delta_text, OpenAICompatibleProvider, StreamChunk};
+    use crate::agent_loop::{AgentConfig, Effort};
     use crate::providers::schema::normalized_tool_parameters;
     use crate::test_support::env_lock;
     use crate::types::{ContentBlock, Message};
@@ -886,6 +925,63 @@ mod tests {
         assert_eq!(
             json["tool_calls"][0]["function"]["name"].as_str(),
             Some("file__read")
+        );
+    }
+
+    #[test]
+    fn openrouter_gateway_uses_current_api_contract() {
+        let provider = OpenAICompatibleProvider::openrouter("openai/gpt-5.2");
+
+        assert_eq!(provider.base_url, "https://openrouter.ai/api/v1");
+        assert_eq!(provider.model, "openai/gpt-5.2");
+        assert_eq!(provider.display_name, "OpenRouter");
+        assert_eq!(provider.capabilities.max_context_tokens, 200_000);
+        assert!(provider.capabilities.supports_thinking);
+        assert!(provider.capabilities.supports_vision);
+        assert_eq!(
+            provider.extra_headers.get("X-OpenRouter-Title"),
+            Some(&"Epistemos".to_string())
+        );
+    }
+
+    #[test]
+    fn openrouter_reasoning_request_extension_maps_effort() {
+        let provider = OpenAICompatibleProvider::openrouter("openai/gpt-5.2");
+        let mut body = json!({
+            "model": provider.model,
+            "messages": [],
+            "stream": true
+        });
+        let config = AgentConfig {
+            enable_thinking: true,
+            effort: Effort::Max,
+            ..AgentConfig::default()
+        };
+
+        provider.apply_provider_request_extensions(&mut body, &config);
+
+        assert_eq!(
+            body["reasoning"],
+            json!({ "effort": "xhigh", "exclude": false })
+        );
+    }
+
+    #[test]
+    fn openrouter_stream_chunk_exposes_reasoning_as_thinking_delta() {
+        let chunk: StreamChunk = serde_json::from_value(json!({
+            "choices": [{
+                "index": 0,
+                "delta": { "reasoning": "plan first" },
+                "finish_reason": null
+            }]
+        }))
+        .unwrap();
+        let choices = chunk.choices.unwrap();
+        let delta = choices[0].delta.as_ref().unwrap();
+
+        assert_eq!(
+            openai_compatible_reasoning_delta_text(delta),
+            Some("plan first")
         );
     }
 
@@ -947,7 +1043,10 @@ mod tests {
         let choices = chunk.choices.unwrap();
         let delta = choices[0].delta.as_ref().unwrap();
 
-        assert_eq!(kimi_reasoning_delta_text(delta), Some("plan first"));
+        assert_eq!(
+            openai_compatible_reasoning_delta_text(delta),
+            Some("plan first")
+        );
     }
 
     #[test]
