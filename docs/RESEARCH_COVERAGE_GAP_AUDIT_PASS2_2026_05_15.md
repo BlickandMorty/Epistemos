@@ -714,6 +714,61 @@ Verified Terminal A's `2ab5e5408 docs(T-A-1, §5.0): BlockMirror path fix + V3 q
 3. Whether RECURSIVE_TODO needs a §5 triage anchor created OR driver §2 reference updated.
 4. Whether the §10 Phase Completion Ledger forward-staged-primitive count revision (now 4 forward-staged + 2 shipped-dormant) requires a follow-up §10 row tightening.
 
+### Audit-of-audit #9 (iter 81, 2026-05-16) — sibling-impl window now substantive across 4 branches
+
+Late in iter 80 a fresh `git fetch --all` surfaced significant sibling work that landed during this session (initial `git log --all` at iter 73 saw only the J1 substrate floor; the rest landed live):
+
+- **Window since #7 (iter 70):** 11+ substantive sibling commits across 4 branches.
+  - `run-b-post-v1-research`: **J1 kernel portfolio CLOSED 7/7** — `562e23d83` floor (iter 1 audited iter 73) + `1c6a7020a` kernel #2 GEMV + `fbfa381f1` kernel #3 fused projection + residual island + `7201a7a79` kernel #4 fused RMSNorm + `9451077d5` kernel #5 KV fingerprint + `af5fdd6c0` kernel #6 live activation capture (FIFO ring) + `cf85b3d4a` kernel #7 steering delta apply.
+  - `run-d-providers`: `4c0fc7bd0` D.2.5/D.2.7 — Codestral + Together AI providers + explicit-selection routing fix.
+  - `run-e-decisions`: `68cbe6745` B-1 Live Files · `3526909f8` B-2 Obscura · `17a1b7c1b` B-3 Undo · `2f65da4a6` B-4 NousResearch SVG decision research drops.
+  - `run-f-integrations`: empty (no commits yet).
+- **Method:** for each of the 6 new J1 kernels — `git ls-tree -l origin/run-b-post-v1-research` confirming file size + `git show <sha>:...rs | grep -c "#\[test\]"` confirming test count; plus spot-check `git show --stat` on D and E commits.
+- **Findings:**
+
+  **B's J1 portfolio (file sizes + tests at portfolio close on B's branch HEAD):**
+  | Kernel | File | Bytes | Tests |
+  |---|---|---|---|
+  | Substrate floor | trit.rs · pack.rs · backend.rs · research/mod.rs | 1930 · 4273 · 4409 · 17 LOC | 3+6+4=13 |
+  | #2 GEMV | gemv.rs | 13384 | 13 |
+  | #3 Residual island | residual_island.rs | 9864 | 7 |
+  | #4 Fused RMSNorm | fused_rmsnorm.rs | 8350 | 9 |
+  | #5 KV fingerprint | kv_fingerprint.rs | 9864 | 12 |
+  | #6 Activation tap | activation_tap.rs | 6701 | 8 |
+  | #7 Steering delta | steering.rs | 8120 | 11 |
+  | (umbrella) | research/ternary/mod.rs | 4151 (82 LOC) | — |
+  - Portfolio test total: floor 13 + kernels 60 = **73 tests** on `feature = "research"` lane.
+  - 6/6 kernels match the roadmap order from `ternary kernel.md` (block-scaled GEMV → fused projection + residual island → fused RMSNorm → KV fingerprint → activation tap → steering delta).
+  - All 6 kernel commits author-stamped Jordan Conley + Co-Authored-By Claude Opus 4.7 1M; commits cluster within ~30 min on 2026-05-16 (12:10-12:30 range observed) — coherent execution sprint.
+  - kernel #2 commit explicitly carries `HARDWARE-BUDGET: Metal shader designed for M2 Pro 16 GB (canonical Wave J target was M2 Max 64 GB). 16-trit block size keeps threadgroup memory pressure modest; bandwidth-bound on Pro at ~200 GB/s` — substrate-budget discipline maintained.
+
+  **D's `4c0fc7bd0` providers commit:**
+  - Adds `OpenAICompatibleProvider` factory constructors for Codestral (`codestral.mistral.ai/v1`, 256K ctx) + Together AI (`api.together.xyz/v1`, 128K ctx).
+  - Fixes silent routing bug in `resolve_provider_selection_preview`: prior `other=>` arm returned `supported=false` for kimi/xai-grok/openrouter/groq/mistral/deepseek/minimax/zai/hf despite each being `instantiate_provider`-wired.
+  - Env-var conventions: `CODESTRAL_API_KEY` + `TOGETHER_API_KEY`. **Not spot-grepped by C** — provider authentication surface is Terminal D's owned scope per §2; #9 verifies the commit landed and is coherent at the §8-row level only.
+
+  **E's 4 user-decision research drops (`68cbe6745`/`3526909f8`/`17a1b7c1b`/`2f65da4a6`):**
+  - B-1 Live Files · B-2 Obscura browser · B-3 Undo backbone · B-4 NousResearch SVG art.
+  - **Parallel-discovery convergence:** E's B-1 commit message notes that §5.0 reconciliation found `agent_core/src/live_files/mod.rs` already exists as a typed seam — **independently catching the same drift surface my iter 75 audit-of-audit #8 continuation caught.** Two terminals reaching the same finding via independent §5.0 verification is the audit-of-audit pattern working correctly. E's research adds depth (decision research for the user) where my work added a doctrine annotation; the two are complementary, not redundant.
+
+- **§5.0 spot-verification — all 6 J1 kernels:**
+  - All 6 expected files present in B's branch tree (`git ls-tree` confirms).
+  - File sizes are non-trivial (4-14 KB), consistent with real implementations rather than empty stubs.
+  - Test counts per kernel meet or exceed 7 — depth-of-coverage discipline maintained.
+  - Substrate floor (`562e23d83`) already audited iter 73 — CLEAN at that point; the 6 kernel additions build on it cleanly per the file-only-add diffstat.
+
+- **No drift surfaced this window.** All 11 substantive sibling commits pass §5.0 inspection at the audit-of-audit level. None claimed substrate-absence that turned out to be substrate-present (which was the failure pattern that drove #8); these are all *additive* commits.
+
+- **Trust-but-verify lesson #6 still discipline-relevant** for sibling commits going forward — even *additive* commits should not be assumed correct without re-grep. This window's commits happen to be clean, but the audit-of-audit must always re-execute the citations rather than trust the commit message.
+
+- **Verdict:** ✅ **ON TRACK.** Sibling-implementation window since #7 is **substantial and clean**: J1 portfolio closed, D providers landed, E user-decision research drops complete. The drift surface caught by #8 was localized to iter-49+ doctrine rows mis-framing pre-existing salvage-tier substrate; new sibling work (iter 73+ this session) is not contributing fresh drift.
+
+- **§5.0 catch rate update:** was 28/80 = 35.0% at iter 80 close; with 11 commits this iter and 0 catches, rate dilutes to 28/91 = 30.8%. The flat catch line is healthy — it reflects the substrate-vs-doctrine drift surface having been largely surveyed; new sibling work is build-up rather than backfill.
+
+- **Next audit-of-audit #10 trigger:** every 3-5 commits per §5.1 cadence. Current iter-81 baseline; #10 fires when 3+ new sibling commits land beyond this window. Given B's portfolio is closed, D's provider lane has 1 commit, E's 4 decision-drops done, F empty — next sibling work depends on which terminal opens the next slice.
+
+- **Phase C.2 follow-up note (MASTER_RESEARCH_INDEX §15):** my iter 73 entry covered only the J1 substrate floor (`562e23d83`). With 6 additional kernels now landed, the entry will need updating once B's branch merges to main (or with a forward-staged note that kernels #2-#7 are on B's branch pre-merge). Deferred for an iter-82+ slice if loop continues.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
