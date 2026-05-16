@@ -239,7 +239,8 @@ pub fn cloud_knowledge_distillation(has_pro: bool) -> Result<TaskRunReport, Task
 
 /// Generate a session-graph node count from a list of session
 /// summaries. Substrate floor returns `entries.len()` as the node
-/// count; production adds edge inference from cross-session links.
+/// count; the sibling [`session_graph_generation_with_edges`] does
+/// trigram-overlap edge inference for the cross-session links.
 pub fn session_graph_generation(entries: &[String]) -> Result<TaskRunReport, TaskError> {
     if entries.is_empty() {
         return Err(TaskError::EmptyInput {
@@ -252,6 +253,55 @@ pub fn session_graph_generation(entries: &[String]) -> Result<TaskRunReport, Tas
         items_dropped: 0,
         items_emitted: entries.len() as u32,
     })
+}
+
+/// Generate session-graph nodes + inferred edges. Each entry becomes
+/// a node (indexed by its position in `entries`); an undirected edge
+/// is added between two nodes if their trigram-Jaccard similarity is
+/// at least `edge_threshold`. Returns the sorted unique edge list
+/// `(i, j)` with `i < j`, plus the task report. The substrate-floor
+/// upgrade-path doc said "production adds edge inference from
+/// cross-session links"; this is the trigram-overlap variant.
+///
+/// `edge_threshold` must be in `(0.0, 1.0]`. The same threshold
+/// validation as [`dedupe_artifacts_by_trigram_similarity`] applies.
+pub fn session_graph_generation_with_edges(
+    entries: &[String],
+    edge_threshold: f64,
+) -> Result<(Vec<(usize, usize)>, TaskRunReport), TaskError> {
+    if entries.is_empty() {
+        return Err(TaskError::EmptyInput {
+            kind: NightBrainTaskKind::SessionGraphGeneration,
+        });
+    }
+    if !edge_threshold.is_finite() || edge_threshold <= 0.0 || edge_threshold > 1.0 {
+        return Err(TaskError::EmptyInput {
+            kind: NightBrainTaskKind::SessionGraphGeneration,
+        });
+    }
+    let tris: Vec<std::collections::HashSet<[char; 3]>> =
+        entries.iter().map(|e| trigrams(e)).collect();
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for i in 0..entries.len() {
+        for j in (i + 1)..entries.len() {
+            if tris[i].is_empty() || tris[j].is_empty() {
+                continue;
+            }
+            if trigram_jaccard(&tris[i], &tris[j]) >= edge_threshold {
+                edges.push((i, j));
+            }
+        }
+    }
+    let edge_count = edges.len() as u32;
+    Ok((
+        edges,
+        TaskRunReport {
+            kind: NightBrainTaskKind::SessionGraphGeneration,
+            items_processed: entries.len() as u32,
+            items_dropped: 0,
+            items_emitted: entries.len() as u32 + edge_count,
+        },
+    ))
 }
 
 /// Analyze skill evolution: pure-stat reduce over skill invocation
@@ -280,8 +330,9 @@ pub fn skill_evolution_analysis(
 }
 
 /// Prune SSM state by keeping only entries within `keep_window` of
-/// the latest. Substrate floor uses timestamps; production may use
-/// magnitude / decay-half-life instead.
+/// the latest. Substrate floor uses timestamps; sibling
+/// [`ssm_state_pruning_by_magnitude`] keeps top-K by magnitude
+/// instead (the upgrade path the original doc named).
 pub fn ssm_state_pruning(
     state: &[(u64, f32)],
     keep_window: u64,
@@ -297,6 +348,49 @@ pub fn ssm_state_pruning(
         .filter(|(t, _)| latest.saturating_sub(*t) <= keep_window)
         .copied()
         .collect();
+    let dropped = (state.len() - kept.len()) as u32;
+    Ok((
+        kept.clone(),
+        TaskRunReport {
+            kind: NightBrainTaskKind::SsmStatePruning,
+            items_processed: state.len() as u32,
+            items_dropped: dropped,
+            items_emitted: kept.len() as u32,
+        },
+    ))
+}
+
+/// Magnitude-based SSM pruning: keep the top-`k` entries by `|value|`
+/// regardless of timestamp. The companion to [`ssm_state_pruning`] —
+/// substrate-floor upgrade-path doc said "production may use magnitude
+/// / decay-half-life instead"; this is the magnitude variant. Decay-
+/// half-life lands behind the same signature once the decay model
+/// stabilizes.
+///
+/// Ties broken by latest-timestamp (kept), then by stable input order.
+/// `k = 0` yields an empty output (not an error — a deliberate
+/// "prune everything" caller intent).
+pub fn ssm_state_pruning_by_magnitude(
+    state: &[(u64, f32)],
+    k: usize,
+) -> Result<(Vec<(u64, f32)>, TaskRunReport), TaskError> {
+    if state.is_empty() {
+        return Err(TaskError::EmptyInput {
+            kind: NightBrainTaskKind::SsmStatePruning,
+        });
+    }
+    let mut indexed: Vec<(usize, (u64, f32))> =
+        state.iter().enumerate().map(|(i, e)| (i, *e)).collect();
+    // Sort: magnitude desc, then timestamp desc, then input order asc.
+    indexed.sort_by(|a, b| {
+        let ma = a.1 .1.abs();
+        let mb = b.1 .1.abs();
+        mb.partial_cmp(&ma)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.1 .0.cmp(&a.1 .0))
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    let kept: Vec<(u64, f32)> = indexed.into_iter().take(k).map(|(_, e)| e).collect();
     let dropped = (state.len() - kept.len()) as u32;
     Ok((
         kept.clone(),
@@ -541,5 +635,92 @@ mod tests {
         let (out_high, _) =
             dedupe_artifacts_by_trigram_similarity(&inp, 0.99).unwrap();
         assert!(out_low.len() <= out_high.len());
+    }
+
+    // ── Session graph + magnitude pruning tests (iter 86) ───────────────────
+
+    #[test]
+    fn session_graph_edges_for_similar_sessions() {
+        let inp = ids(&["meeting about onboarding", "meeting about onboarding tomorrow", "rust project status"]);
+        let (edges, rep) =
+            session_graph_generation_with_edges(&inp, 0.4).unwrap();
+        // Indexes 0 and 1 share many trigrams.
+        assert!(edges.contains(&(0, 1)));
+        // Index 2 is dissimilar; no edge to it.
+        assert!(!edges.iter().any(|&(_, j)| j == 2));
+        assert!(!edges.iter().any(|&(i, _)| i == 2));
+        assert_eq!(rep.items_processed, 3);
+    }
+
+    #[test]
+    fn session_graph_no_edges_when_all_dissimilar() {
+        let inp = ids(&["alpha bravo charlie", "delta echo foxtrot", "golf hotel india"]);
+        let (edges, _) = session_graph_generation_with_edges(&inp, 0.5).unwrap();
+        assert!(edges.is_empty());
+    }
+
+    #[test]
+    fn session_graph_empty_rejected() {
+        assert!(matches!(
+            session_graph_generation_with_edges(&[], 0.5).unwrap_err(),
+            TaskError::EmptyInput { .. }
+        ));
+    }
+
+    #[test]
+    fn session_graph_invalid_threshold_rejected() {
+        let inp = ids(&["x"]);
+        assert!(session_graph_generation_with_edges(&inp, 0.0).is_err());
+        assert!(session_graph_generation_with_edges(&inp, 1.5).is_err());
+        assert!(session_graph_generation_with_edges(&inp, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn session_graph_short_strings_no_edges() {
+        let inp = ids(&["ab", "ab"]); // both too short for trigrams
+        let (edges, _) = session_graph_generation_with_edges(&inp, 0.5).unwrap();
+        assert!(edges.is_empty());
+    }
+
+    #[test]
+    fn magnitude_pruning_keeps_top_k_by_abs_value() {
+        let state = vec![(100, 0.1_f32), (200, -0.5), (300, 0.2), (400, 0.9)];
+        let (kept, rep) = ssm_state_pruning_by_magnitude(&state, 2).unwrap();
+        let kept_vals: Vec<f32> = kept.iter().map(|(_, v)| *v).collect();
+        assert_eq!(kept_vals, vec![0.9, -0.5]);
+        assert_eq!(rep.items_dropped, 2);
+        assert_eq!(rep.items_emitted, 2);
+    }
+
+    #[test]
+    fn magnitude_pruning_k_zero_returns_empty() {
+        let state = vec![(100, 0.1_f32), (200, 0.5)];
+        let (kept, rep) = ssm_state_pruning_by_magnitude(&state, 0).unwrap();
+        assert!(kept.is_empty());
+        assert_eq!(rep.items_dropped, 2);
+    }
+
+    #[test]
+    fn magnitude_pruning_k_larger_than_input_returns_all() {
+        let state = vec![(100, 0.1_f32), (200, 0.5)];
+        let (kept, _) = ssm_state_pruning_by_magnitude(&state, 100).unwrap();
+        assert_eq!(kept.len(), 2);
+    }
+
+    #[test]
+    fn magnitude_pruning_empty_rejected() {
+        let state: Vec<(u64, f32)> = vec![];
+        assert!(matches!(
+            ssm_state_pruning_by_magnitude(&state, 1).unwrap_err(),
+            TaskError::EmptyInput { .. }
+        ));
+    }
+
+    #[test]
+    fn magnitude_pruning_breaks_ties_by_latest_timestamp() {
+        // Two entries with same magnitude; latest timestamp wins.
+        let state = vec![(100, 0.5_f32), (200, 0.5)];
+        let (kept, _) = ssm_state_pruning_by_magnitude(&state, 1).unwrap();
+        assert_eq!(kept, vec![(200, 0.5)]);
     }
 }
