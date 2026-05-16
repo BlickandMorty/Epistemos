@@ -1245,7 +1245,7 @@ mod tests {
     use super::{
         estimate_tokens, next_budget_gate_after, objective_mentions_local_context,
         prompt_mode_for_objective, resolve_approval_requirement, should_preload_vault_context,
-        truncate_tool_output, AgentError,
+        truncate_tool_output, AgentConfig, AgentError, DEFAULT_AGENT_MAX_TURNS,
     };
     use crate::approval::ApprovalDecision;
     use crate::prompts::PromptMode;
@@ -1394,5 +1394,25 @@ mod tests {
         );
         assert!(err.to_string().contains("qwen3.5-4b"));
         assert!(err.to_string().contains("cloud provider"));
+    }
+
+    #[test]
+    fn default_agent_max_turns_is_25_per_claude_md_safety_rail() {
+        // CLAUDE.md non-negotiable: "max_turns is a safety rail, not a
+        // schedule. Trust stop_reason == 'end_turn'." 25 is the canonical
+        // ceiling that lets multi-step tasks complete (compaction +
+        // retries + tool calls) without runaway.
+        //
+        // Pin the value here so a future "let's bump it" PR has to
+        // explicitly modify this test, surfacing the CLAUDE.md
+        // doctrine bar to the author + reviewer. Both AgentConfig::
+        // default() and the run_agent_loop unwrap_or fallback reference
+        // this constant so they can't desync.
+        assert_eq!(DEFAULT_AGENT_MAX_TURNS, 25);
+        assert_eq!(
+            AgentConfig::default().max_turns,
+            Some(DEFAULT_AGENT_MAX_TURNS),
+            "AgentConfig::default().max_turns must reference DEFAULT_AGENT_MAX_TURNS, not a literal"
+        );
     }
 }
