@@ -166,6 +166,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [google-research-pack-2026-03-18/00-google-master-prompt.md](google-research-pack-2026-03-18/00-google-master-prompt.md) §C-H (2000+ lines)
 - **What it is:** TTS runtime strategy — Python runtime bundling, subprocess IPC, voice asset management, synthesis latency, caching, signed distribution.
 - **Destination:** New doc `docs/CHATTERBOX_TTS_PACKAGING_STRATEGY_2026_05_15.md` OR §E.x in `MAS_COMPLETE_FUSION` if voice ships in V1. Apple review risk if undisclosed.
+- **Status (2026-05-16):** ✅ DECISION RECORDED — **REJECTED for MAS; V1.1 Pro evaluation only.** Decision row landed in `MAS_COMPLETE_FUSION §10 Compromises Recorded`. Two binding rules forbid the audit's framing: (a) `CLAUDE.md` NO SIDECAR — Chatterbox's Python runtime + subprocess IPC violates the in-process-only rule for MAS; (b) `NEW_SESSION_HANDOFF §3` rule 7 Five Laws Law 5 — Python must go out-of-process via UDS daemon, not as in-bundle Python runtime. **V1 already ships native TTS** via macOS AVSpeechSynthesizer + per-model voice persona: `Epistemos/Engine/VoicePreferences.swift` (W11.4 + W15 Auto/Manual TTS+STT contract) + `Epistemos/Models/SDModelProfile.swift:75` (W9.1.b per-model TTS persona). Native path is bundle-size-zero, Apple-supported, no review risk. V1.1 Pro Chatterbox evaluation is gated on a concrete AVSpeechSynthesizer quality gap (multilingual nuance · emotional inflection · per-character voice cloning for sprite atlas). MAS forever native-only.
 
 ### B2-H17. MLX Model Selection Matrix (per memory tier)
 - **Source:** [google-research-pack-2026-03-18/00-google-master-prompt.md](google-research-pack-2026-03-18/00-google-master-prompt.md) §B
@@ -357,7 +358,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H13 ExecutionReceipt + Capability enum | ✅ VERIFIED 2026-05-16 — already shipped at `agent_core/src/effect/receipt.rs` (173 LOC); HMAC-SHA256 signing not Ed25519 (deviation logged, acceptable for same-machine); doctrine pointer landed as Hermes 2.0 §5.1. |
 | B2-H14 Cost Telemetry Dashboard | ✅ VERIFIED 2026-05-16 — already shipped (pricing.rs:142 + EventStore.recentSessionMetrics + SpendDashboardHost at AgentSectionDetailView.swift:158), visible in MAS + Pro. |
 | B2-H15 Graph Engine Phase A | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.38` doctrine anchor for `CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` with Phase A SHIPPED / B/C queued + graph-protection cross-link. |
-| B2-H16 Chatterbox TTS packaging | New doc (if voice ships) |
+| B2-H16 Chatterbox TTS packaging | ✅ DECISION RECORDED 2026-05-16 — REJECTED for MAS (NO SIDECAR + Five Laws Law 5); V1 native AVSpeechSynthesizer already shipped (`VoicePreferences.swift`); V1.1 Pro evaluation gated on concrete quality gap. |
 | B2-H17 MLX Model Selection Matrix | MASTER_FUSION §3 local-inference |
 
 ### Architecture / research-tier (V1.x+ as opportunity arises)
