@@ -134,6 +134,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) SCOPE-Rex Core Components table
 - **What it is:** SAE feature monitoring with documented AUC 0.90 hallucination-detection metric. Distinct from generic "SAE Cognition Observatory" name-drop in canon — pins the threshold.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §J research-tier — explicit AUC threshold.
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new `MASTER_FUSION §3.36 "SAE Cognition Observatory — hallucination detection AUC 0.90"`. The doctrine acceptance bar (AUC ≥ 0.90 on a held-out factual subset) is now the **pin** that distinguishes this from the existing Wave J2 name-drop at MASTER_FUSION line 680. Section covers: SAE feature-monitoring mechanism · the AUC 0.90 acceptance threshold as falsifiable engineering target · complementarity with B2-H7 LapEigvals (88.9%) using composite acceptance bar `max(LapEigvals AUROC, SAE AUC) ≥ 0.90` since the two detectors use different mechanisms on different signals (attention spectrum vs feature activation) and can stack · explicit drift gate (future doc edits naming SAE without citing AUC ≥ 0.90 are drift) · research-tier V1 scope (local-only models, can't access cloud residual streams; per-step SAE forward-pass adds latency).
 
 ### B2-H12. N1 Prompt-As-Data (JSPF / PTF / Relocation Trick)
 - **Source:** [fusion/salvage/from-lane-a/PROMPT_AS_DATA_SPEC.md](fusion/salvage/from-lane-a/PROMPT_AS_DATA_SPEC.md) (272 lines)
@@ -345,7 +346,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H8 Golden-ratio scheduling | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.35` with Hurwitz 1891 cite + NightBrain φ-spacing integration shape + ObservationTask rationale. |
 | B2-H9 Beer VSM S1-S5 | ✅ RESOLVED 2026-05-16 — new doc `RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` with 5-system taxonomy + Tarski recursion + §3 mapping table + §4 gap inventory + cross-links to ACS (B2-M13) + Overseer (H-4). |
 | B2-H10 Capability Lease + handles | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §7.5 with IR-1 scope gate + 4-handle primitive table + CapabilityLease model + macaroon composition + Rust sketch. |
-| B2-H11 SAE AUC 0.90 | MASTER_FUSION §J |
+| B2-H11 SAE AUC 0.90 | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.36` with AUC ≥0.90 pin + composite acceptance bar paired with B2-H7 LapEigvals. |
 | B2-H12 N1 Prompt Tree / Relocation Trick | MASTER_FUSION §2.3 |
 | B2-H13 ExecutionReceipt + Capability enum | Hermes 2.0 §5.2 |
 | B2-H14 Cost Telemetry Dashboard | MAS_COMPLETE_FUSION §B.10 |
