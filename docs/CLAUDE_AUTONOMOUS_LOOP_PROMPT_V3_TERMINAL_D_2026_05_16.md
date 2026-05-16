@@ -223,7 +223,7 @@ Per `agent_core/src/tools/registry.rs`:
 - Tool safety gate (per-tool capability scope per macaroons framework)
 - Tool tests (every tool has a test demonstrating its contract)
 
-### Phase D.0 — `Executor` trait formalization — NEW 2026-05-16, precedes all D.2 provider work
+### Phase D.0 — `Executor` trait formalization — NEW 2026-05-16, precedes ALL prior D.1-D.6 work (priority: lands FIRST)
 
 Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.3 + §2 Terminal D`. The `Executor` trait becomes the single load-bearing abstraction for every provider/runtime backend.
 
@@ -233,9 +233,9 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.3 + §2 Termina
 - **D.0.4** — `CredentialVault::load_for(&AgentProvider).await` Keychain integration.
 - **D.0.5** — `AgentRunController::start(agent_def, user_msg)` lifecycle wrapping in `MutationEnvelope` for SCOPE-Rex governance.
 
-### Phase D.2 — Provider expansion via `Executor` trait
+### Phase D.2-V6.1 — Provider refactor + new providers via `Executor` trait (REPLACES D.2 above)
 
-After D.0 lands, all D.2 providers refactor as `Executor` impls:
+After D.0 lands, all D.2 providers refactor as `Executor` impls. **This section supersedes the original D.2 "Cloud provider expansion" above** — same provider list but now wrapped in the `Executor` trait abstraction:
 
 - D.2.1 Anthropic → `AnthropicExecutor` (~600 LoC hand-roll · NOT proprietary SDK · `reqwest` + `eventsource-stream` + `tokio` + `serde`)
 - D.2.2 OpenAI → `OpenAIExecutor` via `async-openai = "0.30"` (last release 2025-10-20; supports `/v1/responses`)

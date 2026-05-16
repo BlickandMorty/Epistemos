@@ -379,7 +379,9 @@ Channel Relay (7 channels: telegram · slack · discord · whatsapp · signal ·
 
 OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-16 universal-prompt update, this work is owned by **Terminal F** as Phase F.5. If you find yourself wanting to touch `agent_core/src/openclaw/`: SKIP + log "F-owned: deferred to Terminal F".
 
-### Phase B.0 — F-ULP-Oracle (W1) — Monday deliverable, ALL other Wave J BLOCKED on this (NEW 2026-05-16)
+### Phase B.0 — F-ULP-Oracle (W1) — Monday deliverable, FIRST priority, ALL other Wave J BLOCKED on this (NEW 2026-05-16)
+
+**Execution order rule:** Phase B.0 runs BEFORE Phase B.1 (Wave J), B.2 (Helios kernels), B.3-B.5 (Waves G/H/I), and B.6 (NOT-STARTED inventory). B.0 gates the AnswerPacket schema freeze; nothing else can ship until B.0.4 (ULP fixture) passes.
 
 Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.1`. **THE Monday deliverable.** AnswerPacket schema does NOT ship until F-ULP-Oracle passes. Disciplinary commitment: no claim envelope without a verified arithmetic floor.
 
@@ -390,7 +392,7 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.1`. **THE Monda
 - **B.0.5** — Verify Lean toolchain pin against `leanprover-community.github.io/mathlib4` TODAY. If locked stack's 4.29.1 doesn't resolve, downgrade to latest stable (4.25.0 verified 2025-11-14). Document divergence in `doctrine/STACK_DIVERGENCES.md`.
 - **B.0.6** — **GATE**: AnswerPacket schema freeze blocked until B.0.4 passes. Open `doctrine/CAVEATS.md` + paste §1.10 from integration doc verbatim.
 
-### Phase B.1 — Wave J Research tier additions (NEW J10-J14)
+### Phase B.1-V6.1 — Wave J Research tier ADDITIONS (J10-J14, additive to original B.1)
 
 Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §2 Terminal B`:
 
@@ -400,11 +402,11 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §2 Terminal B`:
 - **J13 Titans-MAC** (Behrouz-Zhong-Mirrokni arXiv:2501.00663) — Memory-as-Context + Memory-as-Gate + Memory-as-Layer · long-term memory MLP updating weights at test time via gradient-of-surprise.
 - **J14 DoRA** (Liu et al. arXiv:2402.09353, ICML 2024 Oral) — magnitude/direction weight decomposition · right PEFT primitive for M2 Pro fine-tuning.
 
-### Phase B.2 — Helios kernels update (Granite + Falcon-Mamba per V6.1)
+### Phase B.2-V6.1 — Helios kernels UPDATE (refines original B.2 with V6.1 substrate)
 
 `SemiseparableBlockScan.metal` aligns to cartesia-metal reference for Mamba-2 SSD. **F-128K-Recall** validated against **Granite-4.0-H-Micro's validated 128k window** (NOT theoretical 512k). `morph_eval_reduced.metal` shipped via Phase B.0.
 
-### Phase B.6 — 136 NOT-STARTED MASTER_FUSION items (V6.1 research-tier additions B.6.15-B.6.20)
+### Phase B.6-V6.1 — 136 NOT-STARTED MASTER_FUSION items ADDITIONS (B.6.15-B.6.20, additive to original B.6)
 
 Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §2 Terminal B`:
 
