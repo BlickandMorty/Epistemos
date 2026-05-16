@@ -2282,6 +2282,55 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 124+ candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue. (2) Phase C.6 forward-staged primitive re-audit REMAINS overdue. (3) Re-verify J4 skip against B's driver §5 (likely also intentional/enumerated per the same pattern). (4) Watch B's next phase post-Wave-I-close + Brain Time Machine. (5) Watch A's continued 600s self-audit cadence.
 
+#### Status pulse + Lesson #11 retroactive sweep (iter 124, 2026-05-16) — J4 + B.6.18 skip flags WITHDRAWN; B.7 smoother + B §7 a2ui fix
+
+- **Window since iter 123:** 2 new commits + Lesson #11 retroactive sweep:
+  - `9442739d2` (B) tamagotchi Phase B.7 state smoother + hysteresis
+  - `3199d7e65` (B) research/a2ui §7 audit fix — backfill `//! Source:` headers on Wave I components (B's iter-70 §7 self-audit catch)
+
+- **🎯 LESSON #11 RETROACTIVE SWEEP — 2 more skip-flag WITHDRAWALS:**
+
+  **(1) J4 skip flag (iter 92/93/119) WITHDRAWN:**
+  - B's driver §5 Phase B.1 J4 row: "`mas_architecture_research.md`, kimi `definitive/capstone/mas_release` | NeMoCLAW / OpenCLAW multi-claw MAS"
+  - **B's driver §1.5 explicitly carves out:** "❌ Implement OpenClaw or Channel Relay (CARVED OUT to F per §5 Phase B.10-B.11)"
+  - **J4 is INTENTIONALLY SKIPPED by B per its own §1.5 boundary discipline.** F supposed to do OpenCLAW; F has been empty/inactive since session start. B not doing J4 is CORRECT.
+  - **J4-skip flags from iter 92/93/119: WITHDRAWN.**
+
+  **(2) B.6.18 skip flag (iter 101 #19 "3rd skip pattern") WITHDRAWN:**
+  - V6.1 §"Terminal B" line 300: "B.6.18 DoRA PEFT primitive"
+  - **DoRA was already landed under J3 #5 SEAL-DoRA at iter 16** (commit `b851c5620`; sources cite "Liu et al. arXiv:2402.09353 ICML 2024 (DoRA) + Zweiger-Pari et al. arXiv:2506.10943 SEAL"). SEAL-DoRA bundles SEAL + DoRA.
+  - **B correctly applied §4 reconciliation** (J13/J14 + live_files + nightbrain_tasks + a2ui Wave I pattern; 5th case): recognized B.6.18 DoRA as already-landed via J3 #5.
+  - **iter 101 #19 B.6.18 "3rd skip pattern" flag: WITHDRAWN.**
+
+- **🎯 TOTAL SELF-CORRECTIONS THIS SESSION: 5**
+  1. iter-106: §8 "violation" by B → C's rule, not B's
+  2. iter-122: B.6.5 collision → umbrella per B's driver §5 lines 314-318
+  3. iter-123: D.3 collision → umbrella per D's driver §5 lines 186-195
+  4. iter-124 (this): J4 skip → CARVED OUT to F per B's driver §1.5
+  5. iter-124 (this): B.6.18 skip → already-landed via J3 #5 SEAL-DoRA per §4 reconciliation
+
+  **Pattern:** all 5 were variations of the same failure mode — flagging a sibling's intentional pattern as drift without first verifying the sibling's driver / prior commits' reconciliation.
+
+- **Lesson #11 mature:** "Before flagging any sibling pattern as drift, MUST verify: (a) sibling's driver §5 doesn't explicitly enumerate the pattern as expected behavior; (b) sibling's §1.5 doesn't carve out the scope; (c) sibling hasn't already applied §4 reconciliation in a prior commit pointing to existing substrate."
+
+- **Findings — B Phase B.7 state smoother (`9442739d2`):**
+  - tamagotchi/ submodule for real-time-signal-processing layer between raw BiometricSignal samples and committed CompanionState. tamagotchi/ continues to grow post-Wave-G-close.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B §7 a2ui audit fix (`3199d7e65`) — EXEMPLARY B SELF-CORRECTION:**
+  - B's iter-70 §7 audit-of-audit checkpoint caught that 24 Wave I component files (iters 64-67) shipped with single-line doc comments rather than the paper-style `//! Source:` block REQUIRED by B's driver §8 research-tier rule.
+  - B backfills Source-citation headers across the 24 files in this commit. **B caught its own §8 substrate-discipline failure in §7 self-audit and self-fixed in the next commit.**
+  - **Distributed §5.0 + §7 + §8 discipline working at multiple terminals:** A's Pass 14→15 reframe (iter 99) · my iter 106/122/123 self-corrections · B's iter-70 §7 backfill (this iter).
+  - **§5.0 verdict: CLEAN + commendable §7 self-discipline.**
+
+- **§5.0 catch rate:** Adjusted further per 2 additional withdrawals. ~28/169 = 16.6%. Real substrate-drift catches: primarily #8 iter-74 1022 LOC.
+
+- **§5.6 lockstep status:** sub-cycle pulse — but this iter carries significant retroactive corrections + 1 §7 self-correction by B.
+
+- **20 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
