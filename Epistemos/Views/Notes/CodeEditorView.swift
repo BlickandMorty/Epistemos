@@ -1124,12 +1124,13 @@ final class ComputePerformanceMonitor {
 /// Proactive coding assistant with GPU-accelerated semantic search
 /// and multi-threaded analysis pipeline
 @MainActor
-final class CodeCompanionService: ObservableObject {
-    
-    @Published private(set) var currentMessage: CompanionMessage?
-    @Published private(set) var isAnalyzing = false
-    @Published var isEnabled = true
-    @Published var mode: CompanionMode = .balanced
+@Observable
+final class CodeCompanionService {
+
+    private(set) var currentMessage: CompanionMessage?
+    private(set) var isAnalyzing = false
+    var isEnabled = true
+    var mode: CompanionMode = .balanced
     
     // Graph state for semantic search (injected from view)
     private weak var graphState: GraphState?
@@ -3452,12 +3453,13 @@ struct CodeSemanticMatch: Identifiable, Sendable, Equatable {
 /// Bridges code editor content with Epistemos semantic infrastructure.
 /// Provides: similarity search, AI context enrichment, code-to-graph linking.
 @MainActor
-final class CodeContextBridge: ObservableObject {
-    
-    @Published private(set) var relatedNotes: [CodeSemanticMatch] = []
-    @Published private(set) var isSearching = false
-    @Published private(set) var lastQuery: String = ""
-    @Published private(set) var aiContextSummary: String = ""
+@Observable
+final class CodeContextBridge {
+
+    private(set) var relatedNotes: [CodeSemanticMatch] = []
+    private(set) var isSearching = false
+    private(set) var lastQuery: String = ""
+    private(set) var aiContextSummary: String = ""
     
     private let embeddingService: EmbeddingService
     private let graphState: GraphState?
@@ -3682,8 +3684,8 @@ final class CodeContextBridge: ObservableObject {
 // MARK: - Code Semantic Sidebar
 
 struct CodeSemanticSidebar: View {
-    @StateObject private var bridge: CodeContextBridge
-    @StateObject private var insightGenerator: CodeInsightGenerator
+    @State private var bridge: CodeContextBridge
+    @State private var insightGenerator: CodeInsightGenerator
     @State private var selectedMatch: CodeSemanticMatch?
     @State private var aiExplanation: String = ""
     @State private var isExplaining = false
@@ -3710,8 +3712,8 @@ struct CodeSemanticSidebar: View {
         onOpenNote: @escaping (String) -> Void,
         onCreateNoteFromCode: @escaping () -> Void
     ) {
-        self._bridge = StateObject(wrappedValue: bridge ?? CodeContextBridge())
-        self._insightGenerator = StateObject(wrappedValue: insightGenerator ?? CodeInsightGenerator())
+        self._bridge = State(initialValue: bridge ?? CodeContextBridge())
+        self._insightGenerator = State(initialValue: insightGenerator ?? CodeInsightGenerator())
         self.codeContent = codeContent
         self.language = language
         self.onOpenNote = onOpenNote
@@ -4072,7 +4074,7 @@ extension CodeSemanticMatch {
 // MARK: - Semantic Code Search Sheet
 
 struct SemanticCodeSearchSheet: View {
-    @ObservedObject var bridge: CodeContextBridge
+    let bridge: CodeContextBridge
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""
@@ -4230,11 +4232,12 @@ struct CodeInsight: Identifiable, Sendable {
 
 /// Generates AI insights about code using Apple Intelligence + vault context.
 @MainActor
-final class CodeInsightGenerator: ObservableObject {
-    
-    @Published private(set) var insights: [CodeInsight] = []
-    @Published private(set) var isGenerating = false
-    @Published private(set) var currentAnalysis: String = ""
+@Observable
+final class CodeInsightGenerator {
+
+    private(set) var insights: [CodeInsight] = []
+    private(set) var isGenerating = false
+    private(set) var currentAnalysis: String = ""
     
     private let appleIntelligence: AppleIntelligenceService
     private let embeddingService: EmbeddingService
@@ -4446,7 +4449,7 @@ final class CodeInsightGenerator: ObservableObject {
 // MARK: - Code Insights Panel
 
 struct CodeInsightsPanel: View {
-    @StateObject private var generator: CodeInsightGenerator
+    @State private var generator: CodeInsightGenerator
     let code: String
     let language: String
     let relatedMatches: [CodeSemanticMatch]
@@ -4461,7 +4464,7 @@ struct CodeInsightsPanel: View {
         relatedMatches: [CodeSemanticMatch],
         onOpenNote: @escaping (String) -> Void
     ) {
-        self._generator = StateObject(wrappedValue: generator ?? CodeInsightGenerator())
+        self._generator = State(initialValue: generator ?? CodeInsightGenerator())
         self.code = code
         self.language = language
         self.relatedMatches = relatedMatches
