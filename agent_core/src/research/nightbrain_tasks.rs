@@ -80,7 +80,9 @@ pub enum TaskError {
 
 /// Dedupe a list of artifact-ids by exact equality. Returns the
 /// deduped list + the report. Substrate floor uses a HashSet for
-/// O(n) dedupe; production replaces with similarity-hash dedupe.
+/// O(n) dedupe; the trigram-similarity sibling
+/// [`dedupe_artifacts_by_trigram_similarity`] is the near-duplicate
+/// variant.
 pub fn dedupe_artifacts(ids: &[String]) -> Result<(Vec<String>, TaskRunReport), TaskError> {
     if ids.is_empty() {
         return Err(TaskError::EmptyInput {
@@ -94,6 +96,98 @@ pub fn dedupe_artifacts(ids: &[String]) -> Result<(Vec<String>, TaskRunReport), 
             out.push(id.clone());
         }
     }
+    let dropped = (ids.len() - out.len()) as u32;
+    Ok((
+        out.clone(),
+        TaskRunReport {
+            kind: NightBrainTaskKind::DedupeArtifacts,
+            items_processed: ids.len() as u32,
+            items_dropped: dropped,
+            items_emitted: out.len() as u32,
+        },
+    ))
+}
+
+/// Extract the trigram (3-char sliding-window) set of a string. Empty
+/// for inputs shorter than 3 chars (the trigram-similarity dedupe
+/// falls back to exact-string equality for those — iter 85).
+fn trigrams(s: &str) -> std::collections::HashSet<[char; 3]> {
+    let chars: Vec<char> = s.chars().collect();
+    let mut out = std::collections::HashSet::new();
+    if chars.len() < 3 {
+        return out;
+    }
+    for window in chars.windows(3) {
+        out.insert([window[0], window[1], window[2]]);
+    }
+    out
+}
+
+/// Jaccard similarity of two trigram sets in `[0.0, 1.0]`.
+/// `|A ∩ B| / |A ∪ B|`. Empty-set inputs return 0.0 (no overlap to
+/// measure). Identical inputs return 1.0.
+fn trigram_jaccard(
+    a: &std::collections::HashSet<[char; 3]>,
+    b: &std::collections::HashSet<[char; 3]>,
+) -> f64 {
+    if a.is_empty() && b.is_empty() {
+        return 0.0;
+    }
+    let inter = a.intersection(b).count();
+    let union = a.union(b).count();
+    if union == 0 {
+        return 0.0;
+    }
+    inter as f64 / union as f64
+}
+
+/// Near-duplicate dedupe: walk inputs greedily, keep an item only if
+/// its trigram-Jaccard similarity to every previously-kept item is
+/// strictly below `threshold`. Strings shorter than 3 chars fall back
+/// to exact-string equality (trigrams undefined). `threshold` must be
+/// in `(0.0, 1.0]`; values outside that band return
+/// `TaskError::EmptyInput` repurposed to keep the public error surface
+/// minimal (this validation drift is documented in the test).
+///
+/// Production (true SimHash / MinHash) trades higher upfront cost for
+/// constant-time set-membership; this O(n²) version is the substrate
+/// floor — correct, deterministic, dependency-free.
+pub fn dedupe_artifacts_by_trigram_similarity(
+    ids: &[String],
+    threshold: f64,
+) -> Result<(Vec<String>, TaskRunReport), TaskError> {
+    if ids.is_empty() {
+        return Err(TaskError::EmptyInput {
+            kind: NightBrainTaskKind::DedupeArtifacts,
+        });
+    }
+    if !threshold.is_finite() || threshold <= 0.0 || threshold > 1.0 {
+        return Err(TaskError::EmptyInput {
+            kind: NightBrainTaskKind::DedupeArtifacts,
+        });
+    }
+    let mut kept: Vec<(String, std::collections::HashSet<[char; 3]>)> = Vec::new();
+    for id in ids {
+        let tri = trigrams(id);
+        let mut is_dup = false;
+        for (existing_id, existing_tri) in &kept {
+            if tri.is_empty() {
+                if existing_id == id {
+                    is_dup = true;
+                    break;
+                }
+            } else if existing_tri.is_empty() {
+                continue;
+            } else if trigram_jaccard(&tri, existing_tri) >= threshold {
+                is_dup = true;
+                break;
+            }
+        }
+        if !is_dup {
+            kept.push((id.clone(), tri));
+        }
+    }
+    let out: Vec<String> = kept.into_iter().map(|(s, _)| s).collect();
     let dropped = (ids.len() - out.len()) as u32;
     Ok((
         out.clone(),
@@ -355,5 +449,97 @@ mod tests {
         let state = vec![(500, 0.1), (1000, 0.3)];
         let (kept, _) = ssm_state_pruning(&state, 0).unwrap();
         assert_eq!(kept, vec![(1000, 0.3)]);
+    }
+
+    // ── Trigram-similarity dedupe tests (iter 85) ───────────────────────────
+
+    fn ids(s: &[&str]) -> Vec<String> {
+        s.iter().map(|x| x.to_string()).collect()
+    }
+
+    #[test]
+    fn trigram_dedupe_drops_near_duplicates() {
+        // "hello world" and "hello worlds" share many trigrams.
+        let inp = ids(&["hello world", "hello worlds", "goodbye world"]);
+        let (out, rep) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        assert!(out.len() < inp.len());
+        assert_eq!(rep.items_processed, 3);
+    }
+
+    #[test]
+    fn trigram_dedupe_keeps_dissimilar() {
+        let inp = ids(&["alpha bravo", "charlie delta", "echo foxtrot"]);
+        let (out, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        assert_eq!(out.len(), 3);
+    }
+
+    #[test]
+    fn trigram_dedupe_threshold_one_only_drops_exact() {
+        // Threshold 1.0 means trigram sets must be IDENTICAL.
+        let inp = ids(&["hello world", "hello world", "hello world!"]);
+        let (out, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 1.0).unwrap();
+        // First and second have identical trigrams; third differs by '!'.
+        assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn trigram_dedupe_short_strings_use_exact_equality() {
+        // Strings shorter than 3 chars have empty trigram set and fall
+        // back to exact-string equality.
+        let inp = ids(&["a", "a", "b", "bc"]);
+        let (out, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        assert_eq!(out, vec!["a".to_string(), "b".to_string(), "bc".to_string()]);
+    }
+
+    #[test]
+    fn trigram_dedupe_empty_rejected() {
+        let inp: Vec<String> = vec![];
+        assert!(matches!(
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap_err(),
+            TaskError::EmptyInput { .. }
+        ));
+    }
+
+    #[test]
+    fn trigram_dedupe_invalid_threshold_rejected() {
+        let inp = ids(&["x"]);
+        assert!(dedupe_artifacts_by_trigram_similarity(&inp, 0.0).is_err());
+        assert!(dedupe_artifacts_by_trigram_similarity(&inp, -0.1).is_err());
+        assert!(dedupe_artifacts_by_trigram_similarity(&inp, 1.5).is_err());
+        assert!(dedupe_artifacts_by_trigram_similarity(&inp, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn trigram_dedupe_single_input_kept() {
+        let inp = ids(&["only one"]);
+        let (out, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        assert_eq!(out, ids(&["only one"]));
+    }
+
+    #[test]
+    fn trigram_dedupe_preserves_first_occurrence_order() {
+        let inp = ids(&["zulu", "yankee", "xray", "zulu"]);
+        let (out, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        assert_eq!(out[0], "zulu");
+        assert_eq!(out[1], "yankee");
+        assert_eq!(out[2], "xray");
+    }
+
+    #[test]
+    fn trigram_dedupe_high_threshold_keeps_more() {
+        // High threshold = stricter "must be very similar" rule → fewer
+        // drops, more kept.
+        let inp = ids(&["hello world", "hello worlds", "hello worldz"]);
+        let (out_low, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.3).unwrap();
+        let (out_high, _) =
+            dedupe_artifacts_by_trigram_similarity(&inp, 0.99).unwrap();
+        assert!(out_low.len() <= out_high.len());
     }
 }
