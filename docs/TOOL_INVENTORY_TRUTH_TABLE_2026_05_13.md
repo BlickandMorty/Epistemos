@@ -111,6 +111,15 @@ Rust dylib. Symbol scan (`nm -gU libagent_core.dylib`) on MAS
 build returns ZERO matches for all of the above (verified
 2026-05-13 in RCA4-P0-002 fix-pass).
 
+Tunnel C receipt contract: `agent_core/src/tools/cli_passthrough.rs`
+backs `claude_code`, `codex`, `gemini`, and `kimi` with the same
+`harden_cli_subprocess` runner. D.2.4 reconciled 2026-05-16: every
+completed CLI call returns JSON with `tool`, `binary`, `success`,
+`exit_code`, `stdout`, `stderr`, `stdout_truncated`,
+`stderr_truncated`, and `mode = "cli_passthrough"`. Output pipes are
+read with a 10 MiB cap per stream; nonzero exits stay structured
+instead of disappearing into free-form text.
+
 The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible
 planning/tool surfaces hide it with the same policy that hides the progressive

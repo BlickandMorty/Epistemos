@@ -30,11 +30,13 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use serde_json::Value;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 use super::registry::{ToolError, ToolHandler};
 
 const DEFAULT_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
 const MAX_TIMEOUT_SECONDS: u64 = 1_800; // 30 minutes
+const MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024;
 
 /// Candidate absolute paths for `claude` CLI, in preference order. PATH
 /// lookup via `which` is still tried first.
@@ -197,44 +199,93 @@ async fn run_passthrough(
     command.stdout(std::process::Stdio::piped());
     command.stderr(std::process::Stdio::piped());
 
-    let output = tokio::time::timeout(
+    let mut child = command.spawn().map_err(|error| {
+        ToolError::ExecutionFailed(format!("{tool_name} spawn failed: {error}"))
+    })?;
+    let stdout = child.stdout.take().ok_or_else(|| {
+        ToolError::ExecutionFailed(format!("{tool_name} stdout pipe was not captured"))
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| {
+        ToolError::ExecutionFailed(format!("{tool_name} stderr pipe was not captured"))
+    })?;
+
+    let stdout_task = tokio::spawn(read_capped(stdout, MAX_OUTPUT_BYTES));
+    let stderr_task = tokio::spawn(read_capped(stderr, MAX_OUTPUT_BYTES));
+
+    let status = match tokio::time::timeout(
         std::time::Duration::from_secs(timeout_seconds),
-        command.output(),
+        child.wait(),
     )
     .await
-    .map_err(|_| {
-        ToolError::ExecutionFailed(format!("{tool_name} timed out after {timeout_seconds}s"))
-    })?
-    .map_err(|error| ToolError::ExecutionFailed(format!("{tool_name} spawn failed: {error}")))?;
+    {
+        Ok(Ok(status)) => status,
+        Ok(Err(error)) => {
+            return Err(ToolError::ExecutionFailed(format!(
+                "{tool_name} wait failed: {error}"
+            )));
+        }
+        Err(_) => {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            return Err(ToolError::ExecutionFailed(format!(
+                "{tool_name} timed out after {timeout_seconds}s"
+            )));
+        }
+    };
 
-    // Post-read output cap. The doctrine names "Codex 1.8GB stdout
-    // regression" as one of the 13 hardest engineering problems —
-    // a runaway CLI that floods stdout will OOM if we keep an
-    // unbounded String. Cap at 10 MiB per stream so even the worst
-    // case fits in agent context. NOTE: `cmd.output()` itself
-    // already collected everything into memory before returning;
-    // the true streaming-with-backpressure fix is a Phase-2 refactor
-    // that uses `cmd.spawn()` + bounded async reads. This cap is
-    // graduated hardening: bounds the post-collection allocation.
-    const MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024;
-    let stdout_bytes = &output.stdout[..output.stdout.len().min(MAX_OUTPUT_BYTES)];
-    let stderr_bytes = &output.stderr[..output.stderr.len().min(MAX_OUTPUT_BYTES)];
-    let stdout = String::from_utf8_lossy(stdout_bytes).trim().to_string();
-    let stderr = String::from_utf8_lossy(stderr_bytes).trim().to_string();
-    let exit_code = output.status.code().unwrap_or(-1);
+    let (stdout_bytes, stdout_truncated) = stdout_task
+        .await
+        .map_err(|error| ToolError::ExecutionFailed(format!("{tool_name} stdout task: {error}")))?
+        .map_err(|error| ToolError::ExecutionFailed(format!("{tool_name} stdout: {error}")))?;
+    let (stderr_bytes, stderr_truncated) = stderr_task
+        .await
+        .map_err(|error| ToolError::ExecutionFailed(format!("{tool_name} stderr task: {error}")))?
+        .map_err(|error| ToolError::ExecutionFailed(format!("{tool_name} stderr: {error}")))?;
 
-    let mut parts: Vec<String> = Vec::new();
-    parts.push(format!("{tool_name} binary: {}", binary.display()));
-    if !stdout.is_empty() {
-        parts.push(format!("STDOUT:\n{stdout}"));
+    let stdout = String::from_utf8_lossy(&stdout_bytes).to_string();
+    let stderr = String::from_utf8_lossy(&stderr_bytes).to_string();
+    let exit_code = status.code().unwrap_or(-1);
+
+    Ok(serde_json::json!({
+        "tool": tool_name,
+        "binary": binary.display().to_string(),
+        "success": status.success(),
+        "exit_code": exit_code,
+        "stdout": stdout,
+        "stderr": stderr,
+        "stdout_truncated": stdout_truncated,
+        "stderr_truncated": stderr_truncated,
+        "mode": "cli_passthrough",
+    })
+    .to_string())
+}
+
+async fn read_capped<R>(mut reader: R, cap: usize) -> std::io::Result<(Vec<u8>, bool)>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut out = Vec::with_capacity(cap.min(8 * 1024));
+    let mut truncated = false;
+    let mut buf = [0_u8; 8 * 1024];
+
+    loop {
+        let read = reader.read(&mut buf).await?;
+        if read == 0 {
+            break;
+        }
+        let remaining = cap.saturating_sub(out.len());
+        if remaining == 0 {
+            truncated = true;
+            continue;
+        }
+        let take = read.min(remaining);
+        out.extend_from_slice(&buf[..take]);
+        if take < read {
+            truncated = true;
+        }
     }
-    if !stderr.is_empty() {
-        parts.push(format!("STDERR:\n{stderr}"));
-    }
-    if !output.status.success() {
-        parts.push(format!("Exit code: {exit_code}"));
-    }
-    Ok(parts.join("\n\n"))
+
+    Ok((out, truncated))
 }
 
 pub struct ClaudeCodeHandler;
@@ -488,5 +539,46 @@ mod tests {
         let parsed: serde_json::Value =
             serde_json::from_str(&s).expect("missing_binary_payload should be JSON");
         assert_eq!(parsed["install_hint"], "install foo");
+    }
+
+    #[tokio::test]
+    async fn run_passthrough_returns_structured_receipt_with_exit_code() {
+        use serde_json::json;
+
+        let temp = tempfile::tempdir().unwrap();
+        let binary = temp.path().join("fake-cli");
+        std::fs::write(
+            &binary,
+            "#!/bin/sh\nprintf 'stdout:%s' \"$1\"\nprintf 'stderr:%s' \"$1\" >&2\nexit 7\n",
+        )
+        .unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = std::fs::metadata(&binary).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&binary, permissions).unwrap();
+        }
+
+        let result = run_passthrough(
+            binary.clone(),
+            vec!["probe".to_string()],
+            None,
+            5,
+            "fake_cli",
+        )
+        .await
+        .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(parsed["tool"], json!("fake_cli"));
+        assert_eq!(parsed["binary"], json!(binary.display().to_string()));
+        assert_eq!(parsed["success"], json!(false));
+        assert_eq!(parsed["exit_code"], json!(7));
+        assert_eq!(parsed["stdout"], json!("stdout:probe"));
+        assert_eq!(parsed["stderr"], json!("stderr:probe"));
+        assert_eq!(parsed["stdout_truncated"], json!(false));
+        assert_eq!(parsed["stderr_truncated"], json!(false));
     }
 }
