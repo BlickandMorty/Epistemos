@@ -846,7 +846,7 @@ impl ToolRegistry {
             }
 
             // Tunnel C — delegate a task to Claude Code / Codex / Gemini /
-            // Kimi / Aider CLI. Same `enable_bash` gate because these are subprocess
+            // Kimi / Goose / Aider CLI. Same `enable_bash` gate because these are subprocess
             // spawners with the same trust profile. The gemini + kimi
             // handlers (added 2026-05-05 per user request "i don't see
             // CLIs at all si please fix") follow the same shape as the
@@ -856,6 +856,7 @@ impl ToolRegistry {
                 self.register_codex_passthrough();
                 self.register_gemini_passthrough();
                 self.register_kimi_passthrough();
+                self.register_goose_passthrough();
                 self.register_aider_passthrough();
             }
         }
@@ -2216,6 +2217,65 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::KimiHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_goose_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "goose".to_string(),
+            description: "Delegate a coding task to Goose CLI in headless run mode \
+                (`goose run --no-session -t <task>`). The delegated agent uses Goose's configured \
+                provider, model, and extension ecosystem while Epistemos keeps the shared hardened \
+                Tunnel C receipt boundary. Defaults to JSON output and no persistent Goose session. \
+                Returns a structured receipt. If Goose is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Goose."
+                    },
+                    "provider": {
+                        "type": "string",
+                        "description": "Optional Goose provider override, for example 'anthropic', 'openai', or another provider configured in Goose."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional Goose model override."
+                    },
+                    "builtin_extensions": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional Goose built-in extensions to enable, passed as --with-builtin with comma-separated values."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Goose session in."
+                    },
+                    "no_session": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --no-session so one-off delegated runs do not persist Goose session state."
+                    },
+                    "output_json": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), request Goose's JSON output format for automation."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::GooseHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
@@ -3948,6 +4008,21 @@ mod tier_tests {
         assert!(names.contains("aider"));
         assert_eq!(registry.get_risk_level("aider"), RiskLevel::Destructive);
         assert_eq!(registry.get_tier("aider"), ToolTier::Agent);
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_goose_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("goose"));
+        assert_eq!(registry.get_risk_level("goose"), RiskLevel::Destructive);
+        assert_eq!(registry.get_tier("goose"), ToolTier::Agent);
     }
 
     #[cfg(feature = "pro-build")]
