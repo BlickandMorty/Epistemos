@@ -3,6 +3,7 @@ pub mod agent_loop;
 pub mod agent_runtime;
 pub mod approval;
 pub mod arena;
+pub mod auto_research;
 pub mod arenas;
 pub mod artifacts;
 pub mod bridge;
