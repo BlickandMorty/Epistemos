@@ -103,6 +103,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [fusion/jordan's research/kimis deep research/ternary_spectral_architecture.converted.md](fusion/jordan's%20research/kimis%20deep%20research/ternary_spectral_architecture.converted.md) §3 + `EPISTEMOS_MASTER_ARCHITECTURE.md` Layer 2
 - **What it is:** Memories have coordinates on a latent manifold. Laplace-Beltrami eigenfunctions + Graph Laplacian L = D−W. **"Monitor attention spectrum during inference. If spectral gap collapses → information not mixing → likely hallucination."**
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §memory — explicit Laplacian-spectrum monitoring as hallucination signal.
+- **Citation update (2026-05-16, from audit-of-audit):** External validation strengthens this gap rather than weakening it. **Bazarova et al., "Hallucination Detection in LLMs Using Spectral Features of Attention Maps"** ([arXiv:2502.17598](https://arxiv.org/abs/2502.17598), EMNLP 2025) introduces **LapEigvals** — uses top-k Laplacian eigenvalues of attention maps for hallucination detection with AUROC 88.9% on TriviaQA. Later improved by **EigenTrack** ([arXiv:2509.15735](https://arxiv.org/abs/2509.15735)). When B2-H7 is picked up as a slice, cite arXiv:2502.17598 directly and use AUROC 88.9% as the doctrine acceptance threshold.
 
 ### B2-H8. Golden-Ratio Scheduling (KAM stability)
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) "Layer 4: Golden Scheduling"
@@ -118,6 +119,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [fusion/jordan's research/hermes.md](fusion/jordan's%20research/hermes.md) §"zero-copy inside the local data plane"
 - **What it is:** Control plane carries tiny typed messages (task IDs / provider selections / capability leases / offsets / hashes / patch envelopes). **Pass handles, not payloads:** blob IDs in substrate · xpc_shmem regions for ephemeral · file descriptors for immutable · offsets into mmapped segments. Epistemos owns consent moment; stores bookmark/handle; grants Hermes only specific access for active task.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §7 (XPC executor layer) — explicit handle/lease primitives for credential / file-access / artifact routing.
+- **URL freshness note (2026-05-16, from audit-of-audit):** The Apple Developer XPC URL cited in the loop prompt §14 (`developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/`) is **archived** — still resolves but last-updated 2016-09-13, references macOS 10.7/10.8. When B2-H10 is picked up, prefer the **modern documentation** at `https://developer.apple.com/documentation/xpc` and `https://developer.apple.com/documentation/xpc/creating-xpc-services`. The archived doc remains useful as deep-dive on launchd lifecycle; the modern doc is canonical for XPC service-creation primitives.
 
 ### B2-H11. Feature Rule Engine — SAE hallucination detection (AUC 0.90)
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) SCOPE-Rex Core Components table
@@ -156,7 +158,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 
 ---
 
-## 3. MEDIUM — architecture-relevant / decision-pending (11)
+## 3. MEDIUM — architecture-relevant / decision-pending (13)
 
 ### B2-M1. Loop Profiles (editable Hermes reasoning loops, user-vault-resident)
 - **Source:** [_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md](_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md) §IV
@@ -212,6 +214,24 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** `docs/release/MAS_APP_REVIEW_NOTES.md` §1-2
 - **What it is:** Detailed JIT entitlement defense for MLX shader compilation — what we DO vs DO NOT do, sandboxing strategy, verification harness.
 - **Destination:** `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §0 immutable rules OR §reviewer-signoff. Cross-link.
+
+### B2-M12. Engram O(1) hash-recall layer for static knowledge
+
+*Source: audit-of-audit run at iter 10 (2026-05-16) surfaced this gap.*
+
+- **Source:** [fusion/jordan's research/kimis deep research/epistemos_resonance_gate.md](fusion/jordan's%20research/kimis%20deep%20research/epistemos_resonance_gate.md) §2.2 + `helios_shadow_memory.md` + `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md`
+- **What it is:** Dedicated **L4 Engram** — O(1) hash-recall layer for STATIC knowledge — separates retrieval of immutable facts from dynamic reasoning. Implements DeepSeek V4 Preview's **Sparsity Allocation Law**: ~20-25% of resident memory reserved for static-fact recall · ~75-80% for compute / dynamic reasoning. Distinct from the L2 Shadow Sketch (vault search) and L3 SSD Oracle (cold pages) — Engram is a separate fixed-budget hash table for "things I will never recompute."
+- **Why MEDIUM, not BLOCKER:** Already partially recognized — `MASTER_RESEARCH_INDEX_2026_05_02.md:716-717` flags it as "partial verification" and `HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md:228` names L4 Engram in passing. But neither gap audit picked it up as its own row, and `MASTER_FUSION_NO_COMPROMISE` §3.2 six-tier table jumps from L3 (SSD Oracle) → L4 (Network Cascade) without naming Engram. PASS 2 §5 rejected the adjacent "Sparse Autoencoder Observatory" as already-covered, but Engram is a different primitive (storage, not feature monitoring).
+- **Destination:** Insert an L4-Engram row into `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 (between current L3 and L4 — renumber L4 → L5, L_SE stays). Cite Sparsity Allocation Law explicitly + the §3.2 Residency Governor framing (rate-distortion: Engram is the lowest-distortion / lowest-rate tier for hashable static facts).
+
+### B2-M13. ACS (Autopoietic Cognitive Stack) doctrine pointer
+
+*Source: audit-of-audit run at iter 10 (2026-05-16) surfaced this gap.*
+
+- **Source:** `acs_meta_layer.md` · `meta_homeostasis.md` · `meta_resonance.md` (jordan's research) + `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 (existing NOT-STARTED doctrine entry)
+- **What it is:** 7-scale recursive autopoietic stack with 4 homeostatic loops (Reactive · Predictive · Adaptive · Regenerative) + Kuramoto-coupled oscillator synchronization across scales + Markov-blanket `ViableSystem` trait. PASS 2 B2-H9 covers **Beer VSM S1-S5** (one of ACS's six anchors) but does NOT cover (a) the broader autopoietic frame, (b) the 4-loop taxonomy, (c) the Kuramoto coupling, or (d) the `ViableSystem` trait.
+- **Why MEDIUM, not BLOCKER:** Research-tier target only; `MASTER_FUSION §3.8` already names ACS as DOCTRINE/NOT-STARTED. The gap is that neither audit picked it up as a separate row, so a future post-V1 sprint would have to rediscover the 4-loop taxonomy from scratch. Cross-link with PASS 2 B2-H9 (Beer VSM) prevents that.
+- **Destination:** Either (a) extend PASS 2 B2-H9 entry above to cross-reference the broader ACS 7-scale frame, OR (b) add a new `MASTER_FUSION §J.6` row "ACS Recursive Self-Governance" pointing to the three source docs. Option (b) preferred — keeps PASS 2 B2-H9 scoped to Beer VSM while giving ACS its own doctrine anchor.
 
 ---
 
