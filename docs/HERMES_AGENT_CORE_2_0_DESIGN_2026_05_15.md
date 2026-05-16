@@ -341,6 +341,143 @@ pub struct ExecutionReceipt {
 - `agent_core/src/resources/attachments.rs:13` — separate `pub enum Capability` for attachment-grant scope (different domain)
 - `MASTER_FUSION §3.33` (Artifact Identity) — the artifact half of the same provenance story; ExecutionReceipt's `output_hash` is the bridge
 
+### 5.2 Ephemeral capability tokens — request-time, one-shot, RunEventLog-bound (B2-H20)
+
+**Source:** `docs/fusion/research/FINAL_SYNTHESIS.md §5.2` lines 421-429 (verbatim contract). PASS 2 audit row B2-H20 surfaced by audit-of-audit #3 at iter 30. This section fills the §5.2 reserved slot that 4 prior commits in the loop forward-pointed to (lines 1192 §13.5.10 · 1196 §13.5.10 crosslinks · 1394 §13.7 Guardrail · 1403 §13.7 crosslinks).
+
+### The verbatim contract (FINAL_SYNTHESIS §5.2 lines 423-429)
+
+> Every tool call receives a **one-shot capability token** issued by **Layer 4 (Immune)**. The token:
+> - Encodes exactly the capabilities authorized for *this* call.
+> - **Expires immediately on tool completion.**
+> - Cannot be re-used or persisted.
+> - Is logged in **RunEventLog** with the call it authorized.
+
+"This means a tool that gains capability `network: localhost:obscura_port` cannot, ten seconds later, use that capability for a different call. It must request afresh and pass authorization again." (§5.2 line 429)
+
+### The 3-layer security-token story (lifecycle)
+
+The full audit chain layers from coarse-grained (long-lived) to fine-grained (per-call) to attestation (post-completion):
+
+```
+SovereignGate consent (long-lived per session)
+        ↓
+Macaroon issued (TTL-bounded, via agent_core/src/cognitive_dag/macaroons.rs)
+        ↓
+Ephemeral Capability Token (one-shot, RunEventLog-bound, expires-on-completion) ← B2-H20 / §5.2
+        ↓
+Tool executes (constrained to token's exact capability set)
+        ↓
+ExecutionReceipt signed (§5.1, completion-time attestation)
+        ↓
+Token expires (no reuse possible)
+        ↓
+RunEventLog entry sealed
+```
+
+### Distinct from three adjacent primitives
+
+| Primitive | When | Scope | Lifetime |
+|---|---|---|---|
+| **§5.1 ExecutionReceipt** (B2-H13) | **Completion-time** signed log entry | Per-tool-call attestation of *what happened* | Permanent on-disk record |
+| **§5.2 Ephemeral capability token** (B2-H20) | **Request-time** authorization | Per-tool-call permission fence for *what may happen* | One-shot — expires on tool completion (success OR failure) |
+| **§7.5 Capability Lease** (B2-H10) | Pro-only XPC session | Zero-copy handle-binding for a data plane | Lease window (Pro tier only) |
+| Macaroon (substrate) | Issued at user-approval moment | Reusable within TTL + scope caveats | Hours to days (TTL via `Caveat::ExpiryAfter`) |
+
+**The gap §5.2 fills:** macaroons are reusable within their TTL; ExecutionReceipt is post-hoc. Without §5.2, a tool that obtained a macaroon for one purpose could in principle use it for a different call before the TTL elapsed. The ephemeral token narrows the macaroon's authority to **exactly this one invocation**, then dies — closing the request-time-authorization gap between consent (macaroon) and attestation (receipt).
+
+### Substrate — builds on `agent_core/src/cognitive_dag/macaroons.rs`
+
+The macaroon module (930 LOC, Phase 8.C, SHIPPED) provides the foundation:
+
+- `Macaroon { root, caveats, signature }` with HMAC-chain signature.
+- `Caveat` enum: `ScopePrefix { prefix }` · `ExpiryAfter { until_ts_ms }` · `ToolNameEq { tool }` · `AdditionalContext { ... }`.
+- Operations: `issue` · `restrict` · `delegate` · `revoke`.
+- `capability_hash_of(&Macaroon) -> Hash` for edge signing.
+- Revocation cascade integration with Phase 8.B resonance propagation.
+
+**What §5.2 adds (forward-staged, NOT-STARTED in code — `rg "ephemeral\|one.shot\|single.use" agent_core/src/cognitive_dag/macaroons.rs` returns zero hits):**
+
+```rust
+// Proposed addition to Caveat enum (forward-staging shape):
+pub enum Caveat {
+    ScopePrefix { prefix: String },
+    ExpiryAfter { until_ts_ms: u64 },
+    ToolNameEq { tool: String },
+    AdditionalContext { /* ... */ },
+
+    // NEW (B2-H20):
+    /// One-shot — bound to a single RunEventLog entry; the token
+    /// can be verified at most ONCE for the bound run_event_id,
+    /// and verification consumes it (via the run-event sealing
+    /// flow). Composes orthogonally with ScopePrefix + ToolNameEq.
+    OneShot { run_event_id: NodeId },
+}
+
+/// Issue an ephemeral capability token by restricting a parent
+/// macaroon to a single RunEventLog entry. Layer 4 (Immune) call site.
+pub fn issue_ephemeral(
+    parent: &Macaroon,
+    run_event_id: NodeId,
+    tool: &str,
+    scope: &str,
+) -> Macaroon {
+    parent
+        .restrict(Caveat::OneShot { run_event_id })
+        .restrict(Caveat::ToolNameEq { tool: tool.into() })
+        .restrict(Caveat::ScopePrefix { prefix: scope.into() })
+}
+
+/// Verify-and-consume — must be called exactly once per
+/// ephemeral token. Subsequent calls fail.
+pub fn verify_and_consume_ephemeral(
+    token: &Macaroon,
+    run_event_id: NodeId,
+    log: &mut RunEventLog,
+) -> Result<(), VerifyError> { /* ... */ }
+```
+
+The `Caveat::OneShot { run_event_id }` addition is the minimal substrate change. Everything else (ScopePrefix, ToolNameEq, ExpiryAfter composition) already exists.
+
+### Composition rule with existing caveats
+
+When an ephemeral token is verified, ALL caveats must pass:
+
+1. `OneShot { run_event_id }` — token has NOT been previously consumed for this run_event_id.
+2. `ScopePrefix { prefix }` — the call's vault path / network host matches the prefix.
+3. `ToolNameEq { tool }` — the call's tool name matches exactly.
+4. `ExpiryAfter { until_ts_ms }` — the parent macaroon's TTL has not elapsed (defense-in-depth: ephemeral tokens also respect their parent's TTL).
+
+A single failure rejects the call. Successful verification consumes the OneShot — the next attempted verify returns `VerifyError::AlreadyConsumed`.
+
+### Layer 4 (Immune) issuance hook
+
+Per FINAL_SYNTHESIS §5.2: issuance is the Layer 4 / Immune call site. In Hermes 2.0 terms this maps to the **Guardrail role** in the Multi-Overseer-4 hierarchy (§13.7) — Guardrail issues ephemeral tokens BEFORE Planner-decided tool calls execute, and verifies them at the AgentExecutor boundary. The Guardrail row in §13.7 (line 1394) already cites "§B2-H20 ephemeral tokens (request-time)" in its toolkit list.
+
+### V1 / Pro / Post-V1 boundary
+
+- **V1 MAS:** Macaroon substrate ships (already in main, Phase 8.C). Ephemeral one-shot caveat: **NOT-STARTED**. V1 web tools rely on §0 rule 6 + rule 7 framework + AgentBlueprint capability budget for coarse-grained gating.
+- **V1.x (alongside SovereignGate hardening):** `Caveat::OneShot { run_event_id }` variant added to `agent_core/src/cognitive_dag/macaroons.rs` + `issue_ephemeral` + `verify_and_consume_ephemeral`. AgentExecutor wraps every tool dispatch in `verify_and_consume_ephemeral` before the call, releases on completion.
+- **Wave 9+:** Auto-research loops (§13.5.10) consume per-fetch ephemeral tokens — every external fetch in the morning auto-research workflow goes through SovereignGate consent → macaroon → ephemeral token → fetch → ExecutionReceipt, per the §13.5.10 line 1192 crosslink that already exists.
+
+### Why this is forward-staging not §5.0 catch
+
+audit-of-audit #3 (iter 30) correctly surfaced that the audit chain had a request-time-authorization gap between macaroons (reusable within TTL) and ExecutionReceipts (post-hoc). Macaroon substrate exists; the `OneShot` caveat extension does NOT. This section writes the doctrine the audit predicted needed writing — including the verbatim source-spec contract, the 3-layer lifecycle, the substrate addition shape, and the composition rule. The 4 forward-pointers from prior commits (lines 1192/1196/1394/1403) now resolve to this real destination.
+
+### Cross-references
+
+- B2-H20 PASS 2 audit row.
+- `docs/fusion/research/FINAL_SYNTHESIS.md §5.2` lines 421-429 — canonical source.
+- `agent_core/src/cognitive_dag/macaroons.rs` (930 LOC, Phase 8.C SHIPPED) — substrate foundation.
+- §5.1 ExecutionReceipt (B2-H13) — completion-time attestation; ephemeral token is the request-time counterpart.
+- §7.5 Capability Lease (B2-H10) — Pro-only XPC handle binding; orthogonal scope.
+- §13.7 Multi-Overseer Guardrail role — issuance + verification site.
+- §13.5.10 Auto-research loops — per-fetch consumer (line 1192 + 1196 cross-links).
+- MAS_COMPLETE_FUSION §0 rule 8 (B2-H19) — sibling forward-staged security primitive on the same FINAL_SYNTHESIS §5 page (egress.rs gates network access, ephemeral tokens gate authorization).
+- MASTER_FUSION §3.42 DP gate (B2-M14) — sibling forward-staged Wave 9+ privacy primitive on the same FINAL_SYNTHESIS §5 page.
+
+---
+
 ### 5.3 Five-Plane formalism — RuntimePlane canonical enum (B2-M6)
 
 **Source:** `Epistemos V6_1 — Final Synthesis Lock` PART 3 + HELIOS V6.1 §3. PASS 2 audit row B2-M6 framed this as "canonicalization deferred"; **§5.0 reconciliation finding: `RuntimePlane` enum is already canonical in `epistemos-research/src/five_planes.rs` and load-bearing** in `v6_1_stream_surface.rs` + `v6_1_execution_policy.rs`. This section records the doctrine cross-reference into Hermes 2.0's provenance vocabulary that the audit identified as missing.
