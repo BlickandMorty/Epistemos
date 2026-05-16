@@ -25,6 +25,7 @@
 //! mapping function; the simulation rendering is Wave G's domain.
 
 pub mod animation;
+pub mod scheduler;
 pub mod sprite_atlas;
 
 use serde::{Deserialize, Serialize};
