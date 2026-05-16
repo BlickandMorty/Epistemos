@@ -132,6 +132,69 @@ fn check_unit(unit: &VsmUnit) -> Result<(), VsmError> {
     Ok(())
 }
 
+impl VsmUnit {
+    /// Maximum nesting depth from this unit. A leaf has depth 0.
+    /// Tracks "how recursive is this VSM?" per Beer's fractal-
+    /// governance principle.
+    pub fn recursion_depth(&self) -> usize {
+        if self.children.is_empty() {
+            return 0;
+        }
+        1 + self
+            .children
+            .iter()
+            .map(|c| c.recursion_depth())
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Total unit count in the subtree rooted here (including self).
+    pub fn total_unit_count(&self) -> usize {
+        1 + self
+            .children
+            .iter()
+            .map(|c| c.total_unit_count())
+            .sum::<usize>()
+    }
+
+    /// Distribution of S1-S5 levels across the entire subtree. Useful
+    /// for spotting "S1-heavy" (many ops, light governance) vs
+    /// "S5-heavy" (over-management) shapes at a glance.
+    pub fn count_units_by_level(&self) -> VsmLevelCounts {
+        let mut counts = VsmLevelCounts::default();
+        self.tally_into(&mut counts);
+        counts
+    }
+
+    fn tally_into(&self, counts: &mut VsmLevelCounts) {
+        match self.level {
+            VsmLevel::S1 => counts.s1 += 1,
+            VsmLevel::S2 => counts.s2 += 1,
+            VsmLevel::S3 => counts.s3 += 1,
+            VsmLevel::S4 => counts.s4 += 1,
+            VsmLevel::S5 => counts.s5 += 1,
+        }
+        for child in &self.children {
+            child.tally_into(counts);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VsmLevelCounts {
+    pub s1: usize,
+    pub s2: usize,
+    pub s3: usize,
+    pub s4: usize,
+    pub s5: usize,
+}
+
+impl VsmLevelCounts {
+    pub fn total(&self) -> usize {
+        self.s1 + self.s2 + self.s3 + self.s4 + self.s5
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,5 +382,91 @@ mod tests {
             }
             other => panic!("expected S5MissingInner, got {:?}", other),
         }
+    }
+
+    // ── recursion_depth + count_units_by_level (iter 112) ───────────────────
+
+    #[test]
+    fn recursion_depth_leaf_is_zero() {
+        let leaf = unit("ops", VsmLevel::S1, vec![]);
+        assert_eq!(leaf.recursion_depth(), 0);
+    }
+
+    #[test]
+    fn recursion_depth_minimal_viable_is_one() {
+        // S5 root → 4 leaf children → depth 1.
+        let root = minimal_viable("org");
+        assert_eq!(root.recursion_depth(), 1);
+    }
+
+    #[test]
+    fn recursion_depth_nested_vsm_increments() {
+        // S5(root) → S1(nested) → S5(inner) → S1/S2/S3/S4 leaves.
+        // Path: root(0) → nested(1) → inner(2) → leaf(3) → depth 3.
+        let inner = minimal_viable("inner");
+        let nested = unit("nested", VsmLevel::S1, vec![inner]);
+        let root = unit(
+            "org",
+            VsmLevel::S5,
+            vec![
+                nested,
+                unit("coord", VsmLevel::S2, vec![]),
+                unit("control", VsmLevel::S3, vec![]),
+                unit("intel", VsmLevel::S4, vec![]),
+            ],
+        );
+        assert_eq!(root.recursion_depth(), 3);
+    }
+
+    #[test]
+    fn total_unit_count_minimal_viable_is_five() {
+        let root = minimal_viable("org");
+        assert_eq!(root.total_unit_count(), 5);
+    }
+
+    #[test]
+    fn total_unit_count_singleton_is_one() {
+        let leaf = unit("ops", VsmLevel::S1, vec![]);
+        assert_eq!(leaf.total_unit_count(), 1);
+    }
+
+    #[test]
+    fn count_units_by_level_minimal_viable_one_per_slot() {
+        let root = minimal_viable("org");
+        let c = root.count_units_by_level();
+        assert_eq!(c.s5, 1);
+        assert_eq!(c.s4, 1);
+        assert_eq!(c.s3, 1);
+        assert_eq!(c.s2, 1);
+        assert_eq!(c.s1, 1);
+        assert_eq!(c.total(), 5);
+    }
+
+    #[test]
+    fn count_units_by_level_nested_sums_all_descendants() {
+        // root S5 with 2 S1 leaves → counts.s5 = 1, s1 = 2.
+        let root = unit(
+            "org",
+            VsmLevel::S5,
+            vec![
+                unit("ops1", VsmLevel::S1, vec![]),
+                unit("ops2", VsmLevel::S1, vec![]),
+                unit("coord", VsmLevel::S2, vec![]),
+                unit("control", VsmLevel::S3, vec![]),
+                unit("intel", VsmLevel::S4, vec![]),
+            ],
+        );
+        let c = root.count_units_by_level();
+        assert_eq!(c.s1, 2);
+        assert_eq!(c.s5, 1);
+        assert_eq!(c.total(), 6);
+    }
+
+    #[test]
+    fn level_counts_serde_roundtrip() {
+        let c = VsmLevelCounts { s1: 5, s2: 1, s3: 2, s4: 1, s5: 1 };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: VsmLevelCounts = serde_json::from_str(&json).unwrap();
+        assert_eq!(c, back);
     }
 }
