@@ -8,6 +8,24 @@
 
 ---
 
+## Immutable rules (precede §0)
+
+These rules outrank every other section in this doc. If any later section conflicts, this block wins.
+
+### IR-1. Hermes runs in-process in MAS V1; XPC service is a Pro V1.x evaluation, not a MAS option
+
+**Decision (2026-05-16, B2-5 resolution):**
+
+- **MAS V1.** Hermes runs **in-process** via Rust FFI + UniFFI inside `agent_core::agent_runtime`. This is the canonical implementation and is non-negotiable for MAS submission. Per `CLAUDE.md` NON-NEGOTIABLE CONSTRAINTS: *"NO SIDECAR. All inference AND orchestration in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models."*
+- **Pro V1.x.** An **embedded XPC service** is a candidate architecture under evaluation — **not** an open question that gates V1 work. Per `docs/fusion/jordan's research/hermes.md` §"The correct macOS boundary for Hermes", an embedded XPC service (private to the containing app, launched on demand by launchd, restartable after crashes, with its own sandbox + restrictive default environment) is the correct macOS primitive **IF** Pro needs to isolate Hermes from the main app process. Evaluation only begins after Pro V1.0 ships and only if a concrete need motivates the migration (crash isolation · sandbox-restricted credential pool · separate restart cadence · App-Group-bridged cloud session that must outlive the host process).
+- **What this rules out.** Subprocess Hermes (child binary spawned via `Command::new`) is forbidden in **both** MAS and Pro. The XPC service is the ONLY sanctioned out-of-process alternative if Pro ever moves Hermes off the main process. Any XPC service code MUST be gated by `#[cfg(feature = "pro-build")]` in `mas-build` Cargo features so the MAS bundle stays in-process-only and the `strings` + `nm -gU` symbol-leak audits keep returning zero matches.
+- **Rationale.** CLAUDE.md NO SIDECAR is a hard constraint driven by App Store sandboxing, App Review reviewer comprehensibility, and the user's "as complex as a brain, as simple as an app, as fast as a jet" thesis. The XPC service framing from `hermes.md` is valuable research for the Pro tier but does NOT override CLAUDE.md for MAS V1.
+- **Reversibility.** Reversible **for the Pro tier only** via a new ADR plus scoped user approval. MAS V1 in-process is permanent for the `mas-build` Cargo feature — flipping it requires a CLAUDE.md edit (which is itself user-approval-gated) and a fresh App Review submission.
+- **Cross-references.** §6 (MAS vs Pro split — this rule sharpens that table's `subprocess` rows); `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §D XPC Mastery (Pro-only `VaultXPC` + `CapabilityGrant` XPC services — distinct from the Hermes-as-XPC question this rule answers); `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md`.
+- **Source.** `RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` B2-5; resolved 2026-05-16.
+
+---
+
 ## 0. The single hardest problem this design solves
 
 The user's complaint: *"the agent feels demo-like. With the local Qwen model the agent listed only the first 7 vault notes which were not relevant."*
