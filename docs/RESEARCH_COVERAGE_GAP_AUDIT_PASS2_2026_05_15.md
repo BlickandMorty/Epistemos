@@ -115,6 +115,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) "Layer 4: Golden Scheduling"
 - **What it is:** Tasks scheduled at φ-intervals (φ ≈ 1.618, most-irrational number by Hurwitz, last KAM torus to collapse). t = 0, φT, φ²T, φ³T… maximizes minimum time between any two tasks, preventing resonance interference.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §scheduling — informs NightBrain + distillation cadence.
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new `MASTER_FUSION §3.35 "Golden-ratio scheduling — KAM-stable cadence for NightBrain + distillation"`. Section covers: schedule formula `t_n = φ^n · T` · Hurwitz 1891 citation (audit-of-audit Task 4 confirmed) with continued-fraction `[1;1,1,1,…]` explanation · NightBrain integration shape with pseudocode `let t_n = base_interval * f64::powi(PHI, n);` against current `CANONICAL_TASK_NAMES` 10-task list · distillation-task pairing rule (`cloud_knowledge_distillation` ⊥ `memory_distillation` on different φ-offsets) · operational rationale around `ObservationTask` ring-slot collisions in the existing B.9 substrate · explicit scope boundaries (NOT Fibonacci-time cache hashing · NOT golden-angle UI · NOT broader KAM theory) · V1 scope note (research-tier, becomes load-bearing only when the 6 NoOp task bodies ship real bodies and start sharing I/O budgets).
 
 ### B2-H9. Recursive Self-Governance — Beer Viable Systems Model S1-S5
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) Layer 5
@@ -306,7 +307,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H4 Windows port (10-doc bundle) | ✅ RESOLVED 2026-05-16 — landed as `NEW_SESSION_HANDOFF §14` with 10-doc table + 4 non-negotiables + "when to look at this" gate. |
 | B2-H5 Graph filter UI | ✅ VERIFIED 2026-05-16 — already shipped in `cabf81df0` (2026-05-12); `GraphForceSettings.swift:11+165-186`. |
 | B2-H7 Spectral Memory | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §13.5.8 with LapEigvals arXiv:2502.17598 + AUROC ≥0.85 acceptance + integration diagram + research-tier scope. |
-| B2-H8 Golden-ratio scheduling | MASTER_FUSION §scheduling |
+| B2-H8 Golden-ratio scheduling | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.35` with Hurwitz 1891 cite + NightBrain φ-spacing integration shape + ObservationTask rationale. |
 | B2-H9 Beer VSM S1-S5 | New doc OR Hermes 2.0 §multi-overseer |
 | B2-H10 Capability Lease + handles | Hermes 2.0 §7 (XPC executor) |
 | B2-H11 SAE AUC 0.90 | MASTER_FUSION §J |
