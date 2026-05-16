@@ -521,6 +521,19 @@ Sub-3ms contextual recall across the full vault via three layered moves: binary-
 | **V1 scope** — research-tier, NOT V1. Requires SAE training on a chosen model's residual stream (local-only models exclusive — Claude/GPT residuals not accessible). Per-step SAE forward-pass adds non-trivial latency. Wave 9+ integration target, paired with B2-H7 spectral detection. | doctrine boundary | NOT-STARTED |
 | **Why this row is load-bearing** — pinning the AUC threshold turns "SAE Cognition Observatory" from a vague capability claim into a falsifiable engineering target. The team that picks up Wave J2 must achieve AUC ≥ 0.90 or the slice fails. Without this pin, any SAE that fires under any circumstance could claim to be the Cognition Observatory. | PASS 2 audit framing | reference |
 
+### 3.37 N1 Prompt Tree — JSPF + PTF + Relocation Trick (SHIPPED)
+
+| Concept | Source | Status |
+|---|---|---|
+| **JSPF (JSON-Schema Prompt Format)** — typed, Codable, Sendable, Hashable `Prompt` struct composed deterministically from typed inputs. Single representation flows through Anthropic Messages, OpenAI Responses, Apple AFM @Generable, MLX local-grammar via `PromptRenderer` | `Epistemos/Engine/PromptTree.swift:42-101` (Prompt root type) + `PromptRenderer.swift` | **SHIPPED** (commit `7316f86bd` "n1(prompt-tree): JSPF + PTF foundation + ChatCoordinator first-turn wire") |
+| **PTF (Prompt Tree Format)** — on-disk directory representation. `Prompt` flattens to `PromptNode` directory tree at `<vault>/.epistemos/prompts/<session>/<turn>/manifest.json`. Lossless round-trip JSPF ↔ PTF for replay + audit + cache parity verification. | `Epistemos/Engine/PromptTree.swift:256-298` (PromptNode) + `PromptTreePersister.swift` | SHIPPED |
+| **CacheHints** with `.chatDefault` preset — `Codable` struct flagging `stableSubtrees` + `applyRelocationTrick` so `PromptRenderer` knows which subtrees to mark as Anthropic prompt-cache breakpoints. Default chat preset hints the 3-4 most stable subtrees (system + recent persistent memory + tool registry) within the **4-breakpoint Anthropic cap** verified by audit-of-audit #1. | `Epistemos/Engine/PromptTree.swift:217-241` + audit-of-audit #1 Task 4 (Anthropic 4-cap confirmed) | SHIPPED |
+| **PromptComposer.compose** — deterministic builder taking typed inputs and producing the JSPF `Prompt`. Replaces ad-hoc string concatenation. | `Epistemos/Engine/PromptTree.swift:300+` | SHIPPED |
+| **PromptRenderer** — single dispatch point that renders one JSPF `Prompt` into provider-specific wire format (Anthropic Messages `system` prefix + cache `cache_control` blocks · OpenAI Responses · AFM Generable · MLX grammar). | `Epistemos/Engine/PromptRenderer.swift:57` | SHIPPED |
+| **`EPISTEMOS_PROMPT_TREE=1` env var** for CI parity tests on the persisted PTF round-trip. | `Epistemos/Engine/PromptTreePersister.swift:30` | SHIPPED |
+| **Relocation Trick (90% token-cost reduction)** — moving frequently-reused subtrees (system prompt · stable memory · tool registry) to the prompt prefix so Anthropic prompt cache amortizes them across turns. Combined with the 4-breakpoint cap, gives ~90% input-token cost reduction on long-running conversations. | source `PROMPT_AS_DATA_SPEC.md` §"Relocation Trick" + audit-of-audit #2 Task 4 verification | SHIPPED via `CacheHints.applyRelocationTrick` |
+| **Why this row is canon, not just code** — PASS 2 B2-H12 framed N1 as "not yet shipped." §5.0 reconciliation gate caught the stale framing — code WAS shipped, audit-row tracked aspirational doctrine. This MASTER_FUSION row is the pointer-to-code from canon, so future readers find N1 from the atlas, not just by grepping Engine/. | PASS 2 B2-H12 + commit `7316f86bd` | doctrine reconciliation |
+
 ---
 
 ## 4. Cross-document disambiguations (do not confuse)
