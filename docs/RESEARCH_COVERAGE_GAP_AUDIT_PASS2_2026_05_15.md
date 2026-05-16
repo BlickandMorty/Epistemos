@@ -394,6 +394,89 @@ Maintenance candidate 2 of 3 (Atlas Drift cross-link was 1 of 3 in iter 73). Eac
 
 **§5.0 catch rate after iter 74:** unchanged at 25/74 = 33.8% (no new catches surfaced; re-sweep is verification-only, doesn't add new catches but proves the existing rejection rationale is still load-bearing post-context-compaction). **Cargo test baseline 1190/1190 holds** (verified by background run during this iter; doc-only diff with zero production-code touch).
 
+### §5.2 MASTER_FUSION cross-ref audit (iter 75, 2026-05-16)
+
+Maintenance candidate 3 of 3 (final named). Verifies every `MASTER_FUSION §3.X` and `Wave [A-J]N` cross-reference in external docs resolves to an actual header / row in `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md`.
+
+**Method:** `grep -hoE "§3\.[0-9]+" + grep -hoE "Wave [A-J][0-9]+"` against PASS-1 + PASS-2 + MAS_COMPLETE_FUSION + HERMES_AGENT_CORE_2_0_DESIGN. Cross-checked against MASTER_FUSION header inventory: 43 distinct `### 3.X` headers (3.1-3.43) + 10 Wave sections (A-J).
+
+**Verdict: 100% clean. Zero broken cross-references. 2 informational findings.**
+
+#### §3.X inbound resolution (22 distinct cited values)
+
+All 22 distinct §3.X cross-refs resolve to existing MASTER_FUSION headers:
+
+| §3.X cited | External-doc ref count | Header present? |
+|---|---|---|
+| §3.1 | 17 | ✅ line 64 |
+| §3.2 | 39 | ✅ line 79 (Six-tier memory hierarchy) |
+| §3.3 | 4 | ✅ line 112 |
+| §3.4 | 9 | ✅ line 119 (SCOPE-Rex) |
+| §3.5 | 8 | ✅ line 131 |
+| §3.6 | 2 | ✅ line 147 |
+| §3.8 | 18 | ✅ line 175 (ACS) |
+| §3.14 | 10 | ✅ line 249 (Live File Compiler) |
+| §3.16 | 12 | ✅ line 267 |
+| §3.18 | 9 | ✅ line 302 (Provenance ledger) |
+| §3.22 | 12 | ✅ line 359 |
+| §3.33 | 4 | ✅ line 490 (Artifact Identity + Provenance Block) |
+| §3.34 | 16 | ✅ line 501 (Instant Recall) |
+| §3.35 | 18 | ✅ line 517 (Golden-ratio scheduling) |
+| §3.36 | 10 | ✅ line 529 (SAE Cognition Observatory) |
+| §3.37 | 8 | ✅ line 540 (N1 Prompt Tree) |
+| §3.38 | 8 | ✅ line 553 (Graph Engine 42 decisions) |
+| §3.39 | 5 | ✅ line 567 (Adaptation + Compute Steering) |
+| §3.40 | 16 | ✅ line 744 (Run Ledger — **out-of-order placement**, see Finding 1) |
+| §3.41 | 14 | ✅ line 584 (Nano Model Training Recipe) |
+| §3.42 | 18 | ✅ line 670 (Differential Privacy) |
+| §3.43 | 7 | ✅ line 756 (`epistemos-code-index`) |
+
+Total external citations to §3.X: 236 hits across 22 distinct sections. All resolve.
+
+#### Wave inbound resolution
+
+| Wave ref pattern | External hits | Row resolution |
+|---|---|---|
+| Wave A1-A9 | 11 total (A1×2, A2×1, A3×1, A4×1, A5×1, A6×1, A7×1, A8×1, A9×2) | ✅ All present at MASTER_FUSION lines 839-847 |
+| Wave C9 | 6 | ✅ line 873 (V6.2 per-bubble VRMLabelView binding, AWAITING USER SIGN-OFF, landed via L-2 iter 68 `f9a89c171`) |
+| Wave G2, G3 | 13 total (G2×5, G3×8) | ✅ G2 line 914 · G3 line 915 (character-DNA cross-link landed via L-1 iter 67 `0815aeef4`) |
+| Wave H6 | 7 | ✅ line 928 (Graph Toolbar buttons, AWAITING USER SIGN-OFF, landed via L-3 iter 69 `3588652eb`) |
+| Wave J2 | 2 | ✅ Wave J prose enumeration at line 938 (`J2 KV implantation + Glass Pipe + Weight Surgery + SAE Cognition Observatory`) |
+
+Plus implicit Wave A-J top-level section refs: all 10 sections present at MASTER_FUSION lines 835/849/859/875/884/895/909/919/930/936.
+
+#### Finding 1 (informational): §3.40 section-order drift
+
+§3.40 "Run Ledger — per-token cryptographic attestation" is placed at line **744** — AFTER §3.41 (line 584) and §3.42 (line 670). Doctrine sequencing convention would place §3.40 between §3.39 (line 567) and §3.41 (line 584).
+
+**Why this isn't a cross-ref break:** every external citation reaches §3.40 by header text match (`grep` or anchor lookup), not by document position. The row content is fully present; the reading-order anomaly only affects readers doing sequential top-to-bottom scans (rare — readers Cmd-F by row title).
+
+**Why this exists:** §3.40 was added later in the doc's evolution than §3.41 + §3.42 (post-V6.2 vs pre-V6.2 work cluster). A doctrine-order cleanup slice would renumber or reorder, but doing so mid-loop would invalidate the 16 inbound citations + risk drift on the cross-refs we just verified clean. **Recommendation:** defer to a future doctrine-order-cleanup slice that is paired with a single atomic citation-rewrite pass (PR-discipline rule: any §3.X renumbering MUST update all inbound citations in the same commit, per the existing iter-60 "PR-discipline rules" framework).
+
+#### Finding 2 (informational): J10-J14 forward-staging
+
+Wave J prose enumerates J1-J9 today (line 938). The Phase B.1-V6.1 spec in Terminal B prompt + `HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` describes 5 additive Wave J entries (J10 Mamba-3 · J11 Test-Time Regression unification · J12 RWKV-7 Goose · J13 Titans-MAC · J14 DoRA).
+
+**Hit counts:** `grep "Wave J1[0-4]\|J10\|J11\|J12\|J13\|J14"` returns 6 hits in Terminal B prompt + 6 hits in HELIOS_V6_1 integration doc + **0 hits in MASTER_FUSION**.
+
+**Why this isn't a cross-ref break:** J10-J14 are explicitly framed as "ADDITIVE to original B.1" in the integration doc — not as already-present entries. They are forward-staged for the Phase B.1 implementation slice landing (Terminal B owns the slice; Wave J prose update is part of B.1 acceptance). No external doc currently cites J10-J14 from a "verified in MASTER_FUSION" framing — only from a "to-be-landed via B.1" framing.
+
+**Why surface it:** documents the forward-staging gap so future audits don't mis-classify it as drift. **Recommendation:** when B.1 lands, Wave J prose at MASTER_FUSION line 938 MUST be expanded to enumerate J10-J14 in the same commit (PR-discipline rule). The Terminal B prompt §5.0 reconciliation gate covers this discipline.
+
+#### §5.0 catch summary
+
+No new §5.0 catches; cross-ref audit is verification-only. **Same as iter-74 §5.1 PASS-2 §5 re-sweep:** verification slices confirm existing canon discipline holds; they don't add catches but they DO prove the discipline is load-bearing post-context-compaction (which is the load-bearing claim — without these periodic re-verifications, drift would accumulate silently).
+
+**§5.0 catch rate after iter 75:** unchanged at 25/75 = 33.3% (verification-only). **Cargo test baseline 1190/1190 holds** (verified by background run during this iter — 1.15 s, 0 failures). **Doc-only diff** with zero production-code touch.
+
+#### 🎯 Maintenance candidates COMPLETE 3/3
+
+- ✅ **iter 73** Atlas Drift cross-link maintenance (`f5ef5b39f`)
+- ✅ **iter 74** PASS-2 §5 trust-but-verify re-sweep (`28b0b975c`)
+- ✅ **iter 75** MASTER_FUSION cross-ref audit (this commit)
+
+All three named maintenance candidates from the iter-72 queue-exhaustion framing are closed. **Loop-run queue genuinely exhausts on auto-implementable items + named maintenance at iter 75.** Subsequent iterations would either trigger audit-of-audit #8 (at iter 80 per §3) OR enter graceful wind-down per §17 OR pivot to user-direction.
+
 ---
 
 ## 6. Decision matrix — what to do NOW vs DEFER
