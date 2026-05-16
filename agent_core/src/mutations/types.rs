@@ -290,6 +290,33 @@ mod tests {
     }
 
     #[test]
+    fn sensitivity_and_reversibility_reject_unknown_strings_on_decode() {
+        // Both enums ride into MutationEnvelope and from there into
+        // ReplayBundle audits. Defensive-decode follows the pattern
+        // from c03336734 (MutationStatus) — a future build that adds
+        // a 4th sensitivity ("classified") or reversibility
+        // ("compensated_via_external") must decode to Err on this
+        // build rather than panic mid-replay.
+        let result: Result<Sensitivity, _> =
+            serde_json::from_str("\"classified\"");
+        assert!(result.is_err(),
+                "Sensitivity decoder must reject unknown buckets");
+        let result: Result<Sensitivity, _> =
+            serde_json::from_str("\"Internal\"");
+        assert!(result.is_err(),
+                "PascalCase must reject");
+
+        let result: Result<Reversibility, _> =
+            serde_json::from_str("\"compensated_via_external\"");
+        assert!(result.is_err(),
+                "Reversibility decoder must reject unknown values");
+        let result: Result<Reversibility, _> =
+            serde_json::from_str("\"Reversible\"");
+        assert!(result.is_err(),
+                "PascalCase must reject");
+    }
+
+    #[test]
     fn block_ref_round_trips() {
         let r = BlockRef::new("artifact-1", "block-abc");
         let json = serde_json::to_string(&r).unwrap();
