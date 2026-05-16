@@ -747,3 +747,38 @@ Doctrine rows landed in this run for substrates that will land in V1.1 / Wave 9+
 - **If a forward-staged primitive lands code:** the doctrine row's "PR-discipline" / "Audit-row gate" line names the exact lockstep update — doctrine row + code in the same commit.
 
 *— End of Phase Completion Ledger. 57 closed slices · 5 audits-of-audit · 19 §5.0 catches · 6 forward-staged primitives · 11 remaining user-decision items.*
+
+### §10.1 Wind-down addendum (iter 75 close, 2026-05-16)
+
+Captured at user request after iter 75 closed the third and final named maintenance candidate. The user observed (correctly) that this terminal (the audit-row maintenance loop on `codex/research-snapshot-2026-05-08`) is distinct from the 6 product terminals (A/B/C/D/E/F) doing the actual V1/research/audit/providers/decisions/integrations work, and that continuing to invent new maintenance work past iter 75 was the same eternal-self-audit failure mode that was just hardened against in Terminal E (commit `3d308e6b7`). **This loop winds down here per §17.**
+
+**Final loop state through iter 75:**
+
+- **75 closed slices** (was 57 at the §10 ledger recorded iter 58; +18 slices iters 58→75)
+- **7 audits-of-audit complete** (#1-#7; #8 would have fired at iter 80 if loop continued)
+- **25 §5.0 catches** (was 19 at iter 58; +6 catches iters 58→75 — B2-L1 partial framing, B2-L2 §5.0 correction, B2-L3 + B2-L4 cross-link slices, L-1 / L-2 / L-3 USER-DECISION cross-links, plus iter 73 Atlas Drift mirror counted as a §5.0 mirror catch)
+- **6 forward-staged primitives** (unchanged from iter 58: B2-H19 egress · B2-H20 ephemeral · B2-M14 DP · B2-L1 heal · B2-L2 nightbrain widening · B2-M11 JIT defense — all still verified-absent from main per iter 74 PASS-2 §5 re-sweep + iter 75 cross-ref audit)
+- **~13 user-decision items remaining** (B-1/B-2/B-3/B-4 · H-3/B2-H6 · B2-H16 · B2-M5 · H-1/H-2 · ORPHAN-HERMES-SALVAGE-001 · RCA13-P0-001 · L-2 · L-3 USER-DECISION-gated, all surfaced + recorded in MAS_COMPLETE_FUSION §10 Compromises Recorded)
+- **PASS-1 LOW-tier COMPLETE 5/5** (L-1 ✅ L-2 ✅ L-3 ✅ L-4 ✅ L-5 ✅)
+- **Phase I LOW-tier COMPLETE 4/4** (B2-L1 ✅ B2-L2 ✅ B2-L3 ✅ B2-L4 ✅)
+- **9/9 total LOW-tier slices closed**
+- **All 3 named maintenance candidates closed** (Atlas Drift cross-link ✅ iter 73 · PASS-2 §5 re-sweep ✅ iter 74 · MASTER_FUSION cross-ref audit ✅ iter 75)
+- **Cargo test baseline holds 1190/1190** through all 18 iters (58→75); doc-only diffs throughout
+- **Zero production code touched** through the entire 58→75 window
+- **6 product terminals A-F unaffected** — they run on independent branches/worktrees with their own ScheduleWakeups; this terminal's wind-down doesn't impact their loops
+
+**Closure discipline:**
+
+- This is the SECOND graceful wind-down in this loop run (first was iter 61 `04605c857` "wind-down after Phase G completion"; second is this iter 75 close)
+- The pattern holds: queue genuinely exhausts → wind down → user fires `/loop` again later if they want resumption → next session resumes from the §10 Phase Completion Ledger + this §10.1 addendum + the latest §8 Implementation Log row
+- Audit-of-audit #8 anchors at iter 80 IF future session brings the loop past iter 79 — that's 4 more iters of substrate work, which doesn't currently exist
+- **No ScheduleWakeup landed this iter.** This terminal's loop ends here naturally. The iter-76 wakeup scheduled by the iter-75 turn at 17:04:00 will still fire once at ~17:06 (≈80s after the iter-75 commit) — when it does, the iter-76 turn will do a NO-OP acknowledgment and omit ScheduleWakeup, fully stopping this loop.
+
+**What's next (user-direction options):**
+
+1. **Let the 6 product terminals continue.** They're doing the actual product work and don't depend on this maintenance loop.
+2. **Fire `/loop` again later** if a new high-leverage maintenance slice surfaces (e.g. user-decision row gets answered → convert to implementation slice; or a forward-staged primitive lands code → run the lockstep update; or audit-of-audit #8 manually triggered).
+3. **Pivot to the F-VaultRecall-50 vault-retrieval bug** (highest-priority product work per the multi-advisor synthesis from earlier in this session — "Qwen lists first 7 irrelevant notes" bug; advisors all flagged it as the load-bearing product fix).
+4. **Read the model-stack research at `docs/LOCAL_MODEL_STACK_RESEARCH_2026_05_16.md`** and decide which Qwen3.5-9B vs Qwen3.6-27B branch to register.
+
+*— End of §10.1 wind-down addendum. Loop closure at iter 75; 75 slices closed across 18 iters since iter 58 §10 ledger; queue genuinely exhausted on auto-implementable items.*
