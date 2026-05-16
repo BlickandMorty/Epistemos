@@ -713,6 +713,24 @@ Hong Huang et al. (City University of Hong Kong, Tencent, McGill), January 2026.
 ### BitNet b1.58 (verified)
 Microsoft, 2B params, production. {-1, 0, +1} weights. 58.5% information density gain vs binary.
 
+### Wave J1 substrate floor — Rust (verified 2026-05-16, Terminal C iter 73)
+**Source commit:** `562e23d83` on `run-b-post-v1-research` (not yet merged to `codex/research-snapshot-2026-05-08`).
+**Substrate (382 LOC total, 13 tests, gated behind `feature = "research"`):**
+- `agent_core/src/research/mod.rs` (17 LOC) — Wave J umbrella; cites `helios v3.md` capstone.
+- `agent_core/src/research/ternary/mod.rs` (49 LOC) — paper-style README, decode-first invariant, kernel-portfolio roadmap; cites Ma et al. arXiv:2402.17764 (BitNet b1.58).
+- `agent_core/src/research/ternary/trit.rs` (69 LOC, 3 tests) — `Trit` enum + canonical 2-bit encoding (`00=-1, 01=0, 10=+1, 11=reserved`); cites `ternary kernel.md` §"Ternary packing and unpacking".
+- `agent_core/src/research/ternary/pack.rs` (118 LOC, 6 tests) — 16-trits-per-`u32` pack/unpack with reserved-pattern detection.
+- `agent_core/src/research/ternary/backend.rs` (129 LOC, 4 tests) — `BackendKind` + `TernaryBackend` trait + 3 stub backends (DenseMlx baseline · BitnetReference truth-source · TernaryMetal breakthrough). All `is_available()` return `false` until concrete kernels land.
+
+**Donor research (citations resolve on disk):**
+- Ma et al., arXiv:2402.17764 — "The Era of 1-bit LLMs" (BitNet b1.58).
+- Microsoft `bitnet.cpp` reference implementation.
+- Wei et al., arXiv:2407.00088 (T-MAC).
+- `docs/fusion/jordan's research/ternary kernel.md` (donor — present on disk).
+- `docs/fusion/jordan's research/helios v3.md` (capstone — present on disk).
+
+**Roadmap (per `ternary kernel.md`):** block-scaled GEMV → fused projection + residual island → KV fingerprint → activation tap → steering delta. All NOT-STARTED at iter 73.
+
 ### Engram O(1) hash recall (partial)
 DeepSeek V4 Preview (April 24, 2026). Hashed N-gram embeddings for static knowledge with O(1) recall. Sparsity Allocation Law: 20-25% to memory, 75-80% to compute.
 

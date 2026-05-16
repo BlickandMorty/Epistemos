@@ -554,6 +554,12 @@ Durable log of dispassionate verification cycles spawned every ~10 loop iteratio
 
 *Next audit-of-audit: #8 fires at iter 80 if loop continues past L-5 close. If queue exhausts at iter 72 (L-4 + L-5 close), loop may rotate to MASTER_FUSION cross-ref maintenance or wind down again — same §17 logic as iter 61.*
 
+### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
+- **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
+- **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
+- **PR-discipline check:** `562e23d83` is `feat()`-prefixed substrate first slice. Per the lockstep rule landed by audit-of-audit #6 (B2-M15: new top-level Rust crate triggers MASTER_FUSION §3.X doctrine row in same commit), this commit added a NEW MODULE inside an existing crate, not a new top-level crate, so the §3.X-row-in-same-commit rule does not strictly fire. However, when the kernel portfolio rolls forward (block-scaled GEMV → fused projection → KV fingerprint → activation tap → steering delta), MASTER_FUSION should gain a "Wave J1 Ternary Substrate" row. Flagged here for B's iter-2+ slices; not a current-iter blocker.
+- **Verdict:** ✅ ON TRACK. No drift surfaced. Continuing C.x rotation; audit-of-audit #8 fires when sibling-implementation window reaches 3-5 substantive commits.
+
 ---
 
 ## 10. Phase Completion Ledger (2026-05-16, recorded at iter 58)
