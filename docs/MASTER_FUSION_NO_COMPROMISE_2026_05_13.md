@@ -910,9 +910,9 @@ Unblocks when $99 Apple Developer Program subscription clears.
 | # | Task | Sources |
 |---|---|---|
 | G1 | **Full 13-state animation machine** | `docs/fusion/simulation/DOCTRINE.md` |
-| G2 | **Sprite atlas + instanced Metal quads** (16 invariants, especially I-15 + I-16) | DOCTRINE.md |
-| G3 | **Tamagotchi specificity-recovery**: 50 sprites / 24 emotes / 60 FPS / deterministic idle-walk / reduce-motion static pose | `CANON_COMPLETENESS_AUDIT_2026_05_04.md` |
-| G4 | **Hermes Snake as Graph Faculty (z+1 plane)** — NOT a Companion Farm citizen | CANONICAL_UNIFICATION_INVENTORY §4.3 |
+| G2 | **Sprite atlas + instanced Metal quads** (16 invariants, especially I-15 + I-16) | DOCTRINE.md + per-body sprite manifests in `docs/fusion/simulation/character-dna/{block_compact,block_wide,sage,orb,hermes_snake}.md` (541 LOC total; each spec lists frame inventory + texture-atlas slot ID + emote palette per body) |
+| G3 | **Tamagotchi specificity-recovery**: 50 sprites / 24 emotes / 60 FPS / deterministic idle-walk / reduce-motion static pose | `CANON_COMPLETENESS_AUDIT_2026_05_04.md` + per-body specs in `docs/fusion/simulation/character-dna/`: `block_compact.md` (110L, citizen body) · `block_wide.md` (115L, citizen body) · `sage.md` (98L, citizen body) · `orb.md` (102L, citizen body) · `hermes_snake.md` (116L, Graph Faculty — distinct per G4). The 24-emote palette + idle-walk frame timing + reduce-motion-static-pose fallback are defined PER BODY in each spec; the 50-sprite frame budget is split across the 4 citizen bodies + Hermes Snake's z+1 plane animations |
+| G4 | **Hermes Snake as Graph Faculty (z+1 plane)** — NOT a Companion Farm citizen | CANONICAL_UNIFICATION_INVENTORY §4.3 + `docs/fusion/simulation/character-dna/hermes_snake.md` (116L; spec explicitly carves out the z+1 plane animation budget separate from the 4 citizen bodies + names the Graph Faculty emote vocabulary distinct from the citizen 24-emote palette). NOTE per §3 doctrine line 420 body-grammar invariant: Hermes Snake is render-plane-segregated; G2 sprite atlas treats it as a SECOND atlas, not a 5th body slot in the citizen atlas |
 | G5 | **LoRA hot-swap research spike** (50 × 50 MB LoRA per companion) | DAG doctrine §6 cost |
 
 ### Wave H — UI / UX V2.6
