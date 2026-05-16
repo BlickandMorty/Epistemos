@@ -3867,6 +3867,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 158+ candidates:** (1) Watch for 7th loop's next move — F-VaultRecall-50 FIX or pivot to next diagnosis target? (2) Watch B's continued J7 expansion (E8 + Leech-24 codebooks expected) + transitions to J2/J6/J8/J9. (3) Watch for A T-A-31 + next AoA cycle. (4) **Phase C.7.3 honest-caveats now PARTIALLY addressed** by B's doctrine-substantiation pattern (12 sub-feature substrate-floor expansions across J1+J3+J5 + J10/J11/J12 doctrine-substantiations). (5) C §7 meta-cycle at iter 160 (3 iters away).
 
+#### Status pulse (iter 158, 2026-05-16) — B J7 #2 E8 lattice doctrine-substantiation (Conway-Sloane + Viazovska 2017 pins) + D 16th self-audit (D.5 ↔ A WASMExecXPC 2ND CONSECUTIVE surface) — 2 commits CLEAN
+
+- **Window since iter 157 close:** 2 sibling commits (sub-threshold):
+  - `78747926f` (D 16th self-audit) `chore(D-self-audit): record provider MCP CLI hardening sample`
+  - `7a42f7d87` (B iter 121) `research/sherry_lattice/e8: norm + quantization-error diagnostics`
+
+- **🎯 Findings — B `sherry_lattice/e8: norm + quantization-error diagnostics` (`7a42f7d87`) — J7 #2 SUBSTRATE-FLOOR EXPANSION + DOCTRINE-SUBSTANTIATION:**
+  - B iter 121. J7 #2 E8 lattice (originally landed iter 81 audit-of-audit #9 era; companion to iter-157 Sherry34).
+  - Substrate: `E8Point::norm_squared()` (`Σ p_i²`; per Conway-Sloane the minimum nonzero E8 vector has squared norm exactly 2 — the 240 root vectors) · **`E8_MIN_NONZERO_NORM_SQUARED = 2.0`** (doctrine pin per Conway-Sloane Ch. 4) · **`E8_KISSING_NUMBER = 240`** (doctrine pin per Viazovska 2017 E8 sphere-packing optimality proof) · `e8_quantization_error(original, quantized) -> f32` (squared distance between input and nearest E8 point; companion to iter-157 Sherry34 quantization_error).
+  - 8 new unit tests including **EXACT doctrine-substantiation verifications**: root vector `[1, 1, 0..0]` has norm² = 2 (verifies Conway-Sloane minimum-vector identification) + (½)^8 vector has norm² = 2 (8 × 0.25; matches half-integer E8 minimum).
+  - **🎯 Doctrine-substantiation pattern continues** — pinning constants from Conway-Sloane + Viazovska 2017 as runtime-verifiable Rust constants. Matches pattern from iter 142 mamba3 A-stability + iter 144 RWKV decay-stability + iter 149 Kuramoto K_c + iter 150 Notch-Delta bimodality + iter 152 VSM recursion.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `chore(D-self-audit): record provider MCP CLI hardening sample` (`78747926f`) — 16TH D-SELF-AUDIT:**
+  - D's 16th self-audit. **"keep D.5 blocked on Terminal A WASMExecXPC and avoid sibling scope" — 2ND CONSECUTIVE surface of the D.5 ↔ A dependency** (iter 156 + iter 158).
+  - **Escalation rule from driver §9:** "If a sibling terminal repeatedly produces UNVERIFIED claims (3+ commits in a row): flag systemic discipline failure in audit-of-audit row + recommend pausing that terminal." Same 3+ commit threshold applies to inter-terminal-dependency surfaces — D.5 ↔ A WASMExecXPC at 2-cycle surface now; **3rd cycle would trigger user-visibility escalation**.
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 J7 SHERRY LATTICE PORTFOLIO EXPANSION PROGRESS (2 of 3):**
+  - J7 #1 Sherry34 ✅ (iter 157: sparsity_fraction + quantization_error; 3:4 contract guarantees min 0.25)
+  - J7 #2 E8 lattice ✅ (iter 158 this iter: norm_squared + E8_MIN_NONZERO_NORM_SQUARED = 2.0 + E8_KISSING_NUMBER = 240 + e8_quantization_error)
+  - J7 #3 Leech-24 ⏳ (likely next iter; per iter-128 envelope: "3 codebooks landed in their own sibling modules; this iter adds the typed catalog + budget-based selector. Three codebooks (Sherry 3:4, E8, Leech-24)")
+  - **2 of 3 J7 codebook sub-features now expanded.** Leech-24 expansion likely next iter.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 40 CONSECUTIVE COMMITS ACROSS ITERS 130-158** (Phase 1: 4 §4 gap closures + Phase 2: 13 production-tier + Phase 2-extended: 4 doctrine-substantiations + Phase 2-J-series: 19 J-series substrate-floor expansions including J1 7/7 + J2 #4 + J3 5/5 + J5 4/4 + **J7 #1 + #2 this/prior iter**).
+
+- **🎯 DOCTRINE-SUBSTANTIATION SUB-PATTERN NOW 8 COMMITS:**
+  - iter 142 mamba3 J10 A-stability · iter 143 Para(Lens) categorical-compose
+  - iter 144 J12 rwkv7 decay-stability · iter 145 J11 test_time_regression production-monitor
+  - iter 148 DSC J3 #3 orthonormal invariant · iter 149 Kuramoto J5 #1 K_c formula
+  - iter 150 Notch-Delta J5 #2 bimodal pattern · iter 152 VSM J5 #4 fractal-governance
+  - **iter 158 E8 J7 #2 Conway-Sloane + Viazovska pins** (this iter — extends pattern to lattice theory)
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **34 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2. Average ~2.6/iter.
+
+- **Iter 159+ candidates:** (1) Watch for J7 #3 Leech-24 expansion (completing J7 3/3 portfolio). (2) Watch for 7th loop's next move (F-VaultRecall-50 FIX or pivot to next?). (3) Watch for any 3rd consecutive D.5 ↔ A WASMExecXPC surface → user-visibility escalation. (4) Watch A T-A-31 (1800s cadence; ~30 min from T-A-30 fire = should fire ~iter 158-159). (5) Phase C.2 + C.7.3 still pending. (6) **🎯 C §7 meta-cycle at iter 160 (2 iters away)** — should sample J1/J3/J5/J7 portfolio completions + integration artifact 1/2/3 landings + F-VaultRecall-50 diagnosis + A AoA #10 + B iter-110-119 §7 for cross-verification per Lesson #6/#8/#14.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
