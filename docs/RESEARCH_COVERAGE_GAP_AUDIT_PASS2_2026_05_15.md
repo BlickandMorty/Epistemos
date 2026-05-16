@@ -3507,6 +3507,63 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 152+ candidates:** (1) Watch for V1 Ship Ledger integration artifact 2 of 3 (expected iter 77 = ~our iter 152-153). (2) Watch for Day-in-the-Life Power User integration artifact 3 of 3 (expected iter 78 = ~our iter 153-154). (3) Watch for J5 #4 VSM substrate-floor expansion. (4) Watch for B's transition to J6/J7/J8/J9 substrate-floor expansions. (5) Phase C.2 + C.7.3 still pending. **🎯 C §7 meta-cycle at iter 160** (9 iters away).
 
+#### Status pulse (iter 152, 2026-05-16) — 🎯 J5 #4 VSM substrate-floor expansion completes J5 ACS portfolio 4/4 (31st consecutive maturation commit) — 1 commit CLEAN
+
+- **Window since iter 151 close:** 1 sibling commit (sub-threshold):
+  - `9480c9909` (B iter 112) `research/vsm: tree diagnostics — recursion_depth + level counts (J5 #4)`
+
+- **🎯 Findings — B `vsm: tree diagnostics (J5 #4)` (`9480c9909`) — J5 #4 SUBSTRATE-FLOOR EXPANSION COMPLETES J5 PORTFOLIO 4/4:**
+  - B iter 112. J5 #4 VSM (Viable System Model; Beer's fractal-governance principle from V6.1 Wave J J5 #4 originally landed iter 92 audit-of-audit #14 era as part of J5 ACS portfolio).
+  - **Substrate substantiates Beer's recursion doctrine:** base substrate only shipped consistency-check; this adds tree-introspection surfaces to answer "how deep does this recursion actually go?" and "what's the S1-vs-S5 distribution?".
+  - Substrate: `VsmUnit::recursion_depth()` (maximum nesting depth from this unit; leaf = 0; minimal viable `S5(S1,S2,S3,S4)` → depth 1) · `VsmUnit::total_unit_count()` (total units in subtree including self) · `VsmUnit::count_units_by_level() -> VsmLevelCounts` (walk entire subtree, distribution of S1-S5 across descendants; spots **"S1-heavy" (many ops, light governance) vs "S5-heavy" (over-management)** shapes) · `VsmLevelCounts { s1, s2, s3, s4, s5 }` + `.total()`.
+  - 8 new unit tests.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 J5 ACS PORTFOLIO EXPANSION NOW COMPLETE 4/4:**
+  - J5 #1 Kuramoto ✅ (iter 149: critical_coupling_kc + run_until_sync; Dörfler-Bullo doctrine)
+  - J5 #2 Notch-Delta ✅ (iter 150: bimodality_score + run_until_bimodal; §1.2 pattern-formation doctrine)
+  - J5 #3 autopoietic closure ✅ (iter 151: criterion 2 + SCC diagnostics; Maturana-Varela doctrine)
+  - J5 #4 VSM ✅ (iter 152 this iter: recursion_depth + count_units_by_level; Beer's fractal-governance)
+  - **All 4 J5 sub-features now have substrate-floor expansions with paper-doctrine substantiation.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 31 CONSECUTIVE COMMITS ACROSS ITERS 130-152:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - **Phase 2-J-series (iters 146-152): 10 J-series substrate-floor expansions** completing J2 #4 (sae) + J3 5/5 (EWC + OFTv2 + DSC + Titans-MAC + SEAL-DoRA) + J5 4/4 (Kuramoto + Notch-Delta + autopoietic + VSM)
+
+- **🎯 BREMAINING J-SERIES PORTFOLIO STATUS:**
+  - **J1 ternary kernels** — envelope at iter 128; substrate-floor expansion potentially pending
+  - **J2 cognition_observatory** — envelope at iter 128; #4 SAE expanded iter 146; other sub-features pending
+  - **J3 continual learning** — 5/5 sub-features expanded ✅
+  - **J5 ACS** — 4/4 sub-features expanded ✅ (this iter milestone)
+  - **J6 hyperdynamic_schemas** — envelope at iter 128; substrate-floor expansion pending
+  - **J7 sherry_lattice** — envelope at iter 128; substrate-floor expansion pending
+  - **J8 ane_direct** — envelope at iter 128; substrate-floor expansion pending
+  - **J9 paper_registry** — envelope at iter 128; substrate-floor expansion pending
+  - **J10 mamba3** — doctrine-substantiation at iter 142 (A-stability); substrate-floor expansion may continue
+  - **J11 test_time_regression** — doctrine-substantiation at iter 145 (production-monitor)
+  - **J12 rwkv7** — doctrine-substantiation at iter 144 (decay-stability)
+  - **B is methodically completing J-series sub-feature expansion.** With J3 + J5 complete, expect J1/J2/J6/J7/J8/J9 expansions next 5-15 iters.
+
+- **🎯 DOCTRINE-SUBSTANTIATION SUB-PATTERN NOW 7 COMMITS:**
+  - iter 142 mamba3 J10 (A-stability)
+  - iter 143 Para(Lens) (categorical-compose)
+  - iter 144 J12 rwkv7 (decay-stability)
+  - iter 145 J11 test_time_regression (production-monitor)
+  - iter 148 DSC J3 #3 (orthonormal invariant)
+  - iter 149 Kuramoto J5 #1 (K_c formula)
+  - iter 150 Notch-Delta J5 #2 (bimodal pattern)
+  - **iter 152 VSM J5 #4 (fractal-governance via recursion_depth)** (this iter — extending pattern from §5/governance doctrine)
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **30 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1. Average ~2.6/iter.
+
+- **Iter 153+ candidates:** (1) Watch for V1 Ship Ledger integration artifact 2 of 3 (expected iter 77 = ~iter 153). (2) Watch for Day-in-the-Life Power User integration artifact 3 of 3 (expected iter 78 = ~iter 154). (3) Watch for B transition to J1/J2/J6/J7/J8/J9 substrate-floor expansions (J3 + J5 now complete). (4) Watch for next D self-audit. (5) Phase C.2 + C.7.3 still pending. C §7 meta-cycle at iter 160 (8 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
