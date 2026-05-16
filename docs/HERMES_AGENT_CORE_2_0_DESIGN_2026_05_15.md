@@ -877,6 +877,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Kimi / Moonshot factory path (`agent_core/src/providers/openai_compatible.rs`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16 after sampling the D.2 Kimi provider commit. §5.0 found the implementation and `docs/providers/kimi.md` used the current Moonshot contract, but the module-level `//! Source:` prologue only listed other OpenAI-compatible providers while Kimi source URLs lived beside the constructor. The prologue now includes Kimi API overview, model list, and K2.6 quickstart official sources so source-comment drift is fail-loud at module scope. Source guard: `providers::openai_compatible::tests::module_prologue_includes_moonshot_source_comments`. |
 
+### 7.4.14 D Self-Audit: omega-mcp Subprocess Secret Denylist
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| `omega-mcp` subprocess helper (`omega-mcp/src/subprocess.rs`) | Local subprocess wrapper used by omega MCP executors such as read-only Git MCP | ❌ Pro-only for subprocess-backed executors; `mas-sandbox` excludes the executor path | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned subprocess hardening and found omega's private denylist lagged behind `agent_core::security` provider aliases. The hardener now explicitly blocks auth-mode and alternate provider-secret env vars including `OPENAI_AUTH_MODE`, `OPENAI_CLIENT_VERSION`, `ANTHROPIC_AUTH_MODE`, `GOOGLE_AUTH_MODE`, `GOOGLE_PROJECT_ID`, `GLM_API_KEY`, `KIMI_API_KEY`, `DEEPSEEK_API_KEY`, `MINIMAX_API_KEY`, and `GROQ_API_KEY`, in addition to the previously covered keys. Source guard: `subprocess::tests::denylist_contains_agent_core_provider_secret_aliases` in `omega-mcp`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

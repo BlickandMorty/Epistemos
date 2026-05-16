@@ -158,6 +158,15 @@ allow-list and no arbitrary parent env or provider secrets. Guard:
 `tools::terminal::tests::terminal_uses_canonical_subprocess_allowlist`
 under `pro-build`.
 
+D self-audit on 2026-05-16 reconciled `omega-mcp`'s private subprocess
+hardener with the current `agent_core::security` provider-secret alias set.
+`omega-mcp/src/subprocess.rs` now denies auth-mode and alternate provider
+credential vars such as `OPENAI_AUTH_MODE`, `OPENAI_CLIENT_VERSION`,
+`ANTHROPIC_AUTH_MODE`, `GOOGLE_AUTH_MODE`, `GOOGLE_PROJECT_ID`,
+`GLM_API_KEY`, `KIMI_API_KEY`, `DEEPSEEK_API_KEY`, `MINIMAX_API_KEY`, and
+`GROQ_API_KEY` before any omega subprocess child can inherit them. Guard:
+`subprocess::tests::denylist_contains_agent_core_provider_secret_aliases`.
+
 The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible
 planning/tool surfaces hide it with the same policy that hides the progressive
