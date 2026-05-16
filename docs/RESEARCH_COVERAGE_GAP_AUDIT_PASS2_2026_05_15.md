@@ -901,6 +901,31 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **Sub-cycle threshold:** 1/3-5 sibling commits since #11 — audit-of-audit #12 not yet ripe. Status pulse only; no full cycle row.
 - **§5.6 lockstep status:** this is a sub-cycle pulse (not a full audit-of-audit). Per iter-84 clarification, lockstep applies to "every audit-of-audit cycle commit" — single-commit pulses are below that threshold. PASS-2 §9 status pulse appended; MAS_COMPLETE_FUSION §8 row deferred to next full cycle.
 
+#### [TAXONOMY-DRIFT — MEDIUM] Iter 87 — Phase C.5 + Phase C.4 finding: `B-N` namespace collision in E's user-decisions dir vs PASS-1 + §10
+
+- **Window since #11:** 2 commits — `e1918cb20` J2 #3 (audited iter 86) + `98b4386cf` E B2-H16 Chatterbox TTS research drop.
+- **Finding (TAXONOMY DRIFT, surfaced during iter-87 verification of E's research-doc pattern):** The 6 docs in `docs/audits/user-decisions/` use a `B-N` / `H-N` / `B2-XYZ` namespace that is INCONSISTENT with PASS-1 + MAS_COMPLETE_FUSION §10's B-N taxonomy:
+
+  | Item | E's user-decisions/ doc | PASS-1 + §10 B-N | Match? |
+  |---|---|---|---|
+  | B-1 | `B-1-live-files.md` | B-1. Live Files | ✅ MATCH |
+  | B-2 | `B-2-obscura-browser.md` | B-2. Brain Export (Wave 11) | ❌ MISMATCH (E B-2 is Obscura; PASS-1 B-2 is Brain Export; PASS-1 B-5 covers Obscura) |
+  | B-3 | `B-3-undo-backbone.md` | B-3. Confidence Meter + 70%-Triggered Re-Learn | ❌ MISMATCH (E B-3 is Undo; PASS-1 B-3 is Confidence Meter) |
+  | B-4 | `B-4-nousresearch-svg-art.md` | B-4. Pixel Mode vs Tactical Mode duality | ❌ MISMATCH (E B-4 is NousResearch art; PASS-1 B-4 is Pixel/Tactical) |
+  | B2-H16 | `B2-H16-chatterbox-tts.md` | B2-H16. Chatterbox TTS (PASS-2) | ✅ MATCH (E used the PASS-2 prefix correctly here) |
+  | H-3/B2-H6 | `H-3-B2-H6-editpage-macaroon.md` | H-3 PASS-1 / B2-H6 PASS-2 EditPage macaroon | ✅ MATCH (E used compound prefix correctly) |
+
+- **3 of 6 docs collide** with the existing PASS-1 / §10 B-N taxonomy. **Only B-1 happens to overlap by topic** (Live Files) — pure coincidence; if cross-referencing by ID, B-2 / B-3 / B-4 in E's dir resolve to DIFFERENT decisions than the same IDs in PASS-1 / §10.
+- **Risk surface:**
+  - User reading `§10 B-2 Brain Export` and then opening `user-decisions/B-2-obscura-browser.md` finds an unrelated decision research doc.
+  - Future audit-of-audit or cross-link work that follows `B-N` between docs gets confused.
+  - Re-implementing terminal that picks up the queue may attribute wrong research to the wrong decision.
+- **Root cause hypothesis:** `user-decisions/` has no `INDEX.md` / `README.md` documenting the namespace convention. E's docs were authored as a fresh local sequence without checking the existing taxonomy. E's B2-H16 and H-3/B2-H6 filenames DID correctly anchor to PASS-2 / PASS-1 prefixes — so E knew about those — but the first 4 (B-1..B-4) re-used the B-N prefix free-form.
+- **Severity: MEDIUM.** Not a substrate / code drift; not blocking decisions. Confusion risk on cross-reference; resolves cleanly with either (a) E renumbering to a disambiguating prefix (e.g., `UD-1..UD-4` for "user-decision" sequence, or `B2-N` matching PASS-2 IDs) OR (b) adding `user-decisions/INDEX.md` explicitly documenting that the B-N prefix in this dir maps to a new user-decision sequence orthogonal to PASS-1 / §10.
+- **Per §1.5 boundary discipline:** flagged-only. C does NOT rename E's files or edit E's docs. E owns `docs/audits/user-decisions/`. Surfacing to user.
+- **Phase C.4 sprint-tracking note:** E's research drops have provided decision-ready material for: §10 B-1 Live Files (matches by topic) · PASS-2 B2-H16 Chatterbox TTS · combined H-3/B2-H6 EditPage macaroon. The §10 user-decision queue rows for those items could be flipped from "Default = ... user override possible" to "Default = ... — research-ready at `docs/audits/user-decisions/...md`". Deferred to next §10 maintenance cycle (which is Terminal A's per §2 if §10 is in MAS_COMPLETE_FUSION — actually §10 in PASS-2 audit is C-owned).
+- **§5.6 lockstep:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit) — taxonomy-drift findings are full-cycle-equivalent.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
