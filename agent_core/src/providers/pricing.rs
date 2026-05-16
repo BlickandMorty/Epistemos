@@ -136,6 +136,22 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         source_url: "https://docs.mistral.ai/models/model-cards/codestral-25-08",
     },
     ProviderPricing {
+        canonical_name: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        aliases: &[
+            "together",
+            "together_latest",
+            "together-llama-3.3-70b",
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        ],
+        input_usd_per_mtok: 0.88,
+        output_usd_per_mtok: 0.88,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: None,
+        request_usd_per_1k: None,
+        last_verified_iso8601: "2026-05-16",
+        source_url: "https://www.together.ai/pricing",
+    },
+    ProviderPricing {
         canonical_name: "local",
         aliases: &["mlx", "local-qwen", "qwen"],
         input_usd_per_mtok: 0.0,
@@ -248,5 +264,18 @@ mod tests {
         assert_eq!(pricing.input_usd_per_mtok, 0.30);
         assert_eq!(pricing.output_usd_per_mtok, 0.90);
         assert_eq!(pricing.cache_read_usd_per_mtok, Some(0.03));
+    }
+
+    #[test]
+    fn pricing_includes_together_latest_aliases() {
+        let pricing = pricing_for("together").expect("Together pricing row must exist");
+
+        assert_eq!(
+            pricing.canonical_name,
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        );
+        assert_eq!(pricing.input_usd_per_mtok, 0.88);
+        assert_eq!(pricing.output_usd_per_mtok, 0.88);
+        assert_eq!(pricing.source_url, "https://www.together.ai/pricing");
     }
 }

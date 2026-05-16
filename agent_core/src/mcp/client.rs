@@ -299,6 +299,7 @@ mod tests {
     fn mcp_config_env_filter_blocks_process_wide_provider_credentials() {
         assert!(!mcp_config_env_key_allowed("ANTHROPIC_API_KEY"));
         assert!(!mcp_config_env_key_allowed("OPENAI_API_KEY"));
+        assert!(!mcp_config_env_key_allowed("TOGETHER_API_KEY"));
     }
 
     #[test]
