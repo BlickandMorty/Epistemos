@@ -26,6 +26,12 @@
 //! - `AND(a, b)` = meet on the truth lattice.
 //! - `OR(a, b)` = join on the truth lattice.
 //! - `IMPLIES(a, b)` = `NOT(a) OR b` (classical equivalent).
+//! - `info_join(a, b)` = join on the **information** lattice (iter 92).
+//!   Distinct from `or`: pools evidence from two sources, so
+//!   `True ⊔_info False = Both` (not True).
+//! - `info_meet(a, b)` = meet on the information lattice (iter 92).
+//!   Distinct from `and`: agreement between two sources, so
+//!   `True ⊓_info False = Neither` (not False).
 //!
 //! Five directional operators per driver §5 are sketched as the
 //! [`Direction`] enum + the per-direction propagation primitive. Real
@@ -81,6 +87,50 @@ impl BelnapValue {
 
     pub fn implies(self, other: BelnapValue) -> BelnapValue {
         self.not().or(other)
+    }
+
+    /// Information-lattice join (pool information from two sources).
+    /// Distinct from [`or`]: the truth lattice orders False < T/N/B < True;
+    /// the information lattice orders Neither < T/F < Both. Combining
+    /// True + False on the info lattice yields Both (we hold both pieces
+    /// of evidence), not True (which is the truth-lattice join).
+    ///
+    /// Per Belnap 1977 §3 — "the four-valued logic with two orderings".
+    pub fn info_join(self, other: BelnapValue) -> BelnapValue {
+        use BelnapValue::*;
+        match (self, other) {
+            // Bottom (Neither) is absorbed by the other side.
+            (Neither, x) | (x, Neither) => x,
+            // Top (Both) absorbs everything.
+            (Both, _) | (_, Both) => Both,
+            // Same → same.
+            (True, True) => True,
+            (False, False) => False,
+            // Conflict between True and False produces Both
+            // (we hold both pieces of evidence).
+            (True, False) | (False, True) => Both,
+        }
+    }
+
+    /// Information-lattice meet (greatest agreement between two sources).
+    /// Distinct from [`and`]: with one source saying True and another
+    /// saying False, the info-meet is Neither (no common evidence) while
+    /// the truth-meet is False.
+    ///
+    /// Per Belnap 1977 §3.
+    pub fn info_meet(self, other: BelnapValue) -> BelnapValue {
+        use BelnapValue::*;
+        match (self, other) {
+            // Top (Both) keeps whatever the other side has.
+            (Both, x) | (x, Both) => x,
+            // Bottom (Neither) absorbs to bottom.
+            (Neither, _) | (_, Neither) => Neither,
+            // Same → same.
+            (True, True) => True,
+            (False, False) => False,
+            // Conflict → no agreement → Neither.
+            (True, False) | (False, True) => Neither,
+        }
     }
 
     pub const ALL: [BelnapValue; 4] = [
@@ -260,5 +310,119 @@ mod tests {
     fn both_and_true_is_both() {
         assert_eq!(BelnapValue::Both.and(BelnapValue::True), BelnapValue::Both);
         assert_eq!(BelnapValue::True.and(BelnapValue::Both), BelnapValue::Both);
+    }
+
+    // ── Information-lattice tests (iter 92) ─────────────────────────────────
+
+    #[test]
+    fn info_join_neither_is_identity() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(BelnapValue::Neither.info_join(*v), *v);
+            assert_eq!(v.info_join(BelnapValue::Neither), *v);
+        }
+    }
+
+    #[test]
+    fn info_join_both_is_absorbing() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(BelnapValue::Both.info_join(*v), BelnapValue::Both);
+            assert_eq!(v.info_join(BelnapValue::Both), BelnapValue::Both);
+        }
+    }
+
+    #[test]
+    fn info_join_true_false_is_both() {
+        assert_eq!(
+            BelnapValue::True.info_join(BelnapValue::False),
+            BelnapValue::Both
+        );
+        assert_eq!(
+            BelnapValue::False.info_join(BelnapValue::True),
+            BelnapValue::Both
+        );
+    }
+
+    #[test]
+    fn info_join_same_value_is_same() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(v.info_join(*v), *v);
+        }
+    }
+
+    #[test]
+    fn info_meet_both_is_identity() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(BelnapValue::Both.info_meet(*v), *v);
+            assert_eq!(v.info_meet(BelnapValue::Both), *v);
+        }
+    }
+
+    #[test]
+    fn info_meet_neither_is_absorbing() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(BelnapValue::Neither.info_meet(*v), BelnapValue::Neither);
+            assert_eq!(v.info_meet(BelnapValue::Neither), BelnapValue::Neither);
+        }
+    }
+
+    #[test]
+    fn info_meet_true_false_is_neither() {
+        assert_eq!(
+            BelnapValue::True.info_meet(BelnapValue::False),
+            BelnapValue::Neither
+        );
+        assert_eq!(
+            BelnapValue::False.info_meet(BelnapValue::True),
+            BelnapValue::Neither
+        );
+    }
+
+    #[test]
+    fn info_meet_same_value_is_same() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(v.info_meet(*v), *v);
+        }
+    }
+
+    #[test]
+    fn info_ops_distinct_from_truth_ops() {
+        // On the truth lattice, True AND False = False.
+        // On the info lattice, True ⊓ False = Neither.
+        assert_eq!(
+            BelnapValue::True.and(BelnapValue::False),
+            BelnapValue::False
+        );
+        assert_eq!(
+            BelnapValue::True.info_meet(BelnapValue::False),
+            BelnapValue::Neither
+        );
+        // On the truth lattice, True OR False = True.
+        // On the info lattice, True ⊔ False = Both.
+        assert_eq!(
+            BelnapValue::True.or(BelnapValue::False),
+            BelnapValue::True
+        );
+        assert_eq!(
+            BelnapValue::True.info_join(BelnapValue::False),
+            BelnapValue::Both
+        );
+    }
+
+    #[test]
+    fn info_meet_and_join_commute() {
+        for a in BelnapValue::ALL.iter() {
+            for b in BelnapValue::ALL.iter() {
+                assert_eq!(a.info_meet(*b), b.info_meet(*a));
+                assert_eq!(a.info_join(*b), b.info_join(*a));
+            }
+        }
+    }
+
+    #[test]
+    fn info_meet_and_join_idempotent() {
+        for v in BelnapValue::ALL.iter() {
+            assert_eq!(v.info_meet(*v), *v);
+            assert_eq!(v.info_join(*v), *v);
+        }
     }
 }
