@@ -21,6 +21,7 @@ pub mod cognition_observatory;
 pub mod continual_learning;
 pub mod eml;
 pub mod hyperdynamic_schemas;
+pub mod interrupt_calibration;
 pub mod mamba3;
 pub mod paper_registry;
 pub mod para_lens;
