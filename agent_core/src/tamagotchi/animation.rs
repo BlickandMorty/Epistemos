@@ -81,6 +81,44 @@ impl CompanionAnimation {
         )
     }
 
+    /// Complement to [`Self::is_active`]: Idle or Sleep.
+    pub const fn is_resting(self) -> bool {
+        matches!(
+            self,
+            CompanionAnimation::Idle | CompanionAnimation::Sleep
+        )
+    }
+
+    /// One of Error / Success / Sleep — states whose outbound
+    /// transitions are doctrine-restricted to a small set.
+    pub const fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            CompanionAnimation::Error | CompanionAnimation::Success | CompanionAnimation::Sleep
+        )
+    }
+
+    /// True for HandoffGive or HandoffReceive — the handoff lane is
+    /// distinct from regular work animations because handoffs come
+    /// in dual-direction pairs that cannot transition to each other.
+    pub const fn is_handoff(self) -> bool {
+        matches!(
+            self,
+            CompanionAnimation::HandoffGive | CompanionAnimation::HandoffReceive
+        )
+    }
+
+    /// Collect every animation state `n` such that
+    /// `self.may_transition_to(n)` is true. Useful for the
+    /// control-room "where can this companion go next?" view.
+    pub fn allowed_next_states(self) -> Vec<CompanionAnimation> {
+        Self::ALL
+            .iter()
+            .copied()
+            .filter(|&n| self.may_transition_to(n))
+            .collect()
+    }
+
     /// Whether `next` is a doctrine-allowed next state from `self`.
     /// Default policy: every state can return to Idle; Spawn must
     /// transition to Idle or another active state; Sleep can only go
@@ -211,5 +249,91 @@ mod tests {
     #[test]
     fn walk_to_idle_allowed() {
         assert!(CompanionAnimation::Walk.may_transition_to(CompanionAnimation::Idle));
+    }
+
+    // ── classifiers + allowed_next_states tests (iter 135) ──────────────────
+
+    #[test]
+    fn is_resting_complements_is_active() {
+        for a in CompanionAnimation::ALL.iter() {
+            assert_ne!(a.is_active(), a.is_resting());
+        }
+    }
+
+    #[test]
+    fn is_resting_includes_idle_and_sleep_only() {
+        let resting = [CompanionAnimation::Idle, CompanionAnimation::Sleep];
+        for a in CompanionAnimation::ALL.iter() {
+            assert_eq!(a.is_resting(), resting.contains(a));
+        }
+    }
+
+    #[test]
+    fn is_terminal_includes_error_success_sleep_only() {
+        let terminal = [
+            CompanionAnimation::Error,
+            CompanionAnimation::Success,
+            CompanionAnimation::Sleep,
+        ];
+        for a in CompanionAnimation::ALL.iter() {
+            assert_eq!(a.is_terminal(), terminal.contains(a));
+        }
+    }
+
+    #[test]
+    fn is_handoff_includes_give_and_receive_only() {
+        let handoff = [CompanionAnimation::HandoffGive, CompanionAnimation::HandoffReceive];
+        for a in CompanionAnimation::ALL.iter() {
+            assert_eq!(a.is_handoff(), handoff.contains(a));
+        }
+    }
+
+    #[test]
+    fn allowed_next_states_includes_self() {
+        // self → self is always allowed (no-op transition).
+        for a in CompanionAnimation::ALL.iter() {
+            assert!(a.allowed_next_states().contains(a));
+        }
+    }
+
+    #[test]
+    fn sleep_only_transitions_to_self_or_idle() {
+        let next = CompanionAnimation::Sleep.allowed_next_states();
+        let expected: std::collections::HashSet<_> =
+            [CompanionAnimation::Sleep, CompanionAnimation::Idle].iter().copied().collect();
+        let got: std::collections::HashSet<_> = next.into_iter().collect();
+        assert_eq!(got, expected);
+    }
+
+    #[test]
+    fn error_transitions_to_self_recover_or_idle() {
+        let next = CompanionAnimation::Error.allowed_next_states();
+        let expected: std::collections::HashSet<_> = [
+            CompanionAnimation::Error,
+            CompanionAnimation::Recover,
+            CompanionAnimation::Idle,
+        ]
+        .iter()
+        .copied()
+        .collect();
+        let got: std::collections::HashSet<_> = next.into_iter().collect();
+        assert_eq!(got, expected);
+    }
+
+    #[test]
+    fn success_only_transitions_to_self_or_idle() {
+        let next = CompanionAnimation::Success.allowed_next_states();
+        let expected: std::collections::HashSet<_> =
+            [CompanionAnimation::Success, CompanionAnimation::Idle].iter().copied().collect();
+        let got: std::collections::HashSet<_> = next.into_iter().collect();
+        assert_eq!(got, expected);
+    }
+
+    #[test]
+    fn handoff_pair_does_not_transition_to_each_other() {
+        let from_give = CompanionAnimation::HandoffGive.allowed_next_states();
+        assert!(!from_give.contains(&CompanionAnimation::HandoffReceive));
+        let from_receive = CompanionAnimation::HandoffReceive.allowed_next_states();
+        assert!(!from_receive.contains(&CompanionAnimation::HandoffGive));
     }
 }
