@@ -7,7 +7,7 @@ import SwiftUI
 /// the composer can insert it at the cursor / append to existing draft.
 struct ComposerMicButton: View {
     let onTranscript: (String) -> Void
-    @StateObject private var service = ComposerVoiceInputService.shared
+    @State private var service = ComposerVoiceInputService.shared
 
     var body: some View {
         Button {

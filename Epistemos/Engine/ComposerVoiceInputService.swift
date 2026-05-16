@@ -19,7 +19,8 @@ extension AVAudioRecorder: ComposerVoiceAudioRecording {}
 /// few seconds long — longer dictation can use the existing file-
 /// import flow through `AudioTranscriber.transcribe(audioURL:)`.
 @MainActor
-final class ComposerVoiceInputService: ObservableObject {
+@Observable
+final class ComposerVoiceInputService {
     static let shared = ComposerVoiceInputService()
 
     enum State: Equatable {
@@ -30,10 +31,10 @@ final class ComposerVoiceInputService: ObservableObject {
         case error(String)
     }
 
-    @Published private(set) var state: State = .idle
+    private(set) var state: State = .idle
     /// Latest recorded-then-transcribed text. UI binds this to insert
     /// into the composer on completion.
-    @Published private(set) var latestTranscript: String = ""
+    private(set) var latestTranscript: String = ""
 
     private let log = Logger(subsystem: "com.epistemos", category: "ComposerVoiceInput")
     private let tempDirectory: URL
