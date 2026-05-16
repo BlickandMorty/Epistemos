@@ -173,6 +173,70 @@ impl TestTimeRegressor {
         Ok(())
     }
 
+    /// Squared-error loss of the current weights' prediction against
+    /// the observed `(key, value)`. Useful as a convergence monitor
+    /// during the test-time inner loop.
+    ///
+    /// `L = ‖W·key − value‖² / value.len()` — mean over the output
+    /// dimensions (matches the MSE convention rather than total
+    /// squared error so the value is comparable across rows-counts).
+    pub fn predict_loss(
+        &self,
+        key: &[f32],
+        value: &[f32],
+    ) -> Result<f32, RegressionError> {
+        if key.len() != self.cols() {
+            return Err(RegressionError::KeyDimMismatch {
+                expected_rows: self.cols(),
+                key_len: key.len(),
+            });
+        }
+        if value.len() != self.rows() {
+            return Err(RegressionError::ValueDimMismatch {
+                expected_cols: self.rows(),
+                value_len: value.len(),
+            });
+        }
+        let n = self.rows();
+        if n == 0 {
+            return Ok(0.0);
+        }
+        let mut sse = 0.0_f32;
+        for r in 0..n {
+            let mut acc = 0.0_f32;
+            for c in 0..self.cols() {
+                acc += self.regression_weights[r][c] * key[c];
+            }
+            let d = acc - value[r];
+            sse += d * d;
+        }
+        Ok(sse / n as f32)
+    }
+
+    /// Frobenius norm `‖W‖_F = sqrt(Σ w²)` of the weight matrix.
+    /// Useful for tracking weight magnitude growth during training —
+    /// runaway Frobenius norm is the canonical instability signal.
+    pub fn frobenius_norm(&self) -> f32 {
+        let mut acc = 0.0_f32;
+        for row in &self.regression_weights {
+            for &v in row {
+                acc += v * v;
+            }
+        }
+        acc.sqrt()
+    }
+
+    /// Zero out the weight matrix in place. Useful for restart-from-
+    /// clean-state without rebuilding the regressor + losing the
+    /// `function_class` / `optimizer` config.
+    pub fn reset(&mut self) {
+        for row in &mut self.regression_weights {
+            for v in row.iter_mut() {
+                *v = 0.0;
+            }
+        }
+    }
+
     /// Forward pass: `out = φ(W) · key` where `φ` is the function
     /// class. Substrate floor: `Identity` applies the raw matmul;
     /// other classes return the raw matmul too (the `φ` projection is
@@ -400,5 +464,143 @@ mod tests {
         let json = serde_json::to_string(&r).unwrap();
         let back: TestTimeRegressor = serde_json::from_str(&json).unwrap();
         assert_eq!(r, back);
+    }
+
+    // ── predict_loss + frobenius_norm + reset tests (iter 102) ──────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn predict_loss_zero_when_weights_match() {
+        // After RankOneAccumulate of (key=[1,0], value=[5]):
+        //   W = [[5, 0]]
+        // predict([1,0]) = 5; loss vs value [5] is 0.
+        let mut r = TestTimeRegressor::zeros(
+            1,
+            2,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        r.observe(&[1.0, 0.0], &[5.0], 0.0).unwrap();
+        let loss = r.predict_loss(&[1.0, 0.0], &[5.0]).unwrap();
+        assert!(approx(loss, 0.0, 1e-6));
+    }
+
+    #[test]
+    fn predict_loss_is_mse_not_sse() {
+        // 2-output regressor, all weights 0, value [3, 4] → predictions
+        // [0, 0]. Per-row squared errors: 9, 16. SSE = 25. MSE = 12.5.
+        let r = TestTimeRegressor::zeros(
+            2,
+            1,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        let loss = r.predict_loss(&[1.0], &[3.0, 4.0]).unwrap();
+        assert!(approx(loss, 12.5, 1e-6));
+    }
+
+    #[test]
+    fn predict_loss_dim_mismatch_rejected() {
+        let r = TestTimeRegressor::zeros(
+            1,
+            3,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        let err = r.predict_loss(&[1.0], &[5.0]).unwrap_err();
+        assert!(matches!(err, RegressionError::KeyDimMismatch { .. }));
+    }
+
+    #[test]
+    fn frobenius_norm_zero_on_fresh_weights() {
+        let r = TestTimeRegressor::zeros(
+            3,
+            5,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        assert!(approx(r.frobenius_norm(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn frobenius_norm_correct_3_4_5_pythagorean() {
+        // W = [[3, 4]] → ‖W‖_F = sqrt(9 + 16) = 5.
+        let mut r = TestTimeRegressor::zeros(
+            1,
+            2,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        r.regression_weights[0] = vec![3.0, 4.0];
+        assert!(approx(r.frobenius_norm(), 5.0, 1e-6));
+    }
+
+    #[test]
+    fn frobenius_norm_grows_under_repeated_rank_one_update() {
+        let mut r = TestTimeRegressor::zeros(
+            1,
+            2,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        r.observe(&[1.0, 1.0], &[1.0], 0.0).unwrap();
+        let norm1 = r.frobenius_norm();
+        r.observe(&[1.0, 1.0], &[1.0], 0.0).unwrap();
+        let norm2 = r.frobenius_norm();
+        assert!(norm2 > norm1);
+    }
+
+    #[test]
+    fn reset_zeros_all_weights() {
+        let mut r = TestTimeRegressor::zeros(
+            2,
+            3,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        r.observe(&[1.0, 2.0, 3.0], &[10.0, 20.0], 0.0).unwrap();
+        assert!(r.frobenius_norm() > 0.0);
+        r.reset();
+        assert!(approx(r.frobenius_norm(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn reset_preserves_dims_and_config() {
+        let mut r = TestTimeRegressor::zeros(
+            2,
+            3,
+            RegressorFunctionClass::Hippo,
+            OptimizationAlgorithm::SurpriseSgd,
+        );
+        r.observe(&[1.0, 1.0, 1.0], &[1.0, 2.0], 0.1).unwrap();
+        r.reset();
+        assert_eq!(r.rows(), 2);
+        assert_eq!(r.cols(), 3);
+        assert_eq!(r.function_class, RegressorFunctionClass::Hippo);
+        assert_eq!(r.optimizer, OptimizationAlgorithm::SurpriseSgd);
+    }
+
+    #[test]
+    fn surprise_sgd_loss_decreases_over_repeated_observations() {
+        // For a fixed (key, value) target, SGD updates should
+        // monotonically reduce the squared-error loss.
+        let mut r = TestTimeRegressor::zeros(
+            1,
+            2,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::SurpriseSgd,
+        );
+        let key = vec![1.0_f32, 0.5];
+        let value = vec![3.0_f32];
+        let l0 = r.predict_loss(&key, &value).unwrap();
+        r.observe(&key, &value, 0.1).unwrap();
+        let l1 = r.predict_loss(&key, &value).unwrap();
+        r.observe(&key, &value, 0.1).unwrap();
+        let l2 = r.predict_loss(&key, &value).unwrap();
+        assert!(l1 < l0, "l1 {} should be < l0 {}", l1, l0);
+        assert!(l2 < l1, "l2 {} should be < l1 {}", l2, l1);
     }
 }
