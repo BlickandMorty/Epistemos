@@ -1025,6 +1025,68 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **§5.6 lockstep status this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
 - **Next audit-of-audit #14:** fires when 3-5 commits accumulate post-iter-91 (likely a longer wall-clock interval given the 30-min cadence + sibling work rate of ~1 commit per 3-5 min based on iters 81-90 observation).
 
+### Audit-of-audit #14 (iter 92, 2026-05-16) — first low-touch cron fire: J3 portfolio CLOSED 5/5 + J5 OPENS (J4 skipped) + 2 D provider reconciles
+
+- **Window since #13 (iter 91):** 5 substantive sibling commits in the ~30-min low-touch window (right at the threshold for stepping back to 3-min):
+  - `3929ead15` (D) D.2.5 Codestral provider contract reconcile
+  - `0f0e59b60` (B) J3 #4 Titans-MAC — surprise-gradient substrate
+  - `b851c5620` (B) J3 #5 SEAL-DoRA — **completes J3**
+  - `b190d0cbf` (B) **J5 umbrella + Kuramoto synchronization substrate** (J4 skipped — see below)
+  - `f0e9dbe9f` (D) D.2.4 CLI passthrough receipts (Tunnel C reconcile; D.2.3 xAI/Grok DEFERRED per §9 honest-scope per `grok-3` retirement 2026-05-15)
+
+- **Method:** §5.0 spot-verification via `git show <sha>:<path> | grep -c "#\[test\]"` + `git ls-tree -l` for file sizes + commit-message source-citation cross-check.
+
+- **Findings — J3 portfolio CLOSE (B's branch HEAD):**
+
+  | Kernel | File | Bytes | Tests | Commit |
+  |---|---|---|---|---|
+  | (umbrella) | `continual_learning/mod.rs` | 3137 | 0 | `50da364ae` (umbrella) |
+  | #1 EWC | `ewc.rs` | 9156 | 14 | `50da364ae` |
+  | #2 OFTv2 | `oftv2.rs` | 9683 | 13 | `e312bf330` |
+  | #3 DSC | `dsc.rs` | 9620 | 14 | `a18995871` |
+  | #4 Titans-MAC | `titans_mac.rs` | 9651 | 13 | `0f0e59b60` |
+  | #5 SEAL-DoRA | `seal_dora.rs` | 11841 | 13 | `b851c5620` |
+  - **J3 portfolio totals:** 6 files / ~60.0 KB / **67 tests** across kernels (0 in umbrella). Wave J3 driver row complete per "EWC + OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain" (all 5 kernels landed; "Never Retrain" architecture is the umbrella thesis covered by the umbrella mod.rs + continual_learning_online.md §8).
+  - Titans-MAC source: Behrouz et al. arXiv:2501.00663 2025 (rank-1 outer-product surprise-gradient at test time).
+  - SEAL-DoRA sources: Liu et al. arXiv:2402.09353 ICML 2024 (DoRA — Weight-Decomposed Low-Rank Adaptation) + Zweiger-Pari et al. arXiv:2506.10943 2026 (SEAL — Self-Edited Adapter Loop).
+  - **§5.0 verdict: CLEAN. J3 portfolio fully landed.**
+
+- **Findings — J5 ACS wave OPENS (`b190d0cbf`):**
+
+  | File | Bytes | Tests |
+  |---|---|---|
+  | `agent_core/src/research/acs/mod.rs` | 1895 | 0 (umbrella) |
+  | `agent_core/src/research/acs/kuramoto.rs` | 9021 | 13 |
+  - Kuramoto sources: Kuramoto 1975 self-entrainment paper — canonical model `dθ/dt = ω + (K/N) · Σ sin(θ_j − θ_i)` — + `acs_meta_layer.md` Autopoietic Cognitive Stack (ACS) cellular-resonance protocol.
+  - First J5 sub-feature is the synchronization primitive for cell→tissue formation.
+  - **§5.0 verdict: CLEAN.**
+
+- **⚠️ Note: J4 SKIPPED in the wave queue.** B's `agent_core/src/research/mod.rs` header explicitly references "Wave J research-tier priority queue (J1 Ternary core through J9 MLSys papers)" — meaning J4 exists in the planned queue. B has shipped J1 (CLOSED 7/7) → J2 (CLOSED 4/4) → J3 (CLOSED 5/5) → **J5 (OPENS)** without an intervening J4 substrate. Two possibilities: (a) J4 is intentionally deferred (e.g., J4 depends on substrate from another wave or is pending external research that hasn't landed); (b) skip is accidental and J4 should land soon. **Per §1.5 audit-only boundary:** flagged here for sibling visibility. C does NOT decide for B. Surface to user/B for clarification if J4 absence persists for >2 audit-of-audit cycles. Not blocking; not a drift today.
+
+- **Findings — D.2.5 Codestral (`3929ead15`):**
+  - Touched `agent_core/src/providers/openai_compatible.rs` (Codestral helper completion) + `providers/pricing.rs` (Codestral 25.08 context/pricing) + `resources/alias_registry.rs` (aliases) + `security.rs` (CODESTRAL_API_KEY scrub).
+  - Cargo tests cited: `providers::openai_compatible` + `providers::pricing` + `resources::alias_registry` + `security::harden_cli_subprocess_clears_provider_secrets` + full lib sweep.
+  - **§5.0 verdict: CLEAN at row level.** Coherent provider-reconcile feature work.
+
+- **Findings — D.2.4 CLI passthrough receipts (`f0e9dbe9f`):**
+  - Touched `agent_core/src/tools/cli_passthrough.rs` — replaced shared Tunnel C runner's free-form `cmd.output` with `spawn` + bounded async stdout/stderr pipe reads. Preserved: `harden_cli_subprocess` + kill-on-timeout + structured JSON receipts (tool · binary · success · exit_code · stdout · stderr · truncation flags · mode).
+  - Updated Hermes §7.4.2 + TOOL_INVENTORY_TRUTH_TABLE + §8 Implementation Log in same commit (FEATURE_CHANGE_TRACKER §2 lockstep honored).
+  - **§5.0 honesty:** commit message explicitly notes "D.2.3 xAI/Grok remains stopped per §9 because official xAI docs say grok-3 retired on 2026-05-15 at 12:00pm PT, so no silent model substitution was made." This is the §5.0 discipline working at the implementing-terminal level: D refused to silently substitute a different Grok model when grok-3 retired.
+  - Cargo tests cited: `run_passthrough_returns_structured_receipt_with_exit_code` + `cli_passthrough` + full lib sweep with `--features pro-build` and default.
+  - **§5.0 verdict: CLEAN + commendable honest-scope discipline.**
+
+- **No drift surfaced this window.** All 5 commits pass §5.0 inspection. J4 skip noted for surface visibility only.
+
+- **§5.0 catch rate:** was 28/109 = 25.7% at #13 close. +5 commits this iter, 0 fresh catches → **28/114 = 24.6%**. Continued healthy dilution.
+
+- **Verdict:** ✅ **ON TRACK** (6th consecutive ON-TRACK cycle since #8 catch). Low-touch mode validated — the 30-min cadence keeps up with sibling work even at the threshold burst rate. No need to step back to 3-min this iter.
+
+- **Cadence decision:** STAY at 30-min low-touch. Window was right at threshold (5 commits = exactly 5 in 30 min) but all CLEAN; the audit-of-audit cycle completes coherently at relaxed cadence. Will revisit at #15 if next 30-min window shows another 5+ commits AND any drift.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 93+ candidates:** (1) Phase C.2 — add J3 portfolio close (3 new kernels) + J5 Kuramoto entries to MASTER_RESEARCH_INDEX §15. (2) Re-check J4 status (whether B fills the gap). (3) Continue audit-of-audit cycles at 30-min cadence.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
