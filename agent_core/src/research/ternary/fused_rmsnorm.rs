@@ -21,13 +21,6 @@
 //! changing any caller code.
 
 use super::gemv::{gemv_block_scaled, GemvBlock, GemvError};
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub struct RmsNormParams {
-    /// Per-channel gain (γ in the RMSNorm paper). Length must match `input.len()`.
-    pub eps: f32,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FusedRmsnormError {
