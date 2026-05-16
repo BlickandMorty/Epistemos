@@ -233,7 +233,21 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.3 + §2 Termina
 - **D.0.4** — `CredentialVault::load_for(&AgentProvider).await` Keychain integration.
 - **D.0.5** — `AgentRunController::start(agent_def, user_msg)` lifecycle wrapping in `MutationEnvelope` for SCOPE-Rex governance.
 
-**Cross-dependency on Terminal B Phase B.0:** `MissionPacket::answer_packet_schema` (per integration doc §1.3) consumes the **frozen AnswerPacket schema** that Terminal B Phase B.0 (F-ULP-Oracle) gates. D.0 implementation can land its trait signature first, but `MissionPacketBuilder` cannot finalize `answer_packet_schema` content until B.0.4 passes (ULP fixture < 2 ULP fp16 + < 90s M2 Pro). Verify on each iter: `git log run-b-post-v1-research --oneline | grep -i "F-ULP-Oracle.*pass"` — if absent, ship D.0 trait + executor scaffolding but use placeholder schema; finalize after B's gate green.
+**Cross-dependency on Terminal B Phase B.0 — authoritative handoff via SCHEMA_GATE_STATUS file (REQUIRED for unattended autonomy, hardened 2026-05-16):**
+
+`MissionPacket::answer_packet_schema` (per integration doc §1.3) consumes the **frozen AnswerPacket schema** that Terminal B Phase B.0 (F-ULP-Oracle) gates. D.0 implementation can land its trait signature first, but `MissionPacketBuilder` cannot finalize `answer_packet_schema` content until B.0.4 passes (ULP fixture < 2 ULP fp16 + < 90s M2 Pro).
+
+**§5.0 schema-gate read protocol (run on EVERY D.0 iter):**
+
+1. **Read** `docs/SCHEMA_GATE_STATUS_2026_05_16.md` (Terminal B writes this file in B.0.6 — see Terminal B prompt for the canonical state-string format).
+2. **Branch on first non-comment line:**
+   - **`B.0.4 PASS — schema frozen at <sha>`** → finalize `answer_packet_schema` content using the AnswerPacket spec at integration doc §1.4. Commit message MUST cite the B-side commit SHA: `feat(D.0-final): wire frozen AnswerPacket schema (B-gate sha <sha>)`.
+   - **`B.0.4 PENDING — last attempt …`** → continue with **placeholder schema** (empty `AnswerPacketSchema { version: 0, ulp_floor: None }`) + ship D.0 trait + executor scaffolding. Add `// FOLLOW-UP: finalize after B.0.4 passes` comment at the placeholder site. Do NOT block D.0 work on B's gate.
+   - **`B.0.4 BLOCKED — degraded-mode …`** → ship D.0 with placeholder schema AS-IS + add row to `§8 Implementation Log` flagging `WAITING-FOR-USER: B.0.4 retry budget exhausted, D.0 shipping placeholder until user reviews F-ULP-Oracle profiling`.
+   - **File missing entirely** → behave as `PENDING`. Log expected-file-absence to §8 once (subsequent iters skip the log row).
+3. **Fallback grep:** if SCHEMA_GATE_STATUS file is inaccessible (race condition mid-write), also run `git log run-b-post-v1-research --oneline | grep -iE "B\.0\.6|F-ULP-Oracle.*pass"` as belt-and-suspenders — same branching logic.
+
+**Why a file not a grep:** the file is the canonical handoff. Greps can produce false-positives on revert commits or in-progress prose. The single-line state-string is unambiguous + atomic per Terminal B's write discipline.
 
 ### Phase D.2-V6.1 — Provider refactor + new providers via `Executor` trait (REPLACES D.2 above)
 

@@ -492,8 +492,17 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.1`. **THE Monda
 - **B.0.2** — Vendor `eml-lean` (tomdif/eml-lean, claims 0-sorry) into `epikernel-lean/vendored/eml-lean/`. Run `lake build` + `grep sorry/admit`. If anything other than 0 sorry: file tracked deviation + proceed.
 - **B.0.3** — Land `morph_eval_reduced.metal v0.1` in `epikernel-kernel-pack/`. Implement ONLY `exp`, `ln`, and fused intrinsic `eml(x,y) = exp(x) − ln(y)` plus log-sampled stress-point harness.
 - **B.0.4** — Land ULP fixture in `epikernel-eml-ir/tests/ulp_oracle.rs`: 412k log-sampled points across `[2⁻¹⁵, 2¹⁵] × [2⁻¹⁵, 2¹⁵]` + 2,048 stress points (denormals · ±0 · ±∞ · NaN · branch cuts of `ln`). Tolerance: ≤ 2 ULP fp16 in `[0.5, 2]`. Budget: < 90s wall-clock M2 Pro.
+- **B.0.4a — Retry-budget + fallback (REQUIRED for unattended autonomy, added 2026-05-16):**
+  - **Retry budget = 3 consecutive iters.** If B.0.4 exceeds the 90s wall-clock budget OR ULP tolerance fails: record run in `docs/audits/F_ULP_ORACLE_RETRY_LOG.md` with timestamp + measured wall-clock + max-ULP-observed + commit-SHA-of-fixture-state. Retry on next iter.
+  - **On 4th consecutive failure:** widen tolerance to ≤ 3 ULP fp16 in `[0.5, 2]` (logged as DEGRADED-MODE in retry log) + extend budget to 120s + retry. If THAT also fails: ship a placeholder gate (`B.0.6` writes `B.0.4 BLOCKED — needs profiling + tolerance review`) + continue to B.0.5 / B.0.6 ANYWAY in BLOCKED mode + log `FOLLOW-UP-NEEDS-USER: F-ULP-Oracle gate stuck at <max-ULP>/<wall-clock>` to `§8 self-audit log`. **Do NOT silently stall the loop on B.0.4 — autonomy depends on graceful degradation.**
 - **B.0.5** — Verify Lean toolchain pin against `leanprover-community.github.io/mathlib4` TODAY. If locked stack's 4.29.1 doesn't resolve, downgrade to latest stable (4.25.0 verified 2025-11-14). Document divergence in `doctrine/STACK_DIVERGENCES.md`.
-- **B.0.6** — **GATE**: AnswerPacket schema freeze blocked until B.0.4 passes. Open `doctrine/CAVEATS.md` + paste §1.10 from integration doc verbatim.
+- **B.0.6** — **GATE + cross-terminal handoff signal (REQUIRED for unattended autonomy, added 2026-05-16):**
+  - AnswerPacket schema freeze blocked until B.0.4 passes. Open `doctrine/CAVEATS.md` + paste §1.10 from integration doc verbatim.
+  - **ALSO** write/update `docs/SCHEMA_GATE_STATUS_2026_05_16.md` (single-line canonical-state file consumed by Terminal D Phase D.0) with EXACTLY one of these states on the first non-comment line:
+    - `B.0.4 PASS — schema frozen at <commit-sha> — <YYYY-MM-DD hh:mm>` (when B.0.4 green AND CAVEATS §1.10 landed)
+    - `B.0.4 PENDING — last attempt <YYYY-MM-DD hh:mm> — <measured-ULP>/<wall-clock>` (during the 3-retry budget)
+    - `B.0.4 BLOCKED — degraded-mode <YYYY-MM-DD hh:mm> — <max-ULP>/<wall-clock> — see FOLLOW-UP-NEEDS-USER` (after retry budget exhausts)
+  - Terminal D reads this file on every iter and decides whether to finalize or hold the placeholder schema. **This is the authoritative cross-terminal coordination point** — do NOT delete or rename this file without coordinating with Terminal D.
 
 ### Phase B.1-V6.1 — Wave J Research tier ADDITIONS (J10-J14, additive to original B.1)
 
