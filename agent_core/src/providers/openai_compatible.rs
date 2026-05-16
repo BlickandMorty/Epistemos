@@ -1,5 +1,8 @@
 //! OpenAI-Compatible Provider — Universal provider for any /v1/chat/completions API
 //! Source: https://platform.openai.com/docs/api-reference/chat/create-chat-completion
+//! Source: https://docs.mistral.ai/mistral-vibe/using-fim-api
+//! Source: https://docs.mistral.ai/models/model-cards/codestral-25-08
+//! Source: https://docs.mistral.ai/api/endpoint/chat
 //!
 //! Most LLM providers implement the OpenAI API standard. This single provider
 //! covers: OpenRouter (200+ models), Ollama, Z.AI/GLM, Kimi/Moonshot, DeepSeek,
@@ -386,19 +389,19 @@ impl OpenAICompatibleProvider {
     }
 
     // --- Codestral (Mistral's code-specialised model) ---
-    // Source: https://docs.mistral.ai/api/#tag/fim/operation/fim_completion_v1_fim_completions_post
+    // Source: https://docs.mistral.ai/mistral-vibe/using-fim-api
+    // Source: https://docs.mistral.ai/models/model-cards/codestral-25-08
+    // Source: https://docs.mistral.ai/api/endpoint/chat
     // Endpoint: https://codestral.mistral.ai/v1  (separate from api.mistral.ai)
     // Auth: CODESTRAL_API_KEY (falls back to MISTRAL_API_KEY)
     pub fn codestral(model: &str) -> Self {
         Self::new(
-            std::env::var("CODESTRAL_API_KEY")
-                .or_else(|_| std::env::var("MISTRAL_API_KEY"))
-                .unwrap_or_default(),
+            codestral_api_key(),
             "https://codestral.mistral.ai/v1",
             model,
             "Codestral",
             ProviderCapabilities {
-                max_context_tokens: 256_000,
+                max_context_tokens: 128_000,
                 max_output_tokens: 32_768,
                 supports_thinking: false,
                 supports_vision: false,
@@ -412,6 +415,10 @@ impl OpenAICompatibleProvider {
                 cost_output_per_million: 0.9,
             },
         )
+    }
+
+    pub fn codestral_latest() -> Self {
+        Self::codestral("codestral-latest")
     }
 
     // --- Together AI (open-model fast inference gateway) ---
@@ -719,6 +726,12 @@ fn moonshot_api_key() -> String {
         .unwrap_or_default()
 }
 
+fn codestral_api_key() -> String {
+    std::env::var("CODESTRAL_API_KEY")
+        .or_else(|_| std::env::var("MISTRAL_API_KEY"))
+        .unwrap_or_default()
+}
+
 fn kimi_capabilities(model: &str) -> ProviderCapabilities {
     ProviderCapabilities {
         max_context_tokens: 256_000,
@@ -834,6 +847,7 @@ mod tests {
     use super::{kimi_reasoning_delta_text, OpenAICompatibleProvider, StreamChunk};
     use crate::agent_loop::AgentConfig;
     use crate::providers::schema::normalized_tool_parameters;
+    use crate::test_support::env_lock;
     use crate::types::{ContentBlock, Message};
     use serde_json::json;
 
@@ -934,5 +948,39 @@ mod tests {
         let delta = choices[0].delta.as_ref().unwrap();
 
         assert_eq!(kimi_reasoning_delta_text(delta), Some("plan first"));
+    }
+
+    #[test]
+    fn codestral_latest_uses_current_mistral_code_contract() {
+        let provider = OpenAICompatibleProvider::codestral_latest();
+
+        assert_eq!(provider.base_url, "https://codestral.mistral.ai/v1");
+        assert_eq!(provider.model, "codestral-latest");
+        assert_eq!(provider.display_name, "Codestral");
+        assert_eq!(provider.capabilities.max_context_tokens, 128_000);
+        assert_eq!(provider.capabilities.max_output_tokens, 32_768);
+        assert!(!provider.capabilities.supports_thinking);
+        assert!(!provider.capabilities.supports_vision);
+    }
+
+    #[test]
+    fn codestral_api_key_prefers_dedicated_codestral_key() {
+        let _guard = env_lock();
+        let saved_codestral = std::env::var("CODESTRAL_API_KEY").ok();
+        let saved_mistral = std::env::var("MISTRAL_API_KEY").ok();
+        std::env::set_var("CODESTRAL_API_KEY", "codestral-specific");
+        std::env::set_var("MISTRAL_API_KEY", "mistral-general");
+
+        let provider = OpenAICompatibleProvider::codestral_latest();
+
+        assert_eq!(provider.api_key, "codestral-specific");
+        match saved_codestral {
+            Some(value) => std::env::set_var("CODESTRAL_API_KEY", value),
+            None => std::env::remove_var("CODESTRAL_API_KEY"),
+        }
+        match saved_mistral {
+            Some(value) => std::env::set_var("MISTRAL_API_KEY", value),
+            None => std::env::remove_var("MISTRAL_API_KEY"),
+        }
     }
 }
