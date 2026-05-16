@@ -24,7 +24,9 @@
 //! 2. [`ProductMode`] — the 4-mode taxonomy:
 //!    - VRM (Variable-Rate Memory) — canon-doctrine.
 //!    - Observatory — partial / introspection-only.
-//!    - Brain Time Machine — NOT-STARTED, time-travel replay.
+//!    - Brain Time Machine — ✓ landed iter 68 at
+//!      `crate::brain_export::time_machine` (`BrainDelta` +
+//!      `reconstruct` + `reconstruct_chain`).
 //!    - Harness Evolution — substrate-evolution mode.
 //!
 //! The Brain(τ) reconstruction rule (materialized checkpoint +
@@ -41,7 +43,8 @@ pub enum ProductMode {
     Vrm,
     /// Observatory — partial / introspection-only mode.
     Observatory,
-    /// Brain Time Machine — NOT-STARTED.
+    /// Brain Time Machine — ✓ landed iter 68 at
+    /// [`crate::brain_export::time_machine`].
     BrainTimeMachine,
     /// Harness Evolution — substrate-evolution mode.
     HarnessEvolution,
