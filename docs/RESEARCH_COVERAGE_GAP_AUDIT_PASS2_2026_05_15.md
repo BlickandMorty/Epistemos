@@ -2656,6 +2656,40 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 134+ candidates:** (1) Watch A T-A-29 first 1800s-cadence self-audit (expected ~30 min from now; this iter would be A's "iter 29"). (2) Continue B §4-reconciliation gap-closure watch (5 commits across 3 iters; B may have more NOT-STARTED gaps to close). (3) Watch D continued self-audit + META-cycle cadence. (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 134, 2026-05-16) — 🎯 B.0-LARGE F-70B-Local-Cocktail THIRD VERIFIED FLOOR GATE (user-authorized infra) + B action_to_eml FreeParticleLagrangian expansion — 2 commits CLEAN
+
+- **Window since iter 133 close:** 2 sibling commits (sub-threshold):
+  - `bb31445c8` (B-doc) `docs(B.0-LARGE): F-70B-Local-Cocktail — third Verified Floor gate (UAS + ACS + sparse-active-assembly + L3 SSD Oracle)` — user-authorized infrastructure addition
+  - `5d6b81120` (B) `research/action_to_eml: FreeParticleLagrangian + solution generators` — B iter 87 substrate expansion
+
+- **🎯 NEW B.0-LARGE F-70B-Local-Cocktail VERIFIED FLOOR GATE (`bb31445c8`):**
+  - Commit cites: "Per user direction 2026-05-16: land Phase B.0-LARGE as the third empirical Verified Floor gate in Terminal B, completing the foundational research program. This is the user's end-game vision: 70B-class LLM running on M2 Pro 16 GB via the Unified Address Space + ACS Kuramoto cellular resonance + Sparse-Active-Assembly + L3 SSD Oracle cocktail."
+  - **Third Verified Floor gate now established:**
+    - B.0 F-ULP-Oracle — ARITHMETIC floor (Apple Metal exp/ln ≤2 ULP fp16, landed iter 94)
+    - B.0-KV F-KV-Direct-Gate — MEMORY ARCHITECTURE floor (Qasim et al. residual-sufficiency on Qwen3-8B-MLX-4bit at 128k, landed iter 128 doc commit)
+    - **B.0-LARGE F-70B-Local-Cocktail — 70B-INFERENCE floor (UAS + ACS Kuramoto + Sparse-Active-Assembly + L3 SSD Oracle cocktail; landed this iter)** — completing the 3-gate Verified Floor empirical research program.
+  - 10 sub-items B.0-LARGE.1 through .10: (1) UAS plumbing audit (2) Sparse-Active-Assembly routing module (3) Extend acs.rs with Kuramoto cellular resonance (research-tier) (4) mmap'd NF4 weight pipeline (IOSurface zero-copy) (5) Speculative decoding orchestrator (3B draft + 70B verify) + 5 more (truncated in audit window; full enumeration in commit body).
+  - **Substrate already in tree per research deep-dive cited in commit body:** `epistemos-research/src/acs.rs` (190 LOC AcsAnchor + CmsXField) · `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) + `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) · `acs_meta_layer.md` (Autopoietic Cognitive Stack) · "Architectural Hardening — Total Victory Plan.md" UAS doctrine · `EPISTEMOS_V6_1_FINAL_SYNTHESIS_LOCK.md` · 15+ additional canonical research files.
+  - **Lesson #11 verification:** user-authorized infrastructure addition per explicit "Per user direction 2026-05-16" citation in commit message. Doc commit framing prior substrate work + adding new phase parallel to existing B.0 + B.0-KV gates. **§5.0 verdict: CLEAN.**
+  - **⚠️ Lesson #12 SHA-citation provenance precision check:** commit cites `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) + `direct_gate.rs` (290 LOC). At HEAD: `kv_direct_gate.metal` 65 LOC ✅ matches. `direct_gate.rs` at HEAD = need to check (will defer to §7 meta-cycle for full re-verification). Substance: substrate exists; precision: deferred.
+
+- **🎯 Findings — B `action_to_eml: FreeParticleLagrangian + solution generators` (`5d6b81120`):**
+  - B iter 87 expands F-Action-Demo falsifier corpus that `euler_lagrange_residual` exercises against.
+  - Substrate: `FreeParticleLagrangian { mass }` — `L = ½m·ẋ²`, Euler-Lagrange gives `ẍ = 0` (constant velocity) · `harmonic_oscillator_solution(amplitude, omega, n, dt)` · `free_particle_solution(x0, v, n, dt)` — `x(t) = x0 + v · t`, linear trajectory, finite-difference derivative is exact so EL residual is ~0 by construction.
+  - 7 new unit tests; suite 2372 → 2379 (+7), all green.
+  - **B IS CONTINUING POST-GAP-CLOSURE PHASE — now adding SUBSTRATE EXPANSIONS** on previously-landed modules (action_to_eml original at iter 99 `6fe87a986` per #18 register). Pattern shifts from "close declared NOT-STARTED gaps" (iter 130-132) to "expand falsifier-corpus on landed substrate" (iter 134). Healthy continuation.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B-DRIVER PROMPT UPDATE BY USER — major addition to B's scope:** B.0-LARGE commit also updates Terminal B's prompt file with new Phase B.0-LARGE section + 10 sub-items. This is similar to the iter-83 V6.1 integration commit `ec4c9c167` pattern (user infrastructure addition propagates to siblings via §3 mandatory reading auto-pickup). **Expect B's next iters to pick up B.0-LARGE.1 substrate work.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); B.0-LARGE landing is a milestone event but window 2/3-5 sub-threshold for full audit-of-audit cycle.
+
+- **23 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent windows: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2. The 14-commit burst (iter 128) faded into mixed-cadence pattern; not yet stable enough for low-touch re-engagement.
+
+- **Iter 135+ candidates:** (1) Watch B B.0-LARGE.1 UAS plumbing audit substrate landing (user driver update typically propagates within 1-3 iters via §3 auto-pickup, mirror of V6.1 iter-93 pattern). (2) Continue B §4-reconciliation gap-closure watch. (3) Watch A T-A-29 first 1800s-cadence self-audit (still ~30 min from iter 28 transition). (4) Watch D continued self-audit + META-cycle cadence. (5) Phase C.2 + C.6 + C.7.3 all remain pending; B.0-LARGE adds further MASTER_RESEARCH_INDEX update backlog (UAS doctrine + acs_meta_layer + Architectural Hardening Total Victory Plan).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
