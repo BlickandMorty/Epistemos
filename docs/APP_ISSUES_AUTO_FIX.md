@@ -179,7 +179,7 @@ Open Follow-ups:
 
 ### ISSUE-2026-05-12-011: Main thread hangs at app startup (969ms + 3182ms)
 
-Status: Open (logged from user runtime trace 2026-05-12)
+Status: Operator-required (Instruments trace pending) — surfaced 2026-05-16 from /loop iter 11
 Priority: P2
 First Observed: 2026-05-12
 

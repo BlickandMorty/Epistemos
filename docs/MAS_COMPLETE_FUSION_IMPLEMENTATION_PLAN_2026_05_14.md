@@ -141,6 +141,41 @@ Per `MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` §4.4. Checklist:
 
 **Acceptance bar:** all 16 items green on TestFlight build + at least one second tester confirms.
 
+### A.7 H-1 startup hang — Instruments Time Profiler (USER, ~30 min) — operator-required
+
+**Source:** `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-12-011 (lines 180-228) · PASS 1 gap audit H-1.
+
+**Symptom:** Two `Main thread hang detected` events at startup: **969ms** right after `Workspace restored` + `Activity tracking started`, then **3182ms** (coalesced 3 samples) right after `app_became_active`. Pre-existing on the substrate; not vault-restore related (bookmark is cleared in the trace).
+
+**Why operator-required:** Diagnosis needs an Instruments Time Profiler trace attached to a launched-app run. Cannot drive autonomously — must be run by a human at the Mac.
+
+**Reproduction (Pro Debug, fast path):**
+```bash
+cd /Users/jojo/Downloads/Epistemos
+xcodebuild -scheme Epistemos -destination 'platform=macOS' -configuration Debug build
+# Then in Xcode:
+# 1. Product → Profile  (or ⌘I) to launch Instruments
+# 2. Choose "Time Profiler" template
+# 3. Click record — let the app run through `app_became_active` + first ~5 seconds
+# 4. Stop recording
+# 5. Filter Heaviest Stack Trace by "Main Thread" — expand frames above 50 ms
+```
+
+**Hypotheses to confirm/reject from the trace** (in order of likelihood per ISSUE-2026-05-12-011):
+1. **SwiftUI body re-evaluation cascade** — `vaultReprompSheet` + `NoVaultConnectedBanner` both re-read `UserDefaults.standard.bool/data` on every body evaluation. Look for repeated `_UserDefaultsProvider` frames inside `RootView.body` evaluations.
+2. **MLX model warmup** — `Local agent model selected` log fires before the hang. Look for `mlx::array::eval` / `MLXLLM.load` frames on the main thread.
+3. **Graph engine init / first-activate re-layout** — look for `GraphState.init` / `MetalGraphView` frames.
+4. **Background subscriber storm** — NightBrain · ACC catalog refresh · R3 gateway · paperclip · etc. all firing in parallel. Should be off-main; if on-main, that's the culprit.
+
+**Likely fixes (apply after the trace confirms which hypothesis lands):**
+- `@AppStorage` instead of direct `UserDefaults.standard.bool/data` reads in body-evaluation predicates (hypothesis 1 — cheap, low-risk).
+- Defer MLX `loadModel(...)` to first agent invocation rather than first `app_became_active` (hypothesis 2 — moderate risk, needs verification that no UI surface assumes model is preloaded).
+- `Task.detached(priority: .userInitiated)` around heavy startup work currently inline in `EpistemosApp.onAppear` (hypothesis 3 / 4).
+
+**Acceptance bar:** Time Profiler trace saved + attached to ISSUE-2026-05-12-011 Investigation Log · root cause identified with frame-level evidence · fix(es) applied · re-run shows ≤500ms main-thread occupancy during the same window (matches `RuntimeDiagnosticsMonitor` watchdog threshold).
+
+**Status (2026-05-16):** Surfaced from autonomous /loop iter 11. **Operator action required** — Claude cannot drive Instruments. Falling through to next slice. Audit register cross-reference: `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-12-011 status flipped from `Open` to `Operator-required (Instruments trace pending)` by this same commit.
+
 ---
 
 ## Phase B — Wave A No-Compromise Quality Wins (CODEX, parallel)
@@ -979,6 +1014,7 @@ Codex/Claude append rows here as items ship. Required fields: date · phase · i
 | 2026-05-16 | A (B-1 / B-2 / B-3 / B-4) | Wave 7-11 user-product layer V1 vs V1.1 routing — Gap Audit PASS 1 B-1/2/3/4 DECISIONS RECORDED | (this commit) | DECISION-ONLY slice per §10 protocol ("Slice requires an external decision the user hasn't made → DECISION row only — write the question + 2-3 alternatives + recommended path. Commit. Move to next slice."). Four rows added to §10 Compromises Recorded, each with: source-doc citation · recommended path · 2 user-override alternatives · trigger-to-revisit. Recommendations: **B-1 Live Files** → V1.1 defer (substrate doctrine LANDED in MASTER_FUSION §3.14 but feature surface <30% complete); **B-2 Brain Export** → V1.1 defer (schemas LANDED via `33e1a5dcb` but no export tool / format / distribution doctrine, no V1 placeholder); **B-3 Confidence Meter** → V1 ship SIMPLE form (`ConfidenceBadge` using existing routing confidence signal, no biometric) + V1.1 ship FULL form (biometric + auto-re-learn + SovereignGate); **B-4 Pixel-Tactical duality** → V1.1 defer (sprite atlas LANDED but toggle UX + sub-agent dispatch + accessory system all V1.1). PASS 1 gap-audit B-1/B-2/B-3/B-4 entries + §5 triage table all stamped DECISIONS RECORDED. **Surfaces to user for confirm/override** — all 4 rows note "User input requested". No code touched — pure decision slice. | ✅ Decisions recorded |
 | 2026-05-16 | A (H-3 / B2-H6) | Local Engineering Agent + EditPage macaroon — Gap Audit PASS 1 H-3 + PASS 2 B2-H6 DECISION RECORDED | (this commit) | DECISION + DESIGN slice (paired across PASS 1 H-3 and PASS 2 B2-H6 — same feature, two audit lenses). Decision row in `MAS_COMPLETE_FUSION §10` with recommended path **V1.1 defer for full `edit_note_block` mutation tool; V1 ships read-only `note.attach_readonly` stub**. Rationale: hero feature, design doc `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md` still marked AWAITING_USER_SIGNOFF + macaroon primitives exist (`agent_core/src/cognitive_dag/macaroons.rs` + `dispatch.rs` with `Macaroon` / `Caveat` / `issue` / `restrict` / `system_mirror_macaroon` / `derive_mirror_macaroon`) but tool layer + single-use semantic + ledger integration + Undo schema all V1.1. Two new rows added to `HERMES_AGENT_CORE_2_0_DESIGN §7.1` MAS tool table: `note.attach_readonly` (V1 stub, T1 only) + `edit_note_block` (V1.1 deferred, T1 + macaroon pre-flight) — keeps the deferred tool discoverable from the canonical registry. PASS 1 H-3 + §5 triage row + PASS 2 B2-H6 + §6 triage row all stamped DECISION RECORDED. **User input requested** — recommendations stand unless overridden. No production code touched. | ✅ Decision + design |
 | 2026-05-16 | J (audit-of-audit, iter 10) | Codex-style independent verifier audit on last 10 commits + PASS 2 trust-but-verify items + corpus sweep + online citation validation | (this commit) | Per `CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md` §13: dispatched a `general-purpose` Agent with the verbatim §13 Codex prompt. **Verdict: loop on track, no drift.** Auditor confirmed all 10 recent commits (`d66c99ce1`..`5aa13bdae`) accurately implement their slice IDs · `cargo test --lib` baseline 1190 holds · file/line citations resolve · PASS 2 §5 trust-but-verify items remain rejected (epistemos-shadow exists, no "Phase R" in canon, InterruptScoreCpu Swift-LANDED, session_insights registered in lib.rs:56). **Audit-driven additions folded into this commit:** (1) B2-H7 status block strengthened with arXiv:2502.17598 (Bazarova et al., EMNLP 2025, LapEigvals AUROC 88.9%) + arXiv:2509.15735 (EigenTrack); (2) B2-H10 status block flags the Apple Developer XPC URL as archived (2016) — preferred modern URL `developer.apple.com/documentation/xpc` noted for future B2-H10 slice; (3) NEW MEDIUM gap **B2-M12 Engram O(1) hash-recall layer** for static knowledge (Sparsity Allocation Law 20-25% / 75-80%) — destination MASTER_FUSION §3.2 L4-Engram row between L3 and current L4; (4) NEW MEDIUM gap **B2-M13 ACS doctrine pointer** (7-scale autopoietic stack + 4 homeostatic loops + Kuramoto coupling + ViableSystem trait) — destination MASTER_FUSION new §J.6 row, cross-link with PASS 2 B2-H9 (Beer VSM is one of ACS's anchors). PASS 2 §3 MEDIUM count updated 11 → 13. Total gap inventory now: PASS 1 (31) + PASS 2 (39) = 70 actionable items (was 68). | ✅ Audit-of-audit + 2 new gaps folded in |
+| 2026-05-16 | A.7 (H-1) | ISSUE-2026-05-12-011 startup hang (969ms + 3182ms) — SURFACED for operator | (this commit) | Operator-required slice per §10 protocol ("Verification can't be automated (manual smoke needed) — Stub the test + add audit-register row with manual-smoke steps. Surface to user. Commit the stub. Move on."). New `MAS_COMPLETE_FUSION §A.7` row added with: (a) Xcode `Profile (⌘I) → Time Profiler` reproduction recipe; (b) 4 ranked hypotheses from APP_ISSUES_AUTO_FIX (SwiftUI body cascade · MLX model warmup · Graph re-layout · background subscriber storm); (c) likely fixes per hypothesis (`@AppStorage` for UserDefaults reads · defer MLX load to first-agent-invocation · `Task.detached` on heavy startup); (d) acceptance bar ≤500ms main-thread occupancy matching `RuntimeDiagnosticsMonitor` watchdog. APP_ISSUES_AUTO_FIX status flipped Open → Operator-required (Instruments trace pending). PASS 1 H-1 gap audit entry stamped SURFACED. **User action: when convenient, run Time Profiler per the recipe and paste the heaviest-stack frames so a fix slice can land.** | ✅ Operator-required surface |
 
 ## 9. Atlas Drift Log
 
