@@ -18,4 +18,5 @@ pub mod acs;
 pub mod cognition_observatory;
 pub mod continual_learning;
 pub mod hyperdynamic_schemas;
+pub mod sherry_lattice;
 pub mod ternary;
