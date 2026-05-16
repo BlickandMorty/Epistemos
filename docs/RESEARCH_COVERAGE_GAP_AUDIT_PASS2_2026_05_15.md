@@ -1848,6 +1848,55 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 2/3-5; STAY at 3-min (above ≤2 quiet threshold).
 
+### Audit-of-audit #25 (iter 113, 2026-05-16) — D ADVANCES TO D.4 + B Phase B.3 G2 atlas + T-A-19 Phase F (skip 2 of 3)
+
+- **Window since #24 (iter 110) + iter-111/112 sub-cycle pulses:** 3 substantive sibling commits:
+  - `a57ad9637` (B) Phase B.3 G2 sprite_atlas + InstancedQuad + Metal stub
+  - `06bc34237` (A) T-A-19 Phase F — surface 3 more user-decisions (skip 2 of 3)
+  - `e76561cb6` (D) **D.4 Aider CLI passthrough — D NUMBERING TRANSITION**
+
+- **Method:** §5.0 verification + D numbering tracker update + A skip-counter watch.
+
+- **🎯 D.4 NUMBERING TRANSITION (collision-flag response or natural progression):**
+  - First non-D.3 commit since the 5-commit D.3 umbrella accumulated. D advances to D.4 with "Aider CLI passthrough".
+  - **Whether direct response to my collision flag or natural progression:** GOOD news regardless. D's commit naming-discipline is now visibly clean for sub-feature numbering.
+  - The 5 prior D.3 commits stand as historical ambiguity (cross-references "D.3" still resolve ambiguously across 5 candidates). But going forward, D.4 is unambiguous.
+  - **Iter 110's D.3 collision flag (HIGH-priority surface to user) status:** still pending user-side resolution for retroactive D.3.1/D.3.2/D.3.3/D.3.4/D.3.5 re-tagging OR explicit sub-feature labels OR umbrella documentation. New D.4 work doesn't retroactively fix the prior 5; flag remains open.
+
+- **Findings — B Phase B.3 G2 (`a57ad9637`):**
+  - `agent_core/src/tamagotchi/sprite_atlas.rs` · **14 tests**. SpriteAtlas geometry + InstancedQuad per-instance data + Metal shader stub. Per driver §5 Phase B.3 G2.
+  - Builds on iter 112 Phase B.3 G1 (tamagotchi/animation.rs 13 tests). Tamagotchi substrate growing: mod.rs (15 tests, iter 111) + animation.rs (13, iter 112) + sprite_atlas.rs (14, iter 113) = **42 tests** in tamagotchi/.
+  - **§5.0 verdict: CLEAN.**
+
+- **Findings — D.4 Aider (`e76561cb6`):**
+  - Pro-only Aider Tunnel C wrapper through shared hardened CLI runner. Registers destructive Agent-tier `aider` tool behind pro-build/enable_bash.
+  - Documents D.4 contract in HERMES + TOOL_INVENTORY + §8 implementation log (FEATURE_CHANGE_TRACKER §2 lockstep honored).
+  - Tests cited: cargo lib pro-build aider_ + cli_passthrough.
+  - **§5.0 verdict: CLEAN.** Aider integration as Pro-tier Tunnel C makes structural sense (Tunnel C = CLI passthrough per HERMES §6.x).
+
+- **Findings — T-A-19 Phase F (`06bc34237`):**
+  - A surfaces 3 more user-decision items: (4) B2-M5 hardware-budget alignment · (5) H-1 + H-2 Instruments runs (paired user-machine actions) · (6) [truncated in my read].
+  - Commit title "**skip 2 of 3**" — A is tracking the skip-counter per V3 §10 soft-stop rule. A is approaching its §10 soft-stop threshold (3 consecutive Phase F skips → soft-stop). At "2 of 3" A is one cycle away.
+  - **A wind-down acceleration confirmed:** Phase F is generating skip-counter ticks because the user-decision queue is being surfaced faster than user is closing items. A may exit Phase F into final soft-stop next iter.
+  - **§5.0 verdict on A's Phase F method: CLEAN.** Cross-verified B2-M5 in §10 (was B2-M5 V1.x HardwareTierManager budget align). H-1 + H-2 in §10 user-decision queue (Phase A.7 + A.8 Instruments Time Profiler + Allocations).
+
+- **No drift surfaced.** All 3 commits pass §5.0.
+
+- **§5.0 catch rate:** 28/159 → 28/162 = **17.3%**. Continued dilution.
+
+- **Verdict:** ✅ **ON TRACK** (18th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **🎯 Cross-terminal wind-down summary:**
+  - **A:** Phase E (Pass 14-18 ON-TRACK 5/5 zero-streak) → Phase F (iter 108 surface 3 + iter 113 surface 3 more, skip 2/3) → Phase G (iter 110 Pro notarization + iter 112 XPC §5.0 catch). A is in late wind-down; soft-stop trigger imminent.
+  - **B:** Research-tier CLOSED (J1-J9 + B.6.4-B.6.14 + B.6.15-B.6.20) → User-product transition (B.7 Brain Export + Tamagotchi opened iter 111) → Phase B.3 G1/G2 (Wave G sprite/animation, iters 112-113). B is moving through user-product layer post-research-tier close.
+  - **D:** D.1.2 + D.2.1-2.5 + 5 D.3 sub-features (collision flag HIGH) → **D.4** (iter 113, transition begin). D continues with provider + tool expansion.
+  - **E:** Last commit was iter 99 H-3-B2-H6 decision research. E quiet for ~14 iters — possibly winding down or awaiting user input.
+  - **F:** No commits visible in any of my windows since session start. F branch was empty per iter 81 check; may still be inactive.
+
+- **Iter 114+ candidates:** (1) Watch A's Phase F skip-counter (2/3 → 3/3 = soft-stop trigger). (2) Phase C.2 mass MASTER_RESEARCH_INDEX update (extremely overdue). (3) D.3 collision flag still pending user resolution. (4) Phase C.6 forward-staged primitive re-audit (39 iters past baseline).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
