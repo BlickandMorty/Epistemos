@@ -98,6 +98,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/fusion/research/OVERSEER_AND_AGENT_HIERARCHY.md` + `docs/fusion/research/kimi-latest/hermes_gateway_architecture.md` §L6
 - **What it is:** Overseer-as-role-decomposition doctrine (4 cooperating responsibilities) distinct from Overseer-as-feature.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN` §multi-overseer (new) — informs Pro post-V1 architecture.
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new `HERMES_AGENT_CORE_2_0_DESIGN §13.7 "Multi-Overseer hierarchy — 4-role decomposition of policy enforcement"`. Section covers: explicit framing as role taxonomy within `GovernedExecutor` (§5) rather than separate Overseer-as-feature · 4-role table (Planner / Guardrail / Critique / Budget) with what-it-produces + what-it-consumes per role · single-turn cooperation pipeline showing role firing order (Planner → Budget → Guardrail pre-execution → tool runs → Critique post-execution) · NOT-replacement boundaries (not separate from SCOPE-Rex which is the mechanism, not separate from ProviderRouter which is the dispatch point, not a sub-agent hierarchy) · mapping table from each role to existing primitives (Planner ↔ MissionPacket+ProviderRouter; Guardrail ↔ SovereignGate+SCOPE-Rex+Capability Lease+ephemeral tokens B2-H20; Critique ↔ ClaimLedger+spectral detection §13.5.8+SAE §3.36; Budget ↔ pricing.rs+SpendDashboard §B2-H14) · explicit VSM cross-link (B2-H9 — Overseer-4 = VSM S3+S4+S5 instantiation in Hermes) · V1 scope (roles exist implicitly today, V1.x makes them typed `OverseerRole` enum). Closes the "Overseer-as-role-decomposition is missing from canon" framing without overriding §5 SCOPE-Rex.
 
 ### H-5. Adaptation Subsystem + Compute Steering specs
 - **Source:** `docs/fusion/research/ADAPTATION_SUBSYSTEM_SPEC_v1.md` + `COMPUTE_STEERING_SPEC_v1.md`
@@ -225,7 +226,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 
 | Item | Route to |
 |---|---|
-| H-4 Overseer hierarchy | Hermes 2.0 §multi-overseer |
+| H-4 Overseer hierarchy | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §13.7 with 4-role decomposition (Planner / Guardrail / Critique / Budget) + cooperation pipeline + mapping to existing primitives + VSM cross-link. |
 | H-5 Adaptation Subsystem + Compute Steering | MASTER_FUSION §3.x + new B-row |
 | H-7 GRPO | MASTER_FUSION §continual-learning |
 | H-8 MLA | MASTER_FUSION §local-inference |
