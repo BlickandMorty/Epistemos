@@ -1401,12 +1401,23 @@ mod tests {
 
     #[test]
     fn claim_tier_serializes_to_snake_case_for_ranked_claim_audit() {
-        // `ClaimTier` is part of `RankedClaim`'s wire format, which
-        // the Provenance Console + RRF tier-boost surfaces consume.
-        // The boost map's keys (in `epistemos-shadow::backend::rrf::
-        // rrf_fuse_with_tier_boosts`) string-match against this
-        // wire format — a serde casing change would silently break
-        // the cross-crate handoff.
+        // `ClaimTier` is part of `RankedClaim`'s wire format, used by:
+        //   - the Provenance Console UI surface (tier-coloured rows)
+        //   - persisted analytics / dashboards exported from
+        //     `rank_by_prime_composite_gap()` output
+        //   - any future `.epbundle`-embedded ranking audit
+        // A serde casing change (e.g. dropping the `rename_all =
+        // "snake_case"` attribute, or accidentally PascalCase-ing the
+        // wire form) would silently orphan every prior persisted
+        // record in those surfaces.
+        //
+        // (Aside: the prior commit 2a4d31d2e's message overstated the
+        // dependency on `epistemos-shadow::rrf_fuse_with_tier_boosts`
+        // — that function's boost map is keyed by `doc_id`, not by
+        // tier name. Callers walk RankedClaim entries and compute a
+        // per-doc-id boost; ClaimTier strings don't appear in the
+        // boost map keys. The wire-format pin is still load-bearing
+        // for the UI + analytics consumers above.)
         use serde_json::to_string;
         assert_eq!(to_string(&ClaimTier::Gap).unwrap(), "\"gap\"");
         assert_eq!(to_string(&ClaimTier::Composite).unwrap(), "\"composite\"");
