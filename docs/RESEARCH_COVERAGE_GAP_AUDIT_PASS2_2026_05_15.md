@@ -4359,6 +4359,62 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 167+ candidates:** (1) Verify 7th loop iter-84 NO-OP acknowledgment fires (~140s after iter-83 commit). (2) Watch B's continued B.0 portfolio expansion (B.0-KV F-KV-Direct-Gate + B.0-LARGE F-70B-Local-Cocktail pending) + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31 1800s fire. (4) Phase C.2 + C.7.3 still pending. (5) Next §7 meta-cycle at iter 190 (24 iters away). (6) **7th loop closure means future audit-of-audit windows will return to A/B/C/D/E/F (6 product terminals) attribution baseline.**
 
+### Audit-of-audit #46 (iter 167, 2026-05-16) — 🎯 USER-IMPLEMENTED ambient-frequencies feature (NEW 8TH ATTRIBUTION CATEGORY — Lesson #16 articulated) + B B.0 EML operator partials + inverse + D 20TH MILESTONE self-audit — 3 commits CLEAN
+
+- **Window since iter 166 close:** 3 substantive sibling commits at threshold:
+  - `750fd71f3` (B iter 133) `research/eml/operator: partials + inverse (B.0)`
+  - `5beadc945` (USER-IMPLEMENTED) `feat(ambient-frequencies): Settings → Ambient Frequencies preset UI + 32-bit float WAV export`
+  - `a5ae0961b` (D 20th self-audit MILESTONE) `chore(D-self-audit): record Gemini Kimi omega CLI hardening sample`
+
+- **🎯 USER-IMPLEMENTED AMBIENT-FREQUENCIES FEATURE — NEW ATTRIBUTION CATEGORY (`5beadc945`):**
+  - **Commit body verbatim:** "User-implemented feature; landing on this branch on user authorization after iter-83 audit verified zero conflicts + perfect CLAUDE.md compliance."
+  - **🎯 Identity per Lesson #13/#14:** This is NOT a terminal A/B/C/D/E/F commit AND NOT a 7th-loop commit. It is **USER-DIRECTLY-AUTHORED feature work**. Confirms the user is now landing features themselves (matching the 7th-loop iter-83 closure rationale "Next queued work brittle in 120s slices; better as focused multi-hour task").
+  - **Context from 7th-loop iter-83 wind-down:** "Ambient Frequency WIP preserved 5 iters in a row" — the 7th audit-row loop was respecting in-progress Ambient Frequency WIP files; this iter's user-implemented landing lets that WIP come to surface as the proper feature.
+  - **Files landed (5 files):**
+    - `Epistemos/Engine/AmbientFrequencyAudioGenerator.swift` (~29 KB) — `AmbientFrequencyChannelMode` + `AmbientFrequencyEnvelope` + **`AmbientFrequencyLayer` enum** (amplitudeModulatedCarrier · sine · binauralBeat · chirp · noise) + `AmbientFrequencyPreset` registry + **AVAudioEngine-free pure-math synthesis to 32-bit float WAV** (Schumann cocktail + delta/theta/alpha/beta/gamma binaural use cases)
+    - `Epistemos/Views/Settings/AmbientFrequencySettingsView.swift` (~5.9 KB) — Form-based SwiftUI view with `@AppStorage` persistence for preset selection + duration; UTType-based file export
+    - `Epistemos/Views/Settings/SettingsView.swift` — added `.ambientFrequencies` enum case + visibleSections + icon (waveform.path) + category (.capture, paired with .landing) + summary text + detail-view routing
+    - `EpistemosTests/AmbientFrequencyAudioGeneratorTests.swift` (~5.2 KB) — **Swift Testing @Suite + 29 @Test/#expect instances** covering preset frequency invariants + chirp timing + envelope shape + WAV format correctness
+    - `EpistemosTests/SettingsCategoryTests.swift` — visible section count bumped 14 → 15
+  - **🎯 NEW Lesson #16 (proposed) — USER-IMPLEMENTED FEATURE ATTRIBUTION:** "Beyond the 6 product terminals + 7th maintenance loop attribution categories, commits can also be **USER-IMPLEMENTED features** authored directly by the user. Commit body explicit 'User-implemented feature' or 'User-authored' is the indicator. Iter-167 `5beadc945` ambient-frequencies feature is the canonical example. Per Lesson #13 verification protocol, check commit body for explicit attribution claim; if 'User-implemented' is cited, the commit is USER-DIRECTLY-AUTHORED and not subject to terminal-scope or maintenance-loop attribution disciplines. Iter-83 7th-loop closure rationale ('next queued work brittle in 120s slices; better as focused multi-hour task') confirms user opted to land features directly rather than via maintenance-loop slices."
+  - **CLAUDE.md compliance verification (per user citation):** Swift Testing @Suite + @AppStorage persistence + AVAudioEngine-free pure-math + 29 tests + Settings UI properly integrated. All match Code Standards section.
+  - **§5.0 verdict: CLEAN.** User feature lands per CLAUDE.md compliance; iter-83 audit verified zero conflicts pre-write.
+
+- **🎯 Findings — B `eml/operator: partials + inverse (B.0)` (`750fd71f3`) — B.0 EML SUBSTRATE-FLOOR EXPANSION CONTINUES:**
+  - B iter 133. Continues B.0 EML expansion started iter 166 with `eml/grammar`.
+  - Base `eml(x, y) = exp(x) - ln(y)` was one-way primitive; this commit lands calculus + algebraic sibling operations.
+  - Substrate: `eml_partial_x(x, y)` (`∂eml/∂x = exp(x)`; y ignored, kept for signature symmetry) · `eml_partial_y(x, y)` (`∂eml/∂y = -1/y`; rejects y ≤ 0 matching eml's branch cut) · `eml_inverse_x(z, y)` (solves `eml(x, y) = z` for x: `x = ln(z + ln(y))`; requires `z + ln(y) > 0` for inner log branch cut; **F-Action-Demo "back-solve target trajectory" inverse**).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `chore(D-self-audit): record Gemini Kimi omega CLI hardening sample` (`a5ae0961b`) — 20TH D-SELF-AUDIT MILESTONE:**
+  - 🎯 **D's 20th self-audit cycle** — milestone. Continuing distributed cadence (started iter 119).
+  - 5 cargo test runs verify ON-TRACK: pro_no_thinking_turns + module_prologue_moonshot + omega-mcp subprocess + terminal canonical-subprocess + cli_passthrough.
+  - "Current official Gemini and Kimi docs still match the disk contracts, sampled subprocess paths remain hardened, and no D-owned code fix was required."
+  - **D.5 ↔ A WASMExecXPC NOT explicitly surfaced this iter.**
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 ATTRIBUTION TAXONOMY NOW 8 CATEGORIES (per Lesson #13 + #14 + #16):**
+  1. Terminal A (T-A-NN; codex/research-snapshot-2026-05-08 parent + own branch)
+  2. Terminal B (B-iter NN; run-b-post-v1-research branch)
+  3. Terminal C (audit-of-audit + §7 meta-cycles; run-c-audit branch — THIS LOOP)
+  4. Terminal D (chore/fix D-self-audit NN; run-d-providers branch)
+  5. Terminal E (quiet ~70 iters)
+  6. Terminal F (empty session-long; B-doc commits frame F-tier work in lieu)
+  7. **7th audit-row maintenance loop** (codex parent branch; CLOSED iter 166)
+  8. **USER-implemented features** (commit body explicit "User-implemented feature" or "User-authored"; NEW iter 167 category)
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 52 CONSECUTIVE COMMITS ACROSS ITERS 130-167** (Phase 1: 4 + Phase 2: 13 + Phase 2-extended: 4 + Phase 2-J-series: 19 + Phase 2-Helios B.2: 6 + Phase 2-J2: 2 + Phase 2-weight_patcher: 1 + Phase 2-B.0: 3).
+
+- **§5.0 catch rate (C-the-auditor):** 29/247 = 11.7% (continued decline).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3. Average ~2.6/iter.
+
+- **Verdict:** ✅ **ON TRACK** (39th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended; ambient-frequencies feature should also have its OWN row but that's USER responsibility, not C-audit responsibility).
+
+- **Iter 168+ candidates:** (1) Watch for more user-implemented features (now an established attribution category). (2) Watch B's continued B.0 + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31. (4) Watch D 21st self-audit. (5) **NOTE:** the iter-83 7th-loop NO-OP acknowledgment should have fired by now (~140s after iter-83 commit); did not appear in this window — iter-83 ScheduleWakeup may have already cleared. (6) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
