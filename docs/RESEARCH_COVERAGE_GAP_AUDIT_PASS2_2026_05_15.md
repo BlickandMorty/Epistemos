@@ -1308,6 +1308,16 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **9 consecutive ON-TRACK cycles** since #8 catch (no change from #17; this iter is a pulse).
 
+#### Phase C.7.4 verification (iter 98, 2026-05-16) — Lean toolchain pin: `doctrine/STACK_DIVERGENCES.md` NOT YET CREATED
+
+- **Context:** my driver §C.7.4 says "Lean toolchain pin verification (4.29.1 vs 4.25.0 in `doctrine/STACK_DIVERGENCES.md`)".
+- **Method:** `ls doctrine/STACK_DIVERGENCES.md` → file does NOT exist. `find . -name "STACK_DIVERGENCES*"` → zero hits across repo.
+- **V6.1 §1.10 caveat #7 (line 218) is documented as expected:** "Lean toolchain pin (4.29.1 / mathlib v4.29.0-rc6 / LeanCopilot 4.27.0) may be ahead of public. Latest verifiable Lean: 4.25.0 (2025-11-14). Downgrade if 4.29.x doesn't resolve."
+- **Cross-reference to V6.1 §"Terminal B" Phase B.0.5** (line 286): "Verify Lean toolchain pin against public mathlib" — this step is on B's Phase B.0 roadmap. The `STACK_DIVERGENCES.md` doc will likely be created by B during Phase B.0.5 if the 4.29.x stack doesn't resolve and downgrade is needed.
+- **Phase C.7.4 verdict:** **DOC-FORWARD-STAGED** — referenced in my driver as a future canonical doc; not yet created by any terminal because B.0.5 hasn't fired with a downgrade-required outcome yet. Not a drift; C.7.4 audit cadence is "verify the doc when it lands". When B's Phase B.0.5 lands (whether STACK_DIVERGENCES.md is created or not), C re-runs C.7.4 to record the outcome.
+- **Per §1.5 audit-only:** C does NOT create `doctrine/STACK_DIVERGENCES.md`. The doc is B-scope when/if it materializes.
+- **Caveat #7 enforcement spot-check:** scanned recent commits (iter 73-97) for Lean version references — `git log --oneline | grep -i lean` returned the iter-79 mention only ("audit(iter79)... §5.0 ..."). No recent commit cites Lean version numbers, so caveat #7 has no enforcement targets this iter.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
