@@ -93,7 +93,7 @@ The full Pro catalog is the MAS list above PLUS:
 | `cli_passthrough` | subprocess | `#[cfg(feature="pro-build")]` |
 | `terminal` | subprocess | `#[cfg(feature="pro-build")]` |
 | `git.status` / `git.diff` / `git.log` | read-only Git subprocess through `omega-mcp::git`; no mutating Git verbs exposed | `omega-mcp` excludes executor under `mas-sandbox` |
-| `cli_claude` / `cli_codex` / `cli_gemini` / `cli_kimi` | subprocess to `/usr/local/bin/*` | `#[cfg(feature="pro-build")]` |
+| `cli_claude` / `cli_codex` / `cli_gemini` / `cli_kimi` / `aider` | subprocess to locally installed CLI agents | `#[cfg(feature="pro-build")]` |
 | `cronjob` | subprocess + persistent scheduler | `#[cfg(feature="pro-build")]` |
 | `imessage_send` / `imessage_contacts` / `channel_contacts` | AppleScript subprocess | `#[cfg(feature="pro-build")]` |
 | `apple_notes` / `apple_reminders` / `apple_calendar` / `apple_mail` | osascript subprocess | `#[cfg(feature="pro-build")]` |
@@ -114,13 +114,20 @@ build returns ZERO matches for all of the above (verified
 2026-05-16 in D.1.2).
 
 Tunnel C receipt contract: `agent_core/src/tools/cli_passthrough.rs`
-backs `claude_code`, `codex`, `gemini`, and `kimi` with the same
+backs `claude_code`, `codex`, `gemini`, `kimi`, and `aider` with the same
 `harden_cli_subprocess` runner. D.2.4 reconciled 2026-05-16: every
 completed CLI call returns JSON with `tool`, `binary`, `success`,
 `exit_code`, `stdout`, `stderr`, `stdout_truncated`,
 `stderr_truncated`, and `mode = "cli_passthrough"`. Output pipes are
 read with a 10 MiB cap per stream; nonzero exits stay structured
 instead of disappearing into free-form text.
+
+D.4 extended Tunnel C on 2026-05-16 with the Pro-only `aider` tool.
+It invokes Aider's official `--message` single-shot scripting path,
+keeps `--yes-always` as the non-interactive default, and forces
+`--no-auto-commits --no-dirty-commits` unless the caller explicitly
+opts back into Aider commits. The same hardened runner scrubs inherited
+provider secrets before spawn and returns the shared JSON receipt shape.
 
 The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible

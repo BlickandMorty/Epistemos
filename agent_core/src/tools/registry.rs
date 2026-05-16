@@ -846,7 +846,7 @@ impl ToolRegistry {
             }
 
             // Tunnel C — delegate a task to Claude Code / Codex / Gemini /
-            // Kimi CLI. Same `enable_bash` gate because these are subprocess
+            // Kimi / Aider CLI. Same `enable_bash` gate because these are subprocess
             // spawners with the same trust profile. The gemini + kimi
             // handlers (added 2026-05-05 per user request "i don't see
             // CLIs at all si please fix") follow the same shape as the
@@ -856,6 +856,7 @@ impl ToolRegistry {
                 self.register_codex_passthrough();
                 self.register_gemini_passthrough();
                 self.register_kimi_passthrough();
+                self.register_aider_passthrough();
             }
         }
 
@@ -2215,6 +2216,61 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::KimiHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_aider_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "aider".to_string(),
+            description: "Delegate a coding task to Aider in single-message scripting mode \
+                (`aider --message <task>`). The delegated agent can edit files in the selected \
+                working directory using Aider's own model and repo-map loop. By default Epistemos \
+                disables Aider auto-commits so host commit discipline stays explicit. \
+                Returns a structured receipt. If Aider is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Aider."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional Aider model override (for example 'sonnet', 'openai/gpt-5.2', or another model id supported by Aider)."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Aider session in."
+                    },
+                    "yes_always": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --yes-always so the non-interactive invocation can proceed without re-prompting."
+                    },
+                    "auto_commits": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, allow Aider's auto-commit behavior. Default false passes --no-auto-commits."
+                    },
+                    "dirty_commits": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, allow Aider dirty-worktree commits. Default false passes --no-dirty-commits."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::AiderHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
@@ -3877,6 +3933,21 @@ mod tier_tests {
         // Agent tier includes the destructive tools Pro hides, surfaced under V2 names.
         assert!(agent_names.contains("action.terminal"));
         assert!(agent_names.contains("communication.send_message"));
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_aider_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("aider"));
+        assert_eq!(registry.get_risk_level("aider"), RiskLevel::Destructive);
+        assert_eq!(registry.get_tier("aider"), ToolTier::Agent);
     }
 
     #[cfg(feature = "pro-build")]
