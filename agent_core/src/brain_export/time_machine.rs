@@ -94,6 +94,82 @@ impl BrainDelta {
             && self.skill_registry_hash.is_none()
             && self.vault_state_hash.is_none()
     }
+
+    /// Count of fields actually changed by this delta (Some-valued
+    /// options). Cross-surface invariant: `changed_field_count() == 0`
+    /// iff `is_noop()`.
+    pub fn changed_field_count(&self) -> usize {
+        (self.model_id.is_some() as usize)
+            + (self.dag_merkle_root.is_some() as usize)
+            + (self.claim_ledger_hash.is_some() as usize)
+            + (self.skill_registry_hash.is_some() as usize)
+            + (self.vault_state_hash.is_some() as usize)
+    }
+
+    /// Names of fields actually changed by this delta. Stable
+    /// identifiers used by the control-room "what changed?" log.
+    /// Cross-surface invariant: `changes().len() == changed_field_count()`.
+    pub fn changes(&self) -> Vec<&'static str> {
+        let mut v: Vec<&'static str> = Vec::new();
+        if self.model_id.is_some() {
+            v.push("model_id");
+        }
+        if self.dag_merkle_root.is_some() {
+            v.push("dag_merkle_root");
+        }
+        if self.claim_ledger_hash.is_some() {
+            v.push("claim_ledger_hash");
+        }
+        if self.skill_registry_hash.is_some() {
+            v.push("skill_registry_hash");
+        }
+        if self.vault_state_hash.is_some() {
+            v.push("vault_state_hash");
+        }
+        v
+    }
+
+    /// Time advancement from `from_ts`: `Some(timestamp_to - from_ts)`
+    /// when the delta moves time forward, else `None` (backward or
+    /// stationary — both rejected at reconstruction time).
+    pub const fn time_delta(&self, from_ts: u64) -> Option<u64> {
+        if self.timestamp_to > from_ts {
+            Some(self.timestamp_to - from_ts)
+        } else {
+            None
+        }
+    }
+
+    /// Predicate: model_id changed by this delta.
+    pub const fn changes_model(&self) -> bool {
+        self.model_id.is_some()
+    }
+
+    /// Predicate: dag_merkle_root changed by this delta.
+    pub const fn changes_dag(&self) -> bool {
+        self.dag_merkle_root.is_some()
+    }
+}
+
+impl TimeMachineError {
+    /// Predicate: this error pertains to time ordering
+    /// (DeltaGoesBackward / DeltaIsNoop).
+    pub const fn is_temporal(&self) -> bool {
+        matches!(
+            self,
+            TimeMachineError::DeltaGoesBackward { .. } | TimeMachineError::DeltaIsNoop { .. }
+        )
+    }
+
+    /// Predicate: this error pertains to data validity
+    /// (SchemaMismatch / InvalidResult). Cross-surface invariant:
+    /// `is_temporal XOR is_data` partitions every TimeMachineError.
+    pub const fn is_data(&self) -> bool {
+        matches!(
+            self,
+            TimeMachineError::SchemaMismatch | TimeMachineError::InvalidResult(_)
+        )
+    }
 }
 
 /// Pure reconstruction. Given a base snapshot and a delta, produce the
@@ -327,6 +403,148 @@ mod tests {
         };
         assert!(!one.is_noop());
         assert_eq!(SCHEMA_V1, "epistemos.brain.v1");
+    }
+
+    // ── diagnostic surface (iter 144) ────────────────────────────────────────
+
+    #[test]
+    fn changed_field_count_zero_iff_noop() {
+        // Cross-surface invariant: changed_field_count() == 0 iff is_noop().
+        let noop = BrainDelta {
+            timestamp_to: 5,
+            model_id: None,
+            dag_merkle_root: None,
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert!(noop.is_noop());
+        assert_eq!(noop.changed_field_count(), 0);
+
+        let one = BrainDelta {
+            timestamp_to: 5,
+            model_id: Some("x".into()),
+            dag_merkle_root: None,
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert!(!one.is_noop());
+        assert_eq!(one.changed_field_count(), 1);
+    }
+
+    #[test]
+    fn changed_field_count_caps_at_five() {
+        let all = BrainDelta {
+            timestamp_to: 5,
+            model_id: Some("a".into()),
+            dag_merkle_root: Some("b".into()),
+            claim_ledger_hash: Some("c".into()),
+            skill_registry_hash: Some("d".into()),
+            vault_state_hash: Some("e".into()),
+        };
+        assert_eq!(all.changed_field_count(), 5);
+    }
+
+    #[test]
+    fn changes_list_matches_count() {
+        // Cross-surface invariant: changes().len() == changed_field_count().
+        let mixed = BrainDelta {
+            timestamp_to: 5,
+            model_id: Some("a".into()),
+            dag_merkle_root: None,
+            claim_ledger_hash: Some("c".into()),
+            skill_registry_hash: None,
+            vault_state_hash: Some("e".into()),
+        };
+        assert_eq!(mixed.changes().len(), mixed.changed_field_count());
+        assert_eq!(mixed.changes(), vec!["model_id", "claim_ledger_hash", "vault_state_hash"]);
+    }
+
+    #[test]
+    fn changes_empty_for_noop() {
+        let noop = BrainDelta {
+            timestamp_to: 5,
+            model_id: None,
+            dag_merkle_root: None,
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert!(noop.changes().is_empty());
+    }
+
+    #[test]
+    fn time_delta_returns_some_for_forward() {
+        let d = BrainDelta {
+            timestamp_to: 500,
+            model_id: Some("x".into()),
+            dag_merkle_root: None,
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert_eq!(d.time_delta(100), Some(400));
+    }
+
+    #[test]
+    fn time_delta_returns_none_for_backward_or_equal() {
+        let d = BrainDelta {
+            timestamp_to: 100,
+            model_id: Some("x".into()),
+            dag_merkle_root: None,
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert_eq!(d.time_delta(100), None);
+        assert_eq!(d.time_delta(500), None);
+    }
+
+    #[test]
+    fn time_delta_aligns_with_reconstruct_rejection() {
+        // Cross-surface invariant: time_delta(base_ts).is_none() iff
+        // reconstruct(base, delta) returns DeltaGoesBackward.
+        let a = snap(100, "0xaa");
+        let backward = BrainDelta {
+            timestamp_to: 50,
+            model_id: None,
+            dag_merkle_root: Some("0xbb".into()),
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert!(backward.time_delta(a.timestamp_unix_ms).is_none());
+        let err = reconstruct(&a, &backward).unwrap_err();
+        assert!(matches!(err, TimeMachineError::DeltaGoesBackward { .. }));
+    }
+
+    #[test]
+    fn change_predicates_match_field_options() {
+        let d = BrainDelta {
+            timestamp_to: 5,
+            model_id: Some("x".into()),
+            dag_merkle_root: None,
+            claim_ledger_hash: None,
+            skill_registry_hash: None,
+            vault_state_hash: None,
+        };
+        assert!(d.changes_model());
+        assert!(!d.changes_dag());
+    }
+
+    #[test]
+    fn temporal_vs_data_error_partition() {
+        // Cross-surface invariant: is_temporal XOR is_data over all variants.
+        let backward = TimeMachineError::DeltaGoesBackward { from: 0, to: 0 };
+        let noop = TimeMachineError::DeltaIsNoop { at: 0 };
+        let schema = TimeMachineError::SchemaMismatch;
+        let invalid = TimeMachineError::InvalidResult(BrainExportError::EmptyModelId);
+        for e in [&backward, &noop, &schema, &invalid].iter().copied() {
+            assert_ne!(e.is_temporal(), e.is_data());
+        }
+        assert!(backward.is_temporal() && noop.is_temporal());
+        assert!(schema.is_data() && invalid.is_data());
     }
 
     #[test]
