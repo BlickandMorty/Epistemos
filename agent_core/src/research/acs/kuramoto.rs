@@ -74,6 +74,72 @@ pub fn kuramoto_step(network: &mut KuramotoNetwork, dt: f32) -> Result<(), Kuram
     Ok(())
 }
 
+/// Dörfler-Bullo critical coupling: `K_c = 2 / (π · g(0))`, where
+/// `g(0)` is the natural-frequency distribution's density at zero.
+/// For a uniform `[-Ω, Ω]` distribution `g(0) = 1 / (2Ω)`, so
+/// `K_c = 4Ω/π`. For a normal `N(0, σ²)` distribution `g(0) =
+/// 1/(σ·sqrt(2π))`, so `K_c = 2σ·sqrt(2π)/π = σ·sqrt(8/π)`.
+///
+/// Callers compute `g(0)` themselves and pass it in. Returns
+/// `None` for non-finite or non-positive density (no useful K_c
+/// exists in those cases).
+pub fn critical_coupling_kc(natural_freq_density_at_zero: f32) -> Option<f32> {
+    if !natural_freq_density_at_zero.is_finite() {
+        return None;
+    }
+    if natural_freq_density_at_zero <= 0.0 {
+        return None;
+    }
+    Some(2.0 / (std::f32::consts::PI * natural_freq_density_at_zero))
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SyncOutcome {
+    pub final_r: f32,
+    pub steps_taken: u32,
+    pub reached_target: bool,
+}
+
+/// Step the network forward until the order parameter `r` reaches
+/// `target_r` OR `max_steps` steps have elapsed. Returns the
+/// outcome (final `r`, steps taken, whether target was met).
+/// Rejects `target_r ∉ [0, 1]`.
+pub fn run_until_sync(
+    network: &mut KuramotoNetwork,
+    target_r: f32,
+    max_steps: u32,
+    dt: f32,
+) -> Result<SyncOutcome, KuramotoError> {
+    if !target_r.is_finite() || !(0.0..=1.0).contains(&target_r) {
+        return Err(KuramotoError::NonPositiveDt { dt: target_r });
+    }
+    let initial = order_parameter(network)?;
+    if initial.r >= target_r {
+        return Ok(SyncOutcome {
+            final_r: initial.r,
+            steps_taken: 0,
+            reached_target: true,
+        });
+    }
+    for step in 1..=max_steps {
+        kuramoto_step(network, dt)?;
+        let op = order_parameter(network)?;
+        if op.r >= target_r {
+            return Ok(SyncOutcome {
+                final_r: op.r,
+                steps_taken: step,
+                reached_target: true,
+            });
+        }
+    }
+    let final_op = order_parameter(network)?;
+    Ok(SyncOutcome {
+        final_r: final_op.r,
+        steps_taken: max_steps,
+        reached_target: false,
+    })
+}
+
 /// Compute `r · e^{iψ} = (1/N) · Σ_j e^{iθ_j}`.
 pub fn order_parameter(network: &KuramotoNetwork) -> Result<OrderParameter, KuramotoError> {
     if network.oscillators.is_empty() {
@@ -252,5 +318,82 @@ mod tests {
         let p_before = net.oscillators[0].phase;
         kuramoto_step(&mut net, 0.01).unwrap();
         assert!((net.oscillators[0].phase - p_before).abs() < 1e-6);
+    }
+
+    // ── critical_coupling_kc + run_until_sync tests (iter 109) ──────────────
+
+    #[test]
+    fn kc_uniform_distribution_matches_4_omega_over_pi() {
+        // For uniform [-Ω, Ω], g(0) = 1/(2Ω), so K_c = 2/(π · 1/(2Ω)) = 4Ω/π.
+        // With Ω = 1, K_c = 4/π ≈ 1.273.
+        let g_zero = 1.0 / (2.0 * 1.0);
+        let kc = critical_coupling_kc(g_zero).unwrap();
+        assert!((kc - 4.0 / std::f32::consts::PI).abs() < 1e-6);
+    }
+
+    #[test]
+    fn kc_normal_distribution_matches_sigma_sqrt_8_pi() {
+        // For N(0, σ²), g(0) = 1/(σ·sqrt(2π)), so K_c = σ·sqrt(8/π).
+        // With σ = 1, K_c = sqrt(8/π) ≈ 1.596.
+        let sigma = 1.0_f32;
+        let g_zero = 1.0 / (sigma * (2.0 * std::f32::consts::PI).sqrt());
+        let kc = critical_coupling_kc(g_zero).unwrap();
+        let expected = sigma * (8.0 / std::f32::consts::PI).sqrt();
+        assert!((kc - expected).abs() < 1e-5);
+    }
+
+    #[test]
+    fn kc_zero_density_returns_none() {
+        assert!(critical_coupling_kc(0.0).is_none());
+        assert!(critical_coupling_kc(-0.1).is_none());
+        assert!(critical_coupling_kc(f32::NAN).is_none());
+    }
+
+    #[test]
+    fn run_until_sync_reaches_target_under_strong_coupling() {
+        // All oscillators have the same intrinsic frequency (zero
+        // dispersion). Strong coupling and they sync instantly to
+        // their mean phase. Target r = 0.99 is reachable.
+        let mut net = uniform_network(8, 0.0, 5.0);
+        let outcome = run_until_sync(&mut net, 0.99, 500, 0.05).unwrap();
+        assert!(
+            outcome.reached_target,
+            "should sync; final_r = {}, steps = {}",
+            outcome.final_r,
+            outcome.steps_taken
+        );
+        assert!(outcome.final_r >= 0.99);
+    }
+
+    #[test]
+    fn run_until_sync_returns_immediately_if_already_synced() {
+        // Phases all equal → r = 1.0 immediately.
+        let mut net = KuramotoNetwork {
+            oscillators: vec![
+                KuramotoOscillator { phase: 0.0, intrinsic_freq: 0.0 },
+                KuramotoOscillator { phase: 0.0, intrinsic_freq: 0.0 },
+            ],
+            coupling: 0.0,
+        };
+        let outcome = run_until_sync(&mut net, 0.9, 100, 0.1).unwrap();
+        assert!(outcome.reached_target);
+        assert_eq!(outcome.steps_taken, 0);
+    }
+
+    #[test]
+    fn run_until_sync_times_out_below_threshold() {
+        // Zero coupling + spread phases → never syncs.
+        let mut net = uniform_network(8, 1.0, 0.0);
+        let outcome = run_until_sync(&mut net, 0.95, 50, 0.01).unwrap();
+        assert!(!outcome.reached_target);
+        assert_eq!(outcome.steps_taken, 50);
+    }
+
+    #[test]
+    fn run_until_sync_invalid_target_rejected() {
+        let mut net = uniform_network(2, 0.0, 1.0);
+        assert!(run_until_sync(&mut net, 1.5, 10, 0.01).is_err());
+        assert!(run_until_sync(&mut net, -0.1, 10, 0.01).is_err());
+        assert!(run_until_sync(&mut net, f32::NAN, 10, 0.01).is_err());
     }
 }
