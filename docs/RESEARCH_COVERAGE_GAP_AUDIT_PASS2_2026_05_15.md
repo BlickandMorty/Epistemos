@@ -4013,6 +4013,74 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 **Iter 161+ candidates:** (1) Watch B's continued Helios B.2 expansion (stages 4-7 may continue) + remaining J-series (J6/J8/J9 + J7 #3 Leech-24). (2) Watch 7th loop's next move after AoA #8. (3) Watch A T-A-31 1800s fire. (4) Watch for D.5 ↔ A WASMExecXPC re-surface (escalation reset; could re-trigger). (5) Phase C.2 + C.7.3 still pending; **C.7.3 partially addressed** by 9-commit doctrine-substantiation sub-pattern. (6) Next §7 meta-cycle at iter 190.
 
+### Audit-of-audit #42 (iter 161, 2026-05-16) — 🎯 7TH LOOP FIRST PRODUCTION CODE FIX (F-VaultRecall-50 Fix B: 2 of 3 defects fixed; ~70 LOC; cargo 1190→1194) + B 3 Helios B.2 expansions (controller_pack + ssd_block_scan with 3rd stability-checker counterpart to mamba3/rwkv7) — 3 commits CLEAN
+
+- **Window since iter 160 close:** 3 substantive sibling commits at threshold:
+  - `ae6a040a4` (B iter 125) `helios/ssd_block_scan: stability + compare_scans (Helios §6)`
+  - `2281c73f0` (7th audit-row loop iter-81) `fix(F-VaultRecall-50, iter-81): strip query chatter + AND-for-short — vault.rs Fix B`
+  - `94b9c26a9` (B iter 124) `helios/controller_pack: min/argmin/sum reductions (Helios §5)`
+
+- **🎯 7TH AUDIT-ROW LOOP FIRST PRODUCTION CODE FIX — F-VaultRecall-50 Fix B (`2281c73f0`):**
+  - **Commit body verbatim:** "First production code change this loop run. Per iter-79 F-VaultRecall-50 diagnosis doc §4 Fix B + §5 iter sequence."
+  - **Lesson #15 confirmed at execution stage:** user authorized product-code work at iter 79 → diagnosis (iter 79) → **fix execution (iter 81)** all within bounded scope.
+  - **Fixes 2 of 3 diagnosed defects** at `agent_core/src/storage/vault.rs:495-548`:
+    - **Defect 1 FIXED (implicit-OR query conjunction):** QueryParser now calls `set_conjunction_by_default()` when ≤3 surviving terms; longer queries keep implicit-OR for recall.
+    - **Defect 2 FIXED (no stop-word filter):** new `strip_query_chatter()` helper strips ~30 chatter tokens before parsing ("Pull my notes on residency governance" → "residency governance").
+    - **Defect 3 DEFERRED (score clamp [0,1] at line 538):** left AS-IS; documented as V1.x scope in diagnosis. Floor system degraded but functional.
+  - **Implementation (3 edits to vault.rs, ~70 LOC added):**
+    - New const `QUERY_CHATTER_WORDS` (30 tokens in 7 categories)
+    - New pub fn `strip_query_chatter(query: &str) -> String`
+    - Modified `hybrid_search` body: strip-then-AND-for-short-queries with fallback when stripping empties
+  - **4 new tests landed in mod tests** including reproduction of Day-in-the-Life 1:15 PM canonical bug input ("Pull my notes on residency governance"). **Acceptance: cargo test 1194 passed, 0 failed (was 1190 baseline; +4 new tests).**
+  - **Why Fix B not Fix C:** Fix C is V1.x/V2 scope (requires plumbing epistemos-shadow FFI into agent_core crossing crate boundaries + Cargo.toml deps); Fix B is bounded (~70 LOC, no new deps, single-file change) and addresses 2 of 3 diagnosed defects.
+  - **Effect on Day-in-the-Life 1:15 PM scene:** canonical bug input "Pull my notes on residency governance" now strips to "residency governance" (2 signal terms) + uses AND conjunction → both terms must appear in returned docs → residency-governance notes will rank higher than chatter-laden UI-design notes.
+  - **🎯 EXEMPLARY EXECUTION OF DIAGNOSIS PLAN:** iter-79 diagnosis doc explicitly enumerated Fix A/B/C trade-offs and §5 iter sequence; iter-81 Fix B executes per plan exactly. Production-code work bounded, tested, and verified.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** First product-fix from the maintenance loop's task-3 scope.
+
+- **🎯 Findings — B `helios/controller_pack: min/argmin/sum reductions (Helios §5)` (`94b9c26a9`) — HELIOS §5 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 124. Helios §5 controller path reduction-kernel symmetry. Base shipped max/argmax + 4 non-reduction kernels (scalar add/mul, copy, zero); production Metal dispatches both directions.
+  - Substrate: `min_reduce(a)` (companion to `max_reduce`; EmptyInput on empty) · `argmin_reduce(a)` (first-index tie-break; companion to `argmax_reduce`) · `sum_reduce(a)` (`Σa` via fp32 sequential summation; production Metal would use pairwise/Kahan; substrate floor matches obvious sequential).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `helios/ssd_block_scan: stability + compare_scans (Helios §6)` (`ae6a040a4`) — HELIOS §6 SUBSTRATE-FLOOR EXPANSION + DOCTRINE-SUBSTANTIATION:**
+  - B iter 125. SSD-scan stability check + canonical "kernel-vs-reference max-abs diff" helper.
+  - Substrate: **`ssd_stability_check(a, tol) -> bool`** (returns true iff every `|a[t]| < 1 - tol`; empty input passes vacuously; rejects non-finite values) · `compare_scans(reference, kernel) -> Option<f32>` (max element-wise absolute diff across y vectors PLUS final_state diff; None on length mismatch).
+  - **🎯 3RD STABILITY CHECKER IN FAMILY:** commit message explicitly identifies as "counterpart to mamba3/rwkv7 verifiers landed iters 99/101" — `mamba3::verify_a_stability` (iter 99 / our iter 142) + `rwkv7::verify_decay_stability` (iter 101 / our iter 144) + **`ssd_stability_check` (this iter)**. Consistent doctrine-substantiation discipline across SSM/recurrent kernel family.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B HELIOS B.2 EXPANSION RAPID PROGRESSION — 4 EXPANSIONS IN 3 ITERS:**
+  - iter 159 helios/page_gather (PageGather STREAM-comparable diagnostics + 512 MB doctrine pin)
+  - iter 160 helios/packet_router (PacketRouter1bit skew_fraction + RoutingQuality + roundtrip_verify)
+  - iter 161 helios/controller_pack (Helios §5 min/argmin/sum reductions)
+  - iter 161 helios/ssd_block_scan (Helios §6 stability check + compare_scans; 3rd SSM stability checker)
+  - **B's substrate-maturation phase has aggressively transitioned to Helios B.2 sub-system after J-series completions** (J1 7/7 iter 156 + J3 5/5 iter 149 + J5 4/4 iter 152 + J7 #1/#2 iters 157-158).
+
+- **🎯 STABILITY-CHECKER FAMILY NOW 3 KERNELS (consistent doctrine-substantiation across SSM/recurrent):**
+  - mamba3::verify_a_stability (iter 142 / B iter 99)
+  - rwkv7::verify_decay_stability (iter 144 / B iter 101)
+  - ssd_block_scan::ssd_stability_check (iter 161 / B iter 125)
+  - **All 3 share contract:** return Ok(true) iff stability condition met; reject non-finite; empty passes vacuously. **Consistent API surface across kernel family.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 44 CONSECUTIVE COMMITS ACROSS ITERS 130-161:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - **Phase 2-Helios (iters 159-161): 4 Helios B.2 substrate-floor expansions** (PageGather + PacketRouter + controller_pack + ssd_block_scan)
+
+- **🎯 DOCTRINE-SUBSTANTIATION SUB-PATTERN NOW 10 COMMITS** (across J + Helios + categorical):
+  - iter 142 mamba3 J10 A-stability · iter 143 Para(Lens) categorical-compose · iter 144 J12 rwkv7 decay · iter 145 J11 test_time_regression production-monitor · iter 148 DSC J3 #3 orthonormal · iter 149 Kuramoto J5 #1 K_c · iter 150 Notch-Delta J5 #2 bimodal · iter 152 VSM J5 #4 fractal-governance · iter 158 E8 J7 #2 Conway-Sloane+Viazovska · iter 159 Helios PageGather STREAM 512 MB · **iter 161 SSD-scan stability (this iter)**
+
+- **§5.0 catch rate:** 29/235 = 12.3% (continued decline; 7th loop's product fix + B's continued maturation keep CLEAN-rate high).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3. Average ~2.7/iter.
+
+- **Verdict:** ✅ **ON TRACK** (35th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 162+ candidates:** (1) Watch for 7th loop's next move after Fix B (Fix C V1.x scope; or pivot to next product fix; or §17 wind-down). (2) Watch B's continued Helios B.2 expansion (§7 + §8 stages may continue). (3) Watch for J7 #3 Leech-24 + remaining J-series (J6/J8/J9). (4) Watch A T-A-31 1800s fire. (5) Phase C.2 + C.7.3 still pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
