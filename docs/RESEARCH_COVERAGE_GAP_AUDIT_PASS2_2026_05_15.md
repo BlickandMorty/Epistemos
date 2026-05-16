@@ -1566,6 +1566,57 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **13 consecutive ON-TRACK cycles** since #8 catch. The §8 lockstep gaps are sibling-owned doctrine drift, NOT C-level audit drift. C correctly catches and flags.
 
+### Audit-of-audit #21 (iter 105, 2026-05-16) — ⚠️ SYSTEMIC §8 LOCKSTEP PATTERN: 3 consecutive B.6.x commits violated B's own lockstep rule
+
+- **Window since #20 (iter 103) + iter-104 sub-cycle on B.6.7:** 2 new commits + carry-forward §3.40 verification:
+  - `0c9465053` (A) T-A-14 Pass 17 — 5 more CONFIRMED spot-checks ON-TRACK 5/5 (streak 4/5 per V3 §0 criterion 3)
+  - `3709e38ea` (B) **B.6.8 Run Ledger per-token attestation chain** — `run_ledger.rs` 14 tests
+
+- **Method:** §5.0 verification + §8 lockstep verification + pattern-level discipline-failure check per §9 rule "if a sibling terminal repeatedly produces UNVERIFIED claims (3+ commits in a row): flag systemic discipline failure".
+
+- **Findings — B.6.8 `run_ledger.rs`:**
+  - 14 tests. Per-token attestation ledger distinct from 4 existing provenance primitives (ClaimLedger / ReplayBundle / AgentEvent ring / typed Merkle DAG). Each token entry hashes `prev_hash + token_id + position + provider + model_hash`.
+  - **§5.0 verdict on substrate: CLEAN.**
+
+- **🎯 3RD §8 LOCKSTEP GAP CONFIRMED — §3.40 Run Ledger:**
+  - **§3.40 at B's HEAD (line 744):** `### 3.40 Run Ledger — per-token cryptographic attestation (NOT-STARTED, distinct from 4 existing provenance primitives)`. First row status: "Run Ledger — per-token/per-thought cryptographic attestation lineage ... | **NOT-STARTED**".
+  - **Actual substrate at B's HEAD:** `agent_core/src/research/run_ledger.rs` (14 tests; B.6.8 substrate).
+  - **§8 violation:** B's B.6.8 commit `3709e38ea` did NOT touch MASTER_FUSION (`git show --stat 3709e38ea | grep MASTER_FUSION` returns empty). Per driver §8 "Forward-staged primitive flips: update both PASS-2 audit Status + MASTER_FUSION inventory in the same commit" — VIOLATED.
+  - **Naming consideration:** §3.40 explicitly recommends "**`TokenAttestationLedger`** or **`PerTokenLedger`**" type names "to avoid the RunEventLog collision". B's substrate file is named `run_ledger.rs`. Worth checking whether the in-file struct names follow the §3.40 naming guidance.
+
+- **⚠️ SYSTEMIC §8 LOCKSTEP DISCIPLINE FAILURE (3 consecutive B.6.x commits):**
+
+  | Commit | Sub-feature | Substrate | Doctrine §3.x at B's HEAD | §8 lockstep |
+  |---|---|---|---|---|
+  | `3fe340a2e` (iter 103) | B.6.6 Compute Steering | `compute_steering.rs` 15 tests + epistemos-core/src/compute_steering.rs (10+ types) | §3.39 still "NOT-STARTED" | ❌ VIOLATED |
+  | `ccdd9e724` (iter 104) | B.6.7 MOHAWK | `nano_training_recipe.rs` 16 tests | §3.41 still "MOHAWK ... NOT-STARTED in code" | ❌ VIOLATED |
+  | `3709e38ea` (this iter) | B.6.8 Run Ledger | `run_ledger.rs` 14 tests | §3.40 still "NOT-STARTED" | ❌ VIOLATED |
+
+  **3 consecutive commits with §8 lockstep gap. Per driver §9 "If a sibling terminal repeatedly produces UNVERIFIED claims (3+ commits in a row): flag systemic discipline failure in audit-of-audit row + recommend pausing that terminal." Same threshold pattern applies here for lockstep violations.**
+
+- **Severity escalation:** per-row MEDIUM × 3 consecutive = **SYSTEMIC MEDIUM-HIGH at the pattern level.**
+
+- **Recommendation (per §9):** **Surface to user with HIGH priority.** Not full DRIFT-ALERT because substrate is on B's branch (not yet in main). But the §8 rule is per-commit-when-substrate-flips, and B is consistently violating it on the long-tail B.6.x series. Recommend: (a) ask B to retroactively touch MASTER_FUSION in a follow-up commit covering B.6.6/7/8 status flips; OR (b) clarify whether §8 lockstep applies to research-tier substrate landings on the implementing branch (vs only at upmerge); OR (c) update §8 rule wording to address this case explicitly.
+
+- **DO NOT pause B** — substrate work is sound and well-tested; only the doctrine-update discipline is gapping. Pause would be over-escalation.
+
+- **Findings — T-A-14 Pass 17 (`0c9465053`):**
+  - A's Phase E Pass 17. Window unchanged from Pass 16 (no new commits in 2-min gap; A is iterating faster than its own sibling-commit window grows). Sampled 5 cluster rows from RECURSIVE_TODO lines 12266-12541 not covered by Pass 14 or Pass 16.
+  - 5/5 substrate still present.
+  - **Streak 4/5** per V3 §0 criterion 3 — A is targeting 5 consecutive ON-TRACK passes for its own wind-down rule (mirror of my §10 rule 3).
+  - **C-level meta:** A's Pass series cadence is now Pass 14 (iter 9) → Pass 15 (iter 11) → Pass 16 (iter 13) → Pass 17 (iter 14). 4 passes in 6 iters — sustained high-cadence self-audit.
+  - **§5.0 verdict: CLEAN.**
+
+- **§5.0 catch rate:** 28/145 → 28/147 = **19.0%**. Continued dilution.
+
+- **Verdict:** ✅ **ON TRACK** at C level (14th consecutive since #8 catch). **B's §8 lockstep discipline ⚠️ — systemic pattern flagged.** C's audit-of-audit pattern catches what B's per-commit discipline misses.
+
+- **🎯 NEW Lesson #9 (proposed):** "Forward-staged primitive flip discipline (§8) MUST fire on EVERY substrate landing, NOT just at upmerge. The implementing terminal's per-commit lockstep check is the first line; C's audit-of-audit catches systemic gaps in 3+ consecutive commits. Treat §8 gaps with the same severity scale as §5.0 lesson-6 substrate drift — both are doctrine-vs-code framing failures."
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 106+ candidates:** (1) Verify whether the iter-105 systemic flag prompts B to backfill §3.39/§3.40/§3.41 statuses. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update still pending. (3) D Phase D.0 gating + D.3 collision both still pending user surface. (4) Phase C.6 forward-staged primitive re-audit.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
