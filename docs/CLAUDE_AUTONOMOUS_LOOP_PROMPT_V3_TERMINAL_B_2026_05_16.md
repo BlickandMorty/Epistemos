@@ -383,6 +383,72 @@ OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-
 
 **Execution order rule:** Phase B.0 runs BEFORE Phase B.1 (Wave J), B.2 (Helios kernels), B.3-B.5 (Waves G/H/I), and B.6 (NOT-STARTED inventory). B.0 gates the AnswerPacket schema freeze; nothing else can ship until B.0.4 (ULP fixture) passes.
 
+### Phase B.0-LARGE — F-70B-Local-Cocktail (Capability ceiling floor) — parallel to B.0 + B.0-KV (NEW 2026-05-16)
+
+Per V6.1 integration doc §1.13 (NEW). **The third Verified Floor gate.** Composes the full local-AI cocktail: 70B-class model executing on M2 Pro 16 GB via the **Unified Address Space (UAS)** + L3 SSD Oracle + Sparse-Active-Assembly + Hybrid SSM + ACS Kuramoto cellular resonance + speculative decoding + ANE delegation + Network Cascade fallback.
+
+**Why "Unified Address Space" matters (user's load-bearing primitive):** the 70B weights live mmap'd on SSD in NF4 quantization. Swift app code + Rust agent_core + Metal shaders + MLX inference + HNSW vector index + KV cache + the mmap'd weights ALL share ONE address space via IOSurface zero-copy. When sparse activation routing fires the 5-10% of neurons needed for the current token, those neurons are pulled instantaneously from SSD into UMA — no IPC, no marshaling, no copies. macOS virtual memory + Apple Silicon unified memory + IOSurface make the dormant-brain-neuron-pull effectively zero-latency for the active subset.
+
+**Substrate already in tree (verified 2026-05-16):**
+- ✅ `epistemos-research/src/acs.rs` (190 LOC) — `AcsAnchor` + `CmsXField` constitutive field
+- ✅ `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Tier-1 BIT-IDENTICAL contract
+- ✅ `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — Metal shader
+- ✅ Memory hierarchy doctrine (`acs_meta_layer.md` 1+ MB · Maturana-Varela · Stafford Beer VSM · Kuramoto · SiliconSwarm 6.31× speedup citation)
+- ✅ Foundation Doc Part III.1 hybrid-SSM landscape (Mamba-2/3 · Granite · Falcon-Mamba)
+- ✅ V6.1 Final Synthesis Lock — 5-plane formalism (state · episodic · assembly · controller · verification)
+- ✅ Architectural Hardening Total Victory Plan — UAS framing ("unified address space" via zero-copy FFI + HNSW + usearch)
+
+**Substrate NOT-STARTED (this phase ships):**
+- ❌ Full ACS cellular resonance (Kuramoto-coupled phase dynamics · tissues · organs · organism · self-healing) — beyond AcsAnchor scaffolding
+- ❌ Sparse-Active-Assembly routing engine (5-10% per token via Goodfire VPD components)
+- ❌ UAS mmap'd weights pipeline (NF4 + IOSurface zero-copy + macOS virtual memory paging)
+- ❌ Speculative decoding orchestrator (3B draft · 70B verify)
+- ❌ ANE delegation for attention layers
+- ❌ End-to-end 70B execution harness
+
+**The gate experiment:**
+
+| Setup | Spec |
+|---|---|
+| Target model | Llama-3.3-70B OR Qwen2.5-72B OR Hermes-4-70B |
+| Quantization | BitNet b1.58 ternary (T-MAC LUT kernels arXiv:2410.16144) → ~14 GB weights |
+| Storage | mmap'd on SSD via NF4 IOSurface zero-copy |
+| Layer mix | Hybrid SSM 9:1 (only ~7 of 70 layers attention; rest constant-memory state-space) |
+| Sparse runtime | Sparse-Active-Assembly via Goodfire VPD components (5-10% weights per token) |
+| Cellular resonance | ACS Kuramoto-coupled cells per `acs_meta_layer.md` (research-tier; off in V1) |
+| Speculative decode | 3B draft (Granite-4.0-H-Micro 4-bit) proposes; 70B verifies |
+| ANE delegation | Attention layers via `_ANEClient` private framework (Pro `cs.disable-library-validation`) |
+| Cascade fallback | Network Cascade L5 → Hermes-4-405B cloud for KL outliers (`D_KL > 0.1` nats per token) |
+| Test corpus | 50 prompts (MMLU-Pro subset + HumanEval + long-context reasoning + multi-turn coherence) |
+| **Quality threshold** | **D_KL < 0.1 nats vs fp16 reference on cloud** |
+| **Latency threshold** | **≥ 5 tok/s decode · ≤ 30s TTFT on 4k prompt** |
+| **Memory threshold** | **stay under 14 GB resident on M2 Pro 16 GB** |
+| Budget | ≤ 2 hours wall-clock first run; ≤ 30 min after caches warm |
+
+**Sub-items:**
+
+- **B.0-LARGE.1** — UAS plumbing audit: verify Swift + Rust + Metal + MLX + KV cache + HNSW all share one address space per Architectural Hardening Total Victory Plan
+- **B.0-LARGE.2** — Land Sparse-Active-Assembly routing module in `agent_core/src/scope_rex/sparse_assembly/` (NEW). Goodfire VPD component dispatch · 5-10% activation threshold
+- **B.0-LARGE.3** — Extend `acs.rs` with Kuramoto-coupled cellular resonance (per `acs_meta_layer.md` Part 1) — research-tier, off in V1 MAS
+- **B.0-LARGE.4** — mmap'd NF4 weight pipeline at `agent_core/src/storage/uas_weights.rs` — IOSurface zero-copy from SSD to UMA
+- **B.0-LARGE.5** — Speculative decoding orchestrator: 3B draft (Granite-4.0-H-Micro) + 70B verify loop · acceptance rate measurement
+- **B.0-LARGE.6** — ANE delegation: attention-layer offload via `_ANEClient` (Pro-only · `cs.disable-library-validation`)
+- **B.0-LARGE.7** — 50-prompt test corpus design (MMLU-Pro 12 + HumanEval 13 + long-context 13 + multi-turn 12)
+- **B.0-LARGE.8** — End-to-end 70B harness in `agent_core/tests/f_70b_local_cocktail_harness.rs`
+- **B.0-LARGE.9** — Measure D_KL · latency · memory; assert all three thresholds. Pass / Fail report.
+- **B.0-LARGE.10** — **GATE**: Pass → 128k local context + 70B model on consumer 16 GB Mac shippable. Fail → publish "the cocktail composes to N% — bottleneck is component X" + pivot to next-strongest cocktail (probably Granite-4.0-H-Micro 3B + cloud cascade as practical local path).
+
+**This is V2 / new-repo territory but the FALSIFIER ships in V1.** Even if results are "we got to 30 tok/s but quality drifted at 32k context," that's publishable. The full implementation (B.0-LARGE.10 pass) takes 4-8 months after gate verifies; the gate itself runs in 4-8 weeks.
+
+**Cross-references:**
+- `docs/fusion/jordan's research/kimis deep research/acs_meta_layer.md` (Autopoietic Cognitive Stack research, 1+ MB)
+- `docs/_consolidated/50_research_corpus/mass_research/Architectural Hardening_ Total Victory Plan.md` (UAS framing)
+- `~/Downloads/EPISTEMOS_V6_1_FINAL_SYNTHESIS_LOCK.md` (5-plane formalism + interrupt-score equation)
+- Foundation Doc Part III.1 (hybrid-SSM landscape)
+- Foundation Doc Part X (F-Sparse-Runtime-Split falsifier)
+- V6.1 integration doc §1.13 (NEW — see commit landing this phase)
+- Phase B.0 F-ULP-Oracle + Phase B.0-KV F-KV-Direct-Gate (the two foundational floors this builds on)
+
 ### Phase B.0-KV — F-KV-Direct-Gate (Memory architecture floor) — parallel to B.0, gates L3 SSD Oracle (NEW 2026-05-16)
 
 Per V6.1 integration doc §1.12 (NEW). **Runs in parallel to Phase B.0** — different shaders, different Rust modules, different test corpora. Both gates can verify on the same iter if cargo budget allows.

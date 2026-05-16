@@ -85,6 +85,32 @@ These complement §4 with parallel-run-specific tracking:
 
 ---
 
+## §5.5 V6.1 / 70B-Local-Cocktail research corpus (the user's end-game vision substrate)
+
+These docs are referenced by V6.1 integration §1.13 (Phase B.0-LARGE F-70B-Local-Cocktail):
+
+| Path | Purpose | Status |
+|---|---|---|
+| `docs/fusion/jordan's research/kimis deep research/acs_meta_layer.md` | Autopoietic Cognitive Stack — Maturana-Varela organizational closure + Stafford Beer VSM + Kauffman attractors + Kuramoto-coupled cellular resonance + SiliconSwarm 6.31× speedup; the recursive "transistor to ecosystem" pattern | CANONICAL research-tier |
+| `docs/_consolidated/50_research_corpus/mass_research/Architectural Hardening_ Total Victory Plan.md` | **Unified Address Space (UAS)** doctrine — zero-copy FFI + HNSW + usearch + Swift/Rust/Metal/MLX in ONE address space | CANONICAL (UAS is the load-bearing primitive for B.0-LARGE) |
+| `~/Downloads/EPISTEMOS_V6_1_FINAL_SYNTHESIS_LOCK.md` | V6.1 Final Synthesis — 5-plane formalism · interrupt-score equation · attention-as-interrupt thesis · donor-distillation ramp · Goodfire VPD CONFIRMED-PUBLIC · 5 load-bearing kernels · 32 new nuance items (166-197) | CANONICAL lock |
+| `~/Downloads/EPISTEMOS_HELIOS_v4_1_AMENDMENTS.md` | V4.1 amendments — `eml_star` preservation ledger + M3 Ultra Mac Studio 256GB correction + tools-rejected appendix (nanowhale + ml-intern HARD NO with 4-gate discipline) | CANONICAL amendment |
+| `~/Downloads/final/EPISTEMOS_HERMES_MANIFESTO.md` | Hermes Agent Creative Hackathon manifesto — substrate-core slotmap entity graph + 6-verb MCP surface + skills-as-nodes + loop profiles + schema-driven UI + WKWebView built-in browser | CANONICAL (Hackathon vision, pre-purge — naming-reconciliation context per CLAUDE.md "Hermes parity not Hermes agent") |
+| `docs/fusion/helios v5 first.md` + `docs/fusion/helios v5 updated.md` | V5 substrate doctrine (LANDED 2026-05-06) — W1-W26 + E1-E7 + H1-H17 + PCF-1..10 | CANONICAL substrate |
+| `docs/fusion/helios v6.2.md` | V6.2 strict V6.1 superset — 8-stage V6_2_FALSIFIER_ORDER · M2Pro16Gb hardware lock | CANONICAL delta |
+| `docs/fusion/jordan's research/ternary kernel.md` | Three ternary backends (Dense MLX baseline / BitNet reference truth / Ternary Metal breakthrough) | CANONICAL ternary research |
+| `docs/fusion/jordan's research/SCOPE_REX_GATE_REGISTER_2026_05_01.md` | SCOPE-Rex gate register | CANONICAL governance |
+| `docs/fusion/jordan's research/scope rex.md` + `scope rex omega.md` | SCOPE-Rex MutationEnvelope + WitnessedState + ClaimGraph + RunEventLog doctrine | CANONICAL governance |
+| `docs/fusion/jordan's research/deterministicapp.md` | Deterministic app doctrine — confidence floors + escalate_on_empty + LadderLog → Provenance Console | CANONICAL deterministic-output doctrine |
+| `docs/fusion/jordan's research/CODEX_SCOPE_REX_SUBSTRATE_PROMPT_2026_05_01.md` + `CODEX_UNIFIED_EXECUTION_PROMPT_2026_04_30 (1).md` | Codex execution prompts for SCOPE-Rex substrate + unified execution | CANONICAL build prompts |
+| `epistemos-research/src/acs.rs` (190 LOC, in tree) | AcsAnchor + CmsXField constitutive field — Episodic plane substrate (V5 W6-W8 lift) | EV (verified in main + runE worktrees) |
+| `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC, in tree) + `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) | KV-Direct Tier-1 BIT-IDENTICAL contract substrate | EV (commits 99cab68c1 + b970f98fe) |
+| `~/Downloads/master resarch here/EPISTEMOS_HELIOS_MASTER_ARCHIVE_2026_05_05_PRESERVATION_BUNDLE/` | Full preservation bundle — raw prompts appendix + original uploads + supporting research | CANONICAL archive |
+| `~/Downloads/final/last round of thinking/Epistemos Architecture Consensus & Disruption.txt` + `compass_artifact_*.md` (multiple) | External consensus + disruption analyses across 6 independent reasoners (the convergence-as-signal evidence in V6.1 lock §1) | CANONICAL convergence evidence |
+| `~/Downloads/final/executive sumaries/epistemos-rival-doctrine.md` + `gpt deep.md` + `deeper research from gpt.md` | Executive summaries (rival doctrine + GPT deep research) | CANONICAL competitive analysis |
+
+**Drift discipline:** these are the user's end-game vision substrate. Phase B.0-LARGE (F-70B-Local-Cocktail) unifies them into one falsifiable gate. Terminal C MUST cross-reference these on each audit-of-audit cycle when B.0-LARGE work appears.
+
 ## §6. Research corpus (read before coding any new feature)
 
 | Path | Purpose | Read cadence |
