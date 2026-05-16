@@ -1,6 +1,20 @@
 import Foundation
 import OSLog
 
+/// Closed failure-class taxonomy for Shadow backend init failures
+/// (distinct from per-search failures captured by `ShadowSearchFailureClass`).
+/// Public so the AppBootstrap init paths can call `recordInitFailure`
+/// without a private-access escape hatch.
+public enum ShadowInitFailureClass: String, Sendable {
+    /// `RustShadowFFIClient(path:)` threw — tantivy lexical index open failed
+    /// (corruption / format mismatch / `create_dir_all` permission denied / IO).
+    case handleOpen = "handle_open"
+    /// `client.warm()` threw — Model2Vec embedder warmup failed (HF download
+    /// stall, cold-cache race, deserialization error). Halo can still search
+    /// but the first query blocks on cold cache.
+    case embedderWarm = "embedder_warm"
+}
+
 private enum ShadowSearchFailureClass: String, Sendable {
     case invalidInput = "invalid_input"
     case notFound = "not_found"
@@ -30,8 +44,20 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
         public let lastSuccessAt: Date?
         public let lastFailureAt: Date?
         public let lastFailureClass: String?
+        /// Last init-time failure class (handle_open / embedder_warm).
+        /// Cleared on a subsequent successful search so a fixed launch
+        /// flips the surface back to operational without app restart.
+        public let lastInitFailureClass: String?
+        public let lastInitFailureAt: Date?
 
         public var isDegraded: Bool {
+            if lastInitFailureAt != nil, lastInitFailureClass != nil {
+                if let lastSuccessAt, let lastInitFailureAt, lastSuccessAt > lastInitFailureAt {
+                    // Search succeeded after init failed — backend recovered.
+                } else {
+                    return true
+                }
+            }
             guard let lastFailureAt, lastFailureClass != ShadowSearchFailureClass.cancelled.rawValue else {
                 return false
             }
@@ -48,7 +74,9 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastLatencyMs: nil,
             lastSuccessAt: nil,
             lastFailureAt: nil,
-            lastFailureClass: nil
+            lastFailureClass: nil,
+            lastInitFailureClass: nil,
+            lastInitFailureAt: nil
         )
     }
 
@@ -79,7 +107,9 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastLatencyMs: Self.safeLatency(latencyMs),
             lastSuccessAt: Date(),
             lastFailureAt: current.lastFailureAt,
-            lastFailureClass: nil
+            lastFailureClass: nil,
+            lastInitFailureClass: current.lastInitFailureClass,
+            lastInitFailureAt: current.lastInitFailureAt
         )
         current = next
         lock.unlock()
@@ -97,7 +127,33 @@ nonisolated public final class ShadowSearchDiagnostics: @unchecked Sendable {
             lastLatencyMs: Self.safeLatency(latencyMs),
             lastSuccessAt: current.lastSuccessAt,
             lastFailureAt: Date(),
-            lastFailureClass: failureClass.rawValue
+            lastFailureClass: failureClass.rawValue,
+            lastInitFailureClass: current.lastInitFailureClass,
+            lastInitFailureAt: current.lastInitFailureAt
+        )
+        current = next
+        lock.unlock()
+        postChange()
+    }
+
+    /// Record a Shadow-backend init failure (handle-open or embedder-warm)
+    /// observed by the AppBootstrap launch path. Public so any actor can
+    /// call from the catch site. Surfaces in `ShadowSearchHealthRow` so
+    /// users can diagnose "Halo doesn't work" without Console.app.
+    public func recordInitFailure(class failureClass: ShadowInitFailureClass) {
+        lock.lock()
+        let next = Snapshot(
+            totalSearches: current.totalSearches,
+            totalFailures: current.totalFailures,
+            consecutiveFailures: current.consecutiveFailures,
+            lastDomain: current.lastDomain,
+            lastHitCount: current.lastHitCount,
+            lastLatencyMs: current.lastLatencyMs,
+            lastSuccessAt: current.lastSuccessAt,
+            lastFailureAt: current.lastFailureAt,
+            lastFailureClass: current.lastFailureClass,
+            lastInitFailureClass: failureClass.rawValue,
+            lastInitFailureAt: Date()
         )
         current = next
         lock.unlock()

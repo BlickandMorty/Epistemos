@@ -52,7 +52,13 @@ public struct ShadowSearchHealthRow: View {
     }
 
     private var backendDetail: String {
+        if let initClass = snapshot.lastInitFailureClass, snapshot.isDegraded {
+            return "Init failed: \(initClass) — Halo unavailable until next launch"
+        }
         if snapshot.totalSearches == 0 {
+            if let initClass = snapshot.lastInitFailureClass {
+                return "Init failed: \(initClass) — recovered (no searches yet)"
+            }
             return "No Shadow searches observed this launch"
         }
         if snapshot.isDegraded {

@@ -3459,6 +3459,7 @@ final class AppBootstrap {
                 Log.app.error(
                     "W8.7 shadow: handle open failed at \(shadowRoot.path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
                 )
+                ShadowSearchDiagnostics.shared.recordInitFailure(class: .handleOpen)
                 await MainActor.run {
                     guard self?.shadowIndexingInFlightVaultPath == vaultPath else { return }
                     BackgroundIndexingHealthRow.recordFailed(
@@ -3486,6 +3487,7 @@ final class AppBootstrap {
                 Log.app.warning(
                     "W8.7 shadow: embedder warm failed — \(error.localizedDescription, privacy: .public). First Halo search may block on HF download or fall back."
                 )
+                ShadowSearchDiagnostics.shared.recordInitFailure(class: .embedderWarm)
             }
 
             let indexer = ShadowIndexingService(client: client)

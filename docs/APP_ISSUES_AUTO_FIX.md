@@ -997,7 +997,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-10-001: Halo feature does not work end-to-end for user
 
-Status: Open
+Status: Patched (diagnosability surface — init-failure class now visible in Settings; root-cause repro still needed for embedder/tantivy failures themselves)
 Priority: P1
 First Observed: 2026-05-10
 Affected Version: branch `codex/research-snapshot-2026-05-08` (HEAD ebd26c08f)
@@ -1047,6 +1047,35 @@ Destructive Fixes (require user approval):
   doctrine §2.5.
 
 Investigation Log:
+- 2026-05-16 (T-A iter 4, diagnosability fix): added init-failure recording
+  so the two Shadow-init failure modes (handleOpen — `RustShadowFFIClient(path:)`
+  throws, tantivy/IO; and embedderWarm — `client.warm()` throws, Model2Vec
+  HF download / cold-cache race) are now visible in Settings →
+  Diagnostics → "Shadow backend" row WITHOUT Console.app. Implementation:
+  new public enum `ShadowInitFailureClass` (cases `.handleOpen` =
+  `"handle_open"` · `.embedderWarm` = `"embedder_warm"`) at top of
+  `Epistemos/Engine/ShadowSearchService.swift`; `ShadowSearchDiagnostics.Snapshot`
+  extended with `lastInitFailureClass` + `lastInitFailureAt` fields and
+  `isDegraded` updated to account for them; new public method
+  `ShadowSearchDiagnostics.shared.recordInitFailure(class:)` wired into
+  the two AppBootstrap catch sites (line ~3461 handle-open catch +
+  line ~3494 warm() catch); `ShadowSearchHealthRow.backendDetail` extended
+  to render "Init failed: <class> — Halo unavailable until next launch"
+  when degraded, and "Init failed: <class> — recovered (no searches yet)"
+  when init failed but no degraded state because a search hasn't surfaced
+  yet. **§5.0 catch:** the original audit row + iter 3 next-pointer framed
+  the work as "HaloErrorClass enum on HaloController" but `HaloController`
+  is a pure state machine (debounce + match list, no init responsibility).
+  The actual diagnostic data layer is `ShadowSearchDiagnostics` (in
+  `ShadowSearchService.swift`) feeding `ShadowSearchHealthRow`. Implemented
+  on the correct surface — function naming follows the existing
+  `recordSuccess` / `recordFailure` pattern. 4 unit tests in
+  `EpistemosTests/ShadowInitDiagnosticsTests.swift` (records-and-degraded ·
+  handleOpen-vs-embedderWarm distinct · recovery on successful search ·
+  reset clears state). The fix does NOT address the root cause of the
+  embedder failures (HF model download stall / corrupt cache / etc.) —
+  user-side reproduction with a known-failing HF cache is still needed
+  to triage that. The patch unblocks remote diagnosis without Console.app.
 - 2026-05-10: New entry. Explore-agent diagnosis attached above.
   `log show --predicate 'process == "Epistemos"'` returned no shadow/halo
   hits over the last 30 min — macOS hardened-runtime redaction makes
