@@ -8,17 +8,26 @@
 //!
 //! # Wave J2 — Cognition Observatory + KV implantation lane
 //!
-//! Four sub-features per §3.26 + §3.36, all NOT-STARTED at session start:
+//! Four sub-features per §3.26 + §3.36 (all ✓ landed; iter 74 adds the
+//! capability-gated pipeline envelope):
 //!
-//! 1. **KV implantation** ([`kv_implant`]) — KVCacheImplanter / KvCacheSnapshot /
-//!    LayerKVSnapshot. Direct memory inspection + targeted restore.
-//! 2. **Glass Pipe** ([`glass_pipe`]) — ActivationInterceptor, injected Metal
-//!    compute kernel + ring buffer + atomic write index. (NOT-STARTED here.)
-//! 3. **Weight Surgery** ([`weight_patcher`]) — qProj/kProj/vProj/oProj/gate/
-//!    up/down/embed/lmHead targeted patching. (NOT-STARTED here.)
-//! 4. **SAE Cognition Observatory** ([`sae`]) — sparse-autoencoder feature
-//!    monitoring on residual stream, AUC 0.90 hallucination-detection bar.
-//!    (NOT-STARTED here.)
+//! 1. **KV implantation** ([`kv_implant`], ✓ landed) —
+//!    KVCacheImplanter / KvCacheSnapshot / LayerKVSnapshot. Direct
+//!    memory inspection + targeted restore.
+//! 2. **Glass Pipe** ([`glass_pipe`], ✓ landed) — ActivationInterceptor,
+//!    injected Metal compute kernel + ring buffer + atomic write index.
+//! 3. **Weight Surgery** ([`weight_patcher`], ✓ landed) —
+//!    qProj/kProj/vProj/oProj/gate/up/down/embed/lmHead targeted
+//!    patching.
+//! 4. **SAE Cognition Observatory** ([`sae`], ✓ landed) — sparse-
+//!    autoencoder feature monitoring on residual stream, AUC 0.90
+//!    hallucination-detection bar.
+//! 5. **Pipeline envelope** ([`pipeline`], ✓ landed iter 74) — types
+//!    each probe as `ReadOnly` (instrumentation floor) or
+//!    `Intervention` (mutates inference state). Intervention probes
+//!    require an `IntervenerCapability` bit; ReadOnly probes always
+//!    pass. `validate_dispatch(probe, &capability)` is the runtime
+//!    authorization gate.
 //!
 //! ## Doctrine pin (per §3.36)
 //!
@@ -28,15 +37,19 @@
 //! achieves AUC ≥ 0.90 on a vault-domain validation set. Below 0.90 =
 //! research, not gate."
 //!
-//! Substrate floor in this iteration: KV implantation only. Sub-features
-//! 2-4 land in subsequent J2 iters.
+//! As of iter 74 all 4 substrate kernels + the capability-gated
+//! pipeline envelope are landed.
 
 pub mod glass_pipe;
 pub mod kv_implant;
+pub mod pipeline;
 pub mod sae;
 pub mod weight_patcher;
 
 pub use glass_pipe::{GlassPipe, GlassPipeError, GlassPipeReadout};
+pub use pipeline::{
+    validate_dispatch, DispatchError, IntervenerCapability, ProbeClass, ProbeKind,
+};
 pub use kv_implant::{
     KvCacheImplanter, KvCacheSnapshot, KvDtype, KvImplantError, KvShape,
     LayerKVSnapshot, MockKvCacheImplanter,
