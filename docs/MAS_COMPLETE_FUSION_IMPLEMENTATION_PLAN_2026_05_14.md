@@ -9,6 +9,9 @@
 
 ## 0. The protected surfaces and immutable rules
 
+> **Coverage audit notice (2026-05-15):** A 4-agent sweep of the full research corpus (`docs/fusion/` 406 docs + `docs/` 197 docs + `~/Documents/Epistemos-QuickCapture/` standalone canon) surfaced 31 gaps now tracked in `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md`. **6 are V1 BLOCKERS** (5 decisions + 1 runtime verification): BrowserEngine MAS/Pro architecture · Hermes-parity salvage verification · Wave 7-11 product-layer V1/V1.1 decisions (Live Files, Brain Export, Confidence Meter, Pixel/Tactical mode). **Read that audit doc before signing off V1 submission.** Decisions land in §0 immutable rules + Compromises Recorded; new ship-rows land in this plan.
+
+
 1. **Graph is protected.** No camera / renderer / layout / edges / physics / hologram changes WITHOUT user-issued scoped approval. The graph-camera-framing fix (`V1-GATE-GRAPH-001`) requires a separate explicit user "yes, touch `GraphCamera.swift` initial framing only" sign-off.
 2. **Vault is sensitive.** Vault fixes start with evidence + minimal rationale + rollback-safe plan. No reset/delete/casual migration.
 3. **No Pro features bleed into MAS.** `mas-build` Cargo feature gates everything `#[cfg(feature = "pro-build")]`. Symbol-leak audits (`strings` + `nm`) stay ZERO matches.
