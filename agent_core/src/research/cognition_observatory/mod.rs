@@ -33,12 +33,17 @@
 
 pub mod glass_pipe;
 pub mod kv_implant;
+pub mod sae;
 pub mod weight_patcher;
 
 pub use glass_pipe::{GlassPipe, GlassPipeError, GlassPipeReadout};
 pub use kv_implant::{
     KvCacheImplanter, KvCacheSnapshot, KvDtype, KvImplantError, KvShape,
     LayerKVSnapshot, MockKvCacheImplanter,
+};
+pub use sae::{
+    auc_roc, evaluate_against_gate, FeatureId, LabeledScore, SaeAucError, SaeVerdict,
+    ValidationSet, SAE_DOCTRINE_AUC_BAR,
 };
 pub use weight_patcher::{
     MockWeightPatcher, WeightPatch, WeightPatchError, WeightPatcher, WeightSnapshot,
