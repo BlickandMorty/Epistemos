@@ -229,6 +229,105 @@ impl ParaLens for ReluLayer {
     }
 }
 
+/// Categorical compose of two `ParaLens` impls per Cruttwell et al.
+/// 2021 §3. Composed[A, B] is `B ∘ A`: forward runs A then B; backward
+/// runs B-back then A-back per the chain rule.
+///
+/// Param vector layout: `[p_a... | p_b...]` — A's params first, B's
+/// params second. The composed param size is `A.param_size +
+/// B.param_size`.
+///
+/// Size constraint: `A.output_size == B.input_size`. Detected at
+/// forward/backward time as `OutputLengthMismatch` since the trait
+/// doesn't have a constructor that can fail.
+#[derive(Clone, Copy, Debug)]
+pub struct Composed<A: ParaLens, B: ParaLens> {
+    pub first: A,
+    pub second: B,
+}
+
+impl<A: ParaLens, B: ParaLens> Composed<A, B> {
+    pub fn new(first: A, second: B) -> Self {
+        Self { first, second }
+    }
+}
+
+impl<A: ParaLens, B: ParaLens> ParaLens for Composed<A, B> {
+    fn param_size(&self) -> usize {
+        self.first.param_size() + self.second.param_size()
+    }
+
+    fn input_size(&self) -> usize {
+        self.first.input_size()
+    }
+
+    fn output_size(&self) -> usize {
+        self.second.output_size()
+    }
+
+    fn forward(
+        &self,
+        params: &[f32],
+        input: &[f32],
+        output: &mut [f32],
+    ) -> Result<(), ParaLensError> {
+        if params.len() != self.param_size() {
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: self.param_size(),
+                actual: params.len(),
+            });
+        }
+        if self.first.output_size() != self.second.input_size() {
+            return Err(ParaLensError::OutputLengthMismatch {
+                expected: self.second.input_size(),
+                actual: self.first.output_size(),
+            });
+        }
+        let (p_a, p_b) = params.split_at(self.first.param_size());
+        let mut intermediate = vec![0.0_f32; self.first.output_size()];
+        self.first.forward(p_a, input, &mut intermediate)?;
+        self.second.forward(p_b, &intermediate, output)?;
+        Ok(())
+    }
+
+    fn backward(
+        &self,
+        params: &[f32],
+        input: &[f32],
+        output_grad: &[f32],
+    ) -> Result<ParaLensBackward, ParaLensError> {
+        if params.len() != self.param_size() {
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: self.param_size(),
+                actual: params.len(),
+            });
+        }
+        if self.first.output_size() != self.second.input_size() {
+            return Err(ParaLensError::OutputLengthMismatch {
+                expected: self.second.input_size(),
+                actual: self.first.output_size(),
+            });
+        }
+        let (p_a, p_b) = params.split_at(self.first.param_size());
+        // Re-run forward to materialize the intermediate `y` value.
+        // Caching `y` from forward would be more efficient; substrate
+        // floor recomputes to keep the trait stateless.
+        let mut intermediate = vec![0.0_f32; self.first.output_size()];
+        self.first.forward(p_a, input, &mut intermediate)?;
+        // Backward through B: gives dp_b and dy.
+        let b_back = self.second.backward(p_b, &intermediate, output_grad)?;
+        // Backward through A: takes dy as A's output_grad, gives dp_a and dx.
+        let a_back = self.first.backward(p_a, input, &b_back.input_grad)?;
+        // Concatenate param grads in [a | b] order matching forward.
+        let mut param_grad = a_back.param_grad;
+        param_grad.extend(b_back.param_grad);
+        Ok(ParaLensBackward {
+            param_grad,
+            input_grad: a_back.input_grad,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -435,5 +534,117 @@ mod tests {
                 bw.input_grad[0]
             );
         }
+    }
+
+    // ── Composed<A, B> tests (iter 100) ─────────────────────────────────────
+
+    #[test]
+    fn composed_linear_then_relu_sizes_correct() {
+        let c = Composed::new(LinearLayer, ReluLayer);
+        assert_eq!(c.param_size(), 2); // 2 from LinearLayer + 0 from ReluLayer
+        assert_eq!(c.input_size(), 1);
+        assert_eq!(c.output_size(), 1);
+    }
+
+    #[test]
+    fn composed_two_linears_concatenates_params() {
+        let c = Composed::new(LinearLayer, LinearLayer);
+        assert_eq!(c.param_size(), 4); // 2 + 2
+    }
+
+    #[test]
+    fn composed_forward_runs_linear_then_relu() {
+        // LinearLayer: y_mid = 2*x + (-3) = 2*x - 3
+        // ReluLayer:   y_out = max(0, y_mid)
+        let c = Composed::new(LinearLayer, ReluLayer);
+        let params = vec![2.0_f32, -3.0]; // [w, b] for LinearLayer
+        let mut out = vec![0.0_f32];
+
+        // x = 5 → mid = 7 → out = 7
+        c.forward(&params, &[5.0], &mut out).unwrap();
+        assert!(approx(out[0], 7.0, 1e-6));
+
+        // x = 1 → mid = -1 → out = 0 (relu clamps)
+        c.forward(&params, &[1.0], &mut out).unwrap();
+        assert!(approx(out[0], 0.0, 1e-6));
+    }
+
+    #[test]
+    fn composed_backward_chain_rule_active_branch() {
+        // x = 5, params = [2, -3] → mid = 7 (positive, relu passes).
+        // dout/dy_mid = 1 (relu in active region)
+        // dy_mid/dw = x = 5
+        // dy_mid/db = 1
+        // dy_mid/dx = w = 2
+        let c = Composed::new(LinearLayer, ReluLayer);
+        let bw = c.backward(&[2.0, -3.0], &[5.0], &[1.0]).unwrap();
+        assert_eq!(bw.param_grad.len(), 2);
+        assert!(approx(bw.param_grad[0], 5.0, 1e-6)); // dL/dw
+        assert!(approx(bw.param_grad[1], 1.0, 1e-6)); // dL/db
+        assert!(approx(bw.input_grad[0], 2.0, 1e-6)); // dL/dx
+    }
+
+    #[test]
+    fn composed_backward_zero_grad_in_inactive_relu_branch() {
+        // x = 1, params = [2, -3] → mid = -1 (relu OFF).
+        // All gradients should be zero (relu kills the chain).
+        let c = Composed::new(LinearLayer, ReluLayer);
+        let bw = c.backward(&[2.0, -3.0], &[1.0], &[1.0]).unwrap();
+        assert!(approx(bw.param_grad[0], 0.0, 1e-6));
+        assert!(approx(bw.param_grad[1], 0.0, 1e-6));
+        assert!(approx(bw.input_grad[0], 0.0, 1e-6));
+    }
+
+    #[test]
+    fn composed_param_grads_ordered_a_then_b() {
+        // Compose Linear → Linear. Param vector = [w1, b1, w2, b2].
+        // Output: y = w2 * (w1 * x + b1) + b2.
+        // dL/dw1 = w2 * x (with dL/dout = 1)
+        // dL/db1 = w2
+        // dL/dw2 = w1 * x + b1
+        // dL/db2 = 1
+        let c = Composed::new(LinearLayer, LinearLayer);
+        let params = vec![3.0_f32, 0.5, 2.0, -1.0];
+        let x = 4.0_f32;
+        let bw = c.backward(&params, &[x], &[1.0]).unwrap();
+        let mid = 3.0 * x + 0.5;
+        assert_eq!(bw.param_grad.len(), 4);
+        assert!(approx(bw.param_grad[0], 2.0 * x, 1e-5)); // dL/dw1 = w2 * x = 8
+        assert!(approx(bw.param_grad[1], 2.0, 1e-6));    // dL/db1 = w2
+        assert!(approx(bw.param_grad[2], mid, 1e-5));    // dL/dw2 = mid
+        assert!(approx(bw.param_grad[3], 1.0, 1e-6));    // dL/db2
+        assert!(approx(bw.input_grad[0], 3.0 * 2.0, 1e-5)); // dL/dx = w1 * w2
+    }
+
+    #[test]
+    fn composed_rejects_wrong_param_size() {
+        let c = Composed::new(LinearLayer, ReluLayer);
+        let mut out = vec![0.0_f32];
+        // expected 2, give 3.
+        let err = c.forward(&[1.0, 2.0, 3.0], &[0.0], &mut out).unwrap_err();
+        assert!(matches!(err, ParaLensError::InputLengthMismatch { expected: 2, actual: 3 }));
+    }
+
+    #[test]
+    fn composed_finite_difference_matches_analytic_chain() {
+        // For Linear→Linear chain at multiple operating points,
+        // central-difference dy/dw1 should match the analytic chain.
+        let c = Composed::new(LinearLayer, LinearLayer);
+        let params = vec![3.0_f32, 0.5, 2.0, -1.0];
+        let x = 4.0_f32;
+        let eps = 1e-3_f32;
+
+        let mut y_base = vec![0.0_f32];
+        c.forward(&params, &[x], &mut y_base).unwrap();
+
+        // Perturb w1 (index 0).
+        let mut perturbed = params.clone();
+        perturbed[0] += eps;
+        let mut y_pert = vec![0.0_f32];
+        c.forward(&perturbed, &[x], &mut y_pert).unwrap();
+
+        let fd = (y_pert[0] - y_base[0]) / eps;
+        let bw = c.backward(&params, &[x], &[1.0]).unwrap();
+        assert!(approx(fd, bw.param_grad[0], 1e-3));
     }
 }
