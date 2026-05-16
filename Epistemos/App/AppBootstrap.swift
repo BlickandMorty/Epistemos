@@ -2002,6 +2002,18 @@ final class AppBootstrap {
         // to call multiple times if AppBootstrap is reconstructed.
         LatestAnswerPacketSink.shared.start()
 
+        // ISSUE-2026-05-12-008: amortize BlockMirror first-parse for the 5
+        // most-recently-modified inline-body pages so the first-open hang
+        // (~10-200ms per note) moves from click-time to launch-time.
+        // Inline-only pass; disk-load path is iter 3+ scope.
+        Task.detached(priority: .utility) {
+            let prewarmContext = ModelContext(container)
+            AppBootstrap.prewarmRecentBlockMirrors(
+                modelContext: prewarmContext,
+                limit: 5
+            )
+        }
+
         self._workspaceService = WorkspaceService(modelContainer: container)
         self._workspaceSummaryService = WorkspaceSummaryService(
             triageService: triage, activityTracker: activityTracker, modelContainer: container
