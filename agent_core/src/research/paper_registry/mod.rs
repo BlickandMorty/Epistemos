@@ -25,9 +25,11 @@
 //! Substrate floor seeds the registry with the J1-J8 citations
 //! already in tree.
 
+pub mod audit;
 pub mod claim;
 pub mod seed;
 
+pub use audit::{audit_registry, RegistryAuditReport};
 pub use claim::{
     ClaimStatus, PaperClaim, PaperRegistry, RegistryError, Venue,
 };
