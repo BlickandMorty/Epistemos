@@ -379,6 +379,34 @@ Channel Relay (7 channels: telegram · slack · discord · whatsapp · signal ·
 
 OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-16 universal-prompt update, this work is owned by **Terminal F** as Phase F.5. If you find yourself wanting to touch `agent_core/src/openclaw/`: SKIP + log "F-owned: deferred to Terminal F".
 
+## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
+
+Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)** until §0 victory across all of A/B's targets. Phase 1: shallow-but-shipped. Phase 2 (post-victory hardening) triggers when user says "BEGIN PHASE 2 HARDENING".
+
+- ✅ Research-first + test-first + minimal-fix
+- ✅ Acceptance: happy path works · ONE test green · §8 row appended
+- ⚠️ TOLERATED: known TODOs · partial coverage · suboptimal perf · weak edge cases
+- ❌ NOT TOLERATED: silently broken features · doctrine/code drift
+
+Ship feature → log hardening checklist in `docs/HARDENING_TRACKER_2026_05_16.md` → move on. Research-grade falsifier harnesses (Wave G/H/I/J + Helios kernels) are Phase 1 deliverables; bench tuning + adversarial inputs are Phase 2.
+
+## §5.6 Lockstep doc updates (per feature ship)
+
+Every feature ship commit MUST touch (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
+- ✓ Code (own scope per §2)
+- ✓ At least one test (falsifier harness counts for research-tier features)
+- ✓ `MAS_COMPLETE_FUSION §8` Implementation Log row
+- ✓ `FEATURE_CHANGE_TRACKER §3` row
+- ✓ `HARDENING_TRACKER §2` row (axes ⬜ in Phase 1)
+
+Conditional: `MASTER_FUSION` Wave row · `HERMES_AGENT_CORE_2_0_DESIGN` · `licenses.md` (new crate) · gap-audit closes.
+
+If you can't reach a required doc without violating §1.5: STOP + log "needs sibling coordination".
+
+## §5.7 Canonical doc index pointer
+
+Read `docs/CANONICAL_DOC_INDEX_2026_05_16.md` on first session or when uncertain. Anti-drift reference: `docs/ANTI_DRIFT_SYSTEM.md` (5-layer drift defense). §1.5 SCOPE BOUNDARY = Layer 2; §5.0 reconciliation = Layer 3; audit-of-audit = Layer 4.
+
 ## §6. Per-iteration protocol
 
 Same as Terminal A's §6 with two changes:
