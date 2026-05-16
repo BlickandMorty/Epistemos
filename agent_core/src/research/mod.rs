@@ -26,3 +26,4 @@ pub mod rwkv7;
 pub mod sherry_lattice;
 pub mod ternary;
 pub mod test_time_regression;
+pub mod tropical;
