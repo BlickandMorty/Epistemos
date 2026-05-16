@@ -170,6 +170,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 
 ### B2-H17. MLX Model Selection Matrix (per memory tier)
 - **Source:** [google-research-pack-2026-03-18/00-google-master-prompt.md](google-research-pack-2026-03-18/00-google-master-prompt.md) §B
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new `HERMES_AGENT_CORE_2_0_DESIGN §13.5.9 "MLX Model Selection Matrix — per memory tier"`. Section adds the **per-memory-tier matrix** missing from prior canon (§13.5.1 was task-class-driven; §8.1 only covered M2 Pro 16GB V1 lock). Three Apple Silicon RAM tiers documented: T1 (16-24 GB, V1 lock target), T2 (32-48 GB Pro/Max), T3 (64-128 GB Max/Ultra). Per-model availability table covers 9 models with RAM @ 4-bit + disk footprint + per-tier availability (✅ always-hot / ✅ on-demand / ⚠️ on-demand only · evict-others / ❌ exceeds budget) + strategy semantics tied to existing MLXInferenceService idle-unload TTLs (4s/6s/10s/15s per tier from 2026-04-28 perf hardening). V1 scope explicit: ships T1 lineup only (`LocalTextModelID` per CLAUDE.md FILE MAP); T2/T3 routing happens automatically via existing `ConfidenceRouter` when bigger headroom available — no Settings → Hardware tier picker ships in V1, matrix is documentation. Pro distribution implication: T2/T3 users are the likely Pro audience, justifies a Pro-only model catalog expansion post-V1. Crosslinked to §8.1 / §8.2 / §13.5.1 / CLAUDE.md FILE MAP / MASTER_FUSION §3.2 Residency Governor (matrix is a residency-decision input).
 - **What it is:** Explicit Qwen/Gemma quantization per memory tier (18GB / 36GB+ / 64GB), disk footprint, always-hot vs on-demand strategy. Canon names MLX; doesn't specify model selection doctrine.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3 local-inference subsection OR new addendum `docs/LOCAL_MODEL_SELECTION_MATRIX_2026_05_15.md`.
 
@@ -359,7 +360,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H14 Cost Telemetry Dashboard | ✅ VERIFIED 2026-05-16 — already shipped (pricing.rs:142 + EventStore.recentSessionMetrics + SpendDashboardHost at AgentSectionDetailView.swift:158), visible in MAS + Pro. |
 | B2-H15 Graph Engine Phase A | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.38` doctrine anchor for `CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` with Phase A SHIPPED / B/C queued + graph-protection cross-link. |
 | B2-H16 Chatterbox TTS packaging | ✅ DECISION RECORDED 2026-05-16 — REJECTED for MAS (NO SIDECAR + Five Laws Law 5); V1 native AVSpeechSynthesizer already shipped (`VoicePreferences.swift`); V1.1 Pro evaluation gated on concrete quality gap. |
-| B2-H17 MLX Model Selection Matrix | MASTER_FUSION §3 local-inference |
+| B2-H17 MLX Model Selection Matrix | ✅ RESOLVED 2026-05-16 — landed as `HERMES_AGENT_CORE_2_0_DESIGN §13.5.9` with 3-tier (T1 16-24 GB · T2 32-48 GB · T3 64+ GB) matrix + per-model strategy + V1 ships T1 only. |
 
 ### Architecture / research-tier (V1.x+ as opportunity arises)
 
