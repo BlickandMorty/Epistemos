@@ -265,6 +265,48 @@ impl<E: AgentExecutor> AgentExecutor for GovernedExecutor<E> {
 
 **No executor emits an event the policy layer did not inspect.** This is what makes Hermes 2.0 fundamentally different from Goose / OpenHands / Claude Agent SDK — in those systems the agent is the policy. Here Epistemos is the policy.
 
+### 5.1 ExecutionReceipt + Capability — SHIPPED provenance primitive
+
+**Code:** `agent_core/src/effect/receipt.rs` (173 LOC). PASS 2 gap audit B2-H13.
+
+Every governed tool invocation produces a signed **`ExecutionReceipt`** before the result flows back to the agent loop. The receipt is the on-the-wire proof that a specific tool ran with a specific capability set at a specific time, and its output hash is what downstream consumers (ClaimLedger, RunEventLog, Provenance Console) cite.
+
+**`Capability` enum** — 4 variants encoding the capability axes the receipt cares about:
+
+| Variant | Fields | Used for |
+|---|---|---|
+| `VaultPath { path, verb }` | vault-relative path + read/write/append verb | per-file capability narrowing (pairs with B2-H19 egress allowlist for the network analog) |
+| `NetworkHost { host }` | host string | per-host network gate |
+| `BiometricSession { ttl_secs }` | TTL seconds | SovereignGate biometric session window |
+| `Other { name }` | free-form name | escape hatch for one-off capabilities pending a typed variant |
+
+**`ExecutionReceipt` struct** — 8 fields with the canonical signing layout:
+
+```rust
+pub struct ExecutionReceipt {
+    pub call_id: String,
+    pub plan_hash: String,
+    pub tool: String,
+    pub input_hash: String,
+    pub output_hash: String,
+    pub timestamp: DateTime<Utc>,
+    pub capabilities_used: Vec<Capability>,
+    pub signature: String,
+}
+```
+
+**Signing.** `ExecutionReceipt::sign<K: SigningKey>(…)` takes a generic `SigningKey` (currently `HmacSha256SigningKey` with 32-byte secret + manual HMAC-SHA256 implementation per RFC 2104). `verify()` returns `bool` with constant-time comparison (`diff |= signature[i] ^ expected[i]`). The signing payload is a deterministic length-prefixed concatenation of every field — same fields ⇒ same bytes, so signatures are reproducible.
+
+**Deviation from PASS 2 audit spec (logged 2026-05-16):**
+- Audit said "Ed25519 signature placeholder." **Actual: HMAC-SHA256.** Functional for same-machine verification (the secret stays in the host process); insufficient for **cross-machine** verifiability (no public/private split). When V1.x needs `.epbundle` replay on a different machine, swap `HmacSha256SigningKey` for an Ed25519 implementation behind the same `SigningKey` trait. The deviation is **not a regression** — current code does what's needed for current callers; Ed25519 is a forward-compat upgrade.
+- Audit said `capability_hash` (single). **Actual: `capabilities_used: Vec<Capability>`** (list). The list shape is strictly richer — a hash discards which specific capabilities composed it. Keep the list.
+
+**Cross-references:**
+- `agent_core/src/cognitive_dag/edge.rs:144-163` — `capability_hash` (different concept, BLAKE3 hash of capability set for DAG-edge witness; same name, different layer)
+- `agent_core/src/cognitive_dag/storage.rs:74+392` — `register_capability(_, capability_hash: Hash)` in the DAG storage trait
+- `agent_core/src/resources/attachments.rs:13` — separate `pub enum Capability` for attachment-grant scope (different domain)
+- `MASTER_FUSION §3.33` (Artifact Identity) — the artifact half of the same provenance story; ExecutionReceipt's `output_hash` is the bridge
+
 ---
 
 ## 6. MAS vs Pro split — the clearest line in the design
