@@ -15,6 +15,7 @@
 //! `//! Source:` doc comment.
 
 pub mod acs;
+pub mod action_to_eml;
 pub mod ane_direct;
 pub mod cognition_observatory;
 pub mod continual_learning;
