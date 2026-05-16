@@ -224,6 +224,10 @@ final class FilterEngine {
         // Lenient nil-passthrough: nodes without a declared
         // `originVaultKey` are not hidden — see the field's doc on
         // `GraphNodeMetadata` for the partial-rollout rationale.
+        // Shadow side (HaloState.ShadowHit) gained the same field
+        // 2026-05-15 (commits 2add62b8e + 51c58a5ad); graph-side
+        // population per node-creation site is still pending per
+        // RCA-P1-010 "follow-on" list.
         if let vaultKey = selectedVaultFilter,
            let nodeVaultKey = node.metadata.originVaultKey,
            nodeVaultKey != vaultKey {
