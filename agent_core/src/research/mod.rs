@@ -26,6 +26,7 @@ pub mod eml;
 pub mod hyperdynamic_schemas;
 pub mod interrupt_calibration;
 pub mod mamba3;
+pub mod nano_training_recipe;
 pub mod paper_registry;
 pub mod para_lens;
 pub mod rwkv7;
