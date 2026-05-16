@@ -268,6 +268,11 @@ If you need to understand *how* Codex was prompted at various stages:
 - `docs/MASTER_SESSION_PROMPT_v2.md` — current master session prompt
 - `docs/AGENT_FUSION_RESEARCH_PROMPT.md` — agent fusion research prompt
 
+**External QuickCapture prompts** (PASS-1 L-5 cross-link, iter 72) — two launchable artifacts designed to be pasted into fresh Claude Code terminals; live OUTSIDE the repo at `~/Documents/Epistemos-QuickCapture/` per the launchpad README. **Verified on disk 2026-05-16:**
+- `~/Documents/Epistemos-QuickCapture/BUILDER_PROMPT.md` (22 KB · 22111 bytes, mtime 2026-04-29) — paste-to-launch builder prompt for fresh Claude Code terminal. Used to bootstrap a new build/feature session against the QuickCapture corpus (FINAL_SYNTHESIS.md · PLAN.md · LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md · OBSCURA_BROWSER_ADDENDUM.md · BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md).
+- `~/Documents/Epistemos-QuickCapture/AUDIT_PROMPT.md` (26 KB · 26386 bytes, mtime 2026-04-29) — paste-to-launch audit prompt. Used for the recursive-audit pass against the same corpus.
+- Companion: `~/Documents/Epistemos-QuickCapture/INDEX.md` (6.2 KB) carries the canonical "How to launch the builder" instructions; `README.md` (21 KB) is the launchpad. The QuickCapture directory holds 10 files total (5 doctrine + 4 prompts + INDEX); none are tracked in this repo's git so they can't drift via main; treat them as a paired external source-of-truth referenced by the in-repo doctrine corpus (e.g. MASTER_FUSION §3.34 Instant Recall cites `~/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md §2 layer 7`).
+
 ### 10.8 Research deep-dives (read when working on the specific subsystem)
 
 - `docs/GOOSE_AGENT_RESEARCH.md` + `GOOSE_AGENT_RESEARCH_2.md` — Goose Rust agent core
