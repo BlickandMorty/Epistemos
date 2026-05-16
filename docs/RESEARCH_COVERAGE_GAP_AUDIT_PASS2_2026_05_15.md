@@ -1791,6 +1791,32 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 111+ candidates:** (1) Surface 5th D.3 collision to user with HIGH priority. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update (now extra-pending: J5..J12 + EML + full B.6.x portfolio 4-14). (3) Phase C.6 forward-staged primitive re-audit (36 iters past baseline). (4) Watch B's next moves post-B.6-close.
 
+#### Status pulse (iter 111, 2026-05-16) — B Phase B.7 OPENS (Brain Export + Tamagotchi) — B's research-tier → user-product transition
+
+- **Window since #24 (iter 110):** 1 sibling commit (sub-threshold pulse):
+  - `379107785` (B) Phase B.7 substrate — Brain(τ) + biometric companion.
+
+- **§5.0 spot-check:**
+  - `agent_core/src/brain_export/mod.rs` · 5046 bytes / **8 tests** (registered at lib.rs `pub mod brain_export;`)
+  - `agent_core/src/tamagotchi/mod.rs` · 7469 bytes / **15 tests** (registered at lib.rs `pub mod tamagotchi;`)
+  - Sources cited: driver §5 Phase B.7 + `~/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` (44 KB, 2026-04-29 mtime). External doc previously verified at iter 72 (BUILDER_PROMPT pointers cycle) as on-disk in QuickCapture dir.
+  - **§5.0 verdict: CLEAN.** Both modules are top-level (not research/-gated); 23 tests total.
+
+- **🎯 B's research-tier → user-product transition:**
+  - Prior phase: research-tier work CLOSED post-iter-110 (J1-J9 series + B.6.4-B.6.14 long-tail + B.6.15-B.6.20 V6.1 additions all done).
+  - This iter: B opens Phase B.7 (user-product layer per driver §5). Brain Export + Tamagotchi are §10 Phase Completion Ledger items:
+    - **B-2 Brain Export** was "user-decision-gated, V1.1 defer recommended" (§10 row). B is landing substrate ahead of user decision — substrate-floor pre-positioning for V1.1 is allowed per V1 = ship, V1.1 = defer language; not a violation of §10.
+    - **Tamagotchi companion** is the biometric-driven companion state (related to B-4 Pixel/Tactical duality + B-2 Brain Export per the addendum doc framing).
+  - **Pattern reads:** B is using post-B.6-close cadence to pre-position user-product substrate for the post-V1 product layer (Wave 7-11). Consistent with B's driver §5 priority queue.
+
+- **Note on `agent_core/src/` top-level placement:** B.7 substrate is at `agent_core/src/brain_export/` + `agent_core/src/tamagotchi/`, NOT under `agent_core/src/research/`. This means B.7 is PRODUCTION-tier scope (no `feature = "research"` gating). For B-2 Brain Export which is user-decision-gated V1/V1.1: production-tier substrate is fine as long as it's NOT wired into ship-path until user signs off. Spot-grep for callers of `brain_export::` or `tamagotchi::` would confirm — deferred to next iter or audit-of-audit cycle.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **17 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; will reconsider low-touch at next quiet window if 0-2 commits.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
