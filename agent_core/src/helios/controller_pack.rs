@@ -84,6 +84,56 @@ pub fn zero_fill(a: &mut [f32]) {
     }
 }
 
+/// `min(a)`. Companion to [`max_reduce`]. Returns
+/// `EmptyInput` for empty slices. NaN-handling matches max_reduce:
+/// element-wise `<` comparison, NaN-on-either-side preserves the
+/// non-NaN side.
+pub fn min_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
+    if a.is_empty() {
+        return Err(ControllerKernelError::EmptyInput { which: "min_reduce" });
+    }
+    let mut best = a[0];
+    for &v in &a[1..] {
+        if v < best {
+            best = v;
+        }
+    }
+    Ok(best)
+}
+
+/// `argmin(a)` (first-index tie-break). Companion to
+/// [`argmax_reduce`].
+pub fn argmin_reduce(a: &[f32]) -> Result<usize, ControllerKernelError> {
+    if a.is_empty() {
+        return Err(ControllerKernelError::EmptyInput { which: "argmin_reduce" });
+    }
+    let mut best_idx: usize = 0;
+    let mut best_val = a[0];
+    for (i, &v) in a.iter().enumerate().skip(1) {
+        if v < best_val {
+            best_val = v;
+            best_idx = i;
+        }
+    }
+    Ok(best_idx)
+}
+
+/// `Σ a` using fp32 sequential summation. Production Metal would use
+/// pairwise / Kahan summation to bound accumulated rounding error;
+/// substrate floor matches the obvious sequential path that the Metal
+/// reference reduction must agree with bit-for-bit when the input is
+/// well-conditioned (no catastrophic cancellation).
+pub fn sum_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
+    if a.is_empty() {
+        return Err(ControllerKernelError::EmptyInput { which: "sum_reduce" });
+    }
+    let mut acc = 0.0_f32;
+    for &v in a {
+        acc += v;
+    }
+    Ok(acc)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +265,79 @@ mod tests {
         assert!(matches!(empty, ControllerKernelError::EmptyInput { .. }));
         assert!(matches!(mismatch, ControllerKernelError::LengthMismatch { .. }));
         assert!(matches!(oob, ControllerKernelError::RangeOutOfBounds { .. }));
+    }
+
+    // ── min_reduce + argmin_reduce + sum_reduce (iter 124) ──────────────────
+
+    #[test]
+    fn min_reduce_empty_errors() {
+        let a: Vec<f32> = vec![];
+        let err = min_reduce(&a).unwrap_err();
+        assert!(matches!(err, ControllerKernelError::EmptyInput { which: "min_reduce" }));
+    }
+
+    #[test]
+    fn min_reduce_returns_smallest() {
+        let a = vec![3.0_f32, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0];
+        assert_eq!(min_reduce(&a).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn min_reduce_single_element() {
+        assert_eq!(min_reduce(&[42.0_f32]).unwrap(), 42.0);
+    }
+
+    #[test]
+    fn argmin_reduce_first_tie_break() {
+        // Both index 1 and index 3 hold value 1.0; first wins.
+        let a = vec![3.0_f32, 1.0, 5.0, 1.0];
+        assert_eq!(argmin_reduce(&a).unwrap(), 1);
+    }
+
+    #[test]
+    fn argmin_after_scalar_mul_negative_inverts_choice() {
+        // Symmetry test: argmin after negation should equal argmax
+        // before negation. Companion to the existing
+        // argmax_after_scalar_mul_negative_inverts_choice test.
+        let mut a = vec![1.0_f32, 5.0, 3.0];
+        assert_eq!(argmin_reduce(&a).unwrap(), 0);
+        scalar_mul_in_place(&mut a, -1.0);
+        assert_eq!(argmin_reduce(&a).unwrap(), 1);
+    }
+
+    #[test]
+    fn min_max_symmetric_under_negation() {
+        let a = vec![1.0_f32, 5.0, 3.0];
+        let max_orig = max_reduce(&a).unwrap();
+        let mut neg = a.clone();
+        scalar_mul_in_place(&mut neg, -1.0);
+        let min_neg = min_reduce(&neg).unwrap();
+        assert_eq!(max_orig, -min_neg);
+    }
+
+    #[test]
+    fn sum_reduce_empty_errors() {
+        let a: Vec<f32> = vec![];
+        let err = sum_reduce(&a).unwrap_err();
+        assert!(matches!(err, ControllerKernelError::EmptyInput { which: "sum_reduce" }));
+    }
+
+    #[test]
+    fn sum_reduce_arithmetic() {
+        let a = vec![1.0_f32, 2.0, 3.0, 4.0, 5.0];
+        assert!((sum_reduce(&a).unwrap() - 15.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sum_reduce_zero_array_is_zero() {
+        assert_eq!(sum_reduce(&[0.0_f32; 100]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn sum_reduce_consistent_with_mean_calculation() {
+        // For a uniform array of v, sum/n = v.
+        let a = vec![5.0_f32; 8];
+        let sum = sum_reduce(&a).unwrap();
+        assert!((sum / a.len() as f32 - 5.0).abs() < 1e-6);
     }
 }
