@@ -25,7 +25,11 @@
 //!   provider/extension configuration while returning the shared
 //!   Epistemos CLI receipt.
 //!
-//! Both tools stream their child stdout+stderr into the tool result with
+//! * `openhands` — spawns OpenHands CLI in headless JSON mode
+//!   (`openhands --headless --json -t <prompt>`), preserving OpenHands'
+//!   local configuration while returning the shared Epistemos CLI receipt.
+//!
+//! All passthrough tools stream their child stdout+stderr into the tool result with
 //! a generous default timeout (5 minutes) and a hard cap (30 minutes).
 //! An absolute existing working directory can be set per-invocation. If the
 //! target CLI isn't installed, the tool returns a structured
@@ -36,6 +40,9 @@
 //! Source: https://aider.chat/docs/install.html
 //! Source: https://goose-docs.ai/docs/guides/running-tasks/
 //! Source: https://goose-docs.ai/docs/getting-started/installation/
+//! Source: https://docs.openhands.dev/openhands/usage/cli/headless
+//! Source: https://docs.openhands.dev/openhands/usage/cli/command-reference
+//! Source: https://github.com/OpenHands/OpenHands-CLI/blob/main/README.md
 
 use std::path::{Path, PathBuf};
 
@@ -140,6 +147,20 @@ fn aider_candidate_paths() -> Vec<PathBuf> {
     }
     candidates.push(PathBuf::from("/opt/homebrew/bin/aider"));
     candidates.push(PathBuf::from("/usr/local/bin/aider"));
+    candidates
+}
+
+/// Candidate absolute paths for OpenHands. The official uv-tool and
+/// install-script paths normally land in `~/.local/bin`; Homebrew
+/// locations are included for package-manager installs.
+fn openhands_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local").join("bin").join("openhands"));
+    }
+    candidates.push(PathBuf::from("/opt/homebrew/bin/openhands"));
+    candidates.push(PathBuf::from("/usr/local/bin/openhands"));
     candidates
 }
 
@@ -376,6 +397,16 @@ fn build_goose_args(
     if output_json {
         args.push("--output-format".to_string());
         args.push("json".to_string());
+    }
+    args.push("-t".to_string());
+    args.push(task);
+    args
+}
+
+fn build_openhands_args(task: String, output_json: bool) -> Vec<String> {
+    let mut args: Vec<String> = vec!["--headless".to_string()];
+    if output_json {
+        args.push("--json".to_string());
     }
     args.push("-t".to_string());
     args.push(task);
@@ -662,6 +693,40 @@ impl ToolHandler for AiderHandler {
     }
 }
 
+/// Delegates a coding task to OpenHands in headless mode.
+pub struct OpenHandsHandler;
+
+#[async_trait]
+impl ToolHandler for OpenHandsHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input)?;
+        let timeout_seconds = parse_timeout(input);
+        let output_json = input
+            .get("output_json")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+
+        let binary = match resolve_binary("openhands", &openhands_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "openhands",
+                    "Install OpenHands CLI with `uv tool install openhands --python 3.12` or `curl -fsSL https://install.openhands.dev/install.sh | sh` per https://github.com/OpenHands/OpenHands-CLI/blob/main/README.md.",
+                ));
+            }
+        };
+
+        let args = build_openhands_args(task, output_json);
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "openhands").await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -704,6 +769,18 @@ mod tests {
     }
 
     #[test]
+    fn openhands_candidate_paths_include_cli_install_locations() {
+        let paths = openhands_candidate_paths();
+        assert!(paths.iter().any(|p| p.ends_with(".local/bin/openhands")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/opt/homebrew/bin/openhands")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/usr/local/bin/openhands")));
+    }
+
+    #[test]
     fn goose_args_default_to_headless_no_session_json_output() {
         let builtins = vec!["developer".to_string(), "git".to_string()];
         let args = build_goose_args(
@@ -731,6 +808,16 @@ mod tests {
                 "-t",
                 "fix the failing tests",
             ]
+        );
+    }
+
+    #[test]
+    fn openhands_args_default_to_headless_json_task() {
+        let args = build_openhands_args("write the regression test".to_string(), true);
+
+        assert_eq!(
+            args,
+            vec!["--headless", "--json", "-t", "write the regression test",]
         );
     }
 

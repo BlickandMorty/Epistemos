@@ -93,7 +93,7 @@ The full Pro catalog is the MAS list above PLUS:
 | `cli_passthrough` | subprocess | `#[cfg(feature="pro-build")]` |
 | `terminal` | subprocess | `#[cfg(feature="pro-build")]` |
 | `git.status` / `git.diff` / `git.log` | read-only Git subprocess through `omega-mcp::git`; no mutating Git verbs exposed | `omega-mcp` excludes executor under `mas-sandbox` |
-| `cli_claude` / `cli_codex` / `cli_gemini` / `cli_kimi` / `goose` / `aider` | subprocess to locally installed CLI agents | `#[cfg(feature="pro-build")]` |
+| `cli_claude` / `cli_codex` / `cli_gemini` / `cli_kimi` / `goose` / `aider` / `openhands` | subprocess to locally installed CLI agents | `#[cfg(feature="pro-build")]` |
 | `cronjob` | subprocess + persistent scheduler | `#[cfg(feature="pro-build")]` |
 | `imessage_send` / `imessage_contacts` / `channel_contacts` | AppleScript subprocess | `#[cfg(feature="pro-build")]` |
 | `apple_notes` / `apple_reminders` / `apple_calendar` / `apple_mail` | osascript subprocess | `#[cfg(feature="pro-build")]` |
@@ -114,7 +114,7 @@ build returns ZERO matches for all of the above (verified
 2026-05-16 in D.1.2).
 
 Tunnel C receipt contract: `agent_core/src/tools/cli_passthrough.rs`
-backs `claude_code`, `codex`, `gemini`, `kimi`, `goose`, and `aider` with the same
+backs `claude_code`, `codex`, `gemini`, `kimi`, `goose`, `aider`, and `openhands` with the same
 `harden_cli_subprocess` runner. D.2.4 reconciled 2026-05-16: every
 completed CLI call returns JSON with `tool`, `binary`, `success`,
 `exit_code`, `stdout`, `stderr`, `stdout_truncated`,
@@ -134,6 +134,12 @@ It invokes Goose's official headless `goose run --no-session -t <task>`
 path, supports optional provider/model overrides plus built-in extensions,
 requests `--output-format json` by default, and returns the same hardened
 receipt shape.
+
+D.4 also extended Tunnel C on 2026-05-16 with the Pro-only `openhands`
+tool. It invokes OpenHands' official headless automation path
+`openhands --headless --json -t <task>`, uses OpenHands' local
+configuration rather than inherited provider API-key environment
+variables, and returns the same hardened receipt shape.
 
 The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible

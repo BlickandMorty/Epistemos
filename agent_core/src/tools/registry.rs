@@ -846,7 +846,7 @@ impl ToolRegistry {
             }
 
             // Tunnel C — delegate a task to Claude Code / Codex / Gemini /
-            // Kimi / Goose / Aider CLI. Same `enable_bash` gate because these are subprocess
+            // Kimi / Goose / Aider / OpenHands CLI. Same `enable_bash` gate because these are subprocess
             // spawners with the same trust profile. The gemini + kimi
             // handlers (added 2026-05-05 per user request "i don't see
             // CLIs at all si please fix") follow the same shape as the
@@ -858,6 +858,7 @@ impl ToolRegistry {
                 self.register_kimi_passthrough();
                 self.register_goose_passthrough();
                 self.register_aider_passthrough();
+                self.register_openhands_passthrough();
             }
         }
 
@@ -2331,6 +2332,47 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::AiderHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_openhands_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "openhands".to_string(),
+            description: "Delegate a coding task to OpenHands CLI in headless mode \
+                (`openhands --headless --json -t <task>` by default). OpenHands headless mode \
+                runs without an interactive UI and uses OpenHands' local configuration while \
+                Epistemos keeps the shared hardened Tunnel C receipt boundary. \
+                Returns a structured receipt. If OpenHands is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to OpenHands."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the OpenHands session in."
+                    },
+                    "output_json": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --json so OpenHands emits JSONL events for automation."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::OpenHandsHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
@@ -4023,6 +4065,21 @@ mod tier_tests {
         assert!(names.contains("goose"));
         assert_eq!(registry.get_risk_level("goose"), RiskLevel::Destructive);
         assert_eq!(registry.get_tier("goose"), ToolTier::Agent);
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_openhands_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("openhands"));
+        assert_eq!(registry.get_risk_level("openhands"), RiskLevel::Destructive);
+        assert_eq!(registry.get_tier("openhands"), ToolTier::Agent);
     }
 
     #[cfg(feature = "pro-build")]
