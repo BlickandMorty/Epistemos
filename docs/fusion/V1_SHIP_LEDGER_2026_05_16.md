@@ -196,6 +196,7 @@ Append-only. Each row = one ship-tier transition.
 | 2026-05-16 | B-1/B-2/B-3/B-4 decisions in §10 Compromises | absent | DECISION rows with default + alternatives | PASS-1 B-1..B-4 close |
 | 2026-05-16 | B-6 Hermes-parity salvage | V1 BLOCKER (suspected) | V1 VERIFIED — not a blocker (3 salvage modules are scaffolds) | iter-X verification |
 | 2026-05-16 | This ledger (`V1_SHIP_LEDGER_2026_05_16.md`) | absent | integration artifact 2 of 3 at ~280 LOC | iter 77 (this commit) |
+| 2026-05-16 | F-VaultRecall-50 vault retrieval bug | OPEN (highest-priority V1.x product fix per 4-advisor synthesis) | ✅ Fix B SHIPPED at `agent_core/src/storage/vault.rs` (cargo 1190 → 1194; 2 of 3 defects fixed; defect 3 V1.x-deferred) | iter 81 commit `2281c73f0` |
 
 ---
 
@@ -216,6 +217,7 @@ These are surfaced for explicit user direction. Cannot be auto-implemented.
 11. **B2-H16 Chatterbox voice** — V1 Pro vs V1.x Pro vs post-V1 Pro
 12. **ORPHAN-HERMES-SALVAGE-001** — wire vs scaffold vs delete (3 salvage modules)
 13. **RCA13-P0-001 vault lifecycle** — design pending user direction
+14. **F-VaultRecall-50 vault retrieval bug** — ✅ **RESOLVED iter 81 commit `2281c73f0`** — Fix B SHIPPED (stop-word filter + AND-for-short-queries at `agent_core/src/storage/vault.rs:495-548`; cargo 1190 → 1194 with 4 new tests passing; addresses 2 of 3 diagnosed defects from `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`; defect 3 score-clamp normalization deferred to V1.x).
 
 ---
 

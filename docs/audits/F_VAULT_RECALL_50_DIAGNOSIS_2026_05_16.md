@@ -185,3 +185,56 @@ Implement a new `EpistemosShadowVaultBackend` that wraps the existing `epistemos
 ---
 
 *— End of F-VaultRecall-50 diagnosis. Bug isolated to `agent_core/src/storage/vault.rs:495-548`. Three converging defects (implicit-OR + no stop-words + score clamp). Fix B is the iter-81 candidate (~15 LOC + 4 tests). Iter 80 = audit-of-audit #8 per loop spec.*
+
+---
+
+## 8. Implementation status (iter 81-82 close, 2026-05-16)
+
+**Fix B SHIPPED at iter 81 commit `2281c73f0`.** Verified at iter 82.
+
+### What landed
+
+`agent_core/src/storage/vault.rs` — 3 edits + 4 new tests, ~70 LOC added net:
+
+1. **`const QUERY_CHATTER_WORDS`** — ~30 chatter tokens in 7 categories (imperative chat prefixes · first/second person · discourse particles · stop-words · generic referents · wh-question words · misc filler).
+2. **`pub fn strip_query_chatter(query: &str) -> String`** — splits on whitespace, filters by lowercase match against the chatter list, rejoins. Empty-string contract when all-chatter (caller falls back to original).
+3. **`impl VaultBackend for VaultStore::hybrid_search`** body modified — applies `strip_query_chatter` before parsing; falls back to original query if stripping empties; counts surviving terms; calls `query_parser.set_conjunction_by_default()` when surviving terms ≤ 3 (AND semantics for short topical queries) while preserving implicit-OR for longer queries (recall preserved).
+4. **4 new tests in `mod tests`:**
+   - `strip_query_chatter_drops_chatty_prefix_and_keeps_signal` — reproduces Day-in-the-Life 1:15 PM canonical bug input
+   - `strip_query_chatter_preserves_signal_only_query` — signal passes through unchanged
+   - `strip_query_chatter_returns_empty_on_pure_chatter` — all-chatter contract
+   - `strip_query_chatter_handles_mixed_case_and_multi_signal` — mixed casing + 3-term signal
+
+### Acceptance verified
+
+- `cargo test --manifest-path agent_core/Cargo.toml --lib` → **1194 passed, 0 failed** (was 1190 baseline; +4 new tests)
+- `cargo test ... strip_query_chatter` → **4 of 4 passing by name** in 0.00 s
+
+### Defect coverage
+
+| Defect | Status |
+|---|---|
+| 1: implicit-OR query conjunction | ✅ FIXED — AND for ≤3 surviving terms, OR otherwise |
+| 2: no stop-word filter | ✅ FIXED — chatter stripped before parsing |
+| 3: score clamp `(0.0, 1.0)` at line 538 | ⏸ DEFERRED to V1.x — floor system is degraded but functional; full normalization is V1.x scope |
+
+### Effect on Day-in-the-Life 1:15 PM canonical bug input
+
+`"Pull my notes on residency governance"` →
+strip_query_chatter →
+`"residency governance"` (2 signal terms, no chatter) →
+`set_conjunction_by_default()` (≤3 terms) →
+Tantivy AND-conjunction query → **both "residency" AND "governance" must appear in returned docs** → notes that mention "residency governance" together (the actual residency-governance notes per MASTER_FUSION §3.2) rank higher than chatter-laden UI-design notes.
+
+Vault recall should now match Halo Shadow quality for short topical queries.
+
+### Cross-references
+
+- `agent_core/src/storage/vault.rs:13-66` (new const + helper fn)
+- `agent_core/src/storage/vault.rs:537-558` (modified `hybrid_search` body)
+- `agent_core/src/storage/vault.rs:715-755` (4 new tests in `mod tests`)
+- iter-81 commit `2281c73f0` — full Fix B
+- iter-82 commit (this one) — V1 Ship Ledger §11 row 14 RESOLVED + this status section
+- V1 Ship Ledger §10 status-transition log — new row added 2026-05-16
+
+*— End of F-VaultRecall-50 Implementation status section. Defects 1+2 closed at iter 81; defect 3 V1.x-deferred. The advisor-named load-bearing product bug is no longer load-bearing.*
