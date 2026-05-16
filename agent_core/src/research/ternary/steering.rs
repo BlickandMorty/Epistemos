@@ -73,6 +73,41 @@ impl SteeringStack {
         self.deltas.clear();
     }
 
+    /// Look at the top of the stack without popping. Returns
+    /// `(&delta, gain)` of the most-recently-pushed entry, or
+    /// `None` if the stack is empty.
+    pub fn peek(&self) -> Option<(&SteeringDelta, f32)> {
+        self.deltas.last().map(|(d, g)| (d, *g))
+    }
+
+    /// Total `(channel, value)` entry count across every delta in the
+    /// stack. Useful diagnostic for "how complex is the current
+    /// steering configuration?".
+    pub fn total_entries(&self) -> usize {
+        self.deltas.iter().map(|(d, _)| d.entries.len()).sum()
+    }
+
+    /// Sum of every delta's gain. Returns 0.0 on empty stack. Signal
+    /// for "is the steering pulling activations strongly?"; values
+    /// near 0 mean cancelling deltas, large absolute values mean
+    /// significant aggregate pull.
+    pub fn total_gain_sum(&self) -> f32 {
+        self.deltas.iter().map(|(_, g)| *g).sum()
+    }
+
+    /// Set of all channel indices touched by any delta in the stack.
+    /// Useful for "what subset of activations will my apply touch?"
+    /// before paying the apply cost. Returns sorted unique indices.
+    pub fn affected_channels(&self) -> Vec<usize> {
+        let mut s: std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+        for (delta, _) in &self.deltas {
+            for &(ch, _) in &delta.entries {
+                s.insert(ch);
+            }
+        }
+        s.into_iter().collect()
+    }
+
     /// Apply every (delta, gain) in stack order to `activations` in place.
     /// Validates all channel indices up front so a partial apply never
     /// occurs (either every delta lands or none does).
@@ -243,5 +278,87 @@ mod tests {
             err,
             SteeringError::ChannelOutOfRange { channel: 99, input_len: 2 }
         );
+    }
+
+    // ── peek + total_entries + total_gain_sum + affected_channels (iter 119) ─
+
+    #[test]
+    fn peek_empty_stack_returns_none() {
+        let stack = SteeringStack::new();
+        assert!(stack.peek().is_none());
+    }
+
+    #[test]
+    fn peek_returns_last_pushed() {
+        let mut stack = SteeringStack::new();
+        stack.push(delta(vec![(0, 1.0)]), 0.5);
+        stack.push(delta(vec![(1, 2.0)]), 0.7);
+        let (d, g) = stack.peek().unwrap();
+        assert_eq!(d.entries, vec![(1, 2.0)]);
+        assert!((g - 0.7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn peek_does_not_pop() {
+        let mut stack = SteeringStack::new();
+        stack.push(delta(vec![(0, 1.0)]), 0.5);
+        let _ = stack.peek();
+        assert_eq!(stack.len(), 1);
+    }
+
+    #[test]
+    fn total_entries_zero_on_empty_stack() {
+        let stack = SteeringStack::new();
+        assert_eq!(stack.total_entries(), 0);
+    }
+
+    #[test]
+    fn total_entries_sums_across_deltas() {
+        let mut stack = SteeringStack::new();
+        stack.push(delta(vec![(0, 1.0), (1, 2.0)]), 1.0);
+        stack.push(delta(vec![(2, 3.0)]), 0.5);
+        stack.push(delta(vec![(3, 4.0), (4, 5.0), (5, 6.0)]), 0.1);
+        assert_eq!(stack.total_entries(), 6);
+    }
+
+    #[test]
+    fn total_gain_sum_zero_on_empty() {
+        let stack = SteeringStack::new();
+        assert_eq!(stack.total_gain_sum(), 0.0);
+    }
+
+    #[test]
+    fn total_gain_sum_arithmetic() {
+        let mut stack = SteeringStack::new();
+        stack.push(delta(vec![(0, 1.0)]), 0.5);
+        stack.push(delta(vec![(0, 1.0)]), -0.3);
+        stack.push(delta(vec![(0, 1.0)]), 1.2);
+        assert!((stack.total_gain_sum() - 1.4).abs() < 1e-6);
+    }
+
+    #[test]
+    fn affected_channels_empty_on_empty_stack() {
+        let stack = SteeringStack::new();
+        assert!(stack.affected_channels().is_empty());
+    }
+
+    #[test]
+    fn affected_channels_returns_sorted_unique() {
+        let mut stack = SteeringStack::new();
+        stack.push(delta(vec![(5, 1.0), (2, 1.0)]), 1.0);
+        stack.push(delta(vec![(2, 1.0), (7, 1.0), (1, 1.0)]), 1.0);
+        let ch = stack.affected_channels();
+        // Sorted unique: 1, 2, 5, 7
+        assert_eq!(ch, vec![1, 2, 5, 7]);
+    }
+
+    #[test]
+    fn affected_channels_dedup_across_deltas() {
+        let mut stack = SteeringStack::new();
+        stack.push(delta(vec![(0, 1.0)]), 1.0);
+        stack.push(delta(vec![(0, 2.0)]), 1.0);
+        stack.push(delta(vec![(0, 3.0)]), 1.0);
+        // Single channel 0 even though 3 deltas reference it.
+        assert_eq!(stack.affected_channels(), vec![0]);
     }
 }
