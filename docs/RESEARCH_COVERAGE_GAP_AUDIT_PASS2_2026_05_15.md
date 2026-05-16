@@ -4081,6 +4081,67 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 162+ candidates:** (1) Watch for 7th loop's next move after Fix B (Fix C V1.x scope; or pivot to next product fix; or §17 wind-down). (2) Watch B's continued Helios B.2 expansion (§7 + §8 stages may continue). (3) Watch for J7 #3 Leech-24 + remaining J-series (J6/J8/J9). (4) Watch A T-A-31 1800s fire. (5) Phase C.2 + C.7.3 still pending.
 
+### Audit-of-audit #43 (iter 162, 2026-05-16) — 🎯 B HELIOS B.2 PORTFOLIO NOW COMPLETE 6 KERNELS × 8 STAGES (long_context_harness §8 + local_recall_island §7) + D 18th self-audit — 3 commits CLEAN
+
+- **Window since iter 161 close:** 3 substantive sibling commits at threshold:
+  - `20e393e1b` (B iter 127) `helios/long_context_harness: report diagnostics (Helios §8)`
+  - `bfd9a1736` (D 18th self-audit) `chore(D-self-audit): record OpenAI-compatible provider hardening sample`
+  - `b5414a7bb` (B iter 126) `helios/local_recall_island: store + report helpers (Helios §7)`
+
+- **🎯 Findings — B `helios/long_context_harness: report diagnostics (Helios §8)` (`20e393e1b`) — HELIOS B.2 PORTFOLIO COMPLETION:**
+  - B iter 127. **🎯 Commit body verbatim:** "Completes Helios stage-1 through stage-8 diagnostic coverage across the 6 substrate kernels (page_gather/packet_router/controller_pack/ssd_block_scan/local_recall_island/long_context_harness — iters 122-127)."
+  - **🎯 HELIOS B.2 PORTFOLIO NOW COMPLETE: 6 KERNELS × 8 STAGES** of diagnostic coverage. This is B's 4th major portfolio completion (after J1 7/7 iter 156 + J3 5/5 iter 149 + J5 4/4 iter 152).
+  - Substrate: `HarnessReport::worst_task_accuracy()` (minimum per-task accuracy; None on empty; **the actual bar value for §8 acceptance checks**) · `HarnessReport::tasks_below_threshold(threshold)` ((Task, accuracy) pairs for tasks below bar; control-room failure-diagnostic surface) · `HarnessReport::budget_utilization()` (`total_wall_clock_ms / budget_ms`; 0-1 within budget; **>1 over budget**; surfaces "we're at 80% of wall-clock" before within_budget flips false).
+  - **§5.0 verdict: CLEAN + LANDMARK.**
+
+- **🎯 Findings — B `helios/local_recall_island: store + report helpers (Helios §7)` (`b5414a7bb`) — HELIOS §7 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 126. Helios §7 acceptance harness diagnostics. Base shipped `meets_threshold` (boolean verdict); this adds metrics distinguishing "barely passes" from "comfortably passes" and surfaces which depths fail.
+  - Substrate: `RecallStore::is_full()` (true iff len ≥ capacity; next insert returns CapacityExceeded) · `RecallReport::worst_depth_recall()` (**the actual bar value to clear**; None on empty per_depth_recall) · `RecallReport::depths_below_threshold(threshold)` (returns (depth, recall) pairs for every depth that fails the bar; empty when `meets_threshold(threshold) = true`; **used in control-room "why did stage 7 fail?" view**).
+  - 7 new unit tests.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `chore(D-self-audit): record OpenAI-compatible provider hardening sample` (`bfd9a1736`) — 18th D-SELF-AUDIT:**
+  - D's continued distributed cadence. "Record the continuous Terminal D self-audit for sampled OpenAI-compatible provider contracts plus CLI/MCP subprocess hardening. No production code changes."
+  - **D.5 ↔ A WASMExecXPC NOT surfaced this iter** (iter 161 also no surface; iter 158 was last surface). Escalation counter reset.
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B HELIOS B.2 PORTFOLIO COMPLETION ARC (6 kernels × 8 stages, iters 122-127 in B's counter = our iters 159-162):**
+  - Kernel 1: page_gather (iter 122 / our 159) — STREAM-comparable diagnostics + 512 MB doctrine pin (Helios §1-2)
+  - Kernel 2: packet_router (iter 123 / our 160) — skew_fraction + RoutingQuality + roundtrip_verify (Helios §3-4 implied)
+  - Kernel 3: controller_pack (iter 124 / our 161) — Helios §5 min/argmin/sum reductions
+  - Kernel 4: ssd_block_scan (iter 125 / our 161) — Helios §6 stability check + compare_scans (3rd stability checker)
+  - Kernel 5: local_recall_island (iter 126 / our 162 this iter) — Helios §7 worst_depth_recall + depths_below_threshold
+  - Kernel 6: long_context_harness (iter 127 / our 162 this iter) — Helios §8 worst_task_accuracy + tasks_below_threshold + budget_utilization
+  - **6 kernels × 8 stages portfolio complete.** Mirror of J1/J3/J5 portfolio-completion pattern.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE PORTFOLIO STATUS (4 of 5+ major portfolios complete):**
+  - **J3 (continual learning) 5/5** ✅ — iter 149
+  - **J5 (ACS) 4/4** ✅ — iter 152
+  - **J1 (ternary) 7/7** ✅ — iter 156
+  - **Helios B.2 6 kernels × 8 stages** ✅ — iter 162 (this iter)
+  - J7 (sherry_lattice) 2 of 3 — Sherry34 + E8 done; Leech-24 pending
+  - J2 (cognition_observatory) — #4 SAE done; other sub-features pending
+  - J6 / J8 / J9 — envelopes only; substrate-floor expansion pending
+  - **B has consistently completed portfolios in 5-8 commits each** when transitioning between subsystems
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 46 CONSECUTIVE COMMITS ACROSS ITERS 130-162:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - **Phase 2-Helios B.2 (iters 159-162): 6 Helios B.2 expansions (PORTFOLIO COMPLETE 6×8)**
+
+- **§5.0 catch rate:** 29/238 = 12.2% (continued decline; Helios portfolio completion is another major B milestone).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3. Average ~2.7/iter.
+
+- **Verdict:** ✅ **ON TRACK** (36th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 163+ candidates:** (1) Watch B's next portfolio transition (J7 #3 Leech-24 + J2/J6/J8/J9 sub-features expected). (2) Watch 7th loop's next move (F-VaultRecall-50 Fix C V1.x OR new diagnosis OR §17 wind-down). (3) Watch A T-A-31 1800s fire. (4) Phase C.2 + C.7.3 still pending. (5) Next §7 meta-cycle at iter 190 (28 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
