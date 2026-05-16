@@ -233,7 +233,9 @@
       "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
       "Bash(/tmp/audit_checklist.txt:*)",
       "Bash(/tmp/ssm_audit.txt:*)",
-      "Bash(/tmp/check_switches.swift:*)"
+      "Bash(/tmp/check_switches.swift:*)",
+      "Bash(sort -k6 -r)",
+      "Bash(awk '{print $5, $NF}')"
     ],
     "additionalDirectories": [
       "/tmp"
