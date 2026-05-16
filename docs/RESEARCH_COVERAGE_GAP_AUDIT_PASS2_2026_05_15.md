@@ -3564,6 +3564,62 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 153+ candidates:** (1) Watch for V1 Ship Ledger integration artifact 2 of 3 (expected iter 77 = ~iter 153). (2) Watch for Day-in-the-Life Power User integration artifact 3 of 3 (expected iter 78 = ~iter 154). (3) Watch for B transition to J1/J2/J6/J7/J8/J9 substrate-floor expansions (J3 + J5 now complete). (4) Watch for next D self-audit. (5) Phase C.2 + C.7.3 still pending. C §7 meta-cycle at iter 160 (8 iters away).
 
+### Audit-of-audit #38 (iter 153, 2026-05-16) — 🎯 INTEGRATION ARTIFACT 2 OF 3 LANDS (V1 Ship Ledger 280 LOC / 12 §; 85 feature rows) + B TRANSITION TO J1 TERNARY SUBSTRATE EXPANSION (J1 #1 pack allocation-free + J1 #2 gemv GemvBlock diagnostics) — 3 commits CLEAN
+
+- **Window since iter 152 close:** 3 substantive sibling commits at threshold:
+  - `b17c56149` (B iter 114) `research/ternary/pack: allocation-free helpers (J1 #1)`
+  - `b8c4b4036` (audit-row loop) `docs(iter-77): V1 Ship Ledger — integration artifact 2 of 3`
+  - `a63c65fc6` (B iter 113) `research/ternary/gemv: GemvBlock diagnostics (J1 #2)`
+
+- **🎯 INTEGRATION ARTIFACT 2 OF 3 LANDS — V1 SHIP LEDGER (`b8c4b4036`):**
+  - **7th audit-row loop continues pivoted task scope** from iter 76 UAS-ACS canon close (per Lesson #14 — same loop, pivoted task scope under user re-authorization).
+  - Doc landed: `docs/fusion/V1_SHIP_LEDGER_2026_05_16.md` (**~280 LOC, 12 sections, ~85 feature rows**):
+    - §0 Legend (V1/V1.x/V2/NEVER tier + 5 ship-blocker categories)
+    - §1 Cognitive substrate (10 rows)
+    - §2 Memory hierarchy + storage (11 rows)
+    - §3 Agent runtime + tools (15 rows)
+    - §4 UI/UX/View layer (17 rows) — **§1-4 = 53 rows of code-facing surfaces**
+    - §5 Wave 7-11 user-product layer (6 V1 BLOCKERS)
+    - §6 Hermes positioning disambiguation (Agent DELETED · Parity SHIPPED · Snake Simulation V2 · doctrine doc SHIPPED)
+    - §7 Distribution + release (7 rows)
+    - §8 Forward-staged primitives table (6 rows, all NOT-STARTED) — **matches 7th loop's iter-149 finding "6 forward-staged primitives unchanged from iter 58"**
+    - §9 Code-side hardening floor (5 rows, all V1 SHIPPED)
+    - §10 Status-transition log (append-only, 7 historical rows)
+    - §11 13 open user-decisions surfaced for explicit user direction
+    - §12 Anti-scope-creep guardrail
+  - **🎯 EXEMPLARY pre-write §5.0 reconciliation discipline:** verified no existing V1_SHIP_LEDGER file on disk + cross-referenced existing classification surfaces (MASTER_FUSION §3 + MAS_COMPLETE_FUSION §10 + 2 PASS audit registers + B-1/2/3/4/5/6 V1 BLOCKER decisions + B2-M5 + B2-H16 + ORPHAN-HERMES-SALVAGE-001 user-decisions) BEFORE writing. Same discipline as iter-151 UAS-ACS canon — Lesson #6 verification applied at substrate-claim level.
+  - **Cargo test baseline 1190/1190 holds; zero production code touched.** Doc-only integration artifact per 4-advisor synthesis directive.
+  - **3-artifact queue state:** Artifact 1 ✅ (UAS-ACS canon iter 151) + Artifact 2 ✅ (V1 Ship Ledger this iter) + Artifact 3 ⏳ (DAY_IN_THE_LIFE_POWER_USER expected iter 78 = ~iter 154).
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** Comprehensive ship-status flat-view consolidation.
+
+- **🎯 Findings — B `ternary/pack: allocation-free helpers (J1 #1)` (`b17c56149`) — J1 #1 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 114. J1 #1 ternary pack (originally landed iter 73 first slice `562e23d83` per iter-73 status pulse; ternary kernel substrate floor).
+  - Base `pack_trits_u32` / `unpack_trits_u32` always allocates `[Trit; 16]` on unpack. This commit adds allocation-free helpers for decode-hot-path: `count_nonzero_in_word(word) -> u8` (walks 2-bit slots, counts those not equal to `0b01` (Zero); treats reserved `0b11` pattern as nonzero — debugger sentinel that would otherwise silently hide; companion to GemvBlock's nonzero_count metadata) · `validate_word(word) -> Result<(), PackError>` (returns Ok if no slot holds `0b11`; otherwise `Err(ReservedPattern { index })` for FIRST lowest-index slot).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ternary/gemv: GemvBlock diagnostics (J1 #2)` (`a63c65fc6`) — J1 #2 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 113. J1 #2 ternary gemv (block-scaled GEMV kernel from same iter-73 first slice).
+  - Substrate: `GemvBlock::sparsity_fraction()` (`(GEMV_BLOCK_TRITS − nonzero_count) / GEMV_BLOCK_TRITS`; all-zero → 1.0; all-nonzero → 0.0; half → 0.5; clamps at 0.0 if nonzero_count overflows — caller bug saturates not goes negative) · `GemvBlock::effective_bytes() -> usize` (const = 4 packed u32 + 4 fp32 scale + 1 u8 nonzero_count = **9 bytes**) · `dense_block_count(rows, cols) -> Option<usize>` (planning helper; None for zero dim OR unpadded cols).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B TRANSITIONED FROM J3+J5 COMPLETIONS TO J1 SUBSTRATE EXPANSION:** As predicted iter 152, with J3 (5/5) and J5 (4/4) ACS portfolios complete, B moved to J1 ternary substrate expansion. **2 of unknown total J1 sub-features expanded this iter.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 33 CONSECUTIVE COMMITS ACROSS ITERS 130-153:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - **Phase 2-J-series (iters 146-153): 12 J-series substrate-floor expansions** (J2 #4 + J3 5/5 + J5 4/4 + **J1 #1 + J1 #2 this iter**)
+
+- **§5.0 catch rate:** 29/217 = 13.4% (continued decline; V1 Ship Ledger landing all 6 forward-staged primitives as still NOT-STARTED validates Phase C.6 deferral — 7th loop's earlier finding now codified in flat ledger).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3. Average ~2.7/iter.
+
+- **Verdict:** ✅ **ON TRACK** (31st consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 154+ candidates:** (1) Watch for DAY_IN_THE_LIFE_POWER_USER integration artifact 3 of 3 (expected iter 78 = ~iter 154). (2) Watch B's continued J1 substrate-floor expansion (more sub-features) + J2/J6/J7/J8/J9 expansions. (3) Watch for next D self-audit. (4) Phase C.2 + C.7.3 still pending. (5) C §7 meta-cycle at iter 160 (7 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
