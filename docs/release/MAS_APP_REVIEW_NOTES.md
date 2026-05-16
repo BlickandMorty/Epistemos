@@ -200,6 +200,139 @@ spctl --assess --type install --verbose=2 Epistemos-Pro.dmg
 - **Distribution channel decision:** V3 §5 Phase G G6 is a separate user-decision item (direct download vs Cloudflare CDN vs Backblaze vs other). Notarization completes before distribution — channel decision is upstream of release timing.
 - **Sparkle / Squirrel auto-update:** out-of-scope; Pro V1 is manual DMG download per current Phase G framing.
 
+## 10. Per-XPC Entitlement Audit (T-A iter 18, 2026-05-16 — V3 §0 criterion 15)
+
+This audit is the **release-time validation procedure** for V3 §0 criterion 15 ("Pro entitlements verified for each Hardened Runtime relaxation"). It does NOT define entitlement specs — those are canonical in `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md §2.1-§2.5`. This §10 is the operator's "before notarytool submit, run these greps" checklist.
+
+**Scope:** Pro Developer-ID build. The MAS bundle ships only the main app entitlements (`Epistemos-AppStore.entitlements` per §0 rule 7 — 6 keys); XPC service decomposition (Phase F′) is Pro-only.
+
+### 10.1 Service inventory — 5 Phase F′ XPC services
+
+| Service | Bundle path | Canonical entitlement spec | Plane (per Hermes §5.3) |
+|---|---|---|---|
+| Main App | `Epistemos-Pro.app/Contents/MacOS/Epistemos` | XPC_MASTERY §2.1 | Plane 0 (orchestrator) |
+| VaultXPC | `Epistemos-Pro.app/Contents/XPCServices/VaultXPC.xpc` | XPC_MASTERY §2.2 | Plane 4 (write/forget/admit) |
+| AgentXPC | `Epistemos-Pro.app/Contents/XPCServices/AgentXPC.xpc` | XPC_MASTERY §2.3 | Plane 1+2 (state + episodic) |
+| ProviderXPC | `Epistemos-Pro.app/Contents/XPCServices/ProviderXPC.xpc` | XPC_MASTERY §2.4 | Plane 4 (network egress) |
+| WASMExecXPC | `Epistemos-Pro.app/Contents/XPCServices/WASMExecXPC.xpc` | XPC_MASTERY §2.5 | Plane 4 (sandboxed exec) |
+
+### 10.2 Per-service required-keys validation (release-time greps)
+
+For each `<XPC>.entitlements`, run the following before invoking notarytool (§9.2 pre-submission gate):
+
+```bash
+# Helper: dump entitlements for a binary in human-readable form
+dump_entitlements() {
+  codesign --display --entitlements - --xml "$1" 2>/dev/null | plutil -convert json -o - -
+}
+
+PRO="Epistemos-Pro.app"
+
+# 10.2.1 Main App — REQUIRED: app-sandbox=true · application-groups=[group.com.epistemos.shared]
+#                            files.user-selected.read-write · files.bookmarks.app-scope
+#         DISALLOWED on main: cs.allow-jit · cs.disable-library-validation · cs.allow-unsigned-executable-memory
+#                             network.client (network is Provider XPC's job)
+dump_entitlements "$PRO/Contents/MacOS/Epistemos" | jq -e '
+  ."com.apple.security.app-sandbox" == true and
+  (."com.apple.security.application-groups" // []) | contains(["group.com.epistemos.shared"]) and
+  (."com.apple.security.cs.allow-jit" // false) == false and
+  (."com.apple.security.cs.disable-library-validation" // false) == false and
+  (."com.apple.security.network.client" // false) == false
+'
+
+# 10.2.2 VaultXPC — REQUIRED: app-sandbox · application-groups · files.bookmarks.app-scope
+#         DISALLOWED: cs.allow-jit · network.client · files.user-selected.* (those flow through main app)
+dump_entitlements "$PRO/Contents/XPCServices/VaultXPC.xpc/Contents/MacOS/VaultXPC" | jq -e '
+  ."com.apple.security.app-sandbox" == true and
+  (."com.apple.security.cs.allow-jit" // false) == false and
+  (."com.apple.security.network.client" // false) == false
+'
+
+# 10.2.3 AgentXPC — REQUIRED: app-sandbox ONLY (pure compute; delegates everything)
+#         DISALLOWED: cs.allow-jit · network.client · any filesystem
+dump_entitlements "$PRO/Contents/XPCServices/AgentXPC.xpc/Contents/MacOS/AgentXPC" | jq -e '
+  ."com.apple.security.app-sandbox" == true and
+  (."com.apple.security.cs.allow-jit" // false) == false and
+  (."com.apple.security.network.client" // false) == false and
+  (."com.apple.security.files.user-selected.read-write" // false) == false
+'
+
+# 10.2.4 ProviderXPC — REQUIRED: app-sandbox · network.client (the ONLY XPC with network)
+#         DISALLOWED: cs.allow-jit · any filesystem · GPU access
+dump_entitlements "$PRO/Contents/XPCServices/ProviderXPC.xpc/Contents/MacOS/ProviderXPC" | jq -e '
+  ."com.apple.security.app-sandbox" == true and
+  ."com.apple.security.network.client" == true and
+  (."com.apple.security.cs.allow-jit" // false) == false
+'
+
+# 10.2.5 WASMExecXPC — REQUIRED: app-sandbox · cs.allow-jit (the ONLY XPC with JIT)
+#         CONDITIONAL: cs.disable-library-validation — see §10.4 doctrine catch
+#         DISALLOWED: network.client · any filesystem (WASI preopens fed in per-execution)
+dump_entitlements "$PRO/Contents/XPCServices/WASMExecXPC.xpc/Contents/MacOS/WASMExecXPC" | jq -e '
+  ."com.apple.security.app-sandbox" == true and
+  ."com.apple.security.cs.allow-jit" == true and
+  (."com.apple.security.network.client" // false) == false
+'
+```
+
+All 5 greps MUST exit 0. Any non-zero exit halts the notarytool pipeline at §9.2.
+
+### 10.3 Cross-XPC invariants (the "no leak" pass)
+
+```bash
+# Invariant 1: cs.allow-jit appears in EXACTLY ONE entitlement file (WASMExecXPC).
+grep -r "cs.allow-jit\|cs\\.allow-jit" "$PRO" --include="*.entitlements" 2>/dev/null | grep -c WASMExecXPC
+# Expected: 1
+
+grep -rE "cs\\.allow-jit" "$PRO" --include="*.entitlements" 2>/dev/null | grep -v WASMExecXPC | wc -l
+# Expected: 0 (no other XPC and not the main app)
+
+# Invariant 2: network.client appears in EXACTLY ONE entitlement file (ProviderXPC).
+grep -rE "network\\.client" "$PRO" --include="*.entitlements" 2>/dev/null | grep -c ProviderXPC
+# Expected: 1
+
+grep -rE "network\\.client" "$PRO" --include="*.entitlements" 2>/dev/null | grep -v ProviderXPC | wc -l
+# Expected: 0
+
+# Invariant 3: cs.disable-library-validation appears in AT MOST ONE entitlement file (WASMExecXPC, conditional — see §10.4).
+grep -rE "cs\\.disable-library-validation" "$PRO" --include="*.entitlements" 2>/dev/null | grep -v WASMExecXPC | wc -l
+# Expected: 0 (anywhere else is a hard fail)
+```
+
+Any invariant violation halts the pipeline + requires entitlement-file fix before resubmit.
+
+### 10.4 §5.0 doctrine-disagreement catch on WASMExecXPC + `cs.disable-library-validation`
+
+**Two doctrine sources disagree on whether `WASMExecXPC.entitlements` requires `cs.disable-library-validation` in addition to `cs.allow-jit`:**
+
+- **V3 §0 victory criterion 15** (in `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_A_2026_05_16.md`) states:
+  > `WASMExecXPC.entitlements`: `cs.allow-jit + cs.disable-library-validation` (Wasmtime needs both)
+- **`docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md §2.5`** shows only:
+  ```xml
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  ```
+  with NO `cs.disable-library-validation` key. The §2.5 commentary on JIT does not mention library validation.
+
+**Reconciliation required (decision-required-from-user):** which doctrine source is canonical?
+
+- **Option A: V3 §0 criterion 15 is correct** — Wasmtime in fact needs both `cs.allow-jit` AND `cs.disable-library-validation` to load its third-party `*.cwasm` bytecode caches; XPC_MASTERY §2.5 is incomplete and needs updating to add the key (with rationale subsection explaining the library-validation relaxation is XPC-scoped, not main-app scoped). MAS_APP_REVIEW_NOTES §1 (which references §0 rule 7) should also cross-link.
+- **Option B: XPC_MASTERY §2.5 is correct** — `cs.allow-jit` alone is sufficient for Wasmtime's JIT codegen (the `*.cwasm` cache loads run inside the same-signed XPC binary, so library validation is not relaxed); V3 §0 criterion 15's "+ cs.disable-library-validation" is over-specified and needs amending.
+
+**Verification needed:** consult Wasmtime upstream docs (`https://docs.wasmtime.dev/`) on Hardened Runtime entitlement requirements for macOS code-signing. The current Wasmtime version used in `Cargo.toml` is the ground truth — if it loads JIT-compiled code from non-signed memory regions, `cs.allow-jit` alone is sufficient (page-level JIT relaxation); if it dynamically loads `.cwasm` files signed by a different Team ID (e.g. from user-installed plugins), `cs.disable-library-validation` is also required.
+
+**Decision required from user:** {Option A — add `cs.disable-library-validation` to WASMExecXPC + update XPC_MASTERY §2.5} OR {Option B — drop `cs.disable-library-validation` requirement from V3 §0 criterion 15 + clarify}. Either way, ONE doctrine source must change to reconcile.
+
+**This catch surfaces here in §10.4 because:** T-A V3 §2 owns `docs/release/MAS_APP_REVIEW_NOTES.md` + does NOT own `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_A_2026_05_16.md` (user-owned per loop-prompt evolution pattern) NOR `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` (shared per V3 §2 — both terminals may update sections, but the entitlement specs at §2.1-§2.5 are the canonical authority that doctrine-edits should consult Wasmtime upstream before changing). Audit surfaces the disagreement so user can pick the reconciliation direction.
+
+### 10.5 Cross-references
+
+- **V3 §0 victory criterion 15:** the doctrine target this audit satisfies.
+- **`docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md §2.1-§2.5`:** canonical entitlement spec source. THIS audit is the validation procedure; specs come from there.
+- **§9 above:** Pro Notarization Checklist — §10's audit is one of the §9.1 pre-submission gate validations (specifically step 4 "Pro entitlements verified per V3 §0 criterion 15").
+- **MAS_COMPLETE_FUSION §0 immutable rules 6/7/8:** rule 7's JIT defense covers the MAS side (JIT NEVER in MAS); rule 8's per-Live-File egress allowlist composes with §10.2.4 ProviderXPC network gating.
+- **`docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md §3` Trust attestation:** every XPC service verifies caller code signature before honoring messages — composes with §10's entitlement audit (entitlements are the static surface; trust attestation is the dynamic gate).
+
 ---
 
 Contact for App Review questions: (developer email).
