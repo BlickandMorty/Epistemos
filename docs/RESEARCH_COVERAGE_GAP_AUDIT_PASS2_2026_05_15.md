@@ -3030,6 +3030,50 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 143+ candidates:** (1) Watch for B's iter-100 milestone (mamba3 J10 was iter 99; iter-100 typically triggers B's §7 audit cycle per every-10-iter cadence — could land iter 143-145). (2) Watch for 2nd + 3rd A post-iter-72-queue-exhaustion maintenance candidates. (3) B.0-LARGE.1 watch (8 iters past). (4) Phase C.2 + C.6 + C.7.3 all remain pending (C.7.3 now partially addressed by B's doctrine-substantiation pattern).
 
+#### Status pulse (iter 143, 2026-05-16) — 🎯 B ITER-100 MILESTONE + para_lens Composed<A,B> categorical compose + iter-90-99 §7 audit cleared (10th cycle) — 1 commit CLEAN
+
+- **Window since iter 142 close:** 1 sibling commit (sub-threshold, but a TRIPLE-MILESTONE event):
+  - `c07673b54` (B iter 100) `research/para_lens: Composed<A, B> categorical compose (iter 100)`
+
+- **🎯 TRIPLE MILESTONE in one commit:**
+  1. **B's iter-100 milestone reached** — 100 iterations of B substrate work since session start.
+  2. **B's iter-90-99 §7 audit cycle cleared (10th completed cycle):** "iters 90-99 sampled: all add documented sibling ops with behavior-exercising tests." B's distributed §7 self-audit cadence now: iters 10/20/30/40/50/60/70/80-89/90-99 = **10 completed cycles across 100 iters**.
+  3. **Categorical-compose gap closed** per Cruttwell-Gavranović-Ghani-Wilson 2021 §3 doctrine ("Para(Lens(C)) is a category, so morphisms (= layers) must compose"). Previously LinearLayer + ReluLayer shipped as ParaLens impls (iter-101 audit-of-audit #19 + iter-138 status pulse); this commit lands the **B ∘ A composition primitive** required for the categorical structure.
+
+- **🎯 Findings — B `para_lens: Composed<A, B> categorical compose` (`c07673b54`):**
+  - Substrate: `Composed<A: ParaLens, B: ParaLens>` — `B ∘ A` forward runs A then B; backward runs B-back then A-back per chain rule.
+  - `param_size = A.param_size + B.param_size` · param-vector layout `[p_a... | p_b...]` (A's params first) · `input_size = A.input_size; output_size = B.output_size` · `A.output_size != B.input_size` detected at forward/backward as `OutputLengthMismatch`.
+  - **Backward chain-rule contract:** re-runs A.forward to materialize intermediate `y` (caching would be more efficient; substrate-floor recomputes to keep trait stateless) · `B.backward(p_b, y, dz) → (dp_b, dy)` · `A.backward(p_a, x, dy) → (dp_a, dx)` · concatenate param_grads as `[dp_a | dp_b]` mirroring forward layout.
+  - 8 new unit tests covering: sizes for Linear→ReLU + Linear→Linear · forward runs in order · backward chain rule in active relu branch with analytic ground-truth · backward zero-grads in inactive relu branch · param-grad ordering for full 4-parameter Linear→Linear chain math · wrong-param-size rejection · **finite-difference matches analytic backward for 2-layer chain** (closes chain-rule correctness loop).
+  - **§5.0 verdict: CLEAN.** Categorical-structure-substantiation pattern (Cruttwell §3 stating Para(Lens(C)) is a category → code-verifiable Composed primitive proves it).
+
+- **🎯 PATTERN CONTINUATION — DOCTRINE-SUBSTANTIATION:** This iter's commit continues the doctrine-substantiation pattern emerging at iter 142 (mamba3 A-stability). B is now systematically going through V6.1 doctrine claims and landing code-verifiable substantiation primitives:
+  - iter 142 mamba3 A-stability checker (V6.1 §1.4)
+  - iter 143 Para(Lens) Composed (Cruttwell 2021 §3 categorical-compose)
+  - **Predicting:** more doctrine-substantiation commits as B works through V6.1 + research-corpus paper-citation claims.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 19 CONSECUTIVE COMMITS ACROSS ITERS 130-143:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 12 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-143): 2 doctrine-substantiation commits (mamba3 J10 + para_lens compose)
+  - **B at iter 100 in own counter** — the maturation phase is at the 70-iter mark in B's own iteration sequence (iter 100 - iter 30 first §7 audit ≈ 70 iters of substrate work).
+
+- **🎯 DISTRIBUTED §7 SELF-AUDIT DISCIPLINE NOW MATURE ACROSS A + B + C:**
+  - **A:** T-A-NN series #1-#5 (post-soft-stop 600s → 1800s bump iter 28); cumulative ~28 self-audit cycles
+  - **B:** §7 cycles every 10 iters; **10 completed cycles across 100 iters** (iters 10/20/30/40/50/60/70/80-89/90-99)
+  - **C:** audit-of-audit #1-#33 + §7 meta-cycles (iter 79 + 100 + 130) + Lesson articulation
+  - All 3 maintaining distinct self-audit rhythms while sharing the §5.0/§4 reconciliation discipline.
+
+- **⚠️ B.0-LARGE.1 LANDING LATENCY: 9 iters past V6.1-precedent window.** Remains INFORMATIONAL per iter-139 reclassification. 1 more iter until 10+-iter escalation threshold (iter 144).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold despite milestone significance.
+
+- **26 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1. Average ~2.6/iter; downward trend continues but mixed-cadence prevents low-touch re-engagement.
+
+- **Iter 144+ candidates:** (1) Continue B doctrine-substantiation phase watch. (2) Watch for 2nd + 3rd A post-iter-72-queue-exhaustion maintenance candidates. (3) **⚠️ B.0-LARGE.1 watch escalates at iter 144 (10-iter threshold)** — will surface in next full audit-of-audit cycle if still absent. (4) Phase C.2 + C.6 + C.7.3 all remain pending (C.7.3 partially addressed by B's doctrine-substantiation).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
