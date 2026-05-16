@@ -2002,6 +2002,18 @@ final class AppBootstrap {
         // to call multiple times if AppBootstrap is reconstructed.
         LatestAnswerPacketSink.shared.start()
 
+        // ISSUE-2026-05-12-008: amortize BlockMirror first-parse for the 5
+        // most-recently-modified pages so the first-open hang (~10-200ms per
+        // note) moves from click-time to launch-time. Uses the canonical
+        // R.3 fallback chain so disk-only pages (production majority) are
+        // covered alongside inline-body pages.
+        Task.detached(priority: .utility) {
+            await AppBootstrap.prewarmRecentBlockMirrors(
+                modelContainer: container,
+                limit: 5
+            )
+        }
+
         self._workspaceService = WorkspaceService(modelContainer: container)
         self._workspaceSummaryService = WorkspaceSummaryService(
             triageService: triage, activityTracker: activityTracker, modelContainer: container
@@ -3447,6 +3459,7 @@ final class AppBootstrap {
                 Log.app.error(
                     "W8.7 shadow: handle open failed at \(shadowRoot.path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
                 )
+                ShadowSearchDiagnostics.shared.recordInitFailure(class: .handleOpen)
                 await MainActor.run {
                     guard self?.shadowIndexingInFlightVaultPath == vaultPath else { return }
                     BackgroundIndexingHealthRow.recordFailed(
@@ -3474,6 +3487,7 @@ final class AppBootstrap {
                 Log.app.warning(
                     "W8.7 shadow: embedder warm failed — \(error.localizedDescription, privacy: .public). First Halo search may block on HF download or fall back."
                 )
+                ShadowSearchDiagnostics.shared.recordInitFailure(class: .embedderWarm)
             }
 
             let indexer = ShadowIndexingService(client: client)

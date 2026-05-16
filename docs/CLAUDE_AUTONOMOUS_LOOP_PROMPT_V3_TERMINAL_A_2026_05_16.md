@@ -225,6 +225,14 @@ When Phase A/B empty AND no Hermes work queued AND no XPC slice queued: run a re
 
 13 items waiting. SKIP and log. If 3 consecutive iters skip user-decision items + no other work: graceful wind-down per §10.
 
+### Phase A-V6.1 — V6.1 research integration adds (NEW 2026-05-16)
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §2 Terminal A`:
+
+- **A-V6.1.1 — MAS = API-only HARD LINE sharpening**: §0 immutable rule 6 in `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` must be updated to state: "no CLI bridge in MAS, no exceptions, including security-scoped bookmarks." App Review reliably rejects "shells out to user binaries" for non-Developer-Tools categories. Ship two builds: MAS (`cfg(feature = "mas")`) + Pro Developer-ID (`cfg(feature = "pro")`). Bash-tool subprocess in MAS = bundled XPC helper with `app-sandbox + inherit + user-selected.read-write` ONLY.
+- **A-V6.1.2 — Anthropic API hand-roll verification**: Anthropic Agent SDK is proprietary + bundles Claude Code CLI binary. We do NOT use the SDK. Verify current canonical implementation uses the ~600-LoC hand-roll on `reqwest` + `eventsource-stream` + `tokio` + `serde`. If any code path imports the SDK or shells out to bundled binaries: §5.0 catch + flag.
+- **A-V6.1.3 — Executor trait dependency**: Terminal D's Phase D.0 lands the `Executor` trait. Verify A's existing provider work in `agent_core/src/providers/` is refactor-compatible with that trait surface (do NOT refactor pre-emptively; wait for D's PR). Read `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §1.3` for the trait signature.
+
 ## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
 
 Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)** until Terminal A reaches §0 victory. In Phase 1:

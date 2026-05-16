@@ -224,6 +224,22 @@ Every 20-30 iters: re-verify the 6 forward-staged primitives are still NOT-START
 
 If any has been implemented by sibling: flip its doctrine status from forward-staged to LANDED.
 
+### Phase C.7 — V6.1 New Research Integration audit (NEW 2026-05-16)
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` — read on session start AND every iter as part of §3 mandatory reading.
+
+Audit responsibilities:
+- **C.7.1** — Verify every terminal's V6.1 additions land per §2 of the integration doc. Specifically:
+  - Terminal A: §0 immutable rule 6 sharpening (MAS = API-only hard line)
+  - Terminal B: Phase B.0 F-ULP-Oracle (W1) gates AnswerPacket schema · J10-J14 research-tier J slices · B.6.15-B.6.20 NOT-STARTED extensions · attention-as-interrupt thesis
+  - Terminal D: Phase D.0 Executor trait · D.2.8 Granite-4.0-H-Micro · D.7 SWE-agent ACI · D.8 Aider repo-map · D.9 Plandex plan-as-data · D.10 dual-backend MLX
+  - Terminal E: E.6.3-E.6.7 new user-decision items
+  - Terminal F: F.7 Codex CLI as MCP server · F.8 Claude Code MCP + ACP layer
+- **C.7.2** — Cross-link verification: `CANONICAL_DOC_INDEX §4` now includes `HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` + the two original kernel/DAG doctrines.
+- **C.7.3** — Honest caveats enforcement (§1.10 of integration doc): every EML-related claim must include Smith quintic boundary note; every Apple MSL ULP claim must be empirical-only; Goodfire 9972/205/2.1% citations must be re-verified before external use; eml★ Monnerot stays DROP-to-conditional.
+- **C.7.4** — Lean toolchain pin verification: confirm 4.29.1 resolves OR downgrade to 4.25.0 documented in `doctrine/STACK_DIVERGENCES.md`.
+- **C.7.5** — Cargo workspace lockstep verification: any new crate from §1.11 (epikernel-executor · epikernel-eml-ir · epikernel-lean · epikernel-mlx · epikernel-anthropic · epikernel-openai · epikernel-gemini · epikernel-llamacpp · epikernel-mcp · epikernel-repomap · epikernel-tools-aci · epikernel-plan · epikernel-codex-bridge · epikernel-substrate · epikernel-claims) must touch `Cargo.toml` + `docs/legal/licenses.md` + HERMES §6.1 + FEATURE_CHANGE_TRACKER in same commit per B2-M15 lockstep rule.
+
 ## §5.5 Harden-later policy (Terminal C audit responsibility)
 
 Terminal C's role spans both phases. In **Phase 1**, audit feature builds for §5.0 / drift / non-canon framing / cut-corners. In **Phase 2** (post-V1 hardening), audit hardening sweep per `docs/HARDENING_TRACKER_2026_05_16.md`.
