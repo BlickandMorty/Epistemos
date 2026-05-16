@@ -846,7 +846,7 @@ impl ToolRegistry {
             }
 
             // Tunnel C — delegate a task to Claude Code / Codex / Gemini /
-            // Kimi / Goose / Aider / OpenHands CLI. Same `enable_bash` gate because these are subprocess
+            // Kimi / Goose / Aider / OpenHands / mini-SWE-agent CLI. Same `enable_bash` gate because these are subprocess
             // spawners with the same trust profile. The gemini + kimi
             // handlers (added 2026-05-05 per user request "i don't see
             // CLIs at all si please fix") follow the same shape as the
@@ -859,6 +859,7 @@ impl ToolRegistry {
                 self.register_goose_passthrough();
                 self.register_aider_passthrough();
                 self.register_openhands_passthrough();
+                self.register_mini_swe_agent_passthrough();
             }
         }
 
@@ -2373,6 +2374,55 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::OpenHandsHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_mini_swe_agent_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "mini_swe_agent".to_string(),
+            description: "Delegate a coding task to mini-SWE-agent in local CLI mode \
+                (`mini --yolo --task <task>` by default). mini-SWE-agent uses its configured \
+                model/provider setup and local environment while Epistemos keeps the shared \
+                hardened Tunnel C receipt boundary. \
+                Returns a structured receipt. If mini-SWE-agent is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to mini-SWE-agent."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional mini-SWE-agent model override, for example 'anthropic/claude-sonnet-4-5-20250929'."
+                    },
+                    "config": {
+                        "type": "string",
+                        "description": "Optional mini-SWE-agent config file name or path, passed through --config."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the mini-SWE-agent session in."
+                    },
+                    "yolo": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --yolo so the delegated run does not block on confirmation prompts."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::MiniSweAgentHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
@@ -4080,6 +4130,24 @@ mod tier_tests {
         assert!(names.contains("openhands"));
         assert_eq!(registry.get_risk_level("openhands"), RiskLevel::Destructive);
         assert_eq!(registry.get_tier("openhands"), ToolTier::Agent);
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_mini_swe_agent_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("mini_swe_agent"));
+        assert_eq!(
+            registry.get_risk_level("mini_swe_agent"),
+            RiskLevel::Destructive
+        );
+        assert_eq!(registry.get_tier("mini_swe_agent"), ToolTier::Agent);
     }
 
     #[cfg(feature = "pro-build")]
