@@ -13,6 +13,12 @@
 //! Source: https://docs.together.ai/docs/inference/function-calling/overview
 //! Source: https://docs.together.ai/docs/inference/chat/reasoning
 //! Source: https://docs.together.ai/docs/serverless/models
+//! Source: https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+//! Source: https://docs.x.ai/developers/model-capabilities/text/streaming
+//! Source: https://docs.x.ai/developers/model-capabilities/text/reasoning
+//! Source: https://docs.x.ai/developers/tools/function-calling
+//! Source: https://docs.x.ai/developers/models/grok-4.3
+//! Source: https://docs.x.ai/developers/migration/may-15-retirement
 //!
 //! Most LLM providers implement the OpenAI API standard. This single provider
 //! covers: OpenRouter (200+ models), Ollama, Z.AI/GLM, Kimi/Moonshot, DeepSeek,
@@ -312,27 +318,27 @@ impl OpenAICompatibleProvider {
     }
 
     // --- xAI / Grok ---
+    // Source: https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+    // Source: https://docs.x.ai/developers/models/grok-4.3
+    // Source: https://docs.x.ai/developers/migration/may-15-retirement
+    // Endpoint: https://api.x.ai/v1/chat/completions
+    // Auth: XAI_API_KEY
     pub fn xai() -> Self {
+        Self::grok_latest()
+    }
+
+    pub fn grok(model: &str) -> Self {
         Self::new(
-            std::env::var("XAI_API_KEY").unwrap_or_default(),
+            xai_api_key(),
             "https://api.x.ai/v1",
-            "grok-3",
-            "xAI / Grok",
-            ProviderCapabilities {
-                max_context_tokens: 131_072,
-                max_output_tokens: 16_384,
-                supports_thinking: true,
-                supports_vision: true,
-                supports_web_search: false,
-                supports_code_execution: false,
-                supports_computer_use: false,
-                supports_mcp: false,
-                supports_streaming: true,
-                supports_compaction: true,
-                cost_input_per_million: 3.0,
-                cost_output_per_million: 15.0,
-            },
+            model,
+            "xAI Grok",
+            xai_capabilities(model),
         )
+    }
+
+    pub fn grok_latest() -> Self {
+        Self::grok("grok-4.3")
     }
 
     // --- Mistral AI ---
@@ -757,6 +763,35 @@ fn codestral_api_key() -> String {
         .unwrap_or_default()
 }
 
+fn xai_api_key() -> String {
+    std::env::var("XAI_API_KEY").unwrap_or_default()
+}
+
+fn xai_capabilities(model: &str) -> ProviderCapabilities {
+    ProviderCapabilities {
+        max_context_tokens: xai_context_tokens(model),
+        max_output_tokens: 16_384,
+        supports_thinking: true,
+        supports_vision: true,
+        supports_web_search: false,
+        supports_code_execution: false,
+        supports_computer_use: false,
+        supports_mcp: false,
+        supports_streaming: true,
+        supports_compaction: true,
+        cost_input_per_million: 1.25,
+        cost_output_per_million: 2.50,
+    }
+}
+
+fn xai_context_tokens(model: &str) -> usize {
+    if model.contains("multi-agent") {
+        2_000_000
+    } else {
+        1_000_000
+    }
+}
+
 fn kimi_capabilities(model: &str) -> ProviderCapabilities {
     ProviderCapabilities {
         max_context_tokens: 256_000,
@@ -1121,6 +1156,39 @@ mod tests {
         assert_eq!(
             openai_compatible_reasoning_delta_text(delta),
             Some("plan first")
+        );
+    }
+
+    #[test]
+    fn grok_latest_uses_current_xai_api_contract() {
+        let provider = OpenAICompatibleProvider::grok_latest();
+
+        assert_eq!(provider.base_url, "https://api.x.ai/v1");
+        assert_eq!(provider.model, "grok-4.3");
+        assert_eq!(provider.display_name, "xAI Grok");
+        assert_eq!(provider.capabilities.max_context_tokens, 1_000_000);
+        assert!(provider.capabilities.supports_thinking);
+        assert!(provider.capabilities.supports_vision);
+        assert_eq!(provider.capabilities.cost_input_per_million, 1.25);
+        assert_eq!(provider.capabilities.cost_output_per_million, 2.50);
+    }
+
+    #[test]
+    fn grok_stream_chunk_exposes_reasoning_content_as_thinking_delta() {
+        let chunk: StreamChunk = serde_json::from_value(json!({
+            "choices": [{
+                "index": 0,
+                "delta": { "reasoning_content": "reasoning summary" },
+                "finish_reason": null
+            }]
+        }))
+        .unwrap();
+        let choices = chunk.choices.unwrap();
+        let delta = choices[0].delta.as_ref().unwrap();
+
+        assert_eq!(
+            openai_compatible_reasoning_delta_text(delta),
+            Some("reasoning summary")
         );
     }
 
