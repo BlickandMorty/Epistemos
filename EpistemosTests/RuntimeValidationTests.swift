@@ -4892,6 +4892,27 @@ struct RuntimeValidationTests {
         #expect(!codeEditor.contains("CodeAskBarService("))
     }
 
+    @Test("code editor coordinator forces horizontal scroller visibility for long-line files")
+    func codeEditorForcesHorizontalScrollerVisibility() throws {
+        // Per user direction 2026-05-15: long-line files (`.jsonl`,
+        // minified `.json`, single-line `.csv` rows) overflow the
+        // viewport. CodeEditSourceEditor's default `.overlay` scroller
+        // style auto-hides the horizontal scrollbar, so users assumed
+        // the editor was broken (couldn't scroll horizontally at all).
+        //
+        // The fix wires `.legacy` scroller style + hasHorizontalScroller
+        // + autohidesScrollers=false into the coordinator's
+        // prepareCoordinator hook. Pin all three lines so a future
+        // refactor that drops one trips this test before regressing
+        // the user-facing behavior.
+        let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(codeEditor.contains("forceHorizontalScrollerVisibility(controller: controller)"))
+        #expect(codeEditor.contains("controller.scrollView.scrollerStyle = .legacy"))
+        #expect(codeEditor.contains("controller.scrollView.hasHorizontalScroller = true"))
+        #expect(codeEditor.contains("controller.scrollView.autohidesScrollers = false"))
+    }
+
     @Test("code editor theme normalizes transparent and system colors into RGB space")
     func codeEditorThemeNormalizesTransparentAndSystemColorsIntoRGBSpace() {
         let transparentBackground = NSColor.clear.rgbSafeForCodeEditorTheme()
