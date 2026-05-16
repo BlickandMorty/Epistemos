@@ -184,6 +184,31 @@ For E.3: prepare a "how to run" guide + a "how to analyze output" guide so the u
 | E.5.1 | **ORPHAN-HERMES-SALVAGE-001** | Salvage Hermes-removed files for any forward-staged primitives vs delete | `docs/_archive/hermes-removal-2026-05-05/` |
 | E.5.2 | **RCA13-P0-001 vault smoke** | User runs vault smoke test on clean state (now possible post-wipe); you analyze results | `RECURSIVE_TODO Research Drop 13` |
 
+## §5.5 Harden-later policy (Terminal E specifics)
+
+Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`. Your work is **research, not implementation**. You stay in Phase 1 (preparing decisions) indefinitely until user answers all 13 items. There is no Phase 2 hardening for E (no code shipped here).
+
+- ✅ Each research doc has all 7 sections (Problem · Options · Sources · Code impact · Recommendation · Acceptance · Decision-ready prompt) per §6 step 5
+- ⚠️ TOLERATED: drafts with TBD sections clearly flagged; recommendations marked "tentative pending more research"
+- ❌ NOT TOLERATED: research docs with invented "facts" · recommendations without explicit reasoning · decisions made by you (not the user)
+
+## §5.6 Lockstep doc updates (per research doc ship)
+
+Every research doc commit MUST touch (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
+- ✓ The research doc itself at `docs/audits/user-decisions/<item-id>.md`
+- ✓ `MAS_COMPLETE_FUSION §10 Compromises Recorded` row updated with research-link column
+- ✓ `MAS_COMPLETE_FUSION §8` Implementation Log row
+- ✓ `FEATURE_CHANGE_TRACKER §3` row (research counts as a shipped feature for tracking purposes)
+
+When user answers a decision item, handoff commit MUST touch:
+- ✓ Your research doc's "Decision answered" section (timestamped)
+- ✓ A note in the owning terminal's expected reading dir (e.g., write to `Epistemos-runB/INBOX/<item>-decision.md` if Terminal B owns the follow-up)
+- ✓ `MAS_COMPLETE_FUSION §10` Compromise row Status update
+
+## §5.7 Canonical doc index pointer
+
+Read `docs/CANONICAL_DOC_INDEX_2026_05_16.md` on first session. Anti-drift reference: `docs/ANTI_DRIFT_SYSTEM.md`. §1.5 SCOPE BOUNDARY = Layer 2; §5.0 reconciliation = Layer 3.
+
 ## §6. Per-iteration protocol
 
 1. State check (§3) + fetch origin

@@ -230,6 +230,42 @@ Per `mas_architecture_research.md` + kimi `definitive/capstone/mas_release` rese
 
 **F.6.5 Notifications** — `UserNotifications` framework. Agent-emitted notifications (morning report · NightBrain wake · etc.).
 
+## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
+
+Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)**. Phase 2 (post-V1 hardening) triggers when user says "BEGIN PHASE 2 HARDENING".
+
+- ✅ Research-first per Apple framework docs · test-first per `harden_cli_subprocess` discipline · minimal-fix
+- ✅ Acceptance: channel responds end-to-end (inbound + outbound) on happy path · at least 1 test · §8 row appended · `#if !EPISTEMOS_APP_STORE` gate verified (Pro-only)
+- ⚠️ TOLERATED in Phase 1: known TODOs · partial protocol coverage (e.g., text-only initially · attachments later) · suboptimal retry · weak fallback handling
+- ❌ NOT TOLERATED: Pro code linked into MAS · capability scope undefined · `harden_cli_subprocess` skipped · AXorcist unbounded traversal · channel data uncapped from privacy gate
+
+Phase 2 hardening for integrations: adversarial input fuzzing per channel · network failure handling · OAuth token rotation · per-channel audit trail · per-claw capability scope verification.
+
+Ship integration → log axes to `HARDENING_TRACKER §2` → move on.
+
+## §5.6 Lockstep doc updates (per integration ship)
+
+Every new integration commit MUST touch (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
+- ✓ Integration module(s) (own scope per §2)
+- ✓ At least 1 test (inbound + outbound for channels)
+- ✓ `MAS_COMPLETE_FUSION §8` Implementation Log row
+- ✓ `FEATURE_CHANGE_TRACKER §3` row
+- ✓ `HARDENING_TRACKER §2` row (axes ⬜ in Phase 1)
+- ✓ `docs/channels/relay-ops.md` (canonical channel-relay architecture — extend if new channel added)
+- ✓ `docs/HERMES_AGENT_CORE_2_0_DESIGN §6.1 4-Tunnel taxonomy` row (Pro Tunnel A/B.2/C entries)
+
+Conditional (XPC entitlement changes — lockstep rule #4 per `MAS_COMPLETE_FUSION §0`):
+- ✓ `.entitlements` file
+- ✓ Info.plist
+- ✓ Provisioning profile reference
+- ✓ `docs/release/MAS_APP_REVIEW_NOTES.md` (if MAS-relevant)
+- ✓ Codesign verification test
+ALL same commit.
+
+## §5.7 Canonical doc index pointer
+
+Read `docs/CANONICAL_DOC_INDEX_2026_05_16.md` on first session. Anti-drift reference: `docs/ANTI_DRIFT_SYSTEM.md`. §1.5 SCOPE BOUNDARY = Layer 2; §5.0 reconciliation = Layer 3.
+
 ## §6. Per-iteration protocol
 
 1. State check (§3) + fetch origin
