@@ -223,6 +223,40 @@ pub enum AgentEvent {
 
 The UI renders this as a timeline, not raw logs. The user SEES what the agent is doing.
 
+### 4.2 V6.2 AnswerPacket binding — SHIPPED Option B (B2-M4)
+
+**Source:** `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md` §"The race in concrete terms" + §"Two architectural options". PASS 2 audit row B2-M4 framed this as undecided ("Option A or B; no code landed"). **§5.0 reconciliation finding: Option B already shipped in commit `c0c14f98e` "helios v6.2 Option B: AnswerPacket id binds to ChatMessage end-to-end".** The audit row was stale at the time of writing; this section records the decision retroactively.
+
+**The race the fix addresses.** `StreamingDelegate.onComplete` used to emit the V6.2 AnswerPacket inside an unstructured `Task { … emit(packet) }` while `continuation.yield(.complete)` ran synchronously on the same call. By the time `ChatState.recordCompletedTurn(...)` ran, the emit task might or might not have committed the packet — the new `assistantMessage.id` had no deterministic binding to the packet just emitted for it. On M-series Macs the actor hop is usually fast enough that the packet arrived first, but the binding was probabilistic, and a regenerate-then-resume pattern (two assistant messages completing in quick succession) could bind a bubble to the wrong packet.
+
+**The decision: Option B (packetId threaded through the stream event).**
+
+```swift
+// AgentStreamEvent.complete gained an answerPacketId field:
+case complete(
+    stopReason: String,
+    inputTokens: Int,
+    outputTokens: Int,
+    answerPacketId: String?,    // NEW — nil only if emit failed
+    history: [[String: String]]?
+)
+```
+
+`StreamingDelegate.onComplete` (Epistemos/Bridge/StreamingDelegate.swift:595-636) now: builds the AnswerPacket → `await AnswerPacketEmitter.shared.emit(packet)` → THEN `continuation.yield(.complete(..., answerPacketId: packet.id, ...))`. The packet is committed in the ring before the downstream consumer sees `.complete`, so `ChatCoordinator.handle(.complete)` (Epistemos/App/ChatCoordinator.swift:807, 2927) can deterministically stamp `answerPacketId` onto the new ChatMessage via `AgentChatState.completeProcessing(answerPacketId:...)` (Epistemos/State/AgentChatState.swift:366).
+
+**Why Option B over Option A.** Option A ("LatestAnswerPacketSink mirroring `AnswerPacketEmitter.shared.last`, with timestamp matching") was rejected because the race still existed — it only added a heuristic ~10ms wait window before binding. Option B eliminates the race architecturally: the packet id is a structured field on the event itself, so the binding is deterministic regardless of actor-hop timing or regenerate-then-resume rate. The cost is exactly one field added to one enum case — minimal cross-cutting change.
+
+**End-to-end paper trail.** The packet flows StreamingDelegate → AgentStreamEvent.complete (with `answerPacketId`) → ChatCoordinator.handle(.complete) → AgentChatState.completeProcessing → `ChatMessage.answerPacketId`. The per-bubble VRMLabelView reads `ChatMessage.answerPacketId` and resolves it via `AnswerPacketEmitter.shared.recentPackets()` — no timestamp matching, no probability, no flicker on scroll.
+
+**Cross-links:**
+- B2-M4 PASS 2 audit row.
+- `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md` — the source spec that drafted Option A vs B.
+- Commit `c0c14f98e` (Option B end-to-end) · `9b1db4170` (InterruptScore bucket sampled into packet) · `0d757b57f` (attention_mode populated).
+- §4.1 The five canonical AgentEvent variants — `.complete` is the variant this field lives on.
+- §5.1 ExecutionReceipt — sibling per-turn provenance primitive that ExecutionReceipt is the per-tool-call counterpart of.
+
+**Status:** SHIPPED. Reconciliation gate caught the staleness this iteration (the audit row predicted an undecided state; the codebase had shipped Option B 4 days before the audit was written).
+
 ---
 
 ## 5. SCOPE-Rex governance wrapper — every executor wrapped, never raw
