@@ -66,7 +66,8 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 
 ---
 
-## 2. HIGH — post-V1 important / architecture-relevant (19)
+## 2. HIGH — post-V1 important / architecture-relevant (20)
+*Counts as 20 after audit-of-audit #3 added B2-H20 ephemeral-token row 2026-05-16.*
 
 ### B2-H1. Five Laws (Unified Substrate Phase D doctrine)
 - **Source:** [_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md](_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md) §1
@@ -197,10 +198,19 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Why HIGH:** Pairs with `MAS_COMPLETE_FUSION §0 rule 6` (MAS HTTP-fetch + WKWebView-only, no in-process JS) — that rule answers "what fetches are allowed in MAS" but does NOT answer "where does an agent's outbound network request get gated per-Live-File." Without the egress allowlist, a Live File could in principle exfiltrate vault content to any cloud endpoint the user has credentials for. Even pre-Live-Files, the egress chain is the canonical place to enforce per-tool network limits for `web.search` / `web.fetch` / `mcp.call` etc.
 - **Destination:** `MAS_COMPLETE_FUSION §0` immutable rules — new rule 8 declaring the per-call egress gate + default-deny semantics. **OR** `HERMES_AGENT_CORE_2_0_DESIGN §7.x` Pro-tier capability layer alongside macaroon design. Implementation is a separate slice — this row is doctrine.
 
+### B2-H20. Ephemeral capability tokens (request-time, one-shot, RunEventLog-bound)
+
+*Source: audit-of-audit #3 (iter 30, 2026-05-16) surfaced this gap.*
+
+- **Source:** `docs/fusion/research/FINAL_SYNTHESIS.md §5.2` (lines 421-429).
+- **What it is:** **One-shot capability tokens** issued by Layer 4 (Immune) AT CALL TIME, narrowly scoped to the specific tool invocation, **expire on tool completion** (or earlier on failure), logged into RunEventLog. Distinct from B2-H13 ExecutionReceipt (signed log entry of a COMPLETED call) and distinct from B2-H10 Capability Lease (Pro-only XPC handle binding for zero-copy data plane). Different lifecycle: request → expire on completion.
+- **Why HIGH:** This is the **request-time** half of the security-token story. B2-H13 is the **completion-time** receipt. B2-H10 is the **Pro-only XPC handle binding**. Without an ephemeral request-time token layer, the audit chain has a gap between "user approval" (consent moment, macaroon issued) and "tool execution" (ExecutionReceipt signed at completion) — there is no narrowly-scoped, single-use token that fences off the tool call itself. Layered correctly, this becomes: **SovereignGate consent → macaroon issued → ephemeral capability token (one-shot, scoped, TTL) → tool executes → ExecutionReceipt signed → token expires → RunEventLog entry sealed**.
+- **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN §5.x` between §5.1 (ExecutionReceipt — completion-time half) and §7.5 (Capability Lease — Pro-only XPC half). Suggested heading: §5.2 "Ephemeral capability tokens — request-time, one-shot, RunEventLog-bound." Implementation is a separate slice — this row is doctrine layering between two already-shipped primitives.
+
 ---
 
-## 3. MEDIUM — architecture-relevant / decision-pending (14)
-*Counts as 14 after audit-of-audit #2 added B2-M14 differential-privacy row 2026-05-16.*
+## 3. MEDIUM — architecture-relevant / decision-pending (15)
+*Counts as 14 after audit-of-audit #2 added B2-M14 differential-privacy row 2026-05-16. Bumped to 15 by audit-of-audit #3 (iter 30) adding B2-M15 `epistemos-code-index` Wave 9.7 anchor.*
 
 ### B2-M1. Loop Profiles (editable Hermes reasoning loops, user-vault-resident)
 - **Source:** [_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md](_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md) §IV
@@ -284,9 +294,15 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Why MEDIUM, not BLOCKER:** Auto-research is itself Wave 9+ (research-tier per PASS-1 H-10 + M-2 Eidos Plus). Until auto-research telemetry exists, there's no telemetry channel to gate. The DP doctrine is forward-staging: pin the ε ≤ 0.5 bound now so when the channel ships, the privacy gate ships with it, not as an afterthought.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` new §3.X row "Auto-research telemetry — differential privacy gate" with explicit `Laplace(sensitivity / epsilon)` formula and ε ≤ 0.5 acceptance bound. Cross-link to PASS 1 H-10 (Auto-research loops Karpathy pattern) + M-2 (Eidos Plus deliberation) so when those land, this DP gate is the first interface they hit.
 
----
+### B2-M15. `epistemos-code-index` Wave 9.7 RAG-for-code anchor
 
-## 4. LOW — operational / research-tier (4)
+*Source: audit-of-audit #3 (iter 30, 2026-05-16) surfaced this gap. Shipping crate completely absent from both PASS 1 and PASS 2 + every canon doc.*
+
+- **Source:** `/Users/jojo/Downloads/Epistemos/epistemos-code-index/Cargo.toml` ("Workspace code indexer — RAG chunking + Model2Vec embeddings + usearch HNSW sidecar. Per-file sidecar lives at `<vault>/.epcache/code/<sha256-hex-of-vault-rel-path>.epcode.json`. Wave 9.7.").
+- **What it is:** A shipping Rust crate (`~838 KB` of Rust per audit-of-audit #3) wired into the Xcode build (`project.pbxproj` lines 779 + 836) that **provides RAG-for-code retrieval** — workspace code chunking via Model2Vec embeddings + usearch HNSW sidecar at `<vault>/.epcache/code/<sha256-hex>.epcode.json`. Siblings the existing Halo Shadow vault index (notes side) with an equivalent code-side index.
+- **Why MEDIUM, not HIGH:** Code ships and the Xcode link works, so there is no V1 BLOCKER risk. The gap is **doctrine drift**: PASS 1 + PASS 2 + MASTER_FUSION + NEW_SESSION_HANDOFF + HERMES_AGENT_CORE_2_0_DESIGN + MAS_COMPLETE_FUSION + AGENTS.md + CLAUDE.md FILE MAP **all** return zero hits for `epistemos-code-index` or `epistemos_code_index`. A future agent reading the canon would not know the crate exists and could either re-implement it OR accidentally quarantine it as an orphan (the same drift pattern that previously hit `KaTeXSnippets` / `KIVIQuantization` / `variant_ladder` per C.15).
+- **Destination:** Two-row landing required: (a) **CLAUDE.md FILE MAP** new section "Rust `epistemos-code-index` crate" listing the crate path · purpose · sidecar file convention · Xcode link. CLAUDE.md edit is user-approval-gated per loop §16, so this lives in NEW_SESSION_HANDOFF §10 (recursive backlog landscape) until promotion. (b) **MASTER_FUSION §3.X** new row "epistemos-code-index — RAG-for-code retrieval (Wave 9.7, SHIPPED)" mirroring the §3.37 N1 Prompt Tree pattern (canon points at shipped code).
+- **Severity rationale:** MEDIUM because the code works without canon knowing — no production breakage. Bumps to HIGH if a future slice touches workspace-search / repo-map / RAG code paths without finding this crate first and re-invents the wheel. The §C.15 KaTeXSnippets case shows how doc drift becomes scope creep.
 
 ### B2-L1. HealEventLog SQLite schema + TTL classes
 - **Source:** [fusion/salvage/from-vigorous-goldberg/agent_core_src/heal/log.rs](fusion/salvage/from-vigorous-goldberg/agent_core_src/heal/log.rs) (500+ LOC)
