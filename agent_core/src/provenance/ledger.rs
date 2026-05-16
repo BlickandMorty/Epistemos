@@ -1435,6 +1435,24 @@ mod tests {
     }
 
     #[test]
+    fn claim_tier_rejects_unknown_string_on_decode_without_panic() {
+        // Defensive decode for the cross-crate Provenance Console
+        // surface. A future build might introduce a 4th claim tier
+        // (e.g. hypothetical "Synthesized" or "Retracted-via-merge");
+        // this build must reject the unknown string rather than
+        // panic mid-render of the audit console.
+        let result: Result<ClaimTier, _> = serde_json::from_str("\"synthesized\"");
+        assert!(result.is_err(),
+                "decoder must reject unknown claim tiers");
+        let result: Result<ClaimTier, _> = serde_json::from_str("\"\"");
+        assert!(result.is_err());
+        // PascalCase rejects — only snake_case is canonical.
+        let result: Result<ClaimTier, _> = serde_json::from_str("\"Composite\"");
+        assert!(result.is_err(),
+                "PascalCase tier names must reject — only snake_case is canonical");
+    }
+
+    #[test]
     fn claim_tier_natural_ordering_is_gap_lt_composite_lt_prime() {
         // The doc comment on `ClaimTier` promises "`Gap < Composite <
         // Prime` so a `(tier, weight)` natural ordering sorts gap →
