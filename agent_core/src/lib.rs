@@ -7,7 +7,10 @@ pub mod arenas;
 pub mod artifacts;
 pub mod bridge;
 pub mod canon;
+#[cfg(feature = "pro-build")]
 pub mod channel_relay;
+#[cfg(feature = "pro-build")]
+pub mod channels;
 pub mod circuit_breaker;
 pub mod cognitive_dag;
 pub mod cognitive_weight;
