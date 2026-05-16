@@ -615,7 +615,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-008: First-note-open hangs slightly on large vaults
 
-Status: Patched (partial — inline-body prewarm shipped; disk-load extension pending iter 3+)
+Status: Patched (BlockMirror prewarm covers both inline + disk-load paths; graph/FTS/HNSW sub-causes are separate, deferred to canonical graph plan)
 Priority: P2
 First Observed: 2026-05-12 (per user report)
 
@@ -678,6 +678,24 @@ Investigation Log:
   build green; cargo 1190 baseline holds. Iter 3 should extend to the
   disk-load path via `SDPage.loadBodyAsyncFromPrimitives` so the prewarm
   actually amortizes the first-open hang in production.
+- 2026-05-16 (T-A iter 3, full patch): function converted to `async` and now
+  uses `SDPage.loadBodyAsyncFromPrimitives(pageId:filePath:inlineBody:)` for
+  body acquisition — the canonical R.3 fallback chain (managed sidecar → R.3
+  gateway → inline → raw vault file). Signature changed from `modelContext:
+  ModelContext` to `modelContainer: ModelContainer` to satisfy Swift 6
+  strict-concurrency Sendable rules (ModelContext isn't Sendable; the
+  function now creates its own ModelContext internally and calls
+  `modelContext.save()` after BlockMirror.sync inserts so other contexts
+  see the new SDBlocks). 5 unit tests now pass (3 from iter 2 + 2 new:
+  disk-only-page prewarmed via filePath + missing-file gracefully skipped
+  with synced=0). Per-page `(id, filePath, body)` snapshotted before any
+  `await` to avoid SwiftData object-lifecycle races. **Cause #1 of this
+  issue (BlockMirror first-parse) is now structurally covered.** Other
+  causes (#2 graph engine neighborhood wake, #3 FTS5 segment open,
+  #4 HNSW embedding compute, #5 NSTextView attribute pass) are separate
+  concerns: #2 is owned by the canonical graph plan; #3 was patched
+  earlier via shadow_warm (per ISSUE-2026-05-10-001); #4 + #5 are
+  outside Phase B scope. Closing this row as Patched.
 
 ---
 
