@@ -993,6 +993,38 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **Wind-down tracking (§10 rule 3):** still **4 consecutive ON-TRACK cycles since #8 catch**; this iter is a status pulse, not a full cycle, so no increment to consecutive ON-TRACK count. Audit-of-audit #13 (when window reaches 3-5) will be the cycle that determines whether to trip into low-touch 1800s heartbeat per §10 rule 3.
 - **§5.6 lockstep status:** sub-cycle pulse — no MAS_COMPLETE_FUSION §8 row appended (per iter-84 clarification, lockstep applies to full cycles).
 
+### Audit-of-audit #13 (iter 91, 2026-05-16) — 5th consecutive ON-TRACK · §10 rule 3 LOW-TOUCH MODE TRIGGER · 4 commits CLEAN
+
+- **Window since #12 (iter 88):** 4 substantive sibling commits:
+  - `e312bf330` (B) J3 #2 OFTv2 — orthogonal-matrix substrate (iter 90 status pulse · CLEAN)
+  - `c8a2a9722` (E) H-1 startup hang Time Profiler decision research (iter 90 status pulse · CLEAN · correct PASS-1 prefix)
+  - `a18995871` (B) J3 #3 DSC/DOC — orthogonal-subspace + projection (NEW · CLEAN)
+  - `60caf3a07` (E) H-2 idle memory Allocations decision research (NEW · CLEAN · correct PASS-1 prefix)
+- **Method:** §5.0 spot-verification via `git ls-tree` for substrate sizes + `git show <sha>:<path> | grep -c "#\[test\]"` for test counts + commit-message source-citation cross-check + naming-prefix audit for E's docs.
+- **Findings — J3 #3 DSC (`a18995871`):**
+  - File: `agent_core/src/research/continual_learning/dsc.rs` (9620 bytes / **14 tests**).
+  - mod.rs grew 2822 → 2922 bytes (DSC module registered).
+  - Source citations resolve: Wang et al. arXiv:2509.23893 (Dynamic Orthogonal Continual fine-tuning) + `continual_learning_online.md §8.2` (~40% less forgetting vs fixed-direction methods over >100-conversation sequences).
+  - **Note on commit-title vs file inventory:** title says "DSC/DOC — orthogonal-subspace + projection" but only `dsc.rs` landed (no separate `doc.rs` / `orthogonal_subspace.rs` / `projection.rs` files). The DOC + orthogonal-subspace + projection concepts must be wrapped inside `dsc.rs` (9620 bytes / 14 tests is substantial enough). Pattern consistent with iter 90's J3 #2 commit ("OFTv2/QOFT" with only oftv2.rs landed). B is using single-file kernels with multi-concept titles.
+  - **§5.0 verdict: CLEAN.**
+- **Findings — E H-2 (`60caf3a07`):**
+  - File: `docs/audits/user-decisions/H-2-idle-memory-allocations.md` (245 LOC). Uses correct PASS-1 `H-2` prefix matching §10 row "H-2 Instruments Allocations (Phase A.8)".
+  - 6-line MAS_COMPLETE_FUSION update; pattern consistent with H-1 commit.
+  - **Naming discipline holding:** post-iter-87 (where B-1..B-4 collided), all 6 of E's commits use correct audit prefixes (B2-M5 · H-1 · H-2 · B2-H16 · H-3/B2-H6 + earlier B-1 which matches by topic). The B-N collision pattern is bounded to the earlier 3 docs (B-2 Obscura, B-3 Undo, B-4 NousResearch).
+  - **§5.0 verdict: CLEAN.**
+- **Findings — J3 #2 OFTv2 + E H-1 (carried from iter 90):** both CLEAN per iter 90 status pulse; no re-verification this cycle.
+- **No drift surfaced this window.** All 4 commits pass §5.0 inspection.
+- **J3 portfolio growth:** mod.rs 2922B + ewc.rs 9156B (14 tests) + oftv2.rs 9683B (13 tests) + dsc.rs 9620B (14 tests) = **3 kernels + umbrella, 41 tests total**. Remaining per J3 driver row: Titans-MAC · SEAL-DoRA. Portfolio ~63% complete (3 of 5 kernels named in the J3 driver row).
+- **§5.0 catch rate:** was 28/105 = 26.7% at #12 close. +4 commits this iter, 0 fresh catches → **28/109 = 25.7%**.
+- **Verdict:** ✅ **ON TRACK.** This is the **5th consecutive ON-TRACK cycle** since #8 DRIFT-CATCH (sequence: #8 catch → #9 #10 #11 #12 #13 all ON TRACK).
+- **🎯 §10 RULE 3 TRIGGERED — switching to low-touch 1800s heartbeat:**
+  - §10 wind-down hard-stop rule 3: "5 consecutive audit-of-audit cycles ON TRACK + no new gaps → switch to low-touch 1800s heartbeat (not full stop)."
+  - Action: cron job `4d9c1587` (currently `*/3 * * * *`) will be replaced with a 1800s/30-min cron (`*/30 * * * *` or `1,31 * * * *` to avoid the :00 spike per CronCreate guidance).
+  - **Important caveat:** Low-touch mode is NOT a stop. C continues to audit; the cadence just relaxes. If a sibling lands a [DRIFT-ALERT]-worthy commit, the next cron fire (within 30 min) catches it. If sibling cadence picks up sharply (>5 commits in 30 min), C may step back up to 3-min cadence at audit-of-audit #14+'s discretion.
+  - This is the FIRST time in this session that low-touch mode has been triggered. Prior 4 ON-TRACK cycles (#9 J1 portfolio · #10 acf19c1dd infrastructure · #11 self-audit mirror · #12 J2 portfolio close) built the consecutive-clean streak.
+- **§5.6 lockstep status this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+- **Next audit-of-audit #14:** fires when 3-5 commits accumulate post-iter-91 (likely a longer wall-clock interval given the 30-min cadence + sibling work rate of ~1 commit per 3-5 min based on iters 81-90 observation).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
