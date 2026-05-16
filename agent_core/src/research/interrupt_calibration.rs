@@ -118,6 +118,108 @@ pub fn calibrate_interrupt_classifier(
     })
 }
 
+/// Confusion matrix at a fixed decision threshold + derived metrics.
+/// Distinct from [`InterruptCalibrationReport`] (which learns the
+/// threshold via Youden-J on a calibration set); this surface is for
+/// the production-side question "given the threshold I shipped, what
+/// are my TPR/FPR/precision/recall on this batch?".
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConfusionMatrix {
+    pub threshold: f32,
+    pub true_positive: u32,
+    pub false_positive: u32,
+    pub true_negative: u32,
+    pub false_negative: u32,
+}
+
+impl ConfusionMatrix {
+    pub fn total(&self) -> u32 {
+        self.true_positive + self.false_positive + self.true_negative + self.false_negative
+    }
+
+    /// Accuracy: `(TP + TN) / total`. Returns `None` on empty batch.
+    pub fn accuracy(&self) -> Option<f32> {
+        let t = self.total();
+        if t == 0 {
+            return None;
+        }
+        Some((self.true_positive + self.true_negative) as f32 / t as f32)
+    }
+
+    /// Precision: `TP / (TP + FP)`. Returns `None` if `TP + FP = 0`
+    /// (no positive predictions made — precision is undefined).
+    pub fn precision(&self) -> Option<f32> {
+        let denom = self.true_positive + self.false_positive;
+        if denom == 0 {
+            return None;
+        }
+        Some(self.true_positive as f32 / denom as f32)
+    }
+
+    /// Recall (= TPR / sensitivity): `TP / (TP + FN)`. Returns `None`
+    /// if no actual positives in the batch (no positives to recall).
+    pub fn recall(&self) -> Option<f32> {
+        let denom = self.true_positive + self.false_negative;
+        if denom == 0 {
+            return None;
+        }
+        Some(self.true_positive as f32 / denom as f32)
+    }
+
+    /// FPR (= 1 − specificity): `FP / (FP + TN)`. Returns `None` if
+    /// no actual negatives in the batch.
+    pub fn false_positive_rate(&self) -> Option<f32> {
+        let denom = self.false_positive + self.true_negative;
+        if denom == 0 {
+            return None;
+        }
+        Some(self.false_positive as f32 / denom as f32)
+    }
+
+    /// F1 score: harmonic mean of precision + recall. Returns `None`
+    /// if either is undefined or both are zero.
+    pub fn f1(&self) -> Option<f32> {
+        let p = self.precision()?;
+        let r = self.recall()?;
+        if p + r == 0.0 {
+            return None;
+        }
+        Some(2.0 * p * r / (p + r))
+    }
+}
+
+/// Evaluate the classifier at a fixed `threshold`. A score ≥ threshold
+/// is "predicted interrupt"; below is "predicted no-interrupt". The
+/// observation's `ground_truth_needed` is the actual label.
+pub fn evaluate_at_threshold(
+    observations: &[InterruptObservation],
+    threshold: f32,
+) -> Result<ConfusionMatrix, InterruptCalibrationError> {
+    if observations.is_empty() {
+        return Err(InterruptCalibrationError::EmptyObservations);
+    }
+    let mut tp = 0u32;
+    let mut fp = 0u32;
+    let mut tn = 0u32;
+    let mut fn_ = 0u32;
+    for o in observations {
+        let predicted = o.interrupt_score >= threshold;
+        match (predicted, o.ground_truth_needed) {
+            (true, true) => tp += 1,
+            (true, false) => fp += 1,
+            (false, false) => tn += 1,
+            (false, true) => fn_ += 1,
+        }
+    }
+    Ok(ConfusionMatrix {
+        threshold,
+        true_positive: tp,
+        false_positive: fp,
+        true_negative: tn,
+        false_negative: fn_,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,5 +352,118 @@ mod tests {
         ];
         let r = calibrate_interrupt_classifier(&v).unwrap();
         assert!(r.passes_doctrine, "auroc={}", r.auroc);
+    }
+
+    // ── evaluate_at_threshold + ConfusionMatrix tests (iter 97) ─────────────
+
+    #[test]
+    fn evaluate_empty_rejected() {
+        let err = evaluate_at_threshold(&[], 0.5).unwrap_err();
+        assert_eq!(err, InterruptCalibrationError::EmptyObservations);
+    }
+
+    #[test]
+    fn evaluate_perfect_classifier_at_optimal_threshold() {
+        let v = vec![
+            obs(0.1, false),
+            obs(0.2, false),
+            obs(0.8, true),
+            obs(0.9, true),
+        ];
+        let cm = evaluate_at_threshold(&v, 0.5).unwrap();
+        assert_eq!(cm.true_positive, 2);
+        assert_eq!(cm.false_positive, 0);
+        assert_eq!(cm.true_negative, 2);
+        assert_eq!(cm.false_negative, 0);
+        assert_eq!(cm.total(), 4);
+        assert!((cm.accuracy().unwrap() - 1.0).abs() < 1e-6);
+        assert!((cm.precision().unwrap() - 1.0).abs() < 1e-6);
+        assert!((cm.recall().unwrap() - 1.0).abs() < 1e-6);
+        assert!((cm.false_positive_rate().unwrap() - 0.0).abs() < 1e-6);
+        assert!((cm.f1().unwrap() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn evaluate_too_low_threshold_yields_all_positives() {
+        let v = vec![
+            obs(0.1, false),
+            obs(0.2, false),
+            obs(0.8, true),
+            obs(0.9, true),
+        ];
+        let cm = evaluate_at_threshold(&v, 0.0).unwrap();
+        assert_eq!(cm.true_positive, 2);
+        assert_eq!(cm.false_positive, 2); // both negatives marked positive
+        assert_eq!(cm.true_negative, 0);
+        assert_eq!(cm.false_negative, 0);
+    }
+
+    #[test]
+    fn evaluate_too_high_threshold_yields_all_negatives() {
+        let v = vec![
+            obs(0.1, false),
+            obs(0.2, false),
+            obs(0.8, true),
+            obs(0.9, true),
+        ];
+        let cm = evaluate_at_threshold(&v, 10.0).unwrap();
+        assert_eq!(cm.true_positive, 0);
+        assert_eq!(cm.false_positive, 0);
+        assert_eq!(cm.true_negative, 2);
+        assert_eq!(cm.false_negative, 2);
+    }
+
+    #[test]
+    fn precision_none_when_no_positive_predictions() {
+        let v = vec![obs(0.1, false), obs(0.2, false)];
+        let cm = evaluate_at_threshold(&v, 0.5).unwrap();
+        // No TP + no FP → precision undefined.
+        assert!(cm.precision().is_none());
+    }
+
+    #[test]
+    fn recall_none_when_no_actual_positives() {
+        let v = vec![obs(0.1, false), obs(0.2, false)];
+        let cm = evaluate_at_threshold(&v, 0.5).unwrap();
+        // No actual positives → recall undefined.
+        assert!(cm.recall().is_none());
+    }
+
+    #[test]
+    fn fpr_none_when_no_actual_negatives() {
+        let v = vec![obs(0.9, true), obs(0.95, true)];
+        let cm = evaluate_at_threshold(&v, 0.5).unwrap();
+        assert!(cm.false_positive_rate().is_none());
+    }
+
+    #[test]
+    fn f1_none_when_precision_or_recall_undefined() {
+        // No actual positives → recall undefined → F1 undefined.
+        let v = vec![obs(0.1, false), obs(0.2, false)];
+        let cm = evaluate_at_threshold(&v, 0.5).unwrap();
+        assert!(cm.f1().is_none());
+    }
+
+    #[test]
+    fn confusion_matrix_threshold_at_boundary_is_inclusive() {
+        // Score == threshold should be "predicted interrupt".
+        let v = vec![obs(0.5, true), obs(0.4999, false)];
+        let cm = evaluate_at_threshold(&v, 0.5).unwrap();
+        assert_eq!(cm.true_positive, 1);
+        assert_eq!(cm.true_negative, 1);
+    }
+
+    #[test]
+    fn confusion_matrix_serde_roundtrip() {
+        let cm = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 10,
+            false_positive: 2,
+            true_negative: 8,
+            false_negative: 1,
+        };
+        let json = serde_json::to_string(&cm).unwrap();
+        let back: ConfusionMatrix = serde_json::from_str(&json).unwrap();
+        assert_eq!(cm, back);
     }
 }
