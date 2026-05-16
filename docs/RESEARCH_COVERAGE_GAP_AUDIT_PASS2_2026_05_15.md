@@ -97,6 +97,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md` (entire doc)
 - **What it is:** Capability-gated `edit_note_block(page_id, block_id, new_markdown, capability_token)` tool. Single-use macaroons, ledger-tracked edits, MAS-compatible (no subprocess, no ports). Status: AWAITING_USER_SIGNOFF.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §7.1 (add EditPage tool + macaroon design alongside existing PASS-1 H-3 entry).
+- **Status (2026-05-16):** ✅ DECISION RECORDED — paired with PASS 1 H-3 (same feature, two audit lenses). **V1.1 defer for full feature; V1 ships read-only attach stub.** Macaroon primitives already shipped in `agent_core/src/cognitive_dag/macaroons.rs`; tool surface + single-use + ledger integration deferred. Full decision in `MAS_COMPLETE_FUSION` §10 Compromises Recorded (H-3 / B2-H6 row). **User input requested.**
 
 ### B2-H7. Spectral Memory + Laplace-Beltrami manifold
 - **Source:** [fusion/jordan's research/kimis deep research/ternary_spectral_architecture.converted.md](fusion/jordan's%20research/kimis%20deep%20research/ternary_spectral_architecture.converted.md) §3 + `EPISTEMOS_MASTER_ARCHITECTURE.md` Layer 2
@@ -267,7 +268,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | **B2-3 ISSUE-2026-05-11-001 vault stall** | ✅ VERIFIED 2026-05-16 — bounded word-count + sample profiling already shipped (`VaultIndexActor.swift:107/1911-1944` + `Extensions.swift:191-215`). Successor bottlenecks remain open in `APP_ISSUES_AUTO_FIX.md` but that's separate from B2-3. |
 | **B2-4 Residency Governor + rate-distortion** | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.2` preamble with full rate-distortion objective + Information Bottleneck citations + per-source routing table. |
 | **B2-5 Hermes XPC vs in-process decision** | ✅ RESOLVED 2026-05-16 — landed as IR-1 in `HERMES_AGENT_CORE_2_0_DESIGN` new `## Immutable rules (precede §0)` block. MAS V1 in-process permanent, Pro V1.x XPC evaluation post-V1.0. |
-| **B2-H6 EditPage macaroon (RCA13 P9)** | DECISION + DESIGN: ship hero feature in V1 or V1.1 with explicit row |
+| **B2-H6 EditPage macaroon (RCA13 P9)** | ✅ DECISION RECORDED 2026-05-16 — paired with PASS 1 H-3. V1.1 defer for full feature; V1 ships read-only attach stub. Hermes 2.0 §7.1 carries the `note.attach_readonly` V1 + `edit_note_block` V1.1 entries. |
 
 ### V1.1 / post-V1 (route into Hermes 2.0 6-week plan)
 
