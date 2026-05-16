@@ -4415,6 +4415,45 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 168+ candidates:** (1) Watch for more user-implemented features (now an established attribution category). (2) Watch B's continued B.0 + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31. (4) Watch D 21st self-audit. (5) **NOTE:** the iter-83 7th-loop NO-OP acknowledgment should have fired by now (~140s after iter-83 commit); did not appear in this window — iter-83 ScheduleWakeup may have already cleared. (6) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190.
 
+#### Status pulse (iter 168, 2026-05-16) — 🎯 B EXECUTES iter-145 AUTONOMY-HARDENING Fix 3 (B.0.6 schema-gate substrate) + B.3 G1 Tamagotchi animation classifiers — 2 commits CLEAN
+
+- **Window since iter 167 close:** 2 sibling commits (sub-threshold):
+  - `cec16629f` (B iter 135) `tamagotchi/animation: classifiers + allowed_next_states (Phase B.3 G1)`
+  - `961951c75` (B iter 134) `research/eml/gate: accessors + custom-tolerance variant (B.0.6)`
+
+- **🎯 Findings — B `eml/gate: accessors + custom-tolerance variant (B.0.6)` (`961951c75`) — B EXECUTES iter-145 AUTONOMY-HARDENING Fix 3:**
+  - B iter 134. **🎯 B.0.6 is the AnswerPacket schema-freeze gate from iter-145 autonomy-hardening commit `3d308e6b7` Fix 3** ("B Phase B.0.6 + D Phase D.0 authoritative schema-gate handoff via `docs/SCHEMA_GATE_STATUS_2026_05_16.md` single-line canonical state file. B writes one of 3 states (PASS / PENDING / BLOCKED) in B.0.6; D reads first non-comment line.").
+  - **B is now expanding the B.0.6 substrate per the autonomy-hardening fix.**
+  - Substrate: `GateStatus::is_blocked()` (complement to `is_allowed`; reads as "did we fail?" from freeze-call-site's perspective) · `GateStatus::report()` (UlpOracleReport carried by either variant; lets callers inspect oracle result without matching variant first) · `GateStatus::block_reason()` (`Some(reason)` when Blocked, `None` when Allowed; **Control-room "why did freeze fail?" surface**) · `check_with_custom_tolerance(bar)` (same as `check_answer_packet_freeze_allowed` but takes tolerance bar as argument; useful for "what would gate verdict be at stricter/looser bar?" exploration without shipping non-default bar; default function is now thin wrapper supplying `SHIPPING_BAR`).
+  - **§5.0 verdict: CLEAN.** B correctly executing iter-145 autonomy-hardening Fix 3 scope.
+
+- **🎯 Findings — B `tamagotchi/animation: classifiers + allowed_next_states (Phase B.3 G1)` (`cec16629f`) — B.3 G1 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 135. Tamagotchi Phase B.3 G1 (originally landed iter 113 audit-of-audit #25 era; sprite_atlas + InstancedQuad + Metal stub). This commit adds classifier predicates + "where can I go next?" helper on top of base `may_transition_to`.
+  - Substrate: `CompanionAnimation::is_resting()` (complement to `is_active`: Idle or Sleep) · `is_terminal()` (Error/Success/Sleep — **states with doctrine-restricted outbound transitions**) · `is_handoff()` (HandoffGive or HandoffReceive — **the handoff lane**) · `allowed_next_states()` (`Vec` of every animation `n` such that `may_transition_to(n)`; **Control-room "where can this companion go next?" surface**).
+  - 9 new unit tests including: is_resting complements is_active across all 13 states; classifiers match exact.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 LESSON #15 + AUTONOMY-HARDENING DELIVERY VERIFIED:** the iter-145 autonomy-hardening commit `3d308e6b7` Fix 3 specified "B Phase B.0.6 + D Phase D.0 authoritative schema-gate handoff via file"; iter 168 (B iter 134) executes the B-side substrate expansion. **Distributed autonomy-hardening delivery loop now demonstrated end-to-end:** user infrastructure addition (iter 145) → terminals pick up via §3 mandatory reading → terminal-specific substrate expansion (iter 168 this iter). Matches iter-83 V6.1 integration `ec4c9c167` propagation pattern.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 54 CONSECUTIVE COMMITS ACROSS ITERS 130-168:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - Phase 2-Helios B.2 (iters 159-162): 6 Helios B.2 expansions (portfolio complete 6×8)
+  - Phase 2-J2 (iters 163-164): 2 J2 substrate-floor expansions
+  - Phase 2-weight_patcher (iter 165): 1 weight_patcher expansion
+  - Phase 2-B.0 (iters 166-167): 3 B.0 expansions (F-ULP-Oracle + EML grammar + EML operator)
+  - **Phase 2-B.0.6 + B.3 (iter 168): 2 expansions (EML gate B.0.6 + Tamagotchi B.3 G1)**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite containing B.0.6 autonomy-hardening delivery.
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2. Average ~2.6/iter.
+
+- **Iter 169+ candidates:** (1) Watch for D Phase D.0 substrate expansion (mirror of B.0.6; per iter-145 autonomy-hardening Fix 3). (2) Watch B's continued B.0 + B.3 + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31 1800s fire. (4) Watch for more user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
