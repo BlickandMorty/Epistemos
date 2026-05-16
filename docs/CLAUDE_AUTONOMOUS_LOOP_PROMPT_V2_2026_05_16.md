@@ -1,26 +1,51 @@
-# Claude Autonomous Loop Prompt V2 — 2026-05-16 (Ship-Driving)
+# Claude Autonomous Loop Prompt V2 — 2026-05-16 (Ship-Driving, MAS + Pro Parallel)
 
-**Purpose:** Self-contained `/loop` prompt that drives Epistemos toward V1 App Store submission. Each iteration re-reads this prompt verbatim, executes ONE bounded slice, verifies, commits, schedules the next iter — until the **hard end state** is reached or the genuinely-auto-implementable queue exhausts.
+**Purpose:** Self-contained `/loop` prompt that drives Epistemos toward **dual V1 ship targets** — Mac App Store submission (MAS bundle) AND Developer ID distribution (Pro bundle) — in parallel. Each iteration re-reads this prompt verbatim, executes ONE bounded slice, verifies, commits, schedules the next iter — until the **hard end state** is reached or the genuinely-auto-implementable queue exhausts.
 
-**This supersedes** `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md` (V1 was doctrine-only; that queue closed at iter 72 of run 2026-05-16). V2 extends scope to production code with test-first discipline.
+**This supersedes** `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md` (V1 was doctrine-only; that queue closed at iter 72 of run 2026-05-16). V2 extends scope to production code with test-first discipline + MAS+Pro parallel ship discipline.
+
+**Membership state (verified 2026-05-16):** Paid Apple Developer Program is **ACTIVE**. This unlocks: App Store Connect submission · Developer ID signing for Pro distribution · Notarization (`xcrun notarytool`) · Hardened Runtime relaxations for Pro entitlements (`cs.disable-library-validation` · `cs.allow-unsigned-executable-memory` · `cs.allow-jit` for WASMExecXPC Wasmtime) · Provisioning profiles for XPC services. Phase F XPC Mastery is now in V2 scope (was previously gated on this).
 
 ---
 
-## §0. Hard end state (the loop's victory condition)
+## §0. Hard end state (the loop's victory condition — DUAL TARGET)
 
 The loop terminates **successfully** when ALL of these are true:
 
+**Shared (both MAS + Pro targets):**
 1. `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` has **zero** `Status: CONFIRMED` and **zero** `Status: TODO` entries that are V1-blocking (PATCHED PARTIAL allowed if explicitly scoped post-V1).
 2. `docs/APP_ISSUES_AUTO_FIX.md` has zero `Status: Open` entries.
 3. Phase E.1 of `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` reaches **5 consecutive Codex recursive passes with zero new V1 blockers added**.
 4. `cargo test --manifest-path agent_core/Cargo.toml --lib` passes (baseline 1190 today, may grow).
-5. `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` passes both Pro and MAS Release.
-6. `MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md §4.1` pre-submission verification commands all green.
 
-When all 6 hold, surface to user: **"Loop terminal state reached — Epistemos is ready for App Store Connect submission per Phase E.3."** Then omit ScheduleWakeup. The user clicks Submit; you don't.
+**MAS path (App Store submission ready):**
+
+5. `xcodebuild -scheme Epistemos -destination 'platform=macOS' -configuration Release build` passes for MAS profile.
+6. `MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md §4.1` pre-submission verification commands all green.
+7. Bundle binary audit clean: zero ScreenCaptureKit / AXorcist / `omega_ax` hits in MAS Release bundle (per `/tmp/epistemos_mas_tcc_binary_audit.log` shape).
+8. `Epistemos.app/Contents/Resources/PrivacyInfo.xcprivacy` bundled + verified.
+9. MAS entitlements at `Epistemos/Epistemos-AppStore.entitlements` carry exactly 6 keys (per §0 rule 7 of `MAS_COMPLETE_FUSION`): `app-sandbox=true` · `application-groups` · `cs.allow-jit=true` · `files.bookmarks.app-scope` · `files.user-selected.read-write` · `network.client`.
+
+**Pro path (Developer ID distribution ready):**
+
+10. `xcodebuild -scheme Epistemos -destination 'platform=macOS' -configuration Release build` passes for Pro profile (separate target).
+11. Pro Developer ID code signing verifies: `codesign --verify --strict --deep Epistemos-Pro.app` returns 0.
+12. Notarization passes: `xcrun notarytool submit Epistemos-Pro.dmg --wait` returns `status: Accepted`.
+13. Staple verification: `xcrun stapler validate Epistemos-Pro.dmg` returns 0.
+14. Phase F XPC Mastery services all wire end-to-end (VaultXPC · AgentXPC · ProviderXPC · WASMExecXPC + main shell coordination) per `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md`.
+15. Pro entitlements verified for each Hardened Runtime relaxation:
+    - `WASMExecXPC.entitlements`: `cs.allow-jit + cs.disable-library-validation` (Wasmtime needs both)
+    - Other Pro entitlements per `XPC_MASTERY_DOCTRINE` §X.1-X.5
+
+When all 15 hold, surface to user: **"Loop terminal state reached — Epistemos MAS ready for App Store Connect submission per Phase E.3 AND Pro bundle ready for Developer ID distribution per Phase G."** Then omit ScheduleWakeup. The user clicks Submit and runs distribution; you don't.
 
 The loop also terminates **gracefully** (not victory, but clean) when:
 - The auto-implementable queue is genuinely exhausted AND every remaining open item is user-decision-gated. In that case, surface the exhaustion + list pending decisions + omit ScheduleWakeup.
+
+**Partial-victory states (informational, not terminal):**
+- All 9 MAS criteria green but Pro criteria still open → surface "MAS ready; Pro work in progress" + continue loop on Pro work.
+- All Pro criteria green but MAS still open → surface "Pro ready; MAS work in progress" + continue loop on MAS work.
+- Both halves green simultaneously → terminal state per §0 victory.
 
 ---
 
@@ -138,6 +163,44 @@ For each Hermes slice: §5.0 verify what's in `agent_core/src/` first; doctrine 
 6. `HealthCheck + CircuitBreaker` (B2-M9 pre-flight gate)
 
 Only pick these if user has explicitly authorized V1.x sprint OR if a Phase A/B item depends on one as prerequisite.
+
+### Phase F′ — XPC Mastery (Pro target, unblocked by paid Apple Developer membership)
+
+Per `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` — 5-service decomposition. Each service is a self-contained sliceable unit with its own entitlements, provisioning profile, IPC contract, and tests.
+
+| # | Service | Slice scope | Prerequisite |
+|---|---|---|---|
+| F1 | **VaultXPC** | Vault read/write isolated in dedicated XPC; main process talks via capability tokens | Phase A.1 (vault lifecycle) green |
+| F2 | **AgentXPC** | Hermes agent runtime in separate XPC for crash isolation + provider sandbox | F1 + Phase C Hermes §5.4 Effect/Inverse landed |
+| F3 | **ProviderXPC** | Anthropic/Perplexity/Codex/Gemini calls in separate XPC; API keys never leave it | F2 |
+| F4 | **WASMExecXPC** | Wasmtime executor with `cs.allow-jit + cs.disable-library-validation` (only XPC with these entitlements) for sandboxed-within-sandbox WASM tool execution | F2 + B2-H18 Pro tunnels framework |
+| F5 | **Main shell coordination** | Coordinator wire-up, capability-token granting, trust attestation, IOSurface zero-copy | F1-F4 |
+
+**Per F-row discipline:**
+- Each XPC service requires its own `.entitlements` file with the minimum-scope keys.
+- Each XPC service requires a separate provisioning profile (paid-membership-only).
+- IPC contract is capability-token-based per `XPC_MASTERY_DOCTRINE §X.2` macaroon framework.
+- Trust attestation via Secure Enclave per `§X.4`.
+- Tests: cross-process call latency · capability scope enforcement · crash-isolation recovery · token revocation.
+
+**Wiring sequence:** F1 → F2 → F3 → F4 → F5 (each blocks the next). Skipping ahead breaks the chain.
+
+### Phase G — Pro Developer ID distribution (Pro target final)
+
+Once Phase F′ closes:
+
+| # | Slice | Verification |
+|---|---|---|
+| G1 | **Pro bundle build target** | `xcodebuild -configuration Release` Pro profile green |
+| G2 | **Developer ID code signing** | `codesign --verify --strict --deep Epistemos-Pro.app` returns 0 |
+| G3 | **Pro entitlement audit** | Each Pro entitlement matches its XPC's Hardened Runtime relaxation; Main app does NOT carry `cs.disable-library-validation` |
+| G4 | **Notarization submission** | `xcrun notarytool submit Epistemos-Pro.dmg --wait` returns `status: Accepted` |
+| G5 | **Staple + verify** | `xcrun stapler staple Epistemos-Pro.dmg` + `xcrun stapler validate` both 0 |
+| G6 | **Distribution channel setup** | Pro DMG hosting + signing-key rotation policy + SLO for re-notarization on dep updates |
+
+**Per G-row discipline:**
+- G1-G5 are the technical-readiness gates.
+- G6 is the operational-readiness gate; user-decision for HOSTING channel (direct download vs Cloudflare CDN vs Backblaze vs other).
 
 ### Phase E — Recursive verification pass (Phase E.1 of MAS_COMPLETE_FUSION)
 
@@ -302,12 +365,13 @@ Per `MAS_COMPLETE_FUSION §0` immutable rules 1-8:
 7. **JIT entitlement is MLX shader compilation + Metal Performance Shaders graph compilation only** — never user code / remote code / JavaScript / unsigned dylibs. Authoritative defense: `docs/release/MAS_APP_REVIEW_NOTES.md` §1.
 8. **Per-Live-File network egress allowlist** — all outbound egress goes through `agent_core/src/security/egress.rs` (forward-staged) with per-Live-File allowlist.
 
-Plus 3 lockstep rules:
+Plus 4 lockstep rules:
 - ResidencyLevel (B2-M12): doctrine + code MUST land together; changing one without the other fails CI.
 - ACS (B2-M13): same lockstep discipline.
 - New Cargo workspace crates (B2-M15): same lockstep discipline + `Cargo.toml`/`Package.swift` change MUST touch `docs/legal/licenses.md` in same commit.
+- **XPC entitlement changes (Phase F′)**: any change to an `.entitlements` file MUST touch (a) corresponding XPC service's Info.plist, (b) provisioning profile reference, (c) `MAS_COMPLETE_FUSION §0 rule 7` JIT-defense block IF the change involves Hardened Runtime relaxations, (d) `docs/release/MAS_APP_REVIEW_NOTES.md §1` if it touches MAS entitlements, (e) a passing codesign verification test in the same commit. Failure: bundle ships with unsigned/mis-scoped XPC + Apple rejects at notarization or App Store review.
 
-Plus 4-Tunnel taxonomy (B2-H18): Tunnel A (universal shell) · B.1 (URL MCP) · B.2 (stdio MCP) · C (CLI passthrough). MAS-shippable: Tunnel B.1 only.
+Plus 4-Tunnel taxonomy (B2-H18): Tunnel A (universal shell) · B.1 (URL MCP) · B.2 (stdio MCP) · C (CLI passthrough). MAS-shippable: Tunnel B.1 only. Pro-shippable: A · B.2 · C (now unlocked by paid Apple Developer; each tunnel must be dispatch-profile-scoped per OpenClaw pattern).
 
 ---
 
@@ -385,12 +449,18 @@ For continuity across sessions:
 | Hermes 2.0 design sections | Many doctrine-frozen; substrate barely started | `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` |
 | User-decision queue | ~13 items | `MAS_COMPLETE_FUSION §10 Compromises Recorded` + PASS audits |
 | Forward-staged primitives | 6 specs frozen for V1.1+ | this doc §5 Phase D |
+| **Phase F′ XPC Mastery** | **5 services NOT-STARTED** (VaultXPC · AgentXPC · ProviderXPC · WASMExecXPC · main shell) | `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` · this doc §5 Phase F′ |
+| **Phase G Pro distribution** | **6 sub-slices NOT-STARTED** (G1 build · G2 sign · G3 entitlement audit · G4 notarize · G5 staple · G6 distribution channel) | this doc §5 Phase G |
 
 **Cargo baseline:** 1190 lib tests as of 2026-05-16. May grow as you add tests. Track in each §8 row.
 
 **Active branch:** `codex/research-snapshot-2026-05-08`.
 
 **Most-recent ON-TRACK audit-of-audit:** #7 at iter 70 of run 2026-05-16 (commit `09016da32`). Next: #8 at iter 80 if loop continues.
+
+**Apple Developer Program status:** PAID + ACTIVE (confirmed 2026-05-16). Unlocks: App Store Connect submission · Developer ID signing · Notarization · Provisioning profiles for XPC services · Hardened Runtime relaxations for Pro entitlements. Per-XPC entitlement matrix per `XPC_MASTERY_DOCTRINE §X.1`.
+
+**Ship target:** MAS + Pro **PARALLEL** (per user direction 2026-05-16). Both Phase E.3 (App Store submit) and Phase G6 (Developer ID distribution) must close for §0 victory.
 
 ---
 
@@ -449,7 +519,11 @@ Run 2026-05-16 (iters 1-72) state, in case fresh sessions need the context:
 - Cargo baseline 1190 held throughout
 - Run 1 closed at iter 61 (graceful wind-down); run 2 resumed at iter 62 with parallel-session duplicate at iter 66 (harmless)
 
-V2 of this prompt extends scope to production code; V1 was doctrine-only and exhausted at iter 72.
+V2 of this prompt extends scope to production code AND dual MAS+Pro ship targets; V1 was doctrine-only and exhausted at iter 72.
+
+**Scope deltas in V2 vs V1:**
+- V1: MAS doctrine-only; 73 audit rows · 0 production code · doctrine-pass terminator
+- V2: MAS + Pro parallel · production code with test-first discipline · §0 dual victory condition (15 criteria across both targets) · Phase F′ XPC Mastery (5 services) · Phase G Pro distribution (6 sub-slices) · paid Apple Developer membership ACTIVE unlocks all gated work · 4th lockstep rule for XPC entitlement changes · 4-Tunnel Pro-shippable surfaces (A · B.2 · C) added
 
 ---
 
