@@ -2331,6 +2331,24 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 2/3-5; STAY at 3-min.
 
+#### Status pulse (iter 125, 2026-05-16) — D.4 mini-SWE-agent (4th umbrella sub-feature) + B J7 #3 Leech-24
+
+- **Window since iter 124:** 2 sibling commits (sub-threshold pulse):
+  - `f3122b362` (D) D.4 mini-SWE-agent CLI passthrough (4th D.4 umbrella sub-feature)
+  - `74997e746` (B) J7 #3 Leech-24 lattice substrate
+
+- **§5.0 spot-check D.4 mini-SWE-agent:** 4 D.4 commits total (Aider iter 113 + Goose iter 117 + OpenHands iter 123 + mini-SWE-agent iter 125). All under driver §5 lines 197-205 Phase D.4 CLI passthrough umbrella ("Existing: codex·gemini·kimi·claude. Expand to: aider·cursor-cli·cline·etc."). Correct umbrella execution. **§5.0 verdict: CLEAN.**
+
+- **§5.0 spot-check B J7 #3 Leech-24:** `agent_core/src/research/sherry_lattice/leech.rs` · **16 tests**. Substrate floor for the explicitly NOT-STARTED Leech-24 lattice slice in `sherry_lattice/mod.rs` doc comment. Extends J7 portfolio: J7 #1 1.25-bit codec (iter 81 era) + J7 #2 E8 lattice quantizer (iter 81) + J7 #3 Leech-24 (this iter) = 3 J7 sub-features now landed. **§5.0 verdict: CLEAN.**
+
+- **No drift surfaced.** Both commits continue established umbrella patterns.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **20 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
