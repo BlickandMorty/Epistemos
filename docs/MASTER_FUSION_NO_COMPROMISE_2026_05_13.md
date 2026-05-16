@@ -76,6 +76,25 @@ The atlas is the no-drift contract. If a concept appears in research and is miss
 
 ### 3.2 Six-tier memory hierarchy
 
+**Residency Governor (Layer 3: Compression Governance) — every residency decision is a compression decision.** The Governor assigns each capability / feature / cached state to a substrate tier (L0 → L_SE below) by solving the rate-distortion objective:
+
+> **min**<sub>g, Z</sub> &nbsp; **E**[ *d*( X, g(Z) ) ] &nbsp;&nbsp;**s.t.**&nbsp;&nbsp; **I**(Z; X) ≤ R
+
+where **X** is the source (vault embedding · session trace · model activation · KV row · provenance edge), **Z** is the tier-compressed representation, **g** is the reconstruction operator, ***d*** is task-relevant distortion, and **R** is the channel budget for the target tier (RAM bytes for L0/L1 · sketch bytes for L2 · SSD bytes for L3 · network tokens for L4 · adapter parameters for L_SE). This is the **Information Bottleneck** frame (Tishby 1999 *The Information Bottleneck Method*; Achille & Soatto 2018 *Emergence of Invariance and Disentanglement in Deep Representations*, arXiv:1706.01350): the optimal Z minimizes **I(Z; X) − β · I(Z; Y)** where **Y** is the downstream task signal. β tunes the compression / task-fidelity trade-off — small β = aggressive compression (push to L3/L4), large β = preserve fidelity (keep on L0/L1).
+
+The six-tier table below is the **solution space** — each tier is a different (R, *d*) operating point on the rate-distortion curve. **Routing rule:** at residency time, compute the objective for each viable tier and pick the lowest-cost tier whose distortion stays under the downstream-task tolerance.
+
+| Source                       | Typical X (size · variety)                                | Default tier under Governor |
+|------------------------------|-----------------------------------------------------------|------------------------------|
+| Active turn KV               | 1.5 GB at 32k ctx · model-specific                         | L0 (Exact Hot)               |
+| Recent-session compressed KV | ~400 MB / hour · per-model                                  | L1 (Compressed Residual)     |
+| Vault lexical+vector index   | ~80 MB / 5K notes · indexable                              | L2 (Shadow Sketch / Halo)    |
+| Cold session traces          | ~10 MB / session · rare reuse                              | L3 (SSD Oracle)              |
+| Cross-model knowledge        | ~10 KB / query · low-frequency                             | L4 (Network Cascade)         |
+| LoRA / OFTv2 deltas          | ~5–50 MB per adapter · per-domain                          | L_SE (Self-Evolving)         |
+
+**Why this row is load-bearing:** "Residency" appears 3× in this doc and elsewhere as a name-drop without the decision frame. Adding the objective function here routes every post-V1 eviction / tiering / cache-replacement / cloud-fallback decision through one objective rather than ad-hoc rules. Wave 9+ uses this Governor as the single dispatcher for KIVI/MiniKV/TurboQuant tier choices, NightBrain compaction decisions, and Live File compile-vs-evict choices. Source: `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md` §1 "Layer 3: Compression Governance"; PASS 2 gap audit B2-4 (resolved 2026-05-16).
+
 | Tier | Name | Source | Status |
 |---|---|---|---|
 | **L0** | Exact Hot (KV in MTLBuffer storageModeShared) | `helios v3.md`, `helios_shadow_memory.md` | partial (live KV via MLX) |

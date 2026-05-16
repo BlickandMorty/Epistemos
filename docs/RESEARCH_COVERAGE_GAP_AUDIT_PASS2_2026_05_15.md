@@ -55,6 +55,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **What it is:** Every capability assigned to L0-L7 substrate layer by solving `min E[d(X, g(Z))] s.t. I(Z;X) ≤ R`. Information Bottleneck (Tishby; Achille-Soatto) as the routing decision frame. **"Every residency decision is a compression decision."**
 - **Why BLOCKER:** "Residency" is name-dropped in MASTER_FUSION 3× without the decision frame. Reframes all post-V1 architecture around information theory, not prompt engineering. Single load-bearing architectural concept.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 (new top-row "Residency Governor + Rate-Distortion") with explicit objective function + Information Bottleneck citation.
+- **Status (2026-05-16):** ✅ RESOLVED. Preamble landed at the top of `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 (above the existing six-tier table). Adds the rate-distortion objective `min_{g,Z} E[d(X, g(Z))] s.t. I(Z; X) ≤ R` + Information Bottleneck citations (Tishby 1999 + Achille & Soatto 2018 arXiv:1706.01350) + β-trade-off explanation + a per-source routing table mapping typical X values (active KV / compressed KV / vault index / cold traces / cross-model knowledge / LoRA deltas) to default tiers. The six-tier table now reads as the SOLUTION SPACE for the objective, not as an unmotivated taxonomy. Wave 9+ post-V1 architecture explicitly routes eviction / tiering / cache-replacement / cloud-fallback decisions through this Governor.
 
 ### B2-5. Hermes as embedded XPC service (not subprocess)
 - **Source:** [fusion/jordan's research/hermes.md](fusion/jordan's%20research/hermes.md) §"The correct macOS boundary for Hermes"
@@ -264,7 +265,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | **B2-1 Specialties registry** | ✅ RESOLVED 2026-05-16 — landed as `HERMES_AGENT_CORE_2_0_DESIGN` §7.4 with all 19 specialties + per-row in-process dependency + App Review reviewer answer block. |
 | **B2-2 ArtifactKind + ProvenanceBlock** | ✅ RESOLVED 2026-05-16 — code already shipped (`agent_core/src/artifacts/{kind,header,provenance}.rs`, 19 tests pass) + new `MASTER_FUSION §3.33` doc row added. |
 | **B2-3 ISSUE-2026-05-11-001 vault stall** | ✅ VERIFIED 2026-05-16 — bounded word-count + sample profiling already shipped (`VaultIndexActor.swift:107/1911-1944` + `Extensions.swift:191-215`). Successor bottlenecks remain open in `APP_ISSUES_AUTO_FIX.md` but that's separate from B2-3. |
-| **B2-4 Residency Governor + rate-distortion** | DOCUMENT: `MASTER_FUSION` §3.2 new row with objective function; reframes Wave A post-V1 architecture |
+| **B2-4 Residency Governor + rate-distortion** | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.2` preamble with full rate-distortion objective + Information Bottleneck citations + per-source routing table. |
 | **B2-5 Hermes XPC vs in-process decision** | ✅ RESOLVED 2026-05-16 — landed as IR-1 in `HERMES_AGENT_CORE_2_0_DESIGN` new `## Immutable rules (precede §0)` block. MAS V1 in-process permanent, Pro V1.x XPC evaluation post-V1.0. |
 | **B2-H6 EditPage macaroon (RCA13 P9)** | DECISION + DESIGN: ship hero feature in V1 or V1.1 with explicit row |
 
