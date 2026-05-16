@@ -192,6 +192,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn mutation_status_rejects_unknown_string_on_decode_without_panic() {
+        // Defensive deserialization. MutationStatus rides into every
+        // persisted MutationEnvelope (and through them into
+        // ReplayBundle audits). A future build that introduces a
+        // 5th status (e.g. "queued", "scheduled") would emit a
+        // status string this build doesn't know; decoder must Err
+        // rather than panic so replay can mark the envelope as
+        // unparseable and continue with the rest of the bundle.
+        let result: Result<MutationStatus, _> =
+            serde_json::from_str("\"queued\"");
+        assert!(result.is_err(),
+                "MutationStatus decoder must reject unknown statuses");
+        let result: Result<MutationStatus, _> =
+            serde_json::from_str("\"\"");
+        assert!(result.is_err());
+        // PascalCase rejects.
+        let result: Result<MutationStatus, _> =
+            serde_json::from_str("\"Pending\"");
+        assert!(result.is_err(),
+                "PascalCase must reject — only snake_case is canonical");
+    }
+
+    #[test]
     fn mutation_status_round_trips_snake_case() {
         for variant in [
             MutationStatus::Pending,
