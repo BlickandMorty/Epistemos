@@ -117,6 +117,62 @@ pub fn ewc_gradient_contribution(
     Ok(())
 }
 
+/// Multi-task EWC penalty: sum of [`ewc_penalty`] across N anchors.
+/// The mod doc notes multi-task EWC composes by simple summation;
+/// this is the convenience surface. Returns the total penalty.
+pub fn multi_anchor_penalty(
+    current_params: &[f32],
+    anchors: &[EwcAnchor],
+) -> Result<f32, EwcError> {
+    let mut total = 0.0;
+    for anchor in anchors {
+        total += ewc_penalty(current_params, anchor)?;
+    }
+    Ok(total)
+}
+
+/// Multi-task EWC gradient: accumulates [`ewc_gradient_contribution`]
+/// across N anchors into `gradient_out`. Caller feeds in the new-task
+/// gradient; this adds every anchor's EWC term on top.
+pub fn multi_anchor_gradient_contribution(
+    current_params: &[f32],
+    anchors: &[EwcAnchor],
+    gradient_out: &mut [f32],
+) -> Result<(), EwcError> {
+    for anchor in anchors {
+        ewc_gradient_contribution(current_params, anchor, gradient_out)?;
+    }
+    Ok(())
+}
+
+impl FisherInfo {
+    /// Maximum diagonal value (most-protected parameter's Fisher).
+    /// Returns `None` if the diagonal is empty.
+    pub fn max(&self) -> Option<f32> {
+        self.diagonal.iter().copied().fold(None, |acc, v| match acc {
+            None => Some(v),
+            Some(a) => Some(if v > a { v } else { a }),
+        })
+    }
+
+    /// Arithmetic mean of the diagonal. Returns `None` on empty.
+    pub fn mean(&self) -> Option<f32> {
+        let n = self.diagonal.len();
+        if n == 0 {
+            return None;
+        }
+        Some(self.diagonal.iter().sum::<f32>() / n as f32)
+    }
+
+    /// Count of parameters whose Fisher information is at least
+    /// `threshold`. The §8.3 open question "Optimal Fisher threshold
+    /// τ_prime is currently heuristic" applies here — callers
+    /// supply τ via this method.
+    pub fn count_above(&self, threshold: f32) -> usize {
+        self.diagonal.iter().filter(|&&v| v >= threshold).count()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -254,5 +310,88 @@ mod tests {
         let json = serde_json::to_string(&a).unwrap();
         let back: EwcAnchor = serde_json::from_str(&json).unwrap();
         assert_eq!(a, back);
+    }
+
+    // ── multi-anchor + FisherInfo diagnostic tests (iter 104) ───────────────
+
+    #[test]
+    fn multi_anchor_penalty_sums_across_anchors() {
+        // Two anchors at distance 1.0 from current, both lambda=2,
+        // both fisher=1. Each contributes 0.5*2*1*1² = 1. Total = 2.
+        let a1 = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 2.0);
+        let a2 = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 2.0);
+        let current = vec![1.0, 1.0]; // distance² per param = 1
+        // Each anchor contributes 0.5 * 2 * (1*1 + 1*1) = 2. Total 4.
+        let total = multi_anchor_penalty(&current, &[a1, a2]).unwrap();
+        assert!((total - 4.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn multi_anchor_penalty_empty_anchors_zero() {
+        let total = multi_anchor_penalty(&[1.0, 2.0], &[]).unwrap();
+        assert_eq!(total, 0.0);
+    }
+
+    #[test]
+    fn multi_anchor_gradient_accumulates() {
+        // Two anchors at [0,0] with fisher [1,1] and lambda 1.
+        // current = [1, 1]; per-anchor gradient = [1, 1]; total = [2, 2].
+        let a1 = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 1.0);
+        let a2 = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 1.0);
+        let current = vec![1.0, 1.0];
+        let mut grad = vec![0.0_f32; 2];
+        multi_anchor_gradient_contribution(&current, &[a1, a2], &mut grad).unwrap();
+        assert!((grad[0] - 2.0).abs() < 1e-6);
+        assert!((grad[1] - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn multi_anchor_gradient_with_prior_grad_adds_on_top() {
+        // Caller-supplied prior gradient [0.5, 0.5]; one anchor adds [1, 1].
+        let a = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 1.0);
+        let current = vec![1.0, 1.0];
+        let mut grad = vec![0.5_f32; 2];
+        multi_anchor_gradient_contribution(&current, &[a], &mut grad).unwrap();
+        assert!((grad[0] - 1.5).abs() < 1e-6);
+        assert!((grad[1] - 1.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fisher_max_returns_largest() {
+        let f = FisherInfo { diagonal: vec![0.5, 2.0, 1.5] };
+        assert!((f.max().unwrap() - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fisher_max_empty_returns_none() {
+        let f = FisherInfo { diagonal: vec![] };
+        assert!(f.max().is_none());
+    }
+
+    #[test]
+    fn fisher_mean_arithmetic_average() {
+        let f = FisherInfo { diagonal: vec![1.0, 2.0, 3.0, 4.0] };
+        assert!((f.mean().unwrap() - 2.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fisher_mean_empty_returns_none() {
+        let f = FisherInfo { diagonal: vec![] };
+        assert!(f.mean().is_none());
+    }
+
+    #[test]
+    fn fisher_count_above_threshold() {
+        let f = FisherInfo { diagonal: vec![0.1, 0.5, 1.0, 2.0, 3.0] };
+        assert_eq!(f.count_above(1.0), 3); // 1.0, 2.0, 3.0
+        assert_eq!(f.count_above(2.0), 2); // 2.0, 3.0
+        assert_eq!(f.count_above(10.0), 0);
+        assert_eq!(f.count_above(0.0), 5); // all values ≥ 0
+    }
+
+    #[test]
+    fn fisher_count_above_empty_is_zero() {
+        let f = FisherInfo { diagonal: vec![] };
+        assert_eq!(f.count_above(0.0), 0);
     }
 }
