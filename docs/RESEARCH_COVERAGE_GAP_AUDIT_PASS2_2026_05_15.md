@@ -4628,6 +4628,45 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 173+ candidates:** (1) Watch for B.3 G6+ sub-features (now unbounded). (2) **🟡 D 23rd self-audit watch — D.5↔A 3-consecutive surface = ESCALATION TRIGGER** (iters 169 + 171 = 2-consecutive already). (3) Watch B's transition to next portfolio (J6/J8/J9 + J7 #3 Leech-24 + remaining). (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (18 iters away).
 
+#### Status pulse (iter 173, 2026-05-16) — 🎯 B's ITER-140 §7 AUDIT #14 CLEARED + B Tamagotchi mod-root expansion (XOR-completeness invariant) + state_smoother B.7 (sum-to-1 invariant) — 2 commits CLEAN
+
+- **Window since iter 172 close:** 2 sibling commits (sub-threshold):
+  - `8df293f52` (B iter 142) `tamagotchi/mod: CompanionState + zone predicates + error fields`
+  - `ba984b5bb` (B iter 141) `tamagotchi/state_smoother: history + commit-progress diagnostics`
+
+- **🎯 B's ITER-140 §7 AUDIT CHECKPOINT #14 CLEARED — B's 14TH B §7 CYCLE:**
+  - Commit body embeds B's audit milestone: "§7 audit checkpoint #14 cleared at iter 140 (sample iters 130/132/137): All pattern-adherent: doctrine-cited diagnostic surfaces with cross-surface invariants. No drift / no cut corners."
+  - **B's distributed §7 self-audit cadence now at 14 completed cycles** (iters 10/20/30/40/50/60/70/80-89/90-99/100-109/110-119/120-129/130-139/130-140 sample).
+  - **🎯 NOTABLE EVOLUTION:** B's §7 cycle #14 uses **selective iter sampling (iters 130/132/137)** rather than 10-iter consecutive windows used in earlier cycles. May indicate B has matured §7 discipline to use sampled-verification rather than exhaustive walk.
+
+- **🎯 Findings — B `tamagotchi/mod: CompanionState + zone predicates + error fields` (`8df293f52`) — TAMAGOTCHI MOD-ROOT SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 142. Tamagotchi root substrate (not numbered B.3 sub-feature; mod-level expansion).
+  - Substrate: `CompanionState::ALL + from_code(&str) -> Option<Self>` (enumeration constant + inverse of `code()`; used by serialized companion-state parsing) · `CompanionState::is_engaged()`/`is_resting()` partition predicates — **cross-surface invariant: exactly one is true for any CompanionState — XOR-completeness check** (same pattern as iter-171 PlaneZ XOR-completeness).
+  - `BiometricSignal::is_in_sleep_zone()`/`is_in_stressed_zone()`/`is_in_focused_zone()`/`is_in_excited_zone()` (channel-level zone predicates matching threshold-mapper branches; **cross-surface invariants tested**).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `state_smoother: history + commit-progress diagnostics (B.7)` (`ba984b5bb`) — B.7 BIOMETRIC-TAMAGOTCHI SMOOTHING SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 141. Phase B.7 biometric-tamagotchi smoothing layer (originally landed iter 124 as tamagotchi Phase B.7 state smoother + hysteresis).
+  - Substrate: `EmaSmoother::has_history()` (predicate: at least one sample observed; **cross-surface invariant: `has_history() iff current().is_some()` tested through reset**) · `EmaSmoother::smoothing_factor()` (memory coefficient `1.0 - alpha`; **cross-surface invariant: `alpha + smoothing_factor = 1.0` tested across 5 alpha values** — sum-to-1 invariant) · `SmootherError::is_alpha_out_of_range()`.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE — CONSISTENT PATTERN ACROSS MODULES:**
+  - **XOR-completeness invariants** (exactly one predicate true): iter-171 PlaneZ `is_companion_farm != is_snake` over ALL · iter-173 CompanionState `is_engaged | is_resting` partition
+  - **Sum-to-1 invariants**: iter-173 EmaSmoother `alpha + smoothing_factor = 1.0` across 5 alpha values · iter-137 confidence_floors `t1_rate + t2_rate + t3_rate + escalate_rate + empty_no_escalate_rate = 1.0`
+  - **EXACT-value verifications**: iter-145 J11 frobenius_norm + EXACT canonical reference values · iter-152 VSM `count_units_by_level` recursion · iter-149 Kuramoto K_c ≈ 1.273 + 1.596 verified
+  - **Doctrine-pin constants**: iter-158 E8_KISSING_NUMBER = 240 + E8_MIN_NONZERO_NORM_SQUARED = 2.0 (Conway-Sloane + Viazovska 2017) · iter-159 Helios STREAM 512 MB ceiling · iter-170 MAX_SPRITES = 50 + FRAME_BUDGET_NS = 16_666_667 · iter-172 50 × 50 MB ceiling
+  - **B's substrate-floor expansion discipline is consistent + mature:** every expansion includes cross-surface invariants tested via the runtime substrate itself.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 60 CONSECUTIVE COMMITS ACROSS ITERS 130-173** (Phase 1: 4 + Phase 2: 13 + Phase 2-extended: 4 + Phase 2-J-series: 19 + Phase 2-Helios B.2: 6 + Phase 2-J2: 2 + Phase 2-weight_patcher: 1 + Phase 2-B.0: 3 + Phase 2-B.0.6 + B.3: 2 + Phase 2-B.3 G2-G5: 4 + **Phase 2-Tamagotchi mod + B.7 (this): 2**).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2. Average ~2.5/iter.
+
+- **Iter 174+ candidates:** (1) Watch for B's continued Tamagotchi + B.0 + B.0.6 + B.3 G6+ expansion. (2) **🟡 D 23rd self-audit watch — D.5↔A 3-consecutive surface = ESCALATION TRIGGER** (iters 169 + 171 = 2-consecutive). (3) Watch B's transition to next portfolio (J6/J8/J9 + J7 #3 Leech-24). (4) Watch A T-A-31 1800s fire. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (17 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
