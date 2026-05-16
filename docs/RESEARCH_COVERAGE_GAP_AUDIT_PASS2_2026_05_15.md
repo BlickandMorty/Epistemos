@@ -159,6 +159,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 ### B2-H15. Graph Engine Phase A — 42 locked architectural decisions
 - **Source:** [CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md](CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md) §"Locked architectural decisions" + §"Phase A — CPU foundation + zero-copy"
 - **What it is:** Metal-resident Rust-orchestrated force layout. 42 decisions: uniform-grid + cell aggregation (NOT Barnes-Hut first); GraphPOPE-lite warm-start (8/16/32 anchors); causal-atmosphere sleep with 24-frame hysteresis @ 120Hz; Idle→Seeding→Ramping→Settling→Steady reveal FSM; FFI `NonNull<T>` foreign-Metal-pointer discipline; freshness honesty via `materialized_through_seq` / `local_head_seq` / `stale_ops`. Phase A CPU foundation SHIPPED on this branch with 2629 tests passing; Phase B GPU compute queued.
+- **Status (2026-05-16):** ✅ RESOLVED. Doctrine anchor landed as new `MASTER_FUSION §3.38 "Graph Engine — 42 locked architectural decisions (Phase A SHIPPED · Phase B/C queued)"`. Section covers: pointer to canonical plan doc (`docs/CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md`, 565 LOC, verdict CONVERGED) · architecture sentence (Rust-orchestrated · Metal-resident · `.storageModeShared` buffers · Rust→Swift pointer write) · ship bar (10k @ 60-120 fps M2 Pro · sub-1s cold open · 50k feasible · 100k via cluster zoom) · 42-decisions highlights · phase status (Phase A SHIPPED with 2629 tests · Phase B GPU compute queued 8wk · Phase C cluster 50k+ queued 4wk) · explicit graph-protection rule pairing with loop §8 #12 + MAS_COMPLETE_FUSION §0 rule 1 (Phase B/C are exactly the kind of work that needs scoped user approval). Replaces the prior "name-drop only" canon state with an authoritative atlas anchor.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3 — new B-row "Graph Engine Phase A Canonical Architecture" with link + decision-table excerpt.
 
 ### B2-H16. Chatterbox TTS — production packaging architecture
@@ -355,7 +356,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H12 N1 Prompt Tree / Relocation Trick | ✅ VERIFIED 2026-05-16 — already shipped via commit `7316f86bd` (PromptTree.swift 445 LOC + PromptRenderer + PromptCache + PromptTreePersister + StructureRegistry); doctrine pointer landed as `MASTER_FUSION §3.37`. |
 | B2-H13 ExecutionReceipt + Capability enum | ✅ VERIFIED 2026-05-16 — already shipped at `agent_core/src/effect/receipt.rs` (173 LOC); HMAC-SHA256 signing not Ed25519 (deviation logged, acceptable for same-machine); doctrine pointer landed as Hermes 2.0 §5.1. |
 | B2-H14 Cost Telemetry Dashboard | ✅ VERIFIED 2026-05-16 — already shipped (pricing.rs:142 + EventStore.recentSessionMetrics + SpendDashboardHost at AgentSectionDetailView.swift:158), visible in MAS + Pro. |
-| B2-H15 Graph Engine Phase A | MASTER_FUSION §3 new B-row |
+| B2-H15 Graph Engine Phase A | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.38` doctrine anchor for `CANONICAL_GRAPH_ENGINE_PLAN_2026_05_11.md` with Phase A SHIPPED / B/C queued + graph-protection cross-link. |
 | B2-H16 Chatterbox TTS packaging | New doc (if voice ships) |
 | B2-H17 MLX Model Selection Matrix | MASTER_FUSION §3 local-inference |
 
