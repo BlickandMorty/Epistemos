@@ -39,9 +39,15 @@ nonisolated public struct ShadowHit: Sendable, Identifiable, Hashable {
     /// Sidecar metadata — which vault this hit originated from.
     /// Mirrors the Rust `ShadowHit.origin_vault_key` field and the
     /// `GraphNodeMetadata.originVaultKey` contract on the graph side.
-    /// `nil` for hits the indexer didn't tag (lenient nil-passthrough
-    /// so partial-rollout doesn't hide every hit when a vault filter
-    /// is active).
+    ///
+    /// Rollout state (2026-05-15):
+    /// - ShadowVaultBootstrapper populates this on every crawled doc
+    ///   from `vaultRoot.lastPathComponent` (commit 51c58a5ad).
+    /// - Pre-rollout vaults indexed before 2026-05-15 still produce
+    ///   hits with `nil` — the lenient nil-passthrough keeps them
+    ///   visible across vault filters until those vaults are
+    ///   re-crawled. Re-crawl happens on first launch after the user
+    ///   re-attaches the vault or on explicit "Reindex Vault" action.
     public let originVaultKey: String?
 
     public init(
