@@ -625,7 +625,7 @@ When opening a note for the first time after launch, the editor hangs briefly
 are instant. User suspects "must I have it on large vaults?"
 
 Suspected Cause (ranked):
-1. **BlockMirror first-parse** — `Epistemos/Engine/BlockMirror.swift` parses
+1. **BlockMirror first-parse** — `Epistemos/Sync/BlockMirror.swift` parses
    the note's markdown into block rows on first open. ~10-50ms for small notes,
    200ms+ for large notes. Block rows persist after first open.
 2. **Graph engine neighborhood wake** — when a note is selected, the graph
@@ -662,6 +662,11 @@ Investigation Log:
 - 2026-05-12: New entry. Pairs with the 2GB idle issue — both rooted in
   "graph/index/cache layer doesn't pre-warm or release on a predictable
   schedule."
+- 2026-05-16 (T-A iter 1, §5.0 catch): file-path citation in cause #1 was
+  stale — `Epistemos/Engine/BlockMirror.swift` does not exist; canonical
+  path is `Epistemos/Sync/BlockMirror.swift` (verified via
+  `find Epistemos -name "BlockMirror*"` → single hit at the Sync path).
+  Updated above. Iter 2+ MRU-prewarm work should target the Sync path.
 
 ---
 
