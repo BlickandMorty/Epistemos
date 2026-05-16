@@ -131,6 +131,35 @@ struct GenUIPayloadDeterminismTests {
                 "GenUIDispatcher.render switch must have a branch for every GenUISchema case")
     }
 
+    @Test("GenUISchema decoder rejects unknown raw values (defensive future-version contract)")
+    func genUISchemaDecoderRejectsUnknownValues() throws {
+        // Defensive cross-FFI gate. A future Rust producer might emit
+        // a GenUISchema variant this Swift build doesn't know (e.g.
+        // "tree_diagram", "scatter_plot"). The decoder MUST throw a
+        // typed DecodingError rather than silently coerce — the
+        // GenUIDispatcher's fallback path needs the error to route
+        // the payload to FallbackGenUIView instead of misrendering
+        // as a wrong-schema panel.
+        //
+        // Pin the contract here so a future custom-Decodable
+        // implementation that catches-and-swallows the error doesn't
+        // silently coerce unknown schemas into one of the existing
+        // 16.
+        let unknownJSON = "\"tree_diagram\"".data(using: .utf8)!
+        do {
+            _ = try JSONDecoder().decode(GenUISchema.self, from: unknownJSON)
+            #expect(Bool(false), "decoder should have thrown for unknown schema")
+        } catch is DecodingError {
+            // Expected — String-rawed enum default behavior.
+        } catch {
+            #expect(Bool(false), "unexpected error: \(error)")
+        }
+
+        // Known canonical schemas decode cleanly.
+        let clarifyJSON = "\"clarify\"".data(using: .utf8)!
+        #expect(try JSONDecoder().decode(GenUISchema.self, from: clarifyJSON) == .clarify)
+    }
+
     @Test("Every GenUISchema case has at least one canonical body pairing")
     func everySchemaCaseHasACanonicalBodyPairing() {
         // The `canonicalBody(_:)` switch routes each GenUISchema to
