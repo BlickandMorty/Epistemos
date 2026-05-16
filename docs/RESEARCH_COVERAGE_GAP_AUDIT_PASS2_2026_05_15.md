@@ -2619,6 +2619,43 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 1/3-5; STAY at 3-min. Re-evaluate step-back after 5 consecutive ON-TRACK + rate <5/30min sustained. Recent windows: iter 128 = 14 commits (burst) · iter 129 = 3 · iter 130 = 1 (sub-threshold) · iter 131 = 3 · iter 132 = 1 — mixed pattern; not yet meeting low-touch criteria.
 
+#### Status pulse (iter 133, 2026-05-16) — 🎯 A T-A-28 STREAK 5/5 MILESTONE + CADENCE BUMP 600s → 1800s per A driver §1.5
+
+- **Window since iter 132 close:** 1 sibling commit (sub-threshold, but a SIGNIFICANT milestone event):
+  - `66a545dd6` (A) `docs(T-A-28): 🎯 self-audit #5 ON-TRACK 5/5 → cadence bumps to 1800s`
+
+- **🎯 A CADENCE TRANSITION MILESTONE — STREAK 5/5 REACHED:**
+  - **A's wind-down arc: T-A-24 (#1, streak 0/5) → T-A-25 (#2, 2/5) → T-A-26 (#3, 3/5) → T-A-27 (#4, 4/5) → T-A-28 (#5, 5/5)** ✅ — predicted at iter-129 audit-of-audit #29 + iter-130 §7 meta-cycle Iter-131+ candidates.
+  - Per A's driver §1.5 line 64 verbatim: "Self-audit cadence: 600s heartbeat. Bump to 1800s after 5 consecutive ON-TRACK cycles." **A correctly executing driver-spec'd cadence transition.**
+  - A's commit message: "🎯 Streak: 5 of 5 reached. Per V3 §1.5 'Bump to 1800s after 5 consecutive ON-TRACK cycles' — cadence transitions from 600s to 1800s starting iter 29. Loop continues in deeper 'background hum' — checks every 30 min instead of every 10 min. Same self-audit method, lower noise floor."
+  - Drift verification: 5 iter 23-27 §8 rows present. Criterion 3 + 4 GREEN. No new sibling commits since iter 27 (per A's worktree view). Doctrine-only commits (cut-corner clean). cargo 1190/1190 holds.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 DISTRIBUTED CADENCE-MANAGEMENT DISCIPLINE NOW MATURE ACROSS A + C:**
+  - **A's cadence arc:** 600s heartbeat → 1800s (iter 28 transition; deeper background hum per §1.5)
+  - **C's cadence arc:** 3-min cron `78959d10` (iter 93 step-back from V6.1 burst) → iter 91 first low-touch `c06c6edb` 30-min (5 ON-TRACK trigger) → iter 93 step-back to 3-min `78959d10` (V6.1 14+ commit burst) → iter 127 re-engaged 30-min `07983441` (4-iter quiet + 20 ON-TRACK) → iter 128 step-back to 3-min `51f01c4e` (14-commit burst)
+  - **Pattern:** both A + C use 5-consecutive-ON-TRACK as threshold for cadence relaxation; both have step-back triggers based on sibling activity / drift.
+  - **Lesson #7 prediction validated:** distributed self-audit + cross-terminal audit are complementary; cadence-management is ALSO a distributed discipline.
+
+- **🎯 OBSERVABLE COMPLETE LIFECYCLE EVENT — A V3 §10 wind-down progression:**
+  - Phase A: V1 ship gates + Wave decisions (iters 1-9)
+  - Phase D: PASS-2 HIGH-tier (iters 11-27)
+  - Phase E: PASS-1 HIGH-tier (iters 31-37) + Pass series 14-19 + defensive
+  - Phase F: User-decision surfacing (iters 108+; 10/13 surfaced through T-A-23)
+  - Phase G: Pro notarization §9 + §10 + notarization-log.md (iters 110-112)
+  - **Soft-stop activated:** iter 119 (T-A-23 Phase F skip-counter 3/3 met)
+  - **600s self-audit cadence:** iters 23-27 (T-A-24 through T-A-28)
+  - **🎯 1800s deeper-hum cadence:** iter 28+ (this iter)
+  - Predicted next: Phase G graceful wind-down if 3 consecutive iters skip user-decision items + no other work per A driver §1.5 line 226.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only) — milestone significant but window 1/3-5 sub-threshold for full cycle.
+
+- **23 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent windows: iter 128 = 14 (burst) · 129 = 3 · 130 = 1 · 131 = 3 · 132 = 1 · 133 = 1. Average ~3.8/iter; not yet meeting low-touch criteria (5 consecutive ON-TRACK + rate <5/30min sustained = need ~4 more low-volume iters).
+
+- **Iter 134+ candidates:** (1) Watch A T-A-29 first 1800s-cadence self-audit (expected ~30 min from now; this iter would be A's "iter 29"). (2) Continue B §4-reconciliation gap-closure watch (5 commits across 3 iters; B may have more NOT-STARTED gaps to close). (3) Watch D continued self-audit + META-cycle cadence. (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
