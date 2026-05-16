@@ -52,6 +52,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **What it is:** `BrowserEngine` trait abstracts the web-fetching path. MAS gets WebKit/native-capture-only adapter (no arbitrary JS runtime); Pro gets capability-gated `deno_core` ops. **Cocktail mentions neither.**
 - **Why it matters for V1:** If MAS ships any web-fetching tool path beyond `WKWebView` (e.g., `web.search`, `web.extract`, `web.crawl`, `web.fetch` — all currently in the 30-tool MAS allowlist), the architecture is undefined. Could trigger App Review issue if reviewers ask "how does this work in the sandbox?"
 - **Destination:** **MUST resolve before V1 submission.** Add explicit decision row to `MAS_COMPLETE_FUSION` §0 (immutable rules) declaring "MAS web tools use `WKWebView`-backed `BrowserEngine` adapter only; deno_core / Obscura geometry preserved but explicitly Pro-only."
+- **Status (2026-05-16):** ✅ RESOLVED. Decision landed as immutable rule 6 in `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §0. Current-code reconciliation: MAS web tools are HTTP-only (`agent_core/src/tools/web.rs` + `web_fetch.rs` via `reqwest`), `WKWebView` usage is confined to Epdoc + KaTeX (not agent tools), and `deno_core` / Obscura are absent from main (per `B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md` Pro-only routing). Rule wording made HTTP-fetch primary and `WKWebView` future-secondary so it matches reality rather than implying current code uses `WKWebView` for agent web tools.
 
 ### B-6. Hermes-parity salvage: error classifier + Keychain credential rotation + session-persistence schema
 - **Source:** `docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md` §2 insights #2.2-#2.4
@@ -202,7 +203,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 
 | Item | Decision required |
 |---|---|
-| **B-5 BrowserEngine MAS/Pro decision** | DECISION-ONLY: declare "MAS web tools use `WKWebView`-backed `BrowserEngine` adapter only" in `MAS_COMPLETE_FUSION` §0 immutable rules |
+| **B-5 BrowserEngine MAS/Pro decision** | ✅ RESOLVED 2026-05-16 — `MAS_COMPLETE_FUSION` §0 rule 6 declares HTTP-fetch + `WKWebView`-only for MAS, `deno_core` / Obscura Pro-only |
 | **B-6 Hermes-parity salvage verification** | RUNTIME: `cargo test` + caller-chain grep verifying Keychain wiring, error classifier registered, session persistence schema honored |
 | **B-1 / B-2 / B-3 / B-4 Wave 7-11 user-product items** | DECISION: which (if any) ship in V1 vs which are V1.1 deferrals. Document in Compromises Recorded. |
 | **H-1 / H-2 startup hang + memory regression** | RUNTIME: 2 user-action profiling tasks; route through Phase A |
