@@ -266,6 +266,74 @@ objc2-metal = "*"
 uniffi = "=0.28"
 ```
 
+### §1.12 L3 SSD Oracle / F-KV-Direct-Gate (memory architecture floor, NEW Phase B.0-KV)
+
+**The other half of the "Verified Floor" pattern.** F-ULP-Oracle (§1.1) gates the arithmetic floor; **F-KV-Direct-Gate** gates the memory-architecture floor. Together they bound the substrate Epistemos rests on.
+
+**The bottleneck this solves:** local AI on M2 Pro 16 GB hits a wall around 32k context because the KV cache for an 8B model at 128k eats 4-8 GB of RAM on top of the model (~5GB) + macOS overhead (~2GB) + app + browser. Without SSD spill, 128k context thrashes on 16GB hardware.
+
+**The architectural answer (L3 SSD Oracle):**
+
+```
+L0  RAM hot          ─ current attention pattern working set
+L1  RAM compressed   ─ Sherry 1.25-bit 3:4 sparsity (Huang arXiv:2601.07892)
+L3  SSD Oracle       ─ NF4 IOSurface mmap, file-backed       ← THIS LAYER
+L5  Network Cascade  ─ cloud fallback for rarest queries
+L_SE Self-Evolving   ─ Titans-MAC + SEAL-DoRA nightly LoRA
+```
+
+Three Apple-Silicon-specific techniques stacked:
+1. **NF4 quantization** (QLoRA lineage) — 4-bit NormalFloat for KV cache · 4× compression
+2. **IOSurface zero-copy** — Apple's GPU/CPU/ANE shared-memory framework · no copy overhead
+3. **mmap-backed KV pages on SSD** — macOS virtual memory pages into RAM as needed; SSD = authoritative full-precision oracle
+
+**The research claim being tested:** KV-Direct (Qasim et al. arXiv:2603.19664) — *the residual stream is bit-identical sufficient*. Means: keep most KV cache cold on SSD; swap in small residual deltas to reproduce model output AS IF the full KV were hot.
+
+**Substrate state (verified 2026-05-16):**
+- ✅ `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — Tier-1 BIT-IDENTICAL contract shader, landed commit `99cab68c1` (HELIOS-V5-W6+W7+W8) · refined commit `b970f98fe`
+- ✅ `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Rust reference with `direct_path_eligible()` predicate + 7 eligibility tests
+- ✅ `agent_core/src/scope_rex/kv/mod.rs` — module entry registered
+- ❌ End-to-end harness — **NOT-STARTED** (this is what Phase B.0-KV ships)
+
+**Owner:** Terminal B Phase B.0-KV (NEW, parallel to B.0 EML work — different shaders/Rust/tests, both can verify on same iter if cargo budget allows).
+
+**The gate experiment:**
+
+| Setup | Spec |
+|---|---|
+| Model | Qwen3-8B-MLX-4bit |
+| Context | 128k tokens |
+| Test corpus | 100 prompts (25 long-prefix recall · 25 multi-turn · 25 code-completion · 25 reasoning) |
+| Reference path | Full-RAM KV cache via existing `scope_rex/kv/` |
+| Test path | Residual-patched output via mmap-backed NF4 KV (synthetic SSD spill OK for gate) |
+| Measurement | D_KL between reference + residual-patched logit distributions |
+| **Threshold** | **D_KL < 0.05 nats** averaged across suite |
+| Budget | ≤ 30 min wall-clock on M2 Pro |
+
+**Pass case:** L3 SSD Oracle implementation track unblocks (Phase B.6.21 new). **128k context shippable on consumer 16GB Macs without cloud, no quality loss.** MAS-compatible (mmap + IOSurface = sandbox-friendly · NF4 = no special entitlement · all math in-process MLX-Swift). Total path to MAS-shippable L3: 8-16 weeks.
+
+**Fail case:** still publishable result ("KV-Direct doesn't generalize to Qwen3-8B-MLX-4bit at 128k"). Pivot to softer eviction:
+- Selective cold-region purge by attention-frequency
+- Prefix caching for system + persistent context
+- Attention-sink preservation per Streaming-LLM (arXiv:2309.17453)
+- Sliding-window attention with bounded historical KV
+
+**Risk surface to track:**
+- KV-Direct paper validated on different hardware/models — Qwen3 generalization is empirical conjecture
+- SSD wear concerns: consumer NVMe is 600-1200 TBW; aggressive spill/reload could prematurely age the drive → mitigation via write-coalescing + tier policy that keeps hot KV in RAM
+- SSD↔RAM bandwidth gap (~5GB/s vs ~200GB/s on M2 Pro PCIe 4.0 vs LPDDR5-6400) → mitigation via prefetch + speculative load + attention-pattern prediction
+- MLX-Swift internals — KV cache layout is mlx-rs internal; may need upstream contribution or fork at `LocalPackages/mlx-swift-lm/`
+- Apple Intelligence convergence — Apple's on-device model may ship competing memory-spill techniques first
+
+**Why this pairs with F-ULP-Oracle:** both are **empirical verification gates** for foundational substrate claims. F-ULP-Oracle verifies Apple's Metal `exp`/`ln` accuracy spec (≤2 ULP); F-KV-Direct-Gate verifies the Qasim et al. residual-sufficiency claim. Neither trusts the spec or paper without local empirical evidence. **Verification-native engineering.**
+
+**Status tags:**
+- Shader + Rust reference + eligibility predicate + tests = **EV** (verified in tree)
+- Harness implementation = **EB** (engineering bet, 1-2 weeks focused work)
+- D_KL < 0.05 nats on Qwen3-8B at 128k = **C** (conjecture; tested by the harness)
+- L3 SSD Oracle MAS-shippable implementation = **C** (conditional on conjecture passing)
+- Apple Intelligence convergence risk = **C** (market risk, not technical)
+
 ---
 
 ## §2. Per-terminal phase additions
