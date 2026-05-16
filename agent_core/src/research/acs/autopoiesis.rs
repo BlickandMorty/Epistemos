@@ -189,6 +189,77 @@ pub fn check_operational_closure(
     })
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ComponentProductionVerdict {
+    /// True iff every component has ≥1 incoming production edge.
+    pub satisfied: bool,
+    /// Components with zero incoming edges. Empty when satisfied.
+    pub unproduced: Vec<ComponentId>,
+}
+
+/// Maturana-Varela criterion 2: every component must be produced by
+/// at least one other component (counted as ≥1 incoming edge in the
+/// production graph). The mod doc notes this falls out of the SCC
+/// check, but a typed verdict surfaces it directly for callers who
+/// want criterion 2 separately from criterion 3.
+pub fn verify_component_production(
+    net: &ProductionNetwork,
+) -> Result<ComponentProductionVerdict, AutopoiesisError> {
+    if net.components.is_empty() {
+        return Err(AutopoiesisError::EmptyNetwork);
+    }
+    let id_to_idx: HashMap<&ComponentId, usize> = net
+        .components
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c, i))
+        .collect();
+    let mut has_incoming = vec![false; net.components.len()];
+    for e in &net.edges {
+        let _ = id_to_idx
+            .get(&e.producer)
+            .ok_or(AutopoiesisError::DanglingEdge)?;
+        let c = id_to_idx
+            .get(&e.produced)
+            .ok_or(AutopoiesisError::DanglingEdge)?;
+        has_incoming[*c] = true;
+    }
+    let unproduced: Vec<ComponentId> = (0..net.components.len())
+        .filter(|i| !has_incoming[*i])
+        .map(|i| net.components[i].clone())
+        .collect();
+    let satisfied = unproduced.is_empty();
+    Ok(ComponentProductionVerdict { satisfied, unproduced })
+}
+
+/// Total count of strongly connected components in the production
+/// graph (including singletons). Useful as a diagnostic: a network
+/// with `1` SCC equal to the whole node set is fully autopoietic-3;
+/// many small SCCs means weak partitioned production.
+pub fn count_sccs(net: &ProductionNetwork) -> Result<usize, AutopoiesisError> {
+    if net.components.is_empty() {
+        return Err(AutopoiesisError::EmptyNetwork);
+    }
+    let adj = build_adjacency(net)?;
+    let n = net.components.len();
+    let mut t = Tarjan::new(n, &adj);
+    for v in 0..n {
+        if t.index[v].is_none() {
+            t.strongconnect(v);
+        }
+    }
+    Ok(t.sccs.len())
+}
+
+/// True iff the whole production graph is one SCC of size ≥ 1
+/// (strict-form criterion 3). The base `check_operational_closure`
+/// allows multiple SCCs as long as none is orphan; this stricter
+/// predicate demands the graph be one connected component.
+pub fn is_strongly_connected(net: &ProductionNetwork) -> Result<bool, AutopoiesisError> {
+    let verdict = check_operational_closure(net)?;
+    Ok(verdict.closed && verdict.largest_scc_size == net.components.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,5 +436,113 @@ mod tests {
         let v = check_operational_closure(&net).unwrap();
         assert!(!v.closed);
         assert_eq!(v.largest_scc_size, 1);
+    }
+
+    // ── criterion 2 + SCC diagnostic tests (iter 111) ───────────────────────
+
+    #[test]
+    fn criterion_2_satisfied_when_every_node_produced() {
+        // a → b → c → a: every node has ≥1 incoming edge.
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b"), cid("c")],
+            edges: vec![edge("a", "b"), edge("b", "c"), edge("c", "a")],
+        };
+        let v = verify_component_production(&net).unwrap();
+        assert!(v.satisfied);
+        assert!(v.unproduced.is_empty());
+    }
+
+    #[test]
+    fn criterion_2_violated_when_node_unproduced() {
+        // a is the producer of b but has no incoming edge.
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b")],
+            edges: vec![edge("a", "b")],
+        };
+        let v = verify_component_production(&net).unwrap();
+        assert!(!v.satisfied);
+        assert_eq!(v.unproduced.len(), 1);
+        assert_eq!(v.unproduced[0], cid("a"));
+    }
+
+    #[test]
+    fn criterion_2_empty_network_rejected() {
+        let net = ProductionNetwork {
+            components: vec![],
+            edges: vec![],
+        };
+        assert_eq!(
+            verify_component_production(&net).unwrap_err(),
+            AutopoiesisError::EmptyNetwork
+        );
+    }
+
+    #[test]
+    fn criterion_2_dangling_edge_rejected() {
+        let net = ProductionNetwork {
+            components: vec![cid("a")],
+            edges: vec![edge("a", "b")],
+        };
+        let err = verify_component_production(&net).unwrap_err();
+        assert_eq!(err, AutopoiesisError::DanglingEdge);
+    }
+
+    #[test]
+    fn count_sccs_single_cycle_is_one() {
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b"), cid("c")],
+            edges: vec![edge("a", "b"), edge("b", "c"), edge("c", "a")],
+        };
+        assert_eq!(count_sccs(&net).unwrap(), 1);
+    }
+
+    #[test]
+    fn count_sccs_three_isolated_components_is_three() {
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b"), cid("c")],
+            edges: vec![],
+        };
+        assert_eq!(count_sccs(&net).unwrap(), 3);
+    }
+
+    #[test]
+    fn count_sccs_two_disjoint_cycles_is_two() {
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b"), cid("c"), cid("d")],
+            edges: vec![
+                edge("a", "b"),
+                edge("b", "a"),
+                edge("c", "d"),
+                edge("d", "c"),
+            ],
+        };
+        assert_eq!(count_sccs(&net).unwrap(), 2);
+    }
+
+    #[test]
+    fn is_strongly_connected_single_cycle_true() {
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b"), cid("c")],
+            edges: vec![edge("a", "b"), edge("b", "c"), edge("c", "a")],
+        };
+        assert!(is_strongly_connected(&net).unwrap());
+    }
+
+    #[test]
+    fn is_strongly_connected_two_disjoint_cycles_false() {
+        // 2 disjoint cycles: closed (no orphans) but NOT strongly
+        // connected (largest SCC size 2, not 4).
+        let net = ProductionNetwork {
+            components: vec![cid("a"), cid("b"), cid("c"), cid("d")],
+            edges: vec![
+                edge("a", "b"),
+                edge("b", "a"),
+                edge("c", "d"),
+                edge("d", "c"),
+            ],
+        };
+        let v = check_operational_closure(&net).unwrap();
+        assert!(v.closed);
+        assert!(!is_strongly_connected(&net).unwrap());
     }
 }
