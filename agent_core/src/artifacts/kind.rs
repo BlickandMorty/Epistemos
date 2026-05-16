@@ -165,4 +165,23 @@ mod tests {
             "8 is currently unused — when adding a new variant, update this assertion AND the Swift mirror"
         );
     }
+
+    #[test]
+    fn serde_rejects_unknown_string_on_decode_without_panic() {
+        // Defensive cross-FFI decoder gate. Companion to
+        // `from_id_rejects_unknown` — the serde string form must also
+        // reject unknown variants gracefully so a `.epbundle` or
+        // persisted SDPage from a future build emitting a hypothetical
+        // "video" / "audio" / "spreadsheet" kind decodes to Err on
+        // this build rather than panicking mid-replay.
+        let result: Result<ArtifactKind, _> = serde_json::from_str("\"video\"");
+        assert!(result.is_err(),
+                "ArtifactKind serde decoder must reject unknown kinds");
+        let result: Result<ArtifactKind, _> = serde_json::from_str("\"\"");
+        assert!(result.is_err());
+        // PascalCase rejects — only snake_case is canonical.
+        let result: Result<ArtifactKind, _> = serde_json::from_str("\"ProseNote\"");
+        assert!(result.is_err(),
+                "PascalCase must reject — only snake_case is canonical");
+    }
 }
