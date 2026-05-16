@@ -511,27 +511,54 @@ The Applier types are the canonical citizens of Plane 4 — they are how the run
 
 Per `MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` + Apple App Review Guideline 2.5.2:
 
-| Capability | MAS | Pro | Why |
-|---|---|---|---|
-| Anthropic Messages API | ✅ | ✅ | HTTPS only |
-| OpenAI Responses API | ✅ | ✅ | HTTPS only |
-| OpenAI-compatible localhost (Ollama, LM Studio) | ✅ | ✅ | localhost HTTPS; user controls server |
-| Local MLX in-process | ✅ | ✅ | no subprocess; in-app inference |
-| MCP client (user-approved) | ✅ | ✅ | gated by SovereignGate consent |
-| Native Epistemos tools (note.*, graph.*, …) | ✅ | ✅ | in-app, schema-bound |
-| Claude Code CLI subprocess | ❌ | ✅ | spawns `claude` binary |
-| Codex CLI subprocess | ❌ | ✅ | spawns `codex` binary |
-| Goose CLI subprocess | ❌ | ✅ | spawns `goose` binary |
-| Aider subprocess | ❌ | ✅ | spawns `aider` binary |
-| OpenHands local server | ❌ | ✅ | spawns Python server |
-| SWE-agent / mini-SWE | ❌ | ✅ | subprocess + Docker risk |
-| Arbitrary shell tool | ❌ | ✅ | bash_execute Pro-only |
-| Browser automation | ❌ | ✅ | computer-use Pro-only |
-| iMessage outbound channel | ❌ | ✅ | osascript Pro-only |
-| Web search (HTTP) | ✅ | ✅ | HTTPS; cited in approval card |
-| File system writes outside vault | ❌ | ✅ | sandbox forbids on MAS |
+| Capability | MAS | Pro | Tunnel (B2-H18) | Why |
+|---|---|---|---|---|
+| Anthropic Messages API | ✅ | ✅ | — | HTTPS only |
+| OpenAI Responses API | ✅ | ✅ | — | HTTPS only |
+| OpenAI-compatible localhost (Ollama, LM Studio) | ✅ | ✅ | — | localhost HTTPS; user controls server |
+| Local MLX in-process | ✅ | ✅ | — | no subprocess; in-app inference |
+| MCP client URL/SSE (user-approved) | ✅ | ✅ | **B.1** | HTTP/SSE transport; gateway-friendly; gated by SovereignGate consent |
+| Native Epistemos tools (note.*, graph.*, …) | ✅ | ✅ | — | in-app, schema-bound |
+| Claude Code CLI subprocess | ❌ | ✅ | **C** | spawns `claude` binary |
+| Codex CLI subprocess | ❌ | ✅ | **C** | spawns `codex` binary |
+| Goose CLI subprocess | ❌ | ✅ | **C** | spawns `goose` binary |
+| Aider subprocess | ❌ | ✅ | **C** | spawns `aider` binary |
+| OpenHands local server | ❌ | ✅ | **C** | spawns Python server |
+| SWE-agent / mini-SWE | ❌ | ✅ | **C** | subprocess + Docker risk |
+| Arbitrary shell tool | ❌ | ✅ | **A** | bash_execute Pro-only |
+| MCP client stdio (subprocess) | ❌ | ✅ | **B.2** | spawns user-installed MCP server binary |
+| Browser automation | ❌ | ✅ | — | computer-use Pro-only (AX + ScreenCaptureKit) |
+| iMessage outbound channel | ❌ | ✅ | — | osascript Pro-only |
+| Web search (HTTP) | ✅ | ✅ | — | HTTPS; cited in approval card |
+| File system writes outside vault | ❌ | ✅ | — | sandbox forbids on MAS |
 
 CI gate stays: `strings` + `nm -gU` on the MAS bundle must return zero matches for the Pro-only allowlist (`bash_execute`, `cli_passthrough`, `osascript`, etc.).
+
+### 6.1 The 4-Tunnel taxonomy (B2-H18)
+
+**Source:** `docs/capability-tunnels.md` (219 lines, canonical in main). PASS 2 audit row B2-H18 surfaced that the table above flattened the Pro-tier surface into individual rows without the **organizing taxonomy** that explains why exactly those Pro features exist. The 4-Tunnel framing answers the reviewer-equivalent question: "why these 4 Pro features instead of a different 4?"
+
+| Tunnel | Transport | What it carries | MAS-shippable? |
+|---|---|---|---|
+| **Tunnel A** — Universal shell | local subprocess (bash) | `bash_execute` arbitrary commands with scoped + per-command approval | ❌ Pro-only — hardened-runtime + sandbox forbid arbitrary shell |
+| **Tunnel B.1** — URL MCP | HTTP / SSE | MCP server endpoints reachable via URL; gateway-friendly | ✅ MAS — HTTPS-only is App-Store-clean under §0 rule 6 |
+| **Tunnel B.2** — stdio MCP | local subprocess (MCP binary) | user-installed MCP servers that speak stdio rather than HTTP/SSE | ❌ Pro-only — subprocess transport (per CLAUDE.md NO SIDECAR carve-out: user-installed MCP servers are allowed in Pro, never in MAS) |
+| **Tunnel C** — CLI passthrough | local subprocess (CLI binary) | Claude Code · Codex · Goose · Aider · OpenHands · SWE-agent etc. | ❌ Pro-only — each spawns a vendor CLI |
+
+**The orthogonality claim** (per `capability-tunnels.md` §"Combining tunnels"): the four tunnels are **independent capability axes**, not a single ordered list. A Pro user might enable Tunnel A + Tunnel B.1 but not Tunnel C; another might enable Tunnel C + Tunnel B.2 but not Tunnel A. The Pro entitlement isn't a single switch — it's 4 independent switches, each with its own gate / tier / approval discipline per `capability-tunnels.md` §"Gates, tiers, approval".
+
+**Why Tunnel B.1 is the only MAS-shippable tunnel:** all transport is HTTP/SSE over `URLSession`, which is exactly what §0 rule 6 + `Epistemos-AppStore.entitlements`'s `com.apple.security.network.client = true` already permits. No subprocess, no JS runtime, no JIT-execution surface beyond the existing MLX shader compilation defended in §0 rule 7. The other three tunnels carry subprocess execution and are gated to Pro by the MAS sandbox + hardened runtime constraints.
+
+**Reviewer answer** (citable verbatim): "The Pro tier adds 4 orthogonal capability axes (Tunnel A shell · Tunnel B.2 stdio-MCP · Tunnel C CLI passthrough · plus computer-use / channel automation). MAS keeps only Tunnel B.1 URL-MCP — all other Pro capabilities require subprocess execution that Apple's hardened-runtime + App Sandbox constraints forbid for App Store apps."
+
+### Cross-references (§6 + §6.1)
+
+- `docs/capability-tunnels.md` — canonical 219-line source with §"Gates, tiers, approval" + §"What each tunnel is NOT" + §"Combining tunnels".
+- B2-H18 PASS 2 audit row.
+- §0 rule 6 — MAS uses URL-fetch + WKWebView only; no in-process JS runtime (Tunnel B.1 is the only fully-HTTP tunnel and therefore MAS-clean).
+- §0 rule 7 — JIT entitlement defense (Tunnel A / B.2 / C all require Hardened Runtime relaxations that stay Pro-only).
+- §7.4 Specialties registry — the 19 macOS-only capabilities consumed by these tunnels.
+- `MAS_COMPLETE_FUSION §Phase D` Wave F XPC Mastery — Pro-tier XPC services that host the subprocess-bearing tunnels.
 
 ---
 
