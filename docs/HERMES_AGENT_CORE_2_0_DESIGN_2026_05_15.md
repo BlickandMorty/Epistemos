@@ -341,6 +341,59 @@ pub struct ExecutionReceipt {
 - `agent_core/src/resources/attachments.rs:13` — separate `pub enum Capability` for attachment-grant scope (different domain)
 - `MASTER_FUSION §3.33` (Artifact Identity) — the artifact half of the same provenance story; ExecutionReceipt's `output_hash` is the bridge
 
+### 5.3 Five-Plane formalism — RuntimePlane canonical enum (B2-M6)
+
+**Source:** `Epistemos V6_1 — Final Synthesis Lock` PART 3 + HELIOS V6.1 §3. PASS 2 audit row B2-M6 framed this as "canonicalization deferred"; **§5.0 reconciliation finding: `RuntimePlane` enum is already canonical in `epistemos-research/src/five_planes.rs` and load-bearing** in `v6_1_stream_surface.rs` + `v6_1_execution_policy.rs`. This section records the doctrine cross-reference into Hermes 2.0's provenance vocabulary that the audit identified as missing.
+
+**The orthogonal axes.** Tri-stream is the *product* organization (MAS · Pro · Vault per §6). Five Planes is the *runtime* organization. They are orthogonal: every stream contains the same five planes with different surface-area exposed. The full surface is a 5 × 3 = 15-cell matrix enumerated as `ALL_FIFTEEN_CELLS` at `epistemos-research/src/v6_1_stream_surface.rs:142-157`.
+
+**The five planes** (canonical numbering per `RuntimePlane::plane_number(self) -> u32`):
+
+| # | Plane | Substrate | What lives here |
+|---|---|---|---|
+| 1 | **State** | Recurrent semantic spine (Mamba-2 / Granite-4-H / Falcon-Mamba); semiseparable block scan. | Default cost; semantic continuity; carries the running narrative. |
+| 2 | **Episodic** | Exact recall pages. | Atlas · tool traces · pinned quotes · ClaimLedger entries · theorem witnesses · file-line anchors. |
+| 3 | **Assembly** | Runtime routing language; symbolic-then-learned. | Gate3 · cortical packets · Connectome anchors · Variant Ladder dispatch (§10). |
+| 4 | **Controller** | Small high-leverage executive surfaces. | write / forget / admit / route / norm / safety gates · speculative-accept · kernel-promotion. |
+| 5 | **Verification** | Audit substrate. | WBO · ClaimKind · AnswerPacket · VRM labels · sheaf-residual · witness logs · ReplayBundle · ExecutionReceipt (§5.1) sits here. |
+
+**Mapping into Hermes 2.0 provenance vocabulary.** The audit's framing was "could standardize `ClaimLedger` / `ReplayBundle` / `VerificationPlane` vocabulary." The mapping is:
+
+- `ClaimLedger` (`agent_core/src/provenance/ledger.rs`) → **Plane 2 Episodic** (claims are exact-recall facts) AND **Plane 5 Verification** (each claim is audit-attestable). Bi-plane is intentional — claims bridge episodic exact recall and verification audit.
+- `ReplayBundle` (`agent_core/src/provenance/replay.rs`) → **Plane 5 Verification** primarily; cross-plane in that it snapshots state from all 5 planes at a session boundary.
+- `ExecutionReceipt` (§5.1) → **Plane 5 Verification** (per-tool-call attestation).
+- `AnswerPacket` (V6.2 §S3.5) → **Plane 5 Verification** (rendered chip in VRMLabelView).
+- `MutationEnvelope` (in `epistemos.semantic.v1` schema) → **Plane 4 Controller** (write/admit gate envelope).
+- `AgentBlueprint` (§3) → **Plane 3 Assembly** (it IS the symbolic routing language for an agent identity).
+- `Variant Ladder` dispatch (§10) → **Plane 3 Assembly** (tool-dispatch routing).
+- Skills + Loop Profiles (§13.8) → **Plane 3 Assembly** (compose tool calls + provider dispatches into a symbolic routing structure).
+
+**Every plane has a plane-specific kernel and plane-specific theorem.** The 5 × T1-T44 theorem set per `helios v6.2.md` §1.3 partitions theorems by plane; this section doesn't enumerate the theorems (that's V6.1/V6.2 doctrine substrate, beyond the Hermes 2.0 scope) but the partitioning is what lets future provenance work cite **(plane, theorem-id, claim-id)** as a triple instead of just **(claim-id)**.
+
+**§5.0 reconciliation — what was actually missing.** The audit framed B2-M6 as "canonicalization deferred." Verification on disk showed:
+
+- ✅ Enum exists with full doctrine comments — `epistemos-research/src/five_planes.rs:36-52` (5 variants · `serde(rename_all = "snake_case")` · `Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize`).
+- ✅ Plane numbering is canonical — `RuntimePlane::plane_number(self) -> u32` returns 1..5.
+- ✅ Load-bearing in `v6_1_stream_surface.rs` (`stream_surface(stream, plane) -> StreamSurfaceLevel` dispatches off `RuntimePlane`).
+- ✅ Wired into `v6_1_execution_policy.rs` via `use crate::five_planes::ProductStream`.
+- ❌ **Hermes 2.0 design doc did NOT mention `RuntimePlane`** — the canonical agent-architecture doctrine had no cross-link to the Five-Plane formalism, leaving the vocabulary unconnected from the runtime design.
+
+This section closes that gap. The enum stays in `epistemos-research` (Lane 3 RESEARCH-ONLY, `--features research` build). Hermes 2.0 doctrine now references it so future provenance / governance / observability work has a stable plane-coordinate to cite.
+
+**V1 / Pro / Post-V1 boundary:** Lane 3 RESEARCH-ONLY today — the enum exists but is not consumed by V1 shipping code paths. V1.x integration trigger: when ClaimLedger gains a per-claim `plane: RuntimePlane` field (currently single-plane assumption), or when the Provenance Console UI surfaces plane-coordinate filters. Until then, this section is doctrine alignment.
+
+**Cross-links:**
+- `epistemos-research/src/five_planes.rs` — enum source.
+- `epistemos-research/src/v6_1_stream_surface.rs:142-157` — `ALL_FIFTEEN_CELLS` 5×3 matrix.
+- `epistemos-research/src/v6_1_execution_policy.rs` — `ProductStream` companion.
+- B2-M6 PASS 2 audit row.
+- §5.1 ExecutionReceipt — Plane 5 Verification member.
+- §10 Variant Ladder — Plane 3 Assembly member.
+- §13.8 Loop Profiles (B2-M1) — Plane 3 Assembly member.
+- MASTER_FUSION §3.16 Helios kernels — sibling V6.1/V6.2 substrate row.
+- MASTER_FUSION §3.18 Provenance ledger (Phase 1) — Plane 5 substrate.
+- `docs/audits/HELIOS_SUBSTRATE_INVENTORY_2026_05_12.md` — drift-discovery context (drift gate commit `9e19bcf08` 2026-05-12).
+
 ---
 
 ## 6. MAS vs Pro split — the clearest line in the design
