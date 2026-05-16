@@ -58,6 +58,24 @@ pub struct GlassPipeReadout {
     pub write_index: usize,
 }
 
+impl GlassPipeReadout {
+    /// Number of samples written between `prev_write_index` and this
+    /// readout's `write_index`. Returns `None` if the previous index
+    /// is in the future (clock skew or readout reused with a stale
+    /// reference). Companion to the docstring on `write_index`: the
+    /// canonical "did I miss any samples since last poll?" check.
+    pub fn dropped_since(&self, prev_write_index: usize) -> Option<usize> {
+        if prev_write_index > self.write_index {
+            return None;
+        }
+        let delta = self.write_index - prev_write_index;
+        // Samples dropped = delta minus what's actually visible. The
+        // visible window is the lesser of `samples.len()` (what we
+        // returned) and `delta` (what was written since prev).
+        Some(delta.saturating_sub(self.samples.len()))
+    }
+}
+
 impl GlassPipe {
     pub fn new(capacity: usize) -> Result<Self, GlassPipeError> {
         if capacity == 0 {
@@ -76,6 +94,22 @@ impl GlassPipe {
 
     pub fn write_index(&self) -> usize {
         self.write_index.load(Ordering::Acquire)
+    }
+
+    /// True iff the ring has wrapped at least once (write_index ≥
+    /// capacity). Any read at this point sees full-buffer samples.
+    pub fn is_full(&self) -> bool {
+        self.write_index() >= self.capacity
+    }
+
+    /// Reset the pipe: zero the buffer + reset write index to 0.
+    /// Useful as a clean-state restart between distinct profiling
+    /// runs that share a single pipe instance.
+    pub fn reset(&mut self) {
+        for v in self.buffer.iter_mut() {
+            *v = 0.0;
+        }
+        self.write_index.store(0, Ordering::Release);
     }
 
     /// Write one sample. Returns the absolute write index assigned to
@@ -202,5 +236,90 @@ mod tests {
         let r = pipe.read_recent(0).unwrap();
         assert!(r.samples.is_empty());
         assert_eq!(r.write_index, 1);
+    }
+
+    // ── is_full + reset + dropped_since tests (iter 129) ────────────────────
+
+    #[test]
+    fn is_full_false_before_first_wrap() {
+        let mut pipe = GlassPipe::new(4).unwrap();
+        assert!(!pipe.is_full());
+        pipe.write(1.0);
+        pipe.write(2.0);
+        pipe.write(3.0);
+        assert!(!pipe.is_full());
+    }
+
+    #[test]
+    fn is_full_true_after_capacity_writes() {
+        let mut pipe = GlassPipe::new(4).unwrap();
+        for i in 0..4 {
+            pipe.write(i as f32);
+        }
+        assert!(pipe.is_full());
+    }
+
+    #[test]
+    fn reset_zeros_buffer_and_index() {
+        let mut pipe = GlassPipe::new(4).unwrap();
+        pipe.write(1.0);
+        pipe.write(2.0);
+        pipe.write(3.0);
+        assert_eq!(pipe.write_index(), 3);
+        pipe.reset();
+        assert_eq!(pipe.write_index(), 0);
+        // After reset, read_recent returns empty because count =
+        // min(n, write_index) = 0.
+        let r = pipe.read_recent(4).unwrap();
+        assert!(r.samples.is_empty());
+    }
+
+    #[test]
+    fn dropped_since_zero_when_no_writes_in_between() {
+        let mut pipe = GlassPipe::new(4).unwrap();
+        pipe.write(1.0);
+        pipe.write(2.0);
+        let r = pipe.read_recent(2).unwrap();
+        // prev = current write_index → 0 dropped.
+        assert_eq!(r.dropped_since(r.write_index).unwrap(), 0);
+    }
+
+    #[test]
+    fn dropped_since_correct_when_writes_visible() {
+        // Pipe capacity 4; write 3 samples; readout sees all 3
+        // (delta from index 0 = 3, samples.len = 3 → dropped = 0).
+        let mut pipe = GlassPipe::new(4).unwrap();
+        pipe.write(1.0);
+        pipe.write(2.0);
+        pipe.write(3.0);
+        let r = pipe.read_recent(4).unwrap();
+        assert_eq!(r.write_index, 3);
+        assert_eq!(r.samples.len(), 3);
+        assert_eq!(r.dropped_since(0).unwrap(), 0);
+    }
+
+    #[test]
+    fn dropped_since_detects_overflow() {
+        // Capacity 4; write 10 samples; reader was polling with
+        // prev = 2 (saw 2 samples last time). Current write_index = 10,
+        // delta = 8. Reader can only see at most 4 (capacity); ask for
+        // 4. dropped = 8 - 4 = 4 samples lost between polls.
+        let mut pipe = GlassPipe::new(4).unwrap();
+        for i in 0..10 {
+            pipe.write(i as f32);
+        }
+        let r = pipe.read_recent(4).unwrap();
+        assert_eq!(r.write_index, 10);
+        assert_eq!(r.samples.len(), 4);
+        assert_eq!(r.dropped_since(2).unwrap(), 4);
+    }
+
+    #[test]
+    fn dropped_since_future_prev_index_returns_none() {
+        let mut pipe = GlassPipe::new(4).unwrap();
+        pipe.write(1.0);
+        let r = pipe.read_recent(1).unwrap();
+        // prev index in the future → indicates clock skew or stale ref.
+        assert!(r.dropped_since(100).is_none());
     }
 }
