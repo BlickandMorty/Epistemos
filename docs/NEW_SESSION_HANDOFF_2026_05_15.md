@@ -38,6 +38,14 @@ All work since 2026-05-14 lives on this branch. Push target is the same.
 4. **Vault is sensitive.** Vault fixes start with evidence + minimal rationale + rollback-safe plan. No reset/delete/casual migration.
 5. **8-question PR discipline** per `MAS_FINAL_STRETCH_NO_NUANCE_LOST` §6 — apply to every PR.
 6. **No silent deferrals.** Every deferred item gets a row in the Master Fusion Plan §8 Implementation Log AND/OR an audit row.
+7. **Substrate refactoring follows the Five Laws.** Any post-V1 substrate / `substrate-core` / identity-unification / entity-store / UniFFI-hotpath / Python-isolation work obeys all five binding principles from `docs/_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md` §"THE FIVE LAWS":
+   - **L1 Measure before you cut.** No architectural refactoring without Instruments profiling data justifying it. Every architecture PR must cite a concrete measurement (allocation count · frame time · call frequency · binary size delta).
+   - **L2 Entity store is a new crate, not a refactor.** Build `substrate-core` as a fresh Rust crate with `slotmap` generational keys. Wire alongside existing code. Migrate one entity type at a time. Old + new coexist until old can be deleted.
+   - **L3 Identity unification is Sprint 1; everything else waits.** Define `EntityID` as a `SlotKey` in Rust, expose via C ABI as `u64`, replace Swift UUIDs one model at a time. Don't touch rendering, action grammar, or Python until identity is unified for notes, links, and tags.
+   - **L4 UniFFI stays until profiling proves otherwise.** All 3 substrate-research dossiers recommend graduated FFI — UniFFI for cold paths, custom C ABI for hot paths. Don't pre-optimize. Keep UniFFI everywhere; replace top-3 measured hotspots only.
+   - **L5 Python goes out-of-process immediately.** All Python moves to a subprocess daemon behind Unix domain socket. Saves 15-25 MB bundle, eliminates GIL contention, crash-isolates Python. Fastest no-regret change.
+
+   The source doc tags these as "Add to CLAUDE.md — binding." Promoting them into `CLAUDE.md` itself is user-approval-gated per loop prompt §16 ("user has explicitly opted OUT of editing CLAUDE.md without his approval"); they live here as the binding constraint until that promotion lands.
 
 ---
 

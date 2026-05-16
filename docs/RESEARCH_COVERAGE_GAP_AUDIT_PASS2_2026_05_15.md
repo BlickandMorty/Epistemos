@@ -71,6 +71,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 ### B2-H1. Five Laws (Unified Substrate Phase D doctrine)
 - **Source:** [_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md](_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md) §1
 - **What it is:** Five binding principles for substrate refactoring (Measure before you cut · entity store as new crate · identity unification is Sprint 1 · UniFFI stays until profiling proves otherwise · Python out-of-process immediately).
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as scope rule 7 in `NEW_SESSION_HANDOFF_2026_05_15.md §3`. Verbatim text of all 5 laws preserved with the "binding" qualifier; explicit pointer that the source doc tagged them "Add to CLAUDE.md" and that promotion to `CLAUDE.md` itself is user-approval-gated per loop prompt §16. Source doc cross-reference intact.
 - **Destination:** `CLAUDE.md` "DO NOT" section as numbered constraint or `NEW_SESSION_HANDOFF_2026_05_15.md` §3 immutable rules.
 
 ### B2-H2. Per-model Knowledge Vaults + cloud distillation
@@ -294,7 +295,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 
 | Gap | Destination |
 |---|---|
-| B2-H1 Five Laws | CLAUDE.md DO NOT or `NEW_SESSION_HANDOFF` §3 |
+| B2-H1 Five Laws | ✅ RESOLVED 2026-05-16 — `NEW_SESSION_HANDOFF §3` rule 7 carries all 5 laws verbatim. CLAUDE.md promotion is user-approval-gated. |
 | B2-H2 Per-model Knowledge Vaults | Hermes 2.0 §13.5 |
 | B2-H3 Instant Recall (Mamba state) | MASTER_FUSION §3 Wave 9.33+ |
 | B2-H4 Windows port (10-doc bundle) | NEW_SESSION_HANDOFF §"Deferred Windows" |
