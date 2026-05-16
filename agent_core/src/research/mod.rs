@@ -28,6 +28,7 @@ pub mod eml;
 pub mod hybrid_memory;
 pub mod hyperdynamic_schemas;
 pub mod interrupt_calibration;
+pub mod koopman;
 pub mod mamba3;
 pub mod nano_training_recipe;
 pub mod nightbrain_tasks;
