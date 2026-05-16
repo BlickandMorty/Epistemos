@@ -1212,6 +1212,30 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 95+ candidates:** (1) Investigate Helios Phase B.2 stage 3 absence (deep scan commit log for "stage 3"). (2) Phase C.7.4 verify Lean toolchain pin (read `doctrine/STACK_DIVERGENCES.md` if exists). (3) Phase C.2 mass update to MASTER_RESEARCH_INDEX §15 for J5..J9 + EML substrate. (4) Surface J4 skip to user (3rd cycle imminent).
 
+#### Status pulse (iter 95, 2026-05-16) — J10 Mamba-3 + D.3 git MCP CLEAN · Helios B.2 stage 3 INVESTIGATION RESOLVED
+
+- **Window since #16 (iter 94):** 2 sibling commits (sub-threshold pulse):
+  - `63d7ad7eb` (B) J10 Mamba-3 complex-state SSM substrate — V6.1 Phase B.1 J10 (one of the V6.1 §"Terminal B" J10-J14 extensions).
+  - `ada83a0a6` (D) D.3 read-only git MCP executor — new omega-mcp `git.status`/`git.diff`/`git.log` verbs + UniFFI exposure.
+
+- **§5.0 spot-check J10:** `agent_core/src/research/mamba3.rs` single-file substrate 10097 bytes / **16 tests** EXACTLY matching commit message "16/16 pass". `pub mod mamba3;` registered in research/mod.rs. Sources cited: Mamba-3 arXiv:2603.15569 (March 2026, exponential-trapezoidal discretization + complex-valued state + MIMO + RoPE-trick) + V6.1 §1.4 (+0.6-1.8 pts vs Gated DeltaNet at 1.5B) + Mamba arXiv:2312.00752 (S6 predecessor) + Dao & Gu "Transformers are SSMs" arXiv:2405.21060. All citations are verifiable arXiv IDs. **§5.0 verdict: CLEAN.**
+
+- **C.7.3 honest-caveats spot-check on J10:** no Monnerot eml★ citation; no Goodfire numerics. **CLEAN.**
+- **C.7.5 epikernel-* lockstep:** J10 is single-file inside existing `agent_core` crate, NOT a new top-level crate. B2-M15 lockstep does NOT fire. **No drift.**
+
+- **§5.0 spot-check D.3:** new omega-mcp module wiring git.status/diff/log read-only verbs. UniFFI exposes `execute_git_tool`. Shares omega subprocess hardening with osascript wrappers. Updated HERMES + TOOL_INVENTORY_TRUTH_TABLE + §8 Implementation Log in same commit per FEATURE_CHANGE_TRACKER §2 lockstep. **§5.0 verdict: CLEAN at row level.** Deep verification of UniFFI bridge surface deferred to D's owned scope per §2.
+
+- **Phase B.2 stage 3 absence INVESTIGATION (carried from iter 94):**
+  - `grep` of `helios v6.2.md` shows canonical structure is **Stage 0 → Stage 1 (with 6 falsifiers S1.1..S1.6) → Stage 2 → Stage 3**, NOT an "8-stage" structure.
+  - B's commit subjects say "per helios v6.2.md 8-stage falsifier" but the canonical doc has Stage 1 containing 6 falsifiers as sub-items.
+  - B's Phase B.2 "stage 1-2 / 4 / 5 / 6 / 7 / 8" numbering appears to be B's expanded enumeration that doesn't strictly mirror the canonical Stage 0-3 / 6-falsifier structure. **Resolution: NOT a drift; naming-clarity finding only.** B's "8 stages" map to a more granular substrate-implementation breakdown than the canon's Stage 1's 6 falsifiers. The "8 stages" likely correspond to: PageGather (canon S1.1) + PacketRouter1bit + ControllerKernelPack + SemiseparableBlockScan + LocalRecallIsland + RULER+BABILong harness + plus 1-2 more covered by the "stage 1-2 combined" commit + the iter-30 audit covers stage 5.
+  - **No DRIFT-ALERT.** Phase C.7.x carries this as a "B's enumeration may not match canon literally; verify alignment before any cross-reference work" caveat for future iters.
+  - Iter 94 carried-forward flag CLEARED with this finding.
+
+- **§5.6 lockstep status:** sub-cycle pulse — PASS-2 §9 status pulse appended; MAS_COMPLETE_FUSION §8 row deferred to next full cycle. Per iter-84 clarification, lockstep applies to full cycles.
+
+- **Wind-down tracking (§10 rule 3):** 8 consecutive ON-TRACK cycles since #8 catch. Cadence stays at 3-min per iter-93 step-back; will reconsider low-touch transition when window calms.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
