@@ -132,6 +132,56 @@ impl SteeringPolicy for GreedySingleExpertPolicy {
     }
 }
 
+/// Sparse top-K expert dispatch per Shazeer et al. arXiv:1701.06538
+/// "Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-
+/// Experts Layer" — the canonical MoE pattern. Dispatches the first
+/// `top_k` experts (substrate floor — production wires the routing-
+/// score-driven selection). `kv_per_call` is split evenly across the
+/// selected experts (each gets `kv_per_call / actual_k`); remainder
+/// goes to expert 0.
+///
+/// If `n_experts_available < top_k`, dispatches all `n_experts_available`
+/// experts (graceful degradation rather than error).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MultiExpertSparsePolicy {
+    pub top_k: u32,
+    pub kv_per_call: u32,
+    pub max_tokens_per_call: u32,
+}
+
+impl SteeringPolicy for MultiExpertSparsePolicy {
+    fn decide(
+        &self,
+        budget: &ComputeBudget,
+        n_experts_available: usize,
+    ) -> Result<DispatchDecision, SteeringError> {
+        if budget.is_exhausted() {
+            return Ok(DispatchDecision {
+                experts: vec![],
+                kv_allocate: 0,
+                max_tokens: 0,
+                short_circuit: true,
+            });
+        }
+        if n_experts_available == 0 {
+            return Err(SteeringError::NoExpertsAvailable);
+        }
+        if self.top_k == 0 {
+            return Err(SteeringError::NoExpertsAvailable);
+        }
+        let actual_k = (self.top_k as usize).min(n_experts_available);
+        let experts: Vec<usize> = (0..actual_k).collect();
+        let kv = self.kv_per_call.min(budget.kv_slots_remaining);
+        let max_tokens = self.max_tokens_per_call.min(budget.tokens_remaining);
+        Ok(DispatchDecision {
+            experts,
+            kv_allocate: kv,
+            max_tokens,
+            short_circuit: false,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,5 +313,69 @@ mod tests {
         b.debit(10, 100, 5).unwrap();
         b.debit(10, 100, 5).unwrap();
         assert!(b.is_exhausted());
+    }
+
+    // ── MultiExpertSparsePolicy tests (iter 88) ─────────────────────────────
+
+    #[test]
+    fn multi_expert_dispatches_top_k() {
+        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 16, max_tokens_per_call: 64 };
+        let b = ComputeBudget::new(100, 1000, 64);
+        let d = p.decide(&b, 8).unwrap();
+        assert_eq!(d.experts, vec![0, 1]);
+        assert_eq!(d.kv_allocate, 16);
+        assert_eq!(d.max_tokens, 64);
+        assert!(!d.short_circuit);
+    }
+
+    #[test]
+    fn multi_expert_degrades_when_fewer_experts_available() {
+        let p = MultiExpertSparsePolicy { top_k: 8, kv_per_call: 16, max_tokens_per_call: 64 };
+        let b = ComputeBudget::new(100, 1000, 64);
+        let d = p.decide(&b, 3).unwrap();
+        assert_eq!(d.experts, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn multi_expert_short_circuits_when_budget_exhausted() {
+        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 16, max_tokens_per_call: 64 };
+        let b = ComputeBudget::new(0, 1000, 64);
+        let d = p.decide(&b, 8).unwrap();
+        assert!(d.experts.is_empty());
+        assert!(d.short_circuit);
+    }
+
+    #[test]
+    fn multi_expert_no_experts_available_errors() {
+        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 16, max_tokens_per_call: 64 };
+        let b = ComputeBudget::new(100, 1000, 64);
+        let err = p.decide(&b, 0).unwrap_err();
+        assert_eq!(err, SteeringError::NoExpertsAvailable);
+    }
+
+    #[test]
+    fn multi_expert_top_k_zero_errors() {
+        let p = MultiExpertSparsePolicy { top_k: 0, kv_per_call: 16, max_tokens_per_call: 64 };
+        let b = ComputeBudget::new(100, 1000, 64);
+        let err = p.decide(&b, 8).unwrap_err();
+        assert_eq!(err, SteeringError::NoExpertsAvailable);
+    }
+
+    #[test]
+    fn multi_expert_clamps_kv_and_tokens_to_remaining() {
+        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 100, max_tokens_per_call: 100 };
+        let b = ComputeBudget::new(10, 1000, 8);
+        let d = p.decide(&b, 4).unwrap();
+        assert_eq!(d.kv_allocate, 8);
+        assert_eq!(d.max_tokens, 10);
+    }
+
+    #[test]
+    fn multi_expert_top_k_equals_available_dispatches_all() {
+        let p = MultiExpertSparsePolicy { top_k: 4, kv_per_call: 16, max_tokens_per_call: 64 };
+        let b = ComputeBudget::new(100, 1000, 64);
+        let d = p.decide(&b, 4).unwrap();
+        assert_eq!(d.experts.len(), 4);
+        assert_eq!(d.experts, vec![0, 1, 2, 3]);
     }
 }
