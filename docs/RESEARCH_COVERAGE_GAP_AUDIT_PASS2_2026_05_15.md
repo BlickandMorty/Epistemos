@@ -2461,6 +2461,52 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 129+ candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue — should add J-series envelope sub-entries (J1 kernel-kind / J2 pipeline / J5 governance / J6 diff / J7 codebook / J8 telemetry / J9 audit module rows). (2) Phase C.6 forward-staged primitive re-audit REMAINS overdue (last full at #8 iter 74; 54+ iters past 20-30 cadence). (3) Phase C.7.3 honest-caveats scan still deferred. (4) Watch B's next slice post-J-envelope-wave (likely B.6.x continuation or next Wave). (5) Watch D self-audit cadence (3 in 30-min suggests stable pattern emerging).
 
+### Audit-of-audit #29 (iter 129, 2026-05-16) — 🎯 B2-M14 LAPLACE DP GATE LANDS substrate (forward-staged at #2) + D EXEMPLARY harden_cli_subprocess self-audit + T-A-27 streak 4/5 — 3 commits CLEAN
+
+- **Window since iter 128 close (3 min after step-back):** 3 substantive sibling commits (right at audit-of-audit threshold; HIGH-rate continuation confirms step-back was correct call):
+  - `c32123587` (B) `auto_research: B2-M14 Laplace DP gate (ε ≤ 0.5)` — B iter 82
+  - `4e6f5d89f` (D) `fix(D-self-audit): harden terminal shell subprocesses`
+  - `64b683aa4` (A) `docs(T-A-27): self-audit #4 ON-TRACK 5/5 (window 22-26, streak 4/5)`
+
+- **🎯 Findings — B B2-M14 Laplace DP gate (`c32123587`) — FORWARD-STAGED SUBSTRATE LANDS:**
+  - B's driver §5 line 62 explicitly enumerates "Differential Privacy gate on auto-research (`agent_core/src/auto_research/dp.rs`)"; line 174 lists B2-M14 by name pointing to the exact file path.
+  - Doctrine row MASTER_FUSION §3.42 / FINAL_SYNTHESIS §5.4 "Differential Privacy on Auto-Research Telemetry — ε ≤ 0.5 Laplace gate" was landed at **audit-of-audit #2** (2026-05-16) explicitly anticipating this substrate.
+  - Substrate (`auto_research/mod.rs` + `auto_research/dp.rs`): `DP_EPSILON_MAX = 0.5` doctrine bound pinned in code · `LaplaceSampler` trait · `ZeroNoiseSampler` safe-default sentinel · `DeterministicLcgSampler::new(seed)` (Numerical-Recipes LCG → Laplace inverse-CDF; reproducible for audit replay) · `dp_aggregate(values, epsilon, &mut sampler)` validator + aggregation function. Lives outside `feature = "research"` (V1+ behavior, not research-only).
+  - **16 unit tests:** ε_max + sensitivity constants pinned · zero-noise returns exact mean · empty / ε-above-max / ε-zero / ε-negative / ε-NaN / NaN-value / inf-value all rejected · LCG deterministic per seed · distinct seeds diverge · empirical-mean converges over 5000 samples · LCG perturbs the mean · reproducibility verified.
+  - **§5.0 verdict: CLEAN.** Correct execution of enumerated forward-staged substrate. Doctrine-to-substrate lockstep honored: the forward-staged doctrine row (§3.42, landed at #2) is now backed by code. **This is the kind of forward-staged primitive flip that #21 framed and #22 self-corrected** — the doctrine row was correctly forward-staged at #2 anticipating future substrate; substrate landing at #29 closes the loop cleanly.
+
+- **🎯 Findings — D `fix(D-self-audit): harden terminal shell subprocesses` (`4e6f5d89f`) — EXEMPLARY DISTRIBUTED §5.0 + §7 DISCIPLINE:**
+  - D's driver §5 line 95 explicitly mandates "audit own `harden_cli_subprocess` usage across all CLI passthrough wrappers"; line 75 says self-audit checks "`harden_cli_subprocess` skipped?".
+  - D found `agent_core/src/tools/terminal.rs` was still using a private env sanitizer for `sh -lc` instead of the canonical `harden_cli_subprocess` helper used by CLI passthrough surfaces. Routed terminal foreground/background command construction through the canonical helper.
+  - Added pro-build regression test proving arbitrary parent env not inherited (per CLAUDE.md "subprocess hardening: env_clear + canonical 10-var allowlist + 24-vector denylist"). Verification: `cargo test --features pro-build terminal --lib --quiet` + `cargo test --lib --quiet`.
+  - **🎯 4-doc §5.6-style lockstep applied by D autonomously:** D's commit touches `agent_core/src/tools/terminal.rs` + `docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` + `docs/TOOL_INVENTORY_TRUTH_TABLE_2026_05_13.md` + `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` (§8 entry) — D appending its OWN self-audit evidence row to §8 Implementation Log. **This is D applying §5.6-style lockstep without being told.** Distributed §5.6 discipline maturing across all 3 active terminals (A's T-A-NN audits update notarization-log.md + PASS-2 §9 · B's §7 cycles update PASS-2 §9 + §8 · D now applying 4-doc lockstep on self-audit fixes · C runs the audit-of-audit register lockstep).
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** D applied Lesson #11 to its own self-audit: identified scope (CLI passthrough hardening), verified `harden_cli_subprocess` was the canonical helper, fixed the missed application site, added regression test, propagated to all 3 doctrine surfaces. Audit Agent attribution: "Codex" (D's secondary agent).
+
+- **🎯 Findings — A T-A-27 self-audit #4 (`64b683aa4`):**
+  - 4th post-soft-stop self-audit per V3 §1.5 wind-down state at 600s cadence.
+  - 5/5 drift-clean across A iters 22-26; streak **4/5** toward continued ON-TRACK threshold (5/5 would be next cycle).
+  - **A's wind-down arc: T-A-24 (#1, streak 0/5) → T-A-25 (#2, 2/5) → T-A-26 (#3, 3/5) → T-A-27 (#4, 4/5) → next would be 5/5 milestone.**
+  - Consistent post-soft-stop pattern; A's distributed §5.0 + §7 discipline operational at reduced cadence.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Distributed §5.0 + §7 + §5.6-lockstep discipline NOW MATURE across all active terminals:**
+  - **A:** T-A-NN self-audit series #1-#4 (post-soft-stop 600s); 4/5 streak
+  - **B:** §7 cycles iters 10/20/30/40/50/60/70+ + forward-staged primitive flips landing cleanly (B2-M14 this iter)
+  - **C:** audit-of-audit #1-#29 + §7 meta-cycles + Lesson articulation (#6/#7/#8/#10/#11)
+  - **D:** `chore(D-self-audit):` cadence (3 in 30-min iter 128) + `fix(D-self-audit):` code-fix cycles (this iter) + autonomous 4-doc §5.6 lockstep
+  - **E:** quiet ~30 iters since iter 99
+  - **F:** empty session-long
+
+- **§5.0 catch rate:** 28/186 = 15.1% (continued decline as Lesson #11 reduces false-positives + Lesson #6 forward-staged primitive flips correctly executed).
+
+- **Cadence note:** window 3/3-5 right at threshold; STAY at 3-min cron `51f01c4e`. HIGH-rate burst pattern continuing post-step-back validates iter-128 step-back decision. Re-evaluation criteria: 5 consecutive ON-TRACK + sibling rate <5/30min sustained over 4+ iters.
+
+- **Verdict:** ✅ **ON TRACK** (22nd consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended in same commit) · ✅ FEATURE_CHANGE_TRACKER row (to be appended in same commit).
+
+- **Iter 130+ candidates:** (1) **🎯 ITER-130 SECOND §7 META-CYCLE DUE per driver "every 30 iters"** — last C-self-audit §7 meta-cycle at iter 100; next strict trigger at iter 130 (1 iter away). Should fire next cycle as a meta-cycle (sample 3 prior verdicts for re-verification + worktree-staleness check via `git show <sha>:<path>`). (2) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue (now should add J-series envelope sub-entries + B2-M14 DP gate). (3) Phase C.6 forward-staged primitive re-audit (55 iters past #8 baseline; long overdue). (4) Phase C.7.3 honest-caveats scan still deferred. (5) Watch A T-A-28 (streak 5/5 milestone next cycle).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.

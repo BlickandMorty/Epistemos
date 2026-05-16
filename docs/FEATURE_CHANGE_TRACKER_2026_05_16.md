@@ -49,6 +49,7 @@ Row format:
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | _(first row: append on first Phase 1 feature ship)_ | | | | | | | | | | | | | |
 | AoA#28 | Audit-of-audit cycle #28 (iter 128) pass-through — 14-commit burst (B 7-J-envelope wave + 2 B-substrate + 1 B-doc-for-F + 3 D-self-audit + 1 A-self-audit); cadence step-back from 30-min low-touch back to 3-min cron `51f01c4e` | this commit | C | docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §9 #28 | N/A (audit) | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | ✓ | N/A |
+| AoA#29 | Audit-of-audit cycle #29 (iter 129) pass-through — 3-commit window: B B2-M14 Laplace DP gate substrate lands (forward-staged at #2 doctrine row §3.42; 16 tests) + D fix(D-self-audit) harden_cli_subprocess applied to terminal.rs with autonomous 4-doc §5.6 lockstep + A T-A-27 self-audit #4 streak 4/5; distributed §5.6 lockstep mature across A/B/D | this commit | C | docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §9 #29 | N/A (audit) | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | ✓ | N/A |
 
 Legend per cell:
 - ✓ = doc updated in same commit
