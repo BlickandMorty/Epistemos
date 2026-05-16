@@ -1181,6 +1181,124 @@ next subgoal OR mission complete
 
 ---
 
+## 13.8 Hermes Vault + Editable Workflows — Loop Profiles (B2-M1)
+
+**Source:** `docs/_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md` §IV "The Editable Brain" — "The user does not write Swift to add a feature to Hermes. The user writes a loop profile."
+
+### What it is
+
+Hermes maintains a small region of the substrate it can read and write itself: **the Hermes Vault**. Distinct from the user's note vault. Contents:
+
+- **Skills** (already exist as `agent_core/src/agent_runtime/` procedural memory; this section formalizes them as vault-resident).
+- **Persona files** — the agent's running identity bundle (also referenced by §13.5.7 Per-model Knowledge Vaults; same artifact class, different consumer).
+- **Memory summaries** — compaction outputs that survive across runs.
+- **Loop Profiles** — user-authored multi-step reasoning structures, the focus of this section.
+
+A **Loop Profile** is user-authored code defining a recurrent reasoning structure. It lives as a typed node in the cognitive DAG (B2-M1 is a doctrine row; the node kind addition is a forward-stage task — see "V1 scope" below). Invoked on a target artifact (RawThought / Note / ImplementationPlan / Claim / Recall / etc.), Hermes loads the profile and runs the loop against that target.
+
+The Manifesto's canonical example:
+
+```
+loop profile: deepen-thought
+  on: RawThought
+  steps:
+    1. embed target.body; query graph for k=20 nearest
+    2. for each near node: extract claim; assert relation to target
+    3. dispatch synthesis to claude with all assertions
+    4. write result as ImplementationPlan node; edge to target
+    5. if convergence(target.depth) < threshold: goto 1
+```
+
+This is a real artifact, written in either a small declarative DSL **or** in Python via the `execute_code` tool, persisted in the vault, versioned through the graph's natural history.
+
+### How this differs from adjacent concepts (the §5.0 reconciliation answer)
+
+Loop Profiles overlap *visually* with several already-doctrinated primitives. The differences are sharp:
+
+| Adjacent primitive | What it does | Why Loop Profiles are different |
+|---|---|---|
+| `AgentBlueprint` (§3) | Typed Rust+Swift identity (provider/model/policy/tools/persona). Compile-time. | AgentBlueprint says *who* the agent is. Loop Profile says *what reasoning loop* runs against a specific artifact. One Blueprint can invoke many Loop Profiles. |
+| Variant Ladder (§10) | Per-tool tier dispatch (T1 lexical / T2 embedding / T3 RRF). Routes a single tool call across cheap→expensive backends. | Variant Ladder is single-tool, multi-tier. Loop Profile is multi-step, possibly multi-tool. A step inside a Loop Profile may itself dispatch through the Variant Ladder. |
+| Auto-research loops (§13.5.10) | System-emitted periodic loops that emit "wins applied / wins not applied / discoveries to investigate" daily reports to the vault. | Auto-research loops are SYSTEM-authored and SYSTEM-triggered (φ-spaced NightBrain schedule, §3.35). Loop Profiles are USER-authored and USER-triggered against a target. Sibling pattern, opposite ownership. |
+| Skills (in `agent_runtime`) | Compact reusable tool-invocation macros. | A Skill is a deterministic sequence callable from one step. A Loop Profile composes Skills + tool calls + provider dispatches + convergence checks into a recurrent loop. A Loop Profile step can call a Skill. |
+| Cognitive DAG (Phase 8) | Typed graph store with 10 NodeKind + 10 EdgeKind. | The Loop Profile node is a new NodeKind (`LoopProfile`); invocation records produce `Derives` edges from input artifact → output artifact via the profile node. The DAG is the persistence + provenance substrate, not the loop itself. |
+
+### Schema (proposed)
+
+```rust
+pub struct LoopProfile {
+    pub id: NodeId,                    // ULID, DAG node
+    pub name: String,                  // e.g. "deepen-thought"
+    pub on: ArtifactKind,              // RawThought | Note | Plan | Claim | Recall | ...
+    pub body: LoopBody,                // DSL or Python
+    pub convergence: Option<ConvergenceRule>,
+    pub vault_path: VaultPath,         // e.g. <vault>/.hermes/profiles/deepen-thought.epoch
+    pub version: u32,                  // versioned through graph history
+    pub authored_by: AuthorIdentity,   // user | system | imported
+}
+
+pub enum LoopBody {
+    Dsl(LoopProfileDsl),               // small declarative DSL (V1 read-only viewer surface)
+    Python(String),                    // executed via execute_code (Pro-only, V1.1)
+}
+
+pub struct LoopProfileDsl {
+    pub steps: Vec<LoopStep>,
+}
+
+pub enum LoopStep {
+    EmbedAndQuery { source: BodyField, k: usize, kind: RetrievalKind },
+    ToolCall { name: String, args: serde_json::Value },
+    DispatchToProvider { provider: ProviderKey, model: ModelKey, prompt_template: String },
+    WriteNode { kind: ArtifactKind, body_template: String, edges: Vec<EdgeSpec> },
+    Goto { step: usize, when: ConvergenceCheck },
+}
+```
+
+The schema is a **proposal frozen in this doctrine row** — landing it in `agent_core/schemas/` is a post-V1 task; this row keeps the shape stable so future implementers don't reinvent it.
+
+### V1 scope (MAS vs Pro)
+
+| Tier | What ships in V1 | What lands V1.1+ |
+|---|---|---|
+| **MAS V1** | Read-only viewer for any Loop Profile node already in the vault (rendered as a syntax-highlighted code block in the note view). The viewer is `LoopProfileView.swift` (forward-staged; not yet on disk). DSL evaluation runtime: NOT in V1. Python `execute_code`: NOT in V1 (and never in MAS — Five Laws Law 5 forbids in-process Python). | Read-only stays MAS-V1.1; no execution path in MAS ever. |
+| **Pro V1.x** | Full DSL evaluator in Rust (within `agent_core::agent_runtime`); Python step path via the existing `execute_code` tool. Profile authoring UI (Settings → Hermes Vault → Loop Profiles). | Profile import/export · cross-vault sharing · convergence-rule library. |
+
+Both tiers: Loop Profile nodes are graph-versioned; users can clone/fork from existing profiles even before the evaluator ships (read-only viewing + manual cloning are forward-compatible).
+
+### Capability discipline
+
+A Loop Profile is itself a capability-bearing artifact. When invoked:
+
+1. The Overseer-4 (§13.7) governs the step list under SCOPE-Rex.
+2. The profile inherits the **calling AgentBlueprint's capability budget** — it cannot escalate to tools its parent Blueprint lacks.
+3. Each `DispatchToProvider` step is a discrete `ExecutionReceipt` row (§5.1) tagged with `loop_profile_id` + `step_index` so the run is fully replayable.
+4. Python steps require the Pro entitlement check at evaluator entry; in MAS the step is replaced by a "Python step not available in MAS" placeholder ledger row rather than silently skipped.
+
+### Forward-stage tasks (not in V1)
+
+- New `NodeKind::LoopProfile` in `agent_core/src/cognitive_dag/node.rs` (today there are 10 NodeKinds; this would be the 11th — schema-versioned migration required).
+- `LoopProfileEvaluator` in `agent_core/src/agent_runtime/loop_profiles/` (new module).
+- `LoopProfileView.swift` Read-only viewer.
+- Authoring UI (Settings → Hermes Vault).
+- Convergence rule library (`ConvergenceRule::DepthThreshold` · `::SimilarityCeiling` · `::CountLimit` · etc.).
+
+None of these block V1. The doctrine row + this section anchor the design so future work doesn't reinvent the shape.
+
+### Cross-links
+
+- B2-M1 PASS 2 audit row.
+- `docs/_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md` §IV — canonical source.
+- §3 AgentBlueprint — the typed identity a Loop Profile runs *under*.
+- §7.4 Specialties registry — capabilities a Loop Profile step can call.
+- §10 Variant Ladder — what a single tool-call step internally dispatches through.
+- §13.5.7 Per-model Knowledge Vaults — sibling vault-resident artifact (persona files).
+- §13.5.10 Auto-research loops — sibling loop pattern, system-authored not user-authored.
+- §13.7 Multi-Overseer — policy enforcement layer for the step list.
+- B2-M2 Control Plane API (the surface that *exposes* Loop Profiles as first-class UI objects post-V1.1).
+
+---
+
 ## 14. Open questions deliberately deferred
 
 1. **Sub-agents (Claude Agent SDK pattern)**. The design includes `AgentEvent::ToolProposed → agent.spawn_subagent` but the implementation is post-V1.
