@@ -73,6 +73,44 @@ pub fn rmsnorm_into(
     Ok(())
 }
 
+/// Root-mean-square of `input` with safety-floor `eps`:
+/// `sqrt(mean(x²) + eps)`. The denominator the RMSNorm scaling
+/// factor `inv_rms` is built from. Returns `None` on empty input or
+/// non-positive eps.
+pub fn compute_rms(input: &[f32], eps: f32) -> Option<f32> {
+    if input.is_empty() {
+        return None;
+    }
+    if !eps.is_finite() || eps <= 0.0 {
+        return None;
+    }
+    let mean_sq: f32 = input.iter().map(|x| x * x).sum::<f32>() / (input.len() as f32);
+    Some((mean_sq + eps).sqrt())
+}
+
+/// Verify that `out` has root-mean-square magnitude close to
+/// `expected_rms` within `tol`. The canonical "is this output
+/// correctly RMS-normalized?" correctness check. Returns
+/// `Ok(actual_rms)` on success or the computed RMS in
+/// `Err` otherwise. Substrate-floor caller-supplied tolerance —
+/// fp32-pipeline tests typically use 1e-4.
+pub fn verify_rms_normalized(
+    out: &[f32],
+    expected_rms: f32,
+    tol: f32,
+) -> Result<f32, f32> {
+    if out.is_empty() {
+        return Err(0.0);
+    }
+    let mean_sq: f32 = out.iter().map(|x| x * x).sum::<f32>() / (out.len() as f32);
+    let actual = mean_sq.sqrt();
+    if (actual - expected_rms).abs() < tol {
+        Ok(actual)
+    } else {
+        Err(actual)
+    }
+}
+
 /// Fused RMSNorm + block-scaled ternary GEMV.
 ///
 /// `output = ternary_gemv(weights, RMSNorm(input, gain, eps))`
@@ -223,5 +261,89 @@ mod tests {
         for &y in &out {
             assert!(y.abs() < 1e-6);
         }
+    }
+
+    // ── compute_rms + verify_rms_normalized tests (iter 115) ────────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn compute_rms_empty_returns_none() {
+        assert!(compute_rms(&[], 1e-6).is_none());
+    }
+
+    #[test]
+    fn compute_rms_non_positive_eps_returns_none() {
+        assert!(compute_rms(&[1.0_f32], 0.0).is_none());
+        assert!(compute_rms(&[1.0_f32], -0.1).is_none());
+        assert!(compute_rms(&[1.0_f32], f32::NAN).is_none());
+    }
+
+    #[test]
+    fn compute_rms_all_zeros_returns_sqrt_eps() {
+        // mean(x²) = 0; result = sqrt(0 + eps) = sqrt(eps).
+        let eps = 0.25_f32;
+        let r = compute_rms(&[0.0_f32; 4], eps).unwrap();
+        assert!(approx(r, 0.5, 1e-6));
+    }
+
+    #[test]
+    fn compute_rms_uniform_value_matches_value() {
+        // input = [v; n] → mean(x²) = v² → sqrt(v² + eps) ≈ v for
+        // small eps.
+        let r = compute_rms(&[2.0_f32; 8], 1e-12).unwrap();
+        assert!(approx(r, 2.0, 1e-5));
+    }
+
+    #[test]
+    fn compute_rms_matches_pythagorean_3_4() {
+        // input = [3, 4]; mean(x²) = (9 + 16) / 2 = 12.5;
+        // sqrt(12.5 + eps) ≈ sqrt(12.5) ≈ 3.5355.
+        let r = compute_rms(&[3.0_f32, 4.0], 1e-12).unwrap();
+        let expected = (12.5_f32).sqrt();
+        assert!(approx(r, expected, 1e-5));
+    }
+
+    #[test]
+    fn verify_rms_normalized_within_tolerance_passes() {
+        // RMSNorm of unit-gain input should produce output with RMS ≈ 1.
+        let input = vec![1.0_f32, 2.0, 3.0, 4.0];
+        let gain = vec![1.0_f32; 4];
+        let mut out = vec![0.0_f32; 4];
+        rmsnorm_into(&input, &gain, 1e-12, &mut out).unwrap();
+        let result = verify_rms_normalized(&out, 1.0, 1e-4);
+        assert!(result.is_ok());
+        let actual = result.unwrap();
+        assert!(approx(actual, 1.0, 1e-4));
+    }
+
+    #[test]
+    fn verify_rms_normalized_outside_tolerance_returns_err() {
+        // [2, 2] has RMS exactly 2; expecting 1.0 → fails.
+        let out = vec![2.0_f32, 2.0];
+        let result = verify_rms_normalized(&out, 1.0, 1e-4);
+        match result {
+            Err(actual) => assert!(approx(actual, 2.0, 1e-6)),
+            Ok(_) => panic!("expected Err"),
+        }
+    }
+
+    #[test]
+    fn verify_rms_normalized_empty_returns_err() {
+        let result = verify_rms_normalized(&[], 1.0, 1e-4);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_rms_normalized_doubled_gain_doubles_rms() {
+        // Gain = 2.0 across all rows → expect output RMS ≈ 2.0.
+        let input = vec![1.0_f32, 2.0, 3.0, 4.0];
+        let gain = vec![2.0_f32; 4];
+        let mut out = vec![0.0_f32; 4];
+        rmsnorm_into(&input, &gain, 1e-12, &mut out).unwrap();
+        let result = verify_rms_normalized(&out, 2.0, 1e-4);
+        assert!(result.is_ok());
     }
 }
