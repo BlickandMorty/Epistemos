@@ -55,6 +55,45 @@ fn validate_finite(slice: &[f32], which: &'static str) -> Result<(), Rwkv7Error>
     Ok(())
 }
 
+/// Verify the per-step decay-stability invariant for an RWKV-7 scan:
+/// `|w[t]| < 1` for every t. Returns Ok(true) iff every decay weight
+/// has magnitude strictly less than `1.0 - tol`. The doctrine pin is
+/// the strict `< 1`; `tol` enforces a safety margin so values within
+/// tol of the boundary are also rejected (fp32 boundary fuzz). A
+/// scan with `|w[t]| ≥ 1` lets the state grow unboundedly.
+///
+/// Returns `Err(NonFiniteInput)` if any `w[t]` is NaN/inf; otherwise
+/// returns `Ok(bool)`.
+pub fn verify_decay_stability(w: &[f32], tol: f32) -> Result<bool, Rwkv7Error> {
+    validate_finite(w, "w")?;
+    let bound = 1.0 - tol;
+    for &wt in w {
+        if wt.abs() >= bound {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Closed-form steady-state of the RWKV-7 recurrence under
+/// constant `w_const` and constant `k_v` (= k[t] * v[t]):
+///
+/// ```text
+/// state* = k_v / (1 - w_const)
+/// ```
+///
+/// Requires `|w_const| < 1`; otherwise no finite steady state exists.
+/// Returns `None` if the recurrence diverges.
+pub fn steady_state(w_const: f32, k_v: f32) -> Option<f32> {
+    if !w_const.is_finite() || !k_v.is_finite() {
+        return None;
+    }
+    if w_const.abs() >= 1.0 {
+        return None;
+    }
+    Some(k_v / (1.0 - w_const))
+}
+
 /// Per-step RWKV-7 time-mixing scan. `alpha` and `beta` are caller-
 /// supplied mixing coefficients between the running state and the
 /// bare value.
@@ -250,5 +289,95 @@ mod tests {
         // state[0] = 1 * 5 + 0 * 0 = 5; y[0] = 0.5 * 5 = 2.5
         let result = rwkv7_scan_scalar(&[1.0], &[0.0], &[0.0], &[0.0], 1.0, 0.0, 5.0).unwrap();
         assert!(approx(result.y[0], 2.5, 1e-6));
+    }
+
+    // ── verify_decay_stability + steady_state tests (iter 101) ──────────────
+
+    #[test]
+    fn stability_all_decay_below_one_passes() {
+        let w = vec![0.5, 0.9, 0.99, -0.5, 0.0];
+        assert!(verify_decay_stability(&w, 1e-6).unwrap());
+    }
+
+    #[test]
+    fn stability_decay_equal_one_rejected() {
+        let w = vec![0.5, 1.0, 0.5];
+        assert!(!verify_decay_stability(&w, 1e-6).unwrap());
+    }
+
+    #[test]
+    fn stability_decay_above_one_rejected() {
+        let w = vec![0.5, 1.5, 0.5];
+        assert!(!verify_decay_stability(&w, 1e-6).unwrap());
+    }
+
+    #[test]
+    fn stability_negative_decay_above_one_in_magnitude_rejected() {
+        let w = vec![-1.5];
+        assert!(!verify_decay_stability(&w, 1e-6).unwrap());
+    }
+
+    #[test]
+    fn stability_nan_rejected() {
+        let w = vec![0.5, f32::NAN];
+        assert!(matches!(
+            verify_decay_stability(&w, 1e-6).unwrap_err(),
+            Rwkv7Error::NonFiniteInput { which: "w", .. }
+        ));
+    }
+
+    #[test]
+    fn stability_empty_passes_vacuously() {
+        assert!(verify_decay_stability(&[], 1e-6).unwrap());
+    }
+
+    #[test]
+    fn steady_state_zero_decay_returns_kv() {
+        // state* = k_v / (1 - 0) = k_v
+        assert!(approx(steady_state(0.0, 3.0).unwrap(), 3.0, 1e-6));
+    }
+
+    #[test]
+    fn steady_state_half_decay_doubles_kv() {
+        // state* = k_v / (1 - 0.5) = 2 * k_v
+        assert!(approx(steady_state(0.5, 2.0).unwrap(), 4.0, 1e-6));
+    }
+
+    #[test]
+    fn steady_state_negative_decay_correct() {
+        // state* = 1.0 / (1 - (-0.5)) = 1.0 / 1.5
+        assert!(approx(
+            steady_state(-0.5, 1.0).unwrap(),
+            1.0 / 1.5,
+            1e-6
+        ));
+    }
+
+    #[test]
+    fn steady_state_unit_decay_diverges_returns_none() {
+        assert!(steady_state(1.0, 1.0).is_none());
+        assert!(steady_state(-1.0, 1.0).is_none());
+    }
+
+    #[test]
+    fn steady_state_nan_rejected() {
+        assert!(steady_state(f32::NAN, 1.0).is_none());
+        assert!(steady_state(0.5, f32::NAN).is_none());
+    }
+
+    #[test]
+    fn steady_state_matches_long_run_scan() {
+        // For w=0.5 constant + k=1, v=1 constant, the scan should
+        // converge to steady_state(0.5, 1.0) = 2.0 over a long run.
+        let n = 50;
+        let w = vec![0.5_f32; n];
+        let k = vec![1.0_f32; n];
+        let v = vec![1.0_f32; n];
+        let r = vec![100.0_f32; n]; // gate ≈ 1.0
+        let result = rwkv7_scan_scalar(&w, &k, &v, &r, 1.0, 0.0, 0.0).unwrap();
+        let expected_steady = steady_state(0.5, 1.0).unwrap();
+        // After 50 steps with decay 0.5, the state should be within
+        // 1e-12 of the steady value.
+        assert!((result.final_state - expected_steady).abs() < 1e-12);
     }
 }
