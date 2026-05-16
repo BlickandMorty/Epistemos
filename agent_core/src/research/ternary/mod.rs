@@ -31,12 +31,21 @@
 //!    `ternary kernel.md`.
 //! 6. Live activation capture kernel ([`activation_tap`] — CPU reference
 //!    with FIFO ring buffer; on-GPU mirror pending).
-//! 7. Steering delta apply kernel (NOT-STARTED).
+//! 7. Steering delta apply kernel ([`steering`] — push/pop composable
+//!    SteeringStack; Metal port + RepE-style direction-discovery wiring
+//!    pending).
 //!
-//! This iteration lands only the substrate floor: the [`Trit`] primitive,
-//! the canonical packed-representation codec, and the [`TernaryBackend`]
-//! trait that the three backend stubs implement. Subsequent Wave J1 iters
-//! fill in each numbered kernel above.
+//! Substrate floor for J1 kernels #1-#7 complete. Remaining J1 work:
+//! - Concrete CPU backend impl on top of these kernels (`DenseMlxBackend`
+//!   currently a placeholder; needs MLX-Swift shim).
+//! - Metal dispatch wire-in for the 7 kernels via
+//!   `Epistemos/Engine/MetalRuntimeManager.swift` (mirroring the W12/W13/W14
+//!   toggle pattern in Settings → Experimental Metal Kernels).
+//! - ANE backend (Pro-tier; `cs.disable-library-validation` entitlement
+//!   path) — gated on `pro-build` + `research` features.
+//! - End-to-end falsifier harness: compare TernaryMetalBackend output
+//!   against DenseMlxBackend on a 200-prompt RULER subset, target D_KL
+//!   under 0.05 per Helios v3 Part IV threshold #1.
 //!
 //! # Decode-first invariant
 //!
@@ -53,6 +62,7 @@ pub mod gemv;
 pub mod kv_fingerprint;
 pub mod pack;
 pub mod residual_island;
+pub mod steering;
 pub mod trit;
 
 pub use activation_tap::{ActivationTap, ActivationTapError};
@@ -68,4 +78,5 @@ pub use pack::{pack_trits_u32, unpack_trits_u32, PackError, TRITS_PER_U32};
 pub use residual_island::{
     fused_gemv_residual, ResidualIsland, ResidualIslandError, ResidualIslandRow,
 };
+pub use steering::{apply_delta, SteeringDelta, SteeringError, SteeringStack};
 pub use trit::Trit;
