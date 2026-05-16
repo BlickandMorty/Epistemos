@@ -2189,6 +2189,37 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 122+ candidates:** Watch B's next phase post-Wave-I-close (B is plowing through driver §5 priority queue at ~1 wave per 6-10 iters); Phase C.2 mass MASTER_RESEARCH_INDEX update increasingly overdue with all these wave closures.
 
+#### Status pulse (iter 122, 2026-05-16) — B.6.5 Brain Time Machine substrate · ⚠️→✅ B.6.5 NOT collision (driver §5 umbrella verified)
+
+- **Window since iter 121:** 1 sibling commit (sub-threshold pulse):
+  - `c3250bf68` (B) `brain_export: Phase B.6.5 Brain Time Machine substrate`.
+
+- **§5.0 spot-check:** `agent_core/src/brain_export/time_machine.rs` · **14 tests** / 13172 bytes. `BrainDelta` per-field optional diff + `reconstruct(base, delta)` pure rebuild rule per addendum. Rejects backward/equal timestamps + schema mismatches at construction.
+
+- **🎯 INITIAL FLAG → SELF-CORRECTED:** Iter 122 initially flagged "B.6.5 collision" because the same B.6.5 prefix was used at iter 103 (`feat(research/brain_routing): B.6.5 Sinkhorn-projected routing`). **Resolution via Lesson #6 discipline (re-read B's driver §5):**
+  - Driver §5 lines 314-318 explicitly state:
+    > "**Phase B.6.5 — Brain(τ) + routing** (lines 126-129):
+    > - Sinkhorn-projected routing matrix B* ∈ Birkhoff_n
+    > - Brain(τ) reconstruction rule from materialized checkpoint + semantic deltas
+    > - 4 product modes: VRM canon-doctrine; Observatory partial; **Brain Time Machine NOT-STARTED**; Harness Evolution"
+  - **B.6.5 IS an EXPLICIT UMBRELLA per driver** enumerating 4 product modes. Not a collision; B is correctly executing the multi-item umbrella across separate commits (Sinkhorn iter 103 + Brain Time Machine iter 122 = 2 of B.6.5's 4 items shipped).
+  - **Self-correction lesson:** before flagging a number-reuse pattern as collision, verify the audited terminal's driver doesn't explicitly enumerate the umbrella. Mirrors iter-106 self-correction (§8 rule verified in audited terminal's driver, not auditor's). **Lesson #6 generalization continues to apply: verify the rule/spec in the audited terminal's source, not assume it matches a different pattern.**
+  - **Distinct from D.3 collision:** D.3 did NOT have an explicit umbrella declaration in D's driver; B.6.5 DOES. Different category.
+
+- **§5.0 verdict: CLEAN.** Substrate sound; numbering aligned with driver §5 umbrella.
+
+- **B.6.5 umbrella completion tracker:**
+  - ✅ Sinkhorn-projected routing matrix (iter 103 `2bacce753`)
+  - ⏳ Brain(τ) reconstruction rule (part of Brain Time Machine?)
+  - ✅ Brain Time Machine (iter 122 `c3250bf68`)
+  - ⏳ 4 product modes: VRM canon-doctrine · Observatory partial (J2 sub-feature?) · Harness Evolution
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **19 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
