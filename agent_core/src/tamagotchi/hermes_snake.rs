@@ -30,6 +30,8 @@ pub enum PlaneZ {
 }
 
 impl PlaneZ {
+    pub const ALL: [PlaneZ; 2] = [PlaneZ::CompanionFarm, PlaneZ::Snake];
+
     pub const fn z_value(self) -> i32 {
         match self {
             PlaneZ::CompanionFarm => 0,
@@ -42,6 +44,23 @@ impl PlaneZ {
             PlaneZ::CompanionFarm => "companion_farm",
             PlaneZ::Snake => "snake",
         }
+    }
+
+    /// Predicate: this plane is the Companion Farm (z=0).
+    pub const fn is_companion_farm(self) -> bool {
+        matches!(self, PlaneZ::CompanionFarm)
+    }
+
+    /// Predicate: this plane is the Snake plane (z=1). Cross-surface
+    /// invariant: exactly one of `is_companion_farm` / `is_snake` is
+    /// true for any PlaneZ.
+    pub const fn is_snake(self) -> bool {
+        matches!(self, PlaneZ::Snake)
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
     }
 }
 
@@ -68,11 +87,42 @@ impl HermesSnake {
     pub fn weave_edge(&mut self) {
         self.edges_woven = self.edges_woven.saturating_add(1);
     }
+
+    /// Bulk-record `n` weavings (saturating). Equivalent to calling
+    /// `weave_edge` `n` times but in O(1) and with explicit saturation.
+    pub fn weave_n(&mut self, n: u32) {
+        self.edges_woven = self.edges_woven.saturating_add(n);
+    }
+
+    /// Predicate: the Snake has not yet woven any edges. The "is
+    /// this Snake fresh / unused?" diagnostic.
+    pub const fn is_idle(&self) -> bool {
+        self.edges_woven == 0
+    }
+
+    /// Predicate: the Snake's edge-weaving counter has saturated at
+    /// `u32::MAX`. Surfaces when the substrate-floor counter has
+    /// overflowed and production needs to upgrade to u64.
+    pub const fn is_at_saturation(&self) -> bool {
+        self.edges_woven == u32::MAX
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HermesSnakeError {
     AttemptedCompanionFarmCitizen,
+}
+
+impl HermesSnakeError {
+    /// Human-readable reason string. Used by control-room logs that
+    /// want a stable identifier instead of the Debug formatter.
+    pub const fn reason(self) -> &'static str {
+        match self {
+            HermesSnakeError::AttemptedCompanionFarmCitizen => {
+                "hermes_snake_attempted_companion_farm_citizen"
+            }
+        }
+    }
 }
 
 /// True only when the entity is a citizen of the Companion Farm
@@ -190,5 +240,109 @@ mod tests {
     fn display_name_stored_verbatim() {
         let s = HermesSnake::new("Hermes ⚯");
         assert_eq!(s.display_name, "Hermes ⚯");
+    }
+
+    // ── diagnostic surface (iter 138) ────────────────────────────────────────
+
+    #[test]
+    fn plane_z_all_includes_both_variants() {
+        let s: std::collections::HashSet<_> = PlaneZ::ALL.iter().copied().collect();
+        assert_eq!(s.len(), 2);
+        assert!(s.contains(&PlaneZ::CompanionFarm));
+        assert!(s.contains(&PlaneZ::Snake));
+    }
+
+    #[test]
+    fn plane_predicates_partition_variants() {
+        // Cross-surface invariant: every PlaneZ is exactly one of
+        // companion_farm / snake.
+        for p in PlaneZ::ALL.iter().copied() {
+            assert_ne!(p.is_companion_farm(), p.is_snake());
+        }
+        assert!(PlaneZ::CompanionFarm.is_companion_farm());
+        assert!(PlaneZ::Snake.is_snake());
+    }
+
+    #[test]
+    fn is_companion_farm_matches_free_function() {
+        // Cross-surface: PlaneZ::is_companion_farm agrees with the
+        // top-level is_companion_farm_citizen function.
+        for p in PlaneZ::ALL.iter().copied() {
+            assert_eq!(p.is_companion_farm(), is_companion_farm_citizen(p));
+        }
+    }
+
+    #[test]
+    fn from_code_roundtrips_all_variants() {
+        for p in PlaneZ::ALL.iter().copied() {
+            assert_eq!(PlaneZ::from_code(p.code()), Some(p));
+        }
+    }
+
+    #[test]
+    fn from_code_unknown_returns_none() {
+        assert_eq!(PlaneZ::from_code("not-a-plane"), None);
+        assert_eq!(PlaneZ::from_code("CompanionFarm"), None);
+        assert_eq!(PlaneZ::from_code(""), None);
+    }
+
+    #[test]
+    fn snake_is_idle_when_fresh() {
+        let s = HermesSnake::new("Hermes");
+        assert!(s.is_idle());
+        assert!(!s.is_at_saturation());
+    }
+
+    #[test]
+    fn snake_no_longer_idle_after_weave() {
+        let mut s = HermesSnake::new("Hermes");
+        s.weave_edge();
+        assert!(!s.is_idle());
+    }
+
+    #[test]
+    fn weave_n_bulk_equals_n_weave_edges() {
+        // Cross-surface: weave_n(7) leaves the same state as 7 weave_edge calls.
+        let mut a = HermesSnake::new("a");
+        a.weave_n(7);
+        let mut b = HermesSnake::new("b");
+        for _ in 0..7 {
+            b.weave_edge();
+        }
+        assert_eq!(a.edges_woven, b.edges_woven);
+    }
+
+    #[test]
+    fn weave_n_saturates() {
+        let mut s = HermesSnake::new("Hermes");
+        s.edges_woven = u32::MAX - 3;
+        s.weave_n(10);
+        assert_eq!(s.edges_woven, u32::MAX);
+        assert!(s.is_at_saturation());
+    }
+
+    #[test]
+    fn is_at_saturation_only_at_u32_max() {
+        let mut s = HermesSnake::new("Hermes");
+        s.edges_woven = u32::MAX - 1;
+        assert!(!s.is_at_saturation());
+        s.weave_edge();
+        assert!(s.is_at_saturation());
+    }
+
+    #[test]
+    fn weave_n_zero_is_noop() {
+        let mut s = HermesSnake::new("Hermes");
+        s.weave_n(5);
+        s.weave_n(0);
+        assert_eq!(s.edges_woven, 5);
+    }
+
+    #[test]
+    fn error_reason_is_stable_identifier() {
+        assert_eq!(
+            HermesSnakeError::AttemptedCompanionFarmCitizen.reason(),
+            "hermes_snake_attempted_companion_farm_citizen"
+        );
     }
 }
