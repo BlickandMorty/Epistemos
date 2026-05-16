@@ -13,25 +13,29 @@
 //!
 //! Five sub-features per the driver J3 row:
 //!
-//! 1. **EWC (Elastic Weight Consolidation)** ([`ewc`]) — Kirkpatrick et al.
-//!    PNAS 2017, arXiv:1612.00796. Fisher-information-weighted quadratic
-//!    penalty anchoring "important" parameters to their post-task values.
-//!    The "Protection" layer in §8.1.
-//! 2. **OFTv2 / QOFT** (NOT-STARTED) — Qiu et al. arXiv:2506.19847.
-//!    Orthogonal fine-tuning with input-centric matrix-vector multiply
-//!    (10× faster than original OFT, 3× lower GPU memory). The
-//!    "Adaptation" layer in §8.1 (alternative to LoRA).
-//! 3. **DSC / DOC (Dynamic Orthogonal Continual)** (NOT-STARTED) — Wang
-//!    et al. arXiv:2509.23893, 2025. Online PCA tracking of functional
-//!    direction drift; ~40% less forgetting vs fixed-direction methods
-//!    over >100-conversation sequences.
-//! 4. **Titans-MAC** (NOT-STARTED) — Behrouz et al. arXiv:2501.00663.
-//!    Memory-Augmented Continual learning; surprise-gradient-driven
-//!    inner-loop update to a learned-memory module. L_SE in the
-//!    Helios v3 six-tier architecture.
-//! 5. **SEAL-DoRA** (NOT-STARTED) — Zweiger-Pari et al. arXiv:2506.10943.
-//!    Self-Edited Active Learning; outer-RL nightly self-edits compiled
-//!    into per-user DoRA adapter.
+//! 1. **EWC (Elastic Weight Consolidation)** ([`ewc`], ✓ landed) —
+//!    Kirkpatrick et al. PNAS 2017, arXiv:1612.00796. Fisher-information-
+//!    weighted quadratic penalty anchoring "important" parameters to their
+//!    post-task values. The "Protection" layer in §8.1.
+//! 2. **OFTv2 / QOFT** ([`oftv2`], ✓ landed) — Qiu et al.
+//!    arXiv:2506.19847. Orthogonal fine-tuning with input-centric
+//!    matrix-vector multiply (10× faster than original OFT, 3× lower GPU
+//!    memory). The "Adaptation" layer in §8.1 (alternative to LoRA).
+//! 3. **DSC / DOC (Dynamic Orthogonal Continual)** ([`dsc`], ✓ landed) —
+//!    Wang et al. arXiv:2509.23893, 2025. Online PCA tracking of
+//!    functional direction drift; ~40% less forgetting vs fixed-direction
+//!    methods over >100-conversation sequences.
+//! 4. **Titans-MAC** ([`titans_mac`], ✓ landed) — Behrouz et al.
+//!    arXiv:2501.00663. Memory-Augmented Continual learning; surprise-
+//!    gradient-driven inner-loop update to a learned-memory module. L_SE
+//!    in the Helios v3 six-tier architecture.
+//! 5. **SEAL-DoRA** ([`seal_dora`], ✓ landed) — Zweiger-Pari et al.
+//!    arXiv:2506.10943. Self-Edited Active Learning; outer-RL nightly
+//!    self-edits compiled into per-user DoRA adapter.
+//! 6. **NeverRetrainStack** ([`stack`], ✓ landed iter 72) — typed
+//!    7-layer architecture envelope per §8.1; tags each primitive with
+//!    its canonical layer slot and enforces the "Never Retrain"
+//!    invariant via `validate_submission`.
 //!
 //! ## "Never Retrain" invariant
 //!
@@ -51,12 +55,16 @@ pub mod dsc;
 pub mod ewc;
 pub mod oftv2;
 pub mod seal_dora;
+pub mod stack;
 pub mod titans_mac;
 
 pub use dsc::{project_orthogonal, update_with_gradient, DscError, OrthogonalSubspace};
 pub use ewc::{ewc_gradient_contribution, ewc_penalty, EwcAnchor, EwcError, FisherInfo};
 pub use oftv2::{apply_oftv2, rotation_2d, OftError, OrthogonalMatrix};
 pub use seal_dora::{compose_dora, DoraDecomposition, LoraDelta, SealDoraError};
+pub use stack::{
+    validate_submission, ContinualPrimitive, NeverRetrainLayer, NeverRetrainStackError,
+};
 pub use titans_mac::{
     apply_surprise_update, surprise, LearnedMemoryModule, TitansError,
 };
