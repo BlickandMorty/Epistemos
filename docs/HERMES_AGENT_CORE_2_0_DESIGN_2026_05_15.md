@@ -865,6 +865,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | `terminal` / `shell.run_approved` foreground and background shell execution | Tunnel A subprocess through `agent_core/src/tools/terminal.rs` | ❌ Pro-only — shell subprocess behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned subprocess surfaces and found `terminal.rs` still used a private env sanitizer around `sh -lc` instead of the canonical `agent_core::security::harden_cli_subprocess` helper used by Tunnel C. `build_command` now calls the shared hardener before spawn, so foreground and background terminal commands inherit only the canonical subprocess allow-list, keep provider secrets out of child env, and preserve the shared `kill_on_drop` / process-group behavior. Source guard: `tools::terminal::tests::terminal_uses_canonical_subprocess_allowlist` under `pro-build`. |
 
+### 7.4.12 D Self-Audit: Gemini Pro Thinking-Budget Drift
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Gemini 2.5 request generation (`agent_core/src/providers/gemini.rs`) | HTTPS `streamGenerateContent` through `GeminiProvider` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16 after sampling D.2 provider commits. Current Google Gemini docs say 2.5 Flash can disable thinking with `thinkingBudget: 0`, while 2.5 Pro cannot disable thinking with a zero budget. `gemini_request_body_for_model` is now model-aware: Flash no-thinking turns send `thinkingBudget: 0`; Pro no-thinking turns omit `thinkingConfig`; enabled thinking still sends `includeThoughts = true` so streamed `thought: true` parts map to `ThinkingDelta`. Source guard: `providers::gemini::tests::pro_no_thinking_turns_omit_zero_budget_because_pro_cannot_disable_thinking`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
