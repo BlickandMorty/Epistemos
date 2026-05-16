@@ -35,7 +35,7 @@ When ALL of these are true, surface terminal-state + omit ScheduleWakeup:
 14. Ternary core (3 backends + decode-first kernel portfolio)
 15. KV implantation + Glass Pipe + Weight Surgery + SAE Cognition Observatory
 16. Continual learning suite (OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain)
-17. NeMoCLAW / OpenCLAW multi-claw MAS (J4)
+17. ~~NeMoCLAW / OpenCLAW multi-claw MAS (J4)~~ — **CARVED OUT to Terminal F.5** (`run-f-integrations`)
 18. Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)
 19. ACS recursive self-governance
 20. Sherry 1.25-bit + E8/Leech lattice VQ (Huang arXiv:2601.07892)
@@ -77,8 +77,8 @@ When ALL of these are true, surface terminal-state + omit ScheduleWakeup:
 ### Other research/post-V1
 28. Live Files V1.1+ full state machine (gated on B-1 user decision)
 29. Obscura browser embed (B-2 user decision)
-30. Channel Relay (Telegram/Slack/Discord/WhatsApp/Signal/Email) Pro-tier full
-31. OpenClaw multi-claw MAS architecture
+30. ~~Channel Relay~~ — **Terminal F.1-F.2** owns this
+31. ~~OpenClaw multi-claw MAS architecture~~ — **Terminal F.5** owns this
 
 When ALL hold → surface "Loop terminal state reached — All post-V1 + research tier work landed. Wave G/H/I/J complete · 136 NOT-STARTED resolved · Helios kernels validated · Brain export + Tamagotchi shipped · Live Files V1.1 · Obscura embed · Channel Relay · OpenClaw landed."
 
@@ -88,7 +88,12 @@ This is a **multi-month** end state. Realistically Terminal B runs for weeks-to-
 
 ## §1. Identity + boundaries
 
-- You are Claude (Sonnet 4.5) in Claude Code at `/Users/jojo/Downloads/Epistemos`
+**Claude Code:** You are Claude (Sonnet 4.5) in Claude Code at `/Users/jojo/Downloads/Epistemos`. Loop via `ScheduleWakeup(120-240, prompt: <this body>, reason: "...")`.
+
+**Codex:** You are Codex (or compatible terminal agent) at the same path. Re-prompt this body after each commit. Commit trailer: `Co-Authored-By: Codex (OpenAI) <codex@openai.com>`.
+
+See `docs/AUTONOMOUS_LOOP_UNIVERSAL_INVOCATION_GUIDE_2026_05_16.md §2` for compat matrix.
+
 - Branch: **`run-b-post-v1-research`** (CUT FROM current `codex/research-snapshot-2026-05-08` HEAD at session start)
 - Cadence: ~120s dynamic (may slow to 240s+ for research-grade slices)
 - Hardware: M2 Pro 16 GB (verified per `project_user_hardware`). M2 Max work is scale-validation only.
@@ -313,16 +318,13 @@ Per `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md`:
 - V8 dedup discipline
 - Pro-tier only (compile-time `#if !EPISTEMOS_APP_STORE` gated; never links into mas-build)
 
-### Phase B.10 — Channel Relay full (Pro-tier)
+### Phase B.10 — CARVED OUT to Terminal F (Channel Relay)
 
-Per `docs/channels/relay-ops.md`:
-- 7 channel workers: telegram · slack · discord · whatsapp · signal · email · iMessage
-- Generic relay server + worker pattern
-- Phase K Pro-only
+Channel Relay (7 channels: telegram · slack · discord · whatsapp · signal · email · iMessage) was originally Phase B.10 here. As of 2026-05-16 universal-prompt update, this work is owned by **Terminal F** (`run-f-integrations`). If you find yourself wanting to touch `agent_core/src/channels/` or `Epistemos/Omega/Channels/` or `Epistemos/Omega/iMessageDriver/`: SKIP + log "F-owned: deferred to Terminal F".
 
-### Phase B.11 — OpenClaw multi-claw MAS
+### Phase B.11 — CARVED OUT to Terminal F (OpenClaw)
 
-Wave J4 — per `mas_architecture_research.md`. Multi-claw orchestration framework.
+OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-16 universal-prompt update, this work is owned by **Terminal F** as Phase F.5. If you find yourself wanting to touch `agent_core/src/openclaw/`: SKIP + log "F-owned: deferred to Terminal F".
 
 ## §6. Per-iteration protocol
 
