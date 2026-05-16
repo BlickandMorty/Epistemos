@@ -14,6 +14,7 @@
 //! tree MUST cite its primary source paper (arXiv ID or equivalent) in a
 //! `//! Source:` doc comment.
 
+pub mod acs;
 pub mod cognition_observatory;
 pub mod continual_learning;
 pub mod ternary;
