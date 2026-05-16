@@ -102,13 +102,20 @@ See `docs/AUTONOMOUS_LOOP_UNIVERSAL_INVOCATION_GUIDE_2026_05_16.md §2` for comp
 - NEVER skip pre-commit hooks
 - NEVER amend; always new commits with HEREDOC
 - Co-Authored-By trailer: `Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
-- Branch setup if not already cut:
+- **Worktree:** `/Users/jojo/Downloads/Epistemos-runB` (separate from Terminal A's main checkout)
+- **First-time setup (run ONCE outside the loop, by user):**
   ```bash
-  git fetch origin
-  git checkout codex/research-snapshot-2026-05-08
-  git pull
-  git checkout -b run-b-post-v1-research
+  cd /Users/jojo/Downloads/Epistemos
+  git worktree add /Users/jojo/Downloads/Epistemos-runB -b run-b-post-v1-research origin/codex/research-snapshot-2026-05-08
+  cd /Users/jojo/Downloads/Epistemos-runB
   git push -u origin run-b-post-v1-research
+  ```
+- **Per-iter invariant check (idempotent; run by cron each fire):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos-runB
+  pwd | grep -q "Epistemos-runB$" || { echo "FATAL: wrong working tree"; exit 1; }
+  [ "$(git symbolic-ref --short HEAD)" = "run-b-post-v1-research" ] || { echo "FATAL: wrong branch"; exit 1; }
+  git fetch origin
   ```
 - After each commit: `git push origin run-b-post-v1-research`
 

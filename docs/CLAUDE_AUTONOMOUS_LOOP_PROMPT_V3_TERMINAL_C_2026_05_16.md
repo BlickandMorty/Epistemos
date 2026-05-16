@@ -21,7 +21,22 @@ Terminal C runs **indefinitely** alongside other terminals. Wind-down conditions
 
 **Codex:** You are Codex (or compatible agent) at the same path. Re-prompt with this body after each commit cycle, or use Codex's scheduled-task mechanism if available.
 
-- Branch: `run-c-audit` (CUT FROM `codex/research-snapshot-2026-05-08` HEAD at session start; see Universal Invocation Guide §3)
+- **Worktree:** `/Users/jojo/Downloads/Epistemos-runC` (separate checkout — never share with sibling terminals)
+- **Branch:** `run-c-audit`
+- **First-time setup (run ONCE outside the loop, by user):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos
+  git worktree add /Users/jojo/Downloads/Epistemos-runC -b run-c-audit origin/codex/research-snapshot-2026-05-08
+  cd /Users/jojo/Downloads/Epistemos-runC
+  git push -u origin run-c-audit
+  ```
+- **Per-iter invariant check (idempotent; run each cron fire):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos-runC
+  pwd | grep -q "Epistemos-runC$" || { echo "FATAL: wrong working tree"; exit 1; }
+  [ "$(git symbolic-ref --short HEAD)" = "run-c-audit" ] || { echo "FATAL: wrong branch"; exit 1; }
+  git fetch --all
+  ```
 - Cadence: ~180s (slightly longer than implementation terminals — audit work is more deliberative)
 - NEVER touch `~/Epistemos-RETRO/`, `src-tauri/`, `~/meta-analytical-pfc/`
 - NEVER skip pre-commit hooks

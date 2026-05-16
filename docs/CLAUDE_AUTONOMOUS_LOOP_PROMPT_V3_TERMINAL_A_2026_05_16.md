@@ -28,7 +28,15 @@ When all 15 hold → surface "Loop terminal state reached — Epistemos MAS read
 
 See `docs/AUTONOMOUS_LOOP_UNIVERSAL_INVOCATION_GUIDE_2026_05_16.md §2` for the full Claude-Code-vs-Codex compat matrix.
 
-- Branch: **`codex/research-snapshot-2026-05-08`** (DO NOT switch branches)
+- **Worktree:** `/Users/jojo/Downloads/Epistemos` (main checkout — Terminal A owns the canonical clone)
+- **Branch:** `codex/research-snapshot-2026-05-08` (DO NOT switch branches)
+- **Per-iter invariant check (idempotent; run by cron each fire):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos
+  pwd | grep -qE "/Users/jojo/Downloads/Epistemos$" || { echo "FATAL: wrong working tree"; exit 1; }
+  [ "$(git symbolic-ref --short HEAD)" = "codex/research-snapshot-2026-05-08" ] || { echo "FATAL: wrong branch"; exit 1; }
+  git fetch origin
+  ```
 - Cadence: ~120s dynamic
 - Membership: Paid Apple Developer Program ACTIVE (confirmed 2026-05-16)
 - NEVER touch `~/Epistemos-RETRO/`, `src-tauri/`, `~/meta-analytical-pfc/`

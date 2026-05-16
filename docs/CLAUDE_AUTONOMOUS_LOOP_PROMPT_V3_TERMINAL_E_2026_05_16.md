@@ -23,7 +23,22 @@ Estimated runtime: ~26-39 iters (~2-3 iters per item) over hours-to-days. Termin
 
 **Codex:** Codex/compatible. Re-prompt after each commit.
 
-- Branch: `run-e-decisions` (CUT from `codex/research-snapshot-2026-05-08` HEAD)
+- **Worktree:** `/Users/jojo/Downloads/Epistemos-runE` (separate checkout)
+- **Branch:** `run-e-decisions`
+- **First-time setup (run ONCE outside the loop, by user):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos
+  git worktree add /Users/jojo/Downloads/Epistemos-runE -b run-e-decisions origin/codex/research-snapshot-2026-05-08
+  cd /Users/jojo/Downloads/Epistemos-runE
+  git push -u origin run-e-decisions
+  ```
+- **Per-iter invariant check (idempotent; run each cron fire):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos-runE
+  pwd | grep -q "Epistemos-runE$" || { echo "FATAL: wrong working tree"; exit 1; }
+  [ "$(git symbolic-ref --short HEAD)" = "run-e-decisions" ] || { echo "FATAL: wrong branch"; exit 1; }
+  git fetch origin
+  ```
 - Cadence: 240s (deliberative; deeper research per iter)
 - NEVER touch `~/Epistemos-RETRO/`, `src-tauri/`, `~/meta-analytical-pfc/`
 - Commit trailer: agent-specific
