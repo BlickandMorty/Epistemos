@@ -2045,6 +2045,25 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 2/3-5; STAY at 3-min.
 
+#### Status pulse (iter 118, 2026-05-16) — T-A-22 Pass 19 defensive-margin (streak 6/5 past GREEN)
+
+- **Window since iter 117:** 1 sibling commit (sub-threshold pulse):
+  - `ed8bd0293` (A) T-A-22 Pass 19 — defensive-margin spot-check, ON-TRACK 3/3, **streak 6/5**.
+
+- **A's Pass 19:**
+  - V3 §0 criterion 3 reached GREEN at iter 15 (Pass 18, 5/5 zero-streak). A is now PAST the 5-pass threshold by 1 cycle.
+  - "Defensive margin" framing: A is doing extra spot-checks beyond strict §0 criterion 3 requirement.
+  - Method: 3 representative rows from cluster 12678-12939 not covered by prior passes. 3/3 substrate/process-claim accurate.
+  - Findings: RCA12-P0-001 process-blocker (authority-floor backlog claim; meta-claim no code substrate; T-A iters 1-22 §8 rows DO cite sources per row partial honor) + RCA12-P1-004 sibling of Pass 17 RCA11-P2-002.
+  - **A's discipline post-GREEN: continued defensive-margin passes rather than immediately stopping. Mature wind-down behavior.** Pattern: 5/5 GREEN reached → continue defensive passes → soft-stop trigger when no more substrate to verify.
+  - **§5.0 verdict: CLEAN.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **18 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min. Will reconsider low-touch if 0 commits next iter.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
