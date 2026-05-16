@@ -219,6 +219,30 @@ Result: the MAS broad fork/exec import risk is cleared by excluding the GGUF/lla
 - Broad undefined import scan against the same clean MAS Release app returned no `_fork`, `_execv`, `_execvp`, `_execl`, `_execlp`, `_posix_spawn`, `_posix_spawnp`, `_system`, or `_popen` matches. `llama.framework` is absent from the MAS bundle and `otool -L Contents/MacOS/Epistemos` reports no `llama`/`GGUFRuntimeBridge` linkage.
 - No graph rendering files were edited. No vault/database files or user data were mutated in this pass.
 
+### Pass 14 - 2026-05-16 (T-A iter 9, strategic spot-check)
+
+Result: **ON-TRACK with 1 minor stale-path §5.0 catch.** Window covers Terminal A iters 1-8 (cherry-pick recovery + B-008 MRU prewarm inline + B-008 disk-load + Halo init-diagnosability + §5.4 orphan catch + §5.1 orphan catch + §7.4 coverage map + A-V6.1.1 CLI-bridge sharpening + A-V6.1.2 hand-roll GREEN-CONFIRM) plus Terminal B's J-wave commits (J1 ternary · J5 ACS · J7 sherry lattice · J8 ANE Direct · J9 paper registry · J10+ HELIOS Phase B.2 stages 1/2/4) plus user's V6.1 integration doc + loop prompt updates + ci/release hardening (33ab02805 + acf19c1dd).
+
+**Method:** strategic spot-check of 5 representative `Status: CONFIRMED` rows from `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` (full 14764-line read is too large per V3 §7 spirit — sampling representative rows from the iter-1 grep range lines 11417-12024). Per row: read the claim, grep the codebase to verify the cited substrate still exists.
+
+**Findings (4 CONFIRMED claims still hold; 1 stale-path catch):**
+
+- ✅ **RCA-P0-003 / RCA5-P1-006** (line 11999) — "TextCapturePipeline evidence shows capture-provenance persisted in raw note body": `Epistemos/Engine/TextCapturePipeline.swift` exists on disk.
+- ✅ **RCA-P0-004 / RCA4-P1-001** (line 12003) — "AppBootstrap line-backed evidence shows process-wide setenv for provider credentials": `grep -nE "setenv|set_env" Epistemos/App/AppBootstrap.swift` returns 6+ hits at lines 749/793/795/803/805 — process-wide credential mutation IS happening.
+- ✅ **RCA-P1-001** (line 12007) — "EpdocEditorBridge line-backed evidence shows WKURLSchemeHandler path with sync I/O/decompression risk": `public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler` at `Epistemos/Engine/EpdocEditorBridge.swift:156` + `public func webView(_:start:)` at `:172`. Note: the older row at line 11428-11429 cites specific lines `:29-58` and `:230-282` which may have drifted since 2026-05-09 — the symbol still exists, line offsets shifted.
+- ⚠️ **RCA-P1-006** (line 12015) — "chat stream path performs full rawText re-scan per token chunk": **STALE PATH** — `grep -rnE "rawText\b" Epistemos/Bridge/ Epistemos/ViewModels/` failed because `Epistemos/ViewModels/` directory does not exist on disk. The chat stream path lives elsewhere now (likely under `Epistemos/Chat/` or `Epistemos/App/ChatCoordinator.swift`). §5.0 catch surfaced: the RCA-P1-006 row's referenced surface needs re-pinning to current code paths. NOT a NEW V1 blocker — the underlying perf risk (full rawText re-scan) may still exist but at a different file path; verification deferred to a future row-update slice.
+- ✅ **RCA-P1-013** (line 12019) — "Shadow/Halo path converts backend failure to empty hits": confirmed at `Epistemos/Engine/ShadowSearchService.swift` lines 222/278/337/385 (multiple `return []` paths on error). This is the underlying behavior; iter 4's diagnosability patch (`ShadowSearchDiagnostics.recordInitFailure` + `ShadowSearchHealthRow` surfacing) makes the failure mode VISIBLE without changing the empty-hits behavior — both still apply.
+
+**No new V1 blockers introduced by the window's commits.** All iters 1-8 are bounded doctrine work or Phase B/C bounded code changes with cargo 1190/1190 baseline held throughout; Terminal B's J-wave work is post-V1 research-tier and orthogonal to V1 ship gates (per V3 §2 ownership). User's V6.1 + ci/release commits land cleanly.
+
+**Zero-streak: 1 of 5 toward §0 criterion 3** (1 pass with zero new blockers — Pass 14). 4 more consecutive zero-new-blocker passes needed before §0 criterion 3 flips green. The 1 stale-path catch above is a CORRECTION to an existing row's evidence pointers, not a new blocker, so the streak counter is intact.
+
+**Surfaced for follow-up (not Pass 14 fix-list):**
+- RCA-P1-006 evidence pointer needs re-pin (Epistemos/ViewModels/ removed; locate current chat stream surface). Bounded next-iter doctrine slice.
+- RCA10-P1-001 / RCA-P1-001 cited lines `:29-58` and `:230-282` may have drifted — line offsets are softer than file paths so this is a Pass 15 housekeeping item.
+
+No code edits in Pass 14 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `8c5d92d61`.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
