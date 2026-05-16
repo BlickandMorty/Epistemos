@@ -33,6 +33,9 @@ pub enum Substrate {
 }
 
 impl Substrate {
+    pub const ALL: [Substrate; 4] =
+        [Substrate::Cpu, Substrate::Gpu, Substrate::Ane, Substrate::Mock];
+
     pub const fn code(self) -> &'static str {
         match self {
             Substrate::Cpu => "cpu",
@@ -40,6 +43,79 @@ impl Substrate {
             Substrate::Ane => "ane",
             Substrate::Mock => "mock",
         }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.code() == code)
+    }
+
+    /// Predicate: this substrate represents real hardware (CPU/GPU/ANE).
+    /// Cross-surface invariant: every Substrate is exactly one of
+    /// `is_real_hardware` / `is_mock`.
+    pub const fn is_real_hardware(self) -> bool {
+        matches!(self, Substrate::Cpu | Substrate::Gpu | Substrate::Ane)
+    }
+
+    /// Predicate: this is the test mock substrate.
+    pub const fn is_mock(self) -> bool {
+        matches!(self, Substrate::Mock)
+    }
+}
+
+impl SubstrateError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            SubstrateError::EmptyOutputs => "empty_outputs",
+            SubstrateError::OutputLengthMismatch { .. } => "output_length_mismatch",
+            SubstrateError::NonPositiveTolerance { .. } => "non_positive_tolerance",
+            SubstrateError::DuplicateSubstrate { .. } => "duplicate_substrate",
+        }
+    }
+
+    /// Predicate: error pertains to input-data validation (Empty,
+    /// LengthMismatch, Duplicate).
+    pub const fn is_input_error(&self) -> bool {
+        matches!(
+            self,
+            SubstrateError::EmptyOutputs
+                | SubstrateError::OutputLengthMismatch { .. }
+                | SubstrateError::DuplicateSubstrate { .. }
+        )
+    }
+
+    /// Predicate: error pertains to caller-parameter validation
+    /// (NonPositiveTolerance). Cross-surface invariant:
+    /// `is_input_error XOR is_param_error` partitions variants.
+    pub const fn is_param_error(&self) -> bool {
+        matches!(self, SubstrateError::NonPositiveTolerance { .. })
+    }
+}
+
+impl SubstrateIndependenceReport {
+    /// The pair with the largest max_abs_diff. None on a single-
+    /// substrate report (per_pair is empty). Cross-surface invariant:
+    /// `worst_pair().unwrap().max_abs_diff == max_divergence`.
+    pub fn worst_pair(&self) -> Option<&PairwiseDivergence> {
+        self.per_pair.iter().max_by(|a, b| {
+            a.max_abs_diff
+                .partial_cmp(&b.max_abs_diff)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    }
+}
+
+impl RelativeSubstrateReport {
+    /// The pair with the largest max_relative_diff. None on a single-
+    /// substrate report. Cross-surface invariant:
+    /// `worst_pair().unwrap().max_relative_diff == max_relative_divergence`.
+    pub fn worst_pair(&self) -> Option<&RelativePairwiseDivergence> {
+        self.per_pair.iter().max_by(|a, b| {
+            a.max_relative_diff
+                .partial_cmp(&b.max_relative_diff)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 }
 
@@ -461,6 +537,115 @@ mod tests {
         ];
         let err = check_substrate_independence_relative(&outputs, 0.01).unwrap_err();
         assert_eq!(err, SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu });
+    }
+
+    // ── diagnostic surface (iter 157) ────────────────────────────────────────
+
+    #[test]
+    fn substrate_from_code_roundtrips_all() {
+        for s in Substrate::ALL.iter().copied() {
+            assert_eq!(Substrate::from_code(s.code()), Some(s));
+        }
+        assert_eq!(Substrate::from_code("CPU"), None); // case-sensitive
+        assert_eq!(Substrate::from_code(""), None);
+    }
+
+    #[test]
+    fn substrate_real_hardware_and_mock_partition() {
+        // Cross-surface invariant: every substrate is exactly one of
+        // is_real_hardware / is_mock.
+        for s in Substrate::ALL.iter().copied() {
+            assert_ne!(s.is_real_hardware(), s.is_mock());
+        }
+        // 3 real-hardware + 1 mock.
+        assert_eq!(
+            Substrate::ALL.iter().filter(|s| s.is_real_hardware()).count(),
+            3,
+        );
+        assert_eq!(
+            Substrate::ALL.iter().filter(|s| s.is_mock()).count(),
+            1,
+        );
+    }
+
+    #[test]
+    fn substrate_error_cause_distinct_per_variant() {
+        let variants = [
+            SubstrateError::EmptyOutputs,
+            SubstrateError::OutputLengthMismatch {
+                a: Substrate::Cpu, a_len: 1, b: Substrate::Gpu, b_len: 2,
+            },
+            SubstrateError::NonPositiveTolerance { tol: 0.0 },
+            SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 4);
+    }
+
+    #[test]
+    fn substrate_error_classifiers_partition() {
+        let variants = [
+            SubstrateError::EmptyOutputs,
+            SubstrateError::OutputLengthMismatch {
+                a: Substrate::Cpu, a_len: 1, b: Substrate::Gpu, b_len: 2,
+            },
+            SubstrateError::NonPositiveTolerance { tol: 0.0 },
+            SubstrateError::DuplicateSubstrate { substrate: Substrate::Cpu },
+        ];
+        // Cross-surface invariant: is_input_error XOR is_param_error.
+        for e in variants {
+            assert_ne!(e.is_input_error(), e.is_param_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_input_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_param_error()).count(), 1);
+    }
+
+    #[test]
+    fn worst_pair_matches_max_divergence() {
+        // Cross-surface invariant: worst_pair().max_abs_diff == max_divergence
+        let outputs = vec![
+            out(Substrate::Cpu, vec![1.0_f32]),
+            out(Substrate::Gpu, vec![1.1_f32]),
+            out(Substrate::Ane, vec![5.0_f32]),
+        ];
+        let r = check_substrate_independence(&outputs, 1e-3).unwrap();
+        let worst = r.worst_pair().unwrap();
+        assert!((worst.max_abs_diff - r.max_divergence).abs() < 1e-9);
+    }
+
+    #[test]
+    fn worst_pair_none_on_single_substrate() {
+        let outputs = vec![out(Substrate::Cpu, vec![1.0])];
+        let r = check_substrate_independence(&outputs, 1e-6).unwrap();
+        assert!(r.worst_pair().is_none());
+    }
+
+    #[test]
+    fn relative_worst_pair_matches_max_divergence() {
+        // Cross-surface invariant: worst_pair().max_relative_diff ==
+        // max_relative_divergence.
+        let outputs = vec![
+            out(Substrate::Cpu, vec![1.0_f32]),
+            out(Substrate::Gpu, vec![1.01_f32]),
+            out(Substrate::Ane, vec![2.0_f32]),
+        ];
+        let r = check_substrate_independence_relative(&outputs, 1.0).unwrap();
+        let worst = r.worst_pair().unwrap();
+        assert!((worst.max_relative_diff - r.max_relative_divergence).abs() < 1e-9);
+    }
+
+    #[test]
+    fn per_pair_count_invariant() {
+        // Cross-surface invariant: per_pair.len() = n*(n-1)/2.
+        for n in 1..=4 {
+            let outputs: Vec<SubstrateOutput> = Substrate::ALL.iter().take(n)
+                .copied()
+                .map(|s| out(s, vec![1.0]))
+                .collect();
+            let r = check_substrate_independence(&outputs, 1e-6).unwrap();
+            let expected = (n * (n - 1)) / 2;
+            assert_eq!(r.per_pair.len(), expected, "n={}", n);
+        }
     }
 
     #[test]
