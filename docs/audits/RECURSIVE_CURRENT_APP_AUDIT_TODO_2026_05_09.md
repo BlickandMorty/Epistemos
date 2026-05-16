@@ -11425,8 +11425,8 @@ Subsystem: `.epdoc`, `EpdocEditorBridge`, `WKURLSchemeHandler`, editor resource 
 
 Evidence from verification pass:
 
-- `Epistemos/Engine/EpdocEditorBridge.swift:29-58`
-- `Epistemos/Engine/EpdocEditorBridge.swift:230-282`
+- `Epistemos/Engine/EpdocEditorBridge.swift:156-172` (class `EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler` at :156 + `webView(_:start:)` method at :172 — T-A iter 12 re-pin 2026-05-16, was `:29-58` which now contains the `epistemos-doc://` scheme constant + `isBrotliEligible` predicate but no longer the class itself)
+- `Epistemos/Engine/EpdocEditorBridge.swift:230-330` (extended from original `:230-282` per T-A iter 12 re-pin: `Data(contentsOf:)` call at :236 + Brotli decompression block at :252-263 + `nonisolated decompressBrotli` helper at :330)
 
 Caller chain:
 
