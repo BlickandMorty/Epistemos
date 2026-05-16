@@ -567,6 +567,92 @@ Two related-but-distinct halves: **Adaptation Subsystem** is the session-scoped,
 | **V1 scope.** V1 ships the Adaptation Subsystem half (already in main). Compute Steering is research-tier post-V1; do NOT touch in V1 work per loop §8 #11 ("No Helios architecture changes" — Compute Steering is V6.1+ substrate adjacent). | loop §8 #11 + V1 scope | research-tier post-V1 |
 | **Why this row is canon, not just code** — PASS 1 H-5 framed both halves as missing from canon. §5.0 reconciliation showed half is shipped + half is genuinely not. Splitting the row here keeps the framing honest and prevents future agents from re-implementing the Adaptation half OR claiming Compute Steering is partial. | PASS 1 H-5 + §5.0 reconciliation gate | doctrine reconciliation |
 
+### 3.41 Nano Model Training Recipe — 75/25 Mamba-2/Attention hybrid + MOHAWK distillation (B2-M3)
+
+**Source:** `docs/_consolidated/20_canonical_research/NANO-MASTER-TRAINING-GUIDE.md` §1 (Pillar 1 Architecture + Distillation) + §2 (Pillar 2 App-specific Meta-Training) + §3 (Pillar 3 General macOS Device Control). PASS 2 audit row B2-M3.
+
+This row is the **training-recipe canonical row** for the Epistemos nano model. Distinct from §3.22 (which covers post-training continual-learning algorithms — GRPO + MLA + TransMLA + OSFT/PSOFT/coSO/DSC) and §3.34 (which covers inference-time Mamba-2 state injection for Instant Recall). §3.41 is the **base-model build recipe**.
+
+**The 75/25 hybrid architecture (validated; cliff-edge ratio — do not change without 150M-proxy ablation):**
+
+| Layers | Type | Role |
+|---|---|---|
+| 1–4 | Mamba-2 | Initial sequence compression |
+| 5 | Attention | Early retrieval anchor |
+| 6–10 | Mamba-2 | Mid-level context integration |
+| 11 | Attention | Schema enforcement (JSON structure) |
+| 12–17 | Mamba-2 | Deep context distillation |
+| 18–19 | Attention | Final retrieval (current AX state + app identity) |
+| 20–24 | Mamba-2 | Output formation |
+
+Six attention layers exist for three things no SSM variant can do: (1) exact AX-tree token retrieval · (2) JSON-schema enforcement at layer 11 · (3) multi-turn context anchoring at layers 18–19.
+
+**MOHAWK distillation hyperparameters (validated, NOT-STARTED in code):**
+
+```
+Learning rate:    ≤ 2e-4   (4e-4 triggers NaN — gradient explosion at d_model=1024)
+Optimizer:        AdamW β=(0.9, 0.98)
+Precision:        BF16 training, FP32 parameter storage  (AMP-style)
+Gradient clip:    norm 1.0
+Warmup:           500 steps
+Schedule:         WSD (Warmup-Stable-Decay, NOT cosine)
+  Stable phase:   80% of total steps at peak LR
+  Decay phase:    20% — inject highest-quality macOS + Epistemos traces here
+Stage 3 loss:     α=1.0 · KL(teacher, student)  +  β=0.1 · CE(student, labels)
+Token budget:     ~8B tokens   (D:N ratio = 8 per nanochat finding)
+Δ-bias init:      NEVER zero-initialize (post-init hook reset is a known silent failure mode)
+Conv init:        identity-initialized; gate biases = 1.0
+Layer replacement: SMART (Sensitivity Measure-Aware Replacement, Zebra-Llama) — measure attention output distribution shift, replace least-sensitive layers first
+```
+
+**WSD advantage** (why not cosine): pre-decay checkpoints are reusable. When new Epistemos app traces arrive, training continues from any stable-phase checkpoint without cold restart. This is what makes the **Doc-to-LoRA Instant Adapter on App Ship** workflow (Pillar 2 §2.5) tractable.
+
+**Hybrid-aware mixed-precision quantization (no existing tool handles this — must configure manually per MambaQuant ICLR 2025):**
+
+| Component | Precision | Why |
+|---|---|---|
+| Mamba-2 SSM (A, B, C, dt) | FP16 | Scattered activation outliers · cumulative-product stability |
+| Mamba-2 conv1d kernel | FP16 | Small relative to projections · critical for accuracy |
+| Mamba-2 in_proj, out_proj | INT4 | High redundancy · primary memory savings |
+| Attention Q, K, V | INT4 | Standard aggressive quant |
+| MLP gate/up/down | INT4 | Standard |
+| Output logit layer | FP16 | Accuracy-critical |
+| Embedding table | FP16 | Lookup precision |
+
+Apply **KLT-Enhanced rotation** (beyond Hadamard) for weight projection matrices — Mamba output projections have up to 40% flush-to-zero rates at FP4 without it.
+
+**Deployment: MLX GPU only, NEVER ANE.** Mamba-2 selective-scan's sequential state dependency conflicts with ANE's parallelizable-operation requirement. ANEMLL has zero SSM support. Target hardware perf: 1B 4-bit on M4 Max → 70–95 tok/s generation (sufficient for sub-200ms-per-action interactive agent use). ANE is reserved for: the 100ms visual-verification loop (screenshot classification) · Model2Vec text embedding · the 50M intent classifier.
+
+**Mamba-2 → Mamba-3 migration (March 2026 plan):** 75/25 ratio + the 6 attention layers stay regardless of Mamba generation. Mamba-3 (Gu & Dao, ICLR 2026) fixes state-tracking via complex-valued dynamics + exponential-trapezoidal discretization; at 1.5B matches Mamba-2 perplexity with half the state size (64 vs 128 hidden state). Migration is a config swap (`mamba2_layer` → `mamba3_layer`), NOT an architecture rewrite. **Discipline:** keep the layer abstraction parameterized today so the swap stays a config change tomorrow. Trigger: community validation of Mamba-3 distillation in the `state-spaces/mamba` repo + GoombaLab blog + MLX training support.
+
+**The 3 concurrent pillars (training data composition):**
+
+1. **Pillar 1 — Architecture + Distillation** (this row). 75/25 hybrid + MOHAWK + quantization + MLX deployment.
+2. **Pillar 2 — App-Specific Meta-Training** (the reflexive core; canonical guide §2.1–2.6). Code Graph Model from `agent_core` + Xcode Symbol Graph → QA pairs · AX Atlas with differential snapshots · SFT → RLAIF agentic recipe · **Doc-to-LoRA instant-adapter on app ship** · version-aware adapter lifecycle.
+3. **Pillar 3 — General macOS Device Control** (canonical guide §3.1–3.4). Validated training-data composition ratios · tool-calling fine-tuning · AX tree representation · approved data sources.
+
+Pillar 4 (Reinforcement Learning, GRPO) is covered separately by **§3.22 Continual learning** row (landed `4b509eb6e` iter 33).
+
+**§5.0 reconciliation against existing rows — what this row does NOT duplicate:**
+
+- **§3.22 Continual learning** has the GRPO + MLA + TransMLA + OSFT/PSOFT/coSO/DSC + OFTv2 QLoRA path. Those are *post-training* algorithms (apply to a trained base model). §3.41 is the *base model build recipe* — they compose, not overlap. GRPO trains the LoRA adapter; MOHAWK builds the base the LoRA attaches to.
+- **§3.34 Instant Recall** has Mamba-2 hidden-state injection at *inference time* (~50 ms prefill of top-3 retrieved notes before agent's first turn). §3.41 covers the *training* of the Mamba-2 layers themselves. Composes, not overlaps.
+- **§3.4 SCOPE-Rex** governs runtime; orthogonal.
+- **§3.16 Helios kernels (V6.1/V6.2)** are Metal compute-shader kernels; orthogonal.
+
+**Status:** NOT-STARTED in code. `rg "MOHAWK|mohawk|hybrid_ratio|75.*25" agent_core/src/` returns zero hits. Currently no training infra in main; the nano model lands post-V1 via MLX-LM v0.31.1+ (which supports Mamba-1/Mamba-2/Nemotron-H/Jamba natively). Doctrine row freezes the recipe shape so when training spins up post-V1, the hyperparameters + layer placement + quant table + ANE-vs-GPU rule are not redrifted.
+
+**V1 / Pro / Post-V1 boundary:** No V1 dependency. Pillar 2 instant-adapter workflow (Doc-to-LoRA on app ship) is the user-visible benefit and lands once the nano base model exists. Pro tier may surface the LoRA adapter training in-UI; MAS tier ships frozen adapters bundled with the app.
+
+**Cross-references:**
+- `docs/_consolidated/20_canonical_research/NANO-MASTER-TRAINING-GUIDE.md` — canonical guide (4 Pillars, 28 subsections); consult for full detail rather than re-pasting here.
+- §3.22 Continual learning (GRPO + MLA composition).
+- §3.34 Instant Recall (inference-time Mamba-2 use).
+- PASS 2 audit B2-M3.
+- B2-M2 Control Plane API (Skills UI object will surface the LoRA-adapter lifecycle once trained).
+
+---
+
 ### 3.40 Run Ledger — per-token cryptographic attestation (NOT-STARTED, distinct from 4 existing provenance primitives)
 
 | Concept | Source | Status |
