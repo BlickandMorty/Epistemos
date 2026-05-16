@@ -39,6 +39,7 @@
 //! B.2 stage 2). Larger ceilings deferred to M2 Max validation path.
 
 pub mod controller_pack;
+pub mod local_recall_island;
 pub mod packet_router;
 pub mod page_gather;
 pub mod ssd_block_scan;
@@ -46,6 +47,10 @@ pub mod ssd_block_scan;
 pub use controller_pack::{
     argmax_reduce, copy_range, max_reduce, scalar_add_in_place, scalar_mul_in_place,
     zero_fill, ControllerKernelError,
+};
+pub use local_recall_island::{
+    passkey_retrieve, run_passkey_trials, single_passkey_trial, RecallError,
+    RecallReport, RecallStore,
 };
 pub use packet_router::{
     route_1bit, unroute_1bit, PacketRouterError, PacketRouterStats, RoutingOutputs,
