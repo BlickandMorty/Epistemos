@@ -1072,6 +1072,67 @@ The third wave's convergence on `GovernedExecutor` + multi-target tool codegen +
 
 ---
 
+## 13.7 Multi-Overseer hierarchy — 4-role decomposition of policy enforcement
+
+**Source:** PASS 1 gap audit H-4 + `docs/fusion/research/OVERSEER_AND_AGENT_HIERARCHY.md` + `docs/fusion/research/kimi-latest/hermes_gateway_architecture.md §L6`.
+
+§5 declared a single `GovernedExecutor` that wraps every concrete executor and runs the SCOPE-Rex policy + RunEventLog write before and after every tool call. This sub-section makes the Overseer **a typed 4-role decomposition** within that wrapper, distinct from treating Overseer as a monolithic feature. The decomposition gives Pro V1.x sub-agent orchestration a clean place to attach policy responsibilities.
+
+**The 4 Overseer roles** (cooperating responsibilities, not separate processes):
+
+| Role | Responsibility | What it produces | What it consumes |
+|---|---|---|---|
+| **Planner** | Decompose user intent into a tool plan + subgoal tree. Owns the agent's *forward* shape. | `MissionPacket.intent_decomposition` · subgoal DAG · provider+model selection per subgoal | `MissionPacket.intent()` · current `AgentBlueprint` · `ProviderRouter` capability table |
+| **Guardrail** | Hard-block tool calls that violate consent / capability / cost gates BEFORE execution. Owns *pre-execution refusal*. | Block / Allow / Require-Approval verdict per `AgentEvent::ToolProposed` | SovereignGate state · `CapabilityLease` (§7.5) · `Capability` enum (§5.1) · current cost telemetry vs budget cap (§B2-H14) |
+| **Critique** | Inspect tool results + intermediate reasoning for incoherence / hallucination / drift AFTER execution. Owns *post-execution sense-making*. | ClaimLedger entries · spectral-detection signal (§13.5.8) · SAE feature flags (§3.36) · ConfidenceBadge value | `AgentEvent::ToolResult` · ClaimLedger state · attention-map access (local models only) |
+| **Budget** | Enforce cost + time + token caps; route to cheaper providers / smaller models when budget pressure rises. Owns *resource-bound decision-making*. | provider/model downgrade decisions · early-stop signals · budget-exhaust notifications | per-session cost telemetry (§B2-H14) · `pricing.rs::current_spend_usd` · time-since-mission-start · turn count |
+
+**Cooperation pattern** (single agent turn):
+
+```
+user intent
+   ↓
+Planner            → subgoal_1 / subgoal_2 / ... / subgoal_N + provider per subgoal
+   ↓ (each subgoal)
+Budget             → does subgoal fit budget? if no, downgrade or split
+   ↓
+ToolProposed event
+   ↓
+Guardrail          → consent / capability / cost-gate / cap-leases-valid?
+                     if Allow → continue; if Block → AgentEvent::ToolBlocked + Planner re-plan; if Require-Approval → SovereignGate
+   ↓
+executor runs tool
+   ↓
+ToolResult event
+   ↓
+Critique           → coherent? hallucination signature absent? confidence ≥ threshold?
+                     if yes → ClaimLedger Active entry; if no → ClaimLedger NeedsRevalidation + Planner re-plan
+   ↓
+next subgoal OR mission complete
+```
+
+**Why this is multi-role, not multi-agent.** Per `OVERSEER_AND_AGENT_HIERARCHY.md`, the 4 roles execute as a single process inside `GovernedExecutor` — they share state via the same `AgentBlueprint` + `MissionPacket` + `RunEventLog`. **Sub-agents (Claude Agent SDK pattern)** are a separate concept: each sub-agent has its own Overseer-4. The role decomposition lets one Overseer-4 supervise N sub-agents without role explosion (each sub-agent's 4 roles report to the parent's 4 roles via the same `AgentEvent` stream).
+
+**Mapping onto existing primitives:**
+
+| Overseer role | Existing primitive (today) | Future primitive (Pro V1.x) |
+|---|---|---|
+| Planner | `MissionPacket.intent()` + `ProviderRouter` §13.6.5 | sub-agent Planner-graph (post-V1) |
+| Guardrail | `SovereignGate.validate_*` + §5 SCOPE-Rex governance wrapper + §7.5 Capability Lease (Pro) + §B2-H20 ephemeral tokens (request-time) | per-subagent Guardrail with parent veto |
+| Critique | `ClaimLedger` retraction propagation + §13.5.8 spectral detection (post-V1 local-only) + §3.36 SAE AUC ≥ 0.90 (research-tier) | Critique-as-second-model (cloud or larger local) |
+| Budget | `pricing.rs::estimate_cost_usd` + Settings → Agent → Spend §B2-H14 (already shipped) | Budget-aware Planner that splits subgoals by cost |
+
+**Boundaries:**
+- **NOT separate from SCOPE-Rex.** SCOPE-Rex is the **mechanism** (policy gate fold-over per executor); Overseer-4 is the **role taxonomy** for what the policy decides. They compose: SCOPE-Rex fires the 4 roles in order per `AgentEvent`.
+- **NOT separate from §13.6.5 ProviderRouter.** ProviderRouter is the dispatch point Planner uses to pick a provider; Overseer-4 says *which role* makes the dispatch decision (Planner does the provider pick, Budget can override it under pressure).
+- **NOT a sub-agent hierarchy.** Sub-agents have their own Overseer-4 each. Cross-link with §14 "Open questions deliberately deferred" #1 (Sub-agents post-V1) and #2 (Multi-agent ACS V2.7).
+
+**Crosslinks:** §5 SCOPE-Rex governance wrapper (Overseer-4 is the role taxonomy inside) · §5.1 ExecutionReceipt (Guardrail uses Capability enum) · §5.2 Ephemeral capability tokens (B2-H20, Guardrail issues + verifies these) · §7.5 Capability Lease (Pro-only XPC handle-binding the Guardrail leases out) · §13.5.7 Per-model Knowledge Vaults (Planner picks the vault) · §13.5.8 Spectral detection (Critique consumes the signal) · §3.36 SAE Observatory (Critique composite acceptance bar) · §B2-H14 Cost telemetry (Budget reads pricing data) · `docs/RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` (Beer VSM, B2-H9 — Overseer-4 is the Hermes-specific instantiation of VSM S3 Control + S4 Intelligence + S5 Policy; S1 Operations is the executor itself, S2 Coordination is the GovernedExecutor wrapper).
+
+**V1 scope.** All 4 roles already exist as primitives in main today (per the mapping table). The post-V1 work is making them **typed** (currently they're implicit in policy-check call-sites) and **per-subagent** (currently one Overseer-4 per agent run). V1 ships the role doctrine in this section; V1.x makes the roles explicit `OverseerRole` enum entries on the `GovernedExecutor` interface.
+
+---
+
 ## 14. Open questions deliberately deferred
 
 1. **Sub-agents (Claude Agent SDK pattern)**. The design includes `AgentEvent::ToolProposed → agent.spawn_subagent` but the implementation is post-V1.
