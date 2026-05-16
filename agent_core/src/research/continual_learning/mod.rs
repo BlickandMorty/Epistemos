@@ -50,11 +50,13 @@
 pub mod dsc;
 pub mod ewc;
 pub mod oftv2;
+pub mod seal_dora;
 pub mod titans_mac;
 
 pub use dsc::{project_orthogonal, update_with_gradient, DscError, OrthogonalSubspace};
 pub use ewc::{ewc_gradient_contribution, ewc_penalty, EwcAnchor, EwcError, FisherInfo};
 pub use oftv2::{apply_oftv2, rotation_2d, OftError, OrthogonalMatrix};
+pub use seal_dora::{compose_dora, DoraDecomposition, LoraDelta, SealDoraError};
 pub use titans_mac::{
     apply_surprise_update, surprise, LearnedMemoryModule, TitansError,
 };
