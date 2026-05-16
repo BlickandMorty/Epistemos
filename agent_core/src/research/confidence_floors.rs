@@ -116,6 +116,91 @@ impl ConfidenceLadderLog {
         }
         m
     }
+
+    /// Compute summary statistics over the current log. Returns
+    /// `None` if the log is empty (no statistic is meaningful).
+    pub fn stats(&self) -> Option<LadderStats> {
+        let n = self.entries.len();
+        if n == 0 {
+            return None;
+        }
+        let mean = self.entries.iter().map(|e| e.score as f64).sum::<f64>() / n as f64;
+        let variance = self
+            .entries
+            .iter()
+            .map(|e| {
+                let d = e.score as f64 - mean;
+                d * d
+            })
+            .sum::<f64>()
+            / n as f64;
+        let stddev = variance.sqrt();
+
+        let mut t1 = 0usize;
+        let mut t2 = 0usize;
+        let mut t3 = 0usize;
+        let mut esc = 0usize;
+        let mut empty = 0usize;
+        for e in &self.entries {
+            match e.decision {
+                LadderDecision::Accepted(ConfidenceFloor::T1) => t1 += 1,
+                LadderDecision::Accepted(ConfidenceFloor::T2) => t2 += 1,
+                LadderDecision::Accepted(ConfidenceFloor::T3) => t3 += 1,
+                LadderDecision::Escalated => esc += 1,
+                LadderDecision::EmptyNoEscalate => empty += 1,
+            }
+        }
+        let nf = n as f64;
+        Some(LadderStats {
+            total: n,
+            mean_score: mean,
+            stddev,
+            t1_rate: t1 as f64 / nf,
+            t2_rate: t2 as f64 / nf,
+            t3_rate: t3 as f64 / nf,
+            escalate_rate: esc as f64 / nf,
+            empty_no_escalate_rate: empty as f64 / nf,
+        })
+    }
+
+    /// Health verdict per the doctrine-suggested rate thresholds.
+    /// Returns `None` on an empty log.
+    ///
+    /// - `Healthy`: T1+T2 rate ≥ 0.85 (most calls clear the upper
+    ///   two tiers).
+    /// - `Degrading`: T1+T2 rate < 0.85 but escalate+empty rate < 0.20.
+    /// - `Failing`: escalate+empty rate ≥ 0.20.
+    pub fn health_verdict(&self) -> Option<LadderHealth> {
+        let s = self.stats()?;
+        let high_tier = s.t1_rate + s.t2_rate;
+        let degraded = s.escalate_rate + s.empty_no_escalate_rate;
+        if degraded >= 0.20 {
+            Some(LadderHealth::Failing)
+        } else if high_tier >= 0.85 {
+            Some(LadderHealth::Healthy)
+        } else {
+            Some(LadderHealth::Degrading)
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LadderStats {
+    pub total: usize,
+    pub mean_score: f64,
+    pub stddev: f64,
+    pub t1_rate: f64,
+    pub t2_rate: f64,
+    pub t3_rate: f64,
+    pub escalate_rate: f64,
+    pub empty_no_escalate_rate: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum LadderHealth {
+    Healthy,
+    Degrading,
+    Failing,
 }
 
 #[cfg(test)]
@@ -231,5 +316,105 @@ mod tests {
         let json = serde_json::to_string(&f).unwrap();
         let back: ConfidenceFloor = serde_json::from_str(&json).unwrap();
         assert_eq!(f, back);
+    }
+
+    // ── LadderStats + health_verdict tests (iter 91) ────────────────────────
+
+    #[test]
+    fn stats_none_on_empty_log() {
+        let log = ConfidenceLadderLog::new();
+        assert!(log.stats().is_none());
+        assert!(log.health_verdict().is_none());
+    }
+
+    #[test]
+    fn stats_mean_matches_arithmetic_mean() {
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.9, false);
+        log.decide(0.8, false);
+        log.decide(0.7, false);
+        let s = log.stats().unwrap();
+        assert_eq!(s.total, 3);
+        assert!((s.mean_score - 0.8).abs() < 1e-6);
+        assert!(s.stddev > 0.0);
+    }
+
+    #[test]
+    fn stats_stddev_zero_when_all_equal() {
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.9, false);
+        log.decide(0.9, false);
+        log.decide(0.9, false);
+        let s = log.stats().unwrap();
+        assert!(s.stddev < 1e-6);
+    }
+
+    #[test]
+    fn stats_per_tier_rates_sum_to_one() {
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.95, false);
+        log.decide(0.80, false);
+        log.decide(0.72, false);
+        log.decide(0.50, true);
+        log.decide(0.40, false);
+        let s = log.stats().unwrap();
+        let sum = s.t1_rate + s.t2_rate + s.t3_rate + s.escalate_rate + s.empty_no_escalate_rate;
+        assert!((sum - 1.0).abs() < 1e-9, "sum was {}", sum);
+    }
+
+    #[test]
+    fn health_verdict_healthy_when_high_tier_dominant() {
+        let mut log = ConfidenceLadderLog::new();
+        for _ in 0..9 {
+            log.decide(0.95, false); // T1
+        }
+        log.decide(0.78, false); // T2
+        // T1 + T2 rate = 1.0; degraded = 0.0.
+        assert_eq!(log.health_verdict(), Some(LadderHealth::Healthy));
+    }
+
+    #[test]
+    fn health_verdict_failing_when_degraded_above_20pct() {
+        let mut log = ConfidenceLadderLog::new();
+        for _ in 0..6 {
+            log.decide(0.95, false); // T1
+        }
+        for _ in 0..4 {
+            log.decide(0.40, true); // Escalated
+        }
+        // degraded rate = 4/10 = 0.40 ≥ 0.20.
+        assert_eq!(log.health_verdict(), Some(LadderHealth::Failing));
+    }
+
+    #[test]
+    fn health_verdict_degrading_when_t3_heavy_but_not_failing() {
+        let mut log = ConfidenceLadderLog::new();
+        for _ in 0..5 {
+            log.decide(0.72, false); // T3
+        }
+        for _ in 0..5 {
+            log.decide(0.95, false); // T1
+        }
+        // T1+T2 = 0.5 < 0.85; degraded = 0.0 < 0.20.
+        assert_eq!(log.health_verdict(), Some(LadderHealth::Degrading));
+    }
+
+    #[test]
+    fn stats_roundtrips_through_serde_json() {
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.9, false);
+        log.decide(0.5, true);
+        let s = log.stats().unwrap();
+        let json = serde_json::to_string(&s).unwrap();
+        let back: LadderStats = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, back);
+    }
+
+    #[test]
+    fn health_roundtrips_through_serde_json() {
+        let h = LadderHealth::Degrading;
+        let json = serde_json::to_string(&h).unwrap();
+        let back: LadderHealth = serde_json::from_str(&json).unwrap();
+        assert_eq!(h, back);
     }
 }
