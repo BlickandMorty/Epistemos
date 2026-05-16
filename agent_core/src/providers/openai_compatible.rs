@@ -1,4 +1,5 @@
 //! OpenAI-Compatible Provider — Universal provider for any /v1/chat/completions API
+//! Source: https://platform.openai.com/docs/api-reference/chat/create-chat-completion
 //!
 //! Most LLM providers implement the OpenAI API standard. This single provider
 //! covers: OpenRouter (200+ models), Ollama, Z.AI/GLM, Kimi/Moonshot, DeepSeek,
@@ -33,8 +34,14 @@ pub struct OpenAICompatibleProvider {
     model: String,
     display_name: &'static str,
     extra_headers: HashMap<String, String>,
+    request_extension: Option<RequestExtension>,
     capabilities: ProviderCapabilities,
     retry_config: RetryConfig,
+}
+
+#[derive(Clone, Copy)]
+enum RequestExtension {
+    KimiThinking,
 }
 
 impl OpenAICompatibleProvider {
@@ -57,6 +64,7 @@ impl OpenAICompatibleProvider {
             model: model.into(),
             display_name,
             extra_headers: HashMap::new(),
+            request_extension: None,
             capabilities,
             retry_config: RetryConfig::default(),
         }
@@ -65,6 +73,22 @@ impl OpenAICompatibleProvider {
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.extra_headers.insert(key.into(), value.into());
         self
+    }
+
+    fn with_request_extension(mut self, extension: RequestExtension) -> Self {
+        self.request_extension = Some(extension);
+        self
+    }
+
+    fn apply_provider_request_extensions(&self, body: &mut Value, config: &AgentConfig) {
+        match self.request_extension {
+            Some(RequestExtension::KimiThinking) => {
+                body["thinking"] = json!({
+                    "type": if config.enable_thinking { "enabled" } else { "disabled" }
+                });
+            }
+            None => {}
+        }
     }
 
     fn endpoint(&self) -> String {
@@ -180,28 +204,41 @@ impl OpenAICompatibleProvider {
         )
     }
 
-    // --- Kimi / Moonshot (coding-focused) ---
+    // --- Kimi / Moonshot ---
+    // Source: https://platform.kimi.ai/docs/api/overview
+    // Source: https://platform.kimi.ai/docs/models
+    // Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart
+    // Auth: MOONSHOT_API_KEY (legacy KIMI_API_KEY fallback)
+    pub fn kimi(model: &str) -> Self {
+        let provider = Self::new(
+            moonshot_api_key(),
+            "https://api.moonshot.ai/v1",
+            model,
+            "Kimi",
+            kimi_capabilities(model),
+        );
+
+        if kimi_supports_configurable_thinking(model) {
+            provider.with_request_extension(RequestExtension::KimiThinking)
+        } else {
+            provider
+        }
+    }
+
+    pub fn kimi_latest() -> Self {
+        Self::kimi("kimi-k2.6")
+    }
+
+    pub fn kimi_k2() -> Self {
+        Self::kimi("kimi-k2-0905-preview")
+    }
+
+    pub fn kimi_thinking() -> Self {
+        Self::kimi("kimi-k2-thinking")
+    }
+
     pub fn kimi_coding() -> Self {
-        Self::new(
-            std::env::var("KIMI_API_KEY").unwrap_or_default(),
-            "https://api.moonshot.cn/v1",
-            "kimi-k2",
-            "Kimi Code",
-            ProviderCapabilities {
-                max_context_tokens: 128_000,
-                max_output_tokens: 8_192,
-                supports_thinking: true,
-                supports_vision: false,
-                supports_web_search: false,
-                supports_code_execution: false,
-                supports_computer_use: false,
-                supports_mcp: false,
-                supports_streaming: true,
-                supports_compaction: true,
-                cost_input_per_million: 0.7,
-                cost_output_per_million: 0.7,
-            },
-        )
+        Self::kimi_latest()
     }
 
     // --- DeepSeek ---
@@ -424,6 +461,7 @@ struct StreamChoice {
 #[derive(Deserialize, Debug)]
 struct DeltaContent {
     content: Option<String>,
+    reasoning_content: Option<String>,
     tool_calls: Option<Vec<ToolCallDelta>>,
 }
 
@@ -491,6 +529,8 @@ impl AgentProvider for OpenAICompatibleProvider {
         if !api_tools.is_empty() {
             body["tools"] = json!(api_tools);
         }
+
+        self.apply_provider_request_extensions(&mut body, config);
 
         if let Some(system) = &config.system_prompt {
             // Prepend system message
@@ -591,6 +631,13 @@ impl AgentProvider for OpenAICompatibleProvider {
 
                         if let Some(delta) = &choice.delta {
                             // Text content
+                            if let Some(thinking) = kimi_reasoning_delta_text(delta) {
+                                yield Ok(StreamEvent::ThinkingDelta {
+                                    index: text_index,
+                                    text: thinking.to_string(),
+                                });
+                            }
+
                             if let Some(text) = &delta.content {
                                 if !text.is_empty() {
                                     yield Ok(StreamEvent::TextDelta {
@@ -666,6 +713,52 @@ impl AgentProvider for OpenAICompatibleProvider {
     }
 }
 
+fn moonshot_api_key() -> String {
+    std::env::var("MOONSHOT_API_KEY")
+        .or_else(|_| std::env::var("KIMI_API_KEY"))
+        .unwrap_or_default()
+}
+
+fn kimi_capabilities(model: &str) -> ProviderCapabilities {
+    ProviderCapabilities {
+        max_context_tokens: 256_000,
+        max_output_tokens: 32_768,
+        supports_thinking: kimi_supports_thinking(model),
+        supports_vision: matches!(model, "kimi-k2.6" | "kimi-k2.5"),
+        supports_web_search: false,
+        supports_code_execution: false,
+        supports_computer_use: false,
+        supports_mcp: false,
+        supports_streaming: true,
+        supports_compaction: true,
+        cost_input_per_million: match model {
+            "kimi-k2.6" => 0.95,
+            "kimi-k2.5" => 0.60,
+            _ => 0.60,
+        },
+        cost_output_per_million: match model {
+            "kimi-k2.6" => 4.0,
+            "kimi-k2.5" => 3.0,
+            _ => 2.50,
+        },
+    }
+}
+
+fn kimi_supports_configurable_thinking(model: &str) -> bool {
+    matches!(model, "kimi-k2.6" | "kimi-k2.5")
+}
+
+fn kimi_supports_thinking(model: &str) -> bool {
+    kimi_supports_configurable_thinking(model) || model.contains("thinking")
+}
+
+fn kimi_reasoning_delta_text(delta: &DeltaContent) -> Option<&str> {
+    delta
+        .reasoning_content
+        .as_deref()
+        .filter(|text| !text.is_empty())
+}
+
 // ============================================================================
 // Message conversion (same format as OpenAI)
 // ============================================================================
@@ -738,6 +831,8 @@ fn message_to_openai_json(message: &Message) -> Value {
 #[cfg(test)]
 mod tests {
     use super::message_to_openai_json;
+    use super::{kimi_reasoning_delta_text, OpenAICompatibleProvider, StreamChunk};
+    use crate::agent_loop::AgentConfig;
     use crate::providers::schema::normalized_tool_parameters;
     use crate::types::{ContentBlock, Message};
     use serde_json::json;
@@ -778,5 +873,66 @@ mod tests {
             json["tool_calls"][0]["function"]["name"].as_str(),
             Some("file__read")
         );
+    }
+
+    #[test]
+    fn kimi_latest_uses_current_moonshot_api_contract() {
+        let provider = OpenAICompatibleProvider::kimi_latest();
+
+        assert_eq!(provider.base_url, "https://api.moonshot.ai/v1");
+        assert_eq!(provider.model, "kimi-k2.6");
+        assert_eq!(provider.display_name, "Kimi");
+        assert_eq!(provider.capabilities.max_context_tokens, 256_000);
+        assert_eq!(provider.capabilities.max_output_tokens, 32_768);
+        assert!(provider.capabilities.supports_thinking);
+        assert!(provider.capabilities.supports_vision);
+    }
+
+    #[test]
+    fn kimi_k2_stays_on_explicit_k2_preview_id() {
+        let provider = OpenAICompatibleProvider::kimi_k2();
+
+        assert_eq!(provider.base_url, "https://api.moonshot.ai/v1");
+        assert_eq!(provider.model, "kimi-k2-0905-preview");
+        assert_eq!(provider.capabilities.max_context_tokens, 256_000);
+        assert!(!provider.capabilities.supports_vision);
+    }
+
+    #[test]
+    fn kimi_request_extension_disables_thinking_when_config_disables_it() {
+        let provider = OpenAICompatibleProvider::kimi_latest();
+        let mut body = json!({
+            "model": provider.model,
+            "messages": [],
+            "stream": true
+        });
+        let config = AgentConfig {
+            enable_thinking: false,
+            ..AgentConfig::default()
+        };
+
+        provider.apply_provider_request_extensions(&mut body, &config);
+
+        assert_eq!(
+            body["thinking"],
+            json!({ "type": "disabled" }),
+            "Kimi K2.6 enables thinking by default, so the provider must explicitly disable it for fast/no-thinking turns"
+        );
+    }
+
+    #[test]
+    fn kimi_stream_chunk_exposes_reasoning_content_as_thinking_delta() {
+        let chunk: StreamChunk = serde_json::from_value(json!({
+            "choices": [{
+                "index": 0,
+                "delta": { "reasoning_content": "plan first" },
+                "finish_reason": null
+            }]
+        }))
+        .unwrap();
+        let choices = chunk.choices.unwrap();
+        let delta = choices[0].delta.as_ref().unwrap();
+
+        assert_eq!(kimi_reasoning_delta_text(delta), Some("plan first"));
     }
 }

@@ -519,6 +519,9 @@ fn resolve_provider_selection_preview(
                     | "zai"
                     | "glm"
                     | "kimi"
+                    | "kimi_latest"
+                    | "kimi_k2"
+                    | "kimi_thinking"
                     | "kimi_coding"
                     | "deepseek"
                     | "minimax"
@@ -577,7 +580,13 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "llama_cpp" => Ok(Arc::new(OpenAICompatibleProvider::llama_cpp("default"))),
         // Chinese AI providers
         "zai" | "glm" => Ok(Arc::new(OpenAICompatibleProvider::zai())),
-        "kimi" | "kimi_coding" => Ok(Arc::new(OpenAICompatibleProvider::kimi_coding())),
+        "kimi" | "kimi_latest" | "kimi_coding" => {
+            Ok(Arc::new(OpenAICompatibleProvider::kimi_latest()))
+        }
+        "kimi_k2" | "kimi-k2" => Ok(Arc::new(OpenAICompatibleProvider::kimi_k2())),
+        "kimi_thinking" | "kimi-k2-thinking" => {
+            Ok(Arc::new(OpenAICompatibleProvider::kimi_thinking()))
+        }
         "deepseek" => Ok(Arc::new(OpenAICompatibleProvider::deepseek())),
         "minimax" => Ok(Arc::new(OpenAICompatibleProvider::minimax())),
         // Western AI providers
@@ -602,7 +611,7 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
             }
         }
         _ => Err(AgentErrorFFI::AgentError {
-            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, deepseek, minimax, xai, grok, mistral, groq, codestral, together, huggingface, or any provider/model slug."),
+            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, kimi_k2, kimi_thinking, deepseek, minimax, xai, grok, mistral, groq, codestral, together, huggingface, or any provider/model slug."),
         }),
     }
 }

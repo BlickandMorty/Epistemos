@@ -195,6 +195,14 @@ overrides in `Epistemos/Bridge/StreamingDelegate.swift`.
 | medium | `file.write` / `file.patch` / `vault.write` / `note.create` / `note.edit` / `note.template` / `research.collect_snippet` / `citation.save`; Pro also includes `skills.manage` | ApprovalModalView with 120s deadline |
 | high | `execute_code` (Pro-only); `subprocess` aliases (Pro-only) | ApprovalModalView; risk badge; always requires explicit click |
 
+## Provider Tool-Call Wire Compatibility
+
+Source: `agent_core/src/providers/openai_compatible.rs`.
+
+| Provider | Tool schema wire format | Thinking stream handling | D-scope state |
+|---|---|---|---|
+| Kimi / Moonshot | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names` | `delta.reasoning_content` maps to `StreamEvent::ThinkingDelta`; `AgentConfig.enable_thinking` writes Kimi's `thinking` extension for K2.6/K2.5 | D.2.2 wired 2026-05-16; docs at `docs/providers/kimi.md` |
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list

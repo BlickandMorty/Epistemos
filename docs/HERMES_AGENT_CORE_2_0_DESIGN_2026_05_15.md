@@ -790,6 +790,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 
 **UI marking for premium moves (follow-up design slice, not part of B2-1):** Visual badge / accent (likely a small gradient ring + tooltip) marking UI affordances that invoke a specialty, so users can scan a surface and see *which buttons are doing something only Epistemos can do*. Lives in `Theme/PhysicsModifiers.swift` as a new `.specialty(let id: SpecialtyID)` modifier; routed through `CognitiveWeightBadge` already in main. Tracked separately from B2-1 — this slice ships the registry, not the marking.
 
+### 7.4.1 Provider Wire-Contract Registry Notes
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Kimi / Moonshot (`kimi`, `kimi_latest`, `kimi_k2`, `kimi_thinking`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.2 wired current Kimi API contract on 2026-05-16: `kimi-k2.6` default, `https://api.moonshot.ai/v1`, `MOONSHOT_API_KEY`, OpenAI-compatible tools, `reasoning_content` → `ThinkingDelta`. Full provider ledger: `docs/providers/kimi.md`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
