@@ -163,12 +163,19 @@ existing mmap-backed markdown search. The executor is scoped to the selected
 vault root, rejects traversal/out-of-root paths, skips hidden directories during
 recursive search, and performs no subprocess or network work.
 
-Web search MCP D.3 blocker: queue wording named a Bing backend, but Microsoft
-officially retired Bing Search APIs on 2025-08-11
-(`https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement`).
-Terminal D did not wire a fake Bing backend; Brave/Kagi web-search MCP remains
-queued for a dedicated current-API slice if user direction allows a non-Bing
-backend subset.
+Web search MCP D.3 contract: `omega-mcp/src/web_search.rs` exposes canonical
+HTTPS-only `web.search` through Brave Search and Kagi Search backends. Queue
+wording named a Bing backend, but Microsoft officially retired Bing Search APIs
+on 2025-08-11
+(`https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement`),
+so Terminal D did not wire a fake Bing backend. `execute_web_search_tool`
+accepts `provider: "brave" | "kagi"` or `WEB_SEARCH_PROVIDER`; if both backend
+credentials are configured, an explicit provider is required. API keys come only
+from host-injected environment (`BRAVE_SEARCH_API_KEY` / `BRAVE_API_KEY` or
+`KAGI_API_KEY` / `KAGI_SEARCH_API_KEY`); credentials in tool arguments are
+rejected before execution. Query, limit, offset, and backend filters are
+bounded; provider results normalize to `title`, `url`, `snippet`, and
+`published` in a JSON `ToolResult` receipt.
 
 ## 4. Local-agent grammar — `LocalAgentCapabilityRegistry`
 
