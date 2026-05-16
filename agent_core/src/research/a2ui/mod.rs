@@ -17,9 +17,10 @@
 //! components without touching the production a2ui/ surface (per
 //! §2 file-ownership — a2ui/ is not B-owned).
 //!
-//! Naming: each component lives in its own file. Iter 64 ships the
-//! first 6 (Table → CapabilityChip); subsequent iters add the
-//! remaining 18 (one or several per iter).
+//! Naming: each component lives in its own file. Iter 64 shipped the
+//! first 6 (Table → CapabilityChip); iter 65 adds the next 6
+//! (ProvenanceTrace → CodeBlock); subsequent iters add the
+//! remaining 12 (one or several per iter).
 //!
 //! ## Validator contract
 //!
@@ -31,17 +32,29 @@
 
 pub mod capability_chip;
 pub mod chart;
+pub mod citation_block;
+pub mod code_block;
+pub mod confidence_badge;
+pub mod diff;
 pub mod key_value_grid;
 pub mod markdown;
 pub mod progress_bar;
+pub mod provenance_trace;
 pub mod table;
+pub mod tool_call_trace;
 
 pub use capability_chip::{CapabilityChipProps, CapabilityChipError};
 pub use chart::{ChartProps, ChartError, ChartKind};
+pub use citation_block::{Citation, CitationBlockError, CitationBlockProps};
+pub use code_block::{CodeBlockError, CodeBlockProps};
+pub use confidence_badge::{ConfidenceBadgeError, ConfidenceBadgeProps, ConfidenceTier};
+pub use diff::{DiffError, DiffLine, DiffLineKind, DiffProps};
 pub use key_value_grid::{KeyValueGridProps, KeyValueGridError};
 pub use markdown::{MarkdownProps, MarkdownError};
 pub use progress_bar::{ProgressBarProps, ProgressBarError};
+pub use provenance_trace::{ProvenanceTraceError, ProvenanceTraceProps, ProvenanceTraceStep};
 pub use table::{TableProps, TableError, TableCell};
+pub use tool_call_trace::{ToolCallTraceEntry, ToolCallTraceError, ToolCallTraceProps};
 
 /// Catalog of every Wave I component name. Each variant matches a
 /// per-file struct above. ::ALL is alphabetized to match the driver
@@ -54,16 +67,28 @@ pub enum WaveIComponentKind {
     ProgressBar,
     KeyValueGrid,
     CapabilityChip,
+    ProvenanceTrace,
+    ToolCallTrace,
+    ConfidenceBadge,
+    CitationBlock,
+    Diff,
+    CodeBlock,
 }
 
 impl WaveIComponentKind {
-    pub const ALL: [WaveIComponentKind; 6] = [
+    pub const ALL: [WaveIComponentKind; 12] = [
         WaveIComponentKind::Table,
         WaveIComponentKind::Markdown,
         WaveIComponentKind::Chart,
         WaveIComponentKind::ProgressBar,
         WaveIComponentKind::KeyValueGrid,
         WaveIComponentKind::CapabilityChip,
+        WaveIComponentKind::ProvenanceTrace,
+        WaveIComponentKind::ToolCallTrace,
+        WaveIComponentKind::ConfidenceBadge,
+        WaveIComponentKind::CitationBlock,
+        WaveIComponentKind::Diff,
+        WaveIComponentKind::CodeBlock,
     ];
 
     pub const fn code(self) -> &'static str {
@@ -74,6 +99,12 @@ impl WaveIComponentKind {
             WaveIComponentKind::ProgressBar => "progress_bar",
             WaveIComponentKind::KeyValueGrid => "key_value_grid",
             WaveIComponentKind::CapabilityChip => "capability_chip",
+            WaveIComponentKind::ProvenanceTrace => "provenance_trace",
+            WaveIComponentKind::ToolCallTrace => "tool_call_trace",
+            WaveIComponentKind::ConfidenceBadge => "confidence_badge",
+            WaveIComponentKind::CitationBlock => "citation_block",
+            WaveIComponentKind::Diff => "diff",
+            WaveIComponentKind::CodeBlock => "code_block",
         }
     }
 }
@@ -83,9 +114,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn six_distinct_components_iter_64() {
+    fn twelve_distinct_components_iter_65() {
         let s: std::collections::HashSet<_> = WaveIComponentKind::ALL.iter().copied().collect();
-        assert_eq!(s.len(), 6);
+        assert_eq!(s.len(), 12);
     }
 
     #[test]
@@ -96,5 +127,11 @@ mod tests {
         assert_eq!(WaveIComponentKind::ProgressBar.code(), "progress_bar");
         assert_eq!(WaveIComponentKind::KeyValueGrid.code(), "key_value_grid");
         assert_eq!(WaveIComponentKind::CapabilityChip.code(), "capability_chip");
+        assert_eq!(WaveIComponentKind::ProvenanceTrace.code(), "provenance_trace");
+        assert_eq!(WaveIComponentKind::ToolCallTrace.code(), "tool_call_trace");
+        assert_eq!(WaveIComponentKind::ConfidenceBadge.code(), "confidence_badge");
+        assert_eq!(WaveIComponentKind::CitationBlock.code(), "citation_block");
+        assert_eq!(WaveIComponentKind::Diff.code(), "diff");
+        assert_eq!(WaveIComponentKind::CodeBlock.code(), "code_block");
     }
 }
