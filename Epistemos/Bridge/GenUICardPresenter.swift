@@ -121,9 +121,14 @@ final class GenUICardPresenter {
         // unrelated notification (e.g. from a different in-flight
         // card) is ignored.
         return await withCheckedContinuation { (continuation: CheckedContinuation<ClarifyPromptAnswer, Never>) in
-            var observer: NSObjectProtocol?
+            // `observerHolder` is a class-typed wrapper so the
+            // Sendable notification callback can mutate the inner
+            // `value` without tripping "var captured by sendable
+            // closure" — the reference is captured, the value is
+            // updated through it.
+            let observerHolder = ObserverHolder()
             let resumed = AtomicResumed()
-            observer = notificationCenter.addObserver(
+            observerHolder.value = notificationCenter.addObserver(
                 forName: .clarifyCardResolved,
                 object: nil,
                 queue: nil
@@ -136,7 +141,7 @@ final class GenUICardPresenter {
                     return // unrelated card resolved
                 }
                 guard resumed.tryMark() else { return } // already handled
-                if let token = observer {
+                if let token = observerHolder.value {
                     notificationCenter.removeObserver(token)
                 }
                 let response = (userInfo[ClarifyCardNotificationKey.response] as? String) ?? ""
@@ -154,7 +159,12 @@ final class GenUICardPresenter {
 /// Atomic single-fire latch so the notification observer can't
 /// resume the continuation twice if multiple matching notifications
 /// somehow arrive. Pure-Swift, no Foundation/Combine dep needed.
-private final class AtomicResumed: @unchecked Sendable {
+///
+/// `nonisolated` so it can be called from the NotificationCenter
+/// observer callback (which runs on whatever thread NSNotificationCenter
+/// chose) without an actor hop — the NSLock serves as the
+/// synchronization primitive.
+nonisolated private final class AtomicResumed: @unchecked Sendable {
     private let lock = NSLock()
     private var resumed = false
     func tryMark() -> Bool {
@@ -164,4 +174,14 @@ private final class AtomicResumed: @unchecked Sendable {
         resumed = true
         return true
     }
+}
+
+/// Class wrapper around the NSNotificationCenter observer token so a
+/// Sendable closure can update the value without triggering "var
+/// captured by sendable closure" warnings. The token is set once
+/// (by `addObserver`'s return) and read once (by `removeObserver`
+/// inside the same closure tree), so a single-writer/single-reader
+/// implicitly-synchronized model is sufficient — no NSLock needed.
+nonisolated private final class ObserverHolder: @unchecked Sendable {
+    var value: NSObjectProtocol?
 }

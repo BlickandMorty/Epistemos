@@ -548,7 +548,14 @@ extension Notification.Name {
 /// UserInfo keys for `.clarifyCardResolved`. String constants so test
 /// code + ChatCoordinator can pin against them without re-encoding the
 /// literals.
-enum ClarifyCardNotificationKey {
+///
+/// Explicit `nonisolated` because the keys are pure string literals
+/// — they get read from the NotificationCenter observer callback,
+/// which runs on a Sendable closure and inherits no actor. Without
+/// `nonisolated`, the module's `.defaultIsolation(MainActor.self)`
+/// pulls the statics onto MainActor and trips the Swift 6 isolation
+/// checker in GenUICardPresenter's NotificationCenter callback.
+nonisolated enum ClarifyCardNotificationKey {
     static let payloadID = "payloadID"
     static let response = "response"
     static let choiceIndex = "choiceIndex"
