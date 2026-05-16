@@ -37,6 +37,37 @@ impl EmlExpr {
             EmlExpr::Eml(l, r) => 1 + l.size() + r.size(),
         }
     }
+
+    /// Count of `One` leaves in the tree. Per the binary-tree
+    /// identity `leaves = internal_nodes + 1`, this equals
+    /// `(size + 1) / 2` for any well-formed EmlExpr.
+    pub fn leaf_count(&self) -> usize {
+        match self {
+            EmlExpr::One => 1,
+            EmlExpr::Eml(l, r) => l.leaf_count() + r.leaf_count(),
+        }
+    }
+
+    /// Count of `Eml(_, _)` internal nodes. For a binary tree:
+    /// `internal_nodes = leaves - 1`.
+    pub fn internal_node_count(&self) -> usize {
+        match self {
+            EmlExpr::One => 0,
+            EmlExpr::Eml(l, r) => 1 + l.internal_node_count() + r.internal_node_count(),
+        }
+    }
+
+    /// True iff every internal `Eml` has `depth(left) == depth(right)`.
+    /// V6.1 §1.2 production-depth bound is 4; symbolic-regression
+    /// search prefers balanced trees to keep the expression's max
+    /// depth tight relative to its size. Single-leaf `One` is
+    /// vacuously balanced.
+    pub fn is_balanced(&self) -> bool {
+        match self {
+            EmlExpr::One => true,
+            EmlExpr::Eml(l, r) => l.depth() == r.depth() && l.is_balanced() && r.is_balanced(),
+        }
+    }
 }
 
 /// Trivial root expression: just the terminal `1`. Useful as a
@@ -118,5 +149,78 @@ mod tests {
             })
             .collect();
         assert_eq!(sizes, vec![1, 3, 7, 15, 31]);
+    }
+
+    // ── leaf_count + internal_node_count + is_balanced tests (iter 132) ─────
+
+    #[test]
+    fn one_has_leaf_count_one() {
+        assert_eq!(EmlExpr::One.leaf_count(), 1);
+    }
+
+    #[test]
+    fn one_has_zero_internal_nodes() {
+        assert_eq!(EmlExpr::One.internal_node_count(), 0);
+    }
+
+    #[test]
+    fn binary_tree_identity_leaves_equals_internal_plus_one() {
+        // For ANY EmlExpr: leaf_count = internal_node_count + 1.
+        // Verified across depth-0..4 balanced trees.
+        let mut e = EmlExpr::One;
+        for _ in 0..5 {
+            assert_eq!(e.leaf_count(), e.internal_node_count() + 1);
+            e = EmlExpr::eml(e.clone(), e.clone());
+        }
+    }
+
+    #[test]
+    fn size_equals_leaves_plus_internal() {
+        let mut e = EmlExpr::One;
+        for _ in 0..5 {
+            assert_eq!(e.size(), e.leaf_count() + e.internal_node_count());
+            e = EmlExpr::eml(e.clone(), e.clone());
+        }
+    }
+
+    #[test]
+    fn one_is_balanced() {
+        assert!(EmlExpr::One.is_balanced());
+    }
+
+    #[test]
+    fn balanced_pair_is_balanced() {
+        let e = EmlExpr::eml(EmlExpr::One, EmlExpr::One);
+        assert!(e.is_balanced());
+    }
+
+    #[test]
+    fn left_chain_is_unbalanced() {
+        // Eml(Eml(1, 1), 1) → left depth 1, right depth 0.
+        let unbalanced = EmlExpr::eml(
+            EmlExpr::eml(EmlExpr::One, EmlExpr::One),
+            EmlExpr::One,
+        );
+        assert!(!unbalanced.is_balanced());
+    }
+
+    #[test]
+    fn fully_balanced_perfect_binary_tree_passes() {
+        // Depth-3 perfect binary tree.
+        let l1 = EmlExpr::eml(EmlExpr::One, EmlExpr::One);
+        let l2 = EmlExpr::eml(l1.clone(), l1.clone());
+        let l3 = EmlExpr::eml(l2.clone(), l2.clone());
+        assert!(l3.is_balanced());
+        assert_eq!(l3.depth(), 3);
+        assert_eq!(l3.leaf_count(), 8); // 2^3
+    }
+
+    #[test]
+    fn leaf_count_matches_pow2_for_perfect_tree() {
+        let mut e = EmlExpr::One;
+        for d in 0..5 {
+            assert_eq!(e.leaf_count(), 1 << d);
+            e = EmlExpr::eml(e.clone(), e.clone());
+        }
     }
 }
