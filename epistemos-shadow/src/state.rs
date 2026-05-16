@@ -425,6 +425,61 @@ mod tests {
     }
 
     #[test]
+    fn shadow_document_omits_origin_vault_key_when_nil() {
+        // Mirror of the Swift `shadowDocumentDTOOmitsNilOriginVaultKey`
+        // test in EpistemosTests/ShadowServicesTests.swift. Pre-sidecar
+        // consumers (docs.json snapshots minted before 2026-05-15) must
+        // see byte-identical document JSON; that's enforced by the
+        // `#[serde(skip_serializing_if = "Option::is_none")]` attribute
+        // on `ShadowDocument.origin_vault_key`. A future PR that drops
+        // the skip-empty attribute would silently emit
+        // `"origin_vault_key":null` in every doc JSON.
+        let doc = ShadowDocument {
+            doc_id: "n1".into(),
+            title: "Kant on duty".into(),
+            body: "Categorical imperative".into(),
+            domain: "note".into(),
+            origin_vault_key: None,
+        };
+        let json = serde_json::to_string(&doc).unwrap();
+        assert!(
+            !json.contains("origin_vault_key"),
+            "nil origin_vault_key MUST NOT serialize; got: {json}"
+        );
+    }
+
+    #[test]
+    fn shadow_document_round_trips_origin_vault_key_when_set() {
+        // Populated case: encode → decode round-trip preserves the
+        // field value. Mirrors Swift's `shadowDocumentDTORoundTrips
+        // OriginVaultKey`.
+        let doc = ShadowDocument {
+            doc_id: "n2".into(),
+            title: "vault-alpha note".into(),
+            body: "body".into(),
+            domain: "note".into(),
+            origin_vault_key: Some("vault-alpha".into()),
+        };
+        let json = serde_json::to_string(&doc).unwrap();
+        assert!(json.contains("\"origin_vault_key\":\"vault-alpha\""));
+        let decoded: ShadowDocument = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.origin_vault_key.as_deref(), Some("vault-alpha"));
+        assert_eq!(decoded.doc_id, "n2");
+    }
+
+    #[test]
+    fn shadow_document_decodes_pre_sidecar_json_without_field() {
+        // Back-compat: docs.json from before 2026-05-15 has no
+        // `origin_vault_key` field at all. The `#[serde(default)]`
+        // attribute makes the missing field decode to None. Mirrors
+        // Swift's `shadowDocumentDTODecodesPreSidecarJSON`.
+        let pre_sidecar = r#"{"doc_id":"old","title":"T","body":"B","domain":"note"}"#;
+        let decoded: ShadowDocument = serde_json::from_str(pre_sidecar).unwrap();
+        assert!(decoded.origin_vault_key.is_none());
+        assert_eq!(decoded.doc_id, "old");
+    }
+
+    #[test]
     fn unknown_domain_rejected_on_search() {
         let state = fresh_state();
         let err = state.search("kant", "unknown", 10).unwrap_err();
