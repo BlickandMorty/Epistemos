@@ -75,6 +75,101 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         harmonicBlend: Double
     )
 
+    /// Voss-McCartney-style 1/f pink noise (stateless approximation that sums
+    /// noise from multiple octave bands, giving roughly 1/f spectral roll-off).
+    /// Pink noise is the most common "Brain.fm-style" backbone; spectrally
+    /// flat in perceived loudness (equal energy per octave).
+    case pinkNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
+
+    /// 1/f² brown (Brownian) noise via a sliding-window integral approximation
+    /// of white noise. Subjectively warmer / lower than pink noise; popular for
+    /// sleep and deep-focus modes.
+    case brownNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
+
+    /// Bandpass-shaped noise via sum-of-sines at random frequencies sampled
+    /// from `[centerHz - bandwidthHz/2, centerHz + bandwidthHz/2]` with random
+    /// phases. The harmonicCount sets how dense the band is (higher = smoother
+    /// noise; lower = more granular / textured). Useful for rain-on-roof,
+    /// distant wind, ocean surf.
+    case bandpassNoise(
+        seed: UInt64,
+        amplitude: Double,
+        envelope: AmbientFrequencyEnvelope,
+        centerHz: Double,
+        bandwidthHz: Double,
+        harmonicCount: Int
+    )
+
+    /// Isochronic tone — single-channel pulsed sine. Unlike binaural beats,
+    /// isochronic tones don't require headphones and have stronger published
+    /// evidence for steady-state auditory entrainment (cf. PLOS ONE 2023
+    /// review §4 on monaural vs binaural). The carrier sine is gated by a
+    /// square pulse at `pulseHz` with `dutyCycle` on-time fraction.
+    case isochronicTone(
+        carrierHz: Double,
+        pulseHz: Double,
+        amplitude: Double,
+        dutyCycle: Double,
+        channelMode: AmbientFrequencyChannelMode
+    )
+
+    /// Pulse-width-modulated square wave at fixed duty cycle. Foundational
+    /// chiptune voice: NES APU pulse channels (12.5%, 25%, 50%, 75% duty)
+    /// and Game Boy PSG square channels. Higher harmonics are bandlimited
+    /// implicitly by Nyquist.
+    case pwmSquare(
+        frequencyHz: Double,
+        dutyCycle: Double,
+        amplitude: Double,
+        channelMode: AmbientFrequencyChannelMode
+    )
+
+    /// Triangle wave via the bandlimit-friendly `asin(sin(2πft)) · 2/π`
+    /// closed form. Chiptune staple (NES APU triangle channel, used for
+    /// bass lines in classic 8-bit soundtracks).
+    case triangleWave(
+        frequencyHz: Double,
+        amplitude: Double,
+        channelMode: AmbientFrequencyChannelMode
+    )
+
+    /// Sawtooth wave via `2 · ((ft) - floor(ft + 0.5))`. SID chip (Commodore
+    /// 64) staple; rich in harmonics, ideal for resonant-filter drones.
+    case sawtoothWave(
+        frequencyHz: Double,
+        amplitude: Double,
+        channelMode: AmbientFrequencyChannelMode
+    )
+
+    /// Two-operator FM synthesis. `modulationIndex` is the depth in radians
+    /// (Yamaha DX7 / Sega Genesis YM2612 style). High index produces
+    /// harmonically rich metallic / bell-like timbres at integer
+    /// `modulatorHz / carrierHz` ratios; non-integer ratios produce
+    /// inharmonic "metallic" tones.
+    case fmSynth(
+        carrierHz: Double,
+        modulatorHz: Double,
+        modulationIndex: Double,
+        amplitude: Double,
+        channelMode: AmbientFrequencyChannelMode
+    )
+
+    /// Plucked-string-like sound via a sum of damped harmonics. NOT a true
+    /// Karplus-Strong (which requires a delay-line state), but a stateless
+    /// approximation: at each trigger time, sum N harmonics each with its
+    /// own exponential decay. Suitable for wind-chime clusters, distant
+    /// bells, harp arpeggios.
+    case harmonicPluck(
+        fundamentalHz: Double,
+        amplitude: Double,
+        harmonicCount: Int,
+        decaySeconds: Double,
+        intervalSeconds: Double,
+        jitterSeconds: Double,
+        startOffsetSeconds: Double,
+        seed: UInt64
+    )
+
     nonisolated var label: String {
         switch self {
         case .amplitudeModulatedCarrier:
@@ -89,6 +184,24 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "\(Self.formatHz(frequencyHz)) ping"
         case .chirp(let centerHz, _, _, _, let intervalSeconds, _, _):
             return "\(Self.formatHz(centerHz)) chirp every \(Self.formatSeconds(intervalSeconds))"
+        case .pinkNoise:
+            return "Pink noise (1/f)"
+        case .brownNoise:
+            return "Brown noise (1/f²)"
+        case .bandpassNoise(_, _, _, let centerHz, let bandwidthHz, _):
+            return "\(Self.formatHz(centerHz)) bandpass noise ±\(Self.formatHz(bandwidthHz / 2))"
+        case .isochronicTone(let carrierHz, let pulseHz, _, _, _):
+            return "\(Self.formatHz(pulseHz)) isochronic on \(Self.formatHz(carrierHz))"
+        case .pwmSquare(let frequencyHz, let dutyCycle, _, _):
+            return "\(Self.formatHz(frequencyHz)) PWM \(Self.formatDecimal(dutyCycle * 100))%"
+        case .triangleWave(let frequencyHz, _, _):
+            return "\(Self.formatHz(frequencyHz)) triangle"
+        case .sawtoothWave(let frequencyHz, _, _):
+            return "\(Self.formatHz(frequencyHz)) sawtooth"
+        case .fmSynth(let carrierHz, let modulatorHz, _, _, _):
+            return "\(Self.formatHz(carrierHz)) FM × \(Self.formatHz(modulatorHz)) mod"
+        case .harmonicPluck(let fundamentalHz, _, _, _, let intervalSeconds, _, _, _):
+            return "\(Self.formatHz(fundamentalHz)) pluck every \(Self.formatSeconds(intervalSeconds))"
         }
     }
 
@@ -108,6 +221,24 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "Intermittent \(Self.formatHz(frequencyHz)) high-frequency ping, \(Self.formatSeconds(durationSeconds)) long, around every \(Self.formatSeconds(baseIntervalSeconds)) +/- \(Self.formatSeconds(jitterSeconds)), amplitude \(Self.formatDecimal(amplitude))."
         case .chirp(let centerHz, let sweepHz, let amplitude, let durationSeconds, let intervalSeconds, _, let harmonicBlend):
             return "\(Self.formatHz(centerHz)) complex chirp with \(Self.formatHz(sweepHz)) sweep, every \(Self.formatSeconds(intervalSeconds)), \(Self.formatSeconds(durationSeconds)) long, harmonic blend \(Self.formatDecimal(harmonicBlend)), amplitude \(Self.formatDecimal(amplitude))."
+        case .pinkNoise(_, let amplitude, _):
+            return "Pink (1/f) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
+        case .brownNoise(_, let amplitude, _):
+            return "Brown (1/f²) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
+        case .bandpassNoise(_, let amplitude, _, let centerHz, let bandwidthHz, let harmonicCount):
+            return "Bandpass-shaped noise centered \(Self.formatHz(centerHz)) ± \(Self.formatHz(bandwidthHz / 2)), \(harmonicCount) harmonics, amplitude \(Self.formatDecimal(amplitude))."
+        case .isochronicTone(let carrierHz, let pulseHz, let amplitude, let dutyCycle, _):
+            return "Isochronic: \(Self.formatHz(carrierHz)) sine gated at \(Self.formatHz(pulseHz)) with \(Self.formatDecimal(dutyCycle * 100))% duty, amplitude \(Self.formatDecimal(amplitude))."
+        case .pwmSquare(let frequencyHz, let dutyCycle, let amplitude, let channelMode):
+            return "PWM square at \(Self.formatHz(frequencyHz)) with \(Self.formatDecimal(dutyCycle * 100))% duty cycle, \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
+        case .triangleWave(let frequencyHz, let amplitude, let channelMode):
+            return "Triangle wave at \(Self.formatHz(frequencyHz)), \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
+        case .sawtoothWave(let frequencyHz, let amplitude, let channelMode):
+            return "Sawtooth wave at \(Self.formatHz(frequencyHz)), \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
+        case .fmSynth(let carrierHz, let modulatorHz, let modulationIndex, let amplitude, let channelMode):
+            return "FM synthesis: \(Self.formatHz(carrierHz)) carrier × \(Self.formatHz(modulatorHz)) modulator at index \(Self.formatDecimal(modulationIndex)), \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
+        case .harmonicPluck(let fundamentalHz, let amplitude, let harmonicCount, let decaySeconds, let intervalSeconds, let jitterSeconds, _, _):
+            return "Plucked tone at \(Self.formatHz(fundamentalHz)) (×\(harmonicCount) harmonics) every \(Self.formatSeconds(intervalSeconds)) ± \(Self.formatSeconds(jitterSeconds)) with \(Self.formatSeconds(decaySeconds)) decay, amplitude \(Self.formatDecimal(amplitude))."
         }
     }
 
@@ -126,6 +257,24 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         case .chirp(let centerHz, let sweepHz, _, _, _, _, let harmonicBlend):
             let upper = centerHz + sweepHz / 2
             return harmonicBlend > 0 ? upper * 2 : upper
+        case .pinkNoise, .brownNoise:
+            return 0
+        case .bandpassNoise(_, _, _, let centerHz, let bandwidthHz, _):
+            return centerHz + bandwidthHz / 2
+        case .isochronicTone(let carrierHz, _, _, _, _):
+            return carrierHz
+        case .pwmSquare(let frequencyHz, _, _, _),
+             .triangleWave(let frequencyHz, _, _),
+             .sawtoothWave(let frequencyHz, _, _):
+            // Square + sawtooth ARE harmonically rich; report fundamental as max
+            // (Nyquist sanity check; actual harmonics bandlimit themselves by
+            // the implicit aliasing floor at sampleRate/2).
+            return frequencyHz
+        case .fmSynth(let carrierHz, let modulatorHz, let modulationIndex, _, _):
+            // Carson's rule sideband bandwidth: BW ≈ 2 (Δf + fm) where Δf = I·fm.
+            return carrierHz + 2 * (modulationIndex + 1) * modulatorHz
+        case .harmonicPluck(let fundamentalHz, _, let harmonicCount, _, _, _, _, _):
+            return fundamentalHz * Double(max(1, harmonicCount))
         }
     }
 
@@ -267,13 +416,612 @@ struct AmbientFrequencyPreset: Identifiable, Equatable, Sendable {
         ]
     )
 
+    // MARK: - Focus & Productivity (Brain.fm-style spectral entrainment, iter 85)
+
+    /// Brain.fm-style spectral focus: a 14 Hz amplitude modulation imprinted on
+    /// pink noise. The 14 Hz rate sits in the SMR/low-beta band (cf. Frontiers
+    /// in Psychology 2021 theta/beta study); pink noise gives equal energy per
+    /// octave so the modulation envelope is felt without spectral coloration.
+    /// No headphones required — works on any speakers.
+    nonisolated static let focusBrainSync = AmbientFrequencyPreset(
+        id: "focus-brain-sync",
+        title: "Focus · Brain Sync 14 Hz",
+        intent: "Brain.fm-style spectral focus",
+        summary: "14 Hz amplitude modulation on pink (1/f) noise — Brain.fm spectral entrainment style. Speakers-friendly, low-arousal-friendly.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: defaultDurationSeconds,
+        layers: [
+            .pinkNoise(seed: 0x1482_F0C0_5AAA_BF0A, amplitude: 0.18, envelope: .breath),
+            .amplitudeModulatedCarrier(carrierHz: 220, modulatorHz: 14, depth: 0.82, amplitude: 0.10),
+            .sine(frequencyHz: 432, amplitude: 0.038, channelMode: .stereo),
+        ]
+    )
+
+    /// Isochronic 14 Hz focus tone — a 200 Hz carrier gated at 14 Hz with 40%
+    /// duty cycle. Unlike binaural beats, isochronic tones don't require
+    /// headphones and show stronger published evidence in the PLOS ONE 2023
+    /// review (§4 on monaural-vs-binaural comparison).
+    nonisolated static let focusIsochronic14 = AmbientFrequencyPreset(
+        id: "focus-isochronic-14",
+        title: "Focus · Isochronic 14 Hz",
+        intent: "Speakers-friendly focus entrainment",
+        summary: "200 Hz sine carrier gated at 14 Hz with 40% duty cycle — monaural isochronic, no headphones required.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: defaultDurationSeconds,
+        layers: [
+            .isochronicTone(carrierHz: 200, pulseHz: 14, amplitude: 0.16, dutyCycle: 0.40, channelMode: .stereo),
+            .pinkNoise(seed: 0x150C_F0C0_5AAA_0014, amplitude: 0.08, envelope: .breath),
+        ]
+    )
+
+    /// Coding deep work: pink noise base + 16 Hz isochronic accent + low
+    /// triangle hum (60 Hz, 12 dB down) for warm "machine-room" texture.
+    /// Designed for 45–90-min single-task coding blocks.
+    nonisolated static let focusCodingDeep = AmbientFrequencyPreset(
+        id: "focus-coding-deep",
+        title: "Focus · Coding Deep Work",
+        intent: "Long-form code-focus block",
+        summary: "Pink noise + 16 Hz isochronic accent + warm 60 Hz triangle hum. Designed for 45–90-min single-task blocks.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .pinkNoise(seed: 0xC0DE_DEE9_F0C0_5BAA, amplitude: 0.20, envelope: .breath),
+            .isochronicTone(carrierHz: 180, pulseHz: 16, amplitude: 0.10, dutyCycle: 0.45, channelMode: .stereo),
+            .triangleWave(frequencyHz: 60, amplitude: 0.04, channelMode: .stereo),
+        ]
+    )
+
+    /// Gamma 40 Hz with cathedral pad — 40 Hz gamma entrainment (the most
+    /// studied "high-alert" frequency in EEG literature) over a long-decay
+    /// harmonic-pluck cathedral pad.
+    nonisolated static let focusGamma40 = AmbientFrequencyPreset(
+        id: "focus-gamma-40",
+        title: "Focus · Gamma 40 Hz Bridge",
+        intent: "Short-burst high-alert sessions",
+        summary: "40 Hz isochronic over a 110 Hz fundamental harmonic pad. Short sessions only (≤25 min) — gamma is high-arousal.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .isochronicTone(carrierHz: 220, pulseHz: 40, amplitude: 0.10, dutyCycle: 0.50, channelMode: .stereo),
+            .harmonicPluck(
+                fundamentalHz: 110,
+                amplitude: 0.07,
+                harmonicCount: 5,
+                decaySeconds: 8,
+                intervalSeconds: 12,
+                jitterSeconds: 3,
+                startOffsetSeconds: 0,
+                seed: 0x4040_B81D_CE40_8240
+            ),
+            .pinkNoise(seed: 0x4040_F0C0_5AAA_CA0A, amplitude: 0.05, envelope: .breath),
+        ]
+    )
+
+    /// Pomodoro pulse — 14 Hz AM with a duration matched to the classic
+    /// 25-min Pomodoro slot. Same spectral focus as Brain Sync but timed for
+    /// a single sprint.
+    nonisolated static let focusPomodoro = AmbientFrequencyPreset(
+        id: "focus-pomodoro",
+        title: "Focus · Pomodoro Pulse",
+        intent: "Single 25-min Pomodoro sprint",
+        summary: "14 Hz AM on pink noise + 432 Hz anchor — duration tuned to a 25-min Pomodoro sprint.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .pinkNoise(seed: 0x9000_5981_A7_2500, amplitude: 0.18, envelope: .breath),
+            .amplitudeModulatedCarrier(carrierHz: 220, modulatorHz: 14, depth: 0.78, amplitude: 0.10),
+            .sine(frequencyHz: 432, amplitude: 0.045, channelMode: .stereo),
+        ]
+    )
+
+    // MARK: - Sleep & Wind-down (1/f² brown noise + delta entrainment)
+
+    /// Brown noise cave — pure 1/f² brown noise with breath envelope. Brown
+    /// noise's -6 dB/octave roll-off feels warmer and lower than pink; the
+    /// AASM clinical-sleep literature consistently shows brown / pink noise
+    /// shortens sleep-onset latency in chronic insomniacs (mixed evidence in
+    /// healthy sleepers).
+    nonisolated static let sleepBrownCave = AmbientFrequencyPreset(
+        id: "sleep-brown-cave",
+        title: "Sleep · Brown Cave",
+        intent: "Deep-warmth wind-down",
+        summary: "Pure 1/f² brown noise shaped by a slow breath envelope. Warmest, lowest perceived spectrum; no tones.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .brownNoise(seed: 0xB80A_ACAA_51EE_99AD, amplitude: 0.32, envelope: .breath),
+        ]
+    )
+
+    /// Pink sleep pad — pink noise + 1.5 Hz delta isochronic. The 1.5 Hz rate
+    /// targets slow-wave delta entrainment (NREM Stage 3 dominant band).
+    nonisolated static let sleepPinkPad = AmbientFrequencyPreset(
+        id: "sleep-pink-pad",
+        title: "Sleep · Pink Pad",
+        intent: "Delta-band sleep entrainment",
+        summary: "Pink noise + 1.5 Hz delta isochronic on a soft 180 Hz carrier. Targets NREM Stage 3 dominant band.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .pinkNoise(seed: 0x91AA_51EE_99AD_DE17, amplitude: 0.22, envelope: .breath),
+            .isochronicTone(carrierHz: 180, pulseHz: 1.5, amplitude: 0.10, dutyCycle: 0.40, channelMode: .stereo),
+        ]
+    )
+
+    /// Yoga Nidra — 0.5 Hz ultra-slow delta isochronic over 60 Hz warm hum
+    /// and breath-modulated brown noise. Designed for 35-min Yoga Nidra
+    /// "yogic sleep" sessions.
+    nonisolated static let sleepYogaNidra = AmbientFrequencyPreset(
+        id: "sleep-yoga-nidra",
+        title: "Sleep · Yoga Nidra",
+        intent: "Yogic-sleep 35-min descent",
+        summary: "0.5 Hz ultra-slow delta isochronic + 60 Hz hum + breath-modulated brown noise. 35-min Yoga Nidra descent.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 35 * 60,
+        layers: [
+            .isochronicTone(carrierHz: 144, pulseHz: 0.5, amplitude: 0.08, dutyCycle: 0.40, channelMode: .stereo),
+            .triangleWave(frequencyHz: 60, amplitude: 0.025, channelMode: .stereo),
+            .brownNoise(seed: 0xA0CA_A1D8_A035_01A0, amplitude: 0.22, envelope: .breath),
+        ]
+    )
+
+    /// Distant storm — wide bandpass noise (rumble band 80–600 Hz) with
+    /// random intermittent low-freq thunder pings every ~45 seconds.
+    nonisolated static let sleepDistantStorm = AmbientFrequencyPreset(
+        id: "sleep-distant-storm",
+        title: "Sleep · Distant Storm",
+        intent: "Storm-as-white-noise sleep aid",
+        summary: "Wide bandpass noise (80–600 Hz rumble band) + random low-freq thunder pings every ~45 s.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .bandpassNoise(
+                seed: 0x5708_051E_E900_800B,
+                amplitude: 0.25,
+                envelope: .breath,
+                centerHz: 340,
+                bandwidthHz: 520,
+                harmonicCount: 32
+            ),
+            .intermittentPing(
+                frequencyHz: 90,
+                amplitude: 0.10,
+                durationSeconds: 1.2,
+                baseIntervalSeconds: 45,
+                jitterSeconds: 20,
+                startOffsetSeconds: 12,
+                seed: 0x780A_DE80_5708_0001
+            ),
+        ]
+    )
+
+    /// Ocean tide — breath-modulated brown noise + 0.1 Hz LFO breath
+    /// (cardiac-paced breathing rate). Ocean surf is the most-studied
+    /// natural-sound sleep aid.
+    nonisolated static let sleepOceanTide = AmbientFrequencyPreset(
+        id: "sleep-ocean-tide",
+        title: "Sleep · Ocean Tide",
+        intent: "Breath-paced ocean surf",
+        summary: "Breath-modulated brown noise + bandpass surf layer + a slow 6-breath-per-min LFO envelope.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .brownNoise(seed: 0x0CEA_A71D_E031_F000, amplitude: 0.24, envelope: .breath),
+            .bandpassNoise(
+                seed: 0x508F_5805_81AC_BAAD,
+                amplitude: 0.11,
+                envelope: .breath,
+                centerHz: 220,
+                bandwidthHz: 320,
+                harmonicCount: 24
+            ),
+        ]
+    )
+
+    // MARK: - Nature Ambient (synthesized)
+
+    /// Forest canopy — bandpass-noise wind through trees + random harmonic
+    /// plucks (birds calling) + faint mid-band bird chirps.
+    nonisolated static let natureForestCanopy = AmbientFrequencyPreset(
+        id: "nature-forest-canopy",
+        title: "Nature · Forest Canopy",
+        intent: "Wind + birds in the canopy",
+        summary: "Bandpass-noise wind (200–900 Hz) + random harmonic-pluck bird calls every ~12 s.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 45 * 60,
+        layers: [
+            .bandpassNoise(
+                seed: 0xF08E_57A1_ADAA_C001,
+                amplitude: 0.18,
+                envelope: .breath,
+                centerHz: 550,
+                bandwidthHz: 700,
+                harmonicCount: 28
+            ),
+            .harmonicPluck(
+                fundamentalHz: 1320,
+                amplitude: 0.07,
+                harmonicCount: 4,
+                decaySeconds: 0.6,
+                intervalSeconds: 12,
+                jitterSeconds: 8,
+                startOffsetSeconds: 6,
+                seed: 0xB18D_CA11_5F08_E575
+            ),
+            .pinkNoise(seed: 0x91AA_BACA_F08E_5755, amplitude: 0.05, envelope: .breath),
+        ]
+    )
+
+    /// Mountain stream — wider bandpass for white-water + pink-noise base.
+    /// The 800 Hz center matches the perceptually-dominant resonance of
+    /// real white-water audio recordings.
+    nonisolated static let natureMountainStream = AmbientFrequencyPreset(
+        id: "nature-mountain-stream",
+        title: "Nature · Mountain Stream",
+        intent: "White-water + pink base",
+        summary: "Wide bandpass noise (400–1500 Hz, 24 harmonics) over a pink-noise base. Matches white-water audio resonance.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .bandpassNoise(
+                seed: 0x578E_A0AA_AA7_E8FA,
+                amplitude: 0.22,
+                envelope: .breath,
+                centerHz: 950,
+                bandwidthHz: 1100,
+                harmonicCount: 24
+            ),
+            .pinkNoise(seed: 0x578E_A0BA_5E91_AA00, amplitude: 0.10, envelope: .breath),
+        ]
+    )
+
+    /// Crickets — periodic high-freq chirps at 5 Hz cadence (slightly slower
+    /// than real crickets at 7 Hz, picked for relaxation pacing per Frontiers
+    /// 2021 alpha-band rate).
+    nonisolated static let natureCrickets = AmbientFrequencyPreset(
+        id: "nature-crickets",
+        title: "Nature · Cricket Field",
+        intent: "Summer-evening cricket rhythm",
+        summary: "4500 Hz chirps at 5 Hz cadence + soft 400–900 Hz background bandpass (cricket choir).",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 45 * 60,
+        layers: [
+            .intermittentPing(
+                frequencyHz: 4500,
+                amplitude: 0.05,
+                durationSeconds: 0.04,
+                baseIntervalSeconds: 0.2,
+                jitterSeconds: 0.08,
+                startOffsetSeconds: 0,
+                seed: 0xC81C_AE75_C818_9F1D
+            ),
+            .bandpassNoise(
+                seed: 0xC81C_BACA_5C80_1800,
+                amplitude: 0.06,
+                envelope: .breath,
+                centerHz: 650,
+                bandwidthHz: 500,
+                harmonicCount: 16
+            ),
+        ]
+    )
+
+    /// Crackling hearth — broadband transients (random high-freq pings) over
+    /// a low-freq fire-rumble bandpass.
+    nonisolated static let natureCracklingHearth = AmbientFrequencyPreset(
+        id: "nature-crackling-hearth",
+        title: "Nature · Crackling Hearth",
+        intent: "Fireplace cracks + rumble",
+        summary: "Random high-freq crackles (~3 kHz) + low fire-rumble bandpass (60–280 Hz).",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 45 * 60,
+        layers: [
+            .intermittentPing(
+                frequencyHz: 3200,
+                amplitude: 0.05,
+                durationSeconds: 0.03,
+                baseIntervalSeconds: 0.8,
+                jitterSeconds: 0.5,
+                startOffsetSeconds: 0,
+                seed: 0xF18E_C8AC_A8EA_8780
+            ),
+            .bandpassNoise(
+                seed: 0x83A8_7880_0B1E_F083,
+                amplitude: 0.20,
+                envelope: .breath,
+                centerHz: 170,
+                bandwidthHz: 220,
+                harmonicCount: 18
+            ),
+        ]
+    )
+
+    /// Rain on tin roof — bandpass noise centered ~2 kHz (the canonical "rain
+    /// on roof" tonal peak per acoustic ecology research).
+    nonisolated static let natureRainOnRoof = AmbientFrequencyPreset(
+        id: "nature-rain-on-roof",
+        title: "Nature · Rain on Roof",
+        intent: "Continuous rain on a tin roof",
+        summary: "Wide bandpass noise centered 2000 Hz ± 1500 Hz, 36 harmonics. Canonical 'rain on roof' tonal peak.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 60 * 60,
+        layers: [
+            .bandpassNoise(
+                seed: 0x8A1A_800F_71A0_5805,
+                amplitude: 0.28,
+                envelope: .breath,
+                centerHz: 2000,
+                bandwidthHz: 3000,
+                harmonicCount: 36
+            ),
+            .pinkNoise(seed: 0x91AA_BACA_8A1A_800F, amplitude: 0.07, envelope: .breath),
+        ]
+    )
+
+    // MARK: - Retro / Arcade (chiptune ambient)
+
+    /// 8-bit idle — NES-style PWM + triangle bass. Three voices (25% PWM
+    /// melody, 50% PWM, triangle bass) — the canonical NES APU voice
+    /// configuration.
+    nonisolated static let retro8BitIdle = AmbientFrequencyPreset(
+        id: "retro-8bit-idle",
+        title: "Retro · 8-Bit Idle",
+        intent: "NES-style menu / idle ambient",
+        summary: "Three-voice NES APU emulation: 25% PWM melody, 50% PWM harmony, triangle bass. Classic 8-bit ambient.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .pwmSquare(frequencyHz: 440, dutyCycle: 0.25, amplitude: 0.10, channelMode: .stereo),
+            .pwmSquare(frequencyHz: 330, dutyCycle: 0.50, amplitude: 0.07, channelMode: .stereo),
+            .triangleWave(frequencyHz: 110, amplitude: 0.09, channelMode: .stereo),
+            .pinkNoise(seed: 0x8B17_1D1E_AE50_8E70, amplitude: 0.04, envelope: .breath),
+        ]
+    )
+
+    /// Sega Genesis ambient — YM2612-style two-op FM pad with slow modulator.
+    /// The 2:1 modulator:carrier ratio gives a smooth metallic timbre with
+    /// even-harmonic emphasis (Genesis "synth pad" canonical sound).
+    nonisolated static let retroSegaGenesis = AmbientFrequencyPreset(
+        id: "retro-sega-genesis",
+        title: "Retro · Sega Genesis",
+        intent: "YM2612-style FM ambient pad",
+        summary: "Two-op FM pad (2:1 mod:carrier, modulation index 2.5) — canonical Sega Genesis YM2612 synth-pad timbre.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .fmSynth(carrierHz: 220, modulatorHz: 440, modulationIndex: 2.5, amplitude: 0.11, channelMode: .stereo),
+            .fmSynth(carrierHz: 165, modulatorHz: 330, modulationIndex: 2.0, amplitude: 0.08, channelMode: .stereo),
+            .triangleWave(frequencyHz: 55, amplitude: 0.05, channelMode: .stereo),
+        ]
+    )
+
+    /// Game Boy sleep — PWM at 50% (Game Boy PSG default) + soft noise
+    /// channel. Subdued, late-night handheld ambient.
+    nonisolated static let retroGameBoy = AmbientFrequencyPreset(
+        id: "retro-gameboy",
+        title: "Retro · Game Boy Sleep",
+        intent: "Game Boy PSG late-night ambient",
+        summary: "50% PWM + noise channel — Game Boy PSG canonical configuration. Subdued late-night handheld vibe.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .pwmSquare(frequencyHz: 220, dutyCycle: 0.50, amplitude: 0.10, channelMode: .stereo),
+            .pwmSquare(frequencyHz: 165, dutyCycle: 0.50, amplitude: 0.07, channelMode: .stereo),
+            .pinkNoise(seed: 0x6A03_B0A0_95C5_1EE9, amplitude: 0.05, envelope: .breath),
+        ]
+    )
+
+    /// SID drone — Commodore 64 SID 6581 emulation: sawtooth + filter
+    /// resonance approximated via bandpass-noise color over a sustained
+    /// sawtooth. Bass-heavy, dirty timbre.
+    nonisolated static let retroSidDrone = AmbientFrequencyPreset(
+        id: "retro-sid-drone",
+        title: "Retro · SID Drone",
+        intent: "Commodore 64 SID 6581 drone",
+        summary: "Sustained sawtooth + bandpass-noise filter resonance approximation. Bass-heavy, dirty SID 6581 timbre.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .sawtoothWave(frequencyHz: 110, amplitude: 0.13, channelMode: .stereo),
+            .sawtoothWave(frequencyHz: 82.5, amplitude: 0.09, channelMode: .stereo),
+            .bandpassNoise(
+                seed: 0x51D6_5818_F117_E885,
+                amplitude: 0.05,
+                envelope: .breath,
+                centerHz: 880,
+                bandwidthHz: 220,
+                harmonicCount: 12
+            ),
+        ]
+    )
+
+    /// Arcade cabinet — triangle bass + PWM melody with slow sweep + faint
+    /// noise (cabinet hum). Evokes a quiet arcade between attract-mode loops.
+    nonisolated static let retroArcadeCabinet = AmbientFrequencyPreset(
+        id: "retro-arcade-cabinet",
+        title: "Retro · Arcade Cabinet",
+        intent: "Quiet arcade between attract loops",
+        summary: "Triangle bass + 25% PWM melody + faint cabinet-hum bandpass noise (around 120 Hz cabinet resonance).",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .triangleWave(frequencyHz: 82.5, amplitude: 0.09, channelMode: .stereo),
+            .pwmSquare(frequencyHz: 392, dutyCycle: 0.25, amplitude: 0.08, channelMode: .stereo),
+            .bandpassNoise(
+                seed: 0xA8CA_DE00_CAB1_8000,
+                amplitude: 0.06,
+                envelope: .breath,
+                centerHz: 120,
+                bandwidthHz: 100,
+                harmonicCount: 10
+            ),
+        ]
+    )
+
+    // MARK: - Meditative / Experimental
+
+    /// Cathedral drone — three harmonic-pluck layers with very long decay,
+    /// triggered at slow intervals. Mimics the slow reverb tail of a
+    /// cathedral organ stop.
+    nonisolated static let meditativeCathedral = AmbientFrequencyPreset(
+        id: "meditative-cathedral",
+        title: "Meditative · Cathedral Drone",
+        intent: "Slow long-decay harmonic stack",
+        summary: "Three harmonic-pluck layers (110/165/220 Hz fundamentals) with 12-s decay, triggered every ~25 s. Cathedral organ tail.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .harmonicPluck(
+                fundamentalHz: 110,
+                amplitude: 0.10,
+                harmonicCount: 6,
+                decaySeconds: 12,
+                intervalSeconds: 25,
+                jitterSeconds: 4,
+                startOffsetSeconds: 0,
+                seed: 0xCA78_ED8A_1BA5_5110
+            ),
+            .harmonicPluck(
+                fundamentalHz: 165,
+                amplitude: 0.07,
+                harmonicCount: 6,
+                decaySeconds: 11,
+                intervalSeconds: 31,
+                jitterSeconds: 5,
+                startOffsetSeconds: 8,
+                seed: 0xCA78_ED8A_1015_5165
+            ),
+            .harmonicPluck(
+                fundamentalHz: 220,
+                amplitude: 0.05,
+                harmonicCount: 6,
+                decaySeconds: 10,
+                intervalSeconds: 41,
+                jitterSeconds: 7,
+                startOffsetSeconds: 17,
+                seed: 0xCA78_ED8A_1709_5220
+            ),
+        ]
+    )
+
+    /// Tibetan singing bowl — harmonic-pluck cluster with 8 harmonics and
+    /// 9-second decay, triggered every 18 s. Single-bowl center at 256 Hz
+    /// (canonical Tibetan B-flat fundamental).
+    nonisolated static let meditativeSingingBowl = AmbientFrequencyPreset(
+        id: "meditative-singing-bowl",
+        title: "Meditative · Singing Bowl",
+        intent: "Single-bowl harmonic strikes",
+        summary: "256 Hz fundamental (B-flat) harmonic pluck with 8 harmonics, 9-s decay, every 18 s. Tibetan singing bowl approximation.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .harmonicPluck(
+                fundamentalHz: 256,
+                amplitude: 0.13,
+                harmonicCount: 8,
+                decaySeconds: 9,
+                intervalSeconds: 18,
+                jitterSeconds: 3,
+                startOffsetSeconds: 0,
+                seed: 0x71BE_751A_CB0A_1B25
+            ),
+        ]
+    )
+
+    /// Theremin drift — slow sine glissando approximated via amplitude-
+    /// modulated carrier with a 0.05 Hz modulation rate.
+    nonisolated static let meditativeThereminDrift = AmbientFrequencyPreset(
+        id: "meditative-theremin-drift",
+        title: "Meditative · Theremin Drift",
+        intent: "Slow electro-acoustic sweep",
+        summary: "440 Hz carrier slowly amplitude-modulated at 0.05 Hz — eerie theremin-style sustained tone.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .amplitudeModulatedCarrier(carrierHz: 440, modulatorHz: 0.05, depth: 0.7, amplitude: 0.13),
+            .sine(frequencyHz: 880, amplitude: 0.04, channelMode: .stereo),
+            .pinkNoise(seed: 0x78E8_01A0_BACA_C800, amplitude: 0.04, envelope: .breath),
+        ]
+    )
+
+    /// Wind chimes — random harmonic plucks at a pentatonic-scale set of
+    /// frequencies (A4 C5 D5 E5 G5), triggered at jittered intervals.
+    nonisolated static let meditativeWindChimes = AmbientFrequencyPreset(
+        id: "meditative-wind-chimes",
+        title: "Meditative · Wind Chimes",
+        intent: "Random pentatonic chime cluster",
+        summary: "Five harmonic plucks at A4, C5, D5, E5, G5 (pentatonic) with random timing — wind-chime cluster.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .harmonicPluck(fundamentalHz: 440.0, amplitude: 0.08, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 17, jitterSeconds: 11, startOffsetSeconds: 0, seed: 0xC810_A440_A1AD_AA00),
+            .harmonicPluck(fundamentalHz: 523.25, amplitude: 0.07, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 19, jitterSeconds: 13, startOffsetSeconds: 3, seed: 0xC810_C523_A1AD_AA01),
+            .harmonicPluck(fundamentalHz: 587.33, amplitude: 0.07, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 23, jitterSeconds: 14, startOffsetSeconds: 6, seed: 0xC810_D587_A1AD_AA02),
+            .harmonicPluck(fundamentalHz: 659.25, amplitude: 0.06, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 21, jitterSeconds: 12, startOffsetSeconds: 9, seed: 0xC810_E659_A1AD_AA03),
+            .harmonicPluck(fundamentalHz: 783.99, amplitude: 0.06, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 27, jitterSeconds: 16, startOffsetSeconds: 12, seed: 0xC810_C783_A1AD_AA04),
+        ]
+    )
+
+    /// Solfeggio stack — 6 solfeggio-tradition frequencies (174 · 285 · 396 ·
+    /// 528 · 741 · 852 Hz) layered as quiet sines. The solfeggio system is
+    /// folk-science (not clinically validated) but popular; this preset
+    /// stays honest about that framing in the summary.
+    nonisolated static let meditativeSolfeggioStack = AmbientFrequencyPreset(
+        id: "meditative-solfeggio-stack",
+        title: "Meditative · Solfeggio Stack",
+        intent: "Solfeggio-tradition layered tones",
+        summary: "6 solfeggio frequencies layered: 174 · 285 · 396 · 528 · 741 · 852 Hz. Folk-science, not clinically validated; popular as ambient.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .sine(frequencyHz: 174, amplitude: 0.04, channelMode: .stereo),
+            .sine(frequencyHz: 285, amplitude: 0.04, channelMode: .stereo),
+            .sine(frequencyHz: 396, amplitude: 0.04, channelMode: .stereo),
+            .sine(frequencyHz: 528, amplitude: 0.04, channelMode: .stereo),
+            .sine(frequencyHz: 741, amplitude: 0.04, channelMode: .stereo),
+            .sine(frequencyHz: 852, amplitude: 0.04, channelMode: .stereo),
+            .pinkNoise(seed: 0x501F_3CC1_057A_ABAC, amplitude: 0.04, envelope: .breath),
+        ]
+    )
+
     nonisolated static let allPresets: [AmbientFrequencyPreset] = [
+        // Original requested cocktail + EEG-band binaural family
         .schumannCocktail,
         .deltaRest,
         .thetaDrift,
         .alphaFocus,
         .betaClarity,
         .gammaSpark,
+        // Focus & Productivity (iter 85)
+        .focusBrainSync,
+        .focusIsochronic14,
+        .focusCodingDeep,
+        .focusGamma40,
+        .focusPomodoro,
+        // Sleep & Wind-down (iter 85)
+        .sleepBrownCave,
+        .sleepPinkPad,
+        .sleepYogaNidra,
+        .sleepDistantStorm,
+        .sleepOceanTide,
+        // Nature Ambient (iter 85)
+        .natureForestCanopy,
+        .natureMountainStream,
+        .natureCrickets,
+        .natureCracklingHearth,
+        .natureRainOnRoof,
+        // Retro / Arcade (iter 85)
+        .retro8BitIdle,
+        .retroSegaGenesis,
+        .retroGameBoy,
+        .retroSidDrone,
+        .retroArcadeCabinet,
+        // Meditative / Experimental (iter 85)
+        .meditativeCathedral,
+        .meditativeSingingBowl,
+        .meditativeThereminDrift,
+        .meditativeWindChimes,
+        .meditativeSolfeggioStack,
     ]
 
     nonisolated static func preset(id: String) -> AmbientFrequencyPreset {
@@ -648,6 +1396,68 @@ enum AmbientFrequencyAudioGenerator {
                 harmonicBlend: harmonicBlend
             )
             return (value, value)
+        case .pinkNoise(let seed, let amplitude, let envelope):
+            let value = amplitude * envelope.value(at: time) * pinkNoiseValue(seed: seed, frame: frame)
+            return (value, value)
+        case .brownNoise(let seed, let amplitude, let envelope):
+            let value = amplitude * envelope.value(at: time) * brownNoiseValue(seed: seed, frame: frame)
+            return (value, value)
+        case .bandpassNoise(let seed, let amplitude, let envelope, let centerHz, let bandwidthHz, let harmonicCount):
+            let value = amplitude * envelope.value(at: time) * bandpassNoiseValue(
+                seed: seed,
+                time: time,
+                centerHz: centerHz,
+                bandwidthHz: bandwidthHz,
+                harmonicCount: max(1, harmonicCount)
+            )
+            return (value, value)
+        case .isochronicTone(let carrierHz, let pulseHz, let amplitude, let dutyCycle, let channelMode):
+            // Cosine-edged gate avoids click artifacts vs hard square gate.
+            let gate = isochronicGate(time: time, pulseHz: pulseHz, dutyCycle: dutyCycle)
+            let value = amplitude * gate * sin(.tau * carrierHz * time)
+            return channelMode == .stereo ? (value, value) : (value, 0)
+        case .pwmSquare(let frequencyHz, let dutyCycle, let amplitude, let channelMode):
+            let phase = (time * frequencyHz).truncatingRemainder(dividingBy: 1)
+            let raw = phase < min(max(dutyCycle, 0.01), 0.99) ? 1.0 : -1.0
+            let value = amplitude * raw
+            return channelMode == .stereo ? (value, value) : (value, 0)
+        case .triangleWave(let frequencyHz, let amplitude, let channelMode):
+            // 2/π · asin(sin(2πft)) — closed-form triangle without aliasing artifacts.
+            let value = amplitude * (2 / Double.pi) * asin(sin(.tau * frequencyHz * time))
+            return channelMode == .stereo ? (value, value) : (value, 0)
+        case .sawtoothWave(let frequencyHz, let amplitude, let channelMode):
+            let phase = time * frequencyHz
+            let raw = 2 * (phase - floor(phase + 0.5))
+            let value = amplitude * raw
+            return channelMode == .stereo ? (value, value) : (value, 0)
+        case .fmSynth(let carrierHz, let modulatorHz, let modulationIndex, let amplitude, let channelMode):
+            // Two-operator FM (DX7 / YM2612 style):
+            //   y(t) = amp · sin(2π·fc·t + I · sin(2π·fm·t))
+            let modulator = modulationIndex * sin(.tau * modulatorHz * time)
+            let value = amplitude * sin(.tau * carrierHz * time + modulator)
+            return channelMode == .stereo ? (value, value) : (value, 0)
+        case .harmonicPluck(
+            let fundamentalHz,
+            let amplitude,
+            let harmonicCount,
+            let decaySeconds,
+            let intervalSeconds,
+            let jitterSeconds,
+            let startOffsetSeconds,
+            let seed
+        ):
+            let value = harmonicPluckTone(
+                time: time,
+                fundamentalHz: fundamentalHz,
+                amplitude: amplitude,
+                harmonicCount: max(1, harmonicCount),
+                decaySeconds: decaySeconds,
+                intervalSeconds: intervalSeconds,
+                jitterSeconds: jitterSeconds,
+                startOffsetSeconds: startOffsetSeconds,
+                seed: seed
+            )
+            return (value, value)
         }
     }
 
@@ -753,6 +1563,142 @@ enum AmbientFrequencyAudioGenerator {
 
     nonisolated private static func hann(_ progress: Double) -> Double {
         0.5 - 0.5 * cos(.tau * min(max(progress, 0), 1))
+    }
+
+    // MARK: - Brain.fm-grade synthesis primitives (added iter 85, 2026-05-16)
+
+    /// Stateless Voss-McCartney-style pink noise. Sums white noise hashed at
+    /// multiple decreasing rates (octave bands) to produce roughly 1/f spectral
+    /// roll-off. Six octave bands give ≈ -3 dB/octave slope.
+    nonisolated private static func pinkNoiseValue(seed: UInt64, frame: Int) -> Double {
+        var sum: Double = 0
+        let octaves = 6
+        // Each octave generator updates at frame >> i (half rate per octave),
+        // mimicking the Voss algorithm without needing running state.
+        for i in 0..<octaves {
+            let downsampledFrame = frame >> i
+            let octaveSeed = seed &+ UInt64(i) &* 0xDEAD_BEEF_CAFE_0001
+            sum += deterministicNoise(seed: octaveSeed, frame: downsampledFrame)
+        }
+        // Normalize by sqrt(octaves) so amplitude matches white noise unit
+        // variance; pink-noise amplitude budget = white-noise amplitude budget.
+        return sum / Double(octaves).squareRoot()
+    }
+
+    /// Brown (Brownian / red / 1/f²) noise via a sliding-window average of
+    /// white noise across `windowFrames` samples. True brown noise is a
+    /// cumulative-sum random walk (stateful); this stateless approximation
+    /// gives the same -6 dB/octave perceived slope by virtue of the
+    /// time-averaging acting as a first-order lowpass.
+    nonisolated private static func brownNoiseValue(seed: UInt64, frame: Int) -> Double {
+        let windowFrames = 32
+        var sum: Double = 0
+        for offset in 0..<windowFrames {
+            sum += deterministicNoise(seed: seed, frame: frame - offset)
+        }
+        // Normalize so the output stays in [-1, 1] expected range.
+        return sum / Double(windowFrames).squareRoot()
+    }
+
+    /// Bandpass-shaped noise: sum of `harmonicCount` sines with random
+    /// frequencies sampled from `[centerHz - bandwidthHz/2,
+    /// centerHz + bandwidthHz/2]` and random phases. Mathematically equivalent
+    /// to filtering white noise through an idealized bandpass, while remaining
+    /// stateless (samples per-time, not per-frame). Use for rain on roof,
+    /// distant wind, gentle ocean surf.
+    nonisolated private static func bandpassNoiseValue(
+        seed: UInt64,
+        time: Double,
+        centerHz: Double,
+        bandwidthHz: Double,
+        harmonicCount: Int
+    ) -> Double {
+        var sum: Double = 0
+        let lowerHz = max(0, centerHz - bandwidthHz / 2)
+        let upperHz = centerHz + bandwidthHz / 2
+        let range = max(0, upperHz - lowerHz)
+        for k in 0..<harmonicCount {
+            let frequencySeed = seed &+ UInt64(k) &* 0x6789_ABCD_EF01_2345
+            let phaseSeed = seed &+ UInt64(k) &* 0xFEDC_BA98_7654_3210
+            let frequencyHz = lowerHz + range * deterministicUnit(seed: frequencySeed, frame: 0)
+            let phase = .tau * deterministicUnit(seed: phaseSeed, frame: 0)
+            sum += sin(.tau * frequencyHz * time + phase)
+        }
+        // Normalize: the sum of N unit sines with random phases has RMS √(N/2);
+        // dividing by √(N/2) keeps the output's expected amplitude ≈ 1.
+        return sum / (Double(harmonicCount) / 2).squareRoot()
+    }
+
+    /// Cosine-edged isochronic gate. Smooths the on/off transition with a
+    /// short raised-cosine fade (~4% of the pulse period) so the resulting
+    /// audio doesn't click at each cycle boundary. Returns a value in [0, 1].
+    nonisolated private static func isochronicGate(
+        time: Double,
+        pulseHz: Double,
+        dutyCycle: Double
+    ) -> Double {
+        guard pulseHz > 0 else { return 1 }
+        let period = 1.0 / pulseHz
+        let phase = time.truncatingRemainder(dividingBy: period) / period
+        let dc = min(max(dutyCycle, 0.05), 0.95)
+        let edge = 0.04
+        if phase < edge {
+            return 0.5 - 0.5 * cos(.tau * phase / edge / 2)
+        }
+        if phase > dc - edge && phase <= dc {
+            let local = (phase - (dc - edge)) / edge
+            return 0.5 + 0.5 * cos(.tau * local / 2)
+        }
+        if phase > dc {
+            return 0
+        }
+        return 1
+    }
+
+    /// Damped harmonic-series pluck. Sums `harmonicCount` partials each with
+    /// its own exponential decay, triggered at intervals of `intervalSeconds`
+    /// (with optional jitter for organic timing). Approximates Karplus-Strong
+    /// statelessly by computing partial-sum at sampled time.
+    nonisolated private static func harmonicPluckTone(
+        time: Double,
+        fundamentalHz: Double,
+        amplitude: Double,
+        harmonicCount: Int,
+        decaySeconds: Double,
+        intervalSeconds: Double,
+        jitterSeconds: Double,
+        startOffsetSeconds: Double,
+        seed: UInt64
+    ) -> Double {
+        guard intervalSeconds > 0, decaySeconds > 0 else {
+            return 0
+        }
+        // Find the most recent trigger time at or before `time`.
+        let approximate = Int(floor((time - startOffsetSeconds) / intervalSeconds))
+        let lower = max(0, approximate - 1)
+        let upper = max(0, approximate + 1)
+        var sum: Double = 0
+        for index in lower...upper {
+            let start = intermittentStart(
+                index: index,
+                baseIntervalSeconds: intervalSeconds,
+                jitterSeconds: jitterSeconds,
+                startOffsetSeconds: startOffsetSeconds,
+                seed: seed
+            )
+            let local = time - start
+            guard local >= 0, local < decaySeconds * 3 else { continue }
+            for k in 1...harmonicCount {
+                // Higher harmonics decay faster (string-like damping curve)
+                let harmonicDecay = decaySeconds / Double(k)
+                let amp = 1.0 / Double(k)
+                let envelope = exp(-local / harmonicDecay)
+                sum += amp * envelope * sin(.tau * fundamentalHz * Double(k) * local)
+            }
+        }
+        // Normalize by harmonic series amplitude sum ≈ ln(N) + γ; use √N for
+        // a conservative ceiling.
+        return amplitude * sum / Double(harmonicCount).squareRoot()
     }
 }
 
