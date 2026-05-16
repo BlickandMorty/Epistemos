@@ -25,6 +25,7 @@ pub mod mamba3;
 pub mod paper_registry;
 pub mod rwkv7;
 pub mod sherry_lattice;
+pub mod substrate_independence;
 pub mod ternary;
 pub mod test_time_regression;
 pub mod tropical;
