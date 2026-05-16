@@ -1,6 +1,6 @@
 # NightBrain Scheduler Policy (B2-L2)
 
-**Status:** Doctrine row (forward-staging Rust scheduler · partial main substrate). Swift `NightBrainRun` + `NightBrainCheckpoint` types are in main (`Epistemos/State/CognitiveSubstrateTypes.swift:34, 43`); PowerGate already references "NightBrain LaunchAgent (3 AM cron — defer if battery < 50%)" (`Epistemos/State/PowerGate.swift:12`). The Rust scheduler at `agent_core/src/nightbrain/` is **NOT-STARTED** in main; this doc freezes the policy + trait + eligibility matrix so when it ships it doesn't redrift.
+**Status:** Doctrine row · **§5.0 partial substrate in main**. Rust skeleton at `agent_core/src/nightbrain/` IS in main: `mod.rs` (247 LOC — `NightBrainScheduler` + `NightBrainTask` trait + `CancellationToken` + `HostActivitySnapshot` + `should_admit()` thermal+power+idle composition + `register_task()` + `run_registered_tasks()` + `default_worker_pool_size()` + `canonical_task_names()` 10 names) and `live.rs` (702 LOC — `LIVE_SCHEDULER` OnceLock + `register_canonical_tasks()` + `ObservationTask` generic with 4 wired lanes + `NoOpTask` placeholders for 6 bodies still pending). Swift `NightBrainRun` + `NightBrainCheckpoint` Codable mirrors are in main (`Epistemos/State/CognitiveSubstrateTypes.swift:34, 43`); PowerGate references the 3-AM LaunchAgent cron (`Epistemos/State/PowerGate.swift:12`). **What this doctrine freezes:** the 4 missing eligibility-matrix conditions (flagged-notes, 1-5 AM window, 12h cooldown, no-active-agent) + per-30-min admit cadence + checkpoint format + 6 pending task bodies + morning-report composition — all currently NOT in `should_admit()`, all required before the scheduler ships end-to-end.
 
 **Source:** `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/nightbrain/mod.rs` (334 LOC; Plan §7.1 verbatim shape) + PASS 2 audit row B2-L2 + `MASTER_FUSION §3.35 Golden-ratio scheduling` (landed iter 19, KAM-stable cadence) + B.9 NightBrain task bodies row in `MAS_COMPLETE_FUSION §B` (6 task bodies pending).
 
@@ -40,6 +40,19 @@ admit ⇔ flagged_work ∧ (on_ac ∨ battery > 50%)
 ```
 
 Per salvage `nightbrain/mod.rs:181-186`, the host caller passes `thermal_nominal` + `on_ac_or_battery_above_50` directly; the module owns the idle-time + cancellation pieces. The 1-5 AM window + 12h cooldown + flagged-work check are HOST-side gates (Swift wires them via `NightBrainService`).
+
+**Current Rust state** (verified against `agent_core/src/nightbrain/mod.rs:185-190` in main, 2026-05-16):
+
+```rust
+pub fn should_admit(&self, snapshot: HostActivitySnapshot) -> bool {
+    snapshot.thermal_nominal
+        && snapshot.on_ac_or_battery_above_50
+        && snapshot.idle_for >= self.idle_threshold
+        && !self.token.is_cancelled()
+}
+```
+
+The 3-of-7 conditions wired in `should_admit()` today are: thermal + power + idle threshold (+ cancel-token sanity check). The 4 missing conditions per Plan §7.1 — **flagged-notes** + **time-window** + **12h cooldown** + **no-active-agent** — are not yet in the Rust composition. They land per this doctrine when the eligibility surface widens (proposed `agent_core/src/nightbrain/eligibility.rs` module split per §9 below).
 
 ---
 
@@ -124,20 +137,23 @@ Any user keystroke / mouse move / touchpad event must call `preempt()` BEFORE th
 
 ## 6. Per-task gates (canonical 10 + UndoEviction)
 
-Existing in main (Swift-side per `Epistemos/State/CognitiveSubstrateTypes.swift` + earlier loop iters):
+Existing in main per `agent_core/src/nightbrain/mod.rs:11-22` (`CANONICAL_TASK_NAMES`) + `agent_core/src/nightbrain/live.rs` (registration surface):
 
 | Task name | Purpose | Status |
 |---|---|---|
-| `observation_compaction` | Compact `ObservationTask` ring buffer | LANDED |
-| `heal_event_retention` | Lazy TTL eviction on heal_events.sqlite per B2-L1 | LANDED (post-B2-L1) |
-| `shadow_index_refresh` | Re-index Halo Shadow Tantivy/usearch | LANDED |
-| `nano_continual_step` | LoRA delta application from auto-research wins | NOT-STARTED |
-| **`dedupe_artifacts`** | Per B.9 — collapse duplicate artifact rows | NOT-STARTED |
-| **`memory_distillation`** | Per B.9 — compact session-trace KV | NOT-STARTED |
-| **`cloud_knowledge_distillation`** | Per B.9 — pull morning cloud-research wins | NOT-STARTED |
-| **`session_graph_generation`** | Per B.9 — emit DAG-snapshot per session | NOT-STARTED |
-| **`skill_evolution_analysis`** | Per B.9 — score newly-emitted skills | NOT-STARTED |
-| **`ssm_state_pruning`** | Per B.9 — prune Mamba hidden-state cache | NOT-STARTED |
+| `maintenance_log` | Pure NightBrain self-audit; one row per admit | **LIVE** (`ObservationTask` lane, live.rs:80) |
+| `search_index_passive_checkpoint` | Host owns Tantivy commit; this records the join key | **LIVE** (`ObservationTask` lane, live.rs:81) |
+| `event_store_checkpoint_vacuum` | Host owns event-store vacuum; this records the join key | **LIVE** (`ObservationTask` lane) |
+| `workspace_snapshot_compaction` | Host owns workspace state; this records the join key | **LIVE** (`ObservationTask` lane) |
+| `dedupe_artifacts` | Per B.9 — collapse duplicate artifact rows | **NoOpTask placeholder** in main (real body NOT-STARTED) |
+| `memory_distillation` | Per B.9 — compact session-trace KV | **NoOpTask placeholder** (NOT-STARTED) |
+| `cloud_knowledge_distillation` | Per B.9 — pull morning cloud-research wins | **NoOpTask placeholder** (NOT-STARTED · Pro tier) |
+| `session_graph_generation` | Per B.9 — emit DAG-snapshot per session | **NoOpTask placeholder** (NOT-STARTED) |
+| `skill_evolution_analysis` | Per B.9 — score newly-emitted skills | **NoOpTask placeholder** (NOT-STARTED) |
+| `ssm_state_pruning` | Per B.9 — prune Mamba hidden-state cache | **NoOpTask placeholder** (NOT-STARTED) |
+| `nano_continual_step` | LoRA delta application from auto-research wins | NOT-IN-CANONICAL-LIST yet (post-V1.x) |
+| `heal_event_retention` | Lazy TTL eviction on heal_events.sqlite per B2-L1 | DOCTRINE-FROZEN (B2-L1 row, body NOT-STARTED — will be wired as 11th canonical name) |
+| `shadow_index_refresh` | Re-index Halo Shadow Tantivy/usearch | LANDED via host-side scheduler — NOT in NightBrain canonical list |
 
 **UndoEvictionTask (B2-L2 specific):** the audit row's "UndoEvictionTask wiring" sibling — when a vault Undo expiry hits its TTL, the Undo row + paired Effect Inverse (per Hermes 2.0 §5.4 `Inverse::*`) are evicted from `<vault>/.epcache/undo/`. Runs per-night with `DEFAULT_BATCH_SIZE = 32` Undos per batch.
 
@@ -200,37 +216,66 @@ Discoveries to investigate: 0
 
 ## 9. Forward-staged module layout
 
-When the Rust substrate lands in main:
+**Already in main:**
 
 ```
 agent_core/src/nightbrain/
-├── mod.rs                 — NightBrainScheduler + NightBrainTask trait + TaskCtx + TaskOutcome
-├── eligibility.rs         — should_admit logic + flagged-work / time-window / cooldown gates
-├── checkpoint.rs          — JSON read/write for <task>.checkpoint.json
-├── morning_report.rs      — TaskOutcome aggregation → user-facing summary
-└── tasks/                 — individual NightBrainTask impls (one file per task name)
+├── mod.rs    (247 LOC) — NightBrainScheduler + NightBrainTask trait + TaskCtx + TaskOutcome
+│                       + CancellationToken + HostActivitySnapshot + should_admit (3-of-7 conds)
+│                       + register_task + run_registered_tasks + default_worker_pool_size
+│                       + CANONICAL_TASK_NAMES (10 names)
+└── live.rs   (702 LOC) — LIVE_SCHEDULER OnceLock singleton + register_canonical_tasks
+                        + ObservationTask generic (4 wired lanes) + NoOpTask (6 pending bodies)
+                        + ObservationLogEntry + per-lane ring buffers (cap=256)
 
 Swift side (already in main):
 Epistemos/State/CognitiveSubstrateTypes.swift  — NightBrainRun + NightBrainCheckpoint Codable mirrors
-Epistemos/State/NightBrainService.swift        — host wiring (idle monitor + thermal/battery probes)
 Epistemos/State/PowerGate.swift                — LaunchAgent 3-AM cron + battery-50% defer
 ```
 
-**FFI surface** (when the Rust side lands):
+**Pending module split (V1.x):**
+
+```
+agent_core/src/nightbrain/
+├── mod.rs                — (existing — re-exports below)
+├── live.rs               — (existing — observation lanes; NoOpTask placeholders replaced)
+├── eligibility.rs        — NEW: widen should_admit to all 7 conditions
+│                          (add flagged-work + 1-5 AM window + 12h cooldown + no-active-agent)
+├── checkpoint.rs         — NEW: JSON read/write for <task>.checkpoint.json
+├── morning_report.rs     — NEW: TaskOutcome aggregation → user-facing summary + DP gate
+└── tasks/                — NEW: real body impls replacing NoOpTask placeholders
+    ├── dedupe_artifacts.rs
+    ├── memory_distillation.rs
+    ├── cloud_knowledge_distillation.rs        (Pro tier)
+    ├── session_graph_generation.rs
+    ├── skill_evolution_analysis.rs
+    └── ssm_state_pruning.rs
+
+Swift side (pending):
+Epistemos/State/NightBrainService.swift        — host wiring (idle monitor + flagged-notes probe
+                                                + time-window + 12h cooldown + no-active-agent)
+```
+
+**FFI surface delta (when the eligibility widening lands):**
 
 ```rust
 // Bridge entry points exposed via UniFFI:
-pub fn nightbrain_should_admit(thermal_nominal: bool, on_ac_or_battery_above_50: bool) -> bool;
+pub fn nightbrain_should_admit(snapshot: HostActivitySnapshotFFI) -> bool;
+// HostActivitySnapshotFFI WIDENS: idle_for + thermal + power + flagged_work + in_window
+//                                  + cooldown_ok + active_agent_count
 pub fn nightbrain_preempt();
 pub fn nightbrain_run_task(name: &str) -> NightBrainRunOutcome;  // synchronous wrapper around Tokio
+pub fn nightbrain_morning_report() -> MorningReportFFI;          // post-window aggregated outcome
 ```
+
+The current FFI surface (per `agent_core/src/bridge.rs`) already exposes `canonical_task_names()` + `nightbrain_preview_admission(...)`. The widening above is additive — existing call sites keep working until they migrate to the wider snapshot.
 
 ---
 
 ## 10. V1 / Pro / Post-V1 boundary
 
-- **V1 MAS:** Swift `NightBrainRun` + `NightBrainCheckpoint` types ship + the existing PowerGate 3-AM LaunchAgent reference. Rust scheduler substrate (`agent_core/src/nightbrain/`) lands V1.x or later.
-- **V1.x:** Rust `NightBrainScheduler` + `NightBrainTask` trait lands; first task body wired (`observation_compaction` — already partially canonical) so the cross-language surface flows end-to-end.
+- **V1 MAS (today):** Rust skeleton + 4 observation lanes + 6 NoOp placeholders + 3-of-7 eligibility conditions + Swift `NightBrainRun` + `NightBrainCheckpoint` Codable mirrors + PowerGate 3-AM LaunchAgent reference are all in main. **Diagnostic-only**: registered tasks emit ObservationLogEntry rows but no real maintenance executes.
+- **V1.x:** Eligibility widening lands (`eligibility.rs` module split adds the missing 4 conditions); first real task body replaces a NoOpTask (proposed: `dedupe_artifacts` since it touches the most foundational invariant); cross-language morning report flows end-to-end.
 - **B.9 task bodies** (6 pending: dedupe_artifacts · memory_distillation · cloud_knowledge_distillation · session_graph_generation · skill_evolution_analysis · ssm_state_pruning) land one-per-slice as separate doctrine-then-code passes; each consumes this scheduler.
 - **Pro V1.x:** `cloud_knowledge_distillation` activates (requires Pro entitlement); `nano_continual_step` activates (Pro tier nano LoRA training).
 - **Wave 9+:** auto-research per-fetch consumption of B2-H20 ephemeral tokens (Hermes 2.0 §5.2) + B2-M14 differential-privacy gate on morning report aggregates.
