@@ -46,6 +46,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **What it is:** 9+ minute stall at 100% CPU on large vault import; hot path `sanitize_and_normalize` → `BlockMirror.sync()` → `decodedText` for oversized bodies. Store counts drift from disk counts. User sees indefinite "Loading vault..." spinner.
 - **Why BLOCKER:** First-run experience for any user with >50 notes. MAS reviewers will hit this on their test vault.
 - **Destination:** `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §A.0 (new profiling row) — bounded word-count + sample profiling required pre-submission.
+- **Status (2026-05-16):** ✅ VERIFIED — **B2-3's specific ask is SHIPPED**. Code evidence: (1) `Epistemos/Sync/VaultIndexActor.swift:107` defines `naturalLanguageWordCountByteLimit = 200_000`; (2) `countWords` at line 1911 routes oversized bodies to `fastVaultWordCount` (lines 1922-1944), the bounded scanner — `NLAnalysisService.wordCount` is only called for bodies under the limit; (3) bounded readable-text scan shipped at `Epistemos/Engine/Extensions.swift:191-215` (`looksLikeReadableText` gated by `readableTextInspectionScalarLimit`). Sample profiling artifacts exist on disk per APP_ISSUES log lines 748, 757-765 (`/tmp/epistemos-audit-pidNNNNN-sample.txt` files for PIDs 536 → 33194 → 60225 → 76208 trace the successive hot paths). ISSUE-2026-05-11-001 remains "Investigating" in APP_ISSUES because each bounded patch surfaced the NEXT bottleneck — but that's a separate ongoing performance-audit loop, not what B2-3 specifically asked for. **NOT a V1 BLOCKER for this audit row.** Remaining successor-bottleneck work tracked in APP_ISSUES; not a doc-routing failure.
 
 ### B2-4. Residency Governor + Rate-Distortion formalism
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) §1, "Layer 3: Compression Governance"
@@ -259,7 +260,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 |---|---|
 | **B2-1 Specialties registry** | DOCUMENT: add to `HERMES_AGENT_CORE_2_0_DESIGN` §7.1; surface as App Review answer for "why not web?" |
 | **B2-2 ArtifactKind + ProvenanceBlock** | DESIGN + IMPLEMENT: short Rust module `agent_core/src/artifacts/kind.rs` to stabilize identity before Raw Thoughts V1 ship |
-| **B2-3 ISSUE-2026-05-11-001 vault stall** | PROFILE + FIX: bounded word-count path + sample profiling; route through Phase A.0 |
+| **B2-3 ISSUE-2026-05-11-001 vault stall** | ✅ VERIFIED 2026-05-16 — bounded word-count + sample profiling already shipped (`VaultIndexActor.swift:107/1911-1944` + `Extensions.swift:191-215`). Successor bottlenecks remain open in `APP_ISSUES_AUTO_FIX.md` but that's separate from B2-3. |
 | **B2-4 Residency Governor + rate-distortion** | DOCUMENT: `MASTER_FUSION` §3.2 new row with objective function; reframes Wave A post-V1 architecture |
 | **B2-5 Hermes XPC vs in-process decision** | DECISION-ONLY: declare in `HERMES_AGENT_CORE_2_0_DESIGN` §0 — "MAS V1 in-process per CLAUDE.md NO SIDECAR; Pro V1.x evaluates XPC" |
 | **B2-H6 EditPage macaroon (RCA13 P9)** | DECISION + DESIGN: ship hero feature in V1 or V1.1 with explicit row |
