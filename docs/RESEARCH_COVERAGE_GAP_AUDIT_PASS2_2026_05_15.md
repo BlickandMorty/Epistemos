@@ -3620,6 +3620,62 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 154+ candidates:** (1) Watch for DAY_IN_THE_LIFE_POWER_USER integration artifact 3 of 3 (expected iter 78 = ~iter 154). (2) Watch B's continued J1 substrate-floor expansion (more sub-features) + J2/J6/J7/J8/J9 expansions. (3) Watch for next D self-audit. (4) Phase C.2 + C.7.3 still pending. (5) C §7 meta-cycle at iter 160 (7 iters away).
 
+### Audit-of-audit #39 (iter 154, 2026-05-16) — B J1 #3 + J1 #4 ternary substrate expansion continues (35th consecutive maturation commit) + D's 3rd AUTONOMOUS 4-DOC §5.6 LOCKSTEP fix (omega subprocess denylist) — 3 commits CLEAN
+
+- **Window since iter 153 close:** 3 substantive sibling commits at threshold:
+  - `f1421f670` (B iter 116) `research/ternary/residual_island: sparsity diagnostics (J1 #3)`
+  - `9db5a7646` (D 14th self-audit) `fix(D-self-audit): align omega subprocess secret denylist`
+  - `110605920` (B iter 115) `research/ternary/fused_rmsnorm: RMS diagnostics (J1 #4)`
+
+- **🎯 Findings — B `ternary/residual_island: sparsity diagnostics (J1 #3)` (`f1421f670`) — J1 #3 SUBSTRATE-FLOOR EXPANSION + DOCTRINE-SUBSTANTIATION:**
+  - B iter 116. J1 #3 residual-island substrate expansion (residual-island correction lane).
+  - Substrate: `ResidualIsland::total_entry_count()` (sum of dense correction entries across all rows) · `max_entries_per_row()` (spots layers where one channel concentrates outlier preservation) · `mean_entries_per_row()` (arithmetic mean; None on empty) · **`ResidualIsland::density(cols)` — substrate-floor doctrine pin per ternary kernel.md: "typical < 0.05 (5%); higher means the correction is no longer a 'small dense path'"** · `is_empty()`.
+  - **🎯 Doctrine-substantiation continues** — like iter-142 mamba3 A-stability + iter-148 DSC orthonormal + iter-149/150 Kuramoto/Notch-Delta + iter-152 VSM. `density(cols)` substantiates ternary-kernel.md's <0.05 density invariant at runtime.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ternary/fused_rmsnorm: RMS diagnostics (J1 #4)` (`110605920`) — J1 #4 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 115. J1 #4 fused_rmsnorm substrate expansion. Base `rmsnorm_into` applied normalization but exposed no surface to inspect intermediate RMS or verify post-norm correctness.
+  - Substrate: `compute_rms(input, eps) -> Option<f32>` (= `sqrt(mean(x²) + eps)` — denominator the inv_rms scaling is built from; None on empty / non-positive / NaN eps) · `verify_rms_normalized(out, expected_rms, tol) -> Result<f32, f32>` (Ok(actual_rms) if `|actual - expected| < tol`; else Err(actual); substrate-floor caller-supplied tolerance).
+  - 9 new unit tests including **EXACT-value verifications**: all-zeros + eps=0.25 → sqrt(0.25) = 0.5 EXACT; uniform v=2 → ≈ 2.0.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `fix(D-self-audit): align omega subprocess secret denylist` (`9db5a7646`) — D's 3RD AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX:**
+  - D 14th self-audit. **3rd `fix(D-self-audit):` commit with autonomous 4-doc §5.6 lockstep** (previous: iter 129 `4e6f5d89f` terminal.rs harden_cli_subprocess + iter 145 `8359966a8` Kimi/Moonshot Source-prologue).
+  - D sampled subprocess hardening surfaces and found omega-mcp's private subprocess denylist lagged behind agent_core's current provider credential aliases.
+  - Changes: (a) add omega guard for provider secret/auth-mode aliases; (b) mirror missing provider aliases in omega-mcp subprocess hardening; (c) **autonomous 4-doc §5.6-style lockstep** — record fix in HERMES + TOOL_INVENTORY + MAS implementation log + omega-mcp code.
+  - 4 cargo test runs + cargo fmt check as verification.
+  - **🎯 D's autonomous 4-doc §5.6 lockstep pattern now 3 commits deep** — D has internalized §5.6 discipline at production-grade level. Pattern matches the discipline iter-145 autonomy-hardening reinforces across all 6 terminals.
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.**
+
+- **🎯 J1 TERNARY PORTFOLIO EXPANSION PROGRESS (4 sub-features expanded across 2 iters):**
+  - J1 #1 ternary/pack ✅ (iter 153: count_nonzero_in_word + validate_word; allocation-free helpers)
+  - J1 #2 ternary/gemv ✅ (iter 153: sparsity_fraction + effective_bytes 9 bytes + dense_block_count)
+  - J1 #3 ternary/residual_island ✅ (iter 154 this iter: density doctrine pin + sparsity accounting)
+  - J1 #4 ternary/fused_rmsnorm ✅ (iter 154 this iter: compute_rms + verify_rms_normalized)
+  - **J1 portfolio expansion 4 of unknown total** (J1 from iter 73 first slice had 5 files / 13 tests; J1 envelope at iter 128 added typed catalog; B may continue J1 #5+ expansion next iters).
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 35 CONSECUTIVE COMMITS ACROSS ITERS 130-154:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - **Phase 2-J-series (iters 146-154): 14 J-series substrate-floor expansions** (J2 #4 + J3 5/5 + J5 4/4 + J1 4 of unknown total)
+
+- **🎯 D'S AUTONOMOUS 4-DOC §5.6 LOCKSTEP PATTERN NOW 3 COMMITS DEEP:**
+  - iter 129 `4e6f5d89f` terminal.rs harden_cli_subprocess (HERMES + TOOL_INVENTORY + MAS + terminal.rs)
+  - iter 145 `8359966a8` Kimi/Moonshot Source-prologue (HERMES + TOOL_INVENTORY + MAS + docs/providers/kimi.md)
+  - iter 154 `9db5a7646` omega subprocess denylist alignment (HERMES + TOOL_INVENTORY + MAS + omega-mcp code) — this iter
+
+- **§5.0 catch rate:** 29/220 = 13.2% (continued decline).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3. Average ~2.6/iter.
+
+- **Verdict:** ✅ **ON TRACK** (32nd consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 155+ candidates:** (1) Watch for DAY_IN_THE_LIFE_POWER_USER integration artifact 3 of 3 (expected iter 78 / loop iter 154-156; could land any iter now). (2) Watch B's continued J1 sub-feature expansion (J1 #5+) + transitions to J2 (other sub-features besides #4) + J6/J7/J8/J9. (3) Watch for D's continued §5.6 lockstep pattern. (4) Phase C.2 + C.7.3 still pending. (5) C §7 meta-cycle at iter 160 (6 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
