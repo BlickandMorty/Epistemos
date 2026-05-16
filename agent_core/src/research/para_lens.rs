@@ -143,6 +143,92 @@ impl ParaLens for LinearLayer {
     }
 }
 
+/// Parameterless activation: `y = max(0, x)`. Second reference
+/// [`ParaLens`] impl. The `param_size = 0` case shows the trait
+/// shape carries over to activation layers without losing the
+/// `Para(Lens(C))` structure (the parameter object is just the
+/// unit element).
+///
+/// Backward: `dy/dx = (x > 0) ? 1 : 0`. The non-smooth point at
+/// `x = 0` is a measure-zero corner case; substrate floor uses the
+/// "left derivative" (0). Production may use the subgradient form.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ReluLayer;
+
+impl ParaLens for ReluLayer {
+    fn param_size(&self) -> usize {
+        0
+    }
+    fn input_size(&self) -> usize {
+        1
+    }
+    fn output_size(&self) -> usize {
+        1
+    }
+
+    fn forward(
+        &self,
+        params: &[f32],
+        input: &[f32],
+        output: &mut [f32],
+    ) -> Result<(), ParaLensError> {
+        if !params.is_empty() {
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 0,
+                actual: params.len(),
+            });
+        }
+        if input.len() != 1 {
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 1,
+                actual: input.len(),
+            });
+        }
+        if output.len() != 1 {
+            return Err(ParaLensError::OutputLengthMismatch {
+                expected: 1,
+                actual: output.len(),
+            });
+        }
+        output[0] = input[0].max(0.0);
+        Ok(())
+    }
+
+    fn backward(
+        &self,
+        params: &[f32],
+        input: &[f32],
+        output_grad: &[f32],
+    ) -> Result<ParaLensBackward, ParaLensError> {
+        if !params.is_empty() {
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 0,
+                actual: params.len(),
+            });
+        }
+        if input.len() != 1 {
+            return Err(ParaLensError::InputLengthMismatch {
+                expected: 1,
+                actual: input.len(),
+            });
+        }
+        if output_grad.len() != 1 {
+            return Err(ParaLensError::GradientLengthMismatch {
+                expected: 1,
+                actual: output_grad.len(),
+            });
+        }
+        // dy/dx = (x > 0) ? 1 : 0 ; left derivative at 0 is 0.
+        let x = input[0];
+        let dy = output_grad[0];
+        let grad = if x > 0.0 { dy } else { 0.0 };
+        Ok(ParaLensBackward {
+            param_grad: vec![],
+            input_grad: vec![grad],
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -261,5 +347,93 @@ mod tests {
         assert!(approx(bw.param_grad[0], 0.0, 1e-6));
         assert!(approx(bw.param_grad[1], 0.0, 1e-6));
         assert!(approx(bw.input_grad[0], 0.0, 1e-6));
+    }
+
+    // ── ReluLayer tests (iter 93) ───────────────────────────────────────────
+
+    #[test]
+    fn relu_layer_sizes_correct() {
+        let r = ReluLayer;
+        assert_eq!(r.param_size(), 0);
+        assert_eq!(r.input_size(), 1);
+        assert_eq!(r.output_size(), 1);
+    }
+
+    #[test]
+    fn relu_forward_positive_passes_through() {
+        let r = ReluLayer;
+        let mut out = vec![0.0_f32];
+        r.forward(&[], &[3.5], &mut out).unwrap();
+        assert!(approx(out[0], 3.5, 1e-6));
+    }
+
+    #[test]
+    fn relu_forward_negative_clamps_to_zero() {
+        let r = ReluLayer;
+        let mut out = vec![0.0_f32];
+        r.forward(&[], &[-2.0], &mut out).unwrap();
+        assert!(approx(out[0], 0.0, 1e-6));
+    }
+
+    #[test]
+    fn relu_forward_at_zero_outputs_zero() {
+        let r = ReluLayer;
+        let mut out = vec![99.0_f32];
+        r.forward(&[], &[0.0], &mut out).unwrap();
+        assert!(approx(out[0], 0.0, 1e-6));
+    }
+
+    #[test]
+    fn relu_backward_positive_input_passes_grad() {
+        let r = ReluLayer;
+        let bw = r.backward(&[], &[1.5], &[7.0]).unwrap();
+        assert!(bw.param_grad.is_empty());
+        assert!(approx(bw.input_grad[0], 7.0, 1e-6));
+    }
+
+    #[test]
+    fn relu_backward_negative_input_zeros_grad() {
+        let r = ReluLayer;
+        let bw = r.backward(&[], &[-1.5], &[7.0]).unwrap();
+        assert!(approx(bw.input_grad[0], 0.0, 1e-6));
+    }
+
+    #[test]
+    fn relu_backward_at_zero_uses_left_derivative() {
+        let r = ReluLayer;
+        let bw = r.backward(&[], &[0.0], &[7.0]).unwrap();
+        assert!(approx(bw.input_grad[0], 0.0, 1e-6));
+    }
+
+    #[test]
+    fn relu_rejects_non_empty_params() {
+        let r = ReluLayer;
+        let mut out = vec![0.0_f32];
+        let err = r.forward(&[1.0], &[2.0], &mut out).unwrap_err();
+        assert_eq!(
+            err,
+            ParaLensError::InputLengthMismatch { expected: 0, actual: 1 }
+        );
+    }
+
+    #[test]
+    fn relu_finite_difference_matches_analytic() {
+        let r = ReluLayer;
+        for x_val in &[-2.0_f32, -0.5, 0.5, 2.0] {
+            let mut y0 = vec![0.0_f32];
+            r.forward(&[], &[*x_val], &mut y0).unwrap();
+            let eps = 1e-3_f32;
+            let mut y_x = vec![0.0_f32];
+            r.forward(&[], &[x_val + eps], &mut y_x).unwrap();
+            let bw = r.backward(&[], &[*x_val], &[1.0]).unwrap();
+            let fd = (y_x[0] - y0[0]) / eps;
+            assert!(
+                approx(fd, bw.input_grad[0], 1e-3),
+                "x={}: fd={}, analytic={}",
+                x_val,
+                fd,
+                bw.input_grad[0]
+            );
+        }
     }
 }
