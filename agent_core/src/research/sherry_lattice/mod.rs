@@ -24,8 +24,10 @@
 //!    moment shaping gain G(E_8) = 0.0717, G(Leech_24) = 0.0658 per
 //!    Helios v3 Part II T_K row.
 
+pub mod e8;
 pub mod sparse_ternary;
 
+pub use e8::{e8_quantize, in_e8, E8Error, E8Point};
 pub use sparse_ternary::{
     decode_sherry_3_4, encode_sherry_3_4, Sherry34Block, SherryError, SHERRY_GROUP_SIZE,
 };
