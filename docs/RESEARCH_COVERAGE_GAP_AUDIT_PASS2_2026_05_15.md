@@ -78,6 +78,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [_consolidated/20_canonical_research/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md](_consolidated/20_canonical_research/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md) §1-2
 - **What it is:** Each model (Claude, Qwen, GPT, Gemini) gets its own vault with base knowledge (compiled offline) + dynamic retrieval (per query); user can edit model-specific knowledge directly.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §13.5 (Knowledge + Model Vaults section).
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new §13.5.7 "Per-model Knowledge Vaults + cloud distillation lab" in Hermes 2.0. Section covers: 2-layer architecture (Base Knowledge compiled offline by NightBrain + Dynamic Retrieval via Variant Ladder `vault.search`) · file-structure table (knowledge_profile / concept_index / active_context / instructions / meta / history) · per-model token-budget table (Cloud ~2000 · Local ~800 · Apple Intelligence ~500 with K-value matching) · NightBrain `cloud_knowledge_distillation` task-body integration (currently NoOp per Atlas Drift Log) · UI integration via existing `note.create` / `note.edit` paths (no new tool) · honesty discipline (system prompt MUST cite `instructions.md` when present) · explicit boundaries (this is PREFIX context, NOT search-substrate replacement). Cross-references threaded to §13.5.3 / §13.5.4 / §13.6.4 / §13.6.5.
 
 ### B2-H3. Instant Recall Architecture (Mamba state injection + binary HNSW)
 - **Source:** [_consolidated/60_deferred_research/INSTANT_RECALL_ARCHITECTURE.md](_consolidated/60_deferred_research/INSTANT_RECALL_ARCHITECTURE.md) §1-4
@@ -296,7 +297,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | Gap | Destination |
 |---|---|
 | B2-H1 Five Laws | ✅ RESOLVED 2026-05-16 — `NEW_SESSION_HANDOFF §3` rule 7 carries all 5 laws verbatim. CLAUDE.md promotion is user-approval-gated. |
-| B2-H2 Per-model Knowledge Vaults | Hermes 2.0 §13.5 |
+| B2-H2 Per-model Knowledge Vaults | ✅ RESOLVED 2026-05-16 — Hermes 2.0 §13.5.7 with 2-layer architecture + per-model token table + NightBrain integration + UI surface. |
 | B2-H3 Instant Recall (Mamba state) | MASTER_FUSION §3 Wave 9.33+ |
 | B2-H4 Windows port (10-doc bundle) | NEW_SESSION_HANDOFF §"Deferred Windows" |
 | B2-H5 Graph filter UI | MAS_COMPLETE_FUSION §C |
