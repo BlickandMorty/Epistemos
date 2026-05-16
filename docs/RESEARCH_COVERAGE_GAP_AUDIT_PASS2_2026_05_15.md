@@ -3221,6 +3221,70 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 147+ candidates:** (1) Watch for B's B.0.4 retry-budget + B.0.6 schema-gate substrate work (per iter-145 autonomy-hardening fixes). (2) Watch for additional J-series substrate-floor expansions (J3/J5/J6/J7/J8/J9). (3) Watch for D's 11th self-audit. (4) Watch for 2nd autonomy-hardening follow-up commit. (5) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+### Audit-of-audit #35 (iter 147, 2026-05-16) — 🎯 MAINTENANCE CANDIDATE 2 OF 3 LANDS (PASS-2 §5 9-row re-sweep + 4 bonus spot-checks ALL HOLD) + B J3 #2 + J3 #4 J-series substrate-floor expansions + D 11th self-audit — 4 commits CLEAN
+
+- **Window since iter 146 close:** 4 substantive sibling commits (3-5 threshold met):
+  - `1368a1dc2` (B iter 106) `research/oftv2: OrthogonalMatrix transpose + compose (J3 #2)`
+  - `3f589fb12` (D) `chore(D-self-audit): record Gemini Kimi hardening audit` — 11th D-self-audit
+  - `5c68ae5a9` (B iter 105) `research/titans_mac: lmm_frobenius_norm + reset + batch surprise (J3 #4)`
+  - `28b0b975c` (ambiguous; codex parent branch) `docs(iter-74): PASS-2 §5 trust-but-verify re-sweep — maintenance candidate 2 of 3`
+
+- **🎯 MAINTENANCE CANDIDATE 2 OF 3 LANDS — `28b0b975c`:**
+  - Per Lesson #13 discipline: **authorship is AMBIGUOUS** (codex parent branch `codex/research-snapshot-2026-05-08`; same branch as candidate 1 `f5ef5b39f` which A's T-A-29 disclaimed as "T-C/E territory"). Not over-attributing.
+  - **Content is exemplary §5.0 re-sweep on the audit register:** Full re-verification of PASS-2 §5 Rejected/verified-not-a-gap register (9 rejection rows) against current main post-iter-73 state. Plus 4 bonus code-citation spot-checks from audit-of-audit #6/#7 claims.
+  - **Verdict from commit body:** "all 9 rejections continue to hold. Two surface 'drifts' surfaced and resolved as post-PASS-2 enrichment, not regressions. All 4 bonus code-citation spot-checks pass EXACTLY."
+  - **9-row re-sweep enumerated (all HOLD):**
+    1. Halo Shadow Crate ✅ — Cargo.toml present (1861B, 2026-04-26)
+    2. Phase R sequencing gates ✅ — surface "drift" (1+5 hits vs 0 at PASS-2 time) is Wave 9.33+ / Phase R+ cluster naming from B2-H3 Instant Recall (§3.34 line 501) + historical §8 audit verdicts; original framing absent
+    3. InterruptScoreCpu oracle ✅ — 4 hits unchanged
+    4. session_insights orphan ✅ — pub mod registered at lib.rs:56
+    5. SAE Observatory tool-names ✅ — surface "drift" (0 hits for SAELens/Qwen-Scope/NNsight/Neuronpedia vs non-zero at PASS-2 time) is doctrine improvement: refactored from name-drop to AUC-pinned acceptance bar at MASTER_FUSION line 529 §3.36 (B2-H11 iter 33)
+    6. Sinkhorn ✅ — 3 hits unchanged
+    7. V6.2 per-bubble L-2 ✅ — 8 hits merged surface intact
+    8. Windows port B2-H4 ✅ — 6 hits merged surface intact
+    9. CMS-X v3 / PASS-1 H-6 ✅ — 4 hits coverage intact
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** **This is independent §5.0 verification of MY own audit register's rejection rows** — exactly the kind of trust-but-verify discipline Lesson #6 articulates. Independent re-sweep validates my rejection-row work. **No drift; surface-state changes are doctrine improvements, not regressions.**
+  - **Per Lesson #13:** maintenance candidates 1 + 2 are both on codex parent branch + both A-disclaimed (or implicitly so) + both do C-aligned audit-register work. Authorship remains UNVERIFIED.
+
+- **🎯 Findings — B `oftv2: OrthogonalMatrix transpose + compose (J3 #2)` (`1368a1dc2`) — J3 #2 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 106. Closes substrate-floor gap: OFTv2 (Liu et al. 2023 Orthogonal Fine-Tuning from V6.1 Wave J J3 #2) shipped construction + verification + forward apply, but **backward passes need `U^T = U^{-1}` (transpose)** and **adapter chaining needs `U1 · U2` (compose)**.
+  - Substrate: `OrthogonalMatrix::transpose()` (for orthogonal matrices `U^T = U^{-1}` exactly; cheapest way to get inverse for OFTv2 backward) · `OrthogonalMatrix::compose(other)` (standard matrix product; closed under orthogonal group; VectorSizeMismatch on dim mismatch).
+  - 8 new unit tests.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `titans_mac: lmm_frobenius_norm + reset + batch surprise (J3 #4)` (`5c68ae5a9`) — J3 #4 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 105. J3 #4 Titans-MAC (Behrouz arXiv:2501.00663) substrate expansion. **Pattern echoes iter-145 test_time_regression** (same diagnostic-tracking + reset + batch-streaming additions):
+    - `lmm_frobenius_norm(&m) -> f32` (`‖M‖_F = sqrt(Σ w²)`; runaway norm signals lr too high — canonical divergence indicator)
+    - `lmm_reset(&mut m)` (zeros weights in place; preserves dims)
+    - `apply_surprise_batch(&mut m, keys, values, lr) -> Vec<f32>` (streams N (key, value) pairs; returns per-step pre-update surprises — canonical learning curve)
+  - **§5.0 verdict: CLEAN.** Consistent diagnostic+reset+batch pattern across J3-J11 regression-like primitives.
+
+- **🎯 Findings — D 11th self-audit `record Gemini Kimi hardening audit` (`3f589fb12`):**
+  - D's continued distributed self-audit cadence. 11 commits since iter 119 first observed (~every-2.5-iter pulse).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 25 CONSECUTIVE COMMITS ACROSS ITERS 130-147:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141) — 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145) — 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-147) — 4 J-series substrate-floor expansions (J3 #1 EWC + J2 #4 SAE + J3 #2 OFTv2 + J3 #4 Titans-MAC)
+  - **B is methodically covering J-series sub-features: J2 #4 + J3 #1 + J3 #2 + J3 #4** (J3 #3 DSC + J3 #5 SEAL-DoRA may be next; both originally landed iter 92 audit-of-audit #14).
+
+- **🎯 MAINTENANCE CANDIDATES 1 OF 3 + 2 OF 3 LANDED:**
+  - 1st `f5ef5b39f` (iter 141) — Atlas Drift cross-link mirror
+  - 2nd `28b0b975c` (this iter) — PASS-2 §5 9-row trust-but-verify re-sweep
+  - **3rd candidate expected** in next ~5-10 iters per "First of three" language pattern from candidate #1.
+
+- **§5.0 catch rate:** 29/206 = 14.1% (continued decline; maintenance candidates 1 + 2 both validate prior audit work CLEAN).
+
+- **Cadence note:** window 4/3-5 at threshold (right at high end); STAY at 3-min cron `51f01c4e`. Window-rate creeping back up; if pattern of 3-5 commits/iter sustains, will NOT re-engage low-touch. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4. Average ~2.8/iter.
+
+- **Verdict:** ✅ **ON TRACK** (28th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 148+ candidates:** (1) Watch for 3rd maintenance candidate (expected 1-10 iters; theme TBD). (2) Watch B's J3 #3 DSC + J3 #5 SEAL-DoRA substrate-floor expansion possibilities. (3) Watch B's B.0.4 retry-budget + B.0.6 schema-gate (per iter-145 autonomy-hardening). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
