@@ -55,6 +55,14 @@ pub enum CompanionState {
 }
 
 impl CompanionState {
+    pub const ALL: [CompanionState; 5] = [
+        CompanionState::Calm,
+        CompanionState::Focused,
+        CompanionState::Excited,
+        CompanionState::Stressed,
+        CompanionState::Sleeping,
+    ];
+
     pub const fn code(self) -> &'static str {
         match self {
             CompanionState::Calm => "calm",
@@ -64,6 +72,28 @@ impl CompanionState {
             CompanionState::Sleeping => "sleeping",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.code() == code)
+    }
+
+    /// Predicate: this state has elevated user-engagement signal
+    /// (Focused or Excited). The simulation surface uses this to
+    /// pick the "active" animation lane.
+    pub const fn is_engaged(self) -> bool {
+        matches!(self, CompanionState::Focused | CompanionState::Excited)
+    }
+
+    /// Predicate: this state has low / baseline engagement (Calm,
+    /// Stressed, Sleeping). Cross-surface invariant: exactly one of
+    /// `is_engaged` / `is_resting` is true for any CompanionState.
+    pub const fn is_resting(self) -> bool {
+        matches!(
+            self,
+            CompanionState::Calm | CompanionState::Stressed | CompanionState::Sleeping
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -71,6 +101,41 @@ pub enum TamagotchiError {
     HrvOutOfRange { value: f32 },
     CoherenceOutOfRange { value: f32 },
     ArousalOutOfRange { value: f32 },
+}
+
+impl TamagotchiError {
+    /// Field name the validation error pertains to. Used by the
+    /// telemetry layer that wants a stable identifier instead of
+    /// the Debug formatter.
+    pub const fn field(&self) -> &'static str {
+        match self {
+            TamagotchiError::HrvOutOfRange { .. } => "hrv_rmssd_ms",
+            TamagotchiError::CoherenceOutOfRange { .. } => "coherence_ratio",
+            TamagotchiError::ArousalOutOfRange { .. } => "arousal_normalized",
+        }
+    }
+
+    /// The out-of-range value that triggered the error. Used by the
+    /// "what value did the user submit?" diagnostic.
+    pub const fn offending_value(&self) -> f32 {
+        match self {
+            TamagotchiError::HrvOutOfRange { value }
+            | TamagotchiError::CoherenceOutOfRange { value }
+            | TamagotchiError::ArousalOutOfRange { value } => *value,
+        }
+    }
+
+    pub const fn is_hrv(&self) -> bool {
+        matches!(self, TamagotchiError::HrvOutOfRange { .. })
+    }
+
+    pub const fn is_coherence(&self) -> bool {
+        matches!(self, TamagotchiError::CoherenceOutOfRange { .. })
+    }
+
+    pub const fn is_arousal(&self) -> bool {
+        matches!(self, TamagotchiError::ArousalOutOfRange { .. })
+    }
 }
 
 impl BiometricSignal {
@@ -89,6 +154,28 @@ impl BiometricSignal {
             return Err(TamagotchiError::ArousalOutOfRange { value: arousal_normalized });
         }
         Ok(Self { hrv_rmssd_ms, coherence_ratio, arousal_normalized })
+    }
+
+    /// Predicate: HRV in the Sleeping zone (`< 5.0` ms). Companion
+    /// to the first branch of [`Self::to_companion_state`].
+    pub fn is_in_sleep_zone(&self) -> bool {
+        self.hrv_rmssd_ms < 5.0
+    }
+
+    /// Predicate: HRV in the Stressed zone (`5.0 ≤ HRV < 20.0`).
+    /// Companion to the second branch of [`Self::to_companion_state`].
+    pub fn is_in_stressed_zone(&self) -> bool {
+        self.hrv_rmssd_ms >= 5.0 && self.hrv_rmssd_ms < 20.0
+    }
+
+    /// Predicate: coherence above the Focused threshold (`> 0.6`).
+    pub fn is_in_focused_zone(&self) -> bool {
+        self.coherence_ratio > 0.6
+    }
+
+    /// Predicate: arousal above the Excited threshold (`> 0.7`).
+    pub fn is_in_excited_zone(&self) -> bool {
+        self.arousal_normalized > 0.7
     }
 
     /// Map signal → companion state. Substrate floor uses simple
@@ -228,5 +315,126 @@ mod tests {
         let json = serde_json::to_string(&st).unwrap();
         let back: CompanionState = serde_json::from_str(&json).unwrap();
         assert_eq!(st, back);
+    }
+
+    // ── diagnostic surface (iter 142) ────────────────────────────────────────
+
+    #[test]
+    fn companion_state_all_has_five_distinct() {
+        let s: std::collections::HashSet<_> = CompanionState::ALL.iter().copied().collect();
+        assert_eq!(s.len(), 5);
+    }
+
+    #[test]
+    fn from_code_roundtrips_all_states() {
+        for st in CompanionState::ALL.iter().copied() {
+            assert_eq!(CompanionState::from_code(st.code()), Some(st));
+        }
+    }
+
+    #[test]
+    fn from_code_unknown_returns_none() {
+        assert_eq!(CompanionState::from_code("not-a-state"), None);
+        assert_eq!(CompanionState::from_code("Calm"), None); // case-sensitive
+        assert_eq!(CompanionState::from_code(""), None);
+    }
+
+    #[test]
+    fn is_engaged_includes_focused_and_excited_only() {
+        let engaged = [CompanionState::Focused, CompanionState::Excited];
+        for st in CompanionState::ALL.iter().copied() {
+            assert_eq!(st.is_engaged(), engaged.contains(&st));
+        }
+    }
+
+    #[test]
+    fn is_engaged_xor_is_resting_partitions_all() {
+        // Cross-surface invariant: exactly one of is_engaged / is_resting
+        // is true for every CompanionState.
+        for st in CompanionState::ALL.iter().copied() {
+            assert_ne!(st.is_engaged(), st.is_resting());
+        }
+    }
+
+    #[test]
+    fn is_in_sleep_zone_aligns_with_to_companion_state() {
+        // Cross-surface invariant: is_in_sleep_zone implies the
+        // mapper returns Sleeping (regardless of coherence/arousal).
+        let s = BiometricSignal::new(2.0, 0.95, 0.95).unwrap();
+        assert!(s.is_in_sleep_zone());
+        assert_eq!(s.to_companion_state(), CompanionState::Sleeping);
+    }
+
+    #[test]
+    fn is_in_stressed_zone_aligns_with_to_companion_state() {
+        // 5 ≤ HRV < 20 → Stressed (regardless of other channels).
+        let s = BiometricSignal::new(10.0, 0.95, 0.95).unwrap();
+        assert!(s.is_in_stressed_zone());
+        assert!(!s.is_in_sleep_zone());
+        assert_eq!(s.to_companion_state(), CompanionState::Stressed);
+    }
+
+    #[test]
+    fn sleep_and_stressed_zones_are_disjoint() {
+        // Cross-surface: a single HRV value can't be in both zones.
+        for hrv_int in 0..=200 {
+            let hrv = hrv_int as f32;
+            let s = BiometricSignal::new(hrv, 0.5, 0.5).unwrap();
+            assert!(!(s.is_in_sleep_zone() && s.is_in_stressed_zone()), "hrv={}", hrv);
+        }
+    }
+
+    #[test]
+    fn focused_zone_only_triggers_when_hrv_is_healthy() {
+        // is_in_focused_zone is purely about coherence — but the
+        // mapper checks HRV gates first. Verify the predicate and
+        // mapper agree only when HRV is in the healthy range.
+        let healthy = BiometricSignal::new(40.0, 0.8, 0.3).unwrap();
+        assert!(healthy.is_in_focused_zone());
+        assert_eq!(healthy.to_companion_state(), CompanionState::Focused);
+
+        // Same coherence but HRV in stressed zone → mapper says Stressed
+        // even though is_in_focused_zone is still true at the channel level.
+        let low_hrv = BiometricSignal::new(15.0, 0.8, 0.3).unwrap();
+        assert!(low_hrv.is_in_focused_zone());
+        assert_eq!(low_hrv.to_companion_state(), CompanionState::Stressed);
+    }
+
+    #[test]
+    fn excited_zone_predicate_matches_threshold() {
+        let high = BiometricSignal::new(40.0, 0.3, 0.8).unwrap();
+        assert!(high.is_in_excited_zone());
+        let low = BiometricSignal::new(40.0, 0.3, 0.7).unwrap();
+        assert!(!low.is_in_excited_zone());
+    }
+
+    #[test]
+    fn error_field_matches_variant() {
+        // Cross-surface: error.field() agrees with which variant predicate is true.
+        let hrv = TamagotchiError::HrvOutOfRange { value: 999.0 };
+        let coh = TamagotchiError::CoherenceOutOfRange { value: 2.0 };
+        let aro = TamagotchiError::ArousalOutOfRange { value: -1.0 };
+        assert_eq!(hrv.field(), "hrv_rmssd_ms");
+        assert_eq!(coh.field(), "coherence_ratio");
+        assert_eq!(aro.field(), "arousal_normalized");
+        assert!(hrv.is_hrv() && !hrv.is_coherence() && !hrv.is_arousal());
+        assert!(!coh.is_hrv() && coh.is_coherence() && !coh.is_arousal());
+        assert!(!aro.is_hrv() && !aro.is_coherence() && aro.is_arousal());
+    }
+
+    #[test]
+    fn error_offending_value_extracts_value() {
+        assert_eq!(
+            TamagotchiError::HrvOutOfRange { value: 999.0 }.offending_value(),
+            999.0
+        );
+        assert_eq!(
+            TamagotchiError::CoherenceOutOfRange { value: -0.5 }.offending_value(),
+            -0.5
+        );
+        assert_eq!(
+            TamagotchiError::ArousalOutOfRange { value: 1.5 }.offending_value(),
+            1.5
+        );
     }
 }
