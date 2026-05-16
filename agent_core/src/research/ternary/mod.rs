@@ -23,7 +23,8 @@
 //!    `Epistemos/Shaders/ternary_gemv.metal`; Metal dispatch wire-in pending).
 //! 3. Fused ternary projection with residual island add ([`residual_island`]
 //!    — CPU reference; Metal fusion pending).
-//! 4. Fused RMSNorm + ternary projection (NOT-STARTED).
+//! 4. Fused RMSNorm + ternary projection ([`fused_rmsnorm`] — CPU reference
+//!    with allocated scratch; Metal single-pass fusion pending).
 //! 5. Ternary KV fingerprint kernel (NOT-STARTED — distinct from full KV
 //!    ternarization, which is intentionally deferred per `ternary kernel.md`).
 //! 6. Live activation capture kernel (NOT-STARTED).
@@ -43,12 +44,16 @@
 //! performance before any prefill-only optimization is considered.
 
 pub mod backend;
+pub mod fused_rmsnorm;
 pub mod gemv;
 pub mod pack;
 pub mod residual_island;
 pub mod trit;
 
 pub use backend::{BackendKind, TernaryBackend};
+pub use fused_rmsnorm::{
+    fused_rmsnorm_gemv, rmsnorm_into, FusedRmsnormError, RmsNormParams,
+};
 pub use gemv::{gemv_block_scaled, GemvBlock, GemvError, GEMV_BLOCK_TRITS};
 pub use pack::{pack_trits_u32, unpack_trits_u32, PackError, TRITS_PER_U32};
 pub use residual_island::{
