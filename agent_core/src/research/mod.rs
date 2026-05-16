@@ -20,6 +20,7 @@ pub mod cognition_observatory;
 pub mod continual_learning;
 pub mod eml;
 pub mod hyperdynamic_schemas;
+pub mod mamba3;
 pub mod paper_registry;
 pub mod sherry_lattice;
 pub mod ternary;
