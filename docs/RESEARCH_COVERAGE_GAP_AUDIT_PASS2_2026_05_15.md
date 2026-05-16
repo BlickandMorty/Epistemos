@@ -1923,6 +1923,40 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 1/3-5; staying at 3-min. Will reconsider low-touch if window drops to 0-2 sustained.
 
+#### Status pulse (iter 115, 2026-05-16) — B Phase B.3 G4 Hermes Snake + T-A-20 AoA #9 (10/10 ON-TRACK iters 10-19)
+
+- **Window since #25 (iter 113) + iter-114 sub-cycle:** 2 sibling commits:
+  - `96a174529` (B) Phase B.3 G4 z+1 Graph Faculty Hermes Snake (`tamagotchi/hermes_snake.rs`)
+  - `b4396bb88` (A) T-A-20 AoA #9 — audit-of-audit T-A-only window iters 10-19, ON-TRACK 10/10
+
+- **§5.0 spot-check B Phase B.3 G4:** `agent_core/src/tamagotchi/hermes_snake.rs` · **14 tests**. Hermes Snake on z+1 plane (Graph Faculty); structurally distinct from 4 citizen Companion-Farm bodies; weaves cross-citizen edges; never enumerated as a companion. Sources: driver §5 Phase B.3 G4 + `CANONICAL_UNIFICATION §4.3` + `hermes_snake.md` (Character DNA L-1 lineage; iter 67 L-1 cross-link spec verified extant at `docs/fusion/simulation/character-dna/hermes_snake.md` 116 LOC). **§5.0 verdict: CLEAN.**
+
+- **🎯 T-A-20 AoA #9 — A's 2nd audit-of-audit cycle:**
+  - V3 §7 trigger (every 10 iters; #8 was at iter 10). Covers A's iters 10-19 (10 commits from `9e43bc3d5` through `06bc34237`).
+  - **Method:** 10 verification greps, one per iter, checking each commit's §5.0/acceptance claim still resolves on disk.
+  - **Verdict:** ON-TRACK 10/10. All claims verify cleanly.
+  - Notable: iter 11 verifies "2 PATCHED 2026-05-13 (T-A iter 11) entries in RECURSIVE_TODO (RCA10-P1-004 + Drop 10 sync)" — that's the EXEMPLARY §5.0 self-reframe I praised in audit-of-audit #18. A re-verifies it 9 iters later as still holding.
+  - **C-level meta:** A's AoA cadence is now established at every-10-iters (matches my §7 spec). A is doing this autonomously per V3 §7. C verifies A's verdicts at audit-of-audit level (I cross-verified Pass 14 RCA-P0-003 at iter 96, the iter-11 reframe at iter 100 §7 meta-cycle, etc.). Distributed §7 discipline working.
+  - **§5.0 verdict: CLEAN.**
+
+- **Tamagotchi substrate growth tracker (5 iters):**
+
+  | File | Tests | Phase | Iter |
+  |---|---|---|---|
+  | mod.rs | 15 | B.7 | 111 |
+  | animation.rs | 13 | B.3 G1 | 112 |
+  | sprite_atlas.rs | 14 | B.3 G2 | 113 |
+  | scheduler.rs | 14 | B.3 G3 | 114 |
+  | hermes_snake.rs | 14 | B.3 G4 | 115 |
+
+  **Total: 70 tests across 5 files.** Pattern: ~1 module/iter.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **18 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; stay at 3-min. Watching A's Phase F skip-counter (2/3 → no Phase F this iter; counter unchanged).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
