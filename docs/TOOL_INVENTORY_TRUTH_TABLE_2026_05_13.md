@@ -155,6 +155,14 @@ keeps episode/semantic stores append-only. This is a schema-guarded MCP
 persistence surface; full `MutationEnvelope` call-site validation remains
 in `agent_core`.
 
+Filesystem MCP D.3 contract: `omega-mcp/src/vault.rs` exposes canonical
+vault-scoped `file.read`, `file.write`, `file.list`, and `file.search` through
+`execute_vault_tool`, while retaining `read_file` / `write_file` / `list_files`
+and `vault.*` aliases for archived callers. `file.search` routes to the
+existing mmap-backed markdown search. The executor is scoped to the selected
+vault root, rejects traversal/out-of-root paths, skips hidden directories during
+recursive search, and performs no subprocess or network work.
+
 Web search MCP D.3 blocker: queue wording named a Bing backend, but Microsoft
 officially retired Bing Search APIs on 2025-08-11
 (`https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement`).

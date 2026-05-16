@@ -831,6 +831,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Vault-scoped memory store (`memory.put`, `memory.get`, `memory.search`, `memory.list`) | Local filesystem inside the selected vault via `omega-mcp::memory` | ✅ MAS-compatible local vault I/O — no subprocess, no network | D.3 wired on 2026-05-16. The executor stores JSONL under `<vault>/.epistemos/memory/`, accepts only the four canonical schema revs (`epistemos.soul.v1`, `epistemos.skill.v1`, `epistemos.episode.v1`, `epistemos.semantic.v1`), validates required keys, rejects unknown top-level fields, enforces 12-char lowercase ids, caps records at 256 KiB, and keeps episode/semantic payloads append-only. This is a schema-guarded MCP persistence surface; full Rust schema mirrors and `MutationEnvelope` call-site validation remain in `agent_core/src/schemas/mod.rs` + `agent_core/src/mutations/`. UniFFI entry point: `execute_memory_tool(vault_root, tool_name, args_json)`. Source schemas: `agent_core/schemas/epistemos.*.v1.schema.json`. |
 
+### 7.4.7 D.3 Filesystem MCP Canonical-Name Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Vault-scoped filesystem tools (`file.read`, `file.write`, `file.list`, `file.search`) | Local filesystem inside the selected vault via `omega-mcp::vault` | ✅ MAS-compatible local vault I/O — no subprocess, no network | D.3 reconciled on 2026-05-16. §5.0 found the vault executor already handled read/write/list/search under legacy and vault aliases, but the MCP catalog did not advertise canonical dotted file tools and `file.search` was not accepted by `execute_vault_tool`. The catalog now exposes `file.read`, `file.write`, `file.list`, and `file.search`; legacy names remain for archived callers; the executor routes `file.search` through the existing mmap-backed vault markdown search. Safety boundary remains vault-root scoping with traversal rejection and hidden-directory exclusion during recursive search. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

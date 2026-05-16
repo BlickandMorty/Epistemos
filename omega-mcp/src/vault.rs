@@ -340,7 +340,7 @@ pub fn execute_vault_tool(vault_root: String, tool_name: String, args_json: Stri
             let path = args["path"].as_str().unwrap_or(".");
             executor.list_files(path)
         }
-        "vault.search" | "search_notes" | "vault_search" => {
+        "file.search" | "vault.search" | "search_notes" | "vault_search" => {
             let query = args["query"].as_str().unwrap_or("");
             let limit = args["limit"].as_u64().unwrap_or(10) as usize;
             executor.search_notes(query, limit)
@@ -453,6 +453,22 @@ mod tests {
         let result =
             execute_vault_tool(root, "file.list".to_string(), r#"{"path":"."}"#.to_string());
         assert!(result.contains("test.md"));
+    }
+
+    #[test]
+    fn test_execute_vault_tool_accepts_canonical_file_search() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("test.md"), "canonical file search").unwrap();
+        let root = dir.path().to_str().unwrap().to_string();
+
+        let result = execute_vault_tool(
+            root,
+            "file.search".to_string(),
+            r#"{"query":"canonical","limit":5}"#.to_string(),
+        );
+
+        assert!(result.contains("\"success\":true"), "{result}");
+        assert!(result.contains("test.md"), "{result}");
     }
 
     #[test]

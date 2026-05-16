@@ -75,7 +75,33 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"query": "transformer attention mechanisms"}"#,
             r#"{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","description":"Max results, default 5"},"yearMin":{"type":"integer","description":"Minimum publication year"}},"required":["query"]}"#
         ),
-        // ── File Agent ────────────────────────────────────────────────────
+        // ── File Agent (canonical D.3 filesystem MCP surface) ─────────────
+        tool!(
+            "file.read", "file",
+            "Read a file from the vault",
+            r#"{"path": "relative/path.md"}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
+        tool!(
+            "file.write", "file",
+            "Write content to a file in the vault",
+            r#"{"path": "relative/path.md", "content": "..."}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
+            destructive
+        ),
+        tool!(
+            "file.list", "file",
+            "List files in a vault directory",
+            r#"{"path": "."}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
+        tool!(
+            "file.search", "file",
+            "Search markdown files inside the vault",
+            r#"{"query": "search terms", "limit": 10}"#,
+            r#"{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}},"required":["query"]}"#
+        ),
+        // ── Legacy File Agent Aliases ─────────────────────────────────────
         tool!(
             "read_file", "file",
             "Read a file from the vault",
@@ -413,6 +439,20 @@ mod tests {
 
         for expected in ["git.status", "git.diff", "git.log"] {
             assert!(names.contains(expected), "missing D3 git tool {expected}");
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_filesystem_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in ["file.read", "file.write", "file.list", "file.search"] {
+            assert!(
+                names.contains(expected),
+                "missing D3 filesystem MCP tool {expected}"
+            );
         }
     }
 
