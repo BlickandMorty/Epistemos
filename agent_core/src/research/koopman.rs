@@ -83,6 +83,10 @@ impl KoopmanConsequence {
 pub enum KoopmanError {
     NonPositiveConditionNumber { kappa: f32 },
     NonPositivePerturbationNorm { norm: f32 },
+    EmptySpectrum,
+    NonFiniteMagnitude { index: usize, value: f32 },
+    NegativeMagnitude { index: usize, value: f32 },
+    SingularMatrix { min_magnitude: f32 },
 }
 
 /// Bauer-Fike eigenvalue perturbation bound: for diagonalizable A,
@@ -113,6 +117,61 @@ pub fn verify_bauer_fike(
 ) -> Result<bool, KoopmanError> {
     let bound = bauer_fike_bound(condition_number, perturbation_norm)?;
     Ok(observed_shift.abs() <= bound + 1e-6)
+}
+
+/// Spectral radius: `max_i |λ_i|`. Caller supplies eigenvalue
+/// magnitudes (the substrate-floor avoids a Complex type by working
+/// with the modulus directly). Rejects empty input + non-finite +
+/// negative magnitudes.
+pub fn spectral_radius(magnitudes: &[f32]) -> Result<f32, KoopmanError> {
+    if magnitudes.is_empty() {
+        return Err(KoopmanError::EmptySpectrum);
+    }
+    let mut max: f32 = 0.0;
+    for (i, &m) in magnitudes.iter().enumerate() {
+        if !m.is_finite() {
+            return Err(KoopmanError::NonFiniteMagnitude { index: i, value: m });
+        }
+        if m < 0.0 {
+            return Err(KoopmanError::NegativeMagnitude { index: i, value: m });
+        }
+        if m > max {
+            max = m;
+        }
+    }
+    Ok(max)
+}
+
+/// 2-norm condition number for a normal matrix:
+/// `κ₂(A) = max|λ| / min|λ|`. Pairs with [`bauer_fike_bound`] to
+/// close the workflow "given eigenvalues, compute κ, apply
+/// Bauer-Fike". Rejects empty input + non-finite + negative
+/// magnitudes; rejects min == 0 as `SingularMatrix` (condition
+/// number is +∞ for singular matrices and no useful bound follows).
+pub fn condition_number_normal(magnitudes: &[f32]) -> Result<f32, KoopmanError> {
+    if magnitudes.is_empty() {
+        return Err(KoopmanError::EmptySpectrum);
+    }
+    let mut max: f32 = 0.0;
+    let mut min: f32 = f32::INFINITY;
+    for (i, &m) in magnitudes.iter().enumerate() {
+        if !m.is_finite() {
+            return Err(KoopmanError::NonFiniteMagnitude { index: i, value: m });
+        }
+        if m < 0.0 {
+            return Err(KoopmanError::NegativeMagnitude { index: i, value: m });
+        }
+        if m > max {
+            max = m;
+        }
+        if m < min {
+            min = m;
+        }
+    }
+    if min == 0.0 {
+        return Err(KoopmanError::SingularMatrix { min_magnitude: min });
+    }
+    Ok(max / min)
 }
 
 #[cfg(test)]
@@ -219,5 +278,83 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: KoopmanConsequence = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
+    }
+
+    // ── spectral_radius + condition_number_normal tests (iter 98) ───────────
+
+    #[test]
+    fn spectral_radius_empty_rejected() {
+        assert_eq!(
+            spectral_radius(&[]).unwrap_err(),
+            KoopmanError::EmptySpectrum
+        );
+    }
+
+    #[test]
+    fn spectral_radius_picks_max_magnitude() {
+        assert!((spectral_radius(&[0.5, 1.5, 0.8]).unwrap() - 1.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn spectral_radius_single_element() {
+        assert!((spectral_radius(&[3.14]).unwrap() - 3.14).abs() < 1e-6);
+    }
+
+    #[test]
+    fn spectral_radius_all_zeros_returns_zero() {
+        assert!((spectral_radius(&[0.0, 0.0, 0.0]).unwrap() - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn spectral_radius_nan_rejected() {
+        assert!(matches!(
+            spectral_radius(&[1.0, f32::NAN]).unwrap_err(),
+            KoopmanError::NonFiniteMagnitude { .. }
+        ));
+    }
+
+    #[test]
+    fn spectral_radius_negative_rejected() {
+        assert!(matches!(
+            spectral_radius(&[1.0, -0.5]).unwrap_err(),
+            KoopmanError::NegativeMagnitude { .. }
+        ));
+    }
+
+    #[test]
+    fn condition_number_normal_max_over_min() {
+        assert!((condition_number_normal(&[1.0, 2.0, 5.0]).unwrap() - 5.0).abs() < 1e-6);
+        assert!((condition_number_normal(&[0.5, 2.0]).unwrap() - 4.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn condition_number_normal_singular_rejected() {
+        assert!(matches!(
+            condition_number_normal(&[0.0, 1.0]).unwrap_err(),
+            KoopmanError::SingularMatrix { .. }
+        ));
+    }
+
+    #[test]
+    fn condition_number_normal_empty_rejected() {
+        assert_eq!(
+            condition_number_normal(&[]).unwrap_err(),
+            KoopmanError::EmptySpectrum
+        );
+    }
+
+    #[test]
+    fn condition_number_normal_uniform_is_one() {
+        assert!((condition_number_normal(&[2.0, 2.0, 2.0]).unwrap() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn condition_number_feeds_bauer_fike_workflow() {
+        // Eigenvalues → condition number → Bauer-Fike bound.
+        let mags = vec![0.5_f32, 1.0, 1.5, 2.0];
+        let kappa = condition_number_normal(&mags).unwrap();
+        let bound = bauer_fike_bound(kappa, 0.01).unwrap();
+        // κ = 4.0, ‖E‖ = 0.01, bound = 0.04.
+        assert!((bound - 0.04).abs() < 1e-6);
     }
 }
