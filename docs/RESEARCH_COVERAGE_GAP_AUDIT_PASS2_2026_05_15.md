@@ -4489,6 +4489,49 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 170+ candidates:** (1) Watch for B's continued B.0 + B.0.6 + B.3 + remaining J-series expansion. (2) Watch for D Phase D.0 substrate (per iter-145 autonomy-hardening Fix 3; mirror of B.0.6). (3) Watch A T-A-31 1800s fire. (4) Watch for any user-implemented features (now established 8th attribution category). (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (21 iters away). (6) **If D.5↔A surface re-emerges in iter-171+ → 3-consecutive escalation trigger fires.**
 
+#### Status pulse (iter 170, 2026-05-16) — B Tamagotchi B.3 G2 sprite_atlas + B.3 G3 scheduler diagnostics (56th consecutive maturation commit) — 2 commits CLEAN
+
+- **Window since iter 169 close:** 2 sibling commits (sub-threshold):
+  - `51b6d9ae0` (B iter 137) `tamagotchi/sprite_atlas: diagnostic surface for atlas + rect + DNA`
+  - `f9b89248b` (B iter 136) `tamagotchi/scheduler: headroom + error predicates + exact FPS`
+
+- **🎯 Findings — B `tamagotchi/sprite_atlas: diagnostic surface (Phase B.3 G2)` (`51b6d9ae0`) — B.3 G2 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 137. Tamagotchi B.3 G2 sprite-atlas substrate (originally landed iter 113 audit-of-audit #25 era; `sprite_atlas.rs` + InstancedQuad + Metal stub).
+  - Substrate: `CharacterDna::from_code(&str) -> Option<Self>` (**inverse of `code()`**; returns None for unknown/wrongly-cased strings; used to parse character DNA from serialized companion state) · `SpriteAtlas::atlas_pixels_total()` (total texture-size in pixels width × height; **texture-upload budget check before handing atlas to Metal**).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `tamagotchi/scheduler: headroom + error predicates + exact FPS (Phase B.3 G3)` (`f9b89248b`) — B.3 G3 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 136. Tamagotchi Phase B.3 G3 frame-budget scheduler with **doctrine constants pinned: `MAX_SPRITES=50`, `MAX_EMOTES=24`, `FRAME_BUDGET_NS=16_666_667`** (60 FPS budget = 1e9/60 ns).
+  - Substrate: `sprite_headroom(n) -> Option<u32>` (Some(MAX_SPRITES - n) when admitted; None when rejected; "how many more sprites can I fit?" diagnostic for scene composition; **const fn; allocation-free**) · `emote_headroom(n) -> Option<u32>` (mirror for emote-vocabulary cap; **const fn; allocation-free**) · `SchedulerError` variant predicates (`is_sprite_cap_exceeded` / `is_emote_cap_exceeded` / `is_zero_frame_count`) + `cap_overage() -> Option<u32>`.
+  - **🎯 Doctrine pin: 60 FPS budget = 16_666_667 ns** (EXACT integer matching real-time-per-frame ceiling) + MAX_SPRITES=50 + MAX_EMOTES=24 = scene-composition contract.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B TAMAGOTCHI B.3 PORTFOLIO EXPANSION PROGRESS (3 sub-features expanded across 2 iters):**
+  - B.3 G1 animation ✅ (iter 168: is_resting + is_terminal + is_handoff + allowed_next_states)
+  - B.3 G2 sprite_atlas ✅ (iter 170 this iter: CharacterDna::from_code + atlas_pixels_total)
+  - B.3 G3 scheduler ✅ (iter 170 this iter: sprite_headroom + emote_headroom + SchedulerError predicates; MAX_SPRITES=50, MAX_EMOTES=24, FRAME_BUDGET_NS=16_666_667 pinned)
+  - B.3 G4 ⏳ (likely next; per Tamagotchi G1-G4 enumeration)
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 56 CONSECUTIVE COMMITS ACROSS ITERS 130-170:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - Phase 2-Helios B.2 (iters 159-162): 6 Helios B.2 expansions (portfolio complete 6×8)
+  - Phase 2-J2 (iters 163-164): 2 J2 substrate-floor expansions
+  - Phase 2-weight_patcher (iter 165): 1
+  - Phase 2-B.0 (iters 166-167): 3 B.0 expansions
+  - Phase 2-B.0.6 + B.3 (iter 168): 2 expansions
+  - **Phase 2-B.3 G2+G3 (iter 170 this): 2 B.3 Tamagotchi expansions**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2. Average ~2.6/iter.
+
+- **Iter 171+ candidates:** (1) Watch for B.3 G4 substrate expansion (completing B.3 4/4). (2) Watch for D Phase D.0 substrate (mirror of B.0.6 per iter-145 autonomy-hardening; still pending). (3) Watch A T-A-31 1800s fire. (4) Watch for any user-implemented features. (5) Watch for D.5↔A 3-consecutive escalation if D 22nd self-audit re-surfaces. (6) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (20 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
