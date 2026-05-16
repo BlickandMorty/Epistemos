@@ -74,6 +74,17 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         source_url: "https://openai.com/api/pricing/",
     },
     ProviderPricing {
+        canonical_name: "grok-4.3",
+        aliases: &["xai", "grok", "grok_latest", "grok-4.3", "grok-latest"],
+        input_usd_per_mtok: 1.25,
+        output_usd_per_mtok: 2.50,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: Some(0.20),
+        request_usd_per_1k: None,
+        last_verified_iso8601: "2026-05-16",
+        source_url: "https://docs.x.ai/developers/pricing",
+    },
+    ProviderPricing {
         canonical_name: "gemini-2.5-flash",
         aliases: &["gemini", "gemini_flash", "google-gemini"],
         input_usd_per_mtok: 0.30,
@@ -277,5 +288,16 @@ mod tests {
         assert_eq!(pricing.input_usd_per_mtok, 0.88);
         assert_eq!(pricing.output_usd_per_mtok, 0.88);
         assert_eq!(pricing.source_url, "https://www.together.ai/pricing");
+    }
+
+    #[test]
+    fn pricing_includes_grok_latest_aliases() {
+        let pricing = pricing_for("grok").expect("Grok pricing row must exist");
+
+        assert_eq!(pricing.canonical_name, "grok-4.3");
+        assert_eq!(pricing.input_usd_per_mtok, 1.25);
+        assert_eq!(pricing.output_usd_per_mtok, 2.50);
+        assert_eq!(pricing.cache_read_usd_per_mtok, Some(0.20));
+        assert_eq!(pricing.source_url, "https://docs.x.ai/developers/pricing");
     }
 }

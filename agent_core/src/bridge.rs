@@ -527,6 +527,8 @@ fn resolve_provider_selection_preview(
                     | "minimax"
                     | "xai"
                     | "grok"
+                    | "grok_latest"
+                    | "grok-4.3"
                     | "mistral"
                     | "groq"
                     | "codestral"
@@ -591,7 +593,9 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "deepseek" => Ok(Arc::new(OpenAICompatibleProvider::deepseek())),
         "minimax" => Ok(Arc::new(OpenAICompatibleProvider::minimax())),
         // Western AI providers
-        "xai" | "grok" => Ok(Arc::new(OpenAICompatibleProvider::xai())),
+        "xai" | "grok" | "grok_latest" | "grok-4.3" => {
+            Ok(Arc::new(OpenAICompatibleProvider::grok_latest()))
+        }
         "mistral" => Ok(Arc::new(OpenAICompatibleProvider::mistral())),
         "groq" => Ok(Arc::new(OpenAICompatibleProvider::groq())),
         // Codestral (Mistral's code-specialised model at codestral.mistral.ai)
