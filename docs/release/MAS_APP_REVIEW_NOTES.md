@@ -88,4 +88,118 @@ No user input is ever compiled or executed.
 
 ---
 
+## 9. Pro Notarization Checklist (T-A iter 17, 2026-05-16)
+
+This section governs the **Pro Developer-ID distribution path** (out-of-scope for App Store Review — that's §§1-8 above). It aligns with V3 §0 victory criteria 11/12/13 + V3 §5 Phase G G2/G4/G5.
+
+**Scope:** Pro bundle `Epistemos-Pro.app` packaged as `Epistemos-Pro.dmg` for Developer-ID distribution outside the App Store. MAS bundle (`Epistemos-AppStore.app`) does NOT go through this path — App Store handles notarization implicitly via App Store Connect submission.
+
+### 9.1 Pre-submission gate (run ALL before invoking notarytool)
+
+```bash
+# 1. Code signature verified end-to-end
+codesign --verify --strict --deep --verbose=2 Epistemos-Pro.app
+# Expected: "valid on disk" + "satisfies its Designated Requirement"
+
+# 2. Hardened Runtime enabled on every Mach-O
+codesign --display --verbose=2 Epistemos-Pro.app | grep -E "flags="
+# Expected: flags include "runtime" — e.g. "flags=0x10000(runtime)"
+
+# 3. Timestamped (secure timestamp present)
+codesign --display --verbose=2 Epistemos-Pro.app | grep -E "Timestamp"
+# Expected: "Timestamp=<datetime>" with non-zero datetime
+
+# 4. Pro entitlements verified per V3 §0 criterion 15
+#    - WASMExecXPC.entitlements: cs.allow-jit + cs.disable-library-validation (Wasmtime needs both)
+#    - Main Pro app: NO cs.disable-library-validation (XPC-scoped only)
+#    - Other Pro entitlements per docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md §X.1-X.5
+codesign --display --entitlements - Epistemos-Pro.app/Contents/MacOS/Epistemos
+codesign --display --entitlements - Epistemos-Pro.app/Contents/XPCServices/WASMExecXPC.xpc
+
+# 5. DMG built deterministically + Pro bundle inside it
+hdiutil verify Epistemos-Pro.dmg
+ls Epistemos-Pro.dmg.mount/Epistemos-Pro.app  # via mount
+```
+
+### 9.2 Submission + audit-trail capture
+
+```bash
+# Submit (capture submission ID + status in audit trail)
+SUBMIT_JSON=$(xcrun notarytool submit Epistemos-Pro.dmg --wait --output-format json \
+  --apple-id "$APPLE_ID" \
+  --team-id "$TEAM_ID" \
+  --password "$NOTARY_APP_SPECIFIC_PASSWORD")
+
+# Expected response shape (status: "Accepted"):
+#   {
+#     "id": "ABC123...",
+#     "status": "Accepted",
+#     "createdDate": "2026-...",
+#     ...
+#   }
+
+# Capture audit trail (T-A V3 §2 owns docs/release/* per ownership matrix —
+# append a new entry to docs/release/notarization-log.md for each submission)
+echo "## Submission $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> docs/release/notarization-log.md
+echo "" >> docs/release/notarization-log.md
+echo "- DMG SHA256: $(shasum -a 256 Epistemos-Pro.dmg | awk '{print $1}')" >> docs/release/notarization-log.md
+echo "- Submission ID: $(echo "$SUBMIT_JSON" | jq -r .id)" >> docs/release/notarization-log.md
+echo "- Status: $(echo "$SUBMIT_JSON" | jq -r .status)" >> docs/release/notarization-log.md
+echo "- Created: $(echo "$SUBMIT_JSON" | jq -r .createdDate)" >> docs/release/notarization-log.md
+echo "" >> docs/release/notarization-log.md
+
+# On Invalid status: capture the log
+if [ "$(echo "$SUBMIT_JSON" | jq -r .status)" != "Accepted" ]; then
+  xcrun notarytool log "$(echo "$SUBMIT_JSON" | jq -r .id)" \
+    --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$NOTARY_APP_SPECIFIC_PASSWORD" \
+    > "build/notarization-log-$(echo "$SUBMIT_JSON" | jq -r .id).json"
+  exit 1  # Stop the release pipeline
+fi
+```
+
+### 9.3 Stapling + validation
+
+```bash
+# Staple the notarization ticket to the DMG (offline-installable)
+xcrun stapler staple Epistemos-Pro.dmg
+# Expected: "The staple and validate action worked!"
+
+# Validate the staple
+xcrun stapler validate Epistemos-Pro.dmg
+# Expected: "The validate action worked!" with returncode 0
+
+# Gatekeeper assessment (final ship-readiness check)
+spctl --assess --type install --verbose=2 Epistemos-Pro.dmg
+# Expected: "accepted" + source "Notarized Developer ID"
+```
+
+### 9.4 Failure modes table
+
+| Symptom | Apple error code / message | Recovery |
+|---|---|---|
+| Invalid signature | `EXEC_HARDENED_RUNTIME` / "cdhash mismatch" | Re-codesign with `--options runtime --timestamp --deep` — both flags required for notarytool acceptance |
+| Timestamp missing | `90001` / "the signature did not include a secure timestamp" | Add `--timestamp` to `codesign` invocation; verify network reachable to Apple's timestamp server during sign |
+| Hardened Runtime not enabled | `INVALID_RUNTIME` / "flag not set on .../<binary>" | Re-codesign with `--options runtime`; verify with `codesign --display --verbose=2 .../<binary> \| grep flags` shows `runtime` |
+| JIT entitlement without justification | rejection note: "entitlement requested without runtime justification" | Document the JIT use per §1 above (MLX shader compilation + MPS only); if a Pro-only binary carries `cs.allow-jit`, gate it through `WASMExecXPC.xpc` only — never the main app binary |
+| Subprocess spawn flagged | rejection note: "binary observed spawning subprocess; hardened runtime requires explicit entitlement" | Confirm `agent_core/src/security.rs::harden_cli_subprocess` is wired into every spawn site (10 sites enumerated in CLAUDE.md §Subprocess Hardening); App Store path additionally requires the binary NOT carry the subprocess-spawning code at all (`#if !EPISTEMOS_APP_STORE` compile-time exclusion + link-time post-build scrub per §5) |
+| Library validation failure on XPC | `INVALID_LIBRARY_VALIDATION` / "library not signed by same Team ID" | If Wasmtime XPC needs to load third-party Wasm bytecode, carry `cs.disable-library-validation` ONLY on `WASMExecXPC.entitlements` (never on the main Pro app); cross-reference §0 criterion 15 |
+| Provisioning profile mismatch | `INVALID_PROVISIONING_PROFILE` / "embedded profile does not match signature" | Re-export the Pro provisioning profile from Apple Developer Portal for the Pro app bundle ID, embed it during `xcodebuild archive`, re-sign |
+
+### 9.5 Cross-references
+
+- **V3 §0 victory criteria 11/12/13:** codesign verify ⇒ notarytool Accepted ⇒ stapler validate. This checklist is the canonical operator procedure for satisfying those three criteria.
+- **V3 §5 Phase G G2/G4/G5:** same as above (G2 codesign · G4 notarization · G5 staple+verify).
+- **MAS_COMPLETE_FUSION §0 immutable rules 6, 7, 8:** the Pro bundle MUST honor the same hardened-runtime + subprocess-allowlist + egress-allowlist invariants as MAS (rules 7 + 8 apply universally; rule 6 is MAS-only for the WKWebView constraint, but the CLI/subprocess clause from rule 6's A-V6.1.1 sharpening applies to MAS only — Pro CAN carry CLI passthrough behind SovereignGate).
+- **`docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` §X.1-X.5:** per-XPC entitlement audit (V3 §0 criterion 15) — must complete BEFORE notarytool submit so any XPC carrying disallowed entitlements is caught at pre-submission gate (§9.1 step 4) not at Apple's notary server.
+- **`docs/release/notarization-log.md`:** sibling audit-trail file (T-A V3 §2 owned). Each successful + failed notarytool submission appends one entry. Format defined in §9.2 above. File should be created as needed (no template required — `echo` + `jq` per §9.2 is the spec).
+
+### 9.6 Scope boundary (what this checklist does NOT cover)
+
+- **Apple Developer Program membership active:** assumed true per HELIOS V6.1 / V3 §1 ("Paid Apple Developer Program ACTIVE confirmed 2026-05-16"). If membership lapses, notarytool returns `MEMBERSHIP_INACTIVE` and the whole flow stops — recovery is membership renewal, not a notarization fix.
+- **DMG packaging:** delegated to `xcodebuild archive` + `productbuild` / `hdiutil` upstream. This checklist starts AFTER the DMG exists on disk.
+- **Distribution channel decision:** V3 §5 Phase G G6 is a separate user-decision item (direct download vs Cloudflare CDN vs Backblaze vs other). Notarization completes before distribution — channel decision is upstream of release timing.
+- **Sparkle / Squirrel auto-update:** out-of-scope; Pro V1 is manual DMG download per current Phase G framing.
+
+---
+
 Contact for App Review questions: (developer email).
