@@ -233,6 +233,8 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.3 + §2 Termina
 - **D.0.4** — `CredentialVault::load_for(&AgentProvider).await` Keychain integration.
 - **D.0.5** — `AgentRunController::start(agent_def, user_msg)` lifecycle wrapping in `MutationEnvelope` for SCOPE-Rex governance.
 
+**Cross-dependency on Terminal B Phase B.0:** `MissionPacket::answer_packet_schema` (per integration doc §1.3) consumes the **frozen AnswerPacket schema** that Terminal B Phase B.0 (F-ULP-Oracle) gates. D.0 implementation can land its trait signature first, but `MissionPacketBuilder` cannot finalize `answer_packet_schema` content until B.0.4 passes (ULP fixture < 2 ULP fp16 + < 90s M2 Pro). Verify on each iter: `git log run-b-post-v1-research --oneline | grep -i "F-ULP-Oracle.*pass"` — if absent, ship D.0 trait + executor scaffolding but use placeholder schema; finalize after B's gate green.
+
 ### Phase D.2-V6.1 — Provider refactor + new providers via `Executor` trait (REPLACES D.2 above)
 
 After D.0 lands, all D.2 providers refactor as `Executor` impls. **This section supersedes the original D.2 "Cloud provider expansion" above** — same provider list but now wrapped in the `Executor` trait abstraction:
