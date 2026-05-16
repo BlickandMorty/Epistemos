@@ -107,6 +107,41 @@ impl ActivationTap {
     pub fn clear(&mut self) {
         self.samples.clear();
     }
+
+    /// True iff the ring is at capacity. Next [`Self::record`] call
+    /// will evict the oldest sample.
+    pub fn is_full(&self) -> bool {
+        self.samples.len() >= self.capacity
+    }
+
+    /// Most-recent recorded sample, or `None` if the tap is empty.
+    /// The control room typically wants this rather than the full
+    /// snapshot when displaying live values.
+    pub fn latest(&self) -> Option<&Vec<f32>> {
+        self.samples.back()
+    }
+
+    /// Mean activation per captured channel, across all samples
+    /// currently in the ring. Returns `None` on an empty ring or
+    /// empty channel set. Length of the returned vector matches
+    /// `captured_channels.len()`.
+    pub fn mean_per_channel(&self) -> Option<Vec<f32>> {
+        if self.samples.is_empty() || self.captured_channels.is_empty() {
+            return None;
+        }
+        let n_channels = self.captured_channels.len();
+        let mut sums = vec![0.0_f32; n_channels];
+        for sample in &self.samples {
+            for (i, &v) in sample.iter().enumerate() {
+                sums[i] += v;
+            }
+        }
+        let n_samples = self.samples.len() as f32;
+        for v in &mut sums {
+            *v /= n_samples;
+        }
+        Some(sums)
+    }
 }
 
 #[cfg(test)]
@@ -187,5 +222,80 @@ mod tests {
         let samples: Vec<f32> =
             tap.snapshot().iter().map(|s| s[0]).collect();
         assert_eq!(samples, vec![2.0, 3.0]);
+    }
+
+    // ── is_full + latest + mean_per_channel tests (iter 118) ────────────────
+
+    fn approx_slice(a: &[f32], b: &[f32], tol: f32) -> bool {
+        a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| (x - y).abs() < tol)
+    }
+
+    #[test]
+    fn is_full_false_when_under_capacity() {
+        let mut tap = ActivationTap::new(3, vec![0]).unwrap();
+        assert!(!tap.is_full());
+        tap.record(&[1.0]).unwrap();
+        assert!(!tap.is_full());
+        tap.record(&[2.0]).unwrap();
+        assert!(!tap.is_full());
+    }
+
+    #[test]
+    fn is_full_true_at_capacity() {
+        let mut tap = ActivationTap::new(2, vec![0]).unwrap();
+        tap.record(&[1.0]).unwrap();
+        tap.record(&[2.0]).unwrap();
+        assert!(tap.is_full());
+    }
+
+    #[test]
+    fn latest_none_when_empty() {
+        let tap = ActivationTap::new(3, vec![0]).unwrap();
+        assert!(tap.latest().is_none());
+    }
+
+    #[test]
+    fn latest_returns_most_recent_sample() {
+        let mut tap = ActivationTap::new(3, vec![0, 1]).unwrap();
+        tap.record(&[1.0, 2.0]).unwrap();
+        tap.record(&[3.0, 4.0]).unwrap();
+        tap.record(&[5.0, 6.0]).unwrap();
+        assert_eq!(tap.latest().unwrap(), &vec![5.0, 6.0]);
+    }
+
+    #[test]
+    fn mean_per_channel_none_on_empty_ring() {
+        let tap = ActivationTap::new(3, vec![0]).unwrap();
+        assert!(tap.mean_per_channel().is_none());
+    }
+
+    #[test]
+    fn mean_per_channel_none_on_empty_channel_set() {
+        let mut tap = ActivationTap::new(3, vec![]).unwrap();
+        tap.record(&[1.0, 2.0]).unwrap();
+        assert!(tap.mean_per_channel().is_none());
+    }
+
+    #[test]
+    fn mean_per_channel_arithmetic() {
+        // 3 samples × 2 channels, values [(1, 10), (2, 20), (3, 30)].
+        // Mean: [2.0, 20.0].
+        let mut tap = ActivationTap::new(5, vec![0, 1]).unwrap();
+        tap.record(&[1.0, 10.0]).unwrap();
+        tap.record(&[2.0, 20.0]).unwrap();
+        tap.record(&[3.0, 30.0]).unwrap();
+        let mean = tap.mean_per_channel().unwrap();
+        assert!(approx_slice(&mean, &[2.0, 20.0], 1e-5));
+    }
+
+    #[test]
+    fn mean_per_channel_uniform_returns_uniform() {
+        // 4 samples × 3 channels, all values 5.0 → mean [5, 5, 5].
+        let mut tap = ActivationTap::new(4, vec![0, 1, 2]).unwrap();
+        for _ in 0..4 {
+            tap.record(&[5.0, 5.0, 5.0]).unwrap();
+        }
+        let mean = tap.mean_per_channel().unwrap();
+        assert!(approx_slice(&mean, &[5.0, 5.0, 5.0], 1e-6));
     }
 }
