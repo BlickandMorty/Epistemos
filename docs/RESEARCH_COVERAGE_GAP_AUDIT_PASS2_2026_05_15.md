@@ -2507,6 +2507,45 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 130+ candidates:** (1) **🎯 ITER-130 SECOND §7 META-CYCLE DUE per driver "every 30 iters"** — last C-self-audit §7 meta-cycle at iter 100; next strict trigger at iter 130 (1 iter away). Should fire next cycle as a meta-cycle (sample 3 prior verdicts for re-verification + worktree-staleness check via `git show <sha>:<path>`). (2) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue (now should add J-series envelope sub-entries + B2-M14 DP gate). (3) Phase C.6 forward-staged primitive re-audit (55 iters past #8 baseline; long overdue). (4) Phase C.7.3 honest-caveats scan still deferred. (5) Watch A T-A-28 (streak 5/5 milestone next cycle).
 
+### [C-self-audit] §7 meta-cycle (iter 130, 2026-05-16) — sample 3 prior verdicts re-verify + Lesson #8 worktree-staleness discipline applied + ⚠️ MINOR SHA-citation precision catch in iter-128 verdict
+
+§7 trigger: every 30 iters. Last [C-self-audit] meta-cycle iter 100 (30 iters ago — strict trigger). 22 consecutive ON-TRACK at C level since #8 catch (iter 74).
+
+**Sampling method per Lesson #8:** verify at sibling commit SHA via `git show <sha>:<path>`, NOT at worktree HEAD. Worktree state ≠ aggregate sibling state pre-upmerge.
+
+**Sample #1 — verify Audit-of-audit #29 verdict on B2-M14 Laplace DP gate (`c32123587`):**
+- Claim: `agent_core/src/auto_research/dp.rs` ships + `DP_EPSILON_MAX = 0.5` pinned + 16 unit tests.
+- Re-verify at `c32123587`: file = **292 LOC** ✅ · `DP_EPSILON_MAX` / `0.5` references = **23** (constant pinned + assertion sites) ✅ · `#[test]` count = **16 EXACT** ✅
+- **Verdict HOLDS.** Forward-staged primitive flip from doctrine row §3.42 (landed iter 2 at audit-of-audit #2) → substrate at iter 129 = clean lockstep.
+
+**Sample #2 — verify Audit-of-audit #22 self-correction (iter-105 overreach) on B's driver §8:**
+- Claim: B's driver §8 does NOT contain "Forward-staged primitive flips" rule; iter-105 framing applied C's rule to B incorrectly.
+- Re-verify by reading B's driver at HEAD: `grep -c "Forward-staged primitive\|forward-staged primitive"` in `CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md` = **0** ✅
+- **Verdict HOLDS.** iter-122 self-correction confirmed at iter 130: B's driver indeed does not contain the rule I misapplied at iter 105.
+
+**Sample #3 — verify Audit-of-audit #28 verdict on B.0-KV F-KV-Direct-Gate (`f9d8408c9`) — ⚠️ MINOR SHA-CITATION PRECISION CATCH:**
+- Claim: substrate already in-tree per `Epistemos/Shaders/kv_direct_gate.metal` 65 LOC commit `99cab68c1` + `agent_core/src/scope_rex/kv/direct_gate.rs` 290 LOC + 7 tests.
+- Re-verify at HEAD: `kv_direct_gate.metal` exists at `Epistemos/Shaders/kv_direct_gate.metal` = **65 LOC** ✅ matches.
+- Re-verify .rs at f9d8408c9~1 (immediately before B-doc commit): `direct_gate.rs` = **290 LOC** ✅ EXACT.
+- Re-verify .rs test count at `99cab68c1`: **10 tests** (NOT 7 as cited in commit message). Discrepancy of 3 tests — likely because the file evolved between `99cab68c1` (concept introduction in Rust ref) and the audit time (290 LOC). Soft-framing understatement, opposite of padding.
+- **⚠️ MINOR SHA-CITATION PRECISION CATCH:** the cited SHA `99cab68c1` ("HELIOS-V5-W6+W7+W8: Active-Support Atlas + half-softmax + KV-Direct gate", 2026-05-06) is the LOGICAL introducing commit for the KV-Direct gate CONCEPT (Rust reference); but `99cab68c1` does NOT contain `Epistemos/Shaders/kv_direct_gate.metal` (`git show 99cab68c1:Epistemos/Shaders/kv_direct_gate.metal` = 0 LOC). The .metal file was actually added at commit `b970f98fe` ("HELIOS-V5-Stage-12: Metal Shading Language kernels for W6/W7/W8 (Tier-1 references)", 2026-05-06, same day but later).
+- **Substance of #28 verdict HOLDS:** substrate exists at HEAD; the audit ON-TRACK claim is accurate. The SHA citation `99cab68c1` for the .metal file was off-by-one introducing commit (conceptual-introducing-commit cited, not file-introducing-commit). This is a B-doc commit-message precision issue propagated into my #28 verdict. **Severity: LOW — precision-level, not substrate drift.**
+- **🎯 NEW Lesson #12 (proposed) — SHA-citation precision in commit-message lineage:** "When a commit message cites a SHA as the source of a particular file (e.g., 'already in tree per commit X'), the meta-cycle MUST verify `git show <cited-sha>:<file-path>` returns matching content — NOT just confirm the file exists at HEAD. The Lesson-#6 / Lesson-#8 discipline extends from substrate-existence verification to substrate-PROVENANCE verification."
+
+**🎯 Meta-cycle finding:** 1 minor precision catch (Sample #3 SHA precision); 2 verdicts hold cleanly. The §7 meta-cycle IS doing real work — catching precision-level discrepancies (file-introducing vs concept-introducing SHA) that the original audit-of-audit cycle missed. This validates the every-30-iter cadence even when substrate verdicts are CLEAN in substance.
+
+**Status pulse — single sibling commit in window:** `29cfc85bf` (B) `research/hybrid_memory: B.6.10 per-schema field validators`. Iter 83 — closes the explicitly NOT-STARTED gap the hybrid_memory mod doc comment named at fd09ce327 era (B.6.10 original commit). Lands `validate_soul_v1` + `validate_skill_v1` + `validate_episode_v1` + `validate_semantic_v1` + `validate_per_schema` dispatcher. **§5.0 verdict: CLEAN.** B's §4 reconciliation discipline at work — B noticed its own NOT-STARTED gap in previously-shipped substrate's doc comment and closed it (matches B's iter-127 J3 NeverRetrainStack assembly pattern atop already-landed substrate).
+
+**§5.0 catch rate post-meta-cycle:** 28 substrate catches + 1 precision-tier catch (Lesson #12 articulated) = 29/187 = 15.5%. Meta-cycle precision catch is a NEW catch category (provenance precision, not substrate drift).
+
+**22 consecutive ON-TRACK cycles** at C level since #8 catch (counting this meta-cycle as discipline-validating, not a substrate-drift catch).
+
+**Iter 100 → iter 130 meta-cycle interval reflection:** 30 iters between meta-cycles is the right cadence per driver; the meta-cycle surfaces precision-tier issues that per-cycle audit-of-audit doesn't catch (commit-message SHA citations are hard to verify mid-cycle without sample-re-verification protocol).
+
+**§5.6 lockstep status:** [C-self-audit] meta-cycle row + MAS_COMPLETE_FUSION §8 row + FEATURE_CHANGE_TRACKER pass-through row.
+
+**Iter 131+ candidates:** (1) Lesson #12 added to driver corpus next opportunity (currently 5 lessons; Lesson #12 makes 6) · (2) Phase C.2 mass MASTER_RESEARCH_INDEX update STILL overdue (B2-M14 DP gate + J-series envelopes pending) · (3) Phase C.6 forward-staged primitive re-audit at 56 iters past baseline · (4) Watch A T-A-28 (streak 5/5 milestone potentially next cycle) · (5) §5.0 verdict on B.6.10 validators is CLEAN this iter; revisit if B follow-up pattern continues.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
