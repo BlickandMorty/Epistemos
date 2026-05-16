@@ -692,6 +692,47 @@ Add **test #7 to §13**:
 
 This pins the user's specific reported bug ("Qwen listed only 7 irrelevant notes") into the acceptance bar so any future regression fails CI.
 
+### 13.5.7 Per-model Knowledge Vaults + cloud distillation lab
+
+**Source:** `docs/_consolidated/20_canonical_research/CLOUD_KNOWLEDGE_DISTILLATION_SPEC.md` §1-2 + §File-Structure + §UI-Integration · PASS 2 gap audit B2-H6.
+
+Every model — local (Qwen 3.5 / Phi-4 / Apple Intelligence) and cloud (Claude Opus / Claude Haiku / GPT) — gets its own **Knowledge Vault** at `~/Library/Application Support/Epistemos/model_vaults/<model-id>/` containing **two layers**:
+
+**Layer 1 — Base Knowledge (compiled offline by NightBrain).** Static facts distilled from the user's vault into a model-specific token budget. Files per vault:
+
+| File | Purpose | Token budget |
+|------|---------|--------------|
+| `knowledge_profile.md` | Domain map · entity graph · writing-style fingerprint | Cloud ~2000 · Local ~800 · Apple Intelligence ~500 |
+| `concept_index.md` | Top N concepts with one-line definitions (N scales with budget) | embedded |
+| `active_context.md` | Rolling 7-day window of recent material | embedded |
+| `instructions.md` | **User-authored preferences — editable directly from Notes sidebar** | unbounded; reviewer-visible |
+| `meta.json` | `{ last_compiled, note_count, content_hash, distillation_run_id }` | n/a |
+| `history/<date>.json` | Per-day snapshots for `epistemos-trace`-style replay | n/a |
+
+**Layer 2 — Dynamic Retrieval (per query).** At call-time the Variant Ladder's `vault.search` (T3 hybrid RRF, §10.x) injects top-K relevance hits as system-prompt prefix material. Cloud models get a bigger K; Apple Intelligence gets K=1 because its 4096 hard cap leaves no headroom. The Base Knowledge layer **does not get re-fetched** per turn — it lives in the cached prefix per `B2-H12` prompt-tree.
+
+**Per-model token-budget table** (matches §8.2 local-brain routing):
+
+| Model class | Base Knowledge budget | Dynamic Retrieval K | Notes |
+|---|---|---|---|
+| Claude Opus / Sonnet (cloud) | ~2000 tok | K=10 | Full distillation; prompt-cache breakpoint at base-knowledge boundary so it amortizes across turns |
+| GPT-5 / Gemini (cloud) | ~2000 tok | K=10 | Same pattern, different provider router. ProviderRouter §13.6.5 gates which base-knowledge file to load |
+| Qwen 3.5 4B (local) | ~800 tok | K=3 | Constrained context; concept_index is top-20 only |
+| Phi-4 / Phi-4-mini (local) | ~800 tok | K=3 | Same as Qwen |
+| Nemotron Nano 4B (local, controller) | ~600 tok | K=2 | Tiny brain layer per §13.5.2 4-layer routing |
+| Apple Intelligence (system) | ~500 tok | K=1 | 4096 hard limit; minimal profile + one retrieved snippet |
+
+**NightBrain integration (Wave 8.4).** `cloud_knowledge_distillation` task body (currently NoOp per Atlas Drift Log row 1) compiles `knowledge_profile.md` + `concept_index.md` + rolls `active_context.md` per model on user-quiesced ≥3 min idle + ≥8 GB free. Each compilation writes a `history/<date>.json` snapshot. `meta.json.content_hash` lets the runtime detect when a model's base knowledge has drifted from the vault and trigger re-compilation.
+
+**UI integration.** Notes sidebar gets a "Model Vaults" section header collapsing the per-model directories; clicking opens `instructions.md` in the Tiptap editor so the user edits model-specific prompts directly. **No new tool**; the existing `note.create` / `note.edit` paths handle the writes because the vaults are just folders. Honesty discipline: when `instructions.md` is present, the system-prompt prefix MUST cite it explicitly so the user can tell which message came from their own preferences vs the model's training.
+
+**Why this row is load-bearing:** the per-model split is the architectural answer to "why is Claude smarter on my codebase than Qwen?" The user perception that "the model knows me" requires a stable, editable, per-model knowledge surface. Without this section, V1's local-vs-cloud quality gap reads as a model-capability problem; with it, the user has a direct lever to close that gap by editing `instructions.md`.
+
+**Boundaries:**
+- **What this is**: per-model knowledge vault layout + compilation pipeline + UI surface.
+- **What this is NOT**: a memory / RAG replacement — the canonical retrieval path stays `vault.search` Variant Ladder (§10.x). Knowledge Vaults are PREFIX context, not search substrate.
+- **Crosslinks:** §13.5.3 (Contextual retrieval — wires `vault.search` into the prefix) · §13.5.4 (Repo map ranking — analogous pattern for code repos) · §13.6.4 (Multi-model orchestration — picks which model's vault to load per turn) · §13.6.5 (ProviderRouter — single dispatch point with vault-load side-effect).
+
 ---
 
 ## 13.6 Distillation from 2026-05-15 third research wave — Hermes-spine convergence
