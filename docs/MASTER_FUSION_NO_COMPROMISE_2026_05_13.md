@@ -357,6 +357,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **Titans-MAC** + **SEAL-DoRA** + immutable Qwen3-8B base | `helios v3.md` | research-tier |
 | **Universal Plasticity Gate** Δw = η · sgn(z_pre) · relu_θ(z_post) · sgn(δ) | `epistemos_final_master_specification.md` | research-tier |
 | **Never Retrain** framework (frozen base + Fast Weights + LoRA bank + CountSketch gradient archive) | `continual_learning_online.md` | research-tier |
+| **GRPO (Group-Relative Policy Optimization)** — local RL training path with **rule-based rewards** on Apple Silicon. Per `docs/fusion/jordan's research/uasa.agent.final.md §6.2.3`: groups multiple sampled trajectories per prompt, scores each against a rule-based reward function (no human-preference dataset needed), computes group-relative advantages, updates via policy gradient. MLX-Swift pseudocode in the source spec. **Pairs with OFTv2 QLoRA path** (line 352) — OFTv2 provides the parameter-efficient adapter, GRPO provides the rule-based-reward signal that drives the adapter updates. Distinct from supervised fine-tuning (no labeled targets) and from RLHF (no reward model). Currently name-dropped at `agent_core/src/scope_rex/residency.rs:81` as a "GRPO prior distilled into the policy gradient" but **NOT-STARTED in actual training infra**. PASS 1 H-7. | `uasa.agent.final.md §6.2.3` + scope_rex residency.rs:81 + PASS 1 H-7 | research-tier (NOT-STARTED) |
 
 ### 3.23 Skill / procedural memory / self-evolution
 
