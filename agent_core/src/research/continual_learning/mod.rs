@@ -48,5 +48,7 @@
 //!   fallback (Wave J8 ANE Direct may revisit but is read-only inference).
 
 pub mod ewc;
+pub mod oftv2;
 
 pub use ewc::{ewc_gradient_contribution, ewc_penalty, EwcAnchor, EwcError, FisherInfo};
+pub use oftv2::{apply_oftv2, rotation_2d, OftError, OrthogonalMatrix};
