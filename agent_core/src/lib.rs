@@ -25,6 +25,7 @@ pub mod example_bank;
 pub mod format;
 pub mod grammar;
 pub mod heal;
+pub mod helios;
 pub mod lattice;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
