@@ -2520,6 +2520,25 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     func prepareCoordinator(controller: TextViewController) {
         setupIndentationGuides(controller: controller)
         setupLineGutter(controller: controller)
+        forceHorizontalScrollerVisibility(controller: controller)
+    }
+
+    /// Per user direction 2026-05-15: long-line files (`.jsonl`,
+    /// minified `.json`, single-line `.csv` rows) overflow the
+    /// viewport but `CodeEditSourceEditor` styles the scrollers as
+    /// `.overlay` — they auto-hide and most users never discover
+    /// the horizontal scroll exists. Forcing `.legacy` keeps both
+    /// scrollers always-visible so the horizontal-overflow signal
+    /// is immediately obvious.
+    ///
+    /// The library also sets `hasHorizontalScroller = !wrapLines`
+    /// inside `SourceEditorConfiguration+Appearance.apply`, but only
+    /// when wrapLines CHANGES — re-asserting `true` here is harmless
+    /// and protects against the initial-config branch missing it.
+    private func forceHorizontalScrollerVisibility(controller: TextViewController) {
+        controller.scrollView.scrollerStyle = .legacy
+        controller.scrollView.hasHorizontalScroller = true
+        controller.scrollView.autohidesScrollers = false
     }
 
     /// Installs the dormant right-side fallback gutter. Mirrors the
