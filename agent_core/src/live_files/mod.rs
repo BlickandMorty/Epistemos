@@ -9,6 +9,8 @@
 //! Doctrine: `docs/fusion/LIVE_FILE_COMPILER_DOCTRINE_2026_05_04.md`
 //! Source: `docs/fusion/research/FINAL_SYNTHESIS.md` §1, §1.2, §4.
 
+pub mod transitions;
+
 use serde::{Deserialize, Serialize};
 
 // ── §3. The 10-state Live File state machine (canonical) ──────────────────
