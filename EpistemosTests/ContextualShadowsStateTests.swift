@@ -273,8 +273,14 @@ struct ContextualShadowsStateTests {
     @Test("AppBootstrap ignores stale Shadow backend init during vault switches")
     func appBootstrapGuardsShadowBackendAgainstStaleVaultSwitches() throws {
         let appBootstrap = try repoText("Epistemos/App/AppBootstrap.swift")
+        let contextualShadowsState = try repoText("Epistemos/State/ContextualShadowsState.swift")
 
-        #expect(appBootstrap.contains("contextualShadowsState.configureShadowSearch(nil)"))
+        #expect(appBootstrap.contains("contextualShadowsState.resetForVaultLifecycle()"))
+        #expect(contextualShadowsState.contains("func resetForVaultLifecycle()"))
+        #expect(contextualShadowsState.contains("pendingTask?.cancel()"))
+        #expect(contextualShadowsState.contains("pendingTask = nil"))
+        #expect(contextualShadowsState.contains("shadowSearch = nil"))
+        #expect(contextualShadowsState.contains("clearResults()"))
         #expect(appBootstrap.contains("vaultSync.vaultURL?.path == vaultPath"))
         #expect(appBootstrap.contains("shadowIndexingInFlightVaultPath == vaultPath"))
         #expect(appBootstrap.contains("ignoring stale bootstrap"))

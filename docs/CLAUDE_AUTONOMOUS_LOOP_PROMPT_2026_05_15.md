@@ -9,7 +9,7 @@
 - The loop continues until the priority queue in §5 is empty OR a stop condition in §11 fires.
 
 **Authority chain you sit inside (rank order):**
-1. `CLAUDE.md` (immutable project rules)
+1. `AGENTS.md` + `CLAUDE.md` (immutable project rules; if they differ, follow the stricter / more safety-preserving instruction and surface the conflict)
 2. `docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`
 3. `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`
 4. `docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`
@@ -19,6 +19,7 @@
 8. `docs/NEW_SESSION_HANDOFF_2026_05_15.md` (the entry-point map)
 9. `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` (216-item live audit register)
 10. `docs/APP_ISSUES_AUTO_FIX.md` (runtime issues)
+11. `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` (research-corpus entry point; use before selecting/touching a slice)
 
 ---
 
@@ -32,8 +33,8 @@ Your job per iteration:
 3. Research the slice (disk first, then online if needed).
 4. Implement the slice (or write the canonical doc / decision if the slice is documentation-only).
 5. Verify (build green + tests pass + lint clean).
-6. Commit with a meaningful message + the Co-Authored-By trailer.
-7. Update the relevant ledger (Master Fusion Plan §8 Implementation Log + audit register).
+6. Update the relevant ledger (Master Fusion Plan §8 Implementation Log + audit register) inside the same worktree diff.
+7. Commit implementation + ledger updates together with a meaningful message + the Co-Authored-By trailer.
 8. Exit cleanly so the next loop iteration starts fresh.
 
 You do NOT chain multiple slices in one iteration. One slice per loop iteration. The /loop re-fires you with this exact prompt for the next slice. Discipline matters — broad sloppy work creates regressions you'll have to undo.
@@ -45,44 +46,47 @@ You do NOT chain multiple slices in one iteration. One slice per loop iteration.
 Read THESE files in full before doing any work. Do not skim. Do not skip. The user has explicitly authorized burning tokens on doc-first protocol — disconnects come from reading one doc, not N.
 
 **Group A — immutable constraints (always re-read):**
-1. `/Users/jojo/Downloads/Epistemos/CLAUDE.md` — Project rules. Non-negotiables: NO SIDECAR · in-process Rust/MLX-Swift · honest capability gating · research-first · MAS-shippable surface · preserve thinking blocks · stream every token · agent decides termination · API keys in Keychain · @Observable · Swift Testing · background actors for inference · no try!/print()/force-unwraps · DispatchQueue.main.async only in UniFFI callbacks (.sync deadlocks).
-2. `/Users/jojo/.claude/projects/-Users-jojo-Downloads-Epistemos/memory/MEMORY.md` — User memory index. Walk every entry pointer; read any memory file relevant to the slice you're about to pick (e.g., if working on local models, read `user_hardware.md`; if working on agent runtime, read `project_hermes_removal_2026_05_05.md` for the naming canon).
+1. `/Users/jojo/Downloads/Epistemos/AGENTS.md` — cross-agent engineering bible. Non-negotiables: research-first from `MASTER_RESEARCH_INDEX`, minimal fixes, test-first, no forbidden worktrees, no direct `.xcodeproj` edits, Swift Testing, `@Observable`, no `loadBody()` in SwiftUI body, graph/vault caution.
+2. `/Users/jojo/Downloads/Epistemos/CLAUDE.md` — Claude-specific project rules. Non-negotiables: NO SIDECAR · in-process Rust/MLX-Swift · honest capability gating · research-first · MAS-shippable surface · preserve thinking blocks · stream every token · agent decides termination · API keys in Keychain · @Observable · Swift Testing · background actors for inference · no try!/print()/force-unwraps · DispatchQueue.main.async only in UniFFI callbacks (.sync deadlocks).
+3. `/Users/jojo/.claude/projects/-Users-jojo-Downloads-Epistemos/memory/MEMORY.md` — User memory index. Walk every entry pointer; read any memory file relevant to the slice you're about to pick (e.g., if working on local models, read `user_hardware.md`; if working on agent runtime, read `project_hermes_removal_2026_05_05.md` for the naming canon).
 
 **Group B — canonical plans (re-read each iteration):**
-3. `/Users/jojo/Downloads/Epistemos/docs/NEW_SESSION_HANDOFF_2026_05_15.md` — Entry-point. Lists the 7-doc cocktail + active branch + scope rules + what shipped + what's queued + audit register state.
-4. `/Users/jojo/Downloads/Epistemos/docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` — 54-item plan. **§8 Implementation Log is the live ledger.** Read top to bottom.
-5. `/Users/jojo/Downloads/Epistemos/docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` — V1 atlas + App Store checklist.
-6. `/Users/jojo/Downloads/Epistemos/docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` — Native agent architecture (post-V1 sequencing). §13.5 has the latest research; §11 maps shipped commits.
+4. `/Users/jojo/Downloads/Epistemos/docs/NEW_SESSION_HANDOFF_2026_05_15.md` — Entry-point. Lists the research cocktail + active branch + scope rules + what shipped + what's queued + audit register state.
+5. `/Users/jojo/Downloads/Epistemos/docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` — 54-item plan. **§8 Implementation Log is the live ledger.** Read top to bottom.
+6. `/Users/jojo/Downloads/Epistemos/docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md` — V1 atlas + App Store checklist.
+7. `/Users/jojo/Downloads/Epistemos/docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` — Native agent architecture (post-V1 sequencing). §13.5 has the latest research; §11 maps shipped commits.
+8. `/Users/jojo/Downloads/Epistemos/docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` — research-corpus index. Search this before picking a slice and before editing files.
 
 **Group C — the gap audits (this is the source of the priority queue):**
-7. `/Users/jojo/Downloads/Epistemos/docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md` — PASS 1, 31 gaps. B-1..B-6 are V1 BLOCKERS.
-8. `/Users/jojo/Downloads/Epistemos/docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` — PASS 2, 37 new gaps. B2-1..B2-5 are V1 BLOCKERS.
+9. `/Users/jojo/Downloads/Epistemos/docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md` — PASS 1, 31 gaps. B-1..B-6 are V1 BLOCKERS.
+10. `/Users/jojo/Downloads/Epistemos/docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` — PASS 2, 37 new gaps. B2-1..B2-5 are V1 BLOCKERS.
 
 **Group D — live state ledgers:**
-9. `/Users/jojo/Downloads/Epistemos/docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` — 216-item live audit register.
-10. `/Users/jojo/Downloads/Epistemos/docs/APP_ISSUES_AUTO_FIX.md` — Runtime issues. ISSUE-2026-05-11-001 (vault stall) + ISSUE-2026-04-21-004 (500 MB idle regression) + ISSUE-2026-05-12-011 (startup hang) are P1-P2 user-visible.
+11. `/Users/jojo/Downloads/Epistemos/docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` — 216-item live audit register.
+12. `/Users/jojo/Downloads/Epistemos/docs/APP_ISSUES_AUTO_FIX.md` — Runtime issues. ISSUE-2026-05-11-001 (vault stall) + ISSUE-2026-04-21-004 (500 MB idle regression) + ISSUE-2026-05-12-011 (startup hang) are P1-P2 user-visible.
 
 **Group E — variant ladder + tool inventory:**
-11. `/Users/jojo/Downloads/Epistemos/docs/VARIANT_LADDER_TOOL_REGISTRY_2026_05_15.md` — 30 MAS-allowed tools profiled.
+13. `/Users/jojo/Downloads/Epistemos/docs/VARIANT_LADDER_TOOL_REGISTRY_2026_05_15.md` — 30 MAS-allowed tools profiled.
 
 **Group F — only if directly relevant to the slice you pick:**
 - `/Users/jojo/Downloads/Epistemos/docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` — Concept atlas (734 lines).
-- `/Users/jojo/Downloads/Epistemos/docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` — Research-corpus index.
 - Anything in `docs/fusion/jordan's research/` cited by the slice's gap row.
+- Anything in `docs/fusion/**/kimi*`, `docs/fusion/**/gpt*`, and `docs/fusion/**/GPT*` cited by the slice or surfaced by the research index.
 - Anything in `docs/_consolidated/{00..70}/` cited by the slice's gap row.
+- Anything in `docs/fusion/salvage/`, `docs/audits/`, or `docs/audits/codebase-verbatim-packets-2026-05-09/` cited by the slice or by PASS 1/PASS 2.
 - Anything in `~/Documents/Epistemos-QuickCapture/` cited by the slice's gap row.
 
 ---
 
 ## §3. State-check ritual (every iteration, before §4)
 
-Run these commands in parallel and read every output:
+Run these read-only commands and read every output. Parallel execution is allowed only for this state check because it cannot mutate files:
 
 ```bash
-git status
+git status --short
 git log --oneline codex/research-snapshot-2026-05-08 ^main | head -50
 git branch --show-current
-cat /Users/jojo/Downloads/Epistemos/docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md | grep -A2 "Implementation Log" | head -100
+rg -n "Implementation Log|2026-05-15|B\\.1|B2-|RCA13-P0-001" /Users/jojo/Downloads/Epistemos/docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md | head -120
 ```
 
 Then:
@@ -102,9 +106,9 @@ PASS 2 §5 lists 4 rejected candidates. Before trusting the audit, re-verify tho
 
 ```bash
 ls /Users/jojo/Downloads/Epistemos/epistemos-shadow/Cargo.toml
-grep -c "Phase R" /Users/jojo/Downloads/Epistemos/docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md /Users/jojo/Downloads/Epistemos/docs/NEW_SESSION_HANDOFF_2026_05_15.md /Users/jojo/Downloads/Epistemos/docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md
-grep -n "session_insights" /Users/jojo/Downloads/Epistemos/agent_core/src/lib.rs
-grep -c "InterruptScore" /Users/jojo/Downloads/Epistemos/docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md
+rg -n "Phase R" /Users/jojo/Downloads/Epistemos/docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md /Users/jojo/Downloads/Epistemos/docs/NEW_SESSION_HANDOFF_2026_05_15.md /Users/jojo/Downloads/Epistemos/docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md || true
+rg -n "session_insights" /Users/jojo/Downloads/Epistemos/agent_core/src/lib.rs
+rg -n "InterruptScore" /Users/jojo/Downloads/Epistemos/docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md
 ```
 
 If any verification flips (e.g., epistemos-shadow disappears, or Phase R re-appears in canon), STOP and surface the discrepancy to the user. The audit may have stale assumptions.
@@ -113,18 +117,44 @@ If any verification flips (e.g., epistemos-shadow disappears, or Phase R re-appe
 
 ## §5. Priority queue (the work, in execution order)
 
+### §5.0 Current-truth reconciliation gate (mandatory before selecting a row)
+
+The queue below is a map, not proof. Before choosing a slice, reconcile that row against current truth:
+
+1. Search the Implementation Log:
+   `rg -n "<slice-id>|<keyword>|<commit>" docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`
+2. Search the audit register:
+   `rg -n "<slice-id>|<audit-id>|<keyword>" docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md`
+3. Search recent commits:
+   `git log --oneline codex/research-snapshot-2026-05-08 ^main | rg "<slice-id>|<keyword>|<known file>"`
+4. Search current code symbols with `rg`.
+5. If code already implements the row, do NOT re-implement it. Convert the slice to verification / doc reconciliation: update the stale queue, handoff, gap audit, or Implementation Log with exact evidence.
+6. If docs say "open" but code says "shipped", trust current code + passing tests, then reconcile the docs.
+7. If code says "shipped" but there is no user-visible surface or runtime proof, keep the row open as "verification / wiring remaining" and narrow the slice to that missing surface.
+
+Known stale-risk rows at the time this prompt was patched:
+- B2-2 `ArtifactKind + ProvenanceBlock`: `agent_core/src/artifacts/{kind,header,provenance}.rs` already exist. Treat the next slice as verification / gap-audit reconciliation unless current code removed them.
+- B.1: `vault.search` has T1 lexical + T3 hybrid + LadderWalk/ReplayBundle/tracing producer. Remaining work is T2 real embedding-only (only if backed by a real vector path), Swift Provenance Console consumer, and final docs reconciliation.
+- B.2: the 30-tool registry doc exists. Remaining work is only source-embedded per-tool doc blocks if the current decision still requires them.
+- B.4: per-model reasoning cap table/tests exist. Remaining work is grammar compile-time clamp when MLXStructured exposes a real `maxLength`/bounded-string API.
+- B.6: Swift mirror + badge + Halo row exist. Remaining work is composer attachment, provenance console, and real sidecar-derived weight metadata.
+- B.7: ClaimLedger ranking + Shadow RRF helper exist. Remaining work is caller integration that passes tier boosts into the live Shadow query path.
+- B.8: schema + ClarifyGenUIView + GenUICardPresenter exist. Remaining work is ChatCoordinator transcript/agent-loop wiring.
+- C.4 and C.6 are PATCHED in the audit/implementation log; do not pick them as open implementation slices unless a new runtime regression row exists.
+
 Pick the FIRST item from this queue whose **prerequisites are satisfied** AND whose **commit log shows no prior closure**. If you find a prior closure, mark it done in the §8 Implementation Log and move to the next item.
 
 ### Phase A — V1 BLOCKERS (do FIRST, in this order)
 
 | Order | ID | Slice | Type | Source |
 |---|---|---|---|---|
+| 0 | RCA13-P0-001 | Vault reset/add/remove/select runtime proof — disposable vault A/B, Reset Everything, no stale Notes/Graph/Search/Halo/Settings state | MANUAL/RUNTIME + possible CODE | Recursive audit |
 | 1 | B-5 | BrowserEngine MAS/Pro decision — declare `WKWebView`-backed adapter only in MAS | DECISION | PASS 1 |
-| 2 | B-6 | Hermes-parity salvage verification (credential_pool / error_classifier / session_persistence cargo test + caller-chain grep) | CODE | PASS 1 |
+| 2 | B-6 | Hermes-parity salvage verification (credential_pool / error_classifier / session_persistence cargo test + caller-chain `rg`) | CODE/VERIFY | PASS 1 |
 | 3 | B2-3 | ISSUE-2026-05-11-001 vault stall — bounded-word-count path + profile sample | CODE | PASS 2 |
 | 4 | B2-5 | Hermes XPC vs in-process decision — declare in `HERMES_AGENT_CORE_2_0_DESIGN` §0 | DECISION | PASS 2 |
 | 5 | B2-1 | Specialties registry surfaced in `HERMES_AGENT_CORE_2_0_DESIGN` §7.1 | DOC | PASS 2 |
-| 6 | B2-2 | ArtifactKind + ProvenanceBlock — Rust module `agent_core/src/artifacts/kind.rs` | CODE | PASS 2 |
+| 6 | B2-2 | ArtifactKind + ProvenanceBlock — verify existing `agent_core/src/artifacts/{kind,header,provenance}.rs` and reconcile PASS 2 if already complete | VERIFY/DOC or CODE if missing | PASS 2 |
 | 7 | B2-4 | Residency Governor + rate-distortion row in `MASTER_FUSION` §3.2 | DOC | PASS 2 |
 | 8 | B-1 / B-2 / B-3 / B-4 | Wave 7-11 user-product layer V1 vs V1.1 decisions (Live Files / Brain Export / Confidence Meter / Pixel-Tactical) | DECISION | PASS 1 |
 | 9 | H-3 / B2-H6 | Local Engineering Agent + EditPage macaroon — V1 hero or V1.1 decision + design | DECISION + DESIGN | PASS 1 + PASS 2 |
@@ -135,12 +165,12 @@ Pick the FIRST item from this queue whose **prerequisites are satisfied** AND wh
 
 | Order | ID | Slice |
 |---|---|---|
-| 12 | B.1 | Variant Ladder dispatcher retrofit on `vault.search` (3-5 day item — split into sub-iterations) |
-| 13 | B.2 | 29/30 tool registrations need `## Variant Ladder` doc-blocks (only `vault.search` has one) |
-| 14 | B.4 | reasoning ≤256 tokens GBNF compile (waiting on MLXStructured `maxLength` API — check upstream first) |
-| 15 | B.6 | Cognitive Weight Class W1 badge (UI work; 4-5 days) |
-| 16 | B.7 | Knowledge Sieve + Gap Winner Rule (ClaimLedger algorithm change) |
-| 17 | B.8 | `clarify` tool UI card (GenUI schema + ClarifyGenUIView + ChatCoordinator wiring) |
+| 12 | B.1 | Variant Ladder remaining work: T2 real embedding-only if a real vector path exists + Swift Provenance Console consumer for `vault_search.ladder_walk` |
+| 13 | B.2 | Optional source-embedded `## Variant Ladder` doc-blocks for tool registrations, after confirming registry doc alone is insufficient |
+| 14 | B.4 | reasoning <=256 tokens at grammar compile, gated on verified MLXStructured bounded-string / `maxLength` API |
+| 15 | B.6 | Cognitive Weight W1 remaining wiring: composer attachments + Provenance Console + sidecar-derived metadata |
+| 16 | B.7 | Knowledge Sieve live integration: pass ClaimLedger tier boosts into the Shadow query/fusion caller |
+| 17 | B.8 | `clarify` remaining wiring: route GenUICardPresenter payloads through ChatCoordinator transcript + agent-loop response history |
 | 18 | B.9 | NightBrain task bodies (6 pending: dedupe_artifacts · memory_distillation · cloud_knowledge_distillation · session_graph_generation · skill_evolution_analysis · ssm_state_pruning) |
 
 ### Phase C — Audit PARTIAL closure (in §C of Master Fusion Plan)
@@ -242,32 +272,40 @@ Most of these are 1-2 hour doc edits closing the formalization-depth gap. Pick b
 
 | Order | ID | Slice |
 |---|---|---|
-| 77 | AUDIT | Spawn Codex with the prompt in §13 to verify last 10 commits + re-grep PASS 1 + PASS 2 trust-but-verify items + flag any new gaps surfaced by new commits |
+| 77 | AUDIT | Spawn Codex with the prompt in §13 to verify last 10 commits + re-scan PASS 1 + PASS 2 trust-but-verify items + flag any new gaps surfaced by new commits |
 
 ---
 
 ## §6. Per-iteration protocol (the exact algorithm)
 
-Execute these steps in order. Do not skip. Do not parallelize internally.
+Execute these steps in order. Do not skip. Do not batch multiple slices. Only parallelize read-only discovery; implementation, verification, ledger edits, and commit steps stay sequential.
 
 ### Step 1 — Read state (§2 + §3).
 Read all Group A-E docs. Run the state-check ritual. Confirm clean working tree on `codex/research-snapshot-2026-05-08`. If anything is anomalous, STOP and surface.
 
-### Step 2 — Select slice.
+### Step 2 — Reconcile and select slice.
 Walk the priority queue in §5 top to bottom. For each item:
-- Grep the canonical docs for a "DONE" / "LANDED" / "✅ shipped" marker or commit reference.
+- Run the §5.0 current-truth reconciliation gate.
+- Search the canonical docs for a "DONE" / "LANDED" / "shipped" marker or commit reference.
+- Search current code symbols and recent commits for evidence the row already landed.
 - If absent: this is the slice for this iteration. Lock it in.
-- If present: move to next item. Update §8 Implementation Log to record the closure if not already recorded.
+- If present and fully verified: move to the next row, or do a doc-only reconciliation slice if the stale row itself would mislead future agents.
+- If present but missing user-visible/runtime proof: narrow the slice to that missing proof or wiring, not the already-shipped substrate.
 
 If you reach the end of the queue with no open slice: report "queue empty" and STOP. Do not invent work.
 
 ### Step 3 — Research the slice (disk first).
 For the slice you locked in:
 - Read every doc cited in the slice's gap row.
-- Grep for related symbols in the codebase. Examples:
-  - For a Rust type: `grep -rn "TypeName" agent_core/src/`
-  - For a Swift class: `grep -rn "ClassName" Epistemos/`
-  - For a doc concept: `grep -rln "concept_name" docs/`
+- Search `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` for the slice concept and read the canonical source(s) it names.
+- Search the local research corpus before editing:
+  ```bash
+  rg -n "<concept>|<symbol>|<slice-id>" docs/fusion docs/_consolidated docs/audits ~/Documents/Epistemos-QuickCapture 2>/dev/null
+  ```
+- Search for related symbols in the codebase. Examples:
+  - For a Rust type: `rg -n "TypeName" agent_core/src/`
+  - For a Swift class: `rg -n "ClassName" Epistemos/`
+  - For a doc concept: `rg -n "concept_name" docs/`
 - Read every file the slice will touch in full before editing.
 - For UI work: also read the closest sibling component to copy patterns.
 - For Rust FFI work: also read `agent_core/src/bridge.rs` to understand the FFI surface.
@@ -302,8 +340,8 @@ When online research is warranted: prefer primary sources (Apple Developer · An
 ### Step 6 — Verify.
 Run the relevant subset:
 - Rust changes: `cargo test --manifest-path agent_core/Cargo.toml --lib` (expect 1188+ passing)
-- Swift changes: `xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify` (must end "BUILD SUCCEEDED")
-- Test suite for code: `swift test` (expect zero regression against 2,679-test suite)
+- Swift changes: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` (must end "BUILD SUCCEEDED")
+- Swift tests: use targeted `xcodebuild ... -only-testing:<suite>` for the slice, then full `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' test CODE_SIGNING_ALLOWED=NO` at wave/pass boundaries. Do **not** use `swift test` as the broad verifier for this Xcode project.
 - Lint: `swiftlint` for Swift, `cargo clippy --manifest-path agent_core/Cargo.toml` for Rust
 - Shadow crate changes: `cargo test --manifest-path epistemos-shadow/Cargo.toml --lib`
 - Doctrine lint (if touching cognitive DAG): `cargo run --manifest-path agent_core/Cargo.toml --bin epistemos_doctrine_lint`
@@ -312,9 +350,15 @@ If verification fails:
 - Diagnose root cause (do not bandage).
 - Fix.
 - Re-run.
-- If you can't fix in <30 minutes: revert the slice (`git restore .` on the slice's files) and STOP with a clear surface-to-user message describing the obstacle.
+- If you can't fix in <30 minutes: revert only your slice's files (`git restore -- <specific files>`) and STOP with a clear surface-to-user message describing the obstacle. Never revert unrelated user/local edits.
 
-### Step 7 — Commit.
+### Step 7 — Update ledgers before committing.
+- Append or update the row in `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §8 Implementation Log using `(pending commit)` or `(this commit)` in the commit field if the SHA is not known yet.
+- If the slice closed an audit-register entry: update `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` status to PATCHED or PATCHED PARTIAL with evidence, exact commands, and remaining risk.
+- If the slice closed a gap-audit row: update the gap audit doc's destination/status column with `(pending commit)` and exact file evidence.
+- If the slice surfaces a NEW gap or blocker: write it into the relevant audit doc immediately. Do not let it leak.
+
+### Step 8 — Commit implementation + ledgers together.
 - `git status` to confirm only the slice's files are staged.
 - `git add <specific files>` (NEVER `git add -A`).
 - Commit with HEREDOC:
@@ -331,15 +375,7 @@ If verification fails:
 - Type prefixes: `feat` · `fix` · `docs` · `refactor` · `test` · `chore` · `perf` · `audit`
 - Scope: the slice ID (e.g., `B2-2`, `B.1`, `C.5`)
 - Do NOT push unless the user explicitly asks. Local commits accumulate; the user pushes when ready.
-
-### Step 8 — Update ledgers.
-- Append a row to `docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §8 Implementation Log:
-  ```
-  | <commit-sha> | <ISO-date> | <slice-id> | <one-line summary> | <verification result> |
-  ```
-- If the slice closed an audit-register entry: update `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` status to PATCHED.
-- If the slice closed a gap-audit row: update the gap audit doc's destination column with "✅ <commit-sha>".
-- If the slice surfaces a NEW gap or blocker: write it into the relevant audit doc immediately. Do not let it leak.
+- After commit, replace any `(pending commit)` markers you introduced with the actual SHA in a tiny follow-up docs commit **only if** the project convention requires literal SHAs. Prefer `(this commit)` in the committed row to avoid churn.
 
 ### Step 9 — Exit cleanly.
 End your turn with a 2-3 sentence summary: slice closed, commit SHA, verification result, what the next iteration should pick up. Do NOT chain another iteration. The /loop will re-fire with this prompt.
@@ -350,30 +386,30 @@ End your turn with a 2-3 sentence summary: slice closed, commit SHA, verificatio
 
 | Need | Tool | Rule |
 |---|---|---|
-| Find a Rust symbol | `grep -rn "name" agent_core/src/` | Direct, no agent |
-| Find a Swift symbol | `grep -rn "name" Epistemos/` | Direct, no agent |
-| Find a doc concept across `docs/` | `grep -rln "concept" docs/` | Direct, no agent |
+| Find a Rust symbol | `rg -n "name" agent_core/src/` | Direct, no agent |
+| Find a Swift symbol | `rg -n "name" Epistemos/` | Direct, no agent |
+| Find a doc concept across `docs/` | `rg -n "concept" docs/` | Direct, no agent |
 | Read a known file | Read tool | Always over `cat` |
 | Cross-cutting investigation (>3 files unknown) | Explore subagent | One subagent, "quick" or "medium" breadth |
 | Validate against external API | WebFetch | Primary sources only |
 | Discover current spec / version | WebSearch | Then WebFetch the primary source |
-| Verify research-corpus claim | Read the cited file directly, then grep canonical docs | Trust but verify |
+| Verify research-corpus claim | Read the cited file directly, then `rg` canonical docs | Trust but verify |
 | Plan multi-step change | Plan subagent | Returns step plan, identifies critical files |
 | Independent verification of your own work | Spawn Codex via the prompt in §13 | Every 10 iterations |
 
-**The user's research-first rule applies:** Before code, docs, refactors, reroutes, reductions, or "simple" edits — search `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, read the canonical local source it names, then verify current code/logs. Use semantic expansion: "zero-copy" means UMA · shared buffers · IOSurface · in-process · single-binary · deterministic provenance · no hot-path subprocess · no tensor copies · direct/bare-metal · "as complex as a brain, as simple as an app, as fast as a jet."
+**The user's research-first rule applies:** Before code, docs, refactors, reroutes, reductions, or "simple" edits — search `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, read the canonical local source it names, then verify current code/logs. Also search the local research regions most likely to contain nuance that was missed: `docs/fusion/jordan's research/`, `docs/fusion/**/kimi*`, `docs/fusion/**/gpt*`, `docs/_consolidated/`, `docs/fusion/salvage/`, `docs/audits/`, `docs/audits/codebase-verbatim-packets-2026-05-09/`, and `~/Documents/Epistemos-QuickCapture/`. Use semantic expansion: "zero-copy" means UMA · shared buffers · IOSurface · in-process · single-binary · deterministic provenance · no hot-path subprocess · no tensor copies · direct/bare-metal · "as complex as a brain, as simple as an app, as fast as a jet."
 
 ---
 
 ## §8. Implementation rules (the non-negotiables — never violate)
 
-From CLAUDE.md:
+From AGENTS.md + CLAUDE.md:
 
 1. **NO SIDECAR.** All inference AND orchestration in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. Use `LocalAgent*` (Swift) or `Runtime*` (Rust) for new local-agent work.
 2. **REAL APIs ONLY.** Every cloud endpoint verified against provider docs. No fake features.
 3. **HONEST CAPABILITY GATING.** Local models get fast/thinking/research. Cloud models get agent/liveAgent. NEVER fake agent capability for local models.
 4. **RESEARCH-FIRST FOR EVERY TASK.** See §7.
-5. **Zero test regressions against the 2,679-test suite.**
+5. **Zero test regressions against the current Xcode + Rust suites.**
 6. **PRESERVE THINKING BLOCKS.** When `stop_reason == "tool_use"`, pass the ENTIRE content array back including thinking blocks + signatures.
 7. **STREAM EVERYTHING.** Forward every token to the delegate immediately. No buffering.
 8. **AGENT DECIDES TERMINATION.** `max_turns` is a safety rail, not a schedule. Trust `stop_reason == "end_turn"`.
@@ -403,7 +439,7 @@ From CLAUDE.md:
 - Do NOT write decoration comments (`// What follows is...`). Only write comments where the WHY is non-obvious.
 - Do NOT use `:?` debug format for JSON serialization.
 - Do NOT use `AsyncStream` with `.unbounded` buffering — use `.bufferingNewest(256)`.
-- Do NOT mark items done in PROGRESS.md until verification greps pass.
+- Do NOT mark items done in PROGRESS.md until verification scans pass.
 - Do NOT chain multiple slices in one loop iteration.
 - Do NOT add features / refactor / introduce abstractions beyond what the slice requires.
 - Do NOT add error handling for scenarios that can't happen. Trust internal code + framework guarantees.
@@ -418,7 +454,7 @@ If during an iteration you hit:
 |---|---|
 | Test regression that wasn't yours | STOP. Surface with last-clean-commit SHA + suspected breaking commit. |
 | Build fails on a fresh clone of master | STOP. Surface as environment issue. |
-| Gap audit claim contradicts current code | Verify the code (grep + read). Update the audit doc. Continue. |
+| Gap audit claim contradicts current code | Verify the code (`rg` + read). Update the audit doc. Continue. |
 | Slice requires an external decision the user hasn't made | DECISION row only — write the question + 2-3 alternatives + recommended path. Commit the decision doc. Move to next slice. |
 | Slice requires touching protected surface (graph / vault) | STOP. Surface with the exact change + rollback plan. |
 | Verification can't be automated (manual smoke needed) | Stub the test + add audit-register row with manual-smoke steps. Surface to user. Commit the stub. Move on. |
@@ -469,12 +505,14 @@ Active branch: codex/research-snapshot-2026-05-08
 User: Jordan Conley (M2 Pro 16GB, macOS, solo dev)
 
 ## Reading order (read these first, in full):
-1. CLAUDE.md
-2. docs/NEW_SESSION_HANDOFF_2026_05_15.md
-3. docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md §8 Implementation Log
-4. docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md (PASS 1, 31 gaps)
-5. docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md (PASS 2, 37 gaps)
-6. docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md (Claude's loop prompt)
+1. AGENTS.md
+2. CLAUDE.md
+3. docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md
+4. docs/NEW_SESSION_HANDOFF_2026_05_15.md
+5. docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md §8 Implementation Log
+6. docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md (PASS 1, 31 gaps)
+7. docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md (PASS 2, 37 gaps)
+8. docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md (Claude's loop prompt)
 
 ## Tasks (do in order):
 
@@ -484,8 +522,9 @@ For each commit:
 - Find the slice ID in the commit message (e.g., B-5, B2-2, C.5).
 - Find the corresponding row in the priority queue (§5 of CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15).
 - Verify the commit's diff actually implements that slice (not a related slice, not a partial slice).
+- Run the loop prompt §5.0 current-truth reconciliation gate for any commit whose slice row looks stale.
 - Verify tests still pass: cargo test --manifest-path agent_core/Cargo.toml --lib
-- Verify build still green: xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify | tail -5
+- Verify build still green: xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
 - For doc-only commits: verify the doc cross-references actually resolve.
 
 Report: per commit, "✅ verified" or "⚠️ drift: <description>".
@@ -493,9 +532,9 @@ Report: per commit, "✅ verified" or "⚠️ drift: <description>".
 ### Task 2 — Re-verify PASS 2 trust-but-verify items
 PASS 2 §5 rejected 4 candidates. Re-confirm each:
 - Halo Shadow Crate: ls /Users/jojo/Downloads/Epistemos/epistemos-shadow/Cargo.toml
-- Phase R framing: grep -c "Phase R" docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md docs/NEW_SESSION_HANDOFF_2026_05_15.md
-- InterruptScoreCpu: grep -c "InterruptScore" docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md
-- session_insights.rs registration: grep -n "session_insights" agent_core/src/lib.rs
+- Phase R framing: rg -n "Phase R" docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md docs/NEW_SESSION_HANDOFF_2026_05_15.md || true
+- InterruptScoreCpu: rg -n "InterruptScore" docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md
+- session_insights.rs registration: rg -n "session_insights" agent_core/src/lib.rs
 
 If any verification flips (e.g., epistemos-shadow disappears), surface immediately.
 
@@ -504,10 +543,11 @@ Do your OWN corpus sweep with these 3 targets:
 A. docs/fusion/research/icloud-loose/ — never explicitly cited by Claude's agents
 B. docs/_consolidated/50_research_corpus/ — 318 files, Claude's Agent 1 only sampled 30%
 C. docs/audits/codebase-verbatim-packets-2026-05-09/ — Claude's Agent 2 only skimmed
+D. docs/fusion/jordan's research/ + docs/fusion/**/kimi* + docs/fusion/**/gpt* — spot-check any slice concepts that appear in recent commits
 
 For each region, look for concepts that:
 - Are named architectural primitives, UX surfaces, or pricing/distribution decisions
-- Are absent from PASS 1 + PASS 2 (grep cocktail + both gap audits)
+- Are absent from PASS 1 + PASS 2 (`rg` corpus scan + both gap audits)
 - Have a clear destination (which canonical doc would absorb them)
 
 Report 3-5 new candidate gaps with the same severity tiering.
@@ -532,7 +572,7 @@ Based on Tasks 1-4, recommend:
 Report ≤500 words. Be direct. Don't pad.
 
 ## Verification protocol
-For every claim you make about file content: cite path + line number + grep / Read evidence. Trust no source you haven't read yourself.
+For every claim you make about file content: cite path + line number + command / Read evidence. Trust no source you haven't read yourself.
 
 ## Constraints
 - Do NOT push to remote.
