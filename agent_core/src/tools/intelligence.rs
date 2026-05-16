@@ -584,6 +584,8 @@ pub fn self_evolve_schema() -> crate::types::ToolSchema {
 const MOM_ALLOWED_MODELS: &[&str] = &["claude", "openai", "gemini", "perplexity"];
 const MAX_MOM_PROBLEM_CHARS: usize = 16_000;
 const MAX_MOM_MODEL_CHARS: usize = 64;
+const MOM_GEMINI_GENERATE_CONTENT_ENDPOINT: &str =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
 
 pub struct MixtureOfMindsHandler {
     client: Client,
@@ -836,14 +838,12 @@ async fn ask_gemini(client: &Client, problem: &str) -> Result<String, String> {
     let api_key = std::env::var("GEMINI_API_KEY")
         .or_else(|_| std::env::var("GOOGLE_API_KEY"))
         .map_err(|_| "GEMINI_API_KEY or GOOGLE_API_KEY not set")?;
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
-    );
     let body = json!({
         "contents": [ { "parts": [ { "text": problem } ] } ]
     });
     let resp = client
-        .post(&url)
+        .post(MOM_GEMINI_GENERATE_CONTENT_ENDPOINT)
+        .header("x-goog-api-key", api_key)
         .json(&body)
         .send()
         .await
@@ -1463,6 +1463,20 @@ mod tests {
 
         assert!(source.contains("OPENAI_RESPONSES_API"));
         assert!(!source.contains(&legacy_fragment));
+    }
+
+    #[test]
+    fn mixture_gemini_uses_current_endpoint_without_url_key() {
+        let source = include_str!("intelligence.rs");
+        let current_endpoint = ["models/", "gemini", "-2.5", "-pro", ":generateContent"].join("");
+        let retired_model = ["gemini", "-1.5", "-pro"].join("");
+        let url_key_fragment = ["?", "key={api_key}"].join("");
+        let api_key_header = [".header(\"", "x-goog-api-key", "\", api_key)"].join("");
+
+        assert!(source.contains(&current_endpoint));
+        assert!(!source.contains(&retired_model));
+        assert!(!source.contains(&url_key_fragment));
+        assert!(source.contains(&api_key_header));
     }
 
     #[tokio::test]
