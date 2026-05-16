@@ -121,6 +121,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [fusion/jordan's research/kimis deep research/EPISTEMOS_MASTER_ARCHITECTURE.md](fusion/jordan's%20research/kimis%20deep%20research/EPISTEMOS_MASTER_ARCHITECTURE.md) Layer 5
 - **What it is:** Every component has S1-S5: Operations / Coordination / Control (Residency Governor) / Intelligence (Feature Observatory, drift detection) / Policy (human approval, identity). Recursive: each S1 contains its own S1-S5. Fixed point exists by Tarski.
 - **Destination:** New doc `docs/RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` OR addendum to `HERMES_AGENT_CORE_2_0_DESIGN` §multi-overseer (links to PASS-1 H-4).
+- **Status (2026-05-16):** ✅ RESOLVED. New doc `docs/RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` landed (~150 lines, doctrine pointer scaffold). Covers: 5-system taxonomy (S1 Operations · S2 Coordination · S3 Control · S4 Intelligence · S5 Policy) · Tarski fixed-point recursion grounding · explicit complementarity-not-equivalence with B2-M13 ACS (VSM = 5 systems no oscillator-coupling claim; ACS = 7 scales with Kuramoto coupling) · §3 mapping table showing where each VSM system already lives in Epistemos main (Agent runtime · Vault · Graph · NightBrain · Confidence/Honesty · Identity) · §4 honest gap inventory (S2 uncoordinated across components · S3 split between Routing and Residency Governor · S4 weakest, error_classifier orphaned · recursion isn't enforced) · §5 explicit V1 scope (nothing ships in V1, forward-staging for B-3 V1.1 / Residency Governor post-V1 / `error_classifier` ORPHAN-HERMES-SALVAGE-001 disposition) · §6 crosslinks to B2-M13 ACS · PASS 1 H-4 Overseer hierarchy · MASTER_FUSION §3.2 Residency Governor · §3.8 ACS · HERMES §13.5.8 spectral · MAS_COMPLETE_FUSION §10 B-3.
 
 ### B2-H10. Capability Lease + Handle-Based Data Sharing
 - **Source:** [fusion/jordan's research/hermes.md](fusion/jordan's%20research/hermes.md) §"zero-copy inside the local data plane"
@@ -341,7 +342,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H5 Graph filter UI | ✅ VERIFIED 2026-05-16 — already shipped in `cabf81df0` (2026-05-12); `GraphForceSettings.swift:11+165-186`. |
 | B2-H7 Spectral Memory | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §13.5.8 with LapEigvals arXiv:2502.17598 + AUROC ≥0.85 acceptance + integration diagram + research-tier scope. |
 | B2-H8 Golden-ratio scheduling | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.35` with Hurwitz 1891 cite + NightBrain φ-spacing integration shape + ObservationTask rationale. |
-| B2-H9 Beer VSM S1-S5 | New doc OR Hermes 2.0 §multi-overseer |
+| B2-H9 Beer VSM S1-S5 | ✅ RESOLVED 2026-05-16 — new doc `RECURSIVE_GOVERNANCE_VIABLE_SYSTEMS_MODEL_2026_05_15.md` with 5-system taxonomy + Tarski recursion + §3 mapping table + §4 gap inventory + cross-links to ACS (B2-M13) + Overseer (H-4). |
 | B2-H10 Capability Lease + handles | Hermes 2.0 §7 (XPC executor) |
 | B2-H11 SAE AUC 0.90 | MASTER_FUSION §J |
 | B2-H12 N1 Prompt Tree / Relocation Trick | MASTER_FUSION §2.3 |
