@@ -99,6 +99,45 @@ impl OrthogonalMatrix {
         }
         Ok(())
     }
+
+    /// Transpose. For orthogonal matrices `U^T = U^{-1}` exactly —
+    /// transpose is the cheapest way to get the inverse needed by
+    /// many OFTv2 backward-pass paths.
+    pub fn transpose(&self) -> Self {
+        let n = self.size;
+        let mut data = vec![0.0_f32; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                data[j * n + i] = self.data[i * n + j];
+            }
+        }
+        Self { size: n, data }
+    }
+
+    /// Compose two orthogonal matrices: `self · other`. Closed under
+    /// the orthogonal-group product (assuming both inputs are
+    /// orthogonal — verify upstream if uncertain). Returns
+    /// `Err(VectorSizeMismatch)` if the matrices' sizes differ.
+    pub fn compose(&self, other: &OrthogonalMatrix) -> Result<Self, OftError> {
+        if self.size != other.size {
+            return Err(OftError::VectorSizeMismatch {
+                matrix_size: self.size,
+                vector_len: other.size,
+            });
+        }
+        let n = self.size;
+        let mut data = vec![0.0_f32; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                let mut acc: f32 = 0.0;
+                for k in 0..n {
+                    acc += self.data[i * n + k] * other.data[k * n + j];
+                }
+                data[i * n + j] = acc;
+            }
+        }
+        Ok(Self { size: n, data })
+    }
 }
 
 /// Input-centric OFTv2 apply: `out = U · w_times_x`.
@@ -271,5 +310,103 @@ mod tests {
         let mut u = OrthogonalMatrix::identity(3);
         u.data[1] = 0.5;
         assert!(u.verify_orthogonal(1e-6).is_err());
+    }
+
+    // ── transpose + compose tests (iter 106) ────────────────────────────────
+
+    fn approx_eq(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn transpose_of_identity_is_identity() {
+        let i = OrthogonalMatrix::identity(3);
+        let t = i.transpose();
+        assert_eq!(i, t);
+    }
+
+    #[test]
+    fn transpose_of_rotation_is_inverse_rotation() {
+        let r = rotation_2d(0.5);
+        let t = r.transpose();
+        // R(θ).T = R(-θ).
+        let r_neg = rotation_2d(-0.5);
+        for k in 0..4 {
+            assert!(
+                approx_eq(t.data[k], r_neg.data[k], 1e-6),
+                "transpose[{}] = {} != {}",
+                k,
+                t.data[k],
+                r_neg.data[k]
+            );
+        }
+    }
+
+    #[test]
+    fn transpose_twice_returns_original() {
+        let r = rotation_2d(1.25);
+        let tt = r.transpose().transpose();
+        for k in 0..4 {
+            assert!(approx_eq(tt.data[k], r.data[k], 1e-6));
+        }
+    }
+
+    #[test]
+    fn compose_with_identity_is_identity() {
+        let r = rotation_2d(0.7);
+        let i = OrthogonalMatrix::identity(2);
+        let ri = r.compose(&i).unwrap();
+        let ir = i.compose(&r).unwrap();
+        for k in 0..4 {
+            assert!(approx_eq(ri.data[k], r.data[k], 1e-6));
+            assert!(approx_eq(ir.data[k], r.data[k], 1e-6));
+        }
+    }
+
+    #[test]
+    fn compose_two_rotations_adds_angles() {
+        let r1 = rotation_2d(0.3);
+        let r2 = rotation_2d(0.4);
+        let r12 = r1.compose(&r2).unwrap();
+        let r_sum = rotation_2d(0.7);
+        for k in 0..4 {
+            assert!(
+                approx_eq(r12.data[k], r_sum.data[k], 1e-6),
+                "compose[{}] = {} != {}",
+                k,
+                r12.data[k],
+                r_sum.data[k]
+            );
+        }
+    }
+
+    #[test]
+    fn compose_with_transpose_yields_identity() {
+        // R · R^T = I for orthogonal R.
+        let r = rotation_2d(0.9);
+        let rt = r.transpose();
+        let p = r.compose(&rt).unwrap();
+        let i = OrthogonalMatrix::identity(2);
+        for k in 0..4 {
+            assert!(approx_eq(p.data[k], i.data[k], 1e-6));
+        }
+    }
+
+    #[test]
+    fn compose_size_mismatch_rejected() {
+        let a = OrthogonalMatrix::identity(2);
+        let b = OrthogonalMatrix::identity(3);
+        let err = a.compose(&b).unwrap_err();
+        assert!(matches!(err, OftError::VectorSizeMismatch { .. }));
+    }
+
+    #[test]
+    fn composed_orthogonal_is_still_orthogonal() {
+        // Composition is closed under the orthogonal group: R1 · R2
+        // is orthogonal if both inputs are.
+        let r1 = rotation_2d(0.5);
+        let r2 = rotation_2d(1.1);
+        let r12 = r1.compose(&r2).unwrap();
+        assert!(r12.verify_orthogonal(1e-5).is_ok());
     }
 }
