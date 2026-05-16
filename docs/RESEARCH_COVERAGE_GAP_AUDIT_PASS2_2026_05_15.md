@@ -1466,6 +1466,25 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 102+ candidates:** (1) Surface D Phase D.0 gating to user (D needs to start D.0 to unblock A-V6.1.3 and D.7-D.10). (2) Phase C.2 mass MASTER_RESEARCH_INDEX update (J5..J12 + EML + B.6.x portfolio). (3) J4 skip 3rd-cycle surface (now actually 4th cycle — #15/#16/#17/#18 plus this iter). (4) C.7.3 honest-caveats sweep deferred since iter 93.
 
+#### Status pulse (iter 102, 2026-05-16) — B.6.4 Belnap CLEAN + B.6.x numbering insight RESOLVED
+
+- **Window since #19 (iter 101):** 1 sibling commit (sub-threshold pulse):
+  - `1f7e66a64` (B) B.6.4 Belnap FDE 4-valued logic + 5 directional ops.
+
+- **§5.0 spot-check B.6.4:** `agent_core/src/research/belnap.rs` · **17 tests**. Source: Belnap 1977 First Degree Entailment — 4 truth values {True, False, Both, Neither} extending K3. Plus 5 directional operators (Up/Down/Sideways/Inward/OnItself) on claim graph. **§5.0 verdict: CLEAN.** Belnap 1977 is canonical FDE reference, verifiable.
+
+- **🎯 RESOLVED: B.6.x numbering insight from iter-101 flag** — commit message explicitly says "Wave J B.6.4 **per driver §5 Phase B.6.4 (original long-tail)**." This reveals B has TWO B.6.x sub-sequences:
+  - **V6.1 additions** (B.6.15-B.6.20): NEW per V6.1 §"Terminal B"; closed 5/6 at iter 101 (B.6.18 was the skip)
+  - **"Original long-tail"** (B.6.1-B.6.14): pre-V6.1 / older driver §5 Phase B.6.x slots; B is now circling back. B.6.4 is the first of these visible in commit log.
+
+  **Pattern interpretation revised:** The "B.6.18 skip" flagged at iter 101 may actually represent the BOUNDARY between original-long-tail (B.6.1-B.6.14) and V6.1-additions (B.6.15-B.6.20) — i.e., B.6.18 may be reserved for a future V6.1 addition that hasn't been authored yet, OR it sits in the gap because B's V6.1 numbering jumped over what would have been the natural B.6.18 slot. **Severity reassessment:** the "skip" finding from iter 101 was correct, but now we have a richer interpretation. **No drift; intentional numbering style.**
+
+  **Open question:** how many of B.6.1-B.6.14 are landed vs not-yet-started? B.6.4 is the first one I've seen in commit log this session. Will track as B circles back through the long-tail.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only; per iter-84 clarification lockstep applies to full cycles).
+
+- **12 consecutive ON-TRACK cycles** since #8 catch.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
