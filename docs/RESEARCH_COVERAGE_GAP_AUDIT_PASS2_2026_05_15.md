@@ -3180,6 +3180,47 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 146+ candidates:** (1) Watch B's transition signals — substrate-maturation may pause for B.0.4 retry-budget + B.0.6 schema-gate implementation per new autonomy-hardening fixes. (2) Watch for any §3 mandatory reading updates affecting C (low priority since C was already GREEN). (3) **B.0-LARGE.1 latency now decisively DEFINITELY-INFORMATIONAL** — autonomy-hardening commit demonstrates user's preemptive-fix discipline; B.0-LARGE.1 absence is not a drift signal but B's conscious sequencing. (4) Watch for D's 11th self-audit + any 2nd autonomy-hardening follow-up commit (the commit message hints at "4 fixes + 2 new docs" but my window only enumerated 3 of 4). (5) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 146, 2026-05-16) — B SUBSTRATE-MATURATION 23RD CONSECUTIVE (ewc multi-anchor J3 #1 + sae ValidationSet J2 #4) — 2 commits CLEAN + ✅ Autonomy-hardening verified NO C driver changes
+
+- **Window since iter 145 close:** 2 sibling commits (sub-threshold):
+  - `2acf3699c` (B iter 104) `research/ewc: multi-anchor composition + FisherInfo diagnostics`
+  - `c53297d93` (B iter 103) `research/sae: ValidationSet helpers + ClassBalance (J2 #4)`
+
+- **✅ AUTONOMY-HARDENING IMPACT VERIFICATION on C driver:**
+  - Verified via `git show 3d308e6b7 --stat`: NO files matching `TERMINAL_C` / `prompt_v3` / `loop_prompt` patterns were touched in the iter-145 autonomy-hardening commit.
+  - **C's driver remains unmodified from pre-fix state.** Confirms my iter-145 #34 verdict that "C was already GREEN; no driver modifications required."
+  - C will continue current §1 idempotency + §10 wind-down + §5.0 reconciliation + §7 meta-cycle discipline without changes.
+
+- **🎯 Findings — B `ewc: multi-anchor composition + FisherInfo diagnostics` (`2acf3699c`) — J3 #1 SUBSTRATE-FLOOR EXPANSION + §4 RECONCILIATION:**
+  - B iter 104. **EWC mod doc explicitly says** "Multi-task EWC composes by summing the penalty/gradient across N EwcAnchors — no additional machinery required." **This commit lands the convenience surface so callers don't write the sum loop by hand** — pure §4 reconciliation (closes mod-doc-declared "no additional machinery required" implementation gap).
+  - Substrate: `multi_anchor_penalty(current, &[EwcAnchor])` (sum of per-anchor penalties; empty list returns 0) · `multi_anchor_gradient_contribution(current, &[anchors], grad_out)` (accumulates per-anchor gradients into grad_out; preserves caller-supplied prior values) · **`FisherInfo::max()` / `mean()` / `count_above(threshold)`** (count_above addresses the §8.3 open question "optimal Fisher threshold τ_prime is currently heuristic" — callers supply τ via this method).
+  - 10 new unit tests including: multi_anchor_penalty sums across 2 anchors (4.0 hand-verified contribution).
+  - **§5.0 verdict: CLEAN.** J3 EWC (Wave J J3 #1 originally landed iter 92 audit-of-audit #14 era; Kirkpatrick et al. 2017 Elastic Weight Consolidation) substrate expansion.
+
+- **🎯 Findings — B `sae: ValidationSet helpers + ClassBalance (J2 #4)` (`c53297d93`) — J2 #4 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 103. Promotes `ValidationSet` from bare wrapper to full surface (substrate previously required callers to reach into `.observations` for both AUC evaluation and class-distribution inspection).
+  - Substrate: `ClassBalance { total, positives, negatives }` (typed-distribution struct) · `.positive_rate()` (fraction in [0.0, 1.0]; None on empty) · `.has_both_classes()` (true iff both pos AND neg counts > 0; **prerequisite for `auc_roc` to succeed**) · `ValidationSet::class_balance()` (walks observations once, returns ClassBalance breakdown) · `ValidationSet::evaluate()` (convenience wrapper for `evaluate_against_gate`).
+  - 9 new unit tests including: class_balance on empty/balanced/all-positive/all-negative · evaluate passes for perfect separation (AUC 1.0 > 0.90) · evaluate below-gate for random classifier (~0.5) · evaluate propagates SingleClass + EmptyObservations errors · serde roundtrip.
+  - **Lesson #11 discipline applied:** B uses `(J2 #4)` designator; per iter-122/123 false-positive pattern (do not flag number-reuse without driver-§5 verification), B's driver §5 likely enumerates J2 sub-features via #N numbering pattern. Not flagging as drift.
+  - **§5.0 verdict: CLEAN.** J2 SAE (Goodfire SparseAutoencoder cognition_observatory from audit-of-audit #10 era) substrate expansion.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 23 CONSECUTIVE COMMITS ACROSS ITERS 130-146:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141) — 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145) — 4 doctrine-substantiation commits (V6.1 + Cruttwell + RWKV + Wang-Shi-Fox)
+  - Phase 2-J-series (iter 146) — 2 J-series substrate-floor expansions (J3 #1 EWC + J2 #4 SAE)
+  - **B is now systematically working through J-series sub-features** — Wave J was supposed to be CLOSED 8/9 (per iter-93 audit-of-audit #15). B is doing post-close substrate-floor expansion on J-series modules.
+
+- **B's iter-100 §7 audit cleared milestone retrospective:** B-reported "iters 90-99 sampled: all add documented sibling ops with behavior-exercising tests" at iter 143 commit `c07673b54`. Next §7 audit cycle would be iter-100-109 reported at iter ~150 in B's count (= our iter 150-155). My iter-128 status pulse "B-driver prompt update by user — major addition to B's scope (B.0-LARGE)" + iter-145 autonomy-hardening "B Phase B.0.4 + B.0.6" both add scope; B's next §7 cycle should include verification of those phases' substrate landing.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **27 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2. Average ~2.7/iter.
+
+- **Iter 147+ candidates:** (1) Watch for B's B.0.4 retry-budget + B.0.6 schema-gate substrate work (per iter-145 autonomy-hardening fixes). (2) Watch for additional J-series substrate-floor expansions (J3/J5/J6/J7/J8/J9). (3) Watch for D's 11th self-audit. (4) Watch for 2nd autonomy-hardening follow-up commit. (5) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
