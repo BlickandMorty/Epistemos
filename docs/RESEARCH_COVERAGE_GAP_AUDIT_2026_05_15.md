@@ -121,6 +121,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/fusion/jordan's research/uasa.agent.final.md` §3.3 — DeepSeek's low-rank KV compression with decoupled RoPE.
 - **What it is:** Local-inference unlock alongside KIVI / MiniKV / TurboQuant.
 - **Destination:** `MASTER_FUSION` §local-inference row.
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new row in `MASTER_FUSION §3.22` table (alongside the existing HCache + KVCrush + MiniKV + TurboQuant row). Section captures: MLA = low-rank K/V projection to latent space `c_kv` with **decoupled RoPE** (positional encoding stays on the un-projected query path so the cache stays rotation-invariant), typically 4-16× cache compression · **TransMLA retrofit** = QK-OV decomposition technique for converting existing MHA/GQA/MQA models to MLA without full retraining · **composes orthogonally** with KIVI/MiniKV/TurboQuant (those compress cache VALUES; MLA changes the REPRESENTATION the cache stores) · Apple Silicon implication: 4-16× KV reduction enables longer contexts within V1 16GB hardware lock without per-step quantize/dequantize · **NOT-STARTED in code** (`rg "MLA|TransMLA|MultiHeadLatentAttention"` returns zero hits across agent_core/src + Epistemos/) · research-tier post-V1.
 
 ### H-9. Run Ledger — cryptographic attestation per thought
 - **Source:** `docs/fusion/jordan's research/uasa.agent.final.md` §1.3
@@ -231,7 +232,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 | H-4 Overseer hierarchy | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §13.7 with 4-role decomposition (Planner / Guardrail / Critique / Budget) + cooperation pipeline + mapping to existing primitives + VSM cross-link. |
 | H-5 Adaptation Subsystem + Compute Steering | ✅ RESOLVED 2026-05-16 (split) — Adaptation half SHIPPED (`AdaptationExecutor.swift` + Rust FFI), Compute Steering half NOT-STARTED. Doctrine pointer at MASTER_FUSION §3.39 with explicit split. §5.0 catch #9. |
 | H-7 GRPO | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22 Continual learning` table, pairs with OFTv2 line 352; NOT-STARTED in code, scope_rex/residency.rs:81 name-drop only. |
-| H-8 MLA | MASTER_FUSION §local-inference |
+| H-8 MLA | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22` alongside KIVI/MiniKV/TurboQuant; 4-16× KV cache compression with decoupled RoPE; TransMLA retrofit path; NOT-STARTED in code. |
 | H-9 Run Ledger | MASTER_FUSION §provenance |
 | H-10 / M-2 Auto-research + Eidos Plus | Hermes 2.0 §13.5 distillation test #8 OR NightBrain task body |
 | M-3 Cloud-as-Teacher | Hermes 2.0 §13.5 + B.9 NightBrain |
