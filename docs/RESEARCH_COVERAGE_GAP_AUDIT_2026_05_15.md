@@ -80,6 +80,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/APP_ISSUES_AUTO_FIX.md:180-227`. Status: Open, P2. Needs Instruments Time Profiler.
 - **Why HIGH:** 3-second hang after `app_became_active` is user-visible. V1 polish floor.
 - **Destination:** `MAS_COMPLETE_FUSION` §A (new A.0.1 row) or audit register.
+- **Status (2026-05-16):** ✅ SURFACED — **operator action required**. Phase A.7 row added to `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` with full Instruments Time Profiler reproduction recipe + 4 ranked hypotheses + likely fixes per hypothesis + acceptance bar (≤500ms main-thread occupancy matching `RuntimeDiagnosticsMonitor` watchdog). APP_ISSUES status flipped from `Open` to `Operator-required (Instruments trace pending)`. Claude cannot drive Instruments autonomously; falling through to next autonomous slice.
 
 ### H-2. ISSUE-2026-04-21-004 Idle memory regression (~500 MB)
 - **Source:** `docs/APP_ISSUES_AUTO_FIX.md:2419-2475`. Status: Investigating since April; no root-cause.
