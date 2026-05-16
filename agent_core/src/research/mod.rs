@@ -14,6 +14,7 @@
 //! tree MUST cite its primary source paper (arXiv ID or equivalent) in a
 //! `//! Source:` doc comment.
 
+pub mod a2ui;
 pub mod acs;
 pub mod action_to_eml;
 pub mod ane_direct;
