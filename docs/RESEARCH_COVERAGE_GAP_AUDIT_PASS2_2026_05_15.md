@@ -3285,6 +3285,46 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 148+ candidates:** (1) Watch for 3rd maintenance candidate (expected 1-10 iters; theme TBD). (2) Watch B's J3 #3 DSC + J3 #5 SEAL-DoRA substrate-floor expansion possibilities. (3) Watch B's B.0.4 retry-budget + B.0.6 schema-gate (per iter-145 autonomy-hardening). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 148, 2026-05-16) — B J3 #3 DSC substrate-floor expansion (26th consecutive maturation commit; `verify_orthonormal` ALSO substantiates DSC §3.2 correctness invariant) — 1 commit CLEAN
+
+- **Window since iter 147 close:** 1 sibling commit (sub-threshold):
+  - `bac6d2698` (B iter 107) `research/dsc: OrthogonalSubspace diagnostics (J3 #3)`
+
+- **🎯 Findings — B `dsc: OrthogonalSubspace diagnostics (J3 #3)` (`bac6d2698`) — J3 #3 SUBSTRATE-FLOOR EXPANSION + DOCTRINE-SUBSTANTIATION:**
+  - B iter 107. DSC (Direction-Subspace Continual learning; Wave J J3 #3 originally landed iter 91 audit-of-audit #14 era) substrate-floor expansion. Base substrate previously only shipped `rank()` as a query method.
+  - Substrate: `is_empty()` (true iff no basis vectors ingested) · `is_full()` (true iff basis.len() ≥ rank_limit; next update will evict oldest) · `clear()` (reset to empty basis; preserves dim + rank_limit for restart between distinct task sequences) · **`verify_orthonormal(tol)` — DSC §3.2 correctness invariant: every basis vector unit-norm within tol AND every pair orthogonal within tol** · `gradient_alignment(g)` (returns `‖g_parallel‖² / ‖g‖²` — fraction of g's energy already covered by the subspace; alignment ≈ 1.0 means stepping in g's direction would risk forgetting past tasks).
+  - 12 new unit tests including: fresh subspace empty + not full · becomes full at rank_limit (2-step ingest verification) · gradient_alignment computation correctness.
+  - **🎯 DOCTRINE-SUBSTANTIATION PATTERN CONTINUES via `verify_orthonormal`:** Like mamba3 A-stability checker (iter 142) + RWKV decay-stability checker (iter 144), this is a runtime-verifiable correctness invariant pulled directly from paper §3.2. **B is consistently shipping invariant-checkers alongside the substrate they verify.**
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 J3 SUB-FEATURE COVERAGE STATUS:**
+  - **J3 #1 EWC** ✅ (iter 146 expanded; FisherInfo + multi_anchor)
+  - **J3 #2 OFTv2** ✅ (iter 147 expanded; transpose + compose)
+  - **J3 #3 DSC** ✅ (iter 148 this iter; verify_orthonormal + gradient_alignment + lifecycle helpers)
+  - **J3 #4 Titans-MAC** ✅ (iter 147 expanded; lmm_frobenius_norm + reset + batch_surprise)
+  - **J3 #5 SEAL-DoRA** ⏳ awaiting expansion (originally landed iter 92 at `b851c5620`; my iter-124 self-correction noted DoRA is already-landed via J3 #5 SEAL-DoRA per B's §4 reconciliation)
+  - **4 of 5 J3 sub-features now have substrate-floor expansions.** J3 #5 likely next iter.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 26 CONSECUTIVE COMMITS ACROSS ITERS 130-148:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141) — 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145) — 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-148) — 5 J-series substrate-floor expansions (J3 #1 EWC + J2 #4 SAE + J3 #2 OFTv2 + J3 #4 Titans-MAC + J3 #3 DSC)
+  - **Pattern stable for 18 iters now.** B is at iter 107 in own counter; estimated iter-110 §7 audit next checkpoint.
+
+- **🎯 MAINTENANCE CANDIDATES 1 + 2 LANDED; 3rd EXPECTED ~ITER 150-155:**
+  - 1st `f5ef5b39f` (iter 141) — Atlas Drift cross-link mirror
+  - 2nd `28b0b975c` (iter 147) — PASS-2 §5 9-row trust-but-verify re-sweep
+  - 3rd candidate (theme TBD) expected per "First of three" language pattern.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **28 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1. Average ~2.7/iter.
+
+- **Iter 149+ candidates:** (1) Watch for J3 #5 SEAL-DoRA substrate-floor expansion (last J3 sub-feature). (2) Watch for 3rd maintenance candidate. (3) Watch for B's iter-110 §7 audit cycle clearance (next per every-10-iter cadence). (4) Watch for B's B.0.4 retry-budget + B.0.6 schema-gate work per iter-145 autonomy-hardening. (5) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
