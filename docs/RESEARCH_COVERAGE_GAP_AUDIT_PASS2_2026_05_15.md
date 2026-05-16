@@ -893,6 +893,14 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
   3. Re-verify earlier-flagged sibling-owned doctrine corrections (HEAL_LOOP_SCHEMA_AND_TTL.md:3 + VARIANT_LADDER §12 sub-(g)) — have owning terminals corrected them yet?
   4. Continue substantive sibling-commit verification as new commits land.
 
+#### Status pulse (iter 86, 2026-05-16) — J2 #3 Weight Surgery CLEAN; sub-cycle threshold
+
+- **Window since #11 (iter 85):** 1 sibling commit — `e1918cb20` (B) J2 #3 Weight Surgery — 9-target WeightPatcher.
+- **§5.0 spot-verification:** `agent_core/src/research/cognition_observatory/weight_patcher.rs` on B's branch = 13677 bytes / **11 tests** (matches commit message "11 tests" EXACTLY). Source `//! Source:` comment cites `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_UNIFIED_MEMORY_CONTROL_ROOM.md` lines 588-637 — resolves on disk. MASTER_FUSION §3.26 referenced — resolves at line 401. 9-target enum {QProj · KProj · VProj · OProj · Gate · Up · Down · Embed · LmHead} matches the cited Swift spec. **Substrate verdict: CLEAN.**
+- **J2 portfolio state:** mod.rs 2220 bytes (grew from 2064 — kernel #3 module registration) + glass_pipe.rs 7257 (unchanged) + kv_implant.rs 12106 (unchanged) + weight_patcher.rs 13677 (NEW). Test totals: glass_pipe 9 + kv_implant 10 + weight_patcher 11 = **30 tests** in J2 portfolio so far.
+- **Sub-cycle threshold:** 1/3-5 sibling commits since #11 — audit-of-audit #12 not yet ripe. Status pulse only; no full cycle row.
+- **§5.6 lockstep status:** this is a sub-cycle pulse (not a full audit-of-audit). Per iter-84 clarification, lockstep applies to "every audit-of-audit cycle commit" — single-commit pulses are below that threshold. PASS-2 §9 status pulse appended; MAS_COMPLETE_FUSION §8 row deferred to next full cycle.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
