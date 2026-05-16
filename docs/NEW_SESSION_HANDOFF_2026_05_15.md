@@ -322,6 +322,18 @@ From `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` strict status 
 
 Plus a long tail of P2 items.
 
+### Post-2026-05-16-loop addendum (recorded at iter 59)
+
+The 2026-05-16 autonomous loop ran 58 iterations of **doctrine work only** — zero production code touched, cargo test baseline held at 1190 throughout. The recursive audit register status counts above are therefore **largely unchanged** by the loop; this section's snapshot remains accurate as a code-side TODO landscape. What the loop DID change:
+
+- **Phase A · D 17/17 · E 7/7 · F 15/15 · G 3/3 — all complete.** Full closure ledger at `RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §10 Phase Completion Ledger`.
+- **19 §5.0 reconciliation catches / 57 closed slices = 33.3%.** Pattern: HELIOS V5 / Wave 9 substrates shipping into main faster than canon catalogs tracked them.
+- **PR-discipline rules now in force.** MAS_COMPLETE_FUSION §0 grew 5 → 8 immutable rules (rule 6 MAS WKWebView · rule 7 JIT defense · rule 8 egress allowlist). 3 lockstep rules (ResidencyLevel · ACS · new Cargo crates). 4-Tunnel taxonomy discipline.
+- **6 forward-staged primitives** with doctrine specs frozen for V1.1 / Wave 9+ landing — see PASS 2 §10's forward-staged list. Code-side action triggered by user-decision answer OR substrate ship.
+- **11 user-decision-gated items** remain (all surfaced; cross-link to MAS_COMPLETE_FUSION §10 Compromises Recorded for full V1/V1.1 alternatives).
+
+**Net effect on this section's snapshot:** the active P1 list above is still accurate (those are code-side items the doctrine loop didn't touch). The §12 framing as a "2026-05-15 snapshot" is correct as-of-write; the 2026-05-16 doctrine work is captured in PASS 2 §10, not here.
+
 ---
 
 ## 13. Branch + main + worktree state
