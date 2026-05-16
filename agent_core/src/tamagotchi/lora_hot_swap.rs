@@ -139,6 +139,73 @@ impl LoraHotSwapManager {
         d.last_used_unix_ms = now_unix_ms;
         Ok(())
     }
+
+    /// Number of adapters currently resident in the pool.
+    pub fn loaded_count(&self) -> usize {
+        self.loaded.len()
+    }
+
+    /// Predicate: nothing is currently loaded.
+    pub fn is_empty(&self) -> bool {
+        self.loaded.is_empty()
+    }
+
+    /// Predicate: an adapter with this id is currently resident.
+    /// Cross-surface invariant: `contains(id)` iff `touch(id, _)`
+    /// would return `Ok(())`.
+    pub fn contains(&self, id: &str) -> bool {
+        self.loaded.iter().any(|d| d.id == id)
+    }
+
+    /// Pool utilization in `[0.0, 1.0]`: `current_bytes /
+    /// pool_capacity_bytes`. Returns `None` only if the pool has
+    /// zero capacity (which the constructor rejects, but defensive
+    /// against post-construction mutation).
+    pub fn utilization(&self) -> Option<f64> {
+        if self.pool_capacity_bytes == 0 {
+            return None;
+        }
+        Some(self.current_bytes() as f64 / self.pool_capacity_bytes as f64)
+    }
+
+    /// Id of the least-recently-used (lowest `last_used_unix_ms`)
+    /// resident adapter, or `None` if the pool is empty. The next
+    /// candidate the LRU policy would evict.
+    pub fn lru_id(&self) -> Option<&str> {
+        self.loaded
+            .iter()
+            .min_by_key(|d| d.last_used_unix_ms)
+            .map(|d| d.id.as_str())
+    }
+
+    /// Id of the most-recently-used resident adapter, or `None` if
+    /// the pool is empty. Companion to [`Self::lru_id`].
+    pub fn mru_id(&self) -> Option<&str> {
+        self.loaded
+            .iter()
+            .max_by_key(|d| d.last_used_unix_ms)
+            .map(|d| d.id.as_str())
+    }
+}
+
+impl LoraSwapError {
+    /// Predicate: this error stems from capacity / size limits
+    /// (ZeroCapacity / LoraTooLarge / PerCompanionCeilingExceeded).
+    pub const fn is_capacity_error(&self) -> bool {
+        matches!(
+            self,
+            LoraSwapError::ZeroCapacity
+                | LoraSwapError::LoraTooLarge { .. }
+                | LoraSwapError::PerCompanionCeilingExceeded { .. }
+        )
+    }
+
+    /// Predicate: this error stems from a lookup failure
+    /// (AdapterNotFound). Cross-surface invariant: every variant
+    /// satisfies exactly one of `is_capacity_error` / `is_lookup_error`.
+    pub const fn is_lookup_error(&self) -> bool {
+        matches!(self, LoraSwapError::AdapterNotFound)
+    }
 }
 
 #[cfg(test)]
@@ -275,5 +342,123 @@ mod tests {
         let mut m = LoraHotSwapManager::new(50 * 1024 * 1024).unwrap();
         m.swap_in(lora("a", 50 * 1024 * 1024, "c1", 0)).unwrap();
         assert_eq!(m.free_bytes(), 0);
+    }
+
+    // ── diagnostic surface (iter 139) ────────────────────────────────────────
+
+    #[test]
+    fn fresh_manager_is_empty() {
+        let m = LoraHotSwapManager::new(100 * 1024 * 1024).unwrap();
+        assert!(m.is_empty());
+        assert_eq!(m.loaded_count(), 0);
+        assert_eq!(m.lru_id(), None);
+        assert_eq!(m.mru_id(), None);
+    }
+
+    #[test]
+    fn loaded_count_matches_loaded_len() {
+        let mut m = LoraHotSwapManager::new(300 * 1024 * 1024).unwrap();
+        m.swap_in(lora("a", 50 * 1024 * 1024, "c1", 0)).unwrap();
+        m.swap_in(lora("b", 50 * 1024 * 1024, "c1", 1)).unwrap();
+        m.swap_in(lora("c", 50 * 1024 * 1024, "c2", 2)).unwrap();
+        assert_eq!(m.loaded_count(), 3);
+        assert!(!m.is_empty());
+    }
+
+    #[test]
+    fn contains_matches_swap_in_state() {
+        let mut m = LoraHotSwapManager::new(150 * 1024 * 1024).unwrap();
+        assert!(!m.contains("a"));
+        m.swap_in(lora("a", 50 * 1024 * 1024, "c1", 0)).unwrap();
+        assert!(m.contains("a"));
+        m.swap_out("a").unwrap();
+        assert!(!m.contains("a"));
+    }
+
+    #[test]
+    fn contains_aligns_with_touch_result() {
+        // Cross-surface: contains(id) iff touch(id, _) returns Ok.
+        let mut m = LoraHotSwapManager::new(100 * 1024 * 1024).unwrap();
+        m.swap_in(lora("present", 50 * 1024 * 1024, "c1", 0)).unwrap();
+        assert_eq!(m.contains("present"), m.touch("present", 5).is_ok());
+        assert_eq!(m.contains("absent"), m.touch("absent", 5).is_ok());
+    }
+
+    #[test]
+    fn utilization_and_free_bytes_partition_capacity() {
+        // Cross-surface invariant: current_bytes + free_bytes = pool_capacity_bytes
+        // (and utilization × capacity ≈ current_bytes).
+        let mut m = LoraHotSwapManager::new(300 * 1024 * 1024).unwrap();
+        m.swap_in(lora("a", 50 * 1024 * 1024, "c1", 0)).unwrap();
+        m.swap_in(lora("b", 70 * 1024 * 1024, "c2", 1)).unwrap();
+        let cur = m.current_bytes();
+        let free = m.free_bytes();
+        assert_eq!(cur + free, m.pool_capacity_bytes);
+        let u = m.utilization().unwrap();
+        assert!((u * (m.pool_capacity_bytes as f64) - cur as f64).abs() < 1.0);
+    }
+
+    #[test]
+    fn utilization_full_pool_is_one() {
+        let mut m = LoraHotSwapManager::new(50 * 1024 * 1024).unwrap();
+        m.swap_in(lora("a", 50 * 1024 * 1024, "c1", 0)).unwrap();
+        assert!((m.utilization().unwrap() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn utilization_empty_pool_is_zero() {
+        let m = LoraHotSwapManager::new(100 * 1024 * 1024).unwrap();
+        assert!((m.utilization().unwrap() - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn lru_and_mru_identify_extreme_last_used() {
+        let mut m = LoraHotSwapManager::new(300 * 1024 * 1024).unwrap();
+        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100)).unwrap();
+        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200)).unwrap();
+        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300)).unwrap();
+        assert_eq!(m.lru_id(), Some("oldest"));
+        assert_eq!(m.mru_id(), Some("newest"));
+    }
+
+    #[test]
+    fn lru_is_first_eviction_target() {
+        // Cross-surface: when swap_in needs to evict, it removes lru_id().
+        let mut m = LoraHotSwapManager::new(150 * 1024 * 1024).unwrap();
+        m.swap_in(lora("oldest", 50 * 1024 * 1024, "c1", 100)).unwrap();
+        m.swap_in(lora("middle", 50 * 1024 * 1024, "c2", 200)).unwrap();
+        m.swap_in(lora("newest", 50 * 1024 * 1024, "c3", 300)).unwrap();
+        let expected_evict = m.lru_id().unwrap().to_string();
+        m.swap_in(lora("incoming", 50 * 1024 * 1024, "c4", 400)).unwrap();
+        assert!(!m.contains(&expected_evict));
+    }
+
+    #[test]
+    fn touch_updates_mru() {
+        let mut m = LoraHotSwapManager::new(150 * 1024 * 1024).unwrap();
+        m.swap_in(lora("a", 50 * 1024 * 1024, "c1", 100)).unwrap();
+        m.swap_in(lora("b", 50 * 1024 * 1024, "c1", 200)).unwrap();
+        m.swap_in(lora("c", 50 * 1024 * 1024, "c1", 300)).unwrap();
+        assert_eq!(m.mru_id(), Some("c"));
+        m.touch("a", 999).unwrap();
+        assert_eq!(m.mru_id(), Some("a"));
+        assert_eq!(m.lru_id(), Some("b"));
+    }
+
+    #[test]
+    fn error_classifiers_partition_variants() {
+        let errors = [
+            LoraSwapError::ZeroCapacity,
+            LoraSwapError::LoraTooLarge { id_byte_size: 0, capacity: 0 },
+            LoraSwapError::PerCompanionCeilingExceeded { companion_id_size: 0, ceiling: 0 },
+            LoraSwapError::AdapterNotFound,
+        ];
+        for e in errors.iter() {
+            assert_ne!(e.is_capacity_error(), e.is_lookup_error());
+        }
+        assert!(errors[0].is_capacity_error());
+        assert!(errors[1].is_capacity_error());
+        assert!(errors[2].is_capacity_error());
+        assert!(errors[3].is_lookup_error());
     }
 }
