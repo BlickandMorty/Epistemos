@@ -299,11 +299,13 @@ impl<E: AgentExecutor> AgentExecutor for GovernedExecutor<E> {
 
 **No executor emits an event the policy layer did not inspect.** This is what makes Hermes 2.0 fundamentally different from Goose / OpenHands / Claude Agent SDK — in those systems the agent is the policy. Here Epistemos is the policy.
 
-### 5.1 ExecutionReceipt + Capability — SHIPPED provenance primitive
+### 5.1 ExecutionReceipt + Capability — SHIPPED-TYPES, ORPHAN-EMISSION (§5.0 correction T-A iter 6)
 
 **Code:** `agent_core/src/effect/receipt.rs` (173 LOC). PASS 2 gap audit B2-H13.
 
-Every governed tool invocation produces a signed **`ExecutionReceipt`** before the result flows back to the agent loop. The receipt is the on-the-wire proof that a specific tool ran with a specific capability set at a specific time, and its output hash is what downstream consumers (ClaimLedger, RunEventLog, Provenance Console) cite.
+**§5.0 correction (T-A iter 6, 2026-05-16):** the original doctrine below stated "Every governed tool invocation produces a signed `ExecutionReceipt` before the result flows back to the agent loop." That's an aspirational design statement, not the production reality. Verification commands: (i) `grep -rn "ExecutionReceipt\|HmacSha256SigningKey\|SigningKey\b" agent_core/src/ | grep -v "src/effect/"` returns ZERO hits — no callsite outside `effect/` itself constructs / signs / verifies an ExecutionReceipt; (ii) `grep -rln "ExecutionReceipt\|HmacSha256\|effect::Capability" agent_core/src/agent_runtime/ agent_core/src/agent_loop.rs` returns ZERO files — production `agent_runtime` (function_call.rs, mod.rs, procedural_memory.rs, prompt_format.rs, self_evolution.rs, skills.rs) does not touch the receipt path at all; (iii) `grep -rln "ExecutionReceipt" agent_core/tests` returns `effect_salvage.rs` + `heal_loop_fixtures.md` only; (iv) `grep -rn "ExecutionReceipt" Epistemos/` returns ZERO hits — no Swift surface consumes signed receipts either. **Production tool calls (`agent_runtime::function_call::execute_tool_call` etc.) return raw `ToolExecutionResult` payloads with a `"verified": true` boolean per the I-007/I-008 verified-write hardening; they do NOT emit signed `ExecutionReceipt` records.** Same orphan pattern as §5.4 IntentDispatcher (see iter-5 §5.0 correction). **Wiring is V1.x scope**, not V1 — the receipt path must be threaded through every governed tool invocation point and reconciled with the existing `"verified": true` payload contract, without regressing the verified-write E2E test in `ResourceRuntimeToolPathE2ETests`. The TYPES + tests are SHIPPED (read further below); the EMISSION is not.
+
+Every governed tool invocation [aspirational; see §5.0 correction above] produces a signed **`ExecutionReceipt`** before the result flows back to the agent loop. The receipt is the on-the-wire proof that a specific tool ran with a specific capability set at a specific time, and its output hash is what downstream consumers (ClaimLedger, RunEventLog, Provenance Console) cite.
 
 **`Capability` enum** — 4 variants encoding the capability axes the receipt cares about:
 
