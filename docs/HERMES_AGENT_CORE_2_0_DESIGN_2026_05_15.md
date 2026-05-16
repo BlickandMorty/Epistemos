@@ -531,9 +531,11 @@ This section closes that gap. The enum stays in `epistemos-research` (Lane 3 RES
 - MASTER_FUSION §3.18 Provenance ledger (Phase 1) — Plane 5 substrate.
 - `docs/audits/HELIOS_SUBSTRATE_INVENTORY_2026_05_12.md` — drift-discovery context (drift gate commit `9e19bcf08` 2026-05-12).
 
-### 5.4 Intent → Effect dispatch + Applier subsystem — SHIPPED (B2-M10)
+### 5.4 Intent → Effect dispatch + Applier subsystem — SHIPPED-TYPES, ORPHAN-DISPATCH (B2-M10, §5.0 correction T-A iter 5)
 
-**Source:** PASS 2 audit row B2-M10 framed this subsystem as living in `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/effect/`. **§5.0 reconciliation finding: the entire 6-file subsystem is already in main at `agent_core/src/effect/`**, registered at `agent_core/src/lib.rs:19` (`pub mod effect;`). Audit was stale — this section records the doctrine retroactively.
+**Source:** PASS 2 audit row B2-M10 framed this subsystem as living in `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/effect/`. **§5.0 reconciliation finding (iter 38, 2026-05-16): the entire 6-file subsystem is already in main at `agent_core/src/effect/`**, registered at `agent_core/src/lib.rs:19` (`pub mod effect;`). Audit was stale — this section records the doctrine retroactively.
+
+**Second §5.0 correction (T-A iter 5, 2026-05-16):** the doctrine below initially framed the subsystem as "all consumed by the agent runtime." Reality on disk is narrower: the 6-file substrate is **complete + integration-tested** (see `agent_core/tests/effect_salvage.rs`, `tests/undo_salvage.rs`, `tests/heal_salvage.rs`, `tests/format_salvage.rs` — all four reference `Intent::VaultWrite` / `Intent::ConceptCreate` / `Intent::MemoryWrite` + exercise `IntentDispatcher` end-to-end). But **no production callsite in `agent_core/src/` outside `effect/` itself ever constructs `IntentDispatcher` or emits `Intent::Vault*` / `Intent::Concept*` / `Intent::MemoryWrite`**. Verification: `grep -rn "IntentDispatcher::\|with_vault\|with_concept\|with_memory" agent_core/src/ | grep -v "effect/"` returns zero hits; `grep -rn "Intent::VaultWrite\|Intent::VaultMove\|Intent::ConceptCreate\|Intent::MemoryWrite" agent_core/src/` returns one hit at `effect/memory_applier.rs:30` (a pattern-match inside the applier — not an emission). Only `heal/mod.rs` and `heal/log.rs` import from `effect` (and only `ApplyError`, an enum re-use — not the dispatch path). **Production agent_runtime (`agent_core::agent_runtime`) and `agent_loop.rs` do NOT route through `IntentDispatcher` today.** Wiring the dispatcher into the production loop is V1.x scope (re-classified below in the V1/Pro boundary), not V1.
 
 ### The architecture in one sentence
 
@@ -627,8 +629,8 @@ The Applier types are the canonical citizens of Plane 4 — they are how the run
 
 ### V1 / Pro / Post-V1 boundary
 
-- **MAS V1:** Effect subsystem is ALREADY SHIPPED. Vault + Concept + Memory Appliers all consumed by the agent runtime. No additional V1 work.
-- **V1.1:** The Reversal/Undo path (via `Inverse` + `is_reversible()`) is the substrate for B-3 Confidence Meter's re-learn-on-low-confidence path and for the V1.1 `edit_note_block` macaroon's per-edit Undo row (H-3 / B2-H6).
+- **MAS V1:** Effect subsystem TYPES + tests are SHIPPED (6 files, 722 LOC, 4 integration test suites). **Production wiring of `IntentDispatcher` into `agent_runtime`/`agent_loop` is NOT in V1 scope** — the existing agent loop emits tool-call results through the legacy path (`ToolRegistry::execute` + `ResourceService::verified_write`), and that path is what's actually ship-verified for MAS. Wire-in lifts to V1.x because (a) it requires routing the existing tool-handler success/error paths through `IntentDispatcher::apply` without regressing the verified-write contract (see I-007 / I-008), and (b) `Effect::VaultWrote` must coexist with the current `vault_write` tool-handler's `"verified": true` payload without double-counting writes.
+- **V1.x (was V1 in earlier framing — §5.0 corrected T-A iter 5):** wire `IntentDispatcher` into the production `agent_runtime` path so emitted Intents flow through the typed Applier surface in production, not only in tests. Plus the Reversal/Undo path (via `Inverse` + `is_reversible()`) as the substrate for B-3 Confidence Meter's re-learn-on-low-confidence path and the V1.1 `edit_note_block` macaroon's per-edit Undo row (H-3 / B2-H6).
 - **Pro V1.x:** Additional Applier types may be added (e.g. `ScreenCaptureApplier` for ScreenCaptureKit mutations · `AXApplier` for AXorcist mutations). All inherit the same `IntentDispatcher → Applier → Effect/Inverse/ApplyError` contract.
 
 ### Cross-references
