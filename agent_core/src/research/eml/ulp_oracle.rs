@@ -137,6 +137,25 @@ pub fn run_smoke_oracle(
     })
 }
 
+impl UlpOracleReport {
+    /// Fraction of samples within the ULP bar. Returns `None` on
+    /// zero samples (rate is undefined). Companion to
+    /// `samples_within_bar` for production telemetry that wants a
+    /// 0.0-1.0 quality signal rather than absolute count.
+    pub fn fraction_within_bar(&self) -> Option<f32> {
+        if self.samples_evaluated == 0 {
+            return None;
+        }
+        Some(self.samples_within_bar as f32 / self.samples_evaluated as f32)
+    }
+
+    /// Fraction of samples OUTSIDE the bar: `1.0 -
+    /// fraction_within_bar`. The acceptance-bar gap diagnostic.
+    pub fn fraction_outside_bar(&self) -> Option<f32> {
+        self.fraction_within_bar().map(|f| 1.0 - f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,5 +223,76 @@ mod tests {
     fn fp16_next_after_normal_is_v_over_1024() {
         let u = fp16_next_after(2.0);
         assert!((u - (2.0 / 1024.0)).abs() < 1e-9);
+    }
+
+    // ── fraction_within_bar + fraction_outside_bar (iter 131) ───────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn fraction_within_bar_zero_samples_returns_none() {
+        let r = UlpOracleReport {
+            samples_evaluated: 0,
+            max_ulp_error: 0.0,
+            mean_ulp_error: 0.0,
+            samples_within_bar: 0,
+            bar: 2.0,
+            all_within_bar: true,
+        };
+        assert!(r.fraction_within_bar().is_none());
+        assert!(r.fraction_outside_bar().is_none());
+    }
+
+    #[test]
+    fn fraction_within_bar_all_pass_is_one() {
+        let r = UlpOracleReport {
+            samples_evaluated: 100,
+            max_ulp_error: 1.5,
+            mean_ulp_error: 0.5,
+            samples_within_bar: 100,
+            bar: 2.0,
+            all_within_bar: true,
+        };
+        assert!(approx(r.fraction_within_bar().unwrap(), 1.0, 1e-6));
+        assert!(approx(r.fraction_outside_bar().unwrap(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn fraction_within_bar_half_pass_is_half() {
+        let r = UlpOracleReport {
+            samples_evaluated: 100,
+            max_ulp_error: 5.0,
+            mean_ulp_error: 1.5,
+            samples_within_bar: 50,
+            bar: 2.0,
+            all_within_bar: false,
+        };
+        assert!(approx(r.fraction_within_bar().unwrap(), 0.5, 1e-6));
+        assert!(approx(r.fraction_outside_bar().unwrap(), 0.5, 1e-6));
+    }
+
+    #[test]
+    fn fraction_within_and_outside_sum_to_one() {
+        // Cross-surface invariant: the two fractions must sum to 1.0.
+        let r = UlpOracleReport {
+            samples_evaluated: 1024,
+            max_ulp_error: 3.0,
+            mean_ulp_error: 0.7,
+            samples_within_bar: 990,
+            bar: 2.0,
+            all_within_bar: false,
+        };
+        let within = r.fraction_within_bar().unwrap();
+        let outside = r.fraction_outside_bar().unwrap();
+        assert!(approx(within + outside, 1.0, 1e-6));
+    }
+
+    #[test]
+    fn smoke_oracle_real_run_fraction_within_bar_close_to_one() {
+        let r = run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap();
+        let f = r.fraction_within_bar().unwrap();
+        assert!(f > 0.99, "smoke oracle within-bar fraction was {}", f);
     }
 }
