@@ -927,6 +927,42 @@ mod tests {
     }
 
     #[test]
+    fn schema_version_constants_ascend_with_capability() {
+        // Three schema-version constants represent the bundle
+        // capability ladder:
+        //   v1 (ledger-only)  → ledger + mutations
+        //   v2 (with DAG)     → adds optional dag_snapshot
+        //   v3 (current)      → adds optional ladder_walks
+        //
+        // Downstream consumers (epistemos-trace verify, future
+        // analytics surfaces) assume a strict ascending invariant —
+        // a higher version represents a strict superset of fields
+        // that a lower version honors. Pin the order so a future
+        // capability addition can't accidentally renumber v2 above
+        // v3 or skip a number.
+        //
+        // Strict ascending — flat-tied versions would collapse the
+        // semantics (LEDGER_ONLY == WITH_DAG means the older-capability
+        // constant already covers the newer's domain, which would be
+        // a contradiction).
+        assert!(
+            REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY < REPLAY_BUNDLE_SCHEMA_VERSION_WITH_DAG,
+            "v1 (ledger-only) MUST be strictly below v2 (with DAG)"
+        );
+        assert!(
+            REPLAY_BUNDLE_SCHEMA_VERSION_WITH_DAG < REPLAY_BUNDLE_SCHEMA_VERSION,
+            "v2 (with DAG) MUST be strictly below the current version"
+        );
+
+        // Pin exact values so a renumber is loud — bumping CURRENT to
+        // 4 requires updating this test and (presumably) introducing
+        // a WITH_WALKS_AND_X constant for what was previously v3.
+        assert_eq!(REPLAY_BUNDLE_SCHEMA_VERSION_LEDGER_ONLY, 1);
+        assert_eq!(REPLAY_BUNDLE_SCHEMA_VERSION_WITH_DAG, 2);
+        assert_eq!(REPLAY_BUNDLE_SCHEMA_VERSION, 3);
+    }
+
+    #[test]
     fn ladder_walk_record_from_walk_copies_attempts_and_attaches_context() {
         // `LadderWalkRecord::from_walk` is the ergonomic seam that lets
         // a `vault_search`-style caller hand `resolve_walk()`'s typed
