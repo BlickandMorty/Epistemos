@@ -790,7 +790,37 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 
 **App Review reviewer answer (cite this verbatim if asked "why not a web wrapper?"):** Three perception capabilities (A1-A3) literally cannot exist in a web app — there is no browser API for cross-application AX tree reads, system-wide CGEvent injection, or system-wide screen capture. Thirteen more (B1-B6, C1-C4, D1-D3) require in-process MLX-Swift, GRDB, Tantivy/usearch, or Metal compute shaders that the browser sandbox cannot reach without subprocess hops that would void the MAS hardened-runtime guarantees. The remaining three (D4 cloud, D5 cron, D6 query) lose 30-100ms latency per call when routed through HTTP/IPC instead of staying in-process. **The 19 specialties are the moat; the web wrapper would be a slower, weaker subset of D4 + D6.**
 
-**Tool-surface mapping (follow-up integration slice, not part of B2-1):** The §7.1 / §7.2 tool tables expose a *subset* of these specialties as named LLM-callable tools (e.g. B1 `vault_recall` → `vault.search`; B2 `graph_query` → `graph.search` / `graph.neighbors`). Specialties without a current tool-surface row (e.g. B3 `contradiction_check`, C4 `metal_benchmark`, D5 `live_note`) are exposed via Swift APIs and in-app UI, not via the agent's tool registry — yet. Future slices may promote any specialty to a tool row when the agent loop needs to invoke it directly.
+**Tool-surface mapping (§5.0-verified T-A iter 7, 2026-05-16):** The §7.1 / §7.2 tool tables expose **15 of the 19 specialties** as named LLM-callable tools in `agent_core/src/tools/registry.rs` (verified via per-specialty grep on the registry source). The 4 specialties NOT yet promoted to tool rows are exposed via Swift APIs and in-app UI only:
+
+| Specialty | Tool-row in registry? | Registry alias / handler |
+|---|---|---|
+| A1 perceive | ✅ | `intelligence.perceive` family |
+| A2 interact | ✅ | `intelligence.interact` family |
+| A3 screen_watch | ✅ | `intelligence.screen_watch` family |
+| B1 vault_recall | ✅ | `vault.search` (alias: `vault_recall`, `pkm_search`, `search_notes`) |
+| B2 graph_query | ✅ | `graph.search` / `graph.neighbors` (alias: `graph_query`) |
+| B3 contradiction_check | ✅ | `knowledge.contradiction_check` (alias: `analyzecontradiction`) |
+| B4 vault_navigate | ✅ | (alias entry in registry) |
+| B5 neural_recall | ✅ | `knowledge.neural_recall` |
+| B6 knowledge_distill | ❌ | Swift-only (`CloudKnowledgeDistillationService.swift`) |
+| C1 ssm_resume | ✅ | `inference.ssm_resume` |
+| C2 constrained_generate | ✅ | `inference.constrained_generate` |
+| C3 route_private | ✅ | `inference.route_private` |
+| C4 metal_benchmark | ❌ | Swift-only (`MetalRuntimeManager.swift`) |
+| D1 nightbrain_trigger | ✅ | `intelligence.nightbrain_trigger` |
+| D2 inline_partner | ✅ | `intelligence.inline_partner` |
+| D3 self_evolve | ✅ | `intelligence.self_evolve` |
+| D4 mixture_of_minds | ✅ | `intelligence.mixture_of_minds` |
+| D5 live_note | ❌ | Swift-only (`LiveNoteExecutor.swift` + `LiveNoteScanner.swift`) |
+| D6 dataview | ❌ | Swift-only (`DataviewService.swift`) |
+
+**§5.0 corrections to prior doctrine (T-A iter 7):**
+- Prior framing said "Specialties without a current tool-surface row (e.g. B3 `contradiction_check`, C4 `metal_benchmark`, D5 `live_note`)". Verification: B3 IS registered (alias `analyzecontradiction` at `agent_core/src/tools/registry.rs:357`); C4 and D5 are correctly identified as not-yet-promoted. Prior framing also omitted B6 `knowledge_distill` and D6 `dataview` from the not-yet list.
+- True NOT-promoted set is **{B6 knowledge_distill, C4 metal_benchmark, D5 live_note, D6 dataview}** = 4 specialties (not 3). Verification command: `for s in perceive interact screen_watch vault_recall graph_query contradiction_check vault_navigate neural_recall knowledge_distill ssm_resume constrained_generate route_private metal_benchmark nightbrain_trigger inline_partner self_evolve mixture_of_minds live_note dataview; do grep -cE "\"$s\"|name:\s*\"$s\"" agent_core/src/tools/registry.rs; done` returns nonzero counts for 15 of 19.
+
+**File-presence audit (T-A iter 7):** all 18 Swift files + 6 Rust files cited as backing implementations exist on disk (Screen2AXFusion.swift · AXorcistBridge.swift · ScreenCaptureService.swift · VisualVerifyLoop.swift · InstantRecallService.swift · ConstrainedDecodingService.swift · ToolSchemaGrammar.swift · ConfidenceRouter.swift · DualBrainRouter.swift · MetalRuntimeManager.swift · Mamba2ForwardPass.swift · NightBrainService.swift · AIPartnerService.swift · LiveNoteExecutor.swift · LiveNoteScanner.swift · DataviewService.swift · SSMStateService.swift · CloudKnowledgeDistillationService.swift + `agent_core/src/storage/{contradiction_detector,hyperbolic_topology,neural_cache,ssm_state}.rs` + `graph-engine/src/engine.rs` + `agent_core/src/tools/intelligence.rs`). The substrate side of §7.4 is fully present.
+
+Future slices may promote any of the 4 remaining specialties (B6 / C4 / D5 / D6) to a tool row when the agent loop needs to invoke them directly. None are V1-blocking — the Swift-API surfaces remain canonical for in-app UI consumption.
 
 **UI marking for premium moves (follow-up design slice, not part of B2-1):** Visual badge / accent (likely a small gradient ring + tooltip) marking UI affordances that invoke a specialty, so users can scan a surface and see *which buttons are doing something only Epistemos can do*. Lives in `Theme/PhysicsModifiers.swift` as a new `.specialty(let id: SpecialtyID)` modifier; routed through `CognitiveWeightBadge` already in main. Tracked separately from B2-1 — this slice ships the registry, not the marking.
 
