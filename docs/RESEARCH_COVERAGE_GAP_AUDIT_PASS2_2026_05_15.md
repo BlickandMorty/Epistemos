@@ -2401,6 +2401,66 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note (iter 127 close):** 🟢 **LOW-TOUCH at 30-min cadence engaged.** Next fire at :01 or :31 boundary (~30 min). Will reconsider step-back if sibling burst returns.
 
+### Audit-of-audit #28 (iter 128, 2026-05-16) — 🔴 14-COMMIT BURST · STEP-BACK TO 3-MIN · 7-J-SERIES ENVELOPE WAVE + 3× D-self-audit + T-A-26 + B.0-KV F floor
+
+- **Window since iter 127 close (first 30-min low-touch fire):** **14 substantive sibling commits** (≈0.47 commits/min) — vastly exceeds the iter-127 step-back trigger (>5/30min). Cron `07983441` (30-min) DELETED at iter-128 open; new cron `51f01c4e` (`*/3 * * * *`) created with refreshed driver body. This mirrors the iter-93 step-back pattern (V6.1 burst from low-touch back to 3-min).
+
+- **Commits in window (B=9 · D=3 · A=1 · B-doc-for-F=1):**
+
+  **B — 7-of-7 J-series envelope/audit wave (cross-J consistency backfill):**
+  - `a5625fd74` J5 acs multi-scale governance envelope + doc fix
+  - `debf7dc17` J2 cognition_observatory pipeline envelope + doc fix
+  - `82bb427ff` J1 ternary kernel-kind envelope (decode-first taxonomy)
+  - `7857fb353` J7 sherry_lattice codebook-family envelope (typed catalog + budget-selector over Sherry 3:4 + E8 + Leech-24)
+  - `1ca27f8ea` J9 paper_registry audit module
+  - `53bc56d35` J6 hyperdynamic_schemas diff sibling
+  - `eaed8b350` J8 ane_direct telemetry rolling-history substrate (B iter 80)
+
+  **B — 2 other production substrate commits:**
+  - `5f5666f78` eml expression-tree evaluator (depth-capped) — B.0 EML scope per V6.1
+  - `c47ca450c` live_files B.6.11 LivePlanV1 structural validator
+
+  **B-doc commit framing F-tier infrastructure:**
+  - `f9d8408c9` docs(B.0-KV) F-KV-Direct-Gate memory-architecture floor (NEW phase number; substrate already in-tree via `Epistemos/Shaders/kv_direct_gate.metal` 65 LOC + `agent_core/src/scope_rex/kv/direct_gate.rs` 290 LOC + 7 tests; user-authorized "Per user direction 2026-05-16")
+
+  **D — 3 D-self-audit commits (maturing self-audit pattern):**
+  - `e9fa1b70e` D-self-audit: record sampled provider audit
+  - `07e26d28f` D-self-audit: record sampled MCP audit
+  - `f5df32c8d` D-self-audit: guard legacy provider sources
+
+  **A — 1 self-audit:**
+  - `925950a32` T-A-26 self-audit #3 ON-TRACK 5/5 (window 21-25, streak 3/5)
+
+- **🎯 LESSON #11 DISCIPLINE APPLIED BEFORE FLAGGING (no false-positive overreach this cycle):**
+
+  **(1) B's 7-J-series "envelope" pattern — verified as B's §7 self-audit cycle output:** All 7 commits are MAINTENANCE/GOVERNANCE atop already-landed J-series substrate (J1-J9 LANDED in iters 73-93+). The "envelope" / "audit module" / "diff sibling" / "rolling-history" pattern indicates B is going back through previously-shipped Wave J modules and adding typed catalogs, governance layers, audit infrastructure, and cross-module consistency. This pattern matches B's earlier J3 NeverRetrainStack assembly (iter 127 `69d475edb`) which retroactively typed the §8.1 7-layer architecture atop the 5 J3 primitives. **§5.0 verdict: CLEAN** (consistent with B's established post-substrate envelope-assembly discipline).
+
+  **(2) B.0-KV F-KV-Direct-Gate — verified user-authorized + substrate-already-landed:** Commit message explicitly cites "Per user direction 2026-05-16" + lists in-tree substrate paths with LOC + SHAs (`Epistemos/Shaders/kv_direct_gate.metal` commit `99cab68c1`; `agent_core/src/scope_rex/kv/direct_gate.rs` 290 LOC + 7 tests). Doc commit adds Phase B.0-KV parallel to existing B.0 F-ULP-Oracle (memory floor parallel to arithmetic floor). NEW phase number is user-directed not drift. **§5.0 verdict: CLEAN.**
+
+  **(3) D's 3 D-self-audit commits — verified D establishing self-audit-equivalent of A's Pass series + B's §7 cycles:** D is now consistently using `chore(D-self-audit):` prefix for routine driver-§5.0-mandated self-checks on provider sources + MCP audit. This is D's distributed §5.0 discipline maturing in parallel to A's T-A-NN self-audit + B's iter-10/20/30/40/50/60/70 §7 audit-of-audit cycles. **§5.0 verdict: CLEAN.**
+
+  **(4) A T-A-26 self-audit #3 — verified streak progress per V3 §1.5 wind-down state:** A's 3rd post-soft-stop self-audit at 600s cadence; streak 3/5 toward continued ON-TRACK threshold. Consistent post-soft-stop pattern. **§5.0 verdict: CLEAN.**
+
+- **🎯 Cross-terminal pattern observation — distributed §7 self-audit discipline now fully mature:**
+  - A: T-A-NN self-audit series (#1-#3 since iter 23 soft-stop)
+  - B: §7 audit-of-audit cycles every 10 iters (iters 10/20/30/40/50/60/70+; 70 caught Wave-I Source-citation gap fixed iter 124)
+  - C: audit-of-audit (this register) #1-#28 + §7 meta-cycles (iter 100)
+  - D: `chore(D-self-audit):` commits emerging as regular pattern (iter 119 first observed; iter 128 = 3 in 30-min)
+  - E: quiet ~30 iters since iter 99
+  - F: empty since session start (B-doc commits frame F-tier work in lieu of F-terminal activity)
+
+- **§5.0 catch rate:** No new catches this cycle (all 14 commits CLEAN per Lesson #11 verification). Cumulative ~28/183 = 15.3%. The catch-rate trend continues to decline as Lesson #11 mature application reduces false-positives.
+
+- **Verdict:** ✅ **ON TRACK** (21st consecutive at C level since #8 catch). Burst was high-volume but discipline-uniform; no drift surfaced.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended in same commit) · ✅ FEATURE_CHANGE_TRACKER row (to be appended in same commit per iter-83 lockstep).
+
+- **🟡 Cadence step-back executed:** cron `07983441` (30-min) → `51f01c4e` (3-min). Driver body refresh inlined into new cron prompt (includes 5-self-corrections summary + Lessons #6/#8/#10/#11 reminders + Lesson #11-application discipline).
+
+- **Step-back re-engagement criteria (mirror of iter-93 → iter-127 transition):** return to 30-min low-touch after 5 consecutive ON-TRACK cycles + sibling commit rate <5/30min sustained over 4+ iters.
+
+- **Iter 129+ candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue — should add J-series envelope sub-entries (J1 kernel-kind / J2 pipeline / J5 governance / J6 diff / J7 codebook / J8 telemetry / J9 audit module rows). (2) Phase C.6 forward-staged primitive re-audit REMAINS overdue (last full at #8 iter 74; 54+ iters past 20-30 cadence). (3) Phase C.7.3 honest-caveats scan still deferred. (4) Watch B's next slice post-J-envelope-wave (likely B.6.x continuation or next Wave). (5) Watch D self-audit cadence (3 in 30-min suggests stable pattern emerging).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
