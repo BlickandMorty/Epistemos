@@ -17,6 +17,9 @@ pub enum HealOutcome {
 }
 
 impl HealOutcome {
+    pub const ALL: [HealOutcome; 3] =
+        [HealOutcome::Recovered, HealOutcome::Abandoned, HealOutcome::Escalated];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Recovered => "recovered",
@@ -32,6 +35,26 @@ impl HealOutcome {
             "escalated" => Some(Self::Escalated),
             _ => None,
         }
+    }
+
+    pub const fn is_recovered(self) -> bool {
+        matches!(self, HealOutcome::Recovered)
+    }
+
+    pub const fn is_abandoned(self) -> bool {
+        matches!(self, HealOutcome::Abandoned)
+    }
+
+    pub const fn is_escalated(self) -> bool {
+        matches!(self, HealOutcome::Escalated)
+    }
+
+    /// Predicate: this outcome ended the heal loop on its own
+    /// (Recovered or Abandoned). Escalated kicks the case upward
+    /// and is NOT terminal from the loop's perspective. Useful for
+    /// telemetry counters that want a 2-bucket split.
+    pub const fn is_terminal_for_loop(self) -> bool {
+        matches!(self, HealOutcome::Recovered | HealOutcome::Abandoned)
     }
 }
 
@@ -54,6 +77,21 @@ pub struct RecurringPattern {
     pub tool: String,
     pub error_kind: String,
     pub event_count: u32,
+}
+
+impl RecurringPattern {
+    /// Predicate: this pattern's event_count meets or exceeds
+    /// `min_events`. Companion to `HealEventLog::recurring_patterns`
+    /// for callers that materialize patterns first then filter.
+    pub const fn is_above_threshold(&self, min_events: u32) -> bool {
+        self.event_count >= min_events
+    }
+
+    /// Predicate: this pattern crosses the default
+    /// `DEFAULT_RECURRING_MIN_EVENTS` threshold.
+    pub const fn is_above_default_threshold(&self) -> bool {
+        self.event_count >= DEFAULT_RECURRING_MIN_EVENTS
+    }
 }
 
 pub const DEFAULT_RECURRING_WINDOW_DAYS: i64 = 7;
@@ -298,4 +336,97 @@ pub enum HealLogError {
     Io(#[from] std::io::Error),
     #[error("serialize: {0}")]
     Serialize(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── HealOutcome diagnostic surface (iter 148) ────────────────────────────
+
+    #[test]
+    fn heal_outcome_all_includes_three_distinct() {
+        let s: std::collections::HashSet<_> = HealOutcome::ALL.iter().copied().collect();
+        assert_eq!(s.len(), 3);
+    }
+
+    #[test]
+    fn heal_outcome_as_str_roundtrips_through_parse() {
+        // Cross-surface invariant: parse(as_str(o)) == Some(o) for all outcomes.
+        for o in HealOutcome::ALL.iter().copied() {
+            assert_eq!(HealOutcome::parse(o.as_str()), Some(o));
+        }
+    }
+
+    #[test]
+    fn heal_outcome_parse_unknown_returns_none() {
+        assert_eq!(HealOutcome::parse("Recovered"), None); // case-sensitive
+        assert_eq!(HealOutcome::parse(""), None);
+        assert_eq!(HealOutcome::parse("not-an-outcome"), None);
+    }
+
+    #[test]
+    fn heal_outcome_classifier_predicates_partition() {
+        // Cross-surface invariant: is_recovered XOR is_abandoned XOR is_escalated
+        // (exactly one true per variant — 3-way partition).
+        for o in HealOutcome::ALL.iter().copied() {
+            let trio = [o.is_recovered(), o.is_abandoned(), o.is_escalated()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", o);
+        }
+    }
+
+    #[test]
+    fn heal_outcome_is_terminal_for_loop_covers_recovered_and_abandoned() {
+        assert!(HealOutcome::Recovered.is_terminal_for_loop());
+        assert!(HealOutcome::Abandoned.is_terminal_for_loop());
+        assert!(!HealOutcome::Escalated.is_terminal_for_loop());
+    }
+
+    #[test]
+    fn heal_outcome_as_str_matches_serde_wire_form() {
+        // Cross-surface: as_str() agrees with serde rename_all = "lowercase"
+        // serialization for each variant.
+        for o in HealOutcome::ALL.iter().copied() {
+            let json = serde_json::to_string(&o).unwrap();
+            assert_eq!(json, format!("\"{}\"", o.as_str()), "{:?}", o);
+        }
+    }
+
+    // ── RecurringPattern diagnostic surface (iter 148) ───────────────────────
+
+    fn pattern(count: u32) -> RecurringPattern {
+        RecurringPattern {
+            tool: "edit".into(),
+            error_kind: "timeout".into(),
+            event_count: count,
+        }
+    }
+
+    #[test]
+    fn recurring_pattern_above_threshold_at_boundary() {
+        let p = pattern(10);
+        assert!(p.is_above_threshold(10));
+        assert!(p.is_above_threshold(9));
+        assert!(!p.is_above_threshold(11));
+    }
+
+    #[test]
+    fn recurring_pattern_above_default_threshold_matches_constant() {
+        // Cross-surface invariant: is_above_default_threshold() iff
+        // is_above_threshold(DEFAULT_RECURRING_MIN_EVENTS).
+        for count in [0u32, 5, DEFAULT_RECURRING_MIN_EVENTS - 1, DEFAULT_RECURRING_MIN_EVENTS, DEFAULT_RECURRING_MIN_EVENTS + 5] {
+            let p = pattern(count);
+            assert_eq!(
+                p.is_above_default_threshold(),
+                p.is_above_threshold(DEFAULT_RECURRING_MIN_EVENTS),
+                "count={}", count,
+            );
+        }
+    }
+
+    #[test]
+    fn default_recurring_constants_stable() {
+        assert_eq!(DEFAULT_RECURRING_WINDOW_DAYS, 7);
+        assert_eq!(DEFAULT_RECURRING_MIN_EVENTS, 10);
+    }
 }
