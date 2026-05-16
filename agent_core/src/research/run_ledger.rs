@@ -107,11 +107,20 @@ impl RunLedger {
     /// Verify every entry's hash matches the recomputed value and that
     /// each entry's `prev_hash` matches the prior entry's `this_hash`.
     pub fn verify(&self) -> Result<(), RunLedgerError> {
-        if self.entries.is_empty() {
+        self.verify_prefix(self.entries.len())
+    }
+
+    /// Verify only the first `n` entries. Useful for incremental
+    /// streaming verification: rather than re-walking the whole chain
+    /// after each append, verify the new tail incrementally. `n = 0`
+    /// is an empty-chain error; `n > len` is clamped to `len`.
+    pub fn verify_prefix(&self, n: usize) -> Result<(), RunLedgerError> {
+        if self.entries.is_empty() || n == 0 {
             return Err(RunLedgerError::EmptyChain);
         }
+        let stop = n.min(self.entries.len());
         let mut prev_expected: u64 = 0;
-        for (i, e) in self.entries.iter().enumerate() {
+        for (i, e) in self.entries.iter().take(stop).enumerate() {
             if e.prev_hash != prev_expected {
                 return Err(RunLedgerError::PrevHashMismatch {
                     index: i,
@@ -136,6 +145,32 @@ impl RunLedger {
             prev_expected = e.this_hash;
         }
         Ok(())
+    }
+
+    /// Compare this ledger to `other`. Returns `None` if they agree
+    /// over the common prefix (one may be longer); returns
+    /// `Some(index)` of the first differing entry. Useful as the
+    /// substrate floor of a "local vs server-replicated" audit check.
+    ///
+    /// Comparison is by `(token_id, position, provider_id, model_hash,
+    /// this_hash)` — the full content of each entry. `prev_hash` is
+    /// implied by `this_hash`, so equality on `this_hash` is
+    /// sufficient.
+    pub fn tampered_at(&self, other: &RunLedger) -> Option<usize> {
+        let stop = self.entries.len().min(other.entries.len());
+        for i in 0..stop {
+            let a = &self.entries[i];
+            let b = &other.entries[i];
+            if a.token_id != b.token_id
+                || a.position != b.position
+                || a.provider_id != b.provider_id
+                || a.model_hash != b.model_hash
+                || a.this_hash != b.this_hash
+            {
+                return Some(i);
+            }
+        }
+        None
     }
 }
 
@@ -260,5 +295,99 @@ mod tests {
             l.append(i as u32, i, "claude", 0xbeef);
         }
         assert!(l.verify().is_ok());
+    }
+
+    // ── verify_prefix + tampered_at tests (iter 95) ────────────────────────
+
+    fn build_ledger(n: usize) -> RunLedger {
+        let mut l = RunLedger::new();
+        for i in 0..n {
+            l.append(i as u32, i as u64, "claude", 0xbeef);
+        }
+        l
+    }
+
+    #[test]
+    fn verify_prefix_empty_rejected() {
+        let l = RunLedger::new();
+        assert_eq!(l.verify_prefix(5).unwrap_err(), RunLedgerError::EmptyChain);
+    }
+
+    #[test]
+    fn verify_prefix_zero_n_rejected() {
+        let l = build_ledger(3);
+        assert_eq!(l.verify_prefix(0).unwrap_err(), RunLedgerError::EmptyChain);
+    }
+
+    #[test]
+    fn verify_prefix_smaller_than_len_passes_on_clean_chain() {
+        let l = build_ledger(10);
+        assert!(l.verify_prefix(3).is_ok());
+        assert!(l.verify_prefix(5).is_ok());
+        assert!(l.verify_prefix(10).is_ok());
+    }
+
+    #[test]
+    fn verify_prefix_larger_than_len_clamps_to_len() {
+        let l = build_ledger(5);
+        // n > len should clamp and still pass on a clean chain.
+        assert!(l.verify_prefix(100).is_ok());
+    }
+
+    #[test]
+    fn verify_prefix_catches_tampering_at_index() {
+        let mut l = build_ledger(5);
+        l.entries[3].this_hash = 0xfeedface;
+        // Prefix of 3 should pass; prefix of 4 should fail at index 3.
+        assert!(l.verify_prefix(3).is_ok());
+        let err = l.verify_prefix(4).unwrap_err();
+        assert!(matches!(err, RunLedgerError::ChainBreak { index: 3, .. }));
+    }
+
+    #[test]
+    fn tampered_at_two_clean_ledgers_returns_none() {
+        let a = build_ledger(10);
+        let b = build_ledger(10);
+        assert_eq!(a.tampered_at(&b), None);
+    }
+
+    #[test]
+    fn tampered_at_different_lengths_returns_none_when_common_prefix_clean() {
+        let a = build_ledger(5);
+        let b = build_ledger(10);
+        // First 5 entries match; remaining 5 in b are ignored.
+        assert_eq!(a.tampered_at(&b), None);
+        assert_eq!(b.tampered_at(&a), None);
+    }
+
+    #[test]
+    fn tampered_at_detects_first_diverging_entry() {
+        let a = build_ledger(10);
+        let mut b = build_ledger(10);
+        b.entries[4].this_hash = 0xfeedface;
+        assert_eq!(a.tampered_at(&b), Some(4));
+    }
+
+    #[test]
+    fn tampered_at_detects_token_id_difference() {
+        let mut a = build_ledger(5);
+        let b = build_ledger(5);
+        a.entries[2].token_id = 999;
+        assert_eq!(a.tampered_at(&b), Some(2));
+    }
+
+    #[test]
+    fn tampered_at_detects_provider_difference() {
+        let a = build_ledger(5);
+        let mut b = build_ledger(5);
+        b.entries[1].provider_id = "openai".to_string();
+        assert_eq!(a.tampered_at(&b), Some(1));
+    }
+
+    #[test]
+    fn tampered_at_two_empty_ledgers_returns_none() {
+        let a = RunLedger::new();
+        let b = RunLedger::new();
+        assert_eq!(a.tampered_at(&b), None);
     }
 }
