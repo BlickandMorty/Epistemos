@@ -10,6 +10,9 @@
 //! Source: `docs/fusion/research/FINAL_SYNTHESIS.md` §1, §1.2, §4.
 
 pub mod transitions;
+pub mod validator;
+
+pub use validator::{validate_plan, LivePlanValidationError};
 
 use serde::{Deserialize, Serialize};
 
