@@ -48,6 +48,18 @@ impl Default for PermissionConfig {
     }
 }
 
+/// Canonical safety-rail ceiling for `AgentConfig.max_turns`.
+///
+/// Per CLAUDE.md non-negotiable: "max_turns is a safety rail, not a
+/// schedule. Trust stop_reason == 'end_turn'." 25 is the practical
+/// cap that lets a multi-step task complete (compaction + retries +
+/// tool calls) without runaway.
+///
+/// Single source of truth — both `AgentConfig::default()` and the
+/// `unwrap_or(...)` fallback in `run_agent_loop` reference this
+/// constant so the two sites can't drift independently.
+pub const DEFAULT_AGENT_MAX_TURNS: u32 = 25;
+
 #[derive(Debug, Clone)]
 pub struct AgentConfig {
     pub system_prompt: Option<String>,
@@ -77,7 +89,7 @@ impl Default for AgentConfig {
     fn default() -> Self {
         Self {
             system_prompt: None,
-            max_turns: Some(25),
+            max_turns: Some(DEFAULT_AGENT_MAX_TURNS),
             max_output_tokens: Some(16_384),
             context_threshold: 150_000,
             enable_thinking: true,
@@ -161,7 +173,7 @@ pub async fn run_agent_loop(
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
     let mut trajectory_tool_calls: Vec<(String, String, String, bool)> = Vec::new();
-    let max_turns = config.max_turns.unwrap_or(25);
+    let max_turns = config.max_turns.unwrap_or(DEFAULT_AGENT_MAX_TURNS);
     let budget_step_usd = config
         .max_cost_usd
         .filter(|budget| budget.is_finite() && *budget > 0.0);
