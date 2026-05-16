@@ -806,6 +806,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Claude Code / Codex / Gemini / Kimi CLI (`claude_code`, `codex`, `gemini`, `kimi`) | Tunnel C subprocess through `agent_core::tools::cli_passthrough` | ❌ Pro-only — subprocess transport behind `#[cfg(feature = "pro-build")]` | D.2.4 reconciled on 2026-05-16. The shared runner now applies `harden_cli_subprocess`, captures stdout/stderr through bounded async pipes (`10 MiB` per stream), kills on timeout, and returns a JSON receipt for every completion: `tool`, `binary`, `success`, `exit_code`, `stdout`, `stderr`, `stdout_truncated`, `stderr_truncated`, `mode = "cli_passthrough"`. Nonzero exits are returned as receipts rather than hidden in free-form text. |
 
+### 7.4.3 Tunnel B.2 stdio MCP Gate
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| User-installed stdio MCP servers (`agent_core::mcp::client` + `agent_core::tools::stdio_mcp`) | Tunnel B.2 subprocess through `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D.1.2 reconciled on 2026-05-16. The MAS-clean `agent_core::mcp::url_servers` module remains always compiled for Tunnel B.1 URL MCP discovery. The stdio client module is now exported only in `pro-build`, matching the already Pro-gated `stdio_mcp` tool registry path. Source-guard: `mcp::tests::stdio_mcp_client_module_is_pro_gated`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
