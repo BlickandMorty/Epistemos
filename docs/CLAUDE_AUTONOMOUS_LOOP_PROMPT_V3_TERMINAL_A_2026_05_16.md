@@ -38,6 +38,60 @@ See `docs/AUTONOMOUS_LOOP_UNIVERSAL_INVOCATION_GUIDE_2026_05_16.md §2` for the 
 - Add ONLY specific files (`git add <file>` not `git add -A`)
 - After each commit, push: `git push origin codex/research-snapshot-2026-05-08`
 
+## §1.5 SCOPE BOUNDARY — non-negotiable (READ EVERY ITERATION)
+
+**You operate ONLY within Terminal A's scope (V1 ship — MAS + Pro signing/notarization).** Never bleed into another terminal's scope, ever, under any circumstance — not in active phase, not at §0 victory, not on queue exhaustion, not "to be helpful", not because "it's only 2 lines".
+
+### Active phase (priority queue has work)
+- Walk the queue per §5.
+- If a slice would touch a sibling-owned file (per §2 ownership matrix): SKIP. Log `<sibling>-owned: deferred to Terminal <sibling>` in §8 row. Move to next slice.
+- Never modify a sibling's file even if it's "only 2 lines" or "would unblock my work".
+- Never merge a sibling's branch as a workaround to do their work.
+
+### Victory phase (§0 victory reached — V1 ship green)
+- DO NOT pick up sibling work, even with an empty queue.
+- DO NOT expand §0 victory criteria post-hoc to include sibling scope (e.g., "and also Wave G works" or "and also Channel Relay landed").
+- DO NOT start V1.x or post-V1 work just because V1 closed.
+- Switch to **continuous self-audit mode** — audit ONLY Terminal A's own commits + own owned files + own §0 criteria.
+- Self-audit cadence: 600s heartbeat. Bump to 1800s after 5 consecutive ON-TRACK cycles.
+
+### Queue exhaustion (priority queue empty, no §0 victory)
+- Same as victory phase: continuous self-audit only.
+- DO NOT expand scope to "pick up something useful in B/C/D/E/F".
+
+### Self-audit ritual (post-victory or exhaustion)
+
+Each cycle (every 600s):
+1. Sample 3-5 of own commits from last N iters within Terminal A scope.
+2. Per commit, run 3-query self-check on **own files only**:
+   - **Drift query**: does the §5.0 verification claim still hold against current disk?
+   - **Gap query**: are §0 criteria you marked green eroding? Did a sibling commit regress a MAS/Pro V1 ship gate touching shared files?
+   - **Cut-corner query**: TODOs / `unimplemented!()` / incomplete tests / `// TEMPORARY` / missing acceptance evidence in own scope?
+3. All green → append ✅ ON-TRACK row to §8 self-audit log.
+4. Drift found in own scope → log + propose fix as next slice (still within own scope).
+5. Schedule next self-audit cycle (continue loop).
+
+### When you find work in sibling scope
+- Log in §8: `Found work in <sibling>'s scope: <brief description>. Recommend <sibling> picks up. Not acting.`
+- Continue with own queue or self-audit.
+
+### Forbidden actions (NEVER)
+- ❌ Pick up B/C/D/E/F-scope work to "be helpful"
+- ❌ PR / merge touching sibling-owned files outside agreed lockstep
+- ❌ Silently fix a typo or "minor issue" in sibling-owned file
+- ❌ Extend §0 victory criteria post-hoc to include sibling scope
+- ❌ Loop back to "review" sibling work and propose changes (Terminal C's job)
+- ❌ Start post-V1 work just because V1 closed
+- ❌ Move to "next terminal's work" after self-completing
+
+### Concrete examples
+- ✅ V1 ship complete → switch to 600s self-audit on V1 surface drift
+- ❌ V1 ship complete → "let me start on Wave G Simulation" (B's scope)
+- ❌ V1 ship complete → "let me wire a new provider" (D's scope)
+- ❌ V1 ship complete → "let me add Channel Relay" (F's scope)
+- ✅ V1 ship complete → audit own MAS+Pro entitlement files for drift
+- ✅ V1 ship complete → re-verify §5.0 claims in last 10 own commits
+
 ## §2. Terminal A file ownership (avoid Terminal B conflicts)
 
 You OWN (commit freely):
