@@ -36,7 +36,11 @@
 //! the same vocabulary.
 
 pub mod client;
+pub mod telemetry_history;
 
 pub use client::{
     AneCapabilities, AneClient, AneDirectError, AneStatus, AneTelemetry, MockAneClient,
+};
+pub use telemetry_history::{
+    AneTelemetryHistory, HistoryError, WindowStats, DEFAULT_HISTORY_CAPACITY,
 };
