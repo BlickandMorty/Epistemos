@@ -69,7 +69,9 @@ impl KoopmanConsequence {
             KoopmanConsequence::Wbo6QuantizationBound => {
                 "agent_core/src/research/koopman.rs"
             }
-            KoopmanConsequence::AttentionSinksSpectral => "NOT-STARTED",
+            KoopmanConsequence::AttentionSinksSpectral => {
+                "agent_core/src/research/attention_sinks.rs"
+            }
             KoopmanConsequence::TitansStreamingDmd => {
                 "agent_core/src/research/continual_learning/titans_mac.rs"
             }
@@ -140,10 +142,9 @@ mod tests {
         assert!(KoopmanConsequence::Wbo6QuantizationBound
             .realized_at()
             .contains("koopman.rs"));
-        assert_eq!(
-            KoopmanConsequence::AttentionSinksSpectral.realized_at(),
-            "NOT-STARTED"
-        );
+        assert!(KoopmanConsequence::AttentionSinksSpectral
+            .realized_at()
+            .contains("attention_sinks.rs"));
         assert!(KoopmanConsequence::TitansStreamingDmd
             .realized_at()
             .contains("titans_mac.rs"));
