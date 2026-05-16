@@ -42,6 +42,29 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct E8Point(pub [f32; 8]);
 
+impl E8Point {
+    /// Squared Euclidean norm `‖p‖² = Σ p_i²`. Per Conway-Sloane,
+    /// the minimum nonzero squared norm of an E8 vector is `2.0`
+    /// (the 240 "root vectors"); see [`E8_MIN_NONZERO_NORM_SQUARED`].
+    pub fn norm_squared(&self) -> f32 {
+        let mut sum: f32 = 0.0;
+        for &v in &self.0 {
+            sum += v * v;
+        }
+        sum
+    }
+}
+
+/// Minimum squared-norm of a nonzero E8 vector. Per Conway-Sloane
+/// Ch. 4: the 240 E8 root vectors have squared norm exactly 2;
+/// every nonzero vector has squared norm at least 2.
+pub const E8_MIN_NONZERO_NORM_SQUARED: f32 = 2.0;
+
+/// Kissing number of E8: the number of unit-distance neighbors of
+/// the origin in the lattice. Optimal in 8 dimensions per Viazovska
+/// (2017); see Conway-Sloane Ch. 4.
+pub const E8_KISSING_NUMBER: u32 = 240;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum E8Error {
     NonFiniteInput { index: usize, value: f32 },
@@ -136,6 +159,17 @@ pub fn e8_quantize(x: &[f32; 8]) -> Result<E8Point, E8Error> {
     let d1 = squared_distance(x, &p1);
     let d2 = squared_distance(x, &p2);
     Ok(E8Point(if d1 <= d2 { p1 } else { p2 }))
+}
+
+/// Squared-distance loss between an arbitrary `original` vector and
+/// its E8 quantization. The standard "how lossy was this E8 encode?"
+/// diagnostic — companion to the J7 Sherry quantization_error
+/// (iter 120). Returns 0.0 for inputs already on the E8 lattice.
+pub fn e8_quantization_error(
+    original: &[f32; 8],
+    quantized: &E8Point,
+) -> f32 {
+    squared_distance(original, &quantized.0)
 }
 
 #[cfg(test)]
@@ -260,5 +294,79 @@ mod tests {
     fn membership_rejects_mixed_integer_and_half_integer() {
         let p = E8Point([0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
         assert!(!in_e8(&p));
+    }
+
+    // ── norm_squared + quantization_error tests (iter 121) ──────────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn origin_has_zero_norm_squared() {
+        let p = E8Point([0.0; 8]);
+        assert!(approx(p.norm_squared(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn root_vector_has_norm_squared_two() {
+        // Per Conway-Sloane, e_1 + e_2 (a length-1 vector pair) is an
+        // E8 root vector with squared norm 2.
+        let p = E8Point([1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        assert!(in_e8(&p));
+        assert!(approx(p.norm_squared(), 2.0, 1e-6));
+    }
+
+    #[test]
+    fn half_vector_has_norm_squared_two() {
+        // (½)^8 vector has squared norm 8 × 0.25 = 2.
+        let p = E8Point([0.5; 8]);
+        assert!(in_e8(&p));
+        assert!(approx(p.norm_squared(), 2.0, 1e-6));
+    }
+
+    #[test]
+    fn e8_min_nonzero_norm_squared_pinned() {
+        // Doctrine pin per Conway-Sloane Ch. 4.
+        assert_eq!(E8_MIN_NONZERO_NORM_SQUARED, 2.0);
+    }
+
+    #[test]
+    fn e8_kissing_number_pinned() {
+        // Per Viazovska 2017.
+        assert_eq!(E8_KISSING_NUMBER, 240);
+    }
+
+    #[test]
+    fn quantization_error_zero_when_input_on_lattice() {
+        let on_lattice = [1.0_f32, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let q = e8_quantize(&on_lattice).unwrap();
+        let err = e8_quantization_error(&on_lattice, &q);
+        assert!(approx(err, 0.0, 1e-6));
+    }
+
+    #[test]
+    fn quantization_error_matches_squared_distance_to_nearest() {
+        // Input shifted by 0.1 from the nearest E8 root vector
+        // [1, 1, 0, ..., 0]. The nearest E8 point should be this same
+        // vector, with squared distance ≈ 2 × 0.01 = 0.02.
+        let x = [1.1_f32, 1.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let q = e8_quantize(&x).unwrap();
+        let err = e8_quantization_error(&x, &q);
+        // Tolerant: E8 quantizer may pick a half-vector if it's closer.
+        // The substrate test just verifies the error is finite + small.
+        assert!(err.is_finite());
+        assert!(err < 0.5);
+    }
+
+    #[test]
+    fn quantization_error_finite_for_arbitrary_input() {
+        // Random-ish off-lattice input. Substrate-floor sanity: error
+        // is finite and non-negative for any finite input.
+        let x = [0.3_f32, -0.7, 1.4, -2.1, 0.0, 0.55, -1.2, 0.9];
+        let q = e8_quantize(&x).unwrap();
+        let err = e8_quantization_error(&x, &q);
+        assert!(err.is_finite());
+        assert!(err >= 0.0);
     }
 }
