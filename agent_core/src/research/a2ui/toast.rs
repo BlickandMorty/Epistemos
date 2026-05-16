@@ -1,4 +1,14 @@
-//! Wave I Toast component.
+//! Source:
+//! - `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md`
+//!   §5 Phase B.5 — Wave I A2UI catalog component `Toast`.
+//! - `MASTER_FUSION §6 Wave I` — canonical component list.
+//! - Companion to [`super::WaveIComponentKind::Toast`].
+//!
+//! # Wave I — Toast component
+//!
+//! Typed props struct + `validate()` returning a structural error for
+//! malformed envelopes. Substrate floor only; Swift A2UI dispatcher
+//! owns the renderer.
 
 use serde::{Deserialize, Serialize};
 

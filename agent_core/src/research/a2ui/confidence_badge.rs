@@ -1,4 +1,15 @@
-//! Wave I ConfidenceBadge component.
+//! Source:
+//! - `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md`
+//!   §5 Phase B.5 — Wave I A2UI catalog component `ConfidenceBadge`.
+//! - `MASTER_FUSION §6 Wave I` — canonical component list.
+//! - Companion to [`super::WaveIComponentKind::ConfidenceBadge`].
+//!
+//! # Wave I — ConfidenceBadge component
+//!
+//! Typed props struct + `validate()` returning a structural error for
+//! malformed envelopes. 3-tier classifier (High ≥0.85, Medium ≥0.7,
+//! Low otherwise). Substrate floor only; Swift A2UI dispatcher owns
+//! the renderer.
 
 use serde::{Deserialize, Serialize};
 
