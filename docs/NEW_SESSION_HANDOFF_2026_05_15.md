@@ -284,6 +284,48 @@ If you need to understand *how* Codex was prompted at various stages:
 
 **Vocabulary discipline:** "Track" T0-T15 = features; "Lane A/B/..." = git branches (existing convention). NEVER conflate. Memory entry `project_substrate_track_register` carries this rule.
 
+### 10.10 MASTER_FUSION NOT-STARTED inventory (PASS-1 L-4 cross-link, iter 71)
+
+`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` carries **136 occurrences** of `NOT-STARTED` across §3.x sub-rows + §6 Wave B/C/D tables. These items are doctrine-frozen but not yet implemented — future sessions MUST cross-check against this inventory before claiming "done" on adjacent surfaces, or before declaring queue exhaustion.
+
+**Major clusters (representative — not exhaustive; grep `NOT-STARTED` in MASTER_FUSION for the full set):**
+
+| Cluster | Representative rows | Lines |
+|---|---|---|
+| **W1 floor work** | EML(x,y) operator + grammar · F-ULP-Oracle (412k log-sampled + 2048 stress, ≤2 ULP fp16, ≤90s M2 Pro) · `eml-lean`/`oxieml` vendored read-only | §6 W1 (75-77) |
+| **Memory hierarchy NOT-STARTED levels** | L1 Compressed Residual (Sherry 1.25-bit 3:4 sparsity) · L3 SSD Oracle (NF4 IOSurface mmap) · L_SE Self-Evolving (Titans-MAC + SEAL-DoRA nightly) · L5 Network Cascade PARTIAL (cloud providers wired; full cascade routing NOT-STARTED) | §3.2 (103-108) |
+| **KV-Direct harness** | gate experiment (D_KL=0 / token_match=100% / RAM≥8× lower); shader file `kv_direct_gate.metal` present but harness NOT-STARTED — passes collapse L2 to optional | §3.x (116-117) |
+| **K3/Belnap logic gates** | Belnap FDE 4-valued extension (Both/Contradictory beyond K3) — V1 ships K3 only, Belnap is research-tier extension · 5 directional operators (Up/Down/Sideways/Inward/OnItself) on claim graph | §3.5 (139, 142) |
+| **Brain(τ) + routing** | Sinkhorn-projected routing matrix B* ∈ Birkhoff_n · Brain(τ) reconstruction rule from materialized checkpoint + semantic deltas · 4 product modes (VRM canon-doctrine; Observatory partial; Brain Time Machine NOT-STARTED) | §3.x (126-129) |
+| **Adaptation / Compute Steering** | §5.0 split — Adaptation Subsystem SHIPPED (Rust FFI + Swift executor); Compute Steering NOT-STARTED (per-call expert-budget / KV-allocation dispatch policy) | §3.39 (567-571) |
+| **Nano Model Training Recipe** | MOHAWK distillation hyperparameters validated · layer placement + quant table + ANE-vs-GPU rule frozen · post-V1 via MLX-LM v0.31.1+; no training infra in main today | §3.41 (604, 657) |
+| **Run Ledger per-token attestation** | distinct from 4 existing provenance primitives; canonical doctrine row frozen; substrate NOT-STARTED | §3.40 (744) |
+| **Differential Privacy on auto-research** | `agent_core/src/auto_research/dp.rs` substrate NOT-STARTED (matches forward-staging doctrine row + B2-M14 + iter 70 audit-of-audit verified-absent) | §3.42 (681) |
+| **Confidence floors + flags** | FLOOR_T1/T2/T3 (≥0.85/≥0.75/≥0.70) · `escalate_on_empty` flag (default false) · LadderLog → Provenance Console wiring | §3.x (164-166) |
+| **Hybrid MD+JSON memory** | PARTIAL — Epdoc + MutationEnvelope cover part; `epistemos.{soul,skill,episode,semantic}.v1` schemas NOT-STARTED | §3.x (171) |
+| **10-state Live-File state machine** | Static → LiveCandidate → Compiled (signed) → Eligible → Running → {Paused/Completed/Quarantined} → Suspended → Eligible; Revoked = kill switch | §3.14 (254) |
+| **BiometricWriteGate + two-tier biometric cache** | mount-tier + per-op-tier separation; ternary kernel doctrine | §3.x (357) |
+| **Live File Compiler (Wave 7)** | seam at `live_files/mod.rs` · indefinite (post V2.7) · full state machine + LivePlan.v1 + G1-G4 / kani verification | §6 W7 (809) |
+| **Koopman lift consequences** (B2-M8) | SSM A-matrix as discrete-time Koopman operator (Wang-Liang MamKO ICLR 2025) · 4 mechanical consequences (Pillar IV unification · WBO-6 quantization bound · attention-sinks Koopman-spectral · Titans = streaming DMD) | §3.1 (72-73) |
+
+**§6 Wave B/C/D NOT-STARTED row count (per Wave):**
+
+| Wave | Open NOT-STARTED tasks |
+|---|---|
+| Wave A (Doctrine compliance retrofit) | mostly LANDED · few NOT-STARTED |
+| Wave B (V6.1 floor work pre-V6.2) | EML / F-ULP-Oracle / eml-lean trio |
+| Wave C (V6.2 kernel ladder) | C1/C2/C4/C5/C6/C7/C8 Metal kernels + harness · C3 InterruptScore CPU LANDED · **C9 V6.2 per-bubble binding USER-DECISION (added iter 68)** |
+| Wave D (Halo V1 closure + Eidos V2.2) | mostly NOT-STARTED |
+| Wave F (XPC Mastery PAID-TEAM-GATED) | all 5 sub-services NOT-STARTED |
+| Wave G (Simulation v1.7+ V2.5) | G1/G2/G3/G4/G5 NOT-STARTED · G3/G4 cross-link references added iter 67 |
+| Wave H (UI/UX V2.6) | H1-H5 NOT-STARTED · **H6 Graph Toolbar USER-DECISION (added iter 69)** |
+| Wave I (A2UI catalog) | 24 components NOT-STARTED |
+| Wave J (Research tier V3) | all 9 subtopics gated behind explicit "RESUME RESEARCH TIER" signal |
+
+**Cross-check discipline:** when a future session declares queue exhaustion or rotates to maintenance, scan this inventory + grep for the specific phrase used in the doctrine row to confirm the substrate genuinely is NOT-STARTED (not LANDED-but-undocumented per §5.0). Forward-staged primitives (B2-H19 egress · B2-H20 ephemeral · B2-M14 DP · B2-L1 heal · B2-L2 nightbrain widening · B2-M11 JIT defense) all stay verified-absent until their implementation slice fires.
+
+**This section satisfies PASS-1 L-4 audit row destination** — surfaces MASTER_FUSION NOT-STARTED items from §10 so future sessions don't miss them when picking up work.
+
 ---
 
 ## 11. The "make sure all the research is satisfied" checklist
