@@ -26,6 +26,7 @@
 
 pub mod animation;
 pub mod hermes_snake;
+pub mod lora_hot_swap;
 pub mod scheduler;
 pub mod sprite_atlas;
 
