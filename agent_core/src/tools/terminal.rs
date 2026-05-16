@@ -30,24 +30,6 @@ const MAX_INLINE_OUTPUT_CHARS: usize = 100_000; // foreground exec cap
 const MAX_CONCURRENT_PROCESSES: usize = 64;
 const BG_REAP_TTL_SECS: u64 = 1800; // finished jobs kept for 30 minutes
 
-/// Regex-like prefixes we strip from child process env to avoid leaking creds.
-fn should_strip_env(key: &str) -> bool {
-    let upper = key.to_ascii_uppercase();
-    if crate::security::SUBPROCESS_DENYLIST
-        .iter()
-        .any(|deny| deny.eq_ignore_ascii_case(&upper))
-    {
-        return true;
-    }
-    upper.contains("KEY")
-        || upper.contains("TOKEN")
-        || upper.contains("SECRET")
-        || upper.contains("PASSWORD")
-        || upper.contains("PASSWD")
-        || upper.contains("CREDENTIAL")
-        || upper.contains("AUTH")
-}
-
 // MARK: - ProcessRegistry
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,28 +151,13 @@ fn registry() -> Arc<ProcessRegistry> {
 fn build_command(command: &str, workdir: Option<&Path>) -> Command {
     let mut cmd = Command::new("sh");
     cmd.arg("-lc").arg(command);
+    crate::security::harden_cli_subprocess(&mut cmd);
     if let Some(dir) = workdir {
         cmd.current_dir(dir);
-    }
-    // Env sanitization: strip anything that looks like a secret.
-    let mut sanitized: Vec<(String, String)> = Vec::new();
-    for (key, value) in std::env::vars() {
-        if !should_strip_env(&key) {
-            sanitized.push((key, value));
-        }
-    }
-    cmd.env_clear();
-    for (key, value) in sanitized {
-        cmd.env(key, value);
     }
     cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
-    cmd.kill_on_drop(true);
-    #[cfg(unix)]
-    {
-        cmd.process_group(0);
-    }
     cmd
 }
 
@@ -699,6 +666,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn terminal_uses_canonical_subprocess_allowlist() {
+        let var = "EPISTEMOS_TERMINAL_AUDIT_FOO";
+        let saved = std::env::var(var).ok();
+        std::env::set_var(var, "leak-me");
+
+        let handler = TerminalHandler;
+        let result = handler
+            .execute(&json!({
+                "command": "printf '%s' \"$EPISTEMOS_TERMINAL_AUDIT_FOO\"",
+            }))
+            .await
+            .unwrap();
+
+        match saved {
+            Some(value) => std::env::set_var(var, value),
+            None => std::env::remove_var(var),
+        }
+
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["exit_code"], json!(0));
+        assert_eq!(parsed["stdout"], json!(""));
+    }
+
+    #[tokio::test]
     async fn terminal_accepts_absolute_existing_workdir() {
         let dir = tempdir().unwrap();
         let handler = TerminalHandler;
@@ -807,19 +798,6 @@ mod tests {
         let parsed: Value = serde_json::from_str(&result).unwrap();
         assert!(parsed["count"].is_number());
         assert!(parsed["processes"].is_array());
-    }
-
-    #[test]
-    fn env_sanitizer_strips_secrets() {
-        assert!(should_strip_env("OPENAI_API_KEY"));
-        assert!(should_strip_env("AWS_SECRET_ACCESS_KEY"));
-        assert!(should_strip_env("GITHUB_TOKEN"));
-        assert!(should_strip_env("MY_PASSWORD"));
-        assert!(should_strip_env("DYLD_INSERT_LIBRARIES"));
-        assert!(should_strip_env("NODE_OPTIONS"));
-        assert!(should_strip_env("PYTHONPATH"));
-        assert!(!should_strip_env("PATH"));
-        assert!(!should_strip_env("HOME"));
     }
 
     #[test]

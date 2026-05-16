@@ -859,6 +859,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Claude, OpenAI, and Perplexity first-party provider modules | HTTPS provider adapters in `agent_core/src/providers/{claude,openai,perplexity}.rs` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16. §5.0 found the newer provider modules already started with required `//! Source:` comments, but legacy Claude/OpenAI/Perplexity modules did not. The modules now start with official API source comments for Anthropic Messages/tool-use/extended-thinking, OpenAI Responses/function-calling/reasoning/streaming, and Perplexity Sonar chat completions. Source guards: `module_starts_with_official_source_comments` in each provider test module. |
 
+### 7.4.11 D Self-Audit: Terminal Shell Subprocess Hardening
+
+| Tool surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| `terminal` / `shell.run_approved` foreground and background shell execution | Tunnel A subprocess through `agent_core/src/tools/terminal.rs` | ❌ Pro-only — shell subprocess behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned subprocess surfaces and found `terminal.rs` still used a private env sanitizer around `sh -lc` instead of the canonical `agent_core::security::harden_cli_subprocess` helper used by Tunnel C. `build_command` now calls the shared hardener before spawn, so foreground and background terminal commands inherit only the canonical subprocess allow-list, keep provider secrets out of child env, and preserve the shared `kill_on_drop` / process-group behavior. Source guard: `tools::terminal::tests::terminal_uses_canonical_subprocess_allowlist` under `pro-build`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
