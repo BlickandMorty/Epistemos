@@ -2546,6 +2546,51 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 **Iter 131+ candidates:** (1) Lesson #12 added to driver corpus next opportunity (currently 5 lessons; Lesson #12 makes 6) · (2) Phase C.2 mass MASTER_RESEARCH_INDEX update STILL overdue (B2-M14 DP gate + J-series envelopes pending) · (3) Phase C.6 forward-staged primitive re-audit at 56 iters past baseline · (4) Watch A T-A-28 (streak 5/5 milestone potentially next cycle) · (5) §5.0 verdict on B.6.10 validators is CLEAN this iter; revisit if B follow-up pattern continues.
 
+### Audit-of-audit #30 (iter 131, 2026-05-16) — 🎯 B §4 RECONCILIATION DOUBLE (attention_sinks + trigram dedupe closes 2 self-declared NOT-STARTED gaps) + D §7-META-CYCLE EQUIVALENT EMERGES — 3 commits CLEAN
+
+- **Window since iter 130 close (4-min after §7 meta-cycle):** 3 substantive sibling commits:
+  - `3992ed2eb` (B) `research/attention_sinks: realize KoopmanConsequence::AttentionSinksSpectral` — B iter 84
+  - `9cd7581fc` (B) `research: trigram-similarity dedupe + brain_routing doc fix` — B iter 85
+  - `651832773` (D) `chore(D-self-audit): record provider hardening audit` — 5th D-self-audit commit
+
+- **🎯 Findings — B `attention_sinks: realize KoopmanConsequence::AttentionSinksSpectral` (`3992ed2eb`) — EXEMPLARY §4 RECONCILIATION:**
+  - Closes explicit NOT-STARTED gap in `koopman.rs`: `KoopmanConsequence::AttentionSinksSpectral.realized_at()` was returning literal string `"NOT-STARTED"`. This commit lands sibling substrate at `research/attention_sinks.rs` + rewires `realized_at()` to name the real path.
+  - Substrate: `AttentionSpectrum` typed `Vec<f64>` envelope (validates non-empty, all finite, all ≥ 0, sorted descending) · `AttentionSinkError` typed enum (EmptySpectrum + NegativeEigenvalue + NonFiniteEigenvalue + NotSortedDescending + DominanceOutOfRange) · `.median()` · `.max()` · `detect_sinks(&spectrum, dominance)` · `sink_strength(&spectrum)`.
+  - **B's §4 reconciliation discipline at work:** B noticed the NOT-STARTED literal in its own koopman.rs's `realized_at()` method and closed the gap. Mature §4 pattern.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `research: trigram-similarity dedupe + brain_routing doc fix` (`9cd7581fc`) — DOUBLE §4 RECONCILIATION:**
+  - Closes TWO stale-doctrine gaps in `research/` tree in single commit:
+    - (1) `nightbrain_tasks.rs` — `dedupe_artifacts` doc-comment said "production replaces with similarity-hash dedupe" but no sibling existed → lands `dedupe_artifacts_by_trigram_similarity(ids, threshold)` (trigram extraction · Jaccard similarity · greedy O(n²) keep-walk · strings <3 chars fallback to exact equality · threshold validation (0.0, 1.0]).
+    - (2) `brain_routing` doc fix (paired in same commit).
+  - **B's §4 discipline EXTENDED to multiple gaps in single commit** — efficient gap-closing batch.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `chore(D-self-audit): record provider hardening audit` (`651832773`) — D'S §7-META-CYCLE EQUIVALENT EMERGES:**
+  - D's commit message: "Sampled Terminal D commits `4e6f5d89f`, `f5df32c8d`, `07e26d28f`, and `e9fa1b70e` against current provider/hardening code and official provider docs. Records the ON-TRACK result without touching sibling or pre-existing dirty files."
+  - **D is doing the equivalent of MY §7 meta-cycle on D's OWN prior 4 self-audit commits.** Sampling-and-re-verification pattern.
+  - This is D mirroring the §7-meta-cycle discipline at D's terminal level — exactly what Lesson #7 (proposed iter 85) predicted: self-audit at terminal level + cross-terminal audit at C level are complementary layers; now extended further to terminal-level META-CYCLE on terminal-level self-audits.
+  - **§5.0 verdict: CLEAN.** Agent attribution: Codex.
+
+- **🎯 EMERGING META-PATTERN — B § §4 RECONCILIATION COMPOUND CADENCE:** B's last 4 commits (iter 130 B.6.10 validators + iter 131 attention_sinks + iter 131 trigram dedupe + brain_routing doc fix) are ALL §4-reconciliation closing self-declared NOT-STARTED gaps in B's own previously-shipped substrate. This is post-substrate gap-closure cycle — distinct from forward-substrate-shipping. Pattern matches B's earlier J3 NeverRetrainStack assembly (iter 127) + J-series envelope wave (iter 128). **B is in a gap-closure phase** atop already-landed substrate. Healthy pattern; not drift.
+
+- **🎯 DISTRIBUTED §7-META-CYCLE DISCIPLINE NOW 2 LAYERS DEEP:**
+  - Layer 1 (per-cycle audit-of-audit): C #1-#30
+  - Layer 2 (C §7 meta-cycle every 30 iters): C iter 79, 100, 130
+  - Layer 3 (terminal-level §7 cycles): A T-A-NN streak 4/5 · B iters 10-70 §7 · D `chore(D-self-audit):` cadence
+  - Layer 4 (terminal-level META-CYCLE — D's iter 131 commit `651832773`): D sampling D's own prior 4 self-audit commits
+  - **Distributed META-cycle discipline now matches C's §7-meta-cycle pattern at the D terminal level.**
+
+- **§5.0 catch rate:** 29/190 = 15.3% (continues healthy decline; substrate-drift surface remains bounded since #8).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Re-evaluate step-back to low-touch after 5 consecutive ON-TRACK + rate <5/30min sustained.
+
+- **Verdict:** ✅ **ON TRACK** (23rd consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 132+ candidates:** (1) Watch B's §4 reconciliation cadence — likely more NOT-STARTED-gap-closure commits in the next few iters. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue. (3) Phase C.6 forward-staged primitive re-audit (57 iters past baseline). (4) Watch A T-A-28 streak 5/5 milestone (likely 1-2 iters away). (5) Watch D's continued META-cycle cadence (now 5 D-self-audit + 1 D-meta-cycle commits).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
