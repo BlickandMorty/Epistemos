@@ -55,6 +55,31 @@ impl RecallReport {
     pub fn meets_threshold(&self, threshold: f32) -> bool {
         self.per_depth_recall.iter().all(|&r| r >= threshold)
     }
+
+    /// Lowest per-depth recall rate. None if `per_depth_recall` is
+    /// empty. Production check: this is the value that must clear
+    /// the 0.95 §7 acceptance bar; `meets_threshold` returns true
+    /// iff `worst_depth_recall ≥ threshold`.
+    pub fn worst_depth_recall(&self) -> Option<f32> {
+        self.per_depth_recall
+            .iter()
+            .copied()
+            .fold(None, |acc, r| match acc {
+                None => Some(r),
+                Some(a) => Some(if r < a { r } else { a }),
+            })
+    }
+
+    /// Depth-and-recall pairs for every depth whose recall is below
+    /// `threshold`. Empty when `meets_threshold(threshold) = true`.
+    /// Used in the control-room "why did stage 7 fail?" view.
+    pub fn depths_below_threshold(&self, threshold: f32) -> Vec<(f32, f32)> {
+        self.depths
+            .iter()
+            .zip(self.per_depth_recall.iter())
+            .filter_map(|(&d, &r)| if r < threshold { Some((d, r)) } else { None })
+            .collect()
+    }
 }
 
 impl RecallStore {
@@ -86,6 +111,12 @@ impl RecallStore {
 
     pub fn clear(&mut self) {
         self.tokens.clear();
+    }
+
+    /// True iff the store is at capacity. Next [`Self::insert`] call
+    /// would return `CapacityExceeded`.
+    pub fn is_full(&self) -> bool {
+        self.tokens.len() >= self.capacity
     }
 }
 
@@ -297,5 +328,91 @@ mod tests {
         let report = run_passkey_trials(4, &depths, 3, 0).unwrap();
         assert_eq!(report.trials_per_depth, 3);
         assert_eq!(report.per_depth_recall.len(), 1);
+    }
+
+    // ── is_full + worst_depth_recall + depths_below_threshold (iter 126) ────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn store_is_full_false_under_capacity() {
+        let mut s = RecallStore::new(3).unwrap();
+        assert!(!s.is_full());
+        s.insert(0, 1).unwrap();
+        assert!(!s.is_full());
+        s.insert(1, 2).unwrap();
+        assert!(!s.is_full());
+    }
+
+    #[test]
+    fn store_is_full_true_at_capacity() {
+        let mut s = RecallStore::new(2).unwrap();
+        s.insert(0, 1).unwrap();
+        s.insert(1, 2).unwrap();
+        assert!(s.is_full());
+    }
+
+    #[test]
+    fn worst_depth_recall_empty_returns_none() {
+        let r = RecallReport {
+            per_depth_recall: vec![],
+            overall_recall: 0.0,
+            trials_per_depth: 0,
+            depths: vec![],
+        };
+        assert!(r.worst_depth_recall().is_none());
+    }
+
+    #[test]
+    fn worst_depth_recall_picks_minimum() {
+        let r = RecallReport {
+            per_depth_recall: vec![0.95, 0.88, 0.99, 0.92],
+            overall_recall: 0.935,
+            trials_per_depth: 50,
+            depths: vec![0.1, 0.25, 0.5, 0.75],
+        };
+        assert!(approx(r.worst_depth_recall().unwrap(), 0.88, 1e-6));
+    }
+
+    #[test]
+    fn depths_below_threshold_empty_when_all_pass() {
+        let r = RecallReport {
+            per_depth_recall: vec![0.96, 0.97, 0.99],
+            overall_recall: 0.97,
+            trials_per_depth: 50,
+            depths: vec![0.1, 0.5, 0.9],
+        };
+        assert!(r.depths_below_threshold(0.95).is_empty());
+    }
+
+    #[test]
+    fn depths_below_threshold_returns_failures() {
+        let r = RecallReport {
+            per_depth_recall: vec![0.96, 0.88, 0.99, 0.92],
+            overall_recall: 0.94,
+            trials_per_depth: 50,
+            depths: vec![0.1, 0.25, 0.5, 0.75],
+        };
+        let failures = r.depths_below_threshold(0.95);
+        assert_eq!(failures.len(), 2);
+        assert_eq!(failures[0].0, 0.25);
+        assert_eq!(failures[1].0, 0.75);
+    }
+
+    #[test]
+    fn meets_threshold_iff_worst_recall_at_or_above_threshold() {
+        // Cross-check: meets_threshold(t) == (worst_depth_recall >= t).
+        let r = RecallReport {
+            per_depth_recall: vec![0.95, 0.97, 0.99],
+            overall_recall: 0.97,
+            trials_per_depth: 50,
+            depths: vec![0.1, 0.5, 0.9],
+        };
+        assert!(r.meets_threshold(0.95));
+        assert!(r.worst_depth_recall().unwrap() >= 0.95);
+        assert!(!r.meets_threshold(0.96));
+        assert!(r.worst_depth_recall().unwrap() < 0.96);
     }
 }
