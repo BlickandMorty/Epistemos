@@ -113,6 +113,11 @@ pub fn execute_git_tool(_repo_root: String, _tool_name: String, _args_json: Stri
     mas_sandbox_unavailable("execute_git_tool")
 }
 
+/// Execute a read-only GitHub MCP tool by name.
+pub fn execute_github_tool(tool_name: String, args_json: String) -> String {
+    crate::github::execute_github_tool(tool_name, args_json)
+}
+
 // ── Orchestrator Exports ─────────────────────────────────────────────────────
 
 /// Generate a heuristic plan (Rust-side, no LLM needed).

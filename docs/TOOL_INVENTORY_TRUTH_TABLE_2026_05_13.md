@@ -135,6 +135,22 @@ and uses the shared omega subprocess hardener that scrubs provider API secrets
 from child environments. The executor is compiled out of `mas-sandbox`; the
 UniFFI wrapper returns an unavailable sentinel there.
 
+GitHub MCP D.3 contract: `omega-mcp/src/github.rs` exposes only read-only
+HTTPS GET surfaces: `github.repo`, `github.issues`, `github.pulls`, and
+`github.releases`. `execute_github_tool` validates owner/repo identifiers
+before constructing API paths, rejects credentials in tool arguments, uses
+GitHub's versioned REST headers, accepts optional host-injected `GITHUB_TOKEN`
+or `GH_TOKEN`, filters pull requests out of the issue listing, and returns
+normalized JSON `ToolResult` receipts. Transport is MAS-compatible HTTPS, but
+Swift allow-list surfacing is Terminal A scope and was not changed here.
+
+Web search MCP D.3 blocker: queue wording named a Bing backend, but Microsoft
+officially retired Bing Search APIs on 2025-08-11
+(`https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement`).
+Terminal D did not wire a fake Bing backend; Brave/Kagi web-search MCP remains
+queued for a dedicated current-API slice if user direction allows a non-Bing
+backend subset.
+
 ## 4. Local-agent grammar — `LocalAgentCapabilityRegistry`
 
 Source: `Epistemos/LocalAgent/` + `Epistemos/Engine/StructuredOutput.swift`.

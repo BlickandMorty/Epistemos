@@ -22,6 +22,9 @@ namespace omega_mcp {
     /// Execute a read-only Git MCP tool by name.
     string execute_git_tool(string repo_root, string tool_name, string args_json);
 
+    /// Execute a read-only GitHub MCP tool by name.
+    string execute_github_tool(string tool_name, string args_json);
+
     // ── Tool Validation ──────────────────────────────────────────────────────
 
     /// Validate tool arguments against a schema. Returns empty string on success,
