@@ -1413,6 +1413,59 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 100 milestone:** **C has completed 100 audit iterations this session.** 28 prior commits + this iter = 29 commits on `run-c-audit` branch. Cycles: #1-#7 prior session + #8-#18 this session + this [C-self-audit] = 18 audit-of-audit cycles + 1 meta-cycle. Trust-but-verify lessons articulated: #1-#5 from prior sessions + Lesson #6 (iter 74) + Lesson #7 (iter 85) + Lesson #8 (this iter). §5.0 catch rate 28/138 = 20.3% (the 1022 LOC substrate-drift surface from #8 remains the only major drift catch; all subsequent cycles add commits without new substrate drift).
 
+### Audit-of-audit #19 (iter 101, 2026-05-16) — B.6.19 + B.6.20 close V6.1 B.6.x series + T-A-12 status confirms — 3 commits CLEAN + ⚠️ B.6.18 SKIP PATTERN
+
+- **Window since #18 / [C-self-audit] iter 100:** 3 substantive sibling commits:
+  - `aa2c1f75a` (B) **B.6.19 Para(Lens(Smooth)) ↔ Rust trait** — categorical formulation of backprop as parameterized lenses
+  - `e50aaf242` (A) T-A-12 — RCA10-P1-001 line-offset re-pin + V3/T-D status no-op confirms
+  - `ee151138d` (B) **B.6.20 Hybrid-SSM attention-as-interrupt — V6.1 FINAL B.6 addition**
+
+- **Method:** §5.0 verification via `git show <sha>:<path>` test counts + commit-message source-citation cross-check + B.6.x numbering audit + T-A-12 cross-dependency verification.
+
+- **Findings — B.6.19 `para_lens.rs`:**
+  - 11 tests; Sources: Cruttwell et al. arXiv:2103.01931 + Wilson-Zanasi arXiv:2404.00408. Categorical formulation of backprop as parameterized lenses; Rust trait mirrors construction.
+  - **§5.0 verdict: CLEAN.** Both arXiv IDs verifiable; B.6.19 is V6.1 §"Terminal B" alignment.
+  - C.7.3 (honest-caveats) CLEAN; C.7.5 N/A (single-file in existing agent_core).
+
+- **Findings — B.6.20 `interrupt_calibration.rs`:**
+  - 11 tests; V6.1 §1.5 + §"Terminal B" Phase B.6.20 framing. Thesis: SSM-default decoder runs linearly; per-token classifier emits interrupt-score; runtime switches to full-attention for next K tokens when score > calibrated threshold.
+  - Commit explicitly tagged "V6.1 final B.6 addition" — closes V6.1 §"Terminal B" B.6.x series.
+  - **§5.0 verdict: CLEAN.** V6.1 §1.5 reference verifiable; substrate matches commit description.
+  - C.7.3 CLEAN; C.7.5 N/A.
+
+- **⚠️ B.6.18 SKIP PATTERN (3rd numbered skip in B's work this session):**
+  - `git log --all --oneline | grep -iE "B\.6\.18"` returns **zero hits**. B's B.6.x series went: B.6.15 (iter 97) → B.6.16 (iter 99) → B.6.17 (iter 100) → **(B.6.18 missing)** → B.6.19 (this iter) → B.6.20 "final" (this iter).
+  - Prior skip patterns in this session: **J4** (iter 92 + 93 surfaces; B shipped J1-J3 + J5..J9 without J4) · **Helios B.2 stage 3** (iter 94 surface; iter 95 RESOLVED as naming-clarity — B's enumeration didn't map 1:1 to canon Stage 0-3 / 6-falsifier structure).
+  - **Pattern interpretation:** B appears to use **non-consecutive numbering** as a deliberate or systematic style. Three skips across different series (J-wave, Helios stages, B.6 sub-features) suggests this isn't accidental — likely intentional reservation, or numbering aligned to V6.1 doctrine slots that B has chosen to skip when content overlaps prior work (the J13/J14 reconciliation iter 97 precedent — B reconciled rather than re-implementing).
+  - **Severity:** LOW (not substrate drift; doesn't affect any code correctness). C does not block on numbering style. **Per §1.5 audit-only:** flagged for sibling visibility; no action required of B.
+  - **Recommend:** consider asking B for the numbering rule (intentional skip pattern? canonical-slot mapping?) to make audit easier going forward. Defer to user discretion.
+
+- **Findings — T-A-12 (`e50aaf242`):**
+  - A's status pulse confirming: no new V6.1.4+ items in V3 prompt; only A-V6.1.1/2/3 present; A-V6.1.1 + A-V6.1.2 closed in iter 8 (commit `8c5d92d61` audited iter 96 #16); **A-V6.1.3 deferred until Terminal D lands Phase D.0 Executor trait** — this is exactly the cross-dependency note added by `8f4dcdcf1` ("prompt-D cross-dependency note — D.0 MissionPacket consumes B.0 AnswerPacket schema gate").
+  - **C-level cross-dependency verification:** A's defer rationale is correct — A-V6.1.3 depends on D's Phase D.0; D's Phase D.0 depends on B's Phase B.0 (F-ULP-Oracle, landed iter 94 #16 commit `032cf1ca2`). So A-V6.1.3 can in principle fire now that B.0 has landed, IF D advances to Phase D.0. D's recent commits (D.2.5 Codestral, D.2.4 CLI receipts, D.3 git MCP, D.3 GitHub MCP, D.1.2 stdio MCP) are all D.1.x/D.2.x/D.3 work — D.0 not yet visible in commit log. **D.0 is the gate for A-V6.1.3.**
+  - **Cross-dependency audit verdict:** A correctly defers; D's Phase D.0 not yet started. Not a drift; not blocking; just architectural sequencing.
+  - **§5.0 verdict: CLEAN.**
+
+- **No substrate drift surfaced this window.** All 3 commits pass §5.0. B.6.18 skip is style not drift.
+
+- **§5.0 catch rate:** 28/138 → 28/141 = **19.9%**. Continued dilution; substrate-drift surface bounded since #8.
+
+- **Verdict:** ✅ **ON TRACK** (12th consecutive since #8 catch, counting #18 + §7 + this).
+
+- **🎯 V6.1 milestone tracking:**
+  - **V6.1 §"Terminal B" B.0 (F-ULP-Oracle):** ✅ CLOSED iter 94 (`032cf1ca2`)
+  - **V6.1 §"Terminal B" J10-J14 extensions:** mostly CLOSED — J10 mamba3 + J11 test_time_regression + J12 rwkv7 + J13/J14 reconciliation (B recognized as aliases for already-landed J3 #4/#5)
+  - **V6.1 §"Terminal B" B.6.15-B.6.20 extensions:** ~CLOSED 5/6 (B.6.15 Tropical + B.6.16 Action-to-EML + B.6.17 substrate_independence + B.6.19 Para(Lens(Smooth)) + B.6.20 Hybrid-SSM; B.6.18 skipped)
+  - **V6.1 §"Terminal A" A-V6.1.1+1.2:** ✅ CLOSED iter 94 (`8c5d92d61`)
+  - **V6.1 §"Terminal A" A-V6.1.3:** ⏳ DEFERRED pending Terminal D Phase D.0
+  - **V6.1 §"Terminal D" Phase D.0 (Executor trait):** ⚠️ NOT YET STARTED — gates A-V6.1.3 and D.7-D.10
+  - **V6.1 §"Terminal E" E.6.3-7:** TBD (no E commits visible in this window beyond H-1 / H-2 / B2-M5 / B2-H16 / H-3-B2-H6 / B-1..B-4 standard decision drops)
+  - **V6.1 §"Terminal F" F.7-F.8:** TBD (F branch was empty per iter 81 check)
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 102+ candidates:** (1) Surface D Phase D.0 gating to user (D needs to start D.0 to unblock A-V6.1.3 and D.7-D.10). (2) Phase C.2 mass MASTER_RESEARCH_INDEX update (J5..J12 + EML + B.6.x portfolio). (3) J4 skip 3rd-cycle surface (now actually 4th cycle — #15/#16/#17/#18 plus this iter). (4) C.7.3 honest-caveats sweep deferred since iter 93.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
