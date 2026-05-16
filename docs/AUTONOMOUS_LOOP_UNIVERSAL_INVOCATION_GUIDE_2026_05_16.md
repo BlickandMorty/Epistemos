@@ -17,6 +17,8 @@
 
 **File ownership matrix** (avoid conflicts): each prompt's §2 enumerates owned paths. Cross-check before touching any file. If you find work that touches a sibling's path, SKIP and log.
 
+**Strict scope boundary** (each prompt's §1.5 — READ EVERY ITERATION): every terminal operates ONLY within its own scope. At §0 victory + queue exhaustion, terminals switch to **continuous self-audit mode** (drift / gap / cut-corner / non-canon detection on own commits only) at 600s cadence. They NEVER bleed into sibling scope — not at victory, not "to be helpful", not "because it's only 2 lines". Terminal C is the only exception: it IS the cross-terminal audit terminal — but still read-only across siblings; never modifies sibling code.
+
 ---
 
 ## §2. Universal-compat — Claude Code vs Codex
