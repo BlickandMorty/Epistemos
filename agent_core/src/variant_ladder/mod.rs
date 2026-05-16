@@ -465,6 +465,34 @@ mod tests {
     }
 
     #[test]
+    fn out_of_order_error_message_names_both_tiers_for_debugging() {
+        // The `LadderError::OutOfOrder` thiserror-derived format
+        // ("variant added at tier {added:?} would violate strict
+        // escalation order; last tier was {last:?}") is a debugging
+        // surface. Log scrapers / UI panels that match on the message
+        // shape would silently break if the format string was edited.
+        // Pin the two load-bearing requirements:
+        // - The phrase "strict escalation order" appears (this is the
+        //   audit-readable signal that doctrine §2 was violated).
+        // - Both the new tier AND the previous tier are named in the
+        //   message so a debugging human can see WHICH violation
+        //   without re-running with debug logging enabled.
+        let err = LadderError::OutOfOrder {
+            added: LadderTier::Deterministic,
+            last: LadderTier::SmallLLM,
+        };
+        let message = err.to_string();
+        assert!(
+            message.contains("strict escalation order"),
+            "doctrine §2 phrase must remain in the error message; got: {message}"
+        );
+        assert!(message.contains("Deterministic"),
+                "newly-added tier name must appear; got: {message}");
+        assert!(message.contains("SmallLLM"),
+                "previous tier name must appear; got: {message}");
+    }
+
+    #[test]
     fn tier_ordering_matches_doctrine() {
         // doctrine §2 strict escalation order
         assert!((LadderTier::Deterministic as u8) < (LadderTier::Embedding as u8));
