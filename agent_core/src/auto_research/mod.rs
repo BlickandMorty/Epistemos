@@ -46,6 +46,6 @@
 pub mod dp;
 
 pub use dp::{
-    dp_aggregate, DeterministicLcgSampler, DpError, LaplaceSampler, ZeroNoiseSampler,
-    DEFAULT_SENSITIVITY, DP_EPSILON_MAX,
+    dp_aggregate, is_valid_epsilon, noise_scale, DeterministicLcgSampler, DpError,
+    LaplaceSampler, ZeroNoiseSampler, DEFAULT_SENSITIVITY, DP_EPSILON_MAX,
 };

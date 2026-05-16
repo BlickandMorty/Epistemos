@@ -111,6 +111,53 @@ pub enum DpError {
     NonFinite,
 }
 
+impl DpError {
+    /// Stable identifier for the failure cause. Used by telemetry that
+    /// wants a wire-form string instead of the Debug formatter.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            DpError::EmptyInput => "empty_input",
+            DpError::EpsilonOutOfRange { .. } => "epsilon_out_of_range",
+            DpError::NonFinite => "non_finite",
+        }
+    }
+
+    pub const fn is_empty_input(&self) -> bool {
+        matches!(self, DpError::EmptyInput)
+    }
+
+    pub const fn is_epsilon_out_of_range(&self) -> bool {
+        matches!(self, DpError::EpsilonOutOfRange { .. })
+    }
+
+    pub const fn is_non_finite(&self) -> bool {
+        matches!(self, DpError::NonFinite)
+    }
+}
+
+/// Predicate: `epsilon` is in the doctrine-allowed range
+/// `(0.0, DP_EPSILON_MAX]`. Companion to the validation branch in
+/// [`dp_aggregate`]. Cross-surface invariant:
+/// `is_valid_epsilon(eps) iff dp_aggregate(non_empty, eps, sampler)`
+/// does NOT return [`DpError::EpsilonOutOfRange`].
+pub fn is_valid_epsilon(epsilon: f64) -> bool {
+    epsilon.is_finite() && epsilon > 0.0 && epsilon <= DP_EPSILON_MAX
+}
+
+/// Canonical Laplace noise scale `sensitivity / epsilon` for the
+/// substrate-floor `sensitivity = 1.0`. Errors out-of-range epsilon
+/// with the same variant `dp_aggregate` uses. Useful for callers
+/// that want to size a noise budget without invoking the sampler.
+pub fn noise_scale(epsilon: f64) -> Result<f64, DpError> {
+    if !is_valid_epsilon(epsilon) {
+        return Err(DpError::EpsilonOutOfRange {
+            epsilon,
+            max: DP_EPSILON_MAX,
+        });
+    }
+    Ok(DEFAULT_SENSITIVITY / epsilon)
+}
+
 /// Aggregate `values` with mean + Laplace noise. Returns the noisy
 /// mean, or a typed error.
 ///
@@ -288,5 +335,106 @@ mod tests {
         // ε at the exact upper bound 0.5 must be accepted; the
         // doctrine says "ε ≤ 0.5" not "ε < 0.5".
         assert!(dp_aggregate(&[1.0], 0.5, &mut s).is_ok());
+    }
+
+    // ── diagnostic surface (iter 149) ────────────────────────────────────────
+
+    #[test]
+    fn is_valid_epsilon_accepts_in_range() {
+        assert!(is_valid_epsilon(0.1));
+        assert!(is_valid_epsilon(0.5));
+        assert!(is_valid_epsilon(0.001));
+    }
+
+    #[test]
+    fn is_valid_epsilon_rejects_out_of_range() {
+        assert!(!is_valid_epsilon(0.0));
+        assert!(!is_valid_epsilon(-0.1));
+        assert!(!is_valid_epsilon(0.6));
+        assert!(!is_valid_epsilon(1.0));
+        assert!(!is_valid_epsilon(f64::NAN));
+        assert!(!is_valid_epsilon(f64::INFINITY));
+    }
+
+    #[test]
+    fn is_valid_epsilon_aligns_with_dp_aggregate_rejection() {
+        // Cross-surface invariant: is_valid_epsilon(eps) iff
+        // dp_aggregate(non-empty, eps, sampler) does NOT return
+        // EpsilonOutOfRange. (It may still return other errors —
+        // here we test with a valid non-empty input so only the
+        // epsilon branch decides.)
+        let mut s = ZeroNoiseSampler;
+        for &eps in &[0.0, 0.1, 0.5, 0.6, -0.1, f64::NAN] {
+            let valid = is_valid_epsilon(eps);
+            let result = dp_aggregate(&[1.0], eps, &mut s);
+            match result {
+                Ok(_) => assert!(valid, "eps={} dp_aggregate ok but not valid", eps),
+                Err(DpError::EpsilonOutOfRange { .. }) => assert!(!valid, "eps={}", eps),
+                Err(other) => panic!("unexpected error: {:?}", other),
+            }
+        }
+    }
+
+    #[test]
+    fn noise_scale_returns_one_over_epsilon_for_default_sensitivity() {
+        let s = noise_scale(0.5).unwrap();
+        assert!((s - 2.0).abs() < 1e-12); // 1.0 / 0.5 = 2.0
+        let s = noise_scale(0.1).unwrap();
+        assert!((s - 10.0).abs() < 1e-12); // 1.0 / 0.1 = 10.0
+    }
+
+    #[test]
+    fn noise_scale_rejects_invalid_epsilon() {
+        // Cross-surface invariant: noise_scale errors iff
+        // !is_valid_epsilon(eps).
+        for &eps in &[0.0, -1.0, 0.6, f64::NAN, f64::INFINITY] {
+            assert!(noise_scale(eps).is_err(), "eps={}", eps);
+            assert!(!is_valid_epsilon(eps), "eps={}", eps);
+        }
+    }
+
+    #[test]
+    fn error_cause_returns_distinct_per_variant() {
+        let empties: std::collections::HashSet<_> = [
+            DpError::EmptyInput,
+            DpError::EpsilonOutOfRange { epsilon: 1.0, max: 0.5 },
+            DpError::NonFinite,
+        ]
+        .iter()
+        .map(|e| e.cause())
+        .collect();
+        assert_eq!(empties.len(), 3);
+    }
+
+    #[test]
+    fn error_classifier_predicates_partition() {
+        let variants = [
+            DpError::EmptyInput,
+            DpError::EpsilonOutOfRange { epsilon: 1.0, max: 0.5 },
+            DpError::NonFinite,
+        ];
+        // Cross-surface invariant: exactly one of the three predicates
+        // is true for every variant.
+        for v in &variants {
+            let trio = [v.is_empty_input(), v.is_epsilon_out_of_range(), v.is_non_finite()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", v);
+        }
+    }
+
+    #[test]
+    fn error_from_real_aggregate_carries_correct_cause() {
+        // Cross-surface: dp_aggregate-returned errors get matching cause().
+        let mut s = ZeroNoiseSampler;
+        let err = dp_aggregate(&[], 0.5, &mut s).unwrap_err();
+        assert_eq!(err.cause(), "empty_input");
+        assert!(err.is_empty_input());
+
+        let err = dp_aggregate(&[1.0], 0.6, &mut s).unwrap_err();
+        assert_eq!(err.cause(), "epsilon_out_of_range");
+        assert!(err.is_epsilon_out_of_range());
+
+        let err = dp_aggregate(&[1.0, f64::NAN], 0.5, &mut s).unwrap_err();
+        assert_eq!(err.cause(), "non_finite");
+        assert!(err.is_non_finite());
     }
 }
