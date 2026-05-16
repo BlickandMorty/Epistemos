@@ -1,18 +1,20 @@
 # New-Session Handoff — 2026-05-15
 **For:** any new Claude / Codex / agent session continuing the Epistemos MAS-first work.
-**Source-of-truth bundle:** read the 5 docs in §1 in order. They cover everything without nuance loss.
+**Source-of-truth bundle:** read the docs in §1 in order. They cover the current MAS-first state, the research corpus, the agent vision, and the gap audits without nuance loss.
 
 ---
 
-## 1. Read these 7 docs first (in order)
+## 1. Read these 9 docs first (in order)
 
-1. **`CLAUDE.md`** — top-of-repo project rules (the immutable constraints).
-2. **`docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`** — Atlas of every primitive + V1 status matrix + App Store checklist (rank 2 of the authority chain).
-3. **`docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`** — the 54-item Master Fusion plan (Phase A V1 ship gates + Phase B no-compromise + Phase C audit PARTIAL closure + Phase D XPC mastery + Phase E submission). **§8 Implementation Log is the live ledger of what's shipped — read this every session start to see state.**
-4. **`docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`** — native agent architecture doctrine (post-V1 sequencing). §13.5 distills the latest second-wave research; §11 maps every commit shipped 2026-05-13/14/15 into the new architecture.
-5. **`docs/VARIANT_LADDER_TOOL_REGISTRY_2026_05_15.md`** — every MAS-allowed tool's Variant Ladder tier profile (the B.1 retrofit contract).
-6. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md`** — PASS 1: 4-agent corpus sweep that surfaced 31 gaps across `docs/fusion/` + `docs/` + `~/Documents/Epistemos-QuickCapture/`. **6 BLOCKERS need V1 triage before MAS submission** (BrowserEngine MAS/Pro decision · Hermes-parity salvage verification · Wave 7-11 user-product layer V1/V1.1 decisions). Every gap routed to a canonical doc with a destination column.
-7. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md`** — PASS 2: 6 parallel agents swept the regions PASS 1 undersampled (`docs/_consolidated/` 531 files · `docs/audits/` 74 files · personal-research deep dive · `docs/fusion/salvage/` 138 files · long-tail plans / handoffs / architecture · older research packs + `_archive/` spot-check). **5 NEW BLOCKERS** (Specialties registry · ArtifactKind + ProvenanceBlock · vault import stall · Residency Governor rate-distortion · Hermes XPC vs in-process decision) + 17 HIGH + 11 MEDIUM + 4 LOW = 37 confirmed new gaps. PASS 2 explicitly rejects 4 stale candidates with transparency receipts.
+1. **`AGENTS.md`** — cross-agent engineering bible: research-first, test-first, minimal fixes, forbidden paths, Swift/Rust patterns, and release-audit rules.
+2. **`CLAUDE.md`** — Claude-specific project rules. If it conflicts with `AGENTS.md`, follow the stricter / more safety-preserving instruction and surface the conflict.
+3. **`docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`** — the research entry point. Search here before selecting work; follow the canonical local source it names before coding or doc-routing.
+4. **`docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`** — Atlas of every primitive + V1 status matrix + App Store checklist (rank 2 of the authority chain).
+5. **`docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`** — the 54-item Master Fusion plan (Phase A V1 ship gates + Phase B no-compromise + Phase C audit PARTIAL closure + Phase D XPC mastery + Phase E submission). **§8 Implementation Log is the live ledger of what's shipped — read this every session start to see state.**
+6. **`docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`** — native agent architecture doctrine (post-V1 sequencing). §13.5 distills the latest second-wave research; §11 maps every commit shipped 2026-05-13/14/15 into the new architecture.
+7. **`docs/VARIANT_LADDER_TOOL_REGISTRY_2026_05_15.md`** — every MAS-allowed tool's Variant Ladder tier profile (the B.1 retrofit contract).
+8. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md`** — PASS 1: 4-agent corpus sweep that surfaced 31 gaps across `docs/fusion/` + `docs/` + `~/Documents/Epistemos-QuickCapture/`. **6 BLOCKERS need V1 triage before MAS submission** (BrowserEngine MAS/Pro decision · Hermes-parity salvage verification · Wave 7-11 user-product layer V1/V1.1 decisions). Every gap routed to a canonical doc with a destination column.
+9. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md`** — PASS 2: 6 parallel agents swept the regions PASS 1 undersampled (`docs/_consolidated/` 531 files · `docs/audits/` 74 files · personal-research deep dive · `docs/fusion/salvage/` 138 files · long-tail plans / handoffs / architecture · older research packs + `_archive/` spot-check). **5 NEW BLOCKERS** (Specialties registry · ArtifactKind + ProvenanceBlock · vault import stall · Residency Governor rate-distortion · Hermes XPC vs in-process decision) + 17 HIGH + 11 MEDIUM + 4 LOW = 37 confirmed new gaps. PASS 2 explicitly rejects 4 stale candidates with transparency receipts.
 
 **Combined: 68 actionable items across the full research corpus.** Most are decisions or doc-updates; only ~6 require code work.
 
@@ -78,12 +80,20 @@ git log --oneline codex/research-snapshot-2026-05-08 ^main | head -30
 
 ## 5. What's queued — pick from these next
 
+Before picking anything, reconcile the row against current truth: `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN` §8, the recursive audit register, recent commits, and live code symbols. Some rows below are partially shipped; next sessions should close the missing proof / wiring, not reimplement landed substrate.
+
+### Phase A.0 (current-app proof before more architecture)
+- **RCA13-P0-001** — Vault reset/add/remove/select runtime proof. Disposable vault A/B smoke: connect A with `VAULT_A_ONLY`, Reset Everything, verify Notes/Graph/Search/Halo/Settings have no stale A state, then connect B with `VAULT_B_ONLY` and verify only B appears. Patch only if the proof fails.
+- **B2-2** — ArtifactKind + ProvenanceBlock truth reconciliation. `agent_core/src/artifacts/{kind,header,provenance}.rs` already exist on current heads that include Claude's PASS 2 work; verify tests/callers and reconcile the gap audit instead of rebuilding the taxonomy.
+
 ### From the Master Fusion Plan Phase B (no-compromise quality)
-- **B.1** — Variant Ladder dispatcher retrofit on `vault.search` (3-5 days; LARGEST B; depends on `VaultBackend` trait refactor — see Codex handoff doc for two approaches)
-- **B.6** — Cognitive Weight Class W1 badge (UI work; 4-5 days)
-- **B.7** — Knowledge Sieve + Gap Winner Rule (algorithm change in ClaimLedger)
-- **B.8** — `clarify` tool UI card (GenUI schema + ClarifyGenUIView + ChatCoordinator wiring)
-- **B.9** — NightBrain task bodies (10 bodies; 5-7 days)
+- **B.1** — Variant Ladder remaining work: T2 real embedding-only if a real vector path exists + Swift Provenance Console consumer for `vault_search.ladder_walk`.
+- **B.2** — Optional source-embedded `## Variant Ladder` doc blocks only after confirming the registry doc is insufficient.
+- **B.4** — reasoning <=256 tokens at grammar compile, gated on verified MLXStructured bounded-string / `maxLength` API.
+- **B.6** — Cognitive Weight W1 remaining wiring: composer attachments + Provenance Console + sidecar-derived metadata.
+- **B.7** — Knowledge Sieve live integration: pass ClaimLedger tier boosts into the Shadow query/fusion caller.
+- **B.8** — `clarify` remaining wiring: route GenUICardPresenter payloads through ChatCoordinator transcript + agent-loop response history.
+- **B.9** — NightBrain task bodies (6 pending: dedupe_artifacts · memory_distillation · cloud_knowledge_distillation · session_graph_generation · skill_evolution_analysis · ssm_state_pruning).
 
 ### From Phase C (audit PARTIAL closure)
 - **C.1** — Hidden-capture metadata existing-note migration (Settings → Privacy utility)
