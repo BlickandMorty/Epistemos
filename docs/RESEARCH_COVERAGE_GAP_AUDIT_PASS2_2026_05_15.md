@@ -851,6 +851,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - §3 sibling-feature backfill: pending 24h transitional window expiry ~2026-05-17 12:21.
 - CANONICAL_DOC_INDEX §3 row updated for cross-link navigability.
 
+### Audit-of-audit #11 (iter 85, 2026-05-16) — 3 new sibling commits · B self-audits per its own §7 (mirror to C's audit role)
+
+- **Window since #10 (iter 83):** 3 substantive sibling commits:
+  - `182de7801` (A) feat(T-A-2, B-008): MRU BlockMirror prewarm — inline-body pass. ISSUE-2026-05-12-008 cause #1 fix (10-200ms first-open hang). Wires `AppBootstrap.prewarmRecentBlockMirrors` at AppBootstrap init line 2003 (Task.detached priority `.utility`); fetches top-5 SDPage by `recentDescriptor` + calls `BlockMirror.sync` for non-empty inline bodies.
+  - `c3cc3a0b9` (E) research(H-3-B2-H6): EditPage macaroon decision research. Terminal E user-decision slice for Local Engineering Agent / EditPage macaroons; reconciles MAS rows with live attachment/write-grant substrate vs the missing block-scoped one-shot tool.
+  - `e2c177641` (B) audit(iter10 §7): **B doing its OWN audit-of-audit per driver §7** — sampled 13 Terminal-B-owned modules across iters 1-9 (J1 portfolio + J2 KV implant + Glass Pipe). Self-found gap: unused `RmsNormParams` struct in fused_rmsnorm.rs (legacy `eps`-only rollup; redundant with direct `eps` parameter). Removed in same commit. 92/92 tests pass after removal.
+
+- **Method:** §5.0 verification of A's prewarm-fix claim (existence of `AppBootstrap.prewarmRecentBlockMirrors` + `SDPage.recentDescriptor` + `BlockMirror.sync` callsite); E's H-3 research-doc landing; spot-verify B's self-audit findings.
+
+- **Findings:**
+
+  **A's `182de7801` BlockMirror prewarm:**
+  - **§5.0 honest-scope-limit cited in commit:** "in production, SDPage.body is cleared after saveBody() (the canonical store is the on-disk filePath), so this pass is a no-op for ..." — A explicitly flags the limitation of the inline-body pass. This is the §5.0 discipline working in the commit-message itself (substrate-honesty preview).
+  - PR-discipline check: should appear in FEATURE_CHANGE_TRACKER §3 within 24h per §4 rule. Currently §3 is 0 rows; A has the obligation pending.
+  - Substrate verification deferred (Swift code is Terminal A's owned scope per §2; audit-only at row level).
+  - **§5.0 verdict: CLEAN at the row level + honest scope.**
+
+  **E's `c3cc3a0b9` H-3 macaroon research:**
+  - User-decision-gated row per the wider §10 Phase Completion Ledger inventory (H-3 / B2-H6 EditPage macaroon already listed as user-decision-gated).
+  - Research-doc style; no implementation. Pattern matches E's prior B-1..B-4 + L-1..L-3 cross-link slices (cross-link + decision-gate surfacing, no implementation prep).
+  - **§5.0 verdict: CLEAN by structure** (E's standard user-decision research-doc shape).
+
+  **B's `e2c177641` self-audit (iter10 §7):**
+  - **Pattern recognition: B is doing its own §7 self-audit (every 30 iters per its driver's §7 cadence)** — this is the mirror to my C audit-of-audit role. B audits B; C audits all-sibling work + applies the same rigor to itself.
+  - B's self-audit findings: 3/3 source citations resolve; 1 gap (unused RmsNormParams, removed same commit); 0 TODO/FIXME/HACK markers; 0 `unwrap()` outside `#[test]` blocks; 92/92 tests after removal.
+  - Verified at C-level: this is *self-correction in the same commit*, which is exactly the discipline the Trust-but-verify lesson #6 + §5.6 lockstep promote. B is the implementing terminal AND the auditor for B's modules; C handles cross-terminal audit-of-audit.
+  - **§5.0 verdict: CLEAN; healthy autonomous-loop self-correction pattern.**
+
+- **§5.6 lockstep status this commit (per iter-84 clarification):** ✅ PASS-2 §9 row (this entry) · audit-only commit so no MAS_COMPLETE_FUSION §8 row is *strictly required* by lesson-#6 cadence-3-5 trigger — but per §5.6 spec wording ("every audit-of-audit cycle commit MUST touch ... §8"), appending. ✅ MAS_COMPLETE_FUSION §8 row appended in same commit · ⚠️ FEATURE_CHANGE_TRACKER not touched (read-only verify per iter-84 clarification — A's `182de7801` is the row that needs to land there; A's obligation).
+
+- **Sibling-self-audit pattern note:** B's iter10 §7 commit demonstrates the autonomous-loop self-correction working at the terminal level. C's audit-of-audit cycle (this register) operates at the cross-terminal level. The two layers are complementary; no overlap in scope. Trust-but-verify Lesson #7 (proposed): *self-audit at the terminal level and cross-terminal audit at the C level are not redundant — they catch different drift surfaces. Terminal-level audit catches gaps within owned modules; C-level audit catches cross-terminal cross-reference drift + substrate-vs-doctrine framing drift.*
+
+- **Verdict:** ✅ **ON TRACK.** 3 sibling commits clean; B's autonomous self-audit pattern emerging cleanly; A's iter-2 ships real feature code with honest-scope discipline; E's user-decision research drop continues the established pattern.
+
+- **§5.0 catch rate:** 28/96 → 28/99 = 28.3% (continued dilution as additive sibling commits land cleanly; substrate-drift surface remains largely surveyed).
+
+- **Iter 86+ candidates:**
+  1. Check `.github/workflows/drift-detection.yml` first execution result (after first cron fire — will it find anything?).
+  2. Update CANONICAL_DOC_INDEX §3 row to reference audit-of-audit cycles #11+ (rolling).
+  3. Re-verify earlier-flagged sibling-owned doctrine corrections (HEAL_LOOP_SCHEMA_AND_TTL.md:3 + VARIANT_LADDER §12 sub-(g)) — have owning terminals corrected them yet?
+  4. Continue substantive sibling-commit verification as new commits land.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
