@@ -5,6 +5,9 @@
 //! Source: https://openrouter.ai/docs/api/reference/streaming
 //! Source: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
 //! Source: https://openrouter.ai/docs/guides/routing/provider-selection
+//! Source: https://platform.kimi.ai/docs/api/overview
+//! Source: https://platform.kimi.ai/docs/models
+//! Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart
 //! Source: https://docs.mistral.ai/mistral-vibe/using-fim-api
 //! Source: https://docs.mistral.ai/models/model-cards/codestral-25-08
 //! Source: https://docs.mistral.ai/api/endpoint/chat
@@ -1035,6 +1038,28 @@ mod tests {
         assert_eq!(
             json["tool_calls"][0]["function"]["name"].as_str(),
             Some("file__read")
+        );
+    }
+
+    #[test]
+    fn module_prologue_includes_moonshot_source_comments() {
+        let source = include_str!("openai_compatible.rs");
+        let prologue = source
+            .split("//! Most LLM providers")
+            .next()
+            .unwrap_or(source);
+
+        assert!(
+            prologue.contains("//! Source: https://platform.kimi.ai/docs/api/overview"),
+            "Kimi/Moonshot API overview must be in the module-level Source prologue"
+        );
+        assert!(
+            prologue.contains("//! Source: https://platform.kimi.ai/docs/models"),
+            "Kimi model list must be in the module-level Source prologue"
+        );
+        assert!(
+            prologue.contains("//! Source: https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart"),
+            "Kimi K2.6 quickstart must be in the module-level Source prologue"
         );
     }
 

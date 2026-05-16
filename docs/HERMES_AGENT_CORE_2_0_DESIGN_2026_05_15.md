@@ -871,6 +871,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Gemini 2.5 request generation (`agent_core/src/providers/gemini.rs`) | HTTPS `streamGenerateContent` through `GeminiProvider` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16 after sampling D.2 provider commits. Current Google Gemini docs say 2.5 Flash can disable thinking with `thinkingBudget: 0`, while 2.5 Pro cannot disable thinking with a zero budget. `gemini_request_body_for_model` is now model-aware: Flash no-thinking turns send `thinkingBudget: 0`; Pro no-thinking turns omit `thinkingConfig`; enabled thinking still sends `includeThoughts = true` so streamed `thought: true` parts map to `ThinkingDelta`. Source guard: `providers::gemini::tests::pro_no_thinking_turns_omit_zero_budget_because_pro_cannot_disable_thinking`. |
 
+### 7.4.13 D Self-Audit: Kimi OpenAI-Compatible Source Prologue
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Kimi / Moonshot factory path (`agent_core/src/providers/openai_compatible.rs`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16 after sampling the D.2 Kimi provider commit. §5.0 found the implementation and `docs/providers/kimi.md` used the current Moonshot contract, but the module-level `//! Source:` prologue only listed other OpenAI-compatible providers while Kimi source URLs lived beside the constructor. The prologue now includes Kimi API overview, model list, and K2.6 quickstart official sources so source-comment drift is fail-loud at module scope. Source guard: `providers::openai_compatible::tests::module_prologue_includes_moonshot_source_comments`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

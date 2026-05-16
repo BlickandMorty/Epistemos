@@ -329,6 +329,11 @@ send `thinkingBudget: 0`; Pro no-thinking turns omit `thinkingConfig`; enabled
 thinking still sends `includeThoughts = true`. Guard:
 `pro_no_thinking_turns_omit_zero_budget_because_pro_cannot_disable_thinking`.
 
+D self-audit 2026-05-16: `agent_core/src/providers/openai_compatible.rs`
+now includes Kimi/Moonshot official source anchors in the module-level
+`//! Source:` prologue, not only beside the Kimi constructor. Guard:
+`module_prologue_includes_moonshot_source_comments`.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list
