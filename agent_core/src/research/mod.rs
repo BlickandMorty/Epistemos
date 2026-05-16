@@ -18,6 +18,7 @@ pub mod acs;
 pub mod ane_direct;
 pub mod cognition_observatory;
 pub mod continual_learning;
+pub mod eml;
 pub mod hyperdynamic_schemas;
 pub mod paper_registry;
 pub mod sherry_lattice;
