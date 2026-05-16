@@ -266,6 +266,34 @@ mod tests {
     }
 
     #[test]
+    fn enum_decoder_rejects_unknown_strings_without_panic() {
+        // Defensive cross-FFI decoder gate. The Swift side might send
+        // (or a Rust caller might receive from a future-build bundle)
+        // an enum string this build doesn't know. Reject as Err
+        // rather than panicking — the W1 silent-downgrade contract
+        // (§6) wants the SwiftUI layer to be able to degrade
+        // gracefully without crashing.
+        let result: Result<CognitiveWeightClass, _> =
+            serde_json::from_str("\"unknown_class\"");
+        assert!(result.is_err(),
+                "decoder must reject unknown CognitiveWeightClass variants");
+        // PascalCase rejects.
+        let result: Result<CognitiveWeightClass, _> =
+            serde_json::from_str("\"PolicyGrade\"");
+        assert!(result.is_err(),
+                "PascalCase must reject — only snake_case is canonical");
+
+        let result: Result<ContextPlacement, _> =
+            serde_json::from_str("\"unknown_placement\"");
+        assert!(result.is_err(),
+                "decoder must reject unknown ContextPlacement variants");
+        let result: Result<ContextPlacement, _> =
+            serde_json::from_str("\"ImmutableSystem\"");
+        assert!(result.is_err(),
+                "PascalCase placements must reject");
+    }
+
+    #[test]
     fn enum_wire_format_pins_snake_case_for_swift_ffi_parity() {
         // Both `CognitiveWeightClass` and `ContextPlacement` cross the
         // FFI boundary into Swift, which decodes the snake_case wire
